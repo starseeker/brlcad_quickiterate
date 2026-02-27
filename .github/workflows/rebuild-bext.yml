@@ -1,0 +1,74 @@
+name: Rebuild bext Dependencies
+
+# This workflow rebuilds the bext external dependencies from source
+# and updates the bext_output directory in the repository.
+# Run this if the pre-built bext_output binaries are incompatible
+# with the current CI runner environment (e.g., after a runner OS upgrade).
+#
+# Configure arguments used:
+#   -DENABLE_ALL=ON  - build all available bext components
+#   -DUSE_GDAL=OFF   - skip GDAL (large, optional)
+#   -DUSE_QT=OFF     - skip Qt (large, optional)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild-bext:
+    name: Build bext and update bext_output
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xserver-xorg-dev libx11-dev libxi-dev libxext-dev libglu1-mesa-dev libfontconfig-dev
+          sudo apt-get install -y astyle re2c xsltproc libxml2-utils
+          sudo apt-get install -y libgl-dev
+
+      - name: Clone bext
+        run: git clone https://github.com/BRL-CAD/bext.git
+
+      - name: Clear old bext_output
+        run: |
+          rm -rf ${{ github.workspace }}/bext_output/install
+          rm -rf ${{ github.workspace }}/bext_output/noinstall
+
+      - name: Build bext
+        run: |
+          cmake -E make_directory bext_build
+          cmake -S bext -B bext_build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_ALL=ON \
+            -DUSE_GDAL=OFF \
+            -DUSE_QT=OFF \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/bext_output
+          cmake --build bext_build --config Release -j$(nproc)
+          cmake -E rm -rf bext
+          cmake -E rm -rf bext_build
+
+      - name: Verify bext outputs
+        run: |
+          echo "=== install/lib contents ==="
+          ls ${{ github.workspace }}/bext_output/install/lib/ | head -20
+          echo "=== noinstall/lib contents ==="
+          ls ${{ github.workspace }}/bext_output/noinstall/lib/ | head -10
+
+      - name: Commit updated bext_output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bext_output/
+          git commit -m "Rebuild bext_output for $(uname -s) $(uname -m) GCC $(gcc --version | head -n1 | awk '{print $NF}')"
+          git push origin HEAD:${{ github.ref_name }}

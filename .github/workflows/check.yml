@@ -1,0 +1,53 @@
+name: Make Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: BRL-CAD make check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          # X11 and OpenGL support needed for display-related tests
+          sudo apt-get install -y xserver-xorg-dev libx11-dev libxi-dev libxext-dev libglu1-mesa-dev libfontconfig-dev
+          # Tools required by BRL-CAD build/test
+          sudo apt-get install -y astyle re2c xsltproc libxml2-utils
+          # OpenGL and virtual framebuffer for headless display in CI
+          sudo apt-get install -y libgl-dev xvfb
+
+      - name: Configure BRL-CAD
+        run: |
+          cmake -S ${{ github.workspace }}/brlcad \
+            -B ${{ github.workspace }}/brlcad_build \
+            -DBRLCAD_EXT_DIR=${{ github.workspace }}/bext_output \
+            -DBRLCAD_EXTRADOCS=OFF \
+            -DBRLCAD_ENABLE_STEP=OFF \
+            -DBRLCAD_ENABLE_GDAL=OFF \
+            -DBRLCAD_ENABLE_QT=OFF
+
+      - name: Build BRL-CAD
+        run: |
+          cmake --build ${{ github.workspace }}/brlcad_build -j$(nproc)
+
+      - name: Run make check
+        run: |
+          xvfb-run --auto-servernum \
+            cmake --build ${{ github.workspace }}/brlcad_build --target check
