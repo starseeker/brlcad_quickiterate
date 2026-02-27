@@ -1,0 +1,9 @@
+libdir=/home/cyapp/bext_output/install/lib
+includedir=/home/cyapp/bext_output/install/include
+
+Name: Assimp
+Description: Import various well-known 3D model formats in an uniform manner.
+Version: 6.0.4
+Libs: -L${libdir} -lassimp
+Libs.private: -lstdc++ -l/home/cyapp/bext_output/install/lib/libz_brl.so
+Cflags: -I${includedir}

@@ -1,0 +1,12 @@
+prefix=/home/cyapp/bext_output/install
+exec_prefix=${prefix}
+libdir=/home/cyapp/bext_output/install/lib
+includedir=/home/cyapp/bext_output/install/include
+
+Name: manifold
+Description: Geometry library for topological robustness
+Version: 3.2.1
+URL: https://github.com/elalish/manifold
+Requires-private:  Clipper2
+Libs: -L${libdir} -lmanifold
+Cflags: -I${includedir} -std=c++17
