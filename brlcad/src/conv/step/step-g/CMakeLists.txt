@@ -487,16 +487,6 @@ if(BRLCAD_ENABLE_STEP)
   set_target_properties(step-g PROPERTIES
     UNITY_BUILD_CODE_BEFORE_INCLUDE "#undef CLASSNAME\n#undef ENTITYNAME"
   )
-  # A small number of source files define file-scope static variables whose
-  # names collide when batched into the same unity compilation unit.  Exclude
-  # those files from unity batching so they are compiled on their own.
-  set_source_files_properties(
-    BSplineCurveWithKnots.cpp
-    BSplineSurfaceWithKnots.cpp
-    CompositeCurveSegment.cpp
-    SurfacePatch.cpp
-    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-  )
   target_precompile_headers(step-g PRIVATE "${PRECOMPILE_HEADER}")
   target_include_directories(step-g BEFORE PRIVATE ${AP203_INCLUDE_DIRS})
   add_dependencies(step-g step-express-${SCHEMA_NAME}-stepg)
