@@ -328,16 +328,22 @@ function(BRLCAD_ADDEXEC execname srcslist libslist)
   # they contain file-scope symbols that clash with other TUs).
   # UNITY_BUILD_CODE_BEFORE_INCLUDE injects a code snippet before each
   # batched file's #include directive (e.g. to #undef per-file macros).
+  # Targets with fewer than 8 source files are skipped: they are too small
+  # to benefit meaningfully from batching, and the isolation cost outweighs
+  # the compile-time gain.
   if(BRLCAD_ENABLE_UNITY_BUILD)
-    set_target_properties(${execname} PROPERTIES UNITY_BUILD ON)
-    if(E_UNITY_BUILD_SKIP)
-      set_source_files_properties(${E_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
-    endif(E_UNITY_BUILD_SKIP)
-    if(E_UNITY_BUILD_CODE_BEFORE_INCLUDE)
-      set_target_properties(${execname} PROPERTIES
-        UNITY_BUILD_CODE_BEFORE_INCLUDE "${E_UNITY_BUILD_CODE_BEFORE_INCLUDE}"
-      )
-    endif(E_UNITY_BUILD_CODE_BEFORE_INCLUDE)
+    list(LENGTH srcslist _srcs_count)
+    if(_srcs_count GREATER_EQUAL 8)
+      set_target_properties(${execname} PROPERTIES UNITY_BUILD ON)
+      if(E_UNITY_BUILD_SKIP)
+        set_source_files_properties(${E_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+      endif(E_UNITY_BUILD_SKIP)
+      if(E_UNITY_BUILD_CODE_BEFORE_INCLUDE)
+        set_target_properties(${execname} PROPERTIES
+          UNITY_BUILD_CODE_BEFORE_INCLUDE "${E_UNITY_BUILD_CODE_BEFORE_INCLUDE}"
+        )
+      endif(E_UNITY_BUILD_CODE_BEFORE_INCLUDE)
+    endif(_srcs_count GREATER_EQUAL 8)
   endif(BRLCAD_ENABLE_UNITY_BUILD)
 endfunction(BRLCAD_ADDEXEC execname srcslist libslist)
 
@@ -427,11 +433,17 @@ function(
     # NO_OBJ_UNITY suppresses unity batching on the -obj target when only the
     # downstream shared/static lib should batch (e.g. sources appended via
     # target_sources after this function returns).
+    # Targets with fewer than 8 source files are skipped: the overhead of
+    # unity batching is not worth it for small source sets.
     if(BRLCAD_ENABLE_UNITY_BUILD AND NOT L_NO_OBJ_UNITY)
-      set_target_properties(${libname}-obj PROPERTIES UNITY_BUILD ON)
-      if(L_UNITY_BUILD_SKIP)
-        set_source_files_properties(${L_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
-      endif(L_UNITY_BUILD_SKIP)
+      set(_all_srcs ${srcslist} ${L_SHARED_SRCS} ${L_STATIC_SRCS})
+      list(LENGTH _all_srcs _srcs_count)
+      if(_srcs_count GREATER_EQUAL 8)
+        set_target_properties(${libname}-obj PROPERTIES UNITY_BUILD ON)
+        if(L_UNITY_BUILD_SKIP)
+          set_source_files_properties(${L_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+        endif(L_UNITY_BUILD_SKIP)
+      endif(_srcs_count GREATER_EQUAL 8)
     endif(BRLCAD_ENABLE_UNITY_BUILD AND NOT L_NO_OBJ_UNITY)
   endif(USE_OBJECT_LIBS)
 
@@ -458,11 +470,16 @@ function(
     # set the main object library (-obj) already covers the srcslist; the
     # shared target is also enabled so that any sources added later via
     # target_sources() (e.g. plugin objects) are also batched.
+    # Targets with fewer than 8 source files are skipped.
     if(BRLCAD_ENABLE_UNITY_BUILD)
-      set_target_properties(${libname} PROPERTIES UNITY_BUILD ON)
-      if(L_UNITY_BUILD_SKIP)
-        set_source_files_properties(${L_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
-      endif(L_UNITY_BUILD_SKIP)
+      set(_all_srcs ${srcslist} ${L_SHARED_SRCS} ${L_STATIC_SRCS})
+      list(LENGTH _all_srcs _srcs_count)
+      if(_srcs_count GREATER_EQUAL 8)
+        set_target_properties(${libname} PROPERTIES UNITY_BUILD ON)
+        if(L_UNITY_BUILD_SKIP)
+          set_source_files_properties(${L_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+        endif(L_UNITY_BUILD_SKIP)
+      endif(_srcs_count GREATER_EQUAL 8)
     endif(BRLCAD_ENABLE_UNITY_BUILD)
   endif(L_SHARED OR (BUILD_SHARED_LIBS AND NOT L_STATIC))
 
@@ -490,11 +507,16 @@ function(
 
     # Enable unity build on the static library target when not going through
     # an object library (in which case -obj already carries UNITY_BUILD ON).
+    # Targets with fewer than 8 source files are skipped.
     if(BRLCAD_ENABLE_UNITY_BUILD AND NOT USE_OBJECT_LIBS)
-      set_target_properties(${libstatic} PROPERTIES UNITY_BUILD ON)
-      if(L_UNITY_BUILD_SKIP)
-        set_source_files_properties(${L_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
-      endif(L_UNITY_BUILD_SKIP)
+      set(_all_srcs ${srcslist} ${L_SHARED_SRCS} ${L_STATIC_SRCS})
+      list(LENGTH _all_srcs _srcs_count)
+      if(_srcs_count GREATER_EQUAL 8)
+        set_target_properties(${libstatic} PROPERTIES UNITY_BUILD ON)
+        if(L_UNITY_BUILD_SKIP)
+          set_source_files_properties(${L_UNITY_BUILD_SKIP} PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+        endif(L_UNITY_BUILD_SKIP)
+      endif(_srcs_count GREATER_EQUAL 8)
     endif(BRLCAD_ENABLE_UNITY_BUILD AND NOT USE_OBJECT_LIBS)
   endif(L_STATIC OR (BUILD_STATIC_LIBS AND NOT L_SHARED))
 
