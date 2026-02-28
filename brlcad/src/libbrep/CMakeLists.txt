@@ -53,11 +53,6 @@ set(
 brlcad_addlib(libbrep "${LIBBREP_SOURCES}" "${BREP_LIBS}" "${BREP_INCLUDE_DIRS}" "${BREP_LOCAL_INCLUDE_DIRS}")
 set_target_properties(libbrep PROPERTIES VERSION 20.0.1 SOVERSION 20)
 
-# Enable unity build on the object library to reduce redundant header parsing.
-if(TARGET libbrep-obj)
-  set_target_properties(libbrep-obj PROPERTIES UNITY_BUILD ON)
-endif()
-
 if(HIDE_INTERNAL_SYMBOLS)
   set_property(TARGET libbrep APPEND PROPERTY COMPILE_DEFINITIONS "OPENNURBS_IMPORTS")
   # Anyone who needs to import libbrep will also need to import openNURBS

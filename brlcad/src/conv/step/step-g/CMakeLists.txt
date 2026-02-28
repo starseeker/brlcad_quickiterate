@@ -479,12 +479,10 @@ if(BRLCAD_ENABLE_STEP)
     file(APPEND "${PRECOMPILE_HEADER}" "#include \"${header_name}\"\n")
   endforeach()
 
-  brlcad_addexec(step-g "${stepg_SOURCES}" "${stepg_LIBS}" NO_STRICT FOLDER Conv)
-  set_target_properties(step-g PROPERTIES UNITY_BUILD ON)
-  # Entity source files each define CLASSNAME and ENTITYNAME macros.  Undef
-  # them before each file's include so they don't collide when the unity
-  # build batches multiple entity files into one compilation unit.
-  set_target_properties(step-g PROPERTIES
+  brlcad_addexec(step-g "${stepg_SOURCES}" "${stepg_LIBS}" NO_STRICT FOLDER Conv
+    # Entity source files each define CLASSNAME and ENTITYNAME macros.  Undef
+    # them before each file's include so they don't collide when the unity
+    # build batches multiple entity files into one compilation unit.
     UNITY_BUILD_CODE_BEFORE_INCLUDE "#undef CLASSNAME\n#undef ENTITYNAME"
   )
   target_precompile_headers(step-g PRIVATE "${PRECOMPILE_HEADER}")

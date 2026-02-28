@@ -353,7 +353,22 @@ set(
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_DIRS}")
+brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_DIRS}"
+  # The core LIBGED_SOURCES (compiled via libged-obj) have too many conflicting
+  # file-scope static symbols to batch safely; suppress unity build on the
+  # object library.  Plugin sources appended later via target_sources() land
+  # on the shared libged target and do benefit from batching, which is why
+  # UNITY_BUILD is still enabled on that target.
+  NO_OBJ_UNITY
+  # The three image-I/O plugins below are copies of the same ancestor and share
+  # many file-scope static variable names (multiple_lines, file_name, inverse,
+  # zoom, clear, file_x/yoff, scr_x/yoff, usage, …).  Exclude them from unity
+  # batching to avoid conflicting-declaration errors.
+  UNITY_BUILD_SKIP
+    fb2pix/fb2pix.c
+    pix2fb/pix2fb.c
+    png2fb/png2fb.c
+)
 set_target_properties(libged PROPERTIES VERSION 20.0.1 SOVERSION 20)
 if (LIBGED_STATIC_CORE)
   target_link_libraries(libged PRIVATE libged_plugin_deps)
@@ -362,23 +377,6 @@ if (LIBGED_STATIC_CORE)
   if(HAVE_WINDOWS_H)
     target_link_options(libged PRIVATE "/OPT:NOREF")
   endif()
-  # When the static core bundles plugin sources directly into libged (via
-  # target_sources), enable unity build on the shared-library target to batch
-  # the ~100 plugin translation units and reduce header-parsing overhead.
-  # The small set of core LIBGED_SOURCES (compiled through libged-obj) have
-  # too many file-scope static variables with common names to batch safely.
-  set_target_properties(libged PROPERTIES UNITY_BUILD ON)
-  # Exclude image I/O plugin files that share many file-scope static variable
-  # names with each other (multiple_lines, file_name, inverse, zoom, clear,
-  # file_x/yoff, scr_x/yoff, usage, …).  These three files form a tightly
-  # related cluster copied from the same ancestor and cannot be batched without
-  # pervasive renaming.
-  set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/fb2pix/fb2pix.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/pix2fb/pix2fb.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/png2fb/png2fb.c
-    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-  )
 endif()
 
 # This executable is used to launch processes from LIBGED commands that may

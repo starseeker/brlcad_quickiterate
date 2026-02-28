@@ -142,22 +142,10 @@ set(BU_INCLUDE_DIRS ${BRLCAD_BINARY_DIR}/include ${BRLCAD_SOURCE_DIR}/include)
 # locally used but not needed by users of the library
 set(BU_LOCAL_INCLUDE_DIRS ${BSON_INCLUDE_DIR} ${LMDB_INCLUDE_DIR} ${UUID_INCLUDE_DIR})
 
-brlcad_addlib(libbu "${LIBBU_SOURCES}" "${BU_LIBS}" "${BU_INCLUDE_DIRS}" "${BU_LOCAL_INCLUDE_DIRS}")
+brlcad_addlib(libbu "${LIBBU_SOURCES}" "${BU_LIBS}" "${BU_INCLUDE_DIRS}" "${BU_LOCAL_INCLUDE_DIRS}"
+  UNITY_BUILD_SKIP backtrace.c crashreport.c
+)
 set_target_properties(libbu PROPERTIES VERSION 20.0.1 SOVERSION 20)
-
-# Enable unity build on the object library to reduce redundant header parsing.
-# backtrace.c and crashreport.c deliberately use many file-scope static globals
-# to avoid stack allocation during crash recovery; their common names (path,
-# result, buffer, …) trigger -Wshadow errors when batched with other TUs.
-# Exclude them so the rest of the library benefits from unity batching.
-if(TARGET libbu-obj)
-  set_target_properties(libbu-obj PROPERTIES UNITY_BUILD ON)
-  set_source_files_properties(
-    backtrace.c
-    crashreport.c
-    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-  )
-endif()
 
 set(bu_atgts)
 set(bu_targets libbu-obj libbu libbu-static)
