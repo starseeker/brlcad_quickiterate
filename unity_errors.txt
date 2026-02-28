@@ -1,0 +1,348 @@
+Script started on 2026-02-28 15:30:00-05:00 [TERM="xterm-256color" TTY="/dev/pts/3" COLUMNS="166" LINES="72"]
+$ n -j1 -k 1000
+[?2004l[0/20] cd /brlcad/build && /usr/bin/cmake -DMSG="Build Time:" -P /brlcad/misc/CMake/scripts/printtime.cmake[K[1/20] cd /brlcad/build && /usr/bin/cmake -DMSG="Build Time:" -P /brlcad/misc/CMake/scripts/printtime.cmake[K
+
+Build Time:  Sat Feb 28 15:30:03 2026
+
+[1/20] Building CXX object src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx.o[K[2/20] Building CXX object src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx.o[K
+[31mFAILED: [0msrc/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx.o 
+/usr/bin/c++ -DANALYZE_DLL_IMPORTS -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DDM_DLL_IMPORTS -DGED_DLL_IMPORTS -DHAVE_CONFIG_H -DICV_DLL_IMPORTS -DMMESH_DLL_IMPORTS -DNETPBM_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DOPTICAL_DLL_IMPORTS -DPKG_DLL_IMPORTS -DRLE_DLL_IMPORTS -DRT_DLL_IMPORTS -DWDB_DLL_IMPORTS -I/brlcad/src/gtools/gist -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include/opencv4 -isystem /brlcad/build/include -isystem /bext/build/noinstall/include/GTE -std=c++17  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -ftemplate-depth-128 -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wno-inline -Wno-long-long -Wno-variadic-macros -Werror -std=c++17 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx.o -MF src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx.o.d -o src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx.o -c /brlcad/build/src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx
+In file included from /brlcad/build/src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx:19:
+/brlcad/src/gtools/gist/PerspectiveGatherer.cpp:69:20: error: redefinition of ‘std::string getCmdPath(std::string, const char*)’
+   69 | static std::string getCmdPath(std::string exeDir, const char* cmd) {
+      |                    ^~~~~~~~~~
+In file included from /brlcad/build/src/gtools/gist/CMakeFiles/gist.dir/Unity/unity_0_cxx.cxx:10:
+/brlcad/src/gtools/gist/InformationGatherer.cpp:26:20: note: ‘std::string getCmdPath(std::string, const char*)’ previously defined here
+   26 | static std::string getCmdPath(std::string exeDir, const char* cmd) {
+      |                    ^~~~~~~~~~
+/brlcad/src/gtools/gist/PerspectiveGatherer.cpp:69:20: error: ‘std::string getCmdPath(std::string, const char*)’ defined but not used [-Werror=unused-function]
+   69 | static std::string getCmdPath(std::string exeDir, const char* cmd) {
+      |                    ^~~~~~~~~~
+cc1plus: all warnings being treated as errors
+[2/20] Building C object src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c.o[K[3/20] Building C object src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c.o[K
+[31mFAILED: [0msrc/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c.o 
+/usr/bin/cc -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DDM_DLL_IMPORTS -DHAVE_CONFIG_H -DICV_DLL_IMPORTS -DMMESH_DLL_IMPORTS -DNETPBM_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DOPTICAL_DLL_IMPORTS -DPKG_DLL_IMPORTS -DRLE_DLL_IMPORTS -DRTSRV -DRT_DLL_IMPORTS -I/brlcad/src/remrt -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c.o -MF src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c.o.d -o src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c.o -c /brlcad/build/src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c
+In file included from /brlcad/build/src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c:13:
+/brlcad/src/rt/heatgraph.c: In function ‘timeTable_process’:
+/brlcad/src/rt/heatgraph.c:183:84: error: declaration of ‘fbp’ shadows a global declaration [-Werror=shadow]
+  183 | timeTable_process(fastf_t **timeTable, struct application *UNUSED(app), struct fb *fbp)
+      |                                                                         ~~~~~~~~~~~^~~
+In file included from /brlcad/build/src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c:4:
+/brlcad/src/rt/view.c:66:19: note: shadowed declaration is here
+   66 | extern struct fb *fbp;                  /* Framebuffer handle */
+      |                   ^~~
+In file included from /brlcad/build/src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c:19:
+/brlcad/src/rt/scanline.c: In function ‘free_scanlines’:
+/brlcad/src/rt/scanline.c:31:45: error: declaration of ‘scanline’ shadows a global declaration [-Werror=shadow]
+   31 | free_scanlines(int nlines, struct scanline* scanline)
+      |                            ~~~~~~~~~~~~~~~~~^~~~~~~~
+/brlcad/src/rt/view.c:88:25: note: shadowed declaration is here
+   88 | static struct scanline* scanline = NULL;
+      |                         ^~~~~~~~
+In file included from /brlcad/build/src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c:25:
+/brlcad/src/remrt/rtsrv.c: At top level:
+/brlcad/src/remrt/rtsrv.c:106: error: "MAX_WIDTH" redefined [-Werror]
+  106 | #define MAX_WIDTH (16*1024)
+      | 
+In file included from /brlcad/build/src/remrt/CMakeFiles/rtsrv.dir/Unity/unity_0_c.c:16:
+/brlcad/src/rt/opt.c:177: note: this is the location of the previous definition
+  177 | #define MAX_WIDTH (32*1024)
+      | 
+cc1: all warnings being treated as errors
+[3/20] Building C object src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o[K[4/20] Building C object src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o[K
+[31mFAILED: [0msrc/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o 
+/usr/bin/cc -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBRLCAD_DLL -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DHAVE_CONFIG_H -DMMESH_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DRT_DLL_IMPORTS -DWDB_DLL_IMPORTS -D_CONSOLE -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o -MF src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o.d -o src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c.o -c /brlcad/build/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c
+In file included from /brlcad/build/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c:19:
+/brlcad/src/conv/iges/stack.c:25:21: error: conflicting types for ‘stk’; have ‘union tree **’
+   25 | static union tree **stk;
+      |                     ^~~
+In file included from /brlcad/build/src/conv/iges/CMakeFiles/iges-g.dir/Unity/unity_7_c.c:7:
+/brlcad/src/conv/iges/showtree.c:33:8: note: previous declaration of ‘stk’ with type ‘char **’
+   33 | char **stk;
+      |        ^~~
+/brlcad/src/conv/iges/stack.c:26:12: error: static declaration of ‘jtop’ follows non-static declaration
+   26 | static int jtop, stklen;
+      |            ^~~~
+/brlcad/src/conv/iges/showtree.c:34:5: note: previous declaration of ‘jtop’ with type ‘int’
+   34 | int jtop, stklen;
+      |     ^~~~
+/brlcad/src/conv/iges/stack.c:26:18: error: static declaration of ‘stklen’ follows non-static declaration
+   26 | static int jtop, stklen;
+      |                  ^~~~~~
+/brlcad/src/conv/iges/showtree.c:34:11: note: previous declaration of ‘stklen’ with type ‘int’
+   34 | int jtop, stklen;
+      |           ^~~~~~
+[4/20] Building C object src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c.o[K[5/20] Building C object src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c.o[K
+[31mFAILED: [0msrc/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c.o 
+/usr/bin/cc -DBRLCADBUILD -DHAVE_CONFIG_H -DRENDER_DLL_EXPORTS -I/brlcad/src/adrt/librender -I/brlcad/src/adrt/libcommon -I/brlcad/src/adrt -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include -I/brlcad/build/include/brlcad -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIC -MD -MT src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c.o -MF src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c.o.d -o src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c.o -c /brlcad/build/src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c
+In file included from /brlcad/build/src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c:19:
+/brlcad/src/adrt/librender/depth.c: In function ‘render_depth_work’:
+/brlcad/src/adrt/librender/depth.c:36:59: error: declaration of ‘tie’ shadows a global declaration [-Werror=shadow]
+   36 | render_depth_work(render_t *UNUSED(render), struct tie_s *tie, struct tie_ray_s *ray, vect_t *pixel)
+      |                                             ~~~~~~~~~~~~~~^~~
+In file included from /brlcad/build/src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c:16:
+/brlcad/src/adrt/librender/cut.c:38:22: note: shadowed declaration is here
+   38 | extern struct tie_s *tie;
+      |                      ^~~
+In file included from /brlcad/build/src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c:22:
+/brlcad/src/adrt/librender/flat.c: In function ‘render_flat_work’:
+/brlcad/src/adrt/librender/flat.c:35:58: error: declaration of ‘tie’ shadows a global declaration [-Werror=shadow]
+   35 | render_flat_work(render_t *UNUSED(render), struct tie_s *tie, struct tie_ray_s *ray, vect_t *pixel)
+      |                                            ~~~~~~~~~~~~~~^~~
+/brlcad/src/adrt/librender/cut.c:38:22: note: shadowed declaration is here
+   38 | extern struct tie_s *tie;
+      |                      ^~~
+In file included from /brlcad/build/src/adrt/CMakeFiles/librender-obj.dir/Unity/unity_0_c.c:25:
+/brlcad/src/adrt/librender/flos.c: In function ‘render_flos_work’:
+/brlcad/src/adrt/librender/flos.c:44:50: error: declaration of ‘tie’ shadows a global declaration [-Werror=shadow]
+   44 | render_flos_work(render_t *render, struct tie_s *tie, struct tie_ray_s *ray, vect_t *pixel) {
+      |                                    ~~~~~~~~~~~~~~^~~
+/brlcad/src/adrt/librender/cut.c:38:22: note: shadowed declaration is here
+   38 | extern struct tie_s *tie;
+      |                      ^~~
+cc1: all warnings being treated as errors
+[5/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c.o[K[6/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c.o[K
+[31mFAILED: [0msrc/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c.o 
+/usr/bin/cc -DANALYZE_DLL_IMPORTS -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DDM_DLL_IMPORTS -DGED_DLL_IMPORTS -DHAVE_CONFIG_H -DHAVE_TK=1 -DICV_DLL_IMPORTS -DMMESH_DLL_IMPORTS -DNETPBM_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DOPTICAL_DLL_IMPORTS -DPKG_DLL_IMPORTS -DRLE_DLL_IMPORTS -DRT_DLL_IMPORTS -DTCLCAD_DLL_IMPORTS -DWDB_DLL_IMPORTS -I/brlcad/build/src/mged -I/brlcad/src/mged -I/brlcad/src/mged/../libtermio -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include -isystem /usr/include/tcl -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c.o -MF src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c.o.d -o src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c.o -c /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c
+In file included from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c:19:
+/brlcad/src/mged/wdb_obj.c:59: error: "ERROR_RECOVERY_SUGGESTION" redefined [-Werror]
+   59 | #define ERROR_RECOVERY_SUGGESTION "\
+      | 
+In file included from /brlcad/src/mged/track.c:39,
+                 from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_5_c.c:4:
+/brlcad/src/mged/./mged.h:317: note: this is the location of the previous definition
+  317 | #define ERROR_RECOVERY_SUGGESTION "\
+      | 
+cc1: all warnings being treated as errors
+[6/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c.o[K[7/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c.o[K
+[31mFAILED: [0msrc/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c.o 
+/usr/bin/cc -DANALYZE_DLL_IMPORTS -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DDM_DLL_IMPORTS -DGED_DLL_IMPORTS -DHAVE_CONFIG_H -DHAVE_TK=1 -DICV_DLL_IMPORTS -DMMESH_DLL_IMPORTS -DNETPBM_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DOPTICAL_DLL_IMPORTS -DPKG_DLL_IMPORTS -DRLE_DLL_IMPORTS -DRT_DLL_IMPORTS -DTCLCAD_DLL_IMPORTS -DWDB_DLL_IMPORTS -I/brlcad/build/src/mged -I/brlcad/src/mged -I/brlcad/src/mged/../libtermio -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include -isystem /usr/include/tcl -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c.o -MF src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c.o.d -o src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c.o -c /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c
+In file included from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c:25:
+/brlcad/src/mged/titles.c: In function ‘create_text_overlay’:
+/brlcad/src/mged/titles.c:122:13: error: declaration of ‘j’ shadows a global declaration [-Werror=shadow]
+  122 |         int j;
+      |             ^
+In file included from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_4_c.c:22:
+/brlcad/src/mged/tedit.c:56:12: note: shadowed declaration is here
+   56 | static int j;
+      |            ^
+cc1: all warnings being treated as errors
+[7/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c.o[K[8/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c.o[K
+[31mFAILED: [0msrc/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c.o 
+/usr/bin/cc -DANALYZE_DLL_IMPORTS -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DDM_DLL_IMPORTS -DGED_DLL_IMPORTS -DHAVE_CONFIG_H -DHAVE_TK=1 -DICV_DLL_IMPORTS -DMMESH_DLL_IMPORTS -DNETPBM_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DOPTICAL_DLL_IMPORTS -DPKG_DLL_IMPORTS -DRLE_DLL_IMPORTS -DRT_DLL_IMPORTS -DTCLCAD_DLL_IMPORTS -DWDB_DLL_IMPORTS -I/brlcad/build/src/mged -I/brlcad/src/mged -I/brlcad/src/mged/../libtermio -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include -isystem /usr/include/tcl -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c.o -MF src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c.o.d -o src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c.o -c /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c
+In file included from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c:13:
+/brlcad/src/mged/mged.c:103:23: error: conflicting types for ‘history_cur’; have ‘struct bu_vls *(const char *)’
+  103 | extern struct bu_vls *history_cur(const char *);
+      |                       ^~~~~~~~~~~
+In file included from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_3_c.c:4:
+/brlcad/src/mged/history.c:257:1: note: previous definition of ‘history_cur’ with type ‘struct bu_vls *(void)’
+  257 | history_cur(void)
+      | ^~~~~~~~~~~
+[8/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c.o[K[9/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c.o[K
+[31mFAILED: [0msrc/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c.o 
+/usr/bin/cc -DANALYZE_DLL_IMPORTS -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DDM_DLL_IMPORTS -DGED_DLL_IMPORTS -DHAVE_CONFIG_H -DHAVE_TK=1 -DICV_DLL_IMPORTS -DMMESH_DLL_IMPORTS -DNETPBM_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DOPTICAL_DLL_IMPORTS -DPKG_DLL_IMPORTS -DRLE_DLL_IMPORTS -DRT_DLL_IMPORTS -DTCLCAD_DLL_IMPORTS -DWDB_DLL_IMPORTS -I/brlcad/build/src/mged -I/brlcad/src/mged -I/brlcad/src/mged/../libtermio -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include -isystem /usr/include/tcl -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c.o -MF src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c.o.d -o src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c.o -c /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c
+In file included from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c:13:
+/brlcad/src/mged/edsol.c:48:69: error: argument 3 of type ‘fastf_t[3]’ {aka ‘double[3]’} with mismatched bound [-Werror=array-parameter=]
+   48 | extern void pipe_split_pnt(struct bu_list *, struct wdb_pipe_pnt *, point_t);
+      |                                                                     ^~~~~~~
+In file included from /brlcad/src/mged/edarb.c:24,
+                 from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_2_c.c:4:
+/brlcad/include/common.h:348:29: note: previously declared as ‘fastf_t *’ {aka ‘double *’}
+  348 | #  define UNUSED(parameter) UNUSED_ ## parameter __attribute__((unused))
+/brlcad/src/mged/edpipe.c:48:91: note: in expansion of macro ‘UNUSED’
+   48 | pipe_split_pnt(struct bu_list *UNUSED(pipe_hd), struct wdb_pipe_pnt *UNUSED(ps), fastf_t *UNUSED(new_pt))
+      |                                                                                           ^~~~~~
+cc1: all warnings being treated as errors
+[9/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c.o[K[10/20] Building C object src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c.o[K
+[31mFAILED: [0msrc/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c.o 
+/usr/bin/cc -DANALYZE_DLL_IMPORTS -DBG_DLL_IMPORTS -DBN_DLL_IMPORTS -DBREP_DLL_IMPORTS -DBRLCADBUILD -DBU_DLL_IMPORTS -DBV_DLL_IMPORTS -DDM_DLL_IMPORTS -DGED_DLL_IMPORTS -DHAVE_CONFIG_H -DHAVE_TK=1 -DICV_DLL_IMPORTS -DMMESH_DLL_IMPORTS -DNETPBM_DLL_IMPORTS -DNMG_DLL_IMPORTS -DOPENNURBS_IMPORTS -DOPTICAL_DLL_IMPORTS -DPKG_DLL_IMPORTS -DRLE_DLL_IMPORTS -DRT_DLL_IMPORTS -DTCLCAD_DLL_IMPORTS -DWDB_DLL_IMPORTS -I/brlcad/build/src/mged -I/brlcad/src/mged -I/brlcad/src/mged/../libtermio -I/brlcad/build/include/OpenNURBS -I/brlcad/include -I/brlcad/build/include/brlcad -isystem /brlcad/build/include -isystem /usr/include/tcl -isystem /bext/build/noinstall/include/GTE -std=c11  -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700 -pipe -fvisibility=hidden -fno-strict-aliasing -fno-common -fexceptions -m64 -g -ggdb3 -O3 -fipa-pta -fstrength-reduce -fexpensive-optimizations -finline-functions -flto=auto -fno-omit-frame-pointer -pedantic -Wall -Wextra -Wundef -Wfloat-equal -Wshadow -Wbad-function-cast -Wc++-compat -Winline -Wno-long-long -Wno-variadic-macros -Werror -std=c11 -fPIE -DMANIFOLD_DEBUG -DMANIFOLD_CROSS_SECTION -DMANIFOLD_PAR=-1 -MD -MT src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c.o -MF src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c.o.d -o src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c.o -c /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c
+In file included from /brlcad/src/mged/chgmodel.c:48,
+                 from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c:19:
+/brlcad/src/mged/./f_cmd.h:77:12: error: conflicting types for ‘f_press’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+   77 | extern int f_press(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~
+In file included from /brlcad/build/src/mged/CMakeFiles/mged.dir/Unity/unity_0_c.c:16:
+/brlcad/src/mged/buttons.c:230:1: note: previous definition of ‘f_press’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+  230 | f_press(ClientData clientData,
+      | ^~~~~~~
+/brlcad/src/mged/./f_cmd.h:116:12: error: conflicting types for ‘f_be_accept’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  116 | extern int f_be_accept(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1171:1: note: previous definition of ‘f_be_accept’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1171 | f_be_accept(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:117:12: error: conflicting types for ‘f_be_o_illuminate’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  117 | extern int f_be_o_illuminate(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1178:1: note: previous definition of ‘f_be_o_illuminate’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1178 | f_be_o_illuminate(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:118:12: error: conflicting types for ‘f_be_o_rotate’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  118 | extern int f_be_o_rotate(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1185:1: note: previous definition of ‘f_be_o_rotate’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1185 | f_be_o_rotate(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:119:12: error: conflicting types for ‘f_be_o_scale’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  119 | extern int f_be_o_scale(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1192:1: note: previous definition of ‘f_be_o_scale’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1192 | f_be_o_scale(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:120:12: error: conflicting types for ‘f_be_o_x’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  120 | extern int f_be_o_x(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~
+/brlcad/src/mged/buttons.c:1199:1: note: previous definition of ‘f_be_o_x’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1199 | f_be_o_x(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~
+/brlcad/src/mged/./f_cmd.h:121:12: error: conflicting types for ‘f_be_o_xscale’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  121 | extern int f_be_o_xscale(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1206:1: note: previous definition of ‘f_be_o_xscale’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1206 | f_be_o_xscale(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:122:12: error: conflicting types for ‘f_be_o_xy’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  122 | extern int f_be_o_xy(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~
+/brlcad/src/mged/buttons.c:1213:1: note: previous definition of ‘f_be_o_xy’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1213 | f_be_o_xy(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:123:12: error: conflicting types for ‘f_be_o_y’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  123 | extern int f_be_o_y(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~
+/brlcad/src/mged/buttons.c:1220:1: note: previous definition of ‘f_be_o_y’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1220 | f_be_o_y(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~
+/brlcad/src/mged/./f_cmd.h:124:12: error: conflicting types for ‘f_be_o_yscale’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  124 | extern int f_be_o_yscale(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1227:1: note: previous definition of ‘f_be_o_yscale’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1227 | f_be_o_yscale(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:125:12: error: conflicting types for ‘f_be_o_zscale’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  125 | extern int f_be_o_zscale(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1234:1: note: previous definition of ‘f_be_o_zscale’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1234 | f_be_o_zscale(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:126:12: error: conflicting types for ‘f_be_reject’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  126 | extern int f_be_reject(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1241:1: note: previous definition of ‘f_be_reject’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1241 | f_be_reject(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:127:12: error: conflicting types for ‘f_be_s_edit’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  127 | extern int f_be_s_edit(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1248:1: note: previous definition of ‘f_be_s_edit’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1248 | f_be_s_edit(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:128:12: error: conflicting types for ‘f_be_s_illuminate’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  128 | extern int f_be_s_illuminate(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1255:1: note: previous definition of ‘f_be_s_illuminate’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1255 | f_be_s_illuminate(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:129:12: error: conflicting types for ‘f_be_s_rotate’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  129 | extern int f_be_s_rotate(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1262:1: note: previous definition of ‘f_be_s_rotate’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1262 | f_be_s_rotate(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:130:12: error: conflicting types for ‘f_be_s_scale’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  130 | extern int f_be_s_scale(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1269:1: note: previous definition of ‘f_be_s_scale’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1269 | f_be_s_scale(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:131:12: error: conflicting types for ‘f_be_s_trans’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  131 | extern int f_be_s_trans(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1276:1: note: previous definition of ‘f_be_s_trans’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1276 | f_be_s_trans(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:132:12: error: conflicting types for ‘f_bv_35_25’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  132 | extern int f_bv_35_25(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~
+/brlcad/src/mged/buttons.c:1283:1: note: previous definition of ‘f_bv_35_25’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1283 | f_bv_35_25(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:133:12: error: conflicting types for ‘f_bv_45_45’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  133 | extern int f_bv_45_45(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~
+/brlcad/src/mged/buttons.c:1290:1: note: previous definition of ‘f_bv_45_45’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1290 | f_bv_45_45(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:134:12: error: conflicting types for ‘f_bv_bottom’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  134 | extern int f_bv_bottom(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1297:1: note: previous definition of ‘f_bv_bottom’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1297 | f_bv_bottom(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:135:12: error: conflicting types for ‘f_bv_front’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  135 | extern int f_bv_front(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~
+/brlcad/src/mged/buttons.c:1304:1: note: previous definition of ‘f_bv_front’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1304 | f_bv_front(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:136:12: error: conflicting types for ‘f_bv_left’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  136 | extern int f_bv_left(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~
+/brlcad/src/mged/buttons.c:1311:1: note: previous definition of ‘f_bv_left’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1311 | f_bv_left(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:137:12: error: conflicting types for ‘f_bv_rate_toggle’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  137 | extern int f_bv_rate_toggle(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1318:1: note: previous definition of ‘f_bv_rate_toggle’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1318 | f_bv_rate_toggle(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:138:12: error: conflicting types for ‘f_bv_rear’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  138 | extern int f_bv_rear(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~
+/brlcad/src/mged/buttons.c:1325:1: note: previous definition of ‘f_bv_rear’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1325 | f_bv_rear(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:139:12: error: conflicting types for ‘f_bv_reset’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  139 | extern int f_bv_reset(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~
+/brlcad/src/mged/buttons.c:1332:1: note: previous definition of ‘f_bv_reset’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1332 | f_bv_reset(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:140:12: error: conflicting types for ‘f_bv_right’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  140 | extern int f_bv_right(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~
+/brlcad/src/mged/buttons.c:1339:1: note: previous definition of ‘f_bv_right’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1339 | f_bv_right(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:141:12: error: conflicting types for ‘f_bv_top’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  141 | extern int f_bv_top(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~
+/brlcad/src/mged/buttons.c:1346:1: note: previous definition of ‘f_bv_top’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1346 | f_bv_top(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~
+/brlcad/src/mged/./f_cmd.h:142:12: error: conflicting types for ‘f_bv_vrestore’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  142 | extern int f_bv_vrestore(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1353:1: note: previous definition of ‘f_bv_vrestore’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1353 | f_bv_vrestore(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:143:12: error: conflicting types for ‘f_bv_vsave’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  143 | extern int f_bv_vsave(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~
+/brlcad/src/mged/buttons.c:1360:1: note: previous definition of ‘f_bv_vsave’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1360 | f_bv_vsave(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:144:12: error: conflicting types for ‘f_bv_zoomin’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  144 | extern int f_bv_zoomin(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1367:1: note: previous definition of ‘f_bv_zoomin’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1367 | f_bv_zoomin(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~
+/brlcad/src/mged/./f_cmd.h:145:12: error: conflicting types for ‘f_bv_zoomout’; have ‘int(void *, Tcl_Interp *, int,  const char **)’
+  145 | extern int f_bv_zoomout(ClientData, Tcl_Interp *, int, const char *[]);
+      |            ^~~~~~~~~~~~
+/brlcad/src/mged/buttons.c:1374:1: note: previous definition of ‘f_bv_zoomout’ with type ‘int(void *, Tcl_Interp *, int,  char **)’
+ 1374 | f_bv_zoomout(ClientData clientData, Tcl_Interp *interp, int argc, char *argv[])
+      | ^~~~~~~~~~~~
+ninja: build stopped: cannot make progress due to previous errors.
