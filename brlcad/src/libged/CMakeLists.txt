@@ -362,6 +362,23 @@ if (LIBGED_STATIC_CORE)
   if(HAVE_WINDOWS_H)
     target_link_options(libged PRIVATE "/OPT:NOREF")
   endif()
+  # When the static core bundles plugin sources directly into libged (via
+  # target_sources), enable unity build on the shared-library target to batch
+  # the ~100 plugin translation units and reduce header-parsing overhead.
+  # The small set of core LIBGED_SOURCES (compiled through libged-obj) have
+  # too many file-scope static variables with common names to batch safely.
+  set_target_properties(libged PROPERTIES UNITY_BUILD ON)
+  # Exclude image I/O plugin files that share many file-scope static variable
+  # names with each other (multiple_lines, file_name, inverse, zoom, clear,
+  # file_x/yoff, scr_x/yoff, usage, …).  These three files form a tightly
+  # related cluster copied from the same ancestor and cannot be batched without
+  # pervasive renaming.
+  set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/fb2pix/fb2pix.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/pix2fb/pix2fb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/png2fb/png2fb.c
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+  )
 endif()
 
 # This executable is used to launch processes from LIBGED commands that may
