@@ -13,7 +13,11 @@ brlcad_addexec(dmod dmod.c "libbu;${M_LIBRARY}" FOLDER Sig)
 brlcad_addexec(dpeak dpeak.c libbu FOLDER Sig)
 brlcad_addexec(dsel dsel.c libbu FOLDER Sig)
 brlcad_addexec(dstats dstats.c "libbu;${M_LIBRARY}" FOLDER Sig)
-brlcad_addexec(dwin "dwin.c;coswin.c;hamwin.c" "libbu;${M_LIBRARY}" FOLDER Sig)
+brlcad_addexec(dwin "dwin.c;coswin.c;hamwin.c" "libbu;${M_LIBRARY}" FOLDER Sig
+  # coswin.c and hamwin.c both define file-scope static _init_length and the
+  # function-local static maxinitlen shadows coswin.c's file-scope maxinitlen.
+  UNITY_BUILD_SKIP coswin.c hamwin.c
+)
 brlcad_addexec(ihist ihist.c libbu FOLDER Sig)
 brlcad_addexec(imod imod.c "libbu;${M_LIBRARY}" FOLDER Sig)
 brlcad_addexec(istats istats.c "libbu;${M_LIBRARY}" FOLDER Sig)
