@@ -14,6 +14,86 @@ additional context, but should not be assumed correct.
 
 ---
 
+## Agent Instructions — General Principles
+
+**Follow these principles in every session.  Do not skip them.**
+
+### 1. Test expected values must come from MGED, not librt
+
+Test expected values must be derived from what the MGED editing code
+in `brlcad/src/mged/edsol.c` actually does — **not** from running the
+librt implementation and recording its output.  The librt
+implementation may have bugs; the tests are meant to catch them.
+
+Workflow for establishing expected values:
+1. Read the relevant MGED case in `edsol.c` (search for the
+   `ECMD_<PRIM>_*` case label).
+2. Trace the math by hand or write a small probe program in
+   `src/librt/tests/edit/` (named `probe_<prim>.cpp`) that explicitly
+   reproduces the MGED computation step-by-step and prints results.
+3. Compare the probe output to the librt implementation's output.
+4. If they agree — use those values in the test.
+5. If they disagree — identify the root cause (see §2 below).
+6. Delete the probe file before committing (it is a disposable tool).
+
+### 2. Any delta between MGED and librt must be justified
+
+If librt produces a different result from MGED:
+- If MGED has an **actual bug** (e.g. undefined-behavior aliasing,
+  physically impossible result, clearly wrong formula), librt **should
+  fix the bug** and the test expected values should reflect the
+  **correct** behavior.  Document the bug and the fix explicitly.
+- If the difference is **intentional redesign** (e.g. librt cleans up
+  an awkward API, or does something provably more accurate), document
+  the reason clearly.
+- If the difference is **unexplained**, it is a librt bug.  Fix librt
+  to match MGED; do not adjust the expected values to match the broken
+  librt output.
+
+### 3. MAT4X3VEC / MAT4X3PNT aliasing
+
+`MAT4X3VEC(o, mat, i)` expands to sequential scalar assignments.
+When `o` and `i` are the same pointer (e.g. both equal `tgc->h`),
+the first assignment overwrites a component that is still needed for
+the remaining assignments — producing a silently wrong result.
+
+**Always use a temporary vect_t when the output and input could alias:**
+```c
+/* WRONG — tgc->h[X] gets overwritten before tgc->h[Y] is read */
+MAT4X3VEC(tgc->h, mat, tgc->h);
+
+/* CORRECT */
+vect_t h_tmp;
+MAT4X3VEC(h_tmp, mat, tgc->h);
+VMOVE(tgc->h, h_tmp);
+```
+
+The same rule applies to `MAT4X3PNT`.
+
+When reviewing a new primitive's edit code, check every `MAT4X3VEC`
+and `MAT4X3PNT` call for this pattern.  The generic helpers
+`rt_tgc_mat`, `rt_ell_mat`, `rt_tor_mat` and others in the `ft_mat`
+table already copy to temporaries and are safe; the aliasing risk is
+highest in hand-coded `ecmd_*` rotation functions that directly
+manipulate the primitive struct fields in-place.
+
+### 4. How to run existing tests
+
+```bash
+REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
+# Configure (only needed once, ~55 s)
+mkdir -p ${REPO_ROOT}/brlcad_build
+cmake -S "${REPO_ROOT}/brlcad" -B "${REPO_ROOT}/brlcad_build" \
+  -DBRLCAD_EXT_DIR="${REPO_ROOT}/bext_output" \
+  -DBRLCAD_EXTRADOCS=OFF -DBRLCAD_ENABLE_STEP=OFF \
+  -DBRLCAD_ENABLE_GDAL=OFF -DBRLCAD_ENABLE_QT=OFF
+# Build and run a specific test target
+cmake --build ${REPO_ROOT}/brlcad_build --target rt_edit_test_tgc -j$(nproc)
+${REPO_ROOT}/brlcad_build/src/librt/tests/edit/rt_edit_test_tgc
+```
+
+---
+
 ## Architecture
 
 | File | Role |
@@ -46,6 +126,10 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
   - `RT_PARAMS_EDIT_TRANS` — translate (mv_context on and off)
   - `RT_PARAMS_EDIT_ROT`   — rotate (about view, eye, model center, keypoint; mv_context on and off)
   - XY mouse-based edits for ECMD_TOR_R1, RT_PARAMS_EDIT_TRANS, RT_PARAMS_EDIT_ROT
+- Aliasing investigation: `rt_tor_mat` (called by `edit_srot` via `ft_mat`)
+  copies all vectors to temporaries before `MAT4X3VEC` — no aliasing bug.
+  MGED uses `transform_editing_solid` → `rt_generic_xform` (export+reimport),
+  which is also safe.  No aliasing fix needed for TOR.
 - Notes: Furthest along; serves as the template for all other primitives.
 
 ### ELL — Ellipsoid ✅ DONE (with test)
@@ -59,22 +143,44 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
   - `ECMD_ELL_SCALE_ABC` — scale all semi-axes uniformly (es_scale and e_inpara)
   - `RT_PARAMS_EDIT_SCALE` — uniform scale about vertex
   - `RT_PARAMS_EDIT_TRANS` — translate (mv_context=1)
-  - XY mouse-based edit for ECMD_ELL_SCALE_A
+  - `RT_PARAMS_EDIT_ROT`   — rotate (about view, eye, model center, keypoint;
+    mv_context=1 and mv_context=0)
+  - XY mouse-based edits: ECMD_ELL_SCALE_A, TRANS, ROT error path
+- Aliasing investigation: `rt_ell_mat` (called by `edit_srot` via `ft_mat`)
+  copies all vectors to temporaries before `MAT4X3VEC` — no aliasing bug.
+  MGED uses `transform_editing_solid` → `rt_generic_xform` (export+reimport),
+  which is also safe.  No aliasing fix needed for ELL.
 - Bug fixed: `EDOBJ[ID_ELL].ft_keypoint` was `NULL` in `edtable.cpp`,
   causing `rt_get_solid_keypoint` to set the edit keypoint to the origin
   instead of the ellipsoid vertex.  Fixed to use `edit_keypoint`.
-- TODO: Add `RT_PARAMS_EDIT_ROT` tests (requires computing expected
-  rotation values for a,b,c vectors; straightforward but verbose).
-  Add XY tests for TRANS and ROT.
 
-### TGC — Truncated General Cone ⬜ EDIT CODE EXISTS, NO TEST
+### TGC — Truncated General Cone ✅ DONE (with test)
 
 - Source: `src/librt/primitives/tgc/edtgc.c`
-- Test:   *not yet written*
-- Edit mode flags defined: `ECMD_TGC_MV_H`, `ECMD_TGC_MV_HH`,
-  `ECMD_TGC_MV_H_CD`, `ECMD_TGC_MV_H_V_AB`, `ECMD_TGC_ROT_AB`,
-  `ECMD_TGC_ROT_H`, `ECMD_TGC_SCALE_A/B/C/D/AB/CD/ABCD/H/H_CD/H_V/H_V_AB`
-- TODO: Write `src/librt/tests/edit/tgc.cpp` following ell/tor pattern.
+- Test:   `src/librt/tests/edit/tgc.cpp`
+- Operations validated:
+  - `ECMD_TGC_SCALE_H`       — scale height vector (es_scale and e_inpara)
+  - `ECMD_TGC_SCALE_H_V`     — scale H moving V (vertex end)
+  - `ECMD_TGC_SCALE_H_CD`    — scale H, also scale CD vectors
+  - `ECMD_TGC_SCALE_H_V_AB`  — scale H moving V, also scale AB vectors
+  - `ECMD_TGC_SCALE_A/B/C/D` — scale individual semi-axis vectors
+  - `ECMD_TGC_SCALE_AB`      — scale A and B together
+  - `ECMD_TGC_SCALE_CD`      — scale C and D together
+  - `ECMD_TGC_SCALE_ABCD`    — scale all four together
+  - `ECMD_TGC_MV_HH`         — move end H (scale H in place)
+  - `ECMD_TGC_ROT_H`         — rotate height vector
+  - `ECMD_TGC_ROT_AB`        — rotate A/B/C/D vectors
+  - `RT_PARAMS_EDIT_SCALE`   — uniform scale
+  - `RT_PARAMS_EDIT_TRANS`   — translate
+  - `RT_PARAMS_EDIT_ROT`     — rotate about keypoint (mv_context=1)
+  - XY mouse-based edits: scale H, translate, move H end, ROT error path
+- Bug fixed: `MAT4X3VEC(tgc->h, mat, tgc->h)` aliasing in
+  `ecmd_tgc_rot_h` and `ecmd_tgc_rot_ab`.  MGED's `edsol.c` has the
+  identical bug.  The fix is justified because a pure rotation must
+  preserve vector magnitudes; the aliased macro does not (it produces
+  ~1.5% magnitude loss per call).  The fix uses a temporary `vect_t`
+  before assigning back (see §3 in Agent Instructions above).
+  Expected values in `tgc.cpp` reflect the corrected, alias-free output.
 
 ### ARB8 — Arbitrary Polyhedron (8 vertices) ⬜ EDIT CODE EXISTS, NO TEST
 
@@ -237,19 +343,59 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
 - All ell and tor tests pass.
 - Created this PROGRESS.md.
 
+### Session 2 (2026-03-02)
+- Added full TGC test (`src/librt/tests/edit/tgc.cpp`).
+- Discovered and fixed `MAT4X3VEC` aliasing bug in `ecmd_tgc_rot_h`
+  and `ecmd_tgc_rot_ab` (`src/librt/primitives/tgc/edtgc.c`).
+  Root-cause analysis via a probe program (`probe_tgc.cpp`): the
+  macro `MAT4X3VEC(tgc->h, mat, tgc->h)` silently corrupted
+  the height vector because the output and input were the same pointer.
+  MGED (`edsol.c`) has the identical bug.  Fix justified: pure rotation
+  must preserve magnitude; the alias does not.  Probe deleted after use.
+- Completed ELL test coverage: added `RT_PARAMS_EDIT_ROT` (four pivot
+  modes + mv_context=0), XY translation, and XY rotation error path.
+- Updated PROGRESS.md with general principles (§ Agent Instructions).
+
+### Session 3 (2026-03-02)
+- Investigated TOR and ELL for the same `MAT4X3VEC` aliasing issue.
+- **Result: no aliasing bug in TOR or ELL.**
+  - Both delegate rotations to `edit_srot` → `ft_mat` callback.
+  - `rt_tor_mat` copies `v` and `h` to local temporaries before
+    calling `MAT4X3VEC` — alias-safe.
+  - `rt_ell_mat` copies `v`, `a`, `b`, `c` to local temporaries —
+    alias-safe.
+  - MGED uses `transform_editing_solid` → `rt_matrix_transform` →
+    `ft_xform` = `rt_generic_xform`, which
+    exports to wire format and reimports with the transform applied —
+    inherently alias-safe.
+  - TGC's `rt_tgc_mat` (used by `edit_srot` for TGC generic rotation)
+    also copies to temporaries — alias-safe.  The aliasing bug was
+    confined to the hand-coded `ecmd_tgc_rot_h`/`ecmd_tgc_rot_ab`
+    functions, which directly manipulated the struct fields in-place.
+- Added Agent Instructions section to this file with general principles
+  for test expected value methodology, aliasing checks, and build/test
+  commands.
+
 ---
 
 ## Suggested Next Steps
 
-1. **Add more primitive tests** — tgc, epa, ehy are next in complexity
-   after ell.  Each has relatively simple, analytically-verifiable
-   expected values for their primitive-specific ECMD_* operations.
-2. **Fix remaining NULL keypoints** — audit ID_REVOLVE (40), ID_PNTS (41),
+1. **Add more primitive tests** — epa, ehy, eto, hyp are next in
+   complexity after tgc.  Each has relatively simple, analytically-
+   verifiable expected values for their `ECMD_*` operations.
+   **Before writing any test**, trace the expected values from MGED's
+   `edsol.c` and/or use a probe program (see Agent Instructions §1).
+2. **Aliasing audit for remaining primitives** — before writing each
+   new test, scan the primitive's `ed<prim>.c` for any
+   `MAT4X3VEC(x, mat, x)` or `MAT4X3PNT(x, mat, x)` patterns (same
+   pointer for output and input).  See Agent Instructions §3.
+   Confirmed clean so far: TOR, ELL, TGC (fixed), TGC's `rt_tgc_mat`.
+3. **Fix remaining NULL keypoints** — audit ID_REVOLVE (40), ID_PNTS (41),
    ID_HRT (43), ID_JOINT (23), ID_SUBMODEL (28).
-3. **Implement XY rotation** — validate and integrate the mgedrework
+4. **Implement XY rotation** — validate and integrate the mgedrework
    `edit_mrot_xy` approach once the rotation math is confirmed correct.
-4. **Audit mgedrework edit.cpp changes** — the cleaner IDLE handling
+5. **Audit mgedrework edit.cpp changes** — the cleaner IDLE handling
    and callback improvements look correct and should be cherry-picked.
-5. **ARB8 deep-dive** — the ARB8 editing is the most complex (face/edge
+6. **ARB8 deep-dive** — the ARB8 editing is the most complex (face/edge
    equations, multiple sub-modes) and will require careful side-by-side
    comparison with MGED's `edarb.c` and `facedef.c`.
