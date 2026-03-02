@@ -165,6 +165,38 @@ void bview_redraw(struct bview_new *view);
 void           bview_from_old(struct bview_new *view, const struct bview *old);
 void           bview_to_old(const struct bview_new *view, struct bview *old);
 struct bview  *bview_old_get(const struct bview_new *view);
+
+/* Default initialization (replaces bv_init + bv_settings_init) */
+void bview_settings_apply(struct bview_new *view);
+
+/* Auto-fit camera to scene geometry (replaces bv_autoview) */
+#define BV_AUTOVIEW_SCALE_DEFAULT -1
+int  bview_autoview_new(struct bview_new *view, const struct bv_scene *scene,
+                        double scale_factor);
+
+/* LoD per-node update hook */
+int  bview_lod_node_update(struct bv_node *node, const struct bview_new *view);
+```
+
+### Bounding box helpers (Phase 2)
+
+```c
+/* AABB of a node subtree (geometry nodes only) */
+int bv_node_bbox(const struct bv_node *node, point_t *out_min, point_t *out_max);
+
+/* AABB of an entire scene */
+int bv_scene_bbox(const struct bv_scene *scene, point_t *out_min, point_t *out_max);
+```
+
+### Migration bridges (Phase 1–3)
+
+```c
+/* Wrap a legacy bv_scene_obj tree in bv_node wrappers */
+struct bv_node  *bv_scene_obj_to_node(struct bv_scene_obj *s);
+
+/* Build a new bv_scene from a legacy bview or bview_set */
+struct bv_scene *bv_scene_from_view(const struct bview *v);
+struct bv_scene *bv_scene_from_view_set(const struct bview_set *s);
 ```
 
 ---
@@ -189,7 +221,7 @@ major BRL-CAD release after the deprecation notice is added.
       26 test cases registered with CTest).
 - [x] Confirm all 26 scene tests pass; all existing tests continue to pass.
 
-### Phase 1 – View lifecycle (IN PROGRESS)
+### Phase 1 – View lifecycle (LARGELY COMPLETE)
 
 Goals:
 - New code creates views with `bview_create()` instead of allocating a
@@ -199,22 +231,24 @@ Goals:
 - `bview_settings_apply()` is implemented: sets the same initial camera,
   viewport, appearance, and overlay defaults that `bv_init()` / `bv_settings_init()`
   establish for a legacy `struct bview`.
-- `bview_from_old()` enhanced to copy overlay show_fps from `gv_view_params.draw_fps`.
-- Migration helper `bview_from_old()` copies camera, viewport, and all appearance
-  fields (grid, axes, colors).
+- `bview_from_old()` copies camera, viewport, all appearance fields (grid, axes,
+  colors) and overlay (show_fps) from a legacy `struct bview`.
+- `bview_to_old()` is now a full round-trip helper: it pushes camera, viewport,
+  appearance (grid/axes draw flags + colors), and overlay (show_fps) back to the
+  legacy `struct bview`.
 
 Files updated:
-- `src/libbv/scene.cpp` – implement `bview_settings_apply()`; enhance `bview_from_old`
-- `include/bv/util.h` – add `DEPRECATED` comments to `bv_init`, `bv_free`,
+- `src/libbv/scene.cpp` – `bview_settings_apply()`; enhanced `bview_from_old`
+  and `bview_to_old`
+- `include/bv/util.h` – `DEPRECATED` comments on `bv_init`, `bv_free`,
   `bv_settings_init`, `bv_mat_aet`
-- `include/bv/view_sets.h` – add `DEPRECATED` comments to all `bv_set_*` functions
-- `src/libbv/tests/scene.c` – add `settings_apply`, `settings_apply_null`,
-  `settings_apply_idempotent` tests
+- `include/bv/view_sets.h` – `DEPRECATED` comments on all `bv_set_*` functions
+- `src/libbv/tests/scene.c` – `settings_apply`, `settings_apply_null`,
+  `settings_apply_idempotent`, `to_old_appearance`, `to_old_overlay`, `to_old_null`
 
 Remaining for Phase 1 completion:
 - Migrate internal callers of `bv_init` / `bv_free` to use `bview_create()` /
   `bview_destroy()` (tracked in Phase 1 callers list below)
-- Full `bview_to_old` for all camera/view matrix fields
 
 ### Phase 2 – Scene objects (IN PROGRESS)
 
@@ -226,20 +260,41 @@ Goals and status:
 - `bv_scene_from_view(const struct bview *)` implemented: creates a full
   `bv_scene` from a legacy `bview` by wrapping all db_objs and view_objs.
   Uses `bv_view_objs()` to correctly handle both independent and shared views.
+- `bv_node_bbox(const struct bv_node *, point_t *, point_t *)` implemented:
+  computes the axis-aligned bounding box of a `bv_node` subtree by traversing
+  visible `BV_NODE_GEOMETRY` nodes and reading their wrapped `bv_scene_obj`
+  bounding sphere (`s_center` + `s_size`).  Returns 0 for empty/invisible
+  subtrees.
+- `bv_scene_bbox(const struct bv_scene *, point_t *, point_t *)` implemented:
+  computes AABB of an entire scene (all top-level nodes and their subtrees).
+  Equivalent to merging `bv_node_bbox()` results for each top-level node.
+- `bview_autoview_new(struct bview_new *, const struct bv_scene *, double)`
+  implemented: analog of `bv_autoview()` for the new scene graph API.  Uses
+  `bv_scene_bbox()` to compute the scene extent, then repositions the camera
+  so the scene fits the viewport.  `BV_AUTOVIEW_SCALE_DEFAULT` (−1) uses the
+  same 2× radial factor as the legacy function.  Returns 0 if the scene is
+  empty (camera unchanged).
 
 Files updated:
-- `include/bv/defines.h` – `bv_scene_obj_to_node`, `bv_scene_from_view` declarations
-  with forward declarations for `struct bv_scene_obj` and `struct bview_set`
-- `src/libbv/scene.cpp` – implement both functions; add `bv/util.h` include
+- `include/bv/defines.h` – `bv_node_bbox`, `bv_scene_bbox`,
+  `bview_autoview_new`, `bview_lod_node_update`, `BV_AUTOVIEW_SCALE_DEFAULT`
+  macro declarations; forward declarations for `struct bv_scene_obj` and
+  `struct bview_set`; corrected doc comment for `bview_autoview_new`
+- `src/libbv/scene.cpp` – implement all four functions; add `_bbox_state`
+  internal struct and `_bbox_cb` traverse callback
 - `src/libbv/tests/scene.c` – add `obj_to_node_null`, `obj_to_node_basic`,
   `obj_to_node_children`, `scene_from_view_null`, `scene_from_view_empty`,
-  `scene_from_view_objs` tests
+  `scene_from_view_objs`, `node_bbox_null`, `node_bbox_no_geom`,
+  `scene_bbox_null`, `scene_bbox_empty`, `scene_bbox_invisible`,
+  `scene_bbox_visible`, `autoview_null`, `autoview_empty`,
+  `autoview_single_obj`, `autoview_scale_factor` tests
 
 Remaining for Phase 2 completion:
 - New geometry creation: `bv_node_create(BV_NODE_GEOMETRY)` + `bv_node_geometry_set()`
   instead of `bv_obj_get()` + direct struct mutation
 - Replace direct `bu_ptbl_ins()` into `gv_objs.db_objs` with `bv_scene_add_node()`
-- Migrate `bv_autoview` / `bv_scene_obj_bound` to traverse callbacks
+- Extend `bv_node_bbox` to handle nodes without a wrapped `bv_scene_obj` (once
+  native geometry storage is added in a later phase)
 
 ### Phase 3 – View sets (IN PROGRESS)
 
@@ -260,12 +315,25 @@ Remaining for Phase 3 completion:
 - Multiple `bview_new` instances sharing one `bv_scene` replaces the concept of
   a `bview_set` with a flat list of views
 
-### Phase 4 – LoD integration (PLANNED)
+### Phase 4 – LoD integration (STUB COMPLETE)
 
 Goals:
 - `bview_lod_update()` wired into the geometry node update pipeline.
 - `lod.cpp` logic refactored to operate on `bv_node` trees instead of raw
   `bv_scene_obj` lists.
+
+Status:
+- `bview_lod_node_update(struct bv_node *, const struct bview_new *)` stubbed:
+  accepts a `BV_NODE_GEOMETRY` node, retrieves the wrapped `bv_scene_obj`, and
+  marks `s_dlist_stale = 1` so the legacy rendering path regenerates it.
+  The TODO comment is in place for wiring into `lod.cpp`.  4 tests added.
+
+Files updated:
+- `include/bv/defines.h` – `bview_lod_node_update` declaration with full doc
+- `src/libbv/scene.cpp` – stub implementation
+- `src/libbv/tests/scene.c` – add `lod_node_update_null`,
+  `lod_node_update_non_geom`, `lod_node_update_no_obj`,
+  `lod_node_update_stale` tests
 
 ### Phase 5 – obol/Coin3D bridge (LONG TERM)
 
@@ -303,16 +371,21 @@ repository.
 | `bview_from_old` appearance copy (grid, axes, colors) | Phase 1 | ✅ COMPLETE |
 | `bview_from_old` overlay copy (show_fps) | Phase 1 | ✅ COMPLETE |
 | `bview_settings_apply()` — default initialization | Phase 1 | ✅ COMPLETE |
+| `bview_to_old()` enhanced — full appearance + overlay round-trip | Phase 1 | ✅ COMPLETE |
 | DEPRECATED annotations on `bv_init` / `bv_free` / `bv_settings_init` | Phase 1 | ✅ COMPLETE |
 | DEPRECATED annotations on all `bv_set_*` functions | Phase 1+3 | ✅ COMPLETE |
 | `bv_scene_obj_to_node()` — wrap legacy obj in new node | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view()` — build scene from legacy bview | Phase 2 | ✅ COMPLETE |
+| `bv_node_bbox()` — AABB of a node subtree | Phase 2 | ✅ COMPLETE |
+| `bv_scene_bbox()` — AABB of entire scene | Phase 2 | ✅ COMPLETE |
+| `bview_autoview_new()` — fit camera to scene geometry | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view_set()` — build scene from bview_set | Phase 3 | ✅ COMPLETE |
-| Unit tests for all Phase 1/2/3 functions (11 new tests) | Phase 1–3 | ✅ COMPLETE |
+| `bview_lod_node_update()` — per-node LoD update hook (stub) | Phase 4 | ✅ COMPLETE (stub) |
+| Unit tests (72 total — 29 new Phase 1–4 tests) | Phase 1–4 | ✅ COMPLETE |
 | Internal callers migrated to new lifecycle API | Phase 1 | 🔲 PLANNED |
-| `bv_autoview` / `bv_scene_obj_bound` use traverse CB | Phase 2 | 🔲 PLANNED |
+| New geometry creation via `bv_node_create()` | Phase 2 | 🔲 PLANNED |
 | `bv_set_add_view` callers migrated to `bview_scene_set` | Phase 3 | 🔲 PLANNED |
-| LoD integration | Phase 4 | 🔲 PLANNED |
+| `lod.cpp` wired into `bview_lod_node_update()` | Phase 4 | 🔲 PLANNED |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
 
 ---
@@ -409,4 +482,39 @@ for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
     /* ... register nv with new rendering pipeline ... */
 }
 bv_scene_destroy(scene);
+```
+
+To compute bounding boxes and auto-fit the camera (Phase 2):
+
+```c
+/* After converting a legacy bview to a scene ... */
+struct bv_scene *scene = bv_scene_from_view(gvp);
+
+/* Compute the scene's AABB (all visible geometry nodes) */
+point_t bmin, bmax;
+if (bv_scene_bbox(scene, &bmin, &bmax)) {
+    printf("scene spans (%.1f,%.1f,%.1f) to (%.1f,%.1f,%.1f)\n",
+	   bmin[X], bmin[Y], bmin[Z], bmax[X], bmax[Y], bmax[Z]);
+}
+
+/* Auto-fit the camera to show all geometry */
+struct bview_new *view = bview_create("primary");
+bview_settings_apply(view);
+bview_scene_set(view, scene);
+bview_autoview_new(view, scene, BV_AUTOVIEW_SCALE_DEFAULT);
+/* Camera is now positioned to frame the entire scene */
+
+bv_scene_destroy(scene);
+bview_destroy(view);
+```
+
+To mark a geometry node as needing LoD update (Phase 4 stub):
+
+```c
+/* Iterate over the scene and mark all geometry stale for the current view */
+struct bv_node *root = bv_scene_root(scene);
+/* (walk the tree yourself, or wait for the Phase 4 traverse-based update) */
+bview_lod_node_update(geom_node, active_view);
+/* geom_node's wrapped bv_scene_obj will have s_dlist_stale set, triggering
+ * regeneration in the legacy rendering path on the next draw cycle. */
 ```
