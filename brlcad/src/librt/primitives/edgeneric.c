@@ -88,6 +88,10 @@ edit_sscale(struct rt_edit *s)
 	s->acc_sc_sol = s->e_para[0];
     }
 
+    /* No pending scale operation — nothing to apply. */
+    if (!s->e_inpara && s->es_scale < SMALL_FASTF)
+	return 0;
+
     bn_mat_scale_about_pnt(scalemat, s->e_keypoint, s->es_scale);
     bn_mat_mul(mat1, scalemat, s->e_mat);
     bn_mat_mul(mat, s->e_invmat, mat1);

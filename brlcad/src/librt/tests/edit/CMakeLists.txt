@@ -8,6 +8,8 @@ brlcad_addexec(rt_edit_test_hyp hyp.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_rpc rpc.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_rhc rhc.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_part part.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_superell superell.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_cline cline.cpp "librt" TEST)
 
 set(
   distcheck_files
@@ -22,6 +24,8 @@ set(
   rpc.cpp
   rhc.cpp
   part.cpp
+  superell.cpp
+  cline.cpp
 )
 
 cmakefiles(${distcheck_files})
