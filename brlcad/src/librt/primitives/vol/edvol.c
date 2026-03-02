@@ -315,7 +315,8 @@ ecmd_vol_fname(struct rt_edit *s)
 static int
 rt_edit_vol_pscale(struct rt_edit *s)
 {
-    if (s->e_inpara > 1) {
+    /* ECMD_VOL_CSIZE needs 3 params (x, y, z); all others need exactly 1 */
+    if (s->edit_flag != ECMD_VOL_CSIZE && s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
