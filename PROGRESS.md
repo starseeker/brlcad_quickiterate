@@ -50,32 +50,44 @@ If librt produces a different result from MGED:
   to match MGED; do not adjust the expected values to match the broken
   librt output.
 
-### 3. MAT4X3VEC / MAT4X3PNT aliasing
+### 3. MAT4X3VEC / MAT4X3PNT aliasing and perspective division
 
-`MAT4X3VEC(o, mat, i)` expands to sequential scalar assignments.
-When `o` and `i` are the same pointer (e.g. both equal `tgc->h`),
-the first assignment overwrites a component that is still needed for
-the remaining assignments — producing a silently wrong result.
+`MAT4X3VEC(o, mat, i)` expands to sequential scalar assignments **with
+perspective division by `1/mat[15]`**.  For a plain rotation matrix
+`mat[15]=1` so the division is a no-op and the result is just the
+upper-3x3 applied.  For `bn_mat_scale_about_pnt(mat, pt, s)`, which
+encodes the scale factor as `mat[15] = 1/s` (not in the upper 3x3),
+`MAT4X3VEC` divides by `1/s`, effectively scaling by `s`.  The same is
+true for `MAT4X3PNT`.
 
-**Always use a temporary vect_t when the output and input could alias:**
+Consequence: a uniform scale via `edit_sscale` scales **all** vector
+and scalar quantities (H, a, b, c, r1, r2, ...) by the scale factor.
+The origin/vertex (keypoint) stays fixed because `MAT4X3PNT` produces
+the same perspective-corrected result for the keypoint.
+
+**Aliasing bug:** When `o` and `i` are the **same pointer** (e.g. both
+equal `tgc->h`), the first component assignment overwrites a value still
+needed for later ones — producing a silently wrong result.  Always use
+a temporary vect_t when the output and input could alias:
+
 ```c
 /* WRONG — tgc->h[X] gets overwritten before tgc->h[Y] is read */
 MAT4X3VEC(tgc->h, mat, tgc->h);
 
 /* CORRECT */
 vect_t h_tmp;
-MAT4X3VEC(h_tmp, mat, tgc->h);
-VMOVE(tgc->h, h_tmp);
+VMOVE(h_tmp, tgc->h);
+MAT4X3VEC(tgc->h, mat, h_tmp);
 ```
 
 The same rule applies to `MAT4X3PNT`.
 
 When reviewing a new primitive's edit code, check every `MAT4X3VEC`
 and `MAT4X3PNT` call for this pattern.  The generic helpers
-`rt_tgc_mat`, `rt_ell_mat`, `rt_tor_mat` and others in the `ft_mat`
-table already copy to temporaries and are safe; the aliasing risk is
-highest in hand-coded `ecmd_*` rotation functions that directly
-manipulate the primitive struct fields in-place.
+`rt_tgc_mat`, `rt_ell_mat`, `rt_tor_mat`, `rt_epa_mat`, `rt_ehy_mat`
+and others in the `ft_mat` table already copy to temporaries and are
+safe; the aliasing risk is highest in hand-coded `ecmd_*` rotation
+functions that directly manipulate the primitive struct fields in-place.
 
 ### 4. How to run existing tests
 
@@ -190,17 +202,43 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
   as generic solid editing.  The ARB-specific face equations are
   maintained in the `rt_edit` state (`es_peqn`).
 
-### EPA — Elliptical Paraboloid ⬜ EDIT CODE EXISTS, NO TEST
+### EPA — Elliptical Paraboloid ✅ DONE (with test)
 
 - Source: `src/librt/primitives/epa/edepa.c`
-- Edit mode flags: `ECMD_EPA_H`, `ECMD_EPA_R1`, `ECMD_EPA_R2`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/epa.cpp`
+- Operations validated:
+  - `ECMD_EPA_H`   — scale height vector H (es_scale and e_inpara)
+  - `ECMD_EPA_R1`  — scale semi-major radius (allowed when r1*s >= r2)
+  - `ECMD_EPA_R2`  — scale semi-minor radius (allowed when r2*s <= r1)
+  - `RT_PARAMS_EDIT_SCALE` — uniform scale about vertex
+  - `RT_PARAMS_EDIT_TRANS` — translate
+  - `RT_PARAMS_EDIT_ROT`   — rotate about keypoint (mv_context=1)
+  - XY mouse-based edits: ECMD_EPA_H, RT_PARAMS_EDIT_TRANS (verify changed),
+    RT_PARAMS_EDIT_ROT error path
+- Aliasing investigation: `rt_epa_mat` copies all vectors to temporaries —
+  no aliasing bug.
+- MAT4X3VEC note: includes perspective division by `1/mat[15]`, so
+  **all** vector quantities (including H) scale under `RT_PARAMS_EDIT_SCALE`.
+  r1/r2 scale via `r1/mat[15] = r1*scale`.  This matches MGED behaviour.
 
-### EHY — Elliptical Hyperboloid ⬜ EDIT CODE EXISTS, NO TEST
+### EHY — Elliptical Hyperboloid ✅ DONE (with test)
 
 - Source: `src/librt/primitives/ehy/edehy.c`
-- Edit mode flags: `ECMD_EHY_H`, `ECMD_EHY_R1`, `ECMD_EHY_R2`, `ECMD_EHY_C`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/ehy.cpp`
+- Operations validated:
+  - `ECMD_EHY_H`   — scale height vector H (es_scale and e_inpara)
+  - `ECMD_EHY_R1`  — scale semi-major radius (allowed when r1*s >= r2)
+  - `ECMD_EHY_R2`  — scale semi-minor radius (allowed when r2*s <= r1)
+  - `ECMD_EHY_C`   — scale distance to asymptotic cone (es_scale and e_inpara)
+  - `RT_PARAMS_EDIT_SCALE` — uniform scale about vertex
+  - `RT_PARAMS_EDIT_TRANS` — translate
+  - `RT_PARAMS_EDIT_ROT`   — rotate about keypoint (mv_context=1)
+  - XY mouse-based edits: ECMD_EHY_H, RT_PARAMS_EDIT_TRANS (verify changed),
+    RT_PARAMS_EDIT_ROT error path
+- Aliasing investigation: `rt_ehy_mat` copies all vectors to temporaries —
+  no aliasing bug.
+- MAT4X3VEC note: same as EPA — H and Au scale under RT_PARAMS_EDIT_SCALE;
+  r1/r2/c scale via `r/mat[15]`. This matches MGED behaviour.
 
 ### ETO — Elliptical Torus ⬜ EDIT CODE EXISTS, NO TEST
 
@@ -356,7 +394,21 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
   modes + mv_context=0), XY translation, and XY rotation error path.
 - Updated PROGRESS.md with general principles (§ Agent Instructions).
 
-### Session 3 (2026-03-02)
+### Session 4 (2026-03-02)
+- Wrote `src/librt/tests/edit/epa.cpp` — full EPA test coverage:
+  ECMD_EPA_H, ECMD_EPA_R1, ECMD_EPA_R2, RT_PARAMS_EDIT_SCALE/TRANS/ROT,
+  XY scale (ECMD_EPA_H), XY trans (verify-changed), XY ROT error path.
+- Wrote `src/librt/tests/edit/ehy.cpp` — full EHY test coverage:
+  ECMD_EHY_H, ECMD_EHY_R1, ECMD_EHY_R2, ECMD_EHY_C,
+  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale, XY trans (verify-changed),
+  XY ROT error path.
+- Updated `CMakeLists.txt` to add both new tests.
+- Discovered and corrected a misunderstanding of `MAT4X3VEC`: it includes
+  perspective division by `1/mat[15]`, so uniform scale (which encodes the
+  scale factor in `mat[15] = 1/s`) causes ALL vector quantities (including H)
+  to scale by s.  Updated PROGRESS.md §3 Agent Instructions to document this.
+- Confirmed rt_epa_mat and rt_ehy_mat are alias-safe.
+- All 5 tests pass (tor, ell, tgc, epa, ehy).
 - Investigated TOR and ELL for the same `MAT4X3VEC` aliasing issue.
 - **Result: no aliasing bug in TOR or ELL.**
   - Both delegate rotations to `edit_srot` → `ft_mat` callback.
@@ -380,16 +432,16 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
 
 ## Suggested Next Steps
 
-1. **Add more primitive tests** — epa, ehy, eto, hyp are next in
-   complexity after tgc.  Each has relatively simple, analytically-
-   verifiable expected values for their `ECMD_*` operations.
+1. **Add more primitive tests** — eto, hyp, rpc, rhc, part are next.
+   Each has relatively simple, analytically-verifiable expected values.
    **Before writing any test**, trace the expected values from MGED's
    `edsol.c` and/or use a probe program (see Agent Instructions §1).
 2. **Aliasing audit for remaining primitives** — before writing each
    new test, scan the primitive's `ed<prim>.c` for any
    `MAT4X3VEC(x, mat, x)` or `MAT4X3PNT(x, mat, x)` patterns (same
    pointer for output and input).  See Agent Instructions §3.
-   Confirmed clean so far: TOR, ELL, TGC (fixed), TGC's `rt_tgc_mat`.
+   Confirmed clean so far: TOR, ELL, TGC (fixed), TGC's `rt_tgc_mat`,
+   EPA (`rt_epa_mat`), EHY (`rt_ehy_mat`).
 3. **Fix remaining NULL keypoints** — audit ID_REVOLVE (40), ID_PNTS (41),
    ID_HRT (43), ID_JOINT (23), ID_SUBMODEL (28).
 4. **Implement XY rotation** — validate and integrate the mgedrework
