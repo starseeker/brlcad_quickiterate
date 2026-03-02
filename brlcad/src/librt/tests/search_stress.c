@@ -591,7 +591,7 @@ test_stress_cross_validation(struct db_i *dbip, int depth)
     t_old = bu_gettime() - t_old;
     db_search_free(&old_results);
 
-    bu_log("  stress depth=%d  -name: new=%d(%.3fs) old=%d(%.3fs)\n",
+    bu_log("  stress depth=%d  -name: new=%d(%.6fs) old=%d(%.6fs)\n",
            depth, new_cnt, (double)t_new/1e6, old_cnt, (double)t_old/1e6);
     CROSS_CHECK(new_cnt, old_cnt, "-name stress_target_a (stress)");
 
@@ -610,7 +610,7 @@ test_stress_cross_validation(struct db_i *dbip, int depth)
     t_old = bu_gettime() - t_old;
     db_search_free(&old_results);
 
-    bu_log("  stress depth=%d  -above: new=%d(%.3fs) old=%d(%.3fs)\n",
+    bu_log("  stress depth=%d  -above: new=%d(%.6fs) old=%d(%.6fs)\n",
            depth, new_cnt, (double)t_new/1e6, old_cnt, (double)t_old/1e6);
     CROSS_CHECK(new_cnt, old_cnt, "-above -name stress_target_a (stress)");
 
@@ -686,7 +686,7 @@ main(int argc, char *argv[])
     /* ---- Stress tests at increasing depths ---- */
     {
         int depths[] = {3, 5, 7, 0};
-        int branches = 8;
+        int branches = 256;
         int di;
 
         bu_log("\nRunning stress tests (branches=%d)...\n", branches);
