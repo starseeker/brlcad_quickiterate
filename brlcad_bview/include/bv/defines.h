@@ -265,6 +265,22 @@ BV_EXPORT const struct bview_pick_set *bview_pick_set_get(const struct bview_new
 typedef void (*bview_redraw_cb)(struct bview_new *, void *);
 BV_EXPORT void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
 
+/*
+ * Per-node update/regenerate callback (analogous to bv_scene_obj::s_update_callback).
+ *
+ * Registered on a BV_NODE_GEOMETRY node by the code that owns the geometry.
+ * The rendering pipeline calls this when the node's display list is stale
+ * (dlist_stale == 1) and needs to be rebuilt.
+ *
+ * Parameters:
+ *   node  – the node being updated
+ *   view  – the view context for which the update is requested (may be NULL)
+ *   flags – reserved for future use (pass 0)
+ *
+ * Returns 1 if the geometry was successfully updated, 0 otherwise.
+ */
+typedef int (*bv_node_update_cb)(struct bv_node *node, struct bview_new *view, int flags);
+
 /* --- Scene Node API --- */
 
 /*
@@ -316,6 +332,64 @@ BV_EXPORT void bv_node_bounds_set(struct bv_node *node,
 BV_EXPORT void bv_node_bounds_clear(struct bv_node *node);
 BV_EXPORT int  bv_node_bounds_get(const struct bv_node *node,
                                    point_t *out_min, point_t *out_max);
+
+/*
+ * Typed vlist accessor for BV_NODE_GEOMETRY nodes (Phase 2).
+ *
+ * A BV_NODE_GEOMETRY node may carry a bv_vlist chain as its primary geometry
+ * representation.  These are thin typed wrappers around bv_node_geometry_set/get()
+ * that cast the void* geometry pointer to/from `struct bu_list *` (a vlist head).
+ *
+ * The caller retains ownership of the vlist: bv_node_destroy() does NOT free
+ * the vlist — the code that allocated the vlist is responsible for freeing it
+ * (typically via BV_FREE_VLIST).  Set the geometry to NULL before destroying
+ * the node if vlist lifetime outlasts the node.
+ *
+ * bv_node_vlist_get() returns NULL if no vlist has been set.
+ *
+ * bv_node_vlist_bounds() computes the AABB of the vlist stored on the node.
+ * Returns 1 if the vlist is non-empty and bounds were computed, 0 otherwise.
+ * This is a convenience wrapper around the public bv_vlist_bbox() function.
+ * bv_node_bbox() will automatically call this as a final fallback when neither
+ * a native AABB nor a wrapped bv_scene_obj is available.
+ */
+BV_EXPORT void             bv_node_vlist_set(struct bv_node *node, struct bu_list *vlist);
+BV_EXPORT struct bu_list  *bv_node_vlist_get(const struct bv_node *node);
+BV_EXPORT int              bv_node_vlist_bounds(const struct bv_node *node,
+                                                 point_t *out_min, point_t *out_max);
+
+/*
+ * Display-list state for a node (Phase 2 — render backend integration).
+ *
+ * `dlist` is a backend-specific handle (e.g. an OpenGL display list name).
+ * `dlist_stale` is a flag: 1 = the display list needs to be regenerated before
+ * the next draw, 0 = up to date.
+ *
+ * These mirror the `s_dlist` / `s_dlist_stale` fields on `bv_scene_obj` and allow
+ * pure new-API nodes to participate in the same rendering pipeline without wrapping
+ * a legacy object.
+ *
+ * bview_lod_node_update() sets dlist_stale = 1 on native geometry nodes (those
+ * that do not carry a wrapped bv_scene_obj).
+ */
+BV_EXPORT void         bv_node_dlist_set(struct bv_node *node, unsigned int dlist);
+BV_EXPORT unsigned int bv_node_dlist_get(const struct bv_node *node);
+BV_EXPORT void         bv_node_dlist_stale_set(struct bv_node *node, int stale);
+BV_EXPORT int          bv_node_dlist_stale_get(const struct bv_node *node);
+
+/*
+ * Per-node update callback (Phase 2 — replaces s_update_callback on bv_scene_obj).
+ *
+ * The callback is invoked by the rendering pipeline when dlist_stale == 1 and
+ * the display list needs to be rebuilt.  The caller registers cb + data once
+ * (typically at node creation time) and the pipeline calls it when needed.
+ *
+ * Set cb to NULL to remove the callback.
+ */
+BV_EXPORT void               bv_node_update_cb_set(struct bv_node *node,
+                                                    bv_node_update_cb cb, void *data);
+BV_EXPORT bv_node_update_cb  bv_node_update_cb_get(const struct bv_node *node);
+BV_EXPORT void              *bv_node_update_cb_data_get(const struct bv_node *node);
 
 /* Hierarchy management (analogous to SoGroup::addChild/removeChild/getChildren) */
 BV_EXPORT void bv_node_add_child(struct bv_node *parent, struct bv_node *child);
@@ -464,8 +538,9 @@ BV_EXPORT const struct bu_ptbl *bv_scene_views(const struct bv_scene *scene);
  *  2. Otherwise, if the node's user_data points to a bv_scene_obj (as set by
  *     bv_scene_obj_to_node()), the object's pre-computed bounding sphere
  *     (s_center + s_size) is expanded to an AABB.
- *  3. Nodes with neither native bounds nor a wrapped bv_scene_obj contribute
- *     nothing to the result.
+ *  3. Otherwise, if the node carries a vlist (bv_node_vlist_get() is non-NULL),
+ *     the AABB is computed by iterating the vlist via bv_vlist_bbox().
+ *  4. Nodes with none of the above contribute nothing to the result.
  *
  * On return:
  *   *out_min is the component-wise minimum corner of the AABB.

@@ -103,6 +103,14 @@ struct bv_node {
     int                     have_bounds;    /* 1 when bounds_min/max are valid */
     point_t                 bounds_min;     /* AABB minimum corner */
     point_t                 bounds_max;     /* AABB maximum corner */
+
+    /* Render-backend draw state (analog of bv_scene_obj::s_dlist / s_dlist_stale) */
+    unsigned int            dlist;          /* Display list handle (backend-specific) */
+    int                     dlist_stale;    /* 1 = display list needs regeneration */
+
+    /* Per-node update/regenerate callback (analog of bv_scene_obj::s_update_callback) */
+    bv_node_update_cb       update_cb;      /* Called when node geometry needs rebuilding */
+    void                   *update_cb_data; /* Caller-managed user data for update_cb */
 };
 
 

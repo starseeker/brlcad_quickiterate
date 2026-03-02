@@ -106,6 +106,25 @@ void              bv_node_bounds_clear(struct bv_node *node);
 int               bv_node_bounds_get(const struct bv_node *node,
                                       point_t *out_min, point_t *out_max);
 
+/* Vlist geometry (Phase 2 — caller manages vlist lifecycle) */
+void              bv_node_vlist_set(struct bv_node *node, struct bu_list *vlist);
+struct bu_list   *bv_node_vlist_get(const struct bv_node *node);
+int               bv_node_vlist_bounds(const struct bv_node *node,
+                                        point_t *out_min, point_t *out_max);
+
+/* Render-backend draw state (Phase 2 — analog of s_dlist / s_dlist_stale) */
+void              bv_node_dlist_set(struct bv_node *node, unsigned int dlist);
+unsigned int      bv_node_dlist_get(const struct bv_node *node);
+void              bv_node_dlist_stale_set(struct bv_node *node, int stale);
+int               bv_node_dlist_stale_get(const struct bv_node *node);
+
+/* Per-node update callback (Phase 2 — analog of s_update_callback) */
+typedef int (*bv_node_update_cb)(struct bv_node *node, struct bview_new *view, int flags);
+void              bv_node_update_cb_set(struct bv_node *node,
+                                         bv_node_update_cb cb, void *data);
+bv_node_update_cb bv_node_update_cb_get(const struct bv_node *node);
+void             *bv_node_update_cb_data_get(const struct bv_node *node);
+
 /* Level-of-detail index (Phase 4) */
 void              bv_node_lod_level_set(struct bv_node *node, int level);
 int               bv_node_lod_level_get(const struct bv_node *node);
@@ -342,10 +361,45 @@ Files updated:
   `bv_node_create()`; update `_bbox_cb` for native-bounds priority
 - `src/libbv/tests/scene.c` – add `node_bounds_null`, `node_bounds_set_get`,
   `node_bbox_native`, `node_bbox_native_overrides` tests
+- **Render state and per-node update callback** (this session):
+  - Added `dlist` (display list handle), `dlist_stale` (needs-redraw flag),
+    `update_cb` (per-node regenerate callback), `update_cb_data` (callback user
+    data) fields to `bv_node`.  These are direct analogs of `s_dlist`,
+    `s_dlist_stale`, and `s_update_callback` on `bv_scene_obj`, completing the
+    set of fields needed to render a native node without a legacy wrapper.
+  - Added `bv_node_update_cb` typedef in `defines.h` (documented analog of
+    `bv_scene_obj::s_update_callback`).
+  - `bv_node_dlist_set/get()` and `bv_node_dlist_stale_set/get()` — render-state
+    accessors.
+  - `bv_node_update_cb_set(node, cb, data)` / `bv_node_update_cb_get(node)` /
+    `bv_node_update_cb_data_get(node)` — callback accessors.
+- **Native vlist support** (this session):
+  - `bv_node_vlist_set(node, vlist)` / `bv_node_vlist_get(node)` — typed wrappers
+    around `bv_node_geometry_set/get()`.  Store a `struct bu_list *` (vlist head)
+    as the node's geometry.  Caller retains vlist ownership.
+  - `bv_node_vlist_bounds(node, out_min, out_max)` — compute AABB from the node's
+    vlist by calling `bv_vlist_bbox()`.  Returns 1 on success, 0 if no vlist or
+    empty.
+  - Updated `_bbox_cb` traverse callback: priority 3 (after native AABB and legacy
+    obj sphere) now computes bounds from vlist when the geometry pointer is non-NULL.
+    This allows fully native geometry nodes to participate in `bv_scene_bbox()` and
+    `bview_autoview_new()` without any legacy API calls.
+
+Files updated (this session, Phase 2):
+- `include/bv/defines.h` – `bv_node_update_cb` typedef; `bv_node_vlist_set/get`,
+  `bv_node_vlist_bounds`, `bv_node_dlist_set/get`, `bv_node_dlist_stale_set/get`,
+  `bv_node_update_cb_set/get`, `bv_node_update_cb_data_get` declarations; updated
+  `bv_node_bbox` doc comment to document vlist fallback (priority 3)
+- `src/libbv/bv_private.h` – added `dlist`, `dlist_stale`, `update_cb`,
+  `update_cb_data` fields to `struct bv_node`
+- `src/libbv/scene.cpp` – implement all new functions; initialize new fields in
+  `bv_node_create()`; update `_bbox_cb` for vlist fallback; add `bv/vlist.h` include
+- `src/libbv/tests/scene.c` – add `node_vlist_null`, `node_vlist_set_get`,
+  `node_vlist_bounds`, `node_bbox_from_vlist`, `node_dlist`, `node_update_cb` tests;
+  update `lod_node_update_no_obj` to match new native-node behavior
 
 Remaining for Phase 2 completion:
-- New geometry creation: `bv_node_create(BV_NODE_GEOMETRY)` + `bv_node_geometry_set()`
-  instead of `bv_obj_get()` + direct struct mutation
+- Replace direct `bu_ptbl_ins()` into `gv_objs.db_objs` with `bv_scene_add_node()`
 
 ### Phase 3 – View sets + selection (COMPLETE)
 
@@ -390,7 +444,7 @@ Files updated:
   `scene_view_count_empty`, `scene_view_count_one`,
   `scene_view_count_shared`, `scene_view_switch` tests
 
-### Phase 4 – LoD integration (WIRED)
+### Phase 4 – LoD integration (COMPLETE)
 
 Goals:
 - `bview_lod_update()` wired into the geometry node update pipeline.
@@ -402,16 +456,16 @@ Status:
   `bv_scene_obj` carries `BV_MESH_LOD` data AND a legacy `bview` is reachable
   via `bview_old_get(view)`.  Falls back to `s_dlist_stale = 1` for non-LoD
   objects or when no legacy view pointer is available.
+  Updated (this session): for **native** geometry nodes (no wrapped `bv_scene_obj`),
+  sets `node->dlist_stale = 1` directly instead of returning 0, so the rendering
+  backend receives the same signal for both legacy and native objects.
 - `bv_scene_lod_update(struct bv_scene *, const struct bview_new *)` **added**:
   traverses all `BV_NODE_GEOMETRY` nodes in a scene via `bv_scene_traverse()`,
   calling `bview_lod_node_update()` on each.  Returns count of nodes processed.
 - `bview_lod_update(struct bview_new *)` **wired**: now calls
   `bv_scene_lod_update(view->scene, view)` instead of being a no-op placeholder.
-- `bv_node_lod_level_set(node, level)` / `bv_node_lod_level_get(node)` **added**
-  (this session): public accessor pair for the `lod_level` field.  The field was
-  always present in `bv_node` but had no public API.  The LoD pipeline sets this
-  field; the rendering backend reads it to select the appropriate geometry detail
-  for display.
+- `bv_node_lod_level_set(node, level)` / `bv_node_lod_level_get(node)` **added**:
+  public accessor pair for the `lod_level` field.
 
 Files updated:
 - `include/bv/defines.h` – `bview_lod_node_update` updated doc comment;
@@ -419,11 +473,12 @@ Files updated:
   declarations
 - `src/libbv/scene.cpp` – wire `bview_lod_node_update()` to `bv_mesh_lod_view()`;
   implement `bv_scene_lod_update()`, `bv_node_lod_level_set/get`;
-  add `bv/lod.h` include; wire `bview_lod_update()` to `bv_scene_lod_update()`
+  add `bv/lod.h` include; wire `bview_lod_update()` to `bv_scene_lod_update()`;
+  extend native-node path to set `node->dlist_stale = 1`
 - `src/libbv/tests/scene.c` – add `lod_node_update_null`,
-  `lod_node_update_non_geom`, `lod_node_update_no_obj`,
+  `lod_node_update_non_geom`, `lod_node_update_no_obj` (updated for native behavior),
   `lod_node_update_stale`, `scene_lod_update_null`, `scene_lod_update_empty`,
-  `scene_lod_update_counts`, `node_lod_level` tests
+  `scene_lod_update_counts`, `node_lod_level`, `lod_node_update_native` tests
 
 ### Phase 5 – obol/Coin3D bridge (LONG TERM)
 
@@ -466,12 +521,17 @@ repository.
 | DEPRECATED annotations on all `bv_set_*` functions | Phase 1+3 | ✅ COMPLETE |
 | `bv_scene_obj_to_node()` — wrap legacy obj in new node | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view()` — build scene from legacy bview | Phase 2 | ✅ COMPLETE |
-| `bv_node_bbox()` — AABB of node subtree (legacy sphere + native AABB) | Phase 2 | ✅ COMPLETE |
+| `bv_node_bbox()` — AABB of node subtree (native AABB + legacy sphere + vlist) | Phase 2 | ✅ COMPLETE |
 | `bv_scene_bbox()` — AABB of entire scene | Phase 2 | ✅ COMPLETE |
 | `bview_autoview_new()` — fit camera to scene geometry | Phase 2 | ✅ COMPLETE |
 | `bv_node_geometry_get()` — getter for geometry pointer | Phase 2 | ✅ COMPLETE |
 | `bv_node_selected_set()` / `bv_node_selected_get()` — selection accessors | Phase 2 | ✅ COMPLETE |
 | `bv_node_bounds_set/get/clear()` — native AABB on bv_node | Phase 2 | ✅ COMPLETE |
+| `bv_node_vlist_set/get()` — typed vlist accessor (geometry field) | Phase 2 | ✅ COMPLETE |
+| `bv_node_vlist_bounds()` — compute AABB from node's vlist | Phase 2 | ✅ COMPLETE |
+| `bv_node_dlist_set/get()` — render-backend display list handle | Phase 2 | ✅ COMPLETE |
+| `bv_node_dlist_stale_set/get()` — needs-redraw flag | Phase 2 | ✅ COMPLETE |
+| `bv_node_update_cb` typedef + `bv_node_update_cb_set/get` | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view_set()` — build scene from bview_set | Phase 3 | ✅ COMPLETE |
 | `bv_scene_selected_nodes()` — collect selected nodes via traverse | Phase 3 | ✅ COMPLETE |
 | `bv_scene_select_node()` — select/deselect a single node | Phase 3 | ✅ COMPLETE |
@@ -479,13 +539,13 @@ repository.
 | `bv_scene_view_count()` / `bv_scene_views()` — multi-view sharing query | Phase 3 | ✅ COMPLETE |
 | `bview_scene_set` tracks views in `bv_scene.views` | Phase 3 | ✅ COMPLETE |
 | `bview_destroy` unregisters from scene view list | Phase 3 | ✅ COMPLETE |
-| `bview_lod_node_update()` — wired to `bv_mesh_lod_view()` | Phase 4 | ✅ COMPLETE |
+| `bview_lod_node_update()` — wired (legacy + native node paths) | Phase 4 | ✅ COMPLETE |
 | `bv_scene_lod_update()` — update LoD for all geometry nodes | Phase 4 | ✅ COMPLETE |
 | `bview_lod_update()` — wired to `bv_scene_lod_update()` | Phase 4 | ✅ COMPLETE |
 | `bv_node_lod_level_set/get()` — public accessor for lod_level field | Phase 4 | ✅ COMPLETE |
-| Unit tests (92 total — 10 new this session) | Phase 2–4 | ✅ COMPLETE |
+| Unit tests (99 total — 7 new this session) | Phase 2–4 | ✅ COMPLETE |
 | Internal callers migrated to new lifecycle API | Phase 1 | 🔲 PLANNED |
-| New geometry creation via `bv_node_create()` | Phase 2 | 🔲 PLANNED |
+| Replace `bu_ptbl_ins(gv_objs.db_objs)` with `bv_scene_add_node()` | Phase 2 | 🔲 PLANNED |
 | `lod.cpp` further refactored to operate natively on `bv_node` trees | Phase 4 | 🔲 PLANNED |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
 
@@ -686,4 +746,40 @@ bview_destroy(v2);   /* scene->views now has only v1 */
 
 bview_destroy(v1);
 bv_scene_destroy(scene);
+```
+
+To create a fully native geometry node with a vlist (Phase 2 — no `bv_obj_get()` needed):
+
+```c
+#include "bv.h"   /* bv/vlist.h is pulled in via bv.h */
+
+struct bu_list vlfree;
+struct bu_list vlist;
+BU_LIST_INIT(&vlfree);
+BU_LIST_INIT(&vlist);
+
+/* Build vlist content */
+point_t p0, p1;
+VSET(p0, 0.0, 0.0, 0.0);
+VSET(p1, 1.0, 1.0, 1.0);
+BV_ADD_VLIST(&vlfree, &vlist, p0, BV_VLIST_LINE_MOVE);
+BV_ADD_VLIST(&vlfree, &vlist, p1, BV_VLIST_LINE_DRAW);
+
+/* Create the node and attach the vlist */
+struct bv_node *n = bv_node_create("my_line", BV_NODE_GEOMETRY);
+bv_node_vlist_set(n, &vlist);
+
+/* Optional: register an update callback so the rendering backend
+ * can rebuild the vlist when dlist_stale is set */
+bv_node_update_cb_set(n, my_update_fn, my_update_data);
+
+/* bv_scene_bbox() and bview_autoview_new() include this node via the
+ * vlist fallback in bv_node_bbox — no bv_node_bounds_set() call required. */
+bv_scene_add_node(scene, n);
+
+/* At teardown: detach vlist before destroying node (caller frees it) */
+bv_node_vlist_set(n, NULL);
+bv_node_destroy(n);   /* does NOT free the vlist */
+BV_FREE_VLIST(&vlfree, &vlist);
+bv_vlist_cleanup(&vlfree);
 ```

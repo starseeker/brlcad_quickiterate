@@ -1971,13 +1971,19 @@ static int
 test_bview_lod_node_update_geom_no_obj(void)
 {
     struct bv_node *n = bv_node_create("lod_geom", BV_NODE_GEOMETRY);
-    int r;
+    int r, stale;
     CHECK(n != NULL, "bv_node_create non-NULL");
     if (!n) return 0;
 
-    /* No user_data set → returns 0 (no legacy obj to mark stale) */
+    /* No user_data (no legacy bv_scene_obj) → native path: returns 1 and sets dlist_stale */
+    stale = bv_node_dlist_stale_get(n);
+    CHECK(stale == 0, "dlist_stale initially 0");
+
     r = bview_lod_node_update(n, NULL);
-    CHECK(r == 0, "lod_node_update on geom without user_data returns 0");
+    CHECK(r == 1, "lod_node_update on native geom node returns 1");
+
+    stale = bv_node_dlist_stale_get(n);
+    CHECK(stale == 1, "dlist_stale == 1 after lod_node_update on native node");
 
     bv_node_destroy(n);
     return 1;
@@ -2659,6 +2665,294 @@ test_bv_scene_view_switch(void)
 
 
 /* ================================================================
+ * Phase 2 (continued) – vlist, dlist, update_cb
+ * ================================================================ */
+
+/* Simple stub used as update_cb in tests */
+static int
+_test_update_cb(struct bv_node *node, struct bview_new *view, int flags)
+{
+    (void)node; (void)view; (void)flags;
+    return 1;
+}
+
+static int
+test_bv_node_vlist_null_safety(void)
+{
+    struct bu_list *vl;
+    point_t mn, mx;
+    VSETALL(mn, 0.0);
+    VSETALL(mx, 0.0);
+
+    bv_node_vlist_set(NULL, NULL);
+    CHECK(1, "vlist_set(NULL) does not crash");
+
+    vl = bv_node_vlist_get(NULL);
+    CHECK(vl == NULL, "vlist_get(NULL node) returns NULL");
+
+    CHECK(bv_node_vlist_bounds(NULL, &mn, &mx) == 0,
+	  "vlist_bounds(NULL node) returns 0");
+    {
+	struct bv_node *n = bv_node_create("vn", BV_NODE_GEOMETRY);
+	CHECK(n != NULL, "create non-NULL");
+	if (n) {
+	    /* No vlist set yet */
+	    CHECK(bv_node_vlist_bounds(n, NULL, &mx) == 0,
+		  "vlist_bounds(NULL out_min) returns 0");
+	    CHECK(bv_node_vlist_bounds(n, &mn, NULL) == 0,
+		  "vlist_bounds(NULL out_max) returns 0");
+	    CHECK(bv_node_vlist_bounds(n, &mn, &mx) == 0,
+		  "vlist_bounds(no vlist) returns 0");
+	    bv_node_destroy(n);
+	}
+    }
+    return 1;
+}
+
+static int
+test_bv_node_vlist_set_get(void)
+{
+    struct bv_node  *n;
+    struct bu_list   vlfree;
+    struct bu_list   vlist;
+    struct bu_list  *got;
+    point_t pt0, pt1;
+
+    BU_LIST_INIT(&vlfree);
+    BU_LIST_INIT(&vlist);
+
+    n = bv_node_create("vlist_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) { bv_vlist_cleanup(&vlfree); return 0; }
+
+    /* Initially NULL */
+    got = bv_node_vlist_get(n);
+    CHECK(got == NULL, "vlist initially NULL");
+
+    /* Set a vlist */
+    bv_node_vlist_set(n, &vlist);
+    got = bv_node_vlist_get(n);
+    CHECK(got == &vlist, "vlist_get returns the set vlist");
+
+    /* Add a couple of points */
+    VSET(pt0,  0.0,  0.0, 0.0);
+    VSET(pt1, 10.0, 20.0, 5.0);
+    BV_ADD_VLIST(&vlfree, &vlist, pt0, BV_VLIST_LINE_MOVE);
+    BV_ADD_VLIST(&vlfree, &vlist, pt1, BV_VLIST_LINE_DRAW);
+
+    CHECK(!BU_LIST_IS_EMPTY(&vlist), "vlist has entries after BV_ADD_VLIST");
+
+    /* Clear: caller removes vlist before destroying node */
+    bv_node_vlist_set(n, NULL);
+    got = bv_node_vlist_get(n);
+    CHECK(got == NULL, "vlist NULL after clear");
+
+    bv_node_destroy(n);
+    BV_FREE_VLIST(&vlfree, &vlist);
+    bv_vlist_cleanup(&vlfree);
+    return 1;
+}
+
+static int
+test_bv_node_vlist_bounds(void)
+{
+    struct bv_node *n;
+    struct bu_list  vlfree;
+    struct bu_list  vlist;
+    point_t pt_a, pt_b, pt_c;
+    point_t mn_out, mx_out;
+    int r;
+
+    BU_LIST_INIT(&vlfree);
+    BU_LIST_INIT(&vlist);
+
+    n = bv_node_create("vb", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) { bv_vlist_cleanup(&vlfree); return 0; }
+
+    /* Build a vlist with known extents: x[-5,5], y[-10,10], z[0,3] */
+    VSET(pt_a, -5.0, -10.0, 0.0);
+    VSET(pt_b,  5.0,  10.0, 3.0);
+    VSET(pt_c,  0.0,   0.0, 1.5);
+    BV_ADD_VLIST(&vlfree, &vlist, pt_a, BV_VLIST_LINE_MOVE);
+    BV_ADD_VLIST(&vlfree, &vlist, pt_b, BV_VLIST_LINE_DRAW);
+    BV_ADD_VLIST(&vlfree, &vlist, pt_c, BV_VLIST_LINE_DRAW);
+
+    bv_node_vlist_set(n, &vlist);
+
+    r = bv_node_vlist_bounds(n, &mn_out, &mx_out);
+    CHECK(r == 1, "vlist_bounds returns 1 for non-empty vlist");
+    CHECK(mn_out[X] <= -5.0 + 1e-9, "vlist bounds min-X");
+    CHECK(mn_out[Y] <= -10.0 + 1e-9, "vlist bounds min-Y");
+    CHECK(mn_out[Z] <= 0.0 + 1e-9, "vlist bounds min-Z");
+    CHECK(mx_out[X] >= 5.0 - 1e-9, "vlist bounds max-X");
+    CHECK(mx_out[Y] >= 10.0 - 1e-9, "vlist bounds max-Y");
+    CHECK(mx_out[Z] >= 3.0 - 1e-9, "vlist bounds max-Z");
+
+    bv_node_vlist_set(n, NULL);
+    bv_node_destroy(n);
+    BV_FREE_VLIST(&vlfree, &vlist);
+    bv_vlist_cleanup(&vlfree);
+    return 1;
+}
+
+static int
+test_bv_node_bbox_from_vlist(void)
+{
+    /* bv_node_bbox falls through to vlist bounds when no native AABB and no obj */
+    struct bv_scene *scene;
+    struct bv_node  *n;
+    struct bu_list   vlfree;
+    struct bu_list   vlist;
+    point_t pt_a, pt_b;
+    point_t mn_out, mx_out;
+    int r;
+
+    BU_LIST_INIT(&vlfree);
+    BU_LIST_INIT(&vlist);
+
+    n = bv_node_create("vlist_geom", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) { bv_vlist_cleanup(&vlfree); return 0; }
+
+    VSET(pt_a, -2.0, -2.0, -2.0);
+    VSET(pt_b,  2.0,  2.0,  2.0);
+    BV_ADD_VLIST(&vlfree, &vlist, pt_a, BV_VLIST_LINE_MOVE);
+    BV_ADD_VLIST(&vlfree, &vlist, pt_b, BV_VLIST_LINE_DRAW);
+    bv_node_vlist_set(n, &vlist);
+
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n);
+
+    r = bv_scene_bbox(scene, &mn_out, &mx_out);
+    CHECK(r == 1, "scene_bbox returns 1 for vlist node (no native AABB)");
+    CHECK(mn_out[X] <= -2.0 + 1e-9, "scene_bbox min-X from vlist");
+    CHECK(mx_out[X] >= 2.0 - 1e-9, "scene_bbox max-X from vlist");
+
+    bv_node_vlist_set(n, NULL);
+    bv_scene_destroy(scene);
+    BV_FREE_VLIST(&vlfree, &vlist);
+    bv_vlist_cleanup(&vlfree);
+    return 1;
+}
+
+static int
+test_bv_node_dlist(void)
+{
+    struct bv_node *n;
+    unsigned int dl;
+    int stale;
+
+    n = bv_node_create("dlist_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* NULL safety */
+    bv_node_dlist_set(NULL, 42);
+    CHECK(1, "dlist_set(NULL) does not crash");
+    dl = bv_node_dlist_get(NULL);
+    CHECK(dl == 0, "dlist_get(NULL) returns 0");
+    bv_node_dlist_stale_set(NULL, 1);
+    CHECK(1, "dlist_stale_set(NULL) does not crash");
+    stale = bv_node_dlist_stale_get(NULL);
+    CHECK(stale == 0, "dlist_stale_get(NULL) returns 0");
+
+    /* Initially zero */
+    dl = bv_node_dlist_get(n);
+    CHECK(dl == 0, "dlist initially 0");
+    stale = bv_node_dlist_stale_get(n);
+    CHECK(stale == 0, "dlist_stale initially 0");
+
+    /* Set and get */
+    bv_node_dlist_set(n, 7);
+    dl = bv_node_dlist_get(n);
+    CHECK(dl == 7, "dlist 7 round-trips");
+
+    bv_node_dlist_stale_set(n, 1);
+    stale = bv_node_dlist_stale_get(n);
+    CHECK(stale == 1, "dlist_stale 1 round-trips");
+
+    bv_node_dlist_stale_set(n, 0);
+    stale = bv_node_dlist_stale_get(n);
+    CHECK(stale == 0, "dlist_stale reset to 0");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bv_node_update_cb(void)
+{
+    struct bv_node     *n;
+    bv_node_update_cb   got_cb;
+    void               *got_data;
+    int                 sentinel = 42;
+
+    n = bv_node_create("cb_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* NULL safety */
+    bv_node_update_cb_set(NULL, _test_update_cb, NULL);
+    CHECK(1, "update_cb_set(NULL node) does not crash");
+    got_cb = bv_node_update_cb_get(NULL);
+    CHECK(got_cb == NULL, "update_cb_get(NULL) returns NULL");
+    got_data = bv_node_update_cb_data_get(NULL);
+    CHECK(got_data == NULL, "update_cb_data_get(NULL) returns NULL");
+
+    /* Initially NULL */
+    got_cb = bv_node_update_cb_get(n);
+    CHECK(got_cb == NULL, "update_cb initially NULL");
+    got_data = bv_node_update_cb_data_get(n);
+    CHECK(got_data == NULL, "update_cb_data initially NULL");
+
+    /* Set and get */
+    bv_node_update_cb_set(n, _test_update_cb, &sentinel);
+    got_cb = bv_node_update_cb_get(n);
+    CHECK(got_cb == _test_update_cb, "update_cb round-trips");
+    got_data = bv_node_update_cb_data_get(n);
+    CHECK(got_data == &sentinel, "update_cb_data round-trips");
+
+    /* Invoke the callback to verify it works */
+    {
+	int ret = got_cb(n, NULL, 0);
+	CHECK(ret == 1, "update_cb invocation returns 1");
+    }
+
+    /* Clear */
+    bv_node_update_cb_set(n, NULL, NULL);
+    got_cb = bv_node_update_cb_get(n);
+    CHECK(got_cb == NULL, "update_cb NULL after clear");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bview_lod_node_update_native(void)
+{
+    /* bview_lod_node_update on a native node (no legacy obj) should set dlist_stale=1 */
+    struct bv_node *n;
+    int stale;
+
+    n = bv_node_create("native_lod", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    stale = bv_node_dlist_stale_get(n);
+    CHECK(stale == 0, "dlist_stale initially 0");
+
+    /* Call with no view — native path should set dlist_stale regardless */
+    bview_lod_node_update(n, NULL);
+    stale = bv_node_dlist_stale_get(n);
+    CHECK(stale == 1, "dlist_stale == 1 after lod_node_update on native node");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+
+/* ================================================================
  * scene_main dispatcher  (appended entries)
  * ================================================================ */
 
@@ -2755,6 +3049,15 @@ static struct test_entry scene_tests[] = {
     { "scene_view_count_one",         test_bv_scene_view_count_one            },
     { "scene_view_count_shared",      test_bv_scene_view_count_shared         },
     { "scene_view_switch",            test_bv_scene_view_switch               },
+    /* Phase 2 continued: vlist, dlist, update_cb on bv_node */
+    { "node_vlist_null",              test_bv_node_vlist_null_safety          },
+    { "node_vlist_set_get",           test_bv_node_vlist_set_get              },
+    { "node_vlist_bounds",            test_bv_node_vlist_bounds               },
+    { "node_bbox_from_vlist",         test_bv_node_bbox_from_vlist            },
+    { "node_dlist",                   test_bv_node_dlist                      },
+    { "node_update_cb",               test_bv_node_update_cb                  },
+    /* Phase 4 continued: bview_lod_node_update on native (non-legacy) nodes */
+    { "lod_node_update_native",       test_bview_lod_node_update_native       },
     { NULL, NULL }
 };
 
