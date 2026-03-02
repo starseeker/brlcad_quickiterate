@@ -103,6 +103,7 @@
 #include "vmath.h"
 
 #include "bu/cmd.h"
+#include "bu/hash.h"
 #include "bu/opt.h"
 #include "bu/path.h"
 
@@ -226,27 +227,29 @@ struct leaf_info_t {
 
 
 /*
- * Mix a directory pointer into a 64-bit hash value for the below_passes
- * cache.  Uses the finalizer from splitmix64 for good avalanche properties
- * with no collisions in the bijective domain.
+ * Compute the path hash for a node reached by appending child_dp to the
+ * path whose hash is parent_hash.  Use bu_data_hash (xxHash64) to combine
+ * the two 64-bit values so that the result inherits xxHash's well-tested
+ * avalanche and collision-resistance properties.  parent_hash == 0 is the
+ * sentinel for a root-level node (no parent).
+ *
+ * Collision probability follows the birthday bound: for N distinct paths the
+ * probability of any collision is approximately N^2 / 2^65.  For the typical
+ * BRL-CAD model sizes (up to ~10^6 paths) this is well below 10^-7.  A
+ * collision would cause a false-positive -below result, so using xxHash64
+ * here gives the same guarantees BRL-CAD uses for content-based UUIDs
+ * elsewhere (bu_data_hash).
  */
 static inline uint64_t
-below_hash_mix(struct directory *dp)
+below_path_hash_extend(uint64_t parent_hash, struct directory *child_dp)
 {
-    uint64_t x = (uint64_t)(uintptr_t)dp;
-    x ^= x >> 30; x *= 0xbf58476d1ce4e5b9ULL;
-    x ^= x >> 27; x *= 0x94d049bb133111ebULL;
-    x ^= x >> 31;
-    return x;
+    uint64_t s[2];
+    s[0] = parent_hash;
+    s[1] = (uint64_t)(uintptr_t)child_dp;
+    /* bu_data_hash returns unsigned long long, which is 64 bits on all
+     * BRL-CAD-supported platforms (identical to uint64_t). */
+    return (uint64_t)bu_data_hash(s, sizeof(s));
 }
-
-/*
- * LCG multiplier used when extending a path hash by one level.
- * This is the Knuth multiplicative hash constant (2^64 / phi), chosen so
- * that the incremental hash  H(P/child) = H(P)*MULT + below_hash_mix(child)
- * has good distribution for any sequence of directory pointers.
- */
-static const uint64_t BELOW_HASH_MULT = 6364136223846793005ULL;
 
 
 static void
@@ -412,7 +415,7 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 	    } else {
 		node.path = start_path;
 		node.depth = 0;
-		node.path_hash = below_hash_mix(curr_dp);
+		node.path_hash = below_path_hash_extend(0, curr_dp);
 		node.parent_hash = 0; /* sentinel: root-level has no parent */
 		work.push_back(node);
 	    }
@@ -508,8 +511,8 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 		    child_node.path = child_path;
 		    child_node.depth = node.depth + 1;
 		    /* O(1) incremental hash: extend parent hash with child dp. */
-		    child_node.path_hash = node.path_hash * BELOW_HASH_MULT
-			+ below_hash_mix(child_dp);
+		    child_node.path_hash = below_path_hash_extend(node.path_hash,
+								  child_dp);
 		    child_node.parent_hash = node.path_hash;
 		    work.push_back(child_node);
 		}
