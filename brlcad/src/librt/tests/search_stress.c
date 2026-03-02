@@ -130,6 +130,7 @@
  *   db_search (new) - for queries that do NOT contain -above, uses an
  *                    on-the-fly traversal that builds, evaluates, and
  *                    frees each path in turn without accumulating them.
+ *                    This covers -name, -type, and -below queries.
  *                    For -above queries it falls back to the same
  *                    pre-collection strategy as the old implementation.
  *
@@ -150,9 +151,14 @@
  *
  * The old code allocates all (1 + M + 2*M*L) path objects upfront;
  * the new code on non-above queries keeps only O(depth) live at once.
- * At L=M=60 (7261 paths) the new code is typically ~1.5x faster for
- * -name and -type queries.  Both codes show equal performance for
- * -above queries because both take the pre-collection code path.
+ * At L=M=60 (7261 paths) the new code is typically ~1.3x faster for
+ * -name, -type, and -below queries.  Both codes show equal performance
+ * for -above queries because both take the pre-collection code path.
+ *
+ * For -below queries the new code is triggered by the TRAVERSE_BREADTH_FIRST
+ * strategy (selected when has_below && !has_above).  The test uses
+ * "-below -name dag_top", which matches all paths except dag_top itself
+ * (M + 2*M*L results), exercising the full throughput of the traversal.
  */
 
 #include "common.h"
@@ -753,6 +759,8 @@ cleanup_fail:
  * Queries tested:
  *   -name dag_target.s           (non-above: new is faster on large DAGs)
  *   -type shape                  (non-above: new is faster on large DAGs)
+ *   -below -name dag_top         (non-above: new is faster on large DAGs;
+ *                                 matches all M + 2*M*L paths below dag_top)
  *   -above -name dag_target.s    (above: both take the same code path)
  */
 static int
@@ -805,6 +813,30 @@ test_dag_cross_validation(struct db_i *dbip, int L, int M)
 	   L, M, total_paths,
 	   new_cnt, (double)t_new/1e6, old_cnt, (double)t_old/1e6);
     CROSS_CHECK(new_cnt, old_cnt, "-type shape (dag)");
+
+    /* -below -name dag_top: matches all paths that have dag_top as an
+     * ancestor.  Since dag_top is the search root every path except
+     * dag_top itself matches (M + 2*M*L results).  Like -name and -type,
+     * the new code uses on-the-fly BFS traversal here (no full-path table
+     * pre-build), giving the same performance advantage on large DAGs. */
+    t_new = bu_gettime();
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE,
+			"-below -name dag_top",
+			0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&new_results);
+
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE,
+			    "-below -name dag_top",
+			    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    bu_log("  dag L=%-3d M=%-3d paths=%-6d  -below: new=%d(%.6fs) old=%d(%.6fs)\n",
+	   L, M, total_paths,
+	   new_cnt, (double)t_new/1e6, old_cnt, (double)t_old/1e6);
+    CROSS_CHECK(new_cnt, old_cnt, "-below -name dag_top (dag)");
 
     /* -above -name (above): both use full-path pre-collection */
     t_new = bu_gettime();
