@@ -320,13 +320,21 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Source: implied by `EDOBJ[]` — needs checking.
 - TODO: Verify edit code exists, write test.
 
-### DSP — Displacement Map ⬜ EDIT CODE EXISTS, NO TEST
+### DSP — Displacement Map ⬜ EDIT CODE EXISTS, NO TEST (bugs fixed)
 
 - Source: `src/librt/primitives/dsp/eddsp.c`
+- **Bugs fixed:** `ecmd_dsp_scale_x/y/alt` had the same strict
+  `e_inpara != 1` guard as CLINE; fixed to allow the es_scale path
+  when e_inpara==0. The inner `dsp_scale` function already handled
+  the es_scale path correctly.
+- Testing requires a DSP data source, so test deferred.
 
-### EBM — Extruded Bitmap ⬜ EDIT CODE EXISTS, NO TEST
+### EBM — Extruded Bitmap ⬜ EDIT CODE EXISTS, NO TEST (bug fixed)
 
 - Source: `src/librt/primitives/ebm/edebm.c`
+- **Bug fixed:** `ecmd_ebm_height` had the same strict `e_inpara != 1`
+  guard as CLINE; fixed to allow the es_scale path when e_inpara==0.
+- Testing requires an actual bitmap (EBM file), so test deferred.
 
 ### CLINE ✅ DONE (with test + bug fixes)
 
@@ -490,6 +498,8 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
   rt_edit_process unconditionally. Fix: guard `if (!e_inpara && es_scale < SMALL_FASTF) return 0`.
 - Wrote `src/librt/tests/edit/cline.cpp` — CLINE test coverage.
 - Updated CMakeLists.txt for superell/cline tests.
+- Applied same e_inpara fix to `ecmd_ebm_height` (edebm.c) and
+  `ecmd_dsp_scale_x/y/alt` (eddsp.c) for consistency.
 - All 12 tests pass (tor, ell, tgc, epa, ehy, eto, hyp, rpc, rhc, part,
   superell, cline).
 

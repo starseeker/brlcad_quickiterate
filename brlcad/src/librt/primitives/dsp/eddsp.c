@@ -127,12 +127,17 @@ dsp_scale(struct rt_edit *s, struct rt_dsp_internal *dsp, int idx)
 int
 ecmd_dsp_scale_x(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-    if (s->e_para[0] <= 0.0) {
+    if (s->e_inpara && s->e_para[0] <= 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
@@ -146,12 +151,17 @@ ecmd_dsp_scale_x(struct rt_edit *s)
 int
 ecmd_dsp_scale_y(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-    if (s->e_para[0] <= 0.0) {
+    if (s->e_inpara && s->e_para[0] <= 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
@@ -165,12 +175,17 @@ ecmd_dsp_scale_y(struct rt_edit *s)
 int
 ecmd_dsp_scale_alt(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-    if (s->e_para[0] <= 0.0) {
+    if (s->e_inpara && s->e_para[0] <= 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
