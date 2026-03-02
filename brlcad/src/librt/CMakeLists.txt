@@ -75,7 +75,7 @@ add_custom_command(
   OUTPUT ${RT_ECMD_HDR}
   COMMAND ${RT_ECMD_SCANNER} ${RT_PFILE_OUT} ${RT_ECMD_HDR}
   COMMENT "[RT_ECMD_SCANNER] Scanning for RT editing mode flags"
-  DEPENDS "${RT_ECMD_SCANNER_SRC}"
+  DEPENDS "${RT_ECMD_SCANNER_SRC}" ${RT_PFILE_IN}
 )
 distclean(${RT_ECMD_HDR})
 foreach(esf ${LIBRT_PRIMEDIT_SOURCES})
