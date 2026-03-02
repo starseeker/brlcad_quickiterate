@@ -81,7 +81,7 @@ make_pipe(struct rt_wdb *wdbp)
     VSET(p1->pp_coord, 0, 0, 0);
     p1->pp_od = 2.0;
     p1->pp_id = 1.0;
-    p1->pp_bendradius = 10.0;   /* large enough to survive 2x scaling: od*2=4 < 2*10=20 */
+    p1->pp_bendradius = 10.0;   /* after 2x scale: od=4, bendradius=20 >= od/2=2 */
     BU_LIST_INSERT(&pip->pipe_segs_head, &p1->l);
 
     /* pt2: (0,0,10) */
@@ -91,7 +91,7 @@ make_pipe(struct rt_wdb *wdbp)
     VSET(p2->pp_coord, 0, 0, 10);
     p2->pp_od = 2.0;
     p2->pp_id = 1.0;
-    p2->pp_bendradius = 10.0;   /* large enough to survive 2x scaling */
+    p2->pp_bendradius = 10.0;   /* after 2x scale: od=4, bendradius=20 >= od/2=2 */
     BU_LIST_INSERT(&pip->pipe_segs_head, &p2->l);
 
     wdb_export(wdbp, objname, (void *)pip, ID_PIPE, 1.0);
