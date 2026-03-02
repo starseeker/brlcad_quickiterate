@@ -657,9 +657,14 @@ ecmd_tgc_rot_h(struct rt_edit *s)
 	 */
 	bn_mat_mul(mat1, edit, s->e_mat);
 	bn_mat_mul(mat, s->e_invmat, mat1);
-	MAT4X3VEC(tgc->h, mat, tgc->h);
+	/* Use a temp to avoid MAT4X3VEC output/input aliasing */
+	vect_t h_tmp;
+	MAT4X3VEC(h_tmp, mat, tgc->h);
+	VMOVE(tgc->h, h_tmp);
     } else {
-	MAT4X3VEC(tgc->h, s->incr_change, tgc->h);
+	vect_t h_tmp;
+	MAT4X3VEC(h_tmp, s->incr_change, tgc->h);
+	VMOVE(tgc->h, h_tmp);
     }
 
     MAT_IDN(s->incr_change);
@@ -722,15 +727,26 @@ ecmd_tgc_rot_ab(struct rt_edit *s)
 	 */
 	bn_mat_mul(mat1, edit, s->e_mat);
 	bn_mat_mul(mat, s->e_invmat, mat1);
-	MAT4X3VEC(tgc->a, mat, tgc->a);
-	MAT4X3VEC(tgc->b, mat, tgc->b);
-	MAT4X3VEC(tgc->c, mat, tgc->c);
-	MAT4X3VEC(tgc->d, mat, tgc->d);
+	/* Use temps to avoid MAT4X3VEC output/input aliasing */
+	vect_t a_tmp, b_tmp, c_tmp, d_tmp;
+	MAT4X3VEC(a_tmp, mat, tgc->a);
+	MAT4X3VEC(b_tmp, mat, tgc->b);
+	MAT4X3VEC(c_tmp, mat, tgc->c);
+	MAT4X3VEC(d_tmp, mat, tgc->d);
+	VMOVE(tgc->a, a_tmp);
+	VMOVE(tgc->b, b_tmp);
+	VMOVE(tgc->c, c_tmp);
+	VMOVE(tgc->d, d_tmp);
     } else {
-	MAT4X3VEC(tgc->a, s->incr_change, tgc->a);
-	MAT4X3VEC(tgc->b, s->incr_change, tgc->b);
-	MAT4X3VEC(tgc->c, s->incr_change, tgc->c);
-	MAT4X3VEC(tgc->d, s->incr_change, tgc->d);
+	vect_t a_tmp, b_tmp, c_tmp, d_tmp;
+	MAT4X3VEC(a_tmp, s->incr_change, tgc->a);
+	MAT4X3VEC(b_tmp, s->incr_change, tgc->b);
+	MAT4X3VEC(c_tmp, s->incr_change, tgc->c);
+	MAT4X3VEC(d_tmp, s->incr_change, tgc->d);
+	VMOVE(tgc->a, a_tmp);
+	VMOVE(tgc->b, b_tmp);
+	VMOVE(tgc->c, c_tmp);
+	VMOVE(tgc->d, d_tmp);
     }
     MAT_IDN(s->incr_change);
 
