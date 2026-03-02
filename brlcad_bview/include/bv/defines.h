@@ -192,71 +192,74 @@ struct bview_pick_set {
 /* --- bv_scene API --- */
 
 /* Lifecycle */
-struct bv_scene *bv_scene_create(void);
-void bv_scene_destroy(struct bv_scene *scene);
+BV_EXPORT struct bv_scene *bv_scene_create(void);
+BV_EXPORT void bv_scene_destroy(struct bv_scene *scene);
 
 /* Access scene root node (SoSeparator analogy: saves/restores state, scopes children) */
-struct bv_node *bv_scene_root(const struct bv_scene *scene);
+BV_EXPORT struct bv_node *bv_scene_root(const struct bv_scene *scene);
 
 /* Scene node management (analogous to SoGroup::addChild / removeChild) */
-void bv_scene_add_node(struct bv_scene *scene, struct bv_node *node);
-void bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node);
-const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
+BV_EXPORT void bv_scene_add_node(struct bv_scene *scene, struct bv_node *node);
+BV_EXPORT void bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node);
+BV_EXPORT const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
 
 /* Hierarchy/grouping (child management under a specific parent node) */
-void bv_scene_add_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
-void bv_scene_remove_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
+BV_EXPORT void bv_scene_add_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
+BV_EXPORT void bv_scene_remove_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
 
 /* Scene traversal (for rendering, picking, export, etc. -- analogous to SoAction traversal) */
 typedef void (*bv_scene_traverse_cb)(struct bv_node *, void *);
-void bv_scene_traverse(const struct bv_scene *scene, bv_scene_traverse_cb cb, void *user_data);
-void bv_node_traverse(const struct bv_node *node, bv_scene_traverse_cb cb, void *user_data);
+BV_EXPORT void bv_scene_traverse(const struct bv_scene *scene, bv_scene_traverse_cb cb, void *user_data);
+BV_EXPORT void bv_node_traverse(const struct bv_node *node, bv_scene_traverse_cb cb, void *user_data);
 
 /* Lookup scene node by name (analogous to SoNode::getByName) */
-struct bv_node *bv_scene_find_node(const struct bv_scene *scene, const char *name);
+BV_EXPORT struct bv_node *bv_scene_find_node(const struct bv_scene *scene, const char *name);
 
 /* Access default camera node for scene (analogous to SoSceneManager::getCamera) */
-struct bv_node *bv_scene_default_camera(const struct bv_scene *scene);
+BV_EXPORT struct bv_node *bv_scene_default_camera(const struct bv_scene *scene);
+
+/* Set the default camera node for scene */
+BV_EXPORT void bv_scene_default_camera_set(struct bv_scene *scene, struct bv_node *camera);
 
 /* --- bview_new API --- */
 
 /* Lifecycle */
-struct bview_new *bview_create(const char *name);
-void bview_destroy(struct bview_new *view);
+BV_EXPORT struct bview_new *bview_create(const char *name);
+BV_EXPORT void bview_destroy(struct bview_new *view);
 
 /* Associate a scene with a view */
-void bview_scene_set(struct bview_new *view, struct bv_scene *scene);
-struct bv_scene *bview_scene_get(const struct bview_new *view);
+BV_EXPORT void bview_scene_set(struct bview_new *view, struct bv_scene *scene);
+BV_EXPORT struct bv_scene *bview_scene_get(const struct bview_new *view);
 
 /* Camera (active camera parameters) */
-void bview_camera_set(struct bview_new *view, const struct bview_camera *camera);
-const struct bview_camera *bview_camera_get(const struct bview_new *view);
+BV_EXPORT void bview_camera_set(struct bview_new *view, const struct bview_camera *camera);
+BV_EXPORT const struct bview_camera *bview_camera_get(const struct bview_new *view);
 
 /* Optionally associate a camera node (preparing for Coin3D mapping via SoCamera) */
-void bview_camera_node_set(struct bview_new *view, struct bv_node *camera_node);
-struct bv_node *bview_camera_node_get(const struct bview_new *view);
+BV_EXPORT void bview_camera_node_set(struct bview_new *view, struct bv_node *camera_node);
+BV_EXPORT struct bv_node *bview_camera_node_get(const struct bview_new *view);
 
 /* Viewport */
-void bview_viewport_set(struct bview_new *view, const struct bview_viewport *viewport);
-const struct bview_viewport *bview_viewport_get(const struct bview_new *view);
+BV_EXPORT void bview_viewport_set(struct bview_new *view, const struct bview_viewport *viewport);
+BV_EXPORT const struct bview_viewport *bview_viewport_get(const struct bview_new *view);
 
 /* Appearance/material */
-void bview_material_set(struct bview_new *view, const struct bview_material *material);
-const struct bview_material *bview_material_get(const struct bview_new *view);
-void bview_appearance_set(struct bview_new *view, const struct bview_appearance *appearance);
-const struct bview_appearance *bview_appearance_get(const struct bview_new *view);
+BV_EXPORT void bview_material_set(struct bview_new *view, const struct bview_material *material);
+BV_EXPORT const struct bview_material *bview_material_get(const struct bview_new *view);
+BV_EXPORT void bview_appearance_set(struct bview_new *view, const struct bview_appearance *appearance);
+BV_EXPORT const struct bview_appearance *bview_appearance_get(const struct bview_new *view);
 
 /* Overlay/HUD */
-void bview_overlay_set(struct bview_new *view, const struct bview_overlay *overlay);
-const struct bview_overlay *bview_overlay_get(const struct bview_new *view);
+BV_EXPORT void bview_overlay_set(struct bview_new *view, const struct bview_overlay *overlay);
+BV_EXPORT const struct bview_overlay *bview_overlay_get(const struct bview_new *view);
 
 /* Pick set (Coin3D pick set analog) */
-void bview_pick_set_set(struct bview_new *view, const struct bview_pick_set *pick_set);
-const struct bview_pick_set *bview_pick_set_get(const struct bview_new *view);
+BV_EXPORT void bview_pick_set_set(struct bview_new *view, const struct bview_pick_set *pick_set);
+BV_EXPORT const struct bview_pick_set *bview_pick_set_get(const struct bview_new *view);
 
 /* Redraw callback (for integration with UI/event loop) */
 typedef void (*bview_redraw_cb)(struct bview_new *, void *);
-void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
+BV_EXPORT void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
 
 /* --- Scene Node API --- */
 
@@ -276,47 +279,50 @@ void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void 
  * bv_node_type), and may carry arbitrary user data for application-layer
  * or future Coin3D mapping.
  */
-struct bv_node *bv_node_create(const char *name, enum bv_node_type type);
-void bv_node_destroy(struct bv_node *node);
+BV_EXPORT struct bv_node *bv_node_create(const char *name, enum bv_node_type type);
+BV_EXPORT void bv_node_destroy(struct bv_node *node);
 
 /* Transform, geometry, material (analogous to SoTransform, SoShape, SoMaterial fields) */
-void bv_node_transform_set(struct bv_node *node, const mat_t xform);
-const mat_t *bv_node_transform_get(const struct bv_node *node);
-void bv_node_geometry_set(struct bv_node *node, const void *geometry);
-void bv_node_material_set(struct bv_node *node, const struct bview_material *material);
-const struct bview_material *bv_node_material_get(const struct bv_node *node);
+BV_EXPORT void bv_node_transform_set(struct bv_node *node, const mat_t xform);
+BV_EXPORT const mat_t *bv_node_transform_get(const struct bv_node *node);
+BV_EXPORT void bv_node_geometry_set(struct bv_node *node, const void *geometry);
+BV_EXPORT void bv_node_material_set(struct bv_node *node, const struct bview_material *material);
+BV_EXPORT const struct bview_material *bv_node_material_get(const struct bv_node *node);
 
 /* Hierarchy management (analogous to SoGroup::addChild/removeChild/getChildren) */
-void bv_node_add_child(struct bv_node *parent, struct bv_node *child);
-void bv_node_remove_child(struct bv_node *parent, struct bv_node *child);
-const struct bu_ptbl *bv_node_children(const struct bv_node *node);
+BV_EXPORT void bv_node_add_child(struct bv_node *parent, struct bv_node *child);
+BV_EXPORT void bv_node_remove_child(struct bv_node *parent, struct bv_node *child);
+BV_EXPORT const struct bu_ptbl *bv_node_children(const struct bv_node *node);
 
 /* Visibility (analogous to toggling SoSwitch or using SoNode visibility) */
-void bv_node_visible_set(struct bv_node *node, int visible);
-int bv_node_visible_get(const struct bv_node *node);
+BV_EXPORT void bv_node_visible_set(struct bv_node *node, int visible);
+BV_EXPORT int bv_node_visible_get(const struct bv_node *node);
 
 /* Type, name, and user data access */
-enum bv_node_type bv_node_type_get(const struct bv_node *node);
-const char *bv_node_name_get(const struct bv_node *node);
-void bv_node_user_data_set(struct bv_node *node, void *user_data);
-void *bv_node_user_data_get(const struct bv_node *node);
+BV_EXPORT enum bv_node_type bv_node_type_get(const struct bv_node *node);
+BV_EXPORT const char *bv_node_name_get(const struct bv_node *node);
+BV_EXPORT void bv_node_user_data_set(struct bv_node *node, void *user_data);
+BV_EXPORT void *bv_node_user_data_get(const struct bv_node *node);
 
 /* Get world transform (accumulated from parent hierarchy -- analogous to SoGetMatrixAction) */
-const mat_t *bv_node_world_transform_get(const struct bv_node *node);
+BV_EXPORT const mat_t *bv_node_world_transform_get(const struct bv_node *node);
+
+/* Get the parent node (NULL if this is a root node) */
+BV_EXPORT struct bv_node *bv_node_parent_get(const struct bv_node *node);
 
 /* --- LoD/update API --- */
 
 /* Force LoD or redraw updates if needed; LoD should be triggered automatically by
  * setters but (for the moment) allow for explicit invocation */
-void bview_lod_update(struct bview_new *view);
-void bview_redraw(struct bview_new *view);
+BV_EXPORT void bview_lod_update(struct bview_new *view);
+BV_EXPORT void bview_redraw(struct bview_new *view);
 
 /* --- Migration Helpers (optional) --- */
 
 /* Sync with legacy struct during migration */
-void bview_from_old(struct bview_new *view, const struct bview *old);
-void bview_to_old(const struct bview_new *view, struct bview *old);
-struct bview *bview_old_get(const struct bview_new *view);
+BV_EXPORT void bview_from_old(struct bview_new *view, const struct bview *old);
+BV_EXPORT void bview_to_old(const struct bview_new *view, struct bview *old);
+BV_EXPORT struct bview *bview_old_get(const struct bview_new *view);
 
 /*******************************************************************************/
 /*              EXPERIMENTAL EXPERIMENTAL EXPERIMENTAL - END                   */
