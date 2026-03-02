@@ -2028,6 +2028,320 @@ test_bview_lod_node_update_marks_stale(void)
 
 
 /* ================================================================
+ * Phase 2 (continued) – bv_node_geometry_get / bv_node_selected_set/get
+ * ================================================================ */
+
+static int
+test_bv_node_geometry_get(void)
+{
+    struct bv_node *n;
+    int dummy = 42;
+
+    n = bv_node_create("geom_get_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* Initially NULL */
+    CHECK(bv_node_geometry_get(n) == NULL,
+	  "geometry_get initially NULL");
+
+    /* NULL node */
+    CHECK(bv_node_geometry_get(NULL) == NULL,
+	  "geometry_get(NULL) returns NULL");
+
+    /* Set and get back */
+    bv_node_geometry_set(n, &dummy);
+    CHECK(bv_node_geometry_get(n) == &dummy,
+	  "geometry_get returns pointer set by geometry_set");
+
+    /* Clear */
+    bv_node_geometry_set(n, NULL);
+    CHECK(bv_node_geometry_get(n) == NULL,
+	  "geometry_get NULL after clear");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bv_node_selected(void)
+{
+    struct bv_node *n;
+
+    n = bv_node_create("selected_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* Initially deselected */
+    CHECK(bv_node_selected_get(n) == 0,
+	  "node initially not selected");
+
+    /* NULL safety */
+    CHECK(bv_node_selected_get(NULL) == 0,
+	  "selected_get(NULL) returns 0");
+
+    /* Select */
+    bv_node_selected_set(n, 1);
+    CHECK(bv_node_selected_get(n) == 1,
+	  "node selected after set(1)");
+
+    /* Deselect */
+    bv_node_selected_set(n, 0);
+    CHECK(bv_node_selected_get(n) == 0,
+	  "node deselected after set(0)");
+
+    /* NULL set is safe */
+    bv_node_selected_set(NULL, 1);
+    CHECK(1, "selected_set(NULL) does not crash");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 4 (continued) – bv_scene_lod_update tests
+ * ================================================================ */
+
+static int
+test_bv_scene_lod_update_null(void)
+{
+    int r = bv_scene_lod_update(NULL, NULL);
+    CHECK(r == 0, "bv_scene_lod_update(NULL, NULL) returns 0");
+    return 1;
+}
+
+static int
+test_bv_scene_lod_update_empty(void)
+{
+    struct bv_scene *scene = bv_scene_create();
+    int r;
+
+    CHECK(scene != NULL, "bv_scene_create non-NULL");
+    if (!scene) return 0;
+
+    /* Empty scene — no geometry nodes */
+    r = bv_scene_lod_update(scene, NULL);
+    CHECK(r == 0, "bv_scene_lod_update on empty scene returns 0");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_scene_lod_update_counts(void)
+{
+    struct bview_set   vset;
+    struct bview       v;
+    struct bv_scene_obj *s1, *s2;
+    struct bv_node     *n1, *n2, *ng;
+    struct bv_scene    *scene;
+    int r;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    s1 = bv_obj_get(&v, BV_VIEWONLY);
+    s2 = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s1 && s2, "two bv_obj_get calls succeed");
+    if (!s1 || !s2) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    s1->s_dlist_stale = 0;
+    s2->s_dlist_stale = 0;
+
+    n1 = bv_scene_obj_to_node(s1);  /* BV_NODE_GEOMETRY */
+    n2 = bv_scene_obj_to_node(s2);  /* BV_NODE_GEOMETRY */
+
+    /* Also add a non-geometry group node */
+    ng = bv_node_create("a_group", BV_NODE_GROUP);
+
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n1);
+    bv_scene_add_node(scene, n2);
+    bv_scene_add_node(scene, ng);
+
+    /* No view: fallback stale-marking for both geometry nodes */
+    r = bv_scene_lod_update(scene, NULL);
+    CHECK(r == 2, "bv_scene_lod_update counts 2 geometry nodes");
+    CHECK(s1->s_dlist_stale == 1, "s1 marked stale");
+    CHECK(s2->s_dlist_stale == 1, "s2 marked stale");
+
+    /* bv_scene_destroy destroys ng, n1, n2 via root children */
+    bv_scene_destroy(scene);
+    bv_obj_put(s1);
+    bv_obj_put(s2);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 3 (continued) – selection API tests
+ * ================================================================ */
+
+static int
+test_bv_scene_selected_nodes_null(void)
+{
+    struct bu_ptbl out;
+    int r;
+
+    bu_ptbl_init(&out, 4, "selected_null test");
+
+    r = bv_scene_selected_nodes(NULL, &out);
+    CHECK(r == 0, "bv_scene_selected_nodes(NULL, out) returns 0");
+
+    r = bv_scene_selected_nodes(NULL, NULL);
+    CHECK(r == 0, "bv_scene_selected_nodes(NULL, NULL) returns 0");
+
+    {
+	struct bv_scene *scene = bv_scene_create();
+	r = bv_scene_selected_nodes(scene, NULL);
+	CHECK(r == 0, "bv_scene_selected_nodes(scene, NULL) returns 0");
+	bv_scene_destroy(scene);
+    }
+
+    bu_ptbl_free(&out);
+    return 1;
+}
+
+static int
+test_bv_scene_selected_nodes_empty(void)
+{
+    struct bv_scene *scene;
+    struct bu_ptbl   out;
+    int r;
+
+    scene = bv_scene_create();
+    bu_ptbl_init(&out, 4, "empty_selected test");
+
+    /* Empty scene: no selected nodes */
+    r = bv_scene_selected_nodes(scene, &out);
+    CHECK(r == 0, "empty scene → 0 selected nodes");
+    CHECK(BU_PTBL_LEN(&out) == 0, "output ptbl empty");
+
+    bv_scene_destroy(scene);
+    bu_ptbl_free(&out);
+    return 1;
+}
+
+static int
+test_bv_scene_selected_nodes_count(void)
+{
+    struct bv_scene *scene;
+    struct bv_node  *n1, *n2, *n3;
+    struct bu_ptbl   out;
+    int r;
+
+    scene = bv_scene_create();
+    bu_ptbl_init(&out, 8, "selected_count test");
+
+    n1 = bv_node_create("sel1", BV_NODE_GEOMETRY);
+    n2 = bv_node_create("sel2", BV_NODE_GEOMETRY);
+    n3 = bv_node_create("unsel", BV_NODE_GEOMETRY);
+
+    bv_node_selected_set(n1, 1);
+    bv_node_selected_set(n2, 1);
+    bv_node_selected_set(n3, 0);  /* not selected */
+
+    bv_scene_add_node(scene, n1);
+    bv_scene_add_node(scene, n2);
+    bv_scene_add_node(scene, n3);
+
+    r = bv_scene_selected_nodes(scene, &out);
+    CHECK(r == 2, "2 selected nodes found");
+    CHECK(BU_PTBL_LEN(&out) == 2, "output ptbl has 2 entries");
+
+    /* Clean up */
+    bv_scene_destroy(scene);
+    bu_ptbl_free(&out);
+    return 1;
+}
+
+static int
+test_bv_scene_deselect_all(void)
+{
+    struct bv_scene *scene;
+    struct bv_node  *n1, *n2;
+    struct bu_ptbl   out;
+    int r;
+
+    scene = bv_scene_create();
+    bu_ptbl_init(&out, 8, "deselect_all test");
+
+    n1 = bv_node_create("da1", BV_NODE_GEOMETRY);
+    n2 = bv_node_create("da2", BV_NODE_GEOMETRY);
+
+    bv_node_selected_set(n1, 1);
+    bv_node_selected_set(n2, 1);
+
+    bv_scene_add_node(scene, n1);
+    bv_scene_add_node(scene, n2);
+
+    /* NULL safety */
+    r = bv_scene_deselect_all(NULL, NULL);
+    CHECK(r == 0, "bv_scene_deselect_all(NULL) returns 0");
+
+    /* Deselect all */
+    r = bv_scene_deselect_all(scene, NULL);
+    CHECK(r == 2, "deselect_all returns 2 (nodes cleared)");
+
+    /* Verify none selected */
+    r = bv_scene_selected_nodes(scene, &out);
+    CHECK(r == 0, "after deselect_all, 0 nodes selected");
+
+    bv_scene_destroy(scene);
+    bu_ptbl_free(&out);
+    return 1;
+}
+
+static int
+test_bv_scene_select_node(void)
+{
+    struct bv_scene *scene;
+    struct bv_node  *n1, *n2;
+    struct bu_ptbl   out;
+    int r;
+
+    scene = bv_scene_create();
+    bu_ptbl_init(&out, 8, "select_node test");
+
+    n1 = bv_node_create("sn1", BV_NODE_GEOMETRY);
+    n2 = bv_node_create("sn2", BV_NODE_GEOMETRY);
+
+    bv_scene_add_node(scene, n1);
+    bv_scene_add_node(scene, n2);
+
+    /* Select n1 only */
+    bv_scene_select_node(n1, 1, NULL);
+    r = bv_scene_selected_nodes(scene, &out);
+    CHECK(r == 1, "1 node selected after select_node");
+    if (r == 1)
+	CHECK(BU_PTBL_GET(&out, 0) == (long *)n1,
+	      "selected node is n1");
+
+    /* Deselect n1, select n2 */
+    bu_ptbl_reset(&out);
+    bv_scene_select_node(n1, 0, NULL);
+    bv_scene_select_node(n2, 1, NULL);
+    r = bv_scene_selected_nodes(scene, &out);
+    CHECK(r == 1, "1 node selected after switching selection");
+    if (r == 1)
+	CHECK(BU_PTBL_GET(&out, 0) == (long *)n2,
+	      "selected node is n2");
+
+    bv_scene_destroy(scene);
+    bu_ptbl_free(&out);
+    return 1;
+}
+
+
+/* ================================================================
  * scene_main dispatcher  (appended entries)
  * ================================================================ */
 
@@ -2098,6 +2412,19 @@ static struct test_entry scene_tests[] = {
     { "lod_node_update_non_geom",     test_bview_lod_node_update_non_geom     },
     { "lod_node_update_no_obj",       test_bview_lod_node_update_geom_no_obj  },
     { "lod_node_update_stale",        test_bview_lod_node_update_marks_stale  },
+    /* Phase 2 continued: geometry_get, selected_set/get */
+    { "node_geometry_get",            test_bv_node_geometry_get               },
+    { "node_selected",                test_bv_node_selected                   },
+    /* Phase 4 continued: bv_scene_lod_update */
+    { "scene_lod_update_null",        test_bv_scene_lod_update_null           },
+    { "scene_lod_update_empty",       test_bv_scene_lod_update_empty          },
+    { "scene_lod_update_counts",      test_bv_scene_lod_update_counts         },
+    /* Phase 3 continued: selection API */
+    { "selected_nodes_null",          test_bv_scene_selected_nodes_null       },
+    { "selected_nodes_empty",         test_bv_scene_selected_nodes_empty      },
+    { "selected_nodes_count",         test_bv_scene_selected_nodes_count      },
+    { "deselect_all",                 test_bv_scene_deselect_all              },
+    { "select_node",                  test_bv_scene_select_node               },
     { NULL, NULL }
 };
 
