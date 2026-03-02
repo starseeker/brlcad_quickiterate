@@ -653,6 +653,37 @@ BV_EXPORT struct bview *bview_old_get(const struct bview_new *view);
 BV_EXPORT void bview_old_set(struct bview_new *view, struct bview *old);
 
 /*
+ * Create a bview_new companion for an existing legacy struct bview.
+ *
+ * This is the standard first step for migrating code that currently calls
+ * bv_init() to the new API.  It is equivalent to:
+ *
+ *   nv = bview_create(name);
+ *   bview_from_old(nv, old);   // copy initial camera + appearance state
+ *   bview_old_set(nv, old);    // wire the back-pointer
+ *
+ * Typical usage during incremental migration:
+ *
+ *   // ---- existing code (kept unchanged) ----
+ *   BU_ALLOC(v, struct bview);
+ *   bv_init(v, &ged_views);
+ *   // ---- new companion for new-API callers ----
+ *   struct bview_new *nv = bview_companion_create("default", v);
+ *   // ... pass nv to new-API functions; v continues to work with legacy code
+ *   // ---- teardown ----
+ *   bview_destroy(nv);
+ *   bv_free(v);
+ *   BU_FREE(v, struct bview);
+ *
+ * The returned bview_new must be destroyed with bview_destroy().  The legacy
+ * struct bview is NOT owned by the companion; the caller continues to manage
+ * it with bv_free() + BU_PUT / bu_free as before.
+ *
+ * Returns NULL if old is NULL.
+ */
+BV_EXPORT struct bview_new *bview_companion_create(const char *name, struct bview *old);
+
+/*
  * Apply BRL-CAD default settings to a bview_new instance.
  *
  * Sets the same initial values for camera, viewport, appearance, and overlay

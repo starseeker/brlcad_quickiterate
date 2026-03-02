@@ -175,6 +175,10 @@ set(bview_scene_tests
   draw_data_set_get
   lod_view_new_null
   autoview_new_sets_scale
+  companion_create_null
+  companion_create_basic
+  companion_create_sync
+  companion_create_independent
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})

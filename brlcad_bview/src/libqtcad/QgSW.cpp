@@ -55,6 +55,8 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
     bv_init(local_v, NULL);
     bu_vls_sprintf(&local_v->gv_name, "swrast");
     v = local_v;
+    // Create a bview_new companion so new-API code can use this widget's view.
+    local_nv = bview_companion_create("swrast", local_v);
 
     // Don't dm_open until we have the view.
     dmp = NULL;
@@ -79,6 +81,8 @@ QgSW::~QgSW()
     if (ifp && !fb_get_standalone(ifp)) {
 	fb_close_existing(ifp);
     }
+    bview_destroy(local_nv);
+    local_nv = NULL;
     BU_PUT(local_v, struct bv);
 }
 

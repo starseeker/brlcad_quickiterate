@@ -3185,6 +3185,147 @@ test_bview_autoview_new_sets_scale(void)
     return 1;
 }
 
+
+/* ================================================================
+ * Phase 1 callers migration tests — bview_companion_create
+ * ================================================================ */
+
+static int
+test_bview_companion_create_null(void)
+{
+    struct bview_new *nv;
+
+    /* NULL legacy view must return NULL */
+    nv = bview_companion_create("companion", NULL);
+    CHECK(nv == NULL, "companion_create(NULL) returns NULL");
+
+    /* NULL name: should still succeed (name defaults to empty) */
+    {
+	struct bview_set  vset;
+	struct bview      old;
+
+	bv_set_init(&vset);
+	bv_init(&old, &vset);
+
+	nv = bview_companion_create(NULL, &old);
+	CHECK(nv != NULL, "companion_create(NULL name) returns non-NULL");
+	if (nv)
+	    bview_destroy(nv);
+
+	bv_free(&old);
+	bv_set_free(&vset);
+    }
+    return 1;
+}
+
+static int
+test_bview_companion_create_basic(void)
+{
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    bv_init(&old, &vset);
+    old.gv_scale = 250.0;
+    old.gv_size  = 500.0;
+    old.gv_isize = 1.0 / 500.0;
+
+    nv = bview_companion_create("companion", &old);
+    CHECK(nv != NULL, "companion_create returns non-NULL");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    /* back-pointer must be set */
+    CHECK(bview_old_get(nv) == &old, "companion old_bview == &old");
+
+    /* camera.scale must reflect gv_scale */
+    CHECK(fabs(bview_camera_scale_get(nv) - 250.0) < 1e-10,
+	  "companion camera.scale == 250.0");
+
+    /* destroying companion must not free old */
+    bview_destroy(nv);
+
+    /* old must still be usable */
+    old.gv_scale = 300.0;
+    CHECK(fabs(old.gv_scale - 300.0) < 1e-10, "old still valid after companion destroy");
+
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_companion_create_sync(void)
+{
+    /* Verify round-trip sync: modify companion, push to old, verify */
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    bv_init(&old, &vset);
+
+    nv = bview_companion_create("sync_view", &old);
+    CHECK(nv != NULL, "companion_create returns non-NULL");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    /* Modify companion's scale and push back to old */
+    bview_camera_scale_set(nv, 999.0);
+    bview_to_old(nv, &old);
+
+    CHECK(fabs(old.gv_scale - 999.0) < 1e-10,
+	  "to_old propagates companion scale to legacy view");
+    CHECK(fabs(old.gv_size - 1998.0) < 1e-10,
+	  "to_old sets gv_size = 2 * scale");
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_companion_create_independent(void)
+{
+    /* Two companions on the same legacy view must be independent */
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv1, *nv2;
+
+    bv_set_init(&vset);
+    bv_init(&old, &vset);
+
+    nv1 = bview_companion_create("c1", &old);
+    nv2 = bview_companion_create("c2", &old);
+    CHECK(nv1 != NULL && nv2 != NULL, "both companions non-NULL");
+
+    if (!nv1 || !nv2) {
+	if (nv1) bview_destroy(nv1);
+	if (nv2) bview_destroy(nv2);
+	bv_free(&old);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    CHECK(nv1 != nv2, "companions are distinct bview_new instances");
+
+    /* modifying one must not affect the other */
+    bview_camera_scale_set(nv1, 100.0);
+    bview_camera_scale_set(nv2, 200.0);
+
+    CHECK(fabs(bview_camera_scale_get(nv1) - 100.0) < 1e-10,
+	  "nv1 scale independent");
+    CHECK(fabs(bview_camera_scale_get(nv2) - 200.0) < 1e-10,
+	  "nv2 scale independent");
+
+    bview_destroy(nv1);
+    bview_destroy(nv2);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
 struct test_entry {
     const char *name;
     int (*func)(void);
@@ -3295,6 +3436,11 @@ static struct test_entry scene_tests[] = {
     { "draw_data_set_get",            test_bv_node_draw_data_set_get          },
     { "lod_view_new_null",            test_bv_mesh_lod_view_new_null          },
     { "autoview_new_sets_scale",      test_bview_autoview_new_sets_scale      },
+    /* Phase 1 callers migration — bview_companion_create */
+    { "companion_create_null",        test_bview_companion_create_null        },
+    { "companion_create_basic",       test_bview_companion_create_basic       },
+    { "companion_create_sync",        test_bview_companion_create_sync        },
+    { "companion_create_independent", test_bview_companion_create_independent },
     { NULL, NULL }
 };
 
