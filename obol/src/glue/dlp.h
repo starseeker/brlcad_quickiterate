@@ -1,0 +1,93 @@
+#ifndef OBOL_GLUE_DLP_H
+#define OBOL_GLUE_DLP_H
+
+/**************************************************************************\
+ * Copyright (c) Kongsberg Oil & Gas Technologies AS
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * 
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * 
+ * Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ * 
+ * Neither the name of the copyright holder nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+\**************************************************************************/
+
+/* Functions internal to the library, related to the dynamic linking
+   interface. 
+   
+   This header consolidates functionality from src/C/glue/dl.h which was
+   previously part of the public API. The functionality has been moved to
+   internal implementation details to reduce the public API footprint. */
+
+/* ********************************************************************** */
+
+#ifndef OBOL_INTERNAL
+#error this is a private header file
+#endif /* ! OBOL_INTERNAL */
+
+#include "Inventor/basic.h"
+
+/* ********************************************************************** */
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+#if 0 /* to get proper auto-indentation in emacs */
+}
+#endif /* emacs indentation */
+
+/* ********************************************************************** */
+
+/* Forward declaration of cc_libhandle */
+typedef struct cc_libhandle_struct * cc_libhandle;
+
+SbBool cc_dl_available(void);
+
+cc_libhandle cc_dl_handle_with_gl_symbols(void);
+
+cc_libhandle cc_dl_process_handle(void);
+cc_libhandle cc_dl_coin_handle(void);
+cc_libhandle cc_dl_opengl_handle(void);
+
+/* ********************************************************************** */
+
+/* Public API functions moved from src/C/glue/dl.h for internal use only */
+
+cc_libhandle cc_dl_open(const char * filename);
+void * cc_dl_sym(cc_libhandle handle, const char * symbolname);
+void cc_dl_close(cc_libhandle handle);
+
+/* Returns the function pointer for glGetString from the linked GL library.
+   Defined in gl.cpp.  dl.cpp uses this to verify cc_dl_opengl_handle()
+   opened the same library without needing raw OpenGL headers. */
+void * coin_gl_getstring_ptr(void);
+
+/* ********************************************************************** */
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif /* !OBOL_GLUE_DLP_H */
