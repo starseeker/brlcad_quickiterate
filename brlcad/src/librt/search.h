@@ -73,6 +73,9 @@ struct _db_search_ctx {
 struct db_node_t {
     struct db_full_path *path;
     struct bu_ptbl *full_paths;
+    void *below_passes;        /* C++ unordered_set<uint64_t>*, NULL outside BFS -below */
+    uint64_t below_path_hash;  /* precomputed path hash (for cache insert)  */
+    uint64_t below_parent_hash;/* precomputed parent hash (for cache lookup) */
     int flags;
     int matched_filters;
 };

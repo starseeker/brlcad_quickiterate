@@ -84,6 +84,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <deque>
 
@@ -204,12 +205,17 @@ struct traversal_ctx_t {
     int result_cnt;
     int has_maxdepth;
     int maxdepth;
+    std::unordered_set<uint64_t> *below_passes_cache; /* NULL outside BFS -below */
+    uint64_t below_path_hash;   /* hash of path currently being evaluated */
+    uint64_t below_parent_hash; /* hash of its parent (0 = no parent / root) */
 };
 
 
 struct path_node_t {
     struct db_full_path *path;
     int depth;
+    uint64_t path_hash;   /* incremental hash for below_passes cache */
+    uint64_t parent_hash; /* hash of the parent path */
 };
 
 
@@ -217,6 +223,30 @@ struct leaf_info_t {
     const char *name;
     int bool_op;
 };
+
+
+/*
+ * Mix a directory pointer into a 64-bit hash value for the below_passes
+ * cache.  Uses the finalizer from splitmix64 for good avalanche properties
+ * with no collisions in the bijective domain.
+ */
+static inline uint64_t
+below_hash_mix(struct directory *dp)
+{
+    uint64_t x = (uint64_t)(uintptr_t)dp;
+    x ^= x >> 30; x *= 0xbf58476d1ce4e5b9ULL;
+    x ^= x >> 27; x *= 0x94d049bb133111ebULL;
+    x ^= x >> 31;
+    return x;
+}
+
+/*
+ * LCG multiplier used when extending a path hash by one level.
+ * This is the Knuth multiplicative hash constant (2^64 / phi), chosen so
+ * that the incremental hash  H(P/child) = H(P)*MULT + below_hash_mix(child)
+ * has good distribution for any sequence of directory pointers.
+ */
+static const uint64_t BELOW_HASH_MULT = 6364136223846793005ULL;
 
 
 static void
@@ -336,6 +366,9 @@ evaluate_path(struct traversal_ctx_t *ctx, struct db_full_path *path)
     curr_node.flags = ctx->flags;
     curr_node.matched_filters = 1;
     curr_node.full_paths = NULL;
+    curr_node.below_passes = ctx->below_passes_cache;
+    curr_node.below_path_hash = ctx->below_path_hash;
+    curr_node.below_parent_hash = ctx->below_parent_hash;
 
     find_execute_plans(ctx->dbip, ctx->results, &curr_node, ctx->plan);
     ctx->result_cnt += curr_node.matched_filters;
@@ -347,9 +380,14 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 {
     int i = 0;
     std::deque<path_node_t> work;
+    std::unordered_set<uint64_t> below_cache;
 
     if (!ctx || !paths || path_cnt <= 0)
 	return;
+
+    /* Enable the O(1)-per-node BFS propagation cache for -below queries. */
+    if (strategy == TRAVERSE_BREADTH_FIRST)
+	ctx->below_passes_cache = &below_cache;
 
     for (i = 0; i < path_cnt; i++) {
 	struct directory *curr_dp = paths[i];
@@ -366,12 +404,16 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 	    DB_FULL_PATH_SET_CUR_BOOL(start_path, 2);
 
 	    if (ctx->flags & DB_SEARCH_FLAT) {
+		ctx->below_path_hash = 0;
+		ctx->below_parent_hash = 0;
 		evaluate_path(ctx, start_path);
 		db_free_full_path(start_path);
 		BU_PUT(start_path, struct db_full_path);
 	    } else {
 		node.path = start_path;
 		node.depth = 0;
+		node.path_hash = below_hash_mix(curr_dp);
+		node.parent_hash = 0; /* sentinel: root-level has no parent */
 		work.push_back(node);
 	    }
 	}
@@ -394,6 +436,10 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 	if (!path) {
 	    continue;
 	}
+
+	/* Set per-path hash context for f_below's O(1) cache operations. */
+	ctx->below_path_hash = node.path_hash;
+	ctx->below_parent_hash = node.parent_hash;
 
 	evaluate_path(ctx, path);
 
@@ -461,6 +507,10 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 		    path_node_t child_node;
 		    child_node.path = child_path;
 		    child_node.depth = node.depth + 1;
+		    /* O(1) incremental hash: extend parent hash with child dp. */
+		    child_node.path_hash = node.path_hash * BELOW_HASH_MULT
+			+ below_hash_mix(child_dp);
+		    child_node.parent_hash = node.path_hash;
 		    work.push_back(child_node);
 		}
 	    }
@@ -687,36 +737,117 @@ find_execute_nested_plans(struct db_i *dbip, struct bu_ptbl *results, struct db_
 /*
  * -below expression functions --
  *
- * Find objects above objects matching an expression.  In this case,
- * this means following the tree path back to the root.
+ * A path passes "-below expr" if any ancestor of the path satisfies expr.
+ *
+ * Optimized for BFS traversal: since parents are processed before children,
+ * we use a propagation cache so each call is O(1) instead of O(depth):
+ *
+ *   below_passes(C) = below_passes(parent(C))  [cache hit: same ancestor applies]
+ *                   OR inner(parent(C))          [parent itself satisfies expr]
+ *
+ * Cache keys are 64-bit incremental pointer hashes (computed in the BFS work
+ * queue), so no string allocation is needed.  This reduces the total cost for
+ * a linear chain of depth D from O(D²) inner-plan evaluations to O(D).
+ * The cache is only active during BFS traversal with an unbounded max_depth
+ * (the normal case for -below); other modes fall back to the original
+ * ancestor-walk.
  */
 static int
 f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, struct bu_ptbl *results)
 {
     int state = 0;
-    int distance = 0;
     struct db_node_t curr_node;
     struct db_full_path parent_path;
+    std::unordered_set<uint64_t> *cache =
+	static_cast<std::unordered_set<uint64_t> *>(db_node->below_passes);
 
-    db_full_path_init(&parent_path);
-    db_dup_full_path(&parent_path, db_node->path);
-    DB_FULL_PATH_POP(&parent_path);
-    curr_node.path = &parent_path;
-    distance = db_node->path->fp_len - parent_path.fp_len;
-
-    while ((parent_path.fp_len > 0) && (state == 0) && !(db_node->flags & DB_SEARCH_FLAT)) {
-	distance++;
-	if ((distance <= plan->max_depth) && (distance >= plan->min_depth)) {
-	    state += find_execute_nested_plans(dbip, results, &curr_node, plan->p_un._bl_data[0]);
-	}
-	DB_FULL_PATH_POP(&parent_path);
+    /* A root-level node (no parent) never satisfies -below. */
+    if (db_node->path->fp_len <= 1) {
+	db_node->matched_filters = 0;
+	return 0;
     }
 
-    db_free_full_path(&parent_path);
+    if (cache && plan->max_depth == INT_MAX && !(db_node->flags & DB_SEARCH_FLAT)) {
+	/*
+	 * BFS optimized path: O(1) per node, no memory allocation.
+	 *
+	 * Check 1: if the parent hash is in the cache, this node inherits
+	 * the result.  The same qualifying ancestor still applies to all
+	 * descendants, and with unbounded max_depth the distance constraint
+	 * remains satisfied.
+	 */
+	if (cache->count(db_node->below_parent_hash)) {
+	    cache->insert(db_node->below_path_hash);
+	    return 1;
+	}
 
-    if (!state)
-	db_node->matched_filters = 0;
-    return (state > 0) ? 1 : 0;
+	/*
+	 * Check 2: evaluate the inner plan against the immediate parent.
+	 * Build the parent path only when needed (once per "first match").
+	 * Subsequent descendants get a cache hit in Check 1 above without
+	 * any path allocation.
+	 *
+	 * distance = 2 matches the original loop's off-by-one convention
+	 * (distance starts at 1, then gets incremented to 2 before the
+	 * first evaluation).
+	 */
+	if (2 >= plan->min_depth) {
+	    db_full_path_init(&parent_path);
+	    db_dup_full_path(&parent_path, db_node->path);
+	    DB_FULL_PATH_POP(&parent_path);
+
+	    curr_node.path = &parent_path;
+	    curr_node.flags = db_node->flags;
+	    curr_node.full_paths = NULL;
+	    curr_node.below_passes = NULL;
+	    curr_node.below_path_hash = 0;
+	    curr_node.below_parent_hash = 0;
+	    curr_node.matched_filters = 1;
+
+	    state = find_execute_nested_plans(dbip, results, &curr_node,
+					     plan->p_un._bl_data[0]);
+	    db_free_full_path(&parent_path);
+
+	    if (state > 0) {
+		cache->insert(db_node->below_path_hash);
+		return 1;
+	    }
+	}
+    } else {
+	/*
+	 * Fallback: walk all ancestors.  Used for DB_SEARCH_FLAT mode or
+	 * when a bounded max_depth is in effect (rare non-default case).
+	 */
+	int distance;
+
+	db_full_path_init(&parent_path);
+	db_dup_full_path(&parent_path, db_node->path);
+	DB_FULL_PATH_POP(&parent_path);
+
+	curr_node.path = &parent_path;
+	curr_node.flags = db_node->flags;
+	curr_node.full_paths = NULL;
+	curr_node.below_passes = NULL;
+	curr_node.below_path_hash = 0;
+	curr_node.below_parent_hash = 0;
+	curr_node.matched_filters = 1;
+
+	distance = (int)db_node->path->fp_len - (int)parent_path.fp_len;
+	while ((parent_path.fp_len > 0) && (state == 0) && !(db_node->flags & DB_SEARCH_FLAT)) {
+	    distance++;
+	    if ((distance <= plan->max_depth) && (distance >= plan->min_depth)) {
+		state += find_execute_nested_plans(dbip, results, &curr_node,
+						   plan->p_un._bl_data[0]);
+	    }
+	    DB_FULL_PATH_POP(&parent_path);
+	}
+	db_free_full_path(&parent_path);
+	if (state > 0)
+	    return 1;
+    }
+
+    db_node->matched_filters = 0;
+    return 0;
 }
 
 
@@ -755,6 +886,9 @@ f_above(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 		curr_node.path = this_path;
 		curr_node.flags = db_node->flags;
 		curr_node.full_paths = full_paths;
+		curr_node.below_passes = NULL;
+		curr_node.below_path_hash = 0;
+		curr_node.below_parent_hash = 0;
 
 		state = find_execute_nested_plans(dbip, NULL, &curr_node, plan->p_un._ab_data[0]);
 		if (state)
@@ -3021,6 +3155,9 @@ db_search(struct bu_ptbl *search_results,
 		struct db_node_t curr_node;
 		curr_node.path = (struct db_full_path *)BU_PTBL_GET(full_paths, i);
 		curr_node.full_paths = full_paths;
+		curr_node.below_passes = NULL;
+		curr_node.below_path_hash = 0;
+		curr_node.below_parent_hash = 0;
 		curr_node.flags = search_flags;
 		curr_node.matched_filters = 1;
 		find_execute_plans(dbip, search_results, &curr_node, dbplan);
@@ -3038,6 +3175,7 @@ db_search(struct bu_ptbl *search_results,
 	    tctx.result_cnt = 0;
 	    tctx.has_maxdepth = plan_analysis.has_maxdepth;
 	    tctx.maxdepth = plan_analysis.maxdepth;
+	    tctx.below_passes_cache = NULL;
 
 	    traverse_paths(&tctx, paths, path_cnt, strategy);
 	    result_cnt = tctx.result_cnt;

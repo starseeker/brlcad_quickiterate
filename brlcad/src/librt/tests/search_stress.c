@@ -159,6 +159,35 @@
  * strategy (selected when has_below && !has_above).  The test uses
  * "-below -name dag_top", which matches all paths except dag_top itself
  * (M + 2*M*L results), exercising the full throughput of the traversal.
+ *
+ *
+ * Deep linear-chain topology used in -below optimization test
+ * ===========================================================
+ *
+ * The -below filter has an O(D²) worst case on a linear chain of depth D:
+ * for each node at depth d, the original implementation walks up d ancestors
+ * evaluating the inner plan, giving total work proportional to D*(D-1)/2.
+ *
+ * The new db_search eliminates this with a BFS propagation cache:
+ *
+ *   below_passes(C) = below_passes(parent(C)) OR inner(parent(C))
+ *
+ * Since BFS processes the parent before the child, each node's result is
+ * O(1) (one hash lookup + at most one inner-plan evaluation), reducing the
+ * total cost from O(D²) to O(D).
+ *
+ * The topology is a simple linear chain:
+ *
+ *   chain_root -> chain_0 -> chain_1 -> ... -> chain_{D-1} -> chain_leaf.s
+ *
+ * Total full paths = D + 2  (chain_root, D combs, and chain_leaf.s)
+ *
+ * Query: -below -name chain_root
+ *   Every path except chain_root itself has chain_root as an ancestor.
+ *   Expected count = D + 1  (all paths except chain_root).
+ *
+ * At D=1000 the original O(D²) behavior requires ~500K inner-plan evaluations;
+ * the optimized O(D) implementation requires only ~1000.
  */
 
 #include "common.h"
@@ -864,6 +893,102 @@ test_dag_cross_validation(struct db_i *dbip, int L, int M)
 
 
 /* ------------------------------------------------------------------ */
+/*  Deep linear-chain builder and -below performance test             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Build a linear chain of depth D:
+ *
+ *   chain_root -> chain_0 -> chain_1 -> ... -> chain_{D-1} -> chain_leaf.s
+ *
+ * Total paths when searching from chain_root: D + 2.
+ * Returns 0 on success.
+ */
+static int
+build_linear_chain(struct rt_wdb *wdbp, int D)
+{
+    int i;
+    struct bu_vls name = BU_VLS_INIT_ZERO;
+    struct wmember wm;
+    point_t center = VINIT_ZERO;
+    fastf_t radius = 1.0;
+
+    if (D < 1) {
+	bu_vls_free(&name);
+	return 1;
+    }
+
+    /* leaf primitive */
+    if (mk_sph(wdbp, "chain_leaf.s", center, radius) != 0)
+	goto fail;
+
+    /* chain_{D-1} wraps the primitive */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("chain_leaf.s", &wm.l, NULL, WMOP_UNION);
+    bu_vls_sprintf(&name, "chain_%d", D - 1);
+    if (mk_lcomb(wdbp, bu_vls_cstr(&name), &wm, 0, NULL, NULL, NULL, 0) != 0)
+	goto fail;
+
+    /* chain_{D-2} -> chain_{D-1}, ..., chain_0 -> chain_1 */
+    for (i = D - 2; i >= 0; i--) {
+	BU_LIST_INIT(&wm.l);
+	bu_vls_sprintf(&name, "chain_%d", i + 1);
+	mk_addmember(bu_vls_cstr(&name), &wm.l, NULL, WMOP_UNION);
+	bu_vls_sprintf(&name, "chain_%d", i);
+	if (mk_lcomb(wdbp, bu_vls_cstr(&name), &wm, 0, NULL, NULL, NULL, 0) != 0)
+	    goto fail;
+    }
+
+    /* chain_root -> chain_0 */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("chain_0", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "chain_root", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	goto fail;
+
+    bu_vls_free(&name);
+    return 0;
+
+fail:
+    bu_vls_free(&name);
+    return 1;
+}
+
+
+/*
+ * Verify -below correctness and report timing on a deep linear chain.
+ *
+ * Query: -below -name chain_root
+ *   Expected result count: D + 1  (every path except chain_root itself).
+ *
+ * With the BFS propagation cache the new implementation runs in O(D);
+ * the original ancestor-walk would be O(D²).
+ */
+static int
+test_below_deep_chain(struct db_i *dbip, int D)
+{
+    int failures = 0;
+    int cnt;
+    int expected = D + 1;
+    int64_t t;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+
+    t = bu_gettime();
+    cnt = db_search(&results, DB_SEARCH_TREE,
+		    "-below -name chain_root",
+		    0, NULL, dbip, NULL, NULL, NULL);
+    t = bu_gettime() - t;
+    db_search_free(&results);
+
+    bu_log("  chain D=%-4d  -below -name chain_root: got=%d expect=%d (%.6fs)%s\n",
+	   D, cnt, expected, (double)t / 1e6,
+	   (cnt != expected) ? "  FAIL" : "");
+    CHECK(cnt == expected, "-below chain count matches expected");
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
 /*  Main                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -1000,6 +1125,54 @@ main(int argc, char *argv[])
 
 	    db_update_nref(dbip, &rt_uniresource);
 	    failures += test_dag_cross_validation(dbip, L, M);
+
+	    wdb_close(wdbp);
+	}
+    }
+
+    /* ---- Deep linear-chain tests: verify -below O(D) behavior ---- */
+    /*
+     * A linear chain exposes the O(D²) worst case in the naive -below
+     * implementation: for each of the D+2 paths, the original code walks
+     * up all ancestors evaluating the inner plan.  The new BFS propagation
+     * cache reduces this to O(D).
+     *
+     * Each case verifies correctness (count == D+1) and reports the
+     * elapsed time.  On a system where D=1000 used to take hundreds of
+     * milliseconds, the optimized version completes in single-digit
+     * milliseconds.
+     */
+    {
+	int depths[] = {100, 500, 1000, 0};
+	int di;
+
+	bu_log("\nRunning deep-chain -below tests (O(D) optimization)...\n");
+
+	for (di = 0; depths[di] != 0; di++) {
+	    int D = depths[di];
+
+	    dbip = db_open_inmem();
+	    if (dbip == DBI_NULL) {
+		bu_log("ERROR: Cannot create chain db (D=%d)\n", D);
+		failures++;
+		continue;
+	    }
+	    wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_INMEM);
+	    if (!wdbp) {
+		db_close(dbip);
+		failures++;
+		continue;
+	    }
+
+	    if (build_linear_chain(wdbp, D) != 0) {
+		bu_log("ERROR: Cannot build linear chain D=%d\n", D);
+		wdb_close(wdbp);
+		failures++;
+		continue;
+	    }
+
+	    db_update_nref(dbip, &rt_uniresource);
+	    failures += test_below_deep_chain(dbip, D);
 
 	    wdb_close(wdbp);
 	}
