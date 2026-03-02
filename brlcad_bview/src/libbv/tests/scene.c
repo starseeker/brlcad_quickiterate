@@ -1031,7 +1031,405 @@ test_bview_migration(void)
 
 
 /* ================================================================
- * scene_main dispatcher
+ * Phase 1 – bview_settings_apply tests
+ * ================================================================ */
+
+static int
+test_bview_settings_apply(void)
+{
+    struct bview_new *v;
+    const struct bview_camera  *cam;
+    const struct bview_viewport *vp;
+    const struct bview_appearance *app;
+    const struct bview_overlay *ov;
+
+    v = bview_create("settings_apply_test");
+    CHECK(v != NULL, "bview_create non-NULL");
+    if (!v) return 0;
+
+    bview_settings_apply(v);
+
+    /* Camera defaults */
+    cam = bview_camera_get(v);
+    CHECK(cam != NULL, "camera non-NULL after settings_apply");
+    if (cam) {
+	vect_t eye_default = {0.0, 0.0, 1.0};
+	vect_t tgt_default = {0.0, 0.0, 0.0};
+	CHECK(VNEAR_EQUAL(cam->position, eye_default, 1e-10),
+	      "settings_apply: camera.position == (0,0,1)");
+	CHECK(VNEAR_EQUAL(cam->target, tgt_default, 1e-10),
+	      "settings_apply: camera.target == (0,0,0)");
+	CHECK(cam->perspective == 0, "settings_apply: orthographic by default");
+	CHECK(fabs(cam->fov) < 1e-10, "settings_apply: fov == 0");
+    }
+
+    /* Viewport defaults */
+    vp = bview_viewport_get(v);
+    CHECK(vp != NULL, "viewport non-NULL after settings_apply");
+    if (vp) {
+	CHECK(vp->width  == 0, "settings_apply: viewport width == 0");
+	CHECK(vp->height == 0, "settings_apply: viewport height == 0");
+	CHECK(fabs(vp->dpi - 96.0) < 1e-5, "settings_apply: dpi == 96.0");
+    }
+
+    /* Appearance defaults */
+    app = bview_appearance_get(v);
+    CHECK(app != NULL, "appearance non-NULL after settings_apply");
+    if (app) {
+	CHECK(app->show_grid   == 0, "settings_apply: show_grid == 0");
+	CHECK(app->show_axes   == 0, "settings_apply: show_axes == 0");
+	CHECK(app->show_origin == 0, "settings_apply: show_origin == 0");
+	CHECK(fabs(app->line_width) < 1e-5, "settings_apply: line_width == 0");
+    }
+
+    /* Overlay defaults */
+    ov = bview_overlay_get(v);
+    CHECK(ov != NULL, "overlay non-NULL after settings_apply");
+    if (ov) {
+	CHECK(ov->show_fps        == 0, "settings_apply: show_fps == 0");
+	CHECK(ov->show_gizmos     == 0, "settings_apply: show_gizmos == 0");
+	CHECK(ov->show_annotation == 0, "settings_apply: show_annotation == 0");
+    }
+
+    bview_destroy(v);
+    return 1;
+}
+
+static int
+test_bview_settings_apply_null(void)
+{
+    /* Must not crash */
+    bview_settings_apply(NULL);
+    CHECK(1, "settings_apply(NULL) does not crash");
+    return 1;
+}
+
+static int
+test_bview_settings_apply_idempotent(void)
+{
+    struct bview_new *v = bview_create("idempotent_test");
+    const struct bview_camera *cam1, *cam2;
+    struct bview_camera snap1, snap2;
+    CHECK(v != NULL, "bview_create non-NULL");
+    if (!v) return 0;
+
+    /* Calling settings_apply twice should yield the same result */
+    bview_settings_apply(v);
+    cam1 = bview_camera_get(v);
+    if (cam1) snap1 = *cam1;
+
+    bview_settings_apply(v);
+    cam2 = bview_camera_get(v);
+    if (cam2) snap2 = *cam2;
+
+    if (cam1 && cam2) {
+	CHECK(VNEAR_EQUAL(snap1.position, snap2.position, 1e-10),
+	      "settings_apply idempotent: position unchanged");
+	CHECK(snap1.perspective == snap2.perspective,
+	      "settings_apply idempotent: perspective unchanged");
+    }
+
+    bview_destroy(v);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 2 – bv_scene_obj_to_node tests
+ *
+ * We cannot easily create a fully-populated bv_scene_obj from C without
+ * calling into higher-level libged infrastructure, so these tests work
+ * with a bview that has been initialized via bv_init / bv_obj_get and
+ * verify the structural properties of the resulting bv_node.
+ * ================================================================ */
+
+static int
+test_bv_scene_obj_to_node_null(void)
+{
+    struct bv_node *n = bv_scene_obj_to_node(NULL);
+    CHECK(n == NULL, "bv_scene_obj_to_node(NULL) returns NULL");
+    return 1;
+}
+
+static int
+test_bv_scene_obj_to_node_basic(void)
+{
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene_obj *s;
+    struct bv_node      *n;
+    const struct bu_ptbl *ch;
+
+    /* Set up a minimal legacy view with one leaf scene object */
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    /* Create a view-only object (leaf, no children) */
+    s = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s != NULL, "bv_obj_get returns non-NULL");
+    if (!s) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* Set a distinctive name and color */
+    bu_vls_trunc(&s->s_name, 0);
+    bu_vls_strcpy(&s->s_name, "test_solid");
+    s->s_color[0] = 200;
+    s->s_color[1] = 100;
+    s->s_color[2] = 50;
+
+    /* Convert to node */
+    n = bv_scene_obj_to_node(s);
+    CHECK(n != NULL, "bv_scene_obj_to_node returns non-NULL");
+    if (!n) {
+	bv_obj_put(s);
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* Node type: leaf → BV_NODE_GEOMETRY */
+    CHECK(bv_node_type_get(n) == BV_NODE_GEOMETRY,
+	  "leaf obj → BV_NODE_GEOMETRY");
+
+    /* Node name matches s_name */
+    CHECK(bu_strcmp(bv_node_name_get(n), "test_solid") == 0,
+	  "node name matches s_name");
+
+    /* user_data == original bv_scene_obj */
+    CHECK(bv_node_user_data_get(n) == s,
+	  "user_data points to original bv_scene_obj");
+
+    /* No children */
+    ch = bv_node_children(n);
+    CHECK(ch && PTBL_LEN_OF(ch) == 0, "leaf node has no children");
+
+    bv_node_destroy(n);
+    bv_obj_put(s);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bv_scene_obj_to_node_with_children(void)
+{
+    struct bview_set   vset;
+    struct bview       v;
+    struct bv_scene_obj *parent_s;
+    struct bv_scene_obj *child_s;
+    struct bv_node      *parent_n;
+    const struct bu_ptbl *ch;
+
+    /* Set up a minimal legacy view */
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    /* Create parent scene object */
+    parent_s = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(parent_s != NULL, "parent bv_obj_get non-NULL");
+    if (!parent_s) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    bu_vls_trunc(&parent_s->s_name, 0);
+    bu_vls_strcpy(&parent_s->s_name, "group_node");
+
+    /* Create a child scene object under parent */
+    child_s = bv_obj_get_child(parent_s);
+    CHECK(child_s != NULL, "child bv_obj_get_child non-NULL");
+    if (!child_s) {
+	bv_obj_put(parent_s);
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    bu_vls_trunc(&child_s->s_name, 0);
+    bu_vls_strcpy(&child_s->s_name, "child_solid");
+
+    /* Now wrap the parent - should recursively wrap the child */
+    parent_n = bv_scene_obj_to_node(parent_s);
+    CHECK(parent_n != NULL, "parent bv_scene_obj_to_node non-NULL");
+    if (!parent_n) {
+	bv_obj_put(parent_s);
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* Parent has children → BV_NODE_GROUP */
+    CHECK(bv_node_type_get(parent_n) == BV_NODE_GROUP,
+	  "parent with children → BV_NODE_GROUP");
+
+    /* Should have exactly 1 child node */
+    ch = bv_node_children(parent_n);
+    CHECK(ch && PTBL_LEN_OF(ch) == 1,
+	  "parent node has exactly 1 child");
+
+    bv_node_destroy(parent_n); /* recursively destroys child node */
+    bv_obj_put(parent_s);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 2 – bv_scene_from_view tests
+ * ================================================================ */
+
+static int
+test_bv_scene_from_view_null(void)
+{
+    struct bv_scene *scene = bv_scene_from_view(NULL);
+    CHECK(scene == NULL, "bv_scene_from_view(NULL) returns NULL");
+    return 1;
+}
+
+static int
+test_bv_scene_from_view_empty(void)
+{
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene  *scene;
+    const struct bu_ptbl *nodes;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    /* Empty view → scene with only root node */
+    scene = bv_scene_from_view(&v);
+    CHECK(scene != NULL, "bv_scene_from_view(empty view) non-NULL");
+    if (scene) {
+	nodes = bv_scene_nodes(scene);
+	/* Empty view: no scene objects → flat table is empty */
+	CHECK(nodes != NULL, "scene nodes table non-NULL");
+	if (nodes)
+	    CHECK(PTBL_LEN_OF(nodes) == 0,
+		  "empty view → no nodes in flat table");
+	bv_scene_destroy(scene);
+    }
+
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bv_scene_from_view_with_objects(void)
+{
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene_obj *s1, *s2;
+    struct bv_scene  *scene;
+    const struct bu_ptbl *nodes;
+    size_t flat_count;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    /* Add two view objects */
+    s1 = bv_obj_get(&v, BV_VIEWONLY);
+    s2 = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s1 != NULL && s2 != NULL, "both bv_obj_get calls succeed");
+    if (!s1 || !s2) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    bu_vls_trunc(&s1->s_name, 0);
+    bu_vls_strcpy(&s1->s_name, "obj1");
+    bu_vls_trunc(&s2->s_name, 0);
+    bu_vls_strcpy(&s2->s_name, "obj2");
+
+    scene = bv_scene_from_view(&v);
+    CHECK(scene != NULL, "bv_scene_from_view non-NULL with objects");
+    if (!scene) {
+	bv_obj_put(s1);
+	bv_obj_put(s2);
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* Should have 2 nodes in the flat table */
+    nodes = bv_scene_nodes(scene);
+    flat_count = nodes ? PTBL_LEN_OF(nodes) : 0;
+    CHECK(flat_count == 2, "scene from 2-obj view has 2 nodes");
+
+    /* Can find by name */
+    CHECK(bv_scene_find_node(scene, "obj1") != NULL,
+	  "can find 'obj1' in converted scene");
+    CHECK(bv_scene_find_node(scene, "obj2") != NULL,
+	  "can find 'obj2' in converted scene");
+
+    /* user_data points back to original bv_scene_obj */
+    {
+	struct bv_node *n1 = bv_scene_find_node(scene, "obj1");
+	if (n1)
+	    CHECK(bv_node_user_data_get(n1) == s1,
+		  "obj1 node user_data == original s1");
+    }
+
+    bv_scene_destroy(scene); /* destroys wrapper nodes; s1/s2 still owned by view */
+    bv_obj_put(s1);
+    bv_obj_put(s2);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 3 – bv_scene_from_view_set tests
+ * ================================================================ */
+
+static int
+test_bv_scene_from_view_set_null(void)
+{
+    struct bv_scene *scene = bv_scene_from_view_set(NULL);
+    CHECK(scene == NULL, "bv_scene_from_view_set(NULL) returns NULL");
+    return 1;
+}
+
+static int
+test_bv_scene_from_view_set_empty(void)
+{
+    struct bview_set  vset;
+    struct bv_scene  *scene;
+    const struct bu_ptbl *nodes;
+
+    bv_set_init(&vset);
+
+    /* Empty set: no shared objects */
+    scene = bv_scene_from_view_set(&vset);
+    CHECK(scene != NULL, "bv_scene_from_view_set(empty) non-NULL");
+    if (scene) {
+	nodes = bv_scene_nodes(scene);
+	CHECK(nodes != NULL, "nodes table non-NULL");
+	if (nodes)
+	    CHECK(PTBL_LEN_OF(nodes) == 0,
+		  "empty view set → 0 nodes in flat table");
+	bv_scene_destroy(scene);
+    }
+
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * scene_main dispatcher  (appended entries)
  * ================================================================ */
 
 struct test_entry {
@@ -1066,6 +1464,20 @@ static struct test_entry scene_tests[] = {
     { "view_scene_assoc",     test_bview_scene_assoc       },
     { "view_camera_node",     test_bview_camera_node       },
     { "view_migration",       test_bview_migration         },
+    /* Phase 1 */
+    { "settings_apply",           test_bview_settings_apply         },
+    { "settings_apply_null",      test_bview_settings_apply_null    },
+    { "settings_apply_idempotent",test_bview_settings_apply_idempotent },
+    /* Phase 2 */
+    { "obj_to_node_null",         test_bv_scene_obj_to_node_null    },
+    { "obj_to_node_basic",        test_bv_scene_obj_to_node_basic   },
+    { "obj_to_node_children",     test_bv_scene_obj_to_node_with_children },
+    { "scene_from_view_null",     test_bv_scene_from_view_null      },
+    { "scene_from_view_empty",    test_bv_scene_from_view_empty     },
+    { "scene_from_view_objs",     test_bv_scene_from_view_with_objects },
+    /* Phase 3 */
+    { "scene_from_vset_null",     test_bv_scene_from_view_set_null  },
+    { "scene_from_vset_empty",    test_bv_scene_from_view_set_empty },
     { NULL, NULL }
 };
 

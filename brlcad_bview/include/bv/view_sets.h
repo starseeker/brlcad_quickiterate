@@ -34,19 +34,22 @@
 __BEGIN_DECLS
 
 /**
- * Initialize an empty view set
+ * Initialize an empty view set.
+ * DEPRECATED: use bv_scene_create() in new code to create a shared scene.
  */
 BV_EXPORT void
 bv_set_init(struct bview_set *s);
 
 /**
- * Free view set
+ * Free view set.
+ * DEPRECATED: use bv_scene_destroy() in new code.
  */
 BV_EXPORT void
 bv_set_free(struct bview_set *s);
 
 /**
  * Add view v to set s, handling shared memory assignments.
+ * DEPRECATED: use bview_scene_set() to associate a bview_new with a bv_scene.
  */
 BV_EXPORT void
 bv_set_add_view(struct bview_set *s, struct bview *v);
@@ -54,19 +57,22 @@ bv_set_add_view(struct bview_set *s, struct bview *v);
 /**
  * Remove view v from set s.  If v == NULL, all views
  * are removed from the set.
+ * DEPRECATED: use bview_scene_set(view, NULL) in new code.
  */
 BV_EXPORT void
 bv_set_rm_view(struct bview_set *s, struct bview *v);
 
 /**
- * Return a bu_ptbl holding pointers to all views in set s
+ * Return a bu_ptbl holding pointers to all views in set s.
+ * DEPRECATED: iterate over views that share the same bv_scene instead.
  */
 BV_EXPORT struct bu_ptbl *
 bv_set_views(struct bview_set *s);
 
 /**
  * Return a pointer to the view with name vname, if it is present in s.  If not
- * found, returns NULL
+ * found, returns NULL.
+ * DEPRECATED: use bv_scene_find_node() to find nodes by name in new code.
  */
 BV_EXPORT struct bview *
 bv_set_find_view(struct bview_set *s, const char *vname);
