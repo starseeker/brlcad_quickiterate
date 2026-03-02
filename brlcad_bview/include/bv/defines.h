@@ -148,6 +148,15 @@ struct bview_camera {
     vect_t up;
     double fov;
     int perspective; /* 0 = ortho, 1 = perspective */
+    /*
+     * View scale — the half-size of the view in model-space units.
+     * Corresponds to gv_scale in the legacy struct bview (gv_size = 2*gv_scale).
+     * Default: 500.0 (matching bv_init() initialisation of gv_scale).
+     * Used by the LoD pipeline to select the appropriate level of detail:
+     * a larger scale means the camera is far from the scene and lower detail
+     * is appropriate.
+     */
+    double scale;
 };
 
 /* Viewport/window object */
@@ -238,6 +247,20 @@ BV_EXPORT struct bv_scene *bview_scene_get(const struct bview_new *view);
 /* Camera (active camera parameters) */
 BV_EXPORT void bview_camera_set(struct bview_new *view, const struct bview_camera *camera);
 BV_EXPORT const struct bview_camera *bview_camera_get(const struct bview_new *view);
+
+/*
+ * View scale convenience accessors (analog of gv_scale in legacy struct bview).
+ *
+ * bview_camera_scale_set() writes the scale field of the view's active camera.
+ * bview_camera_scale_get() returns the current scale (or 0.0 if view is NULL).
+ *
+ * The scale represents the half-size of the view in model-space units
+ * (gv_size = 2 * scale in legacy terminology).  The LoD pipeline reads it to
+ * pick the appropriate level of detail for a bview_new without requiring
+ * access to a legacy struct bview.
+ */
+BV_EXPORT void   bview_camera_scale_set(struct bview_new *view, double scale);
+BV_EXPORT double bview_camera_scale_get(const struct bview_new *view);
 
 /* Optionally associate a camera node (preparing for Coin3D mapping via SoCamera) */
 BV_EXPORT void bview_camera_node_set(struct bview_new *view, struct bv_node *camera_node);
@@ -415,6 +438,21 @@ BV_EXPORT int bv_node_selected_get(const struct bv_node *node);
  */
 BV_EXPORT void bv_node_lod_level_set(struct bv_node *node, int level);
 BV_EXPORT int  bv_node_lod_level_get(const struct bv_node *node);
+
+/*
+ * Raw geometry source data (Phase 4 — LoD mesh, tessellation cache, etc.)
+ *
+ * A BV_NODE_GEOMETRY node may carry two data pointers:
+ *   - geometry / vlist  (set via bv_node_vlist_set) — the rendered display data
+ *   - draw_data         (set via bv_node_draw_data_set) — the source / LoD data
+ *
+ * The draw_data pointer is the analog of bv_scene_obj::draw_data.  For LoD
+ * meshes it holds a struct bv_mesh_lod * obtained via bv_mesh_lod_create().
+ *
+ * The caller retains ownership.  bv_node_destroy() does NOT free draw_data.
+ */
+BV_EXPORT void  bv_node_draw_data_set(struct bv_node *node, void *draw_data);
+BV_EXPORT void *bv_node_draw_data_get(const struct bv_node *node);
 
 /* Type, name, and user data access */
 BV_EXPORT enum bv_node_type bv_node_type_get(const struct bv_node *node);
@@ -601,6 +639,18 @@ BV_EXPORT int bview_autoview_new(struct bview_new *view, const struct bv_scene *
 BV_EXPORT void bview_from_old(struct bview_new *view, const struct bview *old);
 BV_EXPORT void bview_to_old(const struct bview_new *view, struct bview *old);
 BV_EXPORT struct bview *bview_old_get(const struct bview_new *view);
+
+/*
+ * Associate a legacy struct bview pointer with this bview_new without
+ * performing a full copy of the camera/appearance fields.
+ *
+ * This is the setter counterpart to bview_old_get().  Use it when you hold a
+ * pre-existing bview that you want the new-API code to be able to find via
+ * bview_old_get(), without overwriting the new view's camera or settings.
+ *
+ * For a full synchronising copy from the legacy struct use bview_from_old().
+ */
+BV_EXPORT void bview_old_set(struct bview_new *view, struct bview *old);
 
 /*
  * Apply BRL-CAD default settings to a bview_new instance.

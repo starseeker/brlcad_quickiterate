@@ -40,6 +40,7 @@
 #include "bu.h"
 #include "bn.h"
 #include "bv.h"
+#include "bv/lod.h"
 
 
 /* ---- helpers ---- */
@@ -2953,8 +2954,236 @@ test_bview_lod_node_update_native(void)
 
 
 /* ================================================================
- * scene_main dispatcher  (appended entries)
+ * Phase 1 (bridge) + Phase 4 (native LoD) new tests
  * ================================================================ */
+
+static int
+test_bview_camera_scale_set_get(void)
+{
+    struct bview_new *v;
+    double s;
+
+    /* NULL safety */
+    bview_camera_scale_set(NULL, 100.0);
+    CHECK(1, "camera_scale_set(NULL) does not crash");
+    s = bview_camera_scale_get(NULL);
+    CHECK(fabs(s) < 1e-10, "camera_scale_get(NULL) returns 0.0");
+
+    v = bview_create("scale_test");
+    CHECK(v != NULL, "bview_create non-NULL");
+    if (!v) return 0;
+
+    /* bview_settings_apply sets default 500.0 */
+    bview_settings_apply(v);
+    s = bview_camera_scale_get(v);
+    CHECK(fabs(s - 500.0) < 1e-10, "camera_scale default == 500.0 after settings_apply");
+
+    /* Set and get */
+    bview_camera_scale_set(v, 123.5);
+    s = bview_camera_scale_get(v);
+    CHECK(fabs(s - 123.5) < 1e-10, "camera_scale round-trips 123.5");
+
+    bview_destroy(v);
+    return 1;
+}
+
+static int
+test_bview_from_old_scale(void)
+{
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+    double s;
+
+    bv_set_init(&vset);
+    bv_init(&old, &vset);
+
+    /* Verify that gv_scale is set by bv_init */
+    CHECK(old.gv_scale > 0.0, "bv_init sets gv_scale > 0");
+
+    nv = bview_create("from_old_scale");
+    CHECK(nv != NULL, "bview_create non-NULL");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    bview_from_old(nv, &old);
+
+    s = bview_camera_scale_get(nv);
+    CHECK(fabs(s - old.gv_scale) < 1e-10, "from_old copies gv_scale to camera.scale");
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_to_old_scale(void)
+{
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    bv_init(&old, &vset);
+
+    nv = bview_create("to_old_scale");
+    CHECK(nv != NULL, "bview_create non-NULL");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    bview_settings_apply(nv);
+    bview_camera_scale_set(nv, 250.0);
+
+    bview_to_old(nv, &old);
+
+    CHECK(fabs(old.gv_scale - 250.0) < 1e-10, "to_old copies camera.scale to gv_scale");
+    CHECK(fabs(old.gv_size  - 500.0) < 1e-10, "to_old sets gv_size = 2*scale");
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_old_set(void)
+{
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+    struct bview     *got;
+
+    bv_set_init(&vset);
+    bv_init(&old, &vset);
+
+    nv = bview_create("old_set_test");
+    CHECK(nv != NULL, "bview_create non-NULL");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    /* NULL safety */
+    bview_old_set(NULL, &old);
+    CHECK(1, "bview_old_set(NULL view) does not crash");
+    bview_old_set(nv, NULL);
+    got = bview_old_get(nv);
+    CHECK(got == NULL, "old_bview NULL after bview_old_set(v, NULL)");
+
+    /* Set and get */
+    bview_old_set(nv, &old);
+    got = bview_old_get(nv);
+    CHECK(got == &old, "bview_old_get returns set pointer");
+
+    /* bview_from_old also sets the pointer; ensure old_set doesn't conflict */
+    bview_old_set(nv, NULL);
+    got = bview_old_get(nv);
+    CHECK(got == NULL, "old_bview NULL after explicit clear");
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bv_node_draw_data_set_get(void)
+{
+    struct bv_node *n;
+    void *got;
+    int   sentinel = 42;
+
+    /* NULL safety */
+    bv_node_draw_data_set(NULL, &sentinel);
+    CHECK(1, "draw_data_set(NULL) does not crash");
+    got = bv_node_draw_data_get(NULL);
+    CHECK(got == NULL, "draw_data_get(NULL) returns NULL");
+
+    n = bv_node_create("dd_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* Initially NULL */
+    got = bv_node_draw_data_get(n);
+    CHECK(got == NULL, "draw_data initially NULL");
+
+    /* Set and get */
+    bv_node_draw_data_set(n, &sentinel);
+    got = bv_node_draw_data_get(n);
+    CHECK(got == &sentinel, "draw_data round-trips pointer");
+
+    /* Clear */
+    bv_node_draw_data_set(n, NULL);
+    got = bv_node_draw_data_get(n);
+    CHECK(got == NULL, "draw_data NULL after clear");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bv_mesh_lod_view_new_null(void)
+{
+    int r;
+
+    /* All-NULL: should return -1 without crashing */
+    r = bv_mesh_lod_view_new(NULL, NULL, 0);
+    CHECK(r == -1, "lod_view_new(NULL,NULL) returns -1");
+
+    {
+	struct bview_new *v = bview_create("lod_null");
+	CHECK(v != NULL, "bview_create non-NULL");
+	if (v) {
+	    /* Node without draw_data: returns -1 */
+	    struct bv_node *n = bv_node_create("n", BV_NODE_GEOMETRY);
+	    CHECK(n != NULL, "bv_node_create non-NULL");
+	    if (n) {
+		r = bv_mesh_lod_view_new(n, v, 0);
+		CHECK(r == -1, "lod_view_new with no draw_data returns -1");
+		bv_node_destroy(n);
+	    }
+	    bview_destroy(v);
+	}
+    }
+    return 1;
+}
+
+static int
+test_bview_autoview_new_sets_scale(void)
+{
+    /* bview_autoview_new should set camera.scale = scene radius */
+    struct bv_scene  *scene;
+    struct bview_new *v;
+    struct bv_node   *n;
+    point_t           mn, mx;
+    double            s;
+    int               r;
+
+    n = bv_node_create("aabb", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* 2x2x2 cube centred at origin: radius = 1 */
+    VSET(mn, -1.0, -1.0, -1.0);
+    VSET(mx,  1.0,  1.0,  1.0);
+    bv_node_bounds_set(n, mn, mx);
+
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n);
+
+    v = bview_create("av_scale");
+    CHECK(v != NULL, "bview_create non-NULL");
+    if (!v) { bv_scene_destroy(scene); return 0; }
+
+    bview_settings_apply(v);
+    r = bview_autoview_new(v, scene, -1.0);
+    CHECK(r == 1, "bview_autoview_new returns 1");
+
+    s = bview_camera_scale_get(v);
+    /* radius == 1.0; scale should be ~1.0 (within tolerance) */
+    CHECK(s > 0.0, "camera.scale > 0 after autoview");
+    CHECK(s < 10.0, "camera.scale < 10 for unit cube scene");
+
+    bview_destroy(v);
+    bv_scene_destroy(scene);
+    return 1;
+}
 
 struct test_entry {
     const char *name;
@@ -3058,6 +3287,14 @@ static struct test_entry scene_tests[] = {
     { "node_update_cb",               test_bv_node_update_cb                  },
     /* Phase 4 continued: bview_lod_node_update on native (non-legacy) nodes */
     { "lod_node_update_native",       test_bview_lod_node_update_native       },
+    /* Phase 1 bridge + Phase 4 native LoD */
+    { "camera_scale_set_get",         test_bview_camera_scale_set_get         },
+    { "from_old_scale",               test_bview_from_old_scale               },
+    { "to_old_scale",                 test_bview_to_old_scale                 },
+    { "bview_old_set",                test_bview_old_set                      },
+    { "draw_data_set_get",            test_bv_node_draw_data_set_get          },
+    { "lod_view_new_null",            test_bv_mesh_lod_view_new_null          },
+    { "autoview_new_sets_scale",      test_bview_autoview_new_sets_scale      },
     { NULL, NULL }
 };
 

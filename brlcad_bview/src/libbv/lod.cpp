@@ -2235,6 +2235,71 @@ bv_mesh_lod_free(struct bv_scene_obj *s)
     s->draw_data = NULL;
 }
 
+
+/* ================================================================
+ * bv_mesh_lod_view_new  (Phase 4 — native bv_node + bview_new path)
+ *
+ * Analog of bv_mesh_lod_view() for the new scene graph API.
+ * Operates on a BV_NODE_GEOMETRY node whose draw_data holds a
+ * bv_mesh_lod * (set via bv_node_draw_data_set()).
+ *
+ * Unlike the legacy bv_mesh_lod_view(), this function does NOT perform
+ * an OBB visibility check because bview_new does not yet carry OBB fields.
+ * It always selects the level appropriate for the current camera scale.
+ * Visibility culling should be handled at the scene traversal layer.
+ *
+ * Returns the LoD level selected, or -1 on error.
+ * ================================================================ */
+
+extern "C" int
+bv_mesh_lod_view_new(struct bv_node *n, const struct bview_new *v, int reset)
+{
+    if (!n || !v)
+	return -1;
+
+    /* Retrieve the LoD mesh data from draw_data */
+    struct bv_mesh_lod *l = (struct bv_mesh_lod *)bv_node_draw_data_get(n);
+    if (!l)
+	return -1;
+
+    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    POPState *sp = i->s;
+
+    /*
+     * Compute the LoD level from the view scale.
+     * camera.scale is the half-size of the view in model-space units
+     * (analogous to gv_scale; gv_size = 2 * gv_scale).
+     * Use lod_scale = 1.0 as a neutral default; apps that need per-view
+     * lod_scale can call bv_mesh_lod_level() directly after this.
+     */
+    double view_size = bview_camera_scale_get(v) * 2.0;
+    int vscale = (view_size > 0.0) ? (int)((double)sp->get_level(view_size)) : 0;
+    vscale = (vscale < 0) ? 0 : vscale;
+    vscale = (vscale >= POP_MAXLEVEL) ? POP_MAXLEVEL - 1 : vscale;
+
+    int old_level = sp->curr_level;
+
+    sp->force_update = (reset) ? true : false;
+    sp->set_level(vscale);
+
+    /* Update the output pointers for the current POP level */
+    if (sp->curr_level <= sp->max_pop_threshold_level) {
+	l->fcnt        = (int)sp->lod_tris.size() / 3;
+	l->faces       = sp->lod_tris.data();
+	l->points_orig = (const point_t *)sp->lod_tri_pnts.data();
+	l->porig_cnt   = (int)sp->lod_tri_pnts.size();
+	l->normals     = NULL;
+	l->points      = (const point_t *)sp->lod_tri_pnts_snapped.data();
+	l->pcnt        = (int)sp->lod_tri_pnts_snapped.size();
+    }
+
+    /* If the level changed, mark the node's display list stale */
+    if (old_level != sp->curr_level)
+	bv_node_dlist_stale_set(n, 1);
+
+    return sp->curr_level;
+}
+
 // Local Variables:
 // tab-width: 8
 // mode: C++

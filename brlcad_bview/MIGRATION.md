@@ -125,6 +125,10 @@ void              bv_node_update_cb_set(struct bv_node *node,
 bv_node_update_cb bv_node_update_cb_get(const struct bv_node *node);
 void             *bv_node_update_cb_data_get(const struct bv_node *node);
 
+/* Raw geometry source data (Phase 4 — analog of s->draw_data for LoD meshes) */
+void  bv_node_draw_data_set(struct bv_node *node, void *draw_data);
+void *bv_node_draw_data_get(const struct bv_node *node);
+
 /* Level-of-detail index (Phase 4) */
 void              bv_node_lod_level_set(struct bv_node *node, int level);
 int               bv_node_lod_level_get(const struct bv_node *node);
@@ -194,6 +198,9 @@ void                     bview_camera_set(struct bview_new *view, const struct b
 const struct bview_camera *bview_camera_get(const struct bview_new *view);
 void                     bview_camera_node_set(struct bview_new *view, struct bv_node *node);
 struct bv_node          *bview_camera_node_get(const struct bview_new *view);
+/* View scale convenience accessors (Phase 4 — analog of gv_scale) */
+void   bview_camera_scale_set(struct bview_new *view, double scale);
+double bview_camera_scale_get(const struct bview_new *view);
 
 /* Viewport, appearance, overlay, pick set */
 void bview_viewport_set(struct bview_new *view, const struct bview_viewport *vp);
@@ -226,6 +233,7 @@ int bview_autoview_new(struct bview_new *view, const struct bv_scene *scene,
 void           bview_from_old(struct bview_new *view, const struct bview *old);
 void           bview_to_old(const struct bview_new *view, struct bview *old);
 struct bview  *bview_old_get(const struct bview_new *view);
+void           bview_old_set(struct bview_new *view, struct bview *old);
 
 /* Default initialization (replaces bv_init + bv_settings_init) */
 void bview_settings_apply(struct bview_new *view);
@@ -449,16 +457,18 @@ Files updated:
 Goals:
 - `bview_lod_update()` wired into the geometry node update pipeline.
 - `lod.cpp` logic linked into `bview_lod_node_update()` for LoD-bearing objects.
+- **New this session**: complete the native `bv_node` LoD path so the entire
+  LoD pipeline can run without touching any legacy types.
 
 Status:
 - `bview_lod_node_update(struct bv_node *, const struct bview_new *)` **wired**:
   now calls `bv_mesh_lod_view()` (from `bv/lod.h`) when the wrapped
   `bv_scene_obj` carries `BV_MESH_LOD` data AND a legacy `bview` is reachable
-  via `bview_old_get(view)`.  Falls back to `s_dlist_stale = 1` for non-LoD
-  objects or when no legacy view pointer is available.
-  Updated (this session): for **native** geometry nodes (no wrapped `bv_scene_obj`),
-  sets `node->dlist_stale = 1` directly instead of returning 0, so the rendering
-  backend receives the same signal for both legacy and native objects.
+  via `bview_old_get(view)`.
+  Updated (Phase 4 completion): for **native** geometry nodes (no wrapped
+  `bv_scene_obj`) that carry LoD mesh data in `draw_data`, calls
+  `bv_mesh_lod_view_new()` directly.  Nodes with neither legacy obj nor LoD
+  data fall back to `dlist_stale = 1`.
 - `bv_scene_lod_update(struct bv_scene *, const struct bview_new *)` **added**:
   traverses all `BV_NODE_GEOMETRY` nodes in a scene via `bv_scene_traverse()`,
   calling `bview_lod_node_update()` on each.  Returns count of nodes processed.
@@ -466,19 +476,45 @@ Status:
   `bv_scene_lod_update(view->scene, view)` instead of being a no-op placeholder.
 - `bv_node_lod_level_set(node, level)` / `bv_node_lod_level_get(node)` **added**:
   public accessor pair for the `lod_level` field.
+- **`bv_mesh_lod_view_new(bv_node *n, bview_new *v, int reset)` added** (this
+  session): the first fully native LoD function — operates on a `bv_node +
+  bview_new` pair without any legacy bridge.  Gets the mesh LoD data from
+  `bv_node_draw_data_get(n)` and the view scale from
+  `bview_camera_scale_get(v)`, selects the LoD level, and marks
+  `dlist_stale = 1` via `bv_node_dlist_stale_set()` if the level changed.
+- **`bv_node_draw_data_set/get()` added** (this session): typed accessors for
+  the new `draw_data` field on `bv_node` — the analog of
+  `bv_scene_obj::draw_data`.  Stores source geometry (LoD mesh, tessellation
+  cache, etc.) separately from the rendered display vlist.
+- **`scale` field added to `bview_camera`** (this session):
+  - `double scale` — half-size of the view in model-space units (analog of
+    `gv_scale`; `gv_size = 2 * gv_scale`).  Default: 500.0.
+  - `bview_camera_scale_set(view, scale)` / `bview_camera_scale_get(view)`.
+  - `bview_from_old()` now copies `old->gv_scale` → `view->camera.scale`.
+  - `bview_to_old()` now copies `view->camera.scale` → `old->gv_scale`,
+    `old->gv_size`, `old->gv_isize`.
+  - `bview_settings_apply()` initializes `camera.scale = 500.0`.
+  - `bview_autoview_new()` sets `camera.scale = radius` after computing the
+    camera position, so downstream LoD code receives a meaningful scale value.
+- **`bview_old_set(view, old)` added** (this session): the symmetric setter for
+  `bview_old_get()`.  Associates a legacy `struct bview *` with a `bview_new`
+  without performing a full `bview_from_old()` copy.
 
 Files updated:
-- `include/bv/defines.h` – `bview_lod_node_update` updated doc comment;
-  `bv_scene_lod_update`, `bv_node_lod_level_set`, `bv_node_lod_level_get`
-  declarations
-- `src/libbv/scene.cpp` – wire `bview_lod_node_update()` to `bv_mesh_lod_view()`;
-  implement `bv_scene_lod_update()`, `bv_node_lod_level_set/get`;
-  add `bv/lod.h` include; wire `bview_lod_update()` to `bv_scene_lod_update()`;
-  extend native-node path to set `node->dlist_stale = 1`
-- `src/libbv/tests/scene.c` – add `lod_node_update_null`,
-  `lod_node_update_non_geom`, `lod_node_update_no_obj` (updated for native behavior),
-  `lod_node_update_stale`, `scene_lod_update_null`, `scene_lod_update_empty`,
-  `scene_lod_update_counts`, `node_lod_level`, `lod_node_update_native` tests
+- `include/bv/defines.h` – `scale` field in `struct bview_camera`;
+  `bview_camera_scale_set/get()` declarations; `bview_old_set()` declaration;
+  `bv_node_draw_data_set/get()` declarations; updated `bview_lod_node_update`
+  doc comment
+- `include/bv/lod.h` – `bv_mesh_lod_view_new()` declaration
+- `src/libbv/bv_private.h` – `draw_data` field in `struct bv_node`
+- `src/libbv/scene.cpp` – implement `bview_camera_scale_set/get()`,
+  `bview_old_set()`, `bv_node_draw_data_set/get()`; update
+  `bview_from_old()/bview_to_old()/bview_settings_apply()/bview_autoview_new()`
+  for scale; update `bview_lod_node_update()` to call `bv_mesh_lod_view_new()`
+- `src/libbv/lod.cpp` – implement `bv_mesh_lod_view_new()`
+- `src/libbv/tests/scene.c` – add `camera_scale_set_get`, `from_old_scale`,
+  `to_old_scale`, `bview_old_set`, `draw_data_set_get`, `lod_view_new_null`,
+  `autoview_new_sets_scale` tests
 
 ### Phase 5 – obol/Coin3D bridge (LONG TERM)
 
@@ -515,15 +551,17 @@ repository.
 | `bview_from_old` basic bridge (camera + viewport) | Phase 0 | ✅ COMPLETE |
 | `bview_from_old` appearance copy (grid, axes, colors) | Phase 1 | ✅ COMPLETE |
 | `bview_from_old` overlay copy (show_fps) | Phase 1 | ✅ COMPLETE |
+| `bview_from_old` scale bridge (`gv_scale` ↔ `camera.scale`) | Phase 1 | ✅ COMPLETE |
 | `bview_settings_apply()` — default initialization | Phase 1 | ✅ COMPLETE |
-| `bview_to_old()` enhanced — full appearance + overlay round-trip | Phase 1 | ✅ COMPLETE |
+| `bview_to_old()` enhanced — full appearance + overlay + scale round-trip | Phase 1 | ✅ COMPLETE |
+| `bview_old_set()` — associate legacy bview without full copy | Phase 1 | ✅ COMPLETE |
 | DEPRECATED annotations on `bv_init` / `bv_free` / `bv_settings_init` | Phase 1 | ✅ COMPLETE |
 | DEPRECATED annotations on all `bv_set_*` functions | Phase 1+3 | ✅ COMPLETE |
 | `bv_scene_obj_to_node()` — wrap legacy obj in new node | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view()` — build scene from legacy bview | Phase 2 | ✅ COMPLETE |
 | `bv_node_bbox()` — AABB of node subtree (native AABB + legacy sphere + vlist) | Phase 2 | ✅ COMPLETE |
 | `bv_scene_bbox()` — AABB of entire scene | Phase 2 | ✅ COMPLETE |
-| `bview_autoview_new()` — fit camera to scene geometry | Phase 2 | ✅ COMPLETE |
+| `bview_autoview_new()` — fit camera to scene geometry (sets camera.scale) | Phase 2 | ✅ COMPLETE |
 | `bv_node_geometry_get()` — getter for geometry pointer | Phase 2 | ✅ COMPLETE |
 | `bv_node_selected_set()` / `bv_node_selected_get()` — selection accessors | Phase 2 | ✅ COMPLETE |
 | `bv_node_bounds_set/get/clear()` — native AABB on bv_node | Phase 2 | ✅ COMPLETE |
@@ -532,6 +570,8 @@ repository.
 | `bv_node_dlist_set/get()` — render-backend display list handle | Phase 2 | ✅ COMPLETE |
 | `bv_node_dlist_stale_set/get()` — needs-redraw flag | Phase 2 | ✅ COMPLETE |
 | `bv_node_update_cb` typedef + `bv_node_update_cb_set/get` | Phase 2 | ✅ COMPLETE |
+| `bv_node_draw_data_set/get()` — raw source data (LoD mesh, etc.) | Phase 4 | ✅ COMPLETE |
+| `bview_camera.scale` field + `bview_camera_scale_set/get()` | Phase 4 | ✅ COMPLETE |
 | `bv_scene_from_view_set()` — build scene from bview_set | Phase 3 | ✅ COMPLETE |
 | `bv_scene_selected_nodes()` — collect selected nodes via traverse | Phase 3 | ✅ COMPLETE |
 | `bv_scene_select_node()` — select/deselect a single node | Phase 3 | ✅ COMPLETE |
@@ -539,14 +579,14 @@ repository.
 | `bv_scene_view_count()` / `bv_scene_views()` — multi-view sharing query | Phase 3 | ✅ COMPLETE |
 | `bview_scene_set` tracks views in `bv_scene.views` | Phase 3 | ✅ COMPLETE |
 | `bview_destroy` unregisters from scene view list | Phase 3 | ✅ COMPLETE |
-| `bview_lod_node_update()` — wired (legacy + native node paths) | Phase 4 | ✅ COMPLETE |
+| `bview_lod_node_update()` — wired (legacy + native draw_data paths) | Phase 4 | ✅ COMPLETE |
 | `bv_scene_lod_update()` — update LoD for all geometry nodes | Phase 4 | ✅ COMPLETE |
 | `bview_lod_update()` — wired to `bv_scene_lod_update()` | Phase 4 | ✅ COMPLETE |
 | `bv_node_lod_level_set/get()` — public accessor for lod_level field | Phase 4 | ✅ COMPLETE |
-| Unit tests (99 total — 7 new this session) | Phase 2–4 | ✅ COMPLETE |
-| Internal callers migrated to new lifecycle API | Phase 1 | 🔲 PLANNED |
+| `bv_mesh_lod_view_new()` — native LoD view update (bv_node + bview_new) | Phase 4 | ✅ COMPLETE |
+| Unit tests (106 total — 7 new this session) | Phase 1–4 | ✅ COMPLETE |
+| Internal callers migrated to new lifecycle API (libged, libqtcad, mged, …) | Phase 1 | 🔲 PLANNED |
 | Replace `bu_ptbl_ins(gv_objs.db_objs)` with `bv_scene_add_node()` | Phase 2 | 🔲 PLANNED |
-| `lod.cpp` further refactored to operate natively on `bv_node` trees | Phase 4 | 🔲 PLANNED |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
 
 ---

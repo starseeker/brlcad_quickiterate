@@ -207,6 +207,29 @@ bv_mesh_lod_level(struct bv_scene_obj *s, int level, int reset);
 BV_EXPORT void
 bv_mesh_lod_free(struct bv_scene_obj *s);
 
+/**
+ * Native bv_node analog of bv_mesh_lod_view() (Phase 4).
+ *
+ * Given a BV_NODE_GEOMETRY node whose draw_data holds a bv_mesh_lod * (set
+ * via bv_node_draw_data_set()) and a bview_new, select and load the
+ * appropriate level of detail for the node in the given view.
+ *
+ * Unlike the legacy bv_mesh_lod_view(), this function uses camera.scale from
+ * the bview_new rather than gv_size from a legacy struct bview.  It does NOT
+ * perform an OBB visibility check (bview_new does not yet carry OBB fields);
+ * scene-level visibility culling should be applied before calling.
+ *
+ * If the selected LoD level differs from the current level, the node's
+ * dlist_stale flag is set to 1 via bv_node_dlist_stale_set().
+ *
+ * Set reset == 1 to force a reload even when the level does not change
+ * (equivalent to the reset parameter of bv_mesh_lod_view).
+ *
+ * Returns the level selected, or -1 on error.
+ */
+BV_EXPORT int
+bv_mesh_lod_view_new(struct bv_node *n, const struct bview_new *v, int reset);
+
 
 
 /* In order to preserve library barriers, a number of operations needed to

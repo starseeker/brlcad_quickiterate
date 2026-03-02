@@ -90,6 +90,7 @@ bv_node_create(const char *name, enum bv_node_type type)
     n->dlist_stale   = 0;
     n->update_cb     = NULL;
     n->update_cb_data = NULL;
+    n->draw_data     = NULL;
 
     return n;
 }
@@ -403,6 +404,26 @@ bv_node_update_cb_data_get(const struct bv_node *node)
     if (!node)
 	return NULL;
     return node->update_cb_data;
+}
+
+
+/* --- Raw draw data accessor (Phase 4) --- */
+
+void
+bv_node_draw_data_set(struct bv_node *node, void *draw_data)
+{
+    if (!node)
+	return;
+    node->draw_data = draw_data;
+}
+
+
+void *
+bv_node_draw_data_get(const struct bv_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->draw_data;
 }
 
 
@@ -775,6 +796,24 @@ bview_camera_get(const struct bview_new *view)
 
 
 void
+bview_camera_scale_set(struct bview_new *view, double scale)
+{
+    if (!view)
+	return;
+    view->camera.scale = scale;
+}
+
+
+double
+bview_camera_scale_get(const struct bview_new *view)
+{
+    if (!view)
+	return 0.0;
+    return view->camera.scale;
+}
+
+
+void
 bview_camera_node_set(struct bview_new *view, struct bv_node *camera_node)
 {
     if (!view)
@@ -936,6 +975,8 @@ bview_from_old(struct bview_new *view, const struct bview *old)
     view->camera.up[2] = old->gv_rotation[9];
     view->camera.fov         = old->gv_perspective;
     view->camera.perspective = (old->gv_perspective > 0.0) ? 1 : 0;
+    /* gv_scale is the half-size of the view; gv_size = 2*gv_scale */
+    view->camera.scale       = old->gv_scale;
 
     /* Copy viewport */
     view->viewport.width  = old->gv_width;
@@ -993,6 +1034,12 @@ bview_to_old(const struct bview_new *view, struct bview *old)
     /* Push camera parameters back to old bview */
     VMOVE(old->gv_eye_pos, view->camera.position);
     old->gv_perspective = view->camera.perspective ? view->camera.fov : 0.0;
+    /* Push scale: gv_size = 2*gv_scale, gv_isize = 1/gv_size */
+    if (view->camera.scale > 0.0) {
+	old->gv_scale  = (fastf_t)view->camera.scale;
+	old->gv_size   = 2.0 * old->gv_scale;
+	old->gv_isize  = 1.0 / old->gv_size;
+    }
 
     /* Viewport */
     old->gv_width  = view->viewport.width;
@@ -1039,6 +1086,15 @@ bview_old_get(const struct bview_new *view)
 }
 
 
+void
+bview_old_set(struct bview_new *view, struct bview *old)
+{
+    if (!view)
+	return;
+    view->old_bview = old;
+}
+
+
 /* ================================================================
  * bview_settings_apply
  *
@@ -1061,6 +1117,8 @@ bview_settings_apply(struct bview_new *view)
     VSET(view->camera.up,       0.0, 1.0, 0.0);
     view->camera.fov         = 0.0;
     view->camera.perspective = 0;
+    /* Scale default: matches gv_scale initial value in bv_init() */
+    view->camera.scale       = 500.0;
 
     /* Viewport defaults */
     view->viewport.width  = 0;
@@ -1282,12 +1340,17 @@ bview_lod_node_update(struct bv_node *node, const struct bview_new *view)
     s = (struct bv_scene_obj *)bv_node_user_data_get(node);
     if (!s) {
 	/*
-	 * Native node (no wrapped bv_scene_obj): mark the node's own
-	 * display-list stale so the rendering backend will regenerate it
-	 * on the next draw cycle.  This is the new-API equivalent of
-	 * setting s->s_dlist_stale = 1 on a legacy object.
+	 * Native node (no wrapped bv_scene_obj): use native LoD path if
+	 * the node carries LoD mesh data in draw_data, otherwise just mark
+	 * the display-list stale.
 	 */
-	node->dlist_stale = 1;
+	if (node->draw_data && view) {
+	    /* bv_mesh_lod_view_new() is implemented in lod.cpp and handles
+	     * the draw_data cast and level selection internally. */
+	    bv_mesh_lod_view_new(node, view, 0);
+	} else {
+	    node->dlist_stale = 1;
+	}
 	return 1;
     }
 
@@ -1636,6 +1699,9 @@ bview_autoview_new(struct bview_new *view, const struct bv_scene *scene, double 
 	dist = scale_factor * radius;
 	VJOIN1(cam.position, center, dist, eye_dir);
 	VMOVE(cam.target, center);
+	/* Set the scale to the scene radius so downstream LoD code gets a
+	 * meaningful view-size (analogous to gv_scale after bv_autoview). */
+	cam.scale = radius;
     }
 
     bview_camera_set(view, &cam);
