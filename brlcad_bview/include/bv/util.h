@@ -34,16 +34,23 @@
 
 __BEGIN_DECLS
 
-/* Set default values for a bv. */
+/* Set default values for a bv.
+ * DEPRECATED: use bview_create() + bview_settings_apply() in new code. */
 BV_EXPORT extern void bv_init(struct bview *v, struct bview_set *s);
+
+/* Free a bv that was initialized with bv_init().
+ * DEPRECATED: use bview_destroy() in new code. */
 BV_EXPORT extern void bv_free(struct bview *v);
 
 /**
  * FIXME: this routine is suspect and needs investigating.  if run
  * during view initialization, the shaders regression test fails.
+ * DEPRECATED: use bview_camera_set() in new code.
  */
 BV_EXPORT void bv_mat_aet(struct bview *v);
 
+/* Initialize bview_settings to default values.
+ * DEPRECATED: use bview_settings_apply() in new code. */
 BV_EXPORT extern void bv_settings_init(struct bview_settings *s);
 
 /* To use default scaling (0.5 model scale == 2.0 view factor) use

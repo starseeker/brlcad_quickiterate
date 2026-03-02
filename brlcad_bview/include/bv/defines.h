@@ -109,6 +109,10 @@ struct bview_new;
 /* Opaque scene graph root (conceptually similar to Coin3D's SoSeparator) */
 struct bv_scene;
 
+/* Forward declaration for migration helpers that accept legacy types */
+struct bv_scene_obj;
+struct bview_set;
+
 /*
  * Scene graph node type enumeration, aligned with Inventor/Coin3D node types.
  *
@@ -323,6 +327,50 @@ BV_EXPORT void bview_redraw(struct bview_new *view);
 BV_EXPORT void bview_from_old(struct bview_new *view, const struct bview *old);
 BV_EXPORT void bview_to_old(const struct bview_new *view, struct bview *old);
 BV_EXPORT struct bview *bview_old_get(const struct bview_new *view);
+
+/*
+ * Apply BRL-CAD default settings to a bview_new instance.
+ *
+ * Sets the same initial values for camera, viewport, appearance, and overlay
+ * that bv_init() / bv_settings_init() establish for a legacy struct bview.
+ * Useful when creating a new bview_new from scratch (not migrated from an old
+ * bview) to ensure all fields start from a consistent state.
+ */
+BV_EXPORT void bview_settings_apply(struct bview_new *view);
+
+/*
+ * Wrap a legacy bv_scene_obj in a new bv_node for use in the new scene graph
+ * API.  Children of s are recursively wrapped.
+ *
+ * The original bv_scene_obj pointer is stored in the returned node's
+ * user_data field so callers can recover it via bv_node_user_data_get().
+ *
+ * The caller is responsible for the lifecycle of both the returned bv_node
+ * (use bv_node_destroy()) and the original bv_scene_obj.  No ownership is
+ * transferred.
+ *
+ * Returns NULL if s is NULL.
+ */
+BV_EXPORT struct bv_node *bv_scene_obj_to_node(struct bv_scene_obj *s);
+
+/*
+ * Create a bv_scene populated with bv_node wrappers for every db_obj and
+ * view_obj visible in legacy bview v.  Each top-level bv_scene_obj becomes a
+ * direct child of the scene root; their children become sub-nodes.
+ *
+ * Returns a newly allocated bv_scene that the caller must destroy with
+ * bv_scene_destroy() when done.  Returns NULL if v is NULL.
+ */
+BV_EXPORT struct bv_scene *bv_scene_from_view(const struct bview *v);
+
+/*
+ * Create a bv_scene populated from all shared scene objects stored in a
+ * bview_set.  Each shared db_obj / view_obj becomes a child of the scene root.
+ *
+ * Returns a newly allocated bv_scene that the caller must destroy with
+ * bv_scene_destroy() when done.  Returns NULL if s is NULL.
+ */
+BV_EXPORT struct bv_scene *bv_scene_from_view_set(const struct bview_set *s);
 
 /*******************************************************************************/
 /*              EXPERIMENTAL EXPERIMENTAL EXPERIMENTAL - END                   */

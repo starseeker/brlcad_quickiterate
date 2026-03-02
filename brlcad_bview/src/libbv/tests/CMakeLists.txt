@@ -113,6 +113,17 @@ set(bview_scene_tests
   view_scene_assoc
   view_camera_node
   view_migration
+  settings_apply
+  settings_apply_null
+  settings_apply_idempotent
+  obj_to_node_null
+  obj_to_node_basic
+  obj_to_node_children
+  scene_from_view_null
+  scene_from_view_empty
+  scene_from_view_objs
+  scene_from_vset_null
+  scene_from_vset_empty
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})

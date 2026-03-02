@@ -48,6 +48,8 @@
 #include "bu/vls.h"
 #include "bn/mat.h"
 #include "bv/defines.h"
+#include "bv/util.h"
+#include "bv/view_sets.h"
 #include "./bv_private.h"
 
 
@@ -724,6 +726,12 @@ bview_from_old(struct bview_new *view, const struct bview *old)
 	view->appearance.line_width = (float)s->gv_view_axes.line_width;
     }
 
+    /* Overlay: show_fps mirrors frametime display in bview_settings */
+    {
+	const struct bview_settings *s = old->gv_s ? old->gv_s : &old->gv_ls;
+	view->overlay.show_fps = s->gv_view_params.draw_fps;
+    }
+
     /* Store reference to legacy view */
     view->old_bview = (struct bview *)old;
 }
@@ -751,6 +759,230 @@ bview_old_get(const struct bview_new *view)
     if (!view)
 	return NULL;
     return view->old_bview;
+}
+
+
+/* ================================================================
+ * bview_settings_apply
+ *
+ * Mirrors the initial state that bv_init() + bv_settings_init() set on a
+ * legacy struct bview, but expressed through the new accessor API.
+ * ================================================================ */
+
+void
+bview_settings_apply(struct bview_new *view)
+{
+    const unsigned char white[3] = {255, 255, 255};
+    const unsigned char black[3] = {0,   0,   0  };
+
+    if (!view)
+	return;
+
+    /* Camera defaults: orthographic, eye at (0,0,1), looking at origin */
+    VSET(view->camera.position, 0.0, 0.0, 1.0);
+    VSET(view->camera.target,   0.0, 0.0, 0.0);
+    VSET(view->camera.up,       0.0, 1.0, 0.0);
+    view->camera.fov         = 0.0;
+    view->camera.perspective = 0;
+
+    /* Viewport defaults */
+    view->viewport.width  = 0;
+    view->viewport.height = 0;
+    view->viewport.dpi    = BV_DEFAULT_DPI;
+
+    /* Appearance defaults (mirrors bv_settings_init) */
+    bu_color_from_rgb_chars(&view->appearance.bg_color,   black);
+    bu_color_from_rgb_chars(&view->appearance.grid_color, white);
+    bu_color_from_rgb_chars(&view->appearance.axes_color, white);
+    view->appearance.line_width  = 0.0f;
+    view->appearance.show_axes   = 0;
+    view->appearance.show_grid   = 0;
+    view->appearance.show_origin = 0;
+
+    /* Overlay defaults */
+    view->overlay.show_fps        = 0;
+    view->overlay.show_gizmos     = 0;
+    view->overlay.show_annotation = 0;
+    view->overlay.annotation_text[0] = '\0';
+}
+
+
+/* ================================================================
+ * bv_scene_obj_to_node
+ *
+ * Wraps a legacy bv_scene_obj (and its children) in bv_node instances.
+ * ================================================================ */
+
+struct bv_node *
+bv_scene_obj_to_node(struct bv_scene_obj *s)
+{
+    struct bv_node *n;
+    enum bv_node_type ntype;
+    const char *nm;
+    size_t i;
+    size_t nchildren;
+
+    if (!s)
+	return NULL;
+
+    /* Nodes with children become groups; leaf nodes are geometry */
+    nchildren = (size_t)BU_PTBL_LEN(&s->children);
+    ntype = (nchildren > 0) ? BV_NODE_GROUP : BV_NODE_GEOMETRY;
+
+    nm = bu_vls_cstr(&s->s_name);
+    n  = bv_node_create((nm && nm[0] != '\0') ? nm : "(unnamed)", ntype);
+    if (!n)
+	return NULL;
+
+    /* Visibility: UP (0) means visible in legacy bview, DOWN (1) means hidden */
+    bv_node_visible_set(n, (s->s_flag == UP) ? 1 : 0);
+
+    /* Material: convert s_color to bview_material */
+    {
+	struct bview_material mat;
+	unsigned char c[3];
+	memset(&mat, 0, sizeof(mat));
+	c[0] = s->s_color[0];
+	c[1] = s->s_color[1];
+	c[2] = s->s_color[2];
+	bu_color_from_rgb_chars(&mat.diffuse_color, c);
+	bv_node_material_set(n, &mat);
+    }
+
+    /* Transform: use the scene object's s_mat */
+    bv_node_transform_set(n, s->s_mat);
+
+    /* Store original object as geometry pointer and user_data */
+    bv_node_geometry_set(n, s);
+    bv_node_user_data_set(n, s);
+
+    /* Recursively wrap children */
+    for (i = 0; i < nchildren; i++) {
+	struct bv_scene_obj *child =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+	struct bv_node *child_node = bv_scene_obj_to_node(child);
+	if (child_node)
+	    bv_node_add_child(n, child_node);
+    }
+
+    return n;
+}
+
+
+/* ================================================================
+ * bv_scene_from_view
+ *
+ * Create a new bv_scene containing bv_node wrappers for every top-level
+ * scene object (db_objs + view_objs) visible in a legacy bview.
+ * ================================================================ */
+
+struct bv_scene *
+bv_scene_from_view(const struct bview *v)
+{
+    struct bv_scene *scene;
+    struct bu_ptbl  *tbl_db;
+    struct bu_ptbl  *tbl_view;
+    size_t i;
+
+    if (!v)
+	return NULL;
+
+    scene = bv_scene_create();
+    if (!scene)
+	return NULL;
+
+    /*
+     * Use bv_view_objs() to correctly handle both independent views
+     * (objects in v->gv_objs.*) and shared views (objects in vset->i->shared_*).
+     *
+     * For a non-independent view with a vset:
+     *   bv_view_objs(BV_DB_OBJS)  → shared_db_objs   (contains objects)
+     *   bv_view_objs(BV_VIEW_OBJS) → shared_view_objs (contains objects)
+     *   local tables are empty by design.
+     *
+     * For an independent view with no vset:
+     *   bv_view_objs(BV_DB_OBJS)   → NULL  (no vset)
+     *   bv_view_objs(BV_VIEW_OBJS) → NULL  (no vset)
+     *   Use BV_LOCAL_OBJS flag to retrieve the per-view tables.
+     *
+     * This structure guarantees each bv_scene_obj is visited exactly once.
+     */
+    if (v->vset) {
+	/* Shared view: objects are in the vset's shared tables */
+	tbl_db   = bv_view_objs((struct bview *)v, BV_DB_OBJS);
+	tbl_view = bv_view_objs((struct bview *)v, BV_VIEW_OBJS);
+    } else {
+	/* Independent view: objects are in the per-view local tables */
+	tbl_db   = bv_view_objs((struct bview *)v, BV_DB_OBJS   | BV_LOCAL_OBJS);
+	tbl_view = bv_view_objs((struct bview *)v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    }
+
+    if (tbl_db) {
+	for (i = 0; i < (size_t)BU_PTBL_LEN(tbl_db); i++) {
+	    struct bv_scene_obj *s =
+		(struct bv_scene_obj *)BU_PTBL_GET(tbl_db, i);
+	    struct bv_node *n = bv_scene_obj_to_node(s);
+	    if (n)
+		bv_scene_add_node(scene, n);
+	}
+    }
+
+    if (tbl_view) {
+	for (i = 0; i < (size_t)BU_PTBL_LEN(tbl_view); i++) {
+	    struct bv_scene_obj *s =
+		(struct bv_scene_obj *)BU_PTBL_GET(tbl_view, i);
+	    struct bv_node *n = bv_scene_obj_to_node(s);
+	    if (n)
+		bv_scene_add_node(scene, n);
+	}
+    }
+
+    return scene;
+}
+
+
+/* ================================================================
+ * bv_scene_from_view_set
+ *
+ * Create a new bv_scene containing bv_node wrappers for all shared scene
+ * objects stored in a bview_set.
+ * ================================================================ */
+
+struct bv_scene *
+bv_scene_from_view_set(const struct bview_set *s)
+{
+    struct bv_scene *scene;
+    struct bu_ptbl  *tbl;
+    size_t i;
+
+    if (!s || !s->i)
+	return NULL;
+
+    scene = bv_scene_create();
+    if (!scene)
+	return NULL;
+
+    /* Shared db objects */
+    tbl = &s->i->shared_db_objs;
+    for (i = 0; i < (size_t)BU_PTBL_LEN(tbl); i++) {
+	struct bv_scene_obj *obj =
+	    (struct bv_scene_obj *)BU_PTBL_GET(tbl, i);
+	struct bv_node *n = bv_scene_obj_to_node(obj);
+	if (n)
+	    bv_scene_add_node(scene, n);
+    }
+
+    /* Shared view objects */
+    tbl = &s->i->shared_view_objs;
+    for (i = 0; i < (size_t)BU_PTBL_LEN(tbl); i++) {
+	struct bv_scene_obj *obj =
+	    (struct bv_scene_obj *)BU_PTBL_GET(tbl, i);
+	struct bv_node *n = bv_scene_obj_to_node(obj);
+	if (n)
+	    bv_scene_add_node(scene, n);
+    }
+
+    return scene;
 }
 
 

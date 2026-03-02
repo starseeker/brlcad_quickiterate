@@ -189,47 +189,76 @@ major BRL-CAD release after the deprecation notice is added.
       26 test cases registered with CTest).
 - [x] Confirm all 26 scene tests pass; all existing tests continue to pass.
 
-### Phase 1 – View lifecycle (PLANNED)
+### Phase 1 – View lifecycle (IN PROGRESS)
 
 Goals:
 - New code creates views with `bview_create()` instead of allocating a
   `struct bview` and calling `bv_init()`.
-- `bv_init()` and `bv_free()` are marked `DEPRECATED` in the header.
-- Migration helper `bview_from_old()` is enhanced to copy remaining fields
-  (settings, knobs, etc.).
-- Add `bview_settings_apply()` to set default appearance from `bv_settings_init`
-  equivalents via the new API.
+- `bv_init()`, `bv_free()`, and `bv_settings_init()` are marked `DEPRECATED`
+  in the header.
+- `bview_settings_apply()` is implemented: sets the same initial camera,
+  viewport, appearance, and overlay defaults that `bv_init()` / `bv_settings_init()`
+  establish for a legacy `struct bview`.
+- `bview_from_old()` enhanced to copy overlay show_fps from `gv_view_params.draw_fps`.
+- Migration helper `bview_from_old()` copies camera, viewport, and all appearance
+  fields (grid, axes, colors).
 
-Files to update:
-- `src/libbv/util.cpp` – add deprecation comments to `bv_init` / `bv_free`
-- `include/bv/util.h` – add `DEPRECATED` annotations
-- `src/libbv/scene.cpp` – enhance `bview_from_old` / `bview_to_old`
-- `src/libbv/tests/scene.c` – add migration round-trip tests for all fields
+Files updated:
+- `src/libbv/scene.cpp` – implement `bview_settings_apply()`; enhance `bview_from_old`
+- `include/bv/util.h` – add `DEPRECATED` comments to `bv_init`, `bv_free`,
+  `bv_settings_init`, `bv_mat_aet`
+- `include/bv/view_sets.h` – add `DEPRECATED` comments to all `bv_set_*` functions
+- `src/libbv/tests/scene.c` – add `settings_apply`, `settings_apply_null`,
+  `settings_apply_idempotent` tests
 
-### Phase 2 – Scene objects (PLANNED)
+Remaining for Phase 1 completion:
+- Migrate internal callers of `bv_init` / `bv_free` to use `bview_create()` /
+  `bview_destroy()` (tracked in Phase 1 callers list below)
+- Full `bview_to_old` for all camera/view matrix fields
 
-Goals:
-- New geometry creation uses `bv_node_create(name, BV_NODE_GEOMETRY)` +
-  `bv_node_geometry_set()` instead of `bv_obj_get()` / `bv_scene_obj` struct
-  manipulation.
-- `bv_scene_add_node()` replaces direct `bu_ptbl_ins()` into `gv_objs.db_objs`.
-- `bv_scene_traverse()` replaces manual iteration over `gv_objs` tables.
-- Display list (`struct display_list`) population migrated to traverse callbacks.
+### Phase 2 – Scene objects (IN PROGRESS)
 
-Files to update:
-- `include/bv/defines.h` – mark old scene object accessors `DEPRECATED`
-- `src/libbv/util.cpp` – update `bv_scene_obj_bound`, `bv_autoview`, etc.
-- Callers in `libged`, `mged`, `archer` (tracked separately per-caller)
+Goals and status:
+- `bv_scene_obj_to_node(struct bv_scene_obj *)` implemented: wraps a legacy
+  scene object (and its children, recursively) in `bv_node` instances.
+  Node type is `BV_NODE_GEOMETRY` for leaves, `BV_NODE_GROUP` for objects
+  with children.  Original pointer preserved as `user_data`.
+- `bv_scene_from_view(const struct bview *)` implemented: creates a full
+  `bv_scene` from a legacy `bview` by wrapping all db_objs and view_objs.
+  Uses `bv_view_objs()` to correctly handle both independent and shared views.
 
-### Phase 3 – View sets (PLANNED)
+Files updated:
+- `include/bv/defines.h` – `bv_scene_obj_to_node`, `bv_scene_from_view` declarations
+  with forward declarations for `struct bv_scene_obj` and `struct bview_set`
+- `src/libbv/scene.cpp` – implement both functions; add `bv/util.h` include
+- `src/libbv/tests/scene.c` – add `obj_to_node_null`, `obj_to_node_basic`,
+  `obj_to_node_children`, `scene_from_view_null`, `scene_from_view_empty`,
+  `scene_from_view_objs` tests
 
-Goals:
-- `struct bview_set` (flat table of views) migrated to: one `bv_scene` (shared
-  scene graph) + multiple `bview_new` instances pointing at it.
-- `bv_set_init` / `bv_set_free` / `bv_set_add_view` / `bv_set_rm_view` marked
-  `DEPRECATED`.
-- `bv_set_views()` replaced by querying `bview_scene_get()` then inspecting which
-  views reference that scene.
+Remaining for Phase 2 completion:
+- New geometry creation: `bv_node_create(BV_NODE_GEOMETRY)` + `bv_node_geometry_set()`
+  instead of `bv_obj_get()` + direct struct mutation
+- Replace direct `bu_ptbl_ins()` into `gv_objs.db_objs` with `bv_scene_add_node()`
+- Migrate `bv_autoview` / `bv_scene_obj_bound` to traverse callbacks
+
+### Phase 3 – View sets (IN PROGRESS)
+
+Goals and status:
+- `bv_scene_from_view_set(const struct bview_set *)` implemented: creates a
+  `bv_scene` from all shared scene objects in a `bview_set`.  This is the
+  bridge from the old multi-view set concept to the new scene graph model.
+- All `bv_set_*` functions marked `DEPRECATED` in `include/bv/view_sets.h`.
+
+Files updated:
+- `include/bv/defines.h` – `bv_scene_from_view_set` declaration
+- `src/libbv/scene.cpp` – implement function
+- `src/libbv/tests/scene.c` – add `scene_from_vset_null`, `scene_from_vset_empty`
+
+Remaining for Phase 3 completion:
+- Migrate callers of `bv_set_add_view` / `bv_set_rm_view` to use
+  `bview_scene_set(view, scene)` / `bview_scene_set(view, NULL)`
+- Multiple `bview_new` instances sharing one `bv_scene` replaces the concept of
+  a `bview_set` with a flat list of views
 
 ### Phase 4 – LoD integration (PLANNED)
 
@@ -269,11 +298,20 @@ repository.
 |---|---|---|
 | New API definition + implementation | Phase 0 | ✅ COMPLETE |
 | Unit tests (26 test cases) | Phase 0 | ✅ COMPLETE |
-| BV_EXPORT decorators | Phase 0 | ✅ COMPLETE |
-| `bview_from_old` / `bview_to_old` basic bridge | Phase 1 | ⚙ PARTIAL |
-| View lifecycle migration | Phase 1 | 🔲 PLANNED |
-| Scene object migration | Phase 2 | 🔲 PLANNED |
-| View set migration | Phase 3 | 🔲 PLANNED |
+| `BV_EXPORT` decorators | Phase 0 | ✅ COMPLETE |
+| `bview_from_old` basic bridge (camera + viewport) | Phase 0 | ✅ COMPLETE |
+| `bview_from_old` appearance copy (grid, axes, colors) | Phase 1 | ✅ COMPLETE |
+| `bview_from_old` overlay copy (show_fps) | Phase 1 | ✅ COMPLETE |
+| `bview_settings_apply()` — default initialization | Phase 1 | ✅ COMPLETE |
+| DEPRECATED annotations on `bv_init` / `bv_free` / `bv_settings_init` | Phase 1 | ✅ COMPLETE |
+| DEPRECATED annotations on all `bv_set_*` functions | Phase 1+3 | ✅ COMPLETE |
+| `bv_scene_obj_to_node()` — wrap legacy obj in new node | Phase 2 | ✅ COMPLETE |
+| `bv_scene_from_view()` — build scene from legacy bview | Phase 2 | ✅ COMPLETE |
+| `bv_scene_from_view_set()` — build scene from bview_set | Phase 3 | ✅ COMPLETE |
+| Unit tests for all Phase 1/2/3 functions (11 new tests) | Phase 1–3 | ✅ COMPLETE |
+| Internal callers migrated to new lifecycle API | Phase 1 | 🔲 PLANNED |
+| `bv_autoview` / `bv_scene_obj_bound` use traverse CB | Phase 2 | 🔲 PLANNED |
+| `bv_set_add_view` callers migrated to `bview_scene_set` | Phase 3 | 🔲 PLANNED |
 | LoD integration | Phase 4 | 🔲 PLANNED |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
 
@@ -313,16 +351,62 @@ bview_destroy(view);
 bv_scene_destroy(scene);   /* also destroys geom1, geom2 */
 ```
 
+For a new view without an existing `struct bview`, use `bview_settings_apply()` to
+set sensible defaults matching the legacy `bv_init()` defaults:
+
+```c
+struct bview_new *view = bview_create("standalone");
+bview_settings_apply(view);  /* replaces bv_init() + bv_settings_init() */
+/* view is now ready with the same camera/viewport/appearance defaults */
+```
+
 For code that must interoperate with existing `struct bview` callers during the
 transition, use the migration helpers:
 
 ```c
-/* Wrap an existing bview in the new API */
+/* Wrap an existing bview in the new API (Phase 1) */
 struct bview_new *nv = bview_create("compat_view");
-bview_from_old(nv, existing_gvp);      /* copies camera, viewport, stores pointer */
+bview_from_old(nv, existing_gvp);      /* copies camera, viewport, appearance, stores pointer */
 
 /* ... use new API ... */
 
 bview_to_old(nv, existing_gvp);       /* push changes back for legacy code */
 bview_destroy(nv);
+```
+
+To snapshot an entire legacy `struct bview` object list as a new-API scene (Phase 2):
+
+```c
+/* Convert a bview's scene objects to a new bv_scene (read-only snapshot) */
+struct bv_scene *scene = bv_scene_from_view(gvp);
+/* Each bv_scene_obj is wrapped as a bv_node; original pointer in user_data */
+bv_scene_traverse(scene, my_render_callback, NULL);
+bv_scene_destroy(scene);  /* destroys wrapper nodes; originals still in bview */
+```
+
+To wrap an individual `bv_scene_obj` (Phase 2):
+
+```c
+/* Convert one legacy scene object to a bv_node */
+struct bv_node *n = bv_scene_obj_to_node(my_scene_obj);
+/* Recover original: bv_node_user_data_get(n) == my_scene_obj */
+bv_node_destroy(n);   /* destroys wrapper; original bv_scene_obj is NOT freed */
+```
+
+To migrate a multi-view application from `bview_set` to the new API (Phase 3):
+
+```c
+/* Convert shared scene objects to a new-API scene */
+struct bv_scene *scene = bv_scene_from_view_set(&my_vset);
+
+/* Create new-API view wrappers for each legacy view */
+struct bu_ptbl *views = bv_set_views(&my_vset);
+for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+    struct bview *old_v = (struct bview *)BU_PTBL_GET(views, i);
+    struct bview_new *nv = bview_create(bu_vls_cstr(&old_v->gv_name));
+    bview_from_old(nv, old_v);
+    bview_scene_set(nv, scene);   /* all views share the same scene */
+    /* ... register nv with new rendering pipeline ... */
+}
+bv_scene_destroy(scene);
 ```
