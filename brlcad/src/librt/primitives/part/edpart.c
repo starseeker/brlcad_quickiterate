@@ -35,8 +35,8 @@
 #include "../edit_private.h"
 
 #define ECMD_PART_H		16088
-#define ECMD_PART_v		16089
-#define ECMD_PART_h		16090
+#define ECMD_PART_VRAD		16089
+#define ECMD_PART_HRAD		16090
 
 void
 rt_edit_part_set_edit_mode(struct rt_edit *s, int mode)
@@ -45,8 +45,8 @@ rt_edit_part_set_edit_mode(struct rt_edit *s, int mode)
 
     switch (mode) {
 	case ECMD_PART_H:
-	case ECMD_PART_v:
-	case ECMD_PART_h:
+	case ECMD_PART_VRAD:
+	case ECMD_PART_HRAD:
 	    s->edit_mode = RT_PARAMS_EDIT_SCALE;
 	    break;
 	default:
@@ -70,8 +70,8 @@ part_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(d
 struct rt_edit_menu_item part_menu[] = {
     { "Particle MENU", NULL, 0 },
     { "Set H", part_ed, ECMD_PART_H },
-    { "Set v", part_ed, ECMD_PART_v },
-    { "Set h", part_ed, ECMD_PART_h },
+    { "Set v", part_ed, ECMD_PART_VRAD },
+    { "Set h", part_ed, ECMD_PART_HRAD },
     { "", NULL, 0 }
 };
 
@@ -253,10 +253,10 @@ rt_edit_part_pscale(struct rt_edit *s)
 	case ECMD_PART_H:
 	    ecmd_part_h(s);
 	    break;
-	case ECMD_PART_v:
+	case ECMD_PART_VRAD:
 	    ecmd_part_v(s);
 	    break;
-	case ECMD_PART_h:
+	case ECMD_PART_HRAD:
 	    ecmd_part_h_end_r(s);
 	    break;
     };
@@ -300,8 +300,8 @@ rt_edit_part_edit_xy(
     switch (s->edit_flag) {
         case RT_PARAMS_EDIT_SCALE:
 	case ECMD_PART_H:
-	case ECMD_PART_v:
-	case ECMD_PART_h:
+	case ECMD_PART_VRAD:
+	case ECMD_PART_HRAD:
 	    edit_sscale_xy(s, mousevec);
             return 0;
         case RT_PARAMS_EDIT_TRANS:
