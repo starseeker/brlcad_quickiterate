@@ -149,7 +149,7 @@ const struct rt_edit_functab EDOBJ[] = {
 	/* 3 */
 	RT_FUNCTAB_MAGIC, "ID_ELL", "ell",
 	NULL,  /* label */
-	NULL,  /* keypoint */
+	EDFUNCTAB_FUNC_KEYPOINT_CAST(edit_keypoint), /* keypoint */
 	NULL,  /* s->e_axes_pos */
 	EDFUNCTAB_FUNC_WRITE_PARAMS_CAST(rt_edit_ell_write_params), /* write_params */
 	EDFUNCTAB_FUNC_READ_PARAMS_CAST(rt_edit_ell_read_params), /* read_params */

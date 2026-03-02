@@ -1,8 +1,11 @@
 brlcad_addexec(rt_edit_test_tor tor.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_ell ell.cpp "librt" TEST)
 
 set(
   distcheck_files
   CMakeLists.txt
+  tor.cpp
+  ell.cpp
 )
 
 cmakefiles(${distcheck_files})
