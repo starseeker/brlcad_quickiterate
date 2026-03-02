@@ -48,6 +48,7 @@
 #include "bu/vls.h"
 #include "bn/mat.h"
 #include "bv/defines.h"
+#include "bv/lod.h"
 #include "bv/util.h"
 #include "bv/view_sets.h"
 #include "./bv_private.h"
@@ -132,6 +133,15 @@ bv_node_geometry_set(struct bv_node *node, const void *geometry)
 }
 
 
+const void *
+bv_node_geometry_get(const struct bv_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->geometry;
+}
+
+
 void
 bv_node_material_set(struct bv_node *node, const struct bview_material *material)
 {
@@ -194,6 +204,24 @@ bv_node_visible_get(const struct bv_node *node)
     if (!node)
 	return 0;
     return node->visible;
+}
+
+
+void
+bv_node_selected_set(struct bv_node *node, int selected)
+{
+    if (!node)
+	return;
+    node->selected = selected;
+}
+
+
+int
+bv_node_selected_get(const struct bv_node *node)
+{
+    if (!node)
+	return 0;
+    return node->selected;
 }
 
 
@@ -659,7 +687,9 @@ bview_lod_update(struct bview_new *view)
 {
     if (!view)
 	return;
-    /* Placeholder: trigger LoD recomputation for all geometry nodes in scene */
+    /* Update LoD for all geometry nodes in the associated scene */
+    if (view->scene)
+	bv_scene_lod_update(view->scene, view);
 }
 
 
@@ -1019,15 +1049,13 @@ bv_scene_from_view_set(const struct bview_set *s)
 
 
 /* ================================================================
- * bview_lod_node_update  (Phase 4 stub)
+ * bview_lod_node_update  (Phase 4 — wired to bv_mesh_lod_view)
  * ================================================================ */
 
 int
 bview_lod_node_update(struct bv_node *node, const struct bview_new *view)
 {
     struct bv_scene_obj *s;
-
-    (void)view; /* unused until Phase 4 wires in lod.cpp */
 
     if (!node)
 	return 0;
@@ -1041,13 +1069,147 @@ bview_lod_node_update(struct bv_node *node, const struct bview_new *view)
 	return 0;
 
     /*
-     * Phase 4 TODO: call into lod.cpp to recompute s->draw_data for the
-     * current view scale.  For now we mark the object stale so that the
-     * legacy rendering path will regenerate it on the next draw cycle.
+     * If the scene object carries LoD mesh data (BV_MESH_LOD flag) and we
+     * have a view to compute scale from, call bv_mesh_lod_view() to select
+     * the appropriate detail level.  This wires the existing lod.cpp pipeline
+     * into new-API scene graph traversals.
+     *
+     * If view is NULL or the legacy bview pointer is not available, fall back
+     * to marking the display list stale so the legacy rendering path will
+     * regenerate it on the next draw cycle.
      */
+    if ((s->s_type_flags & BV_MESH_LOD) && view) {
+	struct bview *old_v = bview_old_get(view);
+	if (old_v) {
+	    bv_mesh_lod_view(s, old_v, 0);
+	    return 1;
+	}
+    }
+
+    /* Fallback: mark display list stale */
     s->s_dlist_stale = 1;
 
     return 1;
+}
+
+
+/* ================================================================
+ * bv_scene_lod_update
+ *
+ * Update LoD for all BV_NODE_GEOMETRY nodes in a scene.
+ * ================================================================ */
+
+struct _lod_update_state {
+    const struct bview_new *view;
+    int count;
+};
+
+static void
+_lod_update_cb(struct bv_node *node, void *user_data)
+{
+    struct _lod_update_state *st = (struct _lod_update_state *)user_data;
+    if (!node || !st)
+	return;
+    if (bv_node_type_get(node) != BV_NODE_GEOMETRY)
+	return;
+    if (bview_lod_node_update(node, st->view))
+	st->count++;
+}
+
+int
+bv_scene_lod_update(struct bv_scene *scene, const struct bview_new *view)
+{
+    struct _lod_update_state st;
+
+    if (!scene)
+	return 0;
+
+    st.view  = view;
+    st.count = 0;
+
+    bv_scene_traverse(scene, _lod_update_cb, &st);
+
+    return st.count;
+}
+
+
+/* ================================================================
+ * bv_scene_selected_nodes / bv_scene_select_node / bv_scene_deselect_all
+ * ================================================================ */
+
+struct _select_collect_state {
+    struct bu_ptbl *out;
+    int count;
+};
+
+static void
+_select_collect_cb(struct bv_node *node, void *user_data)
+{
+    struct _select_collect_state *st = (struct _select_collect_state *)user_data;
+    if (!node || !st)
+	return;
+    if (node->selected) {
+	bu_ptbl_ins(st->out, (long *)node);
+	st->count++;
+    }
+}
+
+int
+bv_scene_selected_nodes(const struct bv_scene *scene, struct bu_ptbl *out)
+{
+    struct _select_collect_state st;
+
+    if (!scene || !out)
+	return 0;
+
+    st.out   = out;
+    st.count = 0;
+
+    bv_scene_traverse(scene, _select_collect_cb, &st);
+
+    return st.count;
+}
+
+
+void
+bv_scene_select_node(struct bv_node *node, int selected, struct bview_new *view)
+{
+    (void)view; /* reserved for future pick_set integration */
+    bv_node_selected_set(node, selected);
+}
+
+
+struct _deselect_state {
+    struct bview_new *view;
+    int count;
+};
+
+static void
+_deselect_cb(struct bv_node *node, void *user_data)
+{
+    struct _deselect_state *st = (struct _deselect_state *)user_data;
+    if (!node || !st)
+	return;
+    if (node->selected) {
+	bv_scene_select_node(node, 0, st->view);
+	st->count++;
+    }
+}
+
+int
+bv_scene_deselect_all(struct bv_scene *scene, struct bview_new *view)
+{
+    struct _deselect_state st;
+
+    if (!scene)
+	return 0;
+
+    st.view  = view;
+    st.count = 0;
+
+    bv_scene_traverse(scene, _deselect_cb, &st);
+
+    return st.count;
 }
 
 

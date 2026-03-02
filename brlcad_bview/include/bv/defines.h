@@ -290,6 +290,7 @@ BV_EXPORT void bv_node_destroy(struct bv_node *node);
 BV_EXPORT void bv_node_transform_set(struct bv_node *node, const mat_t xform);
 BV_EXPORT const mat_t *bv_node_transform_get(const struct bv_node *node);
 BV_EXPORT void bv_node_geometry_set(struct bv_node *node, const void *geometry);
+BV_EXPORT const void *bv_node_geometry_get(const struct bv_node *node);
 BV_EXPORT void bv_node_material_set(struct bv_node *node, const struct bview_material *material);
 BV_EXPORT const struct bview_material *bv_node_material_get(const struct bv_node *node);
 
@@ -301,6 +302,10 @@ BV_EXPORT const struct bu_ptbl *bv_node_children(const struct bv_node *node);
 /* Visibility (analogous to toggling SoSwitch or using SoNode visibility) */
 BV_EXPORT void bv_node_visible_set(struct bv_node *node, int visible);
 BV_EXPORT int bv_node_visible_get(const struct bv_node *node);
+
+/* Selection (analogous to highlight/pick state in Coin3D SoSelection) */
+BV_EXPORT void bv_node_selected_set(struct bv_node *node, int selected);
+BV_EXPORT int bv_node_selected_get(const struct bv_node *node);
 
 /* Type, name, and user data access */
 BV_EXPORT enum bv_node_type bv_node_type_get(const struct bv_node *node);
@@ -317,7 +322,9 @@ BV_EXPORT struct bv_node *bv_node_parent_get(const struct bv_node *node);
 /* --- LoD/update API --- */
 
 /* Force LoD or redraw updates if needed; LoD should be triggered automatically by
- * setters but (for the moment) allow for explicit invocation */
+ * setters but (for the moment) allow for explicit invocation.
+ * bview_lod_update() calls bv_scene_lod_update() on the scene currently associated
+ * with this view. */
 BV_EXPORT void bview_lod_update(struct bview_new *view);
 BV_EXPORT void bview_redraw(struct bview_new *view);
 
@@ -326,16 +333,64 @@ BV_EXPORT void bview_redraw(struct bview_new *view);
  *
  * Called by the rendering pipeline when a node's level of detail needs
  * to be reconsidered given a new view state.  node must be a
- * BV_NODE_GEOMETRY node whose geometry pointer holds a bv_scene_obj
- * (as set by bv_scene_obj_to_node()).  view may be NULL to request an
- * unconditional LoD recomputation.
+ * BV_NODE_GEOMETRY node whose user_data holds a bv_scene_obj
+ * (as set by bv_scene_obj_to_node()).  view may be NULL to unconditionally
+ * mark the node's display list stale.
  *
- * Currently a stub; the full implementation will live in Phase 4 once
- * the lod.cpp backend is wired into the new node pipeline.
+ * If view is non-NULL and the scene object carries BV_MESH_LOD data
+ * (s->s_type_flags & BV_MESH_LOD), this function calls bv_mesh_lod_view()
+ * using the legacy bview pointed to by bview_old_get(view).  This wires
+ * the existing LoD pipeline into the new scene graph traversal.
  *
- * Returns 1 if the node's LoD data was updated, 0 if no change was needed.
+ * Returns 1 if the node was processed, 0 otherwise.
  */
 BV_EXPORT int bview_lod_node_update(struct bv_node *node, const struct bview_new *view);
+
+/*
+ * Update LoD for all BV_NODE_GEOMETRY nodes in a scene.
+ *
+ * Traverses every node in 'scene' and calls bview_lod_node_update() on
+ * each BV_NODE_GEOMETRY node.  This is the scene-level equivalent of
+ * the per-object bv_mesh_lod_view() calls that the legacy rendering
+ * pipeline performs when a view changes.
+ *
+ * view may be NULL, in which case only display-list stale marking is
+ * performed (no view-dependent LoD level selection).
+ *
+ * Returns the number of geometry nodes that were processed.
+ */
+BV_EXPORT int bv_scene_lod_update(struct bv_scene *scene, const struct bview_new *view);
+
+/* --- Selection API --- */
+
+/*
+ * Collect all nodes in 'scene' whose selected flag is non-zero into
+ * 'out'.  'out' must already be initialized by the caller (bu_ptbl_init).
+ *
+ * Traverses the entire scene graph; both visible and hidden nodes are
+ * included.  The ptbl will hold 'struct bv_node *' pointers.
+ *
+ * Returns the number of selected nodes found.
+ */
+BV_EXPORT int bv_scene_selected_nodes(const struct bv_scene *scene, struct bu_ptbl *out);
+
+/*
+ * Set the selected flag on a specific node (1 = selected, 0 = deselected).
+ * This is a thin wrapper around bv_node_selected_set() that also
+ * updates the scene's pick_set metadata if a bview_new is provided.
+ * view may be NULL.
+ */
+BV_EXPORT void bv_scene_select_node(struct bv_node *node, int selected, struct bview_new *view);
+
+/*
+ * Deselect all nodes in the scene.
+ *
+ * Equivalent to traversing every node and calling bv_scene_select_node(n, 0, view).
+ * view may be NULL.
+ *
+ * Returns the number of nodes that were previously selected and are now cleared.
+ */
+BV_EXPORT int bv_scene_deselect_all(struct bv_scene *scene, struct bview_new *view);
 
 /*
  * Compute the axis-aligned bounding box of a bv_node subtree.

@@ -141,6 +141,16 @@ set(bview_scene_tests
   lod_node_update_non_geom
   lod_node_update_no_obj
   lod_node_update_stale
+  node_geometry_get
+  node_selected
+  scene_lod_update_null
+  scene_lod_update_empty
+  scene_lod_update_counts
+  selected_nodes_null
+  selected_nodes_empty
+  selected_nodes_count
+  deselect_all
+  select_node
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})

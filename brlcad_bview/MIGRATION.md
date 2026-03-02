@@ -93,6 +93,13 @@ const struct bview_material  *bv_node_material_get(const struct bv_node *node);
 /* Visibility, type, name, user data */
 void              bv_node_visible_set(struct bv_node *node, int visible);
 int               bv_node_visible_get(const struct bv_node *node);
+
+/* Geometry and selection */
+void              bv_node_geometry_set(struct bv_node *node, const void *geometry);
+const void       *bv_node_geometry_get(const struct bv_node *node);
+void              bv_node_selected_set(struct bv_node *node, int selected);
+int               bv_node_selected_get(const struct bv_node *node);
+
 enum bv_node_type bv_node_type_get(const struct bv_node *node);
 const char       *bv_node_name_get(const struct bv_node *node);
 void              bv_node_user_data_set(struct bv_node *node, void *user_data);
@@ -125,6 +132,18 @@ void            bv_scene_traverse(const struct bv_scene *scene,
 
 struct bv_node *bv_scene_default_camera(const struct bv_scene *scene);
 void            bv_scene_default_camera_set(struct bv_scene *scene, struct bv_node *cam);
+
+/* Bounding box helpers (Phase 2) */
+int bv_scene_bbox(const struct bv_scene *scene, point_t *out_min, point_t *out_max);
+int bv_node_bbox(const struct bv_node *node, point_t *out_min, point_t *out_max);
+
+/* Selection management (Phase 3) */
+int  bv_scene_selected_nodes(const struct bv_scene *scene, struct bu_ptbl *out);
+void bv_scene_select_node(struct bv_node *node, int selected, struct bview_new *view);
+int  bv_scene_deselect_all(struct bv_scene *scene, struct bview_new *view);
+
+/* LoD update (Phase 4) */
+int bv_scene_lod_update(struct bv_scene *scene, const struct bview_new *view);
 ```
 
 ### `bview_new` (render/view context — analogous to `SoSceneManager`)
@@ -160,6 +179,15 @@ const struct bview_pick_set *bview_pick_set_get(const struct bview_new *view);
 typedef void (*bview_redraw_cb)(struct bview_new *, void *);
 void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
 void bview_redraw(struct bview_new *view);
+
+/* LoD update (Phase 4 — wired to bv_scene_lod_update + bv_mesh_lod_view) */
+void bview_lod_update(struct bview_new *view);
+int  bview_lod_node_update(struct bv_node *node, const struct bview_new *view);
+
+/* Auto-fit camera to scene geometry (Phase 2) */
+#define BV_AUTOVIEW_SCALE_DEFAULT -1
+int bview_autoview_new(struct bview_new *view, const struct bv_scene *scene,
+                       double scale_factor);
 
 /* Migration helpers (bridge to old API during transition) */
 void           bview_from_old(struct bview_new *view, const struct bview *old);
@@ -250,7 +278,7 @@ Remaining for Phase 1 completion:
 - Migrate internal callers of `bv_init` / `bv_free` to use `bview_create()` /
   `bview_destroy()` (tracked in Phase 1 callers list below)
 
-### Phase 2 – Scene objects (IN PROGRESS)
+### Phase 2 – Scene objects (LARGELY COMPLETE)
 
 Goals and status:
 - `bv_scene_obj_to_node(struct bv_scene_obj *)` implemented: wraps a legacy
@@ -274,20 +302,25 @@ Goals and status:
   so the scene fits the viewport.  `BV_AUTOVIEW_SCALE_DEFAULT` (−1) uses the
   same 2× radial factor as the legacy function.  Returns 0 if the scene is
   empty (camera unchanged).
+- `bv_node_geometry_get()` — getter for the geometry pointer; symmetric with
+  `bv_node_geometry_set()` which existed but had no paired getter.
+- `bv_node_selected_set()` / `bv_node_selected_get()` — public accessors for
+  the `selected` field (was in `bv_node` struct but had no public API).
 
 Files updated:
 - `include/bv/defines.h` – `bv_node_bbox`, `bv_scene_bbox`,
   `bview_autoview_new`, `bview_lod_node_update`, `BV_AUTOVIEW_SCALE_DEFAULT`
-  macro declarations; forward declarations for `struct bv_scene_obj` and
+  macro, `bv_node_geometry_get`, `bv_node_selected_set`, `bv_node_selected_get`
+  declarations; forward declarations for `struct bv_scene_obj` and
   `struct bview_set`; corrected doc comment for `bview_autoview_new`
-- `src/libbv/scene.cpp` – implement all four functions; add `_bbox_state`
-  internal struct and `_bbox_cb` traverse callback
+- `src/libbv/scene.cpp` – implement all functions
 - `src/libbv/tests/scene.c` – add `obj_to_node_null`, `obj_to_node_basic`,
   `obj_to_node_children`, `scene_from_view_null`, `scene_from_view_empty`,
   `scene_from_view_objs`, `node_bbox_null`, `node_bbox_no_geom`,
   `scene_bbox_null`, `scene_bbox_empty`, `scene_bbox_invisible`,
   `scene_bbox_visible`, `autoview_null`, `autoview_empty`,
-  `autoview_single_obj`, `autoview_scale_factor` tests
+  `autoview_single_obj`, `autoview_scale_factor`, `node_geometry_get`,
+  `node_selected` tests
 
 Remaining for Phase 2 completion:
 - New geometry creation: `bv_node_create(BV_NODE_GEOMETRY)` + `bv_node_geometry_set()`
@@ -296,18 +329,31 @@ Remaining for Phase 2 completion:
 - Extend `bv_node_bbox` to handle nodes without a wrapped `bv_scene_obj` (once
   native geometry storage is added in a later phase)
 
-### Phase 3 – View sets (IN PROGRESS)
+### Phase 3 – View sets + selection (LARGELY COMPLETE)
 
 Goals and status:
 - `bv_scene_from_view_set(const struct bview_set *)` implemented: creates a
   `bv_scene` from all shared scene objects in a `bview_set`.  This is the
   bridge from the old multi-view set concept to the new scene graph model.
 - All `bv_set_*` functions marked `DEPRECATED` in `include/bv/view_sets.h`.
+- **Selection API** implemented:
+  - `bv_node_selected_set()` / `bv_node_selected_get()` — per-node selection.
+  - `bv_scene_selected_nodes()` — collects all selected nodes via traverse
+    callback into a caller-provided `bu_ptbl`.  Visits all nodes (visible and
+    hidden).  Returns count.
+  - `bv_scene_select_node()` — wraps `bv_node_selected_set()` with a view
+    argument reserved for future pick_set integration.
+  - `bv_scene_deselect_all()` — clears selection on every node in the scene;
+    returns number of nodes cleared.
 
 Files updated:
-- `include/bv/defines.h` – `bv_scene_from_view_set` declaration
-- `src/libbv/scene.cpp` – implement function
-- `src/libbv/tests/scene.c` – add `scene_from_vset_null`, `scene_from_vset_empty`
+- `include/bv/defines.h` – `bv_scene_from_view_set`, `bv_scene_selected_nodes`,
+  `bv_scene_select_node`, `bv_scene_deselect_all` declarations
+- `src/libbv/scene.cpp` – implement all functions; add `_select_collect_state`
+  and `_deselect_state` traverse callback helpers
+- `src/libbv/tests/scene.c` – add `scene_from_vset_null`, `scene_from_vset_empty`,
+  `selected_nodes_null`, `selected_nodes_empty`, `selected_nodes_count`,
+  `deselect_all`, `select_node` tests
 
 Remaining for Phase 3 completion:
 - Migrate callers of `bv_set_add_view` / `bv_set_rm_view` to use
@@ -315,25 +361,34 @@ Remaining for Phase 3 completion:
 - Multiple `bview_new` instances sharing one `bv_scene` replaces the concept of
   a `bview_set` with a flat list of views
 
-### Phase 4 – LoD integration (STUB COMPLETE)
+### Phase 4 – LoD integration (WIRED)
 
 Goals:
 - `bview_lod_update()` wired into the geometry node update pipeline.
-- `lod.cpp` logic refactored to operate on `bv_node` trees instead of raw
-  `bv_scene_obj` lists.
+- `lod.cpp` logic linked into `bview_lod_node_update()` for LoD-bearing objects.
 
 Status:
-- `bview_lod_node_update(struct bv_node *, const struct bview_new *)` stubbed:
-  accepts a `BV_NODE_GEOMETRY` node, retrieves the wrapped `bv_scene_obj`, and
-  marks `s_dlist_stale = 1` so the legacy rendering path regenerates it.
-  The TODO comment is in place for wiring into `lod.cpp`.  4 tests added.
+- `bview_lod_node_update(struct bv_node *, const struct bview_new *)` **wired**:
+  now calls `bv_mesh_lod_view()` (from `bv/lod.h`) when the wrapped
+  `bv_scene_obj` carries `BV_MESH_LOD` data AND a legacy `bview` is reachable
+  via `bview_old_get(view)`.  Falls back to `s_dlist_stale = 1` for non-LoD
+  objects or when no legacy view pointer is available.
+- `bv_scene_lod_update(struct bv_scene *, const struct bview_new *)` **added**:
+  traverses all `BV_NODE_GEOMETRY` nodes in a scene via `bv_scene_traverse()`,
+  calling `bview_lod_node_update()` on each.  Returns count of nodes processed.
+- `bview_lod_update(struct bview_new *)` **wired**: now calls
+  `bv_scene_lod_update(view->scene, view)` instead of being a no-op placeholder.
 
 Files updated:
-- `include/bv/defines.h` – `bview_lod_node_update` declaration with full doc
-- `src/libbv/scene.cpp` – stub implementation
+- `include/bv/defines.h` – `bview_lod_node_update` updated doc comment;
+  `bv_scene_lod_update` new declaration
+- `src/libbv/scene.cpp` – wire `bview_lod_node_update()` to `bv_mesh_lod_view()`;
+  implement `bv_scene_lod_update()`; add `bv/lod.h` include;
+  wire `bview_lod_update()` to `bv_scene_lod_update()`
 - `src/libbv/tests/scene.c` – add `lod_node_update_null`,
   `lod_node_update_non_geom`, `lod_node_update_no_obj`,
-  `lod_node_update_stale` tests
+  `lod_node_update_stale`, `scene_lod_update_null`, `scene_lod_update_empty`,
+  `scene_lod_update_counts` tests
 
 ### Phase 5 – obol/Coin3D bridge (LONG TERM)
 
@@ -379,13 +434,20 @@ repository.
 | `bv_node_bbox()` — AABB of a node subtree | Phase 2 | ✅ COMPLETE |
 | `bv_scene_bbox()` — AABB of entire scene | Phase 2 | ✅ COMPLETE |
 | `bview_autoview_new()` — fit camera to scene geometry | Phase 2 | ✅ COMPLETE |
+| `bv_node_geometry_get()` — getter for geometry pointer | Phase 2 | ✅ COMPLETE |
+| `bv_node_selected_set()` / `bv_node_selected_get()` — selection accessors | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view_set()` — build scene from bview_set | Phase 3 | ✅ COMPLETE |
-| `bview_lod_node_update()` — per-node LoD update hook (stub) | Phase 4 | ✅ COMPLETE (stub) |
-| Unit tests (72 total — 29 new Phase 1–4 tests) | Phase 1–4 | ✅ COMPLETE |
+| `bv_scene_selected_nodes()` — collect selected nodes via traverse | Phase 3 | ✅ COMPLETE |
+| `bv_scene_select_node()` — select/deselect a single node | Phase 3 | ✅ COMPLETE |
+| `bv_scene_deselect_all()` — clear all selections in scene | Phase 3 | ✅ COMPLETE |
+| `bview_lod_node_update()` — wired to `bv_mesh_lod_view()` (Phase 4) | Phase 4 | ✅ COMPLETE |
+| `bv_scene_lod_update()` — update LoD for all geometry nodes | Phase 4 | ✅ COMPLETE |
+| `bview_lod_update()` — wired to `bv_scene_lod_update()` | Phase 4 | ✅ COMPLETE |
+| Unit tests (82 total — 10 new this session) | Phase 2–4 | ✅ COMPLETE |
 | Internal callers migrated to new lifecycle API | Phase 1 | 🔲 PLANNED |
 | New geometry creation via `bv_node_create()` | Phase 2 | 🔲 PLANNED |
 | `bv_set_add_view` callers migrated to `bview_scene_set` | Phase 3 | 🔲 PLANNED |
-| `lod.cpp` wired into `bview_lod_node_update()` | Phase 4 | 🔲 PLANNED |
+| `lod.cpp` further refactored to operate natively on `bv_node` trees | Phase 4 | 🔲 PLANNED |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
 
 ---
@@ -508,13 +570,34 @@ bv_scene_destroy(scene);
 bview_destroy(view);
 ```
 
-To mark a geometry node as needing LoD update (Phase 4 stub):
+To mark a geometry node as needing LoD update (Phase 4 — wired):
 
 ```c
-/* Iterate over the scene and mark all geometry stale for the current view */
-struct bv_node *root = bv_scene_root(scene);
-/* (walk the tree yourself, or wait for the Phase 4 traverse-based update) */
+/* Update LoD for all geometry nodes in a scene for the current view */
+bview_lod_update(active_view);          /* scene-level: calls bv_scene_lod_update() */
+bv_scene_lod_update(scene, active_view); /* same, explicit scene argument */
+
+/* Per-node: if s->s_type_flags & BV_MESH_LOD, calls bv_mesh_lod_view();
+ * otherwise marks s_dlist_stale = 1 for fallback regeneration. */
 bview_lod_node_update(geom_node, active_view);
-/* geom_node's wrapped bv_scene_obj will have s_dlist_stale set, triggering
- * regeneration in the legacy rendering path on the next draw cycle. */
+```
+
+To manage node selection (Phase 3):
+
+```c
+/* Select a node */
+bv_scene_select_node(n, 1, view);
+
+/* Collect all selected nodes */
+struct bu_ptbl selected;
+bu_ptbl_init(&selected, 8, "selection");
+int n_selected = bv_scene_selected_nodes(scene, &selected);
+for (size_t i = 0; i < BU_PTBL_LEN(&selected); i++) {
+    struct bv_node *sn = (struct bv_node *)BU_PTBL_GET(&selected, i);
+    printf("selected: %s\n", bv_node_name_get(sn));
+}
+bu_ptbl_free(&selected);
+
+/* Deselect everything */
+bv_scene_deselect_all(scene, NULL);
 ```
