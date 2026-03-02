@@ -304,10 +304,16 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Source: `src/librt/primitives/bot/edbot.c`
 - Notes: Complex — has per-vertex, per-face, and thickness editing.
 
-### SUPERELL ⬜ EDIT CODE EXISTS, NO TEST
+### SUPERELL ✅ DONE (with test)
 
 - Source: `src/librt/primitives/superell/edsuperell.c`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/superell.cpp`
+- No aliasing bugs; rt_superell_mat copies to temporaries before MAT4X3VEC.
+- Note: `n` and `e` exponents are NOT in rt_superell_mat and are
+  unchanged by RT_PARAMS_EDIT_SCALE and RT_PARAMS_EDIT_ROT.
+- ECMD_SUPERELL_SCALE_ABC sets all three axes to the same length.
+- Operations validated: ECMD_SUPERELL_SCALE_A/B/C/ABC,
+  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
 ### HRT — Heart ⬜ EDIT CODE EXISTS, NO TEST
 
@@ -322,9 +328,25 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 
 - Source: `src/librt/primitives/ebm/edebm.c`
 
-### CLINE ⬜ EDIT CODE EXISTS, NO TEST
+### CLINE ✅ DONE (with test + bug fixes)
 
 - Source: `src/librt/primitives/cline/edcline.c`
+- Test:   `src/librt/tests/edit/cline.cpp`
+- **Bug fixed in edcline.c:** `ecmd_cline_scale_h`, `ecmd_cline_scale_r`,
+  and `ecmd_cline_scale_t` had a strict `e_inpara != 1` guard that
+  unconditionally returned BRLCAD_ERROR when called with e_inpara=0,
+  blocking the XY mouse-driven path (which uses es_scale with e_inpara=0).
+  Fixed to allow the es_scale path when e_inpara==0 and es_scale>0.
+- **Bug fixed in edgeneric.c (`edit_sscale`):** `edit_sscale` did not
+  guard against es_scale==0 (the initial/reset state), calling
+  `bn_mat_scale_about_pnt(mat, keypoint, 0.0)` which produces a
+  singular matrix (mat[15]=0). This was latent in most primitives
+  because their ft_set_edit_mode does not call rt_edit_process;
+  CLINE's ft_set_edit_mode calls rt_edit_process unconditionally,
+  exposing the bug. Fix: added `if (!s->e_inpara && s->es_scale < SMALL_FASTF) return 0;`
+  guard before the `bn_mat_scale_about_pnt` call.
+- Operations validated: ECMD_CLINE_SCALE_H/R/T, ECMD_CLINE_MOVE_H,
+  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale-H/trans/rot-error
 
 ### METABALL ⬜ EDIT CODE EXISTS, NO TEST
 
@@ -451,6 +473,25 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
 - Added Agent Instructions section to this file with general principles
   for test expected value methodology, aliasing checks, and build/test
   commands.
+
+---
+
+### Session 5 (2026-03-02)
+- Configured fresh brlcad_build; verified existing 10 tests pass.
+- Wrote `src/librt/tests/edit/superell.cpp` — SUPERELL test coverage.
+  Confirmed n/e exponents are unchanged by rt_superell_mat.
+- Discovered and fixed `ecmd_cline_scale_h/r/t` strict `e_inpara != 1`
+  check in `edcline.c` that blocked the XY mouse-driven (es_scale) path.
+  Fixed to allow `else if (s->es_scale > 0.0)` branch when e_inpara==0.
+- Discovered and fixed latent `edit_sscale` bug in `edgeneric.c`:
+  `bn_mat_scale_about_pnt(mat, keypoint, 0.0)` was called when es_scale=0
+  (initial/reset state), producing a singular matrix (mat[15]=0) and NaN.
+  CLINE was uniquely exposed because its ft_set_edit_mode calls
+  rt_edit_process unconditionally. Fix: guard `if (!e_inpara && es_scale < SMALL_FASTF) return 0`.
+- Wrote `src/librt/tests/edit/cline.cpp` — CLINE test coverage.
+- Updated CMakeLists.txt for superell/cline tests.
+- All 12 tests pass (tor, ell, tgc, epa, ehy, eto, hyp, rpc, rhc, part,
+  superell, cline).
 
 ---
 
