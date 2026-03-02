@@ -18,6 +18,7 @@ brlcad_addexec(rt_edit_test_pipe pipe.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_dsp dsp.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_vol vol.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_ebm ebm.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_sph sph.cpp "librt" TEST)
 
 set(
   distcheck_files
@@ -42,6 +43,7 @@ set(
   dsp.cpp
   vol.cpp
   ebm.cpp
+  sph.cpp
 )
 
 cmakefiles(${distcheck_files})
