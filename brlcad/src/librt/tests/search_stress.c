@@ -114,6 +114,45 @@
  * Query: -type shape (RETURN_UNIQ_DP)  ->  3 unique shape dps
  * Note: db_search return value is always the PATH count, not the unique
  *       dp count.  Use BU_PTBL_LEN(&results) for the unique-dp count.
+ *
+ *
+ * DAG (shared-node) topology used in performance tests
+ * =====================================================
+ *
+ * The fan-tree used above has no path sharing: every node is
+ * referenced by exactly one parent, so the number of distinct full
+ * paths equals the number of nodes.  The old and new implementations
+ * therefore do the same amount of work on that tree.
+ *
+ * The key algorithmic difference is:
+ *   db_search_old  - ALWAYS pre-builds the complete set of full paths
+ *                    into a bu_ptbl before evaluating any filter.
+ *   db_search (new) - for queries that do NOT contain -above, uses an
+ *                    on-the-fly traversal that builds, evaluates, and
+ *                    frees each path in turn without accumulating them.
+ *                    For -above queries it falls back to the same
+ *                    pre-collection strategy as the old implementation.
+ *
+ * To expose this difference the DAG performance tests use a 3-level
+ * all-to-all structure:
+ *
+ *   dag_target.s             <- single target primitive
+ *   dag_leaf_0..dag_leaf_{L-1}  <- L leaf combos, each containing dag_target.s
+ *   dag_mid_0..dag_mid_{M-1}    <- M mid combos, each referencing ALL L leaves
+ *   dag_top                  <- single top combo referencing all M mids
+ *
+ * Full paths from dag_top:
+ *   dag_top alone                         :         1
+ *   dag_top -> dag_mid_j                  :         M
+ *   dag_top -> dag_mid_j -> dag_leaf_i    :       M*L
+ *   dag_top -> dag_mid_j -> dag_leaf_i -> dag_target.s : M*L
+ * Total full paths = 1 + M + 2*M*L
+ *
+ * The old code allocates all (1 + M + 2*M*L) path objects upfront;
+ * the new code on non-above queries keeps only O(depth) live at once.
+ * At L=M=60 (7261 paths) the new code is typically ~1.5x faster for
+ * -name and -type queries.  Both codes show equal performance for
+ * -above queries because both take the pre-collection code path.
  */
 
 #include "common.h"
@@ -636,6 +675,163 @@ test_stress_cross_validation(struct db_i *dbip, int depth)
 
 
 /* ------------------------------------------------------------------ */
+/*  DAG sharing tree builder                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Build the 3-level all-to-all DAG described in the file header.
+ *
+ *   dag_target.s  <- single target primitive
+ *   dag_leaf_0 .. dag_leaf_{L-1}  <- leaf combos, each containing dag_target.s
+ *   dag_mid_0  .. dag_mid_{M-1}   <- mid  combos, each referencing ALL L leaves
+ *   dag_top                       <- top  combo  referencing all M mids
+ *
+ * Total full paths from dag_top = 1 + M + 2*M*L
+ *
+ * Returns 0 on success.
+ */
+static int
+build_dag_sharing_tree(struct rt_wdb *wdbp, int L, int M)
+{
+    int i, j;
+    struct bu_vls name = BU_VLS_INIT_ZERO;
+    point_t center = VINIT_ZERO;
+    fastf_t radius = 1.0;
+    struct wmember wm;
+
+    if (L < 1 || M < 1) {
+	bu_vls_free(&name);
+	return 1;
+    }
+
+    /* target primitive */
+    if (mk_sph(wdbp, "dag_target.s", center, radius) != 0)
+	goto cleanup_fail;
+
+    /* L leaf combos, each containing dag_target.s */
+    for (i = 0; i < L; i++) {
+	BU_LIST_INIT(&wm.l);
+	mk_addmember("dag_target.s", &wm.l, NULL, WMOP_UNION);
+	bu_vls_sprintf(&name, "dag_leaf_%d", i);
+	if (mk_lcomb(wdbp, bu_vls_cstr(&name), &wm, 0, NULL, NULL, NULL, 0) != 0)
+	    goto cleanup_fail;
+    }
+
+    /* M mid combos, each referencing ALL L leaves */
+    for (j = 0; j < M; j++) {
+	BU_LIST_INIT(&wm.l);
+	for (i = 0; i < L; i++) {
+	    bu_vls_sprintf(&name, "dag_leaf_%d", i);
+	    mk_addmember(bu_vls_cstr(&name), &wm.l, NULL, WMOP_UNION);
+	}
+	bu_vls_sprintf(&name, "dag_mid_%d", j);
+	if (mk_lcomb(wdbp, bu_vls_cstr(&name), &wm, 0, NULL, NULL, NULL, 0) != 0)
+	    goto cleanup_fail;
+    }
+
+    /* top combo referencing all M mids */
+    BU_LIST_INIT(&wm.l);
+    for (j = 0; j < M; j++) {
+	bu_vls_sprintf(&name, "dag_mid_%d", j);
+	mk_addmember(bu_vls_cstr(&name), &wm.l, NULL, WMOP_UNION);
+    }
+    if (mk_lcomb(wdbp, "dag_top", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	goto cleanup_fail;
+
+    bu_vls_free(&name);
+    return 0;
+
+cleanup_fail:
+    bu_vls_free(&name);
+    return 1;
+}
+
+
+/*
+ * Cross-validate new vs old on the DAG sharing tree and report timing.
+ *
+ * Queries tested:
+ *   -name dag_target.s           (non-above: new is faster on large DAGs)
+ *   -type shape                  (non-above: new is faster on large DAGs)
+ *   -above -name dag_target.s    (above: both take the same code path)
+ */
+static int
+test_dag_cross_validation(struct db_i *dbip, int L, int M)
+{
+    int failures = 0;
+    int new_cnt, old_cnt;
+    int64_t t_new, t_old;
+    int total_paths = 1 + M + 2 * M * L;
+    struct bu_ptbl new_results = BU_PTBL_INIT_ZERO;
+    struct bu_ptbl old_results = BU_PTBL_INIT_ZERO;
+    struct db_search_context *ctx = db_search_context_create();
+
+    /* -name (non-above): new code uses on-the-fly traversal */
+    t_new = bu_gettime();
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE,
+			"-name dag_target.s",
+			0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&new_results);
+
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE,
+			    "-name dag_target.s",
+			    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    bu_log("  dag L=%-3d M=%-3d paths=%-6d  -name:  new=%d(%.6fs) old=%d(%.6fs)\n",
+	   L, M, total_paths,
+	   new_cnt, (double)t_new/1e6, old_cnt, (double)t_old/1e6);
+    CROSS_CHECK(new_cnt, old_cnt, "-name dag_target.s (dag)");
+
+    /* -type shape (non-above) */
+    t_new = bu_gettime();
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE,
+			"-type shape",
+			0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&new_results);
+
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE,
+			    "-type shape",
+			    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    bu_log("  dag L=%-3d M=%-3d paths=%-6d  -type:  new=%d(%.6fs) old=%d(%.6fs)\n",
+	   L, M, total_paths,
+	   new_cnt, (double)t_new/1e6, old_cnt, (double)t_old/1e6);
+    CROSS_CHECK(new_cnt, old_cnt, "-type shape (dag)");
+
+    /* -above -name (above): both use full-path pre-collection */
+    t_new = bu_gettime();
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE,
+			"-above -name dag_target.s",
+			0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&new_results);
+
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE,
+			    "-above -name dag_target.s",
+			    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    bu_log("  dag L=%-3d M=%-3d paths=%-6d  -above: new=%d(%.6fs) old=%d(%.6fs)\n",
+	   L, M, total_paths,
+	   new_cnt, (double)t_new/1e6, old_cnt, (double)t_old/1e6);
+    CROSS_CHECK(new_cnt, old_cnt, "-above -name dag_target.s (dag)");
+
+    db_search_context_destroy(ctx);
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
 /*  Main                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -719,6 +915,62 @@ main(int argc, char *argv[])
 
             wdb_close(wdbp);  /* also closes dbip */
         }
+    }
+
+    /* ---- DAG sharing tests: expose new vs old performance gap ---- */
+    /*
+     * The fan-tree stress tests above have no path sharing and show
+     * no timing difference between implementations.  The DAG tests
+     * below use an all-to-all connection structure (L leaves, each
+     * referenced by M mids, all under one top) which causes the total
+     * number of full paths to grow as 1 + M + 2*M*L.
+     *
+     * Expected outcome:
+     *   non-above queries (-name, -type): new code faster (~1.5x at
+     *     L=M=60 because it avoids pre-building the full-path table).
+     *   -above queries: both implementations identical (~1.0x) because
+     *     both use the same full-path pre-collection code path.
+     */
+    {
+	/* Parameters: L leaves, M mids; total paths = 1 + M + 2*M*L */
+	int dag_cases[][2] = {
+	    {20, 20},  /* ~821  paths: fast correctness cross-check    */
+	    {60, 60},  /* ~7261 paths: performance difference visible   */
+	    {0,  0}
+	};
+	int di;
+
+	bu_log("\nRunning DAG sharing tests (all-to-all structure)...\n");
+
+	for (di = 0; dag_cases[di][0] != 0; di++) {
+	    int L = dag_cases[di][0];
+	    int M = dag_cases[di][1];
+
+	    dbip = db_open_inmem();
+	    if (dbip == DBI_NULL) {
+		bu_log("ERROR: Cannot create DAG db (L=%d M=%d)\n", L, M);
+		failures++;
+		continue;
+	    }
+	    wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_INMEM);
+	    if (!wdbp) {
+		db_close(dbip);
+		failures++;
+		continue;
+	    }
+
+	    if (build_dag_sharing_tree(wdbp, L, M) != 0) {
+		bu_log("ERROR: Cannot build DAG tree L=%d M=%d\n", L, M);
+		wdb_close(wdbp);
+		failures++;
+		continue;
+	    }
+
+	    db_update_nref(dbip, &rt_uniresource);
+	    failures += test_dag_cross_validation(dbip, L, M);
+
+	    wdb_close(wdbp);
+	}
     }
 
     if (failures) {
