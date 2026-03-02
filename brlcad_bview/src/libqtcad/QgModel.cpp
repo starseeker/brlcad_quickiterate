@@ -326,6 +326,8 @@ QgModel::QgModel(QObject *p, const char *npath)
     gedp->ged_gvp = empty_gvp;
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
     gedp->ged_gvp->independent = 0;
+    // Create a bview_new companion so new-API code can use this model's default view.
+    empty_nv = bview_companion_create("default", empty_gvp);
 
     // Set up the root item
     rootItem = new QgItem(0, this);
@@ -355,6 +357,8 @@ QgModel::~QgModel()
 {
     delete items;
 
+    bview_destroy(empty_nv);
+    empty_nv = NULL;
     bv_free(empty_gvp);
     BU_PUT(empty_gvp, struct bview);
     ged_close(gedp);

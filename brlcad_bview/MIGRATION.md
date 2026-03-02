@@ -234,6 +234,8 @@ void           bview_from_old(struct bview_new *view, const struct bview *old);
 void           bview_to_old(const struct bview_new *view, struct bview *old);
 struct bview  *bview_old_get(const struct bview_new *view);
 void           bview_old_set(struct bview_new *view, struct bview *old);
+/* Convenience: create(name) + from_old + old_set — standard first migration step */
+struct bview_new *bview_companion_create(const char *name, struct bview *old);
 
 /* Default initialization (replaces bv_init + bv_settings_init) */
 void bview_settings_apply(struct bview_new *view);
@@ -290,7 +292,7 @@ major BRL-CAD release after the deprecation notice is added.
       26 test cases registered with CTest).
 - [x] Confirm all 26 scene tests pass; all existing tests continue to pass.
 
-### Phase 1 – View lifecycle (LARGELY COMPLETE)
+### Phase 1 – View lifecycle (IN PROGRESS → callers being migrated)
 
 Goals:
 - New code creates views with `bview_create()` instead of allocating a
@@ -306,18 +308,61 @@ Goals:
   appearance (grid/axes draw flags + colors), and overlay (show_fps) back to the
   legacy `struct bview`.
 
-Files updated:
-- `src/libbv/scene.cpp` – `bview_settings_apply()`; enhanced `bview_from_old`
-  and `bview_to_old`
-- `include/bv/util.h` – `DEPRECATED` comments on `bv_init`, `bv_free`,
-  `bv_settings_init`, `bv_mat_aet`
-- `include/bv/view_sets.h` – `DEPRECATED` comments on all `bv_set_*` functions
-- `src/libbv/tests/scene.c` – `settings_apply`, `settings_apply_null`,
-  `settings_apply_idempotent`, `to_old_appearance`, `to_old_overlay`, `to_old_null`
+`bview_companion_create()` was added as the standard migration bridge (this
+session).  It wraps `bview_create() + bview_from_old() + bview_old_set()` into a
+single call so callers can add a `bview_new` companion alongside an existing
+`struct bview` without boilerplate:
 
-Remaining for Phase 1 completion:
-- Migrate internal callers of `bv_init` / `bv_free` to use `bview_create()` /
-  `bview_destroy()` (tracked in Phase 1 callers list below)
+```c
+// ---- existing code (kept unchanged) ----
+BU_ALLOC(v, struct bview);
+bv_init(v, &ged_views);
+// ---- one-line addition for new-API callers ----
+struct bview_new *nv = bview_companion_create("default", v);
+// ... nv is a fully functional bview_new, bview_old_get(nv) == v
+// ---- teardown ----
+bview_destroy(nv);
+bv_free(v);
+BU_FREE(v, struct bview);
+```
+
+### Phase 1 – bv_init caller inventory
+
+All `bv_init` / `bv_free` callers in `brlcad_bview/src/` and their migration status:
+
+| File | Line | Pattern | Category | Status |
+|------|------|---------|----------|--------|
+| `libqtcad/QgGL.cpp` | 52–55 | `BU_GET + bv_init(v, NULL)` | A – widget view | ✅ companion added |
+| `libqtcad/QgSW.cpp` | 54–57 | `BU_GET + bv_init(v, NULL)` | A – widget view | ✅ companion added |
+| `libqtcad/QgModel.cpp` | 323–329 | `BU_GET + bv_init(v, &vset)` | A – model default view | ✅ companion added |
+| `libdm/swrast/fb-swrast.cpp` | 389–390 | `BU_GET + bv_init(v, NULL)` | B – framebuffer view | 🔲 planned |
+| `mged/setup.c` | 554–555 | `BU_ALLOC + bv_init(v, NULL)` | C – long-lived MGED view | 🔲 planned |
+| `mged/cmd.c` | 2532 | `bu_calloc + bv_init(staging, NULL)` | B – ephemeral staging view | 🔲 planned |
+| `mged/cmd.c` | 2589,2612,2651 | `bv_free(staging)` | B – ephemeral staging | 🔲 planned |
+| `libtclcad/commands.c` | 4523 | `bv_init(new_gdvp, &vset)` | C – Tcl-created view | 🔲 planned |
+| `libged/ged.cpp` | 123 | `BU_ALLOC + bv_init(gvp, &vset)` | C – GED primary view | 🔲 planned |
+| `libged/ged.cpp` | 208 | `bv_free(gdvp)` | C – GED view cleanup | 🔲 planned |
+| `libged/dm/dm.c` | 582 | `BU_GET + bv_init(v, &vset)` | C – DM-attached view | 🔲 planned |
+| `libged/tests/draw/quad.cpp` | 458 | `bv_init(v, &vset)` in test | D – test scaffolding | 🔲 planned |
+| `libged/tests/draw/aet.cpp` | 204 | `bv_init(v, &vset)` in test | D – test scaffolding | 🔲 planned |
+| `librt/tests/bv_poly_sketch.c` | 62 | `bv_init(v, NULL)` in test | D – test scaffolding | 🔲 planned |
+| `librt/tests/edit/tor.cpp` | 117 | `bv_init(v, NULL)` in test | D – test scaffolding | 🔲 planned |
+
+Category A = widget/local view with no external dependencies → companion is safe
+Category B = ephemeral view → needs per-callsite analysis
+Category C = long-lived GED/Tcl view → requires wider struct changes (later)
+Category D = test scaffolding → update when the tests themselves are migrated
+
+Files updated (this session):
+- `src/libbv/scene.cpp` – implement `bview_companion_create()`
+- `include/bv/defines.h` – declare `bview_companion_create()`
+- `include/qtcad/QgGL.h` – add `local_nv` companion member
+- `include/qtcad/QgSW.h` – add `local_nv` companion member
+- `include/qtcad/QgModel.h` – add `empty_nv` companion member
+- `src/libqtcad/QgGL.cpp` – create/destroy `local_nv` companion
+- `src/libqtcad/QgSW.cpp` – create/destroy `local_nv` companion
+- `src/libqtcad/QgModel.cpp` – create/destroy `empty_nv` companion
+- `src/libbv/tests/scene.c` – 4 new tests for `bview_companion_create`
 
 ### Phase 2 – Scene objects (LARGELY COMPLETE)
 
@@ -584,8 +629,14 @@ repository.
 | `bview_lod_update()` — wired to `bv_scene_lod_update()` | Phase 4 | ✅ COMPLETE |
 | `bv_node_lod_level_set/get()` — public accessor for lod_level field | Phase 4 | ✅ COMPLETE |
 | `bv_mesh_lod_view_new()` — native LoD view update (bv_node + bview_new) | Phase 4 | ✅ COMPLETE |
-| Unit tests (106 total — 7 new this session) | Phase 1–4 | ✅ COMPLETE |
-| Internal callers migrated to new lifecycle API (libged, libqtcad, mged, …) | Phase 1 | 🔲 PLANNED |
+| `bview_companion_create()` — convenience bridge: create + from_old + old_set | Phase 1 | ✅ COMPLETE |
+| `libqtcad/QgGL` companion `local_nv` | Phase 1 | ✅ COMPLETE |
+| `libqtcad/QgSW` companion `local_nv` | Phase 1 | ✅ COMPLETE |
+| `libqtcad/QgModel` companion `empty_nv` | Phase 1 | ✅ COMPLETE |
+| Unit tests (110 total — 4 new this session) | Phase 1 | ✅ COMPLETE |
+| Caller inventory documented (15 callsites, 3 categories) | Phase 1 | ✅ COMPLETE |
+| Category A callers migrated (QgGL, QgSW, QgModel) | Phase 1 | ✅ COMPLETE |
+| Category B/C callers migrated (mged, libged, libtclcad, libdm) | Phase 1 | 🔲 PLANNED |
 | Replace `bu_ptbl_ins(gv_objs.db_objs)` with `bv_scene_add_node()` | Phase 2 | 🔲 PLANNED |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
 
@@ -646,6 +697,23 @@ bview_from_old(nv, existing_gvp);      /* copies camera, viewport, appearance, s
 
 bview_to_old(nv, existing_gvp);       /* push changes back for legacy code */
 bview_destroy(nv);
+```
+
+For incremental caller migration the convenience wrapper does the same in one call:
+
+```c
+/* ---- existing code (kept unchanged) ---- */
+BU_ALLOC(v, struct bview);
+bv_init(v, &ged_views);
+
+/* ---- one-line addition for new-API callers ---- */
+struct bview_new *nv = bview_companion_create("default", v);
+/* bview_old_get(nv) == v; camera.scale synced from v->gv_scale */
+
+/* ---- teardown ---- */
+bview_destroy(nv);          /* companion destroyed */
+bv_free(v);                 /* legacy view freed as before */
+BU_FREE(v, struct bview);
 ```
 
 To snapshot an entire legacy `struct bview` object list as a new-API scene (Phase 2):

@@ -1096,6 +1096,30 @@ bview_old_set(struct bview_new *view, struct bview *old)
 
 
 /* ================================================================
+ * bview_companion_create
+ *
+ * Convenience wrapper: create(name) + from_old + old_set.
+ * The standard first step for migrating bv_init() callers.
+ * ================================================================ */
+
+struct bview_new *
+bview_companion_create(const char *name, struct bview *old)
+{
+    if (!old)
+	return NULL;
+
+    struct bview_new *nv = bview_create(name);
+    if (!nv)
+	return NULL;
+
+    bview_from_old(nv, old);
+    bview_old_set(nv, old);
+
+    return nv;
+}
+
+
+/* ================================================================
  * bview_settings_apply
  *
  * Mirrors the initial state that bv_init() + bv_settings_init() set on a

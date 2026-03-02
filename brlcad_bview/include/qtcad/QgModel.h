@@ -345,6 +345,11 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 
 	QgItem *rootItem;
 	struct bview *empty_gvp = NULL;
+	/*
+	 * New-API companion view (Phase 1 migration) for empty_gvp.
+	 * Destroyed in ~QgModel() before empty_gvp is freed.
+	 */
+	struct bview_new *empty_nv = NULL;
 	struct db_i *model_dbip = NULL;
 };
 

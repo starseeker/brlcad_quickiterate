@@ -110,6 +110,13 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 	double y_press_pos = -INT_MAX;
 
 	struct bview *local_v = NULL;
+	/*
+	 * New-API companion view (Phase 1 migration).
+	 * Created alongside local_v via bview_companion_create().
+	 * Provides bview_new access for renderers that use the new scene graph API.
+	 * Destroyed in ~QgGL(); local_v continues to be freed with BU_PUT.
+	 */
+	struct bview_new *local_nv = NULL;
 };
 
 #endif /* QGGL_H */
