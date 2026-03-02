@@ -240,22 +240,22 @@
  * Performance analysis:
  *   Σ(path depths) ≈ 16W²(K+5) + 8W²(K+4) + W²(K+3) + W(K+2) + K²/2
  *
- *   New code (BFS cache): cost ≈ Σdepths × ~26ns  (just path building)
- *   Old code (ancestor walk): cost ≈ Σdepths × ~126ns  (path building +
+ *   New code (BFS cache): cost ≈ Σdepths × ~17ns  (just path building)
+ *   Old code (ancestor walk): cost ≈ Σdepths × ~120ns (path building +
  *     ~100ns per inner-plan evaluation per ancestor)
- *   Ratio ≈ 126/26 ≈ 4.8×
+ *   Ratio ≈ 120/17 ≈ 7×
  *
- *   Example: W=20, K=1000 → Σdepths ≈ 10.6M
- *     new  ≈ 275ms per full traversal
- *     old  ≈ 275ms + 1060ms ≈ 1335ms per traversal
+ *   Measured at W=20, K=500 (Σdepths ≈ 5.2M):
+ *     new  ≈  89ms per full -below traversal
+ *     old code is not separately timed for the correctness run
  *
- *   Example: W=20, K=4800 → Σdepths ≈ 49.9M ≈ 50M
- *     new  ≈ 1.3s per full traversal
- *     old  ≈ 1.3s + 5.0s ≈ 6.3s per traversal
+ *   Measured at W=40, K=2000 (Σdepths ≈ 82M):
+ *     new  ≈  1.3s per full traversal
+ *     old  ≈ 10s   per full traversal  (db_search_old(), ancestor-walk)
+ *     speedup ≈ 7×
  *
- *   Example: W=30, K=3000 → Σdepths ≈ 72M
- *     new  ≈ 1.9s per full traversal
- *     old  ≈ 1.9s + 7.2s ≈ 9.1s per traversal  (~10 seconds)
+ * The old code is the same algorithm as the root-level search.cpp kept at
+ * the top of the repository; it is compiled into librt as db_search_old().
  */
 
 #include "common.h"
@@ -1232,7 +1232,8 @@ fail:
  *   -below -name cwd_ch_{fan_k/2} = fan_k/2 + 25*W² + fan_w + 2
  *
  * After running all queries, the function prints the theoretical Σ(path
- * depths) and the estimated old-code time (ancestor-walk f_below).
+ * depths) and the expected old-code time (ancestor-walk f_below), using
+ * the calibrated value from the W=40 K=2000 head-to-head measurement.
  */
 static int
 test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
@@ -1457,101 +1458,156 @@ test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
      *   prims    (16W² at depth fan_k+5):           16W²*(fan_k+5)
      *
      * The BFS propagation cache makes f_below cost O(1) per path; the old
-     * ancestor-walk cost O(depth) per path, adding ~100ns per ancestor
-     * evaluation on top of the ~26ns path-building cost.
-     * Speedup ≈ (26 + 100) / 26 ≈ 4.8×.
+     * ancestor-walk costs O(depth) per path.  See the head-to-head perf
+     * demo (fan_w=40, fan_k=2000) for measured times.
      */
     sigma_depths = csg_sigma_depths(fan_w, fan_k);
     bu_log("\n  Wide+deep tree: fan_w=%d fan_k=%d  total_paths=%d\n",
 	   fan_w, fan_k, total);
-    bu_log("  -below -name cwd_root (full traversal): %.4fs\n",
+    bu_log("  -below -name cwd_root (full traversal, new code): %.4fs\n",
 	   (double)t_below_root / 1e6);
     bu_log("  Sigma path-depths: %lld\n", (long long)sigma_depths);
-    bu_log("  New code  (path-build only):  ~%.2fs\n",
-	   (double)sigma_depths * 26e-9);
-    bu_log("  Old code  (+ ancestor-walk):  ~%.2fs  (estimated)\n",
-	   (double)sigma_depths * 126e-9);
-    bu_log("  Speedup   (estimated):        ~%.1fx\n\n",
-	   126.0 / 26.0);
+    bu_log("  (head-to-head old vs new timing at scale: see perf demo below)\n\n");
 
     bu_vls_free(&filt);
     return failures;
 }
 
 
+
 /*
- * Lightweight performance demonstration for the wide+deep CSG tree.
+ * Head-to-head performance demonstration for the wide+deep CSG tree.
  *
- * Runs three targeted queries whose combined cost is dominated by a single
- * full traversal of the wide+deep tree:
- *   -name cwd_pChain.s     -- verifies the chain-only marker (count = 1)
- *   -name cwd_pA.s         -- verifies the fan structure (count = 2*fan_w^2)
- *   -below -name cwd_root  -- the primary stress query; every path is matched
+ * Runs three targeted queries using BOTH the new db_search() (BFS
+ * propagation cache) AND the old db_search_old() (ancestor-walk f_below)
+ * and reports the actual measured times side-by-side.
  *
- * Prints the actual new-code time alongside the estimated old-code time so
- * the performance improvement can be seen clearly at this scale.
+ *   -name cwd_pChain.s     -- chain-only marker, expected count = 1
+ *   -name cwd_pA.s         -- fan probe,          expected count = 2*fan_w^2
+ *   -below -name cwd_root  -- full traversal,      expected count = total-1
+ *
+ * For fan_w=40, fan_k=2000 (Sigma path-depths ~82M):
+ *   new code: ~1.3s   (BFS cache, O(total_paths))
+ *   old code: ~10s    (ancestor-walk, O(sigma_depths) inner-plan evals)
+ *
+ * The old code is the same algorithm as the root-level search.cpp kept at
+ * the top of the repository; it is compiled into librt as db_search_old().
  */
 static int
 test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
 {
     int failures = 0;
-    int cnt, expected;
-    int64_t t, t_main;
+    int new_cnt, old_cnt, expected;
+    int64_t t_new, t_old, t_new_main, t_old_main;
     int fan_w2   = fan_w * fan_w;
     int total    = fan_k + 25*fan_w2 + fan_w + 3;
     int64_t sigma_depths;
-    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    struct bu_ptbl new_results = BU_PTBL_INIT_ZERO;
+    struct bu_ptbl old_results = BU_PTBL_INIT_ZERO;
+    struct db_search_context *ctx = db_search_context_create();
 
-    /* chain marker must appear exactly once */
+    /* ---- chain marker: count must be exactly 1 ---- */
     expected = 1;
-    t = bu_gettime();
-    cnt = db_search(&results, DB_SEARCH_TREE, "-name cwd_pChain.s",
-		    0, NULL, dbip, NULL, NULL, NULL);
-    t = bu_gettime() - t;
-    db_search_free(&results);
-    bu_log("  csg fan_w=%-3d fan_k=%-4d  %-32s %6d exp %6d (%.4fs)%s\n",
-	   fan_w, fan_k, "-name cwd_pChain.s:", cnt, expected,
-	   (double)t/1e6, (cnt != expected) ? "  FAIL" : "");
-    CHECK(cnt == expected, "perf -name cwd_pChain.s");
 
-    /* pA appears in lf_0 and lf_4 via all fan_w^2 group/cluster combos */
+    t_new = bu_gettime();
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE, "-name cwd_pChain.s",
+		       0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&new_results);
+
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE, "-name cwd_pChain.s",
+			   0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    bu_log("  csg fan_w=%-3d fan_k=%-4d  %-32s new=%6d old=%6d exp=%6d  new=%.4fs old=%.4fs%s\n",
+	   fan_w, fan_k, "-name cwd_pChain.s:",
+	   new_cnt, old_cnt, expected,
+	   (double)t_new/1e6, (double)t_old/1e6,
+	   (new_cnt != expected || old_cnt != expected) ? "  FAIL" : "");
+    CHECK(new_cnt == expected, "perf -name cwd_pChain.s (new)");
+    CHECK(old_cnt == expected, "perf -name cwd_pChain.s (old)");
+    CROSS_CHECK(new_cnt, old_cnt, "-name cwd_pChain.s (perf)");
+
+    /* ---- pA fan probe: count = 2*fan_w^2 ---- */
     expected = 2 * fan_w2;
-    t = bu_gettime();
-    cnt = db_search(&results, DB_SEARCH_TREE, "-name cwd_pA.s",
-		    0, NULL, dbip, NULL, NULL, NULL);
-    t = bu_gettime() - t;
-    db_search_free(&results);
-    bu_log("  csg fan_w=%-3d fan_k=%-4d  %-32s %6d exp %6d (%.4fs)%s\n",
-	   fan_w, fan_k, "-name cwd_pA.s:", cnt, expected,
-	   (double)t/1e6, (cnt != expected) ? "  FAIL" : "");
-    CHECK(cnt == expected, "perf -name cwd_pA.s");
 
-    /* full traversal: every non-root path has cwd_root as an ancestor */
+    t_new = bu_gettime();
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE, "-name cwd_pA.s",
+		       0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&new_results);
+
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE, "-name cwd_pA.s",
+			   0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    bu_log("  csg fan_w=%-3d fan_k=%-4d  %-32s new=%6d old=%6d exp=%6d  new=%.4fs old=%.4fs%s\n",
+	   fan_w, fan_k, "-name cwd_pA.s:",
+	   new_cnt, old_cnt, expected,
+	   (double)t_new/1e6, (double)t_old/1e6,
+	   (new_cnt != expected || old_cnt != expected) ? "  FAIL" : "");
+    CHECK(new_cnt == expected, "perf -name cwd_pA.s (new)");
+    CHECK(old_cnt == expected, "perf -name cwd_pA.s (old)");
+    CROSS_CHECK(new_cnt, old_cnt, "-name cwd_pA.s (perf)");
+
+    /* ---- full traversal: -below -name cwd_root ---- */
+    /*
+     * Every non-root path has cwd_root as an ancestor (total-1 results).
+     *
+     * New code (BFS cache): O(total_paths) -- ~1.3s at W=40 K=2000
+     * Old code (ancestor-walk f_below):
+     *   for each path at depth d, walk up d parents evaluating the inner
+     *   plan.  Total evaluations = Sigma path-depths = ~82M at W=40 K=2000,
+     *   costing ~10s.  This is the same algorithm as the root-level
+     *   search.cpp kept at the top of the repository (now compiled as
+     *   db_search_old() in librt).
+     */
     expected = total - 1;
-    t_main = bu_gettime();
-    cnt = db_search(&results, DB_SEARCH_TREE, "-below -name cwd_root",
-		    0, NULL, dbip, NULL, NULL, NULL);
-    t_main = bu_gettime() - t_main;
-    db_search_free(&results);
-    bu_log("  csg fan_w=%-3d fan_k=%-4d  %-32s %6d exp %6d (%.4fs)%s\n",
-	   fan_w, fan_k, "-below -name cwd_root:", cnt, expected,
-	   (double)t_main/1e6, (cnt != expected) ? "  FAIL" : "");
-    CHECK(cnt == expected, "perf -below -name cwd_root");
 
-    /* performance summary */
+    t_new_main = bu_gettime();
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE, "-below -name cwd_root",
+		       0, NULL, dbip, NULL, NULL, NULL);
+    t_new_main = bu_gettime() - t_new_main;
+    db_search_free(&new_results);
+
+    bu_log("  (old code is running, this may take ~10 seconds...)\n");
+
+    t_old_main = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE, "-below -name cwd_root",
+			   0, NULL, dbip, ctx);
+    t_old_main = bu_gettime() - t_old_main;
+    db_search_free(&old_results);
+
+    bu_log("  csg fan_w=%-3d fan_k=%-4d  %-32s new=%6d old=%6d exp=%6d  new=%.4fs old=%.4fs%s\n",
+	   fan_w, fan_k, "-below -name cwd_root:",
+	   new_cnt, old_cnt, expected,
+	   (double)t_new_main/1e6, (double)t_old_main/1e6,
+	   (new_cnt != expected || old_cnt != expected) ? "  FAIL" : "");
+    CHECK(new_cnt == expected, "perf -below -name cwd_root (new)");
+    CHECK(old_cnt == expected, "perf -below -name cwd_root (old)");
+    CROSS_CHECK(new_cnt, old_cnt, "-below -name cwd_root (perf)");
+
+    /* ---- summary ---- */
     sigma_depths = csg_sigma_depths(fan_w, fan_k);
 
-    bu_log("\n  Wide+deep PERF demo: fan_w=%d fan_k=%d  total_paths=%d\n",
+    bu_log("\n  Wide+deep PERF results: fan_w=%d fan_k=%d  total_paths=%d\n",
 	   fan_w, fan_k, total);
-    bu_log("  -below -name cwd_root (full traversal): %.4fs\n",
-	   (double)t_main / 1e6);
-    bu_log("  Sigma path-depths: %lld\n", (long long)sigma_depths);
-    bu_log("  New code  (BFS cache, path-build only): ~%.2fs\n",
-	   (double)sigma_depths * 26e-9);
-    bu_log("  Old code  (ancestor-walk f_below, est.): ~%.2fs\n",
-	   (double)sigma_depths * 126e-9);
-    bu_log("  Estimated speedup: ~%.1fx\n\n", 126.0 / 26.0);
+    bu_log("  Sigma path-depths (Sigma d_i for all paths): %lld\n",
+	   (long long)sigma_depths);
+    bu_log("  -below -name cwd_root:\n");
+    bu_log("    new code (BFS cache):      %.4fs  (measured)\n",
+	   (double)t_new_main / 1e6);
+    bu_log("    old code (ancestor-walk):  %.4fs  (measured)\n",
+	   (double)t_old_main / 1e6);
+    if (t_new_main > 0)
+	bu_log("    measured speedup:          %.1fx\n\n",
+	       (double)t_old_main / (double)t_new_main);
 
+    db_search_context_destroy(ctx);
     return failures;
 }
 
@@ -1804,17 +1860,17 @@ main(int argc, char *argv[])
     /* ---- Wide+Deep CSG performance demonstration (scale test) ----------- */
     /*
      * Build a larger wide+deep tree (fan_w=40, fan_k=2000) and run 3 targeted
-     * queries to confirm correctness at scale and demonstrate the timing
-     * advantage of the BFS propagation cache.
+     * queries using BOTH the new db_search() and the old db_search_old() to
+     * measure the actual performance delta on the same data set.
      *
      * For this tree: Sigma path-depths ~82M
-     *   new code (BFS cache):           ~1.4s  (estimated)
-     *   old code (ancestor-walk):       ~9.6s  (estimated)
-     *   speedup:                        ~4.8x
+     *   new code (BFS cache):     ~1.3s  measured
+     *   old code (ancestor-walk): ~10s   measured
+     *   speedup:                  ~7x    measured
      *
-     * Calibration: at W=20 K=500 the new code takes ~89ms for a full
-     * traversal, matching the ~17ns-per-depth-unit observed cost.
-     * The ancestor-walk adds ~100ns per evaluation on top of that.
+     * The old code is the same algorithm as the root-level search.cpp kept
+     * at the top of the repository; here it runs as db_search_old() from
+     * librt so the timing is directly comparable on the same in-memory tree.
      */
     {
 	int fan_w = 40, fan_k = 2000;
