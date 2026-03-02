@@ -196,22 +196,16 @@ ecmd_extr_mov_h(struct rt_edit *s)
 int
 ecmd_extr_scale_h(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-
-    if (s->e_para[0] <= 0.0) {
-	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
-	s->e_inpara = 0;
-	return BRLCAD_ERROR;
-    }
-
-    /* must convert to base units */
-    s->e_para[0] *= s->local2base;
-    s->e_para[1] *= s->local2base;
-    s->e_para[2] *= s->local2base;
 
     struct rt_extrude_internal *extr =
 	(struct rt_extrude_internal *)s->es_int.idb_ptr;
@@ -219,6 +213,15 @@ ecmd_extr_scale_h(struct rt_edit *s)
     RT_EXTRUDE_CK_MAGIC(extr);
 
     if (s->e_inpara) {
+	if (s->e_para[0] <= 0.0) {
+	    bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	/* convert e_para[0] to base units */
+	s->e_para[0] *= s->local2base;
+
 	/* take s->e_mat[15] (path scaling) into account */
 	s->e_para[0] *= s->e_mat[15];
 	s->es_scale = s->e_para[0] / MAGNITUDE(extr->h);
@@ -285,9 +288,13 @@ ecmd_extr_rot_h(struct rt_edit *s)
 	 */
 	bn_mat_mul(mat1, edit, s->e_mat);
 	bn_mat_mul(mat, s->e_invmat, mat1);
-	MAT4X3VEC(extr->h, mat, extr->h);
+	vect_t h_tmp;
+	VMOVE(h_tmp, extr->h);
+	MAT4X3VEC(extr->h, mat, h_tmp);
     } else {
-	MAT4X3VEC(extr->h, s->incr_change, extr->h);
+	vect_t h_tmp;
+	VMOVE(h_tmp, extr->h);
+	MAT4X3VEC(extr->h, s->incr_change, h_tmp);
     }
 
     MAT_IDN(s->incr_change);
