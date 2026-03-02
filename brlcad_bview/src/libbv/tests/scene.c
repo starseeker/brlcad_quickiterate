@@ -2342,6 +2342,323 @@ test_bv_scene_select_node(void)
 
 
 /* ================================================================
+ * Phase 2 (continued) – bv_node_bounds_set / bv_node_bounds_get /
+ *                        bv_node_bounds_clear
+ * ================================================================ */
+
+static int
+test_bv_node_bounds_null_safety(void)
+{
+    point_t mn, mx;
+    VSETALL(mn, 0.0);
+    VSETALL(mx, 0.0);
+
+    /* All NULL-guard paths must not crash */
+    bv_node_bounds_set(NULL, mn, mx);
+    CHECK(1, "bounds_set(NULL) does not crash");
+
+    bv_node_bounds_clear(NULL);
+    CHECK(1, "bounds_clear(NULL) does not crash");
+
+    CHECK(bv_node_bounds_get(NULL, &mn, &mx) == 0,
+	  "bounds_get(NULL node) returns 0");
+
+    {
+	struct bv_node *n = bv_node_create("b", BV_NODE_GEOMETRY);
+	CHECK(n != NULL, "create non-NULL");
+	if (n) {
+	    CHECK(bv_node_bounds_get(n, NULL, &mx) == 0,
+		  "bounds_get(NULL out_min) returns 0");
+	    CHECK(bv_node_bounds_get(n, &mn, NULL) == 0,
+		  "bounds_get(NULL out_max) returns 0");
+	    bv_node_destroy(n);
+	}
+    }
+    return 1;
+}
+
+static int
+test_bv_node_bounds_set_get(void)
+{
+    struct bv_node *n;
+    point_t mn_in, mx_in, mn_out, mx_out;
+    int r;
+
+    n = bv_node_create("bounds_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* Initially no bounds */
+    r = bv_node_bounds_get(n, &mn_out, &mx_out);
+    CHECK(r == 0, "have_bounds initially 0");
+
+    /* Set bounds */
+    VSET(mn_in, -10.0, -20.0, -30.0);
+    VSET(mx_in,  10.0,  20.0,  30.0);
+    bv_node_bounds_set(n, mn_in, mx_in);
+
+    r = bv_node_bounds_get(n, &mn_out, &mx_out);
+    CHECK(r == 1, "have_bounds == 1 after set");
+    CHECK(VNEAR_EQUAL(mn_out, mn_in, 1e-9), "bounds_min round-trips");
+    CHECK(VNEAR_EQUAL(mx_out, mx_in, 1e-9), "bounds_max round-trips");
+
+    /* Clear bounds */
+    bv_node_bounds_clear(n);
+    r = bv_node_bounds_get(n, &mn_out, &mx_out);
+    CHECK(r == 0, "have_bounds == 0 after clear");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bv_node_bbox_native_bounds(void)
+{
+    struct bv_scene *scene;
+    struct bv_node  *n;
+    point_t mn_in, mx_in, mn_out, mx_out;
+    int r;
+
+    /* Geometry node with native AABB but NO wrapped bv_scene_obj */
+    n = bv_node_create("native_geom", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    VSET(mn_in, -5.0, -5.0, -5.0);
+    VSET(mx_in,  5.0,  5.0,  5.0);
+    bv_node_bounds_set(n, mn_in, mx_in);
+
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n);
+
+    r = bv_scene_bbox(scene, &mn_out, &mx_out);
+    CHECK(r == 1, "scene_bbox returns 1 for native-bounds node");
+    CHECK(VNEAR_EQUAL(mn_out, mn_in, 1e-9), "scene_bbox min matches");
+    CHECK(VNEAR_EQUAL(mx_out, mx_in, 1e-9), "scene_bbox max matches");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_node_bbox_native_overrides_legacy(void)
+{
+    struct bview_set   vset;
+    struct bview       v;
+    struct bv_scene_obj *s;
+    struct bv_node     *n;
+    struct bv_scene    *scene;
+    point_t mn_native, mx_native, mn_out, mx_out;
+    int r;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    /* Legacy sphere at origin, radius 100 */
+    s = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s != NULL, "bv_obj_get non-NULL");
+    if (!s) { bv_free(&v); bv_set_free(&vset); return 0; }
+    VSET(s->s_center, 0.0, 0.0, 0.0);
+    s->s_size = 100.0;
+    s->s_flag = UP;
+
+    n = bv_scene_obj_to_node(s);
+    CHECK(n != NULL, "bv_scene_obj_to_node non-NULL");
+
+    /* Override with a small native AABB — should win over the 100-unit sphere */
+    VSET(mn_native, -1.0, -1.0, -1.0);
+    VSET(mx_native,  1.0,  1.0,  1.0);
+    bv_node_bounds_set(n, mn_native, mx_native);
+
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n);
+
+    r = bv_scene_bbox(scene, &mn_out, &mx_out);
+    CHECK(r == 1, "scene_bbox returns 1");
+    CHECK(VNEAR_EQUAL(mn_out, mn_native, 1e-9),
+	  "native bounds_min overrides legacy sphere");
+    CHECK(VNEAR_EQUAL(mx_out, mx_native, 1e-9),
+	  "native bounds_max overrides legacy sphere");
+
+    bv_scene_destroy(scene);
+    bv_obj_put(s);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 4 (continued) – bv_node_lod_level_set / _get
+ * ================================================================ */
+
+static int
+test_bv_node_lod_level(void)
+{
+    struct bv_node *n;
+
+    n = bv_node_create("lod_test", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* Initially 0 */
+    CHECK(bv_node_lod_level_get(n) == 0, "lod_level initially 0");
+
+    /* NULL safety */
+    CHECK(bv_node_lod_level_get(NULL) == 0,
+	  "lod_level_get(NULL) returns 0");
+    bv_node_lod_level_set(NULL, 5);
+    CHECK(1, "lod_level_set(NULL) does not crash");
+
+    /* Set and get */
+    bv_node_lod_level_set(n, 3);
+    CHECK(bv_node_lod_level_get(n) == 3, "lod_level 3 round-trips");
+
+    bv_node_lod_level_set(n, 0);
+    CHECK(bv_node_lod_level_get(n) == 0, "lod_level reset to 0");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 3 (continued) – bv_scene_view_count / bv_scene_views
+ * ================================================================ */
+
+static int
+test_bv_scene_view_count_null(void)
+{
+    CHECK(bv_scene_view_count(NULL) == 0,
+	  "bv_scene_view_count(NULL) returns 0");
+    CHECK(bv_scene_views(NULL) == NULL,
+	  "bv_scene_views(NULL) returns NULL");
+    return 1;
+}
+
+static int
+test_bv_scene_view_count_empty(void)
+{
+    struct bv_scene *scene = bv_scene_create();
+    const struct bu_ptbl *views;
+    CHECK(scene != NULL, "bv_scene_create non-NULL");
+    if (!scene) return 0;
+
+    CHECK(bv_scene_view_count(scene) == 0,
+	  "fresh scene has 0 views");
+    views = bv_scene_views(scene);
+    CHECK(views != NULL, "bv_scene_views non-NULL on empty scene");
+    CHECK(BU_PTBL_LEN(views) == 0,
+	  "views ptbl is empty");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_scene_view_count_one(void)
+{
+    struct bv_scene  *scene;
+    struct bview_new *v;
+
+    scene = bv_scene_create();
+    v     = bview_create("v1");
+    CHECK(scene != NULL && v != NULL, "create non-NULL");
+    if (!scene || !v) {
+	if (scene) bv_scene_destroy(scene);
+	if (v) bview_destroy(v);
+	return 0;
+    }
+
+    bview_scene_set(v, scene);
+    CHECK(bv_scene_view_count(scene) == 1, "1 view after bview_scene_set");
+
+    /* Remove by setting to NULL */
+    bview_scene_set(v, NULL);
+    CHECK(bv_scene_view_count(scene) == 0, "0 views after set(NULL)");
+
+    bview_destroy(v);
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_scene_view_count_shared(void)
+{
+    struct bv_scene  *scene;
+    struct bview_new *v1, *v2, *v3;
+
+    scene = bv_scene_create();
+    v1    = bview_create("v1");
+    v2    = bview_create("v2");
+    v3    = bview_create("v3");
+    CHECK(scene && v1 && v2 && v3, "all create non-NULL");
+    if (!scene || !v1 || !v2 || !v3) {
+	if (scene) bv_scene_destroy(scene);
+	if (v1) bview_destroy(v1);
+	if (v2) bview_destroy(v2);
+	if (v3) bview_destroy(v3);
+	return 0;
+    }
+
+    bview_scene_set(v1, scene);
+    bview_scene_set(v2, scene);
+    bview_scene_set(v3, scene);
+    CHECK(bv_scene_view_count(scene) == 3, "3 views sharing scene");
+
+    {
+	const struct bu_ptbl *views = bv_scene_views(scene);
+	CHECK(views != NULL, "bv_scene_views non-NULL");
+	CHECK(BU_PTBL_LEN(views) == 3, "views ptbl has 3 entries");
+    }
+
+    /* bview_destroy must unregister from the scene */
+    bview_destroy(v3);
+    CHECK(bv_scene_view_count(scene) == 2, "2 views after destroy v3");
+
+    bview_destroy(v2);
+    bview_destroy(v1);
+    CHECK(bv_scene_view_count(scene) == 0, "0 views after all destroyed");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_scene_view_switch(void)
+{
+    struct bv_scene  *scene_a, *scene_b;
+    struct bview_new *v;
+
+    scene_a = bv_scene_create();
+    scene_b = bv_scene_create();
+    v       = bview_create("switch_view");
+    CHECK(scene_a && scene_b && v, "all create non-NULL");
+    if (!scene_a || !scene_b || !v) {
+	if (scene_a) bv_scene_destroy(scene_a);
+	if (scene_b) bv_scene_destroy(scene_b);
+	if (v) bview_destroy(v);
+	return 0;
+    }
+
+    bview_scene_set(v, scene_a);
+    CHECK(bv_scene_view_count(scene_a) == 1, "scene_a has 1 view");
+    CHECK(bv_scene_view_count(scene_b) == 0, "scene_b has 0 views");
+
+    /* Switch v from scene_a to scene_b */
+    bview_scene_set(v, scene_b);
+    CHECK(bv_scene_view_count(scene_a) == 0, "scene_a has 0 views after switch");
+    CHECK(bv_scene_view_count(scene_b) == 1, "scene_b has 1 view after switch");
+
+    bview_destroy(v);
+    bv_scene_destroy(scene_a);
+    bv_scene_destroy(scene_b);
+    return 1;
+}
+
+
+/* ================================================================
  * scene_main dispatcher  (appended entries)
  * ================================================================ */
 
@@ -2425,6 +2742,19 @@ static struct test_entry scene_tests[] = {
     { "selected_nodes_count",         test_bv_scene_selected_nodes_count      },
     { "deselect_all",                 test_bv_scene_deselect_all              },
     { "select_node",                  test_bv_scene_select_node               },
+    /* Phase 2 continued: bv_node_bounds_set/get/clear + bv_node_bbox native bounds */
+    { "node_bounds_null",             test_bv_node_bounds_null_safety         },
+    { "node_bounds_set_get",          test_bv_node_bounds_set_get             },
+    { "node_bbox_native",             test_bv_node_bbox_native_bounds         },
+    { "node_bbox_native_overrides",   test_bv_node_bbox_native_overrides_legacy },
+    /* Phase 4 continued: bv_node_lod_level_set/get */
+    { "node_lod_level",               test_bv_node_lod_level                  },
+    /* Phase 3 continued: bv_scene_view_count / bv_scene_views */
+    { "scene_view_count_null",        test_bv_scene_view_count_null           },
+    { "scene_view_count_empty",       test_bv_scene_view_count_empty          },
+    { "scene_view_count_one",         test_bv_scene_view_count_one            },
+    { "scene_view_count_shared",      test_bv_scene_view_count_shared         },
+    { "scene_view_switch",            test_bv_scene_view_switch               },
     { NULL, NULL }
 };
 

@@ -60,8 +60,8 @@ struct bview_new {
 struct bv_scene {
     struct bv_node         *root;           /* Root separator node (SoSeparator analogy) */
     struct bu_ptbl          nodes;          /* All nodes (flat list for fast lookup) */
+    struct bu_ptbl          views;          /* bview_new* pointers sharing this scene (not owned) */
     struct bv_node         *default_camera; /* Default camera node, if any */
-    /* Add scene-level fields as needed */
 };
 
 /*
@@ -98,6 +98,11 @@ struct bv_node {
     /* Optional fields for LoD, selection, etc. */
     int                     lod_level;      /* Level of detail (if used) */
     int                     selected;       /* Selection flag */
+
+    /* Native axis-aligned bounding box (optional; overrides legacy obj sphere when set) */
+    int                     have_bounds;    /* 1 when bounds_min/max are valid */
+    point_t                 bounds_min;     /* AABB minimum corner */
+    point_t                 bounds_max;     /* AABB maximum corner */
 };
 
 

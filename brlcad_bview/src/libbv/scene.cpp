@@ -81,6 +81,10 @@ bv_node_create(const char *name, enum bv_node_type type)
     n->lod_level = 0;
     n->selected  = 0;
 
+    n->have_bounds = 0;
+    VSETALL(n->bounds_min, 0.0);
+    VSETALL(n->bounds_max, 0.0);
+
     return n;
 }
 
@@ -225,6 +229,63 @@ bv_node_selected_get(const struct bv_node *node)
 }
 
 
+/* --- Native bounds accessors --- */
+
+void
+bv_node_bounds_set(struct bv_node *node, const point_t min, const point_t max)
+{
+    if (!node)
+	return;
+    VMOVE(node->bounds_min, min);
+    VMOVE(node->bounds_max, max);
+    node->have_bounds = 1;
+}
+
+
+void
+bv_node_bounds_clear(struct bv_node *node)
+{
+    if (!node)
+	return;
+    node->have_bounds = 0;
+    VSETALL(node->bounds_min, 0.0);
+    VSETALL(node->bounds_max, 0.0);
+}
+
+
+int
+bv_node_bounds_get(const struct bv_node *node, point_t *out_min, point_t *out_max)
+{
+    if (!node || !out_min || !out_max)
+	return 0;
+    if (!node->have_bounds)
+	return 0;
+    VMOVE(*out_min, node->bounds_min);
+    VMOVE(*out_max, node->bounds_max);
+    return 1;
+}
+
+
+/* --- LoD level accessors --- */
+
+void
+bv_node_lod_level_set(struct bv_node *node, int level)
+{
+    if (!node)
+	return;
+    node->lod_level = level;
+}
+
+
+int
+bv_node_lod_level_get(const struct bv_node *node)
+{
+    if (!node)
+	return 0;
+    return node->lod_level;
+}
+
+
 enum bv_node_type
 bv_node_type_get(const struct bv_node *node)
 {
@@ -338,6 +399,7 @@ bv_scene_create(void)
      * as the scene root in a Coin3D scene graph) */
     scene->root = bv_node_create("root", BV_NODE_SEPARATOR);
     bu_ptbl_init(&scene->nodes, 8, "bv_scene nodes");
+    bu_ptbl_init(&scene->views, 4, "bv_scene views");
     scene->default_camera = NULL;
 
     return scene;
@@ -354,6 +416,8 @@ bv_scene_destroy(struct bv_scene *scene)
 	bv_node_destroy(scene->root);
 
     bu_ptbl_free(&scene->nodes);
+    /* Do not destroy views — they are not owned by the scene */
+    bu_ptbl_free(&scene->views);
     BU_PUT(scene, struct bv_scene);
 }
 
@@ -517,6 +581,10 @@ bview_destroy(struct bview_new *view)
     if (!view)
 	return;
 
+    /* Remove this view from the scene's tracking list before freeing */
+    if (view->scene)
+	bu_ptbl_rm(&view->scene->views, (long *)view);
+
     bu_vls_free(&view->name);
     bu_ptbl_free(&view->pick_set.selected_objs);
     BU_PUT(view, struct bview_new);
@@ -528,7 +596,16 @@ bview_scene_set(struct bview_new *view, struct bv_scene *scene)
 {
     if (!view)
 	return;
+
+    /* Unregister from the previous scene */
+    if (view->scene)
+	bu_ptbl_rm(&view->scene->views, (long *)view);
+
     view->scene = scene;
+
+    /* Register with the new scene (NULL is a valid "no scene" state) */
+    if (scene)
+	bu_ptbl_ins_unique(&scene->views, (long *)view);
 }
 
 
@@ -538,6 +615,24 @@ bview_scene_get(const struct bview_new *view)
     if (!view)
 	return NULL;
     return view->scene;
+}
+
+
+size_t
+bv_scene_view_count(const struct bv_scene *scene)
+{
+    if (!scene)
+	return 0;
+    return BU_PTBL_LEN(&scene->views);
+}
+
+
+const struct bu_ptbl *
+bv_scene_views(const struct bv_scene *scene)
+{
+    if (!scene)
+	return NULL;
+    return &scene->views;
 }
 
 
@@ -1246,7 +1341,20 @@ _bbox_cb(struct bv_node *node, void *user_data)
     if (!bv_node_visible_get(node))
 	return;
 
-    /* Retrieve the wrapped legacy scene object */
+    /* Priority 1: native AABB set via bv_node_bounds_set() */
+    if (node->have_bounds) {
+	if (!st->have_bound) {
+	    VMOVE(st->min, node->bounds_min);
+	    VMOVE(st->max, node->bounds_max);
+	    st->have_bound = 1;
+	} else {
+	    VMIN(st->min, node->bounds_min);
+	    VMAX(st->max, node->bounds_max);
+	}
+	return;
+    }
+
+    /* Priority 2: bounding sphere from a wrapped legacy bv_scene_obj */
     s = (const struct bv_scene_obj *)bv_node_user_data_get(node);
     if (!s)
 	return;

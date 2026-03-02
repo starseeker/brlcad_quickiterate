@@ -294,6 +294,29 @@ BV_EXPORT const void *bv_node_geometry_get(const struct bv_node *node);
 BV_EXPORT void bv_node_material_set(struct bv_node *node, const struct bview_material *material);
 BV_EXPORT const struct bview_material *bv_node_material_get(const struct bv_node *node);
 
+/*
+ * Native axis-aligned bounding box for a node.
+ *
+ * These accessors store and retrieve a caller-supplied AABB directly on the
+ * node.  The native AABB is optional: nodes that have no inherent geometry of
+ * their own (group separators, cameras, etc.) need not set it.
+ *
+ * When native bounds are present (have_bounds == 1) they take priority over
+ * the bounding sphere derived from a wrapped bv_scene_obj during bv_node_bbox
+ * traversal.  This allows pure new-API geometry nodes (those that do NOT wrap
+ * a legacy bv_scene_obj) to participate correctly in bounding-box queries.
+ *
+ * bv_node_bounds_set() marks have_bounds = 1 on the node.
+ * bv_node_bounds_clear() marks have_bounds = 0 (reverts to legacy fallback).
+ * bv_node_bounds_get() returns 1 if have_bounds is set and fills *out_min /
+ * *out_max; returns 0 and leaves the outputs unchanged otherwise.
+ */
+BV_EXPORT void bv_node_bounds_set(struct bv_node *node,
+                                   const point_t min, const point_t max);
+BV_EXPORT void bv_node_bounds_clear(struct bv_node *node);
+BV_EXPORT int  bv_node_bounds_get(const struct bv_node *node,
+                                   point_t *out_min, point_t *out_max);
+
 /* Hierarchy management (analogous to SoGroup::addChild/removeChild/getChildren) */
 BV_EXPORT void bv_node_add_child(struct bv_node *parent, struct bv_node *child);
 BV_EXPORT void bv_node_remove_child(struct bv_node *parent, struct bv_node *child);
@@ -306,6 +329,18 @@ BV_EXPORT int bv_node_visible_get(const struct bv_node *node);
 /* Selection (analogous to highlight/pick state in Coin3D SoSelection) */
 BV_EXPORT void bv_node_selected_set(struct bv_node *node, int selected);
 BV_EXPORT int bv_node_selected_get(const struct bv_node *node);
+
+/*
+ * Level-of-detail index for a node (Phase 4).
+ *
+ * The lod_level field is a hint to the rendering pipeline indicating which
+ * level of geometric detail should be rendered for this node.  Level 0 is
+ * the most detailed representation; higher values are progressively coarser.
+ * The field is informational — bv_scene_lod_update() sets it via the LoD
+ * selection logic in lod.cpp; the rendering backend reads it.
+ */
+BV_EXPORT void bv_node_lod_level_set(struct bv_node *node, int level);
+BV_EXPORT int  bv_node_lod_level_get(const struct bv_node *node);
 
 /* Type, name, and user data access */
 BV_EXPORT enum bv_node_type bv_node_type_get(const struct bv_node *node);
@@ -392,13 +427,45 @@ BV_EXPORT void bv_scene_select_node(struct bv_node *node, int selected, struct b
  */
 BV_EXPORT int bv_scene_deselect_all(struct bv_scene *scene, struct bview_new *view);
 
+/* --- Multi-view sharing (Phase 3) --- */
+
+/*
+ * Return the number of bview_new instances currently sharing 'scene'.
+ *
+ * bview_scene_set() and bview_scene_get() maintain an internal list of views
+ * associated with each scene.  bv_scene_view_count() queries that list.
+ *
+ * This is the new-API replacement for counting entries returned by the
+ * DEPRECATED bv_set_views() function.
+ *
+ * Returns 0 if scene is NULL.
+ */
+BV_EXPORT size_t bv_scene_view_count(const struct bv_scene *scene);
+
+/*
+ * Return the table of bview_new pointers currently sharing 'scene'.
+ *
+ * The returned bu_ptbl holds bview_new* entries.  The caller must not
+ * modify the table.  Returns NULL if scene is NULL.
+ *
+ * Typical use: iterate with BU_PTBL_LEN / BU_PTBL_GET to broadcast an
+ * event (e.g. a LoD update) to all views that share the same scene.
+ */
+BV_EXPORT const struct bu_ptbl *bv_scene_views(const struct bv_scene *scene);
+
 /*
  * Compute the axis-aligned bounding box of a bv_node subtree.
  *
  * Traverses all visible BV_NODE_GEOMETRY nodes in the subtree rooted at
- * 'node'.  For each such node whose user_data points to a bv_scene_obj
- * (as set by bv_scene_obj_to_node()), the object's pre-computed bounding
- * sphere (s_center + s_size) is used to update the AABB.
+ * 'node'.  For each geometry node the bounding box is determined as follows:
+ *
+ *  1. If the node has native bounds set (bv_node_bounds_set() was called),
+ *     those bounds are used directly.
+ *  2. Otherwise, if the node's user_data points to a bv_scene_obj (as set by
+ *     bv_scene_obj_to_node()), the object's pre-computed bounding sphere
+ *     (s_center + s_size) is expanded to an AABB.
+ *  3. Nodes with neither native bounds nor a wrapped bv_scene_obj contribute
+ *     nothing to the result.
  *
  * On return:
  *   *out_min is the component-wise minimum corner of the AABB.

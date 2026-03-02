@@ -100,6 +100,16 @@ const void       *bv_node_geometry_get(const struct bv_node *node);
 void              bv_node_selected_set(struct bv_node *node, int selected);
 int               bv_node_selected_get(const struct bv_node *node);
 
+/* Native axis-aligned bounding box (Phase 2) */
+void              bv_node_bounds_set(struct bv_node *node, const point_t min, const point_t max);
+void              bv_node_bounds_clear(struct bv_node *node);
+int               bv_node_bounds_get(const struct bv_node *node,
+                                      point_t *out_min, point_t *out_max);
+
+/* Level-of-detail index (Phase 4) */
+void              bv_node_lod_level_set(struct bv_node *node, int level);
+int               bv_node_lod_level_get(const struct bv_node *node);
+
 enum bv_node_type bv_node_type_get(const struct bv_node *node);
 const char       *bv_node_name_get(const struct bv_node *node);
 void              bv_node_user_data_set(struct bv_node *node, void *user_data);
@@ -141,6 +151,10 @@ int bv_node_bbox(const struct bv_node *node, point_t *out_min, point_t *out_max)
 int  bv_scene_selected_nodes(const struct bv_scene *scene, struct bu_ptbl *out);
 void bv_scene_select_node(struct bv_node *node, int selected, struct bview_new *view);
 int  bv_scene_deselect_all(struct bv_scene *scene, struct bview_new *view);
+
+/* Multi-view sharing query (Phase 3) */
+size_t                  bv_scene_view_count(const struct bv_scene *scene);
+const struct bu_ptbl   *bv_scene_views(const struct bv_scene *scene);
 
 /* LoD update (Phase 4) */
 int bv_scene_lod_update(struct bv_scene *scene, const struct bview_new *view);
@@ -290,46 +304,50 @@ Goals and status:
   Uses `bv_view_objs()` to correctly handle both independent and shared views.
 - `bv_node_bbox(const struct bv_node *, point_t *, point_t *)` implemented:
   computes the axis-aligned bounding box of a `bv_node` subtree by traversing
-  visible `BV_NODE_GEOMETRY` nodes and reading their wrapped `bv_scene_obj`
-  bounding sphere (`s_center` + `s_size`).  Returns 0 for empty/invisible
-  subtrees.
+  visible `BV_NODE_GEOMETRY` nodes.  Bounding-box priority:
+  1. Native AABB (set via `bv_node_bounds_set()`) is used when present.
+  2. Bounding sphere of a wrapped `bv_scene_obj` (`s_center` + `s_size`) as
+     fallback for nodes migrated from the legacy API.
+  3. Nodes with neither native bounds nor a wrapped object are skipped.
+  Returns 0 for subtrees that contribute no bounds.
 - `bv_scene_bbox(const struct bv_scene *, point_t *, point_t *)` implemented:
   computes AABB of an entire scene (all top-level nodes and their subtrees).
-  Equivalent to merging `bv_node_bbox()` results for each top-level node.
 - `bview_autoview_new(struct bview_new *, const struct bv_scene *, double)`
-  implemented: analog of `bv_autoview()` for the new scene graph API.  Uses
-  `bv_scene_bbox()` to compute the scene extent, then repositions the camera
-  so the scene fits the viewport.  `BV_AUTOVIEW_SCALE_DEFAULT` (−1) uses the
-  same 2× radial factor as the legacy function.  Returns 0 if the scene is
-  empty (camera unchanged).
+  implemented: analog of `bv_autoview()` for the new scene graph API.
 - `bv_node_geometry_get()` — getter for the geometry pointer; symmetric with
   `bv_node_geometry_set()` which existed but had no paired getter.
 - `bv_node_selected_set()` / `bv_node_selected_get()` — public accessors for
   the `selected` field (was in `bv_node` struct but had no public API).
+- **Native AABB on `bv_node`** (this session):
+  - Added `have_bounds`, `bounds_min`, `bounds_max` fields to `bv_node`.
+  - `bv_node_bounds_set(node, min, max)` — store a native AABB; marks
+    `have_bounds = 1`.
+  - `bv_node_bounds_clear(node)` — reset native bounds; reverts to legacy
+    bv_scene_obj fallback in bbox traversal.
+  - `bv_node_bounds_get(node, out_min, out_max)` — returns 1 and fills the
+    outputs if native bounds are set; 0 otherwise.
+  - Updated `_bbox_cb` traverse callback to prefer native AABB over the
+    legacy sphere.  This allows pure new-API geometry nodes (no wrapped
+    `bv_scene_obj`) to participate in bounding-box queries.
 
 Files updated:
 - `include/bv/defines.h` – `bv_node_bbox`, `bv_scene_bbox`,
   `bview_autoview_new`, `bview_lod_node_update`, `BV_AUTOVIEW_SCALE_DEFAULT`
-  macro, `bv_node_geometry_get`, `bv_node_selected_set`, `bv_node_selected_get`
-  declarations; forward declarations for `struct bv_scene_obj` and
-  `struct bview_set`; corrected doc comment for `bview_autoview_new`
-- `src/libbv/scene.cpp` – implement all functions
-- `src/libbv/tests/scene.c` – add `obj_to_node_null`, `obj_to_node_basic`,
-  `obj_to_node_children`, `scene_from_view_null`, `scene_from_view_empty`,
-  `scene_from_view_objs`, `node_bbox_null`, `node_bbox_no_geom`,
-  `scene_bbox_null`, `scene_bbox_empty`, `scene_bbox_invisible`,
-  `scene_bbox_visible`, `autoview_null`, `autoview_empty`,
-  `autoview_single_obj`, `autoview_scale_factor`, `node_geometry_get`,
-  `node_selected` tests
+  macro, `bv_node_geometry_get`, `bv_node_selected_set`, `bv_node_selected_get`,
+  `bv_node_bounds_set`, `bv_node_bounds_clear`, `bv_node_bounds_get`
+  declarations; updated `bv_node_bbox` doc comment
+- `src/libbv/bv_private.h` – added `have_bounds`, `bounds_min`, `bounds_max`
+  fields to `struct bv_node`
+- `src/libbv/scene.cpp` – implement all functions; initialize new fields in
+  `bv_node_create()`; update `_bbox_cb` for native-bounds priority
+- `src/libbv/tests/scene.c` – add `node_bounds_null`, `node_bounds_set_get`,
+  `node_bbox_native`, `node_bbox_native_overrides` tests
 
 Remaining for Phase 2 completion:
 - New geometry creation: `bv_node_create(BV_NODE_GEOMETRY)` + `bv_node_geometry_set()`
   instead of `bv_obj_get()` + direct struct mutation
-- Replace direct `bu_ptbl_ins()` into `gv_objs.db_objs` with `bv_scene_add_node()`
-- Extend `bv_node_bbox` to handle nodes without a wrapped `bv_scene_obj` (once
-  native geometry storage is added in a later phase)
 
-### Phase 3 – View sets + selection (LARGELY COMPLETE)
+### Phase 3 – View sets + selection (COMPLETE)
 
 Goals and status:
 - `bv_scene_from_view_set(const struct bview_set *)` implemented: creates a
@@ -345,21 +363,32 @@ Goals and status:
     argument reserved for future pick_set integration.
   - `bv_scene_deselect_all()` — clears selection on every node in the scene;
     returns number of nodes cleared.
+- **Multi-view sharing API** implemented (this session):
+  - `bv_scene` now carries a `struct bu_ptbl views` list of all `bview_new*`
+    instances sharing the scene.
+  - `bview_scene_set(view, scene)` updated to register the view in
+    `scene->views` (and unregister from the old scene if switching).
+  - `bview_destroy()` updated to remove the view from `scene->views` before
+    freeing, preventing dangling pointers.
+  - `bv_scene_view_count(scene)` — returns the number of views sharing the
+    scene.  This is the new-API replacement for iterating
+    `bv_set_views()`.
+  - `bv_scene_views(scene)` — returns the `bu_ptbl` of `bview_new*` pointers
+    for broadcasting events (LoD updates, redraws) to all sharing views.
 
 Files updated:
 - `include/bv/defines.h` – `bv_scene_from_view_set`, `bv_scene_selected_nodes`,
-  `bv_scene_select_node`, `bv_scene_deselect_all` declarations
-- `src/libbv/scene.cpp` – implement all functions; add `_select_collect_state`
-  and `_deselect_state` traverse callback helpers
+  `bv_scene_select_node`, `bv_scene_deselect_all`, `bv_scene_view_count`,
+  `bv_scene_views` declarations
+- `src/libbv/bv_private.h` – added `struct bu_ptbl views` to `struct bv_scene`
+- `src/libbv/scene.cpp` – implement all functions; wire `bview_scene_set` and
+  `bview_destroy` to maintain the view list; init/free `scene->views` in
+  `bv_scene_create`/`bv_scene_destroy`
 - `src/libbv/tests/scene.c` – add `scene_from_vset_null`, `scene_from_vset_empty`,
   `selected_nodes_null`, `selected_nodes_empty`, `selected_nodes_count`,
-  `deselect_all`, `select_node` tests
-
-Remaining for Phase 3 completion:
-- Migrate callers of `bv_set_add_view` / `bv_set_rm_view` to use
-  `bview_scene_set(view, scene)` / `bview_scene_set(view, NULL)`
-- Multiple `bview_new` instances sharing one `bv_scene` replaces the concept of
-  a `bview_set` with a flat list of views
+  `deselect_all`, `select_node`, `scene_view_count_null`,
+  `scene_view_count_empty`, `scene_view_count_one`,
+  `scene_view_count_shared`, `scene_view_switch` tests
 
 ### Phase 4 – LoD integration (WIRED)
 
@@ -378,17 +407,23 @@ Status:
   calling `bview_lod_node_update()` on each.  Returns count of nodes processed.
 - `bview_lod_update(struct bview_new *)` **wired**: now calls
   `bv_scene_lod_update(view->scene, view)` instead of being a no-op placeholder.
+- `bv_node_lod_level_set(node, level)` / `bv_node_lod_level_get(node)` **added**
+  (this session): public accessor pair for the `lod_level` field.  The field was
+  always present in `bv_node` but had no public API.  The LoD pipeline sets this
+  field; the rendering backend reads it to select the appropriate geometry detail
+  for display.
 
 Files updated:
 - `include/bv/defines.h` – `bview_lod_node_update` updated doc comment;
-  `bv_scene_lod_update` new declaration
+  `bv_scene_lod_update`, `bv_node_lod_level_set`, `bv_node_lod_level_get`
+  declarations
 - `src/libbv/scene.cpp` – wire `bview_lod_node_update()` to `bv_mesh_lod_view()`;
-  implement `bv_scene_lod_update()`; add `bv/lod.h` include;
-  wire `bview_lod_update()` to `bv_scene_lod_update()`
+  implement `bv_scene_lod_update()`, `bv_node_lod_level_set/get`;
+  add `bv/lod.h` include; wire `bview_lod_update()` to `bv_scene_lod_update()`
 - `src/libbv/tests/scene.c` – add `lod_node_update_null`,
   `lod_node_update_non_geom`, `lod_node_update_no_obj`,
   `lod_node_update_stale`, `scene_lod_update_null`, `scene_lod_update_empty`,
-  `scene_lod_update_counts` tests
+  `scene_lod_update_counts`, `node_lod_level` tests
 
 ### Phase 5 – obol/Coin3D bridge (LONG TERM)
 
@@ -431,22 +466,26 @@ repository.
 | DEPRECATED annotations on all `bv_set_*` functions | Phase 1+3 | ✅ COMPLETE |
 | `bv_scene_obj_to_node()` — wrap legacy obj in new node | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view()` — build scene from legacy bview | Phase 2 | ✅ COMPLETE |
-| `bv_node_bbox()` — AABB of a node subtree | Phase 2 | ✅ COMPLETE |
+| `bv_node_bbox()` — AABB of node subtree (legacy sphere + native AABB) | Phase 2 | ✅ COMPLETE |
 | `bv_scene_bbox()` — AABB of entire scene | Phase 2 | ✅ COMPLETE |
 | `bview_autoview_new()` — fit camera to scene geometry | Phase 2 | ✅ COMPLETE |
 | `bv_node_geometry_get()` — getter for geometry pointer | Phase 2 | ✅ COMPLETE |
 | `bv_node_selected_set()` / `bv_node_selected_get()` — selection accessors | Phase 2 | ✅ COMPLETE |
+| `bv_node_bounds_set/get/clear()` — native AABB on bv_node | Phase 2 | ✅ COMPLETE |
 | `bv_scene_from_view_set()` — build scene from bview_set | Phase 3 | ✅ COMPLETE |
 | `bv_scene_selected_nodes()` — collect selected nodes via traverse | Phase 3 | ✅ COMPLETE |
 | `bv_scene_select_node()` — select/deselect a single node | Phase 3 | ✅ COMPLETE |
 | `bv_scene_deselect_all()` — clear all selections in scene | Phase 3 | ✅ COMPLETE |
-| `bview_lod_node_update()` — wired to `bv_mesh_lod_view()` (Phase 4) | Phase 4 | ✅ COMPLETE |
+| `bv_scene_view_count()` / `bv_scene_views()` — multi-view sharing query | Phase 3 | ✅ COMPLETE |
+| `bview_scene_set` tracks views in `bv_scene.views` | Phase 3 | ✅ COMPLETE |
+| `bview_destroy` unregisters from scene view list | Phase 3 | ✅ COMPLETE |
+| `bview_lod_node_update()` — wired to `bv_mesh_lod_view()` | Phase 4 | ✅ COMPLETE |
 | `bv_scene_lod_update()` — update LoD for all geometry nodes | Phase 4 | ✅ COMPLETE |
 | `bview_lod_update()` — wired to `bv_scene_lod_update()` | Phase 4 | ✅ COMPLETE |
-| Unit tests (82 total — 10 new this session) | Phase 2–4 | ✅ COMPLETE |
+| `bv_node_lod_level_set/get()` — public accessor for lod_level field | Phase 4 | ✅ COMPLETE |
+| Unit tests (92 total — 10 new this session) | Phase 2–4 | ✅ COMPLETE |
 | Internal callers migrated to new lifecycle API | Phase 1 | 🔲 PLANNED |
 | New geometry creation via `bv_node_create()` | Phase 2 | 🔲 PLANNED |
-| `bv_set_add_view` callers migrated to `bview_scene_set` | Phase 3 | 🔲 PLANNED |
 | `lod.cpp` further refactored to operate natively on `bv_node` trees | Phase 4 | 🔲 PLANNED |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
 
@@ -600,4 +639,51 @@ bu_ptbl_free(&selected);
 
 /* Deselect everything */
 bv_scene_deselect_all(scene, NULL);
+```
+
+To set native AABB bounds on a pure new-API geometry node (Phase 2 — no legacy obj needed):
+
+```c
+/* Geometry node for a unit cube */
+struct bv_node *n = bv_node_create("unit_cube", BV_NODE_GEOMETRY);
+point_t mn, mx;
+VSET(mn, -0.5, -0.5, -0.5);
+VSET(mx,  0.5,  0.5,  0.5);
+bv_node_bounds_set(n, mn, mx);
+
+/* The node now participates fully in bv_scene_bbox() and bview_autoview_new()
+ * without wrapping a legacy bv_scene_obj. */
+bv_scene_add_node(scene, n);
+
+/* To clear (revert to legacy obj sphere fallback): */
+bv_node_bounds_clear(n);
+```
+
+To share one scene across multiple views (Phase 3):
+
+```c
+struct bv_scene  *scene = bv_scene_create();
+struct bview_new *v1    = bview_create("view_left");
+struct bview_new *v2    = bview_create("view_right");
+
+bview_scene_set(v1, scene);   /* registers v1 in scene->views */
+bview_scene_set(v2, scene);   /* registers v2 in scene->views */
+
+/* Both views share the same scene graph — this is the new-API equivalent of
+ * bv_set_add_view() + bview_set.  The scene owns the geometry; the views own
+ * their own cameras and viewports. */
+printf("%zu views sharing scene\n", bv_scene_view_count(scene));   /* → 2 */
+
+/* Broadcast a LoD update to all sharing views */
+const struct bu_ptbl *views = bv_scene_views(scene);
+for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+    struct bview_new *v = (struct bview_new *)BU_PTBL_GET(views, i);
+    bv_scene_lod_update(scene, v);
+}
+
+/* When a view is no longer needed, destroy it — it unregisters automatically */
+bview_destroy(v2);   /* scene->views now has only v1 */
+
+bview_destroy(v1);
+bv_scene_destroy(scene);
 ```
