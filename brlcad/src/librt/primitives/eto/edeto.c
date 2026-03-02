@@ -328,9 +328,13 @@ ecmd_eto_rot_c(struct rt_edit *s)
 	bn_mat_mul(mat1, edit, s->e_mat);
 	bn_mat_mul(mat, s->e_invmat, mat1);
 
-	MAT4X3VEC(eto->eto_C, mat, eto->eto_C);
+	vect_t C_tmp;
+	VMOVE(C_tmp, eto->eto_C);
+	MAT4X3VEC(eto->eto_C, mat, C_tmp);
     } else {
-	MAT4X3VEC(eto->eto_C, s->incr_change, eto->eto_C);
+	vect_t C_tmp;
+	VMOVE(C_tmp, eto->eto_C);
+	MAT4X3VEC(eto->eto_C, s->incr_change, C_tmp);
     }
 
     MAT_IDN(s->incr_change);

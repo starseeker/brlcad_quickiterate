@@ -316,9 +316,13 @@ ecmd_hyp_rot_h(struct rt_edit *s)
 	bn_mat_mul(mat1, edit, s->e_mat);
 	bn_mat_mul(mat, s->e_invmat, mat1);
 
-	MAT4X3VEC(hyp->hyp_Hi, mat, hyp->hyp_Hi);
+	vect_t Hi_tmp;
+	VMOVE(Hi_tmp, hyp->hyp_Hi);
+	MAT4X3VEC(hyp->hyp_Hi, mat, Hi_tmp);
     } else {
-	MAT4X3VEC(hyp->hyp_Hi, s->incr_change, hyp->hyp_Hi);
+	vect_t Hi_tmp;
+	VMOVE(Hi_tmp, hyp->hyp_Hi);
+	MAT4X3VEC(hyp->hyp_Hi, s->incr_change, Hi_tmp);
     }
 
     MAT_IDN(s->incr_change);
