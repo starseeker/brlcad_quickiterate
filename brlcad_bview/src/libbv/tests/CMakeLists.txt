@@ -161,6 +161,13 @@ set(bview_scene_tests
   scene_view_count_one
   scene_view_count_shared
   scene_view_switch
+  node_vlist_null
+  node_vlist_set_get
+  node_vlist_bounds
+  node_bbox_from_vlist
+  node_dlist
+  node_update_cb
+  lod_node_update_native
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})

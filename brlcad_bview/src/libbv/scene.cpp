@@ -51,6 +51,7 @@
 #include "bv/lod.h"
 #include "bv/util.h"
 #include "bv/view_sets.h"
+#include "bv/vlist.h"
 #include "./bv_private.h"
 
 
@@ -84,6 +85,11 @@ bv_node_create(const char *name, enum bv_node_type type)
     n->have_bounds = 0;
     VSETALL(n->bounds_min, 0.0);
     VSETALL(n->bounds_max, 0.0);
+
+    n->dlist         = 0;
+    n->dlist_stale   = 0;
+    n->update_cb     = NULL;
+    n->update_cb_data = NULL;
 
     return n;
 }
@@ -283,6 +289,120 @@ bv_node_lod_level_get(const struct bv_node *node)
     if (!node)
 	return 0;
     return node->lod_level;
+}
+
+
+/* --- Vlist accessors (Phase 2) --- */
+
+void
+bv_node_vlist_set(struct bv_node *node, struct bu_list *vlist)
+{
+    if (!node)
+	return;
+    node->geometry = vlist;
+}
+
+
+struct bu_list *
+bv_node_vlist_get(const struct bv_node *node)
+{
+    if (!node)
+	return NULL;
+    return (struct bu_list *)node->geometry;
+}
+
+
+int
+bv_node_vlist_bounds(const struct bv_node *node, point_t *out_min, point_t *out_max)
+{
+    struct bu_list *vl;
+
+    if (!node || !out_min || !out_max)
+	return 0;
+
+    vl = (struct bu_list *)node->geometry;
+    if (!vl || BU_LIST_IS_EMPTY(vl))
+	return 0;
+
+    VSETALL(*out_min,  INFINITY);
+    VSETALL(*out_max, -INFINITY);
+
+    /* bv_vlist_bbox returns non-zero on error (unsupported command), 0 on success */
+    (void)bv_vlist_bbox(vl, out_min, out_max, NULL, NULL);
+
+    /* Verify that at least one point was found (infinity unchanged means no points) */
+    if ((*out_min)[X] > (*out_max)[X])
+	return 0;
+
+    return 1;
+}
+
+
+/* --- Display-list state accessors (Phase 2) --- */
+
+void
+bv_node_dlist_set(struct bv_node *node, unsigned int dlist)
+{
+    if (!node)
+	return;
+    node->dlist = dlist;
+}
+
+
+unsigned int
+bv_node_dlist_get(const struct bv_node *node)
+{
+    if (!node)
+	return 0;
+    return node->dlist;
+}
+
+
+void
+bv_node_dlist_stale_set(struct bv_node *node, int stale)
+{
+    if (!node)
+	return;
+    node->dlist_stale = stale;
+}
+
+
+int
+bv_node_dlist_stale_get(const struct bv_node *node)
+{
+    if (!node)
+	return 0;
+    return node->dlist_stale;
+}
+
+
+/* --- Update callback accessors (Phase 2) --- */
+
+void
+bv_node_update_cb_set(struct bv_node *node, bv_node_update_cb cb, void *data)
+{
+    if (!node)
+	return;
+    node->update_cb      = cb;
+    node->update_cb_data = data;
+}
+
+
+bv_node_update_cb
+bv_node_update_cb_get(const struct bv_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->update_cb;
+}
+
+
+void *
+bv_node_update_cb_data_get(const struct bv_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->update_cb_data;
 }
 
 
@@ -1160,8 +1280,16 @@ bview_lod_node_update(struct bv_node *node, const struct bview_new *view)
 
     /* Retrieve the wrapped legacy scene object if present */
     s = (struct bv_scene_obj *)bv_node_user_data_get(node);
-    if (!s)
-	return 0;
+    if (!s) {
+	/*
+	 * Native node (no wrapped bv_scene_obj): mark the node's own
+	 * display-list stale so the rendering backend will regenerate it
+	 * on the next draw cycle.  This is the new-API equivalent of
+	 * setting s->s_dlist_stale = 1 on a legacy object.
+	 */
+	node->dlist_stale = 1;
+	return 1;
+    }
 
     /*
      * If the scene object carries LoD mesh data (BV_MESH_LOD flag) and we
@@ -1356,28 +1484,44 @@ _bbox_cb(struct bv_node *node, void *user_data)
 
     /* Priority 2: bounding sphere from a wrapped legacy bv_scene_obj */
     s = (const struct bv_scene_obj *)bv_node_user_data_get(node);
-    if (!s)
+    if (s && s->s_size > 0.0) {
+	obj_min[X] = s->s_center[X] - s->s_size;
+	obj_min[Y] = s->s_center[Y] - s->s_size;
+	obj_min[Z] = s->s_center[Z] - s->s_size;
+	obj_max[X] = s->s_center[X] + s->s_size;
+	obj_max[Y] = s->s_center[Y] + s->s_size;
+	obj_max[Z] = s->s_center[Z] + s->s_size;
+
+	if (!st->have_bound) {
+	    VMOVE(st->min, obj_min);
+	    VMOVE(st->max, obj_max);
+	    st->have_bound = 1;
+	} else {
+	    VMIN(st->min, obj_min);
+	    VMAX(st->max, obj_max);
+	}
 	return;
+    }
 
-    /* Use the pre-computed bounding sphere from bv_scene_obj_bound().
-     * If s_size is zero (no vlist data), skip. */
-    if (s->s_size <= 0.0)
-	return;
-
-    obj_min[X] = s->s_center[X] - s->s_size;
-    obj_min[Y] = s->s_center[Y] - s->s_size;
-    obj_min[Z] = s->s_center[Z] - s->s_size;
-    obj_max[X] = s->s_center[X] + s->s_size;
-    obj_max[Y] = s->s_center[Y] + s->s_size;
-    obj_max[Z] = s->s_center[Z] + s->s_size;
-
-    if (!st->have_bound) {
-	VMOVE(st->min, obj_min);
-	VMOVE(st->max, obj_max);
-	st->have_bound = 1;
-    } else {
-	VMIN(st->min, obj_min);
-	VMAX(st->max, obj_max);
+    /* Priority 3: compute bounds from the node's vlist (bv_node_vlist_set) */
+    {
+	struct bu_list *vl = (struct bu_list *)node->geometry;
+	if (vl && !BU_LIST_IS_EMPTY(vl)) {
+	    point_t vmin, vmax;
+	    VSETALL(vmin,  INFINITY);
+	    VSETALL(vmax, -INFINITY);
+	    (void)bv_vlist_bbox(vl, &vmin, &vmax, NULL, NULL);
+	    if (vmin[X] <= vmax[X]) {
+		if (!st->have_bound) {
+		    VMOVE(st->min, vmin);
+		    VMOVE(st->max, vmax);
+		    st->have_bound = 1;
+		} else {
+		    VMIN(st->min, vmin);
+		    VMAX(st->max, vmax);
+		}
+	    }
+	}
     }
 }
 
