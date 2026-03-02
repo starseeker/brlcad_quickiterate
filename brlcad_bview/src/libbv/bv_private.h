@@ -111,6 +111,14 @@ struct bv_node {
     /* Per-node update/regenerate callback (analog of bv_scene_obj::s_update_callback) */
     bv_node_update_cb       update_cb;      /* Called when node geometry needs rebuilding */
     void                   *update_cb_data; /* Caller-managed user data for update_cb */
+
+    /*
+     * Raw geometry source data (analog of bv_scene_obj::draw_data).
+     * For LoD nodes: holds struct bv_mesh_lod * from bv_mesh_lod_create().
+     * For other node types: application-defined pointer.
+     * Caller retains ownership; bv_node_destroy() does NOT free this.
+     */
+    void                   *draw_data;
 };
 
 

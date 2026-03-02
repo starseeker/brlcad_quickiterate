@@ -168,6 +168,13 @@ set(bview_scene_tests
   node_dlist
   node_update_cb
   lod_node_update_native
+  camera_scale_set_get
+  from_old_scale
+  to_old_scale
+  bview_old_set
+  draw_data_set_get
+  lod_view_new_null
+  autoview_new_sets_scale
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})
