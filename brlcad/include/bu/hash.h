@@ -211,6 +211,60 @@ BU_EXPORT unsigned long long
 bu_data_hash_val(struct bu_data_hash_state *s);
 
 
+/***************************************************************************
+ * Strong 128-bit fingerprint API.
+ *
+ * Uses XXH3-128, whose birthday-bound collision probability is N^2 / 2^129 –
+ * effectively zero for any realistic number of distinct inputs.  Compared to
+ * bu_data_hash (64-bit), the output is twice as wide, eliminating any
+ * practical collision risk even for very large models or long-running
+ * programs.
+ *
+ * The result type bu_h128_t is a plain C struct (two uint64_t words) that is
+ * ABI-stable and can be stored, compared, and copied with ordinary C code.
+ * C++ callers that need to use bu_h128_t as a key in std::unordered_map or
+ * std::unordered_set should also include <bu/hash_cxx.h>, which provides
+ * operator== and std::hash<bu_h128_t> without contaminating C translation
+ * units with C++ system headers.
+ *
+ * As with bu_data_hash, the underlying algorithm is deliberately not part of
+ * the public contract – callers must not assume the numeric values produced
+ * are stable across BRL-CAD versions.
+ **************************************************************************/
+
+/**
+ * A C-compatible 128-bit fingerprint.
+ * w[0] holds bits 0-63 (the low half); w[1] holds bits 64-127 (the high half).
+ */
+struct bu_h128_t {
+    uint64_t w[2];
+};
+typedef struct bu_h128_t bu_h128_t;
+
+/** One-shot 128-bit hash of @p len bytes starting at @p data. */
+BU_EXPORT bu_h128_t
+bu_data_hash128(const void *data, size_t len);
+
+/** Streaming 128-bit hash: opaque state object. */
+struct bu_data_hash128_impl;
+struct bu_data_hash128_state {
+    struct bu_data_hash128_impl *i;
+};
+
+BU_EXPORT struct bu_data_hash128_state *
+bu_data_hash128_create(void);
+
+BU_EXPORT void
+bu_data_hash128_destroy(struct bu_data_hash128_state *s);
+
+BU_EXPORT void
+bu_data_hash128_update(struct bu_data_hash128_state *s, const void *data, size_t len);
+
+/** Finalise the stream and return the 128-bit digest. */
+BU_EXPORT bu_h128_t
+bu_data_hash128_val(struct bu_data_hash128_state *s);
+
+
 __END_DECLS
 
 #endif  /* BU_HASH_H */

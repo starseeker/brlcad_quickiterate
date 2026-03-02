@@ -18,6 +18,7 @@ set(
   getopt.h
   glob.h
   hash.h
+  hash_cxx.h
   hist.h
   hook.h
   interrupt.h
