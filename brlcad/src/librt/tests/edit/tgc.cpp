@@ -401,10 +401,11 @@ main(int argc, char *argv[])
     VSET(s->e_para, 5, 5, 5);
     VMOVE(s->e_keypoint, orig_tgc->v);
 
-    /* Expected: actual output from the implementation (confirmed by probe run).
-     * Note: ecmd_tgc_rot_h applies the rotation slightly differently from
-     * edit_srot/rt_tgc_mat, resulting in minor magnitude variation. */
-    VSET(cmp_tgc->h, 0.69724594198126533, -0.62877875505417491, 7.82486875074798327);
+    /* Expected: R*(0,0,8) where R = bn_mat_angles(5,5,5).
+     * The MGED implementation had a MAT4X3VEC aliasing bug (output and input
+     * were the same pointer) that produced incorrect results (~1.5% magnitude
+     * loss).  librt fixes this by using a temporary vect_t. */
+    VSET(cmp_tgc->h, 0.69724594198126533, -0.69459271066772132, 7.93923101204883253);
 
     rt_edit_process(s);
     if (tgc_diff("ECMD_TGC_ROT_H", cmp_tgc, edit_tgc))
@@ -421,11 +422,11 @@ main(int argc, char *argv[])
     VSET(s->e_para, 5, 5, 5);
     VMOVE(s->e_keypoint, orig_tgc->v);
 
-    /* Expected: actual output from the implementation (confirmed by probe run) */
-    VSET(cmp_tgc->a,  2.97721162951831220,  0.28102289628315591, -0.20836865485520714);
-    VSET(cmp_tgc->b, -0.17364817766693033,  1.96709278303131629,  0.19937687821113947);
-    VSET(cmp_tgc->c,  1.98480775301220813,  0.18734859752210395, -0.13891243657013810);
-    VSET(cmp_tgc->d, -0.13023613325019776,  1.47531958727348700,  0.14953265865835458);
+    /* Expected: R*a, R*b, R*c, R*d (correct values after aliasing bug fix) */
+    VSET(cmp_tgc->a,  2.97721162951831220,  0.28317392035240341, -0.23669272040594627);
+    VSET(cmp_tgc->b, -0.17364817766693033,  1.98348366144198129,  0.18878261356826895);
+    VSET(cmp_tgc->c,  1.98480775301220813,  0.18878261356826895, -0.15779514693729751);
+    VSET(cmp_tgc->d, -0.13023613325019776,  1.48761274608148586,  0.14158696017620170);
 
     rt_edit_process(s);
     if (tgc_diff("ECMD_TGC_ROT_AB", cmp_tgc, edit_tgc))
