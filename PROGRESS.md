@@ -275,10 +275,19 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Operations validated: ECMD_RHC_B, ECMD_RHC_H, ECMD_RHC_R, ECMD_RHC_C,
   RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
-### PART — Particle ⬜ EDIT CODE EXISTS, NO TEST
+### PART — Particle ✅ DONE (with test)
 
 - Source: `src/librt/primitives/part/edpart.c`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/part.cpp`
+- **Scanner fix:** renamed `ECMD_PART_v`→`ECMD_PART_VRAD` and
+  `ECMD_PART_h`→`ECMD_PART_HRAD` so the rt_ecmd_scanner regex
+  `ECMD_[0-9A-Z_]+` can pick them up and expose them in `rt_ecmds.h`.
+- **Build system fix:** added `${RT_PFILE_IN}` to the scanner's
+  `add_custom_command DEPENDS` list so that changes to any primitive
+  edit file trigger a re-scan of ECMD definitions.
+- No aliasing bugs (no MAT4X3VEC in edpart.c).
+- Operations validated: ECMD_PART_H, ECMD_PART_VRAD, ECMD_PART_HRAD,
+  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
 ### PIPE ⬜ EDIT CODE EXISTS, NO TEST
 

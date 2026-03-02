@@ -7,6 +7,7 @@ brlcad_addexec(rt_edit_test_eto eto.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_hyp hyp.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_rpc rpc.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_rhc rhc.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_part part.cpp "librt" TEST)
 
 set(
   distcheck_files
@@ -20,6 +21,7 @@ set(
   hyp.cpp
   rpc.cpp
   rhc.cpp
+  part.cpp
 )
 
 cmakefiles(${distcheck_files})
