@@ -490,7 +490,7 @@ ecmd_metaball_pt_del(struct rt_edit *s)
     } else
 	m->es_metaball_pnt = p;
     BU_LIST_DQ(&tmp->l);
-    free(tmp);
+    BU_PUT(tmp, struct wdb_metaball_pnt);
     if (!m->es_metaball_pnt)
 	bu_log("WARNING: Last point of this metaball has been deleted.");
 }
@@ -500,11 +500,12 @@ ecmd_metaball_pt_add(struct rt_edit *s)
 {
     struct rt_metaball_edit *m = (struct rt_metaball_edit *)s->ipe_ptr;
     struct rt_metaball_internal *metaball= (struct rt_metaball_internal *)s->es_int.idb_ptr;
-    struct wdb_metaball_pnt *n = (struct wdb_metaball_pnt *)malloc(sizeof(struct wdb_metaball_pnt));
+    struct wdb_metaball_pnt *n;
+    BU_GET(n, struct wdb_metaball_pnt);
 
     if (s->e_inpara != 3) {
 	bu_log("Must provide x y z");
-	bu_free(n, "wdb_metaball_pnt n");
+	BU_PUT(n, struct wdb_metaball_pnt);
 	return;
     }
 
