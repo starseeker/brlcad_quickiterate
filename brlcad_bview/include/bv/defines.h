@@ -321,6 +321,83 @@ BV_EXPORT struct bv_node *bv_node_parent_get(const struct bv_node *node);
 BV_EXPORT void bview_lod_update(struct bview_new *view);
 BV_EXPORT void bview_redraw(struct bview_new *view);
 
+/*
+ * LoD-aware per-node update hook (Phase 4).
+ *
+ * Called by the rendering pipeline when a node's level of detail needs
+ * to be reconsidered given a new view state.  node must be a
+ * BV_NODE_GEOMETRY node whose geometry pointer holds a bv_scene_obj
+ * (as set by bv_scene_obj_to_node()).  view may be NULL to request an
+ * unconditional LoD recomputation.
+ *
+ * Currently a stub; the full implementation will live in Phase 4 once
+ * the lod.cpp backend is wired into the new node pipeline.
+ *
+ * Returns 1 if the node's LoD data was updated, 0 if no change was needed.
+ */
+BV_EXPORT int bview_lod_node_update(struct bv_node *node, const struct bview_new *view);
+
+/*
+ * Compute the axis-aligned bounding box of a bv_node subtree.
+ *
+ * Traverses all visible BV_NODE_GEOMETRY nodes in the subtree rooted at
+ * 'node'.  For each such node whose user_data points to a bv_scene_obj
+ * (as set by bv_scene_obj_to_node()), the object's pre-computed bounding
+ * sphere (s_center + s_size) is used to update the AABB.
+ *
+ * On return:
+ *   *out_min is the component-wise minimum corner of the AABB.
+ *   *out_max is the component-wise maximum corner of the AABB.
+ *   Returns 1 if at least one geometry node contributed to the bounds,
+ *   0 if the subtree contained no visible/bounded geometry.
+ *
+ * out_min and out_max must be non-NULL.
+ */
+BV_EXPORT int bv_node_bbox(const struct bv_node *node, point_t *out_min, point_t *out_max);
+
+/*
+ * Compute the bounding box of an entire scene (all top-level nodes and
+ * their subtrees).
+ *
+ * Equivalent to calling bv_node_bbox() on each top-level node and merging
+ * the results.  Returns 1 if any geometry was found, 0 otherwise.
+ */
+BV_EXPORT int bv_scene_bbox(const struct bv_scene *scene, point_t *out_min, point_t *out_max);
+
+/*
+ * Use as 'scale_factor' to bview_autoview_new() to reproduce the same 2×
+ * radial factor used by the legacy bv_autoview().
+ * (Also defined in bv/util.h for the legacy API; the value is identical.)
+ */
+#ifndef BV_AUTOVIEW_SCALE_DEFAULT
+#  define BV_AUTOVIEW_SCALE_DEFAULT -1
+#endif
+
+/*
+ * Auto-position the camera in a bview_new to fit all visible geometry.
+ *
+ * Analog of bv_autoview() for the new scene graph API.  Computes the
+ * AABB of all visible geometry in 'scene' using bv_scene_bbox(), then
+ * repositions view->camera so the scene fills the viewport.
+ *
+ * 'scale_factor' controls the camera distance from the scene center:
+ *   BV_AUTOVIEW_SCALE_DEFAULT (-1) uses the same 2× radial factor as
+ *   the legacy bv_autoview(): camera is placed 2 * radius from center.
+ *   Any positive value 'f' places the camera f * radius away from the
+ *   scene center along the current viewing direction.
+ *
+ * The camera target is set to the scene center.  The camera position is
+ * moved along the current eye-to-target direction (derived from the
+ * current camera position and target) to achieve the requested distance.
+ * If the current camera has no meaningful eye/target separation the
+ * camera is moved along +Z.  The camera.up and perspective fields are
+ * not altered.
+ *
+ * Returns 1 if camera was updated, 0 if the scene was empty (camera
+ * unchanged).
+ */
+BV_EXPORT int bview_autoview_new(struct bview_new *view, const struct bv_scene *scene, double scale_factor);
+
 /* --- Migration Helpers (optional) --- */
 
 /* Sync with legacy struct during migration */

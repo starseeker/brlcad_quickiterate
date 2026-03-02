@@ -124,6 +124,23 @@ set(bview_scene_tests
   scene_from_view_objs
   scene_from_vset_null
   scene_from_vset_empty
+  to_old_appearance
+  to_old_overlay
+  to_old_null
+  node_bbox_null
+  node_bbox_no_geom
+  scene_bbox_null
+  scene_bbox_empty
+  scene_bbox_invisible
+  scene_bbox_visible
+  autoview_null
+  autoview_empty
+  autoview_single_obj
+  autoview_scale_factor
+  lod_node_update_null
+  lod_node_update_non_geom
+  lod_node_update_no_obj
+  lod_node_update_stale
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})

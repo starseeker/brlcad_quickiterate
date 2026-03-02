@@ -1429,6 +1429,605 @@ test_bv_scene_from_view_set_empty(void)
 
 
 /* ================================================================
+ * Phase 1 (continued) – bview_to_old round-trip tests
+ * ================================================================ */
+
+static int
+test_bview_to_old_appearance(void)
+{
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+    struct bview_appearance app;
+    unsigned char expected_color[3] = {10, 20, 30};
+
+    bv_set_init(&vset);
+    memset(&old, 0, sizeof(old));
+    bv_init(&old, &vset);
+
+    nv = bview_create("to_old_appearance_test");
+    CHECK(nv != NULL, "bview_create non-NULL");
+    if (!nv) {
+	bv_free(&old);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* Set up appearance in the new view */
+    bview_from_old(nv, &old);
+    {
+	const struct bview_appearance *a = bview_appearance_get(nv);
+	if (a) app = *a;
+    }
+
+    /* Modify: enable grid with a specific color */
+    app.show_grid = 1;
+    bu_color_from_rgb_chars(&app.grid_color, expected_color);
+    app.show_axes   = 1;
+    app.show_origin = 1;
+    app.line_width  = 3.0f;
+    bview_appearance_set(nv, &app);
+
+    /* Push back */
+    bview_to_old(nv, &old);
+
+    {
+	struct bview_settings *s = old.gv_s ? old.gv_s : &old.gv_ls;
+	unsigned char got[3];
+	CHECK(s->gv_grid.draw == 1,    "to_old: gv_grid.draw == 1");
+	CHECK(s->gv_view_axes.draw == 1, "to_old: gv_view_axes.draw == 1");
+	CHECK(s->gv_model_axes.draw == 1, "to_old: gv_model_axes.draw == 1");
+	CHECK(s->gv_view_axes.line_width == 3, "to_old: line_width == 3");
+	got[0] = (unsigned char)s->gv_grid.color[0];
+	got[1] = (unsigned char)s->gv_grid.color[1];
+	got[2] = (unsigned char)s->gv_grid.color[2];
+	CHECK(got[0] == expected_color[0] &&
+	      got[1] == expected_color[1] &&
+	      got[2] == expected_color[2],
+	      "to_old: grid color round-trip");
+    }
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_to_old_overlay(void)
+{
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+    struct bview_overlay ov;
+
+    bv_set_init(&vset);
+    memset(&old, 0, sizeof(old));
+    bv_init(&old, &vset);
+
+    nv = bview_create("to_old_overlay_test");
+    CHECK(nv != NULL, "bview_create non-NULL");
+    if (!nv) {
+	bv_free(&old);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    bview_from_old(nv, &old);
+
+    {
+	const struct bview_overlay *o = bview_overlay_get(nv);
+	if (o) ov = *o;
+    }
+    ov.show_fps = 1;
+    bview_overlay_set(nv, &ov);
+
+    /* Push back and verify */
+    bview_to_old(nv, &old);
+
+    {
+	struct bview_settings *s = old.gv_s ? old.gv_s : &old.gv_ls;
+	CHECK(s->gv_view_params.draw_fps == 1, "to_old: draw_fps == 1");
+    }
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_to_old_null(void)
+{
+    struct bview_set vset;
+    struct bview     old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    memset(&old, 0, sizeof(old));
+    bv_init(&old, &vset);
+
+    nv = bview_create("to_old_null_test");
+
+    /* NULL safety */
+    bview_to_old(NULL, &old);
+    bview_to_old(nv, NULL);
+    bview_to_old(NULL, NULL);
+    CHECK(1, "bview_to_old null safety OK");
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 2 (continued) – bv_node_bbox / bv_scene_bbox tests
+ * ================================================================ */
+
+static int
+test_bv_node_bbox_null(void)
+{
+    point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+    int r;
+
+    r = bv_node_bbox(NULL, &bmin, &bmax);
+    CHECK(r == 0, "bv_node_bbox(NULL, ...) returns 0");
+
+    {
+	struct bv_node *n = bv_node_create("bbox_null_test", BV_NODE_GEOMETRY);
+	r = bv_node_bbox(n, NULL, &bmax);
+	CHECK(r == 0, "bv_node_bbox(..., NULL, ...) returns 0");
+	r = bv_node_bbox(n, &bmin, NULL);
+	CHECK(r == 0, "bv_node_bbox(..., ..., NULL) returns 0");
+	bv_node_destroy(n);
+    }
+    return 1;
+}
+
+static int
+test_bv_node_bbox_no_geom(void)
+{
+    struct bv_node *n;
+    point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+    int r;
+
+    /* A geometry node with no user_data (no legacy bv_scene_obj) */
+    n = bv_node_create("bbox_no_geom", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    r = bv_node_bbox(n, &bmin, &bmax);
+    CHECK(r == 0, "node without bv_scene_obj user_data → returns 0");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bv_scene_bbox_null(void)
+{
+    point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+    int r;
+
+    r = bv_scene_bbox(NULL, &bmin, &bmax);
+    CHECK(r == 0, "bv_scene_bbox(NULL, ...) returns 0");
+
+    {
+	struct bv_scene *scene = bv_scene_create();
+	r = bv_scene_bbox(scene, NULL, &bmax);
+	CHECK(r == 0, "bv_scene_bbox(..., NULL, ...) returns 0");
+	r = bv_scene_bbox(scene, &bmin, NULL);
+	CHECK(r == 0, "bv_scene_bbox(..., ..., NULL) returns 0");
+	bv_scene_destroy(scene);
+    }
+    return 1;
+}
+
+static int
+test_bv_scene_bbox_empty(void)
+{
+    struct bv_scene *scene;
+    point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+    int r;
+
+    scene = bv_scene_create();
+    CHECK(scene != NULL, "scene non-NULL");
+    if (!scene) return 0;
+
+    /* No geometry nodes → empty bbox */
+    r = bv_scene_bbox(scene, &bmin, &bmax);
+    CHECK(r == 0, "empty scene → bv_scene_bbox returns 0");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_scene_bbox_invisible(void)
+{
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene_obj *s;
+    struct bv_scene   *scene;
+    struct bv_node    *n;
+    point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+    int r;
+
+    /* Create a scene object with non-zero bounds, wrap it, hide it */
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    s = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s != NULL, "bv_obj_get non-NULL");
+    if (!s) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* Manually set bounding sphere data (normally set by bv_scene_obj_bound) */
+    VSET(s->s_center, 10.0, 0.0, 0.0);
+    s->s_size = 5.0;
+    s->s_flag = DOWN;  /* invisible */
+
+    n = bv_scene_obj_to_node(s);
+    CHECK(n != NULL, "bv_scene_obj_to_node non-NULL");
+    if (!n) {
+	bv_obj_put(s);
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n);
+
+    r = bv_scene_bbox(scene, &bmin, &bmax);
+    CHECK(r == 0, "hidden node → bv_scene_bbox returns 0");
+
+    bv_scene_destroy(scene);
+    bv_obj_put(s);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bv_scene_bbox_visible(void)
+{
+    struct bview_set   vset;
+    struct bview       v;
+    struct bv_scene_obj *s1, *s2;
+    struct bv_node     *n1, *n2;
+    struct bv_scene    *scene;
+    point_t bmin, bmax;
+    int r;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    s1 = bv_obj_get(&v, BV_VIEWONLY);
+    s2 = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s1 && s2, "both bv_obj_get calls succeed");
+    if (!s1 || !s2) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* s1: sphere centered at (10, 0, 0) with radius 5 */
+    VSET(s1->s_center, 10.0, 0.0, 0.0);
+    s1->s_size  = 5.0;
+    s1->s_flag  = UP;  /* visible */
+
+    /* s2: sphere centered at (-10, 0, 0) with radius 3 */
+    VSET(s2->s_center, -10.0, 0.0, 0.0);
+    s2->s_size  = 3.0;
+    s2->s_flag  = UP;  /* visible */
+
+    n1 = bv_scene_obj_to_node(s1);
+    n2 = bv_scene_obj_to_node(s2);
+    CHECK(n1 && n2, "both bv_scene_obj_to_node calls succeed");
+    if (!n1 || !n2) {
+	if (n1) bv_node_destroy(n1);
+	if (n2) bv_node_destroy(n2);
+	bv_obj_put(s1);
+	bv_obj_put(s2);
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n1);
+    bv_scene_add_node(scene, n2);
+
+    r = bv_scene_bbox(scene, &bmin, &bmax);
+    CHECK(r == 1, "visible nodes → bv_scene_bbox returns 1");
+
+    if (r) {
+	/* Expected AABB:
+	 *   s1 center=(10,0,0) radius=5  → [5..15, -5..5, -5..5]
+	 *   s2 center=(-10,0,0) radius=3 → [-13..-7, -3..3, -3..3]
+	 *   union: x in [-13, 15], y in [-5, 5], z in [-5, 5]
+	 */
+	CHECK(fabs(bmin[X] - (-13.0)) < 1e-9,
+	      "bbox: bmin.x == -13.0");
+	CHECK(fabs(bmax[X] - 15.0) < 1e-9,
+	      "bbox: bmax.x == 15.0");
+	CHECK(fabs(bmin[Y] - (-5.0)) < 1e-9,
+	      "bbox: bmin.y == -5.0");
+	CHECK(fabs(bmax[Y] - 5.0) < 1e-9,
+	      "bbox: bmax.y == 5.0");
+    }
+
+    bv_scene_destroy(scene);
+    bv_obj_put(s1);
+    bv_obj_put(s2);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 2 (continued) – bview_autoview_new tests
+ * ================================================================ */
+
+static int
+test_bview_autoview_null(void)
+{
+    struct bview_new *view = bview_create("av_null_test");
+    struct bv_scene  *scene = bv_scene_create();
+    int r;
+
+    r = bview_autoview_new(NULL, scene, -1);
+    CHECK(r == 0, "bview_autoview_new(NULL, scene) returns 0");
+
+    r = bview_autoview_new(view, NULL, -1);
+    CHECK(r == 0, "bview_autoview_new(view, NULL) returns 0");
+
+    bv_scene_destroy(scene);
+    bview_destroy(view);
+    return 1;
+}
+
+static int
+test_bview_autoview_empty(void)
+{
+    struct bview_new *view = bview_create("av_empty_test");
+    struct bv_scene  *scene = bv_scene_create();
+    int r;
+
+    bview_settings_apply(view);
+
+    /* Empty scene: camera should be unchanged, return 0 */
+    r = bview_autoview_new(view, scene, -1);
+    CHECK(r == 0, "bview_autoview_new on empty scene returns 0");
+
+    bv_scene_destroy(scene);
+    bview_destroy(view);
+    return 1;
+}
+
+static int
+test_bview_autoview_single_obj(void)
+{
+    struct bview_set   vset;
+    struct bview       v;
+    struct bv_scene_obj *s;
+    struct bv_node     *n;
+    struct bv_scene    *scene;
+    struct bview_new   *view;
+    const struct bview_camera *cam;
+    vect_t to_center;
+    int r;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    s = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s != NULL, "bv_obj_get non-NULL");
+    if (!s) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    /* Sphere at origin, radius 100 */
+    VSET(s->s_center, 0.0, 0.0, 0.0);
+    s->s_size = 100.0;
+    s->s_flag = UP;
+
+    n = bv_scene_obj_to_node(s);
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n);
+
+    /* Default camera: eye at (0,0,1), target at (0,0,0) */
+    view = bview_create("av_single_test");
+    bview_settings_apply(view);
+
+    r = bview_autoview_new(view, scene, -1);
+    CHECK(r == 1, "bview_autoview_new with geometry returns 1");
+
+    if (r) {
+	cam = bview_camera_get(view);
+	if (cam) {
+	    /* Target should now be at scene center (0,0,0) */
+	    CHECK(VNEAR_ZERO(cam->target, 1e-9),
+		  "autoview: camera target == scene center");
+
+	    /* Eye should be along Z above the scene */
+	    VSUB2(to_center, cam->position, cam->target);
+	    CHECK(VDOT(to_center, to_center) > 0.0,
+		  "autoview: camera not at target");
+
+	    /* Distance should be roughly 2 * radius = 200 */
+	    {
+		double dist = MAGNITUDE(to_center);
+		CHECK(fabs(dist - 200.0) < 1e-6,
+		      "autoview: camera distance == scale_factor * radius");
+	    }
+	}
+    }
+
+    bv_scene_destroy(scene);
+    bview_destroy(view);
+    bv_obj_put(s);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_autoview_scale_factor(void)
+{
+    struct bview_set   vset;
+    struct bview       v;
+    struct bv_scene_obj *s;
+    struct bv_node     *n;
+    struct bv_scene    *scene;
+    struct bview_new   *view;
+    const struct bview_camera *cam;
+    int r;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    s = bv_obj_get(&v, BV_VIEWONLY);
+    if (!s) { bv_free(&v); bv_set_free(&vset); return 0; }
+
+    VSET(s->s_center, 0.0, 0.0, 0.0);
+    s->s_size = 50.0;
+    s->s_flag = UP;
+
+    n     = bv_scene_obj_to_node(s);
+    scene = bv_scene_create();
+    bv_scene_add_node(scene, n);
+
+    view  = bview_create("av_scale_test");
+    bview_settings_apply(view);
+
+    /* Use scale_factor = 4.0 */
+    r = bview_autoview_new(view, scene, 4.0);
+    CHECK(r == 1, "bview_autoview_new scale_factor=4 returns 1");
+
+    if (r) {
+	cam = bview_camera_get(view);
+	if (cam) {
+	    vect_t eye_to_tgt;
+	    double dist;
+	    VSUB2(eye_to_tgt, cam->position, cam->target);
+	    dist = MAGNITUDE(eye_to_tgt);
+	    /* Expect dist = 4.0 * 50.0 = 200.0 */
+	    CHECK(fabs(dist - 200.0) < 1e-6,
+		  "autoview scale_factor=4: distance == 200.0");
+	}
+    }
+
+    bv_scene_destroy(scene);
+    bview_destroy(view);
+    bv_obj_put(s);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
+ * Phase 4 – bview_lod_node_update stub tests
+ * ================================================================ */
+
+static int
+test_bview_lod_node_update_null(void)
+{
+    int r = bview_lod_node_update(NULL, NULL);
+    CHECK(r == 0, "bview_lod_node_update(NULL, NULL) returns 0");
+    return 1;
+}
+
+static int
+test_bview_lod_node_update_non_geom(void)
+{
+    struct bv_node *n = bv_node_create("lod_group", BV_NODE_GROUP);
+    int r;
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    r = bview_lod_node_update(n, NULL);
+    CHECK(r == 0, "lod_node_update on group node returns 0");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bview_lod_node_update_geom_no_obj(void)
+{
+    struct bv_node *n = bv_node_create("lod_geom", BV_NODE_GEOMETRY);
+    int r;
+    CHECK(n != NULL, "bv_node_create non-NULL");
+    if (!n) return 0;
+
+    /* No user_data set → returns 0 (no legacy obj to mark stale) */
+    r = bview_lod_node_update(n, NULL);
+    CHECK(r == 0, "lod_node_update on geom without user_data returns 0");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bview_lod_node_update_marks_stale(void)
+{
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene_obj *s;
+    struct bv_node    *n;
+    int r;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    s = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(s != NULL, "bv_obj_get non-NULL");
+    if (!s) {
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    s->s_dlist_stale = 0;
+    n = bv_scene_obj_to_node(s);
+    CHECK(n != NULL, "bv_scene_obj_to_node non-NULL");
+    if (!n) {
+	bv_obj_put(s);
+	bv_free(&v);
+	bv_set_free(&vset);
+	return 0;
+    }
+
+    r = bview_lod_node_update(n, NULL);
+    CHECK(r == 1, "lod_node_update on valid geom node returns 1");
+    CHECK(s->s_dlist_stale == 1,
+	  "lod_node_update sets s_dlist_stale on wrapped obj");
+
+    bv_node_destroy(n);
+    bv_obj_put(s);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
+/* ================================================================
  * scene_main dispatcher  (appended entries)
  * ================================================================ */
 
@@ -1476,8 +2075,29 @@ static struct test_entry scene_tests[] = {
     { "scene_from_view_empty",    test_bv_scene_from_view_empty     },
     { "scene_from_view_objs",     test_bv_scene_from_view_with_objects },
     /* Phase 3 */
-    { "scene_from_vset_null",     test_bv_scene_from_view_set_null  },
-    { "scene_from_vset_empty",    test_bv_scene_from_view_set_empty },
+    { "scene_from_vset_null",         test_bv_scene_from_view_set_null        },
+    { "scene_from_vset_empty",        test_bv_scene_from_view_set_empty       },
+    /* Phase 1 continued: bview_to_old round-trip */
+    { "to_old_appearance",            test_bview_to_old_appearance            },
+    { "to_old_overlay",               test_bview_to_old_overlay               },
+    { "to_old_null",                  test_bview_to_old_null                  },
+    /* Phase 2 continued: bv_node_bbox / bv_scene_bbox */
+    { "node_bbox_null",               test_bv_node_bbox_null                  },
+    { "node_bbox_no_geom",            test_bv_node_bbox_no_geom               },
+    { "scene_bbox_null",              test_bv_scene_bbox_null                 },
+    { "scene_bbox_empty",             test_bv_scene_bbox_empty                },
+    { "scene_bbox_invisible",         test_bv_scene_bbox_invisible            },
+    { "scene_bbox_visible",           test_bv_scene_bbox_visible              },
+    /* Phase 2 continued: bview_autoview_new */
+    { "autoview_null",                test_bview_autoview_null                },
+    { "autoview_empty",               test_bview_autoview_empty               },
+    { "autoview_single_obj",          test_bview_autoview_single_obj          },
+    { "autoview_scale_factor",        test_bview_autoview_scale_factor        },
+    /* Phase 4 stub: bview_lod_node_update */
+    { "lod_node_update_null",         test_bview_lod_node_update_null         },
+    { "lod_node_update_non_geom",     test_bview_lod_node_update_non_geom     },
+    { "lod_node_update_no_obj",       test_bview_lod_node_update_geom_no_obj  },
+    { "lod_node_update_stale",        test_bview_lod_node_update_marks_stale  },
     { NULL, NULL }
 };
 

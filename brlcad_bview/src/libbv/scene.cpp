@@ -740,6 +740,8 @@ bview_from_old(struct bview_new *view, const struct bview *old)
 void
 bview_to_old(const struct bview_new *view, struct bview *old)
 {
+    struct bview_settings *s;
+
     if (!view || !old)
 	return;
 
@@ -750,6 +752,36 @@ bview_to_old(const struct bview_new *view, struct bview *old)
     /* Viewport */
     old->gv_width  = view->viewport.width;
     old->gv_height = view->viewport.height;
+
+    /* Push appearance settings back into whichever bview_settings is active */
+    s = old->gv_s ? old->gv_s : &old->gv_ls;
+
+    /* Grid: draw flag and color */
+    s->gv_grid.draw = view->appearance.show_grid;
+    {
+	unsigned char gc[3];
+	bu_color_to_rgb_chars(&view->appearance.grid_color, gc);
+	s->gv_grid.color[0] = (int)gc[0];
+	s->gv_grid.color[1] = (int)gc[1];
+	s->gv_grid.color[2] = (int)gc[2];
+    }
+
+    /* View axes: draw flag and color */
+    s->gv_view_axes.draw = view->appearance.show_axes;
+    {
+	unsigned char ac[3];
+	bu_color_to_rgb_chars(&view->appearance.axes_color, ac);
+	s->gv_view_axes.axes_color[0] = (int)ac[0];
+	s->gv_view_axes.axes_color[1] = (int)ac[1];
+	s->gv_view_axes.axes_color[2] = (int)ac[2];
+    }
+    s->gv_view_axes.line_width = (int)view->appearance.line_width;
+
+    /* Model axes: draw flag */
+    s->gv_model_axes.draw = view->appearance.show_origin;
+
+    /* Overlay: fps display */
+    s->gv_view_params.draw_fps = view->overlay.show_fps;
 }
 
 
@@ -983,6 +1015,217 @@ bv_scene_from_view_set(const struct bview_set *s)
     }
 
     return scene;
+}
+
+
+/* ================================================================
+ * bview_lod_node_update  (Phase 4 stub)
+ * ================================================================ */
+
+int
+bview_lod_node_update(struct bv_node *node, const struct bview_new *view)
+{
+    struct bv_scene_obj *s;
+
+    (void)view; /* unused until Phase 4 wires in lod.cpp */
+
+    if (!node)
+	return 0;
+
+    if (bv_node_type_get(node) != BV_NODE_GEOMETRY)
+	return 0;
+
+    /* Retrieve the wrapped legacy scene object if present */
+    s = (struct bv_scene_obj *)bv_node_user_data_get(node);
+    if (!s)
+	return 0;
+
+    /*
+     * Phase 4 TODO: call into lod.cpp to recompute s->draw_data for the
+     * current view scale.  For now we mark the object stale so that the
+     * legacy rendering path will regenerate it on the next draw cycle.
+     */
+    s->s_dlist_stale = 1;
+
+    return 1;
+}
+
+
+/* ================================================================
+ * bv_node_bbox / bv_scene_bbox
+ *
+ * Compute axis-aligned bounding boxes for node subtrees and full scenes.
+ * ================================================================ */
+
+/*
+ * Internal traverse callback state for bounding box accumulation.
+ */
+struct _bbox_state {
+    int   have_bound; /* 1 once at least one node contributed */
+    point_t min;
+    point_t max;
+};
+
+static void
+_bbox_cb(struct bv_node *node, void *user_data)
+{
+    struct _bbox_state *st = (struct _bbox_state *)user_data;
+    const struct bv_scene_obj *s;
+    vect_t obj_min, obj_max;
+
+    if (!node || !st)
+	return;
+
+    /* Only geometry nodes contribute bounds */
+    if (bv_node_type_get(node) != BV_NODE_GEOMETRY)
+	return;
+
+    /* Only visible nodes */
+    if (!bv_node_visible_get(node))
+	return;
+
+    /* Retrieve the wrapped legacy scene object */
+    s = (const struct bv_scene_obj *)bv_node_user_data_get(node);
+    if (!s)
+	return;
+
+    /* Use the pre-computed bounding sphere from bv_scene_obj_bound().
+     * If s_size is zero (no vlist data), skip. */
+    if (s->s_size <= 0.0)
+	return;
+
+    obj_min[X] = s->s_center[X] - s->s_size;
+    obj_min[Y] = s->s_center[Y] - s->s_size;
+    obj_min[Z] = s->s_center[Z] - s->s_size;
+    obj_max[X] = s->s_center[X] + s->s_size;
+    obj_max[Y] = s->s_center[Y] + s->s_size;
+    obj_max[Z] = s->s_center[Z] + s->s_size;
+
+    if (!st->have_bound) {
+	VMOVE(st->min, obj_min);
+	VMOVE(st->max, obj_max);
+	st->have_bound = 1;
+    } else {
+	VMIN(st->min, obj_min);
+	VMAX(st->max, obj_max);
+    }
+}
+
+
+int
+bv_node_bbox(const struct bv_node *node, point_t *out_min, point_t *out_max)
+{
+    struct _bbox_state st;
+
+    if (!node || !out_min || !out_max)
+	return 0;
+
+    st.have_bound = 0;
+    VSETALL(st.min,  INFINITY);
+    VSETALL(st.max, -INFINITY);
+
+    bv_node_traverse(node, _bbox_cb, &st);
+
+    if (st.have_bound) {
+	VMOVE(*out_min, st.min);
+	VMOVE(*out_max, st.max);
+    }
+    return st.have_bound;
+}
+
+
+int
+bv_scene_bbox(const struct bv_scene *scene, point_t *out_min, point_t *out_max)
+{
+    struct _bbox_state st;
+
+    if (!scene || !out_min || !out_max)
+	return 0;
+
+    st.have_bound = 0;
+    VSETALL(st.min,  INFINITY);
+    VSETALL(st.max, -INFINITY);
+
+    bv_scene_traverse(scene, _bbox_cb, &st);
+
+    if (st.have_bound) {
+	VMOVE(*out_min, st.min);
+	VMOVE(*out_max, st.max);
+    }
+    return st.have_bound;
+}
+
+
+/* ================================================================
+ * bview_autoview_new
+ *
+ * Auto-position the camera in a bview_new to fit all visible geometry.
+ * Analog of bv_autoview() for the new scene graph API.
+ * ================================================================ */
+
+int
+bview_autoview_new(struct bview_new *view, const struct bv_scene *scene, double scale_factor)
+{
+    point_t bmin, bmax;
+    vect_t  center;
+    vect_t  radial;
+    vect_t  sqrt_small;
+    double  radius;
+    double  dist;
+    struct bview_camera cam;
+
+    if (!view || !scene)
+	return 0;
+
+    /* Use same default factor as legacy bv_autoview */
+    if (scale_factor < SQRT_SMALL_FASTF)
+	scale_factor = 2.0;
+
+    VSETALL(sqrt_small, SQRT_SMALL_FASTF);
+
+    if (!bv_scene_bbox(scene, &bmin, &bmax)) {
+	/* Empty scene: nothing to fit */
+	return 0;
+    }
+
+    /* Scene center and radial extent */
+    VADD2SCALE(center, bmax, bmin, 0.5);
+    VSUB2(radial, bmax, center);
+
+    /* Protect against inverted or degenerate bbox */
+    VMAX(radial, sqrt_small);
+    if (VNEAR_ZERO(radial, SQRT_SMALL_FASTF))
+	VSETALL(radial, 1.0);
+
+    radius = radial[X];
+    V_MAX(radius, radial[Y]);
+    V_MAX(radius, radial[Z]);
+
+    /*
+     * Derive a viewing direction from the current camera state.
+     * Direction = normalize(eye - target).  If the camera has no
+     * meaningful eye/target separation (i.e. it is fresh/default), fall
+     * back to looking from +Z (front view).
+     */
+    {
+	const struct bview_camera *cur = bview_camera_get(view);
+	vect_t eye_dir;
+
+	cam = *cur;   /* copy all fields, then overwrite position + target */
+
+	VSUB2(eye_dir, cur->position, cur->target);
+	if (VNEAR_ZERO(eye_dir, SQRT_SMALL_FASTF))
+	    VSET(eye_dir, 0.0, 0.0, 1.0);
+	VUNITIZE(eye_dir);
+
+	/* Distance from target such that the scene subtends the view: */
+	dist = scale_factor * radius;
+	VJOIN1(cam.position, center, dist, eye_dir);
+	VMOVE(cam.target, center);
+    }
+
+    bview_camera_set(view, &cam);
+    return 1;
 }
 
 
