@@ -240,15 +240,24 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - MAT4X3VEC note: same as EPA — H and Au scale under RT_PARAMS_EDIT_SCALE;
   r1/r2/c scale via `r/mat[15]`. This matches MGED behaviour.
 
-### ETO — Elliptical Torus ⬜ EDIT CODE EXISTS, NO TEST
+### ETO — Elliptical Torus ✅ DONE (with test + aliasing fix)
 
 - Source: `src/librt/primitives/eto/edeto.c`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/eto.cpp`
+- **Bug fixed:** `ecmd_eto_rot_c` used `MAT4X3VEC(eto_C, mat, eto_C)` (aliasing);
+  fixed with a temporary vect_t.  MGED has the same bug.
+- Operations validated: ECMD_ETO_R, ECMD_ETO_RD, ECMD_ETO_SCALE_C,
+  ECMD_ETO_ROT_C, RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
-### HYP — Hyperboloid of One Sheet ⬜ EDIT CODE EXISTS, NO TEST
+### HYP — Hyperboloid of One Sheet ✅ DONE (with test + aliasing fix)
 
 - Source: `src/librt/primitives/hyp/edhyp.c`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/hyp.cpp`
+- **Bug fixed:** `ecmd_hyp_rot_h` used `MAT4X3VEC(hyp_Hi, mat, hyp_Hi)` (aliasing);
+  fixed with a temporary vect_t.  MGED has the same bug.
+- Note: rt_hyp_mat does NOT update hyp_bnr; it is unchanged by uniform scale/rotation.
+- Operations validated: ECMD_HYP_H, ECMD_HYP_SCALE_A, ECMD_HYP_SCALE_B,
+  ECMD_HYP_C, ECMD_HYP_ROT_H, RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
 ### RPC — Right Parabolic Cylinder ⬜ EDIT CODE EXISTS, NO TEST
 
@@ -395,20 +404,20 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
 - Updated PROGRESS.md with general principles (§ Agent Instructions).
 
 ### Session 4 (2026-03-02)
-- Wrote `src/librt/tests/edit/epa.cpp` — full EPA test coverage:
-  ECMD_EPA_H, ECMD_EPA_R1, ECMD_EPA_R2, RT_PARAMS_EDIT_SCALE/TRANS/ROT,
-  XY scale (ECMD_EPA_H), XY trans (verify-changed), XY ROT error path.
-- Wrote `src/librt/tests/edit/ehy.cpp` — full EHY test coverage:
-  ECMD_EHY_H, ECMD_EHY_R1, ECMD_EHY_R2, ECMD_EHY_C,
-  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale, XY trans (verify-changed),
-  XY ROT error path.
-- Updated `CMakeLists.txt` to add both new tests.
-- Discovered and corrected a misunderstanding of `MAT4X3VEC`: it includes
-  perspective division by `1/mat[15]`, so uniform scale (which encodes the
-  scale factor in `mat[15] = 1/s`) causes ALL vector quantities (including H)
-  to scale by s.  Updated PROGRESS.md §3 Agent Instructions to document this.
+- Wrote `src/librt/tests/edit/epa.cpp` — full EPA test coverage
+- Wrote `src/librt/tests/edit/ehy.cpp` — full EHY test coverage
+- Updated `CMakeLists.txt` for epa/ehy tests
+- Discovered and corrected understanding of `MAT4X3VEC`: it includes perspective
+  division by `1/mat[15]`, so uniform scale (mat[15]=1/s) causes ALL vector
+  quantities to scale.  Updated PROGRESS.md §3 Agent Instructions.
 - Confirmed rt_epa_mat and rt_ehy_mat are alias-safe.
 - All 5 tests pass (tor, ell, tgc, epa, ehy).
+- Fixed `ecmd_eto_rot_c` (edeto.c) and `ecmd_hyp_rot_h` (edhyp.c): same
+  MAT4X3VEC aliasing bug as TGC; fixed using temporary vect_t.
+- Wrote `src/librt/tests/edit/eto.cpp` — full ETO test coverage (including ROT_C)
+- Wrote `src/librt/tests/edit/hyp.cpp` — full HYP test coverage (including ROT_H)
+- Updated `CMakeLists.txt` for eto/hyp tests
+- All 7 tests pass (tor, ell, tgc, epa, ehy, eto, hyp).
 - Investigated TOR and ELL for the same `MAT4X3VEC` aliasing issue.
 - **Result: no aliasing bug in TOR or ELL.**
   - Both delegate rotations to `edit_srot` → `ft_mat` callback.
@@ -432,7 +441,7 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
 
 ## Suggested Next Steps
 
-1. **Add more primitive tests** — eto, hyp, rpc, rhc, part are next.
+1. **Add more primitive tests** — rpc, rhc, part, revolve are next.
    Each has relatively simple, analytically-verifiable expected values.
    **Before writing any test**, trace the expected values from MGED's
    `edsol.c` and/or use a probe program (see Agent Instructions §1).
@@ -441,7 +450,8 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
    `MAT4X3VEC(x, mat, x)` or `MAT4X3PNT(x, mat, x)` patterns (same
    pointer for output and input).  See Agent Instructions §3.
    Confirmed clean so far: TOR, ELL, TGC (fixed), TGC's `rt_tgc_mat`,
-   EPA (`rt_epa_mat`), EHY (`rt_ehy_mat`).
+   EPA (`rt_epa_mat`), EHY (`rt_ehy_mat`), ETO (`rt_eto_mat`; `ecmd_eto_rot_c` fixed),
+   HYP (`rt_hyp_mat`; `ecmd_hyp_rot_h` fixed).
 3. **Fix remaining NULL keypoints** — audit ID_REVOLVE (40), ID_PNTS (41),
    ID_HRT (43), ID_JOINT (23), ID_SUBMODEL (28).
 4. **Implement XY rotation** — validate and integrate the mgedrework
