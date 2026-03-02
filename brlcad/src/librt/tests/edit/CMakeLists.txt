@@ -11,6 +11,7 @@ brlcad_addexec(rt_edit_test_part part.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_superell superell.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_cline cline.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_extrude extrude.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_metaball metaball.cpp "librt" TEST)
 
 set(
   distcheck_files
@@ -28,6 +29,7 @@ set(
   superell.cpp
   cline.cpp
   extrude.cpp
+  metaball.cpp
 )
 
 cmakefiles(${distcheck_files})
