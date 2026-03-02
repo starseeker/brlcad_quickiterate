@@ -109,16 +109,33 @@ struct bview_new;
 /* Opaque scene graph root (conceptually similar to Coin3D's SoSeparator) */
 struct bv_scene;
 
-/* Enum for scene object types (Coin3D compatibility) */
-enum bv_scene_obj_type {
-    BV_OBJ_GROUP,
-    BV_OBJ_GEOMETRY,
-    BV_OBJ_TRANSFORM,
-    BV_OBJ_CAMERA,
-    BV_OBJ_LIGHT,
-    BV_OBJ_MATERIAL,
-    BV_OBJ_OTHER
+/*
+ * Scene graph node type enumeration, aligned with Inventor/Coin3D node types.
+ *
+ * Mapping to Inventor types:
+ *   BV_NODE_GROUP      -> SoGroup     (ordered children, propagates traversal state)
+ *   BV_NODE_SEPARATOR  -> SoSeparator (group that saves/restores traversal state,
+ *                                      providing a scoping boundary like a push/pop)
+ *   BV_NODE_GEOMETRY   -> SoShape     (leaf geometry node)
+ *   BV_NODE_TRANSFORM  -> SoTransform (matrix/translation/rotation/scale node)
+ *   BV_NODE_CAMERA     -> SoCamera    (orthographic or perspective camera)
+ *   BV_NODE_LIGHT      -> SoLight     (directional/point/spot light)
+ *   BV_NODE_MATERIAL   -> SoMaterial  (surface appearance properties)
+ *   BV_NODE_OTHER      -> (extension point for application-specific node types)
+ */
+enum bv_node_type {
+    BV_NODE_GROUP,
+    BV_NODE_SEPARATOR,
+    BV_NODE_GEOMETRY,
+    BV_NODE_TRANSFORM,
+    BV_NODE_CAMERA,
+    BV_NODE_LIGHT,
+    BV_NODE_MATERIAL,
+    BV_NODE_OTHER
 };
+
+/* Scene graph node (analogous to Coin3D's SoNode - the base unit of the scene graph) */
+struct bv_node;
 
 /* Camera object (view's active camera) */
 struct bview_camera {
@@ -172,37 +189,34 @@ struct bview_pick_set {
     /* Extensible: add selection modes, groups, etc. */
 };
 
-/* Scene object (opaque, named, typed, with user data) */
-struct bv_scene_obj;
-
 /* --- bv_scene API --- */
 
 /* Lifecycle */
 struct bv_scene *bv_scene_create(void);
 void bv_scene_destroy(struct bv_scene *scene);
 
-/* Access scene root object (SoSeparator analogy) */
-struct bv_scene_obj *bv_scene_root(const struct bv_scene *scene);
+/* Access scene root node (SoSeparator analogy: saves/restores state, scopes children) */
+struct bv_node *bv_scene_root(const struct bv_scene *scene);
 
-/* Scene object management */
-void bv_scene_add_object(struct bv_scene *scene, struct bv_scene_obj *object);
-void bv_scene_remove_object(struct bv_scene *scene, struct bv_scene_obj *object);
-const struct bu_ptbl *bv_scene_objects(const struct bv_scene *scene);
+/* Scene node management (analogous to SoGroup::addChild / removeChild) */
+void bv_scene_add_node(struct bv_scene *scene, struct bv_node *node);
+void bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node);
+const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
 
-/* Hierarchy/grouping */
-void bv_scene_add_child(struct bv_scene *scene, struct bv_scene_obj *parent, struct bv_scene_obj *child);
-void bv_scene_remove_child(struct bv_scene *scene, struct bv_scene_obj *parent, struct bv_scene_obj *child);
+/* Hierarchy/grouping (child management under a specific parent node) */
+void bv_scene_add_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
+void bv_scene_remove_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
 
-/* Scene traversal (for export/interchange, picking, etc.) */
-typedef void (*bv_scene_traverse_cb)(struct bv_scene_obj *, void *);
+/* Scene traversal (for rendering, picking, export, etc. -- analogous to SoAction traversal) */
+typedef void (*bv_scene_traverse_cb)(struct bv_node *, void *);
 void bv_scene_traverse(const struct bv_scene *scene, bv_scene_traverse_cb cb, void *user_data);
-void bv_scene_obj_traverse(const struct bv_scene_obj *object, bv_scene_traverse_cb cb, void *user_data);
+void bv_node_traverse(const struct bv_node *node, bv_scene_traverse_cb cb, void *user_data);
 
-/* Lookup scene object by name */
-struct bv_scene_obj *bv_scene_find_object(const struct bv_scene *scene, const char *name);
+/* Lookup scene node by name (analogous to SoNode::getByName) */
+struct bv_node *bv_scene_find_node(const struct bv_scene *scene, const char *name);
 
-/* Access default camera object for scene */
-struct bv_scene_obj *bv_scene_default_camera(const struct bv_scene *scene);
+/* Access default camera node for scene (analogous to SoSceneManager::getCamera) */
+struct bv_node *bv_scene_default_camera(const struct bv_scene *scene);
 
 /* --- bview_new API --- */
 
@@ -218,9 +232,9 @@ struct bv_scene *bview_scene_get(const struct bview_new *view);
 void bview_camera_set(struct bview_new *view, const struct bview_camera *camera);
 const struct bview_camera *bview_camera_get(const struct bview_new *view);
 
-/* Optionally associate a camera scene object (preparing for Coin3D mapping) */
-void bview_camera_object_set(struct bview_new *view, struct bv_scene_obj *camera_object);
-struct bv_scene_obj *bview_camera_object_get(const struct bview_new *view);
+/* Optionally associate a camera node (preparing for Coin3D mapping via SoCamera) */
+void bview_camera_node_set(struct bview_new *view, struct bv_node *camera_node);
+struct bv_node *bview_camera_node_get(const struct bview_new *view);
 
 /* Viewport */
 void bview_viewport_set(struct bview_new *view, const struct bview_viewport *viewport);
@@ -244,36 +258,51 @@ const struct bview_pick_set *bview_pick_set_get(const struct bview_new *view);
 typedef void (*bview_redraw_cb)(struct bview_new *, void *);
 void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
 
-/* --- Scene Object API --- */
+/* --- Scene Node API --- */
 
-/* Opaque scene objects -- named, typed, and with user data for app/coin3d mapping */
-struct bv_scene_obj *bv_scene_obj_create(const char *name, enum bv_scene_obj_type type);
-void bv_scene_obj_destroy(struct bv_scene_obj *object);
+/*
+ * Scene graph nodes (bv_node) are the fundamental building blocks of the
+ * BRL-CAD scene graph, directly analogous to Coin3D/Inventor's SoNode.
+ *
+ * A bv_node can represent:
+ *   - A group of children (BV_NODE_GROUP / BV_NODE_SEPARATOR)
+ *   - Geometry (BV_NODE_GEOMETRY -- analogous to SoShape)
+ *   - A transform (BV_NODE_TRANSFORM -- analogous to SoTransform)
+ *   - A camera (BV_NODE_CAMERA -- analogous to SoCamera)
+ *   - A light (BV_NODE_LIGHT -- analogous to SoLight)
+ *   - Material/appearance (BV_NODE_MATERIAL -- analogous to SoMaterial)
+ *
+ * Nodes are named (analogous to SoNode::setName/getName), typed (via
+ * bv_node_type), and may carry arbitrary user data for application-layer
+ * or future Coin3D mapping.
+ */
+struct bv_node *bv_node_create(const char *name, enum bv_node_type type);
+void bv_node_destroy(struct bv_node *node);
 
-/* Transform, geometry, material */
-void bv_scene_obj_transform_set(struct bv_scene_obj *object, const mat_t xform);
-const mat_t *bv_scene_obj_transform_get(const struct bv_scene_obj *object);
-void bv_scene_obj_geometry_set(struct bv_scene_obj *object, const void *geometry);
-void bv_scene_obj_material_set(struct bv_scene_obj *object, const struct bview_material *material);
-const struct bview_material *bv_scene_obj_material_get(const struct bv_scene_obj *object);
+/* Transform, geometry, material (analogous to SoTransform, SoShape, SoMaterial fields) */
+void bv_node_transform_set(struct bv_node *node, const mat_t xform);
+const mat_t *bv_node_transform_get(const struct bv_node *node);
+void bv_node_geometry_set(struct bv_node *node, const void *geometry);
+void bv_node_material_set(struct bv_node *node, const struct bview_material *material);
+const struct bview_material *bv_node_material_get(const struct bv_node *node);
 
-/* Hierarchy management */
-void bv_scene_obj_add_child(struct bv_scene_obj *parent, struct bv_scene_obj *child);
-void bv_scene_obj_remove_child(struct bv_scene_obj *parent, struct bv_scene_obj *child);
-const struct bu_ptbl *bv_scene_obj_children(const struct bv_scene_obj *object);
+/* Hierarchy management (analogous to SoGroup::addChild/removeChild/getChildren) */
+void bv_node_add_child(struct bv_node *parent, struct bv_node *child);
+void bv_node_remove_child(struct bv_node *parent, struct bv_node *child);
+const struct bu_ptbl *bv_node_children(const struct bv_node *node);
 
-/* Visibility */
-void bv_scene_obj_visible_set(struct bv_scene_obj *object, int visible);
-int bv_scene_obj_visible_get(const struct bv_scene_obj *object);
+/* Visibility (analogous to toggling SoSwitch or using SoNode visibility) */
+void bv_node_visible_set(struct bv_node *node, int visible);
+int bv_node_visible_get(const struct bv_node *node);
 
 /* Type, name, and user data access */
-enum bv_scene_obj_type bv_scene_obj_type_get(const struct bv_scene_obj *object);
-const char *bv_scene_obj_name_get(const struct bv_scene_obj *object);
-void bv_scene_obj_user_data_set(struct bv_scene_obj *object, void *user_data);
-void *bv_scene_obj_user_data_get(const struct bv_scene_obj *object);
+enum bv_node_type bv_node_type_get(const struct bv_node *node);
+const char *bv_node_name_get(const struct bv_node *node);
+void bv_node_user_data_set(struct bv_node *node, void *user_data);
+void *bv_node_user_data_get(const struct bv_node *node);
 
-/* Get world transform (accumulated from parent hierarchy) */
-const mat_t *bv_scene_obj_world_transform_get(const struct bv_scene_obj *object);
+/* Get world transform (accumulated from parent hierarchy -- analogous to SoGetMatrixAction) */
+const mat_t *bv_node_world_transform_get(const struct bv_node *node);
 
 /* --- LoD/update API --- */
 
