@@ -259,15 +259,21 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Operations validated: ECMD_HYP_H, ECMD_HYP_SCALE_A, ECMD_HYP_SCALE_B,
   ECMD_HYP_C, ECMD_HYP_ROT_H, RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
-### RPC — Right Parabolic Cylinder ⬜ EDIT CODE EXISTS, NO TEST
+### RPC — Right Parabolic Cylinder ✅ DONE (with test)
 
 - Source: `src/librt/primitives/rpc/edrpc.c`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/rpc.cpp`
+- No aliasing bugs (no MAT4X3VEC in edrpc.c).
+- Operations validated: ECMD_RPC_B, ECMD_RPC_H, ECMD_RPC_R,
+  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
-### RHC — Right Hyperbolic Cylinder ⬜ EDIT CODE EXISTS, NO TEST
+### RHC — Right Hyperbolic Cylinder ✅ DONE (with test)
 
 - Source: `src/librt/primitives/rhc/edrhc.c`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/rhc.cpp`
+- No aliasing bugs (no MAT4X3VEC in edrhc.c).
+- Operations validated: ECMD_RHC_B, ECMD_RHC_H, ECMD_RHC_R, ECMD_RHC_C,
+  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
 ### PART — Particle ⬜ EDIT CODE EXISTS, NO TEST
 
