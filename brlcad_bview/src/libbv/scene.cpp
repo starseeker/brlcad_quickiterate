@@ -42,6 +42,7 @@
 
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "bu/color.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
@@ -227,6 +228,15 @@ bv_node_user_data_get(const struct bv_node *node)
     if (!node)
 	return NULL;
     return node->user_data;
+}
+
+
+struct bv_node *
+bv_node_parent_get(const struct bv_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->parent;
 }
 
 
@@ -418,6 +428,15 @@ bv_scene_default_camera(const struct bv_scene *scene)
     if (!scene)
 	return NULL;
     return scene->default_camera;
+}
+
+
+void
+bv_scene_default_camera_set(struct bv_scene *scene, struct bv_node *camera)
+{
+    if (!scene)
+	return;
+    scene->default_camera = camera;
 }
 
 
@@ -675,6 +694,35 @@ bview_from_old(struct bview_new *view, const struct bview *old)
     view->viewport.width  = old->gv_width;
     view->viewport.height = old->gv_height;
     view->viewport.dpi    = BV_DEFAULT_DPI;
+
+    /* Copy display settings from bview_settings (use shared if set, else local) */
+    {
+	const struct bview_settings *s = old->gv_s ? old->gv_s : &old->gv_ls;
+
+	view->appearance.show_grid   = s->gv_grid.draw;
+	view->appearance.show_axes   = s->gv_view_axes.draw;
+	view->appearance.show_origin = s->gv_model_axes.draw;
+
+	/* Grid color: bv_axes stores int[3] in 0-255 range */
+	{
+	    unsigned char gc[3];
+	    gc[0] = (unsigned char)s->gv_grid.color[0];
+	    gc[1] = (unsigned char)s->gv_grid.color[1];
+	    gc[2] = (unsigned char)s->gv_grid.color[2];
+	    bu_color_from_rgb_chars(&view->appearance.grid_color, gc);
+	}
+
+	/* Axes color */
+	{
+	    unsigned char ac[3];
+	    ac[0] = (unsigned char)s->gv_view_axes.axes_color[0];
+	    ac[1] = (unsigned char)s->gv_view_axes.axes_color[1];
+	    ac[2] = (unsigned char)s->gv_view_axes.axes_color[2];
+	    bu_color_from_rgb_chars(&view->appearance.axes_color, ac);
+	}
+
+	view->appearance.line_width = (float)s->gv_view_axes.line_width;
+    }
 
     /* Store reference to legacy view */
     view->old_bview = (struct bview *)old;
