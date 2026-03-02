@@ -1,6 +1,8 @@
 brlcad_addexec(rt_edit_test_tor tor.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_ell ell.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_tgc tgc.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_epa epa.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_ehy ehy.cpp "librt" TEST)
 
 set(
   distcheck_files
@@ -8,6 +10,8 @@ set(
   tor.cpp
   ell.cpp
   tgc.cpp
+  epa.cpp
+  ehy.cpp
 )
 
 cmakefiles(${distcheck_files})
