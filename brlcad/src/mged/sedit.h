@@ -147,6 +147,12 @@
 #define ECMD_HYP_ROT_H		91
 #define ECMD_HYP_ROT_A		92
 
+/* librt primitive ECMD values - these match the values in the librt primitive
+ * edit source files and are also found in the generated rt/rt_ecmds.h header.
+ * Primitives migrated to use rt_edit_process() directly set these as edit_flag. */
+#define ECMD_TOR_R1	1021	/* set/scale TOR radius 1 (edtor.c) */
+#define ECMD_TOR_R2	1022	/* set/scale TOR radius 2 (edtor.c) */
+
 #define SEDIT_ROTATE (s->global_editing_state == ST_S_EDIT && \
 		      (MEDIT(s)->edit_flag == SROT || \
 		       MEDIT(s)->edit_flag == ECMD_TGC_ROT_H || \
