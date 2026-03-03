@@ -114,4 +114,24 @@ prim_edit_mouse_check cline_pe.s "Set H" H 8   2
 prim_edit_mouse_check cline_pe.s "Set R" R 4   -1
 kill cline_pe.s
 
+puts "--- NMG (non-manifold geometry: Pick Edge, Move Edge, Next EU) ---"
+# NMG uses topological editing rather than scalar parameter scaling.
+# A box is facetized into an NMG shell; M 1 0 0 picks the nearest edge at the
+# screen centre (consistently (10 0 10)<->(10 10 10) for this view), then
+# Move Edge translates that edge to pass through the given 3-D point.
+# prim_edit_nmg_check (defined in regression_resources.tcl) handles verification
+# because [db get nmg V] returns a multi-token result that requires a sourced proc.
+in nmg_box.s rpp 0 10 0 10 0 10
+facetize -n nmg_pe.s nmg_box.s
+prim_edit_nmg_check nmg_pe.s 20 5 10 20
+kill nmg_box.s
+kill nmg_pe.s
+
+puts "--- BSPLINE (b-spline surface: deprecated primitive) ---"
+# The bspline (nurb) primitive is deprecated.  The `in` and `make` commands do
+# not support creating one, sedit_vpick() is disabled (#if 0 in edbspline.c), and
+# the whole editing path has a TODO noting it should be replaced by brep NURBS.
+# No meaningful parameter editing is testable in the current framework; use brep.
+puts "  NOTE: bspline primitive is deprecated - skipped (see edbspline.c TODO)"
+
 puts "*** Primitive parameter editing testing completed ***"
