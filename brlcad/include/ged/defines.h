@@ -166,6 +166,10 @@ struct ged {
     /*************************************************************/
     /* The current view */
     struct bview		*ged_gvp;
+    /* New-API companion for ged_gvp (created alongside ged_gvp in ged_init) */
+    struct bview_new            *ged_gvnv;
+    /* Shared scene for all views associated with this ged instance */
+    struct bv_scene             *ged_scene;
     /* The full set of views associated with this ged object */
     struct bview_set            ged_views;
     /* Sometimes applications will supply GED views, and sometimes GED commands
