@@ -36,6 +36,7 @@ set(
   primitives/pipe/edpipe.c
   primitives/rhc/edrhc.c
   primitives/rpc/edrpc.c
+  primitives/sketch/edsketch.c
   primitives/superell/edsuperell.c
   primitives/tgc/edtgc.c
   primitives/tor/edtor.c
