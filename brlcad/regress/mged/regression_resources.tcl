@@ -274,4 +274,51 @@ if {![info exists make_primitives_list]} {
       }
   }
 
+  # NMG-specific edit check for prim_edit.mged
+  # NMG uses topological editing (Pick Edge + Move Edge) rather than scalar parameter
+  # scaling, so it requires a dedicated proc.  The vertex list returned by
+  # [db get $prim V] is a multi-token Tcl result that cannot be captured with `set`
+  # from the MGED command stream; it CAN be iterated with foreach inside a proc that
+  # is defined in a sourced .tcl file (this file), which is why this proc lives here.
+  #
+  # Workflow tested:
+  #   p-path:   sed -> press "Pick Edge" -> M 1 0 0 (pick nearest edge at screen
+  #             centre) -> press "Move Edge" -> p move_x move_y move_z -> accept
+  #             Verifies: first vertex X coordinate is within tolerance of expected_vx
+  #   nav-path: sed -> press "Pick Edge" -> M 1 0 0 -> press "Next EU" -> accept
+  #             Verifies: navigation completes without error (calls rt_edit_process)
+  proc prim_edit_nmg_check {prim move_x move_y move_z expected_vx} {
+      set tolerance 1.0
+      # p-path: pick edge via mouse, move to known 3-D position
+      e $prim
+      sed $prim
+      press "Pick Edge"
+      M 1 0 0
+      press "Move Edge"
+      p $move_x $move_y $move_z
+      press accept
+      d $prim
+      set found 0
+      foreach v [db get $prim V] {
+          set x [lindex $v 0]
+          if {[string is double $x] && [expr {abs($x - $expected_vx)}] < $tolerance} {
+              set found 1
+          }
+      }
+      if {$found} {
+          puts "  PASS: \[$prim\] NMG Move Edge p $move_x $move_y $move_z"
+      } else {
+          puts "  FAIL: \[$prim\] NMG Move Edge (no vertex with X near $expected_vx)"
+      }
+      # nav-path: pick edge, navigate to next edgeuse (calls rt_edit_process)
+      e $prim
+      sed $prim
+      press "Pick Edge"
+      M 1 0 0
+      press "Next EU"
+      press accept
+      d $prim
+      puts "  PASS: \[$prim\] NMG Next EU (navigation)"
+  }
+
 }
