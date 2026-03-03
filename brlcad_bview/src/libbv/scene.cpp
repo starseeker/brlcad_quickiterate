@@ -710,6 +710,53 @@ bv_scene_find_node(const struct bv_scene *scene, const char *name)
 }
 
 
+/* Callback state for find_all_nodes */
+struct _bv_scene_find_all_state {
+    const char     *name;
+    struct bu_ptbl *out;
+};
+
+static void
+_bv_scene_find_all_cb(struct bv_node *node, void *user_data)
+{
+    struct _bv_scene_find_all_state *s = (struct _bv_scene_find_all_state *)user_data;
+    if (BU_STR_EQUAL(bu_vls_cstr(&node->name), s->name))
+	bu_ptbl_ins_unique(s->out, (long *)node);
+}
+
+size_t
+bv_scene_find_all_nodes(const struct bv_scene *scene,
+                         const char *name,
+                         struct bu_ptbl *out)
+{
+    if (!scene || !name || !out)
+	return 0;
+
+    size_t before = BU_PTBL_LEN(out);
+    struct _bv_scene_find_all_state st;
+    st.name = name;
+    st.out  = out;
+    bv_scene_traverse(scene, _bv_scene_find_all_cb, &st);
+    return BU_PTBL_LEN(out) - before;
+}
+
+
+int
+bv_node_is_descendant(const struct bv_node *candidate,
+                       const struct bv_node *ancestor)
+{
+    if (!candidate || !ancestor)
+	return 0;
+    const struct bv_node *cur = candidate;
+    while (cur) {
+	if (cur == ancestor)
+	    return 1;
+	cur = cur->parent;
+    }
+    return 0;
+}
+
+
 struct bv_node *
 bv_scene_default_camera(const struct bv_scene *scene)
 {

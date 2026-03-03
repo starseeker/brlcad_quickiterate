@@ -241,6 +241,29 @@ BV_EXPORT void bv_node_traverse(const struct bv_node *node, bv_scene_traverse_cb
 /* Lookup scene node by name (analogous to SoNode::getByName) */
 BV_EXPORT struct bv_node *bv_scene_find_node(const struct bv_scene *scene, const char *name);
 
+/*
+ * Collect all nodes whose name exactly matches `name` into the caller-provided
+ * `bu_ptbl` (which must already be initialised).
+ *
+ * Returns the number of matching nodes found (0 if none, scene is NULL, or
+ * name is NULL).  Duplicate pointers are not inserted; each matching node
+ * appears at most once in `out`.
+ */
+BV_EXPORT size_t bv_scene_find_all_nodes(const struct bv_scene *scene,
+                                          const char *name,
+                                          struct bu_ptbl *out);
+
+/*
+ * Test whether `candidate` is `ancestor` itself or a descendant of it in the
+ * node hierarchy (i.e., whether following parent pointers from `candidate`
+ * eventually reaches `ancestor`).
+ *
+ * Returns 1 (true) or 0 (false).  Also returns 0 if either argument is NULL.
+ * A node is considered its own ancestor (candidate == ancestor returns 1).
+ */
+BV_EXPORT int bv_node_is_descendant(const struct bv_node *candidate,
+                                     const struct bv_node *ancestor);
+
 /* Access default camera node for scene (analogous to SoSceneManager::getCamera) */
 BV_EXPORT struct bv_node *bv_scene_default_camera(const struct bv_scene *scene);
 
