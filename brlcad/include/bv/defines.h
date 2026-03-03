@@ -765,6 +765,15 @@ BV_EXPORT void bview_to_old(const struct bview_new *view, struct bview *old);
 BV_EXPORT struct bview *bview_old_get(const struct bview_new *view);
 
 /*
+ * Retrieve the new-API companion (bview_new *) for a legacy struct bview,
+ * if one has been established via bview_companion_create() or bv_init().
+ * Returns NULL if no companion exists yet.
+ *
+ * This is the inverse of bview_old_get().
+ */
+BV_EXPORT struct bview_new *bview_get_new(const struct bview *old);
+
+/*
  * Associate a legacy struct bview pointer with this bview_new without
  * performing a full copy of the camera/appearance fields.
  *
@@ -1554,6 +1563,10 @@ struct bview {
     struct bu_ptbl *callbacks;
     void           *dmp;             /* Display manager pointer, if one is associated with this view */
     void           *u_data;          /* Caller data associated with this view */
+
+    /* Pointer to the new-API companion view, if one has been created via
+     * bview_companion_create().  NULL until a companion is established. */
+    struct bview_new *gv_nv;
 };
 
 // Because bview instances frequently share objects in applications, they are

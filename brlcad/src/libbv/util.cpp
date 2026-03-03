@@ -192,6 +192,7 @@ bv_init(struct bview *gvp, struct bview_set *s)
 
     gvp->magic = BV_MAGIC;
     gvp->vset = s;
+    gvp->gv_nv = NULL;   /* companion set later via bview_companion_create() */
 
     if (!BU_VLS_IS_INITIALIZED(&gvp->gv_name)) {
 	bu_vls_init(&gvp->gv_name);
@@ -328,6 +329,10 @@ bv_init(struct bview *gvp, struct bview_set *s)
     _data_tclcad_init(&gvp->gv_tcl);
 
     bv_update(gvp);
+
+    /* gv_nv is NULL until the caller explicitly creates a companion via
+     * bview_companion_create().  Zero-initialize to be safe. */
+    gvp->gv_nv = NULL;
 }
 
 void
@@ -371,6 +376,12 @@ bv_free(struct bview *gvp)
     if (gvp->callbacks) {
 	bu_ptbl_free(gvp->callbacks);
 	BU_PUT(gvp->callbacks, struct bu_ptbl);
+    }
+
+    /* Free the companion new-API view if we created it */
+    if (gvp->gv_nv) {
+	bview_destroy(gvp->gv_nv);
+	gvp->gv_nv = NULL;
     }
 }
 

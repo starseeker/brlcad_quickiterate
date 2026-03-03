@@ -965,6 +965,11 @@ bview_destroy(struct bview_new *view)
     if (!view)
 	return;
 
+    /* Clear the back-pointer on the companion legacy view so bv_free()
+     * does not attempt a double-free of this bview_new. */
+    if (view->old_bview)
+	view->old_bview->gv_nv = NULL;
+
     /* Remove this view from the scene's tracking list before freeing */
     if (view->scene)
 	bu_ptbl_rm(&view->scene->views, (long *)view);
@@ -1365,6 +1370,15 @@ bview_old_get(const struct bview_new *view)
 }
 
 
+struct bview_new *
+bview_get_new(const struct bview *old)
+{
+    if (!old)
+	return NULL;
+    return old->gv_nv;
+}
+
+
 void
 bview_old_set(struct bview_new *view, struct bview *old)
 {
@@ -1393,6 +1407,9 @@ bview_companion_create(const char *name, struct bview *old)
 
     bview_from_old(nv, old);
     bview_old_set(nv, old);
+
+    /* Wire the back-pointer so gvp->gv_nv == nv from this point on */
+    old->gv_nv = nv;
 
     return nv;
 }
