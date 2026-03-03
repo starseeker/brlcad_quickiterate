@@ -227,16 +227,23 @@ struct leaf_info_t {
 
 
 /*
- * Compute the path hash for a node reached by appending child_dp to the
- * path whose hash is parent_hash.  Uses bu_data_hash128 (XXH3-128) to
- * combine the two inputs into a 128-bit fingerprint.
+ * Compute the 128-bit path fingerprint for a node reached by appending
+ * child_dp to the path whose fingerprint is parent_hash.
  *
- * Collision probability follows the birthday bound: for N distinct paths the
- * probability of any collision is approximately N^2 / 2^129 – effectively
- * zero for any realistic model size.  A collision would cause a
- * false-positive -below result.
+ * bu_data_hash128 (XXH3-128) combines the two inputs into a fresh 128-bit
+ * fingerprint.  Two different paths produce the same fingerprint only with
+ * probability N^2 / 2^129 (birthday bound), where N is the number of distinct
+ * paths evaluated.  A fingerprint collision would cause a false-positive
+ * -below result (a correctness bug), so this collision probability governs
+ * the correctness guarantee of the BFS cache.
  *
- * parent_hash == {0,0} is the sentinel for a root-level node (no parent).
+ * Note: the std::hash bucket function used by the unordered_set folds this
+ * fingerprint to 64 bits for placement.  That increases *bucket* collision
+ * probability to ~N^2 / 2^65, but bucket collisions only degrade performance
+ * (an extra operator== comparison) – identity is always confirmed by checking
+ * all 128 bits.  See bu/hash_cxx.h for the full two-level collision model.
+ *
+ * parent_hash == BELOW_PATH_HASH_ROOT is the sentinel for a root-level node.
  */
 static inline bu_h128_t
 below_path_hash_extend(bu_h128_t parent_hash, struct directory *child_dp)
@@ -748,9 +755,13 @@ find_execute_nested_plans(struct db_i *dbip, struct bu_ptbl *results, struct db_
  *   below_passes(C) = below_passes(parent(C))  [cache hit: same ancestor applies]
  *                   OR inner(parent(C))          [parent itself satisfies expr]
  *
- * Cache keys are 64-bit incremental pointer hashes (computed in the BFS work
- * queue), so no string allocation is needed.  This reduces the total cost for
- * a linear chain of depth D from O(D²) inner-plan evaluations to O(D).
+ * Cache keys are 128-bit incremental path fingerprints (bu_h128_t, computed
+ * in the BFS work queue via below_path_hash_extend).  Identity is determined
+ * by all 128 bits (operator==), giving a correctness-collision probability of
+ * N^2 / 2^129; the std::hash bucket function folds to 64 bits for placement
+ * only (see bu/hash_cxx.h for the two-level collision model).  No string
+ * allocation is needed.  This reduces the total cost for a linear chain of
+ * depth D from O(D^2) inner-plan evaluations to O(D).
  * The cache is only active during BFS traversal with an unbounded max_depth
  * (the normal case for -below); other modes fall back to the original
  * ancestor-walk.

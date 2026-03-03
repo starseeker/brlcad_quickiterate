@@ -26,6 +26,37 @@
  * use bu_h128_t as a key in std::unordered_map or std::unordered_set should
  * include this header (directly or via a C++ wrapper).
  *
+ * **Two-level collision model**
+ *
+ * An unordered container uses its hasher in two completely separate steps:
+ *
+ *  1. Bucket placement (std::hash<bu_h128_t>) – maps a key to one of N
+ *     buckets.  Multiple distinct keys can land in the same bucket; the
+ *     container resolves them with a linear scan using operator==.  A
+ *     bucket collision costs a little extra time but never produces a wrong
+ *     answer.
+ *
+ *  2. Identity / equality test (operator==) – determines whether two keys
+ *     are the same object.  This is where a false match would be a
+ *     correctness bug (e.g., the -below cache treating two different paths
+ *     as identical).
+ *
+ * std::hash<bu_h128_t> folds the 128-bit fingerprint down to std::size_t
+ * (typically 64 bits), so bucket-placement collision probability is back up
+ * near N^2 / 2^65 – that is the expected answer to "doesn't folding down
+ * bump our chances back up?": yes, for bucket placement.  But operator==
+ * still compares all 128 bits, so identity collision probability remains
+ * N^2 / 2^129.  The worst a bucket collision can do is slow a single lookup
+ * from O(1) amortised to O(chain-length); it cannot produce a wrong result.
+ *
+ * This is also why a plain folded 64-bit value cannot replace bu_h128_t as
+ * the fingerprint: if the fingerprint itself were only 64 bits, two
+ * different paths with the same 64-bit hash would be treated as identical by
+ * operator== (correctness bug at N^2 / 2^65).  The whole point of the
+ * 128-bit type is that identity comparison uses the full width, while the
+ * std::hash bucket function is free to compress to whatever size the
+ * container needs.
+ *
  * Example:
  * @code
  *   #include "bu/hash_cxx.h"
@@ -48,8 +79,12 @@
 #include <functional>
 
 /**
- * Equality comparison for bu_h128_t.
- * Required by std::unordered_map / std::unordered_set key operations.
+ * Identity equality for bu_h128_t.
+ *
+ * Compares all 128 bits.  This is the correctness gate used by
+ * std::unordered_map / std::unordered_set after a bucket lookup: two keys
+ * are the same if and only if both 64-bit words match.  The collision
+ * probability at this level is N^2 / 2^129 (see file-level comment).
  */
 inline bool operator==(const bu_h128_t &a, const bu_h128_t &b)
 {
@@ -58,12 +93,21 @@ inline bool operator==(const bu_h128_t &a, const bu_h128_t &b)
 
 namespace std {
     /**
-     * std::hash specialization for bu_h128_t.
+     * Bucket-placement hasher for bu_h128_t (performance only, not identity).
      *
-     * Reduces the 128-bit fingerprint to a single std::size_t bucket index.
-     * Both halves already have excellent distribution from XXH3-128; XOR-
-     * folding them gives a compact result that distinguishes keys differing
-     * in either half.
+     * This function maps a 128-bit fingerprint to a single std::size_t bucket
+     * index.  It is used exclusively for bucket selection; the container
+     * resolves actual equality with operator== (above), which inspects all
+     * 128 bits.
+     *
+     * Folding to std::size_t increases *bucket* collision probability back to
+     * roughly N^2 / 2^65 on 64-bit platforms – that is intentional and
+     * harmless: a bucket collision only lengthens one chain by one node, it
+     * never causes a false identity match.  See the file-level comment for
+     * a full explanation of the two-level collision model.
+     *
+     * Implementation: XOR the two 64-bit halves (both have XXH3's excellent
+     * avalanche properties), then fold to size_t width for 32-bit platforms.
      */
     template<>
     struct hash<bu_h128_t> {

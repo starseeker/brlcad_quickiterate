@@ -214,22 +214,24 @@ bu_data_hash_val(struct bu_data_hash_state *s);
 /***************************************************************************
  * Strong 128-bit fingerprint API.
  *
- * Uses XXH3-128, whose birthday-bound collision probability is N^2 / 2^129 –
- * effectively zero for any realistic number of distinct inputs.  Compared to
- * bu_data_hash (64-bit), the output is twice as wide, eliminating any
- * practical collision risk even for very large models or long-running
- * programs.
+ * Uses XXH3-128, whose birthday-bound identity-collision probability is
+ * N^2 / 2^129 – effectively zero for any realistic number of distinct inputs.
+ * Compared to bu_data_hash (64-bit), the output is twice as wide so that the
+ * fingerprint itself can be stored and compared without folding.
  *
  * The result type bu_h128_t is a plain C struct (two uint64_t words) that is
  * ABI-stable and can be stored, compared, and copied with ordinary C code.
+ *
  * C++ callers that need to use bu_h128_t as a key in std::unordered_map or
  * std::unordered_set should also include <bu/hash_cxx.h>, which provides
- * operator== and std::hash<bu_h128_t> without contaminating C translation
- * units with C++ system headers.
+ * operator== (all 128 bits) and std::hash<bu_h128_t> (folds to size_t for
+ * bucket placement only).  Those two roles are intentionally separate:
+ * operator== provides correctness at N^2 / 2^129; std::hash's fold affects
+ * bucket-placement performance only.  See bu/hash_cxx.h for the full
+ * two-level collision model.
  *
- * As with bu_data_hash, the underlying algorithm is deliberately not part of
- * the public contract – callers must not assume the numeric values produced
- * are stable across BRL-CAD versions.
+ * The underlying algorithm is deliberately not part of the public contract –
+ * callers must not assume the numeric values are stable across BRL-CAD versions.
  **************************************************************************/
 
 /**
