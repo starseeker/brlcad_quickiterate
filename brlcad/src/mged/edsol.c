@@ -175,6 +175,38 @@ int es_menu;		/* item selected from menu */
 		    MEDIT(s)->edit_flag == PSCALE || \
 		    MEDIT(s)->edit_flag == ECMD_TOR_R1 || \
 		    MEDIT(s)->edit_flag == ECMD_TOR_R2 || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_ABC || \
+		    MEDIT(s)->edit_flag == ECMD_PART_H || \
+		    MEDIT(s)->edit_flag == ECMD_PART_VRAD || \
+		    MEDIT(s)->edit_flag == ECMD_PART_HRAD || \
+		    MEDIT(s)->edit_flag == ECMD_RPC_B || \
+		    MEDIT(s)->edit_flag == ECMD_RPC_H || \
+		    MEDIT(s)->edit_flag == ECMD_RPC_R || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_B || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_H || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_R || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_C || \
+		    MEDIT(s)->edit_flag == ECMD_EPA_H || \
+		    MEDIT(s)->edit_flag == ECMD_EPA_R1 || \
+		    MEDIT(s)->edit_flag == ECMD_EPA_R2 || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_H || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_R1 || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_R2 || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_C || \
+		    MEDIT(s)->edit_flag == ECMD_ETO_R || \
+		    MEDIT(s)->edit_flag == ECMD_ETO_RD || \
+		    MEDIT(s)->edit_flag == ECMD_ETO_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_H || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_C || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_ABC || \
 		    MEDIT(s)->edit_flag == ECMD_BOT_THICK || \
 		    MEDIT(s)->edit_flag == ECMD_VOL_THRESH_LO || \
 		    MEDIT(s)->edit_flag == ECMD_VOL_THRESH_HI || \
@@ -2504,6 +2536,46 @@ sedit(struct mged_state *s)
 	/* --- TOR: delegate to librt rt_edit_process() --- */
 	case ECMD_TOR_R1:
 	case ECMD_TOR_R2:
+	/* --- ELL/SUPERELL: delegate to librt rt_edit_process() --- */
+	case ECMD_ELL_SCALE_A:
+	case ECMD_ELL_SCALE_B:
+	case ECMD_ELL_SCALE_C:
+	case ECMD_ELL_SCALE_ABC:
+	case ECMD_SUPERELL_SCALE_A:
+	case ECMD_SUPERELL_SCALE_B:
+	case ECMD_SUPERELL_SCALE_C:
+	case ECMD_SUPERELL_SCALE_ABC:
+	/* --- PART: delegate to librt rt_edit_process() --- */
+	case ECMD_PART_H:
+	case ECMD_PART_VRAD:
+	case ECMD_PART_HRAD:
+	/* --- RPC: delegate to librt rt_edit_process() --- */
+	case ECMD_RPC_B:
+	case ECMD_RPC_H:
+	case ECMD_RPC_R:
+	/* --- RHC: delegate to librt rt_edit_process() --- */
+	case ECMD_RHC_B:
+	case ECMD_RHC_H:
+	case ECMD_RHC_R:
+	case ECMD_RHC_C:
+	/* --- EPA: delegate to librt rt_edit_process() --- */
+	case ECMD_EPA_H:
+	case ECMD_EPA_R1:
+	case ECMD_EPA_R2:
+	/* --- EHY: delegate to librt rt_edit_process() --- */
+	case ECMD_EHY_H:
+	case ECMD_EHY_R1:
+	case ECMD_EHY_R2:
+	case ECMD_EHY_C:
+	/* --- ETO scale: delegate to librt rt_edit_process() --- */
+	case ECMD_ETO_R:
+	case ECMD_ETO_RD:
+	case ECMD_ETO_SCALE_C:
+	/* --- HYP scale: delegate to librt rt_edit_process() --- */
+	case ECMD_HYP_H:
+	case ECMD_HYP_SCALE_A:
+	case ECMD_HYP_SCALE_B:
+	case ECMD_HYP_C:
 	    /* rt_edit_process handles the geometry, keypoint refresh,
 	     * set_e_axes_pos, replot_editing_solid and view update
 	     * via registered MGED callbacks.  Return early to skip
@@ -5303,6 +5375,38 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 	case PSCALE:
 	case ECMD_TOR_R1:
 	case ECMD_TOR_R2:
+	case ECMD_ELL_SCALE_A:
+	case ECMD_ELL_SCALE_B:
+	case ECMD_ELL_SCALE_C:
+	case ECMD_ELL_SCALE_ABC:
+	case ECMD_SUPERELL_SCALE_A:
+	case ECMD_SUPERELL_SCALE_B:
+	case ECMD_SUPERELL_SCALE_C:
+	case ECMD_SUPERELL_SCALE_ABC:
+	case ECMD_PART_H:
+	case ECMD_PART_VRAD:
+	case ECMD_PART_HRAD:
+	case ECMD_RPC_B:
+	case ECMD_RPC_H:
+	case ECMD_RPC_R:
+	case ECMD_RHC_B:
+	case ECMD_RHC_H:
+	case ECMD_RHC_R:
+	case ECMD_RHC_C:
+	case ECMD_EPA_H:
+	case ECMD_EPA_R1:
+	case ECMD_EPA_R2:
+	case ECMD_EHY_H:
+	case ECMD_EHY_R1:
+	case ECMD_EHY_R2:
+	case ECMD_EHY_C:
+	case ECMD_ETO_R:
+	case ECMD_ETO_RD:
+	case ECMD_ETO_SCALE_C:
+	case ECMD_HYP_H:
+	case ECMD_HYP_SCALE_A:
+	case ECMD_HYP_SCALE_B:
+	case ECMD_HYP_C:
 	case ECMD_DSP_SCALE_X:
 	case ECMD_DSP_SCALE_Y:
 	case ECMD_DSP_SCALE_ALT:
