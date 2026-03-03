@@ -474,6 +474,15 @@ BV_EXPORT const struct bu_ptbl *bv_node_children(const struct bv_node *node);
  * on the ptbl pointer.  Returns 0 if node is NULL.
  */
 BV_EXPORT size_t bv_node_child_count(const struct bv_node *node);
+/*
+ * Remove node from its parent (if it has one) without destroying it.
+ *
+ * After this call, bv_node_parent_get(node) == NULL.  The node is still alive
+ * and may be added to another parent or used as a new top-level scene node.
+ *
+ * No-op if node is NULL or already detached (has no parent).
+ */
+BV_EXPORT void bv_node_detach(struct bv_node *node);
 
 /* Visibility (analogous to toggling SoSwitch or using SoNode visibility) */
 BV_EXPORT void bv_node_visible_set(struct bv_node *node, int visible);

@@ -210,6 +210,15 @@ bv_node_child_count(const struct bv_node *node)
 
 
 void
+bv_node_detach(struct bv_node *node)
+{
+    if (!node || !node->parent)
+	return;
+    bv_node_remove_child(node->parent, node);
+}
+
+
+void
 bv_node_visible_set(struct bv_node *node, int visible)
 {
     if (!node)
