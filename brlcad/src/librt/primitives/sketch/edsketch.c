@@ -440,7 +440,7 @@ ecmd_sketch_append_arc(struct rt_edit *s)
     cs->radius         = s->e_para[2] * s->local2base;
     cs->center_is_left = 0;  /* default: center to right of start→end */
     cs->orientation    = 0;  /* default: ccw */
-    cs->center         = -1; /* computed by rt_extrude_prep */
+    cs->center         = -1; /* computed during sketch tessellation */
 
     size_t old_count = skt->curve.count;
     skt->curve.count++;
