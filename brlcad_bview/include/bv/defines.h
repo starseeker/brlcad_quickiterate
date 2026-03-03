@@ -283,6 +283,21 @@ BV_EXPORT size_t bv_scene_find_all_nodes(const struct bv_scene *scene,
                                           struct bu_ptbl *out);
 
 /*
+ * Collect all nodes of a specific type into the caller-provided `bu_ptbl`
+ * (which must already be initialised with BU_PTBL_INIT).
+ *
+ * Visits all nodes in the scene (including nested children) and appends those
+ * whose bv_node_type_get() equals `type`.  Separator nodes are still visited
+ * and included if their type matches.
+ *
+ * Returns the number of matching nodes added; returns 0 if scene or out is
+ * NULL.
+ */
+BV_EXPORT size_t bv_scene_nodes_of_type(const struct bv_scene *scene,
+                                         enum bv_node_type type,
+                                         struct bu_ptbl *out);
+
+/*
  * Test whether `candidate` is `ancestor` itself or a descendant of it in the
  * node hierarchy (i.e., whether following parent pointers from `candidate`
  * eventually reaches `ancestor`).

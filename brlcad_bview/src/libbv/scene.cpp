@@ -847,6 +847,43 @@ bv_scene_find_all_nodes(const struct bv_scene *scene,
 }
 
 
+/* Callback state for bv_scene_nodes_of_type */
+struct _type_collect_state {
+    enum bv_node_type  type;
+    struct bu_ptbl    *out;
+    size_t             count;
+};
+
+static void
+_type_collect_cb(struct bv_node *node, void *user_data)
+{
+    struct _type_collect_state *st = (struct _type_collect_state *)user_data;
+    if (!node || !st)
+	return;
+    if (node->type == st->type) {
+	bu_ptbl_ins_unique(st->out, (long *)node);
+	st->count++;
+    }
+}
+
+size_t
+bv_scene_nodes_of_type(const struct bv_scene *scene,
+                        enum bv_node_type type,
+                        struct bu_ptbl *out)
+{
+    if (!scene || !out)
+	return 0;
+
+    struct _type_collect_state st;
+    st.type  = type;
+    st.out   = out;
+    st.count = 0;
+
+    bv_scene_traverse(scene, _type_collect_cb, &st);
+    return st.count;
+}
+
+
 int
 bv_node_is_descendant(const struct bv_node *candidate,
                        const struct bv_node *ancestor)
