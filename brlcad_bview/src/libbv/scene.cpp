@@ -218,6 +218,20 @@ bv_node_detach(struct bv_node *node)
 }
 
 
+size_t
+bv_node_subtree_size(const struct bv_node *node)
+{
+    if (!node)
+	return 0;
+    size_t count = 1;
+    for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	const struct bv_node *ch = (const struct bv_node *)BU_PTBL_GET(&node->children, i);
+	count += bv_node_subtree_size(ch);
+    }
+    return count;
+}
+
+
 void
 bv_node_visible_set(struct bv_node *node, int visible)
 {
@@ -651,6 +665,17 @@ bv_scene_has_node(const struct bv_scene *scene, const struct bv_node *node)
 	return 0;
     /* bu_ptbl_locate returns -1 if not found, >= 0 if found */
     return (bu_ptbl_locate(&scene->nodes, (long *)node) >= 0) ? 1 : 0;
+}
+
+
+size_t
+bv_scene_total_node_count(const struct bv_scene *scene)
+{
+    if (!scene)
+	return 0;
+    /* scene->nodes is the flat lookup table that contains ALL registered nodes
+     * (top-level AND nested children added via bv_scene_add_child). */
+    return BU_PTBL_LEN(&scene->nodes);
 }
 
 

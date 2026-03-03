@@ -222,6 +222,13 @@ BV_EXPORT const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
  */
 BV_EXPORT size_t bv_scene_node_count(const struct bv_scene *scene);
 /*
+ * Return the total number of nodes registered in the scene's flat lookup
+ * table, including top-level nodes AND all nested children.
+ * This is the sum that bv_scene_traverse visits.
+ * Returns 0 if scene is NULL.
+ */
+BV_EXPORT size_t bv_scene_total_node_count(const struct bv_scene *scene);
+/*
  * Return 1 if node is registered in scene (i.e., appears in the flat nodes
  * list), 0 otherwise.  Returns 0 if either argument is NULL.
  */
@@ -483,6 +490,12 @@ BV_EXPORT size_t bv_node_child_count(const struct bv_node *node);
  * No-op if node is NULL or already detached (has no parent).
  */
 BV_EXPORT void bv_node_detach(struct bv_node *node);
+
+/*
+ * Return the total number of nodes in the subtree rooted at node, including
+ * node itself.  Returns 1 for a leaf, 0 if node is NULL.
+ */
+BV_EXPORT size_t bv_node_subtree_size(const struct bv_node *node);
 
 /* Visibility (analogous to toggling SoSwitch or using SoNode visibility) */
 BV_EXPORT void bv_node_visible_set(struct bv_node *node, int visible);
