@@ -125,6 +125,12 @@ ged_init(struct ged *gedp)
     bv_viewset_add(&gedp->ged_views, gedp->ged_gvp);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)gedp->ged_gvp);
 
+    /* Establish the new-API scene and companion view */
+    gedp->ged_scene = bv_scene_create();
+    gedp->ged_gvnv = bview_companion_create("default", gedp->ged_gvp);
+    if (gedp->ged_gvnv)
+	bview_scene_set(gedp->ged_gvnv, gedp->ged_scene);
+
     /* Create a non-opened fbserv */
     BU_GET(gedp->ged_fbs, struct fbserv_obj);
     gedp->ged_fbs->fbs_listener.fbsl_fd = -1;
@@ -202,6 +208,15 @@ ged_free(struct ged *gedp)
     bu_vls_free(&gedp->go_name);
 
     gedp->ged_gvp = NULL;
+
+    /* Clean up the new-API scene.  bv_free() (called below for each view)
+     * already destroys the companion bview_new via gv_nv, so we only need
+     * to destroy the scene itself. */
+    if (gedp->ged_scene) {
+	bv_scene_destroy(gedp->ged_scene);
+	gedp->ged_scene = NULL;
+    }
+    gedp->ged_gvnv = NULL;   /* owned by gvp->gv_nv; freed by bv_free above */
 
     for (size_t i = 0; i < BU_PTBL_LEN(&gedp->ged_free_views); i++) {
 	struct bview *gdvp = (struct bview *)BU_PTBL_GET(&gedp->ged_free_views, i);
