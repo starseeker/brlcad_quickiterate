@@ -152,6 +152,38 @@
  * Primitives migrated to use rt_edit_process() directly set these as edit_flag. */
 #define ECMD_TOR_R1	1021	/* set/scale TOR radius 1 (edtor.c) */
 #define ECMD_TOR_R2	1022	/* set/scale TOR radius 2 (edtor.c) */
+#define ECMD_ELL_SCALE_A	3039	/* scale ELL semiaxis A (edell.c) */
+#define ECMD_ELL_SCALE_B	3040	/* scale ELL semiaxis B (edell.c) */
+#define ECMD_ELL_SCALE_C	3041	/* scale ELL semiaxis C (edell.c) */
+#define ECMD_ELL_SCALE_ABC	3042	/* scale ELL A,B,C uniformly (edell.c) */
+#define ECMD_PART_H		16088	/* scale PART height (edpart.c) */
+#define ECMD_PART_VRAD		16089	/* scale PART vertex radius (edpart.c) */
+#define ECMD_PART_HRAD		16090	/* scale PART height-end radius (edpart.c) */
+#define ECMD_RPC_B		17043	/* scale RPC breadth B (edrpc.c) */
+#define ECMD_RPC_H		17044	/* scale RPC height H (edrpc.c) */
+#define ECMD_RPC_R		17045	/* scale RPC half-width r (edrpc.c) */
+#define ECMD_RHC_B		18046	/* scale RHC breadth B (edrhc.c) */
+#define ECMD_RHC_H		18047	/* scale RHC height H (edrhc.c) */
+#define ECMD_RHC_R		18048	/* scale RHC half-width r (edrhc.c) */
+#define ECMD_RHC_C		18049	/* scale RHC dist-to-asymptotes c (edrhc.c) */
+#define ECMD_EPA_H		19050	/* scale EPA height H (edepa.c) */
+#define ECMD_EPA_R1		19051	/* scale EPA semi-major axis r1 (edepa.c) */
+#define ECMD_EPA_R2		19052	/* scale EPA semi-minor axis r2 (edepa.c) */
+#define ECMD_EHY_H		20053	/* scale EHY height H (edehy.c) */
+#define ECMD_EHY_R1		20054	/* scale EHY semi-major axis r1 (edehy.c) */
+#define ECMD_EHY_R2		20055	/* scale EHY semi-minor axis r2 (edehy.c) */
+#define ECMD_EHY_C		20056	/* scale EHY dist-to-asymptotes c (edehy.c) */
+#define ECMD_ETO_R		21057	/* scale ETO major radius r (edeto.c) */
+#define ECMD_ETO_RD		21058	/* scale ETO minor radius rd (edeto.c) */
+#define ECMD_ETO_SCALE_C	21059	/* scale ETO semi-minor axis C (edeto.c) */
+#define ECMD_HYP_H		38127	/* scale HYP height H (edhyp.c) */
+#define ECMD_HYP_SCALE_A	38128	/* scale HYP semi-major axis A (edhyp.c) */
+#define ECMD_HYP_SCALE_B	38129	/* scale HYP semi-minor axis B (edhyp.c) */
+#define ECMD_HYP_C		38130	/* scale HYP neck parameter c (edhyp.c) */
+#define ECMD_SUPERELL_SCALE_A	35113	/* scale SUPERELL semiaxis A (edsuperell.c) */
+#define ECMD_SUPERELL_SCALE_B	35114	/* scale SUPERELL semiaxis B (edsuperell.c) */
+#define ECMD_SUPERELL_SCALE_C	35115	/* scale SUPERELL semiaxis C (edsuperell.c) */
+#define ECMD_SUPERELL_SCALE_ABC	35116	/* scale SUPERELL A,B,C uniformly (edsuperell.c) */
 
 #define SEDIT_ROTATE (s->global_editing_state == ST_S_EDIT && \
 		      (MEDIT(s)->edit_flag == SROT || \
