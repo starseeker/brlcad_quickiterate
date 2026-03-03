@@ -235,4 +235,43 @@ if {![info exists make_primitives_list]} {
       }
   }
 
+  # Mouse-simulation helper for prim_edit.mged
+  # Tests the graphical sedit_mouse path: M command simulates mouse Y-axis drag
+  # which calls sedit_mouse() -> sedit() -> rt_edit_process() -> DM callbacks.
+  # At M 1 0 2047 (max Y), mousevec[Y] = 2047*INV_BV ≈ 0.9995, so
+  # es_scale = 1 + 0.25*0.9995 = ~1.2499 (scale up ~25%).
+  # Checks that: (a) value changed, and (b) new value ≈ init_val * MOUSE_SCALE_UP.
+  # idx: component index for vector attributes (-1 for scalar, 0/1/2 for x/y/z)
+  proc prim_edit_mouse_check {prim menu_item attr_name init_val idx} {
+      set tolerance    0.01
+      set MOUSE_SCALE_UP 1.24987793
+      e $prim
+      sed $prim
+      press $menu_item
+      M 1 0 2047
+      press accept
+      d $prim
+      if {$idx >= 0} {
+          set raw [db get $prim $attr_name]
+          if {[llength $raw] <= $idx} {
+              puts "  FAIL: \[$prim\] $menu_item mouse  ($attr_name list too short: $raw)"
+              return
+          }
+          set got [lindex $raw $idx]
+      } else {
+          set got [db get $prim $attr_name]
+      }
+      if {![string is double -strict $got]} {
+          puts "  FAIL: \[$prim\] $menu_item mouse  ($attr_name non-numeric: $got)"
+          return
+      }
+      set expected [expr {$init_val * $MOUSE_SCALE_UP}]
+      set rel_diff [expr {abs($got - $expected) / $expected}]
+      if {$rel_diff < $tolerance} {
+          puts "  PASS: \[$prim\] $menu_item (mouse M=2047, got=[format %.4f $got])"
+      } else {
+          puts "  FAIL: \[$prim\] $menu_item mouse  (expected≈[format %.4f $expected], got=[format %.4f $got])"
+      }
+  }
+
 }
