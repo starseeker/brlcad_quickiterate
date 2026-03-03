@@ -3326,6 +3326,152 @@ test_bview_companion_create_independent(void)
 }
 
 
+/* ================================================================
+ * Phase 2 helper tests — bv_scene_insert_obj, bview_insert_obj,
+ * bv_scene_find_obj
+ * ================================================================ */
+
+static int
+test_bv_scene_insert_obj_null(void)
+{
+    /* NULL arguments must be handled gracefully */
+    struct bv_node *n;
+
+    n = bv_scene_insert_obj(NULL, NULL);
+    CHECK(n == NULL, "insert_obj(NULL, NULL) returns NULL");
+
+    {
+	struct bv_scene *scene = bv_scene_create();
+	n = bv_scene_insert_obj(scene, NULL);
+	CHECK(n == NULL, "insert_obj(scene, NULL) returns NULL");
+	bv_scene_destroy(scene);
+    }
+    return 1;
+}
+
+static int
+test_bv_scene_insert_obj_basic(void)
+{
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene  *scene;
+    struct bv_node   *n;
+    const struct bu_ptbl *nodes;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) { bv_free(&v); bv_set_free(&vset); return 0; }
+
+    /* Create a legacy bv_scene_obj using the bv helper */
+    struct bv_scene_obj *obj = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(obj != NULL, "bv_obj_get returned non-NULL");
+    if (!obj) {
+	bv_scene_destroy(scene);
+	bv_free(&v); bv_set_free(&vset);
+	return 0;
+    }
+
+    nodes = bv_scene_nodes(scene);
+    size_t before = nodes ? BU_PTBL_LEN(nodes) : 0;
+    n = bv_scene_insert_obj(scene, obj);
+    nodes = bv_scene_nodes(scene);
+    size_t after = nodes ? BU_PTBL_LEN(nodes) : 0;
+
+    CHECK(n != NULL, "insert_obj returns non-NULL node");
+    CHECK(after == before + 1, "scene node count incremented");
+    CHECK(bv_node_user_data_get(n) == (void *)obj,
+	  "node user_data == original obj");
+
+    bv_scene_destroy(scene);   /* also frees n */
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_insert_obj_creates_scene(void)
+{
+    /* bview_insert_obj must auto-create a scene when the view has none */
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    memset(&old, 0, sizeof(old));
+    bv_init(&old, &vset);
+
+    nv = bview_companion_create("test", &old);
+    CHECK(nv != NULL, "companion created");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    /* Should have no scene yet */
+    CHECK(bview_scene_get(nv) == NULL, "no scene before insert");
+
+    struct bv_scene_obj *obj = bv_obj_get(&old, BV_VIEWONLY);
+    CHECK(obj != NULL, "bv_obj_get ok");
+    if (!obj) { bview_destroy(nv); bv_free(&old); bv_set_free(&vset); return 0; }
+
+    struct bv_node *n = bview_insert_obj(nv, obj);
+    CHECK(n != NULL, "bview_insert_obj returns node");
+    CHECK(bview_scene_get(nv) != NULL, "scene auto-created");
+    if (bview_scene_get(nv)) {
+	const struct bu_ptbl *sc_nodes = bv_scene_nodes(bview_scene_get(nv));
+	CHECK(sc_nodes != NULL && BU_PTBL_LEN(sc_nodes) == 1, "scene has 1 node");
+    }
+
+    bview_destroy(nv);   /* also destroys the auto-created scene */
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bv_scene_find_obj_basic(void)
+{
+    /* insert an obj, then find it by pointer */
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene  *scene;
+    struct bv_node   *found;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    scene = bv_scene_create();
+    if (!scene) { bv_free(&v); bv_set_free(&vset); return 0; }
+
+    struct bv_scene_obj *obj = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(obj != NULL, "obj created");
+    if (!obj) { bv_scene_destroy(scene); bv_free(&v); bv_set_free(&vset); return 0; }
+
+    bv_scene_insert_obj(scene, obj);
+
+    found = bv_scene_find_obj(scene, obj);
+    CHECK(found != NULL, "find_obj returns node for known obj");
+    CHECK(bv_node_user_data_get(found) == (void *)obj,
+	  "found node has correct user_data");
+
+    /* NULL queries */
+    CHECK(bv_scene_find_obj(NULL, obj) == NULL, "find_obj(NULL, obj) == NULL");
+    CHECK(bv_scene_find_obj(scene, NULL) == NULL, "find_obj(scene, NULL) == NULL");
+
+    /* Non-existent obj */
+    struct bv_scene_obj *other = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(bv_scene_find_obj(scene, other) == NULL,
+	  "find_obj returns NULL for unregistered obj");
+
+    bv_scene_destroy(scene);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+
 struct test_entry {
     const char *name;
     int (*func)(void);
@@ -3441,6 +3587,11 @@ static struct test_entry scene_tests[] = {
     { "companion_create_basic",       test_bview_companion_create_basic       },
     { "companion_create_sync",        test_bview_companion_create_sync        },
     { "companion_create_independent", test_bview_companion_create_independent },
+    /* Phase 2 helpers: insert_obj, find_obj, bview_insert_obj */
+    { "scene_insert_obj_null",        test_bv_scene_insert_obj_null           },
+    { "scene_insert_obj_basic",       test_bv_scene_insert_obj_basic          },
+    { "bview_insert_obj_creates_scene", test_bview_insert_obj_creates_scene   },
+    { "scene_find_obj_basic",         test_bv_scene_find_obj_basic            },
     { NULL, NULL }
 };
 
