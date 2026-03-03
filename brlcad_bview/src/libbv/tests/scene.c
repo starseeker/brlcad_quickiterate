@@ -3983,6 +3983,42 @@ test_bv_scene_total_node_count(void)
     return 1;
 }
 
+static int
+test_bv_scene_add_nodes(void)
+{
+    /* NULL safety */
+    CHECK(bv_scene_add_nodes(NULL, NULL) == 0, "add_nodes(NULL,NULL)==0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    CHECK(bv_scene_add_nodes(scene, NULL) == 0, "add_nodes(scene,NULL)==0");
+
+    /* Build a ptbl with 3 nodes */
+    struct bu_ptbl src;
+    BU_PTBL_INIT(&src);
+    struct bv_node *n1 = bv_node_create("bn1", BV_NODE_GEOMETRY);
+    struct bv_node *n2 = bv_node_create("bn2", BV_NODE_GEOMETRY);
+    struct bv_node *n3 = bv_node_create("bn3", BV_NODE_GEOMETRY);
+    bu_ptbl_ins(&src, (long *)n1);
+    bu_ptbl_ins(&src, (long *)n2);
+    bu_ptbl_ins(&src, (long *)n3);
+
+    size_t added = bv_scene_add_nodes(scene, &src);
+    CHECK(added == 3, "3 new nodes added");
+    CHECK(bv_scene_node_count(scene) == 3, "scene has 3 nodes");
+
+    /* Adding again must not duplicate */
+    added = bv_scene_add_nodes(scene, &src);
+    CHECK(added == 0, "re-add returns 0 (no duplicates)");
+    CHECK(bv_scene_node_count(scene) == 3, "count still 3 after duplicate add");
+
+    bu_ptbl_free(&src);
+    bv_scene_destroy(scene);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -4119,6 +4155,7 @@ static struct test_entry scene_tests[] = {
     { "node_detach",                  test_bv_node_detach                     },
     { "node_subtree_size",            test_bv_node_subtree_size               },
     { "scene_total_node_count",       test_bv_scene_total_node_count          },
+    { "scene_add_nodes",              test_bv_scene_add_nodes                 },
     { NULL, NULL }
 };
 

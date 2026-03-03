@@ -213,6 +213,15 @@ BV_EXPORT struct bv_node *bv_scene_root(const struct bv_scene *scene);
 
 /* Scene node management (analogous to SoGroup::addChild / removeChild) */
 BV_EXPORT void bv_scene_add_node(struct bv_scene *scene, struct bv_node *node);
+/*
+ * Add all bv_node pointers from `nodes` to scene in a single call.
+ * Equivalent to iterating over `nodes` and calling bv_scene_add_node() for
+ * each.  Nodes that are already in the scene are not added a second time
+ * (bu_ptbl_ins_unique semantics).
+ *
+ * No-op if scene or nodes is NULL; returns the number of nodes actually added.
+ */
+BV_EXPORT size_t bv_scene_add_nodes(struct bv_scene *scene, const struct bu_ptbl *nodes);
 BV_EXPORT void bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node);
 BV_EXPORT const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
 /*
