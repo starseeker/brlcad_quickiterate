@@ -57,7 +57,7 @@ ged_autoview2_core(struct ged *gedp, int argc, const char *argv[])
 
     int all_view_objs = 0;
     int print_help = 0;
-    struct bview *v = gedp->ged_gvp;
+    struct bview_new *v = gedp->ged_gvnv;
 
     struct bu_opt_desc d[4];
     BU_OPT(d[0], "h", "help",      "",        NULL,     &print_help, "Print help and exit");
@@ -82,7 +82,7 @@ ged_autoview2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (bu_vls_strlen(&cvls)) {
-	v = bv_viewset_find(&gedp->ged_views, bu_vls_cstr(&cvls));
+	v = bv_viewset_find_new(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -105,8 +105,11 @@ ged_autoview2_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    // libbv has the nuts and bolts
-    bv_autoview(v, factor, all_view_objs);
+    /* Use the new-API autoview */
+    bview_autoview_new(v, gedp->ged_scene, factor);
+
+    /* Also sync back to the legacy view so display managers still work */
+    bview_sync_to_old(v);
 
     return BRLCAD_OK;
 }

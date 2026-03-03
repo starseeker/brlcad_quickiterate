@@ -230,6 +230,15 @@ bv_viewset_fso(struct bview_set *s)
     return s->i->free_scene_obj;
 }
 
+struct bview_new *
+bv_viewset_find_new(struct bview_set *s, const char *vname)
+{
+    struct bview *v = bv_viewset_find(s, vname);
+    if (!v)
+	return NULL;
+    return v->gv_nv;
+}
+
 
 // Local Variables:
 // tab-width: 8
