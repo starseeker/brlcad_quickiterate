@@ -729,6 +729,8 @@ repository.
 | `bv_scene_clear()` — remove and destroy all top-level nodes | Phase 2 | ✅ COMPLETE |
 | `bv_scene_find_all_nodes()` — collect all nodes matching a name | Phase 2 | ✅ COMPLETE |
 | `bv_node_is_descendant()` — test ancestor/descendant relationship | Phase 2 | ✅ COMPLETE |
+| `bv_node_child_count()` — convenience count of direct children | Phase 2 | ✅ COMPLETE |
+| `bv_scene_has_node()` — check if a node is registered in a scene | Phase 2 | ✅ COMPLETE |
 | **Phase 2 COMPLETE** — all scene-object bridge helpers implemented | Phase 2 | ✅ COMPLETE |
 | Replace `bu_ptbl_ins(gv_objs.db_objs)` with `bv_scene_add_node()` | Phase 2 | ℹ️ N/A in brlcad_bview (`bv_scene_add_node` already implemented; call-site migration requires full brlcad source) |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |

@@ -3843,6 +3843,58 @@ test_bv_node_is_descendant(void)
     return 1;
 }
 
+static int
+test_bv_node_child_count(void)
+{
+    CHECK(bv_node_child_count(NULL) == 0, "child_count(NULL)==0");
+
+    struct bv_node *p = bv_node_create("parent", BV_NODE_GROUP);
+    CHECK(p != NULL, "parent created");
+    if (!p) return 0;
+
+    CHECK(bv_node_child_count(p) == 0, "empty parent has 0 children");
+
+    struct bv_node *c1 = bv_node_create("c1", BV_NODE_GEOMETRY);
+    struct bv_node *c2 = bv_node_create("c2", BV_NODE_GEOMETRY);
+    bv_node_add_child(p, c1);
+    CHECK(bv_node_child_count(p) == 1, "1 child after first add");
+    bv_node_add_child(p, c2);
+    CHECK(bv_node_child_count(p) == 2, "2 children after second add");
+
+    bv_node_remove_child(p, c1);
+    CHECK(bv_node_child_count(p) == 1, "1 child after remove");
+
+    bv_node_destroy(c1);
+    bv_node_destroy(p);   /* recursive: frees c2 */
+    return 1;
+}
+
+static int
+test_bv_scene_has_node(void)
+{
+    CHECK(bv_scene_has_node(NULL, NULL) == 0, "has_node(NULL,NULL)==0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    struct bv_node *n = bv_node_create("hn", BV_NODE_GEOMETRY);
+    CHECK(bv_scene_has_node(scene, n) == 0, "not in scene before add");
+
+    bv_scene_add_node(scene, n);
+    CHECK(bv_scene_has_node(scene, n) == 1, "in scene after add");
+
+    /* NULL node query */
+    CHECK(bv_scene_has_node(scene, NULL) == 0, "has_node(scene, NULL)==0");
+
+    bv_scene_remove_node(scene, n);
+    CHECK(bv_scene_has_node(scene, n) == 0, "not in scene after remove");
+
+    bv_node_destroy(n);
+    bv_scene_destroy(scene);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -3974,6 +4026,8 @@ static struct test_entry scene_tests[] = {
     { "scene_clear",                  test_bv_scene_clear                     },
     { "scene_find_all_nodes",         test_bv_scene_find_all_nodes            },
     { "node_is_descendant",           test_bv_node_is_descendant              },
+    { "node_child_count",             test_bv_node_child_count                },
+    { "scene_has_node",               test_bv_scene_has_node                  },
     { NULL, NULL }
 };
 

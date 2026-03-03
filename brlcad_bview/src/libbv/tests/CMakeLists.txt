@@ -193,6 +193,8 @@ set(bview_scene_tests
   scene_clear
   scene_find_all_nodes
   node_is_descendant
+  node_child_count
+  scene_has_node
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})

@@ -222,6 +222,11 @@ BV_EXPORT const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
  */
 BV_EXPORT size_t bv_scene_node_count(const struct bv_scene *scene);
 /*
+ * Return 1 if node is registered in scene (i.e., appears in the flat nodes
+ * list), 0 otherwise.  Returns 0 if either argument is NULL.
+ */
+BV_EXPORT int bv_scene_has_node(const struct bv_scene *scene, const struct bv_node *node);
+/*
  * Remove and destroy all top-level nodes in the scene (recursively).
  * After this call the scene is empty (root has no children, nodes table is
  * empty).  The scene itself is NOT destroyed; use bv_scene_destroy() for that.
@@ -463,6 +468,12 @@ BV_EXPORT void              *bv_node_update_cb_data_get(const struct bv_node *no
 BV_EXPORT void bv_node_add_child(struct bv_node *parent, struct bv_node *child);
 BV_EXPORT void bv_node_remove_child(struct bv_node *parent, struct bv_node *child);
 BV_EXPORT const struct bu_ptbl *bv_node_children(const struct bv_node *node);
+/*
+ * Return the number of direct children of node.
+ * Equivalent to BU_PTBL_LEN(bv_node_children(node)) but avoids the NULL check
+ * on the ptbl pointer.  Returns 0 if node is NULL.
+ */
+BV_EXPORT size_t bv_node_child_count(const struct bv_node *node);
 
 /* Visibility (analogous to toggling SoSwitch or using SoNode visibility) */
 BV_EXPORT void bv_node_visible_set(struct bv_node *node, int visible);
