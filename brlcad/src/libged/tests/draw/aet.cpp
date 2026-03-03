@@ -39,7 +39,7 @@
 void
 dm_refresh(struct ged *gedp, int vnum)
 {
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
     struct bview *v = (struct bview *)BU_PTBL_GET(views, vnum);
     if (!v)
 	return;
@@ -76,7 +76,7 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, int soft_fail)
 
     dm_refresh(gedp, vnum);
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
     struct bview *v = (struct bview *)BU_PTBL_GET(views, vnum);
     if (!v)
 	bu_exit(EXIT_FAILURE, "Invalid view specifier: %d\n", vnum);
@@ -188,7 +188,7 @@ main(int ac, char *av[]) {
     bu_setenv("DM_SWRAST", "1", 1);
 
     // We don't want the default GED views for this test
-    bv_set_rm_view(&gedp->ged_views, NULL);
+    bv_viewset_rm(&gedp->ged_views, NULL);
 
     // Set up the views.  Unlike the other drawing tests, we are explicitly
     // out to test the behavior of multiple views and dms, so we need to
@@ -203,7 +203,7 @@ main(int ac, char *av[]) {
 	struct bview *v = views[i];
 	bv_init(v, &gedp->ged_views);
 	bu_vls_sprintf(&v->gv_name, "V%zd", i);
-	bv_set_add_view(&gedp->ged_views, v);
+	bv_viewset_add(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
 
 	/* To generate images that will allow us to check if the drawing

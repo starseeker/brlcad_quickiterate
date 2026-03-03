@@ -93,7 +93,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	    return BRLCAD_ERROR;
 	}
 
-	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	v = bv_viewset_find(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -122,7 +122,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 
     // Clear everything
     int ret = BRLCAD_OK;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	v = (struct bview *)BU_PTBL_GET(views, i);
 	if (v->independent && !clear_all_views)

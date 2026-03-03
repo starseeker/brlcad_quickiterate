@@ -1626,7 +1626,7 @@ DbiState::update()
     // For all associated view states, execute any necessary changes to
     // view objects and lists
     std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
@@ -3551,7 +3551,7 @@ BSelectState::draw_sync()
     bool changed = false;
     std::unordered_set<BViewState *> vstates;
 
-    struct bu_ptbl *views = bv_set_views(&dbis->gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&dbis->gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	BViewState *vs = dbis->get_view_state(v);

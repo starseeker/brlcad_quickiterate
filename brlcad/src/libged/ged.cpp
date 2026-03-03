@@ -109,7 +109,7 @@ ged_init(struct ged *gedp)
     bu_vls_init(&gedp->go_name);
 
     // View related containers
-    bv_set_init(&gedp->ged_views);
+    bv_viewset_init(&gedp->ged_views);
     BU_PTBL_INIT(&gedp->ged_free_views);
 
     /* TODO: If we're init-ing the list here, does that mean the gedp has
@@ -122,7 +122,7 @@ ged_init(struct ged *gedp)
     BU_ALLOC(gedp->ged_gvp, struct bview);
     bv_init(gedp->ged_gvp, &gedp->ged_views);
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
-    bv_set_add_view(&gedp->ged_views, gedp->ged_gvp);
+    bv_viewset_add(&gedp->ged_views, gedp->ged_gvp);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)gedp->ged_gvp);
 
     /* Create a non-opened fbserv */
@@ -209,7 +209,7 @@ ged_free(struct ged *gedp)
 	bu_free((void *)gdvp, "bv");
     }
     bu_ptbl_free(&gedp->ged_free_views);
-    bv_set_free(&gedp->ged_views);
+    bv_viewset_free(&gedp->ged_views);
 
     if (gedp->i->ged_gdp != GED_DRAWABLE_NULL) {
 

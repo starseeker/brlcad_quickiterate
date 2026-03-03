@@ -330,7 +330,7 @@ QgEdApp::do_view_changed(unsigned long long flags)
 	// For all associated view states, execute any necessary changes to
 	// view objects and lists
 	std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-	struct bu_ptbl *views = bv_set_views(&mdl->gedp->ged_views);
+	struct bu_ptbl *views = bv_viewset_views(&mdl->gedp->ged_views);
 	if (mdl->gedp->dbi_state) {
 	    DbiState *dbis = (DbiState *)mdl->gedp->dbi_state;
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {

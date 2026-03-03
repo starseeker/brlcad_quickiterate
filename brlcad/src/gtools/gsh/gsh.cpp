@@ -406,7 +406,7 @@ GshState::GshState()
 GshState::~GshState()
 {
 #ifdef USE_DM
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	if (v->dmp) {

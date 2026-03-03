@@ -562,7 +562,7 @@ mged_setup(struct mged_state *s)
 
     view_state->vs_gvp->vset = &s->gedp->ged_views;
 
-    bv_set_add_view(&s->gedp->ged_views, view_state->vs_gvp);
+    bv_viewset_add(&s->gedp->ged_views, view_state->vs_gvp);
     bu_ptbl_ins(&s->gedp->ged_free_views, (long *)view_state->vs_gvp);
     s->gedp->ged_gvp = view_state->vs_gvp;
 

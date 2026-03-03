@@ -206,7 +206,7 @@ bv_init(struct bview *gvp, struct bview_set *s)
     bu_vls_sprintf(&gvp->gv_name, "V0");
     bool name_collide = false;
     int view_try_cnt = 0;
-    struct bu_ptbl *views = bv_set_views(s);
+    struct bu_ptbl *views = bv_viewset_views(s);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *nv = (struct bview *)BU_PTBL_GET(views, i);
 	if (!bu_vls_strcmp(&nv->gv_name, &gvp->gv_name)) {

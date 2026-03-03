@@ -77,7 +77,7 @@ to_autoview(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -97,7 +97,7 @@ to_autoview_all_views(struct tclcad_obj *top)
 {
     struct bview *gdvp;
 
-    struct bu_ptbl *views = bv_set_views(&top->to_gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&top->to_gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	gdvp = (struct bview *)BU_PTBL_GET(views, i);
 	to_autoview_view(gdvp, NULL);
