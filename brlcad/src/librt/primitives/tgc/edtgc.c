@@ -840,18 +840,6 @@ rt_edit_tgc_edit(struct rt_edit *s)
     int ret = 0;
 
     switch (s->edit_flag) {
-	case RT_PARAMS_EDIT_SCALE:
-	    /* scale the solid uniformly about its vertex point */
-	    ret = edit_sscale(s);
-	    break;
-	case RT_PARAMS_EDIT_TRANS:
-	    /* translate solid */
-	    edit_stra(s);
-	    break;
-	case RT_PARAMS_EDIT_ROT:
-	    /* rot solid about vertex */
-	    edit_srot(s);
-	    break;
 	case ECMD_TGC_MV_H:
 	    ret = ecmd_tgc_mv_h(s);
 	    break;
@@ -864,8 +852,22 @@ rt_edit_tgc_edit(struct rt_edit *s)
 	case ECMD_TGC_ROT_AB:
 	    ret = ecmd_tgc_rot_ab(s);
 	    break;
-	default:
+	case ECMD_TGC_SCALE_H:
+	case ECMD_TGC_SCALE_H_V:
+	case ECMD_TGC_SCALE_H_CD:
+	case ECMD_TGC_SCALE_H_V_AB:
+	case ECMD_TGC_SCALE_A:
+	case ECMD_TGC_SCALE_B:
+	case ECMD_TGC_SCALE_C:
+	case ECMD_TGC_SCALE_D:
+	case ECMD_TGC_SCALE_AB:
+	case ECMD_TGC_SCALE_CD:
+	case ECMD_TGC_SCALE_ABCD:
 	    ret = rt_edit_tgc_pscale(s);
+	    break;
+	default:
+	    ret = edit_generic(s);
+	    break;
     }
 
     bu_clbk_t f = NULL;
@@ -918,16 +920,8 @@ rt_edit_tgc_edit_xy(
 	    if (f)
 		(*f)(0, NULL, d, NULL);
 	    return BRLCAD_ERROR;
-        case RT_PARAMS_EDIT_ROT:
-            bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing setup unimplemented in %s_edit_xy callback\n", EDOBJ[ip->idb_type].ft_label);
-            rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-            if (f)
-                (*f)(0, NULL, d, NULL);
-            return BRLCAD_ERROR;
 	default:
-	    // Everything else should be a scale
-	    edit_sscale_xy(s, mousevec);
-	    return 0;
+	    return edit_generic_xy(s, mousevec);
     }
 
     edit_abs_tra(s, pos_view);
