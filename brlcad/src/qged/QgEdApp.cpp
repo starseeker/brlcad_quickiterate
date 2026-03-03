@@ -33,6 +33,9 @@
 #include "bu/file.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
+#ifdef BRLCAD_OPENGL
+#  include "qtcad/QgObolWidget.h"
+#endif
 #include "QgEdApp.h"
 #include "fbserv.h"
 #include "QgEdFilter.h"
@@ -417,6 +420,45 @@ raytrace_done(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(valp), v
     return BRLCAD_OK;
 }
 
+/**
+ * LINGER callback for the Obol/ert2 raytrace path.
+ *
+ * Called when the rt subprocess finishes (all IO streams close).  It:
+ *  1. Updates the raytrace button icon back to the start state.
+ *  2. Calls QgObolWidget::onRtDone() so the widget records rt as finished.
+ *  3. Closes the memory framebuffer and the fbserv listener.
+ *  4. Frees the ObolRtCtx allocated in run_cmd().
+ */
+extern "C" int
+ert2_raytrace_done(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(valp), void *ctx)
+{
+    QgEdApp *ap = (QgEdApp *)ctx;
+    ap->w->IndicateRaytraceDone();
+
+#ifdef BRLCAD_OPENGL
+    struct ged *gedp = ap->mdl->gedp;
+    ObolRtCtx *octx = (ObolRtCtx *)gedp->ged_fbs->fbs_clientData;
+    if (octx) {
+	/* Let the widget record that rendering has finished.
+	 * The final frame is already in the texture from the last
+	 * onRtPixelsUpdated() call. */
+	if (octx->widget)
+	    octx->widget->onRtDone();
+
+	/* Close the framebuffer and the TCP listener */
+	if (octx->memfb) {
+	    fbs_close(gedp->ged_fbs);          /* close TCP listener first */
+	    fb_close(octx->memfb);             /* then release pixel buffer */
+	    gedp->ged_fbs->fbs_fbp       = NULL;
+	    gedp->ged_fbs->fbs_clientData = NULL;
+	}
+	delete octx;
+    }
+#endif /* BRLCAD_OPENGL */
+
+    return BRLCAD_OK;
+}
+
 int
 QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 {
@@ -453,6 +495,54 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, &raytrace_done, (void *)this);
 	}
 
+	/* ert2: Obol-aware incremental raytrace.
+	 *
+	 * Set up an ObolRtCtx that connects the fbserv IPC path to the
+	 * Obol rendering widget before calling ert2.  The ObolRtCtx:
+	 *   - holds a memory framebuffer (ert2 sets fbs->fbs_fbp from it)
+	 *   - holds the QgObolWidget* so qdm_open_obol_client_handler can
+	 *     connect QFBSocket::updated → widget->onRtPixelsUpdated()
+	 * Cleanup happens in ert2_raytrace_done (LINGER callback). */
+#ifdef BRLCAD_OPENGL
+	if (BU_STR_EQUAL(argv[0], "ert2")) {
+	    /* Find the current Obol widget (canvas_obol of current display) */
+	    QgObolWidget *obolw = nullptr;
+	    if (w->CurrentDisplay())
+		obolw = w->CurrentDisplay()->canvas_obol;
+
+	    if (obolw) {
+		/* Determine dimensions: prefer the widget's actual pixel size */
+		int rw = obolw->width()  > 0 ? obolw->width()  : 512;
+		int rh = obolw->height() > 0 ? obolw->height() : 512;
+
+		/* Open a memory framebuffer for rt to render into */
+		struct fb *memfb = fb_open("/dev/mem", rw, rh);
+		if (memfb) {
+		    ObolRtCtx *octx = new ObolRtCtx;
+		    octx->widget = obolw;
+		    octx->memfb  = memfb;
+		    octx->width  = rw;
+		    octx->height = rh;
+
+		    /* Wire the fbserv client handler and client data */
+		    gedp->ged_fbs->fbs_fbp           = memfb;
+		    gedp->ged_fbs->fbs_clientData     = (void *)octx;
+		    gedp->ged_fbs->fbs_open_client_handler =
+			&qdm_open_obol_client_handler;
+		} else {
+		    bu_log("ert2: failed to open memory framebuffer — "
+			   "falling back to non-incremental path\n");
+		}
+	    } else {
+		bu_log("ert2: no Obol widget found for current display — "
+		       "running without incremental display\n");
+	    }
+
+	    ged_clbk_set(gedp, "ert2", BU_CLBK_DURING, &raytrace_start,     (void *)this);
+	    ged_clbk_set(gedp, "ert2", BU_CLBK_LINGER, &ert2_raytrace_done, (void *)this);
+	}
+#endif /* BRLCAD_OPENGL */
+
 	// Ask the model to execute the command
 	ret = mdl->run_cmd(msg, argc, argv);
 
@@ -460,6 +550,18 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, NULL, NULL);
 	    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, NULL, NULL);
 	}
+#ifdef BRLCAD_OPENGL
+	if (BU_STR_EQUAL(argv[0], "ert2")) {
+	    ged_clbk_set(gedp, "ert2", BU_CLBK_DURING, NULL, NULL);
+	    ged_clbk_set(gedp, "ert2", BU_CLBK_LINGER, NULL, NULL);
+	    /* Restore the default client handler for subsequent ert calls */
+	    int type = w->CurrentDisplay() ? w->CurrentDisplay()->view_type() : 0;
+	    if (type == QgView_GL)
+		gedp->ged_fbs->fbs_open_client_handler = &qdm_open_client_handler;
+	    else
+		gedp->ged_fbs->fbs_open_client_handler = &qdm_open_sw_client_handler;
+	}
+#endif /* BRLCAD_OPENGL */
     } else {
 	for (int i = 0; i < argc; i++) {
 	    char *tstr = bu_strdup(argv[i]);

@@ -40,6 +40,9 @@
 #include "./fbserv.h"
 #include "qtcad/QgGL.h"
 #include "qtcad/QgSW.h"
+#ifdef BRLCAD_OPENGL
+#  include "qtcad/QgObolWidget.h"
+#endif
 
 void
 QFBSocket::client_handler()
@@ -242,6 +245,55 @@ qdm_close_client_handler(struct fbserv_obj *fbsp, int i)
     QFBSocket *s = (QFBSocket *)fbsp->fbs_clients[i].fbsc_chan;
     delete s;
 }
+
+#ifdef BRLCAD_OPENGL
+/**
+ * Framebuffer client handler for the Obol/ert2 rendering path.
+ *
+ * Called by fbs_new_client() when rt first connects to the fbserv.
+ * It:
+ *  1. Stores the new QFBSocket in the client slot.
+ *  2. Connects readyRead → QFBSocket::client_handler (Qt queued) so that
+ *     incoming pixel packets are processed in the main event loop thread.
+ *  3. Calls QgObolWidget::beginRtOverlay() to create the SoAnnotation
+ *     sub-graph + SoTexture2 that will display the raytrace result.
+ *  4. Connects QFBSocket::updated → QgObolWidget::onRtPixelsUpdated
+ *     (Qt queued) so that each packet updates the texture via the
+ *     SoSFImage::startEditing/finishEditing mechanism, causing Obol to
+ *     automatically schedule a repaint.
+ *
+ * Requires fbsp->fbs_clientData to be an ObolRtCtx* allocated by
+ * QgEdApp::run_cmd() before ert2 was invoked.
+ */
+extern "C" void
+qdm_open_obol_client_handler(struct fbserv_obj *fbsp, int i, void *data)
+{
+    bu_log("qdm_open_obol_client_handler\n");
+    fbsp->fbs_clients[i].fbsc_chan = data;
+    QFBSocket *s = (QFBSocket *)data;
+    QObject::connect(s->s, &QTcpSocket::readyRead,
+		     s, &QFBSocket::client_handler,
+		     Qt::QueuedConnection);
+
+    ObolRtCtx *octx = (ObolRtCtx *)fbsp->fbs_clientData;
+    if (!octx || !octx->widget) {
+	bu_log("qdm_open_obol_client_handler: no ObolRtCtx — "
+	       "Obol texture overlay will not be shown\n");
+	return;
+    }
+
+    /* Prepare the scene overlay BEFORE connecting the update signal so
+     * that onRtPixelsUpdated() finds the texture ready on its first call. */
+    octx->widget->beginRtOverlay(fbsp->fbs_fbp, octx->width, octx->height);
+
+    /* Connect the "new pixels arrived" signal to the incremental texture
+     * update slot.  Qt's queued connection ensures execution in the main
+     * thread, matching the thread requirements of both libdm and Obol. */
+    QObject::connect(s, &QFBSocket::updated,
+		     octx->widget, &QgObolWidget::onRtPixelsUpdated,
+		     Qt::QueuedConnection);
+}
+#endif /* BRLCAD_OPENGL */
 
 // Local Variables:
 // tab-width: 8

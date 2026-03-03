@@ -41,12 +41,14 @@ extern "C" {
 #include "qtcad/QgSW.h"
 #ifdef BRLCAD_OPENGL
 #  include "qtcad/QgGL.h"
+#  include "qtcad/QgObolWidget.h"
 #endif
 
 #define QgView_AUTO 0
 #define QgView_SW 1
 #ifdef BRLCAD_OPENGL
 #  define QgView_GL 2
+#  define QgView_Obol 3
 #endif
 
 class QTCAD_EXPORT QgView : public QWidget
@@ -69,6 +71,7 @@ class QTCAD_EXPORT QgView : public QWidget
 	bool isValid();
 
 	struct bview * view();
+	struct bview_new * view_new();
 	struct dm * dmp();
 	struct fb * ifp();
 
@@ -111,6 +114,7 @@ class QTCAD_EXPORT QgView : public QWidget
 	QgSW *canvas_sw = NULL;
 #ifdef BRLCAD_OPENGL
         QgGL *canvas_gl = NULL;
+        QgObolWidget *canvas_obol = NULL;
 #endif
 	std::vector<QObject *> filters;
 };

@@ -21,21 +21,56 @@
  *
  * Implementation of the bv_render_ctx wrapper over Obol/Inventor.
  *
- * ### How it works (Obol path)
+ * ### How it works (Obol path) — single-view
  *
  * bv_render_ctx owns:
- *   - A single SoSceneManager       — Obol's all-in-one render orchestrator
+ *   - A SoViewport                  — Obol's new single-view API that pairs
+ *                                     scene graph, camera, viewport region and
+ *                                     background colour in one object
+ *   - A SoRenderManager             — handles render modes (wireframe, shaded,
+ *                                     hidden-line, bounding-box) and multi-pass
+ *                                     stereo rendering on top of SoViewport
  *   - A root SoSeparator            — mirrors bv_scene's root bv_node tree
- *   - std::unordered_map<bv_node*, SoSeparator*>
- *                                   — per-node Inventor sub-graph cache
+ *                                     with a *proper OpenInventor hierarchy*:
+ *                                     bv_node SEPARATOR → SoSeparator
+ *                                     bv_node GROUP     → SoGroup
+ *                                     bv_node TRANSFORM → SoMatrixTransform
+ *                                     bv_node MATERIAL  → SoMaterial
+ *                                     bv_node GEOMETRY  → SoCoordinate3 +
+ *                                                          SoIndexedLineSet /
+ *                                                          SoIndexedFaceSet /
+ *                                                          SoIndexedPointSet
+ *   - std::unordered_map<bv_node*, SoNode*>
+ *                                   — per-node Inventor node cache
  *
- * bv_render_frame() calls bv_scene_traverse() to walk every node.  For each
- * geometry node whose dlist_stale flag is set (or that is newly added), the
- * sync callback rebuilds the corresponding Inventor sub-graph by:
- *   1. Converting the bv_vlist to SoCoordinate3 + SoIndexedLineSet (lines) or
- *      SoIndexedFaceSet (triangles/polygons).
- *   2. Applying bview_material colors via SoMaterial.
- *   3. Applying the node's local transform via SoMatrixTransform.
+ * ### How it works — quad view
+ *
+ * bv_quad_render_ctx owns:
+ *   - A SoQuadViewport              — Obol's new 4-quadrant viewport manager
+ *                                     that splits the window into a 2×2 grid,
+ *                                     with each tile being a full SoViewport
+ *   - The same shared root SoSeparator that the four SoViewport tiles render
+ *
+ * The four quadrant indices (BV_QUAD_*) are aligned with
+ * SoQuadViewport::QuadIndex for direct pass-through in libqtcad.
+ *
+ * ### Scene root access for Qt integration
+ *
+ * bv_render_ctx_scene_root() / bv_quad_render_ctx_scene_root() expose the
+ * shared SoSeparator* as void* so that libqtcad's QgObolWidget and
+ * QgObolQuadWidget can set it as the scene graph on their own SoViewport /
+ * SoQuadViewport.  This lets the Qt layer own the viewport/camera while the
+ * BRL-CAD libbv layer owns the scene graph, keeping Obol awareness contained
+ * to the two layers that explicitly need it.
+ *
+ * ### Incremental updates
+ *
+ * bv_render_frame() / bv_quad_render_frame():
+ *   1. Walk the bv_scene tree hierarchically (recursive, not flat).
+ *   2. For each GEOMETRY node with dlist_stale == 1, rebuild its SoSeparator
+ *      sub-graph in place (replacing the stale sub-graph in node_map).
+ *   3. Call SoRenderManager::render() (single-view) or
+ *      SoQuadViewport::renderQuadrant() (quad-view) to produce a frame.
  *
  * When Obol is not compiled in (BRLCAD_HAVE_OBOL is absent), every public
  * function is a no-op that returns NULL / 0, allowing callers to check
@@ -68,8 +103,13 @@
 #include <Inventor/SoDB.h>
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbViewportRegion.h>
+#include <Inventor/SbVec2s.h>
 #include <Inventor/SbVec3f.h>
-#include <Inventor/SoSceneManager.h>
+#include <Inventor/SbColor.h>
+#include <Inventor/SbRotation.h>
+#include <Inventor/SoViewport.h>
+#include <Inventor/SoQuadViewport.h>
+#include <Inventor/SoRenderManager.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoGroup.h>
 #include <Inventor/nodes/SoMatrixTransform.h>
@@ -80,8 +120,10 @@
 #include <Inventor/nodes/SoIndexedPointSet.h>
 #include <Inventor/nodes/SoOrthographicCamera.h>
 #include <Inventor/nodes/SoPerspectiveCamera.h>
+#include <Inventor/nodes/SoDirectionalLight.h>
 #include <Inventor/fields/SoMFVec3f.h>
 #include <Inventor/fields/SoMFInt32.h>
+#include <Inventor/actions/SoGLRenderAction.h>
 
 /* ------------------------------------------------------------------ */
 /* Helpers: bv_vlist → Inventor geometry                               */
@@ -210,175 +252,427 @@ vlist_to_geom(const struct bu_list *vlist_head, VlistGeom &g)
 }
 
 /* ------------------------------------------------------------------ */
-/* Per-node Inventor sub-graph                                          */
-/* ------------------------------------------------------------------ */
-
-/*
- * Build (or rebuild) the Inventor sub-graph for one geometry node.
- *
- * Layout inside the returned SoSeparator:
- *
- *   SoSeparator  (node_sep)
- *     ├─ SoMatrixTransform
- *     ├─ SoMaterial
- *     ├─ SoSeparator  (line_sep, optional)
- *     │    ├─ SoCoordinate3
- *     │    └─ SoIndexedLineSet
- *     ├─ SoSeparator  (tri_sep, optional)
- *     │    ├─ SoCoordinate3
- *     │    └─ SoIndexedFaceSet
- *     └─ SoSeparator  (pt_sep, optional)
- *          ├─ SoCoordinate3
- *          └─ SoIndexedPointSet
- */
-static SoSeparator *
-build_node_sep(const struct bv_node *node)
-{
-    SoSeparator *sep = new SoSeparator;
-    sep->ref();
-
-    /* --- Transform --- */
-    SoMatrixTransform *xf = new SoMatrixTransform;
-    const mat_t *m = bv_node_transform_get(node);
-    if (m) {
-	/* BRL-CAD mat_t is column-major (like OpenGL).
-	 * SbMatrix row-major constructor: rows first. */
-	const fastf_t *M = (const fastf_t *)m;
-	SbMatrix sb(
-	    (float)M[0],  (float)M[4],  (float)M[8],  (float)M[12],
-	    (float)M[1],  (float)M[5],  (float)M[9],  (float)M[13],
-	    (float)M[2],  (float)M[6],  (float)M[10], (float)M[14],
-	    (float)M[3],  (float)M[7],  (float)M[11], (float)M[15]
-	);
-	xf->matrix.setValue(sb);
-    }
-    sep->addChild(xf);
-
-    /* --- Material --- */
-    const struct bview_material *mat = bv_node_material_get(node);
-    if (mat) {
-	SoMaterial *somat = new SoMaterial;
-	const float *rgb = mat->diffuse_color.buc_rgb;
-	somat->diffuseColor.setValue(rgb[0], rgb[1], rgb[2]);
-	somat->transparency.setValue(mat->transparency);
-	somat->shininess.setValue(mat->shininess);
-	sep->addChild(somat);
-    }
-
-    /* --- Geometry from vlist --- */
-    const struct bu_list *vl = bv_node_vlist_get(node);
-    if (vl && !BU_LIST_IS_EMPTY(vl)) {
-	VlistGeom g;
-	vlist_to_geom(vl, g);
-
-	/* Line segments */
-	if (!g.line_pts.empty() && !g.line_idx.empty()) {
-	    SoSeparator *lsep = new SoSeparator;
-
-	    SoCoordinate3 *coords = new SoCoordinate3;
-	    /* SbVec3f is {float[3]}, so the vector's storage is compatible with
-	     * the float[][3] signature expected by setValues(). */
-	    coords->point.setValues(0, (int)g.line_pts.size(),
-				    reinterpret_cast<const float(*)[3]>(g.line_pts.data()));
-	    lsep->addChild(coords);
-
-	    SoIndexedLineSet *ils = new SoIndexedLineSet;
-	    ils->coordIndex.setValues(0, (int)g.line_idx.size(), g.line_idx.data());
-	    lsep->addChild(ils);
-
-	    sep->addChild(lsep);
-	}
-
-	/* Triangles / polygons */
-	if (!g.tri_pts.empty() && !g.tri_idx.empty()) {
-	    SoSeparator *tsep = new SoSeparator;
-
-	    SoCoordinate3 *coords = new SoCoordinate3;
-	    coords->point.setValues(0, (int)g.tri_pts.size(),
-				    reinterpret_cast<const float(*)[3]>(g.tri_pts.data()));
-	    tsep->addChild(coords);
-
-	    SoIndexedFaceSet *ifs = new SoIndexedFaceSet;
-	    ifs->coordIndex.setValues(0, (int)g.tri_idx.size(), g.tri_idx.data());
-	    tsep->addChild(ifs);
-
-	    sep->addChild(tsep);
-	}
-
-	/* Points */
-	if (!g.point_pts.empty() && !g.point_idx.empty()) {
-	    SoSeparator *psep = new SoSeparator;
-
-	    SoCoordinate3 *coords = new SoCoordinate3;
-	    coords->point.setValues(0, (int)g.point_pts.size(),
-				    reinterpret_cast<const float(*)[3]>(g.point_pts.data()));
-	    psep->addChild(coords);
-
-	    SoIndexedPointSet *ips = new SoIndexedPointSet;
-	    ips->coordIndex.setValues(0, (int)g.point_idx.size(), g.point_idx.data());
-	    psep->addChild(ips);
-
-	    sep->addChild(psep);
-	}
-    }
-
-    return sep;   /* caller takes ownership of the ref() */
-}
-
-/* ------------------------------------------------------------------ */
 /* bv_render_ctx struct and sync traversal                             */
 /* ------------------------------------------------------------------ */
 
 struct bv_render_ctx {
-    SoSceneManager                              *mgr;
-    SoSeparator                                 *root;
-    std::unordered_map<const struct bv_node *, SoSeparator *> node_map;
+    SoViewport                                   viewport;  /* Obol single-view API */
+    SoRenderManager                              render_mgr; /* render modes / stereo */
+    SoSeparator                                 *root;      /* shared scene root */
+    std::unordered_map<const struct bv_node *, SoNode *> node_map;
     struct bv_scene                             *scene;
     int                                          width;
     int                                          height;
 };
 
+/* ------------------------------------------------------------------ */
+/* Hierarchy building: bv_node tree → Inventor node tree              */
+/* ------------------------------------------------------------------ */
+
 /*
- * Traversal callback: for each bv_node, ensure its Inventor counterpart
- * exists and is up-to-date.  Nodes not yet in node_map are inserted.
- * Nodes with dlist_stale == 1 are rebuilt in place.
+ * Forward declaration.
  */
-struct SyncState {
-    struct bv_render_ctx *ctx;
-};
+static SoNode *build_so_node(struct bv_render_ctx *ctx,
+			     const struct bv_node *node,
+			     SoGroup *parent_so);
 
+/*
+ * Add an SoMatrixTransform child for a node's local transform if non-identity.
+ */
 static void
-sync_node_cb(struct bv_node *node, void *ud)
+append_transform(SoSeparator *sep, const struct bv_node *node)
 {
-    SyncState *s = static_cast<SyncState *>(ud);
-    struct bv_render_ctx *ctx = s->ctx;
-
-    /* Skip non-geometry nodes (groups, transforms handled by hierarchy) */
-    if (node->type != BV_NODE_GEOMETRY)
+    const mat_t *m = bv_node_transform_get(node);
+    if (!m)
 	return;
 
-    auto it = ctx->node_map.find(node);
-    bool stale = (node->dlist_stale != 0);
+    /* Check for identity before creating a node */
+    static const double identity[16] = {
+	1, 0, 0, 0,
+	0, 1, 0, 0,
+	0, 0, 1, 0,
+	0, 0, 0, 1
+    };
+    if (memcmp(*m, identity, 16 * sizeof(double)) == 0)
+	return;
 
-    if (it == ctx->node_map.end()) {
-	/* New node — build and insert */
-	SoSeparator *sep = build_node_sep(node);
-	ctx->node_map[node] = sep;
-	ctx->root->addChild(sep);
-	node->dlist_stale = 0;
-    } else if (stale) {
-	/* Existing but dirty — rebuild */
-	SoSeparator *old_sep = it->second;
-	SoSeparator *new_sep = build_node_sep(node);
-	/* Replace in root */
-	int idx = ctx->root->findChild(old_sep);
+    SoMatrixTransform *xf = new SoMatrixTransform;
+    const fastf_t *M = (const fastf_t *)*m;
+    /* BRL-CAD mat_t is column-major; SbMatrix constructor is row-major */
+    SbMatrix sb(
+	(float)M[0],  (float)M[4],  (float)M[8],  (float)M[12],
+	(float)M[1],  (float)M[5],  (float)M[9],  (float)M[13],
+	(float)M[2],  (float)M[6],  (float)M[10], (float)M[14],
+	(float)M[3],  (float)M[7],  (float)M[11], (float)M[15]
+    );
+    xf->matrix.setValue(sb);
+    sep->addChild(xf);
+}
+
+/*
+ * Add an SoMaterial child for a node's appearance/material if non-default.
+ */
+static void
+append_material(SoSeparator *sep, const struct bv_node *node)
+{
+    const struct bview_material *mat = bv_node_material_get(node);
+    if (!mat)
+	return;
+
+    SoMaterial *somat = new SoMaterial;
+    const float *rgb = mat->diffuse_color.buc_rgb;
+    somat->diffuseColor.setValue(rgb[0], rgb[1], rgb[2]);
+    somat->transparency.setValue(mat->transparency);
+    somat->shininess.setValue(mat->shininess);
+    sep->addChild(somat);
+}
+
+/*
+ * Add Inventor geometry children (lines, triangles, points) from a node's
+ * vlist.  Returns the number of geometry SoSeparators added (0 if empty).
+ */
+static int
+append_geometry(SoSeparator *sep, const struct bv_node *node)
+{
+    const struct bu_list *vl = bv_node_vlist_get(node);
+    if (!vl || BU_LIST_IS_EMPTY(vl))
+	return 0;
+
+    VlistGeom g;
+    vlist_to_geom(vl, g);
+    int added = 0;
+
+    /* Line segments */
+    if (!g.line_pts.empty() && !g.line_idx.empty()) {
+	SoSeparator *lsep = new SoSeparator;
+	SoCoordinate3 *coords = new SoCoordinate3;
+	coords->point.setValues(0, (int)g.line_pts.size(),
+				reinterpret_cast<const float(*)[3]>(g.line_pts.data()));
+	lsep->addChild(coords);
+	SoIndexedLineSet *ils = new SoIndexedLineSet;
+	ils->coordIndex.setValues(0, (int)g.line_idx.size(), g.line_idx.data());
+	lsep->addChild(ils);
+	sep->addChild(lsep);
+	added++;
+    }
+
+    /* Triangles / polygons */
+    if (!g.tri_pts.empty() && !g.tri_idx.empty()) {
+	SoSeparator *tsep = new SoSeparator;
+	SoCoordinate3 *coords = new SoCoordinate3;
+	coords->point.setValues(0, (int)g.tri_pts.size(),
+				reinterpret_cast<const float(*)[3]>(g.tri_pts.data()));
+	tsep->addChild(coords);
+	SoIndexedFaceSet *ifs = new SoIndexedFaceSet;
+	ifs->coordIndex.setValues(0, (int)g.tri_idx.size(), g.tri_idx.data());
+	tsep->addChild(ifs);
+	sep->addChild(tsep);
+	added++;
+    }
+
+    /* Points */
+    if (!g.point_pts.empty() && !g.point_idx.empty()) {
+	SoSeparator *psep = new SoSeparator;
+	SoCoordinate3 *coords = new SoCoordinate3;
+	coords->point.setValues(0, (int)g.point_pts.size(),
+				reinterpret_cast<const float(*)[3]>(g.point_pts.data()));
+	psep->addChild(coords);
+	SoIndexedPointSet *ips = new SoIndexedPointSet;
+	ips->coordIndex.setValues(0, (int)g.point_idx.size(), g.point_idx.data());
+	psep->addChild(ips);
+	sep->addChild(psep);
+	added++;
+    }
+
+    return added;
+}
+
+/*
+ * Rebuild the Inventor sub-tree for a geometry node that was marked stale.
+ * Replaces the old SoSeparator in the parent SoGroup and in node_map.
+ */
+static void
+rebuild_geometry_node(struct bv_render_ctx *ctx, const struct bv_node *node)
+{
+    auto it = ctx->node_map.find(node);
+    if (it == ctx->node_map.end())
+	return;
+
+    SoNode *old_so = it->second;
+
+    /* Build new SoSeparator for this geometry node */
+    SoSeparator *new_sep = new SoSeparator;
+    new_sep->ref();
+    append_transform(new_sep, node);
+    append_material(new_sep, node);
+    append_geometry(new_sep, node);
+
+    /* Replace in parent.  Walk node_map to find the parent SoNode. */
+    const struct bv_node *parent_bv = node->parent;
+    if (parent_bv) {
+	auto pit = ctx->node_map.find(parent_bv);
+	if (pit != ctx->node_map.end()) {
+	    SoGroup *parent_so = dynamic_cast<SoGroup *>(pit->second);
+	    if (parent_so) {
+		int idx = parent_so->findChild(old_so);
+		if (idx >= 0)
+		    parent_so->replaceChild(idx, new_sep);
+		else
+		    parent_so->addChild(new_sep);
+	    }
+	}
+    } else {
+	/* Geometry node directly under the scene root */
+	int idx = ctx->root->findChild(old_so);
 	if (idx >= 0)
 	    ctx->root->replaceChild(idx, new_sep);
 	else
 	    ctx->root->addChild(new_sep);
+    }
+
+    /* old_so was already ref'd; release it.
+     * All geometry nodes in node_map are stored as SoSeparator*. */
+    if (SoSeparator *old_sep = dynamic_cast<SoSeparator *>(old_so))
 	old_sep->unref();
-	it->second = new_sep;
-	node->dlist_stale = 0;
+    else
+	bu_log("rebuild_geometry_node: unexpected non-SoSeparator in node_map for node '%s'\n",
+	       bu_vls_cstr(&node->name));
+
+    it->second = new_sep;  /* new_sep retains its ref() */
+    const_cast<struct bv_node *>(node)->dlist_stale = 0;
+}
+
+/*
+ * Build (or update) the Inventor sub-tree for @a node and all its children.
+ * Newly encountered nodes are added to node_map.  Geometry nodes with
+ * dlist_stale == 1 are rebuilt.
+ *
+ * @param parent_so  The Inventor parent node to attach to (may be NULL for
+ *                   the scene root, in which case ctx->root is used).
+ * Returns the SoNode* created for this node (may be NULL for unhandled types).
+ */
+static SoNode *
+build_so_node(struct bv_render_ctx *ctx,
+	      const struct bv_node *node,
+	      SoGroup *parent_so)
+{
+    if (!node)
+	return nullptr;
+
+    if (!parent_so)
+	parent_so = ctx->root;
+
+    /* Check if this node is already in the map */
+    auto it = ctx->node_map.find(node);
+    if (it != ctx->node_map.end()) {
+	/* Node already exists — check if stale */
+	if (node->type == BV_NODE_GEOMETRY && node->dlist_stale) {
+	    rebuild_geometry_node(ctx, node);
+	}
+	/* Recurse into children even for existing nodes (new children may
+	 * have been added since last time) */
+	SoGroup *so_group = dynamic_cast<SoGroup *>(it->second);
+	for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	    struct bv_node *child =
+		(struct bv_node *)BU_PTBL_GET(&node->children, i);
+	    build_so_node(ctx, child, so_group ? so_group : parent_so);
+	}
+	return it->second;
+    }
+
+    /* New node — build its Inventor representation */
+    SoNode *so_node = nullptr;
+
+    switch (node->type) {
+    case BV_NODE_SEPARATOR: {
+	SoSeparator *sep = new SoSeparator;
+	sep->ref();
+	append_transform(sep, node);
+	append_material(sep, node);
+	parent_so->addChild(sep);
+	ctx->node_map[node] = sep;
+
+	/* Recurse into children */
+	for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	    struct bv_node *child =
+		(struct bv_node *)BU_PTBL_GET(&node->children, i);
+	    build_so_node(ctx, child, sep);
+	}
+	so_node = sep;
+	break;
+    }
+
+    case BV_NODE_GROUP: {
+	/* SoGroup has no intrinsic transform; wrap in a separator if needed */
+	SoSeparator *wrapper = new SoSeparator;
+	wrapper->ref();
+	append_transform(wrapper, node);
+	SoGroup *grp = new SoGroup;
+	grp->ref();
+	wrapper->addChild(grp);
+	parent_so->addChild(wrapper);
+	ctx->node_map[node] = wrapper;
+	for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	    struct bv_node *c =
+		(struct bv_node *)BU_PTBL_GET(&node->children, i);
+	    build_so_node(ctx, c, grp);
+	}
+	so_node = wrapper;
+	grp->unref(); /* wrapper holds the ref via addChild */
+	break;
+    }
+
+    case BV_NODE_GEOMETRY: {
+	SoSeparator *sep = new SoSeparator;
+	sep->ref();
+	append_transform(sep, node);
+	append_material(sep, node);
+	append_geometry(sep, node);
+	parent_so->addChild(sep);
+	ctx->node_map[node] = sep;
+	const_cast<struct bv_node *>(node)->dlist_stale = 0;
+	so_node = sep;
+	break;
+    }
+
+    case BV_NODE_TRANSFORM: {
+	/* A pure transform node: wrap in a separator that only carries xform */
+	SoSeparator *sep = new SoSeparator;
+	sep->ref();
+	append_transform(sep, node);
+	parent_so->addChild(sep);
+	ctx->node_map[node] = sep;
+	for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	    struct bv_node *child =
+		(struct bv_node *)BU_PTBL_GET(&node->children, i);
+	    build_so_node(ctx, child, sep);
+	}
+	so_node = sep;
+	break;
+    }
+
+    case BV_NODE_MATERIAL: {
+	SoSeparator *sep = new SoSeparator;
+	sep->ref();
+	append_material(sep, node);
+	parent_so->addChild(sep);
+	ctx->node_map[node] = sep;
+	for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	    struct bv_node *child =
+		(struct bv_node *)BU_PTBL_GET(&node->children, i);
+	    build_so_node(ctx, child, sep);
+	}
+	so_node = sep;
+	break;
+    }
+
+    case BV_NODE_CAMERA:
+    case BV_NODE_LIGHT:
+    case BV_NODE_OTHER:
+    default:
+	/* These node types are handled by the viewport/camera layer, not here */
+	break;
+    }
+
+    return so_node;
+}
+
+/*
+ * Sync the entire bv_scene tree into the Inventor scene.
+ * Walk from the bv_scene root node; new and stale nodes are updated.
+ */
+static void
+sync_scene(struct bv_render_ctx *ctx)
+{
+    if (!ctx || !ctx->scene)
+	return;
+
+    struct bv_node *root_node = bv_scene_root(ctx->scene);
+    if (!root_node)
+	return;
+
+    /* Use the scene root's children as top-level nodes */
+    for (size_t i = 0; i < BU_PTBL_LEN(&root_node->children); i++) {
+	struct bv_node *top =
+	    (struct bv_node *)BU_PTBL_GET(&root_node->children, i);
+	build_so_node(ctx, top, ctx->root);
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Camera synchronisation: bview_new → SoCamera                       */
+/* ------------------------------------------------------------------ */
+
+static void
+sync_camera_to_viewport(SoViewport *vp, const struct bview_new *view)
+{
+    if (!vp || !view)
+	return;
+
+    const struct bview_camera *cam = bview_camera_get(view);
+    if (!cam)
+	return;
+
+    SoCamera *so_cam = vp->getCamera();
+
+    /* Create/replace camera if needed or if perspective mode changed */
+    bool need_persp  = (cam->perspective != 0);
+    bool have_persp  = (so_cam && so_cam->isOfType(SoPerspectiveCamera::getClassTypeId()));
+    bool have_ortho  = (so_cam && so_cam->isOfType(SoOrthographicCamera::getClassTypeId()));
+
+    if (!so_cam || (need_persp && !have_persp) || (!need_persp && !have_ortho)) {
+	SoCamera *new_cam = need_persp
+	    ? static_cast<SoCamera *>(new SoPerspectiveCamera)
+	    : static_cast<SoCamera *>(new SoOrthographicCamera);
+	vp->setCamera(new_cam);
+	so_cam = new_cam;
+    }
+
+    /* Position */
+    so_cam->position.setValue(
+	(float)cam->position[0],
+	(float)cam->position[1],
+	(float)cam->position[2]);
+
+    /* Orientation from lookat + up */
+    SbVec3f viewdir(
+	(float)(cam->target[0] - cam->position[0]),
+	(float)(cam->target[1] - cam->position[1]),
+	(float)(cam->target[2] - cam->position[2]));
+    if (viewdir.length() > 1e-10f) {
+	viewdir.normalize();
+	SbVec3f up((float)cam->up[0], (float)cam->up[1], (float)cam->up[2]);
+	if (up.length() < 1e-10f)
+	    up.setValue(0.0f, 0.0f, 1.0f);
+	up.normalize();
+	/* Build rotation from -Z to viewdir */
+	SbRotation rot(SbVec3f(0.0f, 0.0f, -1.0f), viewdir);
+	so_cam->orientation.setValue(rot);
+    }
+
+    /* Focal distance (distance from camera to target) */
+    SbVec3f tgt(
+	(float)cam->target[0],
+	(float)cam->target[1],
+	(float)cam->target[2]);
+    SbVec3f pos(
+	(float)cam->position[0],
+	(float)cam->position[1],
+	(float)cam->position[2]);
+    float fdist = (tgt - pos).length();
+    if (fdist > 1e-10f)
+	so_cam->focalDistance.setValue(fdist);
+
+    /* FOV (perspective only) */
+    if (need_persp && cam->fov > 0.0) {
+	static_cast<SoPerspectiveCamera *>(so_cam)->heightAngle.setValue(
+	    (float)(cam->fov * M_PI / 180.0));
+    }
+
+    /* Viewport size */
+    const struct bview_viewport *vport = bview_viewport_get(view);
+    if (vport && vport->width > 0 && vport->height > 0) {
+	vp->setWindowSize(SbVec2s((short)vport->width, (short)vport->height));
     }
 }
 
@@ -396,7 +690,7 @@ ensure_sodb_init(void *context_manager)
 }
 
 /* ------------------------------------------------------------------ */
-/* Public API                                                          */
+/* Public API — single-view                                            */
 /* ------------------------------------------------------------------ */
 
 extern "C" {
@@ -420,9 +714,6 @@ bv_render_ctx_create(struct bv_scene *scene, void *context_manager,
 	return nullptr;
     }
 
-    /* Initialise SoDB exactly once per process.  If the caller did not
-     * provide a context manager we attempt to create an OSMesa one; if
-     * that is not available either we pass NULL (SoDB handles it). */
     if (!context_manager)
 	context_manager = SoDB::createOSMesaContextManager();
 
@@ -433,18 +724,30 @@ bv_render_ctx_create(struct bv_scene *scene, void *context_manager,
     ctx->width  = width;
     ctx->height = height;
 
+    /* Scene root — shared by SoViewport and SoRenderManager */
     ctx->root = new SoSeparator;
     ctx->root->ref();
 
-    ctx->mgr = new SoSceneManager;
-    ctx->mgr->setSceneGraph(ctx->root);
-    ctx->mgr->setWindowSize(SbVec2s((short)width, (short)height));
-    ctx->mgr->setViewportRegion(SbViewportRegion((short)width, (short)height));
+    /* Add a default directional light so geometry is visible */
+    SoDirectionalLight *light = new SoDirectionalLight;
+    light->direction.setValue(-1.0f, -1.0f, -1.0f);
+    ctx->root->addChild(light);
 
-    /* Initial sync: walk existing scene nodes */
-    SyncState ss;
-    ss.ctx = ctx;
-    bv_scene_traverse(scene, sync_node_cb, &ss);
+    /* SoViewport: single-view, pairs scene + camera + viewport region */
+    ctx->viewport.setWindowSize(SbVec2s((short)width, (short)height));
+    ctx->viewport.setSceneGraph(ctx->root);
+    /* Default camera is added by viewAll() if not yet present */
+    ctx->viewport.viewAll();
+
+    /* SoRenderManager: render modes, stereo, multi-pass on top of SoViewport */
+    SoRenderManager::enableRealTimeUpdate(FALSE); /* caller drives render loop */
+    ctx->render_mgr.setSceneGraph(ctx->viewport.getRoot());
+    ctx->render_mgr.setWindowSize(SbVec2s((short)width, (short)height));
+    ctx->render_mgr.setViewportRegion(
+	ctx->viewport.getViewportRegion());
+
+    /* Build initial Inventor hierarchy from bv_scene */
+    sync_scene(ctx);
 
     return ctx;
 }
@@ -455,12 +758,13 @@ bv_render_ctx_destroy(struct bv_render_ctx *ctx)
     if (!ctx)
 	return;
 
-    /* Unref all cached node separators */
-    for (auto &kv : ctx->node_map)
-	kv.second->unref();
+    /* Unref all cached Inventor nodes */
+    for (auto &kv : ctx->node_map) {
+	if (SoSeparator *sep = dynamic_cast<SoSeparator *>(kv.second))
+	    sep->unref();
+    }
     ctx->node_map.clear();
 
-    delete ctx->mgr;
     ctx->root->unref();
     delete ctx;
 }
@@ -473,8 +777,10 @@ bv_render_ctx_set_size(struct bv_render_ctx *ctx, int width, int height)
 
     ctx->width  = width;
     ctx->height = height;
-    ctx->mgr->setWindowSize(SbVec2s((short)width, (short)height));
-    ctx->mgr->setViewportRegion(SbViewportRegion((short)width, (short)height));
+    SbVec2s sz((short)width, (short)height);
+    ctx->viewport.setWindowSize(sz);
+    ctx->render_mgr.setWindowSize(sz);
+    ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
 }
 
 int
@@ -483,41 +789,26 @@ bv_render_frame(struct bv_render_ctx *ctx, struct bview_new *view)
     if (!ctx)
 	return 0;
 
-    /* Synchronise stale or new nodes */
-    SyncState ss;
-    ss.ctx = ctx;
-    bv_scene_traverse(ctx->scene, sync_node_cb, &ss);
+    /* Sync stale or new nodes from the bv_scene tree */
+    sync_scene(ctx);
 
-    /* Apply camera from view if provided */
-    if (view) {
-	const struct bview_camera *cam = bview_camera_get(view);
-	if (cam) {
-	    /* Use perspective camera by default.  The mgr already has a
-	     * camera set during setSceneGraph; we update its position. */
-	    SoCamera *so_cam = ctx->mgr->getCamera();
-	    if (!so_cam) {
-		SoPerspectiveCamera *pc = new SoPerspectiveCamera;
-		ctx->root->insertChild(pc, 0);
-		ctx->mgr->setCamera(pc);
-		so_cam = pc;
-	    }
-	    /* Map BRL-CAD camera position/lookat to SoCamera */
-	    so_cam->position.setValue(
-		(float)cam->position[0],
-		(float)cam->position[1],
-		(float)cam->position[2]);
-	    /* Orientation: derive from lookat/up vectors if available */
-	    /* (Full rotation derivation deferred; basic position sync here) */
-	}
+    /* Apply camera/viewport from view if provided */
+    if (view)
+	sync_camera_to_viewport(&ctx->viewport, view);
 
-	/* Resize to match view's viewport */
-	const struct bview_viewport *vp = bview_viewport_get(view);
-	if (vp && vp->width > 0 && vp->height > 0)
-	    bv_render_ctx_set_size(ctx, vp->width, vp->height);
-    }
+    /* Keep SoRenderManager in sync with SoViewport */
+    ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
 
-    ctx->mgr->render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
+    ctx->render_mgr.render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
     return 1;
+}
+
+void *
+bv_render_ctx_scene_root(struct bv_render_ctx *ctx)
+{
+    if (!ctx)
+	return nullptr;
+    return static_cast<void *>(ctx->root);
 }
 
 void *
@@ -532,6 +823,136 @@ bv_render_ctx_osmesa_mgr_destroy(void *mgr)
     if (!mgr)
 	return;
     delete static_cast<SoDB::ContextManager *>(mgr);
+}
+
+} /* extern "C" */
+
+/* ------------------------------------------------------------------ */
+/* Public API — quad-view (SoQuadViewport)                            */
+/* ------------------------------------------------------------------ */
+
+struct bv_quad_render_ctx {
+    SoQuadViewport                               quad_vp;   /* Obol quad-view API */
+    SoSeparator                                 *root;      /* shared scene root */
+    std::unordered_map<const struct bv_node *, SoNode *> node_map;
+    struct bv_scene                             *scene;
+    int                                          width;
+    int                                          height;
+};
+
+extern "C" {
+
+struct bv_quad_render_ctx *
+bv_quad_render_ctx_create(struct bv_scene *scene, void *context_manager,
+			  int width, int height)
+{
+    if (!scene || width <= 0 || height <= 0)
+	return nullptr;
+
+    if (!context_manager)
+	context_manager = SoDB::createOSMesaContextManager();
+
+    ensure_sodb_init(context_manager);
+
+    struct bv_quad_render_ctx *ctx = new struct bv_quad_render_ctx;
+    ctx->scene  = scene;
+    ctx->width  = width;
+    ctx->height = height;
+
+    /* Shared scene root for all four quadrants */
+    ctx->root = new SoSeparator;
+    ctx->root->ref();
+
+    SoDirectionalLight *light = new SoDirectionalLight;
+    light->direction.setValue(-1.0f, -1.0f, -1.0f);
+    ctx->root->addChild(light);
+
+    /* SoQuadViewport: 4-quadrant manager sharing the same scene */
+    ctx->quad_vp.setWindowSize(SbVec2s((short)width, (short)height));
+    ctx->quad_vp.setSceneGraph(ctx->root);
+    ctx->quad_vp.viewAllQuadrants();
+
+    /* Build initial Inventor hierarchy.  We reuse the same logic as single-
+     * view by temporarily pointing a bv_render_ctx at the shared state. */
+    struct bv_render_ctx tmp_ctx;
+    tmp_ctx.scene    = scene;
+    tmp_ctx.root     = ctx->root;
+    tmp_ctx.width    = width;
+    tmp_ctx.height   = height;
+    sync_scene(&tmp_ctx);
+    ctx->node_map = std::move(tmp_ctx.node_map);
+
+    return ctx;
+}
+
+void
+bv_quad_render_ctx_destroy(struct bv_quad_render_ctx *ctx)
+{
+    if (!ctx)
+	return;
+
+    for (auto &kv : ctx->node_map) {
+	if (SoSeparator *sep = dynamic_cast<SoSeparator *>(kv.second))
+	    sep->unref();
+    }
+    ctx->node_map.clear();
+
+    ctx->root->unref();
+    delete ctx;
+}
+
+void
+bv_quad_render_ctx_set_size(struct bv_quad_render_ctx *ctx,
+			    int width, int height)
+{
+    if (!ctx || width <= 0 || height <= 0)
+	return;
+    ctx->width  = width;
+    ctx->height = height;
+    ctx->quad_vp.setWindowSize(SbVec2s((short)width, (short)height));
+}
+
+int
+bv_quad_render_frame(struct bv_quad_render_ctx *ctx,
+		     struct bview_new **views,
+		     const char *output_path)
+{
+    if (!ctx || !output_path)
+	return 0;
+
+    /* Sync scene */
+    struct bv_render_ctx tmp_ctx;
+    tmp_ctx.scene    = ctx->scene;
+    tmp_ctx.root     = ctx->root;
+    tmp_ctx.width    = ctx->width;
+    tmp_ctx.height   = ctx->height;
+    tmp_ctx.node_map = ctx->node_map;
+    sync_scene(&tmp_ctx);
+    ctx->node_map = std::move(tmp_ctx.node_map);
+
+    /* Apply per-quadrant cameras */
+    if (views) {
+	for (int q = 0; q < BV_QUAD_NUM_QUADS; q++) {
+	    if (!views[q])
+		continue;
+	    SoViewport *vp = ctx->quad_vp.getViewport(q);
+	    if (vp)
+		sync_camera_to_viewport(vp, views[q]);
+	}
+    }
+
+    /* Render all quadrants to composite RGB file */
+    SbVec2s qs = ctx->quad_vp.getQuadrantSize();
+    SoOffscreenRenderer qren(SbViewportRegion(qs[0], qs[1]));
+    return ctx->quad_vp.writeCompositeToRGB(output_path, &qren) ? 1 : 0;
+}
+
+void *
+bv_quad_render_ctx_scene_root(struct bv_quad_render_ctx *ctx)
+{
+    if (!ctx)
+	return nullptr;
+    return static_cast<void *>(ctx->root);
 }
 
 } /* extern "C" */
@@ -578,6 +999,12 @@ bv_render_frame(struct bv_render_ctx *UNUSED(ctx),
 }
 
 void *
+bv_render_ctx_scene_root(struct bv_render_ctx *UNUSED(ctx))
+{
+    return NULL;
+}
+
+void *
 bv_render_ctx_osmesa_mgr_create(void)
 {
     return NULL;
@@ -587,6 +1014,41 @@ void
 bv_render_ctx_osmesa_mgr_destroy(void *UNUSED(mgr))
 {
     /* no-op */
+}
+
+struct bv_quad_render_ctx *
+bv_quad_render_ctx_create(struct bv_scene *UNUSED(scene),
+			  void *UNUSED(context_manager),
+			  int UNUSED(width), int UNUSED(height))
+{
+    return NULL;
+}
+
+void
+bv_quad_render_ctx_destroy(struct bv_quad_render_ctx *UNUSED(ctx))
+{
+    /* no-op */
+}
+
+void
+bv_quad_render_ctx_set_size(struct bv_quad_render_ctx *UNUSED(ctx),
+			    int UNUSED(width), int UNUSED(height))
+{
+    /* no-op */
+}
+
+int
+bv_quad_render_frame(struct bv_quad_render_ctx *UNUSED(ctx),
+		     struct bview_new **UNUSED(views),
+		     const char *UNUSED(output_path))
+{
+    return 0;
+}
+
+void *
+bv_quad_render_ctx_scene_root(struct bv_quad_render_ctx *UNUSED(ctx))
+{
+    return NULL;
 }
 
 } /* extern "C" */

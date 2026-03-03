@@ -91,7 +91,7 @@ set(
   QgViewCtrl
 )
 if(OPENGL_LIBS)
-  set(qth_names ${qth_names} QgGL)
+  set(qth_names ${qth_names} QgGL QgObolWidget QgObolQuadWidget)
 endif(OPENGL_LIBS)
 
 foreach(qh ${qth_names})
