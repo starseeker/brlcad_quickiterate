@@ -99,7 +99,7 @@ tor_reset(struct rt_edit *s, struct rt_tor_internal *edit_tor,
     cmp_tor->r_a = orig->r_a;
     cmp_tor->r_h = orig->r_h;
 
-    VMOVE(s->e_keypoint, orig->v); /* tor keypoint is always v; scale_about_pnt uses this */
+    VMOVE(s->e_keypoint, orig->v); /* tor keypoint is always v; bn_mat_scale_about_pnt uses this */
     MAT_IDN(s->acc_rot_sol);
     MAT_IDN(s->incr_change);
     MAT_IDN(s->model_changes);
