@@ -260,32 +260,35 @@ static void
 tgc_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
     es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    /* Rotation and move operations keep legacy MGED ECMD values */
     if (arg == MENU_TGC_ROT_H)
 	MEDIT(s)->edit_flag = ECMD_TGC_ROT_H;
-    if (arg == MENU_TGC_ROT_AB)
+    else if (arg == MENU_TGC_ROT_AB)
 	MEDIT(s)->edit_flag = ECMD_TGC_ROT_AB;
-    if (arg == MENU_TGC_MV_H)
+    else if (arg == MENU_TGC_MV_H)
 	MEDIT(s)->edit_flag = ECMD_TGC_MV_H;
-    if (arg == MENU_TGC_MV_HH)
+    else if (arg == MENU_TGC_MV_HH)
 	MEDIT(s)->edit_flag = ECMD_TGC_MV_HH;
+    else
+	/* Scale operations: arg is the librt ECMD value directly */
+	MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 
 struct menu_item tgc_menu[] = {
     { "TGC MENU", NULL, 0 },
-    { "Set H",	tgc_ed, MENU_TGC_SCALE_H },
-    { "Set H (move V)", tgc_ed, MENU_TGC_SCALE_H_V },
-    { "Set H (adj C,D)",	tgc_ed, MENU_TGC_SCALE_H_CD },
-    { "Set H (move V, adj A,B)", tgc_ed, MENU_TGC_SCALE_H_V_AB },
-    { "Set A",	tgc_ed, MENU_TGC_SCALE_A },
-    { "Set B",	tgc_ed, MENU_TGC_SCALE_B },
-    { "Set C",	tgc_ed, MENU_TGC_SCALE_C },
-    { "Set D",	tgc_ed, MENU_TGC_SCALE_D },
-    { "Set A,B",	tgc_ed, MENU_TGC_SCALE_AB },
-    { "Set C,D",	tgc_ed, MENU_TGC_SCALE_CD },
-    { "Set A,B,C,D", tgc_ed, MENU_TGC_SCALE_ABCD },
+    { "Set H",	tgc_ed, ECMD_TGC_SCALE_H },
+    { "Set H (move V)", tgc_ed, ECMD_TGC_SCALE_H_V },
+    { "Set H (adj C,D)",	tgc_ed, ECMD_TGC_S_H_CD },
+    { "Set H (move V, adj A,B)", tgc_ed, ECMD_TGC_S_H_V_AB },
+    { "Set A",	tgc_ed, ECMD_TGC_SCALE_A },
+    { "Set B",	tgc_ed, ECMD_TGC_SCALE_B },
+    { "Set C",	tgc_ed, ECMD_TGC_SCALE_C },
+    { "Set D",	tgc_ed, ECMD_TGC_SCALE_D },
+    { "Set A,B",	tgc_ed, ECMD_TGC_SCALE_AB },
+    { "Set C,D",	tgc_ed, ECMD_TGC_SCALE_CD },
+    { "Set A,B,C,D", tgc_ed, ECMD_TGC_SCALE_ABCD },
     { "Rotate H",	tgc_ed, MENU_TGC_ROT_H },
     { "Rotate AxB",	tgc_ed, MENU_TGC_ROT_AB },
     { "Move End H(rt)", tgc_ed, MENU_TGC_MV_H },

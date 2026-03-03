@@ -180,6 +180,19 @@
 #define ECMD_HYP_SCALE_A	38128	/* scale HYP semi-major axis A (edhyp.c) */
 #define ECMD_HYP_SCALE_B	38129	/* scale HYP semi-minor axis B (edhyp.c) */
 #define ECMD_HYP_C		38130	/* scale HYP neck parameter c (edhyp.c) */
+/* TGC scale operations (edtgc.c) - MV_H/HH/ROT_H/ROT_AB keep legacy MGED values */
+#define ECMD_TGC_SCALE_H	2027
+#define ECMD_TGC_SCALE_H_V	2028
+#define ECMD_TGC_SCALE_A	2029
+#define ECMD_TGC_SCALE_B	2030
+#define ECMD_TGC_SCALE_C	2031
+#define ECMD_TGC_SCALE_D	2032
+#define ECMD_TGC_SCALE_AB	2033
+#define ECMD_TGC_SCALE_CD	2034
+#define ECMD_TGC_SCALE_ABCD	2035
+/* TGC combined scale+move operations (librt 2111/2112, distinct from MV_H_CD=81/MV_H_V_AB=82) */
+#define ECMD_TGC_S_H_CD		2111	/* scale H adjusting C,D (edtgc.c ECMD_TGC_SCALE_H_CD) */
+#define ECMD_TGC_S_H_V_AB	2112	/* scale H+move V adjusting A,B (edtgc.c ECMD_TGC_SCALE_H_V_AB) */
 #define ECMD_SUPERELL_SCALE_A	35113	/* scale SUPERELL semiaxis A (edsuperell.c) */
 #define ECMD_SUPERELL_SCALE_B	35114	/* scale SUPERELL semiaxis B (edsuperell.c) */
 #define ECMD_SUPERELL_SCALE_C	35115	/* scale SUPERELL semiaxis C (edsuperell.c) */
