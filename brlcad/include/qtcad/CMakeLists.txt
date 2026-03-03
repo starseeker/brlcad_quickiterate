@@ -14,6 +14,8 @@ set(
   QgKeyVal.h
   QgMeasureFilter.h
   QgModel.h
+  QgObolQuadWidget.h
+  QgObolWidget.h
   QgPolyFilter.h
   QgQuadView.h
   QgSW.h

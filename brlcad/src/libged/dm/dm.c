@@ -747,13 +747,17 @@ ged_dm_core(struct ged *gedp, int argc, const char *argv[])
 #include "../include/plugin.h"
 
 extern int ged_ert_core(struct ged *gedp, int argc, const char *argv[]);
+extern int ged_ert2_core(struct ged *gedp, int argc, const char *argv[]);
+extern int ged_dm2_core(struct ged *gedp, int argc, const char *argv[]);
 extern int ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[]);
 
 #define GED_DM_COMMANDS(X, XID) \
-    X(ert, ged_ert_core, GED_CMD_DEFAULT) \
-    X(dm, ged_dm_core, GED_CMD_DEFAULT) \
-    X(screen_grab, ged_screen_grab_core, GED_CMD_DEFAULT) \
-    X(screengrab, ged_screen_grab_core, GED_CMD_DEFAULT) \
+    X(dm,           ged_dm_core,          GED_CMD_DEFAULT) \
+    X(dm2,          ged_dm2_core,         GED_CMD_DEFAULT) \
+    X(ert,          ged_ert_core,         GED_CMD_DEFAULT) \
+    X(ert2,         ged_ert2_core,        GED_CMD_DEFAULT) \
+    X(screen_grab,  ged_screen_grab_core, GED_CMD_DEFAULT) \
+    X(screengrab,   ged_screen_grab_core, GED_CMD_DEFAULT) \
 
 GED_DECLARE_COMMAND_SET(GED_DM_COMMANDS)
 GED_DECLARE_PLUGIN_MANIFEST("libged_dm", 1, GED_DM_COMMANDS)

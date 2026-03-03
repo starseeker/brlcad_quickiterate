@@ -55,6 +55,14 @@ QgView::QgView(QWidget *parent, int type, struct fb *fbp)
 	    QObject::connect(canvas_gl, &QgGL::changed, this, &QgView::do_view_changed);
 	    QObject::connect(canvas_gl, &QgGL::init_done, this, &QgView::do_init_done);
 	    break;
+	case QgView_Obol:
+	    canvas_obol = new QgObolWidget(this);
+	    canvas_obol->setMinimumSize(50,50);
+	    canvas_obol->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	    l->addWidget(canvas_obol);
+	    QObject::connect(canvas_obol, &QgObolWidget::changed, this, &QgView::do_view_changed);
+	    QObject::connect(canvas_obol, &QgObolWidget::init_done, this, &QgView::do_init_done);
+	    break;
 #endif
 	case QgView_SW:
 	    canvas_sw = new QgSW(this, fbp);
@@ -89,6 +97,8 @@ QgView::~QgView()
 #ifdef BRLCAD_OPENGL
     if (canvas_gl)
 	delete canvas_gl;
+    if (canvas_obol)
+	delete canvas_obol;
 #endif
     if (canvas_sw)
 	delete canvas_sw;
@@ -103,6 +113,8 @@ QgView::isValid()
 #ifdef BRLCAD_OPENGL
     if (canvas_gl)
 	return canvas_gl->isValid();
+    if (canvas_obol)
+	return canvas_obol->isValid();
 #endif
 
     return false;
@@ -114,6 +126,8 @@ QgView::view_type()
 #ifdef BRLCAD_OPENGL
     if (canvas_gl)
 	return QgView_GL;
+    if (canvas_obol)
+	return QgView_Obol;
 #endif
     if (canvas_sw)
 	return QgView_SW;
@@ -144,6 +158,10 @@ QgView::need_update(unsigned long long)
 	canvas_gl->need_update();
 	return;
     }
+    if (canvas_obol) {
+	canvas_obol->need_update();
+	return;
+    }
 #endif
     if (canvas_sw) {
 	canvas_sw->need_update();
@@ -157,10 +175,32 @@ QgView::view()
 #ifdef BRLCAD_OPENGL
     if (canvas_gl)
 	return canvas_gl->v;
+    if (canvas_obol) {
+	struct bview_new *nv = canvas_obol->view();
+	return nv ? bview_old_get(nv) : NULL;
+    }
 #endif
     if (canvas_sw)
 	return canvas_sw->v;
 
+    return NULL;
+}
+
+struct bview_new *
+QgView::view_new()
+{
+#ifdef BRLCAD_OPENGL
+    if (canvas_obol)
+	return canvas_obol->view();
+    if (canvas_gl) {
+	struct bview *v = canvas_gl->v;
+	return v ? v->gv_nv : NULL;
+    }
+#endif
+    if (canvas_sw) {
+	struct bview *v = canvas_sw->v;
+	return v ? v->gv_nv : NULL;
+    }
     return NULL;
 }
 
@@ -224,6 +264,9 @@ QgView::stash_hashes()
     if (canvas_gl) {
 	canvas_gl->stash_hashes();
     }
+    if (canvas_obol) {
+	canvas_obol->stash_hashes();
+    }
 #endif
     if (canvas_sw) {
 	canvas_sw->stash_hashes();
@@ -236,6 +279,9 @@ QgView::diff_hashes()
 #ifdef BRLCAD_OPENGL
     if (canvas_gl) {
 	return canvas_gl->diff_hashes();
+    }
+    if (canvas_obol) {
+	return canvas_obol->diff_hashes();
     }
 #endif
     if (canvas_sw) {
@@ -252,6 +298,7 @@ QgView::aet(double a, double e, double t)
     if (canvas_gl) {
 	canvas_gl->aet(a, e, t);
     }
+    /* For Obol, aet manipulation goes via the bview_new / camera directly */
 #endif
     if (canvas_sw) {
 	canvas_sw->aet(a, e, t);
@@ -265,6 +312,9 @@ QgView::set_current(int i)
     if (canvas_gl) {
 	canvas_gl->current = i;
     }
+    if (canvas_obol) {
+	canvas_obol->set_current(i);
+    }
 #endif
     if (canvas_sw) {
 	canvas_sw->current = i;
@@ -277,6 +327,9 @@ QgView::current()
 #ifdef BRLCAD_OPENGL
     if (canvas_gl) {
 	return canvas_gl->current;
+    }
+    if (canvas_obol) {
+	return canvas_obol->current();
     }
 #endif
     if (canvas_sw) {
@@ -296,6 +349,10 @@ QgView::add_event_filter(QObject *o)
 	canvas_gl->installEventFilter(o);
 	return;
     }
+    if (canvas_obol) {
+	canvas_obol->installEventFilter(o);
+	return;
+    }
 #endif
     if (canvas_sw) {
 	canvas_sw->installEventFilter(o);
@@ -313,6 +370,16 @@ QgView::clear_event_filter(QObject *o)
 	} else {
 	    for (size_t i = 0; i < filters.size(); i++) {
 		canvas_gl->removeEventFilter(filters[i]);
+	    }
+	    filters.clear();
+	}
+    }
+    if (canvas_obol) {
+	if (o) {
+	    canvas_obol->removeEventFilter(o);
+	} else {
+	    for (size_t i = 0; i < filters.size(); i++) {
+		canvas_obol->removeEventFilter(filters[i]);
 	    }
 	    filters.clear();
 	}
