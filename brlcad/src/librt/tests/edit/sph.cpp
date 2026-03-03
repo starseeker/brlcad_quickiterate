@@ -39,6 +39,18 @@
  *
  * RT_PARAMS_EDIT_ROT (e_para=(5,5,5), rotate_about='k'):
  *   Rotate: V stays at origin (keypoint). A/B/C rotate.
+ *
+ * RT_MATRIX_EDIT_ROT (e_para=(30,0,0), keypoint=(0,0,0)):
+ *   Absolute matrix rotation: model_changes gains a 30-deg X rotation.
+ *   Verifies that model_changes is no longer identity after the rotation.
+ *
+ * RT_MATRIX_EDIT_TRANS_MODEL_XYZ (e_para=(10,20,30)):
+ *   Absolute model-space oed translation: model_changes updated so that
+ *   e_keypoint maps to model position (10,20,30).
+ *
+ * RT_PARAMS_EDIT_ROT XY and RT_MATRIX_EDIT_ROT XY:
+ *   Both return BRLCAD_ERROR (rotation via raw XY mouse not supported;
+ *   use rt_knob_edit_rot for interactive rotation).
  */
 
 #include "common.h"
@@ -251,7 +263,8 @@ main(int argc, char *argv[])
 	   V3ARGS(ell->a));
 
     /* ================================================================
-     * RT_PARAMS_EDIT_ROT XY returns BRLCAD_ERROR (unimplemented)
+     * RT_PARAMS_EDIT_ROT XY returns BRLCAD_ERROR (not supported via
+     * raw view XY; use rt_knob_edit_rot for interactive rotation)
      * ================================================================*/
     sph_reset(s, ell);
     rt_edit_set_edflag(s, RT_PARAMS_EDIT_ROT);
@@ -263,7 +276,81 @@ main(int argc, char *argv[])
 	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) should return BRLCAD_ERROR, got %d\n",
 		rot_xy_ret);
     bu_log("RT_PARAMS_EDIT_ROT(xy) correctly returns BRLCAD_ERROR "
-	   "(XY rotation unimplemented)\n");
+	   "(use rt_knob_edit_rot for interactive solid rotation)\n");
+
+    /* ================================================================
+     * RT_MATRIX_EDIT_ROT: absolute matrix rotation from keyboard angles
+     *
+     * Set model_changes to a 30-deg rotation about X.  Keypoint is at
+     * origin so world position of keypoint is also origin - the rotation
+     * point is the origin and no translation stripping is needed.
+     * After the edit model_changes must differ from identity.
+     * ================================================================*/
+    sph_reset(s, ell);
+    MAT_IDN(s->model_changes);
+    MAT_IDN(s->acc_rot_sol);
+    rt_edit_set_edflag(s, RT_MATRIX_EDIT_ROT);
+    s->e_inpara = 1;
+    VSET(s->e_para, 30, 0, 0);   /* 30-deg rotation about X axis */
+    VSET(s->e_keypoint, 0, 0, 0);
+
+    rt_edit_process(s);
+    {
+	mat_t ident;
+	MAT_IDN(ident);
+	if (bn_mat_is_equal(s->model_changes, ident, &tol))
+	    bu_exit(1, "ERROR: RT_MATRIX_EDIT_ROT did not rotate model_changes\n");
+	/* acc_rot_sol should now hold the 30-deg X rotation */
+	mat_t expected_rot;
+	MAT_IDN(expected_rot);
+	bn_mat_angles(expected_rot, 30, 0, 0);
+	if (!bn_mat_is_equal(s->acc_rot_sol, expected_rot, &tol))
+	    bu_exit(1, "ERROR: RT_MATRIX_EDIT_ROT: acc_rot_sol not updated\n");
+	bu_log("RT_MATRIX_EDIT_ROT SUCCESS: model_changes rotated, acc_rot_sol updated\n");
+    }
+
+    /* ================================================================
+     * RT_MATRIX_EDIT_ROT XY returns BRLCAD_ERROR (not supported via
+     * raw view XY; use rt_knob_edit_rot for interactive rotation)
+     * ================================================================*/
+    sph_reset(s, ell);
+    MAT_IDN(s->model_changes);
+    rt_edit_set_edflag(s, RT_MATRIX_EDIT_ROT);
+    mousevec[X] = 0.1; mousevec[Y] = -0.05; mousevec[Z] = 0;
+    bu_vls_trunc(s->log_str, 0);
+    int mrot_xy_ret = (*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, mousevec);
+    if (mrot_xy_ret != BRLCAD_ERROR)
+	bu_exit(1, "ERROR: RT_MATRIX_EDIT_ROT(xy) should return BRLCAD_ERROR, got %d\n",
+		mrot_xy_ret);
+    bu_log("RT_MATRIX_EDIT_ROT(xy) correctly returns BRLCAD_ERROR "
+	   "(use rt_knob_edit_rot for interactive matrix rotation)\n");
+
+    /* ================================================================
+     * RT_MATRIX_EDIT_TRANS_MODEL_XYZ: absolute model-space oed translation
+     *
+     * Start with identity model_changes and keypoint at origin.
+     * After translating to (10,20,30): model_changes * (0,0,0) == (10,20,30).
+     * ================================================================*/
+    sph_reset(s, ell);
+    MAT_IDN(s->model_changes);
+    rt_edit_set_edflag(s, RT_MATRIX_EDIT_TRANS_MODEL_XYZ);
+    s->e_inpara = 1;
+    VSET(s->e_para, 10, 20, 30);  /* target position in local units */
+    VSET(s->e_keypoint, 0, 0, 0);
+    s->local2base = 1.0;          /* 1:1 for test */
+
+    rt_edit_process(s);
+    {
+	point_t kp_world;
+	MAT4X3PNT(kp_world, s->model_changes, s->e_keypoint);
+	vect_t expected = {10, 20, 30};
+	if (!VNEAR_EQUAL(kp_world, expected, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: RT_MATRIX_EDIT_TRANS_MODEL_XYZ failed: "
+		    "keypoint maps to (%g,%g,%g), expected (10,20,30)\n",
+		    V3ARGS(kp_world));
+	bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
+	       "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
+    }
 
     rt_edit_destroy(s);
     db_close(dbip);

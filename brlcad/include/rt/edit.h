@@ -70,26 +70,36 @@ __BEGIN_DECLS
 // to disk, and if a solid is being edited rather than a comb the matrix
 // changes are translated by the per-primitive routines to new solid parameters
 // at that time.)
+//
+// Matrix rotation: absolute Euler angles (X,Y,Z in degrees) supplied via
+// e_para[0..2].  The existing rotation stored in model_changes is replaced
+// by the new absolute rotation while the keypoint's world position and the
+// accumulated scale factor are preserved.  This mirrors MGED's "orot X Y Z"
+// (f_rot_obj / mged_rot_obj) behaviour.  Incremental rotation via knob or
+// mouse input uses rt_knob_edit_rot() with matrix_edit=1 instead.
 #define RT_MATRIX_EDIT_ROT       6
 
-// Matrix translate operations are specified relative to the VIEW XY, NOT the
-// model space coordinate system.  I.e. the resulting translations are view
-// dependent.
+// Matrix translate operations specified relative to VIEW XY are view-dependent.
+// They project the object keypoint into view space, replace the requested
+// XY component(s) with the supplied mouse/parameter value, and project back
+// to model space.  This matches MGED's oed mouse-drag (RARROW/UARROW) behaviour
+// and is the correct mapping for interactive viewport dragging.
 //
-// Not sure what the history is here - I suppose the thinking might be that
-// the view can be set to axis align to get constrained movement in model
-// coordinate space, and this allows for other constraints as well when the
-// view is adjusted, but it has a definite drawback if the user wants to
-// watch the movement of the solid along a model space X,Y or Z axis from
-// another view while editing.  Also has the drawback that it is inconsistent
-// with the matrix scale edit ops, which appear to be scaling relative to the
-// model coordinate system.
-//
-// TODO - Should additional edit operations be defined for constrained
-// translating on the model axis directions?
+// For non-interactive (command-line) absolute placement in model coordinates,
+// use RT_MATRIX_EDIT_TRANS_MODEL_XYZ which places the keypoint at the given
+// model-space X,Y,Z position directly.  This mirrors MGED's "translate X Y Z"
+// (f_tr_obj) behaviour when in object-edit mode.
 #define RT_MATRIX_EDIT_TRANS_VIEW_XY  7
 #define RT_MATRIX_EDIT_TRANS_VIEW_X   8
 #define RT_MATRIX_EDIT_TRANS_VIEW_Y   9
+
+// Absolute model-space translation: move object so that e_keypoint lands at
+// the specified model-space position.  e_para[0..2] supply the target X,Y,Z
+// coordinates in local (display) units; the edit function converts to base
+// units internally.  Equivalent to MGED's "translate X Y Z" command when in
+// object-edit (oed) mode.  Unlike the VIEW variants above this operation is
+// view-independent and maps directly to model coordinates.
+#define RT_MATRIX_EDIT_TRANS_MODEL_XYZ 14
 
 // Non-uniform scale operations scale relative to the MODEL coordinate system,
 // NOT the view plane.

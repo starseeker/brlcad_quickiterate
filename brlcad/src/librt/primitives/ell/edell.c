@@ -302,8 +302,16 @@ rt_edit_ell_edit(struct rt_edit *s)
 	    /* rot solid about vertex */
 	    edit_srot(s);
 	    break;
-	default:
+	case ECMD_ELL_SCALE_A:
+	case ECMD_ELL_SCALE_B:
+	case ECMD_ELL_SCALE_C:
+	case ECMD_ELL_SCALE_ABC:
 	    return rt_edit_ell_pscale(s);
+	default:
+	    /* Generic/matrix edit operations (RT_MATRIX_EDIT_*) are not
+	     * ELL-specific; forward to edit_generic so they are handled
+	     * correctly for all primitives. */
+	    return edit_generic(s);
     }
 
     return 0;
@@ -316,7 +324,6 @@ rt_edit_ell_edit_xy(
         )
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
-    struct rt_db_internal *ip = &s->es_int;
     bu_clbk_t f = NULL;
     void *d = NULL;
 
@@ -333,17 +340,16 @@ rt_edit_ell_edit_xy(
             edit_abs_tra(s, pos_view);
             return 0;
         case RT_PARAMS_EDIT_ROT:
-            bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing setup unimplemented in %s_edit_xy callback\n", EDOBJ[ip->idb_type].ft_label);
+	    /* Solid rotation via raw XY mouse position is not supported;
+	     * use rt_knob_edit_rot for interactive rotation. */
+	    bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing not supported; use rt_knob_edit_rot\n");
             rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
             if (f)
                 (*f)(0, NULL, d, NULL);
             return BRLCAD_ERROR;
         default:
-            bu_vls_printf(s->log_str, "%s: XY edit undefined in solid edit mode %d\n", EDOBJ[ip->idb_type].ft_label, s->edit_flag);
-            rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-            if (f)
-                (*f)(0, NULL, d, NULL);
-            return BRLCAD_ERROR;
+	    /* Forward generic/matrix ops (RT_MATRIX_EDIT_*) to edit_generic_xy. */
+            return edit_generic_xy(s, mousevec);
     }
 }
 

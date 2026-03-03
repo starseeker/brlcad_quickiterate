@@ -834,9 +834,14 @@ rt_knob_edit_sca(struct rt_edit *s, int matrix_edit)
        mat_t incr_mat;
        MAT_IDN(incr_mat);
 
-       // TODO - objedit_mouse SARROW case has different logic for handling mousevec
-       // inputs - looking like we may need a mousevec entry for the rt_edit
-       // struct so we can have both processing methods here....
+       /* Note: interactive mouse-based matrix scaling (objedit_mouse SARROW)
+        * computes scale differently - it uses the raw mousevec[Y] value
+        * directly to get an incremental scale (scale = 1 + |mousevec[Y]|).
+        * That path goes through edit_mscale_xy() which accepts a mousevec
+        * directly.  This function handles the knob-based path where scale is
+        * expressed via the k.sca_abs abstraction (0 = no scale, +/- 1 = max
+        * scale up/down).  The two paths produce consistent model_changes
+        * updates and are both correct for their respective input sources. */
 
        if (-SMALL_FASTF < s->k.sca_abs && s->k.sca_abs < SMALL_FASTF)
 	   scale = 1;
