@@ -5554,25 +5554,6 @@ coin_gl_getstring_ptr(void)
 }
 #endif /* !SOGL_PREFIX_SET */
 
-/* Thread-local pointer to the SoGLContext for the render pass that is
-   currently in progress on this thread.  Set by SoGLRenderAction before
-   each traversal pass so that GL element updategl() methods (which do not
-   receive a state pointer) can still dispatch through the correct GL
-   backend in dual-GL builds. */
-static thread_local const SoGLContext * sogl_tls_render_glue = NULL;
-
-const SoGLContext *
-sogl_current_render_glue(void)
-{
-  return sogl_tls_render_glue;
-}
-
-void
-sogl_set_current_render_glue(const SoGLContext * glue)
-{
-  sogl_tls_render_glue = glue;
-}
-
 /* ********************************************************************** */
 
 SbBool
@@ -6582,7 +6563,13 @@ SoGLContext_glPopAttrib(const SoGLContext * glue)
  * These wrap every core OpenGL function that external/osmesa provides,
  * so Inventor/gl.h can redirect any OSMesa-supported call through the
  * correct backend without falling back to a raw system-GL symbol.
+ *
+ * These dispatch through function pointers in the SoGLContext struct and
+ * therefore work correctly for both system-GL and OSMesa contexts.  Only
+ * one definition is needed, so exclude this block from the OSMesa
+ * compilation unit (gl_osmesa.cpp) where SOGL_PREFIX_SET is defined.
  * --------------------------------------------------------------------- */
+#ifndef SOGL_PREFIX_SET
 
 GLboolean
 SoGLContext_glAreTexturesResident(const SoGLContext * glue, GLsizei n, const GLuint * textures, GLboolean * residences)
@@ -8501,3 +8488,5 @@ SoGLContext_glVertex4sv(const SoGLContext * glue, const GLshort * v)
   assert(glue->glVertex4sv);
   glue->glVertex4sv(v);
 }
+
+#endif /* !SOGL_PREFIX_SET */
