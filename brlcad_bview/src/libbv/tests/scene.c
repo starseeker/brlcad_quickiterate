@@ -4019,6 +4019,50 @@ test_bv_scene_add_nodes(void)
     return 1;
 }
 
+static int
+test_bv_scene_visible_nodes(void)
+{
+    /* NULL safety */
+    CHECK(bv_scene_visible_nodes(NULL, NULL) == 0, "visible_nodes(NULL,NULL)==0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    struct bu_ptbl out;
+    BU_PTBL_INIT(&out);
+
+    /* Empty scene */
+    CHECK(bv_scene_visible_nodes(scene, &out) == 0, "empty scene 0 visible");
+
+    /* Add 3 nodes: 2 visible, 1 hidden */
+    struct bv_node *v1 = bv_node_create("v1", BV_NODE_GEOMETRY);
+    struct bv_node *v2 = bv_node_create("v2", BV_NODE_GEOMETRY);
+    struct bv_node *h1 = bv_node_create("h1", BV_NODE_GEOMETRY);
+
+    bv_node_visible_set(v1, 1);
+    bv_node_visible_set(v2, 1);
+    bv_node_visible_set(h1, 0);
+
+    bv_scene_add_node(scene, v1);
+    bv_scene_add_node(scene, v2);
+    bv_scene_add_node(scene, h1);
+
+    size_t cnt = bv_scene_visible_nodes(scene, &out);
+    CHECK(cnt == 2, "2 visible nodes found");
+    CHECK(BU_PTBL_LEN(&out) == 2, "ptbl has 2 entries");
+
+    /* Make h1 visible, re-query */
+    bu_ptbl_reset(&out);
+    bv_node_visible_set(h1, 1);
+    cnt = bv_scene_visible_nodes(scene, &out);
+    CHECK(cnt == 3, "3 visible after setting h1 visible");
+
+    bu_ptbl_free(&out);
+    bv_scene_destroy(scene);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -4156,6 +4200,7 @@ static struct test_entry scene_tests[] = {
     { "node_subtree_size",            test_bv_node_subtree_size               },
     { "scene_total_node_count",       test_bv_scene_total_node_count          },
     { "scene_add_nodes",              test_bv_scene_add_nodes                 },
+    { "scene_visible_nodes",          test_bv_scene_visible_nodes             },
     { NULL, NULL }
 };
 

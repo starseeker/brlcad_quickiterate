@@ -1754,6 +1754,42 @@ bv_scene_deselect_all(struct bv_scene *scene, struct bview_new *view)
 }
 
 
+/* Callback state for bv_scene_visible_nodes */
+struct _visible_collect_state {
+    struct bu_ptbl *out;
+    size_t          count;
+};
+
+static void
+_visible_collect_cb(struct bv_node *node, void *user_data)
+{
+    struct _visible_collect_state *st = (struct _visible_collect_state *)user_data;
+    if (!node || !st)
+	return;
+    /* Skip the synthetic root separator — it is not a user-visible node */
+    if (node->type == BV_NODE_SEPARATOR)
+	return;
+    if (node->visible) {
+	bu_ptbl_ins_unique(st->out, (long *)node);
+	st->count++;
+    }
+}
+
+size_t
+bv_scene_visible_nodes(const struct bv_scene *scene, struct bu_ptbl *out)
+{
+    if (!scene || !out)
+	return 0;
+
+    struct _visible_collect_state st;
+    st.out   = out;
+    st.count = 0;
+
+    bv_scene_traverse(scene, _visible_collect_cb, &st);
+    return st.count;
+}
+
+
 /* ================================================================
  * bv_node_bbox / bv_scene_bbox
  *
