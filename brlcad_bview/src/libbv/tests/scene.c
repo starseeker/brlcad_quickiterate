@@ -3895,6 +3895,37 @@ test_bv_scene_has_node(void)
     return 1;
 }
 
+static int
+test_bv_node_detach(void)
+{
+    bv_node_detach(NULL);  /* must not crash */
+
+    struct bv_node *parent = bv_node_create("par", BV_NODE_GROUP);
+    struct bv_node *child  = bv_node_create("ch",  BV_NODE_GEOMETRY);
+
+    CHECK(parent != NULL && child != NULL, "nodes created");
+    if (!parent || !child) { bv_node_destroy(parent); bv_node_destroy(child); return 0; }
+
+    /* Detaching a node with no parent is a no-op */
+    bv_node_detach(child);
+    CHECK(bv_node_parent_get(child) == NULL, "still no parent after detach of orphan");
+
+    bv_node_add_child(parent, child);
+    CHECK(bv_node_parent_get(child) == parent, "parent set after add");
+    CHECK(bv_node_child_count(parent) == 1, "parent has 1 child");
+
+    bv_node_detach(child);
+    CHECK(bv_node_parent_get(child) == NULL, "parent NULL after detach");
+    CHECK(bv_node_child_count(parent) == 0, "parent has 0 children after detach");
+
+    /* Node is still alive and can be re-added */
+    bv_node_add_child(parent, child);
+    CHECK(bv_node_child_count(parent) == 1, "re-add after detach works");
+
+    bv_node_destroy(parent);  /* recursive: frees child */
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -4028,6 +4059,7 @@ static struct test_entry scene_tests[] = {
     { "node_is_descendant",           test_bv_node_is_descendant              },
     { "node_child_count",             test_bv_node_child_count                },
     { "scene_has_node",               test_bv_scene_has_node                  },
+    { "node_detach",                  test_bv_node_detach                     },
     { NULL, NULL }
 };
 
