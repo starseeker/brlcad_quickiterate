@@ -274,6 +274,14 @@ struct rt_edit {
     /* Internal primitive editing information specific to primitive types. */
     void *ipe_ptr;
 
+    /* Snap-to-grid: when snap.enabled is non-zero, ft_edit_xy implementations
+     * should call rt_edit_snap_point() on the computed UV/model position before
+     * applying it.  spacing is in model (base) units. */
+    struct {
+	int     enabled;   /**< non-zero → snap active */
+	fastf_t spacing;   /**< grid spacing in mm (base units) */
+    } snap;
+
     /* User pointer */
     void *u_ptr;
 };
@@ -352,6 +360,19 @@ rt_knob_edit_sca(
  * rt_edit container */
 RT_EXPORT extern void
 rt_edit_process(struct rt_edit *s);
+
+/**
+ * Snap a 2-D UV point to the grid defined in s->snap.
+ *
+ * If s->snap.enabled is zero the point is returned unchanged.
+ * Otherwise each component is rounded to the nearest multiple of
+ * s->snap.spacing.
+ *
+ * @param[in,out] pt  2-D UV coordinate to snap (in model/base units).
+ * @param[in]     s   rt_edit struct carrying snap configuration.
+ */
+RT_EXPORT extern void
+rt_edit_snap_point(point2d_t pt, const struct rt_edit *s);
 
 
 /* Edit menu items encode information about specific edit operations, as well
