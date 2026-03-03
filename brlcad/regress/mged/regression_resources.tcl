@@ -206,6 +206,7 @@ if {![info exists make_primitives_list]} {
   # Tests that sed/press/p/accept correctly sets primitive parameters via rt_edit_process()
   # idx: component index for vector attributes (-1 for scalar, 0/1/2 for x/y/z)
   proc prim_edit_check {prim menu_item param_val attr_name expected_val idx} {
+      set tolerance 0.001
       e $prim
       sed $prim
       press $menu_item
@@ -213,12 +214,21 @@ if {![info exists make_primitives_list]} {
       press accept
       d $prim
       if {$idx >= 0} {
-          set got [lindex [db get $prim $attr_name] $idx]
+          set raw [db get $prim $attr_name]
+          if {[llength $raw] <= $idx} {
+              puts "  FAIL: \[$prim\] $menu_item -> $param_val  ($attr_name list too short: $raw)"
+              return
+          }
+          set got [lindex $raw $idx]
       } else {
           set got [db get $prim $attr_name]
       }
+      if {![string is double -strict $got]} {
+          puts "  FAIL: \[$prim\] $menu_item -> $param_val  ($attr_name returned non-numeric: $got)"
+          return
+      }
       set diff [expr {abs($got - $expected_val)}]
-      if {$diff < 0.001} {
+      if {$diff < $tolerance} {
           puts "  PASS: \[$prim\] $menu_item -> $param_val"
       } else {
           puts "  FAIL: \[$prim\] $menu_item -> $param_val  ($attr_name expected $expected_val, got $got)"
