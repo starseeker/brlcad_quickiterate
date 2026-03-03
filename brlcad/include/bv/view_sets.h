@@ -107,6 +107,15 @@ BV_EXPORT struct bu_ptbl *bv_viewset_views(struct bview_set *s);
 /** Return the view with name vname, or NULL if not found. */
 BV_EXPORT struct bview *bv_viewset_find(struct bview_set *s, const char *vname);
 
+/**
+ * Return the new-API companion (bview_new *) for the view named vname, or
+ * NULL if not found or if the view has no companion yet.
+ *
+ * This is the new-API equivalent of bv_viewset_find() for code that has
+ * been migrated to use bview_new * rather than struct bview *.
+ */
+BV_EXPORT struct bview_new *bv_viewset_find_new(struct bview_set *s, const char *vname);
+
 /** Return the head of the free-scene-object pool for set s. */
 BV_EXPORT struct bv_scene_obj *bv_viewset_fso(struct bview_set *s);
 

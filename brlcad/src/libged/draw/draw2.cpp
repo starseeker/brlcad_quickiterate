@@ -81,7 +81,8 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
      * view.  In order to set up the correct default views, we need to know
      * if a specific view has in fact been specified.  We do a preliminary
      * option check to figure this out */
-    struct bview *cv = gedp->ged_gvp;
+    struct bview_new *cnv = gedp->ged_gvnv;
+    struct bview *cv = gedp->ged_gvp;   /* legacy pointer kept for internal use */
     struct bu_vls cvls = BU_VLS_INIT_ZERO;
     struct bu_opt_desc vd[2];
     BU_OPT(vd[0],  "V", "view",    "name",      &bu_opt_vls, &cvls,   "specify view to draw on");
@@ -94,7 +95,8 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (bu_vls_strlen(&cvls)) {
-	cv = bv_viewset_find(&gedp->ged_views, bu_vls_cstr(&cvls));
+	cnv = bv_viewset_find_new(&gedp->ged_views, bu_vls_cstr(&cvls));
+	cv = cnv ? bview_old_get(cnv) : NULL;
 	if (!cv) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -291,7 +293,8 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
     int opt_ret = bu_opt_parse(NULL, argc, argv, vd);
     argc = opt_ret;
     if (bu_vls_strlen(&cvls)) {
-	cv = bv_viewset_find(&gedp->ged_views, bu_vls_cstr(&cvls));
+	struct bview_new *cnv = bv_viewset_find_new(&gedp->ged_views, bu_vls_cstr(&cvls));
+	cv = cnv ? bview_old_get(cnv) : NULL;
 	if (!cv) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
