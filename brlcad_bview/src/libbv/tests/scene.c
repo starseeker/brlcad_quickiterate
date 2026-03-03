@@ -3771,6 +3771,78 @@ test_bv_scene_clear(void)
     return 1;
 }
 
+static int
+test_bv_scene_find_all_nodes(void)
+{
+    /* NULL safety */
+    CHECK(bv_scene_find_all_nodes(NULL, "x", NULL) == 0, "find_all(NULL,x,NULL)==0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    struct bu_ptbl results;
+    BU_PTBL_INIT(&results);
+
+    /* Empty scene */
+    size_t cnt = bv_scene_find_all_nodes(scene, "foo", &results);
+    CHECK(cnt == 0, "empty scene returns 0");
+
+    /* Add two nodes with same name and one different */
+    struct bv_node *a1 = bv_node_create("dup", BV_NODE_GEOMETRY);
+    struct bv_node *a2 = bv_node_create("dup", BV_NODE_GEOMETRY);
+    struct bv_node *b  = bv_node_create("other", BV_NODE_GEOMETRY);
+    bv_scene_add_node(scene, a1);
+    bv_scene_add_node(scene, a2);
+    bv_scene_add_node(scene, b);
+
+    cnt = bv_scene_find_all_nodes(scene, "dup", &results);
+    CHECK(cnt == 2, "find_all 'dup' returns 2");
+    CHECK(BU_PTBL_LEN(&results) == 2, "ptbl has 2 entries");
+
+    bu_ptbl_reset(&results);
+    cnt = bv_scene_find_all_nodes(scene, "other", &results);
+    CHECK(cnt == 1, "find_all 'other' returns 1");
+
+    bu_ptbl_reset(&results);
+    cnt = bv_scene_find_all_nodes(scene, "missing", &results);
+    CHECK(cnt == 0, "find_all 'missing' returns 0");
+
+    bu_ptbl_free(&results);
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_node_is_descendant(void)
+{
+    /* NULL safety */
+    CHECK(bv_node_is_descendant(NULL, NULL) == 0, "is_descendant(NULL,NULL)==0");
+
+    struct bv_node *root  = bv_node_create("root",  BV_NODE_GROUP);
+    struct bv_node *child = bv_node_create("child", BV_NODE_GEOMETRY);
+    struct bv_node *grand = bv_node_create("grand", BV_NODE_GEOMETRY);
+    struct bv_node *other = bv_node_create("other", BV_NODE_GEOMETRY);
+
+    bv_node_add_child(root, child);
+    bv_node_add_child(child, grand);
+
+    /* Self */
+    CHECK(bv_node_is_descendant(root, root) == 1, "node is own ancestor");
+    /* Direct child */
+    CHECK(bv_node_is_descendant(child, root) == 1, "child descends from root");
+    /* Grandchild */
+    CHECK(bv_node_is_descendant(grand, root) == 1, "grandchild descends from root");
+    /* Not related */
+    CHECK(bv_node_is_descendant(other, root) == 0, "unrelated returns 0");
+    /* Reverse: ancestor is NOT descendant of child */
+    CHECK(bv_node_is_descendant(root, child) == 0, "root does not descend from child");
+
+    bv_node_destroy(other);
+    bv_node_destroy(root);   /* recursive: frees child + grand */
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -3900,6 +3972,8 @@ static struct test_entry scene_tests[] = {
     { "node_name_set",                test_bv_node_name_set                   },
     { "scene_node_count",             test_bv_scene_node_count                },
     { "scene_clear",                  test_bv_scene_clear                     },
+    { "scene_find_all_nodes",         test_bv_scene_find_all_nodes            },
+    { "node_is_descendant",           test_bv_node_is_descendant              },
     { NULL, NULL }
 };
 
