@@ -249,6 +249,14 @@ BV_EXPORT int bv_scene_has_node(const struct bv_scene *scene, const struct bv_no
  * No-op if scene is NULL.
  */
 BV_EXPORT void bv_scene_clear(struct bv_scene *scene);
+/*
+ * Set the visibility of every node in the scene to `visible` (1 = show,
+ * 0 = hide).  Visits all nodes including nested children.
+ * No-op if scene is NULL.
+ *
+ * Returns the number of nodes whose visibility was changed.
+ */
+BV_EXPORT size_t bv_scene_set_all_visible(struct bv_scene *scene, int visible);
 
 /* Hierarchy/grouping (child management under a specific parent node) */
 BV_EXPORT void bv_scene_add_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
