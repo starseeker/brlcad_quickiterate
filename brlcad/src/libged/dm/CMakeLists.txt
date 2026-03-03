@@ -1,10 +1,11 @@
-set(PLUGIN_LIBS libged libdm libbu)
+set(PLUGIN_LIBS libged libdm librtrender libbu)
 
 set(DM_SRCS
   dm.c
   dm2.cpp
   ert.cpp
   ert2.cpp
+  ert3.cpp
   screengrab.c
 )
 
