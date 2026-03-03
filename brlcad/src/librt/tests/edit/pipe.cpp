@@ -376,6 +376,67 @@ main(int argc, char *argv[])
     bu_log("RT_PARAMS_EDIT_ROT(xy) correctly returns BRLCAD_ERROR "
 	   "(XY rotation unimplemented)\n");
 
+
+    /* ================================================================
+     * RT_MATRIX_EDIT_ROT: absolute matrix rotation from keyboard angles
+     *
+     * Set model_changes to a 30-deg rotation about X. Keypoint is at
+     * the primitive's vertex (varies per primitive).
+     * After the edit model_changes must differ from identity.
+     * ================================================================*/
+    pipe_reset(s, pe);
+    MAT_IDN(s->model_changes);
+    MAT_IDN(s->acc_rot_sol);
+    rt_edit_set_edflag(s, RT_MATRIX_EDIT_ROT);
+    s->e_inpara = 1;
+    VSET(s->e_para, 30, 0, 0);   /* 30-deg rotation about X axis */
+    VSET(s->e_keypoint, 0, 0, 0);
+
+    rt_edit_process(s);
+    {
+mat_t ident;
+MAT_IDN(ident);
+if (bn_mat_is_equal(s->model_changes, ident, &tol))
+    bu_exit(1, "ERROR: RT_MATRIX_EDIT_ROT did not rotate model_changes\n");
+mat_t expected_rot;
+MAT_IDN(expected_rot);
+bn_mat_angles(expected_rot, 30, 0, 0);
+if (!bn_mat_is_equal(s->acc_rot_sol, expected_rot, &tol))
+    bu_exit(1, "ERROR: RT_MATRIX_EDIT_ROT: acc_rot_sol not updated\n");
+bu_log("RT_MATRIX_EDIT_ROT SUCCESS: model_changes rotated, acc_rot_sol updated\n");
+    }
+
+    /* ================================================================
+     * RT_MATRIX_EDIT_TRANS_MODEL_XYZ: absolute model-space translation
+     *
+     * Start with identity model_changes, keypoint at origin.
+     * After translating to (10,20,30): model_changes * (0,0,0) == (10,20,30).
+     * ================================================================*/
+    pipe_reset(s, pe);
+    MAT_IDN(s->model_changes);
+    rt_edit_set_edflag(s, RT_MATRIX_EDIT_TRANS_MODEL_XYZ);
+    s->e_inpara = 1;
+    VSET(s->e_para, 10, 20, 30);
+    VSET(s->e_keypoint, 0, 0, 0);
+    s->local2base = 1.0;
+
+    {
+point_t kp_saved;
+VMOVE(kp_saved, s->e_keypoint);
+
+rt_edit_process(s);
+
+point_t kp_world;
+MAT4X3PNT(kp_world, s->model_changes, kp_saved);
+vect_t expected = {10, 20, 30};
+if (!VNEAR_EQUAL(kp_world, expected, VUNITIZE_TOL))
+    bu_exit(1, "ERROR: RT_MATRIX_EDIT_TRANS_MODEL_XYZ failed: "
+    "keypoint maps to (%g,%g,%g), expected (10,20,30)\n",
+    V3ARGS(kp_world));
+bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
+       "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
+    }
+
     rt_edit_destroy(s);
     db_close(dbip);
     return 0;
