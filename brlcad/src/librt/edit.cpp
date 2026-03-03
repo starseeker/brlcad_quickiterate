@@ -120,6 +120,8 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     s->ipe_ptr = NULL;
     s->local2base = 1.0;
     s->mv_context = 0;
+    s->snap.enabled = 0;
+    s->snap.spacing = 1.0;
     s->edit_mode = RT_EDIT_DEFAULT;
     s->tol = tol;
     s->u_ptr = NULL;
@@ -994,6 +996,16 @@ rt_edit_process(struct rt_edit *s)
 
     s->e_inpara = 0;
     s->e_mvalid = 0;
+}
+
+void
+rt_edit_snap_point(point2d_t pt, const struct rt_edit *s)
+{
+    if (!s || !s->snap.enabled || s->snap.spacing <= 0.0)
+	return;
+    fastf_t inv_sp = 1.0 / s->snap.spacing;
+    pt[0] = floor(pt[0] * inv_sp + 0.5) * s->snap.spacing;
+    pt[1] = floor(pt[1] * inv_sp + 0.5) * s->snap.spacing;
 }
 
 
