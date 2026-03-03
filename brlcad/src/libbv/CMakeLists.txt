@@ -11,6 +11,7 @@ set(
   polygon.c
   polygon_op.cpp
   polygon_fill.cpp
+  render_ctx.cpp
   scene.cpp
   snap.c
   tig/axis.c
@@ -28,8 +29,19 @@ set(
 
 set(BV_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${LMDB_INCLUDE_DIR})
 
+# Optional Obol/Inventor rendering backend
+if(BRLCAD_ENABLE_OBOL)
+  brlcad_find_package(Obol REQUIRED)
+  if(Obol_FOUND)
+    list(APPEND BV_LOCAL_INCLUDE_DIRS ${OBOL_INCLUDE_DIRS})
+    set(LIBBV_OBOL_LIBS ${OBOL_LIBRARIES})
+    set_property(SOURCE render_ctx.cpp APPEND PROPERTY
+      COMPILE_DEFINITIONS "BRLCAD_HAVE_OBOL=1")
+  endif(Obol_FOUND)
+endif(BRLCAD_ENABLE_OBOL)
+
 # Note - libbv_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libbv "${LIBBV_SRCS}" "${libbv_deps};${LMDB_LIBRARIES}" "" "${BV_LOCAL_INCLUDE_DIRS}"
+brlcad_addlib(libbv "${LIBBV_SRCS}" "${libbv_deps};${LMDB_LIBRARIES};${LIBBV_OBOL_LIBS}" "" "${BV_LOCAL_INCLUDE_DIRS}"
   # vlist.c defines PLOT3_IMPLEMENTATION before including bv/plot3.h, which
   # causes the plot3_* function bodies to be compiled into this translation
   # unit.  If vlist.c is batched with files that include bv/plot3.h first,
