@@ -3688,6 +3688,89 @@ test_bview_name_get_set(void)
     return 1;
 }
 
+static int
+test_bv_node_name_set(void)
+{
+    /* NULL safety */
+    bv_node_name_set(NULL, "x");   /* must not crash */
+
+    struct bv_node *n = bv_node_create("original", BV_NODE_GEOMETRY);
+    CHECK(n != NULL, "node created");
+    if (!n) return 0;
+
+    CHECK(strcmp(bv_node_name_get(n), "original") == 0,
+	  "initial name == 'original'");
+
+    /* Rename */
+    bv_node_name_set(n, "renamed");
+    CHECK(strcmp(bv_node_name_get(n), "renamed") == 0,
+	  "name == 'renamed' after set");
+
+    /* Set to NULL → empty */
+    bv_node_name_set(n, NULL);
+    CHECK(bv_node_name_get(n) != NULL, "name non-NULL after set(NULL)");
+    CHECK(strlen(bv_node_name_get(n)) == 0, "name empty after set(NULL)");
+
+    bv_node_destroy(n);
+    return 1;
+}
+
+static int
+test_bv_scene_node_count(void)
+{
+    CHECK(bv_scene_node_count(NULL) == 0, "node_count(NULL) == 0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    CHECK(bv_scene_node_count(scene) == 0, "empty scene has 0 nodes");
+
+    struct bv_node *n1 = bv_node_create("a", BV_NODE_GEOMETRY);
+    struct bv_node *n2 = bv_node_create("b", BV_NODE_GEOMETRY);
+    bv_scene_add_node(scene, n1);
+    CHECK(bv_scene_node_count(scene) == 1, "1 node after first add");
+    bv_scene_add_node(scene, n2);
+    CHECK(bv_scene_node_count(scene) == 2, "2 nodes after second add");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
+static int
+test_bv_scene_clear(void)
+{
+    bv_scene_clear(NULL);   /* must not crash */
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    /* Empty scene clear must not crash */
+    bv_scene_clear(scene);
+    CHECK(bv_scene_node_count(scene) == 0, "still 0 after clear of empty scene");
+
+    /* Add nodes and clear */
+    struct bv_node *n1 = bv_node_create("c1", BV_NODE_GEOMETRY);
+    struct bv_node *n2 = bv_node_create("c2", BV_NODE_GEOMETRY);
+    struct bv_node *n3 = bv_node_create("c3", BV_NODE_GROUP);
+    bv_scene_add_node(scene, n1);
+    bv_scene_add_node(scene, n2);
+    bv_scene_add_node(scene, n3);
+    CHECK(bv_scene_node_count(scene) == 3, "3 nodes after adds");
+
+    bv_scene_clear(scene);
+    CHECK(bv_scene_node_count(scene) == 0, "0 nodes after clear");
+
+    /* Scene should still be usable after clear */
+    struct bv_node *n4 = bv_node_create("c4", BV_NODE_GEOMETRY);
+    bv_scene_add_node(scene, n4);
+    CHECK(bv_scene_node_count(scene) == 1, "1 node after add post-clear");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -3814,6 +3897,9 @@ static struct test_entry scene_tests[] = {
     { "bview_sync_from_old",          test_bview_sync_from_old                },
     { "bview_sync_to_old",            test_bview_sync_to_old                  },
     { "bview_name_get_set",           test_bview_name_get_set                 },
+    { "node_name_set",                test_bv_node_name_set                   },
+    { "scene_node_count",             test_bv_scene_node_count                },
+    { "scene_clear",                  test_bv_scene_clear                     },
     { NULL, NULL }
 };
 

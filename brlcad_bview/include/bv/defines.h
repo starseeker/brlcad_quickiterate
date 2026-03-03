@@ -215,6 +215,19 @@ BV_EXPORT struct bv_node *bv_scene_root(const struct bv_scene *scene);
 BV_EXPORT void bv_scene_add_node(struct bv_scene *scene, struct bv_node *node);
 BV_EXPORT void bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node);
 BV_EXPORT const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
+/*
+ * Return the number of top-level nodes in the scene.
+ * Convenience wrapper for BU_PTBL_LEN(bv_scene_nodes(scene)).
+ * Returns 0 if scene is NULL.
+ */
+BV_EXPORT size_t bv_scene_node_count(const struct bv_scene *scene);
+/*
+ * Remove and destroy all top-level nodes in the scene (recursively).
+ * After this call the scene is empty (root has no children, nodes table is
+ * empty).  The scene itself is NOT destroyed; use bv_scene_destroy() for that.
+ * No-op if scene is NULL.
+ */
+BV_EXPORT void bv_scene_clear(struct bv_scene *scene);
 
 /* Hierarchy/grouping (child management under a specific parent node) */
 BV_EXPORT void bv_scene_add_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
@@ -466,6 +479,7 @@ BV_EXPORT void *bv_node_draw_data_get(const struct bv_node *node);
 /* Type, name, and user data access */
 BV_EXPORT enum bv_node_type bv_node_type_get(const struct bv_node *node);
 BV_EXPORT const char *bv_node_name_get(const struct bv_node *node);
+BV_EXPORT void bv_node_name_set(struct bv_node *node, const char *name);
 BV_EXPORT void bv_node_user_data_set(struct bv_node *node, void *user_data);
 BV_EXPORT void *bv_node_user_data_get(const struct bv_node *node);
 

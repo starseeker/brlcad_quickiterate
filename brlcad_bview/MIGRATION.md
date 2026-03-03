@@ -135,6 +135,7 @@ int               bv_node_lod_level_get(const struct bv_node *node);
 
 enum bv_node_type bv_node_type_get(const struct bv_node *node);
 const char       *bv_node_name_get(const struct bv_node *node);
+void              bv_node_name_set(struct bv_node *node, const char *name);
 void              bv_node_user_data_set(struct bv_node *node, void *user_data);
 void             *bv_node_user_data_get(const struct bv_node *node);
 
@@ -151,6 +152,8 @@ void             bv_scene_destroy(struct bv_scene *scene);
 
 struct bv_node        *bv_scene_root(const struct bv_scene *scene);
 const struct bu_ptbl  *bv_scene_nodes(const struct bv_scene *scene); /* flat lookup */
+size_t                 bv_scene_node_count(const struct bv_scene *scene);
+void                   bv_scene_clear(struct bv_scene *scene); /* remove+destroy all top-level nodes */
 
 void            bv_scene_add_node(struct bv_scene *scene, struct bv_node *node);
 void            bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node);
@@ -215,10 +218,16 @@ const struct bview_overlay *bview_overlay_get(const struct bview_new *view);
 void bview_pick_set_set(struct bview_new *view, const struct bview_pick_set *ps);
 const struct bview_pick_set *bview_pick_set_get(const struct bview_new *view);
 
+/* Name */
+const char *bview_name_get(const struct bview_new *view);
+void        bview_name_set(struct bview_new *view, const char *name);
+
 /* Redraw callback */
 typedef void (*bview_redraw_cb)(struct bview_new *, void *);
-void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
-void bview_redraw(struct bview_new *view);
+void             bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
+bview_redraw_cb  bview_redraw_callback_get(const struct bview_new *view);
+void            *bview_redraw_callback_data_get(const struct bview_new *view);
+void             bview_redraw(struct bview_new *view);
 
 /* LoD update (Phase 4 — wired to bv_scene_lod_update + bv_mesh_lod_view) */
 void bview_lod_update(struct bview_new *view);
@@ -247,6 +256,17 @@ int  bview_autoview_new(struct bview_new *view, const struct bv_scene *scene,
 
 /* LoD per-node update hook */
 int  bview_lod_node_update(struct bv_node *node, const struct bview_new *view);
+
+/* Sync helpers — update loop convenience wrappers (Phase 1 migration) */
+void bview_sync_from_old(struct bview_new *view);  /* bview_from_old(nv, bview_old_get(nv)) */
+void bview_sync_to_old(struct bview_new *view);    /* bview_to_old(nv, bview_old_get(nv)) */
+
+/* Legacy-obj CRUD (Phase 2 migration) */
+struct bv_node *bv_scene_insert_obj(struct bv_scene *scene, struct bv_scene_obj *obj);
+struct bv_node *bview_insert_obj(struct bview_new *view, struct bv_scene_obj *obj);
+struct bv_node *bv_scene_find_obj(const struct bv_scene *scene, const struct bv_scene_obj *obj);
+int             bv_scene_remove_obj(struct bv_scene *scene, const struct bv_scene_obj *obj);
+int             bview_remove_obj(struct bview_new *view, const struct bv_scene_obj *obj);
 ```
 
 ### Bounding box helpers (Phase 2)
@@ -702,6 +722,11 @@ repository.
 | `bview_remove_obj()` — remove from view's scene | Phase 2 | ✅ COMPLETE |
 | `bview_sync_from_old()` — re-sync companion from legacy view | Phase 1 | ✅ COMPLETE |
 | `bview_sync_to_old()` — push companion changes to legacy view | Phase 1 | ✅ COMPLETE |
+| `bview_name_get()` / `bview_name_set()` — name accessor pair | Phase 1 | ✅ COMPLETE |
+| `bview_redraw_callback_get()` / `bview_redraw_callback_data_get()` — getter pair | Phase 1 | ✅ COMPLETE |
+| `bv_node_name_set()` — rename a node after creation | Phase 2 | ✅ COMPLETE |
+| `bv_scene_node_count()` — convenience count of top-level nodes | Phase 2 | ✅ COMPLETE |
+| `bv_scene_clear()` — remove and destroy all top-level nodes | Phase 2 | ✅ COMPLETE |
 | **Phase 2 COMPLETE** — all scene-object bridge helpers implemented | Phase 2 | ✅ COMPLETE |
 | Replace `bu_ptbl_ins(gv_objs.db_objs)` with `bv_scene_add_node()` | Phase 2 | ℹ️ N/A in brlcad_bview (`bv_scene_add_node` already implemented; call-site migration requires full brlcad source) |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
