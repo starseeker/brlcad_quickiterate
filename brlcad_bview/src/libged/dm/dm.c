@@ -582,8 +582,12 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	bv_init(target_view, &gedp->ged_views);
 	bv_set_add_view(&gedp->ged_views, target_view);
 	// This view is being created by GED, so it needs to be cleaned
-	// up by GED as well
+	// up by GED as well.  Create a companion and track it in the
+	// parallel ged_free_view_companions table.
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)target_view);
+	struct bview_new *target_nv = bview_companion_create(
+	    bu_vls_cstr(&view_name), target_view);
+	bu_ptbl_ins(&gedp->ged_free_view_companions, (long *)target_nv);
     }
 
     if (target_view->dmp) {

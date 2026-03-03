@@ -4523,8 +4523,12 @@ to_new_view(struct ged *gedp,
     bv_init(new_gdvp, &current_top->to_gedp->ged_views);
     new_gdvp->callbacks = callbacks;
     bv_set_add_view(&current_top->to_gedp->ged_views, new_gdvp);
-    if (new_gdvp != gedp->ged_gvp)
+    if (new_gdvp != gedp->ged_gvp) {
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)new_gdvp);
+	// Create new-API companion; stored in the parallel ged_free_view_companions table.
+	struct bview_new *gdvp_nv = bview_companion_create(argv[name_index], new_gdvp);
+	bu_ptbl_ins(&gedp->ged_free_view_companions, (long *)gdvp_nv);
+    }
 
     new_gdvp->gv_s->point_scale = 1.0;
     new_gdvp->gv_s->curve_scale = 1.0;

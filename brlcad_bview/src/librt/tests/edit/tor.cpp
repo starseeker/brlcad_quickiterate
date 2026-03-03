@@ -32,6 +32,7 @@
 #include "bu/malloc.h"
 #include "bu/process.h"
 #include "bu/str.h"
+#include "bv.h"
 #include "raytrace.h"
 #include "rt/rt_ecmds.h"
 
@@ -115,6 +116,8 @@ main(int argc, char *argv[])
     struct bview *v;
     BU_GET(v, struct bview);
     bv_init(v, NULL);
+    // Create new-API companion alongside the legacy view (Phase 1 migration).
+    struct bview_new *nv = bview_companion_create("tor_edit", v);
     VSET(v->gv_aet, 45, 35, 0);
     bv_mat_aet(v);
     v->gv_size = 73.3197;
@@ -578,6 +581,11 @@ main(int argc, char *argv[])
 
 
     rt_edit_destroy(s);
+
+    // Cleanup: destroy companion then free legacy view.
+    bview_destroy(nv);
+    bv_free(v);
+    BU_PUT(v, struct bview);
 
     db_close(dbip);
 

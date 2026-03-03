@@ -166,6 +166,10 @@ struct ged {
     /*************************************************************/
     /* The current view */
     struct bview		*ged_gvp;
+    /* New-API companion for the current view (Phase 1 migration).
+     * Created alongside ged_gvp in ged_init(); destroyed in ged_free().
+     * bview_old_get(ged_gvnv) == ged_gvp. */
+    struct bview_new		*ged_gvnv;
     /* The full set of views associated with this ged object */
     struct bview_set            ged_views;
     /* Sometimes applications will supply GED views, and sometimes GED commands
@@ -174,6 +178,9 @@ struct ged {
      * managing, since ged_views views may belong to the application rather
      * than GED. */
     struct bu_ptbl              ged_free_views;
+    /* Parallel table of bview_new companions for each entry in ged_free_views.
+     * Entries are added/removed in lock-step with ged_free_views. */
+    struct bu_ptbl              ged_free_view_companions;
 
     /* Drawing data associated with this .g file */
     struct bv_mesh_lod_context  *ged_lod;
