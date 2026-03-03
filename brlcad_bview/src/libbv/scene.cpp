@@ -629,6 +629,24 @@ bv_scene_add_node(struct bv_scene *scene, struct bv_node *node)
 }
 
 
+size_t
+bv_scene_add_nodes(struct bv_scene *scene, const struct bu_ptbl *nodes)
+{
+    if (!scene || !nodes)
+	return 0;
+    size_t added = 0;
+    for (size_t i = 0; i < BU_PTBL_LEN(nodes); i++) {
+	struct bv_node *n = (struct bv_node *)BU_PTBL_GET(nodes, i);
+	if (!n) continue;
+	size_t before = BU_PTBL_LEN(&scene->nodes);
+	bv_scene_add_node(scene, n);
+	if (BU_PTBL_LEN(&scene->nodes) > before)
+	    added++;
+    }
+    return added;
+}
+
+
 void
 bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node)
 {
