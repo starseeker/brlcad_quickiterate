@@ -3926,6 +3926,63 @@ test_bv_node_detach(void)
     return 1;
 }
 
+static int
+test_bv_node_subtree_size(void)
+{
+    CHECK(bv_node_subtree_size(NULL) == 0, "subtree_size(NULL)==0");
+
+    /* Leaf node */
+    struct bv_node *leaf = bv_node_create("leaf", BV_NODE_GEOMETRY);
+    CHECK(leaf != NULL, "leaf created");
+    if (!leaf) return 0;
+    CHECK(bv_node_subtree_size(leaf) == 1, "leaf has size 1");
+
+    /* Group with two children */
+    struct bv_node *grp = bv_node_create("grp", BV_NODE_GROUP);
+    struct bv_node *c1  = bv_node_create("c1", BV_NODE_GEOMETRY);
+    struct bv_node *c2  = bv_node_create("c2", BV_NODE_GEOMETRY);
+    CHECK(grp != NULL && c1 != NULL && c2 != NULL, "group + children created");
+    if (!grp || !c1 || !c2) {
+	bv_node_destroy(leaf); bv_node_destroy(grp);
+	bv_node_destroy(c1); bv_node_destroy(c2);
+	return 0;
+    }
+    bv_node_add_child(grp, c1);
+    bv_node_add_child(grp, c2);
+    CHECK(bv_node_subtree_size(grp) == 3, "group+2 children has size 3");
+
+    /* Add group under leaf to make a 3-level tree */
+    bv_node_add_child(leaf, grp);
+    CHECK(bv_node_subtree_size(leaf) == 4, "4-node tree has size 4");
+
+    bv_node_destroy(leaf);   /* recursive */
+    return 1;
+}
+
+static int
+test_bv_scene_total_node_count(void)
+{
+    CHECK(bv_scene_total_node_count(NULL) == 0, "total_count(NULL)==0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    CHECK(bv_scene_total_node_count(scene) == 0, "empty scene total==0");
+
+    struct bv_node *top = bv_node_create("top", BV_NODE_GROUP);
+    struct bv_node *ch  = bv_node_create("ch",  BV_NODE_GEOMETRY);
+    bv_node_add_child(top, ch);
+
+    bv_scene_add_node(scene, top);          /* registers top */
+    bv_scene_add_child(scene, top, ch);     /* registers ch too */
+
+    CHECK(bv_scene_total_node_count(scene) == 2, "total==2 after add+add_child");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -4060,6 +4117,8 @@ static struct test_entry scene_tests[] = {
     { "node_child_count",             test_bv_node_child_count                },
     { "scene_has_node",               test_bv_scene_has_node                  },
     { "node_detach",                  test_bv_node_detach                     },
+    { "node_subtree_size",            test_bv_node_subtree_size               },
+    { "scene_total_node_count",       test_bv_scene_total_node_count          },
     { NULL, NULL }
 };
 
