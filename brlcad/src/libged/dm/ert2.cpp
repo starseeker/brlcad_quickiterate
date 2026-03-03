@@ -19,43 +19,67 @@
  */
 /** @file libged/dm/ert2.cpp
  *
- * The ert2 command: Obol-aware embedded raytrace.
+ * The ert2 command: Obol-aware incremental embedded raytrace.
  *
- * ert2 is the bview_new-based counterpart to the legacy ert command.
- * Instead of rendering into a libdm framebuffer via a framebuffer server,
- * it renders directly to a PNG file on disk and reports the output path
- * via ged_result_str.
+ * ert2 is the bview_new-based counterpart to the legacy ert command for
+ * use with the Obol rendering path.  It preserves the incremental scanline
+ * display feature of ert by using the same TCP framebuffer server (fbserv)
+ * IPC protocol that ert uses, but writes to an in-memory libdm framebuffer
+ * instead of a display-manager-embedded one.
  *
- * The rendering layer (QgObolWidget / QgObolQuadWidget) can then load the
- * PNG as an SoImage node in the Inventor scene graph.  This keeps ert2
- * completely free of Qt / Obol / framebuffer awareness.
+ * ### Architecture
+ *
+ * ert2 is deliberately kept free of Qt and Obol headers.  The incremental
+ * display is achieved through the same mechanisms ert uses:
+ *
+ *  1. A memory framebuffer is opened via fb_open("/dev/mem", w, h).
+ *     When qged sets up the Obol rendering path it pre-allocates this fb
+ *     and stores it in gedp->ged_fbs->fbs_fbp before calling ert2.
+ *
+ *  2. The framebuffer server (fbserv) is opened on a random TCP port.
+ *     rt is invoked with "-F <port>" to connect to that server and stream
+ *     rendered pixels as each scanline is completed.
+ *
+ *  3. ert2 calls _ged_run_rt() which:
+ *       - spawns rt as an async subprocess
+ *       - writes the view matrix (from gedp->ged_gvp) to rt's stdin
+ *       - installs a QSocketNotifier (via ged_create_io_handler) to watch
+ *         rt's stderr for progress / error messages
+ *
+ *  4. Each time rt sends a packet over TCP, qged's QFBSocket::client_handler
+ *     fires (Qt main thread, queued connection).  It:
+ *       a. Calls pkg_process() → fbserv protocol handlers → writes pixels
+ *          to the memory fb
+ *       b. Emits QFBSocket::updated()
+ *
+ *  5. qged's qdm_open_obol_client_handler (fbserv.cpp) connected
+ *     QFBSocket::updated() to QgObolWidget::onRtPixelsUpdated().
+ *     That slot reads the full fb via fb_readrect() directly into the
+ *     SoSFImage buffer (using startEditing/finishEditing) and the field
+ *     notification mechanism automatically schedules an Obol repaint.
+ *
+ *  6. When rt finishes, the subprocess io handler calls the LINGER
+ *     callback (ert2_raytrace_done in QgEdApp) which:
+ *       - updates the UI (abort → raytrace icon)
+ *       - calls QgObolWidget::onRtDone()
+ *       - closes the memory fb and fbserv
  *
  * ### Usage
  *
- *   ert2 [-V view] [-w width] [-n height] [-o output.png]
- *        [-p] [object ...]
+ *   ert2 [-V view] [-w width] [-n height] [object ...]
  *
- *   -V view      : view name (defaults to current view)
+ *   -V view      : view name (default: current view)
  *   -w width     : image width  in pixels (default: viewport width or 512)
  *   -n height    : image height in pixels (default: viewport height or 512)
- *   -o output    : output PNG path (default: auto-generated temp file)
- *   -p           : perspective mode (overrides view camera setting)
- *   objects      : objects to raytrace (default: all drawn objects)
+ *   objects      : objects to raytrace (default: all drawn objects via stdin)
  *
- * ### Return value
+ * ### BU_CLBK_DURING / BU_CLBK_LINGER
  *
- * On success ged_result_str contains the output PNG file path.
- * On failure it contains an error message.
- *
- * ### Integration with QgObolWidget
- *
- * After ert2 completes (use the subprocess end-callback mechanism that
- * qged already wires up for ert/preview), the Qt layer calls:
- *
- *   1. canvas_obol->loadRaytracedImage(outputPath)  [see QgObolWidget]
- *
- * which creates / updates an SoImage node in the scene graph, compositing
- * the raytraced image over the wireframe scene.
+ * ert2 respects the same callback protocol as ert:
+ *   BU_CLBK_DURING  receives the rt process pid (int*) — fired immediately
+ *                    after rt is launched.
+ *   BU_CLBK_LINGER  passed to _ged_run_rt() as the end_clbk and fired when
+ *                    rt's IO streams are closed (i.e., when rendering ends).
  */
 
 #include "common.h"
@@ -65,29 +89,30 @@
 
 #include "bu/app.h"
 #include "bu/cmd.h"
-#include "bu/file.h"
 #include "bu/opt.h"
-#include "bu/path.h"
 #include "bu/process.h"
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bv/view_sets.h"
+#include "dm.h"
 #include "raytrace.h"
 
 #include "../ged_private.h"
 
 
-/* ── Helpers ─────────────────────────────────────────────────────────── */
+/* ── helpers ──────────────────────────────────────────────────────────── */
 
 static struct bview_new *
 _ert2_get_view(struct ged *gedp, const char *viewname)
 {
     if (viewname && strlen(viewname)) {
-	struct bview_new *nv = bv_viewset_find_new(&gedp->ged_views, viewname);
+	struct bview_new *nv =
+	    bv_viewset_find_new(&gedp->ged_views, viewname);
 	if (!nv) {
-	    bu_vls_printf(gedp->ged_result_str, "view '%s' not found\n", viewname);
+	    bu_vls_printf(gedp->ged_result_str,
+			 "ert2: view '%s' not found\n", viewname);
 	    return NULL;
 	}
 	return nv;
@@ -95,99 +120,8 @@ _ert2_get_view(struct ged *gedp, const char *viewname)
     return gedp->ged_gvnv;
 }
 
-/*
- * Build the rt argument list from bview_new camera parameters.
- * Returns a bu_ptbl of newly allocated strings; caller must free them.
- */
-static void
-_ert2_camera_args(struct bu_ptbl *args, const struct bview_new *nv,
-		  int width, int height)
-{
-    const struct bview_camera *cam = bview_camera_get(nv);
-    if (!cam)
-	return;
 
-    struct bu_vls tmp = BU_VLS_INIT_ZERO;
-
-    /* -s size or -w / -n */
-    bu_vls_sprintf(&tmp, "%d", width);
-    bu_ptbl_ins(args, (long *)bu_strdup("-w"));
-    bu_ptbl_ins(args, (long *)bu_strdup(bu_vls_cstr(&tmp)));
-    bu_vls_sprintf(&tmp, "%d", height);
-    bu_ptbl_ins(args, (long *)bu_strdup("-n"));
-    bu_ptbl_ins(args, (long *)bu_strdup(bu_vls_cstr(&tmp)));
-
-    /* Eye point */
-    bu_vls_sprintf(&tmp, "%.10g,%.10g,%.10g",
-		   cam->position[0], cam->position[1], cam->position[2]);
-    bu_ptbl_ins(args, (long *)bu_strdup("-e"));
-    bu_ptbl_ins(args, (long *)bu_strdup(bu_vls_cstr(&tmp)));
-
-    /* Orientation from lookat/up (expressed as a 3×3 view matrix) */
-    /* Build view-to-model rotation from lookat and up */
-    vect_t  z_view;          /* -lookat direction */
-    vect_t  x_view;          /* right */
-    vect_t  y_view;          /* up */
-    VSUB2(z_view, cam->position, cam->target);   /* from target to eye */
-    VUNITIZE(z_view);
-    VCROSS(x_view, cam->up, z_view);
-    VUNITIZE(x_view);
-    VCROSS(y_view, z_view, x_view);
-    VUNITIZE(y_view);
-
-    /* rt's -M flag: view-to-model matrix in row order */
-    /* (Using the 4×4 identity for the translation part here; the eye
-     * position is already set with -e.  We pass the 3×3 rotation block.) */
-    bu_vls_sprintf(&tmp,
-		   "%.6g %.6g %.6g 0 "
-		   "%.6g %.6g %.6g 0 "
-		   "%.6g %.6g %.6g 0 "
-		   "0 0 0 1",
-		   x_view[0], x_view[1], x_view[2],
-		   y_view[0], y_view[1], y_view[2],
-		   z_view[0], z_view[1], z_view[2]);
-    bu_ptbl_ins(args, (long *)bu_strdup("-M"));
-    bu_ptbl_ins(args, (long *)bu_strdup(bu_vls_cstr(&tmp)));
-
-    /* Perspective vs orthographic */
-    if (!cam->perspective) {
-	/* Use orthographic projection; -o option handled elsewhere */
-	bu_ptbl_ins(args, (long *)bu_strdup("-P"));
-    } else if (cam->fov > 0.0) {
-	/* half-angle to rt's -p (perspective half-angle in degrees) */
-	bu_vls_sprintf(&tmp, "%.6g", cam->fov / 2.0);
-	bu_ptbl_ins(args, (long *)bu_strdup("-p"));
-	bu_ptbl_ins(args, (long *)bu_strdup(bu_vls_cstr(&tmp)));
-    }
-
-    bu_vls_free(&tmp);
-}
-
-/*
- * Collect drawn object paths from ged_views for the current view.
- */
-static void
-_ert2_collect_objects(struct bu_ptbl *args, struct ged *gedp)
-{
-    if (!gedp->ged_gvp)
-	return;
-
-    struct bu_ptbl *dobjs = bv_view_objs(gedp->ged_gvp, BV_DB_OBJS);
-    if (!dobjs || !BU_PTBL_LEN(dobjs))
-	return;
-
-    for (size_t i = 0; i < BU_PTBL_LEN(dobjs); i++) {
-	struct bv_scene_obj *sp = (struct bv_scene_obj *)BU_PTBL_GET(dobjs, i);
-	if (!sp || !sp->s_u_data)
-	    continue;
-	/* The path name is stored in s_name for legacy scene objects */
-	if (bu_vls_strlen(&sp->s_name))
-	    bu_ptbl_ins(args, (long *)bu_strdup(bu_vls_cstr(&sp->s_name)));
-    }
-}
-
-
-/* ── Top-level ged_ert2_core ──────────────────────────────────────────── */
+/* ── ged_ert2_core ────────────────────────────────────────────────────── */
 
 extern "C" int
 ged_ert2_core(struct ged *gedp, int argc, const char *argv[])
@@ -198,20 +132,16 @@ ged_ert2_core(struct ged *gedp, int argc, const char *argv[])
 
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    /* ── Parse options ───────────────────────────────────────────── */
+    /* ── Parse options ─────────────────────────────────────────────── */
     struct bu_vls viewname = BU_VLS_INIT_ZERO;
-    struct bu_vls outfile  = BU_VLS_INIT_ZERO;
     int width  = 0;
     int height = 0;
-    int persp_override = 0;
 
-    struct bu_opt_desc d[7];
-    BU_OPT(d[0], "V", "view",   "name",   &bu_opt_vls,  &viewname, "view name");
-    BU_OPT(d[1], "w", "width",  "#",      &bu_opt_int,  &width,    "image width");
-    BU_OPT(d[2], "n", "height", "#",      &bu_opt_int,  &height,   "image height");
-    BU_OPT(d[3], "o", "output", "file",   &bu_opt_vls,  &outfile,  "output file");
-    BU_OPT(d[4], "p", "persp",  "",       NULL,         &persp_override, "perspective override");
-    BU_OPT_NULL(d[5]);
+    struct bu_opt_desc d[5];
+    BU_OPT(d[0], "V", "view",   "name", &bu_opt_vls, &viewname, "view name");
+    BU_OPT(d[1], "w", "width",  "#",    &bu_opt_int, &width,    "image width");
+    BU_OPT(d[2], "n", "height", "#",    &bu_opt_int, &height,   "image height");
+    BU_OPT_NULL(d[3]);
 
     /* skip command name */
     argc--; argv++;
@@ -220,148 +150,169 @@ ged_ert2_core(struct ged *gedp, int argc, const char *argv[])
     if (ac < 0) {
 	bu_vls_printf(gedp->ged_result_str, "ert2: option parse error\n");
 	bu_vls_free(&viewname);
-	bu_vls_free(&outfile);
 	return BRLCAD_ERROR;
     }
 
-    /* ── Resolve view ────────────────────────────────────────────── */
+    /* ── Resolve view ──────────────────────────────────────────────── */
     struct bview_new *nv = _ert2_get_view(gedp, bu_vls_cstr(&viewname));
     bu_vls_free(&viewname);
     if (!nv) {
 	bu_vls_printf(gedp->ged_result_str, "ert2: no view available\n");
-	bu_vls_free(&outfile);
 	return BRLCAD_ERROR;
     }
 
-    /* ── Defaults ────────────────────────────────────────────────── */
+    /* ── Defaults ──────────────────────────────────────────────────── */
     if (width <= 0 || height <= 0) {
 	const struct bview_viewport *vp = bview_viewport_get(nv);
 	if (width  <= 0) width  = (vp && vp->width  > 0) ? vp->width  : 512;
 	if (height <= 0) height = (vp && vp->height > 0) ? vp->height : 512;
     }
 
-    /* ── Output path ─────────────────────────────────────────────── */
-    if (!bu_vls_strlen(&outfile)) {
-	char tmp[MAXPATHLEN];
-	FILE *fp = bu_temp_file(tmp, MAXPATHLEN);
-	if (fp) fclose(fp);
-	bu_vls_sprintf(&outfile, "%s.png", tmp);
-    }
-    const char *outpath = bu_vls_cstr(&outfile);
-
-    /* ── Find rt executable ──────────────────────────────────────── */
-    char rt_path[MAXPATHLEN];
-    bu_dir(rt_path, MAXPATHLEN, BU_DIR_BIN, "rt", BU_DIR_EXT, NULL);
-    if (!bu_file_exists(rt_path, NULL)) {
-	bu_vls_printf(gedp->ged_result_str, "ert2: rt not found at '%s'\n", rt_path);
-	bu_vls_free(&outfile);
+    /* ── Check fbserv is wired ─────────────────────────────────────── */
+    struct fbserv_obj *fbs = gedp->ged_fbs;
+    if (!fbs || !fbs->fbs_is_listening) {
+	bu_vls_printf(gedp->ged_result_str,
+		      "ert2: framebuffer server not initialised "
+		      "(no fbs_is_listening hook — is qged running?)\n");
 	return BRLCAD_ERROR;
     }
 
-    /* ── Build rt argument list ──────────────────────────────────── */
-    struct bu_ptbl args;
-    bu_ptbl_init(&args, 64, "ert2 args");
+    /* ── Memory framebuffer ────────────────────────────────────────── */
+    /* If the caller (qged's ObolRtCtx setup) already allocated a memory
+     * fb and stored it in fbs->fbs_fbp, use it directly.  Otherwise open
+     * one ourselves (standalone / non-Qt use case). */
+    int own_fb = 0;
+    if (!fbs->fbs_fbp) {
+	struct fb *memfb = fb_open("/dev/mem", width, height);
+	if (!memfb) {
+	    bu_vls_printf(gedp->ged_result_str,
+			 "ert2: failed to open memory framebuffer\n");
+	    return BRLCAD_ERROR;
+	}
+	fbs->fbs_fbp = memfb;
+	own_fb = 1;
+    }
 
-    /* rt itself */
-    bu_ptbl_ins(&args, (long *)bu_strdup(rt_path));
+    /* ── Open fbserv listener ──────────────────────────────────────── */
+    if (!fbs->fbs_is_listening(fbs)) {
+	if (fbs_open(fbs, 0) != BRLCAD_OK) {
+	    bu_vls_printf(gedp->ged_result_str,
+			 "ert2: could not open framebuffer server\n");
+	    if (own_fb) {
+		fb_close(fbs->fbs_fbp);
+		fbs->fbs_fbp = NULL;
+	    }
+	    return BRLCAD_ERROR;
+	}
+    }
 
-    /* Output: write to PNG file via -F */
-    bu_ptbl_ins(&args, (long *)bu_strdup("-F"));
-    bu_ptbl_ins(&args, (long *)bu_strdup(outpath));
+    /* ── Find rt executable ────────────────────────────────────────── */
+    char rt_path[MAXPATHLEN];
+    bu_dir(rt_path, MAXPATHLEN, BU_DIR_BIN, "rt", BU_DIR_EXT, NULL);
+    if (!bu_file_exists(rt_path, NULL)) {
+	bu_vls_printf(gedp->ged_result_str,
+		      "ert2: rt not found at '%s'\n", rt_path);
+	return BRLCAD_ERROR;
+    }
 
-    /* Camera params from view */
-    _ert2_camera_args(&args, nv, width, height);
+    /* ── Build rt argument list ────────────────────────────────────── */
+    /* Follow the exact same pattern as ert.cpp / _ged_run_rt:
+     *   rt -M -F <port> -w W -n H -V aspect_ratio db.g
+     * The view matrix and object list are written to rt's stdin by
+     * _ged_run_rt() via _ged_rt_write(). */
+    struct bu_vls wstr = BU_VLS_INIT_ZERO;
+    std::vector<std::string> args;
 
-    if (persp_override) {
-	/* Remove any -P flag that camera_args may have added by overriding
-	 * with a default 45-degree perspective half-angle (rt -p flag, degrees) */
-	bu_ptbl_ins(&args, (long *)bu_strdup("-p"));
-	bu_ptbl_ins(&args, (long *)bu_strdup("45"));
+    args.push_back(std::string(rt_path));
+
+    /* -M: rt reads view matrix from stdin */
+    args.push_back("-M");
+
+    /* -F <port>: connect to our fbserv */
+    args.push_back("-F");
+    args.push_back(std::to_string(fbs->fbs_listener.fbsl_port));
+
+    /* -w/-n: pixel dimensions */
+    args.push_back("-w");
+    args.push_back(std::to_string(width));
+    args.push_back("-n");
+    args.push_back(std::to_string(height));
+
+    /* -V: aspect ratio */
+    double aspect = (width > 0 && height > 0)
+		    ? (double)width / (double)height
+		    : 1.0;
+    bu_vls_sprintf(&wstr, "%.14e", aspect);
+    args.push_back("-V");
+    args.push_back(std::string(bu_vls_cstr(&wstr)));
+
+    /* Pass any remaining positional args as extra rt options
+     * (up to the "--" separator, after which they are objects). */
+    int obj_start = 0;
+    for (int i = 0; i < ac; i++) {
+	if (argv[i][0] == '-' && argv[i][1] == '-' && argv[i][2] == '\0') {
+	    obj_start = i + 1;
+	    break;
+	}
+	args.push_back(std::string(argv[i]));
+	obj_start = i + 1;
     }
 
     /* Database file */
     const char *dbfile = gedp->dbip->dbi_filename;
     if (!dbfile || !bu_file_exists(dbfile, NULL)) {
-	bu_vls_printf(gedp->ged_result_str, "ert2: database file not accessible\n");
-	for (size_t i = 0; i < BU_PTBL_LEN(&args); i++)
-	    free((void *)BU_PTBL_GET(&args, i));
-	bu_ptbl_free(&args);
-	bu_vls_free(&outfile);
-	return BRLCAD_ERROR;
-    }
-    bu_ptbl_ins(&args, (long *)bu_strdup(dbfile));
-
-    /* Objects from command line or from drawn objects */
-    if (ac > 0) {
-	for (int i = 0; i < ac; i++)
-	    bu_ptbl_ins(&args, (long *)bu_strdup(argv[i]));
-    } else {
-	_ert2_collect_objects(&args, gedp);
-    }
-
-    if (BU_PTBL_LEN(&args) < 4) {
 	bu_vls_printf(gedp->ged_result_str,
-		      "ert2: no objects to raytrace\n");
-	for (size_t i = 0; i < BU_PTBL_LEN(&args); i++)
-	    free((void *)BU_PTBL_GET(&args, i));
-	bu_ptbl_free(&args);
-	bu_vls_free(&outfile);
+		      "ert2: database file not accessible\n");
+	bu_vls_free(&wstr);
 	return BRLCAD_ERROR;
     }
+    args.push_back(std::string(dbfile));
 
-    /* NULL-terminate */
-    bu_ptbl_ins(&args, (long *)NULL);
+    /* Convert to C-string array for _ged_run_rt */
+    int gd_rt_cmd_len = (int)args.size();
+    char **gd_rt_cmd = (char **)bu_calloc(
+		    gd_rt_cmd_len + 1, sizeof(char *), "ert2 args");
+    for (int j = 0; j < gd_rt_cmd_len; j++)
+	gd_rt_cmd[j] = bu_strdup(args[j].c_str());
+    bu_vls_free(&wstr);
 
-    /* ── Launch rt subprocess ────────────────────────────────────── */
-    struct bu_process *proc = NULL;
-    bu_process_create(&proc,
-		      (const char **)BU_PTBL_BASEADDR(&args),
-		      BU_PROCESS_HIDE_WINDOW | BU_PROCESS_OUT_EQ_ERR);
+    /* ── Collect BU_CLBK callbacks ─────────────────────────────────── */
+    /* LINGER callback (fired by _ged_run_rt when subprocess IO ends) */
+    bu_clbk_t linger_clbk = NULL;
+    void     *linger_ctx  = NULL;
+    ged_clbk_get(&linger_clbk, &linger_ctx, gedp, "ert2", BU_CLBK_LINGER);
 
-    if (!proc) {
-	bu_vls_printf(gedp->ged_result_str, "ert2: failed to launch rt\n");
-	for (size_t i = 0; i + 1 < BU_PTBL_LEN(&args); i++)
-	    free((void *)BU_PTBL_GET(&args, i));
-	bu_ptbl_free(&args);
-	bu_vls_free(&outfile);
-	return BRLCAD_ERROR;
-    }
+    /* ── Launch rt subprocess (async, like ert) ────────────────────── */
+    int rt_pid = -1;
 
-    /* Wait for rt to finish and collect output */
-    struct bu_vls rt_out = BU_VLS_INIT_ZERO;
-    char buf[4096];
-    int nread;
-    while ((nread = bu_process_read_n(proc, BU_PROCESS_STDERR, sizeof(buf) - 1, buf)) > 0) {
-	buf[nread] = '\0';
-	bu_vls_strcat(&rt_out, buf);
-    }
-    int exit_code = bu_process_wait_n(&proc, 0);
+    /* Objects after "--" go to _ged_run_rt; if none, _ged_rt_write uses
+     * all drawn objects from the current view state. */
+    int   obj_argc = (ac > obj_start) ? (ac - obj_start) : 0;
+    const char **obj_argv = (obj_argc > 0) ? &argv[obj_start] : NULL;
 
-    for (size_t i = 0; i + 1 < BU_PTBL_LEN(&args); i++)
-	free((void *)BU_PTBL_GET(&args, i));
-    bu_ptbl_free(&args);
+    int ret = _ged_run_rt(gedp,
+			  gd_rt_cmd_len, (const char **)gd_rt_cmd,
+			  obj_argc, obj_argv,
+			  0 /*stdout_is_txt*/,
+			  &rt_pid,
+			  linger_clbk, linger_ctx);
 
-    if (exit_code != 0) {
-	bu_vls_printf(gedp->ged_result_str,
-		      "ert2: rt exited with code %d:\n%s\n",
-		      exit_code, bu_vls_cstr(&rt_out));
-	bu_vls_free(&rt_out);
-	bu_vls_free(&outfile);
-	return BRLCAD_ERROR;
-    }
-    bu_vls_free(&rt_out);
+    for (int j = 0; j < gd_rt_cmd_len; j++)
+	bu_free(gd_rt_cmd[j], "ert2 arg");
+    bu_free(gd_rt_cmd, "ert2 args");
 
-    /* ── Return the output path ──────────────────────────────────── */
-    if (!bu_file_exists(outpath, NULL)) {
-	bu_vls_printf(gedp->ged_result_str,
-		      "ert2: rt succeeded but output file '%s' not found\n",
-		      outpath);
-	bu_vls_free(&outfile);
-	return BRLCAD_ERROR;
-    }
+    if (ret != BRLCAD_OK)
+	return ret;
 
-    bu_vls_printf(gedp->ged_result_str, "%s", outpath);
-    bu_vls_free(&outfile);
+    /* ── Fire BU_CLBK_DURING with rt pid (same as ert) ─────────────── */
+    bu_clbk_t during_clbk = NULL;
+    void     *during_ctx  = NULL;
+    ged_clbk_get(&during_clbk, &during_ctx, gedp, "ert2", BU_CLBK_DURING);
+    if (during_clbk)
+	(*during_clbk)(0, NULL, &rt_pid, during_ctx);
+
+    /* rt is now running asynchronously; pixel data will stream via fbserv
+     * and the Qt layer will update the Obol texture on each packet. */
     return BRLCAD_OK;
 }
 

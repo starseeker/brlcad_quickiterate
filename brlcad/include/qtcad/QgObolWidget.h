@@ -78,10 +78,12 @@
 #include <QTimer>
 #include <QCoreApplication>
 #include <atomic>
+#include <cstdlib>  /* calloc for RT overlay black init */
 
 extern "C" {
 #include "bv.h"
 #include "bv/render.h"
+#include "dm.h"       /* fb_open, fb_close, fb_readrect, struct fb */
 }
 
 #include "qtcad/defines.h"
@@ -112,6 +114,15 @@ extern "C" {
 #include <Inventor/events/SoButtonEvent.h>
 #include <Inventor/sensors/SoSensorManager.h>
 #include <GL/gl.h>
+
+/* Additional Obol includes for the RT texture overlay */
+#include <Inventor/nodes/SoTexture2.h>
+#include <Inventor/nodes/SoAnnotation.h>
+#include <Inventor/nodes/SoCoordinate3.h>
+#include <Inventor/nodes/SoTextureCoordinate2.h>
+#include <Inventor/nodes/SoTextureCoordinateBinding.h>
+#include <Inventor/nodes/SoIndexedFaceSet.h>
+#include <Inventor/fields/SoSFImage.h>
 
 /* ── QtObolContextManager ─────────────────────────────────────────────────
  * Identical to the reference implementation in obol/examples/qt_obol_widget.h.
@@ -326,10 +337,213 @@ public:
 
     void need_update() { update(); }
 
+    /* ── Raytrace texture overlay (ert2 incremental display) ──────────
+     *
+     * The overlay is an SoAnnotation sub-graph that renders on top of
+     * the 3D scene (depth buffer cleared before rendering), containing
+     * an SoOrthographicCamera + SoTexture2 + full-viewport quad.
+     *
+     * Obol's idiomatic way to push new pixel data is to edit the
+     * SoTexture2::image field in-place using startEditing/finishEditing.
+     * The finishEditing() call triggers Obol's field-change notification
+     * chain which automatically schedules a repaint — no explicit
+     * update() call needed.
+     *
+     * beginRtOverlay() must be called before onRtPixelsUpdated() will
+     * do anything.  It is called from qdm_open_obol_client_handler() in
+     * qged/fbserv.cpp, which is invoked when rt first connects.
+     */
+
+    /**
+     * @brief Prepare the Obol scene for incremental raytrace display.
+     *
+     * Creates an SoAnnotation sub-graph with a full-viewport quad
+     * textured by an SoTexture2 whose image field will be updated
+     * incrementally.  The sub-graph is appended to the viewport's scene
+     * root so it renders on top of (and independently from) the 3D scene.
+     *
+     * @param fb     Pointer to the libdm memory framebuffer that rt will
+     *               write into via the fbserv protocol.  Stored for use
+     *               by onRtPixelsUpdated().  Must remain valid until
+     *               clearRtOverlay() or onRtDone() is called.
+     * @param w      Framebuffer / image width  in pixels.
+     * @param h      Framebuffer / image height in pixels.
+     */
+    void beginRtOverlay(struct fb *fb, int w, int h) {
+	/* Remove any stale overlay from a previous render */
+	_removeRtOverlay();
+
+	m_rtFb     = fb;
+	m_rtWidth  = w;
+	m_rtHeight = h;
+
+	if (!m_init || w <= 0 || h <= 0)
+	    return;
+
+	SoNode *sceneRoot = static_cast<SoNode *>(
+				bv_render_ctx_scene_root(ctx_));
+	if (!sceneRoot || !sceneRoot->isOfType(SoSeparator::getClassTypeId()))
+	    return;
+	SoSeparator *root = static_cast<SoSeparator *>(sceneRoot);
+
+	/* ── Build overlay sub-graph ──────────────────────────────────
+	 *
+	 *  SoAnnotation            ← renders after main scene, depth cleared
+	 *    SoOrthographicCamera  ← 2-unit-high view centred at origin
+	 *    SoTexture2            ← m_rtTex_: the raytrace image
+	 *    SoTextureCoordinateBinding (PER_VERTEX_INDEXED)
+	 *    SoTextureCoordinate2  ← (0,0)…(1,1)
+	 *    SoCoordinate3         ← full-viewport quad in cam space
+	 *    SoIndexedFaceSet      ← 1 quad
+	 */
+
+	m_rtOverlay_ = new SoAnnotation;
+	m_rtOverlay_->ref();
+
+	/* 2D orthographic camera: height=2 covers Y in [-1,1]; Obol
+	 * automatically adjusts the X range for the viewport aspect ratio
+	 * so the quad always fills the full window. */
+	float aspect = (h > 0) ? (float)w / (float)h : 1.0f;
+	m_rtCam_ = new SoOrthographicCamera;
+	m_rtCam_->position.setValue(0.0f, 0.0f, 1.0f);
+	m_rtCam_->nearDistance.setValue(0.1f);
+	m_rtCam_->farDistance.setValue(10.0f);
+	m_rtCam_->height.setValue(2.0f);     /* Y: [-1, +1] */
+	m_rtCam_->aspectRatio.setValue(aspect);
+	m_rtOverlay_->addChild(m_rtCam_);
+
+	/* SoTexture2: initially black, will be updated by onRtPixelsUpdated */
+	m_rtTex_ = new SoTexture2;
+	m_rtTex_->ref();
+	{
+	    /* Initialise to opaque black so the overlay is visible until
+	     * the first packet arrives.  Use NO_COPY_AND_FREE so Obol takes
+	     * ownership of the calloc'd buffer and frees it later — no
+	     * temporary vector needed. */
+	    unsigned char *black =
+		(unsigned char *)calloc((size_t)w * (size_t)h * 3,
+					sizeof(unsigned char));
+	    m_rtTex_->image.setValue(SbVec2s((short)w, (short)h), 3,
+				     black, SoSFImage::NO_COPY_AND_FREE);
+	}
+	m_rtTex_->wrapS.setValue(SoTexture2::CLAMP);
+	m_rtTex_->wrapT.setValue(SoTexture2::CLAMP);
+	m_rtOverlay_->addChild(m_rtTex_);
+
+	/* Texture coordinate binding */
+	SoTextureCoordinateBinding *tcb = new SoTextureCoordinateBinding;
+	tcb->value = SoTextureCoordinateBinding::PER_VERTEX_INDEXED;
+	m_rtOverlay_->addChild(tcb);
+
+	/* Texture coordinates: (0,0) BL → (1,0) BR → (1,1) TR → (0,1) TL */
+	SoTextureCoordinate2 *tc = new SoTextureCoordinate2;
+	tc->point.set1Value(0, SbVec2f(0.0f, 0.0f));
+	tc->point.set1Value(1, SbVec2f(1.0f, 0.0f));
+	tc->point.set1Value(2, SbVec2f(1.0f, 1.0f));
+	tc->point.set1Value(3, SbVec2f(0.0f, 1.0f));
+	m_rtOverlay_->addChild(tc);
+
+	/* Quad vertices in orthographic camera space: cover [-aspect,+aspect] × [-1,+1]
+	 * Using ±2 ensures full coverage regardless of minor aspect-ratio drift. */
+	SoCoordinate3 *coords = new SoCoordinate3;
+	coords->point.set1Value(0, SbVec3f(-aspect, -1.0f, 0.0f));
+	coords->point.set1Value(1, SbVec3f( aspect, -1.0f, 0.0f));
+	coords->point.set1Value(2, SbVec3f( aspect,  1.0f, 0.0f));
+	coords->point.set1Value(3, SbVec3f(-aspect,  1.0f, 0.0f));
+	m_rtCoords_ = coords;
+	m_rtOverlay_->addChild(coords);
+
+	/* One quad face: vertices 0,1,2,3 then -1 (end-of-face sentinel) */
+	SoIndexedFaceSet *fs = new SoIndexedFaceSet;
+	fs->coordIndex.set1Value(0, 0);
+	fs->coordIndex.set1Value(1, 1);
+	fs->coordIndex.set1Value(2, 2);
+	fs->coordIndex.set1Value(3, 3);
+	fs->coordIndex.set1Value(4, -1);
+	fs->textureCoordIndex.set1Value(0, 0);
+	fs->textureCoordIndex.set1Value(1, 1);
+	fs->textureCoordIndex.set1Value(2, 2);
+	fs->textureCoordIndex.set1Value(3, 3);
+	fs->textureCoordIndex.set1Value(4, -1);
+	m_rtOverlay_->addChild(fs);
+
+	root->addChild(m_rtOverlay_);
+    }
+
+    /**
+     * @brief Remove the raytrace texture overlay from the scene.
+     *
+     * Unrefs and removes the SoAnnotation sub-graph.  Does NOT close or
+     * free the framebuffer — that is the caller's responsibility (see
+     * ert2_raytrace_done in QgEdApp.cpp).
+     */
+    void clearRtOverlay() {
+	_removeRtOverlay();
+	m_rtFb     = nullptr;
+	m_rtWidth  = 0;
+	m_rtHeight = 0;
+    }
+
+    /**
+     * @brief Called when rt finishes rendering.
+     *
+     * The final frame has already been received via onRtPixelsUpdated().
+     * This slot keeps the overlay visible with the completed image and
+     * resets the "active render" state.  The overlay can be dismissed
+     * later by the user or by a clearRtOverlay() call.
+     */
+    void onRtDone() {
+	/* Nothing special needed: the texture already holds the final
+	 * frame.  Just mark no active render. */
+	m_rtFb = nullptr;   /* rt is done; fb will be closed by caller */
+    }
+
 public slots:
     void viewAll() {
 	viewport_.viewAll();
 	update();
+    }
+
+    /**
+     * @brief Incrementally update the raytrace texture from the fb.
+     *
+     * Called (via Qt queued connection) each time a framebuffer packet
+     * arrives from rt.  Reads the full pixel buffer from the memory fb
+     * and updates the SoTexture2::image field using the idiomatic Obol
+     * in-place editing pattern:
+     *
+     *   1. startEditing()   — obtain writable pointer to Obol's buffer
+     *   2. fb_readrect()    — copy pixels directly from the memory fb
+     *   3. finishEditing()  — send field notification → auto repaint
+     *
+     * For incremental scanline rendering the texture updates in real time
+     * as each packet arrives, without needing an explicit update() call.
+     */
+    void onRtPixelsUpdated() {
+	if (!m_rtFb || !m_rtTex_ || m_rtWidth <= 0 || m_rtHeight <= 0)
+	    return;
+
+	SbVec2s size;
+	int nc = 0;
+	unsigned char *buf = m_rtTex_->image.startEditing(size, nc);
+
+	if (buf && size[0] == (short)m_rtWidth
+	       && size[1] == (short)m_rtHeight
+	       && nc == 3) {
+	    /* Fast path: write directly into Obol's texture buffer.
+	     * fb_readrect copies (x0,y0)→(x0+w, y0+h) RGB scanlines. */
+	    fb_readrect(m_rtFb, 0, 0, m_rtWidth, m_rtHeight, buf);
+	    /* finishEditing() propagates SoSFImage notification through the
+	     * scene graph — Obol automatically schedules a GL repaint.     */
+	    m_rtTex_->image.finishEditing();
+	} else {
+	    /* Size mismatch or first-frame init: use setValue (allocates). */
+	    m_rtTex_->image.finishEditing();  /* must exit editing even on mismatch */
+	    std::vector<unsigned char> pixels(m_rtWidth * m_rtHeight * 3);
+	    fb_readrect(m_rtFb, 0, 0, m_rtWidth, m_rtHeight, pixels.data());
+	    m_rtTex_->image.setValue(SbVec2s((short)m_rtWidth, (short)m_rtHeight),
+				     3, pixels.data(), SoSFImage::COPY);
+	}
     }
 
 signals:
@@ -378,6 +592,19 @@ protected:
 	    vp.height = (int)(h * dpr);
 	    vp.dpi    = (double)physicalDpiX();
 	    bview_viewport_set(view_, &vp);
+	}
+
+	/* Keep the RT overlay camera aspect ratio in sync with the widget */
+	if (m_rtCam_ && h > 0) {
+	    float newAspect = (float)w / (float)h;
+	    m_rtCam_->aspectRatio.setValue(newAspect);
+	    /* Update quad vertices to match */
+	    if (m_rtCoords_) {
+		m_rtCoords_->point.set1Value(0, SbVec3f(-newAspect, -1.0f, 0.0f));
+		m_rtCoords_->point.set1Value(1, SbVec3f( newAspect, -1.0f, 0.0f));
+		m_rtCoords_->point.set1Value(2, SbVec3f( newAspect,  1.0f, 0.0f));
+		m_rtCoords_->point.set1Value(3, SbVec3f(-newAspect,  1.0f, 0.0f));
+	    }
 	}
     }
 
@@ -606,6 +833,34 @@ private:
     bool                  m_init;
     int                   current_ = 0;
     QPoint                lastMousePos_;
+
+    /* ── RT texture overlay members ─────────────────────────────────── */
+    struct fb            *m_rtFb      = nullptr; /* memory fb owned by ObolRtCtx */
+    int                   m_rtWidth   = 0;
+    int                   m_rtHeight  = 0;
+    SoAnnotation         *m_rtOverlay_ = nullptr; /* ref'd */
+    SoTexture2           *m_rtTex_     = nullptr; /* ref'd */
+    SoOrthographicCamera *m_rtCam_     = nullptr; /* child of m_rtOverlay_ */
+    SoCoordinate3        *m_rtCoords_  = nullptr; /* child of m_rtOverlay_ */
+
+    /* Remove overlay from scene and unref nodes */
+    void _removeRtOverlay() {
+	if (!m_rtOverlay_) return;
+	SoNode *sceneRoot = static_cast<SoNode *>(
+				bv_render_ctx_scene_root(ctx_));
+	if (sceneRoot && sceneRoot->isOfType(SoSeparator::getClassTypeId())) {
+	    SoSeparator *root = static_cast<SoSeparator *>(sceneRoot);
+	    root->removeChild(m_rtOverlay_);
+	}
+	if (m_rtTex_) {
+	    m_rtTex_->unref();
+	    m_rtTex_ = nullptr;
+	}
+	m_rtOverlay_->unref();
+	m_rtOverlay_ = nullptr;
+	m_rtCam_     = nullptr;
+	m_rtCoords_  = nullptr;
+    }
 };
 
 #endif /* BRLCAD_OPENGL */
