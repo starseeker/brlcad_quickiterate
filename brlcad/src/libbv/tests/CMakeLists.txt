@@ -207,6 +207,18 @@ foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})
 endforeach(tname ${bview_scene_tests})
 
+#
+#  ************ render_test.c tests *************
+#
+# Tests for the bv_render_ctx C API.  The test binary always compiles and
+# runs; Obol-specific tests skip themselves gracefully when the backend is
+# not available (bv_render_ctx_available() == 0).
+#
+brlcad_addexec(bview_render_test render_test.c "libbu;libbv" TEST)
+cmakefiles(render_test.c)
+validate_style(render_test.c bview_render_test)
+brlcad_add_test(NAME bview_render_test COMMAND bview_render_test)
+
 # Local Variables:
 # tab-width: 8
 # mode: cmake
