@@ -317,15 +317,15 @@ eto_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
     if (arg == MENU_ETO_ROT_C)
 	MEDIT(s)->edit_flag = ECMD_ETO_ROT_C;
     else
-	MEDIT(s)->edit_flag = PSCALE;
+	MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 struct menu_item eto_menu[] = {
     { "ELL-TORUS MENU", NULL, 0 },
-    { "Set r", eto_ed, MENU_ETO_R },
-    { "Set D", eto_ed, MENU_ETO_RD },
-    { "Set C", eto_ed, MENU_ETO_SCALE_C },
+    { "Set r", eto_ed, ECMD_ETO_R },
+    { "Set D", eto_ed, ECMD_ETO_RD },
+    { "Set C", eto_ed, ECMD_ETO_SCALE_C },
     { "Rotate C", eto_ed, MENU_ETO_ROT_C },
     { "", NULL, 0 }
 };
@@ -333,17 +333,16 @@ struct menu_item eto_menu[] = {
 static void
 ell_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 struct menu_item ell_menu[] = {
     { "ELLIPSOID MENU", NULL, 0 },
-    { "Set A", ell_ed, MENU_ELL_SCALE_A },
-    { "Set B", ell_ed, MENU_ELL_SCALE_B },
-    { "Set C", ell_ed, MENU_ELL_SCALE_C },
-    { "Set A,B,C", ell_ed, MENU_ELL_SCALE_ABC },
+    { "Set A", ell_ed, ECMD_ELL_SCALE_A },
+    { "Set B", ell_ed, ECMD_ELL_SCALE_B },
+    { "Set C", ell_ed, ECMD_ELL_SCALE_C },
+    { "Set A,B,C", ell_ed, ECMD_ELL_SCALE_ABC },
     { "", NULL, 0 }
 };
 
@@ -869,106 +868,96 @@ struct menu_item cntrl_menu[] = {
 static void
 part_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 struct menu_item part_menu[] = {
     { "Particle MENU", NULL, 0 },
-    { "Set H", part_ed, MENU_PART_H },
-    { "Set v", part_ed, MENU_PART_v },
-    { "Set h", part_ed, MENU_PART_h },
+    { "Set H", part_ed, ECMD_PART_H },
+    { "Set v", part_ed, ECMD_PART_VRAD },
+    { "Set h", part_ed, ECMD_PART_HRAD },
     { "", NULL, 0 }
 };
 
 static void
 rpc_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 struct menu_item rpc_menu[] = {
     { "RPC MENU", NULL, 0 },
-    { "Set B", rpc_ed, MENU_RPC_B },
-    { "Set H", rpc_ed, MENU_RPC_H },
-    { "Set r", rpc_ed, MENU_RPC_R },
+    { "Set B", rpc_ed, ECMD_RPC_B },
+    { "Set H", rpc_ed, ECMD_RPC_H },
+    { "Set r", rpc_ed, ECMD_RPC_R },
     { "", NULL, 0 }
 };
 
 static void
 rhc_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 struct menu_item rhc_menu[] = {
     { "RHC MENU", NULL, 0 },
-    { "Set B", rhc_ed, MENU_RHC_B },
-    { "Set H", rhc_ed, MENU_RHC_H },
-    { "Set r", rhc_ed, MENU_RHC_R },
-    { "Set c", rhc_ed, MENU_RHC_C },
+    { "Set B", rhc_ed, ECMD_RHC_B },
+    { "Set H", rhc_ed, ECMD_RHC_H },
+    { "Set r", rhc_ed, ECMD_RHC_R },
+    { "Set c", rhc_ed, ECMD_RHC_C },
     { "", NULL, 0 }
 };
 
 static void
 epa_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 struct menu_item epa_menu[] = {
     { "EPA MENU", NULL, 0 },
-    { "Set H", epa_ed, MENU_EPA_H },
-    { "Set A", epa_ed, MENU_EPA_R1 },
-    { "Set B", epa_ed, MENU_EPA_R2 },
+    { "Set H", epa_ed, ECMD_EPA_H },
+    { "Set A", epa_ed, ECMD_EPA_R1 },
+    { "Set B", epa_ed, ECMD_EPA_R2 },
     { "", NULL, 0 }
 };
 
 static void
 ehy_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
 struct menu_item ehy_menu[] = {
     { "EHY MENU", NULL, 0 },
-    { "Set H", ehy_ed, MENU_EHY_H },
-    { "Set A", ehy_ed, MENU_EHY_R1 },
-    { "Set B", ehy_ed, MENU_EHY_R2 },
-    { "Set c", ehy_ed, MENU_EHY_C },
+    { "Set H", ehy_ed, ECMD_EHY_H },
+    { "Set A", ehy_ed, ECMD_EHY_R1 },
+    { "Set B", ehy_ed, ECMD_EHY_R2 },
+    { "Set c", ehy_ed, ECMD_EHY_C },
     { "", NULL, 0 }
 };
 
 static void
 hyp_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    switch (arg) {
-	case MENU_HYP_ROT_H:
-	    MEDIT(s)->edit_flag = ECMD_HYP_ROT_H;
-	    break;
-	default:
-	    MEDIT(s)->edit_flag = PSCALE;
-	    break;
-    }
+    if (arg == MENU_HYP_ROT_H)
+	MEDIT(s)->edit_flag = ECMD_HYP_ROT_H;
+    else
+	MEDIT(s)->edit_flag = arg;
     set_e_axes_pos(s, 1);
     return;
 }
 struct menu_item  hyp_menu[] = {
     { "HYP MENU", NULL, 0 },
-    { "Set H", hyp_ed, MENU_HYP_H },
-    { "Set A", hyp_ed, MENU_HYP_SCALE_A },
-    { "Set B", hyp_ed, MENU_HYP_SCALE_B },
-    { "Set c", hyp_ed, MENU_HYP_C },
+    { "Set H", hyp_ed, ECMD_HYP_H },
+    { "Set A", hyp_ed, ECMD_HYP_SCALE_A },
+    { "Set B", hyp_ed, ECMD_HYP_SCALE_B },
+    { "Set c", hyp_ed, ECMD_HYP_C },
     { "Rotate H", hyp_ed, MENU_HYP_ROT_H },
     { "", NULL, 0 }
 };
@@ -1212,17 +1201,16 @@ struct menu_item bot_menu[] = {
 
 static void
 superell_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b)) {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    MEDIT(s)->edit_flag = arg;
     set_e_axes_pos(s, 1);
     return;
 }
 struct menu_item superell_menu[] = {
     { "SUPERELLIPSOID MENU", NULL, 0 },
-    { "Set A", superell_ed, MENU_SUPERELL_SCALE_A },
-    { "Set B", superell_ed, MENU_SUPERELL_SCALE_B },
-    { "Set C", superell_ed, MENU_SUPERELL_SCALE_C },
-    { "Set A,B,C", superell_ed, MENU_SUPERELL_SCALE_ABC },
+    { "Set A", superell_ed, ECMD_SUPERELL_SCALE_A },
+    { "Set B", superell_ed, ECMD_SUPERELL_SCALE_B },
+    { "Set C", superell_ed, ECMD_SUPERELL_SCALE_C },
+    { "Set A,B,C", superell_ed, ECMD_SUPERELL_SCALE_ABC },
     { "", NULL, 0 }
 };
 
