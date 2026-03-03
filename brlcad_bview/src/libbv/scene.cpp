@@ -732,6 +732,26 @@ bview_destroy(struct bview_new *view)
 }
 
 
+const char *
+bview_name_get(const struct bview_new *view)
+{
+    if (!view)
+	return NULL;
+    return bu_vls_cstr(&view->name);
+}
+
+void
+bview_name_set(struct bview_new *view, const char *name)
+{
+    if (!view)
+	return;
+    if (name)
+	bu_vls_sprintf(&view->name, "%s", name);
+    else
+	bu_vls_trunc(&view->name, 0);
+}
+
+
 void
 bview_scene_set(struct bview_new *view, struct bv_scene *scene)
 {
@@ -933,6 +953,22 @@ bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data
 	return;
     view->redraw_cb      = cb;
     view->redraw_cb_data = data;
+}
+
+bview_redraw_cb
+bview_redraw_callback_get(const struct bview_new *view)
+{
+    if (!view)
+	return NULL;
+    return view->redraw_cb;
+}
+
+void *
+bview_redraw_callback_data_get(const struct bview_new *view)
+{
+    if (!view)
+	return NULL;
+    return view->redraw_cb_data;
 }
 
 

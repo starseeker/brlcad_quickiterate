@@ -3660,6 +3660,34 @@ test_bview_sync_to_old(void)
     return 1;
 }
 
+static int
+test_bview_name_get_set(void)
+{
+    /* NULL safety */
+    CHECK(bview_name_get(NULL) == NULL, "bview_name_get(NULL) == NULL");
+    bview_name_set(NULL, "x");   /* must not crash */
+
+    /* Create with name */
+    struct bview_new *v = bview_create("hello");
+    CHECK(v != NULL, "bview_create ok");
+    if (!v) return 0;
+
+    CHECK(bview_name_get(v) != NULL, "name is non-NULL after create");
+    CHECK(strcmp(bview_name_get(v), "hello") == 0, "name == 'hello' after create");
+
+    /* Change name */
+    bview_name_set(v, "world");
+    CHECK(strcmp(bview_name_get(v), "world") == 0, "name == 'world' after set");
+
+    /* Set to NULL → empty name */
+    bview_name_set(v, NULL);
+    CHECK(bview_name_get(v) != NULL, "name non-NULL after set(NULL)");
+    CHECK(strlen(bview_name_get(v)) == 0, "name empty after set(NULL)");
+
+    bview_destroy(v);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -3785,6 +3813,7 @@ static struct test_entry scene_tests[] = {
     { "bview_remove_obj_roundtrip",   test_bview_remove_obj_roundtrip         },
     { "bview_sync_from_old",          test_bview_sync_from_old                },
     { "bview_sync_to_old",            test_bview_sync_to_old                  },
+    { "bview_name_get_set",           test_bview_name_get_set                 },
     { NULL, NULL }
 };
 
