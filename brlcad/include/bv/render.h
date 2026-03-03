@@ -274,7 +274,7 @@ BV_EXPORT void bv_quad_render_ctx_set_size(struct bv_quad_render_ctx *ctx,
  * @return 1 on success, 0 on failure or when Obol is not available.
  */
 BV_EXPORT int bv_quad_render_frame(struct bv_quad_render_ctx *ctx,
-				   struct bview_new *views[BV_QUAD_NUM_QUADS],
+				   struct bview_new **views,
 				   const char *output_path);
 
 /**

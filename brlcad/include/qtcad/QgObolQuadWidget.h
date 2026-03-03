@@ -201,8 +201,15 @@ public:
     }
 
     /* ── Misc ───────────────────────────────────────────────────────── */
-    void stash_hashes() {}
-    bool diff_hashes()  { return false; }
+    void stash_hashes() {
+	/* TODO: hash scene/view state for change detection (camera matrices,
+	 * bv_node dlist_stale flags) so that paintGL can skip rendering
+	 * when nothing has changed. */
+    }
+    bool diff_hashes()  {
+	/* TODO: return true when scene/view state differs from last stash */
+	return false;
+    }
     bool isValid()      { return m_init; }
 
 signals:
@@ -399,7 +406,13 @@ private:
 
     /* Draw a coloured border around the active quadrant using legacy GL */
     void _drawActiveBorder() {
-	/* simple 2D overlay — minimal GL state manipulation */
+	/* Highlight colour for the active quadrant border.  Orange was chosen
+	 * to contrast well with both dark and light scene backgrounds; a
+	 * future configurable method (setActiveBorderColor) could expose this.
+	 */
+	static const float ACTIVE_BORDER_R = 1.0f;
+	static const float ACTIVE_BORDER_G = 0.5f;
+	static const float ACTIVE_BORDER_B = 0.0f;
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
@@ -410,7 +423,7 @@ private:
 
 	glDisable(GL_DEPTH_TEST);
 	glLineWidth(3.0f);
-	glColor3f(1.0f, 0.5f, 0.0f);   /* orange active border */
+	glColor3f(ACTIVE_BORDER_R, ACTIVE_BORDER_G, ACTIVE_BORDER_B);
 
 	int qw = width()  / 2;
 	int qh = height() / 2;

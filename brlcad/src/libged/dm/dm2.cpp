@@ -95,6 +95,10 @@ static const char * const s_rm_names[] = {
  * A cleaner field would be bview_appearance or a new API, but that requires
  * more extensive changes to the libbv API; this is the minimal-impact
  * approach pending that refactor.
+ *
+ * TODO: Add dedicated bview_display_settings sub-struct to bview_new that
+ * carries obol_render_mode (int), obol_stereo (int), and similar Obol-specific
+ * settings so that these fields can revert to their original purpose.
  */
 #define OBOL_RM_FIELD(overlay)  (overlay)->show_fps
 #define OBOL_STEREO_FIELD(ovly) (ovly)->show_gizmos  /* repurposed for stereo flag */
@@ -476,7 +480,8 @@ ged_dm2_core(struct ged *gedp, int argc, const char *argv[])
 
     if (!argc) {
 	/* No subcommand — print a summary of the current view state */
-	return _dm2_cmd_get(gedp, nv, 1, (const char *[]){"camera"});
+	const char *cam_key = "camera";
+	return _dm2_cmd_get(gedp, nv, 1, &cam_key);
     }
 
     const char *sub = argv[0];

@@ -77,6 +77,7 @@
 #include <QActionGroup>
 #include <QTimer>
 #include <QCoreApplication>
+#include <atomic>
 
 extern "C" {
 #include "bv.h"
@@ -314,8 +315,14 @@ public:
     int  current()    const { return current_; }
 
     /* ── Hashing helpers for change detection ───────────────────────── */
-    void stash_hashes()  { /* TODO: hash scene/view state */ }
-    bool diff_hashes()   { return false; }
+    void stash_hashes() {
+	/* TODO: hash scene/view state (camera matrix, bv_node dlist_stale
+	 * flags) for use in diff_hashes() to skip unnecessary redraws. */
+    }
+    bool diff_hashes()  {
+	/* TODO: return true when scene/view state differs from last stash */
+	return false;
+    }
 
     void need_update() { update(); }
 
@@ -578,8 +585,8 @@ private:
 
     /* ── Display-list / cache context ──────────────────────────────── */
     static unsigned int allocCacheContext() {
-	static unsigned int s_next = 1;
-	return s_next++;
+	static std::atomic<unsigned int> s_next{1};
+	return s_next.fetch_add(1, std::memory_order_relaxed);
     }
     unsigned int cacheContext_ = allocCacheContext();
 

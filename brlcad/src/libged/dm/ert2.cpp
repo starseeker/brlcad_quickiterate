@@ -181,8 +181,8 @@ _ert2_collect_objects(struct bu_ptbl *args, struct ged *gedp)
 	if (!sp || !sp->s_u_data)
 	    continue;
 	/* The path name is stored in s_name for legacy scene objects */
-	if (sp->s_name[0])
-	    bu_ptbl_ins(args, (long *)bu_strdup(sp->s_name));
+	if (bu_vls_strlen(&sp->s_name))
+	    bu_ptbl_ins(args, (long *)bu_strdup(bu_vls_cstr(&sp->s_name)));
     }
 }
 
@@ -234,15 +234,17 @@ ged_ert2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* ── Defaults ────────────────────────────────────────────────── */
-    if (width  <= 0) { const struct bview_viewport *vp = bview_viewport_get(nv);
-		       width  = (vp && vp->width  > 0) ? vp->width  : 512; }
-    if (height <= 0) { const struct bview_viewport *vp = bview_viewport_get(nv);
-		       height = (vp && vp->height > 0) ? vp->height : 512; }
+    if (width <= 0 || height <= 0) {
+	const struct bview_viewport *vp = bview_viewport_get(nv);
+	if (width  <= 0) width  = (vp && vp->width  > 0) ? vp->width  : 512;
+	if (height <= 0) height = (vp && vp->height > 0) ? vp->height : 512;
+    }
 
     /* ── Output path ─────────────────────────────────────────────── */
     if (!bu_vls_strlen(&outfile)) {
 	char tmp[MAXPATHLEN];
-	bu_temp_file(tmp, MAXPATHLEN, 1);
+	FILE *fp = bu_temp_file(tmp, MAXPATHLEN);
+	if (fp) fclose(fp);
 	bu_vls_sprintf(&outfile, "%s.png", tmp);
     }
     const char *outpath = bu_vls_cstr(&outfile);
@@ -271,8 +273,8 @@ ged_ert2_core(struct ged *gedp, int argc, const char *argv[])
     _ert2_camera_args(&args, nv, width, height);
 
     if (persp_override) {
-	/* Remove any -P flag that camera_args may have added */
-	/* (simpler: just add a known perspective half-angle) */
+	/* Remove any -P flag that camera_args may have added by overriding
+	 * with a default 45-degree perspective half-angle (rt -p flag, degrees) */
 	bu_ptbl_ins(&args, (long *)bu_strdup("-p"));
 	bu_ptbl_ins(&args, (long *)bu_strdup("45"));
     }
@@ -311,7 +313,6 @@ ged_ert2_core(struct ged *gedp, int argc, const char *argv[])
     bu_ptbl_ins(&args, (long *)NULL);
 
     /* ── Launch rt subprocess ────────────────────────────────────── */
-    int exit_code = 0;
     struct bu_process *proc = NULL;
     bu_process_create(&proc,
 		      (const char **)BU_PTBL_BASEADDR(&args),
@@ -330,12 +331,11 @@ ged_ert2_core(struct ged *gedp, int argc, const char *argv[])
     struct bu_vls rt_out = BU_VLS_INIT_ZERO;
     char buf[4096];
     int nread;
-    while ((nread = bu_process_read((char *)buf, &proc,
-				    BU_PROCESS_STDERR, sizeof(buf) - 1)) > 0) {
+    while ((nread = bu_process_read_n(proc, BU_PROCESS_STDERR, sizeof(buf) - 1, buf)) > 0) {
 	buf[nread] = '\0';
 	bu_vls_strcat(&rt_out, buf);
     }
-    bu_process_wait(&exit_code, proc, 0);
+    int exit_code = bu_process_wait_n(&proc, 0);
 
     for (size_t i = 0; i + 1 < BU_PTBL_LEN(&args); i++)
 	free((void *)BU_PTBL_GET(&args, i));

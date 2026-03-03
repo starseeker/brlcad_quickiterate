@@ -288,7 +288,10 @@ append_transform(SoSeparator *sep, const struct bv_node *node)
 
     /* Check for identity before creating a node */
     static const double identity[16] = {
-	1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+	1, 0, 0, 0,
+	0, 1, 0, 0,
+	0, 0, 1, 0,
+	0, 0, 0, 1
     };
     if (memcmp(*m, identity, 16 * sizeof(double)) == 0)
 	return;
@@ -427,9 +430,13 @@ rebuild_geometry_node(struct bv_render_ctx *ctx, const struct bv_node *node)
 	    ctx->root->addChild(new_sep);
     }
 
-    /* old_so was already ref'd; release it */
+    /* old_so was already ref'd; release it.
+     * All geometry nodes in node_map are stored as SoSeparator*. */
     if (SoSeparator *old_sep = dynamic_cast<SoSeparator *>(old_so))
 	old_sep->unref();
+    else
+	bu_log("rebuild_geometry_node: unexpected non-SoSeparator in node_map for node '%s'\n",
+	       bu_vls_cstr(&node->name));
 
     it->second = new_sep;  /* new_sep retains its ref() */
     const_cast<struct bv_node *>(node)->dlist_stale = 0;
@@ -907,7 +914,7 @@ bv_quad_render_ctx_set_size(struct bv_quad_render_ctx *ctx,
 
 int
 bv_quad_render_frame(struct bv_quad_render_ctx *ctx,
-		     struct bview_new *views[BV_QUAD_NUM_QUADS],
+		     struct bview_new **views,
 		     const char *output_path)
 {
     if (!ctx || !output_path)
@@ -1032,7 +1039,7 @@ bv_quad_render_ctx_set_size(struct bv_quad_render_ctx *UNUSED(ctx),
 
 int
 bv_quad_render_frame(struct bv_quad_render_ctx *UNUSED(ctx),
-		     struct bview_new *UNUSED(views)[BV_QUAD_NUM_QUADS],
+		     struct bview_new **UNUSED(views),
 		     const char *UNUSED(output_path))
 {
     return 0;
