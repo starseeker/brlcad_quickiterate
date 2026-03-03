@@ -240,6 +240,10 @@ BV_EXPORT void bv_scene_default_camera_set(struct bv_scene *scene, struct bv_nod
 BV_EXPORT struct bview_new *bview_create(const char *name);
 BV_EXPORT void bview_destroy(struct bview_new *view);
 
+/* Name accessors */
+BV_EXPORT const char *bview_name_get(const struct bview_new *view);
+BV_EXPORT void bview_name_set(struct bview_new *view, const char *name);
+
 /* Associate a scene with a view */
 BV_EXPORT void bview_scene_set(struct bview_new *view, struct bv_scene *scene);
 BV_EXPORT struct bv_scene *bview_scene_get(const struct bview_new *view);
@@ -287,6 +291,11 @@ BV_EXPORT const struct bview_pick_set *bview_pick_set_get(const struct bview_new
 /* Redraw callback (for integration with UI/event loop) */
 typedef void (*bview_redraw_cb)(struct bview_new *, void *);
 BV_EXPORT void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
+/* Getters for the currently registered redraw callback and its data pointer.
+ * Both return NULL (or the NULL function pointer) if view is NULL or no
+ * callback has been set. */
+BV_EXPORT bview_redraw_cb bview_redraw_callback_get(const struct bview_new *view);
+BV_EXPORT void *bview_redraw_callback_data_get(const struct bview_new *view);
 
 /*
  * Per-node update/regenerate callback (analogous to bv_scene_obj::s_update_callback).
