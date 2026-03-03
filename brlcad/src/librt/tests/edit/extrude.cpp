@@ -477,12 +477,96 @@ bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
        "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
     }
 
+    /* ================================================================
+     * ECMD_EXTR_SCALE_A  (scale A / u_vec reference vector)
+     *
+     * es_scale path: es_scale=3 → u_vec=(3,0,0)
+     * e_inpara path: e_para[0]=1 → es_scale=1/3=0.333 → u_vec=(1,0,0) restored
+     * ================================================================*/
+    extr_reset(s, edit_extr, orig, cmp);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_EXTR_SCALE_A);
+    s->e_inpara = 0;
+    s->es_scale = 3.0;
+    VSET(cmp->u_vec, 3, 0, 0);
+
+    rt_edit_process(s);
+    if (extr_diff("ECMD_EXTR_SCALE_A", cmp, edit_extr))
+	bu_exit(1, "ERROR: ECMD_EXTR_SCALE_A failed\n");
+    bu_log("ECMD_EXTR_SCALE_A SUCCESS: u_vec=%g,%g,%g\n", V3ARGS(edit_extr->u_vec));
+
+    s->e_inpara = 1;
+    s->e_para[0] = 1.0;   /* absolute target |u_vec| = 1 */
+    VSET(cmp->u_vec, 1, 0, 0);
+    rt_edit_process(s);
+    if (extr_diff("ECMD_EXTR_SCALE_A restore", cmp, edit_extr))
+	bu_exit(1, "ERROR: ECMD_EXTR_SCALE_A restore failed\n");
+    bu_log("ECMD_EXTR_SCALE_A SUCCESS: u_vec restored to %g,%g,%g\n",
+	   V3ARGS(edit_extr->u_vec));
+
+    /* ================================================================
+     * ECMD_EXTR_SCALE_B  (scale B / v_vec reference vector)
+     *
+     * es_scale=4 → v_vec=(0,4,0)
+     * ================================================================*/
+    extr_reset(s, edit_extr, orig, cmp);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_EXTR_SCALE_B);
+    s->e_inpara = 0;
+    s->es_scale = 4.0;
+    VSET(cmp->v_vec, 0, 4, 0);
+
+    rt_edit_process(s);
+    if (extr_diff("ECMD_EXTR_SCALE_B", cmp, edit_extr))
+	bu_exit(1, "ERROR: ECMD_EXTR_SCALE_B failed\n");
+    bu_log("ECMD_EXTR_SCALE_B SUCCESS: v_vec=%g,%g,%g\n", V3ARGS(edit_extr->v_vec));
+
+    /* ================================================================
+     * ECMD_EXTR_ROT_A  (rotate A / u_vec by 5,5,5 degrees)
+     *
+     * Uses the same bn_mat_angles(5,5,5) matrix as ECMD_EXTR_ROT_H.
+     * Expected result: R * (1,0,0) where R = bn_mat_angles(5,5,5).
+     *   col 0 of R = ( 0.992404, 0.094391, -0.078898) (see extrude.cpp header)
+     * ================================================================*/
+    extr_reset(s, edit_extr, orig, cmp);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_EXTR_ROT_A);
+    s->e_inpara = 3;
+    VSET(s->e_para, 5.0, 5.0, 5.0);
+    s->mv_context = 0;
+
+    rt_edit_process(s);
+    if (VNEAR_EQUAL(edit_extr->u_vec, orig->u_vec, VUNITIZE_TOL))
+	bu_exit(1, "ERROR: ECMD_EXTR_ROT_A: u_vec did not change\n");
+    bu_log("ECMD_EXTR_ROT_A SUCCESS: u_vec=%g,%g,%g\n", V3ARGS(edit_extr->u_vec));
+
+    /* ================================================================
+     * ECMD_EXTR_ROT_B  (rotate B / v_vec by 5,5,5 degrees)
+     *
+     * Expected result: R * (0,1,0) where R = bn_mat_angles(5,5,5).
+     *   col 1 of R = (-0.086824, 0.991742,  0.094391)
+     * ================================================================*/
+    extr_reset(s, edit_extr, orig, cmp);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_EXTR_ROT_B);
+    s->e_inpara = 3;
+    VSET(s->e_para, 5.0, 5.0, 5.0);
+    s->mv_context = 0;
+
+    rt_edit_process(s);
+    if (VNEAR_EQUAL(edit_extr->v_vec, orig->v_vec, VUNITIZE_TOL))
+	bu_exit(1, "ERROR: ECMD_EXTR_ROT_B: v_vec did not change\n");
+    bu_log("ECMD_EXTR_ROT_B SUCCESS: v_vec=%g,%g,%g\n", V3ARGS(edit_extr->v_vec));
+
     rt_edit_destroy(s);
     db_close(dbip);
     return 0;
 }
 
 // Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8
 // tab-width: 8
 // mode: C++
 // c-basic-offset: 4

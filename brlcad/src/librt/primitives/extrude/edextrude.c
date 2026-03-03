@@ -38,6 +38,10 @@
 #define ECMD_EXTR_MOV_H		27074	/* move end of extrusion vector */
 #define ECMD_EXTR_ROT_H		27075	/* rotate extrusion vector */
 #define ECMD_EXTR_SKT_NAME	27076	/* set sketch that the extrusion uses */
+#define ECMD_EXTR_SCALE_A	27077	/* scale A (sketch u_vec) reference vector */
+#define ECMD_EXTR_SCALE_B	27078	/* scale B (sketch v_vec) reference vector */
+#define ECMD_EXTR_ROT_A		27079	/* rotate A reference vector */
+#define ECMD_EXTR_ROT_B		27080	/* rotate B reference vector */
 
 void
 rt_edit_extrude_set_edit_mode(struct rt_edit *s, int mode)
@@ -46,9 +50,13 @@ rt_edit_extrude_set_edit_mode(struct rt_edit *s, int mode)
 
     switch (mode) {
 	case ECMD_EXTR_ROT_H:
+	case ECMD_EXTR_ROT_A:
+	case ECMD_EXTR_ROT_B:
 	    s->edit_mode = RT_PARAMS_EDIT_ROT;
 	    break;
 	case ECMD_EXTR_SCALE_H:
+	case ECMD_EXTR_SCALE_A:
+	case ECMD_EXTR_SCALE_B:
 	    s->edit_mode = RT_PARAMS_EDIT_SCALE;
 	    break;
 	case ECMD_EXTR_MOV_H:
@@ -72,6 +80,10 @@ struct rt_edit_menu_item extr_menu[] = {
     { "Set H",		extr_ed, ECMD_EXTR_SCALE_H },
     { "Move End H",		extr_ed, ECMD_EXTR_MOV_H },
     { "Rotate H",		extr_ed, ECMD_EXTR_ROT_H },
+    { "Set A",		extr_ed, ECMD_EXTR_SCALE_A },
+    { "Rotate A",		extr_ed, ECMD_EXTR_ROT_A },
+    { "Set B",		extr_ed, ECMD_EXTR_SCALE_B },
+    { "Rotate B",		extr_ed, ECMD_EXTR_ROT_B },
     { "Referenced Sketch",	extr_ed, ECMD_EXTR_SKT_NAME },
     { "", NULL, 0 }
 };
@@ -322,6 +334,182 @@ ecmd_extr_mov_h_mousevec(struct rt_edit *s, const vect_t mousevec)
     VSUB2(extr->h, tr_temp, extr->V);
 }
 
+/* scale the A (u_vec) reference vector */
+int
+ecmd_extr_scale_a(struct rt_edit *s)
+{
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
+	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    struct rt_extrude_internal *extr =
+	(struct rt_extrude_internal *)s->es_int.idb_ptr;
+
+    RT_EXTRUDE_CK_MAGIC(extr);
+
+    if (s->e_inpara) {
+	if (s->e_para[0] <= 0.0) {
+	    bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	s->e_para[0] *= s->local2base;
+	s->e_para[0] *= s->e_mat[15];
+	s->es_scale = s->e_para[0] / MAGNITUDE(extr->u_vec);
+	VSCALE(extr->u_vec, extr->u_vec, s->es_scale);
+    } else if (s->es_scale > 0.0) {
+	VSCALE(extr->u_vec, extr->u_vec, s->es_scale);
+	s->es_scale = 0.0;
+    }
+
+    return 0;
+}
+
+/* scale the B (v_vec) reference vector */
+int
+ecmd_extr_scale_b(struct rt_edit *s)
+{
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
+	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    struct rt_extrude_internal *extr =
+	(struct rt_extrude_internal *)s->es_int.idb_ptr;
+
+    RT_EXTRUDE_CK_MAGIC(extr);
+
+    if (s->e_inpara) {
+	if (s->e_para[0] <= 0.0) {
+	    bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	s->e_para[0] *= s->local2base;
+	s->e_para[0] *= s->e_mat[15];
+	s->es_scale = s->e_para[0] / MAGNITUDE(extr->v_vec);
+	VSCALE(extr->v_vec, extr->v_vec, s->es_scale);
+    } else if (s->es_scale > 0.0) {
+	VSCALE(extr->v_vec, extr->v_vec, s->es_scale);
+	s->es_scale = 0.0;
+    }
+
+    return 0;
+}
+
+/* rotate the A (u_vec) reference vector */
+int
+ecmd_extr_rot_a(struct rt_edit *s)
+{
+    struct rt_extrude_internal *extr =
+	(struct rt_extrude_internal *)s->es_int.idb_ptr;
+    mat_t mat;
+    mat_t mat1;
+    mat_t edit;
+
+    RT_EXTRUDE_CK_MAGIC(extr);
+    if (s->e_inpara) {
+	if (s->e_inpara != 3) {
+	    bu_vls_printf(s->log_str, "ERROR: three arguments needed\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	static mat_t invsolr;
+	bn_mat_inv(invsolr, s->acc_rot_sol);
+
+	MAT_IDN(s->model_changes);
+	bn_mat_angles(s->model_changes,
+		s->e_para[0],
+		s->e_para[1],
+		s->e_para[2]);
+	bn_mat_mul(s->incr_change, s->model_changes, invsolr);
+	MAT_COPY(s->acc_rot_sol, s->model_changes);
+	MAT_IDN(s->model_changes);
+    }
+
+    if (s->mv_context) {
+	bn_mat_xform_about_pnt(edit, s->incr_change, s->e_keypoint);
+	bn_mat_mul(mat1, edit, s->e_mat);
+	bn_mat_mul(mat, s->e_invmat, mat1);
+	vect_t a_tmp;
+	VMOVE(a_tmp, extr->u_vec);
+	MAT4X3VEC(extr->u_vec, mat, a_tmp);
+    } else {
+	vect_t a_tmp;
+	VMOVE(a_tmp, extr->u_vec);
+	MAT4X3VEC(extr->u_vec, s->incr_change, a_tmp);
+    }
+
+    MAT_IDN(s->incr_change);
+
+    return 0;
+}
+
+/* rotate the B (v_vec) reference vector */
+int
+ecmd_extr_rot_b(struct rt_edit *s)
+{
+    struct rt_extrude_internal *extr =
+	(struct rt_extrude_internal *)s->es_int.idb_ptr;
+    mat_t mat;
+    mat_t mat1;
+    mat_t edit;
+
+    RT_EXTRUDE_CK_MAGIC(extr);
+    if (s->e_inpara) {
+	if (s->e_inpara != 3) {
+	    bu_vls_printf(s->log_str, "ERROR: three arguments needed\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	static mat_t invsolr;
+	bn_mat_inv(invsolr, s->acc_rot_sol);
+
+	MAT_IDN(s->model_changes);
+	bn_mat_angles(s->model_changes,
+		s->e_para[0],
+		s->e_para[1],
+		s->e_para[2]);
+	bn_mat_mul(s->incr_change, s->model_changes, invsolr);
+	MAT_COPY(s->acc_rot_sol, s->model_changes);
+	MAT_IDN(s->model_changes);
+    }
+
+    if (s->mv_context) {
+	bn_mat_xform_about_pnt(edit, s->incr_change, s->e_keypoint);
+	bn_mat_mul(mat1, edit, s->e_mat);
+	bn_mat_mul(mat, s->e_invmat, mat1);
+	vect_t b_tmp;
+	VMOVE(b_tmp, extr->v_vec);
+	MAT4X3VEC(extr->v_vec, mat, b_tmp);
+    } else {
+	vect_t b_tmp;
+	VMOVE(b_tmp, extr->v_vec);
+	MAT4X3VEC(extr->v_vec, s->incr_change, b_tmp);
+    }
+
+    MAT_IDN(s->incr_change);
+
+    return 0;
+}
+
 int
 rt_edit_extrude_edit(struct rt_edit *s)
 {
@@ -346,6 +534,14 @@ rt_edit_extrude_edit(struct rt_edit *s)
 	    return ecmd_extr_scale_h(s);
 	case ECMD_EXTR_ROT_H:
 	    return ecmd_extr_rot_h(s);
+	case ECMD_EXTR_SCALE_A:
+	    return ecmd_extr_scale_a(s);
+	case ECMD_EXTR_SCALE_B:
+	    return ecmd_extr_scale_b(s);
+	case ECMD_EXTR_ROT_A:
+	    return ecmd_extr_rot_a(s);
+	case ECMD_EXTR_ROT_B:
+	    return ecmd_extr_rot_b(s);
 	default:
 	    return edit_generic(s);
     }
@@ -365,6 +561,10 @@ rt_edit_extrude_edit_xy(
 	case RT_PARAMS_EDIT_SCALE:
 	case ECMD_EXTR_SCALE_H:
 	case ECMD_EXTR_ROT_H:
+	case ECMD_EXTR_SCALE_A:
+	case ECMD_EXTR_ROT_A:
+	case ECMD_EXTR_SCALE_B:
+	case ECMD_EXTR_ROT_B:
 	case ECMD_EXTR_SKT_NAME:
 	    edit_sscale_xy(s, mousevec);
 	    return 0;

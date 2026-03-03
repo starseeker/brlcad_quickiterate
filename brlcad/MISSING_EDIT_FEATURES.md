@@ -243,6 +243,10 @@ ECMD constants.  For qged, the minimal useful additions are:
 | `ECMD_EXTR_MOV_H`    | move H endpoint via mouse |
 | `ECMD_EXTR_ROT_H`    | rotate H vector |
 | `ECMD_EXTR_SKT_NAME` | change reference sketch name |
+| `ECMD_EXTR_SCALE_A`  | scale A (sketch u_vec) reference vector *(added)* |
+| `ECMD_EXTR_SCALE_B`  | scale B (sketch v_vec) reference vector *(added)* |
+| `ECMD_EXTR_ROT_A`    | rotate A reference vector *(added)* |
+| `ECMD_EXTR_ROT_B`    | rotate B reference vector *(added)* |
 
 ### Tcl/GUI capabilities (ExtrudeEditFrame.tcl)
 
@@ -258,18 +262,15 @@ ECMD constants.  For qged, the minimal useful additions are:
 
 | Feature | Gap |
 |---------|-----|
-| Edit A vector (reference width direction) | No `ECMD_EXTR_SCALE_A` / `ECMD_EXTR_ROT_A` |
-| Edit B vector (reference height direction) | No `ECMD_EXTR_SCALE_B` / `ECMD_EXTR_ROT_B` |
 | `keypoint` parameter edit | Only via `adjust` in Tcl |
 
 ### Design notes
-```c
-#define ECMD_EXTR_SCALE_A   <n>  // scale A (sketch width) vector
-#define ECMD_EXTR_SCALE_B   <n>  // scale B (sketch height) vector
-#define ECMD_EXTR_ROT_A     <n>  // rotate A vector
-#define ECMD_EXTR_ROT_B     <n>  // rotate B vector
-```
-These can be modeled on `ECMD_EXTR_SCALE_H` / `ECMD_EXTR_ROT_H`.
+A/B vector editing (`ECMD_EXTR_SCALE_A/B`, `ECMD_EXTR_ROT_A/B`) has been
+implemented following the exact same pattern as the H-vector operations.
+The remaining open item is `keypoint` (integer index into the sketch vertex
+array) — this is a scalar attribute not well-suited to the vector `e_para`
+mechanism; a dedicated `ECMD_EXTR_SET_KEYPOINT` accepting `e_para[0]` as an
+integer index would be the clean API choice.
 
 ---
 
