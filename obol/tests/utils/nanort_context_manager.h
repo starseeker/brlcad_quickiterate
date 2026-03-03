@@ -1197,11 +1197,27 @@ static void nrt_trace(const NrtScene & scene,
 //         traversal and BVH rebuild are performed and the cache is updated.
 //         Text/HUD overlays are also collected during this traversal.
 //   • Switching to a different root node pointer invalidates the cache.
+//     IMPORTANT: callers must also call resetCache() explicitly when the
+//     scene root is replaced.  Coin may free the old root and immediately
+//     reuse those heap addresses for the new scene nodes, making the new
+//     root/camera pointers identical to the old ones even though the
+//     content has completely changed.  resetCache() sets cachedScene_ to
+//     nullptr so the very next renderScene() call sees scene != cachedScene_
+//     and unconditionally rebuilds the BVH.
 //
 // This gives a large speedup for the interactive viewer where:
 //   1. timedStepIn_() calls doRender_() N times at increasing resolutions;
 //      only the first call rebuilds the BVH; subsequent calls just raytrace.
 //   2. Camera-only orbits (no geometry change) reuse the BVH.
+//      Because the camera is a child of the scene root, any camera field
+//      change (position, orientation) also bumps root->getNodeId() via
+//      Coin's notification propagation.  A separate cachedCamPtr_ /
+//      cachedCamId_ pair tracks the camera node independently so that a
+//      root-nodeId change that is solely due to a camera move is not
+//      mistaken for a geometry change requiring a BVH rebuild.
+//      The cameraOnlyMoved check also requires the root pointer to match
+//      the cached root to guard against pointer aliasing across scene
+//      switches (the resetCache() call in setScene() makes this secondary).
 //   3. Static scenes (same root, no field changes) skip the traversal.
 //
 // Thread safety: SoNanoRTContextManager is not thread-safe; it is expected
@@ -1223,6 +1239,29 @@ public:
     void destroyContext(void *) override {}
 
     // -----------------------------------------------------------------------
+    // Cache management
+    // -----------------------------------------------------------------------
+
+    // Discard the cached BVH so the next renderScene() call unconditionally
+    // rebuilds geometry.  Call this whenever the scene root is replaced (e.g.
+    // when the viewer switches to a different demo scene) to prevent a false
+    // cache hit caused by pointer aliasing: Coin frees the old scene nodes and
+    // the allocator may immediately recycle those addresses for the new scene,
+    // making the new root/camera pointers identical to the old ones even though
+    // the scene content has completely changed.
+    void resetCache() {
+        // Clear all cached state so the next renderScene() call performs a
+        // full SoCallbackAction traversal (re-collecting all source geometry
+        // and lights) followed by a fresh BVH build.
+        cachedScene_  = nullptr;
+        cachedRootId_ = 0;
+        cachedCamPtr_ = nullptr;
+        cachedCamId_  = 0;
+        cachedNrtScene_ = NrtScene();  // clears tris, vertices, faces, normals, accel
+        cachedLights_.clear();
+    }
+
+    // -----------------------------------------------------------------------
     // Rendering path
     // -----------------------------------------------------------------------
     SbBool renderScene(SoNode * scene,
@@ -1236,18 +1275,57 @@ public:
         const SbViewportRegion vp(static_cast<short>(width),
                                   static_cast<short>(height));
 
-        // --- 1. Determine whether the scene geometry needs to be rebuilt. ---
+        // --- 1. Find the camera and determine whether geometry needs rebuild. ---
+        // The camera is found early (before the rebuild check) so its nodeId
+        // can be used to distinguish camera-only moves from geometry changes.
         // Coin propagates field-change notifications up through the scene
         // graph so that any ancestor (including the root) has its uniqueId
-        // bumped whenever a descendant changes.  Comparing the root's
-        // current nodeId with the value recorded after the last BVH build
-        // is therefore a reliable O(1) test for "anything in the scene graph
-        // has changed".  Proxy nodes created internally during traversal are
-        // standalone (never parented to the scene root), so they do not
-        // perturb the root's nodeId between renders.
+        // bumped whenever a descendant changes.  Because the camera is a
+        // child of the root, any camera orbit or dolly also bumps the root's
+        // nodeId.  To avoid a spurious BVH rebuild on every drag frame, we
+        // check whether the root-nodeId change is solely due to the camera
+        // moving (same camera node pointer, camera nodeId changed).  If so,
+        // we skip the rebuild and just re-read the view volume below.
+        // Proxy nodes created internally during traversal are standalone
+        // (never parented to the scene root) and do not perturb the root's
+        // nodeId between renders.
+        SoCamera * cam = nullptr;
+        {
+            SoSearchAction sa;
+            sa.setType(SoCamera::getClassTypeId());
+            sa.setInterest(SoSearchAction::FIRST);
+            sa.apply(scene);
+            if (sa.getPath())
+                cam = static_cast<SoCamera *>(sa.getPath()->getTail());
+        }
+        const SbUniqueId camId = cam ? cam->getNodeId() : 0;
+
+        // A "camera-only move" is inferred when the same scene root (same
+        // pointer) contains the same camera node (same pointer, recorded at
+        // the last BVH build) that now has a different nodeId.  Requiring the
+        // scene root pointer to also match prevents a false positive caused by
+        // pointer aliasing: after a scene switch the allocator may recycle the
+        // freed node addresses, giving the new root/camera the same pointers
+        // as the old ones even though the scene content has completely changed.
+        //
+        // IMPORTANT: callers must avoid calling SoCamera::setValue() (or any
+        // camera field setter) with unchanged values.  Coin bumps a node's
+        // uniqueId on every setValue() call, even when the value is the same.
+        // If the camera is set to its current value while scene geometry is
+        // also being changed (e.g. a manipulator drag), the camera nodeId
+        // bump makes cameraOnlyMoved appear true even though geometry changed,
+        // causing the BVH rebuild to be incorrectly skipped (stale renders).
+        // The obol_viewer.cpp setCamera() methods guard against this by
+        // comparing values before calling setValue().
+        const bool cameraOnlyMoved =
+            (cam != nullptr) &&
+            (cachedCamPtr_ != nullptr) &&
+            (scene == cachedScene_) &&
+            (cam == cachedCamPtr_) &&
+            (camId != cachedCamId_);
         const bool needRebuild =
             (scene != cachedScene_) ||
-            (scene->getNodeId() != cachedRootId_);
+            (scene->getNodeId() != cachedRootId_ && !cameraOnlyMoved);
 
         // Text/HUD overlay data – always regenerated so that screen-space
         // positions track the current camera even on cache hits.
@@ -1338,6 +1416,7 @@ public:
             // Record the cache key so subsequent calls can detect hits.
             cachedScene_  = scene;
             cachedRootId_ = scene->getNodeId();
+            cachedCamPtr_ = cam;
         } else {
             // --- 1c. Cache hit: lightweight text/HUD-overlay traversal ------
             // The geometry and lights are reused from the previous render.
@@ -1358,14 +1437,6 @@ public:
             }
         }
 
-        if (cachedNrtScene_.tris.empty()) {
-            // No ray-traceable triangles: return TRUE so the caller uses the
-            // background-filled buffer rather than falling through to GL.
-            // Note: SoText2 and SoHUDLabel overlays can be present without
-            // geometry; we skip the ray-trace but still composite any overlays.
-            if (proxyData.textOverlays.empty())
-                return TRUE;
-        }
 
         // Local aliases for the cached rendering parameters.
         const bool  shadowsEnabled    = cachedShadowsEnabled_;
@@ -1384,15 +1455,7 @@ public:
         // (Already cached above; local aliases used from here on.)
 
         // --- 4. Extract view volume from camera in scene --------------------
-        SoCamera * cam = nullptr;
-        {
-            SoSearchAction sa;
-            sa.setType(SoCamera::getClassTypeId());
-            sa.setInterest(SoSearchAction::FIRST);
-            sa.apply(scene);
-            if (sa.getPath())
-                cam = static_cast<SoCamera *>(sa.getPath()->getTail());
-        }
+        // (cam was found at the top of renderScene, before the rebuild check)
         if (!cam) return FALSE;  // no camera: fall through to GL
 
         const float aspect_ratio =
@@ -1584,6 +1647,7 @@ public:
             }
         }
 
+        cachedCamId_ = camId;
         return TRUE;
     }
 
@@ -1593,10 +1657,20 @@ private:
     //
     // cachedScene_  – pointer to the scene root that was last built.
     //                 nullptr means the cache is empty.
-    // cachedRootId_ – SoNode::getNodeId() of cachedScene_ at build time.
-    //                 Any change to the scene graph propagates a notification
-    //                 up to the root (bumping its uniqueId), so comparing this
-    //                 value is an O(1) "did anything change?" check.
+    // cachedRootId_ – SoNode::getNodeId() of cachedScene_ at BVH-build time.
+    //                 Any geometry/material/light change propagates a
+    //                 notification up to the root (bumping its uniqueId), so
+    //                 comparing this value is an O(1) "did geometry change?"
+    //                 check — provided camera-only changes are excluded (see
+    //                 cachedCamPtr_ / cachedCamId_ below).
+    // cachedCamPtr_ – the SoCamera node found in the scene at the last BVH
+    //                 build.  Used to detect whether a root-nodeId change is
+    //                 solely due to a camera move (same pointer, changed id)
+    //                 rather than a true geometry/material/light change.
+    // cachedCamId_  – SoNode::getNodeId() of the camera at the LAST render
+    //                 (updated after every successful render, not just after
+    //                 rebuilds).  Together with cachedCamPtr_ this lets us
+    //                 infer "camera-only moved → skip BVH rebuild".
     // cachedNrtScene_ – the built BVH plus triangle/normal data.
     // cachedLights_   – world-space light descriptors from the last build.
     //
@@ -1606,6 +1680,8 @@ private:
     // -----------------------------------------------------------------------
     SoNode *                  cachedScene_           = nullptr;
     SbUniqueId                cachedRootId_          = 0;
+    SoCamera *                cachedCamPtr_          = nullptr;
+    SbUniqueId                cachedCamId_           = 0;
     NrtScene                  cachedNrtScene_;
     std::vector<NrtLightInfo> cachedLights_;
     bool                      cachedShadowsEnabled_    = false;
