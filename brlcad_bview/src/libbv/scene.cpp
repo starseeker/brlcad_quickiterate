@@ -446,6 +446,18 @@ bv_node_name_get(const struct bv_node *node)
 
 
 void
+bv_node_name_set(struct bv_node *node, const char *name)
+{
+    if (!node)
+	return;
+    if (name)
+	bu_vls_sprintf(&node->name, "%s", name);
+    else
+	bu_vls_trunc(&node->name, 0);
+}
+
+
+void
 bv_node_user_data_set(struct bv_node *node, void *user_data)
 {
     if (!node)
@@ -602,6 +614,47 @@ bv_scene_nodes(const struct bv_scene *scene)
     if (!scene)
 	return NULL;
     return &scene->nodes;
+}
+
+
+size_t
+bv_scene_node_count(const struct bv_scene *scene)
+{
+    if (!scene)
+	return 0;
+    return BU_PTBL_LEN(&scene->nodes);
+}
+
+
+void
+bv_scene_clear(struct bv_scene *scene)
+{
+    if (!scene)
+	return;
+
+    /* Collect the top-level nodes (direct children of root) into a temporary
+     * array first, since bv_node_destroy() will mutate scene->nodes. */
+    struct bu_ptbl tops;
+    BU_PTBL_INIT(&tops);
+
+    if (scene->root) {
+	const struct bu_ptbl *ch = bv_node_children(scene->root);
+	if (ch) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(ch); i++)
+		bu_ptbl_ins(&tops, BU_PTBL_GET(ch, i));
+	}
+    } else {
+	/* Flat list mode (no explicit root): treat all nodes as top-level */
+	for (size_t i = 0; i < BU_PTBL_LEN(&scene->nodes); i++)
+	    bu_ptbl_ins(&tops, BU_PTBL_GET(&scene->nodes, i));
+    }
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&tops); i++) {
+	struct bv_node *n = (struct bv_node *)BU_PTBL_GET(&tops, i);
+	bv_scene_remove_node(scene, n);
+	bv_node_destroy(n);
+    }
+    bu_ptbl_free(&tops);
 }
 
 

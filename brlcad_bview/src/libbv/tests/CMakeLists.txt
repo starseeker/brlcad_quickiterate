@@ -188,6 +188,9 @@ set(bview_scene_tests
   bview_sync_from_old
   bview_sync_to_old
   bview_name_get_set
+  node_name_set
+  scene_node_count
+  scene_clear
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})
