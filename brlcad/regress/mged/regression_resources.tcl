@@ -202,4 +202,27 @@ if {![info exists make_primitives_list]} {
 
   puts "Regression testing definitions loaded.\n"
 
+  # Helper proc for primitive parameter editing regression tests (prim_edit.mged)
+  # Tests that sed/press/p/accept correctly sets primitive parameters via rt_edit_process()
+  # idx: component index for vector attributes (-1 for scalar, 0/1/2 for x/y/z)
+  proc prim_edit_check {prim menu_item param_val attr_name expected_val idx} {
+      e $prim
+      sed $prim
+      press $menu_item
+      p $param_val
+      press accept
+      d $prim
+      if {$idx >= 0} {
+          set got [lindex [db get $prim $attr_name] $idx]
+      } else {
+          set got [db get $prim $attr_name]
+      }
+      set diff [expr {abs($got - $expected_val)}]
+      if {$diff < 0.001} {
+          puts "  PASS: \[$prim\] $menu_item -> $param_val"
+      } else {
+          puts "  FAIL: \[$prim\] $menu_item -> $param_val  ($attr_name expected $expected_val, got $got)"
+      }
+  }
+
 }
