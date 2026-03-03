@@ -273,7 +273,7 @@ to_handle_refresh(struct ged *gedp,
 {
     struct bview *gdvp;
 
-    gdvp = bv_viewset_find(&gedp->ged_views, name);
+    { struct bview_new *_gdvp_nv = bv_viewset_find_new(&gedp->ged_views, name); gdvp = bview_old_get(_gdvp_nv); }
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", name);
 	return BRLCAD_ERROR;

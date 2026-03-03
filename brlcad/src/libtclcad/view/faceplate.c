@@ -56,7 +56,7 @@ to_faceplate(struct ged *gedp,
     if (argc < 4 || 7 < argc)
 	goto bad;
 
-    gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    { struct bview_new *_gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); gdvp = bview_old_get(_gdvp_nv); }
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
