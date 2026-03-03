@@ -610,6 +610,19 @@ BV_EXPORT int bv_scene_lod_update(struct bv_scene *scene, const struct bview_new
 BV_EXPORT int bv_scene_selected_nodes(const struct bv_scene *scene, struct bu_ptbl *out);
 
 /*
+ * Collect all visible nodes in scene into the caller-provided `bu_ptbl`
+ * (which must already be initialised with BU_PTBL_INIT).
+ *
+ * Visits all nodes in the scene (including nested children) and appends those
+ * for which bv_node_visible_get() returns non-zero.  Analogous to
+ * bv_scene_selected_nodes() but filtered by visibility.
+ *
+ * Returns the number of visible nodes found.  Returns 0 if scene or out is
+ * NULL.
+ */
+BV_EXPORT size_t bv_scene_visible_nodes(const struct bv_scene *scene, struct bu_ptbl *out);
+
+/*
  * Set the selected flag on a specific node (1 = selected, 0 = deselected).
  * This is a thin wrapper around bv_node_selected_set() that also
  * updates the scene's pick_set metadata if a bview_new is provided.
