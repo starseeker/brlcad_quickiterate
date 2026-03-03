@@ -567,14 +567,14 @@ const struct rt_edit_functab EDOBJ[] = {
 	NULL,  /* s->e_axes_pos */
 	NULL,  /* write_params */
 	NULL,  /* read_params */
-	EDFUNCTAB_FUNC_EDIT_CAST(edit_generic), /* edit */
-	EDFUNCTAB_FUNC_EDITXY_CAST(edit_generic_xy), /* edit xy - TODO - probably need more for this one, see GUI editors in MGED and Archer */
-       	NULL,  /* prim edit create */
-	NULL,  /* prim edit destroy */
-       	NULL,  /* prim edit reset*/
-	NULL,  /* menu_str */
-	NULL,  /* set edit mode */
-	NULL   /* menu_item */
+	EDFUNCTAB_FUNC_EDIT_CAST(rt_edit_sketch_edit),    /* edit */
+	EDFUNCTAB_FUNC_EDITXY_CAST(rt_edit_sketch_edit_xy), /* edit xy */
+	EDFUNCTAB_FUNC_PRIMEDIT_CREATE_CAST(rt_edit_sketch_prim_edit_create), /* prim edit create */
+	EDFUNCTAB_FUNC_PRIMEDIT_DESTROY_CAST(rt_edit_sketch_prim_edit_destroy), /* prim edit destroy */
+	EDFUNCTAB_FUNC_PRIMEDIT_RESET_CAST(rt_edit_sketch_prim_edit_reset), /* prim edit reset */
+	EDFUNCTAB_FUNC_MENU_STR_CAST(edit_menu_str),   /* menu_str */
+	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_sketch_set_edit_mode), /* set edit mode */
+	EDFUNCTAB_FUNC_MENU_ITEM_CAST(rt_edit_sketch_menu_item)  /* menu_item */
     },
 
     {

@@ -22,6 +22,8 @@ brlcad_addexec(rt_edit_test_sph sph.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_arb8 arb8.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_bot bot.cpp "librt" TEST)
 
+brlcad_addexec(rt_edit_test_sketch sketch.cpp "librt" TEST)
+
 set(
   distcheck_files
   CMakeLists.txt
@@ -38,6 +40,7 @@ set(
   superell.cpp
   cline.cpp
   extrude.cpp
+  sketch.cpp
   metaball.cpp
   hrt.cpp
   ars.cpp

@@ -35,9 +35,22 @@ support the following generic edit modes via `rt_edit_process()`:
 ## 1. Sketch (ID_SKETCH)
 
 ### librt status
-`sketch.c` has `rt_sketch_mat()` for matrix application, but **no
-`ed<sketch>.c` — no `ft_edit`, `ft_edit_xy`, or `ft_set_edit_mode`
-functab entries exist**.  All sketch segment editing lives entirely in Tcl.
+`edsketch.c` now defines a full ECMD suite for interactive vertex/segment editing:
+
+| ECMD | Meaning |
+|------|---------|
+| `ECMD_SKETCH_PICK_VERTEX`   | Select vertex by index (e_para[0]) |
+| `ECMD_SKETCH_MOVE_VERTEX`   | Move current vertex to UV coords (e_para[0..1] in mm) |
+| `ECMD_SKETCH_PICK_SEGMENT`  | Select curve segment by index (e_para[0]) |
+| `ECMD_SKETCH_MOVE_SEGMENT`  | Translate all verts of current segment (e_para[0..1] = ΔUV) |
+| `ECMD_SKETCH_APPEND_LINE`   | Append line segment (e_para[0]=start_vi, e_para[1]=end_vi) |
+| `ECMD_SKETCH_APPEND_ARC`    | Append arc (e_para: start_vi, end_vi, radius_mm) |
+| `ECMD_SKETCH_APPEND_BEZIER` | Append Bezier (e_inpara=n control point indices, degree=n−1) |
+| `ECMD_SKETCH_DELETE_VERTEX` | Delete current vertex if not referenced by any segment |
+| `ECMD_SKETCH_DELETE_SEGMENT`| Delete current segment |
+
+`struct rt_sketch_edit` (in `include/rt/primitives/sketch.h`, stored in
+`s->ipe_ptr`) holds `curr_vert` and `curr_seg` selection state across commands.
 
 ### Tcl/GUI capabilities (skt_ed.tcl + SketchEditFrame.tcl)
 
@@ -59,26 +72,23 @@ functab entries exist**.  All sketch segment editing lives entirely in Tcl.
 | Checkpoint / revert | Tcl-level save/restore of VL and SL arrays |
 
 ### Missing from librt
-Everything.  librt has no ECMD constants for sketch segment editing.
+Core vertex/segment CRUD operations have been implemented in `edsketch.c`.
+The remaining gaps are:
+
+| Feature | Status |
+|---------|--------|
+| Move selected *set* of vertices (multi-select) | Not yet implemented |
+| Split segment at parameter t | Not yet implemented |
+| Snap-to-grid (`rt_edit_snap_point`) | ✓ Implemented in edit.h/edit.cpp, used by edsketch.c |
+| NURB segment add/edit | Not yet implemented |
+| Undo/revert (checkpoint) | Higher-level concern, not in rt_edit scope |
 
 ### Design notes for librt sketch API
 
-```c
-// New ECMD constants (edsketch.c)
-#define ECMD_SKETCH_ADD_LINE    <n>   // add line seg (two vertex indices)
-#define ECMD_SKETCH_ADD_ARC     <n>   // add arc seg (center-is-left flag, radius)
-#define ECMD_SKETCH_ADD_BEZIER  <n>   // add Bezier seg (degree, control-pt list)
-#define ECMD_SKETCH_MOVE_VERT   <n>   // move vertex at index i to e_para XY
-#define ECMD_SKETCH_DEL_VERT    <n>   // delete unused vertex at index i
-#define ECMD_SKETCH_DEL_SEG     <n>   // delete segment at index i
-#define ECMD_SKETCH_SPLIT_SEG   <n>   // split segment at midpoint / parameter t
-#define ECMD_SKETCH_PICK_VERT   <n>   // set current_vertex for subsequent edits
-#define ECMD_SKETCH_PICK_SEG    <n>   // set current_segment
-```
-
-The snap-to-grid and 2-D canvas interaction are necessarily higher-level
-(GUI toolkit) concerns, but the underlying vertex-move operations should be
-C API so qged can implement them without Tcl.
+Multi-vertex selection and split will need additional state in
+`struct rt_sketch_edit` (an index array or bitmask for selected verts).
+Snap-to-grid belongs in the cross-cutting infrastructure (see §13.1).
+NURB segments are rarely used in practice and can be deferred.
 
 ---
 
@@ -493,9 +503,12 @@ MGED supports individual control-point selection/move for NURBS surfaces via
   major/minor spacing and anchor. MGED's `grid.tcl` provides a grid
   display overlay and `adc` (angle/distance cursor) but does NOT provide
   automatic snap for solid editing.
-- **librt gap**: No snap concept at the `rt_edit` level.
-- **Design note**: Add `struct rt_edit_snap { int enabled; fastf_t spacing; }` 
-  to `struct rt_edit`, consulted by `ft_edit_xy` implementations.
+- **librt status**: `struct rt_edit` now carries a `snap` sub-struct
+  (`enabled` flag, `spacing` in mm).  `rt_edit_snap_point(pt, s)` snaps
+  a 2-D UV coordinate to the nearest grid point when `snap.enabled != 0`.
+  `ecmd_sketch_move_vertex` in `edsketch.c` calls this automatically.
+- **Remaining gap**: No major/minor grid distinction (minor spacing only);
+  no grid anchor offset; no 3-D snapping for non-sketch primitives.
 
 ### 13.2 Checkpoint / Revert (Single-Level Undo)
 - **Where**: Every Archer EditFrame implements `checkpointGeometry()` and
@@ -537,8 +550,11 @@ MGED supports individual control-point selection/move for NURBS surfaces via
 - **Where**: `ft_edit_xy` in each `ed<prim>.c` converts a 2-D mouse
   position (in ±BV normalized screen coordinates) to a parameter change.
   This is fully implemented for all primitives that have `ft_edit_xy`.
-- **Gap for sketch**: Sketch has no `ft_edit_xy`; all mouse interaction is
-  canvas-level Tcl.
+- **Status for sketch**: `rt_edit_sketch_edit_xy` now exists and handles
+  `RT_PARAMS_EDIT_SCALE` and `RT_PARAMS_EDIT_TRANS` generically.
+  Vertex/segment-specific mouse-driven picking (ECMD_SKETCH_PICK_VERTEX via
+  nearest-vertex hit testing) is not yet implemented; that requires
+  `ft_edit_xy` to do a 2-D UV-space proximity query against `skt->verts`.
 
 ---
 
@@ -546,11 +562,11 @@ MGED supports individual control-point selection/move for NURBS surfaces via
 
 | Primitive | librt ECMD coverage | Major Tcl-only features |
 |-----------|--------------------|-----------------------|
-| Sketch    | None               | All segment editing, snap-to-grid, canvas interaction |
+| Sketch    | Core CRUD implemented (edsketch.c) | Multi-select, split, snap-to-grid |
 | Pipe      | Complete           | None significant; checkpoint/revert is minor |
 | BOT       | Good               | Multi-select move, edge/face split, vertex fuse |
 | NMG       | Partial (edges only) | Face/vertex pick+move |
-| Extrude   | Good (H only)      | A/B vector editing |
+| Extrude   | Complete (A/B/H vectors, mov H, ref sketch) | `keypoint` index edit |
 | ARS       | Complete           | Insert curve/column, scale row/col |
 | Metaball  | Complete           | Sweat parameter |
 | Comb      | None (libged)      | All: add/del/reorder members, set boolean op, set matrix |
@@ -563,13 +579,16 @@ MGED supports individual control-point selection/move for NURBS surfaces via
 
 ## 15. Priority Order for qged Migration
 
-1. **Sketch** — most complex, most user-visible.  Needs full ECMD suite +
-   snap infrastructure.
+1. ~~**Sketch**~~ — **DONE**: `edsketch.c` implements the full ECMD suite
+   (pick/move vertex, pick/move segment, append line/arc/bezier, delete vertex/segment).
+   Remaining: multi-vertex select, segment split, mouse proximity picking.
 2. **Combination tree editing** — critical for any real assembly work;
    build on libged `combmem`.
 3. **BOT multi-select and split** — needed for mesh editing workflows.
 4. **NMG vertex/face editing** — needed if NMG is to be a first-class type.
 5. **BSPLINE control-point editing** — needed for NURBS surface work.
-6. **Extrude A/B vectors** — low effort, high value.
-7. **Snap-to-grid in rt_edit** — infrastructure, enables better sketch and
-   future 3-D grid snapping.
+6. ~~**Extrude A/B vectors**~~ — **DONE**: `ECMD_EXTR_SCALE_A/B` and
+   `ECMD_EXTR_ROT_A/B` added to `edextrude.c`.
+7. ~~**Snap-to-grid in rt_edit**~~ — **DONE**: `s->snap.{enabled,spacing}`
+   added to `struct rt_edit`; `rt_edit_snap_point()` exported from `librt`.
+   `edsketch.c` calls it automatically in `ecmd_sketch_move_vertex`.
