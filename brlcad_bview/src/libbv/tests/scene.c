@@ -4103,6 +4103,44 @@ test_bv_scene_set_all_visible(void)
     return 1;
 }
 
+static int
+test_bv_scene_nodes_of_type(void)
+{
+    CHECK(bv_scene_nodes_of_type(NULL, BV_NODE_GEOMETRY, NULL) == 0,
+	  "nodes_of_type(NULL,_,NULL)==0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    struct bu_ptbl out;
+    BU_PTBL_INIT(&out);
+
+    /* Add 2 geometry nodes and 1 group node */
+    struct bv_node *g1 = bv_node_create("nt_g1", BV_NODE_GEOMETRY);
+    struct bv_node *g2 = bv_node_create("nt_g2", BV_NODE_GEOMETRY);
+    struct bv_node *gr = bv_node_create("nt_gr", BV_NODE_GROUP);
+    bv_scene_add_node(scene, g1);
+    bv_scene_add_node(scene, g2);
+    bv_scene_add_node(scene, gr);
+
+    size_t cnt = bv_scene_nodes_of_type(scene, BV_NODE_GEOMETRY, &out);
+    CHECK(cnt == 2, "2 geometry nodes found");
+    CHECK(BU_PTBL_LEN(&out) == 2, "ptbl has 2 geometry entries");
+
+    bu_ptbl_reset(&out);
+    cnt = bv_scene_nodes_of_type(scene, BV_NODE_GROUP, &out);
+    CHECK(cnt == 1, "1 group node found");
+
+    bu_ptbl_reset(&out);
+    cnt = bv_scene_nodes_of_type(scene, BV_NODE_LIGHT, &out);
+    CHECK(cnt == 0, "0 light nodes found");
+
+    bu_ptbl_free(&out);
+    bv_scene_destroy(scene);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -4242,6 +4280,7 @@ static struct test_entry scene_tests[] = {
     { "scene_add_nodes",              test_bv_scene_add_nodes                 },
     { "scene_visible_nodes",          test_bv_scene_visible_nodes             },
     { "scene_set_all_visible",        test_bv_scene_set_all_visible           },
+    { "scene_nodes_of_type",          test_bv_scene_nodes_of_type             },
     { NULL, NULL }
 };
 
