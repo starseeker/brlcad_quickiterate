@@ -489,7 +489,7 @@ MGED supports individual control-point selection/move for NURBS surfaces via
 
 ### 13.1 Snap-to-Grid
 - **Where**: `SketchEditFrame` has a full snap-to-grid with configurable
-  major/minor spacing and anchor.  MGED's `grid.tcl` provides a grid
+  major/minor spacing and anchor. MGED's `grid.tcl` provides a grid
   display overlay and `adc` (angle/distance cursor) but does NOT provide
   automatic snap for solid editing.
 - **librt gap**: No snap concept at the `rt_edit` level.
