@@ -727,6 +727,49 @@ BV_EXPORT struct bv_scene *bv_scene_from_view(const struct bview *v);
  */
 BV_EXPORT struct bv_scene *bv_scene_from_view_set(const struct bview_set *s);
 
+/*
+ * Convenience wrapper: wrap a legacy bv_scene_obj in a new bv_node and add
+ * it to scene in a single call.  Equivalent to:
+ *
+ *   struct bv_node *n = bv_scene_obj_to_node(obj);
+ *   bv_scene_add_node(scene, n);
+ *
+ * This is the intended migration path for call sites that currently call
+ * bu_ptbl_ins() directly into gv_objs.db_objs or gv_objs.view_objs.
+ *
+ * The returned bv_node is owned by the scene and will be freed by
+ * bv_scene_destroy().  The bv_scene_obj is NOT owned; the caller continues
+ * to manage it with the legacy API.
+ *
+ * Returns the newly created bv_node, or NULL if either argument is NULL.
+ */
+BV_EXPORT struct bv_node *bv_scene_insert_obj(struct bv_scene *scene, struct bv_scene_obj *obj);
+
+/*
+ * Insert a legacy bv_scene_obj into the scene associated with view.
+ *
+ * If view has no scene yet, a new bv_scene is created and associated with
+ * view (via bview_scene_set).
+ *
+ * This is the new-API counterpart of:
+ *   bu_ptbl_ins(&v->gv_objs.db_objs, (long *)obj)
+ * for code that holds a struct bview_new* rather than a struct bview*.
+ *
+ * Returns the newly created bv_node wrapper, or NULL if obj is NULL or view
+ * is NULL.
+ */
+BV_EXPORT struct bv_node *bview_insert_obj(struct bview_new *view, struct bv_scene_obj *obj);
+
+/*
+ * Find the bv_node in scene whose user_data pointer equals obj.
+ * Uses a linear traversal; O(n) in the number of scene nodes.
+ *
+ * Returns the first matching node, or NULL if not found or either
+ * argument is NULL.
+ */
+BV_EXPORT struct bv_node *bv_scene_find_obj(const struct bv_scene *scene,
+                                             const struct bv_scene_obj *obj);
+
 /*******************************************************************************/
 /*              EXPERIMENTAL EXPERIMENTAL EXPERIMENTAL - END                   */
 /*******************************************************************************/

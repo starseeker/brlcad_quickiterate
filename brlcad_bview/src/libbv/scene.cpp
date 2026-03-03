@@ -1733,6 +1733,79 @@ bview_autoview_new(struct bview_new *view, const struct bv_scene *scene, double 
 }
 
 
+/* ================================================================
+ * Phase 2 convenience helpers
+ *
+ * bv_scene_insert_obj — wrap a legacy bv_scene_obj + add to scene
+ * bview_insert_obj    — same, but through a bview_new
+ * bv_scene_find_obj   — find the node whose user_data == obj
+ * ================================================================ */
+
+struct bv_node *
+bv_scene_insert_obj(struct bv_scene *scene, struct bv_scene_obj *obj)
+{
+    if (!scene || !obj)
+	return NULL;
+
+    struct bv_node *n = bv_scene_obj_to_node(obj);
+    if (!n)
+	return NULL;
+
+    bv_scene_add_node(scene, n);
+    return n;
+}
+
+
+struct bv_node *
+bview_insert_obj(struct bview_new *view, struct bv_scene_obj *obj)
+{
+    if (!view || !obj)
+	return NULL;
+
+    /* Create a scene for this view on demand if none exists */
+    struct bv_scene *scene = bview_scene_get(view);
+    if (!scene) {
+	scene = bv_scene_create();
+	if (!scene)
+	    return NULL;
+	bview_scene_set(view, scene);
+    }
+
+    return bv_scene_insert_obj(scene, obj);
+}
+
+
+/* Traversal callback state for bv_scene_find_obj */
+struct _find_obj_state {
+    const struct bv_scene_obj *target;
+    struct bv_node            *result;
+};
+
+static void
+_find_obj_cb(struct bv_node *node, void *ctx)
+{
+    struct _find_obj_state *st = (struct _find_obj_state *)ctx;
+    if (st->result)
+	return; /* already found */
+    if (bv_node_user_data_get(node) == (void *)st->target)
+	st->result = node;
+}
+
+struct bv_node *
+bv_scene_find_obj(const struct bv_scene *scene, const struct bv_scene_obj *obj)
+{
+    if (!scene || !obj)
+	return NULL;
+
+    struct _find_obj_state st;
+    st.target = obj;
+    st.result = NULL;
+
+    bv_scene_traverse(scene, _find_obj_cb, &st);
+    return st.result;
+}
+
+
 // Local Variables:
 // tab-width: 8
 // mode: C++

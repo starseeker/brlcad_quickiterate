@@ -179,6 +179,10 @@ set(bview_scene_tests
   companion_create_basic
   companion_create_sync
   companion_create_independent
+  scene_insert_obj_null
+  scene_insert_obj_basic
+  bview_insert_obj_creates_scene
+  scene_find_obj_basic
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})
