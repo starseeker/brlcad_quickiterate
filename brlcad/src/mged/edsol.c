@@ -1163,11 +1163,11 @@ init_sedit(struct mged_state *s)
     /* Set up primitive-specific edit state (ipe_ptr) if the primitive supports it.
      * First destroy any existing ipe_ptr from a previous edit (use its own type). */
     if (MEDIT(s)->ipe_ptr) {
-	if (old_prim_type > 0 && EDOBJ[old_prim_type].ft_prim_edit_destroy)
+	if (old_prim_type > 0 && old_prim_type <= ID_MAXIMUM && EDOBJ[old_prim_type].ft_prim_edit_destroy)
 	    (*EDOBJ[old_prim_type].ft_prim_edit_destroy)(MEDIT(s)->ipe_ptr);
 	MEDIT(s)->ipe_ptr = NULL;
     }
-    if (EDOBJ[id].ft_prim_edit_create)
+    if (id > 0 && id <= ID_MAXIMUM && EDOBJ[id].ft_prim_edit_create)
 	MEDIT(s)->ipe_ptr = (*EDOBJ[id].ft_prim_edit_create)(MEDIT(s));
 
     /* Establish initial keypoint */

@@ -147,9 +147,11 @@
 #define ECMD_HYP_ROT_H		91
 #define ECMD_HYP_ROT_A		92
 
-/* librt primitive ECMD values - these match the values in the librt primitive
- * edit source files and are also found in the generated rt/rt_ecmds.h header.
- * Primitives migrated to use rt_edit_process() directly set these as edit_flag. */
+/* librt primitive ECMD values - these match the values defined in the librt primitive
+ * edit source files (e.g. edtor.c, edell.c).  They are also collected at build time
+ * into the generated rt/rt_ecmds.h header.  These are duplicated here so that MGED
+ * can use them without a direct dependency on the build-generated header; keep in
+ * sync with the corresponding #define in each primitive's ed*.c file. */
 #define ECMD_TOR_R1	1021	/* set/scale TOR radius 1 (edtor.c) */
 #define ECMD_TOR_R2	1022	/* set/scale TOR radius 2 (edtor.c) */
 #define ECMD_ELL_SCALE_A	3039	/* scale ELL semiaxis A (edell.c) */
