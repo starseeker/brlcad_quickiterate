@@ -199,6 +199,38 @@ if {![info exists make_primitives_list]} {
      }
   }
 
+  # orot all combinations (object edit rotation via orot command)
+  proc orot_all_combs {cmdname coord1 coord2 coord3} {
+     global make_primitives_list
+     foreach x $make_primitives_list {
+      # for now, in nmg isn't producing sensible results
+      if {![string match nmg $x]} {
+	e [format %s_%s.c $cmdname $x]
+	oed / [format %s_%s.c/%s_%s.s $cmdname $x $cmdname $x]
+	orot $coord1 $coord2 $coord3
+	accept
+	puts "orot $x combination"
+	d [format %s_%s.c $cmdname $x]
+       }
+     }
+  }
+
+  # translate all combinations via oed translate (object edit translate)
+  proc oed_translate_all_combs {cmdname coord1 coord2 coord3} {
+     global make_primitives_list
+     foreach x $make_primitives_list {
+      # for now, in nmg isn't producing sensible results
+      if {![string match nmg $x]} {
+	e [format %s_%s.c $cmdname $x]
+	oed / [format %s_%s.c/%s_%s.s $cmdname $x $cmdname $x]
+	translate $coord1 $coord2 $coord3
+	accept
+	puts "oed translate $x combination"
+	d [format %s_%s.c $cmdname $x]
+       }
+     }
+  }
+
 
   puts "Regression testing definitions loaded.\n"
 
