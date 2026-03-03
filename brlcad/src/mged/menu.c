@@ -296,8 +296,8 @@ struct menu_item tgc_menu[] = {
 static void
 tor_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 {
-    es_menu = arg;
-    MEDIT(s)->edit_flag = PSCALE;
+    /* Use librt ECMD value directly as edit_flag; rt_edit_process() dispatches */
+    MEDIT(s)->edit_flag = arg;
 
     set_e_axes_pos(s, 1);
 }
@@ -305,8 +305,8 @@ tor_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))
 
 struct menu_item tor_menu[] = {
     { "TORUS MENU", NULL, 0 },
-    { "Set Radius 1", tor_ed, MENU_TOR_R1 },
-    { "Set Radius 2", tor_ed, MENU_TOR_R2 },
+    { "Set Radius 1", tor_ed, ECMD_TOR_R1 },
+    { "Set Radius 2", tor_ed, ECMD_TOR_R2 },
     { "", NULL, 0 }
 };
 
