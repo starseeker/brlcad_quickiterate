@@ -60,6 +60,9 @@ struct swrastinfo {
 #ifdef SWRAST_QT
     QApplication *qapp = NULL;
     QgSWWin *mw = NULL;
+    /* New-API companion for mw->canvas->v (Phase 1 migration).
+     * Created after bv_init in swrast_open_qt(); destroyed in qt_destroy(). */
+    struct bview_new *canvas_nv = NULL;
 #endif
     int cmap_size;		/* hardware colormap size */
     int win_width;              /* actual window width */
@@ -157,6 +160,9 @@ swrast_xmit_scanlines(struct fb *ifp, int ybase, int nlines, int xbase, int npix
 static void
 qt_destroy(struct swrastinfo *qi)
 {
+    // Destroy the bview_new companion before deleting the Qt window that owns the view.
+    bview_destroy(qi->canvas_nv);
+    qi->canvas_nv = NULL;
     delete qi->mw;
     delete qi->qapp;
     free(qi->av[0]);
@@ -388,6 +394,8 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 
     BU_GET(qi->mw->canvas->v, struct bview);
     bv_init(qi->mw->canvas->v, NULL);
+    // Create new-API companion for the swrast framebuffer view.
+    qi->canvas_nv = bview_companion_create("swrast_fb", qi->mw->canvas->v);
     qi->mw->canvas->v->gv_s->gv_fb_mode = 1;
     qi->mw->canvas->v->gv_width = width;
     qi->mw->canvas->v->gv_height = height;

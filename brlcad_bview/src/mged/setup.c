@@ -564,6 +564,9 @@ mged_setup(struct mged_state *s)
 
     bv_set_add_view(&s->gedp->ged_views, view_state->vs_gvp);
     bu_ptbl_ins(&s->gedp->ged_free_views, (long *)view_state->vs_gvp);
+    // Create new-API companion for the mged primary view.
+    view_state->vs_nvp = bview_companion_create("mged", view_state->vs_gvp);
+    bu_ptbl_ins(&s->gedp->ged_free_view_companions, (long *)view_state->vs_nvp);
     s->gedp->ged_gvp = view_state->vs_gvp;
 
     /* register commands */

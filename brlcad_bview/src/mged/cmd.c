@@ -2518,6 +2518,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     int shared_view = 0;
     int created_temp = 0;
     struct bview *staging = NULL;
+    struct bview_new *staging_nv = NULL;
 
     if (s->gedp->ged_gvp) {
 	if (s->gedp->ged_gvp == mged_view) {
@@ -2530,6 +2531,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	/* No existing ged_gvp: create ephemeral staging view */
 	staging = (struct bview *)bu_calloc(1, sizeof(struct bview), "temporary staging bview");
 	bv_init(staging, NULL);
+	// Create new-API companion for the ephemeral staging view.
+	staging_nv = bview_companion_create("mged_staging", staging);
 	created_temp = 1;
 	/* Carry over dimensions for screen-dependent ops */
 	if (mged_view) {
@@ -2586,6 +2589,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp)
 		_view_cache_restore(&prev, staging);
 	    else {
+		bview_destroy(staging_nv);
+		staging_nv = NULL;
 		bv_free(staging);
 		bu_free(staging, "free staging bview");
 		s->gedp->ged_gvp = NULL;
@@ -2609,6 +2614,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp) {
 		_view_cache_restore(&prev, staging);
 	    } else {
+		bview_destroy(staging_nv);
+		staging_nv = NULL;
 		bv_free(staging);
 		bu_free(staging, "free staging bview");
 		s->gedp->ged_gvp = NULL;
@@ -2648,6 +2655,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    }
 	} else {
 	    /* Ephemeral staging freed; detach from ged */
+	    bview_destroy(staging_nv);
+	    staging_nv = NULL;
 	    bv_free(staging);
 	    bu_free(staging, "free staging bview");
 	    s->gedp->ged_gvp = NULL;
