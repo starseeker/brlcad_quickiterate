@@ -36,7 +36,8 @@
 #include "../edit_private.h"
 
 #define ECMD_VTRANS		9017	/* vertex translate */
-#define ECMD_SPLINE_VPICK       9018	/* vertex pick */
+#define ECMD_SPLINE_VPICK       9018	/* vertex pick via mouse proximity */
+#define ECMD_BSPLINE_PICK_CP    9019	/* pick control point by (surf, u, v) indices from e_para */
 
 struct rt_bspline_edit {
     int spl_surfno;	/* What surf & ctl pt to edit on spline */
@@ -89,6 +90,8 @@ rt_edit_bspline_set_edit_mode(struct rt_edit *s, int mode)
     rt_edit_set_edflag(s, mode);
     if (mode == ECMD_VTRANS)
 	s->edit_mode = RT_PARAMS_EDIT_TRANS;
+    if (mode == ECMD_BSPLINE_PICK_CP)
+	s->edit_mode = RT_PARAMS_EDIT_PICK;
 
     bu_clbk_t f = NULL;
     void *d = NULL;
@@ -115,6 +118,8 @@ spline_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED
     rt_edit_set_edflag(s, arg);
     if (arg == ECMD_VTRANS)
 	s->edit_mode = RT_PARAMS_EDIT_TRANS;
+    if (arg == ECMD_BSPLINE_PICK_CP)
+	s->edit_mode = RT_PARAMS_EDIT_PICK;
 
     rt_edit_process(s);
 
@@ -128,6 +133,7 @@ spline_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED
 struct rt_edit_menu_item spline_menu[] = {
     { "SPLINE MENU", NULL, 0 },
     { "Pick Vertex", spline_ed, -1 },
+    { "Pick CP by Index", spline_ed, ECMD_BSPLINE_PICK_CP },
     { "Move Vertex", spline_ed, ECMD_VTRANS },
     { "", NULL, 0 }
 };
@@ -325,6 +331,56 @@ rt_edit_bspline_keypoint(
     return (const char *)buf;
 }
 
+/* Pick a control point by explicit (surfno, u, v) indices.
+ * e_para[0] = surface index, e_para[1] = u index, e_para[2] = v index.
+ * e_inpara must be 3. */
+static int
+ecmd_bspline_pick_cp(struct rt_edit *s)
+{
+    struct rt_bspline_edit *b = (struct rt_bspline_edit *)s->ipe_ptr;
+    struct rt_nurb_internal *sip =
+	(struct rt_nurb_internal *)s->es_int.idb_ptr;
+
+    RT_NURB_CK_MAGIC(sip);
+
+    if (!s->e_inpara || s->e_inpara < 3) {
+	bu_vls_printf(s->log_str,
+		"ERROR: three indices required (surfno u v)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    int sno = (int)s->e_para[0];
+    int ui  = (int)s->e_para[1];
+    int vi  = (int)s->e_para[2];
+
+    if (sno < 0 || sno >= sip->nsrf) {
+	bu_vls_printf(s->log_str,
+		"ERROR: surface index %d out of range [0, %d)\n",
+		sno, sip->nsrf);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    struct face_g_snurb *surf = sip->srfs[sno];
+    NMG_CK_SNURB(surf);
+
+    if (ui < 0 || ui >= surf->s_size[1] ||
+	vi < 0 || vi >= surf->s_size[0]) {
+	bu_vls_printf(s->log_str,
+		"ERROR: CP index (%d,%d) out of range u=[0,%d) v=[0,%d)\n",
+		ui, vi, surf->s_size[1], surf->s_size[0]);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    b->spl_surfno = sno;
+    b->spl_ui     = ui;
+    b->spl_vi     = vi;
+    s->e_inpara   = 0;
+    return 0;
+}
+
 // I think this is bspline only??
 void
 ecmd_vtrans(struct rt_edit *s)
@@ -384,6 +440,8 @@ rt_edit_bspline_edit(struct rt_edit *s)
 	case ECMD_SPLINE_VPICK:
 	    sedit_vpick(s);
 	    break;
+	case ECMD_BSPLINE_PICK_CP:
+	    return ecmd_bspline_pick_cp(s);
 	case ECMD_VTRANS:
 	    // I think this is bspline only??
 	    ecmd_vtrans(s);
@@ -407,6 +465,7 @@ rt_edit_bspline_edit_xy(
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
 	case ECMD_SPLINE_VPICK:
+	case ECMD_BSPLINE_PICK_CP:
 	    edit_sscale_xy(s, mousevec);
 	    return 0;
 	case RT_PARAMS_EDIT_TRANS:

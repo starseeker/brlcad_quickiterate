@@ -23,6 +23,7 @@ brlcad_addexec(rt_edit_test_arb8 arb8.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_bot bot.cpp "librt" TEST)
 
 brlcad_addexec(rt_edit_test_sketch sketch.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_bspline bspline.cpp "librt" TEST)
 
 set(
   distcheck_files
@@ -41,6 +42,7 @@ set(
   cline.cpp
   extrude.cpp
   sketch.cpp
+  bspline.cpp
   metaball.cpp
   hrt.cpp
   ars.cpp

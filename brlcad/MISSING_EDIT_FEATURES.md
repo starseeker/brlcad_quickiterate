@@ -479,8 +479,13 @@ None significant.
 ## 12. BSPLINE / NURBS (ID_BSPLINE)
 
 ### librt status
-`edbspline.c` routes the `ft_edit` to `edit_generic`.  There are **no
-primitive-specific ECMD constants** for control-point editing.
+`edbspline.c` provides:
+
+| ECMD | Meaning |
+|------|---------|
+| `ECMD_SPLINE_VPICK`    | Pick control point by mouse proximity (partially stubbed — view state dependency not yet resolved) |
+| `ECMD_VTRANS`          | Translate the currently selected control point via `e_para[0..2]` |
+| `ECMD_BSPLINE_PICK_CP` | Pick control point by explicit (surf, u, v) indices from `e_para` *(added)* |
 
 ### Tcl/GUI capabilities
 MGED supports individual control-point selection/move for NURBS surfaces via
@@ -488,11 +493,12 @@ MGED supports individual control-point selection/move for NURBS surfaces via
 
 ### Missing from librt
 ```c
-#define ECMD_BSPLINE_PICK_CP   <n>  // pick control point (surf_u, surf_v)
-#define ECMD_BSPLINE_MOVE_CP   <n>  // move control point via e_para
 #define ECMD_BSPLINE_PICK_KNOT <n>  // pick a knot value
 #define ECMD_BSPLINE_SET_KNOT  <n>  // set a knot value via e_para
 ```
+
+Also `ECMD_SPLINE_VPICK` needs the view-to-model matrix properly wired
+in `sedit_vpick` (currently guarded by `#if 0`).
 
 ---
 
@@ -586,7 +592,8 @@ MGED supports individual control-point selection/move for NURBS surfaces via
    build on libged `combmem`.
 3. **BOT multi-select and split** — needed for mesh editing workflows.
 4. **NMG vertex/face editing** — needed if NMG is to be a first-class type.
-5. **BSPLINE control-point editing** — needed for NURBS surface work.
+5. **BSPLINE control-point editing** — `ECMD_BSPLINE_PICK_CP` added; `ECMD_VTRANS` already existed;
+   knot editing and mouse-proximity picking (ECMD_SPLINE_VPICK) still unresolved.
 6. ~~**Extrude A/B vectors**~~ — **DONE**: `ECMD_EXTR_SCALE_A/B` and
    `ECMD_EXTR_ROT_A/B` added to `edextrude.c`.
 7. ~~**Snap-to-grid in rt_edit**~~ — **DONE**: `s->snap.{enabled,spacing}`
