@@ -987,7 +987,7 @@ to_set_fb_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -1043,7 +1043,7 @@ to_listen(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;

@@ -1337,7 +1337,7 @@ to_bg(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -1406,7 +1406,7 @@ to_bounds(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -1470,7 +1470,7 @@ to_configure(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -1538,7 +1538,7 @@ to_constrain_rmode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -1603,7 +1603,7 @@ to_constrain_tmode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -1823,7 +1823,7 @@ to_data_move(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -2223,7 +2223,7 @@ to_data_move_object_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -2315,7 +2315,7 @@ to_data_move_point_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -2406,7 +2406,7 @@ to_data_pick(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -2794,7 +2794,7 @@ to_data_vZ(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3283,7 +3283,7 @@ to_fontsize(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3386,7 +3386,7 @@ to_init_view_bindings(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3420,7 +3420,7 @@ to_delete_view(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3488,7 +3488,7 @@ to_hide_view(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3627,7 +3627,7 @@ to_idle_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3735,7 +3735,7 @@ to_light(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3897,7 +3897,7 @@ to_edit_motion_delta_callback(struct ged *gedp,
 	return GED_HELP;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -3988,7 +3988,7 @@ to_move_arb_edge_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4047,7 +4047,7 @@ to_move_arb_face_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4162,7 +4162,7 @@ to_bot_move_pnt_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4222,7 +4222,7 @@ to_bot_move_pnts_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4284,7 +4284,7 @@ to_metaball_move_pnt_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4343,7 +4343,7 @@ to_pipe_move_pnt_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4598,7 +4598,7 @@ to_orotate_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4656,7 +4656,7 @@ to_oscale_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4715,7 +4715,7 @@ to_otranslate_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4768,7 +4768,7 @@ to_paint_rect_area(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4817,7 +4817,7 @@ to_pix(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -4902,7 +4902,7 @@ to_png(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5005,7 +5005,7 @@ to_rect_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5090,7 +5090,7 @@ to_rotate_arb_face_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5150,7 +5150,7 @@ to_rotate_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5313,7 +5313,7 @@ to_protate_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5372,7 +5372,7 @@ to_pscale_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5431,7 +5431,7 @@ to_ptranslate_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5490,7 +5490,7 @@ to_data_scale_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5547,7 +5547,7 @@ to_scale_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5605,7 +5605,7 @@ to_screen2model(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5656,7 +5656,7 @@ to_screen2view(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5701,7 +5701,7 @@ to_set_coord(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5752,7 +5752,7 @@ to_snap_view(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5883,7 +5883,7 @@ to_translate_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5937,7 +5937,7 @@ to_transparency(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -5984,7 +5984,7 @@ to_view_callback(struct ged *gedp,
 	return GED_HELP;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -6032,7 +6032,7 @@ to_view_win_size(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -6097,7 +6097,7 @@ to_view2screen(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -6142,7 +6142,7 @@ to_vmake(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -6215,7 +6215,7 @@ to_vslew(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -6302,7 +6302,7 @@ to_zbuffer(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -6357,7 +6357,7 @@ to_zclip(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_viewset_find(&gedp->ged_views, argv[1]);
+    struct bview_new *gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); struct bview *gdvp = bview_old_get(gdvp_nv);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
