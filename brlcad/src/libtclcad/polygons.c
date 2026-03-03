@@ -1382,12 +1382,6 @@ to_poly_cont_build(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    { struct bview_new *_gdvp_nv = bv_viewset_find_new(&gedp->ged_views, argv[1]); gdvp = bview_old_get(_gdvp_nv); }
-    if (!gdvp) {
-	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
-	return BRLCAD_ERROR;
-    }
-
     /* shift the command name to argv[1] before calling to_mouse_poly_ell_func */
     argv[1] = argv[0];
     ret = to_poly_cont_build_func(current_top->to_interp, gedp, gdvp, argc-1, argv+1, usage, 1);
