@@ -1081,6 +1081,7 @@ init_sedit(struct mged_state *s)
 {
     int type;
     int id;
+    int old_prim_type = -1;
 
     if (s->dbip == DBI_NULL || !illump)
 	return;
@@ -1093,6 +1094,10 @@ init_sedit(struct mged_state *s)
 			 "Unable to Solid_Edit a processed region;  select a primitive instead\n", (char *)NULL);
 	return;
     }
+
+    /* Save the previous edit primitive type for ipe_ptr cleanup below */
+    if (MEDIT(s)->ipe_ptr && MEDIT(s)->es_int.idb_ptr)
+	old_prim_type = MEDIT(s)->es_int.idb_type;
 
     /* Read solid description into MEDIT(s)->es_int */
     if (!illump->s_u_data)
@@ -1154,6 +1159,16 @@ init_sedit(struct mged_state *s)
     /* Sync unit conversion factors so rt_edit_process() pscale functions work */
     MEDIT(s)->local2base = s->dbip->dbi_local2base;
     MEDIT(s)->base2local = s->dbip->dbi_base2local;
+
+    /* Set up primitive-specific edit state (ipe_ptr) if the primitive supports it.
+     * First destroy any existing ipe_ptr from a previous edit (use its own type). */
+    if (MEDIT(s)->ipe_ptr) {
+	if (old_prim_type > 0 && EDOBJ[old_prim_type].ft_prim_edit_destroy)
+	    (*EDOBJ[old_prim_type].ft_prim_edit_destroy)(MEDIT(s)->ipe_ptr);
+	MEDIT(s)->ipe_ptr = NULL;
+    }
+    if (EDOBJ[id].ft_prim_edit_create)
+	MEDIT(s)->ipe_ptr = (*EDOBJ[id].ft_prim_edit_create)(MEDIT(s));
 
     /* Establish initial keypoint */
     MEDIT(s)->e_keytag = "";
