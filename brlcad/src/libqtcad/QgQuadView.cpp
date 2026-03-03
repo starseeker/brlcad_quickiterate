@@ -64,7 +64,7 @@ QgQuadView::QgQuadView(QWidget *parent, struct ged *gedpRef, int type) : QWidget
     graphicsType = type;
 
     views[UPPER_RIGHT_QUADRANT] = createView(UPPER_RIGHT_QUADRANT);
-    bv_set_add_view(&gedp->ged_views, views[UPPER_RIGHT_QUADRANT]->view());
+    bv_viewset_add(&gedp->ged_views, views[UPPER_RIGHT_QUADRANT]->view());
     gedp->ged_gvp = views[UPPER_RIGHT_QUADRANT]->view();
 
     views[UPPER_RIGHT_QUADRANT]->set_current(1);
@@ -164,7 +164,7 @@ QgQuadView::changeToSingleFrame()
 	// Don't want use cpu for views that are not visible
 	if (views[i] != nullptr) {
 	    views[i]->disconnect();
-	    bv_set_rm_view(&gedp->ged_views, views[i]->view());
+	    bv_viewset_rm(&gedp->ged_views, views[i]->view());
 	    delete views[i];
 	    views[i] = nullptr;
 	}
@@ -219,7 +219,7 @@ QgQuadView::changeToQuadFrame()
 	// us in memory usage as a rule, but default to matching the mesh setting
 	// behavior
 	views[i]->view()->gv_s->adaptive_plot_csg = views[UPPER_RIGHT_QUADRANT]->view()->gv_s->adaptive_plot_csg;
-	bv_set_add_view(&gedp->ged_views, views[i]->view());
+	bv_viewset_add(&gedp->ged_views, views[i]->view());
     }
 
     // Define the spacers

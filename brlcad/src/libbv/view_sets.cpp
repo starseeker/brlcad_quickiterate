@@ -141,6 +141,96 @@ bv_set_fsos(struct bview_set *s)
 }
 
 
+/* ================================================================
+ * Non-deprecated replacements: bv_viewset_* family
+ * These inline the implementation directly to avoid triggering
+ * the deprecated warning on the bv_set_* wrappers.
+ * ================================================================ */
+
+void
+bv_viewset_init(struct bview_set *s)
+{
+    if (!s) return;
+    BU_GET(s->i, struct bview_set_internal);
+    BU_PTBL_INIT(&s->i->views);
+    bu_ptbl_init(&s->i->shared_db_objs, 8, "db_objs init");
+    bu_ptbl_init(&s->i->shared_view_objs, 8, "view_objs init");
+    BU_LIST_INIT(&s->i->vlfree);
+    BU_GET(s->i->free_scene_obj, struct bv_scene_obj);
+    BU_LIST_INIT(&s->i->free_scene_obj->l);
+}
+
+void
+bv_viewset_free(struct bview_set *s)
+{
+    if (!s || !s->i) return;
+    bu_ptbl_free(&s->i->views);
+    bu_ptbl_free(&s->i->shared_db_objs);
+    bu_ptbl_free(&s->i->shared_view_objs);
+    struct bv_scene_obj *sp, *nsp;
+    sp = BU_LIST_NEXT(bv_scene_obj, &s->i->free_scene_obj->l);
+    while (BU_LIST_NOT_HEAD(sp, &s->i->free_scene_obj->l)) {
+	nsp = BU_LIST_PNEXT(bv_scene_obj, sp);
+	BU_LIST_DEQUEUE(&((sp)->l));
+	if (sp->s_free_callback) (*sp->s_free_callback)(sp);
+	if (sp->s_dlist_free_callback) (*sp->s_dlist_free_callback)(sp);
+	bu_ptbl_free(&sp->children);
+	BU_PUT(sp, struct bv_scene_obj);
+	sp = nsp;
+    }
+    BU_PUT(s->i->free_scene_obj, struct bv_scene_obj);
+    BU_PUT(s->i, struct bview_set_internal);
+}
+
+void
+bv_viewset_add(struct bview_set *s, struct bview *v)
+{
+    if (!s || !v) return;
+    bu_ptbl_ins_unique(&s->i->views, (long *)v);
+    v->vset = s;
+    v->independent = 0;
+}
+
+void
+bv_viewset_rm(struct bview_set *s, struct bview *v)
+{
+    if (!s) return;
+    if (!v) {
+	bu_ptbl_reset(&s->i->views);
+	return;
+    }
+    bu_ptbl_rm(&s->i->views, (long int *)v);
+    v->vset = NULL;
+    v->independent = 1;
+}
+
+struct bu_ptbl *
+bv_viewset_views(struct bview_set *s)
+{
+    if (!s) return NULL;
+    return &s->i->views;
+}
+
+struct bview *
+bv_viewset_find(struct bview_set *s, const char *vname)
+{
+    if (!s || !vname) return NULL;
+    for (size_t i = 0; i < BU_PTBL_LEN(&s->i->views); i++) {
+	struct bview *tv = (struct bview *)BU_PTBL_GET(&s->i->views, i);
+	if (BU_STR_EQUAL(bu_vls_cstr(&tv->gv_name), vname))
+	    return tv;
+    }
+    return NULL;
+}
+
+struct bv_scene_obj *
+bv_viewset_fso(struct bview_set *s)
+{
+    if (!s || !s->i) return NULL;
+    return s->i->free_scene_obj;
+}
+
+
 // Local Variables:
 // tab-width: 8
 // mode: C++

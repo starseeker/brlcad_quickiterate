@@ -94,7 +94,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (bu_vls_strlen(&cvls)) {
-	cv = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	cv = bv_viewset_find(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!cv) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -111,7 +111,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // If we don't have a specified view, and the default view isn't a shared view, see if
     // we can find a shared view in the view set.
     if (!bu_vls_strlen(&cvls) && (!cv || cv->independent)) {
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	    struct bview *bv = (struct bview *)BU_PTBL_GET(views, i);
 	    if (!bv->independent) {
@@ -234,7 +234,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // view specific geometry to generate) but this is not true when adaptive
     // plotting is enabled.
     std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	if (v->independent)
@@ -291,7 +291,7 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
     int opt_ret = bu_opt_parse(NULL, argc, argv, vd);
     argc = opt_ret;
     if (bu_vls_strlen(&cvls)) {
-	cv = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	cv = bv_viewset_find(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!cv) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -304,7 +304,7 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
     if (cv) {
 	return _ged_redraw_view(gedp, cv, argc, argv);
     } else {
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
 	if (!BU_PTBL_LEN(views)) {
 	    bu_vls_printf(gedp->ged_result_str, "No views defined\n");
 	    return BRLCAD_OK;

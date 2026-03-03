@@ -232,7 +232,7 @@ dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split)
     struct directory *dp;
     struct db_full_path subpath;
     int found_subpath;
-    struct bv_scene_obj *free_scene_obj = bv_set_fsos(&gedp->ged_views);
+    struct bv_scene_obj *free_scene_obj = bv_viewset_fso(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
     if (db_string_to_path(&subpath, dbip, path) == 0)
@@ -334,7 +334,7 @@ eraseAllSubpathsFromSolidList(struct ged *gedp, struct display_list *gdlp,
 {
     struct bv_scene_obj *sp;
     struct bv_scene_obj *nsp;
-    struct bv_scene_obj *free_scene_obj = bv_set_fsos(&gedp->ged_views);
+    struct bv_scene_obj *free_scene_obj = bv_viewset_fso(&gedp->ged_views);
 
     sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
     while (BU_LIST_NOT_HEAD(sp, &gdlp->dl_head_scene_obj)) {
@@ -423,7 +423,7 @@ _dl_eraseFirstSubpath(struct ged *gedp,
 {
     struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct db_i *dbip = gedp->dbip;
-    struct bv_scene_obj *free_scene_obj = bv_set_fsos(&gedp->ged_views);
+    struct bv_scene_obj *free_scene_obj = bv_viewset_fso(&gedp->ged_views);
     struct bv_scene_obj *sp;
     struct bv_scene_obj *nsp;
     struct db_full_path dup_path;
@@ -528,7 +528,7 @@ void
 _dl_freeDisplayListItem (struct ged *gedp, struct display_list *gdlp)
 {
     struct db_i *dbip = gedp->dbip;
-    struct bv_scene_obj *free_scene_obj = bv_set_fsos(&gedp->ged_views);
+    struct bv_scene_obj *free_scene_obj = bv_viewset_fso(&gedp->ged_views);
     struct bv_scene_obj *sp;
     struct directory *dp;
     struct bu_list *vlfree = &rt_vlfree;
