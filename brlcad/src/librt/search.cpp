@@ -103,6 +103,7 @@
 #include "vmath.h"
 
 #include "bu/cmd.h"
+#include "bu/hash_cxx.h"
 #include "bu/opt.h"
 #include "bu/path.h"
 
@@ -205,17 +206,17 @@ struct traversal_ctx_t {
     int result_cnt;
     int has_maxdepth;
     int maxdepth;
-    std::unordered_set<uint64_t> *below_passes_cache; /* NULL outside BFS -below */
-    uint64_t below_path_hash;   /* hash of path currently being evaluated */
-    uint64_t below_parent_hash; /* hash of its parent (0 = no parent / root) */
+    std::unordered_set<bu_h128_t> *below_passes_cache; /* NULL outside BFS -below */
+    bu_h128_t below_path_hash;   /* hash of path currently being evaluated */
+    bu_h128_t below_parent_hash; /* hash of its parent ({0,0} = no parent / root) */
 };
 
 
 struct path_node_t {
     struct db_full_path *path;
     int depth;
-    uint64_t path_hash;   /* incremental hash for below_passes cache */
-    uint64_t parent_hash; /* hash of the parent path */
+    bu_h128_t path_hash;   /* incremental hash for below_passes cache */
+    bu_h128_t parent_hash; /* hash of the parent path */
 };
 
 
@@ -226,27 +227,36 @@ struct leaf_info_t {
 
 
 /*
- * Mix a directory pointer into a 64-bit hash value for the below_passes
- * cache.  Uses the finalizer from splitmix64 for good avalanche properties
- * with no collisions in the bijective domain.
+ * Compute the 128-bit path fingerprint for a node reached by appending
+ * child_dp to the path whose fingerprint is parent_hash.
+ *
+ * bu_data_hash128 (XXH3-128) combines the two inputs into a fresh 128-bit
+ * fingerprint.  Two different paths produce the same fingerprint only with
+ * probability N^2 / 2^129 (birthday bound), where N is the number of distinct
+ * paths evaluated.  A fingerprint collision would cause a false-positive
+ * -below result (a correctness bug), so this collision probability governs
+ * the correctness guarantee of the BFS cache.
+ *
+ * Note: the std::hash bucket function used by the unordered_set folds this
+ * fingerprint to 64 bits for placement.  That increases *bucket* collision
+ * probability to ~N^2 / 2^65, but bucket collisions only degrade performance
+ * (an extra operator== comparison) – identity is always confirmed by checking
+ * all 128 bits.  See bu/hash_cxx.h for the full two-level collision model.
+ *
+ * parent_hash == BELOW_PATH_HASH_ROOT is the sentinel for a root-level node.
  */
-static inline uint64_t
-below_hash_mix(struct directory *dp)
+static inline bu_h128_t
+below_path_hash_extend(bu_h128_t parent_hash, struct directory *child_dp)
 {
-    uint64_t x = (uint64_t)(uintptr_t)dp;
-    x ^= x >> 30; x *= 0xbf58476d1ce4e5b9ULL;
-    x ^= x >> 27; x *= 0x94d049bb133111ebULL;
-    x ^= x >> 31;
-    return x;
+    uint64_t s[3];
+    s[0] = parent_hash.w[0];
+    s[1] = parent_hash.w[1];
+    s[2] = (uint64_t)(uintptr_t)child_dp;
+    return bu_data_hash128(s, sizeof(s));
 }
 
-/*
- * LCG multiplier used when extending a path hash by one level.
- * This is the Knuth multiplicative hash constant (2^64 / phi), chosen so
- * that the incremental hash  H(P/child) = H(P)*MULT + below_hash_mix(child)
- * has good distribution for any sequence of directory pointers.
- */
-static const uint64_t BELOW_HASH_MULT = 6364136223846793005ULL;
+/* Zero/sentinel value for 128-bit path hashes (root nodes have no parent). */
+static const bu_h128_t BELOW_PATH_HASH_ROOT = {{0, 0}};
 
 
 static void
@@ -380,7 +390,7 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 {
     int i = 0;
     std::deque<path_node_t> work;
-    std::unordered_set<uint64_t> below_cache;
+    std::unordered_set<bu_h128_t> below_cache;
 
     if (!ctx || !paths || path_cnt <= 0)
 	return;
@@ -404,16 +414,16 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 	    DB_FULL_PATH_SET_CUR_BOOL(start_path, 2);
 
 	    if (ctx->flags & DB_SEARCH_FLAT) {
-		ctx->below_path_hash = 0;
-		ctx->below_parent_hash = 0;
+		ctx->below_path_hash = BELOW_PATH_HASH_ROOT;
+		ctx->below_parent_hash = BELOW_PATH_HASH_ROOT;
 		evaluate_path(ctx, start_path);
 		db_free_full_path(start_path);
 		BU_PUT(start_path, struct db_full_path);
 	    } else {
 		node.path = start_path;
 		node.depth = 0;
-		node.path_hash = below_hash_mix(curr_dp);
-		node.parent_hash = 0; /* sentinel: root-level has no parent */
+		node.path_hash = below_path_hash_extend(BELOW_PATH_HASH_ROOT, curr_dp);
+		node.parent_hash = BELOW_PATH_HASH_ROOT; /* sentinel: root-level has no parent */
 		work.push_back(node);
 	    }
 	}
@@ -508,8 +518,8 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 		    child_node.path = child_path;
 		    child_node.depth = node.depth + 1;
 		    /* O(1) incremental hash: extend parent hash with child dp. */
-		    child_node.path_hash = node.path_hash * BELOW_HASH_MULT
-			+ below_hash_mix(child_dp);
+		    child_node.path_hash = below_path_hash_extend(node.path_hash,
+								  child_dp);
 		    child_node.parent_hash = node.path_hash;
 		    work.push_back(child_node);
 		}
@@ -745,9 +755,13 @@ find_execute_nested_plans(struct db_i *dbip, struct bu_ptbl *results, struct db_
  *   below_passes(C) = below_passes(parent(C))  [cache hit: same ancestor applies]
  *                   OR inner(parent(C))          [parent itself satisfies expr]
  *
- * Cache keys are 64-bit incremental pointer hashes (computed in the BFS work
- * queue), so no string allocation is needed.  This reduces the total cost for
- * a linear chain of depth D from O(D²) inner-plan evaluations to O(D).
+ * Cache keys are 128-bit incremental path fingerprints (bu_h128_t, computed
+ * in the BFS work queue via below_path_hash_extend).  Identity is determined
+ * by all 128 bits (operator==), giving a correctness-collision probability of
+ * N^2 / 2^129; the std::hash bucket function folds to 64 bits for placement
+ * only (see bu/hash_cxx.h for the two-level collision model).  No string
+ * allocation is needed.  This reduces the total cost for a linear chain of
+ * depth D from O(D^2) inner-plan evaluations to O(D).
  * The cache is only active during BFS traversal with an unbounded max_depth
  * (the normal case for -below); other modes fall back to the original
  * ancestor-walk.
@@ -758,8 +772,8 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
     int state = 0;
     struct db_node_t curr_node;
     struct db_full_path parent_path;
-    std::unordered_set<uint64_t> *cache =
-	static_cast<std::unordered_set<uint64_t> *>(db_node->below_passes);
+    std::unordered_set<bu_h128_t> *cache =
+	static_cast<std::unordered_set<bu_h128_t> *>(db_node->below_passes);
 
     /* A root-level node (no parent) never satisfies -below. */
     if (db_node->path->fp_len <= 1) {
@@ -800,8 +814,8 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 	    curr_node.flags = db_node->flags;
 	    curr_node.full_paths = NULL;
 	    curr_node.below_passes = NULL;
-	    curr_node.below_path_hash = 0;
-	    curr_node.below_parent_hash = 0;
+	    curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
+	    curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 	    curr_node.matched_filters = 1;
 
 	    state = find_execute_nested_plans(dbip, results, &curr_node,
@@ -828,8 +842,8 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 	curr_node.flags = db_node->flags;
 	curr_node.full_paths = NULL;
 	curr_node.below_passes = NULL;
-	curr_node.below_path_hash = 0;
-	curr_node.below_parent_hash = 0;
+	curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
+	curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 	curr_node.matched_filters = 1;
 
 	distance = (int)db_node->path->fp_len - (int)parent_path.fp_len;
@@ -887,8 +901,8 @@ f_above(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 		curr_node.flags = db_node->flags;
 		curr_node.full_paths = full_paths;
 		curr_node.below_passes = NULL;
-		curr_node.below_path_hash = 0;
-		curr_node.below_parent_hash = 0;
+		curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
+		curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 
 		state = find_execute_nested_plans(dbip, NULL, &curr_node, plan->p_un._ab_data[0]);
 		if (state)
@@ -3156,8 +3170,8 @@ db_search(struct bu_ptbl *search_results,
 		curr_node.path = (struct db_full_path *)BU_PTBL_GET(full_paths, i);
 		curr_node.full_paths = full_paths;
 		curr_node.below_passes = NULL;
-		curr_node.below_path_hash = 0;
-		curr_node.below_parent_hash = 0;
+		curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
+		curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 		curr_node.flags = search_flags;
 		curr_node.matched_filters = 1;
 		find_execute_plans(dbip, search_results, &curr_node, dbplan);
