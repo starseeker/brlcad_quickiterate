@@ -215,6 +215,51 @@
 #define SEDIT_SCALE (s->global_editing_state == ST_S_EDIT && \
 		     (MEDIT(s)->edit_flag == SSCALE || \
 		      MEDIT(s)->edit_flag == PSCALE || \
+		      MEDIT(s)->edit_flag == ECMD_TOR_R1 || \
+		      MEDIT(s)->edit_flag == ECMD_TOR_R2 || \
+		      MEDIT(s)->edit_flag == ECMD_ELL_SCALE_A || \
+		      MEDIT(s)->edit_flag == ECMD_ELL_SCALE_B || \
+		      MEDIT(s)->edit_flag == ECMD_ELL_SCALE_C || \
+		      MEDIT(s)->edit_flag == ECMD_ELL_SCALE_ABC || \
+		      MEDIT(s)->edit_flag == ECMD_PART_H || \
+		      MEDIT(s)->edit_flag == ECMD_PART_VRAD || \
+		      MEDIT(s)->edit_flag == ECMD_PART_HRAD || \
+		      MEDIT(s)->edit_flag == ECMD_RPC_B || \
+		      MEDIT(s)->edit_flag == ECMD_RPC_H || \
+		      MEDIT(s)->edit_flag == ECMD_RPC_R || \
+		      MEDIT(s)->edit_flag == ECMD_RHC_B || \
+		      MEDIT(s)->edit_flag == ECMD_RHC_H || \
+		      MEDIT(s)->edit_flag == ECMD_RHC_R || \
+		      MEDIT(s)->edit_flag == ECMD_RHC_C || \
+		      MEDIT(s)->edit_flag == ECMD_EPA_H || \
+		      MEDIT(s)->edit_flag == ECMD_EPA_R1 || \
+		      MEDIT(s)->edit_flag == ECMD_EPA_R2 || \
+		      MEDIT(s)->edit_flag == ECMD_EHY_H || \
+		      MEDIT(s)->edit_flag == ECMD_EHY_R1 || \
+		      MEDIT(s)->edit_flag == ECMD_EHY_R2 || \
+		      MEDIT(s)->edit_flag == ECMD_EHY_C || \
+		      MEDIT(s)->edit_flag == ECMD_ETO_R || \
+		      MEDIT(s)->edit_flag == ECMD_ETO_RD || \
+		      MEDIT(s)->edit_flag == ECMD_ETO_SCALE_C || \
+		      MEDIT(s)->edit_flag == ECMD_HYP_H || \
+		      MEDIT(s)->edit_flag == ECMD_HYP_SCALE_A || \
+		      MEDIT(s)->edit_flag == ECMD_HYP_SCALE_B || \
+		      MEDIT(s)->edit_flag == ECMD_HYP_C || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H_V || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_A || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_B || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_C || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_D || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_AB || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_CD || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_SCALE_ABCD || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_S_H_CD || \
+		      MEDIT(s)->edit_flag == ECMD_TGC_S_H_V_AB || \
+		      MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_A || \
+		      MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_B || \
+		      MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_C || \
+		      MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_ABC || \
 		      MEDIT(s)->edit_flag == ECMD_VOL_THRESH_LO || \
 		      MEDIT(s)->edit_flag == ECMD_VOL_THRESH_HI || \
 		      MEDIT(s)->edit_flag == ECMD_VOL_CSIZE || \
