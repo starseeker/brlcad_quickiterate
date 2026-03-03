@@ -203,6 +203,17 @@ int es_menu;		/* item selected from menu */
 		    MEDIT(s)->edit_flag == ECMD_HYP_SCALE_A || \
 		    MEDIT(s)->edit_flag == ECMD_HYP_SCALE_B || \
 		    MEDIT(s)->edit_flag == ECMD_HYP_C || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H_V || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_D || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_AB || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_CD || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_ABCD || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_S_H_CD || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_S_H_V_AB || \
 		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_A || \
 		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_B || \
 		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_C || \
@@ -2576,6 +2587,18 @@ sedit(struct mged_state *s)
 	case ECMD_HYP_SCALE_A:
 	case ECMD_HYP_SCALE_B:
 	case ECMD_HYP_C:
+	/* --- TGC scale: delegate to librt rt_edit_process() --- */
+	case ECMD_TGC_SCALE_H:
+	case ECMD_TGC_SCALE_H_V:
+	case ECMD_TGC_SCALE_A:
+	case ECMD_TGC_SCALE_B:
+	case ECMD_TGC_SCALE_C:
+	case ECMD_TGC_SCALE_D:
+	case ECMD_TGC_SCALE_AB:
+	case ECMD_TGC_SCALE_CD:
+	case ECMD_TGC_SCALE_ABCD:
+	case ECMD_TGC_S_H_CD:
+	case ECMD_TGC_S_H_V_AB:
 	    /* rt_edit_process handles the geometry, keypoint refresh,
 	     * set_e_axes_pos, replot_editing_solid and view update
 	     * via registered MGED callbacks.  Return early to skip
@@ -5407,6 +5430,17 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 	case ECMD_HYP_SCALE_A:
 	case ECMD_HYP_SCALE_B:
 	case ECMD_HYP_C:
+	case ECMD_TGC_SCALE_H:
+	case ECMD_TGC_SCALE_H_V:
+	case ECMD_TGC_SCALE_A:
+	case ECMD_TGC_SCALE_B:
+	case ECMD_TGC_SCALE_C:
+	case ECMD_TGC_SCALE_D:
+	case ECMD_TGC_SCALE_AB:
+	case ECMD_TGC_SCALE_CD:
+	case ECMD_TGC_SCALE_ABCD:
+	case ECMD_TGC_S_H_CD:
+	case ECMD_TGC_S_H_V_AB:
 	case ECMD_DSP_SCALE_X:
 	case ECMD_DSP_SCALE_Y:
 	case ECMD_DSP_SCALE_ALT:
