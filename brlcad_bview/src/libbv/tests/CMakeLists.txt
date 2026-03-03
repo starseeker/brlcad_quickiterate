@@ -183,6 +183,10 @@ set(bview_scene_tests
   scene_insert_obj_basic
   bview_insert_obj_creates_scene
   scene_find_obj_basic
+  scene_remove_obj_basic
+  bview_remove_obj_roundtrip
+  bview_sync_from_old
+  bview_sync_to_old
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})
