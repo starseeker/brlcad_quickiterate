@@ -205,6 +205,13 @@ main(int ac, char *av[]) {
 	bu_vls_sprintf(&v->gv_name, "V%zd", i);
 	bv_set_add_view(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
+	// Create new-API companion and track it in the parallel companions table.
+	{
+	    char vname[16];
+	    snprintf(vname, sizeof(vname), "V%zu", i);
+	    struct bview_new *vnv = bview_companion_create(vname, v);
+	    bu_ptbl_ins(&gedp->ged_free_view_companions, (long *)vnv);
+	}
 
 	/* To generate images that will allow us to check if the drawing
 	 * is proceeding as expected, we use the swrast off-screen dm. */

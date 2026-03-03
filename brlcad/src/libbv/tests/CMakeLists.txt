@@ -1,7 +1,7 @@
 # To minimize the number of build targets and binaries that are created, we
 # combine most (not all) of the unit tests into a single program.
 
-set(bview_test_srcs list.c vlist.c)
+set(bview_test_srcs list.c scene.c vlist.c)
 
 # Generate and assemble the necessary per-test-type source code
 set(BVIEW_TEST_SRC_INCLUDES)
@@ -79,6 +79,145 @@ cmakefiles(
   valid.plot3
   invalid.plot3
 )
+
+#
+#  *************** scene.c ***************
+#
+#  Tests for the new bv_node / bv_scene / bview_new API.
+#  Each test name matches the second argument passed to scene_main().
+#
+set(bview_scene_tests
+  node_create_destroy
+  node_types
+  node_null_safety
+  node_transform
+  node_visibility
+  node_user_data
+  node_hierarchy
+  node_world_transform
+  node_traverse
+  scene_create_destroy
+  scene_null_safety
+  scene_add_remove
+  scene_add_child
+  scene_find_node
+  scene_traverse
+  scene_default_camera
+  view_create_destroy
+  view_null_safety
+  view_camera
+  view_viewport
+  view_appearance
+  view_overlay
+  view_redraw_callback
+  view_scene_assoc
+  view_camera_node
+  view_migration
+  settings_apply
+  settings_apply_null
+  settings_apply_idempotent
+  obj_to_node_null
+  obj_to_node_basic
+  obj_to_node_children
+  scene_from_view_null
+  scene_from_view_empty
+  scene_from_view_objs
+  scene_from_vset_null
+  scene_from_vset_empty
+  to_old_appearance
+  to_old_overlay
+  to_old_null
+  node_bbox_null
+  node_bbox_no_geom
+  scene_bbox_null
+  scene_bbox_empty
+  scene_bbox_invisible
+  scene_bbox_visible
+  autoview_null
+  autoview_empty
+  autoview_single_obj
+  autoview_scale_factor
+  lod_node_update_null
+  lod_node_update_non_geom
+  lod_node_update_no_obj
+  lod_node_update_stale
+  node_geometry_get
+  node_selected
+  scene_lod_update_null
+  scene_lod_update_empty
+  scene_lod_update_counts
+  selected_nodes_null
+  selected_nodes_empty
+  selected_nodes_count
+  deselect_all
+  select_node
+  node_bounds_null
+  node_bounds_set_get
+  node_bbox_native
+  node_bbox_native_overrides
+  node_lod_level
+  scene_view_count_null
+  scene_view_count_empty
+  scene_view_count_one
+  scene_view_count_shared
+  scene_view_switch
+  node_vlist_null
+  node_vlist_set_get
+  node_vlist_bounds
+  node_bbox_from_vlist
+  node_dlist
+  node_update_cb
+  lod_node_update_native
+  camera_scale_set_get
+  from_old_scale
+  to_old_scale
+  bview_old_set
+  draw_data_set_get
+  lod_view_new_null
+  autoview_new_sets_scale
+  companion_create_null
+  companion_create_basic
+  companion_create_sync
+  companion_create_independent
+  scene_insert_obj_null
+  scene_insert_obj_basic
+  bview_insert_obj_creates_scene
+  scene_find_obj_basic
+  scene_remove_obj_basic
+  bview_remove_obj_roundtrip
+  bview_sync_from_old
+  bview_sync_to_old
+  bview_name_get_set
+  node_name_set
+  scene_node_count
+  scene_clear
+  scene_find_all_nodes
+  node_is_descendant
+  node_child_count
+  scene_has_node
+  node_detach
+  node_subtree_size
+  scene_total_node_count
+  scene_add_nodes
+  scene_visible_nodes
+  scene_set_all_visible
+  scene_nodes_of_type
+)
+foreach(tname ${bview_scene_tests})
+  brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})
+endforeach(tname ${bview_scene_tests})
+
+#
+#  ************ render_test.c tests *************
+#
+# Tests for the bv_render_ctx C API.  The test binary always compiles and
+# runs; Obol-specific tests skip themselves gracefully when the backend is
+# not available (bv_render_ctx_available() == 0).
+#
+brlcad_addexec(bview_render_test render_test.c "libbu;libbv" TEST)
+cmakefiles(render_test.c)
+validate_style(render_test.c bview_render_test)
+brlcad_add_test(NAME bview_render_test COMMAND bview_render_test)
 
 # Local Variables:
 # tab-width: 8

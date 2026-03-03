@@ -60,6 +60,8 @@ main(int argc, char *argv[])
     struct bview *v;
     BU_GET(v, struct bview);
     bv_init(v, NULL);
+    // Create new-API companion alongside the legacy view (Phase 1 migration).
+    struct bview_new *nv = bview_companion_create("poly_sketch", v);
 
     struct bv_scene_obj *pobj = db_sketch_to_scene_obj("poly", dbip, dp, v, 0);
 
@@ -96,6 +98,11 @@ main(int argc, char *argv[])
 
     db_close(dbip);
     db_close(wfp->dbip);
+
+    // Cleanup: destroy companion then free legacy view.
+    bview_destroy(nv);
+    bv_free(v);
+    BU_PUT(v, struct bview);
 
     return 0;
 }

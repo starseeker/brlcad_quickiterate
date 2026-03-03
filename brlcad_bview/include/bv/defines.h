@@ -109,16 +109,37 @@ struct bview_new;
 /* Opaque scene graph root (conceptually similar to Coin3D's SoSeparator) */
 struct bv_scene;
 
-/* Enum for scene object types (Coin3D compatibility) */
-enum bv_scene_obj_type {
-    BV_OBJ_GROUP,
-    BV_OBJ_GEOMETRY,
-    BV_OBJ_TRANSFORM,
-    BV_OBJ_CAMERA,
-    BV_OBJ_LIGHT,
-    BV_OBJ_MATERIAL,
-    BV_OBJ_OTHER
+/* Forward declaration for migration helpers that accept legacy types */
+struct bv_scene_obj;
+struct bview_set;
+
+/*
+ * Scene graph node type enumeration, aligned with Inventor/Coin3D node types.
+ *
+ * Mapping to Inventor types:
+ *   BV_NODE_GROUP      -> SoGroup     (ordered children, propagates traversal state)
+ *   BV_NODE_SEPARATOR  -> SoSeparator (group that saves/restores traversal state,
+ *                                      providing a scoping boundary like a push/pop)
+ *   BV_NODE_GEOMETRY   -> SoShape     (leaf geometry node)
+ *   BV_NODE_TRANSFORM  -> SoTransform (matrix/translation/rotation/scale node)
+ *   BV_NODE_CAMERA     -> SoCamera    (orthographic or perspective camera)
+ *   BV_NODE_LIGHT      -> SoLight     (directional/point/spot light)
+ *   BV_NODE_MATERIAL   -> SoMaterial  (surface appearance properties)
+ *   BV_NODE_OTHER      -> (extension point for application-specific node types)
+ */
+enum bv_node_type {
+    BV_NODE_GROUP,
+    BV_NODE_SEPARATOR,
+    BV_NODE_GEOMETRY,
+    BV_NODE_TRANSFORM,
+    BV_NODE_CAMERA,
+    BV_NODE_LIGHT,
+    BV_NODE_MATERIAL,
+    BV_NODE_OTHER
 };
+
+/* Scene graph node (analogous to Coin3D's SoNode - the base unit of the scene graph) */
+struct bv_node;
 
 /* Camera object (view's active camera) */
 struct bview_camera {
@@ -127,6 +148,15 @@ struct bview_camera {
     vect_t up;
     double fov;
     int perspective; /* 0 = ortho, 1 = perspective */
+    /*
+     * View scale — the half-size of the view in model-space units.
+     * Corresponds to gv_scale in the legacy struct bview (gv_size = 2*gv_scale).
+     * Default: 500.0 (matching bv_init() initialisation of gv_scale).
+     * Used by the LoD pipeline to select the appropriate level of detail:
+     * a larger scale means the camera is far from the scene and lower detail
+     * is appropriate.
+     */
+    double scale;
 };
 
 /* Viewport/window object */
@@ -172,122 +202,755 @@ struct bview_pick_set {
     /* Extensible: add selection modes, groups, etc. */
 };
 
-/* Scene object (opaque, named, typed, with user data) */
-struct bv_scene_obj;
-
 /* --- bv_scene API --- */
 
 /* Lifecycle */
-struct bv_scene *bv_scene_create(void);
-void bv_scene_destroy(struct bv_scene *scene);
+BV_EXPORT struct bv_scene *bv_scene_create(void);
+BV_EXPORT void bv_scene_destroy(struct bv_scene *scene);
 
-/* Access scene root object (SoSeparator analogy) */
-struct bv_scene_obj *bv_scene_root(const struct bv_scene *scene);
+/* Access scene root node (SoSeparator analogy: saves/restores state, scopes children) */
+BV_EXPORT struct bv_node *bv_scene_root(const struct bv_scene *scene);
 
-/* Scene object management */
-void bv_scene_add_object(struct bv_scene *scene, struct bv_scene_obj *object);
-void bv_scene_remove_object(struct bv_scene *scene, struct bv_scene_obj *object);
-const struct bu_ptbl *bv_scene_objects(const struct bv_scene *scene);
+/* Scene node management (analogous to SoGroup::addChild / removeChild) */
+BV_EXPORT void bv_scene_add_node(struct bv_scene *scene, struct bv_node *node);
+/*
+ * Add all bv_node pointers from `nodes` to scene in a single call.
+ * Equivalent to iterating over `nodes` and calling bv_scene_add_node() for
+ * each.  Nodes that are already in the scene are not added a second time
+ * (bu_ptbl_ins_unique semantics).
+ *
+ * No-op if scene or nodes is NULL; returns the number of nodes actually added.
+ */
+BV_EXPORT size_t bv_scene_add_nodes(struct bv_scene *scene, const struct bu_ptbl *nodes);
+BV_EXPORT void bv_scene_remove_node(struct bv_scene *scene, struct bv_node *node);
+BV_EXPORT const struct bu_ptbl *bv_scene_nodes(const struct bv_scene *scene);
+/*
+ * Return the number of top-level nodes in the scene.
+ * Convenience wrapper for BU_PTBL_LEN(bv_scene_nodes(scene)).
+ * Returns 0 if scene is NULL.
+ */
+BV_EXPORT size_t bv_scene_node_count(const struct bv_scene *scene);
+/*
+ * Return the total number of nodes registered in the scene's flat lookup
+ * table, including top-level nodes AND all nested children.
+ * This is the sum that bv_scene_traverse visits.
+ * Returns 0 if scene is NULL.
+ */
+BV_EXPORT size_t bv_scene_total_node_count(const struct bv_scene *scene);
+/*
+ * Return 1 if node is registered in scene (i.e., appears in the flat nodes
+ * list), 0 otherwise.  Returns 0 if either argument is NULL.
+ */
+BV_EXPORT int bv_scene_has_node(const struct bv_scene *scene, const struct bv_node *node);
+/*
+ * Remove and destroy all top-level nodes in the scene (recursively).
+ * After this call the scene is empty (root has no children, nodes table is
+ * empty).  The scene itself is NOT destroyed; use bv_scene_destroy() for that.
+ * No-op if scene is NULL.
+ */
+BV_EXPORT void bv_scene_clear(struct bv_scene *scene);
+/*
+ * Set the visibility of every node in the scene to `visible` (1 = show,
+ * 0 = hide).  Visits all nodes including nested children.
+ * No-op if scene is NULL.
+ *
+ * Returns the number of nodes whose visibility was changed.
+ */
+BV_EXPORT size_t bv_scene_set_all_visible(struct bv_scene *scene, int visible);
 
-/* Hierarchy/grouping */
-void bv_scene_add_child(struct bv_scene *scene, struct bv_scene_obj *parent, struct bv_scene_obj *child);
-void bv_scene_remove_child(struct bv_scene *scene, struct bv_scene_obj *parent, struct bv_scene_obj *child);
+/* Hierarchy/grouping (child management under a specific parent node) */
+BV_EXPORT void bv_scene_add_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
+BV_EXPORT void bv_scene_remove_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child);
 
-/* Scene traversal (for export/interchange, picking, etc.) */
-typedef void (*bv_scene_traverse_cb)(struct bv_scene_obj *, void *);
-void bv_scene_traverse(const struct bv_scene *scene, bv_scene_traverse_cb cb, void *user_data);
-void bv_scene_obj_traverse(const struct bv_scene_obj *object, bv_scene_traverse_cb cb, void *user_data);
+/* Scene traversal (for rendering, picking, export, etc. -- analogous to SoAction traversal) */
+typedef void (*bv_scene_traverse_cb)(struct bv_node *, void *);
+BV_EXPORT void bv_scene_traverse(const struct bv_scene *scene, bv_scene_traverse_cb cb, void *user_data);
+BV_EXPORT void bv_node_traverse(const struct bv_node *node, bv_scene_traverse_cb cb, void *user_data);
 
-/* Lookup scene object by name */
-struct bv_scene_obj *bv_scene_find_object(const struct bv_scene *scene, const char *name);
+/* Lookup scene node by name (analogous to SoNode::getByName) */
+BV_EXPORT struct bv_node *bv_scene_find_node(const struct bv_scene *scene, const char *name);
 
-/* Access default camera object for scene */
-struct bv_scene_obj *bv_scene_default_camera(const struct bv_scene *scene);
+/*
+ * Collect all nodes whose name exactly matches `name` into the caller-provided
+ * `bu_ptbl` (which must already be initialised).
+ *
+ * Returns the number of matching nodes found (0 if none, scene is NULL, or
+ * name is NULL).  Duplicate pointers are not inserted; each matching node
+ * appears at most once in `out`.
+ */
+BV_EXPORT size_t bv_scene_find_all_nodes(const struct bv_scene *scene,
+                                          const char *name,
+                                          struct bu_ptbl *out);
+
+/*
+ * Collect all nodes of a specific type into the caller-provided `bu_ptbl`
+ * (which must already be initialised with BU_PTBL_INIT).
+ *
+ * Visits all nodes in the scene (including nested children) and appends those
+ * whose bv_node_type_get() equals `type`.  Separator nodes are still visited
+ * and included if their type matches.
+ *
+ * Returns the number of matching nodes added; returns 0 if scene or out is
+ * NULL.
+ */
+BV_EXPORT size_t bv_scene_nodes_of_type(const struct bv_scene *scene,
+                                         enum bv_node_type type,
+                                         struct bu_ptbl *out);
+
+/*
+ * Test whether `candidate` is `ancestor` itself or a descendant of it in the
+ * node hierarchy (i.e., whether following parent pointers from `candidate`
+ * eventually reaches `ancestor`).
+ *
+ * Returns 1 (true) or 0 (false).  Also returns 0 if either argument is NULL.
+ * A node is considered its own ancestor (candidate == ancestor returns 1).
+ */
+BV_EXPORT int bv_node_is_descendant(const struct bv_node *candidate,
+                                     const struct bv_node *ancestor);
+
+/* Access default camera node for scene (analogous to SoSceneManager::getCamera) */
+BV_EXPORT struct bv_node *bv_scene_default_camera(const struct bv_scene *scene);
+
+/* Set the default camera node for scene */
+BV_EXPORT void bv_scene_default_camera_set(struct bv_scene *scene, struct bv_node *camera);
 
 /* --- bview_new API --- */
 
 /* Lifecycle */
-struct bview_new *bview_create(const char *name);
-void bview_destroy(struct bview_new *view);
+BV_EXPORT struct bview_new *bview_create(const char *name);
+BV_EXPORT void bview_destroy(struct bview_new *view);
+
+/* Name accessors */
+BV_EXPORT const char *bview_name_get(const struct bview_new *view);
+BV_EXPORT void bview_name_set(struct bview_new *view, const char *name);
 
 /* Associate a scene with a view */
-void bview_scene_set(struct bview_new *view, struct bv_scene *scene);
-struct bv_scene *bview_scene_get(const struct bview_new *view);
+BV_EXPORT void bview_scene_set(struct bview_new *view, struct bv_scene *scene);
+BV_EXPORT struct bv_scene *bview_scene_get(const struct bview_new *view);
 
 /* Camera (active camera parameters) */
-void bview_camera_set(struct bview_new *view, const struct bview_camera *camera);
-const struct bview_camera *bview_camera_get(const struct bview_new *view);
+BV_EXPORT void bview_camera_set(struct bview_new *view, const struct bview_camera *camera);
+BV_EXPORT const struct bview_camera *bview_camera_get(const struct bview_new *view);
 
-/* Optionally associate a camera scene object (preparing for Coin3D mapping) */
-void bview_camera_object_set(struct bview_new *view, struct bv_scene_obj *camera_object);
-struct bv_scene_obj *bview_camera_object_get(const struct bview_new *view);
+/*
+ * View scale convenience accessors (analog of gv_scale in legacy struct bview).
+ *
+ * bview_camera_scale_set() writes the scale field of the view's active camera.
+ * bview_camera_scale_get() returns the current scale (or 0.0 if view is NULL).
+ *
+ * The scale represents the half-size of the view in model-space units
+ * (gv_size = 2 * scale in legacy terminology).  The LoD pipeline reads it to
+ * pick the appropriate level of detail for a bview_new without requiring
+ * access to a legacy struct bview.
+ */
+BV_EXPORT void   bview_camera_scale_set(struct bview_new *view, double scale);
+BV_EXPORT double bview_camera_scale_get(const struct bview_new *view);
+
+/* Optionally associate a camera node (preparing for Coin3D mapping via SoCamera) */
+BV_EXPORT void bview_camera_node_set(struct bview_new *view, struct bv_node *camera_node);
+BV_EXPORT struct bv_node *bview_camera_node_get(const struct bview_new *view);
 
 /* Viewport */
-void bview_viewport_set(struct bview_new *view, const struct bview_viewport *viewport);
-const struct bview_viewport *bview_viewport_get(const struct bview_new *view);
+BV_EXPORT void bview_viewport_set(struct bview_new *view, const struct bview_viewport *viewport);
+BV_EXPORT const struct bview_viewport *bview_viewport_get(const struct bview_new *view);
 
 /* Appearance/material */
-void bview_material_set(struct bview_new *view, const struct bview_material *material);
-const struct bview_material *bview_material_get(const struct bview_new *view);
-void bview_appearance_set(struct bview_new *view, const struct bview_appearance *appearance);
-const struct bview_appearance *bview_appearance_get(const struct bview_new *view);
+BV_EXPORT void bview_material_set(struct bview_new *view, const struct bview_material *material);
+BV_EXPORT const struct bview_material *bview_material_get(const struct bview_new *view);
+BV_EXPORT void bview_appearance_set(struct bview_new *view, const struct bview_appearance *appearance);
+BV_EXPORT const struct bview_appearance *bview_appearance_get(const struct bview_new *view);
 
 /* Overlay/HUD */
-void bview_overlay_set(struct bview_new *view, const struct bview_overlay *overlay);
-const struct bview_overlay *bview_overlay_get(const struct bview_new *view);
+BV_EXPORT void bview_overlay_set(struct bview_new *view, const struct bview_overlay *overlay);
+BV_EXPORT const struct bview_overlay *bview_overlay_get(const struct bview_new *view);
 
 /* Pick set (Coin3D pick set analog) */
-void bview_pick_set_set(struct bview_new *view, const struct bview_pick_set *pick_set);
-const struct bview_pick_set *bview_pick_set_get(const struct bview_new *view);
+BV_EXPORT void bview_pick_set_set(struct bview_new *view, const struct bview_pick_set *pick_set);
+BV_EXPORT const struct bview_pick_set *bview_pick_set_get(const struct bview_new *view);
 
 /* Redraw callback (for integration with UI/event loop) */
 typedef void (*bview_redraw_cb)(struct bview_new *, void *);
-void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
+BV_EXPORT void bview_redraw_callback_set(struct bview_new *view, bview_redraw_cb cb, void *data);
+/* Getters for the currently registered redraw callback and its data pointer.
+ * Both return NULL (or the NULL function pointer) if view is NULL or no
+ * callback has been set. */
+BV_EXPORT bview_redraw_cb bview_redraw_callback_get(const struct bview_new *view);
+BV_EXPORT void *bview_redraw_callback_data_get(const struct bview_new *view);
 
-/* --- Scene Object API --- */
+/*
+ * Per-node update/regenerate callback (analogous to bv_scene_obj::s_update_callback).
+ *
+ * Registered on a BV_NODE_GEOMETRY node by the code that owns the geometry.
+ * The rendering pipeline calls this when the node's display list is stale
+ * (dlist_stale == 1) and needs to be rebuilt.
+ *
+ * Parameters:
+ *   node  – the node being updated
+ *   view  – the view context for which the update is requested (may be NULL)
+ *   flags – reserved for future use (pass 0)
+ *
+ * Returns 1 if the geometry was successfully updated, 0 otherwise.
+ */
+typedef int (*bv_node_update_cb)(struct bv_node *node, struct bview_new *view, int flags);
 
-/* Opaque scene objects -- named, typed, and with user data for app/coin3d mapping */
-struct bv_scene_obj *bv_scene_obj_create(const char *name, enum bv_scene_obj_type type);
-void bv_scene_obj_destroy(struct bv_scene_obj *object);
+/* --- Scene Node API --- */
 
-/* Transform, geometry, material */
-void bv_scene_obj_transform_set(struct bv_scene_obj *object, const mat_t xform);
-const mat_t *bv_scene_obj_transform_get(const struct bv_scene_obj *object);
-void bv_scene_obj_geometry_set(struct bv_scene_obj *object, const void *geometry);
-void bv_scene_obj_material_set(struct bv_scene_obj *object, const struct bview_material *material);
-const struct bview_material *bv_scene_obj_material_get(const struct bv_scene_obj *object);
+/*
+ * Scene graph nodes (bv_node) are the fundamental building blocks of the
+ * BRL-CAD scene graph, directly analogous to Coin3D/Inventor's SoNode.
+ *
+ * A bv_node can represent:
+ *   - A group of children (BV_NODE_GROUP / BV_NODE_SEPARATOR)
+ *   - Geometry (BV_NODE_GEOMETRY -- analogous to SoShape)
+ *   - A transform (BV_NODE_TRANSFORM -- analogous to SoTransform)
+ *   - A camera (BV_NODE_CAMERA -- analogous to SoCamera)
+ *   - A light (BV_NODE_LIGHT -- analogous to SoLight)
+ *   - Material/appearance (BV_NODE_MATERIAL -- analogous to SoMaterial)
+ *
+ * Nodes are named (analogous to SoNode::setName/getName), typed (via
+ * bv_node_type), and may carry arbitrary user data for application-layer
+ * or future Coin3D mapping.
+ */
+BV_EXPORT struct bv_node *bv_node_create(const char *name, enum bv_node_type type);
+BV_EXPORT void bv_node_destroy(struct bv_node *node);
 
-/* Hierarchy management */
-void bv_scene_obj_add_child(struct bv_scene_obj *parent, struct bv_scene_obj *child);
-void bv_scene_obj_remove_child(struct bv_scene_obj *parent, struct bv_scene_obj *child);
-const struct bu_ptbl *bv_scene_obj_children(const struct bv_scene_obj *object);
+/* Transform, geometry, material (analogous to SoTransform, SoShape, SoMaterial fields) */
+BV_EXPORT void bv_node_transform_set(struct bv_node *node, const mat_t xform);
+BV_EXPORT const mat_t *bv_node_transform_get(const struct bv_node *node);
+BV_EXPORT void bv_node_geometry_set(struct bv_node *node, const void *geometry);
+BV_EXPORT const void *bv_node_geometry_get(const struct bv_node *node);
+BV_EXPORT void bv_node_material_set(struct bv_node *node, const struct bview_material *material);
+BV_EXPORT const struct bview_material *bv_node_material_get(const struct bv_node *node);
 
-/* Visibility */
-void bv_scene_obj_visible_set(struct bv_scene_obj *object, int visible);
-int bv_scene_obj_visible_get(const struct bv_scene_obj *object);
+/*
+ * Native axis-aligned bounding box for a node.
+ *
+ * These accessors store and retrieve a caller-supplied AABB directly on the
+ * node.  The native AABB is optional: nodes that have no inherent geometry of
+ * their own (group separators, cameras, etc.) need not set it.
+ *
+ * When native bounds are present (have_bounds == 1) they take priority over
+ * the bounding sphere derived from a wrapped bv_scene_obj during bv_node_bbox
+ * traversal.  This allows pure new-API geometry nodes (those that do NOT wrap
+ * a legacy bv_scene_obj) to participate correctly in bounding-box queries.
+ *
+ * bv_node_bounds_set() marks have_bounds = 1 on the node.
+ * bv_node_bounds_clear() marks have_bounds = 0 (reverts to legacy fallback).
+ * bv_node_bounds_get() returns 1 if have_bounds is set and fills *out_min /
+ * *out_max; returns 0 and leaves the outputs unchanged otherwise.
+ */
+BV_EXPORT void bv_node_bounds_set(struct bv_node *node,
+                                   const point_t min, const point_t max);
+BV_EXPORT void bv_node_bounds_clear(struct bv_node *node);
+BV_EXPORT int  bv_node_bounds_get(const struct bv_node *node,
+                                   point_t *out_min, point_t *out_max);
+
+/*
+ * Typed vlist accessor for BV_NODE_GEOMETRY nodes (Phase 2).
+ *
+ * A BV_NODE_GEOMETRY node may carry a bv_vlist chain as its primary geometry
+ * representation.  These are thin typed wrappers around bv_node_geometry_set/get()
+ * that cast the void* geometry pointer to/from `struct bu_list *` (a vlist head).
+ *
+ * The caller retains ownership of the vlist: bv_node_destroy() does NOT free
+ * the vlist — the code that allocated the vlist is responsible for freeing it
+ * (typically via BV_FREE_VLIST).  Set the geometry to NULL before destroying
+ * the node if vlist lifetime outlasts the node.
+ *
+ * bv_node_vlist_get() returns NULL if no vlist has been set.
+ *
+ * bv_node_vlist_bounds() computes the AABB of the vlist stored on the node.
+ * Returns 1 if the vlist is non-empty and bounds were computed, 0 otherwise.
+ * This is a convenience wrapper around the public bv_vlist_bbox() function.
+ * bv_node_bbox() will automatically call this as a final fallback when neither
+ * a native AABB nor a wrapped bv_scene_obj is available.
+ */
+BV_EXPORT void             bv_node_vlist_set(struct bv_node *node, struct bu_list *vlist);
+BV_EXPORT struct bu_list  *bv_node_vlist_get(const struct bv_node *node);
+BV_EXPORT int              bv_node_vlist_bounds(const struct bv_node *node,
+                                                 point_t *out_min, point_t *out_max);
+
+/*
+ * Display-list state for a node (Phase 2 — render backend integration).
+ *
+ * `dlist` is a backend-specific handle (e.g. an OpenGL display list name).
+ * `dlist_stale` is a flag: 1 = the display list needs to be regenerated before
+ * the next draw, 0 = up to date.
+ *
+ * These mirror the `s_dlist` / `s_dlist_stale` fields on `bv_scene_obj` and allow
+ * pure new-API nodes to participate in the same rendering pipeline without wrapping
+ * a legacy object.
+ *
+ * bview_lod_node_update() sets dlist_stale = 1 on native geometry nodes (those
+ * that do not carry a wrapped bv_scene_obj).
+ */
+BV_EXPORT void         bv_node_dlist_set(struct bv_node *node, unsigned int dlist);
+BV_EXPORT unsigned int bv_node_dlist_get(const struct bv_node *node);
+BV_EXPORT void         bv_node_dlist_stale_set(struct bv_node *node, int stale);
+BV_EXPORT int          bv_node_dlist_stale_get(const struct bv_node *node);
+
+/*
+ * Per-node update callback (Phase 2 — replaces s_update_callback on bv_scene_obj).
+ *
+ * The callback is invoked by the rendering pipeline when dlist_stale == 1 and
+ * the display list needs to be rebuilt.  The caller registers cb + data once
+ * (typically at node creation time) and the pipeline calls it when needed.
+ *
+ * Set cb to NULL to remove the callback.
+ */
+BV_EXPORT void               bv_node_update_cb_set(struct bv_node *node,
+                                                    bv_node_update_cb cb, void *data);
+BV_EXPORT bv_node_update_cb  bv_node_update_cb_get(const struct bv_node *node);
+BV_EXPORT void              *bv_node_update_cb_data_get(const struct bv_node *node);
+
+/* Hierarchy management (analogous to SoGroup::addChild/removeChild/getChildren) */
+BV_EXPORT void bv_node_add_child(struct bv_node *parent, struct bv_node *child);
+BV_EXPORT void bv_node_remove_child(struct bv_node *parent, struct bv_node *child);
+BV_EXPORT const struct bu_ptbl *bv_node_children(const struct bv_node *node);
+/*
+ * Return the number of direct children of node.
+ * Equivalent to BU_PTBL_LEN(bv_node_children(node)) but avoids the NULL check
+ * on the ptbl pointer.  Returns 0 if node is NULL.
+ */
+BV_EXPORT size_t bv_node_child_count(const struct bv_node *node);
+/*
+ * Remove node from its parent (if it has one) without destroying it.
+ *
+ * After this call, bv_node_parent_get(node) == NULL.  The node is still alive
+ * and may be added to another parent or used as a new top-level scene node.
+ *
+ * No-op if node is NULL or already detached (has no parent).
+ */
+BV_EXPORT void bv_node_detach(struct bv_node *node);
+
+/*
+ * Return the total number of nodes in the subtree rooted at node, including
+ * node itself.  Returns 1 for a leaf, 0 if node is NULL.
+ */
+BV_EXPORT size_t bv_node_subtree_size(const struct bv_node *node);
+
+/* Visibility (analogous to toggling SoSwitch or using SoNode visibility) */
+BV_EXPORT void bv_node_visible_set(struct bv_node *node, int visible);
+BV_EXPORT int bv_node_visible_get(const struct bv_node *node);
+
+/* Selection (analogous to highlight/pick state in Coin3D SoSelection) */
+BV_EXPORT void bv_node_selected_set(struct bv_node *node, int selected);
+BV_EXPORT int bv_node_selected_get(const struct bv_node *node);
+
+/*
+ * Level-of-detail index for a node (Phase 4).
+ *
+ * The lod_level field is a hint to the rendering pipeline indicating which
+ * level of geometric detail should be rendered for this node.  Level 0 is
+ * the most detailed representation; higher values are progressively coarser.
+ * The field is informational — bv_scene_lod_update() sets it via the LoD
+ * selection logic in lod.cpp; the rendering backend reads it.
+ */
+BV_EXPORT void bv_node_lod_level_set(struct bv_node *node, int level);
+BV_EXPORT int  bv_node_lod_level_get(const struct bv_node *node);
+
+/*
+ * Raw geometry source data (Phase 4 — LoD mesh, tessellation cache, etc.)
+ *
+ * A BV_NODE_GEOMETRY node may carry two data pointers:
+ *   - geometry / vlist  (set via bv_node_vlist_set) — the rendered display data
+ *   - draw_data         (set via bv_node_draw_data_set) — the source / LoD data
+ *
+ * The draw_data pointer is the analog of bv_scene_obj::draw_data.  For LoD
+ * meshes it holds a struct bv_mesh_lod * obtained via bv_mesh_lod_create().
+ *
+ * The caller retains ownership.  bv_node_destroy() does NOT free draw_data.
+ */
+BV_EXPORT void  bv_node_draw_data_set(struct bv_node *node, void *draw_data);
+BV_EXPORT void *bv_node_draw_data_get(const struct bv_node *node);
 
 /* Type, name, and user data access */
-enum bv_scene_obj_type bv_scene_obj_type_get(const struct bv_scene_obj *object);
-const char *bv_scene_obj_name_get(const struct bv_scene_obj *object);
-void bv_scene_obj_user_data_set(struct bv_scene_obj *object, void *user_data);
-void *bv_scene_obj_user_data_get(const struct bv_scene_obj *object);
+BV_EXPORT enum bv_node_type bv_node_type_get(const struct bv_node *node);
+BV_EXPORT const char *bv_node_name_get(const struct bv_node *node);
+BV_EXPORT void bv_node_name_set(struct bv_node *node, const char *name);
+BV_EXPORT void bv_node_user_data_set(struct bv_node *node, void *user_data);
+BV_EXPORT void *bv_node_user_data_get(const struct bv_node *node);
 
-/* Get world transform (accumulated from parent hierarchy) */
-const mat_t *bv_scene_obj_world_transform_get(const struct bv_scene_obj *object);
+/* Get world transform (accumulated from parent hierarchy -- analogous to SoGetMatrixAction) */
+BV_EXPORT const mat_t *bv_node_world_transform_get(const struct bv_node *node);
+
+/* Get the parent node (NULL if this is a root node) */
+BV_EXPORT struct bv_node *bv_node_parent_get(const struct bv_node *node);
 
 /* --- LoD/update API --- */
 
 /* Force LoD or redraw updates if needed; LoD should be triggered automatically by
- * setters but (for the moment) allow for explicit invocation */
-void bview_lod_update(struct bview_new *view);
-void bview_redraw(struct bview_new *view);
+ * setters but (for the moment) allow for explicit invocation.
+ * bview_lod_update() calls bv_scene_lod_update() on the scene currently associated
+ * with this view. */
+BV_EXPORT void bview_lod_update(struct bview_new *view);
+BV_EXPORT void bview_redraw(struct bview_new *view);
+
+/*
+ * LoD-aware per-node update hook (Phase 4).
+ *
+ * Called by the rendering pipeline when a node's level of detail needs
+ * to be reconsidered given a new view state.  node must be a
+ * BV_NODE_GEOMETRY node whose user_data holds a bv_scene_obj
+ * (as set by bv_scene_obj_to_node()).  view may be NULL to unconditionally
+ * mark the node's display list stale.
+ *
+ * If view is non-NULL and the scene object carries BV_MESH_LOD data
+ * (s->s_type_flags & BV_MESH_LOD), this function calls bv_mesh_lod_view()
+ * using the legacy bview pointed to by bview_old_get(view).  This wires
+ * the existing LoD pipeline into the new scene graph traversal.
+ *
+ * Returns 1 if the node was processed, 0 otherwise.
+ */
+BV_EXPORT int bview_lod_node_update(struct bv_node *node, const struct bview_new *view);
+
+/*
+ * Update LoD for all BV_NODE_GEOMETRY nodes in a scene.
+ *
+ * Traverses every node in 'scene' and calls bview_lod_node_update() on
+ * each BV_NODE_GEOMETRY node.  This is the scene-level equivalent of
+ * the per-object bv_mesh_lod_view() calls that the legacy rendering
+ * pipeline performs when a view changes.
+ *
+ * view may be NULL, in which case only display-list stale marking is
+ * performed (no view-dependent LoD level selection).
+ *
+ * Returns the number of geometry nodes that were processed.
+ */
+BV_EXPORT int bv_scene_lod_update(struct bv_scene *scene, const struct bview_new *view);
+
+/* --- Selection API --- */
+
+/*
+ * Collect all nodes in 'scene' whose selected flag is non-zero into
+ * 'out'.  'out' must already be initialized by the caller (bu_ptbl_init).
+ *
+ * Traverses the entire scene graph; both visible and hidden nodes are
+ * included.  The ptbl will hold 'struct bv_node *' pointers.
+ *
+ * Returns the number of selected nodes found.
+ */
+BV_EXPORT int bv_scene_selected_nodes(const struct bv_scene *scene, struct bu_ptbl *out);
+
+/*
+ * Collect all visible nodes in scene into the caller-provided `bu_ptbl`
+ * (which must already be initialised with BU_PTBL_INIT).
+ *
+ * Visits all nodes in the scene (including nested children) and appends those
+ * for which bv_node_visible_get() returns non-zero.  Analogous to
+ * bv_scene_selected_nodes() but filtered by visibility.
+ *
+ * Returns the number of visible nodes found.  Returns 0 if scene or out is
+ * NULL.
+ */
+BV_EXPORT size_t bv_scene_visible_nodes(const struct bv_scene *scene, struct bu_ptbl *out);
+
+/*
+ * Set the selected flag on a specific node (1 = selected, 0 = deselected).
+ * This is a thin wrapper around bv_node_selected_set() that also
+ * updates the scene's pick_set metadata if a bview_new is provided.
+ * view may be NULL.
+ */
+BV_EXPORT void bv_scene_select_node(struct bv_node *node, int selected, struct bview_new *view);
+
+/*
+ * Deselect all nodes in the scene.
+ *
+ * Equivalent to traversing every node and calling bv_scene_select_node(n, 0, view).
+ * view may be NULL.
+ *
+ * Returns the number of nodes that were previously selected and are now cleared.
+ */
+BV_EXPORT int bv_scene_deselect_all(struct bv_scene *scene, struct bview_new *view);
+
+/* --- Multi-view sharing (Phase 3) --- */
+
+/*
+ * Return the number of bview_new instances currently sharing 'scene'.
+ *
+ * bview_scene_set() and bview_scene_get() maintain an internal list of views
+ * associated with each scene.  bv_scene_view_count() queries that list.
+ *
+ * This is the new-API replacement for counting entries returned by the
+ * DEPRECATED bv_set_views() function.
+ *
+ * Returns 0 if scene is NULL.
+ */
+BV_EXPORT size_t bv_scene_view_count(const struct bv_scene *scene);
+
+/*
+ * Return the table of bview_new pointers currently sharing 'scene'.
+ *
+ * The returned bu_ptbl holds bview_new* entries.  The caller must not
+ * modify the table.  Returns NULL if scene is NULL.
+ *
+ * Typical use: iterate with BU_PTBL_LEN / BU_PTBL_GET to broadcast an
+ * event (e.g. a LoD update) to all views that share the same scene.
+ */
+BV_EXPORT const struct bu_ptbl *bv_scene_views(const struct bv_scene *scene);
+
+/*
+ * Compute the axis-aligned bounding box of a bv_node subtree.
+ *
+ * Traverses all visible BV_NODE_GEOMETRY nodes in the subtree rooted at
+ * 'node'.  For each geometry node the bounding box is determined as follows:
+ *
+ *  1. If the node has native bounds set (bv_node_bounds_set() was called),
+ *     those bounds are used directly.
+ *  2. Otherwise, if the node's user_data points to a bv_scene_obj (as set by
+ *     bv_scene_obj_to_node()), the object's pre-computed bounding sphere
+ *     (s_center + s_size) is expanded to an AABB.
+ *  3. Otherwise, if the node carries a vlist (bv_node_vlist_get() is non-NULL),
+ *     the AABB is computed by iterating the vlist via bv_vlist_bbox().
+ *  4. Nodes with none of the above contribute nothing to the result.
+ *
+ * On return:
+ *   *out_min is the component-wise minimum corner of the AABB.
+ *   *out_max is the component-wise maximum corner of the AABB.
+ *   Returns 1 if at least one geometry node contributed to the bounds,
+ *   0 if the subtree contained no visible/bounded geometry.
+ *
+ * out_min and out_max must be non-NULL.
+ */
+BV_EXPORT int bv_node_bbox(const struct bv_node *node, point_t *out_min, point_t *out_max);
+
+/*
+ * Compute the bounding box of an entire scene (all top-level nodes and
+ * their subtrees).
+ *
+ * Equivalent to calling bv_node_bbox() on each top-level node and merging
+ * the results.  Returns 1 if any geometry was found, 0 otherwise.
+ */
+BV_EXPORT int bv_scene_bbox(const struct bv_scene *scene, point_t *out_min, point_t *out_max);
+
+/*
+ * Use as 'scale_factor' to bview_autoview_new() to reproduce the same 2×
+ * radial factor used by the legacy bv_autoview().
+ * (Also defined in bv/util.h for the legacy API; the value is identical.)
+ */
+#ifndef BV_AUTOVIEW_SCALE_DEFAULT
+#  define BV_AUTOVIEW_SCALE_DEFAULT -1
+#endif
+
+/*
+ * Auto-position the camera in a bview_new to fit all visible geometry.
+ *
+ * Analog of bv_autoview() for the new scene graph API.  Computes the
+ * AABB of all visible geometry in 'scene' using bv_scene_bbox(), then
+ * repositions view->camera so the scene fills the viewport.
+ *
+ * 'scale_factor' controls the camera distance from the scene center:
+ *   BV_AUTOVIEW_SCALE_DEFAULT (-1) uses the same 2× radial factor as
+ *   the legacy bv_autoview(): camera is placed 2 * radius from center.
+ *   Any positive value 'f' places the camera f * radius away from the
+ *   scene center along the current viewing direction.
+ *
+ * The camera target is set to the scene center.  The camera position is
+ * moved along the current eye-to-target direction (derived from the
+ * current camera position and target) to achieve the requested distance.
+ * If the current camera has no meaningful eye/target separation the
+ * camera is moved along +Z.  The camera.up and perspective fields are
+ * not altered.
+ *
+ * Returns 1 if camera was updated, 0 if the scene was empty (camera
+ * unchanged).
+ */
+BV_EXPORT int bview_autoview_new(struct bview_new *view, const struct bv_scene *scene, double scale_factor);
 
 /* --- Migration Helpers (optional) --- */
 
 /* Sync with legacy struct during migration */
-void bview_from_old(struct bview_new *view, const struct bview *old);
-void bview_to_old(const struct bview_new *view, struct bview *old);
-struct bview *bview_old_get(const struct bview_new *view);
+BV_EXPORT void bview_from_old(struct bview_new *view, const struct bview *old);
+BV_EXPORT void bview_to_old(const struct bview_new *view, struct bview *old);
+BV_EXPORT struct bview *bview_old_get(const struct bview_new *view);
+
+/*
+ * Associate a legacy struct bview pointer with this bview_new without
+ * performing a full copy of the camera/appearance fields.
+ *
+ * This is the setter counterpart to bview_old_get().  Use it when you hold a
+ * pre-existing bview that you want the new-API code to be able to find via
+ * bview_old_get(), without overwriting the new view's camera or settings.
+ *
+ * For a full synchronising copy from the legacy struct use bview_from_old().
+ */
+BV_EXPORT void bview_old_set(struct bview_new *view, struct bview *old);
+
+/*
+ * Create a bview_new companion for an existing legacy struct bview.
+ *
+ * This is the standard first step for migrating code that currently calls
+ * bv_init() to the new API.  It is equivalent to:
+ *
+ *   nv = bview_create(name);
+ *   bview_from_old(nv, old);   // copy initial camera + appearance state
+ *   bview_old_set(nv, old);    // wire the back-pointer
+ *
+ * Typical usage during incremental migration:
+ *
+ *   // ---- existing code (kept unchanged) ----
+ *   BU_ALLOC(v, struct bview);
+ *   bv_init(v, &ged_views);
+ *   // ---- new companion for new-API callers ----
+ *   struct bview_new *nv = bview_companion_create("default", v);
+ *   // ... pass nv to new-API functions; v continues to work with legacy code
+ *   // ---- teardown ----
+ *   bview_destroy(nv);
+ *   bv_free(v);
+ *   BU_FREE(v, struct bview);
+ *
+ * The returned bview_new must be destroyed with bview_destroy().  The legacy
+ * struct bview is NOT owned by the companion; the caller continues to manage
+ * it with bv_free() + BU_PUT / bu_free as before.
+ *
+ * Returns NULL if old is NULL.
+ */
+BV_EXPORT struct bview_new *bview_companion_create(const char *name, struct bview *old);
+
+/*
+ * Synchronize a bview_new companion with the current state of its legacy
+ * struct bview (pulled from bview_old_get()).
+ *
+ * This is a convenience wrapper for the common loop pattern:
+ *
+ *   bview_from_old(nv, bview_old_get(nv));
+ *
+ * It is a no-op if nv is NULL or has no associated legacy view
+ * (bview_old_get(nv) == NULL).
+ *
+ * Use this at the top of a new-API rendering call when the legacy view may
+ * have been modified by legacy code since the companion was last synced.
+ */
+BV_EXPORT void bview_sync_from_old(struct bview_new *view);
+
+/*
+ * Push the current state of a bview_new companion back to its associated
+ * legacy struct bview (obtained via bview_old_get()).
+ *
+ * This is a convenience wrapper for:
+ *
+ *   bview_to_old(nv, bview_old_get(nv));
+ *
+ * It is a no-op if nv is NULL or has no associated legacy view.
+ *
+ * Use this after new-API code modifies the view (e.g., autoview, camera
+ * set) so the legacy rendering path picks up the change on the next draw.
+ */
+BV_EXPORT void bview_sync_to_old(struct bview_new *view);
+
+/*
+ * Apply BRL-CAD default settings to a bview_new instance.
+ *
+ * Sets the same initial values for camera, viewport, appearance, and overlay
+ * that bv_init() / bv_settings_init() establish for a legacy struct bview.
+ * Useful when creating a new bview_new from scratch (not migrated from an old
+ * bview) to ensure all fields start from a consistent state.
+ */
+BV_EXPORT void bview_settings_apply(struct bview_new *view);
+
+/*
+ * Wrap a legacy bv_scene_obj in a new bv_node for use in the new scene graph
+ * API.  Children of s are recursively wrapped.
+ *
+ * The original bv_scene_obj pointer is stored in the returned node's
+ * user_data field so callers can recover it via bv_node_user_data_get().
+ *
+ * The caller is responsible for the lifecycle of both the returned bv_node
+ * (use bv_node_destroy()) and the original bv_scene_obj.  No ownership is
+ * transferred.
+ *
+ * Returns NULL if s is NULL.
+ */
+BV_EXPORT struct bv_node *bv_scene_obj_to_node(struct bv_scene_obj *s);
+
+/*
+ * Create a bv_scene populated with bv_node wrappers for every db_obj and
+ * view_obj visible in legacy bview v.  Each top-level bv_scene_obj becomes a
+ * direct child of the scene root; their children become sub-nodes.
+ *
+ * Returns a newly allocated bv_scene that the caller must destroy with
+ * bv_scene_destroy() when done.  Returns NULL if v is NULL.
+ */
+BV_EXPORT struct bv_scene *bv_scene_from_view(const struct bview *v);
+
+/*
+ * Create a bv_scene populated from all shared scene objects stored in a
+ * bview_set.  Each shared db_obj / view_obj becomes a child of the scene root.
+ *
+ * Returns a newly allocated bv_scene that the caller must destroy with
+ * bv_scene_destroy() when done.  Returns NULL if s is NULL.
+ */
+BV_EXPORT struct bv_scene *bv_scene_from_view_set(const struct bview_set *s);
+
+/*
+ * Convenience wrapper: wrap a legacy bv_scene_obj in a new bv_node and add
+ * it to scene in a single call.  Equivalent to:
+ *
+ *   struct bv_node *n = bv_scene_obj_to_node(obj);
+ *   bv_scene_add_node(scene, n);
+ *
+ * This is the intended migration path for call sites that currently call
+ * bu_ptbl_ins() directly into gv_objs.db_objs or gv_objs.view_objs.
+ *
+ * The returned bv_node is owned by the scene and will be freed by
+ * bv_scene_destroy().  The bv_scene_obj is NOT owned; the caller continues
+ * to manage it with the legacy API.
+ *
+ * Returns the newly created bv_node, or NULL if either argument is NULL.
+ */
+BV_EXPORT struct bv_node *bv_scene_insert_obj(struct bv_scene *scene, struct bv_scene_obj *obj);
+
+/*
+ * Insert a legacy bv_scene_obj into the scene associated with view.
+ *
+ * If view has no scene yet, a new bv_scene is created and associated with
+ * view (via bview_scene_set).
+ *
+ * This is the new-API counterpart of:
+ *   bu_ptbl_ins(&v->gv_objs.db_objs, (long *)obj)
+ * for code that holds a struct bview_new* rather than a struct bview*.
+ *
+ * Returns the newly created bv_node wrapper, or NULL if obj is NULL or view
+ * is NULL.
+ */
+BV_EXPORT struct bv_node *bview_insert_obj(struct bview_new *view, struct bv_scene_obj *obj);
+
+/*
+ * Find the bv_node in scene whose user_data pointer equals obj.
+ * Uses a linear traversal; O(n) in the number of scene nodes.
+ *
+ * Returns the first matching node, or NULL if not found or either
+ * argument is NULL.
+ */
+BV_EXPORT struct bv_node *bv_scene_find_obj(const struct bv_scene *scene,
+                                             const struct bv_scene_obj *obj);
+
+/*
+ * Remove and destroy the bv_node wrapper for obj from scene.
+ *
+ * This is the inverse of bv_scene_insert_obj().  It finds the node whose
+ * user_data == obj (via bv_scene_find_obj()), removes it from the scene
+ * with bv_scene_remove_node(), and frees it with bv_node_destroy().
+ *
+ * The bv_scene_obj itself is NOT freed; the caller continues to manage it
+ * with the legacy API.
+ *
+ * Returns 1 if a node was found and removed, 0 if no matching node exists or
+ * either argument is NULL.
+ */
+BV_EXPORT int bv_scene_remove_obj(struct bv_scene *scene, const struct bv_scene_obj *obj);
+
+/*
+ * Convenience wrapper: remove the bv_node wrapper for obj from the scene
+ * associated with view.
+ *
+ * Equivalent to:
+ *   bv_scene_remove_obj(bview_scene_get(view), obj)
+ *
+ * Returns 1 if removed, 0 if no scene, no matching node, or either argument
+ * is NULL.
+ */
+BV_EXPORT int bview_remove_obj(struct bview_new *view, const struct bv_scene_obj *obj);
 
 /*******************************************************************************/
 /*              EXPERIMENTAL EXPERIMENTAL EXPERIMENTAL - END                   */

@@ -207,6 +207,13 @@ mark_as_advanced(BRLCAD_ENABLE_STEP)
 option(BRLCAD_ENABLE_QT "Enable features requiring Qt" OFF)
 mark_as_advanced(BRLCAD_ENABLE_QT)
 
+# Enable the Obol/Inventor scene-graph rendering backend in libbv.
+# When ON and the Obol library is found (either as a source-tree sibling in
+# obol/ or via an installed package), libbv gains bv_render_ctx and the
+# bv_render_frame() path that renders through the Obol SoSceneManager.
+option(BRLCAD_ENABLE_OBOL "Enable the Obol/Inventor scene-graph rendering backend" OFF)
+mark_as_advanced(BRLCAD_ENABLE_OBOL)
+
 # Enable features requiring OpenSceneGraph
 option(BRLCAD_ENABLE_OSG "Enable features requiring OpenSceneGraph" OFF)
 mark_as_advanced(BRLCAD_ENABLE_OSG)

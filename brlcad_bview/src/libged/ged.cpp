@@ -111,6 +111,7 @@ ged_init(struct ged *gedp)
     // View related containers
     bv_set_init(&gedp->ged_views);
     BU_PTBL_INIT(&gedp->ged_free_views);
+    BU_PTBL_INIT(&gedp->ged_free_view_companions);
 
     /* TODO: If we're init-ing the list here, does that mean the gedp has
      * ownership of all solid objects created and stored here, and should we
@@ -124,6 +125,11 @@ ged_init(struct ged *gedp)
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
     bv_set_add_view(&gedp->ged_views, gedp->ged_gvp);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)gedp->ged_gvp);
+    // Create new-API companion for ged_gvp; stored separately as ged_gvnv.
+    gedp->ged_gvnv = bview_companion_create("default", gedp->ged_gvp);
+    // The companion for ged_gvp is NOT added to ged_free_view_companions
+    // (it is freed directly via ged_gvnv in ged_free()).
+    bu_ptbl_ins(&gedp->ged_free_view_companions, (long *)NULL);
 
     /* Create a non-opened fbserv */
     BU_GET(gedp->ged_fbs, struct fbserv_obj);
@@ -201,13 +207,20 @@ ged_free(struct ged *gedp)
 
     bu_vls_free(&gedp->go_name);
 
+    // Destroy ged_gvp's dedicated companion (index 0 sentinel in free_view_companions).
+    bview_destroy(gedp->ged_gvnv);
+    gedp->ged_gvnv = NULL;
     gedp->ged_gvp = NULL;
 
     for (size_t i = 0; i < BU_PTBL_LEN(&gedp->ged_free_views); i++) {
+	// Destroy the bview_new companion for this view (may be NULL for ged_gvp slot).
+	struct bview_new *nv = (struct bview_new *)BU_PTBL_GET(&gedp->ged_free_view_companions, i);
+	bview_destroy(nv);
 	struct bview *gdvp = (struct bview *)BU_PTBL_GET(&gedp->ged_free_views, i);
 	bv_free(gdvp);
 	bu_free((void *)gdvp, "bv");
     }
+    bu_ptbl_free(&gedp->ged_free_view_companions);
     bu_ptbl_free(&gedp->ged_free_views);
     bv_set_free(&gedp->ged_views);
 

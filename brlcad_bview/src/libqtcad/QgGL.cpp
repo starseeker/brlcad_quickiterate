@@ -53,6 +53,8 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
     bv_init(local_v, NULL);
     bu_vls_sprintf(&local_v->gv_name, "qtgl");
     v = local_v;
+    // Create a bview_new companion so new-API code can use this widget's view.
+    local_nv = bview_companion_create("qtgl", local_v);
 
     // We can't initialize dmp successfully until more of the OpenGL
     // initialization is complete
@@ -78,6 +80,8 @@ QgGL::~QgGL()
     if (ifp && !fb_get_standalone(ifp)) {
 	fb_close_existing(ifp);
     }
+    bview_destroy(local_nv);
+    local_nv = NULL;
     BU_PUT(local_v, struct bv);
 }
 

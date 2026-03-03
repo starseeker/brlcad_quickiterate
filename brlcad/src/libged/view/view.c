@@ -31,6 +31,7 @@
 
 #include "bu/cmd.h"
 #include "bu/vls.h"
+#include "bv/view_sets.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -155,7 +156,8 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bview *v = bv_set_find_view(&gedp->ged_views, argv[0]);
+    struct bview_new *nv = bv_viewset_find_new(&gedp->ged_views, argv[0]);
+    struct bview *v = nv ? bview_old_get(nv) : NULL;
     if (!v) {
 	bu_vls_printf(gedp->ged_result_str, "view %s not found\n", argv[0]);
 	return BRLCAD_ERROR;
@@ -214,13 +216,15 @@ _view_cmd_list(void *bs, int argc, const char **argv)
     }
 
     struct ged *gedp = gd->gedp;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bv_viewset_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	/* Prefer name from new-API companion if available */
+	const char *vname = (v->gv_nv) ? bview_name_get(v->gv_nv) : bu_vls_cstr(&v->gv_name);
 	if (v != gedp->ged_gvp) {
-	    bu_vls_printf(gedp->ged_result_str, "  %s\n", bu_vls_cstr(&v->gv_name));
+	    bu_vls_printf(gedp->ged_result_str, "  %s\n", vname);
 	} else {
-	    bu_vls_printf(gedp->ged_result_str, "* %s\n", bu_vls_cstr(&v->gv_name));
+	    bu_vls_printf(gedp->ged_result_str, "* %s\n", vname);
 	}
     }
 
@@ -733,14 +737,8 @@ ged_view_core(struct ged *gedp, int argc, const char *argv[])
 
     // Either a view was specified, or we use the current view
     if (bu_vls_strlen(&vname)) {
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
-	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	    struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
-	    if (BU_STR_EQUAL(bu_vls_cstr(&vname), bu_vls_cstr(&v->gv_name))) {
-		gd.cv = v;
-		break;
-	    }
-	}
+	struct bview_new *cnv = bv_viewset_find_new(&gedp->ged_views, bu_vls_cstr(&vname));
+	gd.cv = cnv ? bview_old_get(cnv) : NULL;
 	if (!gd.cv) {
 	    bu_vls_printf(gedp->ged_result_str, ": invalid view name: %s", bu_vls_cstr(&vname));
 	    bu_vls_free(&vname);

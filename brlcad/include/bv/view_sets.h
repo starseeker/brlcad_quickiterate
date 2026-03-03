@@ -34,47 +34,90 @@
 __BEGIN_DECLS
 
 /**
- * Initialize an empty view set
+ * Initialize an empty view set.
+ * DEPRECATED: use bv_viewset_init() in new code.
  */
-BV_EXPORT void
+DEPRECATED BV_EXPORT void
 bv_set_init(struct bview_set *s);
 
 /**
- * Free view set
+ * Free view set.
+ * DEPRECATED: use bv_viewset_free() in new code.
  */
-BV_EXPORT void
+DEPRECATED BV_EXPORT void
 bv_set_free(struct bview_set *s);
 
 /**
  * Add view v to set s, handling shared memory assignments.
+ * DEPRECATED: use bv_viewset_add() in new code.
  */
-BV_EXPORT void
+DEPRECATED BV_EXPORT void
 bv_set_add_view(struct bview_set *s, struct bview *v);
 
 /**
  * Remove view v from set s.  If v == NULL, all views
  * are removed from the set.
+ * DEPRECATED: use bv_viewset_rm() in new code.
  */
-BV_EXPORT void
+DEPRECATED BV_EXPORT void
 bv_set_rm_view(struct bview_set *s, struct bview *v);
 
 /**
- * Return a bu_ptbl holding pointers to all views in set s
+ * Return a bu_ptbl holding pointers to all views in set s.
+ * DEPRECATED: use bv_viewset_views() in new code.
  */
-BV_EXPORT struct bu_ptbl *
+DEPRECATED BV_EXPORT struct bu_ptbl *
 bv_set_views(struct bview_set *s);
 
 /**
- * Return a pointer to the view with name vname, if it is present in s.  If not
- * found, returns NULL
+ * Return a pointer to the view with name vname, if it is present in s.
+ * DEPRECATED: use bv_viewset_find() in new code.
  */
-BV_EXPORT struct bview *
+DEPRECATED BV_EXPORT struct bview *
 bv_set_find_view(struct bview_set *s, const char *vname);
 
-
-// Expose free_scene_obj for older codes - do not use in new coding
-BV_EXPORT struct bv_scene_obj *
+/** Expose free_scene_obj for older codes.
+ * DEPRECATED: use bv_viewset_fso() in new code.
+ */
+DEPRECATED BV_EXPORT struct bv_scene_obj *
 bv_set_fsos(struct bview_set *s);
+
+
+/*
+ * Non-deprecated replacements for the bv_set_* family.
+ * These have the same behavior but are not marked deprecated, allowing
+ * incremental migration away from the old naming convention.
+ */
+
+/** Initialize an empty view set. */
+BV_EXPORT void bv_viewset_init(struct bview_set *s);
+
+/** Free view set resources. */
+BV_EXPORT void bv_viewset_free(struct bview_set *s);
+
+/** Add view v to set s. */
+BV_EXPORT void bv_viewset_add(struct bview_set *s, struct bview *v);
+
+/** Remove view v from set s (NULL removes all). */
+BV_EXPORT void bv_viewset_rm(struct bview_set *s, struct bview *v);
+
+/** Return a bu_ptbl of all bview pointers in set s. */
+BV_EXPORT struct bu_ptbl *bv_viewset_views(struct bview_set *s);
+
+/** Return the view with name vname, or NULL if not found. */
+BV_EXPORT struct bview *bv_viewset_find(struct bview_set *s, const char *vname);
+
+/**
+ * Return the new-API companion (bview_new *) for the view named vname, or
+ * NULL if not found or if the view has no companion yet.
+ *
+ * This is the new-API equivalent of bv_viewset_find() for code that has
+ * been migrated to use bview_new * rather than struct bview *.
+ */
+BV_EXPORT struct bview_new *bv_viewset_find_new(struct bview_set *s, const char *vname);
+
+/** Return the head of the free-scene-object pool for set s. */
+BV_EXPORT struct bv_scene_obj *bv_viewset_fso(struct bview_set *s);
 
 
 __END_DECLS

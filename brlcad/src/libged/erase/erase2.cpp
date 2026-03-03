@@ -51,7 +51,8 @@ ged_erase2_core(struct ged *gedp, int argc, const char *argv[])
 {
     static const char *usage = "[object(s)]";
     const char *cmdName = argv[0];
-    struct bview *v = gedp->ged_gvp;
+    struct bview_new *nv = gedp->ged_gvnv;
+    struct bview *v = gedp->ged_gvp;   /* legacy pointer for systems not yet migrated */
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
@@ -74,14 +75,15 @@ ged_erase2_core(struct ged *gedp, int argc, const char *argv[])
     int opt_ret = bu_opt_parse(NULL, argc, argv, vd);
     argc = opt_ret;
     if (bu_vls_strlen(&cvls)) {
-	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
-	if (!v) {
+	nv = bv_viewset_find_new(&gedp->ged_views, bu_vls_cstr(&cvls));
+	if (!nv) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
 	    return BRLCAD_ERROR;
 	}
+	v = bview_old_get(nv);
 
-	if (!v->independent) {
+	if (v && !v->independent) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s is not an independent view, and as such does not support specifying db objects for display in only this view.  To change the view's status, the command 'view independent %s 1' may be applied.\n", bu_vls_cstr(&cvls), bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
 	    return BRLCAD_ERROR;

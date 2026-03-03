@@ -217,6 +217,9 @@ struct _view_state {
     int		vs_flag;
 
     struct bview *vs_gvp;
+    /* New-API companion for vs_gvp (Phase 1 migration).
+     * Created alongside vs_gvp in mged setup; destroyed when vs_gvp is freed. */
+    struct bview_new *vs_nvp;
     mat_t	vs_model2objview;
     mat_t	vs_objview2model;
     mat_t	vs_ModelDelta;		/* changes to Viewrot this frame */

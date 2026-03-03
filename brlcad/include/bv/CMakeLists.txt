@@ -7,6 +7,7 @@ set(
   lod.h
   plot3.h
   polygon.h
+  render.h
   snap.h
   tcl_data.h
   tig.h
