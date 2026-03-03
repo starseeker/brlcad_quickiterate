@@ -200,6 +200,15 @@ bv_node_children(const struct bv_node *node)
 }
 
 
+size_t
+bv_node_child_count(const struct bv_node *node)
+{
+    if (!node)
+	return 0;
+    return BU_PTBL_LEN(&node->children);
+}
+
+
 void
 bv_node_visible_set(struct bv_node *node, int visible)
 {
@@ -623,6 +632,16 @@ bv_scene_node_count(const struct bv_scene *scene)
     if (!scene)
 	return 0;
     return BU_PTBL_LEN(&scene->nodes);
+}
+
+
+int
+bv_scene_has_node(const struct bv_scene *scene, const struct bv_node *node)
+{
+    if (!scene || !node)
+	return 0;
+    /* bu_ptbl_locate returns -1 if not found, >= 0 if found */
+    return (bu_ptbl_locate(&scene->nodes, (long *)node) >= 0) ? 1 : 0;
 }
 
 
