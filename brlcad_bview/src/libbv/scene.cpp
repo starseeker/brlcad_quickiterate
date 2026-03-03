@@ -1119,6 +1119,30 @@ bview_companion_create(const char *name, struct bview *old)
 }
 
 
+void
+bview_sync_from_old(struct bview_new *view)
+{
+    if (!view)
+	return;
+    struct bview *old = bview_old_get(view);
+    if (!old)
+	return;
+    bview_from_old(view, old);
+}
+
+
+void
+bview_sync_to_old(struct bview_new *view)
+{
+    if (!view)
+	return;
+    struct bview *old = bview_old_get(view);
+    if (!old)
+	return;
+    bview_to_old(view, old);
+}
+
+
 /* ================================================================
  * bview_settings_apply
  *
@@ -1803,6 +1827,32 @@ bv_scene_find_obj(const struct bv_scene *scene, const struct bv_scene_obj *obj)
 
     bv_scene_traverse(scene, _find_obj_cb, &st);
     return st.result;
+}
+
+
+int
+bv_scene_remove_obj(struct bv_scene *scene, const struct bv_scene_obj *obj)
+{
+    if (!scene || !obj)
+	return 0;
+
+    struct bv_node *n = bv_scene_find_obj(scene, obj);
+    if (!n)
+	return 0;
+
+    bv_scene_remove_node(scene, n);
+    bv_node_destroy(n);
+    return 1;
+}
+
+
+int
+bview_remove_obj(struct bview_new *view, const struct bv_scene_obj *obj)
+{
+    if (!view || !obj)
+	return 0;
+
+    return bv_scene_remove_obj(bview_scene_get(view), obj);
 }
 
 

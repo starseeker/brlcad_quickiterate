@@ -128,7 +128,7 @@ ged_init(struct ged *gedp)
     // Create new-API companion for ged_gvp; stored separately as ged_gvnv.
     gedp->ged_gvnv = bview_companion_create("default", gedp->ged_gvp);
     // The companion for ged_gvp is NOT added to ged_free_view_companions
-    // (it is freed by name via ged_gvnv in ged_free()).
+    // (it is freed directly via ged_gvnv in ged_free()).
     bu_ptbl_ins(&gedp->ged_free_view_companions, (long *)NULL);
 
     /* Create a non-opened fbserv */

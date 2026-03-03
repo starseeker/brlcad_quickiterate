@@ -684,6 +684,37 @@ BV_EXPORT void bview_old_set(struct bview_new *view, struct bview *old);
 BV_EXPORT struct bview_new *bview_companion_create(const char *name, struct bview *old);
 
 /*
+ * Synchronize a bview_new companion with the current state of its legacy
+ * struct bview (pulled from bview_old_get()).
+ *
+ * This is a convenience wrapper for the common loop pattern:
+ *
+ *   bview_from_old(nv, bview_old_get(nv));
+ *
+ * It is a no-op if nv is NULL or has no associated legacy view
+ * (bview_old_get(nv) == NULL).
+ *
+ * Use this at the top of a new-API rendering call when the legacy view may
+ * have been modified by legacy code since the companion was last synced.
+ */
+BV_EXPORT void bview_sync_from_old(struct bview_new *view);
+
+/*
+ * Push the current state of a bview_new companion back to its associated
+ * legacy struct bview (obtained via bview_old_get()).
+ *
+ * This is a convenience wrapper for:
+ *
+ *   bview_to_old(nv, bview_old_get(nv));
+ *
+ * It is a no-op if nv is NULL or has no associated legacy view.
+ *
+ * Use this after new-API code modifies the view (e.g., autoview, camera
+ * set) so the legacy rendering path picks up the change on the next draw.
+ */
+BV_EXPORT void bview_sync_to_old(struct bview_new *view);
+
+/*
  * Apply BRL-CAD default settings to a bview_new instance.
  *
  * Sets the same initial values for camera, viewport, appearance, and overlay
@@ -769,6 +800,33 @@ BV_EXPORT struct bv_node *bview_insert_obj(struct bview_new *view, struct bv_sce
  */
 BV_EXPORT struct bv_node *bv_scene_find_obj(const struct bv_scene *scene,
                                              const struct bv_scene_obj *obj);
+
+/*
+ * Remove and destroy the bv_node wrapper for obj from scene.
+ *
+ * This is the inverse of bv_scene_insert_obj().  It finds the node whose
+ * user_data == obj (via bv_scene_find_obj()), removes it from the scene
+ * with bv_scene_remove_node(), and frees it with bv_node_destroy().
+ *
+ * The bv_scene_obj itself is NOT freed; the caller continues to manage it
+ * with the legacy API.
+ *
+ * Returns 1 if a node was found and removed, 0 if no matching node exists or
+ * either argument is NULL.
+ */
+BV_EXPORT int bv_scene_remove_obj(struct bv_scene *scene, const struct bv_scene_obj *obj);
+
+/*
+ * Convenience wrapper: remove the bv_node wrapper for obj from the scene
+ * associated with view.
+ *
+ * Equivalent to:
+ *   bv_scene_remove_obj(bview_scene_get(view), obj)
+ *
+ * Returns 1 if removed, 0 if no scene, no matching node, or either argument
+ * is NULL.
+ */
+BV_EXPORT int bview_remove_obj(struct bview_new *view, const struct bv_scene_obj *obj);
 
 /*******************************************************************************/
 /*              EXPERIMENTAL EXPERIMENTAL EXPERIMENTAL - END                   */

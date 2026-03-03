@@ -494,6 +494,18 @@ Note: full `bu_ptbl_ins` call-site migration in the broader BRL-CAD source requi
 the complete brlcad tree which is not part of `brlcad_bview`; the helpers are ready
 for that integration.
 
+**Additional Phase 1/2 migration conveniences added this session:**
+
+| Function | Purpose |
+|----------|---------|
+| `bv_scene_remove_obj(scene, obj)` | Inverse of `bv_scene_insert_obj`: find node for obj, remove + destroy it. |
+| `bview_remove_obj(view, obj)` | Same but via `bview_new*`; counterpart of `bview_insert_obj`. |
+| `bview_sync_from_old(view)` | Re-sync companion from its legacy view. One-liner for the update loop. |
+| `bview_sync_to_old(view)` | Push companion changes to the legacy view. Replaces manual `bview_to_old`. |
+
+2 additional tests for sync functions (`bview_sync_from_old`, `bview_sync_to_old`)
+and 2 for remove helpers bring the Phase 2 test total to 8 new tests (116 total).
+
 ### Phase 3 – View sets + selection (COMPLETE)
 
 Goals and status:
@@ -686,6 +698,10 @@ repository.
 | `bv_scene_insert_obj()` — wrap obj + add to scene in one call | Phase 2 | ✅ COMPLETE |
 | `bview_insert_obj()` — insert obj into view's scene (auto-creates scene) | Phase 2 | ✅ COMPLETE |
 | `bv_scene_find_obj()` — find node by legacy bv_scene_obj pointer | Phase 2 | ✅ COMPLETE |
+| `bv_scene_remove_obj()` — inverse of insert_obj | Phase 2 | ✅ COMPLETE |
+| `bview_remove_obj()` — remove from view's scene | Phase 2 | ✅ COMPLETE |
+| `bview_sync_from_old()` — re-sync companion from legacy view | Phase 1 | ✅ COMPLETE |
+| `bview_sync_to_old()` — push companion changes to legacy view | Phase 1 | ✅ COMPLETE |
 | **Phase 2 COMPLETE** — all scene-object bridge helpers implemented | Phase 2 | ✅ COMPLETE |
 | Replace `bu_ptbl_ins(gv_objs.db_objs)` with `bv_scene_add_node()` | Phase 2 | ℹ️ N/A in brlcad_bview (`bv_scene_add_node` already implemented; call-site migration requires full brlcad source) |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |
@@ -759,6 +775,11 @@ bv_init(v, &ged_views);
 /* ---- one-line addition for new-API callers ---- */
 struct bview_new *nv = bview_companion_create("default", v);
 /* bview_old_get(nv) == v; camera.scale synced from v->gv_scale */
+
+/* ---- syncing during the per-frame update loop ---- */
+bview_sync_from_old(nv);          /* re-pull from v (if legacy code modified v) */
+/* ... call new-API rendering / LoD / selection functions ... */
+bview_sync_to_old(nv);            /* push any new-API changes back to v */
 
 /* ---- teardown ---- */
 bview_destroy(nv);          /* companion destroyed */

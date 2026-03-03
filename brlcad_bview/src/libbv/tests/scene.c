@@ -3471,6 +3471,195 @@ test_bv_scene_find_obj_basic(void)
     return 1;
 }
 
+static int
+test_bv_scene_remove_obj_basic(void)
+{
+    struct bview_set  vset;
+    struct bview      v;
+    struct bv_scene  *scene;
+    int ret;
+    const struct bu_ptbl *nodes;
+
+    bv_set_init(&vset);
+    memset(&v, 0, sizeof(v));
+    bv_init(&v, &vset);
+
+    scene = bv_scene_create();
+    if (!scene) { bv_free(&v); bv_set_free(&vset); return 0; }
+
+    struct bv_scene_obj *obj = bv_obj_get(&v, BV_VIEWONLY);
+    CHECK(obj != NULL, "obj created");
+    if (!obj) { bv_scene_destroy(scene); bv_free(&v); bv_set_free(&vset); return 0; }
+
+    bv_scene_insert_obj(scene, obj);
+
+    /* Should find it in the scene */
+    nodes = bv_scene_nodes(scene);
+    CHECK(nodes != NULL && BU_PTBL_LEN(nodes) == 1, "scene has 1 node after insert");
+
+    /* Remove it */
+    ret = bv_scene_remove_obj(scene, obj);
+    CHECK(ret == 1, "remove_obj returns 1 for known obj");
+
+    nodes = bv_scene_nodes(scene);
+    CHECK(nodes == NULL || BU_PTBL_LEN(nodes) == 0, "scene empty after remove");
+
+    /* Removing again must return 0 (not crash) */
+    ret = bv_scene_remove_obj(scene, obj);
+    CHECK(ret == 0, "remove_obj returns 0 for already-removed obj");
+
+    /* NULL safety */
+    CHECK(bv_scene_remove_obj(NULL, obj) == 0, "remove_obj(NULL, obj) == 0");
+    CHECK(bv_scene_remove_obj(scene, NULL) == 0, "remove_obj(scene, NULL) == 0");
+
+    bv_scene_destroy(scene);
+    bv_free(&v);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_remove_obj_roundtrip(void)
+{
+    /* Insert via bview_insert_obj, remove via bview_remove_obj */
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    memset(&old, 0, sizeof(old));
+    bv_init(&old, &vset);
+
+    nv = bview_companion_create("rtrip", &old);
+    CHECK(nv != NULL, "companion created");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    struct bv_scene_obj *obj = bv_obj_get(&old, BV_VIEWONLY);
+    CHECK(obj != NULL, "obj created");
+    if (!obj) { bview_destroy(nv); bv_free(&old); bv_set_free(&vset); return 0; }
+
+    /* insert */
+    struct bv_node *n = bview_insert_obj(nv, obj);
+    CHECK(n != NULL, "insert returns node");
+    CHECK(bview_scene_get(nv) != NULL, "scene created");
+
+    /* find must succeed */
+    CHECK(bv_scene_find_obj(bview_scene_get(nv), obj) == n,
+	  "find returns same node");
+
+    /* remove */
+    int r = bview_remove_obj(nv, obj);
+    CHECK(r == 1, "remove returns 1");
+
+    /* find must now fail */
+    CHECK(bv_scene_find_obj(bview_scene_get(nv), obj) == NULL,
+	  "find returns NULL after remove");
+
+    /* second remove must return 0 */
+    r = bview_remove_obj(nv, obj);
+    CHECK(r == 0, "second remove returns 0");
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_sync_from_old(void)
+{
+    /* Modify the legacy view after companion creation; sync_from_old must update companion */
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    memset(&old, 0, sizeof(old));
+    bv_init(&old, &vset);
+    old.gv_scale = 100.0;
+    old.gv_size  = 200.0;
+    old.gv_isize = 1.0 / 200.0;
+
+    nv = bview_companion_create("sync_from_old", &old);
+    CHECK(nv != NULL, "companion created");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    /* Initial camera.scale from creation */
+    CHECK(fabs(bview_camera_scale_get(nv) - 100.0) < 1e-10,
+	  "initial camera.scale == 100");
+
+    /* Now modify the legacy view directly */
+    old.gv_scale = 777.0;
+    old.gv_size  = 1554.0;
+    old.gv_isize = 1.0 / 1554.0;
+
+    /* Companion still has old value */
+    CHECK(fabs(bview_camera_scale_get(nv) - 100.0) < 1e-10,
+	  "camera.scale still 100 before sync");
+
+    /* Sync from old */
+    bview_sync_from_old(nv);
+    CHECK(fabs(bview_camera_scale_get(nv) - 777.0) < 1e-10,
+	  "camera.scale == 777 after sync_from_old");
+
+    /* NULL safety */
+    bview_sync_from_old(NULL);  /* must not crash */
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
+static int
+test_bview_sync_to_old(void)
+{
+    /* Modify companion; sync_to_old must propagate to legacy view */
+    struct bview_set  vset;
+    struct bview      old;
+    struct bview_new *nv;
+
+    bv_set_init(&vset);
+    memset(&old, 0, sizeof(old));
+    bv_init(&old, &vset);
+    old.gv_scale = 50.0;
+    old.gv_size  = 100.0;
+    old.gv_isize = 1.0 / 100.0;
+
+    nv = bview_companion_create("sync_to_old", &old);
+    CHECK(nv != NULL, "companion created");
+    if (!nv) { bv_free(&old); bv_set_free(&vset); return 0; }
+
+    /* Modify companion scale */
+    bview_camera_scale_set(nv, 888.0);
+
+    /* Legacy view still has old value */
+    CHECK(fabs(old.gv_scale - 50.0) < 1e-10,
+	  "legacy scale still 50 before sync");
+
+    /* Sync to old */
+    bview_sync_to_old(nv);
+    CHECK(fabs(old.gv_scale - 888.0) < 1e-10,
+	  "legacy scale == 888 after sync_to_old");
+    CHECK(fabs(old.gv_size - 1776.0) < 1e-10,
+	  "legacy gv_size == 2*scale after sync_to_old");
+
+    /* NULL safety */
+    bview_sync_to_old(NULL);  /* must not crash */
+
+    /* Companion with no old view */
+    {
+	struct bview_new *standalone = bview_create("standalone");
+	bview_sync_to_old(standalone);  /* must not crash */
+	bview_destroy(standalone);
+    }
+
+    bview_destroy(nv);
+    bv_free(&old);
+    bv_set_free(&vset);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -3592,6 +3781,10 @@ static struct test_entry scene_tests[] = {
     { "scene_insert_obj_basic",       test_bv_scene_insert_obj_basic          },
     { "bview_insert_obj_creates_scene", test_bview_insert_obj_creates_scene   },
     { "scene_find_obj_basic",         test_bv_scene_find_obj_basic            },
+    { "scene_remove_obj_basic",       test_bv_scene_remove_obj_basic          },
+    { "bview_remove_obj_roundtrip",   test_bview_remove_obj_roundtrip         },
+    { "bview_sync_from_old",          test_bview_sync_from_old                },
+    { "bview_sync_to_old",            test_bview_sync_to_old                  },
     { NULL, NULL }
 };
 
