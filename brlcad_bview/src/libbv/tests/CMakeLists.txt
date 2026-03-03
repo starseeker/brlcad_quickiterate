@@ -200,6 +200,7 @@ set(bview_scene_tests
   scene_total_node_count
   scene_add_nodes
   scene_visible_nodes
+  scene_set_all_visible
 )
 foreach(tname ${bview_scene_tests})
   brlcad_add_test(NAME bview_scene_${tname} COMMAND bview_test scene ${tname})

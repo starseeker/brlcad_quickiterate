@@ -729,6 +729,41 @@ bv_scene_clear(struct bv_scene *scene)
 }
 
 
+/* Callback state for bv_scene_set_all_visible */
+struct _set_visible_state {
+    int    visible;
+    size_t changed;
+};
+
+static void
+_set_visible_cb(struct bv_node *node, void *user_data)
+{
+    struct _set_visible_state *st = (struct _set_visible_state *)user_data;
+    if (!node || !st)
+	return;
+    if (node->type == BV_NODE_SEPARATOR)
+	return;
+    if (node->visible != st->visible) {
+	node->visible = st->visible;
+	st->changed++;
+    }
+}
+
+size_t
+bv_scene_set_all_visible(struct bv_scene *scene, int visible)
+{
+    if (!scene)
+	return 0;
+
+    struct _set_visible_state st;
+    st.visible = visible ? 1 : 0;
+    st.changed = 0;
+
+    bv_scene_traverse(scene, _set_visible_cb, &st);
+    return st.changed;
+}
+
+
 void
 bv_scene_add_child(struct bv_scene *scene, struct bv_node *parent, struct bv_node *child)
 {

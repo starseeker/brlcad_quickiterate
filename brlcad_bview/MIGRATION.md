@@ -736,6 +736,7 @@ repository.
 | `bv_scene_total_node_count()` — count all registered nodes (incl. nested) | Phase 2 | ✅ COMPLETE |
 | `bv_scene_add_nodes()` — bulk add from a `bu_ptbl` (no-dup semantics) | Phase 2 | ✅ COMPLETE |
 | `bv_scene_visible_nodes()` — collect all visible nodes (complements `bv_scene_selected_nodes`) | Phase 3 | ✅ COMPLETE |
+| `bv_scene_set_all_visible()` — batch set visibility on all nodes (returns change count) | Phase 3 | ✅ COMPLETE |
 | **Phase 2 COMPLETE** — all scene-object bridge helpers implemented | Phase 2 | ✅ COMPLETE |
 | Replace `bu_ptbl_ins(gv_objs.db_objs)` with `bv_scene_add_node()` | Phase 2 | ℹ️ N/A in brlcad_bview (`bv_scene_add_node` already implemented; call-site migration requires full brlcad source) |
 | obol/Coin3D bridge | Phase 5 | 🔲 PLANNED |

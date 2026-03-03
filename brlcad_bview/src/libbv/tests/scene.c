@@ -4063,6 +4063,46 @@ test_bv_scene_visible_nodes(void)
     return 1;
 }
 
+static int
+test_bv_scene_set_all_visible(void)
+{
+    CHECK(bv_scene_set_all_visible(NULL, 1) == 0, "set_all_visible(NULL)==0");
+
+    struct bv_scene *scene = bv_scene_create();
+    CHECK(scene != NULL, "scene created");
+    if (!scene) return 0;
+
+    /* Empty scene */
+    CHECK(bv_scene_set_all_visible(scene, 0) == 0, "empty scene changed==0");
+
+    /* 3 visible nodes */
+    struct bv_node *n1 = bv_node_create("sa1", BV_NODE_GEOMETRY);
+    struct bv_node *n2 = bv_node_create("sa2", BV_NODE_GEOMETRY);
+    struct bv_node *n3 = bv_node_create("sa3", BV_NODE_GEOMETRY);
+    /* all visible by default (visible=1) */
+    bv_scene_add_node(scene, n1);
+    bv_scene_add_node(scene, n2);
+    bv_scene_add_node(scene, n3);
+
+    /* Hide all */
+    size_t changed = bv_scene_set_all_visible(scene, 0);
+    CHECK(changed == 3, "3 nodes changed to hidden");
+    CHECK(bv_node_visible_get(n1) == 0, "n1 hidden");
+    CHECK(bv_node_visible_get(n2) == 0, "n2 hidden");
+    CHECK(bv_node_visible_get(n3) == 0, "n3 hidden");
+
+    /* Calling again with same value: no changes */
+    changed = bv_scene_set_all_visible(scene, 0);
+    CHECK(changed == 0, "0 changed when all already hidden");
+
+    /* Show all */
+    changed = bv_scene_set_all_visible(scene, 1);
+    CHECK(changed == 3, "3 nodes changed to visible");
+
+    bv_scene_destroy(scene);
+    return 1;
+}
+
 
 struct test_entry {
     const char *name;
@@ -4201,6 +4241,7 @@ static struct test_entry scene_tests[] = {
     { "scene_total_node_count",       test_bv_scene_total_node_count          },
     { "scene_add_nodes",              test_bv_scene_add_nodes                 },
     { "scene_visible_nodes",          test_bv_scene_visible_nodes             },
+    { "scene_set_all_visible",        test_bv_scene_set_all_visible           },
     { NULL, NULL }
 };
 
