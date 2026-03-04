@@ -490,7 +490,7 @@ ecmd_metaball_pt_del(struct rt_edit *s)
     } else
 	m->es_metaball_pnt = p;
     BU_LIST_DQ(&tmp->l);
-    free(tmp);
+    BU_PUT(tmp, struct wdb_metaball_pnt);
     if (!m->es_metaball_pnt)
 	bu_log("WARNING: Last point of this metaball has been deleted.");
 }
@@ -500,11 +500,12 @@ ecmd_metaball_pt_add(struct rt_edit *s)
 {
     struct rt_metaball_edit *m = (struct rt_metaball_edit *)s->ipe_ptr;
     struct rt_metaball_internal *metaball= (struct rt_metaball_internal *)s->es_int.idb_ptr;
-    struct wdb_metaball_pnt *n = (struct wdb_metaball_pnt *)malloc(sizeof(struct wdb_metaball_pnt));
+    struct wdb_metaball_pnt *n;
+    BU_GET(n, struct wdb_metaball_pnt);
 
     if (s->e_inpara != 3) {
 	bu_log("Must provide x y z");
-	bu_free(n, "wdb_metaball_pnt n");
+	BU_PUT(n, struct wdb_metaball_pnt);
 	return;
     }
 
@@ -588,8 +589,13 @@ rt_edit_metaball_edit(struct rt_edit *s)
 	case ECMD_METABALL_PT_ADD:
 	    ecmd_metaball_pt_add(s);
 	    break;
-	default:
+	case ECMD_METABALL_SET_THRESHOLD:
+	case ECMD_METABALL_SET_METHOD:
+	case ECMD_METABALL_PT_SET_GOO:
+	case ECMD_METABALL_PT_FLDSTR:
 	    return rt_edit_metaball_pscale(s);
+	default:
+	    return edit_generic(s);
     }
 
     return 0;
@@ -603,9 +609,6 @@ rt_edit_metaball_edit_xy(
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
-    struct rt_db_internal *ip = &s->es_int;
-    bu_clbk_t f = NULL;
-    void *d = NULL;
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
@@ -632,18 +635,8 @@ rt_edit_metaball_edit_xy(
 	    MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
 	    s->e_mvalid = 1;
 	    break;
-        case RT_PARAMS_EDIT_ROT:
-            bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing setup unimplemented in %s_edit_xy callback\n", EDOBJ[ip->idb_type].ft_label);
-            rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-            if (f)
-                (*f)(0, NULL, d, NULL);
-            return BRLCAD_ERROR;
 	default:
-	    bu_vls_printf(s->log_str, "%s: XY edit undefined in solid edit mode %d\n", EDOBJ[ip->idb_type].ft_label, s->edit_flag);
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    return edit_generic_xy(s, mousevec);
     }
 
     edit_abs_tra(s, pos_view);

@@ -183,37 +183,33 @@ ecmd_ebm_fname(struct rt_edit *s)
 int
 ecmd_ebm_height(struct rt_edit *s)
 {
-    bu_clbk_t f = NULL;
-    void *d = NULL;
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-    if (s->e_para[0] <= 0.0) {
-	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
-	s->e_inpara = 0;
-	return BRLCAD_ERROR;
-    }
-
-    /* must convert to base units */
-    s->e_para[0] *= s->local2base;
-    s->e_para[1] *= s->local2base;
-    s->e_para[2] *= s->local2base;
 
     struct rt_ebm_internal *ebm =
 	(struct rt_ebm_internal *)s->es_int.idb_ptr;
 
     RT_EBM_CK_MAGIC(ebm);
 
-    if (s->e_inpara == 1)
+    if (s->e_inpara) {
+	if (s->e_para[0] <= 0.0) {
+	    bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	/* convert e_para[0] to base units */
+	s->e_para[0] *= s->local2base;
+
 	ebm->tallness = s->e_para[0];
-    else if (s->e_inpara > 0) {
-	bu_vls_printf(s->log_str, "extrusion depth required\n");
-	rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	if (f)
-	    (*f)(0, NULL, d, NULL);
-	return BRLCAD_ERROR;
     } else if (s->es_scale > 0.0) {
 	ebm->tallness *= s->es_scale;
 	s->es_scale = 0.0;
@@ -250,6 +246,8 @@ rt_edit_ebm_edit(struct rt_edit *s)
 	    if (ecmd_ebm_height(s) != BRLCAD_OK)
 		return -1;
 	    break;
+	default:
+	    return edit_generic(s);
     }
 
     return 0;
@@ -262,9 +260,6 @@ rt_edit_ebm_edit_xy(
 	)
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
-    struct rt_db_internal *ip = &s->es_int;
-    bu_clbk_t f = NULL;
-    void *d = NULL;
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
@@ -276,18 +271,8 @@ rt_edit_ebm_edit_xy(
 	case RT_PARAMS_EDIT_TRANS:
 	    edit_stra_xy(&pos_view, s, mousevec);
 	    break;
-        case RT_PARAMS_EDIT_ROT:
-            bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing setup unimplemented in %s_edit_xy callback\n", EDOBJ[ip->idb_type].ft_label);
-            rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-            if (f)
-                (*f)(0, NULL, d, NULL);
-            return BRLCAD_ERROR;
 	default:
-	    bu_vls_printf(s->log_str, "%s: XY edit undefined in solid edit mode %d\n", EDOBJ[ip->idb_type].ft_label, s->edit_flag);
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    return edit_generic_xy(s, mousevec);
     }
 
     edit_abs_tra(s, pos_view);

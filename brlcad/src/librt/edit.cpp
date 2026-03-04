@@ -35,6 +35,7 @@ extern "C" {
 #include "bu/malloc.h"
 #include "bu/vls.h"
 #include "rt/edit.h"
+#include "rt/func.h"
 #include "rt/functab.h"
 }
 
@@ -94,7 +95,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     VSETALL(s->e_axes_pos , 0);
     VSETALL(s->e_keypoint, 0);
     VSETALL(s->e_mparam, 0);
-    VSETALL(s->e_para, 0);
+    memset(s->e_para, 0, sizeof(s->e_para));
 
     bv_knobs_reset(&s->k, 0);
     s->k.origin_m = '\0';
@@ -120,6 +121,9 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     s->ipe_ptr = NULL;
     s->local2base = 1.0;
     s->mv_context = 0;
+    s->snap.enabled = 0;
+    s->snap.spacing = 1.0;
+    BU_EXTERNAL_INIT(&s->es_ckpt);
     s->edit_mode = RT_EDIT_DEFAULT;
     s->tol = tol;
     s->u_ptr = NULL;
@@ -183,6 +187,8 @@ rt_edit_destroy(struct rt_edit *s)
     bu_ptbl_free(&s->comb_insts);
 
     rt_db_free_internal(&s->es_int);
+    bu_free_external(&s->es_ckpt);
+    BU_EXTERNAL_INIT(&s->es_ckpt);
 
     bu_vls_free(s->log_str);
     BU_PUT(s->log_str, struct bu_vls);
@@ -834,9 +840,14 @@ rt_knob_edit_sca(struct rt_edit *s, int matrix_edit)
        mat_t incr_mat;
        MAT_IDN(incr_mat);
 
-       // TODO - objedit_mouse SARROW case has different logic for handling mousevec
-       // inputs - looking like we may need a mousevec entry for the rt_edit
-       // struct so we can have both processing methods here....
+       /* Note: interactive mouse-based matrix scaling (objedit_mouse SARROW)
+        * computes scale differently - it uses the raw mousevec[Y] value
+        * directly to get an incremental scale (scale = 1 + |mousevec[Y]|).
+        * That path goes through edit_mscale_xy() which accepts a mousevec
+        * directly.  This function handles the knob-based path where scale is
+        * expressed via the k.sca_abs abstraction (0 = no scale, +/- 1 = max
+        * scale up/down).  The two paths produce consistent model_changes
+        * updates and are both correct for their respective input sources. */
 
        if (-SMALL_FASTF < s->k.sca_abs && s->k.sca_abs < SMALL_FASTF)
 	   scale = 1;
@@ -989,6 +1000,69 @@ rt_edit_process(struct rt_edit *s)
 
     s->e_inpara = 0;
     s->e_mvalid = 0;
+}
+
+void
+rt_edit_snap_point(point2d_t pt, const struct rt_edit *s)
+{
+    if (!s || !s->snap.enabled || s->snap.spacing <= 0.0)
+	return;
+    fastf_t inv_sp = 1.0 / s->snap.spacing;
+    pt[0] = floor(pt[0] * inv_sp + 0.5) * s->snap.spacing;
+    pt[1] = floor(pt[1] * inv_sp + 0.5) * s->snap.spacing;
+}
+
+
+int
+rt_edit_checkpoint(struct rt_edit *s)
+{
+    if (!s)
+	return BRLCAD_ERROR;
+
+    RT_CK_DB_INTERNAL(&s->es_int);
+
+    /* Release any previous snapshot */
+    bu_free_external(&s->es_ckpt);
+    BU_EXTERNAL_INIT(&s->es_ckpt);
+
+    if (rt_obj_export(&s->es_ckpt, &s->es_int, 1.0, NULL, &rt_uniresource) < 0) {
+	bu_vls_printf(s->log_str, "rt_edit_checkpoint: export failed\n");
+	return BRLCAD_ERROR;
+    }
+
+    return BRLCAD_OK;
+}
+
+
+int
+rt_edit_revert(struct rt_edit *s)
+{
+    if (!s)
+	return BRLCAD_ERROR;
+
+    if (!s->es_ckpt.ext_buf) {
+	bu_vls_printf(s->log_str, "rt_edit_revert: no checkpoint saved\n");
+	return BRLCAD_ERROR;
+    }
+
+    int type = s->es_int.idb_type;
+
+    /* Release current contents */
+    rt_db_free_internal(&s->es_int);
+    RT_DB_INTERNAL_INIT(&s->es_int);
+
+    mat_t identity;
+    MAT_IDN(identity);
+    if (rt_obj_import(&s->es_int, &s->es_ckpt, identity, NULL, &rt_uniresource) < 0) {
+	bu_vls_printf(s->log_str, "rt_edit_revert: import failed\n");
+	return BRLCAD_ERROR;
+    }
+
+    /* If the type changed for some reason (shouldn't happen), keep the original */
+    if (s->es_int.idb_type != type)
+	s->es_int.idb_type = type;
+
+    return BRLCAD_OK;
 }
 
 

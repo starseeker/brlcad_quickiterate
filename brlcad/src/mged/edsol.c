@@ -40,6 +40,8 @@
 #include "rt/db4.h"
 #include "ged/view.h"
 
+#include "rt/edit.h"
+
 #include "./mged.h"
 #include "./sedit.h"
 #include "./mged_dm.h"
@@ -49,6 +51,91 @@ extern void pipe_split_pnt(struct bu_list *, struct wdb_pipe_pnt *, fastf_t *);
 extern struct wdb_pipe_pnt *pipe_add_pnt(struct rt_pipe_internal *, struct wdb_pipe_pnt *, const point_t);
 
 static void init_sedit_vars(struct mged_state *), init_oedit_vars(struct mged_state *), init_oedit_guts(struct mged_state *);
+
+/* ---------------------------------------------------------------------------
+ * librt rt_edit_process() callback wrappers for MGED.
+ * These wrap MGED functions to match the bu_clbk_t signature
+ * (int ac, const char **av, void *data, void *id).
+ * ---------------------------------------------------------------------------
+ */
+
+/* ECMD_PRINT_STR: print log string to Tcl interpreter */
+static int
+mged_print_str_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    if (!s || !MEDIT(s)) return BRLCAD_OK;
+    if (bu_vls_strlen(MEDIT(s)->log_str)) {
+	Tcl_AppendResult(s->interp, bu_vls_cstr(MEDIT(s)->log_str), (char *)NULL);
+	bu_vls_trunc(MEDIT(s)->log_str, 0);
+    }
+    return BRLCAD_OK;
+}
+
+/* ECMD_PRINT_RESULTS: call mged_print_result(TCL_ERROR) */
+static int
+mged_print_results_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    if (!s) return BRLCAD_OK;
+    mged_print_result(s, TCL_ERROR);
+    return BRLCAD_OK;
+}
+
+/* ECMD_EAXES_POS: set_e_axes_pos(s, 0)  (both=0 → curr only) */
+static int
+mged_eaxes_pos_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *id)
+{
+    struct mged_state *s = (struct mged_state *)d;
+    if (!s) return BRLCAD_OK;
+    int both = id ? *(int *)id : 0;
+    set_e_axes_pos(s, both);
+    return BRLCAD_OK;
+}
+
+/* ECMD_REPLOT_EDITING_SOLID: replot_editing_solid(s) */
+static int
+mged_replot_editing_solid_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    if (!s) return BRLCAD_OK;
+    replot_editing_solid(s);
+    return BRLCAD_OK;
+}
+
+/* ECMD_VIEW_UPDATE: active_edit_callback + dirty flag */
+static int
+mged_view_update_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    if (!s) return BRLCAD_OK;
+    dm_set_dirty(DMP, 1);
+    struct bu_vls vls = BU_VLS_INIT_ZERO;
+    bu_vls_printf(&vls, "active_edit_callback");
+    (void)Tcl_Eval(s->interp, bu_vls_addr(&vls));
+    bu_vls_free(&vls);
+    return BRLCAD_OK;
+}
+
+/*
+ * Register the standard MGED editing callbacks on MEDIT(s)->m so that
+ * rt_edit_process() can invoke MGED UI updates.  Call once per edit session
+ * (from init_sedit / init_oedit).
+ */
+void
+mged_setup_sedit_clbks(struct mged_state *s)
+{
+    if (!s || !MEDIT(s))
+	return;
+
+    struct rt_edit_map *m = MEDIT(s)->m;
+
+    rt_edit_map_clbk_set(m, ECMD_PRINT_STR,             BU_CLBK_DURING, mged_print_str_clbk,             s);
+    rt_edit_map_clbk_set(m, ECMD_PRINT_RESULTS,         BU_CLBK_DURING, mged_print_results_clbk,         s);
+    rt_edit_map_clbk_set(m, ECMD_EAXES_POS,             BU_CLBK_DURING, mged_eaxes_pos_clbk,             s);
+    rt_edit_map_clbk_set(m, ECMD_REPLOT_EDITING_SOLID,  BU_CLBK_DURING, mged_replot_editing_solid_clbk,  s);
+    rt_edit_map_clbk_set(m, ECMD_VIEW_UPDATE,           BU_CLBK_DURING, mged_view_update_clbk,           s);
+}
 
 int nurb_closest2d(int *surface, int *uval, int *vval, const struct rt_nurb_internal *spl, const point_t ref_pt  , const mat_t mat);
 
@@ -86,6 +173,51 @@ int es_menu;		/* item selected from menu */
 
 #define PARAM_1ARG (MEDIT(s)->edit_flag == SSCALE || \
 		    MEDIT(s)->edit_flag == PSCALE || \
+		    MEDIT(s)->edit_flag == ECMD_TOR_R1 || \
+		    MEDIT(s)->edit_flag == ECMD_TOR_R2 || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_ABC || \
+		    MEDIT(s)->edit_flag == ECMD_PART_H || \
+		    MEDIT(s)->edit_flag == ECMD_PART_VRAD || \
+		    MEDIT(s)->edit_flag == ECMD_PART_HRAD || \
+		    MEDIT(s)->edit_flag == ECMD_RPC_B || \
+		    MEDIT(s)->edit_flag == ECMD_RPC_H || \
+		    MEDIT(s)->edit_flag == ECMD_RPC_R || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_B || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_H || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_R || \
+		    MEDIT(s)->edit_flag == ECMD_RHC_C || \
+		    MEDIT(s)->edit_flag == ECMD_EPA_H || \
+		    MEDIT(s)->edit_flag == ECMD_EPA_R1 || \
+		    MEDIT(s)->edit_flag == ECMD_EPA_R2 || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_H || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_R1 || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_R2 || \
+		    MEDIT(s)->edit_flag == ECMD_EHY_C || \
+		    MEDIT(s)->edit_flag == ECMD_ETO_R || \
+		    MEDIT(s)->edit_flag == ECMD_ETO_RD || \
+		    MEDIT(s)->edit_flag == ECMD_ETO_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_H || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_HYP_C || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H_V || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_D || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_AB || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_CD || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_ABCD || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_S_H_CD || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_S_H_V_AB || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_A || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_B || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_C || \
+		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_ABC || \
 		    MEDIT(s)->edit_flag == ECMD_BOT_THICK || \
 		    MEDIT(s)->edit_flag == ECMD_VOL_THRESH_LO || \
 		    MEDIT(s)->edit_flag == ECMD_VOL_THRESH_HI || \
@@ -949,6 +1081,7 @@ init_sedit(struct mged_state *s)
 {
     int type;
     int id;
+    int old_prim_type = -1;
 
     if (s->dbip == DBI_NULL || !illump)
 	return;
@@ -961,6 +1094,10 @@ init_sedit(struct mged_state *s)
 			 "Unable to Solid_Edit a processed region;  select a primitive instead\n", (char *)NULL);
 	return;
     }
+
+    /* Save the previous edit primitive type for ipe_ptr cleanup below */
+    if (MEDIT(s)->ipe_ptr && MEDIT(s)->es_int.idb_ptr)
+	old_prim_type = MEDIT(s)->es_int.idb_type;
 
     /* Read solid description into MEDIT(s)->es_int */
     if (!illump->s_u_data)
@@ -1019,6 +1156,20 @@ init_sedit(struct mged_state *s)
     /* get the inverse matrix */
     bn_mat_inv(MEDIT(s)->e_invmat, MEDIT(s)->e_mat);
 
+    /* Sync unit conversion factors so rt_edit_process() pscale functions work */
+    MEDIT(s)->local2base = s->dbip->dbi_local2base;
+    MEDIT(s)->base2local = s->dbip->dbi_base2local;
+
+    /* Set up primitive-specific edit state (ipe_ptr) if the primitive supports it.
+     * First destroy any existing ipe_ptr from a previous edit (use its own type). */
+    if (MEDIT(s)->ipe_ptr) {
+	if (old_prim_type > 0 && old_prim_type <= ID_MAXIMUM && EDOBJ[old_prim_type].ft_prim_edit_destroy)
+	    (*EDOBJ[old_prim_type].ft_prim_edit_destroy)(MEDIT(s)->ipe_ptr);
+	MEDIT(s)->ipe_ptr = NULL;
+    }
+    if (id > 0 && id <= ID_MAXIMUM && EDOBJ[id].ft_prim_edit_create)
+	MEDIT(s)->ipe_ptr = (*EDOBJ[id].ft_prim_edit_create)(MEDIT(s));
+
     /* Establish initial keypoint */
     MEDIT(s)->e_keytag = "";
     get_solid_keypoint(s, MEDIT(s)->e_keypoint, &MEDIT(s)->e_keytag, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
@@ -1038,6 +1189,9 @@ init_sedit(struct mged_state *s)
     (void)chg_state(s, ST_S_PICK, ST_S_EDIT, "Keyboard illuminate");
     chg_l2menu(s, ST_S_EDIT);
     MEDIT(s)->edit_flag = IDLE;
+
+    /* Register MGED UI callbacks on the rt_edit callback map */
+    mged_setup_sedit_clbks(s);
 
     button(s, BE_S_EDIT);	/* Drop into edit menu right away */
     init_sedit_vars(s);
@@ -2404,6 +2558,68 @@ sedit(struct mged_state *s)
 	    /* do nothing more */
 	    --s->update_views;
 	    break;
+
+	/* --- TOR: delegate to librt rt_edit_process() --- */
+	case ECMD_TOR_R1:
+	case ECMD_TOR_R2:
+	/* --- ELL/SUPERELL: delegate to librt rt_edit_process() --- */
+	case ECMD_ELL_SCALE_A:
+	case ECMD_ELL_SCALE_B:
+	case ECMD_ELL_SCALE_C:
+	case ECMD_ELL_SCALE_ABC:
+	case ECMD_SUPERELL_SCALE_A:
+	case ECMD_SUPERELL_SCALE_B:
+	case ECMD_SUPERELL_SCALE_C:
+	case ECMD_SUPERELL_SCALE_ABC:
+	/* --- PART: delegate to librt rt_edit_process() --- */
+	case ECMD_PART_H:
+	case ECMD_PART_VRAD:
+	case ECMD_PART_HRAD:
+	/* --- RPC: delegate to librt rt_edit_process() --- */
+	case ECMD_RPC_B:
+	case ECMD_RPC_H:
+	case ECMD_RPC_R:
+	/* --- RHC: delegate to librt rt_edit_process() --- */
+	case ECMD_RHC_B:
+	case ECMD_RHC_H:
+	case ECMD_RHC_R:
+	case ECMD_RHC_C:
+	/* --- EPA: delegate to librt rt_edit_process() --- */
+	case ECMD_EPA_H:
+	case ECMD_EPA_R1:
+	case ECMD_EPA_R2:
+	/* --- EHY: delegate to librt rt_edit_process() --- */
+	case ECMD_EHY_H:
+	case ECMD_EHY_R1:
+	case ECMD_EHY_R2:
+	case ECMD_EHY_C:
+	/* --- ETO scale: delegate to librt rt_edit_process() --- */
+	case ECMD_ETO_R:
+	case ECMD_ETO_RD:
+	case ECMD_ETO_SCALE_C:
+	/* --- HYP scale: delegate to librt rt_edit_process() --- */
+	case ECMD_HYP_H:
+	case ECMD_HYP_SCALE_A:
+	case ECMD_HYP_SCALE_B:
+	case ECMD_HYP_C:
+	/* --- TGC scale: delegate to librt rt_edit_process() --- */
+	case ECMD_TGC_SCALE_H:
+	case ECMD_TGC_SCALE_H_V:
+	case ECMD_TGC_SCALE_A:
+	case ECMD_TGC_SCALE_B:
+	case ECMD_TGC_SCALE_C:
+	case ECMD_TGC_SCALE_D:
+	case ECMD_TGC_SCALE_AB:
+	case ECMD_TGC_SCALE_CD:
+	case ECMD_TGC_SCALE_ABCD:
+	case ECMD_TGC_S_H_CD:
+	case ECMD_TGC_S_H_V_AB:
+	    /* rt_edit_process handles the geometry, keypoint refresh,
+	     * set_e_axes_pos, replot_editing_solid and view update
+	     * via registered MGED callbacks.  Return early to skip
+	     * the legacy post-switch code below. */
+	    rt_edit_process(MEDIT(s));
+	    return;
 
 	case ECMD_DSP_SCALE_X:
 	    dsp_scale(s, (struct rt_dsp_internal *)MEDIT(s)->es_int.idb_ptr, MSX);
@@ -5195,6 +5411,51 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
     switch (MEDIT(s)->edit_flag) {
 	case SSCALE:
 	case PSCALE:
+	case ECMD_TOR_R1:
+	case ECMD_TOR_R2:
+	case ECMD_ELL_SCALE_A:
+	case ECMD_ELL_SCALE_B:
+	case ECMD_ELL_SCALE_C:
+	case ECMD_ELL_SCALE_ABC:
+	case ECMD_SUPERELL_SCALE_A:
+	case ECMD_SUPERELL_SCALE_B:
+	case ECMD_SUPERELL_SCALE_C:
+	case ECMD_SUPERELL_SCALE_ABC:
+	case ECMD_PART_H:
+	case ECMD_PART_VRAD:
+	case ECMD_PART_HRAD:
+	case ECMD_RPC_B:
+	case ECMD_RPC_H:
+	case ECMD_RPC_R:
+	case ECMD_RHC_B:
+	case ECMD_RHC_H:
+	case ECMD_RHC_R:
+	case ECMD_RHC_C:
+	case ECMD_EPA_H:
+	case ECMD_EPA_R1:
+	case ECMD_EPA_R2:
+	case ECMD_EHY_H:
+	case ECMD_EHY_R1:
+	case ECMD_EHY_R2:
+	case ECMD_EHY_C:
+	case ECMD_ETO_R:
+	case ECMD_ETO_RD:
+	case ECMD_ETO_SCALE_C:
+	case ECMD_HYP_H:
+	case ECMD_HYP_SCALE_A:
+	case ECMD_HYP_SCALE_B:
+	case ECMD_HYP_C:
+	case ECMD_TGC_SCALE_H:
+	case ECMD_TGC_SCALE_H_V:
+	case ECMD_TGC_SCALE_A:
+	case ECMD_TGC_SCALE_B:
+	case ECMD_TGC_SCALE_C:
+	case ECMD_TGC_SCALE_D:
+	case ECMD_TGC_SCALE_AB:
+	case ECMD_TGC_SCALE_CD:
+	case ECMD_TGC_SCALE_ABCD:
+	case ECMD_TGC_S_H_CD:
+	case ECMD_TGC_S_H_V_AB:
 	case ECMD_DSP_SCALE_X:
 	case ECMD_DSP_SCALE_Y:
 	case ECMD_DSP_SCALE_ALT:

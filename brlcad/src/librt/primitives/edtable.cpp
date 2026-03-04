@@ -76,6 +76,7 @@ EDIT_DECLARE_INTERFACE(extrude);
 EDIT_DECLARE_INTERFACE(submodel);
 EDIT_DECLARE_INTERFACE(cline);
 EDIT_DECLARE_INTERFACE(bot);
+EDIT_DECLARE_INTERFACE(comb);
 EDIT_DECLARE_INTERFACE(superell);
 EDIT_DECLARE_INTERFACE(metaball);
 EDIT_DECLARE_INTERFACE(hyp);
@@ -149,7 +150,7 @@ const struct rt_edit_functab EDOBJ[] = {
 	/* 3 */
 	RT_FUNCTAB_MAGIC, "ID_ELL", "ell",
 	NULL,  /* label */
-	NULL,  /* keypoint */
+	EDFUNCTAB_FUNC_KEYPOINT_CAST(edit_keypoint), /* keypoint */
 	NULL,  /* s->e_axes_pos */
 	EDFUNCTAB_FUNC_WRITE_PARAMS_CAST(rt_edit_ell_write_params), /* write_params */
 	EDFUNCTAB_FUNC_READ_PARAMS_CAST(rt_edit_ell_read_params), /* read_params */
@@ -567,14 +568,14 @@ const struct rt_edit_functab EDOBJ[] = {
 	NULL,  /* s->e_axes_pos */
 	NULL,  /* write_params */
 	NULL,  /* read_params */
-	EDFUNCTAB_FUNC_EDIT_CAST(edit_generic), /* edit */
-	EDFUNCTAB_FUNC_EDITXY_CAST(edit_generic_xy), /* edit xy - TODO - probably need more for this one, see GUI editors in MGED and Archer */
-       	NULL,  /* prim edit create */
-	NULL,  /* prim edit destroy */
-       	NULL,  /* prim edit reset*/
-	NULL,  /* menu_str */
-	NULL,  /* set edit mode */
-	NULL   /* menu_item */
+	EDFUNCTAB_FUNC_EDIT_CAST(rt_edit_sketch_edit),    /* edit */
+	EDFUNCTAB_FUNC_EDITXY_CAST(rt_edit_sketch_edit_xy), /* edit xy */
+	EDFUNCTAB_FUNC_PRIMEDIT_CREATE_CAST(rt_edit_sketch_prim_edit_create), /* prim edit create */
+	EDFUNCTAB_FUNC_PRIMEDIT_DESTROY_CAST(rt_edit_sketch_prim_edit_destroy), /* prim edit destroy */
+	EDFUNCTAB_FUNC_PRIMEDIT_RESET_CAST(rt_edit_sketch_prim_edit_reset), /* prim edit reset */
+	EDFUNCTAB_FUNC_MENU_STR_CAST(edit_menu_str),   /* menu_str */
+	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_sketch_set_edit_mode), /* set edit mode */
+	EDFUNCTAB_FUNC_MENU_ITEM_CAST(rt_edit_sketch_menu_item)  /* menu_item */
     },
 
     {
@@ -650,21 +651,21 @@ const struct rt_edit_functab EDOBJ[] = {
     },
 
     {
-	/* 31 combination objects (should not be in this table) */
+	/* 31 combination objects */
 	RT_FUNCTAB_MAGIC, "ID_COMBINATION", "comb",
 	NULL,  /* label */
 	NULL,  /* keypoint */
 	NULL,  /* s->e_axes_pos */
 	NULL,  /* write_params */
 	NULL,  /* read_params */
-	NULL,  /* edit */
-	NULL,  /* exit xy */
-       	NULL,  /* prim edit create */
-	NULL,  /* prim edit destroy */
-       	NULL,  /* prim edit reset*/
-	NULL,  /* menu_str */
-	NULL,  /* set edit mode */
-	NULL   /* menu_item */
+	EDFUNCTAB_FUNC_EDIT_CAST(rt_edit_comb_edit),              /* edit */
+	EDFUNCTAB_FUNC_EDITXY_CAST(rt_edit_comb_edit_xy),         /* edit xy */
+	EDFUNCTAB_FUNC_PRIMEDIT_CREATE_CAST(rt_edit_comb_prim_edit_create),   /* prim edit create */
+	EDFUNCTAB_FUNC_PRIMEDIT_DESTROY_CAST(rt_edit_comb_prim_edit_destroy), /* prim edit destroy */
+	NULL,  /* prim edit reset */
+	EDFUNCTAB_FUNC_MENU_STR_CAST(edit_menu_str),              /* menu_str */
+	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_comb_set_edit_mode), /* set edit mode */
+	EDFUNCTAB_FUNC_MENU_ITEM_CAST(rt_edit_comb_menu_item)     /* menu_item */
     },
 
     {
@@ -753,9 +754,9 @@ const struct rt_edit_functab EDOBJ[] = {
 	NULL,  /* read_params */
 	EDFUNCTAB_FUNC_EDIT_CAST(rt_edit_metaball_edit),    /* edit */
 	EDFUNCTAB_FUNC_EDITXY_CAST(rt_edit_metaball_edit_xy), /* edit xy */
-       	NULL,  /* prim edit create */
-	NULL,  /* prim edit destroy */
-       	NULL,  /* prim edit reset*/
+	EDFUNCTAB_FUNC_PRIMEDIT_CREATE_CAST(rt_edit_metaball_prim_edit_create),    /* prim edit create */
+	EDFUNCTAB_FUNC_PRIMEDIT_DESTROY_CAST(rt_edit_metaball_prim_edit_destroy),  /* prim edit destroy */
+	EDFUNCTAB_FUNC_PRIMEDIT_RESET_CAST(rt_edit_metaball_prim_edit_reset),      /* prim edit reset */
 	EDFUNCTAB_FUNC_MENU_STR_CAST(edit_menu_str),   /* menu_str */
 	EDFUNCTAB_FUNC_SET_EDIT_MODE_CAST(rt_edit_metaball_set_edit_mode), /* set edit mode */
 	EDFUNCTAB_FUNC_MENU_ITEM_CAST(rt_edit_metaball_menu_item)    /* menu_item */

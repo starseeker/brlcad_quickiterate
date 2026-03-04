@@ -108,22 +108,16 @@ rt_edit_cline_e_axes_pos(
 int
 ecmd_cline_scale_h(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-
-    if (s->e_para[0] <= 0.0) {
-	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
-	s->e_inpara = 0;
-	return BRLCAD_ERROR;
-    }
-
-    /* must convert to base units */
-    s->e_para[0] *= s->local2base;
-    s->e_para[1] *= s->local2base;
-    s->e_para[2] *= s->local2base;
 
     struct rt_cline_internal *cli =
 	(struct rt_cline_internal *)s->es_int.idb_ptr;
@@ -131,6 +125,15 @@ ecmd_cline_scale_h(struct rt_edit *s)
     RT_CLINE_CK_MAGIC(cli);
 
     if (s->e_inpara) {
+	if (s->e_para[0] <= 0.0) {
+	    bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	/* convert e_para[0] to base units */
+	s->e_para[0] *= s->local2base;
+
 	s->e_para[0] *= s->e_mat[15];
 	s->es_scale = s->e_para[0] / MAGNITUDE(cli->h);
 	VSCALE(cli->h, cli->h, s->es_scale);
@@ -148,19 +151,13 @@ ecmd_cline_scale_h(struct rt_edit *s)
 int
 ecmd_cline_scale_r(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
-	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-
-    /* must convert to base units */
-    s->e_para[0] *= s->local2base;
-    s->e_para[1] *= s->local2base;
-    s->e_para[2] *= s->local2base;
-
-    if (s->e_para[0] <= 0.0) {
-	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+    if (s->e_inpara > 1) {
+	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
@@ -170,9 +167,17 @@ ecmd_cline_scale_r(struct rt_edit *s)
 
     RT_CLINE_CK_MAGIC(cli);
 
-    if (s->e_inpara)
+    if (s->e_inpara) {
+	/* convert e_para[0] to base units */
+	s->e_para[0] *= s->local2base;
+
+	if (s->e_para[0] <= 0.0) {
+	    bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
 	cli->radius = s->e_para[0];
-    else if (s->es_scale > 0.0) {
+    } else if (s->es_scale > 0.0) {
 	cli->radius *= s->es_scale;
 	s->es_scale = 0.0;
     }
@@ -186,31 +191,34 @@ ecmd_cline_scale_r(struct rt_edit *s)
 int
 ecmd_cline_scale_t(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
-
-    if (s->e_para[0] <= 0.0) {
-	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
-	s->e_inpara = 0;
-	return BRLCAD_ERROR;
-    }
-
-    /* must convert to base units */
-    s->e_para[0] *= s->local2base;
-    s->e_para[1] *= s->local2base;
-    s->e_para[2] *= s->local2base;
 
     struct rt_cline_internal *cli =
 	(struct rt_cline_internal *)s->es_int.idb_ptr;
 
     RT_CLINE_CK_MAGIC(cli);
 
-    if (s->e_inpara)
+    if (s->e_inpara) {
+	if (s->e_para[0] <= 0.0) {
+	    bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	/* convert e_para[0] to base units */
+	s->e_para[0] *= s->local2base;
+
 	cli->thickness = s->e_para[0];
-    else if (s->es_scale > 0.0) {
+    } else if (s->es_scale > 0.0) {
 	cli->thickness *= s->es_scale;
 	s->es_scale = 0.0;
     }
@@ -239,7 +247,7 @@ ecmd_cline_move_h(struct rt_edit *s)
 	    return BRLCAD_ERROR;
 	}
 
-	/* must convert to base units */
+	/* convert e_para[0] to base units */
 	s->e_para[0] *= s->local2base;
 	s->e_para[1] *= s->local2base;
 	s->e_para[2] *= s->local2base;
@@ -306,6 +314,8 @@ rt_edit_cline_edit(struct rt_edit *s)
 	    return ecmd_cline_scale_t(s);
 	case ECMD_CLINE_MOVE_H:
 	    return ecmd_cline_move_h(s);
+	default:
+	    return edit_generic(s);
     }
 
     return 0;
@@ -318,9 +328,6 @@ rt_edit_cline_edit_xy(
 	)
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
-    struct rt_db_internal *ip = &s->es_int;
-    bu_clbk_t f = NULL;
-    void *d = NULL;
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
@@ -335,18 +342,8 @@ rt_edit_cline_edit_xy(
 	case ECMD_CLINE_MOVE_H:
 	    ecmd_cline_move_h_mousevec(s, mousevec);
 	    break;
-        case RT_PARAMS_EDIT_ROT:
-            bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing setup unimplemented in %s_edit_xy callback\n", EDOBJ[ip->idb_type].ft_label);
-            rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-            if (f)
-                (*f)(0, NULL, d, NULL);
-            return BRLCAD_ERROR;
 	default:
-	    bu_vls_printf(s->log_str, "%s: XY edit undefined in solid edit mode %d\n", EDOBJ[ip->idb_type].ft_label, s->edit_flag);
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    return edit_generic_xy(s, mousevec);
     }
 
     edit_abs_tra(s, pos_view);

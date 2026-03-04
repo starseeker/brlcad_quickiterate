@@ -31,6 +31,7 @@
 #include "common.h"
 #include "vmath.h"
 #include "bn/mat.h"
+#include "bu/parse.h"
 #include "bv/defines.h"
 #include "rt/defines.h"
 #include "rt/db_internal.h"
@@ -41,6 +42,17 @@ __BEGIN_DECLS
 // Settings used for both solid and matrix edits
 #define RT_EDIT_DEFAULT   -1
 #define RT_EDIT_IDLE       0
+
+/**
+ * Maximum number of parameters that can be supplied via e_para in a single
+ * rt_edit operation.  This must be large enough to hold all parameters for
+ * the most complex single command (currently ECMD_SKETCH_APPEND_BEZIER, which
+ * needs one slot per control-point index; degree 15 → 16 indices).
+ */
+/* Maximum number of keyboard-input parameters for a single edit command.
+ * SET_MATRIX requires 1 index + 16 matrix elements = 17 values; use 20
+ * to give headroom for future operations. */
+#define RT_EDIT_MAXPARA   20
 
 
 // Solid editing (done via sed in MGED) alters primitive parameters to produce
@@ -70,26 +82,36 @@ __BEGIN_DECLS
 // to disk, and if a solid is being edited rather than a comb the matrix
 // changes are translated by the per-primitive routines to new solid parameters
 // at that time.)
+//
+// Matrix rotation: absolute Euler angles (X,Y,Z in degrees) supplied via
+// e_para[0..2].  The existing rotation stored in model_changes is replaced
+// by the new absolute rotation while the keypoint's world position and the
+// accumulated scale factor are preserved.  This mirrors MGED's "orot X Y Z"
+// (f_rot_obj / mged_rot_obj) behaviour.  Incremental rotation via knob or
+// mouse input uses rt_knob_edit_rot() with matrix_edit=1 instead.
 #define RT_MATRIX_EDIT_ROT       6
 
-// Matrix translate operations are specified relative to the VIEW XY, NOT the
-// model space coordinate system.  I.e. the resulting translations are view
-// dependent.
+// Matrix translate operations specified relative to VIEW XY are view-dependent.
+// They project the object keypoint into view space, replace the requested
+// XY component(s) with the supplied mouse/parameter value, and project back
+// to model space.  This matches MGED's oed mouse-drag (RARROW/UARROW) behaviour
+// and is the correct mapping for interactive viewport dragging.
 //
-// Not sure what the history is here - I suppose the thinking might be that
-// the view can be set to axis align to get constrained movement in model
-// coordinate space, and this allows for other constraints as well when the
-// view is adjusted, but it has a definite drawback if the user wants to
-// watch the movement of the solid along a model space X,Y or Z axis from
-// another view while editing.  Also has the drawback that it is inconsistent
-// with the matrix scale edit ops, which appear to be scaling relative to the
-// model coordinate system.
-//
-// TODO - Should additional edit operations be defined for constrained
-// translating on the model axis directions?
+// For non-interactive (command-line) absolute placement in model coordinates,
+// use RT_MATRIX_EDIT_TRANS_MODEL_XYZ which places the keypoint at the given
+// model-space X,Y,Z position directly.  This mirrors MGED's "translate X Y Z"
+// (f_tr_obj) behaviour when in object-edit mode.
 #define RT_MATRIX_EDIT_TRANS_VIEW_XY  7
 #define RT_MATRIX_EDIT_TRANS_VIEW_X   8
 #define RT_MATRIX_EDIT_TRANS_VIEW_Y   9
+
+// Absolute model-space translation: move object so that e_keypoint lands at
+// the specified model-space position.  e_para[0..2] supply the target X,Y,Z
+// coordinates in local (display) units; the edit function converts to base
+// units internally.  Equivalent to MGED's "translate X Y Z" command when in
+// object-edit (oed) mode.  Unlike the VIEW variants above this operation is
+// view-independent and maps directly to model coordinates.
+#define RT_MATRIX_EDIT_TRANS_MODEL_XYZ 14
 
 // Non-uniform scale operations scale relative to the MODEL coordinate system,
 // NOT the view plane.
@@ -239,8 +261,8 @@ struct rt_edit {
     int e_mvalid;               /* e_mparam valid.  e_inpara must = 0 */
     vect_t e_mparam;            /* mouse input param.  Only when es_mvalid set */
 
-    int e_inpara;               /* parameter input from keyboard flag.  1 == e_para valid.  e_mvalid must = 0 */
-    vect_t e_para;              /* keyboard input parameter changes */
+    int e_inpara;               /* number of valid entries in e_para (set by caller before rt_edit_process) */
+    fastf_t e_para[RT_EDIT_MAXPARA]; /* keyboard input parameters; e_para[0..e_inpara-1] are valid */
 
     mat_t e_invmat;             /* inverse of e_mat KAA */
     mat_t e_mat;                /* accumulated matrix of path */
@@ -263,6 +285,19 @@ struct rt_edit {
 
     /* Internal primitive editing information specific to primitive types. */
     void *ipe_ptr;
+
+    /* Snap-to-grid: when snap.enabled is non-zero, ft_edit_xy implementations
+     * should call rt_edit_snap_point() on the computed UV/model position before
+     * applying it.  spacing is in model (base) units. */
+    struct {
+	int     enabled;   /**< non-zero → snap active */
+	fastf_t spacing;   /**< grid spacing in mm (base units) */
+    } snap;
+
+    /* Single-level checkpoint/revert.  rt_edit_checkpoint() serialises
+     * es_int here; rt_edit_revert() restores it.  bu_external.ext_buf is
+     * NULL when no snapshot has been saved. */
+    struct bu_external es_ckpt;
 
     /* User pointer */
     void *u_ptr;
@@ -342,6 +377,43 @@ rt_knob_edit_sca(
  * rt_edit container */
 RT_EXPORT extern void
 rt_edit_process(struct rt_edit *s);
+
+/**
+ * Snap a 2-D UV point to the grid defined in s->snap.
+ *
+ * If s->snap.enabled is zero the point is returned unchanged.
+ * Otherwise each component is rounded to the nearest multiple of
+ * s->snap.spacing.
+ *
+ * @param[in,out] pt  2-D UV coordinate to snap (in model/base units).
+ * @param[in]     s   rt_edit struct carrying snap configuration.
+ */
+RT_EXPORT extern void
+rt_edit_snap_point(point2d_t pt, const struct rt_edit *s);
+
+/**
+ * Save a snapshot of the current primitive parameters so they can be
+ * restored later with rt_edit_revert().
+ *
+ * The snapshot is stored inside the rt_edit struct.  Calling this
+ * function again overwrites any previous snapshot (single-level undo).
+ *
+ * @return BRLCAD_OK on success, BRLCAD_ERROR if the export failed.
+ */
+RT_EXPORT extern int
+rt_edit_checkpoint(struct rt_edit *s);
+
+/**
+ * Restore primitive parameters from the snapshot saved by
+ * rt_edit_checkpoint().
+ *
+ * If no snapshot has been saved (or the last snapshot was already
+ * consumed) this function logs a message and returns BRLCAD_ERROR.
+ *
+ * @return BRLCAD_OK on success, BRLCAD_ERROR otherwise.
+ */
+RT_EXPORT extern int
+rt_edit_revert(struct rt_edit *s);
 
 
 /* Edit menu items encode information about specific edit operations, as well
