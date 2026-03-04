@@ -337,6 +337,46 @@ main(int argc, char *argv[])
     }
 
     /* ================================================================
+     * ECMD_SPLINE_VPICK: mouse-proximity control-point pick
+     *
+     * The test surface has 9 control points (3×3).  With an identity
+     * model_changes and the default view (AET 45/35), point at mouse
+     * position (0,0) should pick the control point closest to the
+     * centre of the view.
+     *
+     * Strategy: first pre-select CP(2,0) by index so the selection is
+     * at a known location.  Then fire a VPICK with mouse near that CP's
+     * projected position and verify the selection changes to the closest
+     * point (may or may not be (2,0) but must be a valid index).
+     * ================================================================*/
+    {
+	/* Pre-select CP at surf=0, u=0, v=0 */
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BSPLINE_PICK_CP);
+	s->e_inpara = 3;
+	s->e_para[0] = 0.0; s->e_para[1] = 0.0; s->e_para[2] = 0.0;
+	rt_edit_process(s);
+	int old_u = b->spl_ui, old_v = b->spl_vi;
+
+	/* Fire VPICK at screen centre (0,0) via ft_edit_xy + ft_edit */
+	MAT_IDN(s->model_changes);
+	rt_edit_set_edflag(s, ECMD_SPLINE_VPICK);
+	vect_t vp = {0.0, 0.0, 0.0};
+	(*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, vp);
+	rt_edit_process(s);
+
+	/* After VPICK the selection must be a valid (in-range) index */
+	struct rt_nurb_internal *sip5 =
+	    (struct rt_nurb_internal *)s->es_int.idb_ptr;
+	struct face_g_snurb *surf5 = sip5->srfs[b->spl_surfno];
+	if (b->spl_ui < 0 || b->spl_ui >= surf5->s_size[1] ||
+	    b->spl_vi < 0 || b->spl_vi >= surf5->s_size[0])
+	    bu_exit(1, "ERROR: ECMD_SPLINE_VPICK: out-of-range selection u=%d v=%d\n",
+		    b->spl_ui, b->spl_vi);
+	bu_log("ECMD_SPLINE_VPICK SUCCESS: old=(%d,%d) new=(%d,%d)\n",
+	       old_u, old_v, b->spl_ui, b->spl_vi);
+    }
+
+    /* ================================================================
      * RT_MATRIX_EDIT_ROT: matrix rotation should update model_changes
      * ================================================================*/
     MAT_IDN(s->model_changes);

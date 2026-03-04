@@ -600,6 +600,51 @@ edit_mtra(
     bn_mat_mul(s->model_changes, incr_mat, oldchanges);
 }
 
+/*
+ * Handle interactive rotation (solid or matrix) driven by an XY mouse
+ * position.  This is the librt equivalent of MGED's mouse-knob rotation
+ * path: a view-space XY displacement is converted to "ax" / "ay" knob
+ * increments, which are accumulated into the rotation via
+ * rt_edit_knob_cmd_process and rt_knob_edit_rot.
+ *
+ * In MGED (doevent.c / f_knob / mged_erot_xyz), interactive mouse
+ * rotation is processed through the knob accumulator with incr_flag=1.
+ * The X mousevec component drives the "ay" (azimuth about model Y) knob
+ * and the Y component drives the "ax" (elevation about model X) knob.
+ * Angles are in the range -512..+512 (BV units, scale factor INV_BV).
+ *
+ * matrix_edit=0 → solid rotation (RT_PARAMS_EDIT_ROT)
+ * matrix_edit=1 → matrix rotation (RT_MATRIX_EDIT_ROT)
+ */
+static void
+edit_mrot_xy(struct rt_edit *s, const vect_t mousevec, int matrix_edit)
+{
+    vect_t rvec = VINIT_ZERO;
+    vect_t tvec = VINIT_ZERO;
+    int do_rot = 0;
+    int do_tran = 0;
+    int do_sca = 0;
+
+    if (!NEAR_ZERO(mousevec[X], SMALL_FASTF)) {
+	fastf_t x = mousevec[X] / INV_BV;
+	rt_edit_knob_cmd_process(s, &rvec, &do_rot, &tvec, &do_tran, &do_sca,
+		s->vp, "ay", x, s->vp->gv_rotate_about, 1, NULL);
+    }
+    if (!NEAR_ZERO(mousevec[Y], SMALL_FASTF)) {
+	fastf_t y = mousevec[Y] / INV_BV;
+	rt_edit_knob_cmd_process(s, &rvec, &do_rot, &tvec, &do_tran, &do_sca,
+		s->vp, "ax", y, s->vp->gv_rotate_about, 1, NULL);
+    }
+
+    if (do_rot) {
+	mat_t newrot;
+	MAT_IDN(newrot);
+	bn_mat_angles(newrot, rvec[X], rvec[Y], rvec[Z]);
+	rt_knob_edit_rot(s, s->vp->gv_coord, s->vp->gv_rotate_about,
+			 matrix_edit, newrot);
+    }
+}
+
 int
 edit_generic_xy(
 	struct rt_edit *s,
@@ -623,16 +668,14 @@ edit_generic_xy(
 	    edit_abs_tra(s, pos_view);
 	    return BRLCAD_OK;
 	case RT_PARAMS_EDIT_ROT:
-	    /* Solid rotation via XY mouse position is not a well-defined
-	     * operation: in MGED, interactive solid rotation is driven through
-	     * the knob system (rt_knob_edit_rot with matrix_edit=0) rather than
-	     * by a raw view-space XY position.  Callers should use the knob path
-	     * for interactive rotation. */
-	    bu_vls_printf(s->log_str, "XY solid rotation not supported; use rt_knob_edit_rot\n");
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    /* Solid rotation via XY mouse displacement: convert the view-space
+	     * cursor delta to "ax"/"ay" knob increments and accumulate via
+	     * rt_knob_edit_rot with matrix_edit=0.  This matches MGED's
+	     * interactive mouse-rotation path in doevent.c / f_knob. */
+	    if (!s->vp)
+		return BRLCAD_ERROR;
+	    edit_mrot_xy(s, mousevec, 0);
+	    return BRLCAD_OK;
 	case RT_MATRIX_EDIT_SCALE:
 	case RT_MATRIX_EDIT_SCALE_X:
 	case RT_MATRIX_EDIT_SCALE_Y:
@@ -646,17 +689,12 @@ edit_generic_xy(
 	    edit_abs_tra(s, pos_view);
 	    return BRLCAD_OK;
 	case RT_MATRIX_EDIT_ROT:
-	    /* Matrix rotation via raw XY mouse position is not a well-defined
-	     * operation: in MGED, interactive matrix rotation is driven through
-	     * the knob system (rt_knob_edit_rot with matrix_edit=1) rather than
-	     * by a raw view-space XY position.  Callers should use the knob path
-	     * for interactive rotation; for keyboard absolute angle input use
-	     * edit_generic (non-XY) with e_inpara set. */
-	    bu_vls_printf(s->log_str, "XY matrix rotation not supported; use rt_knob_edit_rot\n");
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    /* Matrix (object) rotation via XY mouse displacement: same knob
+	     * path as solid rotation but with matrix_edit=1. */
+	    if (!s->vp)
+		return BRLCAD_ERROR;
+	    edit_mrot_xy(s, mousevec, 1);
+	    return BRLCAD_OK;
 	default:
 	    // Primitives should handle their specific editing cases before calling the generic function - if
 	    // we got here, something isn't right

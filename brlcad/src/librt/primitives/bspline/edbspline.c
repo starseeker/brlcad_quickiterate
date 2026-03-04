@@ -263,22 +263,44 @@ nurb_closest2d(
 void
 sedit_vpick(struct rt_edit *s)
 {
-#if 0
-    point_t m_pos;
+    struct rt_bspline_edit *b = (struct rt_bspline_edit *)s->ipe_ptr;
     int surfno, u, v;
 
-    MAT4X3PNT(m_pos, view_state->vs_objview2model, v_pos);
+    if (!s->vp) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SPLINE_VPICK: no view attached\n");
+	return;
+    }
+
+    /*
+     * Compute the object-view matrices:
+     *   model2objview = gv_model2view * model_changes
+     *   objview2model = inverse(model2objview)
+     *
+     * These are the equivalents of vs_model2objview and vs_objview2model
+     * in MGED's view_state.
+     */
+    mat_t model2objview, objview2model;
+    bn_mat_mul(model2objview, s->vp->gv_model2view, s->model_changes);
+    bn_mat_inv(objview2model, model2objview);
+
+    /*
+     * b->v_pos is the view-space cursor position set by ft_edit_xy
+     * before dispatching to ft_edit.  Transform it into model space
+     * for use as the reference point for the 2-D proximity search.
+     */
+    point_t m_pos;
+    MAT4X3PNT(m_pos, objview2model, b->v_pos);
 
     if (nurb_closest2d(&surfno, &u, &v,
 		       (struct rt_nurb_internal *)s->es_int.idb_ptr,
-		       m_pos, view_state->vs_model2objview) >= 0) {
-	spl_surfno = surfno;
-	spl_ui = u;
-	spl_vi = v;
-	s->e_keytag = (*EDOBJ[ID_BSPLINE].ft_keypoint)(&s->e_keypoint, s->e_keytag, s->e_mat, &s->es_int, s->tol);
+		       m_pos, model2objview) >= 0) {
+	b->spl_surfno = surfno;
+	b->spl_ui = u;
+	b->spl_vi = v;
+	s->e_keytag = (*EDOBJ[ID_BSPLINE].ft_keypoint)(
+		&s->e_keypoint, s->e_keytag, s->e_mat, s, s->tol);
     }
-    chg_state(s, ST_S_VPICK, ST_S_EDIT, "Vertex Pick Complete");
-#endif
 
     /* draw arrow, etc. */
     bu_clbk_t f = NULL;
@@ -610,11 +632,19 @@ rt_edit_bspline_edit_xy(
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
-	case ECMD_SPLINE_VPICK:
 	case ECMD_BSPLINE_PICK_CP:
 	case ECMD_BSPLINE_PICK_KNOT:
 	    edit_sscale_xy(s, mousevec);
 	    return 0;
+	case ECMD_SPLINE_VPICK: {
+	    /* Store the view-space cursor position in b->v_pos so that
+	     * sedit_vpick() can convert it to model space and find the
+	     * nearest control point via nurb_closest2d. */
+	    struct rt_bspline_edit *b2 = (struct rt_bspline_edit *)s->ipe_ptr;
+	    VSET(b2->v_pos, mousevec[X], mousevec[Y], 0.0);
+	    /* ft_edit will call sedit_vpick */
+	    return 0;
+	}
 	case RT_PARAMS_EDIT_TRANS:
 	    edit_stra_xy(&pos_view, s, mousevec);
 	    break;

@@ -989,8 +989,19 @@ ecmd_arb_setup_rotface(struct rt_edit *s)
     RT_ARB_CK_MAGIC(arb);
 
     rt_edit_map_clbk_get(&f, &d, s->m, ECMD_ARB_SETUP_ROTFACE, BU_CLBK_DURING);
-    if (f)
+    if (f) {
 	a->fixv = (*f)(0, NULL, d, s);
+    } else if (s->e_inpara >= 1) {
+	/* Non-interactive path: caller supplies the 1-based vertex index
+	 * directly in e_para[0].  This allows programmatic / test use
+	 * without registering an interactive callback. */
+	a->fixv = (int)s->e_para[0];
+	s->e_inpara = 0;
+    } else {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_ARB_SETUP_ROTFACE: no callback and no e_para fixv\n");
+	return;
+    }
 
     a->fixv--;
     rt_edit_set_edflag(s, ECMD_ARB_ROTATE_FACE);

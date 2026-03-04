@@ -148,12 +148,12 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 | DSP | `eddsp.c` | `dsp.cpp` | ECMD_DSP_SET_SMOOTH/DATASRC added; e_inpara guard fixed |
 | EBM | `edebm.c` | `ebm.cpp` | e_inpara guard fixed |
 | CLINE | `edcline.c` | `cline.cpp` | e_inpara guard fixed; edit_sscale es_scale==0 guard added |
-| METABALL | `edmetaball.c` | `metaball.cpp` | |
+| METABALL | `edmetaball.c` | `metaball.cpp` | ECMD_METABALL_PT_SWEAT added |
 | EXTRUDE | `edextrude.c` | `extrude.cpp` | ECMD_EXTR_SCALE_A/B and ROT_A/B added |
-| BSPLINE | `edbspline.c` | `bspline.cpp` | ECMD_BSPLINE_PICK_KNOT/SET_KNOT added |
-| NMG | `ednmg.c` | `nmg.cpp` | ECMD_NMG_VPICK/VMOVE/FPICK/FMOVE/LEXTRU_DIR added |
+| BSPLINE | `edbspline.c` | `bspline.cpp` | ECMD_BSPLINE_PICK_KNOT/SET_KNOT added; ECMD_SPLINE_VPICK implemented |
+| NMG | `ednmg.c` | `nmg.cpp` | ECMD_NMG_VPICK/VMOVE/FPICK/FMOVE/LEXTRU_DIR added + tested |
 | SKETCH | `edsketch.c` | `sketch.cpp` | Full ECMD suite; ECMD_SKETCH_MOVE_VERTEX_LIST added |
-| COMB | `edcomb.c` | `comb.cpp` | ECMD_COMB_ADD/DEL/SET_OP/SET_MATRIX added |
+| COMB | `edcomb.c` | `comb.cpp` | All ECMDs: ADD/DEL/SET_OP/SET_MATRIX + SET_REGION/COLOR/SHADER/MATERIAL/REGION_ID/AIRCODE/GIFTMATER/LOS |
 | SPH | (via ELL path) | `sph.cpp` | |
 | VOL | `edvol.c` | `vol.cpp` | |
 
@@ -208,36 +208,27 @@ case too.  Same validation steps as §2 above apply.
 that accepts a vertex index directly via `e_para` would allow testing
 and programmatic use.
 
-### 5. PIPE Remaining Operations
+### 5. PIPE Remaining Operations — **COMPLETED** (session 2)
 
-The following pipe operations exist in edpipe.c but have limited test
-coverage:
-- `ECMD_PIPE_SCALE_RADIUS` — scale bend radius
-- `ECMD_PIPE_PT_OD` / `ECMD_PIPE_PT_ID` / `ECMD_PIPE_PT_RADIUS` — per-point set
-- `ECMD_PIPE_PT_INS` — prepend a point at the pipe start
-- `ECMD_PIPE_SPLIT` — split segment at current point
+`ECMD_PIPE_SCALE_RADIUS`, `ECMD_PIPE_PT_OD/ID/RADIUS`,
+`ECMD_PIPE_PT_INS`, and `ECMD_PIPE_SPLIT` all have test coverage.
+`pipe_split_pnt` was implemented (was a stub in MGED and librt).
 
-### 6. NMG LEXTRU_DIR Test
+### 6. NMG LEXTRU_DIR Test — **COMPLETED** (session 2)
 
-`ECMD_NMG_LEXTRU_DIR` (11032) is implemented in `ednmg.c` but not yet
-tested because it requires an NMG with a wire loop (a loop in a shell's
-`lu_hd`, not attached to any faceuse).  Build such an NMG using
-`nmg_mlv` / wire-loop construction, then exercise the direction+distance
-extrusion path.
+`ECMD_NMG_LEXTRU_DIR` is now tested via a wire-loop NMG built with
+`nmg_mlv` / `nmg_meonvu` / `nmg_eusplit`.
 
-### 7. BSPLINE ECMD_SPLINE_VPICK Mouse Proximity
+### 7. BSPLINE ECMD_SPLINE_VPICK Mouse Proximity — **COMPLETED** (session 3)
 
-`ECMD_SPLINE_VPICK` in `edbspline.c` guards the view-to-model matrix
-lookup with `#if 0` because the view state is not always available.
-The pick-by-mouse path remains a stub.
+`sedit_vpick` now uses `nurb_closest2d` (already in edbspline.c) together
+with the view matrices from `s->vp`.  The `#if 0` block was replaced with
+working code and the function is exercised from `ft_edit_xy`.
 
-### 8. Combination Material Properties
+### 8. Combination Material Properties — **COMPLETED** (session 2)
 
-`edcomb.c` provides ECMDs for the boolean tree (add/del/set_op/set_matrix)
-but has no ECMDs for region material properties (los, air, gift, rgb,
-shader).  These currently require direct `rt_db_get_internal` + field
-mutation + `rt_db_put_internal`.  Adding dedicated ECMDs would complete
-the Combination edit API.
+`ECMD_COMB_SET_REGION`, `SET_COLOR`, `SET_SHADER`, `SET_MATERIAL`,
+`SET_REGION_ID`, `SET_AIRCODE`, `SET_GIFTMATER`, `SET_LOS` all added.
 
 ### 9. Sketch Segment Split / NURB Segments
 
