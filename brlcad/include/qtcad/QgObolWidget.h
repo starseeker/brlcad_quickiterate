@@ -231,11 +231,23 @@ public:
 	: QOpenGLWidget(parent)
 	, ctxMgr_(nullptr)
 	, ctx_(nullptr)
+	, local_bv_(nullptr)
 	, view_(nullptr)
+	, own_view_(false)
 	, m_init(false)
     {
 	setMouseTracking(true);
 	setFocusPolicy(Qt::WheelFocus);
+
+	/* Allocate a legacy struct bview and its bview_new companion so that
+	 * both view() and bview_old_get() return valid pointers immediately.
+	 * Callers may replace the view with set_view(); the owned copies are
+	 * freed in the destructor (or released in set_view). */
+	BU_GET(local_bv_, struct bview);
+	bv_init(local_bv_, NULL);
+	bu_vls_sprintf(&local_bv_->gv_name, "obol");
+	view_ = bview_companion_create("obol", local_bv_);
+	own_view_ = (view_ != nullptr);
 
 	/* Disable SoRenderManager's own auto-redraw: we drive the render loop
 	 * explicitly via paintGL() so that Qt's vsync / repaint logic is used.
@@ -256,6 +268,12 @@ public:
 	if (SoDB::isInitialized())
 	    SoDB::getSensorManager()->setChangedCallback(nullptr, nullptr);
 	bv_render_ctx_destroy(ctx_);
+	if (own_view_)
+	    bview_destroy(view_);
+	if (local_bv_) {
+	    bv_free(local_bv_);
+	    BU_PUT(local_bv_, struct bview);
+	}
     }
 
     /* ── Scene ──────────────────────────────────────────────────────── */
@@ -293,8 +311,19 @@ public:
      * Associate a BRL-CAD view (camera / viewport parameters).
      * The widget will sync SoViewport's camera to this view on each
      * paintGL() call.  May be NULL.
+     * If an owned view was previously created in the constructor, it is
+     * destroyed and ownership is relinquished when an external view is set.
      */
     void set_view(struct bview_new *v) {
+	if (own_view_ && view_) {
+	    bview_destroy(view_);
+	    own_view_ = false;
+	}
+	if (local_bv_) {
+	    bv_free(local_bv_);
+	    BU_PUT(local_bv_, struct bview);
+	    local_bv_ = nullptr;
+	}
 	view_ = v;
 	if (v) {
 	    /* Install a redraw callback so external changes trigger a repaint. */
@@ -849,7 +878,9 @@ private:
     /* ── Data members ───────────────────────────────────────────────── */
     QtObolContextManager *ctxMgr_;
     struct bv_render_ctx *ctx_;
+    struct bview         *local_bv_;  /* owned companion legacy bview (may be NULL after set_view) */
     struct bview_new     *view_;
+    bool                  own_view_; /* true if view_ was created in ctor */
     SoViewport            viewport_;
     SoRenderManager       renderMgr_;
     bool                  m_init;

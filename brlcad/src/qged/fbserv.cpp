@@ -377,7 +377,7 @@ qdm_open_ert3_obol_handler(struct fbserv_obj *fbsp, int UNUSED(i), void *data)
     pc.widget = obolw;
 
     render_run(jctx->ctx, jctx->opts,
-	       ert3_obol_pixel_cb, &pc, nullptr, nullptr);
+	       ert3_obol_pixel_cb, nullptr, nullptr, &pc);
 
     /* Final texture update and scene notification. */
     if (obolw) {
