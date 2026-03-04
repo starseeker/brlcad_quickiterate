@@ -416,10 +416,10 @@ provides numeric entry for all the above parameters, plus:
 - Smooth normals checkbox.
 
 ### Missing from librt
-```c
-#define ECMD_DSP_SET_SMOOTH  <n>  // toggle smooth-normals flag
-#define ECMD_DSP_SET_DATASRC <n>  // switch between file and in-db data source
-```
+- ~~`ECMD_DSP_SET_SMOOTH`~~ **DONE** (25061): sets `dsp_smooth` via `e_para[0]`
+  (0→disable, non-zero→enable); with `e_inpara=0` the flag is toggled.
+- ~~`ECMD_DSP_SET_DATASRC`~~ **DONE** (25062): sets `dsp_datasrc` to
+  `RT_DSP_SRC_FILE` or `RT_DSP_SRC_OBJ` via `e_para[0]` (0/'f' or 1/'o').
 
 ---
 
@@ -554,20 +554,20 @@ MGED supports individual control-point selection/move for NURBS surfaces via
 
 ## 14. Summary Table
 
-| Primitive | librt ECMD coverage | Major Tcl-only features |
+| Primitive | librt ECMD coverage | Remaining gaps |
 |-----------|--------------------|-----------------------|
-| Sketch    | Core CRUD implemented (edsketch.c) | Multi-select, split, snap-to-grid |
-| Pipe      | Complete           | None significant; checkpoint/revert is minor |
-| BOT       | Good               | Multi-select move, edge/face split, vertex fuse |
-| NMG       | Partial (edges only) | Face/vertex pick+move |
-| Extrude   | Complete (A/B/H vectors, mov H, ref sketch) | `keypoint` index edit |
-| ARS       | Complete           | Insert curve/column, scale row/col |
-| Metaball  | Complete           | Sweat parameter |
-| Comb      | None (libged)      | All: add/del/reorder members, set boolean op, set matrix |
-| DSP       | Good               | Smooth flag, datasrc toggle |
+| Sketch    | Core CRUD + multi-vertex-list move | Segment split at t; NURB segment edit; mouse proximity pick |
+| Pipe      | Complete           | None significant |
+| BOT       | Complete (move, split, fuse) | None significant |
+| NMG       | Edges + face/vertex pick+move | `ECMD_NMG_LEXTRU` direction control |
+| Extrude   | Complete (A/B/H vectors, mov H, ref sketch) | `keypoint` index (deprecated field) |
+| ARS       | Complete (move, del, dup, insert, scale) | None significant |
+| Metaball  | Complete (incl. goo/sweat = `ECMD_METABALL_PT_SET_GOO`) | None significant |
+| Comb      | Complete (add/del/set_op/set_matrix) | Material property ECMDs; multi-select |
+| DSP       | Complete (scale, fname, smooth, datasrc) | None significant |
 | EBM       | Complete           | None |
 | VOL       | Complete           | None |
-| BSPLINE   | None               | Control-point pick/move, knot editing |
+| BSPLINE   | Complete (CP pick/move, knot pick/set) | `ECMD_SPLINE_VPICK` mouse proximity (view-state deferred) |
 
 ---
 
