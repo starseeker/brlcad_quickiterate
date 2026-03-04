@@ -748,6 +748,7 @@ ged_dm_core(struct ged *gedp, int argc, const char *argv[])
 
 extern int ged_ert_core(struct ged *gedp, int argc, const char *argv[]);
 extern int ged_ert2_core(struct ged *gedp, int argc, const char *argv[]);
+extern int ged_ert3_core(struct ged *gedp, int argc, const char *argv[]);
 extern int ged_dm2_core(struct ged *gedp, int argc, const char *argv[]);
 extern int ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[]);
 
@@ -756,6 +757,7 @@ extern int ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[]);
     X(dm2,          ged_dm2_core,         GED_CMD_DEFAULT) \
     X(ert,          ged_ert_core,         GED_CMD_DEFAULT) \
     X(ert2,         ged_ert2_core,        GED_CMD_DEFAULT) \
+    X(ert3,         ged_ert3_core,        GED_CMD_DEFAULT) \
     X(screen_grab,  ged_screen_grab_core, GED_CMD_DEFAULT) \
     X(screengrab,   ged_screen_grab_core, GED_CMD_DEFAULT) \
 

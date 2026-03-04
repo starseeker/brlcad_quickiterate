@@ -34,6 +34,16 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/external/osmesa/CMakeLists.txt")
     # Add the osmesa subproject
     add_subdirectory("${PROJECT_SOURCE_DIR}/external/osmesa" osmesa_build EXCLUDE_FROM_ALL)
 
+    # osmesa is third-party C code; it does not need to conform to the
+    # strict warning flags (e.g. -Werror, -Wfloat-equal, -Wc++-compat)
+    # that the parent project (BRL-CAD) injects via CMAKE_C_FLAGS.
+    # Suppress all warnings on the osmesa target so they don't become errors.
+    # Also disable -finline-functions to prevent inlining failures from
+    # triggering -Werror=inline on large osmesa texture routines.
+    if(TARGET osmesa)
+        target_compile_options(osmesa PRIVATE -w -fno-inline-functions)
+    endif()
+
     # Create an interface wrapper to avoid export issues
     if(NOT TARGET osmesa_interface)
         add_library(osmesa_interface INTERFACE)

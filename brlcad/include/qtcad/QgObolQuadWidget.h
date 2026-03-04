@@ -62,6 +62,14 @@ extern "C" {
 #include "qtcad/defines.h"
 #include "qtcad/QgObolWidget.h"  /* for QtObolContextManager */
 
+/* Obol headers are third-party code; suppress BRL-CAD's strict warnings. */
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#  pragma GCC diagnostic ignored "-Wunused-parameter"
+#  pragma GCC diagnostic ignored "-Wshadow"
+#  pragma GCC diagnostic ignored "-Wdeprecated-copy"
+#endif
 #include <Inventor/SoQuadViewport.h>
 #include <Inventor/SoRenderManager.h>
 #include <Inventor/SbVec2s.h>
@@ -71,6 +79,9 @@ extern "C" {
 #include <Inventor/nodes/SoPerspectiveCamera.h>
 #include <Inventor/nodes/SoOrthographicCamera.h>
 #include <Inventor/actions/SoGLRenderAction.h>
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
 
 
 /**

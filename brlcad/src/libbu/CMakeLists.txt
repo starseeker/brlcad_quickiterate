@@ -64,6 +64,7 @@ set(
   htond.c
   htonf.c
   interrupt.c
+  ipc.cpp
   lex.c
   linebuf.c
   list.c

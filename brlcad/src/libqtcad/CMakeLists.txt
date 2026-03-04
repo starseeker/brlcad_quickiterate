@@ -20,6 +20,14 @@ if(BRLCAD_ENABLE_QT)
   endif(OPENGL_LIBS)
 
   set(QG_DIRS ${QG_DIRS} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR} ${OPENGL_INCLUDE_DIR_GL})
+
+  # If Obol is enabled, find it now so its include dirs are available for MOC
+  if(BRLCAD_ENABLE_OBOL)
+    brlcad_find_package(Obol REQUIRED)
+    if(OBOL_INCLUDE_DIRS)
+      set(QG_DIRS ${QG_DIRS} ${OBOL_INCLUDE_DIRS})
+    endif(OBOL_INCLUDE_DIRS)
+  endif(BRLCAD_ENABLE_OBOL)
 endif(BRLCAD_ENABLE_QT)
 
 # We build the resources in at this level, but list them out
@@ -91,7 +99,10 @@ set(
   QgViewCtrl
 )
 if(OPENGL_LIBS)
-  set(qth_names ${qth_names} QgGL QgObolWidget QgObolQuadWidget)
+  set(qth_names ${qth_names} QgGL)
+  if(BRLCAD_ENABLE_OBOL)
+    set(qth_names ${qth_names} QgObolWidget QgObolQuadWidget)
+  endif(BRLCAD_ENABLE_OBOL)
 endif(OPENGL_LIBS)
 
 foreach(qh ${qth_names})
@@ -105,14 +116,36 @@ if(BRLCAD_ENABLE_QT)
   set(QTCAD_LIBS ${libqtcad_deps})
 
   if(Qt6Widgets_FOUND)
-    qt6_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs})
+    if(BRLCAD_ENABLE_OBOL AND OPENGL_LIBS AND OBOL_INCLUDE_DIRS)
+      # Pass Obol include dirs and BRLCAD_OPENGL define so MOC can process
+      # QgObolWidget.h (which is guarded by #ifdef BRLCAD_OPENGL and includes
+      # Obol headers that require their own include path).
+      set(_moc_obol_opts -DBRLCAD_OPENGL)
+      foreach(_obol_idir ${OBOL_INCLUDE_DIRS})
+        list(APPEND _moc_obol_opts "-I${_obol_idir}")
+      endforeach()
+      qt6_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs} OPTIONS ${_moc_obol_opts})
+    else()
+      qt6_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs})
+    endif()
     qt6_add_resources(qtcad_qrc qtcad_resources.qrc)
     set(QTCAD_LIBS ${QTCAD_LIBS} Qt6::Core Qt6::Widgets ${OPENGL_LIBS})
   else()
-    qt5_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs})
+    if(BRLCAD_ENABLE_OBOL AND OPENGL_LIBS AND OBOL_INCLUDE_DIRS)
+      set(_moc_obol_opts -DBRLCAD_OPENGL)
+      foreach(_obol_idir ${OBOL_INCLUDE_DIRS})
+        list(APPEND _moc_obol_opts "-I${_obol_idir}")
+      endforeach()
+      qt5_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs} OPTIONS ${_moc_obol_opts})
+    else()
+      qt5_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs})
+    endif()
     qt5_add_resources(qtcad_qrc qtcad_resources.qrc)
     set(QTCAD_LIBS ${QTCAD_LIBS} Qt5::Core;Qt5::Widgets;${OPENGL_LIBS})
   endif(Qt6Widgets_FOUND)
+  if(BRLCAD_ENABLE_OBOL AND OBOL_LIBRARIES)
+    set(QTCAD_LIBS ${QTCAD_LIBS} ${OBOL_LIBRARIES})
+  endif(BRLCAD_ENABLE_OBOL AND OBOL_LIBRARIES)
   set(QTCAD_SRCS ${QTCAD_SRCS} ${qtcad_moc_srcs} ${qtcad_qrc})
 
   brlcad_addlib(libqtcad "${QTCAD_SRCS}" "${QTCAD_LIBS}" "${QG_DIRS}" "" SHARED)

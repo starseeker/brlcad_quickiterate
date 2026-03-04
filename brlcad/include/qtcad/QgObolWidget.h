@@ -91,6 +91,14 @@ extern "C" {
 /* Obol / Inventor headers — confined to this translation unit and
  * libqtcad files that explicitly opt in.  Lower BRL-CAD libraries
  * (libged, libbv, librt …) remain Obol-free. */
+/* Obol headers are third-party code; suppress BRL-CAD's strict warnings. */
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#  pragma GCC diagnostic ignored "-Wunused-parameter"
+#  pragma GCC diagnostic ignored "-Wshadow"
+#  pragma GCC diagnostic ignored "-Wdeprecated-copy"
+#endif
 #include <Inventor/SoDB.h>
 #include <Inventor/SoViewport.h>
 #include <Inventor/SoRenderManager.h>
@@ -123,6 +131,19 @@ extern "C" {
 #include <Inventor/nodes/SoTextureCoordinateBinding.h>
 #include <Inventor/nodes/SoIndexedFaceSet.h>
 #include <Inventor/fields/SoSFImage.h>
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
+/* SoButtonEvent.h's push/pop macros restore UP/DOWN as numeric macros
+ * (e.g. from X11/Xlib.h) after its enum definition.  Undef them here so
+ * that SoButtonEvent::UP / SoButtonEvent::DOWN are usable as C++ identifiers
+ * in the rest of this header and in files that include it. */
+#ifdef UP
+#  undef UP
+#endif
+#ifdef DOWN
+#  undef DOWN
+#endif
 
 /* ── QtObolContextManager ─────────────────────────────────────────────────
  * Identical to the reference implementation in obol/examples/qt_obol_widget.h.
@@ -755,31 +776,32 @@ private:
 	QgObolWidget *w = static_cast<QgObolWidget *>(data);
 	SoSensorManager *mgr = SoDB::getSensorManager();
 
-	SbTime delayT, timerT;
-	mgr->getTimerInterval(timerT);
-	mgr->getDelaySensorTimeout(delayT);
+	SbTime timerT;
+	SbBool timerPending = mgr->isTimerSensorPending(timerT);
+	const SbTime &delayT = mgr->getDelaySensorTimeout();
 
-	if (!timerT.getValue())
-	    w->timerTimer_.start(0);
-	else
-	    w->timerTimer_.start((int)(timerT.getValue() * 1000.0));
+	if (timerPending) {
+	    if (timerT.getValue() <= 0.0)
+		w->timerTimer_.start(0);
+	    else
+		w->timerTimer_.start((int)(timerT.getValue() * 1000.0));
+	}
 
-	if (!delayT.getValue())
+	if (delayT.getValue() < 1e-9)
 	    w->delayTimer_.start(0);
 	else
 	    w->delayTimer_.start((int)(delayT.getValue() * 1000.0));
 
-	if (mgr->isIdleTimerActive())
+	if (mgr->isDelaySensorPending())
 	    w->idleTimer_.start(0);
     }
 
-    void onIdle()  { SoDB::getSensorManager()->processIdleSensors(); update(); }
+    void onIdle()  { SoDB::getSensorManager()->processDelayQueue(TRUE); update(); }
     void onDelay() { SoDB::getSensorManager()->processDelayQueue(FALSE); }
     void onTimer() {
 	SoDB::getSensorManager()->processTimerQueue();
 	SbTime next;
-	SoDB::getSensorManager()->getTimerInterval(next);
-	if (next.getValue() > 0.0)
+	if (SoDB::getSensorManager()->isTimerSensorPending(next) && next.getValue() > 0.0)
 	    timerTimer_.start((int)(next.getValue() * 1000.0));
 	update();
     }
