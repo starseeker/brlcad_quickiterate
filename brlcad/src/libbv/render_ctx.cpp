@@ -273,6 +273,7 @@ struct bv_render_ctx {
     SoSeparator                                 *root;      /* shared scene root */
     std::unordered_map<const struct bv_node *, SoNode *> node_map;
     struct bv_scene                             *scene;
+    int                                          owns_scene; /* non-zero → destroy scene in bv_render_ctx_destroy */
     int                                          width;
     int                                          height;
 };
@@ -732,7 +733,8 @@ bv_render_ctx_create(struct bv_scene *scene, void *context_manager,
     ensure_sodb_init(context_manager);
 
     struct bv_render_ctx *ctx = new struct bv_render_ctx;
-    ctx->scene  = scene;
+    ctx->scene      = scene;
+    ctx->owns_scene = 0;
     ctx->width  = width;
     ctx->height = height;
 
@@ -778,8 +780,48 @@ bv_render_ctx_destroy(struct bv_render_ctx *ctx)
     ctx->node_map.clear();
 
     ctx->root->unref();
+
+    if (ctx->owns_scene && ctx->scene)
+	bv_scene_destroy(ctx->scene);
+
     delete ctx;
 }
+
+void
+bv_render_ctx_update_scene(struct bv_render_ctx *ctx,
+			   struct bv_scene *scene,
+			   int take_ownership)
+{
+    if (!ctx || !scene)
+	return;
+
+    /* Free old owned scene if any */
+    if (ctx->owns_scene && ctx->scene)
+	bv_scene_destroy(ctx->scene);
+
+    /* Clear all cached Inventor nodes and remove from root */
+    for (auto &kv : ctx->node_map) {
+	if (SoSeparator *sep = dynamic_cast<SoSeparator *>(kv.second))
+	    sep->unref();
+    }
+    ctx->node_map.clear();
+
+    /* Remove all children from the root except the first (directional light) */
+    int n = ctx->root->getNumChildren();
+    for (int i = n - 1; i >= 1; i--)
+	ctx->root->removeChild(i);
+
+    ctx->scene      = scene;
+    ctx->owns_scene = take_ownership ? 1 : 0;
+
+    /* Build fresh Inventor hierarchy from new scene */
+    sync_scene(ctx);
+
+    /* Let SoViewport / SoRenderManager see the new geometry */
+    if (!ctx->viewport.getCamera())
+	ctx->viewport.viewAll();
+}
+
 
 void
 bv_render_ctx_set_size(struct bv_render_ctx *ctx, int width, int height)

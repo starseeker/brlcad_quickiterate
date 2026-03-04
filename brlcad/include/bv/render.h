@@ -152,6 +152,24 @@ BV_EXPORT void bv_render_ctx_destroy(struct bv_render_ctx *ctx);
 BV_EXPORT void bv_render_ctx_set_size(struct bv_render_ctx *ctx, int width, int height);
 
 /**
+ * @brief Replace the scene in @p ctx and re-synchronise the Inventor graph.
+ *
+ * Clears all cached Inventor nodes, removes them from the scene root, then
+ * sets @c ctx->scene = @p scene and calls sync_scene() to rebuild the
+ * Inventor hierarchy from the new bv_scene.
+ *
+ * If @p take_ownership is non-zero the context will call bv_scene_destroy()
+ * on the *old* scene (if any) and will call bv_scene_destroy() on @p scene
+ * when the context itself is destroyed.  Pass 0 when the caller manages
+ * scene lifetime (e.g. it is @c ged->ged_scene).
+ *
+ * No-op if @p ctx or @p scene is NULL.
+ */
+BV_EXPORT void bv_render_ctx_update_scene(struct bv_render_ctx *ctx,
+					  struct bv_scene *scene,
+					  int take_ownership);
+
+/**
  * @brief Render one frame for @p view using @p ctx.
  *
  * Synchronises any stale @c bv_node entries in the scene to their Inventor
