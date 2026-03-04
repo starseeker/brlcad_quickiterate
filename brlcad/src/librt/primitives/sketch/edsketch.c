@@ -76,6 +76,18 @@
 #define ECMD_SKETCH_DELETE_VERTEX  26008
 /** Delete the currently selected curve segment. */
 #define ECMD_SKETCH_DELETE_SEGMENT 26009
+/**
+ * Move a list of vertices by a common UV delta.
+ *
+ * e_para[0]            = U delta (mm)
+ * e_para[1]            = V delta (mm)
+ * e_para[2..e_inpara-1] = vertex indices (0-based)
+ * e_inpara             >= 3 (at least one vertex index)
+ *
+ * Each listed vertex is shifted by (e_para[0], e_para[1]).
+ * Out-of-range indices are silently skipped.
+ */
+#define ECMD_SKETCH_MOVE_VERTEX_LIST 26010
 
 
 /* ------------------------------------------------------------------ */
@@ -123,6 +135,7 @@ rt_edit_sketch_set_edit_mode(struct rt_edit *s, int mode)
     switch (mode) {
 	case ECMD_SKETCH_MOVE_VERTEX:
 	case ECMD_SKETCH_MOVE_SEGMENT:
+	case ECMD_SKETCH_MOVE_VERTEX_LIST:
 	    s->edit_mode = RT_PARAMS_EDIT_TRANS;
 	    break;
 	case ECMD_SKETCH_PICK_VERTEX:
@@ -151,6 +164,7 @@ struct rt_edit_menu_item sketch_menu[] = {
     { "SKETCH MENU",         NULL,      0 },
     { "Pick Vertex",         sketch_ed, ECMD_SKETCH_PICK_VERTEX },
     { "Move Vertex",         sketch_ed, ECMD_SKETCH_MOVE_VERTEX },
+    { "Move Vertex List",    sketch_ed, ECMD_SKETCH_MOVE_VERTEX_LIST },
     { "Pick Segment",        sketch_ed, ECMD_SKETCH_PICK_SEGMENT },
     { "Move Segment",        sketch_ed, ECMD_SKETCH_MOVE_SEGMENT },
     { "Append Line",         sketch_ed, ECMD_SKETCH_APPEND_LINE },
@@ -262,6 +276,46 @@ ecmd_sketch_move_vertex(struct rt_edit *s)
     skt->verts[se->curr_vert][1] = s->e_para[1] * s->local2base;
     rt_edit_snap_point(skt->verts[se->curr_vert], s);
     s->e_inpara = 0;
+    return 0;
+}
+
+/* Move a list of vertices by a common UV delta.
+ * e_para[0..1] = U, V delta in local units
+ * e_para[2..e_inpara-1] = vertex indices
+ * e_inpara must be >= 3 */
+static int
+ecmd_sketch_move_vertex_list(struct rt_edit *s)
+{
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (!s->e_inpara || s->e_inpara < 3) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_MOVE_VERTEX_LIST: need U-delta, V-delta, "
+		"and at least one vertex index (e_inpara=%d)\n", s->e_inpara);
+	return BRLCAD_ERROR;
+    }
+
+    fastf_t du = s->e_para[0] * s->local2base;
+    fastf_t dv = s->e_para[1] * s->local2base;
+
+    int n_moved = 0;
+    for (int k = 2; k < s->e_inpara; k++) {
+	int vi = (int)s->e_para[k];
+	if (vi < 0 || (size_t)vi >= skt->vert_count)
+	    continue;  /* skip out-of-range silently */
+	skt->verts[vi][0] += du;
+	skt->verts[vi][1] += dv;
+	rt_edit_snap_point(skt->verts[vi], s);
+	n_moved++;
+    }
+
+    s->e_inpara = 0;
+    if (!n_moved) {
+	bu_vls_printf(s->log_str,
+		"WARNING: ECMD_SKETCH_MOVE_VERTEX_LIST: no valid vertices moved\n");
+    }
     return 0;
 }
 
@@ -633,6 +687,8 @@ rt_edit_sketch_edit(struct rt_edit *s)
 	    return ecmd_sketch_pick_vertex(s);
 	case ECMD_SKETCH_MOVE_VERTEX:
 	    return ecmd_sketch_move_vertex(s);
+	case ECMD_SKETCH_MOVE_VERTEX_LIST:
+	    return ecmd_sketch_move_vertex_list(s);
 	case ECMD_SKETCH_PICK_SEGMENT:
 	    return ecmd_sketch_pick_segment(s);
 	case ECMD_SKETCH_MOVE_SEGMENT:
