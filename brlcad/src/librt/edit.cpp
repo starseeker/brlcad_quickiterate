@@ -35,6 +35,7 @@ extern "C" {
 #include "bu/malloc.h"
 #include "bu/vls.h"
 #include "rt/edit.h"
+#include "rt/func.h"
 #include "rt/functab.h"
 }
 
@@ -122,6 +123,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     s->mv_context = 0;
     s->snap.enabled = 0;
     s->snap.spacing = 1.0;
+    BU_EXTERNAL_INIT(&s->es_ckpt);
     s->edit_mode = RT_EDIT_DEFAULT;
     s->tol = tol;
     s->u_ptr = NULL;
@@ -185,6 +187,8 @@ rt_edit_destroy(struct rt_edit *s)
     bu_ptbl_free(&s->comb_insts);
 
     rt_db_free_internal(&s->es_int);
+    bu_free_external(&s->es_ckpt);
+    BU_EXTERNAL_INIT(&s->es_ckpt);
 
     bu_vls_free(s->log_str);
     BU_PUT(s->log_str, struct bu_vls);
@@ -1006,6 +1010,59 @@ rt_edit_snap_point(point2d_t pt, const struct rt_edit *s)
     fastf_t inv_sp = 1.0 / s->snap.spacing;
     pt[0] = floor(pt[0] * inv_sp + 0.5) * s->snap.spacing;
     pt[1] = floor(pt[1] * inv_sp + 0.5) * s->snap.spacing;
+}
+
+
+int
+rt_edit_checkpoint(struct rt_edit *s)
+{
+    if (!s)
+	return BRLCAD_ERROR;
+
+    RT_CK_DB_INTERNAL(&s->es_int);
+
+    /* Release any previous snapshot */
+    bu_free_external(&s->es_ckpt);
+    BU_EXTERNAL_INIT(&s->es_ckpt);
+
+    if (rt_obj_export(&s->es_ckpt, &s->es_int, 1.0, NULL, &rt_uniresource) < 0) {
+	bu_vls_printf(s->log_str, "rt_edit_checkpoint: export failed\n");
+	return BRLCAD_ERROR;
+    }
+
+    return BRLCAD_OK;
+}
+
+
+int
+rt_edit_revert(struct rt_edit *s)
+{
+    if (!s)
+	return BRLCAD_ERROR;
+
+    if (!s->es_ckpt.ext_buf) {
+	bu_vls_printf(s->log_str, "rt_edit_revert: no checkpoint saved\n");
+	return BRLCAD_ERROR;
+    }
+
+    int type = s->es_int.idb_type;
+
+    /* Release current contents */
+    rt_db_free_internal(&s->es_int);
+    RT_DB_INTERNAL_INIT(&s->es_int);
+
+    mat_t identity;
+    MAT_IDN(identity);
+    if (rt_obj_import(&s->es_int, &s->es_ckpt, identity, NULL, &rt_uniresource) < 0) {
+	bu_vls_printf(s->log_str, "rt_edit_revert: import failed\n");
+	return BRLCAD_ERROR;
+    }
+
+    /* If the type changed for some reason (shouldn't happen), keep the original */
+    if (s->es_int.idb_type != type)
+	s->es_int.idb_type = type;
+
+    return BRLCAD_OK;
 }
 
 

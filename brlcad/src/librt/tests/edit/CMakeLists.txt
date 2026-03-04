@@ -25,6 +25,7 @@ brlcad_addexec(rt_edit_test_bot bot.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_sketch sketch.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_bspline bspline.cpp "librt" TEST)
 brlcad_addexec(rt_edit_test_nmg nmg.cpp "librt;libnmg;libwdb" TEST)
+brlcad_addexec(rt_edit_test_comb comb.cpp "librt;libwdb" TEST)
 
 set(
   distcheck_files
@@ -55,6 +56,7 @@ set(
   arb8.cpp
   bot.cpp
   nmg.cpp
+  comb.cpp
 )
 
 cmakefiles(${distcheck_files})
