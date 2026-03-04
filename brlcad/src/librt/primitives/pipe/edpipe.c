@@ -206,9 +206,37 @@ rt_edit_pipe_menu_item(const struct bn_tol *UNUSED(tol))
 
 
 void
-pipe_split_pnt(struct bu_list *UNUSED(pipe_hd), struct wdb_pipe_pnt *UNUSED(ps), point_t UNUSED(new_pt))
+pipe_split_pnt(struct bu_list *pipe_hd, struct wdb_pipe_pnt *ps, point_t new_pt)
 {
-    bu_log("WARNING: pipe splitting unimplemented\n");
+    struct wdb_pipe_pnt *next;
+    struct wdb_pipe_pnt *new_ps;
+
+    BU_CKMAG(ps, WDB_PIPESEG_MAGIC, "pipe point");
+
+    next = BU_LIST_NEXT(wdb_pipe_pnt, &ps->l);
+    if (next->l.magic == BU_LIST_HEAD_MAGIC) {
+	bu_log("pipe_split_pnt: cannot split after the last point\n");
+	return;
+    }
+
+    /* Allocate and initialise a new point between ps and next. */
+    BU_ALLOC(new_ps, struct wdb_pipe_pnt);
+    new_ps->l.magic = WDB_PIPESEG_MAGIC;
+    VMOVE(new_ps->pp_coord, new_pt);
+    /* Interpolate cross-section parameters from the two neighbours */
+    new_ps->pp_od          = (ps->pp_od          + next->pp_od)          * 0.5;
+    new_ps->pp_id          = (ps->pp_id          + next->pp_id)          * 0.5;
+    new_ps->pp_bendradius  = (ps->pp_bendradius  + next->pp_bendradius)  * 0.5;
+
+    /* Insert the new point after ps (i.e. between ps and next) */
+    BU_LIST_APPEND(&ps->l, &new_ps->l);
+
+    /* Validate the modified pipe; remove the new point if it makes an
+     * invalid configuration. */
+    if (rt_pipe_ck(pipe_hd)) {
+	BU_LIST_DEQUEUE(&new_ps->l);
+	bu_free(new_ps, "pipe_split_pnt: new_ps");
+    }
 }
 
 

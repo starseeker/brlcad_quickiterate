@@ -58,12 +58,22 @@
 #define ECMD_COMB_DEL_MEMBER   12002
 #define ECMD_COMB_SET_OP       12003
 #define ECMD_COMB_SET_MATRIX   12004
+#define ECMD_COMB_SET_REGION   12005
+#define ECMD_COMB_SET_COLOR    12006
+#define ECMD_COMB_SET_SHADER   12007
+#define ECMD_COMB_SET_MATERIAL 12008
+#define ECMD_COMB_SET_REGION_ID 12009
+#define ECMD_COMB_SET_AIRCODE  12010
+#define ECMD_COMB_SET_GIFTMATER 12011
+#define ECMD_COMB_SET_LOS      12012
 
 /* rt_comb_edit struct (file-local in edcomb.c) */
 struct rt_comb_edit {
     struct bu_vls es_name;
     int es_mat_valid;
     mat_t es_mat;
+    struct bu_vls es_shader;
+    struct bu_vls es_material;
 };
 
 /* ------------------------------------------------------------------ */
@@ -326,6 +336,198 @@ main(int argc, char *argv[])
 	    bu_exit(1, "ERROR: ADD_MEMBER invalid op changed leaf count %d to %d\n",
 		    prev_leaves, n);
 	bu_vls_trunc(s->log_str, 0);
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_REGION: mark 'mybox' as a region
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_REGION);
+    s->e_inpara = 1;
+    s->e_para[0] = 1.0;   /* non-zero → region */
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (!comb->region_flag)
+	    bu_exit(1, "ERROR: SET_REGION: region_flag not set\n");
+	bu_log("ECMD_COMB_SET_REGION SUCCESS: region_flag=%d\n",
+	       (int)comb->region_flag);
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_REGION_ID: set region_id = 42
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_REGION_ID);
+    s->e_inpara = 1;
+    s->e_para[0] = 42.0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (comb->region_id != 42)
+	    bu_exit(1, "ERROR: SET_REGION_ID: got %ld, expected 42\n",
+		    comb->region_id);
+	bu_log("ECMD_COMB_SET_REGION_ID SUCCESS: region_id=%ld\n",
+	       comb->region_id);
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_AIRCODE: set aircode = 7
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_AIRCODE);
+    s->e_inpara = 1;
+    s->e_para[0] = 7.0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (comb->aircode != 7)
+	    bu_exit(1, "ERROR: SET_AIRCODE: got %ld, expected 7\n",
+		    comb->aircode);
+	bu_log("ECMD_COMB_SET_AIRCODE SUCCESS: aircode=%ld\n",
+	       comb->aircode);
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_GIFTMATER: set GIFTmater = 5
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_GIFTMATER);
+    s->e_inpara = 1;
+    s->e_para[0] = 5.0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (comb->GIFTmater != 5)
+	    bu_exit(1, "ERROR: SET_GIFTMATER: got %ld, expected 5\n",
+		    comb->GIFTmater);
+	bu_log("ECMD_COMB_SET_GIFTMATER SUCCESS: GIFTmater=%ld\n",
+	       comb->GIFTmater);
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_LOS: set los = 80
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_LOS);
+    s->e_inpara = 1;
+    s->e_para[0] = 80.0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (comb->los != 80)
+	    bu_exit(1, "ERROR: SET_LOS: got %ld, expected 80\n",
+		    comb->los);
+	bu_log("ECMD_COMB_SET_LOS SUCCESS: los=%ld\n", comb->los);
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_COLOR: set RGB = (255, 128, 0)
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_COLOR);
+    s->e_inpara = 3;
+    s->e_para[0] = 255.0; s->e_para[1] = 128.0; s->e_para[2] = 0.0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (!comb->rgb_valid || comb->rgb[0] != 255 || comb->rgb[1] != 128 || comb->rgb[2] != 0)
+	    bu_exit(1, "ERROR: SET_COLOR: rgb_valid=%d rgb=(%d,%d,%d)\n",
+		    (int)comb->rgb_valid, (int)comb->rgb[0],
+		    (int)comb->rgb[1], (int)comb->rgb[2]);
+	bu_log("ECMD_COMB_SET_COLOR SUCCESS: rgb=(%d,%d,%d)\n",
+	       (int)comb->rgb[0], (int)comb->rgb[1], (int)comb->rgb[2]);
+    }
+
+    /* ECMD_COMB_SET_COLOR clear: e_inpara=0 */
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_COLOR);
+    s->e_inpara = 0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (comb->rgb_valid)
+	    bu_exit(1, "ERROR: SET_COLOR clear: rgb_valid should be 0\n");
+	bu_log("ECMD_COMB_SET_COLOR clear SUCCESS: rgb_valid=0\n");
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_SHADER: set shader string
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_SHADER);
+    bu_vls_sprintf(&ce->es_shader, "plastic {sp 0.8 di 0.2}");
+    s->e_inpara = 0;   /* shader is passed through es_shader, not e_para */
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (strcmp(bu_vls_cstr(&comb->shader), "plastic {sp 0.8 di 0.2}") != 0)
+	    bu_exit(1, "ERROR: SET_SHADER: got '%s'\n",
+		    bu_vls_cstr(&comb->shader));
+	bu_log("ECMD_COMB_SET_SHADER SUCCESS: shader='%s'\n",
+	       bu_vls_cstr(&comb->shader));
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_MATERIAL: set material string
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_MATERIAL);
+    bu_vls_sprintf(&ce->es_material, "air");
+    s->e_inpara = 0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (strcmp(bu_vls_cstr(&comb->material), "air") != 0)
+	    bu_exit(1, "ERROR: SET_MATERIAL: got '%s'\n",
+		    bu_vls_cstr(&comb->material));
+	bu_log("ECMD_COMB_SET_MATERIAL SUCCESS: material='%s'\n",
+	       bu_vls_cstr(&comb->material));
+    }
+
+    /* ================================================================
+     * ECMD_COMB_SET_REGION clear: set region_flag back to 0
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_COMB_SET_REGION);
+    s->e_inpara = 1;
+    s->e_para[0] = 0.0;
+    rt_edit_process(s);
+    bu_vls_trunc(s->log_str, 0);
+
+    reload_comb(s, "mybox", g_dbip);
+    {
+	struct rt_comb_internal *comb =
+	    (struct rt_comb_internal *)s->es_int.idb_ptr;
+	if (comb->region_flag)
+	    bu_exit(1, "ERROR: SET_REGION clear: region_flag should be 0\n");
+	bu_log("ECMD_COMB_SET_REGION clear SUCCESS: region_flag=0\n");
     }
 
     rt_edit_destroy(s);
