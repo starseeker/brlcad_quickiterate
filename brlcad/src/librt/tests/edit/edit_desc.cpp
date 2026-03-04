@@ -40,25 +40,6 @@
 #include "bu/vls.h"
 #include "raytrace.h"
 
-/* primitive type IDs (from include/rt/defines.h) */
-#define T_TOR         1
-#define T_TGC         2
-#define T_ELL         3
-#define T_EBM        12
-#define T_VOL        13
-#define T_PIPE       15
-#define T_PARTICLE   16
-#define T_RPC        17
-#define T_RHC        18
-#define T_EPA        19
-#define T_EHY        20
-#define T_ETO        21
-#define T_DSP        25
-#define T_CLINE      29
-#define T_COMBINATION 31
-#define T_SUPERELL   35
-#define T_HYP        38
-
 
 /* Check that the JSON output for prim_type_id:
  *   - returns BRLCAD_OK
@@ -135,55 +116,55 @@ main(int argc, char *argv[])
      * ------------------------------------------------------------------ */
 
     /* TOR: ECMD_TOR_R1 = 1021 */
-    fail += check_prim("TOR",  T_TOR,      "\"tor\"",      1021);
+    fail += check_prim("TOR",  ID_TOR,      "\"tor\"",      1021);
 
     /* TGC: ECMD_TGC_SCALE_H = 2027 */
-    fail += check_prim("TGC",  T_TGC,      "\"tgc\"",      2027);
+    fail += check_prim("TGC",  ID_TGC,      "\"tgc\"",      2027);
 
     /* ELL: ECMD_ELL_SCALE_A = 3039 */
-    fail += check_prim("ELL",  T_ELL,      "\"ell\"",      3039);
+    fail += check_prim("ELL",  ID_ELL,      "\"ell\"",      3039);
 
     /* EPA: ECMD_EPA_H = 19050 */
-    fail += check_prim("EPA",  T_EPA,      "\"epa\"",      19050);
+    fail += check_prim("EPA",  ID_EPA,      "\"epa\"",      19050);
 
     /* EHY: ECMD_EHY_H = 20053 */
-    fail += check_prim("EHY",  T_EHY,      "\"ehy\"",      20053);
+    fail += check_prim("EHY",  ID_EHY,      "\"ehy\"",      20053);
 
     /* ETO: ECMD_ETO_R = 21057 */
-    fail += check_prim("ETO",  T_ETO,      "\"eto\"",      21057);
+    fail += check_prim("ETO",  ID_ETO,      "\"eto\"",      21057);
 
     /* HYP: ECMD_HYP_H = 38127 */
-    fail += check_prim("HYP",  T_HYP,      "\"hyp\"",      38127);
+    fail += check_prim("HYP",  ID_HYP,      "\"hyp\"",      38127);
 
     /* RPC: ECMD_RPC_B = 17043 */
-    fail += check_prim("RPC",  T_RPC,      "\"rpc\"",      17043);
+    fail += check_prim("RPC",  ID_RPC,      "\"rpc\"",      17043);
 
     /* RHC: ECMD_RHC_B = 18046 */
-    fail += check_prim("RHC",  T_RHC,      "\"rhc\"",      18046);
+    fail += check_prim("RHC",  ID_RHC,      "\"rhc\"",      18046);
 
     /* PART: ECMD_PART_H = 16088 */
-    fail += check_prim("PART", T_PARTICLE, "\"part\"",     16088);
+    fail += check_prim("PART", ID_PARTICLE, "\"part\"",     16088);
 
     /* SUPERELL: ECMD_SUPERELL_SCALE_A = 35113 */
-    fail += check_prim("SUPERELL", T_SUPERELL, "\"superell\"", 35113);
+    fail += check_prim("SUPERELL", ID_SUPERELL, "\"superell\"", 35113);
 
     /* CLINE: ECMD_CLINE_SCALE_H = 29077 */
-    fail += check_prim("CLINE", T_CLINE,  "\"cline\"",     29077);
+    fail += check_prim("CLINE", ID_CLINE,  "\"cline\"",     29077);
 
     /* DSP: ECMD_DSP_FNAME = 25056 */
-    fail += check_prim("DSP",  T_DSP,      "\"dsp\"",      25056);
+    fail += check_prim("DSP",  ID_DSP,      "\"dsp\"",      25056);
 
     /* EBM: ECMD_EBM_FNAME = 12053 */
-    fail += check_prim("EBM",  T_EBM,      "\"ebm\"",      12053);
+    fail += check_prim("EBM",  ID_EBM,      "\"ebm\"",      12053);
 
     /* VOL: ECMD_VOL_FNAME = 13052  (first in vol_cmds) */
-    fail += check_prim("VOL",  T_VOL,      "\"vol\"",      13052);
+    fail += check_prim("VOL",  ID_VOL,      "\"vol\"",      13052);
 
     /* PIPE: ECMD_PIPE_PT_OD = 15065 */
-    fail += check_prim("PIPE", T_PIPE,     "\"pipe\"",     15065);
+    fail += check_prim("PIPE", ID_PIPE,     "\"pipe\"",     15065);
 
     /* COMB: ECMD_COMB_ADD_MEMBER = 12001 */
-    fail += check_prim("COMB", T_COMBINATION, "\"comb\"",  12001);
+    fail += check_prim("COMB", ID_COMBINATION, "\"comb\"",  12001);
 
     /* ------------------------------------------------------------------
      * Verify that primitives without ft_edit_desc return BRLCAD_ERROR.
