@@ -508,7 +508,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	    /* Find the current Obol widget (canvas_obol of current display) */
 	    QgObolWidget *obolw = nullptr;
 	    if (w->CurrentDisplay())
-		obolw = w->CurrentDisplay()->canvas_obol;
+		obolw = w->CurrentDisplay()->obol_widget();
 
 	    if (obolw) {
 		/* Determine dimensions: prefer the widget's actual pixel size */
