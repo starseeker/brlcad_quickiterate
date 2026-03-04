@@ -287,7 +287,8 @@ public:
      */
     void setRenderCtx(struct bv_render_ctx *ctx) {
 	ctx_ = ctx;
-	scene_fitted_ = false;  /* will refit when geometry first appears */
+	scene_fitted_ = false;        /* will refit when geometry first appears */
+	camera_user_dirty_ = false;   /* reset so BRL-CAD camera syncs initially */
 	if (!ctx_ || !viewport_ || !renderMgr_) {
 	    if (viewport_)  viewport_->setSceneGraph(nullptr);
 	    if (renderMgr_) renderMgr_->setSceneGraph(nullptr);
@@ -572,6 +573,9 @@ public slots:
     void viewAll() {
 	if (viewport_) {
 	    viewport_->viewAll();
+	    scene_fitted_ = true;
+	    camera_user_dirty_ = true;  /* treat viewAll as a user-initiated action */
+	    _pushViewportCameraToView();
 	    update();
 	}
     }
@@ -697,6 +701,13 @@ protected:
 	    return;
 
 	if (ctx_) {
+	    /* Pull the latest BRL-CAD camera into view_ so that ae/zoom/center
+	     * commands issued in the console are reflected here.  The legacy
+	     * ged_gvp is the authoritative source; bview_sync_from_old() copies
+	     * it into view_ (the bview_new companion). */
+	    if (view_)
+		bview_sync_from_old(view_);
+
 	    /* Snapshot child count before sync so we can detect newly added
 	     * geometry (child[0] is always the directional light). */
 	    SoSeparator *sceneRoot =
@@ -704,20 +715,30 @@ protected:
 	    int pre_sync_children = sceneRoot ? sceneRoot->getNumChildren() : 0;
 
 	    /* Sync the Inventor scene graph from bv_scene (build new nodes,
-	     * update stale ones).  The camera argument is the widget's view_;
-	     * sync writes it to ctx_->viewport (a separate SoViewport), not
-	     * to viewport_->  We handle viewport_'s camera via viewAll() below. */
-	    bv_render_ctx_sync_scene(ctx_, view_);
+	     * update stale ones, remove erased ones).  Pass nullptr for the
+	     * view so it does not redundantly update ctx_->viewport — the
+	     * widget manages viewport_'s camera below. */
+	    bv_render_ctx_sync_scene(ctx_, nullptr);
 
 	    int post_sync_children = sceneRoot ? sceneRoot->getNumChildren() : 0;
 
-	    /* When geometry first appears (more than just the directional light),
-	     * refit viewport_'s camera so the scene fills the view.  Also refit
-	     * whenever new objects are added so newly drawn geometry stays visible. */
-	    if (post_sync_children > 1 &&
-		    (post_sync_children > pre_sync_children || !scene_fitted_)) {
-		viewport_->viewAll();
-		scene_fitted_ = true;
+	    /* Apply the BRL-CAD camera (from view_) to viewport_ when:
+	     *   (a) geometry just appeared and the widget hasn't been fitted yet, or
+	     *   (b) new objects were added (newly drawn geometry should be visible), or
+	     *   (c) the user hasn't orbited since the camera was last set by BRL-CAD.
+	     * For case (a)/(b) use viewAll() to auto-fit the camera to the scene.
+	     * For ongoing frames (after fit) sync the camera from view_ directly so
+	     * that ae/zoom/center commands in the console move the Obol viewport. */
+	    if (post_sync_children > 1) {
+		if (!scene_fitted_ || post_sync_children > pre_sync_children) {
+		    /* New geometry: auto-fit and write the result back to view_ */
+		    viewport_->viewAll();
+		    scene_fitted_ = true;
+		    _pushViewportCameraToView();
+		} else if (view_ && !camera_user_dirty_) {
+		    /* No new geometry and user hasn't orbited: track BRL-CAD camera */
+		    _syncCameraFromView(view_);
+		}
 	    }
 
 	    renderMgr_->setViewportRegion(viewport_->getViewportRegion());
@@ -770,6 +791,8 @@ protected:
 		    cam->position.getValue() + lookDir * cam->focalDistance.getValue();
 		cam->orbitCamera(orbit, (float)delta.x(), (float)delta.y());
 		lastMousePos_ = e->pos();
+		camera_user_dirty_ = true;
+		_pushViewportCameraToView();
 		update();
 		return;
 	    }
@@ -787,6 +810,8 @@ protected:
 				       right * (-delta.x() * scale) +
 				       up   * ( delta.y() * scale));
 		lastMousePos_ = e->pos();
+		camera_user_dirty_ = true;
+		_pushViewportCameraToView();
 		update();
 		return;
 	    }
@@ -808,6 +833,8 @@ protected:
 	    const float step = cam->focalDistance.getValue() * (delta > 0 ? 0.1f : -0.1f);
 	    cam->position.setValue(cam->position.getValue() + look * step);
 	    cam->focalDistance.setValue(cam->focalDistance.getValue() - step);
+	    camera_user_dirty_ = true;
+	    _pushViewportCameraToView();
 	    update();
 	}
     }
@@ -953,6 +980,7 @@ private:
     SoRenderManager      *renderMgr_ = nullptr; /* allocated in initializeGL after SoDB::init() */
     bool                  m_init;
     bool                  scene_fitted_ = false; /* true once viewport_->viewAll() fitted to geometry */
+    bool                  camera_user_dirty_ = false; /* true when user has orbited/panned/zoomed */
     int                   current_ = 0;
     QPoint                lastMousePos_;
 
@@ -964,6 +992,102 @@ private:
     SoTexture2           *m_rtTex_     = nullptr; /* ref'd */
     SoOrthographicCamera *m_rtCam_     = nullptr; /* child of m_rtOverlay_ */
     SoCoordinate3        *m_rtCoords_  = nullptr; /* child of m_rtOverlay_ */
+
+    /* ── Camera helpers ─────────────────────────────────────────────── */
+
+    /**
+     * Apply the bview_new camera to viewport_'s camera so BRL-CAD view
+     * commands (ae, zoom, center, etc.) are reflected in the Obol viewport.
+     * Called each frame when the user has not been interactively orbiting.
+     */
+    void _syncCameraFromView(const struct bview_new *view) {
+	if (!view || !viewport_) return;
+	const struct bview_camera *cam = bview_camera_get(view);
+	if (!cam) return;
+
+	SoCamera *so_cam = viewport_->getCamera();
+
+	/* Create/replace camera if perspective mode changed */
+	bool need_persp = (cam->perspective != 0);
+	if (!so_cam
+	    || (need_persp  && !so_cam->isOfType(SoPerspectiveCamera::getClassTypeId()))
+	    || (!need_persp && !so_cam->isOfType(SoOrthographicCamera::getClassTypeId()))) {
+	    so_cam = need_persp
+		? static_cast<SoCamera *>(new SoPerspectiveCamera)
+		: static_cast<SoCamera *>(new SoOrthographicCamera);
+	    viewport_->setCamera(so_cam);
+	}
+
+	so_cam->position.setValue(
+	    (float)cam->position[0],
+	    (float)cam->position[1],
+	    (float)cam->position[2]);
+
+	SbVec3f viewdir(
+	    (float)(cam->target[0] - cam->position[0]),
+	    (float)(cam->target[1] - cam->position[1]),
+	    (float)(cam->target[2] - cam->position[2]));
+	if (viewdir.length() > 1e-10f) {
+	    viewdir.normalize();
+	    so_cam->orientation.setValue(
+		SbRotation(SbVec3f(0.0f, 0.0f, -1.0f), viewdir));
+	}
+
+	SbVec3f tgt(
+	    (float)cam->target[0],
+	    (float)cam->target[1],
+	    (float)cam->target[2]);
+	SbVec3f pos(
+	    (float)cam->position[0],
+	    (float)cam->position[1],
+	    (float)cam->position[2]);
+	float fdist = (tgt - pos).length();
+	if (fdist > 1e-10f)
+	    so_cam->focalDistance.setValue(fdist);
+
+	if (need_persp && cam->fov > 0.0)
+	    static_cast<SoPerspectiveCamera *>(so_cam)->heightAngle.setValue(
+		(float)(cam->fov * M_PI / 180.0));
+    }
+
+    /**
+     * Write viewport_'s current camera back to view_ (and the legacy ged_gvp
+     * via bview_sync_to_old) so that orbit/pan/zoom in the widget are reflected
+     * in the BRL-CAD view state.  Called after each interactive camera move.
+     */
+    void _pushViewportCameraToView() {
+	if (!view_ || !viewport_) return;
+	SoCamera *so_cam = viewport_->getCamera();
+	if (!so_cam) return;
+
+	struct bview_camera cam;
+	SbVec3f pos = so_cam->position.getValue();
+	SbVec3f look;
+	so_cam->orientation.getValue().multVec(SbVec3f(0.0f, 0.0f, -1.0f), look);
+	float fdist = so_cam->focalDistance.getValue();
+
+	VSET(cam.position, pos[0], pos[1], pos[2]);
+	VSET(cam.target,
+	     pos[0] + look[0] * fdist,
+	     pos[1] + look[1] * fdist,
+	     pos[2] + look[2] * fdist);
+
+	/* Derive up vector from orientation */
+	SbVec3f up;
+	so_cam->orientation.getValue().multVec(SbVec3f(0.0f, 1.0f, 0.0f), up);
+	VSET(cam.up, up[0], up[1], up[2]);
+
+	cam.perspective = so_cam->isOfType(SoPerspectiveCamera::getClassTypeId()) ? 1 : 0;
+	if (cam.perspective)
+	    cam.fov = (double)static_cast<SoPerspectiveCamera *>(so_cam)->heightAngle.getValue()
+		      * 180.0 / M_PI;
+	else
+	    cam.fov = 0.0;
+	cam.scale = fdist;
+
+	bview_camera_set(view_, &cam);
+	bview_sync_to_old(view_);  /* push into ged_gvp so ae/zoom see it too */
+    }
 
     /* Remove overlay from scene and unref nodes */
     void _removeRtOverlay() {

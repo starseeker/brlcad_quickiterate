@@ -592,6 +592,9 @@ build_so_node(struct bv_render_ctx *ctx,
 /*
  * Sync the entire bv_scene tree into the Inventor scene.
  * Walk from the bv_scene root node; new and stale nodes are updated.
+ * Nodes that were erased from the scene (ctx->root has more geometry children
+ * than bv_scene root has children) trigger a full rebuild of the Inventor
+ * sub-tree so stale SoSeparator references are never dangled.
  */
 static void
 sync_scene(struct bv_render_ctx *ctx)
@@ -603,8 +606,29 @@ sync_scene(struct bv_render_ctx *ctx)
     if (!root_node)
 	return;
 
+    /* Geometry children of ctx->root = total children minus the
+     * directional light (always child[0]).  If the Inventor scene has
+     * MORE top-level geometry nodes than bv_scene has top-level children,
+     * then objects were erased.  Because bv_scene_remove_obj() frees the
+     * bv_node* (making our cached node_map keys dangling), the only safe
+     * recovery is a full rebuild of the Inventor sub-tree. */
+    int inv_geo = ctx->root->getNumChildren() - 1; /* subtract light */
+    int bv_top  = (int)BU_PTBL_LEN(&root_node->children);
+    if (inv_geo > bv_top) {
+	/* Full rebuild: unref all cached nodes, clear the map, and
+	 * remove all geometry children from ctx->root. */
+	for (auto &kv : ctx->node_map) {
+	    if (SoSeparator *sep = dynamic_cast<SoSeparator *>(kv.second))
+		sep->unref();
+	}
+	ctx->node_map.clear();
+	/* Remove children from root except child[0] (the directional light) */
+	for (int ci = ctx->root->getNumChildren() - 1; ci >= 1; ci--)
+	    ctx->root->removeChild(ci);
+    }
+
     /* Use the scene root's children as top-level nodes */
-    for (size_t i = 0; i < BU_PTBL_LEN(&root_node->children); i++) {
+    for (size_t i = 0; i < (size_t)bv_top; i++) {
 	struct bv_node *top =
 	    (struct bv_node *)BU_PTBL_GET(&root_node->children, i);
 	build_so_node(ctx, top, ctx->root);
