@@ -110,6 +110,7 @@
 #include <Inventor/SoViewport.h>
 #include <Inventor/SoQuadViewport.h>
 #include <Inventor/SoRenderManager.h>
+#include <Inventor/SoOffscreenRenderer.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoGroup.h>
 #include <Inventor/nodes/SoMatrixTransform.h>
@@ -320,10 +321,10 @@ append_material(SoSeparator *sep, const struct bv_node *node)
 	return;
 
     SoMaterial *somat = new SoMaterial;
-    const float *rgb = mat->diffuse_color.buc_rgb;
-    somat->diffuseColor.setValue(rgb[0], rgb[1], rgb[2]);
-    somat->transparency.setValue(mat->transparency);
-    somat->shininess.setValue(mat->shininess);
+    const fastf_t *rgb = mat->diffuse_color.buc_rgb;
+    somat->diffuseColor.setValue((float)rgb[0], (float)rgb[1], (float)rgb[2]);
+    somat->transparency.setValue((float)mat->transparency);
+    somat->shininess.setValue((float)mat->shininess);
     sep->addChild(somat);
 }
 

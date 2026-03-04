@@ -90,7 +90,16 @@ extern "C" {
 
 /* Obol / Inventor headers — confined to this translation unit and
  * libqtcad files that explicitly opt in.  Lower BRL-CAD libraries
- * (libged, libbv, librt …) remain Obol-free. */
+ * (libged, libbv, librt …) remain Obol-free.
+ *
+ * bv/defines.h defines UP=0 and DOWN=1 as preprocessor macros for
+ * scroll-wheel directions.  These clash with SoButtonEvent::State
+ * enum values which have the same names.  Undefine them permanently
+ * in this header; consumers that need the scroll-direction constants
+ * after including this file should re-include bv/defines.h (its macros
+ * are guarded by #ifndef so they restore cleanly). */
+#undef UP
+#undef DOWN
 #include <Inventor/SoDB.h>
 #include <Inventor/SoViewport.h>
 #include <Inventor/SoRenderManager.h>
@@ -755,31 +764,32 @@ private:
 	QgObolWidget *w = static_cast<QgObolWidget *>(data);
 	SoSensorManager *mgr = SoDB::getSensorManager();
 
-	SbTime delayT, timerT;
-	mgr->getTimerInterval(timerT);
-	mgr->getDelaySensorTimeout(delayT);
+	SbTime timerT;
+	SbBool timerPending = mgr->isTimerSensorPending(timerT);
+	const SbTime &delayT = mgr->getDelaySensorTimeout();
 
-	if (!timerT.getValue())
-	    w->timerTimer_.start(0);
-	else
-	    w->timerTimer_.start((int)(timerT.getValue() * 1000.0));
+	if (timerPending) {
+	    if (timerT.getValue() <= 0.0)
+		w->timerTimer_.start(0);
+	    else
+		w->timerTimer_.start((int)(timerT.getValue() * 1000.0));
+	}
 
-	if (!delayT.getValue())
+	if (delayT.getValue() < 1e-9)
 	    w->delayTimer_.start(0);
 	else
 	    w->delayTimer_.start((int)(delayT.getValue() * 1000.0));
 
-	if (mgr->isIdleTimerActive())
+	if (mgr->isDelaySensorPending())
 	    w->idleTimer_.start(0);
     }
 
-    void onIdle()  { SoDB::getSensorManager()->processIdleSensors(); update(); }
+    void onIdle()  { SoDB::getSensorManager()->processDelayQueue(TRUE); update(); }
     void onDelay() { SoDB::getSensorManager()->processDelayQueue(FALSE); }
     void onTimer() {
 	SoDB::getSensorManager()->processTimerQueue();
 	SbTime next;
-	SoDB::getSensorManager()->getTimerInterval(next);
-	if (next.getValue() > 0.0)
+	if (SoDB::getSensorManager()->isTimerSensorPending(next) && next.getValue() > 0.0)
 	    timerTimer_.start((int)(next.getValue() * 1000.0));
 	update();
     }
