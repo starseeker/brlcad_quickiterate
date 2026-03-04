@@ -187,9 +187,9 @@ int rt_pipe_edit_pt_params(struct rt_edit *s, int pt_index,
 
 | Feature | Gap |
 |---------|-----|
-| Multi-vertex move in one call | No `ECMD_BOT_MOVEV_LIST` |
-| Edge split (insert midpoint) | No `ECMD_BOT_ESPLIT` |
-| Face split | No `ECMD_BOT_FSPLIT` |
+| ~~Multi-vertex move in one call~~ | **DONE**: `ECMD_BOT_MOVEV_LIST` (30073) — delta in `e_para[0..2]`, vertex indices in `e_para[3..]` |
+| ~~Edge split (insert midpoint)~~ | **DONE**: `ECMD_BOT_ESPLIT` (30074) — uses `bot_verts[0..1]` from prior `ECMD_BOT_PICKE` |
+| ~~Face split~~ | **DONE**: `ECMD_BOT_FSPLIT` (30075) — uses `bot_verts[0..2]` from prior `ECMD_BOT_PICKT` |
 | Vertex merge/fuse | Only in `src/tclscripts/mged/bot_vertex_fuse_all.tcl` → calls `bot_vertex_fuse` command |
 | Degenerate-face removal | Only in Tcl via `bot_face_fuse` |
 
