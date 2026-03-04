@@ -205,11 +205,25 @@ Test coverage added in `arb8.cpp` (`ECMD_ARB_SETUP_ROTFACE` +
 - BSPLINE: `sedit_vpick` uses `nurb_closest2d` + `s->vp` model2objview matrices.
 - COMB material properties: `SET_REGION/COLOR/SHADER/MATERIAL/REGION_ID/AIRCODE/GIFTMATER/LOS` added.
 
-### 6. Sketch Segment Split / NURB Segments / Mouse Proximity Pick
+### 6. Sketch Segment Split / NURB Segments / Mouse Proximity Pick — **COMPLETED** (session 5)
 
-- Segment split at parameter t is not implemented (requires
-  parameterization per segment type).
-- NURB segments are rarely used and not yet editable via ECMD.
-- Mouse-proximity vertex picking (`ECMD_SKETCH_PICK_VERTEX` via
-  nearest-vertex hit test in `ft_edit_xy`) is not yet implemented.
+All three previously-missing sketch features are now implemented in `edsketch.c`
+and fully tested in `sketch.cpp`:
+
+- **Segment split at parameter t** (`ECMD_SKETCH_SPLIT_SEGMENT 26011`):
+  implemented for LINE, CARC (non-full-circle), and BEZIER segments.
+  Full-circle CARCs and NURB segments are not splittable (NURB subdivision
+  requires the full Oslo algorithm; full-circle CARCs have no well-defined
+  split point).
+- **NURB segment add/edit** — three new ECMDs:
+  - `ECMD_SKETCH_APPEND_NURB 26012`: creates a non-rational B-spline with
+    a clamped-uniform knot vector generated from `order` and control-point
+    vertex indices.
+  - `ECMD_SKETCH_NURB_EDIT_KV 26013`: replaces the full knot vector of the
+    selected NURB segment.
+  - `ECMD_SKETCH_NURB_EDIT_WEIGHTS 26014`: sets/replaces the per-control-point
+    weight array, making the segment rational on first use.
+- **Mouse-proximity vertex picking** (`ECMD_SKETCH_PICK_VERTEX`):
+  `ft_edit_xy` stores the view-space cursor in `se->v_pos`; `ecmd_sketch_pick_vertex`
+  projects all sketch vertices through `model2objview` and selects the nearest one.
 
