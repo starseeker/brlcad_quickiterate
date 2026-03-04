@@ -272,9 +272,20 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int ob
 		    if (rctx) {
 			obolw->setRenderCtx(rctx);
 			/* Wire the widget to track the GED session's view so
-			 * that orbit/zoom/draw update the correct camera. */
-			if (g->ged_gvnv)
+			 * that orbit/zoom/draw update the correct camera.
+			 *
+			 * IMPORTANT: set_view() frees the widget's local_bv_
+			 * (the view that was passed to gedp->ged_gvp at startup).
+			 * After set_view(), gedp->ged_gvp is a dangling pointer.
+			 * Restore it to the original GED view that ged_gvnv wraps
+			 * so that draw2.cpp / bv_scene_sync_from_view use a valid
+			 * view whose vset is properly connected to gedp->ged_views. */
+			if (g->ged_gvnv) {
 			    obolw->set_view(g->ged_gvnv);
+			    struct bview *orig_gvp = bview_old_get(g->ged_gvnv);
+			    if (orig_gvp)
+				g->ged_gvp = orig_gvp;
+			}
 			obolw->update();
 		    }
 		});
