@@ -63,6 +63,8 @@ install(
   DESTINATION ${INCLUDE_DIR}/brlcad
 )
 
+add_subdirectory(tests)
+
 cmakefiles(
   CMakeLists.txt
   render_private.h

@@ -126,7 +126,8 @@ render_ctx_destroy(struct render_ctx *ctx)
     {
 	struct region *regp;
 	for (BU_LIST_FOR(regp, region, &(ctx->rtip->HeadRegion)))
-	    mlib_free(regp);
+	    if (regp->reg_mfuncs)
+		mlib_free(regp);
     }
 
     if (ctx->rtip)

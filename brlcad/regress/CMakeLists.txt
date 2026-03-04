@@ -47,6 +47,9 @@ add_subdirectory(gchecker)
 # Geometry Editing Library Regression Tests
 add_subdirectory(ged)
 
+# ert2 / ert3 embedded raytrace command integration tests
+add_subdirectory(ert2)
+
 # Geometry Conversion Regression Tests
 add_subdirectory(gcv)
 
