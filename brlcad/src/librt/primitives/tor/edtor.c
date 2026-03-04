@@ -147,6 +147,29 @@ rt_edit_tor_edit_desc(void)
     return &tor_prim_desc;
 }
 
+int
+rt_edit_tor_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
+{
+    struct rt_tor_internal *tor;
+
+    if (!s || !vals)
+	return -1;
+
+    tor = (struct rt_tor_internal *)s->es_int.idb_ptr;
+    RT_TOR_CK_MAGIC(tor);
+
+    switch (cmd_id) {
+	case ECMD_TOR_R1:
+	    vals[0] = tor->r_a * s->base2local;
+	    return 1;
+	case ECMD_TOR_R2:
+	    vals[0] = tor->r_h * s->base2local;
+	    return 1;
+	default:
+	    return 0;
+    }
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void

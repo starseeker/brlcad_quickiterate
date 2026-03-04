@@ -196,6 +196,36 @@ rt_edit_ell_edit_desc(void)
     return &ell_prim_desc;
 }
 
+int
+rt_edit_ell_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
+{
+    struct rt_ell_internal *ell;
+
+    if (!s || !vals)
+	return -1;
+
+    ell = (struct rt_ell_internal *)s->es_int.idb_ptr;
+    RT_ELL_CK_MAGIC(ell);
+
+    switch (cmd_id) {
+	case ECMD_ELL_SCALE_A:
+	    vals[0] = MAGNITUDE(ell->a) * s->base2local;
+	    return 1;
+	case ECMD_ELL_SCALE_B:
+	    vals[0] = MAGNITUDE(ell->b) * s->base2local;
+	    return 1;
+	case ECMD_ELL_SCALE_C:
+	    vals[0] = MAGNITUDE(ell->c) * s->base2local;
+	    return 1;
+	case ECMD_ELL_SCALE_ABC:
+	    /* Return the current A magnitude as the uniform scale value. */
+	    vals[0] = MAGNITUDE(ell->a) * s->base2local;
+	    return 1;
+	default:
+	    return 0;
+    }
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void

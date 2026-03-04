@@ -27,7 +27,9 @@
  *    When a solid is selected in the scene (QG_VIEW_SELECT arrives) the
  *    panel rebuilds itself for that primitive type, shows the current
  *    object name, and each "Apply" button pushes the widget values into
- *    s->e_para[] then calls rt_edit_set_edflag() + rt_edit_process().
+ *    s->e_para[] / s->e_str[], then calls rt_edit_set_edflag() +
+ *    rt_edit_process().  If the primitive implements ft_edit_get_params(),
+ *    spinboxes are pre-populated with the current live values on activation.
  *
  *  CREATE new object
  *    A scrollable bar of push buttons at the top of the panel lists every
@@ -36,8 +38,8 @@
  *    an object name and the parameter values, then presses "Create".
  *    Creation uses OBJ[type].ft_make() to initialise a default
  *    rt_db_internal, writes it to the database with wdb_put_internal(),
- *    then emits QG_VIEW_DB to refresh the scene.
- *    Starting an rt_edit session after creation is planned future work.
+ *    then immediately starts an rt_edit session on the new object so the
+ *    Apply buttons work without requiring the user to re-select it.
  *
  * Widget hierarchy (top to bottom):
  *   ┌ type_scroll   : scrollable bar of per-type QPushButtons (always visible)
@@ -54,7 +56,8 @@
  *   BOOLEAN -> QCheckBox
  *   POINT   -> 3x QDoubleSpinBox with X/Y/Z labels
  *   VECTOR  -> 3x QDoubleSpinBox with X/Y/Z labels
- *   STRING  -> QLineEdit (+ file-browser button when prim_field is a filename)
+ *   STRING  -> QLineEdit (+ file-browser button when prim_field is a filename);
+ *              value written to s->e_str[param.index] via rt_edit_set_str()
  *   ENUM    -> QComboBox populated from enum_labels/enum_ids
  *   COLOR   -> QPushButton that opens QColorDialog
  *   MATRIX  -> 4x4 QDoubleSpinBox grid (identity default)
@@ -110,11 +113,23 @@ public:
     /**
      * Link this widget to a live rt_edit session.
      *
-     * When s is non-NULL Apply buttons are fully functional; pass NULL to
-     * disconnect (Apply buttons remain visible but greyed out).  The widget
-     * does NOT take ownership of s.
+     * When s is non-NULL Apply buttons are fully functional and, if the
+     * primitive implements ft_edit_get_params(), all spinboxes are
+     * pre-populated with the current live values.  Pass NULL to disconnect
+     * (Apply buttons remain visible but greyed out).
+     *
+     * If s differs from the internally owned session (created by
+     * createObject()), the owned session is destroyed.
+     *
+     * The widget does NOT take ownership of externally-provided sessions.
      */
     void setEditState(struct rt_edit *s);
+
+    /**
+     * Public helper: emit view_updated(QG_VIEW_REFRESH).
+     * Called by static C callbacks registered on the rt_edit session.
+     */
+    void triggerViewRefresh();
 
 signals:
     /**
@@ -134,9 +149,12 @@ public slots:
     void do_view_update(unsigned long long flags);
 
 private slots:
-    /** Called by the "Create" button.  Creates a new database object using
-     *  OBJ[type].ft_make() + wdb_put_internal(), then starts an rt_edit
-     *  session on it so Apply buttons work immediately. */
+    /**
+     * Called by the "Create" button.  Creates a new database object using
+     * OBJ[type].ft_make() + wdb_put_internal(), immediately starts an
+     * rt_edit session on it, and calls setEditState() so Apply buttons
+     * work without any additional user action.
+     */
     void createObject();
 
 private:
@@ -170,19 +188,28 @@ private:
     QWidget *buildParamWidget(const struct rt_edit_param_desc *p);
 
     /**
-     * Read widget values into s->e_para[], set e_inpara, then call
-     * rt_edit_set_edflag(cmd_id) + rt_edit_process().  Does nothing when
-     * es == nullptr.
+     * Read widget values into s->e_para[] / s->e_str[], set e_inpara, then
+     * call rt_edit_set_edflag(cmd_id) + rt_edit_process().  Does nothing
+     * when es == nullptr.
      */
     void applyCommand(const struct rt_edit_cmd_desc *cmd);
+
+    /**
+     * Pre-populate all spinboxes / input widgets with the current live
+     * parameter values read from es via ft_edit_get_params().
+     * Called whenever es is set to a non-NULL value, if the primitive
+     * implements the function.
+     */
+    void populateWidgetValues();
 
     /** Refresh create_btn enable state and mode_label text. */
     void refreshModeUI();
 
     /* ----- Core state ----- */
-    struct rt_edit *es = nullptr;      /**< active edit session (not owned) */
-    int   current_prim_type    = -1;   /**< type id currently displayed     */
-    QString current_prim_label;        /**< e.g. "TOR", "ELL"               */
+    struct rt_edit *es       = nullptr;  /**< active edit session (not owned externally) */
+    struct rt_edit *owned_es = nullptr;  /**< session we created (must destroy)           */
+    int   current_prim_type  = -1;       /**< type id currently displayed                 */
+    QString current_prim_label;          /**< e.g. "TOR", "ELL"                           */
 
     /* ----- Top-level layout widgets ----- */
     QVBoxLayout *outer_layout  = nullptr;

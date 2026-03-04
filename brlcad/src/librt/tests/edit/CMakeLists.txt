@@ -28,6 +28,7 @@ brlcad_addexec(rt_edit_test_nmg nmg.cpp "librt;libnmg;libwdb" TEST)
 brlcad_addexec(rt_edit_test_comb comb.cpp "librt;libwdb" TEST)
 
 brlcad_addexec(rt_edit_test_edit_desc edit_desc.cpp "librt" TEST)
+brlcad_addexec(rt_edit_test_str_get_params edit_str_get_params.cpp "librt" TEST)
 
 set(
   distcheck_files
@@ -60,6 +61,7 @@ set(
   nmg.cpp
   comb.cpp
   edit_desc.cpp
+  edit_str_get_params.cpp
 )
 
 cmakefiles(${distcheck_files})

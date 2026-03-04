@@ -47,6 +47,7 @@
 #include <QVBoxLayout>
 
 #ifndef Q_MOC_RUN
+#  include "bu/defines.h"   /* bu_clbk_t, BU_CLBK_DURING, BRLCAD_OK */
 #  include "bu/log.h"
 #  include "bu/malloc.h"
 #  include "raytrace.h"           /* OBJ[], EDOBJ[], rt_db_internal, ... */
@@ -60,6 +61,51 @@
 
 #include "qtcad/QgSignalFlags.h"
 #include "QgPrimDescWidget.h"
+
+
+/* ======================================================================
+ * Static callback helpers wired onto owned rt_edit sessions.
+ * ====================================================================== */
+
+/**
+ * ECMD_GET_FILENAME callback.
+ *
+ * Primitive edit handlers (VOL, DSP, EBM) call this when they need the
+ * new filename.  We return e_str[0] from the rt_edit session, which was
+ * written by QgPrimDescWidget::applyCommand() via rt_edit_set_str().
+ *
+ * Signature: int f(int argc, const char **argv, void *data, void *result)
+ *   data   = struct rt_edit *
+ *   result = char ** — write the filename pointer here
+ */
+static int
+qg_get_filename_clbk(int UNUSED(argc), const char **UNUSED(argv),
+      void *data, void *result)
+{
+    if (!result)
+return BRLCAD_ERROR;
+
+    struct rt_edit *s = static_cast<struct rt_edit *>(data);
+    char **out = static_cast<char **>(result);
+
+    *out = (s && s->e_nstr > 0 && s->e_str[0][0]) ? s->e_str[0] : NULL;
+    return BRLCAD_OK;
+}
+
+/**
+ * ECMD_REPLOT_EDITING_SOLID / ECMD_VIEW_UPDATE callback.
+ *
+ * Triggers a Qt scene refresh so wireframes update after Apply.
+ *   data = QgPrimDescWidget *
+ */
+static int
+qg_replot_clbk(int UNUSED(argc), const char **UNUSED(argv),
+       void *data, void *UNUSED(result))
+{
+    if (data)
+static_cast<QgPrimDescWidget *>(data)->triggerViewRefresh();
+    return BRLCAD_OK;
+}
 
 
 /* ======================================================================
@@ -135,6 +181,13 @@ tr("Click a primitive type above to see its edit parameters."), this);
 
 QgPrimDescWidget::~QgPrimDescWidget()
 {
+    /* Destroy any rt_edit session we own. */
+    if (owned_es) {
+rt_edit_destroy(owned_es);
+owned_es = nullptr;
+    }
+    es = nullptr;
+
     param_widgets.clear();
     cmd_descs.clear();
     color_store.clear();
@@ -147,10 +200,28 @@ QgPrimDescWidget::~QgPrimDescWidget()
  * ====================================================================== */
 
 void
+QgPrimDescWidget::triggerViewRefresh()
+{
+    emit view_updated(QG_VIEW_REFRESH);
+}
+
+
+void
 QgPrimDescWidget::setEditState(struct rt_edit *s)
 {
+    /* If we owned a previous session that differs from what is being set,
+     * destroy it (the user has moved on to a different object). */
+    if (owned_es && s != owned_es) {
+rt_edit_destroy(owned_es);
+owned_es = nullptr;
+    }
+
     es = s;
     refreshModeUI();
+
+    /* Pre-populate widgets with live primitive values if available. */
+    if (es)
+populateWidgetValues();
 }
 
 
@@ -205,6 +276,10 @@ return;
     status_label->setVisible(false);
     scroll_area->setVisible(true);
     refreshModeUI();
+
+    /* Pre-populate widgets if an edit session is already active. */
+    if (es)
+populateWidgetValues();
 }
 
 
@@ -226,7 +301,7 @@ return;
     BSelectState *ss = dbis->find_selected_state(nullptr);
 
     if (!ss || ss->list_selected_paths().empty()) {
-/* Selection cleared - stay on current type (user may be creating) */
+/* Selection cleared - give up any owned session */
 if (es) {
     setEditState(nullptr);
 }
@@ -288,7 +363,10 @@ bu_log("QgPrimDescWidget: primitive type %d has no ft_make; cannot create.\n",
 return;
     }
 
-    const char *name = qname.toLocal8Bit().constData();
+    /* Keep a local copy of the name; toLocal8Bit().data() is only valid
+     * until the QByteArray temporary is destroyed. */
+    QByteArray name_bytes = qname.toLocal8Bit();
+    const char *name = name_bytes.constData();
 
     /* Refuse to clobber an existing object. */
     if (db_lookup(dbip, name, LOOKUP_QUIET) != RT_DIR_NULL) {
@@ -319,6 +397,39 @@ return;
 
     bu_log("QgPrimDescWidget: created '%s' (type %d).\n",
    name, current_prim_type);
+
+    /* ---- Start an rt_edit session on the new object ---- */
+    struct db_full_path new_dfp;
+    db_full_path_init(&new_dfp);
+    if (db_string_to_path(&new_dfp, dbip, name) == 0) {
+struct bn_tol *tol = &wdbp->wdb_tol;
+struct bview  *view = gedp->ged_gvp;
+
+struct rt_edit *new_es = rt_edit_create(&new_dfp, dbip, tol, view);
+if (new_es) {
+    /* Register ECMD_GET_FILENAME: data = rt_edit so handler can
+     * read e_str[0] for the filename when primitives need it. */
+    rt_edit_map_clbk_set(new_es->m, ECMD_GET_FILENAME,
+ BU_CLBK_DURING, qg_get_filename_clbk,
+ static_cast<void *>(new_es));
+
+    /* Register replot / view-update: data = this widget. */
+    rt_edit_map_clbk_set(new_es->m, ECMD_REPLOT_EDITING_SOLID,
+ BU_CLBK_DURING, qg_replot_clbk,
+ static_cast<void *>(this));
+    rt_edit_map_clbk_set(new_es->m, ECMD_VIEW_UPDATE,
+ BU_CLBK_DURING, qg_replot_clbk,
+ static_cast<void *>(this));
+
+    owned_es = new_es;
+    setEditState(owned_es);  /* populates widgets + refreshes UI */
+} else {
+    bu_log("QgPrimDescWidget: rt_edit_create failed for '%s'; "
+   "Apply will not be available until you re-select it.\n",
+   name);
+}
+db_free_full_path(&new_dfp);
+    }
 
     emit view_updated(QG_VIEW_DB);
 }
@@ -404,7 +515,7 @@ create_btn->setText(tr("Create new"));
     } else {
 /* Create mode: no rt_edit session */
 mode_label->setText(
-    tr("Creating new <b>%1</b> — fill in a name and press Create")
+    tr("Creating new <b>%1</b> \u2014 fill in a name and press Create")
 .arg(current_prim_label));
 create_btn->setEnabled(true);
 create_btn->setText(tr("Create"));
@@ -758,6 +869,7 @@ return;
     for (int i = 0; i < RT_EDIT_MAXPARA; i++)
 es->e_para[i] = 0.0;
     es->e_inpara = 0;
+    es->e_nstr   = 0;
 
     int max_idx = 0;
 
@@ -804,10 +916,20 @@ max_idx = std::max(max_idx, p->index + 3);
 break;
     }
 
-    case RT_EDIT_PARAM_STRING:
-/* String parameters are not routed through e_para.
- * They require primitive-specific helpers (future work: e_str). */
+    case RT_EDIT_PARAM_STRING: {
+/* Find the QLineEdit inside the container widget. */
+QLineEdit *le = w->findChild<QLineEdit *>("string_input");
+if (!le)
+    le = qobject_cast<QLineEdit *>(w);
+if (!le) break;
+QString text = le->text().trimmed();
+if (!text.isEmpty()) {
+    /* Write to e_str[p->index]; the ECMD_GET_FILENAME callback
+     * registered on this session reads e_str[0]. */
+    rt_edit_set_str(es, p->index, text.toLocal8Bit().constData());
+}
 break;
+    }
 
     case RT_EDIT_PARAM_ENUM: {
 QComboBox *cb = qobject_cast<QComboBox *>(w);
@@ -851,6 +973,122 @@ break;
     rt_edit_process(es);
 
     emit view_updated(QG_VIEW_REFRESH);
+}
+
+
+/* ======================================================================
+ * Internal: Pre-populate widget values from live primitive state
+ * ====================================================================== */
+
+void
+QgPrimDescWidget::populateWidgetValues()
+{
+    if (!es || current_prim_type < 0)
+return;
+
+    if (!EDOBJ[current_prim_type].ft_edit_get_params)
+return;  /* no implementation for this primitive type yet */
+
+    const struct rt_edit_prim_desc *desc = nullptr;
+    if (EDOBJ[current_prim_type].ft_edit_desc)
+desc = (*EDOBJ[current_prim_type].ft_edit_desc)();
+    if (!desc)
+return;
+
+    fastf_t vals[RT_EDIT_MAXPARA];
+
+    for (int ci = 0; ci < desc->ncmd; ci++) {
+const struct rt_edit_cmd_desc *cmd = &desc->cmds[ci];
+memset(vals, 0, sizeof(vals));
+
+int nvals = (*EDOBJ[current_prim_type].ft_edit_get_params)(
+    es, cmd->cmd_id, vals);
+if (nvals <= 0)
+    continue;
+
+const QList<QWidget *> &pwidgets = param_widgets.value(cmd->cmd_id);
+
+for (int pi = 0; pi < cmd->nparam; pi++) {
+    const struct rt_edit_param_desc *p = &cmd->params[pi];
+    QWidget *w = (pi < pwidgets.size()) ? pwidgets[pi] : nullptr;
+    if (!w)
+continue;
+
+    switch (p->type) {
+
+case RT_EDIT_PARAM_SCALAR: {
+    QDoubleSpinBox *sb = qobject_cast<QDoubleSpinBox *>(w);
+    if (sb) sb->setValue(vals[p->index]);
+    break;
+}
+
+case RT_EDIT_PARAM_INTEGER: {
+    QSpinBox *sb = qobject_cast<QSpinBox *>(w);
+    if (sb) sb->setValue((int)vals[p->index]);
+    break;
+}
+
+case RT_EDIT_PARAM_BOOLEAN: {
+    QCheckBox *cb = qobject_cast<QCheckBox *>(w);
+    if (cb) cb->setChecked(vals[p->index] != 0.0);
+    break;
+}
+
+case RT_EDIT_PARAM_POINT:
+case RT_EDIT_PARAM_VECTOR: {
+    QList<QDoubleSpinBox *> sbs =
+w->findChildren<QDoubleSpinBox *>();
+    if (sbs.size() >= 3) {
+sbs[0]->setValue(vals[p->index]);
+sbs[1]->setValue(vals[p->index + 1]);
+sbs[2]->setValue(vals[p->index + 2]);
+    }
+    break;
+}
+
+case RT_EDIT_PARAM_ENUM: {
+    QComboBox *cb = qobject_cast<QComboBox *>(w);
+    if (!cb || !p->enum_ids) break;
+    int ev = (int)vals[p->index];
+    for (int ei = 0; ei < p->nenum; ei++) {
+if (p->enum_ids[ei] == ev) {
+    cb->setCurrentIndex(ei);
+    break;
+}
+    }
+    break;
+}
+
+case RT_EDIT_PARAM_COLOR: {
+    QPushButton *btn = qobject_cast<QPushButton *>(w);
+    if (!btn || !color_store.contains(btn)) break;
+    QColor c((int)vals[p->index],
+     (int)vals[p->index + 1],
+     (int)vals[p->index + 2]);
+    color_store[btn] = c;
+    btn->setStyleSheet(
+QString("background-color: rgb(%1,%2,%3);"
+" border: 1px solid #888;")
+    .arg(c.red()).arg(c.green()).arg(c.blue()));
+    btn->setText(
+QString("(%1, %2, %3)")
+    .arg(c.red()).arg(c.green()).arg(c.blue()));
+    break;
+}
+
+case RT_EDIT_PARAM_MATRIX: {
+    QList<QDoubleSpinBox *> sbs =
+w->findChildren<QDoubleSpinBox *>();
+    for (int mi = 0; mi < 16 && mi < sbs.size(); mi++)
+sbs[mi]->setValue(vals[p->index + mi]);
+    break;
+}
+
+default:
+    break;
+    }
+}
+    }
 }
 
 
