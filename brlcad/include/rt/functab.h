@@ -434,6 +434,24 @@ struct rt_edit_functab {
     const struct rt_edit_prim_desc *(*ft_edit_desc)(void);
 #define EDFUNCTAB_FUNC_EDIT_DESC_CAST(_func) ((const struct rt_edit_prim_desc *(*)(void))((void (*)(void))_func))
 
+    /**
+     * Pre-read current primitive parameter values into vals[].
+     *
+     * For each parameter of @p cmd_id, writes the current value (in local
+     * units) to vals[param.index], following the same index convention as
+     * s->e_para[].  For POINT/VECTOR params three consecutive slots starting
+     * at param.index are filled.  STRING params are not represented here.
+     *
+     * @param s       Active rt_edit session (es_int must be valid).
+     * @param cmd_id  Which command's parameters to read.
+     * @param vals    Caller-provided array; caller must ensure it is at least
+     *                RT_EDIT_MAXPARA elements long.
+     * @return  Number of scalar slots written (>= 0), or -1 on error.
+     *          Returns 0 if cmd_id is not recognised by this primitive.
+     */
+    int (*ft_edit_get_params)(struct rt_edit *s, int cmd_id, fastf_t *vals);
+#define EDFUNCTAB_FUNC_GET_PARAMS_CAST(_func) ((int(*)(struct rt_edit *, int, fastf_t *))((void (*)(void))_func))
+
 };
 
 RT_EXPORT extern const struct rt_edit_functab EDOBJ[];
