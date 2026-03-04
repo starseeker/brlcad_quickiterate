@@ -64,6 +64,8 @@
 #define ECMD_DSP_SCALE_X        25058
 #define ECMD_DSP_SCALE_Y        25059
 #define ECMD_DSP_SCALE_ALT      25060
+#define ECMD_DSP_SET_SMOOTH     25061
+#define ECMD_DSP_SET_DATASRC    25062
 
 
 static const char *DSP_DATA_FILE = "/tmp/rt_edit_test_dsp.data";
@@ -389,6 +391,56 @@ if (!VNEAR_EQUAL(kp_world, expected, VUNITIZE_TOL))
     V3ARGS(kp_world));
 bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
        "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
+    }
+
+    /* ================================================================
+     * ECMD_DSP_SET_SMOOTH: set and clear smooth normals flag
+     * ================================================================*/
+    {
+	struct rt_dsp_internal *dsp2 =
+	    (struct rt_dsp_internal *)s->es_int.idb_ptr;
+
+	/* Set to 1 explicitly */
+	dsp2->dsp_smooth = 0;
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_DSP_SET_SMOOTH);
+	s->e_inpara = 1;
+	s->e_para[0] = 1.0;
+	bu_vls_trunc(s->log_str, 0);
+	rt_edit_process(s);
+	if (dsp2->dsp_smooth != 1)
+	    bu_exit(1, "ERROR: ECMD_DSP_SET_SMOOTH set=1: smooth=%u\n",
+		    dsp2->dsp_smooth);
+	bu_log("ECMD_DSP_SET_SMOOTH set=1 SUCCESS\n");
+
+	/* Set explicitly to 0 */
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_DSP_SET_SMOOTH);
+	s->e_inpara = 1;
+	s->e_para[0] = 0.0;
+	bu_vls_trunc(s->log_str, 0);
+	rt_edit_process(s);
+	if (dsp2->dsp_smooth != 0)
+	    bu_exit(1, "ERROR: ECMD_DSP_SET_SMOOTH set=0: smooth=%u\n",
+		    dsp2->dsp_smooth);
+	bu_log("ECMD_DSP_SET_SMOOTH set=0 SUCCESS\n");
+    }
+
+    /* ================================================================
+     * ECMD_DSP_SET_DATASRC: switch from file to object data source
+     * ================================================================*/
+    {
+	struct rt_dsp_internal *dsp3 =
+	    (struct rt_dsp_internal *)s->es_int.idb_ptr;
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_DSP_SET_DATASRC);
+	s->e_inpara = 1;
+	s->e_para[0] = 1.0;   /* 1 => RT_DSP_SRC_OBJ */
+	bu_vls_trunc(s->log_str, 0);
+	rt_edit_process(s);
+	if (dsp3->dsp_datasrc != RT_DSP_SRC_OBJ)
+	    bu_exit(1, "ERROR: ECMD_DSP_SET_DATASRC: expected 'o', got '%c'\n",
+		    dsp3->dsp_datasrc);
+	bu_log("ECMD_DSP_SET_DATASRC SUCCESS: datasrc='%c'\n",
+	       dsp3->dsp_datasrc);
     }
 
     rt_edit_destroy(s);
