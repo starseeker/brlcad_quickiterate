@@ -102,6 +102,7 @@ public:
   }
 
   void makeEmpty(SbBool freeold = TRUE) {
+    (void)freeold; /* parameter kept for API compatibility */
     str_.clear();
   }
 

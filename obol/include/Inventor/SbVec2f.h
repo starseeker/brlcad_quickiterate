@@ -113,9 +113,18 @@ OBOL_DLL_API inline SbVec2f operator - (const SbVec2f & v1, const SbVec2f & v2) 
   SbVec2f v(v1); v -= v2; return v;
 }
 
+/* Exact bit comparison is intentional for these vector equality operators.
+ * Suppress -Wfloat-equal which is a false positive here. */
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
 OBOL_DLL_API inline int operator == (const SbVec2f & v1, const SbVec2f & v2) {
   return ((v1[0] == v2[0]) && (v1[1] == v2[1]));
 }
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
 
 OBOL_DLL_API inline int operator != (const SbVec2f & v1, const SbVec2f & v2) {
   return !(v1 == v2);
