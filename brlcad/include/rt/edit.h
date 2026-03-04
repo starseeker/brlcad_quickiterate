@@ -42,6 +42,14 @@ __BEGIN_DECLS
 #define RT_EDIT_DEFAULT   -1
 #define RT_EDIT_IDLE       0
 
+/**
+ * Maximum number of parameters that can be supplied via e_para in a single
+ * rt_edit operation.  This must be large enough to hold all parameters for
+ * the most complex single command (currently ECMD_SKETCH_APPEND_BEZIER, which
+ * needs one slot per control-point index; degree 15 → 16 indices).
+ */
+#define RT_EDIT_MAXPARA   16
+
 
 // Solid editing (done via sed in MGED) alters primitive parameters to produce
 // new shapes.  Parameters are updated immediately, allowing for new wireframe
@@ -249,8 +257,8 @@ struct rt_edit {
     int e_mvalid;               /* e_mparam valid.  e_inpara must = 0 */
     vect_t e_mparam;            /* mouse input param.  Only when es_mvalid set */
 
-    int e_inpara;               /* parameter input from keyboard flag.  1 == e_para valid.  e_mvalid must = 0 */
-    vect_t e_para;              /* keyboard input parameter changes */
+    int e_inpara;               /* number of valid entries in e_para (set by caller before rt_edit_process) */
+    fastf_t e_para[RT_EDIT_MAXPARA]; /* keyboard input parameters; e_para[0..e_inpara-1] are valid */
 
     mat_t e_invmat;             /* inverse of e_mat KAA */
     mat_t e_mat;                /* accumulated matrix of path */
