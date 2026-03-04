@@ -45,7 +45,8 @@
  * ECMD numbers for sketch editing.  ID_SKETCH = 26, so we use 26nnn.
  */
 
-/** Select a vertex by index (e_para[0] = vertex index). */
+/** Select a vertex by index (e_para[0] = vertex index) or by mouse
+ *  proximity when invoked after ft_edit_xy sets v_pos. */
 #define ECMD_SKETCH_PICK_VERTEX    26001
 /** Move the currently selected vertex (e_para[0..1] = new UV coords in mm). */
 #define ECMD_SKETCH_MOVE_VERTEX    26002
@@ -88,6 +89,23 @@
  * Out-of-range indices are silently skipped.
  */
 #define ECMD_SKETCH_MOVE_VERTEX_LIST 26010
+/**
+ * Split the currently selected segment at parameter t.
+ *
+ * e_para[0] = segment index (0-based)
+ * e_para[1] = split parameter t in the open interval (0, 1)
+ * e_inpara  = 2
+ *
+ * Supported segment types: LINE, CARC (non-full-circle), BEZIER.
+ * NURB segments and full-circle CARCs are not supported.
+ *
+ * On success the segment at e_para[0] is replaced by two segments:
+ *   [si]   — the portion from the original start to the split point
+ *   [si+1] — the portion from the split point to the original end
+ * A new vertex is added for the split point (and de Casteljau
+ * intermediate points for BEZIER).  curr_seg is reset to -1.
+ */
+#define ECMD_SKETCH_SPLIT_SEGMENT  26011
 
 
 /* ------------------------------------------------------------------ */
@@ -99,8 +117,10 @@ rt_edit_sketch_prim_edit_create(struct rt_edit *UNUSED(s))
 {
     struct rt_sketch_edit *se;
     BU_GET(se, struct rt_sketch_edit);
-    se->curr_vert = -1;
-    se->curr_seg  = -1;
+    se->curr_vert   = -1;
+    se->curr_seg    = -1;
+    VSETALL(se->v_pos, 0.0);
+    se->v_pos_valid = 0;
     return (void *)se;
 }
 
@@ -118,8 +138,9 @@ rt_edit_sketch_prim_edit_reset(struct rt_edit *s)
     struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
     if (!se)
 	return;
-    se->curr_vert = -1;
-    se->curr_seg  = -1;
+    se->curr_vert   = -1;
+    se->curr_seg    = -1;
+    se->v_pos_valid = 0;
 }
 
 
@@ -172,6 +193,7 @@ struct rt_edit_menu_item sketch_menu[] = {
     { "Append Bezier",       sketch_ed, ECMD_SKETCH_APPEND_BEZIER },
     { "Delete Vertex",       sketch_ed, ECMD_SKETCH_DELETE_VERTEX },
     { "Delete Segment",      sketch_ed, ECMD_SKETCH_DELETE_SEGMENT },
+    { "Split Segment",       sketch_ed, ECMD_SKETCH_SPLIT_SEGMENT },
     { "", NULL, 0 }
 };
 
@@ -227,6 +249,41 @@ sketch_vert_is_used(const struct rt_sketch_internal *skt, int vi)
 /* Edit operation implementations                                      */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Find the sketch vertex whose 3-D position projects closest to the
+ * view-space reference point ref_view.  Each 2-D vertex (u, v) maps to
+ * 3-D world-space as:
+ *   P = skt->V  +  u * skt->u_vec  +  v * skt->v_vec
+ * The 3-D point is then projected to view space via model2objview and
+ * the XY distance to ref_view is minimised.
+ * Returns the index of the closest vertex, or -1 if no vertices exist.
+ */
+static int
+sketch_closest_vertex(const struct rt_sketch_internal *skt,
+		      const mat_t model2objview,
+		      const point_t ref_view)
+{
+    int c_vi = -1;
+    fastf_t c_dist = INFINITY;
+
+    for (size_t i = 0; i < skt->vert_count; i++) {
+	point_t p3d;
+	VJOIN2(p3d, skt->V,
+	       skt->verts[i][0], skt->u_vec,
+	       skt->verts[i][1], skt->v_vec);
+	point_t p_view;
+	MAT4X3PNT(p_view, model2objview, p3d);
+	fastf_t dx = p_view[X] - ref_view[X];
+	fastf_t dy = p_view[Y] - ref_view[Y];
+	fastf_t d2 = dx*dx + dy*dy;
+	if (d2 < c_dist) {
+	    c_dist = d2;
+	    c_vi = (int)i;
+	}
+    }
+    return c_vi;
+}
+
 static int
 ecmd_sketch_pick_vertex(struct rt_edit *s)
 {
@@ -235,6 +292,35 @@ ecmd_sketch_pick_vertex(struct rt_edit *s)
 	(struct rt_sketch_internal *)s->es_int.idb_ptr;
     RT_SKETCH_CK_MAGIC(skt);
 
+    /* Mouse-proximity path: view cursor was stored by ft_edit_xy */
+    if (!s->e_inpara && se->v_pos_valid) {
+	if (!s->vp) {
+	    bu_vls_printf(s->log_str,
+		    "ERROR: ECMD_SKETCH_PICK_VERTEX proximity: no view attached\n");
+	    se->v_pos_valid = 0;
+	    return BRLCAD_ERROR;
+	}
+	if (skt->vert_count == 0) {
+	    bu_vls_printf(s->log_str,
+		    "ERROR: ECMD_SKETCH_PICK_VERTEX proximity: sketch has no vertices\n");
+	    se->v_pos_valid = 0;
+	    return BRLCAD_ERROR;
+	}
+	mat_t model2objview;
+	bn_mat_mul(model2objview, s->vp->gv_model2view, s->model_changes);
+
+	int vi = sketch_closest_vertex(skt, model2objview, se->v_pos);
+	se->v_pos_valid = 0;
+	if (vi < 0) {
+	    bu_vls_printf(s->log_str,
+		    "ERROR: ECMD_SKETCH_PICK_VERTEX proximity: failed\n");
+	    return BRLCAD_ERROR;
+	}
+	se->curr_vert = vi;
+	return 0;
+    }
+
+    /* Index path: caller supplied vertex index in e_para[0] */
     if (!s->e_inpara) {
 	bu_vls_printf(s->log_str, "ERROR: vertex index required\n");
 	return BRLCAD_ERROR;
@@ -569,6 +655,277 @@ ecmd_sketch_append_bezier(struct rt_edit *s)
     return 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Segment-split helpers                                               */
+/* ------------------------------------------------------------------ */
+
+/* Append one vertex to the sketch; returns the new vertex index. */
+static int
+sketch_add_vertex(struct rt_sketch_internal *skt, fastf_t u, fastf_t v)
+{
+    int vi = (int)skt->vert_count;
+    skt->verts = (point2d_t *)bu_realloc(skt->verts,
+	    (skt->vert_count + 1) * sizeof(point2d_t), "sketch verts");
+    V2SET(skt->verts[vi], u, v);
+    skt->vert_count++;
+    return vi;
+}
+
+/* Insert a new segment pointer at position pos, shifting higher indices up. */
+static void
+sketch_insert_segment(struct rt_sketch_internal *skt, size_t pos, void *new_seg)
+{
+    skt->curve.count++;
+    skt->curve.segment = (void **)bu_realloc(skt->curve.segment,
+	    skt->curve.count * sizeof(void *), "sketch curve segments");
+    skt->curve.reverse = (int *)bu_realloc(skt->curve.reverse,
+	    skt->curve.count * sizeof(int), "sketch curve reverse");
+    for (size_t i = skt->curve.count - 1; i > pos; i--) {
+	skt->curve.segment[i] = skt->curve.segment[i - 1];
+	skt->curve.reverse[i] = skt->curve.reverse[i - 1];
+    }
+    skt->curve.segment[pos] = new_seg;
+    skt->curve.reverse[pos] = 0;
+}
+
+/*
+ * Compute which side of the directed line from (sx,sy)→(ex,ey) the
+ * center (cx,cy) lies on.  Returns 1 if the center is to the LEFT
+ * (cross product > 0), 0 otherwise.  Matches the convention used by
+ * sketch.c seg_to_vlist() and skt_ed.tcl find_arc_center.
+ */
+static int
+arc_center_is_left(fastf_t sx, fastf_t sy,
+		   fastf_t ex, fastf_t ey,
+		   fastf_t cx, fastf_t cy)
+{
+    /* cross product z-component of (end-start) × (center-start) */
+    fastf_t cross_z = (ex - sx) * (cy - sy) - (ey - sy) * (cx - sx);
+    return (cross_z > 0.0) ? 1 : 0;
+}
+
+static int
+ecmd_sketch_split_segment(struct rt_edit *s)
+{
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (!s->e_inpara || s->e_inpara < 2) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT: segment index and t "
+		"parameter required (e_inpara=%d)\n", s->e_inpara);
+	return BRLCAD_ERROR;
+    }
+
+    int si     = (int)s->e_para[0];
+    fastf_t t  = s->e_para[1];
+
+    if (si < 0 || (size_t)si >= skt->curve.count) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT: segment index %d "
+		"out of range [0, %zu)\n", si, skt->curve.count);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (t <= 0.0 || t >= 1.0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT: t=%g must be in (0,1)\n", t);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    void *seg = skt->curve.segment[si];
+    uint32_t magic = *(uint32_t *)seg;
+
+    if (magic == CURVE_LSEG_MAGIC) {
+	/*
+	 * Linear segment: split point = (1-t)*P0 + t*P1.
+	 * Replace original with line start→split; insert line split→end.
+	 */
+	struct line_seg *ls = (struct line_seg *)seg;
+	fastf_t pu = (1.0 - t) * skt->verts[ls->start][0]
+		   + t           * skt->verts[ls->end][0];
+	fastf_t pv = (1.0 - t) * skt->verts[ls->start][1]
+		   + t           * skt->verts[ls->end][1];
+	int new_vi  = sketch_add_vertex(skt, pu, pv);
+	int old_end = ls->end;
+	ls->end = new_vi;
+
+	struct line_seg *ls2;
+	BU_ALLOC(ls2, struct line_seg);
+	ls2->magic = CURVE_LSEG_MAGIC;
+	ls2->start = new_vi;
+	ls2->end   = old_end;
+	sketch_insert_segment(skt, (size_t)si + 1, (void *)ls2);
+
+    } else if (magic == CURVE_CARC_MAGIC) {
+	/*
+	 * Circular arc.  Full-circle arcs (radius < 0) are not supported.
+	 *
+	 * Center computation replicates skt_ed.tcl find_arc_center and
+	 * sketch.c seg_to_vlist so that center_is_left is set correctly
+	 * for both sub-arcs.  "Center is to the left" is defined as the
+	 * cross product (end-start) × (center-start) > 0.
+	 */
+	struct carc_seg *cs = (struct carc_seg *)seg;
+
+	if (cs->radius < 0.0) {
+	    bu_vls_printf(s->log_str,
+		    "ERROR: ECMD_SKETCH_SPLIT_SEGMENT: "
+		    "cannot split a full-circle arc\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+
+	fastf_t sx = skt->verts[cs->start][0];
+	fastf_t sy = skt->verts[cs->start][1];
+	fastf_t ex = skt->verts[cs->end][0];
+	fastf_t ey = skt->verts[cs->end][1];
+	fastf_t r  = cs->radius;
+
+	/* Perpendicular-bisector centre computation (same as sketch.c) */
+	fastf_t midx = (sx + ex) * 0.5;
+	fastf_t midy = (sy + ey) * 0.5;
+	fastf_t s2mx = midx - sx;
+	fastf_t s2my = midy - sy;
+	fastf_t s2m_len_sq = s2mx*s2mx + s2my*s2my;
+	if (s2m_len_sq <= SMALL_FASTF) {
+	    bu_vls_printf(s->log_str,
+		    "ERROR: ECMD_SKETCH_SPLIT_SEGMENT: arc start/end too close\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+	fastf_t len_sq = r*r - s2m_len_sq;
+	if (len_sq < 0.0) {
+	    bu_vls_printf(s->log_str,
+		    "ERROR: ECMD_SKETCH_SPLIT_SEGMENT: arc radius too small\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+	/* dir = perpendicular to start→end (normalized) */
+	fastf_t dirx = -s2my;
+	fastf_t diry =  s2mx;
+	fastf_t dir_len = sqrt(dirx*dirx + diry*diry);
+	dirx /= dir_len;
+	diry /= dir_len;
+	fastf_t tmp_len = sqrt(len_sq);
+	fastf_t cx = midx + tmp_len * dirx;
+	fastf_t cy = midy + tmp_len * diry;
+	/* Choose the side that matches center_is_left */
+	fastf_t cross_z = (ex - sx) * (cy - sy) - (ey - sy) * (cx - sx);
+	if (!(cross_z > 0.0 && cs->center_is_left))
+	    { cx = midx - tmp_len * dirx; cy = midy - tmp_len * diry; }
+
+	/* Angular span for the arc (matches sketch.c orientation logic) */
+	fastf_t start_ang = atan2(sy - cy, sx - cx);
+	fastf_t end_ang   = atan2(ey - cy, ex - cx);
+	if (cs->orientation) {
+	    while (end_ang > start_ang) end_ang -= M_2PI;
+	} else {
+	    while (end_ang < start_ang) end_ang += M_2PI;
+	}
+
+	/* Split point at parameter t */
+	fastf_t split_ang = start_ang + t * (end_ang - start_ang);
+	fastf_t spu = cx + r * cos(split_ang);
+	fastf_t spv = cy + r * sin(split_ang);
+	int new_vi = sketch_add_vertex(skt, spu, spv);
+
+	/* center_is_left for first sub-arc (start → split) */
+	int cil1 = arc_center_is_left(sx, sy, spu, spv, cx, cy);
+	/* center_is_left for second sub-arc (split → end) */
+	int cil2 = arc_center_is_left(spu, spv, ex, ey, cx, cy);
+
+	int old_end = cs->end;
+	cs->end            = new_vi;
+	cs->center_is_left = cil1;
+	cs->center         = -1;
+
+	struct carc_seg *cs2;
+	BU_ALLOC(cs2, struct carc_seg);
+	cs2->magic          = CURVE_CARC_MAGIC;
+	cs2->start          = new_vi;
+	cs2->end            = old_end;
+	cs2->radius         = r;
+	cs2->center_is_left = cil2;
+	cs2->orientation    = cs->orientation;
+	cs2->center         = -1;
+	sketch_insert_segment(skt, (size_t)si + 1, (void *)cs2);
+
+    } else if (magic == CURVE_BEZIER_MAGIC) {
+	/*
+	 * Bezier segment: de Casteljau subdivision at parameter t.
+	 *
+	 * Replicates the calc_bezier logic from skt_ed.tcl.  Given
+	 * degree-d control points P[0..d], we build the full triangle
+	 * Q[k][j] = (1-t)*Q[k-1][j] + t*Q[k-1][j+1].
+	 * Left  control points: L[k] = Q[k][0]   (k = 0..d)
+	 * Right control points: R[k] = Q[d-k][k] (k = 0..d)
+	 *
+	 * New vertices are added for L[1..d] (the last one is the split
+	 * point) and for R[1..d-1].  L[0] = P[0] and R[d] = P[d] reuse
+	 * existing vertex indices.
+	 */
+	struct bezier_seg *bs = (struct bezier_seg *)seg;
+	int d = bs->degree;
+
+	/* Build de Casteljau triangle in UV space (max degree 19) */
+	fastf_t Qu[20][20], Qv[20][20];
+	for (int j = 0; j <= d; j++) {
+	    Qu[0][j] = skt->verts[bs->ctl_points[j]][0];
+	    Qv[0][j] = skt->verts[bs->ctl_points[j]][1];
+	}
+	for (int k = 1; k <= d; k++) {
+	    for (int j = 0; j <= d - k; j++) {
+		Qu[k][j] = (1.0 - t) * Qu[k-1][j] + t * Qu[k-1][j+1];
+		Qv[k][j] = (1.0 - t) * Qv[k-1][j] + t * Qv[k-1][j+1];
+	    }
+	}
+
+	/* Left control points: L[k] = Q[k][0] */
+	int left_verts[20];
+	left_verts[0] = bs->ctl_points[0]; /* P[0] — existing */
+	for (int k = 1; k <= d; k++)
+	    left_verts[k] = sketch_add_vertex(skt, Qu[k][0], Qv[k][0]);
+
+	/* Right control points: R[k] = Q[d-k][k] */
+	int right_verts[20];
+	right_verts[0] = left_verts[d];    /* split vertex */
+	for (int k = 1; k <= d - 1; k++)
+	    right_verts[k] = sketch_add_vertex(skt, Qu[d-k][k], Qv[d-k][k]);
+	right_verts[d] = bs->ctl_points[d]; /* P[d] — existing */
+
+	/* Create the right Bezier segment */
+	struct bezier_seg *bs2;
+	BU_ALLOC(bs2, struct bezier_seg);
+	bs2->magic      = CURVE_BEZIER_MAGIC;
+	bs2->degree     = d;
+	bs2->ctl_points = (int *)bu_malloc((d + 1) * sizeof(int),
+					   "bezier ctl_points");
+	for (int k = 0; k <= d; k++)
+	    bs2->ctl_points[k] = right_verts[k];
+
+	/* Update original to be the left Bezier segment */
+	for (int k = 0; k <= d; k++)
+	    bs->ctl_points[k] = left_verts[k];
+
+	sketch_insert_segment(skt, (size_t)si + 1, (void *)bs2);
+
+    } else {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT: segment type not supported "
+		"(only LINE, CARC, BEZIER)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    se->curr_seg = -1;
+    s->e_inpara  = 0;
+    return 0;
+}
+
 static int
 ecmd_sketch_delete_vertex(struct rt_edit *s)
 {
@@ -703,6 +1060,8 @@ rt_edit_sketch_edit(struct rt_edit *s)
 	    return ecmd_sketch_delete_vertex(s);
 	case ECMD_SKETCH_DELETE_SEGMENT:
 	    return ecmd_sketch_delete_segment(s);
+	case ECMD_SKETCH_SPLIT_SEGMENT:
+	    return ecmd_sketch_split_segment(s);
 	default:
 	    return edit_generic(s);
     }
@@ -713,6 +1072,7 @@ rt_edit_sketch_edit(struct rt_edit *s)
 int
 rt_edit_sketch_edit_xy(struct rt_edit *s, const vect_t mousevec)
 {
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
     vect_t pos_view = VINIT_ZERO;
 
     switch (s->edit_flag) {
@@ -722,6 +1082,12 @@ rt_edit_sketch_edit_xy(struct rt_edit *s, const vect_t mousevec)
 	case RT_PARAMS_EDIT_TRANS:
 	    edit_stra_xy(&pos_view, s, mousevec);
 	    break;
+	case ECMD_SKETCH_PICK_VERTEX:
+	    /* Store view-space cursor position; ft_edit will call the
+	     * proximity search when e_inpara == 0 and v_pos_valid is set. */
+	    VSET(se->v_pos, mousevec[X], mousevec[Y], 0.0);
+	    se->v_pos_valid = 1;
+	    return 0;
 	default:
 	    return edit_generic_xy(s, mousevec);
     }
