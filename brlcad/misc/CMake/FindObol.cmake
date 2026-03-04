@@ -167,6 +167,14 @@ if(NOT Obol_FOUND AND NOT TARGET Obol::Obol AND NOT OBOL_INSTALL_DIR)
     set(OBOL_BUILD_EXAMPLES ${_obol_EXAMPLES_save} CACHE BOOL "" FORCE)
     set(OBOL_BUILD_MENTOR   ${_obol_MENTOR_save}   CACHE BOOL "" FORCE)
     set(OBOL_BUILD_VIEWER   ${_obol_VIEWER_save}   CACHE BOOL "" FORCE)
+    # Obol is third-party code; suppress BRL-CAD's strict warning flags
+    # (e.g. -Werror=shadow, -Werror=float-equal, -Werror=deprecated-copy)
+    # that are injected via CMAKE_CXX_FLAGS / CMAKE_C_FLAGS.
+    # Also disable LTO to avoid ODR false-positives from -flto=auto.
+    if(TARGET Obol)
+      target_compile_options(Obol PRIVATE -w -fno-lto)
+      target_link_options(Obol PRIVATE -fno-lto)
+    endif()
     set(_obol_src_used TRUE)
   endif()
 endif()
