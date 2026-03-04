@@ -44,6 +44,8 @@
 #define ECMD_VTRANS          9017
 #define ECMD_SPLINE_VPICK    9018
 #define ECMD_BSPLINE_PICK_CP 9019
+#define ECMD_BSPLINE_PICK_KNOT 9020
+#define ECMD_BSPLINE_SET_KNOT  9021
 
 /* The rt_bspline_edit struct (also file-local in edbspline.c) */
 struct rt_bspline_edit {
@@ -51,6 +53,8 @@ struct rt_bspline_edit {
     int spl_ui;
     int spl_vi;
     point_t v_pos;
+    int knot_dir;
+    int knot_idx;
 };
 
 
@@ -230,6 +234,106 @@ main(int argc, char *argv[])
 		    V3ARGS(cp));
 	bu_log("ECMD_VTRANS SUCCESS: CP(%d,%d) moved to (%g,%g,%g)\n",
 	       b->spl_ui, b->spl_vi, V3ARGS(cp));
+    }
+
+    /* ================================================================
+     * ECMD_BSPLINE_PICK_KNOT: pick U knot at index 2 of surface 0
+     *
+     * The surface has u.k_size = 5, knots = [0,0,1,2,2].
+     * Picking dir=0 (U), index=2 should store knot_dir=0, knot_idx=2
+     * and the value at [2] is 1.0.
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BSPLINE_PICK_KNOT);
+    s->e_inpara = 3;
+    s->e_para[0] = 0.0;  /* surface 0 */
+    s->e_para[1] = 0.0;  /* direction U */
+    s->e_para[2] = 2.0;  /* knot index 2 */
+
+    rt_edit_process(s);
+    if (b->knot_dir != 0 || b->knot_idx != 2)
+	bu_exit(1, "ERROR: ECMD_BSPLINE_PICK_KNOT: expected dir=0 idx=2, got %d/%d\n",
+		b->knot_dir, b->knot_idx);
+    {
+	struct rt_nurb_internal *sip2 =
+	    (struct rt_nurb_internal *)s->es_int.idb_ptr;
+	struct face_g_snurb *surf2 = sip2->srfs[b->spl_surfno];
+	fastf_t kval = surf2->u.knots[b->knot_idx];
+	if (!NEAR_EQUAL(kval, 0.5, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_BSPLINE_PICK_KNOT: knot[2]=%g, expected 0.5 (normalized)\n",
+		    kval);
+	bu_log("ECMD_BSPLINE_PICK_KNOT SUCCESS: dir=%d idx=%d val=%g\n",
+	       b->knot_dir, b->knot_idx, kval);
+    }
+
+    /* ================================================================
+     * ECMD_BSPLINE_PICK_KNOT out-of-range: index >= k_size should fail
+     * knot_dir and knot_idx must remain unchanged
+     * ================================================================*/
+    {
+	int prev_dir = b->knot_dir;
+	int prev_idx = b->knot_idx;
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BSPLINE_PICK_KNOT);
+	s->e_inpara = 3;
+	s->e_para[0] = 0.0;
+	s->e_para[1] = 0.0;
+	s->e_para[2] = 9999.0;  /* out of range */
+	bu_vls_trunc(s->log_str, 0);
+	rt_edit_process(s);
+	if (b->knot_idx != prev_idx || b->knot_dir != prev_dir)
+	    bu_exit(1, "ERROR: ECMD_BSPLINE_PICK_KNOT out-of-range changed selection\n");
+	bu_log("ECMD_BSPLINE_PICK_KNOT out-of-range correctly refused\n");
+    }
+
+    /* ================================================================
+     * ECMD_BSPLINE_SET_KNOT: change the selected knot (U[2]) from 1.0 to 1.5
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BSPLINE_SET_KNOT);
+    s->e_inpara = 1;
+    s->e_para[0] = 1.5;  /* new value */
+
+    rt_edit_process(s);
+    {
+	struct rt_nurb_internal *sip3 =
+	    (struct rt_nurb_internal *)s->es_int.idb_ptr;
+	struct face_g_snurb *surf3 = sip3->srfs[b->spl_surfno];
+	fastf_t kval = surf3->u.knots[b->knot_idx];
+	if (!NEAR_EQUAL(kval, 1.5, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_BSPLINE_SET_KNOT: knot[2]=%g, expected 1.5\n",
+		    kval);
+	bu_log("ECMD_BSPLINE_SET_KNOT SUCCESS: U knot[%d] = %g\n",
+	       b->knot_idx, kval);
+    }
+
+    /* ================================================================
+     * ECMD_BSPLINE_PICK_KNOT + ECMD_BSPLINE_SET_KNOT for V direction
+     * Pick V knot at index 3 (value 2.0) and change it to 3.0
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BSPLINE_PICK_KNOT);
+    s->e_inpara = 3;
+    s->e_para[0] = 0.0;  /* surface 0 */
+    s->e_para[1] = 1.0;  /* direction V */
+    s->e_para[2] = 3.0;  /* knot index 3 */
+
+    rt_edit_process(s);
+    if (b->knot_dir != 1 || b->knot_idx != 3)
+	bu_exit(1, "ERROR: V knot pick: expected dir=1 idx=3, got %d/%d\n",
+		b->knot_dir, b->knot_idx);
+
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BSPLINE_SET_KNOT);
+    s->e_inpara = 1;
+    s->e_para[0] = 3.0;
+
+    rt_edit_process(s);
+    {
+	struct rt_nurb_internal *sip4 =
+	    (struct rt_nurb_internal *)s->es_int.idb_ptr;
+	struct face_g_snurb *surf4 = sip4->srfs[b->spl_surfno];
+	fastf_t kval = surf4->v.knots[b->knot_idx];
+	if (!NEAR_EQUAL(kval, 3.0, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: V ECMD_BSPLINE_SET_KNOT: V knot[3]=%g, expected 3.0\n",
+		    kval);
+	bu_log("ECMD_BSPLINE_SET_KNOT SUCCESS: V knot[%d] = %g\n",
+	       b->knot_idx, kval);
     }
 
     /* ================================================================
