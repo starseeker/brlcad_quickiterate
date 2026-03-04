@@ -127,6 +127,12 @@ if(NOT Obol_FOUND)
     find_package(Obol QUIET CONFIG ${_obol_install_hint})
     set(Obol_ROOT "${_saved_Obol_ROOT}")
     set(_obol_installed TRUE)
+    # Promote to GLOBAL so TARGET Obol::Obol is visible in all directories.
+    # By default, IMPORTED targets are directory-scoped; without GLOBAL they
+    # are invisible to brlcad_find_package calls made from other directories.
+    if(TARGET Obol::Obol)
+      set_target_properties(Obol::Obol PROPERTIES IMPORTED_GLOBAL TRUE)
+    endif()
   endif()
 endif()
 
@@ -183,59 +189,90 @@ endif()
 # 4.  Collect results — handle both namespaced (Obol::Obol) and
 #     unnamespaced (Obol) targets that different probe paths create.
 # ------------------------------------------------------------------
-if(NOT Obol_FOUND)
-  # Prefer the namespaced target (installed package), fall back to plain.
-  if(TARGET Obol::Obol)
-    set(_obol_tgt Obol::Obol)
-  elseif(TARGET Obol)
-    set(_obol_tgt Obol)
-  else()
-    set(_obol_tgt "")
-  endif()
+# Always collect results, regardless of which discovery path succeeded.
+# Paths 0-3 may set Obol_FOUND via different mechanisms (pre-existing target,
+# installed config, or source subdirectory), but OBOL_LIBRARIES and
+# OBOL_INCLUDE_DIRS must be set in all cases for downstream consumers.
+# Prefer the namespaced target (installed package), fall back to plain.
+if(TARGET Obol::Obol)
+  set(_obol_tgt Obol::Obol)
+elseif(TARGET Obol)
+  set(_obol_tgt Obol)
+else()
+  set(_obol_tgt "")
+endif()
 
-  if(_obol_tgt)
-    set(Obol_FOUND TRUE)
+if(_obol_tgt)
+  set(Obol_FOUND TRUE)
 
-    get_target_property(OBOL_INCLUDE_DIRS ${_obol_tgt} INTERFACE_INCLUDE_DIRECTORIES)
-    if(NOT OBOL_INCLUDE_DIRS)
-      set(OBOL_INCLUDE_DIRS "")
-    endif()
-
-    # Mark Obol include directories as SYSTEM so that BRL-CAD's strict
-    # warning flags (-Wfloat-equal, -Werror=unused-parameter, etc.) are not
-    # applied to Obol's own header files.
-    if(OBOL_INCLUDE_DIRS AND NOT ${_obol_tgt} STREQUAL "Obol::Obol")
-      set_property(TARGET ${_obol_tgt} APPEND PROPERTY
-        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}")
-    elseif(OBOL_INCLUDE_DIRS)
-      set_property(TARGET Obol::Obol APPEND PROPERTY
-        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}")
-    endif()
-
-    # Ensure both Obol and Obol::Obol targets exist for all consumers.
-    if(NOT TARGET Obol::Obol)
-      add_library(Obol::Obol ALIAS Obol)
-    endif()
-    if(NOT TARGET Obol)
-      # Can't create a plain ALIAS to an ALIAS, so import directly.
-      get_target_property(_obol_loc Obol::Obol IMPORTED_LOCATION_RELEASE)
-      if(NOT _obol_loc)
-        get_target_property(_obol_loc Obol::Obol IMPORTED_LOCATION)
-      endif()
-      add_library(Obol SHARED IMPORTED)
-      set_target_properties(Obol PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES        "${OBOL_INCLUDE_DIRS}"
-        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}"
-        IMPORTED_LOCATION                    "${_obol_loc}"
-      )
-    endif()
-
-    set(OBOL_LIBRARIES Obol::Obol)
-  else()
-    set(Obol_FOUND FALSE)
+  get_target_property(OBOL_INCLUDE_DIRS ${_obol_tgt} INTERFACE_INCLUDE_DIRECTORIES)
+  if(NOT OBOL_INCLUDE_DIRS)
     set(OBOL_INCLUDE_DIRS "")
-    set(OBOL_LIBRARIES "")
   endif()
+
+  # Mark Obol include directories as SYSTEM so that BRL-CAD's strict
+  # warning flags (-Wfloat-equal, -Werror=unused-parameter, etc.) are not
+  # applied to Obol's own header files.
+  if(OBOL_INCLUDE_DIRS AND NOT ${_obol_tgt} STREQUAL "Obol::Obol")
+    set_property(TARGET ${_obol_tgt} APPEND PROPERTY
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}")
+  elseif(OBOL_INCLUDE_DIRS)
+    set_property(TARGET Obol::Obol APPEND PROPERTY
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}")
+  endif()
+
+  # Ensure both Obol and Obol::Obol targets exist for all consumers.
+  if(NOT TARGET Obol::Obol)
+    add_library(Obol::Obol ALIAS Obol)
+  endif()
+  if(NOT TARGET Obol)
+    # Can't create a plain ALIAS to an ALIAS, so import directly.
+    get_target_property(_obol_loc Obol::Obol IMPORTED_LOCATION_RELEASE)
+    if(NOT _obol_loc)
+      get_target_property(_obol_loc Obol::Obol IMPORTED_LOCATION)
+    endif()
+    add_library(Obol SHARED IMPORTED)
+    set_target_properties(Obol PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES        "${OBOL_INCLUDE_DIRS}"
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}"
+      IMPORTED_LOCATION                    "${_obol_loc}"
+    )
+  endif()
+
+  set(OBOL_LIBRARIES Obol::Obol)
+
+  # Detect a sibling OSMesa library and add it as a transitive dependency.
+  # libObol.so links against libosmesa.so; without this the linker can't
+  # resolve OSMesaGetProcAddress when linking executables that use Obol.
+  get_target_property(_obol_loc_rel Obol::Obol IMPORTED_LOCATION_RELEASE)
+  if(NOT _obol_loc_rel)
+    get_target_property(_obol_loc_rel Obol::Obol IMPORTED_LOCATION)
+  endif()
+  if(_obol_loc_rel)
+    get_filename_component(_obol_libdir "${_obol_loc_rel}" DIRECTORY)
+    set(_obol_osmesa_libs "")
+    foreach(_mesa_name libosmesa.so libOSMesa.so)
+      if(EXISTS "${_obol_libdir}/${_mesa_name}")
+        list(APPEND _obol_osmesa_libs "${_obol_libdir}/${_mesa_name}")
+        break()
+      endif()
+    endforeach()
+    if(_obol_osmesa_libs)
+      get_target_property(_existing_ill Obol::Obol INTERFACE_LINK_LIBRARIES)
+      if(NOT _existing_ill OR NOT "${_obol_osmesa_libs}" IN_LIST _existing_ill)
+        set_property(TARGET Obol::Obol APPEND PROPERTY
+          INTERFACE_LINK_LIBRARIES "${_obol_osmesa_libs}")
+      endif()
+      set_property(TARGET Obol::Obol APPEND PROPERTY
+        BUILD_RPATH "${_obol_libdir}"
+        INSTALL_RPATH "${_obol_libdir}")
+    endif()
+  endif()
+
+else()
+  set(Obol_FOUND FALSE)
+  set(OBOL_INCLUDE_DIRS "")
+  set(OBOL_LIBRARIES "")
 endif()
 
 include(FindPackageHandleStandardArgs)

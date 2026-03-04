@@ -100,6 +100,14 @@
 #include <mutex>
 
 /* Obol/Inventor public API headers (kept strictly inside this TU). */
+/* Obol headers are third-party code; suppress BRL-CAD's strict warnings. */
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#  pragma GCC diagnostic ignored "-Wunused-parameter"
+#  pragma GCC diagnostic ignored "-Wshadow"
+#  pragma GCC diagnostic ignored "-Wdeprecated-copy"
+#endif
 #include <Inventor/SoDB.h>
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbViewportRegion.h>
@@ -125,6 +133,9 @@
 #include <Inventor/fields/SoMFVec3f.h>
 #include <Inventor/fields/SoMFInt32.h>
 #include <Inventor/actions/SoGLRenderAction.h>
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
 
 /* ------------------------------------------------------------------ */
 /* Helpers: bv_vlist → Inventor geometry                               */
