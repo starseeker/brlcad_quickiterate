@@ -51,11 +51,13 @@
 #include "rt/rt_ecmds.h"
 
 
+/* ECMD constants for new ARS operations (file-local in edars.c) */
+#define ECMD_ARS_SCALE_CRV	5048
+#define ECMD_ARS_SCALE_COL	5049
+#define ECMD_ARS_INSERT_CRV	5050
+
 /* Internal representation of the ARS edit state (mirrors rt_ars_edit in
  * edars.c).  Used to pre-select a vertex without exposing private struct. */
-struct rt_ars_edit_local {
-    int es_ars_crv;
-    int es_ars_col;
     point_t es_pt;
 };
 
@@ -426,6 +428,85 @@ if (!VNEAR_EQUAL(kp_world, expected, VUNITIZE_TOL))
     V3ARGS(kp_world));
 bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
        "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
+    }
+
+    /* ================================================================
+     * ECMD_ARS_SCALE_CRV: scale curve 0 by factor 2 about its centroid
+     * curve 0 before reset: (0,0,0), (1,0,0)  centroid = (0.5,0,0)
+     * After scale 2: (0-0.5)*2+0.5=-0.5, (1-0.5)*2+0.5=1.5
+     * => (−0.5,0,0) and (1.5,0,0)
+     * ================================================================*/
+    ars_reset(s, edit_ars, ae);
+    ae->es_ars_crv = 0;
+    ae->es_ars_col = 0;
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_ARS_SCALE_CRV);
+    s->e_inpara = 1;
+    s->e_para[0] = 2.0;
+    rt_edit_process(s);
+    {
+	point_t exp0 = {-0.5, 0, 0};
+	point_t exp1 = { 1.5, 0, 0};
+	if (!VNEAR_EQUAL(ARS_PT(edit_ars,0,0), exp0, VUNITIZE_TOL) ||
+	    !VNEAR_EQUAL(ARS_PT(edit_ars,0,1), exp1, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_ARS_SCALE_CRV failed: "
+		    "c0p0=%g,%g,%g c0p1=%g,%g,%g (expected -0.5,0,0 and 1.5,0,0)\n",
+		    V3ARGS(ARS_PT(edit_ars,0,0)), V3ARGS(ARS_PT(edit_ars,0,1)));
+	bu_log("ECMD_ARS_SCALE_CRV SUCCESS: c0p0=%g,%g,%g c0p1=%g,%g,%g\n",
+	       V3ARGS(ARS_PT(edit_ars,0,0)), V3ARGS(ARS_PT(edit_ars,0,1)));
+    }
+
+    /* ================================================================
+     * ECMD_ARS_SCALE_COL: scale column 0 by factor 3 about its centroid
+     * column 0: curve0=(0,0,0), curve1=(0,0,1)  centroid=(0,0,0.5)
+     * After scale 3 about centroid:
+     *   curve0: z=(0-0.5)*3+0.5 = -1.0  => (0,0,-1)
+     *   curve1: z=(1-0.5)*3+0.5 =  2.0  => (0,0,2)
+     * ================================================================*/
+    ars_reset(s, edit_ars, ae);
+    ae->es_ars_crv = 0;
+    ae->es_ars_col = 0;
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_ARS_SCALE_COL);
+    s->e_inpara = 1;
+    s->e_para[0] = 3.0;
+    rt_edit_process(s);
+    {
+	point_t exp_c0 = {0, 0, -1.0};
+	point_t exp_c1 = {0, 0,  2.0};
+	if (!VNEAR_EQUAL(ARS_PT(edit_ars,0,0), exp_c0, VUNITIZE_TOL) ||
+	    !VNEAR_EQUAL(ARS_PT(edit_ars,1,0), exp_c1, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_ARS_SCALE_COL failed: "
+		    "c0p0=%g,%g,%g c1p0=%g,%g,%g (expected 0,0,-1 and 0,0,2)\n",
+		    V3ARGS(ARS_PT(edit_ars,0,0)), V3ARGS(ARS_PT(edit_ars,1,0)));
+	bu_log("ECMD_ARS_SCALE_COL SUCCESS: c0p0=%g,%g,%g c1p0=%g,%g,%g\n",
+	       V3ARGS(ARS_PT(edit_ars,0,0)), V3ARGS(ARS_PT(edit_ars,1,0)));
+    }
+
+    /* ================================================================
+     * ECMD_ARS_INSERT_CRV: insert interpolated curve after curve 0
+     * curve 0: (0,0,0),(1,0,0)  curve 1: (0,0,1),(1,0,1)
+     * New curve (midpoint): (0,0,0.5),(1,0,0.5)
+     * ncurves becomes 3; selection advances to index 1 (new curve)
+     * ================================================================*/
+    ars_reset(s, edit_ars, ae);
+    ae->es_ars_crv = 0;
+    ae->es_ars_col = 0;
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_ARS_INSERT_CRV);
+    s->e_inpara = 0;
+    rt_edit_process(s);
+    {
+	if ((size_t)edit_ars->ncurves != 3)
+	    bu_exit(1, "ERROR: ECMD_ARS_INSERT_CRV: expected 3 curves, got %zu\n",
+		    edit_ars->ncurves);
+	point_t exp_new0 = {0, 0, 0.5};
+	point_t exp_new1 = {1, 0, 0.5};
+	if (!VNEAR_EQUAL(ARS_PT(edit_ars,1,0), exp_new0, VUNITIZE_TOL) ||
+	    !VNEAR_EQUAL(ARS_PT(edit_ars,1,1), exp_new1, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_ARS_INSERT_CRV: new curve wrong: "
+		    "c1p0=%g,%g,%g c1p1=%g,%g,%g (expected 0,0,0.5 and 1,0,0.5)\n",
+		    V3ARGS(ARS_PT(edit_ars,1,0)), V3ARGS(ARS_PT(edit_ars,1,1)));
+	bu_log("ECMD_ARS_INSERT_CRV SUCCESS: ncurves=%zu new c1=(%g,%g,%g),(%g,%g,%g)\n",
+	       edit_ars->ncurves,
+	       V3ARGS(ARS_PT(edit_ars,1,0)), V3ARGS(ARS_PT(edit_ars,1,1)));
     }
 
     rt_edit_destroy(s);

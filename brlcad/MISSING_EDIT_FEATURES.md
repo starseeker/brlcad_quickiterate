@@ -308,16 +308,14 @@ dedicated Archer EditFrame for ARS.  The Archer UI presents ARS parameters
 as raw attributes only.
 
 ### Missing from librt
-The ECMD coverage is good.  Gaps:
-- No `ECMD_ARS_INSERT_CRV` (insert a new curve between two existing ones).
-- No `ECMD_ARS_SCALE_CRV` / `ECMD_ARS_SCALE_COL` (uniform scale of row/col).
-
-### Design notes
-```c
-#define ECMD_ARS_INSERT_CRV  <n>  // insert a new curve after current curve
-#define ECMD_ARS_SCALE_CRV   <n>  // scale current curve about its centroid
-#define ECMD_ARS_SCALE_COL   <n>  // scale current column
-```
+The ECMD coverage is good.
+- ~~`ECMD_ARS_INSERT_CRV`~~ **DONE** (5050): interpolates a new curve at
+  t=0.5 between the selected curve and the next; selection advances to the
+  new curve.
+- ~~`ECMD_ARS_SCALE_CRV`~~ **DONE** (5048): scales the selected curve about
+  its per-curve centroid by `e_para[0]`.
+- ~~`ECMD_ARS_SCALE_COL`~~ **DONE** (5049): scales the selected column about
+  its centroid across all curves by `e_para[0]`.
 
 ---
 
@@ -367,9 +365,22 @@ The ECMD API is nearly complete.  Gaps:
 ## 8. Combination / Boolean Tree (ID_COMBINATION)
 
 ### librt status
-librt has **no `ft_edit` or ECMD constants for combinations**.  The comb
-type is not a geometric primitive in the traditional sense; its "editing"
-is structural (tree manipulation).
+`edcomb.c` now provides a full `ft_edit` implementation wired into
+`EDOBJ[ID_COMBINATION]`.  The flatten-then-rebuild pattern leverages
+`db_flatten_tree` / `db_mkbool_tree` and the `src_dbip`/`src_objname`
+fields added to `rt_comb_internal` (upstream commit d1dc6a4).
+
+| ECMD | Meaning |
+|------|---------|
+| `ECMD_COMB_ADD_MEMBER` (12001) | Append leaf; `e_para[0]`=op, `ce->es_name`=name, optional `ce->es_mat` |
+| `ECMD_COMB_DEL_MEMBER` (12002) | Delete leaf by 0-based index; `e_para[0]`=index |
+| `ECMD_COMB_SET_OP`     (12003) | Change leaf boolean op; `e_para[0]`=index, `e_para[1]`=op |
+| `ECMD_COMB_SET_MATRIX` (12004) | Set leaf transform; `e_para[0]`=index, `e_para[1..16]`=mat_t |
+
+`struct rt_comb_edit` carries `es_name` (member to add) and
+`es_mat`/`es_mat_valid` (optional transform for `ADD_MEMBER`).  All
+index/op/matrix params go through `e_para` (requires `RT_EDIT_MAXPARA` ≥ 17;
+bumped to 20 in `include/rt/edit.h`).
 
 ### Tcl/GUI capabilities (CombEditFrame.tcl + mged/comb.tcl)
 
@@ -377,33 +388,19 @@ is structural (tree manipulation).
 |---------|---------------|
 | Edit material properties (region flag, id, air, los, gift, rgb, shader) | `CombEditFrame::buildGeneralGUI` → `adjust` |
 | Display / edit boolean tree as member table | `buildTreeGUI` / `buildMembersGUI` |
-| Add member (union/intersect/subtract) | `appendRow`, `insertRow` → `combmem` command |
-| Delete member | `deleteRow` → `combmem` |
-| Change boolean operator per member | Table cell edit → `syncColumn` → `combmem` |
-| Edit per-member transformation matrix | `setKeypoint`, `setKeypointVC` → `combmem -i` |
-| Multi-member selection / invert | `invertSelect` |
-| Checkpoint / revert | Save/restore of member data arrays |
+| ~~Add member (union/intersect/subtract)~~ | **DONE**: `ECMD_COMB_ADD_MEMBER` |
+| ~~Delete member~~ | **DONE**: `ECMD_COMB_DEL_MEMBER` |
+| ~~Change boolean operator per member~~ | **DONE**: `ECMD_COMB_SET_OP` |
+| ~~Edit per-member transformation matrix~~ | **DONE**: `ECMD_COMB_SET_MATRIX` |
+| Multi-member selection / invert | `invertSelect` — not yet in librt scope |
+| Checkpoint / revert | ~~librt gap~~ **DONE**: `rt_edit_checkpoint`/`rt_edit_revert` |
 
-### Missing from librt / what should be added for qged
+### Remaining gaps
 
-The `combmem` command is a libged (not librt) function.  For qged, the
-right approach is to expose combination tree editing through libged:
-
-```c
-// In libged (already partial):
-int ged_combmem(struct ged *gedp, ...);  // already exists
-
-// Desired additional C API:
-int ged_comb_add_member(struct ged *gedp, const char *comb,
-                        const char *member, int op,
-                        const mat_t matrix);
-int ged_comb_del_member(struct ged *gedp, const char *comb,
-                        int member_index);
-int ged_comb_set_member_op(struct ged *gedp, const char *comb,
-                           int member_index, int new_op);
-int ged_comb_set_member_matrix(struct ged *gedp, const char *comb,
-                               int member_index, const mat_t matrix);
-```
+- Material-property editing (region flag, los, air, etc.) has no dedicated
+  ECMDs; these are settable through `rt_db_get_internal` + field mutation +
+  `rt_db_put_internal` but lack a clean ECMD wrapper.
+- Multi-member selection / invert remains a GUI-level concern.
 
 ---
 
@@ -482,19 +479,19 @@ None significant.
 | `ECMD_SPLINE_VPICK`    | Pick control point by mouse proximity (partially stubbed — view state dependency not yet resolved) |
 | `ECMD_VTRANS`          | Translate the currently selected control point via `e_para[0..2]` |
 | `ECMD_BSPLINE_PICK_CP` | Pick control point by explicit (surf, u, v) indices from `e_para` *(added)* |
+| `ECMD_BSPLINE_PICK_KNOT` (9020) | Pick knot by `e_para[0]`=surfno, `[1]`=dir(0=U,1=V), `[2]`=index *(added)* |
+| `ECMD_BSPLINE_SET_KNOT`  (9021) | Set selected knot value via `e_para[0]` *(added)* |
 
 ### Tcl/GUI capabilities
 MGED supports individual control-point selection/move for NURBS surfaces via
 `edsol.c` and in-memory data access.
 
 ### Missing from librt
-```c
-#define ECMD_BSPLINE_PICK_KNOT <n>  // pick a knot value
-#define ECMD_BSPLINE_SET_KNOT  <n>  // set a knot value via e_para
-```
-
-Also `ECMD_SPLINE_VPICK` needs the view-to-model matrix properly wired
-in `sedit_vpick` (currently guarded by `#if 0`).
+- ~~Knot editing~~ **DONE**: `ECMD_BSPLINE_PICK_KNOT` (9020) and
+  `ECMD_BSPLINE_SET_KNOT` (9021) implemented in `edbspline.c`;
+  `struct rt_bspline_edit` extended with `knot_dir` and `knot_idx` fields.
+- `ECMD_SPLINE_VPICK` still needs the view-to-model matrix properly wired
+  in `sedit_vpick` (body currently guarded by `#if 0`).
 
 ---
 
@@ -516,9 +513,12 @@ in `sedit_vpick` (currently guarded by `#if 0`).
 - **Where**: Every Archer EditFrame implements `checkpointGeometry()` and
   `revertGeometry()` which copy the internal parameter state before an edit
   and can restore it.  This is a single-level undo (no stack).
-- **librt gap**: `struct rt_edit` has no checkpoint mechanism.
-- **Design note**: Add `rt_edit_checkpoint(struct rt_edit *s)` and
-  `rt_edit_revert(struct rt_edit *s)` which copy/restore `es_int`.
+- **librt status**: ~~`struct rt_edit` has no checkpoint mechanism.~~
+  **DONE**: `rt_edit_checkpoint(struct rt_edit *s)` and
+  `rt_edit_revert(struct rt_edit *s)` serialise/restore `es_int` via
+  `rt_obj_export`/`rt_obj_import` into a `struct bu_external es_ckpt`
+  field on `struct rt_edit`.  Initialised in `rt_edit_create`, freed in
+  `rt_edit_destroy`.
 
 ### 13.3 Coordinate System Switching (View vs. Model Space)
 - **Where**: MGED's `mv_context` flag on `struct rt_edit` already controls
@@ -584,22 +584,31 @@ in `sedit_vpick` (currently guarded by `#if 0`).
 1. ~~**Sketch**~~ — **DONE**: `edsketch.c` implements the full ECMD suite
    (pick/move vertex, pick/move segment, append line/arc/bezier, delete vertex/segment).
    Remaining: multi-vertex select, segment split, mouse proximity picking.
-2. **Combination tree editing** — critical for any real assembly work;
-   build on libged `combmem`.
+2. ~~**Combination tree editing**~~ — **DONE**: `edcomb.c` added with
+   `ECMD_COMB_ADD_MEMBER` (12001), `ECMD_COMB_DEL_MEMBER` (12002),
+   `ECMD_COMB_SET_OP` (12003), `ECMD_COMB_SET_MATRIX` (12004); leverages
+   `src_dbip`/`src_objname` from upstream commit d1dc6a4; `RT_EDIT_MAXPARA`
+   bumped to 20 to hold index + 16-element matrix.
 3. ~~**BOT multi-select and split**~~ — **DONE**: `ECMD_BOT_MOVEV_LIST` (move multiple
    vertices by common delta), `ECMD_BOT_ESPLIT` (edge split with midpoint insertion),
    `ECMD_BOT_FSPLIT` (face split into 3 via centroid) added to `edbot.c`.
 4. ~~**NMG vertex/face editing**~~ — **DONE**: `ECMD_NMG_VPICK`/`ECMD_NMG_VMOVE`
    (pick + move vertex) and `ECMD_NMG_FPICK`/`ECMD_NMG_FMOVE` (pick + translate face)
    added to `ednmg.c`; `struct rt_nmg_edit` extended with `es_v`/`es_fu` fields.
-5. **BSPLINE control-point editing** — `ECMD_BSPLINE_PICK_CP` added; `ECMD_VTRANS` already existed;
-   knot editing and mouse-proximity picking (ECMD_SPLINE_VPICK) still unresolved.
+5. ~~**BSPLINE knot editing**~~ — **DONE**: `ECMD_BSPLINE_PICK_KNOT` (9020) picks
+   a knot by surface/direction/index; `ECMD_BSPLINE_SET_KNOT` (9021) overwrites the
+   selected knot value; `struct rt_bspline_edit` extended with `knot_dir`/`knot_idx`.
+   Control-point picking by index (`ECMD_BSPLINE_PICK_CP`) already existed.
+   Remaining: `ECMD_SPLINE_VPICK` mouse-proximity pick (view-state wiring deferred).
 6. ~~**Extrude A/B vectors**~~ — **DONE**: `ECMD_EXTR_SCALE_A/B` and
    `ECMD_EXTR_ROT_A/B` added to `edextrude.c`.
 7. ~~**Snap-to-grid in rt_edit**~~ — **DONE**: `s->snap.{enabled,spacing}`
    added to `struct rt_edit`; `rt_edit_snap_point()` exported from `librt`.
    `edsketch.c` calls it automatically in `ecmd_sketch_move_vertex`.
 8. ~~**e_para capacity**~~ — **DONE**: `vect_t e_para` (3 elements) expanded to
-   `fastf_t e_para[RT_EDIT_MAXPARA]` (16 elements); `ECMD_SKETCH_APPEND_ARC` now
+   `fastf_t e_para[RT_EDIT_MAXPARA]` (20 elements); `ECMD_SKETCH_APPEND_ARC` now
    accepts full 5-parameter arc definition (start_vi, end_vi, radius, center_is_left,
    orientation); Bezier up to degree 15 supported.
+9. ~~**Checkpoint / Revert**~~ — **DONE**: `rt_edit_checkpoint(s)` and
+   `rt_edit_revert(s)` added to `edit.cpp`/`edit.h`; `struct bu_external es_ckpt`
+   field on `struct rt_edit` holds the serialised snapshot.
