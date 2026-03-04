@@ -29,6 +29,7 @@
 #define RT_EDIT_H
 
 #include "common.h"
+#include <float.h>
 #include "vmath.h"
 #include "bn/mat.h"
 #include "bu/parse.h"
@@ -423,6 +424,111 @@ struct rt_edit_menu_item {
     void (*menu_func)(struct rt_edit *, int, int, int, void *);
     int menu_arg;
 };
+
+
+/*
+ * ============================================================
+ * ft_edit_desc() parameter-descriptor API
+ *
+ * These types allow a primitive's ft_edit_desc() slot to return
+ * machine-readable metadata describing every edit operation it
+ * supports.  A GUI (e.g. qged) can use this metadata to
+ * auto-generate appropriate edit widgets without needing any
+ * primitive-specific code.
+ * ============================================================
+ */
+
+/** Parameter type codes for struct rt_edit_param_desc */
+#define RT_EDIT_PARAM_SCALAR   1  /**< single fastf_t; QDoubleSpinBox / QSlider     */
+#define RT_EDIT_PARAM_INTEGER  2  /**< truncated fastf_t; QSpinBox                  */
+#define RT_EDIT_PARAM_BOOLEAN  3  /**< !NEAR_ZERO(val); QCheckBox                   */
+#define RT_EDIT_PARAM_POINT    4  /**< point_t (3 fastf_t); 3x QDoubleSpinBox       */
+#define RT_EDIT_PARAM_VECTOR   5  /**< vect_t  (3 fastf_t); 3x QDoubleSpinBox       */
+#define RT_EDIT_PARAM_STRING   6  /**< NUL-terminated; QLineEdit                    */
+#define RT_EDIT_PARAM_ENUM     7  /**< integer choice; QComboBox                    */
+#define RT_EDIT_PARAM_COLOR    8  /**< RGB triple as three fastf_t (0-255) in
+                                   *   e_para[index..index+2]; QColorDialog button  */
+#define RT_EDIT_PARAM_MATRIX   9  /**< 4x4 row-major in e_para[0..15]; matrix widget*/
+
+/** Sentinel for "no range constraint" on a parameter. */
+#define RT_EDIT_PARAM_NO_LIMIT  (-DBL_MAX)
+
+/**
+ * Describes a single input parameter for one edit command.
+ *
+ * For scalar/integer/boolean/enum parameters the value is stored in
+ * s->e_para[index].  For POINT/VECTOR, three consecutive slots starting
+ * at e_para[index] are used.  For MATRIX, e_para[0..15] are used.
+ * For STRING the value is in the primitive-specific edit struct; prim_field
+ * documents which field that is.
+ * For COLOR three fastf_t integer values (0-255) are stored in
+ * e_para[index], e_para[index+1], e_para[index+2].
+ */
+struct rt_edit_param_desc {
+    const char  *name;         /**< machine-readable id, e.g. "r1"                  */
+    const char  *label;        /**< human-readable widget label, e.g. "Major Radius" */
+    int          type;         /**< RT_EDIT_PARAM_* type code                        */
+    int          index;        /**< offset into s->e_para[] (unused for STRING)      */
+    fastf_t      range_min;    /**< RT_EDIT_PARAM_NO_LIMIT = no lower bound          */
+    fastf_t      range_max;    /**< RT_EDIT_PARAM_NO_LIMIT = no upper bound          */
+    const char  *units;        /**< "length", "angle_deg", "angle_rad",
+                                *   "fraction", "count", "none", or NULL             */
+    /* RT_EDIT_PARAM_ENUM only */
+    int          nenum;                   /**< number of choices                     */
+    const char * const *enum_labels;      /**< human-readable option strings         */
+    const int   *enum_ids;                /**< integer value stored in e_para[index] */
+    /* RT_EDIT_PARAM_STRING only */
+    const char  *prim_field;   /**< name of the primitive struct field, e.g.
+                                *   "es_shader" or "dsp_name"                        */
+};
+
+/**
+ * Describes a single edit command (one ECMD_* constant) together with
+ * the parameters it requires.
+ */
+struct rt_edit_cmd_desc {
+    int          cmd_id;        /**< ECMD_* constant                                 */
+    const char  *label;         /**< human-readable operation label                  */
+    const char  *category;      /**< grouping hint: "radius", "geometry",
+                                 *   "rotation", "material", "tree", "misc"          */
+    int          nparam;        /**< number of entries in params[]                   */
+    const struct rt_edit_param_desc *params; /**< NULL when nparam == 0              */
+    /** Non-zero: GUI should re-call rt_edit_process() on every widget change
+     *  (live wireframe update).  Zero: only apply on explicit Apply button. */
+    int          interactive;
+    /** Suggested display order within the category group.  Lower values
+     *  appear first.  Ties are broken by array order. */
+    int          display_order;
+};
+
+/**
+ * Top-level descriptor for a single primitive type.
+ * Returned by ft_edit_desc().
+ */
+struct rt_edit_prim_desc {
+    const char                    *prim_type;  /**< "tor", "ell", "tgc", ...         */
+    const char                    *prim_label; /**< "Torus", "Ellipsoid", ...         */
+    int                            ncmd;
+    const struct rt_edit_cmd_desc *cmds;       /**< array of ncmd entries             */
+};
+
+/**
+ * Serialise a primitive edit descriptor to a JSON string appended to @p out.
+ * The caller is responsible for bu_vls_init / bu_vls_free.
+ * Returns BRLCAD_OK on success, BRLCAD_ERROR on error.
+ */
+RT_EXPORT extern int
+rt_edit_prim_desc_to_json(struct bu_vls *out,
+                          const struct rt_edit_prim_desc *desc);
+
+/**
+ * Convenience wrapper: look up the EDOBJ entry for @p prim_type_id and
+ * call rt_edit_prim_desc_to_json() on its ft_edit_desc() result.
+ * Returns BRLCAD_OK on success, BRLCAD_ERROR if the primitive has no
+ * descriptor or the type id is out of range.
+ */
+RT_EXPORT extern int
+rt_edit_type_to_json(struct bu_vls *out, int prim_type_id);
 
 
 __END_DECLS

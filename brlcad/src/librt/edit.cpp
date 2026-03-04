@@ -29,6 +29,7 @@
 #include "common.h"
 
 #include <map>
+#include <cstring>
 
 extern "C" {
 #include "vmath.h"
@@ -1074,7 +1075,197 @@ rt_edit_revert(struct rt_edit *s)
 }
 
 
-// Local Variables:
+/* ======================================================================
+ * rt_edit_prim_desc_to_json / rt_edit_type_to_json
+ *
+ * Serialise the ft_edit_desc() descriptor to JSON using bu_vls so that
+ * GUI layers (qged etc.) can consume edit metadata at runtime.
+ * ======================================================================
+ */
+
+/* Type-code string table */
+static const char *
+edit_param_type_str(int type)
+{
+    switch (type) {
+	case RT_EDIT_PARAM_SCALAR:  return "scalar";
+	case RT_EDIT_PARAM_INTEGER: return "integer";
+	case RT_EDIT_PARAM_BOOLEAN: return "boolean";
+	case RT_EDIT_PARAM_POINT:   return "point";
+	case RT_EDIT_PARAM_VECTOR:  return "vector";
+	case RT_EDIT_PARAM_STRING:  return "string";
+	case RT_EDIT_PARAM_ENUM:    return "enum";
+	case RT_EDIT_PARAM_COLOR:   return "color";
+	case RT_EDIT_PARAM_MATRIX:  return "matrix";
+	default:                    return "unknown";
+    }
+}
+
+/* Emit a fastf_t value as JSON number or "null" for NO_LIMIT */
+static void
+emit_limit(struct bu_vls *out, fastf_t val)
+{
+    /* Use bit-level comparison to avoid -Wfloat-equal.  RT_EDIT_PARAM_NO_LIMIT
+     * is defined as (-DBL_MAX), a well-defined sentinel bit-pattern.
+     * fastf_t is always double in BRL-CAD (vmath.h), so sizeof(fastf_t) and
+     * sizeof(double) are identical; we assert that here for safety. */
+    /* fastf_t is always double in BRL-CAD (vmath.h); assert for safety. */
+    static_assert(sizeof(fastf_t) == sizeof(double),
+                  "fastf_t must be double for RT_EDIT_PARAM_NO_LIMIT sentinel comparison");
+    static const double sentinel = RT_EDIT_PARAM_NO_LIMIT;
+    double v = (double)val;
+    if (memcmp(&v, &sentinel, sizeof(double)) == 0)
+	bu_vls_strcat(out, "null");
+    else
+	bu_vls_printf(out, "%.17g", v);
+}
+
+/* Escape a C string for safe JSON embedding (handles " and \) */
+static void
+emit_json_str(struct bu_vls *out, const char *s)
+{
+    bu_vls_putc(out, '"');
+    if (s) {
+	for (; *s; s++) {
+	    if (*s == '"' || *s == '\\')
+		bu_vls_putc(out, '\\');
+	    bu_vls_putc(out, *s);
+	}
+    }
+    bu_vls_putc(out, '"');
+}
+
+int
+rt_edit_prim_desc_to_json(struct bu_vls *out,
+                          const struct rt_edit_prim_desc *desc)
+{
+    if (!out || !desc)
+	return BRLCAD_ERROR;
+
+    bu_vls_strcat(out, "{\n");
+    bu_vls_strcat(out, "  \"prim_type\": ");
+    emit_json_str(out, desc->prim_type);
+    bu_vls_strcat(out, ",\n");
+
+    bu_vls_strcat(out, "  \"prim_label\": ");
+    emit_json_str(out, desc->prim_label);
+    bu_vls_strcat(out, ",\n");
+
+    bu_vls_strcat(out, "  \"commands\": [\n");
+
+    for (int ci = 0; ci < desc->ncmd; ci++) {
+	const struct rt_edit_cmd_desc *cmd = &desc->cmds[ci];
+	bu_vls_strcat(out, "    {\n");
+	bu_vls_printf(out, "      \"cmd_id\": %d,\n", cmd->cmd_id);
+	bu_vls_strcat(out, "      \"label\": ");
+	emit_json_str(out, cmd->label);
+	bu_vls_strcat(out, ",\n");
+	bu_vls_strcat(out, "      \"category\": ");
+	emit_json_str(out, cmd->category);
+	bu_vls_strcat(out, ",\n");
+	bu_vls_printf(out, "      \"interactive\": %s,\n",
+		      cmd->interactive ? "true" : "false");
+	bu_vls_printf(out, "      \"display_order\": %d,\n",
+		      cmd->display_order);
+	bu_vls_strcat(out, "      \"params\": [\n");
+
+	for (int pi = 0; pi < cmd->nparam; pi++) {
+	    const struct rt_edit_param_desc *p = &cmd->params[pi];
+	    bu_vls_strcat(out, "        {\n");
+	    bu_vls_strcat(out, "          \"name\": ");
+	    emit_json_str(out, p->name);
+	    bu_vls_strcat(out, ",\n");
+	    bu_vls_strcat(out, "          \"label\": ");
+	    emit_json_str(out, p->label);
+	    bu_vls_strcat(out, ",\n");
+	    bu_vls_printf(out, "          \"type\": \"%s\"",
+			 edit_param_type_str(p->type));
+
+	    /* index — omitted for STRING */
+	    if (p->type != RT_EDIT_PARAM_STRING)
+		bu_vls_printf(out, ",\n          \"index\": %d", p->index);
+
+	    /* range — only for numeric types */
+	    if (p->type == RT_EDIT_PARAM_SCALAR ||
+		p->type == RT_EDIT_PARAM_INTEGER ||
+		p->type == RT_EDIT_PARAM_ENUM   ||
+		p->type == RT_EDIT_PARAM_COLOR) {
+		bu_vls_strcat(out, ",\n          \"min\": ");
+		emit_limit(out, p->range_min);
+		bu_vls_strcat(out, ",\n          \"max\": ");
+		emit_limit(out, p->range_max);
+	    }
+
+	    /* units */
+	    bu_vls_strcat(out, ",\n          \"units\": ");
+	    if (p->units)
+		emit_json_str(out, p->units);
+	    else
+		bu_vls_strcat(out, "null");
+
+	    /* enum extras */
+	    if (p->type == RT_EDIT_PARAM_ENUM && p->nenum > 0) {
+		bu_vls_strcat(out, ",\n          \"enum_labels\": [");
+		for (int ei = 0; ei < p->nenum; ei++) {
+		    if (ei) bu_vls_putc(out, ',');
+		    emit_json_str(out, p->enum_labels[ei]);
+		}
+		bu_vls_strcat(out, "],\n          \"enum_ids\": [");
+		for (int ei = 0; ei < p->nenum; ei++) {
+		    if (ei) bu_vls_putc(out, ',');
+		    bu_vls_printf(out, "%d", p->enum_ids[ei]);
+		}
+		bu_vls_putc(out, ']');
+	    }
+
+	    /* prim_field for STRING */
+	    if (p->type == RT_EDIT_PARAM_STRING) {
+		bu_vls_strcat(out, ",\n          \"prim_field\": ");
+		emit_json_str(out, p->prim_field);
+	    }
+
+	    bu_vls_strcat(out, "\n        }");
+	    if (pi < cmd->nparam - 1)
+		bu_vls_putc(out, ',');
+	    bu_vls_putc(out, '\n');
+	}
+
+	bu_vls_strcat(out, "      ]\n");
+	bu_vls_strcat(out, "    }");
+	if (ci < desc->ncmd - 1)
+	    bu_vls_putc(out, ',');
+	bu_vls_putc(out, '\n');
+    }
+
+    bu_vls_strcat(out, "  ]\n");
+    bu_vls_strcat(out, "}\n");
+
+    return BRLCAD_OK;
+}
+
+
+int
+rt_edit_type_to_json(struct bu_vls *out, int prim_type_id)
+{
+    if (!out)
+	return BRLCAD_ERROR;
+
+    /* Range-check against the EDOBJ table size */
+    extern const struct rt_edit_functab EDOBJ[];
+    /* Walk until we find a matching type label or a sentinel entry */
+    for (int i = 0; EDOBJ[i].magic == RT_FUNCTAB_MAGIC; i++) {
+	if (i == prim_type_id) {
+	    if (!EDOBJ[i].ft_edit_desc)
+		return BRLCAD_ERROR;
+	    return rt_edit_prim_desc_to_json(out, (*EDOBJ[i].ft_edit_desc)());
+	}
+    }
+
+    return BRLCAD_ERROR;
+}
+
+
+
 // tab-width: 8
 // mode: C++
 // c-basic-offset: 4
