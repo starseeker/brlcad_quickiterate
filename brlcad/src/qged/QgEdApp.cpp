@@ -386,6 +386,24 @@ QgEdApp::do_view_changed(unsigned long long flags)
 		bv_it->first->redraw(NULL, bv_it->second, 1);
 	    }
 	}
+
+#ifdef BRLCAD_OPENGL
+	/* Sync drawn geometry into the Obol scene graph.
+	 * The draw commands populate bv_scene_obj objects in the view's
+	 * display lists; bv_scene_from_view() wraps these in bv_node objects
+	 * so that bv_render_frame() can build the Inventor scene graph. */
+	if (w && w->CurrentDisplay() &&
+		w->CurrentDisplay()->view_type() == QgView_Obol) {
+	    QgObolWidget *obolw = w->CurrentDisplay()->obol_widget();
+	    if (obolw && obolw->renderCtx() && mdl->gedp->ged_gvp) {
+		struct bv_scene *vs = bv_scene_from_view(mdl->gedp->ged_gvp);
+		if (vs) {
+		    bv_render_ctx_update_scene(obolw->renderCtx(), vs, 1);
+		    obolw->update();
+		}
+	    }
+	}
+#endif
     }
 
     emit view_update(flags);

@@ -341,9 +341,16 @@ bv_node_vlist_get(const struct bv_node *node)
 {
     if (!node)
 	return NULL;
+    /* When this node was created by bv_scene_obj_to_node(), both geometry
+     * and user_data are set to the same bv_scene_obj*.  In that case
+     * return &s->s_vlist (the actual vlist) rather than casting the
+     * bv_scene_obj* itself (which starts with a bu_list linkage, not data). */
+    if (node->user_data && node->user_data == node->geometry) {
+	struct bv_scene_obj *s = (struct bv_scene_obj *)node->user_data;
+	return &s->s_vlist;
+    }
     return (struct bu_list *)node->geometry;
 }
-
 
 int
 bv_node_vlist_bounds(const struct bv_node *node, point_t *out_min, point_t *out_max)
