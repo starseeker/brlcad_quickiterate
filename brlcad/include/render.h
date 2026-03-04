@@ -354,6 +354,31 @@ RENDER_EXPORT void render_ipc_client_on_done(render_ipc_client_t *cli,
 #endif /* RENDER_HAVE_LIBUV */
 
 
+/* ------------------------------------------------------------------ */
+/* Ert3 job context (shared between ert3.cpp and Qt display layer)     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * @brief Job description handed from ert3 (libged) to the Qt display layer.
+ *
+ * ert3 allocates this struct on the heap and passes it as the @c data
+ * argument to @c fbs_open_client_handler().  The display-layer handler
+ * takes ownership of @p ctx and @p opts and must call
+ * render_ctx_destroy() / render_opts_destroy() when rendering completes.
+ * The struct itself must be freed with bu_free().
+ *
+ * This struct is defined here (render.h) because both the libged ert3.cpp
+ * command and the Qt display layer (qged/fbserv.cpp) need its layout.
+ */
+struct Ert3JobCtx {
+    char           rt_ipc_path[MAXPATHLEN]; /**< @brief Path to rt_ipc binary. */
+    render_ctx_t  *ctx;                     /**< @brief Loaded geometry context. */
+    render_opts_t *opts;                    /**< @brief Render options. */
+    bu_clbk_t      linger_clbk;            /**< @brief Called when render ends. */
+    void          *linger_ctx;             /**< @brief User data for linger_clbk. */
+};
+
+
 __END_DECLS
 
 #endif /* RENDER_H */
