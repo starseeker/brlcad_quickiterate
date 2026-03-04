@@ -42,6 +42,7 @@
 #include "bu/app.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "nmg.h"
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "rt/primitives/sketch.h"
@@ -61,6 +62,10 @@
 #define ECMD_SKETCH_DELETE_VERTEX  26008
 #define ECMD_SKETCH_DELETE_SEGMENT 26009
 #define ECMD_SKETCH_MOVE_VERTEX_LIST 26010
+#define ECMD_SKETCH_SPLIT_SEGMENT    26011
+#define ECMD_SKETCH_APPEND_NURB      26012
+#define ECMD_SKETCH_NURB_EDIT_KV     26013
+#define ECMD_SKETCH_NURB_EDIT_WEIGHTS 26014
 
 
 /* ------------------------------------------------------------------ */
@@ -457,6 +462,490 @@ main(int argc, char *argv[])
 	       "v0=(%g,%g) v2=(%g,%g)\n",
 	       skt2->verts[0][0], skt2->verts[0][1],
 	       skt2->verts[2][0], skt2->verts[2][1]);
+    }
+
+    /* ================================================================
+     * ECMD_SKETCH_SPLIT_SEGMENT: line segment split at t=0.5
+     *
+     * Start state after previous tests: segment[0] is line 0→1
+     * (verts[0] and verts[1] were restored to (0,0) and (10,0)).
+     *
+     * After split at t=0.5:
+     *   - new vertex midpoint at (5, 0) becomes verts[vc] where vc
+     *     was skt->vert_count before the split
+     *   - segment[0] becomes line 0 → new_vi
+     *   - new  segment[1] becomes line new_vi → 1
+     *   - curve.count increases by 1
+     * ================================================================*/
+    {
+	struct rt_sketch_internal *skt3 =
+	    (struct rt_sketch_internal *)s->es_int.idb_ptr;
+
+	/* Reset the first segment to line 0→1 and restore verts */
+	{
+	    struct line_seg *ls = (struct line_seg *)skt3->curve.segment[0];
+	    ls->start = 0;
+	    ls->end   = 1;
+	}
+	V2SET(skt3->verts[0],  0,  0);
+	V2SET(skt3->verts[1], 10,  0);
+
+	size_t vc_before = skt3->vert_count;
+	size_t sc_before = skt3->curve.count;
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_SPLIT_SEGMENT);
+	s->e_inpara  = 2;
+	s->e_para[0] = 0.0;  /* segment index */
+	s->e_para[1] = 0.5;  /* t = midpoint */
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_SPLIT_SEGMENT (line): %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	/* One new vertex should have been added */
+	if (skt3->vert_count != vc_before + 1)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT (line): "
+		"vert_count should be %zu, got %zu\n",
+		vc_before + 1, skt3->vert_count);
+
+	/* One new segment should have been inserted */
+	if (skt3->curve.count != sc_before + 1)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT (line): "
+		"curve.count should be %zu, got %zu\n",
+		sc_before + 1, skt3->curve.count);
+
+	/* The split vertex (last added) should be at (5, 0) */
+	point2d_t exp_mid = { 5.0, 0.0 };
+	if (!V2NEAR_EQUAL(skt3->verts[vc_before], exp_mid, VUNITIZE_TOL))
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT (line): "
+		"split vertex should be (5,0), got (%g,%g)\n",
+		skt3->verts[vc_before][0], skt3->verts[vc_before][1]);
+
+	/* Segment[0] should now end at the split vertex */
+	{
+	    struct line_seg *ls0 = (struct line_seg *)skt3->curve.segment[0];
+	    if (ls0->magic != CURVE_LSEG_MAGIC || ls0->start != 0 ||
+		ls0->end   != (int)vc_before)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_SPLIT_SEGMENT (line): "
+		    "first half wrong (start=%d end=%d)\n",
+		    ls0->start, ls0->end);
+	}
+	/* Segment[1] should run from split vertex to original end */
+	{
+	    struct line_seg *ls1 = (struct line_seg *)skt3->curve.segment[1];
+	    if (ls1->magic != CURVE_LSEG_MAGIC || ls1->start != (int)vc_before ||
+		ls1->end   != 1)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_SPLIT_SEGMENT (line): "
+		    "second half wrong (start=%d end=%d)\n",
+		    ls1->start, ls1->end);
+	}
+	bu_log("ECMD_SKETCH_SPLIT_SEGMENT (line, t=0.5) SUCCESS: "
+	       "new vertex %zu at (%g,%g), curve.count=%zu\n",
+	       vc_before,
+	       skt3->verts[vc_before][0], skt3->verts[vc_before][1],
+	       skt3->curve.count);
+    }
+
+    /* ================================================================
+     * ECMD_SKETCH_SPLIT_SEGMENT: Bezier segment split at t=0.5
+     *
+     * Build a quadratic Bezier (degree=2) with control points:
+     *   P0=(0,0) P1=(5,10) P2=(10,0)
+     * which are existing verts 0, (new) and 1.
+     *
+     * First, add a dedicated control-point vertex (5,10):
+     * Append it as a new vert, then append the bezier.
+     * Then split it at t=0.5.
+     *
+     * de Casteljau at t=0.5:
+     *   Q10 = (1-0.5)*P0 + 0.5*P1 = (2.5, 5)
+     *   Q11 = (1-0.5)*P1 + 0.5*P2 = (7.5, 5)
+     *   Q20 = (1-0.5)*Q10+ 0.5*Q11= (5,   5)  ← split vertex
+     * Left:  P0, Q10, Q20  = (0,0) (2.5,5) (5,5)
+     * Right: Q20, Q11, P2  = (5,5) (7.5,5) (10,0)
+     * ================================================================*/
+    {
+	struct rt_sketch_internal *skt4 =
+	    (struct rt_sketch_internal *)s->es_int.idb_ptr;
+
+	/* Add control-point vertex (5,10) */
+	size_t cp_vi = skt4->vert_count;
+	skt4->verts = (point2d_t *)bu_realloc(skt4->verts,
+		(skt4->vert_count + 1) * sizeof(point2d_t), "verts");
+	V2SET(skt4->verts[cp_vi],  5, 10);
+	skt4->vert_count++;
+
+	/* Append quadratic Bezier: verts 0, cp_vi, 1 */
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_BEZIER);
+	s->e_inpara  = 3;
+	s->e_para[0] = 0.0;           /* P0 */
+	s->e_para[1] = (fastf_t)cp_vi; /* P1 */
+	s->e_para[2] = 1.0;            /* P2 */
+	rt_edit_process(s);
+
+	size_t bez_seg_idx = skt4->curve.count - 1; /* just-appended bezier */
+	size_t vc_before   = skt4->vert_count;
+	size_t sc_before   = skt4->curve.count;
+
+	/* Split the bezier at t=0.5 */
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_SPLIT_SEGMENT);
+	s->e_inpara  = 2;
+	s->e_para[0] = (fastf_t)bez_seg_idx;
+	s->e_para[1] = 0.5;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_SPLIT_SEGMENT (bezier): %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	/* For degree=2, de Casteljau adds 3 new vertices (L[1],L[2]=split,R[1]) */
+	if (skt4->vert_count != vc_before + 3)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT (bezier): "
+		"expected vert_count=%zu, got %zu\n",
+		vc_before + 3, skt4->vert_count);
+	if (skt4->curve.count != sc_before + 1)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT (bezier): "
+		"expected curve.count=%zu, got %zu\n",
+		sc_before + 1, skt4->curve.count);
+
+	/* Q20 (split vertex) is L[2] = verts[vc_before+1] */
+	int split_vi = vc_before + 1; /* L[d] = Q[d][0] when k reaches d */
+	/* Actually L[1]=Q[1][0], L[2]=Q[2][0]=split: vc_before, vc_before+1 */
+	/* verts[vc_before]   = Q10 = (2.5, 5) */
+	/* verts[vc_before+1] = Q20 = (5,   5) = split vertex */
+	/* verts[vc_before+2] = Q11 = (7.5, 5) (right interior) */
+	point2d_t exp_q10 = {2.5, 5.0};
+	point2d_t exp_q20 = {5.0, 5.0};
+	point2d_t exp_q11 = {7.5, 5.0};
+
+	if (!V2NEAR_EQUAL(skt4->verts[vc_before],     exp_q10, VUNITIZE_TOL) ||
+	    !V2NEAR_EQUAL(skt4->verts[vc_before + 1], exp_q20, VUNITIZE_TOL) ||
+	    !V2NEAR_EQUAL(skt4->verts[vc_before + 2], exp_q11, VUNITIZE_TOL))
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_SPLIT_SEGMENT (bezier): "
+		"wrong de Casteljau points: "
+		"got (%g,%g) (%g,%g) (%g,%g)\n",
+		skt4->verts[vc_before][0],     skt4->verts[vc_before][1],
+		skt4->verts[vc_before + 1][0], skt4->verts[vc_before + 1][1],
+		skt4->verts[vc_before + 2][0], skt4->verts[vc_before + 2][1]);
+
+	/* Left bezier: P0, Q10, Q20 */
+	{
+	    struct bezier_seg *bsL =
+		(struct bezier_seg *)skt4->curve.segment[bez_seg_idx];
+	    if (bsL->magic != CURVE_BEZIER_MAGIC || bsL->degree != 2 ||
+		bsL->ctl_points[0] != 0 ||
+		bsL->ctl_points[1] != (int)vc_before ||
+		bsL->ctl_points[2] != (int)(vc_before + 1))
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_SPLIT_SEGMENT (bezier): left half wrong\n");
+	}
+	/* Right bezier: Q20, Q11, P2  (P2 = vert[1]) */
+	{
+	    struct bezier_seg *bsR =
+		(struct bezier_seg *)skt4->curve.segment[bez_seg_idx + 1];
+	    if (bsR->magic != CURVE_BEZIER_MAGIC || bsR->degree != 2 ||
+		bsR->ctl_points[0] != split_vi ||
+		bsR->ctl_points[1] != (int)(vc_before + 2) ||
+		bsR->ctl_points[2] != 1)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_SPLIT_SEGMENT (bezier): right half wrong\n");
+	}
+	bu_log("ECMD_SKETCH_SPLIT_SEGMENT (bezier degree=2, t=0.5) SUCCESS: "
+	       "Q10=(%g,%g) split=(%g,%g) Q11=(%g,%g)\n",
+	       skt4->verts[vc_before][0],     skt4->verts[vc_before][1],
+	       skt4->verts[vc_before + 1][0], skt4->verts[vc_before + 1][1],
+	       skt4->verts[vc_before + 2][0], skt4->verts[vc_before + 2][1]);
+    }
+
+    /* ================================================================
+     * ECMD_SKETCH_PICK_VERTEX via mouse proximity (ft_edit_xy path)
+     *
+     * Reset model_changes to identity so the projection used internally
+     * (model2objview = gv_model2view * model_changes) equals gv_model2view.
+     * Then aim the cursor at the view-space projection of vertex 0's 3D
+     * position and verify that vertex 0 is selected.
+     * ================================================================*/
+    {
+	/* Use identity model_changes for a clean test */
+	MAT_IDN(s->model_changes);
+
+	/* Reset curr_vert */
+	se->curr_vert = -1;
+
+	struct rt_sketch_internal *skt5 =
+	    (struct rt_sketch_internal *)s->es_int.idb_ptr;
+
+	/* Project vertex 0 to view space via model2objview (= gv_model2view now) */
+	point_t v0_3d;
+	VJOIN2(v0_3d, skt5->V,
+	       skt5->verts[0][0], skt5->u_vec,
+	       skt5->verts[0][1], skt5->v_vec);
+	mat_t m2ov;
+	bn_mat_mul(m2ov, v->gv_model2view, s->model_changes);
+	point_t v0_view;
+	MAT4X3PNT(v0_view, m2ov, v0_3d);
+
+	/* Aim cursor directly at vertex 0's view position */
+	vect_t cursor;
+	VSET(cursor, v0_view[X], v0_view[Y], 0.0);
+
+	rt_edit_set_edflag(s, ECMD_SKETCH_PICK_VERTEX);
+	(*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, cursor);
+	rt_edit_process(s);
+
+	if (se->curr_vert < 0)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_PICK_VERTEX (proximity): "
+		"curr_vert not set\n");
+	if ((size_t)se->curr_vert >= skt5->vert_count)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_PICK_VERTEX (proximity): "
+		"curr_vert=%d out of range\n", se->curr_vert);
+	/* Vertex 0 is at (0,0) which maps to the same view position as the
+	 * cursor, so it must be the closest vertex. */
+	if (se->curr_vert != 0)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_PICK_VERTEX (proximity): "
+		"expected vertex 0 (at view origin), got vertex %d\n",
+		se->curr_vert);
+
+	bu_log("ECMD_SKETCH_PICK_VERTEX (proximity) SUCCESS: "
+	       "cursor at view (%g,%g) → nearest vertex %d\n",
+	       cursor[X], cursor[Y], se->curr_vert);
+    }
+
+    /* ================================================================
+     * ECMD_SKETCH_APPEND_NURB: append a quadratic (order=3) NURB with
+     * 4 control points (c_size=4, must be >= order=3).
+     *
+     * Using existing vertices 0..3: (0,0) (10,0) (10,10) (0,10).
+     * After the call:
+     *   - curve.count increases by 1
+     *   - New segment is CURVE_NURB_MAGIC, order=3, c_size=4, rational=0
+     *   - k_size = 4 + 3 = 7
+     *   - Auto clamped-uniform knot vector:
+     *       [0, 0, 0, 1, 2, 2, 2]  (3 repeated zeros, interior at 1,
+     *        2 = c_size-order+1 repeated end value)
+     * ================================================================*/
+    {
+	struct rt_sketch_internal *skt_n =
+	    (struct rt_sketch_internal *)s->es_int.idb_ptr;
+
+	size_t sc_before = skt_n->curve.count;
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_NURB);
+	/* e_para[0] = order=3; e_para[1..4] = vert indices 0,1,2,3 */
+	s->e_inpara  = 5;
+	s->e_para[0] = 3.0;  /* order */
+	s->e_para[1] = 0.0;  /* ctrl pt 0 */
+	s->e_para[2] = 1.0;  /* ctrl pt 1 */
+	s->e_para[3] = 2.0;  /* ctrl pt 2 */
+	s->e_para[4] = 3.0;  /* ctrl pt 3 */
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	if (skt_n->curve.count != sc_before + 1)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_APPEND_NURB: expected curve.count=%zu, got %zu\n",
+		sc_before + 1, skt_n->curve.count);
+
+	size_t nurb_idx = sc_before;  /* index of newly appended segment */
+	void *nseg = skt_n->curve.segment[nurb_idx];
+	if (!nseg || *(uint32_t *)nseg != CURVE_NURB_MAGIC)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: wrong segment type\n");
+
+	struct nurb_seg *ns = (struct nurb_seg *)nseg;
+	if (ns->order != 3 || ns->c_size != 4)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_APPEND_NURB: order=%d c_size=%d (expected 3,4)\n",
+		ns->order, ns->c_size);
+	if (ns->weights != NULL)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: weights should be NULL\n");
+	if (RT_NURB_IS_PT_RATIONAL(ns->pt_type))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: pt_type should be non-rational\n");
+
+	/* Expected k_size = 3 + 4 = 7 */
+	if (ns->k.k_size != 7)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_APPEND_NURB: k_size=%d (expected 7)\n",
+		ns->k.k_size);
+
+	/* Expected clamped uniform knot vector: [0,0,0,1,2,2,2] */
+	fastf_t expected_kv[7] = {0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 2.0};
+	int kv_ok = 1;
+	for (int i = 0; i < 7; i++) {
+	    if (fabs(ns->k.knots[i] - expected_kv[i]) > VUNITIZE_TOL)
+		{ kv_ok = 0; break; }
+	}
+	if (!kv_ok) {
+	    bu_log("ERROR: ECMD_SKETCH_APPEND_NURB: knot vector = [");
+	    for (int i = 0; i < 7; i++) bu_log("%g ", ns->k.knots[i]);
+	    bu_log("], expected [0,0,0,1,2,2,2]\n");
+	    bu_exit(1, "ECMD_SKETCH_APPEND_NURB: wrong knot vector\n");
+	}
+	/* Control points should be 0,1,2,3 */
+	if (ns->ctl_points[0] != 0 || ns->ctl_points[1] != 1 ||
+	    ns->ctl_points[2] != 2 || ns->ctl_points[3] != 3)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: wrong control points\n");
+
+	bu_log("ECMD_SKETCH_APPEND_NURB (order=3, c_size=4) SUCCESS: "
+	       "kv=[0,0,0,1,2,2,2] curve.count=%zu\n", skt_n->curve.count);
+
+	/* ============================================================
+	 * ECMD_SKETCH_NURB_EDIT_KV: replace the knot vector of the
+	 * NURB segment we just created.
+	 *
+	 * Replace [0,0,0,1,2,2,2] with [0,0,0,0.5,2,2,2] — shifting
+	 * the single interior knot from 1 to 0.5.
+	 * ============================================================*/
+
+	/* Select the NURB segment */
+	se->curr_seg = (int)nurb_idx;
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_NURB_EDIT_KV);
+	/* e_para[0] = k_size=7; e_para[1..7] = new knot values */
+	s->e_inpara  = 8;
+	s->e_para[0] = 7.0;   /* k_size */
+	s->e_para[1] = 0.0;
+	s->e_para[2] = 0.0;
+	s->e_para[3] = 0.0;
+	s->e_para[4] = 0.5;   /* moved interior knot */
+	s->e_para[5] = 2.0;
+	s->e_para[6] = 2.0;
+	s->e_para[7] = 2.0;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_NURB_EDIT_KV: %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	fastf_t expected_kv2[7] = {0.0, 0.0, 0.0, 0.5, 2.0, 2.0, 2.0};
+	int kv2_ok = 1;
+	for (int i = 0; i < 7; i++) {
+	    if (fabs(ns->k.knots[i] - expected_kv2[i]) > VUNITIZE_TOL)
+		{ kv2_ok = 0; break; }
+	}
+	if (!kv2_ok) {
+	    bu_log("ERROR: ECMD_SKETCH_NURB_EDIT_KV: knot vector = [");
+	    for (int i = 0; i < 7; i++) bu_log("%g ", ns->k.knots[i]);
+	    bu_log("], expected [0,0,0,0.5,2,2,2]\n");
+	    bu_exit(1, "ECMD_SKETCH_NURB_EDIT_KV: wrong knot vector\n");
+	}
+	bu_log("ECMD_SKETCH_NURB_EDIT_KV SUCCESS: kv=[0,0,0,0.5,2,2,2]\n");
+
+	/* ============================================================
+	 * ECMD_SKETCH_NURB_EDIT_WEIGHTS: make the segment rational by
+	 * setting 4 weights = {1, 2, 2, 1}.
+	 *
+	 * After: pt_type should be rational, weights array filled.
+	 * ============================================================*/
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_NURB_EDIT_WEIGHTS);
+	/* e_para[0]=seg_index; e_para[1]=c_size=4; e_para[2..5]=weights */
+	s->e_inpara  = 6;
+	s->e_para[0] = (fastf_t)nurb_idx;  /* segment index */
+	s->e_para[1] = 4.0;                /* c_size */
+	s->e_para[2] = 1.0;
+	s->e_para[3] = 2.0;
+	s->e_para[4] = 2.0;
+	s->e_para[5] = 1.0;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	if (!RT_NURB_IS_PT_RATIONAL(ns->pt_type))
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: pt_type not rational\n");
+	if (!ns->weights)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: weights array is NULL\n");
+
+	fastf_t expected_w[4] = {1.0, 2.0, 2.0, 1.0};
+	for (int i = 0; i < 4; i++) {
+	    if (fabs(ns->weights[i] - expected_w[i]) > VUNITIZE_TOL)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: weight[%d]=%g "
+		    "(expected %g)\n", i, ns->weights[i], expected_w[i]);
+	}
+	bu_log("ECMD_SKETCH_NURB_EDIT_WEIGHTS SUCCESS: "
+	       "weights=[1,2,2,1] rational=%d\n",
+	       RT_NURB_IS_PT_RATIONAL(ns->pt_type));
+
+	/* ============================================================
+	 * ECMD_SKETCH_DELETE_SEGMENT: delete the NURB segment and verify
+	 * that NURB-specific memory (knots, ctl_points, weights) is freed
+	 * without a crash (valgrind would catch leaks in CI).
+	 * ============================================================*/
+	se->curr_seg = (int)nurb_idx;
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_DELETE_SEGMENT);
+	s->e_inpara = 0;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_DELETE_SEGMENT (nurb): %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	if (skt_n->curve.count != sc_before)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_DELETE_SEGMENT (nurb): "
+		"expected count=%zu, got %zu\n",
+		sc_before, skt_n->curve.count);
+	bu_log("ECMD_SKETCH_DELETE_SEGMENT (nurb) SUCCESS: "
+	       "curve.count back to %zu\n", skt_n->curve.count);
+
+	/* ============================================================
+	 * Error-path checks for ECMD_SKETCH_APPEND_NURB:
+	 *   (a) c_size < order → curve.count must NOT increase
+	 *   (b) out-of-range control point index → curve.count must NOT increase
+	 * ============================================================*/
+	{
+	    size_t sc_err = skt_n->curve.count;
+
+	    /* (a) order=4 but only 2 control points (c_size=2 < order=4) */
+	    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_NURB);
+	    s->e_inpara  = 3;
+	    s->e_para[0] = 4.0;  /* order */
+	    s->e_para[1] = 0.0;
+	    s->e_para[2] = 1.0;
+	    rt_edit_process(s);
+	    if (skt_n->curve.count != sc_err)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_APPEND_NURB should reject c_size < order "
+		    "(count changed from %zu to %zu)\n",
+		    sc_err, skt_n->curve.count);
+	    bu_log("ECMD_SKETCH_APPEND_NURB (c_size<order) correctly rejected\n");
+
+	    /* (b) order=2, 3 control points but last index is bogus */
+	    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_NURB);
+	    s->e_inpara  = 4;
+	    s->e_para[0] = 2.0;     /* order */
+	    s->e_para[1] = 0.0;
+	    s->e_para[2] = 1.0;
+	    s->e_para[3] = 9999.0;  /* bogus vertex index */
+	    rt_edit_process(s);
+	    if (skt_n->curve.count != sc_err)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_APPEND_NURB should reject out-of-range vert\n");
+	    bu_log("ECMD_SKETCH_APPEND_NURB (bad vert index) correctly rejected\n");
+	}
     }
 
     rt_edit_destroy(s);

@@ -37,18 +37,18 @@ Cross-cutting features now in librt:
 
 ---
 
-## 1. Sketch (ID_SKETCH) — mostly complete
+## 1. Sketch (ID_SKETCH) — complete
 
 `edsketch.c` implements the full ECMD suite for vertex/segment CRUD.
-`struct rt_sketch_edit` holds `curr_vert` and `curr_seg` selection state.
+`struct rt_sketch_edit` holds `curr_vert` and `curr_seg` selection state,
+plus `v_pos` / `v_pos_valid` for mouse-proximity picking.
 
-### Remaining gaps
-
-| Feature | Status |
-|---------|--------|
-| Split segment at parameter t | Not implemented; requires per-type parameterization |
-| NURB segment add/edit | Not implemented; rarely used in practice |
-| Mouse-proximity vertex picking | `ft_edit_xy` needs 2-D UV proximity query against `skt->verts` |
+All sketch editing features are implemented:
+- **Mouse-proximity vertex picking**: `ft_edit_xy` stores the view-space cursor in `se->v_pos`; `ecmd_sketch_pick_vertex` projects all sketch vertices through `model2objview` and selects the nearest one.
+- **Segment split at parameter t** (`ECMD_SKETCH_SPLIT_SEGMENT 26011`): supported for LINE, CARC (non-full-circle), and BEZIER. Full-circle CARCs and NURB segments are not supported (NURB subdivision requires the full Oslo algorithm).
+- **NURB segment add** (`ECMD_SKETCH_APPEND_NURB 26012`): creates a non-rational B-spline with a clamped-uniform knot vector auto-generated from `order` and `c_size`.  Parameters: `e_para[0]` = order, `e_para[1..e_inpara-1]` = control point vertex indices.
+- **NURB knot-vector edit** (`ECMD_SKETCH_NURB_EDIT_KV 26013`): replaces the full knot vector of the currently selected NURB segment. Validates non-decreasing order and matching `k_size = order + c_size`.
+- **NURB weight edit** (`ECMD_SKETCH_NURB_EDIT_WEIGHTS 26014`): sets or replaces the per-control-point weight array; makes the segment rational on first use.  The `pt_type` is updated to the rational variant.
 
 ---
 
@@ -175,14 +175,14 @@ removing the `#if 0` guard and wiring the model2objview matrix from
 - **Gap**: No Tcl/GUI control for `gv_coord='o'` (object coordinate frame) in Archer.
 
 ### 13.4 XY Mouse Rotation (RT_PARAMS_EDIT_ROT via ft_edit_xy)
-- `edit_generic_xy` returns an error for `RT_PARAMS_EDIT_ROT` and directs
-  callers to the knob path.
-- `brlcad_mgedrework/edgeneric.c` has an experimental `edit_mrot_xy` (UNTESTED).
-- **To do**: validate `edit_mrot_xy` against MGED's `doevent.c` / `f_knob`
-  / `mged_erot_xyz`, then merge into `edgeneric.c`.
+- **DONE**: `edit_mrot_xy` validated against MGED's `doevent.c` / `f_knob` /
+  `mged_erot_xyz` and merged into `edgeneric.c`.  `edit_generic_xy` handles
+  `RT_PARAMS_EDIT_ROT` by converting the view-space cursor delta to "ax"/"ay"
+  knob increments via `rt_edit_knob_cmd_process`.
 
 ### 13.5 RT_MATRIX_EDIT_ROT via ft_edit_xy
-- Same situation as §13.4.  `edit_mrot_xy` in mgedrework handles both cases.
+- **DONE**: Handled by `edit_mrot_xy(s, mousevec, 1)` in `edit_generic_xy`.
+  Matrix rotation and solid rotation share the same implementation.
 
 ### 13.6 Undo/Redo Stack (Multi-Level)
 - Not in scope for `struct rt_edit`; should be implemented at the
