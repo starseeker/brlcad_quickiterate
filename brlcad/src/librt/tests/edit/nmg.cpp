@@ -61,6 +61,7 @@
 #define ECMD_NMG_VMOVE		11029
 #define ECMD_NMG_FPICK		11030
 #define ECMD_NMG_FMOVE		11031
+#define ECMD_NMG_LEXTRU_DIR	11032
 
 
 /* ------------------------------------------------------------------ */
