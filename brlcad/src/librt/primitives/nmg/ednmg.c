@@ -72,6 +72,17 @@
  * e_inpara must be 3.
  */
 #define ECMD_NMG_FMOVE		11031
+/*
+ * Extrude the current loop along an explicit direction vector.
+ *
+ * e_para[0..2] = direction vector (need not be unit length; will be normalised)
+ * e_para[3]   = extrusion distance in local units
+ * e_inpara    = 4
+ *
+ * Equivalent to computing target_pt = lu_keypoint + normalise(dir)*dist
+ * and then delegating to the existing ecmd_nmg_lextru() (e_inpara=3) path.
+ */
+#define ECMD_NMG_LEXTRU_DIR	11032
 
 void *
 rt_edit_nmg_prim_edit_create(struct rt_edit *UNUSED(s))
@@ -229,6 +240,8 @@ rt_edit_nmg_set_edit_mode(struct rt_edit *s, int mode)
 	    // TODO - should we really be calling this here?
 	    rt_edit_process(s);
 	    return;
+	case ECMD_NMG_LEXTRU_DIR:
+	    /* fall through to ECMD_NMG_LEXTRU for loop-copy setup */
 	case ECMD_NMG_LEXTRU:
 	    {
 		struct model *m, *m_tmp;
@@ -406,6 +419,7 @@ struct rt_edit_menu_item nmg_menu[] = {
     { "Prev EU", nmg_ed, ECMD_NMG_BACK },
     { "Radial EU", nmg_ed, ECMD_NMG_RADIAL },
     { "Extrude Loop", nmg_ed, ECMD_NMG_LEXTRU },
+    { "Extrude Loop (dir+dist)", nmg_ed, ECMD_NMG_LEXTRU_DIR },
     { "Eebug Edge", nmg_ed, ECMD_NMG_EDEBUG },
     { "Pick Vertex", nmg_ed, ECMD_NMG_VPICK },
     { "Move Vertex", nmg_ed, ECMD_NMG_VMOVE },
@@ -950,6 +964,49 @@ void ecmd_nmg_lextru(struct rt_edit *s)
 	(*f)(0, NULL, d, &vs_flag);
 }
 
+/* Extrude current loop in an explicit direction + distance.
+ * e_para[0..2] = direction vector (any non-zero magnitude)
+ * e_para[3]    = extrusion distance (local units)
+ * e_inpara must be 4.
+ *
+ * Converts to target_pt = lu_keypoint + normalise(dir)*dist, then calls
+ * the standard ecmd_nmg_lextru() via the e_inpara=3 path. */
+static void
+ecmd_nmg_lextru_dir(struct rt_edit *s)
+{
+    struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
+
+    if (!s->e_inpara || s->e_inpara < 4) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_NMG_LEXTRU_DIR: need direction (3 components) "
+		"and distance (e_inpara=4)\n");
+	return;
+    }
+
+    vect_t dir;
+    VSET(dir, s->e_para[0], s->e_para[1], s->e_para[2]);
+    double mag = MAGNITUDE(dir);
+    if (mag < SQRT_SMALL_FASTF) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_NMG_LEXTRU_DIR: zero-length direction vector\n");
+	return;
+    }
+    VSCALE(dir, dir, 1.0 / mag);
+
+    fastf_t dist = s->e_para[3] * s->local2base;
+
+    /* Build the target point and pass to the standard path */
+    point_t to_pt;
+    VJOIN1(to_pt, n->lu_keypoint, dist, dir);
+
+    /* Override e_para/e_inpara to use the x,y,z form */
+    VMOVE(s->e_para, to_pt);
+    s->e_inpara = 3;
+    s->local2base = 1.0;  /* already converted above */
+
+    ecmd_nmg_lextru(s);
+}
+
 
 /* XXX Should just leave desired location in s->e_mparam for rt_edit_process(s) */
 void ecmd_nmg_epick(struct rt_edit *s, const vect_t mousevec)
@@ -1226,6 +1283,9 @@ rt_edit_nmg_edit(struct rt_edit *s)
 	case ECMD_NMG_LEXTRU:
 	    ecmd_nmg_lextru(s);
 	    break;
+	case ECMD_NMG_LEXTRU_DIR:
+	    ecmd_nmg_lextru_dir(s);
+	    break;
 	default:
 	    return edit_generic(s);
     }
@@ -1263,6 +1323,7 @@ rt_edit_nmg_edit_xy(
 	case ECMD_NMG_VMOVE:
 	case ECMD_NMG_FMOVE:
 	case ECMD_NMG_LEXTRU:
+	case ECMD_NMG_LEXTRU_DIR:
               MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
               pos_view[X] = mousevec[X];
               pos_view[Y] = mousevec[Y];

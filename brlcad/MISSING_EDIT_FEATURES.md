@@ -223,7 +223,7 @@ NMG**.  All interaction is keyboard-driven via the MGED command line:
 |---------|-----|
 | ~~Face pick/move~~ | **DONE**: `ECMD_NMG_FPICK` (11030) picks OT_SAME faceuse by index; `ECMD_NMG_FMOVE` (11031) translates all face vertices by ΔX ΔY ΔZ |
 | ~~Vertex pick/move~~ | **DONE**: `ECMD_NMG_VPICK` (11028) picks vertex-use by index (edgeuse scan); `ECMD_NMG_VMOVE` (11029) moves selected vertex to XYZ |
-| Loop extrude with direction | `ECMD_NMG_LEXTRU` only extrudes by e_para, no direction control |
+| ~~Loop extrude with direction~~ | **DONE**: `ECMD_NMG_LEXTRU_DIR` (11032) accepts `e_para[0..2]`=direction vector and `e_para[3]`=distance; normalises the direction then delegates to the existing `ecmd_nmg_lextru()` target-point path |
 | Shell-level operations | Only accessible via BRL-CAD command API |
 
 `struct rt_nmg_edit` updated in `include/rt/primitives/nmg.h` with `es_v` and `es_fu` selection fields.
@@ -559,7 +559,7 @@ MGED supports individual control-point selection/move for NURBS surfaces via
 | Sketch    | Core CRUD + multi-vertex-list move | Segment split at t; NURB segment edit; mouse proximity pick |
 | Pipe      | Complete           | None significant |
 | BOT       | Complete (move, split, fuse) | None significant |
-| NMG       | Edges + face/vertex pick+move | `ECMD_NMG_LEXTRU` direction control |
+| NMG       | Complete (edges + face/vertex pick+move + loop extrude dir) | Shell-level operations |
 | Extrude   | Complete (A/B/H vectors, mov H, ref sketch) | `keypoint` index (deprecated field) |
 | ARS       | Complete (move, del, dup, insert, scale) | None significant |
 | Metaball  | Complete (incl. goo/sweat = `ECMD_METABALL_PT_SET_GOO`) | None significant |
