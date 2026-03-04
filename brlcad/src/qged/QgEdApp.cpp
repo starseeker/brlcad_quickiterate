@@ -29,12 +29,15 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include <QTimer>
 #include "bu/malloc.h"
 #include "bu/file.h"
+#include "bv/render.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #ifdef BRLCAD_OPENGL
 #  include "qtcad/QgObolWidget.h"
+#  include "qtcad/QgView.h"
 #endif
 #include "QgEdApp.h"
 #include "fbserv.h"
@@ -153,7 +156,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
 }
 
 
-QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QApplication(argc, argv)
+QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int obol_mode) :QApplication(argc, argv)
 {
     setOrganizationName("BRL-CAD");
     setOrganizationDomain("brlcad.org");
@@ -181,8 +184,17 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     QTextStream stream(&file);
     setStyleSheet(stream.readAll());
 
+    // Determine canvas type: Obol takes priority, then swrast, then default
+    int canvas_type = swrast_mode;
+#ifdef BRLCAD_OPENGL
+    if (obol_mode)
+	canvas_type = QgView_Obol;
+#else
+    (void)obol_mode;
+#endif
+
     // Create the windows
-    w = new QgEdMainWindow(swrast_mode, quad_mode);
+    w = new QgEdMainWindow(canvas_type, quad_mode);
 
     /* GED needs some information and methods from QGED - make
      * those assignment */
@@ -247,6 +259,32 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     if (!w->isValid3D()) {
 	bu_exit(EXIT_FAILURE, "OpenGL failed to initialize properly.  Recommend running qged with '-s' option to use fallback swrast rendering.");
     }
+
+#ifdef BRLCAD_OPENGL
+    // For the Obol canvas type, wire up the bv_render_ctx to the widget.
+    // bv_render_ctx bridges libbv's bv_scene (populated by draw commands)
+    // to Obol's Inventor scene graph.  We create it after show() so the
+    // GL context exists, using a deferred single-shot timer to let Qt
+    // finish its first paint cycle before we access the context.
+    if (canvas_type == QgView_Obol && gedp->ged_scene) {
+	QTimer::singleShot(0, this, [this]() {
+	    struct ged *g = mdl->gedp;
+	    if (!g || !g->ged_scene) return;
+	    QgView *cv = w->CurrentDisplay();
+	    if (!cv) return;
+	    QgObolWidget *obolw = cv->obol_widget();
+	    if (!obolw) return;
+	    int ww = obolw->width()  > 0 ? obolw->width()  : 512;
+	    int wh = obolw->height() > 0 ? obolw->height() : 512;
+	    struct bv_render_ctx *rctx =
+		bv_render_ctx_create(g->ged_scene, nullptr, ww, wh);
+	    if (rctx) {
+		obolw->setRenderCtx(rctx);
+		obolw->update();
+	    }
+	});
+    }
+#endif
 
     // Assign QGED specific open/close db handlers to the gedp
     ged_clbk_set(mdl->gedp, "opendb", BU_CLBK_PRE, &qged_pre_opendb_clbk, (void *)qApp);

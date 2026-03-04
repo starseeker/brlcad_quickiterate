@@ -71,6 +71,7 @@ main(int argc, char **argv)
 
     int console_mode = 0;
     int swrast_mode = 0;
+    int obol_mode = 0;
     int quad_mode = 0;
     int print_help = 0;
     struct bu_vls msg = BU_VLS_INIT_ZERO;
@@ -84,13 +85,14 @@ main(int argc, char **argv)
     argc-=(argc>0); argv+=(argc>0);
 
     /* Handle top level application options */
-    struct bu_opt_desc d[6];
+    struct bu_opt_desc d[7];
     BU_OPT(d[0],  "h", "help",   "", NULL, &print_help,    "Print help and exit");
     BU_OPT(d[1],  "?", "",       "", NULL, &print_help,    "");
     BU_OPT(d[2],  "c", "no-gui", "", NULL, &console_mode,  "Run without GUI");
     BU_OPT(d[3],  "s", "swrast", "", NULL, &swrast_mode,   "Use software rendering for 3D view");
     BU_OPT(d[4],  "4", "quad",   "", NULL, &quad_mode,     "Launch using quad view");
-    BU_OPT_NULL(d[5]);
+    BU_OPT(d[5],  "o", "obol",   "", NULL, &obol_mode,     "Use Obol/Inventor scene-graph for 3D view");
+    BU_OPT_NULL(d[6]);
 
     // High level options are only defined prior to the file argument (if there
     // is one).  See if we need to limit our processing
@@ -142,7 +144,7 @@ main(int argc, char **argv)
     }
 
     // We derive our own app type from QApplication
-    QgEdApp app(argc, argv, swrast_mode, quad_mode);
+    QgEdApp app(argc, argv, swrast_mode, quad_mode, obol_mode);
 
     // Setup complete - time to enter the interactive event loop
     return app.exec();

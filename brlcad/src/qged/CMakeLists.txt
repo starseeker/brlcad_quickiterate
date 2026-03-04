@@ -76,6 +76,10 @@ if(BRLCAD_ENABLE_QT)
       Qt5::Network
     )
   endif(Qt6Widgets_FOUND)
+  # librtrender is needed by fbserv.cpp's ert3 Obol path (render_run)
+  if(BRLCAD_ENABLE_OBOL)
+    target_link_libraries(qged librtrender)
+  endif(BRLCAD_ENABLE_OBOL)
   target_compile_definitions(qged PRIVATE BRLCADBUILD HAVE_CONFIG_H)
   install(TARGETS qged RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
 
