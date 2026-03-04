@@ -49,8 +49,8 @@
  *   e_keypoint maps to model position (10,20,30).
  *
  * RT_PARAMS_EDIT_ROT XY and RT_MATRIX_EDIT_ROT XY:
- *   Both return BRLCAD_ERROR (rotation via raw XY mouse not supported;
- *   use rt_knob_edit_rot for interactive rotation).
+ *   Both now succeed via edit_mrot_xy() which converts the XY mouse
+ *   displacement to "ax"/"ay" knob increments and calls rt_knob_edit_rot.
  */
 
 #include "common.h"
@@ -272,11 +272,9 @@ main(int argc, char *argv[])
     mousevec[X] = 0.1; mousevec[Y] = -0.05; mousevec[Z] = 0;
     bu_vls_trunc(s->log_str, 0);
     int rot_xy_ret = (*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, mousevec);
-    if (rot_xy_ret != BRLCAD_ERROR)
-	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) should return BRLCAD_ERROR, got %d\n",
-		rot_xy_ret);
-    bu_log("RT_PARAMS_EDIT_ROT(xy) correctly returns BRLCAD_ERROR "
-	   "(use rt_knob_edit_rot for interactive solid rotation)\n");
+    if (rot_xy_ret != BRLCAD_OK)
+	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) failed\n");
+    bu_log("RT_PARAMS_EDIT_ROT(xy) SUCCESS: rotation applied via knob path\n");
 
     /* ================================================================
      * RT_MATRIX_EDIT_ROT: absolute matrix rotation from keyboard angles
@@ -319,11 +317,9 @@ main(int argc, char *argv[])
     mousevec[X] = 0.1; mousevec[Y] = -0.05; mousevec[Z] = 0;
     bu_vls_trunc(s->log_str, 0);
     int mrot_xy_ret = (*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, mousevec);
-    if (mrot_xy_ret != BRLCAD_ERROR)
-	bu_exit(1, "ERROR: RT_MATRIX_EDIT_ROT(xy) should return BRLCAD_ERROR, got %d\n",
-		mrot_xy_ret);
-    bu_log("RT_MATRIX_EDIT_ROT(xy) correctly returns BRLCAD_ERROR "
-	   "(use rt_knob_edit_rot for interactive matrix rotation)\n");
+    if (mrot_xy_ret != BRLCAD_OK)
+	bu_exit(1, "ERROR: RT_MATRIX_EDIT_ROT(xy) failed\n");
+    bu_log("RT_MATRIX_EDIT_ROT(xy) SUCCESS: rotation applied via knob path\n");
 
     /* ================================================================
      * RT_MATRIX_EDIT_TRANS_MODEL_XYZ: absolute model-space oed translation

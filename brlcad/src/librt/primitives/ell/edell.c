@@ -324,8 +324,6 @@ rt_edit_ell_edit_xy(
         )
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
-    bu_clbk_t f = NULL;
-    void *d = NULL;
 
     switch (s->edit_flag) {
         case RT_PARAMS_EDIT_SCALE:
@@ -340,13 +338,9 @@ rt_edit_ell_edit_xy(
             edit_abs_tra(s, pos_view);
             return 0;
         case RT_PARAMS_EDIT_ROT:
-	    /* Solid rotation via raw XY mouse position is not supported;
-	     * use rt_knob_edit_rot for interactive rotation. */
-	    bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing not supported; use rt_knob_edit_rot\n");
-            rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-            if (f)
-                (*f)(0, NULL, d, NULL);
-            return BRLCAD_ERROR;
+	    /* Delegate to edit_generic_xy which now handles XY rotation
+	     * via edit_mrot_xy / rt_knob_edit_rot. */
+	    return edit_generic_xy(s, mousevec);
         default:
 	    /* Forward generic/matrix ops (RT_MATRIX_EDIT_*) to edit_generic_xy. */
             return edit_generic_xy(s, mousevec);

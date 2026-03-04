@@ -54,10 +54,12 @@ Cross-cutting features now in librt:
 
 ## 2. Pipe (ID_PIPE) — complete
 
-`edpipe.c` fully implements all pipe edit operations.  The only gap is
-limited test coverage for:
-- `ECMD_PIPE_SCALE_RADIUS`, `ECMD_PIPE_PT_OD/ID/RADIUS` (per-point set)
-- `ECMD_PIPE_PT_INS` (prepend) and `ECMD_PIPE_SPLIT`
+`edpipe.c` fully implements all pipe edit operations.  Full test
+coverage was added in session 2:
+- `ECMD_PIPE_SCALE_RADIUS`, `ECMD_PIPE_PT_OD/ID/RADIUS`
+- `ECMD_PIPE_PT_INS` and `ECMD_PIPE_SPLIT`
+- `pipe_split_pnt` was a stub in both MGED and librt; it is now fully
+  implemented.
 
 A convenience function that sets all parameters of a point in one call
 would also be useful:
@@ -76,16 +78,10 @@ edge split, face split, vertex fuse, and face fuse.
 
 ---
 
-## 4. NMG (ID_NMG) — mostly complete
+## 4. NMG (ID_NMG) — complete
 
 `ednmg.c` implements edge/vertex/face pick+move and loop extrusion.
-
-### Remaining gap
-
-| Feature | Status |
-|---------|--------|
-| `ECMD_NMG_LEXTRU_DIR` test | Added to librt but not yet tested; requires a wire-loop NMG (loop in `lu_hd`, not in a faceuse) |
-| Shell-level operations | Only accessible via BRL-CAD command API; not in scope for `rt_edit` |
+`ECMD_NMG_LEXTRU_DIR` is now tested via a wire-loop NMG (session 2).
 
 ---
 
@@ -111,26 +107,27 @@ insert, scale, and delete.
 
 ## 7. Metaball (ID_METABALL) — complete
 
-`edmetaball.c` fully implements all metaball edit operations.
-
-### Remaining minor gap
-
-| Feature | Status |
-|---------|--------|
-| `ECMD_METABALL_PT_SWEAT` | Per-point "sweat" weight settable only via `adjust`; could add a dedicated ECMD |
+`edmetaball.c` fully implements all metaball edit operations including
+`ECMD_METABALL_PT_SWEAT` (added in session 2).
 
 ---
 
-## 8. Combination / Boolean Tree (ID_COMBINATION) — mostly complete
+## 8. Combination / Boolean Tree (ID_COMBINATION) — complete
 
-`edcomb.c` provides ECMDs for boolean tree manipulation.
+`edcomb.c` provides ECMDs for both boolean tree manipulation and
+region material properties.  The material-property ECMDs were added
+in session 2:
 
-### Remaining gaps
-
-| Feature | Status |
-|---------|--------|
-| Material property ECMDs | Region flag, los, air, gift, rgb, shader settable only via `adjust`; need `ECMD_COMB_SET_REGION`, `ECMD_COMB_SET_MATERIAL`, etc. |
-| Multi-member selection / invert | GUI-level concern; no librt API needed |
+| ECMD | Field |
+|------|-------|
+| `ECMD_COMB_SET_REGION` | `region_flag` |
+| `ECMD_COMB_SET_COLOR` | `rgb` / `rgb_valid` |
+| `ECMD_COMB_SET_SHADER` | `shader` |
+| `ECMD_COMB_SET_MATERIAL` | `material` |
+| `ECMD_COMB_SET_REGION_ID` | `region_id` |
+| `ECMD_COMB_SET_AIRCODE` | `aircode` |
+| `ECMD_COMB_SET_GIFTMATER` | `GIFTmater` |
+| `ECMD_COMB_SET_LOS` | `los` |
 
 ---
 
@@ -154,15 +151,12 @@ threshold edits.
 
 ---
 
-## 12. BSPLINE / NURBS (ID_BSPLINE) — mostly complete
+## 12. BSPLINE / NURBS (ID_BSPLINE) — complete
 
 `edbspline.c` implements control-point pick/move and knot pick/set.
-
-### Remaining gap
-
-| Feature | Status |
-|---------|--------|
-| `ECMD_SPLINE_VPICK` mouse proximity | Body guarded by `#if 0`; needs view-to-model matrix wired through `sedit_vpick` |
+`ECMD_SPLINE_VPICK` mouse proximity was implemented in session 3 by
+removing the `#if 0` guard and wiring the model2objview matrix from
+`s->vp->gv_model2view` × `s->model_changes`.
 
 ---
 
@@ -201,14 +195,14 @@ threshold edits.
 | Primitive | ECMD coverage | Remaining gaps |
 |-----------|--------------|----------------|
 | Sketch    | Core CRUD + multi-vertex move | Segment split at t; NURB edit; mouse proximity pick |
-| Pipe      | Complete | Additional test coverage; convenience batch-set function |
+| Pipe      | Complete | None |
 | BOT       | Complete | None |
-| NMG       | Complete (edges + face/vertex + loop extrude dir) | LEXTRU_DIR test; shell-level ops |
+| NMG       | Complete (edges + face/vertex + loop extrude dir) | Shell-level ops (out of scope) |
 | Extrude   | Complete | `keypoint` index (deprecated field) |
 | ARS       | Complete | None |
-| Metaball  | Complete | `ECMD_METABALL_PT_SWEAT` (minor) |
-| Comb      | Boolean tree complete | Material property ECMDs |
+| Metaball  | Complete | None |
+| Comb      | Complete | Multi-member selection (GUI-level) |
 | DSP       | Complete | None |
 | EBM       | Complete | None |
 | VOL       | Complete | None |
-| BSPLINE   | CP pick/move, knot pick/set | `ECMD_SPLINE_VPICK` mouse proximity |
+| BSPLINE   | Complete | None |
