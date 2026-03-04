@@ -118,6 +118,237 @@ rt_edit_tgc_menu_item(const struct bn_tol *UNUSED(tol))
     return tgc_menu;
 }
 
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the Truncated General Cone primitive   */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc tgc_h_params[] = {
+    {
+	"h",                  /* name         */
+	"Height (magnitude)", /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tgc_a_params[] = {
+    {
+	"a",                  /* name         */
+	"Semi-Axis A",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tgc_b_params[] = {
+    {
+	"b",                  /* name         */
+	"Semi-Axis B",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tgc_c_params[] = {
+    {
+	"c",                  /* name         */
+	"Semi-Axis C (top)",  /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tgc_d_params[] = {
+    {
+	"d",                  /* name         */
+	"Semi-Axis D (top)",  /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tgc_ab_params[] = {
+    {
+	"ab",                 /* name         */
+	"A = B",              /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tgc_cd_params[] = {
+    {
+	"cd",                 /* name         */
+	"C = D",              /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tgc_abcd_params[] = {
+    {
+	"abcd",               /* name         */
+	"A = B = C = D",      /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc tgc_cmds[] = {
+    {
+	ECMD_TGC_SCALE_H,     /* cmd_id       */
+	"Set H",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_h_params,         /* params       */
+	1,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_H_V,   /* cmd_id       */
+	"Set H (move V)",     /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_h_params,         /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_H_CD,  /* cmd_id       */
+	"Set H (adj C,D)",    /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_h_params,         /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_H_V_AB, /* cmd_id      */
+	"Set H (move V, adj A,B)", /* label   */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_h_params,         /* params       */
+	1,                    /* interactive  */
+	40                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_A,     /* cmd_id       */
+	"Set A",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_a_params,         /* params       */
+	1,                    /* interactive  */
+	50                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_B,     /* cmd_id       */
+	"Set B",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_b_params,         /* params       */
+	1,                    /* interactive  */
+	60                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_C,     /* cmd_id       */
+	"Set C",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_c_params,         /* params       */
+	1,                    /* interactive  */
+	70                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_D,     /* cmd_id       */
+	"Set D",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_d_params,         /* params       */
+	1,                    /* interactive  */
+	80                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_AB,    /* cmd_id       */
+	"Set A,B",            /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_ab_params,        /* params       */
+	1,                    /* interactive  */
+	90                    /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_CD,    /* cmd_id       */
+	"Set C,D",            /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_cd_params,        /* params       */
+	1,                    /* interactive  */
+	100                   /* display_order */
+    },
+    {
+	ECMD_TGC_SCALE_ABCD,  /* cmd_id       */
+	"Set A,B,C,D",        /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	tgc_abcd_params,      /* params       */
+	1,                    /* interactive  */
+	110                   /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc tgc_prim_desc = {
+    "tgc",                /* prim_type    */
+    "Truncated General Cone", /* prim_label */
+    11,                   /* ncmd         */
+    tgc_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_tgc_edit_desc(void)
+{
+    return &tgc_prim_desc;
+}
+
 void
 rt_edit_tgc_e_axes_pos(
 	struct rt_edit *s,
