@@ -69,12 +69,14 @@
 #include <string.h>
 
 #include "bu/malloc.h"
+#include "bu/avs.h"
 #include "bu/vls.h"
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "rt/nongeom.h"
 #include "rt/op.h"
 #include "rt/tree.h"
+#include "rt/db_attr.h"
 #include "../primitives/edit_private.h"
 
 /* ------------------------------------------------------------------ */
@@ -85,6 +87,15 @@
 #define ECMD_COMB_DEL_MEMBER   12002
 #define ECMD_COMB_SET_OP       12003
 #define ECMD_COMB_SET_MATRIX   12004
+/* Material / region property ECMDs */
+#define ECMD_COMB_SET_REGION   12005  /* set region_flag (0/1) */
+#define ECMD_COMB_SET_COLOR    12006  /* set RGB color (e_para[0..2]=R,G,B 0-255; e_inpara=0 clears) */
+#define ECMD_COMB_SET_SHADER   12007  /* set shader string (ce->es_shader) */
+#define ECMD_COMB_SET_MATERIAL 12008  /* set material string (ce->es_material) */
+#define ECMD_COMB_SET_REGION_ID 12009 /* set region_id (e_para[0]) */
+#define ECMD_COMB_SET_AIRCODE  12010  /* set aircode  (e_para[0]) */
+#define ECMD_COMB_SET_GIFTMATER 12011 /* set GIFTmater (e_para[0]) */
+#define ECMD_COMB_SET_LOS      12012  /* set los (e_para[0]) */
 
 /* ------------------------------------------------------------------ */
 /* Per-instance edit state                                              */
@@ -97,6 +108,10 @@ struct rt_comb_edit {
     /* When non-zero, es_mat supplies the 4x4 xform for ADD_MEMBER */
     int es_mat_valid;
     mat_t es_mat;
+    /* Shader / material strings for ECMD_COMB_SET_SHADER / _SET_MATERIAL.
+     * Caller fills these in before calling rt_edit_process(). */
+    struct bu_vls es_shader;
+    struct bu_vls es_material;
 };
 
 /* ------------------------------------------------------------------ */
@@ -476,6 +491,267 @@ ecmd_comb_set_matrix(struct rt_edit *s)
     return ret;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Material / region property ECMDs                                     */
+/* ------------------------------------------------------------------ */
+
+static int
+ecmd_comb_set_region(struct rt_edit *s)
+{
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    if (!s->e_inpara) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_COMB_SET_REGION: 0 or 1 required in e_para[0]\n");
+	return BRLCAD_ERROR;
+    }
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    char flag = (s->e_para[0] > SMALL_FASTF || s->e_para[0] < -SMALL_FASTF) ? 1 : 0;
+    comb->region_flag = flag;
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK)
+	bu_vls_printf(s->log_str,
+		"SET_REGION: region_flag=%d in '%s'\n", (int)flag, saved_name);
+    return ret;
+}
+
+
+static int
+ecmd_comb_set_color(struct rt_edit *s)
+{
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    if (s->e_inpara == 0) {
+	/* Clear the color: zero the struct field and also remove the
+	 * attribute from the avs under both the legacy "rgb" key and
+	 * the canonical "color" key so the subsequent export is clean. */
+	comb->rgb_valid = 0;
+	comb->rgb[0] = comb->rgb[1] = comb->rgb[2] = 0;
+	if (s->es_int.idb_avs.magic == BU_AVS_MAGIC) {
+	    bu_avs_remove(&s->es_int.idb_avs, "rgb");
+	    bu_avs_remove(&s->es_int.idb_avs, "color");
+	}
+    } else if (s->e_inpara == 3) {
+	comb->rgb_valid = 1;
+	comb->rgb[0] = (unsigned char)s->e_para[0];
+	comb->rgb[1] = (unsigned char)s->e_para[1];
+	comb->rgb[2] = (unsigned char)s->e_para[2];
+    } else {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_COMB_SET_COLOR: e_inpara must be 0 (clear) or 3 (R G B)\n");
+	return BRLCAD_ERROR;
+    }
+
+    int rgb_r = comb->rgb[0], rgb_g = comb->rgb[1], rgb_b = comb->rgb[2];
+    int rgb_v = comb->rgb_valid;
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK) {
+	if (rgb_v)
+	    bu_vls_printf(s->log_str,
+		    "SET_COLOR: rgb=(%d,%d,%d) in '%s'\n",
+		    rgb_r, rgb_g, rgb_b, saved_name);
+	else
+	    bu_vls_printf(s->log_str,
+		    "SET_COLOR: color cleared in '%s'\n", saved_name);
+    }
+    return ret;
+}
+
+
+static int
+ecmd_comb_set_shader(struct rt_edit *s)
+{
+    struct rt_comb_edit *ce = (struct rt_comb_edit *)s->ipe_ptr;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    bu_vls_sprintf(&comb->shader, "%s", bu_vls_cstr(&ce->es_shader));
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK)
+	bu_vls_printf(s->log_str,
+		"SET_SHADER: shader='%s' in '%s'\n",
+		bu_vls_cstr(&ce->es_shader), saved_name);
+    return ret;
+}
+
+
+static int
+ecmd_comb_set_material(struct rt_edit *s)
+{
+    struct rt_comb_edit *ce = (struct rt_comb_edit *)s->ipe_ptr;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    bu_vls_sprintf(&comb->material, "%s", bu_vls_cstr(&ce->es_material));
+    /* Sync the material_name field to the avs so rt_comb_export5 will
+     * persist it (the export function only reads the avs for material). */
+    if (s->es_int.idb_avs.magic != BU_AVS_MAGIC)
+	bu_avs_init_empty(&s->es_int.idb_avs);
+    db5_sync_comb_to_attr(&s->es_int.idb_avs, comb);
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK)
+	bu_vls_printf(s->log_str,
+		"SET_MATERIAL: material='%s' in '%s'\n",
+		bu_vls_cstr(&ce->es_material), saved_name);
+    return ret;
+}
+
+
+static int
+ecmd_comb_set_region_id(struct rt_edit *s)
+{
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    if (!s->e_inpara) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_COMB_SET_REGION_ID: region_id required in e_para[0]\n");
+	return BRLCAD_ERROR;
+    }
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    long rid = (long)s->e_para[0];
+    comb->region_id = rid;
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK)
+	bu_vls_printf(s->log_str,
+		"SET_REGION_ID: region_id=%ld in '%s'\n", rid, saved_name);
+    return ret;
+}
+
+
+static int
+ecmd_comb_set_aircode(struct rt_edit *s)
+{
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    if (!s->e_inpara) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_COMB_SET_AIRCODE: aircode required in e_para[0]\n");
+	return BRLCAD_ERROR;
+    }
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    long ac = (long)s->e_para[0];
+    comb->aircode = ac;
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK)
+	bu_vls_printf(s->log_str,
+		"SET_AIRCODE: aircode=%ld in '%s'\n", ac, saved_name);
+    return ret;
+}
+
+
+static int
+ecmd_comb_set_giftmater(struct rt_edit *s)
+{
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    if (!s->e_inpara) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_COMB_SET_GIFTMATER: GIFTmater required in e_para[0]\n");
+	return BRLCAD_ERROR;
+    }
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    long gm = (long)s->e_para[0];
+    comb->GIFTmater = gm;
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK)
+	bu_vls_printf(s->log_str,
+		"SET_GIFTMATER: GIFTmater=%ld in '%s'\n", gm, saved_name);
+    return ret;
+}
+
+
+static int
+ecmd_comb_set_los(struct rt_edit *s)
+{
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)s->es_int.idb_ptr;
+
+    if (comb_edit_validate(s) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    if (!s->e_inpara) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_COMB_SET_LOS: los required in e_para[0]\n");
+	return BRLCAD_ERROR;
+    }
+
+    char saved_name[512];
+    bu_strlcpy(saved_name, comb->src_objname ? comb->src_objname : "?",
+	       sizeof(saved_name));
+
+    long los_val = (long)s->e_para[0];
+    comb->los = los_val;
+    s->e_inpara = 0;
+
+    int ret = comb_write_back(s);
+    if (ret == BRLCAD_OK)
+	bu_vls_printf(s->log_str,
+		"SET_LOS: los=%ld in '%s'\n", los_val, saved_name);
+    return ret;
+}
+
+
 /* ------------------------------------------------------------------ */
 /* rt_functab entry points                                              */
 /* ------------------------------------------------------------------ */
@@ -486,6 +762,8 @@ rt_edit_comb_prim_edit_create(struct rt_edit *s)
     struct rt_comb_edit *ce;
     BU_GET(ce, struct rt_comb_edit);
     BU_VLS_INIT(&ce->es_name);
+    BU_VLS_INIT(&ce->es_shader);
+    BU_VLS_INIT(&ce->es_material);
     ce->es_mat_valid = 0;
     MAT_IDN(ce->es_mat);
 
@@ -500,6 +778,8 @@ rt_edit_comb_prim_edit_destroy(struct rt_comb_edit *ce)
     if (!ce)
 	return;
     bu_vls_free(&ce->es_name);
+    bu_vls_free(&ce->es_shader);
+    bu_vls_free(&ce->es_material);
     BU_PUT(ce, struct rt_comb_edit);
 }
 
@@ -516,6 +796,16 @@ rt_edit_comb_set_edit_mode(struct rt_edit *s, int mode)
 	case ECMD_COMB_DEL_MEMBER:
 	case ECMD_COMB_SET_OP:
 	    s->edit_mode = RT_PARAMS_EDIT_PICK;
+	    break;
+	case ECMD_COMB_SET_REGION:
+	case ECMD_COMB_SET_COLOR:
+	case ECMD_COMB_SET_SHADER:
+	case ECMD_COMB_SET_MATERIAL:
+	case ECMD_COMB_SET_REGION_ID:
+	case ECMD_COMB_SET_AIRCODE:
+	case ECMD_COMB_SET_GIFTMATER:
+	case ECMD_COMB_SET_LOS:
+	    s->edit_mode = RT_PARAMS_EDIT_SCALE;
 	    break;
 	default:
 	    break;
@@ -535,6 +825,16 @@ comb_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(d
 	case ECMD_COMB_SET_OP:
 	    s->edit_mode = RT_PARAMS_EDIT_PICK;
 	    break;
+	case ECMD_COMB_SET_REGION:
+	case ECMD_COMB_SET_COLOR:
+	case ECMD_COMB_SET_SHADER:
+	case ECMD_COMB_SET_MATERIAL:
+	case ECMD_COMB_SET_REGION_ID:
+	case ECMD_COMB_SET_AIRCODE:
+	case ECMD_COMB_SET_GIFTMATER:
+	case ECMD_COMB_SET_LOS:
+	    s->edit_mode = RT_PARAMS_EDIT_SCALE;
+	    break;
 	default:
 	    break;
     }
@@ -547,6 +847,14 @@ struct rt_edit_menu_item comb_menu[] = {
     { "Delete Member", comb_ed, ECMD_COMB_DEL_MEMBER },
     { "Set Member Op", comb_ed, ECMD_COMB_SET_OP },
     { "Set Member Matrix", comb_ed, ECMD_COMB_SET_MATRIX },
+    { "Set Region Flag", comb_ed, ECMD_COMB_SET_REGION },
+    { "Set Color", comb_ed, ECMD_COMB_SET_COLOR },
+    { "Set Shader", comb_ed, ECMD_COMB_SET_SHADER },
+    { "Set Material", comb_ed, ECMD_COMB_SET_MATERIAL },
+    { "Set Region ID", comb_ed, ECMD_COMB_SET_REGION_ID },
+    { "Set Aircode", comb_ed, ECMD_COMB_SET_AIRCODE },
+    { "Set GIFTmater", comb_ed, ECMD_COMB_SET_GIFTMATER },
+    { "Set LOS", comb_ed, ECMD_COMB_SET_LOS },
     { "", NULL, 0 }
 };
 
@@ -576,6 +884,22 @@ rt_edit_comb_edit(struct rt_edit *s)
 	    return ecmd_comb_set_op(s);
 	case ECMD_COMB_SET_MATRIX:
 	    return ecmd_comb_set_matrix(s);
+	case ECMD_COMB_SET_REGION:
+	    return ecmd_comb_set_region(s);
+	case ECMD_COMB_SET_COLOR:
+	    return ecmd_comb_set_color(s);
+	case ECMD_COMB_SET_SHADER:
+	    return ecmd_comb_set_shader(s);
+	case ECMD_COMB_SET_MATERIAL:
+	    return ecmd_comb_set_material(s);
+	case ECMD_COMB_SET_REGION_ID:
+	    return ecmd_comb_set_region_id(s);
+	case ECMD_COMB_SET_AIRCODE:
+	    return ecmd_comb_set_aircode(s);
+	case ECMD_COMB_SET_GIFTMATER:
+	    return ecmd_comb_set_giftmater(s);
+	case ECMD_COMB_SET_LOS:
+	    return ecmd_comb_set_los(s);
 	default:
 	    return edit_generic(s);
     }
@@ -595,6 +919,14 @@ rt_edit_comb_edit_xy(
 	case RT_PARAMS_EDIT_SCALE:
 	case ECMD_COMB_DEL_MEMBER:
 	case ECMD_COMB_SET_OP:
+	case ECMD_COMB_SET_REGION:
+	case ECMD_COMB_SET_COLOR:
+	case ECMD_COMB_SET_SHADER:
+	case ECMD_COMB_SET_MATERIAL:
+	case ECMD_COMB_SET_REGION_ID:
+	case ECMD_COMB_SET_AIRCODE:
+	case ECMD_COMB_SET_GIFTMATER:
+	case ECMD_COMB_SET_LOS:
 	    edit_sscale_xy(s, mousevec);
 	    return 0;
 	case RT_PARAMS_EDIT_TRANS:

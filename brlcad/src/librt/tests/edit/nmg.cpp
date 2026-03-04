@@ -65,6 +65,59 @@
 
 
 /* ------------------------------------------------------------------ */
+/* Build an NMG with a single triangular wire loop in the Z=0 plane.   */
+/* The wire loop lives in the shell's lu_hd (not in any faceuse).       */
+/* Vertices: v0=(0,0,0)  v1=(1,0,0)  v2=(0,1,0)                        */
+/* ------------------------------------------------------------------ */
+
+static struct directory *
+make_nmg_wireloop(struct rt_wdb *wdbp)
+{
+    struct model *m = nmg_mm();
+    struct nmgregion *r = nmg_mrsv(m);
+    struct shell *sh = BU_LIST_FIRST(shell, &r->s_hd);
+
+    /*
+     * Build a wire loop (loopuse in sh->lu_hd, NOT in a faceuse).
+     * Pattern: nmg_mlv → nmg_meonvu → nmg_eusplit × 2
+     */
+    struct loopuse *lu = nmg_mlv(&sh->l.magic,
+				 (struct vertex *)NULL, OT_SAME);
+    /* lu is now in sh->lu_hd with one vertex-use */
+
+    struct vertexuse *vu = BU_LIST_FIRST(vertexuse, &lu->down_hd);
+    /* Convert the single vertex-use to a self-edge-use loop */
+    struct edgeuse *eu0 = nmg_meonvu(vu);
+    /* eu0 → v0 (first vertex allocated) */
+    struct vertex *v0 = eu0->vu_p->v_p;
+
+    /* Insert v1 after eu0 */
+    struct edgeuse *eu1 = nmg_eusplit((struct vertex *)NULL, eu0, 0);
+    struct vertex *v1 = eu1->vu_p->v_p;
+
+    /* Insert v2 after eu1 */
+    struct edgeuse *eu2 = nmg_eusplit((struct vertex *)NULL, eu1, 0);
+    struct vertex *v2 = eu2->vu_p->v_p;
+
+    /* Assign coordinates: triangle in Z=0 plane */
+    point_t pt0 = {0, 0, 0};
+    point_t pt1 = {1, 0, 0};
+    point_t pt2 = {0, 1, 0};
+    nmg_vertex_gv(v0, pt0);
+    nmg_vertex_gv(v1, pt1);
+    nmg_vertex_gv(v2, pt2);
+
+    const char *objname = "nmg_wire";
+    mk_nmg(wdbp, objname, m);
+
+    struct directory *dp = db_lookup(wdbp->dbip, objname, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+	bu_exit(1, "ERROR: make_nmg_wireloop: db_lookup failed\n");
+    return dp;
+}
+
+
+/* ------------------------------------------------------------------ */
 /* Build a tetrahedron NMG using nmg_cmface / nmg_vertex_gv           */
 /* ------------------------------------------------------------------ */
 
@@ -294,6 +347,78 @@ main(int argc, char *argv[])
 
     rt_edit_destroy(s);
     db_close(dbip);
+
+    /* ================================================================
+     * ECMD_NMG_LEXTRU_DIR test: extrude a wire loop along (0,0,1) by 2.
+     *
+     * We need a fresh rt_edit with a wire-loop NMG.  The wire loop is a
+     * triangle in the Z=0 plane.  Extruding along +Z by 2 units produces
+     * a prism; the result shell should have faceuses.
+     * ================================================================*/
+    {
+	struct db_i *wdbip = db_open_inmem();
+	if (wdbip == DBI_NULL)
+	    bu_exit(1, "ERROR: LEXTRU_DIR: db_open_inmem failed\n");
+
+	struct rt_wdb *wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_INMEM);
+
+	struct directory *wdp = make_nmg_wireloop(wwdbp);
+
+	struct db_full_path wfp;
+	db_full_path_init(&wfp);
+	db_add_node_to_full_path(&wfp, wdp);
+
+	struct bview *wv;
+	BU_GET(wv, struct bview);
+	bv_init(wv, NULL);
+	wv->gv_size  = 10.0;
+	wv->gv_isize = 0.1;
+	wv->gv_scale = 5.0;
+	bv_update(wv);
+	bu_vls_sprintf(&wv->gv_name, "default");
+	wv->gv_width = wv->gv_height = 512;
+
+	struct rt_edit *ws = rt_edit_create(&wfp, wdbip, &tol, wv);
+	ws->mv_context = 0;
+	ws->local2base = 1.0;
+	ws->base2local = 1.0;
+	MAT_IDN(ws->e_invmat);
+
+	/* Set up LEXTRU_DIR: scans for the wire loop, copies it */
+	bu_vls_trunc(ws->log_str, 0);
+	EDOBJ[wdp->d_minor_type].ft_set_edit_mode(ws, ECMD_NMG_LEXTRU_DIR);
+
+	if (bu_vls_strlen(ws->log_str) > 0) {
+	    bu_exit(1, "ERROR: ECMD_NMG_LEXTRU_DIR setup failed: %s\n",
+		    bu_vls_cstr(ws->log_str));
+	}
+
+	struct rt_nmg_edit *wne = (struct rt_nmg_edit *)ws->ipe_ptr;
+	if (!wne->lu_copy)
+	    bu_exit(1, "ERROR: ECMD_NMG_LEXTRU_DIR: lu_copy not set\n");
+	if (!wne->es_s)
+	    bu_exit(1, "ERROR: ECMD_NMG_LEXTRU_DIR: es_s not set\n");
+
+	/* Extrude: dir=(0,0,1), dist=2 */
+	ws->e_inpara = 4;
+	ws->e_para[0] = 0.0;  /* dir X */
+	ws->e_para[1] = 0.0;  /* dir Y */
+	ws->e_para[2] = 1.0;  /* dir Z */
+	ws->e_para[3] = 2.0;  /* distance */
+
+	bu_vls_trunc(ws->log_str, 0);
+	rt_edit_process(ws);
+
+	/* After extrusion the shell should have at least one faceuse */
+	if (BU_LIST_IS_EMPTY(&wne->es_s->fu_hd))
+	    bu_exit(1, "ERROR: ECMD_NMG_LEXTRU_DIR: es_s has no faceuses after extrusion\n");
+
+	bu_log("ECMD_NMG_LEXTRU_DIR SUCCESS: shell has faceuses after extrusion\n");
+
+	rt_edit_destroy(ws);
+	db_close(wdbip);
+    }
+
     return 0;
 }
 

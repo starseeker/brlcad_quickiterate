@@ -42,6 +42,7 @@
 #define ECMD_METABALL_PT_MOV		36086	/* move a metaball control point */
 #define ECMD_METABALL_PT_PICK		36085	/* pick a metaball control point */
 #define ECMD_METABALL_PT_SET_GOO	30119
+#define ECMD_METABALL_PT_SWEAT		30120	/* set sweat value on selected control point */
 #define ECMD_METABALL_RMET		36090	/* set the metaball render method */
 #define ECMD_METABALL_SET_METHOD	36084	/* set the rendering method */
 #define ECMD_METABALL_SET_THRESHOLD	36083	/* overall metaball threshold value */
@@ -140,6 +141,14 @@ rt_edit_metaball_set_edit_mode(struct rt_edit *s, int mode)
 		return;
 	    }
 	    break;
+	case ECMD_METABALL_PT_SWEAT:
+	    s->edit_mode = RT_PARAMS_EDIT_SCALE;
+	    if (!m->es_metaball_pnt) {
+		bu_vls_printf(s->log_str, "No Metaball Point selected\n");
+		rt_edit_set_edflag(s, RT_EDIT_IDLE);
+		return;
+	    }
+	    break;
 	case ECMD_METABALL_PT_DEL:
 	case ECMD_METABALL_PT_ADD:
 	    break;
@@ -219,6 +228,14 @@ metaball_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUS
 		return;
 	    }
 	    break;
+	case ECMD_METABALL_PT_SWEAT:
+	    s->edit_mode = RT_PARAMS_EDIT_SCALE;
+	    if (!m->es_metaball_pnt) {
+		bu_vls_printf(s->log_str, "No Metaball Point selected\n");
+		rt_edit_set_edflag(s, RT_EDIT_IDLE);
+		return;
+	    }
+	    break;
 	case ECMD_METABALL_PT_DEL:
 	    // TODO - should we really be calling this here?
 	    rt_edit_process(s);
@@ -245,6 +262,7 @@ struct rt_edit_menu_item metaball_menu[] = {
     { "Move Point", metaball_ed, ECMD_METABALL_PT_MOV },
     { "Scale Point fldstr", metaball_ed, ECMD_METABALL_PT_FLDSTR },
     { "Scale Point \"goo\" value", metaball_ed, ECMD_METABALL_PT_SET_GOO },
+    { "Set Point sweat value", metaball_ed, ECMD_METABALL_PT_SWEAT },
     { "Delete Point", metaball_ed, ECMD_METABALL_PT_DEL },
     { "Add Point", metaball_ed, ECMD_METABALL_PT_ADD },
     { "", NULL, 0 }
@@ -373,6 +391,24 @@ ecmd_metaball_pt_set_goo(struct rt_edit *s)
     }
     m->es_metaball_pnt->sweat *= *s->e_para * ((s->es_scale > -SMALL_FASTF) ? s->es_scale : 1.0);
 
+    return 0;
+}
+
+int
+ecmd_metaball_pt_sweat(struct rt_edit *s)
+{
+    struct rt_metaball_edit *m = (struct rt_metaball_edit *)s->ipe_ptr;
+
+    if (!m->es_metaball_pnt || !s->e_inpara) {
+	bu_vls_printf(s->log_str, "no metaball point selected for setting sweat\n");
+	return BRLCAD_ERROR;
+    }
+    if (s->e_para[0] < 0.0) {
+	bu_vls_printf(s->log_str, "ERROR: sweat value must be >= 0\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    m->es_metaball_pnt->sweat = s->e_para[0];
     return 0;
 }
 
@@ -551,6 +587,8 @@ rt_edit_metaball_pscale(struct rt_edit *s)
 	    return ecmd_metaball_set_method(s);
 	case ECMD_METABALL_PT_SET_GOO:
 	    return ecmd_metaball_pt_set_goo(s);
+	case ECMD_METABALL_PT_SWEAT:
+	    return ecmd_metaball_pt_sweat(s);
 	case ECMD_METABALL_PT_FLDSTR:
 	    return ecmd_metaball_pt_fldstr(s);
     };
@@ -592,6 +630,7 @@ rt_edit_metaball_edit(struct rt_edit *s)
 	case ECMD_METABALL_SET_THRESHOLD:
 	case ECMD_METABALL_SET_METHOD:
 	case ECMD_METABALL_PT_SET_GOO:
+	case ECMD_METABALL_PT_SWEAT:
 	case ECMD_METABALL_PT_FLDSTR:
 	    return rt_edit_metaball_pscale(s);
 	default:
@@ -617,6 +656,7 @@ rt_edit_metaball_edit_xy(
 	case ECMD_METABALL_PT_DEL:
 	case ECMD_METABALL_PT_FLDSTR:
 	case ECMD_METABALL_PT_SET_GOO:
+	case ECMD_METABALL_PT_SWEAT:
 	case ECMD_METABALL_RMET:
 	case ECMD_METABALL_SET_METHOD:
 	case ECMD_METABALL_SET_THRESHOLD:

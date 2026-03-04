@@ -57,9 +57,14 @@ struct rt_pipe_edit_local {
 };
 
 /* ECMD constants from edpipe.c */
+#define ECMD_PIPE_SPLIT		15029	/* Split a pipe segment into two */
 #define ECMD_PIPE_PT_ADD	15030
+#define ECMD_PIPE_PT_INS	15031	/* Prepend a pipe point at start */
 #define ECMD_PIPE_PT_DEL	15032
 #define ECMD_PIPE_PT_MOVE	15033
+#define ECMD_PIPE_PT_OD		15065	/* Scale OD of selected segment */
+#define ECMD_PIPE_PT_ID		15066	/* Scale ID of selected segment */
+#define ECMD_PIPE_PT_RADIUS	15073	/* Scale bend radius of selected segment */
 #define ECMD_PIPE_SCALE_OD	15067
 #define ECMD_PIPE_SCALE_ID	15068
 #define ECMD_PIPE_SCALE_RADIUS	15074
@@ -151,6 +156,29 @@ pipe_reset(struct rt_edit *s, struct rt_pipe_edit_local *pe)
     s->e_inpara   = 0;
     s->es_scale   = 0.0;
     s->mv_context = 1;
+}
+
+/* Full reset: truncates the pipe to exactly 2 canonical points, then
+ * resets edit state.  Use this instead of pipe_reset when extra points
+ * may have been added by previous tests (PT_INS, PT_ADD, etc.). */
+static void
+pipe_full_reset(struct rt_edit *s, struct rt_pipe_edit_local *pe)
+{
+    struct rt_pipe_internal *pip =
+	(struct rt_pipe_internal *)s->es_int.idb_ptr;
+
+    /* Keep only the first two elements; free any extras */
+    struct wdb_pipe_pnt *p1 = BU_LIST_FIRST(wdb_pipe_pnt, &pip->pipe_segs_head);
+    struct wdb_pipe_pnt *p2 = BU_LIST_NEXT(wdb_pipe_pnt, &p1->l);
+    struct wdb_pipe_pnt *extra = BU_LIST_NEXT(wdb_pipe_pnt, &p2->l);
+    while (extra->l.magic != BU_LIST_HEAD_MAGIC) {
+	struct wdb_pipe_pnt *next = BU_LIST_NEXT(wdb_pipe_pnt, &extra->l);
+	BU_LIST_DEQUEUE(&extra->l);
+	bu_free(extra, "pipe_full_reset extra");
+	extra = next;
+    }
+
+    pipe_reset(s, pe);
 }
 
 
@@ -529,6 +557,171 @@ bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
 	if (n != 2)
 	    bu_exit(1, "ERROR: ECMD_PIPE_PT_DEL: expected 2 points, got %d\n", n);
 	bu_log("ECMD_PIPE_PT_DEL SUCCESS: 2 points remain\n");
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_SCALE_RADIUS — scale all bend radii by a factor.
+     *
+     * Reference pipe after reset: p1.bendradius=10, p2.bendradius=10.
+     * e_para[0]=15 with e_mat[15]=1 and p1.bendradius=10:
+     *   es_scale = 15 * 1 / 10 = 1.5
+     * After: both points → bendradius = 10 * 1.5 = 15.
+     * ================================================================*/
+    pipe_reset(s, pe);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_PIPE_SCALE_RADIUS);
+    s->e_inpara = 1;
+    s->e_para[0] = 15.0;
+    s->local2base = 1.0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	struct wdb_pipe_pnt *p1 = pipe_first(s);
+	struct wdb_pipe_pnt *p2 = pipe_second(s);
+	if (!NEAR_EQUAL(p1->pp_bendradius, 15.0, VUNITIZE_TOL) ||
+	    !NEAR_EQUAL(p2->pp_bendradius, 15.0, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_SCALE_RADIUS: p1=%g p2=%g (expected 15)\n",
+		    p1->pp_bendradius, p2->pp_bendradius);
+	bu_log("ECMD_PIPE_SCALE_RADIUS SUCCESS: p1.bendradius=%g p2.bendradius=%g\n",
+	       p1->pp_bendradius, p2->pp_bendradius);
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_PT_OD — scale OD of the selected point.
+     *
+     * Select p1 (OD=2).  e_para[0]=3 → es_scale = 3/2 = 1.5
+     * p1.pp_od → 2 * 1.5 = 3.  p2.pp_od unchanged = 2.
+     * ================================================================*/
+    pipe_reset(s, pe);
+    pe->es_pipe_pnt = pipe_first(s);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_PIPE_PT_OD);
+    s->e_inpara = 1;
+    s->e_para[0] = 3.0;
+    s->local2base = 1.0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	struct wdb_pipe_pnt *p1 = pipe_first(s);
+	struct wdb_pipe_pnt *p2 = pipe_second(s);
+	if (!NEAR_EQUAL(p1->pp_od, 3.0, VUNITIZE_TOL) ||
+	    !NEAR_EQUAL(p2->pp_od, 2.0, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_OD: p1.od=%g p2.od=%g (expected 3,2)\n",
+		    p1->pp_od, p2->pp_od);
+	bu_log("ECMD_PIPE_PT_OD SUCCESS: p1.od=%g p2.od=%g\n",
+	       p1->pp_od, p2->pp_od);
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_PT_ID — scale ID of the selected point.
+     *
+     * Select p1 (ID=1).  e_para[0]=0.5 → es_scale = 0.5/1 = 0.5
+     * p1.pp_id → 1 * 0.5 = 0.5.  p2.pp_id unchanged = 1.
+     * ================================================================*/
+    pipe_reset(s, pe);
+    pe->es_pipe_pnt = pipe_first(s);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_PIPE_PT_ID);
+    s->e_inpara = 1;
+    s->e_para[0] = 0.5;
+    s->local2base = 1.0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	struct wdb_pipe_pnt *p1 = pipe_first(s);
+	struct wdb_pipe_pnt *p2 = pipe_second(s);
+	if (!NEAR_EQUAL(p1->pp_id, 0.5, VUNITIZE_TOL) ||
+	    !NEAR_EQUAL(p2->pp_id, 1.0, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_ID: p1.id=%g p2.id=%g (expected 0.5,1)\n",
+		    p1->pp_id, p2->pp_id);
+	bu_log("ECMD_PIPE_PT_ID SUCCESS: p1.id=%g p2.id=%g\n",
+	       p1->pp_id, p2->pp_id);
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_PT_RADIUS — scale bend radius of the selected point.
+     *
+     * Select p1 (bendradius=10).  e_para[0]=12 → es_scale = 12/10 = 1.2
+     * p1.pp_bendradius → 10 * 1.2 = 12.  p2.pp_bendradius unchanged = 10.
+     * ================================================================*/
+    pipe_reset(s, pe);
+    pe->es_pipe_pnt = pipe_first(s);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_PIPE_PT_RADIUS);
+    s->e_inpara = 1;
+    s->e_para[0] = 12.0;
+    s->local2base = 1.0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	struct wdb_pipe_pnt *p1 = pipe_first(s);
+	struct wdb_pipe_pnt *p2 = pipe_second(s);
+	if (!NEAR_EQUAL(p1->pp_bendradius, 12.0, VUNITIZE_TOL) ||
+	    !NEAR_EQUAL(p2->pp_bendradius, 10.0, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_RADIUS: p1=%g p2=%g (expected 12,10)\n",
+		    p1->pp_bendradius, p2->pp_bendradius);
+	bu_log("ECMD_PIPE_PT_RADIUS SUCCESS: p1.bendradius=%g p2.bendradius=%g\n",
+	       p1->pp_bendradius, p2->pp_bendradius);
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_PT_INS — prepend a new point at the start of the pipe.
+     *
+     * Insert point at (0, 0, -5) before p1.  After: 3 points.
+     * New first point: coord=(0,0,-5), OD/ID/bendradius copied from p1.
+     * ================================================================*/
+    pipe_reset(s, pe);
+    pe->es_pipe_pnt = pipe_first(s);   /* insert before p1 */
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_PIPE_PT_INS);
+    s->e_inpara = 3;
+    VSET(s->e_para, 0, 0, -5);
+    s->local2base = 1.0;
+    s->mv_context = 0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	int n = pipe_npts(s);
+	if (n != 3)
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_INS: expected 3 points, got %d\n", n);
+	struct wdb_pipe_pnt *pnew = pipe_first(s);
+	/* The new point was inserted before the old p1 */
+	point_t exp = {0, 0, -5};
+	if (!VNEAR_EQUAL(pnew->pp_coord, exp, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_INS: new pt=%g,%g,%g (expected 0,0,-5)\n",
+		    V3ARGS(pnew->pp_coord));
+	bu_log("ECMD_PIPE_PT_INS SUCCESS: 3 points, new first pt=%g,%g,%g\n",
+	       V3ARGS(pnew->pp_coord));
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_SPLIT — split the selected segment at a new point.
+     *
+     * Start fresh with 2-point pipe.  Select p1.  Split at (0, 0, 5)
+     * (midpoint between p1=(0,0,0) and p2=(0,0,10)).
+     * After: 3 points, middle point at (0,0,5) with averaged OD/ID/radius.
+     * ================================================================*/
+    pipe_full_reset(s, pe);
+    pe->es_pipe_pnt = pipe_first(s);
+    rt_edit_set_edflag(s, ECMD_PIPE_SPLIT);
+    s->e_inpara = 3;
+    VSET(s->e_para, 0, 0, 5);
+    s->local2base = 1.0;
+    s->mv_context = 0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	int n = pipe_npts(s);
+	if (n != 3)
+	    bu_exit(1, "ERROR: ECMD_PIPE_SPLIT: expected 3 points, got %d\n", n);
+	struct wdb_pipe_pnt *pfirst = pipe_first(s);
+	struct wdb_pipe_pnt *pmid   = BU_LIST_NEXT(wdb_pipe_pnt, &pfirst->l);
+	point_t exp = {0, 0, 5};
+	if (!VNEAR_EQUAL(pmid->pp_coord, exp, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_SPLIT: middle pt=%g,%g,%g (expected 0,0,5)\n",
+		    V3ARGS(pmid->pp_coord));
+	/* OD and ID should be the average of p1=(2,1) and p2=(2,1) = (2,1) */
+	if (!NEAR_EQUAL(pmid->pp_od, 2.0, VUNITIZE_TOL) ||
+	    !NEAR_EQUAL(pmid->pp_id, 1.0, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_SPLIT: mid od=%g id=%g (expected 2,1)\n",
+		    pmid->pp_od, pmid->pp_id);
+	bu_log("ECMD_PIPE_SPLIT SUCCESS: 3 points, mid=%g,%g,%g od=%g id=%g\n",
+	       V3ARGS(pmid->pp_coord), pmid->pp_od, pmid->pp_id);
     }
 
     rt_edit_destroy(s);
