@@ -99,6 +99,8 @@ converting from its native QColor (0–255 integer range) back into `e_para`.
 
 ## 4. Proposed C Structs
 
+The structs below are now implemented in `include/rt/edit.h`.
+
 ```c
 /* sentinel value for "no range constraint" — chosen as -DBL_MAX so it can
  * be stored and round-tripped safely as a fastf_t (double) without
@@ -118,7 +120,7 @@ struct rt_edit_param_desc {
     fastf_t      range_min;   /* RT_EDIT_PARAM_NO_LIMIT = no lower bound       */
     fastf_t      range_max;   /* RT_EDIT_PARAM_NO_LIMIT = no upper bound       */
     const char  *units;       /* "length", "angle_deg", "angle_rad",
-                               * "fraction", "none", NULL                      */
+                               * "fraction", "count", "none", NULL             */
     /* RT_EDIT_PARAM_ENUM only */
     int          nenum;               /* number of choices                     */
     const char * const *enum_labels;  /* human-readable option strings         */
@@ -139,6 +141,12 @@ struct rt_edit_cmd_desc {
                                * "rotation", "material", "tree", "misc"        */
     int          nparam;      /* number of entries in params[]                 */
     const struct rt_edit_param_desc *params; /* NULL when nparam == 0         */
+    int          interactive; /* non-zero: GUI re-calls rt_edit_process() on
+                               * every widget change (live wireframe update).
+                               * 0: apply only on explicit "Apply" button.     */
+    int          display_order; /* suggested display order within the category
+                                 * group; lower values appear first.  Ties are
+                                 * broken by array order.                       */
 };
 
 /**
@@ -163,15 +171,17 @@ const struct rt_edit_prim_desc *(*ft_edit_desc)(void);
 ```
 
 This slot is placed after the existing `ft_menu_item` slot in
-`include/rt/functab.h`.
+`include/rt/functab.h`.  **Status: implemented.**  All existing EDOBJ
+entries default to `NULL`; TOR provides a complete descriptor as the
+initial reference implementation.
 
 ### 4.2 JSON serialiser
 
 ```c
 /**
- * Serialise a primitive edit descriptor to a JSON string.
+ * Serialise a primitive edit descriptor to a JSON string appended to out.
  * The caller is responsible for bu_vls_init/bu_vls_free.
- * Returns 0 on success, non-zero on error.
+ * Returns BRLCAD_OK on success, BRLCAD_ERROR on error.
  */
 RT_EXPORT extern int
 rt_edit_prim_desc_to_json(struct bu_vls *out,
@@ -180,11 +190,25 @@ rt_edit_prim_desc_to_json(struct bu_vls *out,
 /**
  * Convenience wrapper: look up the EDOBJ entry for prim_type_id
  * and call rt_edit_prim_desc_to_json on its ft_edit_desc() result.
- * Returns 0 on success, BRLCAD_ERROR if prim_type_id has no descriptor.
+ * Returns BRLCAD_OK on success, BRLCAD_ERROR if prim_type_id has no descriptor.
  */
 RT_EXPORT extern int
 rt_edit_type_to_json(struct bu_vls *out, int prim_type_id);
 ```
+
+**Status: implemented** in `src/librt/edit.cpp` using `bu_vls_printf`
+for manual JSON emission (no external library dependency).
+
+### 4.3 JSON helper library (`json.hpp`)
+
+`src/libbu/json.hpp` is the nlohmann/json v3.11.3 single-header library,
+relocated from its previous location in `src/libged/lint/json.hpp`.  It is
+available as a **private implementation detail** to any `src/` code that
+needs to *parse* JSON at runtime (e.g. a future qged plugin reading
+`rt_edit_type_to_json` output from an out-of-process server).  It must
+never be placed in `include/bu/` or any other public header directory.
+Consumer code in `src/libged/lint/` now includes it as
+`"../libbu/json.hpp"`.
 
 ---
 
@@ -204,10 +228,12 @@ primitive-descriptor ::=
 
 command-descriptor ::=
   {
-    "cmd_id"   : integer,
-    "label"    : string,
-    "category" : string,
-    "params"   : [ param-descriptor* ]
+    "cmd_id"        : integer,
+    "label"         : string,
+    "category"      : string,
+    "interactive"   : boolean,   -- true = live wireframe update; false = batch
+    "display_order" : integer,   -- lower values appear first in the UI group
+    "params"        : [ param-descriptor* ]
   }
 
 param-descriptor ::=
@@ -232,7 +258,10 @@ param-descriptor ::=
 
 ## 6. Concrete Examples
 
-### 6.1 TOR — two radii
+### 6.1 TOR — two radii (reference implementation)
+
+This example matches the `rt_edit_tor_edit_desc()` implementation in
+`src/librt/primitives/tor/edtor.c`.
 
 ```json
 {
@@ -243,6 +272,8 @@ param-descriptor ::=
       "cmd_id": 1021,
       "label": "Set Radius 1",
       "category": "radius",
+      "interactive": true,
+      "display_order": 10,
       "params": [
         {
           "name": "r1", "label": "Major Radius",
@@ -255,6 +286,8 @@ param-descriptor ::=
       "cmd_id": 1022,
       "label": "Set Radius 2",
       "category": "radius",
+      "interactive": true,
+      "display_order": 20,
       "params": [
         {
           "name": "r2", "label": "Minor Radius",
@@ -449,74 +482,185 @@ widget; existing text-menu behaviour is unaffected.
 
 ## 9. Implementation Plan
 
-1. **Add types and structs to `include/rt/edit.h`** — the
-   `rt_edit_param_desc`, `rt_edit_cmd_desc`, and `rt_edit_prim_desc` structs
-   plus the `RT_EDIT_PARAM_*` constants.
+### Completed
 
-2. **Add `ft_edit_desc` slot to `include/rt/functab.h`** — after the
-   existing `ft_menu_item` slot, with `NULL` default for all existing
+1. ✅ **Add types and structs to `include/rt/edit.h`** — the
+   `rt_edit_param_desc`, `rt_edit_cmd_desc`, and `rt_edit_prim_desc` structs
+   plus the `RT_EDIT_PARAM_*` constants, `RT_EDIT_PARAM_NO_LIMIT`, and
+   the `interactive` / `display_order` fields.
+
+2. ✅ **Add `ft_edit_desc` slot to `include/rt/functab.h`** — placed after
+   the existing `ft_menu_item` slot, with `NULL` default for all existing
    entries.
 
-3. **Implement `rt_edit_prim_desc_to_json` / `rt_edit_type_to_json` in
+3. ✅ **Implement `rt_edit_prim_desc_to_json` / `rt_edit_type_to_json` in
    `src/librt/edit.cpp`** — straightforward recursive JSON emission using
-   `bu_vls`.
+   `bu_vls_printf`.  No external JSON library is required for serialisation.
 
-4. **Populate `ft_edit_desc` for simple scalar primitives first** —
-   TOR, ELL, EPA, EHY, ETO, HYP, RPC, RHC, SUPERELL are the easiest
-   (all parameters are single scalars or scalar magnitudes).  DSP, EBM,
-   and VOL add boolean/enum/string parameters and can follow.  COMB and
-   PIPE round out the set.
+4. ✅ **Implement `ft_edit_desc` for TOR** — `edtor.c` provides the
+   reference implementation with two `RT_EDIT_PARAM_SCALAR` parameters
+   (`r1` major radius, `r2` minor radius), both marked `interactive = 1`.
 
-5. **Add a `rt_edit_desc` unit test** to `src/librt/tests/edit/` that
+5. ✅ **Relocate `json.hpp` to `src/libbu/json.hpp`** — moved from
+   `src/libged/lint/json.hpp`.  Consumer code updated to use
+   `"../libbu/json.hpp"`.  Remains a private implementation detail.
+
+### Remaining
+
+6. **Populate `ft_edit_desc` for additional primitives** —
+   ELL, EPA, EHY, ETO, HYP, RPC, RHC, SUPERELL, CLINE are easiest
+   (all scalar parameters).  DSP, EBM, VOL add boolean/enum/string
+   parameters.  COMB and PIPE round out the set.
+
+7. **Add a `rt_edit_desc` unit test** to `src/librt/tests/edit/` that
    calls `rt_edit_type_to_json` for each implemented primitive and checks
-   that the output parses as valid JSON and that expected `cmd_id` values
-   are present.
+   that the output is syntactically valid JSON and that expected `cmd_id`
+   values are present.  Could use `json.hpp` from `src/libbu/` for
+   parsing in the test.
 
-6. **Implement the Qt auto-widget generator in qged** once the librt side
-   is stable — guided by the algorithm in §7 above.
+8. **Implement the Qt auto-widget generator in qged** — guided by the
+   algorithm in §7 above.  See §11 for critical architectural concerns
+   that the qged layer must address.
 
 ---
 
-## 10. Questions
+## 10. Comb-Instance vs. Primitive-Edit Distinction
 
-1. **Units handling**: Should the parameter `units` field be an enumeration
-   (to allow the GUI to apply a system-wide unit conversion) or a free string?
-   A small enum of `"length"`, `"angle_deg"`, `"angle_rad"`, `"fraction"`,
-   `"count"`, `"none"` may be sufficient.
+This section documents a fundamental architectural concern that **all
+future qged edit widget sessions must be aware of**.
 
-   ANSWER:  Let's try the enum.  If we discover a limitation we can revisit,
-   but we'll start with the enum.
+### 10.1 Background
 
-2. **Live feedback vs. batch apply**: Should `ft_edit_desc` optionally mark
-   a command as "live" (i.e. re-call `rt_edit_process` on every spinner
-   change) vs. "apply on button press"?  An `"interactive": true/false`
-   flag on `rt_edit_cmd_desc` could handle this.
+When a user selects an object from the scene in qged, there are (at
+least) two distinct interpretations of what editing operation is
+appropriate:
 
-   ANSWER:  We'll want a flag.  If we're updating the wireframe as we go we'll
-   want interactive (most of the time), but if an operation is expensive to
-   update we need the option to disable it.
+**Primitive edit (solid params)**
+  The user is editing the raw parameters of the leaf solid itself —
+  e.g. changing a torus's major radius.  The change affects *every*
+  instance of that solid in the scene, not just the path through which
+  it was selected.  This is equivalent to MGED's `sed` command.
 
-3. **Current-value query**: The proposal covers how to *set* parameters.
-   To pre-populate widget values, the GUI needs to *read* the current
-   primitive state.  The existing `ft_write_params` / `rt_edit_tor_write_params`
-   mechanism produces human-readable text, not a structured value map.
-   A complementary `ft_read_params` returning the same `rt_edit_prim_desc`
-   structure but with current values populated in parallel arrays would
-   allow initialising widgets with the live primitive state.
+**Comb-instance edit (matrix / tree)**
+  The user is editing the placement/scale of a particular *instance*
+  of the object within a specific combination tree.  The change is
+  local to that one `db_full_path`; other instances of the same solid
+  are unaffected.  This is equivalent to MGED's `oed` command.  Valid
+  operations are limited to comb-member transforms (translate, rotate,
+  scale via the placement matrix) and boolean-operation changes.
 
-   ANSWER:  Let's add an ft_read_params for current value query.
+qged already attempts to reflect which mode is active in the tree view.
+Edit widgets must be designed with this distinction in mind.
 
-4. **Multi-selection**: The COMB `ADD_MEMBER` command names a member via
-   a string stored in the primitive struct, not in `e_para`.  A more
-   general solution for string parameters (e.g. a per-command string array
-   alongside `e_para`) could unify this.  For now, `prim_field` documents
-   which struct field to populate.
+### 10.2 Implications for Edit Widgets
 
-   ANSWER:  Implement the more general solution to provided a unified, general approach.
+| Concern | Primitive edit | Comb-instance edit |
+|---------|---------------|--------------------|
+| Scope of change | All instances in scene | One path only |
+| EDOBJ functions used | `ft_edit`, `ft_edit_xy` (prim-specific) | Generic matrix ops |
+| `rt_edit_prim_desc` applicable | Yes — full descriptor available | Only generic trans/rot/scale |
+| Scene highlight | All instances of that solid | Only the selected instance |
+| "Danger" level | High — unintended shared-solid mutation | Low — local change only |
 
-5. **Grouping / ordering**: The `category` field provides coarse grouping.
-   If finer ordering is needed (e.g. "show H before r1, r2") a `display_order`
-   integer on `rt_edit_cmd_desc` could be added without breaking the grammar.
+### 10.3 Selection-to-Edit-Mode Mapping
 
-   ANSWER:  Provide a way to set display_order - there will likely be cases where
-   we want grouping by metrics other than alphabetical.
+The selection context determines which mode should be offered:
+
+- **Top-level object selected** (no parent comb in the path): only
+  primitive edit makes sense.
+- **Non-top-level object selected**: both modes are valid.  The qged
+  UI should present the user with a clear choice (e.g. two radio
+  buttons: "Edit solid parameters" / "Edit instance placement") before
+  activating the edit widget panel.
+
+A recommended UX pattern (for future implementation):
+
+```
+Selection: /scene/hull/turret/gun_barrel  (a torus)
+
+┌─ Edit Mode ──────────────────────────────────────────┐
+│ ○ Solid parameters (affects ALL instances of tor.s)  │
+│ ● Instance placement  (local to /hull/turret only)   │
+└──────────────────────────────────────────────────────┘
+```
+
+The mode selector should be wired to:
+- `rt_edit_create()` with the appropriate `db_full_path` (solid params)
+- `rt_edit_create()` for comb instance editing (matrix mode)
+
+### 10.4 Scene Highlighting Behaviour
+
+Edit widget code should differentiate highlighting:
+
+- **Primitive edit active**: the editing wireframe should be drawn for
+  the solid itself (white, as in MGED), but application code should
+  optionally *dim* all other instances of the same solid to make clear
+  that they will all change.
+- **Comb-instance edit active**: only the specific instance path
+  should be highlighted; the model_changes matrix distorts the view
+  for that instance without affecting the solid wireframe data.
+
+This is "down the road" but the architecture must not preclude it.
+Concretely: `struct rt_edit::comb_insts` already tracks the active
+comb-member instance(s), and application code can use that to drive
+selective highlighting.
+
+### 10.5 Widget Panel Design Guidance
+
+When `ft_edit_desc()` returns a descriptor:
+- Show the descriptor-driven widget panel for **primitive edit mode**.
+- For **comb-instance edit mode**, show only the generic
+  translate/rotate/scale controls (no `ft_edit_desc` involvement).
+- Keep both panels alive but toggle visibility based on the mode
+  selector.
+
+The `rt_edit_type_to_json` / `rt_edit_prim_desc_to_json` functions
+produce the JSON that the qged panel factory should consume to build
+the primitive-mode widget group.
+
+---
+
+## 11. Questions and Decisions
+
+1. **Units handling** — **RESOLVED: string enum.**
+   The `units` field uses a small fixed vocabulary: `"length"`,
+   `"angle_deg"`, `"angle_rad"`, `"fraction"`, `"count"`, `"none"`, or
+   `NULL`.  If future primitives require additional units this vocabulary
+   can be extended.
+
+2. **Live feedback vs. batch apply** — **RESOLVED: `interactive` flag
+   in `rt_edit_cmd_desc`.**
+   `interactive = 1` means the GUI calls `rt_edit_process()` on every
+   widget change for live wireframe updates.  `interactive = 0` means
+   the call happens only on an explicit "Apply" button press.  Most
+   geometric parameter edits should be `interactive = 1`; expensive
+   operations (e.g. DSP altitude scale on a large map) should use `0`.
+
+3. **Current-value query** — **RESOLVED: add `ft_edit_get_params`.**
+   A new `ft_edit_get_params` slot (future work) will read the current
+   primitive state from `struct rt_edit *s` and return a parallel array
+   of `fastf_t` values indexed by `rt_edit_param_desc::index` for each
+   command in the descriptor.  This allows the qged widget panel to
+   pre-populate spinners with live values on activation.
+   The existing `ft_write_params` / `ft_read_params` text round-trip
+   remains available for copy-paste and CLI workflows but is not
+   suitable for structured widget initialisation.
+
+4. **Multi-selection / general string parameter passing** — **RESOLVED:
+   unified string parameter approach.**
+   Rather than relying on primitive-specific named fields (`prim_field`),
+   a future extension will add a `char **e_str` parallel string array
+   alongside `e_para` in `struct rt_edit`, with `e_nstr` counting valid
+   entries.  `RT_EDIT_PARAM_STRING` parameters will then use an `index`
+   into `e_str` (instead of `prim_field`) matching the same convention
+   as numeric parameters.  This makes multi-string commands (e.g. COMB
+   ADD_MEMBER with a name + boolean operation) fully unified.  Until
+   `e_str` is added, `prim_field` documents the struct field to populate.
+
+5. **Grouping / ordering** — **RESOLVED: `display_order` field in
+   `rt_edit_cmd_desc`.**
+   Lower `display_order` values appear first within their `category`
+   group.  Ties are broken by array order.  This allows primitives to
+   control the visual layout of their widget rows without resorting to
+   alphabetical sorting.
+
