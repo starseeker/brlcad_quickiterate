@@ -111,6 +111,15 @@ extern "C" {
 #include <Inventor/events/SoLocation2Event.h>
 #include <Inventor/events/SoMouseButtonEvent.h>
 #include <Inventor/events/SoKeyboardEvent.h>
+/* bv/defines.h defines UP=0 and DOWN=1 as scroll-wheel macros that
+ * clash with SoButtonEvent::State enum values of the same name.
+ * Temporarily undefine them around the Obol event headers. */
+#ifdef UP
+#  undef UP
+#endif
+#ifdef DOWN
+#  undef DOWN
+#endif
 #include <Inventor/events/SoButtonEvent.h>
 #include <Inventor/sensors/SoSensorManager.h>
 #include <GL/gl.h>
