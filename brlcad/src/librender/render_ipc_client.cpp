@@ -133,6 +133,25 @@ struct render_ipc_client {
     render_done_cb     donecb = nullptr;  void *doneud = nullptr;
 
     int running = 0;
+
+    /* Per-instance spawn arguments and environment.
+     *
+     * These are stored as struct members (PIMPL) rather than static
+     * locals so that multiple render_ipc_client instances alive at the
+     * same time each have their own storage — making concurrent spawns
+     * from different threads safe.
+     *
+     * spawn_args:      { rt_ipc_path, nullptr }
+     * spawn_env_entry: "BU_IPC_ADDR=<addr>" string (lifetime = this struct)
+     * spawn_env:       { spawn_env_entry.c_str(), nullptr }
+     *
+     * Note: spawn_env is only used for socket/TCP transports.  For the
+     * pipe transport, libuv's stdio redirection handles fd inheritance;
+     * no environment variable is needed or set.
+     */
+    const char        *spawn_args[2]   = { nullptr, nullptr };
+    std::string        spawn_env_entry;
+    const char        *spawn_env[2]    = { nullptr, nullptr };
 };
 
 
@@ -352,63 +371,31 @@ render_ipc_client_spawn(render_ipc_client_t *cli,
 	return -1;
     }
 
+    const char *tname =
+	bu_ipc_type(cli->child_chan) == BU_IPC_PIPE   ? "pipe"   :
+	bu_ipc_type(cli->child_chan) == BU_IPC_SOCKET ? "socket" : "tcp";
     bu_log("render_ipc_client_spawn: IPC transport: %s — addr: %s\n",
-	   bu_ipc_type(cli->child_chan) == BU_IPC_PIPE   ? "pipe"   :
-	   bu_ipc_type(cli->child_chan) == BU_IPC_SOCKET ? "socket" : "tcp",
-	   bu_ipc_addr(cli->child_chan));
+	   tname, bu_ipc_addr(cli->child_chan));
 
-    /* ── 2. Wrap the parent's read/write fds in libuv pipes ────────── */
+    /* ── 2. Store per-instance spawn args/env (PIMPL — no static locals) */
+    cli->spawn_args[0] = rt_ipc_path;
+    cli->spawn_args[1] = nullptr;
+
+    /* ── 3. Initialise libuv pipe handles ───────────────────────────── */
     uv_pipe_init(loop, &cli->write_pipe, 0);
     uv_pipe_init(loop, &cli->read_pipe,  0);
 
-    /* parent_chan.fd       = read fd   (receives from child) */
-    /* parent_chan.fd_write = write fd  (sends to child) */
-    int read_fd  = bu_ipc_fileno(cli->parent_chan);
-    /* For pipes the write fd may differ from the read fd. */
-    /* Access the write side: for a pipe pair fd_write != fd. */
-    /* We expose the write fd via a side-channel: for anonymous pipes
-     * the child_chan's read fd is the parent's write-to-child pipe.
-     * But we can't reach fd_write through the public API.  Instead,
-     * use the child_chan's addr to determine write fd for pipe transport. */
-    int write_fd = -1;
-    {
-	/* parse "pipe:read_fd,write_fd" from child addr */
-	const char *addr = bu_ipc_addr(cli->child_chan);
-	if (addr && strncmp(addr, "pipe:", 5) == 0) {
-	    int rfd = -1, wfd = -1;
-	    if (sscanf(addr + 5, "%d,%d", &rfd, &wfd) == 2) {
-		/* child's read_fd == parent's write side (pipe pc[0]) */
-		/* parent's write fd is the OTHER end of pc: pc[1] */
-		/* We already know parent's read fd from bu_ipc_fileno().
-		 * For the write side, open it from the child addr.
-		 *
-		 * Actually: child "pipe:pc_r,cp_w"
-		 *   pc_r = read-from-parent fd (in child)
-		 *   cp_w = write-to-parent fd (in child)
-		 * parent_chan has fd=cp_r, fd_write=pc_w
-		 * We need pc_w for writing to child.
-		 * pc_w is NOT in child's addr — it's the parent_chan's write fd.
-		 * We need internal access to parent_chan->fd_write.
-		 * Since bu_ipc_fileno() only returns fd (read), we need to
-		 * add bu_ipc_fileno_write() to the API.
-		 * For now, fall back to using uv_spawn's pipe mechanism
-		 * (redirect stdin/stdout) when bu_ipc gives us a pipe transport.
-		 */
-		write_fd = -2;  /* signal: use uv_spawn stdio redirect */
-	    }
-	} else if (read_fd >= 0) {
-	    write_fd = read_fd;  /* socket/TCP: same fd for read+write */
-	}
-    }
+    /* ── 4. Spawn rt_ipc using the right mechanism for the transport ── */
 
-    /* ── 3. Spawn rt_ipc using the best available method ───────────── */
-
-    if (write_fd == -2) {
-	/* Pipe transport: use uv_spawn with stdio redirection for simplicity
-	 * (avoids exposing fd_write through the bu_ipc public API). */
-	static char *args[2];
+    if (bu_ipc_type(cli->child_chan) == BU_IPC_PIPE) {
+	/* Pipe transport:
+	 * Use libuv's UV_CREATE_PIPE stdio redirect so that libuv manages the
+	 * async pipe fds on both platforms (libuv uses Windows Named Pipes
+	 * internally on Windows where anonymous pipes lack async I/O support).
+	 * No environment variable is needed — the child reads from fd 0/1.
+	 * The bu_ipc child_chan fds are NOT used here; libuv creates its own.
+	 */
 	uv_stdio_container_t stdio[3];
-
 	stdio[0].flags       = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
 	stdio[0].data.stream = reinterpret_cast<uv_stream_t *>(&cli->write_pipe);
 	stdio[1].flags       = (uv_stdio_flags)(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
@@ -416,12 +403,9 @@ render_ipc_client_spawn(render_ipc_client_t *cli,
 	stdio[2].flags       = UV_INHERIT_FD;
 	stdio[2].data.fd     = 2;
 
-	args[0] = const_cast<char *>(rt_ipc_path);
-	args[1] = nullptr;
-
 	std::memset(&cli->proc_opts, 0, sizeof(cli->proc_opts));
-	cli->proc_opts.file        = rt_ipc_path;
-	cli->proc_opts.args        = args;
+	cli->proc_opts.file        = cli->spawn_args[0];
+	cli->proc_opts.args        = const_cast<char **>(cli->spawn_args);
 	cli->proc_opts.stdio       = stdio;
 	cli->proc_opts.stdio_count = 3;
 	cli->proc_opts.exit_cb     = exit_cb;
@@ -436,31 +420,40 @@ render_ipc_client_spawn(render_ipc_client_t *cli,
 	    return rc;
 	}
 
-	/* libuv's stdio redirect created the pipe fds internally; we no
-	 * longer need the bu_ipc channels. */
+	/* libuv created its own pipe fds via stdio redirect.
+	 * Release the bu_ipc channels — they are no longer needed. */
 	bu_ipc_close(cli->parent_chan); cli->parent_chan = nullptr;
 	bu_ipc_close(cli->child_chan);  cli->child_chan  = nullptr;
 
     } else {
-	/* Socket / TCP transport: pass address in env, use uv_pipe_open */
-	static char *args[2];
-	std::string  env_str = std::string(BU_IPC_ADDR_ENVVAR) + "="
-			     + bu_ipc_addr(cli->child_chan);
-	static const char *env[2] = {nullptr, nullptr};
-	env[0] = env_str.c_str();
+	/* Socket / TCP transport:
+	 *
+	 * Pass the child-end address in the child's PER-SPAWN environment
+	 * array via bu_ipc_addr_env().  This is NOT a call to setenv() —
+	 * the "KEY=VALUE" string is stored inside cli->spawn_env_entry (a
+	 * per-instance std::string member) so its lifetime is tied to this
+	 * render_ipc_client object.  Multiple simultaneous spawns in different
+	 * threads are therefore safe: each has its own string.
+	 *
+	 * cli->spawn_env[] is also a per-instance array, not a static local,
+	 * so concurrent spawns don't share it.
+	 */
+	cli->spawn_env_entry = bu_ipc_addr_env(cli->child_chan);
+	cli->spawn_env[0]    = cli->spawn_env_entry.c_str();
+	cli->spawn_env[1]    = nullptr;
+
+	int read_fd  = bu_ipc_fileno(cli->parent_chan);
+	int write_fd = bu_ipc_fileno_write(cli->parent_chan);
 
 	uv_stdio_container_t stdio[3];
 	stdio[0].flags       = UV_INHERIT_FD; stdio[0].data.fd = 0;
 	stdio[1].flags       = UV_INHERIT_FD; stdio[1].data.fd = 1;
 	stdio[2].flags       = UV_INHERIT_FD; stdio[2].data.fd = 2;
 
-	args[0] = const_cast<char *>(rt_ipc_path);
-	args[1] = nullptr;
-
 	std::memset(&cli->proc_opts, 0, sizeof(cli->proc_opts));
-	cli->proc_opts.file        = rt_ipc_path;
-	cli->proc_opts.args        = args;
-	cli->proc_opts.env         = const_cast<char **>(env);
+	cli->proc_opts.file        = cli->spawn_args[0];
+	cli->proc_opts.args        = const_cast<char **>(cli->spawn_args);
+	cli->proc_opts.env         = const_cast<char **>(cli->spawn_env);
 	cli->proc_opts.stdio       = stdio;
 	cli->proc_opts.stdio_count = 3;
 	cli->proc_opts.exit_cb     = exit_cb;
@@ -475,10 +468,11 @@ render_ipc_client_spawn(render_ipc_client_t *cli,
 	    return rc;
 	}
 
-	/* Close child end in parent — child process has its own copy */
+	/* Close the child end in the parent — the spawned process has its own
+	 * fd via the per-spawn env it received at exec time. */
 	bu_ipc_close(cli->child_chan); cli->child_chan = nullptr;
 
-	/* Wrap the socket fd in libuv for async reads */
+	/* Register the parent's fd pair with libuv for async I/O. */
 	uv_pipe_open(&cli->read_pipe,  read_fd);
 	uv_pipe_open(&cli->write_pipe, write_fd);
     }
