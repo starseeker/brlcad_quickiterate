@@ -91,6 +91,14 @@ extern "C" {
 /* Obol / Inventor headers — confined to this translation unit and
  * libqtcad files that explicitly opt in.  Lower BRL-CAD libraries
  * (libged, libbv, librt …) remain Obol-free. */
+/* Obol headers are third-party code; suppress BRL-CAD's strict warnings. */
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#  pragma GCC diagnostic ignored "-Wunused-parameter"
+#  pragma GCC diagnostic ignored "-Wshadow"
+#  pragma GCC diagnostic ignored "-Wdeprecated-copy"
+#endif
 #include <Inventor/SoDB.h>
 #include <Inventor/SoViewport.h>
 #include <Inventor/SoRenderManager.h>
@@ -123,6 +131,19 @@ extern "C" {
 #include <Inventor/nodes/SoTextureCoordinateBinding.h>
 #include <Inventor/nodes/SoIndexedFaceSet.h>
 #include <Inventor/fields/SoSFImage.h>
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
+/* SoButtonEvent.h's push/pop macros restore UP/DOWN as numeric macros
+ * (e.g. from X11/Xlib.h) after its enum definition.  Undef them here so
+ * that SoButtonEvent::UP / SoButtonEvent::DOWN are usable as C++ identifiers
+ * in the rest of this header and in files that include it. */
+#ifdef UP
+#  undef UP
+#endif
+#ifdef DOWN
+#  undef DOWN
+#endif
 
 /* ── QtObolContextManager ─────────────────────────────────────────────────
  * Identical to the reference implementation in obol/examples/qt_obol_widget.h.
