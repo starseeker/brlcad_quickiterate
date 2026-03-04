@@ -109,6 +109,10 @@ class QTCAD_EXPORT QgView : public QWidget
 	void do_init_done();
 	void set_lmouse_move_default(int);
 
+#ifdef BRLCAD_OPENGL
+    QgObolWidget *obol_widget() const { return canvas_obol; }
+#endif
+
     private:
         QBoxLayout *l = NULL;
 	QgSW *canvas_sw = NULL;
