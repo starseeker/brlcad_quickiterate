@@ -180,57 +180,32 @@ one, scale and rotate operations use the world origin (0,0,0).
 - `ID_COMBINATION` (31): combs don't use solid-edit keypoints — intentional
 - `ID_BINUNIF`, `ID_UNUSED1`, `ID_UNUSED2`: no edit support — intentional
 
-### 2. Unimplemented XY Rotation
+### 2. XY Mouse Rotation — **COMPLETED** (session 4)
 
-`edit_generic_xy` returns an error for `RT_PARAMS_EDIT_ROT` with a note
-directing callers to the knob path.  `brlcad_mgedrework/` has an
-experimental `edit_mrot_xy` (marked UNTESTED); it calls
-`rt_edit_knob_cmd_process` for "ax"/"ay" knob deltas.  The approach
-looks correct but has not been validated against MGED's `doevent.c` /
-`f_knob` / `mged_erot_xyz` code path.
+`edit_mrot_xy` was validated against MGED's `doevent.c` / `f_knob` /
+`mged_erot_xyz` knob path and merged into `edgeneric.c`.
+`edit_generic_xy` now handles `RT_PARAMS_EDIT_ROT` (solid rotation) and
+`RT_MATRIX_EDIT_ROT` (object rotation) via `edit_mrot_xy(s, mousevec, 0/1)`.
 
-To implement:
-1. Validate `edit_mrot_xy` against the MGED knob path.
-2. Move the function from mgedrework's `edgeneric.c` into
-   `brlcad/src/librt/primitives/edgeneric.c`.
-3. Replace the error return in `edit_generic_xy` case `RT_PARAMS_EDIT_ROT`.
+### 3. RT_MATRIX_EDIT_ROT via ft_edit_xy — **COMPLETED** (session 4)
 
-### 3. RT_MATRIX_EDIT_ROT in edit_generic_xy
+Handled by `edit_mrot_xy` (matrix_edit=1) in `edit_generic_xy`.  See §2.
 
-`edit_generic_xy` also returns an error for `RT_MATRIX_EDIT_ROT` (object-
-edit rotation via mouse).  The mgedrework has `edit_mrot_xy` handling this
-case too.  Same validation steps as §2 above apply.
+### 4. ARB8 Rotate-Face — **COMPLETED** (session 4)
 
-### 4. ARB8 Rotate-Face (ECMD_ARB_SETUP_ROTFACE)
+`ecmd_arb_setup_rotface` accepts a vertex index directly via `e_para[0]`
+when no interactive callback is registered, enabling programmatic use.
+Test coverage added in `arb8.cpp` (`ECMD_ARB_SETUP_ROTFACE` +
+`ECMD_ARB_ROTATE_FACE` non-interactive path).
 
-`ecmd_arb_setup_rotface` requires an interactive callback for `fixv`
-(fix vertex) selection; no test coverage yet.  A non-interactive API
-that accepts a vertex index directly via `e_para` would allow testing
-and programmatic use.
+### 5. PIPE / NMG / BSPLINE / COMB — **COMPLETED** (sessions 2–3)
 
-### 5. PIPE Remaining Operations — **COMPLETED** (session 2)
+- PIPE: All ECMDs covered; `pipe_split_pnt` implemented (was a stub).
+- NMG: `ECMD_NMG_LEXTRU_DIR` tested via wire-loop NMG.
+- BSPLINE: `sedit_vpick` uses `nurb_closest2d` + `s->vp` model2objview matrices.
+- COMB material properties: `SET_REGION/COLOR/SHADER/MATERIAL/REGION_ID/AIRCODE/GIFTMATER/LOS` added.
 
-`ECMD_PIPE_SCALE_RADIUS`, `ECMD_PIPE_PT_OD/ID/RADIUS`,
-`ECMD_PIPE_PT_INS`, and `ECMD_PIPE_SPLIT` all have test coverage.
-`pipe_split_pnt` was implemented (was a stub in MGED and librt).
-
-### 6. NMG LEXTRU_DIR Test — **COMPLETED** (session 2)
-
-`ECMD_NMG_LEXTRU_DIR` is now tested via a wire-loop NMG built with
-`nmg_mlv` / `nmg_meonvu` / `nmg_eusplit`.
-
-### 7. BSPLINE ECMD_SPLINE_VPICK Mouse Proximity — **COMPLETED** (session 3)
-
-`sedit_vpick` now uses `nurb_closest2d` (already in edbspline.c) together
-with the view matrices from `s->vp`.  The `#if 0` block was replaced with
-working code and the function is exercised from `ft_edit_xy`.
-
-### 8. Combination Material Properties — **COMPLETED** (session 2)
-
-`ECMD_COMB_SET_REGION`, `SET_COLOR`, `SET_SHADER`, `SET_MATERIAL`,
-`SET_REGION_ID`, `SET_AIRCODE`, `SET_GIFTMATER`, `SET_LOS` all added.
-
-### 9. Sketch Segment Split / NURB Segments
+### 6. Sketch Segment Split / NURB Segments / Mouse Proximity Pick
 
 - Segment split at parameter t is not implemented (requires
   parameterization per segment type).
