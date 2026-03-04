@@ -6,6 +6,13 @@ introducing dependencies on Obol's API directly into our core code.
 The new API is designed to be easier to map to that API than our old
 code.
 
+Obol is present in the tree, but if you need to change it you should
+build the new Obol version separately and target it's install for
+bext_output/install so BRL-CAD's usual configure process can incorporate
+it as a proper 3rd party dependency - the Obol code won't build cleanly
+inside BRL-CAD's build.  Obol includes an osmesa, which should be installed
+over and used instead of the bext osmesa - Obol's copy is newer.
+
 The Qt based qged interface and its associated libqtcad library are the testing
 ground for new drawing concepts, and various libged commands have an
 alternative drawing code set up (see, for example, draw2.cpp) to work with a
