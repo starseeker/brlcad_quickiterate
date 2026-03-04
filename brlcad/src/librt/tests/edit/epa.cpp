@@ -389,9 +389,9 @@ main(int argc, char *argv[])
     mousevec[Z] = 0;
     bu_vls_trunc(s->log_str, 0);
     int rot_xy_ret = (*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, mousevec);
-    if (rot_xy_ret != BRLCAD_ERROR)
-	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) should return BRLCAD_ERROR (unimplemented), got %d\n", rot_xy_ret);
-    bu_log("RT_PARAMS_EDIT_ROT(xy) correctly returns BRLCAD_ERROR (XY rotation unimplemented)\n");
+    if (rot_xy_ret != BRLCAD_OK)
+	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) failed\n");
+    bu_log("RT_PARAMS_EDIT_ROT(xy) SUCCESS: rotation applied via knob path\n");
 
 
     /* ================================================================

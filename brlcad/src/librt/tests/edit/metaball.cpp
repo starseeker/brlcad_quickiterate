@@ -456,11 +456,9 @@ main(int argc, char *argv[])
     mousevec[X] = 0.1; mousevec[Y] = -0.05; mousevec[Z] = 0;
     bu_vls_trunc(s->log_str, 0);
     int rot_xy_ret = (*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, mousevec);
-    if (rot_xy_ret != BRLCAD_ERROR)
-	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) should return BRLCAD_ERROR, got %d\n",
-		rot_xy_ret);
-    bu_log("RT_PARAMS_EDIT_ROT(xy) correctly returns BRLCAD_ERROR "
-	   "(XY rotation unimplemented)\n");
+    if (rot_xy_ret != BRLCAD_OK)
+	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) failed\n");
+    bu_log("RT_PARAMS_EDIT_ROT(xy) SUCCESS: rotation applied via knob path\n");
 
 
     /* ================================================================
@@ -522,6 +520,38 @@ if (!VNEAR_EQUAL(kp_world, expected, VUNITIZE_TOL))
 bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
        "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
     }
+
+    /* ================================================================
+     * ECMD_METABALL_PT_SWEAT  (set sweat to absolute value)
+     *
+     * Pre-select pt1.  Set sweat to 0.75.
+     * pt1.sweat → 0.75 (regardless of prior value)
+     * ================================================================*/
+    mb_reset(s, edit_mb);
+    m->es_metaball_pnt = mb_first_pt(s);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_METABALL_PT_SWEAT);
+    s->e_inpara = 1;
+    s->e_para[0] = 0.75;
+
+    rt_edit_process(s);
+    {
+	struct wdb_metaball_pnt *pt1 = mb_first_pt(s);
+	if (!NEAR_EQUAL(pt1->sweat, 0.75, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_METABALL_PT_SWEAT failed: sweat=%g\n",
+		    pt1->sweat);
+	bu_log("ECMD_METABALL_PT_SWEAT SUCCESS: sweat=%g\n", pt1->sweat);
+    }
+
+    /* ECMD_METABALL_PT_SWEAT error: no point selected.
+     * The error is caught in ft_set_edit_mode (before rt_edit_process).
+     * Check the log right after ft_set_edit_mode. */
+    mb_reset(s, edit_mb);
+    /* m->es_metaball_pnt is NULL after mb_reset */
+    bu_vls_trunc(s->log_str, 0);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_METABALL_PT_SWEAT);
+    if (bu_vls_strlen(s->log_str) == 0)
+	bu_exit(1, "ERROR: ECMD_METABALL_PT_SWEAT with no point: expected error in log from set_edit_mode\n");
+    bu_log("ECMD_METABALL_PT_SWEAT no-point correctly refused\n");
 
     rt_edit_destroy(s);
     db_close(dbip);
