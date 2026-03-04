@@ -175,14 +175,14 @@ removing the `#if 0` guard and wiring the model2objview matrix from
 - **Gap**: No Tcl/GUI control for `gv_coord='o'` (object coordinate frame) in Archer.
 
 ### 13.4 XY Mouse Rotation (RT_PARAMS_EDIT_ROT via ft_edit_xy)
-- `edit_generic_xy` returns an error for `RT_PARAMS_EDIT_ROT` and directs
-  callers to the knob path.
-- `brlcad_mgedrework/edgeneric.c` has an experimental `edit_mrot_xy` (UNTESTED).
-- **To do**: validate `edit_mrot_xy` against MGED's `doevent.c` / `f_knob`
-  / `mged_erot_xyz`, then merge into `edgeneric.c`.
+- **DONE**: `edit_mrot_xy` validated against MGED's `doevent.c` / `f_knob` /
+  `mged_erot_xyz` and merged into `edgeneric.c`.  `edit_generic_xy` handles
+  `RT_PARAMS_EDIT_ROT` by converting the view-space cursor delta to "ax"/"ay"
+  knob increments via `rt_edit_knob_cmd_process`.
 
 ### 13.5 RT_MATRIX_EDIT_ROT via ft_edit_xy
-- Same situation as §13.4.  `edit_mrot_xy` in mgedrework handles both cases.
+- **DONE**: Handled by `edit_mrot_xy(s, mousevec, 1)` in `edit_generic_xy`.
+  Matrix rotation and solid rotation share the same implementation.
 
 ### 13.6 Undo/Redo Stack (Multi-Level)
 - Not in scope for `struct rt_edit`; should be implemented at the
