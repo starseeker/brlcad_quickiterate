@@ -81,17 +81,16 @@ The remaining gaps are:
 
 | Feature | Status |
 |---------|--------|
-| Move selected *set* of vertices (multi-select) | Not yet implemented |
+| ~~Move selected *set* of vertices (multi-select)~~ | **DONE**: `ECMD_SKETCH_MOVE_VERTEX_LIST` (26010) — `e_para[0..1]`=UV delta, `e_para[2..]`=vertex indices |
 | Split segment at parameter t | Not yet implemented |
 | Snap-to-grid (`rt_edit_snap_point`) | ✓ Implemented in edit.h/edit.cpp, used by edsketch.c |
 | NURB segment add/edit | Not yet implemented |
-| Undo/revert (checkpoint) | Higher-level concern, not in rt_edit scope |
+| Undo/revert (checkpoint) | ✓ `rt_edit_checkpoint`/`rt_edit_revert` in `edit.cpp` |
 
 ### Design notes for librt sketch API
 
-Multi-vertex selection and split will need additional state in
-`struct rt_sketch_edit` (an index array or bitmask for selected verts).
-Snap-to-grid belongs in the cross-cutting infrastructure (see §13.1).
+Segment split requires access to segment parameterization which varies by
+type (line vs arc vs Bezier); deferred.
 NURB segments are rarely used in practice and can be deferred.
 
 ---

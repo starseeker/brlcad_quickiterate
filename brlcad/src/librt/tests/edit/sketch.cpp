@@ -60,6 +60,7 @@
 #define ECMD_SKETCH_APPEND_BEZIER  26007
 #define ECMD_SKETCH_DELETE_VERTEX  26008
 #define ECMD_SKETCH_DELETE_SEGMENT 26009
+#define ECMD_SKETCH_MOVE_VERTEX_LIST 26010
 
 
 /* ------------------------------------------------------------------ */
@@ -409,6 +410,53 @@ main(int argc, char *argv[])
 	    bu_exit(1, "ERROR: RT_MATRIX_EDIT_TRANS_MODEL_XYZ failed\n");
 	bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: keypoint maps to (%g,%g,%g)\n",
 	       V3ARGS(kp_world));
+    }
+
+    /* ================================================================
+     * ECMD_SKETCH_MOVE_VERTEX_LIST: move vertices 0 and 2 by delta (5, -3)
+     * Before: v0=(0,0), v1=(10,0), v2=(10,10), v3=(0,10)
+     * After:  v0=(5,-3), v1=(10,0), v2=(15,7), v3=(0,10)
+     * ================================================================*/
+    {
+	/* Re-read skt after previous edit operations may have modified it */
+	struct rt_sketch_internal *skt2 =
+	    (struct rt_sketch_internal *)s->es_int.idb_ptr;
+	/* Reset vertex 0 and 2 to known values first */
+	V2SET(skt2->verts[0],  0,  0);
+	V2SET(skt2->verts[2], 10, 10);
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_MOVE_VERTEX_LIST);
+	s->e_inpara = 4;
+	s->e_para[0] = 5.0;   /* U delta */
+	s->e_para[1] = -3.0;  /* V delta */
+	s->e_para[2] = 0.0;   /* vertex index 0 */
+	s->e_para[3] = 2.0;   /* vertex index 2 */
+	s->local2base = 1.0;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+
+	point2d_t exp0 = { 5, -3};
+	point2d_t exp1 = {10,  0};  /* unchanged */
+	point2d_t exp2 = {15,  7};
+	point2d_t exp3 = { 0, 10};  /* unchanged */
+
+	if (!V2NEAR_EQUAL(skt2->verts[0], exp0, VUNITIZE_TOL) ||
+	    !V2NEAR_EQUAL(skt2->verts[1], exp1, VUNITIZE_TOL) ||
+	    !V2NEAR_EQUAL(skt2->verts[2], exp2, VUNITIZE_TOL) ||
+	    !V2NEAR_EQUAL(skt2->verts[3], exp3, VUNITIZE_TOL))
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_MOVE_VERTEX_LIST: "
+		"v0=(%g,%g) v1=(%g,%g) v2=(%g,%g) v3=(%g,%g); "
+		"expected (5,-3) (10,0) (15,7) (0,10)\n",
+		skt2->verts[0][0], skt2->verts[0][1],
+		skt2->verts[1][0], skt2->verts[1][1],
+		skt2->verts[2][0], skt2->verts[2][1],
+		skt2->verts[3][0], skt2->verts[3][1]);
+	bu_log("ECMD_SKETCH_MOVE_VERTEX_LIST SUCCESS: "
+	       "v0=(%g,%g) v2=(%g,%g)\n",
+	       skt2->verts[0][0], skt2->verts[0][1],
+	       skt2->verts[2][0], skt2->verts[2][1]);
     }
 
     rt_edit_destroy(s);
