@@ -94,7 +94,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     VSETALL(s->e_axes_pos , 0);
     VSETALL(s->e_keypoint, 0);
     VSETALL(s->e_mparam, 0);
-    VSETALL(s->e_para, 0);
+    memset(s->e_para, 0, sizeof(s->e_para));
 
     bv_knobs_reset(&s->k, 0);
     s->k.origin_m = '\0';

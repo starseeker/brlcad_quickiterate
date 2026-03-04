@@ -253,14 +253,17 @@ main(int argc, char *argv[])
 	   skt->curve.count);
 
     /* ================================================================
-     * ECMD_SKETCH_APPEND_ARC  (add arc from vert 1 to vert 2, r=8)
-     * e_inpara=3: [0]=start [1]=end [2]=radius
+     * ECMD_SKETCH_APPEND_ARC  (add arc from vert 1 to vert 2, r=8,
+     *                          center_is_left=1, ccw=0)
+     * e_inpara=5: [0]=start [1]=end [2]=radius [3]=center_is_left [4]=orientation
      * ================================================================*/
     EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_ARC);
-    s->e_inpara = 3;
+    s->e_inpara = 5;
     s->e_para[0] = 1.0;  /* start vert */
     s->e_para[1] = 2.0;  /* end vert */
     s->e_para[2] = 8.0;  /* radius */
+    s->e_para[3] = 1.0;  /* center_is_left = 1 */
+    s->e_para[4] = 0.0;  /* orientation: ccw */
 
     rt_edit_process(s);
     if (skt->curve.count != 3)
@@ -269,7 +272,8 @@ main(int argc, char *argv[])
     {
 	struct carc_seg *cs = (struct carc_seg *)skt->curve.segment[2];
 	if (!cs || cs->magic != CURVE_CARC_MAGIC || cs->start != 1 || cs->end != 2 ||
-	    !NEAR_EQUAL(cs->radius, 8.0, VUNITIZE_TOL))
+	    !NEAR_EQUAL(cs->radius, 8.0, VUNITIZE_TOL) ||
+	    cs->center_is_left != 1 || cs->orientation != 0)
 	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_ARC: new segment wrong\n");
     }
     bu_log("ECMD_SKETCH_APPEND_ARC SUCCESS: curve now has %zu segments\n",
@@ -287,15 +291,41 @@ main(int argc, char *argv[])
 
     rt_edit_process(s);
     if (skt->curve.count != 4)
-	bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_BEZIER: expected 4 segments, got %zu\n",
+	bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_BEZIER (quad): expected 4 segments, got %zu\n",
 		skt->curve.count);
     {
 	struct bezier_seg *bs = (struct bezier_seg *)skt->curve.segment[3];
 	if (!bs || bs->magic != CURVE_BEZIER_MAGIC || bs->degree != 2 ||
 	    bs->ctl_points[0] != 0 || bs->ctl_points[1] != 1 || bs->ctl_points[2] != 2)
-	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_BEZIER: new segment wrong\n");
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_BEZIER (quad): new segment wrong\n");
     }
-    bu_log("ECMD_SKETCH_APPEND_BEZIER SUCCESS: curve now has %zu segments\n",
+    bu_log("ECMD_SKETCH_APPEND_BEZIER (degree=2) SUCCESS: curve now has %zu segments\n",
+	   skt->curve.count);
+
+    /* ================================================================
+     * ECMD_SKETCH_APPEND_BEZIER  (cubic Bezier: degree=3, verts 0,1,2,3)
+     * e_inpara=4 → degree=3; e_para[0..3] are control point indices
+     * This test validates that RT_EDIT_MAXPARA > 3 is properly used.
+     * ================================================================*/
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_BEZIER);
+    s->e_inpara = 4;
+    s->e_para[0] = 0.0;  /* cp 0 */
+    s->e_para[1] = 1.0;  /* cp 1 */
+    s->e_para[2] = 2.0;  /* cp 2 */
+    s->e_para[3] = 3.0;  /* cp 3 */
+
+    rt_edit_process(s);
+    if (skt->curve.count != 5)
+	bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_BEZIER (cubic): expected 5 segments, got %zu\n",
+		skt->curve.count);
+    {
+	struct bezier_seg *bs = (struct bezier_seg *)skt->curve.segment[4];
+	if (!bs || bs->magic != CURVE_BEZIER_MAGIC || bs->degree != 3 ||
+	    bs->ctl_points[0] != 0 || bs->ctl_points[1] != 1 ||
+	    bs->ctl_points[2] != 2 || bs->ctl_points[3] != 3)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_BEZIER (cubic): new segment wrong\n");
+    }
+    bu_log("ECMD_SKETCH_APPEND_BEZIER (degree=3) SUCCESS: curve now has %zu segments\n",
 	   skt->curve.count);
 
     /* ================================================================
@@ -314,16 +344,16 @@ main(int argc, char *argv[])
     se->curr_vert = -1;
 
     /* ================================================================
-     * ECMD_SKETCH_DELETE_SEGMENT (delete the last segment, index 3)
-     * After: curve.count should be 3
+     * ECMD_SKETCH_DELETE_SEGMENT (delete the last segment, index 4)
+     * After: curve.count should be 4
      * ================================================================*/
-    se->curr_seg = 3;
+    se->curr_seg = 4;
     EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_DELETE_SEGMENT);
     s->e_inpara = 0;
 
     rt_edit_process(s);
-    if (skt->curve.count != 3)
-	bu_exit(1, "ERROR: ECMD_SKETCH_DELETE_SEGMENT: expected 3 segments, got %zu\n",
+    if (skt->curve.count != 4)
+	bu_exit(1, "ERROR: ECMD_SKETCH_DELETE_SEGMENT: expected 4 segments, got %zu\n",
 		skt->curve.count);
     if (se->curr_seg != -1)
 	bu_exit(1, "ERROR: ECMD_SKETCH_DELETE_SEGMENT: curr_seg not reset to -1\n");
