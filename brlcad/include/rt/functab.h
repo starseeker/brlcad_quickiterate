@@ -427,6 +427,13 @@ struct rt_edit_functab {
     struct rt_edit_menu_item *(*ft_menu_item)(const struct bn_tol *tol);
 #define EDFUNCTAB_FUNC_MENU_ITEM_CAST(_func) ((struct rt_edit_menu_item *(*)(const struct bn_tol *))((void (*)(void))_func))
 
+    /** Return static metadata describing all edit operations for this
+     *  primitive.  Returns NULL if the primitive does not (yet) provide a
+     *  structured descriptor (e.g. NMG, BREP, SKETCH for complex ops).
+     *  Use rt_edit_prim_desc_to_json() to serialise the result to JSON. */
+    const struct rt_edit_prim_desc *(*ft_edit_desc)(void);
+#define EDFUNCTAB_FUNC_EDIT_DESC_CAST(_func) ((const struct rt_edit_prim_desc *(*)(void))((void (*)(void))_func))
+
 };
 
 RT_EXPORT extern const struct rt_edit_functab EDOBJ[];
