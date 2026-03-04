@@ -477,17 +477,24 @@ widget; existing text-menu behaviour is unaffected.
 
 ---
 
-## 10. Open Questions
+## 10. Questions
 
 1. **Units handling**: Should the parameter `units` field be an enumeration
    (to allow the GUI to apply a system-wide unit conversion) or a free string?
    A small enum of `"length"`, `"angle_deg"`, `"angle_rad"`, `"fraction"`,
    `"count"`, `"none"` may be sufficient.
 
+   ANSWER:  Let's try the enum.  If we discover a limitation we can revisit,
+   but we'll start with the enum.
+
 2. **Live feedback vs. batch apply**: Should `ft_edit_desc` optionally mark
    a command as "live" (i.e. re-call `rt_edit_process` on every spinner
    change) vs. "apply on button press"?  An `"interactive": true/false`
    flag on `rt_edit_cmd_desc` could handle this.
+
+   ANSWER:  We'll want a flag.  If we're updating the wireframe as we go we'll
+   want interactive (most of the time), but if an operation is expensive to
+   update we need the option to disable it.
 
 3. **Current-value query**: The proposal covers how to *set* parameters.
    To pre-populate widget values, the GUI needs to *read* the current
@@ -497,12 +504,19 @@ widget; existing text-menu behaviour is unaffected.
    structure but with current values populated in parallel arrays would
    allow initialising widgets with the live primitive state.
 
+   ANSWER:  Let's add an ft_read_params for current value query.
+
 4. **Multi-selection**: The COMB `ADD_MEMBER` command names a member via
    a string stored in the primitive struct, not in `e_para`.  A more
    general solution for string parameters (e.g. a per-command string array
    alongside `e_para`) could unify this.  For now, `prim_field` documents
    which struct field to populate.
 
+   ANSWER:  Implement the more general solution to provided a unified, general approach.
+
 5. **Grouping / ordering**: The `category` field provides coarse grouping.
    If finer ordering is needed (e.g. "show H before r1, r2") a `display_order`
    integer on `rt_edit_cmd_desc` could be added without breaking the grammar.
+
+   ANSWER:  Provide a way to set display_order - there will likely be cases where
+   we want grouping by metrics other than alphabetical.
