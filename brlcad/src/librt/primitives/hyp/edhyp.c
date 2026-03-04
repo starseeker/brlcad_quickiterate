@@ -107,7 +107,7 @@ static const struct rt_edit_param_desc hyp_b_params[] = {
       "length", 0, NULL, NULL, NULL }
 };
 static const struct rt_edit_param_desc hyp_c_params[] = {
-    { "c", "Neck Ratio c", RT_EDIT_PARAM_SCALAR, 0, 1e-10, 1.0,
+    { "c", "Neck Ratio c (0..1)", RT_EDIT_PARAM_SCALAR, 0, 1e-10, 1.0,
       "fraction", 0, NULL, NULL, NULL }
 };
 
