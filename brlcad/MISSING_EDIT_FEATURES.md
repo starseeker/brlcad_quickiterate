@@ -37,18 +37,21 @@ Cross-cutting features now in librt:
 
 ---
 
-## 1. Sketch (ID_SKETCH) — mostly complete
+## 1. Sketch (ID_SKETCH) — complete
 
 `edsketch.c` implements the full ECMD suite for vertex/segment CRUD.
-`struct rt_sketch_edit` holds `curr_vert` and `curr_seg` selection state.
+`struct rt_sketch_edit` holds `curr_vert` and `curr_seg` selection state,
+plus `v_pos` / `v_pos_valid` for mouse-proximity picking.
 
 ### Remaining gaps
 
 | Feature | Status |
 |---------|--------|
-| Split segment at parameter t | Not implemented; requires per-type parameterization |
 | NURB segment add/edit | Not implemented; rarely used in practice |
-| Mouse-proximity vertex picking | `ft_edit_xy` needs 2-D UV proximity query against `skt->verts` |
+
+All other sketch editing features are implemented:
+- **Mouse-proximity vertex picking**: `ft_edit_xy` stores the view-space cursor in `se->v_pos`; `ecmd_sketch_pick_vertex` projects all sketch vertices through `model2objview` and selects the nearest one.
+- **Segment split at parameter t** (`ECMD_SKETCH_SPLIT_SEGMENT 26011`): supported for LINE (linear interpolation), CARC (arc geometry computation matching `skt_ed.tcl find_arc_center`), and BEZIER (de Casteljau subdivision matching `skt_ed.tcl calc_bezier`). Full-circle CARCs and NURB segments are not supported.
 
 ---
 
