@@ -84,6 +84,117 @@ rt_edit_ehy_menu_item(const struct bn_tol *UNUSED(tol))
     return ehy_menu;
 }
 
+/* ft_edit_desc descriptor for the Elliptical Hyperboloid primitive  */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc ehy_h_params[] = {
+    {
+	"h",                  /* name         */
+	"Height (magnitude)", /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc ehy_r1_params[] = {
+    {
+	"r1",                 /* name         */
+	"Semi-Axis A",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc ehy_r2_params[] = {
+    {
+	"r2",                 /* name         */
+	"Semi-Axis B",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc ehy_c_params[] = {
+    {
+	"c",                  /* name         */
+	"Asymptote Constant c", /* label      */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc ehy_cmds[] = {
+    {
+	ECMD_EHY_H,           /* cmd_id       */
+	"Set H",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	ehy_h_params,         /* params       */
+	1,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_EHY_R1,          /* cmd_id       */
+	"Set A",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	ehy_r1_params,        /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_EHY_R2,          /* cmd_id       */
+	"Set B",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	ehy_r2_params,        /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    },
+    {
+	ECMD_EHY_C,           /* cmd_id       */
+	"Set c",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	ehy_c_params,         /* params       */
+	1,                    /* interactive  */
+	40                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc ehy_prim_desc = {
+    "ehy",                /* prim_type    */
+    "Elliptical Hyperboloid", /* prim_label */
+    4,                    /* ncmd         */
+    ehy_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_ehy_edit_desc(void)
+{
+    return &ehy_prim_desc;
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void
