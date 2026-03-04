@@ -189,15 +189,8 @@ int rt_pipe_edit_pt_params(struct rt_edit *s, int pt_index,
 | ~~Multi-vertex move in one call~~ | **DONE**: `ECMD_BOT_MOVEV_LIST` (30073) — delta in `e_para[0..2]`, vertex indices in `e_para[3..]` |
 | ~~Edge split (insert midpoint)~~ | **DONE**: `ECMD_BOT_ESPLIT` (30074) — uses `bot_verts[0..1]` from prior `ECMD_BOT_PICKE` |
 | ~~Face split~~ | **DONE**: `ECMD_BOT_FSPLIT` (30075) — uses `bot_verts[0..2]` from prior `ECMD_BOT_PICKT` |
-| Vertex merge/fuse | Only in `src/tclscripts/mged/bot_vertex_fuse_all.tcl` → calls `bot_vertex_fuse` command |
-| Degenerate-face removal | Only in Tcl via `bot_face_fuse` |
-
-### Design notes
-```c
-#define ECMD_BOT_MOVEV_LIST   <n>  // move list of vertices by common delta
-#define ECMD_BOT_ESPLIT       <n>  // split edge, insert midpoint vertex + 2 new faces
-#define ECMD_BOT_FSPLIT       <n>  // split face into 3 by centroid
-```
+| ~~Vertex merge/fuse~~ | **DONE**: `ECMD_BOT_VERTEX_FUSE` (30076) — calls `rt_bot_vertex_fuse()`; no e_para needed |
+| ~~Degenerate-face removal~~ | **DONE**: `ECMD_BOT_FACE_FUSE` (30077) — calls `rt_bot_face_fuse()`; no e_para needed |
 
 ---
 
