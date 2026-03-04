@@ -92,6 +92,42 @@ rt_edit_hyp_menu_item(const struct bn_tol *UNUSED(tol))
     return hyp_menu;
 }
 
+/* ft_edit_desc descriptor for the Hyperboloid of One Sheet primitive */
+
+static const struct rt_edit_param_desc hyp_h_params[] = {
+    { "h", "Height (magnitude)", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+static const struct rt_edit_param_desc hyp_a_params[] = {
+    { "a", "Semi-Axis A", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+static const struct rt_edit_param_desc hyp_b_params[] = {
+    { "b", "Semi-Axis B", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+static const struct rt_edit_param_desc hyp_c_params[] = {
+    { "c", "Neck Ratio c", RT_EDIT_PARAM_SCALAR, 0, 1e-10, 1.0,
+      "fraction", 0, NULL, NULL, NULL }
+};
+
+static const struct rt_edit_cmd_desc hyp_cmds[] = {
+    { ECMD_HYP_H,       "Set H",  "geometry", 1, hyp_h_params, 1, 10 },
+    { ECMD_HYP_SCALE_A, "Set A",  "geometry", 1, hyp_a_params, 1, 20 },
+    { ECMD_HYP_SCALE_B, "Set B",  "geometry", 1, hyp_b_params, 1, 30 },
+    { ECMD_HYP_C,       "Set c",  "geometry", 1, hyp_c_params, 1, 40 },
+};
+
+static const struct rt_edit_prim_desc hyp_prim_desc = {
+    "hyp", "Hyperboloid of One Sheet", 4, hyp_cmds
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_hyp_edit_desc(void)
+{
+    return &hyp_prim_desc;
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void

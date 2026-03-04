@@ -85,6 +85,37 @@ rt_edit_eto_menu_item(const struct bn_tol *UNUSED(tol))
     return eto_menu;
 }
 
+/* ft_edit_desc descriptor for the Elliptical Torus primitive */
+
+static const struct rt_edit_param_desc eto_r_params[] = {
+    { "r", "Major Radius", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+static const struct rt_edit_param_desc eto_rd_params[] = {
+    { "rd", "Tube Radius D", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+static const struct rt_edit_param_desc eto_c_params[] = {
+    { "c", "Semi-Minor Axis C", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+
+static const struct rt_edit_cmd_desc eto_cmds[] = {
+    { ECMD_ETO_R,       "Set r",       "geometry", 1, eto_r_params,  1, 10 },
+    { ECMD_ETO_RD,      "Set D",       "geometry", 1, eto_rd_params, 1, 20 },
+    { ECMD_ETO_SCALE_C, "Set C",       "geometry", 1, eto_c_params,  1, 30 },
+};
+
+static const struct rt_edit_prim_desc eto_prim_desc = {
+    "eto", "Elliptical Torus", 3, eto_cmds
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_eto_edit_desc(void)
+{
+    return &eto_prim_desc;
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void
