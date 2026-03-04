@@ -40,6 +40,19 @@
 #define ECMD_DSP_SCALE_X        25058	/* Scale DSP x size */
 #define ECMD_DSP_SCALE_Y        25059	/* Scale DSP y size */
 #define ECMD_DSP_SCALE_ALT      25060	/* Scale DSP Altitude size */
+/*
+ * Toggle the dsp_smooth flag.
+ * e_para[0] = 0 to disable, non-zero to enable; e_inpara = 1.
+ * (If e_inpara == 0 the current value is toggled.)
+ */
+#define ECMD_DSP_SET_SMOOTH     25061
+/*
+ * Switch data source type.
+ * e_para[0] = 0 or RT_DSP_SRC_FILE ('f') for file data,
+ *             1 or RT_DSP_SRC_OBJ  ('o') for in-database object data.
+ * e_inpara = 1.
+ */
+#define ECMD_DSP_SET_DATASRC    25062
 
 void
 rt_edit_dsp_set_edit_mode(struct rt_edit *s, int mode)
@@ -78,6 +91,8 @@ struct rt_edit_menu_item dsp_menu[] = {
     {"Set X", dsp_ed, ECMD_DSP_SCALE_X },
     {"Set Y", dsp_ed, ECMD_DSP_SCALE_Y },
     {"Set ALT", dsp_ed, ECMD_DSP_SCALE_ALT },
+    {"Toggle Smooth", dsp_ed, ECMD_DSP_SET_SMOOTH },
+    {"Set Data Source", dsp_ed, ECMD_DSP_SET_DATASRC },
     { "", NULL, 0 }
 };
 
@@ -241,6 +256,64 @@ ecmd_dsp_fname(struct rt_edit *s)
     return BRLCAD_OK;
 }
 
+/* Toggle/set the smooth-normals flag.
+ * e_para[0] = 0 → disable, non-zero → enable; e_inpara = 1.
+ * With e_inpara == 0, the current value is toggled. */
+static int
+ecmd_dsp_set_smooth(struct rt_edit *s)
+{
+    struct rt_dsp_internal *dsp =
+	(struct rt_dsp_internal *)s->es_int.idb_ptr;
+    RT_DSP_CK_MAGIC(dsp);
+
+    if (s->e_inpara >= 1) {
+	dsp->dsp_smooth = (unsigned short)(!NEAR_ZERO(s->e_para[0], SMALL_FASTF) ? 1 : 0);
+	s->e_inpara = 0;
+    } else {
+	/* toggle */
+	dsp->dsp_smooth = dsp->dsp_smooth ? 0 : 1;
+    }
+    bu_vls_printf(s->log_str,
+	    "ECMD_DSP_SET_SMOOTH: smooth=%u\n", dsp->dsp_smooth);
+    return BRLCAD_OK;
+}
+
+/* Set the data source type.
+ * e_para[0] = RT_DSP_SRC_FILE ('f'=102) or RT_DSP_SRC_OBJ ('o'=111); e_inpara = 1.
+ * For convenience accept 0 for RT_DSP_SRC_FILE and 1 for RT_DSP_SRC_OBJ. */
+static int
+ecmd_dsp_set_datasrc(struct rt_edit *s)
+{
+    struct rt_dsp_internal *dsp =
+	(struct rt_dsp_internal *)s->es_int.idb_ptr;
+    RT_DSP_CK_MAGIC(dsp);
+
+    if (!s->e_inpara || s->e_inpara < 1) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_DSP_SET_DATASRC: data source type required "
+		"(0 or 'f'=file, 1 or 'o'=object)\n");
+	return BRLCAD_ERROR;
+    }
+    int src = (int)s->e_para[0];
+    char dsrc;
+    if (src == 0 || src == RT_DSP_SRC_FILE)
+	dsrc = RT_DSP_SRC_FILE;
+    else if (src == 1 || src == RT_DSP_SRC_OBJ)
+	dsrc = RT_DSP_SRC_OBJ;
+    else {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_DSP_SET_DATASRC: invalid type %d "
+		"(use 0/'f'=file or 1/'o'=object)\n", src);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    dsp->dsp_datasrc = dsrc;
+    s->e_inpara = 0;
+    bu_vls_printf(s->log_str,
+	    "ECMD_DSP_SET_DATASRC: datasrc='%c'\n", dsp->dsp_datasrc);
+    return BRLCAD_OK;
+}
+
 int
 rt_edit_dsp_edit(struct rt_edit *s)
 {
@@ -266,6 +339,10 @@ rt_edit_dsp_edit(struct rt_edit *s)
 	    if (ecmd_dsp_fname(s) != BRLCAD_OK)
 		return -1;
 	    break;
+	case ECMD_DSP_SET_SMOOTH:
+	    return ecmd_dsp_set_smooth(s);
+	case ECMD_DSP_SET_DATASRC:
+	    return ecmd_dsp_set_datasrc(s);
 	default:
 	    return edit_generic(s);
     };
@@ -288,6 +365,8 @@ rt_edit_dsp_edit_xy(
 	case ECMD_DSP_SCALE_X:
 	case ECMD_DSP_SCALE_Y:
 	case ECMD_DSP_SCALE_ALT:
+	case ECMD_DSP_SET_SMOOTH:
+	case ECMD_DSP_SET_DATASRC:
 	    edit_sscale_xy(s, mousevec);
 	    return 0;
 	case RT_PARAMS_EDIT_TRANS:
