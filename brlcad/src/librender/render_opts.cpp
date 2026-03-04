@@ -1,4 +1,4 @@
-/*                  R E N D E R _ O P T S . C
+/*                  R E N D E R _ O P T S . C P P
  * BRL-CAD
  *
  * Copyright (c) 2025 United States Government as represented by
@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file librender/render_opts.c
+/** @file librender/render_opts.cpp
  *
  * Render options management: allocation, destruction, and setter functions.
  */

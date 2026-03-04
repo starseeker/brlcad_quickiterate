@@ -27,57 +27,134 @@
  * bu_ipc provides a clean send/receive abstraction over several local
  * inter-process communication transports.  The channel setup routine
  * probes available mechanisms in preference order and returns an opaque
- * handle; callers never need to know which transport was selected.
+ * (PIMPL) handle; callers never need to know which transport was selected.
  *
  * ### Motivation
  *
  * BRL-CAD historically used TCP sockets (via libpkg / fbserv) for
  * incremental display of raytrace results.  While TCP works everywhere,
  * it requires port allocation, may be blocked by firewalls, and has
- * higher overhead than local IPC.  bu_ipc replaces that with:
+ * higher overhead than local IPC.  bu_ipc replaces that with a
+ * "try in order" approach:
  *
- *   anonymous pipes  →  most portable and lowest overhead
- *   Unix domain sockets  →  fallback when pipes can't carry file descriptors
- *   TCP loopback  →  last resort; works everywhere but needs a free port
+ *   anonymous pipe    →  fastest, zero kernel overhead beyond the pipe;
+ *                        backed by kernel memory with no filesystem artifact
+ *   socketpair        →  POSIX bidirectional socket pair; slightly more
+ *                        overhead than a pipe but no path coordination needed
+ *   TCP loopback      →  universal last resort; works everywhere but needs
+ *                        a free port and is slower than local transports
+ *
+ * The caller never observes which transport was chosen; the opaque
+ * bu_ipc_chan_t handle presents the same read/write surface in all cases.
+ *
+ *
+ * ### Why named pipes are NOT in the probe order
+ *
+ * POSIX named pipes (FIFOs, created with mkfifo(3)) use exactly the same
+ * kernel code path as anonymous pipes but require:
+ *   - A temporary filesystem path (collision risk, cleanup burden).
+ *   - Coordination of that path between the two processes.
+ *   - Half-duplex semantics identical to anonymous pipes.
+ *
+ * For the parent-spawns-child pattern that bu_ipc targets, anonymous pipes
+ * are strictly superior: the fd pair is inherited by the child automatically
+ * with no path management.  Named pipes add cost without benefit here.
+ *
+ * On Windows the situation is different: Windows anonymous pipes created
+ * with CreatePipe() do not support overlapped (async) I/O.  libuv therefore
+ * uses Windows Named Pipes with a generated UUID path when UV_CREATE_PIPE
+ * is requested.  This is transparent to bu_ipc callers — on Windows, the
+ * "anonymous pipe" transport silently uses Windows Named Pipes under the
+ * hood, which is exactly the right thing to do on that platform.
+ *
+ *
+ * ### PIMPL design: why environment variables are safe here
+ *
+ * A channel pair created by bu_ipc_pair() stores all transport-specific
+ * state inside the opaque bu_ipc_chan_t struct (PIMPL pattern).  Callers
+ * hold handles, not raw file descriptors or port numbers.
+ *
+ * The child-end address is retrieved with bu_ipc_addr(), which returns a
+ * pointer into the channel's internal storage — it is NOT written into the
+ * parent process's global environment.
+ *
+ * The typical usage pattern is:
+ *
+ * @code
+ *   bu_ipc_chan_t *p, *c;
+ *   bu_ipc_pair(&p, &c);
+ *
+ *   // Spawn the child, passing the child-end address as a
+ *   // PROCESS-SPECIFIC environment variable in the spawn options
+ *   // (e.g. uv_process_options_t.env[]).  This is NOT setenv() — the
+ *   // variable only exists in the child's environment, not in the
+ *   // parent's global process environment.
+ *   const char *env_entry = bu_ipc_addr_env(c);   // "BU_IPC_ADDR=pipe:4,7"
+ *   spawn_child(rt_ipc_path, env=[env_entry, NULL]);
+ *   bu_ipc_close(c);    // parent's copy of child end; child has its own
+ *
+ *   // Parent uses the parent end for async I/O (e.g. via uv_pipe_open)
+ *   my_loop_register(bu_ipc_fileno(p));
+ * @endcode
+ *
+ * ### Why this is thread-safe for concurrent renders
+ *
+ * Each call to bu_ipc_pair() creates two independent channel handles with
+ * their own internal state.  The address string lives inside the struct.
+ * The spawn call passes it in a per-spawn env array, NOT in the parent's
+ * global process env (which would require locking).
+ *
+ * Multiple simultaneous renders therefore each hold separate
+ * bu_ipc_chan_t handles and separate per-spawn env arrays.  There is no
+ * shared mutable state between them.
+ *
+ * The BU_IPC_ADDR_ENVVAR constant is only used by child processes (via
+ * bu_ipc_connect_env()) to read their own inherited env — each child sees
+ * the value that was passed to it at spawn time, not a value that any other
+ * thread in the parent could mutate.
+ *
+ *
+ * ### Optional transport preference (BU_IPC_PREFER)
+ *
+ * For testing, benchmarking, or environments where a specific transport is
+ * known to be preferable, set BU_IPC_PREFER_ENVVAR before calling
+ * bu_ipc_pair():
+ *
+ * @code
+ *   setenv("BU_IPC_PREFER", "tcp", 0);   // or "pipe" / "socket"
+ * @endcode
+ *
+ * When set, bu_ipc_pair() tries that transport first (but still falls back
+ * to others if it fails).  When unset, the default probe order is used.
+ * Because this is a *preference hint* read at pair-creation time — not a
+ * coordination mechanism — all concurrent pair() calls read the same value,
+ * which is intentional and race-free.
+ *
+ * Applications can also call bu_ipc_pair_prefer() to specify the preference
+ * programmatically without relying on an environment variable.
+ *
  *
  * ### Why full transport-agnosticism is bounded
  *
- * A completely method-agnostic API is constrained by the fact that
- * different IPC transports have fundamentally different **addressing
- * models** and **connection sequences**:
+ * A truly method-agnostic API is constrained by fundamentally different
+ * addressing models across transports:
  *
- *   - Anonymous pipes have no address.  They must be created by the
- *     parent before fork/spawn; the file descriptors are inherited by
- *     the child.  You can't "connect" to a pipe from an independent
- *     process that wasn't descended from the same parent.
+ *   anonymous pipe   — no address; fd pair created before fork/spawn, inherited
+ *   socketpair       — no address; same inheritance model as anonymous pipe
+ *   TCP              — IP + port; server must bind before client connects
  *
- *   - Unix domain sockets have a filesystem path as an address.  Either
- *     party can be first; coordination happens through the path name.
+ * These differences mean the "connect" operation is meaningful for TCP
+ * but not for pipes, and the "listen" concept applies to TCP only.
+ * A single bu_ipc_connect(addr) function works for all three because:
+ *   - For pipe and socket transports the address is just the fd number
+ *     (the fd was inherited, connect() is trivially "we already have it")
+ *   - For TCP the address is a port number to connect() to
  *
- *   - TCP has an IP address and a port number.  The server must bind and
- *     listen before the client calls connect; the port must be discovered
- *     (e.g., printed to stdout or written to a file) or pre-agreed.
+ * This works cleanly for the parent-spawns-child pattern.  What would NOT
+ * work is connecting two completely independent (non-parent-child) processes
+ * with the pipe or socketpair transports, since those fds cannot be
+ * transferred without a pre-existing connection.
  *
- * Because of this, no single "connect(addr)" call can express all three
- * models uniformly.  What IS uniform for the **parent-spawns-child**
- * pattern that librtrender uses is:
- *
- *   1.  Parent calls bu_ipc_pair() to allocate two connected channel ends.
- *   2.  Parent retrieves child's end address via bu_ipc_addr().
- *   3.  Parent passes that address to the child (environment variable or
- *       argument) when spawning it.
- *   4.  Child calls bu_ipc_connect(addr) to attach to its end.
- *   5.  Both sides call bu_ipc_write() / bu_ipc_read() identically.
- *
- * The transport-specific knowledge (which mechanism was chosen, what the
- * address format means) stays entirely inside this header + ipc.cpp.
- *
- * ### Environment variable convention
- *
- * When bu_ipc_pair() succeeds, the parent can pass BU_IPC_ADDR_ENVVAR as
- * an environment variable to the child, whose value is bu_ipc_addr().
- * bu_ipc_connect_env() reads this variable automatically so child code
- * needs no address-format knowledge.
  *
  * ### Thread safety
  *
@@ -107,13 +184,33 @@ typedef ssize_t bu_ssize_t;
 
 __BEGIN_DECLS
 
+
 /* ------------------------------------------------------------------ */
-/* Environment variable the parent sets for the child to read          */
+/* Environment variable constants                                       */
 /* ------------------------------------------------------------------ */
 
-/** Name of the env-var that bu_ipc_pair() uses to convey the child-side
- *  channel address to the spawned process. */
-#define BU_IPC_ADDR_ENVVAR "BU_IPC_ADDR"
+/**
+ * Environment variable read by a child process to find its channel address.
+ *
+ * This variable is set ONLY in the child's per-spawn environment (e.g. via
+ * uv_process_options_t.env[]).  It is NEVER written to the parent's global
+ * process environment.  Use bu_ipc_addr_env() to obtain a ready-to-use
+ * "KEY=VALUE" string suitable for a per-spawn env array.
+ */
+#define BU_IPC_ADDR_ENVVAR  "BU_IPC_ADDR"
+
+/**
+ * Optional parent-process preference variable.
+ *
+ * If set to "pipe", "socket", or "tcp" in the parent's environment before
+ * calling bu_ipc_pair(), that transport is tried first (with fallback to
+ * others on failure).  Unset means use the default probe order.
+ *
+ * Safe to set in the global env since it is only a preference hint, not a
+ * coordination mechanism; all concurrent bu_ipc_pair() calls reading the
+ * same value is correct behaviour.
+ */
+#define BU_IPC_PREFER_ENVVAR "BU_IPC_PREFER"
 
 
 /* ------------------------------------------------------------------ */
@@ -124,21 +221,29 @@ __BEGIN_DECLS
  * @brief Which underlying IPC transport was selected.
  *
  * Callers should not need to branch on this; it is exposed only for
- * diagnostic messages and for event-loop integration code that needs
- * to pass the raw file descriptor to a non-blocking I/O library.
+ * diagnostic messages and event-loop integration code that needs to pass
+ * the raw file descriptor to a non-blocking I/O library (e.g.
+ * uv_pipe_open(), QSocketNotifier, poll(2)).
  */
 typedef enum {
     BU_IPC_PIPE   = 1, /**< @brief Anonymous pipe (fastest, parent-child only) */
-    BU_IPC_SOCKET = 2, /**< @brief Unix domain socket (local processes) */
-    BU_IPC_TCP    = 3  /**< @brief TCP loopback (universal fallback) */
+    BU_IPC_SOCKET = 2, /**< @brief POSIX socketpair() (local processes)       */
+    BU_IPC_TCP    = 3  /**< @brief TCP loopback 127.0.0.1 (universal fallback) */
 } bu_ipc_type_t;
 
 
 /* ------------------------------------------------------------------ */
-/* Opaque handle                                                        */
+/* Opaque PIMPL handle                                                  */
 /* ------------------------------------------------------------------ */
 
-/** @brief Opaque IPC channel handle. */
+/**
+ * @brief Opaque IPC channel handle (PIMPL).
+ *
+ * All transport-specific state — file descriptors, port numbers, paths,
+ * address strings — is hidden inside this struct.  Callers hold handles
+ * and call bu_ipc_* functions; the implementation details are never
+ * exposed.
+ */
 typedef struct bu_ipc_chan bu_ipc_chan_t;
 
 
@@ -149,40 +254,69 @@ typedef struct bu_ipc_chan bu_ipc_chan_t;
 /**
  * @brief Create a matched pair of IPC channel ends for parent-child use.
  *
- * The implementation probes transports in order: anonymous pipe →
- * Unix domain socket → TCP loopback, and uses the first that succeeds.
- * Both ends are returned as fully connected (or ready-to-use) handles.
+ * Reads BU_IPC_PREFER_ENVVAR (if set) to pick a preferred transport, then
+ * probes in order until one succeeds: pipe → socketpair → TCP loopback.
  *
- * @param[out] parent_end  Caller keeps this end; the parent reads/writes here.
- * @param[out] child_end   This end is closed after spawning; its address is
- *                         passed to the child via bu_ipc_addr().
+ * Both ends are returned as connected handles.  The parent keeps
+ * @p parent_end for its own I/O.  The child-end address is retrieved with
+ * bu_ipc_addr() or bu_ipc_addr_env() and passed to the child at spawn time
+ * in the subprocess's private environment array (NOT via setenv()).
+ *
+ * @param[out] parent_end  Channel for the parent process.
+ * @param[out] child_end   Channel whose address is given to the child.
  *
  * @return 0 on success, -1 if no transport could be established.
  */
-BU_EXPORT int bu_ipc_pair(bu_ipc_chan_t **parent_end, bu_ipc_chan_t **child_end);
+BU_EXPORT int bu_ipc_pair(bu_ipc_chan_t **parent_end,
+  bu_ipc_chan_t **child_end);
+
+/**
+ * @brief Like bu_ipc_pair() but with an explicit transport preference.
+ *
+ * Tries @p preferred first; falls back to others if it fails.
+ * Pass BU_IPC_PIPE / BU_IPC_SOCKET / BU_IPC_TCP for explicit control.
+ * Prefer bu_ipc_pair() for normal use; this variant is for testing and
+ * environments where a particular transport must be exercised.
+ *
+ * @return 0 on success, -1 on failure.
+ */
+BU_EXPORT int bu_ipc_pair_prefer(bu_ipc_chan_t **parent_end,
+ bu_ipc_chan_t **child_end,
+ bu_ipc_type_t   preferred);
 
 
 /* ------------------------------------------------------------------ */
-/* Address handling                                                     */
+/* Address handling (hidden inside PIMPL; exposed only as strings)      */
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief Return the transport address of a channel.
+ * @brief Return the raw transport address of a channel.
  *
- * The returned string encodes both the transport type and the
- * endpoint information needed for the child to connect:
+ * Format:
+ *   "pipe:<rfd>,<wfd>"   — fd numbers (child must inherit them)
+ *   "socket:<fd>"        — bidirectional socket fd
+ *   "tcp:<port>"         — TCP loopback port
  *
- *   "pipe:<fd>"          — file descriptor number (inheritable)
- *   "socket:<path>"      — path to Unix domain socket
- *   "tcp:<port>"         — TCP loopback port number
- *
- * The returned pointer is owned by @p chan and is valid until
- * bu_ipc_close() is called.
- *
- * @param[in] chan  A channel created by bu_ipc_pair().
- * @return  NUL-terminated address string, or NULL on error.
+ * The returned pointer is owned by @p chan (valid until bu_ipc_close()).
+ * Normal callers should use bu_ipc_addr_env() instead, which wraps this
+ * string in the "KEY=VALUE" format needed for per-spawn env arrays.
  */
 BU_EXPORT const char *bu_ipc_addr(const bu_ipc_chan_t *chan);
+
+/**
+ * @brief Return a "BU_IPC_ADDR=<addr>" string for a per-spawn env array.
+ *
+ * The returned string is suitable for placement directly in an env array
+ * passed to uv_process_options_t.env[], execve(), or similar.  It is
+ * stored inside @p chan and is valid until bu_ipc_close().
+ *
+ * This is the primary way to pass the channel address to a child process.
+ * It does NOT involve the parent's global environment (no setenv() call).
+ *
+ * @param[in] chan  A channel end created by bu_ipc_pair().
+ * @return  NUL-terminated "KEY=VALUE" string, or NULL on error.
+ */
+BU_EXPORT const char *bu_ipc_addr_env(bu_ipc_chan_t *chan);
 
 
 /* ------------------------------------------------------------------ */
@@ -192,83 +326,80 @@ BU_EXPORT const char *bu_ipc_addr(const bu_ipc_chan_t *chan);
 /**
  * @brief Connect to an IPC channel using an address string.
  *
- * This is the child-side counterpart to bu_ipc_pair().  The address
- * string comes from bu_ipc_addr() on the parent's child_end handle.
+ * Child-side counterpart to bu_ipc_pair().  The address string is the
+ * raw value from bu_ipc_addr() (e.g. "pipe:4,7", "tcp:54321").
  *
- * @param[in] addr  Address string as produced by bu_ipc_addr().
- * @return  A new channel handle, or NULL on failure.
+ * @return  New channel handle, or NULL on failure.
  */
 BU_EXPORT bu_ipc_chan_t *bu_ipc_connect(const char *addr);
 
 /**
- * @brief Connect using the address stored in BU_IPC_ADDR_ENVVAR.
+ * @brief Connect using the address in BU_IPC_ADDR_ENVVAR (child side).
  *
- * Convenience wrapper: reads the environment variable set by the parent
- * and calls bu_ipc_connect() for you.
+ * Reads the child's own inherited environment variable and calls
+ * bu_ipc_connect() automatically.  This is the typical child-side
+ * entry point when the parent used bu_ipc_addr_env() at spawn time.
  *
- * @return  A new channel handle, or NULL if the variable is unset or
+ * @return  New channel handle, or NULL if the variable is unset or
  *          the connection fails.
  */
 BU_EXPORT bu_ipc_chan_t *bu_ipc_connect_env(void);
 
 
 /* ------------------------------------------------------------------ */
-/* Data transfer                                                        */
+/* Data transfer (blocking)                                             */
 /* ------------------------------------------------------------------ */
 
 /**
  * @brief Write exactly @p nbytes from @p buf into the channel.
  *
- * Blocks until all bytes have been written or an error occurs.
+ * Blocks until all bytes have been written.
  *
- * @param[in] chan    Channel to write to.
- * @param[in] buf    Data to send.
- * @param[in] nbytes Number of bytes to write.
- *
- * @return @p nbytes on complete success;
- *         -1 on error (channel broken, closed, etc.).
+ * @return @p nbytes on success; -1 on error.
  */
 BU_EXPORT bu_ssize_t bu_ipc_write(bu_ipc_chan_t *chan,
-				  const void   *buf,
-				  size_t        nbytes);
+  const void   *buf,
+  size_t        nbytes);
 
 /**
  * @brief Read exactly @p nbytes from the channel into @p buf.
  *
- * Blocks until all bytes have been received or the channel closes.
+ * Blocks until all bytes are received or the channel closes.
  *
- * @param[in]  chan    Channel to read from.
- * @param[out] buf    Buffer to receive data.
- * @param[in]  nbytes Number of bytes to read.
- *
- * @return @p nbytes on complete success;
- *         0 if the channel closed before any bytes arrived (EOF);
- *         -1 on error.
+ * @return @p nbytes on complete success; 0 on EOF; -1 on error.
  */
 BU_EXPORT bu_ssize_t bu_ipc_read(bu_ipc_chan_t *chan,
-				 void         *buf,
-				 size_t        nbytes);
+ void         *buf,
+ size_t        nbytes);
 
 
 /* ------------------------------------------------------------------ */
-/* Integration with event loops                                         */
+/* Event-loop integration                                               */
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief Return the underlying file descriptor for event-loop use.
+ * @brief Return the read file descriptor for event-loop registration.
  *
- * Callers may pass this descriptor to libuv's uv_pipe_open(),
- * Qt's QSocketNotifier, POSIX select/poll, etc.  The descriptor is
- * valid until bu_ipc_close() is called; do **not** close it directly.
+ * May be passed to uv_pipe_open(), QSocketNotifier, poll(2), etc.
+ * Valid until bu_ipc_close(); do NOT close it directly.
  *
- * @return  File descriptor (>= 0) on success; -1 if this transport
- *          does not expose a file descriptor (e.g., on Windows when
- *          a HANDLE-only mechanism is used without an fd layer).
+ * @return  fd >= 0 on success; -1 if not applicable.
  */
 BU_EXPORT int bu_ipc_fileno(const bu_ipc_chan_t *chan);
 
 /**
- * @brief Return which transport was selected for this channel.
+ * @brief Return the write file descriptor.
+ *
+ * For socketpair and TCP transports this is the same as bu_ipc_fileno().
+ * For anonymous pipe transport the read and write fds differ; this
+ * function returns the write end.
+ *
+ * @return  fd >= 0 on success; -1 if not applicable.
+ */
+BU_EXPORT int bu_ipc_fileno_write(const bu_ipc_chan_t *chan);
+
+/**
+ * @brief Return which transport was selected.
  */
 BU_EXPORT bu_ipc_type_t bu_ipc_type(const bu_ipc_chan_t *chan);
 
@@ -280,11 +411,12 @@ BU_EXPORT bu_ipc_type_t bu_ipc_type(const bu_ipc_chan_t *chan);
 /**
  * @brief Close a channel and free all associated resources.
  *
- * After this call, @p chan is invalid and must not be used.
- * For the socket and TCP transports the implementation removes any
- * temporary filesystem paths or releases the port.
+ * After this call @p chan is invalid.  For socket/TCP transports the
+ * implementation releases the port; for named-path transports it removes
+ * any temporary filesystem entries.
  */
 BU_EXPORT void bu_ipc_close(bu_ipc_chan_t *chan);
+
 
 /** @} */
 

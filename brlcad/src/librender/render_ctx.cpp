@@ -1,4 +1,4 @@
-/*                    R E N D E R _ C T X . C
+/*                   R E N D E R _ C T X . C P P
  * BRL-CAD
  *
  * Copyright (c) 2025 United States Government as represented by
@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file librender/render_ctx.c
+/** @file librender/render_ctx.cpp
  *
  * Context management for librender.
  *
