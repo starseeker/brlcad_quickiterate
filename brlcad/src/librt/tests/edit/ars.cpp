@@ -58,6 +58,9 @@
 
 /* Internal representation of the ARS edit state (mirrors rt_ars_edit in
  * edars.c).  Used to pre-select a vertex without exposing private struct. */
+struct rt_ars_edit_local {
+    int es_ars_crv;
+    int es_ars_col;
     point_t es_pt;
 };
 

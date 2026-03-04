@@ -691,6 +691,7 @@ ecmd_ars_insert_crv(struct rt_edit *s)
     }
 
     int ins_after = a->es_ars_crv;  /* insert after this curve */
+    /* If ins_after is the last curve, next_crv == ins_after → new curve duplicates it */
     int next_crv  = (ins_after + 1 < (int)ars->ncurves) ? ins_after + 1 : ins_after;
 
     fastf_t **curves = (fastf_t **)bu_malloc(
