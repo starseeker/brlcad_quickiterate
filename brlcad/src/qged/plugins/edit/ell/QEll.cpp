@@ -29,6 +29,17 @@
 #include "../../../QgEdApp.h"
 #include "QEll.h"
 
+/* QgEdApp.h transitively includes QgObolWidget.h which includes
+ * Obol's SoButtonEvent.h — that header permanently undefines UP and DOWN
+ * to avoid clashing with SoButtonEvent::State enum values.  Re-establish
+ * them here for use as bv s_flag direction constants. */
+#ifndef UP
+#  define UP 0
+#endif
+#ifndef DOWN
+#  define DOWN 1
+#endif
+
 QEll::QEll()
     : QWidget()
 {

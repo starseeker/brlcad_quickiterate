@@ -90,16 +90,7 @@ extern "C" {
 
 /* Obol / Inventor headers — confined to this translation unit and
  * libqtcad files that explicitly opt in.  Lower BRL-CAD libraries
- * (libged, libbv, librt …) remain Obol-free.
- *
- * bv/defines.h defines UP=0 and DOWN=1 as preprocessor macros for
- * scroll-wheel directions.  These clash with SoButtonEvent::State
- * enum values which have the same names.  Undefine them permanently
- * in this header; consumers that need the scroll-direction constants
- * after including this file should re-include bv/defines.h (its macros
- * are guarded by #ifndef so they restore cleanly). */
-#undef UP
-#undef DOWN
+ * (libged, libbv, librt …) remain Obol-free. */
 #include <Inventor/SoDB.h>
 #include <Inventor/SoViewport.h>
 #include <Inventor/SoRenderManager.h>

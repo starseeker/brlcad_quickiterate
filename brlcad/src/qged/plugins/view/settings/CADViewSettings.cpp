@@ -50,7 +50,7 @@ CADViewSettings::CADViewSettings(QWidget *)
     params_ckbx = new QCheckBox("Parameters");
     scale_ckbx = new QCheckBox("Scale");
     viewaxes_ckbx = new QCheckBox("View Axes");
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION < QT_VERSION_CHECK(6, 7, 0)
     wl->addWidget(acsg_ckbx);
     QObject::connect(acsg_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
     wl->addWidget(amesh_ckbx);
