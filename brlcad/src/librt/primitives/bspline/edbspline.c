@@ -38,6 +38,30 @@
 #define ECMD_VTRANS		9017	/* vertex translate */
 #define ECMD_SPLINE_VPICK       9018	/* vertex pick via mouse proximity */
 #define ECMD_BSPLINE_PICK_CP    9019	/* pick control point by (surf, u, v) indices from e_para */
+/*
+ * Pick a knot by surface index + direction + position index.
+ *
+ * e_para[0] = surface index (0-based)
+ * e_para[1] = knot direction: 0 = U knot vector, 1 = V knot vector
+ * e_para[2] = knot index (0-based within the selected direction's vector)
+ * e_inpara  = 3
+ *
+ * On success the selection is stored in rt_bspline_edit::knot_dir and
+ * rt_bspline_edit::knot_idx (and spl_surfno is updated).
+ */
+#define ECMD_BSPLINE_PICK_KNOT  9020
+/*
+ * Set the currently selected knot value.
+ *
+ * e_para[0] = new knot value
+ * e_inpara  = 1
+ *
+ * The value is written directly to the surface's knot vector at the
+ * position selected by a prior ECMD_BSPLINE_PICK_KNOT.  No monotonicity
+ * enforcement is performed — caller is responsible for maintaining a
+ * valid (non-decreasing) knot sequence.
+ */
+#define ECMD_BSPLINE_SET_KNOT   9021
 
 struct rt_bspline_edit {
     int spl_surfno;	/* What surf & ctl pt to edit on spline */
@@ -45,6 +69,10 @@ struct rt_bspline_edit {
     int spl_vi;
 
     point_t v_pos;  // vpick point.
+
+    /* Knot selection (set by ECMD_BSPLINE_PICK_KNOT, used by ECMD_BSPLINE_SET_KNOT) */
+    int knot_dir;   /* 0 = U knot vector, 1 = V knot vector */
+    int knot_idx;   /* index within the selected direction's vector */
 };
 
 void *
@@ -63,6 +91,8 @@ rt_edit_bspline_prim_edit_create(struct rt_edit *s)
     NMG_CK_SNURB(surf);
     e->spl_ui = surf->s_size[1]/2;
     e->spl_vi = surf->s_size[0]/2;
+    e->knot_dir = 0;
+    e->knot_idx = 0;
 
     return (void *)e;
 }
@@ -92,6 +122,10 @@ rt_edit_bspline_set_edit_mode(struct rt_edit *s, int mode)
 	s->edit_mode = RT_PARAMS_EDIT_TRANS;
     if (mode == ECMD_BSPLINE_PICK_CP)
 	s->edit_mode = RT_PARAMS_EDIT_PICK;
+    if (mode == ECMD_BSPLINE_PICK_KNOT)
+	s->edit_mode = RT_PARAMS_EDIT_PICK;
+    if (mode == ECMD_BSPLINE_SET_KNOT)
+	s->edit_mode = RT_PARAMS_EDIT_TRANS;
 
     bu_clbk_t f = NULL;
     void *d = NULL;
@@ -120,6 +154,10 @@ spline_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED
 	s->edit_mode = RT_PARAMS_EDIT_TRANS;
     if (arg == ECMD_BSPLINE_PICK_CP)
 	s->edit_mode = RT_PARAMS_EDIT_PICK;
+    if (arg == ECMD_BSPLINE_PICK_KNOT)
+	s->edit_mode = RT_PARAMS_EDIT_PICK;
+    if (arg == ECMD_BSPLINE_SET_KNOT)
+	s->edit_mode = RT_PARAMS_EDIT_TRANS;
 
     rt_edit_process(s);
 
@@ -135,6 +173,8 @@ struct rt_edit_menu_item spline_menu[] = {
     { "Pick Vertex", spline_ed, -1 },
     { "Pick CP by Index", spline_ed, ECMD_BSPLINE_PICK_CP },
     { "Move Vertex", spline_ed, ECMD_VTRANS },
+    { "Pick Knot", spline_ed, ECMD_BSPLINE_PICK_KNOT },
+    { "Set Knot Value", spline_ed, ECMD_BSPLINE_SET_KNOT },
     { "", NULL, 0 }
 };
 
@@ -381,6 +421,108 @@ ecmd_bspline_pick_cp(struct rt_edit *s)
     return 0;
 }
 
+/* Pick a knot by surface index, direction, and knot position index.
+ * e_para[0] = surface index, e_para[1] = direction (0=U, 1=V),
+ * e_para[2] = knot index within the chosen vector.
+ * e_inpara must be 3. */
+static int
+ecmd_bspline_pick_knot(struct rt_edit *s)
+{
+    struct rt_bspline_edit *b = (struct rt_bspline_edit *)s->ipe_ptr;
+    struct rt_nurb_internal *sip =
+	(struct rt_nurb_internal *)s->es_int.idb_ptr;
+
+    RT_NURB_CK_MAGIC(sip);
+
+    if (!s->e_inpara || s->e_inpara < 3) {
+	bu_vls_printf(s->log_str,
+		"ERROR: three values required (surfno direction knot_index)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    int sno  = (int)s->e_para[0];
+    int dir  = (int)s->e_para[1];
+    int kidx = (int)s->e_para[2];
+
+    if (sno < 0 || sno >= sip->nsrf) {
+	bu_vls_printf(s->log_str,
+		"ERROR: surface index %d out of range [0, %d)\n",
+		sno, sip->nsrf);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    struct face_g_snurb *surf = sip->srfs[sno];
+    NMG_CK_SNURB(surf);
+
+    if (dir != 0 && dir != 1) {
+	bu_vls_printf(s->log_str,
+		"ERROR: direction must be 0 (U) or 1 (V), got %d\n", dir);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    int ksize = (dir == 0) ? surf->u.k_size : surf->v.k_size;
+    if (kidx < 0 || kidx >= ksize) {
+	bu_vls_printf(s->log_str,
+		"ERROR: knot index %d out of range [0, %d) for direction %s\n",
+		kidx, ksize, (dir == 0) ? "U" : "V");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    b->spl_surfno = sno;
+    b->knot_dir   = dir;
+    b->knot_idx   = kidx;
+    s->e_inpara   = 0;
+    return 0;
+}
+
+/* Set the currently selected knot to the value in e_para[0].
+ * e_inpara must be 1.  Caller must ensure the resulting vector stays
+ * non-decreasing. */
+static int
+ecmd_bspline_set_knot(struct rt_edit *s)
+{
+    struct rt_bspline_edit *b = (struct rt_bspline_edit *)s->ipe_ptr;
+    struct rt_nurb_internal *sip =
+	(struct rt_nurb_internal *)s->es_int.idb_ptr;
+
+    RT_NURB_CK_MAGIC(sip);
+
+    if (!s->e_inpara || s->e_inpara < 1) {
+	bu_vls_printf(s->log_str,
+		"ERROR: knot value required (e_inpara must be 1)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    if (b->spl_surfno < 0 || b->spl_surfno >= sip->nsrf) {
+	bu_vls_printf(s->log_str,
+		"ERROR: no valid surface selected (use ECMD_BSPLINE_PICK_KNOT first)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    struct face_g_snurb *surf = sip->srfs[b->spl_surfno];
+    NMG_CK_SNURB(surf);
+
+    struct knot_vector *kv = (b->knot_dir == 0) ? &surf->u : &surf->v;
+
+    if (b->knot_idx < 0 || b->knot_idx >= kv->k_size) {
+	bu_vls_printf(s->log_str,
+		"ERROR: stored knot index %d out of range [0, %d)\n",
+		b->knot_idx, kv->k_size);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    kv->knots[b->knot_idx] = s->e_para[0];
+    s->e_inpara = 0;
+    return 0;
+}
+
 // I think this is bspline only??
 void
 ecmd_vtrans(struct rt_edit *s)
@@ -442,6 +584,10 @@ rt_edit_bspline_edit(struct rt_edit *s)
 	    break;
 	case ECMD_BSPLINE_PICK_CP:
 	    return ecmd_bspline_pick_cp(s);
+	case ECMD_BSPLINE_PICK_KNOT:
+	    return ecmd_bspline_pick_knot(s);
+	case ECMD_BSPLINE_SET_KNOT:
+	    return ecmd_bspline_set_knot(s);
 	case ECMD_VTRANS:
 	    // I think this is bspline only??
 	    ecmd_vtrans(s);
@@ -466,6 +612,7 @@ rt_edit_bspline_edit_xy(
 	case RT_PARAMS_EDIT_SCALE:
 	case ECMD_SPLINE_VPICK:
 	case ECMD_BSPLINE_PICK_CP:
+	case ECMD_BSPLINE_PICK_KNOT:
 	    edit_sscale_xy(s, mousevec);
 	    return 0;
 	case RT_PARAMS_EDIT_TRANS:

@@ -105,6 +105,7 @@ set(
   comb/comb_brep.cpp
   comb/comb_mirror.c
   comb/db_comb.c
+  comb/edcomb.c
   material/material.c
   constraint.c
   cut.c

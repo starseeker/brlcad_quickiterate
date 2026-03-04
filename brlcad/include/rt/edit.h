@@ -31,6 +31,7 @@
 #include "common.h"
 #include "vmath.h"
 #include "bn/mat.h"
+#include "bu/parse.h"
 #include "bv/defines.h"
 #include "rt/defines.h"
 #include "rt/db_internal.h"
@@ -48,7 +49,10 @@ __BEGIN_DECLS
  * the most complex single command (currently ECMD_SKETCH_APPEND_BEZIER, which
  * needs one slot per control-point index; degree 15 → 16 indices).
  */
-#define RT_EDIT_MAXPARA   16
+/* Maximum number of keyboard-input parameters for a single edit command.
+ * SET_MATRIX requires 1 index + 16 matrix elements = 17 values; use 20
+ * to give headroom for future operations. */
+#define RT_EDIT_MAXPARA   20
 
 
 // Solid editing (done via sed in MGED) alters primitive parameters to produce
@@ -290,6 +294,11 @@ struct rt_edit {
 	fastf_t spacing;   /**< grid spacing in mm (base units) */
     } snap;
 
+    /* Single-level checkpoint/revert.  rt_edit_checkpoint() serialises
+     * es_int here; rt_edit_revert() restores it.  bu_external.ext_buf is
+     * NULL when no snapshot has been saved. */
+    struct bu_external es_ckpt;
+
     /* User pointer */
     void *u_ptr;
 };
@@ -381,6 +390,30 @@ rt_edit_process(struct rt_edit *s);
  */
 RT_EXPORT extern void
 rt_edit_snap_point(point2d_t pt, const struct rt_edit *s);
+
+/**
+ * Save a snapshot of the current primitive parameters so they can be
+ * restored later with rt_edit_revert().
+ *
+ * The snapshot is stored inside the rt_edit struct.  Calling this
+ * function again overwrites any previous snapshot (single-level undo).
+ *
+ * @return BRLCAD_OK on success, BRLCAD_ERROR if the export failed.
+ */
+RT_EXPORT extern int
+rt_edit_checkpoint(struct rt_edit *s);
+
+/**
+ * Restore primitive parameters from the snapshot saved by
+ * rt_edit_checkpoint().
+ *
+ * If no snapshot has been saved (or the last snapshot was already
+ * consumed) this function logs a message and returns BRLCAD_ERROR.
+ *
+ * @return BRLCAD_OK on success, BRLCAD_ERROR otherwise.
+ */
+RT_EXPORT extern int
+rt_edit_revert(struct rt_edit *s);
 
 
 /* Edit menu items encode information about specific edit operations, as well
