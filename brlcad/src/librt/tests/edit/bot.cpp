@@ -74,6 +74,9 @@
 #define ECMD_BOT_FMODE		30070
 #define ECMD_BOT_FDEL		30071
 #define ECMD_BOT_FLAGS		30072
+#define ECMD_BOT_MOVEV_LIST	30073
+#define ECMD_BOT_ESPLIT		30074
+#define ECMD_BOT_FSPLIT		30075
 
 
 struct directory *
@@ -124,10 +127,23 @@ make_bot(struct rt_wdb *wdbp)
 static void
 bot_reset(struct rt_edit *s, struct rt_bot_internal *bot, struct rt_bot_edit *b)
 {
+    /* Restore vertex positions (may have grown; reset count back to 4) */
+    bot->num_vertices = 4;
+    bot->vertices = (fastf_t *)bu_realloc(bot->vertices,
+	    4 * 3 * sizeof(fastf_t), "bot vertices reset");
     VSET(&bot->vertices[0], 0, 0, 0);
     VSET(&bot->vertices[3], 1, 0, 0);
     VSET(&bot->vertices[6], 0, 1, 0);
     VSET(&bot->vertices[9], 0, 0, 1);
+
+    /* Restore face topology (may have grown; reset count back to 4) */
+    bot->num_faces = 4;
+    bot->faces = (int *)bu_realloc(bot->faces,
+	    4 * 3 * sizeof(int), "bot faces reset");
+    bot->faces[0] = 0; bot->faces[1] = 1; bot->faces[2] = 2;
+    bot->faces[3] = 0; bot->faces[4] = 1; bot->faces[5] = 3;
+    bot->faces[6] = 0; bot->faces[7] = 2; bot->faces[8] = 3;
+    bot->faces[9] = 1; bot->faces[10] = 2; bot->faces[11] = 3;
 
     b->bot_verts[0] = -1;
     b->bot_verts[1] = -1;
@@ -292,6 +308,97 @@ main(int argc, char *argv[])
 		    V3ARGS(&bot->vertices[6]));
 	bu_log("ECMD_BOT_MOVEV SUCCESS: v[2]=%g,%g,%g\n",
 	       V3ARGS(&bot->vertices[6]));
+    }
+
+    /* ================================================================
+     * ECMD_BOT_MOVEV_LIST: move two vertices by a common delta
+     *
+     * Delta = (1, 0, 0); vertices 0 and 1.
+     * v[0] = (0,0,0) → (1,0,0)
+     * v[1] = (1,0,0) → (2,0,0)
+     * e_inpara=5: [0..2]=delta, [3..4]=vertex indices
+     * ================================================================*/
+    bot_reset(s, bot, b);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BOT_MOVEV_LIST);
+    s->e_inpara = 5;
+    s->e_para[0] = 1.0;  /* ΔX */
+    s->e_para[1] = 0.0;  /* ΔY */
+    s->e_para[2] = 0.0;  /* ΔZ */
+    s->e_para[3] = 0.0;  /* vertex 0 */
+    s->e_para[4] = 1.0;  /* vertex 1 */
+
+    rt_edit_process(s);
+    {
+	vect_t exp_v0 = {1, 0, 0};
+	vect_t exp_v1 = {2, 0, 0};
+	if (!VNEAR_EQUAL(&bot->vertices[0], exp_v0, VUNITIZE_TOL) ||
+	    !VNEAR_EQUAL(&bot->vertices[3], exp_v1, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_BOT_MOVEV_LIST: v[0]=%g,%g,%g v[1]=%g,%g,%g\n",
+		    V3ARGS(&bot->vertices[0]), V3ARGS(&bot->vertices[3]));
+	bu_log("ECMD_BOT_MOVEV_LIST SUCCESS: v[0]=(%g,%g,%g) v[1]=(%g,%g,%g)\n",
+	       V3ARGS(&bot->vertices[0]), V3ARGS(&bot->vertices[3]));
+    }
+
+    /* ================================================================
+     * ECMD_BOT_ESPLIT: split edge v[0]–v[1] on fresh tetrahedron
+     *
+     * Tetrahedron has faces {0,1,2},{0,1,3},{0,2,3},{1,2,3}.
+     * Faces containing edge 0–1: {0,1,2} and {0,1,3}.
+     * After split:
+     *   new vertex 4 = midpoint(v[0],v[1]) = (0.5,0,0)
+     *   face {0,1,2} → {0,4,2} + {4,1,2}
+     *   face {0,1,3} → {0,4,3} + {4,1,3}
+     * num_vertices: 4→5   num_faces: 4→6
+     * ================================================================*/
+    bot_reset(s, bot, b);
+    b->bot_verts[0] = 0;  /* edge start */
+    b->bot_verts[1] = 1;  /* edge end */
+    b->bot_verts[2] = -1;
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BOT_ESPLIT);
+    s->e_inpara = 0;
+
+    rt_edit_process(s);
+    if (bot->num_vertices != 5 || bot->num_faces != 6)
+	bu_exit(1, "ERROR: ECMD_BOT_ESPLIT: expected 5 verts/6 faces, got %zu/%zu\n",
+		bot->num_vertices, bot->num_faces);
+    {
+	vect_t exp_mid = {0.5, 0, 0};
+	if (!VNEAR_EQUAL(&bot->vertices[4*3], exp_mid, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_BOT_ESPLIT: midpoint wrong: %g,%g,%g\n",
+		    V3ARGS(&bot->vertices[4*3]));
+	bu_log("ECMD_BOT_ESPLIT SUCCESS: %zu verts, %zu faces, midpoint=(%g,%g,%g)\n",
+	       bot->num_vertices, bot->num_faces,
+	       V3ARGS(&bot->vertices[4*3]));
+    }
+
+    /* ================================================================
+     * ECMD_BOT_FSPLIT: split face {0,2,3} of a fresh tetrahedron
+     *
+     * Face {0,2,3}: v[0]=(0,0,0), v[2]=(0,1,0), v[3]=(0,0,1)
+     * Centroid = (0, 1/3, 1/3)
+     * After split: new vert 4 = centroid; 3 new faces replace face 2.
+     * num_faces: 4→6   num_vertices: 4→5
+     * ================================================================*/
+    bot_reset(s, bot, b);
+    /* Select face {0,2,3} */
+    b->bot_verts[0] = 0;
+    b->bot_verts[1] = 2;
+    b->bot_verts[2] = 3;
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BOT_FSPLIT);
+    s->e_inpara = 0;
+
+    rt_edit_process(s);
+    if (bot->num_vertices != 5 || bot->num_faces != 6)
+	bu_exit(1, "ERROR: ECMD_BOT_FSPLIT: expected 5 verts/6 faces, got %zu/%zu\n",
+		bot->num_vertices, bot->num_faces);
+    {
+	vect_t exp_cen = {0.0, 1.0/3.0, 1.0/3.0};
+	if (!VNEAR_EQUAL(&bot->vertices[4*3], exp_cen, 1e-9))
+	    bu_exit(1, "ERROR: ECMD_BOT_FSPLIT: centroid wrong: %g,%g,%g\n",
+		    V3ARGS(&bot->vertices[4*3]));
+	bu_log("ECMD_BOT_FSPLIT SUCCESS: %zu verts, %zu faces, centroid=(%g,%g,%g)\n",
+	       bot->num_vertices, bot->num_faces,
+	       V3ARGS(&bot->vertices[4*3]));
     }
 
     /* ================================================================
