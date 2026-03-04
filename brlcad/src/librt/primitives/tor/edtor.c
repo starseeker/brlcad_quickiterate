@@ -81,6 +81,72 @@ rt_edit_tor_menu_item(const struct bn_tol *UNUSED(tol))
     return tor_menu;
 }
 
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the Torus primitive                     */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc tor_r1_params[] = {
+    {
+	"r1",                 /* name         */
+	"Major Radius",       /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc tor_r2_params[] = {
+    {
+	"r2",                 /* name         */
+	"Minor Radius",       /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc tor_cmds[] = {
+    {
+	ECMD_TOR_R1,          /* cmd_id       */
+	"Set Radius 1",       /* label        */
+	"radius",             /* category     */
+	1,                    /* nparam       */
+	tor_r1_params,        /* params       */
+	1,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_TOR_R2,          /* cmd_id       */
+	"Set Radius 2",       /* label        */
+	"radius",             /* category     */
+	1,                    /* nparam       */
+	tor_r2_params,        /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc tor_prim_desc = {
+    "tor",                /* prim_type    */
+    "Torus",              /* prim_label   */
+    2,                    /* ncmd         */
+    tor_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_tor_edit_desc(void)
+{
+    return &tor_prim_desc;
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void
