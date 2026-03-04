@@ -55,3 +55,9 @@ All of this is new, unsettled API and code - you are free to change whatever nee
 changing without regard to backwards compatibility.  If Obol needs changes, please
 prepare an OBOL_CHANGES.md file we can feed upstream to the Obol project to have them
 implement what you need.
+
+This file is intended to make it easier for multiple sessions of copilot to quickly
+get down to work on the core tasks rather than having to figure out setup issues -
+please update and refine it for that purpose as you work.  Unless instructed otherwise,
+copilot sessions working on this project should continue working until they get close
+to their session time limit or all work is completed.
