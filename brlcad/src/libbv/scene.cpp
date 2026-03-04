@@ -1673,8 +1673,77 @@ bv_scene_from_view_set(const struct bview_set *s)
 
 
 /* ================================================================
- * bview_lod_node_update  (Phase 4 — wired to bv_mesh_lod_view)
+ * bv_scene_sync_from_view
+ *
+ * Update an existing bv_scene in-place to match the bv_scene_obj
+ * objects currently in a bview's display lists.
  * ================================================================ */
+
+void
+bv_scene_sync_from_view(struct bv_scene *scene, const struct bview *v)
+{
+    size_t i;
+
+    if (!scene || !v)
+	return;
+
+    /* ── Build a set of all current bv_scene_obj* pointers in v ──────── */
+    struct bu_ptbl  *tbl_db, *tbl_view;
+
+    if (v->vset) {
+	tbl_db   = bv_view_objs((struct bview *)v, BV_DB_OBJS);
+	tbl_view = bv_view_objs((struct bview *)v, BV_VIEW_OBJS);
+    } else {
+	tbl_db   = bv_view_objs((struct bview *)v, BV_DB_OBJS   | BV_LOCAL_OBJS);
+	tbl_view = bv_view_objs((struct bview *)v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    }
+
+    /* Use a pointer set for O(1) membership tests */
+    struct bu_ptbl live;
+    bu_ptbl_init(&live, 64, "bv_scene_sync_from_view live");
+
+    if (tbl_db) {
+	for (i = 0; i < (size_t)BU_PTBL_LEN(tbl_db); i++)
+	    bu_ptbl_ins_unique(&live, BU_PTBL_GET(tbl_db, i));
+    }
+    if (tbl_view) {
+	for (i = 0; i < (size_t)BU_PTBL_LEN(tbl_view); i++)
+	    bu_ptbl_ins_unique(&live, BU_PTBL_GET(tbl_view, i));
+    }
+
+    /* ── Remove nodes whose scene obj is no longer live ─────────────── */
+    struct bv_node *root = bv_scene_root(scene);
+    if (root) {
+	/* Iterate a snapshot of children (the remove modifies the list) */
+	struct bu_ptbl snap;
+	bu_ptbl_init(&snap, BU_PTBL_LEN(&root->children), "snap");
+	for (i = 0; i < (size_t)BU_PTBL_LEN(&root->children); i++)
+	    bu_ptbl_ins(&snap, BU_PTBL_GET(&root->children, i));
+
+	for (i = 0; i < (size_t)BU_PTBL_LEN(&snap); i++) {
+	    struct bv_node *n = (struct bv_node *)BU_PTBL_GET(&snap, i);
+	    if (!n) continue;
+	    void *ud = bv_node_user_data_get(n);
+	    if (ud && bu_ptbl_locate(&live, (long *)ud) < 0) {
+		/* Object was erased; remove its wrapper */
+		bv_scene_remove_obj(scene,
+				    (struct bv_scene_obj *)ud);
+	    }
+	}
+	bu_ptbl_free(&snap);
+    }
+
+    /* ── Insert any live objects not yet in the scene ────────────────── */
+    for (i = 0; i < (size_t)BU_PTBL_LEN(&live); i++) {
+	struct bv_scene_obj *s =
+	    (struct bv_scene_obj *)BU_PTBL_GET(&live, i);
+	if (!bv_scene_find_obj(scene, s))
+	    bv_scene_insert_obj(scene, s);
+    }
+
+    bu_ptbl_free(&live);
+}
+
 
 int
 bview_lod_node_update(struct bv_node *node, const struct bview_new *view)

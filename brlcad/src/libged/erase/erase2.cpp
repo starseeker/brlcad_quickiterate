@@ -33,6 +33,7 @@
 
 #include "bu/opt.h"
 #include "bu/sort.h"
+#include "bv/defines.h"
 #include "bv/view_sets.h"
 #include "ged/database.h"
 #include "ged/view.h"
@@ -113,6 +114,12 @@ ged_erase2_core(struct ged *gedp, int argc, const char *argv[])
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     bvs->erase_path(mode, argc, argv);
+
+    /* Sync ged_scene with the view after erasure so that the new-API
+     * rendering layer (Obol / bv_render_frame) no longer draws erased
+     * objects. */
+    if (gedp->ged_scene && v)
+	bv_scene_sync_from_view(gedp->ged_scene, v);
 
     return BRLCAD_OK;
 }

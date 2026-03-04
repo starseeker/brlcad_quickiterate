@@ -837,22 +837,27 @@ bv_render_ctx_set_size(struct bv_render_ctx *ctx, int width, int height)
     ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
 }
 
+void
+bv_render_ctx_sync_scene(struct bv_render_ctx *ctx, struct bview_new *view)
+{
+    if (!ctx)
+	return;
+
+    sync_scene(ctx);
+
+    if (view)
+	sync_camera_to_viewport(&ctx->viewport, view);
+
+    ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
+}
+
 int
 bv_render_frame(struct bv_render_ctx *ctx, struct bview_new *view)
 {
     if (!ctx)
 	return 0;
 
-    /* Sync stale or new nodes from the bv_scene tree */
-    sync_scene(ctx);
-
-    /* Apply camera/viewport from view if provided */
-    if (view)
-	sync_camera_to_viewport(&ctx->viewport, view);
-
-    /* Keep SoRenderManager in sync with SoViewport */
-    ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
-
+    bv_render_ctx_sync_scene(ctx, view);
     ctx->render_mgr.render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
     return 1;
 }
