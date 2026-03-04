@@ -229,20 +229,12 @@ NMG**.  All interaction is keyboard-driven via the MGED command line:
 
 | Feature | Gap |
 |---------|-----|
-| Face pick/move | No `ECMD_NMG_FPICK` / `ECMD_NMG_FMOVE` |
-| Vertex pick/move | No `ECMD_NMG_VPICK` / `ECMD_NMG_VMOVE` |
+| ~~Face pick/move~~ | **DONE**: `ECMD_NMG_FPICK` (11030) picks OT_SAME faceuse by index; `ECMD_NMG_FMOVE` (11031) translates all face vertices by ΔX ΔY ΔZ |
+| ~~Vertex pick/move~~ | **DONE**: `ECMD_NMG_VPICK` (11028) picks vertex-use by index (edgeuse scan); `ECMD_NMG_VMOVE` (11029) moves selected vertex to XYZ |
 | Loop extrude with direction | `ECMD_NMG_LEXTRU` only extrudes by e_para, no direction control |
 | Shell-level operations | Only accessible via BRL-CAD command API |
 
-### Design notes
-NMG editing is complex enough that a full GUI would need substantial new
-ECMD constants.  For qged, the minimal useful additions are:
-```c
-#define ECMD_NMG_VPICK   <n>  // pick vertex
-#define ECMD_NMG_VMOVE   <n>  // move vertex via mouse/e_para
-#define ECMD_NMG_FPICK   <n>  // pick face
-#define ECMD_NMG_FMOVE   <n>  // translate face
-```
+`struct rt_nmg_edit` updated in `include/rt/primitives/nmg.h` with `es_v` and `es_fu` selection fields.
 
 ---
 
@@ -594,8 +586,12 @@ in `sedit_vpick` (currently guarded by `#if 0`).
    Remaining: multi-vertex select, segment split, mouse proximity picking.
 2. **Combination tree editing** — critical for any real assembly work;
    build on libged `combmem`.
-3. **BOT multi-select and split** — needed for mesh editing workflows.
-4. **NMG vertex/face editing** — needed if NMG is to be a first-class type.
+3. ~~**BOT multi-select and split**~~ — **DONE**: `ECMD_BOT_MOVEV_LIST` (move multiple
+   vertices by common delta), `ECMD_BOT_ESPLIT` (edge split with midpoint insertion),
+   `ECMD_BOT_FSPLIT` (face split into 3 via centroid) added to `edbot.c`.
+4. ~~**NMG vertex/face editing**~~ — **DONE**: `ECMD_NMG_VPICK`/`ECMD_NMG_VMOVE`
+   (pick + move vertex) and `ECMD_NMG_FPICK`/`ECMD_NMG_FMOVE` (pick + translate face)
+   added to `ednmg.c`; `struct rt_nmg_edit` extended with `es_v`/`es_fu` fields.
 5. **BSPLINE control-point editing** — `ECMD_BSPLINE_PICK_CP` added; `ECMD_VTRANS` already existed;
    knot editing and mouse-proximity picking (ECMD_SPLINE_VPICK) still unresolved.
 6. ~~**Extrude A/B vectors**~~ — **DONE**: `ECMD_EXTR_SCALE_A/B` and
@@ -603,3 +599,7 @@ in `sedit_vpick` (currently guarded by `#if 0`).
 7. ~~**Snap-to-grid in rt_edit**~~ — **DONE**: `s->snap.{enabled,spacing}`
    added to `struct rt_edit`; `rt_edit_snap_point()` exported from `librt`.
    `edsketch.c` calls it automatically in `ecmd_sketch_move_vertex`.
+8. ~~**e_para capacity**~~ — **DONE**: `vect_t e_para` (3 elements) expanded to
+   `fastf_t e_para[RT_EDIT_MAXPARA]` (16 elements); `ECMD_SKETCH_APPEND_ARC` now
+   accepts full 5-parameter arc definition (start_vi, end_vi, radius, center_is_left,
+   orientation); Bezier up to degree 15 supported.

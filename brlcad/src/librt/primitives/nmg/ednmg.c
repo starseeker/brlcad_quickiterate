@@ -48,6 +48,30 @@
 #define ECMD_NMG_ESPLIT		11025	/* split current edge */
 #define ECMD_NMG_EKILL		11026	/* kill current edge */
 #define ECMD_NMG_LEXTRU		11027	/* Extrude loop */
+/*
+ * Pick a vertex by explicit pointer (es_v) set from the model.
+ * e_para[0] encodes a vertex index (0-based scan of the model's vertex list)
+ * or the caller may set n->es_v directly before calling rt_edit_process.
+ * e_inpara must be 1 when using the index form.
+ */
+#define ECMD_NMG_VPICK		11028
+/*
+ * Move the currently selected vertex (n->es_v) to e_para[0..2] (XYZ, local units).
+ * e_inpara must be 3.  Also accepts mouse via e_mvalid / e_mparam.
+ */
+#define ECMD_NMG_VMOVE		11029
+/*
+ * Pick a faceuse by index (0-based scan of faceuses in the first region/shell).
+ * e_para[0] = face index, e_inpara must be 1.
+ * The caller may also set n->es_fu directly.
+ */
+#define ECMD_NMG_FPICK		11030
+/*
+ * Translate the currently selected face (n->es_fu) by the vector e_para[0..2].
+ * All vertices referenced by the face loop are moved by the same delta.
+ * e_inpara must be 3.
+ */
+#define ECMD_NMG_FMOVE		11031
 
 void *
 rt_edit_nmg_prim_edit_create(struct rt_edit *UNUSED(s))
@@ -58,6 +82,8 @@ rt_edit_nmg_prim_edit_create(struct rt_edit *UNUSED(s))
     e->es_eu = NULL;
     e->lu_copy = NULL;
     e->es_s = NULL;
+    e->es_v = NULL;
+    e->es_fu = NULL;
 
     return (void *)e;
 }
@@ -85,6 +111,8 @@ rt_edit_nmg_prim_edit_reset(struct rt_edit *s)
     struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
     n->es_eu = NULL;
     n->es_s = NULL;
+    n->es_v = NULL;
+    n->es_fu = NULL;
 }
 
 
@@ -104,8 +132,14 @@ rt_edit_nmg_set_edit_mode(struct rt_edit *s, int mode)
 	case ECMD_NMG_EPICK:
 	    s->edit_mode = RT_PARAMS_EDIT_PICK;
 	    break;
+	case ECMD_NMG_VPICK:
+	case ECMD_NMG_FPICK:
+	    s->edit_mode = RT_PARAMS_EDIT_PICK;
+	    break;
 	case ECMD_NMG_EMOVE:
 	case ECMD_NMG_ESPLIT:
+	case ECMD_NMG_VMOVE:
+	case ECMD_NMG_FMOVE:
 	    s->edit_mode = RT_PARAMS_EDIT_TRANS;
 	    break;
 	case ECMD_NMG_EKILL:
@@ -373,6 +407,10 @@ struct rt_edit_menu_item nmg_menu[] = {
     { "Radial EU", nmg_ed, ECMD_NMG_RADIAL },
     { "Extrude Loop", nmg_ed, ECMD_NMG_LEXTRU },
     { "Eebug Edge", nmg_ed, ECMD_NMG_EDEBUG },
+    { "Pick Vertex", nmg_ed, ECMD_NMG_VPICK },
+    { "Move Vertex", nmg_ed, ECMD_NMG_VMOVE },
+    { "Pick Face", nmg_ed, ECMD_NMG_FPICK },
+    { "Move Face", nmg_ed, ECMD_NMG_FMOVE },
     { "", NULL, 0 }
 };
 
@@ -964,6 +1002,188 @@ void ecmd_nmg_epick(struct rt_edit *s, const vect_t mousevec)
     }
 }
 
+/* ------------------------------------------------------------------
+ * ECMD_NMG_VPICK  -- pick vertex by index
+ * e_para[0] = 0-based vertex index (sequential scan of model vertex list)
+ * e_inpara must be 1.
+ * ------------------------------------------------------------------ */
+static int
+ecmd_nmg_vpick(struct rt_edit *s)
+{
+    struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
+    struct model *m = (struct model *)s->es_int.idb_ptr;
+    NMG_CK_MODEL(m);
+
+    if (!s->e_inpara || s->e_inpara < 1) {
+	bu_vls_printf(s->log_str, "ERROR: vertex index required\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    int target = (int)s->e_para[0];
+    int idx = 0;
+    /* Walk all edgeuses; each unique vertex is encountered at least once */
+    struct nmgregion *r;
+    for (BU_LIST_FOR(r, nmgregion, &m->r_hd)) {
+	struct shell *sh;
+	for (BU_LIST_FOR(sh, shell, &r->s_hd)) {
+	    struct faceuse *fu;
+	    for (BU_LIST_FOR(fu, faceuse, &sh->fu_hd)) {
+		if (fu->orientation != OT_SAME)
+		    continue;
+		struct loopuse *lu;
+		for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
+		    if (BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
+			continue;
+		    struct edgeuse *eu;
+		    for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd)) {
+			if (idx == target) {
+			    n->es_v = eu->vu_p->v_p;
+			    s->e_inpara = 0;
+			    return 0;
+			}
+			idx++;
+		    }
+		}
+	    }
+	}
+    }
+
+    bu_vls_printf(s->log_str,
+	    "ERROR: vertex index %d out of range (found %d vertex-use entries)\n",
+	    target, idx);
+    s->e_inpara = 0;
+    return BRLCAD_ERROR;
+}
+
+/* ------------------------------------------------------------------
+ * ECMD_NMG_VMOVE  -- move selected vertex to e_para[0..2]
+ * e_inpara must be 3, or e_mvalid / e_mparam can be used.
+ * ------------------------------------------------------------------ */
+static int
+ecmd_nmg_vmove(struct rt_edit *s)
+{
+    struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
+
+    if (!n->es_v) {
+	bu_vls_printf(s->log_str, "ERROR: no vertex selected (use ECMD_NMG_VPICK first)\n");
+	return BRLCAD_ERROR;
+    }
+    NMG_CK_VERTEX(n->es_v);
+
+    point_t new_pt = VINIT_ZERO;
+    if (s->e_mvalid) {
+	VMOVE(new_pt, s->e_mparam);
+    } else if (s->e_inpara == 3) {
+	s->e_para[0] *= s->local2base;
+	s->e_para[1] *= s->local2base;
+	s->e_para[2] *= s->local2base;
+	if (s->mv_context)
+	    MAT4X3PNT(new_pt, s->e_invmat, s->e_para);
+	else
+	    VMOVE(new_pt, s->e_para);
+    } else if (s->e_inpara && s->e_inpara != 3) {
+	bu_vls_printf(s->log_str, "X Y Z coordinates required for vertex move\n");
+	return BRLCAD_ERROR;
+    } else if (!s->e_mvalid && !s->e_inpara) {
+	return 0;
+    }
+
+    nmg_vertex_gv(n->es_v, new_pt);
+    s->e_inpara = 0;
+    return 0;
+}
+
+/* ------------------------------------------------------------------
+ * ECMD_NMG_FPICK  -- pick faceuse by index
+ * e_para[0] = 0-based faceuse index (faceuse OT_SAME only).
+ * e_inpara must be 1.
+ * ------------------------------------------------------------------ */
+static int
+ecmd_nmg_fpick(struct rt_edit *s)
+{
+    struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
+    struct model *m = (struct model *)s->es_int.idb_ptr;
+    NMG_CK_MODEL(m);
+
+    if (!s->e_inpara || s->e_inpara < 1) {
+	bu_vls_printf(s->log_str, "ERROR: face index required\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    int target = (int)s->e_para[0];
+    int idx = 0;
+    struct nmgregion *r;
+    for (BU_LIST_FOR(r, nmgregion, &m->r_hd)) {
+	struct shell *sh;
+	for (BU_LIST_FOR(sh, shell, &r->s_hd)) {
+	    struct faceuse *fu;
+	    for (BU_LIST_FOR(fu, faceuse, &sh->fu_hd)) {
+		if (fu->orientation != OT_SAME)
+		    continue;
+		if (idx == target) {
+		    n->es_fu = fu;
+		    s->e_inpara = 0;
+		    return 0;
+		}
+		idx++;
+	    }
+	}
+    }
+
+    bu_vls_printf(s->log_str,
+	    "ERROR: face index %d out of range (found %d OT_SAME faceuses)\n",
+	    target, idx);
+    s->e_inpara = 0;
+    return BRLCAD_ERROR;
+}
+
+/* ------------------------------------------------------------------
+ * ECMD_NMG_FMOVE  -- translate all vertices of selected face by delta
+ * e_para[0..2] = ΔX ΔY ΔZ (local units).  e_inpara must be 3.
+ * ------------------------------------------------------------------ */
+static int
+ecmd_nmg_fmove(struct rt_edit *s)
+{
+    struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
+
+    if (!n->es_fu) {
+	bu_vls_printf(s->log_str, "ERROR: no face selected (use ECMD_NMG_FPICK first)\n");
+	return BRLCAD_ERROR;
+    }
+    NMG_CK_FACEUSE(n->es_fu);
+
+    if (!s->e_inpara || s->e_inpara != 3) {
+	bu_vls_printf(s->log_str, "ERROR: X Y Z coordinates required for face move\n");
+	return BRLCAD_ERROR;
+    }
+
+    vect_t delta;
+    delta[0] = s->e_para[0] * s->local2base;
+    delta[1] = s->e_para[1] * s->local2base;
+    delta[2] = s->e_para[2] * s->local2base;
+
+    /* Move every vertex referenced by this faceuse's loops */
+    struct loopuse *lu;
+    for (BU_LIST_FOR(lu, loopuse, &n->es_fu->lu_hd)) {
+	NMG_CK_LOOPUSE(lu);
+	if (BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
+	    continue;
+	struct edgeuse *eu;
+	for (BU_LIST_FOR(eu, edgeuse, &lu->down_hd)) {
+	    struct vertex *v = eu->vu_p->v_p;
+	    NMG_CK_VERTEX(v);
+	    point_t new_pt;
+	    VADD2(new_pt, v->vg_p->coord, delta);
+	    nmg_vertex_gv(v, new_pt);
+	}
+    }
+
+    s->e_inpara = 0;
+    return 0;
+}
+
 int
 rt_edit_nmg_edit(struct rt_edit *s)
 {
@@ -986,6 +1206,14 @@ rt_edit_nmg_edit(struct rt_edit *s)
 	case ECMD_NMG_EPICK:
 	    /* XXX Nothing to do here (yet), all done in mouse routine. */
 	    break;
+	case ECMD_NMG_VPICK:
+	    return ecmd_nmg_vpick(s);
+	case ECMD_NMG_VMOVE:
+	    return ecmd_nmg_vmove(s);
+	case ECMD_NMG_FPICK:
+	    return ecmd_nmg_fpick(s);
+	case ECMD_NMG_FMOVE:
+	    return ecmd_nmg_fmove(s);
 	case ECMD_NMG_EMOVE:
 	    ecmd_nmg_emove(s);
 	    break;
@@ -1032,6 +1260,8 @@ rt_edit_nmg_edit_xy(
 	    break;
 	case ECMD_NMG_EMOVE:
 	case ECMD_NMG_ESPLIT:
+	case ECMD_NMG_VMOVE:
+	case ECMD_NMG_FMOVE:
 	case ECMD_NMG_LEXTRU:
               MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
               pos_view[X] = mousevec[X];
