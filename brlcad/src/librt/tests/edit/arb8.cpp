@@ -281,11 +281,9 @@ main(int argc, char *argv[])
     mousevec[X] = 0.1; mousevec[Y] = -0.05; mousevec[Z] = 0;
     bu_vls_trunc(s->log_str, 0);
     int rot_xy_ret = (*EDOBJ[dp->d_minor_type].ft_edit_xy)(s, mousevec);
-    if (rot_xy_ret != BRLCAD_ERROR)
-	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) should return BRLCAD_ERROR, got %d\n",
-		rot_xy_ret);
-    bu_log("RT_PARAMS_EDIT_ROT(xy) correctly returns BRLCAD_ERROR "
-	   "(XY rotation unimplemented)\n");
+    if (rot_xy_ret != BRLCAD_OK)
+	bu_exit(1, "ERROR: RT_PARAMS_EDIT_ROT(xy) failed\n");
+    bu_log("RT_PARAMS_EDIT_ROT(xy) SUCCESS: rotation applied via knob path\n");
 
 
     /* ================================================================
@@ -423,6 +421,49 @@ bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
 	       "pt[0]=%g,%g,%g  pt[1]=%g,%g,%g\n",
 	       V3ARGS(arb->pt[0]), V3ARGS(arb->pt[1]));
     }
+
+    /* ================================================================
+     * ECMD_ARB_SETUP_ROTFACE + ECMD_ARB_ROTATE_FACE (non-interactive)
+     *
+     * Use the new e_para[0] path to set fixv=1 (vertex 0, 0-based)
+     * without a callback.  After setup, edit_flag becomes
+     * ECMD_ARB_ROTATE_FACE.  Then apply a 45-deg X-axis rotation to
+     * face 4 (edit_menu=4, the top face) and verify that the plane
+     * normal changes.
+     * ================================================================*/
+    arb8_reset(s, arb, a);
+    a->edit_menu = 4;  /* face 4 (top face in arb8 ordering) */
+    /* Supply fixv via e_para[0] (1-based) */
+    s->e_inpara = 1;
+    s->e_para[0] = 1.0;  /* fix vertex 1 = arb->pt[0] */
+    bu_vls_trunc(s->log_str, 0);
+    /* ECMD_ARB_SETUP_ROTFACE transitions to ECMD_ARB_ROTATE_FACE */
+    rt_edit_set_edflag(s, ECMD_ARB_SETUP_ROTFACE);
+    rt_edit_process(s);
+    if (s->edit_flag != ECMD_ARB_ROTATE_FACE)
+	bu_exit(1, "ERROR: ECMD_ARB_SETUP_ROTFACE: edit_flag not ECMD_ARB_ROTATE_FACE (got %d)\n",
+		s->edit_flag);
+    if (a->fixv != 0)  /* should be 0-based now (1-based input minus 1) */
+	bu_exit(1, "ERROR: ECMD_ARB_SETUP_ROTFACE: fixv=%d (expected 0)\n", a->fixv);
+    bu_log("ECMD_ARB_SETUP_ROTFACE SUCCESS: fixv=%d edit_flag=ECMD_ARB_ROTATE_FACE\n",
+	   a->fixv);
+
+    /* Now apply a 45-degree X rotation via ECMD_ARB_ROTATE_FACE */
+    plane_t orig_peqn;
+    HMOVE(orig_peqn, a->es_peqn[a->edit_menu]);
+    MAT_IDN(s->acc_rot_sol);
+    MAT_IDN(s->model_changes);
+    s->e_inpara = 3;
+    s->e_para[0] = 45.0; s->e_para[1] = 0.0; s->e_para[2] = 0.0;
+    s->mv_context = 0;
+    VMOVE(s->e_keypoint, arb->pt[a->fixv]);
+    rt_edit_process(s);
+    /* The plane normal must differ from the original */
+    if (VEQUAL(a->es_peqn[a->edit_menu], orig_peqn))
+	bu_exit(1, "ERROR: ECMD_ARB_ROTATE_FACE: plane normal unchanged after 45-deg rotation\n");
+    bu_log("ECMD_ARB_ROTATE_FACE SUCCESS: normal=(%.3f,%.3f,%.3f) D=%.3f\n",
+	   a->es_peqn[a->edit_menu][0], a->es_peqn[a->edit_menu][1],
+	   a->es_peqn[a->edit_menu][2], a->es_peqn[a->edit_menu][W]);
 
     rt_edit_destroy(s);
     db_close(dbip);
