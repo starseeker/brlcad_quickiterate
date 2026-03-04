@@ -1,3 +1,5 @@
 # BRL-CAD build directory - created during CMake configure/build
 brlcad_build/
 mged-*-bomb.log
+qged-*.log
+qged_obol_*.png
