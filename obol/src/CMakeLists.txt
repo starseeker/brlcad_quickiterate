@@ -136,7 +136,9 @@ target_include_directories(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/src/base/utf8/include"
         "${PROJECT_BINARY_DIR}/src/draggers"
         ${OBOL_TARGET_INCLUDE_DIRECTORIES}
-    PUBLIC
+    # SYSTEM PUBLIC so that consumers (e.g. BRL-CAD) treat Obol headers as
+    # system includes and do not apply their own strict warning flags to them.
+    SYSTEM PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
     INTERFACE

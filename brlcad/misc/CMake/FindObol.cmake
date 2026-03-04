@@ -89,8 +89,9 @@ if(NOT Obol_FOUND AND OBOL_INCLUDE_DIRS AND OBOL_LIBRARY)
 
     add_library(Obol::Obol SHARED IMPORTED)
     set_target_properties(Obol::Obol PROPERTIES
-      INTERFACE_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}"
-      IMPORTED_LOCATION             "${OBOL_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES        "${OBOL_INCLUDE_DIRS}"
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}"
+      IMPORTED_LOCATION                    "${OBOL_LIBRARY}"
     )
     if(_obol_osmesa_libs)
       set_property(TARGET Obol::Obol APPEND PROPERTY
@@ -148,20 +149,24 @@ if(NOT Obol_FOUND AND NOT TARGET Obol::Obol AND NOT OBOL_INSTALL_DIR)
 
   if(OBOL_SOURCE_DIR AND EXISTS "${OBOL_SOURCE_DIR}/CMakeLists.txt")
     # Build Obol as a subdirectory so its Obol target is available in
-    # this CMake project.  We suppress Obol's own tests and examples to
-    # keep build times short.
+    # this CMake project.  We suppress Obol's own tests, examples, viewer
+    # and mentor to keep build times short and avoid the bundled FLTK
+    # add_subdirectory (which clashes with BRL-CAD's message() override).
     set(_obol_TESTS_save    ${OBOL_BUILD_TESTS})
     set(_obol_EXAMPLES_save ${OBOL_BUILD_EXAMPLES})
     set(_obol_MENTOR_save   ${OBOL_BUILD_MENTOR})
+    set(_obol_VIEWER_save   ${OBOL_BUILD_VIEWER})
     set(OBOL_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
     set(OBOL_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(OBOL_BUILD_MENTOR   OFF CACHE BOOL "" FORCE)
+    set(OBOL_BUILD_VIEWER   OFF CACHE BOOL "" FORCE)
     add_subdirectory("${OBOL_SOURCE_DIR}"
                      "${CMAKE_BINARY_DIR}/obol_build"
                      EXCLUDE_FROM_ALL)
     set(OBOL_BUILD_TESTS    ${_obol_TESTS_save}    CACHE BOOL "" FORCE)
     set(OBOL_BUILD_EXAMPLES ${_obol_EXAMPLES_save} CACHE BOOL "" FORCE)
     set(OBOL_BUILD_MENTOR   ${_obol_MENTOR_save}   CACHE BOOL "" FORCE)
+    set(OBOL_BUILD_VIEWER   ${_obol_VIEWER_save}   CACHE BOOL "" FORCE)
     set(_obol_src_used TRUE)
   endif()
 endif()
@@ -188,6 +193,17 @@ if(NOT Obol_FOUND)
       set(OBOL_INCLUDE_DIRS "")
     endif()
 
+    # Mark Obol include directories as SYSTEM so that BRL-CAD's strict
+    # warning flags (-Wfloat-equal, -Werror=unused-parameter, etc.) are not
+    # applied to Obol's own header files.
+    if(OBOL_INCLUDE_DIRS AND NOT ${_obol_tgt} STREQUAL "Obol::Obol")
+      set_property(TARGET ${_obol_tgt} APPEND PROPERTY
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}")
+    elseif(OBOL_INCLUDE_DIRS)
+      set_property(TARGET Obol::Obol APPEND PROPERTY
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}")
+    endif()
+
     # Ensure both Obol and Obol::Obol targets exist for all consumers.
     if(NOT TARGET Obol::Obol)
       add_library(Obol::Obol ALIAS Obol)
@@ -200,8 +216,9 @@ if(NOT Obol_FOUND)
       endif()
       add_library(Obol SHARED IMPORTED)
       set_target_properties(Obol PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}"
-        IMPORTED_LOCATION             "${_obol_loc}"
+        INTERFACE_INCLUDE_DIRECTORIES        "${OBOL_INCLUDE_DIRS}"
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${OBOL_INCLUDE_DIRS}"
+        IMPORTED_LOCATION                    "${_obol_loc}"
       )
     endif()
 

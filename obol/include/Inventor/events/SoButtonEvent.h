@@ -48,9 +48,19 @@ public:
   SoButtonEvent(void);
   virtual ~SoButtonEvent();
 
+  /* UP and DOWN may be defined as macros (e.g. scroll-wheel direction
+   * constants in some system or application headers).  Undefine them
+   * for the duration of this enum declaration and restore them afterward
+   * so that callers are not affected. */
+#pragma push_macro("UP")
+#pragma push_macro("DOWN")
+#undef UP
+#undef DOWN
   enum State {
     UP, DOWN, UNKNOWN
   };
+#pragma pop_macro("UP")
+#pragma pop_macro("DOWN")
 
   void setState(State state);
   State getState(void) const;
