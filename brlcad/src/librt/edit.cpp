@@ -1106,12 +1106,18 @@ static void
 emit_limit(struct bu_vls *out, fastf_t val)
 {
     /* Use bit-level comparison to avoid -Wfloat-equal.  RT_EDIT_PARAM_NO_LIMIT
-     * is defined as (-DBL_MAX), a well-defined sentinel bit-pattern. */
-    static const fastf_t sentinel = RT_EDIT_PARAM_NO_LIMIT;
-    if (memcmp(&val, &sentinel, sizeof(fastf_t)) == 0)
+     * is defined as (-DBL_MAX), a well-defined sentinel bit-pattern.
+     * fastf_t is always double in BRL-CAD (vmath.h), so sizeof(fastf_t) and
+     * sizeof(double) are identical; we assert that here for safety. */
+    /* fastf_t is always double in BRL-CAD (vmath.h); assert for safety. */
+    static_assert(sizeof(fastf_t) == sizeof(double),
+                  "fastf_t must be double for RT_EDIT_PARAM_NO_LIMIT sentinel comparison");
+    static const double sentinel = RT_EDIT_PARAM_NO_LIMIT;
+    double v = (double)val;
+    if (memcmp(&v, &sentinel, sizeof(double)) == 0)
 	bu_vls_strcat(out, "null");
     else
-	bu_vls_printf(out, "%.17g", val);
+	bu_vls_printf(out, "%.17g", v);
 }
 
 /* Escape a C string for safe JSON embedding (handles " and \) */
