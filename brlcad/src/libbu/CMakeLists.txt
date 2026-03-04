@@ -195,6 +195,7 @@ set(
   charclass.h
   date.h
   fort.h
+  json.hpp
   mime.cmake
   parallel.h
   parallel_cpp11thread.cpp
