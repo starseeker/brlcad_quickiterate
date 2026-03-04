@@ -77,6 +77,8 @@
 #define ECMD_BOT_MOVEV_LIST	30073
 #define ECMD_BOT_ESPLIT		30074
 #define ECMD_BOT_FSPLIT		30075
+#define ECMD_BOT_VERTEX_FUSE	30076
+#define ECMD_BOT_FACE_FUSE	30077
 
 
 struct directory *
@@ -474,6 +476,60 @@ if (!VNEAR_EQUAL(kp_world, expected, VUNITIZE_TOL))
     V3ARGS(kp_world));
 bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
        "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
+    }
+
+    /* ================================================================
+     * ECMD_BOT_VERTEX_FUSE: inject a duplicate vertex then fuse
+     * Add a duplicate of vertex 0 (0,0,0) as vertex 4, update one face
+     * to use it.  After fuse, num_vertices should be 4 again.
+     * ================================================================*/
+    {
+	struct rt_bot_internal *bot2 = (struct rt_bot_internal *)s->es_int.idb_ptr;
+	/* Add duplicate vertex */
+	bot2->num_vertices = 5;
+	bot2->vertices = (fastf_t *)bu_realloc(bot2->vertices,
+		5 * 3 * sizeof(fastf_t), "bot dup vert");
+	VSET(&bot2->vertices[12], 0, 0, 0);  /* duplicate of vertex 0 */
+	/* Point the last face at vertex 4 instead of 0 */
+	bot2->faces[9] = 4;  /* was 1,2,3 → now 4,2,3 */
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BOT_VERTEX_FUSE);
+	s->e_inpara = 0;
+	bu_vls_trunc(s->log_str, 0);
+	rt_edit_process(s);
+
+	if (bot2->num_vertices != 4)
+	    bu_exit(1, "ERROR: ECMD_BOT_VERTEX_FUSE: expected 4 vertices after fuse, got %zu\n",
+		    bot2->num_vertices);
+	bu_log("ECMD_BOT_VERTEX_FUSE SUCCESS: %zu vertices remain. %s",
+	       bot2->num_vertices, bu_vls_cstr(s->log_str));
+	bu_vls_trunc(s->log_str, 0);
+    }
+
+    /* ================================================================
+     * ECMD_BOT_FACE_FUSE: inject a duplicate face then fuse
+     * ================================================================*/
+    {
+	bot_reset(s, (struct rt_bot_internal *)s->es_int.idb_ptr,
+		  (struct rt_bot_edit *)s->ipe_ptr);
+	struct rt_bot_internal *bot3 = (struct rt_bot_internal *)s->es_int.idb_ptr;
+	/* Add a duplicate of face 0 {0,1,2} as face 4 */
+	bot3->num_faces = 5;
+	bot3->faces = (int *)bu_realloc(bot3->faces,
+		5 * 3 * sizeof(int), "bot dup face");
+	bot3->faces[12] = 0; bot3->faces[13] = 1; bot3->faces[14] = 2;
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_BOT_FACE_FUSE);
+	s->e_inpara = 0;
+	bu_vls_trunc(s->log_str, 0);
+	rt_edit_process(s);
+
+	if (bot3->num_faces != 4)
+	    bu_exit(1, "ERROR: ECMD_BOT_FACE_FUSE: expected 4 faces after fuse, got %zu\n",
+		    bot3->num_faces);
+	bu_log("ECMD_BOT_FACE_FUSE SUCCESS: %zu faces remain. %s",
+	       bot3->num_faces, bu_vls_cstr(s->log_str));
+	bu_vls_trunc(s->log_str, 0);
     }
 
     rt_edit_destroy(s);
