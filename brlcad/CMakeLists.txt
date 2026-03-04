@@ -1599,6 +1599,10 @@ if(BRLCAD_ENABLE_OPENGL)
   find_package(OpenGL)
   if(OPENGL_INCLUDE_DIR_GL)
     config_h_append(BRLCAD "#define HAVE_GL_GL_H 1\n")
+  elseif(EXISTS "${OPENGL_INCLUDE_DIR}/GL/gl.h")
+    # cmake's FindOpenGL may not set OPENGL_INCLUDE_DIR_GL on GLVND systems;
+    # fall back to checking the standard include dir directly.
+    config_h_append(BRLCAD "#define HAVE_GL_GL_H 1\n")
   endif(OPENGL_INCLUDE_DIR_GL)
   if(OPENGL_INCLUDE_DIR_GLX)
     config_h_append(BRLCAD "#define HAVE_GL_GLX_H 1\n")
