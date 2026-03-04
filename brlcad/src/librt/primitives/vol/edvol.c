@@ -111,6 +111,187 @@ rt_edit_vol_menu_item(const struct bn_tol *UNUSED(tol))
     return vol_menu;
 }
 
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the Voxel (VOL) primitive              */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc vol_fname_params[] = {
+    {
+	"fname",              /* name         */
+	"Filename",           /* label        */
+	RT_EDIT_PARAM_STRING, /* type         */
+	0,                    /* index (unused for STRING) */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	"name"                /* prim_field   */
+    }
+};
+
+/* ECMD_VOL_FSIZE expects e_inpara=3: e_para[0]=X, e_para[1]=Y, e_para[2]=Z */
+static const struct rt_edit_param_desc vol_fsize_params[] = {
+    {
+	"xdim",               /* name         */
+	"X Dimension",        /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	1.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"count",              /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"ydim",               /* name         */
+	"Y Dimension",        /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	1,                    /* index        */
+	1.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"count",              /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"zdim",               /* name         */
+	"Z Dimension",        /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	2,                    /* index        */
+	1.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"count",              /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_VOL_CSIZE expects e_inpara=3: e_para[0..2] = x,y,z cell size */
+static const struct rt_edit_param_desc vol_csize_params[] = {
+    {
+	"cx",                 /* name         */
+	"X Cell Size",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"cy",                 /* name         */
+	"Y Cell Size",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	1,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"cz",                 /* name         */
+	"Z Cell Size",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	2,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc vol_thresh_lo_params[] = {
+    {
+	"thresh_lo",          /* name         */
+	"Low Threshold",      /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	255.0,                /* range_max    */
+	"none",               /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc vol_thresh_hi_params[] = {
+    {
+	"thresh_hi",          /* name         */
+	"High Threshold",     /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	255.0,                /* range_max    */
+	"none",               /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc vol_cmds[] = {
+    {
+	ECMD_VOL_FNAME,       /* cmd_id       */
+	"File Name",          /* label        */
+	"data",               /* category     */
+	1,                    /* nparam       */
+	vol_fname_params,     /* params       */
+	0,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_VOL_FSIZE,       /* cmd_id       */
+	"File Size (X Y Z)",  /* label        */
+	"geometry",           /* category     */
+	3,                    /* nparam       */
+	vol_fsize_params,     /* params       */
+	0,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_VOL_CSIZE,       /* cmd_id       */
+	"Voxel Size (X Y Z)", /* label        */
+	"geometry",           /* category     */
+	3,                    /* nparam       */
+	vol_csize_params,     /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    },
+    {
+	ECMD_VOL_THRESH_LO,   /* cmd_id       */
+	"Threshold (low)",    /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	vol_thresh_lo_params, /* params       */
+	1,                    /* interactive  */
+	40                    /* display_order */
+    },
+    {
+	ECMD_VOL_THRESH_HI,   /* cmd_id       */
+	"Threshold (hi)",     /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	vol_thresh_hi_params, /* params       */
+	1,                    /* interactive  */
+	50                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc vol_prim_desc = {
+    "vol",                /* prim_type    */
+    "Volumetric Data",    /* prim_label   */
+    5,                    /* ncmd         */
+    vol_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_vol_edit_desc(void)
+{
+    return &vol_prim_desc;
+}
+
 /* set voxel size */
 void
 ecmd_vol_csize(struct rt_edit *s)
