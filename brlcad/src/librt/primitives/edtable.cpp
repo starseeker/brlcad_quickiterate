@@ -510,7 +510,7 @@ const struct rt_edit_functab EDOBJ[] = {
 	/* 23 -- XXX unimplemented */
 	RT_FUNCTAB_MAGIC, "ID_JOINT", "joint",
 	NULL,  /* label */
-	NULL,  /* keypoint */
+	EDFUNCTAB_FUNC_KEYPOINT_CAST(edit_keypoint), /* keypoint */
 	NULL,  /* s->e_axes_pos */
 	NULL,  /* write_params */
 	NULL,  /* read_params */
@@ -820,7 +820,7 @@ const struct rt_edit_functab EDOBJ[] = {
 	/* 40 */
 	RT_FUNCTAB_MAGIC, "ID_REVOLVE", "revolve",
 	NULL,  /* label */
-	NULL,  /* keypoint */
+	EDFUNCTAB_FUNC_KEYPOINT_CAST(edit_keypoint), /* keypoint */
 	NULL,  /* s->e_axes_pos */
 	NULL,  /* write_params */
 	NULL,  /* read_params */
