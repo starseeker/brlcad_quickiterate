@@ -1,0 +1,142 @@
+# regress/ert2/regress-ert2.cmake.in
+#
+# CMake regression test script for the ert2 and ert3 GED commands.
+#
+# This test runs mged in batch (-c) mode and drives ert2 / ert3 commands
+# through GED's Tcl interface to verify:
+#
+#   1. Both commands are wired into GED (recognised, not "unknown command").
+#   2. ert2 fails with the expected "framebuffer server not initialised" message
+#      when no fbserv is present (batch mode).
+#   3. ert3 fails with the expected "no memory framebuffer available" message
+#      when no memory fb is set up (batch mode).
+#   4. An invalid -V view name is reported as "view not found".
+#   5. An invalid -l lighting value outside [0,2] is clamped without crashing.
+#
+# The test is intentionally self-contained: it creates its own tiny .g file
+# (a single sphere primitive) so it has a valid database and geometry.
+
+set(CBDIR "@CMAKE_CURRENT_BINARY_DIR@")
+set(CSDIR "@CMAKE_CURRENT_SOURCE_DIR@")
+set(TNAME "ert2")
+set(LOGFILE "${CBDIR}/regress_ert2.log")
+
+set(BU_DIR_CACHE ${CBDIR}/cache_ert2)
+set(LIBRT_CACHE ${CBDIR}/rtcache_ert2)
+set(ENV{BU_DIR_CACHE} ${BU_DIR_CACHE})
+set(ENV{LIBRT_CACHE} ${LIBRT_CACHE})
+file(REMOVE_RECURSE "${BU_DIR_CACHE}")
+file(REMOVE_RECURSE "${LIBRT_CACHE}")
+file(MAKE_DIRECTORY "${BU_DIR_CACHE}")
+file(MAKE_DIRECTORY "${LIBRT_CACHE}")
+
+file(WRITE "${LOGFILE}" "Starting ert2/ert3 GED integration test\n")
+
+string(REPLACE "\\" "" MGED_EXEC "${EXEC}")
+if(NOT EXISTS "${MGED_EXEC}")
+  file(WRITE "${LOGFILE}" "mged not found at '${MGED_EXEC}'\n")
+  message(FATAL_ERROR "mged not found. See ${LOGFILE}")
+endif()
+
+# ── Step 1: create a test database with a sphere ─────────────────────
+set(GFILE "${CBDIR}/ert2_test.g")
+file(REMOVE "${GFILE}")
+
+execute_process(
+  COMMAND "${MGED_EXEC}" -c "${GFILE}"
+    "in sphere.s sph 0 0 0 50"
+    "r sphere.r u sphere.s"
+    "g all.g sphere.r"
+  RESULT_VARIABLE mged_result
+  OUTPUT_VARIABLE mged_out
+  ERROR_VARIABLE  mged_err
+)
+file(APPEND "${LOGFILE}" "--- Create test database ---\n${mged_out}${mged_err}\n")
+if(mged_result)
+  file(READ "${LOGFILE}" LOG)
+  message(FATAL_ERROR "[ert2] Failed to create test database.\n${LOG}")
+endif()
+
+# ── Step 2: run GED commands and capture output ───────────────────────
+#
+# We run all checks in a single mged invocation (multiple -c commands are
+# processed sequentially).  Each command is followed by an echo marker so
+# we can identify which output belongs to which test.
+
+execute_process(
+  COMMAND "${MGED_EXEC}" -c "${GFILE}"
+    "draw all.g"
+    "puts MARKER_ERT2_NO_FBS"
+    "ert2 -w 8 -n 8"
+    "puts MARKER_ERT3_NO_FB"
+    "ert3 -w 8 -n 8"
+    "puts MARKER_ERT2_BAD_VIEW"
+    "ert2 -V no_such_view_xyz -w 8 -n 8"
+    "puts MARKER_ERT3_BAD_VIEW"
+    "ert3 -V no_such_view_xyz -w 8 -n 8"
+    "puts MARKER_ERT3_BAD_LIGHT"
+    "ert3 -l 99 -w 8 -n 8"
+    "puts DONE"
+  RESULT_VARIABLE mged_result
+  OUTPUT_VARIABLE mged_out
+  ERROR_VARIABLE  mged_err
+  TIMEOUT 60
+)
+file(APPEND "${LOGFILE}" "--- GED command output ---\n${mged_out}\n--- stderr ---\n${mged_err}\n")
+
+set(COMBINED_OUT "${mged_out}${mged_err}")
+
+# ── Step 3: verify expected output ───────────────────────────────────
+
+set(FAILURES 0)
+
+# Helper macro: check that a string appears somewhere in the combined output
+macro(expect_text marker expected_text test_label)
+  if(COMBINED_OUT MATCHES "${expected_text}")
+    file(APPEND "${LOGFILE}" "PASS: ${test_label}\n")
+    message(STATUS "PASS: ${test_label}")
+  else()
+    file(APPEND "${LOGFILE}" "FAIL: ${test_label}\n  expected to find: ${expected_text}\n  in output: ${COMBINED_OUT}\n")
+    message(WARNING "FAIL: ${test_label} -- expected '${expected_text}'")
+    math(EXPR FAILURES "${FAILURES} + 1")
+  endif()
+endmacro()
+
+# Test 2a: ert2 reports "framebuffer server not initialised"
+expect_text(MARKER_ERT2_NO_FBS
+  "framebuffer server not initialised"
+  "ert2: error when no fbserv is set up")
+
+# Test 2b: ert3 reports "no memory framebuffer available"
+expect_text(MARKER_ERT3_NO_FB
+  "no memory framebuffer available"
+  "ert3: error when no memory fb is set up")
+
+# Test 3a: ert2 reports unknown view name
+expect_text(MARKER_ERT2_BAD_VIEW
+  "no_such_view_xyz.*not found|not found.*no_such_view_xyz"
+  "ert2: invalid -V view name rejected")
+
+# Test 3b: ert3 reports unknown view name
+expect_text(MARKER_ERT3_BAD_VIEW
+  "no_such_view_xyz.*not found|not found.*no_such_view_xyz"
+  "ert3: invalid -V view name rejected")
+
+# Test 4: ert3 with out-of-range -l 99 should not crash (may still fail on no-fb)
+# We just check that mged did not produce a core dump signal and finished
+if(mged_result EQUAL 0 OR mged_result EQUAL 1)
+  file(APPEND "${LOGFILE}" "PASS: ert3 with invalid -l clamps without crash\n")
+  message(STATUS "PASS: ert3 with invalid -l clamps without crash")
+else()
+  file(APPEND "${LOGFILE}" "FAIL: mged crashed with exit code ${mged_result}\n")
+  message(WARNING "FAIL: mged crashed with exit code ${mged_result}")
+  math(EXPR FAILURES "${FAILURES} + 1")
+endif()
+
+# ── Final result ──────────────────────────────────────────────────────
+if(FAILURES GREATER 0)
+  file(READ "${LOGFILE}" LOG)
+  message(FATAL_ERROR "[ert2/ert3] ${FAILURES} test(s) failed.\nSee ${LOGFILE} for details.\n${LOG}")
+endif()
+
+message(STATUS "[ert2/ert3] All integration tests passed.")

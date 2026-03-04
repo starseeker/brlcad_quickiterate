@@ -13,6 +13,8 @@
 
 brlcad_addexec(rt_ipc rt_ipc.cpp "librtrender;libbu" FOLDER Rt)
 
+add_subdirectory(tests)
+
 cmakefiles(CMakeLists.txt)
 
 # Local Variables:
