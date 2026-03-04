@@ -81,6 +81,38 @@ rt_edit_cline_menu_item(const struct bn_tol *UNUSED(tol))
     return cline_menu;
 }
 
+/* ft_edit_desc descriptor for the CLINE primitive */
+
+static const struct rt_edit_param_desc cline_h_params[] = {
+    { "h", "Height (magnitude)", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+static const struct rt_edit_param_desc cline_r_params[] = {
+    { "r", "Radius", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+static const struct rt_edit_param_desc cline_t_params[] = {
+    { "t", "Plate Thickness", RT_EDIT_PARAM_SCALAR, 0, 1e-10, RT_EDIT_PARAM_NO_LIMIT,
+      "length", 0, NULL, NULL, NULL }
+};
+
+static const struct rt_edit_cmd_desc cline_cmds[] = {
+    { ECMD_CLINE_SCALE_H, "Set H",               "geometry", 1, cline_h_params, 1, 10 },
+    { ECMD_CLINE_SCALE_R, "Set R",               "geometry", 1, cline_r_params, 1, 20 },
+    { ECMD_CLINE_SCALE_T, "Set plate thickness", "geometry", 1, cline_t_params, 1, 30 },
+};
+
+static const struct rt_edit_prim_desc cline_prim_desc = {
+    "cline", "CLINE", 3, cline_cmds
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_cline_edit_desc(void)
+{
+    return &cline_prim_desc;
+}
+
+
 void
 rt_edit_cline_e_axes_pos(
 	struct rt_edit *s,
