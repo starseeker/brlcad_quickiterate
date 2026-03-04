@@ -57,11 +57,24 @@ struct rt_pipe_edit_local {
 };
 
 /* ECMD constants from edpipe.c */
+#define ECMD_PIPE_PT_ADD	15030
+#define ECMD_PIPE_PT_DEL	15032
 #define ECMD_PIPE_PT_MOVE	15033
 #define ECMD_PIPE_SCALE_OD	15067
 #define ECMD_PIPE_SCALE_ID	15068
 #define ECMD_PIPE_SCALE_RADIUS	15074
 
+static int
+pipe_npts(struct rt_edit *s)
+{
+    struct rt_pipe_internal *pip =
+	(struct rt_pipe_internal *)s->es_int.idb_ptr;
+    int n = 0;
+    struct wdb_pipe_pnt *ps;
+    for (BU_LIST_FOR(ps, wdb_pipe_pnt, &pip->pipe_segs_head))
+	n++;
+    return n;
+}
 
 struct directory *
 make_pipe(struct rt_wdb *wdbp)
@@ -435,6 +448,87 @@ if (!VNEAR_EQUAL(kp_world, expected, VUNITIZE_TOL))
     V3ARGS(kp_world));
 bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
        "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_SCALE_ID — scale ID of all pipe segments.
+     *
+     * Start: p1.id=1.0, p2.id=1.0 (both OD=2.0, bendradius=10.0)
+     * Scale by 1.5 → new id = 1.5 (must satisfy id < od=2.0) ✓
+     * ================================================================*/
+    pipe_reset(s, pe);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_PIPE_SCALE_ID);
+    s->e_inpara = 1;
+    s->e_para[0] = 1.5;   /* scale factor: positive → id *= 1.5 (1.0 → 1.5) */
+    s->local2base = 1.0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	struct wdb_pipe_pnt *p1 = pipe_first(s);
+	struct wdb_pipe_pnt *p2 = pipe_second(s);
+	/* pipe_scale_id(scale=1.5): id *= 1.5 → 1.0 * 1.5 = 1.5 */
+	if (!NEAR_EQUAL(p1->pp_id, 1.5, VUNITIZE_TOL) ||
+	    !NEAR_EQUAL(p2->pp_id, 1.5, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_SCALE_ID failed: p1.id=%g p2.id=%g\n",
+		    p1->pp_id, p2->pp_id);
+	bu_log("ECMD_PIPE_SCALE_ID SUCCESS: p1.id=%g p2.id=%g\n",
+	       p1->pp_id, p2->pp_id);
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_PT_ADD — append a new pipe point at the end.
+     *
+     * Start: 2-segment pipe.  Add point at (0,0,20).
+     * After: pipe has 3 points; last point is at (0,0,20).
+     * OD/ID/bendradius are copied from the previous last point.
+     * ================================================================*/
+    pipe_reset(s, pe);
+    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_PIPE_PT_ADD);
+    s->e_inpara = 3;
+    VSET(s->e_para, 0, 0, 20);
+    s->local2base = 1.0;
+    s->mv_context = 0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	int n = pipe_npts(s);
+	if (n != 3)
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_ADD: expected 3 points, got %d\n", n);
+	/* Traverse to the last point */
+	struct wdb_pipe_pnt *first = pipe_first(s);
+	struct wdb_pipe_pnt *p2 = BU_LIST_NEXT(wdb_pipe_pnt, &first->l);
+	struct wdb_pipe_pnt *p3 = BU_LIST_NEXT(wdb_pipe_pnt, &p2->l);
+	point_t exp = {0, 0, 20};
+	if (!VNEAR_EQUAL(p3->pp_coord, exp, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_ADD: p3=%g,%g,%g (expected 0,0,20)\n",
+		    V3ARGS(p3->pp_coord));
+	bu_log("ECMD_PIPE_PT_ADD SUCCESS: 3 points, p3=%g,%g,%g\n",
+	       V3ARGS(p3->pp_coord));
+    }
+
+    /* ================================================================
+     * ECMD_PIPE_PT_DEL — delete the selected pipe point.
+     *
+     * We now have 3 points (from the add above).  Select and delete the
+     * second one (p2 = (0,0,10)).  After: 2 points remain.
+     *
+     * Note: ft_set_edit_mode(ECMD_PIPE_PT_DEL) internally calls
+     * rt_edit_process once; we use rt_edit_set_edflag + rt_edit_process
+     * to avoid the double-process.
+     * ================================================================*/
+    {
+	/* Select p2 (middle point) */
+	struct wdb_pipe_pnt *first = pipe_first(s);
+	pe->es_pipe_pnt = BU_LIST_NEXT(wdb_pipe_pnt, &first->l);
+    }
+    rt_edit_set_edflag(s, ECMD_PIPE_PT_DEL);
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	int n = pipe_npts(s);
+	if (n != 2)
+	    bu_exit(1, "ERROR: ECMD_PIPE_PT_DEL: expected 2 points, got %d\n", n);
+	bu_log("ECMD_PIPE_PT_DEL SUCCESS: 2 points remain\n");
     }
 
     rt_edit_destroy(s);

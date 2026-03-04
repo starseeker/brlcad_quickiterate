@@ -304,12 +304,18 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Source: `src/librt/primitives/pipe/edpipe.c`
 - Test:   `src/librt/tests/edit/pipe.cpp`
 - Operations validated:
-  - `RT_PARAMS_EDIT_SCALE` — uniform scale; all OD values scale
+  - `RT_PARAMS_EDIT_SCALE` — uniform scale; all coords/OD/ID/bendradius scale
   - `RT_PARAMS_EDIT_TRANS` — translate all points
   - `RT_PARAMS_EDIT_ROT` — rotate all points about keypoint
   - `ECMD_PIPE_SCALE_OD` — scale outer diameter of all pipe points
+  - `ECMD_PIPE_SCALE_ID` — scale inner diameter of all pipe points
   - `ECMD_PIPE_PT_MOVE` — move a selected point to a new position
+  - `ECMD_PIPE_PT_ADD` — append a new pipe point at the end (e_inpara=3)
+  - `ECMD_PIPE_PT_DEL` — delete the currently selected pipe point
   - XY translate, RT_PARAMS_EDIT_ROT XY error path, RT_MATRIX_EDIT_ROT/TRANS
+- Notes: `ECMD_PIPE_PT_DEL` must be triggered via `rt_edit_set_edflag` + 
+  `rt_edit_process` (not `ft_set_edit_mode`) to avoid double-processing;
+  `ft_set_edit_mode(ECMD_PIPE_PT_DEL)` internally calls `rt_edit_process`.
 
 ### ARS — Arbitrary Faceted Solid ✅ DONE (with test)
 
@@ -667,5 +673,6 @@ Bug fixes:
 4. **ARB8 rotate-face deep-dive** — `ECMD_ARB_SETUP_ROTFACE` requires an
    interactive callback for `fixv` selection; consider adding a non-
    interactive version that accepts a vertex index directly.
-5. **PIPE additional operations** — ECMD_PIPE_SCALE_ID, ECMD_PIPE_SCALE_RADIUS,
-   and segment-level operations (add/del point) could use additional coverage.
+5. **PIPE remaining operations** — ECMD_PIPE_SCALE_RADIUS, ECMD_PIPE_PT_OD/ID/RADIUS
+   (per-point scale), ECMD_PIPE_PT_INS (prepend), and ECMD_PIPE_SPLIT could
+   use additional coverage.
