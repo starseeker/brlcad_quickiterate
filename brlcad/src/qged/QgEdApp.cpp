@@ -29,6 +29,7 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include <QTimer>
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "bv/render.h"
@@ -238,6 +239,50 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int ob
 	w->restoreState(settings.value("windowState").toByteArray());
     }
 
+#ifdef BRLCAD_OPENGL
+    // For the Obol canvas type, wire up the bv_render_ctx to the widget.
+    //
+    // Timing requirements:
+    //  1. MUST connect to init_done BEFORE show(), because initializeGL fires
+    //     during show() and emits init_done — connecting after show() misses it.
+    //  2. MUST defer setRenderCtx() to the NEXT event loop iteration via
+    //     QTimer::singleShot(0) so that show() has fully completed (all
+    //     resize/paint events processed) before we call setRenderCtx(), which
+    //     calls update() and queues a repaint.  Calling setRenderCtx() from
+    //     directly inside the init_done handler triggers a repaint while still
+    //     inside show()'s event processing, which races with SoRenderManager
+    //     and crashes in SoActionMethodList::setUp().
+    if (canvas_type == QgView_Obol && gedp->ged_scene) {
+	QgView *cv = w->CurrentDisplay();
+	if (cv) {
+	    QObject::connect(cv, &QgView::init_done, this, [this]() {
+		/* SoDB::init() is done (called by initializeGL).
+		 * Defer the actual ctx creation to the next event loop pass. */
+		QTimer::singleShot(0, this, [this]() {
+		    struct ged *g = mdl->gedp;
+		    if (!g || !g->ged_scene) return;
+		    QgView *cvp = w->CurrentDisplay();
+		    if (!cvp) return;
+		    QgObolWidget *obolw = cvp->obol_widget();
+		    if (!obolw || obolw->renderCtx()) return; /* only once */
+		    int ww = obolw->width()  > 0 ? obolw->width()  : 512;
+		    int wh = obolw->height() > 0 ? obolw->height() : 512;
+		    struct bv_render_ctx *rctx =
+			bv_render_ctx_create(g->ged_scene, nullptr, ww, wh);
+		    if (rctx) {
+			obolw->setRenderCtx(rctx);
+			/* Wire the widget to track the GED session's view so
+			 * that orbit/zoom/draw update the correct camera. */
+			if (g->ged_gvnv)
+			    obolw->set_view(g->ged_gvnv);
+			obolw->update();
+		    }
+		});
+	    }, Qt::SingleShotConnection);
+	}
+    }
+#endif
+
     // This is when the window and widgets are actually drawn (do this after
     // loading settings so the window size matches the saved config, if any)
     w->show();
@@ -258,34 +303,6 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int ob
     if (!w->isValid3D()) {
 	bu_exit(EXIT_FAILURE, "OpenGL failed to initialize properly.  Recommend running qged with '-s' option to use fallback swrast rendering.");
     }
-
-#ifdef BRLCAD_OPENGL
-    // For the Obol canvas type, wire up the bv_render_ctx to the widget.
-    // bv_render_ctx_create() calls SoDB::init() internally, but SoDB may not
-    // be ready until QgObolWidget::initializeGL() fires.  Connect to the
-    // QgView::init_done signal so we run only after initializeGL().
-    if (canvas_type == QgView_Obol && gedp->ged_scene) {
-	QgView *cv = w->CurrentDisplay();
-	if (cv) {
-	    QObject::connect(cv, &QgView::init_done, this, [this]() {
-		struct ged *g = mdl->gedp;
-		if (!g || !g->ged_scene) return;
-		QgView *cvp = w->CurrentDisplay();
-		if (!cvp) return;
-		QgObolWidget *obolw = cvp->obol_widget();
-		if (!obolw || obolw->renderCtx()) return; /* only once */
-		int ww = obolw->width()  > 0 ? obolw->width()  : 512;
-		int wh = obolw->height() > 0 ? obolw->height() : 512;
-		struct bv_render_ctx *rctx =
-		    bv_render_ctx_create(g->ged_scene, nullptr, ww, wh);
-		if (rctx) {
-		    obolw->setRenderCtx(rctx);
-		    obolw->update();
-		}
-	    }, Qt::SingleShotConnection);
-	}
-    }
-#endif
 
     // Assign QGED specific open/close db handlers to the gedp
     ged_clbk_set(mdl->gedp, "opendb", BU_CLBK_PRE, &qged_pre_opendb_clbk, (void *)qApp);

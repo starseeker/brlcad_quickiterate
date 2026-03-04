@@ -249,10 +249,10 @@ public:
 	view_ = bview_companion_create("obol", local_bv_);
 	own_view_ = (view_ != nullptr);
 
-	/* Disable SoRenderManager's own auto-redraw: we drive the render loop
-	 * explicitly via paintGL() so that Qt's vsync / repaint logic is used.
-	 * This mirrors the pattern in obol/examples/qt_obol_widget.h. */
-	SoRenderManager::enableRealTimeUpdate(FALSE);
+	/* NOTE: SoRenderManager and SoViewport are NOT constructed here.
+	 * They are allocated in initializeGL() AFTER SoDB::init() — creating
+	 * Coin3D objects before SoDB::init() leaves SoGLRenderAction with
+	 * uninitialized type IDs and causes SoActionMethodList::setUp() to crash. */
 
 	/* Three-timer sensor bridge — same pattern as Quarter's SensorManager
 	 * and the reference QtObolWidget example. */
@@ -274,20 +274,23 @@ public:
 	    bv_free(local_bv_);
 	    BU_PUT(local_bv_, struct bview);
 	}
+	delete renderMgr_;
+	delete viewport_;
     }
 
     /* ── Scene ──────────────────────────────────────────────────────── */
 
     /**
      * Attach a BRL-CAD render context.  The SoSeparator* root from
-     * bv_render_ctx_scene_root(ctx) is fed to viewport_.setSceneGraph().
-     * A default camera is added via viewport_.viewAll() when none is found.
+     * bv_render_ctx_scene_root(ctx) is fed to viewport_->setSceneGraph().
+     * A default camera is added via viewport_->viewAll() when none is found.
      */
     void setRenderCtx(struct bv_render_ctx *ctx) {
 	ctx_ = ctx;
-	if (!ctx_) {
-	    viewport_.setSceneGraph(nullptr);
-	    renderMgr_.setSceneGraph(nullptr);
+	scene_fitted_ = false;  /* will refit when geometry first appears */
+	if (!ctx_ || !viewport_ || !renderMgr_) {
+	    if (viewport_)  viewport_->setSceneGraph(nullptr);
+	    if (renderMgr_) renderMgr_->setSceneGraph(nullptr);
 	    return;
 	}
 
@@ -295,13 +298,27 @@ public:
 	if (!root)
 	    return;
 
-	viewport_.setSceneGraph(root);
-	/* Camera: viewAll() auto-creates one if absent */
-	if (!viewport_.getCamera())
-	    viewport_.viewAll();
+	viewport_->setSceneGraph(root);
 
-	/* SoRenderManager renders viewport_.getRoot() (= [camera + scene]) */
-	renderMgr_.setSceneGraph(viewport_.getRoot());
+	/* viewAll() requires an existing camera AND a non-degenerate bounding
+	 * box.  With only a SoDirectionalLight in the scene (no geometry yet),
+	 * the bounding box is empty and viewAll() may fail to create a camera.
+	 * Explicitly create and position a default camera first so
+	 * SoRenderManager::render() always has a valid camera to work with.
+	 * The camera is re-fitted to actual geometry via viewport_->viewAll()
+	 * in paintGL() once bv_render_ctx_sync_scene() populates the scene. */
+	if (!viewport_->getCamera()) {
+	    SoPerspectiveCamera *defaultCam = new SoPerspectiveCamera;
+	    /* Place at a sensible default position so near/far are non-zero */
+	    defaultCam->position.setValue(0.0f, 0.0f, 100.0f);
+	    defaultCam->heightAngle.setValue(float(M_PI / 4.0));
+	    defaultCam->nearDistance.setValue(0.1f);
+	    defaultCam->farDistance.setValue(1000.0f);
+	    viewport_->setCamera(defaultCam);
+	}
+
+	/* SoRenderManager renders viewport_->getRoot() (= [camera + scene]) */
+	renderMgr_->setSceneGraph(viewport_->getRoot());
 	update();
     }
 
@@ -333,41 +350,44 @@ public:
     struct bview_new *view() const { return view_; }
 
     /* ── SoViewport / SoRenderManager access ────────────────────────── */
-    SoViewport       &getViewport()       { return viewport_; }
-    const SoViewport &getViewport() const { return viewport_; }
-    SoRenderManager  &getRenderManager()  { return renderMgr_; }
+    SoViewport       *getViewport()       { return viewport_; }
+    const SoViewport *getViewport() const { return viewport_; }
+    SoRenderManager  *getRenderManager()  { return renderMgr_; }
 
     /* ── Render mode ────────────────────────────────────────────────── */
     void setRenderMode(SoRenderManager::RenderMode mode) {
-	renderMgr_.setRenderMode(mode);
+	if (renderMgr_) renderMgr_->setRenderMode(mode);
 	update();
     }
     SoRenderManager::RenderMode getRenderMode() const {
-	return renderMgr_.getRenderMode();
+	return renderMgr_ ? renderMgr_->getRenderMode()
+	                  : SoRenderManager::AS_IS;
     }
 
     /* ── Stereo mode ────────────────────────────────────────────────── */
     void setStereoMode(SoRenderManager::StereoMode mode) {
-	renderMgr_.setStereoMode(mode);
+	if (renderMgr_) renderMgr_->setStereoMode(mode);
 	update();
     }
     SoRenderManager::StereoMode getStereoMode() const {
-	return renderMgr_.getStereoMode();
+	return renderMgr_ ? renderMgr_->getStereoMode()
+	                  : SoRenderManager::MONO;
     }
 
     /* ── Transparency type ──────────────────────────────────────────── */
     void setTransparencyType(SoGLRenderAction::TransparencyType t) {
-	renderMgr_.getGLRenderAction()->setTransparencyType(t);
+	if (renderMgr_) renderMgr_->getGLRenderAction()->setTransparencyType(t);
 	update();
     }
     SoGLRenderAction::TransparencyType getTransparencyType() const {
-	return renderMgr_.getGLRenderAction()->getTransparencyType();
+	return renderMgr_ ? renderMgr_->getGLRenderAction()->getTransparencyType()
+	                  : SoGLRenderAction::SCREEN_DOOR;
     }
 
     /* ── Background colour ──────────────────────────────────────────── */
     void setBackgroundColor(const SbColor &c) {
-	viewport_.setBackgroundColor(c);
-	renderMgr_.setBackgroundColor(SbColor4f(c, 1.0f));
+	if (viewport_)  viewport_->setBackgroundColor(c);
+	if (renderMgr_) renderMgr_->setBackgroundColor(SbColor4f(c, 1.0f));
 	update();
     }
 
@@ -550,8 +570,10 @@ public:
 
 public slots:
     void viewAll() {
-	viewport_.viewAll();
-	update();
+	if (viewport_) {
+	    viewport_->viewAll();
+	    update();
+	}
     }
 
     /**
@@ -606,13 +628,10 @@ protected:
     void initializeGL() override {
 	glEnable(GL_DEPTH_TEST);
 
-	/* Wire the GL render action cache context to Qt's context */
-	QOpenGLContext *qctx = QOpenGLContext::currentContext();
-	renderMgr_.getGLRenderAction()->setCacheContext(cacheContext_);
-
 	/* Now that we have a GL context, initialise SoDB (once per process).
 	 * Update the context manager share context so off-screen renders can
 	 * share textures/VBOs with this widget. */
+	QOpenGLContext *qctx = QOpenGLContext::currentContext();
 	if (!ctxMgr_) {
 	    ctxMgr_ = new QtObolContextManager(qctx);
 	    SoDB::init(ctxMgr_);
@@ -625,6 +644,20 @@ protected:
 	    ctxMgr_->updateShareContext(qctx);
 	}
 
+	/* Allocate SoViewport and SoRenderManager NOW, after SoDB::init().
+	 * Creating these objects before SoDB::init() leaves their internal
+	 * SoGLRenderAction with uninitialized type IDs, causing
+	 * SoActionMethodList::setUp() to crash on first render(). */
+	if (!renderMgr_) {
+	    viewport_  = new SoViewport;
+	    renderMgr_ = new SoRenderManager;
+	    /* Disable auto-redraw: paintGL() drives the render loop explicitly */
+	    SoRenderManager::enableRealTimeUpdate(FALSE);
+	}
+
+	/* Wire the GL render action cache context to Qt's GL context */
+	renderMgr_->getGLRenderAction()->setCacheContext(cacheContext_);
+
 	m_init = true;
 	emit init_done();
     }
@@ -632,9 +665,10 @@ protected:
     void resizeGL(int w, int h) override {
 	const qreal dpr = devicePixelRatioF();
 	SbVec2s physSize((short)(w * dpr), (short)(h * dpr));
-	viewport_.setWindowSize(physSize);
-	renderMgr_.setWindowSize(physSize);
-	renderMgr_.setViewportRegion(viewport_.getViewportRegion());
+	if (!viewport_ || !renderMgr_) return;
+	viewport_->setWindowSize(physSize);
+	renderMgr_->setWindowSize(physSize);
+	renderMgr_->setViewportRegion(viewport_->getViewportRegion());
 
 	if (view_) {
 	    struct bview_viewport vp;
@@ -659,51 +693,79 @@ protected:
     }
 
     void paintGL() override {
-	if (!m_init)
+	if (!m_init || !viewport_ || !renderMgr_)
 	    return;
 
 	if (ctx_) {
+	    /* Snapshot child count before sync so we can detect newly added
+	     * geometry (child[0] is always the directional light). */
+	    SoSeparator *sceneRoot =
+		static_cast<SoSeparator *>(bv_render_ctx_scene_root(ctx_));
+	    int pre_sync_children = sceneRoot ? sceneRoot->getNumChildren() : 0;
+
 	    /* Sync the Inventor scene graph from bv_scene (build new nodes,
-	     * update stale ones, apply camera from view_).  Do NOT render
-	     * via ctx_->render_mgr — that context may be off-screen (OSMesa).
-	     * Instead use the widget's own renderMgr_, which is bound to the
-	     * Qt GL framebuffer through setRenderCtx() → viewport_ → renderMgr_. */
+	     * update stale ones).  The camera argument is the widget's view_;
+	     * sync writes it to ctx_->viewport (a separate SoViewport), not
+	     * to viewport_->  We handle viewport_'s camera via viewAll() below. */
 	    bv_render_ctx_sync_scene(ctx_, view_);
-	    renderMgr_.setViewportRegion(viewport_.getViewportRegion());
-	    renderMgr_.render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
+
+	    int post_sync_children = sceneRoot ? sceneRoot->getNumChildren() : 0;
+
+	    bu_log("paintGL: pre=%d post=%d fitted=%d vp_cam=%p\n",
+		   pre_sync_children, post_sync_children, (int)scene_fitted_,
+		   (void*)viewport_->getCamera());
+
+	    /* When geometry first appears (more than just the directional light),
+	     * refit viewport_'s camera so the scene fills the view.  Also refit
+	     * whenever new objects are added so newly drawn geometry stays visible. */
+	    if (post_sync_children > 1 &&
+		    (post_sync_children > pre_sync_children || !scene_fitted_)) {
+		viewport_->viewAll();
+		scene_fitted_ = true;
+	    }
+
+	    renderMgr_->setViewportRegion(viewport_->getViewportRegion());
+	    renderMgr_->render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
 	    return;
 	}
 
-	/* Fallback path (no bv_render_ctx): render the widget's default scene */
-	renderMgr_.setViewportRegion(viewport_.getViewportRegion());
-	renderMgr_.render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
+	/* No bv_render_ctx yet — nothing to render.  This path is taken during
+	 * the brief window between initializeGL() and the deferred ctx setup.
+	 * Only render if renderMgr_ has a scene graph (set by setRenderCtx). */
+	if (renderMgr_->getSceneGraph()) {
+	    renderMgr_->setViewportRegion(viewport_->getViewportRegion());
+	    renderMgr_->render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
+	}
     }
 
     /* ── Mouse events ───────────────────────────────────────────────── */
 
     void mousePressEvent(QMouseEvent *e) override {
+	if (!viewport_) return;
 	lastMousePos_ = e->pos();
 	SoMouseButtonEvent ev;
 	ev.setPosition(mapToObol(e->pos()));
 	ev.setState(SoButtonEvent::DOWN);
 	ev.setButton(qtButtonToCoin(e->button()));
-	viewport_.processEvent(&ev);
+	viewport_->processEvent(&ev);
 	update();
     }
 
     void mouseReleaseEvent(QMouseEvent *e) override {
+	if (!viewport_) return;
 	SoMouseButtonEvent ev;
 	ev.setPosition(mapToObol(e->pos()));
 	ev.setState(SoButtonEvent::UP);
 	ev.setButton(qtButtonToCoin(e->button()));
-	viewport_.processEvent(&ev);
+	viewport_->processEvent(&ev);
 	update();
     }
 
     void mouseMoveEvent(QMouseEvent *e) override {
+	if (!viewport_) return;
 	/* Left-button drag → orbit */
 	if (e->buttons() & Qt::LeftButton) {
-	    SoCamera *cam = viewport_.getCamera();
+	    SoCamera *cam = viewport_->getCamera();
 	    if (cam) {
 		const QPoint delta = e->pos() - lastMousePos_;
 		SbVec3f lookDir;
@@ -718,7 +780,7 @@ protected:
 	}
 	/* Middle-button drag → pan */
 	if (e->buttons() & Qt::MiddleButton) {
-	    SoCamera *cam = viewport_.getCamera();
+	    SoCamera *cam = viewport_->getCamera();
 	    if (cam) {
 		const QPoint delta = e->pos() - lastMousePos_;
 		SbVec3f right, up;
@@ -735,14 +797,15 @@ protected:
 	}
 	SoLocation2Event ev;
 	ev.setPosition(mapToObol(e->pos()));
-	viewport_.processEvent(&ev);
+	viewport_->processEvent(&ev);
 	update();
     }
 
     void wheelEvent(QWheelEvent *e) override {
+	if (!viewport_) return;
 	int delta = e->angleDelta().y();
 	if (delta == 0) delta = e->angleDelta().x();
-	SoCamera *cam = viewport_.getCamera();
+	SoCamera *cam = viewport_->getCamera();
 	if (cam) {
 	    SbVec3f look;
 	    cam->orientation.getValue().multVec(SbVec3f(0,0,-1), look);
@@ -756,17 +819,19 @@ protected:
     /* ── Keyboard events ────────────────────────────────────────────── */
 
     void keyPressEvent(QKeyEvent *e) override {
+	if (!viewport_) return;
 	SoKeyboardEvent ev;
 	ev.setState(SoButtonEvent::DOWN);
 	ev.setKey(qtKeyToCoin(e->key()));
-	viewport_.processEvent(&ev);
+	viewport_->processEvent(&ev);
     }
 
     void keyReleaseEvent(QKeyEvent *e) override {
+	if (!viewport_) return;
 	SoKeyboardEvent ev;
 	ev.setState(SoButtonEvent::UP);
 	ev.setKey(qtKeyToCoin(e->key()));
-	viewport_.processEvent(&ev);
+	viewport_->processEvent(&ev);
     }
 
     /* ── Context menu ───────────────────────────────────────────────── */
@@ -784,7 +849,7 @@ protected:
 	auto addRM = [&](const char *label, SoRenderManager::RenderMode mode) {
 	    QAction *a = rmMenu->addAction(label);
 	    a->setCheckable(true);
-	    a->setChecked(renderMgr_.getRenderMode() == mode);
+	    a->setChecked(renderMgr_ && renderMgr_->getRenderMode() == mode);
 	    a->setActionGroup(rmGrp);
 	    a->setData(static_cast<int>(mode));
 	};
@@ -888,9 +953,10 @@ private:
     struct bview         *local_bv_;  /* owned companion legacy bview (may be NULL after set_view) */
     struct bview_new     *view_;
     bool                  own_view_; /* true if view_ was created in ctor */
-    SoViewport            viewport_;
-    SoRenderManager       renderMgr_;
+    SoViewport           *viewport_ = nullptr;  /* allocated in initializeGL after SoDB::init() */
+    SoRenderManager      *renderMgr_ = nullptr; /* allocated in initializeGL after SoDB::init() */
     bool                  m_init;
+    bool                  scene_fitted_ = false; /* true once viewport_->viewAll() fitted to geometry */
     int                   current_ = 0;
     QPoint                lastMousePos_;
 

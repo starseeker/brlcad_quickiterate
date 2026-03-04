@@ -97,7 +97,6 @@
 
 #include <vector>
 #include <unordered_map>
-#include <mutex>
 
 /* Obol/Inventor public API headers (kept strictly inside this TU). */
 /* Obol headers are third-party code; suppress BRL-CAD's strict warnings. */
@@ -604,8 +603,11 @@ sync_scene(struct bv_render_ctx *ctx)
     if (!root_node)
 	return;
 
+    size_t n_children = BU_PTBL_LEN(&root_node->children);
+    bu_log("sync_scene: %zu bv_node children in scene\n", n_children);
+
     /* Use the scene root's children as top-level nodes */
-    for (size_t i = 0; i < BU_PTBL_LEN(&root_node->children); i++) {
+    for (size_t i = 0; i < n_children; i++) {
 	struct bv_node *top =
 	    (struct bv_node *)BU_PTBL_GET(&root_node->children, i);
 	build_so_node(ctx, top, ctx->root);
@@ -692,14 +694,19 @@ sync_camera_to_viewport(SoViewport *vp, const struct bview_new *view)
 /* ------------------------------------------------------------------ */
 /* SoDB initialisation guard                                           */
 /* ------------------------------------------------------------------ */
-static std::once_flag s_sodb_init_flag;
 
 static void
 ensure_sodb_init(void *context_manager)
 {
-    std::call_once(s_sodb_init_flag, [&]() {
-	SoDB::init(static_cast<SoDB::ContextManager *>(context_manager));
-    });
+    /* Use SoDB::isInitialized() so we never re-initialise SoDB when the
+     * calling widget (e.g. QgObolWidget::initializeGL) has already called
+     * SoDB::init() with its own Qt GL context manager.  Re-initialising
+     * SoDB with a different context manager (e.g. OSMesa) after it has
+     * already been set up with Qt GL corrupts render state and crashes. */
+    if (SoDB::isInitialized())
+	return;
+
+    SoDB::init(static_cast<SoDB::ContextManager *>(context_manager));
 }
 
 /* ------------------------------------------------------------------ */
@@ -727,7 +734,10 @@ bv_render_ctx_create(struct bv_scene *scene, void *context_manager,
 	return nullptr;
     }
 
-    if (!context_manager)
+    /* If SoDB is already initialized (e.g. by QgObolWidget::initializeGL with
+     * a Qt GL context manager), do NOT create an OSMesa context manager —
+     * doing so would re-initialize SoDB with a different backend and crash. */
+    if (!context_manager && !SoDB::isInitialized())
 	context_manager = SoDB::createOSMesaContextManager();
 
     ensure_sodb_init(context_manager);
