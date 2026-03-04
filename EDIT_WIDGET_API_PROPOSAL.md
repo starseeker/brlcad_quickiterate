@@ -505,18 +505,25 @@ widget; existing text-menu behaviour is unaffected.
    `src/libged/lint/json.hpp`.  Consumer code updated to use
    `"../libbu/json.hpp"`.  Remains a private implementation detail.
 
+6. ✅ **Populate `ft_edit_desc` for additional primitives** —
+   ELL, EPA, EHY, ETO, HYP, RPC, RHC, SUPERELL, CLINE, TGC all
+   implemented with scalar parameters.  DSP adds boolean/enum/string
+   parameters (FNAME/string, SCALE_X/Y/ALT/scalar, SET_SMOOTH/boolean,
+   SET_DATASRC/enum).  EBM (FNAME, FSIZE/2-int, HEIGHT/scalar), VOL
+   (FNAME, FSIZE/3-int, CSIZE/3-scalar, THRESH_LO/HI/integer), COMB
+   (ADD_MEMBER, DEL_MEMBER, SET_OP, SET_REGION, SET_COLOR, SET_SHADER,
+   SET_MATERIAL, SET_REGION_ID, SET_AIRCODE, SET_GIFTMATER, SET_LOS),
+   and PIPE (PT_OD/ID/RADIUS, SCALE_OD/ID/RADIUS) all implemented.
+   All new descriptors wired into `src/librt/primitives/edtable.cpp`.
+
+7. ✅ **Add a `rt_edit_desc` unit test** — added as
+   `src/librt/tests/edit/edit_desc.cpp`.  Calls `rt_edit_type_to_json`
+   for all 17 implemented primitives, checks BRLCAD_OK return, verifies
+   JSON is non-empty and contains `"commands"` and expected `cmd_id`
+   integers.  Also verifies that a primitive without `ft_edit_desc`
+   (ARB8) correctly returns `BRLCAD_ERROR`.  All 18 assertions pass.
+
 ### Remaining
-
-6. **Populate `ft_edit_desc` for additional primitives** —
-   ELL, EPA, EHY, ETO, HYP, RPC, RHC, SUPERELL, CLINE are easiest
-   (all scalar parameters).  DSP, EBM, VOL add boolean/enum/string
-   parameters.  COMB and PIPE round out the set.
-
-7. **Add a `rt_edit_desc` unit test** to `src/librt/tests/edit/` that
-   calls `rt_edit_type_to_json` for each implemented primitive and checks
-   that the output is syntactically valid JSON and that expected `cmd_id`
-   values are present.  Could use `json.hpp` from `src/libbu/` for
-   parsing in the test.
 
 8. **Implement the Qt auto-widget generator in qged** — guided by the
    algorithm in §7 above.  See §11 for critical architectural concerns
