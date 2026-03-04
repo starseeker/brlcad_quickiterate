@@ -453,7 +453,8 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
   - `ECMD_NMG_VMOVE` — move selected vertex to new XYZ coords
   - `ECMD_NMG_FPICK` — pick faceuse by index
   - `ECMD_NMG_FMOVE` — translate all face vertices by delta
-  - `ECMD_NMG_LEXTRU_DIR` — extrude loop in explicit direction+distance
+  - `ECMD_NMG_LEXTRU_DIR` (11032) added to librt; requires a wire-loop NMG
+    (loop in shell's `lu_hd`, not in a face) — not yet tested
   - RT_MATRIX_EDIT_ROT/TRANS
 
 - **SKETCH** (`edsketch.c`, test `sketch.cpp`):
@@ -641,7 +642,7 @@ New tests written (all pass):
 - `vol.cpp` — ECMD_VOL_CSIZE, ECMD_VOL_THRESH_LO/HI + generic ops
 - `sketch.cpp` — all sketch ECMDs including new ECMD_SKETCH_MOVE_VERTEX_LIST
 - `bspline.cpp` — ECMD_BSPLINE_PICK_KNOT, ECMD_BSPLINE_SET_KNOT
-- `nmg.cpp` — ECMD_NMG_VPICK/VMOVE/FPICK/FMOVE
+- `nmg.cpp` — ECMD_NMG_VPICK/VMOVE/FPICK/FMOVE (LEXTRU_DIR added to librt but needs wire-loop NMG to test)
 - `comb.cpp` — ECMD_COMB_ADD_MEMBER/DEL_MEMBER/SET_OP/SET_MATRIX
 
 New ECMDs added to librt this session (not in MGED):
@@ -676,3 +677,7 @@ Bug fixes:
 5. **PIPE remaining operations** — ECMD_PIPE_SCALE_RADIUS, ECMD_PIPE_PT_OD/ID/RADIUS
    (per-point scale), ECMD_PIPE_PT_INS (prepend), and ECMD_PIPE_SPLIT could
    use additional coverage.
+6. **NMG LEXTRU_DIR test** — `ECMD_NMG_LEXTRU_DIR` requires an NMG with a
+   wire loop (a loop in a shell's `lu_hd`, not attached to any faceuse).
+   Build such an NMG using `nmg_mlv` / wire-loop construction, then test
+   the direction+distance extrusion path.
