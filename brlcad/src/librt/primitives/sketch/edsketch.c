@@ -60,15 +60,16 @@
  * e_para[0] = start vert index
  * e_para[1] = end   vert index
  * e_para[2] = radius (mm; negative → full circle, "end" is centre)
- * center_is_left and orientation default to 0 (right of start→end, ccw).
- * e_inpara must be 3.
+ * e_para[3] = center_is_left flag (non-zero = center to left of start→end)
+ * e_para[4] = orientation flag (0 = ccw, non-zero = cw)
+ * e_inpara must be 5.  Uses RT_EDIT_MAXPARA parameter slots.
  */
 #define ECMD_SKETCH_APPEND_ARC     26006
 /**
- * Append a Bezier curve.
- * All e_inpara values are vertex indices of the control points.
- * degree = e_inpara - 1.
- * e_inpara must be >= 2 (linear) or 3 (quadratic).
+ * Append a Bezier curve segment.
+ * e_para[0..e_inpara-1] are vertex indices of the (e_inpara) control points.
+ * degree = e_inpara - 1.  Requires e_inpara >= 2.
+ * Up to RT_EDIT_MAXPARA control points are supported (degree 0..RT_EDIT_MAXPARA-1).
  */
 #define ECMD_SKETCH_APPEND_BEZIER  26007
 /** Delete the currently selected vertex (only if not used by any segment). */
@@ -410,13 +411,12 @@ ecmd_sketch_append_arc(struct rt_edit *s)
 	(struct rt_sketch_internal *)s->es_int.idb_ptr;
     RT_SKETCH_CK_MAGIC(skt);
 
-    /* e_para: [0]=start_vi  [1]=end_vi  [2]=radius
-     * center_is_left defaults to 0, orientation (ccw) defaults to 0.
-     * e_inpara must be 3. */
-    if (!s->e_inpara || s->e_inpara < 3) {
+    /* e_para: [0]=start_vi [1]=end_vi [2]=radius_mm [3]=center_is_left [4]=orientation
+     * e_inpara must be 5. */
+    if (!s->e_inpara || s->e_inpara < 5) {
 	bu_vls_printf(s->log_str,
-		"ERROR: 3 parameters required "
-		"(start_vi end_vi radius_mm)\n");
+		"ERROR: 5 parameters required "
+		"(start_vi end_vi radius_mm center_is_left orientation)\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
     }
@@ -438,8 +438,8 @@ ecmd_sketch_append_arc(struct rt_edit *s)
     cs->start          = v0;
     cs->end            = v1;
     cs->radius         = s->e_para[2] * s->local2base;
-    cs->center_is_left = 0;  /* default: center to right of start→end */
-    cs->orientation    = 0;  /* default: ccw */
+    cs->center_is_left = (int)s->e_para[3];
+    cs->orientation    = (int)s->e_para[4];
     cs->center         = -1; /* computed during sketch tessellation */
 
     size_t old_count = skt->curve.count;

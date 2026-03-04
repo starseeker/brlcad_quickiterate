@@ -44,13 +44,17 @@ support the following generic edit modes via `rt_edit_process()`:
 | `ECMD_SKETCH_PICK_SEGMENT`  | Select curve segment by index (e_para[0]) |
 | `ECMD_SKETCH_MOVE_SEGMENT`  | Translate all verts of current segment (e_para[0..1] = ΔUV) |
 | `ECMD_SKETCH_APPEND_LINE`   | Append line segment (e_para[0]=start_vi, e_para[1]=end_vi) |
-| `ECMD_SKETCH_APPEND_ARC`    | Append arc (e_para: start_vi, end_vi, radius_mm) |
-| `ECMD_SKETCH_APPEND_BEZIER` | Append Bezier (e_inpara=n control point indices, degree=n−1) |
+| `ECMD_SKETCH_APPEND_ARC`    | Append arc (e_para[0..4]: start_vi, end_vi, radius_mm, center_is_left, orientation) |
+| `ECMD_SKETCH_APPEND_BEZIER` | Append Bezier (e_inpara=n≥2 CPs, e_para[0..n-1] indices, degree=n−1) |
 | `ECMD_SKETCH_DELETE_VERTEX` | Delete current vertex if not referenced by any segment |
 | `ECMD_SKETCH_DELETE_SEGMENT`| Delete current segment |
 
 `struct rt_sketch_edit` (in `include/rt/primitives/sketch.h`, stored in
 `s->ipe_ptr`) holds `curr_vert` and `curr_seg` selection state across commands.
+
+**API note**: `struct rt_edit::e_para` was expanded from `vect_t` (3 elements)
+to `fastf_t[RT_EDIT_MAXPARA]` (16 elements) to support operations requiring
+more than 3 parameters (arc uses 5, high-degree Bezier up to 16).
 
 ### Tcl/GUI capabilities (skt_ed.tcl + SketchEditFrame.tcl)
 
