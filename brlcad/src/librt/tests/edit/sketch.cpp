@@ -42,6 +42,7 @@
 #include "bu/app.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "nmg.h"
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "rt/primitives/sketch.h"
@@ -62,6 +63,9 @@
 #define ECMD_SKETCH_DELETE_SEGMENT 26009
 #define ECMD_SKETCH_MOVE_VERTEX_LIST 26010
 #define ECMD_SKETCH_SPLIT_SEGMENT    26011
+#define ECMD_SKETCH_APPEND_NURB      26012
+#define ECMD_SKETCH_NURB_EDIT_KV     26013
+#define ECMD_SKETCH_NURB_EDIT_WEIGHTS 26014
 
 
 /* ------------------------------------------------------------------ */
@@ -719,6 +723,229 @@ main(int argc, char *argv[])
 	bu_log("ECMD_SKETCH_PICK_VERTEX (proximity) SUCCESS: "
 	       "cursor at view (%g,%g) → nearest vertex %d\n",
 	       cursor[X], cursor[Y], se->curr_vert);
+    }
+
+    /* ================================================================
+     * ECMD_SKETCH_APPEND_NURB: append a quadratic (order=3) NURB with
+     * 4 control points (c_size=4, must be >= order=3).
+     *
+     * Using existing vertices 0..3: (0,0) (10,0) (10,10) (0,10).
+     * After the call:
+     *   - curve.count increases by 1
+     *   - New segment is CURVE_NURB_MAGIC, order=3, c_size=4, rational=0
+     *   - k_size = 4 + 3 = 7
+     *   - Auto clamped-uniform knot vector:
+     *       [0, 0, 0, 1, 2, 2, 2]  (3 repeated zeros, interior at 1,
+     *        2 = c_size-order+1 repeated end value)
+     * ================================================================*/
+    {
+	struct rt_sketch_internal *skt_n =
+	    (struct rt_sketch_internal *)s->es_int.idb_ptr;
+
+	size_t sc_before = skt_n->curve.count;
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_NURB);
+	/* e_para[0] = order=3; e_para[1..4] = vert indices 0,1,2,3 */
+	s->e_inpara  = 5;
+	s->e_para[0] = 3.0;  /* order */
+	s->e_para[1] = 0.0;  /* ctrl pt 0 */
+	s->e_para[2] = 1.0;  /* ctrl pt 1 */
+	s->e_para[3] = 2.0;  /* ctrl pt 2 */
+	s->e_para[4] = 3.0;  /* ctrl pt 3 */
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	if (skt_n->curve.count != sc_before + 1)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_APPEND_NURB: expected curve.count=%zu, got %zu\n",
+		sc_before + 1, skt_n->curve.count);
+
+	size_t nurb_idx = sc_before;  /* index of newly appended segment */
+	void *nseg = skt_n->curve.segment[nurb_idx];
+	if (!nseg || *(uint32_t *)nseg != CURVE_NURB_MAGIC)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: wrong segment type\n");
+
+	struct nurb_seg *ns = (struct nurb_seg *)nseg;
+	if (ns->order != 3 || ns->c_size != 4)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_APPEND_NURB: order=%d c_size=%d (expected 3,4)\n",
+		ns->order, ns->c_size);
+	if (ns->weights != NULL)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: weights should be NULL\n");
+	if (RT_NURB_IS_PT_RATIONAL(ns->pt_type))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: pt_type should be non-rational\n");
+
+	/* Expected k_size = 3 + 4 = 7 */
+	if (ns->k.k_size != 7)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_APPEND_NURB: k_size=%d (expected 7)\n",
+		ns->k.k_size);
+
+	/* Expected clamped uniform knot vector: [0,0,0,1,2,2,2] */
+	fastf_t expected_kv[7] = {0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 2.0};
+	int kv_ok = 1;
+	for (int i = 0; i < 7; i++) {
+	    if (fabs(ns->k.knots[i] - expected_kv[i]) > VUNITIZE_TOL)
+		{ kv_ok = 0; break; }
+	}
+	if (!kv_ok) {
+	    bu_log("ERROR: ECMD_SKETCH_APPEND_NURB: knot vector = [");
+	    for (int i = 0; i < 7; i++) bu_log("%g ", ns->k.knots[i]);
+	    bu_log("], expected [0,0,0,1,2,2,2]\n");
+	    bu_exit(1, "ECMD_SKETCH_APPEND_NURB: wrong knot vector\n");
+	}
+	/* Control points should be 0,1,2,3 */
+	if (ns->ctl_points[0] != 0 || ns->ctl_points[1] != 1 ||
+	    ns->ctl_points[2] != 2 || ns->ctl_points[3] != 3)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_APPEND_NURB: wrong control points\n");
+
+	bu_log("ECMD_SKETCH_APPEND_NURB (order=3, c_size=4) SUCCESS: "
+	       "kv=[0,0,0,1,2,2,2] curve.count=%zu\n", skt_n->curve.count);
+
+	/* ============================================================
+	 * ECMD_SKETCH_NURB_EDIT_KV: replace the knot vector of the
+	 * NURB segment we just created.
+	 *
+	 * Replace [0,0,0,1,2,2,2] with [0,0,0,0.5,2,2,2] — shifting
+	 * the single interior knot from 1 to 0.5.
+	 * ============================================================*/
+
+	/* Select the NURB segment */
+	se->curr_seg = (int)nurb_idx;
+
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_NURB_EDIT_KV);
+	/* e_para[0] = k_size=7; e_para[1..7] = new knot values */
+	s->e_inpara  = 8;
+	s->e_para[0] = 7.0;   /* k_size */
+	s->e_para[1] = 0.0;
+	s->e_para[2] = 0.0;
+	s->e_para[3] = 0.0;
+	s->e_para[4] = 0.5;   /* moved interior knot */
+	s->e_para[5] = 2.0;
+	s->e_para[6] = 2.0;
+	s->e_para[7] = 2.0;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_NURB_EDIT_KV: %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	fastf_t expected_kv2[7] = {0.0, 0.0, 0.0, 0.5, 2.0, 2.0, 2.0};
+	int kv2_ok = 1;
+	for (int i = 0; i < 7; i++) {
+	    if (fabs(ns->k.knots[i] - expected_kv2[i]) > VUNITIZE_TOL)
+		{ kv2_ok = 0; break; }
+	}
+	if (!kv2_ok) {
+	    bu_log("ERROR: ECMD_SKETCH_NURB_EDIT_KV: knot vector = [");
+	    for (int i = 0; i < 7; i++) bu_log("%g ", ns->k.knots[i]);
+	    bu_log("], expected [0,0,0,0.5,2,2,2]\n");
+	    bu_exit(1, "ECMD_SKETCH_NURB_EDIT_KV: wrong knot vector\n");
+	}
+	bu_log("ECMD_SKETCH_NURB_EDIT_KV SUCCESS: kv=[0,0,0,0.5,2,2,2]\n");
+
+	/* ============================================================
+	 * ECMD_SKETCH_NURB_EDIT_WEIGHTS: make the segment rational by
+	 * setting 4 weights = {1, 2, 2, 1}.
+	 *
+	 * After: pt_type should be rational, weights array filled.
+	 * ============================================================*/
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_NURB_EDIT_WEIGHTS);
+	/* e_para[0]=seg_index; e_para[1]=c_size=4; e_para[2..5]=weights */
+	s->e_inpara  = 6;
+	s->e_para[0] = (fastf_t)nurb_idx;  /* segment index */
+	s->e_para[1] = 4.0;                /* c_size */
+	s->e_para[2] = 1.0;
+	s->e_para[3] = 2.0;
+	s->e_para[4] = 2.0;
+	s->e_para[5] = 1.0;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	if (!RT_NURB_IS_PT_RATIONAL(ns->pt_type))
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: pt_type not rational\n");
+	if (!ns->weights)
+	    bu_exit(1, "ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: weights array is NULL\n");
+
+	fastf_t expected_w[4] = {1.0, 2.0, 2.0, 1.0};
+	for (int i = 0; i < 4; i++) {
+	    if (fabs(ns->weights[i] - expected_w[i]) > VUNITIZE_TOL)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_NURB_EDIT_WEIGHTS: weight[%d]=%g "
+		    "(expected %g)\n", i, ns->weights[i], expected_w[i]);
+	}
+	bu_log("ECMD_SKETCH_NURB_EDIT_WEIGHTS SUCCESS: "
+	       "weights=[1,2,2,1] rational=%d\n",
+	       RT_NURB_IS_PT_RATIONAL(ns->pt_type));
+
+	/* ============================================================
+	 * ECMD_SKETCH_DELETE_SEGMENT: delete the NURB segment and verify
+	 * that NURB-specific memory (knots, ctl_points, weights) is freed
+	 * without a crash (valgrind would catch leaks in CI).
+	 * ============================================================*/
+	se->curr_seg = (int)nurb_idx;
+	EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_DELETE_SEGMENT);
+	s->e_inpara = 0;
+	bu_vls_trunc(s->log_str, 0);
+
+	rt_edit_process(s);
+	if (bu_vls_strlen(s->log_str))
+	    bu_exit(1, "ERROR: ECMD_SKETCH_DELETE_SEGMENT (nurb): %s\n",
+		    bu_vls_cstr(s->log_str));
+
+	if (skt_n->curve.count != sc_before)
+	    bu_exit(1,
+		"ERROR: ECMD_SKETCH_DELETE_SEGMENT (nurb): "
+		"expected count=%zu, got %zu\n",
+		sc_before, skt_n->curve.count);
+	bu_log("ECMD_SKETCH_DELETE_SEGMENT (nurb) SUCCESS: "
+	       "curve.count back to %zu\n", skt_n->curve.count);
+
+	/* ============================================================
+	 * Error-path checks for ECMD_SKETCH_APPEND_NURB:
+	 *   (a) c_size < order → curve.count must NOT increase
+	 *   (b) out-of-range control point index → curve.count must NOT increase
+	 * ============================================================*/
+	{
+	    size_t sc_err = skt_n->curve.count;
+
+	    /* (a) order=4 but only 2 control points (c_size=2 < order=4) */
+	    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_NURB);
+	    s->e_inpara  = 3;
+	    s->e_para[0] = 4.0;  /* order */
+	    s->e_para[1] = 0.0;
+	    s->e_para[2] = 1.0;
+	    rt_edit_process(s);
+	    if (skt_n->curve.count != sc_err)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_APPEND_NURB should reject c_size < order "
+		    "(count changed from %zu to %zu)\n",
+		    sc_err, skt_n->curve.count);
+	    bu_log("ECMD_SKETCH_APPEND_NURB (c_size<order) correctly rejected\n");
+
+	    /* (b) order=2, 3 control points but last index is bogus */
+	    EDOBJ[dp->d_minor_type].ft_set_edit_mode(s, ECMD_SKETCH_APPEND_NURB);
+	    s->e_inpara  = 4;
+	    s->e_para[0] = 2.0;     /* order */
+	    s->e_para[1] = 0.0;
+	    s->e_para[2] = 1.0;
+	    s->e_para[3] = 9999.0;  /* bogus vertex index */
+	    rt_edit_process(s);
+	    if (skt_n->curve.count != sc_err)
+		bu_exit(1,
+		    "ERROR: ECMD_SKETCH_APPEND_NURB should reject out-of-range vert\n");
+	    bu_log("ECMD_SKETCH_APPEND_NURB (bad vert index) correctly rejected\n");
+	}
     }
 
     rt_edit_destroy(s);

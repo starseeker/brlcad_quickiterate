@@ -43,15 +43,12 @@ Cross-cutting features now in librt:
 `struct rt_sketch_edit` holds `curr_vert` and `curr_seg` selection state,
 plus `v_pos` / `v_pos_valid` for mouse-proximity picking.
 
-### Remaining gaps
-
-| Feature | Status |
-|---------|--------|
-| NURB segment add/edit | Not implemented; rarely used in practice |
-
-All other sketch editing features are implemented:
+All sketch editing features are implemented:
 - **Mouse-proximity vertex picking**: `ft_edit_xy` stores the view-space cursor in `se->v_pos`; `ecmd_sketch_pick_vertex` projects all sketch vertices through `model2objview` and selects the nearest one.
-- **Segment split at parameter t** (`ECMD_SKETCH_SPLIT_SEGMENT 26011`): supported for LINE (linear interpolation), CARC (arc geometry computation matching `skt_ed.tcl find_arc_center`), and BEZIER (de Casteljau subdivision matching `skt_ed.tcl calc_bezier`). Full-circle CARCs and NURB segments are not supported.
+- **Segment split at parameter t** (`ECMD_SKETCH_SPLIT_SEGMENT 26011`): supported for LINE, CARC (non-full-circle), and BEZIER. Full-circle CARCs and NURB segments are not supported (NURB subdivision requires the full Oslo algorithm).
+- **NURB segment add** (`ECMD_SKETCH_APPEND_NURB 26012`): creates a non-rational B-spline with a clamped-uniform knot vector auto-generated from `order` and `c_size`.  Parameters: `e_para[0]` = order, `e_para[1..e_inpara-1]` = control point vertex indices.
+- **NURB knot-vector edit** (`ECMD_SKETCH_NURB_EDIT_KV 26013`): replaces the full knot vector of the currently selected NURB segment. Validates non-decreasing order and matching `k_size = order + c_size`.
+- **NURB weight edit** (`ECMD_SKETCH_NURB_EDIT_WEIGHTS 26014`): sets or replaces the per-control-point weight array; makes the segment rational on first use.  The `pt_type` is updated to the rational variant.
 
 ---
 
