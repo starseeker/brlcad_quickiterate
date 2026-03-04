@@ -1,6 +1,10 @@
 # Primitives have their own individual editing requirements
 add_subdirectory(ell)
 
+# Auto-generated widget panel driven by ft_edit_desc() descriptors.
+# Handles any primitive that has a descriptor registered in EDOBJ[].
+add_subdirectory(prim_desc)
+
 # Things to check include:
 #
 # preparing selectable "schematic" 2D graphics with

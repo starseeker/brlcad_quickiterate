@@ -523,11 +523,60 @@ widget; existing text-menu behaviour is unaffected.
    integers.  Also verifies that a primitive without `ft_edit_desc`
    (ARB8) correctly returns `BRLCAD_ERROR`.  All 18 assertions pass.
 
+8. ✅ **Implement the Qt auto-widget generator in qged** — added as the
+   `qged_prim_desc` plugin in `src/qged/plugins/edit/prim_desc/`.
+   The `QgPrimDescWidget` class supports **both editing and creating** primitives:
+
+   **Primitive type selector bar** (always visible at the top):
+   - Iterates `EDOBJ[]` at widget construction time; creates one
+     `QPushButton` per primitive type that has an `ft_edit_desc()`.
+   - Clicking a button calls `setPrimType()` to proactively select a
+     type — equivalent to the `make`/`in` commands on the CLI.
+   - The active type's button is highlighted (`setChecked(true)`).
+
+   **Parameter panel** (rebuilt on each `setPrimType()` call):
+   - Reads `rt_edit_prim_desc` directly from
+     `EDOBJ[prim_type_id].ft_edit_desc()` (in-process, no JSON parse).
+   - Groups commands by `category` into `QGroupBox` panels, sorted by
+     `display_order` within each group.
+   - Per-command row: bold `QLabel` header, type-appropriate parameter
+     input widgets (QDoubleSpinBox/QSpinBox/QCheckBox/QLineEdit+browse/
+     QComboBox/color-dialog-button/4×4 spin grid), and an **Apply** button.
+   - Matrix apply bug fix: values are written to `e_para[p->index + mi]`
+     (not always from index 0).
+
+   **Name field and Create button** (always visible below the type bar):
+   - A `QLineEdit` for the object name and a **Create** button.
+   - Create uses `OBJ[type].ft_make()` to initialise a default
+     `rt_db_internal`, then `wdb_put_internal()` to write it to the
+     database.  After creation the scene is refreshed (`QG_VIEW_DB`).
+   - The mode label updates to reflect "Creating new TOR" vs.
+     "Editing myobj.s (TOR)".
+
+   **Edit mode** (activated by scene selection):
+   - `do_view_update(QG_VIEW_SELECT)` reads the active selection via
+     `BSelectState::list_selected_paths()`, resolves the leaf solid's
+     `d_minor_type`, populates the name field, and calls `setPrimType()`
+     to rebuild the panel if the type changed.
+   - Apply button calls `rt_edit_set_edflag(s, cmd_id)` + `rt_edit_process(s)`.
+   - `setEditState(rt_edit *)` links the widget to a live edit session.
+
+   **Plugin registration:**
+   - `QGED_OC_TOOL_PLUGIN` with priority 900.
+   - The plugin is guarded by `BRLCAD_ENABLE_QT` and compiled with Qt 5
+     or Qt 6 automatically.
+
 ### Remaining
 
-8. **Implement the Qt auto-widget generator in qged** — guided by the
-   algorithm in §7 above.  See §11 for critical architectural concerns
-   that the qged layer must address.
+_All planned implementation items are now complete._  Future work:
+- Implement `ft_edit_get_params` to pre-populate spinboxes with the
+  current primitive values on widget activation (item 11.3).
+- Implement `e_str` parallel string array for `RT_EDIT_PARAM_STRING`
+  commands (item 11.4).
+- Wire `rt_edit_create()` lifecycle into the qged selection handler so
+  Apply buttons work without a manually set `es` pointer.
+- Wire the Create button's post-write step to start an `rt_edit` session
+  automatically, so Apply works immediately after creation.
 
 ---
 
