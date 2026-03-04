@@ -68,6 +68,18 @@
  * Uses bot_verts[0..2] set by a prior ECMD_BOT_PICKT; no e_para needed.
  */
 #define ECMD_BOT_FSPLIT		30075
+/*
+ * Fuse duplicate vertices (within the model tolerance).
+ * Calls rt_bot_vertex_fuse(); no e_para values needed.
+ * Returns the number of vertices removed (logged to log_str).
+ */
+#define ECMD_BOT_VERTEX_FUSE	30076
+/*
+ * Remove duplicate faces.
+ * Calls rt_bot_face_fuse(); no e_para values needed.
+ * Returns the number of faces removed (logged to log_str).
+ */
+#define ECMD_BOT_FACE_FUSE	30077
 
 void *
 rt_edit_bot_prim_edit_create(struct rt_edit *UNUSED(s))
@@ -175,6 +187,8 @@ struct rt_edit_menu_item bot_menu[] = {
     { "Move Vertex List", bot_ed, ECMD_BOT_MOVEV_LIST },
     { "Split Edge", bot_ed, ECMD_BOT_ESPLIT },
     { "Split Face", bot_ed, ECMD_BOT_FSPLIT },
+    { "Fuse Vertices", bot_ed, ECMD_BOT_VERTEX_FUSE },
+    { "Fuse Faces", bot_ed, ECMD_BOT_FACE_FUSE },
     { "Delete Triangle", bot_ed, ECMD_BOT_FDEL },
     { "Select Mode", bot_ed, ECMD_BOT_MODE },
     { "Select Orientation", bot_ed, ECMD_BOT_ORIENT },
@@ -679,6 +693,47 @@ ecmd_bot_fsplit(struct rt_edit *s)
     return BRLCAD_OK;
 }
 
+/* Fuse duplicate vertices within model tolerance.
+ * Calls rt_bot_vertex_fuse() which compacts the vertex array and updates
+ * face indices.  No e_para values are needed. */
+static int
+ecmd_bot_vertex_fuse(struct rt_edit *s)
+{
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)s->es_int.idb_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    int n = rt_bot_vertex_fuse(bot, s->tol);
+    if (n < 0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_BOT_VERTEX_FUSE: rt_bot_vertex_fuse failed\n");
+	return BRLCAD_ERROR;
+    }
+    bu_vls_printf(s->log_str,
+	    "ECMD_BOT_VERTEX_FUSE: removed %d duplicate vertices "
+	    "(%zu remain)\n", n, bot->num_vertices);
+    return BRLCAD_OK;
+}
+
+/* Remove duplicate faces.
+ * Calls rt_bot_face_fuse(); no e_para values are needed. */
+static int
+ecmd_bot_face_fuse(struct rt_edit *s)
+{
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)s->es_int.idb_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    int n = rt_bot_face_fuse(bot);
+    if (n < 0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_BOT_FACE_FUSE: rt_bot_face_fuse failed\n");
+	return BRLCAD_ERROR;
+    }
+    bu_vls_printf(s->log_str,
+	    "ECMD_BOT_FACE_FUSE: removed %d duplicate faces "
+	    "(%zu remain)\n", n, bot->num_faces);
+    return BRLCAD_OK;
+}
+
 void
 ecmd_bot_movev(struct rt_edit *s)
 {
@@ -1036,6 +1091,10 @@ rt_edit_bot_edit(struct rt_edit *s)
 	    return ecmd_bot_esplit(s);
 	case ECMD_BOT_FSPLIT:
 	    return ecmd_bot_fsplit(s);
+	case ECMD_BOT_VERTEX_FUSE:
+	    return ecmd_bot_vertex_fuse(s);
+	case ECMD_BOT_FACE_FUSE:
+	    return ecmd_bot_face_fuse(s);
 	case ECMD_BOT_MOVEV:
 	    ecmd_bot_movev(s);
 	    break;
@@ -1073,6 +1132,8 @@ rt_edit_bot_edit_xy(
 	case ECMD_BOT_FMODE:
 	case ECMD_BOT_FDEL :
 	case ECMD_BOT_FLAGS:
+	case ECMD_BOT_VERTEX_FUSE:
+	case ECMD_BOT_FACE_FUSE:
 	    edit_sscale_xy(s, mousevec);
 	    return 0;
 	case RT_PARAMS_EDIT_TRANS:
