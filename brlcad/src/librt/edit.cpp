@@ -396,6 +396,14 @@ rt_edit_set_edflag(struct rt_edit *s, int edflag)
 	case RT_PARAMS_EDIT_TRANS:
 	case RT_PARAMS_EDIT_SCALE:
 	case RT_PARAMS_EDIT_PICK:
+	case RT_MATRIX_EDIT_ROT:
+	case RT_MATRIX_EDIT_TRANS_VIEW_XY:
+	case RT_MATRIX_EDIT_TRANS_VIEW_X:
+	case RT_MATRIX_EDIT_TRANS_VIEW_Y:
+	case RT_MATRIX_EDIT_SCALE:
+	case RT_MATRIX_EDIT_SCALE_X:
+	case RT_MATRIX_EDIT_SCALE_Y:
+	case RT_MATRIX_EDIT_SCALE_Z:
 	    s->edit_mode = edflag;
 	    break;
 	default:
