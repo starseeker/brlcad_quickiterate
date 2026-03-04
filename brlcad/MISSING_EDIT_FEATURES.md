@@ -194,7 +194,7 @@ removing the `#if 0` guard and wiring the model2objview matrix from
 
 | Primitive | ECMD coverage | Remaining gaps |
 |-----------|--------------|----------------|
-| Sketch    | Core CRUD + multi-vertex move | Segment split at t; NURB edit; mouse proximity pick |
+| Sketch    | Complete | None (NURB subdivision and full-circle CARC split are intentionally out of scope) |
 | Pipe      | Complete | None |
 | BOT       | Complete | None |
 | NMG       | Complete (edges + face/vertex + loop extrude dir) | Shell-level ops (out of scope) |
