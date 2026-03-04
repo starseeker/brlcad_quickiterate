@@ -711,10 +711,6 @@ protected:
 
 	    int post_sync_children = sceneRoot ? sceneRoot->getNumChildren() : 0;
 
-	    bu_log("paintGL: pre=%d post=%d fitted=%d vp_cam=%p\n",
-		   pre_sync_children, post_sync_children, (int)scene_fitted_,
-		   (void*)viewport_->getCamera());
-
 	    /* When geometry first appears (more than just the directional light),
 	     * refit viewport_'s camera so the scene fills the view.  Also refit
 	     * whenever new objects are added so newly drawn geometry stays visible. */

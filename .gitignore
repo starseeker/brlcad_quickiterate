@@ -42,3 +42,5 @@ CMakeLists.txt.user
 
 
 mged-*-bomb.log
+qged-*.log
+qged_obol_*.png

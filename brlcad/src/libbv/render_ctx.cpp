@@ -603,11 +603,8 @@ sync_scene(struct bv_render_ctx *ctx)
     if (!root_node)
 	return;
 
-    size_t n_children = BU_PTBL_LEN(&root_node->children);
-    bu_log("sync_scene: %zu bv_node children in scene\n", n_children);
-
     /* Use the scene root's children as top-level nodes */
-    for (size_t i = 0; i < n_children; i++) {
+    for (size_t i = 0; i < BU_PTBL_LEN(&root_node->children); i++) {
 	struct bv_node *top =
 	    (struct bv_node *)BU_PTBL_GET(&root_node->children, i);
 	build_so_node(ctx, top, ctx->root);
