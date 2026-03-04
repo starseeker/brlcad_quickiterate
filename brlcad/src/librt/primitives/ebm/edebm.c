@@ -77,6 +77,107 @@ rt_edit_ebm_menu_item(const struct bn_tol *UNUSED(tol))
     return ebm_menu;
 }
 
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the Extruded Bitmap primitive          */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc ebm_fname_params[] = {
+    {
+	"fname",              /* name         */
+	"Filename",           /* label        */
+	RT_EDIT_PARAM_STRING, /* type         */
+	0,                    /* index (unused for STRING) */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	"file.name"           /* prim_field   */
+    }
+};
+
+/* ECMD_EBM_FSIZE expects e_inpara=2: e_para[0]=width, e_para[1]=height */
+static const struct rt_edit_param_desc ebm_fsize_params[] = {
+    {
+	"xdim",               /* name         */
+	"Width (cells)",      /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	1.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"count",              /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"ydim",               /* name         */
+	"Height (cells)",     /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	1,                    /* index        */
+	1.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"count",              /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc ebm_height_params[] = {
+    {
+	"tallness",           /* name         */
+	"Extrusion Depth",    /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc ebm_cmds[] = {
+    {
+	ECMD_EBM_FNAME,       /* cmd_id       */
+	"File Name",          /* label        */
+	"data",               /* category     */
+	1,                    /* nparam       */
+	ebm_fname_params,     /* params       */
+	0,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_EBM_FSIZE,       /* cmd_id       */
+	"File Size (W N)",    /* label        */
+	"geometry",           /* category     */
+	2,                    /* nparam       */
+	ebm_fsize_params,     /* params       */
+	0,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_EBM_HEIGHT,      /* cmd_id       */
+	"Extrude Depth",      /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	ebm_height_params,    /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc ebm_prim_desc = {
+    "ebm",                /* prim_type    */
+    "Extruded Bitmap",    /* prim_label   */
+    3,                    /* ncmd         */
+    ebm_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_ebm_edit_desc(void)
+{
+    return &ebm_prim_desc;
+}
+
 int
 ecmd_ebm_fsize(struct rt_edit *s)
 {

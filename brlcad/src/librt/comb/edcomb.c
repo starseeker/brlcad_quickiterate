@@ -864,6 +864,319 @@ rt_edit_comb_menu_item(const struct bn_tol *UNUSED(tol))
     return comb_menu;
 }
 
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the Combination / Region primitive     */
+/* ------------------------------------------------------------------ */
+
+/* ECMD_COMB_ADD_MEMBER: member name (string) + boolean op (enum) */
+static const char * const comb_bool_op_labels[] = { "Union", "Intersect", "Subtract" };
+static const int comb_bool_op_ids[] = { 2 /* OP_UNION */, 3 /* OP_INTERSECT */, 4 /* OP_SUBTRACT */ };
+
+static const struct rt_edit_param_desc comb_add_member_params[] = {
+    {
+	"member_name",        /* name         */
+	"Member Name",        /* label        */
+	RT_EDIT_PARAM_STRING, /* type         */
+	0,                    /* index (unused for STRING) */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	"es_name"             /* prim_field   */
+    },
+    {
+	"op",                 /* name         */
+	"Boolean Operation",  /* label        */
+	RT_EDIT_PARAM_ENUM,   /* type         */
+	0,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	3,                    /* nenum        */
+	comb_bool_op_labels,  /* enum_labels  */
+	comb_bool_op_ids,     /* enum_ids     */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_DEL_MEMBER: member index */
+static const struct rt_edit_param_desc comb_del_member_params[] = {
+    {
+	"member_index",       /* name         */
+	"Member Index",       /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"none",               /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_OP: member index + new boolean op */
+static const struct rt_edit_param_desc comb_set_op_params[] = {
+    {
+	"member_index",       /* name         */
+	"Member Index",       /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"none",               /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    },
+    {
+	"op",                 /* name         */
+	"Boolean Operation",  /* label        */
+	RT_EDIT_PARAM_ENUM,   /* type         */
+	1,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	3,                    /* nenum        */
+	comb_bool_op_labels,  /* enum_labels  */
+	comb_bool_op_ids,     /* enum_ids     */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_REGION: is-region flag */
+static const struct rt_edit_param_desc comb_set_region_params[] = {
+    {
+	"region",             /* name         */
+	"Is Region",          /* label        */
+	RT_EDIT_PARAM_BOOLEAN, /* type        */
+	0,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_COLOR: RGB color */
+static const struct rt_edit_param_desc comb_set_color_params[] = {
+    {
+	"color",              /* name         */
+	"Color (RGB)",        /* label        */
+	RT_EDIT_PARAM_COLOR,  /* type         */
+	0,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_SHADER: shader string */
+static const struct rt_edit_param_desc comb_set_shader_params[] = {
+    {
+	"shader",             /* name         */
+	"Shader",             /* label        */
+	RT_EDIT_PARAM_STRING, /* type         */
+	0,                    /* index (unused for STRING) */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	"es_shader"           /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_MATERIAL: material string */
+static const struct rt_edit_param_desc comb_set_material_params[] = {
+    {
+	"material",           /* name         */
+	"Material",           /* label        */
+	RT_EDIT_PARAM_STRING, /* type         */
+	0,                    /* index (unused for STRING) */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	"es_material"         /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_REGION_ID: region id */
+static const struct rt_edit_param_desc comb_set_region_id_params[] = {
+    {
+	"region_id",          /* name         */
+	"Region ID",          /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	65535.0,              /* range_max    */
+	"none",               /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_AIRCODE: aircode */
+static const struct rt_edit_param_desc comb_set_aircode_params[] = {
+    {
+	"aircode",            /* name         */
+	"Air Code",           /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"none",               /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_GIFTMATER: GIFTmater code */
+static const struct rt_edit_param_desc comb_set_giftmater_params[] = {
+    {
+	"giftmater",          /* name         */
+	"GIFTmater",          /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"none",               /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* ECMD_COMB_SET_LOS: line-of-sight percentage */
+static const struct rt_edit_param_desc comb_set_los_params[] = {
+    {
+	"los",                /* name         */
+	"LOS (%)",            /* label        */
+	RT_EDIT_PARAM_INTEGER, /* type        */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	100.0,                /* range_max    */
+	"fraction",           /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc comb_cmds[] = {
+    {
+	ECMD_COMB_ADD_MEMBER,     /* cmd_id       */
+	"Add Member",             /* label        */
+	"tree",                   /* category     */
+	2,                        /* nparam       */
+	comb_add_member_params,   /* params       */
+	0,                        /* interactive  */
+	10                        /* display_order */
+    },
+    {
+	ECMD_COMB_DEL_MEMBER,     /* cmd_id       */
+	"Delete Member",          /* label        */
+	"tree",                   /* category     */
+	1,                        /* nparam       */
+	comb_del_member_params,   /* params       */
+	0,                        /* interactive  */
+	20                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_OP,         /* cmd_id       */
+	"Set Boolean Op",         /* label        */
+	"tree",                   /* category     */
+	2,                        /* nparam       */
+	comb_set_op_params,       /* params       */
+	0,                        /* interactive  */
+	30                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_REGION,     /* cmd_id       */
+	"Set Region Flag",        /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_region_params,   /* params       */
+	0,                        /* interactive  */
+	10                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_COLOR,      /* cmd_id       */
+	"Set Color",              /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_color_params,    /* params       */
+	0,                        /* interactive  */
+	20                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_SHADER,     /* cmd_id       */
+	"Set Shader",             /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_shader_params,   /* params       */
+	0,                        /* interactive  */
+	30                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_MATERIAL,   /* cmd_id       */
+	"Set Material",           /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_material_params, /* params       */
+	0,                        /* interactive  */
+	40                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_REGION_ID,  /* cmd_id       */
+	"Set Region ID",          /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_region_id_params, /* params      */
+	0,                        /* interactive  */
+	50                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_AIRCODE,    /* cmd_id       */
+	"Set Aircode",            /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_aircode_params,  /* params       */
+	0,                        /* interactive  */
+	60                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_GIFTMATER,  /* cmd_id       */
+	"Set GIFTmater",          /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_giftmater_params, /* params      */
+	0,                        /* interactive  */
+	70                        /* display_order */
+    },
+    {
+	ECMD_COMB_SET_LOS,        /* cmd_id       */
+	"Set LOS",                /* label        */
+	"material",               /* category     */
+	1,                        /* nparam       */
+	comb_set_los_params,      /* params       */
+	0,                        /* interactive  */
+	80                        /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc comb_prim_desc = {
+    "comb",               /* prim_type    */
+    "Combination / Region", /* prim_label */
+    11,                   /* ncmd         */
+    comb_cmds             /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_comb_edit_desc(void)
+{
+    return &comb_prim_desc;
+}
+
 int
 rt_edit_comb_edit(struct rt_edit *s)
 {

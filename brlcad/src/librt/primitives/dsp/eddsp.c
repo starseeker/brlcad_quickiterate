@@ -102,6 +102,170 @@ rt_edit_dsp_menu_item(const struct bn_tol *UNUSED(tol))
     return dsp_menu;
 }
 
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the Displacement Map primitive          */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc dsp_fname_params[] = {
+    {
+	"fname",              /* name         */
+	"Filename",           /* label        */
+	RT_EDIT_PARAM_STRING, /* type         */
+	0,                    /* index (unused for STRING) */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	"dsp_name"            /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc dsp_scale_x_params[] = {
+    {
+	"xs",                 /* name         */
+	"X Cell Size",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc dsp_scale_y_params[] = {
+    {
+	"ys",                 /* name         */
+	"Y Cell Size",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc dsp_scale_alt_params[] = {
+    {
+	"alts",               /* name         */
+	"Altitude Scale",     /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc dsp_smooth_params[] = {
+    {
+	"smooth",             /* name         */
+	"Smooth",             /* label        */
+	RT_EDIT_PARAM_BOOLEAN, /* type        */
+	0,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* DSP data source enum: 'f'=102 (file), 'o'=111 (object) */
+static const char * const dsp_datasrc_labels[] = { "File", "Object" };
+static const int dsp_datasrc_ids[] = { 'f', 'o' };
+
+static const struct rt_edit_param_desc dsp_datasrc_params[] = {
+    {
+	"datasrc",            /* name         */
+	"Data Source",        /* label        */
+	RT_EDIT_PARAM_ENUM,   /* type         */
+	0,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	NULL,                 /* units        */
+	2,                    /* nenum        */
+	dsp_datasrc_labels,   /* enum_labels  */
+	dsp_datasrc_ids,      /* enum_ids     */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc dsp_cmds[] = {
+    {
+	ECMD_DSP_FNAME,       /* cmd_id       */
+	"Name",               /* label        */
+	"data",               /* category     */
+	1,                    /* nparam       */
+	dsp_fname_params,     /* params       */
+	0,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_DSP_SCALE_X,     /* cmd_id       */
+	"Set X",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	dsp_scale_x_params,   /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_DSP_SCALE_Y,     /* cmd_id       */
+	"Set Y",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	dsp_scale_y_params,   /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    },
+    {
+	ECMD_DSP_SCALE_ALT,   /* cmd_id       */
+	"Set ALT",            /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	dsp_scale_alt_params, /* params       */
+	1,                    /* interactive  */
+	40                    /* display_order */
+    },
+    {
+	ECMD_DSP_SET_SMOOTH,  /* cmd_id       */
+	"Toggle Smooth",      /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	dsp_smooth_params,    /* params       */
+	0,                    /* interactive  */
+	50                    /* display_order */
+    },
+    {
+	ECMD_DSP_SET_DATASRC, /* cmd_id       */
+	"Set Data Source",    /* label        */
+	"data",               /* category     */
+	1,                    /* nparam       */
+	dsp_datasrc_params,   /* params       */
+	0,                    /* interactive  */
+	20                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc dsp_prim_desc = {
+    "dsp",                /* prim_type    */
+    "Displacement Map",   /* prim_label   */
+    6,                    /* ncmd         */
+    dsp_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_dsp_edit_desc(void)
+{
+    return &dsp_prim_desc;
+}
+
 static void
 dsp_scale(struct rt_edit *s, struct rt_dsp_internal *dsp, int idx)
 {
