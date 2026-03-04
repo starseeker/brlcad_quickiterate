@@ -1,20 +1,25 @@
 # librender CMakeLists.txt
 #
-# A clean C library encapsulating BRL-CAD raytracing capabilities.
+# A C-API (C++17 implementation) library encapsulating BRL-CAD raytracing.
 # The library target is named "librtrender" to avoid conflict with the
 # existing "librender" in src/adrt/.
 #
-# Dependencies: librt, liboptical, libbu (from source_dirs.cmake)
+# Core implementation (C++17, C API):
+#   render_ctx.cpp   — geometry context management
+#   render_opts.cpp  — render option set
+#   render_run.cpp   — synchronous scanline raytrace engine
 #
-# When libuv is available, the IPC client (render_ipc_client.c) is
-# also compiled in so that callers can spawn an rt_ipc child process
-# and receive pixel data over a local pipe instead of TCP.
+# When libuv is available, the IPC client is also compiled:
+#   render_ipc_client.cpp — spawn rt_ipc, stream pixels via libuv async pipe
+#                           (uses bu_ipc for transport selection)
+#
+# Dependencies: librt, liboptical, libbu (from source_dirs.cmake)
 
 set(
   LIBRENDER_SOURCES
-  render_ctx.c
-  render_opts.c
-  render_run.c
+  render_ctx.cpp
+  render_opts.cpp
+  render_run.cpp
 )
 
 # Note - librender_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
@@ -37,7 +42,7 @@ if(LIBUV_INCLUDE_DIR AND LIBUV_LIBRARY)
   set(LIBUV_FOUND TRUE)
   message(STATUS "librender: libuv found (${LIBUV_LIBRARY}) — IPC client enabled")
 
-  target_sources(librtrender PRIVATE render_ipc_client.c)
+  target_sources(librtrender PRIVATE render_ipc_client.cpp)
   target_compile_definitions(librtrender PUBLIC RENDER_HAVE_LIBUV)
   target_include_directories(librtrender PRIVATE ${LIBUV_INCLUDE_DIR})
   # Use the full library path so CMake cannot confuse it with a target name.
