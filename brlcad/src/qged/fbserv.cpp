@@ -33,6 +33,9 @@
 
 #include "common.h"
 
+#include <QCoreApplication>
+#include <QEventLoop>
+
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/vls.h"
@@ -40,6 +43,7 @@
 #include "./fbserv.h"
 #include "qtcad/QgGL.h"
 #include "qtcad/QgSW.h"
+#include "render.h"
 #ifdef BRLCAD_OPENGL
 #  include "qtcad/QgObolWidget.h"
 #endif
@@ -292,6 +296,104 @@ qdm_open_obol_client_handler(struct fbserv_obj *fbsp, int i, void *data)
     QObject::connect(s, &QFBSocket::updated,
 		     octx->widget, &QgObolWidget::onRtPixelsUpdated,
 		     Qt::QueuedConnection);
+}
+#endif /* BRLCAD_OPENGL */
+
+/**
+ * Framebuffer client handler for the ert3 / Obol rendering path.
+ *
+ * Called by ert3.cpp via fbs->fbs_open_client_handler() after QgEdApp::run_cmd()
+ * has set up an ObolRtCtx and a memory framebuffer in fbs->fbs_fbp.
+ *
+ * Instead of the fbserv TCP protocol used by ert2, this handler drives
+ * librtrender's synchronous render_run() path:
+ *
+ *   1. Retrieves the ObolRtCtx from fbsp->fbs_clientData.
+ *   2. Calls obolw->beginRtOverlay() to add the SoAnnotation overlay.
+ *   3. Calls render_run() with a per-scanline callback that:
+ *        a. Writes the scanline into the memory fb via fb_write().
+ *        b. Calls obolw->onRtPixelsUpdated() so Obol refreshes the
+ *           SoTexture2 and schedules a repaint.
+ *        c. Calls QCoreApplication::processEvents() to let Obol actually
+ *           paint the updated texture, giving incremental display.
+ *   4. Calls obolw->onRtDone() when rendering completes.
+ *   5. Fires the linger callback so QgEdApp updates the toolbar icon.
+ *   6. Frees the Ert3JobCtx (ctx and opts were transferred here).
+ *
+ * The memory framebuffer and ObolRtCtx are freed by ert3_raytrace_done()
+ * (the LINGER callback registered in QgEdApp::run_cmd).
+ */
+
+#ifdef BRLCAD_OPENGL
+struct Ert3ObolPixelCtx {
+    struct fb    *fbp;
+    QgObolWidget *widget;
+};
+
+static void
+ert3_obol_pixel_cb(void *ud, int x, int y, int w, const unsigned char *rgb)
+{
+    Ert3ObolPixelCtx *pc = (Ert3ObolPixelCtx *)ud;
+    if (!pc->fbp) return;
+    fb_write(pc->fbp, x, y, rgb, w);
+    if (pc->widget) {
+	pc->widget->onRtPixelsUpdated();
+	/* Allow Obol to process the field-change notification and repaint
+	 * the texture before the next scanline arrives (incremental display). */
+	QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    }
+}
+
+extern "C" void
+qdm_open_ert3_obol_handler(struct fbserv_obj *fbsp, int UNUSED(i), void *data)
+{
+    bu_log("qdm_open_ert3_obol_handler\n");
+
+    struct Ert3JobCtx *jctx = (struct Ert3JobCtx *)data;
+    if (!jctx) {
+	bu_log("qdm_open_ert3_obol_handler: NULL Ert3JobCtx\n");
+	return;
+    }
+
+    ObolRtCtx *octx = (ObolRtCtx *)fbsp->fbs_clientData;
+    if (!octx || !octx->widget) {
+	bu_log("qdm_open_ert3_obol_handler: no ObolRtCtx — "
+	       "Obol texture overlay will not be shown\n");
+	/* Still run the render so ctx/opts are freed properly. */
+    }
+
+    struct fb *fbp = fbsp->fbs_fbp;
+    QgObolWidget *obolw = octx ? octx->widget : nullptr;
+
+    /* Prepare the Obol scene overlay. */
+    if (obolw && fbp)
+	obolw->beginRtOverlay(fbp,
+			      octx->width  > 0 ? octx->width  : fb_getwidth(fbp),
+			      octx->height > 0 ? octx->height : fb_getheight(fbp));
+
+    /* Run render_run() synchronously with per-scanline Obol texture updates. */
+    Ert3ObolPixelCtx pc;
+    pc.fbp    = fbp;
+    pc.widget = obolw;
+
+    render_run(jctx->ctx, jctx->opts,
+	       ert3_obol_pixel_cb, &pc, nullptr, nullptr);
+
+    /* Final texture update and scene notification. */
+    if (obolw) {
+	obolw->onRtPixelsUpdated();
+	obolw->onRtDone();
+    }
+
+    /* Fire the linger callback — QgEdApp's ert3_raytrace_done will call
+     * IndicateRaytraceDone() and free the ObolRtCtx + memfb. */
+    if (jctx->linger_clbk)
+	(*jctx->linger_clbk)(0, nullptr, nullptr, jctx->linger_ctx);
+
+    /* Release the render resources that ert3.cpp allocated for this job. */
+    render_ctx_destroy(jctx->ctx);
+    render_opts_destroy(jctx->opts);
+    bu_free(jctx, "ert3 job ctx");
 }
 #endif /* BRLCAD_OPENGL */
 

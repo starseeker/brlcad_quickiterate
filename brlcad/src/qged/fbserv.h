@@ -110,6 +110,9 @@ qdm_close_client_handler(struct fbserv_obj *fbsp, int sub);
 extern void
 qdm_open_obol_client_handler(struct fbserv_obj *fbsp, int i, void *data);
 
+extern void
+qdm_open_ert3_obol_handler(struct fbserv_obj *fbsp, int i, void *data);
+
 __END_DECLS
 
 /* ── ObolRtCtx ────────────────────────────────────────────────────────────

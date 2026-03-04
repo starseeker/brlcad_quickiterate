@@ -80,6 +80,7 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
+#include "ged/database.h"
 #include "bv/util.h"
 #include "bv/view_sets.h"
 #include "dm.h"
@@ -208,26 +209,37 @@ ged_ert3_core(struct ged *gedp, int argc, const char *argv[])
 	render_opts_set_aspect(opts, aspect);
     }
 
-    /* ── Collect object names from drawn geometry ───────────────────── */
-    /* Pass any positional arguments as object names; if none given,
-     * rt_ipc will receive an empty object list and load all drawn objects
-     * (matching the behaviour of ert/ert2 where stdin object list is used). */
+    /* ── Collect object names from drawn geometry or command line ──── */
+    /* When no positional arguments are given, fall back to the currently
+     * drawn objects — the same behaviour as ert / ert2. */
     int   obj_argc = ac;
     const char **obj_argv = (ac > 0) ? argv : NULL;
 
-    /* ── Build a render_ctx that wraps the loaded .g database ────────── */
-    /* We provide the object list from the command line (if any).  When no
-     * objects are given on the command line we rely on rt_ipc to receive
-     * the drawn object list from the parent process (future work; for now
-     * we just pass an empty list to render_ctx_create which loads the whole
-     * default tree). */
+    /* Drawn-object fallback (mirrors the ert.cpp / nirt.cpp pattern). */
+    char **drawn_buf = NULL;
+    if (obj_argc == 0) {
+	int ndrawn = ged_who_argc(gedp);
+	if (ndrawn == 0) {
+	    bu_vls_printf(gedp->ged_result_str,
+			 "ert3: no objects displayed\n");
+	    render_opts_destroy(opts);
+	    return BRLCAD_ERROR;
+	}
+	drawn_buf = (char **)bu_calloc(ndrawn + 1, sizeof(char *), "ert3 drawn buf");
+	obj_argc  = ged_who_argv(gedp, drawn_buf,
+				 (const char **)(drawn_buf + ndrawn + 1));
+	obj_argv  = (const char **)drawn_buf;
+    }
 
-    /* ── Create a minimal render_ctx just to hold the dbfile path ────── */
-    /* rt_ipc will do its own render_ctx_create — we are using the IPC path,
-     * so we only need the opts here to serialise into the job packet.
-     * Create a lightweight ctx stub from just the database path. */
+    /* ── Create a render_ctx for this job ───────────────────────────── */
+    /* render_ctx_create opens the .g database and preps the geometry BVH.
+     * Ownership is transferred to the Qt handler via Ert3JobCtx. */
     render_ctx_t *ctx = render_ctx_create(dbfile, obj_argc,
 					  (const char **)obj_argv);
+    /* drawn_buf is only used by render_ctx_create; free it now. */
+    if (drawn_buf)
+	bu_free(drawn_buf, "ert3 drawn buf");
+
     if (!ctx) {
 	bu_vls_printf(gedp->ged_result_str,
 		      "ert3: failed to open database '%s'\n", dbfile);
@@ -259,13 +271,6 @@ ged_ert3_core(struct ged *gedp, int argc, const char *argv[])
     if (fbs->fbs_open_client_handler) {
 	/* Signal the Qt layer that a new ert3 job is ready.
 	 * The client data points to an Ert3JobCtx populated below. */
-	struct Ert3JobCtx {
-	    char          rt_ipc_path[MAXPATHLEN];
-	    render_ctx_t *ctx;
-	    render_opts_t *opts;
-	    bu_clbk_t     linger_clbk;
-	    void         *linger_ctx;
-	};
 	struct Ert3JobCtx *jctx = (struct Ert3JobCtx *)bu_malloc(
 	    sizeof(*jctx), "ert3 job ctx");
 	bu_strlcpy(jctx->rt_ipc_path, rt_ipc_path, MAXPATHLEN);
