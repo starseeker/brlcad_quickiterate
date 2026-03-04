@@ -55,6 +55,11 @@ __BEGIN_DECLS
  * to give headroom for future operations. */
 #define RT_EDIT_MAXPARA   20
 
+/* Maximum number of simultaneous string parameters (companion to e_para for
+ * RT_EDIT_PARAM_STRING commands) and the maximum byte length of each. */
+#define RT_EDIT_MAXSTR      5
+#define RT_EDIT_MAXSTR_LEN  512
+
 
 // Solid editing (done via sed in MGED) alters primitive parameters to produce
 // new shapes.  Parameters are updated immediately, allowing for new wireframe
@@ -265,6 +270,12 @@ struct rt_edit {
     int e_inpara;               /* number of valid entries in e_para (set by caller before rt_edit_process) */
     fastf_t e_para[RT_EDIT_MAXPARA]; /* keyboard input parameters; e_para[0..e_inpara-1] are valid */
 
+    /* Parallel string-parameter array for RT_EDIT_PARAM_STRING commands.
+     * Use rt_edit_set_str() to write; primitive edit handlers retrieve the
+     * value via the ECMD_GET_FILENAME callback mechanism. */
+    int  e_nstr;                                     /* number of valid entries in e_str */
+    char e_str[RT_EDIT_MAXSTR][RT_EDIT_MAXSTR_LEN];  /* string params; e_str[0..e_nstr-1] are valid */
+
     mat_t e_invmat;             /* inverse of e_mat KAA */
     mat_t e_mat;                /* accumulated matrix of path */
 
@@ -311,6 +322,18 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *, str
 /** Free a rt_edit struct */
 RT_EXPORT extern void
 rt_edit_destroy(struct rt_edit *s);
+
+/**
+ * Set a string parameter in the edit struct's e_str[] array.
+ *
+ * @param s      The edit struct to update.
+ * @param index  Slot index (0 .. RT_EDIT_MAXSTR-1); must equal
+ *               rt_edit_param_desc::index for the STRING parameter.
+ * @param str    NUL-terminated string to copy (truncated to
+ *               RT_EDIT_MAXSTR_LEN-1 bytes).
+ */
+RT_EXPORT extern void
+rt_edit_set_str(struct rt_edit *s, int index, const char *str);
 
 /* Logic for working with editing callback maps.
  *

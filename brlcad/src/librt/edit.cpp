@@ -34,6 +34,7 @@
 extern "C" {
 #include "vmath.h"
 #include "bu/malloc.h"
+#include "bu/str.h"
 #include "bu/vls.h"
 #include "rt/edit.h"
 #include "rt/func.h"
@@ -97,6 +98,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     VSETALL(s->e_keypoint, 0);
     VSETALL(s->e_mparam, 0);
     memset(s->e_para, 0, sizeof(s->e_para));
+    memset(s->e_str,  0, sizeof(s->e_str));
 
     bv_knobs_reset(&s->k, 0);
     s->k.origin_m = '\0';
@@ -114,6 +116,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     VSETALL(s->acc_sc, 1.0);
     s->base2local = 1.0;
     s->e_inpara = 0;
+    s->e_nstr = 0;
     s->e_keyfixed = 0;
     s->e_keytag = NULL;
     s->e_mvalid = 0;
@@ -197,6 +200,17 @@ rt_edit_destroy(struct rt_edit *s)
     delete s->m->i;
     BU_PUT(s->m, struct rt_edit_map);
     BU_PUT(s, struct rt_edit);
+}
+
+void
+rt_edit_set_str(struct rt_edit *s, int index, const char *str)
+{
+    if (!s || index < 0 || index >= RT_EDIT_MAXSTR || !str)
+	return;
+
+    bu_strlcpy(s->e_str[index], str, RT_EDIT_MAXSTR_LEN);
+    if (index >= s->e_nstr)
+	s->e_nstr = index + 1;
 }
 
 int
