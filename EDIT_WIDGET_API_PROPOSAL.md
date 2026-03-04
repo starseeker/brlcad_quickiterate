@@ -505,22 +505,78 @@ widget; existing text-menu behaviour is unaffected.
    `src/libged/lint/json.hpp`.  Consumer code updated to use
    `"../libbu/json.hpp"`.  Remains a private implementation detail.
 
+6. ✅ **Populate `ft_edit_desc` for additional primitives** —
+   ELL, EPA, EHY, ETO, HYP, RPC, RHC, SUPERELL, CLINE, TGC all
+   implemented with scalar parameters.  DSP adds boolean/enum/string
+   parameters (FNAME/string, SCALE_X/Y/ALT/scalar, SET_SMOOTH/boolean,
+   SET_DATASRC/enum).  EBM (FNAME, FSIZE/2-int, HEIGHT/scalar), VOL
+   (FNAME, FSIZE/3-int, CSIZE/3-scalar, THRESH_LO/HI/integer), COMB
+   (ADD_MEMBER, DEL_MEMBER, SET_OP, SET_REGION, SET_COLOR, SET_SHADER,
+   SET_MATERIAL, SET_REGION_ID, SET_AIRCODE, SET_GIFTMATER, SET_LOS),
+   and PIPE (PT_OD/ID/RADIUS, SCALE_OD/ID/RADIUS) all implemented.
+   All new descriptors wired into `src/librt/primitives/edtable.cpp`.
+
+7. ✅ **Add a `rt_edit_desc` unit test** — added as
+   `src/librt/tests/edit/edit_desc.cpp`.  Calls `rt_edit_type_to_json`
+   for all 17 implemented primitives, checks BRLCAD_OK return, verifies
+   JSON is non-empty and contains `"commands"` and expected `cmd_id`
+   integers.  Also verifies that a primitive without `ft_edit_desc`
+   (ARB8) correctly returns `BRLCAD_ERROR`.  All 18 assertions pass.
+
+8. ✅ **Implement the Qt auto-widget generator in qged** — added as the
+   `qged_prim_desc` plugin in `src/qged/plugins/edit/prim_desc/`.
+   The `QgPrimDescWidget` class supports **both editing and creating** primitives:
+
+   **Primitive type selector bar** (always visible at the top):
+   - Iterates `EDOBJ[]` at widget construction time; creates one
+     `QPushButton` per primitive type that has an `ft_edit_desc()`.
+   - Clicking a button calls `setPrimType()` to proactively select a
+     type — equivalent to the `make`/`in` commands on the CLI.
+   - The active type's button is highlighted (`setChecked(true)`).
+
+   **Parameter panel** (rebuilt on each `setPrimType()` call):
+   - Reads `rt_edit_prim_desc` directly from
+     `EDOBJ[prim_type_id].ft_edit_desc()` (in-process, no JSON parse).
+   - Groups commands by `category` into `QGroupBox` panels, sorted by
+     `display_order` within each group.
+   - Per-command row: bold `QLabel` header, type-appropriate parameter
+     input widgets (QDoubleSpinBox/QSpinBox/QCheckBox/QLineEdit+browse/
+     QComboBox/color-dialog-button/4×4 spin grid), and an **Apply** button.
+   - Matrix apply bug fix: values are written to `e_para[p->index + mi]`
+     (not always from index 0).
+
+   **Name field and Create button** (always visible below the type bar):
+   - A `QLineEdit` for the object name and a **Create** button.
+   - Create uses `OBJ[type].ft_make()` to initialise a default
+     `rt_db_internal`, then `wdb_put_internal()` to write it to the
+     database.  After creation the scene is refreshed (`QG_VIEW_DB`).
+   - The mode label updates to reflect "Creating new TOR" vs.
+     "Editing myobj.s (TOR)".
+
+   **Edit mode** (activated by scene selection):
+   - `do_view_update(QG_VIEW_SELECT)` reads the active selection via
+     `BSelectState::list_selected_paths()`, resolves the leaf solid's
+     `d_minor_type`, populates the name field, and calls `setPrimType()`
+     to rebuild the panel if the type changed.
+   - Apply button calls `rt_edit_set_edflag(s, cmd_id)` + `rt_edit_process(s)`.
+   - `setEditState(rt_edit *)` links the widget to a live edit session.
+
+   **Plugin registration:**
+   - `QGED_OC_TOOL_PLUGIN` with priority 900.
+   - The plugin is guarded by `BRLCAD_ENABLE_QT` and compiled with Qt 5
+     or Qt 6 automatically.
+
 ### Remaining
 
-6. **Populate `ft_edit_desc` for additional primitives** —
-   ELL, EPA, EHY, ETO, HYP, RPC, RHC, SUPERELL, CLINE are easiest
-   (all scalar parameters).  DSP, EBM, VOL add boolean/enum/string
-   parameters.  COMB and PIPE round out the set.
-
-7. **Add a `rt_edit_desc` unit test** to `src/librt/tests/edit/` that
-   calls `rt_edit_type_to_json` for each implemented primitive and checks
-   that the output is syntactically valid JSON and that expected `cmd_id`
-   values are present.  Could use `json.hpp` from `src/libbu/` for
-   parsing in the test.
-
-8. **Implement the Qt auto-widget generator in qged** — guided by the
-   algorithm in §7 above.  See §11 for critical architectural concerns
-   that the qged layer must address.
+_All planned implementation items are now complete._  Future work:
+- Implement `ft_edit_get_params` to pre-populate spinboxes with the
+  current primitive values on widget activation (item 11.3).
+- Implement `e_str` parallel string array for `RT_EDIT_PARAM_STRING`
+  commands (item 11.4).
+- Wire `rt_edit_create()` lifecycle into the qged selection handler so
+  Apply buttons work without a manually set `es` pointer.
+- Wire the Create button's post-write step to start an `rt_edit` session
+  automatically, so Apply works immediately after creation.
 
 ---
 
