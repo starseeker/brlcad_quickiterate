@@ -348,6 +348,82 @@ bu_log("RT_MATRIX_EDIT_TRANS_MODEL_XYZ SUCCESS: "
        "keypoint maps to (%g,%g,%g)\n", V3ARGS(kp_world));
     }
 
+    /* ================================================================
+     * ECMD_ARB_MOVE_FACE — move bottom face (face 0 = 1234) to z=0.5.
+     *
+     * The unit cube has bottom face 1234 at z=0.  Moving it to pass
+     * through (0,0,0.5) should push pt[0]-pt[3] from z=0 to z=0.5.
+     * The top face (pt[4]-pt[7]) remains at z=1.
+     *
+     * Reasoning: face 0 has normal (0,0,±1).  After the move:
+     *   D' = VDOT(normal, (0,0,0.5)) → plane equation is z=0.5.
+     * rt_arb_calc_points then recalculates every vertex from plane
+     * intersections — the four bottom vertices all land at z=0.5.
+     * ================================================================*/
+    arb8_reset(s, arb, a);
+    a->edit_menu = 0;   /* face 0 = 1234 (bottom), in mv8_menu: arg=1 → edit_menu=0 */
+    rt_edit_set_edflag(s, ECMD_ARB_MOVE_FACE);
+    s->e_inpara = 3;
+    VSET(s->e_para, 0, 0, 0.5);  /* point on the new face plane */
+    s->mv_context = 0;            /* use s->e_para directly, no inv-mat */
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	fastf_t exp_z = 0.5;
+	for (int i = 0; i < 4; i++) {
+	    if (!NEAR_EQUAL(arb->pt[i][Z], exp_z, VUNITIZE_TOL))
+		bu_exit(1, "ERROR: ECMD_ARB_MOVE_FACE: pt[%d].z=%g (expected %g)\n",
+			i, arb->pt[i][Z], exp_z);
+	}
+	/* top face should be unchanged at z=1 */
+	for (int i = 4; i < 8; i++) {
+	    if (!NEAR_EQUAL(arb->pt[i][Z], 1.0, VUNITIZE_TOL))
+		bu_exit(1, "ERROR: ECMD_ARB_MOVE_FACE: top pt[%d].z=%g (expected 1)\n",
+			i, arb->pt[i][Z]);
+	}
+	bu_log("ECMD_ARB_MOVE_FACE SUCCESS: bottom face moved to z=%g, "
+	       "pt[0]=%g,%g,%g pt[3]=%g,%g,%g\n",
+	       exp_z, V3ARGS(arb->pt[0]), V3ARGS(arb->pt[3]));
+    }
+
+    /* ================================================================
+     * EARB — move edge 12 (between pt[0] and pt[1]) to z=0.5.
+     *
+     * edge 0 = "Move Edge 12" in edge8_menu → edit_menu=0.
+     * earb8[0] = {pt1=0, pt2=1, bp1=2 (face 1584, x=0),
+     *             bp2=3 (face 2376, x=1), ...}
+     *
+     * mv_edge logic:
+     *   edge_dir = pt[1]-pt[0] = (1,0,0)
+     *   Line through thru=(0,0,0.5) with dir=(1,0,0):
+     *     p(t) = (t, 0, 0.5)
+     *   Intersect with bp1 (x=0 plane): t=0  → new pt[0] = (0, 0, 0.5)
+     *   Intersect with bp2 (x=1 plane): t=1  → new pt[1] = (1, 0, 0.5)
+     *
+     * Expected: pt[0]=(0,0,0.5), pt[1]=(1,0,0.5).
+     * ================================================================*/
+    arb8_reset(s, arb, a);
+    a->edit_menu = 0;   /* edge 0 = edge 12 (pt[0] to pt[1]) */
+    a->newedge   = 0;   /* compute edge direction from existing vertices */
+    rt_edit_set_edflag(s, EARB);
+    s->edit_mode = RT_PARAMS_EDIT_TRANS;
+    s->e_inpara  = 3;
+    VSET(s->e_para, 0, 0, 0.5);  /* move edge to pass through (0, 0, 0.5) */
+    s->mv_context = 0;
+    bu_vls_trunc(s->log_str, 0);
+    rt_edit_process(s);
+    {
+	point_t exp0 = {0, 0, 0.5}, exp1 = {1, 0, 0.5};
+	if (!VNEAR_EQUAL(arb->pt[0], exp0, VUNITIZE_TOL) ||
+	    !VNEAR_EQUAL(arb->pt[1], exp1, VUNITIZE_TOL))
+	    bu_exit(1, "ERROR: EARB: pt[0]=%g,%g,%g (expected 0,0,0.5)  "
+		    "pt[1]=%g,%g,%g (expected 1,0,0.5)\n",
+		    V3ARGS(arb->pt[0]), V3ARGS(arb->pt[1]));
+	bu_log("EARB SUCCESS: edge 12 moved to z=0.5: "
+	       "pt[0]=%g,%g,%g  pt[1]=%g,%g,%g\n",
+	       V3ARGS(arb->pt[0]), V3ARGS(arb->pt[1]));
+    }
+
     rt_edit_destroy(s);
     db_close(dbip);
     return 0;

@@ -194,13 +194,23 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
   before assigning back (see §3 in Agent Instructions above).
   Expected values in `tgc.cpp` reflect the corrected, alias-free output.
 
-### ARB8 — Arbitrary Polyhedron (8 vertices) ⬜ EDIT CODE EXISTS, NO TEST
+### ARB8 — Arbitrary Polyhedron (8 vertices) ✅ DONE (with test)
 
 - Source: `src/librt/primitives/arb8/edarb.c`
-- Test:   *not yet written*
-- Notes: Most complex primitive; has face/edge/vertex editing as well
-  as generic solid editing.  The ARB-specific face equations are
-  maintained in the `rt_edit` state (`es_peqn`).
+- Test:   `src/librt/tests/edit/arb8.cpp`
+- Operations validated:
+  - `RT_PARAMS_EDIT_SCALE` — uniform scale of all 8 vertices about keypoint
+  - `RT_PARAMS_EDIT_TRANS` — translate all 8 vertices
+  - `RT_PARAMS_EDIT_ROT` — rotate all 8 vertices about keypoint
+  - `ECMD_ARB_MOVE_FACE` — move a face to pass through a new point
+    (bottom face 1234, edit_menu=0, expected: pt[0]-pt[3] move to z=0.5)
+  - `EARB` — move an edge to a new position
+    (edge 12, edit_menu=0, expected: pt[0]=(0,0,0.5), pt[1]=(1,0,0.5))
+  - XY translate, RT_PARAMS_EDIT_ROT XY error path, RT_MATRIX_EDIT_ROT/TRANS
+- Notes: `rt_edit_arb_set_edit_mode` is a no-op (TODO); ARB-specific ops are
+  triggered by setting `edit_flag` and `a->edit_menu` directly before calling
+  `rt_edit_process`.  `ecmd_arb_setup_rotface` requires an interactive callback
+  (fixv selection) so it is not tested here.
 
 ### EPA — Elliptical Paraboloid ✅ DONE (with test)
 
@@ -289,20 +299,43 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Operations validated: ECMD_PART_H, ECMD_PART_VRAD, ECMD_PART_HRAD,
   RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
-### PIPE ⬜ EDIT CODE EXISTS, NO TEST
+### PIPE ✅ DONE (with test)
 
 - Source: `src/librt/primitives/pipe/edpipe.c`
-- Notes: Complex — has segment-level editing.
+- Test:   `src/librt/tests/edit/pipe.cpp`
+- Operations validated:
+  - `RT_PARAMS_EDIT_SCALE` — uniform scale; all OD values scale
+  - `RT_PARAMS_EDIT_TRANS` — translate all points
+  - `RT_PARAMS_EDIT_ROT` — rotate all points about keypoint
+  - `ECMD_PIPE_SCALE_OD` — scale outer diameter of all pipe points
+  - `ECMD_PIPE_PT_MOVE` — move a selected point to a new position
+  - XY translate, RT_PARAMS_EDIT_ROT XY error path, RT_MATRIX_EDIT_ROT/TRANS
 
-### ARS — Arbitrary Faceted Solid ⬜ EDIT CODE EXISTS, NO TEST
+### ARS — Arbitrary Faceted Solid ✅ DONE (with test)
 
 - Source: `src/librt/primitives/ars/edars.c`
-- TODO: Write test.
+- Test:   `src/librt/tests/edit/ars.cpp`
+- Operations validated:
+  - `RT_PARAMS_EDIT_SCALE/TRANS/ROT` — generic operations
+  - `ECMD_ARS_MOVE_PT` — move a selected curve point to e_para coords
+  - `ECMD_ARS_SCALE_CRV` — scale selected curve about its centroid
+  - `ECMD_ARS_SCALE_COL` — scale selected column about its cross-curve centroid
+  - `ECMD_ARS_INSERT_CRV` — insert an interpolated curve after selected curve
+  - XY scale, translate, ROT error path, RT_MATRIX ops
 
-### BOT — Bag of Triangles ⬜ EDIT CODE EXISTS, NO TEST
+### BOT — Bag of Triangles ✅ DONE (with test)
 
 - Source: `src/librt/primitives/bot/edbot.c`
-- Notes: Complex — has per-vertex, per-face, and thickness editing.
+- Test:   `src/librt/tests/edit/bot.cpp`
+- Operations validated:
+  - `RT_PARAMS_EDIT_SCALE/TRANS/ROT` — generic operations
+  - `ECMD_BOT_MOVEV` — move a selected vertex
+  - `ECMD_BOT_MOVEV_LIST` — move a list of vertices by delta
+  - `ECMD_BOT_ESPLIT` — split an edge at its midpoint
+  - `ECMD_BOT_FSPLIT` — split a face at its centroid
+  - `ECMD_BOT_VERTEX_FUSE` — deduplicate vertices within tolerance
+  - `ECMD_BOT_FACE_FUSE` — remove duplicate faces
+  - XY translate, ROT error path, RT_MATRIX ops
 
 ### SUPERELL ✅ DONE (with test)
 
@@ -315,26 +348,44 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Operations validated: ECMD_SUPERELL_SCALE_A/B/C/ABC,
   RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans/rot-error
 
-### HRT — Heart ⬜ EDIT CODE EXISTS, NO TEST
+### HRT — Heart ✅ DONE (with test)
 
-- Source: implied by `EDOBJ[]` — needs checking.
-- TODO: Verify edit code exists, write test.
+- Source: `src/librt/primitives/hrt/edhrt.c`
+- Test:   `src/librt/tests/edit/hrt.cpp`
+- Operations validated:
+  - `RT_PARAMS_EDIT_SCALE` — uniform scale; xdir, ydir, zdir vectors scale
+  - `RT_PARAMS_EDIT_TRANS` — translate vertex v
+  - `RT_PARAMS_EDIT_ROT` — rotate all direction vectors about keypoint
+  - XY scale and translate, ROT XY error path, RT_MATRIX ops
+- Notes: HRT has no `ft_set_edit_mode` (NULL); edit flags set directly.
+  `d` field (distance) is not affected by RT_PARAMS_EDIT_SCALE at present.
 
-### DSP — Displacement Map ⬜ EDIT CODE EXISTS, NO TEST (bugs fixed)
+### DSP — Displacement Map ✅ DONE (with test)
 
 - Source: `src/librt/primitives/dsp/eddsp.c`
+- Test:   `src/librt/tests/edit/dsp.cpp`
 - **Bugs fixed:** `ecmd_dsp_scale_x/y/alt` had the same strict
   `e_inpara != 1` guard as CLINE; fixed to allow the es_scale path
   when e_inpara==0. The inner `dsp_scale` function already handled
   the es_scale path correctly.
-- Testing requires a DSP data source, so test deferred.
+- **New ECMDs added:**
+  - `ECMD_DSP_SET_SMOOTH` (25061) — set `dsp_smooth` flag (0/1)
+  - `ECMD_DSP_SET_DATASRC` (25062) — switch `dsp_datasrc` between
+    `RT_DSP_SRC_FILE` and `RT_DSP_SRC_OBJ`
+- Operations validated: ECMD_DSP_SCALE_X/Y/ALT (keyboard + es_scale),
+  RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY error path, RT_MATRIX ops,
+  ECMD_DSP_SET_SMOOTH, ECMD_DSP_SET_DATASRC
 
-### EBM — Extruded Bitmap ⬜ EDIT CODE EXISTS, NO TEST (bug fixed)
+### EBM — Extruded Bitmap ✅ DONE (with test)
 
 - Source: `src/librt/primitives/ebm/edebm.c`
+- Test:   `src/librt/tests/edit/ebm.cpp`
 - **Bug fixed:** `ecmd_ebm_height` had the same strict `e_inpara != 1`
   guard as CLINE; fixed to allow the es_scale path when e_inpara==0.
-- Testing requires an actual bitmap (EBM file), so test deferred.
+- Operations validated: ECMD_EBM_HEIGHT (keyboard + es_scale),
+  RT_PARAMS_EDIT_SCALE/TRANS, RT_MATRIX ops, ROT XY error path
+- Notes: Test creates a minimal EBM data file at runtime.
+  EBM tallness parameter is validated for both keyboard and mouse paths.
 
 ### CLINE ✅ DONE (with test + bug fixes)
 
@@ -356,15 +407,74 @@ edit mode flags (e.g. `ECMD_TOR_R1`) are defined in the individual
 - Operations validated: ECMD_CLINE_SCALE_H/R/T, ECMD_CLINE_MOVE_H,
   RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale-H/trans/rot-error
 
-### METABALL ⬜ EDIT CODE EXISTS, NO TEST
+### METABALL ✅ DONE (with test)
 
 - Source: `src/librt/primitives/metaball/edmetaball.c`
+- Test:   `src/librt/tests/edit/metaball.cpp`
+- Operations validated:
+  - `ECMD_METABALL_SET_THRESHOLD` — set global threshold value
+  - `ECMD_METABALL_SET_METHOD` — set interpolation method
+  - `ECMD_METABALL_PT_MOV` — move selected point by delta
+  - `ECMD_METABALL_PT_ADD` — add a new control point
+  - `ECMD_METABALL_PT_DEL` — delete selected control point
+  - `RT_PARAMS_EDIT_SCALE/TRANS/ROT` — generic operations (all points scaled/moved)
+  - XY translate, ROT XY error path, RT_MATRIX ops
 
-### EXTRUDE ⬜ EDIT CODE EXISTS, NO TEST
+### EXTRUDE ✅ DONE (with test)
 
 - Source: `src/librt/primitives/extrude/edextrude.c`
+- Test:   `src/librt/tests/edit/extrude.cpp`
+- Operations validated:
+  - `ECMD_EXTR_SCALE_H` — scale height vector (keyboard + es_scale restore)
+  - `ECMD_EXTR_MOV_H` — move h endpoint via mv_context
+  - `ECMD_EXTR_ROT_H` — rotate h about V
+  - `ECMD_EXTR_SCALE_A` — scale A (sketch u_vec) reference vector
+  - `ECMD_EXTR_SCALE_B` — scale B (sketch v_vec) reference vector
+  - `ECMD_EXTR_ROT_A` — rotate A reference vector
+  - `ECMD_EXTR_ROT_B` — rotate B reference vector
+  - `RT_PARAMS_EDIT_SCALE/TRANS/ROT` — generic operations
+  - XY scale-H, translate, ROT XY error path, RT_MATRIX ops
 
-### BSPLINE / NMG / GRIP / HALF / ... ⬜ EDIT CODE EXISTS, NO TEST
+### BSPLINE / NMG / SKETCH / COMB ✅ DONE (with tests)
+
+- **BSPLINE** (`edbspline.c`, test `bspline.cpp`):
+  - `ECMD_BSPLINE_PICK_KNOT` — select knot by distance from view center
+  - `ECMD_BSPLINE_SET_KNOT` — set selected knot value
+  - RT_MATRIX_EDIT_ROT/TRANS
+
+- **NMG** (`ednmg.c`, test `nmg.cpp`):
+  - `ECMD_NMG_VPICK` — pick vertex by index
+  - `ECMD_NMG_VMOVE` — move selected vertex to new XYZ coords
+  - `ECMD_NMG_FPICK` — pick faceuse by index
+  - `ECMD_NMG_FMOVE` — translate all face vertices by delta
+  - `ECMD_NMG_LEXTRU_DIR` — extrude loop in explicit direction+distance
+  - RT_MATRIX_EDIT_ROT/TRANS
+
+- **SKETCH** (`edsketch.c`, test `sketch.cpp`):
+  - `ECMD_SKETCH_PICK_VERTEX`, `ECMD_SKETCH_MOVE_VERTEX`
+  - `ECMD_SKETCH_PICK_SEGMENT`, `ECMD_SKETCH_MOVE_SEGMENT`
+  - `ECMD_SKETCH_APPEND_LINE`, `ECMD_SKETCH_APPEND_ARC`
+  - `ECMD_SKETCH_APPEND_BEZIER` (degree 2 and 3)
+  - `ECMD_SKETCH_DELETE_VERTEX`, `ECMD_SKETCH_DELETE_SEGMENT`
+  - `ECMD_SKETCH_MOVE_VERTEX_LIST` — move multiple vertices by UV delta
+  - RT_MATRIX ops
+
+- **COMB** (`edcomb.c`, test `comb.cpp`):
+  - `ECMD_COMB_ADD_MEMBER` — add a subtree leaf with given op
+  - `ECMD_COMB_DEL_MEMBER` — delete a leaf by index
+  - `ECMD_COMB_SET_OP` — change the boolean op of a leaf
+  - `ECMD_COMB_SET_MATRIX` — set the placement matrix of a leaf
+
+### GRIP / HALF / VOL / SPH / Other primitives ✅ DONE (with tests)
+
+- **SPH** (`test sph.cpp`): Generic RT_PARAMS_EDIT_SCALE/TRANS/ROT (ELL path),
+  XY scale path verified.
+- **VOL** (`test vol.cpp`): ECMD_VOL_CSIZE, ECMD_VOL_THRESH_LO/HI,
+  RT_PARAMS_EDIT_SCALE/TRANS, RT_MATRIX ops.
+- **EBM** (`test ebm.cpp`): ECMD_EBM_HEIGHT (keyboard + es_scale),
+  RT_PARAMS_EDIT_SCALE/TRANS, RT_MATRIX ops.
+- **DSP** (`test dsp.cpp`): ECMD_DSP_SCALE_X/Y/ALT, ECMD_DSP_SET_SMOOTH,
+  ECMD_DSP_SET_DATASRC, RT_PARAMS_EDIT_SCALE/TRANS, RT_MATRIX ops.
 
 ---
 
@@ -505,25 +615,57 @@ Comparing `brlcad/` and `brlcad_mgedrework/`:
 
 ---
 
+### Sessions 6-7 (2026-03-04)
+Large burst of new tests and new ECMDs.  **All 27 tests now pass.**
+
+New tests written (all pass):
+- `arb8.cpp` — added ECMD_ARB_MOVE_FACE and EARB on top of generic ops
+- `pipe.cpp` — ECMD_PIPE_SCALE_OD, ECMD_PIPE_PT_MOVE + generic ops
+- `ars.cpp` — ECMD_ARS_MOVE_PT, ECMD_ARS_SCALE_CRV, ECMD_ARS_SCALE_COL,
+  ECMD_ARS_INSERT_CRV + generic ops
+- `bot.cpp` — ECMD_BOT_MOVEV, ECMD_BOT_MOVEV_LIST, ECMD_BOT_ESPLIT,
+  ECMD_BOT_FSPLIT, ECMD_BOT_VERTEX_FUSE, ECMD_BOT_FACE_FUSE + generic ops
+- `dsp.cpp` — ECMD_DSP_SCALE_X/Y/ALT, ECMD_DSP_SET_SMOOTH,
+  ECMD_DSP_SET_DATASRC + generic ops
+- `ebm.cpp` — ECMD_EBM_HEIGHT (keyboard + es_scale) + generic ops
+- `extrude.cpp` — ECMD_EXTR_SCALE_H/A/B, ECMD_EXTR_MOV_H, ECMD_EXTR_ROT_H/A/B + generic ops
+- `hrt.cpp` — RT_PARAMS_EDIT_SCALE/TRANS/ROT, XY scale/trans
+- `metaball.cpp` — ECMD_METABALL_SET_THRESHOLD/METHOD, ECMD_METABALL_PT_MOV/ADD/DEL + generic
+- `sph.cpp` — ELL edit path for sphere; XY scale
+- `vol.cpp` — ECMD_VOL_CSIZE, ECMD_VOL_THRESH_LO/HI + generic ops
+- `sketch.cpp` — all sketch ECMDs including new ECMD_SKETCH_MOVE_VERTEX_LIST
+- `bspline.cpp` — ECMD_BSPLINE_PICK_KNOT, ECMD_BSPLINE_SET_KNOT
+- `nmg.cpp` — ECMD_NMG_VPICK/VMOVE/FPICK/FMOVE
+- `comb.cpp` — ECMD_COMB_ADD_MEMBER/DEL_MEMBER/SET_OP/SET_MATRIX
+
+New ECMDs added to librt this session (not in MGED):
+- `ECMD_ARS_SCALE_CRV` (5048), `ECMD_ARS_SCALE_COL` (5049),
+  `ECMD_ARS_INSERT_CRV` (5050)
+- `ECMD_SKETCH_MOVE_VERTEX_LIST` (26010) — move multiple vertices by UV delta
+- `ECMD_BOT_VERTEX_FUSE` (30076), `ECMD_BOT_FACE_FUSE` (30077)
+- `ECMD_DSP_SET_SMOOTH` (25061), `ECMD_DSP_SET_DATASRC` (25062)
+- `ECMD_NMG_LEXTRU_DIR` (11032) — loop extrusion with explicit direction+dist
+- `ECMD_COMB_ADD_MEMBER` (12001), `ECMD_COMB_DEL_MEMBER` (12002),
+  `ECMD_COMB_SET_OP` (12003), `ECMD_COMB_SET_MATRIX` (12004)
+- `ECMD_BSPLINE_PICK_KNOT` (9020), `ECMD_BSPLINE_SET_KNOT` (9021)
+- `rt_edit_checkpoint()` / `rt_edit_revert()` in `edit.cpp`/`edit.h`
+
+Bug fixes:
+- `RT_EDIT_MAXPARA` expanded 16→20 to accommodate ECMD_COMB_SET_MATRIX
+
+---
+
 ## Suggested Next Steps
 
-1. **Add more primitive tests** — rpc, rhc, part, revolve are next.
-   Each has relatively simple, analytically-verifiable expected values.
-   **Before writing any test**, trace the expected values from MGED's
-   `edsol.c` and/or use a probe program (see Agent Instructions §1).
-2. **Aliasing audit for remaining primitives** — before writing each
-   new test, scan the primitive's `ed<prim>.c` for any
-   `MAT4X3VEC(x, mat, x)` or `MAT4X3PNT(x, mat, x)` patterns (same
-   pointer for output and input).  See Agent Instructions §3.
-   Confirmed clean so far: TOR, ELL, TGC (fixed), TGC's `rt_tgc_mat`,
-   EPA (`rt_epa_mat`), EHY (`rt_ehy_mat`), ETO (`rt_eto_mat`; `ecmd_eto_rot_c` fixed),
-   HYP (`rt_hyp_mat`; `ecmd_hyp_rot_h` fixed).
-3. **Fix remaining NULL keypoints** — audit ID_REVOLVE (40), ID_PNTS (41),
-   ID_HRT (43), ID_JOINT (23), ID_SUBMODEL (28).
-4. **Implement XY rotation** — validate and integrate the mgedrework
+1. **Fix remaining NULL keypoints** — audit ID_REVOLVE (40), ID_PNTS (41),
+   ID_JOINT (23), ID_SUBMODEL (28).  HRT is confirmed fixed via test;
+   it never had a NULL keypoint.
+2. **Implement XY rotation** — validate and integrate the mgedrework
    `edit_mrot_xy` approach once the rotation math is confirmed correct.
-5. **Audit mgedrework edit.cpp changes** — the cleaner IDLE handling
+3. **Audit mgedrework edit.cpp changes** — the cleaner IDLE handling
    and callback improvements look correct and should be cherry-picked.
-6. **ARB8 deep-dive** — the ARB8 editing is the most complex (face/edge
-   equations, multiple sub-modes) and will require careful side-by-side
-   comparison with MGED's `edarb.c` and `facedef.c`.
+4. **ARB8 rotate-face deep-dive** — `ECMD_ARB_SETUP_ROTFACE` requires an
+   interactive callback for `fixv` selection; consider adding a non-
+   interactive version that accepts a vertex index directly.
+5. **PIPE additional operations** — ECMD_PIPE_SCALE_ID, ECMD_PIPE_SCALE_RADIUS,
+   and segment-level operations (add/del point) could use additional coverage.
