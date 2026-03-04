@@ -81,6 +81,94 @@ rt_edit_part_menu_item(const struct bn_tol *UNUSED(tol))
     return part_menu;
 }
 
+/* ft_edit_desc descriptor for the Particle primitive                */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc part_h_params[] = {
+    {
+	"h",                  /* name         */
+	"Height (magnitude)", /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc part_vrad_params[] = {
+    {
+	"vrad",               /* name         */
+	"V-End Radius",       /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc part_hrad_params[] = {
+    {
+	"hrad",               /* name         */
+	"H-End Radius",       /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc part_cmds[] = {
+    {
+	ECMD_PART_H,          /* cmd_id       */
+	"Set H",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	part_h_params,        /* params       */
+	1,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_PART_VRAD,       /* cmd_id       */
+	"Set v radius",       /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	part_vrad_params,     /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_PART_HRAD,       /* cmd_id       */
+	"Set h radius",       /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	part_hrad_params,     /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc part_prim_desc = {
+    "part",               /* prim_type    */
+    "Particle",           /* prim_label   */
+    3,                    /* ncmd         */
+    part_cmds             /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_part_edit_desc(void)
+{
+    return &part_prim_desc;
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void

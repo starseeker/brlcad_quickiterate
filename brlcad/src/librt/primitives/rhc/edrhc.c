@@ -84,6 +84,117 @@ rt_edit_rhc_menu_item(const struct bn_tol *UNUSED(tol))
     return rhc_menu;
 }
 
+/* ft_edit_desc descriptor for the Right Hyperbolic Cylinder primitive */
+/* ------------------------------------------------------------------ */
+
+static const struct rt_edit_param_desc rhc_b_params[] = {
+    {
+	"b",                  /* name         */
+	"Half-Width B",       /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc rhc_h_params[] = {
+    {
+	"h",                  /* name         */
+	"Height (magnitude)", /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc rhc_r_params[] = {
+    {
+	"r",                  /* name         */
+	"Rectangular Half-Width", /* label    */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc rhc_c_params[] = {
+    {
+	"c",                  /* name         */
+	"Asymptote Constant c", /* label      */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	1e-10,                /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc rhc_cmds[] = {
+    {
+	ECMD_RHC_B,           /* cmd_id       */
+	"Set B",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	rhc_b_params,         /* params       */
+	1,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_RHC_H,           /* cmd_id       */
+	"Set H",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	rhc_h_params,         /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_RHC_R,           /* cmd_id       */
+	"Set r",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	rhc_r_params,         /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    },
+    {
+	ECMD_RHC_C,           /* cmd_id       */
+	"Set c",              /* label        */
+	"geometry",           /* category     */
+	1,                    /* nparam       */
+	rhc_c_params,         /* params       */
+	1,                    /* interactive  */
+	40                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc rhc_prim_desc = {
+    "rhc",                /* prim_type    */
+    "Right Hyperbolic Cylinder", /* prim_label */
+    4,                    /* ncmd         */
+    rhc_cmds              /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_rhc_edit_desc(void)
+{
+    return &rhc_prim_desc;
+}
+
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
 void
