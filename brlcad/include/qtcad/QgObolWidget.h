@@ -659,16 +659,23 @@ protected:
     }
 
     void paintGL() override {
-	if (!m_init || !ctx_)
+	if (!m_init)
 	    return;
 
-	/* Sync stale scene nodes and apply camera from view_ */
-	bv_render_frame(ctx_, view_);
+	if (ctx_) {
+	    /* Sync the Inventor scene graph from bv_scene (build new nodes,
+	     * update stale ones, apply camera from view_).  Do NOT render
+	     * via ctx_->render_mgr — that context may be off-screen (OSMesa).
+	     * Instead use the widget's own renderMgr_, which is bound to the
+	     * Qt GL framebuffer through setRenderCtx() → viewport_ → renderMgr_. */
+	    bv_render_ctx_sync_scene(ctx_, view_);
+	    renderMgr_.setViewportRegion(viewport_.getViewportRegion());
+	    renderMgr_.render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
+	    return;
+	}
 
-	/* Keep SoRenderManager in sync with SoViewport */
+	/* Fallback path (no bv_render_ctx): render the widget's default scene */
 	renderMgr_.setViewportRegion(viewport_.getViewportRegion());
-
-	/* Render: SoRenderManager handles render mode overrides and stereo */
 	renderMgr_.render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
     }
 

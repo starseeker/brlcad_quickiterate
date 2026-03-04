@@ -170,6 +170,23 @@ BV_EXPORT void bv_render_ctx_update_scene(struct bv_render_ctx *ctx,
 					  int take_ownership);
 
 /**
+ * @brief Synchronise the Inventor scene graph without rendering.
+ *
+ * Builds or rebuilds Inventor nodes for any @c bv_node entries that are new
+ * or have @c dlist_stale == 1, and applies the camera from @p view into
+ * @c ctx->viewport.  Does NOT call @c SoRenderManager::render().
+ *
+ * Use this when the caller wants to drive the final render itself (e.g. a
+ * Qt widget that calls its own @c SoRenderManager::render() so that the
+ * output goes to the correct GL framebuffer).
+ *
+ * @param ctx   The render context.  Must not be NULL.
+ * @param view  View whose camera parameters are applied; may be NULL.
+ */
+BV_EXPORT void bv_render_ctx_sync_scene(struct bv_render_ctx *ctx,
+					struct bview_new *view);
+
+/**
  * @brief Render one frame for @p view using @p ctx.
  *
  * Synchronises any stale @c bv_node entries in the scene to their Inventor

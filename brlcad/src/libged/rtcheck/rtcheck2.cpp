@@ -38,6 +38,7 @@
 #include <set>
 
 #include "bu/app.h"
+#include "bv/defines.h"
 
 #include "../ged_private.h"
 
@@ -126,6 +127,9 @@ rtcheck_vector_handler(void *clientData, int type)
 	std::set<struct bv_scene_obj *>::iterator r_it;
 	for (r_it = robjs.begin(); r_it != robjs.end(); r_it++) {
 	    struct bv_scene_obj *s = *r_it;
+	    /* Remove from ged_scene before freeing the underlying obj */
+	    if (gedp->ged_scene)
+		bv_scene_remove_obj(gedp->ged_scene, s);
 	    bv_obj_put(s);
 	}
 
@@ -142,6 +146,9 @@ rtcheck_vector_handler(void *clientData, int type)
 	    if (have_visual) {
 		bu_log("final nused: %zu\n", rtcp->vbp->nused);
 		bv_vlblock_obj(rtcp->vbp, gedp->ged_gvp, sname);
+		/* Sync new overlap objects into ged_scene for Obol rendering */
+		if (gedp->ged_scene && gedp->ged_gvp)
+		    bv_scene_sync_from_view(gedp->ged_scene, gedp->ged_gvp);
 	    }
 	}
     }

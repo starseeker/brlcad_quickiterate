@@ -892,6 +892,24 @@ BV_EXPORT struct bv_scene *bv_scene_from_view(const struct bview *v);
 BV_EXPORT struct bv_scene *bv_scene_from_view_set(const struct bview_set *s);
 
 /*
+ * Synchronise an existing bv_scene with the bv_scene_obj objects currently
+ * drawn in legacy bview @p v.
+ *
+ * - bv_scene_obj objects present in @p v but not yet wrapped in @p scene are
+ *   inserted with bv_scene_insert_obj().
+ * - bv_node wrappers whose bv_scene_obj is no longer in @p v (it was erased)
+ *   are removed and destroyed with bv_scene_remove_obj().
+ *
+ * Unlike bv_scene_from_view() this function updates @p scene in-place rather
+ * than creating a new one, so existing bv_scene* references (e.g. the pointer
+ * stored in ged->ged_scene) remain valid.
+ *
+ * No-op if @p scene or @p v is NULL.
+ */
+BV_EXPORT void bv_scene_sync_from_view(struct bv_scene *scene,
+				       const struct bview *v);
+
+/*
  * Convenience wrapper: wrap a legacy bv_scene_obj in a new bv_node and add
  * it to scene in a single call.  Equivalent to:
  *

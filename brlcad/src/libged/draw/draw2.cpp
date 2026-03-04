@@ -39,6 +39,7 @@
 #include "nmg.h"
 #include "rt/view.h"
 
+#include "bv/defines.h"
 #include "ged/view.h"
 #include "../ged_private.h"
 #include "../dbi.h"
@@ -208,12 +209,12 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // Before we start doing anything with the object set, record if things are
     // starting out empty.
     int blank_slate = 0;
-    struct bu_ptbl *dobjs = bv_view_objs(cv, BV_DB_OBJS);
-    struct bu_ptbl *local_dobjs = bv_view_objs(cv, BV_DB_OBJS);
-    struct bu_ptbl *vobjs = bv_view_objs(cv, BV_VIEW_OBJS);
+    struct bu_ptbl *dobjs  = bv_view_objs(cv, BV_DB_OBJS);
+    struct bu_ptbl *ldobjs = bv_view_objs(cv, BV_DB_OBJS   | BV_LOCAL_OBJS);
+    struct bu_ptbl *vobjs  = bv_view_objs(cv, BV_VIEW_OBJS);
     struct bu_ptbl *vlobjs = bv_view_objs(cv, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if ((!dobjs || !BU_PTBL_LEN(dobjs)) && (!local_dobjs || !BU_PTBL_LEN(local_dobjs)) &&
-	    (!vobjs || !BU_PTBL_LEN(vobjs)) && (!vlobjs || !BU_PTBL_LEN(vlobjs))) {
+    if ((!dobjs  || !BU_PTBL_LEN(dobjs))  && (!ldobjs || !BU_PTBL_LEN(ldobjs)) &&
+	    (!vobjs  || !BU_PTBL_LEN(vobjs))  && (!vlobjs || !BU_PTBL_LEN(vlobjs))) {
 	blank_slate = 1;
     }
 
@@ -228,6 +229,10 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	std::unordered_set<struct bview *> vset;
 	vset.insert(cv);
 	bvs->redraw(&vs, vset, !(blank_slate && !no_autoview));
+	/* Sync newly drawn objects into the new-API ged_scene so that
+	 * Obol / bv_render_frame() sees them on the next repaint. */
+	if (gedp->ged_scene)
+	    bv_scene_sync_from_view(gedp->ged_scene, cv);
 	return BRLCAD_OK;
     }
 
@@ -253,6 +258,9 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	    bv_it->first->add_path(argv[i]);
 	bv_it->first->redraw(&vs, bv_it->second, !(blank_slate && !no_autoview));
     }
+    /* Sync drawn objects into ged_scene for all non-independent views */
+    if (gedp->ged_scene && gedp->ged_gvp)
+	bv_scene_sync_from_view(gedp->ged_scene, gedp->ged_gvp);
 
     return BRLCAD_OK;
 }

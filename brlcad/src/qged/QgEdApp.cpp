@@ -29,7 +29,6 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QTextStream>
-#include <QTimer>
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "bv/render.h"
@@ -262,27 +261,29 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int ob
 
 #ifdef BRLCAD_OPENGL
     // For the Obol canvas type, wire up the bv_render_ctx to the widget.
-    // bv_render_ctx bridges libbv's bv_scene (populated by draw commands)
-    // to Obol's Inventor scene graph.  We create it after show() so the
-    // GL context exists, using a deferred single-shot timer to let Qt
-    // finish its first paint cycle before we access the context.
+    // bv_render_ctx_create() calls SoDB::init() internally, but SoDB may not
+    // be ready until QgObolWidget::initializeGL() fires.  Connect to the
+    // QgView::init_done signal so we run only after initializeGL().
     if (canvas_type == QgView_Obol && gedp->ged_scene) {
-	QTimer::singleShot(0, this, [this]() {
-	    struct ged *g = mdl->gedp;
-	    if (!g || !g->ged_scene) return;
-	    QgView *cv = w->CurrentDisplay();
-	    if (!cv) return;
-	    QgObolWidget *obolw = cv->obol_widget();
-	    if (!obolw) return;
-	    int ww = obolw->width()  > 0 ? obolw->width()  : 512;
-	    int wh = obolw->height() > 0 ? obolw->height() : 512;
-	    struct bv_render_ctx *rctx =
-		bv_render_ctx_create(g->ged_scene, nullptr, ww, wh);
-	    if (rctx) {
-		obolw->setRenderCtx(rctx);
-		obolw->update();
-	    }
-	});
+	QgView *cv = w->CurrentDisplay();
+	if (cv) {
+	    QObject::connect(cv, &QgView::init_done, this, [this]() {
+		struct ged *g = mdl->gedp;
+		if (!g || !g->ged_scene) return;
+		QgView *cvp = w->CurrentDisplay();
+		if (!cvp) return;
+		QgObolWidget *obolw = cvp->obol_widget();
+		if (!obolw || obolw->renderCtx()) return; /* only once */
+		int ww = obolw->width()  > 0 ? obolw->width()  : 512;
+		int wh = obolw->height() > 0 ? obolw->height() : 512;
+		struct bv_render_ctx *rctx =
+		    bv_render_ctx_create(g->ged_scene, nullptr, ww, wh);
+		if (rctx) {
+		    obolw->setRenderCtx(rctx);
+		    obolw->update();
+		}
+	    }, Qt::SingleShotConnection);
+	}
     }
 #endif
 
@@ -388,20 +389,16 @@ QgEdApp::do_view_changed(unsigned long long flags)
 	}
 
 #ifdef BRLCAD_OPENGL
-	/* Sync drawn geometry into the Obol scene graph.
-	 * The draw commands populate bv_scene_obj objects in the view's
-	 * display lists; bv_scene_from_view() wraps these in bv_node objects
-	 * so that bv_render_frame() can build the Inventor scene graph. */
+	/* The draw/erase/zap commands now keep gedp->ged_scene in sync with
+	 * the view's bv_scene_obj display lists via bv_scene_sync_from_view().
+	 * bv_render_frame() (called every paintGL) walks gedp->ged_scene and
+	 * builds Inventor nodes for any new or stale entries automatically,
+	 * so all we need here is a repaint trigger. */
 	if (w && w->CurrentDisplay() &&
 		w->CurrentDisplay()->view_type() == QgView_Obol) {
 	    QgObolWidget *obolw = w->CurrentDisplay()->obol_widget();
-	    if (obolw && obolw->renderCtx() && mdl->gedp->ged_gvp) {
-		struct bv_scene *vs = bv_scene_from_view(mdl->gedp->ged_gvp);
-		if (vs) {
-		    bv_render_ctx_update_scene(obolw->renderCtx(), vs, 1);
-		    obolw->update();
-		}
-	    }
+	    if (obolw && obolw->renderCtx())
+		obolw->update();
 	}
 #endif
     }
