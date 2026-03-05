@@ -46,6 +46,9 @@
 /* bv/polygon.h declares the legacy functions wrapped in this file */
 #include "bv/polygon.h"
 
+/* bn/mat.h provides bn_mat_mul() used by bsg_traverse() */
+#include "bn/mat.h"
+
 /* ====================================================================== *
  * Phase 1 layout sanity checks                                           *
  *                                                                        *
@@ -672,6 +675,92 @@ extern "C" int
 bsg_polygon_csg(bsg_shape *target, bsg_shape *stencil, bg_clip_t op)
 {
     return bv_polygon_csg(bso_to_bv(target), bso_to_bv(stencil), op);
+}
+
+/* ====================================================================== *
+ * Phase 2: traversal state                                               *
+ * ====================================================================== */
+
+extern "C" void
+bsg_traversal_state_init(bsg_traversal_state *state)
+{
+    if (!state)
+	return;
+    MAT_IDN(state->xform);
+    bsg_material default_material = BV_OBJ_SETTINGS_INIT;
+    state->material = default_material;
+    state->depth = 0;
+}
+
+/* ====================================================================== *
+ * Phase 2: scene graph traversal                                         *
+ * ====================================================================== */
+
+extern "C" void
+bsg_traverse(bsg_shape *root,
+	     bsg_traversal_state *state,
+	     int (*visit)(bsg_shape *, const bsg_traversal_state *, void *),
+	     void *user_data)
+{
+    if (!root || !state || !visit)
+	return;
+
+    /* Separator: save current state so children cannot pollute ancestors. */
+    int is_sep = (root->s_type_flags & BSG_NODE_SEPARATOR) != 0;
+    bsg_traversal_state saved;
+    if (is_sep)
+	saved = *state;
+
+    /* Accumulate transform: state->xform = old_xform * node->s_mat */
+    mat_t new_xform;
+    bn_mat_mul(new_xform, state->xform, root->s_mat);
+    MAT_COPY(state->xform, new_xform);
+
+    /* Accumulate material: update only when the node supplies its own settings
+     * (i.e. it is not asking to simply inherit from its parent). */
+    if (root->s_os && !root->s_inherit_settings)
+	state->material = *root->s_os;
+
+    state->depth++;
+
+    /* Visit this node; prune subtree on non-zero return. */
+    int prune = visit(root, state, user_data);
+
+    if (!prune) {
+	for (size_t ci = 0; ci < BU_PTBL_LEN(&root->children); ci++) {
+	    bsg_shape *child = (bsg_shape *)BU_PTBL_GET(&root->children, ci);
+	    bsg_traverse(child, state, visit, user_data);
+	}
+    }
+
+    state->depth--;
+
+    /* Restore state if this was a separator. */
+    if (is_sep)
+	*state = saved;
+}
+
+/* ====================================================================== *
+ * Phase 2: camera accessor                                               *
+ * ====================================================================== */
+
+extern "C" void
+bsg_view_get_camera(const bsg_view *v, struct bsg_camera *out)
+{
+    if (!v || !out)
+	return;
+    out->perspective  = v->gv_perspective;
+    VMOVE(out->aet,      v->gv_aet);
+    VMOVE(out->eye_pos,  v->gv_eye_pos);
+    VMOVE(out->keypoint, v->gv_keypoint);
+    out->coord        = v->gv_coord;
+    out->rotate_about = v->gv_rotate_about;
+    MAT_COPY(out->rotation,    v->gv_rotation);
+    MAT_COPY(out->center,      v->gv_center);
+    MAT_COPY(out->model2view,  v->gv_model2view);
+    MAT_COPY(out->pmodel2view, v->gv_pmodel2view);
+    MAT_COPY(out->view2model,  v->gv_view2model);
+    MAT_COPY(out->pmat,        v->gv_pmat);
 }
 
 /*

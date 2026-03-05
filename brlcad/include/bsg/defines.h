@@ -136,13 +136,13 @@ typedef struct bv_obj_settings bsg_material;
 /**
  * @brief Group node — aggregates child @c bsg_shape nodes.
  *
- * Phase 1: alias of @c bv_scene_group (which is itself an alias of
- * @c bv_scene_obj).
- * Phase 2: will gain proper state isolation (SoSeparator semantics).
+ * Phase 1: typedef alias of @c bsg_shape (same in-memory layout).
+ * Phase 2: gains proper state isolation (SoSeparator semantics) via
+ * the @c BSG_NODE_SEPARATOR type-flag on the underlying @c bsg_shape.
  *
  * Analogous to @c SoSeparator in Open Inventor.
  */
-#define bsg_group bsg_shape
+typedef bsg_shape bsg_group;
 
 /**
  * @brief Mesh Level-of-Detail payload exposed to renderers.
@@ -263,6 +263,29 @@ struct bsg_camera {
 #define BSG_NODE_MESH_LOD     BV_MESH_LOD
 #define BSG_NODE_CSG_LOD      BV_CSG_LOD
 
+/**
+ * @brief Phase 2 node-type flag: Separator group (SoSeparator semantics).
+ *
+ * When set on a @c bsg_shape, the node acts as a scope boundary during
+ * scene-graph traversal: the traversal state (accumulated transform and
+ * material) is saved on entry and restored on exit.  Children of the node
+ * may freely modify state without affecting siblings or ancestors.
+ *
+ * Analogous to @c SoSeparator in Open Inventor.
+ */
+#define BSG_NODE_SEPARATOR    0x100
+
+/**
+ * @brief Phase 2 node-type flag: Transform node (SoTransform semantics).
+ *
+ * When set on a @c bsg_shape, the node's primary contribution to the scene
+ * is its @c s_mat transform matrix; it carries no renderable geometry of its
+ * own.  During traversal the matrix is accumulated into the traversal state.
+ *
+ * Analogous to @c SoTransform in Open Inventor.
+ */
+#define BSG_NODE_TRANSFORM    0x200
+
 /* Container-selection flags */
 #define BSG_DB_OBJS    BV_DB_OBJS
 #define BSG_VIEW_OBJS  BV_VIEW_OBJS
@@ -310,6 +333,84 @@ struct bsg_camera {
 #define BSG_VIEW_RANGE  BV_RANGE
 #define BSG_MINVIEWSIZE   BV_MINVIEWSIZE
 #define BSG_MINVIEWSCALE  BV_MINVIEWSCALE
+
+/* ====================================================================== *
+ * Phase 2: traversal state                                               *
+ *                                                                         *
+ * Analogous to the SoState object passed through every SoAction during   *
+ * Open Inventor traversal.  It accumulates property-node contributions   *
+ * (material settings, transform) as the scene graph is walked.           *
+ * ====================================================================== */
+
+/**
+ * @brief State accumulated during a scene-graph traversal.
+ *
+ * Callers initialise one of these with @c bsg_traversal_state_init() and
+ * pass it to @c bsg_traverse().  At each node the state reflects the
+ * cumulative effect of all ancestor property/transform nodes.
+ *
+ * Nodes flagged with @c BSG_NODE_SEPARATOR cause the state to be saved on
+ * descent and restored on ascent — exactly as @c SoSeparator does in
+ * Open Inventor.
+ */
+struct bsg_traversal_state {
+    /** @brief Accumulated model transform (product of all ancestor @c s_mat values). */
+    mat_t        xform;
+    /** @brief Accumulated material settings (last property node in traversal order wins). */
+    bsg_material material;
+    /** @brief Current traversal depth (root = 0). */
+    int          depth;
+};
+/** @brief C convenience typedef. */
+typedef struct bsg_traversal_state bsg_traversal_state;
+
+/* ====================================================================== *
+ * Obol / Open Inventor structural compatibility notes                    *
+ *                                                                         *
+ * The following issues must be considered when interfacing BRL-CAD's bsg *
+ * with an Inventor-style API such as Obol.  None of these prevent the    *
+ * integration, but each requires an explicit design decision.            *
+ *                                                                         *
+ * 1. Camera / view is NOT a scene-graph node.                            *
+ *    In Open Inventor the camera (SoCamera) is a node inserted into the  *
+ *    scene.  In BRL-CAD, bsg_view encapsulates the camera together with  *
+ *    per-view rendering state and is kept entirely outside the shape      *
+ *    hierarchy.  Obol integration should either:                         *
+ *      a) Treat bsg_view as an external camera that is registered with   *
+ *         the Obol root-scene node but not itself a child node; or       *
+ *      b) Create a thin SoCamera wrapper whose field values are driven   *
+ *         from bsg_view_get_camera() and written back via               *
+ *         bsg_view_set_camera().                                         *
+ *                                                                         *
+ * 2. Multi-view shared object model.                                     *
+ *    BRL-CAD allows identical scene objects to be active in multiple     *
+ *    views simultaneously to reduce memory usage.  Open Inventor's DAG   *
+ *    supports instancing (one node reachable via multiple paths), which  *
+ *    is equivalent, but Obol may not expose this directly.  The per-view *
+ *    shape overrides managed by bsg_shape_for_view() /                   *
+ *    bsg_shape_get_view_obj() represent view-specific sub-graphs that    *
+ *    would each need to be a separate Obol sub-scene per view.           *
+ *                                                                         *
+ * 3. Flat object tables vs. graph traversal.                             *
+ *    The renderer currently iterates over bview_objs.db_objs and        *
+ *    bview_objs.view_objs (flat bu_ptbl tables) rather than walking a    *
+ *    scene tree.  Moving to Obol requires switching the render loop to   *
+ *    use bsg_traverse() (or the equivalent Obol scene-walk) so that      *
+ *    separator state-push/pop and accumulated transforms are honoured.   *
+ *                                                                         *
+ * 4. Stale-flag notification vs. Obol sensors.                          *
+ *    BRL-CAD uses explicit stale flags (s_dlist_stale, bsg_shape_stale)  *
+ *    to trigger re-renders; Obol uses an SoSensor system.  Integration  *
+ *    should bridge the two: bsg_shape_stale() should ultimately schedule *
+ *    an Obol one-shot sensor rather than set a raw flag.                 *
+ *                                                                         *
+ * 5. LoD is a payload, not a group node.                                 *
+ *    bsg_lod attaches mesh-LoD data to a shape node (BSG_NODE_MESH_LOD); *
+ *    it is not a group node that selects children by viewer distance as  *
+ *    SoLOD does.  For full Obol compatibility the BSG_NODE_MESH_LOD flag *
+ *    would need to trigger special Obol-side traversal logic that selects*
+ *    the appropriate detail child rather than mapping directly to SoLOD. *
+ * ====================================================================== */
 
 __END_DECLS
 

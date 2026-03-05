@@ -82,6 +82,9 @@
  * | bv_set_rm_view()      | bsg_scene_rm_view()        |
  * | bv_set_views()        | bsg_scene_views()          |
  * | bv_set_find_view()    | bsg_scene_find_view()      |
+ * | (new Phase 2)         | bsg_traversal_state_init() |
+ * | (new Phase 2)         | bsg_traverse()             |
+ * | (new Phase 2)         | bsg_view_get_camera()      |
  */
 
 #ifndef BSG_UTIL_H
@@ -390,9 +393,79 @@ BSG_EXPORT bsg_view *bsg_scene_find_view(bsg_scene *s,
 const char *name);
 
 /* ====================================================================== *
- * Logging / debug                                                         *
+ * Phase 2: scene graph traversal                                         *
  * ====================================================================== */
 
+/**
+ * @brief Initialise @p state to identity values.
+ *
+ * Sets @c xform to the identity matrix, @c material to
+ * @c BSG_MATERIAL_INIT, and @c depth to 0.  Must be called before
+ * passing @p state to @c bsg_traverse().
+ */
+BSG_EXPORT void bsg_traversal_state_init(bsg_traversal_state *state);
+
+/**
+ * @brief Traverse the scene (sub-)graph rooted at @p root.
+ *
+ * Performs a pre-order depth-first walk.  At each node, @p visit is called
+ * with the node pointer, the current accumulated @c bsg_traversal_state, and
+ * @p user_data.  If @p visit returns non-zero the node's subtree is pruned
+ * (no children are visited).
+ *
+ * State accumulation rules:
+ *   - The accumulated transform is updated at every node by post-multiplying
+ *     the node's @c s_mat into the current @c state->xform.
+ *   - The accumulated material is updated at every node that has an explicit
+ *     settings override (i.e. @c s_os != NULL and @c s_inherit_settings == 0).
+ *   - Nodes flagged with @c BSG_NODE_SEPARATOR cause the traversal state to be
+ *     saved on descent and fully restored on ascent — SoSeparator semantics.
+ *
+ * @param root      Root of the sub-graph to traverse.  NULL is a no-op.
+ * @param state     Traversal state; updated in-place.  Caller must initialise
+ *                  with @c bsg_traversal_state_init() before the first call.
+ * @param visit     Callback invoked for every node (pre-order).
+ *                  Return non-zero to prune this node's subtree.
+ * @param user_data Opaque pointer forwarded to every @p visit call.
+ */
+BSG_EXPORT void bsg_traverse(bsg_shape *root,
+			     bsg_traversal_state *state,
+			     int (*visit)(bsg_shape *,
+					  const bsg_traversal_state *,
+					  void *),
+			     void *user_data);
+
+/* ====================================================================== *
+ * Phase 2: camera accessor                                               *
+ * ====================================================================== */
+
+/**
+ * @brief Copy camera data from view @p v into @p out.
+ *
+ * In Phase 1 the camera fields live inline in @c bsg_view (= @c bview).
+ * This function populates a @c bsg_camera snapshot so that consumers can
+ * use the Phase 2 interface without waiting for Phase 2 to embed the struct.
+ *
+ * When Phase 2 embeds @c bsg_camera directly in @c bsg_view the migration
+ * is mechanical:
+ *
+ * @code
+ * // Phase 1:
+ * struct bsg_camera cam;
+ * bsg_view_get_camera(v, &cam);
+ *
+ * // Phase 2 (after embed):
+ * const struct bsg_camera *cam = &v->camera;
+ * @endcode
+ *
+ * @param v   Source view (must not be NULL).
+ * @param out Destination camera struct (must not be NULL).
+ */
+BSG_EXPORT void bsg_view_get_camera(const bsg_view *v, struct bsg_camera *out);
+
+/* ====================================================================== *
+ * Logging / debug                                                         *
+ * ====================================================================== */
 #define BSG_ENABLE_ENV_LOGGING 1
 
 /** @brief Conditionally log a debug message (set BSG_LOG env var for level). */
