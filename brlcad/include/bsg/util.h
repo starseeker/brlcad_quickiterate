@@ -85,6 +85,20 @@
  * | (new Phase 2)         | bsg_traversal_state_init() |
  * | (new Phase 2)         | bsg_traverse()             |
  * | (new Phase 2)         | bsg_view_get_camera()      |
+ * | (new Phase 2)         | bsg_view_set_camera()      |
+ * | (new Phase 2)         | bsg_node_alloc()           |
+ * | (new Phase 2)         | bsg_node_free()            |
+ * | (new Phase 2)         | bsg_camera_node_alloc()    |
+ * | (new Phase 2)         | bsg_camera_node_set()      |
+ * | (new Phase 2)         | bsg_camera_node_get()      |
+ * | (new Phase 2)         | bsg_scene_root_get()       |
+ * | (new Phase 2)         | bsg_scene_root_set()       |
+ * | (new Phase 2)         | bsg_scene_root_create()    |
+ * | (new Phase 2)         | bsg_view_traverse()        |
+ * | (new Phase 2)         | bsg_shape_add_sensor()     |
+ * | (new Phase 2)         | bsg_shape_rm_sensor()      |
+ * | (new Phase 2)         | bsg_lod_group_alloc()      |
+ * | (new Phase 2)         | bsg_lod_group_select_child()|
  */
 
 #ifndef BSG_UTIL_H
@@ -462,6 +476,210 @@ BSG_EXPORT void bsg_traverse(bsg_shape *root,
  * @param out Destination camera struct (must not be NULL).
  */
 BSG_EXPORT void bsg_view_get_camera(const bsg_view *v, struct bsg_camera *out);
+
+/* ====================================================================== *
+ * Phase 2: standalone node allocation                                    *
+ * ====================================================================== */
+
+/**
+ * @brief Allocate a standalone @c bsg_shape node not attached to any view.
+ *
+ * Used for camera nodes (@c BSG_NODE_CAMERA), LoD group nodes
+ * (@c BSG_NODE_LOD_GROUP), separator roots, and other structural nodes
+ * that own their own lifetime.  The returned node is independent of the
+ * @c bsg_view / @c bsg_scene allocation pools.
+ *
+ * @param type_flags  One or more @c BSG_NODE_* flags describing the node.
+ * @return Newly allocated node, or NULL on allocation failure.
+ *         Free with @c bsg_node_free().
+ */
+BSG_EXPORT bsg_shape *bsg_node_alloc(int type_flags);
+
+/**
+ * @brief Free a standalone node previously created with @c bsg_node_alloc().
+ *
+ * Fires @c s_free_callback (if set), clears children, fires sensors, then
+ * releases memory.  Does NOT recurse into children automatically; callers
+ * that own a tree must traverse and free children themselves, or set
+ * @c recurse to non-zero to recursively free the entire sub-tree.
+ *
+ * @param s       Node to free (NULL is a no-op).
+ * @param recurse If non-zero, recursively free all children first.
+ */
+BSG_EXPORT void bsg_node_free(bsg_shape *s, int recurse);
+
+/* ====================================================================== *
+ * Phase 2: camera node (Issue 1)                                        *
+ * ====================================================================== */
+
+/**
+ * @brief Allocate a camera node (@c BSG_NODE_CAMERA) pre-populated from
+ *        an existing view.
+ *
+ * Equivalent to @c bsg_node_alloc(BSG_NODE_CAMERA) followed by
+ * @c bsg_camera_node_set() from the current state of @p v.
+ * If @p v is NULL the camera fields are zeroed.
+ *
+ * @return New camera node.  Free with @c bsg_node_free().
+ */
+BSG_EXPORT bsg_shape *bsg_camera_node_alloc(const bsg_view *v);
+
+/**
+ * @brief Copy camera data @p cam into a camera node @p node.
+ *
+ * @p node must have @c BSG_NODE_CAMERA set in @c s_type_flags.
+ */
+BSG_EXPORT void bsg_camera_node_set(bsg_shape *node,
+				    const struct bsg_camera *cam);
+
+/**
+ * @brief Extract camera data from camera node @p node into @p out.
+ *
+ * @p node must have @c BSG_NODE_CAMERA set in @c s_type_flags.
+ * Returns 0 on success, -1 if @p node is not a camera node.
+ */
+BSG_EXPORT int bsg_camera_node_get(const bsg_shape *node,
+				   struct bsg_camera *out);
+
+/**
+ * @brief Write camera data from @p cam back into the legacy @c bsg_view.
+ *
+ * This is the inverse of @c bsg_view_get_camera().  It allows code that
+ * manipulates a camera node to propagate changes back to the @c bsg_view
+ * so that @c bsg_view_update() and existing render code continue to work.
+ *
+ * @param v   Destination view (must not be NULL).
+ * @param cam Source camera data (must not be NULL).
+ */
+BSG_EXPORT void bsg_view_set_camera(bsg_view *v, const struct bsg_camera *cam);
+
+/* ====================================================================== *
+ * Phase 2: per-view scene root (Issue 2 / 3)                            *
+ * ====================================================================== */
+
+/**
+ * @brief Return the scene-graph root node for view @p v, or NULL if none
+ *        has been set.
+ *
+ * The scene root is the Inventor-style root @c SoSeparator for this view.
+ * Geometry is added as children of the root; a camera node is typically
+ * the first child.  The root is NOT automatically created — call
+ * @c bsg_scene_root_set() or @c bsg_scene_root_create() to establish one.
+ */
+BSG_EXPORT bsg_shape *bsg_scene_root_get(const bsg_view *v);
+
+/**
+ * @brief Set the scene-graph root node for view @p v.
+ *
+ * Passing @p root == NULL removes any existing root association without
+ * freeing the root node.  The caller retains ownership of @p root and is
+ * responsible for freeing it with @c bsg_node_free().
+ */
+BSG_EXPORT void bsg_scene_root_set(bsg_view *v, bsg_shape *root);
+
+/**
+ * @brief Allocate and set a fresh @c BSG_NODE_SEPARATOR scene root for view
+ *        @p v, pre-populated with a camera node derived from the view's
+ *        current camera state.
+ *
+ * Returns the new root node.  The view takes logical association with the
+ * root but the caller is still responsible for freeing it when the view is
+ * torn down.  If @p v already has a scene root this call replaces the
+ * association (the old root is NOT freed).
+ */
+BSG_EXPORT bsg_shape *bsg_scene_root_create(bsg_view *v);
+
+/* ====================================================================== *
+ * Phase 2: view traversal (Issue 3)                                     *
+ * ====================================================================== */
+
+/**
+ * @brief Traverse the scene graph for view @p v from its scene root.
+ *
+ * Convenience wrapper around @c bsg_traverse() that:
+ *   1. Retrieves the scene root via @c bsg_scene_root_get().
+ *   2. Initialises a @c bsg_traversal_state and sets @c state.view = v.
+ *   3. Calls @c bsg_traverse() on the root.
+ *
+ * If the view has no scene root this function is a no-op.
+ *
+ * @param v         View to traverse.
+ * @param visit     Visitor callback (pre-order); return non-zero to prune.
+ * @param user_data Opaque pointer forwarded to @p visit.
+ */
+BSG_EXPORT void bsg_view_traverse(bsg_view *v,
+				  int (*visit)(bsg_shape *,
+					       const bsg_traversal_state *,
+					       void *),
+				  void *user_data);
+
+/* ====================================================================== *
+ * Phase 2: sensors (Issue 4)                                            *
+ * ====================================================================== */
+
+/**
+ * @brief Register a change-notification sensor on node @p s.
+ *
+ * The @p callback is invoked every time @c bsg_shape_stale() marks @p s
+ * as dirty.  The sensor fires AFTER the stale flag is set, so callbacks
+ * may safely read or update the stale flag.
+ *
+ * Multiple sensors may be registered on the same node.
+ *
+ * @return An opaque non-zero handle that identifies this sensor
+ *         registration.  Pass to @c bsg_shape_rm_sensor() to deregister.
+ *         Returns 0 on failure.
+ */
+BSG_EXPORT unsigned long long bsg_shape_add_sensor(bsg_shape *s,
+					void (*callback)(bsg_shape *, void *),
+					void *data);
+
+/**
+ * @brief Remove a previously registered sensor from node @p s.
+ *
+ * @param s      Node from which to remove the sensor.
+ * @param handle Handle returned by @c bsg_shape_add_sensor().
+ * @return 0 if the sensor was found and removed, -1 if not found.
+ */
+BSG_EXPORT int bsg_shape_rm_sensor(bsg_shape *s, unsigned long long handle);
+
+/* ====================================================================== *
+ * Phase 2: LoD group node (Issue 5)                                     *
+ * ====================================================================== */
+
+/**
+ * @brief Allocate a @c BSG_NODE_LOD_GROUP node.
+ *
+ * @p switch_distances must have @p (num_levels - 1) entries.  Entry @p n
+ * is the eye-to-center distance (in model units) at which the renderer
+ * switches from child @p n to the coarser child @p (n+1).
+ *
+ * Children should be added after creation with @c bsg_shape_get_child()
+ * or by inserting into @c node->children, in highest-to-lowest detail
+ * order (child[0] = most detailed).
+ *
+ * @param num_levels       Number of detail levels (must be >= 1).
+ * @param switch_distances Array of @p (num_levels - 1) distances; may be
+ *                         NULL when @p num_levels == 1.
+ * @return New LoD group node.  Free with @c bsg_node_free(node, 1).
+ */
+BSG_EXPORT bsg_shape *bsg_lod_group_alloc(int num_levels,
+					  const fastf_t *switch_distances);
+
+/**
+ * @brief Given a viewer distance and an LoD group node, return the child
+ *        index that should be rendered.
+ *
+ * Returns 0 (highest detail) when no @p view is available or the node
+ * has no switch distances.  Returns -1 if @p node is not a
+ * @c BSG_NODE_LOD_GROUP node.
+ *
+ * @param node             An LoD group node.
+ * @param viewer_distance  Distance from the eye to the node's center.
+ * @return Child index in @c [0, num_levels - 1], or -1 on error.
+ */
+BSG_EXPORT int bsg_lod_group_select_child(const bsg_shape *node,
+					  fastf_t viewer_distance);
 
 /* ====================================================================== *
  * Logging / debug                                                         *
