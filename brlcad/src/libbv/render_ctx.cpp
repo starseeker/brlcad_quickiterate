@@ -97,7 +97,6 @@
 
 #include <vector>
 #include <unordered_map>
-#include <mutex>
 
 /* Obol/Inventor public API headers (kept strictly inside this TU). */
 /* Obol headers are third-party code; suppress BRL-CAD's strict warnings. */
@@ -273,6 +272,7 @@ struct bv_render_ctx {
     SoSeparator                                 *root;      /* shared scene root */
     std::unordered_map<const struct bv_node *, SoNode *> node_map;
     struct bv_scene                             *scene;
+    int                                          owns_scene; /* non-zero → destroy scene in bv_render_ctx_destroy */
     int                                          width;
     int                                          height;
 };
@@ -592,6 +592,9 @@ build_so_node(struct bv_render_ctx *ctx,
 /*
  * Sync the entire bv_scene tree into the Inventor scene.
  * Walk from the bv_scene root node; new and stale nodes are updated.
+ * Nodes that were erased from the scene (ctx->root has more geometry children
+ * than bv_scene root has children) trigger a full rebuild of the Inventor
+ * sub-tree so stale SoSeparator references are never dangled.
  */
 static void
 sync_scene(struct bv_render_ctx *ctx)
@@ -603,8 +606,29 @@ sync_scene(struct bv_render_ctx *ctx)
     if (!root_node)
 	return;
 
+    /* Geometry children of ctx->root = total children minus the
+     * directional light (always child[0]).  If the Inventor scene has
+     * MORE top-level geometry nodes than bv_scene has top-level children,
+     * then objects were erased.  Because bv_scene_remove_obj() frees the
+     * bv_node* (making our cached node_map keys dangling), the only safe
+     * recovery is a full rebuild of the Inventor sub-tree. */
+    int inv_geo = ctx->root->getNumChildren() - 1; /* subtract light */
+    int bv_top  = (int)BU_PTBL_LEN(&root_node->children);
+    if (inv_geo > bv_top) {
+	/* Full rebuild: unref all cached nodes, clear the map, and
+	 * remove all geometry children from ctx->root. */
+	for (auto &kv : ctx->node_map) {
+	    if (SoSeparator *sep = dynamic_cast<SoSeparator *>(kv.second))
+		sep->unref();
+	}
+	ctx->node_map.clear();
+	/* Remove children from root except child[0] (the directional light) */
+	for (int ci = ctx->root->getNumChildren() - 1; ci >= 1; ci--)
+	    ctx->root->removeChild(ci);
+    }
+
     /* Use the scene root's children as top-level nodes */
-    for (size_t i = 0; i < BU_PTBL_LEN(&root_node->children); i++) {
+    for (size_t i = 0; i < (size_t)bv_top; i++) {
 	struct bv_node *top =
 	    (struct bv_node *)BU_PTBL_GET(&root_node->children, i);
 	build_so_node(ctx, top, ctx->root);
@@ -691,14 +715,19 @@ sync_camera_to_viewport(SoViewport *vp, const struct bview_new *view)
 /* ------------------------------------------------------------------ */
 /* SoDB initialisation guard                                           */
 /* ------------------------------------------------------------------ */
-static std::once_flag s_sodb_init_flag;
 
 static void
 ensure_sodb_init(void *context_manager)
 {
-    std::call_once(s_sodb_init_flag, [&]() {
-	SoDB::init(static_cast<SoDB::ContextManager *>(context_manager));
-    });
+    /* Use SoDB::isInitialized() so we never re-initialise SoDB when the
+     * calling widget (e.g. QgObolWidget::initializeGL) has already called
+     * SoDB::init() with its own Qt GL context manager.  Re-initialising
+     * SoDB with a different context manager (e.g. OSMesa) after it has
+     * already been set up with Qt GL corrupts render state and crashes. */
+    if (SoDB::isInitialized())
+	return;
+
+    SoDB::init(static_cast<SoDB::ContextManager *>(context_manager));
 }
 
 /* ------------------------------------------------------------------ */
@@ -726,13 +755,17 @@ bv_render_ctx_create(struct bv_scene *scene, void *context_manager,
 	return nullptr;
     }
 
-    if (!context_manager)
+    /* If SoDB is already initialized (e.g. by QgObolWidget::initializeGL with
+     * a Qt GL context manager), do NOT create an OSMesa context manager —
+     * doing so would re-initialize SoDB with a different backend and crash. */
+    if (!context_manager && !SoDB::isInitialized())
 	context_manager = SoDB::createOSMesaContextManager();
 
     ensure_sodb_init(context_manager);
 
     struct bv_render_ctx *ctx = new struct bv_render_ctx;
-    ctx->scene  = scene;
+    ctx->scene      = scene;
+    ctx->owns_scene = 0;
     ctx->width  = width;
     ctx->height = height;
 
@@ -778,8 +811,48 @@ bv_render_ctx_destroy(struct bv_render_ctx *ctx)
     ctx->node_map.clear();
 
     ctx->root->unref();
+
+    if (ctx->owns_scene && ctx->scene)
+	bv_scene_destroy(ctx->scene);
+
     delete ctx;
 }
+
+void
+bv_render_ctx_update_scene(struct bv_render_ctx *ctx,
+			   struct bv_scene *scene,
+			   int take_ownership)
+{
+    if (!ctx || !scene)
+	return;
+
+    /* Free old owned scene if any */
+    if (ctx->owns_scene && ctx->scene)
+	bv_scene_destroy(ctx->scene);
+
+    /* Clear all cached Inventor nodes and remove from root */
+    for (auto &kv : ctx->node_map) {
+	if (SoSeparator *sep = dynamic_cast<SoSeparator *>(kv.second))
+	    sep->unref();
+    }
+    ctx->node_map.clear();
+
+    /* Remove all children from the root except the first (directional light) */
+    int n = ctx->root->getNumChildren();
+    for (int i = n - 1; i >= 1; i--)
+	ctx->root->removeChild(i);
+
+    ctx->scene      = scene;
+    ctx->owns_scene = take_ownership ? 1 : 0;
+
+    /* Build fresh Inventor hierarchy from new scene */
+    sync_scene(ctx);
+
+    /* Let SoViewport / SoRenderManager see the new geometry */
+    if (!ctx->viewport.getCamera())
+	ctx->viewport.viewAll();
+}
+
 
 void
 bv_render_ctx_set_size(struct bv_render_ctx *ctx, int width, int height)
@@ -795,22 +868,27 @@ bv_render_ctx_set_size(struct bv_render_ctx *ctx, int width, int height)
     ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
 }
 
+void
+bv_render_ctx_sync_scene(struct bv_render_ctx *ctx, struct bview_new *view)
+{
+    if (!ctx)
+	return;
+
+    sync_scene(ctx);
+
+    if (view)
+	sync_camera_to_viewport(&ctx->viewport, view);
+
+    ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
+}
+
 int
 bv_render_frame(struct bv_render_ctx *ctx, struct bview_new *view)
 {
     if (!ctx)
 	return 0;
 
-    /* Sync stale or new nodes from the bv_scene tree */
-    sync_scene(ctx);
-
-    /* Apply camera/viewport from view if provided */
-    if (view)
-	sync_camera_to_viewport(&ctx->viewport, view);
-
-    /* Keep SoRenderManager in sync with SoViewport */
-    ctx->render_mgr.setViewportRegion(ctx->viewport.getViewportRegion());
-
+    bv_render_ctx_sync_scene(ctx, view);
     ctx->render_mgr.render(/*clearwindow=*/TRUE, /*clearzbuffer=*/TRUE);
     return 1;
 }
@@ -821,6 +899,14 @@ bv_render_ctx_scene_root(struct bv_render_ctx *ctx)
     if (!ctx)
 	return nullptr;
     return static_cast<void *>(ctx->root);
+}
+
+struct bv_scene *
+bv_render_ctx_get_scene(struct bv_render_ctx *ctx)
+{
+    if (!ctx)
+	return nullptr;
+    return ctx->scene;
 }
 
 void *
@@ -1012,6 +1098,12 @@ bv_render_frame(struct bv_render_ctx *UNUSED(ctx),
 
 void *
 bv_render_ctx_scene_root(struct bv_render_ctx *UNUSED(ctx))
+{
+    return NULL;
+}
+
+struct bv_scene *
+bv_render_ctx_get_scene(struct bv_render_ctx *UNUSED(ctx))
 {
     return NULL;
 }

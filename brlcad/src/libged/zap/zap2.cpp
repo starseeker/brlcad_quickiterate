@@ -27,7 +27,7 @@
 
 #include <stdlib.h>
 
-
+#include "bv/defines.h"
 #include "../ged_private.h"
 #include "../dbi.h"
 
@@ -117,6 +117,10 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	if (!bv_clear(v, flags))
 	    v->gv_s->gv_cleared = 1;
 
+	/* Sync ged_scene: no db objects remain for this view */
+	if (gedp->ged_scene && v)
+	    bv_scene_sync_from_view(gedp->ged_scene, v);
+
 	bu_vls_free(&cvls);
 	return BRLCAD_OK;
     }
@@ -150,6 +154,10 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 
 	ret = BRLCAD_OK;
     }
+
+    /* After clearing all views, sync ged_scene (will remove all wrappers) */
+    if (gedp->ged_scene && gedp->ged_gvp)
+	bv_scene_sync_from_view(gedp->ged_scene, gedp->ged_gvp);
 
     bu_vls_free(&cvls);
     return ret;

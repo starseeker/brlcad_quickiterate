@@ -68,3 +68,93 @@ get down to work on the core tasks rather than having to figure out setup issues
 please update and refine it for that purpose as you work.  Unless instructed otherwise,
 copilot sessions working on this project should continue working until they get close
 to their session time limit or all work is completed.
+
+---
+
+## Session 1 Progress (completed)
+
+### What was done:
+1. **Build environment setup**: `sudo apt-get install -y qt6-base-dev qt6-svg-dev libx11-dev libxi-dev libxext-dev libglu1-mesa-dev xvfb`
+2. **CMake configure command** (use every session):
+   ```
+   REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
+   cmake -S "$REPO_ROOT/brlcad" -B "$REPO_ROOT/brlcad_build" \
+     -DBRLCAD_EXT_DIR="$REPO_ROOT/bext_output" \
+     -DBRLCAD_EXTRADOCS=OFF -DBRLCAD_ENABLE_STEP=OFF -DBRLCAD_ENABLE_GDAL=OFF \
+     -DBRLCAD_ENABLE_QT=ON -DBRLCAD_ENABLE_OBOL=ON \
+     -DOBOL_INSTALL_DIR="$REPO_ROOT/bext_output/install"
+   ```
+3. **Build command**: `cmake --build brlcad_build --target qged -j$(nproc)`
+4. **New features committed**:
+   - `qged/main.cpp`: Added `--obol`/`-o` CLI option
+   - `QgEdApp`: Added `obol_mode` parameter; selects `QgView_Obol` canvas
+
+---
+
+## Session 2 Progress (completed)
+
+### What was done:
+1. **`bv_node_vlist_get()` fix** (scene.cpp): wrapped `bv_scene_obj` nodes stored
+   geometry ptr at obj root (`bu_list` linkage), not at `s_vlist` — now returns
+   `&s->s_vlist` for wrapped nodes
+2. **`bv_render_ctx_update_scene()`** added to render.h + render_ctx.cpp (clears
+   node cache, swaps scene, re-syncs Inventor graph)
+3. **`bv_render_ctx_sync_scene()`** added — sync without render (for Qt GL path)
+4. **`bv_scene_sync_from_view()`** added to defines.h + scene.cpp: in-place sync
+   of an existing `bv_scene` from a view's display lists
+5. **`*2.cpp` commands updated** to embrace new API:
+   - `draw2.cpp`: fixed `local_dobjs` bug; calls `bv_scene_sync_from_view(gedp->ged_scene, cv)` after draw
+   - `erase2.cpp`: calls `bv_scene_sync_from_view` after erase
+   - `zap2.cpp`: calls `bv_scene_sync_from_view` after clear
+   - `rtcheck2.cpp`: calls `bv_scene_remove_obj` for erased overlap objs, `bv_scene_sync_from_view` after new ones are added
+6. **`QgEdApp::do_view_changed`**: simplified — draw2 keeps `ged_scene` in sync,
+   so `do_view_changed` just calls `obolw->update()` to trigger repaint
+7. **`QgEdApp` init_done fix**: replaced `QTimer::singleShot(0)` with
+   `QObject::connect(cv, &QgView::init_done, ...)` so `bv_render_ctx_create` only
+   runs after `SoDB::init()` has been called by `initializeGL()`
+8. **`QgObolWidget::paintGL()`**: now calls `bv_render_ctx_sync_scene(ctx_, view_)`
+   then `renderMgr_.render()` — the widget's own render manager uses the Qt GL
+   framebuffer (not OSMesa)
+9. **`setRenderCtx()`** already connects `ctx->root` to `viewport_` + `renderMgr_`
+
+### Remaining issue (Session 3 TODO) — Obol viewport still black:
+The viewport renders black even after `draw all.g`. The draw command runs correctly
+(console shows it completed, hierarchy shows `all.g`). Possible causes:
+
+**Most likely**: `sync_camera_to_viewport` is called with `view_` which is the
+widget's local `bview_new` (created in the constructor). This view was never
+given the GED session's actual camera state. The camera position/target/up are
+all zeros → `viewdir` is zero → camera points nowhere → scene is invisible.
+
+**Fix needed**:
+- In `QgEdApp`, after `init_done` wires up the render ctx, also call
+  `obolw->set_view(mdl->gedp->ged_gvnv)` so the widget uses the GED view's camera
+- OR: after draw, call `bv_render_ctx_sync_scene` with `gedp->ged_gvnv`
+- OR: after sync, call `ctx->viewport.viewAll()` to auto-fit camera to scene
+
+**Alternatively** — the issue may be that `viewport_.viewAll()` is called when
+`ctx->root` only has a directional light (no geometry), so camera ends up very
+far away or at origin. After draw adds geometry to `ctx->root` (via `sync_scene`),
+the camera is never re-fitted. Try calling `viewport_.viewAll()` after the first
+`sync_scene` that adds geometry.
+
+**Also check**: After `setRenderCtx()` wires `viewport_.setSceneGraph(ctx->root)`,
+and then `sync_scene` adds children to `ctx->root`, those children should be
+visible to `viewport_`'s camera automatically since it shares the same `SoSeparator`.
+
+**Debug approach** for next session:
+```cpp
+// In paintGL(), before render, add:
+bu_log("paintGL: ctx=%p scene_children=%d\n", ctx_,
+       ((SoSeparator*)bv_render_ctx_scene_root(ctx_))->getNumChildren());
+bu_log("camera pos: %f %f %f\n", cam->position[0], cam->position[1], cam->position[2]);
+```
+
+### Running qged with Obol:
+```bash
+REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
+export LD_LIBRARY_PATH="$REPO_ROOT/brlcad_build/lib:$REPO_ROOT/bext_output/install/lib:$LD_LIBRARY_PATH"
+Xvfb :99 -screen 0 1280x800x24 &; export DISPLAY=:99
+$REPO_ROOT/brlcad_build/bin/qged --obol $REPO_ROOT/brlcad/src/libged/tests/draw/moss.g
+# In qged console: draw all.g
+```

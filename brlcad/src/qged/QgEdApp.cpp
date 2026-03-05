@@ -29,12 +29,15 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include <QTimer>
 #include "bu/malloc.h"
 #include "bu/file.h"
+#include "bv/render.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #ifdef BRLCAD_OPENGL
 #  include "qtcad/QgObolWidget.h"
+#  include "qtcad/QgView.h"
 #endif
 #include "QgEdApp.h"
 #include "fbserv.h"
@@ -153,7 +156,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
 }
 
 
-QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QApplication(argc, argv)
+QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int obol_mode) :QApplication(argc, argv)
 {
     setOrganizationName("BRL-CAD");
     setOrganizationDomain("brlcad.org");
@@ -181,15 +184,30 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     QTextStream stream(&file);
     setStyleSheet(stream.readAll());
 
+    // Determine canvas type: Obol takes priority, then swrast, then default
+    int canvas_type = swrast_mode;
+#ifdef BRLCAD_OPENGL
+    if (obol_mode)
+	canvas_type = QgView_Obol;
+#else
+    (void)obol_mode;
+#endif
+
     // Create the windows
-    w = new QgEdMainWindow(swrast_mode, quad_mode);
+    w = new QgEdMainWindow(canvas_type, quad_mode);
 
     /* GED needs some information and methods from QGED - make
      * those assignment */
     struct ged *gedp = mdl->gedp;
 
-    // Let GED know to use the QgQuadView view as its current view
-    gedp->ged_gvp = w->CurrentView();
+    // Let GED know to use the QgQuadView view as its current view.
+    // For the Obol canvas the init_done lambda (below) does this properly
+    // once the GL context and ged_gvnv companion are both available.  Doing
+    // it here for Obol would set ged_gvp to the widget's local_bv_ which
+    // has vset=NULL (not part of ged_views), causing draw2/bv_scene_sync
+    // to use an unregistered view and crash.
+    if (canvas_type != QgView_Obol)
+	gedp->ged_gvp = w->CurrentView();
 
     // Set up the connections needed for embedded raytracing
     gedp->ged_fbs->fbs_is_listening = &qdm_is_listening;
@@ -226,6 +244,55 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 	    w->setGeometry(settings.value("geometry").value<QRect>());
 	w->restoreState(settings.value("windowState").toByteArray());
     }
+
+#ifdef BRLCAD_OPENGL
+    // For the Obol canvas type, wire up the bv_render_ctx to the widget.
+    //
+    // Timing requirements:
+    //  1. MUST connect to init_done BEFORE show(), because initializeGL fires
+    //     during show() and emits init_done — connecting after show() misses it.
+    //  2. MUST defer setRenderCtx() to the NEXT event loop iteration via
+    //     QTimer::singleShot(0) so that show() has fully completed (all
+    //     resize/paint events processed) before we call setRenderCtx(), which
+    //     calls update() and queues a repaint.  Calling setRenderCtx() from
+    //     directly inside the init_done handler triggers a repaint while still
+    //     inside show()'s event processing, which races with SoRenderManager
+    //     and crashes in SoActionMethodList::setUp().
+    if (canvas_type == QgView_Obol && gedp->ged_scene) {
+	QgView *cv = w->CurrentDisplay();
+	if (cv) {
+	    QObject::connect(cv, &QgView::init_done, this, [this]() {
+		/* SoDB::init() is done (called by initializeGL).
+		 * Defer the actual ctx creation to the next event loop pass. */
+		QTimer::singleShot(0, this, [this]() {
+		    struct ged *g = mdl->gedp;
+		    if (!g || !g->ged_scene) return;
+		    QgView *cvp = w->CurrentDisplay();
+		    if (!cvp) return;
+		    QgObolWidget *obolw = cvp->obol_widget();
+		    if (!obolw || obolw->renderCtx()) return; /* only once */
+		    int ww = obolw->width()  > 0 ? obolw->width()  : 512;
+		    int wh = obolw->height() > 0 ? obolw->height() : 512;
+		    struct bv_render_ctx *rctx =
+			bv_render_ctx_create(g->ged_scene, nullptr, ww, wh);
+		    if (rctx) {
+			obolw->setRenderCtx(rctx);
+			/* The widget's local_bv_ (created in QgObolWidget ctor)
+			 * is already in gedp->ged_views with vset properly set,
+			 * and gedp->ged_gvp already points to it.  paintGL()'s
+			 * bview_sync_from_old(view_) will read GED camera
+			 * updates directly from local_bv_ on every frame.
+			 *
+			 * Do NOT call set_view(ged_gvnv) here: set_view() frees
+			 * local_bv_, leaving ged_gvp and the ged_views entry as
+			 * dangling pointers, causing crashes in draw2 / redraw. */
+			obolw->update();
+		    }
+		});
+	    }, Qt::SingleShotConnection);
+	}
+    }
+#endif
 
     // This is when the window and widgets are actually drawn (do this after
     // loading settings so the window size matches the saved config, if any)
@@ -348,6 +415,20 @@ QgEdApp::do_view_changed(unsigned long long flags)
 		bv_it->first->redraw(NULL, bv_it->second, 1);
 	    }
 	}
+
+#ifdef BRLCAD_OPENGL
+	/* The draw/erase/zap commands now keep gedp->ged_scene in sync with
+	 * the view's bv_scene_obj display lists via bv_scene_sync_from_view().
+	 * bv_render_frame() (called every paintGL) walks gedp->ged_scene and
+	 * builds Inventor nodes for any new or stale entries automatically,
+	 * so all we need here is a repaint trigger. */
+	if (w && w->CurrentDisplay() &&
+		w->CurrentDisplay()->view_type() == QgView_Obol) {
+	    QgObolWidget *obolw = w->CurrentDisplay()->obol_widget();
+	    if (obolw && obolw->renderCtx())
+		obolw->update();
+	}
+#endif
     }
 
     emit view_update(flags);
