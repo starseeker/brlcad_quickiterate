@@ -901,6 +901,14 @@ bv_render_ctx_scene_root(struct bv_render_ctx *ctx)
     return static_cast<void *>(ctx->root);
 }
 
+struct bv_scene *
+bv_render_ctx_get_scene(struct bv_render_ctx *ctx)
+{
+    if (!ctx)
+	return nullptr;
+    return ctx->scene;
+}
+
 void *
 bv_render_ctx_osmesa_mgr_create(void)
 {
@@ -1090,6 +1098,12 @@ bv_render_frame(struct bv_render_ctx *UNUSED(ctx),
 
 void *
 bv_render_ctx_scene_root(struct bv_render_ctx *UNUSED(ctx))
+{
+    return NULL;
+}
+
+struct bv_scene *
+bv_render_ctx_get_scene(struct bv_render_ctx *UNUSED(ctx))
 {
     return NULL;
 }

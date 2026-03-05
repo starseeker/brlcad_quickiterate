@@ -235,6 +235,16 @@ BV_EXPORT void bv_render_ctx_osmesa_mgr_destroy(void *mgr);
  */
 BV_EXPORT void *bv_render_ctx_scene_root(struct bv_render_ctx *ctx);
 
+/**
+ * @brief Return the bv_scene associated with @p ctx.
+ *
+ * Allows callers to query scene node counts for change detection without
+ * needing access to the opaque bv_render_ctx internals.
+ *
+ * Returns NULL when Obol is not available or @p ctx is NULL.
+ */
+BV_EXPORT struct bv_scene *bv_render_ctx_get_scene(struct bv_render_ctx *ctx);
+
 /* ======================================================================== */
 /* Quad-view render context (SoQuadViewport-backed)                         */
 /* ======================================================================== */
