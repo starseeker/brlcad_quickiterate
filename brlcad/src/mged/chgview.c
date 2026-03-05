@@ -2685,7 +2685,7 @@ mged_escale(struct mged_state *s, fastf_t sfactor)
 	save_edflag = MEDIT(s)->edit_flag;
 
 	if (!SEDIT_SCALE) {
-	    MEDIT(s)->edit_flag = SSCALE;
+	    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
 	}
 
 	MEDIT(s)->es_scale = sfactor;

@@ -1027,7 +1027,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_ROTATE)
-		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_ROT;
+		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_ROTATE;
@@ -1061,7 +1061,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_ROTATE)
-		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_ROT;
+		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_ROTATE;
@@ -1095,7 +1095,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_ROTATE)
-		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_ROT;
+		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_ROTATE;
@@ -1129,7 +1129,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_TRAN)
-		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_TRANS;
+		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_XY;
@@ -1162,7 +1162,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_TRAN)
-		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_TRANS;
+		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_XY;
@@ -1190,7 +1190,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_SCALE)
-		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_SCALE;
+		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
 	} else {
 	    save_edflag = edobj;
 	    if (!OEDIT_SCALE)

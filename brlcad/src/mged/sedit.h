@@ -40,19 +40,21 @@
 #define EDIT_CLASS_SCALE 3
 
 /* These ECMD_ values go in MEDIT(s)->edit_flag.  Some names not changed yet */
-#define IDLE		0	/* edarb.c */
-#define STRANS		1	/* buttons.c */
-#define SSCALE		2	/* buttons.c */	/* Scale whole solid by scalar */
-#define SROT		3	/* buttons.c */
-/* PSCALE (4) was removed - pscale() was dead code once librt menus use ECMD_* */
+/* These MGED values match librt's RT_EDIT_IDLE/RT_PARAMS_EDIT_* exactly.
+ * They are kept as aliases so that sedit(), buttons.c, etc. can use
+ * the familiar MGED names while being wire-compatible with librt. */
+#define IDLE		RT_EDIT_IDLE		/* = 0, matches librt RT_EDIT_IDLE */
+#define STRANS		RT_PARAMS_EDIT_TRANS	/* = 1, matches librt value */
+#define SSCALE		RT_PARAMS_EDIT_SCALE	/* = 2, matches librt value */
+#define SROT		RT_PARAMS_EDIT_ROT	/* = 3, matches librt value */
 
 #define ECMD_TGC_MV_H		2005	/* move H to new position (edtgc.c) */
 #define ECMD_TGC_MV_HH		2006	/* move H and HH to new position (edtgc.c) */
 #define ECMD_TGC_ROT_H		2007	/* rotate H vector (edtgc.c) */
 #define ECMD_TGC_ROT_AB		2008	/* rotate A,B vectors (edtgc.c) */
 
-#define EARB		9	/* chgmodel.c, edarb.c */
-#define PTARB		10	/* edarb.c */
+#define EARB		4009	/* chgmodel.c, edarb.c (edarb.c: #define EARB 4009) */
+#define PTARB		4010	/* edarb.c (edarb.c: #define PTARB 4010) */
 #define ECMD_ARB_MAIN_MENU	4011	/* (edarb.c) */
 #define ECMD_ARB_SPECIFIC_MENU	4012	/* (edarb.c) */
 #define ECMD_ARB_MOVE_FACE	4013	/* (edarb.c) */
@@ -61,7 +63,7 @@
 
 #define ECMD_ETO_ROT_C		21016	/* rotate C vector (edeto.c) */
 
-#define ECMD_VTRANS		17	/* vertex translate */
+#define ECMD_VTRANS		9017	/* vertex translate (edbspline.c) */
 #define ECMD_NMG_EPICK		11019	/* edge pick (ednmg.c) */
 #define ECMD_NMG_EMOVE		11020	/* edge move (ednmg.c) */
 #define ECMD_NMG_EDEBUG		11021	/* edge debug (ednmg.c) */
