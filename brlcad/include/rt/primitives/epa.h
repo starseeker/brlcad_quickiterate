@@ -37,9 +37,7 @@ RT_EXPORT extern void rt_ell(fastf_t *ov,
 			     int sides);
 
 /* EPA solid edit command codes */
-#define ECMD_EPA_H		19050	/**< scale EPA height H */
-#define ECMD_EPA_R1		19051	/**< scale EPA semi-major axis r1 */
-#define ECMD_EPA_R2		19052	/**< scale EPA semi-minor axis r2 */
+/* ECMD_EPA_* are in the scanner-generated rt/rt_ecmds.h */
 
 /** @} */
 

@@ -35,7 +35,7 @@
 #include "wdb.h"
 #include "../edit_private.h"
 
-/* ECMD_VTRANS is defined in rt/geom.h */
+#define ECMD_VTRANS		9017	/* translate a NURB/BSPLINE vertex (control point) */
 #define ECMD_SPLINE_VPICK       9018	/* vertex pick via mouse proximity */
 #define ECMD_BSPLINE_PICK_CP    9019	/* pick control point by (surf, u, v) indices from e_para */
 /*

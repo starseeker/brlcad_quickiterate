@@ -29,6 +29,7 @@
 #define MGED_SEDIT_H
 
 #include "rt/edit.h"
+#include "rt/rt_ecmds.h"
 #include "rt/primitives/arb8.h"
 #include "rt/primitives/ars.h"
 #include "rt/primitives/bot.h"

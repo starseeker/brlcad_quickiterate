@@ -30,9 +30,7 @@
 __BEGIN_DECLS
 
 /* EBM solid edit command codes */
-#define ECMD_EBM_FNAME		12053	/**< set EBM file name */
-#define ECMD_EBM_FSIZE		12054	/**< set EBM file size */
-#define ECMD_EBM_HEIGHT		12055	/**< set EBM extrusion depth */
+/* ECMD_EBM_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

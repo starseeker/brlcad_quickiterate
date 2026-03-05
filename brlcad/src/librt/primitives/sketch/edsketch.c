@@ -42,7 +42,20 @@
 
 #include "../edit_private.h"
 
-/* ECMD_SKETCH_* command codes are defined in rt/primitives/sketch.h */
+#define ECMD_SKETCH_PICK_VERTEX		26001	/* select a vertex */
+#define ECMD_SKETCH_MOVE_VERTEX		26002	/* move selected vertex */
+#define ECMD_SKETCH_PICK_SEGMENT	26003	/* select a curve segment */
+#define ECMD_SKETCH_MOVE_SEGMENT	26004	/* translate selected segment */
+#define ECMD_SKETCH_APPEND_LINE		26005	/* append a line segment */
+#define ECMD_SKETCH_APPEND_ARC		26006	/* append a circular arc segment */
+#define ECMD_SKETCH_APPEND_BEZIER	26007	/* append a Bezier curve segment */
+#define ECMD_SKETCH_DELETE_VERTEX	26008	/* delete the currently selected vertex */
+#define ECMD_SKETCH_DELETE_SEGMENT	26009	/* delete the currently selected curve segment */
+#define ECMD_SKETCH_MOVE_VERTEX_LIST	26010	/* move a list of vertices by a common UV delta */
+#define ECMD_SKETCH_SPLIT_SEGMENT	26011	/* split the currently selected segment at parameter t */
+#define ECMD_SKETCH_APPEND_NURB		26012	/* append a non-rational NURB curve segment */
+#define ECMD_SKETCH_NURB_EDIT_KV	26013	/* replace the knot vector of selected NURB segment */
+#define ECMD_SKETCH_NURB_EDIT_WEIGHTS	26014	/* set/replace the weight array of selected NURB segment */
 
 /* ------------------------------------------------------------------ */
 /* ipe_ptr lifecycle                                                   */

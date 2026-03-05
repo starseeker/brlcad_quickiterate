@@ -30,10 +30,7 @@
 __BEGIN_DECLS
 
 /* SUPERELL solid edit command codes */
-#define ECMD_SUPERELL_SCALE_A	35113	/**< scale SUPERELL semiaxis A */
-#define ECMD_SUPERELL_SCALE_B	35114	/**< scale SUPERELL semiaxis B */
-#define ECMD_SUPERELL_SCALE_C	35115	/**< scale SUPERELL semiaxis C */
-#define ECMD_SUPERELL_SCALE_ABC	35116	/**< scale SUPERELL A,B,C uniformly */
+/* ECMD_SUPERELL_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

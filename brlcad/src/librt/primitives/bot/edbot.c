@@ -35,8 +35,23 @@
 
 #include "../edit_private.h"
 
-void *
-rt_edit_bot_prim_edit_create(struct rt_edit *UNUSED(s))
+#define ECMD_BOT_PICKV		30061	/* pick a BOT vertex */
+#define ECMD_BOT_PICKE		30062	/* pick a BOT edge */
+#define ECMD_BOT_PICKT		30063	/* pick a BOT triangle */
+#define ECMD_BOT_MOVEV		30064	/* move a BOT vertex */
+#define ECMD_BOT_MOVEE		30065	/* move a BOT edge */
+#define ECMD_BOT_MOVET		30066	/* move a BOT triangle */
+#define ECMD_BOT_MODE		30067	/* set BOT mode */
+#define ECMD_BOT_ORIENT		30068	/* set BOT face orientation */
+#define ECMD_BOT_THICK		30069	/* set face thickness (one or all) */
+#define ECMD_BOT_FMODE		30070	/* set face mode (one or all) */
+#define ECMD_BOT_FDEL		30071	/* delete current face */
+#define ECMD_BOT_FLAGS		30072	/* set BOT flags */
+#define ECMD_BOT_MOVEV_LIST	30073	/* move a list of BOT vertices */
+#define ECMD_BOT_ESPLIT		30074	/* split a BOT edge */
+#define ECMD_BOT_FSPLIT		30075	/* split a BOT face */
+#define ECMD_BOT_VERTEX_FUSE	30076	/* fuse BOT vertices */
+#define ECMD_BOT_FACE_FUSE	30077	/* fuse BOT faces */
 {
     struct rt_bot_edit *b;
     BU_GET(b, struct rt_bot_edit);

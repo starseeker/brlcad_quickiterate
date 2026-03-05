@@ -39,10 +39,7 @@ RT_EXPORT extern fastf_t rt_cline_radius;
 
 
 /* CLINE solid edit command codes */
-#define ECMD_CLINE_SCALE_H	29077	/**< scale height vector */
-#define ECMD_CLINE_MOVE_H	29078	/**< move end of height vector */
-#define ECMD_CLINE_SCALE_R	29079	/**< scale radius */
-#define ECMD_CLINE_SCALE_T	29080	/**< scale thickness */
+/* ECMD_CLINE_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

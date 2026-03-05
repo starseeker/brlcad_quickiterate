@@ -291,7 +291,7 @@ struct rt_nurb_internal {
 						     ((_v)*(_s)->s_size[0]+(_u))*RT_NURB_EXTRACT_COORDS((_s)->pt_type)])
 
 /** @brief NURB/BSPLINE solid-edit command code */
-#define ECMD_VTRANS 9017 /**< translate a NURB/BSPLINE vertex (control point) */
+/* ECMD_VTRANS is in the scanner-generated rt/rt_ecmds.h */
 
 /**
  * @brief Per-instance edit state for NURB/BSPLINE solids.

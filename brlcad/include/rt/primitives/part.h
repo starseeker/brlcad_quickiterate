@@ -30,9 +30,7 @@
 __BEGIN_DECLS
 
 /* PART solid edit command codes */
-#define ECMD_PART_H		16088	/**< scale PART height */
-#define ECMD_PART_VRAD		16089	/**< scale PART vertex radius */
-#define ECMD_PART_HRAD		16090	/**< scale PART height-end radius */
+/* ECMD_PART_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

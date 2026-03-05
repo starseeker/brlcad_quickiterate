@@ -40,6 +40,22 @@
 
 #include "../edit_private.h"
 
+#define ECMD_PIPE_SELECT	15028	/* pick pipe point */
+#define ECMD_PIPE_PICK		ECMD_PIPE_SELECT	/* pick pipe point (MGED alias) */
+#define ECMD_PIPE_SPLIT		15029	/* split a pipe segment into two */
+#define ECMD_PIPE_PT_ADD	15030	/* add a pipe point to end of pipe */
+#define ECMD_PIPE_PT_INS	15031	/* add a pipe point to start of pipe */
+#define ECMD_PIPE_PT_DEL	15032	/* delete a pipe point */
+#define ECMD_PIPE_PT_MOVE	15033	/* move a pipe point */
+#define ECMD_PIPE_NEXT_PT	15062	/* select next pipe point */
+#define ECMD_PIPE_PREV_PT	15063	/* select previous pipe point */
+#define ECMD_PIPE_PT_OD		15065	/* scale OD of one pipe segment */
+#define ECMD_PIPE_PT_ID		15066	/* scale ID of one pipe segment */
+#define ECMD_PIPE_SCALE_OD	15067	/* scale entire pipe OD */
+#define ECMD_PIPE_SCALE_ID	15068	/* scale entire pipe ID */
+#define ECMD_PIPE_PT_RADIUS	15073	/* scale bend radius at selected point */
+#define ECMD_PIPE_SCALE_RADIUS	15074	/* scale entire pipe bend radius */
+
 void *
 rt_edit_pipe_prim_edit_create(struct rt_edit *UNUSED(s))
 {

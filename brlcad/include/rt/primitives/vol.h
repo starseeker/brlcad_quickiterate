@@ -30,11 +30,7 @@
 __BEGIN_DECLS
 
 /* VOL solid edit command codes */
-#define ECMD_VOL_CSIZE		13048	/**< set voxel size */
-#define ECMD_VOL_FSIZE		13049	/**< set VOL file dimensions */
-#define ECMD_VOL_THRESH_LO	13050	/**< set VOL threshold (lo) */
-#define ECMD_VOL_THRESH_HI	13051	/**< set VOL threshold (hi) */
-#define ECMD_VOL_FNAME		13052	/**< set VOL file name */
+/* ECMD_VOL_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

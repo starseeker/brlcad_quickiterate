@@ -184,18 +184,7 @@ rt_comb_brep(ON_Brep **b, const struct rt_db_internal *ip, const struct bn_tol *
 #endif
 
 /* COMB edit command codes (ID_COMBINATION = 12, so codes use 12nnn) */
-#define ECMD_COMB_ADD_MEMBER	12001	/**< append a new member (ce->es_name, e_para[0]=op) */
-#define ECMD_COMB_DEL_MEMBER	12002	/**< delete member by 0-based index (e_para[0]) */
-#define ECMD_COMB_SET_OP	12003	/**< change member boolean op (e_para[0]=index, [1]=op) */
-#define ECMD_COMB_SET_MATRIX	12004	/**< set member transform matrix (e_para[0]=index, ce->es_mat) */
-#define ECMD_COMB_SET_REGION	12005	/**< set region_flag (e_para[0]=0/1) */
-#define ECMD_COMB_SET_COLOR	12006	/**< set RGB color (e_para[0..2]=R,G,B 0-255; e_inpara=0 clears) */
-#define ECMD_COMB_SET_SHADER	12007	/**< set shader string (ce->es_shader) */
-#define ECMD_COMB_SET_MATERIAL	12008	/**< set material string (ce->es_material) */
-#define ECMD_COMB_SET_REGION_ID	12009	/**< set region_id (e_para[0]) */
-#define ECMD_COMB_SET_AIRCODE	12010	/**< set aircode (e_para[0]) */
-#define ECMD_COMB_SET_GIFTMATER	12011	/**< set GIFTmater (e_para[0]) */
-#define ECMD_COMB_SET_LOS	12012	/**< set los (e_para[0]) */
+/* ECMD_COMB_* are in the scanner-generated rt/rt_ecmds.h */
 
 /**
  * Per-instance edit state for combination editing.

@@ -80,7 +80,18 @@
 #include "rt/comb.h"
 #include "../primitives/edit_private.h"
 
-/* ECMD_COMB_* command codes and struct rt_comb_edit are defined in rt/comb.h */
+#define ECMD_COMB_ADD_MEMBER	12001	/* append a new member */
+#define ECMD_COMB_DEL_MEMBER	12002	/* delete member by 0-based index */
+#define ECMD_COMB_SET_OP	12003	/* change member boolean op */
+#define ECMD_COMB_SET_MATRIX	12004	/* set member transform matrix */
+#define ECMD_COMB_SET_REGION	12005	/* set region_flag (0/1) */
+#define ECMD_COMB_SET_COLOR	12006	/* set RGB color */
+#define ECMD_COMB_SET_SHADER	12007	/* set shader string */
+#define ECMD_COMB_SET_MATERIAL	12008	/* set material string */
+#define ECMD_COMB_SET_REGION_ID	12009	/* set region_id */
+#define ECMD_COMB_SET_AIRCODE	12010	/* set aircode */
+#define ECMD_COMB_SET_GIFTMATER	12011	/* set GIFTmater */
+#define ECMD_COMB_SET_LOS	12012	/* set los */
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */

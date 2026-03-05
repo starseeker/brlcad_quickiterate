@@ -47,35 +47,7 @@ struct rt_sketch_edit {
 
 /* SKETCH solid edit command codes (ID_SKETCH = 26, so codes use 26nnn) */
 
-/** Select a vertex by index (e_para[0] = vertex index) or by mouse
- *  proximity when invoked after ft_edit_xy sets v_pos. */
-#define ECMD_SKETCH_PICK_VERTEX		26001
-/** Move the currently selected vertex (e_para[0..1] = new UV coords in mm). */
-#define ECMD_SKETCH_MOVE_VERTEX		26002
-/** Select a curve segment by index (e_para[0] = segment index). */
-#define ECMD_SKETCH_PICK_SEGMENT	26003
-/** Translate the currently selected segment (e_para[0..1] = UV delta in mm). */
-#define ECMD_SKETCH_MOVE_SEGMENT	26004
-/** Append a line segment (e_para[0] = start vert index, e_para[1] = end vert index). */
-#define ECMD_SKETCH_APPEND_LINE		26005
-/** Append a circular arc segment (e_para[0]=start, [1]=end vert, [2]=radius, [3]=center_is_left, [4]=orientation; e_inpara=5). */
-#define ECMD_SKETCH_APPEND_ARC		26006
-/** Append a Bezier curve segment (e_para[0..e_inpara-1] = control point vert indices; e_inpara >= 2). */
-#define ECMD_SKETCH_APPEND_BEZIER	26007
-/** Delete the currently selected vertex (only if not used by any segment). */
-#define ECMD_SKETCH_DELETE_VERTEX	26008
-/** Delete the currently selected curve segment. */
-#define ECMD_SKETCH_DELETE_SEGMENT	26009
-/** Move a list of vertices by a common UV delta (e_para[0]=U delta, [1]=V delta, [2..e_inpara-1]=vert indices). */
-#define ECMD_SKETCH_MOVE_VERTEX_LIST	26010
-/** Split the currently selected segment at parameter t (e_para[0]=seg index, [1]=t in (0,1); e_inpara=2). */
-#define ECMD_SKETCH_SPLIT_SEGMENT	26011
-/** Append a non-rational NURB curve segment (e_para[0]=order, [1..e_inpara-1]=ctrl pt vert indices). */
-#define ECMD_SKETCH_APPEND_NURB		26012
-/** Replace the knot vector of the currently selected NURB segment (e_para[0]=k_size, [1..e_inpara-1]=knot values). */
-#define ECMD_SKETCH_NURB_EDIT_KV	26013
-/** Set/replace the weight array of the currently selected NURB segment (e_para[0]=seg idx, [1]=c_size, [2..e_inpara-1]=weights). */
-#define ECMD_SKETCH_NURB_EDIT_WEIGHTS	26014
+/* ECMD_SKETCH_* are in the scanner-generated rt/rt_ecmds.h */
 
 RT_EXPORT extern int rt_check_curve(const struct rt_curve *crv,
 				    const struct rt_sketch_internal *skt,

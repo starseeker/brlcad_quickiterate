@@ -35,6 +35,10 @@
 
 #include "../edit_private.h"
 
+#define ECMD_EPA_H		19050	/* scale EPA height H */
+#define ECMD_EPA_R1		19051	/* scale EPA semi-major axis r1 */
+#define ECMD_EPA_R2		19052	/* scale EPA semi-minor axis r2 */
+
 
 void
 rt_edit_epa_set_edit_mode(struct rt_edit *s, int mode)

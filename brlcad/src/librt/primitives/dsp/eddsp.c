@@ -36,6 +36,14 @@
 
 #include "../edit_private.h"
 
+#define ECMD_DSP_FNAME		25056	/* set DSP file name */
+#define ECMD_DSP_FSIZE		25057	/* set DSP file size */
+#define ECMD_DSP_SCALE_X	25058	/* scale DSP x size */
+#define ECMD_DSP_SCALE_Y	25059	/* scale DSP y size */
+#define ECMD_DSP_SCALE_ALT	25060	/* scale DSP altitude size */
+#define ECMD_DSP_SET_SMOOTH	25061	/* set DSP smooth flag */
+#define ECMD_DSP_SET_DATASRC	25062	/* set DSP data source */
+
 void
 rt_edit_dsp_set_edit_mode(struct rt_edit *s, int mode)
 {

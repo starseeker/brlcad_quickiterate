@@ -620,14 +620,7 @@ RT_EXPORT extern int rt_arb_f_eqn(struct rt_edit *s, int argc, const char **argv
 RT_EXPORT extern int rt_arb_edgedir(struct rt_edit *s, int argc, const char **argv);
 
 /** @brief ARB solid-edit command codes (move edge/face/vertex operations) */
-#define EARB                    4009    /**< move an ARB edge */
-#define PTARB                   4010    /**< move an ARB point */
-#define ECMD_ARB_MAIN_MENU      4011    /**< display the ARB edit menu */
-#define ECMD_ARB_SPECIFIC_MENU  4012    /**< display a specific ARB edit menu */
-#define ECMD_ARB_MOVE_FACE      4013    /**< move an ARB face */
-#define ECMD_ARB_SETUP_ROTFACE  4014    /**< set up ARB rotate-face */
-#define ECMD_ARB_ROTATE_FACE    4015    /**< rotate an ARB face */
-#define ECMD_ARB_MOVE_EDGE      4036    /**< move an ARB edge (alternate) */
+/* EARB, PTARB, ECMD_ARB_* are in the scanner-generated rt/rt_ecmds.h */
 
 
 

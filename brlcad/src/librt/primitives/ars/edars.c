@@ -35,7 +35,23 @@
 
 #include "../edit_private.h"
 
-/* rt_ars_edit is defined in rt/primitives/ars.h */
+#define ECMD_ARS_PICK		5034	/* select an ARS point */
+#define ECMD_ARS_NEXT_PT	5035	/* select next ARS point in same curve */
+#define ECMD_ARS_PREV_PT	5036	/* select previous ARS point in same curve */
+#define ECMD_ARS_NEXT_CRV	5037	/* select corresponding ARS point in next curve */
+#define ECMD_ARS_PREV_CRV	5038	/* select corresponding ARS point in previous curve */
+#define ECMD_ARS_MOVE_PT	5039	/* translate an ARS point */
+#define ECMD_ARS_DEL_CRV	5040	/* delete an ARS curve */
+#define ECMD_ARS_DEL_COL	5041	/* delete all corresponding points in each curve */
+#define ECMD_ARS_DUP_CRV	5042	/* duplicate an ARS curve */
+#define ECMD_ARS_DUP_COL	5043	/* duplicate an ARS column */
+#define ECMD_ARS_MOVE_CRV	5044	/* translate an ARS curve */
+#define ECMD_ARS_MOVE_COL	5045	/* translate an ARS column */
+#define ECMD_ARS_PICK_MENU	5046	/* display the ARS pick menu */
+#define ECMD_ARS_EDIT_MENU	5047	/* display the ARS edit menu */
+#define ECMD_ARS_SCALE_CRV	5048	/* scale an ARS curve */
+#define ECMD_ARS_SCALE_COL	5049	/* scale an ARS column */
+#define ECMD_ARS_INSERT_CRV	5050	/* insert an ARS curve */
 
 
 void *

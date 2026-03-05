@@ -30,10 +30,7 @@
 __BEGIN_DECLS
 
 /* ETO solid edit command codes */
-#define ECMD_ETO_ROT_C		21016	/**< rotate C vector */
-#define ECMD_ETO_R		21057	/**< scale ETO major radius r */
-#define ECMD_ETO_RD		21058	/**< scale ETO minor radius rd */
-#define ECMD_ETO_SCALE_C	21059	/**< scale ETO semi-minor axis C */
+/* ECMD_ETO_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

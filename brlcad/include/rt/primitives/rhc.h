@@ -41,10 +41,7 @@ RT_EXPORT extern int rt_mk_hyperbola(struct rt_pnt_node *pts,
 				     fastf_t ntol);
 
 /* RHC solid edit command codes */
-#define ECMD_RHC_B		18046	/**< scale RHC breadth B */
-#define ECMD_RHC_H		18047	/**< scale RHC height H */
-#define ECMD_RHC_R		18048	/**< scale RHC half-width r */
-#define ECMD_RHC_C		18049	/**< scale RHC dist-to-asymptotes c */
+/* ECMD_RHC_* are in the scanner-generated rt/rt_ecmds.h */
 
 /** @} */
 

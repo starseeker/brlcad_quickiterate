@@ -39,9 +39,7 @@ RT_EXPORT extern int rt_mk_parabola(struct rt_pnt_node *pts,
 				    fastf_t ntol);
 
 /* RPC solid edit command codes */
-#define ECMD_RPC_B		17043	/**< scale RPC breadth B */
-#define ECMD_RPC_H		17044	/**< scale RPC height H */
-#define ECMD_RPC_R		17045	/**< scale RPC half-width r */
+/* ECMD_RPC_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

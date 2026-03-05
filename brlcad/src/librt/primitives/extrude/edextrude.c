@@ -35,6 +35,15 @@
 
 #include "../edit_private.h"
 
+#define ECMD_EXTR_SCALE_H	27073	/* scale extrusion vector */
+#define ECMD_EXTR_MOV_H		27074	/* move end of extrusion vector */
+#define ECMD_EXTR_ROT_H		27075	/* rotate extrusion vector */
+#define ECMD_EXTR_SKT_NAME	27076	/* set sketch that the extrusion uses */
+#define ECMD_EXTR_SCALE_A	27077	/* scale A (sketch u_vec) reference vector */
+#define ECMD_EXTR_SCALE_B	27078	/* scale B (sketch v_vec) reference vector */
+#define ECMD_EXTR_ROT_A		27079	/* rotate A reference vector */
+#define ECMD_EXTR_ROT_B		27080	/* rotate B reference vector */
+
 void
 rt_edit_extrude_set_edit_mode(struct rt_edit *s, int mode)
 {
