@@ -34,7 +34,7 @@
 #include "bu/str.h"
 #include "bu/time.h"
 #include "bu/vls.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -50,7 +50,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
     }
 
     struct ged *gedp = gd->gedp;
-    struct bview *gvp;
+    bsg_view *gvp;
     int print_help = 0;
     static const char *usage = "view lod [csg|mesh] [0|1]\n"
 	"view lod cache [clear [all_files] | exists] \n"
@@ -185,7 +185,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	    struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
 
 	    // Clear any old cache in memory
-	    bv_mesh_lod_clear_cache(gedp->ged_lod, 0);
+	    bsg_mesh_lod_clear_cache(gedp->ged_lod, 0);
 
 	    int done = 0;
 	    int total = 0;
@@ -228,9 +228,9 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 			bu_vls_free(&pname);
 			struct rt_bot_internal *bot = (struct rt_bot_internal *)ip->idb_ptr;
 			RT_BOT_CK_MAGIC(bot);
-			key = bv_mesh_lod_cache(gedp->ged_lod, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
+			key = bsg_mesh_lod_cache(gedp->ged_lod, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
 			if (key)
-			    bv_mesh_lod_key_put(gedp->ged_lod, dp->d_namep, key);
+			    bsg_mesh_lod_key_put(gedp->ged_lod, dp->d_namep, key);
 			rt_db_free_internal(&dbintern);
 		    }
 
@@ -282,10 +282,10 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 
 			// Because we won't have the internal data to use for a full detail scenario, we set the ratio
 			// to 1 rather than .66 for breps...
-			key = bv_mesh_lod_cache(gedp->ged_lod, (const point_t *)pnts, pnt_cnt, normals, faces, face_cnt, key, 1);
+			key = bsg_mesh_lod_cache(gedp->ged_lod, (const point_t *)pnts, pnt_cnt, normals, faces, face_cnt, key, 1);
 
 			if (key)
-			    bv_mesh_lod_key_put(gedp->ged_lod, dp->d_namep, key);
+			    bsg_mesh_lod_key_put(gedp->ged_lod, dp->d_namep, key);
 
 			rt_db_free_internal(&dbintern);
 			bu_free(faces, "faces");
@@ -309,7 +309,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	}
 	if (argc == 2) {
 	    if (BU_STR_EQUAL(argv[1], "clear")) {
-		bv_mesh_lod_clear_cache(gedp->ged_lod, 0);
+		bsg_mesh_lod_clear_cache(gedp->ged_lod, 0);
 		return BRLCAD_OK;
 	    } else if (BU_STR_EQUAL(argv[1], "exists")) {
 		for (int i = 0; i < RT_DBNHASH; i++) {
@@ -320,7 +320,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 			// checking both BoTs and BREPs
 			if ((dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT) ||
 			    (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP)) {
-			    unsigned long long key = bv_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
+			    unsigned long long key = bsg_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
 			    if (!key) {
 				return BRLCAD_ERROR;
 			    }
@@ -332,7 +332,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	}
 	if (argc == 3) {
 	    if (BU_STR_EQUAL(argv[1], "clear") && BU_STR_EQUAL(argv[2], "all_files")) {
-		bv_mesh_lod_clear_cache(NULL, 0);
+		bsg_mesh_lod_clear_cache(NULL, 0);
 		return BRLCAD_OK;
 	    }
 	}

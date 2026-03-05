@@ -29,7 +29,7 @@
 
 #include "bu/cmd.h"
 #include "bu/opt.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 
 #include "../ged_private.h"
 
@@ -146,7 +146,7 @@ ged_opendb_core(struct ged *gedp, int argc, const char *argv[])
     // LoD context creation (DbiState initialization can use info
     // stored here, so do this first)
     if (gedp->new_cmd_forms)
-	gedp->ged_lod = bv_mesh_lod_context_create(argv[0]);
+	gedp->ged_lod = bsg_mesh_lod_context_create(argv[0]);
 
     // If enabled, set up the DbiState container for fast structure access
     if (gedp->new_cmd_forms)

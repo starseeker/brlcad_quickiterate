@@ -86,7 +86,7 @@ QEll::QEll()
 QEll::~QEll()
 {
     if (p)
-	bv_obj_put(p);
+	bsg_shape_put(p);
     bu_vls_free(&oname);
 }
 
@@ -172,16 +172,16 @@ QEll::update_obj_wireframe()
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 
     // Make the object, if we've not already done so
     if (!p)
-	p = bv_obj_get(v, BV_VIEW_OBJS);
+	p = bsg_shape_get(v, BV_VIEW_OBJS);
 
     // Clear any old wireframes, labels, etc.
-    bv_obj_reset(p);
+    bsg_shape_reset(p);
 
     // Use whatever view is current to drive the update
     p->s_v = v;
@@ -216,7 +216,7 @@ QEll::update_obj_wireframe()
 	lcnt = intern.idb_meth->ft_labels(pl, 8, idn_mat, &intern, tol);
 
     for (int i = 0; i < lcnt; i++) {
-	struct bv_scene_obj *s = bv_obj_get_child(p);
+	bsg_shape *s = bsg_shape_get_child(p);
 	struct bv_label *la;
 	BU_GET(la, struct bv_label);
 	s->s_i_data = (void *)la;
@@ -247,13 +247,13 @@ QEll::update_viewobj_name(const QString &)
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 
     // Make the view object, if we've not already done so
     if (!p)
-	p = bv_obj_get(v, BV_VIEW_OBJS);
+	p = bsg_shape_get(v, BV_VIEW_OBJS);
 
     // Make sure the view object names match whatever the dialog says
     // is the current (proposed) name for the written object

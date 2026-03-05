@@ -192,10 +192,10 @@ QPolyMod::mod_names_reset()
     mod_names->blockSignals(true);
     mod_names->clear();
     if (gedp) {
-	struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
 	if (view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		if (s->s_type_flags & BV_POLYGONS) {
 		    mod_names->addItem(bu_vls_cstr(&s->s_name));
 		}
@@ -298,10 +298,10 @@ QPolyMod::toplevel_config(bool)
     // when we're switching modes at this level, we always start with a
     // blank slate for points.
     if (gedp) {
-	struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
 	if (view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		if (s->s_type_flags & BV_POLYGONS) {
 		    // clear any selected points in non-current polygons
 		    struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
@@ -376,10 +376,10 @@ QPolyMod::select(const QString &poly)
 	return;
 
     p = NULL;
-    struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    if (s->s_type_flags & BV_POLYGONS) {
 		QString pname(bu_vls_cstr(&s->s_name));
 		if (pname == poly) {
@@ -472,7 +472,7 @@ QPolyMod::toggle_closed_poly(bool checked)
 	return;
 
     if (do_bool && ip->type == BV_POLYGON_GENERAL && close_general_poly->isChecked()) {
-	struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
 	if (view_objs) {
 	    bg_clip_t op = bg_Union;
 	    if (do_bool) {
@@ -486,9 +486,9 @@ QPolyMod::toggle_closed_poly(bool checked)
 	    // If we're closing a general polygon and we're in boolean op mode,
 	    // that's our signal to complete the operation
 	    int pcnt = 0;
-	    std::vector<struct bv_scene_obj *> cleanup;
+	    std::vector<bsg_shape *> cleanup;
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		struct bv_scene_obj *target = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+		bsg_shape *target = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		if (target == p)
 		    continue;
 		if (!(target->s_type_flags & BV_POLYGONS))
@@ -503,12 +503,12 @@ QPolyMod::toggle_closed_poly(bool checked)
 		bg_polygon_free(&vp->polygon);
 		BU_PUT(vp, struct bv_polygon);
 		cleanup[i]->s_i_data = NULL;
-		bv_obj_put(cleanup[i]);
+		bsg_shape_put(cleanup[i]);
 	    }
 	    if (pcnt || op != bg_Union) {
 		bg_polygon_free(&ip->polygon);
 		BU_PUT(ip, struct bv_polygon);
-		bv_obj_put(p);
+		bsg_shape_put(p);
 		p = NULL;
 	    }
 	    do_bool = false;
@@ -554,11 +554,11 @@ QPolyMod::apply_bool_op()
 	op = bg_Intersection;
     }
 
-    struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
     if (view_objs) {
-	std::vector<struct bv_scene_obj *> cleanup;
+	std::vector<bsg_shape *> cleanup;
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *target = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+	    bsg_shape *target = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    if (target == p)
 		continue;
 	    if (!(target->s_type_flags & BV_POLYGONS))
@@ -573,7 +573,7 @@ QPolyMod::apply_bool_op()
 	    bg_polygon_free(&vp->polygon);
 	    BU_PUT(vp, struct bv_polygon);
 	    cleanup[i]->s_i_data = NULL;
-	    bv_obj_put(cleanup[i]);
+	    bsg_shape_put(cleanup[i]);
 	}
     }
 
@@ -599,9 +599,9 @@ QPolyMod::align_to_poly()
     MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, center);
     bn_ae_vec(&gedp->ged_gvp->gv_aet[0], &gedp->ged_gvp->gv_aet[1], dir);
     gedp->ged_gvp->gv_aet[2] = 0;
-    bv_mat_aet(gedp->ged_gvp);
+    bsg_view_mat_aet(gedp->ged_gvp);
 
-    bv_update(gedp->ged_gvp);
+    bsg_view_update(gedp->ged_gvp);
 
     emit view_updated(QG_VIEW_REFRESH);
 }
@@ -619,7 +619,7 @@ QPolyMod::delete_poly()
     struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
     bg_polygon_free(&ip->polygon);
     BU_PUT(ip, struct bv_polygon);
-    bv_obj_put(p);
+    bsg_shape_put(p);
     mod_names->setCurrentIndex(0);
     if (mod_names->currentText().length()) {
 	select(mod_names->currentText());
@@ -839,8 +839,8 @@ QPolyMod::view_name_update()
 void
 QPolyMod::toggle_line_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
-    struct bv_scene_obj *co = (cf) ? cf->wp : NULL;
+    bsg_view *v = (cf) ? cf->v : NULL;
+    bsg_shape *co = (cf) ? cf->wp : NULL;
     if (!v || !co)
 	return;
 
@@ -850,11 +850,11 @@ QPolyMod::toggle_line_snapping(bool s)
 	v->gv_s->gv_snap_lines = 0;
     } else {
 	// Turn snapping on if we have other polygons to snap to
-	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
 	if (!view_objs)
 	    return;
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    if (so == co)
 		continue;
 	    if (so->s_type_flags & BV_POLYGONS)
@@ -873,7 +873,7 @@ QPolyMod::toggle_line_snapping(bool s)
 void
 QPolyMod::toggle_grid_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : NULL;
     if (!v)
 	return;
 
@@ -890,7 +890,7 @@ QPolyMod::toggle_grid_snapping(bool s)
 void
 QPolyMod::checkbox_refresh(unsigned long long)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : NULL;
     if (!v)
 	return;
 

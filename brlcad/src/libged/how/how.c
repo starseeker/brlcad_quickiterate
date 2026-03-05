@@ -39,7 +39,7 @@ dl_how(struct bu_list *hdlp, struct bu_vls *vls, struct directory **dpp, int bot
     size_t i;
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     struct directory **tmp_dpp;
 
     gdlp = BU_LIST_NEXT(display_list, hdlp);

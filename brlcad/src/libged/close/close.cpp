@@ -28,7 +28,7 @@
 #include <string.h>
 
 #include "bu/cmd.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 
 #include "../ged_private.h"
 #include "../dbi.h"
@@ -62,7 +62,7 @@ ged_close_core(struct ged *gedp, int UNUSED(argc), const char **UNUSED(argv))
 	delete (DbiState *)gedp->dbi_state;
     gedp->dbi_state = NULL;
     if (gedp->ged_lod)
-	bv_mesh_lod_context_destroy(gedp->ged_lod);
+	bsg_mesh_lod_context_destroy(gedp->ged_lod);
     gedp->ged_lod = NULL;
 
     /* Terminate any ged subprocesses */

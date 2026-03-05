@@ -63,7 +63,7 @@ CADViewModel::refresh(unsigned long long)
     if (!gedp)
 	return;
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     struct bu_vls val = BU_VLS_INIT_ZERO;
     QMap<QString, QgKeyValNode*> standard_nodes;
     int i = 0;

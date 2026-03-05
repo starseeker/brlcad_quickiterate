@@ -32,6 +32,7 @@
 #include "vmath.h"
 #include "bn/mat.h"
 #include "bv/defines.h"
+#include "bsg.h"
 #include "rt/defines.h"
 #include "rt/db_internal.h"
 #include "rt/resource.h"
@@ -150,9 +151,9 @@ struct rt_edit {
     // Main view associated with the edit.  This may not be the only view in
     // which the edit is *visible*, but this should hold the pointer to the
     // view which will be used to drive any view dependent edit ops.
-    struct bview *vp;
+    bsg_view *vp;
     // Knob based editing data
-    struct bview_knobs k;
+    bsg_knobs k;
 
     // Current editing operation.  This holds the exact operation being
     // performed (for example, ECMD_TGC_SCALE_A to scale a tgc primitive's
@@ -217,7 +218,7 @@ struct rt_edit {
      * the pattern looks like the following:
      *
      * mat_t model2objview;
-     * struct bview *vp = <current view pointer>;
+     * bsg_view *vp = <current view pointer>;
      * bn_mat_mul(model2objview, vp->gv_model2view, s->model_changes);
      * ## A second bn_mat_mul might be needed if a perspective matrix is in use
      * dm_loadmatrix(DMP, model2objview, which_eye);
@@ -270,7 +271,7 @@ struct rt_edit {
 
 /** Create and initialize an rt_edit struct */
 RT_EXPORT extern struct rt_edit *
-rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *, struct bview *v);
+rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *, bsg_view *v);
 
 /** Free a rt_edit struct */
 RT_EXPORT extern void
@@ -315,7 +316,7 @@ RT_EXPORT extern int
 rt_edit_knob_cmd_process(
 	struct rt_edit *s,
 	vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, int *do_sca,
-        struct bview *v, const char *cmd, fastf_t f,
+        bsg_view *v, const char *cmd, fastf_t f,
         char origin, int incr_flag, void *u_data
 	);
 

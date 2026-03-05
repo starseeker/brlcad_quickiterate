@@ -151,7 +151,7 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
     bn_mat_inv(mat, gedp->ged_gvp->gv_rotation);
     scale = gedp->ged_gvp->gv_size / 100;      /* divide by # chars/screen */
     for (i=1; i<argc; i++) {
-	struct bv_scene_obj *s;
+	bsg_shape *s;
 	if ((dp = db_lookup(gedp->dbip, argv[i], LOOKUP_NOISY)) == RT_DIR_NULL)
 	    continue;
 

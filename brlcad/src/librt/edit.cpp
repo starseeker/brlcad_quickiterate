@@ -73,7 +73,7 @@ rt_edit_map_destroy(struct rt_edit_map *o)
 }
 
 struct rt_edit *
-rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, struct bview *v)
+rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, bsg_view *v)
 {
     struct rt_edit *s;
     BU_GET(s, struct rt_edit);
@@ -96,7 +96,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     VSETALL(s->e_mparam, 0);
     VSETALL(s->e_para, 0);
 
-    bv_knobs_reset(&s->k, 0);
+    bsg_knobs_reset(&s->k, 0);
     s->k.origin_m = '\0';
     s->k.origin_o = '\0';
     s->k.origin_v = '\0';
@@ -403,7 +403,7 @@ int
 rt_edit_knob_cmd_process(
 	struct rt_edit *s,
 	vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, int *do_sca,
-	struct bview *v, const char *cmd, fastf_t f,
+	bsg_view *v, const char *cmd, fastf_t f,
 	char origin, int incr_flag, void *u_data)
 {
     char c = (cmd[1] == '\0') ? cmd[0] : cmd[1];

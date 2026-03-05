@@ -24,7 +24,7 @@
  */
 
 #include "bu/getopt.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "ged.h"
 
 
@@ -207,7 +207,7 @@ ged_mirror_core(struct ged *gedp, int argc, const char *argv[])
 	const char *e_argv[2] = {"draw", NULL};
 	e_argv[1] = object;
 	(void)ged_exec_draw(gedp, 2, e_argv);
-	bv_update(gedp->ged_gvp);
+	bsg_view_update(gedp->ged_gvp);
     }
 
     return BRLCAD_OK;

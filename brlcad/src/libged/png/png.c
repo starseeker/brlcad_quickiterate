@@ -143,7 +143,7 @@ draw_stroke(unsigned char **image, struct coord *coord1, struct coord *coord2, c
 }
 
 static void
-draw_png_solid(fastf_t perspective, unsigned char **image, struct bv_scene_obj *sp, matp_t psmat, size_t size, size_t half_size)
+draw_png_solid(fastf_t perspective, unsigned char **image, bsg_shape *sp, matp_t psmat, size_t size, size_t half_size)
 {
     static vect_t last;
     point_t clipmin = {-1.0, -1.0, -MAX_FASTF};
@@ -277,7 +277,7 @@ dl_png(struct bu_list *hdlp, mat_t model2view, fastf_t perspective, vect_t eye_p
     mat_t newmat;
     matp_t mat;
     mat_t perspective_mat;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     mat = model2view;
 

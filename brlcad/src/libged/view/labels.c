@@ -53,7 +53,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    bsg_shape *s = gd->s;
     if (s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s already exists\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -80,7 +80,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	}
     } else {
 	fastf_t fx, fy;
-	if (bv_screen_to_view(gd->cv, &fx, &fy, (int)p[0], (int)p[1]) < 0) {
+	if (bsg_screen_to_view(gd->cv, &fx, &fy, (int)p[0], (int)p[1]) < 0) {
 	    return BRLCAD_ERROR;
 	}
 	p[0] = fx;
@@ -124,7 +124,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     int flags = BV_VIEW_OBJS;
     if (gd->local_obj)
 	flags |= BV_LOCAL_OBJS;
-    s = bv_obj_get(gd->cv, flags);
+    s = bsg_shape_get(gd->cv, flags);
     s->s_v = gd->cv;
     BU_LIST_INIT(&(s->s_vlist));
     BV_ADD_VLIST(s->vlfree, &s->s_vlist, p, BV_VLIST_LINE_MOVE);

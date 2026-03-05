@@ -130,7 +130,7 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
 	if (gedp->new_cmd_forms) {
 	    struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	    bu_vls_sprintf(&nroot, "bot_fuse::%s", name);
-	    struct bview *view = gedp->ged_gvp;
+	    bsg_view *view = gedp->ged_gvp;
 	    bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
 	    bu_vls_free(&nroot);
 	} else {

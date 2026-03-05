@@ -49,7 +49,7 @@
 #include "bu/env.h"
 #include "bu/hash.h"
 #include "bu/sort.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "raytrace.h"
 #define ALPHANUM_IMPL
 #include "../libged/alphanum.h"
@@ -273,10 +273,10 @@ qgmodel_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mo
 
     // Need to invalidate any LoD caches associated with this dp
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && ctx->gedp) {
-	unsigned long long key = bv_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
 	if (key) {
-	    bv_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
-	    bv_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
+	    bsg_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
+	    bsg_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
 	}
     }
 
@@ -320,9 +320,9 @@ QgModel::QgModel(QObject *p, const char *npath)
     // always valid.  It will usually be overridden by application provided views,
     // but this is our hard guarantee that a QgModel will always be able to work
     // with commands needing a view.
-    BU_GET(empty_gvp, struct bview);
-    bv_init(empty_gvp, &gedp->ged_views);
-    bv_set_add_view(&gedp->ged_views, empty_gvp);
+    BU_GET(empty_gvp, bsg_view);
+    bsg_view_init(empty_gvp, &gedp->ged_views);
+    bsg_scene_add_view(&gedp->ged_views, empty_gvp);
     gedp->ged_gvp = empty_gvp;
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
     gedp->ged_gvp->independent = 0;
@@ -355,8 +355,8 @@ QgModel::~QgModel()
 {
     delete items;
 
-    bv_free(empty_gvp);
-    BU_PUT(empty_gvp, struct bview);
+    bsg_view_free(empty_gvp);
+    BU_PUT(empty_gvp, bsg_view);
     ged_close(gedp);
     delete rootItem;
 }

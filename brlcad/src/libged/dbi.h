@@ -134,7 +134,7 @@ class GED_EXPORT BViewState {
 	// Adds path to the BViewState container, but doesn't trigger a re-draw - that
 	// should be done once all paths to be added in a given draw cycle are added.
 	// The actual drawing (and mode specifications) are done with redraw and a
-	// supplied bv_obj_settings structure.
+	// supplied bsg_material structure.
 	void add_path(const char *path);
 	void add_hpath(std::vector<unsigned long long> &path_hashes);
 
@@ -163,12 +163,12 @@ class GED_EXPORT BViewState {
 	void clear();
 
 	// A View State refresh regenerates already drawn objects.
-	unsigned long long refresh(struct bview *v, int argc, const char **argv);
+	unsigned long long refresh(bsg_view *v, int argc, const char **argv);
 
 	// A View State redraw can impact multiple views with a shared state - most of
 	// the elements will be the same, but adaptive plotting will be view specific even
 	// with otherwise common objects - we must update accordingly.
-	unsigned long long redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview);
+	unsigned long long redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int no_autoview);
 
 	// Allow callers to calculate the drawing hash of a path
 	unsigned long long path_hash(std::vector<unsigned long long> &path, size_t max_len);
@@ -187,7 +187,7 @@ class GED_EXPORT BViewState {
 	// one type of scene object (shaded, wireframe, evaluated, etc.) the mapping of
 	// key to scene object is not unique - we must also take scene object type
 	// into account.
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>> s_map;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>> s_map;
 	std::unordered_map<unsigned long long, std::vector<unsigned long long>> s_keys;
 
 	// Called when the parent Db context is getting ready to update the data
@@ -207,38 +207,38 @@ class GED_EXPORT BViewState {
 		);
 
 	void walk_tree(
-		std::unordered_set<struct bv_scene_obj *> &objs,
+		std::unordered_set<bsg_shape *> &objs,
 		unsigned long long chash,
 		int curr_mode,
-		struct bview *v,
-		struct bv_obj_settings *vs,
+		bsg_view *v,
+		bsg_material *vs,
 		matp_t m,
 		std::vector<unsigned long long> &path_hashes,
-		std::unordered_set<struct bview *> &views,
+		std::unordered_set<bsg_view *> &views,
 		unsigned long long *ret
 		);
 
 	void gather_paths(
-		std::unordered_set<struct bv_scene_obj *> &objs,
+		std::unordered_set<bsg_shape *> &objs,
 		unsigned long long c_hash,
 		int curr_mode,
-		struct bview *v,
-		struct bv_obj_settings *vs,
+		bsg_view *v,
+		bsg_material *vs,
 		matp_t m,
 		matp_t lm,
 		std::vector<unsigned long long> &path_hashes,
-		std::unordered_set<struct bview *> &views,
+		std::unordered_set<bsg_view *> &views,
 		unsigned long long *ret
 		);
 
-	struct bv_scene_obj * scene_obj(
-		std::unordered_set<struct bv_scene_obj *> &objs,
+	bsg_shape * scene_obj(
+		std::unordered_set<bsg_shape *> &objs,
 		int curr_mode,
-		struct bv_obj_settings *vs,
+		bsg_material *vs,
 		matp_t m,
 		std::vector<unsigned long long> &path_hashes,
-		std::unordered_set<struct bview *> &views,
-		struct bview *v
+		std::unordered_set<bsg_view *> &views,
+		bsg_view *v
 		);
 
 	int leaf_check(unsigned long long chash, std::vector<unsigned long long> &path_hashes);
@@ -311,7 +311,7 @@ class GED_EXPORT DbiState {
 
 	void clear_cache(struct directory *dp);
 
-	BViewState *get_view_state(struct bview *);
+	BViewState *get_view_state(bsg_view *);
 
 	std::vector<BSelectState *> get_selected_states(const char *sname);
 	BSelectState * find_selected_state(const char *sname);
@@ -382,7 +382,7 @@ class GED_EXPORT DbiState {
 	// separately, but they too need to update in response to database
 	// changes (as well as draw/erase commands).
 	BViewState *shared_vs = NULL;
-	std::unordered_map<struct bview *, BViewState *> view_states;
+	std::unordered_map<bsg_view *, BViewState *> view_states;
 
 	// We have a "default" selection state that is always available,
 	// and applications may define other named selection states.

@@ -42,12 +42,12 @@ dl_zap(struct ged *gedp)
 {
     struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct db_i *dbip = gedp->dbip;
-    struct bv_scene_obj *sp = NULL;
+    bsg_shape *sp = NULL;
     struct display_list *gdlp = NULL;
     struct bu_ptbl dls = BU_PTBL_INIT_ZERO;
     struct directory *dp = RT_DIR_NULL;
     size_t i = 0;
-    struct bv_scene_obj *free_scene_obj = bv_set_fsos(&gedp->ged_views);
+    bsg_shape *free_scene_obj = bv_set_fsos(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
     while (BU_LIST_WHILE(gdlp, display_list, hdlp)) {

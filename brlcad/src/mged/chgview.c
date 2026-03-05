@@ -31,7 +31,7 @@
 #include "vmath.h"
 #include "bu/getopt.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 #include "rt/edit.h"
 #include "nmg.h"
@@ -1248,8 +1248,8 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct display_list *gdlp;
     struct display_list *next_gdlp;
     struct directory *dp;
-    struct bv_scene_obj *sp;
-    struct bv_scene_obj *lastfound = NULL;
+    bsg_shape *sp;
+    bsg_shape *lastfound = NULL;
     int i, j;
     int nmatch;
     int c;
@@ -1566,7 +1566,7 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 }
 
 static void
-update_knob_rate_flags(struct bview_knobs *k, int is_edit)
+update_knob_rate_flags(bsg_knobs *k, int is_edit)
 {
     if (!k) return;
     k->rot_m_flag = (!ZERO(k->rot_m[X]) || !ZERO(k->rot_m[Y]) || !ZERO(k->rot_m[Z]));
@@ -1709,9 +1709,9 @@ knob_apply_misc(struct mged_state *s,
 		const char *token)
 {
     if (BU_STR_EQUAL(token, "zap") || BU_STR_EQUAL(token, "zero")) {
-	bv_knobs_reset(&view_state->vs_gvp->k, 0);
+	bsg_knobs_reset(&view_state->vs_gvp->k, 0);
 	if (MEDIT(s)) {
-	    bv_knobs_reset(&MEDIT(s)->k, BV_KNOBS_RATE);
+	    bsg_knobs_reset(&MEDIT(s)->k, BV_KNOBS_RATE);
 	}
 	view_state->k = view_state->vs_gvp->k;
 	update_all_rate_flags(s);
@@ -1859,7 +1859,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    struct rt_edit *re = MEDIT(s);
 		    if (!re)
 			goto usage;
-		    struct bview *v = view_state->vs_gvp;
+		    bsg_view *v = view_state->vs_gvp;
 		    char save_coord = v->gv_coord;
 		    v->gv_coord = mged_variables->mv_coords;
 		    if (rt_edit_knob_cmd_process(re,
@@ -1887,7 +1887,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    view_state->vs_gvp->gv_base2local = s->dbip->dbi_base2local;
 		}
 		int model_mode = model_flag || (mged_variables->mv_coords == 'm' && !view_flag);
-		if (bv_knobs_cmd_process(&view_rvec, &view_do_rot, &view_tvec, &view_do_tran,
+		if (bsg_knobs_cmd_process(&view_rvec, &view_do_rot, &view_tvec, &view_do_tran,
 			    view_state->vs_gvp,
 			    token, fval,
 			    origin, model_mode, incr_flag) != BRLCAD_OK) {
@@ -1917,7 +1917,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	}
 
 	if (view_do_tran) {
-	    bv_knobs_tran(view_state->vs_gvp, view_tvec, model_mode_final);
+	    bsg_knobs_tran(view_state->vs_gvp, view_tvec, model_mode_final);
 	}
 
 	if (view_do_rot) {
@@ -1925,7 +1925,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    mat_t old_rot, old_rot_inv, delta, delta_inv;
 	    MAT_COPY(old_rot, view_state->vs_gvp->gv_rotation);
 
-	    bv_knobs_rot(view_state->vs_gvp, view_rvec, origin, vcoords,
+	    bsg_knobs_rot(view_state->vs_gvp, view_rvec, origin, vcoords,
 		    (vcoords == 'o') ? MEDIT(s)->acc_rot_sol : NULL,
 		    NULL);
 
@@ -1973,14 +1973,14 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	/* Absolute translations already refreshed in abs_zoom via set_absolute_* */
     }
 
-    /* Sync view_state->k with current bview knobs before rate flag calc */
+    /* Sync view_state->k with current bsg_view knobs before rate flag calc */
     if (view_state && view_state->vs_gvp)
 	view_state->k = view_state->vs_gvp->k;
 
     /* Update rate flags */
     update_all_rate_flags(s);
 
-    /* Synchronize MGED's authoritative knob state into the active bview so that
+    /* Synchronize MGED's authoritative knob state into the active bsg_view so that
      * subsequent "view knob" (libged) commands see the accumulated rates and
      * absolute values.  Without this, mixing "knob ..." then "view knob ..."
      * would drop the earlier MGED changes because vs_gvp->k lags behind
@@ -2235,7 +2235,7 @@ mged_svbase(struct mged_state *s)
     VMOVE(saved_rot_o_abs_last, view_state->k.rot_o_abs_last);
 
     /* Reset all absolute knob baselines */
-    bv_knobs_reset(&view_state->k, 2);
+    bsg_knobs_reset(&view_state->k, 2);
 
     /* Restore object absolute rotations to preserve legacy behavior
      * TODO - for now we're preserving existing behavior, but should these
@@ -2249,7 +2249,7 @@ mged_svbase(struct mged_state *s)
     // mode is involved with viewstate - need to study in more detail. */
     view_state->vs_gvp->gv_a_scale = 0.0;
 
-    /* Sync active bview knob struct */
+    /* Sync active bsg_view knob struct */
     if (view_state->vs_gvp) {
 	view_state->vs_gvp->k = view_state->k;
     }

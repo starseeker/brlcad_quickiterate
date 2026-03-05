@@ -139,14 +139,14 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 }
 
 
-struct bv_scene_obj *
+bsg_shape *
 find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
 {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     int count = 0;
-    struct bv_scene_obj *ret = (struct bv_scene_obj *)NULL;
+    bsg_shape *ret = (bsg_shape *)NULL;
 
     RT_CK_FULL_PATH(pathp);
 

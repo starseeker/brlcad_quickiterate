@@ -30,7 +30,7 @@
 #include <fstream>
 
 #include <bu.h>
-#include <bv/lod.h>
+#include "bsg/lod.h"
 #include <icv.h>
 #define DM_WITH_RT
 #include <dm.h>
@@ -54,10 +54,10 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 
     // Need to invalidate any LoD caches associated with this dp
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && ctx->gedp) {
-	unsigned long long key = bv_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
 	if (key) {
-	    bv_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
-	    bv_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
+	    bsg_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
+	    bsg_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
 	}
     }
 
@@ -84,14 +84,14 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 void
 dm_refresh(struct ged *gedp, int vnum)
 {
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
-    struct bview *v = (struct bview *)BU_PTBL_GET(views, vnum);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	return;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 
@@ -141,8 +141,8 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int so
 
     dm_refresh(gedp, vnum);
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
-    struct bview *v = (struct bview *)BU_PTBL_GET(views, vnum);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	bu_exit(EXIT_FAILURE, "Invalid view specifier: %d\n", vnum);
     struct dm *dmp = (struct dm *)v->dmp;
@@ -440,7 +440,7 @@ main(int ac, char *av[]) {
     bu_setenv("DM_SWRAST", "1", 1);
 
     // We don't want the default GED views for this test
-    bv_set_rm_view(&gedp->ged_views, NULL);
+    bsg_scene_rm_view(&gedp->ged_views, NULL);
 
     // Set callback so database changes will update dbi_state
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
@@ -451,13 +451,13 @@ main(int ac, char *av[]) {
     // to mimic the most common multi-dm/view display - a Quad view widget.
     // Each view will get its own attached swrast DM.
     for (size_t i = 0; i < 4; i++) {
-	struct bview *v;
-	BU_GET(v, struct bview);
+	bsg_view *v;
+	BU_GET(v, bsg_view);
 	if (!i)
 	    gedp->ged_gvp = v;
-	bv_init(v, &gedp->ged_views);
+	bsg_view_init(v, &gedp->ged_views);
 	bu_vls_sprintf(&v->gv_name, "V%zd", i);
-	bv_set_add_view(&gedp->ged_views, v);
+	bsg_scene_add_view(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
 
 	/* To generate images that will allow us to check if the drawing
@@ -574,9 +574,9 @@ main(int ac, char *av[]) {
     /* Check view independent behavior - basic drawing */
     bu_log("Basic independent views drawing test - V1 active\n");
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
 	v->independent = 1;
     }
 
@@ -785,7 +785,7 @@ main(int ac, char *av[]) {
     scene_clear(gedp, 3, 3);
 
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
 	v->independent = 0;
     }
     scene_clear(gedp, 0, -1);
@@ -1011,10 +1011,10 @@ main(int ac, char *av[]) {
 
     // Next, test a mix of shared and independent views
     bu_log("Testing mixed shared and independent views\n");
-    ((struct bview *)BU_PTBL_GET(views, 0))->independent = 1;
-    ((struct bview *)BU_PTBL_GET(views, 1))->independent = 0;
-    ((struct bview *)BU_PTBL_GET(views, 2))->independent = 1;
-    ((struct bview *)BU_PTBL_GET(views, 3))->independent = 0;
+    ((bsg_view *)BU_PTBL_GET(views, 0))->independent = 1;
+    ((bsg_view *)BU_PTBL_GET(views, 1))->independent = 0;
+    ((bsg_view *)BU_PTBL_GET(views, 2))->independent = 1;
+    ((bsg_view *)BU_PTBL_GET(views, 3))->independent = 0;
 
     // First, draw without specifying any particular view.
     // This should result in the non-independent views being

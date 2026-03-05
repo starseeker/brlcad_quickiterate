@@ -101,7 +101,7 @@ dm_draw_data_axes(struct dm *dmp,
 }
 
 void
-dm_draw_scene_axes(struct dm *dmp,  struct bv_scene_obj *s)
+dm_draw_scene_axes(struct dm *dmp,  bsg_shape *s)
 {
     if (!(s->s_type_flags & BV_AXES))
 	return;

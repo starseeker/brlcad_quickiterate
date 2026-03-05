@@ -34,7 +34,7 @@ dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparenc
     struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     size_t i;
     struct directory **tmp_dpp;
 

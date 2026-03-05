@@ -88,7 +88,7 @@ CADViewMeasure::CADViewMeasure(QWidget *)
 CADViewMeasure::~CADViewMeasure()
 {
     if (s)
-	bv_obj_put(s);
+	bsg_shape_put(s);
 }
 
 void
@@ -161,7 +161,7 @@ CADViewMeasure::eventFilter(QObject *, QEvent *e)
     struct ged *gedp = m->gedp;
     if (!gedp || !gedp->ged_gvp)
 	return false;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     f3d->dbip = gedp->dbip;
 

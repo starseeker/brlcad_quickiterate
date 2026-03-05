@@ -36,7 +36,7 @@
 #include "bv/defines.h"
 #include "rt/search.h"
 #include "bv/defines.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "dm/fbserv.h" // for fbserv_obj
 #include "rt/wdb.h" // for struct rt_wdb
 
@@ -56,7 +56,7 @@
 #define GED_NULL ((struct ged *)0)
 #define GED_DISPLAY_LIST_NULL ((struct display_list *)0)
 #define GED_DRAWABLE_NULL ((struct ged_drawable *)0)
-#define GED_VIEW_NULL ((struct bview *)0)
+#define GED_VIEW_NULL ((bsg_view *)0)
 
 #define GED_RESULT_NULL ((void *)0)
 
@@ -82,7 +82,7 @@ typedef int (*ged_func_ptr)(struct ged *, int, const char *[]);
 /* Callback related definitions */
 typedef void (*ged_io_func_t)(void *, int);
 typedef void (*ged_refresh_func_t)(void *);
-typedef void (*ged_create_vlist_solid_func_t)(void *, struct bv_scene_obj *);
+typedef void (*ged_create_vlist_solid_func_t)(void *, bsg_shape *);
 typedef void (*ged_create_vlist_display_list_func_t)(void *, struct display_list *);
 typedef void (*ged_destroy_vlist_func_t)(void *, unsigned int, int);
 struct ged_callback_state;
@@ -165,9 +165,9 @@ struct ged {
     /* Information pertaining to views and view objects .        */
     /*************************************************************/
     /* The current view */
-    struct bview		*ged_gvp;
+    bsg_view		*ged_gvp;
     /* The full set of views associated with this ged object */
-    struct bview_set            ged_views;
+    bsg_scene            ged_views;
     /* Sometimes applications will supply GED views, and sometimes GED commands
      * may create views.  In the latter case, ged_close will also need to free
      * the views.  We define a container to hold those views that libged is
@@ -176,7 +176,7 @@ struct ged {
     struct bu_ptbl              ged_free_views;
 
     /* Drawing data associated with this .g file */
-    struct bv_mesh_lod_context  *ged_lod;
+    bsg_mesh_lod_context  *ged_lod;
 
 
     void                        *u_data; /**< @brief User data associated with this ged instance */
@@ -231,7 +231,7 @@ struct ged {
     void (*ged_refresh_handler)(void *);	/**< @brief  function for handling refresh requests */
     void *ged_refresh_clientdata;	/**< @brief  client data passed to refresh handler */
     void (*ged_output_handler)(struct ged *, char *);	/**< @brief  function for handling output */
-    void (*ged_create_vlist_scene_obj_callback)(void *, struct bv_scene_obj *);	/**< @brief  function to call after creating a vlist to create display list for solid */
+    void (*ged_create_vlist_scene_obj_callback)(void *, bsg_shape *);	/**< @brief  function to call after creating a vlist to create display list for solid */
     void (*ged_create_vlist_display_list_callback)(void *, struct display_list *);	/**< @brief  function to call after all vlist created that loops through creating display list for each solid  */
     void (*ged_destroy_vlist_callback)(void *, unsigned int, int);	/**< @brief  function to call after freeing a vlist */
     void *vlist_ctx;

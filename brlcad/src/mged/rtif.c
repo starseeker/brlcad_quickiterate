@@ -181,7 +181,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* static due to setjmp */
     static int mode = 0;
-    static struct bv_scene_obj *sp;
+    static bsg_shape *sp;
 
     CHECK_DBI_NULL;
 

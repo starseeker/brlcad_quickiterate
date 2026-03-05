@@ -70,7 +70,7 @@ class QEll : public QWidget
     private:
 	struct directory *dp = NULL;
 	struct rt_ell_internal ell;
-	struct bv_scene_obj *p = NULL;
+	bsg_shape *p = NULL;
 	struct bu_vls oname = BU_VLS_INIT_ZERO;
 };
 

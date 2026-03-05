@@ -51,8 +51,8 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
 {
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view
-    BU_GET(local_v, struct bview);
-    bv_init(local_v, NULL);
+    BU_GET(local_v, bsg_view);
+    bsg_view_init(local_v, NULL);
     bu_vls_sprintf(&local_v->gv_name, "swrast");
     v = local_v;
 
@@ -328,7 +328,7 @@ void QgSW::stash_hashes()
     } else {
 	prev_dhash = dm_hash(dmp);
     }
-    prev_vhash = bv_hash(v);
+    prev_vhash = bsg_view_hash(v);
 }
 
 bool QgSW::diff_hashes()
@@ -341,7 +341,7 @@ bool QgSW::diff_hashes()
 	c_dhash = dm_hash(dmp);
     }
     if (v) {
-	c_vhash = bv_hash(v);
+	c_vhash = bsg_view_hash(v);
     }
 
     if (dmp && dm_get_dirty(dmp))
@@ -393,7 +393,7 @@ void QgSW::aet(double a, double e, double t)
 
     VMOVE(v->gv_aet, aet);
 
-    /* TODO - based on the suspect bv_mat_aet... */
+    /* TODO - based on the suspect bsg_view_mat_aet... */
     mat_t tmat;
     fastf_t twist;
     fastf_t c_twist;
@@ -405,7 +405,7 @@ void QgSW::aet(double a, double e, double t)
     bn_mat_zrot(tmat, s_twist, c_twist);
     bn_mat_mul2(tmat, v->gv_rotation);
 
-    bv_update(v);
+    bsg_view_update(v);
 }
 
 void
