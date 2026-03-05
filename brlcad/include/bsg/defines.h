@@ -123,12 +123,15 @@ typedef struct bv_obj_settings bsg_material;
 /**
  * @brief Leaf geometry node in the BSG scene graph.
  *
- * Phase 1: alias of @c bv_scene_obj.
- * Phase 2: will become an SoShape-like node with proper action dispatch.
+ * Independent struct with the same initial field layout as @c bv_scene_obj.
+ * Having two separate definitions allows the @c bsg_* API to evolve its
+ * field layout independently without affecting external libbv users.
+ * During Phase 1 the layouts are kept in sync; Phase 2 will diverge them
+ * as the BSG API matures.
  *
  * Analogous to @c SoShape in Open Inventor.
  */
-typedef struct bv_scene_obj bsg_shape;
+/* struct bsg_shape is defined in bv/defines.h, included above */
 
 /**
  * @brief Group node — aggregates child @c bsg_shape nodes.

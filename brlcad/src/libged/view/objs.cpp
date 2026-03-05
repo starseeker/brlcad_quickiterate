@@ -571,7 +571,7 @@ _view_cmd_old_obj(struct ged *gedp, int argc, const char *argv[])
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	bsg_shape *sp;
 	struct display_list *next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    const struct ged_bv_data *bdata = (const struct ged_bv_data *)sp->s_u_data;

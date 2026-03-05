@@ -256,7 +256,7 @@ ps_draw_body(struct bu_list *hdlp, FILE *fp, mat_t model2view, fastf_t perspecti
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
         next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+        for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
             ps_draw_solid(perspective, fp, sp, mat);
         }
 

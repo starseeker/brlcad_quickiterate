@@ -72,7 +72,7 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
     const point_t *points = lod->points;
     const point_t *points_orig = lod->points_orig;
     const vect_t *normals = lod->normals;
-    bsg_shape *s = lod->s;
+    bsg_shape *s = (bsg_shape *)lod->s;
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
 

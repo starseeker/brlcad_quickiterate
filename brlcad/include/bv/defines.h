@@ -193,7 +193,13 @@ struct bview;
 
 struct bv_scene_obj_internal;
 
-struct bv_scene_obj  {
+/**
+ * @brief New BSG scene-object struct.  Same initial field layout as
+ * @c bv_scene_obj so Phase-1 reinterpret casts between the two are safe.
+ * Having independent definitions lets the @c bsg_* API evolve its field
+ * layout without affecting external libbv users.
+ */
+struct bsg_shape  {
     struct bu_list l;
 
     /* Internal implementation storage */
@@ -217,8 +223,8 @@ struct bv_scene_obj  {
     /* Knowledge of how to create/update s_vlist and the other 3D geometry data, as well as
      * manage any custom data specific to this object */
     void *s_i_data;  /**< @brief custom view data (bv_line_seg, bv_label, bv_polyon, etc) */
-    int (*s_update_callback)(struct bv_scene_obj *, struct bview *, int);  /**< @brief custom update/generator for s_vlist */
-    void (*s_free_callback)(struct bv_scene_obj *);  /**< @brief free any info stored in s_i_data, s_path and draw_data */
+    int (*s_update_callback)(struct bsg_shape *, struct bview *, int);  /**< @brief custom update/generator for s_vlist */
+    void (*s_free_callback)(struct bsg_shape *);  /**< @brief free any info stored in s_i_data, s_path and draw_data */
 
     /* 3D vector list geometry data */
     struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
@@ -228,7 +234,7 @@ struct bv_scene_obj  {
     unsigned int s_dlist;	/**< @brief  display list index */
     int s_dlist_mode;		/**< @brief  drawing mode in which display list was generated (if it doesn't match s_os.s_dmode, dlist is out of date.) */
     int s_dlist_stale;		/**< @brief  set by client codes when dlist is out of date - dm must update. */
-    void (*s_dlist_free_callback)(struct bv_scene_obj *);  /**< @brief free any dlist specific data */
+    void (*s_dlist_free_callback)(struct bsg_shape *);  /**< @brief free any dlist specific data */
 
     /* 3D geometry metadata */
     fastf_t s_size;		/**< @brief  Distance across solid, in model space */
@@ -295,8 +301,8 @@ struct bv_scene_obj  {
     /* Reusable vlists */
     struct bu_list *vlfree;
 
-    /* Container for reusing bv_scene_obj allocations */
-    struct bv_scene_obj *free_scene_obj;
+    /* Container for reusing bsg_shape allocations */
+    struct bsg_shape *free_scene_obj;
 
     /* View container containing this object */
     struct bu_ptbl *otbl;
@@ -306,6 +312,69 @@ struct bv_scene_obj  {
     void *draw_data;
 
     /* User data to associate with this view object */
+    void *s_u_data;
+};
+/** @brief C convenience typedef — allows @c bsg_shape * without the @c struct keyword. */
+typedef struct bsg_shape bsg_shape;
+
+/**
+ * @brief Legacy scene-object struct — identical layout to @c bsg_shape.
+ *
+ * Kept as an independent definition so that external libbv users and all
+ * existing @c bv_* code continue to compile and behave exactly as before.
+ * The @c bsg_* API uses @c struct bsg_shape (above); improvements to that
+ * path will not affect this struct or the @c bv_* functions that operate on it.
+ */
+struct bv_scene_obj  {
+    struct bu_list l;
+    struct bv_scene_obj_internal *i;
+    unsigned long long s_type_flags;
+    struct bu_vls s_name;
+    void *s_path;
+    void *dp;
+    mat_t s_mat;
+    struct bview *s_v;
+    void *s_i_data;
+    int (*s_update_callback)(struct bv_scene_obj *, struct bview *, int);
+    void (*s_free_callback)(struct bv_scene_obj *);
+    struct bu_list s_vlist;
+    size_t s_vlen;
+    unsigned int s_dlist;
+    int s_dlist_mode;
+    int s_dlist_stale;
+    void (*s_dlist_free_callback)(struct bv_scene_obj *);
+    fastf_t s_size;
+    fastf_t s_csize;
+    vect_t s_center;
+    int s_displayobj;
+    point_t bmin;
+    point_t bmax;
+    int have_bbox;
+    char s_flag;
+    char s_iflag;
+    int s_force_draw;
+    unsigned char s_color[3];
+    int s_soldash;
+    int s_arrow;
+    int s_changed;
+    int current;
+    int     adaptive_wireframe;
+    int     csg_obj;
+    int     mesh_obj;
+    fastf_t view_scale;
+    size_t  bot_threshold;
+    fastf_t curve_scale;
+    fastf_t point_scale;
+    struct bv_obj_settings *s_os;
+    struct bv_obj_settings s_local_os;
+    int s_inherit_settings;
+    struct bv_scene_obj_old_settings s_old;
+    struct bu_ptbl children;
+    struct bv_scene_ob *parent;
+    struct bu_list *vlfree;
+    struct bv_scene_obj *free_scene_obj;
+    struct bu_ptbl *otbl;
+    void *draw_data;
     void *s_u_data;
 };
 

@@ -136,7 +136,7 @@ go_draw_dlist(bsg_view *gdvp)
 	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (sp->s_os->transparency < 1.0)
 		    continue;
 
@@ -159,7 +159,7 @@ go_draw_dlist(bsg_view *gdvp)
 	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		/* already drawn above */
 		if (ZERO(sp->s_os->transparency - 1.0))
 		    continue;
@@ -182,7 +182,7 @@ go_draw_dlist(bsg_view *gdvp)
 	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (line_style != sp->s_soldash) {
 		    line_style = sp->s_soldash;
 		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
@@ -244,7 +244,7 @@ to_edit_redraw(struct ged *gedp,
 		    continue;
 		}
 
-		for (BU_LIST_FOR(curr_sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+		for (BU_LIST_FOR(curr_sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 
 		    if (!curr_sp->s_u_data)
 			continue;
@@ -252,7 +252,7 @@ to_edit_redraw(struct ged *gedp,
 
 		    if (db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i])) {
 			struct display_list *last_gdlp;
-			bsg_shape *sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
+			bsg_shape *sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
 			struct bu_vls mflag = BU_VLS_INIT_ZERO;
 			struct bu_vls xflag = BU_VLS_INIT_ZERO;
 			char *av[5] = {0};

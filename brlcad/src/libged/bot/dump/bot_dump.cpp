@@ -429,7 +429,7 @@ dl_botdump(struct _ged_bot_dump_client_data *d)
     for (BU_LIST_FOR(gdlp, display_list, hdlp)) {
 	bsg_shape *sp;
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    struct directory *dp;
 	    struct rt_db_internal intern;
 	    struct rt_bot_internal *bot;

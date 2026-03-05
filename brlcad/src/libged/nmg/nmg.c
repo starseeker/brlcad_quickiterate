@@ -159,7 +159,7 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
 	gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
 	while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	    for (BU_LIST_FOR(s, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(s, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (!s->s_u_data)
 		    continue;
 		struct ged_bv_data *bdata = (struct ged_bv_data *)s->s_u_data;
