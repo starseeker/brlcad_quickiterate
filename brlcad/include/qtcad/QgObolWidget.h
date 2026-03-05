@@ -400,15 +400,10 @@ public:
     void stash_hashes() {
 	/* Stash the bv_scene node count so diff_hashes() can detect draw/erase
 	 * changes and trigger a repaint after console commands. */
-	struct bv_scene *sc = ctx_ ? bv_render_ctx_get_scene(ctx_) : nullptr;
-	const struct bu_ptbl *nodes = sc ? bv_scene_nodes(sc) : nullptr;
-	prev_node_count_ = nodes ? BU_PTBL_LEN(nodes) : 0;
+	prev_node_count_ = _scene_node_count();
     }
     bool diff_hashes() {
-	struct bv_scene *sc = ctx_ ? bv_render_ctx_get_scene(ctx_) : nullptr;
-	const struct bu_ptbl *nodes = sc ? bv_scene_nodes(sc) : nullptr;
-	size_t cur_node_count = nodes ? BU_PTBL_LEN(nodes) : 0;
-	return (cur_node_count != prev_node_count_);
+	return (_scene_node_count() != prev_node_count_);
     }
 
     void need_update() { update(); }
@@ -974,6 +969,13 @@ private:
 	QgObolWidget *w = static_cast<QgObolWidget *>(data);
 	w->update();
 	emit w->changed();
+    }
+
+    /* ── Helper: current bv_scene node count ────────────────────────── */
+    size_t _scene_node_count() const {
+	struct bv_scene *sc = ctx_ ? bv_render_ctx_get_scene(ctx_) : nullptr;
+	const struct bu_ptbl *nodes = sc ? bv_scene_nodes(sc) : nullptr;
+	return nodes ? BU_PTBL_LEN(nodes) : 0;
     }
 
     /* ── Data members ───────────────────────────────────────────────── */
