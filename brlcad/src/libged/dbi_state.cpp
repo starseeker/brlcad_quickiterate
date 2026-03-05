@@ -2301,7 +2301,7 @@ BViewState::scene_obj(
     }
 
     // No pre-existing object - make a new one
-    sp = bsg_shape_get(v, BV_DB_OBJS);
+    sp = bsg_shape_get(v, BSG_DB_OBJS);
 
     // Find the leaf directory pointer
     struct directory *dp = dbis->get_hdp(path_hashes[path_hashes.size()-1]);
@@ -2660,7 +2660,7 @@ BViewState::refresh(bsg_view *v, int argc, const char **argv)
 	    }
 	    if (!s)
 		continue;
-	    bsg_shape *nso = bsg_shape_get(v, BV_DB_OBJS);
+	    bsg_shape *nso = bsg_shape_get(v, BSG_DB_OBJS);
 	    bsg_shape_sync(nso, s);
 	    nso->s_i_data = s->s_i_data;
 	    s->s_i_data = NULL;
@@ -2800,7 +2800,7 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
 		    bsg_shape_reset(s);
 		    s->s_v = v;
 		} else {
-		    s = bsg_shape_get(v, BV_DB_OBJS);
+		    s = bsg_shape_get(v, BSG_DB_OBJS);
 		    // print path name, set view - otherwise empty
 		    dbis->print_path(&s->s_name, cp);
 		    s->s_v = v;
@@ -2855,7 +2855,7 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
 	}
 	for (sz_it = draw_invalid_collapsed.begin(); sz_it != draw_invalid_collapsed.end(); sz_it++) {
 	    std::vector<unsigned long long> cpath = ms_it->second[*sz_it];
-	    bsg_shape *s = bsg_shape_get(v, BV_DB_OBJS);
+	    bsg_shape *s = bsg_shape_get(v, BSG_DB_OBJS);
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&s->s_name, cpath);
 	    s->s_v = v;
@@ -2898,7 +2898,7 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
     // routines have a rough idea of the correct dimensions to use
     if (!no_autoview) {
 	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bsg_view_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	    bsg_view_autoview(*v_it, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
 	}
     }
 
@@ -2937,7 +2937,7 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
     // unless suppressed
     if (!no_autoview) {
 	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bsg_view_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	    bsg_view_autoview(*v_it, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
 	}
     }
 

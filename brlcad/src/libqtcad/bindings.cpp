@@ -186,32 +186,32 @@ int CADmouseReleaseEvent(bsg_view *v, double x_press, double y_press, int UNUSED
 
     int dx = 1;
     int dy = 1;
-    unsigned long long view_flags = BV_IDLE;
+    unsigned long long view_flags = BSG_IDLE;
 
     if (e->button() == Qt::LeftButton) {
 	//bu_log("Release Left\n");
-	if (mode != BV_CENTER) {
-	    view_flags = BV_SCALE;
+	if (mode != BSG_CENTER) {
+	    view_flags = BSG_SCALE;
 	    dx = 10;
 	    dy = 5;
 	} else {
-	    view_flags = BV_CENTER;
+	    view_flags = BSG_CENTER;
 	    dx = (int)cx;
 	    dy = (int)cy;
 	}
     }
     if (e->button() == Qt::RightButton) {
 	//bu_log("Release Right\n");
-	if (mode == BV_CENTER)
+	if (mode == BSG_CENTER)
 	    return 0;
-	view_flags = BV_SCALE;
+	view_flags = BSG_SCALE;
 	dx = 1;
 	dy = 2;
     }
 
     if (e->button() == Qt::MiddleButton) {
 	//bu_log("Release Center\n");
-	view_flags = BV_CENTER;
+	view_flags = BSG_CENTER;
 	dx = (int)cx;
 	dy = (int)cy;
     }
@@ -227,7 +227,7 @@ int CADmouseMoveEvent(bsg_view *v, int x_prev, int y_prev, QMouseEvent *e, int m
     if (!v)
 	return 0;
 
-    unsigned long long view_flags = BV_IDLE;
+    unsigned long long view_flags = BSG_IDLE;
 
     if (x_prev == -INT_MAX) {
 	//x_prev = e->x();
@@ -236,25 +236,25 @@ int CADmouseMoveEvent(bsg_view *v, int x_prev, int y_prev, QMouseEvent *e, int m
     }
 
     view_flags = mode;
-    if (mode == BV_CENTER)
-	view_flags = BV_SCALE;
+    if (mode == BSG_CENTER)
+	view_flags = BSG_SCALE;
 
     if (e->buttons().testFlag(Qt::LeftButton)) {
 	//bu_log("Left\n");
 
 	if (e->modifiers().testFlag(Qt::ControlModifier)) {
 	    //bu_log("Ctrl+Left\n");
-	    view_flags = BV_ROT;
+	    view_flags = BSG_ROT;
 	}
 
 	if (e->modifiers().testFlag(Qt::ShiftModifier)) {
 	    //bu_log("Shift+Left\n");
-	    view_flags = BV_TRANS;
+	    view_flags = BSG_TRANS;
 	}
 
 	if (e->modifiers().testFlag(Qt::ShiftModifier) && e->modifiers().testFlag(Qt::ControlModifier)) {
 	    //bu_log("Ctrl+Shift+Left\n");
-	    view_flags = BV_SCALE;
+	    view_flags = BSG_SCALE;
 	}
     }
 
@@ -277,7 +277,7 @@ int CADmouseMoveEvent(bsg_view *v, int x_prev, int y_prev, QMouseEvent *e, int m
     int dy = e->position().y() - y_prev;
 #endif
 
-    if (view_flags == BV_SCALE) {
+    if (view_flags == BSG_SCALE) {
 	// Build in some sensitivity to how much the mouse moved when doing
 	// a motion based scale
 	int mdelta = (abs(dx) > abs(dy)) ? dx : -dy;
@@ -318,7 +318,7 @@ int CADwheelEvent(bsg_view *v, QWheelEvent *e)
     int dy = 100;
 
     point_t origin = VINIT_ZERO;
-    return bsg_view_adjust(v, dx, dy, origin, 0, BV_SCALE);
+    return bsg_view_adjust(v, dx, dy, origin, 0, BSG_SCALE);
 
 }
 

@@ -121,9 +121,9 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	}
     }
 
-    int flags = BV_VIEW_OBJS;
+    int flags = BSG_VIEW_OBJS;
     if (gd->local_obj)
-	flags |= BV_LOCAL_OBJS;
+	flags |= BSG_LOCAL_OBJS;
     s = bsg_shape_get(gd->cv, flags);
     s->s_v = gd->cv;
     BU_LIST_INIT(&(s->s_vlist));
@@ -141,8 +141,8 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     }
     s->s_i_data = (void *)l;
 
-    s->s_type_flags |= BV_VIEWONLY;
-    s->s_type_flags |= BV_LABELS;
+    s->s_type_flags |= BSG_NODE_VIEWONLY;
+    s->s_type_flags |= BSG_NODE_LABELS;
 
     bu_vls_init(&s->s_name);
     bu_vls_printf(&s->s_name, "%s", gd->vobj);

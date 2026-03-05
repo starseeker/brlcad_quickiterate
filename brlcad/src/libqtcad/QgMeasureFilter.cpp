@@ -146,7 +146,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 
 	    if (s)
 		bsg_shape_put(s);
-	    s = bsg_shape_get(v, BV_VIEW_OBJS);
+	    s = bsg_shape_get(v, BSG_VIEW_OBJS);
 
 	    mode = 1;
 	    VMOVE(p1, mpnt);

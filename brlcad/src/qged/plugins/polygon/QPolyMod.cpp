@@ -192,11 +192,11 @@ QPolyMod::mod_names_reset()
     mod_names->blockSignals(true);
     mod_names->clear();
     if (gedp) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
 	if (view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-		if (s->s_type_flags & BV_POLYGONS) {
+		if (s->s_type_flags & BSG_NODE_POLYGONS) {
 		    mod_names->addItem(bu_vls_cstr(&s->s_name));
 		}
 	    }
@@ -298,11 +298,11 @@ QPolyMod::toplevel_config(bool)
     // when we're switching modes at this level, we always start with a
     // blank slate for points.
     if (gedp) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
 	if (view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-		if (s->s_type_flags & BV_POLYGONS) {
+		if (s->s_type_flags & BSG_NODE_POLYGONS) {
 		    // clear any selected points in non-current polygons
 		    struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
 		    if (ip->curr_point_i != -1) {
@@ -376,11 +376,11 @@ QPolyMod::select(const QString &poly)
 	return;
 
     p = NULL;
-    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BV_POLYGONS) {
+	    if (s->s_type_flags & BSG_NODE_POLYGONS) {
 		QString pname(bu_vls_cstr(&s->s_name));
 		if (pname == poly) {
 		    p = s;
@@ -472,7 +472,7 @@ QPolyMod::toggle_closed_poly(bool checked)
 	return;
 
     if (do_bool && ip->type == BV_POLYGON_GENERAL && close_general_poly->isChecked()) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
 	if (view_objs) {
 	    bg_clip_t op = bg_Union;
 	    if (do_bool) {
@@ -491,7 +491,7 @@ QPolyMod::toggle_closed_poly(bool checked)
 		bsg_shape *target = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		if (target == p)
 		    continue;
-		if (!(target->s_type_flags & BV_POLYGONS))
+		if (!(target->s_type_flags & BSG_NODE_POLYGONS))
 		    continue;
 		pcnt += bv_polygon_csg(target, p, op);
 		struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
@@ -554,14 +554,14 @@ QPolyMod::apply_bool_op()
 	op = bg_Intersection;
     }
 
-    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
     if (view_objs) {
 	std::vector<bsg_shape *> cleanup;
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *target = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    if (target == p)
 		continue;
-	    if (!(target->s_type_flags & BV_POLYGONS))
+	    if (!(target->s_type_flags & BSG_NODE_POLYGONS))
 		continue;
 	    bv_polygon_csg(target, p, op);
 	    struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
@@ -850,14 +850,14 @@ QPolyMod::toggle_line_snapping(bool s)
 	v->gv_s->gv_snap_lines = 0;
     } else {
 	// Turn snapping on if we have other polygons to snap to
-	struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	if (!view_objs)
 	    return;
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    if (so == co)
 		continue;
-	    if (so->s_type_flags & BV_POLYGONS)
+	    if (so->s_type_flags & BSG_NODE_POLYGONS)
 		bu_ptbl_ins(&v->gv_s->gv_snap_objs, (long *)so);
 	}
 	if (BU_PTBL_LEN(&v->gv_s->gv_snap_objs)) {
