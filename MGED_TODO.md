@@ -68,6 +68,12 @@ delta between an experimental BRL-CAD branch and the main tree.  It shows the
 - [x] **Fixed all cross-type `ipe_ptr` reset blocks**: `sedit_apply`,
   `sedit_reject`, `f_sedit_reset`, `init_sedit` all guard resets by `idb_type`.
 - [x] Build confirmed clean: `mged`, `librt`, `rt_edit_test_arb8`, `rt_edit_test_bspline`.
+- [x] **Moved all remaining `ECMD_*` defines to public headers**:
+  - `ECMD_SKETCH_*` now in `include/rt/primitives/sketch.h`; removed from `edsketch.c` and `sketch.cpp` test
+  - `ECMD_COMB_*` and `struct rt_comb_edit` now in `include/rt/comb.h`; removed from `edcomb.c` and `comb.cpp` test
+  - Private ECMD_NMG_* local copies removed from `nmg.cpp` test (uses `rt/primitives/nmg.h`)
+  - Private ECMD_EBM_* local copies removed from `ebm.cpp` test (now includes `rt/primitives/ebm.h`)
+  - Private ECMD_DSP_* local copies removed from `dsp.cpp` test (now includes `rt/primitives/dsp.h`)
 
 ---
 
@@ -92,12 +98,6 @@ Once all pick operations go through librt's `RT_PARAMS_EDIT_PICK` edit_mode
 
 `sedraw` remains as an MGED-specific global. A corresponding flag could be
 added to `rt_edit` if needed to support multi-app use.
-
-### 5. Move ECMD_NMG_*/ECMD_PIPE_*/ECMD_ARS_*/ECMD_VOL_*/ECMD_BOT_* to public headers
-
-Currently only `EARB/PTARB/ECMD_ARB_*` (arb8.h) and `ECMD_VTRANS` (geom.h) have been
-moved to public headers. The remaining `ECMD_*` defines in `sedit.h` could be
-progressively moved to their corresponding `include/rt/primitives/*.h` headers.
 
 ---
 
@@ -128,6 +128,12 @@ progressively moved to their corresponding `include/rt/primitives/*.h` headers.
 | `src/librt/primitives/ars/edars.c` | Updated – uses public `rt_ars_edit` from ars.h |
 | `src/librt/primitives/metaball/edmetaball.c` | Updated – uses public `rt_metaball_edit` from metaball.h |
 | `src/librt/primitives/arb8/edarb.c` | Updated – uses public EARB/PTARB/ECMD_ARB_* from arb8.h |
-| `src/librt/primitives/bspline/edbspline.c` | Updated – uses public rt_bspline_edit from geom.h |
-| `src/librt/tests/edit/arb8.cpp` | Updated – uses public arb8.h |
-| `src/librt/tests/edit/bspline.cpp` | Updated – uses public rt_bspline_edit/ECMD_VTRANS from geom.h |
+| `src/librt/primitives/sketch/edsketch.c` | Updated – ECMD_SKETCH_* now from public sketch.h |
+| `src/librt/comb/edcomb.c` | Updated – ECMD_COMB_* and rt_comb_edit now from public comb.h |
+| `include/rt/primitives/sketch.h` | Updated – exposes ECMD_SKETCH_* publicly |
+| `include/rt/comb.h` | Updated – exposes ECMD_COMB_* and `struct rt_comb_edit` publicly |
+| `src/librt/tests/edit/sketch.cpp` | Updated – uses public ECMD_SKETCH_* from sketch.h |
+| `src/librt/tests/edit/comb.cpp` | Updated – uses public ECMD_COMB_* and rt_comb_edit from comb.h |
+| `src/librt/tests/edit/nmg.cpp` | Updated – uses public ECMD_NMG_* from rt/primitives/nmg.h |
+| `src/librt/tests/edit/ebm.cpp` | Updated – uses public ECMD_EBM_* from rt/primitives/ebm.h |
+| `src/librt/tests/edit/dsp.cpp` | Updated – uses public ECMD_DSP_* from rt/primitives/dsp.h |

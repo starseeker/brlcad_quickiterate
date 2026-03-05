@@ -48,24 +48,7 @@
 #include "rt/primitives/sketch.h"
 #include "rt/rt_ecmds.h"
 
-/* ------------------------------------------------------------------ */
-/* ECMD constants (must match edsketch.c; they are file-local there)  */
-/* ------------------------------------------------------------------ */
-
-#define ECMD_SKETCH_PICK_VERTEX    26001
-#define ECMD_SKETCH_MOVE_VERTEX    26002
-#define ECMD_SKETCH_PICK_SEGMENT   26003
-#define ECMD_SKETCH_MOVE_SEGMENT   26004
-#define ECMD_SKETCH_APPEND_LINE    26005
-#define ECMD_SKETCH_APPEND_ARC     26006
-#define ECMD_SKETCH_APPEND_BEZIER  26007
-#define ECMD_SKETCH_DELETE_VERTEX  26008
-#define ECMD_SKETCH_DELETE_SEGMENT 26009
-#define ECMD_SKETCH_MOVE_VERTEX_LIST 26010
-#define ECMD_SKETCH_SPLIT_SEGMENT    26011
-#define ECMD_SKETCH_APPEND_NURB      26012
-#define ECMD_SKETCH_NURB_EDIT_KV     26013
-#define ECMD_SKETCH_NURB_EDIT_WEIGHTS 26014
+/* ECMD_SKETCH_* constants are defined in rt/primitives/sketch.h */
 
 
 /* ------------------------------------------------------------------ */

@@ -77,42 +77,10 @@
 #include "rt/op.h"
 #include "rt/tree.h"
 #include "rt/db_attr.h"
+#include "rt/comb.h"
 #include "../primitives/edit_private.h"
 
-/* ------------------------------------------------------------------ */
-/* ECMD constants                                                       */
-/* ------------------------------------------------------------------ */
-
-#define ECMD_COMB_ADD_MEMBER   12001
-#define ECMD_COMB_DEL_MEMBER   12002
-#define ECMD_COMB_SET_OP       12003
-#define ECMD_COMB_SET_MATRIX   12004
-/* Material / region property ECMDs */
-#define ECMD_COMB_SET_REGION   12005  /* set region_flag (0/1) */
-#define ECMD_COMB_SET_COLOR    12006  /* set RGB color (e_para[0..2]=R,G,B 0-255; e_inpara=0 clears) */
-#define ECMD_COMB_SET_SHADER   12007  /* set shader string (ce->es_shader) */
-#define ECMD_COMB_SET_MATERIAL 12008  /* set material string (ce->es_material) */
-#define ECMD_COMB_SET_REGION_ID 12009 /* set region_id (e_para[0]) */
-#define ECMD_COMB_SET_AIRCODE  12010  /* set aircode  (e_para[0]) */
-#define ECMD_COMB_SET_GIFTMATER 12011 /* set GIFTmater (e_para[0]) */
-#define ECMD_COMB_SET_LOS      12012  /* set los (e_para[0]) */
-
-/* ------------------------------------------------------------------ */
-/* Per-instance edit state                                              */
-/* ------------------------------------------------------------------ */
-
-struct rt_comb_edit {
-    /* Name of the member to add (ECMD_COMB_ADD_MEMBER).
-     * Caller must set this before calling rt_edit_process(). */
-    struct bu_vls es_name;
-    /* When non-zero, es_mat supplies the 4x4 xform for ADD_MEMBER */
-    int es_mat_valid;
-    mat_t es_mat;
-    /* Shader / material strings for ECMD_COMB_SET_SHADER / _SET_MATERIAL.
-     * Caller fills these in before calling rt_edit_process(). */
-    struct bu_vls es_shader;
-    struct bu_vls es_material;
-};
+/* ECMD_COMB_* command codes and struct rt_comb_edit are defined in rt/comb.h */
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */

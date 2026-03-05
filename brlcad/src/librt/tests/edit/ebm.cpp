@@ -53,13 +53,10 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "raytrace.h"
+#include "rt/primitives/ebm.h"
 #include "rt/rt_ecmds.h"
 
-
-/* ECMD constants from edebm.c */
-#define ECMD_EBM_FNAME		12053
-#define ECMD_EBM_FSIZE		12054
-#define ECMD_EBM_HEIGHT		12055
+/* ECMD_EBM_* constants are defined in rt/primitives/ebm.h */
 
 
 static const char *EBM_DATA_FILE = "/tmp/rt_edit_test_ebm.data";
