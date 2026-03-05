@@ -344,7 +344,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	void item_rebuild(QgItem *item);
 
 	QgItem *rootItem;
-	struct bview *empty_gvp = NULL;
+	bsg_view *empty_gvp = NULL;
 	struct db_i *model_dbip = NULL;
 };
 

@@ -123,10 +123,20 @@ the same field layout as `bv_scene_obj`.  This gives:
 - A C convenience self-typedef `typedef struct bsg_shape bsg_shape;` lets callers
   use `bsg_shape *` without the `struct` keyword (standard C idiom).
 
-**bsg_camera:** Defined as a genuinely new struct (it does not exist in the
-legacy API) that documents which `bview` fields will be extracted into a
-dedicated camera node in Phase 2.  It is NOT yet embedded in `bsg_view` (which
-is still just `bview` via typedef).
+**Session 4:** All non-libbv public API headers now use `bsg_*` types exclusively:
+- `include/dm/view.h` — `bsg_view *` in `dm_draw_faceplate`, `dm_draw_viewobjs`, `dm_draw_objs`
+- `include/tclcad/draw.h` — all `go_*` functions use `bsg_view *gdvp`
+- `include/qtcad/QgView.h`, `QgGL.h`, `QgSW.h`, `QgQuadView.h`, `QgSelectFilter.h` — `bsg_view *`
+- `include/qtcad/QgMeasureFilter.h`, `QgPolyFilter.h` — `bsg_view *` and `bsg_shape *`
+- `include/qtcad/QgModel.h` — `bsg_view *empty_gvp`
+
+The three headers that only included `bv.h` (not `dm.h`/`ged.h` which transitively pull in
+`bsg/defines.h`) gained an explicit `#include "bsg.h"`.
+
+Remaining old-type uses in brlcad outside libbv are exactly 12 explicit `(struct bv_scene_obj *)`
+casts in 3 source files (`draw.cpp`, `view/polygons.c`, `sketch/polygons.c`).  These are the
+correct boundary-cast pattern when calling legacy `bv/polygon.h` functions
+(`bv_update_polygon`, `bv_polygon_vlist`) from new code that holds `bsg_shape *`.
 
 #### Function naming convention
 
