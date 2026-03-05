@@ -1,0 +1,278 @@
+/* include/Inventor/C/basic.h. Generated from basic.h.cmake.in by CMake. */
+/**************************************************************************\
+ * Copyright (c) Kongsberg Oil & Gas Technologies AS
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * 
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * 
+ * Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ * 
+ * Neither the name of the copyright holder nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+\**************************************************************************/
+
+#ifndef OBOL_BASIC_H
+#define OBOL_BASIC_H
+
+/*
+  NOTE: basic.h is automatically generated from basic.h.cmake.in, so don't
+  edit basic.h directly.
+*/
+
+/* *********************************************************************** */
+
+/* Essential C++17 modernized includes for standard integer types */
+#include <cstdint>
+#include <cstddef>
+#include <cmath>
+#include <algorithm>
+
+/* Include math.h for compatibility - some code depends on this */
+//#include <math.h>
+
+/* *********************************************************************** */
+
+// C++17 modernization: Use native bool for SbBool
+// This aligns internal code with the modernized public API
+using SbBool = bool;
+
+/* TRUE/FALSE constants - kept for Open Inventor compatibility */
+#if !defined(FALSE) && defined(__cplusplus)
+static const SbBool FALSE = false;
+#endif /* !FALSE */
+#if !defined(TRUE) && defined(__cplusplus)
+static const SbBool TRUE = true;
+#endif /* !TRUE */
+
+/* *********************************************************************** */
+#if 0
+/* Math constants for systems that don't provide them.
+ * Modern C++17 compilers provide these, but kept for compatibility. */
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif /* !M_PI */
+
+#ifndef M_PI_2
+#define M_PI_2 1.57079632679489661923
+#endif /* !M_PI_2 */
+
+#ifndef M_PI_4
+#define M_PI_4 0.78539816339744830962
+#endif /* !M_PI_4 */
+
+/* Additional math constants (for legacy compatibility) */
+#ifndef M_E
+#define M_E 2.7182818284590452354
+#endif /* !M_E */
+#ifndef M_LOG2E
+#define M_LOG2E 1.4426950408889634074
+#endif /* !M_LOG2E */
+#ifndef M_LOG10E
+#define M_LOG10E 0.43429448190325182765
+#endif /* !M_LOG10E */
+#ifndef M_LN2
+#define M_LN2 0.69314718055994530942
+#endif /* !M_LN2 */
+#ifndef M_LN10
+#define M_LN10 2.30258509299404568402
+#endif /* !M_LN10 */
+#ifndef M_TWOPI
+#define M_TWOPI (M_PI * 2.0)
+#endif /* !M_TWOPI */
+#ifndef M_3PI_4
+#define M_3PI_4 2.3561944901923448370E0
+#endif /* !M_3PI_4 */
+#ifndef M_SQRTPI
+#define M_SQRTPI 1.77245385090551602792981
+#endif /* !M_SQRTPI */
+#ifndef M_1_PI
+#define M_1_PI 0.31830988618379067154
+#endif /* !M_1_PI */
+#ifndef M_2_PI
+#define M_2_PI 0.63661977236758134308
+#endif /* !M_2_PI */
+#ifndef M_2_SQRTPI
+#define M_2_SQRTPI 1.12837916709551257390
+#endif /* !M_2_SQRTPI */
+#ifndef M_SQRT2
+#define M_SQRT2 1.41421356237309504880
+#endif /* !M_SQRT2 */
+#ifndef M_SQRT1_2
+#define M_SQRT1_2 0.70710678118654752440
+#endif /* !M_SQRT1_2 */
+#ifndef M_LN2LO
+#define M_LN2LO 1.9082149292705877000E-10
+#endif /* !M_LN2LO */
+#ifndef M_LN2HI
+#define M_LN2HI 6.9314718036912381649E-1
+#endif /* !M_LN2HI */
+#ifndef M_SQRT3
+#define M_SQRT3 1.73205080756887719000
+#endif /* !M_SQRT3 */
+#ifndef M_IVLN10
+#define M_IVLN10 0.43429448190325182765 /* 1 / log(10) */
+#endif /* !M_IVLN10 */
+#ifndef M_LOG2_E
+#define M_LOG2_E 0.693147180559945309417
+#endif /* !M_LOG2_E */
+#ifndef M_INVLN2
+#define M_INVLN2 1.4426950408889633870E0 /* 1 / log(2) */
+#endif /* !M_INVLN2 */
+#endif
+/* *********************************************************************** */
+
+/* SbUniqueId type for node identification */
+#ifndef OBOL_UNIQUE_ID_UINT32
+typedef uint64_t SbUniqueId;
+#else
+typedef uint32_t SbUniqueId;
+#endif /* OBOL_UNIQUE_ID_UINT32 */
+
+/* *********************************************************************** */
+
+/* Coin library identification */
+#define __OBOL__
+
+/* Version information */
+#ifndef OBOL_VERSION
+#define OBOL_MAJOR_VERSION 1
+#define OBOL_MINOR_VERSION 0
+#define OBOL_MICRO_VERSION 0
+#define OBOL_BETA_VERSION 
+#define OBOL_VERSION "1.0.0"
+
+// Macro utilities for string handling - keep these as-is for compatibility
+// Most compilers should have "hash quoting", as it is part of the ANSI standard.
+#define HAVE_HASH_QUOTING 1
+#endif /* !OBOL_VERSION */
+
+/* *********************************************************************** */
+
+/* Preprocessor utility macros */
+#define SO__QUOTE(str)           #str
+#define SO__CONCAT(str1, str2)   str1##str2
+
+/* *********************************************************************** */
+
+/* Windows DLL support - still needed for compatibility */
+#if !defined(OBOL_INTERNAL) && defined(_MSC_VER)
+# if !defined(OBOL_NOT_DLL) && !defined(OBOL_DLL)
+#  define OBOL_DLL
+# endif
+# define OBOL_STRINGIFY(str) SO__QUOTE(str)
+# ifdef OBOL_DLL
+#  ifdef _DEBUG
+#   pragma comment(lib, "Obol" OBOL_STRINGIFY(OBOL_MAJOR_VERSION) "d.lib")
+#  else
+#   pragma comment(lib, "Obol" OBOL_STRINGIFY(OBOL_MAJOR_VERSION) ".lib")
+#  endif
+# else
+#  ifdef _DEBUG
+#   pragma comment(lib, "Obol" OBOL_STRINGIFY(OBOL_MAJOR_VERSION) "sd.lib")
+#  else
+#   pragma comment(lib, "Obol" OBOL_STRINGIFY(OBOL_MAJOR_VERSION) "s.lib")
+#  endif
+# endif
+# undef OBOL_STRINGIFY
+#endif
+
+/* DLL API declarations */
+#ifdef OBOL_DLL_API
+# error Leave the internal OBOL_DLL_API define alone.
+#endif /* OBOL_DLL_API */
+
+#ifdef OBOL_INTERNAL
+# ifdef OBOL_NOT_DLL
+#  error The OBOL_NOT_DLL define is not supposed to be used when building the library, only when building Win32 applications.
+# endif /* OBOL_INTERNAL && OBOL_NOT_DLL */
+# ifdef OBOL_DLL
+#  error The OBOL_DLL define is not supposed to be used when building the library, only when building Win32 applications.
+# endif /* OBOL_INTERNAL && OBOL_DLL */
+#endif /* OBOL_INTERNAL */
+
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+# ifdef OBOL_INTERNAL
+#  ifdef OBOL_MAKE_DLL
+#   define OBOL_DLL_API __declspec(dllexport)
+#  endif /* OBOL_MAKE_DLL */
+# else /* !OBOL_INTERNAL */
+#  ifdef OBOL_DLL
+#   ifdef OBOL_NOT_DLL
+#     error Define _either_ OBOL_DLL _or_ OBOL_NOT_DLL as appropriate for your linkage -- not both at the same time! See Inventor/C/basic.h for further instructions.
+#   endif /* OBOL_NOT_DLL */
+#   define OBOL_DLL_API __declspec(dllimport)
+#  else /* !OBOL_DLL */
+#   ifndef OBOL_NOT_DLL
+#    error Define either OBOL_DLL or OBOL_NOT_DLL as appropriate for your linkage! See Inventor/C/basic.h for further instructions.
+#   endif /* !OBOL_NOT_DLL */
+#  endif /* !OBOL_DLL */
+# endif /* !OBOL_INTERNAL */
+#endif /* Microsoft Windows */
+
+/* Empty define to avoid errors when _not_ compiling an MSWindows DLL. */
+#ifndef OBOL_DLL_API
+# define OBOL_DLL_API
+#endif /* !OBOL_DLL_API */
+
+// ===== UTILITY MATH FUNCTIONS =====
+
+namespace CoinInternal {
+
+/*!
+ * \brief Check if a number is a power of two
+ * 
+ * C++17 replacement for coin_is_power_of_two
+ */
+constexpr bool isPowerOfTwo(std::uint32_t x) noexcept {
+    return x != 0 && (x & (x - 1)) == 0;
+}
+
+/*!
+ * \brief Get the next power of two >= x
+ * 
+ * C++17 replacement for coin_next_power_of_two
+ */
+constexpr std::uint32_t nextPowerOfTwo(std::uint32_t x) noexcept {
+    if (x == 0) return 1;
+    --x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return ++x;
+}
+
+/*!
+ * \brief Get smallest power of two >= x 
+ * 
+ * C++17 replacement for coin_geq_power_of_two
+ */
+constexpr std::uint32_t geqPowerOfTwo(std::uint32_t x) noexcept {
+    return isPowerOfTwo(x) ? x : nextPowerOfTwo(x);
+}
+
+} // namespace CoinInternal
+
+
+#endif /* !OBOL_BASIC_H */

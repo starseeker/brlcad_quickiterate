@@ -1,0 +1,14 @@
+# source files
+set(OBOL_TOOLS_FILES
+	SbModernUtils.cpp
+)
+
+# build library
+foreach(SRCFILE ${OBOL_TOOLS_FILES})
+	set(OBOL_SOURCE ${OBOL_SOURCE} tools/${SRCFILE} CACHE INTERNAL "OBOL_SOURCE")
+endforeach(SRCFILE)
+
+# define documentation
+foreach(SRCFILE ${OBOL_TOOLS_FILES})
+	set(OBOL_DOCUMENTATION_FILES ${OBOL_DOCUMENTATION_FILES} ${PROJECT_SOURCE_DIR}/src/tools/${SRCFILE} CACHE INTERNAL "OBOL_DOCUMENTATION_FILES")
+endforeach(SRCFILE)

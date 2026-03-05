@@ -1,0 +1,104 @@
+add_subdirectory(GL)
+
+# source files
+set(OBOL_ELEMENTS_FILES
+	SoAccumulatedElement.cpp
+	SoAmbientColorElement.cpp
+	SoAnnoText3CharOrientElement.cpp
+	SoAnnoText3FontSizeHintElement.cpp
+	SoAnnoText3RenderPrintElement.cpp
+	SoBBoxModelMatrixElement.cpp
+	SoBumpMapElement.cpp
+	SoBumpMapCoordinateElement.cpp
+	SoBumpMapMatrixElement.cpp
+	SoBumpMappingPropertyElement.cpp
+	SoCacheElement.cpp
+	SoCacheHintElement.cpp
+	SoClipPlaneElement.cpp
+	SoComplexityElement.cpp
+	SoComplexityTypeElement.cpp
+	SoContextManagerElement.cpp
+	SoCoordinateElement.cpp
+	SoCreaseAngleElement.cpp
+	SoCullElement.cpp
+	SoDecimationPercentageElement.cpp
+	SoDecimationTypeElement.cpp
+	SoDepthBufferElement.cpp
+	SoDiffuseColorElement.cpp
+	SoDrawStyleElement.cpp
+	SoElement.cpp
+	SoEmissiveColorElement.cpp
+	SoEnvironmentElement.cpp
+	SoFloatElement.cpp
+	SoFocalDistanceElement.cpp
+	SoFontNameElement.cpp
+	SoFontSizeElement.cpp
+	SoInt32Element.cpp
+	SoLazyElement.cpp
+	SoLightAttenuationElement.cpp
+	SoLightElement.cpp
+	SoLightModelElement.cpp
+	SoLinePatternElement.cpp
+	SoLineWidthElement.cpp
+	SoLocalBBoxMatrixElement.cpp
+	SoMaterialBindingElement.cpp
+	SoVertexAttributeBindingElement.cpp
+	SoMultiTextureCoordinateElement.cpp
+	SoMultiTextureEnabledElement.cpp
+	SoMultiTextureMatrixElement.cpp
+	SoMultiTextureImageElement.cpp
+	SoModelMatrixElement.cpp
+	SoNormalBindingElement.cpp
+	SoNormalElement.cpp
+	SoOverrideElement.cpp
+	SoPickRayElement.cpp
+	SoPickStyleElement.cpp
+	SoPointSizeElement.cpp
+	SoPolygonOffsetElement.cpp
+	SoProfileCoordinateElement.cpp
+	SoProfileElement.cpp
+	SoProjectionMatrixElement.cpp
+	SoReplacedElement.cpp
+	SoShapeHintsElement.cpp
+	SoShapeStyleElement.cpp
+	SoShininessElement.cpp
+	SoSpecularColorElement.cpp
+	SoSwitchElement.cpp
+	SoTextOutlineEnabledElement.cpp
+	SoTextureCombineElement.cpp
+	SoTextureCoordinateBindingElement.cpp
+	SoTextureOverrideElement.cpp
+	SoTextureScalePolicyElement.cpp
+	SoTextureScaleQualityElement.cpp
+	SoTextureUnitElement.cpp
+	SoTextureQualityElement.cpp
+	SoTransparencyElement.cpp
+	SoUnitsElement.cpp
+	SoViewVolumeElement.cpp
+	SoViewingMatrixElement.cpp
+	SoViewportRegionElement.cpp
+	SoWindowElement.cpp
+	SoVertexAttributeElement.cpp
+)
+
+# Files excluded from public API documentation, included in complete documentation.
+set(OBOL_ELEMENTS_INTERNAL_FILES
+	SoTextureScalePolicyElement.h
+	SoTextureScalePolicyElement.cpp
+	SoTextureScaleQualityElement.h
+	SoTextureScaleQualityElement.cpp
+	SoVertexAttributeData.h
+)
+
+# build library
+foreach(SRCFILE ${OBOL_ELEMENTS_FILES})
+	set(OBOL_SOURCE ${OBOL_SOURCE} elements/${SRCFILE} CACHE INTERNAL "OBOL_SOURCE")
+endforeach(SRCFILE)
+
+# define documentation
+foreach(SRCFILE ${OBOL_ELEMENTS_FILES})
+	set(OBOL_DOCUMENTATION_FILES ${OBOL_DOCUMENTATION_FILES} ${PROJECT_SOURCE_DIR}/src/elements/${SRCFILE} CACHE INTERNAL "OBOL_DOCUMENTATION_FILES")
+endforeach(SRCFILE)
+foreach(SRCFILE ${OBOL_ELEMENTS_INTERNAL_FILES})
+	set(OBOL_INTERNAL_DOCUMENTATION_FILES ${OBOL_INTERNAL_DOCUMENTATION_FILES} ${PROJECT_SOURCE_DIR}/src/elements/${SRCFILE} CACHE INTERNAL "OBOL_INTERNAL_DOCUMENTATION_FILES")
+endforeach(SRCFILE)
