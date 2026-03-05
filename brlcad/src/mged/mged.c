@@ -1839,6 +1839,38 @@ main(int argc, char *argv[])
     struct mged_state *s = MGED_STATE;
     s->magic = MGED_STATE_MAGIC;
     s->i = mged_state_impl_create();
+
+    /* Populate the per-primitive callback maps (generic type=0 and
+     * primitive-specific).  These are synced into MEDIT(s)->m when
+     * editing begins via mged_edit_clbk_sync(). */
+
+    /* Generic (all primitives) callbacks */
+    mged_state_clbk_set(s, 0, ECMD_PRINT_STR,            BU_CLBK_DURING, mged_print_str,                  s);
+    mged_state_clbk_set(s, 0, ECMD_PRINT_RESULTS,        BU_CLBK_DURING, mged_print_results_clbk,          s);
+    mged_state_clbk_set(s, 0, ECMD_EAXES_POS,            BU_CLBK_DURING, mged_eaxes_pos_clbk,              s);
+    mged_state_clbk_set(s, 0, ECMD_REPLOT_EDITING_SOLID, BU_CLBK_DURING, mged_replot_editing_solid_clbk,   s);
+    mged_state_clbk_set(s, 0, ECMD_VIEW_UPDATE,          BU_CLBK_DURING, mged_view_update,                 s);
+    mged_state_clbk_set(s, 0, ECMD_VIEW_SET_FLAG,        BU_CLBK_DURING, mged_view_set_flag,               s);
+    mged_state_clbk_set(s, 0, ECMD_MENU_SET,             BU_CLBK_DURING, mged_mmenu_set,                   s);
+    mged_state_clbk_set(s, 0, ECMD_GET_FILENAME,         BU_CLBK_DURING, mged_get_filename,                s);
+
+    /* ARB8-specific callbacks */
+    mged_state_clbk_set(s, ID_ARB8,    ECMD_ARB_SETUP_ROTFACE,        BU_CLBK_DURING, arb_setup_rotface_clbk,          s);
+
+    /* BOT-specific callbacks */
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_MODE,                 BU_CLBK_DURING, ecmd_bot_mode_clbk,              s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_ORIENT,               BU_CLBK_DURING, ecmd_bot_orient_clbk,            s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_THICK,                BU_CLBK_DURING, ecmd_bot_thick_clbk,             s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_FLAGS,                BU_CLBK_DURING, ecmd_bot_flags_clbk,             s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_FMODE,                BU_CLBK_DURING, ecmd_bot_fmode_clbk,             s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_PICKT,                BU_CLBK_DURING, ecmd_bot_pickt_multihit_clbk,    s);
+
+    /* NMG-specific callbacks */
+    mged_state_clbk_set(s, ID_NMG,     ECMD_NMG_EDEBUG,               BU_CLBK_DURING, ecmd_nmg_edebug_clbk,            s);
+
+    /* EXTRUDE-specific callbacks */
+    mged_state_clbk_set(s, ID_EXTRUDE, ECMD_EXTR_SKT_NAME,            BU_CLBK_DURING, ecmd_extrude_skt_name_clbk,      s);
+
     s->classic_mged = 1;
     s->interactive = 0; /* >0 means interactive, intentionally starts
                          * 0 to know when interactive, e.g., via -C

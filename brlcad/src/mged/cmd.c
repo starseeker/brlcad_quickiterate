@@ -1329,6 +1329,8 @@ mged_view_set_flag(int UNUSED(ac), const char **UNUSED(av), void *d, void *flagp
 {
     struct mged_state *s = (struct mged_state *)d;
     int *flag = (int *)flagp;
+    if (!s || !flag || !s->mged_curr_dm || !view_state)
+	return BRLCAD_ERROR;
     view_state->vs_flag = *flag;
     return BRLCAD_OK;
 }

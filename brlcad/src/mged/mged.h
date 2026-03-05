@@ -297,6 +297,9 @@ extern int mged_get_filename(int, const char **, void *, void *);
 extern int mged_mmenu_set(int ac, const char **av, void *d, void *ms);
 
 /* edsol.c - callback-signature functions for per-primitive operations */
+extern int mged_print_results_clbk(int ac, const char **av, void *d, void *id);
+extern int mged_eaxes_pos_clbk(int ac, const char **av, void *d, void *id);
+extern int mged_replot_editing_solid_clbk(int ac, const char **av, void *d, void *id);
 extern int arb_setup_rotface_clbk(int ac, const char **av, void *d, void *d2);
 extern int ecmd_bot_mode_clbk(int ac, const char **av, void *d, void *d2);
 extern int ecmd_bot_orient_clbk(int ac, const char **av, void *d, void *d2);

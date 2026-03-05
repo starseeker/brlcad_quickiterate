@@ -59,6 +59,12 @@ static void init_sedit_vars(struct mged_state *), init_oedit_vars(struct mged_st
  * librt rt_edit_process() callback wrappers for MGED.
  * These wrap MGED functions to match the bu_clbk_t signature
  * (int ac, const char **av, void *data, void *id).
+ *
+ * NOTE: mged_print_str_clbk and mged_view_update_clbk are superseded by
+ * mged_print_str and mged_view_update in cmd.c, which are registered via
+ * mged_state_clbk_set() at startup.  The _clbk variants here remain as
+ * internal helpers used by mged_print_results_clbk and are kept for
+ * clarity.
  * ---------------------------------------------------------------------------
  */
 
@@ -121,23 +127,15 @@ mged_view_update_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UN
 }
 
 /*
- * Register the standard MGED editing callbacks on MEDIT(s)->m so that
- * rt_edit_process() can invoke MGED UI updates.  Call once per edit session
- * (from init_sedit / init_oedit).
+ * Superseded by mged_edit_clbk_sync(), which syncs per-primitive callback
+ * maps maintained in mged_state->i into MEDIT(s)->m.  Callbacks are now
+ * registered once at startup via mged_state_clbk_set() in mged.c.
+ * Retained here as a no-op stub to avoid breaking any external callers
+ * during the transition period.
  */
 void
-mged_setup_sedit_clbks(struct mged_state *s)
+mged_setup_sedit_clbks(struct mged_state *UNUSED(s))
 {
-    if (!s || !MEDIT(s))
-	return;
-
-    struct rt_edit_map *m = MEDIT(s)->m;
-
-    rt_edit_map_clbk_set(m, ECMD_PRINT_STR,             BU_CLBK_DURING, mged_print_str_clbk,             s);
-    rt_edit_map_clbk_set(m, ECMD_PRINT_RESULTS,         BU_CLBK_DURING, mged_print_results_clbk,         s);
-    rt_edit_map_clbk_set(m, ECMD_EAXES_POS,             BU_CLBK_DURING, mged_eaxes_pos_clbk,             s);
-    rt_edit_map_clbk_set(m, ECMD_REPLOT_EDITING_SOLID,  BU_CLBK_DURING, mged_replot_editing_solid_clbk,  s);
-    rt_edit_map_clbk_set(m, ECMD_VIEW_UPDATE,           BU_CLBK_DURING, mged_view_update_clbk,           s);
 }
 
 int
@@ -1589,8 +1587,9 @@ init_sedit(struct mged_state *s)
     chg_l2menu(s, ST_S_EDIT);
     MEDIT(s)->edit_flag = IDLE;
 
-    /* Register MGED UI callbacks on the rt_edit callback map */
-    mged_setup_sedit_clbks(s);
+    /* Sync per-primitive callbacks into the edit struct's callback map,
+     * now that es_int.idb_type is set to the current solid's type. */
+    mged_edit_clbk_sync(MEDIT(s), s);
 
     button(s, BE_S_EDIT);	/* Drop into edit menu right away */
     init_sedit_vars(s);

@@ -51,6 +51,11 @@ class MGED_Internal {
 
 #else
 
+/* In C translation units MGED_Internal is opaque (void *i in
+ * mged_state_impl).  All creation/destruction and manipulation MUST
+ * go through the C-callable API functions (mged_state_impl_create,
+ * mged_state_impl_destroy, mged_state_clbk_set, etc.) and never
+ * directly through the i pointer. */
 #define MGED_Internal void
 
 #endif /* __cplusplus */
