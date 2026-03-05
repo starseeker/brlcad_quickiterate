@@ -682,6 +682,58 @@ BSG_EXPORT int bsg_lod_group_select_child(const bsg_shape *node,
 					  fastf_t viewer_distance);
 
 /* ====================================================================== *
+ * Phase 2: new helper functions (Section 9 of TODO.BSG-modernization)   *
+ * ====================================================================== */
+
+/**
+ * @brief Collect all nodes whose @c s_type_flags has @p type_flag bits set.
+ *
+ * Traverses the full scene graph rooted at @p v's scene root using
+ * @c bsg_view_traverse and appends every matching node to @p result.
+ * @p result must already be initialised by the caller.
+ *
+ * @param v         View whose scene root to traverse.
+ * @param type_flag One or more @c BSG_NODE_* flags to match.
+ * @param result    Initialised @c bu_ptbl to receive matching nodes.
+ */
+BSG_EXPORT void bsg_view_find_by_type(bsg_view *v,
+				      unsigned long long type_flag,
+				      struct bu_ptbl *result);
+
+/**
+ * @brief Return the first @c BSG_NODE_CAMERA child of @p v's scene root.
+ *
+ * Convenience accessor: equivalent to searching the root's children for a
+ * node with @c BSG_NODE_CAMERA set.  Returns NULL if the view has no scene
+ * root or no camera node.
+ */
+BSG_EXPORT bsg_shape *bsg_scene_root_camera(const bsg_view *v);
+
+/**
+ * @brief Recompute rotation / model2view matrices from @c cam->aet.
+ *
+ * Like @c bsg_view_mat_aet() but operates directly on a @c bsg_camera
+ * struct instead of a full @c bsg_view.  Updates @c cam->rotation and
+ * the derived matrices.
+ *
+ * @param cam  Camera struct to update in-place (must not be NULL).
+ */
+BSG_EXPORT void bsg_view_mat_aet_camera(struct bsg_camera *cam);
+
+/**
+ * @brief Walk the sub-tree rooted at @p root and fire sensors on all
+ *        nodes whose @c s_type_flags has @p type_mask bits set.
+ *
+ * Pass @p type_mask == 0 to fire sensors on every node in the sub-tree.
+ * This is a bulk notification utility; individual nodes are also notified
+ * through the normal @c bsg_shape_stale() path.
+ *
+ * @param root      Root of the sub-tree to walk (NULL is a no-op).
+ * @param type_mask Type-flag filter; 0 matches all nodes.
+ */
+BSG_EXPORT void bsg_sensor_fire(bsg_shape *root, unsigned long long type_mask);
+
+/* ====================================================================== *
  * Logging / debug                                                         *
  * ====================================================================== */
 #define BSG_ENABLE_ENV_LOGGING 1

@@ -35,6 +35,7 @@
 #include "bu/time.h"
 #include "bu/vls.h"
 #include "bsg/lod.h"
+#include "bsg/util.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -57,7 +58,11 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	"view lod scale [factor]\n"
 	"view lod point_scale [factor]\n"
 	"view lod curve_scale [factor]\n"
-	"view lod bot_threshold [face_cnt]\n";
+	"view lod bot_threshold [face_cnt]\n"
+	"view lod group create <name> [switch_dist1 ...]\n"
+	"view lod group add <name> <child_shape>\n"
+	"view lod group rm <name> <child_shape>\n"
+	"view lod group distances <name> [d1 d2 ...]\n";
 
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
 
@@ -79,7 +84,9 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	return GED_HELP;
     }
 
-    if (argc > 3) {
+    /* "group create <name> [d1 d2 ...]" may have many args; other sub-commands
+     * use at most 3. */
+    if (argc > 3 && (argc < 2 || !BU_STR_EQUAL(argv[0], "group"))) {
 	bu_vls_printf(gedp->ged_result_str, "Usage:\n%s", usage);
 	return BRLCAD_ERROR;
     }
@@ -395,6 +402,156 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 	gvp->gv_s->bot_threshold = bcnt;
 	return BRLCAD_OK;
 
+    }
+
+    /*
+     * BSG_NODE_LOD_GROUP subcommand: "view lod group ..."
+     *
+     * Subcommands:
+     *   group create <name> <d1> [d2 ...]  – create a LOD group with switch distances
+     *   group add <name> <child_name>       – add a named child shape to the group
+     *   group rm  <name> <child_name>       – remove a named child shape from the group
+     *   group distances <name> [d1 d2 ...]  – query or set switch distances
+     *
+     * The LOD group node is created as a child of the scene root for the current
+     * view and stored in the view's object table under <name> for later lookup.
+     */
+    if (BU_STR_EQUAL(argv[0], "group")) {
+	if (argc < 2) {
+	    bu_vls_printf(gedp->ged_result_str,
+		"Usage: view lod group [create|add|rm|distances] <name> [args]\n");
+	    return BRLCAD_ERROR;
+	}
+
+	/* Require a scene root to be present. */
+	bsg_shape *scene_root = bsg_scene_root_get(gvp);
+	if (!scene_root) {
+	    bu_vls_printf(gedp->ged_result_str,
+		"No scene root for current view – run bsg_scene_root_create first\n");
+	    return BRLCAD_ERROR;
+	}
+
+	const char *sub = argv[1];
+
+	/* --- group create <name> [d1 d2 ...] --- */
+	if (BU_STR_EQUAL(sub, "create")) {
+	    if (argc < 3) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "Usage: view lod group create <name> [switch_dist1 ...]\n");
+		return BRLCAD_ERROR;
+	    }
+	    const char *gname = argv[2];
+	    int ndist = argc - 3;  /* remaining args are switch distances */
+	    int nlevels = ndist + 1;
+
+	    fastf_t *dists = NULL;
+	    if (ndist > 0) {
+		dists = (fastf_t *)bu_malloc((size_t)ndist * sizeof(fastf_t),
+					     "lod group distances");
+		for (int i = 0; i < ndist; i++) {
+		    dists[i] = atof(argv[3 + i]);
+		}
+	    }
+
+	    bsg_shape *grp = bsg_lod_group_alloc(nlevels, dists);
+	    if (dists)
+		bu_free(dists, "lod group distances");
+
+	    if (!grp) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "Failed to allocate LOD group node\n");
+		return BRLCAD_ERROR;
+	    }
+
+	    bu_vls_sprintf(&grp->s_name, "%s", gname);
+	    bu_ptbl_ins(&scene_root->children, (long *)grp);
+	    bu_vls_printf(gedp->ged_result_str, "%s\n", gname);
+	    return BRLCAD_OK;
+	}
+
+	/* For add/rm/distances we need to find the named LOD group child. */
+	if (argc < 4) {
+	    bu_vls_printf(gedp->ged_result_str,
+		"Usage: view lod group [add|rm|distances] <group_name> <args>\n");
+	    return BRLCAD_ERROR;
+	}
+
+	const char *gname = argv[2];
+	bsg_shape *grp = NULL;
+	for (size_t ci = 0; ci < BU_PTBL_LEN(&scene_root->children); ci++) {
+	    bsg_shape *c = (bsg_shape *)BU_PTBL_GET(&scene_root->children, ci);
+	    if ((c->s_type_flags & BSG_NODE_LOD_GROUP) &&
+		BU_STR_EQUAL(bu_vls_cstr(&c->s_name), gname)) {
+		grp = c;
+		break;
+	    }
+	}
+	if (!grp) {
+	    bu_vls_printf(gedp->ged_result_str,
+		"LOD group '%s' not found in scene root\n", gname);
+	    return BRLCAD_ERROR;
+	}
+
+	/* --- group add <name> <child_shape_name> --- */
+	if (BU_STR_EQUAL(sub, "add")) {
+	    const char *cname = argv[3];
+	    /* Find the named shape in the view. */
+	    bsg_shape *child = bsg_view_find_shape(gvp, cname);
+	    if (!child) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "Shape '%s' not found in view\n", cname);
+		return BRLCAD_ERROR;
+	    }
+	    bu_ptbl_ins(&grp->children, (long *)child);
+	    return BRLCAD_OK;
+	}
+
+	/* --- group rm <name> <child_shape_name> --- */
+	if (BU_STR_EQUAL(sub, "rm")) {
+	    const char *cname = argv[3];
+	    for (size_t ci = 0; ci < BU_PTBL_LEN(&grp->children); ci++) {
+		bsg_shape *c = (bsg_shape *)BU_PTBL_GET(&grp->children, ci);
+		if (BU_STR_EQUAL(bu_vls_cstr(&c->s_name), cname)) {
+		    bu_ptbl_rm(&grp->children, (long *)c);
+		    return BRLCAD_OK;
+		}
+	    }
+	    bu_vls_printf(gedp->ged_result_str,
+		"Child '%s' not found in LOD group '%s'\n", cname, gname);
+	    return BRLCAD_ERROR;
+	}
+
+	/* --- group distances <name> [d1 d2 ...] --- */
+	if (BU_STR_EQUAL(sub, "distances")) {
+	    struct bsg_lod_switch_data *sd =
+		(struct bsg_lod_switch_data *)grp->s_i_data;
+	    if (!sd) {
+		bu_vls_printf(gedp->ged_result_str, "(no switch data)\n");
+		return BRLCAD_OK;
+	    }
+	    if (argc == 3) {
+		/* Query */
+		for (int i = 0; i < sd->num_levels - 1; i++)
+		    bu_vls_printf(gedp->ged_result_str, "%g ", sd->switch_distances[i]);
+		bu_vls_printf(gedp->ged_result_str, "\n");
+		return BRLCAD_OK;
+	    }
+	    /* Set: argc - 3 distances expected */
+	    int ndist = argc - 3;
+	    if (ndist != sd->num_levels - 1) {
+		bu_vls_printf(gedp->ged_result_str,
+		    "Expected %d distance(s) for %d-level group, got %d\n",
+		    sd->num_levels - 1, sd->num_levels, ndist);
+		return BRLCAD_ERROR;
+	    }
+	    for (int i = 0; i < ndist; i++)
+		sd->switch_distances[i] = atof(argv[3 + i]);
+	    return BRLCAD_OK;
+	}
+
+	bu_vls_printf(gedp->ged_result_str,
+	    "unknown group subcommand: %s\n", sub);
+	return BRLCAD_ERROR;
     }
 
     bu_vls_printf(gedp->ged_result_str, "unknown subcommand: %s\n", argv[0]);

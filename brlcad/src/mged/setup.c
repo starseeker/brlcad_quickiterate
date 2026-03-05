@@ -553,6 +553,7 @@ mged_setup(struct mged_state *s)
 
     BU_ALLOC(view_state->vs_gvp, bsg_view);
     bsg_view_init(view_state->vs_gvp, NULL);
+    bsg_scene_root_create(view_state->vs_gvp);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
 

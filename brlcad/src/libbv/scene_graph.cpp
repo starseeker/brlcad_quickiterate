@@ -763,6 +763,19 @@ bsg_polygon_csg(bsg_shape *target, bsg_shape *stencil, bg_clip_t op)
  * Phase 2: traversal state                                               *
  * ====================================================================== */
 
+extern "C" void
+bsg_traversal_state_init(bsg_traversal_state *state)
+{
+    if (!state)
+	return;
+    MAT_IDN(state->xform);
+    struct bv_obj_settings defaults = BV_OBJ_SETTINGS_INIT;
+    bv_obj_settings_sync(&state->material, &defaults);
+    state->depth         = 0;
+    state->active_camera = NULL;
+    state->view          = NULL;
+}
+
 /* ====================================================================== *
  * Phase 2: scene graph traversal (updated)                               *
  * ====================================================================== */
@@ -1225,6 +1238,122 @@ bsg_lod_group_select_child(const bsg_shape *node, fastf_t viewer_distance)
 	    return i;
     }
     return sd->num_levels - 1;
+}
+
+/* ====================================================================== *
+ * Phase 2: new helper functions (Section 9 of TODO.BSG-modernization)   *
+ * ====================================================================== */
+
+/*
+ * bsg_view_find_by_type — collect all nodes in the scene graph for view @p v
+ * whose s_type_flags has @p type_flag bits set.  Results are appended to
+ * @p result (must already be initialised by the caller).
+ */
+
+/* Internal visitor state for bsg_view_find_by_type. */
+struct _find_by_type_ctx {
+    unsigned long long type_flag;
+    struct bu_ptbl    *result;
+};
+
+static int
+_find_by_type_visitor(bsg_shape *s, const bsg_traversal_state * /*state*/,
+		      void *user_data)
+{
+    struct _find_by_type_ctx *ctx =
+	static_cast<struct _find_by_type_ctx *>(user_data);
+    if (s->s_type_flags & ctx->type_flag)
+	bu_ptbl_ins(ctx->result, (long *)s);
+    return 0; /* always recurse */
+}
+
+extern "C" void
+bsg_view_find_by_type(bsg_view *v, unsigned long long type_flag,
+		      struct bu_ptbl *result)
+{
+    if (!v || !result)
+	return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root)
+	return;
+
+    struct _find_by_type_ctx ctx;
+    ctx.type_flag = type_flag;
+    ctx.result    = result;
+
+    bsg_traversal_state state;
+    bsg_traversal_state_init(&state);
+    state.view = v;
+    bsg_traverse(root, &state, _find_by_type_visitor, &ctx);
+}
+
+/*
+ * bsg_scene_root_camera — convenience: return the first BSG_NODE_CAMERA child
+ * of the scene root for view @p v, or NULL if none exists.
+ */
+extern "C" bsg_shape *
+bsg_scene_root_camera(const bsg_view *v)
+{
+    if (!v) return NULL;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return NULL;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *child = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	if (child->s_type_flags & BSG_NODE_CAMERA)
+	    return child;
+    }
+    return NULL;
+}
+
+/*
+ * bsg_view_mat_aet_camera — like bsg_view_mat_aet() but operates on a
+ * standalone bsg_camera struct.  Recomputes the rotation matrix from
+ * cam->aet using the same convention as bv_mat_aet().
+ *
+ * Internally we round-trip through a temporary bsg_view so that the
+ * well-tested bv_mat_aet() code path handles all the matrix algebra.
+ */
+extern "C" void
+bsg_view_mat_aet_camera(struct bsg_camera *cam)
+{
+    if (!cam)
+	return;
+
+    /* Round-trip: copy into a temp view, run bv_mat_aet, copy back. */
+    bsg_view tmp;
+    bsg_view_init(&tmp, NULL);
+    bsg_view_set_camera(&tmp, cam);
+    bv_mat_aet(&tmp);
+    bsg_view_get_camera(&tmp, cam);
+    bv_free(&tmp);
+}
+
+/*
+ * bsg_sensor_fire — walk the sub-tree rooted at @p root and fire sensors on
+ * every node whose s_type_flags has @p type_mask bits set.  Pass type_mask=0
+ * to fire sensors on ALL nodes in the sub-tree.
+ *
+ * This is a bulk notification utility; individual nodes are still notified
+ * through the normal bsg_shape_stale() path.
+ */
+extern "C" void
+bsg_sensor_fire(bsg_shape *root, unsigned long long type_mask)
+{
+    if (!root)
+	return;
+
+    /* Fire sensors on this node if it matches the mask (or mask is 0). */
+    if (!type_mask || (root->s_type_flags & type_mask))
+	bsg_fire_sensors(root);
+
+    /* Recurse into children. */
+    if (BU_PTBL_IS_INITIALIZED(&root->children)) {
+	for (size_t ci = 0; ci < BU_PTBL_LEN(&root->children); ci++) {
+	    bsg_shape *child = (bsg_shape *)BU_PTBL_GET(&root->children, ci);
+	    bsg_sensor_fire(child, type_mask);
+	}
+    }
 }
 
 /*
