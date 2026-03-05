@@ -30,7 +30,7 @@
 
 __BEGIN_DECLS
 
-struct rt_pnt_node; /* forward declaration - defined in rt/private.h */
+struct rt_pnt_node; /* forward declaration */
 
 RT_EXPORT extern int rt_mk_parabola(struct rt_pnt_node *pts,
 				    fastf_t r,
