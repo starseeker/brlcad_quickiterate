@@ -31,7 +31,6 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
-#include "rt/primitives/superell.h"
 
 #include "../edit_private.h"
 

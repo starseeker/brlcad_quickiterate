@@ -53,10 +53,9 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "raytrace.h"
-#include "rt/primitives/ebm.h"
 #include "rt/rt_ecmds.h"
 
-/* ECMD_EBM_* constants are defined in rt/primitives/ebm.h */
+/* ECMD_EBM_* constants are defined in the scanner-generated rt/rt_ecmds.h */
 
 
 static const char *EBM_DATA_FILE = "/tmp/rt_edit_test_ebm.data";

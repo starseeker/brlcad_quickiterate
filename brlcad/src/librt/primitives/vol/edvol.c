@@ -32,7 +32,6 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
-#include "rt/primitives/vol.h"
 
 #include "../edit_private.h"
 
