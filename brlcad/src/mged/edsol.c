@@ -1592,8 +1592,9 @@ init_sedit(struct mged_state *s)
     chg_l2menu(s, ST_S_EDIT);
     MEDIT(s)->edit_flag = IDLE;
 
-    /* Keep the rt_edit view pointer current so librt knob functions
-     * (rt_knob_edit_rot, rt_knob_edit_tran) can access view state. */
+    /* Keep the rt_edit view pointer current so librt editing operations
+     * (rt_knob_edit_rot, rt_knob_edit_tran, and primitive ft_edit routines)
+     * can access view state for view-relative coordinate transforms. */
     MEDIT(s)->vp = view_state->vs_gvp;
 
     /* Sync per-primitive callbacks into the edit struct's callback map,
@@ -3009,8 +3010,9 @@ init_oedit_guts(struct mged_state *s)
     /* get the inverse matrix */
     bn_mat_inv(MEDIT(s)->e_invmat, MEDIT(s)->e_mat);
 
-    /* Keep the rt_edit view pointer current so librt knob functions
-     * (rt_knob_edit_rot, rt_knob_edit_tran) can access view state. */
+    /* Keep the rt_edit view pointer current so librt editing operations
+     * (rt_knob_edit_rot, rt_knob_edit_tran, and primitive ft_edit routines)
+     * can access view state for view-relative coordinate transforms. */
     MEDIT(s)->vp = view_state->vs_gvp;
 
     get_solid_keypoint(s, MEDIT(s)->e_keypoint, &strp, &MEDIT(s)->es_int, MEDIT(s)->e_mat);

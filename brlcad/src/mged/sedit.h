@@ -149,7 +149,9 @@
 #define ECMD_METABALL_PT_DEL		36088	/* delete a metaball control point (edmetaball.c) */
 #define ECMD_METABALL_PT_ADD		36089	/* add a metaball control point (edmetaball.c) */
 #define ECMD_METABALL_RMET		36090	/* set the metaball render method (edmetaball.c) */
-#define ECMD_METABALL_PT_SET_GOO	30119	/* set goo for a metaball control point (edmetaball.c) */
+#define ECMD_METABALL_PT_SET_GOO	30119	/* set goo for a metaball control point (edmetaball.c)
+					 * NOTE: uses ID_BOT(30)*1000 base - this is an upstream
+					 * quirk in the librt metaball edit code, not a mistake here */
 
 #define ECMD_HYP_ROT_H		38091	/* (edhyp.c) */
 #define ECMD_HYP_ROT_A		38092	/* (edhyp.c) */
