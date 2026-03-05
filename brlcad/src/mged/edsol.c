@@ -155,7 +155,7 @@ arb_setup_rotface_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *U
     int valid = 0;
 
     /* check if point 5 is in the face */
-    static int pnt5 = 0;
+    int pnt5 = 0;
     for (int i=0; i<4; i++) {
 	if (rt_arb_vertices[arb_type-4][aint->edit_menu*4+i]==5)
 	    pnt5=1;
@@ -308,7 +308,7 @@ ecmd_bot_thick_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUS
 		break;
 	    }
 	}
-	if (face_state > -1) {
+	if (face_state < 0) {
 	    bu_log("Cannot find face with vertices %d %d %d!\n", V3ARGS(b->bot_verts));
 	    return BRLCAD_ERROR;
 	}
