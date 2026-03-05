@@ -33,6 +33,7 @@ extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
 #include "bv.h"
+#include "bsg.h"
 #include "raytrace.h"
 }
 
@@ -85,8 +86,8 @@ class QTCAD_EXPORT QgMeasureFilter : public QObject
         void view_updated(int);
 
     public:
-	struct bview *v = NULL;
-	struct bv_scene_obj *s = NULL;
+	bsg_view *v = NULL;
+	bsg_shape *s = NULL;
 	std::string oname = std::string("tool:measurement");
 
     public slots:
