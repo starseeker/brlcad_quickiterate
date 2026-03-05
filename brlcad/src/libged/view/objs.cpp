@@ -104,7 +104,7 @@ _objs_cmd_delete(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_VIEWONLY)) {
+    if (!(s->s_type_flags & BSG_NODE_VIEWONLY)) {
 	bu_vls_printf(gedp->ged_result_str, "View object %s is associated with a database object - use 'erase' cmd to clear\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
@@ -402,7 +402,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
     bsg_view *v = gd->cv;
     if (!ac && cmd_pos < 0 && !help) {
 	if (list_db) {
-	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BV_DB_OBJS);
+	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS);
 	    if (db_objs) {
 		for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
 		    bsg_group *cg = (bsg_group *)BU_PTBL_GET(db_objs, i);
@@ -416,7 +416,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 		    }
 		}
 	    }
-	    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+	    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 	    if (local_db_objs) {
 		for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
 		    bsg_group *cg = (bsg_group *)BU_PTBL_GET(local_db_objs, i);
@@ -432,7 +432,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	    }
 	}
 	if (list_view) {
-	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	    if (view_objs) {
 		for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
@@ -440,7 +440,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 		}
 	    }
 
-	    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
 	    if (local_view_objs) {
 		for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
 		    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);
@@ -467,7 +467,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
     // View-only objects take priority, unless we're explicitly excluding them by only specifying -G
     if (list_view) {
 	if (!gd->local_obj) {
-	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		if (BU_STR_EQUAL(gd->vobj, bu_vls_cstr(&s->s_name))) {
@@ -477,7 +477,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	    }
 	}
 	if (!gd->s) {
-	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		if (BU_STR_EQUAL(gd->vobj, bu_vls_cstr(&s->s_name))) {
@@ -490,7 +490,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 
     if (!gd->s) {
 	if (!gd->local_obj) {
-	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BV_DB_OBJS);
+	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS);
 	    for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
 		bsg_group *cg = (bsg_group *)BU_PTBL_GET(db_objs, i);
 		if (bu_list_len(&cg->s_vlist)) {
@@ -510,7 +510,7 @@ _view_cmd_objs(void *bs, int argc, const char **argv)
 	    }
 	}
 	if (!gd->s) {
-	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 	    for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
 		bsg_group *cg = (bsg_group *)BU_PTBL_GET(db_objs, i);
 		if (bu_list_len(&cg->s_vlist)) {

@@ -333,7 +333,7 @@ struct directory *
 db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s)
 {
     // Make sure we have a view polygon
-    if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
+    if (!(s->s_type_flags & BSG_NODE_VIEWONLY) || !(s->s_type_flags & BSG_NODE_POLYGONS)) {
 	return NULL;
     }
 

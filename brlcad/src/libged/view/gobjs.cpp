@@ -121,7 +121,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
 
     /* Set up the toplevel object */
-    bsg_group *g = bsg_shape_get(v, BV_DB_OBJS);
+    bsg_group *g = bsg_shape_get(v, BSG_DB_OBJS);
     if (!g)
 	return BRLCAD_ERROR;
     BU_GET(g->s_path, struct db_full_path);
@@ -133,7 +133,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    bsg_material vs = BV_OBJ_SETTINGS_INIT;
+    bsg_material vs = BSG_MATERIAL_INIT;
     bsg_material_sync(g->s_os, &vs);
 
     // We have a tree walk ahead to populate the wireframe - set up the client
@@ -237,14 +237,14 @@ _view_cmd_gobjs(void *bs, int argc, const char **argv)
     // If we're not wanting help and we have no subcommand, list current gobjs objects
     bsg_view *v = gd->cv;
     if (!ac && cmd_pos < 0 && !help) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	if (view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&s->s_name));
 	    }
 	}
-	struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
 	if (local_view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
 		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);

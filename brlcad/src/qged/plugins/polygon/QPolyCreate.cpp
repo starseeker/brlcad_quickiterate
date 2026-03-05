@@ -293,7 +293,7 @@ QPolyCreate::do_import_sketch()
     }
 
     // Names are valid, dp is ready - try the sketch import
-    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, gedp->ged_gvp, BV_VIEW_OBJS);
+    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, gedp->ged_gvp, BSG_VIEW_OBJS);
     bu_vls_free(&vname);
     if (!p)
 	return;
@@ -391,14 +391,14 @@ QPolyCreate::toggle_line_snapping(bool s)
 	v->gv_s->gv_snap_lines = 0;
     } else {
 	// Turn snapping on if we have other polygons to snap to
-	struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	if (!view_objs)
 	    return;
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    if (so == co)
 		continue;
-	    if (so->s_type_flags & BV_POLYGONS)
+	    if (so->s_type_flags & BSG_NODE_POLYGONS)
 		bu_ptbl_ins(&v->gv_s->gv_snap_objs, (long *)so);
 	}
 	if (BU_PTBL_LEN(&v->gv_s->gv_snap_objs)) {
@@ -495,12 +495,12 @@ QPolyCreate::toplevel_config(bool)
     // This function is called when a top level mode change was initiated
     // by a selection button.  Clear any selected points being displayed.
     if (gedp) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
 	if (!view_objs)
 	    return;
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BV_POLYGONS) {
+	    if (s->s_type_flags & BSG_NODE_POLYGONS) {
 		// clear any selected points in non-current polygons
 		struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
 		if (ip->curr_point_i != -1) {
@@ -604,11 +604,11 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // For this particular application, we want to apply booleans to
     // all polygons
     bu_ptbl_reset(&pcf->bool_objs);
-    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BV_POLYGONS && s != p) {
+	    if (s->s_type_flags & BSG_NODE_POLYGONS && s != p) {
 		bu_ptbl_ins(&pcf->bool_objs, (long *)s);
 	    }
 	}

@@ -169,7 +169,7 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
     if (BU_STR_EQUAL(argv[1], "1")) {
 	v->independent = 1;
 	// Initialize local containers with current shared grps
-	struct bu_ptbl *sg = bsg_view_shapes(v, BV_DB_OBJS);
+	struct bu_ptbl *sg = bsg_view_shapes(v, BSG_DB_OBJS);
 	if (!sg)
 	    return BRLCAD_OK;
 	for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
@@ -188,7 +188,7 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
     if (BU_STR_EQUAL(argv[1], "0")) {
 	v->independent = 0;
 	// Clear local containers
-	struct bu_ptbl *sg = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+	struct bu_ptbl *sg = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 	if (sg) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
 		bsg_group *cg = (bsg_group *)BU_PTBL_GET(sg, i);
@@ -398,10 +398,10 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	} else {
 	    // No specific view object to use - check all drawn
 	    // view objects.
-	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
-	    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BV_DB_OBJS);
-	    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
+	    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
+	    struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS);
+	    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 	    double vZ = (calc_mode) ? -DBL_MAX : DBL_MAX;
 	    int have_vz = 0;
 	    if (view_objs) {

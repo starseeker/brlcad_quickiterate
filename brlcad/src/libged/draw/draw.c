@@ -84,7 +84,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     if (!dgcdp || !dgcdp->v)
 	return;
 
-    bsg_shape *sp = bsg_shape_get(dgcdp->v, BV_DB_OBJS);
+    bsg_shape *sp = bsg_shape_get(dgcdp->v, BSG_DB_OBJS);
     if (!sp)
 	return;
 
@@ -268,7 +268,7 @@ append_solid_to_display_list(
     }
 
     /* create solid */
-    bsg_shape *sp = bsg_shape_get(bv_data->v, BV_DB_OBJS);
+    bsg_shape *sp = bsg_shape_get(bv_data->v, BSG_DB_OBJS);
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);

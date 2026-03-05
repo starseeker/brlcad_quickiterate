@@ -100,9 +100,9 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	    return BRLCAD_ERROR;
 	}
 
-	int flags = BV_LOCAL_OBJS;
+	int flags = BSG_LOCAL_OBJS;
 	if (clear_solid_objs) {
-	    flags |= BV_DB_OBJS;
+	    flags |= BSG_DB_OBJS;
 	    if (gedp->dbi_state) {
 		DbiState *dbis = (DbiState *)gedp->dbi_state;
 		BViewState *bvs = dbis->get_view_state(v);
@@ -111,7 +111,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (clear_view_objs)
-	    flags |= BV_VIEW_OBJS;
+	    flags |= BSG_VIEW_OBJS;
 
 	if (!bsg_view_clear(v, flags))
 	    v->gv_s->gv_cleared = 1;
@@ -129,7 +129,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	    continue;
 	int flags = 0;
 	if (clear_solid_objs) {
-	    flags |= BV_DB_OBJS;
+	    flags |= BSG_DB_OBJS;
 	    if (gedp->dbi_state) {
 		DbiState *dbis = (DbiState *)gedp->dbi_state;
 		BViewState *bvs = dbis->get_view_state(v);
@@ -137,11 +137,11 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 	}
 	if (clear_view_objs)
-	    flags |= BV_VIEW_OBJS;
+	    flags |= BSG_VIEW_OBJS;
 	int nret = bsg_view_clear(v, flags);
 	int lret = 1;
 	if (!shared_only) {
-	    flags |= BV_LOCAL_OBJS;
+	    flags |= BSG_LOCAL_OBJS;
 	    lret = bsg_view_clear(v, flags);
 	}
 	if (!nret || !lret)
