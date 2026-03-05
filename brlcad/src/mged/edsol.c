@@ -603,8 +603,8 @@ int sedraw;	/* apply solid editing changes */
 		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_AB || \
 		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_CD || \
 		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_ABCD || \
-		    MEDIT(s)->edit_flag == ECMD_TGC_S_H_CD || \
-		    MEDIT(s)->edit_flag == ECMD_TGC_S_H_V_AB || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H_CD || \
+		    MEDIT(s)->edit_flag == ECMD_TGC_SCALE_H_V_AB || \
 		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_A || \
 		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_B || \
 		    MEDIT(s)->edit_flag == ECMD_SUPERELL_SCALE_C || \
@@ -1897,8 +1897,8 @@ sedit(struct mged_state *s)
 	case ECMD_TGC_SCALE_AB:
 	case ECMD_TGC_SCALE_CD:
 	case ECMD_TGC_SCALE_ABCD:
-	case ECMD_TGC_S_H_CD:
-	case ECMD_TGC_S_H_V_AB:
+	case ECMD_TGC_SCALE_H_CD:
+	case ECMD_TGC_SCALE_H_V_AB:
 	/* --- TGC move/rotate: delegate to librt rt_edit_process() --- */
 	case ECMD_TGC_MV_H:
 	case ECMD_TGC_MV_HH:
@@ -1966,7 +1966,7 @@ sedit(struct mged_state *s)
 	case ECMD_EXTR_ROT_H:
 	case ECMD_EXTR_SKT_NAME:
 	/* --- PIPE pick/split/move/add/ins/del/scale: delegate --- */
-	case ECMD_PIPE_PICK:
+	case ECMD_PIPE_SELECT:
 	case ECMD_PIPE_SPLIT:
 	case ECMD_PIPE_PT_ADD:
 	case ECMD_PIPE_PT_INS:
@@ -2965,7 +2965,7 @@ mged_param(struct mged_state *s, Tcl_Interp *interp, int argc, fastf_t *argvect)
 	case ECMD_NMG_ESPLIT:
 	case ECMD_NMG_EMOVE:
 	case ECMD_NMG_LEXTRU:
-	case ECMD_PIPE_PICK:
+	case ECMD_PIPE_SELECT:
 	case ECMD_PIPE_SPLIT:
 	case ECMD_PIPE_PT_MOVE:
 	case ECMD_PIPE_PT_ADD:

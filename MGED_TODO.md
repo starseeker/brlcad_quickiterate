@@ -68,12 +68,18 @@ delta between an experimental BRL-CAD branch and the main tree.  It shows the
 - [x] **Fixed all cross-type `ipe_ptr` reset blocks**: `sedit_apply`,
   `sedit_reject`, `f_sedit_reset`, `init_sedit` all guard resets by `idb_type`.
 - [x] Build confirmed clean: `mged`, `librt`, `rt_edit_test_arb8`, `rt_edit_test_bspline`.
-- [x] **Moved all remaining `ECMD_*` defines to public headers**:
-  - `ECMD_SKETCH_*` now in `include/rt/primitives/sketch.h`; removed from `edsketch.c` and `sketch.cpp` test
-  - `ECMD_COMB_*` and `struct rt_comb_edit` now in `include/rt/comb.h`; removed from `edcomb.c` and `comb.cpp` test
-  - Private ECMD_NMG_* local copies removed from `nmg.cpp` test (uses `rt/primitives/nmg.h`)
-  - Private ECMD_EBM_* local copies removed from `ebm.cpp` test (now includes `rt/primitives/ebm.h`)
-  - Private ECMD_DSP_* local copies removed from `dsp.cpp` test (now includes `rt/primitives/dsp.h`)
+- [x] **Fixed rt_ecmd_scanner mechanism**: ECMD_* defines belong in source files (ed*.c),
+  not in public headers. The scanner auto-generates `rt/rt_ecmds.h` from LIBRT_PRIMEDIT_SOURCES:
+  - Restored all ECMD_* `#define` blocks to their respective `ed*.c` files
+  - Removed ECMD_* from all public `include/rt/primitives/*.h` headers (struct definitions kept)
+  - Removed ECMD_VTRANS from `include/rt/geom.h` (restored to `edbspline.c`)
+  - Removed ECMD_COMB_* from `include/rt/comb.h` (kept `struct rt_comb_edit` there)
+  - Added `comb/edcomb.c` to `LIBRT_PRIMEDIT_SOURCES` so scanner picks up ECMD_COMB_*
+  - Added `#include "rt/rt_ecmds.h"` to `src/mged/sedit.h`
+  - Replaced non-scanned aliases in MGED: ECMD_PIPE_PICK→ECMD_PIPE_SELECT,
+    ECMD_TGC_S_H_CD→ECMD_TGC_SCALE_H_CD, ECMD_TGC_S_H_V_AB→ECMD_TGC_SCALE_H_V_AB
+  - EARB/PTARB kept in `arb8.h` (not ECMD_* names, not scanned)
+  - Generated `rt_ecmds.h` now contains 170+ ECMD_* defines covering all primitives
 
 ---
 

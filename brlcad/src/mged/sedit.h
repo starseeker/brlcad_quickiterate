@@ -108,7 +108,7 @@
 
 #define SEDIT_PICK (s->global_editing_state == ST_S_EDIT && \
 		    (MEDIT(s)->edit_flag == ECMD_NMG_EPICK || \
-		     MEDIT(s)->edit_flag == ECMD_PIPE_PICK || \
+		     MEDIT(s)->edit_flag == ECMD_PIPE_SELECT || \
 		     MEDIT(s)->edit_flag == ECMD_ARS_PICK || \
 		     MEDIT(s)->edit_flag == ECMD_BOT_PICKV || \
 		     MEDIT(s)->edit_flag == ECMD_BOT_PICKE || \
