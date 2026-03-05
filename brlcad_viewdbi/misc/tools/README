@@ -1,0 +1,8 @@
+BRL-CAD maintains and uses a number of external libraries and tools critical
+to its functionality that are not installed with the distribution. Generally
+these are used either in various stages of the compilation process or as
+maintenance tools.
+
+TODO - add latest CMake release and set up a bootstrap of it if a CMake older
+than our desired minimum is found.
+
