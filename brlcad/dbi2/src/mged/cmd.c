@@ -2573,6 +2573,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	/* No existing ged_gvp: create ephemeral staging view */
 	staging = (bsg_view *)bu_calloc(1, sizeof(bsg_view), "temporary staging bsg_view");
 	bsg_view_init(staging, NULL);
+	bsg_scene_root_create(staging);
 	created_temp = 1;
 	/* Carry over dimensions for screen-dependent ops */
 	if (mged_view) {
@@ -2629,6 +2630,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp)
 		_view_cache_restore(&prev, staging);
 	    else {
+		{ bsg_shape *_sr = bsg_scene_root_get(staging);
+		  if (_sr) { bsg_scene_root_set(staging, NULL); bsg_node_free(_sr, 1); } }
 		bsg_view_free(staging);
 		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
@@ -2652,6 +2655,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp) {
 		_view_cache_restore(&prev, staging);
 	    } else {
+		{ bsg_shape *_sr = bsg_scene_root_get(staging);
+		  if (_sr) { bsg_scene_root_set(staging, NULL); bsg_node_free(_sr, 1); } }
 		bsg_view_free(staging);
 		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
@@ -2691,6 +2696,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    }
 	} else {
 	    /* Ephemeral staging freed; detach from ged */
+	    { bsg_shape *_sr = bsg_scene_root_get(staging);
+	      if (_sr) { bsg_scene_root_set(staging, NULL); bsg_node_free(_sr, 1); } }
 	    bsg_view_free(staging);
 	    bu_free(staging, "free staging bsg_view");
 	    s->gedp->ged_gvp = NULL;
