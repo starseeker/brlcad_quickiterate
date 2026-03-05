@@ -268,6 +268,7 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     /* reset accumulation local scale factors */
     MEDIT(s)->acc_sc[0] = MEDIT(s)->acc_sc[1] = MEDIT(s)->acc_sc[2] = 1.0;
     new_mats(s);
+    mged_edit_clbk_sync(MEDIT(s), s);
 
     /* Find the one solid, set s_iflag UP, point illump at it */
     illump = find_solid_with_path(s, &both);

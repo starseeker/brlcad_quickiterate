@@ -34,6 +34,7 @@ set(
   mater.c
   menu.c
   mged.c
+  mged_impl.cpp
   mover.c
   overlay.c
   plot.c
@@ -115,6 +116,7 @@ set(
   mged.ico
   mged.rc
   mged_dm.h
+  mged_impl.h
   mged_wdb.h
   sedit.h
 )

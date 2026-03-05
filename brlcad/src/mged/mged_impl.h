@@ -1,0 +1,78 @@
+/*                     M G E D _ I M P L . H
+ * BRL-CAD
+ *
+ * Copyright (c) 2019-2025 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file mged_impl.h
+ *
+ * Internal state implementations for the per-primitive callback map
+ * infrastructure.  This header provides the C++ class used to store
+ * per-primitive-type rt_edit_map instances so that MGED can register
+ * different callbacks for generic operations vs. per-primitive operations.
+ */
+
+#ifndef MGED_IMPL_H
+#define MGED_IMPL_H
+
+#include "common.h"
+#include "bu.h"
+#include "rt/edit.h"
+
+#ifdef __cplusplus
+
+#include <map>
+
+/**
+ * Holds per-primitive-type callback maps.  Key is the primitive type
+ * (e.g. ID_BOT, ID_ARB8) or 0 for generic/default callbacks.
+ */
+class MGED_Internal {
+    public:
+	MGED_Internal();
+	~MGED_Internal();
+
+	/* key is primitive type (e.g. ID_ETO) or 0 for generic */
+	std::map<int, rt_edit_map *> cmd_map;
+};
+
+#else
+
+/* In C translation units MGED_Internal is opaque (void *i in
+ * mged_state_impl).  All creation/destruction and manipulation MUST
+ * go through the C-callable API functions (mged_state_impl_create,
+ * mged_state_impl_destroy, mged_state_clbk_set, etc.) and never
+ * directly through the i pointer. */
+#define MGED_Internal void
+
+#endif /* __cplusplus */
+
+struct mged_state_impl {
+    MGED_Internal *i;
+};
+
+#endif /* MGED_IMPL_H */
+
+/*
+ * Local Variables:
+ * tab-width: 8
+ * mode: C++
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

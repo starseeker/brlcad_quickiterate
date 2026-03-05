@@ -77,6 +77,8 @@
 /* Needed to define struct bv_scene_obj */
 #include "bv/defines.h"
 
+#include "./mged_impl.h"
+
 // We have to use different I/O mechanisms based on which
 // platform we're on.  Make a define to key off of.
 #if defined(_WIN32) && !defined(__CYGWIN__)
@@ -235,6 +237,9 @@ struct mged_state {
     /* called by numerous functions to indicate truthfully whether the
      * views need to be redrawn. */
     int update_views;
+
+    /* Per-primitive callback map infrastructure */
+    struct mged_state_impl *i;
 };
 extern struct mged_state *MGED_STATE;
 
@@ -268,6 +273,42 @@ extern void sig3(int);
 
 /* mged.c */
 extern void mged_view_callback(struct bview *gvp, void *clientData);
+
+/* mged_impl.cpp - per-primitive callback map infrastructure */
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern struct mged_state_impl *mged_state_impl_create(void);
+extern void mged_state_impl_destroy(struct mged_state_impl *i);
+extern int mged_state_clbk_set(struct mged_state *s, int obj_type, int ed_cmd, int mode, bu_clbk_t f, void *d);
+extern int mged_state_clbk_get(bu_clbk_t *f, void **d, struct mged_state *s, int obj_type, int ed_cmd, int mode);
+extern int mged_edit_clbk_sync(struct rt_edit *se, struct mged_state *s);
+#ifdef __cplusplus
+}
+#endif
+
+/* cmd.c - callback-signature functions for use via mged_state_clbk_set */
+extern int mged_print_str(int, const char **, void *, void *);
+extern int mged_view_update(int, const char **, void *, void *);
+extern int mged_view_set_flag(int, const char **, void *, void *);
+extern int mged_get_filename(int, const char **, void *, void *);
+
+/* menu.c - callback-signature function */
+extern int mged_mmenu_set(int ac, const char **av, void *d, void *ms);
+
+/* edsol.c - callback-signature functions for per-primitive operations */
+extern int mged_print_results_clbk(int ac, const char **av, void *d, void *id);
+extern int mged_eaxes_pos_clbk(int ac, const char **av, void *d, void *id);
+extern int mged_replot_editing_solid_clbk(int ac, const char **av, void *d, void *id);
+extern int arb_setup_rotface_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_bot_mode_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_bot_orient_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_bot_thick_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_bot_flags_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_bot_fmode_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_bot_pickt_multihit_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_nmg_edebug_clbk(int ac, const char **av, void *d, void *d2);
+extern int ecmd_extrude_skt_name_clbk(int ac, const char **av, void *d, void *d2);
 
 /* buttons.c */
 extern void button(struct mged_state *s, int bnum);
