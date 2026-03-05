@@ -132,6 +132,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     s->tol = tol;
     s->u_ptr = NULL;
     s->update_views = 0;
+    s->sedraw = 0;
     s->vlfree = NULL;
     s->vp = v;
 
@@ -938,7 +939,7 @@ rt_knob_edit_sca(struct rt_edit *s, int matrix_edit)
  * A great deal of magic takes place here, to accomplish solid editing.
  *
  * Called from mged main loop after any event handlers:
- * if (sedraw > 0) rt_edit_process(s);
+ * if (s->sedraw > 0) rt_edit_process(s);
  * to process any residual events that the event handlers were too
  * lazy to handle themselves.
  *

@@ -635,6 +635,7 @@ be_o_scale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), 
 
     edobj = BE_O_SCALE;
     movedir = SARROW;
+    MEDIT(s)->edit_flag = RT_MATRIX_EDIT_SCALE;
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
@@ -658,6 +659,7 @@ be_o_xscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
 
     edobj = BE_O_XSCALE;
     movedir = SARROW;
+    MEDIT(s)->edit_flag = RT_MATRIX_EDIT_SCALE_X;
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
@@ -681,6 +683,7 @@ be_o_yscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
 
     edobj = BE_O_YSCALE;
     movedir = SARROW;
+    MEDIT(s)->edit_flag = RT_MATRIX_EDIT_SCALE_Y;
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
@@ -704,6 +707,7 @@ be_o_zscale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
 
     edobj = BE_O_ZSCALE;
     movedir = SARROW;
+    MEDIT(s)->edit_flag = RT_MATRIX_EDIT_SCALE_Z;
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
@@ -727,6 +731,7 @@ be_o_x(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), char
 
     edobj = BE_O_X;
     movedir = RARROW;
+    MEDIT(s)->edit_flag = RT_MATRIX_EDIT_TRANS_VIEW_X;
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
@@ -746,6 +751,7 @@ be_o_y(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), char
 
     edobj = BE_O_Y;
     movedir = UARROW;
+    MEDIT(s)->edit_flag = RT_MATRIX_EDIT_TRANS_VIEW_Y;
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);
@@ -765,6 +771,7 @@ be_o_xy(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), cha
 
     edobj = BE_O_XY;
     movedir = UARROW | RARROW;
+    MEDIT(s)->edit_flag = RT_MATRIX_EDIT_TRANS_VIEW_XY;
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
     set_e_axes_pos(s, 1);

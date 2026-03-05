@@ -289,6 +289,12 @@ struct rt_edit {
     // Trigger for view updating
     int update_views;
 
+    /* Deferred-edit flag: when non-zero the caller should invoke
+     * rt_edit_process() to apply any accumulated parametric edits before
+     * accepting or rejecting the current edit session.  Corresponds to the
+     * former MGED-only global "sedraw". */
+    int sedraw;
+
     // vlfree list
     struct bu_list *vlfree;
 
