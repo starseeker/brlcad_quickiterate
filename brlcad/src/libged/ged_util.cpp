@@ -1706,10 +1706,10 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	if (gedp->new_cmd_forms) {
 	    VSETALL(extremum[0],  INFINITY);
 	    VSETALL(extremum[1], -INFINITY);
-	    struct bu_ptbl *db_objs = bsg_view_shapes(gedp->ged_gvp, BV_DB_OBJS);
+	    struct bu_ptbl *db_objs = bsg_view_shapes(gedp->ged_gvp, BSG_DB_OBJS);
 	    if (db_objs)
 		(void)scene_bounding_sph(db_objs, &(extremum[0]), &(extremum[1]), 1);
-	    struct bu_ptbl *local_db_objs = bsg_view_shapes(gedp->ged_gvp, BV_DB_OBJS | BV_LOCAL_OBJS);
+	    struct bu_ptbl *local_db_objs = bsg_view_shapes(gedp->ged_gvp, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 	    if (local_db_objs)
 		(void)scene_bounding_sph(local_db_objs, &(extremum[0]), &(extremum[1]), 1);
 	} else {

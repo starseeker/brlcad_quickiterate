@@ -481,7 +481,7 @@ dm_draw_label(struct dm *dmp, bsg_shape *s)
 	bu_log("bmid: %f,%f\n", bmid[0], bmid[1]);
 
 	vect2d_t anchor = V2INIT_ZERO;
-	if (l->anchor == BV_ANCHOR_AUTO) {
+	if (l->anchor == BSG_ANCHOR_AUTO) {
 	    fastf_t xvals[3];
 	    fastf_t yvals[3];
 	    xvals[0] = bmin[0];
@@ -508,31 +508,31 @@ dm_draw_label(struct dm *dmp, bsg_shape *s)
 	    }
 	} else {
 	    switch (l->anchor) {
-		case BV_ANCHOR_BOTTOM_LEFT:
+		case BSG_ANCHOR_BOTTOM_LEFT:
 		    V2SET(anchor, bmin[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_BOTTOM_CENTER:
+		case BSG_ANCHOR_BOTTOM_CENTER:
 		    V2SET(anchor, bmid[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_BOTTOM_RIGHT:
+		case BSG_ANCHOR_BOTTOM_RIGHT:
 		    V2SET(anchor, bmax[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_LEFT:
+		case BSG_ANCHOR_MIDDLE_LEFT:
 		    V2SET(anchor, bmin[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_CENTER:
+		case BSG_ANCHOR_MIDDLE_CENTER:
 		    V2SET(anchor, bmid[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_RIGHT:
+		case BSG_ANCHOR_MIDDLE_RIGHT:
 		    V2SET(anchor, bmax[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_TOP_LEFT:
+		case BSG_ANCHOR_TOP_LEFT:
 		    V2SET(anchor, bmin[0], bmax[1]);
 		    break;
-		case BV_ANCHOR_TOP_CENTER:
+		case BSG_ANCHOR_TOP_CENTER:
 		    V2SET(anchor, bmid[0], bmax[1]);
 		    break;
-		case BV_ANCHOR_TOP_RIGHT:
+		case BSG_ANCHOR_TOP_RIGHT:
 		    V2SET(anchor, bmax[0], bmax[1]);
 		    break;
 		default:
@@ -606,7 +606,7 @@ draw_scene_obj(struct dm *dmp, bsg_shape *s, bsg_view *v, int force_draw, bsg_ma
 
     // Primary object drawing.  See if we have an active view-specific object - if so,
     // use that, otherwise use the original object
-    if (s->s_type_flags & BV_DB_OBJS) {
+    if (s->s_type_flags & BSG_DB_OBJS) {
 	bsg_shape *vo = bsg_shape_for_view(s, v);
 	if (!vo) {
 	    vo = s;
@@ -625,15 +625,15 @@ draw_scene_obj(struct dm *dmp, bsg_shape *s, bsg_view *v, int force_draw, bsg_ma
 	dm_draw_obj(dmp, s);
     }
 
-    if (!(s->s_type_flags & BV_MESH_LOD)) {
+    if (!(s->s_type_flags & BSG_NODE_MESH_LOD)) {
 	dm_add_arrows(dmp, s);
     }
 
-    if (s->s_type_flags & BV_AXES) {
+    if (s->s_type_flags & BSG_NODE_AXES) {
 	dm_draw_scene_axes(dmp, s);
     }
 
-    if (s->s_type_flags & BV_LABELS) {
+    if (s->s_type_flags & BSG_NODE_LABELS) {
 	dm_draw_label(dmp, s);
     }
 }
@@ -679,14 +679,14 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 #endif
 
     // Draw geometry view objects
-    struct bu_ptbl *db_objs = bsg_view_shapes(v, BV_DB_OBJS);
+    struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS);
     if (db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
 	    bsg_group *g = (bsg_group *)BU_PTBL_GET(db_objs, i);
 	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
 	}
     }
-    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (local_db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
 	    bsg_group *g = (bsg_group *)BU_PTBL_GET(local_db_objs, i);
@@ -695,14 +695,14 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
     }
 
     // Draw view-only objects
-    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
 	}
     }
-    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);
@@ -800,7 +800,7 @@ dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_da
 
     // Draw geometry view objects
     // TODO - draw opaque, then transparent
-    struct bu_ptbl *sobjs = bsg_view_shapes(v, BV_DB_OBJS);
+    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_DB_OBJS);
     if (!v->independent && sobjs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
 	    bsg_group *g = (bsg_group *)BU_PTBL_GET(sobjs, i);
@@ -808,7 +808,7 @@ dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_da
 	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
 	}
     }
-    struct bu_ptbl *iobjs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *iobjs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (iobjs && (iobjs != sobjs || v->independent)) {
 	for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
 	    bsg_group *g = (bsg_group *)BU_PTBL_GET(iobjs, i);
@@ -818,14 +818,14 @@ dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_da
     }
 
     // Draw view-only objects
-    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
     if (view_objs && !v->independent) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
 	}
     }
-    struct bu_ptbl *vo = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *vo = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
     if (vo && (vo != view_objs || v->independent)) {
 	for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(vo, i);

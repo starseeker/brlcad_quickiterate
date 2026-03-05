@@ -101,7 +101,7 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 
 	bool use_default_keybindings = true;
 	bool use_default_mousebindings = true;
-	int lmouse_mode = BV_SCALE;
+	int lmouse_mode = BSG_SCALE;
 
 	bool m_init = false;
 	int x_prev = -INT_MAX;

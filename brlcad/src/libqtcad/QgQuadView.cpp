@@ -272,10 +272,10 @@ QgQuadView::changeToQuadFrame()
     // but if we don't do it here we'll start out with blank windows until something notifies
     // the draw logic it needs to do updates.
     for (int i = UPPER_RIGHT_QUADRANT + 1; i < LOWER_RIGHT_QUADRANT + 1; i++) {
-	bsg_view_autoview(views[i]->view(), BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	bsg_view_autoview(views[i]->view(), BSG_AUTOVIEW_SCALE_DEFAULT, 0);
 	bsg_view_bounds(views[i]->view());
     }
-    struct bu_ptbl *db_objs = bsg_view_shapes(views[UPPER_RIGHT_QUADRANT]->view(), BV_DB_OBJS);
+    struct bu_ptbl *db_objs = bsg_view_shapes(views[UPPER_RIGHT_QUADRANT]->view(), BSG_DB_OBJS);
     if (db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
 	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(db_objs, i);
@@ -284,7 +284,7 @@ QgQuadView::changeToQuadFrame()
 	    }
 	}
     }
-    struct bu_ptbl *local_db_objs = bsg_view_shapes(views[UPPER_RIGHT_QUADRANT]->view(), BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *local_db_objs = bsg_view_shapes(views[UPPER_RIGHT_QUADRANT]->view(), BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (local_db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
 	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(local_db_objs, i);

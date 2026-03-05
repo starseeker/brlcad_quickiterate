@@ -113,7 +113,7 @@ rtcheck_vector_handler(void *clientData, int type)
 	// overlaps to draw, we're eliminating all the old objects
 	const char *sname = "rtcheck::";
 	bsg_view *v = gedp->ged_gvp;
-	struct bu_ptbl *vobjs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	struct bu_ptbl *vobjs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	std::set<bsg_shape *> robjs;
 	if (vobjs) {
 	    for (i = 0; i < BU_PTBL_LEN(vobjs); i++) {

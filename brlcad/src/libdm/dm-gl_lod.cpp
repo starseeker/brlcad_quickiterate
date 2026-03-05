@@ -542,12 +542,12 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
 extern "C"
 int gl_draw_obj(struct dm *dmp, bsg_shape *s)
 {
-    if (s->s_type_flags & BV_MESH_LOD) {
+    if (s->s_type_flags & BSG_NODE_MESH_LOD) {
 	bsg_lod *lod = (bsg_lod *)s->draw_data;
 	return gl_draw_tri(dmp, lod);
     }
 
-    if (s->s_type_flags & BV_CSG_LOD) {
+    if (s->s_type_flags & BSG_NODE_CSG_LOD) {
 	return gl_csg_lod(dmp, s);
     }
 

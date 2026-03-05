@@ -255,7 +255,7 @@ rt_wireframe_plot(bsg_shape *s, struct rt_db_internal *ip, const struct bg_tess_
     if (v && s->adaptive_wireframe && ip->idb_meth->ft_adaptive_plot) {
 
         ip->idb_meth->ft_adaptive_plot(&s->s_vlist, ip, tol, v, s->s_size);
-        s->s_type_flags |= BV_CSG_LOD;
+        s->s_type_flags |= BSG_NODE_CSG_LOD;
 
 	return BRLCAD_OK;
     }

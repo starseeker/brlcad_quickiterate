@@ -169,7 +169,7 @@ csg_wireframe_update(bsg_shape *vo, bsg_view *v, int flag)
 
     if (ip->idb_meth->ft_adaptive_plot) {
 	ip->idb_meth->ft_adaptive_plot(&vo->s_vlist, ip, d->tol, v, vo->s_size);
-	vo->s_type_flags |= BV_CSG_LOD;
+	vo->s_type_flags |= BSG_NODE_CSG_LOD;
 	bsg_shape_stale(vo);
     }
 
@@ -374,7 +374,7 @@ bot_adaptive_plot(bsg_shape *s, bsg_view *v)
 	}
 
 	// Mark the object as a Mesh LoD so the drawing routine knows to handle it differently
-	vo->s_type_flags |= BV_MESH_LOD;
+	vo->s_type_flags |= BSG_NODE_MESH_LOD;
     }
 
     bsg_mesh_lod_view(vo, v, 0);
@@ -525,7 +525,7 @@ brep_adaptive_plot(bsg_shape *s, bsg_view *v)
 	}
 
 	// Mark the object as a Mesh LoD so the drawing routine knows to handle it differently
-	vo->s_type_flags |= BV_MESH_LOD;
+	vo->s_type_flags |= BSG_NODE_MESH_LOD;
     }
 
     bsg_mesh_lod_view(vo, vo->s_v, 0);
@@ -579,7 +579,7 @@ wireframe_plot(bsg_shape *s, bsg_view *v, struct rt_db_internal *ip)
 	    vo->s_free_callback = &draw_free_data;
 
 	    // Mark type as CSG LoD
-	    vo->s_type_flags |= BV_CSG_LOD;
+	    vo->s_type_flags |= BSG_NODE_CSG_LOD;
 	}
 
 	csg_wireframe_update(vo, v, 1);
@@ -1012,7 +1012,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 
 	MAT_COPY(s->s_mat, *curr_mat);
 	bsg_material_sync(s->s_os, dd->g->s_os);
-	s->s_type_flags = BV_DBOBJ_BASED;
+	s->s_type_flags = BSG_NODE_DBOBJ_BASED;
 	s->current = 0;
 	s->s_changed++;
 	if (!s->s_os->draw_solid_lines_only) {

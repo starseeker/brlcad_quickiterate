@@ -1711,7 +1711,7 @@ knob_apply_misc(struct mged_state *s,
     if (BU_STR_EQUAL(token, "zap") || BU_STR_EQUAL(token, "zero")) {
 	bsg_knobs_reset(&view_state->vs_gvp->k, 0);
 	if (MEDIT(s)) {
-	    bsg_knobs_reset(&MEDIT(s)->k, BV_KNOBS_RATE);
+	    bsg_knobs_reset(&MEDIT(s)->k, BSG_KNOBS_RATE);
 	}
 	view_state->k = view_state->vs_gvp->k;
 	update_all_rate_flags(s);

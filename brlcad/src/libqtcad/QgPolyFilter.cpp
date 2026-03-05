@@ -113,7 +113,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 
 	    bsg_screen_pt(&v->gv_point, v->gv_mouse_x, v->gv_mouse_y, v);
 
-	    wp = bv_create_polygon(v, BV_VIEW_OBJS, ptype, &v->gv_point);
+	    wp = bv_create_polygon(v, BSG_VIEW_OBJS, ptype, &v->gv_point);
 	    wp->s_v = v;
 
 	    struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
@@ -337,7 +337,7 @@ QPolySelectFilter::eventFilter(QObject *, QEvent *e)
 
     // Handle Left Click
     if (m_e->type() == QEvent::MouseButtonPress && m_e->buttons().testFlag(Qt::LeftButton)) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	if (view_objs) {
 	    wp = bv_select_polygon(view_objs, &v->gv_point);
 	    if (!wp)

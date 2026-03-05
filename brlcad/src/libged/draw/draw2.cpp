@@ -132,7 +132,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     /* User settings may override various options - set up to collect them.
      * Option defaults may be overridden for the purposes of the current draw
      * command by command line options. */
-    bsg_material vs = BV_OBJ_SETTINGS_INIT;
+    bsg_material vs = BSG_MATERIAL_INIT;
 
     int drawing_modes[6] = {-1, 0, 0, 0, 0, 0};
     struct bu_opt_desc d[18];
@@ -206,10 +206,10 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // Before we start doing anything with the object set, record if things are
     // starting out empty.
     int blank_slate = 0;
-    struct bu_ptbl *dobjs = bsg_view_shapes(cv, BV_DB_OBJS);
-    struct bu_ptbl *local_dobjs = bsg_view_shapes(cv, BV_DB_OBJS);
-    struct bu_ptbl *vobjs = bsg_view_shapes(cv, BV_VIEW_OBJS);
-    struct bu_ptbl *vlobjs = bsg_view_shapes(cv, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *dobjs = bsg_view_shapes(cv, BSG_DB_OBJS);
+    struct bu_ptbl *local_dobjs = bsg_view_shapes(cv, BSG_DB_OBJS);
+    struct bu_ptbl *vobjs = bsg_view_shapes(cv, BSG_VIEW_OBJS);
+    struct bu_ptbl *vlobjs = bsg_view_shapes(cv, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
     if ((!dobjs || !BU_PTBL_LEN(dobjs)) && (!local_dobjs || !BU_PTBL_LEN(local_dobjs)) &&
 	    (!vobjs || !BU_PTBL_LEN(vobjs)) && (!vlobjs || !BU_PTBL_LEN(vlobjs))) {
 	blank_slate = 1;

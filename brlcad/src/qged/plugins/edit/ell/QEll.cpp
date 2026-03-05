@@ -178,7 +178,7 @@ QEll::update_obj_wireframe()
 
     // Make the object, if we've not already done so
     if (!p)
-	p = bsg_shape_get(v, BV_VIEW_OBJS);
+	p = bsg_shape_get(v, BSG_VIEW_OBJS);
 
     // Clear any old wireframes, labels, etc.
     bsg_shape_reset(p);
@@ -223,8 +223,8 @@ QEll::update_obj_wireframe()
 
 	BU_LIST_INIT(&(s->s_vlist));
 	VSET(s->s_color, 255, 255, 0);
-	s->s_type_flags |= BV_DBOBJ_BASED;
-	s->s_type_flags |= BV_LABELS;
+	s->s_type_flags |= BSG_NODE_DBOBJ_BASED;
+	s->s_type_flags |= BSG_NODE_LABELS;
 	BU_VLS_INIT(&la->label);
 
 	bu_vls_sprintf(&la->label, "%s", pl[i].str);
@@ -253,7 +253,7 @@ QEll::update_viewobj_name(const QString &)
 
     // Make the view object, if we've not already done so
     if (!p)
-	p = bsg_shape_get(v, BV_VIEW_OBJS);
+	p = bsg_shape_get(v, BSG_VIEW_OBJS);
 
     // Make sure the view object names match whatever the dialog says
     // is the current (proposed) name for the written object

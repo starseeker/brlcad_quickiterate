@@ -77,9 +77,9 @@ _line_cmd_create(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    int flags = BV_VIEW_OBJS;
+    int flags = BSG_VIEW_OBJS;
     if (gd->local_obj)
-	flags |= BV_LOCAL_OBJS;
+	flags |= BSG_LOCAL_OBJS;
 
     s = bsg_shape_get(gd->cv, flags);
     BU_LIST_INIT(&(s->s_vlist));

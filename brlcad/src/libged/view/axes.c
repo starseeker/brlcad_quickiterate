@@ -73,9 +73,9 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
 	}
     }
 
-    int flags = BV_VIEW_OBJS;
+    int flags = BSG_VIEW_OBJS;
     if (gd->local_obj)
-	flags |= BV_LOCAL_OBJS;
+	flags |= BSG_LOCAL_OBJS;
     s = bsg_shape_get(gd->cv, flags);
 
     BU_LIST_INIT(&(s->s_vlist));
@@ -90,8 +90,8 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
     VSET(l->axes_color, 255, 255, 0);
     s->s_i_data = (void *)l;
 
-    s->s_type_flags |= BV_VIEWONLY;
-    s->s_type_flags |= BV_AXES;
+    s->s_type_flags |= BSG_NODE_VIEWONLY;
+    s->s_type_flags |= BSG_NODE_AXES;
 
     bu_vls_init(&s->s_name);
     bu_vls_printf(&s->s_name, "%s", gd->vobj);
@@ -119,7 +119,7 @@ _axes_cmd_pos(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->s_type_flags & BSG_NODE_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
@@ -166,7 +166,7 @@ _axes_cmd_size(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->s_type_flags & BSG_NODE_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
@@ -212,7 +212,7 @@ _axes_cmd_linewidth(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->s_type_flags & BSG_NODE_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
@@ -263,7 +263,7 @@ _axes_cmd_axes_color(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->s_type_flags & BSG_NODE_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
