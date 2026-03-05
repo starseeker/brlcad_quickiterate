@@ -638,6 +638,91 @@ draw_scene_obj(struct dm *dmp, bsg_shape *s, bsg_view *v, int force_draw, bsg_ma
     }
 }
 
+/* ====================================================================== *
+ * dm_draw_visitor — BSG traversal visitor for the render loop            *
+ *                                                                         *
+ * Used by bsg_view_traverse() to draw scene-graph nodes.  Structural    *
+ * nodes (SEPARATOR, CAMERA, TRANSFORM, LOD_GROUP) are skipped; geometry  *
+ * nodes are rendered using the accumulated traversal state.              *
+ * ====================================================================== */
+
+struct dm_draw_visitor_data {
+    struct dm  *dmp;
+    bsg_view   *v;
+};
+
+static int
+dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
+{
+    struct dm_draw_visitor_data *d = (struct dm_draw_visitor_data *)user_data;
+    struct dm  *dmp = d->dmp;
+    bsg_view   *v   = d->v;
+
+    /* Skip structural nodes — traversal handles them. */
+    unsigned long long structural =
+	(unsigned long long)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
+			     BSG_NODE_CAMERA    | BSG_NODE_LOD_GROUP);
+    if (s->s_type_flags & structural)
+	return 0; /* recurse into children */
+
+    if (s->s_flag == DOWN && !s->s_force_draw)
+	return 0;
+
+    /* If a camera node has been encountered in the graph, use its matrices.
+     * Otherwise fall back to the legacy bsg_view camera fields. */
+    if (state->active_camera) {
+	dm_loadmatrix(dmp, (matp_t)state->active_camera->model2view, 0);
+	if (SMALL_FASTF < state->active_camera->perspective)
+	    (void)dm_loadpmatrix(dmp, (matp_t)state->active_camera->pmat);
+	else
+	    (void)dm_loadpmatrix(dmp, NULL);
+    }
+
+    /* Use accumulated material from the traversal state (for material
+     * inheritance / separator isolation) or fall back to per-node settings. */
+    const bsg_material *mat =
+	(s->s_os && !s->s_inherit_settings) ? s->s_os : &state->material;
+
+    if (s->s_iflag == UP) {
+	dm_set_fg(dmp, 255, 255, 255, 0, mat->transparency);
+    } else {
+	if (mat->color_override) {
+	    dm_set_fg(dmp, mat->color[0], mat->color[1], mat->color[2], 0, mat->transparency);
+	} else {
+	    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
+	}
+    }
+    dm_set_line_attr(dmp, mat->s_line_width, s->s_soldash);
+
+    /* Draw geometry. */
+    if (s->s_type_flags & BSG_DB_OBJS) {
+	bsg_shape *vo = bsg_shape_for_view(s, v);
+	if (!vo) {
+	    vo = s;
+	    bsg_log(1, "dm_draw_visitor - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
+	} else {
+	    bsg_log(1, "dm_draw_visitor - drawing view obj %s[%s]",
+		   bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+	}
+	if (vo->s_update_callback)
+	    (*vo->s_update_callback)(vo, v, 0);
+	dm_draw_obj(dmp, vo);
+    } else {
+	dm_draw_obj(dmp, s);
+    }
+
+    if (!(s->s_type_flags & BSG_NODE_MESH_LOD))
+	dm_add_arrows(dmp, s);
+
+    if (s->s_type_flags & BSG_NODE_AXES)
+	dm_draw_scene_axes(dmp, s);
+
+    if (s->s_type_flags & BSG_NODE_LABELS)
+	dm_draw_label(dmp, s);
+
+    return 0; /* always recurse — bsg_view_traverse handles children */
+}
+
 void
 dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 {
@@ -679,34 +764,42 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 #endif
 
     // Draw geometry view objects
-    struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS);
-    if (db_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
-	    bsg_group *g = (bsg_group *)BU_PTBL_GET(db_objs, i);
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
-    if (local_db_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
-	    bsg_group *g = (bsg_group *)BU_PTBL_GET(local_db_objs, i);
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
+    struct dm_draw_visitor_data visitor_data;
+    visitor_data.dmp = dmp;
+    visitor_data.v   = v;
 
-    // Draw view-only objects
-    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+    /* If the view has a scene root, use graph traversal (Phase 2 path).
+     * Otherwise fall back to the legacy flat-table loops. */
+    if (bsg_scene_root_get(v)) {
+	bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
+    } else {
+	struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS);
+	if (db_objs) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
+		bsg_group *g = (bsg_group *)BU_PTBL_GET(db_objs, i);
+		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+	    }
 	}
-    }
-    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
-	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
+	if (local_db_objs) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
+		bsg_group *g = (bsg_group *)BU_PTBL_GET(local_db_objs, i);
+		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+	    }
+	}
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
+	if (view_objs) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
+		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
+		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	    }
+	}
+	struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
+	if (local_view_objs) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
+		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);
+		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	    }
 	}
     }
 
@@ -715,11 +808,17 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 
     dm_draw_faceplate(v);
 
-    if (v->gv_tcl.gv_data_labels.gdls_draw)
-	dm_draw_labels(dmp, &v->gv_tcl.gv_data_labels, v->gv_model2view);
+    if (v->gv_tcl.gv_data_labels.gdls_draw) {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(v, &_cam);
+	dm_draw_labels(dmp, &v->gv_tcl.gv_data_labels, _cam.model2view);
+    }
 
-    if (v->gv_tcl.gv_sdata_labels.gdls_draw)
-	dm_draw_labels(dmp, &v->gv_tcl.gv_sdata_labels, v->gv_model2view);
+    if (v->gv_tcl.gv_sdata_labels.gdls_draw) {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(v, &_cam);
+	dm_draw_labels(dmp, &v->gv_tcl.gv_sdata_labels, _cam.model2view);
+    }
 
     /* Draw labels */
     if (wdbp && vd && v->gv_tcl.gv_prim_labels.gos_draw) {
@@ -785,51 +884,60 @@ dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_da
 	}
     }
 
-    // On to the scene objects - for drawing those we need the view matrix
-    matp_t mat = v->gv_model2view;
-    dm_loadmatrix(dmp, mat, 0);
+    // On to the scene objects - for drawing those we need the view matrix.
+    // Use the camera accessor for forward-compatibility with scene-graph camera nodes.
+    {
+	struct bsg_camera cam;
+	bsg_view_get_camera(v, &cam);
+	dm_loadmatrix(dmp, cam.model2view, 0);
 
-
-    // Set up to render using current perspective settings
-    if (SMALL_FASTF < v->gv_perspective)
-	(void)dm_loadpmatrix(dmp, v->gv_pmat);
-    else {
-	(void)dm_loadpmatrix(dmp, NULL);
+	// Set up to render using current perspective settings
+	if (SMALL_FASTF < cam.perspective)
+	    (void)dm_loadpmatrix(dmp, cam.pmat);
+	else
+	    (void)dm_loadpmatrix(dmp, NULL);
     }
 
 
     // Draw geometry view objects
     // TODO - draw opaque, then transparent
-    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_DB_OBJS);
-    if (!v->independent && sobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-	    bsg_group *g = (bsg_group *)BU_PTBL_GET(sobjs, i);
-	    //bu_log("dm_draw_objs %s\n", bu_vls_cstr(&g->s_name));
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *iobjs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
-    if (iobjs && (iobjs != sobjs || v->independent)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
-	    bsg_group *g = (bsg_group *)BU_PTBL_GET(iobjs, i);
-	    //bu_log("dm_draw_objs(i) %s\n", bu_vls_cstr(&g->s_name));
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
+    {
+	struct dm_draw_visitor_data visitor_data;
+	visitor_data.dmp = dmp;
+	visitor_data.v   = v;
 
-    // Draw view-only objects
-    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
-    if (view_objs && !v->independent) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *vo = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
-    if (vo && (vo != view_objs || v->independent)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
-	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(vo, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+	/* Use graph traversal when a scene root is available. */
+	if (bsg_scene_root_get(v)) {
+	    bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
+	} else {
+	    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_DB_OBJS);
+	    if (!v->independent && sobjs) {
+		for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
+		    bsg_group *g = (bsg_group *)BU_PTBL_GET(sobjs, i);
+		    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+		}
+	    }
+	    struct bu_ptbl *iobjs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
+	    if (iobjs && (iobjs != sobjs || v->independent)) {
+		for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
+		    bsg_group *g = (bsg_group *)BU_PTBL_GET(iobjs, i);
+		    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
+		}
+	    }
+	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
+	    if (view_objs && !v->independent) {
+		for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
+		    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
+		    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+		}
+	    }
+	    struct bu_ptbl *vo = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
+	    if (vo && (vo != view_objs || v->independent)) {
+		for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
+		    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(vo, i);
+		    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
+		}
+	    }
 	}
     }
 
