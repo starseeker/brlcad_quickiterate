@@ -44,108 +44,115 @@
 #define STRANS		1	/* buttons.c */
 #define SSCALE		2	/* buttons.c */	/* Scale whole solid by scalar */
 #define SROT		3	/* buttons.c */
-#define PSCALE		4	/* Scale one solid parameter by scalar */
+/* PSCALE (4) was removed - pscale() was dead code once librt menus use ECMD_* */
 
-#define ECMD_TGC_MV_H	5
-#define ECMD_TGC_MV_HH	6
-#define ECMD_TGC_ROT_H	7
-#define ECMD_TGC_ROT_AB	8
+#define ECMD_TGC_MV_H		2005	/* move H to new position (edtgc.c) */
+#define ECMD_TGC_MV_HH		2006	/* move H and HH to new position (edtgc.c) */
+#define ECMD_TGC_ROT_H		2007	/* rotate H vector (edtgc.c) */
+#define ECMD_TGC_ROT_AB		2008	/* rotate A,B vectors (edtgc.c) */
 
 #define EARB		9	/* chgmodel.c, edarb.c */
 #define PTARB		10	/* edarb.c */
-#define ECMD_ARB_MAIN_MENU	11
-#define ECMD_ARB_SPECIFIC_MENU	12
-#define ECMD_ARB_MOVE_FACE	13
-#define ECMD_ARB_SETUP_ROTFACE	14
-#define ECMD_ARB_ROTATE_FACE	15
+#define ECMD_ARB_MAIN_MENU	4011	/* (edarb.c) */
+#define ECMD_ARB_SPECIFIC_MENU	4012	/* (edarb.c) */
+#define ECMD_ARB_MOVE_FACE	4013	/* (edarb.c) */
+#define ECMD_ARB_SETUP_ROTFACE	4014	/* (edarb.c) */
+#define ECMD_ARB_ROTATE_FACE	4015	/* (edarb.c) */
 
-#define ECMD_ETO_ROT_C		16
+#define ECMD_ETO_ROT_C		21016	/* rotate C vector (edeto.c) */
 
 #define ECMD_VTRANS		17	/* vertex translate */
-#define ECMD_NMG_EPICK		19	/* edge pick */
-#define ECMD_NMG_EMOVE		20	/* edge move */
-#define ECMD_NMG_EDEBUG		21	/* edge debug */
-#define ECMD_NMG_FORW		22	/* next eu */
-#define ECMD_NMG_BACK		23	/* prev eu */
-#define ECMD_NMG_RADIAL		24	/* radial+mate eu */
-#define ECMD_NMG_ESPLIT		25	/* split current edge */
-#define ECMD_NMG_EKILL		26	/* kill current edge */
-#define ECMD_NMG_LEXTRU		27	/* Extrude loop */
+#define ECMD_NMG_EPICK		11019	/* edge pick (ednmg.c) */
+#define ECMD_NMG_EMOVE		11020	/* edge move (ednmg.c) */
+#define ECMD_NMG_EDEBUG		11021	/* edge debug (ednmg.c) */
+#define ECMD_NMG_FORW		11022	/* next eu (ednmg.c) */
+#define ECMD_NMG_BACK		11023	/* prev eu (ednmg.c) */
+#define ECMD_NMG_RADIAL		11024	/* radial+mate eu (ednmg.c) */
+#define ECMD_NMG_ESPLIT		11025	/* split current edge (ednmg.c) */
+#define ECMD_NMG_EKILL		11026	/* kill current edge (ednmg.c) */
+#define ECMD_NMG_LEXTRU		11027	/* Extrude loop (ednmg.c) */
 
-#define ECMD_PIPE_PICK		28	/* Pick pipe point */
-#define ECMD_PIPE_SPLIT		29	/* Split a pipe segment into two */
-#define ECMD_PIPE_PT_ADD	30	/* Add a pipe point to end of pipe */
-#define ECMD_PIPE_PT_INS	31	/* Add a pipe point to start of pipe */
-#define ECMD_PIPE_PT_DEL	32	/* Delete a pipe point */
-#define ECMD_PIPE_PT_MOVE	33	/* Move a pipe point */
+#define ECMD_PIPE_PICK		15028	/* Pick pipe point (edpipe.c ECMD_PIPE_SELECT) */
+#define ECMD_PIPE_SPLIT		15029	/* Split a pipe segment into two (edpipe.c) */
+#define ECMD_PIPE_PT_ADD	15030	/* Add a pipe point to end of pipe (edpipe.c) */
+#define ECMD_PIPE_PT_INS	15031	/* Add a pipe point to start of pipe (edpipe.c) */
+#define ECMD_PIPE_PT_DEL	15032	/* Delete a pipe point (edpipe.c) */
+#define ECMD_PIPE_PT_MOVE	15033	/* Move a pipe point (edpipe.c) */
+#define ECMD_PIPE_PT_OD		15065	/* scale OD of one pipe segment (edpipe.c) */
+#define ECMD_PIPE_PT_ID		15066	/* scale ID of one pipe segment (edpipe.c) */
+#define ECMD_PIPE_SCALE_OD	15067	/* scale entire pipe OD (edpipe.c) */
+#define ECMD_PIPE_SCALE_ID	15068	/* scale entire pipe ID (edpipe.c) */
+#define ECMD_PIPE_PT_RADIUS	15073	/* scale bend radius at selected point (edpipe.c) */
+#define ECMD_PIPE_SCALE_RADIUS	15074	/* scale entire pipe bend radius (edpipe.c) */
 
-#define ECMD_ARS_PICK		34	/* select an ARS point */
-#define ECMD_ARS_NEXT_PT	35	/* select next ARS point in same curve */
-#define ECMD_ARS_PREV_PT	36	/* select previous ARS point in same curve */
-#define ECMD_ARS_NEXT_CRV	37	/* select corresponding ARS point in next curve */
-#define ECMD_ARS_PREV_CRV	38	/* select corresponding ARS point in previous curve */
-#define ECMD_ARS_MOVE_PT	39	/* translate an ARS point */
-#define ECMD_ARS_DEL_CRV	40	/* delete an ARS curve */
-#define ECMD_ARS_DEL_COL	41	/* delete all corresponding points in each curve (a column) */
-#define ECMD_ARS_DUP_CRV	42	/* duplicate an ARS curve */
-#define ECMD_ARS_DUP_COL	43	/* duplicate an ARS column */
-#define ECMD_ARS_MOVE_CRV	44	/* translate an ARS curve */
-#define ECMD_ARS_MOVE_COL	45	/* translate an ARS column */
-#define ECMD_ARS_PICK_MENU	46	/* display the ARS pick menu */
-#define ECMD_ARS_EDIT_MENU	47	/* display the ARS edit menu */
+#define ECMD_ARS_PICK		5034	/* select an ARS point (edars.c) */
+#define ECMD_ARS_NEXT_PT	5035	/* select next ARS point in same curve (edars.c) */
+#define ECMD_ARS_PREV_PT	5036	/* select previous ARS point in same curve (edars.c) */
+#define ECMD_ARS_NEXT_CRV	5037	/* select corresponding ARS point in next curve (edars.c) */
+#define ECMD_ARS_PREV_CRV	5038	/* select corresponding ARS point in previous curve (edars.c) */
+#define ECMD_ARS_MOVE_PT	5039	/* translate an ARS point (edars.c) */
+#define ECMD_ARS_DEL_CRV	5040	/* delete an ARS curve (edars.c) */
+#define ECMD_ARS_DEL_COL	5041	/* delete all corresponding points in each curve (edars.c) */
+#define ECMD_ARS_DUP_CRV	5042	/* duplicate an ARS curve (edars.c) */
+#define ECMD_ARS_DUP_COL	5043	/* duplicate an ARS column (edars.c) */
+#define ECMD_ARS_MOVE_CRV	5044	/* translate an ARS curve (edars.c) */
+#define ECMD_ARS_MOVE_COL	5045	/* translate an ARS column (edars.c) */
+#define ECMD_ARS_PICK_MENU	5046	/* display the ARS pick menu (edars.c) */
+#define ECMD_ARS_EDIT_MENU	5047	/* display the ARS edit menu (edars.c) */
 
-#define ECMD_VOL_CSIZE		48	/* set voxel size */
-#define ECMD_VOL_FSIZE		49	/* set VOL file dimensions */
-#define ECMD_VOL_THRESH_LO	50	/* set VOL threshold (lo) */
-#define ECMD_VOL_THRESH_HI	51	/* set VOL threshold (hi) */
-#define ECMD_VOL_FNAME		52	/* set VOL file name */
+#define ECMD_VOL_CSIZE		13048	/* set voxel size (edvol.c) */
+#define ECMD_VOL_FSIZE		13049	/* set VOL file dimensions (edvol.c) */
+#define ECMD_VOL_THRESH_LO	13050	/* set VOL threshold (lo) (edvol.c) */
+#define ECMD_VOL_THRESH_HI	13051	/* set VOL threshold (hi) (edvol.c) */
+#define ECMD_VOL_FNAME		13052	/* set VOL file name (edvol.c) */
 
-#define ECMD_EBM_FNAME		53	/* set EBM file name */
-#define ECMD_EBM_FSIZE		54	/* set EBM file size */
-#define ECMD_EBM_HEIGHT		55	/* set EBM extrusion depth */
+#define ECMD_EBM_FNAME		12053	/* set EBM file name (edebm.c) */
+#define ECMD_EBM_FSIZE		12054	/* set EBM file size (edebm.c) */
+#define ECMD_EBM_HEIGHT		12055	/* set EBM extrusion depth (edebm.c) */
 
-#define ECMD_DSP_FNAME		56	/* set DSP file name */
-#define ECMD_DSP_FSIZE		57	/* set DSP file size */
-#define ECMD_DSP_SCALE_X        58	/* Scale DSP x size */
-#define ECMD_DSP_SCALE_Y        59	/* Scale DSP y size */
-#define ECMD_DSP_SCALE_ALT      60	/* Scale DSP Altitude size */
+#define ECMD_DSP_FNAME		25056	/* set DSP file name (eddsp.c) */
+#define ECMD_DSP_FSIZE		25057	/* set DSP file size (eddsp.c) */
+#define ECMD_DSP_SCALE_X	25058	/* Scale DSP x size (eddsp.c) */
+#define ECMD_DSP_SCALE_Y	25059	/* Scale DSP y size (eddsp.c) */
+#define ECMD_DSP_SCALE_ALT	25060	/* Scale DSP Altitude size (eddsp.c) */
 
-#define ECMD_BOT_PICKV		61	/* pick a BOT vertex */
-#define ECMD_BOT_PICKE		62	/* pick a BOT edge */
-#define ECMD_BOT_PICKT		63	/* pick a BOT triangle */
-#define ECMD_BOT_MOVEV		64	/* move a BOT vertex */
-#define ECMD_BOT_MOVEE		65	/* move a BOT edge */
-#define ECMD_BOT_MOVET		66	/* move a BOT triangle */
-#define ECMD_BOT_MODE		67	/* set BOT mode */
-#define ECMD_BOT_ORIENT		68	/* set BOT face orientation */
-#define ECMD_BOT_THICK		69	/* set face thickness (one or all) */
-#define ECMD_BOT_FMODE		70	/* set face mode (one or all) */
-#define ECMD_BOT_FDEL		71	/* delete current face */
-#define ECMD_BOT_FLAGS		72	/* set BOT flags */
+#define ECMD_BOT_PICKV		30061	/* pick a BOT vertex (edbot.c) */
+#define ECMD_BOT_PICKE		30062	/* pick a BOT edge (edbot.c) */
+#define ECMD_BOT_PICKT		30063	/* pick a BOT triangle (edbot.c) */
+#define ECMD_BOT_MOVEV		30064	/* move a BOT vertex (edbot.c) */
+#define ECMD_BOT_MOVEE		30065	/* move a BOT edge (edbot.c) */
+#define ECMD_BOT_MOVET		30066	/* move a BOT triangle (edbot.c) */
+#define ECMD_BOT_MODE		30067	/* set BOT mode (edbot.c) */
+#define ECMD_BOT_ORIENT		30068	/* set BOT face orientation (edbot.c) */
+#define ECMD_BOT_THICK		30069	/* set face thickness (one or all) (edbot.c) */
+#define ECMD_BOT_FMODE		30070	/* set face mode (one or all) (edbot.c) */
+#define ECMD_BOT_FDEL		30071	/* delete current face (edbot.c) */
+#define ECMD_BOT_FLAGS		30072	/* set BOT flags (edbot.c) */
 
-#define ECMD_EXTR_SCALE_H	73	/* scale extrusion vector */
-#define ECMD_EXTR_MOV_H		74	/* move end of extrusion vector */
-#define ECMD_EXTR_ROT_H		75	/* rotate extrusion vector */
-#define ECMD_EXTR_SKT_NAME	76	/* set sketch that the extrusion uses */
+#define ECMD_EXTR_SCALE_H	27073	/* scale extrusion vector (edextrude.c) */
+#define ECMD_EXTR_MOV_H		27074	/* move end of extrusion vector (edextrude.c) */
+#define ECMD_EXTR_ROT_H		27075	/* rotate extrusion vector (edextrude.c) */
+#define ECMD_EXTR_SKT_NAME	27076	/* set sketch that the extrusion uses (edextrude.c) */
 
-#define ECMD_CLINE_SCALE_H	77	/* scale height vector */
-#define ECMD_CLINE_MOVE_H	78	/* move end of height vector */
-#define ECMD_CLINE_SCALE_R	79	/* scale radius */
-#define ECMD_CLINE_SCALE_T	80	/* scale thickness */
-#define ECMD_TGC_MV_H_CD	81	/* move end of tgc, while scaling CD */
-#define ECMD_TGC_MV_H_V_AB	82	/* move vertex end of tgc, while scaling AB */
+#define ECMD_CLINE_SCALE_H	29077	/* scale height vector (edcline.c) */
+#define ECMD_CLINE_MOVE_H	29078	/* move end of height vector (edcline.c) */
+#define ECMD_CLINE_SCALE_R	29079	/* scale radius (edcline.c) */
+#define ECMD_CLINE_SCALE_T	29080	/* scale thickness (edcline.c) */
+#define ECMD_TGC_MV_H_CD	2081	/* move H adjusting C,D (edtgc.c) */
+#define ECMD_TGC_MV_H_V_AB	2082	/* move H+move V adjusting A,B (edtgc.c) */
 
-#define ECMD_METABALL_SET_THRESHOLD	83	/* overall metaball threshold value */
-#define ECMD_METABALL_SET_METHOD	84	/* set the rendering method */
-#define ECMD_METABALL_PT_PICK	85	/* pick a metaball control point */
-#define ECMD_METABALL_PT_MOV	86	/* move a metaball control point */
-#define ECMD_METABALL_PT_FLDSTR	87	/* set a metaball control point field strength */
-#define ECMD_METABALL_PT_DEL	88	/* delete a metaball control point */
-#define ECMD_METABALL_PT_ADD	89	/* add a metaball control point */
-#define ECMD_METABALL_RMET	90	/* set the metaball render method */
+#define ECMD_METABALL_SET_THRESHOLD	36083	/* overall metaball threshold value (edmetaball.c) */
+#define ECMD_METABALL_SET_METHOD	36084	/* set the rendering method (edmetaball.c) */
+#define ECMD_METABALL_PT_PICK		36085	/* pick a metaball control point (edmetaball.c) */
+#define ECMD_METABALL_PT_MOV		36086	/* move a metaball control point (edmetaball.c) */
+#define ECMD_METABALL_PT_FLDSTR		36087	/* set a metaball control point field strength (edmetaball.c) */
+#define ECMD_METABALL_PT_DEL		36088	/* delete a metaball control point (edmetaball.c) */
+#define ECMD_METABALL_PT_ADD		36089	/* add a metaball control point (edmetaball.c) */
+#define ECMD_METABALL_RMET		36090	/* set the metaball render method (edmetaball.c) */
+#define ECMD_METABALL_PT_SET_GOO	30119	/* set goo for a metaball control point (edmetaball.c) */
 
-#define ECMD_HYP_ROT_H		91
-#define ECMD_HYP_ROT_A		92
+#define ECMD_HYP_ROT_H		38091	/* (edhyp.c) */
+#define ECMD_HYP_ROT_A		38092	/* (edhyp.c) */
 
 /* librt primitive ECMD values - these match the values defined in the librt primitive
  * edit source files (e.g. edtor.c, edell.c).  They are also collected at build time
@@ -216,7 +223,6 @@
 
 #define SEDIT_SCALE (s->global_editing_state == ST_S_EDIT && \
 		     (MEDIT(s)->edit_flag == SSCALE || \
-		      MEDIT(s)->edit_flag == PSCALE || \
 		      MEDIT(s)->edit_flag == ECMD_TOR_R1 || \
 		      MEDIT(s)->edit_flag == ECMD_TOR_R2 || \
 		      MEDIT(s)->edit_flag == ECMD_ELL_SCALE_A || \
@@ -273,6 +279,16 @@
 		      MEDIT(s)->edit_flag == ECMD_CLINE_SCALE_R || \
 		      MEDIT(s)->edit_flag == ECMD_CLINE_SCALE_T || \
 		      MEDIT(s)->edit_flag == ECMD_EXTR_SCALE_H  || \
+		      /* PIPE and METABALL scale operations */ \
+		      MEDIT(s)->edit_flag == ECMD_PIPE_PT_OD || \
+		      MEDIT(s)->edit_flag == ECMD_PIPE_PT_ID || \
+		      MEDIT(s)->edit_flag == ECMD_PIPE_PT_RADIUS || \
+		      MEDIT(s)->edit_flag == ECMD_PIPE_SCALE_OD || \
+		      MEDIT(s)->edit_flag == ECMD_PIPE_SCALE_ID || \
+		      MEDIT(s)->edit_flag == ECMD_PIPE_SCALE_RADIUS || \
+		      MEDIT(s)->edit_flag == ECMD_METABALL_SET_THRESHOLD || \
+		      MEDIT(s)->edit_flag == ECMD_METABALL_SET_METHOD || \
+		      MEDIT(s)->edit_flag == ECMD_METABALL_PT_FLDSTR || \
 		      /* librt generic & matrix scales */ \
 		      MEDIT(s)->edit_flag == RT_PARAMS_EDIT_SCALE || \
 		      MEDIT(s)->edit_flag == RT_MATRIX_EDIT_SCALE || \
