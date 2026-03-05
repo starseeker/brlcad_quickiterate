@@ -398,12 +398,17 @@ public:
 
     /* ── Hashing helpers for change detection ───────────────────────── */
     void stash_hashes() {
-	/* TODO: hash scene/view state (camera matrix, bv_node dlist_stale
-	 * flags) for use in diff_hashes() to skip unnecessary redraws. */
+	/* Stash the bv_scene node count so diff_hashes() can detect draw/erase
+	 * changes and trigger a repaint after console commands. */
+	struct bv_scene *sc = ctx_ ? bv_render_ctx_get_scene(ctx_) : nullptr;
+	const struct bu_ptbl *nodes = sc ? bv_scene_nodes(sc) : nullptr;
+	prev_node_count_ = nodes ? BU_PTBL_LEN(nodes) : 0;
     }
-    bool diff_hashes()  {
-	/* TODO: return true when scene/view state differs from last stash */
-	return false;
+    bool diff_hashes() {
+	struct bv_scene *sc = ctx_ ? bv_render_ctx_get_scene(ctx_) : nullptr;
+	const struct bu_ptbl *nodes = sc ? bv_scene_nodes(sc) : nullptr;
+	size_t cur_node_count = nodes ? BU_PTBL_LEN(nodes) : 0;
+	return (cur_node_count != prev_node_count_);
     }
 
     void need_update() { update(); }
@@ -984,6 +989,8 @@ private:
     bool                  camera_user_dirty_ = false; /* true when user has orbited/panned/zoomed */
     int                   current_ = 0;
     QPoint                lastMousePos_;
+    /* Stashed values for diff_hashes() */
+    size_t                prev_node_count_ = 0;
 
     /* ── RT texture overlay members ─────────────────────────────────── */
     struct fb            *m_rtFb      = nullptr; /* memory fb owned by ObolRtCtx */
