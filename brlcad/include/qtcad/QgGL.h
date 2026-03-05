@@ -62,12 +62,12 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 	void save_image();
 
 	int current = 1;
-	struct bview *v = NULL;
+	bsg_view *v = NULL;
 	struct dm *dmp = NULL;
 	struct fb *ifp = NULL;
 	struct bu_ptbl *dm_set = NULL;
 
-	void (*draw_custom)(struct bview *, void *) = NULL;
+	void (*draw_custom)(bsg_view *, void *) = NULL;
 	void *draw_udata = NULL;
 
 	void enableDefaultKeyBindings();
@@ -109,7 +109,7 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 	double x_press_pos = -INT_MAX;
 	double y_press_pos = -INT_MAX;
 
-	struct bview *local_v = NULL;
+	bsg_view *local_v = NULL;
 };
 
 #endif /* QGGL_H */
