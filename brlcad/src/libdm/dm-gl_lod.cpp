@@ -161,8 +161,9 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
     if (s->s_dlist) {
 	if (mode == s->s_dlist_mode) {
 	    //bu_log("use dlist %d\n", s->s_dlist);
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -197,8 +198,9 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	{ struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	MAT_COPY(save_mat, _dm_cam.model2view);
+bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -240,8 +242,9 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
 		bsg_mesh_lod_memshrink(s);
 	    }
 
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -347,8 +350,9 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
 		bsg_mesh_lod_memshrink(s);
 	    }
 
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -416,8 +420,9 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
     if (s->s_dlist) {
 	if (mode == s->s_dlist_mode) {
 	    //bu_log("use dlist %d\n", s->s_dlist);
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -449,8 +454,9 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	{ struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	MAT_COPY(save_mat, _dm_cam.model2view);
+bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -519,8 +525,9 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
 	    }
 	}
 
-	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	{ struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	MAT_COPY(save_mat, _dm_cam.model2view);
+bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	dm_loadmatrix(dmp, draw_mat, 0);
 	glCallList(s->s_dlist);
 	dm_loadmatrix(dmp, save_mat, 0);
