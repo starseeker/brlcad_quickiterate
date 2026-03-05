@@ -209,7 +209,7 @@ swrast_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
 
     BU_ALLOC(dmp->i->dm_vars.priv_vars, struct swrast_vars);
     privars = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
-    privars->v = (struct bview *)ctx;
+    privars->v = (bsg_view *)ctx;
     // Note - for Qt, dealing with GL_RGB data display was something of a pain.  This backend
     // was switched to RGBA to make it easier to display the output
     privars->ctx = OSMesaCreateContextExt(OSMESA_RGBA, 16, 0, 0, NULL);

@@ -1420,7 +1420,7 @@ POPState::get_level(fastf_t vlen)
 	for (size_t i = 0; i < BU_PTBL_LEN(vsets); i++) {
 	    fastf_t cdist = 0;
 	    struct bview *cv = (struct bview *)BU_PTBL_GET(vsets, i);
-	    if (!_obj_visible(lod->s, cv))
+	    if (!_obj_visible((struct bv_scene_obj *)lod->s, cv))
 		continue;
 	    if (SMALL_FASTF < cv->gv_perspective) {
 		point_t pbmin, pbmax;

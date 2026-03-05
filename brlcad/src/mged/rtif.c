@@ -181,7 +181,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* static due to setjmp */
     static int mode = 0;
-    static struct bv_scene_obj *sp;
+    static bsg_shape *sp;
 
     CHECK_DBI_NULL;
 
@@ -218,7 +218,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-		for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+		for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		    if (!sp->s_u_data)
 			continue;
 		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;

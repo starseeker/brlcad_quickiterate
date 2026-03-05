@@ -1092,7 +1092,7 @@ replot_editing_solid(struct mged_state *s)
     struct display_list *gdlp;
     struct display_list *next_gdlp;
     mat_t mat;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     struct directory *illdp;
 
     if (!illump) {
@@ -1107,7 +1107,7 @@ replot_editing_solid(struct mged_state *s)
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (sp->s_u_data) {
 		bdata = (struct ged_bv_data *)sp->s_u_data;
 		if (LAST_SOLID(bdata) == illdp) {
@@ -5934,7 +5934,7 @@ oedit_apply(struct mged_state *s, int continue_editing)
 {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     /* matrices used to accept editing done from a depth
      * >= 2 from the top of the illuminated path
      */
@@ -5989,7 +5989,7 @@ oedit_apply(struct mged_state *s, int continue_editing)
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (sp->s_iflag == DOWN)
 		continue;
 	    (void)replot_original_solid(s, sp);
@@ -6009,7 +6009,7 @@ oedit_accept(struct mged_state *s)
 {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     if (s->dbip == DBI_NULL)
 	return;
@@ -6021,7 +6021,7 @@ oedit_accept(struct mged_state *s)
 	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (sp->s_iflag == DOWN)
 		    continue;
 		(void)replot_original_solid(s, sp);
@@ -6271,7 +6271,7 @@ sedit_reject(struct mged_state *s)
     {
 	struct display_list *gdlp;
 	struct display_list *next_gdlp;
-	struct bv_scene_obj *sp;
+	bsg_shape *sp;
 	if (!illump->s_u_data)
 	    return;
 	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
@@ -6280,7 +6280,7 @@ sedit_reject(struct mged_state *s)
 	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (!sp->s_u_data)
 		    continue;
 		struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;

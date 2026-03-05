@@ -3093,7 +3093,7 @@ rt_dsp_free(register struct soltab *stp)
 
 
 int
-rt_dsp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_dsp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     struct bu_list *vlfree = &rt_vlfree;
     struct rt_dsp_internal *dsp_ip =

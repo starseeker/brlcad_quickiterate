@@ -111,7 +111,7 @@ dl_select(struct bu_list *hdlp, mat_t model2view, struct bu_vls *vls, double vx,
 {
     struct display_list *gdlp = NULL;
     struct display_list *next_gdlp = NULL;
-    struct bv_scene_obj *sp = NULL;
+    bsg_shape *sp = NULL;
     fastf_t vr = 0.0;
     fastf_t vmin_x = 0.0;
     fastf_t vmin_y = 0.0;
@@ -143,7 +143,7 @@ dl_select(struct bu_list *hdlp, mat_t model2view, struct bu_vls *vls, double vx,
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
         next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
@@ -235,7 +235,7 @@ dl_select_partial(struct bu_list *hdlp, mat_t model2view, struct bu_vls *vls, do
 {
     struct display_list *gdlp = NULL;
     struct display_list *next_gdlp = NULL;
-    struct bv_scene_obj *sp = NULL;
+    bsg_shape *sp = NULL;
     fastf_t vr = 0.0;
     fastf_t vmin_x = 0.0;
     fastf_t vmin_y = 0.0;
@@ -267,7 +267,7 @@ dl_select_partial(struct bu_list *hdlp, mat_t model2view, struct bu_vls *vls, do
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
         next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;

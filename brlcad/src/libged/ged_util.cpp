@@ -253,16 +253,16 @@ _ged_subcmd2_help(struct ged *gedp, struct bu_opt_desc *gopts, std::map<std::str
 static int
 scene_bounding_sph(struct bu_ptbl *so, vect_t *vmin, vect_t *vmax, int pflag)
 {
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     vect_t minus, plus;
     int is_empty = 1;
 
     /* calculate the bounding for of all solids being displayed */
     for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
-	struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(so, i);
+	bsg_group *g = (bsg_group *)BU_PTBL_GET(so, i);
 	if (BU_PTBL_LEN(&g->children)) {
 	    for (size_t j = 0; j < BU_PTBL_LEN(&g->children); j++) {
-		sp = (struct bv_scene_obj *)BU_PTBL_GET(&g->children, j);
+		sp = (bsg_shape *)BU_PTBL_GET(&g->children, j);
 		minus[X] = sp->s_center[X] - sp->s_size;
 		minus[Y] = sp->s_center[Y] - sp->s_size;
 		minus[Z] = sp->s_center[Z] - sp->s_size;
@@ -1706,10 +1706,10 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	if (gedp->new_cmd_forms) {
 	    VSETALL(extremum[0],  INFINITY);
 	    VSETALL(extremum[1], -INFINITY);
-	    struct bu_ptbl *db_objs = bv_view_objs(gedp->ged_gvp, BV_DB_OBJS);
+	    struct bu_ptbl *db_objs = bsg_view_shapes(gedp->ged_gvp, BSG_DB_OBJS);
 	    if (db_objs)
 		(void)scene_bounding_sph(db_objs, &(extremum[0]), &(extremum[1]), 1);
-	    struct bu_ptbl *local_db_objs = bv_view_objs(gedp->ged_gvp, BV_DB_OBJS | BV_LOCAL_OBJS);
+	    struct bu_ptbl *local_db_objs = bsg_view_shapes(gedp->ged_gvp, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 	    if (local_db_objs)
 		(void)scene_bounding_sph(local_db_objs, &(extremum[0]), &(extremum[1]), 1);
 	} else {
@@ -1906,13 +1906,13 @@ dl_bitwise_and_fullpath(struct bu_list *hdlp, int flag_val)
     struct display_list *gdlp;
     struct display_list *next_gdlp;
     size_t i;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     gdlp = BU_LIST_NEXT(display_list, hdlp);
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
         next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+        for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
@@ -1934,13 +1934,13 @@ dl_write_animate(struct bu_list *hdlp, FILE *fp)
     struct display_list *gdlp;
     struct display_list *next_gdlp;
     size_t i;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     gdlp = BU_LIST_NEXT(display_list, hdlp);
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
         next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+        for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;

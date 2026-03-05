@@ -49,7 +49,7 @@
 #include "bu/path.h"
 #include "bu/time.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "rt/edit.h"
 #include "rt/geom.h"
 #include "ged.h"
@@ -2019,7 +2019,7 @@ cmd_draw(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, const
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct bview *gvp = NULL;
+    bsg_view *gvp = NULL;
 
     if (s->gedp)
 	gvp = s->gedp->ged_gvp;
@@ -2254,11 +2254,11 @@ struct _view_cache {
 
     /* Knob state (optional) */
     int have_knobs;
-    struct bview_knobs k;
+    bsg_knobs k;
 };
 
 static void
-_view_cache_save(struct _view_cache *c, struct bview *v, int include_knobs)
+_view_cache_save(struct _view_cache *c, bsg_view *v, int include_knobs)
 {
     if (!c || !v) return;
     c->valid = 1;
@@ -2292,7 +2292,7 @@ _view_cache_save(struct _view_cache *c, struct bview *v, int include_knobs)
 }
 
 static void
-_view_cache_restore(const struct _view_cache *c, struct bview *v)
+_view_cache_restore(const struct _view_cache *c, bsg_view *v)
 {
     if (!c || !v || !c->valid) return;
 
@@ -2324,7 +2324,7 @@ _view_cache_restore(const struct _view_cache *c, struct bview *v)
 }
 
 static void
-_view_copy_to_staging(struct bview *dst, struct bview *src, struct mged_state *s, int include_knobs)
+_view_copy_to_staging(bsg_view *dst, bsg_view *src, struct mged_state *s, int include_knobs)
 {
     if (!dst || !src) return;
 
@@ -2358,7 +2358,7 @@ _view_copy_to_staging(struct bview *dst, struct bview *src, struct mged_state *s
 }
 
 static void
-_view_copy_from_staging(struct bview *dst, struct bview *src, int include_knobs)
+_view_copy_from_staging(bsg_view *dst, bsg_view *src, int include_knobs)
 {
     if (!dst || !src) return;
 
@@ -2426,7 +2426,7 @@ _view_maybe_baseline_reset(struct mged_state *s, int do_reset)
  * transform & knob state.  This deliberately ignores display list contents,
  * settings pointers, and unrelated UI fields to minimize false positives. */
 static unsigned long long
-_view_mutation_hash(struct mged_state *ms, struct bview *v)
+_view_mutation_hash(struct mged_state *ms, bsg_view *v)
 {
     if (!v) return 0ULL;
 
@@ -2459,7 +2459,7 @@ _view_mutation_hash(struct mged_state *ms, struct bview *v)
     bu_data_hash_update(state, &v->gv_rotate_about, sizeof(char));
 
     /* Knob state (rates + absolute values + flags + origins) */
-    bv_knobs_hash(&v->k, state);
+    bsg_knobs_hash(&v->k, state);
 
     /*
      * If we are in an edit mode (solid or object) include the active edit
@@ -2482,7 +2482,7 @@ _view_mutation_hash(struct mged_state *ms, struct bview *v)
 	bu_data_hash_update(state, &e->acc_sc_obj, sizeof(e->acc_sc_obj));
 	bu_data_hash_update(state, &e->acc_sc, sizeof(e->acc_sc));
 	/* Edit knob state */
-	bv_knobs_hash(&e->k, state);
+	bsg_knobs_hash(&e->k, state);
     }
 
     unsigned long long hv = bu_data_hash_val(state);
@@ -2512,12 +2512,12 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     const int is_knob = _view_is_knob(argc, argv);
     const int baseline_reset = _view_is_baseline_reset(argc, argv);
 
-    struct bview *mged_view = view_state->vs_gvp;
+    bsg_view *mged_view = view_state->vs_gvp;
 
     /* Determine staging context */
     int shared_view = 0;
     int created_temp = 0;
-    struct bview *staging = NULL;
+    bsg_view *staging = NULL;
 
     if (s->gedp->ged_gvp) {
 	if (s->gedp->ged_gvp == mged_view) {
@@ -2528,8 +2528,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	}
     } else {
 	/* No existing ged_gvp: create ephemeral staging view */
-	staging = (struct bview *)bu_calloc(1, sizeof(struct bview), "temporary staging bview");
-	bv_init(staging, NULL);
+	staging = (bsg_view *)bu_calloc(1, sizeof(bsg_view), "temporary staging bsg_view");
+	bsg_view_init(staging, NULL);
 	created_temp = 1;
 	/* Carry over dimensions for screen-dependent ops */
 	if (mged_view) {
@@ -2545,7 +2545,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     }
 
     /* Snapshot knob state for rollback on error (shared or distinct) */
-    struct bview_knobs pre_knob;
+    bsg_knobs pre_knob;
     int have_pre_knob = 0;
     if (is_knob && mged_view) {
 	pre_knob = (shared_view ? mged_view->k : staging->k);
@@ -2560,7 +2560,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	staging->gv_base2local = (s->dbip) ? s->dbip->dbi_base2local : 1.0;
     }
 
-    /* For knob operations, ensure the staging (or shared) bview's knob struct
+    /* For knob operations, ensure the staging (or shared) bsg_view's knob struct
      * reflects the current MGED knob state (view_state->k).  This preserves
      * prior "knob ..." (MGED) adjustments when switching to "view knob ...".
      * (We already sync view knob results back into view_state->k after each
@@ -2586,8 +2586,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp)
 		_view_cache_restore(&prev, staging);
 	    else {
-		bv_free(staging);
-		bu_free(staging, "free staging bview");
+		bsg_view_free(staging);
+		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
 	    }
 	}
@@ -2609,8 +2609,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp) {
 		_view_cache_restore(&prev, staging);
 	    } else {
-		bv_free(staging);
-		bu_free(staging, "free staging bview");
+		bsg_view_free(staging);
+		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
 	    }
 	}
@@ -2648,8 +2648,8 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    }
 	} else {
 	    /* Ephemeral staging freed; detach from ged */
-	    bv_free(staging);
-	    bu_free(staging, "free staging bview");
+	    bsg_view_free(staging);
+	    bu_free(staging, "free staging bsg_view");
 	    s->gedp->ged_gvp = NULL;
 	}
     }

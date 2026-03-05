@@ -33,7 +33,7 @@
 
 #include "bu/opt.h"
 #include "bu/sort.h"
-#include "bv/view_sets.h"
+#include "bsg.h"
 #include "ged/database.h"
 #include "ged/view.h"
 
@@ -51,7 +51,7 @@ ged_erase2_core(struct ged *gedp, int argc, const char *argv[])
 {
     static const char *usage = "[object(s)]";
     const char *cmdName = argv[0];
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
@@ -74,7 +74,7 @@ ged_erase2_core(struct ged *gedp, int argc, const char *argv[])
     int opt_ret = bu_opt_parse(NULL, argc, argv, vd);
     argc = opt_ret;
     if (bu_vls_strlen(&cvls)) {
-	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	v = bsg_scene_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);

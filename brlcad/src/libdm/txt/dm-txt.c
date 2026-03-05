@@ -207,7 +207,7 @@ txt_drawVListHiddenLine(struct dm *UNUSED(dmp), struct bv_vlist *UNUSED(vp))
 
 
 static int
-txt_draw_obj(struct dm *UNUSED(dmp), struct bv_scene_obj *UNUSED(s))
+txt_draw_obj(struct dm *UNUSED(dmp), bsg_shape *UNUSED(s))
 {
     bu_log("draw_obj called\n");
     return 0;

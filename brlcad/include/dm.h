@@ -32,6 +32,7 @@
 #include "bu/vls.h"
 #include "bn.h"
 #include "bv.h"
+#include "bsg.h"
 #include "icv.h"
 
 #include "./dm/defines.h"
@@ -107,7 +108,7 @@ DM_EXPORT extern void dm_draw_data_axes(struct dm *dmp,
 					fastf_t viewSize,
 					struct bv_data_axes_state *bndasp);
 
-DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, bsg_shape *s);
 
 
 DM_EXPORT extern void dm_draw_hud_axes(struct dm *dmp,
@@ -269,7 +270,7 @@ DM_EXPORT extern void dm_set_bound_flag(struct dm *dmp, int bound);
 
 
 
-DM_EXPORT extern int dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern int dm_draw_obj(struct dm *dmp, bsg_shape *s);
 
 
 /* Rather low level exposure of display list concepts.  Needed for MGED

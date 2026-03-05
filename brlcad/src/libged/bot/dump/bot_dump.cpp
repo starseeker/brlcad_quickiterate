@@ -355,7 +355,7 @@ bot_opt_unit(struct bu_vls *UNUSED(msg), size_t argc, const char **argv, void *s
 
 // TODO - right now this is not at all general, and in fact will only write out a few
 // Tcl specific data containers.  Needs to be rethought.  Probably should be revisited
-// after we switch to the new drawing path, which uses bview scene objects - that will
+// after we switch to the new drawing path, which uses bsg_view scene objects - that will
 // likely make writing out a scene simpler overall.
 static int
 viewdata_dump(struct _ged_bot_dump_client_data *d, struct ged *gedp, FILE *fp)
@@ -427,9 +427,9 @@ dl_botdump(struct _ged_bot_dump_client_data *d)
     MAT_IDN(mat);
 
     for (BU_LIST_FOR(gdlp, display_list, hdlp)) {
-	struct bv_scene_obj *sp;
+	bsg_shape *sp;
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    struct directory *dp;
 	    struct rt_db_internal intern;
 	    struct rt_bot_internal *bot;

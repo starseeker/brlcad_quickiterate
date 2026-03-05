@@ -68,7 +68,7 @@ key_matches_paths(struct bu_hash_tbl *t, void *udata)
 }
 
 static void
-go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
+go_draw_solid(bsg_view *gdvp, bsg_shape *sp)
 {
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     struct ged *gedp = tvd->gedp;
@@ -120,11 +120,11 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 
 /* Draw all display lists */
 static int
-go_draw_dlist(struct bview *gdvp)
+go_draw_dlist(bsg_view *gdvp)
 {
     register struct display_list *gdlp;
     register struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     int line_style = -1;
     struct dm *dmp = (struct dm *)gdvp->dmp;
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
@@ -136,7 +136,7 @@ go_draw_dlist(struct bview *gdvp)
 	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (sp->s_os->transparency < 1.0)
 		    continue;
 
@@ -159,7 +159,7 @@ go_draw_dlist(struct bview *gdvp)
 	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		/* already drawn above */
 		if (ZERO(sp->s_os->transparency - 1.0))
 		    continue;
@@ -182,7 +182,7 @@ go_draw_dlist(struct bview *gdvp)
 	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (line_style != sp->s_soldash) {
 		    line_style = sp->s_soldash;
 		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
@@ -199,7 +199,7 @@ go_draw_dlist(struct bview *gdvp)
 }
 
 void
-go_draw(struct bview *gdvp)
+go_draw(bsg_view *gdvp)
 {
     (void)dm_loadmatrix((struct dm *)gdvp->dmp, gdvp->gv_model2view, 0);
 
@@ -235,7 +235,7 @@ to_edit_redraw(struct ged *gedp,
 	for (i = 0; i < subpath.fp_len; ++i) {
 	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(gedp));
 	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(gedp))) {
-		register struct bv_scene_obj *curr_sp;
+		register bsg_shape *curr_sp;
 
 		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
@@ -244,7 +244,7 @@ to_edit_redraw(struct ged *gedp,
 		    continue;
 		}
 
-		for (BU_LIST_FOR(curr_sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+		for (BU_LIST_FOR(curr_sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 
 		    if (!curr_sp->s_u_data)
 			continue;
@@ -252,7 +252,7 @@ to_edit_redraw(struct ged *gedp,
 
 		    if (db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i])) {
 			struct display_list *last_gdlp;
-			struct bv_scene_obj *sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
+			bsg_shape *sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
 			struct bu_vls mflag = BU_VLS_INIT_ZERO;
 			struct bu_vls xflag = BU_VLS_INIT_ZERO;
 			char *av[5] = {0};

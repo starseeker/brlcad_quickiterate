@@ -29,7 +29,7 @@
 extern "C" {
 #include "bn/str.h"
 #include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 }
 
 #include "qtcad/defines.h"
@@ -37,7 +37,7 @@ extern "C" {
 
 // TODO - look into QShortcut, see if it might be a better way
 // to manage this
-int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QKeyEvent *k)
+int CADkeyPressEvent(bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QKeyEvent *k)
 {
     QTCAD_EVENT("keyPress", 1);
     if (!v)
@@ -58,53 +58,53 @@ int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QK
 	    return 1;
 	case '2':
 	    bn_decode_vect(v->gv_aet, "35 -25 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case '3':
 	    bn_decode_vect(v->gv_aet, "35 25 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case '4':
 	    bn_decode_vect(v->gv_aet, "45 45 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case '5':
 	    bn_decode_vect(v->gv_aet, "145 25 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case '6':
 	    bn_decode_vect(v->gv_aet, "215 25 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case '7':
 	    bn_decode_vect(v->gv_aet, "325 25 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case 'F':
 	    bn_decode_vect(v->gv_aet, "0 0 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case 'T':
 	    bn_decode_vect(v->gv_aet, "270 90 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case 'B':
 	    bn_decode_vect(v->gv_aet, "270 -90 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case 'L':
 	    bn_decode_vect(v->gv_aet, "90 0 0");
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	case 'R':
 	    if (k->modifiers().testFlag(Qt::ShiftModifier) == true) {
@@ -112,8 +112,8 @@ int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QK
 	    } else {
 		bn_decode_vect(v->gv_aet, "270 0 0");
 	    }
-	    bv_mat_aet(v);
-	    bv_update(v);
+	    bsg_view_mat_aet(v);
+	    bsg_view_update(v);
 	    return 1;
 	default:
 	    break;
@@ -121,7 +121,7 @@ int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QK
     return 0;
 }
 
-int CADmousePressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e)
+int CADmousePressEvent(bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e)
 {
     QTCAD_EVENT("mousePress", 1);
 
@@ -152,7 +152,7 @@ int CADmousePressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), 
     return 0;
 }
 
-int CADmouseReleaseEvent(struct bview *v, double x_press, double y_press, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e, int mode)
+int CADmouseReleaseEvent(bsg_view *v, double x_press, double y_press, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e, int mode)
 {
     QTCAD_EVENT("mouseRelease", 1);
 
@@ -186,48 +186,48 @@ int CADmouseReleaseEvent(struct bview *v, double x_press, double y_press, int UN
 
     int dx = 1;
     int dy = 1;
-    unsigned long long view_flags = BV_IDLE;
+    unsigned long long view_flags = BSG_IDLE;
 
     if (e->button() == Qt::LeftButton) {
 	//bu_log("Release Left\n");
-	if (mode != BV_CENTER) {
-	    view_flags = BV_SCALE;
+	if (mode != BSG_CENTER) {
+	    view_flags = BSG_SCALE;
 	    dx = 10;
 	    dy = 5;
 	} else {
-	    view_flags = BV_CENTER;
+	    view_flags = BSG_CENTER;
 	    dx = (int)cx;
 	    dy = (int)cy;
 	}
     }
     if (e->button() == Qt::RightButton) {
 	//bu_log("Release Right\n");
-	if (mode == BV_CENTER)
+	if (mode == BSG_CENTER)
 	    return 0;
-	view_flags = BV_SCALE;
+	view_flags = BSG_SCALE;
 	dx = 1;
 	dy = 2;
     }
 
     if (e->button() == Qt::MiddleButton) {
 	//bu_log("Release Center\n");
-	view_flags = BV_CENTER;
+	view_flags = BSG_CENTER;
 	dx = (int)cx;
 	dy = (int)cy;
     }
 
     point_t keypt = VINIT_ZERO;
-    return bv_adjust(v, dx, dy, keypt, 0, view_flags);
+    return bsg_view_adjust(v, dx, dy, keypt, 0, view_flags);
 }
 
-int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, int mode)
+int CADmouseMoveEvent(bsg_view *v, int x_prev, int y_prev, QMouseEvent *e, int mode)
 {
     QTCAD_EVENT("mouseMove", 2);
 
     if (!v)
 	return 0;
 
-    unsigned long long view_flags = BV_IDLE;
+    unsigned long long view_flags = BSG_IDLE;
 
     if (x_prev == -INT_MAX) {
 	//x_prev = e->x();
@@ -236,25 +236,25 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
     }
 
     view_flags = mode;
-    if (mode == BV_CENTER)
-	view_flags = BV_SCALE;
+    if (mode == BSG_CENTER)
+	view_flags = BSG_SCALE;
 
     if (e->buttons().testFlag(Qt::LeftButton)) {
 	//bu_log("Left\n");
 
 	if (e->modifiers().testFlag(Qt::ControlModifier)) {
 	    //bu_log("Ctrl+Left\n");
-	    view_flags = BV_ROT;
+	    view_flags = BSG_ROT;
 	}
 
 	if (e->modifiers().testFlag(Qt::ShiftModifier)) {
 	    //bu_log("Shift+Left\n");
-	    view_flags = BV_TRANS;
+	    view_flags = BSG_TRANS;
 	}
 
 	if (e->modifiers().testFlag(Qt::ShiftModifier) && e->modifiers().testFlag(Qt::ControlModifier)) {
 	    //bu_log("Ctrl+Shift+Left\n");
-	    view_flags = BV_SCALE;
+	    view_flags = BSG_SCALE;
 	}
     }
 
@@ -277,7 +277,7 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
     int dy = e->position().y() - y_prev;
 #endif
 
-    if (view_flags == BV_SCALE) {
+    if (view_flags == BSG_SCALE) {
 	// Build in some sensitivity to how much the mouse moved when doing
 	// a motion based scale
 	int mdelta = (abs(dx) > abs(dy)) ? dx : -dy;
@@ -296,15 +296,15 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
     // TODO - the key point and the mode/flags are all hardcoded
     // right now, but eventually for shift grips they will need to
     // respond to the various mod keys.  The intent is to set flags
-    // based on which mod keys are set to allow bv_adjust to
+    // based on which mod keys are set to allow bsg_view_adjust to
     // do the correct math.
     point_t center;
     MAT_DELTAS_GET_NEG(center, v->gv_center);
-    return bv_adjust(v, dx, dy, center, 0, view_flags);
+    return bsg_view_adjust(v, dx, dy, center, 0, view_flags);
 
 }
 
-int CADwheelEvent(struct bview *v, QWheelEvent *e)
+int CADwheelEvent(bsg_view *v, QWheelEvent *e)
 {
     QTCAD_EVENT("mouseWheel", 1);
 
@@ -318,7 +318,7 @@ int CADwheelEvent(struct bview *v, QWheelEvent *e)
     int dy = 100;
 
     point_t origin = VINIT_ZERO;
-    return bv_adjust(v, dx, dy, origin, 0, BV_SCALE);
+    return bsg_view_adjust(v, dx, dy, origin, 0, BSG_SCALE);
 
 }
 

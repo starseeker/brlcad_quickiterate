@@ -139,14 +139,14 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 }
 
 
-struct bv_scene_obj *
+bsg_shape *
 find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
 {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     int count = 0;
-    struct bv_scene_obj *ret = (struct bv_scene_obj *)NULL;
+    bsg_shape *ret = (bsg_shape *)NULL;
 
     RT_CK_FULL_PATH(pathp);
 
@@ -154,7 +154,7 @@ find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
@@ -260,7 +260,7 @@ cmd_oed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* Patterned after ill_common() ... */
     illum_gdlp = gdlp;
-    illump = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illump = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);/* any valid solid would do */
     edobj = 0;		/* sanity */
     movedir = 0;		/* No edit modes set */
     MAT_IDN(MEDIT(s)->model_changes);	/* No changes yet */

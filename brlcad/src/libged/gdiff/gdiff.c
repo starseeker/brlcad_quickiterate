@@ -415,7 +415,7 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (gedp->new_cmd_forms) {
-	    struct bview *view = gedp->ged_gvp;
+	    bsg_view *view = gedp->ged_gvp;
 	    bv_vlblock_obj(vbp, view, "gdiff");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, vbp, "diff_visual", 0);

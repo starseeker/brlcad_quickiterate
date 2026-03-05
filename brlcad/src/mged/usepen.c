@@ -38,7 +38,7 @@
 
 
 struct display_list *illum_gdlp = GED_DISPLAY_LIST_NULL;
-struct bv_scene_obj *illump = NULL;	/* == 0 if none, else points to ill. solid */
+bsg_shape *illump = NULL;	/* == 0 if none, else points to ill. solid */
 int ipathpos = 0;	/* path index of illuminated element */
 
 
@@ -52,7 +52,7 @@ illuminate(struct mged_state *s, int y) {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
     int count;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     /*
      * Divide the mouse into 's->mged_curr_dm->dm_ndrawn' VERTICAL
@@ -65,7 +65,7 @@ illuminate(struct mged_state *s, int y) {
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    /* Only consider solids which are presently in view */
 	    if (sp->s_flag == UP) {
 		if (count-- == 0) {
@@ -98,7 +98,7 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct mged_state *s = ctp->s;
 
     struct display_list *gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     struct ged_bv_data *bdata = NULL;
 
     if (argc < 1 || 2 < argc) {
@@ -147,9 +147,9 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
 
-		sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
+		sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
 	    } else
-		sp = BU_LIST_PNEXT(bv_scene_obj, sp);
+		sp = BU_LIST_PNEXT(bsg_shape, sp);
 	} else if (*argv[1] == 'b') {
 	    if (BU_LIST_PREV_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
 		/* Advance the gdlp (i.e. display list) */
@@ -158,9 +158,9 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		else
 		    gdlp = BU_LIST_PLAST(display_list, gdlp);
 
-		sp = BU_LIST_PREV(bv_scene_obj, &gdlp->dl_head_scene_obj);
+		sp = BU_LIST_PREV(bsg_shape, &gdlp->dl_head_scene_obj);
 	    } else
-		sp = BU_LIST_PLAST(bv_scene_obj, sp);
+		sp = BU_LIST_PLAST(bsg_shape, sp);
 	} else {
 	    Tcl_AppendResult(interp, "aip: bad parameter - ", argv[1], "\n", (char *)NULL);
 	    return TCL_ERROR;
@@ -234,7 +234,7 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     char *cp;
     size_t j;
     int illum_only = 0;
@@ -301,7 +301,7 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;

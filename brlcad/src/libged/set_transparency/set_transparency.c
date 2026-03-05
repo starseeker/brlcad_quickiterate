@@ -34,7 +34,7 @@ dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparenc
     struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     size_t i;
     struct directory **tmp_dpp;
 
@@ -42,7 +42,7 @@ dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparenc
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
         next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;

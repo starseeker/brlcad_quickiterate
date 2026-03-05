@@ -61,13 +61,13 @@ dl_set_wflag(struct bu_list *hdlp, int wflag)
 {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     /* calculate the bounding for of all solids being displayed */
     gdlp = BU_LIST_NEXT(display_list, hdlp);
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    sp->s_old.s_wflag = wflag;
 	}
 
@@ -350,7 +350,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     /* Calculate point from xyz point from which to fire the ray, if it was not
      * explicitly supplied by one of the above. */
     if (VNEAR_ZERO(nv.center_model, VUNITIZE_TOL)) {
-	struct bview *bv = gedp->ged_gvp;
+	bsg_view *bv = gedp->ged_gvp;
 	VSET(nv.center_model, -bv->gv_center[MDX], -bv->gv_center[MDY], -bv->gv_center[MDZ]);
 	/* Because we are preparing an input for the nirt command line, we need
 	 * to convert to local units - lower level logic will be expecting
@@ -590,10 +590,10 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     /* Whether or not we're doing graphics, if we took a shot we should clear any
      * old objects from prior shots. */
     if (gedp->new_cmd_forms) {
-	struct bview *view = gedp->ged_gvp;
-	struct bv_scene_obj *nobj = bv_find_obj(view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
+	bsg_view *view = gedp->ged_gvp;
+	bsg_shape *nobj = bsg_view_find_shape(view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 	if (nobj)
-	    bv_obj_put(nobj);
+	    bsg_shape_put(nobj);
     } else {
 	struct directory **dpv;
 	struct bu_vls dp_pattern = BU_VLS_INIT_ZERO;
@@ -617,8 +617,8 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 		bu_log("Error loading plot data from %s\n", bu_vls_cstr(&nv.plotfile));
 	    } else {
 		if (gedp->new_cmd_forms) {
-		    struct bview *view = gedp->ged_gvp;
-		    struct bv_scene_obj *nobj = bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
+		    bsg_view *view = gedp->ged_gvp;
+		    bsg_shape *nobj = (bsg_shape *)bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		    bu_vls_sprintf(&nobj->s_name, "%s", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		} else {
 		    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename), 0);

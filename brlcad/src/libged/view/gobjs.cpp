@@ -45,7 +45,7 @@
 #include "./ged_view.h"
 
 static void
-gobjs_scene_free(struct bv_scene_obj *s)
+gobjs_scene_free(bsg_shape *s)
 {
     if (!s)
 	return;
@@ -63,7 +63,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     struct ged *gedp = gd->gedp;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct db_i *dbip = gedp->dbip;
-    struct bview *v = gd->cv;
+    bsg_view *v = gd->cv;
     const char *usage_string = "view gobjs name create";
     const char *purpose_string = "create an editing view obj from a database solid/comb";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
@@ -80,7 +80,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
     gd->vobj = argv[0];
 
-    struct bv_scene_obj *s = bv_find_obj(gedp->ged_gvp, argv[1]);
+    bsg_shape *s = bsg_view_find_shape(gedp->ged_gvp, argv[1]);
     if (s) {
 	bu_vls_printf(gedp->ged_result_str, "View object %s already exists\n", argv[1]);
 	return BRLCAD_ERROR;
@@ -121,7 +121,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
 
     /* Set up the toplevel object */
-    struct bv_scene_group *g = bv_obj_get(v, BV_DB_OBJS);
+    bsg_group *g = bsg_shape_get(v, BSG_DB_OBJS);
     if (!g)
 	return BRLCAD_ERROR;
     BU_GET(g->s_path, struct db_full_path);
@@ -133,8 +133,8 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    struct bv_obj_settings vs = BV_OBJ_SETTINGS_INIT;
-    bv_obj_settings_sync(g->s_os, &vs);
+    bsg_material vs = BSG_MATERIAL_INIT;
+    bsg_material_sync(g->s_os, &vs);
 
     // We have a tree walk ahead to populate the wireframe - set up the client
     // data structure.
@@ -179,12 +179,12 @@ _gobjs_cmd_delete(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    bsg_shape *s = gd->s;
     if (!s) {
 	bu_vls_printf(gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    bv_obj_put(s);
+    bsg_shape_put(s);
 
     return BRLCAD_OK;
 }
@@ -235,19 +235,19 @@ _view_cmd_gobjs(void *bs, int argc, const char **argv)
     int ac = bu_opt_parse(NULL, acnt, argv, d);
 
     // If we're not wanting help and we have no subcommand, list current gobjs objects
-    struct bview *v = gd->cv;
+    bsg_view *v = gd->cv;
     if (!ac && cmd_pos < 0 && !help) {
-	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 	if (view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 		bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&s->s_name));
 	    }
 	}
-	struct bu_ptbl *local_view_objs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+	struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
 	if (local_view_objs) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
+		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);
 		bu_vls_printf(gd->gedp->ged_result_str, "%s\n", bu_vls_cstr(&s->s_name));
 	    }
 	}

@@ -46,7 +46,7 @@ static int drawtrees_depth = 0;
  */
 static void
 solid_set_color_info(
-    struct bv_scene_obj *sp,
+    bsg_shape *sp,
     unsigned char *wireframe_color_override,
     struct db_tree_state *tsp)
 {
@@ -84,7 +84,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     if (!dgcdp || !dgcdp->v)
 	return;
 
-    struct bv_scene_obj *sp = bv_obj_get(dgcdp->v, BV_DB_OBJS);
+    bsg_shape *sp = bsg_shape_get(dgcdp->v, BSG_DB_OBJS);
     if (!sp)
 	return;
 
@@ -107,7 +107,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     sp->s_vlen += bv_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
-    bv_scene_obj_bound(sp, dgcdp->v);
+    bsg_shape_bound(sp, dgcdp->v);
 
     db_dup_full_path(&bdata->s_fullpath, pathp);
 
@@ -158,7 +158,7 @@ _ged_drawH_part2(int dashflag, struct bu_list *vhead, const struct db_full_path 
 }
 
 static fastf_t
-draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *dbip,
+draw_solid_wireframe(bsg_shape *sp, bsg_view *gvp, struct db_i *dbip,
 		     const struct bn_tol *tol, const struct bg_tess_tol *ttol)
 {
     int ret;
@@ -205,7 +205,7 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
 }
 
 static int
-redraw_solid(struct bv_scene_obj *sp, struct db_i *dbip, struct db_tree_state *tsp, struct bview *gvp, struct bu_list *vlfree)
+redraw_solid(bsg_shape *sp, struct db_i *dbip, struct db_tree_state *tsp, bsg_view *gvp, struct bu_list *vlfree)
 {
     if (sp->s_os->s_dmode == _GED_WIREFRAME) {
 	/* replot wireframe */
@@ -223,11 +223,11 @@ dl_redraw(struct display_list *gdlp, struct ged *gedp, int skip_subtractions)
     struct db_i *dbip = gedp->dbip;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct db_tree_state *tsp = &wdbp->wdb_initial_tree_state;
-    struct bview *gvp = gedp->ged_gvp;
+    bsg_view *gvp = gedp->ged_gvp;
     int ret = 0;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     struct bu_list *vlfree = &rt_vlfree;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
 	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
 	}
@@ -268,7 +268,7 @@ append_solid_to_display_list(
     }
 
     /* create solid */
-    struct bv_scene_obj *sp = bv_obj_get(bv_data->v, BV_DB_OBJS);
+    bsg_shape *sp = bsg_shape_get(bv_data->v, BSG_DB_OBJS);
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
@@ -332,7 +332,7 @@ append_solid_to_display_list(
 	sp->s_vlen += bv_vlist_cmd_cnt(bvv);
 	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
-	bv_scene_obj_bound(sp, bv_data->v);
+	bsg_shape_bound(sp, bv_data->v);
 
         while (BU_LIST_WHILE(vp, bv_vlist, &(sp->s_vlist))) {
             BU_LIST_DEQUEUE(&vp->l);
@@ -974,7 +974,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
     if (_dgcdp != (struct _ged_client_data *)0) {
 	dgcdp = *_dgcdp;            /* struct copy */
     } else {
-	struct bview *gvp;
+	bsg_view *gvp;
 
 	memset(&dgcdp, 0, sizeof(struct _ged_client_data));
 	dgcdp.gedp = gedp;
