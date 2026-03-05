@@ -449,7 +449,12 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 		dists = (fastf_t *)bu_malloc((size_t)ndist * sizeof(fastf_t),
 					     "lod group distances");
 		for (int i = 0; i < ndist; i++) {
-		    dists[i] = atof(argv[3 + i]);
+		    if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[3 + i], (void *)&dists[i]) != 1) {
+			bu_vls_printf(gedp->ged_result_str,
+			    "invalid distance value: %s\n", argv[3 + i]);
+			bu_free(dists, "lod group distances");
+			return BRLCAD_ERROR;
+		    }
 		}
 	    }
 
@@ -544,8 +549,13 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
 		    sd->num_levels - 1, sd->num_levels, ndist);
 		return BRLCAD_ERROR;
 	    }
-	    for (int i = 0; i < ndist; i++)
-		sd->switch_distances[i] = atof(argv[3 + i]);
+	    for (int i = 0; i < ndist; i++) {
+		if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[3 + i], (void *)&sd->switch_distances[i]) != 1) {
+		    bu_vls_printf(gedp->ged_result_str,
+			"invalid distance value: %s\n", argv[3 + i]);
+		    return BRLCAD_ERROR;
+		}
+	    }
 	    return BRLCAD_OK;
 	}
 
