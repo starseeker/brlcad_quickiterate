@@ -52,6 +52,9 @@
 #define ECMD_BOT_FSPLIT		30075	/* split a BOT face */
 #define ECMD_BOT_VERTEX_FUSE	30076	/* fuse BOT vertices */
 #define ECMD_BOT_FACE_FUSE	30077	/* fuse BOT faces */
+
+void *
+rt_edit_bot_prim_edit_create(struct rt_edit *UNUSED(s))
 {
     struct rt_bot_edit *b;
     BU_GET(b, struct rt_bot_edit);
