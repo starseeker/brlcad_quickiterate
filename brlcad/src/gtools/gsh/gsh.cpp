@@ -38,6 +38,7 @@
 #include "brlcad_ident.h"
 #include "bu.h"
 #include "bv.h"
+#include "bsg/util.h"
 
 #define USE_DM 1
 #ifdef USE_DM
@@ -590,8 +591,9 @@ GshState::view_update()
 	    dm_draw_objs(v, NULL, NULL);
 	    dm_draw_end(dmp);
 	} else {
-	    matp_t mat = gedp->ged_gvp->gv_model2view;
-	    dm_loadmatrix(dmp, mat, 0);
+	    struct bsg_camera _cam;
+	    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	    dm_loadmatrix(dmp, _cam.model2view, 0);
 	    unsigned char geometry_default_color[] = { 255, 0, 0 };
 	    dm_draw_begin(dmp);
 	    dm_draw_head_dl(dmp, (struct bu_list *)ged_dl(gedp),
