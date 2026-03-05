@@ -277,21 +277,15 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int ob
 			bv_render_ctx_create(g->ged_scene, nullptr, ww, wh);
 		    if (rctx) {
 			obolw->setRenderCtx(rctx);
-			/* Wire the widget to track the GED session's view so
-			 * that orbit/zoom/draw update the correct camera.
+			/* The widget's local_bv_ (created in QgObolWidget ctor)
+			 * is already in gedp->ged_views with vset properly set,
+			 * and gedp->ged_gvp already points to it.  paintGL()'s
+			 * bview_sync_from_old(view_) will read GED camera
+			 * updates directly from local_bv_ on every frame.
 			 *
-			 * IMPORTANT: set_view() frees the widget's local_bv_
-			 * (the view that was passed to gedp->ged_gvp at startup).
-			 * After set_view(), gedp->ged_gvp is a dangling pointer.
-			 * Restore it to the original GED view that ged_gvnv wraps
-			 * so that draw2.cpp / bv_scene_sync_from_view use a valid
-			 * view whose vset is properly connected to gedp->ged_views. */
-			if (g->ged_gvnv) {
-			    obolw->set_view(g->ged_gvnv);
-			    struct bview *orig_gvp = bview_old_get(g->ged_gvnv);
-			    if (orig_gvp)
-				g->ged_gvp = orig_gvp;
-			}
+			 * Do NOT call set_view(ged_gvnv) here: set_view() frees
+			 * local_bv_, leaving ged_gvp and the ged_views entry as
+			 * dangling pointers, causing crashes in draw2 / redraw. */
 			obolw->update();
 		    }
 		});
