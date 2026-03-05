@@ -23,8 +23,6 @@ set(
   doevent.c
   dozoom.c
   edarb.c
-  edars.c
-  edpipe.c
   edsol.c
   f_db.c
   facedef.c

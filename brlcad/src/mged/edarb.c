@@ -39,7 +39,6 @@
 #include "./mged_dm.h"
 #include "./cmd.h"
 
-int newedge;
 
 /*
  * An ARB edge is moved by finding the direction of the line
@@ -54,14 +53,13 @@ int
 editarb(struct mged_state *s, vect_t pos_model)
 {
     int ret = 0;
-    struct rt_arb_internal *arb;
-    arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
+    struct rt_arb_internal *arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
+    struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
 
-    ret = arb_edit(arb, es_peqn, es_menu, newedge, pos_model, &s->tol.tol);
+    ret = arb_edit(arb, aint->es_peqn, aint->edit_menu, aint->newedge, pos_model, &s->tol.tol);
 
-    // arb_edit doesn't zero out our global any more as a library call, so
-    // reset once operation is complete.
-    newedge = 0;
+    /* arb_edit doesn't zero out the flag as a library call, so reset once done */
+    aint->newedge = 0;
 
     if (ret) {
 	rt_edit_set_edflag(MEDIT(s), RT_EDIT_IDLE);
@@ -124,11 +122,14 @@ f_extrude(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
     RT_ARB_CK_MAGIC(arb);
 
-    if (arb_extrude(arb, face, dist, &s->tol.tol, es_peqn)) {
+    {
+	struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
+	if (arb_extrude(arb, face, dist, &s->tol.tol, aint->es_peqn)) {
 	Tcl_AppendResult(interp, "Error extruding ARB\n", (char *)NULL);
 	return TCL_ERROR;
     }
 
+    }
     /* draw the updated solid */
     replot_editing_solid(s);
     s->update_views = 1;
@@ -173,9 +174,12 @@ f_mirface(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 
     face = atoi(argv[1]);
 
-    if (arb_mirror_face_axis(arb, es_peqn, face, argv[2], &s->tol.tol)) {
-	Tcl_AppendResult(interp, "Mirface: mirror operation failed\n", (char *)NULL);
-	return TCL_ERROR;
+    {
+	struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
+	if (arb_mirror_face_axis(arb, aint->es_peqn, face, argv[2], &s->tol.tol)) {
+	    Tcl_AppendResult(interp, "Mirface: mirror operation failed\n", (char *)NULL);
+	    return TCL_ERROR;
+	}
     }
 
     /* draw the updated solid */
@@ -246,7 +250,10 @@ f_edgedir(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     }
 
     /* get it done */
-    newedge = 1;
+    {
+	struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
+	aint->newedge = 1;
+    }
     editarb(s, slope);
     sedit(s);
     return TCL_OK;

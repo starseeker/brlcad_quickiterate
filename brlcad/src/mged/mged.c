@@ -2137,7 +2137,7 @@ main(int argc, char *argv[])
     s->global_editing_state = ST_VIEW;
     MEDIT(s)->edit_flag = -1;
     s->s_edit->es_edclass = EDIT_CLASS_NULL;
-    MEDIT(s)->e_inpara = newedge = 0;
+    MEDIT(s)->e_inpara = 0;
 
     /* These values match old GED.  Use 'tol' command to change them. */
     s->tol.tol.magic = BN_TOL_MAGIC;

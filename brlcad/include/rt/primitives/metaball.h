@@ -51,6 +51,16 @@ RT_EXPORT extern int rt_metaball_add_point(struct rt_metaball_internal *,
 RT_EXPORT extern struct wdb_metaball_pnt * rt_metaball_get_pt_i(
 	struct rt_metaball_internal *mbip, int mbp_i);
 
+/**
+ * Per-primitive edit state for METABALL editing.
+ *
+ * Exposed here so that MGED (and other editors) can access the currently
+ * selected metaball point without duplicating the data as a global.
+ */
+struct rt_metaball_edit {
+    struct wdb_metaball_pnt *es_metaball_pnt; /**< @brief Currently selected METABALL Point */
+};
+
 /** @} */
 
 __END_DECLS

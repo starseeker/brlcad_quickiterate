@@ -38,6 +38,8 @@
 #include "rt/primitives/arb8.h"
 #include "rt/primitives/bot.h"
 #include "rt/primitives/nmg.h"
+#include "rt/primitives/ars.h"
+#include "rt/primitives/metaball.h"
 #include "rt/primitives/pipe.h"
 #include "wdb.h"
 #include "rt/db4.h"
@@ -50,7 +52,6 @@
 #include "./mged_dm.h"
 #include "./menu.h"
 
-extern void pipe_split_pnt(struct bu_list *, struct wdb_pipe_pnt *, fastf_t *);
 extern struct wdb_pipe_pnt *pipe_add_pnt(struct rt_pipe_internal *, struct wdb_pipe_pnt *, const point_t);
 
 /* librt primitive menu arrays - declared here to support legacy sedit()
@@ -549,8 +550,6 @@ short int fixv;		/* used in ECMD_ARB_ROTATE_FACE, f_eqn(): fixed vertex */
 /* data for solid editing */
 int sedraw;	/* apply solid editing changes */
 
-fastf_t es_peqn[7][4];		/* ARBs defining plane equations */
-fastf_t es_m[3];		/* edge(line) slope */
 
 int bot_verts[3];		/* vertices for the BOT solid */
 
@@ -558,21 +557,12 @@ static int spl_surfno;	/* What surf & ctl pt to edit on spline */
 static int spl_ui;
 static int spl_vi;
 
-static int es_ars_crv;	/* curve and column identifying selected ARS point */
-static int es_ars_col;
-static point_t es_pt;		/* coordinates of selected ARS point */
 
-struct edgeuse *es_eu=(struct edgeuse *)NULL;	/* Currently selected NMG edgeuse */
 struct loopuse *lu_copy=(struct loopuse*)NULL;	/* copy of loop to be extruded */
 plane_t lu_pl;	/* plane equation for loop to be extruded */
-struct shell *es_s=(struct shell *)NULL;	/* Shell where extrusion is to end up */
 point_t lu_keypoint;	/* keypoint of lu_copy for extrusion */
 
-struct wdb_pipe_pnt *es_pipe_pnt=(struct wdb_pipe_pnt *)NULL; /* Currently selected PIPE segment */
-struct wdb_metaball_pnt *es_metaball_pnt=(struct wdb_metaball_pnt *)NULL; /* Currently selected METABALL Point */
 
-/* These values end up in es_menu, as do ARB vertex numbers */
-int es_menu;		/* item selected from menu */
 
 #define PARAM_1ARG (MEDIT(s)->edit_flag == SSCALE || \
 		    MEDIT(s)->edit_flag == ECMD_TOR_R1 || \
@@ -650,7 +640,9 @@ set_e_axes_pos(struct mged_state *s, int both)
     dm_set_dirty(DMP, 1);
     switch (MEDIT(s)->es_int.idb_type) {
 	case ID_ARB8:
-	    if (s->global_editing_state == ST_O_EDIT) {
+	    {
+		struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
+		if (s->global_editing_state == ST_O_EDIT) {
 		i = 0;
 	    } else {
 		switch (MEDIT(s)->edit_flag) {
@@ -660,16 +652,16 @@ set_e_axes_pos(struct mged_state *s, int both)
 		    case EARB:
 			switch (s->s_edit->es_type) {
 			    case ARB5:
-				i = earb5[es_menu][0];
+				i = earb5[aint->edit_menu][0];
 				break;
 			    case ARB6:
-				i = earb6[es_menu][0];
+				i = earb6[aint->edit_menu][0];
 				break;
 			    case ARB7:
-				i = earb7[es_menu][0];
+				i = earb7[aint->edit_menu][0];
 				break;
 			    case ARB8:
-				i = earb8[es_menu][0];
+				i = earb8[aint->edit_menu][0];
 				break;
 			    default:
 				i = 0;
@@ -679,14 +671,14 @@ set_e_axes_pos(struct mged_state *s, int both)
 		    case PTARB:
 			switch (s->s_edit->es_type) {
 			    case ARB4:
-				i = es_menu;	/* index for point 1, 2, 3 or 4 */
+				i = aint->edit_menu;	/* index for point 1, 2, 3 or 4 */
 				break;
 			    case ARB5:
 			    case ARB7:
 				i = 4;	/* index for point 5 */
 				break;
 			    case ARB6:
-				i = es_menu;	/* index for point 5 or 6 */
+				i = aint->edit_menu;	/* index for point 5 or 6 */
 				break;
 			    default:
 				i = 0;
@@ -696,19 +688,19 @@ set_e_axes_pos(struct mged_state *s, int both)
 		    case ECMD_ARB_MOVE_FACE:
 			switch (s->s_edit->es_type) {
 			    case ARB4:
-				i = local_arb_faces[0][es_menu * 4];
+				i = local_arb_faces[0][aint->edit_menu * 4];
 				break;
 			    case ARB5:
-				i = local_arb_faces[1][es_menu * 4];
+				i = local_arb_faces[1][aint->edit_menu * 4];
 				break;
 			    case ARB6:
-				i = local_arb_faces[2][es_menu * 4];
+				i = local_arb_faces[2][aint->edit_menu * 4];
 				break;
 			    case ARB7:
-				i = local_arb_faces[3][es_menu * 4];
+				i = local_arb_faces[3][aint->edit_menu * 4];
 				break;
 			    case ARB8:
-				i = local_arb_faces[4][es_menu * 4];
+				i = local_arb_faces[4][aint->edit_menu * 4];
 				break;
 			    default:
 				i = 0;
@@ -723,8 +715,9 @@ set_e_axes_pos(struct mged_state *s, int both)
 			break;
 		}
 	    }
-	    MAT4X3PNT(MEDIT(s)->curr_e_axes_pos, MEDIT(s)->e_mat,
+		MAT4X3PNT(MEDIT(s)->curr_e_axes_pos, MEDIT(s)->e_mat,
 		      ((struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr)->pt[i]);
+	    }
 	    break;
 	case ID_TGC:
 	case ID_REC:
@@ -887,11 +880,11 @@ get_solid_keypoint(struct mged_state *s, fastf_t *pt, const char **strp, struct 
 
 		RT_PIPE_CK_MAGIC(pipeip);
 
-		if (es_pipe_pnt == (struct wdb_pipe_pnt *)NULL) {
+		if (((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt == (struct wdb_pipe_pnt *)NULL) {
 		    pipe_seg = BU_LIST_FIRST(wdb_pipe_pnt, &pipeip->pipe_segs_head);
 		    VMOVE(mpt, pipe_seg->pp_coord);
 		} else {
-		    VMOVE(mpt, es_pipe_pnt->pp_coord);
+		    VMOVE(mpt, ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt->pp_coord);
 		}
 		*strp = "V";
 		break;
@@ -903,11 +896,11 @@ get_solid_keypoint(struct mged_state *s, fastf_t *pt, const char **strp, struct 
 		RT_METABALL_CK_MAGIC(metaball);
 
 		VSETALL(mpt, 0.0);
-		if (es_metaball_pnt==NULL) {
+		if (((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt==NULL) {
 		    snprintf(buf, BUFSIZ, "no point selected");
 		} else {
-		    VMOVE(mpt, es_metaball_pnt->coord);
-		    snprintf(buf, BUFSIZ, "V %f", es_metaball_pnt->fldstr);
+		    VMOVE(mpt, ((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt->coord);
+		    snprintf(buf, BUFSIZ, "V %f", ((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt->fldstr);
 		}
 		*strp = buf;
 		break;
@@ -1203,10 +1196,10 @@ get_solid_keypoint(struct mged_state *s, fastf_t *pt, const char **strp, struct 
 		    (struct rt_ars_internal *)MEDIT(s)->es_int.idb_ptr;
 		RT_ARS_CK_MAGIC(ars);
 
-		if (es_ars_crv < 0 || es_ars_col < 0) {
-		    VMOVE(mpt, es_pt);
+		if (((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_crv < 0 || ((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_col < 0) {
+		    VMOVE(mpt, ((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_pt);
 		} else {
-		    VMOVE(mpt, &ars->curves[es_ars_crv][es_ars_col*3]);
+		    VMOVE(mpt, &ars->curves[((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_crv][((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_col*3]);
 		}
 
 		*strp = "V";
@@ -1348,11 +1341,11 @@ get_solid_keypoint(struct mged_state *s, fastf_t *pt, const char **strp, struct 
 		*strp = "(origin)";
 
 		/* XXX Try to use the first point of the selected edge */
-		if (es_eu != (struct edgeuse *)NULL &&
-		    es_eu->vu_p != (struct vertexuse *)NULL &&
-		    es_eu->vu_p->v_p != (struct vertex *)NULL &&
-		    es_eu->vu_p->v_p->vg_p != (struct vertex_g *)NULL) {
-		    VMOVE(mpt, es_eu->vu_p->v_p->vg_p->coord);
+		if (((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu != (struct edgeuse *)NULL &&
+		    ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu->vu_p != (struct vertexuse *)NULL &&
+		    ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu->vu_p->v_p != (struct vertex *)NULL &&
+		    ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu->vu_p->v_p->vg_p != (struct vertex_g *)NULL) {
+		    VMOVE(mpt, ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu->vu_p->v_p->vg_p->coord);
 		    break;
 		}
 
@@ -1520,7 +1513,6 @@ init_sedit(struct mged_state *s)
     RT_CK_DB_INTERNAL(&MEDIT(s)->es_int);
     id = MEDIT(s)->es_int.idb_type;
 
-    es_menu = 0;
     if (id == ID_ARB8) {
 	struct rt_arb_internal *arb;
 	struct bu_vls error_msg = BU_VLS_INIT_ZERO;
@@ -1531,7 +1523,7 @@ init_sedit(struct mged_state *s)
 	type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
 	s->s_edit->es_type = type;
 
-	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, es_peqn, &s->tol.tol)) {
+	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, ((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->es_peqn, &s->tol.tol)) {
 	    Tcl_AppendResult(s->interp, bu_vls_addr(&error_msg),
 			     "\nCannot calculate plane equations for ARB8\n",
 			     (char *)NULL);
@@ -1576,12 +1568,13 @@ init_sedit(struct mged_state *s)
     MEDIT(s)->e_keytag = "";
     get_solid_keypoint(s, MEDIT(s)->e_keypoint, &MEDIT(s)->e_keytag, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
 
-    es_eu = (struct edgeuse *)NULL;	/* Reset es_eu */
-    es_pipe_pnt = (struct wdb_pipe_pnt *)NULL; /* Reset es_pipe_pnt */
-    es_metaball_pnt = (struct wdb_metaball_pnt *)NULL; /* Reset es_metaball_pnt */
+    /* Per-primitive selection state is reset by ipe_ptr create/destroy in rt_edit_init_ptr */
     lu_copy = (struct loopuse *)NULL;
-    es_ars_crv = (-1);
-    es_ars_col = (-1);
+    /* ARS selection reset: only safe if current prim is ARS */
+    if (MEDIT(s)->ipe_ptr && MEDIT(s)->es_int.idb_type == ID_ARS) {
+	((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_crv = (-1);
+	((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_col = (-1);
+    }
 
     bot_verts[0] = -1;
     bot_verts[1] = -1;
@@ -1718,7 +1711,8 @@ sedit_menu(struct mged_state *s) {
     }
 
     MEDIT(s)->edit_flag = IDLE;	/* Drop out of previous edit mode */
-    es_menu = 0;
+    if (MEDIT(s)->es_int.idb_type == ID_ARB8 && MEDIT(s)->ipe_ptr)
+	((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->edit_menu = 0;
 }
 
 
@@ -1730,10 +1724,11 @@ get_rotation_vertex(struct mged_state *s)
     int vertex = -1;
     struct bu_vls str = BU_VLS_INIT_ZERO;
     struct bu_vls cmd = BU_VLS_INIT_ZERO;
+    struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
 
     type = s->s_edit->es_type - 4;
 
-    loc = es_menu*4;
+    loc = aint->edit_menu*4;
     valid = 0;
 
     bu_vls_printf(&str, "Enter fixed vertex number(");
@@ -2042,7 +2037,7 @@ sedit(struct mged_state *s)
 	arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
 	RT_ARB_CK_MAGIC(arb);
 
-	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, es_peqn, &s->tol.tol) < 0)
+	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, ((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->es_peqn, &s->tol.tol) < 0)
 	    Tcl_AppendResult(s->interp, bu_vls_addr(&error_msg), (char *)0);
 	bu_vls_free(&error_msg);
     }
@@ -2348,7 +2343,7 @@ vls_solid(struct mged_state *s, struct bu_vls *vp, struct rt_db_internal *ip, co
 	    Tcl_AppendResult(s->interp, "vls_solid: describe error\n", (char *)NULL);
     }
 
-    if (id == ID_PIPE && es_pipe_pnt) {
+    if (id == ID_PIPE && ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt) {
 	struct rt_pipe_internal *pipeip;
 	struct wdb_pipe_pnt *ps=(struct wdb_pipe_pnt *)NULL;
 	int seg_no = 0;
@@ -2358,11 +2353,11 @@ vls_solid(struct mged_state *s, struct bu_vls *vp, struct rt_db_internal *ip, co
 
 	for (BU_LIST_FOR(ps, wdb_pipe_pnt, &pipeip->pipe_segs_head)) {
 	    seg_no++;
-	    if (ps == es_pipe_pnt)
+	    if (ps == ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt)
 		break;
 	}
 
-	if (ps == es_pipe_pnt)
+	if (ps == ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt)
 	    rt_vls_pipe_pnt(vp, seg_no, &intern, s->dbip->dbi_base2local);
     }
 
@@ -2377,7 +2372,8 @@ init_oedit_guts(struct mged_state *s)
     const char *strp="";
 
     /* for safety sake */
-    es_menu = 0;
+    if (MEDIT(s)->es_int.idb_type == ID_ARB8 && MEDIT(s)->ipe_ptr)
+	((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->edit_menu = 0;
     MEDIT(s)->edit_flag = -1;
     MAT_IDN(MEDIT(s)->e_mat);
 
@@ -2614,8 +2610,8 @@ oedit_reject(struct mged_state *s)
 
 /*
  * Gets the A, B, C of a planar equation from the command line and puts the
- * result into the array es_peqn[] at the position pointed to by the variable
- * 'es_menu' which is the plane being redefined. This function is only callable
+ * result into the array ((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->es_peqn[] at the position pointed to by the variable
+ * 'aint->edit_menu' which is the plane being redefined. This function is only callable
  * when in solid edit and rotating the face of a GENARB8.
  */
 int
@@ -2659,16 +2655,20 @@ f_eqn(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
     RT_ARB_CK_MAGIC(arb);
 
-    /* get the A, B, C from the command line */
-    for (i=0; i<3; i++)
-	es_peqn[es_menu][i]= atof(argv[i+1]);
-    VUNITIZE(&es_peqn[es_menu][0]);
+    {
+	struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
 
-    VMOVE(tempvec, arb->pt[fixv]);
-    es_peqn[es_menu][W]=VDOT(es_peqn[es_menu], tempvec);
+	/* get the A, B, C from the command line */
+	for (i=0; i<3; i++)
+	    aint->es_peqn[aint->edit_menu][i]= atof(argv[i+1]);
+	VUNITIZE(&aint->es_peqn[aint->edit_menu][0]);
 
-    if (rt_arb_calc_points(arb, s->s_edit->es_type, (const plane_t *)es_peqn, &s->tol.tol))
+	VMOVE(tempvec, arb->pt[fixv]);
+	aint->es_peqn[aint->edit_menu][W]=VDOT(aint->es_peqn[aint->edit_menu], tempvec);
+
+	if (rt_arb_calc_points(arb, s->s_edit->es_type, (const plane_t *)aint->es_peqn, &s->tol.tol))
 	return CMD_BAD;
+    }
 
     /* draw the new version of the solid */
     replot_editing_solid(s);
@@ -2691,9 +2691,16 @@ sedit_apply(struct mged_state *s, int accept_flag)
 {
     struct directory *dp;
 
-    es_eu = (struct edgeuse *)NULL;	/* Reset es_eu */
-    es_pipe_pnt = (struct wdb_pipe_pnt *)NULL; /* Reset es_pipe_pnt */
-    es_metaball_pnt = (struct wdb_metaball_pnt *)NULL; /* Reset es_metaball_pnt */
+    /* Reset per-primitive selection state for the current solid type */
+    if (MEDIT(s)->ipe_ptr) {
+	int idb_type = MEDIT(s)->es_int.idb_type;
+	if (idb_type == ID_NMG)
+	    ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu = (struct edgeuse *)NULL;
+	if (idb_type == ID_PIPE)
+	    ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt = (struct wdb_pipe_pnt *)NULL;
+	if (idb_type == ID_METABALL)
+	    ((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt = (struct wdb_metaball_pnt *)NULL;
+    }
     bot_verts[0] = -1;
     bot_verts[1] = -1;
     bot_verts[2] = -1;
@@ -2814,14 +2821,23 @@ sedit_reject(struct mged_state *s)
     if (sedraw > 0)
 	sedit(s);
 
-    es_eu = (struct edgeuse *)NULL;	/* Reset es_eu */
-    es_pipe_pnt = (struct wdb_pipe_pnt *)NULL; /* Reset es_pipe_pnt */
-    es_metaball_pnt = (struct wdb_metaball_pnt *)NULL; /* Reset es_metaball_pnt */
+    /* Reset per-primitive selection state for the current solid type */
+    if (MEDIT(s)->ipe_ptr) {
+	int idb_type = MEDIT(s)->es_int.idb_type;
+	if (idb_type == ID_NMG)
+	    ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu = (struct edgeuse *)NULL;
+	if (idb_type == ID_PIPE)
+	    ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt = (struct wdb_pipe_pnt *)NULL;
+	if (idb_type == ID_METABALL)
+	    ((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt = (struct wdb_metaball_pnt *)NULL;
+	if (idb_type == ID_ARS) {
+	    ((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_crv = (-1);
+	    ((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_col = (-1);
+	}
+    }
     bot_verts[0] = -1;
     bot_verts[1] = -1;
     bot_verts[2] = -1;
-    es_ars_crv = (-1);
-    es_ars_col = (-1);
 
     if (lu_copy) {
 	struct model *m;
@@ -3443,10 +3459,10 @@ label_edited_solid(
 
 		MAT4X3PNT(pos_view, xform, ars->curves[0]);
 
-		if (es_ars_crv >= 0 && es_ars_col >= 0) {
+		if (((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_crv >= 0 && ((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_col >= 0) {
 		    point_t ars_pt;
 
-		    VMOVE(work, &ars->curves[es_ars_crv][es_ars_col*3]);
+		    VMOVE(work, &ars->curves[((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_crv][((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->es_ars_col*3]);
 		    MAT4X3PNT(ars_pt, xform, work);
 		    POINT_LABEL_STR(ars_pt, "pt");
 		}
@@ -3491,12 +3507,12 @@ label_edited_solid(
 		NMG_CK_MODEL(m);
 #endif
 
-		if (es_eu) {
+		if (((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu) {
 		    point_t cent;
-		    NMG_CK_EDGEUSE(es_eu);
+		    NMG_CK_EDGEUSE(((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu);
 		    VADD2SCALE(cent,
-			       es_eu->vu_p->v_p->vg_p->coord,
-			       es_eu->eumate_p->vu_p->v_p->vg_p->coord,
+			       ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu->vu_p->v_p->vg_p->coord,
+			       ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu->eumate_p->vu_p->v_p->vg_p->coord,
 			       0.5);
 		    MAT4X3PNT(pos_view, xform, cent);
 		    POINT_LABEL_STR(pos_view, " eu");
@@ -3512,10 +3528,10 @@ label_edited_solid(
 		RT_PIPE_CK_MAGIC(pipeip);
 #endif
 
-		if (es_pipe_pnt) {
-		    BU_CKMAG(es_pipe_pnt, WDB_PIPESEG_MAGIC, "wdb_pipe_pnt");
+		if (((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt) {
+		    BU_CKMAG(((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt, WDB_PIPESEG_MAGIC, "wdb_pipe_pnt");
 
-		    MAT4X3PNT(pos_view, xform, es_pipe_pnt->pp_coord);
+		    MAT4X3PNT(pos_view, xform, ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt->pp_coord);
 		    POINT_LABEL_STR(pos_view, "pt");
 		}
 	    }
@@ -3592,10 +3608,10 @@ label_edited_solid(
 		RT_METABALL_CK_MAGIC(metaball);
 #endif
 
-		if (es_metaball_pnt) {
-		    BU_CKMAG(es_metaball_pnt, WDB_METABALLPT_MAGIC, "wdb_metaball_pnt");
+		if (((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt) {
+		    BU_CKMAG(((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt, WDB_METABALLPT_MAGIC, "wdb_metaball_pnt");
 
-		    MAT4X3PNT(pos_view, xform, es_metaball_pnt->coord);
+		    MAT4X3PNT(pos_view, xform, ((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt->coord);
 		    POINT_LABEL_STR(pos_view, "pt");
 		}
 	    }
@@ -3969,7 +3985,7 @@ f_put_sedit(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
 	RT_ARB_CK_MAGIC(arb);
 
-	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, es_peqn, &s->tol.tol) < 0)
+	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, ((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->es_peqn, &s->tol.tol) < 0)
 	    Tcl_AppendResult(interp, bu_vls_addr(&error_msg), (char *)0);
 	bu_vls_free(&error_msg);
     }
@@ -4005,11 +4021,18 @@ f_sedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
     /* free old copy */
     rt_db_free_internal(&MEDIT(s)->es_int);
 
-    /* reset */
-    es_pipe_pnt = (struct wdb_pipe_pnt *)NULL;
-    es_metaball_pnt = (struct wdb_metaball_pnt *)NULL;
-    es_s = (struct shell *)NULL;
-    es_eu = (struct edgeuse *)NULL;
+    /* reset per-primitive selection state */
+    if (MEDIT(s)->ipe_ptr) {
+	int idb_type = MEDIT(s)->es_int.idb_type;
+	if (idb_type == ID_PIPE)
+	    ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt = (struct wdb_pipe_pnt *)NULL;
+	if (idb_type == ID_METABALL)
+	    ((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt = (struct wdb_metaball_pnt *)NULL;
+	if (idb_type == ID_NMG) {
+	    ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_s = (struct shell *)NULL;
+	    ((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu = (struct edgeuse *)NULL;
+	}
+    }
 
     /* read in a fresh copy */
     if (!illump || !illump->s_u_data)

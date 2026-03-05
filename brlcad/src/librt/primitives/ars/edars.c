@@ -30,6 +30,7 @@
 #include "nmg.h"
 #include "raytrace.h"
 #include "rt/geom.h"
+#include "rt/primitives/ars.h"
 #include "wdb.h"
 
 #include "../edit_private.h"
@@ -66,11 +67,7 @@
  */
 #define ECMD_ARS_INSERT_CRV	5050
 
-struct rt_ars_edit {
-    int es_ars_crv;	/* curve and column identifying selected ARS point */
-    int es_ars_col;
-    point_t es_pt;	/* coordinates of selected ARS point */
-};
+/* rt_ars_edit is defined in rt/primitives/ars.h */
 
 
 void *

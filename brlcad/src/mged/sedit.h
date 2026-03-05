@@ -261,18 +261,12 @@
 		     MEDIT(s)->edit_flag == ECMD_METABALL_PT_PICK))
 
 
-extern fastf_t es_peqn[7][4];	/* ARBs defining plane equations */
-extern int es_menu;		/* item/edit_mode selected from menu */
 
 // NMG editing vars
-extern struct edgeuse *es_eu;
 extern struct loopuse *lu_copy;
 extern point_t lu_keypoint;
 extern plane_t lu_pl;
-extern struct shell *es_s;
 
-extern struct wdb_pipe_pnt *es_pipe_pnt;
-extern struct wdb_metaball_pnt *es_metaball_pnt;
 
 extern mat_t es_mat;		/* accumulated matrix of path */
 extern mat_t es_invmat;		/* inverse of es_mat KAA */

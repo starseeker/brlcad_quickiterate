@@ -29,6 +29,7 @@
 #include "vmath.h"
 #include "nmg.h"
 #include "raytrace.h"
+#include "rt/primitives/metaball.h"
 #include "rt/geom.h"
 #include "wdb.h"
 
@@ -47,9 +48,7 @@
 #define ECMD_METABALL_SET_METHOD	36084	/* set the rendering method */
 #define ECMD_METABALL_SET_THRESHOLD	36083	/* overall metaball threshold value */
 
-struct rt_metaball_edit {
-    struct wdb_metaball_pnt *es_metaball_pnt; /* Currently selected METABALL Point */
-};
+/* rt_metaball_edit is defined in rt/primitives/metaball.h */
 
 void *
 rt_edit_metaball_prim_edit_create(struct rt_edit *UNUSED(s))

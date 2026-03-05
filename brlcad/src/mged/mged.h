@@ -430,10 +430,8 @@ void freeDListsAll(void *, unsigned int dlist, int range);
 
 /* edarb.c */
 int editarb(struct mged_state *s, vect_t pos_model);
-extern int newedge;	/* new edge for arb editing */
 
 /* edars.c */
-void find_ars_nearest_pnt(int *crv, int *col, struct rt_ars_internal *ars, point_t pick_pt, vect_t dir);
 
 /* f_db.c */
 struct mged_opendb_ctx {
@@ -556,7 +554,6 @@ void pipe_seg_scale_od(struct mged_state *s, struct wdb_pipe_pnt *, fastf_t);
 void pipe_seg_scale_id(struct mged_state *s, struct wdb_pipe_pnt *, fastf_t);
 void pipe_seg_scale_radius(struct mged_state *s, struct wdb_pipe_pnt *, fastf_t);
 void pipe_scale_radius(struct mged_state *s, struct rt_db_internal *, fastf_t);
-struct wdb_pipe_pnt *find_pipe_pnt_nearest_pnt(struct mged_state *s, const struct bu_list *, const point_t);
 struct wdb_pipe_pnt *pipe_add_pnt(struct rt_pipe_internal *, struct wdb_pipe_pnt *, const point_t);
 void pipe_ins_pnt(struct rt_pipe_internal *, struct wdb_pipe_pnt *, const point_t);
 struct wdb_pipe_pnt *pipe_del_pnt(struct mged_state *s, struct wdb_pipe_pnt *);
