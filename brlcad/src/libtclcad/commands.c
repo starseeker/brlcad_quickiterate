@@ -4521,6 +4521,7 @@ to_new_view(struct ged *gedp,
 
     bu_vls_sprintf(&new_gdvp->gv_name, "%s", argv[name_index]);
     bsg_view_init(new_gdvp, &current_top->to_gedp->ged_views);
+    bsg_scene_root_create(new_gdvp);
     new_gdvp->callbacks = callbacks;
     bsg_scene_add_view(&current_top->to_gedp->ged_views, new_gdvp);
     if (new_gdvp != gedp->ged_gvp)

@@ -202,6 +202,7 @@ main(int ac, char *av[]) {
 	    gedp->ged_gvp = views[i];
 	bsg_view *v = views[i];
 	bsg_view_init(v, &gedp->ged_views);
+	bsg_scene_root_create(v);
 	bu_vls_sprintf(&v->gv_name, "V%zd", i);
 	bsg_scene_add_view(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
