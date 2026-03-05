@@ -37,6 +37,12 @@ RT_EXPORT extern void rt_ell_16pnts(fastf_t *ov,
 				   fastf_t *B);
 /** @} */
 
+/* ELL solid edit command codes */
+#define ECMD_ELL_SCALE_A	3039	/**< scale ELL semiaxis A */
+#define ECMD_ELL_SCALE_B	3040	/**< scale ELL semiaxis B */
+#define ECMD_ELL_SCALE_C	3041	/**< scale ELL semiaxis C */
+#define ECMD_ELL_SCALE_ABC	3042	/**< scale ELL A,B,C uniformly */
+
 __END_DECLS
 
 #endif /* RT_PRIMITIVES_ELL_H */

@@ -32,14 +32,9 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/vol.h"
 
 #include "../edit_private.h"
-
-#define ECMD_VOL_CSIZE		13048	/* set voxel size */
-#define ECMD_VOL_FSIZE		13049	/* set VOL file dimensions */
-#define ECMD_VOL_THRESH_LO	13050	/* set VOL threshold (lo) */
-#define ECMD_VOL_THRESH_HI	13051	/* set VOL threshold (hi) */
-#define ECMD_VOL_FNAME		13052	/* set VOL file name */
 
 void
 rt_edit_vol_set_edit_mode(struct rt_edit *s, int mode)

@@ -31,12 +31,10 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/epa.h"
 
 #include "../edit_private.h"
 
-#define ECMD_EPA_H		19050
-#define ECMD_EPA_R1		19051
-#define ECMD_EPA_R2		19052
 
 void
 rt_edit_epa_set_edit_mode(struct rt_edit *s, int mode)

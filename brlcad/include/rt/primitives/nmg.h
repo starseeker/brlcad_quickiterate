@@ -51,6 +51,22 @@ rt_nmg_do_bool(
 	union tree *tp, union tree *tl, union tree *tr,
 	int op, struct bu_list *vlfree, const struct bn_tol *tol, void *data);
 
+/* NMG solid edit command codes */
+#define ECMD_NMG_EPICK		11019	/**< edge pick */
+#define ECMD_NMG_EMOVE		11020	/**< edge move */
+#define ECMD_NMG_EDEBUG		11021	/**< edge debug */
+#define ECMD_NMG_FORW		11022	/**< next eu */
+#define ECMD_NMG_BACK		11023	/**< prev eu */
+#define ECMD_NMG_RADIAL		11024	/**< radial+mate eu */
+#define ECMD_NMG_ESPLIT		11025	/**< split current edge */
+#define ECMD_NMG_EKILL		11026	/**< kill current edge */
+#define ECMD_NMG_LEXTRU		11027	/**< extrude loop */
+#define ECMD_NMG_VPICK		11028	/**< vertex pick */
+#define ECMD_NMG_VMOVE		11029	/**< vertex move */
+#define ECMD_NMG_FPICK		11030	/**< face pick */
+#define ECMD_NMG_FMOVE		11031	/**< face move */
+#define ECMD_NMG_LEXTRU_DIR	11032	/**< set extrude loop direction */
+
 /** @} */
 
 __END_DECLS

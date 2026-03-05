@@ -31,13 +31,10 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/rhc.h"
 
 #include "../edit_private.h"
 
-#define ECMD_RHC_B		18046
-#define ECMD_RHC_H		18047
-#define ECMD_RHC_R		18048
-#define ECMD_RHC_C		18049
 
 void
 rt_edit_rhc_set_edit_mode(struct rt_edit *s, int mode)

@@ -30,11 +30,18 @@
 
 __BEGIN_DECLS
 
+struct rt_pnt_node; /* forward declaration - defined in rt/private.h */
+
 RT_EXPORT extern int rt_mk_parabola(struct rt_pnt_node *pts,
 				    fastf_t r,
 				    fastf_t b,
 				    fastf_t dtol,
 				    fastf_t ntol);
+
+/* RPC solid edit command codes */
+#define ECMD_RPC_B		17043	/**< scale RPC breadth B */
+#define ECMD_RPC_H		17044	/**< scale RPC height H */
+#define ECMD_RPC_R		17045	/**< scale RPC half-width r */
 
 __END_DECLS
 

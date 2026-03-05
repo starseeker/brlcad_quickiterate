@@ -32,27 +32,9 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/dsp.h"
 
 #include "../edit_private.h"
-
-#define ECMD_DSP_FNAME		25056	/* set DSP file name */
-#define ECMD_DSP_FSIZE		25057	/* set DSP file size */
-#define ECMD_DSP_SCALE_X        25058	/* Scale DSP x size */
-#define ECMD_DSP_SCALE_Y        25059	/* Scale DSP y size */
-#define ECMD_DSP_SCALE_ALT      25060	/* Scale DSP Altitude size */
-/*
- * Toggle the dsp_smooth flag.
- * e_para[0] = 0 to disable, non-zero to enable; e_inpara = 1.
- * (If e_inpara == 0 the current value is toggled.)
- */
-#define ECMD_DSP_SET_SMOOTH     25061
-/*
- * Switch data source type.
- * e_para[0] = 0 or RT_DSP_SRC_FILE ('f') for file data,
- *             1 or RT_DSP_SRC_OBJ  ('o') for in-database object data.
- * e_inpara = 1.
- */
-#define ECMD_DSP_SET_DATASRC    25062
 
 void
 rt_edit_dsp_set_edit_mode(struct rt_edit *s, int mode)

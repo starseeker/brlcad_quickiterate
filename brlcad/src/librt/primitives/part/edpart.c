@@ -31,12 +31,10 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/part.h"
 
 #include "../edit_private.h"
 
-#define ECMD_PART_H		16088
-#define ECMD_PART_VRAD		16089
-#define ECMD_PART_HRAD		16090
 
 void
 rt_edit_part_set_edit_mode(struct rt_edit *s, int mode)

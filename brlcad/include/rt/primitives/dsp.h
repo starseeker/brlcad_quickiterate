@@ -36,6 +36,15 @@ RT_EXPORT extern int dsp_pos(point_t out,
 			     point_t p);
 
 
+/* DSP solid edit command codes */
+#define ECMD_DSP_FNAME		25056	/**< set DSP file name */
+#define ECMD_DSP_FSIZE		25057	/**< set DSP file size */
+#define ECMD_DSP_SCALE_X	25058	/**< scale DSP x size */
+#define ECMD_DSP_SCALE_Y	25059	/**< scale DSP y size */
+#define ECMD_DSP_SCALE_ALT	25060	/**< scale DSP altitude size */
+#define ECMD_DSP_SET_SMOOTH	25061	/**< set DSP smooth flag */
+#define ECMD_DSP_SET_DATASRC	25062	/**< set DSP data source */
+
 __END_DECLS
 
 #endif /* RT_PRIMITIVES_DSP_H */

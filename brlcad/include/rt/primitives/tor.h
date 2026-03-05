@@ -32,6 +32,10 @@ __BEGIN_DECLS
 RT_EXPORT extern int rt_num_circular_segments(double maxerr,
 					      double radius);
 
+/* TOR solid edit command codes */
+#define ECMD_TOR_R1		1021	/**< set/scale TOR radius 1 */
+#define ECMD_TOR_R2		1022	/**< set/scale TOR radius 2 */
+
 __END_DECLS
 
 /** @} */

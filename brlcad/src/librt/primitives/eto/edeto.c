@@ -31,13 +31,10 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/eto.h"
 
 #include "../edit_private.h"
 
-#define ECMD_ETO_ROT_C		21016
-#define ECMD_ETO_R		21057
-#define ECMD_ETO_RD		21058
-#define ECMD_ETO_SCALE_C	21059
 
 void
 rt_edit_eto_set_edit_mode(struct rt_edit *s, int mode)

@@ -31,16 +31,9 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/hyp.h"
 
 #include "../edit_private.h"
-
-#define ECMD_HYP_ROT_H		38091
-#define ECMD_HYP_ROT_A		38092
-
-#define ECMD_HYP_H              38127
-#define ECMD_HYP_SCALE_A        38128
-#define ECMD_HYP_SCALE_B	38129
-#define ECMD_HYP_C		38130
 
 void
 rt_edit_hyp_set_edit_mode(struct rt_edit *s, int mode)

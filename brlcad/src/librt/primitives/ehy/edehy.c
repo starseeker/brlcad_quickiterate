@@ -31,13 +31,10 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/ehy.h"
 
 #include "../edit_private.h"
 
-#define ECMD_EHY_H		20053
-#define ECMD_EHY_R1		20054
-#define ECMD_EHY_R2		20055
-#define ECMD_EHY_C		20056
 
 void
 rt_edit_ehy_set_edit_mode(struct rt_edit *s, int mode)

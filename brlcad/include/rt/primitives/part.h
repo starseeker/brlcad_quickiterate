@@ -1,7 +1,7 @@
-/*                        E P A . H
+/*                        P A R T . H
  * BRL-CAD
  *
- * Copyright (c) 1993-2025 United States Government as represented by
+ * Copyright (c) 2025 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -17,35 +17,28 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @addtogroup rt_epa */
+/** @addtogroup rt_part */
 /** @{ */
-/** @file rt/primitives/epa.h */
+/** @file rt/primitives/part.h */
 
-#ifndef RT_PRIMITIVES_EPA_H
-#define RT_PRIMITIVES_EPA_H
+#ifndef RT_PRIMITIVES_PART_H
+#define RT_PRIMITIVES_PART_H
 
 #include "common.h"
-#include "vmath.h"
 #include "rt/defines.h"
 
 __BEGIN_DECLS
 
-RT_EXPORT extern void rt_ell(fastf_t *ov,
-			     const fastf_t *V,
-			     const fastf_t *A,
-			     const fastf_t *B,
-			     int sides);
-
-/* EPA solid edit command codes */
-#define ECMD_EPA_H		19050	/**< scale EPA height H */
-#define ECMD_EPA_R1		19051	/**< scale EPA semi-major axis r1 */
-#define ECMD_EPA_R2		19052	/**< scale EPA semi-minor axis r2 */
-
-/** @} */
+/* PART solid edit command codes */
+#define ECMD_PART_H		16088	/**< scale PART height */
+#define ECMD_PART_VRAD		16089	/**< scale PART vertex radius */
+#define ECMD_PART_HRAD		16090	/**< scale PART height-end radius */
 
 __END_DECLS
 
-#endif /* RT_PRIMITIVES_EPA_H */
+/** @} */
+
+#endif /* RT_PRIMITIVES_PART_H */
 
 /*
  * Local Variables:

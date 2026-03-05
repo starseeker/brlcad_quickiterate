@@ -31,13 +31,10 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/superell.h"
 
 #include "../edit_private.h"
 
-#define ECMD_SUPERELL_SCALE_A	35113
-#define ECMD_SUPERELL_SCALE_B	35114
-#define ECMD_SUPERELL_SCALE_C	35115
-#define ECMD_SUPERELL_SCALE_ABC	35116
 
 void
 rt_edit_superell_set_edit_mode(struct rt_edit *s, int mode)

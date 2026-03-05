@@ -31,26 +31,10 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/tgc.h"
 
 #include "../edit_private.h"
 
-#define ECMD_TGC_MV_H		2005
-#define ECMD_TGC_MV_HH		2006
-#define ECMD_TGC_MV_H_CD	2081 /* move end of tgc, while scaling CD */
-#define ECMD_TGC_MV_H_V_AB	2082 /* move vertex end of tgc, while scaling AB */
-#define ECMD_TGC_ROT_AB		2008
-#define ECMD_TGC_ROT_H		2007
-#define ECMD_TGC_SCALE_A	2029
-#define ECMD_TGC_SCALE_AB	2033
-#define ECMD_TGC_SCALE_ABCD	2035
-#define ECMD_TGC_SCALE_B	2030
-#define ECMD_TGC_SCALE_C	2031
-#define ECMD_TGC_SCALE_CD	2034
-#define ECMD_TGC_SCALE_D	2032
-#define ECMD_TGC_SCALE_H	2027
-#define ECMD_TGC_SCALE_H_CD	2111
-#define ECMD_TGC_SCALE_H_V	2028
-#define ECMD_TGC_SCALE_H_V_AB	2112
 
 void
 rt_edit_tgc_set_edit_mode(struct rt_edit *s, int mode)
