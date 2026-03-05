@@ -11,6 +11,7 @@ set(
   polygon.c
   polygon_op.cpp
   polygon_fill.cpp
+  scene_graph.cpp
   snap.c
   tig/axis.c
   tig/list.c
