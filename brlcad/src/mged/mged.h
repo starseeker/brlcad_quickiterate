@@ -118,38 +118,7 @@ struct cmdtab {
     struct mged_state *s;
 };
 
-/* Menu structures and defines
- *
- * Each active menu is installed by having a non-null entry in
- * menu_array[] which is a pointer
- * to an array of menu items.  The first ([0]) menu item is the title
- * for the menu, and the remaining items are individual menu entries.
- */
-struct menu_item {
-    char *menu_string;
-    void (*menu_func)(struct mged_state *, int, int, int);
-    int menu_arg;
-};
-
-#define NMENU 3
-#define MENU_L1 0 /* top-level solid-edit menu */
-#define MENU_L2 1 /* second-level menu */
-#define MENU_GEN 2 /* general features (mouse buttons) */
-
-#define MENUXLIM        (-1250)         /* Value to set X lim to for menu */
-#define MENUX           (-2048+115)     /* pixel position for menu, X */
-#define MENUY           1780            /* pixel position for menu, Y */
-#define SCROLLY         (2047)          /* starting Y pos for scroll area */
-#define MENU_DY         (-104)          /* Distance between menu items */
-#define SCROLL_DY       (-100)          /* Distance between scrollers */
-
-#define TITLE_XBASE     (-2048)         /* pixel X of title line start pos */
-#define TITLE_YBASE     (-1920)         /* pixel pos of last title line */
-#define SOLID_XBASE     MENUXLIM        /* X to start display text */
-#define SOLID_YBASE     (1920)          /* pixel pos of first solid line */
-#define TEXT0_DY        (-60)           /* #pixels per line, Size 0 */
-#define TEXT1_DY        (-90)           /* #pixels per line, Size 1 */
-
+#include "./menu.h"
 #include "./mged_dm.h" /* _view_state */
 
 struct mged_edit_state {
@@ -425,10 +394,6 @@ void mged_slider_free_vls(struct mged_dm *p);
 int gui_setup(struct mged_state *s, const char *dstr);
 
 
-/* buttons.c */
-void btn_head_menu(struct mged_state *s, int i, int menu, int item);
-void chg_l2menu(struct mged_state *s, int i);
-
 /* chgview.c */
 int mged_svbase(struct mged_state *s);
 void size_reset(struct mged_state *s);
@@ -439,7 +404,11 @@ extern void view_ring_destroy(struct mged_dm *dlp);
 
 /* cmd.c */
 int cmdline(struct mged_state *s, struct bu_vls *vp, int record);
-void mged_print_result(struct mged_state *s, int status);
+int mged_print_result(int, const char **, void *, void *);
+int mged_print_str(int, const char **, void *, void *);
+int mged_view_update(int, const char **, void *, void *);
+int mged_view_set_flag(int, const char **, void *, void *);
+int mged_get_filename(int, const char **, void *, void *);
 int gui_output(void *clientData, void *str);
 void mged_pr_output(Tcl_Interp *interp);
 

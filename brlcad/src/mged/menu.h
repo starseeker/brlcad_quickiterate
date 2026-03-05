@@ -24,9 +24,41 @@
 #define MGED_MENU_H
 
 #include "common.h"
-#include "mged.h"
+#include "rt/edit.h"
 
-/* These values end up in es_menu, as do ARB vertex numbers */
+__BEGIN_DECLS
+
+/* Menu structures and defines
+ *
+ * Each active menu is installed by having a non-null entry in
+ * menu_array[] which is a pointer to an array of menu items.  The
+ * first ([0]) menu item is the title for the menu, and the remaining
+ * items are individual menu entries.
+ */
+
+#define NMENU 3
+#define MENU_L1 0 /* top-level solid-edit menu */
+#define MENU_L2 1 /* second-level menu */
+#define MENU_GEN 2 /* general features (mouse buttons) */
+
+#define MENUXLIM        (-1250)         /* Value to set X lim to for menu */
+#define MENUX           (-2048+115)     /* pixel position for menu, X */
+#define MENUY           1780            /* pixel position for menu, Y */
+#define SCROLLY         (2047)          /* starting Y pos for scroll area */
+#define MENU_DY         (-104)          /* Distance between menu items */
+#define SCROLL_DY       (-100)          /* Distance between scrollers */
+
+#define TITLE_XBASE     (-2048)         /* pixel X of title line start pos */
+#define TITLE_YBASE     (-1920)         /* pixel pos of last title line */
+#define SOLID_XBASE     MENUXLIM        /* X to start display text */
+#define SOLID_YBASE     (1920)          /* pixel pos of first solid line */
+#define TEXT0_DY        (-60)           /* #pixels per line, Size 0 */
+#define TEXT1_DY        (-90)           /* #pixels per line, Size 1 */
+
+/* Legacy menu argument values - used in es_menu to identify
+ * which pscale operation to perform.  These correspond to the
+ * menu_arg fields of the primitive-specific menu items and will
+ * be eliminated when pscale() is refactored into librt. */
 #define MENU_TOR_R1		21
 #define MENU_TOR_R2		22
 #define MENU_TGC_ROT_H		23
@@ -139,56 +171,25 @@
 #define MENU_HYP_C		130
 #define MENU_HYP_ROT_H		131
 
-extern struct menu_item ars_menu[];
-extern struct menu_item ars_pick_menu[];
-extern struct menu_item bot_menu[];
-extern struct menu_item cline_menu[];
-extern struct menu_item cntrl_menu[];
-extern struct menu_item dsp_menu[];
-extern struct menu_item ebm_menu[];
-extern struct menu_item ehy_menu[];
-extern struct menu_item ell_menu[];
-extern struct menu_item epa_menu[];
-extern struct menu_item eto_menu[];
-extern struct menu_item extr_menu[];
-extern struct menu_item hyp_menu[];
-extern struct menu_item metaball_menu[];
-extern struct menu_item nmg_menu[];
-extern struct menu_item part_menu[];
-extern struct menu_item pipe_menu[];
-extern struct menu_item rhc_menu[];
-extern struct menu_item rpc_menu[];
-extern struct menu_item spline_menu[];
-extern struct menu_item superell_menu[];
-extern struct menu_item tgc_menu[];
-extern struct menu_item tor_menu[];
-extern struct menu_item vol_menu[];
+/* Forward declare mged_state to avoid circular includes */
+struct mged_state;
 
-extern struct menu_item point4_menu[];
-extern struct menu_item edge5_menu[];
-extern struct menu_item edge6_menu[];
-extern struct menu_item edge7_menu[];
-extern struct menu_item edge8_menu[];
-extern struct menu_item mv4_menu[];
-extern struct menu_item mv5_menu[];
-extern struct menu_item mv6_menu[];
-extern struct menu_item mv7_menu[];
-extern struct menu_item mv8_menu[];
-extern struct menu_item rot4_menu[];
-extern struct menu_item rot5_menu[];
-extern struct menu_item rot6_menu[];
-extern struct menu_item rot7_menu[];
-extern struct menu_item rot8_menu[];
-extern struct menu_item *which_menu[];
+extern struct rt_edit_menu_item sed_menu[];
+extern struct rt_edit_menu_item oed_menu[];
+
+void btn_head_menu(struct rt_edit *s, int i, int menu, int item, void *data);
+void chg_l2menu(struct mged_state *s, int i);
 
 extern void mmenu_init(struct mged_state *s);
 extern void mmenu_display(struct mged_state *s, int y_top);
-extern void mmenu_set(struct mged_state *s, int idx, struct menu_item *value);
-extern void mmenu_set_all(struct mged_state *s, int idx, struct menu_item *value);
+extern void mmenu_set(struct mged_state *s, int idx, struct rt_edit_menu_item *value);
+extern void mmenu_set_all(struct mged_state *s, int idx, struct rt_edit_menu_item *value);
 extern void sedit_menu(struct mged_state *s);
 extern int mmenu_select(struct mged_state *s, int pen_y, int do_func);
 
-#endif  /* MGED_MGED_H */
+__END_DECLS
+
+#endif  /* MGED_MENU_H */
 
 /*
  * Local Variables:
