@@ -2681,8 +2681,10 @@ mged_escale(struct mged_state *s, fastf_t sfactor)
 
     if (s->global_editing_state == ST_S_EDIT) {
 	int save_edflag;
+	int save_editmode = -1;
 
 	save_edflag = MEDIT(s)->edit_flag;
+	save_editmode = MEDIT(s)->edit_mode;
 
 	if (!SEDIT_SCALE) {
 	    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
@@ -2695,6 +2697,7 @@ mged_escale(struct mged_state *s, fastf_t sfactor)
 	if (MEDIT(s)->acc_sc_sol < MGED_SMALL_SCALE) {
 	    MEDIT(s)->acc_sc_sol = old_scale;
 	    MEDIT(s)->edit_flag = save_edflag;
+	    MEDIT(s)->edit_mode = save_editmode;
 	    return TCL_OK;
 	}
 
@@ -2707,6 +2710,7 @@ mged_escale(struct mged_state *s, fastf_t sfactor)
 	sedit(s);
 
 	MEDIT(s)->edit_flag = save_edflag;
+	MEDIT(s)->edit_mode = save_editmode;
     } else {
 	point_t temp;
 	point_t pos_model;

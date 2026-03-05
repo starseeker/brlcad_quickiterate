@@ -986,6 +986,7 @@ event_check(struct mged_state *s, int non_blocking)
 {
     struct mged_dm *save_dm_list;
     int save_edflag;
+    int save_editmode = -1;
 
     /* Let cool Tk event handler do most of the work */
 
@@ -1026,6 +1027,7 @@ event_check(struct mged_state *s, int non_blocking)
 
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
+	    save_editmode = MEDIT(s)->edit_mode;
 	    if (!SEDIT_ROTATE)
 		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 	} else {
@@ -1045,9 +1047,10 @@ event_check(struct mged_state *s, int non_blocking)
 
 	mged_variables->mv_coords = save_coords;
 
-	if (s->global_editing_state == ST_S_EDIT)
+	if (s->global_editing_state == ST_S_EDIT) {
 	    MEDIT(s)->edit_flag = save_edflag;
-	else
+	    MEDIT(s)->edit_mode = save_editmode;
+	} else
 	    edobj = save_edflag;
     }
     if (MEDIT(s)->k.rot_o_flag) {
@@ -1060,6 +1063,7 @@ event_check(struct mged_state *s, int non_blocking)
 
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
+	    save_editmode = MEDIT(s)->edit_mode;
 	    if (!SEDIT_ROTATE)
 		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 	} else {
@@ -1079,9 +1083,10 @@ event_check(struct mged_state *s, int non_blocking)
 
 	mged_variables->mv_coords = save_coords;
 
-	if (s->global_editing_state == ST_S_EDIT)
+	if (s->global_editing_state == ST_S_EDIT) {
 	    MEDIT(s)->edit_flag = save_edflag;
-	else
+	    MEDIT(s)->edit_mode = save_editmode;
+	} else
 	    edobj = save_edflag;
     }
     if (MEDIT(s)->k.rot_v_flag) {
@@ -1094,6 +1099,7 @@ event_check(struct mged_state *s, int non_blocking)
 
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
+	    save_editmode = MEDIT(s)->edit_mode;
 	    if (!SEDIT_ROTATE)
 		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 	} else {
@@ -1113,9 +1119,10 @@ event_check(struct mged_state *s, int non_blocking)
 
 	mged_variables->mv_coords = save_coords;
 
-	if (s->global_editing_state == ST_S_EDIT)
+	if (s->global_editing_state == ST_S_EDIT) {
 	    MEDIT(s)->edit_flag = save_edflag;
-	else
+	    MEDIT(s)->edit_mode = save_editmode;
+	} else
 	    edobj = save_edflag;
     }
     if (MEDIT(s)->k.tra_m_flag) {
@@ -1128,6 +1135,7 @@ event_check(struct mged_state *s, int non_blocking)
 
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
+	    save_editmode = MEDIT(s)->edit_mode;
 	    if (!SEDIT_TRAN)
 		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 	} else {
@@ -1146,9 +1154,10 @@ event_check(struct mged_state *s, int non_blocking)
 
 	mged_variables->mv_coords = save_coords;
 
-	if (s->global_editing_state == ST_S_EDIT)
+	if (s->global_editing_state == ST_S_EDIT) {
 	    MEDIT(s)->edit_flag = save_edflag;
-	else
+	    MEDIT(s)->edit_mode = save_editmode;
+	} else
 	    edobj = save_edflag;
     }
     if (MEDIT(s)->k.tra_v_flag) {
@@ -1161,6 +1170,7 @@ event_check(struct mged_state *s, int non_blocking)
 
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
+	    save_editmode = MEDIT(s)->edit_mode;
 	    if (!SEDIT_TRAN)
 		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 	} else {
@@ -1179,9 +1189,10 @@ event_check(struct mged_state *s, int non_blocking)
 
 	mged_variables->mv_coords = save_coords;
 
-	if (s->global_editing_state == ST_S_EDIT)
+	if (s->global_editing_state == ST_S_EDIT) {
 	    MEDIT(s)->edit_flag = save_edflag;
-	else
+	    MEDIT(s)->edit_mode = save_editmode;
+	} else
 	    edobj = save_edflag;
     }
     if (MEDIT(s)->k.sca_flag) {
@@ -1189,6 +1200,7 @@ event_check(struct mged_state *s, int non_blocking)
 
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
+	    save_editmode = MEDIT(s)->edit_mode;
 	    if (!SEDIT_SCALE)
 		rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
 	} else {
@@ -1203,9 +1215,10 @@ event_check(struct mged_state *s, int non_blocking)
 	Tcl_Eval(s->interp, bu_vls_addr(&vls));
 	bu_vls_free(&vls);
 
-	if (s->global_editing_state == ST_S_EDIT)
+	if (s->global_editing_state == ST_S_EDIT) {
 	    MEDIT(s)->edit_flag = save_edflag;
-	else
+	    MEDIT(s)->edit_mode = save_editmode;
+	} else
 	    edobj = save_edflag;
     }
 
