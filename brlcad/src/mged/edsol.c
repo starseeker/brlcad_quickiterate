@@ -1825,17 +1825,18 @@ void
 sedit(struct mged_state *s)
 {
     struct rt_arb_internal *arb;
-    static vect_t work;
-    mat_t mat;
-    mat_t mat1;
-    mat_t edit;
-    point_t rot_point;
 
     if (s->dbip == DBI_NULL)
 	return;
 
     sedraw = 0;
     ++s->update_views;
+
+    /* Sync MGED-specific state into rt_edit before any processing */
+    MEDIT(s)->mv_context = mged_variables->mv_context;
+    MEDIT(s)->local2base = s->dbip->dbi_local2base;
+    MEDIT(s)->base2local = s->dbip->dbi_base2local;
+    MEDIT(s)->vp = view_state->vs_gvp;
 
     switch (MEDIT(s)->edit_flag) {
 
@@ -2009,192 +2010,19 @@ sedit(struct mged_state *s)
 	     * the legacy post-switch code below. */
 	    rt_edit_process(MEDIT(s));
 	    return;
+	/* --- Generic solid edit operations: delegate to librt rt_edit_process() --- */
+	/* SSCALE (=RT_PARAMS_EDIT_SCALE), STRANS (=RT_PARAMS_EDIT_TRANS), SROT (=RT_PARAMS_EDIT_ROT):
+	 * librt's edit_generic handles these via edit_sscale, edit_stra, edit_srot.
+	 * PTARB/EARB: librt's ARB edit handler handles these.
+	 * ECMD_VTRANS: librt's bspline edit handler handles this. */
 	case SSCALE:
-	    /* scale the solid uniformly about its vertex point */
-	    {
-		mat_t scalemat;
-
-		es_eu = (struct edgeuse *)NULL;	/* Reset es_eu */
-		es_pipe_pnt = (struct wdb_pipe_pnt *)NULL; /* Reset es_pipe_pnt */
-		es_metaball_pnt = (struct wdb_metaball_pnt *)NULL; /* Reset es_metaball_pnt */
-		bot_verts[0] = -1;
-		bot_verts[1] = -1;
-		bot_verts[2] = -1;
-		if (MEDIT(s)->e_inpara) {
-		    /* accumulate the scale factor */
-		    MEDIT(s)->es_scale = MEDIT(s)->e_para[0] / MEDIT(s)->acc_sc_sol;
-		    MEDIT(s)->acc_sc_sol = MEDIT(s)->e_para[0];
-		}
-
-		bn_mat_scale_about_pnt(scalemat, MEDIT(s)->e_keypoint, MEDIT(s)->es_scale);
-		bn_mat_mul(mat1, scalemat, MEDIT(s)->e_mat);
-		bn_mat_mul(mat, MEDIT(s)->e_invmat, mat1);
-		transform_editing_solid(s, &MEDIT(s)->es_int, mat, &MEDIT(s)->es_int, 1);
-
-		/* reset solid scale factor */
-		MEDIT(s)->es_scale = 1.0;
-	    }
-	    break;
-
 	case STRANS:
-	    /* translate solid */
-	    {
-		vect_t delta;
-
-		es_eu = (struct edgeuse *)NULL;	/* Reset es_eu */
-		es_pipe_pnt = (struct wdb_pipe_pnt *)NULL; /* Reset es_pipe_pnt */
-		es_metaball_pnt = (struct wdb_metaball_pnt *)NULL; /* Reset es_metaball_pnt */
-		bot_verts[0] = -1;
-		bot_verts[1] = -1;
-		bot_verts[2] = -1;
-		if (MEDIT(s)->e_inpara) {
-		    /* Need vector from current vertex/keypoint
-		     * to desired new location.
-		     */
-		    if (mged_variables->mv_context) {
-			/* move solid so that MEDIT(s)->e_keypoint is at position MEDIT(s)->e_para */
-			vect_t raw_para;
-
-			MAT4X3PNT(raw_para, MEDIT(s)->e_invmat, MEDIT(s)->e_para);
-			MAT4X3PNT(work, MEDIT(s)->e_invmat, MEDIT(s)->e_keypoint);
-			VSUB2(delta, work, raw_para);
-			MAT_IDN(mat);
-			MAT_DELTAS_VEC_NEG(mat, delta);
-		    } else {
-			/* move solid to position MEDIT(s)->e_para */
-			/* move solid to position MEDIT(s)->e_para */
-			MAT4X3PNT(work, MEDIT(s)->e_invmat, MEDIT(s)->e_keypoint);
-			VSUB2(delta, work, MEDIT(s)->e_para);
-			MAT_IDN(mat);
-			MAT_DELTAS_VEC_NEG(mat, delta);
-		    }
-		    transform_editing_solid(s, &MEDIT(s)->es_int, mat, &MEDIT(s)->es_int, 1);
-		}
-	    }
-	    break;
-	case ECMD_VTRANS:
-	    /* translate a vertex */
-	    es_eu = (struct edgeuse *)NULL;	/* Reset es_eu */
-	    es_pipe_pnt = (struct wdb_pipe_pnt *)NULL; /* Reset es_pipe_pnt */
-	    es_metaball_pnt = (struct wdb_metaball_pnt *)NULL; /* Reset es_metaball_pnt */
-	    bot_verts[0] = -1;
-	    bot_verts[1] = -1;
-	    bot_verts[2] = -1;
-	    if (MEDIT(s)->e_mvalid) {
-		/* Mouse parameter:  new position in model space */
-		VMOVE(MEDIT(s)->e_para, MEDIT(s)->e_mparam);
-		MEDIT(s)->e_inpara = 1;
-	    }
-	    if (MEDIT(s)->e_inpara) {
-
-
-		/* Keyboard parameter:  new position in model space.
-		 * XXX for now, splines only here */
-		struct rt_nurb_internal *sip =
-		    (struct rt_nurb_internal *) MEDIT(s)->es_int.idb_ptr;
-		struct face_g_snurb *surf;
-		fastf_t *fp;
-
-		RT_NURB_CK_MAGIC(sip);
-		surf = sip->srfs[spl_surfno];
-		NMG_CK_SNURB(surf);
-		fp = &RT_NURB_GET_CONTROL_POINT(surf, spl_ui, spl_vi);
-		if (mged_variables->mv_context) {
-		    /* apply MEDIT(s)->e_invmat to convert to real model space */
-		    MAT4X3PNT(fp, MEDIT(s)->e_invmat, MEDIT(s)->e_para);
-		} else {
-		    VMOVE(fp, MEDIT(s)->e_para);
-		}
-	    }
-	    break;
-
-	case PTARB:	/* move an ARB point */
-	case EARB:   /* edit an ARB edge */
-	    if (MEDIT(s)->e_inpara) {
-		if (mged_variables->mv_context) {
-		    /* apply MEDIT(s)->e_invmat to convert to real model space */
-		    MAT4X3PNT(work, MEDIT(s)->e_invmat, MEDIT(s)->e_para);
-		} else {
-		    VMOVE(work, MEDIT(s)->e_para);
-		}
-		editarb(s, work);
-	    }
-	    break;
-
 	case SROT:
-	    /* rot solid about vertex */
-	    {
-		es_eu = (struct edgeuse *)NULL;	/* Reset es_eu */
-		es_pipe_pnt = (struct wdb_pipe_pnt *)NULL; /* Reset es_pipe_pnt */
-		es_metaball_pnt = (struct wdb_metaball_pnt *)NULL; /* Reset es_metaball_pnt */
-		bot_verts[0] = -1;
-		bot_verts[1] = -1;
-		bot_verts[2] = -1;
-		if (MEDIT(s)->e_inpara) {
-		    static mat_t invsolr;
-		    /*
-		     * Keyboard parameters:  absolute x, y, z rotations,
-		     * in degrees.  First, cancel any existing rotations,
-		     * then perform new rotation
-		     */
-		    bn_mat_inv(invsolr, MEDIT(s)->acc_rot_sol);
-
-		    /* Build completely new rotation change */
-		    MAT_IDN(MEDIT(s)->model_changes);
-		    bn_mat_angles(MEDIT(s)->model_changes,
-				  MEDIT(s)->e_para[0],
-				  MEDIT(s)->e_para[1],
-				  MEDIT(s)->e_para[2]);
-		    /* Borrow MEDIT(s)->incr_change matrix here */
-		    bn_mat_mul(MEDIT(s)->incr_change, MEDIT(s)->model_changes, invsolr);
-		    MAT_COPY(MEDIT(s)->acc_rot_sol, MEDIT(s)->model_changes);
-
-		    /* Apply new rotation to solid */
-		    /* Clear out solid rotation */
-		    MAT_IDN(MEDIT(s)->model_changes);
-		} else {
-		    /* Apply incremental changes already in MEDIT(s)->incr_change */
-		}
-		/* Apply changes to solid */
-		/* xlate keypoint to origin, rotate, then put back. */
-		switch (mged_variables->mv_rotate_about) {
-		    case 'v':       /* View Center */
-			VSET(work, 0.0, 0.0, 0.0);
-			MAT4X3PNT(rot_point, view_state->vs_gvp->gv_view2model, work);
-			break;
-		    case 'e':       /* Eye */
-			VSET(work, 0.0, 0.0, 1.0);
-			MAT4X3PNT(rot_point, view_state->vs_gvp->gv_view2model, work);
-			break;
-		    case 'm':       /* Model Center */
-			VSETALL(rot_point, 0.0);
-			break;
-		    case 'k':       /* Key Point */
-		    default:
-			VMOVE(rot_point, MEDIT(s)->e_keypoint);
-			break;
-		}
-
-		if (mged_variables->mv_context) {
-		    /* calculate rotations about keypoint */
-		    bn_mat_xform_about_pnt(edit, MEDIT(s)->incr_change, rot_point);
-
-		    /* We want our final matrix (mat) to xform the original solid
-		     * to the position of this instance of the solid, perform the
-		     * current edit operations, then xform back.
-		     * mat = MEDIT(s)->e_invmat * edit * MEDIT(s)->e_mat
-		     */
-		    bn_mat_mul(mat1, edit, MEDIT(s)->e_mat);
-		    bn_mat_mul(mat, MEDIT(s)->e_invmat, mat1);
-		} else {
-		    MAT4X3PNT(work, MEDIT(s)->e_invmat, rot_point);
-		    bn_mat_xform_about_pnt(mat, MEDIT(s)->incr_change, work);
-		}
-		transform_editing_solid(s, &MEDIT(s)->es_int, mat, &MEDIT(s)->es_int, 1);
-
-		MAT_IDN(MEDIT(s)->incr_change);
-	    }
-	    break;
+	case ECMD_VTRANS:
+	case PTARB:
+	case EARB:
+	    rt_edit_process(MEDIT(s));
+	    return;
 
 	default:
 	    {
@@ -2271,14 +2099,17 @@ update_edit_absolute_tran(struct mged_state *s, vect_t view_pos)
 void
 sedit_mouse(struct mged_state *s, const vect_t mousevec)
 {
+    int idb_type;
+    int ret;
+
     if (!MEDIT(s) || MEDIT(s)->edit_flag <= 0)
 	return;
 
     /* Keep the view pointer current so librt can access view matrices */
     MEDIT(s)->vp = view_state->vs_gvp;
 
-    int idb_type = MEDIT(s)->es_int.idb_type;
-    int ret = (*EDOBJ[idb_type].ft_edit_xy)(MEDIT(s), mousevec);
+    idb_type = MEDIT(s)->es_int.idb_type;
+    ret = (*EDOBJ[idb_type].ft_edit_xy)(MEDIT(s), mousevec);
 
     if (ret != BRLCAD_OK)
 	return;

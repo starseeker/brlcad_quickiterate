@@ -214,7 +214,9 @@
 /* SEDIT_ROTATE: any solid-edit rotation mode.
  * edit_mode is set to RT_PARAMS_EDIT_ROT for all primitive rotate operations
  * (librt ft_edit_set_edit_mode), and RT_MATRIX_EDIT_ROT for matrix rotation. */
-#define SEDIT_ROTATE (s->global_editing_state == ST_S_EDIT &&       (MEDIT(s)->edit_mode == RT_PARAMS_EDIT_ROT ||        MEDIT(s)->edit_mode == RT_MATRIX_EDIT_ROT))
+#define SEDIT_ROTATE (s->global_editing_state == ST_S_EDIT && \
+		      (MEDIT(s)->edit_mode == RT_PARAMS_EDIT_ROT || \
+		       MEDIT(s)->edit_mode == RT_MATRIX_EDIT_ROT))
 #define OEDIT_ROTATE (s->global_editing_state == ST_O_EDIT && \
 		      edobj == BE_O_ROTATE)
 #define EDIT_ROTATE (SEDIT_ROTATE || OEDIT_ROTATE)
@@ -222,7 +224,12 @@
 /* SEDIT_SCALE: any solid-edit scaling mode.
  * edit_mode is set to RT_PARAMS_EDIT_SCALE for all primitive scale operations
  * (librt ft_edit_set_edit_mode), and RT_MATRIX_EDIT_SCALE* for matrix scaling. */
-#define SEDIT_SCALE (s->global_editing_state == ST_S_EDIT &&      (MEDIT(s)->edit_mode == RT_PARAMS_EDIT_SCALE ||       MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE ||       MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE_X ||       MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE_Y ||       MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE_Z))
+#define SEDIT_SCALE (s->global_editing_state == ST_S_EDIT && \
+		     (MEDIT(s)->edit_mode == RT_PARAMS_EDIT_SCALE || \
+		      MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE || \
+		      MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE_X || \
+		      MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE_Y || \
+		      MEDIT(s)->edit_mode == RT_MATRIX_EDIT_SCALE_Z))
 #define OEDIT_SCALE (s->global_editing_state == ST_O_EDIT && \
 		     (edobj == BE_O_XSCALE || \
 		      edobj == BE_O_YSCALE || \
@@ -233,7 +240,11 @@
 /* SEDIT_TRAN: any solid-edit translation mode.
  * edit_mode is set to RT_PARAMS_EDIT_TRANS for all primitive translate operations
  * (librt ft_edit_set_edit_mode), and RT_MATRIX_EDIT_TRANS_* for matrix translation. */
-#define SEDIT_TRAN (s->global_editing_state == ST_S_EDIT &&     (MEDIT(s)->edit_mode == RT_PARAMS_EDIT_TRANS ||      MEDIT(s)->edit_mode == RT_MATRIX_EDIT_TRANS_VIEW_XY ||      MEDIT(s)->edit_mode == RT_MATRIX_EDIT_TRANS_VIEW_X ||      MEDIT(s)->edit_mode == RT_MATRIX_EDIT_TRANS_VIEW_Y))
+#define SEDIT_TRAN (s->global_editing_state == ST_S_EDIT && \
+		    (MEDIT(s)->edit_mode == RT_PARAMS_EDIT_TRANS || \
+		     MEDIT(s)->edit_mode == RT_MATRIX_EDIT_TRANS_VIEW_XY || \
+		     MEDIT(s)->edit_mode == RT_MATRIX_EDIT_TRANS_VIEW_X || \
+		     MEDIT(s)->edit_mode == RT_MATRIX_EDIT_TRANS_VIEW_Y))
 #define OEDIT_TRAN (s->global_editing_state == ST_O_EDIT && \
 		    (edobj == BE_O_X || \
 		     edobj == BE_O_Y || \
