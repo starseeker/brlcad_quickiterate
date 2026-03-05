@@ -27,73 +27,77 @@ delta between an experimental BRL-CAD branch and the main tree.  It shows the
 - [x] `buttons.c`, `scroll.c`, `doevent.c`, `dm-generic.c`, `mged.c`:
   all generic edit_flag assignments use `rt_edit_set_edflag()`.
 - [x] `menu.c`: removed ~1300 lines of primitive-specific menu arrays.
-- [x] **Fixed all ECMD value mismatches in `sedit.h`**:
-  - `STRANS/SSCALE/SROT/IDLE` are aliases for librt's `RT_PARAMS_EDIT_TRANS/SCALE/ROT`
-    and `RT_EDIT_IDLE` (numeric values were already identical)
+- [x] **Fixed all ECMD value mismatches** in `sedit.h`:
   - `EARB` 9→4009, `PTARB` 10→4010 (matching librt `edarb.c`)
   - `ECMD_VTRANS` 17→9017 (matching librt `edbspline.c`)
 - [x] **Removed `pscale()` (~1015 lines)** from `edsol.c`.
 - [x] **Removed `MENU_*` legacy constants** from `menu.h`.
 - [x] **`sedit()` fully delegated**: ALL cases now call `rt_edit_process(MEDIT(s))`
-  and return. State synced into `rt_edit` before switch: `mv_context`, `local2base`,
-  `base2local`, `vp`.
-- [x] **Removed `dsp_scale()` dead function** and unused local variables.
-- [x] **`chgview.c` librt path enabled**: All old MGED knob functions removed,
-  librt knob path always active.
-- [x] **`sedit_mouse()` fully delegated** to `ft_edit_xy()`: The ~400-line switch
-  replaced with `(*EDOBJ[idb_type].ft_edit_xy)(MEDIT(s), mousevec)`.
-- [x] **`rt_edit_set_edflag()` used consistently**.
-- [x] **edit_mode save/restore**: All save_edflag/restore patterns also save/restore
-  `edit_mode`.
-- [x] **Simplified SEDIT_* macros**: `SEDIT_SCALE`, `SEDIT_TRAN`, `SEDIT_ROTATE`
-  replaced with `edit_mode` checks.
+  and return.
+- [x] **`sedit_mouse()` fully delegated** to `ft_edit_xy()`.
+- [x] **`rt_edit_set_edflag()` used consistently** and `edit_mode` save/restore added.
+- [x] **Simplified `SEDIT_*` macros** to use `edit_mode`.
 - [x] **Migrated MGED per-primitive globals to librt `ipe_ptr`**:
-  - `es_peqn[7][4]` → `((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->es_peqn`
-  - `es_menu` → `((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->edit_menu`
-  - `newedge` → `((struct rt_arb8_edit *)MEDIT(s)->ipe_ptr)->newedge`
-  - `es_eu` → `((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_eu`
-  - `es_s` → `((struct rt_nmg_edit *)MEDIT(s)->ipe_ptr)->es_s`
-  - `es_pipe_pnt` → `((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)->es_pipe_pnt`
-  - `es_metaball_pnt` → `((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)->es_metaball_pnt`
-  - `es_ars_crv/es_ars_col/es_pt` → `((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)->...`
-- [x] **Exposed `rt_ars_edit`** in new public header `include/rt/primitives/ars.h`.
-- [x] **Exposed `rt_metaball_edit`** in `include/rt/primitives/metaball.h`.
+  - `es_peqn[7][4]` / `es_menu` / `newedge` → `ARB_EDIT(s)->…`
+  - `es_eu` / `es_s` / `lu_copy` → `NMG_EDIT(s)->…`
+  - `es_pipe_pnt` → `PIPE_EDIT(s)->…`
+  - `es_metaball_pnt` → `METABALL_EDIT(s)->…`
+  - `es_ars_crv` / `es_ars_col` / `es_pt` → `ARS_EDIT(s)->…`
+  - `bot_verts[3]` → `BOT_EDIT(s)->…`
+  - `fixv` → `ARB_EDIT(s)->fixv`
+  - `spl_surfno` / `spl_ui` / `spl_vi` → `BSPLINE_EDIT(s)->…`
+  - `lu_pl` / `lu_keypoint` — dead code, removed
 - [x] **Removed `edars.c`, `edpipe.c` from MGED** (stubs; real code is in librt).
-- [x] **`editarb()` uses `ipe_ptr`** instead of globals for es_peqn/edit_menu/newedge.
-- [x] **`f_extrude()`, `f_mirface()`, `f_edgedir()`, `f_permute()`** updated to use
-  `ipe_ptr` instead of globals.
-- [x] **Cross-type ipe_ptr reset blocks fixed**: `sedit_apply`, `sedit_reject`,
-  `f_sedit_reset`, `init_sedit` now check `idb_type` before resetting per-prim state.
-- [x] Build confirmed clean (`[100%] Built target mged`).
+- [x] **Convenience macros** added: `ARB_EDIT`, `NMG_EDIT`, `PIPE_EDIT`,
+  `METABALL_EDIT`, `ARS_EDIT`, `BOT_EDIT`, `BSPLINE_EDIT`.
+- [x] **Removed IDLE/STRANS/SSCALE/SROT aliases** from `sedit.h`: code now uses
+  `RT_EDIT_IDLE`, `RT_PARAMS_EDIT_TRANS`, `RT_PARAMS_EDIT_SCALE`,
+  `RT_PARAMS_EDIT_ROT` directly.
+- [x] **Exposed `EARB`/`PTARB`/`ECMD_ARB_*`** in public `include/rt/primitives/arb8.h`.
+  Removed private definitions from librt `edarb.c` and MGED `sedit.h`.
+- [x] **Exposed `ECMD_VTRANS`** in public `include/rt/geom.h` (near `rt_nurb_internal`).
+  Removed private definitions from librt `edbspline.c` and MGED `sedit.h`.
+- [x] **Exposed `struct rt_bspline_edit`** in public `include/rt/geom.h`.
+  Removed private definitions from `edbspline.c` and `bspline.cpp` test.
+- [x] **Exposed `struct rt_ars_edit`** in public `include/rt/primitives/ars.h`.
+- [x] **Exposed `struct rt_metaball_edit`** in public `include/rt/primitives/metaball.h`.
+- [x] **Removed stale externs** from `sedit.h`:
+  `es_mat`, `es_invmat`, `es_keypoint`, `es_keytag`, `curr_e_axes_pos`,
+  `lu_copy`, `lu_keypoint`, `lu_pl`, `es_peqn`, `es_menu`, `es_eu`, `es_s`,
+  `es_pipe_pnt`, `es_metaball_pnt`.
+- [x] **Fixed all cross-type `ipe_ptr` reset blocks**: `sedit_apply`,
+  `sedit_reject`, `f_sedit_reset`, `init_sedit` all guard resets by `idb_type`.
+- [x] Build confirmed clean: `mged`, `librt`, `rt_edit_test_arb8`, `rt_edit_test_bspline`.
 
 ---
 
 ## Next Steps (in rough priority order)
 
-### 1. Remove `STRANS/SSCALE/SROT/IDLE/EARB/PTARB/ECMD_VTRANS` aliases from `sedit.h`
-
-These are now just aliases for the librt values. Code that uses these names
-could be updated to use the librt names directly, and then the aliases removed.
-
-### 2. Remove `update_edit_absolute_tran` from `edsol.c`
+### 1. Remove `update_edit_absolute_tran` from `edsol.c`
 
 This function duplicates librt's `edit_abs_tra`. It's still used in
 `objedit_mouse()`. Once `objedit_mouse()` also delegates to librt, it can be removed.
 
-### 3. `init_sedit` / `init_oedit_guts` cleanup
+### 2. `objedit_mouse()` delegation to librt
 
-Verify that `mged_edit_clbk_sync()` is called appropriately after init so
-that librt's callback maps are in sync with MGED state.
+`objedit_mouse()` still contains MGED-specific logic for object-edit mouse events.
+Delegates to a librt callback once the appropriate `ft_edit_xy` / objedit path exists.
 
-### 4. Remove `SEDIT_PICK` macro
+### 3. Remove `SEDIT_PICK` macro
 
 Once all pick operations go through librt's `RT_PARAMS_EDIT_PICK` edit_mode
 (or are fully handled inside `ft_edit_xy`), simplify or remove `SEDIT_PICK`.
 
-### 5. Remove `sedit.h` externs for removed globals
+### 4. Migrate `sedraw` global to `rt_edit`
 
-The `sedit.h` file may still have stale extern declarations (e.g., `lu_copy`,
-`fixv`, `bot_verts`) that could be migrated to `ipe_ptr` or removed.
+`sedraw` remains as an MGED-specific global. A corresponding flag could be
+added to `rt_edit` if needed to support multi-app use.
+
+### 5. Move ECMD_NMG_*/ECMD_PIPE_*/ECMD_ARS_*/ECMD_VOL_*/ECMD_BOT_* to public headers
+
+Currently only `EARB/PTARB/ECMD_ARB_*` (arb8.h) and `ECMD_VTRANS` (geom.h) have been
+moved to public headers. The remaining `ECMD_*` defines in `sedit.h` could be
+progressively moved to their corresponding `include/rt/primitives/*.h` headers.
 
 ---
 
@@ -111,13 +115,19 @@ The `sedit.h` file may still have stale extern declarations (e.g., `lu_copy`,
 | `src/mged/dm-generic.c` | Updated – rt_edit_set_edflag, edit_mode save/restore |
 | `src/mged/mged.c` | Updated – rt_edit_set_edflag, edit_mode save/restore |
 | `src/mged/cmd.c` | Updated – mged_print_result callback signature |
-| `src/mged/edsol.c` | Fully delegated: sedit() + sedit_mouse() delegate to librt; all per-prim globals replaced with ipe_ptr accesses |
-| `src/mged/sedit.h` | Fully updated: ECMD values correct, SEDIT_* macros use edit_mode; per-prim externs removed |
+| `src/mged/edsol.c` | Fully delegated: sedit()/sedit_mouse() delegate to librt; all per-prim globals replaced with ipe_ptr macros; stale IDLE/STRANS/SSCALE/SROT replaced with RT_* names |
+| `src/mged/sedit.h` | Cleaned up: removed aliases/externs; EARB/PTARB/ECMD_ARB_* come from arb8.h; ECMD_VTRANS from geom.h |
 | `src/mged/chgview.c` | Updated – rt_edit_set_edflag, edit_mode save/restore, librt knob path active |
 | `src/mged/edarb.c` | Updated – uses ipe_ptr for ARB state; Tcl cmds kept |
 | `src/mged/edars.c` | **REMOVED** from build (stub; real ARS edit in librt) |
 | `src/mged/edpipe.c` | **REMOVED** from build (stub; real PIPE edit in librt) |
 | `include/rt/primitives/ars.h` | **NEW** – exposes `struct rt_ars_edit` publicly |
 | `include/rt/primitives/metaball.h` | Updated – exposes `struct rt_metaball_edit` publicly |
+| `include/rt/primitives/arb8.h` | Updated – exposes EARB/PTARB/ECMD_ARB_* publicly |
+| `include/rt/geom.h` | Updated – exposes ECMD_VTRANS and `struct rt_bspline_edit` publicly |
 | `src/librt/primitives/ars/edars.c` | Updated – uses public `rt_ars_edit` from ars.h |
 | `src/librt/primitives/metaball/edmetaball.c` | Updated – uses public `rt_metaball_edit` from metaball.h |
+| `src/librt/primitives/arb8/edarb.c` | Updated – uses public EARB/PTARB/ECMD_ARB_* from arb8.h |
+| `src/librt/primitives/bspline/edbspline.c` | Updated – uses public rt_bspline_edit from geom.h |
+| `src/librt/tests/edit/arb8.cpp` | Updated – uses public arb8.h |
+| `src/librt/tests/edit/bspline.cpp` | Updated – uses public rt_bspline_edit/ECMD_VTRANS from geom.h |

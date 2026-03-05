@@ -552,10 +552,8 @@ ecmd_extrude_skt_name_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, voi
 
 int nurb_closest2d(int *surface, int *uval, int *vval, const struct rt_nurb_internal *spl, const point_t ref_pt, const mat_t mat);
 
-// FIXME:  Globals
-
-
-/* data for solid editing */
+/* data for solid editing (sedraw remains as MGED-specific state; other per-prim globals
+ * migrated to librt ipe_ptr structs) */
 int sedraw;	/* apply solid editing changes */
 
 
