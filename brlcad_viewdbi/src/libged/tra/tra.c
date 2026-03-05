@@ -1,0 +1,65 @@
+/*                         T R A . C
+ * BRL-CAD
+ *
+ * Copyright (c) 2008-2025 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file libged/tra.c
+ *
+ * The tra command.
+ *
+ */
+
+#include "common.h"
+
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+
+#include "../ged_private.h"
+
+
+int
+ged_tra_core(struct ged *gedp, int argc, const char *argv[])
+{
+    int ret;
+    char coord;
+    vect_t tvec;
+
+    if ((ret = ged_tra_args(gedp, argc, argv, &coord, tvec)) != BRLCAD_OK)
+	return ret;
+
+    return _ged_do_tra(gedp, coord, tvec, NULL);
+}
+
+
+#include "../include/plugin.h"
+
+#define GED_TRA_COMMANDS(X, XID) \
+    X(tra, ged_tra_core, GED_CMD_DEFAULT) \
+
+GED_DECLARE_COMMAND_SET(GED_TRA_COMMANDS)
+GED_DECLARE_PLUGIN_MANIFEST("libged_tra", 1, GED_TRA_COMMANDS)
+
+/*
+ * Local Variables:
+ * mode: C
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */
