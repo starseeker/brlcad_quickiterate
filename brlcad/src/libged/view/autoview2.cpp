@@ -57,7 +57,7 @@ ged_autoview2_core(struct ged *gedp, int argc, const char *argv[])
 
     int all_view_objs = 0;
     int print_help = 0;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     struct bu_opt_desc d[4];
     BU_OPT(d[0], "h", "help",      "",        NULL,     &print_help, "Print help and exit");
@@ -82,7 +82,7 @@ ged_autoview2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (bu_vls_strlen(&cvls)) {
-	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	v = bsg_scene_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -106,7 +106,7 @@ ged_autoview2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     // libbv has the nuts and bolts
-    bv_autoview(v, factor, all_view_objs);
+    bsg_view_autoview(v, factor, all_view_objs);
 
     return BRLCAD_OK;
 }

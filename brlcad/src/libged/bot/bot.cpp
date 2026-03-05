@@ -662,7 +662,7 @@ _bot_cmd_sync(void *bs, int argc, const char **argv)
 static void
 _bot_vlblock_plot(struct ged *gedp, struct bv_vlblock *vbp, const char *sname)
 {
-    struct bview *view = gedp->ged_gvp;
+    bsg_view *view = gedp->ged_gvp;
     if (gedp->new_cmd_forms) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "bot::%s", sname);

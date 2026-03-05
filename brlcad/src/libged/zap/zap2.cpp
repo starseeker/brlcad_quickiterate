@@ -50,7 +50,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
     const char *usage = "zap [options]\n";
-    struct bview *v = NULL;
+    bsg_view *v = NULL;
 
     argc-=(argc>0); argv+=(argc>0); /* done with command name argv[0] */
 
@@ -93,7 +93,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	    return BRLCAD_ERROR;
 	}
 
-	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	v = bsg_scene_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -113,7 +113,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	if (clear_view_objs)
 	    flags |= BV_VIEW_OBJS;
 
-	if (!bv_clear(v, flags))
+	if (!bsg_view_clear(v, flags))
 	    v->gv_s->gv_cleared = 1;
 
 	bu_vls_free(&cvls);
@@ -122,9 +122,9 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 
     // Clear everything
     int ret = BRLCAD_OK;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	v = (struct bview *)BU_PTBL_GET(views, i);
+	v = (bsg_view *)BU_PTBL_GET(views, i);
 	if (v->independent && !clear_all_views)
 	    continue;
 	int flags = 0;
@@ -138,11 +138,11 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
 	}
 	if (clear_view_objs)
 	    flags |= BV_VIEW_OBJS;
-	int nret = bv_clear(v, flags);
+	int nret = bsg_view_clear(v, flags);
 	int lret = 1;
 	if (!shared_only) {
 	    flags |= BV_LOCAL_OBJS;
-	    lret = bv_clear(v, flags);
+	    lret = bsg_view_clear(v, flags);
 	}
 	if (!nret || !lret)
 	    v->gv_s->gv_cleared = 1;

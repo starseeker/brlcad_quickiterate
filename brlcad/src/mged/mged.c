@@ -68,7 +68,7 @@
 #include "raytrace.h"
 #define LIBTERMIO_IMPLEMENTATION
 #include "libtermio.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -321,7 +321,7 @@ new_edit_mats(struct mged_state *s)
 
 
 void
-mged_view_callback(struct bview *gvp,
+mged_view_callback(bsg_view *gvp,
 		   void *clientData)
 {
     struct mged_state *s = MGED_STATE;
@@ -346,7 +346,7 @@ mged_view_callback(struct bview *gvp,
 void
 new_mats(struct mged_state *s)
 {
-    bv_update(view_state->vs_gvp);
+    bsg_view_update(view_state->vs_gvp);
 }
 
 

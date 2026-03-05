@@ -628,7 +628,7 @@ dm_draw_vlist_hidden_line(struct dm *dmp, struct bv_vlist *vp)
 }
 
 int
-dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s){
+dm_draw_obj(struct dm *dmp, bsg_shape *s){
     if (UNLIKELY(!dmp)) return -1;
     return dmp->i->dm_draw_obj(dmp, s);
 }
@@ -958,7 +958,7 @@ dm_hash(struct dm *dmp)
  * and into libdm. */
 static int
 dm_drawSolid(struct dm *dmp,
-	     struct bv_scene_obj *sp,
+	     bsg_shape *sp,
 	     short r,
 	     short g,
 	     short b,
@@ -1020,7 +1020,7 @@ dm_draw_head_dl(struct dm *dmp,
 {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     fastf_t ratio;
     int ndrawn = 0;
     int opaque = 0;

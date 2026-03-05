@@ -58,12 +58,12 @@ QgPolyFilter::view_sync(QEvent *e)
     e_y = m_e->position().y();
 #endif
 
-    // Update relevant bview variables
+    // Update relevant bsg_view variables
     v->gv_prevMouseX = v->gv_mouse_x;
     v->gv_prevMouseY = v->gv_mouse_y;
     v->gv_mouse_x = e_x;
     v->gv_mouse_y = e_y;
-    bv_screen_pt(&v->gv_point, e_x, e_y, v);
+    bsg_screen_pt(&v->gv_point, e_x, e_y, v);
 
     // If we have modifiers, we're most likely doing shift grips
     if (m_e->modifiers() != Qt::NoModifier)
@@ -86,7 +86,7 @@ QgPolyFilter::close_polygon()
 	    // to make a closed polygon.
 	    bg_polygon_free(&ip->polygon);
 	    BU_PUT(ip, struct bv_polygon);
-	    bv_obj_put(wp);
+	    bsg_shape_put(wp);
 	    wp = NULL;
 	    return false;
 	}
@@ -111,7 +111,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 
 	if (!wp) {
 
-	    bv_screen_pt(&v->gv_point, v->gv_mouse_x, v->gv_mouse_y, v);
+	    bsg_screen_pt(&v->gv_point, v->gv_mouse_x, v->gv_mouse_y, v);
 
 	    wp = bv_create_polygon(v, BV_VIEW_OBJS, ptype, &v->gv_point);
 	    wp->s_v = v;
@@ -267,7 +267,7 @@ QPolyCreateFilter::finalize(bool)
     } else {
 
 	for (size_t i = 0; i < BU_PTBL_LEN(&bool_objs); i++) {
-	    struct bv_scene_obj *target = (struct bv_scene_obj *)BU_PTBL_GET(&bool_objs, i);
+	    bsg_shape *target = (bsg_shape *)BU_PTBL_GET(&bool_objs, i);
 	    icnt += bv_polygon_csg(target, wp, op);
 	}
 
@@ -275,7 +275,7 @@ QPolyCreateFilter::finalize(bool)
 	// or more interactions with other polygons, the original polygon is
 	// not retained
 	if (icnt || op == bg_Difference || op == bg_Intersection) {
-	    bv_obj_put(wp);
+	    bsg_shape_put(wp);
 	    wp = NULL;
 	} else {
 	    // No interactions, so we're keeping it - assign a proper name
@@ -337,7 +337,7 @@ QPolySelectFilter::eventFilter(QObject *, QEvent *e)
 
     // Handle Left Click
     if (m_e->type() == QEvent::MouseButtonPress && m_e->buttons().testFlag(Qt::LeftButton)) {
-	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
+	struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
 	if (view_objs) {
 	    wp = bv_select_polygon(view_objs, &v->gv_point);
 	    if (!wp)
@@ -430,7 +430,7 @@ QPolyMoveFilter::eventFilter(QObject *, QEvent *e)
 	if (m_e->buttons().testFlag(Qt::LeftButton) && m_e->modifiers() == Qt::NoModifier) {
 	    if (BU_PTBL_LEN(&move_objs)) {
 		for (size_t i = 0; i < BU_PTBL_LEN(&move_objs); i++) {
-		    struct bv_scene_obj *mpoly = (struct bv_scene_obj *)BU_PTBL_GET(&move_objs, i);
+		    bsg_shape *mpoly = (bsg_shape *)BU_PTBL_GET(&move_objs, i);
 		    bv_move_polygon(mpoly, &v->gv_point, &v->gv_prev_point);
 		}
 	    } else {

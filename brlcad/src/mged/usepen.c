@@ -38,7 +38,7 @@
 
 
 struct display_list *illum_gdlp = GED_DISPLAY_LIST_NULL;
-struct bv_scene_obj *illump = NULL;	/* == 0 if none, else points to ill. solid */
+bsg_shape *illump = NULL;	/* == 0 if none, else points to ill. solid */
 int ipathpos = 0;	/* path index of illuminated element */
 
 
@@ -52,7 +52,7 @@ illuminate(struct mged_state *s, int y) {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
     int count;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     /*
      * Divide the mouse into 's->mged_curr_dm->dm_ndrawn' VERTICAL
@@ -98,7 +98,7 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct mged_state *s = ctp->s;
 
     struct display_list *gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     struct ged_bv_data *bdata = NULL;
 
     if (argc < 1 || 2 < argc) {
@@ -234,7 +234,7 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     char *cp;
     size_t j;
     int illum_only = 0;

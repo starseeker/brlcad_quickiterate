@@ -311,7 +311,7 @@ cs_set_bg(const struct bu_structparse *UNUSED(sdp),
     // the notion of the "current" dm in situations
     // where we act on all dm instances.  set_curr_dm
     // should probably be replaced with get_next_dm
-    struct bview *cbv = s->gedp->ged_gvp;
+    bsg_view *cbv = s->gedp->ged_gvp;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	if (m_dmp->dm_color_scheme == color_scheme) {

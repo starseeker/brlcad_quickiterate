@@ -711,7 +711,7 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 
     BU_ALLOC(view_state, struct _view_state);
     *view_state = *target_dm->dm_view_state;			/* struct copy */
-    BU_ALLOC(view_state->vs_gvp, struct bview);
+    BU_ALLOC(view_state->vs_gvp, bsg_view);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
 

@@ -1129,7 +1129,7 @@ dmo_drawVList_tcl(void *clientData, int argc, const char **argv)
 
 static void
 dmo_drawSolid(struct dm_obj *dmop,
-	      struct bv_scene_obj *sp)
+	      bsg_shape *sp)
 {
     if (sp->s_iflag == UP)
 	dm_set_fg(dmop->dmo_dmp, 255, 255, 255, 0, sp->s_os->transparency);
@@ -1234,7 +1234,7 @@ static int
 dmo_drawSList(struct dm_obj *dmop,
 	      struct bu_list *hsp)
 {
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     int linestyle = -1;
 
     if (!dmop)

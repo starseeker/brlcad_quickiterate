@@ -29,6 +29,7 @@
 #include "bu/list.h"
 #include "bu/vls.h"
 #include "bn/tol.h"
+#include "bsg.h"
 #include "rt/defines.h"
 
 __BEGIN_DECLS
@@ -38,13 +39,13 @@ RT_EXPORT extern int rt_brep_plot(struct bu_list                *vhead,
 				  struct rt_db_internal          *ip,
 				  const struct bg_tess_tol       *ttol,
 				  const struct bn_tol            *tol,
-				  const struct bview *info);
+				  const bsg_view *info);
 RT_EXPORT extern int rt_brep_plot_poly(struct bu_list           *vhead,
 				       const struct directory   *dp,
 				       struct rt_db_internal     *ip,
 				       const struct bg_tess_tol  *ttol,
 				       const struct bn_tol       *tol,
-				       const struct bview *info);
+				       const bsg_view *info);
 /* BREP validity test */
 #define RT_BREP_OPENNURBS    0x1    /**< @brief OpenNURBS tests (default)*/
 #define RT_BREP_UV_PARAM     0x2    /**< @brief sanity checks for UV parameterization bounds */
