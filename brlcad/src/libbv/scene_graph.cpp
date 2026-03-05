@@ -41,6 +41,10 @@
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/lod.h"
+#include "bsg/polygon.h"
+
+/* bv/polygon.h declares the legacy functions wrapped in this file */
+#include "bv/polygon.h"
 
 /* ====================================================================== *
  * Phase 1 layout sanity checks                                           *
@@ -585,6 +589,89 @@ bsg_view_shapes_rect_select(struct bu_ptbl *result, bsg_view *v,
 			    int x1, int y1, int x2, int y2)
 {
     return bv_view_objs_rect_select(result, v, x1, y1, x2, y2);
+}
+
+/* ====================================================================== *
+ * Polygon creation / update                                               *
+ * ====================================================================== */
+
+extern "C" bsg_shape *
+bsg_create_polygon_obj(bsg_view *v, int flags, struct bv_polygon *p)
+{
+    return bv_to_bso(bv_create_polygon_obj(v, flags, p));
+}
+
+extern "C" bsg_shape *
+bsg_create_polygon(bsg_view *v, int flags, int type, point_t *fp)
+{
+    return bv_to_bso(bv_create_polygon(v, flags, type, fp));
+}
+
+extern "C" int
+bsg_update_polygon(bsg_shape *s, bsg_view *v, int utype)
+{
+    return bv_update_polygon(bso_to_bv(s), v, utype);
+}
+
+extern "C" void
+bsg_polygon_vlist(bsg_shape *s)
+{
+    bv_polygon_vlist(bso_to_bv(s));
+}
+
+/* ====================================================================== *
+ * Polygon selection / movement                                            *
+ * ====================================================================== */
+
+extern "C" bsg_shape *
+bsg_select_polygon(struct bu_ptbl *objs, point_t *cp)
+{
+    return bv_to_bso(bv_select_polygon(objs, cp));
+}
+
+extern "C" int
+bsg_move_polygon(bsg_shape *s, point_t *cp, point_t *pp)
+{
+    return bv_move_polygon(bso_to_bv(s), cp, pp);
+}
+
+extern "C" bsg_shape *
+bsg_dup_view_polygon(const char *nname, bsg_shape *s)
+{
+    return bv_to_bso(bv_dup_view_polygon(nname, bso_to_bv(s)));
+}
+
+/* ====================================================================== *
+ * Polygon data helpers                                                    *
+ * ====================================================================== */
+
+extern "C" void
+bsg_polygon_cpy(struct bv_polygon *dest, struct bv_polygon *src)
+{
+    bv_polygon_cpy(dest, src);
+}
+
+extern "C" int
+bsg_polygon_calc_fdelta(struct bv_polygon *p)
+{
+    return bv_polygon_calc_fdelta(p);
+}
+
+extern "C" struct bg_polygon *
+bsg_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp,
+			   vect2d_t line_slope, fastf_t line_spacing)
+{
+    return bv_polygon_fill_segments(poly, vp, line_slope, line_spacing);
+}
+
+/* ====================================================================== *
+ * Polygon Boolean operations                                              *
+ * ====================================================================== */
+
+extern "C" int
+bsg_polygon_csg(bsg_shape *target, bsg_shape *stencil, bg_clip_t op)
+{
+    return bv_polygon_csg(bso_to_bv(target), bso_to_bv(stencil), op);
 }
 
 /*

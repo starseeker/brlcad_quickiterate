@@ -279,7 +279,7 @@ QPolyMod::polygon_update_props()
     }
 
     // TODO - this should be a visual-properties-only update, but libbg doesn't support that yet.
-    bv_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+    bsg_update_polygon(p, p->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
     emit view_updated(QG_VIEW_REFRESH);
 }
 
@@ -310,7 +310,7 @@ QPolyMod::toplevel_config(bool)
 			draw_change = true;
 			ip->curr_point_i = -1;
 			ip->curr_contour_i = 0;
-			bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+			bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
 		    }
 		}
 	    }
@@ -353,7 +353,7 @@ QPolyMod::clear_pnt_selection(bool checked)
     ip->curr_point_i = -1;
     ip->curr_contour_i = 0;
 
-    bv_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+    bsg_update_polygon(p, p->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
 
     QgModel *m = ((QgEdApp *)qApp)->mdl;
     if (!m)
@@ -493,7 +493,7 @@ QPolyMod::toggle_closed_poly(bool checked)
 		    continue;
 		if (!(target->s_type_flags & BSG_NODE_POLYGONS))
 		    continue;
-		pcnt += bv_polygon_csg(target, p, op);
+		pcnt += bsg_polygon_csg(target, p, op);
 		struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
 		if (!vp->polygon.num_contours || !vp->polygon.contour)
 		    cleanup.push_back(target);
@@ -516,7 +516,7 @@ QPolyMod::toggle_closed_poly(bool checked)
     }
 
     if (p) {
-	bv_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(p, p->s_v, BSG_POLYGON_UPDATE_DEFAULT);
     }
 
     toplevel_config(false);
@@ -563,7 +563,7 @@ QPolyMod::apply_bool_op()
 		continue;
 	    if (!(target->s_type_flags & BSG_NODE_POLYGONS))
 		continue;
-	    bv_polygon_csg(target, p, op);
+	    bsg_polygon_csg(target, p, op);
 	    struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
 	    if (!vp->polygon.num_contours || !vp->polygon.contour)
 		cleanup.push_back(target);
