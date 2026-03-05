@@ -47,17 +47,17 @@ dl_zap(struct ged *gedp)
     struct bu_ptbl dls = BU_PTBL_INIT_ZERO;
     struct directory *dp = RT_DIR_NULL;
     size_t i = 0;
-    bsg_shape *free_scene_obj = bv_set_fsos(&gedp->ged_views);
+    bsg_shape *free_scene_obj = (bsg_shape *)bv_set_fsos(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
     while (BU_LIST_WHILE(gdlp, display_list, hdlp)) {
 
 	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj))
-	    ged_destroy_vlist_cb(gedp, BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
-				 BU_LIST_LAST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist -
-				 BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist + 1);
+	    ged_destroy_vlist_cb(gedp, BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist,
+				 BU_LIST_LAST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist -
+				 BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist + 1);
 
-	while (BU_LIST_WHILE(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	while (BU_LIST_WHILE(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;

@@ -65,7 +65,7 @@ main(int ac, char *av[]) {
 	if (!BU_STR_EQUAL(bu_vls_cstr(&gdlp->dl_path), "OVERLAPSffff00"))
 	    continue;
 	printf("found %s;\n", bu_vls_cstr(&gdlp->dl_path));
-	vdata = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
+	vdata = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
 	break;
     }
 

@@ -292,7 +292,7 @@ createDListAll(void *vlist_ctx, struct display_list *gdlp)
     struct mged_state *s = (struct mged_state *)vlist_ctx;
     MGED_CK_STATE(s);
     bsg_shape *sp;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	createDListSolid(s, sp);
     }
 }

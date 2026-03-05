@@ -106,10 +106,22 @@ and should be approached accordingly.
 | `bsg_view`             | `bview`                 | `SoCamera` + view state      |
 | `bsg_scene`            | `bview_set`             | root `SoSeparator` + cameras |
 
-**Phase 1 design decision:** All `bsg_*` types are typedef aliases of the
-corresponding `bv_*` types.  This guarantees binary compatibility while the
-renaming migration proceeds.  All `bsg_*` functions delegate directly to their
-`bv_*` counterparts — no behavioural change.
+**Phase 1 design decision (Sessions 1–2):** `bsg_shape` started as a typedef alias of
+`bv_scene_obj`.  Most other `bsg_*` types remain typedef aliases of their `bv_*`
+counterparts (`bsg_view` = `bview`, `bsg_scene` = `bview_set`, etc.).
+
+**Session 3 refinement:** `bsg_shape` is now an **independent struct definition** with
+the same field layout as `bv_scene_obj`.  This gives:
+- External libbv users: `struct bv_scene_obj` is unchanged — same definition, same
+  behaviour, no source breaks.
+- New `bsg_*` code: `struct bsg_shape` is a parallel definition with identical initial
+  layout.  `BU_LIST_FOR(sp, bsg_shape, &head)` now works because `struct bsg_shape`
+  is a real struct tag, not a typedef.
+- `scene_graph.cpp` wraps `bv_*` functions using `bso_to_bv()` / `bv_to_bso()`
+  reinterpret-cast helpers.  Both casts are safe because both structs share the
+  same memory layout throughout Phase 1.
+- A C convenience self-typedef `typedef struct bsg_shape bsg_shape;` lets callers
+  use `bsg_shape *` without the `struct` keyword (standard C idiom).
 
 **bsg_camera:** Defined as a genuinely new struct (it does not exist in the
 legacy API) that documents which `bview` fields will be extracted into a

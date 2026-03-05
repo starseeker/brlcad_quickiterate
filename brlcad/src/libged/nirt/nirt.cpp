@@ -67,7 +67,7 @@ dl_set_wflag(struct bu_list *hdlp, int wflag)
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    sp->s_old.s_wflag = wflag;
 	}
 
@@ -618,7 +618,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 	    } else {
 		if (gedp->new_cmd_forms) {
 		    bsg_view *view = gedp->ged_gvp;
-		    bsg_shape *nobj = bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
+		    bsg_shape *nobj = (bsg_shape *)bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		    bu_vls_sprintf(&nobj->s_name, "%s", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		} else {
 		    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename), 0);
