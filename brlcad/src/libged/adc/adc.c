@@ -121,11 +121,13 @@ ged_adc_core(struct ged *gedp,
     point_t scaled_pos;
     int incr_flag;
     int i;
+    struct bsg_camera _cam;
 
     GED_CHECK_VIEW(gedp, BRLCAD_ERROR);
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
 
     bsg_view *v = gedp->ged_gvp;
+    bsg_view_get_camera(v, &_cam);
     fastf_t gv_scale = (gedp->dbip) ? v->gv_scale * gedp->dbip->dbi_base2local : v->gv_scale;
     double sval = (gedp->dbip) ? gedp->dbip->dbi_local2base : 1.0;
 
@@ -271,8 +273,8 @@ ged_adc_core(struct ged *gedp,
 	if (argc == 1) {
 	    if (!gedp->ged_gvp->gv_s->gv_adc.anchor_pos) {
 		gedp->ged_gvp->gv_s->gv_adc.pos_grid[X] += user_pt[0] / gv_scale;
-		adc_grid_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_view2model, BV_MAX);
-		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, gedp->ged_gvp->gv_view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
+		adc_grid_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), _cam.view2model, BV_MAX);
+		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, _cam.view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
 	    }
 
 	    return BRLCAD_OK;
@@ -286,8 +288,8 @@ ged_adc_core(struct ged *gedp,
 	if (argc == 1) {
 	    if (!gedp->ged_gvp->gv_s->gv_adc.anchor_pos) {
 		gedp->ged_gvp->gv_s->gv_adc.pos_grid[Y] += user_pt[0] / gv_scale;
-		adc_grid_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_view2model, BV_MAX);
-		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, gedp->ged_gvp->gv_view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
+		adc_grid_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), _cam.view2model, BV_MAX);
+		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, _cam.view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
 	    }
 
 	    return BRLCAD_OK;
@@ -314,8 +316,8 @@ ged_adc_core(struct ged *gedp,
 		}
 
 		gedp->ged_gvp->gv_s->gv_adc.pos_grid[Z] = 0.0;
-		adc_grid_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_view2model, BV_MAX);
-		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, gedp->ged_gvp->gv_view2model, gedp->ged_gvp->gv_s->gv_adc.pos_model);
+		adc_grid_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), _cam.view2model, BV_MAX);
+		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, _cam.view2model, gedp->ged_gvp->gv_s->gv_adc.pos_model);
 	    }
 
 	    return BRLCAD_OK;
@@ -330,8 +332,8 @@ ged_adc_core(struct ged *gedp,
 	    if (!gedp->ged_gvp->gv_s->gv_adc.anchor_pos) {
 		double pval = (gedp->dbip) ? (user_pt[0] * gedp->dbip->dbi_local2base) : user_pt[0];
 		gedp->ged_gvp->gv_s->gv_adc.pos_model[X] += pval;
-		adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view, BV_MAX);
-		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view);
+		adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view, BV_MAX);
+		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view);
 	    }
 
 	    return BRLCAD_OK;
@@ -346,8 +348,8 @@ ged_adc_core(struct ged *gedp,
 	    if (!gedp->ged_gvp->gv_s->gv_adc.anchor_pos) {
 		double pval = (gedp->dbip) ? (user_pt[0] * gedp->dbip->dbi_local2base) : user_pt[0];
 		gedp->ged_gvp->gv_s->gv_adc.pos_model[Y] += pval;
-		adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view, BV_MAX);
-		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view);
+		adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view, BV_MAX);
+		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view);
 	    }
 
 	    return BRLCAD_OK;
@@ -362,8 +364,8 @@ ged_adc_core(struct ged *gedp,
 	    if (!gedp->ged_gvp->gv_s->gv_adc.anchor_pos) {
 		double pval = (gedp->dbip) ? (user_pt[0] * gedp->dbip->dbi_local2base) : user_pt[0];
 		gedp->ged_gvp->gv_s->gv_adc.pos_model[Z] += pval;
-		adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view, BV_MAX);
-		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view);
+		adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view, BV_MAX);
+		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view);
 	    }
 
 	    return BRLCAD_OK;
@@ -387,8 +389,8 @@ ged_adc_core(struct ged *gedp,
 		VMOVE(gedp->ged_gvp->gv_s->gv_adc.pos_model, user_pt);
 	    }
 
-	    adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view, BV_MAX);
-	    adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view);
+	    adc_model_to_adc_view(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view, BV_MAX);
+	    adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view);
 
 	    return BRLCAD_OK;
 	}
@@ -411,8 +413,8 @@ ged_adc_core(struct ged *gedp,
 
 		gedp->ged_gvp->gv_s->gv_adc.pos_view[X] = gedp->ged_gvp->gv_s->gv_adc.dv_x * INV_BV;
 		gedp->ged_gvp->gv_s->gv_adc.pos_view[Y] = gedp->ged_gvp->gv_s->gv_adc.dv_y * INV_BV;
-		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view);
-		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, gedp->ged_gvp->gv_view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
+		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view);
+		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, _cam.view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
 	    }
 
 	    return BRLCAD_OK;
@@ -436,8 +438,8 @@ ged_adc_core(struct ged *gedp,
 
 		gedp->ged_gvp->gv_s->gv_adc.pos_view[X] = gedp->ged_gvp->gv_s->gv_adc.dv_x * INV_BV;
 		gedp->ged_gvp->gv_s->gv_adc.pos_view[Y] = gedp->ged_gvp->gv_s->gv_adc.dv_y * INV_BV;
-		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_model2view);
-		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, gedp->ged_gvp->gv_view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
+		adc_view_to_adc_grid(&(gedp->ged_gvp->gv_s->gv_adc), _cam.model2view);
+		MAT4X3PNT(gedp->ged_gvp->gv_s->gv_adc.pos_model, _cam.view2model, gedp->ged_gvp->gv_s->gv_adc.pos_view);
 	    }
 
 	    return BRLCAD_OK;
@@ -609,7 +611,7 @@ ged_adc_core(struct ged *gedp,
 
     if (BU_STR_EQUAL(parameter, "reset")) {
 	if (argc == 0) {
-	    adc_reset(&(gedp->ged_gvp->gv_s->gv_adc), gedp->ged_gvp->gv_view2model, gedp->ged_gvp->gv_model2view);
+	    adc_reset(&(gedp->ged_gvp->gv_s->gv_adc), _cam.view2model, _cam.model2view);
 
 	    return BRLCAD_OK;
 	}
@@ -638,15 +640,17 @@ ged_adc_core(struct ged *gedp,
 void
 ged_calc_adc_pos(bsg_view *gvp)
 {
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gvp, &_cam);
     if (gvp->gv_s->gv_adc.anchor_pos == 1) {
-	adc_model_to_adc_view(&(gvp->gv_s->gv_adc), gvp->gv_model2view, BV_MAX);
-	adc_view_to_adc_grid(&(gvp->gv_s->gv_adc), gvp->gv_model2view);
+	adc_model_to_adc_view(&(gvp->gv_s->gv_adc), _cam.model2view, BV_MAX);
+	adc_view_to_adc_grid(&(gvp->gv_s->gv_adc), _cam.model2view);
     } else if (gvp->gv_s->gv_adc.anchor_pos == 2) {
-	adc_grid_to_adc_view(&(gvp->gv_s->gv_adc), gvp->gv_view2model, BV_MAX);
-	MAT4X3PNT(gvp->gv_s->gv_adc.pos_model, gvp->gv_view2model, gvp->gv_s->gv_adc.pos_view);
+	adc_grid_to_adc_view(&(gvp->gv_s->gv_adc), _cam.view2model, BV_MAX);
+	MAT4X3PNT(gvp->gv_s->gv_adc.pos_model, _cam.view2model, gvp->gv_s->gv_adc.pos_view);
     } else {
-	adc_view_to_adc_grid(&(gvp->gv_s->gv_adc), gvp->gv_model2view);
-	MAT4X3PNT(gvp->gv_s->gv_adc.pos_model, gvp->gv_view2model, gvp->gv_s->gv_adc.pos_view);
+	adc_view_to_adc_grid(&(gvp->gv_s->gv_adc), _cam.model2view);
+	MAT4X3PNT(gvp->gv_s->gv_adc.pos_model, _cam.view2model, gvp->gv_s->gv_adc.pos_view);
     }
 }
 
@@ -655,10 +659,12 @@ void
 ged_calc_adc_a1(bsg_view *gvp)
 {
     if (gvp->gv_s->gv_adc.anchor_a1) {
+	struct bsg_camera _cam;
 	fastf_t dx, dy;
 	point_t view_pt;
 
-	MAT4X3PNT(view_pt, gvp->gv_model2view, gvp->gv_s->gv_adc.anchor_pt_a1);
+	bsg_view_get_camera(gvp, &_cam);
+	MAT4X3PNT(view_pt, _cam.model2view, gvp->gv_s->gv_adc.anchor_pt_a1);
 	dx = view_pt[X] * BV_MAX - gvp->gv_s->gv_adc.dv_x;
 	dy = view_pt[Y] * BV_MAX - gvp->gv_s->gv_adc.dv_y;
 
@@ -674,10 +680,12 @@ void
 ged_calc_adc_a2(bsg_view *gvp)
 {
     if (gvp->gv_s->gv_adc.anchor_a2) {
+	struct bsg_camera _cam;
 	fastf_t dx, dy;
 	point_t view_pt;
 
-	MAT4X3PNT(view_pt, gvp->gv_model2view, gvp->gv_s->gv_adc.anchor_pt_a2);
+	bsg_view_get_camera(gvp, &_cam);
+	MAT4X3PNT(view_pt, _cam.model2view, gvp->gv_s->gv_adc.anchor_pt_a2);
 	dx = view_pt[X] * BV_MAX - gvp->gv_s->gv_adc.dv_x;
 	dy = view_pt[Y] * BV_MAX - gvp->gv_s->gv_adc.dv_y;
 
@@ -693,11 +701,13 @@ void
 ged_calc_adc_dst(bsg_view *gvp)
 {
     if (gvp->gv_s->gv_adc.anchor_dst) {
+	struct bsg_camera _cam;
 	fastf_t dist;
 	fastf_t dx, dy;
 	point_t view_pt;
 
-	MAT4X3PNT(view_pt, gvp->gv_model2view, gvp->gv_s->gv_adc.anchor_pt_dst);
+	bsg_view_get_camera(gvp, &_cam);
+	MAT4X3PNT(view_pt, _cam.model2view, gvp->gv_s->gv_adc.anchor_pt_dst);
 
 	dx = view_pt[X] * BV_MAX - gvp->gv_s->gv_adc.dv_x;
 	dy = view_pt[Y] * BV_MAX - gvp->gv_s->gv_adc.dv_y;
