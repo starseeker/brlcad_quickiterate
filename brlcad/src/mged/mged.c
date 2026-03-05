@@ -1027,7 +1027,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_ROTATE)
-		MEDIT(s)->edit_flag = SROT;
+		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_ROT;
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_ROTATE;
@@ -1061,7 +1061,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_ROTATE)
-		MEDIT(s)->edit_flag = SROT;
+		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_ROT;
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_ROTATE;
@@ -1095,7 +1095,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_ROTATE)
-		MEDIT(s)->edit_flag = SROT;
+		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_ROT;
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_ROTATE;
@@ -1129,7 +1129,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_TRAN)
-		MEDIT(s)->edit_flag = STRANS;
+		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_TRANS;
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_XY;
@@ -1162,7 +1162,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_TRAN)
-		MEDIT(s)->edit_flag = STRANS;
+		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_TRANS;
 	} else {
 	    save_edflag = edobj;
 	    edobj = BE_O_XY;
@@ -1190,7 +1190,7 @@ event_check(struct mged_state *s, int non_blocking)
 	if (s->global_editing_state == ST_S_EDIT) {
 	    save_edflag = MEDIT(s)->edit_flag;
 	    if (!SEDIT_SCALE)
-		MEDIT(s)->edit_flag = SSCALE;
+		MEDIT(s)->edit_flag = RT_PARAMS_EDIT_SCALE;
 	} else {
 	    save_edflag = edobj;
 	    if (!OEDIT_SCALE)
@@ -1783,6 +1783,7 @@ mged_finish(struct mged_state *s, int exitcode)
     bu_vls_free(&s-> mged_prompt);
     rt_edit_destroy(s->s_edit->e);
     BU_PUT(s->s_edit, struct mged_edit_state);
+    mged_state_impl_destroy(s->i);
     BU_PUT(s, struct mged_state);
     MGED_STATE = NULL; // sanity
 
@@ -1837,6 +1838,7 @@ main(int argc, char *argv[])
     MGED_STATE->s_edit->e = rt_edit_create(NULL, NULL, NULL, NULL);
     struct mged_state *s = MGED_STATE;
     s->magic = MGED_STATE_MAGIC;
+    s->i = mged_state_impl_create();
     s->classic_mged = 1;
     s->interactive = 0; /* >0 means interactive, intentionally starts
                          * 0 to know when interactive, e.g., via -C

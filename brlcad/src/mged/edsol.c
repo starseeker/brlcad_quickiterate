@@ -36,6 +36,9 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "rt/primitives/arb8.h"
+#include "rt/primitives/bot.h"
+#include "rt/primitives/nmg.h"
+#include "rt/primitives/pipe.h"
 #include "wdb.h"
 #include "rt/db4.h"
 #include "ged/view.h"
@@ -60,7 +63,7 @@ static void init_sedit_vars(struct mged_state *), init_oedit_vars(struct mged_st
  */
 
 /* ECMD_PRINT_STR: print log string to Tcl interpreter */
-static int
+int
 mged_print_str_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
 {
     struct mged_state *s = (struct mged_state *)d;
@@ -73,7 +76,7 @@ mged_print_str_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUS
 }
 
 /* ECMD_PRINT_RESULTS: call mged_print_result(TCL_ERROR) */
-static int
+int
 mged_print_results_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
 {
     struct mged_state *s = (struct mged_state *)d;
@@ -83,7 +86,7 @@ mged_print_results_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *
 }
 
 /* ECMD_EAXES_POS: set_e_axes_pos(s, 0)  (both=0 → curr only) */
-static int
+int
 mged_eaxes_pos_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *id)
 {
     struct mged_state *s = (struct mged_state *)d;
@@ -94,7 +97,7 @@ mged_eaxes_pos_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *id)
 }
 
 /* ECMD_REPLOT_EDITING_SOLID: replot_editing_solid(s) */
-static int
+int
 mged_replot_editing_solid_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
 {
     struct mged_state *s = (struct mged_state *)d;
@@ -104,7 +107,7 @@ mged_replot_editing_solid_clbk(int UNUSED(ac), const char **UNUSED(av), void *d,
 }
 
 /* ECMD_VIEW_UPDATE: active_edit_callback + dirty flag */
-static int
+int
 mged_view_update_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(id))
 {
     struct mged_state *s = (struct mged_state *)d;
@@ -137,7 +140,403 @@ mged_setup_sedit_clbks(struct mged_state *s)
     rt_edit_map_clbk_set(m, ECMD_VIEW_UPDATE,           BU_CLBK_DURING, mged_view_update_clbk,           s);
 }
 
-int nurb_closest2d(int *surface, int *uval, int *vval, const struct rt_nurb_internal *spl, const point_t ref_pt  , const mat_t mat);
+int
+arb_setup_rotface_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *ms = (struct mged_state *)d;
+    struct rt_edit *s = MEDIT(ms);
+    struct rt_arb8_edit *aint = (struct rt_arb8_edit *)s->ipe_ptr;
+    int vertex = -1;
+    struct bu_vls str = BU_VLS_INIT_ZERO;
+    struct bu_vls cmd = BU_VLS_INIT_ZERO;
+    int arb_type = rt_arb_std_type(&s->es_int, s->tol);
+    int type = arb_type - 4;
+    int loc = aint->edit_menu*4;
+    int valid = 0;
+
+    /* check if point 5 is in the face */
+    static int pnt5 = 0;
+    for (int i=0; i<4; i++) {
+	if (rt_arb_vertices[arb_type-4][aint->edit_menu*4+i]==5)
+	    pnt5=1;
+    }
+
+    /* special case for arb7 */
+    if (arb_type == ARB7  && pnt5) {
+	bu_vls_printf(s->log_str, "\nFixed vertex is point 5.\n");
+	pr_prompt(ms);
+	return 5;
+    }
+
+    bu_vls_printf(&str, "Enter fixed vertex number(");
+    for (int i=0; i<4; i++) {
+	if (rt_arb_vertices[type][loc+i])
+	    bu_vls_printf(&str, "%d ", rt_arb_vertices[type][loc+i]);
+    }
+    bu_vls_printf(&str, ") [%d]: ", rt_arb_vertices[type][loc]);
+
+    const struct bu_vls *dnvp = dm_get_dname(ms->mged_curr_dm->dm_dmp);
+
+    bu_vls_printf(&cmd, "cad_input_dialog .get_vertex %s {Need vertex for solid rotate}\
+	    {%s} vertex_num %d 0 {{ summary \"Enter a vertex number to rotate about.\"}} OK",
+	    (dnvp) ? bu_vls_cstr(dnvp) : "id", bu_vls_cstr(&str), rt_arb_vertices[type][loc]);
+
+    while (!valid) {
+	if (Tcl_Eval(ms->interp, bu_vls_addr(&cmd)) != TCL_OK) {
+	    bu_vls_printf(s->log_str, "get_rotation_vertex: Error reading vertex\n");
+	    /* Using default */
+	    pr_prompt(ms);
+	    return rt_arb_vertices[type][loc];
+	}
+
+	vertex = atoi(Tcl_GetVar(ms->interp, "vertex_num", TCL_GLOBAL_ONLY));
+	for (int j=0; j<4; j++) {
+	    if (vertex==rt_arb_vertices[type][loc+j])
+		valid = 1;
+	}
+    }
+
+    bu_vls_free(&cmd);
+    bu_vls_free(&str);
+
+    pr_prompt(ms);
+    return vertex;
+}
+
+int
+ecmd_bot_mode_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *ms = (struct mged_state *)d;
+    struct rt_edit *s = MEDIT(ms);
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)s->es_int.idb_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    const char *radio_result;
+    char mode[10];
+    int ret_tcl = TCL_ERROR;
+
+    sprintf(mode, " %d", bot->mode - 1);
+    if (dm_get_pathname(ms->mged_curr_dm->dm_dmp)) {
+	ret_tcl = Tcl_VarEval(ms->interp, "cad_radio", " .bot_mode_radio ",
+		bu_vls_cstr(dm_get_pathname(ms->mged_curr_dm->dm_dmp)), " _bot_mode_result",
+		" \"BOT Mode\"", "  \"Select the desired mode\"", mode,
+		" { surface volume plate plate/nocosine }",
+		" { \"In surface mode, each triangle represents part of a zero thickness surface and no volume is enclosed\" \"In volume mode, the triangles are expected to enclose a volume and that volume becomes the solid\" \"In plate mode, each triangle represents a plate with a specified thickness\" \"In plate/nocosine mode, each triangle represents a plate with a specified thickness, but the LOS thickness reported by the raytracer is independent of obliquity angle\" } ", (char *)NULL);
+    }
+    if (ret_tcl != TCL_OK) {
+	bu_vls_printf(s->log_str, "Mode selection failed!\n");
+	return BRLCAD_ERROR;
+    }
+    radio_result = Tcl_GetVar(ms->interp, "_bot_mode_result", TCL_GLOBAL_ONLY);
+    bot->mode = atoi(radio_result) + 1;
+
+    return BRLCAD_OK;
+}
+
+int
+ecmd_bot_orient_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)MEDIT(s)->es_int.idb_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    const char *radio_result;
+    char orient[10];
+    int ret_tcl = TCL_ERROR;
+
+    sprintf(orient, " %d", bot->orientation - 1);
+    if (dm_get_pathname(DMP)) {
+	ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_orient_radio ",
+		bu_vls_addr(dm_get_pathname(DMP)), " _bot_orient_result",
+		" \"BOT Face Orientation\"", "  \"Select the desired orientation\"", orient,
+		" { none right-hand-rule left-hand-rule }",
+		" { \"No orientation means that there is no particular order for the vertices of the triangles\" \"right-hand-rule means that the vertices of each triangle are ordered such that the right-hand-rule produces an outward pointing normal\"  \"left-hand-rule means that the vertices of each triangle are ordered such that the left-hand-rule produces an outward pointing normal\" } ", (char *)NULL);
+    }
+    if (ret_tcl != TCL_OK) {
+	bu_vls_printf(MEDIT(s)->log_str, "Face orientation selection failed!\n");
+	return BRLCAD_ERROR;
+    }
+    radio_result = Tcl_GetVar(s->interp, "_bot_orient_result", TCL_GLOBAL_ONLY);
+    bot->orientation = atoi(radio_result) + 1;
+
+    return BRLCAD_OK;
+}
+
+int
+ecmd_bot_thick_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)MEDIT(s)->es_int.idb_ptr;
+    struct rt_bot_edit *b = (struct rt_bot_edit *)MEDIT(s)->ipe_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    size_t face_no = 0;
+    int face_state = 0;
+
+    if (bot->mode != RT_BOT_PLATE && bot->mode != RT_BOT_PLATE_NOCOS) {
+	if (Tcl_VarEval(s->interp, "cad_dialog ", ".bot_err ", "$mged_gui(mged,screen) ", "{Not Plate Mode} ",
+		    "{Cannot edit face thickness in a non-plate BOT} ", "\"\" ", "0 ", "OK ",
+		    (char *)NULL) != TCL_OK)
+	{
+	    bu_log("cad_dialog failed: %s\n", Tcl_GetStringResult(s->interp));
+	}
+	return BRLCAD_ERROR;
+    }
+
+    if (b->bot_verts[0] < 0 || b->bot_verts[1] < 0 || b->bot_verts[2] < 0) {
+	/* setting thickness for all faces */
+	(void)Tcl_VarEval(s->interp, "cad_dialog ", ".bot_err ",
+		"$mged_gui(mged,screen) ", "{Setting Thickness for All Faces} ",
+		"{No face is selected, so this operation will modify all the faces in this BOT} ",
+		"\"\" ", "0 ", "OK ", "CANCEL ", (char *)NULL);
+	if (atoi(Tcl_GetStringResult(s->interp)))
+	    return BRLCAD_ERROR;
+
+	for (size_t i=0; i<bot->num_faces; i++)
+	    bot->thickness[i] = MEDIT(s)->e_para[0];
+    } else {
+	/* setting thickness for just one face */
+
+	face_state = -1;
+	for (size_t i=0; i < bot->num_faces; i++) {
+	    if (b->bot_verts[0] == bot->faces[i*3] &&
+		    b->bot_verts[1] == bot->faces[i*3+1] &&
+		    b->bot_verts[2] == bot->faces[i*3+2])
+	    {
+		face_no = i;
+		face_state = 0;
+		break;
+	    }
+	}
+	if (face_state > -1) {
+	    bu_log("Cannot find face with vertices %d %d %d!\n", V3ARGS(b->bot_verts));
+	    return BRLCAD_ERROR;
+	}
+
+	bot->thickness[face_no] = MEDIT(s)->e_para[0];
+    }
+
+    return BRLCAD_OK;
+}
+
+int
+ecmd_bot_flags_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    int ret_tcl = TCL_ERROR;
+    const char *dialog_result;
+    char cur_settings[11];
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)MEDIT(s)->es_int.idb_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    bu_strlcpy(cur_settings, " { 0 0 }", sizeof(cur_settings));
+
+    if (bot->bot_flags & RT_BOT_USE_NORMALS)
+	cur_settings[3] = '1';
+
+    if (bot->bot_flags & RT_BOT_USE_FLOATS)
+	cur_settings[5] = '1';
+
+    if (dm_get_pathname(DMP)) {
+	ret_tcl = Tcl_VarEval(s->interp,
+		"cad_list_buts",
+		" .bot_list_flags ",
+		bu_vls_addr(dm_get_pathname(DMP)),
+		" _bot_flags_result ",
+		cur_settings,
+		" \"BOT Flags\"",
+		" \"Select the desired flags\"",
+		" { {Use vertex normals} {Use single precision ray-tracing} }",
+		" { {This selection indicates that surface normals at hit points should be interpolated from vertex normals} {This selection indicates that the prepped form of the BOT triangles should use single precision to save memory} } ",
+		(char *)NULL);
+    }
+    if (ret_tcl != TCL_OK) {
+	bu_log("ERROR: cad_list_buts: %s\n", Tcl_GetStringResult(s->interp));
+	return BRLCAD_ERROR;
+    }
+    dialog_result = Tcl_GetVar(s->interp, "_bot_flags_result", TCL_GLOBAL_ONLY);
+
+    if (dialog_result[0] == '1') {
+	bot->bot_flags |= RT_BOT_USE_NORMALS;
+    } else {
+	bot->bot_flags &= ~RT_BOT_USE_NORMALS;
+    }
+    if (dialog_result[2] == '1') {
+	bot->bot_flags |= RT_BOT_USE_FLOATS;
+    } else {
+	bot->bot_flags &= ~RT_BOT_USE_FLOATS;
+    }
+
+    return BRLCAD_OK;
+}
+
+int
+ecmd_bot_fmode_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)MEDIT(s)->es_int.idb_ptr;
+    struct rt_bot_edit *b = (struct rt_bot_edit *)MEDIT(s)->ipe_ptr;
+    char fmode[10];
+    const char *radio_result;
+    size_t face_no = 0;
+    int face_state = 0;
+    int ret_tcl = TCL_ERROR;
+
+    RT_BOT_CK_MAGIC(bot);
+
+    if (bot->mode != RT_BOT_PLATE && bot->mode != RT_BOT_PLATE_NOCOS) {
+	(void)Tcl_VarEval(s->interp, "cad_dialog ", ".bot_err ", "$mged_gui(mged,screen) ", "{Not Plate Mode} ",
+		"{Cannot edit face mode in a non-plate BOT} ", "\"\" ", "0 ", "OK ",
+		(char *)NULL);
+	return BRLCAD_ERROR;
+    }
+
+    if (b->bot_verts[0] < 0 || b->bot_verts[1] < 0 || b->bot_verts[2] < 0) {
+	/* setting mode for all faces */
+	(void)Tcl_VarEval(s->interp, "cad_dialog ", ".bot_err ",
+		"$mged_gui(mged,screen) ", "{Setting Mode for All Faces} ",
+		"{No face is selected, so this operation will modify all the faces in this BOT} ",
+		"\"\" ", "0 ", "OK ", "CANCEL ", (char *)NULL);
+	if (atoi(Tcl_GetStringResult(s->interp)))
+	    return BRLCAD_ERROR;
+
+	face_state = -2;
+    } else {
+	/* setting thickness for just one face */
+	face_state = -1;
+	for (size_t i=0; i < bot->num_faces; i++) {
+	    if (b->bot_verts[0] == bot->faces[i*3] &&
+		    b->bot_verts[1] == bot->faces[i*3+1] &&
+		    b->bot_verts[2] == bot->faces[i*3+2])
+	    {
+		face_no = i;
+		face_state = 0;
+		break;
+	    }
+	}
+	if (face_state < 0) {
+	    bu_log("Cannot find face with vertices %d %d %d!\n", V3ARGS(b->bot_verts));
+	    return BRLCAD_ERROR;
+	}
+    }
+
+    if (face_state > -1)
+	sprintf(fmode, " %d", BU_BITTEST(bot->face_mode, face_no)?1:0);
+    else
+	sprintf(fmode, " %d", BU_BITTEST(bot->face_mode, 0)?1:0);
+
+    if (dm_get_pathname(DMP)) {
+	ret_tcl = Tcl_VarEval(s->interp, "cad_radio", " .bot_fmode_radio ", bu_vls_addr(dm_get_pathname(DMP)),
+		" _bot_fmode_result ", "\"BOT Face Mode\"",
+		" \"Select the desired face mode\"", fmode,
+		" { {Thickness centered about hit point} {Thickness appended to hit point} }",
+		" { {This selection will place the plate thickness centered about the hit point} {This selection will place the plate thickness rayward of the hit point} } ",
+		(char *)NULL);
+    }
+    if (ret_tcl != TCL_OK) {
+	bu_log("ERROR: cad_radio: %s\n", Tcl_GetStringResult(s->interp));
+	return BRLCAD_ERROR;
+    }
+    radio_result = Tcl_GetVar(s->interp, "_bot_fmode_result", TCL_GLOBAL_ONLY);
+
+    if (face_state > -1) {
+	if (atoi(radio_result))
+	    BU_BITSET(bot->face_mode, face_no);
+	else
+	    BU_BITCLR(bot->face_mode, face_no);
+    } else {
+	if (atoi(radio_result)) {
+	    for (size_t i=0; i<bot->num_faces; i++)
+		BU_BITSET(bot->face_mode, i);
+	} else
+	    bu_bitv_clear(bot->face_mode);
+    }
+
+    return BRLCAD_OK;
+}
+
+int
+ecmd_bot_pickt_multihit_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *d2)
+{
+    struct mged_state *s = (struct mged_state *)d;
+    struct rt_edit *se = (struct rt_edit *)d2;
+    struct rt_bot_edit *b = (struct rt_bot_edit *)se->ipe_ptr;
+    struct bu_vls *vls = (struct bu_vls *)se->u_ptr;
+
+    Tcl_LinkVar(s->interp, "bot_v1", (char *)&b->bot_verts[0], TCL_LINK_INT);
+    Tcl_LinkVar(s->interp, "bot_v2", (char *)&b->bot_verts[1], TCL_LINK_INT);
+    Tcl_LinkVar(s->interp, "bot_v3", (char *)&b->bot_verts[2], TCL_LINK_INT);
+
+    int ret_tcl = Tcl_VarEval(s->interp, "bot_face_select ", bu_vls_cstr(vls), (char *)NULL);
+    int ret = BRLCAD_OK;
+    if (ret_tcl != TCL_OK) {
+	bu_log("bot_face_select failed: %s\n", Tcl_GetStringResult(s->interp));
+	b->bot_verts[0] = -1;
+	b->bot_verts[1] = -1;
+	b->bot_verts[2] = -1;
+	ret = BRLCAD_ERROR;
+    }
+    Tcl_UnlinkVar(s->interp, "bot_v1");
+    Tcl_UnlinkVar(s->interp, "bot_v2");
+    Tcl_UnlinkVar(s->interp, "bot_v3");
+    return ret;
+}
+
+int
+ecmd_nmg_edebug_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *ms = (struct mged_state *)d;
+    struct rt_edit *s = MEDIT(ms);
+    struct rt_nmg_edit *en = (struct rt_nmg_edit *)s->ipe_ptr;
+    nmg_plot_eu(ms->gedp, en->es_eu, s->tol, s->vlfree);
+    return BRLCAD_OK;
+}
+
+int
+ecmd_extrude_skt_name_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(d2))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    struct rt_edit *se = MEDIT(s);
+    struct rt_extrude_internal *extr = (struct rt_extrude_internal *)se->es_int.idb_ptr;
+
+    struct bu_vls tcl_cmd = BU_VLS_INIT_ZERO;
+    bu_vls_printf(&tcl_cmd, "cad_input_dialog .get_sketch_name $mged_gui(mged,screen) {Select Sketch} {Enter the name     of the sketch to be extruded} final_sketch_name %s 0 {{summary \"Enter sketch name\"}} APPLY DISMISS", extr->sketch_name);
+    int ret_tcl = Tcl_Eval(s->interp, bu_vls_addr(&tcl_cmd));
+    if (ret_tcl != TCL_OK) {
+	bu_log("ERROR: %s\n", Tcl_GetStringResult(s->interp));
+	bu_vls_free(&tcl_cmd);
+	return BRLCAD_ERROR;
+    }
+
+    if (atoi(Tcl_GetStringResult(s->interp)) == 1)
+	return BRLCAD_ERROR;
+
+    bu_vls_free(&tcl_cmd);
+
+    if (extr->sketch_name)
+	bu_free((char *)extr->sketch_name, "extr->sketch_name");
+
+    extr->sketch_name = bu_strdup(Tcl_GetVar(s->interp, "final_sketch_name", TCL_GLOBAL_ONLY));
+
+    struct directory *dp = RT_DIR_NULL;
+    if ((dp = db_lookup(s->dbip, extr->sketch_name, 0)) == RT_DIR_NULL) {
+	bu_log("Warning: %s does not exist!\n", extr->sketch_name);
+	extr->skt = (struct rt_sketch_internal *)NULL;
+    } else {
+	/* import the new sketch */
+	struct rt_db_internal tmp_ip;
+	if (rt_db_get_internal(&tmp_ip, dp, s->dbip, bn_mat_identity, &rt_uniresource) != ID_SKETCH) {
+	    bu_log("rt_extrude_import: ERROR: Cannot import sketch (%.16s) for extrusion\n", extr->sketch_name);
+	    extr->skt = (struct rt_sketch_internal *)NULL;
+	} else {
+	    extr->skt = (struct rt_sketch_internal *)tmp_ip.idb_ptr;
+	}
+    }
+
+    return BRLCAD_OK;
+}
+
+int nurb_closest2d(int *surface, int *uval, int *vval, const struct rt_nurb_internal *spl, const point_t ref_pt, const mat_t mat);
 
 // FIXME:  Globals
 
