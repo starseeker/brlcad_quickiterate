@@ -187,7 +187,8 @@ CADViewSettings::checkbox_refresh(unsigned long long)
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 
@@ -232,7 +233,7 @@ CADViewSettings::view_refresh(unsigned long long)
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 

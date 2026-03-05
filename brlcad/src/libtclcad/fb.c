@@ -911,14 +911,14 @@ Fbo_Init(Tcl_Interp *interp)
 void
 to_fbs_callback(void *clientData)
 {
-    struct bview *gdvp = (struct bview *)clientData;
+    bsg_view *gdvp = (bsg_view *)clientData;
 
     to_refresh_view(gdvp);
 }
 
 
 int
-to_close_fbs(struct bview *gdvp)
+to_close_fbs(bsg_view *gdvp)
 {
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     if (tvd->gdv_fbs.fbs_fbp == FB_NULL)
@@ -936,7 +936,7 @@ to_close_fbs(struct bview *gdvp)
  * Open/activate the display managers framebuffer.
  */
 int
-to_open_fbs(struct bview *gdvp, Tcl_Interp *interp)
+to_open_fbs(bsg_view *gdvp, Tcl_Interp *interp)
 {
     /* already open */
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
@@ -987,7 +987,7 @@ to_set_fb_mode(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    bsg_view *gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -1043,7 +1043,7 @@ to_listen(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    struct bview *gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    bsg_view *gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;

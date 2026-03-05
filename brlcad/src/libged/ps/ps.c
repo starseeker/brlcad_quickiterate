@@ -89,7 +89,7 @@ NEWPG\n\
 #define PS_COLOR(_c) ((_c)*(1.0/255.0))
 
 static void
-ps_draw_solid(fastf_t perspective, FILE *fp, struct bv_scene_obj *sp, matp_t psmat)
+ps_draw_solid(fastf_t perspective, FILE *fp, bsg_shape *sp, matp_t psmat)
 {
     static vect_t last;
     point_t clipmin = {-1.0, -1.0, -MAX_FASTF};
@@ -227,7 +227,7 @@ ps_draw_body(struct bu_list *hdlp, FILE *fp, mat_t model2view, fastf_t perspecti
     mat_t newmat;
     matp_t mat;
     mat_t perspective_mat;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     mat = model2view;
 

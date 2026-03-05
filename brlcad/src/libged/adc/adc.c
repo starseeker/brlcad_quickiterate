@@ -31,13 +31,13 @@
 #include "vmath.h"
 #include "ged.h"
 
-void ged_calc_adc_pos(struct bview *gvp);
-void ged_calc_adc_a1(struct bview *gvp);
-void ged_calc_adc_a2(struct bview *gvp);
-void ged_calc_adc_dst(struct bview *gvp);
+void ged_calc_adc_pos(bsg_view *gvp);
+void ged_calc_adc_a1(bsg_view *gvp);
+void ged_calc_adc_a2(bsg_view *gvp);
+void ged_calc_adc_dst(bsg_view *gvp);
 
 static void
-adc_vls_print(struct bview *gvp, fastf_t base2local, struct bu_vls *out_vp)
+adc_vls_print(bsg_view *gvp, fastf_t base2local, struct bu_vls *out_vp)
 {
     bu_vls_printf(out_vp, "draw = %d\n", gvp->gv_s->gv_adc.draw);
     bu_vls_printf(out_vp, "a1 = %.15e\n", gvp->gv_s->gv_adc.a1);
@@ -125,7 +125,7 @@ ged_adc_core(struct ged *gedp,
     GED_CHECK_VIEW(gedp, BRLCAD_ERROR);
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     fastf_t gv_scale = (gedp->dbip) ? v->gv_scale * gedp->dbip->dbi_base2local : v->gv_scale;
     double sval = (gedp->dbip) ? gedp->dbip->dbi_local2base : 1.0;
 
@@ -636,7 +636,7 @@ ged_adc_core(struct ged *gedp,
 
 
 void
-ged_calc_adc_pos(struct bview *gvp)
+ged_calc_adc_pos(bsg_view *gvp)
 {
     if (gvp->gv_s->gv_adc.anchor_pos == 1) {
 	adc_model_to_adc_view(&(gvp->gv_s->gv_adc), gvp->gv_model2view, BV_MAX);
@@ -652,7 +652,7 @@ ged_calc_adc_pos(struct bview *gvp)
 
 
 void
-ged_calc_adc_a1(struct bview *gvp)
+ged_calc_adc_a1(bsg_view *gvp)
 {
     if (gvp->gv_s->gv_adc.anchor_a1) {
 	fastf_t dx, dy;
@@ -671,7 +671,7 @@ ged_calc_adc_a1(struct bview *gvp)
 
 
 void
-ged_calc_adc_a2(struct bview *gvp)
+ged_calc_adc_a2(bsg_view *gvp)
 {
     if (gvp->gv_s->gv_adc.anchor_a2) {
 	fastf_t dx, dy;
@@ -690,7 +690,7 @@ ged_calc_adc_a2(struct bview *gvp)
 
 
 void
-ged_calc_adc_dst(struct bview *gvp)
+ged_calc_adc_dst(bsg_view *gvp)
 {
     if (gvp->gv_s->gv_adc.anchor_dst) {
 	fastf_t dist;

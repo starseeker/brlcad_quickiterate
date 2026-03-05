@@ -60,7 +60,7 @@ ged_scale_core(struct ged *gedp, int argc, const char *argv[])
 	gedp->ged_gvp->gv_scale = BV_MINVIEWSIZE;
     gedp->ged_gvp->gv_size = 2.0 * gedp->ged_gvp->gv_scale;
     gedp->ged_gvp->gv_isize = 1.0 / gedp->ged_gvp->gv_size;
-    bv_update(gedp->ged_gvp);
+    bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
 }

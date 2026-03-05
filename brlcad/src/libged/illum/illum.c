@@ -57,7 +57,7 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
     scale = gedp->ged_gvp->gv_size / 100;          /* divide by # chars/screen */
 
     for (i=1; i<argc; i++) {
-	struct bv_scene_obj *s;
+	bsg_shape *s;
 	struct directory *dp;
 	if ((dp = db_lookup(gedp->dbip, argv[i], LOOKUP_NOISY)) == RT_DIR_NULL)
 	    continue;
@@ -93,7 +93,7 @@ static int
 dl_set_illum(struct display_list *gdlp, const char *obj, int illum)
 {
     int found = 0;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
 	size_t i;

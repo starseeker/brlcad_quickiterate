@@ -779,7 +779,7 @@ _brep_cmd_intersect(void *bs, int argc, const char **argv)
     }
 
     if (gedp->new_cmd_forms) {
-	struct bview *view = gedp->ged_gvp;
+	bsg_view *view = gedp->ged_gvp;
 	bv_vlblock_obj(gb->vbp, view, "brep_intersect");
     } else {
 	char namebuf[65];

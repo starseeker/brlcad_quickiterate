@@ -993,7 +993,7 @@ plot_nurbs_cv(struct bu_list *vlfree, struct bv_vlblock *vbp, int ucount, int vc
 static void
 _brep_vlblock_plot(struct ged *gedp, struct bv_vlblock *vbp, const char *sname)
 {
-    struct bview *view = gedp->ged_gvp;
+    bsg_view *view = gedp->ged_gvp;
     if (gedp->new_cmd_forms) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "brep::%s", sname);

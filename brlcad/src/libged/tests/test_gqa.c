@@ -55,12 +55,12 @@ main(int ac, char *av[]) {
     // we're only after ffff00 colored data)
     //
     // (TODO - this will need to be redone if/when the new drawing setup takes
-    // over - there (at least for now) we would do a bv_find_obj on the view
+    // over - there (at least for now) we would do a bsg_view_find_shape on the view
     // with the gqa overlap view object's name (gqa:overlaps) to find the
-    // bv_scene_obj, and then iterate over that object's child objects to get
+    // bsg_shape, and then iterate over that object's child objects to get
     // the different colored vlists...)
     struct display_list *gdlp;
-    struct bv_scene_obj *vdata = NULL;
+    bsg_shape *vdata = NULL;
     for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp))) {
 	if (!BU_STR_EQUAL(bu_vls_cstr(&gdlp->dl_path), "OVERLAPSffff00"))
 	    continue;

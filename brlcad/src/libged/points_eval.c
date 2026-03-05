@@ -40,7 +40,7 @@
 #include "./ged_private.h"
 
 int
-draw_points(struct bv_scene_obj *s)
+draw_points(bsg_shape *s)
 {
     if (!s)
 	return BRLCAD_OK; /* nothing to do is fine */

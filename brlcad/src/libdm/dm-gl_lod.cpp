@@ -34,20 +34,20 @@
 #include "bn.h"
 extern "C" {
 #include "bv/defines.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"
 }
 
 static void
-dlist_free_callback(struct bv_scene_obj *s)
+dlist_free_callback(bsg_shape *s)
 {
     if (!s)
 	return;
     bu_log("dlist cleanup\n");
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);
+	bsg_group *cg = (bsg_group *)BU_PTBL_GET(&s->children, i);
 	dlist_free_callback(cg);
     }
     if (s->s_dlist) {
@@ -64,7 +64,7 @@ dlist_free_callback(struct bv_scene_obj *s)
 // down the big mesh into smaller pieces as in the earlier LoD experiments in
 // order to keep using display lists...
 static int
-gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
+gl_draw_tri(struct dm *dmp, bsg_lod *lod)
 {
     int fcnt = lod->fcnt;
     int pcnt = lod->pcnt;
@@ -72,7 +72,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
     const point_t *points = lod->points;
     const point_t *points_orig = lod->points_orig;
     const vect_t *normals = lod->normals;
-    struct bv_scene_obj *s = lod->s;
+    bsg_shape *s = lod->s;
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
 
@@ -97,10 +97,10 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	    // If we've had a memshrink, the loaded data isn't
 	    // going to be correct to generate new draw info.
 	    // First, find out the current level:
-	    int curr_level = bv_mesh_lod_level(s, -1, 0);
+	    int curr_level = bsg_mesh_lod_level(s, -1, 0);
 
 	    // Trigger a load operation to restore it
-	    bv_mesh_lod_level(s, curr_level, 1);
+	    bsg_mesh_lod_level(s, curr_level, 1);
 
 	    fcnt = lod->fcnt;
 	    pcnt = lod->pcnt;
@@ -237,7 +237,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
@@ -344,7 +344,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
@@ -373,7 +373,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 }
 
 static int
-gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
+gl_csg_lod(struct dm *dmp, bsg_shape *s)
 {
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
@@ -540,10 +540,10 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 extern "C"
-int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
+int gl_draw_obj(struct dm *dmp, bsg_shape *s)
 {
     if (s->s_type_flags & BV_MESH_LOD) {
-	struct bv_mesh_lod *lod = (struct bv_mesh_lod *)s->draw_data;
+	bsg_lod *lod = (bsg_lod *)s->draw_data;
 	return gl_draw_tri(dmp, lod);
     }
 

@@ -37,7 +37,7 @@
 int
 go_data_lines(Tcl_Interp *UNUSED(interp),
 	      struct ged *gedp,
-	      struct bview *gdvp,
+	      bsg_view *gdvp,
 	      int argc,
 	      const char *argv[],
 	      const char *usage)
@@ -65,7 +65,7 @@ go_data_lines(Tcl_Interp *UNUSED(interp),
     }
 
 
-    struct bview *btmp = gedp->ged_gvp;
+    bsg_view *btmp = gedp->ged_gvp;
     gedp->ged_gvp = gdvp;
 
     ret = ged_exec(gedp, argc, argv);
@@ -88,7 +88,7 @@ to_data_lines(struct ged *gedp,
 	      const char *usage,
 	      int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -105,7 +105,7 @@ to_data_lines(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_scene_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -115,7 +115,7 @@ to_data_lines(struct ged *gedp,
     argv[1] = argv[0];
     argv[0] = "view";
 
-    struct bview *btmp = gedp->ged_gvp;
+    bsg_view *btmp = gedp->ged_gvp;
     gedp->ged_gvp = gdvp;
 
     ret = ged_exec_view(gedp, argc, argv);

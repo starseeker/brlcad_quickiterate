@@ -48,7 +48,7 @@ dl_plot(struct bu_list *hdlp, FILE *fp, mat_t model2view, int floating, mat_t ce
 {
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     struct bv_vlist *vp;
     static vect_t clipmin, clipmax;
     static vect_t last;         /* last drawn point */

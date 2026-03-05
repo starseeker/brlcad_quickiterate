@@ -24,8 +24,8 @@
 #include "bu/units.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
-#include "bv/lod.h"
-#include "bv/util.h"
+#include "bsg/lod.h"
+#include "bsg/util.h"
 #define DM_WITH_RT
 #include "dm.h"
 
@@ -81,7 +81,7 @@ dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t 
 
 // Draw an arrow head for each MOVE+LAST_DRAW paring
 void
-dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
+dm_add_arrows(struct dm *dmp, bsg_shape *s)
 {
     struct bv_vlist *vp = (struct bv_vlist *)&s->s_vlist;
     struct bv_vlist *tvp;
@@ -302,7 +302,7 @@ dm_draw_lines(struct dm *dmp, struct bv_data_line_state *gdlsp)
 
 
 void
-dm_draw_faceplate(struct bview *v)
+dm_draw_faceplate(bsg_view *v)
 {
     struct dm *dmp = (struct dm *)v->dmp;
 
@@ -444,7 +444,7 @@ dm_draw_faceplate(struct bview *v)
 }
 
 void
-dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
+dm_draw_label(struct dm *dmp, bsg_shape *s)
 {
     struct bv_label *l = (struct bv_label *)s->s_i_data;
 
@@ -494,7 +494,7 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 	    for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 		    point_t t3d, tpt;
-		    if (bv_screen_to_view(s->s_v, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
+		    if (bsg_screen_to_view(s->s_v, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
 			return;
 		    }
 		    t3d[2] = 0;
@@ -540,7 +540,7 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 		    return;
 	    }
 	}
-	bv_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
+	bsg_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
 	MAT4X3PNT(mpt, s->s_v->gv_view2model, l3d);
     } else {
 	VMOVE(mpt, l->p);
@@ -573,7 +573,7 @@ dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
 }
 
 static void
-draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+draw_scene_obj(struct dm *dmp, bsg_shape *s, bsg_view *v, int force_draw, bsg_material *obj_settings)
 {
     if (!s || !v || (s->s_flag == DOWN && !force_draw))
 	return;
@@ -584,7 +584,7 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     // always be the desired behavior - might need interior and exterior
     // children tables to provide some control
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+	bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&s->children, i);
 	draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
     }
 
@@ -607,12 +607,12 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
     // Primary object drawing.  See if we have an active view-specific object - if so,
     // use that, otherwise use the original object
     if (s->s_type_flags & BV_DB_OBJS) {
-	struct bv_scene_obj *vo = bv_obj_for_view(s, v);
+	bsg_shape *vo = bsg_shape_for_view(s, v);
 	if (!vo) {
 	    vo = s;
-	    bv_log(1, "draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
+	    bsg_log(1, "draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
 	} else {
-	    bv_log(1, "draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+	    bsg_log(1, "draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 	}
 
 	// If this is a database object, it may have a view dependent
@@ -639,9 +639,9 @@ draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int forc
 }
 
 void
-dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
+dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 {
-    bv_log(3, "libdm:dm_draw_viewobjs");
+    bsg_log(3, "libdm:dm_draw_viewobjs");
     struct dm *dmp = (struct dm *)v->dmp;
     int width = dm_get_width(dmp);
     fastf_t sf = (fastf_t)(v->gv_size) / (fastf_t)width;
@@ -673,39 +673,39 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 #if 0
     // Update selections (if any)
     for (size_t i = 0; i < BU_PTBL_LEN(v->gv_selected); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(v->gv_selected, i);
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(v->gv_selected, i);
 	// TODO - set illum flag or otherwise visually indicate what is selected
     }
 #endif
 
     // Draw geometry view objects
-    struct bu_ptbl *db_objs = bv_view_objs(v, BV_DB_OBJS);
+    struct bu_ptbl *db_objs = bsg_view_shapes(v, BV_DB_OBJS);
     if (db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(db_objs, i);
+	    bsg_group *g = (bsg_group *)BU_PTBL_GET(db_objs, i);
 	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
 	}
     }
-    struct bu_ptbl *local_db_objs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
     if (local_db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(local_db_objs, i);
+	    bsg_group *g = (bsg_group *)BU_PTBL_GET(local_db_objs, i);
 	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
 	}
     }
 
     // Draw view-only objects
-    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
 	}
     }
-    struct bu_ptbl *local_view_objs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (view_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);
 	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
 	}
     }
@@ -750,9 +750,9 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 // doesn't guarantee raw OpenGL drawing is supported, but the dmp should
 // provide enough information for the calling app to know if that is possible.)
 void
-dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), void *u_data)
+dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_data)
 {
-    bv_log(3, "libdm:dm_draw_objs");
+    bsg_log(3, "libdm:dm_draw_objs");
     if (dm_draw_custom) {
 	(*dm_draw_custom)(v, u_data);
 	return;
@@ -800,35 +800,35 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 
     // Draw geometry view objects
     // TODO - draw opaque, then transparent
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
+    struct bu_ptbl *sobjs = bsg_view_shapes(v, BV_DB_OBJS);
     if (!v->independent && sobjs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(sobjs, i);
+	    bsg_group *g = (bsg_group *)BU_PTBL_GET(sobjs, i);
 	    //bu_log("dm_draw_objs %s\n", bu_vls_cstr(&g->s_name));
 	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
 	}
     }
-    struct bu_ptbl *iobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *iobjs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
     if (iobjs && (iobjs != sobjs || v->independent)) {
 	for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(iobjs, i);
+	    bsg_group *g = (bsg_group *)BU_PTBL_GET(iobjs, i);
 	    //bu_log("dm_draw_objs(i) %s\n", bu_vls_cstr(&g->s_name));
 	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
 	}
     }
 
     // Draw view-only objects
-    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
+    struct bu_ptbl *view_objs = bsg_view_shapes(v, BV_VIEW_OBJS);
     if (view_objs && !v->independent) {
 	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
 	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
 	}
     }
-    struct bu_ptbl *vo = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *vo = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (vo && (vo != view_objs || v->independent)) {
 	for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(vo, i);
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(vo, i);
 	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
 	}
     }

@@ -323,24 +323,24 @@ QgEdApp::do_quad_view_change(QgView *cv)
 void
 QgEdApp::do_view_changed(unsigned long long flags)
 {
-    bv_log(1, "QgEdApp::do_view_changed");
+    bsg_log(1, "QgEdApp::do_view_changed");
     QTCAD_SLOT("QgEdApp::do_view_changed", 1);
 
     if (flags & QG_VIEW_DRAWN) {
 	// For all associated view states, execute any necessary changes to
 	// view objects and lists
-	std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-	struct bu_ptbl *views = bv_set_views(&mdl->gedp->ged_views);
+	std::unordered_map<BViewState *, std::unordered_set<bsg_view *>> vmap;
+	struct bu_ptbl *views = bsg_scene_views(&mdl->gedp->ged_views);
 	if (mdl->gedp->dbi_state) {
 	    DbiState *dbis = (DbiState *)mdl->gedp->dbi_state;
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-		struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
 		BViewState *bvs = dbis->get_view_state(v);
 		if (!bvs)
 		    continue;
 		vmap[bvs].insert(v);
 	    }
-	    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
+	    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
 	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
 		bv_it->first->redraw(NULL, bv_it->second, 1);
 	    }
@@ -433,7 +433,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 
     /* Set the local unit conversions */
     if (gedp->dbip) {
-	struct bview *v = w->CurrentView();
+	bsg_view *v = w->CurrentView();
 	v->gv_base2local = gedp->dbip->dbi_base2local;
 	v->gv_local2base = gedp->dbip->dbi_local2base;
     }

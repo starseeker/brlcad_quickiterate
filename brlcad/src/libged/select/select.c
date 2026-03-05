@@ -111,7 +111,7 @@ dl_select(struct bu_list *hdlp, mat_t model2view, struct bu_vls *vls, double vx,
 {
     struct display_list *gdlp = NULL;
     struct display_list *next_gdlp = NULL;
-    struct bv_scene_obj *sp = NULL;
+    bsg_shape *sp = NULL;
     fastf_t vr = 0.0;
     fastf_t vmin_x = 0.0;
     fastf_t vmin_y = 0.0;
@@ -235,7 +235,7 @@ dl_select_partial(struct bu_list *hdlp, mat_t model2view, struct bu_vls *vls, do
 {
     struct display_list *gdlp = NULL;
     struct display_list *next_gdlp = NULL;
-    struct bv_scene_obj *sp = NULL;
+    bsg_shape *sp = NULL;
     fastf_t vr = 0.0;
     fastf_t vmin_x = 0.0;
     fastf_t vmin_y = 0.0;
