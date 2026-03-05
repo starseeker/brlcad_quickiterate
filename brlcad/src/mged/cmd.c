@@ -1286,9 +1286,10 @@ end:
 }
 
 
-void
-mged_print_result(struct mged_state *s, int UNUSED(status))
+int
+mged_print_result(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(ud))
 {
+    struct mged_state *s = (struct mged_state *)d;
     size_t len;
     const char *result = Tcl_GetStringResult(s->interp);
 
@@ -1301,6 +1302,7 @@ mged_print_result(struct mged_state *s, int UNUSED(status))
     }
 
     Tcl_ResetResult(s->interp);
+    return BRLCAD_OK;
 }
 
 int

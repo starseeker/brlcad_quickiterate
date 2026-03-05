@@ -38,6 +38,9 @@ __BEGIN_DECLS
 RT_EXPORT extern fastf_t rt_cline_radius;
 
 
+/* CLINE solid edit command codes */
+/* ECMD_CLINE_* are in the scanner-generated rt/rt_ecmds.h */
+
 __END_DECLS
 
 #endif /* RT_PRIMITIVES_CLINE_H */

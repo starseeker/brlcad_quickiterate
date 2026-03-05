@@ -32,6 +32,9 @@ __BEGIN_DECLS
 RT_EXPORT extern int rt_num_circular_segments(double maxerr,
 					      double radius);
 
+/* TOR solid edit command codes */
+/* ECMD_TOR_* are in the scanner-generated rt/rt_ecmds.h */
+
 __END_DECLS
 
 /** @} */

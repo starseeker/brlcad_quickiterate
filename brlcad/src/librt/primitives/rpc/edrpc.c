@@ -31,12 +31,14 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/rpc.h"
 
 #include "../edit_private.h"
 
-#define ECMD_RPC_B		17043
-#define ECMD_RPC_H		17044
-#define ECMD_RPC_R		17045
+#define ECMD_RPC_B		17043	/* scale RPC breadth B */
+#define ECMD_RPC_H		17044	/* scale RPC height H */
+#define ECMD_RPC_R		17045	/* scale RPC half-width r */
+
 
 void
 rt_edit_rpc_set_edit_mode(struct rt_edit *s, int mode)

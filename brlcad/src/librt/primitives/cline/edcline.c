@@ -31,6 +31,7 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/cline.h"
 
 #include "../edit_private.h"
 
@@ -38,6 +39,7 @@
 #define ECMD_CLINE_MOVE_H	29078	/* move end of height vector */
 #define ECMD_CLINE_SCALE_R	29079	/* scale radius */
 #define ECMD_CLINE_SCALE_T	29080	/* scale thickness */
+
 
 void
 rt_edit_cline_set_edit_mode(struct rt_edit *s, int mode)

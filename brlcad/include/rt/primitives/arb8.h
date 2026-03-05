@@ -619,6 +619,13 @@ RT_EXPORT extern int rt_arb_find_e_nearest_pt2(int *edge, int *vert1, int *vert2
 RT_EXPORT extern int rt_arb_f_eqn(struct rt_edit *s, int argc, const char **argv);
 RT_EXPORT extern int rt_arb_edgedir(struct rt_edit *s, int argc, const char **argv);
 
+/** @brief ARB solid-edit command codes (move edge/face/vertex operations) */
+/* EARB and PTARB: legacy ARB edit mode flags (not ECMD_* names, not scanned) */
+#define EARB   4009    /**< move an ARB edge */
+#define PTARB  4010    /**< move an ARB point */
+
+/* ECMD_ARB_* are in the scanner-generated rt/rt_ecmds.h */
+
 
 
 

@@ -55,17 +55,10 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "raytrace.h"
+#include "rt/primitives/dsp.h"
 #include "rt/rt_ecmds.h"
 
-
-/* ECMD constants from eddsp.c */
-#define ECMD_DSP_FNAME		25056
-#define ECMD_DSP_FSIZE		25057
-#define ECMD_DSP_SCALE_X        25058
-#define ECMD_DSP_SCALE_Y        25059
-#define ECMD_DSP_SCALE_ALT      25060
-#define ECMD_DSP_SET_SMOOTH     25061
-#define ECMD_DSP_SET_DATASRC    25062
+/* ECMD_DSP_* constants are defined in rt/primitives/dsp.h */
 
 
 static const char *DSP_DATA_FILE = "/tmp/rt_edit_test_dsp.data";

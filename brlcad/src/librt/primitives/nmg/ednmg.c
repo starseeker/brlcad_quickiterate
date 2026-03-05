@@ -47,42 +47,12 @@
 #define ECMD_NMG_RADIAL		11024	/* radial+mate eu */
 #define ECMD_NMG_ESPLIT		11025	/* split current edge */
 #define ECMD_NMG_EKILL		11026	/* kill current edge */
-#define ECMD_NMG_LEXTRU		11027	/* Extrude loop */
-/*
- * Pick a vertex by explicit pointer (es_v) set from the model.
- * e_para[0] encodes a vertex index (0-based scan of the model's vertex list)
- * or the caller may set n->es_v directly before calling rt_edit_process.
- * e_inpara must be 1 when using the index form.
- */
-#define ECMD_NMG_VPICK		11028
-/*
- * Move the currently selected vertex (n->es_v) to e_para[0..2] (XYZ, local units).
- * e_inpara must be 3.  Also accepts mouse via e_mvalid / e_mparam.
- */
-#define ECMD_NMG_VMOVE		11029
-/*
- * Pick a faceuse by index (0-based scan of faceuses in the first region/shell).
- * e_para[0] = face index, e_inpara must be 1.
- * The caller may also set n->es_fu directly.
- */
-#define ECMD_NMG_FPICK		11030
-/*
- * Translate the currently selected face (n->es_fu) by the vector e_para[0..2].
- * All vertices referenced by the face loop are moved by the same delta.
- * e_inpara must be 3.
- */
-#define ECMD_NMG_FMOVE		11031
-/*
- * Extrude the current loop along an explicit direction vector.
- *
- * e_para[0..2] = direction vector (need not be unit length; will be normalised)
- * e_para[3]   = extrusion distance in local units
- * e_inpara    = 4
- *
- * Equivalent to computing target_pt = lu_keypoint + normalise(dir)*dist
- * and then delegating to the existing ecmd_nmg_lextru() (e_inpara=3) path.
- */
-#define ECMD_NMG_LEXTRU_DIR	11032
+#define ECMD_NMG_LEXTRU		11027	/* extrude loop */
+#define ECMD_NMG_VPICK		11028	/* vertex pick */
+#define ECMD_NMG_VMOVE		11029	/* vertex move */
+#define ECMD_NMG_FPICK		11030	/* face pick */
+#define ECMD_NMG_FMOVE		11031	/* face move */
+#define ECMD_NMG_LEXTRU_DIR	11032	/* set extrude loop direction */
 
 void *
 rt_edit_nmg_prim_edit_create(struct rt_edit *UNUSED(s))

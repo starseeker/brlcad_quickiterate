@@ -29,27 +29,24 @@
 #include "vmath.h"
 #include "nmg.h"
 #include "raytrace.h"
+#include "rt/primitives/metaball.h"
 #include "rt/geom.h"
 #include "wdb.h"
 
 #include "../edit_private.h"
 
-#define ECMD_METABALL_PT_NEXT		30121
-#define ECMD_METABALL_PT_PREV		30122
-#define ECMD_METABALL_PT_ADD		36089	/* add a metaball control point */
-#define ECMD_METABALL_PT_DEL		36088	/* delete a metaball control point */
-#define ECMD_METABALL_PT_FLDSTR		36087	/* set a metaball control point field strength */
-#define ECMD_METABALL_PT_MOV		36086	/* move a metaball control point */
-#define ECMD_METABALL_PT_PICK		36085	/* pick a metaball control point */
-#define ECMD_METABALL_PT_SET_GOO	30119
-#define ECMD_METABALL_PT_SWEAT		30120	/* set sweat value on selected control point */
-#define ECMD_METABALL_RMET		36090	/* set the metaball render method */
-#define ECMD_METABALL_SET_METHOD	36084	/* set the rendering method */
 #define ECMD_METABALL_SET_THRESHOLD	36083	/* overall metaball threshold value */
-
-struct rt_metaball_edit {
-    struct wdb_metaball_pnt *es_metaball_pnt; /* Currently selected METABALL Point */
-};
+#define ECMD_METABALL_SET_METHOD	36084	/* set the rendering method */
+#define ECMD_METABALL_PT_PICK		36085	/* pick a metaball control point */
+#define ECMD_METABALL_PT_MOV		36086	/* move a metaball control point */
+#define ECMD_METABALL_PT_FLDSTR		36087	/* set a metaball control point field strength */
+#define ECMD_METABALL_PT_DEL		36088	/* delete a metaball control point */
+#define ECMD_METABALL_PT_ADD		36089	/* add a metaball control point */
+#define ECMD_METABALL_RMET		36090	/* set the metaball render method */
+#define ECMD_METABALL_PT_SET_GOO	30119	/* set goo for a metaball control point */
+#define ECMD_METABALL_PT_SWEAT		30120	/* set sweat value on selected control point */
+#define ECMD_METABALL_PT_NEXT		30121	/* select next metaball control point */
+#define ECMD_METABALL_PT_PREV		30122	/* select previous metaball control point */
 
 void *
 rt_edit_metaball_prim_edit_create(struct rt_edit *UNUSED(s))

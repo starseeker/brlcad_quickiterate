@@ -35,6 +35,9 @@ RT_EXPORT extern void rt_pnt_sort(fastf_t t[],
 				 int npts);
 
 
+/* TGC solid edit command codes */
+/* ECMD_TGC_* are in the scanner-generated rt/rt_ecmds.h */
+
 __END_DECLS
 
 /** @} */

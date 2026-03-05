@@ -55,11 +55,7 @@
 #include "raytrace.h"
 #include "rt/rt_ecmds.h"
 
-
-/* ECMD constants from edebm.c */
-#define ECMD_EBM_FNAME		12053
-#define ECMD_EBM_FSIZE		12054
-#define ECMD_EBM_HEIGHT		12055
+/* ECMD_EBM_* constants are defined in the scanner-generated rt/rt_ecmds.h */
 
 
 static const char *EBM_DATA_FILE = "/tmp/rt_edit_test_ebm.data";

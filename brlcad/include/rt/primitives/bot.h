@@ -236,6 +236,9 @@ rt_bot_remove_faces(struct bu_ptbl *rm_face_indices, const struct rt_bot_interna
 RT_EXPORT struct rt_bot_internal *
 rt_bot_dup(const struct rt_bot_internal *bot);
 
+/* BOT solid edit command codes */
+/* ECMD_BOT_* are in the scanner-generated rt/rt_ecmds.h */
+
 /** @} */
 
 __END_DECLS

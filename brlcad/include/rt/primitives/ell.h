@@ -37,6 +37,9 @@ RT_EXPORT extern void rt_ell_16pnts(fastf_t *ov,
 				   fastf_t *B);
 /** @} */
 
+/* ELL solid edit command codes */
+/* ECMD_ELL_* are in the scanner-generated rt/rt_ecmds.h */
+
 __END_DECLS
 
 #endif /* RT_PRIMITIVES_ELL_H */

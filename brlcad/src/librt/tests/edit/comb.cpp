@@ -46,6 +46,7 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "raytrace.h"
+#include "rt/comb.h"
 #include "rt/geom.h"
 #include "rt/nongeom.h"
 #include "rt/tree.h"
@@ -53,28 +54,7 @@
 #include "wdb.h"
 #include "rt/rt_ecmds.h"
 
-/* ECMD constants (file-local in edcomb.c) */
-#define ECMD_COMB_ADD_MEMBER   12001
-#define ECMD_COMB_DEL_MEMBER   12002
-#define ECMD_COMB_SET_OP       12003
-#define ECMD_COMB_SET_MATRIX   12004
-#define ECMD_COMB_SET_REGION   12005
-#define ECMD_COMB_SET_COLOR    12006
-#define ECMD_COMB_SET_SHADER   12007
-#define ECMD_COMB_SET_MATERIAL 12008
-#define ECMD_COMB_SET_REGION_ID 12009
-#define ECMD_COMB_SET_AIRCODE  12010
-#define ECMD_COMB_SET_GIFTMATER 12011
-#define ECMD_COMB_SET_LOS      12012
-
-/* rt_comb_edit struct (file-local in edcomb.c) */
-struct rt_comb_edit {
-    struct bu_vls es_name;
-    int es_mat_valid;
-    mat_t es_mat;
-    struct bu_vls es_shader;
-    struct bu_vls es_material;
-};
+/* ECMD_COMB_* constants and struct rt_comb_edit are defined in rt/comb.h */
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */

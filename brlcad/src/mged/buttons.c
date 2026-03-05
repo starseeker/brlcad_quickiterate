@@ -140,17 +140,16 @@ static fastf_t sav_vscale;
 static int vsaved = 0;	/* set if view saved */
 
 extern void mged_color_soltab(struct mged_state *s);
-extern void sl_halt_scroll(struct mged_state *s, int, int, int);	/* in scroll.c */
-extern void sl_toggle_scroll(struct mged_state *s, int, int, int);
+extern void sl_halt_scroll(struct rt_edit *, int, int, int, void *);	/* in scroll.c */
+extern void sl_toggle_scroll(struct rt_edit *, int, int, int, void *);
 
-void btn_head_menu(struct mged_state *s, int i, int menu, int item);
-void btn_item_hit(struct mged_state *s, int arg, int menu, int item);
+static void btn_item_hit(struct rt_edit *s, int arg, int menu, int item, void *data);
 
-static struct menu_item first_menu[] = {
+static struct rt_edit_menu_item first_menu[] = {
     { "BUTTON MENU", btn_head_menu, 1 },		/* chg to 2nd menu */
     { "", NULL, 0 }
 };
-struct menu_item second_menu[] = {
+struct rt_edit_menu_item second_menu[] = {
     { "BUTTON MENU", btn_head_menu, 0 },	/* chg to 1st menu */
     { "REJECT Edit", btn_item_hit, BE_REJECT },
     { "ACCEPT Edit", btn_item_hit, BE_ACCEPT },
@@ -172,7 +171,7 @@ struct menu_item second_menu[] = {
     { "Matrix Illum", btn_item_hit, BE_O_ILLUMINATE },
     { "", NULL, 0 }
 };
-struct menu_item sed_menu[] = {
+struct rt_edit_menu_item sed_menu[] = {
     { "*PRIMITIVE EDIT*", btn_head_menu, 2 },
     { "Edit Menu", btn_item_hit, BE_S_EDIT },
     { "Rotate", btn_item_hit, BE_S_ROTATE },
@@ -182,7 +181,7 @@ struct menu_item sed_menu[] = {
 };
 
 
-struct menu_item oed_menu[] = {
+struct rt_edit_menu_item oed_menu[] = {
     { "*MATRIX EDIT*", btn_head_menu, 2 },
     { "Scale", btn_item_hit, BE_O_SCALE },
     { "X Move", btn_item_hit, BE_O_X },
@@ -249,9 +248,9 @@ f_press(ClientData clientData,
     for (i = 1; i < argc; i++) {
 	const char *str = argv[i];
 	struct buttons *bp;
-	struct menu_item **m;
+	struct rt_edit_menu_item **m;
 	int menu, item;
-	struct menu_item *mptr;
+	struct rt_edit_menu_item *mptr;
 
 	if (edsol && edobj) {
 	    bu_vls_printf(&vls, "WARNING: State error: edsol=%x, edobj=%x\n", edsol, edobj);
@@ -293,7 +292,7 @@ f_press(ClientData clientData,
 		/* It's up to the menu_func to set menu_state->ms_flag = 0
 		 * if no arrow is desired */
 		if (mptr->menu_func != NULL)
-		    (*(mptr->menu_func))(s, mptr->menu_arg, menu, item);
+		    (*(mptr->menu_func))(MEDIT(s), mptr->menu_arg, menu, item, s);
 
 		goto next;
 	    }
@@ -947,7 +946,7 @@ be_s_rotate(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     if (not_state(s, ST_S_EDIT, "Primitive Rotate"))
 	return TCL_ERROR;
 
-    MEDIT(s)->edit_flag = SROT;
+    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
     edsol = BE_S_ROTATE;
     mmenu_set(s, MENU_L1, NULL);
 
@@ -968,7 +967,7 @@ be_s_trans(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), 
 	return TCL_ERROR;
 
     edsol = BE_S_TRANS;
-    MEDIT(s)->edit_flag = STRANS;
+    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
     movedir = UARROW | RARROW;
     mmenu_set(s, MENU_L1, NULL);
 
@@ -989,7 +988,7 @@ be_s_scale(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), 
 	return TCL_ERROR;
 
     edsol = BE_S_SCALE;
-    MEDIT(s)->edit_flag = SSCALE;
+    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
     mmenu_set(s, MENU_L1, NULL);
     MEDIT(s)->acc_sc_sol = 1.0;
 
@@ -1096,9 +1095,10 @@ state_err(struct mged_state *s, char *str)
 /*
  * Called when a menu item is hit
  */
-void
-btn_item_hit(struct mged_state *s, int arg, int menu, int UNUSED(item))
+static void
+btn_item_hit(struct rt_edit *UNUSED(es), int arg, int menu, int UNUSED(item), void *data)
 {
+    struct mged_state *s = (struct mged_state *)data;
     button(s, arg);
     if (menu == MENU_GEN &&
 	(arg != BE_O_ILLUMINATE && arg != BE_S_ILLUMINATE))
@@ -1111,7 +1111,8 @@ btn_item_hit(struct mged_state *s, int arg, int menu, int UNUSED(item))
  * Also called from main() with arg 0 in init.
  */
 void
-btn_head_menu(struct mged_state *s, int i, int UNUSED(menu), int UNUSED(item)) {
+btn_head_menu(struct rt_edit *UNUSED(es), int i, int UNUSED(menu), int UNUSED(item), void *data) {
+    struct mged_state *s = (struct mged_state *)data;
     switch (i) {
 	case 0:
 	    mmenu_set(s, MENU_GEN, first_menu);

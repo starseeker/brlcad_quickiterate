@@ -36,6 +36,9 @@ RT_EXPORT extern int dsp_pos(point_t out,
 			     point_t p);
 
 
+/* DSP solid edit command codes */
+/* ECMD_DSP_* are in the scanner-generated rt/rt_ecmds.h */
+
 __END_DECLS
 
 #endif /* RT_PRIMITIVES_DSP_H */

@@ -2,6 +2,7 @@ set(
   primitives_headers
   arb8.h
   annot.h
+  ars.h
   bot.h
   brep.h
   cline.h
@@ -15,7 +16,6 @@ set(
   pipe.h
   rhc.h
   rpc.h
-  script.h
   sketch.h
   tgc.h
   tor.h

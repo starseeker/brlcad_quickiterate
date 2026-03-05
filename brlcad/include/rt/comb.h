@@ -183,6 +183,23 @@ RT_EXPORT extern void
 rt_comb_brep(ON_Brep **b, const struct rt_db_internal *ip, const struct bn_tol *tol, const struct db_i *dbip);
 #endif
 
+/* COMB edit command codes (ID_COMBINATION = 12, so codes use 12nnn) */
+/* ECMD_COMB_* are in the scanner-generated rt/rt_ecmds.h */
+
+/**
+ * Per-instance edit state for combination editing.
+ *
+ * Exposed here so that MGED (and other editors) can supply parameters
+ * to ECMD_COMB_* operations without duplicating the struct definition.
+ */
+struct rt_comb_edit {
+    struct bu_vls es_name;	/**< @brief member name for ECMD_COMB_ADD_MEMBER */
+    int es_mat_valid;		/**< @brief non-zero when es_mat holds a valid transform */
+    mat_t es_mat;		/**< @brief transform matrix for ADD_MEMBER / SET_MATRIX */
+    struct bu_vls es_shader;	/**< @brief shader string for ECMD_COMB_SET_SHADER */
+    struct bu_vls es_material;	/**< @brief material string for ECMD_COMB_SET_MATERIAL */
+};
+
 __END_DECLS
 
 #endif /* RT_COMB_H */

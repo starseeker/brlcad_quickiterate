@@ -30,6 +30,7 @@
 #include "nmg.h"
 #include "raytrace.h"
 #include "rt/geom.h"
+#include "rt/primitives/ars.h"
 #include "wdb.h"
 
 #include "../edit_private.h"
@@ -41,36 +42,16 @@
 #define ECMD_ARS_PREV_CRV	5038	/* select corresponding ARS point in previous curve */
 #define ECMD_ARS_MOVE_PT	5039	/* translate an ARS point */
 #define ECMD_ARS_DEL_CRV	5040	/* delete an ARS curve */
-#define ECMD_ARS_DEL_COL	5041	/* delete all corresponding points in each curve (a column) */
+#define ECMD_ARS_DEL_COL	5041	/* delete all corresponding points in each curve */
 #define ECMD_ARS_DUP_CRV	5042	/* duplicate an ARS curve */
 #define ECMD_ARS_DUP_COL	5043	/* duplicate an ARS column */
 #define ECMD_ARS_MOVE_CRV	5044	/* translate an ARS curve */
 #define ECMD_ARS_MOVE_COL	5045	/* translate an ARS column */
 #define ECMD_ARS_PICK_MENU	5046	/* display the ARS pick menu */
 #define ECMD_ARS_EDIT_MENU	5047	/* display the ARS edit menu */
-/*
- * Scale current curve about its centroid.
- * e_para[0] = scale factor (1.0 = no change), e_inpara = 1.
- */
-#define ECMD_ARS_SCALE_CRV	5048
-/*
- * Scale current column about its centroid.
- * e_para[0] = scale factor, e_inpara = 1.
- */
-#define ECMD_ARS_SCALE_COL	5049
-/*
- * Insert a new curve immediately after the currently selected curve.
- * The new curve is a linear interpolation (t=0.5) between the selected
- * curve and the next curve.  No e_para values are required.
- * (If the selected curve is the last curve the new curve duplicates it.)
- */
-#define ECMD_ARS_INSERT_CRV	5050
-
-struct rt_ars_edit {
-    int es_ars_crv;	/* curve and column identifying selected ARS point */
-    int es_ars_col;
-    point_t es_pt;	/* coordinates of selected ARS point */
-};
+#define ECMD_ARS_SCALE_CRV	5048	/* scale an ARS curve */
+#define ECMD_ARS_SCALE_COL	5049	/* scale an ARS column */
+#define ECMD_ARS_INSERT_CRV	5050	/* insert an ARS curve */
 
 
 void *

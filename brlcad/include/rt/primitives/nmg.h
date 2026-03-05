@@ -51,6 +51,9 @@ rt_nmg_do_bool(
 	union tree *tp, union tree *tl, union tree *tr,
 	int op, struct bu_list *vlfree, const struct bn_tol *tol, void *data);
 
+/* NMG solid edit command codes */
+/* ECMD_NMG_* are in the scanner-generated rt/rt_ecmds.h */
+
 /** @} */
 
 __END_DECLS

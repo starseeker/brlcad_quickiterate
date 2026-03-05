@@ -152,6 +152,7 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 {
     struct bu_vls cmd = BU_VLS_INIT_ZERO;
     int save_edflag = -1;
+    int save_editmode = -1;
     fastf_t f;
     fastf_t fx, fy;
     fastf_t td;
@@ -221,8 +222,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 
 		    if (s->global_editing_state == ST_S_EDIT) {
 			save_edflag = MEDIT(s)->edit_flag;
+			save_editmode = MEDIT(s)->edit_mode;
 			if (!SEDIT_ROTATE)
-			    MEDIT(s)->edit_flag = SROT;
+			    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 		    } else {
 			save_edflag = edobj;
 			edobj = BE_O_ROTATE;
@@ -264,8 +266,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 
 		    if (s->global_editing_state == ST_S_EDIT) {
 			save_edflag = MEDIT(s)->edit_flag;
+			save_editmode = MEDIT(s)->edit_mode;
 			if (!SEDIT_TRAN)
-			    MEDIT(s)->edit_flag = STRANS;
+			    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 		    } else {
 			save_edflag = edobj;
 			edobj = BE_O_XY;
@@ -328,7 +331,8 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT && !SEDIT_SCALE) {
 		    save_edflag = MEDIT(s)->edit_flag;
-		    MEDIT(s)->edit_flag = SSCALE;
+		    save_editmode = MEDIT(s)->edit_mode;
+		    rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
 		} else if (s->global_editing_state == ST_O_EDIT && !OEDIT_SCALE) {
 		    save_edflag = edobj;
 		    edobj = BE_O_SCALE;
@@ -385,8 +389,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_ROTATE)
-			MEDIT(s)->edit_flag = SROT;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 		} else {
 		    save_edflag = edobj;
 		    edobj = BE_O_ROTATE;
@@ -409,8 +414,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_ROTATE)
-			MEDIT(s)->edit_flag = SROT;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 		} else {
 		    save_edflag = edobj;
 		    edobj = BE_O_ROTATE;
@@ -433,8 +439,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_ROTATE)
-			MEDIT(s)->edit_flag = SROT;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_ROT);
 		} else {
 		    save_edflag = edobj;
 		    edobj = BE_O_ROTATE;
@@ -457,8 +464,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_TRAN)
-			MEDIT(s)->edit_flag = STRANS;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 		} else if (s->global_editing_state == ST_O_EDIT && !OEDIT_TRAN) {
 		    save_edflag = edobj;
 		    edobj = BE_O_X;
@@ -480,8 +488,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_TRAN)
-			MEDIT(s)->edit_flag = STRANS;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 		} else if (s->global_editing_state == ST_O_EDIT && !OEDIT_TRAN) {
 		    save_edflag = edobj;
 		    edobj = BE_O_Y;
@@ -503,8 +512,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_TRAN)
-			MEDIT(s)->edit_flag = STRANS;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_TRANS);
 		} else if (s->global_editing_state == ST_O_EDIT && !OEDIT_TRAN) {
 		    save_edflag = edobj;
 		    edobj = BE_O_XY;
@@ -526,8 +536,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_SCALE)
-			MEDIT(s)->edit_flag = SSCALE;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
 		} else if (s->global_editing_state == ST_O_EDIT && !OEDIT_SCALE) {
 		    save_edflag = edobj;
 		    edobj = BE_O_XSCALE;
@@ -549,8 +560,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_SCALE)
-			MEDIT(s)->edit_flag = SSCALE;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
 		} else if (s->global_editing_state == ST_O_EDIT && !OEDIT_SCALE) {
 		    save_edflag = edobj;
 		    edobj = BE_O_YSCALE;
@@ -572,8 +584,9 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	    if (em) {
 		if (s->global_editing_state == ST_S_EDIT) {
 		    save_edflag = MEDIT(s)->edit_flag;
+		    save_editmode = MEDIT(s)->edit_mode;
 		    if (!SEDIT_SCALE)
-			MEDIT(s)->edit_flag = SSCALE;
+			rt_edit_set_edflag(MEDIT(s), RT_PARAMS_EDIT_SCALE);
 		} else if (s->global_editing_state == ST_O_EDIT && !OEDIT_SCALE) {
 		    save_edflag = edobj;
 		    edobj = BE_O_ZSCALE;
@@ -642,9 +655,10 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 
  reset_edflag:
     if (save_edflag != -1) {
-	if (s->global_editing_state == ST_S_EDIT)
+	if (s->global_editing_state == ST_S_EDIT) {
 	    MEDIT(s)->edit_flag = save_edflag;
-	else if (s->global_editing_state == ST_O_EDIT)
+	    MEDIT(s)->edit_mode = save_editmode;
+	} else if (s->global_editing_state == ST_O_EDIT)
 	    edobj = save_edflag;
     }
 

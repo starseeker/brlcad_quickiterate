@@ -47,21 +47,7 @@
 #include "rt/rt_ecmds.h"
 #include "wdb.h"
 
-/* ECMD constants from ednmg.c */
-#define ECMD_NMG_EPICK		11019
-#define ECMD_NMG_EMOVE		11020
-#define ECMD_NMG_EDEBUG		11021
-#define ECMD_NMG_FORW		11022
-#define ECMD_NMG_BACK		11023
-#define ECMD_NMG_RADIAL		11024
-#define ECMD_NMG_ESPLIT		11025
-#define ECMD_NMG_EKILL		11026
-#define ECMD_NMG_LEXTRU		11027
-#define ECMD_NMG_VPICK		11028
-#define ECMD_NMG_VMOVE		11029
-#define ECMD_NMG_FPICK		11030
-#define ECMD_NMG_FMOVE		11031
-#define ECMD_NMG_LEXTRU_DIR	11032
+/* ECMD_NMG_* constants are defined in rt/primitives/nmg.h */
 
 
 /* ------------------------------------------------------------------ */

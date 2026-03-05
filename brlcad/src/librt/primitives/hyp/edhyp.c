@@ -34,13 +34,12 @@
 
 #include "../edit_private.h"
 
-#define ECMD_HYP_ROT_H		38091
-#define ECMD_HYP_ROT_A		38092
-
-#define ECMD_HYP_H              38127
-#define ECMD_HYP_SCALE_A        38128
-#define ECMD_HYP_SCALE_B	38129
-#define ECMD_HYP_C		38130
+#define ECMD_HYP_ROT_H		38091	/* rotate H vector */
+#define ECMD_HYP_ROT_A		38092	/* rotate A vector */
+#define ECMD_HYP_H		38127	/* scale HYP height H */
+#define ECMD_HYP_SCALE_A	38128	/* scale HYP semi-major axis A */
+#define ECMD_HYP_SCALE_B	38129	/* scale HYP semi-minor axis B */
+#define ECMD_HYP_C		38130	/* scale HYP neck parameter c */
 
 void
 rt_edit_hyp_set_edit_mode(struct rt_edit *s, int mode)

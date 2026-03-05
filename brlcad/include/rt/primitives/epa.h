@@ -36,6 +36,9 @@ RT_EXPORT extern void rt_ell(fastf_t *ov,
 			     const fastf_t *B,
 			     int sides);
 
+/* EPA solid edit command codes */
+/* ECMD_EPA_* are in the scanner-generated rt/rt_ecmds.h */
+
 /** @} */
 
 __END_DECLS

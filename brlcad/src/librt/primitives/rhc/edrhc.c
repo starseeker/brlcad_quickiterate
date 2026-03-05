@@ -31,13 +31,15 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/rhc.h"
 
 #include "../edit_private.h"
 
-#define ECMD_RHC_B		18046
-#define ECMD_RHC_H		18047
-#define ECMD_RHC_R		18048
-#define ECMD_RHC_C		18049
+#define ECMD_RHC_B		18046	/* scale RHC breadth B */
+#define ECMD_RHC_H		18047	/* scale RHC height H */
+#define ECMD_RHC_R		18048	/* scale RHC half-width r */
+#define ECMD_RHC_C		18049	/* scale RHC dist-to-asymptotes c */
+
 
 void
 rt_edit_rhc_set_edit_mode(struct rt_edit *s, int mode)

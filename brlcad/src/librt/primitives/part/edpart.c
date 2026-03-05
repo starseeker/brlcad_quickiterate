@@ -34,9 +34,10 @@
 
 #include "../edit_private.h"
 
-#define ECMD_PART_H		16088
-#define ECMD_PART_VRAD		16089
-#define ECMD_PART_HRAD		16090
+#define ECMD_PART_H		16088	/* scale PART height */
+#define ECMD_PART_VRAD		16089	/* scale PART vertex radius */
+#define ECMD_PART_HRAD		16090	/* scale PART height-end radius */
+
 
 void
 rt_edit_part_set_edit_mode(struct rt_edit *s, int mode)

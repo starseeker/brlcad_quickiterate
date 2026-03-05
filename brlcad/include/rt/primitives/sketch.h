@@ -45,6 +45,10 @@ struct rt_sketch_edit {
     int v_pos_valid;    /* non-zero when v_pos holds a pending proximity query */
 };
 
+/* SKETCH solid edit command codes (ID_SKETCH = 26, so codes use 26nnn) */
+
+/* ECMD_SKETCH_* are in the scanner-generated rt/rt_ecmds.h */
+
 RT_EXPORT extern int rt_check_curve(const struct rt_curve *crv,
 				    const struct rt_sketch_internal *skt,
 				    int noisy);

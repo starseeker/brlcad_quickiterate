@@ -30,11 +30,16 @@
 
 __BEGIN_DECLS
 
+struct rt_pnt_node; /* forward declaration */
+
 RT_EXPORT extern int rt_mk_parabola(struct rt_pnt_node *pts,
 				    fastf_t r,
 				    fastf_t b,
 				    fastf_t dtol,
 				    fastf_t ntol);
+
+/* RPC solid edit command codes */
+/* ECMD_RPC_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 

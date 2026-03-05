@@ -31,11 +31,13 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
+#include "rt/primitives/tor.h"
 
 #include "../edit_private.h"
 
-#define ECMD_TOR_R1		1021
-#define ECMD_TOR_R2		1022
+#define ECMD_TOR_R1		1021	/* set/scale TOR radius 1 */
+#define ECMD_TOR_R2		1022	/* set/scale TOR radius 2 */
+
 
 void
 rt_edit_tor_set_edit_mode(struct rt_edit *s, int mode)

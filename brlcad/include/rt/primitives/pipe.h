@@ -55,6 +55,9 @@ RT_EXPORT extern struct wdb_pipe_pnt *rt_pipe_ins_pnt(struct rt_pipe_internal *p
 RT_EXPORT extern struct wdb_pipe_pnt *rt_pipe_find_pnt_nearest_pnt(const struct bu_list *pipe_hd, const point_t model_pt, matp_t view2model);
 
 
+/* PIPE solid edit command codes */
+/* ECMD_PIPE_* are in the scanner-generated rt/rt_ecmds.h */
+
 /** @} */
 
 __END_DECLS

@@ -34,10 +34,11 @@
 
 #include "../edit_private.h"
 
-#define ECMD_ETO_ROT_C		21016
-#define ECMD_ETO_R		21057
-#define ECMD_ETO_RD		21058
-#define ECMD_ETO_SCALE_C	21059
+#define ECMD_ETO_ROT_C		21016	/* rotate C vector */
+#define ECMD_ETO_R		21057	/* scale ETO major radius r */
+#define ECMD_ETO_RD		21058	/* scale ETO minor radius rd */
+#define ECMD_ETO_SCALE_C	21059	/* scale ETO semi-minor axis C */
+
 
 void
 rt_edit_eto_set_edit_mode(struct rt_edit *s, int mode)

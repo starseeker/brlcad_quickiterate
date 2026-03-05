@@ -47,39 +47,11 @@
 #define ECMD_BOT_FMODE		30070	/* set face mode (one or all) */
 #define ECMD_BOT_FDEL		30071	/* delete current face */
 #define ECMD_BOT_FLAGS		30072	/* set BOT flags */
-/*
- * Move a list of vertices by a common XYZ delta.
- *
- * e_para[0..2]            = ΔX ΔY ΔZ (local units)
- * e_para[3..3+N-1]        = N vertex indices  (N = e_inpara - 3)
- * e_inpara >= 4            (at least one vertex index)
- */
-#define ECMD_BOT_MOVEV_LIST	30073
-/*
- * Split a selected edge by inserting its midpoint as a new vertex and
- * replacing the two adjacent triangles with four triangles.
- * Uses bot_verts[0] (start) and bot_verts[1] (end) set by a prior
- * ECMD_BOT_PICKE; no e_para needed.
- */
-#define ECMD_BOT_ESPLIT		30074
-/*
- * Split a selected face into three triangles by inserting the face centroid
- * as a new vertex.
- * Uses bot_verts[0..2] set by a prior ECMD_BOT_PICKT; no e_para needed.
- */
-#define ECMD_BOT_FSPLIT		30075
-/*
- * Fuse duplicate vertices (within the model tolerance).
- * Calls rt_bot_vertex_fuse(); no e_para values needed.
- * Returns the number of vertices removed (logged to log_str).
- */
-#define ECMD_BOT_VERTEX_FUSE	30076
-/*
- * Remove duplicate faces.
- * Calls rt_bot_face_fuse(); no e_para values needed.
- * Returns the number of faces removed (logged to log_str).
- */
-#define ECMD_BOT_FACE_FUSE	30077
+#define ECMD_BOT_MOVEV_LIST	30073	/* move a list of BOT vertices */
+#define ECMD_BOT_ESPLIT		30074	/* split a BOT edge */
+#define ECMD_BOT_FSPLIT		30075	/* split a BOT face */
+#define ECMD_BOT_VERTEX_FUSE	30076	/* fuse BOT vertices */
+#define ECMD_BOT_FACE_FUSE	30077	/* fuse BOT faces */
 
 void *
 rt_edit_bot_prim_edit_create(struct rt_edit *UNUSED(s))

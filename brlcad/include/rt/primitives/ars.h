@@ -1,7 +1,7 @@
-/*                        S C R I P T . H
+/*                       R T / P R I M I T I V E S / A R S . H
  * BRL-CAD
  *
- * Copyright (c) 2017-2025 United States Government as represented by
+ * Copyright (c) 1993-2025 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -17,29 +17,38 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @addtogroup rt_script */
-/** @{ */
-/** @file rt/primitives/script.h */
+/** @addtogroup rt_ars
+ * @{
+ */
+/** @file rt/primitives/ars.h */
 
-#ifndef RT_PRIMITIVES_SCRIPT_H
-#define RT_PRIMITIVES_SCRIPT_H
+#ifndef RT_PRIMITIVES_ARS_H
+#define RT_PRIMITIVES_ARS_H
 
 #include "common.h"
 #include "vmath.h"
-#include "bu/list.h"
-#include "bu/vls.h"
-#include "bn/tol.h"
-#include "rt/defines.h"
 
 __BEGIN_DECLS
 
-/** stub */
+/**
+ * Per-primitive edit state for ARS editing.
+ *
+ * Exposed here so that MGED (and other editors) can access the currently
+ * selected ARS curve/column without duplicating the data as a global.
+ */
+struct rt_ars_edit {
+    int es_ars_crv;	/**< @brief currently selected ARS curve index (-1 if none) */
+    int es_ars_col;	/**< @brief currently selected ARS column index (-1 if none) */
+    point_t es_pt;	/**< @brief coordinates of selected ARS point */
+};
+
+/* ARS solid edit command codes */
+/* ECMD_ARS_* are in the scanner-generated rt/rt_ecmds.h */
 
 __END_DECLS
 
+#endif /* RT_PRIMITIVES_ARS_H */
 /** @} */
-
-#endif /* RT_PRIMITIVES_SCRIPT_H */
 
 /*
  * Local Variables:

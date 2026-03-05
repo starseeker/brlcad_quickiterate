@@ -30,6 +30,8 @@
 
 __BEGIN_DECLS
 
+struct rt_pnt_node; /* forward declaration */
+
 /* rhc.c */
 RT_EXPORT extern int rt_mk_hyperbola(struct rt_pnt_node *pts,
 				     fastf_t r,
@@ -37,6 +39,9 @@ RT_EXPORT extern int rt_mk_hyperbola(struct rt_pnt_node *pts,
 				     fastf_t c,
 				     fastf_t dtol,
 				     fastf_t ntol);
+
+/* RHC solid edit command codes */
+/* ECMD_RHC_* are in the scanner-generated rt/rt_ecmds.h */
 
 /** @} */
 

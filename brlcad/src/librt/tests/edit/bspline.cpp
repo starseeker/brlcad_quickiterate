@@ -41,21 +41,13 @@
 #include "rt/rt_ecmds.h"
 
 /* ECMD constants (file-local in edbspline.c) */
-#define ECMD_VTRANS          9017
 #define ECMD_SPLINE_VPICK    9018
 #define ECMD_BSPLINE_PICK_CP 9019
 #define ECMD_BSPLINE_PICK_KNOT 9020
 #define ECMD_BSPLINE_SET_KNOT  9021
 
 /* The rt_bspline_edit struct (also file-local in edbspline.c) */
-struct rt_bspline_edit {
-    int spl_surfno;
-    int spl_ui;
-    int spl_vi;
-    point_t v_pos;
-    int knot_dir;
-    int knot_idx;
-};
+/* rt_bspline_edit is defined in rt/geom.h */
 
 
 /* Build a 3×3 bilinear (order=2) NURBS surface (order 2 = linear in each direction) */

@@ -14,6 +14,7 @@ endif(BRLCAD_ENABLE_OPENCL)
 
 set(
   LIBRT_PRIMEDIT_SOURCES
+  comb/edcomb.c
   primitives/arb8/edarb.c
   primitives/ars/edars.c
   primitives/bot/edbot.c
