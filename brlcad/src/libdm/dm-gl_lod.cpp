@@ -75,6 +75,7 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
     bsg_shape *s = (bsg_shape *)lod->s;
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
+    struct bsg_camera _dm_cam;
 
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
     GLdouble dpt[3];
@@ -161,9 +162,9 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
     if (s->s_dlist) {
 	if (mode == s->s_dlist_mode) {
 	    //bu_log("use dlist %d\n", s->s_dlist);
-	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
 	    MAT_COPY(save_mat, _dm_cam.model2view);
-bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -198,9 +199,9 @@ bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	{ struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	bsg_view_get_camera(s->s_v, &_dm_cam);
 	MAT_COPY(save_mat, _dm_cam.model2view);
-bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
+	bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -242,9 +243,9 @@ bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 		bsg_mesh_lod_memshrink(s);
 	    }
 
-	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
 	    MAT_COPY(save_mat, _dm_cam.model2view);
-bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -350,9 +351,9 @@ bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 		bsg_mesh_lod_memshrink(s);
 	    }
 
-	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
 	    MAT_COPY(save_mat, _dm_cam.model2view);
-bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -381,11 +382,8 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
 {
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
-
-    struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
-    GLdouble dpt[3];
-    static float black[4] = {0.0, 0.0, 0.0, 0.0};
-    GLfloat originalLineWidth, originalPointSize;
+    struct bsg_camera _dm_cam;
+    struct bsg_camera _dm_cam;
 
     if (mode)
 	return BRLCAD_ERROR;
@@ -420,9 +418,9 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
     if (s->s_dlist) {
 	if (mode == s->s_dlist_mode) {
 	    //bu_log("use dlist %d\n", s->s_dlist);
-	    { struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
 	    MAT_COPY(save_mat, _dm_cam.model2view);
-bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -454,9 +452,9 @@ bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	{ struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	bsg_view_get_camera(s->s_v, &_dm_cam);
 	MAT_COPY(save_mat, _dm_cam.model2view);
-bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
+	bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -525,9 +523,9 @@ bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
 	    }
 	}
 
-	{ struct bsg_camera _dm_cam; bsg_view_get_camera(s->s_v, &_dm_cam);
+	bsg_view_get_camera(s->s_v, &_dm_cam);
 	MAT_COPY(save_mat, _dm_cam.model2view);
-bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat); }
+	bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
 	glCallList(s->s_dlist);
 	dm_loadmatrix(dmp, save_mat, 0);
