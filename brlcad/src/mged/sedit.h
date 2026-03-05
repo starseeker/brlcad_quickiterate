@@ -29,6 +29,7 @@
 #define MGED_SEDIT_H
 
 #include "rt/edit.h"
+#include "rt/primitives/arb8.h"
 #include "mged.h"
 
 #define MGED_SMALL_SCALE 1.0e-10
@@ -39,31 +40,19 @@
 #define EDIT_CLASS_ROTATE 2
 #define EDIT_CLASS_SCALE 3
 
-/* These ECMD_ values go in MEDIT(s)->edit_flag.  Some names not changed yet */
-/* These MGED values match librt's RT_EDIT_IDLE/RT_PARAMS_EDIT_* exactly.
- * They are kept as aliases so that sedit(), buttons.c, etc. can use
- * the familiar MGED names while being wire-compatible with librt. */
-#define IDLE		RT_EDIT_IDLE		/* = 0, matches librt RT_EDIT_IDLE */
-#define STRANS		RT_PARAMS_EDIT_TRANS	/* = 1, matches librt value */
-#define SSCALE		RT_PARAMS_EDIT_SCALE	/* = 2, matches librt value */
-#define SROT		RT_PARAMS_EDIT_ROT	/* = 3, matches librt value */
+/* These ECMD_ values go in MEDIT(s)->edit_flag. Values match librt equivalents. */
+/* Use librt's RT_EDIT_IDLE, RT_PARAMS_EDIT_TRANS/SCALE/ROT directly. */
 
 #define ECMD_TGC_MV_H		2005	/* move H to new position (edtgc.c) */
 #define ECMD_TGC_MV_HH		2006	/* move H and HH to new position (edtgc.c) */
 #define ECMD_TGC_ROT_H		2007	/* rotate H vector (edtgc.c) */
 #define ECMD_TGC_ROT_AB		2008	/* rotate A,B vectors (edtgc.c) */
 
-#define EARB		4009	/* chgmodel.c, edarb.c (edarb.c: #define EARB 4009) */
-#define PTARB		4010	/* edarb.c (edarb.c: #define PTARB 4010) */
-#define ECMD_ARB_MAIN_MENU	4011	/* (edarb.c) */
-#define ECMD_ARB_SPECIFIC_MENU	4012	/* (edarb.c) */
-#define ECMD_ARB_MOVE_FACE	4013	/* (edarb.c) */
-#define ECMD_ARB_SETUP_ROTFACE	4014	/* (edarb.c) */
-#define ECMD_ARB_ROTATE_FACE	4015	/* (edarb.c) */
+/* EARB, PTARB, ECMD_ARB_* are defined in rt/primitives/arb8.h */
 
 #define ECMD_ETO_ROT_C		21016	/* rotate C vector (edeto.c) */
 
-#define ECMD_VTRANS		9017	/* vertex translate (edbspline.c) */
+/* ECMD_VTRANS is defined in rt/geom.h */
 #define ECMD_NMG_EPICK		11019	/* edge pick (ednmg.c) */
 #define ECMD_NMG_EMOVE		11020	/* edge move (ednmg.c) */
 #define ECMD_NMG_EDEBUG		11021	/* edge debug (ednmg.c) */
@@ -263,17 +252,9 @@
 
 
 // NMG editing vars
-extern struct loopuse *lu_copy;
-extern point_t lu_keypoint;
-extern plane_t lu_pl;
 
 
-extern mat_t es_mat;		/* accumulated matrix of path */
-extern mat_t es_invmat;		/* inverse of es_mat KAA */
 
-extern point_t es_keypoint;	/* center of editing xforms */
-extern char *es_keytag;		/* string identifying the keypoint */
-extern point_t curr_e_axes_pos;	/* center of editing xforms */
 
 extern void
 get_solid_keypoint(struct mged_state *s, fastf_t *pt, const char **strp, struct rt_db_internal *ip, fastf_t *mat);

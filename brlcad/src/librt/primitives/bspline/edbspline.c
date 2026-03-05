@@ -35,7 +35,7 @@
 #include "wdb.h"
 #include "../edit_private.h"
 
-#define ECMD_VTRANS		9017	/* vertex translate */
+/* ECMD_VTRANS is defined in rt/geom.h */
 #define ECMD_SPLINE_VPICK       9018	/* vertex pick via mouse proximity */
 #define ECMD_BSPLINE_PICK_CP    9019	/* pick control point by (surf, u, v) indices from e_para */
 /*
@@ -63,17 +63,8 @@
  */
 #define ECMD_BSPLINE_SET_KNOT   9021
 
-struct rt_bspline_edit {
-    int spl_surfno;	/* What surf & ctl pt to edit on spline */
-    int spl_ui;
-    int spl_vi;
-
-    point_t v_pos;  // vpick point.
-
-    /* Knot selection (set by ECMD_BSPLINE_PICK_KNOT, used by ECMD_BSPLINE_SET_KNOT) */
-    int knot_dir;   /* 0 = U knot vector, 1 = V knot vector */
-    int knot_idx;   /* index within the selected direction's vector */
-};
+/* rt_bspline_edit is defined in rt/geom.h */
+/* Additional fields v_pos, knot_dir, knot_idx are kept here until public header is extended */
 
 void *
 rt_edit_bspline_prim_edit_create(struct rt_edit *s)

@@ -35,14 +35,7 @@
 #include "rt/db4.h"
 #include "../edit_private.h"
 
-#define EARB			4009
-#define PTARB			4010
-#define ECMD_ARB_MAIN_MENU	4011
-#define ECMD_ARB_SPECIFIC_MENU	4012
-#define ECMD_ARB_MOVE_FACE	4013
-#define ECMD_ARB_SETUP_ROTFACE	4014
-#define ECMD_ARB_ROTATE_FACE	4015
-#define ECMD_ARB_MOVE_EDGE	4036
+/* ECMD_ARB_* are defined in rt/primitives/arb8.h */
 
 void *
 rt_edit_arb_prim_edit_create(struct rt_edit *UNUSED(s))

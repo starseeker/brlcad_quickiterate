@@ -289,6 +289,27 @@ struct rt_nurb_internal {
 #define RT_NURB_CK_MAGIC(_p) BU_CKMAG(_p, RT_NURB_INTERNAL_MAGIC, "rt_nurb_internal");
 #define RT_NURB_GET_CONTROL_POINT(_s, _u, _v)	((_s)->ctl_points[ \
 						     ((_v)*(_s)->s_size[0]+(_u))*RT_NURB_EXTRACT_COORDS((_s)->pt_type)])
+
+/** @brief NURB/BSPLINE solid-edit command code */
+#define ECMD_VTRANS 9017 /**< translate a NURB/BSPLINE vertex (control point) */
+
+/**
+ * @brief Per-instance edit state for NURB/BSPLINE solids.
+ *
+ * Exposed here so that editors (MGED, etc.) can access the currently
+ * selected control-point indices without duplicating the data as globals.
+ */
+struct rt_bspline_edit {
+    int spl_surfno; /**< @brief index of the surface being edited */
+    int spl_ui;     /**< @brief u index of selected control point */
+    int spl_vi;     /**< @brief v index of selected control point */
+
+    point_t v_pos;  /**< @brief view-space pick position */
+
+    int knot_dir;   /**< @brief 0 = U knot vector, 1 = V knot vector */
+    int knot_idx;   /**< @brief index within the selected knot direction's vector */
+};
+
 /** @} */
 
 /** @addtogroup rt_brep */

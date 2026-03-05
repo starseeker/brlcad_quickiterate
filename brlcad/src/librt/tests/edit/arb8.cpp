@@ -63,8 +63,6 @@
 
 
 /* ECMD constants from edarb.c */
-#define EARB		4009
-#define PTARB		4010
 #define ECMD_ARB_MAIN_MENU	4011
 #define ECMD_ARB_SPECIFIC_MENU	4012
 #define ECMD_ARB_MOVE_FACE	4013

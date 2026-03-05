@@ -58,6 +58,8 @@
 #define PIPE_EDIT(s)     ((struct rt_pipe_edit *)MEDIT(s)->ipe_ptr)
 #define METABALL_EDIT(s) ((struct rt_metaball_edit *)MEDIT(s)->ipe_ptr)
 #define ARS_EDIT(s)      ((struct rt_ars_edit *)MEDIT(s)->ipe_ptr)
+#define BOT_EDIT(s)      ((struct rt_bot_edit *)MEDIT(s)->ipe_ptr)
+#define BSPLINE_EDIT(s)  ((struct rt_bspline_edit *)MEDIT(s)->ipe_ptr)
 
 extern struct wdb_pipe_pnt *pipe_add_pnt(struct rt_pipe_internal *, struct wdb_pipe_pnt *, const point_t);
 
@@ -552,26 +554,18 @@ int nurb_closest2d(int *surface, int *uval, int *vval, const struct rt_nurb_inte
 
 // FIXME:  Globals
 
-short int fixv;		/* used in ECMD_ARB_ROTATE_FACE, f_eqn(): fixed vertex */
 
 /* data for solid editing */
 int sedraw;	/* apply solid editing changes */
 
 
-int bot_verts[3];		/* vertices for the BOT solid */
-
-static int spl_surfno;	/* What surf & ctl pt to edit on spline */
-static int spl_ui;
-static int spl_vi;
-
-
-struct loopuse *lu_copy=(struct loopuse*)NULL;	/* copy of loop to be extruded */
-plane_t lu_pl;	/* plane equation for loop to be extruded */
-point_t lu_keypoint;	/* keypoint of lu_copy for extrusion */
 
 
 
-#define PARAM_1ARG (MEDIT(s)->edit_flag == SSCALE || \
+
+
+
+#define PARAM_1ARG (MEDIT(s)->edit_flag == RT_PARAMS_EDIT_SCALE || \
 		    MEDIT(s)->edit_flag == ECMD_TOR_R1 || \
 		    MEDIT(s)->edit_flag == ECMD_TOR_R2 || \
 		    MEDIT(s)->edit_flag == ECMD_ELL_SCALE_A || \
@@ -653,7 +647,7 @@ set_e_axes_pos(struct mged_state *s, int both)
 		i = 0;
 	    } else {
 		switch (MEDIT(s)->edit_flag) {
-		    case STRANS:
+		    case RT_PARAMS_EDIT_TRANS:
 			i = 0;
 			break;
 		    case EARB:
@@ -715,7 +709,7 @@ set_e_axes_pos(struct mged_state *s, int both)
 			}
 			break;
 		    case ECMD_ARB_ROTATE_FACE:
-			i = fixv;
+			i = ARB_EDIT(s)->fixv;
 			break;
 		    default:
 			i = 0;
@@ -969,8 +963,8 @@ get_solid_keypoint(struct mged_state *s, fastf_t *pt, const char **strp, struct 
 		struct rt_bot_internal *bot =
 		    (struct rt_bot_internal *)ip->idb_ptr;
 
-		if (bot_verts[0] > -1) {
-		    VMOVE(mpt, &bot->vertices[bot_verts[0]*3]);
+		if (BOT_EDIT(s)->bot_verts[0] > -1) {
+		    VMOVE(mpt, &bot->vertices[BOT_EDIT(s)->bot_verts[0]*3]);
 		} else {
 		    VMOVE(mpt, bot->vertices);
 		}
@@ -1179,12 +1173,12 @@ get_solid_keypoint(struct mged_state *s, fastf_t *pt, const char **strp, struct 
 		fastf_t *fp;
 
 		RT_NURB_CK_MAGIC(sip);
-		surf = sip->srfs[spl_surfno];
+		surf = sip->srfs[BSPLINE_EDIT(s)->spl_surfno];
 		NMG_CK_SNURB(surf);
-		fp = &RT_NURB_GET_CONTROL_POINT(surf, spl_ui, spl_vi);
+		fp = &RT_NURB_GET_CONTROL_POINT(surf, BSPLINE_EDIT(s)->spl_ui, BSPLINE_EDIT(s)->spl_vi);
 		VMOVE(mpt, fp);
 		sprintf(buf, "Surf %d, index %d,%d",
-			spl_surfno, spl_ui, spl_vi);
+			BSPLINE_EDIT(s)->spl_surfno, BSPLINE_EDIT(s)->spl_ui, BSPLINE_EDIT(s)->spl_vi);
 		*strp = buf;
 		break;
 	    }
@@ -1545,11 +1539,11 @@ init_sedit(struct mged_state *s)
 	    (struct rt_nurb_internal *) MEDIT(s)->es_int.idb_ptr;
 	struct face_g_snurb *surf;
 	RT_NURB_CK_MAGIC(sip);
-	spl_surfno = sip->nsrf/2;
-	surf = sip->srfs[spl_surfno];
+	BSPLINE_EDIT(s)->spl_surfno = sip->nsrf/2;
+	surf = sip->srfs[BSPLINE_EDIT(s)->spl_surfno];
 	NMG_CK_SNURB(surf);
-	spl_ui = surf->s_size[1]/2;
-	spl_vi = surf->s_size[0]/2;
+	BSPLINE_EDIT(s)->spl_ui = surf->s_size[1]/2;
+	BSPLINE_EDIT(s)->spl_vi = surf->s_size[0]/2;
     }
 
     /* Save aggregate path matrix */
@@ -1577,21 +1571,25 @@ init_sedit(struct mged_state *s)
     get_solid_keypoint(s, MEDIT(s)->e_keypoint, &MEDIT(s)->e_keytag, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
 
     /* Per-primitive selection state is reset by ipe_ptr create/destroy in rt_edit_init_ptr */
-    lu_copy = (struct loopuse *)NULL;
-    /* ARS selection reset: only safe if current prim is ARS */
-    if (MEDIT(s)->ipe_ptr && MEDIT(s)->es_int.idb_type == ID_ARS) {
-	ARS_EDIT(s)->es_ars_crv = (-1);
-	ARS_EDIT(s)->es_ars_col = (-1);
+    if (MEDIT(s)->ipe_ptr) {
+	int idb_type = MEDIT(s)->es_int.idb_type;
+	if (idb_type == ID_NMG)
+	    NMG_EDIT(s)->lu_copy = (struct loopuse *)NULL;
+	if (idb_type == ID_ARS) {
+	    ARS_EDIT(s)->es_ars_crv = (-1);
+	    ARS_EDIT(s)->es_ars_col = (-1);
+	}
+	if (idb_type == ID_BOT) {
+	    BOT_EDIT(s)->bot_verts[0] = -1;
+	    BOT_EDIT(s)->bot_verts[1] = -1;
+	    BOT_EDIT(s)->bot_verts[2] = -1;
+	}
     }
-
-    bot_verts[0] = -1;
-    bot_verts[1] = -1;
-    bot_verts[2] = -1;
 
     /* Finally, enter solid edit state */
     (void)chg_state(s, ST_S_PICK, ST_S_EDIT, "Keyboard illuminate");
     chg_l2menu(s, ST_S_EDIT);
-    MEDIT(s)->edit_flag = IDLE;
+    MEDIT(s)->edit_flag = RT_EDIT_IDLE;
 
     /* Keep the rt_edit view pointer current so librt editing operations
      * (rt_knob_edit_rot, rt_knob_edit_tran, and primitive ft_edit routines)
@@ -1718,7 +1716,7 @@ sedit_menu(struct mged_state *s) {
 	    mmenu_set_all(s, MENU_L1, mi);
     }
 
-    MEDIT(s)->edit_flag = IDLE;	/* Drop out of previous edit mode */
+    MEDIT(s)->edit_flag = RT_EDIT_IDLE;	/* Drop out of previous edit mode */
     if (MEDIT(s)->es_int.idb_type == ID_ARB8 && MEDIT(s)->ipe_ptr)
 	ARB_EDIT(s)->edit_menu = 0;
 }
@@ -1843,7 +1841,7 @@ sedit(struct mged_state *s)
 
     switch (MEDIT(s)->edit_flag) {
 
-	case IDLE:
+	case RT_EDIT_IDLE:
 	    /* do nothing more */
 	    --s->update_views;
 	    break;
@@ -2014,13 +2012,13 @@ sedit(struct mged_state *s)
 	    rt_edit_process(MEDIT(s));
 	    return;
 	/* --- Generic solid edit operations: delegate to librt rt_edit_process() --- */
-	/* SSCALE (=RT_PARAMS_EDIT_SCALE), STRANS (=RT_PARAMS_EDIT_TRANS), SROT (=RT_PARAMS_EDIT_ROT):
+	/* RT_PARAMS_EDIT_SCALE (=RT_PARAMS_EDIT_SCALE), RT_PARAMS_EDIT_TRANS (=RT_PARAMS_EDIT_TRANS), RT_PARAMS_EDIT_ROT (=RT_PARAMS_EDIT_ROT):
 	 * librt's edit_generic handles these via edit_sscale, edit_stra, edit_srot.
 	 * PTARB/EARB: librt's ARB edit handler handles these.
 	 * ECMD_VTRANS: librt's bspline edit handler handles this. */
-	case SSCALE:
-	case STRANS:
-	case SROT:
+	case RT_PARAMS_EDIT_SCALE:
+	case RT_PARAMS_EDIT_TRANS:
+	case RT_PARAMS_EDIT_ROT:
 	case ECMD_VTRANS:
 	case PTARB:
 	case EARB:
@@ -2126,7 +2124,7 @@ sedit_abs_scale(struct mged_state *s)
 {
     fastf_t old_acc_sc_sol;
 
-    if (MEDIT(s)->edit_flag != SSCALE)
+    if (MEDIT(s)->edit_flag != RT_PARAMS_EDIT_SCALE)
 	return;
 
     old_acc_sc_sol = MEDIT(s)->acc_sc_sol;
@@ -2671,7 +2669,7 @@ f_eqn(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    aint->es_peqn[aint->edit_menu][i]= atof(argv[i+1]);
 	VUNITIZE(&aint->es_peqn[aint->edit_menu][0]);
 
-	VMOVE(tempvec, arb->pt[fixv]);
+	VMOVE(tempvec, arb->pt[ARB_EDIT(s)->fixv]);
 	aint->es_peqn[aint->edit_menu][W]=VDOT(aint->es_peqn[aint->edit_menu], tempvec);
 
 	if (rt_arb_calc_points(arb, s->s_edit->es_type, (const plane_t *)aint->es_peqn, &s->tol.tol))
@@ -2708,22 +2706,22 @@ sedit_apply(struct mged_state *s, int accept_flag)
 	    PIPE_EDIT(s)->es_pipe_pnt = (struct wdb_pipe_pnt *)NULL;
 	if (idb_type == ID_METABALL)
 	    METABALL_EDIT(s)->es_metaball_pnt = (struct wdb_metaball_pnt *)NULL;
+	if (idb_type == ID_BOT) {
+	    BOT_EDIT(s)->bot_verts[0] = -1;
+	    BOT_EDIT(s)->bot_verts[1] = -1;
+	    BOT_EDIT(s)->bot_verts[2] = -1;
+	}
     }
-    bot_verts[0] = -1;
-    bot_verts[1] = -1;
-    bot_verts[2] = -1;
 
     /* make sure we are in solid edit mode */
     if (!illump) {
 	return TCL_OK;
     }
 
-    if (lu_copy) {
-	struct model *m;
-
-	m = nmg_find_model(&lu_copy->l.magic);
+    if (MEDIT(s)->ipe_ptr && MEDIT(s)->es_int.idb_type == ID_NMG && NMG_EDIT(s)->lu_copy) {
+	struct model *m = nmg_find_model(&NMG_EDIT(s)->lu_copy->l.magic);
 	nmg_km(m);
-	lu_copy = (struct loopuse *)NULL;
+	NMG_EDIT(s)->lu_copy = (struct loopuse *)NULL;
     }
 
     /* write editing changes out to disc */
@@ -2842,16 +2840,16 @@ sedit_reject(struct mged_state *s)
 	    ARS_EDIT(s)->es_ars_crv = (-1);
 	    ARS_EDIT(s)->es_ars_col = (-1);
 	}
-    }
-    bot_verts[0] = -1;
-    bot_verts[1] = -1;
-    bot_verts[2] = -1;
-
-    if (lu_copy) {
-	struct model *m;
-	m = nmg_find_model(&lu_copy->l.magic);
-	nmg_km(m);
-	lu_copy = (struct loopuse *)NULL;
+	if (idb_type == ID_BOT) {
+	    BOT_EDIT(s)->bot_verts[0] = -1;
+	    BOT_EDIT(s)->bot_verts[1] = -1;
+	    BOT_EDIT(s)->bot_verts[2] = -1;
+	}
+	if (idb_type == ID_NMG && NMG_EDIT(s)->lu_copy) {
+	    struct model *m = nmg_find_model(&NMG_EDIT(s)->lu_copy->l.magic);
+	    nmg_km(m);
+	    NMG_EDIT(s)->lu_copy = (struct loopuse *)NULL;
+	}
     }
 
     /* Restore the original solid everywhere */
@@ -2959,7 +2957,7 @@ mged_param(struct mged_state *s, Tcl_Interp *interp, int argc, fastf_t *argvect)
     /* check if need to convert input values to the base unit */
     switch (MEDIT(s)->edit_flag) {
 
-	case STRANS:
+	case RT_PARAMS_EDIT_TRANS:
 	case ECMD_VTRANS:
 	case EARB:
 	case ECMD_ARB_MOVE_FACE:
@@ -3487,9 +3485,9 @@ label_edited_solid(
 		fastf_t *fp;
 
 		RT_NURB_CK_MAGIC(sip);
-		surf = sip->srfs[spl_surfno];
+		surf = sip->srfs[BSPLINE_EDIT(s)->spl_surfno];
 		NMG_CK_SNURB(surf);
-		fp = &RT_NURB_GET_CONTROL_POINT(surf, spl_ui, spl_vi);
+		fp = &RT_NURB_GET_CONTROL_POINT(surf, BSPLINE_EDIT(s)->spl_ui, BSPLINE_EDIT(s)->spl_vi);
 		MAT4X3PNT(pos_view, xform, fp);
 		POINT_LABEL(pos_view, 'V');
 
@@ -3568,18 +3566,18 @@ label_edited_solid(
 
 		RT_BOT_CK_MAGIC(bot);
 
-		if (bot_verts[2] > -1 &&
-		    bot_verts[1] > -1 &&
-		    bot_verts[0] > -1)
+		if (BOT_EDIT(s)->bot_verts[2] > -1 &&
+		    BOT_EDIT(s)->bot_verts[1] > -1 &&
+		    BOT_EDIT(s)->bot_verts[0] > -1)
 		{
 		    /* editing a face */
 		    point_t mid_pt;
 		    point_t p1, p2, p3;
 		    fastf_t one_third = 1.0/3.0;
 
-		    MAT4X3PNT(p1, xform, &bot->vertices[bot_verts[0]*3]);
-		    MAT4X3PNT(p2, xform, &bot->vertices[bot_verts[1]*3]);
-		    MAT4X3PNT(p3, xform, &bot->vertices[bot_verts[2]*3]);
+		    MAT4X3PNT(p1, xform, &bot->vertices[BOT_EDIT(s)->bot_verts[0]*3]);
+		    MAT4X3PNT(p2, xform, &bot->vertices[BOT_EDIT(s)->bot_verts[1]*3]);
+		    MAT4X3PNT(p3, xform, &bot->vertices[BOT_EDIT(s)->bot_verts[2]*3]);
 		    VADD3(mid_pt, p1, p2, p3);
 
 		    VSCALE(mid_pt, mid_pt, one_third);
@@ -3591,19 +3589,19 @@ label_edited_solid(
 		    VMOVE(lines[3], p2);
 		    VMOVE(lines[4], mid_pt);
 		    VMOVE(lines[5], p3);
-		} else if (bot_verts[1] > -1 && bot_verts[0] > -1) {
+		} else if (BOT_EDIT(s)->bot_verts[1] > -1 && BOT_EDIT(s)->bot_verts[0] > -1) {
 		    /* editing an edge */
 		    point_t mid_pt;
 
-		    VBLEND2(mid_pt, 0.5, &bot->vertices[bot_verts[0]*3],
-			    0.5, &bot->vertices[bot_verts[1]*3]);
+		    VBLEND2(mid_pt, 0.5, &bot->vertices[BOT_EDIT(s)->bot_verts[0]*3],
+			    0.5, &bot->vertices[BOT_EDIT(s)->bot_verts[1]*3]);
 
 		    MAT4X3PNT(pos_view, xform, mid_pt);
 		    POINT_LABEL_STR(pos_view, "edge");
 		}
-		if (bot_verts[0] > -1) {
+		if (BOT_EDIT(s)->bot_verts[0] > -1) {
 		    /* editing something, always label the vertex (this is the keypoint) */
-		    MAT4X3PNT(pos_view, xform, &bot->vertices[bot_verts[0]*3]);
+		    MAT4X3PNT(pos_view, xform, &bot->vertices[BOT_EDIT(s)->bot_verts[0]*3]);
 		    POINT_LABEL_STR(pos_view, "pt");
 		}
 	    }
@@ -3644,9 +3642,9 @@ sedit_vpick(struct mged_state *s, point_t v_pos)
     if (nurb_closest2d(&surfno, &u, &v,
 		       (struct rt_nurb_internal *)MEDIT(s)->es_int.idb_ptr,
 		       m_pos, view_state->vs_model2objview) >= 0) {
-	spl_surfno = surfno;
-	spl_ui = u;
-	spl_vi = v;
+	BSPLINE_EDIT(s)->spl_surfno = surfno;
+	BSPLINE_EDIT(s)->spl_ui = u;
+	BSPLINE_EDIT(s)->spl_vi = v;
 	get_solid_keypoint(s, MEDIT(s)->e_keypoint, &MEDIT(s)->e_keytag, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
     }
     chg_state(s, ST_S_VPICK, ST_S_EDIT, "Vertex Pick Complete");
