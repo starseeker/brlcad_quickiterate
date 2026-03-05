@@ -51,6 +51,7 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
     // if this is the current view
     BU_GET(local_v, bsg_view);
     bsg_view_init(local_v, NULL);
+    bsg_scene_root_create(local_v);
     bu_vls_sprintf(&local_v->gv_name, "qtgl");
     v = local_v;
 
