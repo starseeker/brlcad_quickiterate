@@ -40,6 +40,7 @@
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/lod.h"
+#include "bsg/polygon.h"
 
 #endif /* BSG_H */
 

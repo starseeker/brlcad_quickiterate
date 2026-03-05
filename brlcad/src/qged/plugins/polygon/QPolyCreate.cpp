@@ -243,7 +243,7 @@ QPolyCreate::do_vpoly_copy()
     }
 
     // Names are valid, src_obj is ready - do the copy
-    p = bv_dup_view_polygon(bu_vls_cstr(&vname), src_obj);
+    p = bsg_dup_view_polygon(bu_vls_cstr(&vname), src_obj);
     bu_vls_free(&vname);
     if (!p)
 	return;
@@ -507,7 +507,7 @@ QPolyCreate::toplevel_config(bool)
 		    draw_change = true;
 		    ip->curr_point_i = -1;
 		    ip->curr_contour_i = 0;
-		    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+		    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
 		}
 	    }
 	}

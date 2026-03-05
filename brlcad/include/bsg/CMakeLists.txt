@@ -3,6 +3,7 @@ set(
   compat.h
   defines.h
   lod.h
+  polygon.h
   util.h
 )
 brlcad_manage_files(bsg_headers ${INCLUDE_DIR}/brlcad/bsg REQUIRED libbv)

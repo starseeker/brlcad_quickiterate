@@ -36,6 +36,7 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv.h"
+#include "bsg.h"
 #include "bg/polygon.h"
 #include "rt/defines.h"
 #include "rt/directory.h"
@@ -205,7 +206,7 @@ end:
     bu_free((void *)all_segment_nodes, "all_segment_nodes");
 
     /* Create the scene object here so we can read a default color */
-    bsg_shape *s = (bsg_shape *)bv_create_polygon_obj(sv, flags, p);
+    bsg_shape *s = bsg_create_polygon_obj(sv, flags, p);
     if (!s) {
 	bg_polygon_free(&p->polygon);
 	BU_PUT(p, struct bv_polygon);
@@ -323,7 +324,7 @@ end:
     }
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist((struct bv_scene_obj *)s);
+    bsg_polygon_vlist(s);
 
     rt_db_free_internal(&intern);
     return s;
