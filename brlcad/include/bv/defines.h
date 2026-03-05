@@ -473,7 +473,7 @@ struct bv_mesh_lod {
     point_t bmax;
 
     // The scene object using this LoD structure
-    struct bv_scene_obj *s;
+    bsg_shape *s;
 
     // Pointer to the higher level LoD context associated with this LoD data
     void *c;

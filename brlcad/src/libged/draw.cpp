@@ -336,7 +336,7 @@ bot_adaptive_plot(bsg_shape *s, bsg_view *v)
 	// Assign the LoD information to the object's draw_data, and let
 	// the LoD know which object it is associated with.
 	vo->draw_data = (void *)lod;
-	lod->s = (struct bv_scene_obj *)vo;
+	lod->s = vo;
 
 	// The object bounds are based on the LoD's calculations.  Because the LoD
 	// cache stores only one cached data set per object, but full path
@@ -487,7 +487,7 @@ brep_adaptive_plot(bsg_shape *s, bsg_view *v)
 	// Assign the LoD information to the object's draw_data, and let
 	// the LoD know which object it is associated with.
 	vo->draw_data = (void *)lod;
-	lod->s = (struct bv_scene_obj *)vo;
+	lod->s = vo;
 
 	// The object bounds are based on the LoD's calculations.  Because the LoD
 	// cache stores only one cached data set per object, but full path
