@@ -6435,7 +6435,7 @@ static void
 to_create_vlist_callback(void *ctx, struct display_list *gdlp)
 {
     bsg_shape *sp;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	to_create_vlist_callback_solid(ctx, sp);
     }
 }

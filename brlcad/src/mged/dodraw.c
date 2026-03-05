@@ -41,7 +41,7 @@
               db_full_path_init(&bdata->s_fullpath); \
               (p)->s_u_data = (void *)bdata; \
           } else { \
-              p = BU_LIST_NEXT(bv_scene_obj, fp); \
+              p = BU_LIST_NEXT(bsg_shape, fp); \
               BU_LIST_DEQUEUE(&((p)->l)); \
               if ((p)->s_u_data) { \
                   struct ged_bv_data *bdata = (struct ged_bv_data *)(p)->s_u_data; \
@@ -99,7 +99,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 
     if (!existing_sp) {
 	/* Handling a new solid */
-	bsg_shape *free_scene_obj = bv_set_fsos(&s->gedp->ged_views);
+	bsg_shape *free_scene_obj = (bsg_shape *)bv_set_fsos(&s->gedp->ged_views);
 	GET_BV_SCENE_OBJ(sp, &free_scene_obj->l);
 	BU_LIST_APPEND(&free_scene_obj->l, &((sp)->l) );
 	sp->s_dlist = 0;

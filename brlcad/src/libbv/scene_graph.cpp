@@ -21,37 +21,54 @@
  *
  * @brief Phase-1 BSG API implementation.
  *
- * In Phase 1, all @c bsg_* types are typedef aliases of the corresponding
- * @c bv_* types (see @c <bsg/defines.h>).  This file therefore provides
- * trivial wrappers that delegate directly to the legacy @c bv_*
- * implementations — no type conversions are required.
+ * @c struct @c bsg_shape and @c struct @c bv_scene_obj are two independent
+ * struct definitions with identical field layouts (defined in @c bv/defines.h).
+ * This gives external libbv users unchanged behaviour while letting the
+ * @c bsg_* API evolve its layout independently in later phases.
  *
- * As Phase 2 work matures, the @c bsg_* structs will gain their own
- * independent definitions (beginning with extracting @c bsg_camera from
- * the inline camera fields in @c bview).  At that point the wrappers here
- * will be updated to perform the necessary field copies.
+ * Because the two structs are distinct C types, wrappers that bridge
+ * @c bsg_shape pointers to @c bv_* functions use @c bso_to_bv() /
+ * @c bv_to_bso() — thin reinterpret casts that are safe because both
+ * structs share the same memory layout throughout Phase 1.
+ *
+ * For all other @c bsg_* types (@c bsg_view, @c bsg_scene, @c bsg_lod, etc.)
+ * the typedef-alias approach is still used, so no cast is required.
  */
 
 #include "common.h"
 
-/* bsg/defines.h pulls in bv/defines.h, bv/util.h, bv/lod.h, bv/view_sets.h
- * so we get both the new bsg_* aliases and the legacy bv_* declarations. */
+/* bsg/defines.h pulls in bv/defines.h, bv/util.h, bv/lod.h, bv/view_sets.h */
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/lod.h"
 
 /* ====================================================================== *
- * Phase 1 compile-time sanity checks                                     *
- *                                                                         *
- * Verify that the bsg_* typedef aliases actually resolve to the expected  *
- * legacy types.  If any of these static_asserts fail, it means a typedef *
- * alias in bsg/defines.h is missing or wrong.                             *
+ * Phase 1 layout sanity checks                                           *
+ *                                                                        *
+ * bsg_shape and bv_scene_obj are independent structs with the same       *
+ * field layout; confirm their sizes agree so the reinterpret casts in    *
+ * this file remain safe.  Other bsg_* types are typedef aliases of their *
+ * bv_* counterparts so no casts are needed there.                        *
  * ====================================================================== */
 static_assert(sizeof(bsg_material)  == sizeof(bv_obj_settings),  "bsg_material size mismatch");
-static_assert(sizeof(bsg_shape)     == sizeof(bv_scene_obj),     "bsg_shape size mismatch");
+static_assert(sizeof(bsg_shape)     == sizeof(bv_scene_obj),     "bsg_shape / bv_scene_obj layout mismatch");
 static_assert(sizeof(bsg_lod)       == sizeof(bv_mesh_lod),      "bsg_lod size mismatch");
 static_assert(sizeof(bsg_view)      == sizeof(bview),            "bsg_view size mismatch");
 static_assert(sizeof(bsg_scene)     == sizeof(bview_set),        "bsg_scene size mismatch");
+
+/* ====================================================================== *
+ * Cast helpers: bsg_shape * <-> bv_scene_obj *                           *
+ *                                                                        *
+ * Both structs have the same memory layout throughout Phase 1, so these  *
+ * reinterpret casts are safe.  Using named helpers keeps the intent      *
+ * visible and makes it trivial to grep for all cross-boundary sites.     *
+ * ====================================================================== */
+static inline bv_scene_obj *bso_to_bv(bsg_shape *s)
+    { return reinterpret_cast<bv_scene_obj *>(s); }
+static inline const bv_scene_obj *bso_to_bv(const bsg_shape *s)
+    { return reinterpret_cast<const bv_scene_obj *>(s); }
+static inline bsg_shape *bv_to_bso(bv_scene_obj *s)
+    { return reinterpret_cast<bsg_shape *>(s); }
 
 /* ====================================================================== *
  * View lifecycle                                                          *
@@ -183,43 +200,43 @@ bsg_screen_pt(point_t *p, fastf_t x, fastf_t y, bsg_view *v)
 extern "C" bsg_shape *
 bsg_shape_get(bsg_view *v, int type)
 {
-    return bv_obj_get(v, type);
+    return bv_to_bso(bv_obj_get(v, type));
 }
 
 extern "C" bsg_shape *
 bsg_shape_create(bsg_view *v, int type)
 {
-    return bv_obj_create(v, type);
+    return bv_to_bso(bv_obj_create(v, type));
 }
 
 extern "C" bsg_shape *
 bsg_shape_get_child(bsg_shape *parent)
 {
-    return bv_obj_get_child(parent);
+    return bv_to_bso(bv_obj_get_child(bso_to_bv(parent)));
 }
 
 extern "C" void
 bsg_shape_reset(bsg_shape *s)
 {
-    bv_obj_reset(s);
+    bv_obj_reset(bso_to_bv(s));
 }
 
 extern "C" void
 bsg_shape_put(bsg_shape *s)
 {
-    bv_obj_put(s);
+    bv_obj_put(bso_to_bv(s));
 }
 
 extern "C" void
 bsg_shape_stale(bsg_shape *s)
 {
-    bv_obj_stale(s);
+    bv_obj_stale(bso_to_bv(s));
 }
 
 extern "C" void
 bsg_shape_sync(bsg_shape *dst, const bsg_shape *src)
 {
-    bv_obj_sync(dst, const_cast<bsg_shape *>(src));
+    bv_obj_sync(bso_to_bv(dst), const_cast<bv_scene_obj *>(bso_to_bv(src)));
 }
 
 /* ====================================================================== *
@@ -229,13 +246,13 @@ bsg_shape_sync(bsg_shape *dst, const bsg_shape *src)
 extern "C" bsg_shape *
 bsg_shape_find_child(bsg_shape *s, const char *pattern)
 {
-    return bv_find_child(s, pattern);
+    return bv_to_bso(bv_find_child(bso_to_bv(s), pattern));
 }
 
 extern "C" bsg_shape *
 bsg_view_find_shape(bsg_view *v, const char *pattern)
 {
-    return bv_find_obj(v, pattern);
+    return bv_to_bso(bv_find_obj(v, pattern));
 }
 
 extern "C" void
@@ -251,25 +268,25 @@ bsg_view_uniq_name(struct bu_vls *result, const char *seed, bsg_view *v)
 extern "C" bsg_shape *
 bsg_shape_for_view(bsg_shape *s, bsg_view *v)
 {
-    return bv_obj_for_view(s, v);
+    return bv_to_bso(bv_obj_for_view(bso_to_bv(s), v));
 }
 
 extern "C" bsg_shape *
 bsg_shape_get_view_obj(bsg_shape *s, bsg_view *v)
 {
-    return bv_obj_get_vo(s, v);
+    return bv_to_bso(bv_obj_get_vo(bso_to_bv(s), v));
 }
 
 extern "C" int
 bsg_shape_have_view_obj(bsg_shape *s, bsg_view *v)
 {
-    return bv_obj_have_vo(s, v);
+    return bv_obj_have_vo(bso_to_bv(s), v);
 }
 
 extern "C" int
 bsg_shape_clear_view_obj(bsg_shape *s, bsg_view *v)
 {
-    return bv_clear_view_obj(s, v);
+    return bv_clear_view_obj(bso_to_bv(s), v);
 }
 
 /* ====================================================================== *
@@ -279,13 +296,13 @@ bsg_shape_clear_view_obj(bsg_shape *s, bsg_view *v)
 extern "C" int
 bsg_shape_bound(bsg_shape *s, bsg_view *v)
 {
-    return bv_scene_obj_bound(s, v);
+    return bv_scene_obj_bound(bso_to_bv(s), v);
 }
 
 extern "C" fastf_t
 bsg_shape_vZ_calc(bsg_shape *s, bsg_view *v, int mode)
 {
-    return bv_vZ_calc(s, v, mode);
+    return bv_vZ_calc(bso_to_bv(s), v, mode);
 }
 
 /* ====================================================================== *
@@ -295,7 +312,7 @@ bsg_shape_vZ_calc(bsg_shape *s, bsg_view *v, int mode)
 extern "C" int
 bsg_shape_illum(bsg_shape *s, char ill_state)
 {
-    return bv_illum_obj(s, ill_state);
+    return bv_illum_obj(bso_to_bv(s), ill_state);
 }
 
 /* ====================================================================== *
@@ -499,25 +516,25 @@ bsg_mesh_lod_destroy(bsg_lod *lod)
 extern "C" int
 bsg_mesh_lod_view(bsg_shape *s, bsg_view *v, int reset)
 {
-    return bv_mesh_lod_view(s, v, reset);
+    return bv_mesh_lod_view(bso_to_bv(s), v, reset);
 }
 
 extern "C" int
 bsg_mesh_lod_level(bsg_shape *s, int level, int reset)
 {
-    return bv_mesh_lod_level(s, level, reset);
+    return bv_mesh_lod_level(bso_to_bv(s), level, reset);
 }
 
 extern "C" void
 bsg_mesh_lod_memshrink(bsg_shape *s)
 {
-    bv_mesh_lod_memshrink(s);
+    bv_mesh_lod_memshrink(bso_to_bv(s));
 }
 
 extern "C" void
 bsg_mesh_lod_free(bsg_shape *s)
 {
-    bv_mesh_lod_free(s);
+    bv_mesh_lod_free(bso_to_bv(s));
 }
 
 /* ====================================================================== *

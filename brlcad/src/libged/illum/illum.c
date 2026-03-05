@@ -66,7 +66,7 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 	while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
 	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	    for (BU_LIST_FOR(s, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    for (BU_LIST_FOR(s, bsg_shape, &gdlp->dl_head_scene_obj)) {
 		if (!s->s_u_data)
 		    continue;
 		struct ged_bv_data *bdata = (struct ged_bv_data *)s->s_u_data;
@@ -95,7 +95,7 @@ dl_set_illum(struct display_list *gdlp, const char *obj, int illum)
     int found = 0;
     bsg_shape *sp;
 
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	size_t i;
 	if (!sp->s_u_data)
 	    continue;

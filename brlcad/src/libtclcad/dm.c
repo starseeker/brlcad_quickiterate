@@ -1243,7 +1243,7 @@ dmo_drawSList(struct dm_obj *dmop,
     int dm_transparency = dm_get_transparency(dmop->dmo_dmp);
     if (dm_transparency) {
 	/* First, draw opaque stuff */
-	for (BU_LIST_FOR(sp, bv_scene_obj, hsp)) {
+	for (BU_LIST_FOR(sp, bsg_shape, hsp)) {
 	    if (sp->s_os->transparency < 1.0)
 		continue;
 
@@ -1259,7 +1259,7 @@ dmo_drawSList(struct dm_obj *dmop,
 	dm_set_depth_mask(dmop->dmo_dmp, 0);
 
 	/* Second, draw transparent stuff */
-	for (BU_LIST_FOR(sp, bv_scene_obj, hsp)) {
+	for (BU_LIST_FOR(sp, bsg_shape, hsp)) {
 	    /* already drawn above */
 	    if (ZERO(sp->s_os->transparency - 1.0))
 		continue;
@@ -1276,7 +1276,7 @@ dmo_drawSList(struct dm_obj *dmop,
 	dm_set_depth_mask(dmop->dmo_dmp, 1);
     } else {
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, hsp)) {
+	for (BU_LIST_FOR(sp, bsg_shape, hsp)) {
 	    if (linestyle != sp->s_soldash) {
 		linestyle = sp->s_soldash;
 		dm_set_line_attr(dmop->dmo_dmp, dmop->dmo_dmp->i->dm_lineWidth, linestyle);

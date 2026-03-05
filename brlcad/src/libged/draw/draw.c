@@ -227,7 +227,7 @@ dl_redraw(struct display_list *gdlp, struct ged *gedp, int skip_subtractions)
     int ret = 0;
     bsg_shape *sp;
     struct bu_list *vlfree = &rt_vlfree;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
 	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
 	}
