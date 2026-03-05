@@ -704,8 +704,9 @@ protected:
 	    /* Pull the latest BRL-CAD camera into view_ so that ae/zoom/center
 	     * commands issued in the console are reflected here.  The legacy
 	     * ged_gvp is the authoritative source; bview_sync_from_old() copies
-	     * it into view_ (the bview_new companion). */
-	    if (view_)
+	     * it into view_ (the bview_new companion).
+	     * Guard: only call if old_bview is valid (set_view may race). */
+	    if (view_ && bview_old_get(view_))
 		bview_sync_from_old(view_);
 
 	    /* Snapshot child count before sync so we can detect newly added

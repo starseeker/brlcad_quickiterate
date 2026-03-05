@@ -200,8 +200,14 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode, int ob
      * those assignment */
     struct ged *gedp = mdl->gedp;
 
-    // Let GED know to use the QgQuadView view as its current view
-    gedp->ged_gvp = w->CurrentView();
+    // Let GED know to use the QgQuadView view as its current view.
+    // For the Obol canvas the init_done lambda (below) does this properly
+    // once the GL context and ged_gvnv companion are both available.  Doing
+    // it here for Obol would set ged_gvp to the widget's local_bv_ which
+    // has vset=NULL (not part of ged_views), causing draw2/bv_scene_sync
+    // to use an unregistered view and crash.
+    if (canvas_type != QgView_Obol)
+	gedp->ged_gvp = w->CurrentView();
 
     // Set up the connections needed for embedded raytracing
     gedp->ged_fbs->fbs_is_listening = &qdm_is_listening;
