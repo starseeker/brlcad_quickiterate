@@ -1715,7 +1715,7 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	    if (local_db_objs)
 		(void)scene_bounding_sph(local_db_objs, &(extremum[0]), &(extremum[1]), 1);
 	} else {
-	    (void)dl_bounding_sph(gedp->i->ged_gdp->gd_headDisplay, &(extremum[0]), &(extremum[1]), 1);
+	    (void)bsg_bounding_sph(gedp->ged_gvp, &(extremum[0]), &(extremum[1]), 1);
 	}
 
 	VMOVEN(direction, _cam.rotation + 8, 3);
