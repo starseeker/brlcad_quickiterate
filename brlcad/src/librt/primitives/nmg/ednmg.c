@@ -195,7 +195,8 @@ rt_edit_nmg_set_edit_mode(struct rt_edit *s, int mode)
 		bu_vls_free(&tmp_vls);
 	    }
 
-	    // TODO - should we really be calling this here?
+	    // NMG_FORW: advance to the next edgeuse in the loop, then trigger
+	    // an immediate display update so the new selection is highlighted.
 	    rt_edit_process(s);
 	    return;
 	case ECMD_NMG_BACK:
@@ -216,7 +217,7 @@ rt_edit_nmg_set_edit_mode(struct rt_edit *s, int mode)
 		bu_vls_free(&tmp_vls);
 	    }
 
-	    // TODO - should we really be calling this here?
+	    // NMG_BACK: step to the previous edgeuse in the loop, then update display.
 	    rt_edit_process(s);
 	    return;
 	case ECMD_NMG_RADIAL:
@@ -237,7 +238,7 @@ rt_edit_nmg_set_edit_mode(struct rt_edit *s, int mode)
 		bu_vls_free(&tmp_vls);
 	    }
 
-	    // TODO - should we really be calling this here?
+	    // NMG_RADIAL: jump to the radial edgeuse, then update display.
 	    rt_edit_process(s);
 	    return;
 	case ECMD_NMG_LEXTRU_DIR:
@@ -405,7 +406,11 @@ nmg_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(da
 {
     rt_edit_nmg_set_edit_mode(s, arg);
 
-    // TODO - should we really be calling this here?
+    /* Calling rt_edit_process here ensures the editing axes update
+     * immediately after any menu selection.  For traversal operations
+     * (FORW, BACK, RADIAL), rt_edit_nmg_set_edit_mode already calls
+     * rt_edit_process internally; the second call here is redundant
+     * but harmless for those cases. */
     rt_edit_process(s);
 }
 
@@ -459,13 +464,14 @@ rt_edit_nmg_keypoint(
     struct nmgregion *r;
     struct model *m = (struct model *) ip->idb_ptr;
     NMG_CK_MODEL(m);
-    /* XXX Fall through, for now (How about first vertex?? - JRA) */
+    /* No element-type-specific keypoint dispatch here; fall through to
+     * use the selected edge's first vertex (or origin as default). */
 
     /* set default first */
     VSETALL(mpt, 0.0);
     strp = "(origin)";
 
-    /* XXX Try to use the first point of the selected edge */
+    /* Use the first point of the selected edge if available */
     if (n->es_eu != (struct edgeuse *)NULL &&
 	    n->es_eu->vu_p != (struct vertexuse *)NULL &&
 	    n->es_eu->vu_p->v_p != (struct vertex *)NULL &&
@@ -1008,7 +1014,12 @@ ecmd_nmg_lextru_dir(struct rt_edit *s)
 }
 
 
-/* XXX Should just leave desired location in s->e_mparam for rt_edit_process(s) */
+/* ecmd_nmg_epick: locate the nearest edge to the mouse position and
+ * record it in n->es_eu.  The pick is done directly here rather than
+ * via e_mparam because the edge search logic (nmg_find_e_nearest_pt2)
+ * requires the full view transform, which is not available inside
+ * the generic ft_edit path.  Once an edge is selected, subsequent
+ * EMOVE/ESPLIT/EKILL operations read n->es_eu directly. */
 void ecmd_nmg_epick(struct rt_edit *s, const vect_t mousevec)
 {
     struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
@@ -1261,7 +1272,9 @@ rt_edit_nmg_edit(struct rt_edit *s)
 	    edit_srot(s);
 	    break;
 	case ECMD_NMG_EPICK:
-	    /* XXX Nothing to do here (yet), all done in mouse routine. */
+	    /* EPICK is handled entirely in the mouse/xy routine (ecmd_nmg_epick).
+	     * No action needed in ft_edit since no structural change occurs until
+	     * the user clicks in the viewport. */
 	    break;
 	case ECMD_NMG_VPICK:
 	    return ecmd_nmg_vpick(s);
@@ -1315,7 +1328,8 @@ rt_edit_nmg_edit_xy(
 	    edit_stra_xy(&pos_view, s, mousevec);
 	    break;
 	case ECMD_NMG_EPICK:
-	    /* XXX Should just leave desired location in s->e_mparam for rt_edit_nmg_edit */
+	    /* Edge pick is done directly in ecmd_nmg_epick (uses view-space
+	     * search), not via the generic e_mparam path. */
 	    ecmd_nmg_epick(s, mousevec);
 	    break;
 	case ECMD_NMG_EMOVE:
