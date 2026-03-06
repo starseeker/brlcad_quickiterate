@@ -505,18 +505,18 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
 
 ## 11. Suggested work order
 
-1. **Phase 2a** (unblocking correctness):
+1. **Phase 2a** (unblocking correctness): ✅ COMPLETE
    - Add `bsg_scene_root_create` calls at all view-init sites (ged.cpp, attach.c, QgGL.cpp, swrast).
    - Add `bsg_view_set_camera` to `loadview.cpp`, `preview.cpp` to keep camera nodes in sync.
    - Migrate `libdm/view.c` render loop to `bsg_view_traverse` using a new `bsg_dm_draw_visitor`.
 
-2. **Phase 2b** (sensor system):
-   - Register display-list rebuild sensors in `dm-gl_lod.cpp`.
-   - Register repaint sensors from `libqtcad`'s view widget.
-   - Remove remaining raw `s_dlist_stale` reads outside `libbv`.
+2. **Phase 2b** (sensor system): ✅ PARTIAL
+   - ✅ Register display-list rebuild sensors in `dm-gl_lod.cpp` (`gl_register_dlist_sensor` / `gl_deregister_dlist_sensor` + `gl_dlist_stale_cb`).
+   - Register repaint sensors from `libqtcad`'s view widget. (future work)
+   - ✅ Remaining raw `s_dlist_stale` reads are intentional fallbacks in dm-gl_lod.cpp; removed where sensors now handle stale notification.
 
-3. **Phase 2c** (camera field accessor hygiene):
-   - Replace all direct `gv_*` camera field reads with `bsg_view_get_camera` /
+3. **Phase 2c** (camera field accessor hygiene): ✅ COMPLETE
+   - Replaced all direct `gv_*` camera field reads with `bsg_view_get_camera` /
      `bsg_view_set_camera` throughout `libged`, `librt`, `libtclcad`, `mged`,
      `gtools`.
 
@@ -531,4 +531,4 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
 
 ---
 
-*Last updated: 2026-03-05 (generated from survey of `copilot/update-bsg-apis-for-obol` branch)*
+*Last updated: 2026-03-06 (Phases 2a, 2b(partial), 2c complete)*
