@@ -349,8 +349,8 @@ bsg_view_clear(bsg_view *v, int flags)
 		bu_ptbl_rm(&root->children, (long *)s);
 	    _invalidate_shapes_cache(v);
 
-	    /* Shared shapes (no LOCAL flag) live in ALL co-views' roots. */
-	    if (!(flags & BSG_LOCAL_OBJS) && v->vset) {
+	    /* Shared shapes (no LOCAL flag, non-independent view) live in ALL co-views' roots. */
+	    if (!(flags & BSG_LOCAL_OBJS) && !v->independent && v->vset) {
 		struct bu_ptbl *vws = bv_set_views(v->vset);
 		if (vws) {
 		    for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
@@ -405,9 +405,10 @@ bsg_shape_get(bsg_view *v, int type)
     if (!s) return NULL;
 
     /* Register in the BSG scene root(s) so bsg_view_traverse finds this
-     * shape.  Shared (non-local) objects belong to every view in the vset;
-     * local objects belong only to view v. */
-    if (!(type & BSG_LOCAL_OBJS) && v->vset) {
+     * shape.  Shared (non-local, non-independent) objects belong to every
+     * view in the vset; local or independent-view objects belong only to
+     * view v. */
+    if (!(type & BSG_LOCAL_OBJS) && !v->independent && v->vset) {
 	struct bu_ptbl *vws = bv_set_views(v->vset);
 	if (vws) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
@@ -454,7 +455,8 @@ bsg_shape_put(bsg_shape *s)
     /* Remove from BSG scene root(s) before freeing. */
     if (s && s->s_v) {
 	bsg_view *v = s->s_v;
-	int is_shared = !(s->s_type_flags & BSG_LOCAL_OBJS) && v->vset;
+	int is_shared = !(s->s_type_flags & BSG_LOCAL_OBJS) &&
+			!v->independent && v->vset;
 	if (is_shared) {
 	    struct bu_ptbl *vws = bv_set_views(v->vset);
 	    if (vws) {
