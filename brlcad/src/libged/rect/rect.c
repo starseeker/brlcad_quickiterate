@@ -231,8 +231,12 @@ rect_zoom(struct ged *gedp)
     rect_adjust_for_zoom(&gedp->ged_gvp->gv_s->gv_rect);
 
     /* find old view center */
-    MAT_DELTAS_GET_NEG(old_model_center, gedp->ged_gvp->gv_center);
-    MAT4X3PNT(old_view_center, gedp->ged_gvp->gv_model2view, old_model_center);
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT_DELTAS_GET_NEG(old_model_center, _cv.center);
+    }
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT4X3PNT(old_view_center, _cv.model2view, old_model_center);
+    }
 
     /* calculate new view center */
     VSET(new_view_center,
@@ -241,7 +245,9 @@ rect_zoom(struct ged *gedp)
 	 old_view_center[Z]);
 
     /* find new model center */
-    MAT4X3PNT(new_model_center, gedp->ged_gvp->gv_view2model, new_view_center);
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT4X3PNT(new_model_center, _cv.view2model, new_view_center);
+    }
 
     /* zoom in to fill rectangle */
     if (gedp->ged_gvp->gv_s->gv_rect.width >= 0.0)
@@ -263,7 +269,9 @@ rect_zoom(struct ged *gedp)
 	return BRLCAD_OK;
 
     /* set the new model center */
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, new_model_center);
+    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+      MAT_DELTAS_VEC_NEG(_cv.center, new_model_center);
+    }
     gedp->ged_gvp->gv_scale *= sf;
     bsg_view_update(gedp->ged_gvp);
 
