@@ -881,55 +881,68 @@ compatibility / deprecation; all new scene-graph logic is implemented fresh in
 | Scope of change per session | Large (touches libbv internals) | Small and incremental — build up libbsg from scratch |
 | Risk of regression | High (libbv callers impacted) | None — libbv untouched |
 
+### Revised plan — Session 14 (course correction)
+
+**User clarification**: The `libbsg_*` naming convention introduced in Sessions 12–13
+was wrong.  The correct approach is to **fold the existing `bsg_*` definitions** from
+`bsg/defines.h` and `bsg/util.h` into `libbsg`, keeping the `bsg_*` naming and header
+convention.  Effectively: copy `libbv` → `libbsg`, rename, remove non-BSG elements.
+
+**Session 14 implementation**:
+- ✅ Removed the session 12–13 `libbsg_*` third naming convention (`libbsg_shape`,
+  `libbsg_camera`, `LIBBSG_NODE_*`, `libbsg_dm` adapter) — these are gone.
+- ✅ Moved `scene_graph.cpp` from `libbv/` to `libbsg/`.  All 101 `bsg_*` symbols
+  (traversal, shape management, view, camera, LoD, sensors, polygon, scene root) are
+  now exported directly from `libbsg.so`.
+- ✅ Removed `scene_graph.cpp` from `libbv/CMakeLists.txt`.
+- ✅ `libbv` now links `libbsg` for backward-compat (callers that link only `libbv`
+  automatically gain `bsg_*` symbols via `libbv`'s link dependency).
+- ✅ `bsg/defines.h` `BSG_EXPORT` macro updated to use `BSG_DLL_EXPORTS` when building
+  `libbsg`, keeping `BV_EXPORT` as a fallback for the transition period.
+- ✅ `include/libbsg/libbsg.h` rewritten as umbrella include for `bsg/defines.h`,
+  `bsg/util.h`, `bsg/lod.h`, `bsg/polygon.h` — the canonical entry point for
+  BSG-based code.
+- ✅ `bsg_private.h` in `libbsg/` provides `bsg_scene_obj_internal` and
+  `bsg_scene_set_internal` as Phase-1 aliases of the `bv_*` internals.
+- ✅ `libbsg.so` builds clean with 101 `bsg_*` exported symbols.
+
 ### Incremental build-up plan for `libbsg`
 
-1. **Stand-up skeleton** ✅ — `src/libbsg/CMakeLists.txt`, `include/libbsg/libbsg.h` public
-   header, library links only against `libbu` and `libbn`.  No `bv.h` include
-   anywhere in the new library.
+1. **Stand-up skeleton** ✅ — `src/libbsg/CMakeLists.txt`, `include/libbsg/libbsg.h`
+   public header.
 
-2. **Core node types** ✅ — `bsg_node`, `bsg_separator`, `bsg_transform`,
-   `libbsg_camera`, `libbsg_shape` (clean re-implementations, not casts of
-   `bv_scene_obj`).  All node storage uses `bu_ptbl` children lists.
-   **Note**: names use `libbsg_` prefix (not `bsg_`) to avoid ODR conflicts with
-   `bv/defines.h` and `bsg/defines.h`.
+2. **Core `bsg_*` implementations** ✅ — `scene_graph.cpp` moved to `libbsg/`.
+   All `bsg_*` API functions (Phase 1 and Phase 2) now live in `libbsg`.
+   Type names follow the existing `bsg_*` convention from `bsg/defines.h`.
 
-3. **Scene root + view binding** ✅ — `libbsg_scene_root_create(params)`,
-   `libbsg_view_bind(root, view_params)` where `view_params` is a plain C struct
-   (no `bview`/`bv_*` dependency).
+3. **Remove remaining libbv BSG content** — copy remaining BSG-related files from
+   `libbv/` to `libbsg/`, removing the `bv_*` counterparts from the copies:
+   - `util.cpp` — contains remaining `bv_*` functions called by `scene_graph.cpp`
+   - `hash.c` — `bv_obj_hash()` etc.
+   - `diff.c` — `bv_diff()`
 
-4. **Traversal engine** ✅ — `libbsg_traverse(root, visitor_fn, user_data)` with
-   accumulated `libbsg_traversal_state` (xform stack, active camera, LOD state).
+4. **Decouple from `bv_private.h`** — once `bsg_shape` and `bsg_view` are independent
+   structs (no longer aliases), `bsg_private.h` no longer needs to include
+   `libbv/bv_private.h`.
 
-5. **Draw integration** ✅ — `libbsg_dm` adapter library (`src/libbsg_dm/`,
-   `include/libbsg_dm/libbsg_dm.h`) that wraps `struct dm *` and implements
-   `libbsg_dm_draw_scene()` / `libbsg_dm_load_camera()` in terms of `dm_*` calls.
-   This is the *only* place `libbv`/`bv.h` names may appear.
+5. **Make `bsg_*` types independent** — replace typedef aliases in `bsg/defines.h`
+   with standalone struct definitions (breaking change; `bv_*` becomes the compat
+   wrapper layer).
 
-6. **Geometry ingestion** ✅ — `libbsg_shape_wireframe(s, ip, ttol, tol)` in
-   `src/libbsg_dm/geom.c` calls `ip->idb_meth->ft_plot(&s->vlist, ...)` to
-   populate a `libbsg_shape` from an `rt_db_internal`.
-
-7. **Selection / highlight** ✅ — `libbsg_select_state`, `libbsg_select_add_path`,
-   `libbsg_select_sync_highlight` in `src/libbsg/select.c` — clean
-   re-implementation, no `DbiState` coupling.
-
-8. **Disable `bv.h` globally** ✅ — `BRLCAD_DISABLE_LIBBV_INCLUDES` CMake option
-   (OFF by default) added to `misc/CMake/BRLCAD_User_Options.cmake`.  When ON,
-   defines `BRLCAD_DISABLE_LIBBV_INCLUDES 1` in `brlcad_config.h` so
-   translation units can enforce their own no-libbv invariants.
+6. **Disable `bv.h` globally** — `BRLCAD_DISABLE_LIBBV_INCLUDES` CMake option ✅
+   (OFF by default) added to `misc/CMake/BRLCAD_User_Options.cmake`.
 
 ### Next steps (future sessions)
 
-The core libbsg infrastructure is now complete.  The remaining migration work:
-
-- **Phase A**: Route one existing draw command (e.g. `ged_draw`) to call
-  `libbsg_shape_wireframe()` + add shape to a `bsg_node` root, then
-  `libbsg_dm_draw_scene()` for display.  This replaces one draw2.cpp codepath.
-- **Phase B**: Iteratively migrate remaining draw commands, then GED query
-  commands, then MGED/archer UI.
-- **Phase C**: When all callers are migrated, enable `BRLCAD_DISABLE_LIBBV_INCLUDES=ON`
-  in CI to enforce no new regressions.
-- **Phase D**: Remove `libbv` (final decommission).
+- **Step 3**: Copy `util.cpp`, `hash.c`, `diff.c` → `libbsg/`, remove BSG parts from
+  `libbv`.  This further reduces `libbv`'s surface area.
+- **Step 4**: Remove the `bv_private.h` dependency from `bsg_private.h` by making
+  `bsg_scene_obj_internal` an independent C++ struct.
+- **Step 5**: Make `bsg_shape` an independent struct (not a typedef of `bv_scene_obj`).
+  This is the major structural break — enables `libbsg` to evolve its layout freely.
+- **Step 6**: Progressively migrate consumers from `#include "bv/..."` to
+  `#include "libbsg/libbsg.h"`, driving toward enabling `BRLCAD_DISABLE_LIBBV_INCLUDES`.
+- **Step 7**: Remove `libbv` once all consumers have migrated.
 
 ### Session 10 partial work (superseded by pivot)
 
