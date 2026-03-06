@@ -49,6 +49,7 @@
 #include "vmath.h"
 #include "raytrace.h"
 #include "ged.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -287,8 +288,12 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 			view_pt[Z] = 0.0;
 			round_to_grid(s, &view_pt[X], &view_pt[Y]);
 
-			MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
-			MAT_DELTAS_GET_NEG(vcenter, view_state->vs_gvp->gv_center);
+			{
+			    struct bsg_camera _dc;
+			    bsg_view_get_camera(view_state->vs_gvp, &_dc);
+			    MAT4X3PNT(model_pt, _dc.view2model, view_pt);
+			    MAT_DELTAS_GET_NEG(vcenter, _dc.center);
+			}
 			VSUB2(diff, model_pt, vcenter);
 			VSCALE(diff, diff, s->dbip->dbi_base2local);
 			VADD2(model_pt, dm_work_pt, diff);
@@ -368,7 +373,11 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 		if (grid_state->snap)
 		    snap_to_grid(s, &view_pt[X], &view_pt[Y]);
 
-		MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+		{
+		    struct bsg_camera _dc2;
+		    bsg_view_get_camera(view_state->vs_gvp, &_dc2);
+		    MAT4X3PNT(model_pt, _dc2.view2model, view_pt);
+		}
 		VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 		bu_vls_printf(&cmd, "adc xyz %lf %lf %lf\n", model_pt[X], model_pt[Y], model_pt[Z]);
 	    }
