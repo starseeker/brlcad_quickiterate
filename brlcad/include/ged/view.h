@@ -74,6 +74,21 @@ GED_EXPORT extern struct display_list *dl_addToDisplay(struct bu_list *hdlp, str
 /* Check ged_bv data associated with a display list */
 GED_EXPORT extern unsigned long long ged_dl_hash(struct display_list *dl);
 
+/**
+ * ged_find_shapes_by_path — BSG Phase 2e helper.
+ *
+ * Collect into @p result all bsg_shape nodes under the scene root of view @p v
+ * whose s_fullpath exactly matches @p path.  Replaces the legacy nested
+ * for-over-display-list / for-over-dl_head_scene_obj search pattern.
+ *
+ * @result must be initialised by the caller; the function appends to it.
+ * The caller is responsible for calling bu_ptbl_free() when done.
+ */
+GED_EXPORT extern void ged_find_shapes_by_path(struct ged *gedp,
+                                               bsg_view *v,
+                                               const struct db_full_path *path,
+                                               struct bu_ptbl *result);
+
 
 GED_EXPORT extern int ged_export_polygon(struct ged *gedp, bv_data_polygon_state *gdpsp, size_t polygon_i, const char *sname);
 GED_EXPORT extern struct bg_polygon *ged_import_polygon(struct ged *gedp, const char *sname);

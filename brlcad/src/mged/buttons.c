@@ -560,6 +560,9 @@ ill_common(struct mged_state *s) {
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
+	/* BSG Phase 2e TODO: replace with
+	 *   bsg_shape *_root = bsg_scene_root_get(view_state->vs_gvp);
+	 *   is_empty = (!_root || BU_PTBL_LEN(&_root->children) == 0); */
 	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
 	    is_empty = 0;
 	    break;
@@ -574,6 +577,9 @@ ill_common(struct mged_state *s) {
     }
 
     illum_gdlp = gdlp;
+    /* BSG Phase 2e TODO: replace with
+     *   bsg_shape *_root = bsg_scene_root_get(view_state->vs_gvp);
+     *   illump = (bsg_shape *)BU_PTBL_GET(&_root->children, 0); */
     illump = (bsg_shape *)BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
     illump->s_iflag = UP;
     edobj = 0;		/* sanity */

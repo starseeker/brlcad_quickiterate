@@ -391,15 +391,12 @@ void QgGL::aet(double a, double e, double t)
     VMOVE(aet, aetd);
 
     /* Use camera API - bsg_view_mat_aet_camera recomputes rotation from aet */
-    struct bsg_camera _cam;
-    bsg_view_get_camera(v, &_cam);
-    VMOVE(_cam.aet, aet);
-    bsg_view_mat_aet_camera(&_cam);
-    bsg_view_set_camera(v, &_cam);
+    struct bsg_camera gl_camera;
+    bsg_view_get_camera(v, &gl_camera);
+    VMOVE(gl_camera.aet, aet);
+    bsg_view_mat_aet_camera(&gl_camera);
+    bsg_view_set_camera(v, &gl_camera);
     bsg_view_update(v);
-    /* Propagate to camera node in scene root, if present */
-    bsg_shape *_cn = bsg_scene_root_camera(v);
-    if (_cn) bsg_camera_node_set(_cn, &_cam);
 }
 
 void

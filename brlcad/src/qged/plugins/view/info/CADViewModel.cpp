@@ -80,17 +80,17 @@ CADViewModel::refresh(unsigned long long)
     standard_nodes.insert("Width", add_pair("Width", bu_vls_cstr(&val), m_root, i));
     bu_vls_sprintf(&val, "%d", v->gv_height);
     standard_nodes.insert("Height", add_pair("Height", bu_vls_cstr(&val), m_root, i));
-    struct bsg_camera _vm_cam;
-    bsg_view_get_camera(v, &_vm_cam);
-    bu_vls_sprintf(&val, "%g", _vm_cam.aet[0]);
+    struct bsg_camera view_cam;
+    bsg_view_get_camera(v, &view_cam);
+    bu_vls_sprintf(&val, "%g", view_cam.aet[0]);
     standard_nodes.insert("Az", add_pair("Az", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", _vm_cam.aet[1]);
+    bu_vls_sprintf(&val, "%g", view_cam.aet[1]);
     standard_nodes.insert("El", add_pair("El", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", _vm_cam.aet[2]);
+    bu_vls_sprintf(&val, "%g", view_cam.aet[2]);
     standard_nodes.insert("Tw", add_pair("Tw", bu_vls_cstr(&val), m_root, i));
 
     vect_t center;
-    MAT_DELTAS_GET_NEG(center, _vm_cam.center);
+    MAT_DELTAS_GET_NEG(center, view_cam.center);
     bu_vls_sprintf(&val, "%g", center[0]);
     standard_nodes.insert("Center[X]", add_pair("Center[X]", bu_vls_cstr(&val), m_root, i));
     bu_vls_sprintf(&val, "%g", center[1]);
