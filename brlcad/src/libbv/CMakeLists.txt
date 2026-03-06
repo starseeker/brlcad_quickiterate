@@ -3,9 +3,7 @@ brlcad_find_package(LMDB REQUIRED)
 set(
   LIBBV_SRCS
   adc.c
-  diff.c
   font.c
-  hash.c
   knobs.cpp
   lod.cpp
   polygon.c

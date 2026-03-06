@@ -81,11 +81,6 @@
 #include <vector>
 #include <cstring>  /* memset */
 
-/* Forward-declare internal libbv helpers used in bsg_dl_hash */
-extern "C" {
-void bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s);
-}
-
 /* ====================================================================== *
  * Phase 2: module-level side-channel state (forward declarations)       *
  * ====================================================================== */
@@ -327,35 +322,6 @@ extern "C" int
 bsg_view_update_selected(bsg_view *v)
 {
     return bv_update_selected(v);
-}
-
-/* ====================================================================== *
- * View comparison / hashing                                               *
- * ====================================================================== */
-
-extern "C" int
-bsg_view_differ(bsg_view *v1, bsg_view *v2)
-{
-    return bv_differ(v1, v2);
-}
-
-extern "C" unsigned long long
-bsg_view_hash(bsg_view *v)
-{
-    return bv_hash(v);
-}
-
-extern "C" unsigned long long
-bsg_dl_hash(struct display_list *dl)
-{
-    if (!dl)
-	return 0;
-
-    /* Phase 2e: dl_head_scene_obj has been removed.  We can't get a view
-     * from the dl directly any more; callers should use dl_name_hash(gedp)
-     * which has access to the ged_views scene.  As a safe fallback, forward
-     * to bv_dl_hash() which hashes the display-list path strings. */
-    return bv_dl_hash(dl);
 }
 
 /* ====================================================================== *
