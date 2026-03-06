@@ -19,8 +19,15 @@
  */
 /** @file primitives/edbspline.c
  *
- *  TODO - this whole bspline editing logic needs a re-look, or better still we
- *  should just translate these into brep objects and do any editing there.
+ *  NURBS/BSPLINE solid editing.
+ *
+ *  The bspline interactive editor is known to be fragile.  The underlying
+ *  NURBS data structures are complex and the edit operations (vertex pick,
+ *  knot insertion) have not been thoroughly tested.  A long-term alternative
+ *  would be to convert BSPLINE solids to BREP objects and edit them via the
+ *  dedicated BREP editor, but that conversion is not currently automatic.
+ *  For now, this implementation is kept as-is and marked low-priority for
+ *  verification.
  */
 
 #include "common.h"
@@ -108,8 +115,11 @@ rt_edit_bspline_prim_edit_destroy(struct rt_bspline_edit *e)
 void
 rt_edit_bspline_set_edit_mode(struct rt_edit *s, int mode)
 {
-    /* XXX Why were we doing VPICK with chg_state?? */
-    //chg_state(s, ST_S_EDIT, ST_S_VPICK, "Vertex Pick");
+    /* In vanilla MGED, entering vertex-pick mode called chg_state() to
+     * transition to the special ST_S_VPICK state (which enabled mouse
+     * tracking for nearest-point search).  In the reworked architecture
+     * this is handled via edit_mode = RT_PARAMS_EDIT_PICK plus the
+     * ft_edit_xy callback; the separate chg_state call is no longer needed. */
     if (mode < 0) {
 	/* Enter picking state */
 	rt_edit_set_edflag(s, ECMD_SPLINE_VPICK);
@@ -140,8 +150,9 @@ rt_edit_bspline_set_edit_mode(struct rt_edit *s, int mode)
 static void
 spline_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(data))
 {
-    /* XXX Why were we doing VPICK with chg_state?? */
-    //chg_state(s, ST_S_EDIT, ST_S_VPICK, "Vertex Pick");
+    /* Same VPICK state-change rationale as rt_edit_bspline_set_edit_mode:
+     * the old chg_state(ST_S_VPICK) call is replaced by setting edit_mode
+     * to RT_PARAMS_EDIT_PICK, which drives the ft_edit_xy pick path. */
     if (arg < 0) {
 	/* Enter picking state */
 	rt_edit_set_edflag(s, ECMD_SPLINE_VPICK);
@@ -185,7 +196,10 @@ rt_edit_bspline_menu_item(const struct bn_tol *UNUSED(tol))
 }
 
 
-// TODO - either use vmath.h versions or merge these into it...
+/* Local 2D and 3D distance macros.  These are equivalent to
+ * sqrt(DIST_PNT2_SQ()) and sqrt(DIST_PNT_SQ()) from vmath.h respectively,
+ * expressed as formulas from the original code.
+ */
 #define DIST2D(P0, P1) sqrt(((P1)[X] - (P0)[X])*((P1)[X] - (P0)[X]) + \
 				((P1)[Y] - (P0)[Y])*((P1)[Y] - (P0)[Y]))
 
@@ -238,7 +252,11 @@ nurb_closest2d(
 	for (v = 0; v < srf->s_size[0]; v++) {
 	    for (u = 0; u < srf->s_size[1]; u++) {
 		point_t cur;
-		/* XXX 4-tuples? */
+		/* For rational NURBS, control points are 4-tuples (XYZW) and the
+		 * homogeneous W coordinate should ideally be divided out before
+		 * transforming.  MAT4X3PNT uses only the first 3 components, which
+		 * gives an approximation for rational surfaces but is exact for
+		 * non-rational (W=1) splines.  Correcting this is a future improvement. */
 		MAT4X3PNT(cur, mat, mesh);
 		d = DIST2D(ref_2d, cur);
 		if (d < c_dist) {
@@ -566,7 +584,8 @@ ecmd_vtrans(struct rt_edit *s)
 
 
 	/* Keyboard parameter:  new position in model space.
-	 * XXX for now, splines only here */
+	 * (Only NURBS/BSPLINE vertex translation is handled in this ft_edit path;
+	 * knot-vector editing uses separate command-based paths.) */
 	struct rt_nurb_internal *sip =
 	    (struct rt_nurb_internal *) s->es_int.idb_ptr;
 	struct face_g_snurb *surf;

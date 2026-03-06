@@ -564,7 +564,7 @@ const struct rt_edit_functab EDOBJ[] = {
 	EDFUNCTAB_FUNC_WRITE_PARAMS_CAST(rt_edit_grp_write_params), /* write_params */
 	EDFUNCTAB_FUNC_READ_PARAMS_CAST(rt_edit_grp_read_params), /* read_params */
 	EDFUNCTAB_FUNC_EDIT_CAST(edit_generic), /* edit */
-	EDFUNCTAB_FUNC_EDITXY_CAST(edit_generic_xy), /* edit xy - TODO - probably should have parameters for this one... */
+	EDFUNCTAB_FUNC_EDITXY_CAST(edit_generic_xy), /* edit xy - grip uses generic XY: center/normal/magnitude are set via tedit or direct parameter input, not interactive mouse drag */
        	NULL,  /* prim edit create */
 	NULL,  /* prim edit destroy */
        	NULL,  /* prim edit reset*/
@@ -576,7 +576,11 @@ const struct rt_edit_functab EDOBJ[] = {
     },
 
     {
-	/* 23 -- XXX unimplemented */
+	/* 23 -- ID_JOINT: pseudo-solid used for animation constraints.
+	 * Joint primitives represent kinematic joints and are not directly
+	 * interactive-edited via solid edit mode; they are manipulated via
+	 * the animation "simulate" framework.  Basic matrix-level editing
+	 * (translate/rotate/scale) is supported via edit_generic. */
 	RT_FUNCTAB_MAGIC, "ID_JOINT", "joint",
 	NULL,  /* label */
 	EDFUNCTAB_FUNC_KEYPOINT_CAST(edit_keypoint), /* keypoint */
@@ -868,7 +872,7 @@ const struct rt_edit_functab EDOBJ[] = {
 	NULL,  /* write_params */
 	NULL,  /* read_params */
 	EDFUNCTAB_FUNC_EDIT_CAST(edit_generic), /* edit */
-	EDFUNCTAB_FUNC_EDITXY_CAST(edit_generic_xy), /* edit xy - TODO - see Archer brep editing, we'll almost certainly need more here. */
+	EDFUNCTAB_FUNC_EDITXY_CAST(edit_generic_xy), /* edit xy - BREP has a dedicated editor in Archer (BRep editor plugin); basic matrix-level XY editing via edit_generic_xy is the fallback here */
        	NULL,  /* prim edit create */
 	NULL,  /* prim edit destroy */
        	NULL,  /* prim edit reset*/

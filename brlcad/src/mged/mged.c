@@ -1783,6 +1783,7 @@ mged_finish(struct mged_state *s, int exitcode)
     bu_vls_free(&s-> mged_prompt);
     rt_edit_destroy(s->s_edit->e);
     BU_PUT(s->s_edit, struct mged_edit_state);
+    mged_state_destroy_internals(s);
     BU_PUT(s, struct mged_state);
     MGED_STATE = NULL; // sanity
 
@@ -1847,6 +1848,11 @@ main(int argc, char *argv[])
     bu_vls_init(&s->scratchline);
     bu_vls_init(&s->mged_prompt);
     s->dpy_string = NULL;
+
+    /* Initialize s->i (MGED_Internal C++ callback map) and register all
+     * default callbacks.  This must happen before any solid/object editing
+     * is attempted so that mged_edit_clbk_sync() has valid maps to copy. */
+    mged_state_init_internals(s);
 
     /* Set up linked lists */
     s->vlfree = &rt_vlfree;
