@@ -35,6 +35,7 @@
 #include "bv/plot3.h"
 #include "bv/vlist.h"
 #include "bv/util.h"
+#include "bsg/util.h"
 
 size_t
 bv_vlist_cmd_cnt(struct bv_vlist *vlist)
@@ -592,7 +593,7 @@ bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
     if (s) {
 	bv_obj_reset(s);
     } else {
-	s = bv_obj_get(v, BV_VIEW_OBJS);
+	s = (struct bv_scene_obj *)bsg_shape_get(v, BV_VIEW_OBJS);
     }
 
     for (size_t i = 0; i < vbp->nused; i++) {
