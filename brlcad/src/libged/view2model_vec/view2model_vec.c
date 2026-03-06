@@ -59,9 +59,9 @@ ged_view2model_vec_core(struct ged *gedp, int argc, const char *argv[])
     {
 	struct bsg_camera _cam;
 	bsg_view_get_camera(gedp->ged_gvp, &_cam);
-	mat_t inv_Viewrot2;
-	bn_mat_inv(inv_Viewrot2, _cam.rotation);
-	MAT4X3PNT(model_vec, inv_Viewrot2, view_vec);
+	mat_t inv_Viewrot;
+	bn_mat_inv(inv_Viewrot, _cam.rotation);
+	MAT4X3PNT(model_vec, inv_Viewrot, view_vec);
     }
 
     bn_encode_vect(gedp->ged_result_str, model_vec, 1);

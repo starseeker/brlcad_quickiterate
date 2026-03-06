@@ -100,6 +100,7 @@ ged_eye_core(struct ged *gedp, int argc, const char *argv[])
     /* First step:  put eye at view center (view 0, 0, 0) */
     { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
       MAT_DELTAS_VEC_NEG(_cv.center, eye_model);
+      bsg_view_set_camera(gedp->ged_gvp, &_cv);
     }
     bsg_view_update(gedp->ged_gvp);
 
@@ -112,6 +113,7 @@ ged_eye_core(struct ged *gedp, int argc, const char *argv[])
     }
     { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
       MAT_DELTAS_VEC_NEG(_cv.center, new_cent);
+      bsg_view_set_camera(gedp->ged_gvp, &_cv);
     }
     bsg_view_update(gedp->ged_gvp);
 

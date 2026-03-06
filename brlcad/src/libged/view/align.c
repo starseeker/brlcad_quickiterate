@@ -129,6 +129,7 @@ ged_align_core(struct ged *gedp, int argc, const char *argv[])
     // update view ae using direction
     { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
       VSET(_cv.aet, new_az, new_el, _cv.aet[Z]);
+      bsg_view_set_camera(gedp->ged_gvp, &_cv);
     }
     bsg_view_mat_aet(gedp->ged_gvp);
 
@@ -137,6 +138,7 @@ ged_align_core(struct ged *gedp, int argc, const char *argv[])
     VJOIN1(new_eye, align, -dist, dir);	// new_eye = align_pt - dist * dir
     { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
       MAT_DELTAS_VEC_NEG(_cv.view2model, new_eye);
+      bsg_view_set_camera(gedp->ged_gvp, &_cv);
     }
 
     // done. update the view
