@@ -22,7 +22,7 @@
  * @brief Scene-root creation and view-parameter binding.
  *
  * Implements:
- *   - @c libbsg_camera_node_alloc() — allocate a BSG_NODE_CAMERA node
+ *   - @c libbsg_camera_node_alloc() — allocate a LIBBSG_NODE_CAMERA node
  *   - @c libbsg_camera_node_get()   — read camera data from a camera node
  *   - @c libbsg_camera_node_set()   — write camera data into a camera node
  *   - @c libbsg_scene_root_camera() — find the camera child of a root
@@ -46,31 +46,31 @@
  * ====================================================================== */
 
 /**
- * @brief Destructor for a heap-allocated bsg_camera stored in a node's payload.
+ * @brief Destructor for a heap-allocated libbsg_camera stored in a node's payload.
  */
 static void
 camera_payload_free(void *p)
 {
     if (p)
-	bu_free(p, "bsg_camera payload");
+	bu_free(p, "libbsg_camera payload");
 }
 
 bsg_node *
-libbsg_camera_node_alloc(const bsg_camera *cam)
+libbsg_camera_node_alloc(const libbsg_camera *cam)
 {
     bsg_node *node;
-    bsg_camera *copy;
+    libbsg_camera *copy;
 
-    node = libbsg_node_alloc(BSG_NODE_CAMERA);
+    node = libbsg_node_alloc(LIBBSG_NODE_CAMERA);
     if (!node)
 	return NULL;
 
     /* Allocate and copy the camera struct */
-    copy = (bsg_camera *)bu_malloc(sizeof(bsg_camera), "bsg_camera payload");
+    copy = (libbsg_camera *)bu_malloc(sizeof(libbsg_camera), "libbsg_camera payload");
     if (cam)
-	memcpy(copy, cam, sizeof(bsg_camera));
+	memcpy(copy, cam, sizeof(libbsg_camera));
     else
-	memset(copy, 0, sizeof(bsg_camera));
+	memset(copy, 0, sizeof(libbsg_camera));
 
     node->payload      = copy;
     node->free_payload = camera_payload_free;
@@ -79,32 +79,32 @@ libbsg_camera_node_alloc(const bsg_camera *cam)
 }
 
 int
-libbsg_camera_node_get(const bsg_node *node, bsg_camera *out)
+libbsg_camera_node_get(const bsg_node *node, libbsg_camera *out)
 {
     if (!node || !out)
 	return -1;
-    if (!(node->type_flags & BSG_NODE_CAMERA))
+    if (!(node->type_flags & LIBBSG_NODE_CAMERA))
 	return -1;
     if (!node->payload)
 	return -1;
-    memcpy(out, node->payload, sizeof(bsg_camera));
+    memcpy(out, node->payload, sizeof(libbsg_camera));
     return 0;
 }
 
 void
-libbsg_camera_node_set(bsg_node *node, const bsg_camera *cam)
+libbsg_camera_node_set(bsg_node *node, const libbsg_camera *cam)
 {
     if (!node || !cam)
 	return;
-    if (!(node->type_flags & BSG_NODE_CAMERA))
+    if (!(node->type_flags & LIBBSG_NODE_CAMERA))
 	return;
 
     if (!node->payload) {
 	/* Allocate the payload if it doesn't exist yet */
-	node->payload      = bu_malloc(sizeof(bsg_camera), "bsg_camera payload");
+	node->payload      = bu_malloc(sizeof(libbsg_camera), "libbsg_camera payload");
 	node->free_payload = camera_payload_free;
     }
-    memcpy(node->payload, cam, sizeof(bsg_camera));
+    memcpy(node->payload, cam, sizeof(libbsg_camera));
 }
 
 /* ====================================================================== *
@@ -119,7 +119,7 @@ libbsg_scene_root_camera(const bsg_node *root)
 	return NULL;
     for (i = 0; i < BU_PTBL_LEN(&root->children); i++) {
 	bsg_node *child = (bsg_node *)BU_PTBL_GET(&root->children, i);
-	if (child->type_flags & BSG_NODE_CAMERA)
+	if (child->type_flags & LIBBSG_NODE_CAMERA)
 	    return child;
     }
     return NULL;
@@ -132,7 +132,7 @@ libbsg_scene_root_create(const libbsg_view_params *params)
     bsg_node *cam_node;
 
     /* Create the separator root */
-    root = libbsg_node_alloc(BSG_NODE_SEPARATOR);
+    root = libbsg_node_alloc(LIBBSG_NODE_SEPARATOR);
     if (!root)
 	return NULL;
 

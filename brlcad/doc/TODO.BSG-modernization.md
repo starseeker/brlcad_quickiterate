@@ -943,10 +943,16 @@ suites provide a clean baseline again.
 - New direction: build `libbsg` as a fully independent library (no `libbv` dependency); see section above.  
 **Session 12 (libbsg skeleton — Steps 1–4 COMPLETE)**:  
 - ✅ Step 1 — Skeleton: `src/libbsg/` directory, `CMakeLists.txt`, library target `libbsg` linking only `libbu` + `libbn`. Added to `src/source_dirs.cmake`.
-- ✅ Step 2 — Core node types in `include/libbsg/libbsg.h`: `bsg_node` (base, independent), `bsg_separator` / `bsg_transform` (typedefs of `bsg_node`), `bsg_camera` (clean struct, layout-compatible with `bsg/defines.h`), `bsg_shape` (leaf geometry, independent of `bv_scene_obj`), `libbsg_view_params` (plain-C viewport struct, no `bview`).
+- ✅ Step 2 — Core node types in `include/libbsg/libbsg.h`: `bsg_node` (base, independent), `bsg_separator` / `bsg_transform` (typedefs of `bsg_node`), `libbsg_camera` (clean struct), `libbsg_shape` (leaf geometry, independent of `bv_scene_obj`), `libbsg_view_params` (plain-C viewport struct, no `bview`).
 - ✅ Step 3 — Scene root + view binding: `libbsg_scene_root_create(params)`, `libbsg_camera_node_alloc/get/set()`, `libbsg_scene_root_camera()`, `libbsg_view_bind()` in `src/libbsg/scene.c`.
 - ✅ Step 4 — Traversal engine: `libbsg_traversal_state_init()`, `libbsg_traverse()` with full separator save/restore, camera tracking, and LoD child selection in `src/libbsg/traverse.c`.
-- ✅ Additional: `libbsg_find_by_type()` typed-query helper (Section 9 helper needed for Section 4.2 polygon queries).
-- ✅ Mutual-exclusion guard in `libbsg/libbsg.h` prevents accidental mixing with `bsg/defines.h` in the same TU.
-- ✅ `libbsg.so` builds clean; all 15 API symbols exported; 7-test smoke suite passes.
-- Remaining: Step 5 (`libbsg_dm` adapter), Step 6 (geometry ingestion), Step 7 (selection), Step 8 (optional `BRLCAD_DISABLE_LIBBV_INCLUDES`).*
+- ✅ Additional: `libbsg_find_by_type()` typed-query helper.
+- ✅ `libbsg.so` builds clean; all 24 API symbols exported; 7-test smoke suite passes.  
+**Session 13 (Steps 5–7 COMPLETE)**:
+- ✅ Naming fix: renamed `struct bsg_shape` → `struct libbsg_shape`, `struct bsg_camera` → `struct libbsg_camera`, `BSG_NODE_*` → `LIBBSG_NODE_*` in all libbsg headers and implementation files to eliminate C redefinition conflicts with the legacy `bsg/defines.h` / `bv/defines.h` headers.
+- ✅ Removed the `#error` mutual-exclusion guard (no longer needed now that type names are unique).
+- ✅ Step 5 — `libbsg_dm` adapter library (`src/libbsg_dm/`, `include/libbsg_dm/libbsg_dm.h`): `libbsg_dm_load_camera()` and `libbsg_dm_draw_scene()` bridge libbsg nodes to `dm_draw_vlist()`. Added `set_deps(libbsg_dm "libbsg;libdm;librt;libbn;libbu")` to `source_dirs.cmake`.
+- ✅ Step 6 — Geometry ingestion (`src/libbsg_dm/geom.c`): `libbsg_shape_wireframe(s, ip, ttol, tol)` calls `ft_plot()` from the primitive functab to populate `libbsg_shape.vlist` from an `rt_db_internal`.
+- ✅ Step 7 — Selection state (`src/libbsg/select.c`): `libbsg_select_state`, `libbsg_select_alloc/free/clear/add_path/rm_path/has_path/count/sync_highlight` — clean re-implementation, no `DbiState` coupling.
+- ✅ Both `libbsg.so` (24 symbols) and `libbsg_dm.a` (3 symbols) build cleanly.
+- Remaining: Step 8 (optional CMake flag `BRLCAD_DISABLE_LIBBV_INCLUDES`).*

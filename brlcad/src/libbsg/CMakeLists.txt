@@ -3,6 +3,7 @@ set(
   nodes.c
   traverse.c
   scene.c
+  select.c
 )
 
 # libbsg depends only on libbn and libbu — no libbv dependency.

@@ -100,12 +100,12 @@ libbsg_node_free(bsg_node *node, int recurse)
 	/* Free children depth-first.
 	 * Shapes are embedded structs but also start with bsg_node, so
 	 * we call libbsg_node_free recursively; shapes will detect that
-	 * their BSG_NODE_SHAPE flag is set and delegate to
+	 * their LIBBSG_NODE_SHAPE flag is set and delegate to
 	 * libbsg_shape_free. */
 	for (i = 0; i < BU_PTBL_LEN(&node->children); i++) {
 	    bsg_node *child = (bsg_node *)BU_PTBL_GET(&node->children, i);
-	    if (child->type_flags & BSG_NODE_SHAPE)
-		libbsg_shape_free((bsg_shape *)child);
+	    if (child->type_flags & LIBBSG_NODE_SHAPE)
+		libbsg_shape_free((libbsg_shape *)child);
 	    else
 		libbsg_node_free(child, 1);
 	}
@@ -119,20 +119,20 @@ libbsg_node_free(bsg_node *node, int recurse)
  * Shape lifecycle                                                         *
  * ====================================================================== */
 
-bsg_shape *
+libbsg_shape *
 libbsg_shape_alloc(void)
 {
-    bsg_shape *s;
-    BU_GET(s, bsg_shape);
+    libbsg_shape *s;
+    BU_GET(s, libbsg_shape);
     memset(s, 0, sizeof(*s));
-    node_init(&s->node, BSG_NODE_SHAPE);
+    node_init(&s->node, LIBBSG_NODE_SHAPE);
     BU_LIST_INIT(&s->vlist);
     bu_vls_init(&s->s_name);
     return s;
 }
 
 void
-libbsg_shape_free(bsg_shape *s)
+libbsg_shape_free(libbsg_shape *s)
 {
     if (!s)
 	return;
@@ -149,7 +149,7 @@ libbsg_shape_free(bsg_shape *s)
 
     bu_vls_free(&s->s_name);
     node_destroy(&s->node);
-    BU_PUT(s, bsg_shape);
+    BU_PUT(s, libbsg_shape);
 }
 
 /* ====================================================================== *

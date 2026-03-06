@@ -63,15 +63,6 @@
 #ifndef LIBBSG_LIBBSG_H
 #define LIBBSG_LIBBSG_H
 
-/*
- * Enforce mutual exclusion with the legacy bsg/defines.h header.
- * Including both headers in the same translation unit would cause
- * duplicate struct definitions for bsg_camera, bsg_shape, etc.
- */
-#ifdef BSG_DEFINES_H
-#  error "libbsg/libbsg.h and bsg/defines.h cannot be included in the same translation unit."
-#endif
-
 #include "common.h"
 #include "vmath.h"
 #include "bu/list.h"
@@ -99,34 +90,35 @@ __BEGIN_DECLS
 /* ========================================================================
  * Node-type flags
  *
- * These constants use the same numeric values as the BSG_NODE_* macros in
- * bsg/defines.h so that the libbsg_dm adapter layer (Step 5) can compare
- * node type flags without needing to include both headers.
+ * These LIBBSG_NODE_* constants describe node roles in a libbsg scene
+ * graph.  They use different values from the legacy BSG_NODE_* / BV_*
+ * constants in bsg/defines.h to avoid accidental mixing.  The
+ * libbsg_dm adapter maps between the two systems as needed.
  * ======================================================================== */
 
 /** @brief Leaf geometry node (carries renderable vlist geometry). */
-#define BSG_NODE_SHAPE        0x00000001ULL
+#define LIBBSG_NODE_SHAPE        0x00000001ULL
 
 /** @brief DB-sourced shape (geometry came from a database path). */
-#define BSG_NODE_DBOBJ_BASED  0x00000002ULL
+#define LIBBSG_NODE_DBOBJ_BASED  0x00000002ULL
 
 /** @brief View-only shape (not stored in the database). */
-#define BSG_NODE_VIEWONLY     0x00000004ULL
+#define LIBBSG_NODE_VIEWONLY     0x00000004ULL
 
 /** @brief Node carries line/vector geometry. */
-#define BSG_NODE_LINES        0x00000008ULL
+#define LIBBSG_NODE_LINES        0x00000008ULL
 
 /** @brief Node carries label geometry. */
-#define BSG_NODE_LABELS       0x00000010ULL
+#define LIBBSG_NODE_LABELS       0x00000010ULL
 
 /** @brief Node carries axes geometry. */
-#define BSG_NODE_AXES         0x00000020ULL
+#define LIBBSG_NODE_AXES         0x00000020ULL
 
 /** @brief Node carries polygon geometry. */
-#define BSG_NODE_POLYGONS     0x00000040ULL
+#define LIBBSG_NODE_POLYGONS     0x00000040ULL
 
 /** @brief Node has a mesh LoD payload. */
-#define BSG_NODE_MESH_LOD     0x00000080ULL
+#define LIBBSG_NODE_MESH_LOD     0x00000080ULL
 
 /**
  * @brief Separator node (Open Inventor SoSeparator semantics).
@@ -136,7 +128,7 @@ __BEGIN_DECLS
  * fully restores it on ascent.  Children of this node may freely
  * modify state without affecting siblings or ancestors.
  */
-#define BSG_NODE_SEPARATOR    0x00000100ULL
+#define LIBBSG_NODE_SEPARATOR    0x00000100ULL
 
 /**
  * @brief Transform node (Open Inventor SoTransform semantics).
@@ -145,16 +137,16 @@ __BEGIN_DECLS
  * which is post-multiplied into the traversal state's accumulated
  * transform.  The node carries no renderable geometry of its own.
  */
-#define BSG_NODE_TRANSFORM    0x00000200ULL
+#define LIBBSG_NODE_TRANSFORM    0x00000200ULL
 
 /**
  * @brief Camera node (Open Inventor SoCamera semantics).
  *
  * When set, the node's @c payload points to a heap-allocated
- * @c bsg_camera struct.  The traversal engine records the camera into
+ * @c libbsg_camera struct.  The traversal engine records the camera into
  * @c libbsg_traversal_state::active_camera when this node is visited.
  */
-#define BSG_NODE_CAMERA       0x00000400ULL
+#define LIBBSG_NODE_CAMERA       0x00000400ULL
 
 /**
  * @brief Level-of-Detail group node (Open Inventor SoLOD semantics).
@@ -165,7 +157,7 @@ __BEGIN_DECLS
  * the eye-to-node-center distance.  Children must be ordered
  * highest-to-lowest detail.
  */
-#define BSG_NODE_LOD_GROUP    0x00000800ULL
+#define LIBBSG_NODE_LOD_GROUP    0x00000800ULL
 
 
 /* ========================================================================
@@ -175,12 +167,12 @@ __BEGIN_DECLS
 /**
  * @brief Camera (viewpoint) parameters.
  *
- * This struct is layout-compatible with @c struct @c bsg_camera in
+ * This struct is layout-compatible with @c struct @c libbsg_camera in
  * @c bsg/defines.h (identical field order and types) so that the
  * @c libbsg_dm adapter can safely cast between them when bridging the
  * two APIs during the transition period.
  */
-struct bsg_camera {
+struct libbsg_camera {
     fastf_t  perspective;   /**< perspective angle; 0 = orthographic */
     vect_t   aet;           /**< azimuth / elevation / twist          */
     vect_t   eye_pos;       /**< eye position in model space          */
@@ -194,7 +186,7 @@ struct bsg_camera {
     mat_t    view2model;    /**< view-to-model transform              */
     mat_t    pmat;          /**< perspective matrix                   */
 };
-typedef struct bsg_camera bsg_camera;
+typedef struct libbsg_camera libbsg_camera;
 
 
 /* ========================================================================
@@ -218,7 +210,7 @@ typedef struct bsg_camera bsg_camera;
  * @c libbsg_node_free(); free shape nodes with @c libbsg_shape_free().
  */
 struct bsg_node {
-    unsigned long long  type_flags;       /**< BSG_NODE_* flags                      */
+    unsigned long long  type_flags;       /**< LIBBSG_NODE_* flags                   */
     struct bu_ptbl      children;         /**< child bsg_node* list (bu_ptbl)        */
     mat_t               xform;            /**< local transform (IDN if not a transform node) */
     void               *payload;          /**< type-specific payload (owned by node) */
@@ -230,7 +222,7 @@ typedef struct bsg_node bsg_node;
 /**
  * @brief Convenience typedef: a separator node.
  *
- * A separator is a @c bsg_node with @c BSG_NODE_SEPARATOR set.
+ * A separator is a @c bsg_node with @c LIBBSG_NODE_SEPARATOR set.
  * It saves / restores traversal state across its children.
  */
 typedef bsg_node bsg_separator;
@@ -238,7 +230,7 @@ typedef bsg_node bsg_separator;
 /**
  * @brief Convenience typedef: a transform node.
  *
- * A transform is a @c bsg_node with @c BSG_NODE_TRANSFORM set.
+ * A transform is a @c bsg_node with @c LIBBSG_NODE_TRANSFORM set.
  * Its @c xform matrix is post-multiplied into the traversal state.
  */
 typedef bsg_node bsg_transform;
@@ -251,17 +243,22 @@ typedef bsg_node bsg_transform;
 /**
  * @brief Leaf geometry node — carries renderable vlist geometry.
  *
- * A @c bsg_shape embeds a @c bsg_node as its first field; a pointer to
- * @c bsg_shape can be safely cast to @c bsg_node* and vice versa.
+ * A @c libbsg_shape embeds a @c bsg_node as its first field; a pointer to
+ * @c libbsg_shape can be safely cast to @c bsg_node* and vice versa.
  *
  * Geometry is stored in @c vlist as a chain of BRL-CAD vlists compatible
  * with @c dm_draw_vlist().
+ *
+ * @note This struct is distinct from @c struct @c bsg_shape defined in
+ * @c bv/defines.h.  The two types have different field layouts and
+ * must not be mixed.  Use @c libbsg_shape wherever libbsg node graph
+ * code is used.
  */
-struct bsg_shape {
+struct libbsg_shape {
     struct bsg_node node;           /**< embedded base node — MUST be first */
 
     /* Renderable geometry */
-    struct bu_list  vlist;          /**< chain of BN_VLIST_* vlist segments */
+    struct bu_list  vlist;          /**< chain of bv_vlist segments         */
 
     /* Bounding sphere (computed on demand) */
     point_t         s_center;       /**< sphere centre in model space        */
@@ -277,7 +274,7 @@ struct bsg_shape {
     /* Identity */
     struct bu_vls   s_name;         /**< unique node name (empty = unnamed)  */
 };
-typedef struct bsg_shape bsg_shape;
+typedef struct libbsg_shape libbsg_shape;
 
 
 /* ========================================================================
@@ -300,7 +297,7 @@ struct libbsg_view_params {
     fastf_t         scale;      /**< view scale (gv_scale)      */
     fastf_t         size;       /**< view size  (gv_size)       */
     fastf_t         isize;      /**< 1.0 / size (gv_isize)      */
-    struct bsg_camera camera;   /**< camera state               */
+    struct libbsg_camera camera;   /**< camera state               */
 };
 typedef struct libbsg_view_params libbsg_view_params;
 
@@ -321,16 +318,16 @@ typedef struct libbsg_view_params libbsg_view_params;
  *   - **Transform**: @c xform = parent_xform * node->xform (post-multiply)
  *     at every node.
  *   - **Camera**: @c active_camera is set to @c node->payload whenever a
- *     @c BSG_NODE_CAMERA node is encountered.
- *   - **Separator**: @c BSG_NODE_SEPARATOR causes the engine to save the
+ *     @c LIBBSG_NODE_CAMERA node is encountered.
+ *   - **Separator**: @c LIBBSG_NODE_SEPARATOR causes the engine to save the
  *     full state on descent and restore it on ascent (SoSeparator
  *     semantics).
- *   - **LoD group**: @c BSG_NODE_LOD_GROUP selects exactly one child to
+ *   - **LoD group**: @c LIBBSG_NODE_LOD_GROUP selects exactly one child to
  *     visit, based on eye-to-center distance derived from @c view.
  */
 struct libbsg_traversal_state {
     mat_t                     xform;         /**< accumulated model transform      */
-    const struct bsg_camera  *active_camera; /**< camera from last camera node     */
+    const struct libbsg_camera  *active_camera; /**< camera from last camera node     */
     int                       depth;         /**< traversal depth (root = 0)       */
     const libbsg_view_params *view;          /**< view params for LoD; may be NULL */
 };
@@ -354,7 +351,7 @@ typedef int (*libbsg_visit_fn)(bsg_node                    *node,
  * ======================================================================== */
 
 /**
- * @brief Switch-distance table for a @c BSG_NODE_LOD_GROUP node.
+ * @brief Switch-distance table for a @c LIBBSG_NODE_LOD_GROUP node.
  *
  * The @c distances array has @c num_levels - 1 entries.  The n-th entry
  * is the eye-to-center distance at which the renderer transitions from
@@ -377,7 +374,7 @@ typedef struct libbsg_lod_switch_data libbsg_lod_switch_data;
  * The @c children ptbl is initialised; the @c xform is set to the
  * identity matrix; all other fields are zeroed.
  *
- * @param type_flags  One or more @c BSG_NODE_* flags.
+ * @param type_flags  One or more @c LIBBSG_NODE_* flags.
  * @return Newly allocated node.  Free with @c libbsg_node_free().
  */
 LIBBSG_EXPORT bsg_node *libbsg_node_alloc(unsigned long long type_flags);
@@ -398,14 +395,14 @@ LIBBSG_EXPORT bsg_node *libbsg_node_alloc(unsigned long long type_flags);
 LIBBSG_EXPORT void libbsg_node_free(bsg_node *node, int recurse);
 
 /**
- * @brief Allocate a leaf geometry node (@c BSG_NODE_SHAPE).
+ * @brief Allocate a leaf geometry node (@c LIBBSG_NODE_SHAPE).
  *
- * Returns a heap-allocated @c bsg_shape with all geometry lists
- * empty.  The embedded @c bsg_node base has @c BSG_NODE_SHAPE set.
+ * Returns a heap-allocated @c libbsg_shape with all geometry lists
+ * empty.  The embedded @c bsg_node base has @c LIBBSG_NODE_SHAPE set.
  *
  * @return Newly allocated shape.  Free with @c libbsg_shape_free().
  */
-LIBBSG_EXPORT bsg_shape *libbsg_shape_alloc(void);
+LIBBSG_EXPORT libbsg_shape *libbsg_shape_alloc(void);
 
 /**
  * @brief Free a leaf geometry node.
@@ -417,7 +414,7 @@ LIBBSG_EXPORT bsg_shape *libbsg_shape_alloc(void);
  *
  * @param s  Shape to free.  NULL is a no-op.
  */
-LIBBSG_EXPORT void libbsg_shape_free(bsg_shape *s);
+LIBBSG_EXPORT void libbsg_shape_free(libbsg_shape *s);
 
 
 /* ========================================================================
@@ -448,7 +445,7 @@ LIBBSG_EXPORT void libbsg_node_rm_child(bsg_node *parent, bsg_node *child);
 /**
  * @brief Create a fresh separator scene root.
  *
- * Allocates a @c BSG_NODE_SEPARATOR root node and prepends a camera
+ * Allocates a @c LIBBSG_NODE_SEPARATOR root node and prepends a camera
  * node derived from @p params (or a default identity camera if
  * @p params is NULL).
  *
@@ -458,7 +455,7 @@ LIBBSG_EXPORT void libbsg_node_rm_child(bsg_node *parent, bsg_node *child);
 LIBBSG_EXPORT bsg_node *libbsg_scene_root_create(const libbsg_view_params *params);
 
 /**
- * @brief Allocate a camera node (@c BSG_NODE_CAMERA) pre-populated from @p cam.
+ * @brief Allocate a camera node (@c LIBBSG_NODE_CAMERA) pre-populated from @p cam.
  *
  * A copy of @p cam is stored in the node's @c payload.  The node owns
  * the copy and frees it when freed with @c libbsg_node_free().
@@ -466,34 +463,34 @@ LIBBSG_EXPORT bsg_node *libbsg_scene_root_create(const libbsg_view_params *param
  *
  * @return Newly allocated camera node.  Free with @c libbsg_node_free().
  */
-LIBBSG_EXPORT bsg_node *libbsg_camera_node_alloc(const bsg_camera *cam);
+LIBBSG_EXPORT bsg_node *libbsg_camera_node_alloc(const libbsg_camera *cam);
 
 /**
- * @brief Return the first @c BSG_NODE_CAMERA child of @p root, or NULL.
+ * @brief Return the first @c LIBBSG_NODE_CAMERA child of @p root, or NULL.
  *
  * Scans @p root->children in order.  Returns the first child whose
- * @c type_flags has @c BSG_NODE_CAMERA set, or NULL if none.
+ * @c type_flags has @c LIBBSG_NODE_CAMERA set, or NULL if none.
  */
 LIBBSG_EXPORT bsg_node *libbsg_scene_root_camera(const bsg_node *root);
 
 /**
  * @brief Extract camera data from a camera node into @p out.
  *
- * @p node must have @c BSG_NODE_CAMERA set and a non-NULL @c payload.
+ * @p node must have @c LIBBSG_NODE_CAMERA set and a non-NULL @c payload.
  * Returns 0 on success, -1 if @p node is not a valid camera node.
  */
 LIBBSG_EXPORT int libbsg_camera_node_get(const bsg_node *node,
-					 bsg_camera     *out);
+					 libbsg_camera     *out);
 
 /**
  * @brief Write camera data @p cam into a camera node @p node.
  *
- * @p node must have @c BSG_NODE_CAMERA set.  The existing payload is
+ * @p node must have @c LIBBSG_NODE_CAMERA set.  The existing payload is
  * updated in-place (or a new payload is allocated if @p node->payload
  * is NULL).
  */
 LIBBSG_EXPORT void libbsg_camera_node_set(bsg_node       *node,
-					  const bsg_camera *cam);
+					  const libbsg_camera *cam);
 
 
 /* ========================================================================
@@ -503,7 +500,7 @@ LIBBSG_EXPORT void libbsg_camera_node_set(bsg_node       *node,
 /**
  * @brief Bind view parameters to a scene root.
  *
- * Finds the first @c BSG_NODE_CAMERA child of @p root and updates its
+ * Finds the first @c LIBBSG_NODE_CAMERA child of @p root and updates its
  * payload with the camera from @p params.  If no camera node exists, a
  * new one is prepended to @p root->children.
  *
@@ -539,10 +536,10 @@ LIBBSG_EXPORT void libbsg_traversal_state_init(libbsg_traversal_state *state);
  *   - **Transform**: @c state->xform = parent_xform * node->xform
  *     (post-multiply) at every node.
  *   - **Camera**: @c state->active_camera = node->payload for every
- *     @c BSG_NODE_CAMERA node encountered.
- *   - **Separator**: @c BSG_NODE_SEPARATOR saves state on descent
+ *     @c LIBBSG_NODE_CAMERA node encountered.
+ *   - **Separator**: @c LIBBSG_NODE_SEPARATOR saves state on descent
  *     and restores it on ascent (SoSeparator semantics).
- *   - **LoD group**: @c BSG_NODE_LOD_GROUP visits exactly one child,
+ *   - **LoD group**: @c LIBBSG_NODE_LOD_GROUP visits exactly one child,
  *     selected by eye-to-center distance from @c state->view.  If
  *     @c state->view is NULL, child[0] (highest detail) is chosen.
  *
@@ -575,6 +572,79 @@ LIBBSG_EXPORT void libbsg_traverse(bsg_node               *root,
 LIBBSG_EXPORT void libbsg_find_by_type(bsg_node           *root,
 				       unsigned long long  mask,
 				       struct bu_ptbl     *result);
+
+
+/* ========================================================================
+ * Selection state (Step 7)
+ * ======================================================================== */
+
+/**
+ * @brief Opaque selection-state object.
+ *
+ * Holds the set of currently selected object paths.  All paths are
+ * plain strings (e.g. "top/hull/armor").  No database coupling is
+ * required — the selection layer operates purely on path strings and
+ * @c libbsg_shape node names.
+ */
+struct libbsg_select_state;
+
+/**
+ * @brief Allocate a new, empty selection state.
+ * @return Newly allocated state.  Free with @c libbsg_select_free().
+ */
+LIBBSG_EXPORT struct libbsg_select_state *libbsg_select_alloc(void);
+
+/**
+ * @brief Free all resources owned by @p ss and the state itself.
+ * @param ss  May be NULL (no-op).
+ */
+LIBBSG_EXPORT void libbsg_select_free(struct libbsg_select_state *ss);
+
+/**
+ * @brief Remove all paths from @p ss (without freeing the state itself).
+ */
+LIBBSG_EXPORT void libbsg_select_clear(struct libbsg_select_state *ss);
+
+/**
+ * @brief Add a path to the selection set (no-op if already selected).
+ * @param ss    Selection state.
+ * @param path  Object path string (e.g. "top/hull").
+ */
+LIBBSG_EXPORT void libbsg_select_add_path(struct libbsg_select_state *ss,
+					  const char                 *path);
+
+/**
+ * @brief Remove a path from the selection set (no-op if not selected).
+ */
+LIBBSG_EXPORT void libbsg_select_rm_path(struct libbsg_select_state *ss,
+					 const char                 *path);
+
+/**
+ * @brief Return non-zero if @p path is in the selection set.
+ */
+LIBBSG_EXPORT int libbsg_select_has_path(const struct libbsg_select_state *ss,
+					 const char                       *path);
+
+/**
+ * @brief Return the number of paths currently in the selection set.
+ */
+LIBBSG_EXPORT size_t libbsg_select_count(const struct libbsg_select_state *ss);
+
+/**
+ * @brief Walk @p root and set @c s_iflag on matching @c libbsg_shape nodes.
+ *
+ * For each @c libbsg_shape whose @c s_name matches a path in @p ss,
+ * sets @c s->s_iflag = @p ilum_flag.  All other shapes get
+ * @c s->s_iflag = 0.
+ *
+ * @param root       Scene root (or any sub-graph root).
+ * @param ss         Selection state.
+ * @param ilum_flag  Flag value to assign to selected shapes (e.g. 1).
+ */
+LIBBSG_EXPORT void libbsg_select_sync_highlight(
+    bsg_node                         *root,
+    const struct libbsg_select_state *ss,
+    int                               ilum_flag);
 
 /** @} */
 
