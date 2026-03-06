@@ -148,25 +148,12 @@ rt_edit_bot_set_edit_mode(struct rt_edit *s, int mode)
 static void
 bot_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(data))
 {
-    rt_edit_set_edflag(s, arg);
+    rt_edit_bot_set_edit_mode(s, arg);
 
-    switch (arg) {
-	case ECMD_BOT_MOVEV:
-	case ECMD_BOT_MOVEE:
-	case ECMD_BOT_MOVET:
-	case ECMD_BOT_MOVEV_LIST:
-	    s->edit_mode = RT_PARAMS_EDIT_TRANS;
-	    break;
-	case ECMD_BOT_PICKV:
-	case ECMD_BOT_PICKE:
-	case ECMD_BOT_PICKT:
-	    s->edit_mode = RT_PARAMS_EDIT_PICK;
-	    break;
-	default:
-	    break;
-    };
-
-    // TODO - should we be calling this here?
+    /* Calling rt_edit_process here ensures the editing axes update
+     * immediately after a menu selection.  For pick/move modes waiting
+     * for mouse input, ft_edit is a no-op, but the keypoint and axes
+     * display still advance to the correct position. */
     rt_edit_process(s);
 
     bu_clbk_t f = NULL;
