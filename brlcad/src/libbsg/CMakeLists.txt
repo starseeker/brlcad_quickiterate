@@ -1,5 +1,7 @@
 set(
   LIBBSG_SRCS
+  diff.c
+  hash.c
   scene_graph.cpp
 )
 
@@ -10,7 +12,9 @@ brlcad_find_package(LMDB REQUIRED)
 
 set(BSG_LOCAL_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}
-  # libbv source dir for bv_private.h (Phase 1 compatibility)
+  # TODO: libbv source dir is included here for bv_private.h (Phase 1 compatibility
+  # only).  When bsg_shape becomes an independent struct (Phase 2), remove this entry
+  # and update bsg_private.h to define bsg_scene_obj_internal independently.
   ${BRLCAD_SOURCE_DIR}/src/libbv
   ${LMDB_INCLUDE_DIR}
 )
