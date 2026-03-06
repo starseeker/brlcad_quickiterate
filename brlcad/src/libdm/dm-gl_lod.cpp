@@ -146,6 +146,8 @@ gl_draw_tri(struct dm *dmp, bsg_lod *lod)
 	gl_deregister_dlist_sensor(s);
 	glDeleteLists(s->s_dlist, 1);
 	s->s_dlist = 0;
+
+	if (!pcnt || !fcnt) {
 	    // If we've had a memshrink, the loaded data isn't
 	    // going to be correct to generate new draw info.
 	    // First, find out the current level:
@@ -611,10 +613,10 @@ int gl_draw_obj(struct dm *dmp, bsg_shape *s)
 	if (!s->s_v) return BRLCAD_ERROR;
 	struct bsg_camera _lod_cam;
 	bsg_view_get_camera(s->s_v, &_lod_cam);
-	/* Compute eye-to-node-center distance in model space */
-	point_t node_center = VINIT_ZERO;
-	MAT_DELTAS_GET_NEG(node_center, _lod_cam.center);
-	fastf_t dist = DIST_PNT_PNT(_lod_cam.eye_pos, node_center);
+	/* Compute eye-to-model-center distance */
+	point_t model_center = VINIT_ZERO;
+	MAT_DELTAS_GET_NEG(model_center, _lod_cam.center);
+	fastf_t dist = DIST_PNT_PNT(_lod_cam.eye_pos, model_center);
 	int child_idx = bsg_lod_group_select_child(s, dist);
 	if (child_idx < 0 || (size_t)child_idx >= BU_PTBL_LEN(&s->children))
 	    return BRLCAD_ERROR;

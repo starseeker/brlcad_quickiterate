@@ -2218,9 +2218,8 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
     view_state->vs_flag = 1;
 
     /* all this for ModelDelta - re-fetch camera to get updated center */
-    { struct bsg_camera _new_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_new_cam);
-    MAT_DELTAS_GET_NEG(new_model_center, _new_cam.center); }
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
+    MAT_DELTAS_GET_NEG(new_model_center, _vsview_cam.center);
     VSUB2(diff, new_model_center, old_model_center);
     MAT_IDN(delta);
     MAT_DELTAS_VEC(delta, diff);
@@ -2396,9 +2395,8 @@ slewview(struct mged_state *s, vect_t view_pos)
     ged_exec_slew(s->gedp, 4, (const char **)av);
 
     /* all this for ModelDelta - re-fetch camera to get updated center */
-    { struct bsg_camera _new_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_new_cam);
-    MAT_DELTAS_GET_NEG(new_model_center, _new_cam.center); }
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
+    MAT_DELTAS_GET_NEG(new_model_center, _vsview_cam.center);
     VSUB2(diff, new_model_center, old_model_center);
     MAT_IDN(delta);
     MAT_DELTAS_VEC(delta, diff);
