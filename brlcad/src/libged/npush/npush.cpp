@@ -813,15 +813,28 @@ tree_update_walk_subtree(
 
 
 	    // If we're at max depth, we're done creating instances to manipulate
-	    // on this tree branch.
-	    if (s->max_depth && (depth == s->max_depth)) {
+	    // on this tree branch.  Use >= rather than == for robustness in case
+	    // depth somehow exceeds max_depth.  Still call tree_update_walk so
+	    // that any renamed copy is actually created.
+	    if (s->max_depth && (depth >= s->max_depth)) {
+		if (dpii->iname.length()) {
+		    db_add_node_to_full_path(dfp, dp);
+		    tree_update_walk(*dpii, dfp, depth, curr_mat, client_data);
+		    DB_FULL_PATH_POP(dfp);
+		}
 		/* Done with branch - put back the old matrix state */
 		MAT_COPY(*curr_mat, om);
 		return;
 	    }
 
-	    /* If we're stopping at regions and this is a region, we're done. */
+	    /* If we're stopping at regions and this is a region, we're done.
+	     * Still call tree_update_walk so that any renamed copy is created. */
 	    if ((dp->d_flags & RT_DIR_REGION) && s->stop_at_regions) {
+		if (dpii->iname.length()) {
+		    db_add_node_to_full_path(dfp, dp);
+		    tree_update_walk(*dpii, dfp, depth, curr_mat, client_data);
+		    DB_FULL_PATH_POP(dfp);
+		}
 		/* Done with branch - put back the old matrix state */
 		MAT_COPY(*curr_mat, om);
 		return;
@@ -840,8 +853,14 @@ tree_update_walk_subtree(
 	case OP_INTERSECT:
 	case OP_SUBTRACT:
 	case OP_XOR:
-	    tree_update_walk_subtree(parent_dpi, dfp, tp->tr_b.tb_left, wtp->tr_b.tb_left, depth+1, curr_mat, tree_altered, client_data);
-	    tree_update_walk_subtree(parent_dpi, dfp, tp->tr_b.tb_right, wtp->tr_b.tb_right, depth+1, curr_mat, tree_altered, client_data);
+	    /* All direct members of a comb's boolean tree are at the same comb
+	     * depth.  Do NOT increment depth here — depth only increases at comb
+	     * boundaries (push_walk/tree_update_walk), not at internal binary-
+	     * tree nodes.  Incrementing here would cause the max_depth early-
+	     * return check to fire too late or not at all for combs whose trees
+	     * have more than one level of boolean operators. */
+	    tree_update_walk_subtree(parent_dpi, dfp, tp->tr_b.tb_left, wtp->tr_b.tb_left, depth, curr_mat, tree_altered, client_data);
+	    tree_update_walk_subtree(parent_dpi, dfp, tp->tr_b.tb_right, wtp->tr_b.tb_right, depth, curr_mat, tree_altered, client_data);
 	    break;
 	default:
 	    bu_log("tree_update_walk_subtree: unrecognized operator %d\n", tp->tr_op);
@@ -861,6 +880,41 @@ tree_update_walk(
     struct push_state *s = (struct push_state *)client_data;
 
     if (dpi.dp->d_flags & RT_DIR_COMB) {
+
+	/* If this comb is itself a push leaf (depth-limited or region-halted),
+	 * do NOT walk its internal tree - everything inside is below the push
+	 * boundary and remains unchanged.  If an iname was assigned, we do
+	 * need to create the copy (same tree content as the original), but
+	 * that copy's tree must not be further modified. */
+	bool is_depth_leaf = s->max_depth && (depth >= s->max_depth);
+	bool is_region_leaf = (dpi.dp->d_flags & RT_DIR_REGION) && s->stop_at_regions;
+	if (is_depth_leaf || is_region_leaf) {
+	    if (!dpi.iname.length())
+		return; /* no copy needed */
+	    /* Create an identical copy under the new name */
+	    struct rt_db_internal *in;
+	    BU_GET(in, struct rt_db_internal);
+	    if (rt_db_get_internal5(in, dpi.dp, s->dbip, NULL, &rt_uniresource) < 0) {
+		BU_PUT(in, struct rt_db_internal);
+		return;
+	    }
+	    dp = db_lookup(s->dbip, dpi.iname.c_str(), LOOKUP_QUIET);
+	    if (dp != RT_DIR_NULL) {
+		/* Already created by another branch */
+		rt_db_free_internal(in);
+		BU_PUT(in, struct rt_db_internal);
+		return;
+	    }
+	    dp = db_diradd(s->dbip, dpi.iname.c_str(), RT_DIR_PHONY_ADDR, 0, dpi.dp->d_flags, (void *)&in->idb_type);
+	    if (dp == RT_DIR_NULL) {
+		bu_log("Unable to add %s to the database directory", dpi.iname.c_str());
+		rt_db_free_internal(in);
+		BU_PUT(in, struct rt_db_internal);
+		return;
+	    }
+	    s->added[dp] = in;
+	    return;
+	}
 
 	/* Read only copy of comb tree - use for steering the walk */
 	struct rt_db_internal intern;

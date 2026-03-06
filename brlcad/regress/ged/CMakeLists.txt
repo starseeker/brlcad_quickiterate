@@ -16,6 +16,7 @@ cmakefiles(
   CMakeLists.txt
   mater.c
   push.cpp
+  dpush_tests.g
   ppush_tests.g
   push_tests.g
   regress-ged_mater.cmake.in
