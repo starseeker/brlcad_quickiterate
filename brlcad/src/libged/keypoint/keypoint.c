@@ -87,14 +87,9 @@ ged_keypoint_core(struct ged *gedp, int argc, const char *argv[])
 	VMOVE(keypoint, scan);
     }
 
-    VSCALE(gedp->ged_gvp->gv_keypoint, keypoint, gedp->dbip->dbi_local2base);
-    /* Phase 2c: propagate keypoint change through camera API */
-    {
-	struct bsg_camera _cam;
-	bsg_view_get_camera(gedp->ged_gvp, &_cam);
-	VMOVE(_cam.keypoint, gedp->ged_gvp->gv_keypoint);
-	bsg_view_set_camera(gedp->ged_gvp, &_cam);
-    }
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      VSCALE(_cm.keypoint, keypoint, gedp->dbip->dbi_local2base);
+      bsg_view_set_camera(gedp->ged_gvp, &_cm); }
 
     return BRLCAD_OK;
 }

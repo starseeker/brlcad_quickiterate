@@ -344,7 +344,7 @@ ged_loadview_core(struct ged *gedp, int argc, const char *argv[])
     /* turn perspective mode off, by default.  A "-p" option in the
      * view script will turn it back on.
      */
-    gedp->ged_gvp->gv_perspective = 0;
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm); _cm.perspective = 0; bsg_view_set_camera(gedp->ged_gvp, &_cm); }
 
     /* iterate over the contents of the raytrace script */
     /* TODO: change to bu_fgets or bu_vls_fgets */

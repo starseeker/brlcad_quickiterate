@@ -48,7 +48,9 @@ ged_model2view_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get the model2view matrix */
     if (argc == 1) {
-	bn_encode_mat(gedp->ged_result_str, gedp->ged_gvp->gv_model2view, 1);
+	{ struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	  bn_encode_mat(gedp->ged_result_str, _cm.model2view, 1);
+	}
 	return BRLCAD_OK;
     }
 
@@ -61,7 +63,9 @@ ged_model2view_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    MAT4X3PNT(view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(view_pt, _cm.model2view, model_pt);
+    }
     bn_encode_vect(gedp->ged_result_str, view_pt, 1);
 
     return BRLCAD_OK;

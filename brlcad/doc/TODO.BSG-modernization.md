@@ -515,10 +515,20 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
    - Register repaint sensors from `libqtcad`'s view widget. (future work)
    - ✅ Remaining raw `s_dlist_stale` reads are intentional fallbacks in dm-gl_lod.cpp; removed where sensors now handle stale notification.
 
-3. **Phase 2c** (camera field accessor hygiene): ✅ COMPLETE
-   - Replaced all direct `gv_*` camera field reads with `bsg_view_get_camera` /
+3. **Phase 2c** (camera field accessor hygiene): ✅ COMPLETE (session 5: zero direct gv_* uses outside libbv)
+   - Replaced ALL direct `gv_*` camera field reads/writes with `bsg_view_get_camera` /
      `bsg_view_set_camera` throughout `libged`, `librt`, `libtclcad`, `mged`,
-     `gtools`.
+     `libdm`, `libqtcad`, `gtools`. No non-libbv file accesses camera fields directly.
+   - Session 5 additions: `view/eye.c`, `view/align.c` missing `bsg_view_set_camera` bug fixes;
+     `view/lookat.c`, `view/center.cpp`, `view/ypr.c`, `view/qvrot.c`, `view/quat.c`,
+     `view/autoview.c`, `view/saveview.c`, `view/viewdir.c`, `view/view.c`, `view/labels.c`,
+     `view/knob.c`, `rot/rotate_about.c`, `keypoint.c`, `orient.c`, `setview.c`,
+     `rtwizard.c`, `nirt.cpp`, `pipe.c`, `draw/preview.cpp`, `draw/loadview.cpp`,
+     `rt/rt.c`, `dm/ert.cpp`, `grid2model_lu.c`, `grid2view_lu.c`, `view2grid_lu.c`,
+     `model2view.c`, `model2view_lu.c`, `view2model_lu.c`, `v2m_point.c`,
+     `move_arb_edge.c`, `rot_point.c`, `nmg.c`, `bot/edbot.c`, `plot/plot.c`,
+     `ps/ps.c`, `png/png.c`, `draw.cpp`, `tests/draw/aet.cpp`;
+     `mged/edsol.c`; `libdm/view.c`; `libqtcad/bindings.cpp`; `librt/tests/edit/tor.cpp`.
 
 4. **Phase 2d** (LoD group nodes): ✅ COMPLETE
    - ✅ Add `BSG_NODE_LOD_GROUP` support to `libged/view/lod.cpp` (group create/add/rm/distances subcommands).
@@ -846,4 +856,4 @@ ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
 
 ---
 
-*Last updated: 2026-03-06 (Phases 2a–2d complete; all Qt camera fields migrated; MGED tractability + full scene-object recast analysis added; Phase 2e dual-write and BSG reader helpers complete; dm-gl.c/dozoom.c/commands.c callbacks BSG-capable; section 4.2 polygon plugins migrated; section 7.1 librt primitive editors migrated)*
+*Last updated: 2026-03-06 (Phases 2a–2d complete; all Qt camera fields migrated; MGED tractability + full scene-object recast analysis added; Phase 2e dual-write and BSG reader helpers complete; dm-gl.c/dozoom.c/commands.c callbacks BSG-capable; section 4.2 polygon plugins migrated; section 7.1 librt primitive editors migrated; **Session 5**: Phase 2c fully complete — zero direct gv_* accesses outside libbv; eye.c/align.c bsg_view_set_camera bug fixes)*

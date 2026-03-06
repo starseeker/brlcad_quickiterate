@@ -84,7 +84,9 @@ ged_setview_core(struct ged *gedp, int argc, const char *argv[])
 	VMOVE(rvec, scan);
     }
 
-    bn_mat_angles(gedp->ged_gvp->gv_rotation, rvec[X], rvec[Y], rvec[Z]);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      bn_mat_angles(_cm.rotation, rvec[X], rvec[Y], rvec[Z]);
+      bsg_view_set_camera(gedp->ged_gvp, &_cm); }
     bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;

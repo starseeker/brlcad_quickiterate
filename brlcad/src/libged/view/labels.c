@@ -88,7 +88,8 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	p[2] = 0;
 	point_t tp;
 	VMOVE(tp, p);
-	MAT4X3PNT(p, gd->cv->gv_view2model, tp);
+	{ struct bsg_camera _cm; bsg_view_get_camera(gd->cv, &_cm);
+	  MAT4X3PNT(p, _cm.view2model, tp); }
     }
     point_t target;
     if (argc == 6) {

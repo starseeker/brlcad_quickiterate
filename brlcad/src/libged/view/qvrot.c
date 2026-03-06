@@ -49,7 +49,9 @@ usejoy(struct ged *gedp, double xangle, double yangle, double zangle)
      */
     MAT_IDN(newrot);
     bn_mat_angles_rad(newrot, xangle, yangle, zangle);
-    bn_mat_mul2(newrot, gedp->ged_gvp->gv_rotation);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      bn_mat_mul2(newrot, _cm.rotation);
+      bsg_view_set_camera(gedp->ged_gvp, &_cm); }
 }
 
 
@@ -124,7 +126,9 @@ ged_qvrot_core(struct ged *gedp, int argc, const char *argv[])
 
     el = atan2(dz, sqrt(dx * dx + dy * dy));
 
-    bn_mat_angles(gedp->ged_gvp->gv_rotation, 270.0 + el * RAD2DEG, 0.0, 270.0 - az * RAD2DEG);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      bn_mat_angles(_cm.rotation, 270.0 + el * RAD2DEG, 0.0, 270.0 - az * RAD2DEG);
+      bsg_view_set_camera(gedp->ged_gvp, &_cm); }
     usejoy(gedp, 0.0, 0.0, theta*DEG2RAD);
     bsg_view_update(gedp->ged_gvp);
 
