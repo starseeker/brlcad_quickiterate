@@ -220,10 +220,8 @@ ps_draw_solid(fastf_t perspective, FILE *fp, bsg_shape *sp, matp_t psmat)
 
 
 static void
-ps_draw_body(struct bu_list *hdlp, FILE *fp, mat_t model2view, fastf_t perspective, vect_t eye_pos)
+ps_draw_body(bsg_view *v, FILE *fp, mat_t model2view, fastf_t perspective, vect_t eye_pos)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     mat_t newmat;
     matp_t mat;
     mat_t perspective_mat;
@@ -252,15 +250,11 @@ ps_draw_body(struct bu_list *hdlp, FILE *fp, mat_t model2view, fastf_t perspecti
         mat = newmat;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-        for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-            ps_draw_solid(perspective, fp, sp, mat);
-        }
-
-        gdlp = next_gdlp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+        sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+        ps_draw_solid(perspective, fp, sp, mat);
     }
 }
 
@@ -285,12 +279,12 @@ ps_draw_footer(FILE *fp)
 
 
 static void
-dl_ps(struct bu_list *hdlp, FILE *fp, int border, char *font, char *title, char *creator, int linewidth, fastf_t scale, int xoffset, int yoffset, mat_t model2view, fastf_t perspective, vect_t eye_pos, float red, float green, float blue)
+dl_ps(bsg_view *v, FILE *fp, int border, char *font, char *title, char *creator, int linewidth, fastf_t scale, int xoffset, int yoffset, mat_t model2view, fastf_t perspective, vect_t eye_pos, float red, float green, float blue)
 {
     ps_draw_header(fp, font, title, creator, linewidth, scale, xoffset, yoffset);
     if (border)
 	ps_draw_border(fp, red, green, blue);
-    ps_draw_body(hdlp, fp, model2view, perspective, eye_pos);
+    ps_draw_body(v, fp, model2view, perspective, eye_pos);
     ps_draw_footer(fp);
 
 }
@@ -436,7 +430,7 @@ ged_ps_core(struct ged *gedp, int argc, const char *argv[])
 	goto bad;
     }
 
-    dl_ps(gedp->i->ged_gdp->gd_headDisplay, fp, border, bu_vls_addr(&font), bu_vls_addr(&title), bu_vls_addr(&creator), linewidth, scale, xoffset, yoffset, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, border_red, border_green, border_blue);
+    dl_ps(gedp->ged_gvp, fp, border, bu_vls_addr(&font), bu_vls_addr(&title), bu_vls_addr(&creator), linewidth, scale, xoffset, yoffset, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, border_red, border_green, border_blue);
 
     fclose(fp);
 

@@ -28,6 +28,7 @@
 #include "dm/view.h"
 #include "ged.h"
 #include "tclcad.h"
+#include "bsg/util.h"
 
 /* Private headers */
 #include "../tclcad_private.h"
@@ -122,76 +123,57 @@ go_draw_solid(bsg_view *gdvp, bsg_shape *sp)
 static int
 go_draw_dlist(bsg_view *gdvp)
 {
-    register struct display_list *gdlp;
-    register struct display_list *next_gdlp;
     bsg_shape *sp;
     int line_style = -1;
     struct dm *dmp = (struct dm *)gdvp->dmp;
-    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    struct bu_list *hdlp = (struct bu_list *)ged_dl(tvd->gedp);
+
+    bsg_shape *root = bsg_scene_root_get(gdvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
     if (dm_get_transparency(dmp)) {
 	/* First, draw opaque stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (sp->s_os->transparency < 1.0)
+		continue;
 
-	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-		if (sp->s_os->transparency < 1.0)
-		    continue;
-
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
+	    if (line_style != sp->s_soldash) {
+		line_style = sp->s_soldash;
+		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
 	    }
 
-	    gdlp = next_gdlp;
+	    go_draw_solid(gdvp, sp);
 	}
 
 	/* disable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 0);
 
 	/* Second, draw transparent stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    /* already drawn above */
+	    if (ZERO(sp->s_os->transparency - 1.0))
+		continue;
 
-	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-		/* already drawn above */
-		if (ZERO(sp->s_os->transparency - 1.0))
-		    continue;
-
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
+	    if (line_style != sp->s_soldash) {
+		line_style = sp->s_soldash;
+		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
 	    }
 
-	    gdlp = next_gdlp;
+	    go_draw_solid(gdvp, sp);
 	}
 
 	/* re-enable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 1);
     } else {
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (line_style != sp->s_soldash) {
+		line_style = sp->s_soldash;
+		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
 	    }
 
-	    gdlp = next_gdlp;
+	    go_draw_solid(gdvp, sp);
 	}
     }
 
@@ -252,7 +234,8 @@ to_edit_redraw(struct ged *gedp,
 
 		    if (db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i])) {
 			struct display_list *last_gdlp;
-			bsg_shape *sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
+			/* Use the matched shape's draw mode as representative for this group */
+			bsg_shape *sp = curr_sp;
 			struct bu_vls mflag = BU_VLS_INIT_ZERO;
 			struct bu_vls xflag = BU_VLS_INIT_ZERO;
 			char *av[5] = {0};

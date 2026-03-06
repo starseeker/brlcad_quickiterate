@@ -52,11 +52,7 @@ dl_zap(struct ged *gedp)
 
     while (BU_LIST_WHILE(gdlp, display_list, hdlp)) {
 
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj))
-	    ged_destroy_vlist_cb(gedp, BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist,
-				 BU_LIST_LAST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist -
-				 BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist + 1);
-
+	/* Free display lists per shape individually */
 	while (BU_LIST_WHILE(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    if (!sp->s_u_data)
 		continue;
@@ -69,6 +65,7 @@ dl_zap(struct ged *gedp)
 		}
 	    }
 
+	    ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
 	    BU_LIST_DEQUEUE(&sp->l);
 	    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l);
 	}
@@ -77,6 +74,16 @@ dl_zap(struct ged *gedp)
 	/* queue up for free */
 	bu_ptbl_ins_unique(&dls, (long *)gdlp);
 	gdlp = NULL;
+    }
+
+    /* Clear scene-root children for all views (shapes have been freed above) */
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    if (views) {
+	for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+	    bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+	    bsg_shape *root = bsg_scene_root_get(v);
+	    if (root) bu_ptbl_reset(&root->children);
+	}
     }
 
     /* Free all display lists */
