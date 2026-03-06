@@ -192,15 +192,13 @@ QPolyMod::mod_names_reset()
     mod_names->blockSignals(true);
     mod_names->clear();
     if (gedp) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
-	if (view_objs) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-		if (s->s_type_flags & BSG_NODE_POLYGONS) {
-		    mod_names->addItem(bu_vls_cstr(&s->s_name));
-		}
-	    }
+	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
+	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
+	    mod_names->addItem(bu_vls_cstr(&s->s_name));
 	}
+	bu_ptbl_free(&poly_objs);
     }
     if (p) {
 	int cind = mod_names->findText(bu_vls_cstr(&p->s_name));
@@ -298,23 +296,21 @@ QPolyMod::toplevel_config(bool)
     // when we're switching modes at this level, we always start with a
     // blank slate for points.
     if (gedp) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
-	if (view_objs) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-		if (s->s_type_flags & BSG_NODE_POLYGONS) {
-		    // clear any selected points in non-current polygons
-		    struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
-		    if (ip->curr_point_i != -1) {
-			bu_log("Clear pnt selection\n");
-			draw_change = true;
-			ip->curr_point_i = -1;
-			ip->curr_contour_i = 0;
-			bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
-		    }
-		}
+	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
+	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
+	    // clear any selected points in non-current polygons
+	    struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
+	    if (ip->curr_point_i != -1) {
+		bu_log("Clear pnt selection\n");
+		draw_change = true;
+		ip->curr_point_i = -1;
+		ip->curr_contour_i = 0;
+		bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
 	    }
 	}
+	bu_ptbl_free(&poly_objs);
     }
 
     // Make sure the Combo box list is current.
@@ -376,33 +372,33 @@ QPolyMod::select(const QString &poly)
 	return;
 
     p = NULL;
-    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BSG_NODE_POLYGONS) {
-		QString pname(bu_vls_cstr(&s->s_name));
-		if (pname == poly) {
-		    p = s;
-		    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
-		    poly_type_settings(ip);
-		    ps->settings_sync(p);
-		    ps->view_name->setText(pname);
-		    if (ip->u_data) {
-			struct directory *dp = (struct directory *)ip->u_data;
-			ps->sketch_sync->blockSignals(true);
-			ps->sketch_sync->setChecked(true);
-			ps->sketch_sync->blockSignals(false);
-			ps->sketch_name->blockSignals(true);
-			ps->sketch_name->setText(dp->d_namep);
-			ps->sketch_name->setEnabled(true);
-			ps->sketch_name->blockSignals(false);
-		    }
-
-		    return;
+    {
+	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
+	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
+	    QString pname(bu_vls_cstr(&s->s_name));
+	    if (pname == poly) {
+		p = s;
+		struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+		poly_type_settings(ip);
+		ps->settings_sync(p);
+		ps->view_name->setText(pname);
+		if (ip->u_data) {
+		    struct directory *dp = (struct directory *)ip->u_data;
+		    ps->sketch_sync->blockSignals(true);
+		    ps->sketch_sync->setChecked(true);
+		    ps->sketch_sync->blockSignals(false);
+		    ps->sketch_name->blockSignals(true);
+		    ps->sketch_name->setText(dp->d_namep);
+		    ps->sketch_name->setEnabled(true);
+		    ps->sketch_name->blockSignals(false);
 		}
+		bu_ptbl_free(&poly_objs);
+		return;
 	    }
 	}
+	bu_ptbl_free(&poly_objs);
     }
 }
 
@@ -472,8 +468,9 @@ QPolyMod::toggle_closed_poly(bool checked)
 	return;
 
     if (do_bool && ip->type == BV_POLYGON_GENERAL && close_general_poly->isChecked()) {
-	struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
-	if (view_objs) {
+	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
+	if (BU_PTBL_LEN(&poly_objs) > 0) {
 	    bg_clip_t op = bg_Union;
 	    if (do_bool) {
 		if (csg_modes->currentText() == "Subtraction") {
@@ -487,11 +484,9 @@ QPolyMod::toggle_closed_poly(bool checked)
 	    // that's our signal to complete the operation
 	    int pcnt = 0;
 	    std::vector<bsg_shape *> cleanup;
-	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		bsg_shape *target = (bsg_shape *)BU_PTBL_GET(view_objs, i);
+	    for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+		bsg_shape *target = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
 		if (target == p)
-		    continue;
-		if (!(target->s_type_flags & BSG_NODE_POLYGONS))
 		    continue;
 		pcnt += bsg_polygon_csg(target, p, op);
 		struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
@@ -513,6 +508,7 @@ QPolyMod::toggle_closed_poly(bool checked)
 	    }
 	    do_bool = false;
 	}
+	bu_ptbl_free(&poly_objs);
     }
 
     if (p) {
@@ -554,14 +550,13 @@ QPolyMod::apply_bool_op()
 	op = bg_Intersection;
     }
 
-    struct bu_ptbl *view_objs = bsg_view_shapes(gedp->ged_gvp, BSG_VIEW_OBJS);
-    if (view_objs) {
+    struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+    bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
+    if (BU_PTBL_LEN(&poly_objs) > 0) {
 	std::vector<bsg_shape *> cleanup;
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    bsg_shape *target = (bsg_shape *)BU_PTBL_GET(view_objs, i);
+	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+	    bsg_shape *target = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
 	    if (target == p)
-		continue;
-	    if (!(target->s_type_flags & BSG_NODE_POLYGONS))
 		continue;
 	    bsg_polygon_csg(target, p, op);
 	    struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
@@ -576,6 +571,7 @@ QPolyMod::apply_bool_op()
 	    bsg_shape_put(cleanup[i]);
 	}
     }
+    bu_ptbl_free(&poly_objs);
 
     emit view_updated(QG_VIEW_REFRESH);
 }
