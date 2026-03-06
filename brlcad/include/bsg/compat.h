@@ -237,6 +237,10 @@
 /** @deprecated Use bsg_view_shapes_rect_select() instead. */
 #define bv_view_objs_rect_select(r, v, x1, y1, x2, y2) \
     bsg_view_shapes_rect_select((r),(v),(x1),(y1),(x2),(y2))
+/** @deprecated Use bsg_scene_fsos() instead. */
+#define bv_set_fsos(s)                 bsg_scene_fsos((s))
+/** @deprecated Use bsg_view_center_linesnap() instead. */
+#define bv_view_center_linesnap(v)     bsg_view_center_linesnap((v))
 
 #endif /* BSG_COMPAT_H */
 

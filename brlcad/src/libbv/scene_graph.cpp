@@ -70,6 +70,9 @@
 /* bv_private.h for bv_scene_obj_internal and bview_set_internal */
 #include "./bv_private.h"
 
+/* bv/snap.h declares bv_view_center_linesnap, wrapped as bsg_view_center_linesnap */
+#include "bv/snap.h"
+
 /* bv/vlist.h provides BV_FREE_VLIST used by bsg_node_free() */
 #include "bv/vlist.h"
 
@@ -240,31 +243,10 @@ bsg_dl_hash(struct display_list *dl)
     if (!dl)
 	return 0;
 
-    /* Try to get the view from the first shape's s_v pointer so we can
-     * use root->children instead of the legacy dl_head_scene_obj list. */
-    bsg_view *v = NULL;
-    {
-	struct display_list *first_gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
-	if (BU_LIST_NOT_HEAD(first_gdlp, dl)) {
-	    bsg_shape *first_sp = (bsg_shape *)BU_LIST_FIRST(bsg_shape, &first_gdlp->dl_head_scene_obj);
-	    if (first_sp && first_sp != (bsg_shape *)&first_gdlp->dl_head_scene_obj)
-		v = first_sp->s_v;
-	}
-    }
-
-    bsg_shape *root = v ? bsg_scene_root_get(v) : nullptr;
-    if (root) {
-	/* Phase 2e: hash over scene-root children (flat iteration) */
-	struct bu_data_hash_state *state = bu_data_hash_create();
-	if (!state) return 0;
-	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    bv_scene_obj_hash(state, (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i));
-	}
-	unsigned long long hash_val = bu_data_hash_val(state);
-	bu_data_hash_destroy(state);
-	return hash_val;
-    }
-
+    /* Phase 2e: dl_head_scene_obj has been removed.  We can't get a view
+     * from the dl directly any more; callers should use dl_name_hash(gedp)
+     * which has access to the ged_views scene.  As a safe fallback, forward
+     * to bv_dl_hash() which hashes the display-list path strings. */
     return bv_dl_hash(dl);
 }
 
@@ -1393,6 +1375,18 @@ bsg_sensor_fire(bsg_shape *root, unsigned long long type_mask)
 	    bsg_sensor_fire(child, type_mask);
 	}
     }
+}
+
+struct bv_scene_obj *
+bsg_scene_fsos(bsg_scene *s)
+{
+    return bv_set_fsos(s);
+}
+
+void
+bsg_view_center_linesnap(bsg_view *v)
+{
+    bv_view_center_linesnap(v);
 }
 
 /*

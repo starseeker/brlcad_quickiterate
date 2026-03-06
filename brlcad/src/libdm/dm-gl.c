@@ -1546,47 +1546,11 @@ int gl_draw_display_list(struct dm *dmp, struct display_list *obj)
 {
     gl_debug_print(dmp, "gl_draw_obj", dmp->i->dm_debugLevel);
 
-    /* Phase 2e: use scene-root children when available (flat iteration),
-     * otherwise fall back to the legacy dl_head_scene_obj linked list.
-     * We get the view pointer from the first shape in obj->dl_head_scene_obj. */
-    bsg_view *v = NULL;
-    bsg_shape *first_sp = (bsg_shape *)BU_LIST_FIRST(bsg_shape, &obj->dl_head_scene_obj);
-    if (first_sp && first_sp != (bsg_shape *)&obj->dl_head_scene_obj)
-	v = (bsg_view *)first_sp->s_v;
-    bsg_shape *root = v ? bsg_scene_root_get(v) : NULL;
-
-    /* Helper lambda to draw one shape */
-#define GL_DRAW_ONE_SHAPE(sp) do { \
-    if ((sp)->s_dlist == 0) \
-	(sp)->s_dlist = gl_genDLists(dmp, 1); \
-    (void)dm_make_current(dmp); \
-    (void)gl_beginDList(dmp, (sp)->s_dlist); \
-    if ((sp)->s_iflag == UP) \
-	(void)dm_set_fg(dmp, 255, 255, 255, 0, (sp)->s_os->transparency); \
-    else \
-	(void)dm_set_fg(dmp, (unsigned char)(sp)->s_color[0], \
-		(unsigned char)(sp)->s_color[1], \
-		(unsigned char)(sp)->s_color[2], 0, (sp)->s_os->transparency); \
-    (void)dm_draw_vlist(dmp, (struct bv_vlist *)&(sp)->s_vlist); \
-    (void)gl_endDList(dmp); \
-} while (0)
-
-    if (root && BU_PTBL_LEN(&root->children) > 0) {
-	/* BSG path: iterate scene-root children */
-	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
-	    GL_DRAW_ONE_SHAPE(sp);
-	}
-    } else {
-	/* Legacy path: iterate dl_head_scene_obj linked list */
-	bsg_shape *sp;
-	for (BU_LIST_FOR(sp, bsg_shape, &obj->dl_head_scene_obj)) {
-	    GL_DRAW_ONE_SHAPE(sp);
-	}
-    }
-
-#undef GL_DRAW_ONE_SHAPE
-
+    /* Phase 2e: dl_head_scene_obj removed. This function is a legacy stub.
+     * All rendering now uses dm_draw_bsg_view(dmp, v, ...) which iterates
+     * scene-root children directly.  Callers must be updated to use the
+     * BSG API. */
+    (void)obj;
     return 0;
 }
 

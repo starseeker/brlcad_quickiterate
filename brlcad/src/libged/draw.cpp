@@ -125,8 +125,8 @@ csg_wireframe_update(bsg_shape *vo, bsg_view *v, int flag)
     //bu_log("min: %f %f %f max: %f %f %f\n", V3ARGS(vo->bmin), V3ARGS(vo->bmax));
     { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
       if (!(_cm.perspective > SMALL_FASTF) && !bg_sat_aabb_obb(vo->bmin, vo->bmax, v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3))
-    }
 	return 0;
+    }
 
     bool rework = (flag) ? true : false;
 

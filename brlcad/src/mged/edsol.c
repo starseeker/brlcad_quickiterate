@@ -5560,14 +5560,16 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 		}
 		pos_view[X] = mousevec[X];
 		pos_view[Y] = mousevec[Y];
-		if ((e = nmg_find_e_nearest_pt2(&m->magic, pos_view,
-						{ struct bsg_camera _cm; bsg_view_get_camera(view_state->vs_gvp, &_cm);
-						  _cm.model2view, s->vlfree, &tmp_tol)) == (struct edge *)NULL) {
-						}
-		    Tcl_AppendResult(s->interp, "ECMD_NMG_EPICK: unable to find an edge\n",
-				     (char *)NULL);
-		    mged_print_result(s, TCL_ERROR);
-		    return;
+		{
+		    struct bsg_camera _cm2;
+		    bsg_view_get_camera(view_state->vs_gvp, &_cm2);
+		    if ((e = nmg_find_e_nearest_pt2(&m->magic, pos_view,
+						    _cm2.model2view, s->vlfree, &tmp_tol)) == (struct edge *)NULL) {
+			Tcl_AppendResult(s->interp, "ECMD_NMG_EPICK: unable to find an edge\n",
+					 (char *)NULL);
+			mged_print_result(s, TCL_ERROR);
+			return;
+		    }
 		}
 		es_eu = e->eu_p;
 		NMG_CK_EDGEUSE(es_eu);
