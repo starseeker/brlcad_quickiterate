@@ -146,6 +146,10 @@ These are tracked items found in the code that need to be resolved:
 - [x] **Line 1429** – `TODO - is es_int the same as ip here?` — answered yes; updated to use `ip` directly; removed TODO
 - [x] **Lines 1963, 2022** – `TODO - write to a vls so parent code can do Tcl_AppendResult` — fixed: now uses `Tcl_AppendResult` directly
 
+### `brlcad/src/mged/mged_impl.cpp` / `mged.c`
+
+- [x] **`s->i` never initialized** — **FIXED (session 4)**: `mged.c` main() allocated `MGED_STATE` via `BU_GET` (zero-init) but never initialized `s->i` (the `mged_state_impl` holding the C++ `MGED_Internal` callback maps). This caused `mged_edit_clbk_sync()` to crash on null dereference whenever `sed` or `oed` was invoked. Added `mged_state_init_internals()` and `mged_state_destroy_internals()` to `mged_impl.cpp`; wired them into `mged.c` init and cleanup. Also fixed `mged_state_create()` to not leak a premature `s_edit` allocation then immediately overwrite it with `NULL`.
+
 ### `brlcad/src/mged/chgview.c`
 
 - [x] **f_ill missing ST_S_PICK → init_sedit transition** — **FIXED**: `f_ill` now calls `init_sedit(s)` when in `ST_S_PICK` state, matching vanilla behavior. This is the critical fix that makes the `sed` command work.
@@ -205,39 +209,39 @@ These are tracked items found in the code that need to be resolved:
 
 ## Per-Primitive Status
 
-Legend: ✅ ed*.c exists | ⚠️ stub/alias | ❌ no edit support | 🔲 not yet verified
+Legend: ✅ ed*.c exists | ⚠️ stub/alias | ❌ no edit support | 🔲 not yet verified | ✔ sed+accept verified
 
 ### Primitives with edit files (need per-primitive testing)
 
 | Primitive | ed*.c | `ft_edit_desc` | Known Issues | Tested |
 |-----------|-------|----------------|--------------|--------|
-| **TOR** (torus) | ✅ `tor/edtor.c` | ✅ | — | 🔲 |
-| **TGC** (truncated general cone) | ✅ `tgc/edtgc.c` | ✅ | e_axes_pos implemented | 🔲 |
-| **ELL** (ellipsoid) | ✅ `ell/edell.c` | ✅ | — | 🔲 |
-| **ARB8** (arbitrary polyhedron) | ✅ `arb8/edarb.c` | — | Multiple menu complexity, globals in private struct, see TODOs above | 🔲 |
-| **ARS** (arbitrary-radius solid) | ✅ `ars/edars.c` | — | Callback placement uncertainty | 🔲 |
-| **HALF** (half-space) | ✅ `half/edhalf.c` | — | — | 🔲 |
-| **BSPLINE** (B-spline surface) | ✅ `bspline/edbspline.c` | — | Major TODO: needs re-look; fragile | 🔲 |
-| **NMG** (n-manifold geometry) | ✅ `nmg/ednmg.c` | — | Multiple XXX items; complex | 🔲 |
+| **TOR** (torus) | ✅ `tor/edtor.c` | ✅ | — | ✔ sed+sscale+accept |
+| **TGC** (truncated general cone) | ✅ `tgc/edtgc.c` | ✅ | e_axes_pos implemented | ✔ sed+sscale+accept |
+| **ELL** (ellipsoid) | ✅ `ell/edell.c` | ✅ | — | ✔ sed+sscale+accept |
+| **ARB8** (arbitrary polyhedron) | ✅ `arb8/edarb.c` | — | Multiple menu complexity, globals in private struct | ✔ sed+accept |
+| **ARS** (arbitrary-radius solid) | ✅ `ars/edars.c` | — | — | ✔ sed+accept |
+| **HALF** (half-space) | ✅ `half/edhalf.c` | — | — | ✔ sed+accept |
+| **BSPLINE** (B-spline surface) | ✅ `bspline/edbspline.c` | — | Fragile; needs re-look for full correctness | ✔ sed (no crash) |
+| **NMG** (n-manifold geometry) | ✅ `nmg/ednmg.c` | — | Complex traversal | ✔ sed+accept |
 | **EBM** (extruded bitmap) | ✅ `ebm/edebm.c` | ✅ | — | 🔲 |
-| **VOL** (volumetric data) | ✅ `vol/edvol.c` | ✅ | Callback placement uncertainty | 🔲 |
-| **PIPE** | ✅ `pipe/edpipe.c` | ✅ | Callback placement uncertainty | 🔲 |
-| **PART** (particle) | ✅ `part/edpart.c` | ✅ | — | 🔲 |
-| **RPC** (right parabolic cylinder) | ✅ `rpc/edrpc.c` | ✅ | — | 🔲 |
-| **RHC** (right hyperbolic cylinder) | ✅ `rhc/edrhc.c` | ✅ | — | 🔲 |
-| **EPA** (elliptical paraboloid) | ✅ `epa/edepa.c` | ✅ | — | 🔲 |
-| **EHY** (elliptical hyperboloid) | ✅ `ehy/edehy.c` | ✅ | — | 🔲 |
-| **ETO** (elliptic torus) | ✅ `eto/edeto.c` | ✅ | — | 🔲 |
-| **GRIP** | ✅ `grip/edgrip.c` | — | — | 🔲 |
+| **VOL** (volumetric data) | ✅ `vol/edvol.c` | ✅ | — | 🔲 |
+| **PIPE** | ✅ `pipe/edpipe.c` | ✅ | — | ✔ sed+accept |
+| **PART** (particle) | ✅ `part/edpart.c` | ✅ | — | ✔ sed+sscale+accept |
+| **RPC** (right parabolic cylinder) | ✅ `rpc/edrpc.c` | ✅ | — | ✔ sed+sscale+accept |
+| **RHC** (right hyperbolic cylinder) | ✅ `rhc/edrhc.c` | ✅ | — | ✔ sed+sscale+accept |
+| **EPA** (elliptical paraboloid) | ✅ `epa/edepa.c` | ✅ | — | ✔ sed+sscale+accept |
+| **EHY** (elliptical hyperboloid) | ✅ `ehy/edehy.c` | ✅ | — | ✔ sed+sscale+accept |
+| **ETO** (elliptic torus) | ✅ `eto/edeto.c` | ✅ | — | ✔ sed+sscale+accept |
+| **GRIP** | ✅ `grip/edgrip.c` | — | — | ✔ sed+accept |
 | **DSP** (displacement map) | ✅ `dsp/eddsp.c` | ✅ | — | 🔲 |
-| **SKETCH** | ✅ `sketch/edsketch.c` | — | — | 🔲 |
-| **EXTRUDE** | ✅ `extrude/edextrude.c` | — | — | 🔲 |
-| **CLINE** | ✅ `cline/edcline.c` | ✅ | — | 🔲 |
-| **BOT** (bag of triangles) | ✅ `bot/edbot.c` | — | Callback placement uncertainty | 🔲 |
-| **SUPERELL** (superellipsoid) | ✅ `superell/edsuperell.c` | ✅ | — | 🔲 |
-| **METABALL** | ✅ `metaball/edmetaball.c` | — | Callback placement uncertainty | 🔲 |
-| **HYP** (hyperboloid) | ✅ `hyp/edhyp.c` | ✅ | — | 🔲 |
-| **DATUM** | ✅ `datum/eddatum.c` | — | — | 🔲 |
+| **SKETCH** | ✅ `sketch/edsketch.c` | — | — | ✔ sed+accept |
+| **EXTRUDE** | ✅ `extrude/edextrude.c` | — | Needs valid sketch reference | ✔ sed (no crash) |
+| **CLINE** | ✅ `cline/edcline.c` | ✅ | — | ✔ sed+sscale+accept |
+| **BOT** (bag of triangles) | ✅ `bot/edbot.c` | — | — | ✔ sed+accept |
+| **SUPERELL** (superellipsoid) | ✅ `superell/edsuperell.c` | ✅ | — | ✔ sed+sscale+accept |
+| **METABALL** | ✅ `metaball/edmetaball.c` | — | — | ✔ sed+accept |
+| **HYP** (hyperboloid) | ✅ `hyp/edhyp.c` | ✅ | — | ✔ sed+sscale+accept |
+| **DATUM** | ✅ `datum/eddatum.c` | — | — | ✔ sed+accept |
 
 ### Primitives without dedicated edit files
 
