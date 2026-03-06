@@ -489,7 +489,11 @@ set_perspective(const struct bu_structparse *sdp,
 	mged_variables->mv_perspective_mode = 0;
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     /* keep display manager in sync */
     dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
@@ -511,7 +515,11 @@ establish_perspective(const struct bu_structparse *sdp,
 	perspective_table[perspective_angle] : -1;
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     /* keep display manager in sync */
     dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
@@ -553,7 +561,11 @@ toggle_perspective(const struct bu_structparse *sdp,
     mged_variables->mv_perspective = perspective_table[perspective_angle];
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     /* keep display manager in sync */
     dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
@@ -571,7 +583,11 @@ set_coords(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    view_state->vs_gvp->gv_coord = mged_variables->mv_coords;
+    {
+	struct bsg_camera _sc; bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	_sc.coord = mged_variables->mv_coords;
+	bsg_view_set_camera(view_state->vs_gvp, &_sc);
+    }
 }
 
 
@@ -584,7 +600,11 @@ set_rotate_about(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    view_state->vs_gvp->gv_rotate_about = mged_variables->mv_rotate_about;
+    {
+	struct bsg_camera _sr; bsg_view_get_camera(view_state->vs_gvp, &_sr);
+	_sr.rotate_about = mged_variables->mv_rotate_about;
+	bsg_view_set_camera(view_state->vs_gvp, &_sr);
+    }
 }
 
 
