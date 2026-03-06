@@ -118,7 +118,9 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     double aspect = (double)width/(double)height;
     bu_vls_sprintf(&wstr, "%.14e", aspect);
     args.push_back(std::string(bu_vls_cstr(&wstr)));
-    if (gedp->ged_gvp->gv_perspective > 0) {
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      if (_cm.perspective > 0) {
+    }
 	struct bsg_camera _cam;
 	bsg_view_get_camera(gedp->ged_gvp, &_cam);
 	args.push_back(std::string("-p"));

@@ -46,7 +46,9 @@ ged_rotate_about_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get "rotate about" point */
     if (argc == 1) {
-	bu_vls_printf(gedp->ged_result_str, "%c", gedp->ged_gvp->gv_rotate_about);
+	{ struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	  bu_vls_printf(gedp->ged_result_str, "%c", _cm.rotate_about);
+	  bsg_view_set_camera(gedp->ged_gvp, &_cm); }
 	return BRLCAD_OK;
     }
 
@@ -57,7 +59,9 @@ ged_rotate_about_core(struct ged *gedp, int argc, const char *argv[])
 	    case 'k':
 	    case 'm':
 	    case 'v':
-		gedp->ged_gvp->gv_rotate_about = argv[1][0];
+		{ struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+		  _cm.rotate_about = argv[1][0];
+		  bsg_view_set_camera(gedp->ged_gvp, &_cm); }
 		return BRLCAD_OK;
 	}
     }

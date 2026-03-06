@@ -146,7 +146,9 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
 
     vbp = rt_vlblock_init();
     MAT_IDN(mat);
-    bn_mat_inv(mat, gedp->ged_gvp->gv_rotation);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      bn_mat_inv(mat, _cm.rotation);
+    }
     scale = gedp->ged_gvp->gv_size / 100;      /* divide by # chars/screen */
     for (i=1; i<argc; i++) {
 	if ((dp = db_lookup(gedp->dbip, argv[i], LOOKUP_NOISY)) == RT_DIR_NULL)

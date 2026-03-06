@@ -33,6 +33,7 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
+#include "bsg/util.h"
 
 #include "../../dbi.h"
 
@@ -244,19 +245,19 @@ main(int ac, char *av[]) {
      * this test we are deliberately testing view settings that have
      * the potential to be challenging in "gimbal lock" positions in
      * multiples of 90 degrees and using non-zero twist components. */
-    VSET(views[0]->gv_aet, 0, 0, 90);
+    { struct bsg_camera _cm; bsg_view_get_camera(views[0], &_cm); VSET(_cm.aet, 0, 0, 90); bsg_view_set_camera(views[0], &_cm); };
     bsg_view_mat_aet(views[0]);
     bsg_view_update(views[0]);
 
-    VSET(views[1]->gv_aet, 90, 90, 180);
+    { struct bsg_camera _cm; bsg_view_get_camera(views[1], &_cm); VSET(_cm.aet, 90, 90, 180); bsg_view_set_camera(views[1], &_cm); };
     bsg_view_mat_aet(views[1]);
     bsg_view_update(views[1]);
 
-    VSET(views[2]->gv_aet, -90, 270, -90);
+    { struct bsg_camera _cm; bsg_view_get_camera(views[2], &_cm); VSET(_cm.aet, -90, 270, -90); bsg_view_set_camera(views[2], &_cm); };
     bsg_view_mat_aet(views[2]);
     bsg_view_update(views[2]);
 
-    VSET(views[3]->gv_aet, 270, -180, 90);
+    { struct bsg_camera _cm; bsg_view_get_camera(views[3], &_cm); VSET(_cm.aet, 270, -180, 90); bsg_view_set_camera(views[3], &_cm); };
     bsg_view_mat_aet(views[3]);
     bsg_view_update(views[3]);
 

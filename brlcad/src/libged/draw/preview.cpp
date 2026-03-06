@@ -132,8 +132,12 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
      */
     VSET(xv, 0.05, 0.0, 0.0);
     VSET(yv, 0.0, 0.05, 0.0);
-    MAT4X3PNT(xm, gedp->ged_gvp->gv_view2model, xv);
-    MAT4X3PNT(ym, gedp->ged_gvp->gv_view2model, yv);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(xm, _cm.view2model, xv);
+    }
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(ym, _cm.view2model, yv);
+    }
     BV_ADD_VLIST(vlfree, vhead, xm, BV_VLIST_LINE_DRAW);
     BV_ADD_VLIST(vlfree, vhead, (*v), BV_VLIST_LINE_MOVE);
     BV_ADD_VLIST(vlfree, vhead, ym, BV_VLIST_LINE_DRAW);
@@ -143,7 +147,9 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
      * For eye to be at 0, 0, 1, the old 0, 0, -1 needs to become 0, 0, 0.
      */
     VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
-    MAT4X3PNT(new_cent, gedp->ged_gvp->gv_view2model, xlate);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(new_cent, _cm.view2model, xlate);
+    }
     {
 	struct bsg_camera cam;
 	bsg_view_get_camera(gedp->ged_gvp, &cam);

@@ -3172,12 +3172,16 @@ to_data_scale(struct ged *gedp,
 	    vect_t diff;
 	    point_t vpoint;
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdasp->gdas_points[i]);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(vpoint, _cm.model2view, gdasp->gdas_points[i]);
+	    }
 	    vcenter[Z] = vpoint[Z];
 	    VSUB2(diff, vpoint, vcenter);
 	    VSCALE(diff, diff, sf);
 	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdasp->gdas_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(gdasp->gdas_points[i], _cm.view2model, vpoint);
+	    }
 	}
     }
 
@@ -3191,12 +3195,16 @@ to_data_scale(struct ged *gedp,
 	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
 	    vect_t diff;
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdlsp->gdls_points[i]);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(vpoint, _cm.model2view, gdlsp->gdls_points[i]);
+	    }
 	    vcenter[Z] = vpoint[Z];
 	    VSUB2(diff, vpoint, vcenter);
 	    VSCALE(diff, diff, sf);
 	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdlsp->gdls_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(gdlsp->gdls_points[i], _cm.view2model, vpoint);
+	    }
 	}
     }
 

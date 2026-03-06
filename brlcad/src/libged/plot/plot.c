@@ -270,7 +270,8 @@ ged_plot_core(struct ged *gedp, int argc, const char *argv[])
 	is_pipe = 0;
     }
 
-    dl_plot(gedp->ged_gvp, fp, gedp->ged_gvp->gv_model2view, floating, gedp->ged_gvp->gv_center, gedp->ged_gvp->gv_scale, Three_D, Z_clip);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      dl_plot(gedp->ged_gvp, fp, _cm.model2view, floating, _cm.center, gedp->ged_gvp->gv_scale, Three_D, Z_clip); }
 
     if (is_pipe)
 	(void)pclose(fp);

@@ -124,7 +124,7 @@ main(int argc, char *argv[])
     bsg_view *v;
     BU_GET(v, bsg_view);
     bsg_view_init(v, NULL);
-    VSET(v->gv_aet, 45, 35, 0);
+    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); VSET(_cm.aet, 45, 35, 0); bsg_view_set_camera(v, &_cm); }
     bsg_view_mat_aet(v);
     v->gv_size = 73.3197;
     v->gv_isize = 1.0 / v->gv_size;

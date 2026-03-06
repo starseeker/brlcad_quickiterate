@@ -344,7 +344,9 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
      * explicitly supplied by one of the above. */
     if (VNEAR_ZERO(nv.center_model, VUNITIZE_TOL)) {
 	bsg_view *bv = gedp->ged_gvp;
-	VSET(nv.center_model, -bv->gv_center[MDX], -bv->gv_center[MDY], -bv->gv_center[MDZ]);
+	{ struct bsg_camera _cm; bsg_view_get_camera(bv, &_cm);
+	  VSET(nv.center_model, -_cm.center[MDX], -_cm.center[MDY], -_cm.center[MDZ]);
+	}
 	/* Because we are preparing an input for the nirt command line, we need
 	 * to convert to local units - lower level logic will be expecting
 	 * those units and convert back. */
@@ -503,7 +505,9 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 
     // calculate the ray direction from the view.
     vect_t dir = VINIT_ZERO;
-    VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      VMOVEN(dir, _cm.rotation + 8, 3);
+    }
     VSCALE(dir, dir, -1.0);
     bu_vls_sprintf(&nirt_cmd, "dir %0.17f %0.17f %0.17f", V3ARGS(dir));
     fprintf(np.fp_in, "%s\n", bu_vls_cstr(&nirt_cmd));
@@ -687,7 +691,9 @@ ged_vnirt_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Calculate point from which to fire ray. */
     VSCALE(view_ray_orig, scan, sf);
-    MAT4X3PNT(center_model, gedp->ged_gvp->gv_view2model, view_ray_orig);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(center_model, _cm.view2model, view_ray_orig);
+    }
     /* Initial center_model value will be in base units, and main nirt
      * evaluation path assumes inputs are in local units, so convert. */
     VSCALE(center_model, center_model, gedp->dbip->dbi_base2local);

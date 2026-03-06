@@ -57,60 +57,60 @@ int CADkeyPressEvent(bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QKeyEv
 	    v->gv_s->gv_view_axes.draw = !v->gv_s->gv_view_axes.draw;
 	    return 1;
 	case '2':
-	    bn_decode_vect(v->gv_aet, "35 -25 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "35 -25 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case '3':
-	    bn_decode_vect(v->gv_aet, "35 25 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "35 25 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case '4':
-	    bn_decode_vect(v->gv_aet, "45 45 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "45 45 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case '5':
-	    bn_decode_vect(v->gv_aet, "145 25 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "145 25 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case '6':
-	    bn_decode_vect(v->gv_aet, "215 25 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "215 25 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case '7':
-	    bn_decode_vect(v->gv_aet, "325 25 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "325 25 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case 'F':
-	    bn_decode_vect(v->gv_aet, "0 0 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "0 0 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case 'T':
-	    bn_decode_vect(v->gv_aet, "270 90 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "270 90 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case 'B':
-	    bn_decode_vect(v->gv_aet, "270 -90 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "270 -90 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case 'L':
-	    bn_decode_vect(v->gv_aet, "90 0 0");
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "90 0 0"); bsg_view_set_camera(v, &_cm); }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
 	    return 1;
 	case 'R':
 	    if (k->modifiers().testFlag(Qt::ShiftModifier) == true) {
-		bn_decode_vect(v->gv_aet, "180 0 0");
+		{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "180 0 0"); bsg_view_set_camera(v, &_cm); }
 	    } else {
-		bn_decode_vect(v->gv_aet, "270 0 0");
+		{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); bn_decode_vect(_cm.aet, "270 0 0"); bsg_view_set_camera(v, &_cm); }
 	    }
 	    bsg_view_mat_aet(v);
 	    bsg_view_update(v);
@@ -299,7 +299,7 @@ int CADmouseMoveEvent(bsg_view *v, int x_prev, int y_prev, QMouseEvent *e, int m
     // based on which mod keys are set to allow bsg_view_adjust to
     // do the correct math.
     point_t center;
-    MAT_DELTAS_GET_NEG(center, v->gv_center);
+    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); MAT_DELTAS_GET_NEG(center, _cm.center); }
     return bsg_view_adjust(v, dx, dy, center, 0, view_flags);
 
 }
