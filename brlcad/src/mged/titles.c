@@ -32,6 +32,7 @@
 #include "ged.h"
 
 #include "./mged.h"
+#include "bsg/util.h"
 #include "./sedit.h"
 #include "./mged_dm.h"
 #include "./menu.h"
@@ -285,19 +286,21 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
     }
 
     /* take some care here to avoid buffer overrun */
-    tmp_val = -view_state->vs_gvp->gv_center[MDX]*s->dbip->dbi_base2local;
+    struct bsg_camera _tc;
+    bsg_view_get_camera(view_state->vs_gvp, &_tc);
+    tmp_val = -_tc.center[MDX]*s->dbip->dbi_base2local;
     if (fabs(tmp_val) < 10e70) {
 	sprintf(cent_x, "%.3f", tmp_val);
     } else {
 	sprintf(cent_x, "%.3g", tmp_val);
     }
-    tmp_val = -view_state->vs_gvp->gv_center[MDY]*s->dbip->dbi_base2local;
+    tmp_val = -_tc.center[MDY]*s->dbip->dbi_base2local;
     if (fabs(tmp_val) < 10e70) {
 	sprintf(cent_y, "%.3f", tmp_val);
     } else {
 	sprintf(cent_y, "%.3g", tmp_val);
     }
-    tmp_val = -view_state->vs_gvp->gv_center[MDZ]*s->dbip->dbi_base2local;
+    tmp_val = -_tc.center[MDZ]*s->dbip->dbi_base2local;
     if (fabs(tmp_val) < 10e70) {
 	sprintf(cent_z, "%.3f", tmp_val);
     } else {
@@ -323,7 +326,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	       (char *)bu_units_string(s->dbip->dbi_local2base), TCL_GLOBAL_ONLY);
 
     bu_vls_trunc(&vls, 0);
-    bu_vls_printf(&vls, "az=%3.2f  el=%3.2f  tw=%3.2f", V3ARGS(view_state->vs_gvp->gv_aet));
+    bu_vls_printf(&vls, "az=%3.2f  el=%3.2f  tw=%3.2f", V3ARGS(_tc.aet));
     Tcl_SetVar(s->interp, bu_vls_addr(&s->mged_curr_dm->dm_aet_name),
 	       bu_vls_addr(&vls), TCL_GLOBAL_ONLY);
 
@@ -345,7 +348,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	point_t lines[2*4];	/* up to 4 lines to draw */
 	int num_lines=0;
 
-	if (view_state->vs_gvp->gv_perspective <= 0)
+	if (_tc.perspective <= 0)
 	    bn_mat_mul(xform, view_state->vs_model2objview, MEDIT(s)->e_mat);
 	else {
 	    mat_t tmat;
@@ -507,7 +510,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	bu_vls_printf(&vls,
 		      " cent=(%s, %s, %s), %s %s, ", cent_x, cent_y, cent_z,
 		      size, bu_units_string(s->dbip->dbi_local2base));
-	bu_vls_printf(&vls, "az=%3.2f el=%3.2f tw=%3.2f ang=(%s, %s, %s)", V3ARGS(view_state->vs_gvp->gv_aet),
+	bu_vls_printf(&vls, "az=%3.2f el=%3.2f tw=%3.2f ang=(%s, %s, %s)", V3ARGS(_tc.aet),
 		      ang_x, ang_y, ang_z);
 	dm_set_fg(DMP,
 		       color_scheme->cs_status_text1[0],
