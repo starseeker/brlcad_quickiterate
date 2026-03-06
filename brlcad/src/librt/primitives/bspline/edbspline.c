@@ -41,6 +41,7 @@
 #include "rt/geom.h"
 #include "wdb.h"
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_VTRANS		9017	/* vertex translate */
 #define ECMD_SPLINE_VPICK       9018	/* vertex pick via mouse proximity */
@@ -648,6 +649,11 @@ rt_edit_bspline_edit_xy(
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
+    struct rt_db_internal *ip = &s->es_int;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
+    bu_clbk_t f = NULL;
+    void *d = NULL;
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
@@ -675,10 +681,10 @@ rt_edit_bspline_edit_xy(
 	     * project result back to model space.
 	     * Leave desired location in s->e_mparam.
 	     */
-	    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+	    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+	    MAT4X3PNT(temp, _cam.view2model, pos_view);
 	    MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
 	    s->e_mvalid = 1;      /* s->e_mparam is valid */
 	    /* Leave the rest to code in ft_edit */
