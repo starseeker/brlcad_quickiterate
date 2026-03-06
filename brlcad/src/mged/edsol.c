@@ -563,8 +563,24 @@ init_sedit(struct mged_state *s)
 
     struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
-    // TODO - fix
-    // MEDIT(s) = rt_edit_create(&bdata->s_fullpath, s->dbip, &s->tol.tol, view_state->vs_gvp);
+    /* Destroy any previous rt_edit state and create a fresh one for this solid.
+     * This replaces the blank rt_edit created at startup (or from a prior edit).
+     * The Tcl "edit_solid_flag" link must be re-established on the new struct. */
+    if (MEDIT(s)) {
+	Tcl_UnlinkVar(s->interp, "edit_solid_flag");
+	rt_edit_destroy(MEDIT(s));
+    }
+    MEDIT(s) = rt_edit_create(&bdata->s_fullpath, s->dbip, &s->tol.tol, view_state->vs_gvp);
+    if (!MEDIT(s)) {
+	Tcl_AppendResult(s->interp, "init_sedit(",
+			 LAST_SOLID(bdata)->d_namep,
+			 "):  solid import failure\n", (char *)NULL);
+	return;
+    }
+    Tcl_LinkVar(s->interp, "edit_solid_flag", (char *)&MEDIT(s)->edit_flag, TCL_LINK_INT);
+    MEDIT(s)->mv_context = mged_variables->mv_context;
+    MEDIT(s)->vlfree = &rt_vlfree;
+    mged_edit_clbk_sync(MEDIT(s), s);
 
     /* Finally, enter solid edit state */
     (void)chg_state(s, ST_S_PICK, ST_S_EDIT, "Keyboard illuminate");
@@ -1224,8 +1240,10 @@ sedit_apply(struct mged_state *s, int accept_flag)
 
 	rt_db_free_internal(&MEDIT(s)->es_int);
     } else {
-	/* XXX hack to restore MEDIT(s)->es_int after rt_db_put_internal blows it away */
-	/* Read solid description into MEDIT(s)->es_int again! Gaak! */
+	/* rt_db_put_internal frees the internal representation as a side effect.
+	 * Since we are in "apply but stay editing" mode (sed_apply command),
+	 * we need es_int to remain valid so the user can keep editing.
+	 * Re-read the solid from disk to restore a clean internal state. */
 	if (rt_db_get_internal(&MEDIT(s)->es_int, LAST_SOLID(bdata),
 			       s->dbip, NULL, &rt_uniresource) < 0) {
 	    Tcl_AppendResult(s->interp, "sedit_apply(",
@@ -1386,7 +1404,8 @@ f_param(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
 /*
  * Put labels on the vertices of the currently edited solid.
- * XXX This really should use import/export interface! Or be part of it.
+ * Dispatches to the per-primitive ft_labels callback (EDOBJ table),
+ * falling back to the generic librt ft_labels if no edit-specific one exists.
  */
 void
 label_edited_solid(
@@ -1620,7 +1639,9 @@ f_put_sedit(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
     uint32_t save_magic;
     int context;
 
-    /*XXX needs better argument checking */
+    /* TODO: argument count check only enforces a minimum; type-specific
+     * validation (correct number of parameters for the chosen primitive)
+     * is not yet performed. */
     if (argc < 6) {
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 

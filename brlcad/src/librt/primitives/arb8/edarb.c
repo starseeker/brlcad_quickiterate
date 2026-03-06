@@ -64,9 +64,11 @@ rt_edit_arb_prim_edit_destroy(struct rt_arb8_edit *a)
 void
 rt_edit_arb_set_edit_mode(struct rt_edit *UNUSED(s), int UNUSED(mode))
 {
-    // TODO - the multiple menu structure of ARB8 will make this callback
-    // tricky.  May actually want to set up ECMDs for all individual faces
-    // and edges so we can adjust how the logic flows for this...
+    /* ARB8 uses its own per-type sub-menus (arb8_edge, arb8_mv_face, etc.)
+     * that directly set edit_flag and edit_menu via their own handlers.
+     * The generic ft_set_edit_mode entry point is intentionally empty here:
+     * mode selection for ARB8 goes through the nested menu hierarchy rather
+     * than through this single callback. */
 }
 
 static void
@@ -742,11 +744,12 @@ rt_edit_arb_write_params(
        	const struct bn_tol *tol,
 	fastf_t base2local)
 {
-    // TODO - these really should be stashed in a private arb editing struct so
-    // they can persist until the read_params call...
-    static int uvec[8];
-    static int svec[11];
-    static int cgtype = 8;
+    /* uvec, svec and cgtype are purely local scratch; write_params is only
+     * ever called during a tedit session that immediately reads the file back
+     * via read_params, so there is no need for these to persist across calls. */
+    int uvec[8];
+    int svec[11];
+    int cgtype = 8;
     struct rt_arb_internal *arb = (struct rt_arb_internal *)ip->idb_ptr;
     RT_ARB_CK_MAGIC(arb);
 
@@ -1565,7 +1568,11 @@ arb_extrude(struct rt_arb_internal *arb,
     a4toa6:
 	    ext4to6(pt[0], pt[1], pt[2], &larb, peqn);
 	    type = ARB6;
-	    /* TODO - solid edit menu was called here in MGED - why? */
+	    /* When ARB4→ARB6 extrusion changes the solid type, vanilla MGED called
+	     * sedit_menu() here to install the ARB6-specific editing menu.  In the
+	     * reworked architecture this would be done via an ECMD_MENU_REFRESH
+	     * callback (not yet implemented); for now, the menu will refresh on the
+	     * next accept/reselect cycle. */
 	    break;
 
 	case 1680:   /* protrude face 5678 */

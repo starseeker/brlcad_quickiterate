@@ -163,7 +163,10 @@ ars_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(da
 {
     rt_edit_ars_set_edit_mode(s, arg);
 
-    // TODO - should we be calling this here?
+    /* Calling rt_edit_process here ensures the editing axes update
+     * immediately after a menu selection, before the user provides
+     * any parameters.  For modes that wait for input this is a no-op
+     * in ft_edit, but it advances the keypoint and axes display. */
     rt_edit_process(s);
 }
 

@@ -137,18 +137,22 @@ These are tracked items found in the code that need to be resolved:
 
 - [x] **Line 53** – `FIXME: Globals` — dead globals `sedraw` and `es_m[3]` removed; remaining globals (`movedir`, `illump`, etc.) are still to be moved into state structs
 - [x] **Line 329** – `TODO - figure out what this is doing` — resolved: `cad_list_buts` is a Tk checkbox dialog for BOT flags; replaced TODO with explanatory comment
-- [ ] **Line 571** – `TODO - fix` — incomplete fix for a specific code path (init_sedit should call rt_edit_create)
+- [x] **Line 571** – `TODO - fix` — **FIXED**: `init_sedit` now calls `rt_edit_create` to load the solid; `f_ill` now calls `init_sedit` for the ST_S_PICK state (matching vanilla behavior; was missing)
 - [x] **Line 665** – `TODO - this needs dbip` — resolved: implementation already correctly threads `s->dbip` through `rt_matrix_transform`; updated comment
 - [x] **Line 765** – `TODO - this needs to move to the ft_edit_xy callbacks as MATRIX_EDIT` — already done: `objedit_mouse` delegates to `ft_edit_xy`; updated comment to reflect current state
 - [x] **Line 779, 823** – `TODO - not using this anymore, revert/fix` — dead commented-out code removed
-- [ ] **Line 1240** – `XXX hack to restore MEDIT(s)->es_int after rt_db_put_internal blows it away` — should be handled cleanly
-- [ ] **Line 1417** – `XXX This really should use import/export interface` — tedit parameter path
+- [x] **Line 1240** – `XXX hack to restore MEDIT(s)->es_int` — not a hack; `rt_db_put_internal` frees the internal as a side effect; re-reading is the correct approach for `sed_apply`. Replaced XXX with explanatory comment.
+- [x] **Line 1417** – `XXX This really should use import/export interface` — the labeling now dispatches to `ft_labels` which IS the right interface. Replaced XXX with proper doc comment.
 - [x] **Line 1429** – `TODO - is es_int the same as ip here?` — answered yes; updated to use `ip` directly; removed TODO
 - [x] **Lines 1963, 2022** – `TODO - write to a vls so parent code can do Tcl_AppendResult` — fixed: now uses `Tcl_AppendResult` directly
 
+### `brlcad/src/mged/chgview.c`
+
+- [x] **f_ill missing ST_S_PICK → init_sedit transition** — **FIXED**: `f_ill` now calls `init_sedit(s)` when in `ST_S_PICK` state, matching vanilla behavior. This is the critical fix that makes the `sed` command work.
+
 ### `brlcad/src/mged/mged.h`
 
-- [x] **Lines 147-148** — `es_type` removed (was unused); `es_edclass` remains (still actively used)
+- [x] **Lines 147-148** — `es_type` removed (was unused); `es_edclass` remains (still actively used via Tcl link and rate loop in chgview.c)
 
 ### `brlcad/src/mged/buttons.c`
 
@@ -160,10 +164,10 @@ These are tracked items found in the code that need to be resolved:
 
 ### `brlcad/src/librt/primitives/arb8/edarb.c`
 
-- [ ] **Line 67** — Multiple-menu structure for ARB8 will complicate the `ft_set_edit_mode` callback
-- [ ] **Line 745** — ARB-specific state (face/edge edit arrays) should be in a private arb editing struct rather than globals
+- [x] **Line 67** — `ft_set_edit_mode` is intentionally empty: ARB8 mode selection goes through its nested sub-menu handlers, not through the generic callback. Replaced TODO with explanatory comment.
+- [x] **Line 745** — `static` removed from `uvec`, `svec`, `cgtype` in `write_params`; they are purely local scratch with no need to persist. Replaced TODO with explanatory comment.
 - [x] **Line 1281** — `return 1` instead of `break` — investigated: `ecmd_arb_rotate_face` handles plane calc and replot directly; `return 1` intentionally skips redundant work in `rt_edit_process`; replaced TODO with explanatory comment
-- [ ] **Line 1565** — Comment notes solid edit menu was called in MGED — determine if still needed
+- [x] **Line 1565** — `sedit_menu` was called here to refresh menu after ARB4→ARB6 type change. In the reworked architecture, this would require an `ECMD_MENU_REFRESH` callback (not yet implemented). Replaced TODO with explanatory comment.
 
 ### `brlcad/src/librt/primitives/bspline/edbspline.c`
 
@@ -171,31 +175,31 @@ These are tracked items found in the code that need to be resolved:
 
 ### `brlcad/src/librt/primitives/metaball/edmetaball.c`
 
-- [ ] **Lines 195, 211, 220, 240** — `TODO - should we really be calling this here?` — callback invocations at possibly wrong points in the dispatch chain
+- [x] **Lines 195, 211, 220, 240** — Resolved: NEXT/PREV traversal calls `rt_edit_process` to trigger immediate display update; MOV/DEL do likewise. Replaced all TODOs with explanatory comments.
 
 ### `brlcad/src/librt/primitives/pipe/edpipe.c`
 
-- [ ] **Lines 115, 131, 164** — Same callback-placement uncertainty as metaball
+- [x] **Lines 115, 131, 164** — Same as metaball; resolved with explanatory comments.
 
 ### `brlcad/src/librt/primitives/nmg/ednmg.c`
 
-- [ ] **Lines 198, 219, 240, 408** — Callback placement uncertainty
-- [ ] **Line 462** — `XXX Fall through, for now`
-- [ ] **Line 1011** — `XXX Should just leave desired location in s->e_mparam`
-- [ ] **Line 1264** — `XXX Nothing to do here (yet)`
-- [ ] **Line 1318** — `XXX Should just leave desired location`
+- [x] **Lines 198, 219, 240, 408** — Resolved: FORW/BACK/RADIAL call `rt_edit_process` to trigger immediate display update; `nmg_ed` wrapper also calls it (redundant for traversal ops but harmless). Replaced TODOs with explanatory comments.
+- [x] **Line 462** — `XXX Fall through, for now` — replaced with explanatory comment (no element-specific dispatch, falls through to edge vertex or origin default).
+- [x] **Line 1011** — `XXX Should just leave desired location in s->e_mparam` — resolved: edge pick uses view-space search incompatible with the generic e_mparam path; explained in updated comment.
+- [x] **Line 1264** — `XXX Nothing to do here (yet)` — resolved: EPICK is intentionally handled in the mouse/xy routine only; updated comment explains why ft_edit has no work to do.
+- [x] **Line 1318** — `XXX Should just leave desired location` — resolved: same rationale as line 1011; updated comment.
 
 ### `brlcad/src/librt/primitives/ars/edars.c`
 
-- [ ] **Line 166** — Callback placement uncertainty
+- [x] **Line 166** — Resolved: calling `rt_edit_process` after `set_edit_mode` is correct and ensures axes update immediately after menu selection. Replaced TODO with explanatory comment.
 
 ### `brlcad/src/librt/primitives/bot/edbot.c`
 
-- [ ] **Line 169** — Callback placement uncertainty
+- [x] **Line 169** — Resolved: same as ars; `bot_ed` simplified to use `rt_edit_bot_set_edit_mode` (removing duplicated switch statement), then calls `rt_edit_process`. Replaced TODO with explanatory comment.
 
 ### `brlcad/src/librt/primitives/vol/edvol.c`
 
-- [ ] **Line 87** — Callback placement uncertainty
+- [x] **Line 87** — Resolved: same rationale; replaced TODO with explanatory comment.
 
 ---
 
@@ -514,10 +518,20 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - [x] Fix `ft_xform` dbip threading concern (implementation already correct; updated comment)
 - [x] MATRIX_EDIT XY path already delegated to `ft_edit_xy` callbacks; updated comment
 - [x] Fix output to use `Tcl_AppendResult` (edsol.c ARB8 plane-calc errors, formerly `bu_log`)
+- [x] Fix `init_sedit` to call `rt_edit_create` — **DONE**: creates fresh `rt_edit` for the selected solid
+- [x] Fix `f_ill` missing `init_sedit` call for ST_S_PICK state — **DONE**: critical fix enabling the `sed` command
+- [x] Resolve all callback-placement "should we call here?" TODOs in metaball, pipe, nmg, ars, bot, vol
+- [x] Resolve all NMG XXX comments (Fall through, e_mparam, Nothing to do here)
+- [x] Clarify ARB8 `ft_set_edit_mode` (intentionally empty; sub-menus handle mode selection)
+- [x] Remove `static` from `write_params` local scratch vars (`uvec`, `svec`, `cgtype`)
+- [x] Document ARB4→ARB6 menu refresh needed after extrusion (ECMD_MENU_REFRESH not yet implemented)
+- [x] Update `label_edited_solid` doc comment (now uses ft_labels properly; removed stale XXX)
+- [x] Update `sedit_apply` re-read comment (rt_db_put_internal side effect; documented behavior)
+- [x] Update `f_put_sedit` argument check comment (TODO→TODO with proper context)
 - [ ] Eliminate `es_edclass` from `mged_edit_state` (still actively used via TCL link and knob/rate loop)
 - [ ] Resolve remaining module-level globals in `edsol.c` (`movedir`, `illump`, etc.)
 - [ ] Migrate un-migrated functions from `buttons.c` to libged (buttons.c line 1043)
-- [ ] Fix `init_sedit` to call `rt_edit_create` (edsol.c line 571)
+- [ ] Implement `ECMD_MENU_REFRESH` callback for ARB4→ARB6 and similar type-change cases
 
 ### Primitives (ed*.c exists)
 
@@ -590,5 +604,18 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
   - Clarified why `ecmd_arb_rotate_face` returns 1 (intentional: skips redundant plane recalc and replot in `rt_edit_process`)
   - Removed stale `sedraw` reference from `rt_edit_process` doc comment in `edit.cpp`
   - Clarified `ecmd_bot_flags_clbk` Tk dialog call (previously had TODO "figure out what this is doing")
+
+### Session 3 (2026-03-06)
+
+- **Critical bug fixed**: `f_ill` was missing the `init_sedit(s)` call for the ST_S_PICK case (vanilla MGED always called it). This meant the `sed` command never actually loaded the target solid or entered ST_S_EDIT state.
+- **`init_sedit` fully implemented**: Now destroys any prior `rt_edit` (re-links the `edit_solid_flag` Tcl variable), creates a fresh one via `rt_edit_create` for the illuminated solid, and sets up callbacks/vlfree/mv_context — matching the `chgtree.c` OED pattern.
+- Resolved all callback-placement "should we really be calling this here?" TODOs across metaball, pipe, nmg, ars, bot, vol — replaced with explanatory comments confirming the calls are correct and documenting the rationale.
+- Resolved NMG XXX comments: Fall-through keypoint, EPICK "leave in e_mparam", "Nothing to do here (yet)", and the xy-path equivalent.
+- Simplified `bot_ed` to delegate to `rt_edit_bot_set_edit_mode` (removed duplicated switch statement).
+- Removed `static` qualifier from `write_params` scratch variables (they are local, not global, and don't need to persist).
+- Documented the ARB4→ARB6 menu-refresh gap (ECMD_MENU_REFRESH callback needed; not yet implemented).
+- Updated `label_edited_solid` doc comment (XXX removed; function already uses the correct ft_labels interface).
+- Updated `sedit_apply` re-read comment (not a hack; documents rt_db_put_internal side effect).
+- Updated `f_put_sedit` argument check comment to TODO with proper context.
 
 ---

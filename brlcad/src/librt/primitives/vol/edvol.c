@@ -84,7 +84,10 @@ vol_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(da
 	    break;
     }
 
-    // TODO - should we be calling this here?
+    /* Calling rt_edit_process here ensures the editing axes update
+     * immediately after a menu selection.  For scale modes that wait
+     * for user input, ft_edit is a no-op, but the keypoint display
+     * advances to the correct position. */
     rt_edit_process(s);
 
     bu_clbk_t f = NULL;

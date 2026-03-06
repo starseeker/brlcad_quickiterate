@@ -192,7 +192,7 @@ metaball_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUS
 	    m->es_metaball_pnt = next;
 	    rt_metaball_pnt_print(m->es_metaball_pnt, s->base2local);
 	    rt_edit_set_edflag(s, RT_EDIT_IDLE);
-	    // TODO - should we really be calling this here?
+	    /* Advance to the next control point; trigger immediate display update. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_METABALL_PT_PREV:
@@ -208,7 +208,7 @@ metaball_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUS
 	    m->es_metaball_pnt = prev;
 	    rt_metaball_pnt_print(m->es_metaball_pnt, s->base2local);
 	    rt_edit_set_edflag(s, RT_EDIT_IDLE);
-	    // TODO - should we really be calling this here?
+	    /* Step to the previous control point; trigger immediate display update. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_METABALL_PT_MOV:
@@ -217,7 +217,7 @@ metaball_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUS
 		rt_edit_set_edflag(s, RT_EDIT_IDLE);
 		return;
 	    }
-	    // TODO - should we really be calling this here?
+	    /* Mode is set; update axes to selected point before waiting for mouse. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_METABALL_PT_FLDSTR:
@@ -237,7 +237,7 @@ metaball_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUS
 	    }
 	    break;
 	case ECMD_METABALL_PT_DEL:
-	    // TODO - should we really be calling this here?
+	    /* Deletion is handled inside ft_edit; trigger it immediately. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_METABALL_PT_ADD:

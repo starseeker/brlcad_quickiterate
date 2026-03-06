@@ -112,7 +112,7 @@ rt_edit_pipe_set_edit_mode(struct rt_edit *s, int mode)
 	    p->es_pipe_pnt = next;
 	    rt_pipe_pnt_print(p->es_pipe_pnt, s->base2local);
 	    rt_edit_set_edflag(s, RT_EDIT_IDLE);
-	    // TODO - should we really be calling this here?
+	    /* Advance to the next pipe point; trigger immediate display update. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_PIPE_PREV_PT:
@@ -128,7 +128,7 @@ rt_edit_pipe_set_edit_mode(struct rt_edit *s, int mode)
 	    p->es_pipe_pnt = prev;
 	    rt_pipe_pnt_print(p->es_pipe_pnt, s->base2local);
 	    rt_edit_set_edflag(s, RT_EDIT_IDLE);
-	    // TODO - should we really be calling this here?
+	    /* Step to the previous pipe point; trigger immediate display update. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_PIPE_PT_MOVE:
@@ -161,7 +161,7 @@ rt_edit_pipe_set_edit_mode(struct rt_edit *s, int mode)
 	    s->edit_mode = RT_PARAMS_EDIT_TRANS;
 	    break;
 	case ECMD_PIPE_PT_DEL:
-	    // TODO - should we really be calling this here?
+	    /* Deletion is handled inside ft_edit; trigger it immediately. */
 	    rt_edit_process(s);
 	    break;
     }

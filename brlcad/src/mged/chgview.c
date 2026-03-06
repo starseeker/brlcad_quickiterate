@@ -1113,6 +1113,9 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	if (s->global_editing_state == ST_O_PICK) {
 	    ipathpos = 0;
 	    (void)chg_state(s, ST_O_PICK, ST_O_PATH, "Keyboard illuminate");
+	} else {
+	    /* Check details, init menu, set state=ST_S_EDIT */
+	    init_sedit(s);
 	}
     }
 
