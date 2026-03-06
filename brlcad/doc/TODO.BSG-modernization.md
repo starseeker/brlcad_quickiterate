@@ -527,7 +527,19 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
 5. **Phase 2e** (display_list decommission):
    - Migrate `libged/display_list.c` shapes to scene-root children.
    - Remove `dl_head_scene_obj` linked list from `display_list` struct.
-   - Update `mged` callers.
+   - Update `mged` callers. (**COMPLETE**: buttons.c, chgtree.c, chgview.c, cmd.c,
+     edsol.c, plot.c, rtif.c, usepen.c, set.c migrated to `root->children`.)
+   - Update `libged` callers. (**COMPLETE**: zap.c, illum.c, solid_report.c,
+     ged_util.cpp, how.c, nirt.cpp, select.c, set_transparency.c, rtcheck.c,
+     ps.c, png.c, nmg.c, view/objs.cpp, plot/plot.c, bot/dump/bot_dump.cpp,
+     libtclcad/view/draw.c migrated.)
+   - Remaining for final decommission: display_list.c (27 uses, core
+     infrastructure), dodraw.c (3 dual-write insertions), draw/draw.c (2
+     insertions + 1 gdlp-scoped read), dozoom.c (1 callback), commands.c (1
+     callback), zap.c (1 freeing loop), vutil.c (1 public API), dm-gl.c (1
+     rendering), dm-generic.c (1 public API), libbv/hash.c (1 public API → use
+     bsg_dl_hash). Once all insertion sites are removed the `dl_head_scene_obj`
+     field can be dropped from `struct display_list`.
 
 ---
 

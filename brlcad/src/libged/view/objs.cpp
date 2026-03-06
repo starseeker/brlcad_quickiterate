@@ -564,56 +564,51 @@ _view_cmd_old_obj(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_OK;
     }
 
-    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
-    struct display_list *gdlp = BU_LIST_NEXT(display_list, hdlp);
+    bsg_shape *root = bsg_scene_root_get(gedp->ged_gvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
     struct directory **tmp_dpp = NULL;
     size_t i;
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	bsg_shape *sp;
-	struct display_list *next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    const struct ged_bv_data *bdata = (const struct ged_bv_data *)sp->s_u_data;
-	    for (i = 0, tmp_dpp = dpp;
-		    i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
-		    ++i, ++tmp_dpp) {
-		if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
-		    break;
-	    }
-
-	    if (!tmp_dpp || *tmp_dpp != RT_DIR_NULL)
-		continue;
-
-	    switch (sp->s_os->s_dmode) {
-		case _GED_WIREFRAME:
-		    bu_vls_printf(gedp->ged_result_str, "wireframe");
-		    break;
-		case _GED_SHADED_MODE_BOTS:
-		case _GED_SHADED_MODE_ALL:
-		    bu_vls_printf(gedp->ged_result_str, "shaded");
-		    break;
-		case _GED_BOOL_EVAL:
-		    bu_vls_printf(gedp->ged_result_str, "evaluated");
-		    break;
-		case _GED_HIDDEN_LINE:
-		    bu_vls_printf(gedp->ged_result_str, "hidden_line");
-		    break;
-		case _GED_SHADED_MODE_EVAL:
-		    bu_vls_printf(gedp->ged_result_str, "shaded_evaluated");
-		    break;
-		case _GED_WIREFRAME_EVAL:
-		    bu_vls_printf(gedp->ged_result_str, "shaded_evaluated");
-		    break;
-		default:
-		    bu_vls_printf(gedp->ged_result_str, "unknown");
-		    break;
-	    };
-
-	    return BRLCAD_OK;
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data)
+	    continue;
+	const struct ged_bv_data *bdata = (const struct ged_bv_data *)sp->s_u_data;
+	for (i = 0, tmp_dpp = dpp;
+		i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
+		++i, ++tmp_dpp) {
+	    if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
+		break;
 	}
 
-	gdlp = next_gdlp;
+	if (!tmp_dpp || *tmp_dpp != RT_DIR_NULL)
+	    continue;
+
+	switch (sp->s_os->s_dmode) {
+	    case _GED_WIREFRAME:
+		bu_vls_printf(gedp->ged_result_str, "wireframe");
+		break;
+	    case _GED_SHADED_MODE_BOTS:
+	    case _GED_SHADED_MODE_ALL:
+		bu_vls_printf(gedp->ged_result_str, "shaded");
+		break;
+	    case _GED_BOOL_EVAL:
+		bu_vls_printf(gedp->ged_result_str, "evaluated");
+		break;
+	    case _GED_HIDDEN_LINE:
+		bu_vls_printf(gedp->ged_result_str, "hidden_line");
+		break;
+	    case _GED_SHADED_MODE_EVAL:
+		bu_vls_printf(gedp->ged_result_str, "shaded_evaluated");
+		break;
+	    case _GED_WIREFRAME_EVAL:
+		bu_vls_printf(gedp->ged_result_str, "shaded_evaluated");
+		break;
+	    default:
+		bu_vls_printf(gedp->ged_result_str, "unknown");
+		break;
+	};
+
+	return BRLCAD_OK;
     }
 
     // If we got this far, something wasn't right - either we couldn't find the
