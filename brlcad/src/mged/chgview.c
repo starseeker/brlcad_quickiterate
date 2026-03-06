@@ -2672,7 +2672,6 @@ mged_escale(struct mged_state *s, fastf_t sfactor)
 	}
 
 	MEDIT(s)->update_views = s->update_views;
-	sedraw = 0;
 	rt_edit_process(MEDIT(s));
 	s->update_views = MEDIT(s)->update_views;
 

@@ -1278,7 +1278,10 @@ rt_edit_arb_edit(struct rt_edit *s)
 	    ret = ecmd_arb_rotate_face(s);
 	    if (ret)
 		return ret;
-	    return 1; // TODO - why is this a return rather than a break (skips rt_edit_process finalization)
+	    /* ecmd_arb_rotate_face handles plane calc and replot directly;
+	     * return 1 to signal rt_edit_process to skip its post-dispatch
+	     * switch (avoiding a redundant arb_planecalc and replot). */
+	    return 1;
 	case PTARB:     /* move an ARB point */
 	case EARB:      /* edit an ARB edge */
 	    return edit_arb_element(s);

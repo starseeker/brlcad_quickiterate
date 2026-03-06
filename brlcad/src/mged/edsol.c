@@ -50,12 +50,6 @@
 
 static void init_sedit_vars(struct mged_state *), init_oedit_vars(struct mged_state *), init_oedit_guts(struct mged_state *);
 
-// FIXME:  Globals
-/* data for solid editing */
-int sedraw;	/* apply solid editing changes */
-
-fastf_t es_m[3];		/* edge(line) slope */
-
 /* if (!both) then set only MEDIT(s)->curr_e_axes_pos, otherwise
    set e_axes_pos and MEDIT(s)->curr_e_axes_pos */
 int
@@ -326,7 +320,8 @@ ecmd_bot_flags_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUS
 	cur_settings[5] = '1';
 
     if (dm_get_pathname(DMP)) {
-	// TODO - figure out what this is doing...
+	/* Invoke a Tk checkbox dialog to let the user toggle the two BOT flags.
+	 * The result is stored as a two-element list in _bot_flags_result (e.g. "1 0"). */
 	ret_tcl = Tcl_VarEval(s->interp,
 		"cad_list_buts",
 		" .bot_list_flags ",
@@ -662,10 +657,11 @@ replot_editing_solid(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNU
 }
 
 
-/* TODO - this needs dbip because the ft_xform routines are calling ft_export and ft_import
- * under the hood.  Could we get away with a null dbip?  We shouldn't be writing intermediate
- * solids to the disk, unless this routine is also responsible for writing out geometry.
- */ 
+/*
+ * Apply a matrix transform to an editing solid.  s->dbip is threaded
+ * through to rt_matrix_transform so the ft_xform import/export routines
+ * have database context they need.
+ */
 void
 transform_editing_solid(
     struct mged_state *s,
@@ -733,7 +729,7 @@ get_sketch_name(struct mged_state *s, const char *sk_n)
  * In order to allow the "p" command to do the same things that
  * a mouse event can, the preferred strategy is to store the value
  * corresponding to what the "p" command would give in MEDIT(s)->e_mparam,
- * set MEDIT(s)->e_mvalid = 1, set sedraw = 1, and return, allowing sedit(s)
+ * set MEDIT(s)->e_mvalid = 1, and return, allowing sedit(s)
  * to actually do the work.
  */
 void
@@ -760,25 +756,18 @@ sedit_mouse(struct mged_state *s, const vect_t mousevec)
 }
 
 /*
- * Object Edit
+ * Object Edit mouse handler.
  *
- * TODO - this needs to move to the ft_edit_xy callbacks as MATRIX_EDIT
- * cases.  If handled properly, both sedit_mouse and objedit_mouse should
- * pretty much collapse into one function.
+ * Sets the appropriate RT_MATRIX_EDIT_* flag from movedir/edobj and
+ * delegates to the primitive's ft_edit_xy callback.  The ft_edit_xy
+ * implementations handle both solid-edit and matrix-edit modes through
+ * the same edit_flag dispatch path in edit_generic_xy().
  */
 void
 objedit_mouse(struct mged_state *s, const vect_t mousevec)
 {
-    /* Local incremental transform for this mouse action */
-    mat_t incr_mat;
-    MAT_IDN(incr_mat);
-
     /* Maintain legacy invariant: incr_change starts (and ends) identity */
     MAT_IDN(MEDIT(s)->incr_change);
-
-    // TODO - not using this anymore, revert/fix
-//    struct saved_edflags sf = SAVED_EDFLAGS_INIT;
-//    save_edflags(&sf, s);
 
     if (movedir & SARROW) {
 	switch (edobj) {
@@ -820,8 +809,6 @@ objedit_mouse(struct mged_state *s, const vect_t mousevec)
 	}
     }
 
-    // TODO - not using this anymore, revert/fix
-    //restore_edflags(s, &sf);
     new_edit_mats(s);
 }
 
@@ -1274,13 +1261,6 @@ sedit_accept(struct mged_state *s)
 	return;
     }
 
-    if (sedraw > 0) {
-	MEDIT(s)->update_views = s->update_views;
-	sedraw = 0;
-	rt_edit_process(MEDIT(s));
-	s->update_views = MEDIT(s)->update_views;
-    }
-
     (void)sedit_apply(s, 1);
 }
 
@@ -1290,13 +1270,6 @@ sedit_reject(struct mged_state *s)
 {
     if (not_state(s, ST_S_EDIT, "Solid edit reject") || !illump) {
 	return;
-    }
-
-    if (sedraw > 0) {
-	MEDIT(s)->update_views = s->update_views;
-	sedraw = 0;
-	rt_edit_process(MEDIT(s));
-	s->update_views = MEDIT(s)->update_views;
     }
 
     /* Restore the original solid everywhere */
@@ -1358,7 +1331,6 @@ mged_param(struct mged_state *s, Tcl_Interp *interp, int argc, fastf_t *argvect)
     }
 
     MEDIT(s)->update_views = s->update_views;
-    sedraw = 0;
     rt_edit_process(MEDIT(s));
     s->update_views = MEDIT(s)->update_views;
 
@@ -1426,7 +1398,7 @@ label_edited_solid(
     const mat_t xform,
     struct rt_db_internal *ip)
 {
-    // TODO - is es_int the same as ip here?  If not, why not?
+    /* ip is always &MEDIT(s)->es_int (see titles.c call site) */
     RT_CK_DB_INTERNAL(ip);
 
     // First, see if we have an edit-aware labeling method.  If we do, use it.
@@ -1441,7 +1413,7 @@ label_edited_solid(
     }
     // If there is no editing-aware labeling, use standard librt labels
     if (OBJ[ip->idb_type].ft_labels) {
-	OBJ[ip->idb_type].ft_labels(pl, max_pl, xform, &MEDIT(s)->es_int, &s->tol.tol);
+	OBJ[ip->idb_type].ft_labels(pl, max_pl, xform, ip, &s->tol.tol);
 	return;
     }
 
@@ -1810,13 +1782,6 @@ f_sedit_apply(ClientData clientData, Tcl_Interp *interp, int UNUSED(argc), const
 	return TCL_ERROR;
     }
 
-    if (sedraw > 0) {
-	MEDIT(s)->update_views = s->update_views;
-	sedraw = 0;
-	rt_edit_process(MEDIT(s));
-	s->update_views = MEDIT(s)->update_views;
-    }
-
     init_sedit_vars(s);
     (void)sedit_apply(s, 0);
 
@@ -1960,8 +1925,7 @@ f_extrude(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     fastf_t es_peqn[7][4];
     struct bu_vls error_msg = BU_VLS_INIT_ZERO;
     if (rt_arb_calc_planes(&error_msg, arb, arb_type, es_peqn, &s->tol.tol)) {
-	// TODO - write to a vls so parent code can do Tcl_AppendResult
-	bu_log("\nCannot calculate plane equations for ARB8\n");
+	Tcl_AppendResult(interp, "\nCannot calculate plane equations for ARB8\n", (char *)NULL);
 	bu_vls_free(&error_msg);
 	return TCL_ERROR;
     }
@@ -2019,8 +1983,7 @@ f_mirface(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     struct bu_vls error_msg = BU_VLS_INIT_ZERO;
     int arb_type = rt_arb_std_type(&MEDIT(s)->es_int, MEDIT(s)->tol);
     if (rt_arb_calc_planes(&error_msg, arb, arb_type, es_peqn, &s->tol.tol)) {
-	// TODO - write to a vls so parent code can do Tcl_AppendResult
-	bu_log("\nCannot calculate plane equations for ARB8\n");
+	Tcl_AppendResult(interp, "\nCannot calculate plane equations for ARB8\n", (char *)NULL);
 	bu_vls_free(&error_msg);
 	return TCL_ERROR;
     }
