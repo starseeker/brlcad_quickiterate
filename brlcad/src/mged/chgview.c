@@ -1116,10 +1116,10 @@ int
 f_status(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
-    struct bsg_camera _vsview_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
 
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
@@ -1745,10 +1745,10 @@ int
 f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
-    struct bsg_camera _vsview_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
 
     int incr_flag = 0;	/* interpret values as increments */
     int view_flag = 0;	/* manipulate view using view coords */
@@ -2187,10 +2187,10 @@ int
 f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
-    struct bsg_camera _vsview_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     int ret;
     Tcl_DString ds;
     point_t old_model_center;
@@ -2217,8 +2217,10 @@ f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 
     view_state->vs_flag = 1;
 
-    /* all this for ModelDelta */
-    MAT_DELTAS_GET_NEG(new_model_center, _vsview_cam.center);
+    /* all this for ModelDelta - re-fetch camera to get updated center */
+    { struct bsg_camera _new_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_new_cam);
+    MAT_DELTAS_GET_NEG(new_model_center, _new_cam.center); }
     VSUB2(diff, new_model_center, old_model_center);
     MAT_IDN(delta);
     MAT_DELTAS_VEC(delta, diff);
@@ -2393,8 +2395,10 @@ slewview(struct mged_state *s, vect_t view_pos)
     av[4] = (char *)0;
     ged_exec_slew(s->gedp, 4, (const char **)av);
 
-    /* all this for ModelDelta */
-    MAT_DELTAS_GET_NEG(new_model_center, _vsview_cam.center);
+    /* all this for ModelDelta - re-fetch camera to get updated center */
+    { struct bsg_camera _new_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_new_cam);
+    MAT_DELTAS_GET_NEG(new_model_center, _new_cam.center); }
     VSUB2(diff, new_model_center, old_model_center);
     MAT_IDN(delta);
     MAT_DELTAS_VEC(delta, diff);
@@ -2482,10 +2486,10 @@ int
 f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
-    struct bsg_camera _vsview_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     int n;
     struct view_ring *vrp;
     struct view_ring *lv;
@@ -2792,10 +2796,10 @@ int
 cmd_mrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
-    struct bsg_camera _vsview_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     Tcl_DString ds;
 
     if (s->gedp == GED_NULL) {
@@ -2881,10 +2885,10 @@ int
 cmd_rot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
-    struct bsg_camera _vsview_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     Tcl_DString ds;
 
     if (s->gedp == GED_NULL) {
@@ -2929,10 +2933,10 @@ int
 cmd_arot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
-    struct bsg_camera _vsview_cam;
-    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     Tcl_DString ds;
     /* static const char *usage = "x y z angle"; */
 
