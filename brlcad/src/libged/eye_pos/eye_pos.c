@@ -48,7 +48,9 @@ ged_eye_pos_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get eye position */
     if (argc == 1) {
-	VSCALE(eye_pos, gedp->ged_gvp->gv_eye_pos, sval);
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	VSCALE(eye_pos, _cam.eye_pos, sval);
 	bn_encode_vect(gedp->ged_result_str, eye_pos, 1);
 	return BRLCAD_OK;
     }
@@ -83,10 +85,14 @@ ged_eye_pos_core(struct ged *gedp, int argc, const char *argv[])
 	VMOVE(eye_pos, scan);
     }
 
-    VSCALE(gedp->ged_gvp->gv_eye_pos, eye_pos, sval);
-
-    /* update perspective matrix */
-    mike_persp_mat(gedp->ged_gvp->gv_pmat, gedp->ged_gvp->gv_eye_pos);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	VSCALE(_cam.eye_pos, eye_pos, sval);
+	/* update perspective matrix */
+	mike_persp_mat(_cam.pmat, _cam.eye_pos);
+	bsg_view_set_camera(gedp->ged_gvp, &_cam);
+    }
 
     bsg_view_update(gedp->ged_gvp);
 
