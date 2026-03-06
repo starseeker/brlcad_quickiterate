@@ -1098,6 +1098,8 @@ int
 f_status(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct bsg_camera _vsview_cam;
@@ -1714,6 +1716,8 @@ int
 f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct bsg_camera _vsview_cam;
@@ -2161,6 +2165,8 @@ int
 f_slewview(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct bsg_camera _vsview_cam;
@@ -2458,6 +2464,8 @@ int
 f_view_ring(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct bsg_camera _vsview_cam;
@@ -2768,6 +2776,8 @@ int
 cmd_mrot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct bsg_camera _vsview_cam;
@@ -2857,6 +2867,8 @@ int
 cmd_rot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct bsg_camera _vsview_cam;
@@ -2905,6 +2917,8 @@ int
 cmd_arot(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
     struct cmdtab *ctp = (struct cmdtab *)clientData;
+    struct bsg_camera _vsview_cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vsview_cam);
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct bsg_camera _vsview_cam;
