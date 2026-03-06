@@ -51,7 +51,9 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 
     vbp = rt_vlblock_init();
     MAT_IDN(mat);
-    bn_mat_inv(mat, gedp->ged_gvp->gv_rotation);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+    bn_mat_inv(mat, _cam.rotation);
     scale = gedp->ged_gvp->gv_size / 100;          /* divide by # chars/screen */
 
     for (i=1; i<argc; i++) {
