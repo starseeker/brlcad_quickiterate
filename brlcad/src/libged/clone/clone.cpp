@@ -1524,7 +1524,7 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     fastf_t dx_opt=0, dy_opt=0, dz_opt=0;
     fastf_t daz_opt=0, del_opt=0, dr_opt=0, dh_opt=0;
     fastf_t start_az_opt=0, start_el_opt=-90.0;
-    fastf_t start_r_opt=0, start_h_opt=0;
+    fastf_t start_r_opt=-1.0, start_h_opt=-1.0;  /* -1 = not explicitly set */
     int rotaz_flag=0, rotel_flag=0, rot_flag=0;
     int xpush_flag=0;
     const char *group_cstr = nullptr;
@@ -1655,8 +1655,11 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     state->dh     = dh_opt;
     state->start_az = start_az_opt * DEG2RAD;
     state->start_el = start_el_opt * DEG2RAD;
-    state->start_r  = start_r_opt;
-    state->start_h  = start_h_opt;
+    /* For radii/heights: if not explicitly set, default to dr/dh so that
+     * the first shell/ring is at dr (matching --rect which starts copies
+     * at dx, not 0).  An explicit --start-r 0 or --start-h 0 still works. */
+    state->start_r  = (start_r_opt >= 0.0) ? start_r_opt : dr_opt;
+    state->start_h  = (start_h_opt >= 0.0) ? start_h_opt : dh_opt;
     state->rotaz    = (rotaz_flag != 0);
     state->rotel    = (rotel_flag != 0);
     state->do_rot   = (rot_flag   != 0);
