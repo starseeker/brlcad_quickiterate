@@ -858,6 +858,75 @@ ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
 
 ---
 
+## Architectural Pivot — `libbsg`: a Fully Independent Scene-Graph Library
+
+**Decision (Session 11):** The previous approach of incrementally patching
+`libbv` internals to simultaneously support the legacy flat-table API *and* the
+new scene-graph API produced mixed intermediate states that are very difficult
+to validate.  The draw-test control images became wrong (blank shaded renders,
+wrong camera angles) precisely because the same code paths were being exercised
+for both semantics at once.
+
+**New goal**: create `libbsg` as a **completely independent library** that does
+*not* depend on `libbv` in any way.  `libbv` remains unchanged for backward
+compatibility / deprecation; all new scene-graph logic is implemented fresh in
+`libbsg`.
+
+### Rationale
+
+| Concern | Mixed approach (old) | `libbsg` (new) |
+|---------|----------------------|----------------|
+| Rendering correctness | Partial — flat tables and graph fire simultaneously, result undefined | Clear — only `libbsg` traversal path active |
+| Test validation | Control images broken by intermediate state | Control images stable; libbv tests unchanged |
+| Scope of change per session | Large (touches libbv internals) | Small and incremental — build up libbsg from scratch |
+| Risk of regression | High (libbv callers impacted) | None — libbv untouched |
+
+### Incremental build-up plan for `libbsg`
+
+1. **Stand-up skeleton** — `src/libbsg/CMakeLists.txt`, empty `libbsg.h` public
+   header, library links only against `libbu` and `libbn`.  No `bv.h` include
+   anywhere in the new library.
+
+2. **Core node types** — `bsg_node`, `bsg_separator`, `bsg_transform`,
+   `bsg_camera`, `bsg_shape` (clean re-implementations, not casts of
+   `bv_scene_obj`).  All node storage uses `bu_ptbl` children lists.
+
+3. **Scene root + view binding** — `bsg_scene_root_create(w, h)`,
+   `bsg_view_bind(root, view_params)` where `view_params` is a plain C struct
+   (no `bview`/`bv_*` dependency).
+
+4. **Traversal engine** — `bsg_traverse(root, visitor_fn, user_data)` with
+   accumulated `bsg_traversal_state` (xform stack, active camera, LOD state).
+
+5. **Draw integration** — `libbsg_dm` adapter that wraps `struct dm *` and
+   implements the visitor callback in terms of existing `dm_*` calls.  This is
+   the *only* place `libbv`/`bv.h` names may appear.
+
+6. **Geometry ingestion** — helpers that convert `struct rt_db_internal *`
+   tessellations into `bsg_shape` vlist payloads, replacing the current
+   `draw2.cpp` pipeline.
+
+7. **Selection / highlight** — `bsg_select_state`, `bsg_select_add_path`,
+   `bsg_select_sync_highlight` — clean re-implementation, no `DbiState`
+   coupling.
+
+8. **Disable `bv.h` globally** — once step 6 is working, add a CMake option
+   `BRLCAD_DISABLE_LIBBV_INCLUDES` that wraps every `#include "bv/..."` outside
+   `src/libbv/` and `src/libbsg/` in an error pragma, forcing callers to
+   migrate.
+
+### Session 10 partial work (superseded by pivot)
+
+Session 10 attempted to fully separate the BSG/bv stacks within the existing
+`libbv` code (`bsg_shape_get`, `bsg_view_autoview`, `bsg_view_clear`,
+`polygon.c`, `vlist.c`, `view.c`).  This work is committed on the branch and
+**not reverted** — it is a useful reference for what the `libbsg` equivalents
+should implement — but it no longer drives the primary migration path.  The
+control images have been restored from commit `c9f865cd` so that the draw-test
+suites provide a clean baseline again.
+
+---
+
 *Last updated: 2026-03-06 (Phases 2a–2e complete; **Session 6**: Phase 2e FINAL DECOMMISSION — `dl_head_scene_obj` field removed from `struct display_list`; all shape tracking now exclusively via `root->children` in scene-root; `bsg_scene_fsos` and `bsg_view_center_linesnap` BSG wrappers added; full build passes clean)  
 **Session 8 (bug-fix)**: MGED NULL-crash guards in `titles.c`, `edebm.c`, `eddsp.c`, `edvol.c` (`MEDIT(s)` NULL after sedit_accept).  
 **Session 9 (shape tracking correctness)**:  
@@ -865,4 +934,10 @@ ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
 - `bsg_view_clear` filter: correctly gates LOCAL shapes on `BSG_LOCAL_OBJS` flag; no longer removes live shared pointers.  
 - `bsg_view_clear` co-view loop: skip independent views.  
 - Swrast DM plugin dependency resolved (must be built before draw tests).  
-- All five draw test suites regenerated and passing: `ged_test_draw`, `ged_test_faceplate`, `ged_test_quad`, `ged_test_select_draw`, `ged_test_lod`.*
+- All five draw test suites regenerated and passing: `ged_test_draw`, `ged_test_faceplate`, `ged_test_quad`, `ged_test_select_draw`, `ged_test_lod`.  
+**Session 10 (BSG/bv stack separation attempt — superseded)**:  
+- `bsg_shape_get` routed via `bv_obj_create` + `otbl=NULL`; `bsg_view_autoview` walks `root->children`; `bsg_view_clear` freed from `bv_clear` dependency; `polygon.c`/`vlist.c` use `bsg_shape_get`; `view.c` flat-list else-branches removed.  
+- Control images were wrongly regenerated from this intermediate state; restored to `c9f865cd` baseline in Session 11.  
+**Session 11 (architectural pivot)**:  
+- Control images restored to `c9f865cd` baseline.  
+- New direction: build `libbsg` as a fully independent library (no `libbv` dependency); see section above.*
