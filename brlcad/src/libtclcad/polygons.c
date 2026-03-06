@@ -168,7 +168,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 
     gdpsp->gdps_scale = gdvp->gv_scale;
     gdpsp->gdps_data_vZ = gdvp->gv_tcl.gv_data_vZ;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
     {
 	struct bsg_camera _pc;
 	bsg_view_get_camera(gdvp, &_pc);
@@ -785,7 +787,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 			point_t pt;
 
 			if (vflag) {
-			    MAT4X3PNT(pt, gdvp->gv_model2view, gdpsp->gdps_polygons.polygon[i].contour[j].point[k]);
+			    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+			      MAT4X3PNT(pt, _cm.model2view, gdpsp->gdps_polygons.polygon[i].contour[j].point[k]);
+			    }
 			} else {
 			    VMOVE(pt, gdpsp->gdps_polygons.polygon[i].contour[j].point[k]);
 			}
@@ -1155,7 +1159,9 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
     {
 	struct bsg_camera _pc;
 	bsg_view_get_camera(gdvp, &_pc);
@@ -1236,7 +1242,9 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
     {
 	struct bsg_camera _pc;
 	bsg_view_get_camera(gdvp, &_pc);
@@ -1604,7 +1612,9 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
     {
 	struct bsg_camera _pc;
 	bsg_view_get_camera(gdvp, &_pc);
@@ -1770,7 +1780,9 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
     {
 	struct bsg_camera _pc;
 	bsg_view_get_camera(gdvp, &_pc);

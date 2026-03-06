@@ -119,7 +119,9 @@ ged_knob_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
     if (!model_flag && !view_flag)
-	model_flag = (v->gv_coord == 'm') ? 1 : 0;
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	  model_flag = (_cm.coord == 'm') ? 1 : 0;
+	}
 
     int do_tran = 0;
     int do_rot = 0;
@@ -186,7 +188,9 @@ ged_knob_core(struct ged *gedp, int argc, const char *argv[])
 
     if (do_rot) {
 	// Note - we don't (currently) support 'o' coords here, so the obj_rot matrix is always NULL.
-	bsg_knobs_rot(v, rvec, origin, (model_flag ? 'm' : 'v'), NULL, (origin == 'k') ? gedp->ged_gvp->gv_keypoint : NULL);
+	{ struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	  bsg_knobs_rot(v, rvec, origin, (model_flag ? 'm' : 'v'), NULL, (origin == 'k') ? _cm.keypoint : NULL);
+	}
     }
 
     bsg_view_update_rate_flags(v);

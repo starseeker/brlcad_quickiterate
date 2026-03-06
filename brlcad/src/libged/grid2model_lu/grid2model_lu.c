@@ -60,9 +60,13 @@ ged_grid2model_lu_core(struct ged *gedp, int argc, const char *argv[])
 
     f = 1.0 / (gedp->ged_gvp->gv_scale * gedp->dbip->dbi_base2local);
     VSCALE(diff, scan, f);
-    MAT4X3PNT(mo_view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(mo_view_pt, _cm.model2view, model_pt);
+    }
     VADD2(view_pt, mo_view_pt, diff);
-    MAT4X3PNT(model_pt, gedp->ged_gvp->gv_view2model, view_pt);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(model_pt, _cm.view2model, view_pt);
+    }
     VSCALE(model_pt, model_pt, gedp->dbip->dbi_base2local);
     bn_encode_vect(gedp->ged_result_str, model_pt, 1);
 

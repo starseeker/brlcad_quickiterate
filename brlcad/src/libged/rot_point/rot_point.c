@@ -85,7 +85,9 @@ ged_rot_point_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* Rotate the incoming point */
-    bn_mat_inv(invRot, gedp->ged_gvp->gv_rotation);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      bn_mat_inv(invRot, _cm.rotation);
+    }
     MAT4X3PNT(rpoint, invRot, point);
     bn_encode_vect(gedp->ged_result_str, rpoint, 1);
 

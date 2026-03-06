@@ -76,7 +76,9 @@ ged_orient_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    quat_quat2mat(gedp->ged_gvp->gv_rotation, quat);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      quat_quat2mat(_cm.rotation, quat);
+      bsg_view_set_camera(gedp->ged_gvp, &_cm); }
     bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
