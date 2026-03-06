@@ -896,6 +896,12 @@ bsg_view_set_camera(bsg_view *v, const struct bsg_camera *cam)
     MAT_COPY(v->gv_pmodel2view, cam->pmodel2view);
     MAT_COPY(v->gv_view2model,  cam->view2model);
     MAT_COPY(v->gv_pmat,        cam->pmat);
+
+    /* Keep the scene-root camera node in sync so bsg_view_traverse always
+     * sees an up-to-date camera without callers having to do it explicitly. */
+    bsg_shape *cam_node = bsg_scene_root_camera(v);
+    if (cam_node)
+	bsg_camera_node_set(cam_node, cam);
 }
 
 /* ====================================================================== *

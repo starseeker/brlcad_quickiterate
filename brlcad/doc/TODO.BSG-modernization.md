@@ -531,4 +531,293 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
 
 ---
 
-*Last updated: 2026-03-06 (Phases 2a, 2b(partial), 2c, 2d complete; Qt camera migration in progress)*
+## 12. MGED `dl_head_scene_obj` migration analysis
+
+This section documents the usage patterns of `dl_head_scene_obj` in `mged` and
+their BSG equivalents, to make the Phase 2e migration more tractable.
+
+### Usage pattern inventory
+
+| File | Line(s) | Pattern | BSG equivalent |
+|------|---------|---------|----------------|
+| `buttons.c` | 563, 577 | **Empty check + first item** (`illump`) | `BU_PTBL_LEN(&root->children) > 0` + `BU_PTBL_GET(&root->children, 0)` |
+| `chgtree.c` | 157 | **Full iteration by path** | `bsg_view_traverse` with `s_fullpath` match |
+| `chgtree.c` | 228, 263 | **Empty check + first item** | Same as buttons.c |
+| `chgview.c` | 726, 911, 1539 | **Empty check** (screen blank detection) | `BU_PTBL_LEN(&root->children) == 0` |
+| `chgview.c` | 1390 | **Full iteration** (solid highlighting) | `bsg_view_traverse` with highlight visitor |
+| `cmd.c` | 1983 | **Empty check** | `BU_PTBL_LEN(&root->children) == 0` |
+| `dodraw.c` | 158 | **Insertion** | `bu_ptbl_ins(&root->children, (long *)sp)` |
+| `dozoom.c` | 295 | **Full iteration** (create display lists) | `bsg_view_traverse` with dlist-create visitor |
+| `edsol.c` | 1110, 5992, 6024, 6283 | **Full iteration** (solid editing replot/unlock) | `bsg_view_traverse` with edit visitor |
+| `usepen.c` | 68, 304 | **Full iteration** (cursor selection by path/name) | `bsg_view_find_by_type` + path filter |
+| `usepen.c` | 142–161 | **Navigation** (forward/backward cycling of `illump`) | Index arithmetic on `root->children` ptbl |
+| `plot.c` | 97, 114, 205 | **Empty check + full iteration** (vlist export) | `bsg_view_traverse` with vlist-export visitor |
+| `rtif.c` | 221 | **Full iteration** (ray-trace vlist copy) | `bsg_view_traverse` with raytrace visitor |
+| `set.c` | 464–466 | **GL dlist range arithmetic** (`first.s_dlist` – `last.s_dlist`) | Sensor-based dlist notification (post Phase-2b) |
+
+### Migration complexity by pattern
+
+**A) Empty check (6 sites) — LOW**
+Direct mapping to `BU_PTBL_LEN(&root->children) == 0`.  No iteration needed.
+Context available: `s->gedp` provides GED → `bsg_scene_root_get(gvp)`.
+
+**B) Full iteration (12 sites) — MEDIUM**
+Maps to a `bsg_view_traverse` visitor callback or simple `bu_ptbl` for-loop
+over `root->children`.  Key requirement: a scene-root pointer must be passed
+through functions that currently only receive a `display_list *`.
+
+**C) First item / `illump` (4 sites) — LOW**
+Maps to `(bsg_shape *)BU_PTBL_GET(&root->children, 0)`.  The global `illump`
+pointer continues to work; only the acquisition changes.
+
+**D) Insertion (1 site, `dodraw.c:158`) — LOW**
+`BU_LIST_APPEND` becomes `bu_ptbl_ins`.  The function already receives
+`struct mged_state *s`, giving access to `view_state->vs_gvp`.
+
+**E) Navigation / `illump` cycling (4 sites, `usepen.c`) — MEDIUM-HIGH**
+Forward/backward cycling wraps at display-list boundaries.  After migration the
+"current illuminated solid" is an index into `root->children`.  Wrap-around
+needs to span multiple display lists' shapes, which requires either (a) a
+consolidated `root->children` array per view (after Phase 2e) or (b) a helper
+that walks the flat `gv_objs.db_objs` table.
+
+**F) GL dlist range arithmetic (2 sites, `set.c`) — HIGH**
+These assume dlists are allocated in a contiguous block.  After Phase 2e the
+dlist-per-shape model managed by sensors (`gl_register_dlist_sensor`) makes
+contiguous allocation an implementation detail.  These sites should be converted
+to iterate `root->children` and call `glDeleteLists(sp->s_dlist, 1)` per shape.
+
+### Prerequisites for mged migration
+
+1. **Scene root available in `mged_state`**: `view_state->vs_gvp` already gives
+   the view; `bsg_scene_root_get(view_state->vs_gvp)` returns the scene root
+   once Phase 2a initialisation (`bsg_scene_root_create`) is in place (already done).
+
+2. **Shapes registered in scene root**: Today shapes are only in
+   `dl_head_scene_obj`.  `dodraw.c:158` must also call
+   `bu_ptbl_ins(&root->children, (long *)sp)` to register in the scene root
+   (**already implemented** as Phase 2e dual-write).
+
+3. **Shape removal from scene root on erase**: Each `FREE_BV_SCENE_OBJ` site in
+   `libged/display_list.c` and `mged/dodraw.c` must also call
+   `bu_ptbl_rm(&root->children, sp)` (**already implemented** in display_list.c).
+
+4. **`illump` cycling refactor** (`usepen.c`): Rework to use index into
+   `root->children` instead of linked-list prev/next.
+
+---
+
+## 13. Can MGED's display-list accesses be recast as scene-object interactions?
+
+**Short answer: Yes, completely** — with no loss of user-visible functionality.
+
+The key architectural insight is that the current two-level iteration pattern:
+```c
+/* Today: nested loop over all display lists × all shapes per list */
+gdlp = BU_LIST_NEXT(display_list, ged_dl(s->gedp));
+while (BU_LIST_NOT_HEAD(gdlp, ged_dl(s->gedp))) {
+    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+        /* do something */
+    }
+}
+```
+collapses to a **single flat loop** after Phase 2e:
+```c
+/* After Phase 2e: shapes are in scene-root children, no dl_head_scene_obj */
+bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+    /* do something */
+}
+```
+
+The `display_list` struct retains its identity as a **named drawn path** (the
+`dl_path` name, the `dl_dp` pointer, etc.) but no longer holds a shape list.
+The relationship between a shape and its logical display list is already captured
+by `ged_bv_data->s_fullpath` stored in `sp->s_u_data`.
+
+### Pattern-by-pattern recast
+
+#### A — Empty check → `BU_PTBL_LEN` test
+```c
+/* Before */
+if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) { … }
+
+/* After — no display list loop needed at all */
+bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+if (root && BU_PTBL_LEN(&root->children) > 0) { … }
+```
+
+#### B — Full iteration by path → `ged_find_shapes_by_path()` helper
+```c
+/* Before — chgtree.c, edsol.c: find all shapes matching a db_full_path */
+for each gdlp:
+    for each sp in gdlp->dl_head_scene_obj:
+        if (db_identical_full_paths(pathp, &bdata->s_fullpath)) …
+
+/* After — single flat loop in a libged helper (see Section 14) */
+struct bu_ptbl matches = BU_PTBL_INIT_ZERO;
+ged_find_shapes_by_path(gedp, view_state->vs_gvp, pathp, &matches);
+for (size_t i = 0; i < BU_PTBL_LEN(&matches); i++) {
+    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&matches, i);
+    /* operate on sp */
+}
+bu_ptbl_free(&matches);
+```
+
+#### B — Full iteration for editing → `bsg_view_traverse` visitor
+```c
+/* Before — edsol.c: replot all illuminated solids */
+for each gdlp:
+    for each sp in gdlp->dl_head_scene_obj:
+        if (sp->s_iflag == DOWN) continue;
+        replot_original_solid(s, sp);
+
+/* After — one traversal, no display list walking */
+bsg_view_traverse(view_state->vs_gvp, replot_visitor, s);
+/* where replot_visitor checks state->node->s_iflag */
+```
+
+#### C — First-item / `illump` initialisation → `BU_PTBL_GET` index 0
+```c
+/* Before — buttons.c, chgtree.c */
+illum_gdlp = gdlp;
+illump = (bsg_shape *)BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
+
+/* After */
+bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+illump = (root && BU_PTBL_LEN(&root->children) > 0)
+       ? (bsg_shape *)BU_PTBL_GET(&root->children, 0)
+       : NULL;
+/* illum_gdlp is no longer needed: the display list name is
+ * recoverable from ged_bv_data->s_fullpath if required. */
+```
+
+#### E — Forward/backward navigation → index arithmetic
+```c
+/* Before — usepen.c: advance illump, wrapping across display-list boundaries */
+if (BU_LIST_NEXT_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
+    gdlp = BU_LIST_PNEXT(display_list, gdlp);   /* next gdlp */
+    sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
+} else {
+    sp = BU_LIST_PNEXT(bsg_shape, sp);
+}
+
+/* After — display-list boundaries vanish; one flat array */
+bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+int idx = (int)bu_ptbl_locate(&root->children, (long *)illump);
+idx = forward ? idx + 1 : idx - 1;
+if (idx < 0) idx = (int)BU_PTBL_LEN(&root->children) - 1;
+if (idx >= (int)BU_PTBL_LEN(&root->children)) idx = 0;
+illump = (bsg_shape *)BU_PTBL_GET(&root->children, idx);
+/* illum_gdlp eliminated entirely */
+```
+
+#### F — GL dlist range arithmetic → per-shape sensor callbacks
+```c
+/* Before — set.c: free a range of display lists by first/last ID */
+glDeleteLists(BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
+              BU_LIST_LAST(bv_scene_obj,  &gdlp->dl_head_scene_obj)->s_dlist
+              - BU_LIST_FIRST(...)->s_dlist + 1);
+
+/* After — iterate root->children and free each individually;
+ * the Phase 2b sensor system fires gl_dlist_stale_cb per shape */
+bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+    if (sp->s_dlist) { glDeleteLists(sp->s_dlist, 1); sp->s_dlist = 0; }
+}
+```
+
+### What about `illum_gdlp`?
+
+`illum_gdlp` was introduced to remember *which* display list a solid belongs to,
+needed when erasing it (`dl_erasePathFromDisplay`).  After Phase 2e it is
+redundant: the display list path is `ged_bv_data->s_fullpath`, and erasing can
+use that path directly:
+```c
+/* Before */
+dl_erasePathFromDisplay(gedp, bu_vls_cstr(&illum_gdlp->dl_path), 0);
+
+/* After — derive the erase path from the shape itself */
+struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+char *path_str = db_path_to_string(&bdata->s_fullpath);
+dl_erasePathFromDisplay(gedp, path_str, 0);
+bu_free(path_str, "path str");
+```
+`illum_gdlp` can therefore be **removed** once Phase 2e is complete.
+
+### New libged helper: `ged_find_shapes_by_path`
+
+The most common pattern in MGED — finding all shapes that correspond to a
+given `db_full_path` — is replaced by a helper in `libged`.  This helper
+iterates `root->children` (O(n) like the current code but without the outer
+display-list loop) and collects matches into a `bu_ptbl`:
+```c
+/* Declared in libged_private.h or display_list.h */
+GED_EXPORT void ged_find_shapes_by_path(struct ged *gedp,
+                                        bsg_view *v,
+                                        const struct db_full_path *path,
+                                        struct bu_ptbl *result);
+```
+See Section 14 for the implementation.
+
+### Conclusion
+
+Every MGED operation that currently accesses `dl_head_scene_obj` can be
+expressed directly against the BSG scene root with **no loss of functionality**:
+
+| Feature | Before | After |
+|---------|--------|-------|
+| Object highlighting (`illump`) | BU_LIST_NEXT on dl_head_scene_obj | BU_PTBL_GET(root->children, 0) |
+| Forward/back solid navigation | Linked-list prev/next + gdlp wrap | Index arithmetic on ptbl |
+| Find solid by path | Nested for loop over all gdlps | `ged_find_shapes_by_path` |
+| Empty view check | BU_LIST_NON_EMPTY per gdlp | BU_PTBL_LEN(root->children) |
+| Replot all illuminated | Nested for loop | bsg_view_traverse visitor |
+| GL dlist cleanup | Contiguous range delete | Per-shape delete via sensor |
+| illum_gdlp | Required for erase path | Replaced by s_fullpath on illump |
+
+---
+
+## 14. New `ged_find_shapes_by_path` helper
+
+**Purpose**: replace all nested `for-over-gdlp / for-over-dl_head_scene_obj`
+loops that search for shapes by `db_full_path`.
+
+**Declaration** (`src/libged/display_list.h` or similar):
+```c
+GED_EXPORT void ged_find_shapes_by_path(struct ged *gedp,
+                                        bsg_view *v,
+                                        const struct db_full_path *path,
+                                        struct bu_ptbl *result);
+```
+
+**Implementation** (flat loop over scene-root children — `O(n)`, same
+complexity as current nested loops):
+```c
+void
+ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
+                        const struct db_full_path *path, struct bu_ptbl *result)
+{
+    if (!gedp || !v || !path || !result) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+        bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+        if (!sp->s_u_data) continue;
+        struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+        if (db_identical_full_paths(path, &bdata->s_fullpath))
+            bu_ptbl_ins(result, (long *)sp);
+    }
+}
+```
+
+**Sites in mged that collapse to this helper after Phase 2e**:
+- `chgtree.c:157` — `find_solid_with_path`
+- `edsol.c:1110` — find solids sharing `LAST_SOLID(bdata) == illdp`
+- `edsol.c:5992`, `6024`, `6283` — path-top matching for tree replot/lock
+- `usepen.c:304` — cursor path-based selection
+
+---
+
+*Last updated: 2026-03-06 (Phases 2a–2d complete; all Qt camera fields migrated; MGED tractability + full scene-object recast analysis added)*
