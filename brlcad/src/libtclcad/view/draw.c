@@ -92,8 +92,10 @@ go_draw_solid(bsg_view *gdvp, bsg_shape *sp)
 	params = (struct dm_path_edit_params *)bu_hash_value(entry, NULL);
     }
     if (params) {
-	MAT_COPY(save_mat, gdvp->gv_model2view);
-	bn_mat_mul(edit_model2view, gdvp->gv_model2view, params->edit_mat);
+	struct bsg_camera _dv;
+	bsg_view_get_camera(gdvp, &_dv);
+	MAT_COPY(save_mat, _dv.model2view);
+	bn_mat_mul(edit_model2view, _dv.model2view, params->edit_mat);
 	dm_loadmatrix(dmp, edit_model2view, 0);
     }
 
@@ -183,10 +185,12 @@ go_draw_dlist(bsg_view *gdvp)
 void
 go_draw(bsg_view *gdvp)
 {
-    (void)dm_loadmatrix((struct dm *)gdvp->dmp, gdvp->gv_model2view, 0);
+    struct bsg_camera _gdvc;
+    bsg_view_get_camera(gdvp, &_gdvc);
+    (void)dm_loadmatrix((struct dm *)gdvp->dmp, _gdvc.model2view, 0);
 
-    if (SMALL_FASTF < gdvp->gv_perspective)
-	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, gdvp->gv_pmat);
+    if (SMALL_FASTF < _gdvc.perspective)
+	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, _gdvc.pmat);
     else
 	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, (fastf_t *)NULL);
 

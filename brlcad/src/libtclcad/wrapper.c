@@ -21,6 +21,7 @@
 #include "common.h"
 
 #include "ged.h"
+#include "bsg/util.h"
 #include "tclcad.h"
 
 /* Private headers */
@@ -284,7 +285,7 @@ to_view_func_common(struct ged *gedp,
     bu_free(av, "free av copy");
 
     /* Keep the view's perspective in sync with its corresponding display manager */
-    dm_set_perspective((struct dm *)gdvp->dmp, gdvp->gv_perspective);
+    { struct bsg_camera _wp; bsg_view_get_camera(gdvp, &_wp); dm_set_perspective((struct dm *)gdvp->dmp, _wp.perspective); };
 
     if (gdvp->gv_s->adaptive_plot_csg &&
 	gdvp->gv_s->redraw_on_zoom)
@@ -402,7 +403,7 @@ to_dm_func(struct ged *gedp,
     bu_free(av, "free av copy");
 
     /* Keep the view's perspective in sync with its corresponding display manager */
-    dm_set_perspective((struct dm *)gdvp->dmp, gdvp->gv_perspective);
+    { struct bsg_camera _wp; bsg_view_get_camera(gdvp, &_wp); dm_set_perspective((struct dm *)gdvp->dmp, _wp.perspective); };
 
     return ret;
 }
