@@ -172,13 +172,15 @@ void
 wrt_view(struct mged_state *s, mat_t out, const mat_t change, const mat_t in)
 {
     static mat_t t1, t2;
+    struct bsg_camera _uc;
+    bsg_view_get_camera(view_state->vs_gvp, &_uc);
 
-    bn_mat_mul(t1, view_state->vs_gvp->gv_center, in);
+    bn_mat_mul(t1, _uc.center, in);
     bn_mat_mul(t2, change, t1);
 
     /* Build "fromViewcenter" matrix */
     MAT_IDN(t1);
-    MAT_DELTAS(t1, -view_state->vs_gvp->gv_center[MDX], -view_state->vs_gvp->gv_center[MDY], -view_state->vs_gvp->gv_center[MDZ]);
+    MAT_DELTAS(t1, -_uc.center[MDX], -_uc.center[MDY], -_uc.center[MDZ]);
     bn_mat_mul(out, t1, t2);
 }
 

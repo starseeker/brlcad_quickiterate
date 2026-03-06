@@ -1838,18 +1838,23 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    if (!re)
 			goto usage;
 		    bsg_view *v = view_state->vs_gvp;
-		    char save_coord = v->gv_coord;
-		    v->gv_coord = mged_variables->mv_coords;
+		    struct bsg_camera _vc;
+		    bsg_view_get_camera(v, &_vc);
+		    char save_coord = _vc.coord;
+		    _vc.coord = mged_variables->mv_coords;
+		    bsg_view_set_camera(v, &_vc);
 		    if (rt_edit_knob_cmd_process(re,
 				&edit_rvec, &edit_do_rot,
 				&edit_tvec, &edit_do_tran,
 				&edit_do_sca,
 				v, token, fval,
 				origin, incr_flag, NULL) != BRLCAD_OK) {
-			v->gv_coord = save_coord;
+			_vc.coord = save_coord;
+			bsg_view_set_camera(v, &_vc);
 			goto usage;
 		    }
-		    v->gv_coord = save_coord;
+		    _vc.coord = save_coord;
+		    bsg_view_set_camera(v, &_vc);
 		} else {
 		    if (mged_knob_edit_process(s, ke, fval, incr_flag, origin,
 				edit_rvec, &edit_do_rot,

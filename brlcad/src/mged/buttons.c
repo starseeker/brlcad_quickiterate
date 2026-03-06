@@ -462,9 +462,12 @@ bv_vrestore(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     struct mged_state *s = ctp->s;
      /* restore to saved view */
     if (vsaved) {
+	struct bsg_camera _rc;
+	bsg_view_get_camera(view_state->vs_gvp, &_rc);
 	view_state->vs_gvp->gv_scale = sav_vscale;
-	MAT_COPY(view_state->vs_gvp->gv_rotation, sav_viewrot);
-	MAT_COPY(view_state->vs_gvp->gv_center, sav_toviewcenter);
+	MAT_COPY(_rc.rotation, sav_viewrot);
+	MAT_COPY(_rc.center, sav_toviewcenter);
+	bsg_view_set_camera(view_state->vs_gvp, &_rc);
 	new_mats(s);
 
 	(void)mged_svbase(s);
@@ -481,9 +484,13 @@ bv_vsave(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
      /* save current view */
-    sav_vscale = view_state->vs_gvp->gv_scale;
-    MAT_COPY(sav_viewrot, view_state->vs_gvp->gv_rotation);
-    MAT_COPY(sav_toviewcenter, view_state->vs_gvp->gv_center);
+    {
+	struct bsg_camera _sc;
+	bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	sav_vscale = view_state->vs_gvp->gv_scale;
+	MAT_COPY(sav_viewrot, _sc.rotation);
+	MAT_COPY(sav_toviewcenter, _sc.center);
+    }
     vsaved = 1;
     return TCL_OK;
 }
