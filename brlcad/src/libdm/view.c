@@ -784,40 +784,8 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
     visitor_data.dmp = dmp;
     visitor_data.v   = v;
 
-    /* If the view has a scene root, use graph traversal (Phase 2 path).
-     * Otherwise fall back to the legacy flat-table loops. */
-    if (bsg_scene_root_get(v)) {
-	bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
-    } else {
-	struct bu_ptbl *db_objs = bsg_view_shapes(v, BSG_DB_OBJS);
-	if (db_objs) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
-		bsg_group *g = (bsg_group *)BU_PTBL_GET(db_objs, i);
-		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	    }
-	}
-	struct bu_ptbl *local_db_objs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
-	if (local_db_objs) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
-		bsg_group *g = (bsg_group *)BU_PTBL_GET(local_db_objs, i);
-		draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	    }
-	}
-	struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
-	if (view_objs) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	    }
-	}
-	struct bu_ptbl *local_view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
-	if (local_view_objs) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
-		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(local_view_objs, i);
-		draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	    }
-	}
-    }
+    /* BSG-only rendering: all shapes are in root->children via bsg_shape_get. */
+    bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
 
     /* Set up matrices for HUD drawing, rather than 3D scene drawing. */
     (void)dm_hud_begin(dmp);
@@ -924,39 +892,8 @@ dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_da
 	visitor_data.dmp = dmp;
 	visitor_data.v   = v;
 
-	/* Use graph traversal when a scene root is available. */
-	if (bsg_scene_root_get(v)) {
-	    bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
-	} else {
-	    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_DB_OBJS);
-	    if (!v->independent && sobjs) {
-		for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-		    bsg_group *g = (bsg_group *)BU_PTBL_GET(sobjs, i);
-		    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-		}
-	    }
-	    struct bu_ptbl *iobjs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
-	    if (iobjs && (iobjs != sobjs || v->independent)) {
-		for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
-		    bsg_group *g = (bsg_group *)BU_PTBL_GET(iobjs, i);
-		    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-		}
-	    }
-	    struct bu_ptbl *view_objs = bsg_view_shapes(v, BSG_VIEW_OBJS);
-	    if (view_objs && !v->independent) {
-		for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-		    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(view_objs, i);
-		    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-		}
-	    }
-	    struct bu_ptbl *vo = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
-	    if (vo && (vo != view_objs || v->independent)) {
-		for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
-		    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(vo, i);
-		    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-		}
-	    }
-	}
+	/* BSG-only rendering: all shapes are in root->children via bsg_shape_get. */
+	bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
     }
 
     // Done with perspective/orthogonal drawing

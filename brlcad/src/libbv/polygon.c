@@ -34,6 +34,7 @@
 #include "bv/vlist.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bsg/util.h"
 #include "bg/lseg.h"
 #include "bg/plane.h"
 #include "bg/polygon.h"
@@ -176,7 +177,7 @@ bv_polygon_vlist(struct bv_scene_obj *s)
 struct bv_scene_obj *
 bv_create_polygon_obj(struct bview *v, int flags, struct bv_polygon *p)
 {
-    struct bv_scene_obj *s = bv_obj_get(v, flags);
+    struct bv_scene_obj *s = (struct bv_scene_obj *)bsg_shape_get(v, flags);
     s->s_type_flags |= BV_POLYGONS;
     s->s_type_flags |= BV_VIEWONLY;
 
