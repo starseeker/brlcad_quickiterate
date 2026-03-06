@@ -38,6 +38,7 @@
 #include "raytrace.h"
 #include "rt/primitives/nmg.h"
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_NMG_EPICK		11019	/* edge pick */
 #define ECMD_NMG_EMOVE		11020	/* edge move */
@@ -616,6 +617,8 @@ void ecmd_nmg_emove(struct rt_edit *s)
 {
     struct rt_nmg_edit *n = (struct rt_nmg_edit *)s->ipe_ptr;
     point_t new_pt;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     bu_clbk_t f = NULL;
     void *d = NULL;
 
@@ -671,7 +674,7 @@ void ecmd_nmg_emove(struct rt_edit *s)
 
 	    /* Get view direction vector */
 	    VSET(view_z_dir, 0.0, 0.0, 1.0);
-	    MAT4X3VEC(view_dir, s->vp->gv_view2model, view_z_dir);
+	    MAT4X3VEC(view_dir, _cam.view2model, view_z_dir);
 
 	    /* intersect line through new_pt with plane of loop */
 	    if (bg_isect_line3_plane(&dist, new_pt, view_dir, pl, s->tol) < 1) {
@@ -783,6 +786,8 @@ void ecmd_nmg_esplit(struct rt_edit *s)
     struct model *m;
     point_t new_pt;
     fastf_t area;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     plane_t pl;
     bu_clbk_t f = NULL;
     void *d = NULL;
@@ -845,7 +850,7 @@ void ecmd_nmg_esplit(struct rt_edit *s)
 
 	    /* Get view direction vector */
 	    VSET(view_z_dir, 0.0, 0.0, 1.0);
-	    MAT4X3VEC(view_dir, s->vp->gv_view2model, view_z_dir);
+	    MAT4X3VEC(view_dir, _cam.view2model, view_z_dir);
 
 	    /* intersect line through new_pt with plane of loop */
 	    if (bg_isect_line3_plane(&dist, new_pt, view_dir, pl, s->tol) < 1) {
@@ -1027,6 +1032,8 @@ void ecmd_nmg_epick(struct rt_edit *s, const vect_t mousevec)
 
     struct model *m =
 	(struct model *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     struct edge *e;
     struct bn_tol tmp_tol;
     bu_clbk_t f = NULL;
@@ -1041,11 +1048,11 @@ void ecmd_nmg_epick(struct rt_edit *s, const vect_t mousevec)
     tmp_tol.perp = 0.0;
     tmp_tol.para = 1 - tmp_tol.perp;
 
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
     if ((e = nmg_find_e_nearest_pt2(&m->magic, pos_view,
-		    s->vp->gv_model2view, s->vlfree, &tmp_tol)) == (struct edge *)NULL) {
+		    _cam.model2view, s->vlfree, &tmp_tol)) == (struct edge *)NULL) {
 	bu_vls_printf(s->log_str, "ECMD_NMG_EPICK: unable to find an edge\n");
 	rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
 	if (f)
@@ -1314,6 +1321,11 @@ rt_edit_nmg_edit_xy(
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
+    struct rt_db_internal *ip = &s->es_int;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
+    bu_clbk_t f = NULL;
+    void *d = NULL;
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
@@ -1338,10 +1350,10 @@ rt_edit_nmg_edit_xy(
 	case ECMD_NMG_FMOVE:
 	case ECMD_NMG_LEXTRU:
 	case ECMD_NMG_LEXTRU_DIR:
-              MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+              MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
               pos_view[X] = mousevec[X];
               pos_view[Y] = mousevec[Y];
-              MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+              MAT4X3PNT(temp, _cam.view2model, pos_view);
               MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
               s->e_mvalid = 1;
 	      break;
