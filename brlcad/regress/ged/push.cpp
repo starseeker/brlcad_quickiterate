@@ -256,11 +256,11 @@ main(int argc, const char **argv)
 	    dstruct = true;
 	}
 	// Whether we expect differences depends on the options.  External
-	// objects change only when xpush is active without local protection
-	// AND without a depth limit.  A depth limit constrains how far
-	// changes propagate, so external objects are not guaranteed to see
-	// changes even when force (-f) is used.
-	if (!local_changes_only && xpush && !max_depth) {
+	// objects change only when xpush is active without local protection,
+	// without a depth limit, and without a region halt.  Both a depth
+	// limit and a region halt constrain how far changes propagate, so
+	// external objects are not guaranteed to see changes.
+	if (!local_changes_only && xpush && !max_depth && !to_regions) {
 	    if (!dvol) {
 		std::cout << "ERROR: expected volume change not found\n";
 		have_diff_vol = true;
