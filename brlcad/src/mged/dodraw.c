@@ -159,6 +159,15 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	    if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
 	}
 
+	/* Phase 2e dual-write: also register in scene-root so that
+	 * bsg_view_traverse can render and manage this shape without
+	 * walking dl_head_scene_obj.  Once display_list.c is fully migrated
+	 * the BU_LIST_APPEND above and dl_head_scene_obj can be removed. */
+	if (view_state && view_state->vs_gvp) {
+	    bsg_shape *scene_root = bsg_scene_root_get(view_state->vs_gvp);
+	    if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
+	}
+
 	bu_semaphore_release(RT_SEM_MODEL);
     } else {
 	/* replacing existing solid -- struct already linked in */
