@@ -2658,6 +2658,50 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 }
 
 
+
+/*
+ * Screengrab command that forces a display refresh before capturing.
+ *
+ * In batch (-c) mode all commands are buffered and processed by the Tcl event
+ * loop in a single pass, so the normal render cycle (event_check -> refresh)
+ * never runs between individual commands.  This wrapper calls refresh()
+ * explicitly before delegating to ged_exec_screengrab so that the OSMesa
+ * (swrast) back-buffer contains the current scene when the image is read.
+ */
+int
+cmd_screengrab(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *argv[])
+{
+    int ret;
+    struct cmdtab *ctp = (struct cmdtab *)clientData;
+    MGED_CK_CMD(ctp);
+    struct mged_state *s = ctp->s;
+
+    if (s->gedp == GED_NULL)
+	return TCL_OK;
+
+    if (setjmp(jmp_env) == 0)
+	(void)signal(SIGINT, sig3);  /* allow interrupts */
+    else
+	return TCL_OK;
+
+    if (!s->gedp->ged_gvp)
+	s->gedp->ged_gvp = view_state->vs_gvp;
+    s->gedp->ged_gvp->dmp = (void *)s->mged_curr_dm->dm_dmp;
+
+    /* Force an immediate render so the display buffer is up-to-date */
+    refresh(s);
+
+    ret = ged_exec_screengrab(s->gedp, argc, (const char **)argv);
+    GED_OUTPUT;
+
+    (void)signal(SIGINT, SIG_IGN);
+
+    if (ret & GED_HELP || ret == BRLCAD_OK)
+	return TCL_OK;
+
+    return TCL_ERROR;
+}
+
 /*
  * Local Variables:
  * mode: C
