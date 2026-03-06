@@ -34,6 +34,15 @@
 #include "bu/str.h"
 #include "raytrace.h"
 #include "rt/rt_ecmds.h"
+#include "bsg/util.h"
+
+/* Phase 2c helper: set rotate_about via camera API */
+#define SET_ROTATE_ABOUT(vp, ch) do { \
+    struct bsg_camera _ra_cam; \
+    bsg_view_get_camera((vp), &_ra_cam); \
+    _ra_cam.rotate_about = (ch); \
+    bsg_view_set_camera((vp), &_ra_cam); \
+} while (0)
 
 
 struct directory *
@@ -310,7 +319,7 @@ main(int argc, char *argv[])
     // Set rotation values - rotate about view center
     s->e_inpara = 1;
     VSET(s->e_para, 5, 5, 5);
-    s->vp->gv_rotate_about = 'v';
+    SET_ROTATE_ABOUT(s->vp, 'v');
 
     // set cmp vals to expected
     VSET(cmp_tor->v, 11.23303317584687910,4.16614044477699519,19.53105832935626651);
@@ -331,7 +340,7 @@ main(int argc, char *argv[])
     MAT_IDN(s->acc_rot_sol);
     s->e_inpara = 1;
     VSET(s->e_para, 5, 5, 5);
-    s->vp->gv_rotate_about = 'e';
+    SET_ROTATE_ABOUT(s->vp, 'e');
 
     // set cmp vals to expected
     VSET(cmp_tor->v, 11.40534719696836596,4.16282380897874571,19.36178344500957493);
@@ -352,7 +361,7 @@ main(int argc, char *argv[])
     MAT_IDN(s->acc_rot_sol);
     s->e_inpara = 1;
     VSET(s->e_para, 5, 5, 5);
-    s->vp->gv_rotate_about = 'm';
+    SET_ROTATE_ABOUT(s->vp, 'm');
 
     // set cmp vals to expected
     VSET(cmp_tor->v, 11.23303317584687910,4.16614044477699519,19.53105832935626651);
@@ -373,7 +382,7 @@ main(int argc, char *argv[])
     MAT_IDN(s->acc_rot_sol);
     s->e_inpara = 1;
     VSET(s->e_para, 5, 5, 5);
-    s->vp->gv_rotate_about = 'k';
+    SET_ROTATE_ABOUT(s->vp, 'k');
     VMOVE(s->e_keypoint, edit_tor->v);
 
     // set cmp vals to expected
@@ -396,7 +405,7 @@ main(int argc, char *argv[])
     MAT_IDN(s->acc_rot_sol);
     s->e_inpara = 1;
     VSET(s->e_para, 5, 5, 5);
-    s->vp->gv_rotate_about = 'k';
+    SET_ROTATE_ABOUT(s->vp, 'k');
     VMOVE(s->e_keypoint, edit_tor->v);
 
     // set cmp vals to expected
@@ -517,7 +526,7 @@ main(int argc, char *argv[])
 
     // Not sure if we need to set these, strictly speaking, but just to be sure...
     s->vp->gv_coord = 'v';
-    s->vp->gv_rotate_about = 'k';
+    SET_ROTATE_ABOUT(s->vp, 'k');
 
 
     // The XY rotation logic in MGED is complex with a lot of options, and we
@@ -551,9 +560,13 @@ main(int argc, char *argv[])
     // 4.  With the newrot matrix prepared, we proceed to mged_erot.  This is
     // another case where MGED settings can impact processing.  Per the
     // coords == 'v' case, incorporate the view's gv_rotation into newrot
-    bn_mat_inv(temp1, s->vp->gv_rotation);
-    bn_mat_mul(temp2, temp1, newrot);
-    bn_mat_mul(newrot, temp2, s->vp->gv_rotation);
+    {
+	struct bsg_camera _rot_cam;
+	bsg_view_get_camera(s->vp, &_rot_cam);
+	bn_mat_inv(temp1, _rot_cam.rotation);
+	bn_mat_mul(temp2, temp1, newrot);
+	bn_mat_mul(newrot, temp2, _rot_cam.rotation);
+    }
 
     // 5.  Set up the new rotation matrix in solid edit struct
     MAT_COPY(s->incr_change, newrot);

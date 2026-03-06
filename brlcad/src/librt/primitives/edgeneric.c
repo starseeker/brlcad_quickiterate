@@ -179,7 +179,7 @@ edit_srot(struct rt_edit *s)
     }
     /* Apply changes to solid */
     /* xlate keypoint to origin, rotate, then put back. */
-    switch (s->vp->gv_rotate_about) {
+    switch (_cam.rotate_about) {
 	case 'v':       /* View Center */
 	    VSET(work, 0.0, 0.0, 0.0);
 	    MAT4X3PNT(rot_point, _cam.view2model, work);
