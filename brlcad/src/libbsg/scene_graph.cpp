@@ -76,6 +76,9 @@
 /* bv/snap.h declares bv_view_center_linesnap, wrapped as bsg_view_center_linesnap */
 #include "bsg/snap.h"
 
+/* bv/snap.h declares bv_view_center_linesnap, wrapped as bsg_view_center_linesnap */
+#include "bv/snap.h"
+
 /* bv/vlist.h provides BV_FREE_VLIST used by bsg_node_free() */
 #include "bsg/vlist.h"
 
@@ -827,6 +830,18 @@ bsg_sensor_fire(bsg_shape *root, unsigned long long type_mask)
 	    bsg_sensor_fire(child, type_mask);
 	}
     }
+}
+
+struct bv_scene_obj *
+bsg_scene_fsos(bsg_scene *s)
+{
+    return bv_set_fsos(s);
+}
+
+void
+bsg_view_center_linesnap(bsg_view *v)
+{
+    bv_view_center_linesnap(v);
 }
 
 /*
