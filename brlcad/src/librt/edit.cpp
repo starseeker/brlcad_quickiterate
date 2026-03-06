@@ -937,10 +937,8 @@ rt_knob_edit_sca(struct rt_edit *s, int matrix_edit)
 /*
  * A great deal of magic takes place here, to accomplish solid editing.
  *
- * Called from mged main loop after any event handlers:
- * if (sedraw > 0) rt_edit_process(s);
- * to process any residual events that the event handlers were too
- * lazy to handle themselves.
+ * Called from mged main loop after parameter entry or mouse events
+ * to apply any accumulated edit parameters to the current solid.
  *
  * A lot of processing is deferred to here, so that the "p" command
  * can operate on an equal footing to mouse events.
