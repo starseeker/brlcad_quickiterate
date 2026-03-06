@@ -28,10 +28,10 @@
  * ### Traversal algorithm
  *
  *   1. Call the visitor on @p root.  If it returns non-zero → prune.
- *   2. Save state if @p root has @c BSG_NODE_SEPARATOR.
+ *   2. Save state if @p root has @c LIBBSG_NODE_SEPARATOR.
  *   3. Accumulate @p root->xform into @c state->xform.
- *   4. If @p root has @c BSG_NODE_CAMERA, set @c state->active_camera.
- *   5. If @p root has @c BSG_NODE_LOD_GROUP, select one child and recurse
+ *   4. If @p root has @c LIBBSG_NODE_CAMERA, set @c state->active_camera.
+ *   5. If @p root has @c LIBBSG_NODE_LOD_GROUP, select one child and recurse
  *      only into that child.  Otherwise recurse into all children.
  *   6. Restore state (step 2) if separator.
  *
@@ -159,7 +159,7 @@ libbsg_traverse(bsg_node               *root,
 	return;
 
     /* --- save state if this is a separator -------------------------- */
-    is_separator = (root->type_flags & BSG_NODE_SEPARATOR) ? 1 : 0;
+    is_separator = (root->type_flags & LIBBSG_NODE_SEPARATOR) ? 1 : 0;
     if (is_separator)
 	memcpy(&saved, state, sizeof(saved));
 
@@ -168,13 +168,13 @@ libbsg_traverse(bsg_node               *root,
     memcpy(state->xform, accumulated, sizeof(mat_t));
 
     /* --- update camera ---------------------------------------------- */
-    if ((root->type_flags & BSG_NODE_CAMERA) && root->payload)
-	state->active_camera = (const bsg_camera *)root->payload;
+    if ((root->type_flags & LIBBSG_NODE_CAMERA) && root->payload)
+	state->active_camera = (const libbsg_camera *)root->payload;
 
     /* --- recurse into children -------------------------------------- */
     state->depth++;
 
-    if (root->type_flags & BSG_NODE_LOD_GROUP) {
+    if (root->type_flags & LIBBSG_NODE_LOD_GROUP) {
 	/* Visit only the selected LoD child */
 	int idx = lod_select_child(root, state);
 	if (idx >= 0 && (size_t)idx < BU_PTBL_LEN(&root->children)) {
