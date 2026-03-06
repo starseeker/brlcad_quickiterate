@@ -79,9 +79,9 @@ proc pattern_rect { args } {
     set group_name ""
     set index 0
     set depth top
-    set xdir { 1 0 0 }
-    set ydir { 0 1 0 }
-    set zdir { 0 0 1 }
+    set xdir {1 0 0}
+    set ydir {0 1 0}
+    set zdir {0 0 1}
     set num_x 0
     set num_y 0
     set num_z 0
@@ -194,8 +194,8 @@ proc pattern_sph { args } {
     set rot_az 0
     set rot_el 0
     set depth "top"
-    set center_pat { 0 0 0 }
-    set center_obj { 0 0 0 }
+    set center_pat {0 0 0}
+    set center_obj {0 0 0}
     set group_name ""
     set sstr ""
     set rstr ""
@@ -316,7 +316,7 @@ proc pattern_cyl { args } {
     set rstr ""
     set increment 0
     set start_az_deg 0
-    set start_az_dir { 1 0 0 }
+    set start_az_dir {1 0 0}
     set start_r 0
     set start_h 0
     set num_az 0
@@ -328,9 +328,9 @@ proc pattern_cyl { args } {
     set list_az_deg {}
     set list_r {}
     set list_h {}
-    set center_base { 0 0 0 }
-    set center_obj { 0 0 0 }
-    set height_dir { 0 0 1 }
+    set center_base {0 0 0}
+    set center_obj {0 0 0}
+    set height_dir {0 0 1}
     set feed_name ""
     set argc [llength $args]
     set index 0
@@ -498,13 +498,13 @@ class pattern_control {
 	variable radnum_c 1
 	variable raddel_c 0
 	variable radlist_c
-	variable startaz_c { 1 0 0 }
+	variable startaz_c {1 0 0}
 	variable startel_c
 	variable obj_c
 	variable source_string_c
 	variable rep_string_c
 	variable increment_c
-	variable heightdir_c { 0 0 1 }
+	variable heightdir_c {0 0 1}
 	variable starth_c
 	variable e_startr_c
 	variable height_c 1

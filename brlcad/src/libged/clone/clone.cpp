@@ -1285,6 +1285,22 @@ opt_vec3(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
     return ret;
 }
 
+/**
+ * opt_vect_t: like bu_opt_vect_t but uses parse_vec3_argv, which handles
+ * both "x y z" as 3 separate tokens AND as a single "x y z" string
+ * (e.g. from Tcl lappend '{ 1 0 0 }' which produces a string with spaces).
+ * bu_opt_vect_t fails when the last token has a trailing space because
+ * bu_argv_from_string does not null-terminate the trailing space, causing
+ * bu_opt_fastf_t to reject "0 " via the endptr check.
+ */
+static int
+opt_vect_t(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
+{
+    BU_OPT_CHECK_ARGV0(msg, argc, argv, "vect_t");
+    fastf_t *v = (fastf_t *)sv;   /* vect_t is fastf_t[3]; decays to fastf_t* */
+    return parse_vec3_argv(msg, argc, argv, v);
+}
+
 
 /** NVec3Opt: int + vect_t.  Used for -a / -b ("n x y z"). */
 struct NVec3Opt {
@@ -1571,9 +1587,9 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     BU_OPT(d[23], "", "lx", "\"...\"",  opt_float_list, &state->lx,  "x list");
     BU_OPT(d[24], "", "ly", "\"...\"",  opt_float_list, &state->ly,  "y list");
     BU_OPT(d[25], "", "lz", "\"...\"",  opt_float_list, &state->lz,  "z list");
-    BU_OPT(d[26], "", "xdir", "x y z",  bu_opt_vect_t,  state->xdir, "x direction");
-    BU_OPT(d[27], "", "ydir", "x y z",  bu_opt_vect_t,  state->ydir, "y direction");
-    BU_OPT(d[28], "", "zdir", "x y z",  bu_opt_vect_t,  state->zdir, "z direction");
+    BU_OPT(d[26], "", "xdir", "x y z",  opt_vect_t,  state->xdir, "x direction");
+    BU_OPT(d[27], "", "ydir", "x y z",  opt_vect_t,  state->ydir, "y direction");
+    BU_OPT(d[28], "", "zdir", "x y z",  opt_vect_t,  state->zdir, "z direction");
 
     /* Spherical / cylindrical shared */
     BU_OPT(d[29], "", "naz",       "#",       bu_opt_int,      &naz_opt,           "Az count");
@@ -1595,11 +1611,11 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     BU_OPT(d[45], "", "rotaz",     "",        NULL,            &rotaz_flag,         "Rotate with az");
     BU_OPT(d[46], "", "rotel",     "",        NULL,            &rotel_flag,         "Rotate with el");
     BU_OPT(d[47], "", "rot",       "",        NULL,            &rot_flag,           "Rotate with az (cyl)");
-    BU_OPT(d[48], "", "center-pat",    "x y z", bu_opt_vect_t, state->center_pat,  "Pattern origin (sph)");
-    BU_OPT(d[49], "", "center-obj",    "x y z", bu_opt_vect_t, state->center_obj,  "Object local centre");
-    BU_OPT(d[50], "", "center-base",   "x y z", bu_opt_vect_t, state->center_base, "Cylinder base (cyl)");
-    BU_OPT(d[51], "", "height-dir",    "x y z", bu_opt_vect_t, state->height_dir,  "Cylinder axis (cyl)");
-    BU_OPT(d[52], "", "start-az-dir",  "x y z", bu_opt_vect_t, state->start_az_dir,"Radial start dir");
+    BU_OPT(d[48], "", "center-pat",    "x y z", opt_vect_t, state->center_pat,  "Pattern origin (sph)");
+    BU_OPT(d[49], "", "center-obj",    "x y z", opt_vect_t, state->center_obj,  "Object local centre");
+    BU_OPT(d[50], "", "center-base",   "x y z", opt_vect_t, state->center_base, "Cylinder base (cyl)");
+    BU_OPT(d[51], "", "height-dir",    "x y z", opt_vect_t, state->height_dir,  "Cylinder axis (cyl)");
+    BU_OPT(d[52], "", "start-az-dir",  "x y z", opt_vect_t, state->start_az_dir,"Radial start dir");
     BU_OPT_NULL(d[53]);
 
     /* bu_opt_parse rewrites argv[] in-place, which would corrupt the
