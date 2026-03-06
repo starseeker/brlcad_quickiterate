@@ -296,6 +296,22 @@ bsg_color_soltab(bsg_view *v)
     }
 }
 
+
+/*
+ * BSG Phase 2e version: recolor all shapes in the scene-root children of v.
+ */
+void
+bsg_color_soltab(bsg_view *v)
+{
+    if (!v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	color_soltab(sp);
+    }
+}
+
 static void
 solid_append_vlist(bsg_shape *sp, struct bv_vlist *vlist)
 {
@@ -400,6 +416,22 @@ int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int r
     return 0;           /* OK */
 
 }
+
+/*
+ * BSG Phase 2e version: set the iflag on all shapes in the scene-root children.
+ */
+void
+bsg_set_iflag(bsg_view *v, int iflag)
+{
+    if (!v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	sp->s_iflag = iflag;
+    }
+}
+
 
 /*
  * BSG Phase 2e version: set the iflag on all shapes in the scene-root children.
