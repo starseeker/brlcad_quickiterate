@@ -77,6 +77,11 @@
 #include <vector>
 #include <cstring>  /* memset */
 
+/* Forward-declare internal libbv helpers used in bsg_dl_hash */
+extern "C" {
+void bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s);
+}
+
 /* ====================================================================== *
  * Phase 2: module-level side-channel state (forward declarations)       *
  * ====================================================================== */
@@ -232,6 +237,34 @@ bsg_view_hash(bsg_view *v)
 extern "C" unsigned long long
 bsg_dl_hash(struct display_list *dl)
 {
+    if (!dl)
+	return 0;
+
+    /* Try to get the view from the first shape's s_v pointer so we can
+     * use root->children instead of the legacy dl_head_scene_obj list. */
+    bsg_view *v = NULL;
+    {
+	struct display_list *first_gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
+	if (BU_LIST_NOT_HEAD(first_gdlp, dl)) {
+	    bsg_shape *first_sp = (bsg_shape *)BU_LIST_FIRST(bsg_shape, &first_gdlp->dl_head_scene_obj);
+	    if (first_sp && first_sp != (bsg_shape *)&first_gdlp->dl_head_scene_obj)
+		v = first_sp->s_v;
+	}
+    }
+
+    bsg_shape *root = v ? bsg_scene_root_get(v) : nullptr;
+    if (root) {
+	/* Phase 2e: hash over scene-root children (flat iteration) */
+	struct bu_data_hash_state *state = bu_data_hash_create();
+	if (!state) return 0;
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    bv_scene_obj_hash(state, (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i));
+	}
+	unsigned long long hash_val = bu_data_hash_val(state);
+	bu_data_hash_destroy(state);
+	return hash_val;
+    }
+
     return bv_dl_hash(dl);
 }
 

@@ -29,6 +29,7 @@
 #include <bu.h>
 #include <bv.h>
 #include <ged.h>
+#include "bsg/util.h"
 
 int
 main(int ac, char *av[]) {
@@ -59,14 +60,33 @@ main(int ac, char *av[]) {
     // with the gqa overlap view object's name (gqa:overlaps) to find the
     // bsg_shape, and then iterate over that object's child objects to get
     // the different colored vlists...)
-    struct display_list *gdlp;
     bsg_shape *vdata = NULL;
-    for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp))) {
-	if (!BU_STR_EQUAL(bu_vls_cstr(&gdlp->dl_path), "OVERLAPSffff00"))
-	    continue;
-	printf("found %s;\n", bu_vls_cstr(&gdlp->dl_path));
-	vdata = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
-	break;
+
+    /* Phase 2e: use scene-root children and find by path name */
+    bsg_shape *root = bsg_scene_root_get(gedp->ged_gvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data) continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	if (bdata->s_fullpath.fp_len == 0) continue;
+	struct directory *top = bdata->s_fullpath.fp_names[0];
+	if (BU_STR_EQUAL(top->d_namep, "OVERLAPSffff00")) {
+	    printf("found %s;\n", top->d_namep);
+	    vdata = sp;
+	    break;
+	}
+    }
+    if (!vdata) {
+	/* Legacy fallback: search via dl_head_scene_obj */
+	struct display_list *gdlp;
+	for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp))) {
+	    if (!BU_STR_EQUAL(bu_vls_cstr(&gdlp->dl_path), "OVERLAPSffff00"))
+		continue;
+	    printf("found %s;\n", bu_vls_cstr(&gdlp->dl_path));
+	    vdata = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
+	    break;
+	}
     }
 
     if (vdata) {
