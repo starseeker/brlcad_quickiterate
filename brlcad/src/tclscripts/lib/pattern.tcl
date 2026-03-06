@@ -53,6 +53,21 @@ if {![info exists local2base]} {
     set local2base 1.0
 }
 
+###
+#   _ C L O N E _ I N V O K E
+#
+# Helper: call the libged 'clone' command in the correct way depending on
+# whether we are inside MGED (mgedFlag=1, direct command) or a libged
+# application (mgedFlag=0, via the $::cadwidgets::ged handle).
+#
+proc _clone_invoke { args } {
+    if {$::cadwidgets::mgedFlag} {
+	return [eval clone $args]
+    } else {
+	return [eval $::cadwidgets::ged clone $args]
+    }
+}
+
 proc exists_wrapper {args} {
     if {$::cadwidgets::mgedFlag} {
 	eval exists $args
