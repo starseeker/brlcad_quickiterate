@@ -230,13 +230,36 @@ dl_redraw(struct display_list *gdlp, struct ged *gedp, int skip_subtractions)
     struct db_tree_state *tsp = &wdbp->wdb_initial_tree_state;
     bsg_view *gvp = gedp->ged_gvp;
     int ret = 0;
-    bsg_shape *sp;
     struct bu_list *vlfree = &rt_vlfree;
-    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
-	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
+
+    /* Phase 2e: iterate root->children when available.  A shape belongs to
+     * this gdlp if the top-level prefix of its s_fullpath matches dl_path. */
+    bsg_shape *root = gvp ? bsg_scene_root_get(gvp) : NULL;
+    if (root && BU_PTBL_LEN(&root->children) > 0) {
+	const char *dl_path_str = bu_vls_cstr(&gdlp->dl_path);
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	    if (!sp->s_u_data)
+		continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    /* Check if this shape's path starts with the gdlp path */
+	    char *sp_path = db_path_to_string(&bdata->s_fullpath);
+	    int matches = (bu_strncmp(sp_path, dl_path_str, strlen(dl_path_str)) == 0);
+	    bu_free(sp_path, "dl_redraw sp_path");
+	    if (!matches)
+		continue;
+	    if (!skip_subtractions || !sp->s_soldash)
+		ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
+	}
+    } else {
+	bsg_shape *sp;
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+	    if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
+		ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
+	    }
 	}
     }
+
     ged_create_vlist_display_list_cb(gedp, gdlp);
     return ret;
 }
