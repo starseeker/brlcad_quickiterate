@@ -331,13 +331,39 @@ bsg_view_clear(bsg_view *v, int flags)
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
 	    if (s->s_type_flags & structural)
 		continue;
-	    /* Check type match: local shapes have BSG_LOCAL_OBJS set. */
-	    if (!flags)
-		to_remove.push_back(s);
-	    else if ((flags & BSG_DB_OBJS)   && (s->s_type_flags & BSG_DB_OBJS))
-		to_remove.push_back(s);
-	    else if ((flags & BSG_VIEW_OBJS) && (s->s_type_flags & BSG_VIEW_OBJS))
-		to_remove.push_back(s);
+
+	    /* Determine if this shape matches the type requested. */
+	    bool type_match = false;
+	    if (!flags) {
+		type_match = true;
+	    } else {
+		if ((flags & BSG_DB_OBJS)   && (s->s_type_flags & BSG_DB_OBJS))
+		    type_match = true;
+		if ((flags & BSG_VIEW_OBJS) && (s->s_type_flags & BSG_VIEW_OBJS))
+		    type_match = true;
+	    }
+	    if (!type_match)
+		continue;
+
+	    /* Filter by LOCAL/shared: only remove shapes that bv_clear()
+	     * will actually free from the BV side.  A shape is "local" when
+	     * it is owned by this view's local object pool (s->s_v is v and
+	     * the view is independent, or BSG_LOCAL_OBJS flag was set on the
+	     * shape at allocation time).  bv_clear respects the same logic:
+	     * with BSG_LOCAL_OBJS it only frees local objects. */
+	    bool is_local = (s->s_type_flags & BSG_LOCAL_OBJS) ||
+			    (s->s_v && s->s_v->independent);
+	    if (flags & BSG_LOCAL_OBJS) {
+		/* Only include local shapes when LOCAL flag requested. */
+		if (!is_local)
+		    continue;
+	    } else {
+		/* Only include shared shapes when LOCAL flag NOT requested. */
+		if (is_local)
+		    continue;
+	    }
+
+	    to_remove.push_back(s);
 	}
 
 	size_t result = bv_clear(v, flags);
@@ -356,6 +382,9 @@ bsg_view_clear(bsg_view *v, int flags)
 		    for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
 			bsg_view *cv = (bsg_view *)BU_PTBL_GET(vws, i);
 			if (cv == v) continue;
+			/* Skip independent views — shared objects don't live
+			 * in their roots. */
+			if (cv->independent) continue;
 			bsg_shape *croot = bsg_scene_root_get(cv);
 			if (!croot) continue;
 			for (bsg_shape *s : to_remove)
@@ -413,6 +442,8 @@ bsg_shape_get(bsg_view *v, int type)
 	if (vws) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
 		bsg_view *cv = (bsg_view *)BU_PTBL_GET(vws, i);
+		/* Skip independent views — they don't share objects. */
+		if (cv->independent) continue;
 		bsg_shape *root = bsg_scene_root_get(cv);
 		if (root) {
 		    bu_ptbl_ins_unique(&root->children, (long *)s);
@@ -462,6 +493,8 @@ bsg_shape_put(bsg_shape *s)
 	    if (vws) {
 		for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
 		    bsg_view *cv = (bsg_view *)BU_PTBL_GET(vws, i);
+		    /* Skip independent views — they don't share objects. */
+		    if (cv->independent) continue;
 		    bsg_shape *root = bsg_scene_root_get(cv);
 		    if (root) {
 			bu_ptbl_rm(&root->children, (long *)s);
