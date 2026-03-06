@@ -940,4 +940,13 @@ suites provide a clean baseline again.
 - Control images were wrongly regenerated from this intermediate state; restored to `c9f865cd` baseline in Session 11.  
 **Session 11 (architectural pivot)**:  
 - Control images restored to `c9f865cd` baseline.  
-- New direction: build `libbsg` as a fully independent library (no `libbv` dependency); see section above.*
+- New direction: build `libbsg` as a fully independent library (no `libbv` dependency); see section above.  
+**Session 12 (libbsg skeleton — Steps 1–4 COMPLETE)**:  
+- ✅ Step 1 — Skeleton: `src/libbsg/` directory, `CMakeLists.txt`, library target `libbsg` linking only `libbu` + `libbn`. Added to `src/source_dirs.cmake`.
+- ✅ Step 2 — Core node types in `include/libbsg/libbsg.h`: `bsg_node` (base, independent), `bsg_separator` / `bsg_transform` (typedefs of `bsg_node`), `bsg_camera` (clean struct, layout-compatible with `bsg/defines.h`), `bsg_shape` (leaf geometry, independent of `bv_scene_obj`), `libbsg_view_params` (plain-C viewport struct, no `bview`).
+- ✅ Step 3 — Scene root + view binding: `libbsg_scene_root_create(params)`, `libbsg_camera_node_alloc/get/set()`, `libbsg_scene_root_camera()`, `libbsg_view_bind()` in `src/libbsg/scene.c`.
+- ✅ Step 4 — Traversal engine: `libbsg_traversal_state_init()`, `libbsg_traverse()` with full separator save/restore, camera tracking, and LoD child selection in `src/libbsg/traverse.c`.
+- ✅ Additional: `libbsg_find_by_type()` typed-query helper (Section 9 helper needed for Section 4.2 polygon queries).
+- ✅ Mutual-exclusion guard in `libbsg/libbsg.h` prevents accidental mixing with `bsg/defines.h` in the same TU.
+- ✅ `libbsg.so` builds clean; all 15 API symbols exported; 7-test smoke suite passes.
+- Remaining: Step 5 (`libbsg_dm` adapter), Step 6 (geometry ingestion), Step 7 (selection), Step 8 (optional `BRLCAD_DISABLE_LIBBV_INCLUDES`).*
