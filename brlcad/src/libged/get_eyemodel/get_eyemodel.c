@@ -55,7 +55,9 @@ ged_get_eyemodel_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     _ged_rt_set_eye_model(gedp, eye_model);
-    quat_mat2quat(quat, gedp->ged_gvp->gv_rotation);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+    quat_mat2quat(quat, _cam.rotation);
 
     bu_vls_printf(gedp->ged_result_str, "viewsize %.15e;\n", gedp->ged_gvp->gv_size);
     bu_vls_printf(gedp->ged_result_str, "orientation %.15e %.15e %.15e %.15e;\n",
