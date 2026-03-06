@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "vmath.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -551,36 +552,15 @@ bv_35_25(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
 /* returns 0 if error, !0 if success */
 static int
 ill_common(struct mged_state *s) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    int is_empty = 1;
+    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
 
-    /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	/* BSG Phase 2e TODO: replace with
-	 *   bsg_shape *_root = bsg_scene_root_get(view_state->vs_gvp);
-	 *   is_empty = (!_root || BU_PTBL_LEN(&_root->children) == 0); */
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!root || BU_PTBL_LEN(&root->children) == 0) {
 	Tcl_AppendResult(s->interp, "no solids in view\n", (char *)NULL);
 	return 0;	/* BAD */
     }
 
-    illum_gdlp = gdlp;
-    /* BSG Phase 2e TODO: replace with
-     *   bsg_shape *_root = bsg_scene_root_get(view_state->vs_gvp);
-     *   illump = (bsg_shape *)BU_PTBL_GET(&_root->children, 0); */
-    illump = (bsg_shape *)BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illum_gdlp = GED_DISPLAY_LIST_NULL;
+    illump = (bsg_shape *)BU_PTBL_GET(&root->children, 0); /* any valid solid would do */
     illump->s_iflag = UP;
     edobj = 0;		/* sanity */
     edsol = 0;		/* sanity */
