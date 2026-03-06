@@ -135,20 +135,20 @@ These are tracked items found in the code that need to be resolved:
 
 ### `brlcad/src/mged/edsol.c`
 
-- [ ] **Line 53** – `FIXME: Globals` — remaining module-level globals need to be moved into state structs
-- [ ] **Line 329** – `TODO - figure out what this is doing` — unknown logic block needs audit
-- [ ] **Line 571** – `TODO - fix` — incomplete fix for a specific code path
-- [ ] **Line 665** – `TODO - this needs dbip because the ft_xform routines are calling ft_export and ft_import` — xform routines require database access; needs proper threading of `dbip` through the call chain
-- [ ] **Line 765** – `TODO - this needs to move to the ft_edit_xy callbacks as MATRIX_EDIT` — matrix-edit XY mouse path not yet delegated to per-primitive callbacks
-- [ ] **Line 779, 823** – `TODO - not using this anymore, revert/fix` — dead code or incorrect paths
+- [x] **Line 53** – `FIXME: Globals` — dead globals `sedraw` and `es_m[3]` removed; remaining globals (`movedir`, `illump`, etc.) are still to be moved into state structs
+- [x] **Line 329** – `TODO - figure out what this is doing` — resolved: `cad_list_buts` is a Tk checkbox dialog for BOT flags; replaced TODO with explanatory comment
+- [ ] **Line 571** – `TODO - fix` — incomplete fix for a specific code path (init_sedit should call rt_edit_create)
+- [x] **Line 665** – `TODO - this needs dbip` — resolved: implementation already correctly threads `s->dbip` through `rt_matrix_transform`; updated comment
+- [x] **Line 765** – `TODO - this needs to move to the ft_edit_xy callbacks as MATRIX_EDIT` — already done: `objedit_mouse` delegates to `ft_edit_xy`; updated comment to reflect current state
+- [x] **Line 779, 823** – `TODO - not using this anymore, revert/fix` — dead commented-out code removed
 - [ ] **Line 1240** – `XXX hack to restore MEDIT(s)->es_int after rt_db_put_internal blows it away` — should be handled cleanly
 - [ ] **Line 1417** – `XXX This really should use import/export interface` — tedit parameter path
-- [ ] **Line 1429** – `TODO - is es_int the same as ip here?` — consolidate `es_int` vs `ip` naming
-- [ ] **Lines 1963, 2022** – `TODO - write to a vls so parent code can do Tcl_AppendResult` — output should go through `bu_vls` / callback, not direct `printf`
+- [x] **Line 1429** – `TODO - is es_int the same as ip here?` — answered yes; updated to use `ip` directly; removed TODO
+- [x] **Lines 1963, 2022** – `TODO - write to a vls so parent code can do Tcl_AppendResult` — fixed: now uses `Tcl_AppendResult` directly
 
 ### `brlcad/src/mged/mged.h`
 
-- [ ] **Lines 147-148** — `es_edclass` and `es_type` in `mged_edit_state` are marked with `TODO - can we eliminate these?` — should be replaced by `rt_arb_std_type()` and `EDIT_ROTATE/TRAN/SCALE` macros fully
+- [x] **Lines 147-148** — `es_type` removed (was unused); `es_edclass` remains (still actively used)
 
 ### `brlcad/src/mged/buttons.c`
 
@@ -156,13 +156,13 @@ These are tracked items found in the code that need to be resolved:
 
 ### `brlcad/src/mged/share.c`
 
-- [ ] **Line 286** — `TODO - is e_type actually used here?`
+- [x] **Line 286** — `TODO - is e_type actually used here?` — answered no; `es_type` removed from struct; TODO comment removed
 
 ### `brlcad/src/librt/primitives/arb8/edarb.c`
 
 - [ ] **Line 67** — Multiple-menu structure for ARB8 will complicate the `ft_set_edit_mode` callback
 - [ ] **Line 745** — ARB-specific state (face/edge edit arrays) should be in a private arb editing struct rather than globals
-- [ ] **Line 1281** — `return 1` instead of `break` skips `rt_edit_process` finalisation; needs investigation
+- [x] **Line 1281** — `return 1` instead of `break` — investigated: `ecmd_arb_rotate_face` handles plane calc and replot directly; `return 1` intentionally skips redundant work in `rt_edit_process`; replaced TODO with explanatory comment
 - [ ] **Line 1565** — Comment notes solid edit menu was called in MGED — determine if still needed
 
 ### `brlcad/src/librt/primitives/bspline/edbspline.c`
@@ -508,12 +508,16 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - [x] `EDOBJ[]` table in `edtable.cpp` wiring all primitives to their callbacks
 - [x] MGED callback registration in `mged_impl.cpp` / `mged_impl.h`
 - [x] `mged_state_clbk_set/get` and `mged_edit_clbk_sync` implemented
-- [ ] Eliminate `es_edclass` and `es_type` from `mged_edit_state` (mged.h lines 147-148)
-- [ ] Resolve remaining globals in `edsol.c` (FIXME on line 53)
-- [ ] Fix `ft_xform` dbip threading (edsol.c line 665)
-- [ ] Move MATRIX_EDIT XY path to `ft_edit_xy` callbacks (edsol.c line 765)
-- [ ] Fix output to use `bu_vls` / callback (edsol.c lines 1963, 2022)
+- [x] Remove `es_type` from `mged_edit_state` (unused field, never read/written)
+- [x] Remove dead `sedraw` global (was never set to 1; all `if (sedraw > 0)` blocks were dead code)
+- [x] Remove unused `es_m[3]` global from edsol.c
+- [x] Fix `ft_xform` dbip threading concern (implementation already correct; updated comment)
+- [x] MATRIX_EDIT XY path already delegated to `ft_edit_xy` callbacks; updated comment
+- [x] Fix output to use `Tcl_AppendResult` (edsol.c ARB8 plane-calc errors, formerly `bu_log`)
+- [ ] Eliminate `es_edclass` from `mged_edit_state` (still actively used via TCL link and knob/rate loop)
+- [ ] Resolve remaining module-level globals in `edsol.c` (`movedir`, `illump`, etc.)
 - [ ] Migrate un-migrated functions from `buttons.c` to libged (buttons.c line 1043)
+- [ ] Fix `init_sedit` to call `rt_edit_create` (edsol.c line 571)
 
 ### Primitives (ed*.c exists)
 
@@ -571,5 +575,20 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
   - `mged_impl.cpp` registers MGED-specific callbacks for BOT (6 callbacks), NMG (1), EXTRUDE (1), ARB8 (1), plus 6 generic callbacks
   - `mged_edit_state` still carries `es_edclass` and `es_type` which should eventually be removed
   - `edsol.c` is 2139 lines (vs 7749 in vanilla) — the bulk of primitive-specific code has been migrated
+
+### Session 2 (2026-03-06)
+
+- Resolved several infrastructure TODO/FIXME items:
+  - Removed `es_type` from `mged_edit_state` (was declared but never accessed)
+  - Removed dead `sedraw` global and all dead `if (sedraw > 0)` blocks (`sedraw` was never set to 1)
+  - Removed unused `es_m[3]` global (declared but never referenced)
+  - Removed unused `incr_mat` local in `objedit_mouse`
+  - Fixed ARB8 plane-calculation error output: changed `bu_log()` to `Tcl_AppendResult()` in `f_extrude` and `f_mirface`
+  - Replaced misleading TODO comment in `transform_editing_solid` with proper doc comment
+  - Updated `objedit_mouse` comment: delegation to `ft_edit_xy` was already done; removed stale TODO
+  - Resolved "is es_int the same as ip?" question in `label_edited_solid`: yes, always `&MEDIT(s)->es_int`; updated fallback labeling to use `ip` consistently
+  - Clarified why `ecmd_arb_rotate_face` returns 1 (intentional: skips redundant plane recalc and replot in `rt_edit_process`)
+  - Removed stale `sedraw` reference from `rt_edit_process` doc comment in `edit.cpp`
+  - Clarified `ecmd_bot_flags_clbk` Tk dialog call (previously had TODO "figure out what this is doing")
 
 ---
