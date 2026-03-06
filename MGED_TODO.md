@@ -230,7 +230,7 @@ Legend: ✅ ed*.c exists | ⚠️ stub/alias | ❌ no edit support | 🔲 not ye
 | **RPC** (right parabolic cylinder) | ✅ `rpc/edrpc.c` | ✅ | — | ✔ sed+sscale+accept |
 | **RHC** (right hyperbolic cylinder) | ✅ `rhc/edrhc.c` | ✅ | — | ✔ sed+sscale+accept |
 | **EPA** (elliptical paraboloid) | ✅ `epa/edepa.c` | ✅ | — | ✔ sed+sscale+accept |
-| **EHY** (elliptical hyperboloid) | ✅ `ehy/edehy.c` | ✅ | — | ✔ sed+sscale+accept |
+| **EHY** (elliptical hyperboloid) | ✅ `ehy/edehy.c` | ✅ | Fixed: table.cpp had rt_epa_labels for ft_labels (session 7) | ✔ sed+sscale+accept; visual verified |
 | **ETO** (elliptic torus) | ✅ `eto/edeto.c` | ✅ | — | ✔ sed+sscale+accept |
 | **GRIP** | ✅ `grip/edgrip.c` | — | — | ✔ sed+accept |
 | **DSP** (displacement map) | ✅ `dsp/eddsp.c` | ✅ | — | ✔ sed+sscale+accept |
@@ -635,5 +635,21 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - **VOL verified**: Generated 10×10×10 unsigned-char volume; `sed` + `sscale` + `p 2` + `accept` passes after the export5 fix.
 - **DSP verified**: Generated 50×50 unsigned-short big-endian displacement map; `sed` + `sscale` + `p 2` + `accept` passes. stom[15]=0.5 confirmed.
 - All 27+ primitive types in the `EDOBJ[]` table now have verified `sed` + edit + `accept` round-trips in `-c` mode.
+
+### Session 7 (2026-03-06)
+
+- **Xvfb screenshot comparison infrastructure**: Built both vanilla and updated MGED with swrast (OSMesa offscreen rendering, `DM_SWRAST=1`). Generated 89 screenshots across 21 primitives in two modes (sed state, sscale state) plus interaction screenshots (BOT flags menu, PIPE move-point mode).
+- **Bug found and fixed: `rt_ehy_labels` in `table.cpp`** (`brlcad/src/librt/primitives/table.cpp`)
+  - Root cause: EHY's `ft_labels` entry in `OBJ[]` table (librt `table.cpp` entry 20) was set to `rt_epa_labels` instead of `rt_ehy_labels` — a copy-paste error.
+  - Vanilla MGED was immune because its `label_edited_solid()` used an inline `switch(ip->idb_type)` that handled EPA and EHY separately, never calling `OBJ[].ft_labels`.
+  - Updated MGED's `label_edited_solid()` delegates to `OBJ[ip->idb_type].ft_labels` (the modernized librt callback path). For EHY, this called `rt_epa_labels()` which immediately asserts `RT_EPA_CK_MAGIC(epa)` → triggered `bu_bomb` with "bad pointer" because the EHY internal has a different magic number.
+  - Fix: changed `RTFUNCTAB_FUNC_LABELS_CAST(rt_epa_labels)` to `RTFUNCTAB_FUNC_LABELS_CAST(rt_ehy_labels)` in the EHY entry of `table.cpp`.
+- **Screenshot gallery**: `mged_screenshots/gallery.html` — 21 compare images + 6 sscale compare images + 2 dialog/menu compare images. All 20/21 primitives match visually between vanilla and updated. EHY was the only primitive that crashed (fixed above).
+- **Visual verification results**:
+  - All basic geometry (SPH, TOR, PART, RPC, RHC, EPA, EHY, ETO, HYP, SUPERELL): identical rendering
+  - Polygon/surface (ARB8, ARS, HALF, BOT, NMG): identical rendering
+  - Complex/file-based (PIPE, METABALL, GRIP, EBM, VOL, DSP): identical rendering
+  - BOT flags menu (press menu3): identical dialog rendering between vanilla and updated
+  - PIPE move-point mode (press menu1): identical menu rendering between vanilla and updated
 
 ---
