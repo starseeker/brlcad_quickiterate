@@ -383,7 +383,11 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
     struct bsg_camera _dm_cam;
-    struct bsg_camera _dm_cam;
+
+    struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
+    GLdouble dpt[3];
+    static float black[4] = {0.0, 0.0, 0.0, 0.0};
+    GLfloat originalLineWidth, originalPointSize;
 
     if (mode)
 	return BRLCAD_ERROR;
