@@ -596,12 +596,17 @@ QPolyMod::align_to_poly()
     vect_t dir = VINIT_ZERO;
     VSET(dir, ip->vp[0], ip->vp[1], ip->vp[2]);
     bg_plane_pt_at(&center, &ip->vp, 0, 0);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, center);
-    bn_ae_vec(&gedp->ged_gvp->gv_aet[0], &gedp->ged_gvp->gv_aet[1], dir);
-    gedp->ged_gvp->gv_aet[2] = 0;
-    bsg_view_mat_aet(gedp->ged_gvp);
+    struct bsg_camera _pm_cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_pm_cam);
+    MAT_DELTAS_VEC_NEG(_pm_cam.center, center);
+    bn_ae_vec(&_pm_cam.aet[0], &_pm_cam.aet[1], dir);
+    _pm_cam.aet[2] = 0;
+    bsg_view_mat_aet_camera(&_pm_cam);
+    bsg_view_set_camera(gedp->ged_gvp, &_pm_cam);
 
     bsg_view_update(gedp->ged_gvp);
+    bsg_shape *_pm_cn = bsg_scene_root_camera(gedp->ged_gvp);
+    if (_pm_cn) bsg_camera_node_set(_pm_cn, &_pm_cam);
 
     emit view_updated(QG_VIEW_REFRESH);
 }

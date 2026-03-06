@@ -520,9 +520,9 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
      `bsg_view_set_camera` throughout `libged`, `librt`, `libtclcad`, `mged`,
      `gtools`.
 
-4. **Phase 2d** (LoD group nodes):
-   - Add `BSG_NODE_LOD_GROUP` support to `libged/view/lod.cpp`.
-   - Handle `BSG_NODE_LOD_GROUP` in `dm-gl_lod.cpp` draw path.
+4. **Phase 2d** (LoD group nodes): ✅ COMPLETE
+   - ✅ Add `BSG_NODE_LOD_GROUP` support to `libged/view/lod.cpp` (group create/add/rm/distances subcommands).
+   - ✅ Handle `BSG_NODE_LOD_GROUP` in `dm-gl_lod.cpp` draw path (`gl_draw_obj` selects child by eye-to-model-center distance).
 
 5. **Phase 2e** (display_list decommission):
    - Migrate `libged/display_list.c` shapes to scene-root children.
@@ -531,4 +531,4 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
 
 ---
 
-*Last updated: 2026-03-06 (Phases 2a, 2b(partial), 2c complete)*
+*Last updated: 2026-03-06 (Phases 2a, 2b(partial), 2c, 2d complete; Qt camera migration in progress)*
