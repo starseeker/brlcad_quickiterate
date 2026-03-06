@@ -236,9 +236,11 @@ bv_dl_hash(struct display_list *dl)
     if (!state)
 	return 0;
 
+    /* Phase 2e: dl_head_scene_obj has been removed; hash only the display
+     * list path strings.  For content hashing use bsg_dl_hash() which
+     * iterates scene-root children. */
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
 
     gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
     while (BU_LIST_NOT_HEAD(gdlp, dl)) {
@@ -246,10 +248,6 @@ bv_dl_hash(struct display_list *dl)
 
 	bu_data_hash_update(state, gdlp, sizeof(struct display_list));
 	bu_data_hash_update(state, bu_vls_cstr(&gdlp->dl_path), bu_vls_strlen(&gdlp->dl_path));
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    bv_scene_obj_hash(state, sp);
-	}
 
 	gdlp = next_gdlp;
     }

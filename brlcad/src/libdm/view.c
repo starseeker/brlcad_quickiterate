@@ -327,12 +327,8 @@ dm_draw_faceplate(bsg_view *v)
 	  MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, _cm.model2view, map);
 	}
 
-	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
-		       _cm.rotation,
-		     }
-		     &v->gv_s->gv_model_axes);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); \
+	dm_draw_hud_axes(dmp, v->gv_size, _cm.rotation, &v->gv_s->gv_model_axes); }
 
 	VMOVE(v->gv_s->gv_model_axes.axes_pos, save_map);
     }
@@ -348,12 +344,8 @@ dm_draw_faceplate(bsg_view *v)
 	height = dm_get_height(dmp);
 	inv_aspect = (fastf_t)height / (fastf_t)width;
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos * inv_aspect;
-	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
-		       _cm.rotation,
-		     }
-		     &v->gv_s->gv_view_axes);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); \
+	dm_draw_hud_axes(dmp, v->gv_size, _cm.rotation, &v->gv_s->gv_view_axes); }
 
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos;
     }
@@ -518,7 +510,7 @@ dm_draw_label(struct dm *dmp, bsg_shape *s)
 			return;
 		    }
 		    t3d[2] = 0;
-		    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+		    { struct bsg_camera _cm; bsg_view_get_camera(s->s_v, &_cm);
 		      MAT4X3PNT(tpt, _cm.view2model, t3d);
 		    }
 		    double dsq = DIST_PNT_PNT_SQ(tpt, l->target);
@@ -563,7 +555,7 @@ dm_draw_label(struct dm *dmp, bsg_shape *s)
 	    }
 	}
 	bsg_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
-	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	{ struct bsg_camera _cm; bsg_view_get_camera(s->s_v, &_cm);
 	  MAT4X3PNT(mpt, _cm.view2model, l3d);
 	}
     } else {
@@ -846,13 +838,13 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 
     /* Draw labels */
     if (wdbp && vd && v->gv_tcl.gv_prim_labels.gos_draw) {
+	struct bsg_camera _cm;
+	bsg_view_get_camera(v, &_cm);
 	for (int i = 0; i < vd->prim_label_list_size; ++i) {
 	    dm_draw_prim_labels(dmp,
 			   wdbp,
 			   bu_vls_cstr(&vd->prim_label_list[i]),
-			   { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
-			     _cm.model2view,
-			   }
+			   _cm.model2view,
 			   v->gv_tcl.gv_prim_labels.gos_text_color,
 			   NULL, NULL);
 	}

@@ -77,17 +77,7 @@ main(int ac, char *av[]) {
 	    break;
 	}
     }
-    if (!vdata) {
-	/* Legacy fallback: search via dl_head_scene_obj */
-	struct display_list *gdlp;
-	for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp))) {
-	    if (!BU_STR_EQUAL(bu_vls_cstr(&gdlp->dl_path), "OVERLAPSffff00"))
-		continue;
-	    printf("found %s;\n", bu_vls_cstr(&gdlp->dl_path));
-	    vdata = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
-	    break;
-	}
-    }
+    /* Phase 2e: dl_head_scene_obj removed; root->children is the only source */
 
     if (vdata) {
 	FILE *fp;

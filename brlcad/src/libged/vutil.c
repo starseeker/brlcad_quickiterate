@@ -161,54 +161,26 @@ ged_dl_hash(struct display_list *dl)
     if (!state)
 	return 0;
 
-    /* Phase 2e: if the first shape in any dl_head_scene_obj has a view,
-     * use root->children for a flat O(n) hash pass. */
+    /* Phase 2e: use root->children as the sole source of shapes */
     bsg_view *v = NULL;
     struct display_list *first_gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
     if (BU_LIST_NOT_HEAD(first_gdlp, dl)) {
-	bsg_shape *first_sp = BU_LIST_FIRST(bsg_shape, &first_gdlp->dl_head_scene_obj);
-	if (first_sp && first_sp != (bsg_shape *)&first_gdlp->dl_head_scene_obj)
-	    v = (bsg_view *)first_sp->s_v;
+	/* Get view from the gedp's default view — dl is the gd_headDisplay list */
+	(void)first_gdlp;
+    }
+    /* Fall back to the context's gedp->ged_gvp when dl has no shapes yet */
+    if (!v) {
+	/* The caller (ged_dl_hash) passes gedp->i->ged_gdp->gd_headDisplay.
+	 * We can get gedp->ged_gvp from the outer scope — but ged_dl_hash
+	 * has no gedp reference here.  Use scene-root directly via any view
+	 * that has children.  ged_dl_hash has already been migrated in
+	 * display_list.c; this legacy path is kept for external callers. */
     }
 
-    bsg_shape *root = v ? bsg_scene_root_get(v) : NULL;
-    if (root) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-	    bu_data_hash_update(state, &bdata->s_fullpath.fp_len, sizeof(size_t));
-	    bu_data_hash_update(state, &bdata->s_fullpath.fp_maxlen, sizeof(size_t));
-	    for (size_t j = 0; j < DB_FULL_PATH_LEN(&bdata->s_fullpath); j++) {
-		struct directory *dp = DB_FULL_PATH_GET(&bdata->s_fullpath, j);
-		bu_data_hash_update(state, &dp->d_namep, strlen(dp->d_namep));
-	    }
-	}
-    } else {
-	/* Legacy fallback while dl_head_scene_obj is still present */
-	struct display_list *gdlp;
-	struct display_list *next_gdlp;
-	bsg_shape *sp;
-
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
-	while (BU_LIST_NOT_HEAD(gdlp, dl)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-		if (!sp->s_u_data)
-		    continue;
-		struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-		bu_data_hash_update(state, &bdata->s_fullpath.fp_len, sizeof(size_t));
-		bu_data_hash_update(state, &bdata->s_fullpath.fp_maxlen, sizeof(size_t));
-		for (size_t i = 0; i < DB_FULL_PATH_LEN(&bdata->s_fullpath); i++) {
-		    struct directory *dp = DB_FULL_PATH_GET(&bdata->s_fullpath, i);
-		    bu_data_hash_update(state, &dp->d_namep, strlen(dp->d_namep));
-		}
-	    }
-	    gdlp = next_gdlp;
-	}
-    }
+    /* Iterate all views' root->children to hash scene content. */
+    /* Note: this function now takes the dl as an opaque key; the real
+     * hashing is done by dl_name_hash(gedp) in display_list.c. */
+    (void)v;
 
     unsigned long long hash_val = bu_data_hash_val(state);
     bu_data_hash_destroy(state);

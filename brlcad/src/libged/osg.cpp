@@ -166,26 +166,11 @@ _ged_osgLoadScene(struct bu_list *hdlp, void *osgData)
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
-	FOR_ALL_SOLIDS(sp, &gdlp->dl_head_scene_obj) {
-	    if (sp->s_dmode == 4) {
-		_osgLoadHiddenSolid(geode, sp);
-	    } else {
-		osg::Geometry* geom = new osg::Geometry();
-		osg::Vec3dArray* vertices = new osg::Vec3dArray;
-		osg::Vec3dArray* normals = new osg::Vec3dArray;
-		_osgLoadSolid(geode, geom, vertices, normals, sp);
-		geom->setVertexArray(vertices);
-		geom->setNormalArray(normals);
-		geom->setNormalBinding(osg::Geometry::BIND_PER_PRIMITIVE_SET);
-		//osg::RenderInfo ri(osp->viewer->getCamera()->getGraphicsContext()->getState(), osp->viewer->getCamera()->getView());
-		//geom->compileGLObjects(ri);
-		geom->setUseDisplayList(true);
-		geode->addDrawable(geom);
-	    }
-	}
-
+	/* Phase 2e: iterate scene-root children for this gdlp via path filter */
+	/* OSG rendering is not actively maintained; skip per-gdlp iteration */
 	gdlp = next_gdlp;
     }
+    /* TODO: iterate root->children for all views when OSG path is resumed */
 
     root->addChild(geode);
     osp->viewer->setSceneData(root);
