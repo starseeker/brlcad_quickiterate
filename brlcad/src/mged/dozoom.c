@@ -320,9 +320,24 @@ createDListAll(void *vlist_ctx, struct display_list *gdlp)
 {
     struct mged_state *s = (struct mged_state *)vlist_ctx;
     MGED_CK_STATE(s);
-    bsg_shape *sp;
-    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	createDListSolid(s, sp);
+
+    /* Phase 2e: use scene-root children when available (flat iteration).
+     * We get the view pointer from the first shape in gdlp->dl_head_scene_obj. */
+    bsg_view *v = NULL;
+    bsg_shape *first_sp = (bsg_shape *)BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj);
+    if (first_sp && first_sp != (bsg_shape *)&gdlp->dl_head_scene_obj)
+	v = (bsg_view *)first_sp->s_v;
+    bsg_shape *root = v ? bsg_scene_root_get(v) : NULL;
+
+    if (root && BU_PTBL_LEN(&root->children) > 0) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    createDListSolid(s, (bsg_shape *)BU_PTBL_GET(&root->children, i));
+	}
+    } else {
+	bsg_shape *sp;
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+	    createDListSolid(s, sp);
+	}
     }
 }
 

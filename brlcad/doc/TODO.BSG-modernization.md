@@ -533,12 +533,26 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
      ged_util.cpp, how.c, nirt.cpp, select.c, set_transparency.c, rtcheck.c,
      ps.c, png.c, nmg.c, view/objs.cpp, plot/plot.c, bot/dump/bot_dump.cpp,
      libtclcad/view/draw.c migrated.)
-   - Remaining for final decommission: display_list.c (27 uses, core
-     infrastructure), dodraw.c (3 dual-write insertions), draw/draw.c (2
-     insertions + 1 gdlp-scoped read), dozoom.c (1 callback), commands.c (1
-     callback), zap.c (1 freeing loop), vutil.c (1 public API), dm-gl.c (1
-     rendering), dm-generic.c (1 public API), libbv/hash.c (1 public API → use
-     bsg_dl_hash). Once all insertion sites are removed the `dl_head_scene_obj`
+   - **Phase 2e session 4 additions**:
+     - ✅ `display_list.c`: correctness — `bu_ptbl_rm` in all shape-freeing paths
+     - ✅ `display_list.c`: dual-write — `bu_ptbl_ins` at `invent_solid` insertion site (line 839)
+     - ✅ `draw/draw.c`: dual-write at both `dl_add_path` (line 131) and `append_solid_to_display_list` (line 424)
+     - ✅ `dodraw.c`: dual-write at line 159
+     - ✅ BSG reader helpers added: `bsg_bounding_sph`, `bsg_color_soltab`, `bsg_set_iflag`, `dl_name_hash`, `ged_find_shapes_by_path`
+     - ✅ `vutil.c:ged_dl_hash` and `scene_graph.cpp:bsg_dl_hash` use root->children (legacy fallback kept)
+     - ✅ `dm-generic.c`: `dm_draw_bsg_view()` added as BSG version of `dm_draw_head_dl`
+     - ✅ `dm-gl.c:gl_draw_display_list`: uses root->children when available (legacy dl_head_scene_obj fallback kept)
+     - ✅ `mged/dozoom.c:createDListAll`: uses root->children when available (legacy fallback kept)
+     - ✅ `libtclcad/commands.c:to_create_vlist_callback`: uses root->children when available (legacy fallback kept)
+     - ✅ `mged/dozoom.c`, `gtools/gsh/gsh.cpp`: render loops use `dm_draw_bsg_view` with legacy fallback
+     - ✅ `libged/tests/test_gqa.c`: migrated to root->children (legacy fallback kept)
+   - Remaining for final decommission: `display_list.c` (28 uses, core infrastructure
+     — reader iterations in erasePathFromDisplay, eraseAllSubpaths, _dl_eraseFirstSubpath,
+     headsolid_split/GDL, bounding_sph, color_soltab, set_iflag, dl_name_hash);
+     `draw/draw.c:dl_redraw` (gdlp-scoped read); `libtclcad/view/draw.c:to_edit_redraw`
+     (complex goto-based function, deferred); `zap.c` (freeing loop, already handled
+     via root->children reset); `libbv/hash.c:bv_dl_hash` (legacy fallback, still needed).
+     Once all insertion sites are removed and all readers migrated, the `dl_head_scene_obj`
      field can be dropped from `struct display_list`.
 
 ---
@@ -832,4 +846,4 @@ ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
 
 ---
 
-*Last updated: 2026-03-06 (Phases 2a–2d complete; all Qt camera fields migrated; MGED tractability + full scene-object recast analysis added)*
+*Last updated: 2026-03-06 (Phases 2a–2d complete; all Qt camera fields migrated; MGED tractability + full scene-object recast analysis added; Phase 2e dual-write and BSG reader helpers complete; dm-gl.c/dozoom.c/commands.c callbacks BSG-capable; section 4.2 polygon plugins migrated; section 7.1 librt primitive editors migrated)*
