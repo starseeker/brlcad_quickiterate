@@ -58,6 +58,7 @@
 
 /* bv/polygon.h declares the legacy functions wrapped in this file */
 #include "bv/polygon.h"
+#include "bv/view_sets.h"
 
 /* bn/mat.h provides bn_mat_mul() used by bsg_traverse() */
 #include "bn/mat.h"
@@ -232,6 +233,13 @@ extern "C" void
 bsg_view_autoview(bsg_view *v, fastf_t scale, int all_view_objs)
 {
     bv_autoview(v, scale, all_view_objs);
+    /* Sync camera node after bv_autoview updated gv_center / gv_scale. */
+    bsg_shape *cam_node = bsg_scene_root_camera(v);
+    if (cam_node) {
+	struct bsg_camera cur;
+	bsg_view_get_camera(v, &cur);
+	bsg_camera_node_set(cam_node, &cur);
+    }
 }
 
 extern "C" void
@@ -244,6 +252,14 @@ extern "C" void
 bsg_view_update(bsg_view *v)
 {
     bv_update(v);
+    /* Keep the scene-root camera node in sync whenever the view matrices
+     * change so bsg_view_traverse always uses current matrices. */
+    bsg_shape *cam_node = bsg_scene_root_camera(v);
+    if (cam_node) {
+	struct bsg_camera cur;
+	bsg_view_get_camera(v, &cur);
+	bsg_camera_node_set(cam_node, &cur);
+    }
 }
 
 extern "C" int
@@ -299,6 +315,58 @@ bsg_material_sync(bsg_material *dst, const bsg_material *src)
 extern "C" size_t
 bsg_view_clear(bsg_view *v, int flags)
 {
+    /* Before freeing objects via bv_clear(), collect all shapes from
+     * root->children that match the requested type so we can remove them
+     * from root->children afterwards.  bv_clear() calls bv_obj_put()
+     * directly (bypassing bsg_shape_put) so without this step the freed
+     * pointers would remain as dangling entries in root->children. */
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (root) {
+	unsigned long long structural =
+	    (unsigned long long)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
+				 BSG_NODE_CAMERA    | BSG_NODE_LOD_GROUP);
+	/* Snapshot the shapes that will be removed. */
+	std::vector<bsg_shape *> to_remove;
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	    if (s->s_type_flags & structural)
+		continue;
+	    /* Check type match: local shapes have BSG_LOCAL_OBJS set. */
+	    if (!flags)
+		to_remove.push_back(s);
+	    else if ((flags & BSG_DB_OBJS)   && (s->s_type_flags & BSG_DB_OBJS))
+		to_remove.push_back(s);
+	    else if ((flags & BSG_VIEW_OBJS) && (s->s_type_flags & BSG_VIEW_OBJS))
+		to_remove.push_back(s);
+	}
+
+	size_t result = bv_clear(v, flags);
+
+	/* Now remove the snapshotted shapes from root->children (pointer-only;
+	 * the underlying objects are already freed by bv_clear). */
+	if (!to_remove.empty()) {
+	    for (bsg_shape *s : to_remove)
+		bu_ptbl_rm(&root->children, (long *)s);
+	    _invalidate_shapes_cache(v);
+
+	    /* Shared shapes (no LOCAL flag) live in ALL co-views' roots. */
+	    if (!(flags & BSG_LOCAL_OBJS) && v->vset) {
+		struct bu_ptbl *vws = bv_set_views(v->vset);
+		if (vws) {
+		    for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
+			bsg_view *cv = (bsg_view *)BU_PTBL_GET(vws, i);
+			if (cv == v) continue;
+			bsg_shape *croot = bsg_scene_root_get(cv);
+			if (!croot) continue;
+			for (bsg_shape *s : to_remove)
+			    bu_ptbl_rm(&croot->children, (long *)s);
+			_invalidate_shapes_cache(cv);
+		    }
+		}
+	    }
+	}
+	return result;
+    }
     return bv_clear(v, flags);
 }
 
