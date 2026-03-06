@@ -72,7 +72,9 @@ _ged_select_botpts(struct ged *gedp, struct rt_bot_internal *botip, double vx, d
 	    vect_t diff;
 	    fastf_t mag;
 
-	    MAT4X3PNT(vpt, gedp->ged_gvp->gv_model2view, &botip->vertices[i*3]);
+	    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	      MAT4X3PNT(vpt, _cv.model2view, &botip->vertices[i*3]);
+	    }
 
 	    if (vpt[Z] < vminz)
 		continue;
@@ -90,7 +92,9 @@ _ged_select_botpts(struct ged *gedp, struct rt_bot_internal *botip, double vx, d
 	for (i = 0; i < botip->num_vertices; i++) {
 	    point_t vpt;
 
-	    MAT4X3PNT(vpt, gedp->ged_gvp->gv_model2view, &botip->vertices[i*3]);
+	    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	      MAT4X3PNT(vpt, _cv.model2view, &botip->vertices[i*3]);
+	    }
 
 	    if (vpt[Z] < vminz)
 		continue;
@@ -116,7 +120,9 @@ dl_select(bsg_view *v, struct bu_vls *vls, double vx, double vy, double vwidth, 
     fastf_t vmax_x = 0.0;
     fastf_t vmax_y = 0.0;
     mat_t model2view;
-    MAT_COPY(model2view, v->gv_model2view);
+    { struct bsg_camera _sv; bsg_view_get_camera(v, &_sv);
+      MAT_COPY(model2view, _sv.model2view);
+    }
 
     if (rflag) {
         vr = vwidth;
@@ -236,7 +242,9 @@ dl_select_partial(bsg_view *v, struct bu_vls *vls, double vx, double vy, double 
     fastf_t vmax_x = 0.0;
     fastf_t vmax_y = 0.0;
     mat_t model2view;
-    MAT_COPY(model2view, v->gv_model2view);
+    { struct bsg_camera _sv; bsg_view_get_camera(v, &_sv);
+      MAT_COPY(model2view, _sv.model2view);
+    }
 
     if (rflag) {
         vr = vwidth;
