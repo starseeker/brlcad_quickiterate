@@ -7,12 +7,19 @@
 # primitives and all parameter-edit operations.  Captures faceplate labels,
 # solid-edit illumination and the full edit state so regressions are visible.
 #
-# Prerequisites: ImageMagick (convert), Xvfb, DM_SWRAST=1 support in mged.
+# Prerequisites: Xvfb running on $DISPLAY, DM_SWRAST=1 support in mged.
 #
 # Screenshots are named:  <prefix>_<primitive>_<op>_during.png
 #                         <prefix>_<primitive>_<op>_after.png
 #
 # The two-image pairs can be compared across builds with mged_compare.sh.
+#
+# IMPORTANT: After entering sed mode, a screengrab is always fired first to
+# trigger mmenu_display() and initialize ms_top.  Without this initial
+# refresh the M command cannot locate menu items ("mouse press outside valid menu").
+#
+# All parameter values are in local units (mm) matching the default geometry
+# from `make <name> <type>` which creates shapes at roughly 500mm scale.
 
 set -euo pipefail
 
@@ -22,711 +29,530 @@ PREFIX="${3:-upd}"
 
 mkdir -p "$OUTDIR"
 
-# ─── helper: two-shot capture (during-edit + after-edit) ─────────────────────
-# two_shot <db> <prefix> <prim> <op_tag> <apply_cmd> [setup_cmd...]
-#   setup_cmds : tcl commands that put mged into the desired edit sub-mode
-#                (run AFTER 'e <prim>', 'ae 35 25', 'sed <prim>')
-#   apply_cmd  : the 'p' command (or similar) that actually modifies geometry
-#                (the LAST argument)
-#
-two_shot() {
-    local db="$1"
-    local pfx="$2"
-    local prim="$3"
-    local tag="$4"
-    local during="${OUTDIR}/${pfx}_${prim}_${tag}_during.png"
-    local after="${OUTDIR}/${pfx}_${prim}_${tag}_after.png"
-
-    shift 4
-    # everything up to (but not including) the last arg is setup
-    local ncmds=$(( $# - 1 ))
-    local apply="${@: -1}"   # last arg
-    local setup_cmds=("${@:1:$ncmds}")
-
-    # build setup portion
-    local setup_str=""
-    for c in "${setup_cmds[@]}"; do
-        setup_str+="$c\n"
-    done
-
-    printf "%b" \
-        "attach swrast\n" \
-        "e $prim\n" \
-        "ae 35 25\n" \
-        "sed $prim\n" \
-        "${setup_str}" \
-        "screengrab $during\n" \
-        "$apply\n" \
-        "screengrab $after\n" \
-        "press accept\n" \
-    | DM_SWRAST=1 "$MGED" -c "$db" 2>/dev/null || true
+# ─── menu_y: compute pen_y for menu item N (0=title, 1=first real item) ──────
+# MGED menu layout (menu.h):
+#   MENUY=1780, MENU_DY=-104
+#   ms_top = MENUY - MENU_DY/2 = 1780 + 52 = 1832
+#   mmenu_select iterates items 0,1,2...; for item N:
+#     yy = ms_top + (N+1)*MENU_DY = 1832 - 104*(N+1)
+#     item N is selected if pen_y > yy  (i.e. pen_y > 1832 - 104*(N+1))
+#   reliable midpoint for item N:
+#     between yy(N) and yy(N-1)  =  1832 - 104*(N+1)  and  1832 - 104*N
+#     midpoint = (1832-104*(N+1) + 1832-104*N) / 2
+#              = 1832 - 104*N - 52
+#              = 1780 - 104*N
+#   item 0 (title): 1780
+#   item 1:         1676
+#   item 2:         1572
+#   item 3:         1468
+# All MGED parameter-edit primitives use menu index 0 (MENU_L1).
+menu_y() {
+    local item="$1"
+    echo $(( 1780 - 104 * item ))
 }
 
-# ─── helper: menu-click (M 1 -1400 <y>) for menu-based primitives ────────────
-# menu item i (0=title,1=first real item) maps to pen_y:
-#   ms_top = MENUY + 52 = 1832
-#   boundary[i] = ms_top + (i+1)*MENU_DY = 1832 - 104*(i+1)
-#   use midpoint = boundary[i] + 52
-menu_y() {
-    local item="$1"   # 0-indexed, 0=title
-    echo $(( 1832 - 104 * (item + 1) + 52 ))
+# ─── two_shot: capture during-edit and after-edit screenshots ─────────────────
+# Usage: two_shot <db> <prefix> <prim> <tag> [setup_cmds...] <apply_cmd>
+#   All arguments after tag are commands to run inside mged.
+#   The LAST argument is the "apply" command (the geometry-changing p command).
+#   All preceding arguments (if any) are "setup" commands run after sed+refresh,
+#   before the during screenshot.
+two_shot() {
+    local db="$1" pfx="$2" prim="$3" tag="$4"
+    local during="${OUTDIR}/${pfx}_${prim}_${tag}_during.png"
+    local after="${OUTDIR}/${pfx}_${prim}_${tag}_after.png"
+    shift 4
+
+    # Split: last arg = apply, rest = setup
+    local ncmds=$(( $# - 1 ))
+    local apply="${@: -1}"
+    local setup_str=""
+    if (( ncmds > 0 )); then
+        local setup_cmds=("${@:1:$ncmds}")
+        for c in "${setup_cmds[@]}"; do
+            setup_str+="${c}\n"
+        done
+    fi
+
+    {
+        printf "attach swrast\n"
+        printf "e %s\n" "$prim"
+        printf "ae 35 25\n"
+        printf "sed %s\n" "$prim"
+        # First screengrab triggers mmenu_display → sets ms_top so M commands work
+        printf "screengrab %s\n" "${OUTDIR}/${pfx}_${prim}_${tag}_init.png"
+        printf "%b" "$setup_str"
+        printf "screengrab %s\n" "$during"
+        printf "%s\n" "$apply"
+        printf "screengrab %s\n" "$after"
+        printf "press accept\n"
+    } | DM_SWRAST=1 "$MGED" -c "$db" 2>/dev/null || true
+    # Remove the init (pre-setup) screenshot - we only want during and after
+    rm -f "${OUTDIR}/${pfx}_${prim}_${tag}_init.png"
+}
+
+# ─── menu_shot: one-menu-item two-shot helper ─────────────────────────────────
+# Usage: menu_shot <db> <prefix> <prim> <tag> <menu_item_n> <apply_cmd>
+#   Selects menu item N, grabs during, applies, grabs after.
+menu_shot() {
+    local db="$1" pfx="$2" prim="$3" tag="$4"
+    local item="$5" apply="$6"
+    local my; my=$(menu_y "$item")
+    two_shot "$db" "$pfx" "$prim" "$tag" \
+        "M 1 -1400 $my" \
+        "$apply"
 }
 
 # ─── Create a .g file with all test primitives ────────────────────────────────
 DB="/tmp/mged_edit_test_$$.g"
 
-printf "%b" \
-    "make sph1    sph\n" \
-    "make tor1    tor\n" \
-    "make ell1    ell\n" \
-    "make rpc1    rpc\n" \
-    "make rhc1    rhc\n" \
-    "make epa1    epa\n" \
-    "make ehy1    ehy\n" \
-    "make eto1    eto\n" \
-    "make hyp1    hyp\n" \
-    "make superell1 superell\n" \
-    "make part1   part\n" \
-    "make grip1   grip\n" \
-    "make half1   half\n" \
-    "make tgc1    tgc\n" \
-    "make extrude1 extrude\n" \
-    "make revolve1 revolve\n" \
-    "make arb8_1  arb8\n" \
-    "make arb7_1  arb7\n" \
-    "make arb6_1  arb6\n" \
-    "make arb5_1  arb5\n" \
-    "make arb4_1  arb4\n" \
-    "make bot1    bot\n" \
-    "make nmg1    nmg\n" \
-    "make ars1    ars\n" \
-    "make pipe1   pipe\n" \
-    "make metaball1 metaball\n" \
-    "q\n" \
+printf '%s\n' \
+    "make sph1      sph" \
+    "make tor1      tor" \
+    "make ell1      ell" \
+    "make rpc1      rpc" \
+    "make rhc1      rhc" \
+    "make epa1      epa" \
+    "make ehy1      ehy" \
+    "make eto1      eto" \
+    "make hyp1      hyp" \
+    "make superell1 superell" \
+    "make part1     part" \
+    "make grip1     grip" \
+    "make half1     half" \
+    "make tgc1      tgc" \
+    "make extrude1  extrude" \
+    "make revolve1  revolve" \
+    "make arb8_1    arb8" \
+    "make arb7_1    arb7" \
+    "make arb6_1    arb6" \
+    "make arb5_1    arb5" \
+    "make arb4_1    arb4" \
+    "make bot1      bot" \
+    "make nmg1      nmg" \
+    "make ars1      ars" \
+    "make pipe1     pipe" \
+    "make metaball1 metaball" \
+    "q" \
 | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
 
 echo "Database created: $DB"
 echo "Output directory: $OUTDIR"
-echo "Prefix: $PREFIX"
+echo "Prefix:           $PREFIX"
 echo ""
 
-# ─── SPH ─────────────────────────────────────────────────────────────────────
+# ─── SPH  (A=B=C=500mm; press sscale then p <scale_factor>) ──────────────────
 echo "Testing SPH..."
+# sscale uses a scale-factor not an absolute value: p 1.5 = scale by 1.5x
 two_shot "$DB" "$PREFIX" "sph1" "sscale" \
     "press sscale" \
     "p 1.5"
 
-# ─── ELL ─────────────────────────────────────────────────────────────────────
+# ─── ELL  (A=500, B=250, C=125 — all in mm) ──────────────────────────────────
 echo "Testing ELL..."
-two_shot "$DB" "$PREFIX" "ell1" "setA" \
-    "press sedit" \
-    "p 2.0"
+# ell_menu: title(0) / Set A(1) / Set B(2) / Set C(3) / Set A,B,C(4)
+# p <mm>: sets new magnitude of the chosen semi-axis
+menu_shot "$DB" "$PREFIX" "ell1" "setA"   1 "p 1000"
+menu_shot "$DB" "$PREFIX" "ell1" "setB"   2 "p 500"
+menu_shot "$DB" "$PREFIX" "ell1" "setC"   3 "p 250"
+menu_shot "$DB" "$PREFIX" "ell1" "setABC" 4 "p 750"
 
-# ─── TOR ─────────────────────────────────────────────────────────────────────
+# ─── TOR  (r1=400, r2=100 — mm) ──────────────────────────────────────────────
 echo "Testing TOR..."
-two_shot "$DB" "$PREFIX" "tor1" "setR1" \
-    "press sedit" \
-    "p 2.5"
-two_shot "$DB" "$PREFIX" "tor1" "setR2" \
-    "" \
-    "p 0.5"
+# tor_menu: title(0) / Set Radius 1(1) / Set Radius 2(2)
+# p <mm>: sets new radius value
+menu_shot "$DB" "$PREFIX" "tor1" "setR1" 1 "p 800"
+menu_shot "$DB" "$PREFIX" "tor1" "setR2" 2 "p 200"
 
-# ─── TGC ─────────────────────────────────────────────────────────────────────
+# ─── TGC  (H=1000, A=250, B=125, C=125, D=250 — mm) ─────────────────────────
 echo "Testing TGC..."
-two_shot "$DB" "$PREFIX" "tgc1" "setH" \
-    "" \
-    "p 0 0 3"
-two_shot "$DB" "$PREFIX" "tgc1" "rotH" \
-    "" \
-    "p 45 0"
-two_shot "$DB" "$PREFIX" "tgc1" "setrh" \
-    "" \
-    "p 1.5"
-two_shot "$DB" "$PREFIX" "tgc1" "setRH" \
-    "" \
-    "p 1.5"
+# tgc_menu: title(0) / Set H(1) / Set H move V(2) / Set H adj CD(3) /
+#           Set H move V adj AB(4) / Set A(5) / Set B(6) / Set C(7) / Set D(8) /
+#           Set A,B(9) / Set C,D(10) / Set A,B,C,D(11) / Rotate H(12) / Move H(13)
+# p <mm>: sets new magnitude
+menu_shot "$DB" "$PREFIX" "tgc1" "setH"  1 "p 2000"
+menu_shot "$DB" "$PREFIX" "tgc1" "setA"  5 "p 500"
+menu_shot "$DB" "$PREFIX" "tgc1" "setB"  6 "p 250"
+menu_shot "$DB" "$PREFIX" "tgc1" "setC"  7 "p 250"
+menu_shot "$DB" "$PREFIX" "tgc1" "setD"  8 "p 500"
 
-# ─── RPC ─────────────────────────────────────────────────────────────────────
+# ─── RPC  (B=500, H=1000, r=250 — mm) ────────────────────────────────────────
 echo "Testing RPC..."
-two_shot "$DB" "$PREFIX" "rpc1" "setH" \
-    "" \
-    "p 0 0 3"
-two_shot "$DB" "$PREFIX" "rpc1" "setR" \
-    "" \
-    "p 1.5"
-two_shot "$DB" "$PREFIX" "rpc1" "setB" \
-    "" \
-    "p 0.5"
+# rpc_menu: title(0) / Set B(1) / Set H(2) / Set r(3)
+menu_shot "$DB" "$PREFIX" "rpc1" "setB" 1 "p 1000"
+menu_shot "$DB" "$PREFIX" "rpc1" "setH" 2 "p 2000"
+menu_shot "$DB" "$PREFIX" "rpc1" "setr" 3 "p 500"
 
-# ─── RHC ─────────────────────────────────────────────────────────────────────
+# ─── RHC  (B=500, H=500, r=250, c=100 — mm) ──────────────────────────────────
 echo "Testing RHC..."
-two_shot "$DB" "$PREFIX" "rhc1" "setH" \
-    "" \
-    "p 0 0 3"
-two_shot "$DB" "$PREFIX" "rhc1" "setR" \
-    "" \
-    "p 1.5"
-two_shot "$DB" "$PREFIX" "rhc1" "setB" \
-    "" \
-    "p 0.5"
-two_shot "$DB" "$PREFIX" "rhc1" "setC" \
-    "" \
-    "p 0.75"
+# rhc_menu: title(0) / Set B(1) / Set H(2) / Set r(3) / Set c(4)
+menu_shot "$DB" "$PREFIX" "rhc1" "setB" 1 "p 1000"
+menu_shot "$DB" "$PREFIX" "rhc1" "setH" 2 "p 1000"
+menu_shot "$DB" "$PREFIX" "rhc1" "setr" 3 "p 500"
+menu_shot "$DB" "$PREFIX" "rhc1" "setc" 4 "p 200"
 
-# ─── EPA ─────────────────────────────────────────────────────────────────────
+# ─── EPA  (H=1000, A=500, B=250 — mm) ────────────────────────────────────────
 echo "Testing EPA..."
-two_shot "$DB" "$PREFIX" "epa1" "setH" \
-    "" \
-    "p 0 0 3"
-two_shot "$DB" "$PREFIX" "epa1" "setR1" \
-    "" \
-    "p 1.5"
-two_shot "$DB" "$PREFIX" "epa1" "setR2" \
-    "" \
-    "p 0.75"
+# epa_menu: title(0) / Set H(1) / Set A(2) / Set B(3)
+menu_shot "$DB" "$PREFIX" "epa1" "setH" 1 "p 2000"
+menu_shot "$DB" "$PREFIX" "epa1" "setA" 2 "p 1000"
+menu_shot "$DB" "$PREFIX" "epa1" "setB" 3 "p 500"
 
-# ─── EHY ─────────────────────────────────────────────────────────────────────
+# ─── EHY  (H=1000, A=500, B=250, c=250 — mm) ─────────────────────────────────
 echo "Testing EHY..."
-two_shot "$DB" "$PREFIX" "ehy1" "setH" \
-    "" \
-    "p 0 0 3"
-two_shot "$DB" "$PREFIX" "ehy1" "setR1" \
-    "" \
-    "p 1.5"
-two_shot "$DB" "$PREFIX" "ehy1" "setR2" \
-    "" \
-    "p 0.75"
-two_shot "$DB" "$PREFIX" "ehy1" "setC" \
-    "" \
-    "p 0.4"
+# ehy_menu: title(0) / Set H(1) / Set A(2) / Set B(3) / Set c(4)
+menu_shot "$DB" "$PREFIX" "ehy1" "setH" 1 "p 2000"
+menu_shot "$DB" "$PREFIX" "ehy1" "setA" 2 "p 1000"
+menu_shot "$DB" "$PREFIX" "ehy1" "setB" 3 "p 500"
+menu_shot "$DB" "$PREFIX" "ehy1" "setc" 4 "p 500"
 
-# ─── ETO ─────────────────────────────────────────────────────────────────────
+# ─── ETO  (r=400, d=50, C-mag≈141 — mm) ─────────────────────────────────────
 echo "Testing ETO..."
-two_shot "$DB" "$PREFIX" "eto1" "setR" \
-    "" \
-    "p 3.0"
-two_shot "$DB" "$PREFIX" "eto1" "setrd" \
-    "" \
-    "p 0.8"
-two_shot "$DB" "$PREFIX" "eto1" "setC" \
-    "" \
-    "p 0 1 0"
-two_shot "$DB" "$PREFIX" "eto1" "setD" \
-    "" \
-    "p 0.5"
+# eto_menu: title(0) / Set r(1) / Set D(2) / Set C(3) / Rotate C(4)
+menu_shot "$DB" "$PREFIX" "eto1" "setr" 1 "p 800"
+menu_shot "$DB" "$PREFIX" "eto1" "setD" 2 "p 100"
+menu_shot "$DB" "$PREFIX" "eto1" "setC" 3 "p 280"
 
-# ─── HYP ─────────────────────────────────────────────────────────────────────
+# ─── HYP  (H=1000, A=500, B=250, c=0.4 — mm/ratio) ──────────────────────────
 echo "Testing HYP..."
-two_shot "$DB" "$PREFIX" "hyp1" "setH" \
-    "" \
-    "p 0 0 3"
-two_shot "$DB" "$PREFIX" "hyp1" "rotH" \
-    "" \
-    "p 30 0"
-two_shot "$DB" "$PREFIX" "hyp1" "setRad" \
-    "" \
-    "p 1.5"
+# hyp_menu: title(0) / Set H(1) / Set A(2) / Set B(3) / Set c(4) / Rotate H(5)
+menu_shot "$DB" "$PREFIX" "hyp1" "setH" 1 "p 2000"
+menu_shot "$DB" "$PREFIX" "hyp1" "setA" 2 "p 1000"
+menu_shot "$DB" "$PREFIX" "hyp1" "setB" 3 "p 500"
+menu_shot "$DB" "$PREFIX" "hyp1" "setc" 4 "p 0.6"
 
-# ─── SUPERELL ────────────────────────────────────────────────────────────────
+# ─── SUPERELL  (A=500, B=250, C=125 — mm; n,e dimensionless) ─────────────────
 echo "Testing SUPERELL..."
-two_shot "$DB" "$PREFIX" "superell1" "setA" \
-    "" \
-    "p 2.0"
-two_shot "$DB" "$PREFIX" "superell1" "setB" \
-    "" \
-    "p 1.5"
-two_shot "$DB" "$PREFIX" "superell1" "setC" \
-    "" \
-    "p 1.2"
-two_shot "$DB" "$PREFIX" "superell1" "setN" \
-    "" \
-    "p 0.3"
+# superell_menu: title(0) / Set A(1) / Set B(2) / Set C(3) / Set A,B,C(4)
+# NOTE: no Set n / Set e items in the superell_menu — only geometric scaling
+menu_shot "$DB" "$PREFIX" "superell1" "setA"   1 "p 1000"
+menu_shot "$DB" "$PREFIX" "superell1" "setB"   2 "p 500"
+menu_shot "$DB" "$PREFIX" "superell1" "setC"   3 "p 250"
+menu_shot "$DB" "$PREFIX" "superell1" "setABC" 4 "p 750"
 
-# ─── PART ────────────────────────────────────────────────────────────────────
+# ─── PART  (H=500mm, vrad=250, hrad=125 — mm) ────────────────────────────────
 echo "Testing PART..."
-two_shot "$DB" "$PREFIX" "part1" "setH" \
-    "" \
-    "p 0 0 3"
-two_shot "$DB" "$PREFIX" "part1" "setV" \
-    "" \
-    "p 1.5"
-two_shot "$DB" "$PREFIX" "part1" "setR2" \
-    "" \
-    "p 0.5"
+# part_menu: title(0) / Set H(1) / Set v(2) / Set h(3)
+menu_shot "$DB" "$PREFIX" "part1" "setH" 1 "p 1000"
+menu_shot "$DB" "$PREFIX" "part1" "setV" 2 "p 500"
+menu_shot "$DB" "$PREFIX" "part1" "setR2" 3 "p 250"
 
-# ─── GRIP ────────────────────────────────────────────────────────────────────
+# ─── GRIP  (mag set via sscale) ───────────────────────────────────────────────
 echo "Testing GRIP..."
-two_shot "$DB" "$PREFIX" "grip1" "setMag" \
-    "" \
-    "p 2.0"
+two_shot "$DB" "$PREFIX" "grip1" "sscale" \
+    "press sscale" \
+    "p 1.5"
 
-# ─── HALF ────────────────────────────────────────────────────────────────────
-echo "Testing HALF..."
-two_shot "$DB" "$PREFIX" "half1" "setD" \
-    "" \
-    "p 1 0 0 2.5"
+# ─── HALF  (has no parameter-edit menu; plane wireframe unchanging with sscale) ─
+# HALF has no sub-menus (rt_edit_hlf_menu_item returns NULL).
+# `make half1 half` creates N=(0,0,1) d=0 — the halfspace plane through origin.
+# The halfspace wireframe has infinite extent; its rendering is independent of
+# the d value, so sscale or p commands produce no visible wireframe change.
+# Skip HALF here; a manual test with a bounded view showing the half cutting
+# through other geometry is needed for meaningful visual regression.
+echo "Skipping HALF (halfspace wireframe has no bounded extent to compare)"
 
-# ─── EXTRUDE ─────────────────────────────────────────────────────────────────
-echo "Testing EXTRUDE..."
-two_shot "$DB" "$PREFIX" "extrude1" "setH" \
-    "" \
-    "p 0 0 4"
+# ─── EXTRUDE ──────────────────────────────────────────────────────────────────
+# `make extrude1 extrude` creates a placeholder with no sketch reference, so
+# sed mode enters VIEWING instead of SOL EDIT — no parameter edits are possible.
+# Skip EXTRUDE here; it requires `in extrude1 extrude <sketch> …` with a real
+# sketch primitive to enable solid editing.
+echo "Skipping EXTRUDE (requires valid sketch reference in object)"
 
-# ─── ARB8 — main menu + sub-menus ────────────────────────────────────────────
-# ARB8 menu navigation uses M 1 -1400 <y> for menu clicks.
-# cntrl_menu items (y values for M command):
-ARB8_MOVE_EDGES=$(menu_y 1)   # 1670
-ARB8_MOVE_FACES=$(menu_y 2)   # 1570
-ARB8_ROT_FACES=$(menu_y 3)    # 1466
-# edge8_menu items (same y formula, same positions since menu replaces):
-EDGE_12=$(menu_y 1)   # 1670
-EDGE_23=$(menu_y 2)
-EDGE_34=$(menu_y 3)
-EDGE_14=$(menu_y 4)
-EDGE_15=$(menu_y 5)
-EDGE_26=$(menu_y 6)
-EDGE_56=$(menu_y 7)
-EDGE_67=$(menu_y 8)
-EDGE_78=$(menu_y 9)
-EDGE_58=$(menu_y 10)
-EDGE_37=$(menu_y 11)
-EDGE_48=$(menu_y 12)
-# mv8_menu items (Move Faces):
-MF_1234=$(menu_y 1)
-MF_5678=$(menu_y 2)
-MF_1584=$(menu_y 3)
-MF_2376=$(menu_y 4)
-MF_1265=$(menu_y 5)
-MF_4378=$(menu_y 6)
-# rot8_menu items (Rotate Faces):
-RF_1234=$(menu_y 1)
-RF_5678=$(menu_y 2)
-RF_1584=$(menu_y 3)
-RF_2376=$(menu_y 4)
-RF_1265=$(menu_y 5)
-RF_4378=$(menu_y 6)
+# ─── ARB8: Move Edges (12 edges) ──────────────────────────────────────────────
+# The ARB8 main menu (ECMD_ARB_MAIN_MENU) shows 3 items:
+#   title(0) / Move Edges(1) / Move Faces(2) / Rotate Faces(3)
+# After selecting Move Edges, the edge submenu replaces the main menu:
+#   title(0) / E12(1) / E23(2) / E34(3) / E14(4) / E15(5) / E26(6)
+#              E56(7) / E67(8) / E78(9) / E58(10) / E37(11) / E48(12) / RETURN(13)
+# For EARB edges, p x y z moves the edge endpoint in model space.
+# Default arb8 vertices are at ±500mm, so move to a clearly different position.
+ARB8_MAIN_MOVE_EDGES=$(menu_y 1)
+ARB8_MAIN_MOVE_FACES=$(menu_y 2)
+ARB8_MAIN_ROT_FACES=$(menu_y 3)
 
 echo "Testing ARB8 — Move Edges..."
-# For each edge: open Move Edges submenu, click the edge, do a small translate
-for edge_tag in e12 e23 e34 e14 e15 e26 e56 e67 e78 e58 e37 e48; do
-    case "$edge_tag" in
-        e12) EY=$EDGE_12 ;;
-        e23) EY=$EDGE_23 ;;
-        e34) EY=$EDGE_34 ;;
-        e14) EY=$EDGE_14 ;;
-        e15) EY=$EDGE_15 ;;
-        e26) EY=$EDGE_26 ;;
-        e56) EY=$EDGE_56 ;;
-        e67) EY=$EDGE_67 ;;
-        e78) EY=$EDGE_78 ;;
-        e58) EY=$EDGE_58 ;;
-        e37) EY=$EDGE_37 ;;
-        e48) EY=$EDGE_48 ;;
-    esac
+for edge_info in \
+    "e12:1:750 -500 -500" \
+    "e23:2:500  750 -500" \
+    "e34:3:500  500  750" \
+    "e14:4:750 -500  500" \
+    "e15:5:0 0 0" \
+    "e26:6:0 0 0" \
+    "e56:7:-500 -500 -750" \
+    "e67:8:-500  750 -750" \
+    "e78:9:-500  500  750" \
+    "e58:10:-750 -500  500" \
+    "e37:11:500  750  500" \
+    "e48:12:750 -500  500"; do
+    tag="${edge_info%%:*}"
+    rest="${edge_info#*:}"
+    item="${rest%%:*}"
+    pval="${rest#*:}"
+    EY=$(menu_y "$item")
 
-    during="${OUTDIR}/${PREFIX}_arb8_${edge_tag}_during.png"
-    after="${OUTDIR}/${PREFIX}_arb8_${edge_tag}_after.png"
-    printf "%b" \
-        "attach swrast\n" \
-        "ae 35 25\n" \
-        "e arb8_1\n" \
-        "sed arb8_1\n" \
-        "M 1 -1400 $ARB8_MOVE_EDGES\n" \
-        "M 1 -1400 $EY\n" \
-        "screengrab $during\n" \
-        "p 0.5 0.5 0\n" \
-        "screengrab $after\n" \
-        "press accept\n" \
-    | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+    during="${OUTDIR}/${PREFIX}_arb8_${tag}_during.png"
+    after="${OUTDIR}/${PREFIX}_arb8_${tag}_after.png"
+    {
+        printf "attach swrast\n"
+        printf "e arb8_1\n"
+        printf "ae 35 25\n"
+        printf "sed arb8_1\n"
+        # First screengrab initializes ms_top
+        printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_arb8_${tag}_init.png"
+        # Select "Move Edges" from main ARB menu
+        printf "M 1 -1400 %d\n" "$ARB8_MAIN_MOVE_EDGES"
+        # Select specific edge
+        printf "M 1 -1400 %d\n" "$EY"
+        printf "screengrab %s\n" "$during"
+        printf "p %s\n" "$pval"
+        printf "screengrab %s\n" "$after"
+        printf "press accept\n"
+    } | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+    rm -f "${OUTDIR}/${PREFIX}_arb8_${tag}_init.png"
 done
 
 echo "Testing ARB8 — Move Faces..."
-for face_tag in f1234 f5678 f1584 f2376 f1265 f4378; do
-    case "$face_tag" in
-        f1234) FY=$MF_1234 ;;
-        f5678) FY=$MF_5678 ;;
-        f1584) FY=$MF_1584 ;;
-        f2376) FY=$MF_2376 ;;
-        f1265) FY=$MF_1265 ;;
-        f4378) FY=$MF_4378 ;;
-    esac
+# mv8_menu: title(0) / Face 1234(1) / Face 5678(2) / Face 1584(3) /
+#           Face 2376(4) / Face 1265(5) / Face 4378(6) / RETURN(7)
+# p x y z: move plane endpoint
+for face_info in \
+    "mf1234:1:750 0 0" \
+    "mf5678:2:-750 0 0" \
+    "mf1584:3:0 -750 0" \
+    "mf2376:4:0 750 0" \
+    "mf1265:5:0 0 -750" \
+    "mf4378:6:0 0 750"; do
+    tag="${face_info%%:*}"
+    rest="${face_info#*:}"
+    item="${rest%%:*}"
+    pval="${rest#*:}"
+    FY=$(menu_y "$item")
 
-    during="${OUTDIR}/${PREFIX}_arb8_mf${face_tag}_during.png"
-    after="${OUTDIR}/${PREFIX}_arb8_mf${face_tag}_after.png"
-    printf "%b" \
-        "attach swrast\n" \
-        "ae 35 25\n" \
-        "e arb8_1\n" \
-        "sed arb8_1\n" \
-        "M 1 -1400 $ARB8_MOVE_FACES\n" \
-        "M 1 -1400 $FY\n" \
-        "screengrab $during\n" \
-        "p 1.5 1.5 1.5\n" \
-        "screengrab $after\n" \
-        "press accept\n" \
-    | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+    during="${OUTDIR}/${PREFIX}_arb8_${tag}_during.png"
+    after="${OUTDIR}/${PREFIX}_arb8_${tag}_after.png"
+    {
+        printf "attach swrast\n"
+        printf "e arb8_1\n"
+        printf "ae 35 25\n"
+        printf "sed arb8_1\n"
+        printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_arb8_${tag}_init.png"
+        printf "M 1 -1400 %d\n" "$ARB8_MAIN_MOVE_FACES"
+        printf "M 1 -1400 %d\n" "$FY"
+        printf "screengrab %s\n" "$during"
+        printf "p %s\n" "$pval"
+        printf "screengrab %s\n" "$after"
+        printf "press accept\n"
+    } | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+    rm -f "${OUTDIR}/${PREFIX}_arb8_${tag}_init.png"
 done
 
 echo "Testing ARB8 — Rotate Faces..."
-for face_tag in f1234 f5678 f1584 f2376 f1265 f4378; do
-    case "$face_tag" in
-        f1234) FY=$RF_1234 ;;
-        f5678) FY=$RF_5678 ;;
-        f1584) FY=$RF_1584 ;;
-        f2376) FY=$RF_2376 ;;
-        f1265) FY=$RF_1265 ;;
-        f4378) FY=$RF_4378 ;;
-    esac
+# rot8_menu same layout as mv8_menu, p <angle> sets rotation
+for face_info in \
+    "rf1234:1:10" \
+    "rf5678:2:10" \
+    "rf1584:3:10" \
+    "rf2376:4:10" \
+    "rf1265:5:10" \
+    "rf4378:6:10"; do
+    tag="${face_info%%:*}"
+    rest="${face_info#*:}"
+    item="${rest%%:*}"
+    pval="${rest#*:}"
+    FY=$(menu_y "$item")
 
-    during="${OUTDIR}/${PREFIX}_arb8_rf${face_tag}_during.png"
-    after="${OUTDIR}/${PREFIX}_arb8_rf${face_tag}_after.png"
-    printf "%b" \
-        "attach swrast\n" \
-        "ae 35 25\n" \
-        "e arb8_1\n" \
-        "sed arb8_1\n" \
-        "M 1 -1400 $ARB8_ROT_FACES\n" \
-        "M 1 -1400 $FY\n" \
-        "screengrab $during\n" \
-        "p 10\n" \
-        "press accept\n" \
-        "screengrab $after\n" \
-    | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+    during="${OUTDIR}/${PREFIX}_arb8_${tag}_during.png"
+    after="${OUTDIR}/${PREFIX}_arb8_${tag}_after.png"
+    {
+        printf "attach swrast\n"
+        printf "e arb8_1\n"
+        printf "ae 35 25\n"
+        printf "sed arb8_1\n"
+        printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_arb8_${tag}_init.png"
+        printf "M 1 -1400 %d\n" "$ARB8_MAIN_ROT_FACES"
+        printf "M 1 -1400 %d\n" "$FY"
+        printf "screengrab %s\n" "$during"
+        printf "p %s\n" "$pval"
+        printf "press accept\n"
+        printf "screengrab %s\n" "$after"
+    } | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+    rm -f "${OUTDIR}/${PREFIX}_arb8_${tag}_init.png"
 done
 
-# ─── BOT ─────────────────────────────────────────────────────────────────────
-# BOT menu items (after title at item 0):
-BOT_PICKV=$(menu_y 1)    # Pick Vertex
-BOT_PICKE=$(menu_y 2)    # Pick Edge
-BOT_PICKT=$(menu_y 3)    # Pick Triangle
-BOT_MOVEV=$(menu_y 4)    # Move Vertex
-BOT_MOVEE=$(menu_y 5)    # Move Edge
-BOT_MOVET=$(menu_y 6)    # Move Triangle
-
+# ─── BOT ──────────────────────────────────────────────────────────────────────
+# bot_menu: title(0) / Pick Vertex(1) / Pick Edge(2) / Pick Triangle(3) /
+#           Move Vertex(4) / Move Edge(5) / Move Triangle(6)
 echo "Testing BOT — Pick/Move Vertex..."
+BOT_PICKV=$(menu_y 1)
+BOT_MOVEV=$(menu_y 4)
 during="${OUTDIR}/${PREFIX}_bot_pickV_during.png"
 after="${OUTDIR}/${PREFIX}_bot_pickV_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e bot1\n" \
-    "sed bot1\n" \
-    "M 1 -1400 $BOT_PICKV\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $BOT_MOVEV\n" \
-    "p 0.5 0.5 0.5\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+{
+    printf "attach swrast\ne bot1\nae 35 25\nsed bot1\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_bot_pickV_init.png"
+    printf "M 1 -1400 %d\n" "$BOT_PICKV"
+    printf "screengrab %s\n" "$during"
+    printf "M 1 -1400 %d\n" "$BOT_MOVEV"
+    printf "p 100 100 100\n"
+    printf "screengrab %s\n" "$after"
+    printf "press accept\n"
+} | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+rm -f "${OUTDIR}/${PREFIX}_bot_pickV_init.png"
 
 echo "Testing BOT — Pick/Move Edge..."
+BOT_PICKE=$(menu_y 2)
+BOT_MOVEE=$(menu_y 5)
 during="${OUTDIR}/${PREFIX}_bot_pickE_during.png"
 after="${OUTDIR}/${PREFIX}_bot_pickE_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e bot1\n" \
-    "sed bot1\n" \
-    "M 1 -1400 $BOT_PICKE\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $BOT_MOVEE\n" \
-    "p 0.5 0 0\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+{
+    printf "attach swrast\ne bot1\nae 35 25\nsed bot1\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_bot_pickE_init.png"
+    printf "M 1 -1400 %d\n" "$BOT_PICKE"
+    printf "screengrab %s\n" "$during"
+    printf "M 1 -1400 %d\n" "$BOT_MOVEE"
+    printf "p 200 0 0\n"
+    printf "screengrab %s\n" "$after"
+    printf "press accept\n"
+} | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+rm -f "${OUTDIR}/${PREFIX}_bot_pickE_init.png"
 
 echo "Testing BOT — Pick/Move Triangle..."
+BOT_PICKT=$(menu_y 3)
+BOT_MOVET=$(menu_y 6)
 during="${OUTDIR}/${PREFIX}_bot_pickT_during.png"
 after="${OUTDIR}/${PREFIX}_bot_pickT_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e bot1\n" \
-    "sed bot1\n" \
-    "M 1 -1400 $BOT_PICKT\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $BOT_MOVET\n" \
-    "p 0 0 0.5\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+{
+    printf "attach swrast\ne bot1\nae 35 25\nsed bot1\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_bot_pickT_init.png"
+    printf "M 1 -1400 %d\n" "$BOT_PICKT"
+    printf "screengrab %s\n" "$during"
+    printf "M 1 -1400 %d\n" "$BOT_MOVET"
+    printf "p 0 0 200\n"
+    printf "screengrab %s\n" "$after"
+    printf "press accept\n"
+} | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+rm -f "${OUTDIR}/${PREFIX}_bot_pickT_init.png"
 
-# ─── NMG ─────────────────────────────────────────────────────────────────────
-# NMG menu: title + Pick Edge, Move Edge, Split Edge, Delete Edge, Next EU, Prev EU,
-#           Radial EU, Extrude Loop, Extrude Loop (dir+dist), Eebug Edge,
-#           Pick Vertex, Move Vertex, Pick Face, Move Face
+# ─── NMG ──────────────────────────────────────────────────────────────────────
+# nmg_menu: title(0) / Pick Edge(1) / Move Edge(2) / ...
+# "Move Edge" and "Move Vertex" require a prior screen-space Pick click to set
+# es_eu/es_vpt.  The Pick Edge sequence (item 1 → item 2) works because item 1
+# sets ECMD_NMG_EPICK and the next M command acts as the pick; item 2 then moves.
+# "Pick Vertex" (item 11 → item 12) needs the same, but for the default NMG cube
+# the vertex positions in view space make picking unreliable in -c mode.
+# Use sscale for the move-vertex case to guarantee a visible change.
 NMG_PICKE=$(menu_y 1)
 NMG_MOVEE=$(menu_y 2)
-NMG_PICKV=$(menu_y 11)  # item 11
-NMG_VMOVE=$(menu_y 12)  # item 12
 
 echo "Testing NMG — Pick/Move Edge..."
 during="${OUTDIR}/${PREFIX}_nmg_pickE_during.png"
 after="${OUTDIR}/${PREFIX}_nmg_pickE_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e nmg1\n" \
-    "sed nmg1\n" \
-    "M 1 -1400 $NMG_PICKE\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $NMG_MOVEE\n" \
-    "p 0.5 0 0\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+{
+    printf "attach swrast\ne nmg1\nae 35 25\nsed nmg1\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_nmg_pickE_init.png"
+    printf "M 1 -1400 %d\n" "$NMG_PICKE"
+    printf "screengrab %s\n" "$during"
+    printf "M 1 -1400 %d\n" "$NMG_MOVEE"
+    printf "p 200 0 0\n"
+    printf "screengrab %s\n" "$after"
+    printf "press accept\n"
+} | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+rm -f "${OUTDIR}/${PREFIX}_nmg_pickE_init.png"
 
-echo "Testing NMG — Pick/Move Vertex..."
-during="${OUTDIR}/${PREFIX}_nmg_pickV_during.png"
-after="${OUTDIR}/${PREFIX}_nmg_pickV_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e nmg1\n" \
-    "sed nmg1\n" \
-    "M 1 -1400 $NMG_PICKV\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $NMG_VMOVE\n" \
-    "p 0 0.5 0\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+# `make nmg1 nmg` creates an NMG with bounding box ~0.0005mm × 0.0005mm × 0.0005mm
+# — essentially invisible at the default ae 35 25 sz=2000mm view.  sscale by 1.5x
+# makes no visible difference at this scale.  The nmg_pickE test above already
+# verifies menu navigation and solid-edit state transitions for NMG.
+echo "Skipping NMG sscale (default NMG from 'make' is microscopic; nmg_pickE covers NMG)"
 
-# ─── ARS ─────────────────────────────────────────────────────────────────────
-# ARS menu: title + Pick Vertex, Move Point, Delete Curve, Delete Column,
-#           Dup Curve, Dup Column, Insert Curve, Scale Curve, Scale Column,
-#           Move Curve, Move Column
-ARS_PICKV_MENU=$(menu_y 1)   # enters pick sub-menu
-# ARS pick sub-menu: title + Pick Vertex, Next Vertex, Prev Vertex, Next Curve, Prev Curve
-ARS_PICK_V=$(menu_y 1)
-ARS_MOVEPT=$(menu_y 2)       # in main menu
-ARS_MOVECURVE=$(menu_y 10)   # in main menu
-ARS_MOVECOL=$(menu_y 11)
+# ─── ARS ──────────────────────────────────────────────────────────────────────
+# ars_menu: title(0) / Pick Vertex(1) / Move Point(2) / ...
+#           Move Curve(10) / Move Column(11)
+# "Move Curve" and "Move Column" require a prior pick (es_ars_crv >= 0).
+# "Pick Vertex" (item 1) opens ars_pick_menu; item 1 in that sub-menu (also
+# item 1, y=1676) triggers ECMD_ARS_PICK which selects the nearest vertex.
+# The two-M sequence works for ars_pickV because the first M enters pick mode.
+ARS_PICKV=$(menu_y 1)
+ARS_PICK_SUB=$(menu_y 1)
+ARS_MOVEPT=$(menu_y 2)
 
 echo "Testing ARS — Pick/Move Point..."
 during="${OUTDIR}/${PREFIX}_ars_pickV_during.png"
 after="${OUTDIR}/${PREFIX}_ars_pickV_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e ars1\n" \
-    "sed ars1\n" \
-    "M 1 -1400 $ARS_PICKV_MENU\n" \
-    "M 1 -1400 $ARS_PICK_V\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $ARS_MOVEPT\n" \
-    "p 0.5 0 0\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+{
+    printf "attach swrast\ne ars1\nae 35 25\nsed ars1\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_ars_pickV_init.png"
+    printf "M 1 -1400 %d\n" "$ARS_PICKV"
+    printf "M 1 -1400 %d\n" "$ARS_PICK_SUB"
+    printf "screengrab %s\n" "$during"
+    printf "M 1 -1400 %d\n" "$ARS_MOVEPT"
+    printf "p 200 0 0\n"
+    printf "screengrab %s\n" "$after"
+    printf "press accept\n"
+} | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+rm -f "${OUTDIR}/${PREFIX}_ars_pickV_init.png"
 
-echo "Testing ARS — Move Curve..."
-during="${OUTDIR}/${PREFIX}_ars_moveCurve_during.png"
-after="${OUTDIR}/${PREFIX}_ars_moveCurve_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e ars1\n" \
-    "sed ars1\n" \
-    "M 1 -1400 $ARS_MOVECURVE\n" \
-    "screengrab $during\n" \
-    "p 0 0.5 0\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+echo "Testing ARS — sscale..."
+two_shot "$DB" "$PREFIX" "ars1" "sscale" \
+    "press sscale" \
+    "p 1.5"
 
 # ─── PIPE ─────────────────────────────────────────────────────────────────────
-# PIPE menu: title + Select Point, Next Point, Previous Point, Move Point,
-#            Delete Point, Append Point, Prepend Point, Set Point OD, Set Point ID,
-#            Set Point Bend, Set Pipe OD, Set Pipe ID, Set Pipe Bend
-PIPE_SELECT=$(menu_y 1)
-PIPE_MOVEPT=$(menu_y 4)
-PIPE_OD=$(menu_y 8)
-PIPE_ID=$(menu_y 9)
-PIPE_BEND=$(menu_y 10)
+# pipe_menu: title(0) / Select Point(1) / Next Point(2) / Prev Point(3) /
+#            Move Point(4) / ... / Set Pipe OD(11) / Set Pipe ID(12) /
+#            Set Pipe Bend(13)
+# "Select Point" + subsequent "Move Point" / "Set Point OD" require a prior
+# screen-space click to select the pipe point (no p-command equivalent).
+# "Set Pipe OD" (item 11) adjusts OD for ALL pipe segments globally without
+# a prior select — it is the preferred test.
+# Default pipe OD ≈ 200mm; p 400 doubles it for a clear visual change.
 PIPE_SCALE_OD=$(menu_y 11)
-PIPE_SCALE_ID=$(menu_y 12)
-PIPE_SCALE_BEND=$(menu_y 13)
 
-echo "Testing PIPE — Select/Move Point..."
-during="${OUTDIR}/${PREFIX}_pipe_selectPt_during.png"
-after="${OUTDIR}/${PREFIX}_pipe_selectPt_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e pipe1\n" \
-    "sed pipe1\n" \
-    "M 1 -1400 $PIPE_SELECT\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $PIPE_MOVEPT\n" \
-    "p 0.5 0 0\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
-
-echo "Testing PIPE — Set Point OD..."
-during="${OUTDIR}/${PREFIX}_pipe_setOD_during.png"
-after="${OUTDIR}/${PREFIX}_pipe_setOD_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e pipe1\n" \
-    "sed pipe1\n" \
-    "M 1 -1400 $PIPE_SELECT\n" \
-    "M 1 -1400 $PIPE_OD\n" \
-    "screengrab $during\n" \
-    "p 0.8\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
-
-echo "Testing PIPE — Set Point ID..."
-during="${OUTDIR}/${PREFIX}_pipe_setID_during.png"
-after="${OUTDIR}/${PREFIX}_pipe_setID_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e pipe1\n" \
-    "sed pipe1\n" \
-    "M 1 -1400 $PIPE_SELECT\n" \
-    "M 1 -1400 $PIPE_ID\n" \
-    "screengrab $during\n" \
-    "p 0.4\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
-
-echo "Testing PIPE — Set Point Bend..."
-during="${OUTDIR}/${PREFIX}_pipe_setBend_during.png"
-after="${OUTDIR}/${PREFIX}_pipe_setBend_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e pipe1\n" \
-    "sed pipe1\n" \
-    "M 1 -1400 $PIPE_SELECT\n" \
-    "M 1 -1400 $PIPE_BEND\n" \
-    "screengrab $during\n" \
-    "p 1.2\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
-
-echo "Testing PIPE — Scale Pipe OD..."
-during="${OUTDIR}/${PREFIX}_pipe_scaleOD_during.png"
-after="${OUTDIR}/${PREFIX}_pipe_scaleOD_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e pipe1\n" \
-    "sed pipe1\n" \
-    "M 1 -1400 $PIPE_SCALE_OD\n" \
-    "screengrab $during\n" \
-    "p 1.5\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+echo "Testing PIPE — Set Pipe OD..."
+{
+    printf "attach swrast\ne pipe1\nae 35 25\nsed pipe1\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_pipe_scaleOD_init.png"
+    printf "M 1 -1400 %d\n" "$PIPE_SCALE_OD"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_pipe_scaleOD_during.png"
+    printf "p 400\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_pipe_scaleOD_after.png"
+    printf "press accept\n"
+} | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+rm -f "${OUTDIR}/${PREFIX}_pipe_scaleOD_init.png"
 
 # ─── METABALL ─────────────────────────────────────────────────────────────────
-# METABALL menu: title + Set Threshold, Set Render Method, Select Point,
-#               Next Point, Previous Point, Move Point, Scale Point fldstr,
-#               Scale Point "goo" value, Set Point sweat value,
-#               Delete Point, Add Point
+# metaball_menu: title(0) / Set Threshold(1) / Set Render Method(2) /
+#                Select Point(3) / ... / Scale Point fldstr(7) / ...
+# "Select Point" + "Move Point"/"Scale fldstr" require a prior screen-space
+# pick to set the active metaball point.  "Set Threshold" (item 1) works
+# globally without any prior selection — it is the preferred test.
+# Default threshold = 1.0; p 2.0 doubles it for a clear render-mode change.
 MB_THRESHOLD=$(menu_y 1)
-MB_METHOD=$(menu_y 2)
-MB_SELECT=$(menu_y 3)
-MB_MOVEPT=$(menu_y 6)
-MB_FLDSTR=$(menu_y 7)
-MB_GOO=$(menu_y 8)
-
-echo "Testing METABALL — Select/Move Point..."
-during="${OUTDIR}/${PREFIX}_mball_selectPt_during.png"
-after="${OUTDIR}/${PREFIX}_mball_selectPt_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e metaball1\n" \
-    "sed metaball1\n" \
-    "M 1 -1400 $MB_SELECT\n" \
-    "screengrab $during\n" \
-    "M 1 -1400 $MB_MOVEPT\n" \
-    "p 0 0 0.5\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
-
-echo "Testing METABALL — Scale fldstr..."
-during="${OUTDIR}/${PREFIX}_mball_fldstr_during.png"
-after="${OUTDIR}/${PREFIX}_mball_fldstr_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e metaball1\n" \
-    "sed metaball1\n" \
-    "M 1 -1400 $MB_SELECT\n" \
-    "M 1 -1400 $MB_FLDSTR\n" \
-    "screengrab $during\n" \
-    "p 1.5\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
 
 echo "Testing METABALL — Set Threshold..."
-during="${OUTDIR}/${PREFIX}_mball_threshold_during.png"
-after="${OUTDIR}/${PREFIX}_mball_threshold_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "ae 35 25\n" \
-    "e metaball1\n" \
-    "sed metaball1\n" \
-    "M 1 -1400 $MB_THRESHOLD\n" \
-    "screengrab $during\n" \
-    "p 1.2\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+{
+    printf "attach swrast\ne metaball1\nae 35 25\nsed metaball1\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_mball_threshold_init.png"
+    printf "M 1 -1400 %d\n" "$MB_THRESHOLD"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_mball_threshold_during.png"
+    printf "p 2.0\n"
+    printf "screengrab %s\n" "${OUTDIR}/${PREFIX}_mball_threshold_after.png"
+    printf "press accept\n"
+} | DM_SWRAST=1 "$MGED" -c "$DB" 2>/dev/null || true
+rm -f "${OUTDIR}/${PREFIX}_mball_threshold_init.png"
 
-# ─── EBM (requires external data file) ───────────────────────────────────────
-echo "Testing EBM..."
-EBM_BW="/tmp/ebm_test_$$.bw"
-# Create a 256x256 bitmap
-dd if=/dev/zero bs=256 count=256 2>/dev/null > "$EBM_BW"
-# Set a checkerboard pattern
-python3 -c "
-import struct
-data = bytearray(256*256)
-for y in range(256):
-    for x in range(256):
-        if (x//32 + y//32) % 2 == 0:
-            data[y*256+x] = 255
-with open('$EBM_BW','wb') as f:
-    f.write(data)
-" 2>/dev/null || true
+# ─── EBM (needs external bitmap data file + `in` command to set file path) ────
+# `make ebm1 ebm` creates a placeholder EBM without a valid .bw bitmap path, so
+# sed enters VIEWING mode instead of SOL EDIT — press sscale then returns no-op.
+# Skip EBM in this automated run; it requires a fully configured EBM primitive
+# (e.g. created with `in ebm1 ebm 256 256 1 <path>.bw`) to test meaningfully.
+echo "Skipping EBM (requires valid .bw bitmap path in object)"
 
-EBM_DB="/tmp/ebm_test_$$.g"
-printf "%b" \
-    "make ebm1 ebm\n" \
-    "q\n" \
-| DM_SWRAST=1 "$MGED" -c "$EBM_DB" 2>/dev/null || true
-
-during="${OUTDIR}/${PREFIX}_ebm_setDepth_during.png"
-after="${OUTDIR}/${PREFIX}_ebm_setDepth_after.png"
-printf "%b" \
-    "attach swrast\n" \
-    "e ebm1\n" \
-    "ae 35 25\n" \
-    "sed ebm1\n" \
-    "screengrab $during\n" \
-    "p 2.5\n" \
-    "screengrab $after\n" \
-    "press accept\n" \
-| DM_SWRAST=1 "$MGED" -c "$EBM_DB" 2>/dev/null || true
-rm -f "$EBM_DB" "$EBM_BW"
-
-# ─── Clean up ─────────────────────────────────────────────────────────────────
+# ─── Clean up ──────────────────────────────────────────────────────────────────
 rm -f "$DB"
 
-# ─── Summary ──────────────────────────────────────────────────────────────────
-count=$(ls "$OUTDIR"/${PREFIX}_*.png 2>/dev/null | wc -l)
+# ─── Summary ───────────────────────────────────────────────────────────────────
+count=$(ls "$OUTDIR"/${PREFIX}_*_during.png 2>/dev/null | wc -l)
 echo ""
-echo "Done. Generated $count screenshots in $OUTDIR with prefix '$PREFIX'."
+echo "Done. Generated ${count} during+after pairs in $OUTDIR with prefix '$PREFIX'."
