@@ -33,6 +33,7 @@
 #include "bu/str.h"
 #include "bu/time.h"
 #include "bv/defines.h"
+#include "bsg/util.h"
 #include "dm.h"
 #include "./include/private.h"
 #include "./null/dm-Null.h"
@@ -1087,6 +1088,84 @@ dm_draw_head_dl(struct dm *dmp,
 
     return ndrawn;
 }
+
+
+/**
+ * BSG Phase 2e version: iterate scene-root children for the view @p v
+ * instead of the legacy per-gdlp dl_head_scene_obj linked list.
+ *
+ * The same filtering logic as dm_draw_head_dl is applied (transparency,
+ * bound size, edit state).
+ */
+int
+dm_draw_bsg_view(struct dm *dmp, bsg_view *v,
+		 fastf_t transparency_threshold,
+		 fastf_t inv_viewsize,
+		 short r, short g, short b,
+		 int line_width,
+		 int draw_style,
+		 int draw_edit,
+		 unsigned char *gdc,
+		 int solids_down,
+		 int mv_dlist)
+{
+    if (UNLIKELY(!dmp) || !v)
+	return 0;
+
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root)
+	return 0;
+
+    bsg_shape *sp;
+    fastf_t ratio;
+    int ndrawn = 0;
+    int opaque = 0;
+    int opaque_only = EQUAL(transparency_threshold, 1.0);
+
+    for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
+	sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp) continue;
+
+	if (solids_down) sp->s_flag = DOWN;
+
+	if ((sp->s_iflag == UP && !draw_edit) || (sp->s_iflag != UP && draw_edit))
+	    continue;
+
+	opaque = EQUAL(sp->s_os->transparency, 1.0);
+	if (opaque_only) {
+	    if (!opaque) continue;
+	} else {
+	    if (opaque || !(sp->s_os->transparency > transparency_threshold ||
+			   EQUAL(sp->s_os->transparency, transparency_threshold)))
+		continue;
+	}
+
+	if (dm_get_bound_flag(dmp) && !sp->s_displayobj) {
+	    ratio = sp->s_size * inv_viewsize;
+	    if (ratio < 0.001) continue;
+	}
+
+	dm_set_line_attr(dmp, line_width, sp->s_soldash);
+
+	if (!draw_edit) {
+	    ndrawn += dm_drawSolid(dmp, sp, r, g, b, draw_style, gdc);
+	} else {
+	    if (dm_get_displaylist(dmp) && mv_dlist) {
+		dm_draw_dlist(dmp, sp->s_dlist);
+		sp->s_flag = UP;
+		ndrawn++;
+	    } else {
+		if (dm_draw_vlist(dmp, (struct bv_vlist *)&sp->s_vlist) == BRLCAD_OK) {
+		    sp->s_flag = UP;
+		    ndrawn++;
+		}
+	    }
+	}
+    }
+
+    return ndrawn;
+}
+
 
 /*
  * Local Variables:
