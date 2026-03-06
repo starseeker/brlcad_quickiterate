@@ -1680,11 +1680,13 @@ void
 _ged_rt_set_eye_model(struct ged *gedp,
 		      vect_t eye_model)
 {
-    if (gedp->ged_gvp->gv_s->gv_zclip || gedp->ged_gvp->gv_perspective > 0) {
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+    if (gedp->ged_gvp->gv_s->gv_zclip || _cam.perspective > 0) {
 	vect_t temp;
 
 	VSET(temp, 0.0, 0.0, 1.0);
-	MAT4X3PNT(eye_model, gedp->ged_gvp->gv_view2model, temp);
+	MAT4X3PNT(eye_model, _cam.view2model, temp);
     } else {
 	/* not doing zclipping, so back out of geometry */
 	int i;
@@ -1695,8 +1697,8 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	vect_t diag2;
 	point_t ecenter;
 
-	VSET(eye_model, -gedp->ged_gvp->gv_center[MDX],
-	     -gedp->ged_gvp->gv_center[MDY], -gedp->ged_gvp->gv_center[MDZ]);
+	VSET(eye_model, -_cam.center[MDX],
+	     -_cam.center[MDY], -_cam.center[MDZ]);
 
 	for (i = 0; i < 3; ++i) {
 	    extremum[0][i] = INFINITY;
@@ -1716,7 +1718,7 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	    (void)dl_bounding_sph(gedp->i->ged_gdp->gd_headDisplay, &(extremum[0]), &(extremum[1]), 1);
 	}
 
-	VMOVEN(direction, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(direction, _cam.rotation + 8, 3);
 	for (i = 0; i < 3; ++i)
 	    if (NEAR_ZERO(direction[i], 1e-10))
 		direction[i] = 0.0;
@@ -1979,7 +1981,11 @@ _ged_rt_write(struct ged *gedp,
      * tolerance and above single-precision capability.
      */
     fprintf(fp, "viewsize %.14e;\n", gedp->ged_gvp->gv_size);
-    quat_mat2quat(quat, gedp->ged_gvp->gv_rotation);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	quat_mat2quat(quat, _cam.rotation);
+    }
     fprintf(fp, "orientation %.14e %.14e %.14e %.14e;\n", V4ARGS(quat));
     fprintf(fp, "eye_pt %.14e %.14e %.14e;\n",
 		  eye_model[X], eye_model[Y], eye_model[Z]);
