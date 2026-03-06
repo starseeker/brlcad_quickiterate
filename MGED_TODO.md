@@ -223,8 +223,8 @@ Legend: ✅ ed*.c exists | ⚠️ stub/alias | ❌ no edit support | 🔲 not ye
 | **HALF** (half-space) | ✅ `half/edhalf.c` | — | — | ✔ sed+accept |
 | **BSPLINE** (B-spline surface) | ✅ `bspline/edbspline.c` | — | Fragile; needs re-look for full correctness | ✔ sed (no crash) |
 | **NMG** (n-manifold geometry) | ✅ `nmg/ednmg.c` | — | Complex traversal | ✔ sed+accept |
-| **EBM** (extruded bitmap) | ✅ `ebm/edebm.c` | ✅ | — | 🔲 |
-| **VOL** (volumetric data) | ✅ `vol/edvol.c` | ✅ | — | 🔲 |
+| **EBM** (extruded bitmap) | ✅ `ebm/edebm.c` | ✅ | — | ✔ sed+sscale+accept |
+| **VOL** (volumetric data) | ✅ `vol/edvol.c` | ✅ | Fixed: rt_vol_export5 off-by-one (session 6) | ✔ sed+sscale+accept |
 | **PIPE** | ✅ `pipe/edpipe.c` | ✅ | — | ✔ sed+accept |
 | **PART** (particle) | ✅ `part/edpart.c` | ✅ | — | ✔ sed+sscale+accept |
 | **RPC** (right parabolic cylinder) | ✅ `rpc/edrpc.c` | ✅ | — | ✔ sed+sscale+accept |
@@ -233,7 +233,7 @@ Legend: ✅ ed*.c exists | ⚠️ stub/alias | ❌ no edit support | 🔲 not ye
 | **EHY** (elliptical hyperboloid) | ✅ `ehy/edehy.c` | ✅ | — | ✔ sed+sscale+accept |
 | **ETO** (elliptic torus) | ✅ `eto/edeto.c` | ✅ | — | ✔ sed+sscale+accept |
 | **GRIP** | ✅ `grip/edgrip.c` | — | — | ✔ sed+accept |
-| **DSP** (displacement map) | ✅ `dsp/eddsp.c` | ✅ | — | 🔲 |
+| **DSP** (displacement map) | ✅ `dsp/eddsp.c` | ✅ | — | ✔ sed+sscale+accept |
 | **SKETCH** | ✅ `sketch/edsketch.c` | — | — | ✔ sed+accept |
 | **EXTRUDE** | ✅ `extrude/edextrude.c` | — | Needs valid sketch reference | ✔ sed (no crash) |
 | **CLINE** | ✅ `cline/edcline.c` | ✅ | — | ✔ sed+sscale+accept |
@@ -416,14 +416,15 @@ These have the simplest edit paths and are most likely to have regressions caugh
 
 ### Phase 3: Bitmap/File-Referenced Primitives
 
-- [ ] **EBM** (extruded bitmap)
-  - `sed` entry likely works (edebm.c wired); full test deferred (needs bitmap file resource)
+- [x] **EBM** (extruded bitmap)
+  - Generated 256×256 `.bw` bitmap; `sed` + `sscale` + `p 2` + `accept` verified in session 6 ✓
 
-- [ ] **VOL** (volumetric)
-  - `sed` entry likely works (edvol.c wired); full test deferred (needs vol file resource)
+- [x] **VOL** (volumetric)
+  - Fixed `rt_vol_export5` off-by-one in `ext_nbytes` (session 6): missing `+1` caused `bu_strlcpy` to truncate serialized mat[15], which then re-parsed as 0.0 and failed the "Unreasonable VOL parameters" sanity check
+  - Generated 10×10×10 `.bw` volume file; `sed` + `sscale` + `p 2` + `accept` verified in session 6 ✓
 
-- [ ] **DSP** (displacement map)
-  - `sed` entry likely works (eddsp.c wired); full test deferred (needs DSP data file)
+- [x] **DSP** (displacement map)
+  - Generated 50×50 unsigned-short big-endian `.dsp` terrain file; `sed` + `sscale` + `p 2` + `accept` verified in session 6 ✓
 
 ### Phase 4: Miscellaneous / Less Common
 
@@ -528,8 +529,8 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - [x] HALF – sed+accept verified (session 4)
 - [ ] BSPLINE – sed entry verified (no crash); full edit logic marked fragile/low-priority
 - [x] NMG – sed+accept verified (session 4)
-- [ ] EBM – sed entry likely works; full test deferred (needs bitmap file resource)
-- [ ] VOL – sed entry likely works; full test deferred (needs vol file resource)
+- [x] EBM – sed+sscale+accept verified (session 6) ✓
+- [x] VOL – **FIXED** rt_vol_export5 off-by-one (session 6); sed+sscale+accept verified ✓
 - [x] PIPE – sed+accept verified (session 4)
 - [x] PART – sed+sscale+accept verified (session 4)
 - [x] RPC – sed+sscale+accept verified (session 4)
@@ -538,7 +539,7 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - [x] EHY – sed+sscale+accept verified (session 4)
 - [x] ETO – sed+sscale+accept verified (session 4)
 - [x] GRIP – sed+accept verified (session 4)
-- [ ] DSP – sed entry likely works; full test deferred (needs DSP data file)
+- [x] DSP – sed+sscale+accept verified (session 6) ✓
 - [x] SKETCH – sed+accept verified (session 4)
 - [x] EXTRUDE – sed verified (no crash; needs valid sketch for full test)
 - [x] CLINE – sed+sscale+accept verified (session 4)
@@ -622,5 +623,17 @@ New regression tests should follow the pattern in `brlcad/regress/mged/`:
 - Documented ARBN as no interactive editing needed (consistent with vanilla behavior).
 - Documented `oed` entry point as verified working (session 4: `oed /agroup e1.s` enters ST_O_EDIT cleanly).
 - Noted remaining deferred items: EBM/VOL/DSP (need resource files), BSPLINE (fragile, low-priority), interactive Xvfb testing for mouse/label/axes.
+
+### Session 6 (2026-03-06)
+
+- **Bug fixed: `rt_vol_export5` off-by-one in `ext_nbytes`** (`brlcad/src/librt/primitives/vol/vol.c`)
+  - Root cause: `ep->ext_nbytes = bu_vls_strlen(&str)` was missing `+1` for the null terminator.
+  - `bu_strlcpy(dst, src, n)` copies at most `n-1` chars + null, so the last character of the serialized string was silently dropped.
+  - Example: after a uniform scale edit, `mat[15]=0.5` serialized as `"0.5"` but was truncated to `"0."`, which `bu_struct_parse` read back as `0.0`. This failed the `mat[15] <= 0.0` "Unreasonable VOL parameters" sanity check in `rt_vol_import5`, triggering `bu_exit`.
+  - Fix: changed to `ep->ext_nbytes = bu_vls_strlen(&str) + 1` — matching `rt_ebm_export5` which already had the `+1` and worked correctly.
+- **EBM verified**: Generated 256×256 unsigned-char bitmap; `sed` + `sscale` + `p 2` + `accept` passes. mat[15]=0.5 round-trips correctly.
+- **VOL verified**: Generated 10×10×10 unsigned-char volume; `sed` + `sscale` + `p 2` + `accept` passes after the export5 fix.
+- **DSP verified**: Generated 50×50 unsigned-short big-endian displacement map; `sed` + `sscale` + `p 2` + `accept` passes. stom[15]=0.5 confirmed.
+- All 27+ primitive types in the `EDOBJ[]` table now have verified `sed` + edit + `accept` round-trips in `-c` mode.
 
 ---
