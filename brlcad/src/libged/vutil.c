@@ -37,15 +37,17 @@ _ged_do_rot(struct ged *gedp,
 	    int (*func)(struct ged *, char, char, mat_t))
 {
     mat_t temp1, temp2;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
 
     if (func != (int (*)(struct ged *, char, char, mat_t))0)
-	return (*func)(gedp, coord, gedp->ged_gvp->gv_rotate_about, rmat);
+	return (*func)(gedp, coord, _cam.rotate_about, rmat);
 
     switch (coord) {
 	case 'm':
 	    /* transform model rotations into view rotations */
-	    bn_mat_inv(temp1, gedp->ged_gvp->gv_rotation);
-	    bn_mat_mul(temp2, gedp->ged_gvp->gv_rotation, rmat);
+	    bn_mat_inv(temp1, _cam.rotation);
+	    bn_mat_mul(temp2, _cam.rotation, rmat);
 	    bn_mat_mul(rmat, temp2, temp1);
 	    break;
 	case 'v':
@@ -54,24 +56,24 @@ _ged_do_rot(struct ged *gedp,
     }
 
     /* Calculate new view center */
-    if (gedp->ged_gvp->gv_rotate_about != 'v') {
+    if (_cam.rotate_about != 'v') {
 	point_t rot_pt;
 	point_t new_origin;
 	mat_t viewchg, viewchginv;
 	point_t new_cent_view;
 	point_t new_cent_model;
 
-	switch (gedp->ged_gvp->gv_rotate_about) {
+	switch (_cam.rotate_about) {
 	    case 'e':
 		VSET(rot_pt, 0.0, 0.0, 1.0);
 		break;
 	    case 'k':
-		MAT4X3PNT(rot_pt, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_keypoint);
+		MAT4X3PNT(rot_pt, _cam.model2view, _cam.keypoint);
 		break;
 	    case 'm':
 		/* rotate around model center (0, 0, 0) */
 		VSET(new_origin, 0.0, 0.0, 0.0);
-		MAT4X3PNT(rot_pt, gedp->ged_gvp->gv_model2view, new_origin);
+		MAT4X3PNT(rot_pt, _cam.model2view, new_origin);
 		break;
 	    default:
 		return BRLCAD_ERROR;
@@ -83,12 +85,13 @@ _ged_do_rot(struct ged *gedp,
 	/* Convert origin in new (viewchg) coords back to old view coords */
 	VSET(new_origin, 0.0, 0.0, 0.0);
 	MAT4X3PNT(new_cent_view, viewchginv, new_origin);
-	MAT4X3PNT(new_cent_model, gedp->ged_gvp->gv_view2model, new_cent_view);
-	MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, new_cent_model);
+	MAT4X3PNT(new_cent_model, _cam.view2model, new_cent_view);
+	MAT_DELTAS_VEC_NEG(_cam.center, new_cent_model);
     }
 
     /* pure rotation */
-    bn_mat_mul2(rmat, gedp->ged_gvp->gv_rotation);
+    bn_mat_mul2(rmat, _cam.rotation);
+    bsg_view_set_camera(gedp->ged_gvp, &_cam);
     bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
@@ -99,9 +102,12 @@ int
 _ged_do_slew(struct ged *gedp, vect_t svec)
 {
     point_t model_center;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
 
-    MAT4X3PNT(model_center, gedp->ged_gvp->gv_view2model, svec);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, model_center);
+    MAT4X3PNT(model_center, _cam.view2model, svec);
+    MAT_DELTAS_VEC_NEG(_cam.center, model_center);
+    bsg_view_set_camera(gedp->ged_gvp, &_cam);
     bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;
@@ -117,6 +123,8 @@ _ged_do_tra(struct ged *gedp,
     point_t delta;
     point_t work;
     point_t vc, nvc;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
 
     if (func != (int (*)(struct ged *, char, vect_t))0)
 	return (*func)(gedp, coord, tvec);
@@ -124,19 +132,20 @@ _ged_do_tra(struct ged *gedp,
     switch (coord) {
 	case 'm':
 	    VSCALE(delta, tvec, -gedp->dbip->dbi_base2local);
-	    MAT_DELTAS_GET_NEG(vc, gedp->ged_gvp->gv_center);
+	    MAT_DELTAS_GET_NEG(vc, _cam.center);
 	    break;
 	case 'v':
 	default:
 	    VSCALE(tvec, tvec, -2.0*gedp->dbip->dbi_base2local*gedp->ged_gvp->gv_isize);
-	    MAT4X3PNT(work, gedp->ged_gvp->gv_view2model, tvec);
-	    MAT_DELTAS_GET_NEG(vc, gedp->ged_gvp->gv_center);
+	    MAT4X3PNT(work, _cam.view2model, tvec);
+	    MAT_DELTAS_GET_NEG(vc, _cam.center);
 	    VSUB2(delta, work, vc);
 	    break;
     }
 
     VSUB2(nvc, vc, delta);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, nvc);
+    MAT_DELTAS_VEC_NEG(_cam.center, nvc);
+    bsg_view_set_camera(gedp->ged_gvp, &_cam);
     bsg_view_update(gedp->ged_gvp);
 
     return BRLCAD_OK;

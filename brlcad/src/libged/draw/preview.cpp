@@ -420,9 +420,13 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
      * Initialize the view to the current one provided by the ged
      * structure in case a view specification is never given.
      */
-    MAT_COPY(*ged_viewrot, gedp->ged_gvp->gv_rotation);
-    VSET(temp, 0.0, 0.0, 1.0);
-    MAT4X3PNT(*ged_eye_model, gedp->ged_gvp->gv_view2model, temp);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	MAT_COPY(*ged_viewrot, _cam.rotation);
+	VSET(temp, 0.0, 0.0, 1.0);
+	MAT4X3PNT(*ged_eye_model, _cam.view2model, temp);
+    }
 
     if (image_name) {
 	/* parse file name and possible extension */

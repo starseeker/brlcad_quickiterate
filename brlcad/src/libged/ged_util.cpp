@@ -846,7 +846,7 @@ ged_rot_args(struct ged *gedp, int argc, const char *argv[], char *coord, mat_t 
 	--argc;
 	++argv;
     } else
-	*coord = gedp->ged_gvp->gv_coord;
+	{ struct bsg_camera _gc; bsg_view_get_camera(gedp->ged_gvp, &_gc); *coord = _gc.coord; }
 
     if (argc != 2 && argc != 4) {
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
@@ -964,7 +964,7 @@ ged_tra_args(struct ged *gedp, int argc, const char *argv[], char *coord, vect_t
 	--argc;
 	++argv;
     } else
-	*coord = gedp->ged_gvp->gv_coord;
+	{ struct bsg_camera _gc; bsg_view_get_camera(gedp->ged_gvp, &_gc); *coord = _gc.coord; }
 
     if (argc != 2 && argc != 4) {
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
