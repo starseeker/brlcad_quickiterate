@@ -341,7 +341,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
     /* Label the vertices of the edited solid */
     if (MEDIT(s)->edit_flag >= 0 || (s->global_editing_state == ST_O_EDIT && illump->s_old.s_Eflag == 0)) {
 	mat_t xform;
-	struct rt_point_labels pl[8+1];
+	struct rt_point_labels pl[8+1] = {RT_POINT_LABELS_INIT};
 	point_t lines[2*4];	/* up to 4 lines to draw */
 	int num_lines=0;
 

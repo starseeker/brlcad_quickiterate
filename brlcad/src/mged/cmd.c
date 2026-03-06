@@ -1715,7 +1715,6 @@ mged_global_variable_setup(struct mged_state *s)
     Tcl_LinkVar(s->interp, "mged_default(db_upgrade)", (char *)&mged_global_db_ctx.db_upgrade, TCL_LINK_INT);
     Tcl_LinkVar(s->interp, "mged_default(db_version)", (char *)&mged_global_db_ctx.db_version, TCL_LINK_INT);
 
-    Tcl_LinkVar(s->interp, "edit_class", (char *)&s->s_edit->es_edclass, TCL_LINK_INT);
     Tcl_LinkVar(s->interp, "edit_solid_flag", (char *)&MEDIT(s)->edit_flag, TCL_LINK_INT);
     Tcl_LinkVar(s->interp, "edit_object_flag", (char *)&edobj, TCL_LINK_INT);
 
@@ -1733,7 +1732,6 @@ mged_global_variable_teardown(struct mged_state *s)
     Tcl_UnlinkVar(s->interp, "mged_default(db_upgrade)");
     Tcl_UnlinkVar(s->interp, "mged_default(db_version)");
 
-    Tcl_UnlinkVar(s->interp, "edit_class");
     Tcl_UnlinkVar(s->interp, "edit_solid_flag");
     Tcl_UnlinkVar(s->interp, "edit_object_flag");
 

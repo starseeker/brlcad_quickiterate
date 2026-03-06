@@ -136,10 +136,6 @@ struct mged_edit_state {
     struct mged_dm *edit_rate_vr_dm;
     struct mged_dm *edit_rate_mt_dm;
     struct mged_dm *edit_rate_vt_dm;
-
-    // TODO - can we eliminate these?
-    int es_edclass;            /* type of editing class for this solid */
-    int es_type;               /* COMGEOM solid type */
 };
 
 #define MEDIT(s) ((s)->s_edit->e)

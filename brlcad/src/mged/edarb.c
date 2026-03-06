@@ -101,14 +101,17 @@ f_extrude(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 	return TCL_ERROR;
     }
 
-    if (s->s_edit->es_type != ARB8 && s->s_edit->es_type != ARB6 && s->s_edit->es_type != ARB4) {
-	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
+    {
+	int arb_type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
+	if (arb_type != ARB8 && arb_type != ARB6 && arb_type != ARB4) {
+	    struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
 
-	bu_vls_printf(&tmp_vls, "ARB%d: extrusion of faces not allowed\n", s->s_edit->es_type);
-	Tcl_AppendResult(interp, bu_vls_addr(&tmp_vls), (char *)NULL);
-	bu_vls_free(&tmp_vls);
+	    bu_vls_printf(&tmp_vls, "ARB%d: extrusion of faces not allowed\n", arb_type);
+	    Tcl_AppendResult(interp, bu_vls_addr(&tmp_vls), (char *)NULL);
+	    bu_vls_free(&tmp_vls);
 
-	return TCL_ERROR;
+	    return TCL_ERROR;
+	}
     }
 
     face = atoi(argv[1]);

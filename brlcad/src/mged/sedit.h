@@ -48,7 +48,7 @@
 
 #define MGED_SMALL_SCALE 1.0e-10
 
-/* These EDIT_CLASS_ values go in es_edclass. */
+/* Edit classification constants - used by EDIT_ROTATE/TRAN/SCALE macros */
 #define EDIT_CLASS_NULL 0
 #define EDIT_CLASS_TRAN 1
 #define EDIT_CLASS_ROTATE 2
