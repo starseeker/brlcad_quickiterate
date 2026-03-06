@@ -164,9 +164,9 @@ void QgSW::paintEvent(QPaintEvent *e)
     dm_get_bg(&dm_bg1, &dm_bg2, dmp);
     dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
 
-    struct bsg_camera _sw_cam;
-    bsg_view_get_camera(v, &_sw_cam);
-    dm_loadmatrix(dmp, _sw_cam.model2view, 0);
+    struct bsg_camera sw_camera;
+    bsg_view_get_camera(v, &sw_camera);
+    dm_loadmatrix(dmp, sw_camera.model2view, 0);
     dm_draw_begin(dmp);
     dm_draw_objs(v, draw_custom, draw_udata);
     dm_draw_end(dmp);
@@ -395,15 +395,12 @@ void QgSW::aet(double a, double e, double t)
     VMOVE(aet, aetd);
 
     /* Use camera API - bsg_view_mat_aet_camera recomputes rotation from aet */
-    struct bsg_camera _cam;
-    bsg_view_get_camera(v, &_cam);
-    VMOVE(_cam.aet, aet);
-    bsg_view_mat_aet_camera(&_cam);
-    bsg_view_set_camera(v, &_cam);
+    struct bsg_camera aet_camera;
+    bsg_view_get_camera(v, &aet_camera);
+    VMOVE(aet_camera.aet, aet);
+    bsg_view_mat_aet_camera(&aet_camera);
+    bsg_view_set_camera(v, &aet_camera);
     bsg_view_update(v);
-    /* Propagate to camera node in scene root, if present */
-    bsg_shape *_cn = bsg_scene_root_camera(v);
-    if (_cn) bsg_camera_node_set(_cn, &_cam);
 }
 
 void
