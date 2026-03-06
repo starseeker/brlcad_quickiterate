@@ -31,6 +31,7 @@
 #include "ged.h"
 #include "dm.h"
 #include "./mged.h"
+#include "bsg/util.h"
 #include "./mged_dm.h"
 
 extern int mged_vscale(struct mged_state *s, fastf_t sfactor);
@@ -308,17 +309,21 @@ zoom_rect_area(struct mged_state *s)
     adjust_rect_for_zoom(s);
 
     /* find old view center */
-    MAT_DELTAS_GET_NEG(old_model_center, view_state->vs_gvp->gv_center);
-    MAT4X3PNT(old_view_center, view_state->vs_gvp->gv_model2view, old_model_center);
+    {
+	struct bsg_camera _rc;
+	bsg_view_get_camera(view_state->vs_gvp, &_rc);
+	MAT_DELTAS_GET_NEG(old_model_center, _rc.center);
+	MAT4X3PNT(old_view_center, _rc.model2view, old_model_center);
 
-    /* calculate new view center */
-    VSET(new_view_center,
-	 rubber_band->rb_x + rubber_band->rb_width / 2.0,
-	 rubber_band->rb_y + rubber_band->rb_height / 2.0,
-	 old_view_center[Z]);
+	/* calculate new view center */
+	VSET(new_view_center,
+	     rubber_band->rb_x + rubber_band->rb_width / 2.0,
+	     rubber_band->rb_y + rubber_band->rb_height / 2.0,
+	     old_view_center[Z]);
 
-    /* find new model center */
-    MAT4X3PNT(new_model_center, view_state->vs_gvp->gv_view2model, new_view_center);
+	/* find new model center */
+	MAT4X3PNT(new_model_center, _rc.view2model, new_view_center);
+    }
     mged_center(s, new_model_center);
 
     /* zoom in to fill rectangle */
