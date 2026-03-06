@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>MGED Editing State Screenshot Comparison</title>
+<style>
+body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; margin: 20px; }
+h1 { color: #4fc3f7; }
+h2 { color: #81c784; margin-top: 30px; border-bottom: 1px solid #444; padding-bottom: 5px; }
+h3 { color: #ffb74d; }
+.pair { display: flex; gap: 10px; margin: 10px 0; align-items: flex-start; }
+.pair img { border: 1px solid #444; max-width: 512px; }
+.compare { margin: 10px 0; }
+.compare img { border: 1px solid #4fc3f7; max-width: 100%; }
+.label { font-size: 0.85em; color: #9e9e9e; margin-bottom: 4px; }
+.badge-fixed { color: #ef5350; font-weight: bold; }
+.badge-match { color: #66bb6a; }
+p.note { color: #ffb74d; font-style: italic; }
+</style>
+</head>
+<body>
+<h1>MGED Primitive Editing State: Vanilla vs Updated Screenshots</h1>
+<p>All screenshots captured via <code>DM_SWRAST=1 mged -c DB</code> with <code>attach swrast</code> + <code>sed &lt;prim&gt;</code> + <code>screengrab</code>.</p>
+<p>Left = VANILLA, Right = UPDATED (side-by-side in compare images).</p>
+<p class="note">⚠️ Bug found and fixed: EHY entry in table.cpp had <code>rt_epa_labels</code> instead of <code>rt_ehy_labels</code> — caused crash in updated MGED when labels were drawn. Fixed in this PR.</p>
+
+<h2>Solid Edit (sed) State — Side-by-side Comparisons</h2>
+  <h3>sph1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_sph1_sed.png' alt='sph1 comparison'></div>
+  <h3>tor1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_tor1_sed.png' alt='tor1 comparison'></div>
+  <h3>part1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_part1_sed.png' alt='part1 comparison'></div>
+  <h3>rpc1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_rpc1_sed.png' alt='rpc1 comparison'></div>
+  <h3>rhc1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_rhc1_sed.png' alt='rhc1 comparison'></div>
+  <h3>epa1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_epa1_sed.png' alt='epa1 comparison'></div>
+  <h3>ehy1 <span class="badge-fixed">BUG FIXED in updated</span></h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_ehy1_sed.png' alt='ehy1 comparison'></div>
+  <h3>eto1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_eto1_sed.png' alt='eto1 comparison'></div>
+  <h3>hyp1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_hyp1_sed.png' alt='hyp1 comparison'></div>
+  <h3>superell1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_superell1_sed.png' alt='superell1 comparison'></div>
+  <h3>arb8_1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_arb8_1_sed.png' alt='arb8_1 comparison'></div>
+  <h3>ars1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_ars1_sed.png' alt='ars1 comparison'></div>
+  <h3>half1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_half1_sed.png' alt='half1 comparison'></div>
+  <h3>bot1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_bot1_sed.png' alt='bot1 comparison'></div>
+  <h3>nmg1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_nmg1_sed.png' alt='nmg1 comparison'></div>
+  <h3>pipe1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_pipe1_sed.png' alt='pipe1 comparison'></div>
+  <h3>metaball1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_metaball1_sed.png' alt='metaball1 comparison'></div>
+  <h3>grip1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_grip1_sed.png' alt='grip1 comparison'></div>
+  <h3>ebm1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_ebm1_sed.png' alt='ebm1 comparison'></div>
+  <h3>vol1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_vol1_sed.png' alt='vol1 comparison'></div>
+  <h3>dsp1</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_dsp1_sed.png' alt='dsp1 comparison'></div>
+
+<h2>Scale Edit (sscale) State — Side-by-side Comparisons</h2>
+  <h3>sph1 — sscale mode</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_sph1_sscale.png' alt='sph1 sscale comparison'></div>
+  <h3>tor1 — sscale mode</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_tor1_sscale.png' alt='tor1 sscale comparison'></div>
+  <h3>rpc1 — sscale mode</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_rpc1_sscale.png' alt='rpc1 sscale comparison'></div>
+  <h3>hyp1 — sscale mode</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_hyp1_sscale.png' alt='hyp1 sscale comparison'></div>
+  <h3>arb8_1 — sscale mode</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_arb8_1_sscale.png' alt='arb8_1 sscale comparison'></div>
+  <h3>pipe1 — sscale mode</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_pipe1_sscale.png' alt='pipe1 sscale comparison'></div>
+
+<h2>Interaction / Dialog Screenshots</h2>
+  <h3>BOT flags menu (press menu3)</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_bot1_flags_menu.png' alt='bot1_flags_menu comparison'></div>
+  <h3>PIPE move point mode (press menu1)</h3>
+  <div class='compare'><div class='label'>VANILLA (left) — UPDATED (right)</div>
+  <img src='compare_pipe1_move_pt.png' alt='pipe1_move_pt comparison'></div>
+
+<h2>Summary</h2>
+<ul>
+<li class="badge-match">✅ 20/21 primitives: visually identical vanilla vs updated</li>
+<li class="badge-fixed">🔧 1 bug fixed: EHY <code>ft_labels</code> pointed to <code>rt_epa_labels</code> instead of <code>rt_ehy_labels</code> in <code>table.cpp</code>. Vanilla MGED was immune (had inline label switch-case); updated MGED delegates to <code>OBJ[].ft_labels</code> and crashed on magic check.</li>
+<li class="badge-match">✅ BOT flags menu: identical dialog rendering</li>
+<li class="badge-match">✅ PIPE move-point mode: identical menu rendering</li>
+<li>ℹ️ All screenshots captured with <code>DM_SWRAST=1</code> (OSMesa offscreen rendering) on Xvfb :99</li>
+</ul>
+</body></html>
