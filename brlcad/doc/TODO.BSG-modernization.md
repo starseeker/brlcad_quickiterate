@@ -883,37 +883,53 @@ compatibility / deprecation; all new scene-graph logic is implemented fresh in
 
 ### Incremental build-up plan for `libbsg`
 
-1. **Stand-up skeleton** — `src/libbsg/CMakeLists.txt`, empty `libbsg.h` public
+1. **Stand-up skeleton** ✅ — `src/libbsg/CMakeLists.txt`, `include/libbsg/libbsg.h` public
    header, library links only against `libbu` and `libbn`.  No `bv.h` include
    anywhere in the new library.
 
-2. **Core node types** — `bsg_node`, `bsg_separator`, `bsg_transform`,
-   `bsg_camera`, `bsg_shape` (clean re-implementations, not casts of
+2. **Core node types** ✅ — `bsg_node`, `bsg_separator`, `bsg_transform`,
+   `libbsg_camera`, `libbsg_shape` (clean re-implementations, not casts of
    `bv_scene_obj`).  All node storage uses `bu_ptbl` children lists.
+   **Note**: names use `libbsg_` prefix (not `bsg_`) to avoid ODR conflicts with
+   `bv/defines.h` and `bsg/defines.h`.
 
-3. **Scene root + view binding** — `bsg_scene_root_create(w, h)`,
-   `bsg_view_bind(root, view_params)` where `view_params` is a plain C struct
+3. **Scene root + view binding** ✅ — `libbsg_scene_root_create(params)`,
+   `libbsg_view_bind(root, view_params)` where `view_params` is a plain C struct
    (no `bview`/`bv_*` dependency).
 
-4. **Traversal engine** — `bsg_traverse(root, visitor_fn, user_data)` with
-   accumulated `bsg_traversal_state` (xform stack, active camera, LOD state).
+4. **Traversal engine** ✅ — `libbsg_traverse(root, visitor_fn, user_data)` with
+   accumulated `libbsg_traversal_state` (xform stack, active camera, LOD state).
 
-5. **Draw integration** — `libbsg_dm` adapter that wraps `struct dm *` and
-   implements the visitor callback in terms of existing `dm_*` calls.  This is
-   the *only* place `libbv`/`bv.h` names may appear.
+5. **Draw integration** ✅ — `libbsg_dm` adapter library (`src/libbsg_dm/`,
+   `include/libbsg_dm/libbsg_dm.h`) that wraps `struct dm *` and implements
+   `libbsg_dm_draw_scene()` / `libbsg_dm_load_camera()` in terms of `dm_*` calls.
+   This is the *only* place `libbv`/`bv.h` names may appear.
 
-6. **Geometry ingestion** — helpers that convert `struct rt_db_internal *`
-   tessellations into `bsg_shape` vlist payloads, replacing the current
-   `draw2.cpp` pipeline.
+6. **Geometry ingestion** ✅ — `libbsg_shape_wireframe(s, ip, ttol, tol)` in
+   `src/libbsg_dm/geom.c` calls `ip->idb_meth->ft_plot(&s->vlist, ...)` to
+   populate a `libbsg_shape` from an `rt_db_internal`.
 
-7. **Selection / highlight** — `bsg_select_state`, `bsg_select_add_path`,
-   `bsg_select_sync_highlight` — clean re-implementation, no `DbiState`
-   coupling.
+7. **Selection / highlight** ✅ — `libbsg_select_state`, `libbsg_select_add_path`,
+   `libbsg_select_sync_highlight` in `src/libbsg/select.c` — clean
+   re-implementation, no `DbiState` coupling.
 
-8. **Disable `bv.h` globally** — once step 6 is working, add a CMake option
-   `BRLCAD_DISABLE_LIBBV_INCLUDES` that wraps every `#include "bv/..."` outside
-   `src/libbv/` and `src/libbsg/` in an error pragma, forcing callers to
-   migrate.
+8. **Disable `bv.h` globally** ✅ — `BRLCAD_DISABLE_LIBBV_INCLUDES` CMake option
+   (OFF by default) added to `misc/CMake/BRLCAD_User_Options.cmake`.  When ON,
+   defines `BRLCAD_DISABLE_LIBBV_INCLUDES 1` in `brlcad_config.h` so
+   translation units can enforce their own no-libbv invariants.
+
+### Next steps (future sessions)
+
+The core libbsg infrastructure is now complete.  The remaining migration work:
+
+- **Phase A**: Route one existing draw command (e.g. `ged_draw`) to call
+  `libbsg_shape_wireframe()` + add shape to a `bsg_node` root, then
+  `libbsg_dm_draw_scene()` for display.  This replaces one draw2.cpp codepath.
+- **Phase B**: Iteratively migrate remaining draw commands, then GED query
+  commands, then MGED/archer UI.
+- **Phase C**: When all callers are migrated, enable `BRLCAD_DISABLE_LIBBV_INCLUDES=ON`
+  in CI to enforce no new regressions.
+- **Phase D**: Remove `libbv` (final decommission).
 
 ### Session 10 partial work (superseded by pivot)
 
