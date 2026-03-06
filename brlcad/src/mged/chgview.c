@@ -246,15 +246,6 @@ mged_librt_knob_edit_apply(struct mged_state *s,
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
 
-    /* Synchronize MGED es_edclass (used by token_should_edit, knob printouts, rate loop) */
-    if (did_rot) {
-	s->s_edit->es_edclass = EDIT_CLASS_ROTATE;
-    } else if (did_tran) {
-	s->s_edit->es_edclass = EDIT_CLASS_TRAN;
-    } else if (did_sca) {
-	s->s_edit->es_edclass = EDIT_CLASS_SCALE;
-    }
-
     return BRLCAD_OK;
 }
 
@@ -1276,7 +1267,7 @@ mged_print_knobvals(struct mged_state *s, Tcl_Interp *interp)
     struct bu_vls vls = BU_VLS_INIT_ZERO;
 
     if (mged_variables->mv_rateknobs) {
-	if (s->s_edit->es_edclass == EDIT_CLASS_ROTATE && mged_variables->mv_transform == 'e') {
+	if (EDIT_ROTATE && mged_variables->mv_transform == 'e') {
 	    bu_vls_printf(&vls, "x = %f\n", MEDIT(s)->k.rot_m[X]);
 	    bu_vls_printf(&vls, "y = %f\n", MEDIT(s)->k.rot_m[Y]);
 	    bu_vls_printf(&vls, "z = %f\n", MEDIT(s)->k.rot_m[Z]);
@@ -1286,13 +1277,13 @@ mged_print_knobvals(struct mged_state *s, Tcl_Interp *interp)
 	    bu_vls_printf(&vls, "z = %f\n", view_state->k.rot_v[Z]);
 	}
 
-	if (s->s_edit->es_edclass == EDIT_CLASS_SCALE && mged_variables->mv_transform == 'e') {
+	if (EDIT_SCALE && mged_variables->mv_transform == 'e') {
 	    bu_vls_printf(&vls, "S = %f\n", MEDIT(s)->k.sca);
 	} else {
 	    bu_vls_printf(&vls, "S = %f\n", view_state->k.sca);
 	}
 
-	if (s->s_edit->es_edclass == EDIT_CLASS_TRAN && mged_variables->mv_transform == 'e') {
+	if (EDIT_TRAN && mged_variables->mv_transform == 'e') {
 	    bu_vls_printf(&vls, "X = %f\n", MEDIT(s)->k.tra_m[X]);
 	    bu_vls_printf(&vls, "Y = %f\n", MEDIT(s)->k.tra_m[Y]);
 	    bu_vls_printf(&vls, "Z = %f\n", MEDIT(s)->k.tra_m[Z]);
@@ -1302,7 +1293,7 @@ mged_print_knobvals(struct mged_state *s, Tcl_Interp *interp)
 	    bu_vls_printf(&vls, "Z = %f\n", view_state->k.tra_v[Z]);
 	}
     } else {
-	if (s->s_edit->es_edclass == EDIT_CLASS_ROTATE && mged_variables->mv_transform == 'e') {
+	if (EDIT_ROTATE && mged_variables->mv_transform == 'e') {
 	    bu_vls_printf(&vls, "ax = %f\n", MEDIT(s)->k.rot_m_abs[X]);
 	    bu_vls_printf(&vls, "ay = %f\n", MEDIT(s)->k.rot_m_abs[Y]);
 	    bu_vls_printf(&vls, "az = %f\n", MEDIT(s)->k.rot_m_abs[Z]);
@@ -1312,13 +1303,13 @@ mged_print_knobvals(struct mged_state *s, Tcl_Interp *interp)
 	    bu_vls_printf(&vls, "az = %f\n", view_state->k.rot_v_abs[Z]);
 	}
 
-	if (s->s_edit->es_edclass == EDIT_CLASS_SCALE && mged_variables->mv_transform == 'e') {
+	if (EDIT_SCALE && mged_variables->mv_transform == 'e') {
 	    bu_vls_printf(&vls, "aS = %f\n", MEDIT(s)->k.sca_abs);
 	} else {
 	    bu_vls_printf(&vls, "aS = %f\n", view_state->vs_gvp->gv_a_scale);
 	}
 
-	if (s->s_edit->es_edclass == EDIT_CLASS_TRAN && mged_variables->mv_transform == 'e') {
+	if (EDIT_TRAN && mged_variables->mv_transform == 'e') {
 	    bu_vls_printf(&vls, "aX = %f\n", MEDIT(s)->k.tra_m_abs[X]);
 	    bu_vls_printf(&vls, "aY = %f\n", MEDIT(s)->k.tra_m_abs[Y]);
 	    bu_vls_printf(&vls, "aZ = %f\n", MEDIT(s)->k.tra_m_abs[Z]);

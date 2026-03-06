@@ -48,7 +48,7 @@
 
 #define MGED_SMALL_SCALE 1.0e-10
 
-/* These EDIT_CLASS_ values go in es_edclass. */
+/* Edit classification constants - used by EDIT_ROTATE/TRAN/SCALE macros */
 #define EDIT_CLASS_NULL 0
 #define EDIT_CLASS_TRAN 1
 #define EDIT_CLASS_ROTATE 2
@@ -99,13 +99,7 @@
 #define EDIT_TRAN (SEDIT_TRAN || OEDIT_TRAN)
 
 #define SEDIT_PICK (s->global_editing_state == ST_S_EDIT && \
-		    (MEDIT(s)->edit_flag == ECMD_NMG_EPICK || \
-		     MEDIT(s)->edit_flag == ECMD_PIPE_SELECT || \
-		     MEDIT(s)->edit_flag == ECMD_ARS_PICK || \
-		     MEDIT(s)->edit_flag == ECMD_BOT_PICKV || \
-		     MEDIT(s)->edit_flag == ECMD_BOT_PICKE || \
-		     MEDIT(s)->edit_flag == ECMD_BOT_PICKT || \
-		     MEDIT(s)->edit_flag == ECMD_METABALL_PT_PICK))
+		    MEDIT(s)->edit_mode == RT_PARAMS_EDIT_PICK)
 
 
 

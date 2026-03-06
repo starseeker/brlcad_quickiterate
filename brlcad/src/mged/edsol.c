@@ -552,9 +552,8 @@ ecmd_extrude_skt_name_clbk(int UNUSED(ac), const char **UNUSED(av), void *d, voi
 
 int nurb_closest2d(int *surface, int *uval, int *vval, const struct rt_nurb_internal *spl, const point_t ref_pt, const mat_t mat);
 
-/* data for solid editing (sedraw remains as MGED-specific state; other per-prim globals
- * migrated to librt ipe_ptr structs) */
-int sedraw;	/* apply solid editing changes */
+/* data for solid editing (per-prim globals migrated to librt ipe_ptr structs;
+ * sedraw migrated to MEDIT(s)->sedraw inside rt_edit) */
 
 
 
@@ -641,6 +640,7 @@ set_e_axes_pos(struct mged_state *s, int both)
 	case ID_ARB8:
 	    {
 		struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
+		int arb_type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
 		if (s->global_editing_state == ST_O_EDIT) {
 		i = 0;
 	    } else {
@@ -649,7 +649,7 @@ set_e_axes_pos(struct mged_state *s, int both)
 			i = 0;
 			break;
 		    case EARB:
-			switch (s->s_edit->es_type) {
+			switch (arb_type) {
 			    case ARB5:
 				i = earb5[aint->edit_menu][0];
 				break;
@@ -668,7 +668,7 @@ set_e_axes_pos(struct mged_state *s, int both)
 			}
 			break;
 		    case PTARB:
-			switch (s->s_edit->es_type) {
+			switch (arb_type) {
 			    case ARB4:
 				i = aint->edit_menu;	/* index for point 1, 2, 3 or 4 */
 				break;
@@ -685,7 +685,7 @@ set_e_axes_pos(struct mged_state *s, int both)
 			}
 			break;
 		    case ECMD_ARB_MOVE_FACE:
-			switch (s->s_edit->es_type) {
+			switch (arb_type) {
 			    case ARB4:
 				i = local_arb_faces[0][aint->edit_menu * 4];
 				break;
@@ -776,7 +776,6 @@ set_e_axes_pos(struct mged_state *s, int both)
 	VMOVE(MEDIT(s)->e_axes_pos, MEDIT(s)->curr_e_axes_pos);
 
 	if (EDIT_ROTATE) {
-	    s->s_edit->es_edclass = EDIT_CLASS_ROTATE;
 	    VSETALL(MEDIT(s)->k.rot_m_abs, 0.0);
 	    VSETALL(MEDIT(s)->k.rot_o_abs, 0.0);
 	    VSETALL(MEDIT(s)->k.rot_v_abs, 0.0);
@@ -784,20 +783,16 @@ set_e_axes_pos(struct mged_state *s, int both)
 	    VSETALL(MEDIT(s)->k.rot_o_abs_last, 0.0);
 	    VSETALL(MEDIT(s)->k.rot_v_abs_last, 0.0);
 	} else if (EDIT_TRAN) {
-	    s->s_edit->es_edclass = EDIT_CLASS_TRAN;
 	    VSETALL(MEDIT(s)->k.tra_m_abs, 0.0);
 	    VSETALL(MEDIT(s)->k.tra_v_abs, 0.0);
 	    VSETALL(MEDIT(s)->k.tra_m_abs_last, 0.0);
 	    VSETALL(MEDIT(s)->k.tra_v_abs_last, 0.0);
 	} else if (EDIT_SCALE) {
-	    s->s_edit->es_edclass = EDIT_CLASS_SCALE;
 
 	    if (SEDIT_SCALE) {
 		MEDIT(s)->k.sca_abs = 0.0;
 		MEDIT(s)->acc_sc_sol = 1.0;
 	    }
-	} else {
-	    s->s_edit->es_edclass = EDIT_CLASS_NULL;
 	}
 
 	MAT_IDN(MEDIT(s)->acc_rot_sol);
@@ -1521,9 +1516,8 @@ init_sedit(struct mged_state *s)
 	RT_ARB_CK_MAGIC(arb);
 
 	type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
-	s->s_edit->es_type = type;
 
-	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, ARB_EDIT(s)->es_peqn, &s->tol.tol)) {
+	if (rt_arb_calc_planes(&error_msg, arb, type, ARB_EDIT(s)->es_peqn, &s->tol.tol)) {
 	    Tcl_AppendResult(s->interp, bu_vls_addr(&error_msg),
 			     "\nCannot calculate plane equations for ARB8\n",
 			     (char *)NULL);
@@ -1730,7 +1724,7 @@ get_rotation_vertex(struct mged_state *s)
     struct bu_vls cmd = BU_VLS_INIT_ZERO;
     struct rt_arb8_edit *aint = (struct rt_arb8_edit *)MEDIT(s)->ipe_ptr;
 
-    type = s->s_edit->es_type - 4;
+    type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol) - 4;
 
     loc = aint->edit_menu*4;
     valid = 0;
@@ -1813,7 +1807,7 @@ get_file_name(struct mged_state *s, char *str)
  * A great deal of magic takes place here, to accomplish solid editing.
  *
  * Called from mged main loop after any event handlers:
- * if (sedraw > 0) sedit(s);
+ * if (MEDIT(s)->sedraw > 0) sedit(s);
  * to process any residual events that the event handlers were too
  * lazy to handle themselves.
  *
@@ -1828,7 +1822,7 @@ sedit(struct mged_state *s)
     if (s->dbip == DBI_NULL)
 	return;
 
-    sedraw = 0;
+    MEDIT(s)->sedraw = 0;
     ++s->update_views;
 
     /* Sync MGED-specific state into rt_edit before any processing */
@@ -2041,8 +2035,11 @@ sedit(struct mged_state *s)
 	arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
 	RT_ARB_CK_MAGIC(arb);
 
-	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, ARB_EDIT(s)->es_peqn, &s->tol.tol) < 0)
-	    Tcl_AppendResult(s->interp, bu_vls_addr(&error_msg), (char *)0);
+	{
+	    int arb_type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
+	    if (rt_arb_calc_planes(&error_msg, arb, arb_type, ARB_EDIT(s)->es_peqn, &s->tol.tol) < 0)
+		Tcl_AppendResult(s->interp, bu_vls_addr(&error_msg), (char *)0);
+	}
 	bu_vls_free(&error_msg);
     }
 
@@ -2066,24 +2063,6 @@ sedit(struct mged_state *s)
     MEDIT(s)->e_mvalid = 0;
 }
 
-
-void
-update_edit_absolute_tran(struct mged_state *s, vect_t view_pos)
-{
-    vect_t model_pos;
-    vect_t ea_view_pos;
-    vect_t diff;
-    fastf_t inv_Viewscale = 1/view_state->vs_gvp->gv_scale;
-
-    MAT4X3PNT(model_pos, view_state->vs_gvp->gv_view2model, view_pos);
-    VSUB2(diff, model_pos, MEDIT(s)->e_axes_pos);
-    VSCALE(MEDIT(s)->k.tra_m_abs, diff, inv_Viewscale);
-    VMOVE(MEDIT(s)->k.tra_m_abs_last, MEDIT(s)->k.tra_m_abs);
-
-    MAT4X3PNT(ea_view_pos, view_state->vs_gvp->gv_model2view, MEDIT(s)->e_axes_pos);
-    VSUB2(MEDIT(s)->k.tra_v_abs, view_pos, ea_view_pos);
-    VMOVE(MEDIT(s)->k.tra_v_abs_last, MEDIT(s)->k.tra_v_abs);
-}
 
 
 /*
@@ -2144,117 +2123,37 @@ sedit_abs_scale(struct mged_state *s)
 
 
 /*
- * Object Edit
+ * Object Edit mouse handler.
  *
- * Refactored to use a local incremental matrix (incr_mat) instead of
- * MEDIT(s)->incr_change for the transient per‑mouse event transform.  For
- * behavioral consistency we retain the MAT_IDN setting of incr_change -
- * external code may depend incr_change being set to MAT_IDN here.
+ * Delegates to each primitive's ft_edit_xy() which handles all
+ * matrix-edit operations (scale, translate, rotate) via the generic
+ * edit_generic_xy() fallback.  The edit_flag must already be set to one
+ * of the RT_MATRIX_EDIT_* values by the button handler before this
+ * function is called.
  */
 void
 objedit_mouse(struct mged_state *s, const vect_t mousevec)
 {
-    fastf_t scale = 1.0;
-    vect_t pos_view;            /* Unrotated view space pos */
-    vect_t pos_model;           /* Rotated screen space pos */
-    vect_t tr_temp;             /* temp translation vector */
-    vect_t temp;
+    int idb_type;
+    int ret;
 
-    /* Local incremental transform for this mouse action */
-    mat_t incr_mat;
-    MAT_IDN(incr_mat);
+    if (!MEDIT(s) || MEDIT(s)->edit_flag <= 0)
+	return;
 
-    /* Maintain legacy invariant: incr_change starts (and ends) identity */
+    idb_type = MEDIT(s)->es_int.idb_type;
+    if (idb_type <= 0 || idb_type > ID_MAXIMUM || !EDOBJ[idb_type].ft_edit_xy)
+	return;
+
+    /* Keep the view pointer current and incr_change at identity */
+    MEDIT(s)->vp = view_state->vs_gvp;
     MAT_IDN(MEDIT(s)->incr_change);
 
-    if (movedir & SARROW) {
-	/* scaling option is in effect */
-	scale = 1.0 + (fastf_t)(mousevec[Y] > 0 ? mousevec[Y] : -mousevec[Y]);
-	if (mousevec[Y] <= 0)
-	    scale = 1.0 / scale;
+    ret = (*EDOBJ[idb_type].ft_edit_xy)(MEDIT(s), mousevec);
 
-	/* switch depending on scaling option selected */
-	switch (edobj) {
-	    case BE_O_SCALE:
-		/* global scaling */
-		incr_mat[15] = 1.0 / scale;
-
-		MEDIT(s)->acc_sc_obj /= incr_mat[15];
-		MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc_obj - 1.0;
-		if (MEDIT(s)->k.sca_abs > 0.0)
-		    MEDIT(s)->k.sca_abs /= 3.0;
-		break;
-
-	    case BE_O_XSCALE:
-		/* local scaling ... X-axis */
-		incr_mat[0] = scale;
-		/* accumulate the scale factor */
-		MEDIT(s)->acc_sc[0] *= scale;
-		MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[0] - 1.0;
-		if (MEDIT(s)->k.sca_abs > 0.0)
-		    MEDIT(s)->k.sca_abs /= 3.0;
-		break;
-
-	    case BE_O_YSCALE:
-		/* local scaling ... Y-axis */
-		incr_mat[5] = scale;
-		/* accumulate the scale factor */
-		MEDIT(s)->acc_sc[1] *= scale;
-		MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[1] - 1.0;
-		if (MEDIT(s)->k.sca_abs > 0.0)
-		    MEDIT(s)->k.sca_abs /= 3.0;
-		break;
-
-	    case BE_O_ZSCALE:
-		/* local scaling ... Z-axis */
-		incr_mat[10] = scale;
-		/* accumulate the scale factor */
-		MEDIT(s)->acc_sc[2] *= scale;
-		MEDIT(s)->k.sca_abs = MEDIT(s)->acc_sc[2] - 1.0;
-		if (MEDIT(s)->k.sca_abs > 0.0)
-		    MEDIT(s)->k.sca_abs /= 3.0;
-		break;
-	}
-
-	/* Have scaling take place with respect to keypoint, NOT the view center. */
-	VMOVE(temp, MEDIT(s)->e_keypoint);
-	MAT4X3PNT(pos_model, MEDIT(s)->model_changes, temp);
-	wrt_point(MEDIT(s)->model_changes, incr_mat, MEDIT(s)->model_changes, pos_model);
-
-	/* Preserve invariant (probably already IDN, but explicit) */
-	MAT_IDN(MEDIT(s)->incr_change);
-	new_edit_mats(s);
-
-    } else if (movedir & (RARROW | UARROW)) {
-	mat_t oldchanges;       /* temporary matrix */
-
-	/* Vector from object keypoint to cursor */
-	VMOVE(temp, MEDIT(s)->e_keypoint);
-	MAT4X3PNT(pos_view, view_state->vs_model2objview, temp);
-
-	if (movedir & RARROW)
-	    pos_view[X] = mousevec[X];
-	if (movedir & UARROW)
-	    pos_view[Y] = mousevec[Y];
-
-	MAT4X3PNT(pos_model, view_state->vs_gvp->gv_view2model, pos_view); /* NOT objview */
-	MAT4X3PNT(tr_temp, MEDIT(s)->model_changes, temp);
-	VSUB2(tr_temp, pos_model, tr_temp);
-	MAT_DELTAS_VEC(incr_mat, tr_temp);
-
-	MAT_COPY(oldchanges, MEDIT(s)->model_changes);
-	bn_mat_mul(MEDIT(s)->model_changes, incr_mat, oldchanges);
-
-	MAT_IDN(MEDIT(s)->incr_change);
-	new_edit_mats(s);
-
-	update_edit_absolute_tran(s, pos_view);
-    } else {
-	Tcl_AppendResult(s->interp, "No object edit mode selected;  mouse press ignored\n", (char *)NULL);
+    if (ret != BRLCAD_OK)
 	return;
-    }
 
-    /* Final guarantee: incr_change left as identity */
+    new_edit_mats(s);
     MAT_IDN(MEDIT(s)->incr_change);
 }
 
@@ -2422,8 +2321,6 @@ init_oedit_guts(struct mged_state *s)
 
 	arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
 	RT_ARB_CK_MAGIC(arb);
-
-	s->s_edit->es_type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
     }
 
     /* Save aggregate path matrix */
@@ -2480,8 +2377,6 @@ init_oedit(struct mged_state *s)
 
     /* do real initialization work */
     init_oedit_guts(s);
-
-    s->s_edit->es_edclass = EDIT_CLASS_NULL;
 
     /* begin edit callback */
     bu_vls_strcpy(&vls, "begin_edit_callback {}");
@@ -2670,8 +2565,11 @@ f_eqn(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	VMOVE(tempvec, arb->pt[ARB_EDIT(s)->fixv]);
 	aint->es_peqn[aint->edit_menu][W]=VDOT(aint->es_peqn[aint->edit_menu], tempvec);
 
-	if (rt_arb_calc_points(arb, s->s_edit->es_type, (const plane_t *)aint->es_peqn, &s->tol.tol))
-	return CMD_BAD;
+	{
+	    int arb_type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
+	    if (rt_arb_calc_points(arb, arb_type, (const plane_t *)aint->es_peqn, &s->tol.tol))
+		return CMD_BAD;
+	}
     }
 
     /* draw the new version of the solid */
@@ -2771,7 +2669,6 @@ sedit_apply(struct mged_state *s, int accept_flag)
 	menu_state->ms_flag = 0;
 	movedir = 0;
 	MEDIT(s)->edit_flag = -1;
-	s->s_edit->es_edclass = EDIT_CLASS_NULL;
 
 	rt_db_free_internal(&MEDIT(s)->es_int);
     } else {
@@ -2808,7 +2705,7 @@ sedit_accept(struct mged_state *s)
 	return;
     }
 
-    if (sedraw > 0)
+    if (MEDIT(s)->sedraw > 0)
 	sedit(s);
 
     (void)sedit_apply(s, 1);
@@ -2822,7 +2719,7 @@ sedit_reject(struct mged_state *s)
 	return;
     }
 
-    if (sedraw > 0)
+    if (MEDIT(s)->sedraw > 0)
 	sedit(s);
 
     /* Reset per-primitive selection state for the current solid type */
@@ -2878,7 +2775,6 @@ sedit_reject(struct mged_state *s)
     menu_state->ms_flag = 0;
     movedir = 0;
     MEDIT(s)->edit_flag = -1;
-    s->s_edit->es_edclass = EDIT_CLASS_NULL;
 
     rt_db_free_internal(&MEDIT(s)->es_int);
 }
@@ -3090,7 +2986,7 @@ label_edited_solid(
 		struct rt_arb_internal *arb=
 		    (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
 		RT_ARB_CK_MAGIC(arb);
-		switch (s->s_edit->es_type)
+		switch (rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol))
 		{
 		    case ARB8:
 			for (i=0; i<8; i++) {
@@ -3990,8 +3886,11 @@ f_put_sedit(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	arb = (struct rt_arb_internal *)MEDIT(s)->es_int.idb_ptr;
 	RT_ARB_CK_MAGIC(arb);
 
-	if (rt_arb_calc_planes(&error_msg, arb, s->s_edit->es_type, ARB_EDIT(s)->es_peqn, &s->tol.tol) < 0)
-	    Tcl_AppendResult(interp, bu_vls_addr(&error_msg), (char *)0);
+	{
+	    int arb_type = rt_arb_std_type(&MEDIT(s)->es_int, &s->tol.tol);
+	    if (rt_arb_calc_planes(&error_msg, arb, arb_type, ARB_EDIT(s)->es_peqn, &s->tol.tol) < 0)
+		Tcl_AppendResult(interp, bu_vls_addr(&error_msg), (char *)0);
+	}
 	bu_vls_free(&error_msg);
     }
 
@@ -4110,7 +4009,7 @@ f_sedit_apply(ClientData clientData, Tcl_Interp *interp, int UNUSED(argc), const
 	return TCL_ERROR;
     }
 
-    if (sedraw > 0)
+    if (MEDIT(s)->sedraw > 0)
 	sedit(s);
 
     init_sedit_vars(s);
