@@ -38,21 +38,14 @@
 #include "../ged_private.h"
 
 static void
-dl_set_flag(struct bu_list *hdlp, int flag)
+dl_set_flag(bsg_view *v, int flag)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    bsg_shape *sp;
-    /* calculate the bounding for of all solids being displayed */
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    sp->s_flag = flag;
-	}
-
-	gdlp = next_gdlp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    /* set flag for all solids being displayed */
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	sp->s_flag = flag;
     }
 }
 
@@ -110,7 +103,7 @@ rtcheck_vector_handler(void *clientData, int UNUSED(mask))
 
 	rtcp->draw_read_failed = 1;
 
-	dl_set_flag(gedp->i->ged_gdp->gd_headDisplay, DOWN);
+	dl_set_flag(gedp->ged_gvp, DOWN);
 
 	/* Add overlay (or, if nothing to draw, clear any stale overlay) */
 	if (rtcp->vbp) {

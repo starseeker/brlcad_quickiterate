@@ -34,6 +34,7 @@
 #include "bu.h"
 #include "bn.h"
 #include "bv/defines.h"
+#include "bsg/util.h"
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"
@@ -1545,25 +1546,11 @@ int gl_draw_display_list(struct dm *dmp, struct display_list *obj)
 {
     gl_debug_print(dmp, "gl_draw_obj", dmp->i->dm_debugLevel);
 
-    bsg_shape *sp;
-    for (BU_LIST_FOR(sp, bsg_shape, &obj->dl_head_scene_obj)) {
-	if (sp->s_dlist == 0)
-	    sp->s_dlist = gl_genDLists(dmp, 1);
-
-	(void)dm_make_current(dmp);
-	(void)gl_beginDList(dmp, sp->s_dlist);
-	if (sp->s_iflag == UP)
-	    (void)dm_set_fg(dmp, 255, 255, 255, 0, sp->s_os->transparency);
-	else {
-	    // TODO - do we need to respect override color here??
-	    (void)dm_set_fg(dmp,
-		    (unsigned char)sp->s_color[0],
-		    (unsigned char)sp->s_color[1],
-		    (unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-	}
-	(void)dm_draw_vlist(dmp, (struct bv_vlist *)&sp->s_vlist);
-	(void)gl_endDList(dmp);
-    }
+    /* Phase 2e: dl_head_scene_obj removed. This function is a legacy stub.
+     * All rendering now uses dm_draw_bsg_view(dmp, v, ...) which iterates
+     * scene-root children directly.  Callers must be updated to use the
+     * BSG API. */
+    (void)obj;
     return 0;
 }
 

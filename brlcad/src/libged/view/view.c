@@ -540,7 +540,8 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	    return BRLCAD_ERROR;
 	}
 	vect_t vpt;
-	MAT4X3PNT(vpt, gd->cv->gv_model2view, mpt);
+	{ struct bsg_camera _cm; bsg_view_get_camera(gd->cv, &_cm);
+	  MAT4X3PNT(vpt, _cm.model2view, mpt); }
 	gd->cv->gv_tcl.gv_data_vZ = vpt[Z];
 	return BRLCAD_OK;
     }

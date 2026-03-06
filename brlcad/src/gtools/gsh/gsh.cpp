@@ -596,9 +596,15 @@ GshState::view_update()
 	    dm_loadmatrix(dmp, _cam.model2view, 0);
 	    unsigned char geometry_default_color[] = { 255, 0, 0 };
 	    dm_draw_begin(dmp);
-	    dm_draw_head_dl(dmp, (struct bu_list *)ged_dl(gedp),
-		    1.0, gedp->ged_gvp->gv_isize, -1, -1, -1, 1,
-		    0, 0, geometry_default_color, 1, 0);
+	    if (bsg_scene_root_get(gedp->ged_gvp)) {
+		dm_draw_bsg_view(dmp, gedp->ged_gvp,
+			1.0, gedp->ged_gvp->gv_isize, -1, -1, -1, 1,
+			0, 0, geometry_default_color, 1, 0);
+	    } else {
+		dm_draw_head_dl(dmp, (struct bu_list *)ged_dl(gedp),
+			1.0, gedp->ged_gvp->gv_isize, -1, -1, -1, 1,
+			0, 0, geometry_default_color, 1, 0);
+	    }
 
 	    // Faceplate drawing
 	    if (gedp->dbip) {

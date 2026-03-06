@@ -744,6 +744,12 @@ BSG_EXPORT void bsg_log(int level, const char *fmt, ...) _BU_ATTR_PRINTF23;
 /** @brief Print view contents for debugging.  Replaces bv_view_print(). */
 BSG_EXPORT void bsg_view_print(const char *title, bsg_view *v,
        int verbosity);
+/** @brief Return the free-scene-object recycling pool for a scene.
+ *         Replaces the deprecated bv_set_fsos() call. */
+BSG_EXPORT struct bv_scene_obj *bsg_scene_fsos(bsg_scene *s);
+/** @brief Snap the view center to the nearest grid line.
+ *         Replaces the deprecated bv_view_center_linesnap() call. */
+BSG_EXPORT void bsg_view_center_linesnap(bsg_view *v);
 
 __END_DECLS
 

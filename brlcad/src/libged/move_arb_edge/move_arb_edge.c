@@ -292,7 +292,9 @@ ged_find_arb_edge_nearest_pnt_core(struct ged *gedp, int argc, const char *argv[
 	return BRLCAD_ERROR;
     }
 
-    (void)rt_arb_find_e_nearest_pt2(&edge, &vi1, &vi2, &intern, view, gedp->ged_gvp->gv_model2view, ptol);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      (void)rt_arb_find_e_nearest_pt2(&edge, &vi1, &vi2, &intern, view, _cm.model2view, ptol);
+    }
     bu_vls_printf(gedp->ged_result_str, "%d %d %d", edge, vi1, vi2);
 
     rt_db_free_internal(&intern);

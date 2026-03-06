@@ -57,21 +57,14 @@
 #include "../ged_private.h"
 
 static void
-dl_set_wflag(struct bu_list *hdlp, int wflag)
+dl_set_wflag(bsg_view *v, int wflag)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    bsg_shape *sp;
-    /* calculate the bounding for of all solids being displayed */
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    sp->s_old.s_wflag = wflag;
-	}
-
-	gdlp = next_gdlp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    /* set wflag for all solids being displayed */
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	sp->s_old.s_wflag = wflag;
     }
 }
 
@@ -219,7 +212,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 	if (retcode != 0)
 	    _ged_wait_status(gedp->ged_result_str, retcode);
 
-	dl_set_wflag(gedp->i->ged_gdp->gd_headDisplay, DOWN);
+	dl_set_wflag(gedp->ged_gvp, DOWN);
 
 	return BRLCAD_OK;
     }
@@ -351,7 +344,9 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
      * explicitly supplied by one of the above. */
     if (VNEAR_ZERO(nv.center_model, VUNITIZE_TOL)) {
 	bsg_view *bv = gedp->ged_gvp;
-	VSET(nv.center_model, -bv->gv_center[MDX], -bv->gv_center[MDY], -bv->gv_center[MDZ]);
+	{ struct bsg_camera _cm; bsg_view_get_camera(bv, &_cm);
+	  VSET(nv.center_model, -_cm.center[MDX], -_cm.center[MDY], -_cm.center[MDZ]);
+	}
 	/* Because we are preparing an input for the nirt command line, we need
 	 * to convert to local units - lower level logic will be expecting
 	 * those units and convert back. */
@@ -510,7 +505,9 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 
     // calculate the ray direction from the view.
     vect_t dir = VINIT_ZERO;
-    VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      VMOVEN(dir, _cm.rotation + 8, 3);
+    }
     VSCALE(dir, dir, -1.0);
     bu_vls_sprintf(&nirt_cmd, "dir %0.17f %0.17f %0.17f", V3ARGS(dir));
     fprintf(np.fp_in, "%s\n", bu_vls_cstr(&nirt_cmd));
@@ -585,7 +582,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     if (retcode != 0)
 	_ged_wait_status(gedp->ged_result_str, retcode);
 
-    dl_set_wflag(gedp->i->ged_gdp->gd_headDisplay, DOWN);
+    dl_set_wflag(gedp->ged_gvp, DOWN);
 
     /* Whether or not we're doing graphics, if we took a shot we should clear any
      * old objects from prior shots. */
@@ -694,7 +691,9 @@ ged_vnirt_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Calculate point from which to fire ray. */
     VSCALE(view_ray_orig, scan, sf);
-    MAT4X3PNT(center_model, gedp->ged_gvp->gv_view2model, view_ray_orig);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(center_model, _cm.view2model, view_ray_orig);
+    }
     /* Initial center_model value will be in base units, and main nirt
      * evaluation path assumes inputs are in local units, so convert. */
     VSCALE(center_model, center_model, gedp->dbip->dbi_base2local);

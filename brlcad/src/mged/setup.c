@@ -559,7 +559,11 @@ mged_setup(struct mged_state *s)
 
     view_state->vs_gvp->gv_callback = mged_view_callback;
     view_state->vs_gvp->gv_clientData = (void *)view_state;
-    MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, view_state->vs_gvp->gv_center);
+    {
+	struct bsg_camera _sc;
+	bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, _sc.center);
+    }
 
     view_state->vs_gvp->vset = &s->gedp->ged_views;
 

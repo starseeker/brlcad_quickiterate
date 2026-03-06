@@ -26,6 +26,7 @@
 #include <math.h>
 #include "vmath.h"
 #include "bn.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -64,11 +65,14 @@ dozoom(struct mged_state *s, int which_eye)
     s->mged_curr_dm->dm_ndrawn = 0;
     inv_viewsize = view_state->vs_gvp->gv_isize;
 
+    struct bsg_camera _vcam;
+    bsg_view_get_camera(view_state->vs_gvp, &_vcam);
+
     /*
      * Draw all solids not involved in an edit.
      */
-    if (view_state->vs_gvp->gv_perspective < SMALL_FASTF && EQUAL(view_state->vs_gvp->gv_eye_pos[Z], 1.0)) {
-	mat = view_state->vs_gvp->gv_model2view;
+    if (_vcam.perspective < SMALL_FASTF && EQUAL(view_state->vs_gvp->gv_eye_pos[Z], 1.0)) {
+	mat = _vcam.model2view;
     } else {
 	/*
 	 * There are two strategies that could be used:
@@ -83,7 +87,7 @@ dozoom(struct mged_state *s, int which_eye)
 	point_t l, h, eye;
 
 	/* Determine where eye should be */
-	to_eye_scr = 1 / tan(view_state->vs_gvp->gv_perspective * DEG2RAD * 0.5);
+	to_eye_scr = 1 / tan(_vcam.perspective * DEG2RAD * 0.5);
 
 #define SCR_WIDTH_PHYS 330	/* Assume a 330 mm wide screen */
 
@@ -101,10 +105,10 @@ dozoom(struct mged_state *s, int which_eye)
 	switch (which_eye) {
 	    case 0:
 		/* Non-stereo case */
-		mat = view_state->vs_gvp->gv_model2view;
+		mat = _vcam.model2view;
 		if (EQUAL(view_state->vs_gvp->gv_eye_pos[Z], 1.0)) {
 		    /* This way works, with reasonable Z-clipping */
-		    persp_mat(perspective_mat, view_state->vs_gvp->gv_perspective,
+		    persp_mat(perspective_mat, _vcam.perspective,
 			    (fastf_t)1.0f, (fastf_t)0.01f, (fastf_t)1.0e10f, (fastf_t)1.0f);
 		} else {
 		    /* This way does not have reasonable Z-clipping,
@@ -115,13 +119,13 @@ dozoom(struct mged_state *s, int which_eye)
 		break;
 	    case 1:
 		/* R */
-		mat = view_state->vs_gvp->gv_model2view;
+		mat = _vcam.model2view;
 		eye[X] = eye_delta_scr;
 		deering_persp_mat(perspective_mat, l, h, eye);
 		break;
 	    case 2:
 		/* L */
-		mat = view_state->vs_gvp->gv_model2view;
+		mat = _vcam.model2view;
 		eye[X] = -eye_delta_scr;
 		deering_persp_mat(perspective_mat, l, h, eye);
 		break;
@@ -135,9 +139,16 @@ dozoom(struct mged_state *s, int which_eye)
     if (dm_get_transparency(DMP)) {
 	/* First, draw opaque stuff */
 
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
+	/* Phase 2e: use BSG root->children when available, legacy fallback otherwise */
+	if (bsg_scene_root_get(view_state->vs_gvp)) {
+	    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
 				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
 				      geometry_default_color, 1, mged_variables->mv_dlist);
+	} else {
+	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
+				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
+				      geometry_default_color, 1, mged_variables->mv_dlist);
+	}
 
 	/* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
 	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
@@ -149,18 +160,30 @@ dozoom(struct mged_state *s, int which_eye)
 
 	/* Second, draw transparent stuff */
 
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 0.0, inv_viewsize,
+	if (bsg_scene_root_get(view_state->vs_gvp)) {
+	    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 0.0, inv_viewsize,
 				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
 				      geometry_default_color, 0, mged_variables->mv_dlist);
+	} else {
+	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 0.0, inv_viewsize,
+				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
+				      geometry_default_color, 0, mged_variables->mv_dlist);
+	}
 
 	/* re-enable write of depth buffer */
 	dm_set_depth_mask(DMP, 1);
 
     } else {
 
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
+	if (bsg_scene_root_get(view_state->vs_gvp)) {
+	    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
 				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
 				      geometry_default_color, 1, mged_variables->mv_dlist);
+	} else {
+	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
+				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
+				      geometry_default_color, 1, mged_variables->mv_dlist);
+	}
 
     }
 
@@ -186,7 +209,7 @@ dozoom(struct mged_state *s, int which_eye)
     if (s->global_editing_state == ST_VIEW)
 	return;
 
-    if (view_state->vs_gvp->gv_perspective <= 0) {
+    if (_vcam.perspective <= 0) {
 	mat = view_state->vs_model2objview;
     } else {
 	bn_mat_mul(newmat, perspective_mat, view_state->vs_model2objview);
@@ -200,9 +223,15 @@ dozoom(struct mged_state *s, int which_eye)
 		   color_scheme->cs_geo_hl[2], 1, 1.0);
 
 
-    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
-	    r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
-	    geometry_default_color, 0, mged_variables->mv_dlist);
+    if (bsg_scene_root_get(view_state->vs_gvp)) {
+	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
+		r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
+		geometry_default_color, 0, mged_variables->mv_dlist);
+    } else {
+	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
+		r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
+		geometry_default_color, 0, mged_variables->mv_dlist);
+    }
 
     s->mged_curr_dm->dm_ndrawn += ndrawn;
 
@@ -291,9 +320,14 @@ createDListAll(void *vlist_ctx, struct display_list *gdlp)
 {
     struct mged_state *s = (struct mged_state *)vlist_ctx;
     MGED_CK_STATE(s);
-    bsg_shape *sp;
-    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	createDListSolid(s, sp);
+    (void)gdlp;
+
+    /* Phase 2e: shapes exclusively in scene-root children */
+    bsg_view *v = (bsg_view *)s->gedp->ged_gvp;
+    bsg_shape *root = v ? bsg_scene_root_get(v) : NULL;
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	createDListSolid(s, (bsg_shape *)BU_PTBL_GET(&root->children, i));
     }
 }
 

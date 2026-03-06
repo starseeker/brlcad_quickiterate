@@ -82,7 +82,7 @@ ged_autoview_core(struct ged *gedp, int argc, const char *argv[])
 
     VSETALL(sqrt_small, SQRT_SMALL_FASTF);
 
-    is_empty = dl_bounding_sph(gedp->i->ged_gdp->gd_headDisplay, &min, &max, 1);
+    is_empty = bsg_bounding_sph(gedp->ged_gvp, &min, &max, 1);
 
     if (is_empty) {
 	/* Nothing is in view */
@@ -99,8 +99,10 @@ ged_autoview_core(struct ged *gedp, int argc, const char *argv[])
     if (VNEAR_ZERO(radial, SQRT_SMALL_FASTF))
 	VSETALL(radial, 1.0);
 
-    MAT_IDN(gedp->ged_gvp->gv_center);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, center);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT_IDN(_cm.center);
+      MAT_DELTAS_VEC_NEG(_cm.center, center);
+      bsg_view_set_camera(gedp->ged_gvp, &_cm); }
     gedp->ged_gvp->gv_scale = radial[X];
     V_MAX(gedp->ged_gvp->gv_scale, radial[Y]);
     V_MAX(gedp->ged_gvp->gv_scale, radial[Z]);

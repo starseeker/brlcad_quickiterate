@@ -42,45 +42,44 @@ dl_zap(struct ged *gedp)
 {
     struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct db_i *dbip = gedp->dbip;
-    bsg_shape *sp = NULL;
     struct display_list *gdlp = NULL;
     struct bu_ptbl dls = BU_PTBL_INIT_ZERO;
-    struct directory *dp = RT_DIR_NULL;
-    size_t i = 0;
-    bsg_shape *free_scene_obj = (bsg_shape *)bv_set_fsos(&gedp->ged_views);
+    bsg_shape *free_scene_obj = (bsg_shape *)bsg_scene_fsos(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
-    while (BU_LIST_WHILE(gdlp, display_list, hdlp)) {
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj))
-	    ged_destroy_vlist_cb(gedp, BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist,
-				 BU_LIST_LAST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist -
-				 BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj)->s_dlist + 1);
-
-	while (BU_LIST_WHILE(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-	    dp = FIRST_SOLID(bdata);
-	    RT_CK_DIR(dp);
-	    if (dp->d_addr == RT_DIR_PHONY_ADDR) {
-		if (db_dirdelete(dbip, dp) < 0) {
-		    bu_log("ged_zap: db_dirdelete failed\n");
+    /* Phase 2e: free all shapes from root->children across all views */
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+    if (views) {
+	for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+	    bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+	    bsg_shape *root = bsg_scene_root_get(v);
+	    if (!root) continue;
+	    for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
+		bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+		if (!sp) continue;
+		if (sp->s_u_data) {
+		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+		    struct directory *dp = FIRST_SOLID(bdata);
+		    RT_CK_DIR(dp);
+		    if (dp->d_addr == RT_DIR_PHONY_ADDR) {
+			if (db_dirdelete(dbip, dp) < 0)
+			    bu_log("ged_zap: db_dirdelete failed\n");
+		    }
 		}
+		ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
+		BU_LIST_APPEND(&free_scene_obj->l, &(sp)->l);
+		BV_FREE_VLIST(vlfree, &sp->s_vlist);
 	    }
-
-	    BU_LIST_DEQUEUE(&sp->l);
-	    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l);
+	    bu_ptbl_reset(&root->children);
 	}
-
-	BU_LIST_DEQUEUE(&gdlp->l);
-	/* queue up for free */
-	bu_ptbl_ins_unique(&dls, (long *)gdlp);
-	gdlp = NULL;
     }
 
-    /* Free all display lists */
-    for(i = 0; i < BU_PTBL_LEN(&dls); i++) {
+    /* Free all display list headers */
+    while (BU_LIST_WHILE(gdlp, display_list, hdlp)) {
+	BU_LIST_DEQUEUE(&gdlp->l);
+	bu_ptbl_ins_unique(&dls, (long *)gdlp);
+    }
+    for (size_t i = 0; i < BU_PTBL_LEN(&dls); i++) {
 	gdlp = (struct display_list *)BU_PTBL_GET(&dls, i);
 	bu_vls_free(&gdlp->dl_path);
 	BU_FREE(gdlp, struct display_list);

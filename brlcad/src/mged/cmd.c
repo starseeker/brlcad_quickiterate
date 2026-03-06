@@ -1959,8 +1959,6 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
     /* update and resize the views */
     struct mged_dm *save_m_dmp = s->mged_curr_dm;
     struct cmd_list *save_cmd_list = curr_cmd_list;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
 	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
 	int non_empty = 0; /* start out empty */
@@ -1975,17 +1973,9 @@ cmd_blast(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc, cons
 
 	s->gedp->ged_gvp = view_state->vs_gvp;
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-		non_empty = 1;
-		break;
-	    }
-
-	    gdlp = next_gdlp;
+	{
+	    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	    non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
 	}
 
 	if (mged_variables->mv_autosize && non_empty) {

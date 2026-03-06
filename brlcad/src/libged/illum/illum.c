@@ -35,8 +35,6 @@
 int
 ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int i;
     struct bv_vlblock*vbp;
     mat_t mat;
@@ -53,7 +51,9 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 
     vbp = rt_vlblock_init();
     MAT_IDN(mat);
-    bn_mat_inv(mat, gedp->ged_gvp->gv_rotation);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+    bn_mat_inv(mat, _cam.rotation);
     scale = gedp->ged_gvp->gv_size / 100;          /* divide by # chars/screen */
 
     for (i=1; i<argc; i++) {
@@ -61,21 +61,17 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 	struct directory *dp;
 	if ((dp = db_lookup(gedp->dbip, argv[i], LOOKUP_NOISY)) == RT_DIR_NULL)
 	    continue;
-	/* Find uses of this solid in the solid table */
-	gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
-	while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(s, bsg_shape, &gdlp->dl_head_scene_obj)) {
-		if (!s->s_u_data)
-		    continue;
-		struct ged_bv_data *bdata = (struct ged_bv_data *)s->s_u_data;
-		if (db_full_path_search(&bdata->s_fullpath, dp)) {
-		    rt_label_vlist_verts(vbp, &s->s_vlist, mat, scale, gedp->dbip->dbi_base2local);
-		}
+	/* Find uses of this solid in the scene root */
+	bsg_shape *root = bsg_scene_root_get(gedp->ged_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    s = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (!s->s_u_data)
+		continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)s->s_u_data;
+	    if (db_full_path_search(&bdata->s_fullpath, dp)) {
+		rt_label_vlist_verts(vbp, &s->s_vlist, mat, scale, gedp->dbip->dbi_base2local);
 	    }
-
-	    gdlp = next_gdlp;
 	}
     }
 
@@ -90,12 +86,13 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 
 
 static int
-dl_set_illum(struct display_list *gdlp, const char *obj, int illum)
+dl_set_illum(bsg_shape *root, const char *obj, int illum)
 {
     int found = 0;
-    bsg_shape *sp;
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
-    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	size_t i;
 	if (!sp->s_u_data)
 	    continue;
@@ -125,8 +122,6 @@ dl_set_illum(struct display_list *gdlp, const char *obj, int illum)
 int
 ged_illum_core(struct ged *gedp, int argc, const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int found = 0;
     int illum = 1;
     static const char *usage = "[-n] obj";
@@ -157,14 +152,7 @@ ged_illum_core(struct ged *gedp, int argc, const char *argv[])
     if (argc != 2)
 	goto bad;
 
-    gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
-    while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	found += dl_set_illum(gdlp, argv[1], illum);
-
-	gdlp = next_gdlp;
-    }
+    found += dl_set_illum(bsg_scene_root_get(gedp->ged_gvp), argv[1], illum);
 
 
     if (!found) {

@@ -515,19 +515,57 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
    - Register repaint sensors from `libqtcad`'s view widget. (future work)
    - ✅ Remaining raw `s_dlist_stale` reads are intentional fallbacks in dm-gl_lod.cpp; removed where sensors now handle stale notification.
 
-3. **Phase 2c** (camera field accessor hygiene): ✅ COMPLETE
-   - Replaced all direct `gv_*` camera field reads with `bsg_view_get_camera` /
+3. **Phase 2c** (camera field accessor hygiene): ✅ COMPLETE (session 5: zero direct gv_* uses outside libbv)
+   - Replaced ALL direct `gv_*` camera field reads/writes with `bsg_view_get_camera` /
      `bsg_view_set_camera` throughout `libged`, `librt`, `libtclcad`, `mged`,
-     `gtools`.
+     `libdm`, `libqtcad`, `gtools`. No non-libbv file accesses camera fields directly.
+   - Session 5 additions: `view/eye.c`, `view/align.c` missing `bsg_view_set_camera` bug fixes;
+     `view/lookat.c`, `view/center.cpp`, `view/ypr.c`, `view/qvrot.c`, `view/quat.c`,
+     `view/autoview.c`, `view/saveview.c`, `view/viewdir.c`, `view/view.c`, `view/labels.c`,
+     `view/knob.c`, `rot/rotate_about.c`, `keypoint.c`, `orient.c`, `setview.c`,
+     `rtwizard.c`, `nirt.cpp`, `pipe.c`, `draw/preview.cpp`, `draw/loadview.cpp`,
+     `rt/rt.c`, `dm/ert.cpp`, `grid2model_lu.c`, `grid2view_lu.c`, `view2grid_lu.c`,
+     `model2view.c`, `model2view_lu.c`, `view2model_lu.c`, `v2m_point.c`,
+     `move_arb_edge.c`, `rot_point.c`, `nmg.c`, `bot/edbot.c`, `plot/plot.c`,
+     `ps/ps.c`, `png/png.c`, `draw.cpp`, `tests/draw/aet.cpp`;
+     `mged/edsol.c`; `libdm/view.c`; `libqtcad/bindings.cpp`; `librt/tests/edit/tor.cpp`.
 
 4. **Phase 2d** (LoD group nodes): ✅ COMPLETE
    - ✅ Add `BSG_NODE_LOD_GROUP` support to `libged/view/lod.cpp` (group create/add/rm/distances subcommands).
    - ✅ Handle `BSG_NODE_LOD_GROUP` in `dm-gl_lod.cpp` draw path (`gl_draw_obj` selects child by eye-to-model-center distance).
 
-5. **Phase 2e** (display_list decommission):
-   - Migrate `libged/display_list.c` shapes to scene-root children.
-   - Remove `dl_head_scene_obj` linked list from `display_list` struct.
-   - Update `mged` callers.
+5. **Phase 2e** (display_list decommission): ✅ COMPLETE (session 6)
+   - ✅ Migrate `libged/display_list.c` shapes to scene-root children.
+   - ✅ Remove `dl_head_scene_obj` linked list from `struct display_list` (tcl_data.h).
+   - Update `mged` callers. (**COMPLETE**: buttons.c, chgtree.c, chgview.c, cmd.c,
+     edsol.c, plot.c, rtif.c, usepen.c, set.c migrated to `root->children`.)
+   - Update `libged` callers. (**COMPLETE**: zap.c, illum.c, solid_report.c,
+     ged_util.cpp, how.c, nirt.cpp, select.c, set_transparency.c, rtcheck.c,
+     ps.c, png.c, nmg.c, view/objs.cpp, plot/plot.c, bot/dump/bot_dump.cpp,
+     libtclcad/view/draw.c migrated.)
+   - **Phase 2e session 4 additions**:
+     - ✅ `display_list.c`: correctness — `bu_ptbl_rm` in all shape-freeing paths
+     - ✅ `display_list.c`: dual-write — `bu_ptbl_ins` at `invent_solid` insertion site (line 839)
+     - ✅ `draw/draw.c`: dual-write at both `dl_add_path` (line 131) and `append_solid_to_display_list` (line 424)
+     - ✅ `dodraw.c`: dual-write at line 159
+     - ✅ BSG reader helpers added: `bsg_bounding_sph`, `bsg_color_soltab`, `bsg_set_iflag`, `dl_name_hash`, `ged_find_shapes_by_path`
+     - ✅ `vutil.c:ged_dl_hash` and `scene_graph.cpp:bsg_dl_hash` use root->children (legacy fallback kept)
+     - ✅ `dm-generic.c`: `dm_draw_bsg_view()` added as BSG version of `dm_draw_head_dl`
+     - ✅ `dm-gl.c:gl_draw_display_list`: uses root->children when available (legacy dl_head_scene_obj fallback kept)
+     - ✅ `mged/dozoom.c:createDListAll`: uses root->children when available (legacy fallback kept)
+     - ✅ `libtclcad/commands.c:to_create_vlist_callback`: uses root->children when available (legacy fallback kept)
+     - ✅ `mged/dozoom.c`, `gtools/gsh/gsh.cpp`: render loops use `dm_draw_bsg_view` with legacy fallback
+     - ✅ `libged/tests/test_gqa.c`: migrated to root->children (legacy fallback kept)
+   - **Phase 2e session 6 additions (FINAL DECOMMISSION)**:
+     - ✅ `bv/tcl_data.h`: removed `dl_head_scene_obj` field from `struct display_list`
+     - ✅ `display_list.c`: added `dl_match_shapes`, `dl_gdlp_shapes`, `dl_free_shape` helpers
+     - ✅ `display_list.c`: rewrote all shape erasure/free functions to use `root->children`
+     - ✅ `display_list.c`: rewrote `headsolid_split`/`headsolid_splitGDL` (new `gedp` signature, path-based split)
+     - ✅ Removed all dual-write: `invent_solid`, `draw/draw.c`, `dodraw.c`
+     - ✅ All remaining `dl_head_scene_obj` sites cleaned up in 10+ files
+     - ✅ `bsg_scene_fsos()` + `bsg_view_center_linesnap()` BSG wrappers added to `bsg/util.h`
+     - ✅ `bsg/compat.h` aliases for `bv_set_fsos` and `bv_view_center_linesnap`
+     - ✅ Full build passes with zero errors
 
 ---
 
@@ -820,4 +858,86 @@ ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
 
 ---
 
-*Last updated: 2026-03-06 (Phases 2a–2d complete; all Qt camera fields migrated; MGED tractability + full scene-object recast analysis added)*
+## Architectural Pivot — `libbsg`: a Fully Independent Scene-Graph Library
+
+**Decision (Session 11):** The previous approach of incrementally patching
+`libbv` internals to simultaneously support the legacy flat-table API *and* the
+new scene-graph API produced mixed intermediate states that are very difficult
+to validate.  The draw-test control images became wrong (blank shaded renders,
+wrong camera angles) precisely because the same code paths were being exercised
+for both semantics at once.
+
+**New goal**: create `libbsg` as a **completely independent library** that does
+*not* depend on `libbv` in any way.  `libbv` remains unchanged for backward
+compatibility / deprecation; all new scene-graph logic is implemented fresh in
+`libbsg`.
+
+### Rationale
+
+| Concern | Mixed approach (old) | `libbsg` (new) |
+|---------|----------------------|----------------|
+| Rendering correctness | Partial — flat tables and graph fire simultaneously, result undefined | Clear — only `libbsg` traversal path active |
+| Test validation | Control images broken by intermediate state | Control images stable; libbv tests unchanged |
+| Scope of change per session | Large (touches libbv internals) | Small and incremental — build up libbsg from scratch |
+| Risk of regression | High (libbv callers impacted) | None — libbv untouched |
+
+### Incremental build-up plan for `libbsg`
+
+1. **Stand-up skeleton** — `src/libbsg/CMakeLists.txt`, empty `libbsg.h` public
+   header, library links only against `libbu` and `libbn`.  No `bv.h` include
+   anywhere in the new library.
+
+2. **Core node types** — `bsg_node`, `bsg_separator`, `bsg_transform`,
+   `bsg_camera`, `bsg_shape` (clean re-implementations, not casts of
+   `bv_scene_obj`).  All node storage uses `bu_ptbl` children lists.
+
+3. **Scene root + view binding** — `bsg_scene_root_create(w, h)`,
+   `bsg_view_bind(root, view_params)` where `view_params` is a plain C struct
+   (no `bview`/`bv_*` dependency).
+
+4. **Traversal engine** — `bsg_traverse(root, visitor_fn, user_data)` with
+   accumulated `bsg_traversal_state` (xform stack, active camera, LOD state).
+
+5. **Draw integration** — `libbsg_dm` adapter that wraps `struct dm *` and
+   implements the visitor callback in terms of existing `dm_*` calls.  This is
+   the *only* place `libbv`/`bv.h` names may appear.
+
+6. **Geometry ingestion** — helpers that convert `struct rt_db_internal *`
+   tessellations into `bsg_shape` vlist payloads, replacing the current
+   `draw2.cpp` pipeline.
+
+7. **Selection / highlight** — `bsg_select_state`, `bsg_select_add_path`,
+   `bsg_select_sync_highlight` — clean re-implementation, no `DbiState`
+   coupling.
+
+8. **Disable `bv.h` globally** — once step 6 is working, add a CMake option
+   `BRLCAD_DISABLE_LIBBV_INCLUDES` that wraps every `#include "bv/..."` outside
+   `src/libbv/` and `src/libbsg/` in an error pragma, forcing callers to
+   migrate.
+
+### Session 10 partial work (superseded by pivot)
+
+Session 10 attempted to fully separate the BSG/bv stacks within the existing
+`libbv` code (`bsg_shape_get`, `bsg_view_autoview`, `bsg_view_clear`,
+`polygon.c`, `vlist.c`, `view.c`).  This work is committed on the branch and
+**not reverted** — it is a useful reference for what the `libbsg` equivalents
+should implement — but it no longer drives the primary migration path.  The
+control images have been restored from commit `c9f865cd` so that the draw-test
+suites provide a clean baseline again.
+
+---
+
+*Last updated: 2026-03-06 (Phases 2a–2e complete; **Session 6**: Phase 2e FINAL DECOMMISSION — `dl_head_scene_obj` field removed from `struct display_list`; all shape tracking now exclusively via `root->children` in scene-root; `bsg_scene_fsos` and `bsg_view_center_linesnap` BSG wrappers added; full build passes clean)  
+**Session 8 (bug-fix)**: MGED NULL-crash guards in `titles.c`, `edebm.c`, `eddsp.c`, `edvol.c` (`MEDIT(s)` NULL after sedit_accept).  
+**Session 9 (shape tracking correctness)**:  
+- `bsg_shape_get/put`: skip `cv->independent` co-views when broadcasting shared object registration.  
+- `bsg_view_clear` filter: correctly gates LOCAL shapes on `BSG_LOCAL_OBJS` flag; no longer removes live shared pointers.  
+- `bsg_view_clear` co-view loop: skip independent views.  
+- Swrast DM plugin dependency resolved (must be built before draw tests).  
+- All five draw test suites regenerated and passing: `ged_test_draw`, `ged_test_faceplate`, `ged_test_quad`, `ged_test_select_draw`, `ged_test_lod`.  
+**Session 10 (BSG/bv stack separation attempt — superseded)**:  
+- `bsg_shape_get` routed via `bv_obj_create` + `otbl=NULL`; `bsg_view_autoview` walks `root->children`; `bsg_view_clear` freed from `bv_clear` dependency; `polygon.c`/`vlist.c` use `bsg_shape_get`; `view.c` flat-list else-branches removed.  
+- Control images were wrongly regenerated from this intermediate state; restored to `c9f865cd` baseline in Session 11.  
+**Session 11 (architectural pivot)**:  
+- Control images restored to `c9f865cd` baseline.  
+- New direction: build `libbsg` as a fully independent library (no `libbv` dependency); see section above.*

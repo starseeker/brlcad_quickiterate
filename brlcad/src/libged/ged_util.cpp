@@ -846,7 +846,7 @@ ged_rot_args(struct ged *gedp, int argc, const char *argv[], char *coord, mat_t 
 	--argc;
 	++argv;
     } else
-	*coord = gedp->ged_gvp->gv_coord;
+	{ struct bsg_camera _gc; bsg_view_get_camera(gedp->ged_gvp, &_gc); *coord = _gc.coord; }
 
     if (argc != 2 && argc != 4) {
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
@@ -964,7 +964,7 @@ ged_tra_args(struct ged *gedp, int argc, const char *argv[], char *coord, vect_t
 	--argc;
 	++argv;
     } else
-	*coord = gedp->ged_gvp->gv_coord;
+	{ struct bsg_camera _gc; bsg_view_get_camera(gedp->ged_gvp, &_gc); *coord = _gc.coord; }
 
     if (argc != 2 && argc != 4) {
 	bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
@@ -1715,7 +1715,7 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	    if (local_db_objs)
 		(void)scene_bounding_sph(local_db_objs, &(extremum[0]), &(extremum[1]), 1);
 	} else {
-	    (void)dl_bounding_sph(gedp->i->ged_gdp->gd_headDisplay, &(extremum[0]), &(extremum[1]), 1);
+	    (void)bsg_bounding_sph(gedp->ged_gvp, &(extremum[0]), &(extremum[1]), 1);
 	}
 
 	VMOVEN(direction, _cam.rotation + 8, 3);
@@ -1903,62 +1903,50 @@ _ged_rt_output_handler(void *clientData, int mask)
 
 
 static void
-dl_bitwise_and_fullpath(struct bu_list *hdlp, int flag_val)
+dl_bitwise_and_fullpath(bsg_view *v, int flag_val)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
     size_t i;
     bsg_shape *sp;
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    for (size_t si = 0; si < nshapes; si++) {
+        sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-        for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    for (i = 0; i < bdata->s_fullpath.fp_len; i++) {
-                DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags &= flag_val;
-	    }
-        }
-
-        gdlp = next_gdlp;
+	for (i = 0; i < bdata->s_fullpath.fp_len; i++) {
+            DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags &= flag_val;
+	}
     }
 }
 
 
 
 static void
-dl_write_animate(struct bu_list *hdlp, FILE *fp)
+dl_write_animate(bsg_view *v, FILE *fp)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
     size_t i;
     bsg_shape *sp;
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    for (size_t si = 0; si < nshapes; si++) {
+        sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-        for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    for (i = 0; i < bdata->s_fullpath.fp_len; i++) {
-                if (!(DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags & RT_DIR_USED)) {
-		    struct animate *anp;
-                    for (anp = DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_animate; anp; anp=anp->an_forw) {
-			db_write_anim(fp, anp);
-		    }
-                    DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags |= RT_DIR_USED;
+	for (i = 0; i < bdata->s_fullpath.fp_len; i++) {
+            if (!(DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags & RT_DIR_USED)) {
+		struct animate *anp;
+                for (anp = DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_animate; anp; anp=anp->an_forw) {
+		    db_write_anim(fp, anp);
 		}
+                DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags |= RT_DIR_USED;
 	    }
-        }
-
-        gdlp = next_gdlp;
+	}
     }
 }
 
@@ -2028,11 +2016,11 @@ _ged_rt_write(struct ged *gedp,
 	fprintf(fp, "prep;\n");
     }
 
-    dl_bitwise_and_fullpath(gedp->i->ged_gdp->gd_headDisplay, ~RT_DIR_USED);
+    dl_bitwise_and_fullpath(gedp->ged_gvp, ~RT_DIR_USED);
 
-    dl_write_animate(gedp->i->ged_gdp->gd_headDisplay, fp);
+    dl_write_animate(gedp->ged_gvp, fp);
 
-    dl_bitwise_and_fullpath(gedp->i->ged_gdp->gd_headDisplay, ~RT_DIR_USED);
+    dl_bitwise_and_fullpath(gedp->ged_gvp, ~RT_DIR_USED);
 
     fprintf(fp, "end;\n");
 }

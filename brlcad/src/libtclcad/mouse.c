@@ -22,6 +22,7 @@
 
 #include "bu/path.h"
 #include "bv.h"
+#include "bsg/util.h"
 #include "tclcad.h"
 
 /* Private headers */
@@ -201,10 +202,14 @@ to_mouse_brep_selection_append(struct ged *gedp,
     bsg_screen_to_view(gdvp, &view_pt[X], &view_pt[Y], screen_pt[X], screen_pt[Y]);
     view_pt[Z] = 1.0;
 
-    MAT4X3PNT(model_pt, gdvp->gv_view2model, view_pt);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model_pt, _mvc.view2model, view_pt);
+    }
 
     VSET(view_dir, 0.0, 0.0, -1.0);
-    bn_mat_inv(invRot, gedp->ged_gvp->gv_rotation);
+    { struct bsg_camera _gvc; bsg_view_get_camera(gedp->ged_gvp, &_gvc);
+      bn_mat_inv(invRot, _gvc.rotation);
+    }
     MAT4X3PNT(model_dir, invRot, view_dir);
 
     /* brep brep_name selection append selection_name startx starty startz dirx diry dirz */
@@ -307,13 +312,17 @@ to_mouse_brep_selection_translate(struct ged *gedp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_start[X], &view_start[Y], gdvp->gv_prevMouseX, gdvp->gv_prevMouseY);
     view_start[Z] = 1;
-    MAT4X3PNT(model_start, gdvp->gv_view2model, view_start);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model_start, _mvc.view2model, view_start);
+    }
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_end[X], &view_end[Y], screen_end[X], screen_end[Y]);
     view_end[Z] = 1;
-    MAT4X3PNT(model_end, gdvp->gv_view2model, view_end);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model_end, _mvc.view2model, view_end);
+    }
 
     VSUB2(model_delta, model_end, model_start);
 
@@ -805,7 +814,9 @@ to_mouse_find_metaball_pnt(struct ged *gedp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
-    MAT4X3PNT(model, gdvp->gv_view2model, view);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model, _mvc.view2model, view);
+    }
 
     bu_vls_printf(&pt_vls, "%lf %lf %lf", model[X], model[Y], model[Z]);
 
@@ -869,7 +880,9 @@ to_mouse_find_pipe_pnt(struct ged *gedp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &x, &y, x, y);
     VSET(view, x, y, 0.0);
-    MAT4X3PNT(model, gdvp->gv_view2model, view);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model, _mvc.view2model, view);
+    }
 
     bu_vls_printf(&pt_vls, "%lf %lf %lf", model[X], model[Y], model[Z]);
 
@@ -945,10 +958,14 @@ to_mouse_joint_select(
     bsg_screen_to_view(gdvp, &view_pt[X], &view_pt[Y], screen_pt[X], screen_pt[Y]);
     view_pt[Z] = 1.0;
 
-    MAT4X3PNT(model_pt, gdvp->gv_view2model, view_pt);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model_pt, _mvc.view2model, view_pt);
+    }
 
     VSET(view_dir, 0.0, 0.0, -1.0);
-    bn_mat_inv(invRot, gedp->ged_gvp->gv_rotation);
+    { struct bsg_camera _gvc; bsg_view_get_camera(gedp->ged_gvp, &_gvc);
+      bn_mat_inv(invRot, _gvc.rotation);
+    }
     MAT4X3PNT(model_dir, invRot, view_dir);
 
     /* joint2 joint_name selection append selection_name startx starty startz dirx diry dirz */
@@ -1049,13 +1066,17 @@ to_mouse_joint_selection_translate(
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_start[X], &view_start[Y], gdvp->gv_prevMouseX, gdvp->gv_prevMouseY);
     view_start[Z] = 1;
-    MAT4X3PNT(model_start, gdvp->gv_view2model, view_start);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model_start, _mvc.view2model, view_start);
+    }
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &view_end[X], &view_end[Y], screen_end[X], screen_end[Y]);
     view_end[Z] = 1;
-    MAT4X3PNT(model_end, gdvp->gv_view2model, view_end);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(model_end, _mvc.view2model, view_end);
+    }
 
     VSUB2(model_delta, model_end, model_start);
 
@@ -1213,7 +1234,9 @@ to_mouse_move_arb_edge(struct ged *gedp,
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     dy *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     VSET(view, dx, dy, 0.0);
-    bn_mat_inv(inv_rot, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(inv_rot, _mvc.rotation);
+    }
     MAT4X3PNT(model, inv_rot, view);
 
     bu_vls_printf(&pt_vls, "%lf %lf %lf", model[X], model[Y], model[Z]);
@@ -1309,7 +1332,9 @@ to_mouse_move_arb_face(struct ged *gedp,
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     dy *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     VSET(view, dx, dy, 0.0);
-    bn_mat_inv(inv_rot, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(inv_rot, _mvc.rotation);
+    }
     MAT4X3PNT(model, inv_rot, view);
 
     bu_vls_printf(&pt_vls, "%lf %lf %lf", model[X], model[Y], model[Z]);
@@ -1420,7 +1445,9 @@ to_mouse_move_bot_pnt(struct ged *gedp,
 	else if (gdvp->gv_maxMouseDelta < dy)
 	    dy = gdvp->gv_maxMouseDelta;
 
-	bn_mat_inv(v2m_mat, gdvp->gv_rotation);
+	{ struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+	  bn_mat_inv(v2m_mat, _mvc.rotation);
+	}
 
 	dx *= inv_width * gdvp->gv_size;
 	dy *= inv_width * gdvp->gv_size;
@@ -1468,8 +1495,12 @@ to_mouse_move_bot_pnt(struct ged *gedp,
 	    return BRLCAD_ERROR;
 	}
 
-	MAT4X3PNT(view, gdvp->gv_model2view, &botip->vertices[vertex_i*3]);
-	MAT_COPY(v2m_mat, gdvp->gv_view2model);
+	{ struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+	  MAT4X3PNT(view, _mvc.model2view, &botip->vertices[vertex_i*3]);
+	}
+	{ struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+	  MAT_COPY(v2m_mat, _mvc.view2model);
+	}
 
 	gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
 	gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
@@ -1587,7 +1618,9 @@ to_mouse_move_bot_pnts(struct ged *gedp,
     else if (gdvp->gv_maxMouseDelta < dy)
 	dy = gdvp->gv_maxMouseDelta;
 
-    bn_mat_inv(v2m_mat, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(v2m_mat, _mvc.rotation);
+    }
 
     dx *= inv_width * gdvp->gv_size;
     dy *= inv_width * gdvp->gv_size;
@@ -1700,7 +1733,9 @@ to_mouse_move_pnt_common(struct ged *gedp,
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     dy *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     VSET(view, dx, dy, 0.0);
-    bn_mat_inv(inv_rot, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(inv_rot, _mvc.rotation);
+    }
     MAT4X3PNT(model, inv_rot, view);
 
     bu_vls_printf(&pt_vls, "%lf %lf %lf", model[X], model[Y], model[Z]);
@@ -1792,7 +1827,9 @@ to_mouse_orotate(struct ged *gedp,
     dy *= gdvp->gv_rscale;
 
     VSET(view, dx, dy, 0.0);
-    bn_mat_inv(inv_rot, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(inv_rot, _mvc.rotation);
+    }
     MAT4X3PNT(model, inv_rot, view);
 
     bu_vls_printf(&rot_x_vls, "%lf", model[X]);
@@ -2036,7 +2073,9 @@ to_mouse_otranslate(struct ged *gedp,
 	params->dx += dx;
 	params->dy += dy;
 	VSET(view, params->dx, params->dy, 0.0);
-	bn_mat_inv(inv_rot, gdvp->gv_rotation);
+	{ struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+	  bn_mat_inv(inv_rot, _mvc.rotation);
+	}
 	MAT4X3PNT(model, inv_rot, view);
 
 	MAT_IDN(params->edit_mat);
@@ -2223,7 +2262,9 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
 	    curr_fx = cos(ang*DEG2RAD) * r + gdpsp->gdps_prev_point[X];
 	    curr_fy = sin(ang*DEG2RAD) * r + gdpsp->gdps_prev_point[Y];
 	    VSET(v_pt, curr_fx, curr_fy, gdvp->gv_tcl.gv_data_vZ);
-	    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+	    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+	      MAT4X3PNT(m_pt, _mvc.view2model, v_pt);
+	    }
 	    bu_vls_printf(&plist, " {%lf %lf %lf}", V3ARGS(m_pt));
 	}
     }
@@ -2357,7 +2398,9 @@ to_mouse_poly_cont_func(Tcl_Interp *interp,
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
 
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(m_pt, _mvc.view2model, v_pt);
+    }
     gedp->ged_gvp = gdvp;
 
     {
@@ -2550,7 +2593,9 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
 	    fastf_t sina = sin(n * arc * DEG2RAD);
 
 	    VJOIN2(ellout, gdpsp->gdps_prev_point, cosa, A, sina, B);
-	    MAT4X3PNT(m_pt, gdvp->gv_view2model, ellout);
+	    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+	      MAT4X3PNT(m_pt, _mvc.view2model, ellout);
+	    }
 	    bu_vls_printf(&plist, " {%lf %lf %lf}", V3ARGS(m_pt));
 	}
     }
@@ -2714,18 +2759,26 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
 	}
     }
 
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, gdpsp->gdps_prev_point);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(m_pt, _mvc.view2model, gdpsp->gdps_prev_point);
+    }
     bu_vls_printf(&plist, "{0 {%lf %lf %lf} ",  V3ARGS(m_pt));
 
     VSET(v_pt, gdpsp->gdps_prev_point[X], fy, gdvp->gv_tcl.gv_data_vZ);
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(m_pt, _mvc.view2model, v_pt);
+    }
     bu_vls_printf(&plist, "{%lf %lf %lf} ",  V3ARGS(m_pt));
 
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(m_pt, _mvc.view2model, v_pt);
+    }
     bu_vls_printf(&plist, "{%lf %lf %lf} ",  V3ARGS(m_pt));
     VSET(v_pt, fx, gdpsp->gdps_prev_point[Y], gdvp->gv_tcl.gv_data_vZ);
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      MAT4X3PNT(m_pt, _mvc.view2model, v_pt);
+    }
     bu_vls_printf(&plist, "{%lf %lf %lf} }",  V3ARGS(m_pt));
 
     bu_vls_printf(&i_vls, "%zu", gdpsp->gdps_curr_polygon_i);
@@ -2976,7 +3029,9 @@ to_mouse_rotate_arb_face(struct ged *gedp,
     dy *= gdvp->gv_rscale;
 
     VSET(view, dx, dy, 0.0);
-    bn_mat_inv(inv_rot, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(inv_rot, _mvc.rotation);
+    }
     MAT4X3PNT(model, inv_rot, view);
 
     bu_vls_printf(&pt_vls, "%lf %lf %lf", model[X], model[Y], model[Z]);
@@ -3117,12 +3172,16 @@ to_data_scale(struct ged *gedp,
 	    vect_t diff;
 	    point_t vpoint;
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdasp->gdas_points[i]);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(vpoint, _cm.model2view, gdasp->gdas_points[i]);
+	    }
 	    vcenter[Z] = vpoint[Z];
 	    VSUB2(diff, vpoint, vcenter);
 	    VSCALE(diff, diff, sf);
 	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdasp->gdas_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(gdasp->gdas_points[i], _cm.view2model, vpoint);
+	    }
 	}
     }
 
@@ -3136,12 +3195,16 @@ to_data_scale(struct ged *gedp,
 	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
 	    vect_t diff;
 
-	    MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, gdlsp->gdls_points[i]);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(vpoint, _cm.model2view, gdlsp->gdls_points[i]);
+	    }
 	    vcenter[Z] = vpoint[Z];
 	    VSUB2(diff, vpoint, vcenter);
 	    VSCALE(diff, diff, sf);
 	    VADD2(vpoint, vcenter, diff);
-	    MAT4X3PNT(gdlsp->gdls_points[i], gedp->ged_gvp->gv_view2model, vpoint);
+	    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+	      MAT4X3PNT(gdlsp->gdls_points[i], _cm.view2model, vpoint);
+	    }
 	}
     }
 
@@ -3279,7 +3342,9 @@ to_mouse_protate(struct ged *gedp,
     dy *= gdvp->gv_rscale;
 
     VSET(view, dx, dy, 0.0);
-    bn_mat_inv(inv_rot, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(inv_rot, _mvc.rotation);
+    }
     MAT4X3PNT(model, inv_rot, view);
 
     bu_vls_printf(&mrot_vls, "%lf %lf %lf", V3ARGS(model));
@@ -3467,7 +3532,9 @@ to_mouse_ptranslate(struct ged *gedp,
     dx *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     dy *= inv_width * gdvp->gv_size * gedp->dbip->dbi_base2local;
     VSET(view, dx, dy, 0.0);
-    bn_mat_inv(inv_rot, gdvp->gv_rotation);
+    { struct bsg_camera _mvc; bsg_view_get_camera(gdvp, &_mvc);
+      bn_mat_inv(inv_rot, _mvc.rotation);
+    }
     MAT4X3PNT(model, inv_rot, view);
 
     bu_vls_printf(&tvec_vls, "%lf %lf %lf", V3ARGS(model));

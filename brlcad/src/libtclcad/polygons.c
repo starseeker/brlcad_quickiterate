@@ -33,6 +33,7 @@
 
 #include "bg/polygon.h"
 #include "bv.h"
+#include "bsg/util.h"
 #include "bg/lseg.h"
 #include "tclcad.h"
 
@@ -97,7 +98,9 @@ to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, bsg_view *gdvp, str
 	    }
 
 	    if (vflag) {
-		MAT4X3PNT(gpp->contour[j].point[k-1], gdvp->gv_view2model, pt);
+		{ struct bsg_camera _pvc; bsg_view_get_camera(gdvp, &_pvc);
+		  MAT4X3PNT(gpp->contour[j].point[k-1], _pvc.view2model, pt);
+		}
 	    } else {
 		VMOVE(gpp->contour[j].point[k-1], pt);
 	    }
@@ -165,10 +168,16 @@ to_data_polygons_func(Tcl_Interp *interp,
 
     gdpsp->gdps_scale = gdvp->gv_scale;
     gdpsp->gdps_data_vZ = gdvp->gv_tcl.gv_data_vZ;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
-    MAT_COPY(gdpsp->gdps_rotation, gdvp->gv_rotation);
-    MAT_COPY(gdpsp->gdps_model2view, gdvp->gv_model2view);
-    MAT_COPY(gdpsp->gdps_view2model, gdvp->gv_view2model);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
+    {
+	struct bsg_camera _pc;
+	bsg_view_get_camera(gdvp, &_pc);
+	MAT_COPY(gdpsp->gdps_rotation, _pc.rotation);
+	MAT_COPY(gdpsp->gdps_model2view, _pc.model2view);
+	MAT_COPY(gdpsp->gdps_view2model, _pc.view2model);
+    }
 
     if (BU_STR_EQUAL(argv[1], "target_poly")) {
 	if (argc == 2) {
@@ -778,7 +787,9 @@ to_data_polygons_func(Tcl_Interp *interp,
 			point_t pt;
 
 			if (vflag) {
-			    MAT4X3PNT(pt, gdvp->gv_model2view, gdpsp->gdps_polygons.polygon[i].contour[j].point[k]);
+			    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+			      MAT4X3PNT(pt, _cm.model2view, gdpsp->gdps_polygons.polygon[i].contour[j].point[k]);
+			    }
 			} else {
 			    VMOVE(pt, gdpsp->gdps_polygons.polygon[i].contour[j].point[k]);
 			}
@@ -1148,10 +1159,16 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
-    MAT_COPY(gdpsp->gdps_rotation, gdvp->gv_rotation);
-    MAT_COPY(gdpsp->gdps_model2view, gdvp->gv_model2view);
-    MAT_COPY(gdpsp->gdps_view2model, gdvp->gv_view2model);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
+    {
+	struct bsg_camera _pc;
+	bsg_view_get_camera(gdvp, &_pc);
+	MAT_COPY(gdpsp->gdps_rotation, _pc.rotation);
+	MAT_COPY(gdpsp->gdps_model2view, _pc.model2view);
+	MAT_COPY(gdpsp->gdps_view2model, _pc.view2model);
+    }
 
     gedp->ged_gvp = gdvp;
 
@@ -1178,7 +1195,9 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
 	bv_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
 
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _pvc; bsg_view_get_camera(gdvp, &_pvc);
+      MAT4X3PNT(m_pt, _pvc.view2model, v_pt);
+    }
     VMOVE(gdpsp->gdps_prev_point, v_pt);
 
     bu_vls_printf(&plist, "{ {%lf %lf %lf} {%lf %lf %lf} {%lf %lf %lf} {%lf %lf %lf} }",
@@ -1223,10 +1242,16 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
-    MAT_COPY(gdpsp->gdps_rotation, gdvp->gv_rotation);
-    MAT_COPY(gdpsp->gdps_model2view, gdvp->gv_model2view);
-    MAT_COPY(gdpsp->gdps_view2model, gdvp->gv_view2model);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
+    {
+	struct bsg_camera _pc;
+	bsg_view_get_camera(gdvp, &_pc);
+	MAT_COPY(gdpsp->gdps_rotation, _pc.rotation);
+	MAT_COPY(gdpsp->gdps_model2view, _pc.model2view);
+	MAT_COPY(gdpsp->gdps_view2model, _pc.view2model);
+    }
 
     gedp->ged_gvp = gdvp;
 
@@ -1253,7 +1278,9 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 	bv_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
 
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _pvc; bsg_view_get_camera(gdvp, &_pvc);
+      MAT4X3PNT(m_pt, _pvc.view2model, v_pt);
+    }
 
     av[0] = "data_polygons";
     if (gdpsp->gdps_cflag == 0) {
@@ -1585,10 +1612,16 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
-    MAT_COPY(gdpsp->gdps_rotation, gdvp->gv_rotation);
-    MAT_COPY(gdpsp->gdps_model2view, gdvp->gv_model2view);
-    MAT_COPY(gdpsp->gdps_view2model, gdvp->gv_view2model);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
+    {
+	struct bsg_camera _pc;
+	bsg_view_get_camera(gdvp, &_pc);
+	MAT_COPY(gdpsp->gdps_rotation, _pc.rotation);
+	MAT_COPY(gdpsp->gdps_model2view, _pc.model2view);
+	MAT_COPY(gdpsp->gdps_view2model, _pc.view2model);
+    }
 
     gedp->ged_gvp = gdvp;
 
@@ -1615,7 +1648,9 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
 	bv_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
 
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _pvc; bsg_view_get_camera(gdvp, &_pvc);
+      MAT4X3PNT(m_pt, _pvc.view2model, v_pt);
+    }
     VMOVE(gdpsp->gdps_prev_point, v_pt);
 
     bu_vls_printf(&plist, "{ {%lf %lf %lf} {%lf %lf %lf} {%lf %lf %lf} {%lf %lf %lf} }",
@@ -1745,10 +1780,16 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
 	gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
     gdpsp->gdps_scale = gdvp->gv_scale;
-    VMOVE(gdpsp->gdps_origin, gdvp->gv_center);
-    MAT_COPY(gdpsp->gdps_rotation, gdvp->gv_rotation);
-    MAT_COPY(gdpsp->gdps_model2view, gdvp->gv_model2view);
-    MAT_COPY(gdpsp->gdps_view2model, gdvp->gv_view2model);
+    { struct bsg_camera _cm; bsg_view_get_camera(gdvp, &_cm);
+      VMOVE(gdpsp->gdps_origin, _cm.center);
+    }
+    {
+	struct bsg_camera _pc;
+	bsg_view_get_camera(gdvp, &_pc);
+	MAT_COPY(gdpsp->gdps_rotation, _pc.rotation);
+	MAT_COPY(gdpsp->gdps_model2view, _pc.model2view);
+	MAT_COPY(gdpsp->gdps_view2model, _pc.view2model);
+    }
 
     gedp->ged_gvp = gdvp;
 
@@ -1787,7 +1828,9 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
 	bv_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
 
-    MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
+    { struct bsg_camera _pvc; bsg_view_get_camera(gdvp, &_pvc);
+      MAT4X3PNT(m_pt, _pvc.view2model, v_pt);
+    }
     VMOVE(gdpsp->gdps_prev_point, v_pt);
 
     bu_vls_printf(&plist, "{ {%lf %lf %lf} {%lf %lf %lf} {%lf %lf %lf} {%lf %lf %lf} }",

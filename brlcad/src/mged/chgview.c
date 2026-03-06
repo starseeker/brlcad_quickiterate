@@ -700,8 +700,6 @@ edit_com(struct mged_state *s,
 	 int argc,
 	 const char *argv[])
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     struct mged_dm *save_m_dmp;
     struct cmd_list *save_cmd_list;
     int ret;
@@ -717,18 +715,11 @@ edit_com(struct mged_state *s,
 
     CHECK_DBI_NULL;
 
-    /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
+    /* Check whether the screen is currently blank */
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	if (root && BU_PTBL_LEN(&root->children) > 0)
 	    initial_blank_screen = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
     }
 
     /* check args for "-A" (attributes) and "-o" and "-R" */
@@ -903,17 +894,9 @@ edit_com(struct mged_state *s,
 
 	s->gedp->ged_gvp = view_state->vs_gvp;
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-		non_empty = 1;
-		break;
-	    }
-
-	    gdlp = next_gdlp;
+	{
+	    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	    non_empty = (root && BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
 	}
 
 	/* If we went from blank screen to non-blank, resize */
@@ -1251,10 +1234,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     struct directory *dp;
-    bsg_shape *sp;
     bsg_shape *lastfound = NULL;
     int i, j;
     int nmatch;
@@ -1382,12 +1362,11 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	goto bail_out;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	    int a_new_match;
 	    if (!sp->s_u_data)
 		continue;
@@ -1422,8 +1401,6 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
 	    sp->s_iflag = DOWN;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (nmatch == 0) {
@@ -1509,8 +1486,6 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct cmdtab *ctp = (struct cmdtab *)clientData;
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int is_empty = 1;
 
     CHECK_DBI_NULL;
@@ -1531,17 +1506,12 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     }
 
     /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	if (!root || BU_PTBL_LEN(&root->children) == 0)
+	    is_empty = 1;
+	else
 	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
     }
 
     if (is_empty) {
@@ -1868,18 +1838,23 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    if (!re)
 			goto usage;
 		    bsg_view *v = view_state->vs_gvp;
-		    char save_coord = v->gv_coord;
-		    v->gv_coord = mged_variables->mv_coords;
+		    struct bsg_camera _vc;
+		    bsg_view_get_camera(v, &_vc);
+		    char save_coord = _vc.coord;
+		    _vc.coord = mged_variables->mv_coords;
+		    bsg_view_set_camera(v, &_vc);
 		    if (rt_edit_knob_cmd_process(re,
 				&edit_rvec, &edit_do_rot,
 				&edit_tvec, &edit_do_tran,
 				&edit_do_sca,
 				v, token, fval,
 				origin, incr_flag, NULL) != BRLCAD_OK) {
-			v->gv_coord = save_coord;
+			_vc.coord = save_coord;
+			bsg_view_set_camera(v, &_vc);
 			goto usage;
 		    }
-		    v->gv_coord = save_coord;
+		    _vc.coord = save_coord;
+		    bsg_view_set_camera(v, &_vc);
 		} else {
 		    if (mged_knob_edit_process(s, ke, fval, incr_flag, origin,
 				edit_rvec, &edit_do_rot,

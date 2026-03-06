@@ -90,17 +90,31 @@ ged_lookat_core(struct ged *gedp, int argc, const char *argv[])
     VSCALE(look, look, lbval);
 
     VSET(tmp, 0.0, 0.0, 1.0);
-    MAT4X3PNT(eye, gedp->ged_gvp->gv_view2model, tmp);
+    {
+	struct bsg_camera _lc;
+	bsg_view_get_camera(gedp->ged_gvp, &_lc);
+	MAT4X3PNT(eye, _lc.view2model, tmp);
+    }
 
     VSUB2(dir, eye, look);
     VUNITIZE(dir);
     bn_ae_vec(&new_az, &new_el, dir);
 
-    VSET(gedp->ged_gvp->gv_aet, new_az, new_el, gedp->ged_gvp->gv_aet[Z]);
+    {
+	struct bsg_camera _lc;
+	bsg_view_get_camera(gedp->ged_gvp, &_lc);
+	VSET(_lc.aet, new_az, new_el, _lc.aet[Z]);
+	bsg_view_set_camera(gedp->ged_gvp, &_lc);
+    }
     bsg_view_mat_aet(gedp->ged_gvp);
 
     VJOIN1(new_center, eye, -gedp->ged_gvp->gv_scale, dir);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, new_center);
+    {
+	struct bsg_camera _lc;
+	bsg_view_get_camera(gedp->ged_gvp, &_lc);
+	MAT_DELTAS_VEC_NEG(_lc.center, new_center);
+	bsg_view_set_camera(gedp->ged_gvp, &_lc);
+    }
 
     bsg_view_update(gedp->ged_gvp);
 

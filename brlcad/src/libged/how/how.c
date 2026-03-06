@@ -34,51 +34,45 @@
 #include "../ged_private.h"
 
 static int
-dl_how(struct bu_list *hdlp, struct bu_vls *vls, struct directory **dpp, int both)
+dl_how(bsg_view *v, struct bu_vls *vls, struct directory **dpp, int both)
 {
     size_t i;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     bsg_shape *sp;
     struct directory **tmp_dpp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    for (size_t si = 0; si < nshapes; si++) {
+	sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    for (i = 0, tmp_dpp = dpp;
-		 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
-		 ++i, ++tmp_dpp) {
-		if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
-		    break;
-	    }
-
-	    if (*tmp_dpp != RT_DIR_NULL)
-		continue;
-
-
-	    /* found a match */
-	    if (sp->s_os->s_dmode == 4) {
-		if (both)
-		    bu_vls_printf(vls, "%d 1", _GED_HIDDEN_LINE);
-		else
-		    bu_vls_printf(vls, "%d", _GED_HIDDEN_LINE);
-	    } else {
-		if (both)
-		    bu_vls_printf(vls, "%d %g", sp->s_os->s_dmode, sp->s_os->transparency);
-		else
-		    bu_vls_printf(vls, "%d", sp->s_os->s_dmode);
-	    }
-
-	    return 1;
+	for (i = 0, tmp_dpp = dpp;
+	     i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
+	     ++i, ++tmp_dpp) {
+	    if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
+		break;
 	}
 
-	gdlp = next_gdlp;
+	if (*tmp_dpp != RT_DIR_NULL)
+	    continue;
+
+
+	/* found a match */
+	if (sp->s_os->s_dmode == 4) {
+	    if (both)
+		bu_vls_printf(vls, "%d 1", _GED_HIDDEN_LINE);
+	    else
+		bu_vls_printf(vls, "%d", _GED_HIDDEN_LINE);
+	} else {
+	    if (both)
+		bu_vls_printf(vls, "%d %g", sp->s_os->s_dmode, sp->s_os->transparency);
+	    else
+		bu_vls_printf(vls, "%d", sp->s_os->s_dmode);
+	}
+
+	return 1;
     }
 
     return 0;
@@ -130,7 +124,7 @@ ged_how_core(struct ged *gedp, int argc, const char *argv[])
 	    goto good_label;
     }
 
-    good = dl_how(gedp->i->ged_gdp->gd_headDisplay, gedp->ged_result_str, dpp, both);
+    good = dl_how(gedp->ged_gvp, gedp->ged_result_str, dpp, both);
 
     /* match NOT found */
     if (!good) bu_vls_printf(gedp->ged_result_str, "-1");

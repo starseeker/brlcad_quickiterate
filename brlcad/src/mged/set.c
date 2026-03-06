@@ -450,22 +450,18 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 
 		/* these display lists are not being used, so free them */
 		if (dlp2 == MGED_DM_NULL) {
-		    struct display_list *gdlp;
-		    struct display_list *next_gdlp;
-
 		    dlp1->dm_dlist_state->dl_active = 0;
 
-		    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-		    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-			next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-			(void)dm_make_current(dlp1->dm_dmp);
-			(void)dm_free_dlists(dlp1->dm_dmp,
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
-				      BU_LIST_LAST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist -
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist + 1);
-
-			gdlp = next_gdlp;
+		    /* Free each shape's display list individually via scene-root children */
+		    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+		    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+		    (void)dm_make_current(dlp1->dm_dmp);
+		    for (size_t si = 0; si < nshapes; si++) {
+			bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+			if (sp->s_dlist) {
+			    (void)dm_free_dlists(dlp1->dm_dmp, sp->s_dlist, 1);
+			    sp->s_dlist = 0;
+			}
 		    }
 		}
 	    }
@@ -493,7 +489,11 @@ set_perspective(const struct bu_structparse *sdp,
 	mged_variables->mv_perspective_mode = 0;
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     /* keep display manager in sync */
     dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
@@ -515,7 +515,11 @@ establish_perspective(const struct bu_structparse *sdp,
 	perspective_table[perspective_angle] : -1;
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     /* keep display manager in sync */
     dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
@@ -557,7 +561,11 @@ toggle_perspective(const struct bu_structparse *sdp,
     mged_variables->mv_perspective = perspective_table[perspective_angle];
 
     /* keep view object in sync */
-    view_state->vs_gvp->gv_perspective = mged_variables->mv_perspective;
+    {
+	struct bsg_camera _sp; bsg_view_get_camera(view_state->vs_gvp, &_sp);
+	_sp.perspective = mged_variables->mv_perspective;
+	bsg_view_set_camera(view_state->vs_gvp, &_sp);
+    }
 
     /* keep display manager in sync */
     dm_set_perspective(DMP, mged_variables->mv_perspective_mode);
@@ -575,7 +583,11 @@ set_coords(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    view_state->vs_gvp->gv_coord = mged_variables->mv_coords;
+    {
+	struct bsg_camera _sc; bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	_sc.coord = mged_variables->mv_coords;
+	bsg_view_set_camera(view_state->vs_gvp, &_sc);
+    }
 }
 
 
@@ -588,7 +600,11 @@ set_rotate_about(const struct bu_structparse *UNUSED(sdp),
 {
     struct mged_state *s = (struct mged_state *)data;
     MGED_CK_STATE(s);
-    view_state->vs_gvp->gv_rotate_about = mged_variables->mv_rotate_about;
+    {
+	struct bsg_camera _sr; bsg_view_get_camera(view_state->vs_gvp, &_sr);
+	_sr.rotate_about = mged_variables->mv_rotate_about;
+	bsg_view_set_camera(view_state->vs_gvp, &_sr);
+    }
 }
 
 
