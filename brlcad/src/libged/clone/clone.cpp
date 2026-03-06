@@ -1244,15 +1244,43 @@ struct Vec3Opt {
 };
 
 /**
- * Read a 3-component vector, delegating to bu_opt_vect_t which accepts
- * either "x,y,z" (1 argv) or three separate argv entries.
+ * Parse a 3-component vector from either 3 separate tokens ("x" "y" "z") or
+ * a single space-separated string ("x y z") — the Tcl lappend form.
+ * Returns argv entries consumed (3 or 1), or -1 on failure.
  */
+static int
+parse_vec3_argv(struct bu_vls *msg, size_t argc, const char **argv, vect_t v)
+{
+    /* Try 3-separate-token form first (standard CLI and explicit expand). */
+    if (argc >= 3) {
+	char *ep0 = NULL, *ep1 = NULL, *ep2 = NULL;
+	fastf_t x = strtod(argv[0], &ep0);
+	fastf_t y = strtod(argv[1], &ep1);
+	fastf_t z = strtod(argv[2], &ep2);
+	if (ep0 && !*ep0 && ep1 && !*ep1 && ep2 && !*ep2) {
+	    VSET(v, x, y, z);
+	    return 3;
+	}
+    }
+    /* Fall back to a single "x y z" string (Tcl lappend form). */
+    if (argc >= 1) {
+	fastf_t x = 0, y = 0, z = 0;
+	if (sscanf(argv[0], "%lf %lf %lf", &x, &y, &z) == 3) {
+	    VSET(v, x, y, z);
+	    return 1;
+	}
+    }
+    if (msg)
+	bu_vls_printf(msg, "parse_vec3_argv: expected 'x y z' (3 numbers)\n");
+    return -1;
+}
+
 static int
 opt_vec3(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
 {
     Vec3Opt *opt = (Vec3Opt *)sv;
     BU_OPT_CHECK_ARGV0(msg, argc, argv, "vec3");
-    int ret = bu_opt_vect_t(msg, argc, argv, (void *)opt->v);
+    int ret = parse_vec3_argv(msg, argc, argv, opt->v);
     if (ret > 0) opt->set = true;
     return ret;
 }
@@ -1266,23 +1294,25 @@ struct NVec3Opt {
 };
 
 /**
- * Read "n x y z" as four argv entries.  Returns 4 on success.
+ * Read "n x y z" — n as a separate first arg, then x/y/z as either
+ * 3 separate tokens or a single "x y z" string (Tcl lappend form).
+ * Returns total argv entries consumed (4 or 2 respectively).
  */
 static int
 opt_n_vec3(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
 {
     NVec3Opt *opt = (NVec3Opt *)sv;
     BU_OPT_CHECK_ARGV0(msg, argc, argv, "n_vec3");
-    if (argc < 4) {
+    if (argc < 2) {
 	if (msg)
-	    bu_vls_printf(msg, "opt_n_vec3: requires 4 arguments (n x y z)\n");
+	    bu_vls_printf(msg, "opt_n_vec3: requires n and x y z\n");
 	return -1;
     }
     if (bu_opt_int(msg, 1, argv, (void *)&opt->n) < 0) return -1;
-    if (bu_opt_vect_t(msg, argc - 1, argv + 1, (void *)opt->v) < 0)
-	return -1;
+    int vret = parse_vec3_argv(msg, argc - 1, argv + 1, opt->v);
+    if (vret < 0) return -1;
     opt->set = true;
-    return 4;
+    return 1 + vret;
 }
 
 
