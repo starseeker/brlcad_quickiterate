@@ -418,54 +418,51 @@ viewdata_dump(struct _ged_bot_dump_client_data *d, struct ged *gedp, FILE *fp)
 static void
 dl_botdump(struct _ged_bot_dump_client_data *d)
 {
-    struct bu_list *hdlp = (struct bu_list *)ged_dl(d->gedp);
     struct db_i *dbip = d->gedp->dbip;
     int ret;
     mat_t mat;
-    struct display_list *gdlp;
 
     MAT_IDN(mat);
 
-    for (BU_LIST_FOR(gdlp, display_list, hdlp)) {
-	bsg_shape *sp;
+    bsg_shape *root = bsg_scene_root_get(d->gedp->ged_gvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	struct directory *dp;
+	struct rt_db_internal intern;
+	struct rt_bot_internal *bot;
 
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    struct directory *dp;
-	    struct rt_db_internal intern;
-	    struct rt_bot_internal *bot;
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	dp = bdata->s_fullpath.fp_names[bdata->s_fullpath.fp_len-1];
 
-	    dp = bdata->s_fullpath.fp_names[bdata->s_fullpath.fp_len-1];
+	/* get the internal form */
+	ret = rt_db_get_internal(&intern, dp, dbip, mat, &rt_uniresource);
 
-	    /* get the internal form */
-	    ret = rt_db_get_internal(&intern, dp, dbip, mat, &rt_uniresource);
-
-	    if (ret < 0) {
-		bu_log("rt_get_internal failure %d on %s\n", ret, dp->d_namep);
-		continue;
-	    }
-
-	    if (ret != ID_BOT) {
-		bu_log("%s is not a bot (ignored)\n", dp->d_namep);
-		rt_db_free_internal(&intern);
-		continue;
-	    }
-
-	    /* Write out object color */
-	    if (d->output_type == OTYPE_OBJ) {
-		d->obj.curr_obj_red = sp->s_color[0];
-		d->obj.curr_obj_green = sp->s_color[1];
-		d->obj.curr_obj_blue = sp->s_color[2];
-		d->obj.curr_obj_alpha = sp->s_os->transparency;
-	    }
-
-	    bot = (struct rt_bot_internal *)intern.idb_ptr;
-	    _ged_bot_dump(d, dp, NULL, bot);
-	    rt_db_free_internal(&intern);
+	if (ret < 0) {
+	    bu_log("rt_get_internal failure %d on %s\n", ret, dp->d_namep);
+	    continue;
 	}
+
+	if (ret != ID_BOT) {
+	    bu_log("%s is not a bot (ignored)\n", dp->d_namep);
+	    rt_db_free_internal(&intern);
+	    continue;
+	}
+
+	/* Write out object color */
+	if (d->output_type == OTYPE_OBJ) {
+	    d->obj.curr_obj_red = sp->s_color[0];
+	    d->obj.curr_obj_green = sp->s_color[1];
+	    d->obj.curr_obj_blue = sp->s_color[2];
+	    d->obj.curr_obj_alpha = sp->s_os->transparency;
+	}
+
+	bot = (struct rt_bot_internal *)intern.idb_ptr;
+	_ged_bot_dump(d, dp, NULL, bot);
+	rt_db_free_internal(&intern);
     }
 
 }

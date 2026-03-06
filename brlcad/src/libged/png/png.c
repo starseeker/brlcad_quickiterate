@@ -270,10 +270,8 @@ draw_png_solid(fastf_t perspective, unsigned char **image, bsg_shape *sp, matp_t
 
 
 static void
-dl_png(struct bu_list *hdlp, mat_t model2view, fastf_t perspective, vect_t eye_pos, size_t size, size_t half_size, unsigned char **image)
+dl_png(bsg_view *v, mat_t model2view, fastf_t perspective, vect_t eye_pos, size_t size, size_t half_size, unsigned char **image)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     mat_t newmat;
     matp_t mat;
     mat_t perspective_mat;
@@ -302,15 +300,11 @@ dl_png(struct bu_list *hdlp, mat_t model2view, fastf_t perspective, vect_t eye_p
         mat = newmat;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-        for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-            draw_png_solid(perspective, image, sp, mat, size, half_size);
-        }
-
-        gdlp = next_gdlp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+        sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+        draw_png_solid(perspective, image, sp, mat, size, half_size);
     }
 }
 
@@ -372,7 +366,7 @@ draw_png(struct ged *gedp, FILE *fp)
 	image[i] = (unsigned char *)(bytes + ((img_size-i) * num_bytes_per_row));
     }
 
-    dl_png(gedp->i->ged_gdp->gd_headDisplay, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, (size_t)img_size, (size_t)img_half_size, image);
+    dl_png(gedp->ged_gvp, gedp->ged_gvp->gv_model2view, gedp->ged_gvp->gv_perspective, gedp->ged_gvp->gv_eye_pos, (size_t)img_size, (size_t)img_half_size, image);
 
     /* Write out pixels */
     png_write_image(png_p, image);
