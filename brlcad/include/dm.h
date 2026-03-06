@@ -295,7 +295,16 @@ DM_EXPORT extern int dm_draw_head_dl(struct dm *dmp,
 					  int solids_down,
 					  int mv_dlist
 					 );
-
+DM_EXPORT extern int dm_draw_bsg_view(struct dm *dmp, bsg_view *v,
+					  fastf_t transparency_threshold,
+					  fastf_t inv_viewsize,
+					  short r, short g, short b,
+					  int line_width,
+					  int draw_style,
+					  int draw_edit,
+					  unsigned char *gdc,
+					  int solids_down,
+					  int mv_dlist);
 // TODO - this should be using libicv  - right now this is just moving the guts
 // of dmo_png_cmd behind the call table, so only provides PNG...
 DM_EXPORT extern int dm_write_image(struct bu_vls *msgs, FILE *fp, struct dm *dmp);
