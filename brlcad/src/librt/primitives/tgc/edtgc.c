@@ -33,6 +33,7 @@
 #include "wdb.h"
 
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_TGC_MV_H		2005
 #define ECMD_TGC_MV_HH		2006
@@ -743,16 +744,18 @@ ecmd_tgc_mv_h_mousevec(struct rt_edit *s, const vect_t mousevec)
 {
     struct rt_tgc_internal *tgc =
 	(struct rt_tgc_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     RT_TGC_CK_MAGIC(tgc);
     vect_t pos_view = VINIT_ZERO;
     vect_t tr_temp = VINIT_ZERO;
     vect_t temp = VINIT_ZERO;
 
-    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
     pos_view[X] = mousevec[X];
     pos_view[Y] = mousevec[Y];
     /* Do NOT change pos_view[Z] ! */
-    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+    MAT4X3PNT(temp, _cam.view2model, pos_view);
     MAT4X3PNT(tr_temp, s->e_invmat, temp);
     VSUB2(tgc->h, tr_temp, tgc->v);
 }
