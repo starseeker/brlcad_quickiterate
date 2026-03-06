@@ -46,14 +46,21 @@ ged_rmat_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get the rotation matrix */
     if (argc == 1) {
-	bn_encode_mat(gedp->ged_result_str, gedp->ged_gvp->gv_rotation, 1);
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	bn_encode_mat(gedp->ged_result_str, _cam.rotation, 1);
 	return BRLCAD_OK;
     } else if (argc == 2) {
 	/* set rotation matrix */
 	if (bn_decode_mat(rotation, argv[1]) != 16)
 	    return BRLCAD_ERROR;
 
-	MAT_COPY(gedp->ged_gvp->gv_rotation, rotation);
+	{
+	    struct bsg_camera _cam;
+	    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	    MAT_COPY(_cam.rotation, rotation);
+	    bsg_view_set_camera(gedp->ged_gvp, &_cam);
+	}
 	bsg_view_update(gedp->ged_gvp);
 
 	return BRLCAD_OK;

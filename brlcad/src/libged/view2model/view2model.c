@@ -43,7 +43,9 @@ ged_view2model_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get the view2model matrix */
     if (argc == 1) {
-	bn_encode_mat(gedp->ged_result_str, gedp->ged_gvp->gv_view2model, 1);
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	bn_encode_mat(gedp->ged_result_str, _cam.view2model, 1);
 	return BRLCAD_OK;
     }
 
