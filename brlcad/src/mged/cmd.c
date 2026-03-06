@@ -2227,30 +2227,17 @@ _view_is_baseline_reset(int argc, const char * const *argv)
 struct _view_cache {
     int   valid;
 
-    /* Scalars */
+    /* Non-camera scalar fields */
     fastf_t gv_scale;
     fastf_t gv_i_scale;
     fastf_t gv_a_scale;
     fastf_t gv_size;
     fastf_t gv_isize;
-    fastf_t gv_perspective;
     fastf_t gv_local2base;
     fastf_t gv_base2local;
-    char    gv_coord;
-    char    gv_rotate_about;
 
-    /* Vectors */
-    vect_t gv_eye_pos;
-    vect_t gv_keypoint;
-    vect_t gv_aet;
-
-    /* Matrices */
-    mat_t gv_rotation;
-    mat_t gv_center;
-    mat_t gv_model2view;
-    mat_t gv_view2model;
-    mat_t gv_pmodel2view;
-    mat_t gv_pmat;
+    /* Camera state */
+    struct bsg_camera camera;
 
     /* Knob state (optional) */
     int have_knobs;
@@ -2268,22 +2255,10 @@ _view_cache_save(struct _view_cache *c, bsg_view *v, int include_knobs)
     c->gv_a_scale     = v->gv_a_scale;
     c->gv_size        = v->gv_size;
     c->gv_isize       = v->gv_isize;
-    c->gv_perspective = v->gv_perspective;
     c->gv_local2base  = v->gv_local2base;
     c->gv_base2local  = v->gv_base2local;
-    c->gv_coord       = v->gv_coord;
-    c->gv_rotate_about= v->gv_rotate_about;
 
-    VMOVE(c->gv_eye_pos,  v->gv_eye_pos);
-    VMOVE(c->gv_keypoint, v->gv_keypoint);
-    VMOVE(c->gv_aet,      v->gv_aet);
-
-    MAT_COPY(c->gv_rotation,    v->gv_rotation);
-    MAT_COPY(c->gv_center,      v->gv_center);
-    MAT_COPY(c->gv_model2view,  v->gv_model2view);
-    MAT_COPY(c->gv_view2model,  v->gv_view2model);
-    MAT_COPY(c->gv_pmodel2view, v->gv_pmodel2view);
-    MAT_COPY(c->gv_pmat,        v->gv_pmat);
+    bsg_view_get_camera(v, &c->camera);
 
     c->have_knobs = include_knobs;
     if (include_knobs) {
@@ -2301,22 +2276,10 @@ _view_cache_restore(const struct _view_cache *c, bsg_view *v)
     v->gv_a_scale     = c->gv_a_scale;
     v->gv_size        = c->gv_size;
     v->gv_isize       = c->gv_isize;
-    v->gv_perspective = c->gv_perspective;
     v->gv_local2base  = c->gv_local2base;
     v->gv_base2local  = c->gv_base2local;
-    v->gv_coord       = c->gv_coord;
-    v->gv_rotate_about= c->gv_rotate_about;
 
-    VMOVE(v->gv_eye_pos,  c->gv_eye_pos);
-    VMOVE(v->gv_keypoint, c->gv_keypoint);
-    VMOVE(v->gv_aet,      c->gv_aet);
-
-    MAT_COPY(v->gv_rotation,    c->gv_rotation);
-    MAT_COPY(v->gv_center,      c->gv_center);
-    MAT_COPY(v->gv_model2view,  c->gv_model2view);
-    MAT_COPY(v->gv_view2model,  c->gv_view2model);
-    MAT_COPY(v->gv_pmodel2view, c->gv_pmodel2view);
-    MAT_COPY(v->gv_pmat,        c->gv_pmat);
+    bsg_view_set_camera(v, &c->camera);
 
     if (c->have_knobs) {
 	v->k = c->k;
@@ -2326,6 +2289,7 @@ _view_cache_restore(const struct _view_cache *c, bsg_view *v)
 static void
 _view_copy_to_staging(bsg_view *dst, bsg_view *src, struct mged_state *s, int include_knobs)
 {
+    struct bsg_camera _cam;
     if (!dst || !src) return;
 
     dst->gv_scale       = src->gv_scale;
@@ -2333,24 +2297,13 @@ _view_copy_to_staging(bsg_view *dst, bsg_view *src, struct mged_state *s, int in
     dst->gv_a_scale     = src->gv_a_scale;
     dst->gv_size        = src->gv_size;
     dst->gv_isize       = src->gv_isize;
-    dst->gv_coord       = src->gv_coord;
-    dst->gv_rotate_about= src->gv_rotate_about;
-    dst->gv_perspective = src->gv_perspective;
 
     /* Update db unit conversions */
     dst->gv_local2base = (s->dbip) ? s->dbip->dbi_local2base : 1.0;
     dst->gv_base2local = (s->dbip) ? s->dbip->dbi_base2local : 1.0;
 
-    VMOVE(dst->gv_eye_pos,  src->gv_eye_pos);
-    VMOVE(dst->gv_keypoint, src->gv_keypoint);
-    VMOVE(dst->gv_aet,      src->gv_aet);
-
-    MAT_COPY(dst->gv_rotation,    src->gv_rotation);
-    MAT_COPY(dst->gv_center,      src->gv_center);
-    MAT_COPY(dst->gv_model2view,  src->gv_model2view);
-    MAT_COPY(dst->gv_view2model,  src->gv_view2model);
-    MAT_COPY(dst->gv_pmodel2view, src->gv_pmodel2view);
-    MAT_COPY(dst->gv_pmat,        src->gv_pmat);
+    bsg_view_get_camera(src, &_cam);
+    bsg_view_set_camera(dst, &_cam);
 
     if (include_knobs) {
 	dst->k = src->k;
@@ -2360,6 +2313,7 @@ _view_copy_to_staging(bsg_view *dst, bsg_view *src, struct mged_state *s, int in
 static void
 _view_copy_from_staging(bsg_view *dst, bsg_view *src, int include_knobs)
 {
+    struct bsg_camera _cam;
     if (!dst || !src) return;
 
     dst->gv_scale       = src->gv_scale;
@@ -2367,20 +2321,9 @@ _view_copy_from_staging(bsg_view *dst, bsg_view *src, int include_knobs)
     dst->gv_a_scale     = src->gv_a_scale;
     dst->gv_size        = src->gv_size;
     dst->gv_isize       = src->gv_isize;
-    dst->gv_coord       = src->gv_coord;
-    dst->gv_rotate_about= src->gv_rotate_about;
-    dst->gv_perspective = src->gv_perspective;
 
-    VMOVE(dst->gv_eye_pos,  src->gv_eye_pos);
-    VMOVE(dst->gv_keypoint, src->gv_keypoint);
-    VMOVE(dst->gv_aet,      src->gv_aet);
-
-    MAT_COPY(dst->gv_rotation,    src->gv_rotation);
-    MAT_COPY(dst->gv_center,      src->gv_center);
-    MAT_COPY(dst->gv_model2view,  src->gv_model2view);
-    MAT_COPY(dst->gv_view2model,  src->gv_view2model);
-    MAT_COPY(dst->gv_pmodel2view, src->gv_pmodel2view);
-    MAT_COPY(dst->gv_pmat,        src->gv_pmat);
+    bsg_view_get_camera(src, &_cam);
+    bsg_view_set_camera(dst, &_cam);
 
     if (include_knobs) {
 	dst->k = src->k;
@@ -2439,24 +2382,11 @@ _view_mutation_hash(struct mged_state *ms, bsg_view *v)
     bu_data_hash_update(state, &v->gv_a_scale, sizeof(v->gv_a_scale));
     bu_data_hash_update(state, &v->gv_size, sizeof(v->gv_size));
     bu_data_hash_update(state, &v->gv_isize, sizeof(v->gv_isize));
-    bu_data_hash_update(state, &v->gv_perspective, sizeof(v->gv_perspective));
 
-    /* Orientation / position / projection related */
-    bu_data_hash_update(state, &v->gv_center, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_rotation, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_model2view, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_view2model, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_pmodel2view, sizeof(mat_t));
-    bu_data_hash_update(state, &v->gv_pmat, sizeof(mat_t));
-
-    /* Camera descriptive vectors */
-    bu_data_hash_update(state, &v->gv_eye_pos, sizeof(vect_t));
-    bu_data_hash_update(state, &v->gv_keypoint, sizeof(vect_t));
-    bu_data_hash_update(state, &v->gv_aet, sizeof(vect_t));
-
-    /* Coordinate & rotate about modes */
-    bu_data_hash_update(state, &v->gv_coord, sizeof(char));
-    bu_data_hash_update(state, &v->gv_rotate_about, sizeof(char));
+    /* Camera state */
+    { struct bsg_camera _cam;
+    bsg_view_get_camera(v, &_cam);
+    bu_data_hash_update(state, &_cam, sizeof(_cam)); }
 
     /* Knob state (rates + absolute values + flags + origins) */
     bsg_knobs_hash(&v->k, state);
