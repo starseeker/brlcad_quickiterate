@@ -129,6 +129,11 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);
     BU_LIST_APPEND(dgcdp->gdlp->dl_head_scene_obj.back, &sp->l);
+    /* Phase 2e dual-write: also register in scene-root children */
+    {
+	bsg_shape *scene_root = bsg_scene_root_get(dgcdp->v);
+	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
+    }
     bu_semaphore_release(RT_SEM_MODEL);
 
     ged_create_vlist_solid_cb(dgcdp->gedp, sp);
@@ -417,6 +422,11 @@ append_solid_to_display_list(
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);
     BU_LIST_APPEND(bv_data->gdlp->dl_head_scene_obj.back, &sp->l);
+    /* Phase 2e dual-write: also register in scene-root children */
+    {
+	bsg_shape *scene_root = bsg_scene_root_get(bv_data->v);
+	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
+    }
     bu_semaphore_release(RT_SEM_MODEL);
 
     /* indicate success by returning something other than TREE_NULL */
