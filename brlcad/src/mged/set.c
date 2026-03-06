@@ -450,22 +450,18 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 
 		/* these display lists are not being used, so free them */
 		if (dlp2 == MGED_DM_NULL) {
-		    struct display_list *gdlp;
-		    struct display_list *next_gdlp;
-
 		    dlp1->dm_dlist_state->dl_active = 0;
 
-		    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-		    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-			next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-			(void)dm_make_current(dlp1->dm_dmp);
-			(void)dm_free_dlists(dlp1->dm_dmp,
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist,
-				      BU_LIST_LAST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist -
-				      BU_LIST_FIRST(bv_scene_obj, &gdlp->dl_head_scene_obj)->s_dlist + 1);
-
-			gdlp = next_gdlp;
+		    /* Free each shape's display list individually via scene-root children */
+		    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+		    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+		    (void)dm_make_current(dlp1->dm_dmp);
+		    for (size_t si = 0; si < nshapes; si++) {
+			bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+			if (sp->s_dlist) {
+			    (void)dm_free_dlists(dlp1->dm_dmp, sp->s_dlist, 1);
+			    sp->s_dlist = 0;
+			}
 		    }
 		}
 	    }

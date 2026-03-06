@@ -39,6 +39,7 @@
 #include "wdb.h"
 #include "rt/db4.h"
 #include "ged/view.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -1089,8 +1090,6 @@ init_sedit_vars(struct mged_state *s)
 void
 replot_editing_solid(struct mged_state *s)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     mat_t mat;
     bsg_shape *sp;
     struct directory *illdp;
@@ -1103,24 +1102,19 @@ replot_editing_solid(struct mged_state *s)
     struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
     illdp = LAST_SOLID(bdata);
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    if (sp->s_u_data) {
-		bdata = (struct ged_bv_data *)sp->s_u_data;
-		if (LAST_SOLID(bdata) == illdp) {
-		    (void)db_path_to_mat(s->dbip, &bdata->s_fullpath, mat, bdata->s_fullpath.fp_len-1, &rt_uniresource);
-		    (void)replot_modified_solid(s, sp, &MEDIT(s)->es_int, mat);
-		}
+    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (sp->s_u_data) {
+	    bdata = (struct ged_bv_data *)sp->s_u_data;
+	    if (LAST_SOLID(bdata) == illdp) {
+		(void)db_path_to_mat(s->dbip, &bdata->s_fullpath, mat, bdata->s_fullpath.fp_len-1, &rt_uniresource);
+		(void)replot_modified_solid(s, sp, &MEDIT(s)->es_int, mat);
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 }
-
 
 void
 transform_editing_solid(
@@ -5932,8 +5926,6 @@ void oedit_reject(struct mged_state *s);
 static void
 oedit_apply(struct mged_state *s, int continue_editing)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     bsg_shape *sp;
     /* matrices used to accept editing done from a depth
      * >= 2 from the top of the illuminated path
@@ -5985,11 +5977,11 @@ oedit_apply(struct mged_state *s, int continue_editing)
     MEDIT(s)->model_changes[15] = 1000000000;	/* => small ratio */
 
     /* Now, recompute new chunks of displaylist */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	    if (sp->s_iflag == DOWN)
 		continue;
 	    (void)replot_original_solid(s, sp);
@@ -5998,8 +5990,6 @@ oedit_apply(struct mged_state *s, int continue_editing)
 		sp->s_iflag = DOWN;
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 }
 
@@ -6007,8 +5997,6 @@ oedit_apply(struct mged_state *s, int continue_editing)
 void
 oedit_accept(struct mged_state *s)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     bsg_shape *sp;
 
     if (s->dbip == DBI_NULL)
@@ -6017,18 +6005,16 @@ oedit_accept(struct mged_state *s)
     if (s->dbip->dbi_read_only) {
 	oedit_reject(s);
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+	{
+	    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	    for (size_t si = 0; si < nshapes; si++) {
+		sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 		if (sp->s_iflag == DOWN)
 		    continue;
 		(void)replot_original_solid(s, sp);
 		sp->s_iflag = DOWN;
 	    }
-
-	    gdlp = next_gdlp;
 	}
 
 	bu_log("Sorry, this database is READ-ONLY\n");
@@ -6269,26 +6255,20 @@ sedit_reject(struct mged_state *s)
 
     /* Restore the original solid everywhere */
     {
-	struct display_list *gdlp;
-	struct display_list *next_gdlp;
 	bsg_shape *sp;
 	if (!illump->s_u_data)
 	    return;
 	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
-	gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-		if (!sp->s_u_data)
-		    continue;
-		struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
-		if (LAST_SOLID(bdatas) == LAST_SOLID(bdata))
-		    (void)replot_original_solid(s, sp);
-	    }
-
-	    gdlp = next_gdlp;
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (!sp->s_u_data)
+		continue;
+	    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
+	    if (LAST_SOLID(bdatas) == LAST_SOLID(bdata))
+		(void)replot_original_solid(s, sp);
 	}
     }
 

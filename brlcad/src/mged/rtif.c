@@ -47,6 +47,7 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/util.h"
 
 
 /**
@@ -172,8 +173,6 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     mat_t rot;
     struct bv_vlist *vp = NULL;
     struct directory *dp = NULL;
-    struct display_list *gdlp = NULL;
-    struct display_list *next_gdlp = NULL;
     vect_t eye_model = VINIT_ZERO;
     vect_t sav_center = VINIT_ZERO;
     vect_t sav_start = VINIT_ZERO;
@@ -214,11 +213,11 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		break;
 	    }
 
-	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-		for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+	    {
+		bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+		size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+		for (size_t si = 0; si < nshapes; si++) {
+		    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 		    if (!sp->s_u_data)
 			continue;
 		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
@@ -230,8 +229,6 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    Tcl_AppendResult(interp, "animating EYE solid\n", (char *)NULL);
 		    goto work;
 		}
-
-		gdlp = next_gdlp;
 	    }
 	    /* Fall through */
 	default:

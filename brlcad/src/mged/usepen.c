@@ -29,6 +29,7 @@
 
 #include "vmath.h"
 #include "bn.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -49,8 +50,6 @@ int ipathpos = 0;	/* path index of illuminated element */
  */
 static void
 illuminate(struct mged_state *s, int y) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     int count;
     bsg_shape *sp;
 
@@ -61,28 +60,23 @@ illuminate(struct mged_state *s, int y) {
      */
     count = ((fastf_t)y + BV_MAX) * s->mged_curr_dm->dm_ndrawn / BV_RANGE;
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	/* BSG Phase 2e TODO: replace with bsg_view_traverse visitor that
-	 * iterates root->children, counting visible (sp->s_flag==UP) shapes
-	 * to find the Nth one pointed at by the screen position. */
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	    /* Only consider solids which are presently in view */
 	    if (sp->s_flag == UP) {
 		if (count-- == 0) {
 		    sp->s_iflag = UP;
 		    illump = sp;
-		    illum_gdlp = gdlp;
+		    illum_gdlp = GED_DISPLAY_LIST_NULL;
 		} else {
 		    /* All other solids have s_iflag set DOWN */
 		    sp->s_iflag = DOWN;
 		}
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 
     s->update_views = 1;
@@ -100,7 +94,6 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct display_list *gdlp;
     bsg_shape *sp;
     struct ged_bv_data *bdata = NULL;
 
@@ -138,49 +131,31 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     } else {
 	if (illump == NULL)
 	    return TCL_ERROR;
-	gdlp = illum_gdlp;
 	sp = illump;
 	sp->s_iflag = DOWN;
+
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	if (!root || BU_PTBL_LEN(&root->children) == 0)
+	    return TCL_ERROR;
+
+	intmax_t idx = bu_ptbl_locate(&root->children, (long *)illump);
 	if (argc == 1 || *argv[1] == 'f') {
-	/* BSG Phase 2e TODO: replace forward/backward dl_head_scene_obj navigation
-	 * with index arithmetic on the consolidated root->children ptbl.
-	 * The display-list boundary wrapping vanishes when all shapes live in one
-	 * flat children array:
-	 *   int idx = bu_ptbl_locate(&root->children, (long *)illump);
-	 *   idx = forward ? idx+1 : idx-1;
-	 *   idx = (idx<0) ? BU_PTBL_LEN(&root->children)-1
-	 *         : idx % (int)BU_PTBL_LEN(&root->children);
-	 *   illump = (bsg_shape *)BU_PTBL_GET(&root->children, idx); */
-	    if (BU_LIST_NEXT_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
-		/* Advance the gdlp (i.e. display list) */
-		if (BU_LIST_NEXT_IS_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp)))
-		    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-		else
-		    gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-
-		sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
-	    } else
-		sp = BU_LIST_PNEXT(bsg_shape, sp);
+	    idx++;
+	    if (idx >= (intmax_t)BU_PTBL_LEN(&root->children))
+		idx = 0;
 	} else if (*argv[1] == 'b') {
-	    if (BU_LIST_PREV_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
-		/* Advance the gdlp (i.e. display list) */
-		if (BU_LIST_PREV_IS_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp)))
-		    gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(s->gedp));
-		else
-		    gdlp = BU_LIST_PLAST(display_list, gdlp);
-
-		sp = BU_LIST_PREV(bsg_shape, &gdlp->dl_head_scene_obj);
-	    } else
-		sp = BU_LIST_PLAST(bsg_shape, sp);
+	    idx--;
+	    if (idx < 0)
+		idx = (intmax_t)BU_PTBL_LEN(&root->children) - 1;
 	} else {
 	    Tcl_AppendResult(interp, "aip: bad parameter - ", argv[1], "\n", (char *)NULL);
 	    return TCL_ERROR;
 	}
 
+	sp = (bsg_shape *)BU_PTBL_GET(&root->children, idx);
 	sp->s_iflag = UP;
 	illump = sp;
-	illum_gdlp = gdlp;
+	illum_gdlp = GED_DISPLAY_LIST_NULL;
     }
 
     s->update_views = 1;
@@ -244,8 +219,6 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     bsg_shape *sp;
     char *cp;
     size_t j;
@@ -309,11 +282,11 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     }
  got:
     /* Include all solids with same tree top */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	    if (!sp->s_u_data)
 		continue;
 	    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
@@ -328,8 +301,6 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 	    else
 		sp->s_iflag = DOWN;
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (!illum_only) {
