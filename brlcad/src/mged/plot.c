@@ -190,6 +190,8 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
      * and unscaled vectors
      */
     {
+	struct bsg_camera _pc;
+	bsg_view_get_camera(view_state->vs_gvp, &_pc);
 	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
 	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 	for (size_t si = 0; si < nshapes; si++) {
@@ -210,7 +212,7 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 			case BV_VLIST_LINE_MOVE:
 			case BV_VLIST_TRI_MOVE:
 			    /* Move, not draw */
-			    MAT4X3VEC(last, view_state->vs_gvp->gv_rotation, *pt);
+			    MAT4X3VEC(last, _pc.rotation, *pt);
 			    continue;
 			case BV_VLIST_POLY_DRAW:
 			case BV_VLIST_POLY_END:
@@ -218,7 +220,7 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 			case BV_VLIST_TRI_DRAW:
 			case BV_VLIST_TRI_END:
 			    /* draw.  */
-			    MAT4X3VEC(fin, view_state->vs_gvp->gv_rotation, *pt);
+			    MAT4X3VEC(fin, _pc.rotation, *pt);
 			    break;
 		    }
 

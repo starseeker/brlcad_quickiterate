@@ -252,20 +252,32 @@ work:
 	switch (mode) {
 	    case -1:
 		/* First step:  put eye in center */
-		view_state->vs_gvp->gv_scale = scale;
-		MAT_COPY(view_state->vs_gvp->gv_rotation, rot);
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
-		new_mats(s);
-		/* Second step:  put eye in front */
-		VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
-		MAT4X3PNT(eye_model, view_state->vs_gvp->gv_view2model, xlate);
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
+		{
+		    struct bsg_camera _rc;
+		    bsg_view_get_camera(view_state->vs_gvp, &_rc);
+		    view_state->vs_gvp->gv_scale = scale;
+		    MAT_COPY(_rc.rotation, rot);
+		    MAT_DELTAS_VEC_NEG(_rc.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_rc);
+		    new_mats(s);
+		    /* Second step:  put eye in front */
+		    VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
+		    bsg_view_get_camera(view_state->vs_gvp, &_rc);
+		    MAT4X3PNT(eye_model, _rc.view2model, xlate);
+		    MAT_DELTAS_VEC_NEG(_rc.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_rc);
+		}
 		new_mats(s);
 		break;
 	    case 0:
-		view_state->vs_gvp->gv_scale = scale;
-		MAT_IDN(view_state->vs_gvp->gv_rotation);	/* top view */
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
+		{
+		    struct bsg_camera _r0;
+		    bsg_view_get_camera(view_state->vs_gvp, &_r0);
+		    view_state->vs_gvp->gv_scale = scale;
+		    MAT_IDN(_r0.rotation);	/* top view */
+		    MAT_DELTAS_VEC_NEG(_r0.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_r0);
+		}
 		new_mats(s);
 		break;
 	    case 1:
