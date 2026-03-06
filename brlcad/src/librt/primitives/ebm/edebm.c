@@ -284,10 +284,12 @@ ecmd_ebm_fname(struct rt_edit *s)
 int
 ecmd_ebm_height(struct rt_edit *s)
 {
+    /* If neither keyboard input nor a scale factor is available yet, this is
+     * the initial call triggered by the menu-select (before the user types
+     * 'p <value>').  Return OK as a no-op to match vanilla MGED behaviour
+     * where the handler simply falls through with no action. */
     if (!s->e_inpara && s->es_scale <= 0.0) {
-	bu_vls_printf(s->log_str, "ERROR: one argument needed\n");
-	s->e_inpara = 0;
-	return BRLCAD_ERROR;
+	return BRLCAD_OK;
     }
     if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
