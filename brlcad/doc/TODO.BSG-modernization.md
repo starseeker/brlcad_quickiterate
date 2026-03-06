@@ -534,9 +534,9 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
    - ✅ Add `BSG_NODE_LOD_GROUP` support to `libged/view/lod.cpp` (group create/add/rm/distances subcommands).
    - ✅ Handle `BSG_NODE_LOD_GROUP` in `dm-gl_lod.cpp` draw path (`gl_draw_obj` selects child by eye-to-model-center distance).
 
-5. **Phase 2e** (display_list decommission):
-   - Migrate `libged/display_list.c` shapes to scene-root children.
-   - Remove `dl_head_scene_obj` linked list from `display_list` struct.
+5. **Phase 2e** (display_list decommission): ✅ COMPLETE (session 6)
+   - ✅ Migrate `libged/display_list.c` shapes to scene-root children.
+   - ✅ Remove `dl_head_scene_obj` linked list from `struct display_list` (tcl_data.h).
    - Update `mged` callers. (**COMPLETE**: buttons.c, chgtree.c, chgview.c, cmd.c,
      edsol.c, plot.c, rtif.c, usepen.c, set.c migrated to `root->children`.)
    - Update `libged` callers. (**COMPLETE**: zap.c, illum.c, solid_report.c,
@@ -556,14 +556,16 @@ These helpers do not yet exist and should be added to `bsg/util.h` /
      - ✅ `libtclcad/commands.c:to_create_vlist_callback`: uses root->children when available (legacy fallback kept)
      - ✅ `mged/dozoom.c`, `gtools/gsh/gsh.cpp`: render loops use `dm_draw_bsg_view` with legacy fallback
      - ✅ `libged/tests/test_gqa.c`: migrated to root->children (legacy fallback kept)
-   - Remaining for final decommission: `display_list.c` (28 uses, core infrastructure
-     — reader iterations in erasePathFromDisplay, eraseAllSubpaths, _dl_eraseFirstSubpath,
-     headsolid_split/GDL, bounding_sph, color_soltab, set_iflag, dl_name_hash);
-     `draw/draw.c:dl_redraw` (gdlp-scoped read); `libtclcad/view/draw.c:to_edit_redraw`
-     (complex goto-based function, deferred); `zap.c` (freeing loop, already handled
-     via root->children reset); `libbv/hash.c:bv_dl_hash` (legacy fallback, still needed).
-     Once all insertion sites are removed and all readers migrated, the `dl_head_scene_obj`
-     field can be dropped from `struct display_list`.
+   - **Phase 2e session 6 additions (FINAL DECOMMISSION)**:
+     - ✅ `bv/tcl_data.h`: removed `dl_head_scene_obj` field from `struct display_list`
+     - ✅ `display_list.c`: added `dl_match_shapes`, `dl_gdlp_shapes`, `dl_free_shape` helpers
+     - ✅ `display_list.c`: rewrote all shape erasure/free functions to use `root->children`
+     - ✅ `display_list.c`: rewrote `headsolid_split`/`headsolid_splitGDL` (new `gedp` signature, path-based split)
+     - ✅ Removed all dual-write: `invent_solid`, `draw/draw.c`, `dodraw.c`
+     - ✅ All remaining `dl_head_scene_obj` sites cleaned up in 10+ files
+     - ✅ `bsg_scene_fsos()` + `bsg_view_center_linesnap()` BSG wrappers added to `bsg/util.h`
+     - ✅ `bsg/compat.h` aliases for `bv_set_fsos` and `bv_view_center_linesnap`
+     - ✅ Full build passes with zero errors
 
 ---
 
@@ -856,4 +858,4 @@ ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
 
 ---
 
-*Last updated: 2026-03-06 (Phases 2a–2d complete; all Qt camera fields migrated; MGED tractability + full scene-object recast analysis added; Phase 2e dual-write and BSG reader helpers complete; dm-gl.c/dozoom.c/commands.c callbacks BSG-capable; section 4.2 polygon plugins migrated; section 7.1 librt primitive editors migrated; **Session 5**: Phase 2c fully complete — zero direct gv_* accesses outside libbv; eye.c/align.c bsg_view_set_camera bug fixes)*
+*Last updated: 2026-03-06 (Phases 2a–2e complete; **Session 6**: Phase 2e FINAL DECOMMISSION — `dl_head_scene_obj` field removed from `struct display_list`; all shape tracking now exclusively via `root->children` in scene-root; `bsg_scene_fsos` and `bsg_view_center_linesnap` BSG wrappers added; full build passes clean)*
