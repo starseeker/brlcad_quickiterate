@@ -372,7 +372,10 @@ ecmd_vol_fsize(struct rt_edit *s)
 int
 ecmd_vol_thresh_lo(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	return BRLCAD_OK;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
@@ -412,7 +415,10 @@ ecmd_vol_thresh_lo(struct rt_edit *s)
 int
 ecmd_vol_thresh_hi(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	return BRLCAD_OK;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
