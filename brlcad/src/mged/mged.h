@@ -143,9 +143,7 @@ struct mged_edit_state {
     struct mged_dm *edit_rate_mt_dm;
     struct mged_dm *edit_rate_vt_dm;
 
-    // TODO - can we eliminate these?
     int es_edclass;            /* type of editing class for this solid */
-    int es_type;               /* COMGEOM solid type */
 };
 
 #define MEDIT(s) ((s)->s_edit->e)
@@ -251,6 +249,10 @@ extern struct mged_state *
 mged_state_create(void);
 extern void
 mged_state_destroy(struct mged_state *s);
+extern void
+mged_state_init_internals(struct mged_state *s);
+extern void
+mged_state_destroy_internals(struct mged_state *s);
 
 
 /**
@@ -335,7 +337,6 @@ extern int movedir;  /* RARROW | UARROW | SARROW | ROTARROW */
 extern struct display_list *illum_gdlp; /* Pointer to solid in solid table to be illuminated */
 extern struct bv_scene_obj *illump; /* == 0 if none, else points to ill. solid */
 extern int ipathpos; /* path index of illuminated element */
-extern int sedraw; /* apply solid editing changes */
 extern int edobj; /* object editing options */
 
 

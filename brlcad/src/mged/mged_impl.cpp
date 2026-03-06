@@ -45,10 +45,12 @@ mged_state_create(void)
 {
     struct mged_state *s;
     BU_GET(s, struct mged_state);
-    BU_GET(s->s_edit, struct mged_edit_state);
-    s->s_edit->e = rt_edit_create(NULL, NULL, NULL, NULL);
 
     s->magic = MGED_STATE_MAGIC;
+
+    /* s->s_edit is intentionally left NULL here.  Callers that actually
+     * run an interactive session must allocate and initialize s_edit
+     * separately (as mged.c's main() does). */
 
     BU_GET(s->i, struct mged_state_impl);
     s->i->i = new MGED_Internal;
@@ -63,8 +65,6 @@ mged_state_create(void)
     bu_vls_init(&s->scratchline);
     bu_vls_init(&s->mged_prompt);
     s->dpy_string = NULL;
-
-    s->s_edit = NULL;
 
     // Register default callbacks
     mged_state_clbk_set(s, 0, ECMD_PRINT_STR, BU_CLBK_DURING, mged_print_str, s);
@@ -108,6 +108,50 @@ mged_state_destroy(struct mged_state *s)
     BU_PUT(s->s_edit, struct mged_edit_state);
     BU_PUT(s->i, struct mged_state_impl);
     BU_PUT(s, struct mged_state);
+}
+
+void
+mged_state_init_internals(struct mged_state *s)
+{
+    if (!s || s->i)
+	return;
+
+    /* Allocate the C++ internal state that holds per-object-type callback
+     * maps.  This must be called before any mged_state_clbk_set() or
+     * mged_edit_clbk_sync() calls. */
+    BU_GET(s->i, struct mged_state_impl);
+    s->i->i = new MGED_Internal;
+
+    /* Register default (object-type-independent) callbacks */
+    mged_state_clbk_set(s, 0, ECMD_PRINT_STR,              BU_CLBK_DURING, mged_print_str,            s);
+    mged_state_clbk_set(s, 0, ECMD_PRINT_RESULTS,          BU_CLBK_DURING, mged_print_result,          s);
+    mged_state_clbk_set(s, 0, ECMD_EAXES_POS,              BU_CLBK_DURING, set_e_axes_pos_clbk,        s);
+    mged_state_clbk_set(s, 0, ECMD_REPLOT_EDITING_SOLID,   BU_CLBK_DURING, replot_editing_solid,       s);
+    mged_state_clbk_set(s, 0, ECMD_VIEW_UPDATE,            BU_CLBK_DURING, mged_view_update,           s);
+    mged_state_clbk_set(s, 0, ECMD_VIEW_SET_FLAG,          BU_CLBK_DURING, mged_view_set_flag,         s);
+    mged_state_clbk_set(s, 0, ECMD_MENU_SET,               BU_CLBK_DURING, mged_mmenu_set,             s);
+    mged_state_clbk_set(s, 0, ECMD_GET_FILENAME,           BU_CLBK_DURING, mged_get_filename,          s);
+
+    /* Register primitive/ecmd specific callbacks */
+    mged_state_clbk_set(s, ID_ARB8,    ECMD_ARB_SETUP_ROTFACE,        BU_CLBK_DURING, arb_setup_rotface_clbk,          s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_MODE,                 BU_CLBK_DURING, ecmd_bot_mode_clbk,              s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_ORIENT,               BU_CLBK_DURING, ecmd_bot_orient_clbk,            s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_THICK,                BU_CLBK_DURING, ecmd_bot_thick_clbk,             s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_FLAGS,                BU_CLBK_DURING, ecmd_bot_flags_clbk,             s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_FMODE,                BU_CLBK_DURING, ecmd_bot_fmode_clbk,             s);
+    mged_state_clbk_set(s, ID_BOT,     ECMD_BOT_PICKT,                BU_CLBK_DURING, ecmd_bot_pickt_multihit_clbk,    s);
+    mged_state_clbk_set(s, ID_NMG,     ECMD_NMG_EDEBUG,               BU_CLBK_DURING, ecmd_nmg_edebug_clbk,            s);
+    mged_state_clbk_set(s, ID_EXTRUDE, ECMD_EXTR_SKT_NAME,            BU_CLBK_DURING, ecmd_extrude_skt_name_clbk,      s);
+}
+
+void
+mged_state_destroy_internals(struct mged_state *s)
+{
+    if (!s || !s->i)
+	return;
+    delete s->i->i;
+    BU_PUT(s->i, struct mged_state_impl);
+    s->i = NULL;
 }
 
 struct rt_edit_map *

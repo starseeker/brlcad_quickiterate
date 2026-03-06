@@ -22,8 +22,17 @@
  * Implementation of .g geometry editing logic not specific to individual
  * primitives.
  *
- * TODO - study get, put, and adjust to see how they relate (or don't)
- * to the other edit codes.
+ * Relationship to ft_get / ft_adjust:
+ *   ft_get (OBJ[].ft_get) reads a single named parameter from a solid's
+ *   db_internal (e.g. "V", "H") and returns it as a string.  ft_adjust
+ *   (OBJ[].ft_adjust) applies a set of key=value string pairs back to the
+ *   db_internal.  These are the scripting-level "attr get/set" interface and
+ *   are not directly connected to the interactive ECMD editing path implemented
+ *   here.  The rt_edit / ECMD approach works at the numeric (fastf_t) level
+ *   and drives immediate wireframe feedback; ft_get/ft_adjust are used by the
+ *   Tcl "get" and "adjust" commands which operate on a string-serialized form.
+ *   Similarly, ft_write_params / ft_read_params are used by the "tedit"
+ *   (text-edit) workflow and also operate independently of the ECMD path.
  */
 
 #include "common.h"
@@ -349,9 +358,11 @@ rt_edit_map_copy(struct rt_edit_map *om, struct rt_edit_map *im)
  * or it may be something complex like "(3, 4)" for an ARS or spline
  * to select a particular vertex or control point.
  *
- * XXX Perhaps this should be done via solid-specific parse tables,
- * so that solids could be pretty-printed & structprint/structparse
- * processed as well?
+ * The keypoint selection is dispatched through ft_keypoint in the EDOBJ
+ * table, which gives each primitive control over which vertex or reference
+ * point is highlighted.  A structparse/structprint approach would be an
+ * alternative but would require a separate mapping from parameter names to
+ * geometric points; the current callback design is simpler.
  */
 void
 rt_get_solid_keypoint(struct rt_edit *s, point_t *pt, const char **strp, fastf_t *mat)
@@ -937,10 +948,8 @@ rt_knob_edit_sca(struct rt_edit *s, int matrix_edit)
 /*
  * A great deal of magic takes place here, to accomplish solid editing.
  *
- * Called from mged main loop after any event handlers:
- * if (sedraw > 0) rt_edit_process(s);
- * to process any residual events that the event handlers were too
- * lazy to handle themselves.
+ * Called from mged main loop after parameter entry or mouse events
+ * to apply any accumulated edit parameters to the current solid.
  *
  * A lot of processing is deferred to here, so that the "p" command
  * can operate on an equal footing to mouse events.

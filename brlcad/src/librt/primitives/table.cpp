@@ -1234,7 +1234,7 @@ const struct rt_functab OBJ[] = {
 	NULL, /* evaluate_selection */
 	NULL, /* process_selection */
 	NULL, /* serialize */
-	RTFUNCTAB_FUNC_LABELS_CAST(rt_epa_labels), /* label */
+	RTFUNCTAB_FUNC_LABELS_CAST(rt_ehy_labels), /* label */
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_ehy_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_ehy_mat),
 	NULL, /* perturb */

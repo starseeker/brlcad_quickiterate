@@ -84,7 +84,10 @@ vol_ed(struct rt_edit *s, int arg, int UNUSED(a), int UNUSED(b), void *UNUSED(da
 	    break;
     }
 
-    // TODO - should we be calling this here?
+    /* Calling rt_edit_process here ensures the editing axes update
+     * immediately after a menu selection.  For scale modes that wait
+     * for user input, ft_edit is a no-op, but the keypoint display
+     * advances to the correct position. */
     rt_edit_process(s);
 
     bu_clbk_t f = NULL;
@@ -369,7 +372,10 @@ ecmd_vol_fsize(struct rt_edit *s)
 int
 ecmd_vol_thresh_lo(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	return BRLCAD_OK;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;
@@ -409,7 +415,10 @@ ecmd_vol_thresh_lo(struct rt_edit *s)
 int
 ecmd_vol_thresh_hi(struct rt_edit *s)
 {
-    if (s->e_inpara != 1) {
+    if (!s->e_inpara && s->es_scale <= 0.0) {
+	return BRLCAD_OK;
+    }
+    if (s->e_inpara > 1) {
 	bu_vls_printf(s->log_str, "ERROR: only one argument needed\n");
 	s->e_inpara = 0;
 	return BRLCAD_ERROR;

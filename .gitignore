@@ -1,2 +1,6 @@
 # BRL-CAD build directory - created during CMake configure/build
 brlcad_build/
+# MGED crash logs
+mged-*-bomb.log
+# PS output files from MGED PS display manager
+ps
