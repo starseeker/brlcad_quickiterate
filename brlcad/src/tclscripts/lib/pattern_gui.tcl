@@ -169,8 +169,10 @@ proc pattern_rect { args } {
     if { $group_name ne "" } {
 	if { $::cadwidgets::mgedFlag } {
 	    draw $group_name
+	    autoview
 	} else {
 	    $::cadwidgets::ged draw $group_name
+	    $::cadwidgets::ged autoview
 	    $::cadwidgets::ged freezeGUI 0
 	}
     }
@@ -288,8 +290,10 @@ proc pattern_sph { args } {
     if { $group_name ne "" } {
 	if { $::cadwidgets::mgedFlag } {
 	    draw $group_name
+	    autoview
 	} else {
 	    $::cadwidgets::ged draw $group_name
+	    $::cadwidgets::ged autoview
 	    $::cadwidgets::ged freezeGUI 0
 	}
     }
@@ -409,8 +413,10 @@ proc pattern_cyl { args } {
     if { $group_name ne "" } {
 	if { $::cadwidgets::mgedFlag } {
 	    draw $group_name
+	    autoview
 	} else {
 	    $::cadwidgets::ged draw $group_name
+	    $::cadwidgets::ged autoview
 	    $::cadwidgets::ged freezeGUI 0
 	}
     }
