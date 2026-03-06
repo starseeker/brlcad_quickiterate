@@ -112,6 +112,23 @@
         </para>
       </listitem>
     </varlistentry>
+    <varlistentry>
+      <term><option>-s <replaceable>sstr</replaceable> <replaceable>rstr</replaceable></option></term>
+      <term><option>--subs <replaceable>sstr</replaceable> <replaceable>rstr</replaceable></option></term>
+      <listitem>
+        <para>
+          Apply a name substitution to every generated object name.  The
+          first occurrence of the string <replaceable>sstr</replaceable>
+          in each source object's name is replaced with
+          <replaceable>rstr</replaceable> before the numeric
+          uniquification step.  For example, <command>clone -s tank tread
+          tank.r01</command> produces a clone named
+          <emphasis>tread.r101</emphasis> (or the next available variant).
+          When no occurrence of <replaceable>sstr</replaceable> is found
+          in a particular name the name is used as-is.
+        </para>
+      </listitem>
+    </varlistentry>
   </variablelist>
 
   </refsection>

@@ -542,6 +542,9 @@ proc pattern_rect { args } {
     set clone_cmd [list --rect --depth $depth]
     if { $group_name ne "" } { lappend clone_cmd -g $group_name }
     if { $increment != 0 }   { lappend clone_cmd -i $increment }
+    if { [string length $sstr] > 0 && [string length $rstr] > 0 } {
+	lappend clone_cmd -s $sstr $rstr
+    }
     lappend clone_cmd --xdir $xdir --ydir $ydir --zdir $zdir
     if { [llength $list_x] > 0 } {
 	lappend clone_cmd --lx [join $list_x " "]
@@ -760,6 +763,9 @@ proc pattern_sph { args } {
     set clone_cmd [list --sph --depth $depth]
     if { $group_name ne "" } { lappend clone_cmd -g $group_name }
     if { $increment != 0 }   { lappend clone_cmd -i $increment }
+    if { [string length $sstr] > 0 && [string length $rstr] > 0 } {
+	lappend clone_cmd -s $sstr $rstr
+    }
     lappend clone_cmd --center-pat $center_pat --center-obj $center_obj
     if { $rot_az } { lappend clone_cmd --rotaz }
     if { $rot_el } { lappend clone_cmd --rotel }
@@ -990,6 +996,9 @@ proc pattern_cyl { args } {
     set clone_cmd [list --cyl --depth $depth]
     if { $group_name ne "" } { lappend clone_cmd -g $group_name }
     if { $increment != 0 }   { lappend clone_cmd -i $increment }
+    if { [string length $sstr] > 0 && [string length $rstr] > 0 } {
+	lappend clone_cmd -s $sstr $rstr
+    }
     if { $do_rot }           { lappend clone_cmd --rot }
     lappend clone_cmd --center-obj $center_obj --center-base $center_base
     lappend clone_cmd --height-dir $height_dir --start-az-dir $start_az_dir

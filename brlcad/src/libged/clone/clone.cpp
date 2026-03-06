@@ -146,6 +146,20 @@ struct CloneState {
     vect_t  start_az_dir = {1, 0, 0};
     bool    do_rot = false;
 
+    /* Optional name string substitution: replace the first occurrence of
+     * subs_src in each generated name with subs_dst (applied before the
+     * number-increment step). */
+    std::string subs_src;
+    std::string subs_dst;
+
+    /* BU_CLBK_DURING progress callback: called once per top-level clone
+     * position created (pattern modes) or per copy (linear mode).
+     * argv passed to the callback: {"step", new_obj_name}.
+     * Populated from ged_clbk_get at the start of ged_clone_core. */
+    bu_clbk_t   clbk    = nullptr;
+    void       *clbk_u1 = nullptr;
+    void       *clbk_u2 = nullptr;
+
     /* Output */
     struct bu_vls olist = BU_VLS_INIT_ZERO;
     NameMap        names;
@@ -173,14 +187,26 @@ _clone_uniq(struct bu_vls *n, void *data)
  */
 static std::string
 clone_next_name(struct db_i *dbip, const std::string& proto,
-		int step, int updpos)
+		int step, int updpos,
+		const std::string& subs_src = std::string(),
+		const std::string& subs_dst = std::string())
 {
+    /* Apply optional name substitution before number-increment logic.
+     * Replace only the first occurrence so that e.g. "-s tank tread" on
+     * "tank.r01" yields "tread.r01" without touching the "r" or "01". */
+    std::string work = proto;
+    if (!subs_src.empty()) {
+	size_t p = work.find(subs_src);
+	if (p != std::string::npos)
+	    work.replace(p, subs_src.size(), subs_dst);
+    }
+
     struct Run { size_t start, end; };
     std::vector<Run> runs;
-    for (size_t i = 0; i < proto.size(); ) {
-	if (isdigit((unsigned char)proto[i])) {
+    for (size_t i = 0; i < work.size(); ) {
+	if (isdigit((unsigned char)work[i])) {
 	    size_t j = i;
-	    while (j < proto.size() && isdigit((unsigned char)proto[j])) ++j;
+	    while (j < work.size() && isdigit((unsigned char)work[j])) ++j;
 	    runs.push_back({i, j});
 	    i = j;
 	} else {
@@ -191,7 +217,7 @@ clone_next_name(struct db_i *dbip, const std::string& proto,
     if (runs.empty()) {
 	struct bu_vls vn = BU_VLS_INIT_ZERO;
 	struct bu_vls sp = BU_VLS_INIT_ZERO;
-	bu_vls_sprintf(&vn, "%s", proto.c_str());
+	bu_vls_sprintf(&vn, "%s", work.c_str());
 	bu_vls_sprintf(&sp, "0:0:0:%d", step);
 	bu_vls_incr(&vn, nullptr, bu_vls_cstr(&sp), &_clone_uniq, dbip);
 	std::string r(bu_vls_cstr(&vn));
@@ -202,11 +228,11 @@ clone_next_name(struct db_i *dbip, const std::string& proto,
 
     int ridx = (updpos < (int)runs.size()) ? updpos : (int)runs.size() - 1;
     const Run& run = runs[(size_t)ridx];
-    std::string prefix = proto.substr(0, run.start);
-    int cur = std::stoi(proto.substr(run.start, run.end - run.start));
-    std::string suffix = proto.substr(run.end);
+    std::string prefix = work.substr(0, run.start);
+    int cur = std::stoi(work.substr(run.start, run.end - run.start));
+    std::string suffix = work.substr(run.end);
     size_t width = run.end - run.start;
-    bool zero_padded = (width > 1 && proto[run.start] == '0');
+    bool zero_padded = (width > 1 && work[run.start] == '0');
 
     for (int i = 1; ; ++i) {
 	int val = cur + i * step;
@@ -302,7 +328,9 @@ copy_v5_solid(struct db_i *dbip, struct directory *proto, CloneState *state)
 	if (!src_dp) continue;
 
 	std::string dest = clone_next_name(dbip, src_name, state->incr,
-					   (int)state->updpos);
+					   (int)state->updpos,
+					   (i == 0) ? state->subs_src : std::string(),
+					   (i == 0) ? state->subs_dst : std::string());
 	state->names[proto->d_namep][i] = dest;
 
 	const char *cp_av[4] = { "copy", proto->d_namep, dest.c_str(), nullptr };
@@ -349,7 +377,9 @@ copy_v5_comb(struct db_i *dbip, struct directory *proto, CloneState *state)
 	    : state->names[proto->d_namep][i - 1].c_str();
 	if (i > 0 && !db_lookup(dbip, prev, LOOKUP_QUIET)) continue;
 
-	std::string dest = clone_next_name(dbip, prev, 1, (int)state->updpos);
+	std::string dest = clone_next_name(dbip, prev, 1, (int)state->updpos,
+					   (i == 0) ? state->subs_src : std::string(),
+					   (i == 0) ? state->subs_dst : std::string());
 	state->names[proto->d_namep][i] = dest;
 
 	struct directory *proto_dp = db_lookup(dbip, proto->d_namep,
@@ -428,7 +458,8 @@ copy_tree(struct directory *dp, struct resource *resp, CloneState *state)
     int step = (dp->d_flags & (RT_DIR_SOLID | RT_DIR_REGION))
 	? state->incr : 1;
     std::string expected = clone_next_name(dbip, dp->d_namep, step,
-					   (int)state->updpos);
+					   (int)state->updpos,
+					   state->subs_src, state->subs_dst);
 
     if (dp->d_flags & RT_DIR_COMB)
 	db_functree(dbip, dp, copy_comb_cb, copy_solid_cb, resp, state);
@@ -442,7 +473,8 @@ copy_tree(struct directory *dp, struct resource *resp, CloneState *state)
     }
 
     std::string now = clone_next_name(dbip, dp->d_namep, step,
-				      (int)state->updpos);
+				      (int)state->updpos,
+				      state->subs_src, state->subs_dst);
     if (expected == now) {
 	bu_vls_printf(state->gedp->ged_result_str,
 		     "clone: failed to create \"%s\"\n", expected.c_str());
@@ -753,7 +785,8 @@ copy_regions_node(struct db_i *dbip, const std::string &obj_name,
 	    copy_regions_and_update_tree(dbip, comb->tree, state);
 
 	std::string new_name = clone_next_name(dbip, obj_name, 1,
-					       (int)state->updpos);
+					       (int)state->updpos,
+					       state->subs_src, state->subs_dst);
 	state->names[obj_name] = { new_name };
 
 	int minor = dp->d_minor_type;
@@ -777,7 +810,8 @@ copy_regions_node(struct db_i *dbip, const std::string &obj_name,
 	comb->region_id = wdbp->wdb_item_default++;
 
     std::string new_name = clone_next_name(dbip, obj_name, state->incr,
-					   (int)state->updpos);
+					   (int)state->updpos,
+					   state->subs_src, state->subs_dst);
     state->names[obj_name] = { new_name };
 
     int minor = dp->d_minor_type;
@@ -841,7 +875,8 @@ apply_one_position(CloneState *state, struct directory *src,
 	int step = (src->d_flags & (RT_DIR_SOLID | RT_DIR_REGION))
 	    ? state->incr : 1;
 	std::string dest = clone_next_name(dbip, src->d_namep, step,
-					   (int)state->updpos);
+					   (int)state->updpos,
+					   state->subs_src, state->subs_dst);
 	struct directory *dp = create_wrapper_comb(state->gedp, src->d_namep,
 						   dest.c_str(), mat);
 	return dp ? dest : std::string();
@@ -859,6 +894,8 @@ apply_one_position(CloneState *state, struct directory *src,
     tmp.updpos          = state->updpos;
     tmp.miraxis         = W;
     tmp.override_matrix = mat;
+    tmp.subs_src        = state->subs_src;
+    tmp.subs_dst        = state->subs_dst;
     bu_vls_init(&tmp.olist);
 
     state->names.clear();
@@ -994,6 +1031,16 @@ make_positions(int n, fastf_t start, fastf_t delta,
  * Pattern runners
  * ----------------------------------------------------------------------- */
 
+/** Fire the BU_CLBK_DURING progress callback for one clone event. */
+static void
+clone_fire_progress(const CloneState *state, const std::string& new_name)
+{
+    if (!state->clbk) return;
+    const char *av[2] = {"step", new_name.c_str()};
+    (*state->clbk)(2, av, state->clbk_u1, state->clbk_u2);
+}
+
+
 static std::vector<std::string>
 run_pattern_rect(CloneState *state)
 {
@@ -1022,7 +1069,10 @@ run_pattern_rect(CloneState *state)
 		mat_t m; mat_rect(m, pos);
 		for (auto *src : state->srcs) {
 		    std::string n = apply_one_position(state, src, m);
-		    if (!n.empty()) names.push_back(n);
+		    if (!n.empty()) {
+			names.push_back(n);
+			clone_fire_progress(state, n);
+		    }
 		}
 	    }
     return names;
@@ -1068,7 +1118,10 @@ run_pattern_sph(CloneState *state)
 		mat_sph(m, az, el, r, cpat, cobj, state->rotaz, state->rotel);
 		for (auto *src : state->srcs) {
 		    std::string n = apply_one_position(state, src, m);
-		    if (!n.empty()) names.push_back(n);
+		    if (!n.empty()) {
+			names.push_back(n);
+			clone_fire_progress(state, n);
+		    }
 		}
 		if (at_pole) break;
 	    }
@@ -1131,7 +1184,10 @@ run_pattern_cyl(CloneState *state)
 			state->do_rot);
 		for (auto *src : state->srcs) {
 		    std::string n = apply_one_position(state, src, m);
-		    if (!n.empty()) names.push_back(n);
+		    if (!n.empty()) {
+			names.push_back(n);
+			clone_fire_progress(state, n);
+		    }
 		}
 	    }
     return names;
@@ -1263,6 +1319,38 @@ opt_mirror(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
 }
 
 
+/** SubsOpt: name string-substitution pair.  Used for -s ("sstr rstr"). */
+struct SubsOpt {
+    std::string src, dst;
+    bool set = false;
+};
+
+/**
+ * Read search-string and replacement-string for name substitution.
+ * Consumes two argv tokens; returns 2.
+ */
+static int
+opt_subs(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
+{
+    SubsOpt *opt = (SubsOpt *)sv;
+    BU_OPT_CHECK_ARGV0(msg, argc, argv, "subs");
+    if (argc < 2) {
+	if (msg)
+	    bu_vls_printf(msg, "opt_subs: requires search string and replacement string\n");
+	return -1;
+    }
+    opt->src = argv[0];
+    if (opt->src.empty()) {
+	if (msg)
+	    bu_vls_printf(msg, "opt_subs: search string must not be empty\n");
+	return -1;
+    }
+    opt->dst = argv[1];
+    opt->set = true;
+    return 2;
+}
+
+
 /**
  * Parse depth choice "top"|"regions"|"primitives" into int*:
  *   2 = top, 1 = regions, 0 = primitives.
@@ -1345,6 +1433,8 @@ print_usage(struct bu_vls *str)
 "                                  primitives: full deep copy, mat baked in\n"
 "  --xpush                      flatten instance matrices before cloning\n"
 "  -g, --group <name>           collect all clones into <name>\n"
+"  -s, --subs  <sstr> <rstr>   replace first occurrence of sstr with rstr\n"
+"                               in every generated object name\n"
 "\n"
 "Linear copy:\n"
 "  -n, --copies <n>             number of copies\n"
@@ -1413,9 +1503,10 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     Vec3Opt   trans_opt, rot_opt, rpnt_opt;
     NVec3Opt  atrans_opt, arot_opt;
     MirrorOpt mirror_opt;
+    SubsOpt   subs_opt;
 
-    /* Build the option table.  The array needs 53 slots (52 options + NULL). */
-    struct bu_opt_desc d[53];
+    /* Build the option table.  The array needs 54 slots (53 options + NULL). */
+    struct bu_opt_desc d[54];
 
     /* Common */
     BU_OPT(d[0],  "h", "help",         "",         NULL,           &print_help,         "Print help");
@@ -1424,63 +1515,71 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     BU_OPT(d[3],  "",  "depth",        "top|reg|prim", opt_depth,      &depth_flag,         "Copy depth");
     BU_OPT(d[4],  "",  "xpush",        "",         NULL,           &xpush_flag,         "Flatten matrices");
     BU_OPT(d[5],  "g", "group",        "name",     bu_opt_str,     &group_cstr,         "Group clones");
+    BU_OPT(d[6],  "s", "subs",         "sstr rstr",opt_subs,       &subs_opt,           "Name substitution");
 
     /* Linear copy */
-    BU_OPT(d[6],  "n", "copies",       "#",        bu_opt_int,     &n_copies_opt,       "Number of copies");
-    BU_OPT(d[7],  "t", "translate",    "x y z",    opt_vec3,       &trans_opt,          "Per-copy translation");
-    BU_OPT(d[8],  "r", "rotate",       "x y z",    opt_vec3,       &rot_opt,            "Per-copy rotation");
-    BU_OPT(d[9],  "p", "rpoint",       "x y z",    opt_vec3,       &rpnt_opt,           "Rotation centre");
-    BU_OPT(d[10], "a", "atrans",       "n x y z",  opt_n_vec3,     &atrans_opt,         "Total translation");
-    BU_OPT(d[11], "b", "arot",         "n x y z",  opt_n_vec3,     &arot_opt,           "Total rotation");
-    BU_OPT(d[12], "m", "mirror",       "axis d",   opt_mirror,     &mirror_opt,         "Mirror copy");
+    BU_OPT(d[7],  "n", "copies",       "#",        bu_opt_int,     &n_copies_opt,       "Number of copies");
+    BU_OPT(d[8],  "t", "translate",    "x y z",    opt_vec3,       &trans_opt,          "Per-copy translation");
+    BU_OPT(d[9],  "r", "rotate",       "x y z",    opt_vec3,       &rot_opt,            "Per-copy rotation");
+    BU_OPT(d[10], "p", "rpoint",       "x y z",    opt_vec3,       &rpnt_opt,           "Rotation centre");
+    BU_OPT(d[11], "a", "atrans",       "n x y z",  opt_n_vec3,     &atrans_opt,         "Total translation");
+    BU_OPT(d[12], "b", "arot",         "n x y z",  opt_n_vec3,     &arot_opt,           "Total rotation");
+    BU_OPT(d[13], "m", "mirror",       "axis d",   opt_mirror,     &mirror_opt,         "Mirror copy");
 
     /* Pattern mode selectors */
-    BU_OPT(d[13], "", "rect", "", NULL, &mode_rect, "Rectangular grid");
-    BU_OPT(d[14], "", "sph",  "", NULL, &mode_sph,  "Spherical pattern");
-    BU_OPT(d[15], "", "cyl",  "", NULL, &mode_cyl,  "Cylindrical pattern");
+    BU_OPT(d[14], "", "rect", "", NULL, &mode_rect, "Rectangular grid");
+    BU_OPT(d[15], "", "sph",  "", NULL, &mode_sph,  "Spherical pattern");
+    BU_OPT(d[16], "", "cyl",  "", NULL, &mode_cyl,  "Cylindrical pattern");
 
     /* Rectangular grid */
-    BU_OPT(d[16], "", "nx", "#",        bu_opt_int,     &nx_opt,      "Grid nx");
-    BU_OPT(d[17], "", "ny", "#",        bu_opt_int,     &ny_opt,      "Grid ny");
-    BU_OPT(d[18], "", "nz", "#",        bu_opt_int,     &nz_opt,      "Grid nz");
-    BU_OPT(d[19], "", "dx", "#",        bu_opt_fastf_t, &dx_opt,      "Grid dx");
-    BU_OPT(d[20], "", "dy", "#",        bu_opt_fastf_t, &dy_opt,      "Grid dy");
-    BU_OPT(d[21], "", "dz", "#",        bu_opt_fastf_t, &dz_opt,      "Grid dz");
-    BU_OPT(d[22], "", "lx", "\"...\"",  opt_float_list, &state->lx,  "x list");
-    BU_OPT(d[23], "", "ly", "\"...\"",  opt_float_list, &state->ly,  "y list");
-    BU_OPT(d[24], "", "lz", "\"...\"",  opt_float_list, &state->lz,  "z list");
-    BU_OPT(d[25], "", "xdir", "x y z",  bu_opt_vect_t,  state->xdir, "x direction");
-    BU_OPT(d[26], "", "ydir", "x y z",  bu_opt_vect_t,  state->ydir, "y direction");
-    BU_OPT(d[27], "", "zdir", "x y z",  bu_opt_vect_t,  state->zdir, "z direction");
+    BU_OPT(d[17], "", "nx", "#",        bu_opt_int,     &nx_opt,      "Grid nx");
+    BU_OPT(d[18], "", "ny", "#",        bu_opt_int,     &ny_opt,      "Grid ny");
+    BU_OPT(d[19], "", "nz", "#",        bu_opt_int,     &nz_opt,      "Grid nz");
+    BU_OPT(d[20], "", "dx", "#",        bu_opt_fastf_t, &dx_opt,      "Grid dx");
+    BU_OPT(d[21], "", "dy", "#",        bu_opt_fastf_t, &dy_opt,      "Grid dy");
+    BU_OPT(d[22], "", "dz", "#",        bu_opt_fastf_t, &dz_opt,      "Grid dz");
+    BU_OPT(d[23], "", "lx", "\"...\"",  opt_float_list, &state->lx,  "x list");
+    BU_OPT(d[24], "", "ly", "\"...\"",  opt_float_list, &state->ly,  "y list");
+    BU_OPT(d[25], "", "lz", "\"...\"",  opt_float_list, &state->lz,  "z list");
+    BU_OPT(d[26], "", "xdir", "x y z",  bu_opt_vect_t,  state->xdir, "x direction");
+    BU_OPT(d[27], "", "ydir", "x y z",  bu_opt_vect_t,  state->ydir, "y direction");
+    BU_OPT(d[28], "", "zdir", "x y z",  bu_opt_vect_t,  state->zdir, "z direction");
 
     /* Spherical / cylindrical shared */
-    BU_OPT(d[28], "", "naz",       "#",       bu_opt_int,      &naz_opt,           "Az count");
-    BU_OPT(d[29], "", "nel",       "#",       bu_opt_int,      &nel_opt,           "El count (sph)");
-    BU_OPT(d[30], "", "nr",        "#",       bu_opt_int,      &nr_opt,            "Radius count");
-    BU_OPT(d[31], "", "nh",        "#",       bu_opt_int,      &nh_opt,            "Height count (cyl)");
-    BU_OPT(d[32], "", "daz",       "#",       bu_opt_fastf_t,  &daz_opt,           "Az delta (deg)");
-    BU_OPT(d[33], "", "del",       "#",       bu_opt_fastf_t,  &del_opt,           "El delta (deg, sph)");
-    BU_OPT(d[34], "", "dr",        "#",       bu_opt_fastf_t,  &dr_opt,            "Radius delta");
-    BU_OPT(d[35], "", "dh",        "#",       bu_opt_fastf_t,  &dh_opt,            "Height delta (cyl)");
-    BU_OPT(d[36], "", "laz",       "\"...\"", opt_float_list,  &state->laz,        "Azimuth list (deg)");
-    BU_OPT(d[37], "", "lel",       "\"...\"", opt_float_list,  &state->lel,        "Elevation list (deg)");
-    BU_OPT(d[38], "", "lr",        "\"...\"", opt_float_list,  &state->lr,         "Radius list");
-    BU_OPT(d[39], "", "lh",        "\"...\"", opt_float_list,  &state->lh,         "Height list (cyl)");
-    BU_OPT(d[40], "", "start-az",  "#",       bu_opt_fastf_t,  &start_az_opt,      "Start azimuth (deg)");
-    BU_OPT(d[41], "", "start-el",  "#",       bu_opt_fastf_t,  &start_el_opt,      "Start elevation (deg)");
-    BU_OPT(d[42], "", "start-r",   "#",       bu_opt_fastf_t,  &start_r_opt,       "Start radius");
-    BU_OPT(d[43], "", "start-h",   "#",       bu_opt_fastf_t,  &start_h_opt,       "Start height (cyl)");
-    BU_OPT(d[44], "", "rotaz",     "",        NULL,            &rotaz_flag,         "Rotate with az");
-    BU_OPT(d[45], "", "rotel",     "",        NULL,            &rotel_flag,         "Rotate with el");
-    BU_OPT(d[46], "", "rot",       "",        NULL,            &rot_flag,           "Rotate with az (cyl)");
-    BU_OPT(d[47], "", "center-pat",    "x y z", bu_opt_vect_t, state->center_pat,  "Pattern origin (sph)");
-    BU_OPT(d[48], "", "center-obj",    "x y z", bu_opt_vect_t, state->center_obj,  "Object local centre");
-    BU_OPT(d[49], "", "center-base",   "x y z", bu_opt_vect_t, state->center_base, "Cylinder base (cyl)");
-    BU_OPT(d[50], "", "height-dir",    "x y z", bu_opt_vect_t, state->height_dir,  "Cylinder axis (cyl)");
-    BU_OPT(d[51], "", "start-az-dir",  "x y z", bu_opt_vect_t, state->start_az_dir,"Radial start dir");
-    BU_OPT_NULL(d[52]);
+    BU_OPT(d[29], "", "naz",       "#",       bu_opt_int,      &naz_opt,           "Az count");
+    BU_OPT(d[30], "", "nel",       "#",       bu_opt_int,      &nel_opt,           "El count (sph)");
+    BU_OPT(d[31], "", "nr",        "#",       bu_opt_int,      &nr_opt,            "Radius count");
+    BU_OPT(d[32], "", "nh",        "#",       bu_opt_int,      &nh_opt,            "Height count (cyl)");
+    BU_OPT(d[33], "", "daz",       "#",       bu_opt_fastf_t,  &daz_opt,           "Az delta (deg)");
+    BU_OPT(d[34], "", "del",       "#",       bu_opt_fastf_t,  &del_opt,           "El delta (deg, sph)");
+    BU_OPT(d[35], "", "dr",        "#",       bu_opt_fastf_t,  &dr_opt,            "Radius delta");
+    BU_OPT(d[36], "", "dh",        "#",       bu_opt_fastf_t,  &dh_opt,            "Height delta (cyl)");
+    BU_OPT(d[37], "", "laz",       "\"...\"", opt_float_list,  &state->laz,        "Azimuth list (deg)");
+    BU_OPT(d[38], "", "lel",       "\"...\"", opt_float_list,  &state->lel,        "Elevation list (deg)");
+    BU_OPT(d[39], "", "lr",        "\"...\"", opt_float_list,  &state->lr,         "Radius list");
+    BU_OPT(d[40], "", "lh",        "\"...\"", opt_float_list,  &state->lh,         "Height list (cyl)");
+    BU_OPT(d[41], "", "start-az",  "#",       bu_opt_fastf_t,  &start_az_opt,      "Start azimuth (deg)");
+    BU_OPT(d[42], "", "start-el",  "#",       bu_opt_fastf_t,  &start_el_opt,      "Start elevation (deg)");
+    BU_OPT(d[43], "", "start-r",   "#",       bu_opt_fastf_t,  &start_r_opt,       "Start radius");
+    BU_OPT(d[44], "", "start-h",   "#",       bu_opt_fastf_t,  &start_h_opt,       "Start height (cyl)");
+    BU_OPT(d[45], "", "rotaz",     "",        NULL,            &rotaz_flag,         "Rotate with az");
+    BU_OPT(d[46], "", "rotel",     "",        NULL,            &rotel_flag,         "Rotate with el");
+    BU_OPT(d[47], "", "rot",       "",        NULL,            &rot_flag,           "Rotate with az (cyl)");
+    BU_OPT(d[48], "", "center-pat",    "x y z", bu_opt_vect_t, state->center_pat,  "Pattern origin (sph)");
+    BU_OPT(d[49], "", "center-obj",    "x y z", bu_opt_vect_t, state->center_obj,  "Object local centre");
+    BU_OPT(d[50], "", "center-base",   "x y z", bu_opt_vect_t, state->center_base, "Cylinder base (cyl)");
+    BU_OPT(d[51], "", "height-dir",    "x y z", bu_opt_vect_t, state->height_dir,  "Cylinder axis (cyl)");
+    BU_OPT(d[52], "", "start-az-dir",  "x y z", bu_opt_vect_t, state->start_az_dir,"Radial start dir");
+    BU_OPT_NULL(d[53]);
 
-    int opt_ret = bu_opt_parse(gedp->ged_result_str, (size_t)argc, argv, d);
+    /* bu_opt_parse rewrites argv[] in-place, which would corrupt the
+     * caller's (cmd_ged_edit_wrapper's) argv — the wrapper uses
+     * argv[argc-1] after we return to decide what to redraw.  Work on a
+     * private copy so the original is left intact. */
+    std::vector<const char *> argv_local(argv, argv + argc);
+    const char **av = argv_local.data();
+
+    int opt_ret = bu_opt_parse(gedp->ged_result_str, (size_t)argc, av, d);
 
     if (print_help) {
 	print_usage(gedp->ged_result_str);
@@ -1491,10 +1590,12 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
 	return BRLCAD_ERROR;
     }
 
-    /* Positional arguments → source objects */
-    for (int j = opt_ret; j < argc; j++) {
+    /* Positional arguments → source objects.
+     * bu_opt_parse returns the count of unrecognised (positional) tokens
+     * and places them at av[0..opt_ret-1]. */
+    for (int j = 0; j < opt_ret; j++) {
 	struct directory *dp;
-	GED_DB_LOOKUP(gedp, dp, argv[j], LOOKUP_NOISY, BRLCAD_ERROR);
+	GED_DB_LOOKUP(gedp, dp, av[j], LOOKUP_NOISY, BRLCAD_ERROR);
 	state->srcs.push_back(dp);
     }
     if (state->srcs.empty()) {
@@ -1506,6 +1607,10 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     /* Transfer scalar options */
     if (n_copies_opt > 0) state->n_copies = (size_t)n_copies_opt;
     if (incr_opt > 0) state->incr = incr_opt;
+    if (subs_opt.set) {
+	state->subs_src = subs_opt.src;
+	state->subs_dst = subs_opt.dst;
+    }
     if (nx_opt > 0) state->nx = nx_opt;
     if (ny_opt > 0) state->ny = ny_opt;
     if (nz_opt > 0) state->nz = nz_opt;
@@ -1612,6 +1717,20 @@ ged_clone_core(struct ged *gedp, int argc, const char *argv[])
 	return ret;
     }
 
+    /* Retrieve the BU_CLBK_DURING progress callback, if registered.
+     * This fires once per top-level clone created so callers can drive
+     * progress bars or other per-step feedback. */
+    {
+	bu_clbk_t clbk = nullptr;
+	void *clbk_u2 = nullptr;
+	if (ged_clbk_get(&clbk, &clbk_u2, gedp, "clone", BU_CLBK_DURING)
+	    == BRLCAD_OK) {
+	    state.clbk    = clbk;
+	    state.clbk_u2 = clbk_u2;
+	}
+	state.clbk_u1 = (void *)gedp;
+    }
+
     if (db_version(gedp->dbip) < 5) {
 	bu_vls_printf(gedp->ged_result_str,
 		     "clone: v4 databases not supported; "
@@ -1670,6 +1789,7 @@ ged_clone_core(struct ged *gedp, int argc, const char *argv[])
 		    if (!n.empty()) {
 			top_names.push_back(n);
 			bu_vls_printf(gedp->ged_result_str, "%s", n.c_str());
+			clone_fire_progress(&state, n);
 		    }
 		}
 		bu_vls_printf(gedp->ged_result_str,
@@ -1679,6 +1799,7 @@ ged_clone_core(struct ged *gedp, int argc, const char *argv[])
 		if (copy) {
 		    top_names.push_back(copy->d_namep);
 		    bu_vls_printf(gedp->ged_result_str, "%s", copy->d_namep);
+		    clone_fire_progress(&state, copy->d_namep);
 		}
 		bu_vls_printf(gedp->ged_result_str,
 			     " {%s}", bu_vls_cstr(&state.olist));

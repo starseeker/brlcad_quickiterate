@@ -1473,6 +1473,11 @@ body pattern_control::apply_rect {} {
     $itk_component(fb_progress) reset
     $itk_component(fb_progress) configure -steps $total
 
+    # Register a per-clone progress step for MGED's BU_CLBK_DURING mechanism.
+    # In MGED the C callback evaluates this variable once per clone created,
+    # giving true incremental progress.  Other hosts silently ignore it.
+    set ::clone_progress_callback "$itk_component(fb_progress) step"
+
     set cmd [list pattern_rect -$combovar_r]
 
     lappend cmd -g [string trim $group_r]
@@ -1500,6 +1505,7 @@ body pattern_control::apply_rect {} {
     }
 
     eval $cmd
+    unset -nocomplain ::clone_progress_callback
 }
 
 body pattern_control::apply_sph {} {
@@ -1546,6 +1552,9 @@ body pattern_control::apply_sph {} {
 
     $itk_component(fb_progress) configure -steps $total
 
+    # Register per-clone progress for MGED's BU_CLBK_DURING mechanism.
+    set ::clone_progress_callback "$itk_component(fb_progress) step"
+
     lappend cmd -start_az [string trim $startaz_s] -start_el [string trim $startel_s] -start_r [string trim $startr_s]
     lappend cmd -feed_name $itk_component(fb_progress)
     foreach obj $obj_s {
@@ -1553,6 +1562,7 @@ body pattern_control::apply_sph {} {
     }
 
     eval $cmd
+    unset -nocomplain ::clone_progress_callback
 }
 
 body pattern_control::apply_cyl {} {
@@ -1607,6 +1617,9 @@ body pattern_control::apply_cyl {} {
 
     $itk_component(fb_progress) configure -steps $total
 
+    # Register per-clone progress for MGED's BU_CLBK_DURING mechanism.
+    set ::clone_progress_callback "$itk_component(fb_progress) step"
+
     lappend cmd -feed_name $itk_component(fb_progress)
 
     foreach obj $obj_c {
@@ -1614,6 +1627,7 @@ body pattern_control::apply_cyl {} {
     }
 
     eval $cmd
+    unset -nocomplain ::clone_progress_callback
 }
 
 body pattern_control::frame_disable { frame_name } {
