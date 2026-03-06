@@ -6446,9 +6446,23 @@ to_create_vlist_callback_solid(void *UNUSED(ctx), bsg_shape *sp)
 static void
 to_create_vlist_callback(void *ctx, struct display_list *gdlp)
 {
-    bsg_shape *sp;
-    for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	to_create_vlist_callback_solid(ctx, sp);
+    /* Phase 2e: use scene-root children when available (flat iteration).
+     * Get view pointer from the first shape's s_v. */
+    bsg_view *v = NULL;
+    bsg_shape *first_sp = (bsg_shape *)BU_LIST_FIRST(bsg_shape, &gdlp->dl_head_scene_obj);
+    if (first_sp && first_sp != (bsg_shape *)&gdlp->dl_head_scene_obj)
+	v = (bsg_view *)first_sp->s_v;
+    bsg_shape *root = v ? bsg_scene_root_get(v) : NULL;
+
+    if (root && BU_PTBL_LEN(&root->children) > 0) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    to_create_vlist_callback_solid(ctx, (bsg_shape *)BU_PTBL_GET(&root->children, i));
+	}
+    } else {
+	bsg_shape *sp;
+	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
+	    to_create_vlist_callback_solid(ctx, sp);
+	}
     }
 }
 
