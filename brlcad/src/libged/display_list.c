@@ -218,6 +218,48 @@ dl_bounding_sph(struct bu_list *hdlp, vect_t *min, vect_t *max, int pflag)
 
 
 /*
+ * BSG Phase 2e version of dl_bounding_sph: iterates scene-root children
+ * for the given view, avoiding the nested gdlp → dl_head_scene_obj loop.
+ */
+int
+bsg_bounding_sph(bsg_view *v, vect_t *min, vect_t *max, int pflag)
+{
+    vect_t minus, plus;
+    int is_empty = 1;
+
+    VSETALL((*min),  INFINITY);
+    VSETALL((*max), -INFINITY);
+
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	if (!pflag &&
+	    bdata->s_fullpath.fp_names != (struct directory **)0 &&
+	    bdata->s_fullpath.fp_names[0] != (struct directory *)0 &&
+	    bdata->s_fullpath.fp_names[0]->d_addr == RT_DIR_PHONY_ADDR)
+	    continue;
+
+	minus[X] = sp->s_center[X] - sp->s_size;
+	minus[Y] = sp->s_center[Y] - sp->s_size;
+	minus[Z] = sp->s_center[Z] - sp->s_size;
+	VMIN((*min), minus);
+	plus[X] = sp->s_center[X] + sp->s_size;
+	plus[Y] = sp->s_center[Y] + sp->s_size;
+	plus[Z] = sp->s_center[Z] + sp->s_size;
+	VMAX((*max), plus);
+
+	is_empty = 0;
+    }
+
+    return is_empty;
+}
+
+
+/*
  * Erase/remove the display list item from headDisplay if path matches the list item's path.
  *
  */
@@ -269,10 +311,15 @@ dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split)
 
 		    BU_LIST_DEQUEUE(&sp->l);
 		    /* Phase 2e: remove from scene-root children so that
-		     * bsg_view_traverse does not visit freed shapes. */
-		    if (gedp->ged_gvp) {
-			bsg_shape *scene_root = bsg_scene_root_get(gedp->ged_gvp);
-			if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+		     * bsg_view_traverse does not visit freed shapes.
+		     * Use sp->s_v for correctness across multi-view setups. */
+		    {
+			bsg_view *sp_view = (bsg_view *)sp->s_v;
+			if (!sp_view) sp_view = gedp->ged_gvp;
+			if (sp_view) {
+			    bsg_shape *scene_root = bsg_scene_root_get(sp_view);
+			    if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+			}
 		    }
 		    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
 		}
@@ -299,6 +346,14 @@ dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split)
 		    ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
 
 		    BU_LIST_DEQUEUE(&sp->l);
+		    /* Phase 2e: also remove from scene-root children */
+		    {
+			bsg_view *sp_view = (bsg_view *)sp->s_v;
+			if (sp_view) {
+			    bsg_shape *scene_root = bsg_scene_root_get(sp_view);
+			    if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+			}
+		    }
 		    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
 		    need_split = 1;
 		}
@@ -352,6 +407,14 @@ eraseAllSubpathsFromSolidList(struct ged *gedp, struct display_list *gdlp,
 	if (db_full_path_subset(&bdata->s_fullpath, subpath, skip_first)) {
 	    ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
 	    BU_LIST_DEQUEUE(&sp->l);
+	    /* Phase 2e: also remove from scene-root children */
+	    {
+		bsg_view *sp_view = (bsg_view *)sp->s_v;
+		if (sp_view) {
+		    bsg_shape *scene_root = bsg_scene_root_get(sp_view);
+		    if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+		}
+	    }
 	    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
 	}
 	sp = nsp;
@@ -455,6 +518,14 @@ _dl_eraseFirstSubpath(struct ged *gedp,
 	    db_dup_full_path(&dup_path, &bdata->s_fullpath);
 	    bdata->s_fullpath.fp_len = full_len;
 	    BU_LIST_DEQUEUE(&sp->l);
+	    /* Phase 2e: also remove from scene-root children */
+	    {
+		bsg_view *sp_view = (bsg_view *)sp->s_v;
+		if (sp_view) {
+		    bsg_shape *scene_root = bsg_scene_root_get(sp_view);
+		    if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+		}
+	    }
 	    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
 
 	    BU_LIST_DEQUEUE(&gdlp->l);
@@ -561,6 +632,14 @@ _dl_freeDisplayListItem (struct ged *gedp, struct display_list *gdlp)
 	    }
 
 	    BU_LIST_DEQUEUE(&sp->l);
+	    /* Phase 2e: also remove from scene-root children */
+	    {
+		bsg_view *sp_view = (bsg_view *)sp->s_v;
+		if (sp_view) {
+		    bsg_shape *scene_root = bsg_scene_root_get(sp_view);
+		    if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+		}
+	    }
 	    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
 	}
     }
@@ -641,6 +720,22 @@ dl_color_soltab(struct bu_list *hdlp)
 	}
 
 	gdlp = next_gdlp;
+    }
+}
+
+
+/*
+ * BSG Phase 2e version: recolor all shapes in the scene-root children of v.
+ */
+void
+bsg_color_soltab(bsg_view *v)
+{
+    if (!v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	color_soltab(sp);
     }
 }
 
@@ -780,37 +875,70 @@ dl_set_iflag(struct bu_list *hdlp, int iflag)
 }
 
 
+/*
+ * BSG Phase 2e version: set the iflag on all shapes in the scene-root children.
+ */
+void
+bsg_set_iflag(bsg_view *v, int iflag)
+{
+    if (!v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	sp->s_iflag = iflag;
+    }
+}
+
+
 
 unsigned long long
 dl_name_hash(struct ged *gedp)
 {
-    if (!BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay))
+    bsg_shape *root = (gedp->ged_gvp) ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+
+    if (!nshapes && !BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay))
 	return 0;
 
     struct bu_data_hash_state *state = bu_data_hash_create();
     if (!state)
 	return 0;
 
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
-    while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
-	bsg_shape *sp;
-	bsg_shape *nsp;
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
-	while (BU_LIST_NOT_HEAD(sp, &gdlp->dl_head_scene_obj)) {
-	    nsp = BU_LIST_PNEXT(bsg_shape, sp);
-	    if (sp->s_u_data) {
-		struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-		for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
-		    struct directory *dp = bdata->s_fullpath.fp_names[i];
-		    bu_data_hash_update(state, dp->d_namep, strlen(dp->d_namep));
-		}
+    if (root) {
+	/* Phase 2e: use scene-root children */
+	for (size_t i = 0; i < nshapes; i++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	    if (!sp->s_u_data) continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    for (size_t j = 0; j < bdata->s_fullpath.fp_len; j++) {
+		struct directory *dp = bdata->s_fullpath.fp_names[j];
+		bu_data_hash_update(state, dp->d_namep, strlen(dp->d_namep));
 	    }
-	    sp = nsp;
 	}
-	gdlp = next_gdlp;
+    } else {
+	/* Legacy fallback while dl_head_scene_obj is still present */
+	struct display_list *gdlp;
+	struct display_list *next_gdlp;
+	gdlp = BU_LIST_NEXT(display_list, gedp->i->ged_gdp->gd_headDisplay);
+	while (BU_LIST_NOT_HEAD(gdlp, gedp->i->ged_gdp->gd_headDisplay)) {
+	    bsg_shape *sp;
+	    bsg_shape *nsp;
+	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+	    sp = BU_LIST_NEXT(bsg_shape, &gdlp->dl_head_scene_obj);
+	    while (BU_LIST_NOT_HEAD(sp, &gdlp->dl_head_scene_obj)) {
+		nsp = BU_LIST_PNEXT(bsg_shape, sp);
+		if (sp->s_u_data) {
+		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+		    for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
+			struct directory *dp = bdata->s_fullpath.fp_names[i];
+			bu_data_hash_update(state, dp->d_namep, strlen(dp->d_namep));
+		    }
+		}
+		sp = nsp;
+	    }
+	    gdlp = next_gdlp;
+	}
     }
 
     unsigned long long hash_val = bu_data_hash_val(state);

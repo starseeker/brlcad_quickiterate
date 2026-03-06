@@ -71,6 +71,10 @@ GED_EXPORT extern void dl_color_soltab(struct bu_list *hdlp);
 GED_EXPORT extern void dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split);
 GED_EXPORT extern struct display_list *dl_addToDisplay(struct bu_list *hdlp, struct db_i *dbip, const char *name);
 
+/* BSG Phase 2e versions — operate on scene-root children instead of dl_head_scene_obj */
+GED_EXPORT extern void bsg_color_soltab(bsg_view *v);
+GED_EXPORT extern void bsg_set_iflag(bsg_view *v, int iflag);
+
 /* Check ged_bv data associated with a display list */
 GED_EXPORT extern unsigned long long ged_dl_hash(struct display_list *dl);
 
