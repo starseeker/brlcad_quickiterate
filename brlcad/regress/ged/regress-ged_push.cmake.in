@@ -12,7 +12,7 @@ file(REMOVE_RECURSE "${LIBRT_CACHE}")
 file(MAKE_DIRECTORY "${BU_DIR_CACHE}")
 file(MAKE_DIRECTORY "${LIBRT_CACHE}")
 
-set(OUTPUT_FILES "${CBDIR}/ged_push.g" "${CBDIR}/ged_xpush.g" "${CBDIR}/ged_local_xpush.g" "${CBDIR}/ged_dpush.g")
+set(OUTPUT_FILES "${CBDIR}/ged_push.g" "${CBDIR}/ged_xpush.g" "${CBDIR}/ged_local_xpush.g" "${CBDIR}/ged_dpush.g" "${CBDIR}/ged_dxpush.g")
 
 file(WRITE "${LOGFILE}" "Starting push test run\n")
 
@@ -62,6 +62,28 @@ execute_process(
 )
 execute_process(
   COMMAND "${PUSH_EXEC}" -d 3 "${CSDIR}/dpush_tests.g" "${CBDIR}/ged_dpush.g"
+  RESULT_VARIABLE ged_push_result
+  OUTPUT_VARIABLE ged_push_log
+  ERROR_VARIABLE ged_push_log
+  WORKING_DIRECTORY ${CBDIR}
+)
+file(APPEND "${LOGFILE}" "${ged_push_log}")
+set(get_push_log)
+if(ged_push_result)
+  file(READ "${LOGFILE}" LOG)
+  message(FATAL_ERROR "[regress-ged_push] Failure: ${ged_push_result}. See ${LOGFILE} for more info.\n${LOG}")
+endif(ged_push_result)
+
+# Run depth-limited xpush test (-d 3 -f).  This verifies that depth-limited
+# push combined with force correctly creates new copies of both intermediate
+# combs and solids when the same object appears at multiple depths that span
+# the push-depth boundary, requiring different post-push tree content.
+file(APPEND "${LOGFILE}" "Running ${PUSH_EXEC} -d 3 -f ${CSDIR}/dxpush_tests.g ${CBDIR}/ged_dxpush.g\n")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E copy "${CSDIR}/push_tests.g" "${CBDIR}/ged_dxpush.g"
+)
+execute_process(
+  COMMAND "${PUSH_EXEC}" -d 3 -f "${CSDIR}/dxpush_tests.g" "${CBDIR}/ged_dxpush.g"
   RESULT_VARIABLE ged_push_result
   OUTPUT_VARIABLE ged_push_log
   ERROR_VARIABLE ged_push_log

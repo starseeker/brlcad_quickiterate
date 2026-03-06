@@ -109,6 +109,7 @@ public:
     size_t mat_key = std::numeric_limits<size_t>::max(); // Canonical matrix key
     bool mat_is_idn = false;           // Canonical identity flag
     bool apply_key = false;            // Effective apply-to-solid key
+    int depth_key = 0;                 // Depth-context key (used for combs under depth-limited push)
     size_t ind;                        // Used for debugging
     std::string iname = std::string(); // Container to hold instance name, if needed
     const struct bn_tol *tol;          // Tolerance to use for matrix comparisons
@@ -146,6 +147,17 @@ public:
 	if (apply_key && !o.apply_key) return true;
 	if (!apply_key && o.apply_key) return false;
 
+	// When depth-limited push is active, the depth at which a COMB object
+	// appears in the tree determines whether its children fall within or
+	// beyond the push depth boundary, and therefore whether the post-push
+	// comb tree is identical.  Two comb appearances at different depths with
+	// the same accumulated matrix can therefore require different tree
+	// content (e.g. different child names, different matrix settings).
+	// depth_key carries this distinction; it is 0 for solids and for
+	// non-depth-limited pushes, so it has no effect in those cases.
+	if (depth_key < o.depth_key) return true;
+	if (o.depth_key < depth_key) return false;
+
 	return false;
     }
 
@@ -154,6 +166,7 @@ public:
 	if (dp != o.dp) return false;
 	if (mat_key != o.mat_key) return false;
 	if (apply_key != o.apply_key) return false;
+	if (depth_key != o.depth_key) return false;
 	return true;
     }
 };
@@ -473,6 +486,18 @@ push_walk_subtree(
 	    dnew.tol = s->tol;
 	    dnew.push_obj = !(survey);
 
+	    // For depth-limited push, a comb object that appears at two different
+	    // depths with the same accumulated matrix may still require different
+	    // post-push tree content, because the children's apply_to_solid flag
+	    // depends on whether the child's absolute depth is within max_depth.
+	    // We include the depth in the instance key for comb objects so that
+	    // appearances at different depths are treated as distinct instances
+	    // (eligible for separate inames / xpush copies).  This key is 0 for
+	    // solids and for non-depth-limited pushes, so it has no effect there.
+	    if (!survey && (dp->d_flags & RT_DIR_COMB) && s->max_depth > 0) {
+		dnew.depth_key = depth;
+	    }
+
 	    if (!survey) {
 		dnew.mat_key = canon_matrix_add(*curr_mat, s->tol, s->canon_mats, cm, &dnew.mat_is_idn);
 	    } else {
@@ -718,6 +743,11 @@ tree_update_walk_subtree(
 	    ldpi.tol = s->tol;
 	    if (!(dp->d_flags & RT_DIR_COMB) && (!s->max_depth || depth+1 <= s->max_depth) && !s->stop_at_shapes) {
 		ldpi.apply_to_solid = true;
+	    }
+	    // Mirror the depth_key logic from push_walk_subtree so that the
+	    // instance lookup finds the right entry for this depth context.
+	    if ((dp->d_flags & RT_DIR_COMB) && s->max_depth > 0) {
+		ldpi.depth_key = depth;
 	    }
 
 	    found = canon_matrix_find(*curr_mat, s->tol, s->canon_mats, &ldpi.mat_key, cm, &ldpi.mat_is_idn);

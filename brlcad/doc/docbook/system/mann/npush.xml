@@ -231,6 +231,108 @@ sph_011/
   
   </refsection>
 
+  <refsection xml:id="npush_depth_properties"><info><title>Properties of Depth-Limited Push</title></info>
+
+  <para>
+    The <option>-d</option> option has several properties that are worth
+    understanding before use.
+  </para>
+
+  <refsection xml:id="npush_depth_prop_boundary"><info><title>Depth is counted at comb boundaries</title></info>
+  <para>
+    The depth counter advances each time the push crosses into a new comb
+    (combination) object — one level per comb boundary.  It does
+    <emphasis>not</emphasis> advance at internal boolean-operator nodes
+    within a single comb's tree.  For example, a region that contains
+    two solids unioned together is one comb and contributes one level of
+    depth, regardless of how many boolean operators appear inside it.
+  </para>
+  </refsection>
+
+  <refsection xml:id="npush_depth_prop_copies"><info><title>Copies may be required when the same object appears at multiple depths</title></info>
+  <para>
+    When the same comb or solid appears at two different depth levels within
+    the push scope, and those depths fall on different sides of the
+    <emphasis>max_depth</emphasis> boundary, the algorithm must produce
+    different post-push tree content for each depth context.  Without
+    <option>-f</option> this situation is reported as a conflict and the
+    operation fails; with <option>-f</option> the algorithm creates copies
+    as needed to satisfy both contexts.
+  </para>
+  <para>
+    Consider a tree where region <literal>r</literal> appears once at
+    depth 1 (directly under the top-level group) and once at depth 2
+    (via an intermediate grouping comb), and in both cases the accumulated
+    matrix from the root to <literal>r</literal> evaluates to the same
+    value T20:
+  </para>
+  <literallayout>
+top/
+    u [T20] r/R
+            u solid
+    u [T10] grp/
+            u [T10] r/R
+                    u solid
+  </literallayout>
+  <para>
+    With <option>-d 2</option> the solid reached via
+    <literal>top/r</literal> is at depth 2, which is within the limit,
+    so its parameters can be updated directly (apply-to-solid).  The
+    solid reached via <literal>top/grp/r</literal> is at depth 3, which
+    exceeds the limit, so its parameters must remain unchanged and the
+    matrix must be left in the tree above it instead.  Because
+    <literal>r</literal> cannot simultaneously apply and not apply its
+    matrix to the same solid, a copy of <literal>r</literal> is required.
+    With <option>-f</option> the result is:
+  </para>
+  <literallayout>
+top/
+    u r/R
+            u solid (parameters updated with T20 applied)
+    u grp/
+            u r_0/R (copy of r)
+                    u [T20] solid_0 (copy of solid, parameters unchanged)
+  </literallayout>
+  </refsection>
+
+  <refsection xml:id="npush_depth_prop_conservative"><info><title>Copy creation is conservative</title></info>
+  <para>
+    When <option>-d</option> and <option>-f</option> are used together,
+    the algorithm uses the depth at which each comb object appears as
+    part of its instance identity.  This ensures correctness in all
+    cases: a comb appearing at depth D1 and the same comb at depth D2
+    (with the same accumulated matrix) are always treated as potentially
+    distinct instances when a depth limit is active.
+  </para>
+  <para>
+    In practice this is the right behavior whenever the comb's subtree
+    has solids that span the <emphasis>max_depth</emphasis> boundary
+    depending on which depth context is used.  In cases where the same
+    comb appears at multiple depths but all of its solid descendants are
+    well within the depth limit from every context, the algorithm may
+    still create copies even though the post-push trees would be
+    identical.  This is an accepted tradeoff: the conservative strategy
+    is simple and always correct.  Any redundant copies created this way
+    will be geometrically identical to their originals and can be
+    cleaned up manually if desired.
+  </para>
+  </refsection>
+
+  <refsection xml:id="npush_depth_prop_ext"><info><title>External object impact is not guaranteed</title></info>
+  <para>
+    Unlike a full push with <option>-f</option>, a depth-limited push
+    does not guarantee that shared objects referenced from outside the
+    push scope are updated.  The depth limit constrains how far changes
+    propagate.  Objects outside the push scope may therefore continue to
+    reference intermediate combs or solids whose definitions have changed,
+    which may or may not affect their geometry depending on the specific
+    tree structure.  Use <option>-L</option> to explicitly prevent any
+    changes from affecting objects outside the specified tree.
+  </para>
+  </refsection>
+
+  </refsection>
+
   <refsection xml:id="npush_special_depths"><info><title>Pushing relative to Regions and Shapes</title></info>
 
   <para>
@@ -415,7 +517,11 @@ sph_016/
         <term><emphasis remap="B" role="bold">-d max_depth</emphasis></term>
         <listitem>
           <para>
-	    Halt push operations at the hierarchy level specified by <emphasis>max_depth</emphasis>.
+	    Halt push operations at the hierarchy level specified by
+	    <emphasis>max_depth</emphasis>.  See <xref
+	    linkend="npush_depth_properties"/> for a description of
+	    the properties of depth-limited push that are worth
+	    understanding before using this option.
           </para>
         </listitem>
 	</varlistentry>

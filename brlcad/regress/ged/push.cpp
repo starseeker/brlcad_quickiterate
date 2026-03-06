@@ -255,10 +255,12 @@ main(int argc, const char **argv)
 	if (!BU_STR_EQUAL(bu_vls_cstr(gedp->ged_result_str), "0")) {
 	    dstruct = true;
 	}
-	// Whether we expect a differences depends on the options.  There
-	// is only one condition in which we expect ext changes: local
-	// protection disabled and xpush enabled:
-	if (!local_changes_only && xpush) {
+	// Whether we expect differences depends on the options.  External
+	// objects change only when xpush is active without local protection
+	// AND without a depth limit.  A depth limit constrains how far
+	// changes propagate, so external objects are not guaranteed to see
+	// changes even when force (-f) is used.
+	if (!local_changes_only && xpush && !max_depth) {
 	    if (!dvol) {
 		std::cout << "ERROR: expected volume change not found\n";
 		have_diff_vol = true;
