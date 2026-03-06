@@ -537,143 +537,42 @@ proc pattern_rect { args } {
     }
 
     # -----------------------------------------------------------------
-    # top/primitives: delegate to libged clone C++ implementation which
-    # handles naming, matrix composition, and group creation correctly.
+    # Delegate all three depths to libged clone C++ implementation.
     # -----------------------------------------------------------------
-    if { $depth ne "regions" } {
-	set clone_cmd [list --rect --depth $depth]
-	if { $group_name ne "" } { lappend clone_cmd -g $group_name }
-	if { $increment != 0 }   { lappend clone_cmd -i $increment }
-	lappend clone_cmd --xdir $xdir --ydir $ydir --zdir $zdir
-	if { [llength $list_x] > 0 } {
-	    lappend clone_cmd --lx [join $list_x " "]
-	} elseif { $num_x > 0 } {
-	    lappend clone_cmd --nx $num_x --dx $delta_x
-	}
-	if { [llength $list_y] > 0 } {
-	    lappend clone_cmd --ly [join $list_y " "]
-	} elseif { $num_y > 0 } {
-	    lappend clone_cmd --ny $num_y --dy $delta_y
-	}
-	if { [llength $list_z] > 0 } {
-	    lappend clone_cmd --lz [join $list_z " "]
-	} elseif { $num_z > 0 } {
-	    lappend clone_cmd --nz $num_z --dz $delta_z
-	}
-	foreach obj $objs { lappend clone_cmd $obj }
-
-	if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
-	set result [eval _clone_invoke $clone_cmd]
-	if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
-
-	if { $group_name ne "" } {
-	    if { $::cadwidgets::mgedFlag } {
-		draw $group_name
-	    } else {
-		$::cadwidgets::ged draw $group_name
-		$::cadwidgets::ged freezeGUI 0
-	    }
-	}
-	return $result
+    set clone_cmd [list --rect --depth $depth]
+    if { $group_name ne "" } { lappend clone_cmd -g $group_name }
+    if { $increment != 0 }   { lappend clone_cmd -i $increment }
+    lappend clone_cmd --xdir $xdir --ydir $ydir --zdir $zdir
+    if { [llength $list_x] > 0 } {
+	lappend clone_cmd --lx [join $list_x " "]
+    } elseif { $num_x > 0 } {
+	lappend clone_cmd --nx $num_x --dx $delta_x
     }
-
-    # -----------------------------------------------------------------
-    # regions depth: original Tcl copy_obj / apply_mat implementation.
-    # -----------------------------------------------------------------
-    if { $num_x > 1 && $delta_x == 0 } { error "no X delta provided\n$usage" }
-    if { $num_y > 1 && $delta_y == 0 } { error "no Y delta provided\n$usage" }
-    if { $num_z > 1 && $delta_z == 0 } { error "no Z delta provided\n$usage" }
-
-    if {!$::cadwidgets::mgedFlag} { $::cadwidgets::ged freezeGUI 1 }
-
-    if { $num_x } {
-	set list_x {}
-	for { set index 1 } { $index <= $num_x } { incr index } {
-	    lappend list_x [expr $delta_x * $index]
-	}
-    } else {
-	set num_x [llength $list_x]
+    if { [llength $list_y] > 0 } {
+	lappend clone_cmd --ly [join $list_y " "]
+    } elseif { $num_y > 0 } {
+	lappend clone_cmd --ny $num_y --dy $delta_y
     }
-
-    if { $num_y } {
-	set list_y {}
-	for { set index 1 } { $index <= $num_y } { incr index } {
-	    lappend list_y [expr $delta_y * $index]
-	}
-    } else {
-	set num_y [llength $list_y]
+    if { [llength $list_z] > 0 } {
+	lappend clone_cmd --lz [join $list_z " "]
+    } elseif { $num_z > 0 } {
+	lappend clone_cmd --nz $num_z --dz $delta_z
     }
+    foreach obj $objs { lappend clone_cmd $obj }
 
-    if { $num_z } {
-	set list_z {}
-	for { set index 1 } { $index <= $num_z } { incr index } {
-	    lappend list_z [expr $delta_z * $index]
-	}
-    } else {
-	set num_z [llength $list_z]
-    }
+    if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
+    set result [eval _clone_invoke $clone_cmd]
+    if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
 
-    if { $num_x == 0 } { set list_x { 0 } }
-    if { $num_y == 0 } { set list_y { 0 } }
-    if { $num_z == 0 } { set list_z { 0 } }
-
-    set xlen [llength $list_x]
-    set ylen [llength $list_y]
-    set zlen [llength $list_z]
-    $feed_name configure -steps [expr $xlen * $ylen * $zlen]
-
-    set xdir [vunitize $xdir]
-    set ydir [vunitize $ydir]
-    set zdir [vunitize $zdir]
-
-    for { set i 0 } { $i < $num_x } { incr i } {
-	set list_x [lreplace $list_x $i $i [expr [lindex $list_x $i] * $local2base]]
-    }
-    for { set i 0 } { $i < $num_y } { incr i } {
-	set list_y [lreplace $list_y $i $i [expr [lindex $list_y $i] * $local2base]]
-    }
-    for { set i 0 } { $i < $num_z } { incr i } {
-	set list_z [lreplace $list_z $i $i [expr [lindex $list_z $i] * $local2base]]
-    }
-
-    set x_index 0
-    foreach x $list_x {
-	incr x_index
-	set x_vec [vscale $xdir $x]
-	set y_index 0
-	foreach y $list_y {
-	    incr y_index
-	    set y_vec [vscale $ydir $y]
-	    set z_index 0
-	    foreach z $list_z {
-		incr z_index
-		set z_vec [vscale $zdir $z]
-		set mat [mat_deltas_vec [mat_idn] [vadd3 $x_vec $y_vec $z_vec]]
-		foreach obj $objs {
-		    set new_name [eval copy_obj $opt_str -i $increment $obj]
-		    apply_mat -regions $mat $new_name
-		    if { $group_name != "" } { lappend group_list $new_name }
-		    set increment [expr $increment + $inc]
-		}
-		$feed_name step
-		update idletasks
-	    }
+    if { $group_name ne "" } {
+	if { $::cadwidgets::mgedFlag } {
+	    draw $group_name
+	} else {
+	    $::cadwidgets::ged draw $group_name
+	    $::cadwidgets::ged freezeGUI 0
 	}
     }
-
-    if { [llength $group_list] > 0 } {
-	if { [catch "$::cadwidgets::ged g $group_name $group_list" ret] } {
-	    if {!$::cadwidgets::mgedFlag} { $::cadwidgets::ged freezeGUI 0 }
-	    error "Cannot create group $group_name from list \{${group_list}\}!!!\n$ret"
-	}
-    }
-
-    if {$::cadwidgets::mgedFlag} {
-	draw $group_name
-    } else {
-	$::cadwidgets::ged draw $group_name
-	$::cadwidgets::ged freezeGUI 0
-    }
+    return $result
 }
 
 
@@ -691,7 +590,7 @@ proc pattern_sph { args } {
 		object1 \[object2 object3 ...\]"
 
     set objs {}
-    # angles stored in degrees; converted to radians only for the regions Tcl path
+    # angles stored in degrees (passed directly to C++ clone which expects degrees)
     set start_az_deg 0
     set start_el_deg -90.0
     set start_r 0
@@ -856,163 +755,45 @@ proc pattern_sph { args } {
     }
 
     # -----------------------------------------------------------------
-    # top/primitives: delegate to libged clone C++ implementation.
+    # Delegate all three depths to libged clone C++ implementation.
     # -----------------------------------------------------------------
-    if { $depth ne "regions" } {
-	set clone_cmd [list --sph --depth $depth]
-	if { $group_name ne "" } { lappend clone_cmd -g $group_name }
-	if { $increment != 0 }   { lappend clone_cmd -i $increment }
-	lappend clone_cmd --center-pat $center_pat --center-obj $center_obj
-	if { $rot_az } { lappend clone_cmd --rotaz }
-	if { $rot_el } { lappend clone_cmd --rotel }
-	lappend clone_cmd --start-az $start_az_deg --start-el $start_el_deg --start-r $start_r
-	if { [llength $list_az_deg] > 0 } {
-	    lappend clone_cmd --laz [join $list_az_deg " "]
-	} elseif { $num_az > 0 } {
-	    lappend clone_cmd --naz $num_az --daz $delta_az_deg
-	}
-	if { [llength $list_el_deg] > 0 } {
-	    lappend clone_cmd --lel [join $list_el_deg " "]
-	} elseif { $num_el > 0 } {
-	    lappend clone_cmd --nel $num_el --del $delta_el_deg
-	}
-	if { [llength $list_r] > 0 } {
-	    lappend clone_cmd --lr [join $list_r " "]
-	} elseif { $num_r > 0 } {
-	    lappend clone_cmd --nr $num_r --dr $delta_r
-	}
-	foreach obj $objs { lappend clone_cmd $obj }
-
-	if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
-	set result [eval _clone_invoke $clone_cmd]
-	if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
-
-	if { $group_name ne "" } {
-	    if { $::cadwidgets::mgedFlag } {
-		draw $group_name
-	    } else {
-		$::cadwidgets::ged draw $group_name
-		$::cadwidgets::ged freezeGUI 0
-	    }
-	}
-	return $result
+    set clone_cmd [list --sph --depth $depth]
+    if { $group_name ne "" } { lappend clone_cmd -g $group_name }
+    if { $increment != 0 }   { lappend clone_cmd -i $increment }
+    lappend clone_cmd --center-pat $center_pat --center-obj $center_obj
+    if { $rot_az } { lappend clone_cmd --rotaz }
+    if { $rot_el } { lappend clone_cmd --rotel }
+    lappend clone_cmd --start-az $start_az_deg --start-el $start_el_deg --start-r $start_r
+    if { [llength $list_az_deg] > 0 } {
+	lappend clone_cmd --laz [join $list_az_deg " "]
+    } elseif { $num_az > 0 } {
+	lappend clone_cmd --naz $num_az --daz $delta_az_deg
     }
-
-    # -----------------------------------------------------------------
-    # regions depth: original Tcl copy_obj / apply_mat implementation.
-    # Convert degree values to radians for the Tcl math below.
-    # -----------------------------------------------------------------
-    set start_az [expr { $start_az_deg * $DEG2RAD }]
-    set start_el [expr { $start_el_deg * $DEG2RAD }]
-    set delta_az [expr { $delta_az_deg * $DEG2RAD }]
-    set delta_el [expr { $delta_el_deg * $DEG2RAD }]
-    set list_az {}
-    foreach az $list_az_deg { lappend list_az [expr { $az * $DEG2RAD }] }
-    set list_el {}
-    foreach el $list_el_deg { lappend list_el [expr { $el * $DEG2RAD }] }
-
-    if { $num_az > 1 && $delta_az == 0 } { error "No azimuth delta provided!!!\n$usage" }
-    if { $num_el > 1 && $delta_el == 0 } { error "No elevation delta provided!!!\n$usage" }
-    if { $num_r  > 1 && $delta_r  == 0 } { error "No radius delta provided!!!\n$usage" }
-
-    if {!$::cadwidgets::mgedFlag} { $::cadwidgets::ged freezeGUI 1 }
-
-    if { $num_az } {
-	set list_az {}
-	for { set index 0 } { $index < $num_az } { incr index } {
-	    lappend list_az [expr $start_az + $delta_az * $index]
-	}
-    } else {
-	set num_az [llength $list_az]
+    if { [llength $list_el_deg] > 0 } {
+	lappend clone_cmd --lel [join $list_el_deg " "]
+    } elseif { $num_el > 0 } {
+	lappend clone_cmd --nel $num_el --del $delta_el_deg
     }
-    if { $num_el } {
-	set list_el {}
-	for { set index 0 } { $index < $num_el } { incr index } {
-	    lappend list_el [expr $start_el + $delta_el * $index]
-	}
-    } else {
-	set num_el [llength $list_el]
+    if { [llength $list_r] > 0 } {
+	lappend clone_cmd --lr [join $list_r " "]
+    } elseif { $num_r > 0 } {
+	lappend clone_cmd --nr $num_r --dr $delta_r
     }
-    if { $num_r } {
-	set list_r {}
-	for { set index 0 } { $index < $num_r } { incr index } {
-	    lappend list_r [expr $start_r + $delta_r * $index]
-	}
-    } else {
-	set num_r [llength $list_r]
-    }
+    foreach obj $objs { lappend clone_cmd $obj }
 
-    if { $num_az == 0 } { set list_az { 0 } }
-    if { $num_el == 0 } { set list_el { 0 } }
-    if { $num_r  == 0 } { set list_r  { $start_r } }
+    if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
+    set result [eval _clone_invoke $clone_cmd]
+    if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
 
-    set rlen  [llength $list_r]
-    set azlen [llength $list_az]
-    set pole_count 0
-    set ellen [llength $list_el]
-    foreach el $list_el {
-	set abs_el $el
-	if { $abs_el < 0.0 } { set abs_el [expr {-$abs_el}] }
-	if { [expr {$M_PI_2 - $abs_el}] < 0.001 } { incr pole_count }
-    }
-
-    for { set i 0 } { $i < $num_r } { incr i } {
-	set list_r [lreplace $list_r $i $i [expr [lindex $list_r $i] * $local2base]]
-    }
-    set center_pat [vscale $center_pat $local2base]
-    set center_obj [vscale $center_obj $local2base]
-
-    $feed_name configure -steps [expr {$rlen * ($ellen - $pole_count) * $azlen + $pole_count * $rlen}]
-    set r_index 0
-    foreach radius $list_r {
-	incr r_index
-	set el_index 0
-	foreach el $list_el {
-	    incr el_index
-	    set az_index 0
-	    foreach az $list_az {
-		incr az_index
-		set mat1 [mat_deltas_vec [mat_idn] [vreverse $center_obj]]
-		if { $rot_az && $rot_el } {
-		    set mat2 [mat_mul [mat_ae [expr $az * $RAD2DEG] [expr $el * $RAD2DEG]] $mat1]
-		} elseif { $rot_az } {
-		    set mat2 [mat_mul [mat_ae [expr $az * $RAD2DEG] 0] $mat1]
-		} elseif { $rot_el } {
-		    set mat2 [mat_mul [mat_ae 0 [expr $el * $RAD2DEG]] $mat1]
-		} else {
-		    set mat2 $mat1
-		}
-		set r_vec "[expr $radius * cos($az) * cos($el)] [expr $radius * sin($az) * cos($el)] [expr $radius * sin($el)]"
-		set mat1 [mat_deltas_vec [mat_idn] [vadd2 $r_vec $center_pat]]
-		set mat [mat_mul $mat1 $mat2]
-		foreach obj $objs {
-		    set new_name [eval copy_obj $opt_str -i $increment $obj]
-		    apply_mat -regions $mat $new_name
-		    if { $group_name != "" } { lappend group_list $new_name }
-		    set increment [expr $increment + $inc]
-		}
-		$feed_name step
-		update idletasks
-		set abs_el $el
-		if { $abs_el < 0.0 } { set abs_el [expr -$abs_el] }
-		if { [expr {$M_PI_2 - $abs_el}] < 0.001 } break
-	    }
+    if { $group_name ne "" } {
+	if { $::cadwidgets::mgedFlag } {
+	    draw $group_name
+	} else {
+	    $::cadwidgets::ged draw $group_name
+	    $::cadwidgets::ged freezeGUI 0
 	}
     }
-
-    if { [llength $group_list] > 0 } {
-	if { [catch "$::cadwidgets::ged g $group_name $group_list" ret] } {
-	    if {!$::cadwidgets::mgedFlag} { $::cadwidgets::ged freezeGUI 0 }
-	    error "Cannot create group $group_name from list \{${group_list}\}!!!\n$ret"
-	}
-    }
-
-    if {$::cadwidgets::mgedFlag} {
-	draw $group_name
-    } else {
-	$::cadwidgets::ged draw $group_name
-	$::cadwidgets::ged freezeGUI 0
-    }
+    return $result
 }
 
 
@@ -1040,7 +821,7 @@ proc pattern_cyl { args } {
     set rstr ""
     set increment 0
     set inc 1
-    # angles stored in degrees; converted to radians only for the regions Tcl path
+    # angles stored in degrees (passed directly to C++ clone which expects degrees)
     set start_az_deg 0
     set start_az_dir { 1 0 0 }
     set start_r 0
@@ -1204,174 +985,45 @@ proc pattern_cyl { args } {
     }
 
     # -----------------------------------------------------------------
-    # top/primitives: delegate to libged clone C++ implementation.
+    # Delegate all three depths to libged clone C++ implementation.
     # -----------------------------------------------------------------
-    if { $depth ne "regions" } {
-	set clone_cmd [list --cyl --depth $depth]
-	if { $group_name ne "" } { lappend clone_cmd -g $group_name }
-	if { $increment != 0 }   { lappend clone_cmd -i $increment }
-	if { $do_rot }           { lappend clone_cmd --rot }
-	lappend clone_cmd --center-obj $center_obj --center-base $center_base
-	lappend clone_cmd --height-dir $height_dir --start-az-dir $start_az_dir
-	lappend clone_cmd --start-az $start_az_deg --start-r $start_r --start-h $start_h
-	if { [llength $list_az_deg] > 0 } {
-	    lappend clone_cmd --laz [join $list_az_deg " "]
-	} elseif { $num_az > 0 } {
-	    lappend clone_cmd --naz $num_az --daz $delta_az_deg
-	}
-	if { [llength $list_r] > 0 } {
-	    lappend clone_cmd --lr [join $list_r " "]
-	} elseif { $num_r > 0 } {
-	    lappend clone_cmd --nr $num_r --dr $delta_r
-	}
-	if { [llength $list_h] > 0 } {
-	    lappend clone_cmd --lh [join $list_h " "]
-	} elseif { $num_h > 0 } {
-	    lappend clone_cmd --nh $num_h --dh $delta_h
-	}
-	foreach obj $objs { lappend clone_cmd $obj }
-
-	if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
-	set result [eval _clone_invoke $clone_cmd]
-	if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
-
-	if { $group_name ne "" } {
-	    if { $::cadwidgets::mgedFlag } {
-		draw $group_name
-	    } else {
-		$::cadwidgets::ged draw $group_name
-		$::cadwidgets::ged freezeGUI 0
-	    }
-	}
-	return $result
+    set clone_cmd [list --cyl --depth $depth]
+    if { $group_name ne "" } { lappend clone_cmd -g $group_name }
+    if { $increment != 0 }   { lappend clone_cmd -i $increment }
+    if { $do_rot }           { lappend clone_cmd --rot }
+    lappend clone_cmd --center-obj $center_obj --center-base $center_base
+    lappend clone_cmd --height-dir $height_dir --start-az-dir $start_az_dir
+    lappend clone_cmd --start-az $start_az_deg --start-r $start_r --start-h $start_h
+    if { [llength $list_az_deg] > 0 } {
+	lappend clone_cmd --laz [join $list_az_deg " "]
+    } elseif { $num_az > 0 } {
+	lappend clone_cmd --naz $num_az --daz $delta_az_deg
     }
-
-    # -----------------------------------------------------------------
-    # regions depth: original Tcl copy_obj / apply_mat implementation.
-    # Convert degree values to radians for the Tcl math below.
-    # -----------------------------------------------------------------
-    set start_az [expr { $start_az_deg * $DEG2RAD }]
-    set delta_az [expr { $delta_az_deg * $DEG2RAD }]
-    set list_az {}
-    foreach az $list_az_deg { lappend list_az [expr { $az * $DEG2RAD }] }
-
-    if { $num_az > 1 && $delta_az == 0 } { error "No azimuth delta provided!!!\n$usage" }
-    if { $num_r  > 1 && $delta_r  == 0 } { error "No radius delta provided!!!\n$usage" }
-    if { $num_h  > 1 && $delta_h  == 0 } { error "No height delta provided!!!\n$usage" }
-
-    eval set tmp_az [magnitude $start_az_dir]
-    if { [expr abs($tmp_az)] < 0.001 } {
-	error "azimuth direction vector is too small!!!\n$usage"
-    } else {
-	set start_az_dir [vscale $start_az_dir [expr 1.0 / $tmp_az]]
+    if { [llength $list_r] > 0 } {
+	lappend clone_cmd --lr [join $list_r " "]
+    } elseif { $num_r > 0 } {
+	lappend clone_cmd --nr $num_r --dr $delta_r
     }
-
-    eval set tmp_ht [magnitude $height_dir]
-    if { [expr abs($tmp_ht)] < 0.001 } {
-	error "height direction vector is too small!!!\n$usage"
-    } else {
-	set height_dir [vscale $height_dir [expr 1.0 / $tmp_ht]]
+    if { [llength $list_h] > 0 } {
+	lappend clone_cmd --lh [join $list_h " "]
+    } elseif { $num_h > 0 } {
+	lappend clone_cmd --nh $num_h --dh $delta_h
     }
+    foreach obj $objs { lappend clone_cmd $obj }
 
-    if { [expr abs([vdot $start_az_dir $height_dir])] > 0.001 } {
-	error "azimuth and height direction must be perpendicular!!!\n$usage"
-    } else {
-	set az_dir2 [vcross $height_dir $start_az_dir]
-    }
+    if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
+    set result [eval _clone_invoke $clone_cmd]
+    if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
 
-    if {!$::cadwidgets::mgedFlag} { $::cadwidgets::ged freezeGUI 1 }
-
-    if { $num_az } {
-	set list_az {}
-	for { set index 0 } {$index < $num_az} { incr index } {
-	    lappend list_az [expr $start_az + $delta_az * $index]
-	}
-    } else {
-	set num_az [llength $list_az]
-    }
-
-    if { $num_r } {
-	set list_r {}
-	for { set index 0 } {$index < $num_r} { incr index } {
-	    lappend list_r [expr $start_r + $delta_r * $index]
-	}
-    } else {
-	set num_r [llength $list_r]
-    }
-
-    if { $num_h } {
-	set list_h {}
-	for { set index 0 } {$index < $num_h} { incr index } {
-	    lappend list_h [expr $start_h + $delta_h * $index]
-	}
-    } else {
-	set num_h [llength $list_h]
-    }
-
-    if { $num_az == 0 } { set list_az { 0 } }
-    if { $num_h  == 0 } { set list_h  { 0 } }
-    if { $num_r  == 0 } { set list_r  { 0 } }
-
-    set rlen  [llength $list_r]
-    set hlen  [llength $list_h]
-    set azlen [llength $list_az]
-    $feed_name configure -steps [expr $rlen * $hlen * $azlen]
-
-    for { set i 0 } { $i < $num_h } { incr i } {
-	set list_h [lreplace $list_h $i $i [expr [lindex $list_h $i] * $local2base]]
-    }
-    for { set i 0 } { $i < $num_r } { incr i } {
-	set list_r [lreplace $list_r $i $i [expr [lindex $list_r $i] * $local2base]]
-    }
-    set center_obj  [vscale $center_obj  $local2base]
-    set center_base [vscale $center_base $local2base]
-
-    set r_index 0
-    foreach radius $list_r {
-	incr r_index
-	set h_index 0
-	foreach height $list_h {
-	    incr h_index
-	    set az_index 0
-	    foreach az $list_az {
-		incr az_index
-		set mat1 [mat_deltas_vec [mat_idn] [vreverse $center_obj]]
-		if { $do_rot } {
-		    set mat2 [mat_mul [mat_arb_rot [vreverse $center_obj] $height_dir $az] $mat1]
-		} else {
-		    set mat2 $mat1
-		}
-		set r_vec_x [expr $radius * cos($az)]
-		set r_vec_y [expr $radius * sin($az)]
-		set r_vec [vblend $r_vec_x $start_az_dir $r_vec_y $az_dir2]
-		set r_vec [vjoin1 $r_vec $height $height_dir]
-		set mat1 [mat_deltas_vec [mat_idn] [vadd2 $r_vec $center_base]]
-		set mat [mat_mul $mat1 $mat2]
-		foreach obj $objs {
-		    set new_name [eval copy_obj $opt_str -i $increment $obj]
-		    apply_mat -regions $mat $new_name
-		    if { $group_name != "" } { lappend group_list $new_name }
-		    set increment [expr $increment + $inc]
-		}
-		$feed_name step
-		update idletasks
-	    }
+    if { $group_name ne "" } {
+	if { $::cadwidgets::mgedFlag } {
+	    draw $group_name
+	} else {
+	    $::cadwidgets::ged draw $group_name
+	    $::cadwidgets::ged freezeGUI 0
 	}
     }
-
-    if { [llength $group_list] > 0 } {
-	if { [catch "$::cadwidgets::ged g $group_name $group_list" ret] } {
-	    if {!$::cadwidgets::mgedFlag} { $::cadwidgets::ged freezeGUI 0 }
-	    error "Cannot create group $group_name from list \{${group_list}\}!!!\n$ret"
-	}
-    }
-
-    if {$::cadwidgets::mgedFlag} {
-	draw $group_name
-    } else {
-	$::cadwidgets::ged draw $group_name
-	$::cadwidgets::ged freezeGUI 0
-    }
+    return $result
 }
 
 

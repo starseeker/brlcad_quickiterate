@@ -57,7 +57,7 @@
       </listitem>
     </varlistentry>
     <varlistentry>
-      <term><option>--depth top|primitives</option></term>
+      <term><option>--depth top|regions|primitives</option></term>
       <listitem>
         <para>
           Controls how deeply the copy hierarchy is constructed.
@@ -67,6 +67,19 @@
           lightweight wrapper combination whose single member is the
           original object with the placement matrix embedded.  No deep
           copy is performed; the source geometry is shared.
+        </para>
+        <para>
+          <option>regions</option> — copies every combination from the
+          top of the tree down to and including the first region
+          encountered on each path.  Primitives below the region boundary
+          are <emphasis>not</emphasis> copied — they are shared between
+          the original and the clone.  New region idents are assigned
+          automatically so that each copy is distinguishable during
+          raytracing.  The placement matrix is distributed into the leaf
+          arcs inside each region (rather than stored at the top-level
+          arc).  This is the C++ equivalent of the Tcl
+          <command>copy_obj</command> +
+          <command>apply_mat -regions</command> workflow.
         </para>
         <para>
           <option>primitives</option> — performs a full recursive copy of
@@ -178,8 +191,9 @@
   <para>
     Place copies at every point of a 3-D grid aligned with three
     user-supplied direction vectors.  This replaces the
-    <function>pattern_rect</function> Tcl procedure for
-    <option>top</option> and <option>primitives</option> depth modes.
+    <function>pattern_rect</function> Tcl procedure for all three
+    depth modes (<option>top</option>, <option>regions</option>, and
+    <option>primitives</option>).
   </para>
 
   <variablelist remap="TP">
@@ -220,8 +234,9 @@
   <para>
     Place copies at spherical-coordinate grid positions
     (azimuth × elevation × radius).  This replaces the
-    <function>pattern_sph</function> Tcl procedure for
-    <option>top</option> and <option>primitives</option> depth modes.
+    <function>pattern_sph</function> Tcl procedure for all three
+    depth modes (<option>top</option>, <option>regions</option>, and
+    <option>primitives</option>).
   </para>
 
   <variablelist remap="TP">
@@ -306,8 +321,8 @@
   <para>
     Place copies at positions on a cylinder defined by azimuth, radius,
     and height.  This replaces the <function>pattern_cyl</function> Tcl
-    procedure for <option>top</option> and <option>primitives</option>
-    depth modes.
+    procedure for all three depth modes (<option>top</option>,
+    <option>regions</option>, and <option>primitives</option>).
   </para>
 
   <variablelist remap="TP">
@@ -444,10 +459,12 @@
   <para>
     In all three pattern modes, each position in the grid yields one
     clone of every source object listed on the command line.  The
-    <option>--depth</option> option controls whether copies share
-    geometry via a wrapper combination (<option>top</option>) or receive
-    a fully independent copy of all primitives
-    (<option>primitives</option>).
+    <option>--depth</option> option controls the copy strategy:
+    <option>top</option> shares geometry via a wrapper combination,
+    <option>regions</option> copies the combination hierarchy down to
+    regions (sharing primitives) and distributes the placement matrix
+    into region leaf arcs, and <option>primitives</option> produces a
+    fully independent deep copy with the matrix baked into primitives.
   </para>
   <para>
     The database must be in v5 format.  Use <command>dbupgrade</command>

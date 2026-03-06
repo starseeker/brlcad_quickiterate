@@ -34,8 +34,10 @@
  *      --rect  rectangular grid    (replaces pattern_rect Tcl proc)
  *      --sph   spherical pattern   (replaces pattern_sph  Tcl proc)
  *      --cyl   cylindrical pattern (replaces pattern_cyl  Tcl proc)
- *  - Two depth modes (--depth top|primitives):
+ *  - Three depth modes (--depth top|regions|primitives):
  *      top        create wrapper comb {obj [matrix]}  (default for patterns)
+ *      regions    copy combs down to regions; share primitives; apply matrix
+ *                 at region leaf arcs (equiv. Tcl copy_obj + apply_mat -regions)
  *      primitives full deep copy, matrix baked into each solid (linear default)
  *  - --xpush flag: flatten instance matrices before cloning, replacing the
  *    xclone.tcl workaround.
@@ -77,7 +79,12 @@ typedef std::map<std::string, std::vector<std::string>> NameMap;
 
 /* NOTE: avoid using SPH — it is #defined as 11 in rt/db4.h */
 enum class PatternMode { LINEAR, RECT, SPHERICAL, CYL };
-enum class DepthMode   { TOP, PRIMITIVES };
+enum class DepthMode   {
+    TOP,        /**< lightweight wrapper comb {obj [mat]} — geometry shared  */
+    REGIONS,    /**< copy combs down to regions; share primitives; mat at    */
+                /**< region leaf arcs (equiv. to Tcl copy_obj + apply_mat)  */
+    PRIMITIVES  /**< full deep copy; mat baked into each primitive           */
+};
 
 
 /** All state for one clone invocation. */
@@ -528,8 +535,301 @@ create_group(CloneState *state, const std::vector<std::string>& members)
 
 
 /* -----------------------------------------------------------------------
- * Per-position helper: apply one pattern position to one source object.
+ * "Regions" depth mode
+ *
+ * Equivalent to the Tcl copy_obj + apply_mat -regions workflow:
+ *   1. Copy the combination hierarchy down to (and including) regions.
+ *      Primitives are NOT copied — they are shared.
+ *   2. Assign each new region a fresh ident from wdb_item_default.
+ *   3. Apply the placement matrix at the leaf arcs INSIDE each region
+ *      (matrix is propagated down through non-region combinations and
+ *      accumulated before being written into region leaf arcs).
  * ----------------------------------------------------------------------- */
+
+/** Forward declaration (mutual recursion). */
+static void apply_mat_at_regions(struct db_i *dbip,
+				  struct directory *dp, const mat_t mat);
+
+
+/**
+ * Apply @a mat to every leaf arc in @a tree.
+ * Equivalent to Tcl's apply_mat_comb.
+ */
+static void
+mat_into_comb_leaves(union tree *tree, const mat_t mat)
+{
+    if (!tree) return;
+    switch (tree->tr_op) {
+	case OP_DB_LEAF: {
+	    mat_t new_mat;
+	    if (tree->tr_l.tl_mat) {
+		bn_mat_mul(new_mat, mat, tree->tr_l.tl_mat);
+		MAT_COPY(tree->tr_l.tl_mat, new_mat);
+	    } else if (!bn_mat_is_identity(mat)) {
+		tree->tr_l.tl_mat = (matp_t)bu_malloc(sizeof(mat_t),
+						       "region leaf mat");
+		MAT_COPY(tree->tr_l.tl_mat, mat);
+	    }
+	    return;
+	}
+	case OP_UNION: case OP_INTERSECT: case OP_SUBTRACT: case OP_XOR:
+	    mat_into_comb_leaves(tree->tr_b.tb_right, mat);
+	    /* fall through */
+	case OP_NOT: case OP_GUARD: case OP_XNOP:
+	    mat_into_comb_leaves(tree->tr_b.tb_left, mat);
+	    return;
+	default: return;
+    }
+}
+
+
+/**
+ * Walk a Boolean tree and propagate @a mat down into each reachable region.
+ * For each leaf arc that references a combination: accumulate the arc matrix
+ * into @a mat, call apply_mat_at_regions recursively, then CLEAR the arc
+ * matrix on this leaf (so the parent combination stores no matrix here).
+ * Primitive leaves are silently ignored — they should not appear above regions.
+ *
+ * Equivalent to Tcl's apply_mat_to_regions.
+ */
+static void
+apply_mat_to_regions_tree(struct db_i *dbip, union tree *tree, const mat_t mat)
+{
+    if (!tree) return;
+    switch (tree->tr_op) {
+	case OP_DB_LEAF: {
+	    const char *name = tree->tr_l.tl_name;
+	    struct directory *dp = db_lookup(dbip, name, LOOKUP_QUIET);
+	    if (!dp || !(dp->d_flags & RT_DIR_COMB)) return; /* skip primitives */
+
+	    /* Accumulate the arc matrix into the incoming mat */
+	    mat_t accum;
+	    if (tree->tr_l.tl_mat)
+		bn_mat_mul(accum, mat, tree->tr_l.tl_mat);
+	    else
+		MAT_COPY(accum, mat);
+
+	    /* Propagate down through the referenced combination */
+	    apply_mat_at_regions(dbip, dp, accum);
+
+	    /* Absorb the arc matrix — it has been pushed into lower levels */
+	    if (tree->tr_l.tl_mat) {
+		bu_free(tree->tr_l.tl_mat, "absorbed arc mat");
+		tree->tr_l.tl_mat = nullptr;
+	    }
+	    return;
+	}
+	case OP_UNION: case OP_INTERSECT: case OP_SUBTRACT: case OP_XOR:
+	    apply_mat_to_regions_tree(dbip, tree->tr_b.tb_right, mat);
+	    /* fall through */
+	case OP_NOT: case OP_GUARD: case OP_XNOP:
+	    apply_mat_to_regions_tree(dbip, tree->tr_b.tb_left, mat);
+	    return;
+	default: return;
+    }
+}
+
+
+/**
+ * Entry point for matrix propagation.
+ *
+ * If @a dp is a region, apply @a mat directly to its leaf arcs.
+ * If @a dp is a non-region combination, propagate through its sub-tree.
+ * In both cases the modified combination is written back to the database.
+ */
+static void
+apply_mat_at_regions(struct db_i *dbip, struct directory *dp, const mat_t mat)
+{
+    if (!dp || !(dp->d_flags & RT_DIR_COMB)) return;
+
+    struct rt_db_internal intern;
+    if (rt_db_get_internal(&intern, dp, dbip, bn_mat_identity,
+			   &rt_uniresource) < 0) return;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)intern.idb_ptr;
+    RT_CK_COMB(comb);
+
+    if (comb->region_flag) {
+	/* Region: apply mat to all leaf arcs */
+	mat_into_comb_leaves(comb->tree, mat);
+    } else {
+	/* Non-region combination: propagate through sub-tree */
+	if (comb->tree)
+	    apply_mat_to_regions_tree(dbip, comb->tree, mat);
+    }
+
+    rt_db_put_internal(dp, dbip, &intern, &rt_uniresource);
+    rt_db_free_internal(&intern);
+}
+
+
+/* Forward declaration (mutual recursion in copy_regions_node). */
+static std::string copy_regions_node(struct db_i *dbip,
+				     const std::string &obj_name,
+				     CloneState *state);
+
+
+/**
+ * Walk a Boolean tree and for each DB_LEAF that references a combination,
+ * call copy_regions_node to recursively copy the sub-hierarchy, then update
+ * the leaf name to the new (copied) name.  Primitive leaves are left
+ * unchanged (they are shared).
+ */
+static void
+copy_regions_and_update_tree(struct db_i *dbip, union tree *tree,
+			     CloneState *state)
+{
+    if (!tree) return;
+    switch (tree->tr_op) {
+	case OP_DB_LEAF: {
+	    std::string name(tree->tr_l.tl_name);
+	    std::string new_name = copy_regions_node(dbip, name, state);
+	    if (new_name != name) {
+		char *old = tree->tr_l.tl_name;
+		tree->tr_l.tl_name = bu_strdup(new_name.c_str());
+		bu_free(old, "old regions leaf name");
+	    }
+	    return;
+	}
+	case OP_UNION: case OP_INTERSECT: case OP_SUBTRACT: case OP_XOR:
+	    copy_regions_and_update_tree(dbip, tree->tr_b.tb_right, state);
+	    /* fall through */
+	case OP_NOT: case OP_GUARD: case OP_XNOP:
+	    copy_regions_and_update_tree(dbip, tree->tr_b.tb_left, state);
+	    return;
+	default: return;
+    }
+}
+
+
+/**
+ * Recursively copy @a obj_name down to (and including) regions.
+ * Primitives are not copied — an identity mapping is recorded so that
+ * the parent combination tree continues to reference the original.
+ *
+ * Returns the new name on success, or the original name on failure.
+ * Results are memoized in state->names to handle shared sub-trees and
+ * to prevent infinite recursion on pathological (circular) inputs.
+ */
+static std::string
+copy_regions_node(struct db_i *dbip, const std::string &obj_name,
+		  CloneState *state)
+{
+    /* Already processed? */
+    auto it = state->names.find(obj_name);
+    if (it != state->names.end())
+	return it->second.empty() ? obj_name : it->second[0];
+
+    struct directory *dp = db_lookup(dbip, obj_name.c_str(), LOOKUP_QUIET);
+    if (!dp) {
+	/* Unknown object — keep as is */
+	state->names[obj_name] = { obj_name };
+	return obj_name;
+    }
+
+    /* Primitive: share the original, record identity mapping */
+    if (!(dp->d_flags & RT_DIR_COMB)) {
+	state->names[obj_name] = { obj_name };
+	return obj_name;
+    }
+
+    /* Read the combination record */
+    struct rt_db_internal intern;
+    if (rt_db_get_internal(&intern, dp, dbip, bn_mat_identity,
+			   &rt_uniresource) < 0) {
+	state->names[obj_name] = { obj_name };
+	return obj_name;
+    }
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)intern.idb_ptr;
+    RT_CK_COMB(comb);
+
+    /* Reserve a placeholder to break potential circular references */
+    state->names[obj_name] = {};
+
+    bool is_region = (comb->region_flag != 0);
+
+    if (!is_region) {
+	/* Non-region combination: recurse into leaves, then create copy */
+	if (comb->tree)
+	    copy_regions_and_update_tree(dbip, comb->tree, state);
+
+	std::string new_name = clone_next_name(dbip, obj_name, 1,
+					       (int)state->updpos);
+	state->names[obj_name] = { new_name };
+
+	int minor = dp->d_minor_type;
+	struct directory *new_dp = db_diradd(dbip, new_name.c_str(),
+					     RT_DIR_PHONY_ADDR, 0,
+					     dp->d_flags, (void *)&minor);
+	if (new_dp && rt_db_put_internal(new_dp, dbip, &intern,
+					 &rt_uniresource) == 0) {
+	    bu_vls_printf(&state->olist, "%s ", new_name.c_str());
+	    rt_db_free_internal(&intern);
+	    return new_name;
+	}
+	rt_db_free_internal(&intern);
+	state->names[obj_name] = { obj_name };
+	return obj_name;
+    }
+
+    /* Region: copy record and assign a fresh ident */
+    struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
+    if (wdbp)
+	comb->region_id = wdbp->wdb_item_default++;
+
+    std::string new_name = clone_next_name(dbip, obj_name, state->incr,
+					   (int)state->updpos);
+    state->names[obj_name] = { new_name };
+
+    int minor = dp->d_minor_type;
+    struct directory *new_dp = db_diradd(dbip, new_name.c_str(),
+					 RT_DIR_PHONY_ADDR, 0,
+					 dp->d_flags, (void *)&minor);
+    if (new_dp && rt_db_put_internal(new_dp, dbip, &intern,
+				     &rt_uniresource) == 0) {
+	bu_vls_printf(&state->olist, "%s ", new_name.c_str());
+	rt_db_free_internal(&intern);
+	return new_name;
+    }
+    rt_db_free_internal(&intern);
+    state->names[obj_name] = { obj_name };
+    return obj_name;
+}
+
+
+/**
+ * "Regions" depth mode: copy @a src down to regions (sharing primitives),
+ * then apply @a mat at the region leaf arcs.
+ *
+ * Returns the new top-level name, or "" on failure.
+ */
+static std::string
+apply_one_position_regions(CloneState *state, struct directory *src,
+			   const mat_t mat)
+{
+    if (!(src->d_flags & RT_DIR_COMB)) {
+	bu_vls_printf(state->gedp->ged_result_str,
+		     "clone --depth regions: \"%s\" is a primitive; "
+		     "--depth regions requires a combination as source\n",
+		     src->d_namep);
+	return {};
+    }
+
+    struct db_i *dbip = state->gedp->dbip;
+    state->names.clear();
+
+    std::string new_name = copy_regions_node(dbip, src->d_namep, state);
+    if (new_name.empty() || new_name == src->d_namep)
+	return {};
+
+    struct directory *new_dp = db_lookup(dbip, new_name.c_str(), LOOKUP_QUIET);
+    if (!new_dp) return {};
+
+    /* Apply placement matrix at region leaf arcs */
+    if (!bn_mat_is_identity(mat))
+	apply_mat_at_regions(dbip, new_dp, mat);
+
+    return new_name;
+}
 
 static std::string
 apply_one_position(CloneState *state, struct directory *src,
@@ -546,6 +846,9 @@ apply_one_position(CloneState *state, struct directory *src,
 						   dest.c_str(), mat);
 	return dp ? dest : std::string();
     }
+
+    if (state->depth == DepthMode::REGIONS)
+	return apply_one_position_regions(state, src, mat);
 
     /* PRIMITIVES: deep copy with the raw 4x4 matrix baked into each solid */
     CloneState tmp;
@@ -961,7 +1264,8 @@ opt_mirror(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
 
 
 /**
- * Parse depth choice "top"|"primitives" into int* (1=top, 0=primitives).
+ * Parse depth choice "top"|"regions"|"primitives" into int*:
+ *   2 = top, 1 = regions, 0 = primitives.
  * Returns 1 on success.
  */
 static int
@@ -970,13 +1274,16 @@ opt_depth(struct bu_vls *msg, size_t argc, const char **argv, void *sv)
     int *d = (int *)sv;
     BU_OPT_CHECK_ARGV0(msg, argc, argv, "depth");
     if (BU_STR_EQUAL(argv[0], "top")) {
+	*d = 2; return 1;
+    }
+    if (BU_STR_EQUAL(argv[0], "regions")) {
 	*d = 1; return 1;
     }
-    if (BU_STR_EQUAL(argv[0], "primitives")) {
+    if (BU_STR_EQUAL(argv[0], "primitives") || BU_STR_EQUAL(argv[0], "prim")) {
 	*d = 0; return 1;
     }
     if (msg)
-	bu_vls_printf(msg, "opt_depth: must be 'top' or 'primitives', "
+	bu_vls_printf(msg, "opt_depth: must be 'top', 'regions', or 'primitives', "
 		      "got '%s'\n", argv[0]);
     return -1;
 }
@@ -1029,8 +1336,13 @@ print_usage(struct bu_vls *str)
 "  -h, --help\n"
 "  -i, --increment <n>          name number increment (default 100)\n"
 "  -c, --second-number          increment next embedded number (repeat for Nth)\n"
-"  --depth top|primitives        copy depth (default: top for patterns,\n"
+"  --depth top|regions|primitives  copy depth (default: top for patterns,\n"
 "                                primitives for linear mode)\n"
+"                                  top:        wrapper comb {obj [mat]},\n"
+"                                              primitives shared\n"
+"                                  regions:    copy combs/regions, share\n"
+"                                              primitives, mat at leaf arcs\n"
+"                                  primitives: full deep copy, mat baked in\n"
 "  --xpush                      flatten instance matrices before cloning\n"
 "  -g, --group <name>           collect all clones into <name>\n"
 "\n"
@@ -1084,7 +1396,7 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     /* Scalar option targets */
     int print_help    = 0;
     int mode_rect     = 0, mode_sph = 0, mode_cyl = 0;
-    int depth_flag    = -1;   /* -1 = not set; 1=top; 0=primitives */
+    int depth_flag    = -1;   /* -1 = not set; 2=top; 1=regions; 0=primitives */
     int n_copies_opt  = 0;
     int incr_opt      = 0;
     int nx_opt=0, ny_opt=0, nz_opt=0;
@@ -1109,7 +1421,7 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
     BU_OPT(d[0],  "h", "help",         "",         NULL,           &print_help,         "Print help");
     BU_OPT(d[1],  "i", "increment",    "#",        bu_opt_int,     &incr_opt,           "Name increment");
     BU_OPT(d[2],  "c", "second-number","",         bu_opt_incr_long,&state->updpos,     "Increment next number");
-    BU_OPT(d[3],  "",  "depth",        "top|prim", opt_depth,      &depth_flag,         "Copy depth");
+    BU_OPT(d[3],  "",  "depth",        "top|reg|prim", opt_depth,      &depth_flag,         "Copy depth");
     BU_OPT(d[4],  "",  "xpush",        "",         NULL,           &xpush_flag,         "Flatten matrices");
     BU_OPT(d[5],  "g", "group",        "name",     bu_opt_str,     &group_cstr,         "Group clones");
 
@@ -1223,7 +1535,9 @@ clone_parse_args(struct ged *gedp, int argc, const char **argv,
 
     /* Depth mode */
     if (depth_flag >= 0) {
-	state->depth = (depth_flag == 1) ? DepthMode::TOP : DepthMode::PRIMITIVES;
+	if (depth_flag == 2)      state->depth = DepthMode::TOP;
+	else if (depth_flag == 1) state->depth = DepthMode::REGIONS;
+	else                      state->depth = DepthMode::PRIMITIVES;
     } else if (state->pattern != PatternMode::LINEAR) {
 	state->depth = DepthMode::TOP;  /* default for all pattern modes */
     }
@@ -1329,13 +1643,46 @@ ged_clone_core(struct ged *gedp, int argc, const char *argv[])
 
     switch (state.pattern) {
 	case PatternMode::LINEAR: {
-	    struct directory *copy = deep_copy_object(&rt_uniresource, &state);
-	    if (copy) {
-		top_names.push_back(copy->d_namep);
-		bu_vls_printf(gedp->ged_result_str, "%s", copy->d_namep);
+	    if (state.depth == DepthMode::REGIONS) {
+		/* Regions depth in linear mode: copy_regions + apply mat */
+		mat_t mat;
+		MAT_IDN(mat);
+		if (state.miraxis != W) {
+		    mat[state.miraxis * 5] = -1.0;
+		    mat[3 + state.miraxis * 4] = 2.0 * state.mirpos;
+		}
+		if (!ZERO(state.trans[W]))
+		    MAT_DELTAS_ADD_VEC(mat, state.trans);
+		if (!ZERO(state.rot[W])) {
+		    mat_t m2, t;
+		    bn_mat_angles(m2, state.rot[X], state.rot[Y], state.rot[Z]);
+		    if (!ZERO(state.rpnt[W])) {
+			mat_t m3;
+			bn_mat_xform_about_pnt(m3, m2, state.rpnt);
+			bn_mat_mul(t, mat, m3);
+		    } else {
+			bn_mat_mul(t, mat, m2);
+		    }
+		    MAT_COPY(mat, t);
+		}
+		for (auto *src : state.srcs) {
+		    std::string n = apply_one_position_regions(&state, src, mat);
+		    if (!n.empty()) {
+			top_names.push_back(n);
+			bu_vls_printf(gedp->ged_result_str, "%s", n.c_str());
+		    }
+		}
+		bu_vls_printf(gedp->ged_result_str,
+			     " {%s}", bu_vls_cstr(&state.olist));
+	    } else {
+		struct directory *copy = deep_copy_object(&rt_uniresource, &state);
+		if (copy) {
+		    top_names.push_back(copy->d_namep);
+		    bu_vls_printf(gedp->ged_result_str, "%s", copy->d_namep);
+		}
+		bu_vls_printf(gedp->ged_result_str,
+			     " {%s}", bu_vls_cstr(&state.olist));
 	    }
-	    bu_vls_printf(gedp->ged_result_str,
-			 " {%s}", bu_vls_cstr(&state.olist));
 	    break;
 	}
 	case PatternMode::RECT:
