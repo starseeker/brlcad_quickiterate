@@ -75,7 +75,7 @@ ged_get_autoview_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    is_empty = dl_bounding_sph(gedp->i->ged_gdp->gd_headDisplay, &min, &max, pflag);
+    is_empty = bsg_bounding_sph(gedp->ged_gvp, &min, &max, pflag);
 
     if (is_empty) {
 	/* Nothing is in view */
