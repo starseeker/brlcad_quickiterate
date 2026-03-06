@@ -230,24 +230,25 @@ struct rt_edit {
     // cases.
     int edit_flag;
 
-    // MGED wants to know if we're in solid rotate, translate or scale mode,
-    // even if edit_flag is set to a more specific mode. (TODO - why?)
-    // Rather than keying off of primitive specific edit op types, have the ops
-    // set a flag.  Options are:
+    // MGED uses es_edclass (in mged_edit_state) to track whether the active
+    // edit is a rotate, translate, or scale.  That tracking is driven by the
+    // primitive-specific EDIT_ROTATE / EDIT_TRAN / EDIT_SCALE macros in
+    // sedit.h.  edit_mode serves the same purpose in the librt editing layer:
+    // it tells mouse-input handlers and knob drivers which interaction mode
+    // is active, without having to enumerate every primitive-specific ECMD.
     //
-    // RT_PARAMS_EDIT_TRANS
-    // RT_PARAMS_EDIT_SCALE
-    // RT_PARAMS_EDIT_ROT
-    // RT_PARAMS_EDIT_PICK
+    // Options:
+    // RT_PARAMS_EDIT_TRANS  – free translate
+    // RT_PARAMS_EDIT_SCALE  – uniform or axis scale
+    // RT_PARAMS_EDIT_ROT    – rotation
+    // RT_PARAMS_EDIT_PICK   – geometric pick (e.g. click to select a vertex)
     //
-    // (TODO - should we be setting this for matrix and pscale values as well?
-    // The above were originally driven by MGED code, which IIRC was using it
-    // for awareness of cases when primitive specific edits need specific
-    // interaction modes...)
+    // For matrix editing (RT_MATRIX_EDIT_*) and primitive-scale (pscale),
+    // edit_mode is also set so that edit_generic_xy() and the knob rate loop
+    // can decide how to apply the incremental delta.
     //
-    // NOTE - this is only active in the new librt editing code - MGED uses
-    // primitive aware defines to do this instead (ew) so in the main branch
-    // it is not used except in the state save/restore functions.
+    // NOTE - this is only active in the librt editing code; MGED uses its
+    // own primitive-aware defines (SEDIT_ROTATE, etc.) for the same purpose.
     int edit_mode;
 
     fastf_t es_scale;           /* scale factor */

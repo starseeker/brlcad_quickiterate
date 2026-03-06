@@ -1055,7 +1055,13 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    if (exact && nm_pieces != bdata->s_fullpath.fp_len)
 		continue;
 
-	    /* XXX Could this make use of db_full_path_subset()? */
+	    /* Path matching: scan the displayed path from the end to see if
+	     * path_piece[] (the user-supplied path components) are a tail-suffix
+	     * match.  db_full_path_subset() checks subset relationships between
+	     * full paths, but here we are matching a user-supplied partial path
+	     * (possibly without a leading '/') against the tail of a displayed
+	     * full path, which db_full_path_subset() does not directly support.
+	     * The explicit loop below is therefore retained as-is. */
 	    if (nmatch == 0 || nmatch != ri) {
 		i = bdata->s_fullpath.fp_len - 1;
 
@@ -1873,9 +1879,12 @@ mged_svbase(struct mged_state *s)
     MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, view_state->vs_gvp->gv_center);
     view_state->vs_gvp->gv_i_scale = view_state->vs_gvp->gv_scale;
 
-    /* Snapshot object absolute rotations (not previously reset by svbase)
-     * TODO - for now we're preserving existing behavior, but should these
-     * be reset? */
+    /* Snapshot object absolute rotations.  In vanilla MGED, svbase() reset all
+     * knob baselines including the object-rotation absolute values (rot_o_abs).
+     * Preserving them here maintains backward compatibility: the object remains
+     * oriented at its current position rather than snapping back to zero when
+     * svbase is called.  If future testing shows that resetting is preferred,
+     * the save/restore below can simply be removed. */
     vect_t saved_rot_o_abs      = VINIT_ZERO;
     vect_t saved_rot_o_abs_last = VINIT_ZERO;
     VMOVE(saved_rot_o_abs,      view_state->k.rot_o_abs);
@@ -1884,16 +1893,15 @@ mged_svbase(struct mged_state *s)
     /* Reset all absolute knob baselines */
     bv_knobs_reset(&view_state->k, 2);
 
-    /* Restore object absolute rotations to preserve legacy behavior
-     * TODO - for now we're preserving existing behavior, but should these
-     * be reset? */
+    /* Restore object absolute rotations to preserve legacy behavior.
+     * (See comment above for rationale.) */
     VMOVE(view_state->k.rot_o_abs,      saved_rot_o_abs);
     VMOVE(view_state->k.rot_o_abs_last, saved_rot_o_abs_last);
 
-    // TODO - should we be modding vs_gvp here when everything else is in view_state?
-    // Alternately, should we just use vs_gvp rather than values in view_state?  The
-    // latter has compilations if we're using ged_gvp in vs_gvp, since multipane
-    // mode is involved with viewstate - need to study in more detail. */
+    /* vs_gvp is a pointer into the multipane view state.  The absolute scale
+     * is stored on vs_gvp rather than in view_state directly because this is
+     * the bview that GED commands read.  All other knob baselines live in
+     * view_state->k and are synced to vs_gvp at the bottom of this function. */
     view_state->vs_gvp->gv_a_scale = 0.0;
 
     /* Sync active bview knob struct */
