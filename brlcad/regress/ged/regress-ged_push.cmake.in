@@ -12,7 +12,7 @@ file(REMOVE_RECURSE "${LIBRT_CACHE}")
 file(MAKE_DIRECTORY "${BU_DIR_CACHE}")
 file(MAKE_DIRECTORY "${LIBRT_CACHE}")
 
-set(OUTPUT_FILES "${CBDIR}/ged_push.g" "${CBDIR}/ged_xpush.g" "${CBDIR}/ged_local_xpush.g" "${CBDIR}/ged_dpush.g" "${CBDIR}/ged_dxpush.g" "${CBDIR}/ged_rpush.g")
+set(OUTPUT_FILES "${CBDIR}/ged_push.g" "${CBDIR}/ged_xpush.g" "${CBDIR}/ged_local_xpush.g" "${CBDIR}/ged_dpush.g" "${CBDIR}/ged_d2push.g" "${CBDIR}/ged_dxpush.g" "${CBDIR}/ged_rpush.g")
 
 file(WRITE "${LOGFILE}" "Starting push test run\n")
 
@@ -62,6 +62,32 @@ execute_process(
 )
 execute_process(
   COMMAND "${PUSH_EXEC}" -d 3 "${CSDIR}/dpush_tests.g" "${CBDIR}/ged_dpush.g"
+  RESULT_VARIABLE ged_push_result
+  OUTPUT_VARIABLE ged_push_log
+  ERROR_VARIABLE ged_push_log
+  WORKING_DIRECTORY ${CBDIR}
+)
+file(APPEND "${LOGFILE}" "${ged_push_log}")
+set(get_push_log)
+if(ged_push_result)
+  file(READ "${LOGFILE}" LOG)
+  message(FATAL_ERROR "[regress-ged_push] Failure: ${ged_push_result}. See ${LOGFILE} for more info.\n${LOG}")
+endif(ged_push_result)
+
+# Run depth-limited push test (-d 2, no force).  This specifically exercises
+# the comb-at-max-depth case: a comb appearing at exactly max_depth=2 through
+# multiple paths with different accumulated matrices is NOT a conflict.  The
+# comb's internal content is never modified by the push (it is a leaf), so
+# multiple parents can each reference it with different matrices.  The key test
+# object is sph_011, where sph11_g appears at depth 2 via both sph11_f (with
+# T10) and sph11_h (with T20).  Without the noleaf_push_dps guard this would
+# have falsely reported a conflict; with the guard it succeeds.
+file(APPEND "${LOGFILE}" "Running ${PUSH_EXEC} -d 2 ${CSDIR}/d2push_tests.g ${CBDIR}/ged_d2push.g\n")
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E copy "${CSDIR}/push_tests.g" "${CBDIR}/ged_d2push.g"
+)
+execute_process(
+  COMMAND "${PUSH_EXEC}" -d 2 "${CSDIR}/d2push_tests.g" "${CBDIR}/ged_d2push.g"
   RESULT_VARIABLE ged_push_result
   OUTPUT_VARIABLE ged_push_log
   ERROR_VARIABLE ged_push_log
