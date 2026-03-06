@@ -45,10 +45,12 @@ mged_state_create(void)
 {
     struct mged_state *s;
     BU_GET(s, struct mged_state);
-    BU_GET(s->s_edit, struct mged_edit_state);
-    s->s_edit->e = rt_edit_create(NULL, NULL, NULL, NULL);
 
     s->magic = MGED_STATE_MAGIC;
+
+    /* s->s_edit is intentionally left NULL here.  Callers that actually
+     * run an interactive session must allocate and initialize s_edit
+     * separately (as mged.c's main() does). */
 
     BU_GET(s->i, struct mged_state_impl);
     s->i->i = new MGED_Internal;
@@ -63,8 +65,6 @@ mged_state_create(void)
     bu_vls_init(&s->scratchline);
     bu_vls_init(&s->mged_prompt);
     s->dpy_string = NULL;
-
-    s->s_edit = NULL;
 
     // Register default callbacks
     mged_state_clbk_set(s, 0, ECMD_PRINT_STR, BU_CLBK_DURING, mged_print_str, s);
