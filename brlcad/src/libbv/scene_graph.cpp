@@ -232,8 +232,69 @@ bsg_view_mat_aet(bsg_view *v)
 extern "C" void
 bsg_view_autoview(bsg_view *v, fastf_t scale, int all_view_objs)
 {
-    bv_autoview(v, scale, all_view_objs);
-    /* Sync camera node after bv_autoview updated gv_center / gv_scale. */
+    /* Fully-BSG path: compute bounds directly from root->children so we
+     * never need the legacy flat tables.  Fall back to bv_autoview only
+     * when there is no scene root (pre-BSG views). */
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) {
+	bv_autoview(v, scale, all_view_objs);
+    } else {
+	/* Walk root->children, skipping structural nodes, and accumulate
+	 * the bounding sphere of every DB-object-based shape. */
+	double factor = (scale < SQRT_SMALL_FASTF) ? 2.0 : scale;
+	vect_t min, max, sqrt_small;
+	VSETALL(sqrt_small, SQRT_SMALL_FASTF);
+	VSETALL(min,  INFINITY);
+	VSETALL(max, -INFINITY);
+	int is_empty = 1;
+
+	unsigned long long structural =
+	    (unsigned long long)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
+				 BSG_NODE_CAMERA | BSG_NODE_LOD_GROUP);
+
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	    if (s->s_type_flags & structural)
+		continue;
+	    if (!s->have_bbox && !bv_scene_obj_bound(bso_to_bv(s), v))
+		continue;
+	    if (!s->have_bbox)
+		continue;
+	    vect_t minus, plus;
+	    minus[X] = s->s_center[X] - s->s_size;
+	    minus[Y] = s->s_center[Y] - s->s_size;
+	    minus[Z] = s->s_center[Z] - s->s_size;
+	    plus[X]  = s->s_center[X] + s->s_size;
+	    plus[Y]  = s->s_center[Y] + s->s_size;
+	    plus[Z]  = s->s_center[Z] + s->s_size;
+	    VMIN(min, minus);
+	    VMAX(max, plus);
+	    is_empty = 0;
+	}
+
+	if (is_empty) {
+	    /* Nothing drawn — use a sensible default. */
+	    bv_autoview(v, scale, all_view_objs);
+	} else {
+	    vect_t center, radial;
+	    VADD2SCALE(center, max, min, 0.5);
+	    VSUB2(radial, max, center);
+	    VMAX(radial, sqrt_small);
+	    if (VNEAR_ZERO(radial, SQRT_SMALL_FASTF))
+		VSETALL(radial, 1.0);
+
+	    MAT_IDN(v->gv_center);
+	    MAT_DELTAS_VEC_NEG(v->gv_center, center);
+	    v->gv_scale = radial[X];
+	    V_MAX(v->gv_scale, radial[Y]);
+	    V_MAX(v->gv_scale, radial[Z]);
+	    v->gv_size  = factor * v->gv_scale;
+	    v->gv_isize = 1.0 / v->gv_size;
+	    bsg_view_update(v);
+	}
+    }
+
+    /* Sync camera node after view matrices were updated. */
     bsg_shape *cam_node = bsg_scene_root_camera(v);
     if (cam_node) {
 	struct bsg_camera cur;
@@ -315,88 +376,78 @@ bsg_material_sync(bsg_material *dst, const bsg_material *src)
 extern "C" size_t
 bsg_view_clear(bsg_view *v, int flags)
 {
-    /* Before freeing objects via bv_clear(), collect all shapes from
-     * root->children that match the requested type so we can remove them
-     * from root->children afterwards.  bv_clear() calls bv_obj_put()
-     * directly (bypassing bsg_shape_put) so without this step the freed
-     * pointers would remain as dangling entries in root->children. */
+    /* With the fully-separated BSG stack, shapes are in root->children ONLY
+     * (otbl=NULL, not in flat tables).  We collect and free them directly via
+     * bsg_shape_put rather than via bv_clear. */
     bsg_shape *root = bsg_scene_root_get(v);
-    if (root) {
-	unsigned long long structural =
-	    (unsigned long long)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
-				 BSG_NODE_CAMERA    | BSG_NODE_LOD_GROUP);
-	/* Snapshot the shapes that will be removed. */
-	std::vector<bsg_shape *> to_remove;
-	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
-	    if (s->s_type_flags & structural)
-		continue;
+    if (!root)
+	return bv_clear(v, flags);
 
-	    /* Determine if this shape matches the type requested. */
-	    bool type_match = false;
-	    if (!flags) {
+    unsigned long long structural =
+	(unsigned long long)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
+			     BSG_NODE_CAMERA    | BSG_NODE_LOD_GROUP);
+
+    /* Snapshot shapes matching the requested type. */
+    std::vector<bsg_shape *> to_free;
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	if (s->s_type_flags & structural)
+	    continue;
+
+	bool type_match = false;
+	if (!flags) {
+	    type_match = true;
+	} else {
+	    if ((flags & BSG_DB_OBJS)   && (s->s_type_flags & BSG_DB_OBJS))
 		type_match = true;
-	    } else {
-		if ((flags & BSG_DB_OBJS)   && (s->s_type_flags & BSG_DB_OBJS))
-		    type_match = true;
-		if ((flags & BSG_VIEW_OBJS) && (s->s_type_flags & BSG_VIEW_OBJS))
-		    type_match = true;
-	    }
-	    if (!type_match)
-		continue;
+	    if ((flags & BSG_VIEW_OBJS) && (s->s_type_flags & BSG_VIEW_OBJS))
+		type_match = true;
+	}
+	if (!type_match)
+	    continue;
 
-	    /* Filter by LOCAL/shared: only remove shapes that bv_clear()
-	     * will actually free from the BV side.  A shape is "local" when
-	     * it is owned by this view's local object pool (s->s_v is v and
-	     * the view is independent, or BSG_LOCAL_OBJS flag was set on the
-	     * shape at allocation time).  bv_clear respects the same logic:
-	     * with BSG_LOCAL_OBJS it only frees local objects. */
-	    bool is_local = (s->s_type_flags & BSG_LOCAL_OBJS) ||
-			    (s->s_v && s->s_v->independent);
-	    if (flags & BSG_LOCAL_OBJS) {
-		/* Only include local shapes when LOCAL flag requested. */
-		if (!is_local)
-		    continue;
-	    } else {
-		/* Only include shared shapes when LOCAL flag NOT requested. */
-		if (is_local)
-		    continue;
-	    }
-
-	    to_remove.push_back(s);
+	bool is_local = (s->s_type_flags & BSG_LOCAL_OBJS) ||
+			(s->s_v && s->s_v->independent);
+	if (flags & BSG_LOCAL_OBJS) {
+	    if (!is_local) continue;
+	} else {
+	    if (is_local) continue;
 	}
 
-	size_t result = bv_clear(v, flags);
-
-	/* Now remove the snapshotted shapes from root->children (pointer-only;
-	 * the underlying objects are already freed by bv_clear). */
-	if (!to_remove.empty()) {
-	    for (bsg_shape *s : to_remove)
-		bu_ptbl_rm(&root->children, (long *)s);
-	    _invalidate_shapes_cache(v);
-
-	    /* Shared shapes (no LOCAL flag, non-independent view) live in ALL co-views' roots. */
-	    if (!(flags & BSG_LOCAL_OBJS) && !v->independent && v->vset) {
-		struct bu_ptbl *vws = bv_set_views(v->vset);
-		if (vws) {
-		    for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
-			bsg_view *cv = (bsg_view *)BU_PTBL_GET(vws, i);
-			if (cv == v) continue;
-			/* Skip independent views — shared objects don't live
-			 * in their roots. */
-			if (cv->independent) continue;
-			bsg_shape *croot = bsg_scene_root_get(cv);
-			if (!croot) continue;
-			for (bsg_shape *s : to_remove)
-			    bu_ptbl_rm(&croot->children, (long *)s);
-			_invalidate_shapes_cache(cv);
-		    }
-		}
-	    }
-	}
-	return result;
+	to_free.push_back(s);
     }
-    return bv_clear(v, flags);
+
+    if (to_free.empty())
+	return 0;
+
+    /* For shared objects, remove from ALL co-view roots first. */
+    bool is_shared = !(flags & BSG_LOCAL_OBJS) && !v->independent && v->vset;
+    if (is_shared) {
+	struct bu_ptbl *vws = bv_set_views(v->vset);
+	if (vws) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(vws); i++) {
+		bsg_view *cv = (bsg_view *)BU_PTBL_GET(vws, i);
+		if (cv->independent) continue;
+		bsg_shape *croot = bsg_scene_root_get(cv);
+		if (!croot) continue;
+		for (bsg_shape *s : to_free)
+		    bu_ptbl_rm(&croot->children, (long *)s);
+		_invalidate_shapes_cache(cv);
+	    }
+	}
+    } else {
+	for (bsg_shape *s : to_free)
+	    bu_ptbl_rm(&root->children, (long *)s);
+	_invalidate_shapes_cache(v);
+    }
+
+    /* Free each shape: clear otbl so bv_obj_put only returns it to free-list. */
+    for (bsg_shape *s : to_free) {
+	s->otbl = NULL;   /* already NULL for BSG shapes; be explicit */
+	bv_obj_put(bso_to_bv(s));
+    }
+
+    return to_free.size();
 }
 
 /* ====================================================================== *
@@ -430,13 +481,29 @@ bsg_screen_pt(point_t *p, fastf_t x, fastf_t y, bsg_view *v)
 extern "C" bsg_shape *
 bsg_shape_get(bsg_view *v, int type)
 {
-    bsg_shape *s = bv_to_bso(bv_obj_get(v, type));
-    if (!s) return NULL;
+    if (!v) return NULL;
+
+    /* Fully separate BSG stack: allocate via bv_obj_create for proper
+     * initialisation (free-list, vlfree, etc.) but set otbl=NULL so the
+     * shape is NEVER inserted into the legacy flat tables
+     * (gv_objs.db_objs / view_objs or vset shared tables).  Only the BSG
+     * scene-root children table is used for tracking. */
+    int ltype = type;
+    if (v->independent)
+	ltype |= BV_LOCAL_OBJS;
+
+    struct bv_scene_obj *raw = bv_obj_create(v, ltype);
+    if (!raw) return NULL;
+
+    /* Clear the flat-table pointer so bv_obj_put will not touch it. */
+    raw->otbl = NULL;
+
+    bsg_shape *s = bv_to_bso(raw);
 
     /* Register in the BSG scene root(s) so bsg_view_traverse finds this
      * shape.  Shared (non-local, non-independent) objects belong to every
-     * view in the vset; local or independent-view objects belong only to
-     * view v. */
+     * non-independent view in the vset; local or independent-view objects
+     * belong only to view v. */
     if (!(type & BSG_LOCAL_OBJS) && !v->independent && v->vset) {
 	struct bu_ptbl *vws = bv_set_views(v->vset);
 	if (vws) {
