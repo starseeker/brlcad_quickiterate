@@ -154,8 +154,10 @@ ged_find_metaball_pnt_nearest_pnt(struct ged *gedp, int argc, const char *argv[]
 	return BRLCAD_ERROR;
     }
 
+    struct bsg_camera _mb_cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_mb_cam);
     nearest = find_metaball_pnt_nearest_pnt(&((struct rt_metaball_internal *)intern.idb_ptr)->metaball_ctrl_head,
-					    model_pt, gedp->ged_gvp->gv_view2model);
+					    model_pt, _mb_cam.view2model);
     pt_i = _ged_get_metaball_i_pnt((struct rt_metaball_internal *)intern.idb_ptr, nearest);
     rt_db_free_internal(&intern);
 
@@ -285,9 +287,13 @@ ged_metaball_add_pnt_core(struct ged *gedp, int argc, const char *argv[])
     /* use the view z from the last metaball point */
     lastmbp = BU_LIST_LAST(wdb_metaball_pnt, &mbip->metaball_ctrl_head);
 
-    MAT4X3PNT(view_coord, gedp->ged_gvp->gv_model2view, lastmbp->coord);
-    view_mb_pt[Z] = view_coord[Z];
-    MAT4X3PNT(mb_pt, gedp->ged_gvp->gv_view2model, view_mb_pt);
+    {
+	struct bsg_camera _cam2;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam2);
+	MAT4X3PNT(view_coord, _cam2.model2view, lastmbp->coord);
+	view_mb_pt[Z] = view_coord[Z];
+	MAT4X3PNT(mb_pt, _cam2.view2model, view_mb_pt);
+    }
 
     if (_ged_metaball_add_pnt(mbip, (struct wdb_metaball_pnt *)NULL, mb_pt) == (struct wdb_metaball_pnt *)NULL) {
 	rt_db_free_internal(&intern);
