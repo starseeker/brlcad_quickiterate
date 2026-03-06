@@ -16,6 +16,7 @@ cmakefiles(
   CMakeLists.txt
   mater.c
   push.cpp
+  d2push_tests.g
   dpush_tests.g
   dxpush_tests.g
   ppush_tests.g

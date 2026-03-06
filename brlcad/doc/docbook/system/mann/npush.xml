@@ -318,6 +318,53 @@ top/
   </para>
   </refsection>
 
+  <refsection xml:id="npush_depth_prop_leaf_combs"><info><title>A comb at exactly max_depth with multiple matrix contexts is not a conflict</title></info>
+  <para>
+    When a comb appears at exactly <emphasis>max_depth</emphasis> through every
+    path in the push scope — never shallower — it is a push leaf in all contexts.
+    Its internal tree content is never read or modified by the push; only the
+    matrix stored on the reference to it (in its parent comb) is updated.
+    Multiple parents can therefore each hold a different matrix above the same
+    comb without any conflict: no copy of the comb is required.
+  </para>
+  <para>
+    The following tree illustrates this with <option>-d 2</option>:
+  </para>
+  <literallayout>
+sph_011/
+        u sph11_f/
+                u [T10] sph11_g/   ← depth 2 = max_depth
+                        u sph11.s
+        u sph11_h/
+                u [T20] sph11_g/   ← depth 2 = max_depth
+                        u sph11.s
+  </literallayout>
+  <para>
+    <literal>sph11_g</literal> appears at depth 2 via both <literal>sph11_f</literal>
+    and <literal>sph11_h</literal>.  Because depth 2 equals <emphasis>max_depth</emphasis>,
+    <literal>sph11_g</literal> is a push leaf in both contexts.  The push accumulates
+    the IDN matrices from <literal>sph_011</literal> down through <literal>sph11_f</literal>
+    and <literal>sph11_h</literal>, leaving the T10 and T20 references to
+    <literal>sph11_g</literal> at the leaf boundary.  No copies are needed.
+  </para>
+  <para>
+    Note that this is the depth-limited analog of the region-halted push
+    property described in
+    <xref linkend="npush_region_same_region_multi_path"/>: in both cases the
+    object is a comb leaf whose internal content the push never touches, so
+    multiple matrix contexts are harmless.  The difference is that the region
+    boundary is type-based while the depth boundary is count-based.
+  </para>
+  <para>
+    If the same comb appears at both a depth strictly less than
+    <emphasis>max_depth</emphasis> (non-leaf) and at <emphasis>max_depth</emphasis>
+    (leaf) somewhere in the tree, it is no longer a pure comb leaf: the
+    non-leaf context causes the push to modify its internal tree.  In that
+    situation the leaf contexts do require copies, and <option>-f</option>
+    must be used.
+  </para>
+  </refsection>
+
   <refsection xml:id="npush_depth_prop_ext"><info><title>External object impact is not guaranteed</title></info>
   <para>
     Unlike a full push with <option>-f</option>, a depth-limited push
