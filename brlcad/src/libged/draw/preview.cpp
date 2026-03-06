@@ -113,8 +113,17 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
     }
 
     /* First step:  put eye at view center (view 0, 0, 0) */
-    MAT_COPY(gedp->ged_gvp->gv_rotation, (*m));
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, (*v));
+    {
+	struct bsg_camera cam;
+	bsg_view_get_camera(gedp->ged_gvp, &cam);
+	MAT_COPY(cam.rotation, (*m));
+	MAT_DELTAS_VEC_NEG(cam.center, (*v));
+	bsg_view_set_camera(gedp->ged_gvp, &cam);
+	/* Propagate to camera node in scene root, if present. */
+	bsg_shape *cam_node = bsg_scene_root_camera(gedp->ged_gvp);
+	if (cam_node)
+	    bsg_camera_node_set(cam_node, &cam);
+    }
     bsg_view_update(gedp->ged_gvp);
 
     /*
@@ -135,7 +144,15 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
      */
     VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
     MAT4X3PNT(new_cent, gedp->ged_gvp->gv_view2model, xlate);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, new_cent);
+    {
+	struct bsg_camera cam;
+	bsg_view_get_camera(gedp->ged_gvp, &cam);
+	MAT_DELTAS_VEC_NEG(cam.center, new_cent);
+	bsg_view_set_camera(gedp->ged_gvp, &cam);
+	bsg_shape *cam_node = bsg_scene_root_camera(gedp->ged_gvp);
+	if (cam_node)
+	    bsg_camera_node_set(cam_node, &cam);
+    }
     bsg_view_update(gedp->ged_gvp);
 
     /* If new treewalk is needed, get new objects into view. */

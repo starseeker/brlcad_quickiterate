@@ -50,6 +50,7 @@
 #include "bu/hash.h"
 #include "bu/sort.h"
 #include "bsg/lod.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 #define ALPHANUM_IMPL
 #include "../libged/alphanum.h"
@@ -322,6 +323,7 @@ QgModel::QgModel(QObject *p, const char *npath)
     // with commands needing a view.
     BU_GET(empty_gvp, bsg_view);
     bsg_view_init(empty_gvp, &gedp->ged_views);
+    bsg_scene_root_create(empty_gvp);
     bsg_scene_add_view(&gedp->ged_views, empty_gvp);
     gedp->ged_gvp = empty_gvp;
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");

@@ -32,6 +32,7 @@
 
 extern "C" {
 #include "bu/malloc.h"
+#include "bsg/util.h"
 }
 #include "bindings.h"
 #include "qtcad/QgSW.h"
@@ -53,6 +54,7 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
     // if this is the current view
     BU_GET(local_v, bsg_view);
     bsg_view_init(local_v, NULL);
+    bsg_scene_root_create(local_v);
     bu_vls_sprintf(&local_v->gv_name, "swrast");
     v = local_v;
 
@@ -162,8 +164,9 @@ void QgSW::paintEvent(QPaintEvent *e)
     dm_get_bg(&dm_bg1, &dm_bg2, dmp);
     dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
 
-    matp_t mat = v->gv_model2view;
-    dm_loadmatrix(dmp, mat, 0);
+    struct bsg_camera sw_camera;
+    bsg_view_get_camera(v, &sw_camera);
+    dm_loadmatrix(dmp, sw_camera.model2view, 0);
     dm_draw_begin(dmp);
     dm_draw_objs(v, draw_custom, draw_udata);
     dm_draw_end(dmp);
@@ -391,20 +394,12 @@ void QgSW::aet(double a, double e, double t)
     /* convert from double to fastf_t */
     VMOVE(aet, aetd);
 
-    VMOVE(v->gv_aet, aet);
-
-    /* TODO - based on the suspect bsg_view_mat_aet... */
-    mat_t tmat;
-    fastf_t twist;
-    fastf_t c_twist;
-    fastf_t s_twist;
-    bn_mat_angles(v->gv_rotation, 270.0 + v->gv_aet[1], 0.0, 270.0 - v->gv_aet[0]);
-    twist = -v->gv_aet[2] * DEG2RAD;
-    c_twist = cos(twist);
-    s_twist = sin(twist);
-    bn_mat_zrot(tmat, s_twist, c_twist);
-    bn_mat_mul2(tmat, v->gv_rotation);
-
+    /* Use camera API - bsg_view_mat_aet_camera recomputes rotation from aet */
+    struct bsg_camera aet_camera;
+    bsg_view_get_camera(v, &aet_camera);
+    VMOVE(aet_camera.aet, aet);
+    bsg_view_mat_aet_camera(&aet_camera);
+    bsg_view_set_camera(v, &aet_camera);
     bsg_view_update(v);
 }
 

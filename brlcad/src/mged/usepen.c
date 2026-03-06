@@ -65,6 +65,9 @@ illuminate(struct mged_state *s, int y) {
     while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
 	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
+	/* BSG Phase 2e TODO: replace with bsg_view_traverse visitor that
+	 * iterates root->children, counting visible (sp->s_flag==UP) shapes
+	 * to find the Nth one pointed at by the screen position. */
 	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
 	    /* Only consider solids which are presently in view */
 	    if (sp->s_flag == UP) {
@@ -139,6 +142,15 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	sp = illump;
 	sp->s_iflag = DOWN;
 	if (argc == 1 || *argv[1] == 'f') {
+	/* BSG Phase 2e TODO: replace forward/backward dl_head_scene_obj navigation
+	 * with index arithmetic on the consolidated root->children ptbl.
+	 * The display-list boundary wrapping vanishes when all shapes live in one
+	 * flat children array:
+	 *   int idx = bu_ptbl_locate(&root->children, (long *)illump);
+	 *   idx = forward ? idx+1 : idx-1;
+	 *   idx = (idx<0) ? BU_PTBL_LEN(&root->children)-1
+	 *         : idx % (int)BU_PTBL_LEN(&root->children);
+	 *   illump = (bsg_shape *)BU_PTBL_GET(&root->children, idx); */
 	    if (BU_LIST_NEXT_IS_HEAD(sp, &gdlp->dl_head_scene_obj)) {
 		/* Advance the gdlp (i.e. display list) */
 		if (BU_LIST_NEXT_IS_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp)))

@@ -28,6 +28,7 @@
 extern "C" {
 #include "bu/malloc.h"
 #include "bv.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 }
 
@@ -266,7 +267,9 @@ QMeasure2DFilter::get_point()
     bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+    struct bsg_camera measure_camera;
+    bsg_view_get_camera(v, &measure_camera);
+    MAT4X3PNT(mpnt, measure_camera.view2model, vpnt);
     return true;
 }
 
@@ -324,7 +327,9 @@ QMeasure3DFilter::get_point()
     bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+    struct bsg_camera measure_camera;
+    bsg_view_get_camera(v, &measure_camera);
+    MAT4X3PNT(mpnt, measure_camera.view2model, vpnt);
 
     // With this filter we want a 3D point based on scene geometry (hard case)
     // - need to interrogate the scene with the raytracer.
@@ -417,7 +422,9 @@ QMeasure3DFilter::get_point()
 
     // Set up the ray itself
     vect_t dir;
-    VMOVEN(dir, v->gv_rotation + 8, 3);
+    struct bsg_camera ray_camera;
+    bsg_view_get_camera(v, &ray_camera);
+    VMOVEN(dir, ray_camera.rotation + 8, 3);
     VUNITIZE(dir);
     VSCALE(dir, dir, v->radius);
     VADD2(ap->a_ray.r_pt, mpnt, dir);

@@ -28,6 +28,7 @@
 #include "brep.h"
 #include "raytrace.h"
 
+#include "bsg/util.h"
 #include "./ged_brep.h"
 
 static void tikz_comb(struct ged *gedp, struct bu_vls *tikz, struct directory *dp, struct bu_vls *color, int *cnt);
@@ -139,7 +140,11 @@ brep_tikz(struct _ged_brep_info *gb, const char *outfile)
     bu_vls_printf(&tikz, "\\usepackage{tikz-3dplot}\n\n");
     bu_vls_printf(&tikz, "\\begin{document}\n\n");
     // Translate view az/el into tikz-3dplot variation
-    bu_vls_printf(&tikz, "\\tdplotsetmaincoords{%f}{%f}\n", 90 + -1*gedp->ged_gvp->gv_aet[1], -1*(-90 + -1 * gedp->ged_gvp->gv_aet[0]));
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	bu_vls_printf(&tikz, "\\tdplotsetmaincoords{%f}{%f}\n", 90 + -1*_cam.aet[1], -1*(-90 + -1 * _cam.aet[0]));
+    }
 
     // Need bbox dimensions to determine proper scale factor - do this with db_search so it will
     // work for combs as well, so long as there are no matrix transformations in the hierarchy.

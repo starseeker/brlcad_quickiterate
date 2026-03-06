@@ -288,7 +288,9 @@ end:
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[1], (void *)&quat[1]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[2], (void *)&quat[2]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[3], (void *)&quat[3]);
-		    quat_quat2mat(sv->gv_rotation, quat);
+		    { struct bsg_camera _cam; bsg_view_get_camera(sv, &_cam);
+		    quat_quat2mat(_cam.rotation, quat);
+		    bsg_view_set_camera(sv, &_cam); }
 		}
 		bu_free(lp, "val cpy");
 	    } else {
@@ -308,7 +310,9 @@ end:
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[1], (void *)&quat[1]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[2], (void *)&quat[2]);
 		    bu_opt_fastf_t(NULL, 1, (const char **)&av[3], (void *)&quat[3]);
-		    quat_quat2mat(sv->gv_center, quat);
+		    { struct bsg_camera _cam; bsg_view_get_camera(sv, &_cam);
+		    quat_quat2mat(_cam.center, quat);
+		    bsg_view_set_camera(sv, &_cam); }
 		}
 		bu_free(lp, "val cpy");
 	    } else {
@@ -462,11 +466,12 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s)
 	bu_vls_sprintf(&val, "%.15e", s->s_v->gv_scale);
 	bu_avs_add(&lavs, "VIEWSCALE", bu_vls_cstr(&val));
 	quat_t rquat;
-	quat_mat2quat(rquat, s->s_v->gv_rotation);
+	quat_t cquat;
+	{ struct bsg_camera _cam; bsg_view_get_camera(s->s_v, &_cam);
+	quat_mat2quat(rquat, _cam.rotation);
+	quat_mat2quat(cquat, _cam.center); }
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(rquat));
 	bu_avs_add(&lavs, "ROTATION", bu_vls_cstr(&val));
-	quat_t cquat;
-	quat_mat2quat(cquat, s->s_v->gv_center);
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(cquat));
 	bu_avs_add(&lavs, "CENTER", bu_vls_cstr(&val));
     }

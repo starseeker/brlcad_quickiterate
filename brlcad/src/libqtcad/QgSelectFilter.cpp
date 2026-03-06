@@ -29,6 +29,7 @@ extern "C" {
 #include "bu/malloc.h"
 #include "bg/aabb_ray.h"
 #include "bv.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 }
 
@@ -47,10 +48,12 @@ closest_obj_bbox(struct bu_ptbl *sset, bsg_view *v)
     bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt, mpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+    struct bsg_camera select_camera;
+    bsg_view_get_camera(v, &select_camera);
+    MAT4X3PNT(mpnt, select_camera.view2model, vpnt);
     point_t rmin, rmax;
     vect_t dir;
-    VMOVEN(dir, v->gv_rotation + 8, 3);
+    VMOVEN(dir, select_camera.rotation + 8, 3);
     VUNITIZE(dir);
     VSCALE(dir, dir, v->radius);
     VADD2(mpnt, mpnt, dir);
@@ -333,9 +336,11 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt, mpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+    struct bsg_camera select_camera_rt;
+    bsg_view_get_camera(v, &select_camera_rt);
+    MAT4X3PNT(mpnt, select_camera_rt.view2model, vpnt);
     vect_t dir;
-    VMOVEN(dir, v->gv_rotation + 8, 3);
+    VMOVEN(dir, select_camera_rt.rotation + 8, 3);
     VUNITIZE(dir);
     VSCALE(dir, dir, v->radius);
     VADD2(ap->a_ray.r_pt, mpnt, dir);

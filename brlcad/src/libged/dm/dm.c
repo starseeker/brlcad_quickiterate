@@ -580,6 +580,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     if (!target_view) {
 	BU_GET(target_view, bsg_view);
 	bsg_view_init(target_view, &gedp->ged_views);
+	bsg_scene_root_create(target_view);
 	bsg_scene_add_view(&gedp->ged_views, target_view);
 	// This view is being created by GED, so it needs to be cleaned
 	// up by GED as well

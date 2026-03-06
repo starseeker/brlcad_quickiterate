@@ -35,6 +35,7 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 
+#include "bsg/util.h"
 #include "ged.h"
 #include "./ged_private.h"
 
@@ -267,6 +268,12 @@ dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split)
 		    }
 
 		    BU_LIST_DEQUEUE(&sp->l);
+		    /* Phase 2e: remove from scene-root children so that
+		     * bsg_view_traverse does not visit freed shapes. */
+		    if (gedp->ged_gvp) {
+			bsg_shape *scene_root = bsg_scene_root_get(gedp->ged_gvp);
+			if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
+		    }
 		    FREE_BV_SCENE_OBJ(sp, &free_scene_obj->l, vlfree);
 		}
 	    }
@@ -736,6 +743,14 @@ int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int r
     /* Solid successfully drawn, add to linked list of solid structs */
     BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
 
+    /* Phase 2e dual-write: also register in scene-root children so that
+     * bsg_view_traverse can find this shape.  Once dl_head_scene_obj is
+     * fully decommissioned this will be the sole insertion point. */
+    {
+	bsg_shape *scene_root = bsg_scene_root_get(gedp->ged_gvp);
+	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
+    }
+
     if (csoltab)
 	color_soltab(sp);
 
@@ -802,6 +817,48 @@ dl_name_hash(struct ged *gedp)
     bu_data_hash_destroy(state);
 
     return hash_val;
+}
+
+/*
+ * ged_find_shapes_by_path — BSG Phase 2e helper.
+ *
+ * Searches the scene-root children of view @p v for bsg_shape nodes whose
+ * ged_bv_data::s_fullpath exactly matches @p path, and appends them to
+ * @p result.
+ *
+ * This replaces the legacy nested loop pattern:
+ *
+ *   for each gdlp in ged_dl(gedp):
+ *       for each sp in gdlp->dl_head_scene_obj:
+ *           if (db_identical_full_paths(path, &bdata->s_fullpath)) …
+ *
+ * After Phase 2e (all shapes in scene root) this single pass is the only
+ * lookup needed.  During the transition period the scene-root children are
+ * populated by the dual-write in dodraw.c / display_list.c.
+ */
+void
+ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
+			const struct db_full_path *path,
+			struct bu_ptbl *result)
+{
+    if (!gedp || !v || !path || !result)
+	return;
+
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root)
+	return;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	/* BU_PTBL_GET should never return NULL here, but guard defensively */
+	if (!sp)
+	    continue;
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	if (db_identical_full_paths(path, &bdata->s_fullpath))
+	    bu_ptbl_ins(result, (long *)sp);
+    }
 }
 
 

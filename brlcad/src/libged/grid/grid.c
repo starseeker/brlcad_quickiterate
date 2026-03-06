@@ -41,12 +41,15 @@ grid_vsnap(struct ged *gedp)
 {
     point_t view_pt;
     point_t model_pt;
+    struct bsg_camera _cam;
 
-    MAT_DELTAS_GET_NEG(model_pt, gedp->ged_gvp->gv_center);
-    MAT4X3PNT(view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+    MAT_DELTAS_GET_NEG(model_pt, _cam.center);
+    MAT4X3PNT(view_pt, _cam.model2view, model_pt);
     bv_snap_grid_2d(gedp->ged_gvp, &view_pt[X], &view_pt[Y]);
-    MAT4X3PNT(model_pt, gedp->ged_gvp->gv_view2model, view_pt);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, model_pt);
+    MAT4X3PNT(model_pt, _cam.view2model, view_pt);
+    MAT_DELTAS_VEC_NEG(_cam.center, model_pt);
+    bsg_view_set_camera(gedp->ged_gvp, &_cam);
     bsg_view_update(gedp->ged_gvp);
 }
 

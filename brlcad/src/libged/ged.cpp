@@ -122,6 +122,7 @@ ged_init(struct ged *gedp)
     BU_ALLOC(gedp->ged_gvp, bsg_view);
     bsg_view_init(gedp->ged_gvp, &gedp->ged_views);
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
+    bsg_scene_root_create(gedp->ged_gvp);
     bsg_scene_add_view(&gedp->ged_views, gedp->ged_gvp);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)gedp->ged_gvp);
 
