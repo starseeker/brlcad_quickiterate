@@ -207,22 +207,14 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // starting out empty.
     int blank_slate = 0;
     {
-	bsg_shape *root = bsg_scene_root_get(cv);
-	if (!root || BU_PTBL_LEN(&root->children) == 0) {
+	/* Now that bsg_view_shapes() delegates to root->children when a scene
+	 * root exists, a single check is sufficient: if no non-structural
+	 * shapes are in the DB_OBJS or VIEW_OBJS sets, the scene is blank. */
+	struct bu_ptbl *dobjs  = bsg_view_shapes(cv, BSG_DB_OBJS);
+	struct bu_ptbl *vobjs  = bsg_view_shapes(cv, BSG_VIEW_OBJS);
+	if ((!dobjs || !BU_PTBL_LEN(dobjs)) &&
+	    (!vobjs  || !BU_PTBL_LEN(vobjs))) {
 	    blank_slate = 1;
-	} else {
-	    /* Fall back to the flat-table check when the scene root exists but
-	     * no geometry has been added through the legacy path yet. */
-	    struct bu_ptbl *dobjs       = bsg_view_shapes(cv, BSG_DB_OBJS);
-	    struct bu_ptbl *local_dobjs = bsg_view_shapes(cv, BSG_DB_OBJS | BSG_LOCAL_OBJS);
-	    struct bu_ptbl *vobjs       = bsg_view_shapes(cv, BSG_VIEW_OBJS);
-	    struct bu_ptbl *vlobjs      = bsg_view_shapes(cv, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
-	    if ((!dobjs || !BU_PTBL_LEN(dobjs)) &&
-		(!local_dobjs || !BU_PTBL_LEN(local_dobjs)) &&
-		(!vobjs  || !BU_PTBL_LEN(vobjs))  &&
-		(!vlobjs || !BU_PTBL_LEN(vlobjs))) {
-		blank_slate = 1;
-	    }
 	}
     }
 
