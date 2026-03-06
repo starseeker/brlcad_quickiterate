@@ -858,4 +858,11 @@ ged_find_shapes_by_path(struct ged *gedp, bsg_view *v,
 
 ---
 
-*Last updated: 2026-03-06 (Phases 2a–2e complete; **Session 6**: Phase 2e FINAL DECOMMISSION — `dl_head_scene_obj` field removed from `struct display_list`; all shape tracking now exclusively via `root->children` in scene-root; `bsg_scene_fsos` and `bsg_view_center_linesnap` BSG wrappers added; full build passes clean)*
+*Last updated: 2026-03-06 (Phases 2a–2e complete; **Session 6**: Phase 2e FINAL DECOMMISSION — `dl_head_scene_obj` field removed from `struct display_list`; all shape tracking now exclusively via `root->children` in scene-root; `bsg_scene_fsos` and `bsg_view_center_linesnap` BSG wrappers added; full build passes clean)  
+**Session 8 (bug-fix)**: MGED NULL-crash guards in `titles.c`, `edebm.c`, `eddsp.c`, `edvol.c` (`MEDIT(s)` NULL after sedit_accept).  
+**Session 9 (shape tracking correctness)**:  
+- `bsg_shape_get/put`: skip `cv->independent` co-views when broadcasting shared object registration.  
+- `bsg_view_clear` filter: correctly gates LOCAL shapes on `BSG_LOCAL_OBJS` flag; no longer removes live shared pointers.  
+- `bsg_view_clear` co-view loop: skip independent views.  
+- Swrast DM plugin dependency resolved (must be built before draw tests).  
+- All five draw test suites regenerated and passing: `ged_test_draw`, `ged_test_faceplate`, `ged_test_quad`, `ged_test_select_draw`, `ged_test_lod`.*
