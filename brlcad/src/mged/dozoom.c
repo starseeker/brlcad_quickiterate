@@ -26,6 +26,7 @@
 #include <math.h>
 #include "vmath.h"
 #include "bn.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
