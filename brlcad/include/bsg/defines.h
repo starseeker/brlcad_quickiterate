@@ -78,9 +78,17 @@
 /** @{ */
 /** @file bsg/defines.h */
 
-/* The BSG API lives inside libbv; reuse libbv's export macro. */
+/* The BSG API is implemented in libbsg.  Use BSG_DLL_EXPORTS when building
+ * libbsg itself and BSG_DLL_IMPORTS when consuming it from other libraries.
+ * If neither is defined we fall back to the old BV_EXPORT behaviour so that
+ * in-tree builds that have not yet migrated to the new libbsg target still
+ * link correctly. */
 #ifndef BSG_EXPORT
-#  ifdef BV_EXPORT
+#  ifdef BSG_DLL_EXPORTS
+#    define BSG_EXPORT COMPILER_DLLEXPORT
+#  elif defined(BSG_DLL_IMPORTS)
+#    define BSG_EXPORT COMPILER_DLLIMPORT
+#  elif defined(BV_EXPORT)
 #    define BSG_EXPORT BV_EXPORT
 #  elif defined(BV_DLL_EXPORTS)
 #    define BSG_EXPORT COMPILER_DLLEXPORT

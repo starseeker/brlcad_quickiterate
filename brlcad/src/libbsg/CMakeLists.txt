@@ -1,25 +1,33 @@
 set(
   LIBBSG_SRCS
-  nodes.c
-  traverse.c
-  scene.c
-  select.c
+  scene_graph.cpp
 )
 
-# libbsg depends only on libbn and libbu — no libbv dependency.
-# Note: libbsg_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
+# libbsg_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake.
+# libbsg needs LMDB (used by bv_lod internals) and the same system
+# libraries as libbv.
+brlcad_find_package(LMDB REQUIRED)
 
-brlcad_addlib(libbsg "${LIBBSG_SRCS}" "${libbsg_deps}" "" "")
+set(BSG_LOCAL_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  # libbv source dir for bv_private.h (Phase 1 compatibility)
+  ${BRLCAD_SOURCE_DIR}/src/libbv
+  ${LMDB_INCLUDE_DIR}
+)
+
+# Note: libbsg_deps is defined by source_dirs.cmake
+brlcad_addlib(libbsg "${LIBBSG_SRCS}" "${libbsg_deps};${LMDB_LIBRARIES}" "" "${BSG_LOCAL_INCLUDE_DIRS}")
 set_target_properties(libbsg PROPERTIES VERSION 1.0.0 SOVERSION 1)
 if(HIDE_INTERNAL_SYMBOLS)
-  set_property(TARGET libbsg APPEND PROPERTY COMPILE_DEFINITIONS "LIBBSG_DLL_EXPORTS")
+  set_property(TARGET libbsg APPEND PROPERTY COMPILE_DEFINITIONS "BSG_DLL_EXPORTS")
   if(TARGET libbsg-obj)
-    set_property(TARGET libbsg-obj APPEND PROPERTY COMPILE_DEFINITIONS "LIBBSG_DLL_EXPORTS")
+    set_property(TARGET libbsg-obj APPEND PROPERTY COMPILE_DEFINITIONS "BSG_DLL_EXPORTS")
   endif(TARGET libbsg-obj)
 endif(HIDE_INTERNAL_SYMBOLS)
 
 cmakefiles(
   CMakeLists.txt
+  bsg_private.h
 )
 
 # Local Variables:
