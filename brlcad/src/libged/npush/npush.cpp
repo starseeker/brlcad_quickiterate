@@ -1332,6 +1332,22 @@ ged_npush_core(struct ged *gedp, int argc, const char *argv[])
 	i_cnt[uniq_instances[i].dp].push_back(i);
     }
 
+    // Pre-compute which dp's have at least one non-leaf push instance.  A
+    // non-leaf comb push instance triggers tree_update_walk, which modifies
+    // the dp's database content.  When the same dp also has leaf-only
+    // instances (regions under stop_at_regions, combs at max_depth), those
+    // leaf instances must receive inames (copies) to preserve the original
+    // content, because the non-leaf processing will overwrite it.  When ALL
+    // push instances for a given dp are leaves, the dp is never written by
+    // tree_update_walk, so multiple references with different matrices are
+    // fine and no copies are needed.
+    std::set<struct directory *> noleaf_push_dps;
+    for (size_t i = 0; i < uniq_instances.size(); i++) {
+	const dp_i &dpi = uniq_instances[i];
+	if (dpi.push_obj && !dpi.is_leaf)
+	    noleaf_push_dps.insert(dpi.dp);
+    }
+
     // If we don't have force-push on, and we have non-unique mapping between
     // dp pointers and instances, we can't proceed.
     if (!xpush) {
@@ -1343,6 +1359,19 @@ ged_npush_core(struct ged *gedp, int argc, const char *argv[])
 	    // If we're not looking at a push object, or the dp mapping is
 	    // unique, we don't need a force push for this case.
 	    if (!dpi.push_obj || i_cnt[dpi.dp].size() < 2) {
+		continue;
+	    }
+
+	    // Comb leaves (regions halted by stop_at_regions, or combs halted
+	    // by max_depth) are NOT modified by the push: their internal tree
+	    // content remains unchanged.  Multiple parents can each hold a
+	    // different matrix above the same comb leaf without any conflict,
+	    // because no copy of the leaf comb is needed.  This only applies
+	    // when ALL push instances of the dp are leaves; if the dp also
+	    // appears as a non-leaf somewhere it will be modified by
+	    // tree_update_walk, and the leaf contexts DO need copies.
+	    if (dpi.is_leaf && (dpi.dp->d_flags & RT_DIR_COMB) &&
+		    noleaf_push_dps.find(dpi.dp) == noleaf_push_dps.end()) {
 		continue;
 	    }
 
@@ -1365,6 +1394,11 @@ ged_npush_core(struct ged *gedp, int argc, const char *argv[])
 		const dp_i &dpi = uniq_instances[i];
 		// If not a problem case, skip
 		if (!dpi.push_obj || i_cnt[dpi.dp].size() < 2) {
+		    continue;
+		}
+		// Comb leaves with no non-leaf push instance are not conflicts
+		if (dpi.is_leaf && (dpi.dp->d_flags & RT_DIR_COMB) &&
+			noleaf_push_dps.find(dpi.dp) == noleaf_push_dps.end()) {
 		    continue;
 		}
 
@@ -1435,6 +1469,27 @@ ged_npush_core(struct ged *gedp, int argc, const char *argv[])
 	if (i_it->second.size() == 1)
 	    continue;
 
+	// Collect only the instances that actually need new names.  Comb
+	// leaves (regions halted by stop_at_regions, combs halted by
+	// max_depth) are never modified by the push, so their multiple
+	// appearances with different matrices are harmless — each parent
+	// simply references the same comb object with a different matrix.
+	// This only applies when ALL push instances for this dp are leaves;
+	// if a non-leaf push instance also exists, tree_update_walk will
+	// modify the dp and the leaf contexts DO need copies.
+	std::vector<size_t> needs_copy;
+	for (size_t i = 0; i < i_it->second.size(); i++) {
+	    dp_i &dpi = uniq_instances[i_it->second[i]];
+	    if (!dpi.push_obj)
+		continue;
+	    if (dpi.is_leaf && (dpi.dp->d_flags & RT_DIR_COMB) &&
+		    noleaf_push_dps.find(dpi.dp) == noleaf_push_dps.end())
+		continue;
+	    needs_copy.push_back(i_it->second[i]);
+	}
+	if (needs_copy.empty())
+	    continue;
+
 	// If we have anything we're NOT pushing, that means we need to rename
 	// all the push objects.
 	bool have_nopush = false;
@@ -1448,8 +1503,12 @@ ged_npush_core(struct ged *gedp, int argc, const char *argv[])
 	// conflict - we're renaming everything else.
 	int ilabel = 0;
 	size_t istart = (have_nopush) ? 0 : 1;
-	for (size_t i = istart; i < i_it->second.size(); i++) {
-	    dp_i &dpi = uniq_instances[i_it->second[i]];
+	// If istart reaches or exceeds needs_copy's size, there is nothing
+	// left to rename — skip.
+	if (istart >= needs_copy.size())
+	    continue;
+	for (size_t i = istart; i < needs_copy.size(); i++) {
+	    dp_i &dpi = uniq_instances[needs_copy[i]];
 	    if (!dpi.push_obj)
 		continue;
 	    std::string iname = std::string(dpi.dp->d_namep) + std::string("_") + std::to_string(ilabel);

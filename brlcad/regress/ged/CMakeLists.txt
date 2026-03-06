@@ -22,6 +22,7 @@ cmakefiles(
   push_tests.g
   regress-ged_mater.cmake.in
   regress-ged_push.cmake.in
+  rpush_tests.g
   xpush_tests.g
 )
 
