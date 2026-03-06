@@ -95,12 +95,11 @@ mged_bound_solid(struct mged_state *s, bsg_shape *sp)
 void
 drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const struct db_full_path *pathp, struct db_tree_state *tsp, bsg_shape *existing_sp)
 {
-    struct display_list *gdlp;
     bsg_shape *sp;
 
     if (!existing_sp) {
 	/* Handling a new solid */
-	bsg_shape *free_scene_obj = (bsg_shape *)bv_set_fsos(&s->gedp->ged_views);
+	bsg_shape *free_scene_obj = (bsg_shape *)bsg_scene_fsos(&s->gedp->ged_views);
 	GET_BV_SCENE_OBJ(sp, &free_scene_obj->l);
 	BU_LIST_APPEND(&free_scene_obj->l, &((sp)->l) );
 	sp->s_dlist = 0;
@@ -154,14 +153,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	/* Add to linked list of solid structs */
 	bu_semaphore_acquire(RT_SEM_MODEL);
 
-	/* Grab the last display list */
-	gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(s->gedp));
-	BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
-
-	/* Phase 2e dual-write: also register in scene-root so that
-	 * bsg_view_traverse can render and manage this shape without
-	 * walking dl_head_scene_obj.  Once display_list.c is fully migrated
-	 * the BU_LIST_APPEND above and dl_head_scene_obj can be removed. */
+	/* Phase 2e: register shape exclusively in scene-root children */
 	if (view_state && view_state->vs_gvp) {
 	    bsg_shape *scene_root = bsg_scene_root_get(view_state->vs_gvp);
 	    if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);

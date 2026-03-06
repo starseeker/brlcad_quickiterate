@@ -230,11 +230,22 @@ to_edit_redraw(struct ged *gedp,
 		    continue;
 		}
 
-		for (BU_LIST_FOR(curr_sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-
-		    if (!curr_sp->s_u_data)
-			continue;
+		/* Phase 2e: search scene-root children instead of dl_head_scene_obj */
+		bsg_view *_v = (bsg_view *)gedp->ged_gvp;
+		bsg_shape *_root = _v ? bsg_scene_root_get(_v) : NULL;
+		size_t _nshapes = _root ? BU_PTBL_LEN(&_root->children) : 0;
+		for (size_t _si = 0; _si < _nshapes; _si++) {
+		    curr_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si);
+		    if (!curr_sp->s_u_data) continue;
 		    struct ged_bv_data *bdata = (struct ged_bv_data *)curr_sp->s_u_data;
+		    /* Only consider shapes belonging to this gdlp */
+		    struct db_full_path _gdlp_fp;
+		    db_full_path_init(&_gdlp_fp);
+		    if (db_string_to_path(&_gdlp_fp, gedp->dbip, bu_vls_cstr(&gdlp->dl_path)) != 0)
+			{ db_free_full_path(&_gdlp_fp); continue; }
+		    int _belongs = db_full_path_match_top(&_gdlp_fp, &bdata->s_fullpath);
+		    db_free_full_path(&_gdlp_fp);
+		    if (!_belongs) continue;
 
 		    if (db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i])) {
 			struct display_list *last_gdlp;

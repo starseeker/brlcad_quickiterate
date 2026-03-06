@@ -45,7 +45,6 @@ ged_rt_core(struct ged *gedp, int argc, const char *argv[])
     char **vp;
     int i;
     int units_supplied = 0;
-    char pstring[32];
     int args;
     char **gd_rt_cmd = NULL;
     int gd_rt_cmd_len = 0;
@@ -99,11 +98,10 @@ ged_rt_core(struct ged *gedp, int argc, const char *argv[])
 
     { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
       if (_cm.perspective > 0) {
-    }
-	{ struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
-	  (void)sprintf(pstring, "-p%g", _cm.perspective);
-	}
-	*vp++ = pstring;
+	char _pstring[32];
+	(void)sprintf(_pstring, "-p%g", _cm.perspective);
+	*vp++ = _pstring;
+      }
     }
 
     for (i = 1; i < argc; i++) {

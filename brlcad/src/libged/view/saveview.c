@@ -159,10 +159,8 @@ ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
     fprintf(fp, "#!/bin/sh\n%s -M ", rtcmd);
     { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
       if (_cm.perspective > 0)
-    }
-	{ struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
 	  fprintf(fp, "-p%g ", _cm.perspective);
-	}
+    }
     for (i = 2; i < argc; i++)
 	fprintf(fp, "%s ", argv[i]);
 

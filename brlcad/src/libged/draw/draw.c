@@ -126,10 +126,8 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     sp->s_os->transparency = dgcdp->vs.transparency;
     sp->s_os->s_dmode = dgcdp->vs.s_dmode;
 
-    /* append solid to display list */
+    /* Phase 2e: register shape exclusively in scene-root children */
     bu_semaphore_acquire(RT_SEM_MODEL);
-    BU_LIST_APPEND(dgcdp->gdlp->dl_head_scene_obj.back, &sp->l);
-    /* Phase 2e dual-write: also register in scene-root children */
     {
 	bsg_shape *scene_root = bsg_scene_root_get(dgcdp->v);
 	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
@@ -251,13 +249,7 @@ dl_redraw(struct display_list *gdlp, struct ged *gedp, int skip_subtractions)
 	    if (!skip_subtractions || !sp->s_soldash)
 		ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
 	}
-    } else {
-	bsg_shape *sp;
-	for (BU_LIST_FOR(sp, bsg_shape, &gdlp->dl_head_scene_obj)) {
-	    if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
-		ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
-	    }
-	}
+    /* Phase 2e: shapes are now in root->children; dl_head_scene_obj removed */
     }
 
     ged_create_vlist_display_list_cb(gedp, gdlp);
@@ -442,10 +434,8 @@ append_solid_to_display_list(
     sp->s_os->s_dmode = bv_data->dmode;
     MAT_COPY(sp->s_mat, tsp->ts_mat);
 
-    /* append solid to display list */
+    /* Phase 2e: register shape exclusively in scene-root children */
     bu_semaphore_acquire(RT_SEM_MODEL);
-    BU_LIST_APPEND(bv_data->gdlp->dl_head_scene_obj.back, &sp->l);
-    /* Phase 2e dual-write: also register in scene-root children */
     {
 	bsg_shape *scene_root = bsg_scene_root_get(bv_data->v);
 	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
