@@ -503,9 +503,12 @@ int main(int argc, char *argv[])
                 if (!itm->ihash) continue;
                 struct bu_vls n = BU_VLS_INIT_ZERO;
                 d3->print_hash(&n, itm->ihash);
-                if (BU_STR_EQUAL(bu_vls_cstr(&n), "reg1.r"))
-                    reg1 = itm;
+                bool found = BU_STR_EQUAL(bu_vls_cstr(&n), "reg1.r");
                 bu_vls_free(&n);
+                if (found) {
+                    reg1 = itm;
+                    break;
+                }
             }
             if (reg1) {
                 QModelIndex idx = m3.NodeIndex(reg1);
