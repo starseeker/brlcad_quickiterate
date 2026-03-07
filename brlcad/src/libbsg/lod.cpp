@@ -89,7 +89,7 @@ extern "C" {
 #include "bg/plane.h"
 #include "bg/sat.h"
 #include "bg/trimesh.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "bsg/lod.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
