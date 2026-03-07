@@ -221,6 +221,18 @@
  * Returns BRLCAD_ERROR if A has zero length.
  */
 #define ECMD_SKETCH_SET_PLANE         26019
+/**
+ * Toggle the reverse flag for the currently selected segment.
+ *
+ * The sketch curve stores a `reverse` array (one byte per segment) that
+ * reverses the traversal direction of each segment.  This is used when
+ * assembling closed contours so that segments can be shared between curves
+ * drawn in opposite directions.
+ *
+ * e_inpara = 0; curr_seg must be >= 0.
+ * Returns BRLCAD_OK on success, BRLCAD_ERROR if no segment is selected.
+ */
+#define ECMD_SKETCH_TOGGLE_SEGMENT_REVERSE 26020
 
 
 /* ------------------------------------------------------------------ */
@@ -317,6 +329,7 @@ struct rt_edit_menu_item sketch_menu[] = {
     { "Set Arc Radius",      sketch_ed, ECMD_SKETCH_SET_ARC_RADIUS },
     { "Set Arc Tangency",    sketch_ed, ECMD_SKETCH_SET_TANGENCY },
     { "Set Sketch Plane",    sketch_ed, ECMD_SKETCH_SET_PLANE },
+    { "Toggle Seg Reverse",  sketch_ed, ECMD_SKETCH_TOGGLE_SEGMENT_REVERSE },
     { "", NULL, 0 }
 };
 
@@ -1911,6 +1924,33 @@ ecmd_sketch_set_plane(struct rt_edit *s)
     return BRLCAD_OK;
 }
 
+static int
+ecmd_sketch_toggle_segment_reverse(struct rt_edit *s)
+{
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (se->curr_seg < 0 || (size_t)se->curr_seg >= skt->curve.count) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_TOGGLE_SEGMENT_REVERSE: "
+		"no segment selected\n");
+	return BRLCAD_ERROR;
+    }
+
+    /* Allocate the reverse array if it does not yet exist */
+    if (!skt->curve.reverse) {
+	skt->curve.reverse = (int *)bu_calloc(skt->curve.count,
+					      sizeof(int),
+					      "sketch reverse array");
+    }
+
+    skt->curve.reverse[se->curr_seg] ^= 1;
+
+    return BRLCAD_OK;
+}
+
 int
 rt_edit_sketch_edit(struct rt_edit *s)
 {
@@ -1961,6 +2001,8 @@ rt_edit_sketch_edit(struct rt_edit *s)
 	    return ecmd_sketch_set_tangency(s);
 	case ECMD_SKETCH_SET_PLANE:
 	    return ecmd_sketch_set_plane(s);
+	case ECMD_SKETCH_TOGGLE_SEGMENT_REVERSE:
+	    return ecmd_sketch_toggle_segment_reverse(s);
 	default:
 	    return edit_generic(s);
     }
