@@ -24,13 +24,16 @@
  */
 
 #include <set>
+#include <unordered_map>
 #include <unordered_set>
 #include <QFileInfo>
 #include <QFile>
+#include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QTextStream>
 #include "bu/malloc.h"
 #include "bu/file.h"
+#include "bsg/util.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdApp.h"
@@ -38,6 +41,71 @@
 #include "QgEdFilter.h"
 
 #include "../libged/dbi.h"
+
+/* --------------------------------------------------------------------------
+ * P2: Sensor-driven redraws.
+ *
+ * We register a bsg_sensor on every shape in each view's scene root.  When
+ * bsg_shape_stale() fires on any shape (e.g. after a LOD switch or a
+ * display-list invalidation) the callback schedules a Qt repaint by invoking
+ * do_view_changed(QG_VIEW_REFRESH) via a queued meta-call so the signal is
+ * safely emitted from whatever thread fired the sensor.
+ * -------------------------------------------------------------------------- */
+
+/* Map from bsg_shape* → registered sensor handle, to allow safe deregistration. */
+static std::unordered_map<bsg_shape *, unsigned long long> &qged_sensor_map()
+{
+    static std::unordered_map<bsg_shape *, unsigned long long> m;
+    return m;
+}
+
+/* Sensor callback: fires when bsg_shape_stale(s) is called on any shape that
+ * has been registered via qged_register_view_sensors().
+ * ctx is the QgEdApp*; we schedule a queued invocation of do_view_changed so
+ * the signal is emitted on the GUI thread.                                  */
+static void
+qged_shape_stale_cb(bsg_shape *s, void *ctx)
+{
+    (void)s;
+    if (!ctx) return;
+    QgEdApp *app = static_cast<QgEdApp *>(ctx);
+    QMetaObject::invokeMethod(app, "do_view_changed",
+	Qt::QueuedConnection,
+	Q_ARG(unsigned long long, (unsigned long long)QG_VIEW_REFRESH));
+}
+
+/* Register (or refresh) stale-notification sensors on all shapes that are
+ * currently children of the scene root for view v.  Safe to call after every
+ * draw cycle – existing sensors on unchanged shapes are left in place;
+ * shapes that are new get a fresh sensor registration.                       */
+static void
+qged_register_view_sensors(QgEdApp *app, bsg_view *v)
+{
+    if (!app || !v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    auto &m = qged_sensor_map();
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	if (!s) continue;
+	/* Skip if a sensor is already registered for this shape */
+	if (m.find(s) != m.end()) continue;
+	unsigned long long h = bsg_shape_add_sensor(s, qged_shape_stale_cb, app);
+	if (h) m[s] = h;
+    }
+}
+
+/* Deregister all sensors registered by qged_register_view_sensors.  Called
+ * before a database close so we don't hold dangling shape pointers.         */
+static void
+qged_deregister_all_sensors()
+{
+    auto &m = qged_sensor_map();
+    for (auto &kv : m) {
+	bsg_shape_rm_sensor(kv.first, kv.second);
+    }
+    m.clear();
+}
 
 int
 qged_pre_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
@@ -64,6 +132,8 @@ qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp
 int
 qged_pre_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
 {
+    /* Deregister all shape sensors before the scene is torn down. */
+    qged_deregister_all_sensors();
     return BRLCAD_OK;
 }
 
@@ -343,6 +413,18 @@ QgEdApp::do_view_changed(unsigned long long flags)
 	    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
 	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
 		bv_it->first->redraw(NULL, bv_it->second, 1);
+	    }
+	}
+
+	/* P2: After (re)drawing, register stale-notification sensors on all
+	 * shapes now present in every view's scene root.  The sensor fires
+	 * bsg_shape_stale() notifications (e.g. from LOD switches or display-
+	 * list invalidations) back to the Qt event loop as QG_VIEW_REFRESH
+	 * signals so the display repaints without a full geometry rebuild.  */
+	if (views) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
+		qged_register_view_sensors(this, v);
 	    }
 	}
     }

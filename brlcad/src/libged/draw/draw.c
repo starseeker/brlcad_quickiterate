@@ -1434,9 +1434,14 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 	if (*argv[i] != '-') {
 	    /* Done checking options. If our display is non-empty,
 	     * add -R to keep current view.
+	     * Phase 2e: use scene-root children count as the canonical
+	     * "is anything drawn?" source instead of gd_headDisplay.
 	     */
-	    if (BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay)) {
-		bu_vls_strcat(&vls, " -R");
+	    {
+		bsg_shape *_root = gedp->ged_gvp ?
+		    bsg_scene_root_get(gedp->ged_gvp) : NULL;
+		if (_root && BU_PTBL_LEN(&_root->children) > 0)
+		    bu_vls_strcat(&vls, " -R");
 	    }
 	    break;
 	}
@@ -1561,9 +1566,12 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 	int empty_display;
 	bu_vls_free(&vls);
 
-	empty_display = 1;
-	if (BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay)) {
-	    empty_display = 0;
+	/* Phase 2e: use scene-root children count as the canonical
+	 * "is anything drawn?" source instead of gd_headDisplay. */
+	{
+	    bsg_shape *_root = gedp->ged_gvp ?
+		bsg_scene_root_get(gedp->ged_gvp) : NULL;
+	    empty_display = (_root && BU_PTBL_LEN(&_root->children) > 0) ? 0 : 1;
 	}
 
 	/* First, delete any mention of these objects.
