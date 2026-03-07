@@ -37,7 +37,7 @@
 CADViewModel::CADViewModel(QObject *parentobj)
     : QgKeyValModel(parentobj)
 {
-    m_root = NULL;
+    m_root = nullptr;
     refresh(QG_VIEW_REFRESH);
 }
 

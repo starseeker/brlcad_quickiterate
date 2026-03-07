@@ -59,7 +59,7 @@ class QTCAD_EXPORT QgSelectFilter : public QObject
 
 	struct bu_ptbl selected_set = BU_PTBL_INIT_ZERO;
 
-	bsg_view *v = NULL;
+	bsg_view *v = nullptr;
 
 	// Whenever we're doing selections, we may want either all the objects
 	// that match the selection criteria, or just the "closest" object.
@@ -98,7 +98,7 @@ class QTCAD_EXPORT QgSelectRayFilter: public QgSelectFilter
     public:
 	bool eventFilter(QObject *, QEvent *e);
 
-	struct db_i *dbip = NULL;
+	struct db_i *dbip = nullptr;
 };
 
 #endif /* QGSELECTFILTER_H */

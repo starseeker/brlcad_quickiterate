@@ -39,11 +39,25 @@ QConsoleListener::QConsoleListener(int fd, struct ged_subprocess *p, bu_process_
     this->callback = c;
     this->data = d;
     this->type = t;
+
+    // finishedGetLine is kept for backward compatibility but is no longer
+    // used by the primary code path (on_callbackReady emits newLine directly).
     QObject::connect(
 	    this, &QConsoleListener::finishedGetLine,
 	    this, &QConsoleListener::on_finishedGetLine,
 	    Qt::QueuedConnection
 	    );
+
+    // callbackReady: background thread -> main thread handoff.
+    // The notifier fires in the background thread and emits callbackReady().
+    // on_callbackReady() runs on the main thread (QueuedConnection), so all
+    // access to the shared ged_result_str happens only on the main thread.
+    QObject::connect(
+	    this, &QConsoleListener::callbackReady,
+	    this, &QConsoleListener::on_callbackReady,
+	    Qt::QueuedConnection
+	    );
+
 #ifdef Q_OS_WIN
     HANDLE h = (fd < 0) ? GetStdHandle(STD_INPUT_HANDLE) : (HANDLE)_get_osfhandle(fd);
     m_notifier = new QWinEventNotifier(h);
@@ -51,39 +65,21 @@ QConsoleListener::QConsoleListener(int fd, struct ged_subprocess *p, bu_process_
     int lfd = (fd < 0) ? fileno(stdin) : fd;
     m_notifier = new QSocketNotifier(lfd, QSocketNotifier::Read);
 #endif
-    // NOTE : move to thread to avoid blocking, then sync with
-    // main thread using a QueuedConnection with finishedGetLine
+    // Move the notifier to a background thread so waiting for I/O does not
+    // block the main event loop.  All shared state (gedp, ged_result_str) is
+    // accessed only in on_callbackReady(), which executes on the main thread.
     m_notifier->moveToThread(&m_thread);
-    QObject::connect(&m_thread , &QThread::finished, m_notifier, &QObject::deleteLater);
+    QObject::connect(&m_thread, &QThread::finished, m_notifier, &QObject::deleteLater);
 #ifdef Q_OS_WIN
     QObject::connect(m_notifier, &QWinEventNotifier::activated, m_notifier,
 #else
     QObject::connect(m_notifier, &QSocketNotifier::activated, m_notifier,
 #endif
 	[this]() {
-	if (callback) {
-	  // Redirect ged_result_str to a thread-local capture buffer for the
-	  // duration of the callback.  This prevents a data race: the callback
-	  // writes subprocess output into the shared ged_result_str, while the
-	  // main thread may concurrently read or truncate that same buffer after
-	  // a command completes.  By temporarily replacing the pointer we keep
-	  // subprocess I/O entirely on the background thread's local storage.
-	  struct bu_vls capture = BU_VLS_INIT_ZERO;
-	  struct bu_vls *saved_result = process->gedp->ged_result_str;
-	  process->gedp->ged_result_str = &capture;
-
-	  (*callback)(data, (int)type);
-
-	  // Restore immediately to minimise the window in which other accesses
-	  // to ged->ged_result_str would see the local pointer.
-	  process->gedp->ged_result_str = saved_result;
-
-	  if (bu_vls_strlen(&capture) > 0) {
-	    QString strLine = QString::fromStdString(std::string(bu_vls_cstr(&capture)));
-	    Q_EMIT this->finishedGetLine(strLine);
-	  }
-	  bu_vls_free(&capture);
-	}
+	// The background thread touches nothing on gedp.  It only signals
+	// the main thread that data is ready on the file descriptor.
+	if (callback)
+	    Q_EMIT this->callbackReady();
 	});
     m_thread.start();
 }
@@ -93,6 +89,25 @@ QConsoleListener::~QConsoleListener()
     m_notifier->disconnect();
     m_thread.quit();
     m_thread.wait();
+}
+
+void QConsoleListener::on_callbackReady()
+{
+    // Runs on the main thread (queued from callbackReady signal).
+    // All access to the shared ged_result_str is confined to this slot,
+    // so there is no data race with other main-thread code that reads or
+    // truncates the same buffer.
+    if (!callback)
+	return;
+    size_t s1 = bu_vls_strlen(process->gedp->ged_result_str);
+    (*callback)(data, (int)type);
+    size_t s2 = bu_vls_strlen(process->gedp->ged_result_str);
+    if (s1 != s2) {
+	struct bu_vls nstr = BU_VLS_INIT_ZERO;
+	bu_vls_substr(&nstr, process->gedp->ged_result_str, s1, s2 - s1);
+	Q_EMIT this->newLine(QString::fromStdString(std::string(bu_vls_cstr(&nstr))));
+	bu_vls_free(&nstr);
+    }
 }
 
 void QConsoleListener::on_finishedGetLine(const QString &strNewLine)

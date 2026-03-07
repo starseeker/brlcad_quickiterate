@@ -53,13 +53,13 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view
     BU_GET(local_v, bsg_view);
-    bsg_view_init(local_v, NULL);
+    bsg_view_init(local_v, nullptr);
     bsg_scene_root_create(local_v);
     bu_vls_sprintf(&local_v->gv_name, "swrast");
     v = local_v;
 
     // Don't dm_open until we have the view.
-    dmp = NULL;
+    dmp = nullptr;
 
     // If we weren't supplied with a framebuffer, allocate one.
     // We don't open it until we have the dmp.
@@ -111,7 +111,7 @@ void QgSW::paintEvent(QPaintEvent *e)
 
 	    // Do the standard libdm attach to get our rendering backend.
 	    const char *acmd = "attach";
-	    dmp = dm_open((void *)v, NULL, "swrast", 1, &acmd);
+	    dmp = dm_open((void *)v, nullptr, "swrast", 1, &acmd);
 	    if (!dmp)
 		return;
 

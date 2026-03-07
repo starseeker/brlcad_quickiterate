@@ -50,7 +50,7 @@ class QTCAD_EXPORT QgViewCtrl : public QToolBar
         QgViewCtrl(QWidget *p, struct ged *pgedp);
         ~QgViewCtrl();
 
-	struct ged *gedp = NULL;
+	struct ged *gedp = nullptr;
 	int icon_size = 25;
 
     signals:

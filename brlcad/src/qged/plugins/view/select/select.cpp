@@ -53,7 +53,7 @@ extern "C" {
     };
 
     const struct qged_tool view_select_tool = { &view_select_tool_impl, 2 };
-    const struct qged_tool *view_select_tools[] = { &view_select_tool, NULL };
+    const struct qged_tool *view_select_tools[] = { &view_select_tool, nullptr };
 
     static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, view_select_tools, 1 };
 

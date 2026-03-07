@@ -37,7 +37,7 @@ QgEdPalette::QgEdPalette(int mode, QWidget *pparent)
     m_mode = mode;
 
     // Load plugins for this particular palette type
-    const char *ppath = bu_dir(NULL, 0, BU_DIR_LIBEXEC, "qged", NULL);
+    const char *ppath = bu_dir(nullptr, 0, BU_DIR_LIBEXEC, "qged", nullptr);
     char **filenames;
     struct bu_vls plugin_pattern = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&plugin_pattern, "*%s", QGED_PLUGIN_SUFFIX);
@@ -45,7 +45,7 @@ QgEdPalette::QgEdPalette(int mode, QWidget *pparent)
     std::map<int, std::set<QgToolPaletteElement *>> c_map;
     for (size_t i = 0; i < nfiles; i++) {
 	char pfile[MAXPATHLEN] = {0};
-	bu_dir(pfile, MAXPATHLEN, BU_DIR_LIBEXEC, "qged", filenames[i], NULL);
+	bu_dir(pfile, MAXPATHLEN, BU_DIR_LIBEXEC, "qged", filenames[i], nullptr);
 	void *dl_handle;
 	dl_handle = bu_dlopen(pfile, BU_RTLD_NOW);
 	if (!dl_handle) {

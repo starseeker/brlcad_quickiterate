@@ -161,7 +161,7 @@ QgView::view()
     if (canvas_sw)
 	return canvas_sw->v;
 
-    return NULL;
+    return nullptr;
 }
 
 struct dm *
@@ -174,7 +174,7 @@ QgView::dmp()
     if (canvas_sw)
 	return canvas_sw->dmp;
 
-    return NULL;
+    return nullptr;
 }
 
 struct fb *
@@ -187,7 +187,7 @@ QgView::ifp()
     if (canvas_sw)
 	return canvas_sw->ifp;
 
-    return NULL;
+    return nullptr;
 }
 
 void
@@ -328,7 +328,7 @@ QgView::clear_event_filter(QObject *o)
 	    filters.clear();
 	}
     }
-    curr_event_filter = NULL;
+    curr_event_filter = nullptr;
 }
 
 void

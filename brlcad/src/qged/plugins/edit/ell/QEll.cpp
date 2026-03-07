@@ -108,7 +108,7 @@ QEll::read_from_db()
     }
 
     struct rt_db_internal intern = RT_DB_INTERNAL_INIT_ZERO;
-    if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&intern, dp, dbip, nullptr, &rt_uniresource) < 0)
 	return;
     struct rt_ell_internal *ellp = (struct rt_ell_internal *)intern.idb_ptr;
     RT_ELL_CK_MAGIC(ellp);
@@ -202,9 +202,9 @@ QEll::update_obj_wireframe()
 
     // At least for now, mimic the MGED behavior and make editing wireframes white
     const char *wcolor = "255/255/255";
-    const char *av[2] = {wcolor, NULL};
+    const char *av[2] = {wcolor, nullptr};
     struct bu_color cval;
-    bu_opt_color(NULL, 1, (const char **)&av[0], (void *)&cval);
+    bu_opt_color(nullptr, 1, (const char **)&av[0], (void *)&cval);
     bu_color_to_rgb_chars(&cval, p->s_color);
 
     // When editing, we show the labels (if any)

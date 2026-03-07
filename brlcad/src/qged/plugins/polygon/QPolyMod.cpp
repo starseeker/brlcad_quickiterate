@@ -335,7 +335,7 @@ QPolyMod::clear_pnt_selection(bool checked)
     if (checked)
 	return;
     int ptype = -1;
-    struct bv_polygon *ip = NULL;
+    struct bv_polygon *ip = nullptr;
     if (p) {
 	ip = (struct bv_polygon *)p->s_i_data;
 	if (!ip)
@@ -371,7 +371,7 @@ QPolyMod::select(const QString &poly)
     if (!gedp)
 	return;
 
-    p = NULL;
+    p = nullptr;
     {
 	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
 	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
@@ -406,7 +406,7 @@ void
 QPolyMod::toggle_closed_poly(bool checked)
 {
     int ptype = -1;
-    struct bv_polygon *ip = NULL;
+    struct bv_polygon *ip = nullptr;
     if (p) {
 	ip = (struct bv_polygon *)p->s_i_data;
 	ptype = ip->type;
@@ -497,14 +497,14 @@ QPolyMod::toggle_closed_poly(bool checked)
 		struct bv_polygon *vp = (struct bv_polygon *)cleanup[i]->s_i_data;
 		bg_polygon_free(&vp->polygon);
 		BU_PUT(vp, struct bv_polygon);
-		cleanup[i]->s_i_data = NULL;
+		cleanup[i]->s_i_data = nullptr;
 		bsg_shape_put(cleanup[i]);
 	    }
 	    if (pcnt || op != bg_Union) {
 		bg_polygon_free(&ip->polygon);
 		BU_PUT(ip, struct bv_polygon);
 		bsg_shape_put(p);
-		p = NULL;
+		p = nullptr;
 	    }
 	    do_bool = false;
 	}
@@ -567,7 +567,7 @@ QPolyMod::apply_bool_op()
 	    struct bv_polygon *vp = (struct bv_polygon *)cleanup[i]->s_i_data;
 	    bg_polygon_free(&vp->polygon);
 	    BU_PUT(vp, struct bv_polygon);
-	    cleanup[i]->s_i_data = NULL;
+	    cleanup[i]->s_i_data = nullptr;
 	    bsg_shape_put(cleanup[i]);
 	}
     }
@@ -623,7 +623,7 @@ QPolyMod::delete_poly()
     if (mod_names->currentText().length()) {
 	select(mod_names->currentText());
     } else {
-	p = NULL;
+	p = nullptr;
     }
 
     emit view_updated(QG_VIEW_REFRESH);
@@ -657,7 +657,7 @@ QPolyMod::sketch_name_edit()
     }
 
     if (ps->sketch_sync->isChecked()) {
-	char *sname = NULL;
+	char *sname = nullptr;
 	if (!ps->sketch_name->placeholderText().length()) {
 	    if (ps->view_name->placeholderText().length()) {
 		ps->sketch_name->setPlaceholderText(ps->view_name->placeholderText());
@@ -733,7 +733,7 @@ QPolyMod::sketch_name_update()
 	return;
     }
 
-    char *sk_name = NULL;
+    char *sk_name = nullptr;
     if (!ps->sketch_name->placeholderText().length()) {
 	if (ps->view_name->placeholderText().length()) {
 	    ps->sketch_name->setPlaceholderText(ps->view_name->placeholderText());
@@ -775,7 +775,7 @@ QPolyMod::sketch_name_update()
 
 	// Passed the tests - remove old object.
 	int ac = 2;
-	const char *av[2] = {"kill", NULL};
+	const char *av[2] = {"kill", nullptr};
 	av[0] = "kill";
 	av[1] = dp->d_namep;
 	ged_exec_kill(gedp, ac, av);
@@ -805,7 +805,7 @@ QPolyMod::view_name_edit()
     if (!gedp)
 	return;
 
-    if (!ps->uniq_obj_name(NULL, gedp->ged_gvp)) {
+    if (!ps->uniq_obj_name(nullptr, gedp->ged_gvp)) {
 	ps->view_name->setStyleSheet("color: rgb(255,0,0)");
     } else {
 	ps->view_name->setStyleSheet("");
@@ -838,8 +838,8 @@ QPolyMod::view_name_update()
 void
 QPolyMod::toggle_line_snapping(bool s)
 {
-    bsg_view *v = (cf) ? cf->v : NULL;
-    bsg_shape *co = (cf) ? cf->wp : NULL;
+    bsg_view *v = (cf) ? cf->v : nullptr;
+    bsg_shape *co = (cf) ? cf->wp : nullptr;
     if (!v || !co)
 	return;
 
@@ -872,7 +872,7 @@ QPolyMod::toggle_line_snapping(bool s)
 void
 QPolyMod::toggle_grid_snapping(bool s)
 {
-    bsg_view *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : nullptr;
     if (!v)
 	return;
 
@@ -889,7 +889,7 @@ QPolyMod::toggle_grid_snapping(bool s)
 void
 QPolyMod::checkbox_refresh(unsigned long long)
 {
-    bsg_view *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : nullptr;
     if (!v)
 	return;
 
@@ -929,7 +929,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
 
     // We might be selecting or modifying - if the former, we may
     // not have a current polygon.
-    struct bv_polygon *ip = (p) ? (struct bv_polygon *)p->s_i_data : NULL;
+    struct bv_polygon *ip = (p) ? (struct bv_polygon *)p->s_i_data : nullptr;
 
     // The mouse filter to use depends on the mode - find out
     cf = puf;
@@ -963,11 +963,11 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
     cf->vZ = (fastf_t)(ps->vZ->text().toDouble());
 
     // Run the guts of the libqtcad filter
-    bool ret = cf->eventFilter(NULL, e);
+    bool ret = cf->eventFilter(nullptr, e);
 
     // Retrieve the scene object from the libqtcad data container
     p = cf->wp;
-    ip = (p) ? (struct bv_polygon *)p->s_i_data : NULL;
+    ip = (p) ? (struct bv_polygon *)p->s_i_data : nullptr;
 
     // If we need to, update our selected list entry
     if (select_mode->isChecked() && p) {

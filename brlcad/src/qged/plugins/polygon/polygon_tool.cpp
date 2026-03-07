@@ -92,7 +92,7 @@ extern "C" {
 
     const struct qged_tool polygon_tool_create_s = { &polygon_tool_create_impl, 100 };
     const struct qged_tool polygon_tool_modify_s = { &polygon_tool_modify_impl, 101 };
-    const struct qged_tool *polygon_tools[] = { &polygon_tool_create_s, &polygon_tool_modify_s, NULL };
+    const struct qged_tool *polygon_tools[] = { &polygon_tool_create_s, &polygon_tool_modify_s, nullptr };
 
     static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, polygon_tools, 2 };
 

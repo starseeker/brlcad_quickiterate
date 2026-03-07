@@ -39,14 +39,14 @@ QMouseEvent *
 QgMeasureFilter::view_sync(QEvent *e)
 {
     if (!v)
-	return NULL;
+	return nullptr;
 
     // If we don't have one of the relevant mouse operations, there's nothing to do
-    QMouseEvent *m_e = NULL;
+    QMouseEvent *m_e = nullptr;
     if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonRelease || e->type() == QEvent::MouseButtonDblClick || e->type() == QEvent::MouseMove)
 	m_e = (QMouseEvent *)e;
     if (!m_e)
-	return NULL;
+	return nullptr;
 
     // We're going to need the mouse position
     int e_x, e_y;
@@ -67,7 +67,7 @@ QgMeasureFilter::view_sync(QEvent *e)
 
     // If we have modifiers, we're most likely doing shift grips
     if (m_e->modifiers() != Qt::NoModifier)
-	return NULL;
+	return nullptr;
 
     return m_e;
 }
@@ -213,7 +213,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 		bsg_shape_put(s);
 		emit view_updated(QG_VIEW_REFRESH);
 	    }
-	    s = NULL;
+	    s = nullptr;
 	    return true;
 	}
 	if (!mode)
@@ -376,13 +376,13 @@ QMeasure3DFilter::get_point()
 	    RT_APPLICATION_INIT(ap);
 	    ap->a_onehit = 1;
 	    ap->a_hit = _cpnt_hit;
-	    ap->a_miss = NULL;
+	    ap->a_miss = nullptr;
 	    ap->a_overlap = _cpnt_ovlp;
-	    ap->a_logoverlap = NULL;
+	    ap->a_logoverlap = nullptr;
 	}
 	if (rtip) {
 	    rt_free_rti(rtip);
-	    rtip = NULL;
+	    rtip = nullptr;
 	}
 	rtip = rt_new_rti(dbip);
 	if (resp) {
@@ -399,12 +399,12 @@ QMeasure3DFilter::get_point()
 	    bsg_shape *l_s = (bsg_shape *)BU_PTBL_GET(&scene_obj_set, i);
 	    objs[i] = bu_vls_cstr(&l_s->s_name);
 	}
-	if (rt_gettrees_and_attrs(rtip, NULL, scnt, objs, 1)) {
+	if (rt_gettrees_and_attrs(rtip, nullptr, scnt, objs, 1)) {
 	    bu_free(objs, "objs");
 	    rt_free_rti(rtip);
-	    rtip = NULL;
+	    rtip = nullptr;
 	    BU_PUT(resp, struct resource);
-	    resp = NULL;
+	    resp = nullptr;
 	    bu_ptbl_free(&sset);
 	    return false;
 	}

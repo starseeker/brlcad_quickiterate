@@ -40,14 +40,14 @@ QMouseEvent *
 QgPolyFilter::view_sync(QEvent *e)
 {
     if (!v)
-	return NULL;
+	return nullptr;
 
     // If we don't have one of the relevant mouse operations, there's nothing to do
-    QMouseEvent *m_e = NULL;
+    QMouseEvent *m_e = nullptr;
     if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonRelease || e->type() == QEvent::MouseButtonDblClick || e->type() == QEvent::MouseMove)
 	m_e = (QMouseEvent *)e;
     if (!m_e)
-	return NULL;
+	return nullptr;
 
     // We're going to need the mouse position
     int e_x, e_y;
@@ -68,7 +68,7 @@ QgPolyFilter::view_sync(QEvent *e)
 
     // If we have modifiers, we're most likely doing shift grips
     if (m_e->modifiers() != Qt::NoModifier)
-	return NULL;
+	return nullptr;
 
     return m_e;
 }
@@ -88,7 +88,7 @@ QgPolyFilter::close_polygon()
 	    bg_polygon_free(&ip->polygon);
 	    BU_PUT(ip, struct bv_polygon);
 	    bsg_shape_put(wp);
-	    wp = NULL;
+	    wp = nullptr;
 	    return false;
 	}
 
@@ -243,7 +243,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	// For all non-general polygons, mouse release is the signal
 	// to finish up.
 	finalize(true);
-	wp = NULL;
+	wp = nullptr;
 
 	return true;
     }
@@ -277,7 +277,7 @@ QPolyCreateFilter::finalize(bool)
 	// not retained
 	if (icnt || op == bg_Difference || op == bg_Intersection) {
 	    bsg_shape_put(wp);
-	    wp = NULL;
+	    wp = nullptr;
 	} else {
 	    // No interactions, so we're keeping it - assign a proper name
 	    bu_vls_sprintf(&wp->s_name, "%s", vname.c_str());
@@ -286,7 +286,7 @@ QPolyCreateFilter::finalize(bool)
 
     // No longer need mouse movements to adjust parameters - turn off callback
     if (wp)
-	wp->s_update_callback = NULL;
+	wp->s_update_callback = nullptr;
 
     emit view_updated(QG_VIEW_REFRESH);
     emit finalized((icnt > 0) ? true : false);

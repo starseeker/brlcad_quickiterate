@@ -94,7 +94,7 @@ void
 QgViewCtrl::fbclear_cmd()
 {
     QTCAD_SLOT("QgViewCtrl::fbclear_cmd", 1);
-    const char *av[2] = {NULL};
+    const char *av[2] = {nullptr};
     av[0] = "fbclear";
     ged_exec_fbclear(gedp, 1, (const char **)av);
     emit view_changed(QG_VIEW_REFRESH);
@@ -168,7 +168,7 @@ void
 QgViewCtrl::raytrace_cmd()
 {
     QTCAD_SLOT("QgViewCtrl::raytrace_cmd", 1);
-    const char *av[4] = {NULL};
+    const char *av[4] = {nullptr};
     struct bu_vls pid_str = BU_VLS_INIT_ZERO;
 
     ged_clbk_set(gedp, "ert", BU_CLBK_DURING, &rt_cmd_start, (void *)this);
@@ -190,8 +190,8 @@ QgViewCtrl::raytrace_cmd()
     emit view_changed(QG_VIEW_REFRESH);
 
 cmd_cleanup:
-    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, NULL, NULL);
-    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, NULL, NULL);
+    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, nullptr, nullptr);
+    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, nullptr, nullptr);
     bu_vls_free(&pid_str);
 }
 

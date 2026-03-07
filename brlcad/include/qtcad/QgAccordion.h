@@ -71,7 +71,7 @@ class QTCAD_EXPORT QgAccordion : public QWidget
 
     private:
         QSet<QgAccordionObject *> objs;
-        QgAccordionObject *selected = NULL;
+        QgAccordionObject *selected = nullptr;
         QVBoxLayout *mlayout;
 };
 

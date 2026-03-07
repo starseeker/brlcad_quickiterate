@@ -57,7 +57,7 @@ ASCImportDialog::ASCImportDialog(QString filename, QString g_path, QString l_pat
 QString
 ASCImportDialog::command()
 {
-    QString prog_name(bu_dir(NULL, 0, BU_DIR_BIN, "gcv", BU_DIR_EXT, NULL));
+    QString prog_name(bu_dir(nullptr, 0, BU_DIR_BIN, "gcv", BU_DIR_EXT, nullptr));
     return prog_name;
 }
 
@@ -115,7 +115,7 @@ RhinoImportDialog::RhinoImportDialog(QString filename, QString g_path, QString l
 QString
 RhinoImportDialog::command()
 {
-    QString prog_name(bu_dir(NULL, 0, BU_DIR_BIN, "3dm-g", BU_DIR_EXT, NULL));
+    QString prog_name(bu_dir(nullptr, 0, BU_DIR_BIN, "3dm-g", BU_DIR_EXT, nullptr));
     return prog_name;
 }
 
@@ -183,7 +183,7 @@ STEPImportDialog::STEPImportDialog(QString filename, QString g_path, QString l_p
 QString
 STEPImportDialog::command()
 {
-    QString prog_name(bu_dir(NULL, 0, BU_DIR_BIN, "step-g", BU_DIR_EXT, NULL));
+    QString prog_name(bu_dir(nullptr, 0, BU_DIR_BIN, "step-g", BU_DIR_EXT, nullptr));
     return prog_name;
 }
 
@@ -244,7 +244,7 @@ uniq_test(struct bu_vls *p, void *UNUSED(data))
 {
     if (!p)
 	return 1;
-    if (bu_file_exists(bu_vls_cstr(p), NULL))
+    if (bu_file_exists(bu_vls_cstr(p), nullptr))
 	return 0;
     return 1;
 }
@@ -265,7 +265,7 @@ QgGeomImport::gfile(const char *tfile)
               "Open Geometry File",
               QCoreApplication::applicationDirPath(),
               file_filters,
-              NULL,
+              nullptr,
               QFileDialog::DontUseNativeDialog);
     }
 
@@ -296,9 +296,9 @@ QgGeomImport::gfile(const char *tfile)
     /* Try to find a target name that doesn't already exist */
     struct bu_vls u_name = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&u_name, "%s.g", g_path.toLocal8Bit().data());
-    if (bu_file_exists(bu_vls_cstr(&u_name), NULL)) {
+    if (bu_file_exists(bu_vls_cstr(&u_name), nullptr)) {
 	bu_vls_sprintf(&u_name, "%s0.g", g_path.toLocal8Bit().data());
-	if (bu_vls_incr(&u_name, NULL, "4:0:0:0:_", &uniq_test, NULL) < 0) {
+	if (bu_vls_incr(&u_name, nullptr, "4:0:0:0:_", &uniq_test, nullptr) < 0) {
 	    bu_vls_free(&u_name);
 	    bu_vls_sprintf(&conv_msg, "unable to generate a conversion output name for %s\n", fileName.toLocal8Bit().data());
 	    return QString();
@@ -321,7 +321,7 @@ QgGeomImport::gfile(const char *tfile)
 	l_path = dialog.log_path->text();
 	exec_console_app_in_window(dialog.command(),dialog.options(), l_path);
 	bu_vls_sprintf(&u_name, "%s", g_path.toLocal8Bit().data());
-	if (!bu_file_exists(bu_vls_cstr(&u_name), NULL)) {
+	if (!bu_file_exists(bu_vls_cstr(&u_name), nullptr)) {
 	    bu_vls_free(&u_name);
 	    bu_vls_sprintf(&conv_msg, "ASC import failed for %s\n", fileName.toLocal8Bit().data());
 	    return QString();
@@ -336,7 +336,7 @@ QgGeomImport::gfile(const char *tfile)
 	l_path = dialog.log_path->text();
 	exec_console_app_in_window(dialog.command(), dialog.options(), l_path);
 	bu_vls_sprintf(&u_name, "%s", g_path.toLocal8Bit().data());
-	if (!bu_file_exists(bu_vls_cstr(&u_name), NULL)) {
+	if (!bu_file_exists(bu_vls_cstr(&u_name), nullptr)) {
 	    bu_vls_free(&u_name);
 	    bu_vls_sprintf(&conv_msg, "3DM import failed for %s\n", fileName.toLocal8Bit().data());
 	    return QString();
@@ -351,7 +351,7 @@ QgGeomImport::gfile(const char *tfile)
 	l_path = dialog.log_path->text();
 	exec_console_app_in_window(dialog.command(),dialog.options(), l_path);
 	bu_vls_sprintf(&u_name, "%s", g_path.toLocal8Bit().data());
-	if (!bu_file_exists(bu_vls_cstr(&u_name), NULL)) {
+	if (!bu_file_exists(bu_vls_cstr(&u_name), nullptr)) {
 	    bu_vls_free(&u_name);
 	    bu_vls_sprintf(&conv_msg, "STEP import failed for %s\n", fileName.toLocal8Bit().data());
 	    return QString();

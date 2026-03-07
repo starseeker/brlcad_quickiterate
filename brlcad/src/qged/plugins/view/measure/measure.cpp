@@ -51,7 +51,7 @@ extern "C" {
     };
 
     const struct qged_tool view_measure_tool = { &view_measure_tool_impl, 3 };
-    const struct qged_tool *view_measure_tools[] = { &view_measure_tool, NULL };
+    const struct qged_tool *view_measure_tools[] = { &view_measure_tool, nullptr };
 
     static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, view_measure_tools, 1 };
 
