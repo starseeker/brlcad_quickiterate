@@ -514,7 +514,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	if (tmp_av.size()) {
 	    // clear tmp_av
 	    for (size_t i = 0; i < tmp_av.size(); i++) {
-		delete tmp_av[i];
+		bu_free(tmp_av[i], "tmp_av entry");
 	    }
 	    tmp_av.clear();
 	    // let the console know that we're done with MORE

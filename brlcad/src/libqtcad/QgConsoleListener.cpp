@@ -62,16 +62,27 @@ QConsoleListener::QConsoleListener(int fd, struct ged_subprocess *p, bu_process_
 #endif
 	[this]() {
 	if (callback) {
-	  size_t s1 = bu_vls_strlen(process->gedp->ged_result_str);
+	  // Redirect ged_result_str to a thread-local capture buffer for the
+	  // duration of the callback.  This prevents a data race: the callback
+	  // writes subprocess output into the shared ged_result_str, while the
+	  // main thread may concurrently read or truncate that same buffer after
+	  // a command completes.  By temporarily replacing the pointer we keep
+	  // subprocess I/O entirely on the background thread's local storage.
+	  struct bu_vls capture = BU_VLS_INIT_ZERO;
+	  struct bu_vls *saved_result = process->gedp->ged_result_str;
+	  process->gedp->ged_result_str = &capture;
+
 	  (*callback)(data, (int)type);
-	  size_t s2 = bu_vls_strlen(process->gedp->ged_result_str);
-	  if (s1 != s2) {
-	    struct bu_vls nstr = BU_VLS_INIT_ZERO;
-	    bu_vls_substr(&nstr, process->gedp->ged_result_str, s1, s2 - s1);
-	    QString strLine = QString::fromStdString(std::string(bu_vls_cstr(&nstr)));
-	    bu_vls_free(&nstr);
+
+	  // Restore immediately to minimise the window in which other accesses
+	  // to ged->ged_result_str would see the local pointer.
+	  process->gedp->ged_result_str = saved_result;
+
+	  if (bu_vls_strlen(&capture) > 0) {
+	    QString strLine = QString::fromStdString(std::string(bu_vls_cstr(&capture)));
 	    Q_EMIT this->finishedGetLine(strLine);
 	  }
+	  bu_vls_free(&capture);
 	}
 	});
     m_thread.start();
