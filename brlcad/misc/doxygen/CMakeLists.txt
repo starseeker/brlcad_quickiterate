@@ -23,6 +23,11 @@ INPUT += \"${CMAKE_SOURCE_DIR}/include//bv.h\""
   set(
     lib_inputs
     "${lib_inputs}
+INPUT += \"${CMAKE_SOURCE_DIR}/include/bsg.h\""
+  )
+  set(
+    lib_inputs
+    "${lib_inputs}
 INPUT += \"${CMAKE_SOURCE_DIR}/include/bio.h\""
   )
   set(
