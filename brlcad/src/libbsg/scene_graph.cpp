@@ -28,13 +28,14 @@
  * This gives external libbv users unchanged behaviour while letting the
  * @c bsg_* API evolve its layout independently in later phases.
  *
- * Because the two structs are distinct C types, wrappers that bridge
- * @c bsg_shape pointers to @c bv_* functions use @c bso_to_bv() /
- * @c bv_to_bso() — thin reinterpret casts that are safe because both
- * structs share the same memory layout throughout Phase 1.
+ * The @c bsg_shape.i field is of type @c bsg_shape_internal* (managed by
+ * libbsg; forward-declared in @c bv/defines.h).  The legacy @c bv_scene_obj.i
+ * remains @c bv_scene_obj_internal*.  No reinterpret casts are needed for
+ * @c bsg_shape in libbsg code.
  *
  * For all other @c bsg_* types (@c bsg_view, @c bsg_scene, @c bsg_lod, etc.)
- * the typedef-alias approach is still used, so no cast is required.
+ * the typedef-alias approach is still used; @c bsg_scene.i (= @c bview_set.i)
+ * remains @c bview_set_internal* and BSG_SCENEI still uses a cast.
  *
  * ### Phase 2 additions (this file)
  *
@@ -382,7 +383,7 @@ bsg_node_alloc(int type_flags)
     BU_ALLOC(s, bsg_shape);
     if (!s) return NULL;
 
-    s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+    s->i = new bsg_shape_internal;
 
     /* Minimal initialisation matching bv_obj_reset logic without needing pools. */
     s->s_type_flags = (unsigned long long)type_flags;
@@ -469,7 +470,7 @@ bsg_node_free(bsg_shape *s, int recurse)
 	bu_vls_free(&s->s_name);
 
     if (s->i) {
-	delete reinterpret_cast<bsg_shape_internal *>(s->i);
+	delete s->i;
 	s->i = NULL;
     }
 

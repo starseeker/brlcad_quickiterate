@@ -41,12 +41,12 @@
 #include "bv/vlist.h"
 #include "./bsg_private.h"
 
-/* Cast helpers for internal struct access.  The public header uses
- * incomplete forward-declared bv_*_internal types; the actual allocated
- * objects are the bsg_*_internal types defined in bsg_private.h. */
-#define BSG_SHAPI(s)    (reinterpret_cast<bsg_shape_internal *>((s)->i))
+/* Cast helpers for internal struct access.  bsg_shape.i is bsg_shape_internal*
+ * (defined in bsg_private.h), so BSG_SHAPI is now a direct accessor with no cast.
+ * bsg_scene is a typedef of bview_set whose .i is bview_set_internal*, so
+ * BSG_SCENEI still needs a reinterpret_cast. */
+#define BSG_SHAPI(s)    ((s)->i)
 #define BSG_SCENEI(vs)  (reinterpret_cast<bsg_scene_set_internal *>((vs)->i))
-#define BSG_SHAPI_CAST(p) (reinterpret_cast<bv_scene_obj_internal *>(p))
 
 /* Local implementation: vlist bounding box (avoids link dep on libbv) */
 static int
@@ -1177,7 +1177,7 @@ bsg_shape_create(bsg_view *v, int type)
     // We know where we're going to get the object from - get it
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC(s, bsg_shape);
-	s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	s->i = new bsg_shape_internal;
     } else {
 	s = BU_LIST_NEXT(bsg_shape, &free_scene_obj->l);
 	BU_LIST_DEQUEUE(&((s)->l));
@@ -1265,12 +1265,12 @@ bsg_shape_get_child(bsg_shape *sp)
     // Children use their parent's info
     if (BU_LIST_IS_EMPTY(&sp->free_scene_obj->l)) {
 	BU_ALLOC((s), bsg_shape);
-	s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	s->i = new bsg_shape_internal;
     } else {
 	s = BU_LIST_NEXT(bsg_shape, &sp->free_scene_obj->l);
 	if (!s) {
 	    BU_ALLOC((s), bsg_shape);
-	    s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	    s->i = new bsg_shape_internal;
 	} else {
 	    BU_LIST_DEQUEUE(&((s)->l));
 	}
@@ -1563,12 +1563,12 @@ bsg_shape_get_view_obj(bsg_shape *s, bsg_view *v)
     bsg_shape *free_scene_obj = BSG_SCENEI(v->vset)->free_scene_obj;
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC((vo), bsg_shape);
-	vo->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	vo->i = new bsg_shape_internal;
     } else {
 	vo = BU_LIST_NEXT(bsg_shape, &s->free_scene_obj->l);
 	if (!vo) {
 	    BU_ALLOC((vo), bsg_shape);
-	    vo->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	    vo->i = new bsg_shape_internal;
 	} else {
 	    BU_LIST_DEQUEUE(&((vo)->l));
 	}
