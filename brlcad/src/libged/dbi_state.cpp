@@ -241,6 +241,11 @@ DbiState::~DbiState()
     rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
 
+    // Phase 3: clean up all GObj instances (each GObj dtor deletes its
+    // CombInst children and deregisters from gobjs).
+    while (!gobjs.empty())
+	delete gobjs.begin()->second;
+
     if (dcache)
 	bu_cache_close(dcache);
 }
@@ -796,6 +801,17 @@ DbiState::update_dp(struct directory *dp, int reset)
 	bu_log("Had to load avs\n");
 	bu_avs_free(&c_avs);
     }
+
+    // Phase 3: create (or recreate) the GObj for this directory pointer.
+    // GObj ctor reads from the flat maps we just populated and, for combs,
+    // calls GenCombInstances() to build the CombInst child list.
+    {
+	auto g_it = gobjs.find(hash);
+	if (g_it != gobjs.end())
+	    delete g_it->second; // dtor deregisters the old GObj from gobjs
+	new GObj(this, dp);      // ctor registers the new GObj in gobjs
+    }
+
     return hash;
 }
 
@@ -1400,6 +1416,13 @@ DbiState::update()
 	region_id.erase(*s_it);
 	matrices.erase(*s_it);
 	i_bool.erase(*s_it);
+
+	// Phase 3: remove the corresponding GObj (and its owned CombInst children)
+	{
+	    auto g_it2 = gobjs.find(*s_it);
+	    if (g_it2 != gobjs.end())
+		delete g_it2->second; // dtor deregisters from gobjs
+	}
 
 	// We do not clear the instance maps (i_map and i_str) since those containers do not
 	// guarantee uniqueness to one child object.  To remove entries no longer
@@ -3680,6 +3703,247 @@ void DbiState::notify_dbi_observers(const std::vector<DbiChangeEvent> &events) {
 void DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &events) {
     for (auto *obs : scene_observers_)
 	obs->on_scene_changed(events);
+}
+
+/* ---- Phase 3: GObj and CombInst implementations ---- */
+
+/* Walk callback data used by GObj::GenCombInstances */
+struct gobj_walk_data {
+    GObj *gobj = NULL;
+    std::unordered_map<unsigned long long, unsigned long long> i_count;
+};
+
+/* Leaf callback for comb tree walk during GenCombInstances */
+static void
+populate_gobj_leaf(void *cd, const char *name, matp_t c_m, int op)
+{
+    struct gobj_walk_data *d = (struct gobj_walk_data *)cd;
+    unsigned long long chash = bu_data_hash(name, strlen(name) * sizeof(char));
+    d->i_count[chash] += 1;
+    CombInst *ci = new CombInst(d->gobj->d, d->gobj->dp->d_namep, name,
+				d->i_count[chash], op, c_m);
+    d->gobj->cv.push_back(ci);
+}
+
+/* CombInst constructor: adapted from dbi2 prototype.
+ * icnt  = 1 for first instance of oname, 2+ for duplicates.
+ * ihash is computed here using the same formula as the flat maps so that
+ * d_map / i_map lookups stay consistent.  CombInst registers itself in
+ * d->gobjs is NOT done — CombInst instances are owned by GObj::cv. */
+CombInst::CombInst(DbiState *dbis, const char *p_name, const char *o_name,
+                   unsigned long long icnt, int i_op, matp_t i_mat)
+{
+    d = dbis;
+    cname = std::string(p_name);
+    oname = std::string(o_name);
+    iname = std::string("");
+    id    = icnt;
+    boolean_op = i_op;
+
+    if (i_mat) {
+	MAT_COPY(m, i_mat);
+	non_default_matrix = true;
+    } else {
+	MAT_IDN(m);
+    }
+
+    /* Build iname for duplicate instances (same algorithm as populate_leaf) */
+    if (icnt > 1) {
+	struct bu_vls iname_c = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&iname_c, "%s@%llu", o_name, icnt - 1);
+	iname = std::string(bu_vls_cstr(&iname_c));
+	bu_vls_free(&iname_c);
+    }
+
+    /* Compute ohash = hash(oname), matching the key space used by d_map/gobjs */
+    ohash = bu_data_hash(oname.c_str(), oname.size() * sizeof(char));
+
+    /* Compute chash = hash(parent comb name) */
+    chash = bu_data_hash(cname.c_str(), cname.size() * sizeof(char));
+
+    /* Compute ihash: if duplicated use hash(iname), else use ohash.
+     * This mirrors the logic in populate_leaf so that the ihash value is
+     * consistent with what is stored in p_v. */
+    if (!iname.empty())
+	ihash = bu_data_hash(iname.c_str(), iname.size() * sizeof(char));
+    else
+	ihash = ohash;
+}
+
+CombInst::~CombInst()
+{
+    /* CombInst is owned by GObj::cv; no global registry to deregister from. */
+}
+
+db_op_t
+CombInst::bool_op()
+{
+    if (boolean_op == OP_SUBTRACT)
+	return DB_OP_SUBTRACT;
+    if (boolean_op == OP_INTERSECT)
+	return DB_OP_INTERSECT;
+    return DB_OP_UNION;
+}
+
+void
+CombInst::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    /* Look up the child GObj by ohash (= hash of the instanced object's name) */
+    auto g_it = d->gobjs.find(ohash);
+    if (g_it == d->gobjs.end())
+	return;
+
+    point_t lbmin, lbmax;
+    VSETALL(lbmin,  INFINITY);
+    VSETALL(lbmax, -INFINITY);
+    g_it->second->bbox(&lbmin, &lbmax);
+
+    /* Apply the instance placement matrix if it is non-identity.
+     * Note: transforming only the stored min/max corners is an approximation
+     * that is valid for pure translation and axis-aligned scaling.  For
+     * rotations or shear, all 8 corners of the AABB should be transformed and
+     * the new min/max recomputed.  This simplified form is consistent with the
+     * rest of the BRL-CAD bbox pipeline and is sufficient for the Phase 3
+     * object-model layer; the production drawing path uses DbiState::get_bbox()
+     * which handles the full hierarchy correctly. */
+    if (non_default_matrix) {
+	point_t tbmin, tbmax;
+	MAT4X3PNT(tbmin, m, lbmin);
+	VMOVE(lbmin, tbmin);
+	MAT4X3PNT(tbmax, m, lbmax);
+	VMOVE(lbmax, tbmax);
+    }
+
+    VMINMAX(*min, *max, lbmin);
+    VMINMAX(*min, *max, lbmax);
+}
+
+/* GObj constructor: reads attributes from the already-populated flat maps
+ * (avoids a second disk read since update_dp() has already loaded them). */
+GObj::GObj(DbiState *dbis, struct directory *dp_i)
+{
+    if (!dbis || !dp_i)
+	return;
+
+    d  = dbis;
+    dp = dp_i;
+    name = std::string(dp->d_namep);
+    hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+    /* Initialise bbox to invalid */
+    VSETALL(bb_min,  INFINITY);
+    VSETALL(bb_max, -INFINITY);
+    bb_valid = false;
+
+    /* Pull standard drawing attributes from the flat maps */
+    {
+	auto it = dbis->c_inherit.find(hash);
+	if (it != dbis->c_inherit.end())
+	    c_inherit = it->second;
+    }
+    {
+	auto it = dbis->region_id.find(hash);
+	if (it != dbis->region_id.end()) {
+	    region_id   = it->second;
+	    region_flag = 1;
+	}
+    }
+    {
+	auto it = dbis->rgb.find(hash);
+	if (it != dbis->rgb.end()) {
+	    unsigned int cval = it->second;
+	    unsigned char lrgb[3];
+	    lrgb[0] = static_cast<unsigned char>( cval        & 0xFF);
+	    lrgb[1] = static_cast<unsigned char>((cval >>  8) & 0xFF);
+	    lrgb[2] = static_cast<unsigned char>((cval >> 16) & 0xFF);
+	    bu_color_from_rgb_chars(&color, lrgb);
+	    color_set = true;
+	}
+    }
+
+    /* Populate CombInst children for comb objects */
+    if (dp->d_flags & RT_DIR_COMB)
+	GenCombInstances();
+
+    /* Register with DbiState */
+    dbis->gobjs[hash] = this;
+}
+
+GObj::~GObj()
+{
+    /* Delete all CombInst children */
+    for (CombInst *ci : cv)
+	delete ci;
+    cv.clear();
+
+    /* Deregister from DbiState */
+    if (d)
+	d->gobjs.erase(hash);
+}
+
+void
+GObj::GenCombInstances()
+{
+    if (!dp || !(dp->d_flags & RT_DIR_COMB) || !d)
+	return;
+
+    struct rt_db_internal in;
+    if (rt_db_get_internal(&in, dp, d->gedp->dbip, NULL, d->res) < 0)
+	return;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
+    if (!comb->tree) {
+	rt_db_free_internal(&in);
+	return;
+    }
+
+    struct gobj_walk_data dw;
+    dw.gobj = this;
+    /* subtract_skip=0: include all children regardless of boolean op */
+    populate_walk_tree(comb->tree, (void *)&dw, 0, OP_UNION, populate_gobj_leaf);
+
+    rt_db_free_internal(&in);
+}
+
+void
+GObj::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    if (!cv.empty()) {
+	/* Comb: accumulate bboxes of all child instances */
+	for (CombInst *ci : cv) {
+	    point_t lbmin, lbmax;
+	    VSETALL(lbmin,  INFINITY);
+	    VSETALL(lbmax, -INFINITY);
+	    ci->bbox(&lbmin, &lbmax);
+	    VMINMAX(*min, *max, lbmin);
+	    VMINMAX(*min, *max, lbmax);
+	}
+	return;
+    }
+
+    /* Solid: use cached value if available */
+    if (bb_valid) {
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+	return;
+    }
+
+    /* Compute via DbiState (handles dcache, LoD, and librt fallback) */
+    point_t bmin, bmax;
+    VSETALL(bmin,  INFINITY);
+    VSETALL(bmax, -INFINITY);
+    if (d->get_bbox(&bmin, &bmax, NULL, hash)) {
+	VMOVE(bb_min, bmin);
+	VMOVE(bb_max, bmax);
+	bb_valid = true;
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+    }
 }
 
 // Local Variables:
