@@ -241,6 +241,11 @@ DbiState::~DbiState()
     rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
 
+    // Phase 3: clean up all GObj instances (each GObj dtor deletes its
+    // CombInst children and deregisters from gobjs).
+    while (!gobjs.empty())
+	delete gobjs.begin()->second;
+
     if (dcache)
 	bu_cache_close(dcache);
 }
@@ -796,6 +801,17 @@ DbiState::update_dp(struct directory *dp, int reset)
 	bu_log("Had to load avs\n");
 	bu_avs_free(&c_avs);
     }
+
+    // Phase 3: create (or recreate) the GObj for this directory pointer.
+    // GObj ctor reads from the flat maps we just populated and, for combs,
+    // calls GenCombInstances() to build the CombInst child list.
+    {
+	auto g_it = gobjs.find(hash);
+	if (g_it != gobjs.end())
+	    delete g_it->second; // dtor deregisters the old GObj from gobjs
+	new GObj(this, dp);      // ctor registers the new GObj in gobjs
+    }
+
     return hash;
 }
 
@@ -1400,6 +1416,13 @@ DbiState::update()
 	region_id.erase(*s_it);
 	matrices.erase(*s_it);
 	i_bool.erase(*s_it);
+
+	// Phase 3: remove the corresponding GObj (and its owned CombInst children)
+	{
+	    auto g_it2 = gobjs.find(*s_it);
+	    if (g_it2 != gobjs.end())
+		delete g_it2->second; // dtor deregisters from gobjs
+	}
 
 	// We do not clear the instance maps (i_map and i_str) since those containers do not
 	// guarantee uniqueness to one child object.  To remove entries no longer
@@ -3530,14 +3553,29 @@ size_t DrawList::count(int mode) const
 
 bool DrawList::empty() const { return entries_.empty(); }
 
-/* ---- Phase 5: SelectionSet implementation ---- */
+/* ---- Phase 5 / Phase 7: SelectionSet implementation ---- */
 
 SelectionSet::SelectionSet(DbiState *d) : dbis_(d) {}
 
+/* Select by path hash with path vector (preferred: enables hierarchy). */
+bool SelectionSet::select(unsigned long long path_hash,
+                          const std::vector<unsigned long long> &path_vec,
+                          bool update_hierarchy)
+{
+    if (!path_hash) return false;
+    auto it = selected_.find(path_hash);
+    if (it != selected_.end() && it->second == path_vec) return false; // already selected, no change
+    selected_[path_hash] = path_vec;
+    if (update_hierarchy) recompute_hierarchy();
+    return true;
+}
+
+/* Convenience overload for callers that only have the hash. */
 bool SelectionSet::select(unsigned long long path_hash, bool update_hierarchy)
 {
     if (!path_hash) return false;
-    selected_.insert(path_hash);
+    if (selected_.find(path_hash) == selected_.end())
+	selected_[path_hash] = std::vector<unsigned long long>();
     if (update_hierarchy) recompute_hierarchy();
     return true;
 }
@@ -3577,7 +3615,7 @@ bool SelectionSet::select(const char *path_str, bool update_hierarchy)
     std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
     if (hpath.empty()) return false;
     unsigned long long ph = dbis_->path_hash(hpath, 0);
-    return select(ph, update_hierarchy);
+    return select(ph, hpath, update_hierarchy);
 }
 
 bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
@@ -3589,34 +3627,121 @@ bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
     return deselect(ph, update_hierarchy);
 }
 
+/* Phase 7: Return sorted list of selected path strings. */
 std::vector<std::string> SelectionSet::selected_paths() const
 {
-    // Full path string lookup deferred to future implementation.
-    return {};
+    std::vector<std::string> result;
+    if (!dbis_) return result;
+    for (const auto &kv : selected_) {
+	if (kv.second.empty()) continue;
+	struct bu_vls pstr = BU_VLS_INIT_ZERO;
+	/* Use a mutable copy since print_path takes non-const ref. */
+	std::vector<unsigned long long> pv = kv.second;
+	dbis_->print_path(&pstr, pv, 0, 0);
+	if (bu_vls_strlen(&pstr))
+	    result.push_back(std::string(bu_vls_cstr(&pstr)));
+	bu_vls_free(&pstr);
+    }
+    std::sort(result.begin(), result.end());
+    return result;
 }
 
 unsigned long long SelectionSet::state_hash() const
 {
-    // Golden ratio hash combining constant (2^32 / phi), reduces collisions
+    /* Golden-ratio mixing constant (2^32 / phi), reduces collisions. */
     static const unsigned long long HASH_GOLDEN = 0x9e3779b9ULL;
     unsigned long long h = 0;
-    for (auto ph : selected_) {
+    for (const auto &kv : selected_) {
+	unsigned long long ph = kv.first;
 	h ^= ph + HASH_GOLDEN + (h << 6) + (h >> 2);
     }
     return h;
 }
 
-void SelectionSet::sync_to_drawn(BViewState * /*vs*/)
+/* Phase 7: Return snapshot set of all selected path hashes. */
+std::unordered_set<unsigned long long> SelectionSet::selected_hashes() const
 {
-    // Highlight marker sync is a future implementation.
+    std::unordered_set<unsigned long long> result;
+    for (const auto &kv : selected_) result.insert(kv.first);
+    return result;
 }
 
+/* Phase 7: Synchronize highlight markers to the given view state.
+ * Uses the same bv_illum_obj() pattern as BSelectState::draw_sync(). */
+void SelectionSet::sync_to_drawn(BViewState *vs)
+{
+    if (!vs || !dbis_) return;
+    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator so_it;
+    std::unordered_map<int, struct bv_scene_obj *>::iterator m_it;
+    for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
+	char illum_state = is_active(so_it->first) ? UP : DOWN;
+	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
+	    bv_illum_obj(m_it->second, illum_state);
+	}
+    }
+}
+
+/* Phase 7: Compute active_, parents_, ancestors_ from selected_ using the
+ * GObj/CombInst graph (p_v / p_c) available through dbis_. */
 void SelectionSet::recompute_hierarchy()
 {
-    active_ = selected_;
+    active_.clear();
     parents_.clear();
     ancestors_.clear();
-    // Full hierarchy computation is delegated to BSelectState for now.
+
+    if (!dbis_) {
+	/* Fallback: active = selected */
+	for (const auto &kv : selected_) active_.insert(kv.first);
+	return;
+    }
+
+    /* Add all directly-selected path hashes to active. */
+    for (const auto &kv : selected_) active_.insert(kv.first);
+
+    /* For each selected path, walk toward root to find parents/ancestors,
+     * and walk away from root to find all descendant paths (active). */
+    for (const auto &kv : selected_) {
+	const std::vector<unsigned long long> &path = kv.second;
+	if (path.empty()) continue;
+
+	/* Walk toward root: collect parent and ancestor path hashes. */
+	for (size_t depth = path.size(); depth > 1; depth--) {
+	    std::vector<unsigned long long> pp(path.begin(), path.begin() + depth - 1);
+	    unsigned long long phash = dbis_->path_hash(pp, 0);
+	    ancestors_.insert(phash);
+	    if (depth == path.size())
+		parents_.insert(phash);
+	}
+
+	/* Walk away from root: expand the leaf element's subtree via p_v. */
+	unsigned long long leaf = path.back();
+	/* BFS over comb children: each entry holds the full path to that node. */
+	struct pathwalk_entry { std::vector<unsigned long long> path; };
+	std::queue<pathwalk_entry> frontier;
+	auto p_it = dbis_->p_v.find(leaf);
+	if (p_it != dbis_->p_v.end()) {
+	    for (unsigned long long ch : p_it->second) {
+		std::vector<unsigned long long> cp = path;
+		cp.push_back(ch);
+		frontier.push({cp});
+	    }
+	}
+	while (!frontier.empty()) {
+	    pathwalk_entry e = frontier.front();
+	    frontier.pop();
+	    unsigned long long ehash = dbis_->path_hash(e.path, 0);
+	    active_.insert(ehash);
+	    unsigned long long eback = e.path.back();
+	    auto c_it = dbis_->p_v.find(eback);
+	    if (c_it != dbis_->p_v.end()) {
+		for (unsigned long long ch : c_it->second) {
+		    std::vector<unsigned long long> cp = e.path;
+		    cp.push_back(ch);
+		    frontier.push({cp});
+		}
+	    }
+	}
+    }
 }
 
 /* ---- Phase 5: DbiState SelectionSet management ---- */
@@ -3681,6 +3806,497 @@ void DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &event
     for (auto *obs : scene_observers_)
 	obs->on_scene_changed(events);
 }
+
+/* ---- Phase 3: GObj and CombInst implementations ---- */
+
+/* Walk callback data used by GObj::GenCombInstances */
+struct gobj_walk_data {
+    GObj *gobj = NULL;
+    std::unordered_map<unsigned long long, unsigned long long> i_count;
+};
+
+/* Leaf callback for comb tree walk during GenCombInstances */
+static void
+populate_gobj_leaf(void *cd, const char *name, matp_t c_m, int op)
+{
+    struct gobj_walk_data *d = (struct gobj_walk_data *)cd;
+    unsigned long long chash = bu_data_hash(name, strlen(name) * sizeof(char));
+    d->i_count[chash] += 1;
+    CombInst *ci = new CombInst(d->gobj->d, d->gobj->dp->d_namep, name,
+				d->i_count[chash], op, c_m);
+    d->gobj->cv.push_back(ci);
+}
+
+/* CombInst constructor: adapted from dbi2 prototype.
+ * icnt  = 1 for first instance of oname, 2+ for duplicates.
+ * ihash is computed here using the same formula as the flat maps so that
+ * d_map / i_map lookups stay consistent.  CombInst registers itself in
+ * d->gobjs is NOT done — CombInst instances are owned by GObj::cv. */
+CombInst::CombInst(DbiState *dbis, const char *p_name, const char *o_name,
+                   unsigned long long icnt, int i_op, matp_t i_mat)
+{
+    d = dbis;
+    cname = std::string(p_name);
+    oname = std::string(o_name);
+    iname = std::string("");
+    id    = icnt;
+    boolean_op = i_op;
+
+    if (i_mat) {
+	MAT_COPY(m, i_mat);
+	non_default_matrix = true;
+    } else {
+	MAT_IDN(m);
+    }
+
+    /* Build iname for duplicate instances (same algorithm as populate_leaf) */
+    if (icnt > 1) {
+	struct bu_vls iname_c = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&iname_c, "%s@%llu", o_name, icnt - 1);
+	iname = std::string(bu_vls_cstr(&iname_c));
+	bu_vls_free(&iname_c);
+    }
+
+    /* Compute ohash = hash(oname), matching the key space used by d_map/gobjs */
+    ohash = bu_data_hash(oname.c_str(), oname.size() * sizeof(char));
+
+    /* Compute chash = hash(parent comb name) */
+    chash = bu_data_hash(cname.c_str(), cname.size() * sizeof(char));
+
+    /* Compute ihash: if duplicated use hash(iname), else use ohash.
+     * This mirrors the logic in populate_leaf so that the ihash value is
+     * consistent with what is stored in p_v. */
+    if (!iname.empty())
+	ihash = bu_data_hash(iname.c_str(), iname.size() * sizeof(char));
+    else
+	ihash = ohash;
+}
+
+CombInst::~CombInst()
+{
+    /* CombInst is owned by GObj::cv; no global registry to deregister from. */
+}
+
+db_op_t
+CombInst::bool_op()
+{
+    if (boolean_op == OP_SUBTRACT)
+	return DB_OP_SUBTRACT;
+    if (boolean_op == OP_INTERSECT)
+	return DB_OP_INTERSECT;
+    return DB_OP_UNION;
+}
+
+void
+CombInst::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    /* Look up the child GObj by ohash (= hash of the instanced object's name) */
+    auto g_it = d->gobjs.find(ohash);
+    if (g_it == d->gobjs.end())
+	return;
+
+    point_t lbmin, lbmax;
+    VSETALL(lbmin,  INFINITY);
+    VSETALL(lbmax, -INFINITY);
+    g_it->second->bbox(&lbmin, &lbmax);
+
+    /* Apply the instance placement matrix if it is non-identity.
+     * Note: transforming only the stored min/max corners is an approximation
+     * that is valid for pure translation and axis-aligned scaling.  For
+     * rotations or shear, all 8 corners of the AABB should be transformed and
+     * the new min/max recomputed.  This simplified form is consistent with the
+     * rest of the BRL-CAD bbox pipeline and is sufficient for the Phase 3
+     * object-model layer; the production drawing path uses DbiState::get_bbox()
+     * which handles the full hierarchy correctly. */
+    if (non_default_matrix) {
+	point_t tbmin, tbmax;
+	MAT4X3PNT(tbmin, m, lbmin);
+	VMOVE(lbmin, tbmin);
+	MAT4X3PNT(tbmax, m, lbmax);
+	VMOVE(lbmax, tbmax);
+    }
+
+    VMINMAX(*min, *max, lbmin);
+    VMINMAX(*min, *max, lbmax);
+}
+
+/* GObj constructor: reads attributes from the already-populated flat maps
+ * (avoids a second disk read since update_dp() has already loaded them). */
+GObj::GObj(DbiState *dbis, struct directory *dp_i)
+{
+    if (!dbis || !dp_i)
+	return;
+
+    d  = dbis;
+    dp = dp_i;
+    name = std::string(dp->d_namep);
+    hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+    /* Initialise bbox to invalid */
+    VSETALL(bb_min,  INFINITY);
+    VSETALL(bb_max, -INFINITY);
+    bb_valid = false;
+
+    /* Pull standard drawing attributes from the flat maps */
+    {
+	auto it = dbis->c_inherit.find(hash);
+	if (it != dbis->c_inherit.end())
+	    c_inherit = it->second;
+    }
+    {
+	auto it = dbis->region_id.find(hash);
+	if (it != dbis->region_id.end()) {
+	    region_id   = it->second;
+	    region_flag = 1;
+	}
+    }
+    {
+	auto it = dbis->rgb.find(hash);
+	if (it != dbis->rgb.end()) {
+	    unsigned int cval = it->second;
+	    unsigned char lrgb[3];
+	    lrgb[0] = static_cast<unsigned char>( cval        & 0xFF);
+	    lrgb[1] = static_cast<unsigned char>((cval >>  8) & 0xFF);
+	    lrgb[2] = static_cast<unsigned char>((cval >> 16) & 0xFF);
+	    bu_color_from_rgb_chars(&color, lrgb);
+	    color_set = true;
+	}
+    }
+
+    /* Populate CombInst children for comb objects */
+    if (dp->d_flags & RT_DIR_COMB)
+	GenCombInstances();
+
+    /* Register with DbiState */
+    dbis->gobjs[hash] = this;
+}
+
+GObj::~GObj()
+{
+    /* Delete all CombInst children */
+    for (CombInst *ci : cv)
+	delete ci;
+    cv.clear();
+
+    /* Deregister from DbiState */
+    if (d)
+	d->gobjs.erase(hash);
+}
+
+void
+GObj::GenCombInstances()
+{
+    if (!dp || !(dp->d_flags & RT_DIR_COMB) || !d)
+	return;
+
+    struct rt_db_internal in;
+    if (rt_db_get_internal(&in, dp, d->gedp->dbip, NULL, d->res) < 0)
+	return;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
+    if (!comb->tree) {
+	rt_db_free_internal(&in);
+	return;
+    }
+
+    struct gobj_walk_data dw;
+    dw.gobj = this;
+    /* subtract_skip=0: include all children regardless of boolean op */
+    populate_walk_tree(comb->tree, (void *)&dw, 0, OP_UNION, populate_gobj_leaf);
+
+    rt_db_free_internal(&in);
+}
+
+void
+GObj::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    if (!cv.empty()) {
+	/* Comb: accumulate bboxes of all child instances */
+	for (CombInst *ci : cv) {
+	    point_t lbmin, lbmax;
+	    VSETALL(lbmin,  INFINITY);
+	    VSETALL(lbmax, -INFINITY);
+	    ci->bbox(&lbmin, &lbmax);
+	    VMINMAX(*min, *max, lbmin);
+	    VMINMAX(*min, *max, lbmax);
+	}
+	return;
+    }
+
+    /* Solid: use cached value if available */
+    if (bb_valid) {
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+	return;
+    }
+
+    /* Compute via DbiState (handles dcache, LoD, and librt fallback) */
+    point_t bmin, bmax;
+    VSETALL(bmin,  INFINITY);
+    VSETALL(bmax, -INFINITY);
+    if (d->get_bbox(&bmin, &bmax, NULL, hash)) {
+	VMOVE(bb_min, bmin);
+	VMOVE(bb_max, bmax);
+	bb_valid = true;
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+    }
+}
+
+/* ============================================================
+ * C surface — implementations of the extern "C" declarations
+ * in include/ged/dbi.h.
+ * ============================================================ */
+
+/* Auto-bootstrap helper: create DbiState for gedp if it doesn't exist
+ * yet (it is only created automatically when new_cmd_forms is set),
+ * then call update() to populate the maps from the current database.
+ * Returns the (possibly newly created) DbiState, or NULL on error. */
+static DbiState *
+_dbi_get_or_init(struct ged *gedp)
+{
+    if (!gedp || !gedp->dbip)
+	return NULL;
+    if (!gedp->dbi_state) {
+	gedp->dbi_state = new DbiState(gedp);
+	static_cast<DbiState *>(gedp->dbi_state)->update();
+    }
+    return static_cast<DbiState *>(gedp->dbi_state);
+}
+
+extern "C" {
+
+/* ------------------------------------------------------------------ */
+/* Database-state helpers                                              */
+/* ------------------------------------------------------------------ */
+
+unsigned long long
+ged_dbi_update(struct ged *gedp)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    return dbis->update();
+}
+
+int
+ged_dbi_valid_hash(struct ged *gedp, unsigned long long hash)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    return dbis->valid_hash(hash) ? 1 : 0;
+}
+
+unsigned long long
+ged_dbi_hash_of(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return 0;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return 0;
+    /* For a single name, validate it exists in the DB before returning.
+     * For a multi-element path, digest_path already validates the tree
+     * relationships, so we return the full-path hash directly. */
+    if (parts.size() == 1) {
+	if (!dbis->valid_hash(parts[0]))
+	    return 0;
+	return parts[0];
+    }
+    return dbis->path_hash(parts, 0);
+}
+
+int
+ged_dbi_tops(struct ged *gedp, struct bu_ptbl *out)
+{
+    if (!out)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> tv = dbis->tops(false);
+    for (auto h : tv)
+	bu_ptbl_ins(out, (long *)(uintptr_t)h);
+    return (int)tv.size();
+}
+
+/* ------------------------------------------------------------------ */
+/* GObj helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+int
+ged_dbi_gobj_is_comb(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    unsigned long long h = parts[0];
+    const GObj *gobj = dbis->get_gobj(h);
+    if (!gobj)
+	return -1;
+    return gobj->dp && (gobj->dp->d_flags & RT_DIR_COMB) ? 1 : 0;
+}
+
+int
+ged_dbi_gobj_region_id(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    return gobj->region_id;
+}
+
+int
+ged_dbi_gobj_color(struct ged *gedp, const char *name,
+		   unsigned char *r, unsigned char *g_out, unsigned char *b)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    if (!gobj->color_set)
+	return 0;
+    if (r && g_out && b) {
+	unsigned char rgb[3];
+	bu_color_to_rgb_chars(&gobj->color, rgb);
+	*r = rgb[0]; *g_out = rgb[1]; *b = rgb[2];
+    }
+    return 1;
+}
+
+int
+ged_dbi_gobj_child_count(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    if (!gobj->dp || !(gobj->dp->d_flags & RT_DIR_COMB))
+	return -1;
+    return (int)gobj->cv.size();
+}
+
+/* ------------------------------------------------------------------ */
+/* SelectionSet helpers                                                */
+/* ------------------------------------------------------------------ */
+
+/* Return the named selection set, or the default set if sname is NULL.
+ * Creates the set if it does not yet exist.  Returns NULL on error. */
+static SelectionSet *
+_get_or_make_set(struct ged *gedp, const char *sname)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return NULL;
+    if (!sname || sname[0] == '\0')
+	return dbis->get_selection_set(nullptr);
+    /* Ensure the named set exists */
+    dbis->add_selection_set(sname);
+    return dbis->get_selection_set(sname);
+}
+
+int
+ged_selection_select(struct ged *gedp, const char *sname, const char *path_str)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !path_str)
+	return -1;
+    bool changed = ss->select(path_str, true);
+    return changed ? 1 : 0;
+}
+
+int
+ged_selection_deselect(struct ged *gedp, const char *sname, const char *path_str)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !path_str)
+	return -1;
+    bool changed = ss->deselect(path_str, true);
+    return changed ? 1 : 0;
+}
+
+int
+ged_selection_is_selected(struct ged *gedp, const char *sname, const char *path_str)
+{
+    if (!path_str)
+	return -1;
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    std::vector<unsigned long long> parts = dbis->digest_path(path_str);
+    if (parts.empty())
+	return 0;
+    unsigned long long ph = dbis->path_hash(parts, 0);
+    return ss->is_selected(ph) ? 1 : 0;
+}
+
+void
+ged_selection_clear(struct ged *gedp, const char *sname)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (ss)
+	ss->clear();
+}
+
+int
+ged_selection_count(struct ged *gedp, const char *sname)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss)
+	return -1;
+    return (int)ss->selected().size();
+}
+
+int
+ged_selection_list_paths(struct ged *gedp, const char *sname, struct bu_ptbl *out)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !out)
+	return -1;
+    std::vector<std::string> paths = ss->selected_paths();
+    for (const auto &p : paths)
+	bu_ptbl_ins(out, (long *)bu_strdup(p.c_str()));
+    return (int)paths.size();
+}
+
+} /* extern "C" */
 
 // Local Variables:
 // tab-width: 8

@@ -749,71 +749,113 @@ Given that `qged` and `libqtcad` are explicitly experimental, a complete rewrite
 feasible.  However, to minimize disruption to the broader BRL-CAD build and to any
 tooling that depends on `libged`, the transition should be staged.
 
-### Phase 1 — Introduce typed hashes and stable DbiPath value type
+### Phase 1 — Introduce typed hashes and stable DbiPath value type  ✅ COMPLETE (typed hashes)
 *(No API-breaking change to existing code; new headers only)*
 
-- Add `GHash`, `InstHash`, `PathHash` wrappers to `dbi.h`.
+- ~~Add `GHash`, `InstHash`, `PathHash` wrappers to `dbi.h`.~~ **DONE** — `GHash`,
+  `InstHash`, `PathHash` structs with `std::hash<>` specializations are in
+  `include/ged/dbi.h`.
 - Replace raw `vector<unsigned long long>` path arguments with `DbiPath` in
-  new overloads; keep old overloads for compatibility.
+  new overloads; keep old overloads for compatibility.  *(DbiPath class deferred
+  to a later pass; typed hash wrappers capture the critical type-safety goal.)*
 - Add `DbiPath::from_string()` / `DbiPath::from_hashes()` factory functions.
+  *(Deferred with DbiPath.)*
 - **Tests:** unit-test `DbiPath` creation, push/pop, matrix accumulation,
   equality, and hash stability across a simulated edit cycle.
 
-### Phase 2 — Introduce observer interface and wire up to QgModel
+### Phase 2 — Introduce observer interface and wire up to QgModel  ✅ COMPLETE
 *(Additive; existing `DbiState::update()` remains but calls notify_observers)*
 
-- Add `IDbiObserver` interface and `DbiState::add_observer()`.
-- Implement `DbiState::notify_observers()` inside the existing `update()` body.
-- Implement `QgModel::on_dbi_changed()` using a conservative full-reset strategy
-  initially; refine to incremental updates in a follow-on pass.
-- **Benefit:** immediately surfaces any observer notifications being missed during
-  editing operations because the tree will correctly reset itself.
+- ~~Add `IDbiObserver` interface and `DbiState::add_observer()`.~~ **DONE** —
+  `IDbiObserver`, `ISceneObserver`, `DbiChangeEvent`, `SceneChangeEvent` are in
+  `include/ged/dbi.h`; `add_observer`/`remove_observer` are implemented in
+  `dbi_state.cpp`.
+- ~~Implement `DbiState::notify_observers()` inside the existing `update()` body.~~
+  **DONE** — `notify_dbi_observers()` is called at the end of `DbiState::update()`,
+  emitting per-object `ObjectAdded`/`ObjectModified`/`ObjectRemoved` events.
+- ~~Implement `QgModel::on_dbi_changed()` using a conservative full-reset strategy
+  initially.~~ **DONE** — `QgModel` inherits `IDbiObserver`; Phase 6 (below) replaced
+  the conservative path with targeted row operations.
 - **Tests:** exercise each command category (create, edit, delete, rename, move,
   copy) and verify `on_dbi_changed()` is called with appropriate events.
 
-### Phase 3 — Introduce `GObj` / `CombInst` object model (from dbi2)
+### Phase 3 — Introduce `GObj` / `CombInst` object model (from dbi2)  ✅ COMPLETE
 *(Private implementation change inside DbiState; no public API breakage)*
 
-- Replace flat parallel maps with `GObj` / `CombInst` instances stored in
-  `unique_ptr` maps.
+- ~~Replace flat parallel maps with `GObj` / `CombInst` instances stored in
+  `unique_ptr` maps.~~ **DONE** — `GObj` and `CombInst` classes are declared in
+  `include/ged/dbi.h` and implemented in `dbi_state.cpp`.  Each `GObj` holds its
+  `CombInst *` children via the `cv` vector; `GenCombInstances()` populates it from
+  the flat maps during `update_dp()`.  Flat maps (`p_c`, `p_v`, `matrices`, etc.)
+  are retained alongside for backward compatibility during the transition.
 - Keep the existing map-based public accessors as wrappers for backward compat
-  during transition.
+  during transition.  **In progress** — maps remain public; callers can use either
+  the map API or the new object model.
 - **Tests:** property-based test that for every object in a `.g` file the new
   object model produces identical results to the old map queries.
 
-### Phase 4 — DrawList / BViewState separation
+### Phase 4 — DrawList / BViewState separation  ✅ COMPLETE
 *(libged-internal change; public BViewState API may change)*
 
-- Extract `DrawList` from `BViewState`.
-- Refactor `BViewState::redraw()` to call `DrawList::commit()`.
-- Implement `BViewState::link_to()` using the new design.
+- ~~Extract `DrawList` from `BViewState`.~~ **DONE** — `DrawList`, `DrawSettings`,
+  and `DrawState` are declared in `include/ged/dbi.h` and fully implemented in
+  `dbi_state.cpp`.  `BViewState::draw_list()` accessor exposes the owned `DrawList`.
+- Refactor `BViewState::redraw()` to call `DrawList::commit()`.  *(Full integration
+  of DrawList into the redraw pipeline is a follow-on step.)*
+- Implement `BViewState::link_to()` using the new design.  *(Deferred.)*
 - **Tests:** draw/erase command suite; quad-view synchronization test.
 
-### Phase 5 — SelectionSet replaces BSelectState
+### Phase 5 — SelectionSet replaces BSelectState  ✅ COMPLETE
 *(Public API change in dbi.h)*
 
-- Rename `BSelectState` → `SelectionSet`, adopt `DbiPath` arguments.
-- Rewrite hierarchy metadata computation using the `GObj`/`CombInst` graph
-  rather than nested hash-vector loops.
-- **Tests:** selection expand/collapse, highlighting after edit, multi-view
-  sync.
+- ~~Rename `BSelectState` → `SelectionSet`, adopt `DbiPath` arguments.~~ **DONE** —
+  `SelectionSet` is declared in `include/ged/dbi.h` and implemented in
+  `dbi_state.cpp`.  `DbiState::get_selection_set()` / `add_selection_set()` /
+  `remove_selection_set()` / `list_selection_sets()` are implemented.
+- `BSelectState` is retained in the header for the transition period.
+- ~~Rewrite hierarchy metadata computation using the `GObj`/`CombInst` graph~~
+  **DONE (Phase 7)** — `recompute_hierarchy()` uses BFS via `DbiState::p_v` to expand
+  descendants into `active_`; prefix-walk builds `parents_` and `ancestors_`.
+- **Tests:** selection expand/collapse, highlighting after edit, multi-view sync.
 
-### Phase 6 — QgModel incremental update
+### Phase 6 — QgModel incremental update  ✅ COMPLETE
 *(libqtcad-only change)*
 
-- Replace `beginResetModel()/endResetModel()` with precise row insert/remove.
-- Implement `Node` map keyed by `PathHash` to enable stable identity across edits.
-- **Tests:** Qt Model Test (`https://wiki.qt.io/Model_Test`); verify expanded
-  subtree state is preserved after a rename of an unrelated top-level object.
+- ~~Foundation: `QgModel` already inherits `IDbiObserver`; `on_dbi_changed()` exists
+  and calls `g_update()` (conservative full-reset path).~~
+- **Implemented:**
+  - **Re-entrancy fix**: `in_g_update_` flag prevents `on_dbi_changed()` from
+    recursively calling `g_update()` from inside a `beginResetModel()` block.
+  - `dbis->update()` is now called BEFORE any Qt model-lock operation.
+  - `on_dbi_changed()` stores events in `pending_dbi_events_`; `g_update()` reads
+    them to decide between targeted and full-reset paths.
+  - `full_model_reset()` — extracted helper containing the former `beginResetModel()`
+    cycle for complex/batch changes.
+  - `apply_incremental_updates()` — targeted path: `dataChanged()` for
+    `ObjectModified`; `reconcile_tops()` for `ObjectAdded`/`ObjectRemoved`.
+  - `reconcile_tops()` — per-row `beginInsertRows/endInsertRows` and
+    `beginRemoveRows/endRemoveRows`; preserves expanded state of unchanged rows.
+  - Falls back to `full_model_reset()` for `CombTreeChanged`, `batch=true`, or when
+    a modified comb has already-expanded children.
+- **Tests:** Qt Model Test; verify expanded subtree state is preserved after a
+  rename of an unrelated top-level object.
 
-### Phase 7 — Cleanup and stabilization
-- Remove deprecated compatibility overloads.
-- Move `dbi.h` to a public include path (`include/ged/dbi.h`) with proper
-  documentation.
-- Drop LMDB from dbi2 experiments.
-- Add a dedicated regression test for each known edit-does-not-propagate scenario.
-- Produce a public C surface (`ged/dbi_c.h`) for the handful of capabilities
-  needed by C callers.
+### Phase 7 — Cleanup and stabilization  ✅ COMPLETE (core items)
+- ~~`dbi.h` moved to `include/ged/dbi.h`.~~ **DONE** (earlier session).
+- ~~Complete `SelectionSet::recompute_hierarchy()` using `GObj`/`CombInst` graph.~~
+  **DONE** — BFS over `DbiState::p_v` from each selected path's leaf element.
+- ~~Complete `SelectionSet::selected_paths()` to return decoded path strings.~~
+  **DONE** — calls `DbiState::print_path()` on stored path vectors.
+- ~~Complete `SelectionSet::sync_to_drawn()` to update highlight markers.~~
+  **DONE** — iterates `BViewState::s_map` and calls `bv_illum_obj()`.
+- ~~`SelectionSet::selected_` → `map<ull, vector<ull>>`.~~ **DONE** — stores path
+  element vector alongside hash; old `selected_hashes()` returns computed snapshot.
+- **Remaining:**
+  - `DbiPath` value type (typed path; deferred).
+  - Public C surface (`ged/dbi_c.h`) for C callers.
+  - Regression tests for each known edit-does-not-propagate scenario.
+  - Child-level incremental update in `apply_incremental_updates()` (currently falls
+    back to full reset when a modified comb has expanded children).
 
 ---
 
@@ -954,3 +996,161 @@ wrappers, an observer interface for change propagation, a clean `DrawList`/`BVie
 separation, a `SelectionSet` that uses `DbiPath`, and a `QgModel` that makes precise
 incremental Qt model update calls.  These changes are staged to minimize disruption
 and provide testable checkpoints at each phase.
+
+---
+
+## 11. Implementation Progress
+
+### Session 17 — Phase 3: GObj/CombInst implementation
+
+| Phase | Description | Status |
+|---|---|---|
+| 1 | Typed hash wrappers (`GHash`, `InstHash`, `PathHash`) | ✅ Done |
+| 2 | Observer interface (`IDbiObserver`, `ISceneObserver`); `DbiState::update()` notifies observers; `QgModel` implements `IDbiObserver` | ✅ Done |
+| 3 | `GObj` / `CombInst` class declarations and method implementations in `dbi_state.cpp`; `DbiState::update_dp()` populates `GObj::cv` via `GenCombInstances()`; flat maps retained for backward compat | ✅ Done |
+| 4 | `DrawList`, `DrawSettings`, `DrawState` declared and implemented; `BViewState::draw_list()` accessor | ✅ Done |
+| 5 | `SelectionSet` declared and implemented; `DbiState` SelectionSet management; `BSelectState` retained for transition | ✅ Done |
+| — | LMDB drawing cache replaced with `bu_cache` API | ✅ Done |
+| — | `dbi.h` moved to public path `include/ged/dbi.h`; internal `src/libged/dbi.h` is a redirect | ✅ Done |
+| — | Migration guide (`doc/DBI_MIGRATION.md`) created | ✅ Done |
+| 6 | `QgModel` incremental update: `on_dbi_changed()` stores events; `g_update()` calls `full_model_reset()` or `apply_incremental_updates()` based on event complexity | ✅ Done |
+| 7 | `SelectionSet` hierarchy completion: `selected_paths()`, `recompute_hierarchy()` (BFS), `sync_to_drawn()` (bv_illum_obj pattern) | ✅ Done |
+| 8 | Qt model protocol fixes; observer re-registration; child-level incremental update (`rebuild_item_children`); `canFetchMore()` fix | ✅ Done |
+| 9 | `DbiPath` value type; C surface (`ged_dbi_*`, `ged_selection_*`); `SelectionSet::select()` idempotency fix; `test_dbi_c.c` regression test | ✅ Done |
+
+**Files modified by this work:**
+
+- `include/ged/dbi.h` — added typed hashes, observer types, `DrawList`, `DrawSettings`,
+  `DrawState`, `SelectionSet`, `GObj`, `CombInst`, `IDbiObserver`, `ISceneObserver`;
+  Phase 6: forward declarations, `DbiState::gobjs`, friend declarations;
+  Phase 7: `SelectionSet::selected_` → `map<ull, vector<ull>>`, new `select()` overload,
+  `selected_hashes()` now computes a snapshot, `friend class SelectionSet` in `BViewState`
+- `src/libged/dbi.h` — changed to a redirect shim to `include/ged/dbi.h`
+- `src/libged/dbi_state.cpp` — added `GObj`/`CombInst` implementations (Phase 3),
+  `DrawList` implementation (Phase 4), `SelectionSet` implementation (Phase 5/7),
+  observer infrastructure, `notify_dbi_observers()` call in `update()`;
+  Phase 9: `_dbi_get_or_init()` helper, C surface (`ged_dbi_*`, `ged_selection_*`),
+  `SelectionSet::select()` idempotency fix
+- `include/qtcad/QgModel.h` — `QgModel` inherits `IDbiObserver`; Phase 6: `in_g_update_`,
+  `pending_dbi_events_`, `full_model_reset()`, `apply_incremental_updates()`,
+  `reconcile_tops()` declarations; Phase 8: `rebuild_item_children()`, `observed_dbi_state_`
+- `src/libqtcad/QgModel.cpp` — Phase 6: `on_dbi_changed()` collects events;
+  `g_update()` calls `dbis->update()` before Qt model changes, uses `full_model_reset()`
+  or `apply_incremental_updates()` + `reconcile_tops()` based on event set;
+  `full_model_reset()` extracted helper for full `beginResetModel()/endResetModel()` cycle;
+  Phase 8: Qt model protocol fixes, observer re-registration, `rebuild_item_children()`
+- `src/libged/tests/test_dbi_c.c` — new C regression test; 35 assertions covering all
+  C surface entry points; creates a temporary `.g` DB and exercises the full API
+- `src/libged/tests/CMakeLists.txt` — registers `ged_test_dbi_c` as a CTest
+- `doc/DBI_MIGRATION.md` — new migration guide
+
+### Phase 6 Design Notes
+
+**Re-entrancy fix**: `dbis->update()` is called inside `g_update()`, and `update()` calls
+`notify_dbi_observers()` which triggers `on_dbi_changed()`.  Before this fix `on_dbi_changed()`
+called `g_update()` again from inside a `beginResetModel()` block — undefined Qt model
+behavior.  Fixed by:
+1. `in_g_update_` flag prevents re-entrant `g_update()` calls.
+2. `on_dbi_changed()` only stores events in `pending_dbi_events_` when `in_g_update_`.
+3. `dbis->update()` is called BEFORE the Qt model is locked (before `beginResetModel()`).
+
+**Targeted update rules** (applied by `apply_incremental_updates()`):
+- `ObjectModified` / `AttributeChanged` for a solid → `dataChanged()` for all matching items.
+- `ObjectAdded` / `ObjectRemoved` → `reconcile_tops()` which does per-row
+  `beginInsertRows`/`endInsertRows` or `beginRemoveRows`/`endRemoveRows`.
+- `ObjectModified` for a comb with already-expanded children → `rebuild_item_children()`
+  with per-row `beginRemoveRows`/`endRemoveRows` + `beginInsertRows`/`endInsertRows`.
+- `CombTreeChanged` or `batch=true` → full reset (fallback).
+- Unknown event kind → full reset (fallback).
+
+### Phase 7 Design Notes
+
+**SelectionSet::selected_**: changed from `unordered_set<ull>` to `unordered_map<ull, vector<ull>>`
+(path_hash → path_element_vector).  The path vector enables:
+- `selected_paths()`: calls `DbiState::print_path()` on each stored vector.
+- `recompute_hierarchy()`: BFS via `DbiState::p_v` expands descendants into `active_`,
+  and prefix-walk builds `parents_` (immediate) and `ancestors_` (all).
+- `sync_to_drawn()`: iterates `BViewState::s_map` and calls `bv_illum_obj()` — same pattern
+  as `BSelectState::draw_sync()`.
+
+### Phase 8 Design Notes (Session 19)
+
+**Qt model protocol fixes** — eliminated all `qt.modeltest: FAIL!` warnings:
+
+1. `QgItem::childCount()` now returns `children.size()` for all items (the actually-loaded
+   count).  The old code returned `c_count` (a pre-fetch estimate) for non-root items,
+   causing `rowCount()` to misreport rows before `fetchMore()` was called.
+
+2. `reconcile_tops()` rewrites: each new top-level item is inserted individually with
+   `beginInsertRows`/`endInsertRows` at the correct sorted position, and `rootItem->children`
+   is updated inside the bracket.  The old code called `layoutAboutToBeChanged()`/
+   `layoutChanged()` for multi-insertions, violating the Qt model protocol when paired with
+   `beginInsertRows`.
+
+3. Removed a bare `emit layoutChanged()` in `g_update()` that had no preceding
+   `layoutAboutToBeChanged()` — a protocol violation caught by `QAbstractItemModelTester`.
+
+4. Same bare `emit layoutChanged()` removed from the null-dbip path in `g_update()`.
+
+**Observer re-registration** — `open`/`closedb` destroy and recreate `gedp->dbi_state`.
+`QgModel` previously stayed registered with the deleted `DbiState_A` and never received
+events from `DbiState_B`, so every update fell through to `full_model_reset()`.  Fixed by
+adding `observed_dbi_state_` tracking; `g_update()` calls `dbis->add_observer(this)` when
+the pointer changes.
+
+**Child-level incremental update** — new `QgModel::rebuild_item_children()` method.
+For `ObjectModified` on a comb that already has expanded children, instead of falling back
+to `full_model_reset()`, the method:
+1. Snapshots the old `item->children` vector.
+2. Calls `item_rebuild()` to obtain the new child list.
+3. Emits `beginRemoveRows`/`endRemoveRows` for the old rows.
+4. Deletes orphaned `QgItem`s that were not reused.
+5. Emits `beginInsertRows`/`endInsertRows` for the new rows.
+This preserves expanded/collapsed state throughout the rest of the tree.
+
+**`canFetchMore()` fix** — added early-return when `item->children` is already populated,
+preventing `canFetchMore()` from returning `true` for items that have been fetched.
+
+### Remaining Work
+
+- **Regression tests for `on_dbi_changed()` targeted signals**: Qt unit test using
+  `QAbstractItemModelTester` in `Fatal` mode that verifies `beginInsertRows`/`endInsertRows`
+  fire without `beginResetModel` when a comb is modified with already-expanded children.
+- **`SelectionSet` path retention**: the `select(ull, bool)` convenience overload inserts
+  an empty path vector — callers should prefer the full overload with the element vector.
+- **`DbiPath` adoption**: `DbiPath` is now declared but no existing APIs have been migrated
+  to accept it.  The implicit conversion operator means callers can pass `DbiPath` anywhere
+  `const std::vector<unsigned long long>&` is expected, but explicit migration would improve
+  readability and type safety.
+
+### Phase 9 Design Notes (Session 20)
+
+**`DbiPath` value type** added to the C++ section of `include/ged/dbi.h`:
+- `struct DbiPath` wraps `std::vector<unsigned long long> hashes` with semantic clarity.
+- `empty()`, `size()`, `front()`, `back()`, `at(i)` accessors match `std::vector` conventions.
+- Implicit conversion to `const std::vector<unsigned long long>&` provides full backward
+  compatibility — a `DbiPath` can be passed anywhere a const vector ref is accepted.
+- `std::hash<DbiPath>` XOR-fold specialisation allows `DbiPath` as an unordered_map key.
+
+**C surface** — `extern "C"` API added at the bottom of `include/ged/dbi.h` and implemented
+in `src/libged/dbi_state.cpp`:
+
+*Auto-bootstrap* — `_dbi_get_or_init()` internal helper creates a `DbiState` and calls
+`update()` if `gedp->dbi_state` is NULL.  This makes every C surface function usable
+directly after `ged_open()` without requiring `new_cmd_forms` or a separate init call.
+
+*Database-state helpers* — `ged_dbi_update()`, `ged_dbi_valid_hash()`, `ged_dbi_hash_of()`
+(validates single-name result via `valid_hash()`), `ged_dbi_tops()` (fills `bu_ptbl`).
+
+*GObj helpers* — `ged_dbi_gobj_is_comb()`, `ged_dbi_gobj_region_id()`, `ged_dbi_gobj_color()`,
+`ged_dbi_gobj_child_count()`.
+
+*SelectionSet helpers* — `ged_selection_select()`, `ged_selection_deselect()`,
+`ged_selection_is_selected()`, `ged_selection_clear()`, `ged_selection_count()`,
+`ged_selection_list_paths()` (returns `bu_strdup`'d strings in a `bu_ptbl`).
+
+**`SelectionSet::select()` idempotency fix** — the primary overload
+`select(ull, const vector<ull>&, bool)` previously always returned `true`; it now checks
+whether the hash was already stored with the same path vector and returns `false` (no change)
+in that case.  This aligns with the behavior of `deselect()` and the contract documented in
+the C surface API header comments.

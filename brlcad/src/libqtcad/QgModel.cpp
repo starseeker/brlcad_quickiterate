@@ -181,10 +181,12 @@ QgItem::childCount() const
     if (!mdl)
 	return 0;
 
-    if (this == mdl->root())
-	return children.size();
-
-    return (int)c_count;
+    // Return the count of actually-loaded children for all items.
+    // For the root item this is always all top-level items; for other items
+    // it is 0 until fetchMore() has been called.  This is the standard Qt
+    // lazy-loading pattern: rowCount() reflects loaded rows, and
+    // canFetchMore() signals whether more rows are available.
+    return (int)children.size();
 }
 
 int
@@ -320,6 +322,7 @@ QgModel::QgModel(QObject *p, const char *npath)
     {
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	dbis->add_observer(this);
+	observed_dbi_state_ = dbis;
     }
 
     // By default we will use this built-in view, to guarantee that ged_gvp is
@@ -362,6 +365,7 @@ QgModel::~QgModel()
     if (gedp && gedp->dbi_state) {
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	dbis->remove_observer(this);
+	observed_dbi_state_ = nullptr;
     }
 
     delete items;
@@ -376,9 +380,23 @@ void
 QgModel::on_dbi_changed(const std::vector<DbiChangeEvent> &events)
 {
     if (events.empty()) return;
-    // Use the existing full-model update approach for now;
-    // incremental updates would do targeted row operations.
-    g_update(gedp->dbip);
+    // Collect events.  g_update() reads pending_dbi_events_ after calling
+    // dbis->update() to decide between targeted and full-reset paths.
+    // If we are not currently in g_update() (e.g., some future async path
+    // calls dbis->update() directly), fall through to full g_update().
+    if (in_g_update_) {
+	// Normal path: just store the events; g_update() will process them.
+	pending_dbi_events_.insert(pending_dbi_events_.end(),
+	                            events.begin(), events.end());
+	return;
+    }
+    // Called outside g_update(): store events, mark db changed, then delegate.
+    // The changed_db_flag ensures g_update() processes the update even if
+    // the pending_dbi_events_ accumulated here are the only signal.
+    pending_dbi_events_.insert(pending_dbi_events_.end(),
+	                        events.begin(), events.end());
+    changed_db_flag = 1;
+    g_update(gedp ? gedp->dbip : nullptr);
 }
 
 // Note - this is a private method and must be run from within g_update's
@@ -456,9 +474,313 @@ QgModel::item_rebuild(QgItem *item)
     }
 }
 
+
+/* full_model_reset: complete beginResetModel/endResetModel cycle.
+ * Assumes dbis->update() has already been called. */
+void
+QgModel::full_model_reset(DbiState *dbis)
+{
+    beginResetModel();
+
+    // Clear out any QgItems with invalid info.  We need to be fairly
+    // aggressive here - first we find all the existing invalid ones, and
+    // then we invalidate all their children recursively - any item with an
+    // invalid parent is invalid.
+    std::queue<QgItem *> to_clear;
+    std::unordered_set<QgItem *> invalid;
+    std::unordered_set<QgItem *>::iterator s_it;
+    for (s_it = items->begin(); s_it != items->end(); s_it++) {
+	QgItem *itm = *s_it;
+	if (dbis->p_v.find(itm->ihash) == dbis->p_v.end() &&
+		dbis->d_map.find(itm->ihash) == dbis->d_map.end())
+	    to_clear.push(itm);
+	if (!itm->dp && dbis->get_hdp(itm->ihash))
+	    to_clear.push(itm);
+    }
+    while (!to_clear.empty()) {
+	QgItem *i_itm = to_clear.front();
+	to_clear.pop();
+	invalid.insert(i_itm);
+	for (size_t i = 0; i < i_itm->children.size(); i++)
+	    to_clear.push(i_itm->children[i]);
+    }
+
+    for (s_it = items->begin(); s_it != items->end(); s_it++) {
+	if (invalid.find(*s_it) != invalid.end())
+	    continue;
+	QgItem *i_itm = *s_it;
+	// Remove any invalid QgItem references from the children arrays
+	std::vector<QgItem *> vchildren;
+	for (size_t i = 0; i < i_itm->children.size(); i++) {
+	    QgItem *itm = i_itm->children[i];
+	    if (invalid.find(itm) == invalid.end()) {
+		// Valid - keep it
+		vchildren.push_back(itm);
+	    }
+	}
+	i_itm->children = vchildren;
+	// Child QgItem pointers are now all valid - rebuild full children
+	// array to match current .g state
+	item_rebuild(i_itm);
+    }
+
+    // Validate existing tops QgItems based on the tops data.
+    std::vector<unsigned long long> tops = dbis->tops(true);
+    std::unordered_set<unsigned long long> tset(tops.begin(), tops.end());
+    std::unordered_map<unsigned long long, QgItem *> vtops_items;
+    for (size_t i = 0; i < tops_items.size(); i++) {
+	QgItem *titem = tops_items[i];
+	if (tset.find(titem->ihash) != tset.end()) {
+	    // Still a tops item
+	    vtops_items[titem->ihash] = titem;
+	}
+    }
+
+    // Using tops, construct a new tops vector.  Reuse any still valid
+    // QgItems, and make new ones.
+    std::vector<QgItem *> ntops_items;
+
+    for (size_t i = 0; i < tops.size(); i++) {
+	std::unordered_map<unsigned long long, QgItem *>::iterator v_it;
+	v_it = vtops_items.find(tops[i]);
+	if (v_it != vtops_items.end()) {
+	    ntops_items.push_back(v_it->second);
+	} else {
+	    QgItem *nitem = new QgItem(tops[i], this);
+	    nitem->parentItem = rootItem;
+	    nitem->op = dbis->bool_op(0, tops[i]);
+	    ntops_items.push_back(nitem);
+	    items->insert(nitem);
+	}
+    }
+
+    // Set the new tops items as children of the rootItem.
+    std::sort(ntops_items.begin(), ntops_items.end(), QgItem_cmp());
+    tops_items = ntops_items;
+    rootItem->children.clear();
+    for (size_t i = 0; i < tops_items.size(); i++) {
+	rootItem->appendChild(tops_items[i]);
+    }
+    rootItem->c_noderow.clear();
+    for (size_t i = 0; i < tops_items.size(); i++) {
+	rootItem->c_noderow[tops_items[i]] = i;
+    }
+
+    // Finally, delete the invalid QgItems
+    std::unordered_set<QgItem *>::iterator iv_it;
+    for (iv_it = invalid.begin(); iv_it != invalid.end(); iv_it++) {
+	QgItem *iv_itm = *iv_it;
+	items->erase(iv_itm);
+	delete iv_itm;
+    }
+
+    endResetModel();
+}
+
+
+/* reconcile_tops: compare tops_items against dbis->tops() and emit per-row
+ * beginInsertRows/endInsertRows or beginRemoveRows/endRemoveRows signals.
+ * Preserves expanded state for unchanged rows. */
+void
+QgModel::reconcile_tops(DbiState *dbis)
+{
+    std::vector<unsigned long long> new_tops = dbis->tops(true);
+    std::unordered_set<unsigned long long> new_tops_set(new_tops.begin(), new_tops.end());
+
+    // Remove items that are no longer at tops (iterate backwards for stable indices)
+    for (int i = (int)tops_items.size() - 1; i >= 0; i--) {
+	if (new_tops_set.count(tops_items[i]->ihash)) continue;
+	beginRemoveRows(QModelIndex(), i, i);
+	QgItem *to_del = tops_items[i];
+	tops_items.erase(tops_items.begin() + i);
+	rootItem->children.erase(rootItem->children.begin() + i);
+	endRemoveRows();
+	items->erase(to_del);
+	delete to_del;
+    }
+    // Rebuild c_noderow after all removals
+    rootItem->c_noderow.clear();
+    for (size_t i = 0; i < tops_items.size(); i++)
+	rootItem->c_noderow[tops_items[i]] = (int)i;
+
+    // Collect the set of hashes already in tops_items after removals
+    std::unordered_set<unsigned long long> existing_set;
+    for (auto *ti : tops_items) existing_set.insert(ti->ihash);
+
+    // Insert new items one at a time to keep rootItem->children in sync.
+    // Using individual beginInsertRows/endInsertRows per item (sorted order)
+    // is correct and avoids layoutAboutToBeChanged/layoutChanged complications.
+    for (auto h : new_tops) {
+	if (existing_set.count(h)) continue;
+
+	QgItem *nitem = new QgItem(h, this);
+	nitem->parentItem = rootItem;
+	nitem->op = dbis->bool_op(0, h);
+	items->insert(nitem);
+
+	// Append to tops_items then sort to find the insertion position
+	tops_items.push_back(nitem);
+	std::sort(tops_items.begin(), tops_items.end(), QgItem_cmp());
+	int ins_pos = 0;
+	for (int j = 0; j < (int)tops_items.size(); j++) {
+	    if (tops_items[j] == nitem) { ins_pos = j; break; }
+	}
+
+	// Insert into rootItem->children at the precise sorted position and
+	// emit the corresponding row-level signal.  The children vector must
+	// be updated INSIDE the begin/end bracket so that rowCount() returns
+	// the updated value when endInsertRows() fires the signal.
+	beginInsertRows(QModelIndex(), ins_pos, ins_pos);
+	rootItem->children.insert(rootItem->children.begin() + ins_pos, nitem);
+	rootItem->c_noderow.clear();
+	for (size_t j = 0; j < tops_items.size(); j++)
+	    rootItem->c_noderow[tops_items[j]] = (int)j;
+	endInsertRows();
+
+	existing_set.insert(h);
+    }
+}
+
+
+/* rebuild_item_children: rebuild an already-expanded QgItem's child rows with
+ * individual begin/endRemoveRows + begin/endInsertRows signals so the tree view
+ * keeps its collapsed/expanded state for items that have not changed.
+ * Must be called only while in_g_update_ == true (no re-entrancy). */
+void
+QgModel::rebuild_item_children(QgItem *item, DbiState *UNUSED(dbis))
+{
+    if (!item || !item->ihash || item->children.empty())
+	return;
+
+    QModelIndex parent_idx = NodeIndex(item);
+    if (!parent_idx.isValid())
+	return;
+
+    /* Snapshot the old child list before item_rebuild() modifies it. */
+    std::vector<QgItem *> old_children = item->children;
+    int old_count = (int)old_children.size();
+
+    /* Rebuild children using the updated DbiState.
+     * item_rebuild() replaces item->children in place. */
+    item_rebuild(item);
+    std::vector<QgItem *> new_children = item->children;
+    int new_count = (int)new_children.size();
+
+    if (new_count == old_count && new_children == old_children)
+	return; /* Nothing actually changed */
+
+    /* Remove old rows. Restore old_children so Qt sees the right count
+     * for rowCount() inside the begin/end bracket. */
+    item->children = old_children;
+    item->c_noderow.clear();
+    for (int j = 0; j < old_count; j++)
+	item->c_noderow[old_children[j]] = j;
+    if (old_count > 0) {
+	beginRemoveRows(parent_idx, 0, old_count - 1);
+	item->children.clear();
+	item->c_noderow.clear();
+	endRemoveRows();
+    }
+
+    /* Remove any orphaned QgItems that item_rebuild() replaced. */
+    for (QgItem *oc : old_children) {
+	if (!oc) continue;
+	bool reused = false;
+	for (QgItem *nc : new_children)
+	    if (nc == oc) { reused = true; break; }
+	if (!reused) {
+	    items->erase(oc);
+	    delete oc;
+	}
+    }
+
+    /* Insert new rows. */
+    if (new_count > 0) {
+	beginInsertRows(parent_idx, 0, new_count - 1);
+	item->children = new_children;
+	item->c_noderow.clear();
+	for (int j = 0; j < new_count; j++)
+	    item->c_noderow[new_children[j]] = j;
+	endInsertRows();
+    }
+}
+
+
+/* apply_incremental_updates: handle DBI events with targeted Qt model signals.
+ * Handles ObjectAdded/Removed via reconcile_tops(), ObjectModified/AttributeChanged
+ * via dataChanged() + per-item child rebuild (no full model reset). */
+void
+QgModel::apply_incremental_updates(DbiState *dbis, const std::vector<DbiChangeEvent> &events)
+{
+    bool has_structural = false;
+
+    for (const auto &ev : events) {
+	switch (ev.kind) {
+	    case DbiChangeKind::ObjectAdded:
+	    case DbiChangeKind::ObjectRemoved:
+		has_structural = true;
+		break;
+	    case DbiChangeKind::ObjectModified:
+	    case DbiChangeKind::AttributeChanged: {
+		/* Update cached display data and emit dataChanged() for every
+		 * visible QgItem that represents this object.  For expanded
+		 * combs, also rebuild the child row list in place. */
+		unsigned long long obj_hash = ev.object.v;
+		/* Collect items to rebuild (avoid modifying *items during iteration) */
+		std::vector<QgItem *> to_rebuild;
+		for (QgItem *item : *items) {
+		    /* Resolve instance hash to object hash */
+		    unsigned long long h = item->ihash;
+		    auto im = dbis->i_map.find(h);
+		    if (im != dbis->i_map.end()) h = im->second;
+		    if (h != obj_hash) continue;
+
+		    /* Refresh cached dp / name */
+		    struct directory *dp = dbis->get_hdp(item->ihash);
+		    if (dp) {
+			item->dp = dp;
+			bu_vls_sprintf(&item->name, "%s", dp->d_namep);
+		    }
+		    /* Refresh child count for combs */
+		    auto pv_it = dbis->p_v.find(item->ihash);
+		    if (pv_it != dbis->p_v.end())
+			item->c_count = pv_it->second.size();
+
+		    QModelIndex idx = NodeIndex(item);
+		    if (idx.isValid())
+			emit dataChanged(idx, idx);
+
+		    /* Queue expanded combs for child rebuild */
+		    if (!item->children.empty())
+			to_rebuild.push_back(item);
+		}
+		for (QgItem *item : to_rebuild)
+		    rebuild_item_children(item, dbis);
+		break;
+	    }
+	    default:
+		/* Unexpected kind: trigger a full reset at end */
+		full_model_reset(dbis);
+		return;
+	}
+    }
+
+    /* If there were any structural changes (adds/removes), reconcile tops. */
+    if (has_structural)
+	reconcile_tops(dbis);
+
+    emit check_highlights();
+}
+
 void
 QgModel::g_update(struct db_i *n_dbip)
 {
+    // Re-entrancy guard: on_dbi_changed() is called inside dbis->update(),
+    // which g_update() calls below.  Without this guard the observer callback
+    // would re-enter g_update() from within a beginResetModel() block, causing
+    // Qt model corruption.
+    if (in_g_update_) return;
+    in_g_update_ = true;
 
     // In case we have opened a completely new .g file, set the callbacks
     if (n_dbip && !BU_PTBL_LEN(&n_dbip->dbi_changed_clbks)) {
@@ -488,126 +810,72 @@ QgModel::g_update(struct db_i *n_dbip)
 	tops_items.clear();
 	emit mdl_changed_db((void *)gedp);
 	emit view_change(QG_VIEW_DRAWN);
-	emit layoutChanged();
+	// endResetModel() already implies layout change via modelReset() signal.
+	// Do NOT emit layoutChanged() without a preceding layoutAboutToBeChanged().
 	changed_db_flag = 0;
 	endResetModel();
+	in_g_update_ = false;
 	return;
     }
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
 
+    // If the DbiState was replaced (e.g. open/closedb recreated it), re-register
+    // as an observer so on_dbi_changed() receives future events.
+    if (dbis && dbis != observed_dbi_state_) {
+	dbis->add_observer(this);
+	observed_dbi_state_ = dbis;
+    }
+
     // If we have a dbip and the changed flag is set, figure out what's different
     if (changed_db_flag) {
-	beginResetModel();
-
-	// Step 1 - make sure our instances are current - i.e. they match the
-	// .g database state
+	// Step 1: update DbiState flat maps.
+	// on_dbi_changed() will collect events into pending_dbi_events_ while
+	// in_g_update_ is true — without calling g_update() again.
+	pending_dbi_events_.clear();
 	dbis->update();
 
-	// Clear out any QgItems with invalid info.  We need to be fairly
-	// aggressive here - first we find all the existing invalid ones, and
-	// then we invalidate all their children recursively - any item with an
-	// invalid parent is invalid.
-	std::queue<QgItem *> to_clear;
-	std::unordered_set<QgItem *> invalid;
-	std::unordered_set<QgItem *>::iterator s_it;
-	for (s_it = items->begin(); s_it != items->end(); s_it++) {
-	    QgItem *itm = *s_it;
-	    if (dbis->p_v.find(itm->ihash) == dbis->p_v.end() &&
-		    dbis->d_map.find(itm->ihash) == dbis->d_map.end())
-		to_clear.push(itm);
-	    if (!itm->dp && dbis->get_hdp(itm->ihash))
-		to_clear.push(itm);
-	}
-	while (!to_clear.empty()) {
-	    QgItem *i_itm = to_clear.front();
-	    to_clear.pop();
-	    invalid.insert(i_itm);
-	    for (size_t i = 0; i < i_itm->children.size(); i++)
-		to_clear.push(i_itm->children[i]);
-	}
-
-	for (s_it = items->begin(); s_it != items->end(); s_it++) {
-	    if (invalid.find(*s_it) != invalid.end())
-		continue;
-	    QgItem *i_itm = *s_it;
-	    // Remove any invalid QgItem references from the children arrays
-	    std::vector<QgItem *> vchildren;
-	    for (size_t i = 0; i < i_itm->children.size(); i++) {
-		QgItem *itm = i_itm->children[i];
-		if (invalid.find(itm) == invalid.end()) {
-		    // Valid - keep it
-		    vchildren.push_back(itm);
+	// Step 2: decide between targeted row operations and a full reset.
+	// Use targeted updates for simple ObjectAdded/Removed/Modified events.
+	// Full reset is required for: batch events, CombTreeChanged, or when no
+	// events were collected (e.g. a new file was opened and the DbiState
+	// constructor already populated its state without firing per-object events).
+	bool needs_full_reset = false;
+	if (pending_dbi_events_.empty()) {
+	    // No events: full rebuild required (new file or constructor-time init)
+	    needs_full_reset = true;
+	} else {
+	    for (const auto &ev : pending_dbi_events_) {
+		if (ev.batch || ev.kind == DbiChangeKind::CombTreeChanged) {
+		    needs_full_reset = true;
+		    break;
 		}
 	    }
-	    i_itm->children = vchildren;
-	    // Child QgItem pointers are now all valid - rebuild full children
-	    // array to match current .g state
-	    item_rebuild(i_itm);
 	}
 
-	// Validate existing tops QgItems based on the tops data.
-	std::vector<unsigned long long> tops = dbis->tops(true);
-	std::unordered_set<unsigned long long> tset(tops.begin(), tops.end());
-	std::unordered_map<unsigned long long, QgItem *> vtops_items;
-	for (size_t i = 0; i < tops_items.size(); i++) {
-	    QgItem *titem = tops_items[i];
-	    if (tset.find(titem->ihash) != tset.end()) {
-		// Still a tops item
-		vtops_items[titem->ihash] = titem;
-	    }
+	if (needs_full_reset) {
+	    full_model_reset(dbis);
+	} else {
+	    apply_incremental_updates(dbis, pending_dbi_events_);
 	}
 
-	// Using tops_instances, construct a new tops vector.  Reuse any still valid
-	// QgItems, and make new ones 
-	std::vector<QgItem *> ntops_items;
-
-	for (size_t i = 0; i < tops.size(); i++) {
-	    std::unordered_map<unsigned long long, QgItem *>::iterator v_it;
-	    v_it = vtops_items.find(tops[i]);
-	    if (v_it != vtops_items.end()) {
-		ntops_items.push_back(v_it->second);
-	    } else {
-		QgItem *nitem = new QgItem(tops[i], this);
-		nitem->parentItem = rootItem;
-		nitem->op = dbis->bool_op(0, tops[i]);
-		ntops_items.push_back(nitem);
-		items->insert(nitem);
-	    }
-	}
-
-	// Set the new tops items as children of the rootItem.
-	std::sort(ntops_items.begin(), ntops_items.end(), QgItem_cmp());
-	tops_items = ntops_items;
-	rootItem->children.clear();
-	for (size_t i = 0; i < tops_items.size(); i++) {
-	    rootItem->appendChild(tops_items[i]);
-	}
-	rootItem->c_noderow.clear();
-	for (size_t i = 0; i < tops_items.size(); i++) {
-	    rootItem->c_noderow[tops_items[i]] = i;
-	}
-
-	// Finally, delete the invalid QgItems
-	std::unordered_set<QgItem *>::iterator iv_it;
-	for (iv_it = invalid.begin(); iv_it != invalid.end(); iv_it++) {
-	    QgItem *iv_itm = *iv_it;
-	    items->erase(iv_itm);
-	    delete iv_itm;
-	}
-
-	endResetModel();
+	pending_dbi_events_.clear();
     }
 
     // If we did change something, we need to let the application know
     if (changed_db_flag) {
 	emit mdl_changed_db((void *)gedp);
-	emit layoutChanged();
+	// NOTE: layoutChanged() must only follow layoutAboutToBeChanged().
+	// full_model_reset() uses beginResetModel/endResetModel which implies
+	// layout change.  apply_incremental_updates() uses per-row signals.
+	// Do NOT emit layoutChanged() here as an unpaired call is a protocol
+	// violation detected by QAbstractItemModelTester.
 	emit check_highlights();
     }
 
     // Reset flag - we're in sync now
     changed_db_flag = 0;
+    in_g_update_ = false;
 }
 
 int
@@ -644,7 +912,12 @@ QgModel::canFetchMore(const QModelIndex &idx) const
     if (item == rootItem)
        	return false;
 
-    // If there are children to be fetched, we can fetch them
+    // canFetchMore() returns true when DB says there are children but we
+    // haven't loaded them yet.  Since childCount() now returns children.size()
+    // (the already-loaded count), this correctly signals lazy-loading readiness.
+    if (item->children.size())
+	return false;  // Already fetched, nothing more to load
+
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     if (dbis->p_v.find(item->ihash) != dbis->p_v.end()) {
 	if (dbis->p_v[item->ihash].size())

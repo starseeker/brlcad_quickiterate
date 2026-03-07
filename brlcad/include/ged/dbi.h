@@ -81,8 +81,46 @@ template<> struct hash<InstHash> { size_t operator()(const InstHash &h) const { 
 template<> struct hash<PathHash> { size_t operator()(const PathHash &h) const { return std::hash<unsigned long long>()(h.v); } };
 }
 
+// DbiPath is a typed value representing a full database path as an ordered
+// sequence of per-element name hashes.  It is the preferred alternative to
+// raw std::vector<unsigned long long> in new code; the implicit conversion
+// operator preserves backward compatibility with existing APIs that still
+// take a vector reference.
+struct GED_EXPORT DbiPath {
+    std::vector<unsigned long long> hashes;
+
+    DbiPath() = default;
+    explicit DbiPath(std::vector<unsigned long long> v) : hashes(std::move(v)) {}
+
+    bool empty() const { return hashes.empty(); }
+    size_t size() const { return hashes.size(); }
+    unsigned long long front() const { return hashes.front(); }
+    unsigned long long back()  const { return hashes.back(); }
+    unsigned long long at(size_t i) const { return hashes.at(i); }
+
+    bool operator==(const DbiPath &o) const { return hashes == o.hashes; }
+    bool operator!=(const DbiPath &o) const { return hashes != o.hashes; }
+
+    // Implicit conversion allows DbiPath to be passed where a const vector
+    // reference is expected, preserving backward compatibility.
+    operator const std::vector<unsigned long long>&() const { return hashes; }
+};
+
+namespace std {
+template<> struct hash<DbiPath> {
+    size_t operator()(const DbiPath &p) const {
+        size_t seed = p.hashes.size();
+        for (auto h : p.hashes)
+            seed ^= std::hash<unsigned long long>()(h) + 0x9e3779b9u + (seed << 6) + (seed >> 2);
+        return seed;
+    }
+};
+}
+
 class GED_EXPORT DbiState;
 class GED_EXPORT BViewState;
+class GED_EXPORT GObj;
+class GED_EXPORT CombInst;
 
 // SelectionSet replaces BSelectState with cleaner semantics.
 // It tracks selected paths and hierarchical relationships using path hashes.
@@ -91,7 +129,12 @@ public:
     explicit SelectionSet(DbiState *);
     ~SelectionSet() = default;
 
-    // Select/deselect by path hash
+    // Select/deselect by path hash (path_vec must be the ordered element hash
+    // vector corresponding to path_hash so that hierarchy can be computed)
+    bool select(unsigned long long path_hash, const std::vector<unsigned long long> &path_vec, bool update_hierarchy = true);
+    // Convenience overload: inserts hash with an empty path vector.
+    // Hierarchy computation (recompute_hierarchy) will skip this entry since
+    // the path vector is unavailable; prefer the full overload when possible.
     bool select(unsigned long long path_hash, bool update_hierarchy = true);
     bool deselect(unsigned long long path_hash, bool update_hierarchy = true);
     void clear();
@@ -116,14 +159,20 @@ public:
     void sync_to_drawn(BViewState *vs);
 
     // Raw access for compatibility with existing code
-    const std::unordered_set<unsigned long long> &selected_hashes() const { return selected_; }
+    // Returns a snapshot set of all selected path hashes
+    std::unordered_set<unsigned long long> selected_hashes() const;
+
+    // Direct access to the full selected map (hash → path vector)
+    const std::unordered_map<unsigned long long, std::vector<unsigned long long>> &selected() const { return selected_; }
 
 private:
     DbiState *dbis_;
-    std::unordered_set<unsigned long long> selected_;     // PathHash values
-    std::unordered_set<unsigned long long> active_;       // selected + children
-    std::unordered_set<unsigned long long> parents_;      // immediate parents
-    std::unordered_set<unsigned long long> ancestors_;    // all above parents
+    // Map from full-path hash to the ordered element-hash vector for that path.
+    // Storing the vector allows hierarchy and path-string computation.
+    std::unordered_map<unsigned long long, std::vector<unsigned long long>> selected_;
+    std::unordered_set<unsigned long long> active_;       // selected + all subpath hashes
+    std::unordered_set<unsigned long long> parents_;      // immediate parent path hashes
+    std::unordered_set<unsigned long long> ancestors_;    // all ancestor path hashes
 
     void recompute_hierarchy();
 };
@@ -409,6 +458,7 @@ class GED_EXPORT BViewState {
 	std::unordered_set<unsigned long long> all_partially_drawn_paths;
 
 	friend class BSelectState;
+	friend class SelectionSet;
 
 	DrawList draw_list_;
 };
@@ -566,6 +616,17 @@ class GED_EXPORT DbiState {
 
 	bool need_update_nref = true;
 
+	// Phase 3 object model: GObj instances keyed by object-name hash.
+	// Populated alongside the flat maps during update_dp(); CombInst
+	// children are owned by GObj::cv and accessed via the GObj.
+	std::unordered_map<unsigned long long, GObj *> gobjs;
+
+	// Convenience accessor for gobjs (returns nullptr if not found)
+	const GObj *get_gobj(unsigned long long hash) const {
+	    auto it = gobjs.find(hash);
+	    return (it != gobjs.end()) ? it->second : nullptr;
+	}
+
 	// Debugging methods for printing out current states - the use of hashes
 	// means direct inspection of most data isn't informative, so we provide
 	// convenience methods that decode it to user-comprehensible info.
@@ -611,6 +672,10 @@ class GED_EXPORT DbiState {
 
 	std::unique_ptr<SelectionSet> default_selection_set_;
 	std::unordered_map<std::string, std::unique_ptr<SelectionSet>> selection_sets_;
+
+	// GObj and CombInst need access to private DbiState internals (res, dcache)
+	friend class GObj;
+	friend class CombInst;
 };
 
 
@@ -695,6 +760,130 @@ typedef struct _bselect_state {
 } BSelectState;
 
 #endif
+
+/*
+ * C surface — accessible from both C and C++ translation units.
+ *
+ * All functions take a `struct ged *` so that callers never need to
+ * manage DbiState, SelectionSet, or GObj pointers directly.  The
+ * `dbi_state` field of the ged struct is cast to the appropriate C++
+ * type internally; from C it remains opaque.
+ *
+ * Naming convention: ged_dbi_*  for database-state queries,
+ *                    ged_selection_* for selection-set operations.
+ */
+
+__BEGIN_DECLS
+
+/* ------------------------------------------------------------------ */
+/* Database-state helpers                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Trigger a full DbiState update (same as ged_db_dirty/ged_update_nref
+ * but acting on the new DBI layer).  Returns a change-flags bitmask
+ * (GED_DBISTATE_DB_CHANGE | GED_DBISTATE_VIEW_CHANGE) or 0 on error.
+ */
+GED_EXPORT extern unsigned long long ged_dbi_update(struct ged *gedp);
+
+/**
+ * Return non-zero if @a hash is a valid object-name hash in the
+ * current DbiState (i.e. it appears in d_map).
+ */
+GED_EXPORT extern int ged_dbi_valid_hash(struct ged *gedp, unsigned long long hash);
+
+/**
+ * Look up the name hash for a named object.  Returns 0 if the object
+ * is not found in the current DbiState.
+ */
+GED_EXPORT extern unsigned long long ged_dbi_hash_of(struct ged *gedp, const char *name);
+
+/**
+ * Fill @a out with the name hashes of all top-level objects in the
+ * current DbiState.  @a out must be a valid, initialised bu_ptbl.
+ * Returns the count of tops items added, or -1 on error.
+ *
+ * Each entry stored in @a out is an unsigned long long value cast to
+ * (void *) — callers should cast back with (unsigned long long)(uintptr_t).
+ */
+GED_EXPORT extern int ged_dbi_tops(struct ged *gedp, struct bu_ptbl *out);
+
+/* ------------------------------------------------------------------ */
+/* GObj helpers (read-only access to the Phase-3 object model)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Return non-zero if @a name refers to a combination object in the
+ * current DbiState's gobjs map.  Returns -1 if the object is not found.
+ */
+GED_EXPORT extern int ged_dbi_gobj_is_comb(struct ged *gedp, const char *name);
+
+/**
+ * Return the region_id of @a name, or -1 if the object is not found.
+ */
+GED_EXPORT extern int ged_dbi_gobj_region_id(struct ged *gedp, const char *name);
+
+/**
+ * Fill @a r, @a g, @a b with the explicitly-set color of @a name.
+ * Returns 1 if a color is set, 0 if no color is set, -1 if not found.
+ */
+GED_EXPORT extern int ged_dbi_gobj_color(struct ged *gedp, const char *name,
+					  unsigned char *r, unsigned char *g_out, unsigned char *b);
+
+/**
+ * Return the number of direct child instances of @a name in the
+ * current DbiState, or -1 if the object is not found / is not a comb.
+ */
+GED_EXPORT extern int ged_dbi_gobj_child_count(struct ged *gedp, const char *name);
+
+/* ------------------------------------------------------------------ */
+/* SelectionSet helpers                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Select the path given by @a path_str in the named selection set
+ * (@a sname == NULL selects the default set).  Returns 1 if the
+ * selection changed, 0 if it was already selected, -1 on error.
+ */
+GED_EXPORT extern int ged_selection_select(struct ged *gedp, const char *sname,
+					    const char *path_str);
+
+/**
+ * Deselect @a path_str from the named selection set.  Returns 1 if
+ * the selection changed, 0 if it was not selected, -1 on error.
+ */
+GED_EXPORT extern int ged_selection_deselect(struct ged *gedp, const char *sname,
+					      const char *path_str);
+
+/**
+ * Return non-zero if @a path_str is currently selected in the named
+ * selection set, 0 if not, -1 on error.
+ */
+GED_EXPORT extern int ged_selection_is_selected(struct ged *gedp, const char *sname,
+						 const char *path_str);
+
+/**
+ * Clear all selections from the named selection set.
+ */
+GED_EXPORT extern void ged_selection_clear(struct ged *gedp, const char *sname);
+
+/**
+ * Return the number of currently-selected paths in the named selection
+ * set, or -1 on error.
+ */
+GED_EXPORT extern int ged_selection_count(struct ged *gedp, const char *sname);
+
+/**
+ * Fill @a out with the currently-selected path strings in the named
+ * selection set.  Each entry is a bu_strdup'd C string; the caller is
+ * responsible for freeing each entry and the table contents.  @a out
+ * must be a valid, initialised bu_ptbl.  Returns the count added, or
+ * -1 on error.
+ */
+GED_EXPORT extern int ged_selection_list_paths(struct ged *gedp, const char *sname,
+					        struct bu_ptbl *out);
+
+__END_DECLS
 
 #endif /* GED_DBI_H */
 
