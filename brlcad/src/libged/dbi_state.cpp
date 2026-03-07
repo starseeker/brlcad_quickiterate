@@ -3563,6 +3563,8 @@ bool SelectionSet::select(unsigned long long path_hash,
                           bool update_hierarchy)
 {
     if (!path_hash) return false;
+    auto it = selected_.find(path_hash);
+    if (it != selected_.end() && it->second == path_vec) return false; // already selected, no change
     selected_[path_hash] = path_vec;
     if (update_hierarchy) recompute_hierarchy();
     return true;
@@ -4045,6 +4047,256 @@ GObj::bbox(point_t *min, point_t *max)
 	VMINMAX(*min, *max, bb_max);
     }
 }
+
+/* ============================================================
+ * C surface — implementations of the extern "C" declarations
+ * in include/ged/dbi.h.
+ * ============================================================ */
+
+/* Auto-bootstrap helper: create DbiState for gedp if it doesn't exist
+ * yet (it is only created automatically when new_cmd_forms is set),
+ * then call update() to populate the maps from the current database.
+ * Returns the (possibly newly created) DbiState, or NULL on error. */
+static DbiState *
+_dbi_get_or_init(struct ged *gedp)
+{
+    if (!gedp || !gedp->dbip)
+	return NULL;
+    if (!gedp->dbi_state) {
+	gedp->dbi_state = new DbiState(gedp);
+	static_cast<DbiState *>(gedp->dbi_state)->update();
+    }
+    return static_cast<DbiState *>(gedp->dbi_state);
+}
+
+extern "C" {
+
+/* ------------------------------------------------------------------ */
+/* Database-state helpers                                              */
+/* ------------------------------------------------------------------ */
+
+unsigned long long
+ged_dbi_update(struct ged *gedp)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    return dbis->update();
+}
+
+int
+ged_dbi_valid_hash(struct ged *gedp, unsigned long long hash)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    return dbis->valid_hash(hash) ? 1 : 0;
+}
+
+unsigned long long
+ged_dbi_hash_of(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return 0;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return 0;
+    /* For a single name, validate it exists in the DB before returning.
+     * For a multi-element path, digest_path already validates the tree
+     * relationships, so we return the full-path hash directly. */
+    if (parts.size() == 1) {
+	if (!dbis->valid_hash(parts[0]))
+	    return 0;
+	return parts[0];
+    }
+    return dbis->path_hash(parts, 0);
+}
+
+int
+ged_dbi_tops(struct ged *gedp, struct bu_ptbl *out)
+{
+    if (!out)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> tv = dbis->tops(false);
+    for (auto h : tv)
+	bu_ptbl_ins(out, (long *)(uintptr_t)h);
+    return (int)tv.size();
+}
+
+/* ------------------------------------------------------------------ */
+/* GObj helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+int
+ged_dbi_gobj_is_comb(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    unsigned long long h = parts[0];
+    const GObj *gobj = dbis->get_gobj(h);
+    if (!gobj)
+	return -1;
+    return gobj->dp && (gobj->dp->d_flags & RT_DIR_COMB) ? 1 : 0;
+}
+
+int
+ged_dbi_gobj_region_id(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    return gobj->region_id;
+}
+
+int
+ged_dbi_gobj_color(struct ged *gedp, const char *name,
+		   unsigned char *r, unsigned char *g_out, unsigned char *b)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    if (!gobj->color_set)
+	return 0;
+    if (r && g_out && b) {
+	unsigned char rgb[3];
+	bu_color_to_rgb_chars(&gobj->color, rgb);
+	*r = rgb[0]; *g_out = rgb[1]; *b = rgb[2];
+    }
+    return 1;
+}
+
+int
+ged_dbi_gobj_child_count(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    if (!gobj->dp || !(gobj->dp->d_flags & RT_DIR_COMB))
+	return -1;
+    return (int)gobj->cv.size();
+}
+
+/* ------------------------------------------------------------------ */
+/* SelectionSet helpers                                                */
+/* ------------------------------------------------------------------ */
+
+/* Return the named selection set, or the default set if sname is NULL.
+ * Creates the set if it does not yet exist.  Returns NULL on error. */
+static SelectionSet *
+_get_or_make_set(struct ged *gedp, const char *sname)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return NULL;
+    if (!sname || sname[0] == '\0')
+	return dbis->get_selection_set(nullptr);
+    /* Ensure the named set exists */
+    dbis->add_selection_set(sname);
+    return dbis->get_selection_set(sname);
+}
+
+int
+ged_selection_select(struct ged *gedp, const char *sname, const char *path_str)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !path_str)
+	return -1;
+    bool changed = ss->select(path_str, true);
+    return changed ? 1 : 0;
+}
+
+int
+ged_selection_deselect(struct ged *gedp, const char *sname, const char *path_str)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !path_str)
+	return -1;
+    bool changed = ss->deselect(path_str, true);
+    return changed ? 1 : 0;
+}
+
+int
+ged_selection_is_selected(struct ged *gedp, const char *sname, const char *path_str)
+{
+    if (!path_str)
+	return -1;
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    std::vector<unsigned long long> parts = dbis->digest_path(path_str);
+    if (parts.empty())
+	return 0;
+    unsigned long long ph = dbis->path_hash(parts, 0);
+    return ss->is_selected(ph) ? 1 : 0;
+}
+
+void
+ged_selection_clear(struct ged *gedp, const char *sname)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (ss)
+	ss->clear();
+}
+
+int
+ged_selection_count(struct ged *gedp, const char *sname)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss)
+	return -1;
+    return (int)ss->selected().size();
+}
+
+int
+ged_selection_list_paths(struct ged *gedp, const char *sname, struct bu_ptbl *out)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !out)
+	return -1;
+    std::vector<std::string> paths = ss->selected_paths();
+    for (const auto &p : paths)
+	bu_ptbl_ins(out, (long *)bu_strdup(p.c_str()));
+    return (int)paths.size();
+}
+
+} /* extern "C" */
 
 // Local Variables:
 // tab-width: 8

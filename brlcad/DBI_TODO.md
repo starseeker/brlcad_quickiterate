@@ -1016,6 +1016,7 @@ and provide testable checkpoints at each phase.
 | 6 | `QgModel` incremental update: `on_dbi_changed()` stores events; `g_update()` calls `full_model_reset()` or `apply_incremental_updates()` based on event complexity | ✅ Done |
 | 7 | `SelectionSet` hierarchy completion: `selected_paths()`, `recompute_hierarchy()` (BFS), `sync_to_drawn()` (bv_illum_obj pattern) | ✅ Done |
 | 8 | Qt model protocol fixes; observer re-registration; child-level incremental update (`rebuild_item_children`); `canFetchMore()` fix | ✅ Done |
+| 9 | `DbiPath` value type; C surface (`ged_dbi_*`, `ged_selection_*`); `SelectionSet::select()` idempotency fix; `test_dbi_c.c` regression test | ✅ Done |
 
 **Files modified by this work:**
 
@@ -1027,7 +1028,9 @@ and provide testable checkpoints at each phase.
 - `src/libged/dbi.h` — changed to a redirect shim to `include/ged/dbi.h`
 - `src/libged/dbi_state.cpp` — added `GObj`/`CombInst` implementations (Phase 3),
   `DrawList` implementation (Phase 4), `SelectionSet` implementation (Phase 5/7),
-  observer infrastructure, `notify_dbi_observers()` call in `update()`
+  observer infrastructure, `notify_dbi_observers()` call in `update()`;
+  Phase 9: `_dbi_get_or_init()` helper, C surface (`ged_dbi_*`, `ged_selection_*`),
+  `SelectionSet::select()` idempotency fix
 - `include/qtcad/QgModel.h` — `QgModel` inherits `IDbiObserver`; Phase 6: `in_g_update_`,
   `pending_dbi_events_`, `full_model_reset()`, `apply_incremental_updates()`,
   `reconcile_tops()` declarations; Phase 8: `rebuild_item_children()`, `observed_dbi_state_`
@@ -1036,6 +1039,9 @@ and provide testable checkpoints at each phase.
   or `apply_incremental_updates()` + `reconcile_tops()` based on event set;
   `full_model_reset()` extracted helper for full `beginResetModel()/endResetModel()` cycle;
   Phase 8: Qt model protocol fixes, observer re-registration, `rebuild_item_children()`
+- `src/libged/tests/test_dbi_c.c` — new C regression test; 35 assertions covering all
+  C surface entry points; creates a temporary `.g` DB and exercises the full API
+- `src/libged/tests/CMakeLists.txt` — registers `ged_test_dbi_c` as a CTest
 - `doc/DBI_MIGRATION.md` — new migration guide
 
 ### Phase 6 Design Notes
@@ -1107,9 +1113,44 @@ preventing `canFetchMore()` from returning `true` for items that have been fetch
 
 ### Remaining Work
 
-- **Regression tests**: unit tests that exercise `on_dbi_changed()` → targeted row signals
-  path (verify `beginInsertRows`/`endInsertRows` fire without `beginResetModel`).
-- **`DbiPath` value type**: typed path representation (deferred from Phase 1).
-- **`SelectionSet` path retention**: currently `select(ull, bool)` convenience overload
-  inserts an empty path vector — callers should prefer the full overload.
-- **C surface**: public C API wrappers for `SelectionSet` and `DbiState::gobjs`.
+- **Regression tests for `on_dbi_changed()` targeted signals**: Qt unit test using
+  `QAbstractItemModelTester` in `Fatal` mode that verifies `beginInsertRows`/`endInsertRows`
+  fire without `beginResetModel` when a comb is modified with already-expanded children.
+- **`SelectionSet` path retention**: the `select(ull, bool)` convenience overload inserts
+  an empty path vector — callers should prefer the full overload with the element vector.
+- **`DbiPath` adoption**: `DbiPath` is now declared but no existing APIs have been migrated
+  to accept it.  The implicit conversion operator means callers can pass `DbiPath` anywhere
+  `const std::vector<unsigned long long>&` is expected, but explicit migration would improve
+  readability and type safety.
+
+### Phase 9 Design Notes (Session 20)
+
+**`DbiPath` value type** added to the C++ section of `include/ged/dbi.h`:
+- `struct DbiPath` wraps `std::vector<unsigned long long> hashes` with semantic clarity.
+- `empty()`, `size()`, `front()`, `back()`, `at(i)` accessors match `std::vector` conventions.
+- Implicit conversion to `const std::vector<unsigned long long>&` provides full backward
+  compatibility — a `DbiPath` can be passed anywhere a const vector ref is accepted.
+- `std::hash<DbiPath>` XOR-fold specialisation allows `DbiPath` as an unordered_map key.
+
+**C surface** — `extern "C"` API added at the bottom of `include/ged/dbi.h` and implemented
+in `src/libged/dbi_state.cpp`:
+
+*Auto-bootstrap* — `_dbi_get_or_init()` internal helper creates a `DbiState` and calls
+`update()` if `gedp->dbi_state` is NULL.  This makes every C surface function usable
+directly after `ged_open()` without requiring `new_cmd_forms` or a separate init call.
+
+*Database-state helpers* — `ged_dbi_update()`, `ged_dbi_valid_hash()`, `ged_dbi_hash_of()`
+(validates single-name result via `valid_hash()`), `ged_dbi_tops()` (fills `bu_ptbl`).
+
+*GObj helpers* — `ged_dbi_gobj_is_comb()`, `ged_dbi_gobj_region_id()`, `ged_dbi_gobj_color()`,
+`ged_dbi_gobj_child_count()`.
+
+*SelectionSet helpers* — `ged_selection_select()`, `ged_selection_deselect()`,
+`ged_selection_is_selected()`, `ged_selection_clear()`, `ged_selection_count()`,
+`ged_selection_list_paths()` (returns `bu_strdup`'d strings in a `bu_ptbl`).
+
+**`SelectionSet::select()` idempotency fix** — the primary overload
+`select(ull, const vector<ull>&, bool)` previously always returned `true`; it now checks
+whether the hash was already stored with the same path vector and returns `false` (no change)
+in that case.  This aligns with the behavior of `deselect()` and the contract documented in
+the C surface API header comments.
