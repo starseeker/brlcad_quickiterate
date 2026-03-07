@@ -774,8 +774,8 @@ tooling that depends on `libged`, the transition should be staged.
   **DONE** — `notify_dbi_observers()` is called at the end of `DbiState::update()`,
   emitting per-object `ObjectAdded`/`ObjectModified`/`ObjectRemoved` events.
 - ~~Implement `QgModel::on_dbi_changed()` using a conservative full-reset strategy
-  initially.~~ **DONE** — `QgModel` inherits `IDbiObserver`; `on_dbi_changed()`
-  calls `g_update()` (full-reset, conservative).  Incremental path is Phase 6.
+  initially.~~ **DONE** — `QgModel` inherits `IDbiObserver`; Phase 6 (below) replaced
+  the conservative path with targeted row operations.
 - **Tests:** exercise each command category (create, edit, delete, rename, move,
   copy) and verify `on_dbi_changed()` is called with appropriate events.
 
@@ -813,37 +813,49 @@ tooling that depends on `libged`, the transition should be staged.
   `dbi_state.cpp`.  `DbiState::get_selection_set()` / `add_selection_set()` /
   `remove_selection_set()` / `list_selection_sets()` are implemented.
 - `BSelectState` is retained in the header for the transition period.
-- Rewrite hierarchy metadata computation using the `GObj`/`CombInst` graph
-  rather than nested hash-vector loops.  *(Deferred to Phase 7; `recompute_hierarchy()`
-  stub is in place.)*
-- **Tests:** selection expand/collapse, highlighting after edit, multi-view
-  sync.
+- ~~Rewrite hierarchy metadata computation using the `GObj`/`CombInst` graph~~
+  **DONE (Phase 7)** — `recompute_hierarchy()` uses BFS via `DbiState::p_v` to expand
+  descendants into `active_`; prefix-walk builds `parents_` and `ancestors_`.
+- **Tests:** selection expand/collapse, highlighting after edit, multi-view sync.
 
-### Phase 6 — QgModel incremental update  🔲 NEXT (partial foundation in place)
+### Phase 6 — QgModel incremental update  ✅ COMPLETE
 *(libqtcad-only change)*
 
-- Foundation: `QgModel` already inherits `IDbiObserver`; `on_dbi_changed()` exists
-  and calls `g_update()` (conservative full-reset path).
-- **Remaining work:**
-  - Replace `beginResetModel()/endResetModel()` with precise row insert/remove
-    calls in `on_dbi_changed()`.
-  - Implement `Node` map keyed by `PathHash` to enable stable identity across edits.
-  - Preserve expanded/collapsed QgItem state for subtrees unaffected by the change.
-- **Tests:** Qt Model Test (`https://wiki.qt.io/Model_Test`); verify expanded
-  subtree state is preserved after a rename of an unrelated top-level object.
+- ~~Foundation: `QgModel` already inherits `IDbiObserver`; `on_dbi_changed()` exists
+  and calls `g_update()` (conservative full-reset path).~~
+- **Implemented:**
+  - **Re-entrancy fix**: `in_g_update_` flag prevents `on_dbi_changed()` from
+    recursively calling `g_update()` from inside a `beginResetModel()` block.
+  - `dbis->update()` is now called BEFORE any Qt model-lock operation.
+  - `on_dbi_changed()` stores events in `pending_dbi_events_`; `g_update()` reads
+    them to decide between targeted and full-reset paths.
+  - `full_model_reset()` — extracted helper containing the former `beginResetModel()`
+    cycle for complex/batch changes.
+  - `apply_incremental_updates()` — targeted path: `dataChanged()` for
+    `ObjectModified`; `reconcile_tops()` for `ObjectAdded`/`ObjectRemoved`.
+  - `reconcile_tops()` — per-row `beginInsertRows/endInsertRows` and
+    `beginRemoveRows/endRemoveRows`; preserves expanded state of unchanged rows.
+  - Falls back to `full_model_reset()` for `CombTreeChanged`, `batch=true`, or when
+    a modified comb has already-expanded children.
+- **Tests:** Qt Model Test; verify expanded subtree state is preserved after a
+  rename of an unrelated top-level object.
 
-### Phase 7 — Cleanup and stabilization  🔲 PENDING
-- Remove deprecated compatibility overloads once consumers are migrated.
-- `dbi.h` has already been moved to `include/ged/dbi.h`; `src/libged/dbi.h` is now
-  a compatibility redirect.
-- Drop LMDB from dbi2 experiments.
-- Add a dedicated regression test for each known edit-does-not-propagate scenario.
-- Complete `SelectionSet::recompute_hierarchy()` using `GObj`/`CombInst` graph.
-- Complete `SelectionSet::selected_paths()` to return decoded path strings.
-- Complete `SelectionSet::sync_to_drawn()` to update highlight markers.
-- Produce a public C surface (`ged/dbi_c.h`) for the handful of capabilities
-  needed by C callers.
-- Implement `DbiPath` value type (typed path; deferred from Phase 1).
+### Phase 7 — Cleanup and stabilization  ✅ COMPLETE (core items)
+- ~~`dbi.h` moved to `include/ged/dbi.h`.~~ **DONE** (earlier session).
+- ~~Complete `SelectionSet::recompute_hierarchy()` using `GObj`/`CombInst` graph.~~
+  **DONE** — BFS over `DbiState::p_v` from each selected path's leaf element.
+- ~~Complete `SelectionSet::selected_paths()` to return decoded path strings.~~
+  **DONE** — calls `DbiState::print_path()` on stored path vectors.
+- ~~Complete `SelectionSet::sync_to_drawn()` to update highlight markers.~~
+  **DONE** — iterates `BViewState::s_map` and calls `bv_illum_obj()`.
+- ~~`SelectionSet::selected_` → `map<ull, vector<ull>>`.~~ **DONE** — stores path
+  element vector alongside hash; old `selected_hashes()` returns computed snapshot.
+- **Remaining:**
+  - `DbiPath` value type (typed path; deferred).
+  - Public C surface (`ged/dbi_c.h`) for C callers.
+  - Regression tests for each known edit-does-not-propagate scenario.
+  - Child-level incremental update in `apply_incremental_updates()` (currently falls
+    back to full reset when a modified comb has expanded children).
 
 ---
 
@@ -989,9 +1001,7 @@ and provide testable checkpoints at each phase.
 
 ## 11. Implementation Progress
 
-### Session — Phases 1–5 Implementation
-
-**Work completed:**
+### Session 17 — Phase 3: GObj/CombInst implementation
 
 | Phase | Description | Status |
 |---|---|---|
@@ -1003,46 +1013,65 @@ and provide testable checkpoints at each phase.
 | — | LMDB drawing cache replaced with `bu_cache` API | ✅ Done |
 | — | `dbi.h` moved to public path `include/ged/dbi.h`; internal `src/libged/dbi.h` is a redirect | ✅ Done |
 | — | Migration guide (`doc/DBI_MIGRATION.md`) created | ✅ Done |
-| 6 | `QgModel` inherits `IDbiObserver`; `on_dbi_changed()` exists (conservative full-reset) | ⚠️ Foundation only |
-| 7 | Cleanup, regression tests, C surface, `SelectionSet` hierarchy completion | 🔲 Pending |
+| 6 | `QgModel` incremental update: `on_dbi_changed()` stores events; `g_update()` calls `full_model_reset()` or `apply_incremental_updates()` based on event complexity | ✅ Done |
+| 7 | `SelectionSet` hierarchy completion: `selected_paths()`, `recompute_hierarchy()` (BFS), `sync_to_drawn()` (bv_illum_obj pattern) | ✅ Done |
 
 **Files modified by this work:**
 
 - `include/ged/dbi.h` — added typed hashes, observer types, `DrawList`, `DrawSettings`,
-  `DrawState`, `SelectionSet`, `GObj`, `CombInst`, `IDbiObserver`, `ISceneObserver`
+  `DrawState`, `SelectionSet`, `GObj`, `CombInst`, `IDbiObserver`, `ISceneObserver`;
+  Phase 6: forward declarations, `DbiState::gobjs`, friend declarations;
+  Phase 7: `SelectionSet::selected_` → `map<ull, vector<ull>>`, new `select()` overload,
+  `selected_hashes()` now computes a snapshot, `friend class SelectionSet` in `BViewState`
 - `src/libged/dbi.h` — changed to a redirect shim to `include/ged/dbi.h`
-- `src/libged/dbi_state.cpp` — added `GObj`/`CombInst` implementations, `DrawList`
-  implementation (Phase 4), `SelectionSet` implementation (Phase 5), observer
-  infrastructure, `notify_dbi_observers()` call in `update()`
-- `include/qtcad/QgModel.h` — `QgModel` inherits `IDbiObserver`
-- `src/libqtcad/QgModel.cpp` — `on_dbi_changed()` implementation (conservative path)
+- `src/libged/dbi_state.cpp` — added `GObj`/`CombInst` implementations (Phase 3),
+  `DrawList` implementation (Phase 4), `SelectionSet` implementation (Phase 5/7),
+  observer infrastructure, `notify_dbi_observers()` call in `update()`
+- `include/qtcad/QgModel.h` — `QgModel` inherits `IDbiObserver`; Phase 6: `in_g_update_`,
+  `pending_dbi_events_`, `full_model_reset()`, `apply_incremental_updates()`,
+  `reconcile_tops()` declarations
+- `src/libqtcad/QgModel.cpp` — Phase 6: `on_dbi_changed()` collects events;
+  `g_update()` calls `dbis->update()` before Qt model changes, uses `full_model_reset()`
+  or `apply_incremental_updates()` + `reconcile_tops()` based on event set;
+  `full_model_reset()` extracted helper for full `beginResetModel()/endResetModel()` cycle
 - `doc/DBI_MIGRATION.md` — new migration guide
 
-### Next Steps
+### Phase 6 Design Notes
 
-**Immediate priority — Phase 6 (QgModel incremental update):**
+**Re-entrancy fix**: `dbis->update()` is called inside `g_update()`, and `update()` calls
+`notify_dbi_observers()` which triggers `on_dbi_changed()`.  Before this fix `on_dbi_changed()`
+called `g_update()` again from inside a `beginResetModel()` block — undefined Qt model
+behavior.  Fixed by:
+1. `in_g_update_` flag prevents re-entrant `g_update()` calls.
+2. `on_dbi_changed()` only stores events in `pending_dbi_events_` when `in_g_update_`.
+3. `dbis->update()` is called BEFORE the Qt model is locked (before `beginResetModel()`).
 
-The foundation is in place (`on_dbi_changed()` is called for every database change).
-The remaining work is to replace the full `beginResetModel()`/`endResetModel()` cycle
-with targeted row operations:
+**Targeted update rules** (applied by `apply_incremental_updates()`):
+- `ObjectModified` / `AttributeChanged` for a solid → `dataChanged()` for all matching items.
+- `ObjectAdded` / `ObjectRemoved` → `reconcile_tops()` which does per-row
+  `beginInsertRows`/`endInsertRows` or `beginRemoveRows`/`endRemoveRows`.
+- `ObjectModified` for a comb that has already-expanded children → full reset (fallback).
+- `CombTreeChanged` or `batch=true` → full reset (fallback).
+- Unknown event kind → full reset (fallback).
 
-1. On `ObjectAdded` → `beginInsertRows()` / `endInsertRows()` for the new top-level
-   row (if the object appears at the top level) or update the parent's child count.
-2. On `ObjectRemoved` → `beginRemoveRows()` / `endRemoveRows()` for the affected row.
-3. On `ObjectModified` or `CombTreeChanged` → `dataChanged()` for the affected rows;
-   if child count changed, add/remove child rows accordingly.
-4. On `batch = true` → fall back to full `beginResetModel()`/`endResetModel()`.
+### Phase 7 Design Notes
 
-This requires `QgModel` to maintain a map from `GHash` → `QgItem *` to enable O(1)
-lookup of the Qt model row for an affected object.
+**SelectionSet::selected_**: changed from `unordered_set<ull>` to `unordered_map<ull, vector<ull>>`
+(path_hash → path_element_vector).  The path vector enables:
+- `selected_paths()`: calls `DbiState::print_path()` on each stored vector.
+- `recompute_hierarchy()`: BFS via `DbiState::p_v` expands descendants into `active_`,
+  and prefix-walk builds `parents_` (immediate) and `ancestors_` (all).
+- `sync_to_drawn()`: iterates `BViewState::s_map` and calls `bv_illum_obj()` — same pattern
+  as `BSelectState::draw_sync()`.
 
-**Phase 7 cleanup items to address:**
+### Remaining Work
 
-- Complete `SelectionSet::recompute_hierarchy()` using the `GObj`/`CombInst` graph
-  (replace the current stub that just copies `selected_` into `active_`).
-- Complete `SelectionSet::selected_paths()` to return decoded path strings using
-  `DbiState::print_path()`.
-- Complete `SelectionSet::sync_to_drawn()` to iterate `BViewState::s_map` and set
-  illumination flags — the same pattern used by `BSelectState::draw_sync()`.
-- Implement `DbiPath` value type (typed path representation; deferred from Phase 1).
-- Add regression tests for each "edit does not propagate" scenario documented in §3.2.
+- **Regression tests**: unit tests that exercise `on_dbi_changed()` → targeted row signals
+  path (verify `beginInsertRows`/`endInsertRows` fire without `beginResetModel`).
+- **`DbiPath` value type**: typed path representation (deferred from Phase 1).
+- **`SelectionSet` path retention**: currently `select(ull, bool)` convenience overload
+  inserts an empty path vector — callers should prefer the full overload.
+- **Child-level incremental update**: `apply_incremental_updates()` currently falls back to
+  full reset when a modified comb has expanded children.  A future enhancement would use
+  `item_rebuild()` with individual row signals instead.
+- **C surface**: public C API wrappers for `SelectionSet` and `DbiState::gobjs`.

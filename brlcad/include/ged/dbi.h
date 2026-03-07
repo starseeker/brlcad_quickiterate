@@ -96,7 +96,10 @@ public:
     // Select/deselect by path hash (path_vec must be the ordered element hash
     // vector corresponding to path_hash so that hierarchy can be computed)
     bool select(unsigned long long path_hash, const std::vector<unsigned long long> &path_vec, bool update_hierarchy = true);
-    bool select(unsigned long long path_hash, bool update_hierarchy = true); // convenience: inserts hash with empty vec
+    // Convenience overload: inserts hash with an empty path vector.
+    // Hierarchy computation (recompute_hierarchy) will skip this entry since
+    // the path vector is unavailable; prefer the full overload when possible.
+    bool select(unsigned long long path_hash, bool update_hierarchy = true);
     bool deselect(unsigned long long path_hash, bool update_hierarchy = true);
     void clear();
 
