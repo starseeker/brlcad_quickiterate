@@ -30,6 +30,15 @@ endif(TARGET Qt5::Test)
 if(TARGET qgmodel)
   target_compile_definitions(qgmodel PRIVATE BRLCADBUILD HAVE_CONFIG_H)
   install(TARGETS qgmodel RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
+  # Register as a CTest: pass ged_tests.g (moss data) as the input file.
+  # The T2 section creates its own temp .g alongside that path.
+  add_dependencies(qgmodel ged_plugins)
+  brlcad_add_test(NAME qtcad_qgmodel COMMAND qgmodel
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../libged/tests/ged_tests.g")
+  if(TARGET qtcad_qgmodel)
+    set_property(TEST qtcad_qgmodel APPEND PROPERTY
+      ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+  endif(TARGET qtcad_qgmodel)
 endif(TARGET qgmodel)
 
 if(TARGET Qt6::Widgets)

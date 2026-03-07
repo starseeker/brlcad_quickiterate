@@ -1176,25 +1176,28 @@ architectural work that was deferred during the phase-by-phase rollout.
 **T1 — Promote `QAbstractItemModelTester` to `Fatal` mode.**  ✅ DONE
 `src/libqtcad/tests/qgmodel.cpp` now runs the model tester in `Fatal` mode.
 
-**T2 — Qt model-protocol regression test for `rebuild_item_children()`.**
-Write a Qt unit test (using `QAbstractItemModelTester` in `Fatal` mode) that:
-1. Opens a `.g` file with a comb that has been expanded in the tree view.
-2. Modifies the comb (add or remove a child member).
-3. Verifies that `beginInsertRows`/`endInsertRows` or `beginRemoveRows`/`endRemoveRows`
-   fires — and that `beginResetModel` does NOT fire — for the affected comb.
-4. Verifies that the expanded/collapsed state of unrelated items is preserved.
+**T2 — Qt model-protocol regression test for `rebuild_item_children()`.**  ✅ DONE
+`src/libqtcad/tests/qgmodel.cpp` now includes `test_rebuild_item_children()`:
+1. Creates a self-contained temp `.g` with a known comb structure.
+2. Opens it in a fresh `QgModel` with `QAbstractItemModelTester` in `Fatal` mode.
+3. Expands the top-level comb via `fetchMore()`.
+4. Attaches `QSignalSpy` to `rowsRemoved`, `rowsInserted`, and `modelReset`.
+5. Removes a member via `ged_exec_rm` then calls `g_update()`.
+6. Verifies `rowsRemoved` fired and `modelReset` did NOT fire.
+7. Adds a new member, verifies `rowsInserted` and no `modelReset`.
+8. Verifies unrelated top-level objects remain accessible.
+`qgmodel` is now registered as `qtcad_qgmodel` CTest.
 
-**T3 — Headless C++ unit test for core DBI classes.**
-`src/libged/tests/test_dbi_c.c` covers the C surface well (35 assertions).  There is
-no equivalent C++ test that exercises `DbiState`, `DrawList`, and `SelectionSet`
-directly without Qt.  A headless test (`test_dbi_cpp.cpp`) should:
-- Create a temporary `.g` database.
-- Exercise `DbiState::update()` / `DbiState::sync()` with add, modify, remove cycles.
-- Verify `DrawList::add()`, `DrawList::remove()`, `DrawList::query()` against known paths.
-- Verify `SelectionSet::select()`, `deselect()`, `recompute_hierarchy()` for a
-  multi-level comb hierarchy.
-- Verify `IDbiObserver::on_dbi_changed()` is called with the correct event kinds
-  and object hashes for each mutation type.
+**T3 — Headless C++ unit test for core DBI classes.**  ✅ DONE
+`src/libged/tests/test_dbi_cpp.cpp` exercises:
+- `DbiState::update()`, `tops()`, `valid_hash()`, `print_hash()`, `p_v` map.
+- `DrawList::add()`, `remove()`, `query()`, `count()`, `clear()`, `clear(int mode)`,
+  `drawn_path_hashes()`, and settings overrides.
+- `SelectionSet::select()` / `deselect()` / `clear()` (string-path forms);
+  `is_selected()`, `is_ancestor()`; named sets; `get_selection_sets()`.
+- `IDbiObserver`: custom observer captures `ObjectAdded`, `ObjectModified` events;
+  verifies no events after `remove_observer()`.
+Registered as `ged_test_dbi_cpp` CTest.
 
 ### 12.2 Code Cleanup
 

@@ -10,6 +10,13 @@ if(TARGET ged_test_dbi_c)
 endif(TARGET ged_test_dbi_c)
 brlcad_add_test(NAME ged_test_dbi_c COMMAND ged_test_dbi_c "${CMAKE_CURRENT_BINARY_DIR}/ged_test_dbi_c.g")
 
+brlcad_addexec(ged_test_dbi_cpp test_dbi_cpp.cpp libged TEST)
+if(TARGET ged_test_dbi_cpp)
+  add_dependencies(ged_test_dbi_cpp ged_plugins)
+endif(TARGET ged_test_dbi_cpp)
+brlcad_add_test(NAME ged_test_dbi_cpp COMMAND ged_test_dbi_cpp "${CMAKE_CURRENT_BINARY_DIR}/ged_test_dbi_cpp.g")
+distclean(${CMAKE_CURRENT_BINARY_DIR}/ged_test_dbi_cpp.g)
+
 brlcad_addexec(ged_test_list test_list.c libged TEST)
 if(TARGET ged_test_list)
   add_dependencies(ged_test_list ged_plugins)
@@ -74,7 +81,7 @@ cmakefiles(
   pnts_in_out.g
 )
 
-cmakefiles(CMakeLists.txt)
+cmakefiles(CMakeLists.txt test_dbi_cpp.cpp)
 
 # Local Variables:
 # tab-width: 8
