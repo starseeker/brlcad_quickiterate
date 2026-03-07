@@ -197,8 +197,6 @@ DbiState::DbiState(struct ged *ged_p)
     BU_GET(res, struct resource);
     rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
-    default_selected = new BSelectState(this);
-    selected_sets[std::string("default")] = default_selected;
     gedp = ged_p;
     if (!gedp)
 	return;
@@ -231,10 +229,6 @@ DbiState::~DbiState()
 {
     bu_vls_free(&path_string);
     bu_vls_free(&hash_string);
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	delete ss_it->second;
-    }
     delete shared_vs;
     rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
@@ -1204,88 +1198,6 @@ DbiState::get_view_state(bsg_view *v)
     BViewState *nv = new BViewState(this);
     view_states[v] = nv;
     return nv;
-}
-
-std::vector<BSelectState *>
-DbiState::get_selected_states(const char *sname)
-{
-    std::vector<BSelectState *> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-
-    if (!sname || BU_STR_EQUIV(sname, "default")) {
-	ret.push_back(default_selected);
-	return ret;
-    }
-
-    std::string sn(sname);
-    if (sn.find('*') != std::string::npos) {
-	for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	    if (bu_path_match(sname, ss_it->first.c_str(), 0)) {
-		ret.push_back(ss_it->second);
-	    }
-	}
-	return ret;
-    }
-
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
-	    ret.push_back(ss_it->second);
-	}
-    }
-    if (ret.size())
-	return ret;
-
-    BSelectState *ns = new BSelectState(this);
-    selected_sets[sn] = ns;
-    ret.push_back(ns);
-    return ret;
-}
-
-BSelectState *
-DbiState::find_selected_state(const char *sname)
-{
-    if (!sname || BU_STR_EQUIV(sname, "default")) {
-	return default_selected;
-    }
-
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
-	    return ss_it->second;
-	}
-    }
-
-    return NULL;
-}
-
-void
-DbiState::put_selected_state(const char *sname)
-{
-    if (!sname || BU_STR_EQUIV(sname, "default")) {
-	default_selected->clear();
-	return;
-    }
-
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
-	    delete ss_it->second;
-	    selected_sets.erase(ss_it);
-	    return;
-	}
-    }
-}
-
-std::vector<std::string>
-DbiState::list_selection_sets()
-{
-    std::vector<std::string> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	ret.push_back(ss_it->first);
-    }
-    std::sort(ret.begin(), ret.end(), &alphanum_cmp);
-    return ret;
 }
 
 void
@@ -2555,10 +2467,12 @@ BViewState::refresh(bsg_view *v, int argc, const char **argv)
     }
 
     // Do selection sync
-    BSelectState *ss = dbis->find_selected_state(NULL);
-    if (ss) {
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
+    {
+	SelectionSet *ss = dbis->get_selection_set(nullptr);
+	if (ss && !ss->selected().empty()) {
+	    ss->sync_to_all_views();
+	    ret = GED_DBISTATE_VIEW_CHANGE;
+	}
     }
 
     return ret;
@@ -2798,14 +2712,16 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
     // We need to check if any drawn solids are selected.  If so, we need
     // to illuminate them.  This is what ensures that newly drawn solids
     // respect a previously selected set from the command line
-    BSelectState *ss = dbis->find_selected_state(NULL);
-    if (ss) {
-	if (invalid_paths.size() || changed_paths.size()) {
-	    ss->refresh();
-	    ss->collapse();
+    {
+	SelectionSet *ss = dbis->get_selection_set(nullptr);
+	if (ss && !ss->selected().empty()) {
+	    if (invalid_paths.size() || changed_paths.size()) {
+		ss->refresh();
+		ss->collapse();
+	    }
+	    ss->sync_to_all_views();
+	    ret = GED_DBISTATE_VIEW_CHANGE;
 	}
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
     }
     // Now that we have the finalized geometry, do a finishing autoview,
     // unless suppressed
@@ -3466,6 +3382,7 @@ BSelectState::state_hash()
 
 /** @} */
 
+
 /* ---- Phase 4: DrawList implementation ---- */
 
 void DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
@@ -3507,6 +3424,15 @@ void DrawList::clear()
     entries_.clear();
     drawn_hash_modes_.clear();
     dirty_ = false;
+}
+
+void DrawList::clear(int mode)
+{
+    entries_.erase(
+        std::remove_if(entries_.begin(), entries_.end(),
+                       [mode](const Entry &e) { return e.mode == mode; }),
+        entries_.end());
+    dirty_ = true;
 }
 
 void DrawList::rebuild_index() const
@@ -3568,16 +3494,6 @@ bool SelectionSet::select(unsigned long long path_hash,
     return true;
 }
 
-/* Convenience overload for callers that only have the hash. */
-bool SelectionSet::select(unsigned long long path_hash, bool update_hierarchy)
-{
-    if (!path_hash) return false;
-    if (selected_.find(path_hash) == selected_.end())
-	selected_[path_hash] = std::vector<unsigned long long>();
-    if (update_hierarchy) recompute_hierarchy();
-    return true;
-}
-
 bool SelectionSet::deselect(unsigned long long path_hash, bool update_hierarchy)
 {
     auto it = selected_.find(path_hash);
@@ -3593,6 +3509,8 @@ void SelectionSet::clear()
     active_.clear();
     parents_.clear();
     ancestors_.clear();
+    obj_immediate_parents_.clear();
+    obj_ancestors_.clear();
 }
 
 bool SelectionSet::is_selected(unsigned long long path_hash) const
@@ -3606,6 +3524,12 @@ bool SelectionSet::is_parent(unsigned long long path_hash) const
 
 bool SelectionSet::is_ancestor(unsigned long long path_hash) const
 { return ancestors_.count(path_hash) > 0; }
+
+bool SelectionSet::is_obj_immediate_parent(unsigned long long obj_hash) const
+{ return obj_immediate_parents_.count(obj_hash) > 0; }
+
+bool SelectionSet::is_obj_ancestor(unsigned long long obj_hash) const
+{ return obj_ancestors_.count(obj_hash) > 0; }
 
 bool SelectionSet::select(const char *path_str, bool update_hierarchy)
 {
@@ -3679,13 +3603,15 @@ void SelectionSet::sync_to_drawn(BViewState *vs)
     }
 }
 
-/* Phase 7: Compute active_, parents_, ancestors_ from selected_ using the
- * GObj/CombInst graph (p_v / p_c) available through dbis_. */
+/* Phase 7: Compute active_, parents_, ancestors_, obj_immediate_parents_,
+ * and obj_ancestors_ from selected_ using the p_v / p_c maps. */
 void SelectionSet::recompute_hierarchy()
 {
     active_.clear();
     parents_.clear();
     ancestors_.clear();
+    obj_immediate_parents_.clear();
+    obj_ancestors_.clear();
 
     if (!dbis_) {
 	/* Fallback: active = selected */
@@ -3695,6 +3621,45 @@ void SelectionSet::recompute_hierarchy()
 
     /* Add all directly-selected path hashes to active. */
     for (const auto &kv : selected_) active_.insert(kv.first);
+
+    /* Build a reverse map (child object hash → parent object hashes) once,
+     * used for computing obj_immediate_parents_ and obj_ancestors_. */
+    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> reverse_map;
+    for (const auto &pc : dbis_->p_c) {
+	for (unsigned long long child : pc.second)
+	    reverse_map[child].insert(pc.first);
+    }
+
+    /* Collect leaf object hashes of all selected paths. */
+    std::unordered_set<unsigned long long> leaf_objs;
+    for (const auto &kv : selected_) {
+	if (!kv.second.empty())
+	    leaf_objs.insert(kv.second.back());
+    }
+
+    /* obj_immediate_parents_: all db objects that are direct parents of any
+     * selected leaf object anywhere in the database topology. */
+    for (unsigned long long leaf : leaf_objs) {
+	auto r_it = reverse_map.find(leaf);
+	if (r_it == reverse_map.end()) continue;
+	for (unsigned long long p : r_it->second)
+	    obj_immediate_parents_.insert(p);
+    }
+
+    /* obj_ancestors_: all db objects reachable by walking up from the
+     * immediate parents — these are the "grand parents" and above. */
+    std::queue<unsigned long long> gqueue;
+    for (unsigned long long p : obj_immediate_parents_) gqueue.push(p);
+    while (!gqueue.empty()) {
+	unsigned long long obj = gqueue.front();
+	gqueue.pop();
+	auto r_it = reverse_map.find(obj);
+	if (r_it == reverse_map.end()) continue;
+	for (unsigned long long gp : r_it->second) {
+	    if (obj_ancestors_.insert(gp).second)
+		gqueue.push(gp);
+	}
+    }
 
     /* For each selected path, walk toward root to find parents/ancestors,
      * and walk away from root to find all descendant paths (active). */
@@ -3742,6 +3707,186 @@ void SelectionSet::recompute_hierarchy()
     }
 }
 
+/* Synchronize highlight markers to all views registered in the associated
+ * ged context.  Returns true if any scene object's illumination changed. */
+bool SelectionSet::sync_to_all_views()
+{
+    if (!dbis_ || !dbis_->gedp) return false;
+    bool changed = false;
+    std::unordered_set<BViewState *> vstates;
+    struct bu_ptbl *views = bv_set_views(&dbis_->gedp->ged_views);
+    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	BViewState *vs = dbis_->get_view_state(v);
+	vstates.insert(vs);
+    }
+    for (BViewState *vs : vstates) {
+	for (auto &so_kv : vs->s_map) {
+	    char ill = is_active(so_kv.first) ? UP : DOWN;
+	    for (auto &m_kv : so_kv.second) {
+		if (bv_illum_obj(m_kv.second, ill))
+		    changed = true;
+	    }
+	}
+    }
+    return changed;
+}
+
+/* Internal: recursively expand c_hash into leaf-solid paths.
+ * Mirrors BSelectState::expand_paths(). */
+void SelectionSet::expand_path(std::vector<std::vector<unsigned long long>> &out_paths,
+                               unsigned long long c_hash,
+                               std::vector<unsigned long long> &path_hashes)
+{
+    if (!dbis_) return;
+    auto pc_it = dbis_->p_c.find(c_hash);
+    path_hashes.push_back(c_hash);
+    if (!path_addition_cyclic(path_hashes)) {
+	if (pc_it != dbis_->p_c.end()) {
+	    for (unsigned long long child : pc_it->second)
+		expand_path(out_paths, child, path_hashes);
+	} else {
+	    out_paths.push_back(path_hashes);
+	}
+    } else {
+	out_paths.push_back(path_hashes);
+    }
+    path_hashes.pop_back();
+}
+
+/* Expand all selected paths to their leaf-solid paths. */
+void SelectionSet::expand()
+{
+    if (!dbis_) return;
+    std::vector<std::vector<unsigned long long>> out_paths;
+    for (const auto &kv : selected_) {
+	std::vector<unsigned long long> seed = kv.second;
+	if (seed.empty()) continue;
+	unsigned long long shash = seed.back();
+	seed.pop_back();
+	expand_path(out_paths, shash, seed);
+    }
+    selected_.clear();
+    for (const auto &p : out_paths) {
+	unsigned long long ph = dbis_->path_hash(const_cast<std::vector<unsigned long long>&>(p), 0);
+	selected_[ph] = p;
+    }
+    recompute_hierarchy();
+}
+
+/* Collapse selected paths toward the root by replacing sibling groups that
+ * together cover all children of their parent with the parent path.
+ * Mirrors BSelectState::collapse(). */
+void SelectionSet::collapse()
+{
+    if (!dbis_) return;
+
+    std::vector<std::vector<unsigned long long>> collapsed;
+    std::map<size_t, std::unordered_set<unsigned long long>> depth_groups;
+
+    for (const auto &kv : selected_) {
+	if (kv.second.size() == 1) {
+	    collapsed.push_back(kv.second);
+	} else {
+	    depth_groups[kv.second.size()].insert(kv.first);
+	}
+    }
+
+    while (depth_groups.size()) {
+	size_t plen = depth_groups.rbegin()->first;
+	if (plen == 1) break;
+	std::unordered_set<unsigned long long> &pckeys = depth_groups.rbegin()->second;
+
+	/* Group paths at this depth by their parent path hash. */
+	std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> grouped_pckeys;
+	std::unordered_map<unsigned long long, unsigned long long> pcomb;
+	for (unsigned long long k : pckeys) {
+	    const std::vector<unsigned long long> &pc_path = selected_[k];
+	    unsigned long long ppathhash = dbis_->path_hash(
+		const_cast<std::vector<unsigned long long>&>(pc_path), plen - 1);
+	    grouped_pckeys[ppathhash].insert(k);
+	    pcomb[ppathhash] = pc_path[plen - 2];
+	}
+
+	for (const auto &pg : grouped_pckeys) {
+	    /* Collect children present in our selected set. */
+	    std::unordered_set<unsigned long long> g_children;
+	    for (unsigned long long k : pg.second) {
+		const std::vector<unsigned long long> &pc_path = selected_[k];
+		g_children.insert(pc_path[plen - 1]);
+	    }
+
+	    /* Compare against .g ground truth for the parent comb. */
+	    bool fully_selected = true;
+	    auto gt_it = dbis_->p_c.find(pcomb.at(pg.first));
+	    if (gt_it == dbis_->p_c.end()) {
+		fully_selected = false;
+	    } else {
+		for (unsigned long long child : gt_it->second) {
+		    if (!g_children.count(child)) {
+			fully_selected = false;
+			break;
+		    }
+		}
+	    }
+
+	    if (fully_selected) {
+		depth_groups[plen - 1].insert(*pg.second.begin());
+	    } else {
+		for (unsigned long long k : pg.second) {
+		    std::vector<unsigned long long> trimmed = selected_[k];
+		    trimmed.resize(plen);
+		    collapsed.push_back(trimmed);
+		}
+	    }
+	}
+	depth_groups.erase(plen);
+    }
+
+    /* Handle anything that collapsed all the way to depth 1. */
+    if (!depth_groups.empty()) {
+	size_t plen = depth_groups.rbegin()->first;
+	for (unsigned long long k : depth_groups.rbegin()->second) {
+	    std::vector<unsigned long long> trimmed = selected_[k];
+	    trimmed.resize(plen);
+	    collapsed.push_back(trimmed);
+	}
+    }
+
+    selected_.clear();
+    for (const auto &p : collapsed) {
+	unsigned long long ph = dbis_->path_hash(const_cast<std::vector<unsigned long long>&>(p), 0);
+	selected_[ph] = p;
+    }
+    recompute_hierarchy();
+}
+
+/* Revalidate selected paths against the current database, removing any paths
+ * whose parent-child relationships are no longer valid.
+ * Mirrors BSelectState::refresh(). */
+void SelectionSet::refresh()
+{
+    if (!dbis_) return;
+    std::vector<unsigned long long> to_remove;
+    for (const auto &kv : selected_) {
+	const std::vector<unsigned long long> &cpath = kv.second;
+	for (size_t i = 1; i < cpath.size(); i++) {
+	    auto pc_it = dbis_->p_c.find(cpath[i - 1]);
+	    if (pc_it == dbis_->p_c.end() ||
+		pc_it->second.find(cpath[i]) == pc_it->second.end()) {
+		to_remove.push_back(kv.first);
+		break;
+	    }
+	}
+    }
+    for (unsigned long long k : to_remove)
+	selected_.erase(k);
+    /* active_ will be regenerated by the caller via recompute_hierarchy(),
+     * but update it here too so the set is consistent if callers check it. */
+    active_.clear();
+    for (const auto &kv : selected_) active_.insert(kv.first);
+}
+
 /* ---- Phase 5: DbiState SelectionSet management ---- */
 
 SelectionSet *DbiState::get_selection_set(const char *name)
@@ -3755,6 +3900,36 @@ SelectionSet *DbiState::get_selection_set(const char *name)
     if (it != selection_sets_.end()) return it->second.get();
     selection_sets_[name] = std::make_unique<SelectionSet>(this);
     return selection_sets_[name].get();
+}
+
+std::vector<SelectionSet *> DbiState::get_selection_sets(const char *pattern)
+{
+    std::vector<SelectionSet *> ret;
+
+    /* Null/empty pattern → return the default set. */
+    if (!pattern || !strlen(pattern)) {
+        ret.push_back(get_selection_set(nullptr));
+        return ret;
+    }
+
+    /* Wildcard pattern → return all matching named sets. */
+    if (strchr(pattern, '*') || strchr(pattern, '?') || strchr(pattern, '[')) {
+        for (auto &kv : selection_sets_) {
+            if (bu_path_match(pattern, kv.first.c_str(), 0))
+                ret.push_back(kv.second.get());
+        }
+        return ret;
+    }
+
+    /* "default" → return the default set. */
+    if (BU_STR_EQUIV(pattern, "default")) {
+        ret.push_back(get_selection_set(nullptr));
+        return ret;
+    }
+
+    /* Exact name match → return that set (creating it if needed). */
+    ret.push_back(get_selection_set(pattern));
+    return ret;
 }
 
 void DbiState::add_selection_set(const char *name)
@@ -3776,7 +3951,9 @@ void DbiState::remove_selection_set(const char *name)
 std::vector<std::string> DbiState::list_selection_sets() const
 {
     std::vector<std::string> result;
+    result.push_back("default");
     for (const auto &kv : selection_sets_) result.push_back(kv.first);
+    std::sort(result.begin(), result.end());
     return result;
 }
 
