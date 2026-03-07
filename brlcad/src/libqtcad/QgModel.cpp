@@ -1044,63 +1044,107 @@ QgModel::data(const QModelIndex &index, int role) const
 	return QVariant();
     QgItem *qi= getItem(index);
     DbiState *dbis = (DbiState *)qi->mdl->gedp->dbi_state;
-    if (role == Qt::DisplayRole)
-	return QVariant(bu_vls_cstr(&qi->name));
-    if (role == BoolInternalRole)
-	return QVariant(qi->op);
-    if (role == DirectoryInternalRole)
-	return QVariant::fromValue((void *)(qi->dp));
-    if (role == DrawnDisplayRole) {
-	BViewState *vs = dbis->get_view_state(gedp->ged_gvp);
-	return QVariant(vs->is_hdrawn(-1, qi->path_hash()));
-    }
-    if (role == SelectDisplayRole) {
-	SelectionSet *ss = dbis->get_selection_set(nullptr);
-	if (ss)
-	    return QVariant(ss->is_selected(qi->path_hash()));
-    }
 
-    if (role == TypeIconDisplayRole)
-	return QVariant(qi->icon);
-
-    if (role == HighlightDisplayRole) {
-	SelectionSet *ss = dbis->get_selection_set(nullptr);
-	if (!ss)
-	    return QVariant();
-	switch (qi->mdl->interaction_mode) {
-	    case 0:
-		// Highlight closed items that are ancestors of a selection
-		if (qi->open_itm == false && ss->is_ancestor(qi->path_hash()))
-		    return QVariant(1);
-		return QVariant(0);
-	    case 1:
-		// Highlight any db object that appears anywhere above a selected leaf
-		if (ss->is_obj_immediate_parent(qi->ihash) || ss->is_obj_ancestor(qi->ihash))
-		    return QVariant(2);
-		return QVariant(0);
-	    case 2:
-		// Distinguish immediate parents from higher-level ancestors
-		if (ss->is_obj_immediate_parent(qi->ihash))
-		    return QVariant(3);
-		if (ss->is_obj_ancestor(qi->ihash))
-		    return QVariant(2);
-		return QVariant(0);
-	    default:
-		return QVariant(0);
+    // Column 0 — object name and all non-display roles
+    if (index.column() == 0) {
+	if (role == Qt::DisplayRole)
+	    return QVariant(bu_vls_cstr(&qi->name));
+	if (role == BoolInternalRole)
+	    return QVariant(qi->op);
+	if (role == DirectoryInternalRole)
+	    return QVariant::fromValue((void *)(qi->dp));
+	if (role == DrawnDisplayRole) {
+	    BViewState *vs = dbis->get_view_state(gedp->ged_gvp);
+	    return QVariant(vs->is_hdrawn(-1, qi->path_hash()));
 	}
+	if (role == SelectDisplayRole) {
+	    SelectionSet *ss = dbis->get_selection_set(nullptr);
+	    if (ss)
+		return QVariant(ss->is_selected(qi->path_hash()));
+	}
+	if (role == TypeIconDisplayRole)
+	    return QVariant(qi->icon);
+	if (role == HighlightDisplayRole) {
+	    SelectionSet *ss = dbis->get_selection_set(nullptr);
+	    if (!ss)
+		return QVariant();
+	    switch (qi->mdl->interaction_mode) {
+		case 0:
+		    if (qi->open_itm == false && ss->is_ancestor(qi->path_hash()))
+			return QVariant(1);
+		    return QVariant(0);
+		case 1:
+		    if (ss->is_obj_immediate_parent(qi->ihash) || ss->is_obj_ancestor(qi->ihash))
+			return QVariant(2);
+		    return QVariant(0);
+		case 2:
+		    if (ss->is_obj_immediate_parent(qi->ihash))
+			return QVariant(3);
+		    if (ss->is_obj_ancestor(qi->ihash))
+			return QVariant(2);
+		    return QVariant(0);
+		default:
+		    return QVariant(0);
+	    }
+	}
+	return QVariant();
     }
 
+    // Columns > 0 — attribute values; only Qt::DisplayRole is served
+    if (role != Qt::DisplayRole)
+	return QVariant();
+
+    int ac = index.column() - 1;
+    if (ac < 0 || ac >= attribute_columns_.count())
+	return QVariant();
+
+    const QString key = attribute_columns_.at(ac);
+    const GObj *go = dbis->get_gobj(qi->ihash);
+
+    if (key == QLatin1String("region")) {
+	if (go && go->region_flag)
+	    return QVariant(QLatin1String("R"));
+	return QVariant(QLatin1String(""));
+    }
+    if (key == QLatin1String("region_id")) {
+	if (go && go->region_id >= 0)
+	    return QVariant(go->region_id);
+	return QVariant(QLatin1String(""));
+    }
+    if (key == QLatin1String("color") || key == QLatin1String("rgb")) {
+	auto it = dbis->rgb.find(qi->ihash);
+	if (it != dbis->rgb.end()) {
+	    unsigned int cval = it->second;
+	    int r = (int)(cval & 0xFFu);
+	    int g = (int)((cval >> 8) & 0xFFu);
+	    int b = (int)((cval >> 16) & 0xFFu);
+	    return QVariant(QString("%1/%2/%3").arg(r).arg(g).arg(b));
+	}
+	return QVariant(QLatin1String(""));
+    }
+
+    // General attribute: live AVS lookup
+    if (qi->dp && dbis->dbip) {
+	struct bu_attribute_value_set avs;
+	BU_AVS_INIT(&avs);
+	db5_get_attributes(dbis->dbip, &avs, qi->dp);
+	const char *val = bu_avs_get(&avs, key.toUtf8().constData());
+	QVariant result(val ? QString::fromUtf8(val) : QString());
+	bu_avs_free(&avs);
+	return result;
+    }
     return QVariant();
 }
 
 QVariant
 QgModel::headerData(int section, Qt::Orientation UNUSED(orientation), int role) const
 {
-    // Until we add more columns for attributes, there is only one thing to return here
     if (role != Qt::DisplayRole)
 	return QVariant();
     if (section == 0)
 	return QString("Object Names");
+    if (section > 0 && section - 1 < attribute_columns_.count())
+	return attribute_columns_.at(section - 1);
     return QVariant();
 }
 
@@ -1120,11 +1164,19 @@ QgModel::rowCount(const QModelIndex &p) const
 }
 
 int
-QgModel::columnCount(const QModelIndex &p) const
+QgModel::columnCount(const QModelIndex &UNUSED(p)) const
 {
-    if (p.isValid())
-        return static_cast<QgItem*>(p.internalPointer())->columnCount();
-    return rootItem->columnCount();
+    return 1 + attribute_columns_.count();
+}
+
+void
+QgModel::set_attribute_columns(const QStringList &keys)
+{
+    if (attribute_columns_ == keys)
+	return;
+    beginResetModel();
+    attribute_columns_ = keys;
+    endResetModel();
 }
 
 ///////////////////////////////////////////////////////////////////////
