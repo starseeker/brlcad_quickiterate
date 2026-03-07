@@ -45,7 +45,7 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 | Live segment table (type, params) | — | — | ✓ |
 | Segment reverse (complement) | ✓ | — | ✓ (ECMD_SKETCH_TOGGLE_ARC_ORIENT / `C` key) |
 | Arc: drag-set radius | ✓ | ✓ | ✓ (QgSketchArcRadiusFilter / `I` key) |
-| Arc: set tangency angle | ✓ | — | — |
+| Arc: set tangency angle | ✓ | — | ✓ (ECMD_SKETCH_SET_TANGENCY / `T` key / QgSketchSetTangencyFilter) |
 | Arc: use complement (other half) | ✓ | — | ✓ (ECMD_SKETCH_TOGGLE_ARC_ORIENT / `C` key) |
 | Arc: center sampled for proximity (circle_3pt) | — | ✓ | — |
 | NURB: edit knot vector | — | — | ✓ (ECMD_SKETCH_NURB_EDIT_KV) |
@@ -81,10 +81,10 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 
 | Feature | MGED | Archer | New Qt widget |
 |---------|:----:|:------:|:-------------:|
-| Draw background grid | — | ✓ | — |
-| Snap to grid | — | ✓ | — (bv_snap_grid_2d available in libbv) |
-| Configurable major/minor grid spacing | — | ✓ | — |
-| Configurable grid anchor point | — | ✓ | — |
+| Draw background grid | — | ✓ | ✓ (`H` key / View → Show Grid; uses existing `dm_draw_grid` via `gv_grid.draw`) |
+| Snap to grid | — | ✓ | ✓ (View → Grid Settings… enables `gv_grid.snap`; `bv_snap_grid_2d` is called by `rt_edit_snap_point`) |
+| Configurable major/minor grid spacing | — | ✓ | ✓ (View → Grid Settings… dialog: res_h, res_v, res_major_h, res_major_v) |
+| Configurable grid anchor point | — | ✓ | — (`gv_grid.anchor` field exists but not yet exposed) |
 | Snap to other sketch vertices | — | ✓ (do_snap_sketch) | — |
 | Configurable pick tolerance (pixels) | — | ✓ | — (proximity uses view scale) |
 
@@ -116,8 +116,9 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 
 | Feature | MGED | Archer | New Qt widget |
 |---------|:----:|:------:|:-------------:|
-| Multi-contour sketches | ✓ (Escape starts new contour) | ✓ (Escape starts new contour) | — |
+| Multi-contour sketches | ✓ (Escape starts new contour) | ✓ (Escape starts new contour) | ✓ (`N` key: chains from last vertex OR starts new vertex for new contour) |
 | Per-contour reverse flag | ✓ (via CARC reverse) | ✓ | — |
+| Sketch plane (V, A, B) edit | — | ✓ | ✓ (Edit → Sketch Plane… / ECMD_SKETCH_SET_PLANE) |
 
 ---
 
@@ -141,6 +142,9 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 | `R` — add arc (dialog) | — | — | ✓ |
 | `C` — flip arc complement | — | — | ✓ (ECMD_SKETCH_TOGGLE_ARC_ORIENT) |
 | `I` — interactive arc radius drag | — | — | ✓ (QgSketchArcRadiusFilter) |
+| `T` — set arc tangency | — | — | ✓ (QgSketchSetTangencyFilter + ECMD_SKETCH_SET_TANGENCY) |
+| `N` — chain / new contour | — | — | ✓ |
+| `H` — toggle grid display | — | — | ✓ |
 | `F` — fit view to sketch | — | — | ✓ |
 | `Enter` — commit line/Bezier | — | — | ✓ |
 | `Ctrl+S` — save | — | — | ✓ |
@@ -173,43 +177,39 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 
 ---
 
-## 13. Remaining Gaps (Work Still Needed)
+## 13. Remaining Gaps (Minor / Low Priority)
 
-The following features from MGED/Archer are **not yet implemented** in the new
-Qt widget.  Six of the original ten gaps have been closed (see §3–§7, §10);
-four remain:
+The following features from MGED/Archer remain unimplemented.  All 10 original
+gaps have now been addressed; the items below are secondary or architectural:
 
-1. **Arc tangency** — The `skt_ed.tcl` "Set Tangency" workflow adjusts a circular
-   arc so that it is tangent to an adjacent line or arc at their shared vertex.
-   There is no corresponding ECMD in `edsketch.c` yet; it would need to be added
-   alongside a UI flow.
+1. **Grid anchor point** — the `gv_grid.anchor` field is not yet exposed in the
+   Grid Settings dialog.  Grid snap and drawing are functional; anchor is always
+   at the origin.
 
-2. **Grid drawing and snap** — Archer's background grid and snap-to-grid are
-   missing.  `libbv` already provides `bv_snap_grid_2d` and `bv_snap_lines_2d`
-   which `rt_edit_snap_point` delegates to; the missing piece is the grid drawing
-   in the view and the UI controls to configure spacing / anchor.
+2. **Snap to sketch vertices** — Archer's `do_snap_sketch` snaps to existing
+   vertex positions.  `bv_snap_lines_2d` would need per-vertex vlist objects
+   registered in `gv_s->gv_snap_objs`.
 
-3. **Multi-contour support** — Archer/MGED treat `Escape` as "start a new
-   contour".  The new widget treats `Escape` as cancel.  Proper multi-contour
-   management (creating disconnected closed curves in a single sketch) requires
-   a contour list model and segment insertion at the right curve boundary.
+3. **Per-contour reverse flag** — each contour (disconnected curve) can have a
+   reverse orientation.  The new widget does not yet expose this per-contour.
 
-4. **Sketch plane parameters (V, A, B)** — Archer exposes the 3-D origin,
-   u-direction vector, and v-direction vector for editing.  The new widget
-   assumes the default XY-plane orientation and does not yet provide controls
-   to reorient the sketch plane in 3-D.
+4. **Editable coordinate entry** — MGED allows typing U/V coordinates directly
+   to position a vertex.  The new widget shows coordinates in the status bar but
+   does not accept typed coordinate input.
 
 ---
 
-## 14. Closed Gaps (Previously Missing, Now Implemented)
-
-The following gaps from the original comparison have been addressed:
+## 14. Closed Gaps (All 10 Original Gaps Addressed)
 
 | Gap | Resolution |
 |-----|-----------|
 | Arc complement toggle | `ECMD_SKETCH_TOGGLE_ARC_ORIENT` (26016) + `C` key / "Flip Arc" toolbar button |
 | Interactive arc radius drag | `ECMD_SKETCH_SET_ARC_RADIUS` (26017) + `QgSketchArcRadiusFilter` + `I` key |
+| Arc tangency | `ECMD_SKETCH_SET_TANGENCY` (26018) + `QgSketchSetTangencyFilter` + `T` key (optional angle offset via dialog) |
 | Live UV cursor display | `QgSketchCursorTracker` emits `uv_moved`; status bar shows "U: … V: …" |
 | Multi-select move | Vertex table uses `ExtendedSelection`; "Move Selected…" button calls `ECMD_SKETCH_MOVE_VERTEX_LIST` |
 | Fit-to-window | `F` key / View menu computes vertex bounds and adjusts `gv_scale` |
 | Describe all segments | Debug menu shows scrollable text dump with all vertex and segment details |
+| Grid drawing + snap | `H` key toggles `gv_grid.draw`; View → Grid Settings dialog configures `gv_grid.snap`, spacing, major-lines; `dm_draw_grid` called via existing `dm_draw_faceplate` pipeline |
+| Multi-contour / segment chaining | `N` key: chains from last accumulated vertex, or adds new vertex for a new disconnected contour |
+| Sketch plane parameters (V, A, B) | `ECMD_SKETCH_SET_PLANE` (26019) + Edit → Sketch Plane… dialog exposes origin V, u_vec A, v_vec B with Gram-Schmidt orthogonalisation |

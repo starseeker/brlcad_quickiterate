@@ -73,6 +73,7 @@
 
 #include "common.h"
 
+#include <array>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -92,6 +93,7 @@
 #include "rt/primitives/sketch.h"
 #include "rt/rt_ecmds.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QBoxLayout>
 #include <QButtonGroup>
@@ -101,6 +103,7 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QKeyEvent>
@@ -292,9 +295,14 @@ private slots:
     void on_delete_selected();
     void on_mode_toggle_arc_orient();
     void on_mode_arc_radius();
+    void on_mode_set_tangency();
     void on_move_selected_vertices();
     void on_fit_view();
     void on_describe_segments();
+    void on_sketch_plane();
+    void on_toggle_grid(bool checked);
+    void on_grid_settings();
+    void on_mode_chain_vertex();
 
 protected:
     void keyPressEvent(QKeyEvent *ev) override;
@@ -337,9 +345,15 @@ private:
     QgSketchFilter  *m_active_filter  = NULL;
     QgSketchCursorTracker *m_tracker  = NULL;  /* always-on UV tracker */
 
+    /* ---- grid state ---- */
+    QAction         *m_grid_action    = NULL;  /* checkable grid toggle */
+
     /* ---- multi-click segment creation ---- */
     CreateMode       m_create_mode = NONE;
     std::vector<int> m_pending_verts;   /* vertex indices gathered so far */
+
+    /* ---- segment chaining ---- */
+    bool             m_chain_mode  = false; /* reuse last vertex as start */
 };
 
 
@@ -473,6 +487,8 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 	  &QSketchEditWindow::on_mode_toggle_arc_orient);
     mkbtn("Set R",   "Drag to set arc radius — drag on selected CARC (I)",
 	  &QSketchEditWindow::on_mode_arc_radius);
+    mkbtn("Tangent", "Set Arc Tangency: click adjacent segment (T)",
+	  &QSketchEditWindow::on_mode_set_tangency);
     tb->addSeparator();
     mkbtn("Delete",  "Delete selected (Del)", &QSketchEditWindow::on_delete_selected);
 
@@ -493,10 +509,26 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 			  &QSketchEditWindow::on_mode_toggle_arc_orient);
     edit_menu->addAction("Set Arc &Radius (drag)\tI", this,
 			  &QSketchEditWindow::on_mode_arc_radius);
+    edit_menu->addAction("Set Arc &Tangency\tT", this,
+			  &QSketchEditWindow::on_mode_set_tangency);
+    edit_menu->addSeparator();
+    edit_menu->addAction("&Chain Segment\tN", this,
+			  &QSketchEditWindow::on_mode_chain_vertex);
+    edit_menu->addSeparator();
+    edit_menu->addAction("Sketch &Plane…", this,
+			  &QSketchEditWindow::on_sketch_plane);
 
     QMenu *view_menu = menuBar()->addMenu("&View");
     view_menu->addAction("Fit to &View\tF", this,
 			  &QSketchEditWindow::on_fit_view);
+    view_menu->addSeparator();
+    m_grid_action = view_menu->addAction("Show &Grid\tH");
+    m_grid_action->setCheckable(true);
+    m_grid_action->setChecked(false);
+    connect(m_grid_action, &QAction::toggled,
+	    this, &QSketchEditWindow::on_toggle_grid);
+    view_menu->addAction("Grid &Settings…", this,
+			  &QSketchEditWindow::on_grid_settings);
 
     QMenu *debug_menu = menuBar()->addMenu("&Debug");
     debug_menu->addAction("&Describe All Segments", this,
@@ -1105,7 +1137,226 @@ void QSketchEditWindow::on_describe_segments()
     dlg.exec();
 }
 
-/* ---------- keyboard event ---------- */
+/* ---- Arc tangency ---- */
+
+void QSketchEditWindow::on_mode_set_tangency()
+{
+    m_create_mode = NONE;
+    m_pending_verts.clear();
+
+    struct rt_sketch_edit *se = sketch_edit();
+    if (!se || se->curr_seg < 0) {
+	set_status("Set Tangency: no arc selected. Pick a segment first (S key).");
+	return;
+    }
+
+    const struct rt_sketch_internal *skt = sketch();
+    if (!skt) return;
+
+    void *seg = skt->curve.segment[se->curr_seg];
+    if (!seg || *(uint32_t *)seg != CURVE_CARC_MAGIC) {
+	set_status("Set Tangency: selected segment is not an arc.");
+	return;
+    }
+    if (((const struct carc_seg *)seg)->radius < 0.0) {
+	set_status("Set Tangency: cannot set tangency on a full-circle arc.");
+	return;
+    }
+
+    /* Ask for optional tangency angle */
+    bool ok = true;
+    double angle_deg = QInputDialog::getDouble(this, "Set Arc Tangency",
+	    "Tangency angle offset (degrees, 0 = smooth join):",
+	    0.0, -360.0, 360.0, 1, &ok);
+    if (!ok)
+	return;
+
+    QgSketchSetTangencyFilter *f = new QgSketchSetTangencyFilter();
+    f->tangency_angle = angle_deg * M_PI / 180.0;
+    install_filter(f);
+
+    connect(f, &QgSketchFilter::sketch_changed,
+	    this, &QSketchEditWindow::on_sketch_changed);
+
+    set_status(QString("Set Tangency: click adjacent segment (angle offset %1°).")
+		       .arg(angle_deg, 0, 'f', 1));
+}
+
+/* ---- Grid toggle ---- */
+
+void QSketchEditWindow::on_toggle_grid(bool checked)
+{
+    if (!m_bv) return;
+    m_bv->gv_s->gv_grid.draw = checked ? 1 : 0;
+    m_view->need_update(QG_VIEW_REFRESH);
+    set_status(checked ? "Grid enabled." : "Grid disabled.");
+}
+
+/* ---- Grid settings dialog ---- */
+
+void QSketchEditWindow::on_grid_settings()
+{
+    if (!m_bv) return;
+
+    struct bv_grid_state *gs = &m_bv->gv_s->gv_grid;
+
+    QDialog dlg(this);
+    dlg.setWindowTitle("Grid Settings");
+    QFormLayout *fl = new QFormLayout(&dlg);
+
+    QDoubleSpinBox *sb_res_h = new QDoubleSpinBox(&dlg);
+    sb_res_h->setRange(0.001, 99999.0);
+    sb_res_h->setDecimals(3);
+    sb_res_h->setValue(gs->res_h);
+    sb_res_h->setSuffix(" mm");
+
+    QDoubleSpinBox *sb_res_v = new QDoubleSpinBox(&dlg);
+    sb_res_v->setRange(0.001, 99999.0);
+    sb_res_v->setDecimals(3);
+    sb_res_v->setValue(gs->res_v);
+    sb_res_v->setSuffix(" mm");
+
+    QDoubleSpinBox *sb_major_h = new QDoubleSpinBox(&dlg);
+    sb_major_h->setRange(1.0, 1000.0);
+    sb_major_h->setDecimals(0);
+    sb_major_h->setValue(gs->res_major_h);
+
+    QDoubleSpinBox *sb_major_v = new QDoubleSpinBox(&dlg);
+    sb_major_v->setRange(1.0, 1000.0);
+    sb_major_v->setDecimals(0);
+    sb_major_v->setValue(gs->res_major_v);
+
+    QCheckBox *cb_snap = new QCheckBox("Snap to grid", &dlg);
+    cb_snap->setChecked(gs->snap);
+
+    QCheckBox *cb_adaptive = new QCheckBox("Adaptive spacing", &dlg);
+    cb_adaptive->setChecked(gs->adaptive);
+
+    fl->addRow("H spacing:", sb_res_h);
+    fl->addRow("V spacing:", sb_res_v);
+    fl->addRow("Major H every:", sb_major_h);
+    fl->addRow("Major V every:", sb_major_v);
+    fl->addRow(cb_snap);
+    fl->addRow(cb_adaptive);
+
+    QDialogButtonBox *bb = new QDialogButtonBox(
+	    QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    fl->addRow(bb);
+    connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    if (dlg.exec() != QDialog::Accepted)
+	return;
+
+    gs->res_h      = (fastf_t)sb_res_h->value();
+    gs->res_v      = (fastf_t)sb_res_v->value();
+    gs->res_major_h = (int)sb_major_h->value();
+    gs->res_major_v = (int)sb_major_v->value();
+    gs->snap        = cb_snap->isChecked() ? 1 : 0;
+    gs->adaptive    = cb_adaptive->isChecked() ? 1 : 0;
+
+    m_view->need_update(QG_VIEW_REFRESH);
+    set_status(QString("Grid: H=%1 V=%2 mm  snap=%3.")
+		       .arg(gs->res_h, 0, 'f', 3)
+		       .arg(gs->res_v, 0, 'f', 3)
+		       .arg(gs->snap ? "on" : "off"));
+}
+
+/* ---- Sketch plane dialog ---- */
+
+void QSketchEditWindow::on_sketch_plane()
+{
+    if (!m_es) return;
+    const struct rt_sketch_internal *skt = sketch();
+    if (!skt) return;
+
+    QDialog dlg(this);
+    dlg.setWindowTitle("Sketch Plane (V, A, B)");
+    QFormLayout *fl = new QFormLayout(&dlg);
+
+    auto mkxyz = [&](const char *label, const vect_t v)
+	    -> std::array<QDoubleSpinBox *, 3>
+    {
+	std::array<QDoubleSpinBox *, 3> sb;
+	QWidget *row = new QWidget(&dlg);
+	QHBoxLayout *hl = new QHBoxLayout(row);
+	hl->setContentsMargins(0, 0, 0, 0);
+	for (int k = 0; k < 3; k++) {
+	    sb[k] = new QDoubleSpinBox(&dlg);
+	    sb[k]->setRange(-99999.0, 99999.0);
+	    sb[k]->setDecimals(4);
+	    sb[k]->setValue(v[k]);
+	    hl->addWidget(sb[k]);
+	}
+	fl->addRow(label, row);
+	return sb;
+    };
+
+    auto sb_V = mkxyz("V (origin):", skt->V);
+    auto sb_A = mkxyz("A (u_vec):", skt->u_vec);
+    auto sb_B = mkxyz("B (v_vec):", skt->v_vec);
+
+    QDialogButtonBox *bb = new QDialogButtonBox(
+	    QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    fl->addRow(bb);
+    connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    if (dlg.exec() != QDialog::Accepted)
+	return;
+
+    rt_edit_checkpoint(m_es);
+    for (int k = 0; k < 3; k++) m_es->e_para[k  ] = sb_V[k]->value();
+    for (int k = 0; k < 3; k++) m_es->e_para[k+3] = sb_A[k]->value();
+    for (int k = 0; k < 3; k++) m_es->e_para[k+6] = sb_B[k]->value();
+    m_es->e_inpara = 9;
+
+    EDOBJ[m_es->es_int.idb_type].ft_set_edit_mode(m_es,
+	    ECMD_SKETCH_SET_PLANE);
+    rt_edit_process(m_es);
+    on_sketch_changed();
+    set_status("Sketch plane updated.");
+}
+
+/* ---- Segment chaining (N key) ---- */
+
+void QSketchEditWindow::on_mode_chain_vertex()
+{
+    /* Chain mode: if there are pending vertices (end of last LINE or BEZIER
+     * creation), keep the last accumulated vertex as the start of the next
+     * segment.  If not in creation mode, or the pending list is empty,
+     * simply report what the user should do.
+     *
+     * NOTE: only LINE and BEZIER use m_pending_verts for multi-click
+     * accumulation.  ARC creation uses a dialog and does not accumulate
+     * pending vertices, so it is not chainable in the same way. If new
+     * multi-click creation modes are added (e.g. a polyline mode), add
+     * them to the condition below. */
+
+    if ((m_create_mode == LINE || m_create_mode == BEZIER)
+	    && !m_pending_verts.empty()) {
+	/* Keep only the last vertex; user continues drawing from it */
+	int last = m_pending_verts.back();
+	m_pending_verts.clear();
+	m_pending_verts.push_back(last);
+	set_status(QString("Chain: continuing from V[%1]. "
+			   "Click more vertices, Enter to commit.")
+			   .arg(last));
+    } else if (m_create_mode == LINE || m_create_mode == BEZIER) {
+	/* In a multi-click mode but no vertex yet accumulated — nothing to chain */
+	m_pending_verts.clear();
+	m_create_mode = NONE;
+	clear_filter();
+	set_status("Chain: cancelled (no prior vertex to chain from).");
+    } else {
+	/* Activate Add-Vertex mode so the user can start a new unconnected
+	 * contour from scratch. */
+	m_create_mode = NONE;
+	m_pending_verts.clear();
+	on_mode_add_vertex();
+	set_status("Chain: add a new start vertex for the next contour.");
+    }
+}
 
 void
 QSketchEditWindow::keyPressEvent(QKeyEvent *ev)
@@ -1143,6 +1394,16 @@ QSketchEditWindow::keyPressEvent(QKeyEvent *ev)
 	    break;
 	case Qt::Key_I:
 	    on_mode_arc_radius();
+	    break;
+	case Qt::Key_T:
+	    on_mode_set_tangency();
+	    break;
+	case Qt::Key_N:
+	    on_mode_chain_vertex();
+	    break;
+	case Qt::Key_H:
+	    if (m_grid_action)
+		m_grid_action->toggle();
 	    break;
 	case Qt::Key_F:
 	    on_fit_view();
