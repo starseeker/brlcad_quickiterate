@@ -44,6 +44,8 @@
 
 /*
  * ECMD numbers for sketch editing.  ID_SKETCH = 26, so we use 26nnn.
+ * These defines are the authoritative source; rt_ecmd_scanner.cpp reads
+ * this file at build time to generate include/rt/rt_ecmds.h.
  */
 
 /** Select a vertex by index (e_para[0] = vertex index) or by mouse
@@ -154,6 +156,12 @@
  * pt_type is updated to the rational variant on first call.
  */
 #define ECMD_SKETCH_NURB_EDIT_WEIGHTS 26014
+/**
+ * Add a new vertex at the given UV position (local units) and select it.
+ * e_para[0] = U coordinate; e_para[1] = V coordinate.
+ * e_inpara must be 2.  On success se->curr_vert is set to the new vertex index.
+ */
+#define ECMD_SKETCH_ADD_VERTEX        26015
 
 
 /* ------------------------------------------------------------------ */
@@ -245,6 +253,7 @@ struct rt_edit_menu_item sketch_menu[] = {
     { "Append NURB",         sketch_ed, ECMD_SKETCH_APPEND_NURB },
     { "NURB Edit KV",        sketch_ed, ECMD_SKETCH_NURB_EDIT_KV },
     { "NURB Edit Weights",   sketch_ed, ECMD_SKETCH_NURB_EDIT_WEIGHTS },
+    { "Add Vertex",          sketch_ed, ECMD_SKETCH_ADD_VERTEX },
     { "", NULL, 0 }
 };
 
@@ -1372,6 +1381,40 @@ ecmd_sketch_nurb_edit_weights(struct rt_edit *s)
     return 0;
 }
 
+static int
+ecmd_sketch_add_vertex(struct rt_edit *s)
+{
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (!s->e_inpara || s->e_inpara < 2) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_ADD_VERTEX: two parameters required "
+		"(U V in local units)\n");
+	return BRLCAD_ERROR;
+    }
+
+    /* Grow the vertex array by one */
+    size_t new_count = skt->vert_count + 1;
+    skt->verts = (point2d_t *)bu_realloc(skt->verts,
+	    new_count * sizeof(point2d_t), "sketch verts");
+
+    fastf_t u = s->e_para[0] * s->local2base;
+    fastf_t v = s->e_para[1] * s->local2base;
+    rt_edit_snap_point(skt->verts[skt->vert_count], s);
+    skt->verts[skt->vert_count][0] = u;
+    skt->verts[skt->vert_count][1] = v;
+    rt_edit_snap_point(skt->verts[skt->vert_count], s);
+
+    se->curr_vert = (int)skt->vert_count;
+    skt->vert_count = new_count;
+
+    s->e_inpara = 0;
+    return 0;
+}
+
 int
 rt_edit_sketch_edit(struct rt_edit *s)
 {
@@ -1412,6 +1455,8 @@ rt_edit_sketch_edit(struct rt_edit *s)
 	    return ecmd_sketch_nurb_edit_kv(s);
 	case ECMD_SKETCH_NURB_EDIT_WEIGHTS:
 	    return ecmd_sketch_nurb_edit_weights(s);
+	case ECMD_SKETCH_ADD_VERTEX:
+	    return ecmd_sketch_add_vertex(s);
 	default:
 	    return edit_generic(s);
     }
