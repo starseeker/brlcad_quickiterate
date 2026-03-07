@@ -46,6 +46,8 @@ if(HIDE_INTERNAL_SYMBOLS)
   endif(TARGET libbsg-obj)
 endif(HIDE_INTERNAL_SYMBOLS)
 
+add_subdirectory(tests)
+
 cmakefiles(
   CMakeLists.txt
   bsg_private.h
