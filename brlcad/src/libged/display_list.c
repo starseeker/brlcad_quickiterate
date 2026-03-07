@@ -32,7 +32,7 @@
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/color.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "bg/clip.h"
 
 #include "bsg/util.h"

@@ -45,7 +45,7 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "bsg/lod.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 
 #include "bsg/defines.h"
 
