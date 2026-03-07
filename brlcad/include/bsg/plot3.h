@@ -111,9 +111,6 @@
 /** @{ */
 /** @file plot3.h */
 
-#ifndef PLOT3_H
-#define PLOT3_H
-
 #include "common.h"
 
 #include "vmath.h"
@@ -1328,8 +1325,6 @@ plot3_invalid(FILE *fp, int mode)
 }
 
 #endif // PLOT3_IMPLEMENTATION
-
-#endif /* PLOT3_H */
 
 /** @} */
 
