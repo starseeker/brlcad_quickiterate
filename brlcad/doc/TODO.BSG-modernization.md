@@ -1056,4 +1056,15 @@ suites provide a clean baseline again.
   - `rt/nmg_conv.h`, `nmg.h`, `brep/cdt.h` → `bsg/vlist.h`
   - `bn.h`, `RTree.h` → `bsg/plot3.h`; `bn.h` → `bsg/vectfont.h`
 - ✅ Builds clean (libbsg, libbv, libdm, libged, librt, libnmg); no new test failures.
+- ✅ No changes to `src/libbv/` or `include/bv/`.
+
+**Session 20 (BSG consumer migration — Step 6 COMPLETE: Zero bv/ includes outside libbv)**:
+- ✅ Created new `bsg/` wrapper headers: `adc.h`, `vlist.h`, `plot3.h`, `tig.h`, `vectfont.h`.
+- ✅ All new headers added to the installed `bsg/` header set in `include/bsg/CMakeLists.txt`.
+- ✅ **Migrated ~100 consumer source files** off `bv/` → `bsg/` equivalents across libdm, libged, librt, libnmg, libbg, libbrep, liboptical, libgcv, rt/, util/, conv/, gtools/, mged/, fb/.
+- ✅ Migrated 11 public headers: `ged.h`, `ged/defines.h`, `rt/view.h`, `rt/edit.h`, `rt/primitives/sketch.h`, `bg/polygon.h`, `rt/nmg_conv.h`, `nmg.h`, `brep/cdt.h`, `bn.h`, `RTree.h`.
+- ✅ Migrated libbsg internal files: `diff.c`, `hash.c`, `lod.cpp`, `polygon.c`, `scene_graph.cpp`, `snap.c`, `util.cpp`.
+- ✅ Migrated private consumer headers: `libbrep/cdt/cdt.h`, `libdm/dm-gl.h`, `libged/ged_private.h`, `libged/bot/ged_bot.h`, `libged/brep/ged_brep.h`, `libqtcad/bindings.h`, `librt/primitives/brep/brep_debug.h`, `mged/mged.h`, `qged/.../CADViewSettings.h`.
+- ✅ **`grep -rn '#include.*"bv/' src/ include/ | grep -v libbv | grep -v /bv/ | grep -v /bsg/` → ZERO results.** Only `src/libbv/` itself and the bridge `bsg/*.h` headers reference `bv/` directly.
+- ✅ Builds clean (libbsg, libbv, libdm, libged, librt, libnmg, libbrep).
 - ✅ No changes to `src/libbv/` or `include/bv/`.*
