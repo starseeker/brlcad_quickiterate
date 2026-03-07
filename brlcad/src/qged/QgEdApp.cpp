@@ -52,7 +52,11 @@
  * safely emitted from whatever thread fired the sensor.
  * -------------------------------------------------------------------------- */
 
-/* Map from bsg_shape* → registered sensor handle, to allow safe deregistration. */
+/* Map from bsg_shape* → registered sensor handle, to allow safe deregistration.
+ * Access is confined to the Qt GUI thread: qged_register_view_sensors() and
+ * qged_deregister_all_sensors() are only called from Qt slots running on the
+ * main thread.  The sensor callback qged_shape_stale_cb() does NOT access this
+ * map (it only posts a queued Qt meta-call), so no locking is required.       */
 static std::unordered_map<bsg_shape *, unsigned long long> &qged_sensor_map()
 {
     static std::unordered_map<bsg_shape *, unsigned long long> m;

@@ -221,7 +221,7 @@ to_edit_redraw(struct ged *gedp,
 	    bsg_view *_v = (bsg_view *)gedp->ged_gvp;
 	    bsg_shape *_root = _v ? bsg_scene_root_get(_v) : NULL;
 	    size_t _nshapes = _root ? BU_PTBL_LEN(&_root->children) : 0;
-	    struct bu_ptbl drawn_tops = BU_PTBL_INIT_ZERO;
+	    struct bu_ptbl drawn_tops;
 	    bu_ptbl_init(&drawn_tops, 8, "to_edit_redraw drawn_tops");
 
 	    for (i = 0; i < subpath.fp_len; ++i) {
