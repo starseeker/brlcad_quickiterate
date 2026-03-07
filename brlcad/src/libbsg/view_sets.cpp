@@ -35,31 +35,36 @@
 #include "bsg/view_sets.h"
 #include "./bsg_private.h"
 
+/* Cast helpers for internal struct access */
+#define BSG_SCENEI(s)  (reinterpret_cast<bsg_scene_set_internal *>((s)->i))
+
 void
 bsg_scene_init(bsg_scene *s)
 {
-    BU_GET(s->i, struct bsg_scene_set_internal);
-    BU_PTBL_INIT(&s->i->views);
-    bu_ptbl_init(&s->i->shared_db_objs, 8, "db_objs init");
-    bu_ptbl_init(&s->i->shared_view_objs, 8, "view_objs init");
-    BU_LIST_INIT(&s->i->vlfree);
+    bsg_scene_set_internal *ip;
+    BU_GET(ip, bsg_scene_set_internal);
+    s->i = reinterpret_cast<bview_set_internal *>(ip);
+    BU_PTBL_INIT(&BSG_SCENEI(s)->views);
+    bu_ptbl_init(&BSG_SCENEI(s)->shared_db_objs, 8, "db_objs init");
+    bu_ptbl_init(&BSG_SCENEI(s)->shared_view_objs, 8, "view_objs init");
+    BU_LIST_INIT(&BSG_SCENEI(s)->vlfree);
     /* init the solid list */
-    BU_GET(s->i->free_scene_obj, bsg_shape);
-    BU_LIST_INIT(&s->i->free_scene_obj->l);
+    BU_GET(BSG_SCENEI(s)->free_scene_obj, bsg_shape);
+    BU_LIST_INIT(&BSG_SCENEI(s)->free_scene_obj->l);
 }
 
 void
 bsg_scene_free(bsg_scene *s)
 {
-    if (s->i) {
-	bu_ptbl_free(&s->i->views);
-	bu_ptbl_free(&s->i->shared_db_objs);
-	bu_ptbl_free(&s->i->shared_view_objs);
+    if (BSG_SCENEI(s)) {
+	bu_ptbl_free(&BSG_SCENEI(s)->views);
+	bu_ptbl_free(&BSG_SCENEI(s)->shared_db_objs);
+	bu_ptbl_free(&BSG_SCENEI(s)->shared_view_objs);
 
 	// TODO - replace free_scene_obj with bu_ptbl
 	bsg_shape *sp, *nsp;
-	sp = BU_LIST_NEXT(bsg_shape, &s->i->free_scene_obj->l);
-	while (BU_LIST_NOT_HEAD(sp, &s->i->free_scene_obj->l)) {
+	sp = BU_LIST_NEXT(bsg_shape, &BSG_SCENEI(s)->free_scene_obj->l);
+	while (BU_LIST_NOT_HEAD(sp, &BSG_SCENEI(s)->free_scene_obj->l)) {
 	    nsp = BU_LIST_PNEXT(bsg_shape, sp);
 	    BU_LIST_DEQUEUE(&((sp)->l));
 	    if (sp->s_free_callback)
@@ -70,8 +75,9 @@ bsg_scene_free(bsg_scene *s)
 	    BU_PUT(sp, bsg_shape);
 	    sp = nsp;
 	}
-	BU_PUT(s->i->free_scene_obj, bsg_shape);
-	BU_PUT(s->i, struct bsg_scene_set_internal);
+	BU_PUT(BSG_SCENEI(s)->free_scene_obj, bsg_shape);
+	{ bsg_scene_set_internal *_ip = BSG_SCENEI(s); BU_PUT(_ip, bsg_scene_set_internal); }
+	s->i = nullptr;
     }
 
     // TODO - clean up vlfree
@@ -82,7 +88,7 @@ bsg_scene_add_view(bsg_scene *s, bsg_view *v){
     if (!s || !v)
 	return;
 
-    bu_ptbl_ins_unique(&s->i->views, (long *)v);
+    bu_ptbl_ins_unique(&BSG_SCENEI(s)->views, (long *)v);
 
     v->vset = s;
 
@@ -97,11 +103,11 @@ bsg_scene_rm_view(bsg_scene *s, bsg_view *v){
 	return;
 
     if (!v) {
-	bu_ptbl_reset(&s->i->views);
+	bu_ptbl_reset(&BSG_SCENEI(s)->views);
 	return;
     }
 
-    bu_ptbl_rm(&s->i->views, (long int *)v);
+    bu_ptbl_rm(&BSG_SCENEI(s)->views, (long int *)v);
 
     v->vset = NULL;
 
@@ -116,15 +122,15 @@ bsg_scene_views(bsg_scene *s){
     if (!s)
 	return NULL;
 
-    return &s->i->views;
+    return &BSG_SCENEI(s)->views;
 }
 
 bsg_view *
 bsg_scene_find_view(bsg_scene *s, const char *vname)
 {
     bsg_view *v = NULL;
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->i->views); i++) {
-	bsg_view *tv = (bsg_view *)BU_PTBL_GET(&s->i->views, i);
+    for (size_t i = 0; i < BU_PTBL_LEN(&BSG_SCENEI(s)->views); i++) {
+	bsg_view *tv = (bsg_view *)BU_PTBL_GET(&BSG_SCENEI(s)->views, i);
 	if (BU_STR_EQUAL(bu_vls_cstr(&tv->gv_name), vname)) {
 	    v = tv;
 	    break;
@@ -134,10 +140,10 @@ bsg_scene_find_view(bsg_scene *s, const char *vname)
     return v;
 }
 
-bsg_shape *
+struct bv_scene_obj *
 bsg_scene_fsos(bsg_scene *s)
 {
-    return s->i->free_scene_obj;
+    return (struct bv_scene_obj *)BSG_SCENEI(s)->free_scene_obj;
 }
 
 
