@@ -80,7 +80,7 @@
 #ifndef Q_MOC_RUN
 #include "raytrace.h"
 #include "ged.h"
-#include "../libged/dbi.h"
+#include "ged/dbi.h"
 #endif
 
 // QgItems correspond to the actual Qt entries displayed in the view.  If a
