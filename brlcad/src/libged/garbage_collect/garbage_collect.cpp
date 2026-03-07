@@ -35,6 +35,8 @@
 #include "bu/cmd.h"
 #include "bu/opt.h"
 #include "bu/path.h"
+#include "bu/ptbl.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 #include "ged.h"
 
@@ -163,9 +165,25 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
 	    who_objs.push_back(wpaths[i]);
 	}
     } else {
-	struct display_list *gdlp;
-	for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp)))
-	    who_objs.push_back(std::string(bu_vls_cstr(&gdlp->dl_path)));
+	/* Phase 2e: enumerate drawn paths from scene-root children instead
+	 * of iterating gd_headDisplay.  bsg_shape::s_fullpath uses directory
+	 * pointers, so we collect unique top-level directory names. */
+	bsg_view *_v = gedp->ged_gvp;
+	bsg_shape *_root = _v ? bsg_scene_root_get(_v) : NULL;
+	if (_root && BU_PTBL_LEN(&_root->children) > 0) {
+	    struct bu_ptbl drawn_tops;
+	    bu_ptbl_init(&drawn_tops, 8, "gc_drawn_tops");
+	    for (size_t _si = 0; _si < BU_PTBL_LEN(&_root->children); _si++) {
+		bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si);
+		if (!sp || !sp->s_u_data) continue;
+		struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+		if (!bdata->s_fullpath.fp_len) continue;
+		struct directory *_top_dp = bdata->s_fullpath.fp_names[0];
+		if (bu_ptbl_ins_unique(&drawn_tops, (long *)_top_dp) < 0) continue;
+		who_objs.push_back(std::string(_top_dp->d_namep));
+	    }
+	    bu_ptbl_free(&drawn_tops);
+	}
     }
 
     /* Create "working" database. */

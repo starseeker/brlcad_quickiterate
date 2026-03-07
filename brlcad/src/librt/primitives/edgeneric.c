@@ -42,7 +42,7 @@ edit_abs_tra(struct rt_edit *s, vect_t view_pos)
     vect_t model_pos;
     vect_t ea_view_pos;
     vect_t diff;
-    fastf_t inv_Viewscale = 1/s->vp->gv_scale;
+    fastf_t inv_Viewscale = 1/bsg_view_scale(s->vp);
 
     struct bsg_camera _cam;
     bsg_view_get_camera(s->vp, &_cam);
