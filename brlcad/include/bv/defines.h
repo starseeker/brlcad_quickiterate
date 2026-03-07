@@ -193,6 +193,11 @@ struct bview;
 
 struct bv_scene_obj_internal;
 
+/* Forward declaration of the libbsg-private internal type used by bsg_shape.
+ * The definition lives in src/libbsg/bsg_private.h.  External code must not
+ * dereference this pointer directly. */
+struct bsg_shape_internal;
+
 /**
  * @brief New BSG scene-object struct.  Same initial field layout as
  * @c bv_scene_obj so Phase-1 reinterpret casts between the two are safe.
@@ -202,8 +207,10 @@ struct bv_scene_obj_internal;
 struct bsg_shape  {
     struct bu_list l;
 
-    /* Internal implementation storage */
-    struct bv_scene_obj_internal *i;
+    /* Internal implementation storage — owned and managed by libbsg.
+     * This is a bsg_shape_internal (not bv_scene_obj_internal) so that
+     * libbsg can evolve the internal representation independently. */
+    struct bsg_shape_internal *i;
 
     /* View object name and type id */
     unsigned long long s_type_flags;
