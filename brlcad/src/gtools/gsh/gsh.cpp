@@ -582,41 +582,13 @@ GshState::view_update()
     bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     if (dm_get_dirty(dmp)) {
-	if (new_cmd_forms) {
-	    unsigned char *dm_bg1;
-	    unsigned char *dm_bg2;
-	    dm_get_bg(&dm_bg1, &dm_bg2, dmp);
-	    dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
-	    dm_set_dirty(dmp, 0);
-	    dm_draw_objs(v, NULL, NULL);
-	    dm_draw_end(dmp);
-	} else {
-	    struct bsg_camera _cam;
-	    bsg_view_get_camera(gedp->ged_gvp, &_cam);
-	    dm_loadmatrix(dmp, _cam.model2view, 0);
-	    unsigned char geometry_default_color[] = { 255, 0, 0 };
-	    dm_draw_begin(dmp);
-	    if (bsg_scene_root_get(gedp->ged_gvp)) {
-		dm_draw_bsg_view(dmp, gedp->ged_gvp,
-			1.0, gedp->ged_gvp->gv_isize, -1, -1, -1, 1,
-			0, 0, geometry_default_color, 1, 0);
-	    } else {
-		dm_draw_head_dl(dmp, (struct bu_list *)ged_dl(gedp),
-			1.0, gedp->ged_gvp->gv_isize, -1, -1, -1, 1,
-			0, 0, geometry_default_color, 1, 0);
-	    }
-
-	    // Faceplate drawing
-	    if (gedp->dbip) {
-		struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
-		v->gv_base2local = gedp->dbip->dbi_base2local;
-		v->gv_local2base = gedp->dbip->dbi_local2base;
-		dm_draw_viewobjs(wdbp, v, NULL);
-	    } else {
-		dm_draw_viewobjs(NULL, v, NULL);
-	    }
-	    dm_draw_end(dmp);
-	}
+	unsigned char *dm_bg1;
+	unsigned char *dm_bg2;
+	dm_get_bg(&dm_bg1, &dm_bg2, dmp);
+	dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
+	dm_set_dirty(dmp, 0);
+	dm_draw_objs(v, NULL, NULL);
+	dm_draw_end(dmp);
     }
 #endif
 }

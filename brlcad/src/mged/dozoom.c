@@ -138,17 +138,9 @@ dozoom(struct mged_state *s, int which_eye)
 
     if (dm_get_transparency(DMP)) {
 	/* First, draw opaque stuff */
-
-	/* Phase 2e: use BSG root->children when available, legacy fallback otherwise */
-	if (bsg_scene_root_get(view_state->vs_gvp)) {
-	    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 1, mged_variables->mv_dlist);
-	} else {
-	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 1, mged_variables->mv_dlist);
-	}
+	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
+				  r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
+				  geometry_default_color, 1, mged_variables->mv_dlist);
 
 	/* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
 	if (s->mged_curr_dm != save_dm_list) set_curr_dm(s, save_dm_list);
@@ -159,32 +151,17 @@ dozoom(struct mged_state *s, int which_eye)
 	dm_set_depth_mask(DMP, 0);
 
 	/* Second, draw transparent stuff */
-
-	if (bsg_scene_root_get(view_state->vs_gvp)) {
-	    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 0.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 0, mged_variables->mv_dlist);
-	} else {
-	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 0.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 0, mged_variables->mv_dlist);
-	}
+	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 0.0, inv_viewsize,
+				  r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
+				  geometry_default_color, 0, mged_variables->mv_dlist);
 
 	/* re-enable write of depth buffer */
 	dm_set_depth_mask(DMP, 1);
 
     } else {
-
-	if (bsg_scene_root_get(view_state->vs_gvp)) {
-	    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 1, mged_variables->mv_dlist);
-	} else {
-	    ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
-				      r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
-				      geometry_default_color, 1, mged_variables->mv_dlist);
-	}
-
+	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
+				  r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 0,
+				  geometry_default_color, 1, mged_variables->mv_dlist);
     }
 
     /* The vectorThreshold stuff in libdm may turn the Tcl-crank causing s->mged_curr_dm to change. */
@@ -223,15 +200,9 @@ dozoom(struct mged_state *s, int which_eye)
 		   color_scheme->cs_geo_hl[2], 1, 1.0);
 
 
-    if (bsg_scene_root_get(view_state->vs_gvp)) {
-	ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
-		r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
-		geometry_default_color, 0, mged_variables->mv_dlist);
-    } else {
-	ndrawn = dm_draw_head_dl(DMP, (struct bu_list *)ged_dl(s->gedp), 1.0, inv_viewsize,
-		r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
-		geometry_default_color, 0, mged_variables->mv_dlist);
-    }
+    ndrawn = dm_draw_bsg_view(DMP, view_state->vs_gvp, 1.0, inv_viewsize,
+	    r, g, b, mged_variables->mv_linewidth, mged_variables->mv_dlist, 1,
+	    geometry_default_color, 0, mged_variables->mv_dlist);
 
     s->mged_curr_dm->dm_ndrawn += ndrawn;
 
