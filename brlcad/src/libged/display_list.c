@@ -702,7 +702,7 @@ solid_append_vlist(bsg_shape *sp, struct bv_vlist *vlist)
 	sp->s_vlen = 0;
     }
 
-    sp->s_vlen += bv_vlist_cmd_cnt(vlist);
+    sp->s_vlen += bsg_vlist_cmd_cnt(vlist);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(vlist->l));
 }
 
@@ -710,8 +710,8 @@ static void
 solid_copy_vlist(struct db_i *UNUSED(dbip), bsg_shape *sp, struct bv_vlist *vlist, struct bu_list *vlfree)
 {
     BU_LIST_INIT(&(sp->s_vlist));
-    bv_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
-    sp->s_vlen = bv_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
+    bsg_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
+    sp->s_vlen = bsg_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
 }
 
 

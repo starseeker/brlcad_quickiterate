@@ -207,7 +207,7 @@ nmg_plot_eu(struct ged *gedp, struct edgeuse *es_eu, const struct bn_tol *tol, s
     nmg_vlblock_around_eu(vbp, es_eu, tab, 1, vlfree, tol);
     _ged_cvt_vlblock_to_solids(gedp, vbp, "_EU_", 0);      /* swipe vlist */
 
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     bu_free((void *)tab, "nmg_ed tab[]");
 }
 

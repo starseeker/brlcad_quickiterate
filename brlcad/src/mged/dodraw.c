@@ -66,7 +66,7 @@ mged_bound_solid(struct mged_state *s, bsg_shape *sp)
     VSET(bmin, INFINITY, INFINITY, INFINITY);
     VSET(bmax, -INFINITY, -INFINITY, -INFINITY);
 
-    cmd = bv_vlist_bbox(&sp->s_vlist, &bmin, &bmax, &length, &dispmode);
+    cmd = bsg_vlist_bbox(&sp->s_vlist, &bmin, &bmax, &length, &dispmode);
     if (cmd) {
 	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
 	bu_vls_printf(&tmp_vls, "unknown vlist op %d\n", cmd);

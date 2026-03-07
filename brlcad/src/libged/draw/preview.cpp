@@ -410,7 +410,7 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
 
     bu_vls_printf(gedp->ged_result_str, "\n");
 
-    preview_vbp = bv_vlblock_init(vlfree, 32);
+    preview_vbp = bsg_vlblock_init(vlfree, 32);
 
     bu_vls_printf(gedp->ged_result_str, "eyepoint at (0, 0, 1) viewspace\n");
 
@@ -468,14 +468,14 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
     if (draw_eye_path) {
 	if (gedp->new_cmd_forms) {
 	    bsg_view *view = gedp->ged_gvp;
-	    bv_vlblock_obj(preview_vbp, view, "preview::eye_path");
+	    bsg_vlblock_obj(preview_vbp, view, "preview::eye_path");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, preview_vbp, "EYE_PATH", 0);
 	}
     }
 
     if (preview_vbp) {
-	bv_vlblock_free(preview_vbp);
+	bsg_vlblock_free(preview_vbp);
 	preview_vbp = (struct bv_vlblock *)NULL;
     }
     db_free_anim(gedp->dbip);	/* Forget any anim commands */

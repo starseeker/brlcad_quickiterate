@@ -117,7 +117,7 @@ rtcheck_vector_handler(void *clientData, int UNUSED(mask))
 
 	if (have_visual) {
 	    _ged_cvt_vlblock_to_solids(gedp, rtcp->vbp, sname, 0);
-	    bv_vlblock_free(rtcp->vbp);
+	    bsg_vlblock_free(rtcp->vbp);
 	} else {
 	    /* TODO - yuck.  This name is a product of the internals of the
 	     * "_ged_cvt_vlblock_to_solids" routine.  We should have a way to kill
@@ -285,8 +285,8 @@ ged_rtcheck_core(struct ged *gedp, int argc, const char *argv[])
     rtcp->fp = bu_process_file_open(p, BU_PROCESS_STDOUT);
     /* Needed on Windows for successful rtcheck drawing data communication */
     setmode(fileno(rtcp->fp), O_BINARY);
-    rtcp->vbp = bv_vlblock_init(vlfree, 32);
-    rtcp->vhead = bv_vlblock_find(rtcp->vbp, 0xFF, 0xFF, 0x00);
+    rtcp->vbp = bsg_vlblock_init(vlfree, 32);
+    rtcp->vhead = bsg_vlblock_find(rtcp->vbp, 0xFF, 0xFF, 0x00);
     rtcp->csize = gedp->ged_gvp->gv_scale * 0.01;
     rtcp->read_failed = 0;
     rtcp->draw_read_failed = 0;

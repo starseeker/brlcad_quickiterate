@@ -653,7 +653,7 @@ bot_checks(lint_data *bdata, struct directory *dp, struct rt_bot_internal *bot)
 	unsigned char rgb[3] = {255, 255, 0};
 	if (color)
 	    bu_color_to_rgb_chars(color, rgb);
-	struct bu_list *vhead = bv_vlblock_find(vbp, (int)rgb[0], (int)rgb[1], (int)rgb[2]);
+	struct bu_list *vhead = bsg_vlblock_find(vbp, (int)rgb[0], (int)rgb[1], (int)rgb[2]);
 	// Triangle plotting order doesn't matter particularly, just
 	// iterate over all the workers
 	for (size_t i = 0; i < ncpus; i++) {

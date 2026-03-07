@@ -822,7 +822,7 @@ rt_plot_solid(
 		 (int)(255*regp->reg_mater.ma_color[2]));
     }
 
-    bv_vlist_to_uplot(fp, &vhead);
+    bsg_vlist_to_uplot(fp, &vhead);
 
     BV_FREE_VLIST(vlfree, &vhead);
     return 0;			/* OK */

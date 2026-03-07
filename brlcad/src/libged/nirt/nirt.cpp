@@ -606,7 +606,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     if (DG_QRAY_GRAPHICS(gedp->i->ged_gdp) && bu_vls_strlen(&nv.plotfile)) {
 	FILE *fp = fopen(bu_vls_cstr(&nv.plotfile), "rb");
 	if (fp) {
-	    struct bv_vlblock*vbp = bv_vlblock_init(vlfree, 32);
+	    struct bv_vlblock*vbp = bsg_vlblock_init(vlfree, 32);
 	    fastf_t csize = gedp->ged_gvp->gv_scale * 0.01;
 	    int pret = rt_uplot_to_vlist(vbp, fp, csize, gedp->i->ged_gdp->gd_uplotOutputMode);
 	    fclose(fp);
@@ -615,13 +615,13 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 	    } else {
 		if (gedp->new_cmd_forms) {
 		    bsg_view *view = gedp->ged_gvp;
-		    bsg_shape *nobj = (bsg_shape *)bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
+		    bsg_shape *nobj = (bsg_shape *)bsg_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		    bu_vls_sprintf(&nobj->s_name, "%s", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		} else {
 		    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename), 0);
 		}
 
-		bv_vlblock_free(vbp);
+		bsg_vlblock_free(vbp);
 	    }
 	}
 	bu_file_delete(bu_vls_cstr(&nv.plotfile));
