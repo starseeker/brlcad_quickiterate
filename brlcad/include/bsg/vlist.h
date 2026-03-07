@@ -28,7 +28,6 @@
 #ifndef BSG_VLIST_H
 #define BSG_VLIST_H
 
-#include "bv/vlist.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS
