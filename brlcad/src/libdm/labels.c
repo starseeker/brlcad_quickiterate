@@ -28,7 +28,7 @@
 #include "raytrace.h"
 #include "nmg.h"
 #include "rt/geom.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #define DM_WITH_RT
 #include "dm.h"
 #include "./include/private.h"

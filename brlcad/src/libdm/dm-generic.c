@@ -32,7 +32,7 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "bu/time.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/util.h"
 #include "dm.h"
 #include "./include/private.h"

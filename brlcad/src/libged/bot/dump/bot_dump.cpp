@@ -49,7 +49,7 @@
 
 #include "raytrace.h"
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "dm.h"
 
 #include "../../ged_private.h"

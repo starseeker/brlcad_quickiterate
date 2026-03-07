@@ -39,7 +39,7 @@ extern "C" {
 #include "vmath.h"
 #include "bu.h"
 #include "bn.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "dm.h"
 #include "dm/util.h"
 #include "../null/dm-Null.h"

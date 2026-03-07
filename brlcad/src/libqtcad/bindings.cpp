@@ -28,7 +28,7 @@
 
 extern "C" {
 #include "bn/str.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/util.h"
 }
 
