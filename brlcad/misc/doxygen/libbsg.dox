@@ -1,0 +1,52 @@
+/* Top level library group */
+/** @defgroup libbsg libbsg (BRL-CAD Scene Graph) */
+
+/* Second tier groups */
+/** @ingroup libbsg */
+/**   @defgroup bsg_defines Definitions */
+/**  @addtogroup bsg_defines
+     @brief Types and definitions for the BRL-CAD Scene Graph (BSG).
+     The BSG API maps to Open Inventor / Obol scene-graph conventions and
+     supersedes the legacy @c bv_* / libbv API.
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_adc Angle-Distance Cursor */
+/**  @addtogroup bsg_adc
+     @brief Data types and manipulation routines for the Angle-Distance cursor.
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_view Scene Graph View */
+/**  @addtogroup bsg_view
+     @brief Scene graph view creation, update, and traversal.
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_shapes Scene Graph Shapes */
+/**  @addtogroup bsg_shapes
+     @brief Leaf geometry nodes in the scene graph.
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_lod Level-of-Detail */
+/**  @addtogroup bsg_lod
+     @brief Level-of-detail group nodes and distance-based child selection.
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_polygon Polygon Objects */
+/**  @addtogroup bsg_polygon
+     @brief Polygon data types and manipulation routines.
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_vlist Vector Lists */
+/**  @addtogroup bsg_vlist
+     @brief Routines for maintaining and manipulating vector lists (vlist).
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_util View Utility */
+/**  @addtogroup bsg_util
+     @brief Scene-graph view utility functions.
+ */
+/** @ingroup libbsg */
+/**  @defgroup bsg_compat Compatibility Layer */
+/**  @addtogroup bsg_compat
+     @brief Backward-compatibility aliases mapping legacy @c bv_* names to
+     the new @c bsg_* API.  Do not use in new code.
+ */
