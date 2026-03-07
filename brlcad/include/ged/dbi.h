@@ -269,6 +269,18 @@ public:
     DrawList() = default;
     ~DrawList() = default;
 
+    // Each entry records a path to draw, the draw mode, and optional
+    // per-path settings overrides.  full_hash is the precomputed
+    // bu_data_hash of the path vector (same hash DbiState::path_hash()
+    // would return for that path) and is used for O(1) removal.
+    struct Entry {
+        std::vector<unsigned long long> path;
+        unsigned long long full_hash = 0;  // bu_data_hash(path.data(), path.size() * sizeof(ull))
+        int mode = 0;
+        bool has_settings = false;
+        DrawSettings settings;
+    };
+
     // Stage a path for drawing in the given mode with optional settings override.
     // Does not trigger a redraw; call BViewState::redraw() after all changes are staged.
     void add(const std::vector<unsigned long long> &path_hashes, int mode = 0,
@@ -278,7 +290,9 @@ public:
     void add(const DbiPath &path, int mode = 0,
              const DrawSettings *overrides = nullptr);
 
-    // Remove paths matching the given prefix hash in the given mode (-1 = all modes)
+    // Remove paths matching the given full path hash in the given mode (-1 = all modes).
+    // path_hash must be the full-path hash (bu_data_hash over the path vector), i.e.
+    // the same value returned by DbiState::path_hash() for that path.
     void remove(unsigned long long path_hash, int mode = -1);
 
     // Clear the entire draw list
@@ -301,14 +315,11 @@ public:
     // Check if this list is empty
     bool empty() const;
 
+    // Read-only access to the underlying entries, e.g. for BViewState::redraw()
+    // to iterate pending (not-yet-drawn) entries.
+    const std::vector<Entry> &entries() const { return entries_; }
+
 private:
-    // Staged entries: path_hashes + mode + optional settings
-    struct Entry {
-        std::vector<unsigned long long> path;
-        int mode = 0;
-        bool has_settings = false;
-        DrawSettings settings;
-    };
     std::vector<Entry> entries_;
     mutable std::unordered_map<unsigned long long, std::unordered_set<int>> drawn_hash_modes_;
     mutable bool dirty_ = true;
@@ -453,9 +464,6 @@ class GED_EXPORT BViewState {
 		);
 
 	int leaf_check(unsigned long long chash, std::vector<unsigned long long> &path_hashes);
-
-	// Paths supplied by commands to be incorporated into the drawn state by redraw method
-	std::vector<std::vector<unsigned long long>> staged;
 
 	// The collapsed drawn paths from the previous db state, organized
 	// by drawn mode

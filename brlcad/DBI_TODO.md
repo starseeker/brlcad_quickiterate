@@ -1255,18 +1255,43 @@ implementation stores the pointer but does not yet route `redraw()` through the
 primary's `DrawList` — that full integration is A3 and requires `DrawList::commit()`
 (see A3 below).  The API surface is now in place for callers to begin using.
 
-**A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**  ✅ PARTIAL
+**A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**  ✅ DONE
 Phase 4 noted "Full integration of DrawList into the redraw pipeline is a follow-on
-step."  The first step of A3 is complete: `BViewState::redraw()` now syncs
-`draw_list_` from `s_map` + `s_keys` at the end of every redraw cycle.  This
-makes `draw_list_.query()` and `drawn_path_hashes()` accurate for the current drawn
-state without requiring callers to maintain the list manually.  `BViewState::clear()`
-also clears `draw_list_`.
+step."  The work has been completed in two stages:
 
-The remaining A3 work is the reverse direction: making `redraw()` *read from*
-`draw_list_` as the source of draw intent (replacing the current `staged` temporary
-queue as the canonical record), and wiring `erase_hpath()` to remove from
-`draw_list_` incrementally rather than waiting for the next redraw sync.
+**Stage 1 (Session 27 partial):** `BViewState::redraw()` synced `draw_list_` from
+`s_map` + `s_keys` at the end of every redraw cycle.  `BViewState::clear()` also
+cleared `draw_list_`.
+
+**Stage 2 (Session 28 full, this PR):**
+
+- `DrawList::Entry` now carries a `full_hash` field (precomputed via
+  `bu_data_hash(path.data(), path.size() * sizeof(ull))` in `add()`).  This is the
+  same hash that `DbiState::path_hash()` returns for the same path.
+- `DrawList::remove(full_hash, mode)` now matches by `full_hash` (was: by leaf
+  name hash).  The API doc is updated to state that callers must pass a full-path
+  hash (from `DbiState::path_hash()` or `DrawList::Entry::full_hash`).
+- `DrawList::Entry` is now a public struct, and `DrawList::entries()` exposes a
+  `const` reference to the underlying entry vector.  This allows `BViewState::redraw()`
+  and other trusted callers to iterate pending entries without granting them write access.
+- The `staged` temporary queue (`std::vector<std::vector<ull>>`) has been **removed**
+  from `BViewState`.  `add_hpath()` now calls `draw_list_.add(path, 0)` directly.
+  `BViewState::redraw()` identifies "pending" (not-yet-drawn) entries by checking
+  whether `entry.full_hash` is absent from `s_map`, and processes those in exactly
+  the same way the old `staged` loop did — applying `vs->s_dmode` (or the entry's
+  own mode if non-zero) and the entry's optional settings overrides.
+- `erase_hpath()` now calls `draw_list_.remove(phash, mode)` immediately after
+  updating `s_map`/`s_keys`, so erasure is reflected in `draw_list_` without
+  waiting for the next redraw cycle.
+- The end-of-redraw `draw_list_` sync (rebuild from `s_map` + `s_keys`) is
+  retained as the final authority: it corrects all mode values (add_hpath uses 0
+  as a placeholder; after drawing the correct mode is flushed in) and removes any
+  stale entries that were never drawn.
+- `test_dbi_cpp.cpp` updated: the `DrawList::remove()` test now passes the
+  correct full-path hash via `dbis->path_hash(path_child, 0)`.
+
+All existing tests pass (49 DBI C++ checks, 35 DBI C checks, 15 Qt model checks,
+1 draw rendering check).
 
 ### 12.4 Architecture and Longer-term Work
 
@@ -1407,3 +1432,11 @@ rebuilds `draw_list_` from `s_map` + `s_keys` at the end of every redraw cycle.
 accurate semantics for querying drawn state after each redraw.  The remaining A3
 work (reading from DrawList as the draw-intent source, incremental erase sync)
 is deferred.
+
+### Session 28 — A3 full DrawList pipeline (this PR)
+
+**A3 full done** — `staged` queue removed from `BViewState`.  `DrawList::Entry`
+gains `full_hash` (precomputed at add time via `bu_data_hash`).  `remove()` matches
+by full-path hash.  `add_hpath()` adds directly to `draw_list_`.  `redraw()` reads
+pending entries from `draw_list_`.  `erase_hpath()` calls `draw_list_.remove()`
+immediately.  All 49 DBI C++ + 35 DBI C + 15 Qt + 1 draw test pass.
