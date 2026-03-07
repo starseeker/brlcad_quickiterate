@@ -953,7 +953,14 @@ convention.  Effectively: copy `libbv` → `libbsg`, rename, remove non-BSG elem
 - **Step 6 (consumer migration)**: Progressively migrate consumers from `#include "bv/..."`
   to `#include "libbsg/libbsg.h"`, driving toward enabling
   `BRLCAD_DISABLE_LIBBV_INCLUDES`.
-- **Step 7 (libbv removal)**: Remove `libbv` once all consumers have migrated.
+- **Step 7 (libbv removal)**: ✅ **COMPLETE** (Session 21): All implementation moved from `libbv`
+  to `libbsg`.  `libbv` is now an empty stub (`bv_stub.c`) that links `libbsg.so` so that
+  existing code linking `-lbv` still resolves symbols at runtime.  `source_dirs.cmake` updated
+  so that `libnmg`, `libbrep`, `librt`, `libdm`, `libged`, `libqtcad`, `libtclcad` depend on
+  `libbsg` (not `libbv`).  All consumer `CMakeLists.txt` (`util/`, `libbv/tests/`,
+  `librt/tests/`) updated.  `bsg/compat.h` gains `bv_update_polygon`, `bv_snap_*` aliases.
+  `libbsg.so` is built with `BV_DLL_EXPORTS` + `BSG_DLL_EXPORTS` + `PLOT3_DLL_EXPORTS` so
+  all legacy `bv_*` symbols remain exported.  Full build clean; 23/23 draw+bview tests pass.
 
 ### Session 10 partial work (superseded by pivot)
 
@@ -1068,3 +1075,23 @@ suites provide a clean baseline again.
 - ✅ **`grep -rn '#include.*"bv/' src/ include/ | grep -v libbv | grep -v /bv/ | grep -v /bsg/` → ZERO results.** Only `src/libbv/` itself and the bridge `bsg/*.h` headers reference `bv/` directly.
 - ✅ Builds clean (libbsg, libbv, libdm, libged, librt, libnmg, libbrep).
 - ✅ No changes to `src/libbv/` or `include/bv/`.*
+
+**Session 21 (BSG libbv removal — Step 7 COMPLETE)**:
+- ✅ Moved remaining unique `libbv` source files to `libbsg`: `adc.c`, `font.c`, `polygon_op.cpp`,
+  `polygon_fill.cpp`, `vlist.c`, `tig/axis.c`, `tig/list.c`, `tig/marker.c`, `tig/scale.c`,
+  `tig/symbol.c`, `tig/tplot.c`, `tig/vectfont.c`, `tig/vector.c`.
+- ✅ Updated all moved source files: `bv/` → `bsg/` includes; `polygon_op.cpp` uses `bsg_shape*`
+  with explicit casts; `vlist.c` uses `bsg_*` API directly in `bv_vlblock_obj`.
+- ✅ `libbsg/CMakeLists.txt`: added all moved files + `UNITY_BUILD_SKIP vlist.c` + 
+  `BV_DLL_EXPORTS;BSG_DLL_EXPORTS;PLOT3_DLL_EXPORTS` so all legacy `bv_*` symbols are exported.
+- ✅ `libbv/CMakeLists.txt` replaced with stub: single `bv_stub.c` links `libbsg` and anchors
+  the `NEEDED libbsg` dep via `bv_libbsg_anchor = bsg_scene_init`. `libbv.so` is 31K (was 2.4M+).
+- ✅ `src/source_dirs.cmake`: removed `libbv` from `libnmg`, `libbrep`, `librt`, `libdm`,
+  `libged`, `libqtcad`, `libtclcad` deps; `libbv` now only depends on `libbsg`.
+- ✅ `src/util/CMakeLists.txt`: all `plot3-*`/`asc-plot3`/`pixhist3d-plot3` link `libbsg` not `libbv`.
+- ✅ `src/libbv/tests/CMakeLists.txt`, `src/librt/tests/CMakeLists.txt`: link `libbsg`.
+- ✅ `bsg/compat.h`: added `bv_update_polygon`, `bv_snap_lines_2d`, `bv_snap_grid_2d`,
+  `bv_snap_lines_3d` aliases; fixed C++ reserved word `or` → `kr` in `bv_knobs_rot` macro.
+- ✅ `libbsg/snap.c`: added exported `bv_snap_*` wrapper functions for backward compat.
+- ✅ Full build clean; **23/23 draw+bview tests pass** (3 pre-existing image-compare failures unchanged).
+- ✅ `libbsg.so.1.0.0` exports 203 `bsg_*` + `bv_*` symbols; `libbv.so.20.0.1` is a 31 KB stub.

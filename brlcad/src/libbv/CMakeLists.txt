@@ -1,7 +1,24 @@
-brlcad_find_package(LMDB REQUIRED)
+# libbv — backward-compatibility stub.
+#
+# All implementation has moved to libbsg (Step 7 of BSG modernization).
+# libbv is now a stub library that links libbsg so that code still
+# linking against -lbv continues to resolve symbols.
+#
+# The bv/ public headers remain in place during the transition; once all
+# downstream users have fully migrated to bsg/ headers, bv/ and libbv can
+# be deleted entirely.
 
-set(
-  LIBBV_SRCS
+# Note - libbv_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
+brlcad_addlib(libbv "bv_stub.c" "libbsg" "" "")
+set_target_properties(libbv PROPERTIES VERSION 20.0.1 SOVERSION 20)
+
+add_subdirectory(tests)
+
+cmakefiles(
+  CMakeLists.txt
+  TODO
+  bv_private.h
+  bv_stub.c
   adc.c
   diff.c
   font.c
@@ -23,33 +40,6 @@ set(
   util.cpp
   vlist.c
   view_sets.cpp
-)
-
-set(BV_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${LMDB_INCLUDE_DIR})
-
-# Note - libbv_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libbv "${LIBBV_SRCS}" "${libbv_deps};${LMDB_LIBRARIES}" "" "${BV_LOCAL_INCLUDE_DIRS}"
-  # vlist.c defines PLOT3_IMPLEMENTATION before including bv/plot3.h, which
-  # causes the plot3_* function bodies to be compiled into this translation
-  # unit.  If vlist.c is batched with files that include bv/plot3.h first,
-  # the header guard (PLOT3_H) prevents re-entry and the function bodies are
-  # never compiled, producing undefined-reference link errors.
-  UNITY_BUILD_SKIP vlist.c
-)
-set_target_properties(libbv PROPERTIES VERSION 20.0.1 SOVERSION 20)
-if(HIDE_INTERNAL_SYMBOLS)
-  set_property(TARGET libbv APPEND PROPERTY COMPILE_DEFINITIONS "PLOT3_DLL_EXPORTS")
-  if(TARGET libbv-obj)
-    set_property(TARGET libbv-obj APPEND PROPERTY COMPILE_DEFINITIONS "PLOT3_DLL_EXPORTS")
-  endif(TARGET libbv-obj)
-endif(HIDE_INTERNAL_SYMBOLS)
-
-add_subdirectory(tests)
-
-cmakefiles(
-  CMakeLists.txt
-  TODO
-  bv_private.h
 )
 
 # Local Variables:

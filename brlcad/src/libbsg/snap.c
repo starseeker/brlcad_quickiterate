@@ -434,6 +434,28 @@ bsg_snap_grid_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
 }
 
 
+/* ---------------------------------------------------------------------- *
+ * Backward-compatibility aliases: bv_snap_* -> bsg_snap_*               *
+ * These wrappers allow legacy code that still calls the old bv_snap_*   *
+ * names to continue to link without modification.                        *
+ * ---------------------------------------------------------------------- */
+BV_EXPORT int
+bv_snap_lines_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
+{
+    return bsg_snap_lines_2d(v, vx, vy);
+}
+BV_EXPORT int
+bv_snap_grid_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
+{
+    return bsg_snap_grid_2d(v, vx, vy);
+}
+BV_EXPORT int
+bv_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p)
+{
+    return bsg_snap_lines_3d(out_pt, v, p);
+}
+
+
 /*
  * Local Variables:
  * tab-width: 8

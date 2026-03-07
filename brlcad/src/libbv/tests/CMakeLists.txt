@@ -21,7 +21,7 @@ endforeach(srcfile ${bview_test_srcs})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../..)
 configure_file(bview_test.c.in "${CMAKE_CURRENT_BINARY_DIR}/bview_test.c" @ONLY)
 distclean("${CMAKE_CURRENT_BINARY_DIR}/bview_test.c")
-brlcad_addexec(bview_test "${CMAKE_CURRENT_BINARY_DIR}/bview_test.c" libbv TEST)
+brlcad_addexec(bview_test "${CMAKE_CURRENT_BINARY_DIR}/bview_test.c" libbsg TEST)
 
 # Housekeeping for included source files
 cmakefiles(${bview_test_srcs})
@@ -30,7 +30,7 @@ validate_style("${bview_test_srcs}" bview_test)
 # This test program is being kept separate because the plot3 logic really
 # should move, and when it does it will be easier to move the test if it
 # is not tied into the bview_test target
-brlcad_addexec(bview_plot3 plot3.c "libbu;libbv" TEST)
+brlcad_addexec(bview_plot3 plot3.c "libbu;libbsg" TEST)
 
 #
 #  *************** plot3.c ***************

@@ -107,8 +107,8 @@
 #define bv_knobs_cmd_process(rv, dr, tv, dt, v, cmd, f, o, m, i) \
     bsg_knobs_cmd_process((rv),(dr),(tv),(dt),(v),(cmd),(f),(o),(m),(i))
 /** @deprecated Use bsg_knobs_rot() instead. */
-#define bv_knobs_rot(v, rv, o, c, or, pp) \
-    bsg_knobs_rot((v),(rv),(o),(c),(or),(pp))
+#define bv_knobs_rot(v, rv, o, c, kr, pp) \
+    bsg_knobs_rot((v),(rv),(o),(c),(kr),(pp))
 /** @deprecated Use bsg_knobs_tran() instead. */
 #define bv_knobs_tran(v, tv, m)        bsg_knobs_tran((v),(tv),(m))
 /** @deprecated Use bsg_view_update_rate_flags() instead. */
@@ -241,6 +241,22 @@
 #define bv_set_fsos(s)                 bsg_scene_fsos((s))
 /** @deprecated Use bsg_view_center_linesnap() instead. */
 #define bv_view_center_linesnap(v)     bsg_view_center_linesnap((v))
+
+/* ---------------------------------------------------------------------- *
+ * Function aliases — polygon update                                       *
+ * ---------------------------------------------------------------------- */
+/** @deprecated Use bsg_update_polygon() instead. */
+#define bv_update_polygon(s, v, u)     bsg_update_polygon((s),(v),(u))
+
+/* ---------------------------------------------------------------------- *
+ * Function aliases — snap                                                 *
+ * ---------------------------------------------------------------------- */
+/** @deprecated Use bsg_snap_lines_2d() instead. */
+#define bv_snap_lines_2d(v, x, y)     bsg_snap_lines_2d((v),(x),(y))
+/** @deprecated Use bsg_snap_grid_2d() instead. */
+#define bv_snap_grid_2d(v, x, y)      bsg_snap_grid_2d((v),(x),(y))
+/** @deprecated Use bsg_snap_lines_3d() instead. */
+#define bv_snap_lines_3d(o, v, p)     bsg_snap_lines_3d((o),(v),(p))
 
 #endif /* BSG_COMPAT_H */
 
