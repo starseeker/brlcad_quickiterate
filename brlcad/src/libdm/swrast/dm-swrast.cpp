@@ -544,6 +544,21 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
 	return BRLCAD_ERROR;
     }
 
+    /* Save the currently active OSMesa context so we can restore it when done.
+     * This prevents swrast_getDisplayImage from leaving a different context
+     * current as a side-effect visible to the caller (e.g. multi-view setups
+     * where each DM has its own context). */
+    OSMesaContext saved_ctx = OSMesaGetCurrentContext();
+    GLint saved_width = 0, saved_height = 0, saved_format = 0;
+    void *saved_buf = NULL;
+    bool need_restore = false;
+    if (saved_ctx && saved_ctx != pv->ctx) {
+	if (OSMesaGetColorBuffer(saved_ctx, &saved_width, &saved_height, &saved_format, &saved_buf) && saved_buf)
+	    need_restore = true;
+	else
+	    bu_log("swrast_getDisplayImage: could not save current context buffer; context will not be restored\n");
+    }
+
     /* Ensure this OSMesa context is current before reading its buffer */
     if (dm_make_current(dmp) != BRLCAD_OK) {
 	bu_log("swrast_getDisplayImage: dm_make_current failed\n");
@@ -563,6 +578,9 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
     if (!OSMesaGetColorBuffer(pv->ctx, &cbwidth, &cbheight, &bitsperchannel, &cbuf) || !cbuf) {
 	bu_log("swrast_getDisplayImage: OSMesaGetColorBuffer failed\n");
 	*image = NULL;
+	if (need_restore)
+	    if (!OSMesaMakeCurrent(saved_ctx, saved_buf, GL_UNSIGNED_BYTE, saved_width, saved_height))
+		bu_log("swrast_getDisplayImage: context restore failed after read error\n");
 	return BRLCAD_ERROR;
     }
 
@@ -586,6 +604,11 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
 
     if (flip)
 	flip_display_image_vertically(*image, width, height, alpha);
+
+    /* Restore the previously active OSMesa context */
+    if (need_restore)
+	if (!OSMesaMakeCurrent(saved_ctx, saved_buf, GL_UNSIGNED_BYTE, saved_width, saved_height))
+	    bu_log("swrast_getDisplayImage: context restore failed\n");
 
     return BRLCAD_OK;
 }
