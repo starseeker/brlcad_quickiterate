@@ -32,7 +32,7 @@
 #include "common.h"
 
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/util.h"
 #include "bg/lseg.h"
 #include "tclcad.h"

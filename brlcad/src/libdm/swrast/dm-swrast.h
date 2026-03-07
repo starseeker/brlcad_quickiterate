@@ -32,7 +32,7 @@ extern "C" {
 #include "OSMesa/gl.h"
 #include "OSMesa/osmesa.h"
 
-#include "bv.h"
+#include "bsg.h"
 
 /* For portable text in OpenGL, use fontstash */
 #if defined(__GNUC__) && !defined(__clang__)

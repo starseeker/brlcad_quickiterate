@@ -35,7 +35,7 @@
 #include "bu/opt.h"
 #include "bu/str.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg.h"
 #include "bg/polygon.h"
 #include "rt/defines.h"
