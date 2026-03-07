@@ -1089,7 +1089,7 @@ ged_who_argc(struct ged *gedp)
 	if (!_bd->s_fullpath.fp_len) continue;
 	struct directory *_dp = _bd->s_fullpath.fp_names[0];
 	if (_dp->d_addr == RT_DIR_PHONY_ADDR) continue;
-	bu_ptbl_ins_unique(&drawn_tops, (long *)_dp);
+	(void)bu_ptbl_ins_unique(&drawn_tops, (long *)_dp);
     }
     size_t _count = BU_PTBL_LEN(&drawn_tops);
     bu_ptbl_free(&drawn_tops);

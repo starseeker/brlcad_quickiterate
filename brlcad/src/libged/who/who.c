@@ -45,7 +45,6 @@ ged_who_core(struct ged *gedp, int argc, const char *argv[])
     if (gedp->new_cmd_forms)
 	return ged_who2_core(gedp, argc, argv);
 
-    struct display_list *gdlp;
     int skip_real, skip_phony;
     static const char *usage = "[r(eal)|p(hony)|b(oth)]";
 
@@ -82,13 +81,9 @@ ged_who_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
 
-    /* Phase 2e: use scene-root children as the canonical drawn-objects source.
-     * If gd_headDisplay has entries, use them (legacy tracking is still maintained
-     * by draw.c, so this gives the correct multi-level-path output).  If it is
-     * empty, fall back to enumerating unique top-level directory entries from the
-     * scene-root children across all views. */
-    if (BU_LIST_IS_EMPTY((struct bu_list *)ged_dl(gedp))) {
-	/* Scene-root fallback: collect unique top-level directory entries */
+    /* Phase 2e: gd_headDisplay is no longer populated by draw commands; always
+     * enumerate unique top-level directory entries from scene-root children. */
+    {
 	struct bu_ptbl unique_dirs;
 	bu_ptbl_init(&unique_dirs, 8, "who unique_dirs");
 
@@ -119,16 +114,6 @@ ged_who_core(struct ged *gedp, int argc, const char *argv[])
 	    bu_vls_printf(gedp->ged_result_str, "%s ", dp->d_namep);
 	}
 	bu_ptbl_free(&unique_dirs);
-    } else {
-	for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp))) {
-	    if (((struct directory *)gdlp->dl_dp)->d_addr == RT_DIR_PHONY_ADDR) {
-		if (skip_phony) continue;
-	    } else {
-		if (skip_real) continue;
-	    }
-
-	    bu_vls_printf(gedp->ged_result_str, "%s ", bu_vls_addr(&gdlp->dl_path));
-	}
     }
 
     return BRLCAD_OK;
