@@ -325,6 +325,23 @@ dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split)
     else
 	found_subpath = 0;
 
+    /* Phase 2e fast-path: if gd_headDisplay is empty (draw.c no longer
+     * populates it) erase matching shapes directly from scene-root.        */
+    if (BU_LIST_IS_EMPTY(hdlp)) {
+	if (found_subpath) {
+	    struct bu_ptbl to_erase;
+	    bu_ptbl_init(&to_erase, 8, "erasePathFromDisplay fast");
+	    dl_match_shapes(gedp, &subpath, &to_erase);
+	    for (size_t _ei = 0; _ei < BU_PTBL_LEN(&to_erase); _ei++) {
+		bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&to_erase, _ei);
+		if (_sp) dl_free_shape(gedp, _sp);
+	    }
+	    bu_ptbl_free(&to_erase);
+	    db_free_full_path(&subpath);
+	}
+	return;
+    }
+
     gdlp = BU_LIST_NEXT(display_list, hdlp);
     last_gdlp = BU_LIST_LAST(display_list, hdlp);
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
@@ -448,6 +465,31 @@ _dl_eraseAllNamesFromDisplay(struct ged *gedp,  const char *name, const int skip
     struct display_list *next_gdlp;
     struct bu_list *vlfree = &rt_vlfree;
 
+    /* Phase 2e fast-path: if gd_headDisplay is empty, search scene-root
+     * directly for shapes where `name` appears as a path component.        */
+    if (BU_LIST_IS_EMPTY(hdlp)) {
+	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+	if (views) {
+	    for (size_t _vi = 0; _vi < BU_PTBL_LEN(views); _vi++) {
+		bsg_view *_v = (bsg_view *)BU_PTBL_GET(views, _vi);
+		bsg_shape *_root = bsg_scene_root_get(_v);
+		if (!_root || !BU_PTBL_IS_INITIALIZED(&_root->children)) continue;
+		for (size_t _si = BU_PTBL_LEN(&_root->children); _si > 0; _si--) {
+		    bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si-1);
+		    if (!_sp || !_sp->s_u_data) continue;
+		    struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+		    for (size_t _ki = skip_first ? 1 : 0; _ki < _bd->s_fullpath.fp_len; _ki++) {
+			if (BU_STR_EQUAL(_bd->s_fullpath.fp_names[_ki]->d_namep, name)) {
+			    dl_free_shape(gedp, _sp);
+			    break;
+			}
+		    }
+		}
+	    }
+	}
+	return;
+    }
+
     gdlp = BU_LIST_NEXT(display_list, hdlp);
     while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
 	char *dup_path;
@@ -559,6 +601,28 @@ _dl_eraseAllPathsFromDisplay(struct ged *gedp, const char *path, const int skip_
     struct db_i *dbip = gedp->dbip;
 
     if (db_string_to_path(&subpath, dbip, path) == 0) {
+	/* Phase 2e fast-path: if gd_headDisplay is empty, erase shapes from
+	 * scene-root whose fullpath is a subset of subpath. */
+	if (BU_LIST_IS_EMPTY(hdlp)) {
+	    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+	    if (views) {
+		for (size_t _vi = 0; _vi < BU_PTBL_LEN(views); _vi++) {
+		    bsg_view *_v = (bsg_view *)BU_PTBL_GET(views, _vi);
+		    bsg_shape *_root = bsg_scene_root_get(_v);
+		    if (!_root || !BU_PTBL_IS_INITIALIZED(&_root->children)) continue;
+		    for (size_t _si = BU_PTBL_LEN(&_root->children); _si > 0; _si--) {
+			bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si-1);
+			if (!_sp || !_sp->s_u_data) continue;
+			struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+			if (db_full_path_subset(&_bd->s_fullpath, &subpath, skip_first))
+			    dl_free_shape(gedp, _sp);
+		    }
+		}
+	    }
+	    db_free_full_path(&subpath);
+	    return;
+	}
+
 	gdlp = BU_LIST_NEXT(display_list, hdlp);
 
 	// Zero out the worked flag so we can tell which scene
@@ -721,7 +785,6 @@ int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int r
     if (!gedp || !gedp->ged_gvp)
 	return 0;
 
-    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct db_i *dbip = gedp->dbip;
     struct directory *dp;
     bsg_shape *sp;
@@ -771,8 +834,9 @@ int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int r
     /* set path information -- this is a top level node */
     db_add_node_to_full_path(&bdata->s_fullpath, dp);
 
-    /* Register this name in the display list (for reverse-lookup by path) */
-    (void)dl_addToDisplay(hdlp, dbip, name);
+    /* Phase 2e: shape is in scene-root via bsg_shape_get; gd_headDisplay is
+     * no longer maintained here.  dl_erasePathFromDisplay will find the phony
+     * dp through scene-root traversal if the name needs to be erased later. */
 
     sp->s_iflag = DOWN;
     sp->s_soldash = 0;
