@@ -38,7 +38,7 @@
 #include "rt/db4.h"
 #include "raytrace.h"
 #include "rt/geom.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/util.h"
 #include "ged.h"
 #include "include/plugin.h"

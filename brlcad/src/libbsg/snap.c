@@ -38,7 +38,7 @@
 #include "bsg/defines.h"
 #include "bsg/snap.h"
 #include "bsg/util.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 
 struct bv_cp_info {
     double ctol_sq; // square of the distance that defines "close to a line"

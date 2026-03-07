@@ -59,8 +59,8 @@
 #include "bsg/polygon.h"
 
 /* bv/polygon.h declares the legacy functions wrapped in this file */
-#include "bv/polygon.h"
-#include "bv/view_sets.h"
+#include "bsg/polygon.h"
+#include "bsg/view_sets.h"
 
 /* bn/mat.h provides bn_mat_mul() used by bsg_traverse() */
 #include "bn/mat.h"
@@ -74,10 +74,10 @@
 #include "./bsg_private.h"
 
 /* bv/snap.h declares bv_view_center_linesnap, wrapped as bsg_view_center_linesnap */
-#include "bv/snap.h"
+#include "bsg/snap.h"
 
 /* bv/vlist.h provides BV_FREE_VLIST used by bsg_node_free() */
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 
 #include <unordered_map>
 #include <vector>

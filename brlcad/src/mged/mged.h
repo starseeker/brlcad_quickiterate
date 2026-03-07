@@ -75,7 +75,7 @@
 #include "wdb.h"
 
 /* Needed to define bsg_shape */
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 // We have to use different I/O mechanisms based on which
 // platform we're on.  Make a define to key off of.

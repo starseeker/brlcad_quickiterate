@@ -38,7 +38,7 @@
 #include "bsg/snap.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "./bsg_private.h"
 
 /* Cast helpers for internal struct access.
