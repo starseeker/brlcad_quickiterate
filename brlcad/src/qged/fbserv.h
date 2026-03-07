@@ -64,7 +64,7 @@ class QFBServer : public QTcpServer
     Q_OBJECT
 
     public:
-	QFBServer(struct fbserv_obj *fp = NULL);
+	QFBServer(struct fbserv_obj *fp = nullptr);
 	~QFBServer();
 
 	int port = -1;

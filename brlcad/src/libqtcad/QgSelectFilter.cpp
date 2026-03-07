@@ -43,7 +43,7 @@ closest_obj_bbox(struct bu_ptbl *sset, bsg_view *v)
 {
     fastf_t vx = -FLT_MAX;
     fastf_t vy = -FLT_MAX;
-    bsg_shape *s_closest = NULL;
+    bsg_shape *s_closest = nullptr;
     double dist = DBL_MAX;
     bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt, mpnt;
@@ -77,14 +77,14 @@ QMouseEvent *
 QgSelectFilter::view_sync(QEvent *e)
 {
     if (!v)
-	return NULL;
+	return nullptr;
 
     // If we don't have one of the relevant mouse operations, there's nothing to do
-    QMouseEvent *m_e = NULL;
+    QMouseEvent *m_e = nullptr;
     if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonRelease || e->type() == QEvent::MouseButtonDblClick || e->type() == QEvent::MouseMove)
 	m_e = (QMouseEvent *)e;
     if (!m_e)
-	return NULL;
+	return nullptr;
 
     // We're going to need the mouse position
     int e_x, e_y;
@@ -105,7 +105,7 @@ QgSelectFilter::view_sync(QEvent *e)
 
     // If we have modifiers, we're most likely doing shift grips
     if (m_e->modifiers() != Qt::NoModifier)
-	return NULL;
+	return nullptr;
 
     return m_e;
 }
@@ -307,12 +307,12 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     RT_APPLICATION_INIT(ap);
     ap->a_onehit = 0;
     ap->a_hit = _obj_record;
-    ap->a_miss = NULL;
+    ap->a_miss = nullptr;
     ap->a_overlap = _ovlp_record;
-    ap->a_logoverlap = NULL;
+    ap->a_logoverlap = nullptr;
 
     struct rt_i *rtip = rt_new_rti(dbip);
-    struct resource *resp = NULL;
+    struct resource *resp = nullptr;
     BU_GET(resp, struct resource);
     rt_init_resource(resp, 0, rtip);
     ap->a_resource = resp;
@@ -322,7 +322,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&selected_set, i);
 	objs[i] = bu_vls_cstr(&s->s_name);
     }
-    if (rt_gettrees_and_attrs(rtip, NULL, scnt, objs, 1)) {
+    if (rt_gettrees_and_attrs(rtip, nullptr, scnt, objs, 1)) {
 	bu_free(objs, "objs");
 	rt_free_rti(rtip);
 	BU_PUT(resp, struct resource);

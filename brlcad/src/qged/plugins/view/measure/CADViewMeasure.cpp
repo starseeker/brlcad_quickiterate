@@ -175,7 +175,7 @@ CADViewMeasure::eventFilter(QObject *, QEvent *e)
     // the libqtcad logic.
     QObject::connect(mf, &QgMeasureFilter::view_updated, this, &CADViewMeasure::do_filter_view_update);
 
-    bool ret = mf->eventFilter(NULL, e);
+    bool ret = mf->eventFilter(nullptr, e);
 
     // Retrieve the scene object from the libqtcad data container
     s = mf->s;

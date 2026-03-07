@@ -55,7 +55,7 @@ class QTCAD_EXPORT QgKeyValModel : public QAbstractItemModel
     Q_OBJECT
 
     public:
-	QgKeyValModel(QObject *p = NULL);
+	QgKeyValModel(QObject *p = nullptr);
 	~QgKeyValModel();
 
 	QModelIndex index(int row, int column, const QModelIndex &parent) const;

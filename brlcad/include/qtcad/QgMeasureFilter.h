@@ -33,7 +33,6 @@ extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
 #include "bsg.h"
-#include "bsg.h"
 #include "raytrace.h"
 }
 
@@ -53,7 +52,7 @@ class QTCAD_EXPORT QgMeasureFilter : public QObject
 	// Primary mouse interaction.  As it happens the 2D and 3D mouse event
 	// filtering is the same, so this is not a virtual function.  See
 	// get_point for the 2D/3D specific logic.
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
 	// Initialization common to the various polygon filter types
 	QMouseEvent *view_sync(QEvent *e);
@@ -86,8 +85,8 @@ class QTCAD_EXPORT QgMeasureFilter : public QObject
         void view_updated(int);
 
     public:
-	bsg_view *v = NULL;
-	bsg_shape *s = NULL;
+	bsg_view *v = nullptr;
+	bsg_shape *s = nullptr;
 	std::string oname = std::string("tool:measurement");
 
     public slots:
@@ -104,10 +103,7 @@ class QTCAD_EXPORT QMeasure2DFilter : public QgMeasureFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
-
-    private:
-	bool get_point();
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
 
@@ -118,17 +114,17 @@ class QTCAD_EXPORT QMeasure3DFilter : public QgMeasureFilter
     public:
 	QMeasure3DFilter();
 	~QMeasure3DFilter();
-	bool eventFilter(QObject *, QEvent *e);
-	struct db_i *dbip = NULL;
+	bool eventFilter(QObject *, QEvent *e) override;
+	struct db_i *dbip = nullptr;
 
     private:
-	bool get_point();
+	bool get_point() override;
 
 	int prev_cnt = 0;
 	struct bu_ptbl scene_obj_set = BU_PTBL_INIT_ZERO;
-	struct application *ap = NULL;
-	struct rt_i *rtip = NULL;
-	struct resource *resp = NULL;
+	struct application *ap = nullptr;
+	struct rt_i *rtip = nullptr;
+	struct resource *resp = nullptr;
 };
 
 #endif /* QGMEASUREFILTER_H */

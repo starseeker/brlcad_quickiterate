@@ -48,7 +48,7 @@ extern "C" {
     };
 
     const struct qged_tool view_settings_tool = { &view_settings_tool_impl, 1 };
-    const struct qged_tool *view_settings_tools[] = { &view_settings_tool, NULL };
+    const struct qged_tool *view_settings_tools[] = { &view_settings_tool, nullptr };
 
     static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, view_settings_tools, 1 };
 

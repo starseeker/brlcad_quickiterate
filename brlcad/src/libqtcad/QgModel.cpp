@@ -84,8 +84,8 @@ struct QgItem_cmp {
 	if (i1->ihash && !i2->ihash)
 	    return false;
 
-	struct directory *inst1 = NULL;
-	struct directory *inst2 = NULL;
+	struct directory *inst1 = nullptr;
+	struct directory *inst2 = nullptr;
 	DbiState *ctx1 = (DbiState *)i1->mdl->gedp->dbi_state;
 	DbiState *ctx2 = (DbiState *)i2->mdl->gedp->dbi_state;
 	if (ctx1->d_map.find(i1->ihash) != ctx1->d_map.end()) {
@@ -104,7 +104,7 @@ struct QgItem_cmp {
 
 	const char *n1 = inst1->d_namep;
 	const char *n2 = inst2->d_namep;
-	if (alphanum_impl(n1, n2, NULL) < 0)
+	if (alphanum_impl(n1, n2, nullptr) < 0)
 	    return true;
 
 	return false;
@@ -116,7 +116,7 @@ QgItem::QgItem(unsigned long long hash, QgModel *ictx)
     mdl = ictx;
     DbiState *ctx = (DbiState *)mdl->gedp->dbi_state;
     ihash = hash;
-    parentItem = NULL;
+    parentItem = nullptr;
     if (!ctx)
 	return;
 
@@ -167,7 +167,7 @@ QgItem *
 QgItem::child(int n)
 {
     if (n < 0 || n >= (int)children.size())
-	return NULL;
+	return nullptr;
 
     return children[n];
 }
@@ -245,7 +245,7 @@ qgmodel_update_nref_callback(struct db_i *UNUSED(dbip), struct directory *parent
     // updated data state before doing our processing (as opposed to, for
     // example, triggering events during the update treewalk) we only process
     // when the termination conditions are fully set.
-    if (!parent_dp && !child_dp && !child_name && m == NULL && op == DB_OP_SUBTRACT) {
+    if (!parent_dp && !child_dp && !child_name && m == nullptr && op == DB_OP_SUBTRACT) {
 
 	std::cout << "update nref callback\n";
 
@@ -353,7 +353,7 @@ QgModel::QgModel(QObject *p, const char *npath)
 	const char *av[3];
 	av[0] = "open";
 	av[1] = npath;
-	av[2] = NULL;
+	av[2] = nullptr;
 	run_cmd(gedp->ged_result_str, ac, (const char **)av);
     }
 }
@@ -1195,7 +1195,7 @@ QgModel::run_cmd(struct bu_vls *msg, int argc, const char **argv)
     changed_dp.clear();
 
     if (!ged_cmd_exists(argv[0])) {
-	const char *ccmd = NULL;
+	const char *ccmd = nullptr;
 	int edist = ged_cmd_lookup(&ccmd, argv[0]);
 	if (edist) {
 	    if (msg)

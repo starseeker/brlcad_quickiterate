@@ -48,13 +48,13 @@ class QTCAD_EXPORT QgNameEdit: public QLineEdit
     Q_OBJECT
 
     public:
-	QgNameEdit(QWidget *p = NULL, struct db_i *e_dbip = NULL, int e_type = DB5_MINORTYPE_RESERVED);
+	QgNameEdit(QWidget *p = nullptr, struct db_i *e_dbip = nullptr, int e_type = DB5_MINORTYPE_RESERVED);
 	~QgNameEdit();
 
 	int n_state = 1;
 
     private:
-	struct db_i *dbip = NULL;
+	struct db_i *dbip = nullptr;
 	// Minor type from rt/db5.h
 	int expected_type = DB5_MINORTYPE_RESERVED;
 }
@@ -65,7 +65,7 @@ class QTCAD_EXPORT QVectEdit: public QWidget
     Q_OBJECT
 
     public:
-	QgVectEdit(QWidget *p = NULL);
+	QgVectEdit(QWidget *p = nullptr);
 	~QgVectEdit();
 
 	// QDoubleValidator inputs for each value

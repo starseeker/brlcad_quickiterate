@@ -68,9 +68,9 @@ class QEll : public QWidget
 	bool eventFilter(QObject *, QEvent *);
 
     private:
-	struct directory *dp = NULL;
+	struct directory *dp = nullptr;
 	struct rt_ell_internal ell;
-	bsg_shape *p = NULL;
+	bsg_shape *p = nullptr;
 	struct bu_vls oname = BU_VLS_INIT_ZERO;
 };
 

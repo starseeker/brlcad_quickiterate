@@ -105,10 +105,10 @@ class QPolyMod : public QWidget
     private:
 	void poly_type_settings(struct bv_polygon *ip);
 	int poly_cnt = 0;
-	bsg_shape *p = NULL;
+	bsg_shape *p = nullptr;
 	bool do_bool = false;
 
-	QgPolyFilter *cf = NULL;
+	QgPolyFilter *cf = nullptr;
 	QPolyUpdateFilter *puf;
 	QPolySelectFilter *psf;
 	QPolyPointFilter *ppf;

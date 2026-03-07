@@ -157,7 +157,7 @@ QgQuadView::changeToSingleFrame()
     if (layout == nullptr) {
 	layout = createLayout();
     }
-    while (layout->takeAt(0) != NULL);
+    while (layout->takeAt(0) != nullptr);
     layout->addWidget(views[UPPER_RIGHT_QUADRANT], 0, 2);
 
     for (int i = 1; i < 4; i++) {
@@ -250,7 +250,7 @@ QgQuadView::changeToQuadFrame()
     if (layout == nullptr) {
 	layout = createLayout();
     }
-    while (layout->takeAt(0) != NULL);
+    while (layout->takeAt(0) != nullptr);
 
     layout->addWidget(views[UPPER_LEFT_QUADRANT], 0, 0);
     layout->addWidget(spacerTop, 0, 1);
@@ -386,7 +386,7 @@ QgQuadView::get(int quadrantId)
 QgView *
 QgQuadView::get(const QPoint &gpos)
 {
-    QgView *retv = NULL;
+    QgView *retv = nullptr;
     for (int i = UPPER_RIGHT_QUADRANT; i < LOWER_RIGHT_QUADRANT + 1; i++) {
 	QgView *cv = views[i];
 	if (cv == nullptr)
@@ -408,7 +408,7 @@ QgView *
 QgQuadView::get(QEvent *e)
 {
     if (e->type() != QEvent::MouseButtonPress)
-	return NULL;
+	return nullptr;
     QMouseEvent *m_e = (QMouseEvent *)e;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QPoint gpos = m_e->globalPos();

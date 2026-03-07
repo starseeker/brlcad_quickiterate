@@ -153,22 +153,22 @@ test_rebuild_item_children(const char *tmppath)
 	return 1;
     }
     /* Populate: sph1.s, tor1.s, reg1.r (contains sph1.s), top1.c (reg1.r + tor1.s) */
-    { const char *av[] = {"in","sph1.s","sph","0","0","0","10",NULL};
+    { const char *av[] = {"in","sph1.s","sph","0","0","0","10",nullptr};
       ged_exec_in(gedp, 7, av); }
-    { const char *av[] = {"in","tor1.s","tor","0","0","0","0","0","1","20","5",NULL};
+    { const char *av[] = {"in","tor1.s","tor","0","0","0","0","0","1","20","5",nullptr};
       ged_exec_in(gedp, 11, av); }
-    { const char *av[] = {"r","reg1.r","u","sph1.s",NULL};
+    { const char *av[] = {"r","reg1.r","u","sph1.s",nullptr};
       ged_exec_r(gedp, 4, av); }
-    { const char *av[] = {"g","top1.c","reg1.r","tor1.s",NULL};
+    { const char *av[] = {"g","top1.c","reg1.r","tor1.s",nullptr};
       ged_exec_g(gedp, 4, av); }
 
     /* Close the raw gedp; let QgModel open the file with its own machinery
      * so its internal change callback is properly registered. */
     ged_close(gedp);
-    gedp = NULL;
+    gedp = nullptr;
 
     /* Re-open using QgModel's internal ged machinery */
-    QgModel model(NULL, tmppath);
+    QgModel model(nullptr, tmppath);
 
 #ifdef USE_QTTEST
     QAbstractItemModelTester *tester =
@@ -213,7 +213,7 @@ test_rebuild_item_children(const char *tmppath)
     QSignalSpy spy_reset(&model, &QAbstractItemModel::modelReset);
 
     /* Remove tor1.s from top1.c without deleting the object */
-    { const char *av[] = {"rm","top1.c","tor1.s",NULL};
+    { const char *av[] = {"rm","top1.c","tor1.s",nullptr};
       ged_exec_rm(model.gedp, 3, av); }
 
     /* Trigger incremental update */
@@ -234,9 +234,9 @@ test_rebuild_item_children(const char *tmppath)
     /* Add a new member and verify rowsInserted fires */
     spy_inserted.clear();
     spy_reset.clear();
-    { const char *av[] = {"in","sph2.s","sph","10","0","0","5",NULL};
+    { const char *av[] = {"in","sph2.s","sph","10","0","0","5",nullptr};
       ged_exec_in(model.gedp, 7, av); }
-    { const char *av[] = {"g","top1.c","sph2.s",NULL};
+    { const char *av[] = {"g","top1.c","sph2.s",nullptr};
       ged_exec_g(model.gedp, 3, av); }
     model.g_update(model.gedp->dbip);
 
@@ -260,7 +260,7 @@ test_rebuild_item_children(const char *tmppath)
 #else
     printf("SKIP [T2]: QSignalSpy checks skipped (USE_QTTEST not defined)\n");
     /* Still exercise the code path */
-    { const char *av[] = {"rm","top1.c","tor1.s",NULL};
+    { const char *av[] = {"rm","top1.c","tor1.s",nullptr};
       ged_exec_rm(model.gedp, 3, av); }
     model.g_update(model.gedp->dbip);
     int child_count_after = (int)top1_item->children.size();
@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
     if (argc != 1)
 	bu_exit(-1, "need to specify .g file\n");
 
-    QgModel sm(NULL, argv[0]);
+    QgModel sm(nullptr, argv[0]);
     QgModel *s = &sm;
 
 #ifdef USE_QTTEST
@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
     av[0] = "rm";
     av[1] = "all.g";
     av[2] = "ellipse.r";
-    av[3] = NULL;
+    av[3] = nullptr;
     ged_exec_rm(g, ac, (const char **)av);
     s->g_update(g->dbip);
 
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
     av[0] = "g";
     av[1] = "all.g";
     av[2] = "ellipse.r";
-    av[3] = NULL;
+    av[3] = nullptr;
     ged_exec_g(g, ac, (const char **)av);
     s->g_update(g->dbip);
 
@@ -370,7 +370,7 @@ int main(int argc, char *argv[])
     av[0] = "rm";
     av[1] = "tor.r";
     av[2] = "tor";
-    av[3] = NULL;
+    av[3] = nullptr;
     ged_exec_rm(g, ac, (const char **)av);
     s->g_update(g->dbip);
 
@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
     av[0] = "kill";
     av[1] = "-f";
     av[2] = "all.g";
-    av[3] = NULL;
+    av[3] = nullptr;
     ged_exec_kill(g, ac, (const char **)av);
     s->g_update(g->dbip);
     std::cout << "\ntops tree after deleting all.g:\n";
@@ -390,14 +390,14 @@ int main(int argc, char *argv[])
     open_tops(s, -1);
     print_tops(s);
 
-    const char *objs[] = {"box.r", "box.s", "cone.r", "cone.s", "ellipse.r", "ellipse.s", "light.r", "LIGHT", "platform.r", "platform.s", "tor", "tor.r", NULL};
+    const char *objs[] = {"box.r", "box.s", "cone.r", "cone.s", "ellipse.r", "ellipse.s", "light.r", "LIGHT", "platform.r", "platform.s", "tor", "tor.r", nullptr};
     const char *obj = objs[0];
     int i = 0;
     while (obj) {
 	av[0] = "kill";
 	av[1] = "-f";
 	av[2] = obj;
-	av[3] = NULL;
+	av[3] = nullptr;
 	ged_exec_kill(g, ac, (const char **)av);
 	i++;
 	obj = objs[i];
@@ -468,19 +468,19 @@ int main(int argc, char *argv[])
             goto t3_done;
         }
         /* Create a region with region_id=5 */
-        { const char *t3av1[] = {"in","s1.s","sph","0","0","0","10",NULL};
+        { const char *t3av1[] = {"in","s1.s","sph","0","0","0","10",nullptr};
           if (ged_exec_in(g3, 7, t3av1) != BRLCAD_OK)
               fprintf(stderr, "WARN [T3]: in s1.s failed\n"); }
-        { const char *t3av2[] = {"r","reg1.r","u","s1.s",NULL};
+        { const char *t3av2[] = {"r","reg1.r","u","s1.s",nullptr};
           if (ged_exec_r(g3, 4, t3av2) != BRLCAD_OK)
               fprintf(stderr, "WARN [T3]: r reg1.r failed\n"); }
-        { const char *t3av3[] = {"attr","set","reg1.r","region_id","5",NULL};
+        { const char *t3av3[] = {"attr","set","reg1.r","region_id","5",nullptr};
           if (ged_exec_attr(g3, 5, t3av3) != BRLCAD_OK)
               fprintf(stderr, "WARN [T3]: attr set region_id failed\n"); }
         ged_close(g3);
 
         {
-            QgModel m3(NULL, t3path);
+            QgModel m3(nullptr, t3path);
 
             /* Default: 1 column */
             T3_CHECK(m3.columnCount() == 1,

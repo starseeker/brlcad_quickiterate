@@ -84,12 +84,12 @@ signals:
 	void deselect_objs();
 	void erase_objs();
 
-	QgSelectFilter *cf = NULL;
+	QgSelectFilter *cf = nullptr;
 	QgSelectPntFilter *pf;
 	QgSelectBoxFilter *bf;
 	QgSelectRayFilter *rf;
 
-	struct ged *gedp = NULL;
+	struct ged *gedp = nullptr;
 	unsigned long long ohash = 0;
 	unsigned long long omhash = 0;
 };

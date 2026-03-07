@@ -150,7 +150,7 @@ QPolySettings::uniq_obj_name(struct bu_vls *oname, bsg_view *v)
     if (!v || !oname)
 	return false;
 
-    char *vname = NULL;
+    char *vname = nullptr;
     if (view_name->placeholderText().length()) {
 	vname = bu_strdup(view_name->placeholderText().toLocal8Bit().data());
     }

@@ -187,7 +187,7 @@ QPolyCreate::finalize(bool)
 
     // If we're also writing this out as a sketch, take care of that.
     if (ps->sketch_sync->isChecked()) {
-	char *sk_name = NULL;
+	char *sk_name = nullptr;
 	if (ps->sketch_name->placeholderText().length()) {
 	    sk_name = bu_strdup(ps->sketch_name->placeholderText().toLocal8Bit().data());
 	}
@@ -208,7 +208,7 @@ QPolyCreate::finalize(bool)
     ps->sketch_name->setText("");
     sketch_sync();
 
-    p = NULL;
+    p = nullptr;
     emit view_updated(QG_VIEW_REFRESH);
 }
 
@@ -258,7 +258,7 @@ QPolyCreate::do_vpoly_copy()
     bu_vls_free(&pname);
 
     do_bool = false;
-    p = NULL;
+    p = nullptr;
     emit view_updated(QG_VIEW_REFRESH);
 }
 
@@ -308,7 +308,7 @@ QPolyCreate::do_import_sketch()
     bu_vls_free(&pname);
 
     do_bool = false;
-    p = NULL;
+    p = nullptr;
     emit view_updated(QG_VIEW_REFRESH);
 }
 
@@ -339,7 +339,7 @@ QPolyCreate::sketch_sync()
     }
 
     if (ps->sketch_sync->isChecked()) {
-	char *sname = NULL;
+	char *sname = nullptr;
 	if (!ps->sketch_name->placeholderText().length()) {
 	    if (ps->view_name->placeholderText().length()) {
 		ps->sketch_name->setPlaceholderText(ps->view_name->placeholderText());
@@ -380,8 +380,8 @@ QPolyCreate::sketch_sync()
 void
 QPolyCreate::toggle_line_snapping(bool s)
 {
-    bsg_view *v = (cf) ? cf->v : NULL;
-    bsg_shape *co = (cf) ? cf->wp : NULL;
+    bsg_view *v = (cf) ? cf->v : nullptr;
+    bsg_shape *co = (cf) ? cf->wp : nullptr;
     if (!v || !co)
 	return;
 
@@ -413,7 +413,7 @@ QPolyCreate::toggle_line_snapping(bool s)
 void
 QPolyCreate::toggle_grid_snapping(bool s)
 {
-    bsg_view *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : nullptr;
     if (!v)
 	return;
 
@@ -430,7 +430,7 @@ QPolyCreate::toggle_grid_snapping(bool s)
 void
 QPolyCreate::checkbox_refresh(unsigned long long)
 {
-    bsg_view *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : nullptr;
     if (!v)
 	return;
 
@@ -467,7 +467,7 @@ QPolyCreate::view_sync()
     if (!gedp)
 	return;
 
-    if (!ps->uniq_obj_name(NULL, gedp->ged_gvp)) {
+    if (!ps->uniq_obj_name(nullptr, gedp->ged_gvp)) {
 	ps->view_name->setStyleSheet("color: rgb(255,0,0)");
     } else {
 	ps->view_name->setStyleSheet("");
@@ -612,7 +612,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
 	bu_ptbl_free(&poly_objs);
     }
 
-    bool ret = cf->eventFilter(NULL, e);
+    bool ret = cf->eventFilter(nullptr, e);
 
     // Retrieve the scene object from the libqtcad data container
     p = cf->wp;

@@ -126,9 +126,9 @@ class QTCAD_EXPORT QgItem
 	 * for this instance.
 	 */
 	unsigned long long ihash = 0;
-	QgModel *mdl = NULL;
+	QgModel *mdl = nullptr;
 
-	QgItem *parentItem = NULL;
+	QgItem *parentItem = nullptr;
 	std::vector<unsigned long long> path_items();
 	unsigned long long path_hash();
 
@@ -164,7 +164,7 @@ class QTCAD_EXPORT QgItem
 	// displaying while librt does work on the instances.
 	struct bu_vls name = BU_VLS_INIT_ZERO;
 	db_op_t op = DB_OP_UNION;
-	struct directory *dp = NULL;
+	struct directory *dp = nullptr;
 	QImage icon;
 	//int draw_state = 0;
 	//bool select_state = false;
@@ -213,12 +213,12 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
     Q_OBJECT
 
     public:
-	explicit QgModel(QObject *p = NULL, const char *npath = NULL);
+	explicit QgModel(QObject *p = nullptr, const char *npath = nullptr);
 	~QgModel();
 
 	// .g Db interface and containers
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	struct ged *gedp = NULL;
+	struct ged *gedp = nullptr;
 
 	// IDbiObserver implementation - called after DbiState::update() completes
 	void on_dbi_changed(const std::vector<DbiChangeEvent> &events) override;
@@ -309,7 +309,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	std::unordered_set<struct directory *> changed_dp;
 
 	// Convenience container holding all active QgItems
-	std::unordered_set<QgItem *> *items = NULL;
+	std::unordered_set<QgItem *> *items = nullptr;
 
 	// Sorted QgItem pointers corresponding to the tops instances
 	std::vector<QgItem *> tops_items;
@@ -396,8 +396,8 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	QStringList attribute_columns_;
 
 	QgItem *rootItem;
-	bsg_view *empty_gvp = NULL;
-	struct db_i *model_dbip = NULL;
+	bsg_view *empty_gvp = nullptr;
+	struct db_i *model_dbip = nullptr;
 };
 
 #endif //QGMODEL_H
