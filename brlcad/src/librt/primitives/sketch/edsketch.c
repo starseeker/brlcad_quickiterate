@@ -162,6 +162,27 @@
  * e_inpara must be 2.  On success se->curr_vert is set to the new vertex index.
  */
 #define ECMD_SKETCH_ADD_VERTEX        26015
+/**
+ * Toggle the center_is_left flag of the currently selected arc segment,
+ * switching between the arc and its complement (the other arc sharing the
+ * same start vertex, end vertex, and radius).
+ *
+ * No parameters needed (curr_seg must reference a non-full-circle CARC).
+ * e_inpara = 0.
+ * Returns BRLCAD_ERROR if no CARC is selected or if it is a full circle
+ * (radius < 0), since full circles have no complement.
+ */
+#define ECMD_SKETCH_TOGGLE_ARC_ORIENT 26016
+/**
+ * Set the radius of the currently selected arc or full-circle segment.
+ *
+ * e_para[0] = new radius in local units.
+ *             Positive  → circular arc (partial).
+ *             Negative  → full circle (end vertex is the centre).
+ * e_inpara  = 1.
+ * curr_seg must point to a CARC segment.
+ */
+#define ECMD_SKETCH_SET_ARC_RADIUS    26017
 
 
 /* ------------------------------------------------------------------ */
@@ -254,6 +275,8 @@ struct rt_edit_menu_item sketch_menu[] = {
     { "NURB Edit KV",        sketch_ed, ECMD_SKETCH_NURB_EDIT_KV },
     { "NURB Edit Weights",   sketch_ed, ECMD_SKETCH_NURB_EDIT_WEIGHTS },
     { "Add Vertex",          sketch_ed, ECMD_SKETCH_ADD_VERTEX },
+    { "Toggle Arc Orient",   sketch_ed, ECMD_SKETCH_TOGGLE_ARC_ORIENT },
+    { "Set Arc Radius",      sketch_ed, ECMD_SKETCH_SET_ARC_RADIUS },
     { "", NULL, 0 }
 };
 
@@ -1414,6 +1437,83 @@ ecmd_sketch_add_vertex(struct rt_edit *s)
     return 0;
 }
 
+static int
+ecmd_sketch_toggle_arc_orient(struct rt_edit *s)
+{
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (se->curr_seg < 0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_TOGGLE_ARC_ORIENT: no segment selected\n");
+	return BRLCAD_ERROR;
+    }
+
+    void *seg = skt->curve.segment[se->curr_seg];
+    if (!seg || *(uint32_t *)seg != CURVE_CARC_MAGIC) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_TOGGLE_ARC_ORIENT: "
+		"selected segment is not a CARC\n");
+	return BRLCAD_ERROR;
+    }
+
+    struct carc_seg *cs = (struct carc_seg *)seg;
+    if (cs->radius < 0.0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_TOGGLE_ARC_ORIENT: "
+		"cannot toggle orientation of a full-circle arc "
+		"(radius < 0)\n");
+	return BRLCAD_ERROR;
+    }
+
+    cs->center_is_left = !cs->center_is_left;
+    cs->center = -1;  /* force recompute during tessellation */
+    return 0;
+}
+
+static int
+ecmd_sketch_set_arc_radius(struct rt_edit *s)
+{
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (se->curr_seg < 0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_ARC_RADIUS: no segment selected\n");
+	return BRLCAD_ERROR;
+    }
+
+    if (!s->e_inpara || s->e_inpara < 1) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_ARC_RADIUS: "
+		"radius parameter required (e_para[0] in local units)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    void *seg = skt->curve.segment[se->curr_seg];
+    if (!seg || *(uint32_t *)seg != CURVE_CARC_MAGIC) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_ARC_RADIUS: "
+		"selected segment is not a CARC\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    struct carc_seg *cs = (struct carc_seg *)seg;
+    fastf_t new_r = s->e_para[0] * s->local2base;
+
+    cs->radius = new_r;
+    cs->center = -1;  /* force recompute during tessellation */
+
+    s->e_inpara = 0;
+    return 0;
+}
+
 int
 rt_edit_sketch_edit(struct rt_edit *s)
 {
@@ -1456,6 +1556,10 @@ rt_edit_sketch_edit(struct rt_edit *s)
 	    return ecmd_sketch_nurb_edit_weights(s);
 	case ECMD_SKETCH_ADD_VERTEX:
 	    return ecmd_sketch_add_vertex(s);
+	case ECMD_SKETCH_TOGGLE_ARC_ORIENT:
+	    return ecmd_sketch_toggle_arc_orient(s);
+	case ECMD_SKETCH_SET_ARC_RADIUS:
+	    return ecmd_sketch_set_arc_radius(s);
 	default:
 	    return edit_generic(s);
     }
