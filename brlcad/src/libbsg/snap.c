@@ -434,11 +434,7 @@ bsg_snap_grid_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
 }
 
 
-/* ---------------------------------------------------------------------- *
- * Backward-compatibility aliases: bv_snap_* -> bsg_snap_*               *
- * These wrappers allow legacy code that still calls the old bv_snap_*   *
- * names to continue to link without modification.                        *
- * ---------------------------------------------------------------------- */
+/* ABI compatibility wrappers: pre-built consumers link against bv_snap_* symbols */
 BV_EXPORT int
 bv_snap_lines_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
 {

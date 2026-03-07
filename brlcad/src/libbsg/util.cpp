@@ -50,52 +50,6 @@
 #define BSG_SHAPI(s)    ((s)->i)
 #define BSG_SCENEI(vs)  (reinterpret_cast<bsg_scene_set_internal *>((vs)->i))
 
-/* Local implementation: vlist bounding box (avoids link dep on libbv) */
-static int
-bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
-{
-    struct bv_vlist *vp;
-    int cmd = 0;
-    int disp_mode = 0;
-    int dispmode_used = 0;
-    size_t len = 0;
-    VSETALL(*bmin,  MAX_FASTF);
-    VSETALL(*bmax, -MAX_FASTF);
-    for (BU_LIST_FOR(vp, bv_vlist, vlistp)) {
-        size_t i;
-        for (i = 0; i < vp->nused; i++) {
-            int c = vp->cmd[i];
-            point_t *pt = &vp->pt[i];
-            if (disp_mode == 1 && c != BV_VLIST_MODEL_MAT) continue;
-            disp_mode = 0;
-            switch (c) {
-                case BV_VLIST_POLY_START: case BV_VLIST_POLY_VERTNORM:
-                case BV_VLIST_TRI_START: case BV_VLIST_TRI_VERTNORM:
-                case BV_VLIST_POINT_SIZE: case BV_VLIST_LINE_WIDTH:
-                case BV_VLIST_MODEL_MAT: break;
-                case BV_VLIST_LINE_MOVE: case BV_VLIST_LINE_DRAW:
-                case BV_VLIST_POLY_MOVE: case BV_VLIST_POLY_DRAW:
-                case BV_VLIST_POLY_END: case BV_VLIST_TRI_MOVE:
-                case BV_VLIST_TRI_DRAW: case BV_VLIST_TRI_END:
-                    V_MIN((*bmin)[X], (*pt)[X]); V_MAX((*bmax)[X], (*pt)[X]);
-                    V_MIN((*bmin)[Y], (*pt)[Y]); V_MAX((*bmax)[Y], (*pt)[Y]);
-                    V_MIN((*bmin)[Z], (*pt)[Z]); V_MAX((*bmax)[Z], (*pt)[Z]);
-                    break;
-                case BV_VLIST_DISPLAY_MAT: disp_mode = 1; dispmode_used = 1; /* fall through */
-                case BV_VLIST_POINT_DRAW:
-                    V_MIN((*bmin)[X], (*pt)[X]-1.0); V_MAX((*bmax)[X], (*pt)[X]+1.0);
-                    V_MIN((*bmin)[Y], (*pt)[Y]-1.0); V_MAX((*bmax)[Y], (*pt)[Y]+1.0);
-                    V_MIN((*bmin)[Z], (*pt)[Z]-1.0); V_MAX((*bmax)[Z], (*pt)[Z]+1.0);
-                    break;
-                default: cmd = c; break;
-            }
-        }
-        len += vp->nused;
-    }
-    if (length) *length = len;
-    if (dispmode) *dispmode = dispmode_used;
-    return cmd;
-}
 
 
 
