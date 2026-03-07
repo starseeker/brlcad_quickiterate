@@ -32,6 +32,20 @@ jobs:
           sudo apt-get install -y astyle re2c xsltproc libxml2-utils
           # OpenGL and virtual framebuffer for headless display in CI
           sudo apt-get install -y libgl-dev xvfb
+          # Qt6 development headers for qged and libqtcad targets (base includes
+          # Core, Widgets, Network, Test, OpenGL; svg adds Qt6::Svg required by
+          # the sketch and SVG-export paths)
+          # XCB platform plugin dependencies (required by Qt6 on Linux) - see:
+          # https://wiki.qt.io/Building_Qt_6_from_Git
+          # https://doc.qt.io/qt-6/linux-requirements.html
+          sudo apt-get install -y libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
+            libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev libxcb-icccm4-dev \
+            libxcb-sync-dev libxcb-xfixes0-dev libxcb-shape0-dev libxcb-randr0-dev \
+            libxcb-render-util0-dev libxcb-util-dev libxcb-xinerama0-dev \
+            libxcb-xkb-dev libxcb-xinput-dev libxcb-xrm-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libinput-dev \
+            libx11-xcb-dev libxrender-dev libxfixes-dev
+          sudo apt-get install -y qt6-base-dev qt6-svg-dev
 
       - name: Configure BRL-CAD
         run: |
@@ -41,7 +55,8 @@ jobs:
             -DBRLCAD_EXTRADOCS=OFF \
             -DBRLCAD_ENABLE_STEP=OFF \
             -DBRLCAD_ENABLE_GDAL=OFF \
-            -DBRLCAD_ENABLE_QT=OFF
+            -DBRLCAD_ENABLE_QT=ON \
+            -DBRLCAD_ENABLE_OPENGL=OFF
 
       - name: Build BRL-CAD
         run: |
