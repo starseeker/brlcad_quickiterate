@@ -40,9 +40,11 @@
 
 #include "common.h"
 #include "vmath.h"
+#include "bu/color.h"
 #include "bu/vls.h"
 
 #ifdef __cplusplus
+#include <algorithm>
 #include <set>
 #include <map>
 #include <unordered_map>
@@ -50,7 +52,32 @@
 #include <string>
 #include <vector>
 
+#include "rt/op.h"
 #include "ged/defines.h"
+
+// Typed wrappers for the three distinct hash spaces
+struct GHash    { unsigned long long v = 0;
+    bool operator==(const GHash &o)    const { return v == o.v; }
+    bool operator!=(const GHash &o)    const { return v != o.v; }
+    explicit operator bool()           const { return v != 0; }
+};
+struct InstHash { unsigned long long v = 0;
+    bool operator==(const InstHash &o) const { return v == o.v; }
+    bool operator!=(const InstHash &o) const { return v != o.v; }
+    explicit operator bool()           const { return v != 0; }
+};
+struct PathHash { unsigned long long v = 0;
+    bool operator==(const PathHash &o) const { return v == o.v; }
+    bool operator!=(const PathHash &o) const { return v != o.v; }
+    explicit operator bool()           const { return v != 0; }
+};
+
+// Specializations for use as unordered_map/unordered_set keys
+namespace std {
+template<> struct hash<GHash>    { size_t operator()(const GHash &h)    const { return std::hash<unsigned long long>()(h.v); } };
+template<> struct hash<InstHash> { size_t operator()(const InstHash &h) const { return std::hash<unsigned long long>()(h.v); } };
+template<> struct hash<PathHash> { size_t operator()(const PathHash &h) const { return std::hash<unsigned long long>()(h.v); } };
+}
 
 class GED_EXPORT DbiState;
 
@@ -275,7 +302,37 @@ class GED_EXPORT BViewState {
 #define GED_DBISTATE_DB_CHANGE   0x01
 #define GED_DBISTATE_VIEW_CHANGE 0x02
 
-struct ged_draw_cache;
+// Change categories for observer notifications
+enum class DbiChangeKind { ObjectAdded, ObjectRemoved, ObjectModified,
+                           CombTreeChanged, AttributeChanged, BatchRebuild };
+
+struct DbiChangeEvent {
+    DbiChangeKind kind;
+    GHash         object;   // which object (zero = invalid/batch)
+    bool          batch = false;  // if true, a full rebuild has occurred
+};
+
+struct SceneChangeEvent {
+    PathHash      path;  // which path changed
+    bool          batch = false;
+};
+
+// Interface implemented by observers of database state changes
+class GED_EXPORT IDbiObserver {
+public:
+    virtual ~IDbiObserver() = default;
+    // Called synchronously on the main thread after DbiState::sync() completes
+    virtual void on_dbi_changed(const std::vector<DbiChangeEvent> &events) = 0;
+};
+
+// Interface implemented by observers of scene/view changes
+class GED_EXPORT ISceneObserver {
+public:
+    virtual ~ISceneObserver() = default;
+    virtual void on_scene_changed(const std::vector<SceneChangeEvent> &events) = 0;
+};
+
+struct bu_cache;
 
 class GED_EXPORT DbiState {
     public:
@@ -400,6 +457,12 @@ class GED_EXPORT DbiState {
 	// convenience methods that decode it to user-comprehensible info.
 	void print_dbi_state(struct bu_vls *o = NULL, bool report_view_states = false);
 
+	// Observer registration
+	void add_observer(IDbiObserver *);
+	void remove_observer(IDbiObserver *);
+	void add_scene_observer(ISceneObserver *);
+	void remove_scene_observer(ISceneObserver *);
+
     private:
 	void gather_cyclic(
 		std::unordered_set<unsigned long long> &cyclic,
@@ -417,9 +480,81 @@ class GED_EXPORT DbiState {
 	unsigned int color_int(struct bu_color *);
 	int int_color(struct bu_color *c, unsigned int);
 	struct resource *res = NULL;
-	struct ged_draw_cache *dcache = NULL;
+	struct bu_cache *dcache = NULL;
 	struct bu_vls hash_string = BU_VLS_INIT_ZERO;
 	struct bu_vls path_string = BU_VLS_INIT_ZERO;
+
+	std::vector<IDbiObserver *>    dbi_observers_;
+	std::vector<ISceneObserver *>  scene_observers_;
+	void notify_dbi_observers(const std::vector<DbiChangeEvent> &);
+	void notify_scene_observers(const std::vector<SceneChangeEvent> &);
+};
+
+
+// In-memory representation of a comb tree instance from a .g database.
+// Each unique instance of an object inside one comb is captured here.
+class GED_EXPORT CombInst {
+
+    public:
+	CombInst(DbiState *dbis, const char *p_name, const char *o_name, unsigned long long icnt, int i_op, matp_t i_mat);
+	~CombInst();
+
+	// Return the BRL-CAD op type of this instance
+	db_op_t bool_op();
+
+	// Calculate bounding box of the instance
+	void bbox(point_t *min, point_t *max);
+
+	// Object name and instance name strings
+	std::string cname; // Name of parent comb
+	std::string oname; // Name of instanced object
+	std::string iname; // Unique instance name (with id-based suffix if needed)
+	unsigned long long id = 0;
+
+	unsigned long long chash; // Hash of parent comb name
+	unsigned long long ohash; // Hash of instanced object name
+	unsigned long long ihash; // Hash of unique instance identifier
+
+	int boolean_op; // OP_UNION, OP_SUBTRACT or OP_INTERSECT
+
+	mat_t m;
+	bool non_default_matrix = false;
+
+	DbiState *d;
+};
+
+// In-memory representation of a BRL-CAD geometry database object.
+// Combs and solids are both represented by GObj instances.
+class GED_EXPORT GObj {
+
+    public:
+	GObj(DbiState *d_s, struct directory *dp_i);
+	~GObj();
+
+	void bbox(point_t *min, point_t *max);
+
+	std::string name;
+	unsigned long long hash = 0;
+
+	int c_inherit = 0;
+	int region_id = -1;
+	int region_flag = 0;
+
+	struct bu_color color;
+	bool color_set = false;
+
+	// Comb tree instances (populated for comb objects)
+	std::vector<CombInst *> cv;
+
+	DbiState *d = NULL;
+	struct directory *dp = NULL;
+
+    private:
+	vect_t bb_min;
+	vect_t bb_max;
+	bool bb_valid = false;
+
+	void GenCombInstances();
 };
 
 
