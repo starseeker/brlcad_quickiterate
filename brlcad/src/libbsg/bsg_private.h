@@ -30,16 +30,8 @@
 #include "bu/list.h"
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
+#include "bsg/scene_set.h"
 #include <unordered_map>
-
-struct bsg_scene_set_internal {
-    struct bu_ptbl views;
-    struct bu_ptbl shared_db_objs;
-    struct bu_ptbl shared_view_objs;
-
-    bsg_shape  *free_scene_obj;
-    struct bu_list vlfree;
-};
 
 struct bsg_shape_internal {
     std::unordered_map<bsg_view *, bsg_shape *> vobjs;
