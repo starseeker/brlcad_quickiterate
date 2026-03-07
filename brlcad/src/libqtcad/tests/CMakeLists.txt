@@ -2,6 +2,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(QGMODEL_SRCS qgmodel.cpp)
 set(QGVIEW_SRCS qgview.cpp)
+set(QSKETCH_SRCS qsketch.cpp)
 
 if(TARGET Qt6::Test)
   add_executable(qgmodel qgmodel.cpp)
@@ -59,10 +60,39 @@ if(TARGET qgview)
   install(TARGETS qgview RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
 endif(TARGET qgview)
 
+# qsketch - standalone .g sketch editing demo
+if(TARGET Qt6::Widgets)
+  qt6_wrap_cpp(qsketch_moc_srcs ${CMAKE_SOURCE_DIR}/src/libqtcad/tests/qsketch.cpp)
+  add_executable(qsketch ${QSKETCH_SRCS} ${qsketch_moc_srcs})
+  target_link_libraries(
+    qsketch
+    libqtcad
+    librt
+    libbu
+    Qt6::Widgets
+  )
+endif(TARGET Qt6::Widgets)
+if(TARGET Qt5::Widgets AND NOT TARGET Qt6::Widgets)
+  qt5_wrap_cpp(qsketch_moc_srcs ${CMAKE_SOURCE_DIR}/src/libqtcad/tests/qsketch.cpp)
+  add_executable(qsketch ${QSKETCH_SRCS} ${qsketch_moc_srcs})
+  target_link_libraries(
+    qsketch
+    libqtcad
+    librt
+    libbu
+    Qt5::Widgets
+  )
+endif(TARGET Qt5::Widgets AND NOT TARGET Qt6::Widgets)
+if(TARGET qsketch)
+  target_compile_definitions(qsketch PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  install(TARGETS qsketch RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
+endif(TARGET qsketch)
+
 cmakefiles(
   CMakeLists.txt
   ${QGMODEL_SRCS}
   ${QGVIEW_SRCS}
+  ${QSKETCH_SRCS}
 )
 
 # Local Variables:
@@ -71,3 +101,4 @@ cmakefiles(
 # indent-tabs-mode: t
 # End:
 # ex: shiftwidth=2 tabstop=8
+
