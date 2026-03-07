@@ -211,6 +211,58 @@ to_edit_redraw(struct ged *gedp,
     if (argc != 2)
 	return BRLCAD_ERROR;
 
+    /* Phase 2e: if gd_headDisplay is empty, use scene-root children to
+     * enumerate drawn paths and re-draw any that contain the given subpath.
+     * This handles the future state where gd_headDisplay is no longer
+     * maintained by draw commands.                                           */
+    if (BU_LIST_IS_EMPTY((struct bu_list *)ged_dl(gedp))) {
+	if (db_string_to_path(&subpath, gedp->dbip, argv[1]) == 0) {
+	    /* Collect unique top-level directory pointers from scene-root. */
+	    bsg_view *_v = (bsg_view *)gedp->ged_gvp;
+	    bsg_shape *_root = _v ? bsg_scene_root_get(_v) : NULL;
+	    size_t _nshapes = _root ? BU_PTBL_LEN(&_root->children) : 0;
+	    struct bu_ptbl drawn_tops = BU_PTBL_INIT_ZERO;
+	    bu_ptbl_init(&drawn_tops, 8, "to_edit_redraw drawn_tops");
+
+	    for (i = 0; i < subpath.fp_len; ++i) {
+		for (size_t _si = 0; _si < _nshapes; _si++) {
+		    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si);
+		    if (!sp || !sp->s_u_data) continue;
+		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+		    if (!bdata->s_fullpath.fp_len) continue;
+		    if (!db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i]))
+			continue;
+		    /* Re-draw using the top-level name as the drawn path. */
+		    struct directory *dp = bdata->s_fullpath.fp_names[0];
+		    if (bu_ptbl_ins_unique(&drawn_tops, (long *)dp) < 0)
+			continue; /* already scheduled for this cycle */
+		    struct bu_vls mflag = BU_VLS_INIT_ZERO;
+		    struct bu_vls xflag = BU_VLS_INIT_ZERO;
+		    char *av[5] = {0};
+		    int arg = 0;
+		    av[arg++] = (char *)argv[0];
+		    if (sp->s_os->s_dmode == 4) {
+			av[arg++] = "-h";
+		    } else {
+			bu_vls_printf(&mflag, "-m%d", sp->s_os->s_dmode);
+			bu_vls_printf(&xflag, "-x%f", sp->s_os->transparency);
+			av[arg++] = bu_vls_addr(&mflag);
+			av[arg++] = bu_vls_addr(&xflag);
+		    }
+		    av[arg] = bu_strdup(dp->d_namep);
+		    ret = ged_exec(gedp, arg + 1, (const char **)av);
+		    bu_free(av[arg], "to_edit_redraw scene-root path");
+		    bu_vls_free(&mflag);
+		    bu_vls_free(&xflag);
+		}
+	    }
+	    bu_ptbl_free(&drawn_tops);
+	    db_free_full_path(&subpath);
+	}
+	to_refresh_all_views(current_top);
+	return ret;
+    }
+
     gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(gedp));
     while (BU_LIST_NOT_HEAD(gdlp, ged_dl(gedp))) {
 	gdlp->dl_wflag = 0;
