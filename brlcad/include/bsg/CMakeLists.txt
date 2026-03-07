@@ -4,6 +4,7 @@ set(
   defines.h
   lod.h
   polygon.h
+  scene_set.h
   snap.h
   util.h
   view_sets.h

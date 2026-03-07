@@ -100,7 +100,7 @@ dl_gdlp_shapes(struct ged *gedp, struct display_list *gdlp, struct bu_ptbl *out)
 static void
 dl_free_shape(struct ged *gedp, bsg_shape *sp)
 {
-    bsg_shape *free_scene_obj = (bsg_shape *)bsg_scene_fsos(&gedp->ged_views);
+    bsg_shape *free_scene_obj = bsg_scene_fsos(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
     ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);

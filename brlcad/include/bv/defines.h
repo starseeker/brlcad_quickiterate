@@ -570,8 +570,8 @@ struct bview_objs {
     // other views.
     struct bu_list  gv_vlfree;
 
-    /* Container for reusing bv_scene_obj allocations */
-    struct bv_scene_obj *free_scene_obj;
+    /* Container for reusing bsg_shape allocations (bsg_shape* not bv_scene_obj*) */
+    struct bsg_shape *free_scene_obj;
 };
 
 // Data for managing "knob" manipulation of views.  One historical hardware
@@ -742,9 +742,9 @@ struct bview {
 // Because bview instances frequently share objects in applications, they are
 // not always fully independent - we define a container and some basic
 // operations to manage this.
-struct bview_set_internal;
+struct bsg_scene_set_internal;  /* defined in bsg/scene_set.h */
 struct bview_set {
-    struct bview_set_internal   *i;
+    struct bsg_scene_set_internal *i;  /**< @brief internal storage (managed by libbsg) */
     struct bview_settings       settings;
 };
 

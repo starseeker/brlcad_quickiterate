@@ -99,7 +99,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 
     if (!existing_sp) {
 	/* Handling a new solid */
-	bsg_shape *free_scene_obj = (bsg_shape *)bsg_scene_fsos(&s->gedp->ged_views);
+	bsg_shape *free_scene_obj = bsg_scene_fsos(&s->gedp->ged_views);
 	GET_BV_SCENE_OBJ(sp, &free_scene_obj->l);
 	BU_LIST_APPEND(&free_scene_obj->l, &((sp)->l) );
 	sp->s_dlist = 0;
