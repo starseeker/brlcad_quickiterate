@@ -49,7 +49,7 @@
 
 #include "vmath.h"
 #include "bu/malloc.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "bsg/vlist.h"
 #include "nmg.h"
 

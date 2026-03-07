@@ -1035,4 +1035,25 @@ suites provide a clean baseline again.
 - ✅ Migrated `libged/grid/grid.c` and `libged/view/snap.c` from `bv/snap.h` → `bsg/snap.h`.
 - ✅ Migrated `librt/vlist.c`, `libnmg/plot.c`, `libged/overlay/overlay.c` from `bv/vlist.h` → `bsg/vlist.h`.
 - ✅ All builds pass (libbsg, libbv, libdm, libged).  Pre-existing test 20/23 image-comparison differences unchanged.
+- ✅ No changes to `src/libbv/` or `include/bv/`.
+
+**Session 20 (BSG consumer migration — Step 6 COMPLETE)**:
+- ✅ Created `include/bsg/adc.h` — Phase 1 wrapper around `bv/adc.h`; adds `bsg_adc_*` inline aliases using `bsg_adc_state` typedef.
+- ✅ Created `include/bsg/vlist.h` — Phase 1 wrapper around `bv/vlist.h`; canonical BSG type is `bsg_vlist`.
+- ✅ Created `include/bsg/plot3.h` — Phase 1 wrapper around `bv/plot3.h`.
+- ✅ Created `include/bsg/tig.h` — Phase 1 wrapper around `bv/tig.h`.
+- ✅ Created `include/bsg/vectfont.h` — Phase 1 wrapper around `bv/vectfont.h`.
+- ✅ Added all new headers to the installed `bsg/` header set in `include/bsg/CMakeLists.txt`.
+- ✅ **Consumer source migration** (Step 6): Migrated all `bv/` direct includes in consumer libraries to `bsg/` equivalents:
+  - 22 files: `bv/defines.h` → `bsg/defines.h` (libdm ×14, libged ×5, libbg, libqtcad, libtclcad)
+  - 3 files: `bv/vlist.h` → `bsg/vlist.h` (librt/vlist.c, libnmg/plot.c, libged/overlay/overlay.c)
+  - 2 files: `bv/snap.h` → `bsg/snap.h` (libged/grid/grid.c, libged/view/snap.c)
+  - 1 file: `bv/adc.h` → `bsg/adc.h` (libdm/adc.c)
+  - ~65 files: `bv/plot3.h` → `bsg/plot3.h` (librt, libnmg, libbg, libbrep, liboptical, libged, libgcv, rt/, util/, conv/, gtools/, mged/, fb/)
+  - 1 file: `bv/tig.h` → `bsg/tig.h` (rt/rtscale.c)
+- ✅ **Public header migration**: Migrated 9 public headers from `bv/` to `bsg/` equivalents:
+  - `ged.h`, `ged/defines.h`, `rt/view.h`, `rt/edit.h`, `rt/primitives/sketch.h`, `bg/polygon.h` → `bsg/defines.h`
+  - `rt/nmg_conv.h`, `nmg.h`, `brep/cdt.h` → `bsg/vlist.h`
+  - `bn.h`, `RTree.h` → `bsg/plot3.h`; `bn.h` → `bsg/vectfont.h`
+- ✅ Builds clean (libbsg, libbv, libdm, libged, librt, libnmg); no new test failures.
 - ✅ No changes to `src/libbv/` or `include/bv/`.*
