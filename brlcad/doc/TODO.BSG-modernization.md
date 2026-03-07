@@ -12,6 +12,113 @@ additions documented in `include/bsg/defines.h` and `include/bsg/util.h`.
 
 ---
 
+## Current State — Session 28 Survey (2026-03-07)
+
+### What is fully done ✅
+
+The `include/bv/` header directory and `src/libbv/` source directory have been
+**physically deleted** from the repository.  All implementation lives in
+`libbsg`; `bv.h` is now a deprecated compatibility shim that includes
+`bsg.h + bsg/compat.h`.  All in-tree consumer headers/sources use `bsg.h`
+directly.
+
+**Rendering pipeline** is on the scene graph:
+- `dm_draw_objs()` in `src/libdm/view.c` uses `bsg_view_traverse()` for the
+  entire geometry draw pass.  The old flat `bsg_view_shapes()` loops are gone.
+- `dm_draw_bsg_view()` in `src/libdm/dm-generic.c` likewise drives
+  `bsg_view_traverse()`.
+- `mged/dozoom.c` calls `dm_draw_bsg_view()` via the BSG path.
+- `libqtcad/QgGL.cpp` and `QgSW.cpp` call `dm_draw_objs()` and create a
+  scene root via `bsg_scene_root_create()`.
+
+**Scene-root initialisation** is in place:
+- `libged/ged.cpp`: `bsg_scene_init()` + `bsg_scene_root_create()` called for
+  the default view at GED initialisation.
+- `libqtcad/QgGL.cpp`, `QgSW.cpp`: `bsg_scene_root_create()` called for the
+  local view.
+- `mged/attach.c`: `bsg_scene_root_create()` called after `bsg_view_init()`.
+
+**Camera API** usage:
+- `mged/dozoom.c`: reads camera via `bsg_view_get_camera()`.
+- `libqtcad/QgGL.cpp`: reads/writes camera via `bsg_view_get_camera/set_camera()`.
+- `libged/view/aet.c`: writes AET through `bsg_view_get_camera/set_camera()`.
+- `src/libdm/view.c`: reads camera via `bsg_view_get_camera()` for matrix load.
+- `dm-gl.c` `dl_head_scene_obj` list: removed (Phase 2e complete).
+
+### What remains open ⚠️
+
+The **`display_list` struct** (`include/bsg/defines.h:211`) and the
+`gd_headDisplay` chain (`struct ged_drawable.gd_headDisplay`) are still widely
+used as the *bookkeeping* layer that tracks which geometry paths are drawn.
+The rendering loop no longer uses it directly (it reads from the scene-root
+children), but the *draw/erase/who/zap* commands still walk this list to
+manage geometry state.  It is the primary source of remaining legacy patterns.
+
+Key open areas in priority order:
+
+#### P1: `display_list` bookkeeping migration (affects all apps)
+
+| File | Pattern | Count |
+|------|---------|-------|
+| `src/libged/display_list.c` | `dl_head_scene_obj` iteration, `gd_headDisplay` management | ~20 |
+| `src/libged/draw/draw.c` | `append_solid_to_display_list`, `gd_headDisplay` loops | ~12 |
+| `src/libged/who/who.c` | walks `gd_headDisplay` for "what is drawn" query | ~8 |
+| `src/libged/zap/zap.c` | clears `gd_headDisplay` list | ~4 |
+| `src/libged/garbage_collect/` | rebuilds scene objects via `gd_headDisplay` | ~6 |
+| `src/libged/move/move.c`, `move_all/` | updates paths in `gd_headDisplay` | ~4 |
+| `src/libtclcad/view/draw.c` | `to_edit_redraw` walks `gd_headDisplay` for path matching | ~10 |
+| `src/mged/dozoom.c` | `createDLists()` calls `dm_draw_display_list()` (GL display lists) | 1 |
+| `src/libtclcad/commands.c` | reads `gv_model2view` inline, loops `bsg_scene_views` | ~6 |
+
+The path forward is:
+1. **Replace `gd_headDisplay` list** with `DrawList` (already in `dbi.h`) as
+   the canonical "what is drawn" registry — each entry holds a `DbiPath` plus
+   the hash.  `BViewState::draw_list_` already plays this role; the `ged`
+   C layer needs a thin wrapper (`ged_dl()` already exists, but should
+   delegate to `BViewState` when a `DbiState` is present).
+2. **Scene-root children** are the rendering truth; the bookkeeping list is
+   the query/erase index.  Keep them in sync via `BViewState::add_hpath()` /
+   `erase_hpath()`.
+3. Remove `ged_create_vlist_display_list_callback` once all callers migrated.
+
+#### P2: Remaining camera-field direct writes
+
+| File | Remaining pattern |
+|------|-------------------|
+| `src/libged/draw/loadview.cpp` | direct `gv_aet`, `gv_rotation` writes |
+| `src/libged/draw/preview.cpp` | direct `gv_*` camera field writes |
+| `src/mged/chgview.c` | view-preset cache uses raw `gv_aet` / `gv_rotation` |
+| `src/libtclcad/commands.c` | direct `gv_model2view` reads |
+| `src/librt/edit.cpp`, `primitives/*/ed*.c` | direct `gv_*` reads for pick/highlight |
+
+#### P2: Remaining flat-list feature work
+
+| App | Feature gap |
+|-----|------------|
+| **MGED** | `illum_gdlp` (illuminated solid tracking) still a raw `display_list*`; needs typed scene-node selection |
+| **MGED** | `createDLists()` / `dm_draw_display_list()` — GPU display-list pre-compilation via scene traversal |
+| **libtclcad** | `to_edit_redraw` should walk scene-root children, not `gd_headDisplay` |
+| **qged** | `QgEdApp.cpp` manual view-iteration for redraws → sensor-driven |
+| **qged polygon plugins** | typed-node queries instead of `bsg_view_shapes` linear scan |
+
+#### P3: Sensor / LoD integration
+
+- `dm-gl_lod.cpp`: replace `s_dlist_stale` polling with `BSG_NODE_LOD_GROUP` sensors.
+- `libged/view/lod.cpp`: add `BSG_NODE_LOD_GROUP` node type support.
+- `dbi_state.cpp`: schedule redraws via scene sensors rather than explicit `bsg_shape_stale()` calls.
+
+### Suggested work order for next sessions
+
+1. **Consolidate `gd_headDisplay` → `DrawList`** (libged/display_list.c +
+   libged/draw/draw.c + zap + who + garbage_collect): most impactful single
+   change to remove the dual-tracking complexity.
+2. **Migrate `to_edit_redraw`** in libtclcad to scene-root traversal.
+3. **Camera-field writes** in loadview.cpp / preview.cpp / mged/chgview.c.
+4. **Sensor-driven redraws** in qged (QgEdApp.cpp).
+5. **LoD sensor integration** (dm-gl_lod.cpp, libged/view/lod.cpp).
+
+---
+
 ## Priority legend
 
 | Tag | Meaning |
@@ -24,7 +131,7 @@ additions documented in `include/bsg/defines.h` and `include/bsg/util.h`.
 
 ## 1. `libdm` — Display Manager
 
-### 1.1 `src/libdm/view.c`  **[P1]** – Replace flat-table render loop with graph traversal
+### 1.1 `src/libdm/view.c`  **[DONE ✅]** – Replace flat-table render loop with graph traversal
 
 **Current pattern** (repeated ~8 times in the file):
 ```c
@@ -54,7 +161,7 @@ local_db_objs, view_objs, local_view_objs) collapse into one graph walk.
 - Lines 789–795: `matp_t mat = v->gv_model2view; dm_loadpmatrix(dmp, v->gv_pmat)`
   should become: `bsg_view_get_camera(v, &cam); dm_loadpmatrix(dmp, cam.pmat)`.
 
-### 1.2 `src/libdm/dm-gl.c`  **[P1]** – Replace `dl_head_scene_obj` list walk
+### 1.2 `src/libdm/dm-gl.c`  **[DONE ✅]** – Replace `dl_head_scene_obj` list walk
 
 `dl_head_scene_obj` is the legacy linked-list on a `display_list` struct.
 Line 1549:
@@ -109,7 +216,7 @@ bsg_scene_root_create(qi->mw->canvas->v);
 
 ## 2. `libged` — Geometry Editing Library
 
-### 2.1 `src/libged/ged.cpp` / `include/ged/defines.h`  **[P1]** – Add scene-root creation in GED init
+### 2.1 `src/libged/ged.cpp` / `include/ged/defines.h`  **[DONE ✅]** – Add scene-root creation in GED init
 
 `libged/ged.cpp` lines 112–125 initialise the GED instance:
 ```c
@@ -147,7 +254,7 @@ callers should register a sensor on newly created view objects that schedules a
 re-render (`bsg_shape_add_sensor(s, schedule_redraw_cb, dmp)`) so renderers
 do not need to poll.
 
-### 2.4 `src/libged/draw/draw2.cpp` **[P1]** – Replace flat-table emptiness check with scene-root check
+### 2.4 `src/libged/draw/draw2.cpp` **[DONE ✅]** – Replace flat-table emptiness check with scene-root check
 
 Lines 209–214:
 ```c
@@ -241,7 +348,7 @@ sensor (`bsg_shape_add_sensor`) at draw time that handles re-generation.
 
 ## 3. `libqtcad` — Qt CAD Library
 
-### 3.1 `src/libqtcad/QgGL.cpp` **[P1]** – Replace direct `gv_aet` writes with camera API
+### 3.1 `src/libqtcad/QgGL.cpp` **[DONE ✅]** – Replace direct `gv_aet` writes with camera API
 
 Lines 60–105 use a pattern repeated for every standard view:
 ```c
@@ -267,7 +374,7 @@ if (root && BU_PTBL_LEN(&root->children) > 0) {
 
 Lines 391–405 also write `v->gv_aet` and `v->gv_rotation` directly — same fix.
 
-### 3.2 `src/libqtcad/QgGL.cpp` line 52–53 **[P1]** – Add scene-root creation
+### 3.2 `src/libqtcad/QgGL.cpp` line 52–53 **[DONE ✅]** – Add scene-root creation
 
 ```c
 BU_GET(local_v, bsg_view);
@@ -348,7 +455,7 @@ Should go through `bsg_view_get_camera()` for camera fields and the existing
 
 ## 5. `mged` — Classic Interactive Editor
 
-### 5.1 `src/mged/attach.c` lines 720–724 **[P1]** – Remove manual `gv_objs` initialisation
+### 5.1 `src/mged/attach.c` lines 720–724 **[DONE ✅]** – Remove manual `gv_objs` initialisation
 
 ```c
 BU_GET(view_state->vs_gvp->gv_objs.db_objs, struct bu_ptbl);
@@ -1127,3 +1234,13 @@ suites provide a clean baseline again.
 - ✅ Updated `bsg.h` doc comment to remove references to deleted `bv/` sub-headers.
 - ✅ Build verified: `libdm`, `librt`, `libged`, `libnmg`, `libbrep` all build clean.
 - ✅ **18/18 bsg tests pass** (bsg_test list/vlist, bsg_plot3 valid/invalid).
+
+**Session 28 (survey + documentation update)**:
+- ✅ Confirmed rendering pipeline is fully on scene graph: `dm_draw_objs()` / `dm_draw_bsg_view()` → `bsg_view_traverse()`.
+- ✅ Confirmed scene-root initialisation in place: libged/ged.cpp, libqtcad/QgGL.cpp, QgSW.cpp, mged/attach.c.
+- ✅ Confirmed camera API in use: mged/dozoom.c, libqtcad/QgGL.cpp, libged/view/aet.c, libdm/view.c.
+- ✅ Confirmed dm-gl.c `dl_head_scene_obj` removed (Phase 2e stub confirmed).
+- ✅ Confirmed draw2.cpp uses `bsg_view_shapes()` / scene-root check.
+- ✅ Added **Session 28 Survey** section at top of this document: current state, remaining open items, suggested work order.
+- ✅ Updated section status markers: 1.1, 1.2, 2.1, 2.4, 3.1, 3.2, 5.1 marked DONE ✅.
+- Key remaining work identified: `display_list` / `gd_headDisplay` bookkeeping migration, camera-field direct writes in loadview/preview/mged/libtclcad, sensor-driven redraws in qged.
