@@ -28,13 +28,33 @@
 #include "common.h"
 #include "vmath.h"
 #include "bv/defines.h"
+#include "bsg/adc.h"
 
 __BEGIN_DECLS
 
-BV_EXPORT void adc_model_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BV_EXPORT void adc_grid_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BV_EXPORT void adc_view_to_adc_grid(struct bv_adc_state *adcs, mat_t model2view);
-BV_EXPORT void adc_reset(struct bv_adc_state *adcs, mat_t view2model, mat_t model2view);
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+static inline void
+adc_model_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax) {
+    bsg_adc_model_to_view(adcs, model2view, amax);
+}
+static inline void
+adc_grid_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax) {
+    bsg_adc_grid_to_view(adcs, model2view, amax);
+}
+static inline void
+adc_view_to_adc_grid(struct bv_adc_state *adcs, mat_t model2view) {
+    bsg_adc_view_to_grid(adcs, model2view);
+}
+static inline void
+adc_reset(struct bv_adc_state *adcs, mat_t view2model, mat_t model2view) {
+    bsg_adc_reset(adcs, view2model, model2view);
+}
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
 
 __END_DECLS
 

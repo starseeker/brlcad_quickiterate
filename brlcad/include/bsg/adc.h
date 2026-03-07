@@ -20,60 +20,20 @@
 /** @file bsg/adc.h
  *
  * @brief BSG angular-deviation cursor (ADC) overlay functions.
- *
- * Phase 1: thin wrapper around @c bv/adc.h.  When libbv is removed the
- * ADC function declarations will move here directly.
  */
 
 #ifndef BSG_ADC_H
 #define BSG_ADC_H
 
-#include "bv/adc.h"
-
-/* Phase 1 convenience aliases using bsg_ types */
+#include "bv/faceplate.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS
 
-/**
- * @brief Update ADC model-space position from view matrix.
- * Phase 1 alias; calls through to adc_model_to_adc_view().
- */
-static inline void
-bsg_adc_model_to_view(bsg_adc_state *adcs, mat_t model2view, fastf_t amax)
-{
-    adc_model_to_adc_view(adcs, model2view, amax);
-}
-
-/**
- * @brief Update ADC grid-space position from view matrix.
- * Phase 1 alias; calls through to adc_grid_to_adc_view().
- */
-static inline void
-bsg_adc_grid_to_view(bsg_adc_state *adcs, mat_t model2view, fastf_t amax)
-{
-    adc_grid_to_adc_view(adcs, model2view, amax);
-}
-
-/**
- * @brief Update ADC view-to-grid mapping.
- * Phase 1 alias; calls through to adc_view_to_adc_grid().
- */
-static inline void
-bsg_adc_view_to_grid(bsg_adc_state *adcs, mat_t model2view)
-{
-    adc_view_to_adc_grid(adcs, model2view);
-}
-
-/**
- * @brief Reset ADC state to defaults.
- * Phase 1 alias; calls through to adc_reset().
- */
-static inline void
-bsg_adc_reset(bsg_adc_state *adcs, mat_t view2model, mat_t model2view)
-{
-    adc_reset(adcs, view2model, model2view);
-}
+BSG_EXPORT void bsg_adc_model_to_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
+BSG_EXPORT void bsg_adc_grid_to_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
+BSG_EXPORT void bsg_adc_view_to_grid(struct bv_adc_state *adcs, mat_t model2view);
+BSG_EXPORT void bsg_adc_reset(struct bv_adc_state *adcs, mat_t view2model, mat_t model2view);
 
 __END_DECLS
 

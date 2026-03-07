@@ -259,7 +259,7 @@ bsg_dl_hash(struct display_list *dl)
 }
 
 void
-bv_settings_hash(struct bu_data_hash_state *state, struct bview_settings *s)
+bsg_settings_hash(struct bu_data_hash_state *state, struct bview_settings *s)
 {
     bu_data_hash_update(state, s, sizeof(struct bview_settings));
 
@@ -295,8 +295,8 @@ bsg_view_hash(struct bview *v)
     bu_data_hash_update(state, v, sizeof(struct bview));
 
     if (v->gv_s)
-	bv_settings_hash(state, v->gv_s);
-    bv_settings_hash(state, &v->gv_ls);
+	bsg_settings_hash(state, v->gv_s);
+    bsg_settings_hash(state, &v->gv_ls);
 
     _bv_data_arrow_state_hash(state, &v->gv_tcl.gv_data_arrows);
     _bv_data_axes_state_hash(state, &v->gv_tcl.gv_data_axes);
