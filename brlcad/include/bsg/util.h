@@ -461,9 +461,9 @@ BSG_EXPORT void bsg_traverse(bsg_shape *root,
  * Prefer these over direct field access so that when Phase 2 moves the
  * fields the call sites only need a header change.
  */
-static inline fastf_t bsg_view_scale(const bsg_view *v)      { return v->gv_scale;      }
-static inline fastf_t bsg_view_local2base(const bsg_view *v) { return v->gv_local2base; }
-static inline fastf_t bsg_view_base2local(const bsg_view *v) { return v->gv_base2local; }
+BSG_EXPORT fastf_t bsg_view_scale(const bsg_view *v);
+BSG_EXPORT fastf_t bsg_view_local2base(const bsg_view *v);
+BSG_EXPORT fastf_t bsg_view_base2local(const bsg_view *v);
 
 /* ====================================================================== *
  * Phase 2: camera accessor                                               *

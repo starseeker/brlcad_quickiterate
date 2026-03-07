@@ -56,6 +56,79 @@ manage geometry state.  It is the primary source of remaining legacy patterns.
 
 Key open areas in priority order:
 
+## Current State — Session 30 Update (2026-03-07)
+
+### Additional items completed ✅ (Session 30)
+
+- **P1 `src/libged/draw/draw.c`** `_ged_drawtrees`: removed `dl_addToDisplay(gd_headDisplay, ...)` from all three draw branches (shaded, wireframe, NMG).  Replaced with direct `db_lookup` existence checks; shapes go into scene-root via `bsg_shape_get`/`append_solid_to_display_list` as before.  `paths_to_draw` array changed from `display_list **` to `const char **`; per-path `dl_redraw` now uses a stack-allocated temporary `display_list`.
+- **P1 `src/libged/draw/draw.c`** `ged_redraw_core`: legacy gd_headDisplay iteration replaced with scene-root traversal.  "Redraw all" collects unique top-level `struct directory *` from `root->children`; each becomes a temporary `display_list` passed to `dl_redraw`.  "Redraw path" checks scene-root for a prefix match before calling `dl_redraw`.
+- **P1 `src/libged/garbage_collect/`**: `else` branch now enumerates drawn top-level objects from scene-root children instead of iterating `gd_headDisplay`.
+- **P1 `src/libged/move/move.c`**: removed `gd_headDisplay` iteration.  Scene-root `bsg_shape::s_fullpath` stores `struct directory *` arrays, which automatically reflect the rename done by `db_rename()`.
+- **P1 `src/libged/move_all/move_all.c`**: same as above; `gd_headDisplay` path-string update loop removed.
+- **P2 `src/librt/edit.cpp`**: replaced `v->gv_local2base`, `v->gv_scale`, `v->gv_base2local` direct reads with new accessor calls `bsg_view_local2base()`, `bsg_view_scale()`, `bsg_view_base2local()`.
+- **P2 `src/librt/primitives/edgeneric.c`**: replaced `s->vp->gv_scale` with `bsg_view_scale(s->vp)`.
+- **P2 `src/librt/primitives/sketch/polygons.c`**: replaced `s->s_v->gv_scale` read with `bsg_view_scale(s->s_v)`.  (Write via `bu_opt_fastf_t` left as-is since no setter API exists yet.)
+- **New API `include/bsg/util.h`**: added `bsg_view_scale()`, `bsg_view_local2base()`, `bsg_view_base2local()` as `BSG_EXPORT` functions; implementations in `src/libbsg/scene_graph.cpp`.
+
+### What remains open ⚠️ (after Session 30)
+
+The **`display_list` struct** and the `gd_headDisplay` chain are still used by several callers:
+
+| Remaining caller | Usage |
+|-----------------|-------|
+| `src/libtclcad/view/draw.c` `to_edit_redraw` outer loop | still driven by gd_headDisplay when non-empty (fast-path fires when empty) |
+| `src/mged/dozoom.c` | `createDLists()` calls `dm_draw_display_list()` |
+| `src/libged/display_list.c` | ~20 management functions remain |
+
+Key open areas in priority order:
+
+#### P1: `display_list` bookkeeping migration (affects all apps)
+
+| File | Pattern | Count |
+|------|---------|-------|
+| `src/libged/display_list.c` | `dl_head_scene_obj` iteration, `gd_headDisplay` management | ~18 |
+| `src/mged/dozoom.c` | `createDLists()` calls `dm_draw_display_list()` (GL display lists) | 1 |
+
+The path forward is:
+1. **Replace `gd_headDisplay` list** with `DrawList` (already in `dbi.h`) as
+   the canonical "what is drawn" registry — each entry holds a `DbiPath` plus
+   the hash.  `BViewState::draw_list_` already plays this role; the `ged`
+   C layer needs a thin wrapper (`ged_dl()` already exists, but should
+   delegate to `BViewState` when a `DbiState` is present).
+2. **Scene-root children** are the rendering truth; the bookkeeping list is
+   the query/erase index.  Keep them in sync via `BViewState::add_hpath()` /
+   `erase_hpath()`.
+3. Remove `ged_create_vlist_display_list_callback` once all callers migrated.
+
+#### P2: Remaining camera-field direct writes
+
+| File | Remaining pattern |
+|------|-------------------|
+| `src/libged/draw/loadview.cpp` `_ged_cm_vsize` | `gv_size`, `gv_scale`, `gv_isize` — non-camera view-scale fields; acceptable since `bsg_camera` does not cover view scale |
+| `src/librt/primitives/sketch/polygons.c` | `bu_opt_fastf_t(..., &sv->gv_scale)` write — needs a setter API |
+
+> **Note**: `loadview.cpp` `_ged_cm_end`, `preview.cpp`, `chgview.c`, and `commands.c` are all fully migrated to `bsg_view_get/set_camera`.
+
+#### P2: Remaining flat-list feature work
+
+| App | Feature gap |
+|-----|------------|
+| **MGED** | `illum_gdlp` (illuminated solid tracking) still a raw `display_list*`; needs typed scene-node selection |
+| **MGED** | `createDLists()` / `dm_draw_display_list()` — GPU display-list pre-compilation via scene traversal |
+| **qged polygon plugins** | typed-node queries instead of `bsg_view_shapes` linear scan |
+
+#### P3: Sensor / LoD integration
+
+- `dbi_state.cpp`: schedule redraws via scene sensors rather than explicit `bsg_shape_stale()` calls.
+
+### Suggested work order for next sessions
+
+1. **`to_edit_redraw` outer loop**: remove the legacy `gd_headDisplay`-driven outer loop; always use scene-root fast-path.
+2. **`loadview.cpp` `_ged_cm_vsize`**: add `bsg_view_set_scale()` setter and migrate write.
+3. **qged polygon plugins**: replace `bsg_view_shapes` linear scan with typed-node queries.
+
+---
+
 ## Current State — Session 29 Update (2026-03-07)
 
 ### Additional items completed ✅ (Session 29)
