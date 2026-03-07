@@ -114,6 +114,8 @@
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
@@ -335,6 +337,34 @@ public:
 		      struct directory *dp,
 		      QWidget *parent = NULL);
     ~QSketchEditWindow();
+
+    /* Render the sketch view and save a composite screenshot.
+     * Grabs the Qt window chrome and overlays the swrast DM viewport render,
+     * giving a picture that shows both the UI and the sketch wireframe. */
+    void screenshot_to_file(const QString &filename) {
+	if (!m_view) return;
+
+	/* Step 1: Grab the full Qt window (UI chrome) */
+	QPixmap winpix = grab();
+
+	/* Step 2: Get the DM viewport image from swrast */
+	QImage dm_img;
+	m_view->get_viewport_image(dm_img);
+
+	if (!dm_img.isNull() && m_view) {
+	    /* Compute where the QgView viewport sits inside this window */
+	    QPoint vp_offset = m_view->mapTo(this, QPoint(0, 0));
+	    QSize  vp_size   = m_view->size();
+
+	    /* Paint the DM image into the window pixmap */
+	    QPainter p(&winpix);
+	    p.drawImage(QRect(vp_offset, vp_size),
+		       dm_img.convertToFormat(QImage::Format_RGB32));
+	    p.end();
+	}
+
+	winpix.save(filename);
+    }
 
 private slots:
     void on_sketch_changed();
@@ -2070,27 +2100,13 @@ main(int argc, char *argv[])
     win.show();
 
     if (screenshot_file) {
-	/* Headless screenshot: force rendering then capture window */
+	/* Headless screenshot: render directly from swrast DM buffer.
+	 * Wait 200ms for the initial fit-view timer (singleShot(0)) to fire. */
 	const char *ssfile = screenshot_file;
-	QTimer::singleShot(2500, &app, [&app, &win, ssfile]() {
-	    /* Force several rounds of repaint to ensure swrast has painted */
-	    for (int i = 0; i < 3; i++) {
-		win.repaint();
-		QCoreApplication::processEvents(QEventLoop::AllEvents, 300);
-	    }
-	    /* Grab using QScreen (captures the X11 window surface) */
-	    QScreen *screen = QGuiApplication::primaryScreen();
-	    QPixmap pm;
-	    if (screen)
-		pm = screen->grabWindow(win.winId());
-	    if (pm.isNull())
-		pm = win.grab();
-	    if (!pm.isNull()) {
-		pm.save(ssfile);
-		bu_log("qsketch: screenshot saved to '%s'\n", ssfile);
-	    } else {
-		bu_log("qsketch: WARNING - screenshot failed\n");
-	    }
+	QTimer::singleShot(500, &app, [&app, &win, ssfile]() {
+	    QCoreApplication::processEvents();
+	    win.screenshot_to_file(QString::fromUtf8(ssfile));
+	    bu_log("qsketch: screenshot saved to '%s'\n", ssfile);
 	    app.quit();
 	});
     }
