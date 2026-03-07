@@ -108,6 +108,23 @@ public:
      */
     bool screen_to_uv(int sx, int sy, fastf_t *u_out, fastf_t *v_out) const;
 
+    /**
+     * Convert screen pixel coordinates to sketch UV, optionally snapping
+     * to the nearest existing sketch vertex if its projected view-space
+     * distance is within snap_px pixels.
+     *
+     * When snapping, *snapped_idx is set to the vertex index that was
+     * snapped to (or -1 if no snap occurred).  Pass NULL for snapped_idx
+     * if you don't need that information.
+     *
+     * @param snap_px     Snap radius in screen pixels (0 disables snapping)
+     * @param snapped_idx Output: index of snapped vertex, or -1
+     */
+    bool snap_vertex_uv(int sx, int sy,
+			fastf_t *u_out, fastf_t *v_out,
+			fastf_t snap_px = 10.0,
+			int *snapped_idx = NULL) const;
+
     /* Make eventFilter virtual so callers can store a base-class pointer
      * and swap derived implementations without an explicit cast. */
     virtual bool eventFilter(QObject *, QEvent *) { return false; }
