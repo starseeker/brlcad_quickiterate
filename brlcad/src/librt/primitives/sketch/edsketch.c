@@ -1403,7 +1403,6 @@ ecmd_sketch_add_vertex(struct rt_edit *s)
 
     fastf_t u = s->e_para[0] * s->local2base;
     fastf_t v = s->e_para[1] * s->local2base;
-    rt_edit_snap_point(skt->verts[skt->vert_count], s);
     skt->verts[skt->vert_count][0] = u;
     skt->verts[skt->vert_count][1] = v;
     rt_edit_snap_point(skt->verts[skt->vert_count], s);
