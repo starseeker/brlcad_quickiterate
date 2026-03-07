@@ -4,3 +4,4 @@ brlcad_build/
 mged-*-bomb.log
 # PS output files from MGED PS display manager
 ps
+qsketch-*.log
