@@ -1291,3 +1291,39 @@ defines `TypeIconDisplayRole`, `HighlightDisplayRole`, `DrawnDisplayRole`, and
 - `BSelectState` class declaration, all method implementations, and the old
   `get_selected_states()` / `find_selected_state()` / `put_selected_state()` helpers
   have been deleted.
+
+### Session 24 — qged build fixes and draw-test robustness (this PR)
+
+**qged / `QgEdApp` build fix** — `QgEdApp.cpp` was calling the removed
+`find_selected_state(NULL)` / `BSelectState::draw_sync()` API.  Migrated to
+`get_selection_set(nullptr)` / `SelectionSet::sync_to_all_views()`.
+
+**`fbserv.cpp` OpenGL guard** — `#include "qtcad/QgGL.h"` is now wrapped in
+`#ifdef BRLCAD_OPENGL` to prevent a missing-header error when Qt is enabled but
+OpenGL is not.
+
+**`digest_path` single-element validation** — `DbiState::digest_path()` previously
+returned a non-empty hash vector for any single-element path string, even one that
+named a non-existent object (the loop that validates parent→child relationships only
+runs for paths with ≥ 2 elements).  This caused `select add nonexistent_name` to
+silently store an unresolvable hash in `selected_`, which then caused `select expand`
+to call `print_hash()` with a hash not in any map.  Fixed by adding a single-element
+existence check against `d_map`, `i_str`, and `invalid_entry_map` before returning.
+
+**`print_hash` crash fix** — Changed the terminal `bu_exit(EXIT_FAILURE, …)` in
+`DbiState::print_hash()` to `bu_log()` + `return false`, and updated `print_path()`
+to truncate the output string and return early when `print_hash` fails.  This
+converts a hard crash into a recoverable error for the rare case where a stale or
+out-of-sync hash is passed in.
+
+**`moss.g` draw-test fix** — The `moss.g` kept in `src/libged/tests/draw/` was an
+empty stub (title + units only).  All six draw-test binaries now accept an optional
+second positional argument giving the directory that contains `moss.g`, falling back
+to the control-image directory if omitted.  `draw/CMakeLists.txt` was updated to
+copy the properly-built `share/db/moss.g` to the test binary directory and pass that
+directory as the second argument to each test command.  This replaces the empty stub
+with real geometry for every draw test run.
+
+**`repocheck` exemptions** — Added per-file exemptions in `repocheck.cpp` so that
+`DrawList::remove()` method declarations in `dbi.h` and `dbi_state.cpp` are not
+falsely flagged as unguarded POSIX `remove()` calls.
