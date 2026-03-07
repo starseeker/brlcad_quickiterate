@@ -425,8 +425,17 @@ void QgSW::get_viewport_image(QImage &img)
     unsigned char *dm_bg1;
     unsigned char *dm_bg2;
     dm_get_bg(&dm_bg1, &dm_bg2, dmp);
-    dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2],
-		   dm_bg2[0], dm_bg2[1], dm_bg2[2]);
+    /* Use a dark-grey background for better visibility in screenshots;
+     * fall through to the stored background if it is already non-black. */
+    unsigned char bg1r = dm_bg1[0], bg1g = dm_bg1[1], bg1b = dm_bg1[2];
+    unsigned char bg2r = dm_bg2[0], bg2g = dm_bg2[1], bg2b = dm_bg2[2];
+    if (bg1r == 0 && bg1g == 0 && bg1b == 0 &&
+	bg2r == 0 && bg2g == 0 && bg2b == 0) {
+	/* Default black: override with a neutral dark background */
+	bg1r = bg1g = bg1b = 40;
+	bg2r = bg2g = bg2b = 40;
+    }
+    dm_set_bg(dmp, bg1r, bg1g, bg1b, bg2r, bg2g, bg2b);
     dm_loadmatrix(dmp, v->gv_model2view, 0);
     dm_draw_begin(dmp);
     dm_draw_objs(v, draw_custom, draw_udata);
