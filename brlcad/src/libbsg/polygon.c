@@ -158,7 +158,7 @@ bsg_polygon_vlist(bsg_shape *s)
 	    s_c->s_color[2] = s->s_color[2];
 	    s_c->s_v = s->s_v;
 	    bv_polygon_contour(s_c, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
-	    bu_ptbl_ins(&s->children, (long *)s_c);
+	    /* bsg_shape_get_child already inserted s_c into s->children */
 	    continue;
 	}
 
