@@ -833,7 +833,7 @@ dl_name_hash(struct ged *gedp)
     bsg_shape *root = (gedp->ged_gvp) ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
     size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
-    if (!nshapes && !BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay))
+    if (!nshapes)
 	return 0;
 
     struct bu_data_hash_state *state = bu_data_hash_create();
