@@ -38,7 +38,7 @@ if(TARGET qgmodel)
   set(_qgmodel_work_g "${CMAKE_CURRENT_BINARY_DIR}/qtcad_qgmodel_work.g")
   add_test(NAME qtcad_qgmodel_setup
     COMMAND ${CMAKE_COMMAND} -E copy
-      "${CMAKE_CURRENT_SOURCE_DIR}/../../../libged/tests/ged_tests.g"
+      "${CMAKE_CURRENT_SOURCE_DIR}/../../libged/tests/ged_tests.g"
       "${_qgmodel_work_g}")
   set_tests_properties(qtcad_qgmodel_setup PROPERTIES
     FIXTURES_SETUP qtcad_qgmodel_fixture)
