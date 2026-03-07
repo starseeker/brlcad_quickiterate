@@ -25,7 +25,6 @@
 #ifndef BSG_ADC_H
 #define BSG_ADC_H
 
-#include "bv/faceplate.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS

@@ -61,7 +61,6 @@
 #include "bu/color.h"
 #include "bg/polygon.h"
 #include "bg/polygon_types.h"
-#include "bv/polygon.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS
