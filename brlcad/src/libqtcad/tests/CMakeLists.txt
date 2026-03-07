@@ -61,9 +61,11 @@ if(TARGET qgview)
 endif(TARGET qgview)
 
 # qsketch - standalone .g sketch editing demo
+# qsketch.cpp defines QSketchEditWindow inline and uses #include "qsketch.moc"
+# at the bottom, so we need AUTOMOC ON rather than qt6_wrap_cpp.
 if(TARGET Qt6::Widgets)
-  qt6_wrap_cpp(qsketch_moc_srcs ${CMAKE_SOURCE_DIR}/src/libqtcad/tests/qsketch.cpp)
-  add_executable(qsketch ${QSKETCH_SRCS} ${qsketch_moc_srcs})
+  add_executable(qsketch ${QSKETCH_SRCS})
+  set_target_properties(qsketch PROPERTIES AUTOMOC ON)
   target_link_libraries(
     qsketch
     libqtcad
@@ -73,8 +75,8 @@ if(TARGET Qt6::Widgets)
   )
 endif(TARGET Qt6::Widgets)
 if(TARGET Qt5::Widgets AND NOT TARGET Qt6::Widgets)
-  qt5_wrap_cpp(qsketch_moc_srcs ${CMAKE_SOURCE_DIR}/src/libqtcad/tests/qsketch.cpp)
-  add_executable(qsketch ${QSKETCH_SRCS} ${qsketch_moc_srcs})
+  add_executable(qsketch ${QSKETCH_SRCS})
+  set_target_properties(qsketch PROPERTIES AUTOMOC ON)
   target_link_libraries(
     qsketch
     libqtcad
