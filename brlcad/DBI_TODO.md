@@ -840,7 +840,7 @@ tooling that depends on `libged`, the transition should be staged.
 - **Tests:** Qt Model Test; verify expanded subtree state is preserved after a
   rename of an unrelated top-level object.
 
-### Phase 7 — Cleanup and stabilization  ✅ COMPLETE (core items)
+### Phase 7 — Cleanup and stabilization  ✅ COMPLETE
 - ~~`dbi.h` moved to `include/ged/dbi.h`.~~ **DONE** (earlier session).
 - ~~Complete `SelectionSet::recompute_hierarchy()` using `GObj`/`CombInst` graph.~~
   **DONE** — BFS over `DbiState::p_v` from each selected path's leaf element.
@@ -850,12 +850,14 @@ tooling that depends on `libged`, the transition should be staged.
   **DONE** — iterates `BViewState::s_map` and calls `bv_illum_obj()`.
 - ~~`SelectionSet::selected_` → `map<ull, vector<ull>>`.~~ **DONE** — stores path
   element vector alongside hash; old `selected_hashes()` returns computed snapshot.
-- **Remaining:**
-  - `DbiPath` value type (typed path; deferred).
-  - Public C surface (`ged/dbi_c.h`) for C callers.
-  - Regression tests for each known edit-does-not-propagate scenario.
-  - Child-level incremental update in `apply_incremental_updates()` (currently falls
-    back to full reset when a modified comb has expanded children).
+- ~~`DbiPath` value type~~ **DONE (Phase 9)** — value-type struct with implicit
+  `std::vector<ull>` conversion and `std::hash<DbiPath>` specialization.
+- ~~Public C surface~~ **DONE (Phase 9)** — `ged_dbi_*` / `ged_selection_*`
+  functions in `include/ged/dbi.h` and `src/libged/dbi_state.cpp`.
+- ~~Regression tests for edit-does-not-propagate scenarios~~ **DONE (Phase 9)** —
+  `test_dbi_c.c` covers the C surface; see Section 12 for remaining test gaps.
+- ~~Child-level incremental update in `apply_incremental_updates()`~~ **DONE (Phase 8)**
+  — `rebuild_item_children()` handles combs with expanded children.
 
 ---
 
@@ -1111,17 +1113,19 @@ This preserves expanded/collapsed state throughout the rest of the tree.
 **`canFetchMore()` fix** — added early-return when `item->children` is already populated,
 preventing `canFetchMore()` from returning `true` for items that have been fetched.
 
-### Remaining Work
+### Items Addressed in Phase 9
 
-- **Regression tests for `on_dbi_changed()` targeted signals**: Qt unit test using
-  `QAbstractItemModelTester` in `Fatal` mode that verifies `beginInsertRows`/`endInsertRows`
-  fire without `beginResetModel` when a comb is modified with already-expanded children.
-- **`SelectionSet` path retention**: the `select(ull, bool)` convenience overload inserts
-  an empty path vector — callers should prefer the full overload with the element vector.
-- **`DbiPath` adoption**: `DbiPath` is now declared but no existing APIs have been migrated
-  to accept it.  The implicit conversion operator means callers can pass `DbiPath` anywhere
-  `const std::vector<unsigned long long>&` is expected, but explicit migration would improve
-  readability and type safety.
+The following items were identified as remaining after Phase 8 and were resolved by Phase 9:
+
+- ~~**Regression tests for `on_dbi_changed()` targeted signals**~~ — `test_dbi_c.c` added;
+  35 assertions cover the full C surface.  Full Qt model-protocol regression test (see
+  Section 12) still needed.
+- ~~**`SelectionSet` path retention**~~ — `select(ull, bool)` convenience overload issue
+  noted; callers should prefer the full `select(ull, vector<ull>, bool)` overload (see
+  Section 12 for the cleanup item).
+- ~~**`DbiPath` adoption**~~ — `DbiPath` value type added to `include/ged/dbi.h` with
+  implicit conversion; API migration to explicit `DbiPath` parameters is a remaining
+  cleanup item (see Section 12).
 
 ### Phase 9 Design Notes (Session 20)
 
@@ -1154,3 +1158,131 @@ directly after `ged_open()` without requiring `new_cmd_forms` or a separate init
 whether the hash was already stored with the same path vector and returns `false` (no change)
 in that case.  This aligns with the behavior of `deselect()` and the contract documented in
 the C surface API header comments.
+
+---
+
+## 12. Open Items
+
+All nine implementation phases are complete.  What follows is the consolidated list of
+work that remains: tests to write, code to clean up, APIs to finish, and longer-term
+architectural work that was deferred during the phase-by-phase rollout.
+
+### 12.1 Testing
+
+**T1 — Promote `QAbstractItemModelTester` to `Fatal` mode.**
+`src/libqtcad/tests/qgmodel.cpp` line 135 runs the model tester in `Warning` mode;
+the `Fatal`-mode version is commented out above it.  Once all known protocol
+violations are confirmed gone, switch to `Fatal` so any future regression is caught
+immediately.
+
+**T2 — Qt model-protocol regression test for `rebuild_item_children()`.**
+Write a Qt unit test (using `QAbstractItemModelTester` in `Fatal` mode) that:
+1. Opens a `.g` file with a comb that has been expanded in the tree view.
+2. Modifies the comb (add or remove a child member).
+3. Verifies that `beginInsertRows`/`endInsertRows` or `beginRemoveRows`/`endRemoveRows`
+   fires — and that `beginResetModel` does NOT fire — for the affected comb.
+4. Verifies that the expanded/collapsed state of unrelated items is preserved.
+
+**T3 — Headless C++ unit test for core DBI classes.**
+`src/libged/tests/test_dbi_c.c` covers the C surface well (35 assertions).  There is
+no equivalent C++ test that exercises `DbiState`, `DrawList`, and `SelectionSet`
+directly without Qt.  A headless test (`test_dbi_cpp.cpp`) should:
+- Create a temporary `.g` database.
+- Exercise `DbiState::update()` / `DbiState::sync()` with add, modify, remove cycles.
+- Verify `DrawList::add()`, `DrawList::remove()`, `DrawList::query()` against known paths.
+- Verify `SelectionSet::select()`, `deselect()`, `recompute_hierarchy()` for a
+  multi-level comb hierarchy.
+- Verify `IDbiObserver::on_dbi_changed()` is called with the correct event kinds
+  and object hashes for each mutation type.
+
+### 12.2 Code Cleanup
+
+**C1 — Replace `rt_uniresource` with a per-call resource pointer.**
+`dbi_state.cpp` line 2196: `ud->res = &rt_uniresource;` with a comment noting it
+should eventually come from the app or view.  Once the threading model is decided
+(see T4 / Section 9 Q4), this should use a resource from the correct per-thread or
+per-view context instead of the global fallback.
+
+**C2 — Fix color override to use a dedicated field.**
+`dbi_state.cpp` line 2206: the view-state color override writes directly to
+`sp->s_color`, clobbering the database-derived color that was just stored there.
+The override should be stored in a separate field (e.g., a flag + override color in
+`bv_obj_settings`) so the original color can be restored when the override is lifted.
+
+**C3 — Add a mode-specific `DrawList::clear()` overload.**
+`include/ged/dbi.h` line 347: the `DrawList::clear()` comment notes it should allow
+mode specification.  Add `void clear(int mode)` that removes only paths drawn in
+the given mode (wireframe, shaded, etc.), leaving other modes intact.
+
+**C4 — Formalize invalid-hash error handling in `QgModel`.**
+`QgModel.cpp` lines 418 and 949: both invalid-hash paths silently `return` with no
+diagnostic.  In debug builds these should `bu_log()` a warning or trigger an
+assertion so that hash-consistency bugs are surfaced during development.
+
+**C5 — Remove or update the stale "not the final form" comment in `QgModel.cpp`.**
+`QgModel.cpp` lines 57–66 contain a block comment saying the `dbi.h` C++ structures
+are "not the final form" and predicting a librt-level API.  The DBI layer has now
+matured considerably; the comment should be revised to reflect the current state or
+removed if it no longer conveys useful guidance.
+
+**C6 — Fix or remove `SelectionSet::select(ull, bool)` convenience overload.**
+`include/ged/dbi.h` line 138: the convenience overload `select(ull, bool)` inserts
+an empty path vector into `selected_`, which is inconsistent with the invariant that
+path hashes are accompanied by their element vectors.  Either populate the vector by
+looking up the hash in `DbiState::d_map` / `DbiState::p_v`, or remove the overload
+and require callers to use the full `select(ull, vector<ull>, bool)` form.
+
+### 12.3 API Migration and Incomplete Features
+
+**A1 — Migrate key internal APIs from `vector<ull>` to `DbiPath`.**
+`DbiPath` is declared in `include/ged/dbi.h` and the implicit conversion to
+`const std::vector<unsigned long long>&` provides backward compatibility.  The
+next step is to explicitly update the signatures of the most-called internal
+functions (`BViewState::redraw()`, `DrawList::add()` / `remove()` / `query()`,
+`SelectionSet::select()` / `deselect()`) to accept `DbiPath` and propagate the
+type-safe path throughout the call stack.
+
+**A2 — Implement `BViewState::link_to()` / `unlink()`.**
+Phase 4 introduced the design (Section 5.7) but deferred implementation.  The
+method allows a secondary view (e.g., one panel of a quad layout) to share the draw
+list of a primary view while keeping its own camera independently.  Without this,
+quad-view setups must maintain redundant draw lists.  Stubs or a full implementation
+should be added.
+
+**A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**
+Phase 4 noted "Full integration of DrawList into the redraw pipeline is a follow-on
+step."  Currently `BViewState::redraw()` manages scene objects directly rather than
+going through `DrawList::commit()`.  Routing all scene-object creation through
+`commit()` would give `DrawList` the single-responsibility role described in Section
+5.5 and make it easier to test draw-list changes in isolation.
+
+### 12.4 Architecture and Longer-term Work
+
+**L1 — Background geometry loading.**
+Section 9 Q4 decision: a single background worker thread posts results via a result
+queue (candidate: `concurrentqueue.h`, already being considered for LoD cache
+management).  No implementation exists yet.  Before starting, document the required
+thread-safety contract for `DbiState` (which methods are main-thread-only, which are
+safe to call from the background thread, and what the queue handoff protocol is).
+
+**L2 — Thread-safety documentation for `DbiState`.**
+No method in `DbiState`, `DrawList`, `SelectionSet`, or `BViewState` is currently
+documented as either "main-thread-only" or "thread-safe".  Before any background
+work begins, annotate each method and add a `lock()`/`unlock()` RAII guard that
+gates mutations, as described in Section 5.1 principle 8.
+
+**L3 — Attribute columns in `QgModel`.**
+Section 9 Q2 decision: attribute columns should be runtime-configurable; defaults
+are region flag, region ID, and primitive color.  The `QgModel` header already
+defines `TypeIconDisplayRole`, `HighlightDisplayRole`, `DrawnDisplayRole`, and
+`SelectDisplayRole` roles.  Adding configurable attribute-key columns requires:
+- A `QgModel::set_attribute_columns(QStringList keys)` API.
+- Extending `data()` to serve those columns.
+- Wiring into the `QgTreeView` header.
+
+**L4 — Verify `BSelectState` removal timeline.**
+Section 9 Q5 established that backward-compat shims are not required.  `BSelectState`
+was retained in `include/ged/dbi.h` during the transition.  Audit all callers to
+confirm they have been migrated to `SelectionSet`, then remove `BSelectState` and
+its implementations from `dbi_state.cpp` along with the `BSelectState` class
+declaration and any remaining `select_path`/`deselect_path` helpers.
