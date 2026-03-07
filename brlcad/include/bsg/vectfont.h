@@ -50,9 +50,6 @@
  * information.
  */
 
-#ifndef BV_VECTFONT_H
-#define BV_VECTFONT_H
-
 #include "common.h"
 
 __BEGIN_DECLS
@@ -104,9 +101,6 @@ BV_EXPORT extern int *tp_getchar(const unsigned char *c);
 /** @} */
 
 __END_DECLS
-
-#endif  /* BV_VECTFONT_H */
-
 
 #endif /* BSG_VECTFONT_H */
 
