@@ -89,7 +89,7 @@ ged_who_core(struct ged *gedp, int argc, const char *argv[])
      * scene-root children across all views. */
     if (BU_LIST_IS_EMPTY((struct bu_list *)ged_dl(gedp))) {
 	/* Scene-root fallback: collect unique top-level directory entries */
-	struct bu_ptbl unique_dirs = BU_PTBL_INIT_ZERO;
+	struct bu_ptbl unique_dirs;
 	bu_ptbl_init(&unique_dirs, 8, "who unique_dirs");
 
 	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
