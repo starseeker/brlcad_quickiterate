@@ -3553,14 +3553,27 @@ size_t DrawList::count(int mode) const
 
 bool DrawList::empty() const { return entries_.empty(); }
 
-/* ---- Phase 5: SelectionSet implementation ---- */
+/* ---- Phase 5 / Phase 7: SelectionSet implementation ---- */
 
 SelectionSet::SelectionSet(DbiState *d) : dbis_(d) {}
 
+/* Select by path hash with path vector (preferred: enables hierarchy). */
+bool SelectionSet::select(unsigned long long path_hash,
+                          const std::vector<unsigned long long> &path_vec,
+                          bool update_hierarchy)
+{
+    if (!path_hash) return false;
+    selected_[path_hash] = path_vec;
+    if (update_hierarchy) recompute_hierarchy();
+    return true;
+}
+
+/* Convenience overload for callers that only have the hash. */
 bool SelectionSet::select(unsigned long long path_hash, bool update_hierarchy)
 {
     if (!path_hash) return false;
-    selected_.insert(path_hash);
+    if (selected_.find(path_hash) == selected_.end())
+	selected_[path_hash] = std::vector<unsigned long long>();
     if (update_hierarchy) recompute_hierarchy();
     return true;
 }
@@ -3600,7 +3613,7 @@ bool SelectionSet::select(const char *path_str, bool update_hierarchy)
     std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
     if (hpath.empty()) return false;
     unsigned long long ph = dbis_->path_hash(hpath, 0);
-    return select(ph, update_hierarchy);
+    return select(ph, hpath, update_hierarchy);
 }
 
 bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
@@ -3612,34 +3625,121 @@ bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
     return deselect(ph, update_hierarchy);
 }
 
+/* Phase 7: Return sorted list of selected path strings. */
 std::vector<std::string> SelectionSet::selected_paths() const
 {
-    // Full path string lookup deferred to future implementation.
-    return {};
+    std::vector<std::string> result;
+    if (!dbis_) return result;
+    for (const auto &kv : selected_) {
+	if (kv.second.empty()) continue;
+	struct bu_vls pstr = BU_VLS_INIT_ZERO;
+	/* Use a mutable copy since print_path takes non-const ref. */
+	std::vector<unsigned long long> pv = kv.second;
+	dbis_->print_path(&pstr, pv, 0, 0);
+	if (bu_vls_strlen(&pstr))
+	    result.push_back(std::string(bu_vls_cstr(&pstr)));
+	bu_vls_free(&pstr);
+    }
+    std::sort(result.begin(), result.end());
+    return result;
 }
 
 unsigned long long SelectionSet::state_hash() const
 {
-    // Golden ratio hash combining constant (2^32 / phi), reduces collisions
+    /* Golden-ratio mixing constant (2^32 / phi), reduces collisions. */
     static const unsigned long long HASH_GOLDEN = 0x9e3779b9ULL;
     unsigned long long h = 0;
-    for (auto ph : selected_) {
+    for (const auto &kv : selected_) {
+	unsigned long long ph = kv.first;
 	h ^= ph + HASH_GOLDEN + (h << 6) + (h >> 2);
     }
     return h;
 }
 
-void SelectionSet::sync_to_drawn(BViewState * /*vs*/)
+/* Phase 7: Return snapshot set of all selected path hashes. */
+std::unordered_set<unsigned long long> SelectionSet::selected_hashes() const
 {
-    // Highlight marker sync is a future implementation.
+    std::unordered_set<unsigned long long> result;
+    for (const auto &kv : selected_) result.insert(kv.first);
+    return result;
 }
 
+/* Phase 7: Synchronize highlight markers to the given view state.
+ * Uses the same bv_illum_obj() pattern as BSelectState::draw_sync(). */
+void SelectionSet::sync_to_drawn(BViewState *vs)
+{
+    if (!vs || !dbis_) return;
+    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator so_it;
+    std::unordered_map<int, struct bv_scene_obj *>::iterator m_it;
+    for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
+	char ill_state = is_active(so_it->first) ? UP : DOWN;
+	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
+	    bv_illum_obj(m_it->second, ill_state);
+	}
+    }
+}
+
+/* Phase 7: Compute active_, parents_, ancestors_ from selected_ using the
+ * GObj/CombInst graph (p_v / p_c) available through dbis_. */
 void SelectionSet::recompute_hierarchy()
 {
-    active_ = selected_;
+    active_.clear();
     parents_.clear();
     ancestors_.clear();
-    // Full hierarchy computation is delegated to BSelectState for now.
+
+    if (!dbis_) {
+	/* Fallback: active = selected */
+	for (const auto &kv : selected_) active_.insert(kv.first);
+	return;
+    }
+
+    /* Add all directly-selected path hashes to active. */
+    for (const auto &kv : selected_) active_.insert(kv.first);
+
+    /* For each selected path, walk toward root to find parents/ancestors,
+     * and walk away from root to find all descendant paths (active). */
+    for (const auto &kv : selected_) {
+	const std::vector<unsigned long long> &path = kv.second;
+	if (path.empty()) continue;
+
+	/* Walk toward root: collect parent and ancestor path hashes. */
+	for (size_t depth = path.size(); depth > 1; depth--) {
+	    std::vector<unsigned long long> pp(path.begin(), path.begin() + depth - 1);
+	    unsigned long long phash = dbis_->path_hash(pp, 0);
+	    ancestors_.insert(phash);
+	    if (depth == path.size())
+		parents_.insert(phash);
+	}
+
+	/* Walk away from root: expand the leaf element's subtree via p_v. */
+	unsigned long long leaf = path.back();
+	/* BFS over comb children */
+	struct pathwalk_entry { std::vector<unsigned long long> p; };
+	std::queue<pathwalk_entry> frontier;
+	auto p_it = dbis_->p_v.find(leaf);
+	if (p_it != dbis_->p_v.end()) {
+	    for (unsigned long long ch : p_it->second) {
+		std::vector<unsigned long long> cp = path;
+		cp.push_back(ch);
+		frontier.push({cp});
+	    }
+	}
+	while (!frontier.empty()) {
+	    pathwalk_entry e = frontier.front();
+	    frontier.pop();
+	    unsigned long long ehash = dbis_->path_hash(e.p, 0);
+	    active_.insert(ehash);
+	    unsigned long long eback = e.p.back();
+	    auto c_it = dbis_->p_v.find(eback);
+	    if (c_it != dbis_->p_v.end()) {
+		for (unsigned long long ch : c_it->second) {
+		    std::vector<unsigned long long> cp = e.p;
+		    cp.push_back(ch);
+		    frontier.push({cp});
+		}
+	    }
+	}
+    }
 }
 
 /* ---- Phase 5: DbiState SelectionSet management ---- */

@@ -347,6 +347,29 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 
 	void item_rebuild(QgItem *item);
 
+	// Phase 6: incremental update helpers
+	// Re-entrancy guard: dbis->update() is called inside g_update(), and the
+	// observer callback on_dbi_changed() would otherwise recursively call g_update()
+	// from within a beginResetModel() block.
+	bool in_g_update_ = false;
+
+	// Events collected by on_dbi_changed() while g_update() is running.
+	// g_update() reads these after dbis->update() returns to decide between
+	// a full model reset and targeted row-level operations.
+	std::vector<DbiChangeEvent> pending_dbi_events_;
+
+	// Extract the full-reset logic so g_update() can call it from either path.
+	// Assumes dbis->update() has already been called.
+	void full_model_reset(DbiState *dbis);
+
+	// Apply targeted row-level Qt model updates for a set of DBI events.
+	// Called only when no batch/complex events are present.
+	void apply_incremental_updates(DbiState *dbis, const std::vector<DbiChangeEvent> &events);
+
+	// Reconcile tops_items against the current dbis->tops() list by emitting
+	// per-row begin/endInsertRows / begin/endRemoveRows signals.
+	void reconcile_tops(DbiState *dbis);
+
 	QgItem *rootItem;
 	struct bview *empty_gvp = NULL;
 	struct db_i *model_dbip = NULL;
