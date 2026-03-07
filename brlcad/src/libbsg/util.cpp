@@ -1231,6 +1231,22 @@ bsg_shape_get(bsg_view *v, int type)
 	bsg_shape *root = bsg_scene_root_get(v);
 	if (root)
 	    bu_ptbl_ins(&root->children, (long *)s);
+
+	/* For non-independent (shared) views, the same DB-level shape must
+	 * also be visible when drawing any of the sibling views.  Each sibling
+	 * has its own root (so its own camera node / AE) but they all need to
+	 * reference the same top-level geometry node. */
+	if (!v->independent && !(ltype & BV_LOCAL_OBJS) && v->vset) {
+	    struct bu_ptbl *all_views = bsg_scene_views(v->vset);
+	    for (size_t vi = 0; all_views && vi < BU_PTBL_LEN(all_views); vi++) {
+		bsg_view *ov = (bsg_view *)BU_PTBL_GET(all_views, vi);
+		if (!ov || ov == v || ov->independent)
+		    continue;
+		bsg_shape *oroot = bsg_scene_root_get(ov);
+		if (oroot)
+		    bu_ptbl_ins(&oroot->children, (long *)s);
+	    }
+	}
     }
 
     return s;
@@ -1397,6 +1413,19 @@ bsg_shape_put(bsg_shape *s)
 	bsg_shape *root = bsg_scene_root_get(sv);
 	if (root)
 	    bu_ptbl_rm(&root->children, (long *)s);
+
+	/* Remove from all sibling non-independent view roots too. */
+	if (!sv->independent && sv->vset) {
+	    struct bu_ptbl *all_views = bsg_scene_views(sv->vset);
+	    for (size_t vi = 0; all_views && vi < BU_PTBL_LEN(all_views); vi++) {
+		bsg_view *ov = (bsg_view *)BU_PTBL_GET(all_views, vi);
+		if (!ov || ov == sv || ov->independent)
+		    continue;
+		bsg_shape *oroot = bsg_scene_root_get(ov);
+		if (oroot)
+		    bu_ptbl_rm(&oroot->children, (long *)s);
+	    }
+	}
     }
 
     bsg_shape *fs = s->free_scene_obj;

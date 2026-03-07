@@ -237,8 +237,23 @@ bsg_traverse(bsg_shape *root,
 
     state->depth++;
 
-    /* Visit this node; prune subtree on non-zero return. */
-    int prune = visit(root, state, user_data);
+    /* For structural/container nodes, call the visitor before children so
+     * camera and transform state is already set up when children are drawn.
+     *
+     * For geometry (leaf) nodes with children (e.g. a polygon with a :fill
+     * child), we want children drawn FIRST so the parent outline renders on
+     * top of fill segments.  We detect geometry nodes as those that are NOT
+     * one of the structural flag types. */
+    unsigned long long structural_flags =
+	(unsigned long long)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
+			     BSG_NODE_CAMERA    | BSG_NODE_LOD_GROUP);
+    int is_geometry = !(root->s_type_flags & structural_flags);
+
+    /* For structural nodes: visit (setup) first, then recurse into children. */
+    /* For geometry nodes: recurse into children first, visit (render) after. */
+    int prune = 0;
+    if (!is_geometry)
+	prune = visit(root, state, user_data);
 
     if (!prune) {
 	/* LoD group: pick one child based on viewer distance. */
@@ -269,6 +284,11 @@ bsg_traverse(bsg_shape *root,
 	    }
 	}
     }
+
+    /* For geometry nodes, visit (render) AFTER children so the parent
+     * outline/geometry paints on top of any fill/child geometry. */
+    if (is_geometry && !prune)
+	visit(root, state, user_data);
 
     state->depth--;
 

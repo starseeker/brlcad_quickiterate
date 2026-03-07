@@ -1,2 +1,6 @@
 # BRL-CAD build directory - created during CMake configure/build
 brlcad_build/
+moss_lod_tmp.g
+moss_tmp.g
+moss_quad_tmp.g
+brlcad_build/
