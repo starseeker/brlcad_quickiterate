@@ -44,7 +44,7 @@
 
 extern "C" {
 #include "bu/ptbl.h"
-#include "bv.h"
+#include "bsg.h"
 #define DM_WITH_RT
 #include "dm.h"
 }
