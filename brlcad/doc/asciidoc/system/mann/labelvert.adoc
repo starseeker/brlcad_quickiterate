@@ -1,0 +1,47 @@
+= LABELVERT(nged)
+:doctype: manpage
+:mansource: BRL-CAD
+:manmanual: BRL-CAD User Commands
+
+== NAME
+labelvert - Labels the vertices of the indicated objects with their coordinate values in the MGED display window.
+
+== SYNOPSIS
+
+[source]
+----
+labelvert {<objects>}
+----
+
+
+== DESCRIPTION
+
+Labels the vertices of the indicated _objects_ with their coordinate values in the MGED display window. The _objects_ must have already been displayed using *e, E, ev, B*, or any other command that results in the display of an object.
+
+
+== EXAMPLES
+
+The example shows the use of the *labelvert* command to label the vertices of a designated shape with their coordinate values.
+
+.Label the vertices of a particular shape with their coordinate values.
+[example]
+====
+
+mged>*labelvert shapeb*::
+Places coordinate values in the display near the vertices of _shapeb_.
+
+
+
+====
+
+
+== AUTHOR
+
+BRL-CAD Team
+
+
+== BUG REPORTS
+
+Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

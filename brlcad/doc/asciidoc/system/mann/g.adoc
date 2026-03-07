@@ -1,0 +1,47 @@
+= G(nged)
+:doctype: manpage
+:mansource: BRL-CAD
+:manmanual: BRL-CAD User Commands
+
+== NAME
+g - Creates a special type of combination often referred to as a group. This builds a combination by unioning together all the listed objects.
+
+== SYNOPSIS
+
+[source]
+----
+g {<groupname>} {<objects>}
+----
+
+
+== DESCRIPTION
+
+Creates a special type of combination often referred to as a group. This builds a combination by unioning together all the listed _objects_. If _groupname_ already exists, then the list of objects will be unioned to the end of it. (Note that an existing groupname is not restricted to being a group; any combination is legal.) Other commands to build combinations are *c*, *r*, or *comb*.
+
+
+== EXAMPLES
+
+The example shows the use of the *g* command to create or extend a specified group by unioning it with specified objects.
+
+.Create a group with a groupname and specified objects.
+[example]
+====
+
+mged>*g group.c shape1.s*::
+Creates or extends group.c by unioning in _shape1.s_.
+
+
+
+====
+
+
+== AUTHOR
+
+BRL-CAD Team
+
+
+== BUG REPORTS
+
+Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
