@@ -463,7 +463,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s)
 	}
 	bu_avs_add(&lavs, "POLYGON_TYPE", bu_vls_cstr(&val));
 	// Save view
-	bu_vls_sprintf(&val, "%.15e", s->s_v->gv_scale);
+	bu_vls_sprintf(&val, "%.15e", bsg_view_scale(s->s_v));
 	bu_avs_add(&lavs, "VIEWSCALE", bu_vls_cstr(&val));
 	quat_t rquat;
 	quat_t cquat;
