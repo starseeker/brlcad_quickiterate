@@ -709,11 +709,11 @@ nmg_pl_eu(FILE *fp, const struct edgeuse *eu, long *b, int red, int green, int b
 void
 nmg_pl_lu(FILE *fp, const struct loopuse *lu, long *b, int red, int green, int blue, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bv_vlblock *vbp = bsg_vlblock_init(vlfree, 32);
 
     nmg_vlblock_lu(vbp, lu, b, red, green, blue, 0, vlfree);
-    bv_plot_vlblock(fp, vbp);
-    bv_vlblock_free(vbp);
+    bsg_plot_vlblock(fp, vbp);
+    bsg_vlblock_free(vbp);
 }
 
 
@@ -726,14 +726,14 @@ nmg_pl_fu(FILE *fp, const struct faceuse *fu, long *b, int red, int green, int b
     NMG_CK_FACEUSE(fu);
     NMG_INDEX_RETURN_IF_SET_ELSE_SET(b, fu->index);
 
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 
     for (BU_LIST_FOR(lu, loopuse, &fu->lu_hd)) {
 	nmg_vlblock_lu(vbp, lu, b, red, green, blue, 1, vlfree);
     }
 
-    bv_plot_vlblock(fp, vbp);
-    bv_vlblock_free(vbp);
+    bsg_plot_vlblock(fp, vbp);
+    bsg_vlblock_free(vbp);
 }
 
 
@@ -744,44 +744,44 @@ nmg_pl_fu(FILE *fp, const struct faceuse *fu, long *b, int red, int green, int b
 void
 nmg_pl_s(FILE *fp, const struct shell *s, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bv_vlblock *vbp = bsg_vlblock_init(vlfree, 32);
 
     nmg_vlblock_s(vbp, s, 0, vlfree);
-    bv_plot_vlblock(fp, vbp);
-    bv_vlblock_free(vbp);
+    bsg_plot_vlblock(fp, vbp);
+    bsg_vlblock_free(vbp);
 }
 
 
 void
 nmg_pl_shell(FILE *fp, const struct shell *s, int fancy, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bv_vlblock *vbp = bsg_vlblock_init(vlfree, 32);
 
     nmg_vlblock_s(vbp, s, fancy, vlfree);
-    bv_plot_vlblock(fp, vbp);
-    bv_vlblock_free(vbp);
+    bsg_plot_vlblock(fp, vbp);
+    bsg_vlblock_free(vbp);
 }
 
 
 void
 nmg_pl_r(FILE *fp, const struct nmgregion *r, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bv_vlblock *vbp = bsg_vlblock_init(vlfree, 32);
 
     nmg_vlblock_r(vbp, r, 0, vlfree);
-    bv_plot_vlblock(fp, vbp);
-    bv_vlblock_free(vbp);
+    bsg_plot_vlblock(fp, vbp);
+    bsg_vlblock_free(vbp);
 }
 
 
 void
 nmg_pl_m(FILE *fp, const struct model *m, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bv_vlblock *vbp = bsg_vlblock_init(vlfree, 32);
 
     nmg_vlblock_m(vbp, m, 0, vlfree);
-    bv_plot_vlblock(fp, vbp);
-    bv_vlblock_free(vbp);
+    bsg_plot_vlblock(fp, vbp);
+    bsg_vlblock_free(vbp);
 }
 
 
@@ -806,7 +806,7 @@ nmg_vlblock_v(struct bv_vlblock *vbp, const struct vertex *v, long *tab, struct 
     NMG_CK_VERTEX_G(v->vg_p);
     p = v->vg_p->coord;
 
-    vh = bv_vlblock_find(vbp, 255, 255, 255);
+    vh = bsg_vlblock_find(vbp, 255, 255, 255);
     BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_MOVE);
     BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_DRAW);
 }
@@ -843,7 +843,7 @@ nmg_vlblock_e(struct bv_vlblock *vbp, const struct edge *e, long *tab, int red, 
     VADD2(end0, p0, v);
     VSUB2(end1, p1, v);
 
-    vh = bv_vlblock_find(vbp, red, green, blue);
+    vh = bsg_vlblock_find(vbp, red, green, blue);
     BV_ADD_VLIST(vlfree, vh, end0, BV_VLIST_LINE_MOVE);
     BV_ADD_VLIST(vlfree, vh, end1, BV_VLIST_LINE_DRAW);
 
@@ -934,7 +934,7 @@ nmg_vlblock_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, long *tab, int 
 	/* draw the portion from the vertexuse to just beyond the
 	 * midway point to represent the edgeuse
 	 */
-	vh = bv_vlblock_find(vbp, red, green, blue);
+	vh = bsg_vlblock_find(vbp, red, green, blue);
 	BV_ADD_VLIST(vlfree, vh, base, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_DRAW);
 
@@ -946,7 +946,7 @@ nmg_vlblock_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, long *tab, int 
 	 * edgeuse
 	 */
 	nmg_eu_radial(eu, radial_tip);
-	vh = bv_vlblock_find(vbp, red, green-20, blue);
+	vh = bsg_vlblock_find(vbp, red, green-20, blue);
 	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, vh, radial_tip, BV_VLIST_LINE_DRAW);
 
@@ -960,7 +960,7 @@ nmg_vlblock_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, long *tab, int 
 	red *= 0.5;
 	green *= 0.5;
 	blue *= 0.5;
-	vh = bv_vlblock_find(vbp, red, green, blue);
+	vh = bsg_vlblock_find(vbp, red, green, blue);
 	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, vh, next_base, BV_VLIST_LINE_DRAW);
     }
@@ -1000,7 +1000,7 @@ nmg_vlblock_euleft(struct bu_list *vh, const struct edgeuse *eu, const point_t c
 
     /* char_scale is based on length of eu */
     char_scale = len * 0.05;
-    bv_vlist_3string(vh, vlfree, str, tip, mat, char_scale);
+    bsg_vlist_3string(vh, vlfree, str, tip, mat, char_scale);
 }
 
 
@@ -1058,7 +1058,7 @@ nmg_vlblock_around_eu(struct bv_vlblock *vbp, const struct edgeuse *arg_eu, long
 		   arg_eu->eumate_p->vu_p->v_p->vg_p->coord, 0.5);
 
 	/* Yellow, for now */
-	vh = bv_vlblock_find(vbp, 255, 200, 0);
+	vh = bsg_vlblock_find(vbp, 255, 200, 0);
     } else {
 	vh = (struct bu_list *)NULL;
 	len = 1;
@@ -1270,7 +1270,7 @@ nmg_pl_isect(const char *filename, const struct shell *s, struct bu_list *vlfree
     b = (long *)bu_calloc(s->r_p->m_p->maxindex+1, sizeof(long),
 			  "nmg_pl_isect flags[]");
 
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 
     bu_log("overlay %s\n", filename);
     if (s->sa_p) {
@@ -1295,8 +1295,8 @@ nmg_pl_isect(const char *filename, const struct shell *s, struct bu_list *vlfree
 	}
     }
 
-    bv_plot_vlblock(fp, vbp);
-    bv_vlblock_free(vbp);
+    bsg_plot_vlblock(fp, vbp);
+    bsg_vlblock_free(vbp);
 
     bu_free((char *)b, "nmg_pl_isect flags[]");
 
@@ -1330,7 +1330,7 @@ nmg_pl_comb_fu(int num1, int num2, const struct faceuse *fu1, struct bu_list *vl
     tab = (long *)bu_calloc(m->maxindex+1, sizeof(long),
 			    "nmg_pl_comb_fu tab[]");
 
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 
     nmg_vlblock_fu(vbp, fu1, tab, 3, vlfree);
 
@@ -1343,7 +1343,7 @@ nmg_pl_comb_fu(int num1, int num2, const struct faceuse *fu1, struct bu_list *vl
 	}
 	bu_log("overlay %s\n", name);
 
-	bv_plot_vlblock(fp, vbp);
+	bsg_plot_vlblock(fp, vbp);
 
 	(void)fclose(fp);
     }
@@ -1360,7 +1360,7 @@ nmg_pl_comb_fu(int num1, int num2, const struct faceuse *fu1, struct bu_list *vl
 	    bu_log("null nmg_vlblock_anim_upcall, no animation\n");
 	}
     }
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     bu_free((char *)tab, "nmg_pl_comb_fu tab[]");
 }
 
@@ -1390,7 +1390,7 @@ nmg_pl_2fu(const char *str, const struct faceuse *fu1, const struct faceuse *fu2
 			    "nmg_pl_comb_fu tab[]");
 
     /* Create the vlblock */
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 
     nmg_vlblock_fu(vbp, fu1, tab, 3, vlfree);
     if (show_mates)
@@ -1408,7 +1408,7 @@ nmg_pl_2fu(const char *str, const struct faceuse *fu1, const struct faceuse *fu2
 	    perror(name);
 	    return;
 	}
-	bv_plot_vlblock(fp, vbp);
+	bsg_plot_vlblock(fp, vbp);
 	(void)fclose(fp);
     }
 
@@ -1424,7 +1424,7 @@ nmg_pl_2fu(const char *str, const struct faceuse *fu1, const struct faceuse *fu2
 	}
     }
 
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     bu_free((char *)tab, "nmg_pl_2fu tab[]");
 }
 
@@ -1484,7 +1484,7 @@ show_broken_vu(struct bv_vlblock *vbp, const struct vertexuse *vu, struct bu_lis
     if (broken_color == 4) {
 	PICK_BROKEN_COLOR(vu);
     }
-    vh = bv_vlblock_find(vbp,
+    vh = bsg_vlblock_find(vbp,
 			 broken_colors[broken_color][0], broken_colors[broken_color][1], broken_colors[broken_color][2]);
 
     BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_MOVE);
@@ -1550,7 +1550,7 @@ show_broken_e(struct bv_vlblock *vbp, const struct edgeuse *eu, struct bu_list *
 	PICK_BROKEN_COLOR(eu);
     }
 
-    vh = bv_vlblock_find(vbp,
+    vh = bsg_vlblock_find(vbp,
 			 broken_colors[broken_color][0], broken_colors[broken_color][1], broken_colors[broken_color][2]);
 
     BV_ADD_VLIST(vlfree, vh, end0, BV_VLIST_LINE_MOVE);
@@ -1595,17 +1595,17 @@ show_broken_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, int fancy, stru
 	else
 	    red = green = blue = 255;
 
-	vh = bv_vlblock_find(vbp, red, green, blue);
+	vh = bsg_vlblock_find(vbp, red, green, blue);
 	BV_ADD_VLIST(vlfree, vh, base, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_DRAW);
 
 	nmg_eu_radial(eu, radial_tip);
-	vh = bv_vlblock_find(vbp, red, green-20, blue);
+	vh = bsg_vlblock_find(vbp, red, green-20, blue);
 	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, vh, radial_tip, BV_VLIST_LINE_DRAW);
 
 	nmg_eu_next_base(eu, next_base);
-	vh = bv_vlblock_find(vbp, 0, 100, 0);
+	vh = bsg_vlblock_find(vbp, 0, 100, 0);
 	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
 	BV_ADD_VLIST(vlfree, vh, next_base, BV_VLIST_LINE_DRAW);
     }
@@ -1638,7 +1638,7 @@ show_broken_lu(struct bv_vlblock *vbp, const struct loopuse *lu, int fancy, stru
     /* Faces are not classified, only loops */
     /* This can obscure the edge/vertex info */
     PICK_BROKEN_COLOR(lu->l_p);
-    vh = bv_vlblock_find(vbp,
+    vh = bsg_vlblock_find(vbp,
 			 broken_colors[broken_color][0], broken_colors[broken_color][1], broken_colors[broken_color][2]);
 
     if (*lu->up.magic_p == NMG_FACEUSE_MAGIC) {
@@ -1737,11 +1737,11 @@ nmg_show_broken_classifier_stuff(uint32_t *p, char **classlist, int all_new, int
     nmg_class_nothing_broken = 0;
 
     if (!vbp)
-	vbp = bv_vlblock_init(vlfree, 32);
+	vbp = bsg_vlblock_init(vlfree, 32);
     else if (all_new) {
-	bv_vlblock_free(vbp);
+	bsg_vlblock_free(vbp);
 	vbp = (struct bv_vlblock *)NULL;
-	vbp = bv_vlblock_init(vlfree, 32);
+	vbp = bsg_vlblock_init(vlfree, 32);
     }
 
     m = nmg_find_model(p);
@@ -1839,12 +1839,12 @@ nmg_show_broken_classifier_stuff(uint32_t *p, char **classlist, int all_new, int
 	sprintf(buf, "cbroke%d.plot3", num++);
 	fp = fopen(buf, "wb");
 	if (fp) {
-	    bv_plot_vlblock(fp, vbp);
+	    bsg_plot_vlblock(fp, vbp);
 	    fclose(fp);
 	    bu_log("overlay %s for %s\n", buf, a_string);
 	}
 
-	bv_vlblock_free(vbp);
+	bsg_vlblock_free(vbp);
 	vbp = (struct bv_vlblock *)NULL;
 	bu_free((char *)broken_tab, "broken_tab");
 	broken_tab = (long *)NULL;
@@ -1875,7 +1875,7 @@ nmg_face_plot(const struct faceuse *fu, struct bu_list *vlfree)
     tab = (long *)bu_calloc(m->maxindex+1, sizeof(long),
 			    "nmg_face_plot tab[]");
 
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 
     fancy = 3;	/* show both types of edgeuses */
     nmg_vlblock_fu(vbp, fu, tab, fancy, vlfree);
@@ -1888,7 +1888,7 @@ nmg_face_plot(const struct faceuse *fu, struct bu_list *vlfree)
 	    perror(name);
 	    return;
 	}
-	bv_plot_vlblock(fp, vbp);
+	bsg_plot_vlblock(fp, vbp);
 	(void)fclose(fp);
     }
 
@@ -1906,7 +1906,7 @@ nmg_face_plot(const struct faceuse *fu, struct bu_list *vlfree)
 	    bu_log("null nmg_vlblock_anim_upcall, no animation\n");
 	}
     }
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     bu_free((char *)tab, "nmg_face_plot tab[]");
 
 }
@@ -1935,7 +1935,7 @@ nmg_2face_plot(const struct faceuse *fu1, const struct faceuse *fu2, struct bu_l
     tab = (long *)bu_calloc(m->maxindex+1, sizeof(long),
 			    "nmg_2face_plot tab[]");
 
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 
     fancy = 3;	/* show both types of edgeuses */
     nmg_vlblock_fu(vbp, fu1, tab, fancy, vlfree);
@@ -1953,7 +1953,7 @@ nmg_2face_plot(const struct faceuse *fu1, const struct faceuse *fu2, struct bu_l
     } else {
 	bu_log("null nmg_vlblock_anim_upcall, no animation\n");
     }
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     bu_free((char *)tab, "nmg_2face_plot tab[]");
 
 }
@@ -2128,7 +2128,7 @@ nmg_plot_lu_around_eu(const char *prefix, const struct edgeuse *eu, struct bu_li
     NMG_CK_MODEL(m);
     tab = (long *)bu_calloc(m->maxindex, sizeof(long), "bit vec");
 
-    vbp = bv_vlblock_init(vlfree, 32);
+    vbp = bsg_vlblock_init(vlfree, 32);
 
     /* Draw all the left vectors, and a fancy edgeuse plot */
     nmg_vlblock_around_eu(vbp, eu, tab, 3, vlfree, tol);
@@ -2144,9 +2144,9 @@ nmg_plot_lu_around_eu(const char *prefix, const struct edgeuse *eu, struct bu_li
 	eur = eur->radial_p->eumate_p;
     } while (eur != eu);
 
-    bv_plot_vlblock(fp, vbp);
+    bsg_plot_vlblock(fp, vbp);
     (void)fclose(fp);
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     bu_free((char *)tab, "bit vec");
 }
 

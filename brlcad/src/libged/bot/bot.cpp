@@ -666,7 +666,7 @@ _bot_vlblock_plot(struct ged *gedp, struct bv_vlblock *vbp, const char *sname)
     if (gedp->new_cmd_forms) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "bot::%s", sname);
-	bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
+	bsg_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
 	bu_vls_free(&nroot);
     } else {
 	_ged_cvt_vlblock_to_solids(gedp, vbp, sname, 0);
@@ -706,7 +706,7 @@ _bot_cmd_plot(void *bs, int argc, const char **argv)
 
     struct rt_bot_internal *bot = (struct rt_bot_internal *)(gb->intern->idb_ptr);
 
-    struct bu_list *vhead = bv_vlblock_find(vbp, (int)rgb[0], (int)rgb[1], (int)rgb[2]);
+    struct bu_list *vhead = bsg_vlblock_find(vbp, (int)rgb[0], (int)rgb[1], (int)rgb[2]);
 
     std::set<int>::iterator f_it;
     for (f_it = elements.begin(); f_it != elements.end(); ++f_it) {
@@ -1277,7 +1277,7 @@ ged_bot_core(struct ged *gedp, int argc, const char *argv[])
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     if (gb.visualize || BU_STR_EQUAL(argv[cmd_pos], "plot")) {
 	GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
-	gb.vbp = bv_vlblock_init(gb.vlfree, 32);
+	gb.vbp = bsg_vlblock_init(gb.vlfree, 32);
     }
     gb.color = color;
 
@@ -1295,7 +1295,7 @@ bot_cleanup:
 	BU_PUT(gb.intern, struct rt_db_internal);
     }
     if (gb.visualize) {
-	bv_vlblock_free(gb.vbp);
+	bsg_vlblock_free(gb.vbp);
 	gb.vbp = (struct bv_vlblock *)NULL;
     }
     if (color) {

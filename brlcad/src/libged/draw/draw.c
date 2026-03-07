@@ -104,7 +104,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 	sp->s_vlen = 0;
 
     struct bv_vlist *bvv = (struct bv_vlist *)vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+    sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
     bsg_shape_bound(sp, dgcdp->v);
@@ -193,7 +193,7 @@ draw_solid_wireframe(bsg_shape *sp, bsg_view *gvp, struct db_i *dbip,
 	sp->s_vlen = 0;
 
     struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+    sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
     return 0;
@@ -341,7 +341,7 @@ append_solid_to_display_list(
 	    sp->s_vlen = 0;
 
 	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-	sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+	sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
 	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
 	bsg_shape_bound(sp, bv_data->v);
@@ -1339,7 +1339,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		wdbp->wdb_initial_tree_state.ts_m = &nmg_model;
 		if (dgcdp.draw_edge_uses) {
 		    bu_vls_printf(gedp->ged_result_str, "Doing the edgeuse thang (-u)\n");
-		    dgcdp.draw_edge_uses_vbp = bv_vlblock_init(vlfree, 32);
+		    dgcdp.draw_edge_uses_vbp = bsg_vlblock_init(vlfree, 32);
 		}
 
 		for (i = 0; i < argc; ++i) {
@@ -1363,7 +1363,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		if (dgcdp.draw_edge_uses) {
 		    _ged_cvt_vlblock_to_solids(gedp, dgcdp.draw_edge_uses_vbp, "_EDGEUSES_", 0);
-		    bv_vlblock_free(dgcdp.draw_edge_uses_vbp);
+		    bsg_vlblock_free(dgcdp.draw_edge_uses_vbp);
 		    dgcdp.draw_edge_uses_vbp = (struct bv_vlblock *)NULL;
 		}
 

@@ -214,33 +214,6 @@ BSG_EXPORT extern void bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
 BSG_EXPORT extern void bsg_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale);
 BSG_EXPORT extern void bsg_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta);
 
-/* Backward-compat inline wrappers: old bv_* names call through to bsg_* */
-#ifdef __GNUC__
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wunused-function"
-#endif
-static inline size_t bv_vlist_cmd_cnt(struct bv_vlist *vlist) { return bsg_vlist_cmd_cnt(vlist); }
-static inline int bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode) { return bsg_vlist_bbox(vlistp, bmin, bmax, length, dispmode); }
-static inline const char *bv_vlist_get_cmd_description(int cmd) { return bsg_vlist_get_cmd_description(cmd); }
-static inline size_t bv_ck_vlist(const struct bu_list *vhead) { return bsg_ck_vlist(vhead); }
-static inline void bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src) { bsg_vlist_copy(vlists, dest, src); }
-static inline void bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name) { bsg_vlist_export(vls, hp, name); }
-static inline void bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf) { bsg_vlist_import(vlists, hp, namevls, buf); }
-static inline void bv_vlist_cleanup(struct bu_list *hd) { bsg_vlist_cleanup(hd); }
-static inline struct bv_vlblock *bv_vlblock_init(struct bu_list *free_vlist_hd, int max_ent) { return bsg_vlblock_init(free_vlist_hd, max_ent); }
-static inline void bv_vlblock_free(struct bv_vlblock *vbp) { bsg_vlblock_free(vbp); }
-static inline struct bu_list *bv_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b) { return bsg_vlblock_find(vbp, r, g, b); }
-static inline void bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx) { bsg_vlist_rpp(vlists, hd, minn, maxx); }
-static inline void bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp) { bsg_plot_vlblock(fp, vbp); }
-static inline void bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree) { bsg_vlblock_to_objs(out, name_root, vbp, v, f, vlfree); }
-static inline struct bv_scene_obj *bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name) { return bsg_vlblock_obj(vbp, v, name); }
-static inline void bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead) { bsg_vlist_to_uplot(fp, vhead); }
-static inline void bv_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale) { bsg_vlist_3string(vhead, free_hd, string, origin, rot, scale); }
-static inline void bv_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta) { bsg_vlist_2string(vhead, free_hd, string, x, y, scale, theta); }
-#ifdef __GNUC__
-#  pragma GCC diagnostic pop
-#endif
-
 /** @} */
 
 __END_DECLS

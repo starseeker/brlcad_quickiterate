@@ -242,22 +242,6 @@
 /** @deprecated Use bsg_view_center_linesnap() instead. */
 #define bv_view_center_linesnap(v)     bsg_view_center_linesnap((v))
 
-/* ---------------------------------------------------------------------- *
- * Function aliases — polygon update                                       *
- * ---------------------------------------------------------------------- */
-/** @deprecated Use bsg_update_polygon() instead. */
-#define bv_update_polygon(s, v, u)     bsg_update_polygon((s),(v),(u))
-
-/* ---------------------------------------------------------------------- *
- * Function aliases — snap                                                 *
- * ---------------------------------------------------------------------- */
-/** @deprecated Use bsg_snap_lines_2d() instead. */
-#define bv_snap_lines_2d(v, x, y)     bsg_snap_lines_2d((v),(x),(y))
-/** @deprecated Use bsg_snap_grid_2d() instead. */
-#define bv_snap_grid_2d(v, x, y)      bsg_snap_grid_2d((v),(x),(y))
-/** @deprecated Use bsg_snap_lines_3d() instead. */
-#define bv_snap_lines_3d(o, v, p)     bsg_snap_lines_3d((o),(v),(p))
-
 #endif /* BSG_COMPAT_H */
 
 /*

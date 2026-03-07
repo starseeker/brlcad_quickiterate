@@ -82,7 +82,7 @@ dl_plot(bsg_view *v, FILE *fp, mat_t model2view, int floating, mat_t center, fas
                     pl_linmod(fp, "solid");
                 Dashing = sp->s_soldash;
             }
-            bv_vlist_to_uplot(fp, &(sp->s_vlist));
+            bsg_vlist_to_uplot(fp, &(sp->s_vlist));
         }
 
         return;

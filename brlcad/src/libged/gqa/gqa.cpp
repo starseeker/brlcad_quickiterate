@@ -2562,8 +2562,8 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
-	ged_gqa_plot.vbp = bv_vlblock_init(vlfree, 32);
-	ged_gqa_plot.vhead = bv_vlblock_find(ged_gqa_plot.vbp, 0xFF, 0xFF, 0x00);
+	ged_gqa_plot.vbp = bsg_vlblock_init(vlfree, 32);
+	ged_gqa_plot.vhead = bsg_vlblock_find(ged_gqa_plot.vbp, 0xFF, 0xFF, 0x00);
     }
 
     rtip = rt_new_rti(gedp->dbip);
@@ -2724,7 +2724,7 @@ aborted:
 	if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
 	    if (gedp->new_cmd_forms) {
 		bsg_view *view = gedp->ged_gvp;
-		bv_vlblock_obj(ged_gqa_plot.vbp, view, "gqa::overlaps");
+		bsg_vlblock_obj(ged_gqa_plot.vbp, view, "gqa::overlaps");
 	    } else {
 		_ged_cvt_vlblock_to_solids(gedp, ged_gqa_plot.vbp, "OVERLAPS", 0);
 	    }
@@ -2733,7 +2733,7 @@ aborted:
 	aborted = 0; /* reset flag */
 
     if (analysis_flags & ANALYSIS_PLOT_OVERLAPS)
-	bv_vlblock_free(ged_gqa_plot.vbp);
+	bsg_vlblock_free(ged_gqa_plot.vbp);
 
     /* Clear out the lists */
     while (BU_LIST_WHILE (rp, region_pair, &overlapList.l)) {
