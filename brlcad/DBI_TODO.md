@@ -1282,14 +1282,24 @@ The `lock()`/`unlock()` RAII guard is deferred until the threading model
 (L1) is actually needed; adding it prematurely would impose overhead and
 complexity before any concurrent code exists.
 
-**L3 — Attribute columns in `QgModel`.**
-Section 9 Q2 decision: attribute columns should be runtime-configurable; defaults
-are region flag, region ID, and primitive color.  The `QgModel` header already
-defines `TypeIconDisplayRole`, `HighlightDisplayRole`, `DrawnDisplayRole`, and
-`SelectDisplayRole` roles.  Adding configurable attribute-key columns requires:
-- A `QgModel::set_attribute_columns(QStringList keys)` API.
-- Extending `data()` to serve those columns.
-- Wiring into the `QgTreeView` header.
+**L3 — Attribute columns in `QgModel`.**  ✅ DONE
+Section 9 Q2 decision: attribute columns are now runtime-configurable; the default
+is a single object-name column.  The implementation:
+- `QgModel::set_attribute_columns(const QStringList &keys)` — sets the list of
+  attribute keys to show as extra columns; passing an empty list reverts to the
+  single name column.  Emits `beginResetModel()`/`endResetModel()`.
+- `QgModel::attribute_columns()` const accessor.
+- `QgModel::columnCount()` now returns `1 + attribute_columns_.count()`.
+- `QgModel::headerData()` returns the key name for each extra column header.
+- `QgModel::data()` serves `Qt::DisplayRole` for column > 0: built-in handling
+  for `"region"` (flag → "R"), `"region_id"` (numeric), and `"color"`/`"rgb"`
+  (R/G/B triple from the DbiState `rgb` map); all other keys trigger a live
+  `db5_get_attributes()` lookup.
+- `QgTreeView::header_state()` already adapts to the column count change via
+  the existing `header()->count()` check.
+- T3 regression test added to `src/libqtcad/tests/qgmodel.cpp`: creates a region
+  with `region_id=5`, sets the `"region_id"` column, and verifies the correct
+  value is returned by `data()`; also verifies the revert-to-1-column path.
 
 **L4 — `BSelectState` removal.**  ✅ DONE
 `BSelectState` has been fully removed.  All callers have been migrated to
@@ -1374,3 +1384,11 @@ path_hashes, ...)` two-step has been replaced with `ss->select(DbiPath(node->pat
 `is_linked()`, and `linked_primary()` added to `BViewState` with a private
 `linked_to_` member.  The pointer is stored but `redraw()` does not yet consult
 it — full DrawList sharing is the A3 work item.
+
+### Session 27 — L3 attribute columns in QgModel (this PR)
+
+**L3 done** — `QgModel::set_attribute_columns(QStringList)` API implemented.
+`columnCount()`, `headerData()`, and `data()` all adapted.  Built-in support
+for `"region"`, `"region_id"`, `"color"`/`"rgb"` uses the cached DbiState maps;
+general keys use a live `db5_get_attributes()` lookup.  T3 test added to
+`src/libqtcad/tests/qgmodel.cpp`; all 6 T3 + 9 T2 checks pass.

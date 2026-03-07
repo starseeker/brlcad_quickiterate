@@ -436,7 +436,104 @@ int main(int argc, char *argv[])
     else
 	printf("\nT2: all rebuild_item_children checks passed.\n");
 
-    return t2_failures ? 3 : 0;
+    /* --- T3: attribute columns (L3) -----------------------------------------
+     * Verifies QgModel::set_attribute_columns() / columnCount() / data()     */
+    int t3_failures = 0;
+    {
+#define T3_CHECK(cond, msg) \
+    do { \
+        if (!(cond)) { \
+            fprintf(stderr, "FAIL [T3]: %s (line %d)\n", (msg), __LINE__); \
+            t3_failures++; \
+        } else { \
+            printf("PASS [T3]: %s\n", (msg)); \
+        } \
+    } while (0)
+
+        char t3path[MAXPATHLEN] = {0};
+        {
+            FILE *fp3 = bu_temp_file(t3path, sizeof(t3path));
+            if (fp3) { fclose(fp3); bu_file_delete(t3path); }
+        }
+        if (!t3path[0]) {
+            fprintf(stderr, "ERROR [T3]: could not obtain temp path\n");
+            t3_failures++;
+            goto t3_done;
+        }
+
+        struct ged *g3 = ged_open("db", t3path, 0);
+        if (!g3) {
+            fprintf(stderr, "ERROR [T3]: ged_open failed\n");
+            t3_failures++;
+            goto t3_done;
+        }
+        /* Create a region with region_id=5 */
+        { const char *t3av1[] = {"in","s1.s","sph","0","0","0","10",NULL};
+          if (ged_exec_in(g3, 7, t3av1) != BRLCAD_OK)
+              fprintf(stderr, "WARN [T3]: in s1.s failed\n"); }
+        { const char *t3av2[] = {"r","reg1.r","u","s1.s",NULL};
+          if (ged_exec_r(g3, 4, t3av2) != BRLCAD_OK)
+              fprintf(stderr, "WARN [T3]: r reg1.r failed\n"); }
+        { const char *t3av3[] = {"attr","set","reg1.r","region_id","5",NULL};
+          if (ged_exec_attr(g3, 5, t3av3) != BRLCAD_OK)
+              fprintf(stderr, "WARN [T3]: attr set region_id failed\n"); }
+        ged_close(g3);
+
+        {
+            QgModel m3(NULL, t3path);
+
+            /* Default: 1 column */
+            T3_CHECK(m3.columnCount() == 1,
+                     "fresh model has 1 column");
+            T3_CHECK(m3.attribute_columns().isEmpty(),
+                     "attribute_columns() empty by default");
+
+            /* Add region_id column */
+            m3.set_attribute_columns(QStringList() << "region_id");
+            T3_CHECK(m3.columnCount() == 2,
+                     "columnCount() == 2 after set_attribute_columns");
+            T3_CHECK(m3.headerData(1, Qt::Horizontal, Qt::DisplayRole).toString()
+                     == QLatin1String("region_id"),
+                     "headerData(1) == \"region_id\"");
+
+            /* Verify data() for region_id column on reg1.r */
+            QgItem *reg1 = nullptr;
+            DbiState *d3 = (DbiState *)m3.gedp->dbi_state;
+            for (QgItem *itm : m3.tops_items) {
+                if (!itm->ihash) continue;
+                struct bu_vls n = BU_VLS_INIT_ZERO;
+                d3->print_hash(&n, itm->ihash);
+                if (BU_STR_EQUAL(bu_vls_cstr(&n), "reg1.r"))
+                    reg1 = itm;
+                bu_vls_free(&n);
+            }
+            if (reg1) {
+                QModelIndex idx = m3.NodeIndex(reg1);
+                QAbstractItemModel *am = &m3;
+                QModelIndex col1 = am->index(idx.row(), 1, idx.parent());
+                QVariant v = m3.data(col1, Qt::DisplayRole);
+                T3_CHECK(v.toInt() == 5,
+                         "data() for region_id column returns 5");
+            } else {
+                fprintf(stderr, "SKIP [T3]: reg1.r not found in tops\n");
+            }
+
+            /* Clearing the column list reverts to 1 column */
+            m3.set_attribute_columns(QStringList());
+            T3_CHECK(m3.columnCount() == 1,
+                     "columnCount() back to 1 after clearing columns");
+        }
+
+        bu_file_delete(t3path);
+#undef T3_CHECK
+    }
+t3_done:
+    if (t3_failures)
+        fprintf(stderr, "\nT3: %d check(s) FAILED\n", t3_failures);
+    else
+        printf("\nT3: all attribute-column checks passed.\n");
+
+    return (t2_failures + t3_failures) ? 3 : 0;
 }
 
 /*
