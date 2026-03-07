@@ -1,0 +1,47 @@
+= I(nged)
+:doctype: manpage
+:mansource: BRL-CAD
+:manmanual: BRL-CAD User Commands
+
+== NAME
+i - Adds obj_name to the end of the combination named comb_name. The operation may be +, -, or u.
+
+== SYNOPSIS
+
+[source]
+----
+i {<obj_name comb_name>} [<operation>]
+----
+
+
+== DESCRIPTION
+
+Adds _obj_name_ to the end of the combination named _comb_name_. The _operation_ may be +, -, or u. If no _operation_ is specified, u is assumed. If _comb_name_ does not exist, it is created.
+
+
+== EXAMPLES
+
+The example shows the use of the *i* command to add a specified region to a combination (group).
+
+.Add an object to a combination (group).
+[example]
+====
+
+mged>*i region3 group5*::
+Adds _region3_ to the combination _group5_.
+
+
+
+====
+
+
+== AUTHOR
+
+BRL-CAD Team
+
+
+== BUG REPORTS
+
+Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

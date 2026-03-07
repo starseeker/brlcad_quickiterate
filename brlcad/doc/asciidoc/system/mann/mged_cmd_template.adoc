@@ -1,0 +1,53 @@
+= (1)
+:doctype: manpage
+:mansource: BRL-CAD
+:manmanual: BRL-CAD User Commands
+
+== NAME
+ - 
+
+== SYNOPSIS
+
+[source]
+----
+ []
+----
+
+
+== DESCRIPTION
+
+
+
+
+== EXAMPLES
+
+
+
+[example]
+====
+
+**::
+
+
+
+**::
+
+
+
+
+====
+
+[example]
+====
+**
+
+
+
+====
+
+
+== BUG REPORTS
+
+Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

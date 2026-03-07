@@ -1,0 +1,47 @@
+= C(nged)
+:doctype: manpage
+:mansource: BRL-CAD
+:manmanual: BRL-CAD User Commands
+
+== NAME
+c - Creates a BRL-CAD combination with the name combination_name.
+
+== SYNOPSIS
+
+[source]
+----
+c [-c] [-r] {<combination_name>} [<Boolean_expression>]
+----
+
+
+== DESCRIPTION
+
+The *c* command creates a _BRL-CAD_ combination with the name _combination_name_. The _-r_ option indicates that the combination is a _BRL-CAD_region. The _-c_ option is the default and indicates that the combination is not a region. The _Boolean_expression_ allows parentheses. Where no order is specified, intersections are performed before subtractions or unions; then subtractions and unions are performed, left to right. Where there is no _Boolean_expression_ and _combination_name_, a new empty combination will be created. If no _Boolean_expression_ is provided, and _combination_name_ does already exist and one of _-c_ or _-r_ is specified, then _combination_name_ is flagged to agree with the indicated option. If a new _region_ is created or an existing combination is flagged as a region with this command, its region-specific attributes will be set according to the current defaults (see *regdef*). The *comb* and *r* commands may also be used to create combinations.
+
+
+== EXAMPLES
+
+The example shows how to use the *c* command to create a combination according to a given formula.
+
+.Creating a combination according to a formula.
+[example]
+====
+
+mged>*c -c abc (a u b)-(a + d)*::
+Creates a combination named _abc_ according to the formula _(a u b) - (a + d)_.
+
+
+
+====
+
+
+== AUTHOR
+
+BRL-CAD Team
+
+
+== BUG REPORTS
+
+Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -1029,6 +1029,12 @@ void Parser::parse_blocks(Reader& reader, Block& parent) {
 void Parser::parse_blocks_until(Reader& reader, Block& parent,
                                 const std::string& terminator) {
     while (reader.has_more_lines()) {
+        // Skip blank lines before checking for the closing delimiter.
+        // Without this, a blank line separating the last block from the
+        // closing delimiter would be consumed inside parse_next_block(),
+        // causing the delimiter to be mistaken for a new block opening.
+        reader.skip_blank_lines();
+        if (!reader.has_more_lines()) { break; }
         auto peeked = reader.peek_line();
         if (peeked && std::string{*peeked} == terminator) {
             reader.skip_line();  // consume the closing delimiter
