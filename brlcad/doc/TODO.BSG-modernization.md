@@ -1095,3 +1095,35 @@ suites provide a clean baseline again.
 - ✅ `libbsg/snap.c`: added exported `bv_snap_*` wrapper functions for backward compat.
 - ✅ Full build clean; **23/23 draw+bview tests pass** (3 pre-existing image-compare failures unchanged).
 - ✅ `libbsg.so.1.0.0` exports 203 `bsg_*` + `bv_*` symbols; `libbv.so.20.0.1` is a 31 KB stub.
+
+**Session 26 (bsg/ headers self-contained, libbv library removed)**:
+- ✅ All `bsg/` headers made fully self-contained — zero `#include "bv/"` in any `bsg/` header.
+  - `bsg/defines.h` absorbs all content from `bv/defines.h`, `bv/faceplate.h`, `bv/tcl_data.h`.
+  - `bsg/adc.h`, `bsg/vlist.h`, `bsg/polygon.h`, `bsg/tig.h`, `bsg/plot3.h`, `bsg/vectfont.h`
+    all have `bv/` includes removed or inlined.
+- ✅ `BV_EXPORT` aliased to `BSG_EXPORT` for in-tree compatibility.
+- ✅ `libbv` tests disabled in `libbv/tests/CMakeLists.txt`; migrated to `libbsg/tests/`.
+  - New test binaries: `bsg_test` (list.c + vlist.c) and `bsg_plot3`.
+- ✅ libbv stub library removed from CMake build (`libbv/CMakeLists.txt` → `cmakefiles()` only).
+- ✅ `libbv` `set_deps` removed from `source_dirs.cmake`.
+- ✅ `include/CMakeLists.txt`: `bv.h` and `bv/` subdirectory removed; `bsg.h` → `REQUIRED libbsg`.
+- ✅ External CMakeLists (Creo, Cubit, Unigraphics): `libbv` → `libbsg`.
+- ✅ Build verified: libbsg, bsg_test, bsg_plot3 build clean.
+- ✅ `bv/` header files and `libbv/` source files left on disk (tracked via `cmakefiles()` only).
+
+**Session 27 (physical deletion of bv/ and libbv/)**:
+- ✅ `git rm` of all 14 `include/bv/` header files + `CMakeLists.txt`.
+- ✅ `git rm` of all `src/libbv/` source files (15 top-level, 8 `tig/`, all tests).
+- ✅ `include/bv.h` converted to a compatibility shim: includes `bsg.h` + `bsg/compat.h`, deprecated.
+- ✅ Fixed stale `#include "bv/faceplate.h"` in `libbsg/adc.c` (types available via `bsg/adc.h`).
+- ✅ Added `misc/pkgconfig/libbsg.pc.in`; updated `libbv.pc.in` to redirect to `libbsg`.
+- ✅ Updated `misc/pkgconfig/CMakeLists.txt` to include `libbsg.pc.in`.
+- ✅ Updated `misc/win32-msvc/Dll/CMakeLists.txt`: `libbv-static` → `libbsg-static`.
+- ✅ Updated `doc/legal/embedded/CMakeLists.txt`: `TRIGGER libbv` → `TRIGGER libbsg`.
+- ✅ Created `misc/doxygen/libbsg.dox`; added `libbsg` to `DOX_LIBS` and dox file list.
+- ✅ Fixed `bsg_test.c.in` template variable mismatch (`BSG_TEST_*` → `BVIEW_TEST_*`): **18/18 tests pass**.
+- ✅ Migrated remaining 11 `#include "bv.h"` → `#include "bsg.h"` in public headers:
+  - `include/dm.h`, `include/rt/functab.h`, 8 × `include/qtcad/*.h`, `regress/fuzz/fuzz_ged.cpp`.
+- ✅ Updated `bsg.h` doc comment to remove references to deleted `bv/` sub-headers.
+- ✅ Build verified: `libdm`, `librt`, `libged`, `libnmg`, `libbrep` all build clean.
+- ✅ **18/18 bsg tests pass** (bsg_test list/vlist, bsg_plot3 valid/invalid).

@@ -27,8 +27,8 @@
  * graph conventions.  See @c bsg/defines.h for the type mapping table and
  * the phased migration plan.
  *
- * New code should include this header (or specific sub-headers) in place of
- * the legacy @c <bv/defines.h>, @c <bv/util.h>, and @c <bv/lod.h> headers.
+ * New code should include this header (or specific sub-headers).  The
+ * legacy @c bv.h convenience header is a deprecated alias for this header.
  *
  * Code that needs to remain source-compatible with the old @c bv_* names
  * during the transition period should also include @c <bsg/compat.h>.
