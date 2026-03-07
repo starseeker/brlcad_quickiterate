@@ -80,6 +80,7 @@
 #ifndef Q_MOC_RUN
 #include "raytrace.h"
 #include "ged.h"
+#include "../libged/dbi.h"
 #endif
 
 // QgItems correspond to the actual Qt entries displayed in the view.  If a
@@ -206,7 +207,7 @@ class QTCAD_EXPORT QgItem
  * created lazily in response to view requests, working from a seed set created
  * from the top level objects in a database.
  */
-class QTCAD_EXPORT QgModel : public QAbstractItemModel
+class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 {
     Q_OBJECT
 
@@ -217,6 +218,9 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	// .g Db interface and containers
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
 	struct ged *gedp = NULL;
+
+	// IDbiObserver implementation - called after DbiState::update() completes
+	void on_dbi_changed(const std::vector<DbiChangeEvent> &events) override;
 
 	// Updates to .g models are potentially far-reaching - in principle, a
 	// single GED command execution can change every item in the database.
