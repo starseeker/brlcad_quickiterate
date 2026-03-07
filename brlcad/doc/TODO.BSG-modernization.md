@@ -1008,4 +1008,17 @@ suites provide a clean baseline again.
 **Session 18 (Step 5 type safety + DBI bug fix)**:
 - ✅ Step 5 partial — `bsg_shape.i` field type changed from `struct bv_scene_obj_internal *` to `struct bsg_shape_internal *` in `bv/defines.h`. The `BSG_SHAPI` macro is now a direct field access with no cast; `BSG_SHAPI_CAST` removed. All 5 allocation sites in `util.cpp` and 1 in `scene_graph.cpp` use `new bsg_shape_internal` directly.
 - ✅ DBI garbage-collection bug fixed: in `DbiState::update()` the condition for collecting unused `i_map`/`i_str` entries was inverted (`!= used.end()` → `== used.end()`), causing used instance-hash entries to be silently erased. This made `print_hash()` crash when the select test tried to print expanded selection paths. Fixed by one-character change.
-- ✅ All 5 draw test suites regenerated and passing (100%): basic, faceplate, lod, select, quad.*
+- ✅ All 5 draw test suites regenerated and passing (100%): basic, faceplate, lod, select, quad.  
+**Session 19 (BSG_SCENEI elimination + bsg_scene_fsos type fix)**:
+- ✅ Created `include/bsg/scene_set.h` — shared semi-private header defining `bsg_scene_set_internal` (with `bsg_shape *free_scene_obj` field); only `bu/list.h` + `bu/ptbl.h` dependencies; forward-declares `bsg_shape`.
+- ✅ Changed `bview_set.i` from `bview_set_internal *` to `bsg_scene_set_internal *` in `bv/defines.h`. Removed obsolete `bview_set_internal` forward declaration.
+- ✅ Changed `bview_objs.free_scene_obj` from `bv_scene_obj *` to `bsg_shape *` in `bv/defines.h`.
+- ✅ Updated `src/libbv/bv_private.h`: includes `bsg/scene_set.h`; `bview_set_internal` is now a typedef alias for `bsg_scene_set_internal`.
+- ✅ Updated `src/libbsg/bsg_private.h`: replaced inline `bsg_scene_set_internal` struct definition with `#include "bsg/scene_set.h"`.
+- ✅ **Eliminated BSG_SCENEI cast** in `libbsg/view_sets.cpp` and `libbsg/util.cpp`: both macros are now direct `->i` field accesses with no `reinterpret_cast`.
+- ✅ Eliminated `reinterpret_cast<bview_set_internal *>` in `bsg_scene_init` (`libbsg/view_sets.cpp`).
+- ✅ Fixed `bsg_scene_fsos()` return type from `bv_scene_obj *` to `bsg_shape *` in both `include/bsg/util.h` and `src/libbsg/view_sets.cpp`.
+- ✅ Removed `(bsg_shape *)` casts from 3 callers: `mged/dodraw.c`, `libged/display_list.c`, `libged/zap/zap.c`.
+- ✅ Updated `libbsg/util.cpp` `gv_objs.free_scene_obj` init/free/access — all 3 casts removed.
+- ✅ Updated `libbv/view_sets.cpp` and `libbv/util.cpp` — type-aligned with new field types; legacy casts contained to libbv.
+- ✅ All 5 draw test suites pass (100%): basic, faceplate, lod, select, quad.*

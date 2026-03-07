@@ -290,7 +290,7 @@ bv_init(struct bview *gvp, struct bview_set *s)
 
     // Until the app tells us differently, we need to use our local
     // containers
-    BU_GET(gvp->gv_objs.free_scene_obj, struct bv_scene_obj);
+    BU_GET(gvp->gv_objs.free_scene_obj, bsg_shape);
     BU_LIST_INIT(&gvp->gv_objs.free_scene_obj->l);
     BU_LIST_INIT(&gvp->gv_objs.gv_vlfree);
 
@@ -343,20 +343,20 @@ bv_free(struct bview *gvp)
     BU_PUT(gvp->gv_objs.view_objs, struct bu_ptbl);
 
     // TODO - clean up local vlfree list contents
-    struct bv_scene_obj *sp, *nsp;
-    sp = BU_LIST_NEXT(bv_scene_obj, &gvp->gv_objs.free_scene_obj->l);
+    bsg_shape *sp, *nsp;
+    sp = BU_LIST_NEXT(bsg_shape, &gvp->gv_objs.free_scene_obj->l);
     while (BU_LIST_NOT_HEAD(sp, &gvp->gv_objs.free_scene_obj->l)) {
-	nsp = BU_LIST_PNEXT(bv_scene_obj, sp);
+	nsp = BU_LIST_PNEXT(bsg_shape, sp);
 	BU_LIST_DEQUEUE(&((sp)->l));
 	if (sp->s_free_callback)
 	    (*sp->s_free_callback)(sp);
 	if (sp->s_dlist_free_callback)
 	    (*sp->s_dlist_free_callback)(sp);
 	bu_ptbl_free(&sp->children);
-	BU_PUT(sp, struct bv_scene_obj);
+	BU_PUT(sp, bsg_shape);
 	sp = nsp;
     }
-    BU_PUT(gvp->gv_objs.free_scene_obj, struct bv_scene_obj);
+    BU_PUT(gvp->gv_objs.free_scene_obj, bsg_shape);
     if (gvp->gv_s)
 	bu_ptbl_free(&gvp->gv_s->gv_snap_objs);
     if (gvp->gv_s != &gvp->gv_ls)
@@ -1086,10 +1086,10 @@ bv_obj_create(struct bview *v, int type)
     struct bv_scene_obj *free_scene_obj = NULL;
     struct bu_list *vlfree = NULL;
     if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || v->independent || !v->vset)  {
-	free_scene_obj = v->gv_objs.free_scene_obj;
+	free_scene_obj = (struct bv_scene_obj *)v->gv_objs.free_scene_obj;
 	vlfree = &v->gv_objs.gv_vlfree;
     } else {
-	free_scene_obj = v->vset->i->free_scene_obj;
+	free_scene_obj = (struct bv_scene_obj *)v->vset->i->free_scene_obj;
 	vlfree = &v->vset->i->vlfree;
     }
     if (!free_scene_obj)
@@ -1449,7 +1449,7 @@ bv_obj_get_vo(struct bv_scene_obj *s, struct bview *v)
     struct bv_scene_obj *vo = NULL;
 
     // View local object - use the view obj pool
-    struct bv_scene_obj *free_scene_obj = v->vset->i->free_scene_obj;
+    struct bv_scene_obj *free_scene_obj = (struct bv_scene_obj *)v->vset->i->free_scene_obj;
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC((vo), struct bv_scene_obj);
 	vo->i = new bv_scene_obj_internal;

@@ -41,12 +41,13 @@
 #include "bv/vlist.h"
 #include "./bsg_private.h"
 
-/* Cast helpers for internal struct access.  bsg_shape.i is bsg_shape_internal*
- * (defined in bsg_private.h), so BSG_SHAPI is now a direct accessor with no cast.
- * bsg_scene is a typedef of bview_set whose .i is bview_set_internal*, so
- * BSG_SCENEI still needs a reinterpret_cast. */
+/* Cast helpers for internal struct access.
+ * bsg_shape.i is bsg_shape_internal* (defined in bsg_private.h),
+ * so BSG_SHAPI is a direct accessor with no cast.
+ * bsg_scene.i is bsg_scene_set_internal* (defined in bsg/scene_set.h),
+ * so BSG_SCENEI is also a direct accessor with no cast. */
 #define BSG_SHAPI(s)    ((s)->i)
-#define BSG_SCENEI(vs)  (reinterpret_cast<bsg_scene_set_internal *>((vs)->i))
+#define BSG_SCENEI(vs)  ((vs)->i)
 
 /* Local implementation: vlist bounding box (avoids link dep on libbv) */
 static int
@@ -346,7 +347,7 @@ bsg_view_init(bsg_view *gvp, bsg_scene *s)
 
     // Until the app tells us differently, we need to use our local
     // containers
-    { bsg_shape *_fso; BU_GET(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = (struct bv_scene_obj *)_fso; }
+    { bsg_shape *_fso; BU_GET(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = _fso; }
     BU_LIST_INIT(&gvp->gv_objs.free_scene_obj->l);
     BU_LIST_INIT(&gvp->gv_objs.gv_vlfree);
 
@@ -412,7 +413,7 @@ bsg_view_free(bsg_view *gvp)
 	BU_PUT(sp, bsg_shape);
 	sp = nsp;
     }
-    { bsg_shape *_fso = (bsg_shape *)gvp->gv_objs.free_scene_obj; BU_PUT(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = nullptr; }
+    { bsg_shape *_fso = gvp->gv_objs.free_scene_obj; BU_PUT(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = nullptr; }
     if (gvp->gv_s)
 	bu_ptbl_free(&gvp->gv_s->gv_snap_objs);
     if (gvp->gv_s != &gvp->gv_ls)
@@ -1142,7 +1143,7 @@ bsg_shape_create(bsg_view *v, int type)
     bsg_shape *free_scene_obj = NULL;
     struct bu_list *vlfree = NULL;
     if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || v->independent || !v->vset)  {
-	free_scene_obj = (bsg_shape *)v->gv_objs.free_scene_obj;
+	free_scene_obj = v->gv_objs.free_scene_obj;
 	vlfree = &v->gv_objs.gv_vlfree;
     } else {
 	free_scene_obj = BSG_SCENEI(v->vset)->free_scene_obj;
