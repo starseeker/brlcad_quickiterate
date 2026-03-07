@@ -31,6 +31,7 @@
 #include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "bsg/util.h"
