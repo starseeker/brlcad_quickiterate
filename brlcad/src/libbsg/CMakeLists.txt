@@ -2,20 +2,21 @@ set(
   LIBBSG_SRCS
   diff.c
   hash.c
+  knobs.cpp
+  lod.cpp
+  polygon.c
   scene_graph.cpp
+  snap.c
+  util.cpp
+  view_sets.cpp
 )
 
 # libbsg_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake.
-# libbsg depends on libbv (Phase 1: bsg_* functions delegate to bv_*) and needs
-# LMDB (used by bv_lod internals).
+# libbsg is independent of libbv; it needs LMDB for LoD mesh caching.
 brlcad_find_package(LMDB REQUIRED)
 
 set(BSG_LOCAL_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}
-  # TODO: libbv source dir is included here for bv_private.h (Phase 1 compatibility
-  # only).  When bsg_shape becomes an independent struct (Phase 2), remove this entry
-  # and update bsg_private.h to define bsg_scene_obj_internal independently.
-  ${BRLCAD_SOURCE_DIR}/src/libbv
   ${LMDB_INCLUDE_DIR}
 )
 

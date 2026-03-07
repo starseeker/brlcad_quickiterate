@@ -28,7 +28,9 @@
 #include "vmath.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "bu/sort.h"
 #include "bu/str.h"
+#include "bu/vls.h"
 #include "bn/mat.h"
 #include "bn/tol.h"
 #include "bv/vlist.h"
@@ -846,6 +848,264 @@ bsg_dup_view_polygon(const char *nname, bsg_shape *s)
     // Return new object
     return np;
 }
+
+
+
+
+/* ====================================================================== */
+/* Direct implementations (no libbv dependency)                           */
+/* ====================================================================== */
+
+struct bg_polygon *
+bsg_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slope, fastf_t line_spacing)
+{
+    struct bg_polygon poly_2d;
+
+    if (poly->num_contours < 1 || poly->contour[0].num_points < 3 || !vp)
+	return NULL;
+
+    vect2d_t b2d_min = {MAX_FASTF, MAX_FASTF};
+    vect2d_t b2d_max = {-MAX_FASTF, -MAX_FASTF};
+
+    poly_2d.num_contours = poly->num_contours;
+    poly_2d.hole = (int *)bu_calloc(poly->num_contours, sizeof(int), "p_hole");
+    poly_2d.contour = (struct bg_poly_contour *)bu_calloc(poly->num_contours, sizeof(struct bg_poly_contour), "p_contour");
+    for (size_t i = 0; i < poly->num_contours; ++i) {
+	poly_2d.hole[i] = poly->hole[i];
+	poly_2d.contour[i].num_points = poly->contour[i].num_points;
+	poly_2d.contour[i].point = (point_t *)bu_calloc(poly->contour[i].num_points, sizeof(point_t), "pc_point");
+	for (size_t j = 0; j < poly->contour[i].num_points; ++j) {
+	    vect2d_t p2d;
+	    bg_plane_closest_pt(&p2d[0], &p2d[1], vp, &poly->contour[i].point[j]);
+	    VSET(poly_2d.contour[i].point[j], p2d[0], p2d[1], 0);
+	    // bounding box
+	    V2MINMAX(b2d_min, b2d_max, p2d);
+	}
+    }
+
+    //bg_polygon_plot("fill_mask.plot3", poly_2d.contour[0].point, poly_2d.contour[0].num_points, 255, 255, 0);
+
+    /* Generate lines with desired slope - enough to cover the bounding box with the
+     * desired pattern.  Add these lines as non-closed contours into a bg_polygon.
+     *
+     * Starting from the center of the bbox, construct line segments parallel
+     * to line_slope that span the bbox and step perpendicular to line_slope in both
+     * directions until the segments no longer intersect the bbox.  If we step
+     * beyond the length of 0.5 of the bbox diagonal in each direction, we'll
+     * be far enough.
+     */
+    vect2d_t bcenter, lseg, per;
+    bcenter[0] = (b2d_max[0] - b2d_min[0]) * 0.5 + b2d_min[0];
+    bcenter[1] = (b2d_max[1] - b2d_min[1]) * 0.5 + b2d_min[1];
+    fastf_t ldiag = DIST_PNT2_PNT2(b2d_max, b2d_min);
+    V2MOVE(lseg, line_slope);
+    V2UNITIZE(lseg);
+    int dir_step_cnt = (int)(0.5*ldiag / fabs(line_spacing) + 1);
+
+    // If we're too small to handle the specified spacing, don't go any further
+    if (dir_step_cnt < 2) {
+	bg_polygon_free(&poly_2d);
+	return NULL;
+    }
+
+    int step_cnt = 2*dir_step_cnt - 1; // center line is not repeated
+
+    struct bg_polygon poly_lines;
+    poly_lines.num_contours = step_cnt;
+    poly_lines.hole = (int *)bu_calloc(poly_lines.num_contours, sizeof(int), "l_hole");
+    poly_lines.contour = (struct bg_poly_contour *)bu_calloc(poly_lines.num_contours, sizeof(struct bg_poly_contour), "p_contour");
+
+    // Construct the first contour (center line) first as it is not mirrored
+    struct bg_poly_contour *c = &poly_lines.contour[0];
+    vect2d_t p2d1, p2d2;
+    poly_lines.hole[0] = 0;
+    c->num_points = 2;
+    c->open = 1;
+    c->point = (point_t *)bu_calloc(c->num_points, sizeof(point_t), "l_point");
+    V2JOIN1(p2d1, bcenter, ldiag*0.51, lseg);
+    V2JOIN1(p2d2, bcenter, -ldiag*0.51, lseg);
+    VSET(c->point[0], p2d1[0], p2d1[1], 0);
+    VSET(c->point[1], p2d2[0], p2d2[1], 0);
+
+    // step 1
+    V2SET(per, -lseg[1], lseg[0]);
+    V2UNITIZE(per);
+    for (int i = 1; i < dir_step_cnt+1; ++i) {
+	c = &poly_lines.contour[i];
+	c->num_points = 2;
+	c->open = 1;
+	c->point = (point_t *)bu_calloc(c->num_points, sizeof(point_t), "l_point");
+	V2JOIN2(p2d1, bcenter, fabs(line_spacing) * i, per, ldiag*0.51, lseg);
+	V2JOIN2(p2d2, bcenter, fabs(line_spacing) * i, per, -ldiag*0.51, lseg);
+	VSET(c->point[0], p2d1[0], p2d1[1], 0);
+	VSET(c->point[1], p2d2[0], p2d2[1], 0);
+    }
+
+    // step 2
+    V2SET(per, lseg[1], -lseg[0]);
+    V2UNITIZE(per);
+    for (int i = 1+dir_step_cnt; i < step_cnt; ++i) {
+	c = &poly_lines.contour[i];
+	c->num_points = 2;
+	c->open = 1;
+	c->point = (point_t *)bu_calloc(c->num_points, sizeof(point_t), "l_point");
+	V2JOIN2(p2d1, bcenter, fabs(line_spacing) * ((double)i - dir_step_cnt), per, ldiag*0.51, lseg);
+	V2JOIN2(p2d2, bcenter, fabs(line_spacing) * ((double)i - dir_step_cnt), per, -ldiag*0.51, lseg);
+	VSET(c->point[0], p2d1[0], p2d1[1], 0);
+	VSET(c->point[1], p2d2[0], p2d2[1], 0);
+    }
+
+    /* Take the generated lines and apply a clipper intersect using the 2D
+     * polygon projection as a mask.  The resulting polygon should define the
+     * fill lines */
+    mat_t m;
+    MAT_IDN(m);
+    struct bg_polygon *fpoly = bg_clip_polygon(bg_Intersection, &poly_lines, &poly_2d, CLIPPER_MAX, NULL);
+    if (!fpoly || !fpoly->num_contours) {
+	bg_polygon_free(&poly_lines);
+	bg_polygon_free(&poly_2d);
+	return NULL;
+    }
+
+#if 0
+    for (size_t i = 0; i < fpoly->num_contours; i++) {
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "fpoly%ld.plot3", i);
+	bg_polygon_plot(bu_vls_cstr(&fname), fpoly->contour[i].point, fpoly->contour[i].num_points, 0, 0, 255);
+	bu_vls_free(&fname);
+    }
+#endif
+
+    /* Use bg_plane_pt_at to produce the final 3d fill line polygon */
+    struct bg_polygon *poly_fill;
+    BU_GET(poly_fill, struct bg_polygon);
+    poly_fill->num_contours = fpoly->num_contours;
+    poly_fill->hole = (int *)bu_calloc(fpoly->num_contours, sizeof(int), "hole");
+    poly_fill->contour = (struct bg_poly_contour *)bu_calloc(fpoly->num_contours, sizeof(struct bg_poly_contour), "f_contour");
+    for (size_t i = 0; i < fpoly->num_contours; ++i) {
+	poly_fill->hole[i] = fpoly->hole[i];
+	poly_fill->contour[i].open = 1;
+	poly_fill->contour[i].num_points = fpoly->contour[i].num_points;
+	poly_fill->contour[i].point = (point_t *)bu_calloc(fpoly->contour[i].num_points, sizeof(point_t), "f_point");
+	for (size_t j = 0; j < fpoly->contour[i].num_points; ++j) {
+	    bg_plane_pt_at(&poly_fill->contour[i].point[j], vp, fpoly->contour[i].point[j][0], fpoly->contour[i].point[j][1]);
+	}
+    }
+
+#if 0
+    for (size_t i = 0; i < poly_fill->num_contours; i++) {
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "poly3d%ld.plot3", i);
+	bg_polygon_plot(bu_vls_cstr(&fname), poly_fill->contour[i].point, poly_fill->contour[i].num_points, 0, 0, 255);
+	bu_vls_free(&fname);
+    }
+#endif
+
+    bg_polygon_free(&poly_lines);
+    bg_polygon_free(&poly_2d);
+    bg_polygon_free(fpoly);
+    BU_PUT(fpoly, struct bg_polygon);
+
+    return poly_fill;
+}
+
+
+
+int
+bsg_polygon_calc_fdelta(struct bv_polygon *p)
+{
+    if (!p)
+	return 0;
+    return 0;
+}
+
+int
+bsg_polygon_csg(bsg_shape *target, bsg_shape *stencil, bg_clip_t op)
+{
+    // Need data
+    if (!target || !stencil)
+	return 0;
+
+    // Need polygons
+    if (!(target->s_type_flags & BV_POLYGONS) || !(stencil->s_type_flags & BV_POLYGONS))
+	return 0;
+
+    // None op == no change
+    if (op == bg_None)
+	return 0;
+
+    struct bv_polygon *polyA = (struct bv_polygon *)target->s_i_data;
+    struct bv_polygon *polyB = (struct bv_polygon *)stencil->s_i_data;
+    if (!polyA || !polyB)
+	return 0;
+
+    // If the stencil is empty, it's all moot
+    if (!polyB->polygon.num_contours)
+	return 0;
+
+    // Make sure the polygons overlap before we operate, since clipper results are
+    // always general polygons.  We don't want to perform a no-op clip and lose our
+    // type info.  There is however one exception to this - if our target is empty
+    // and our op is a union, we still want to proceed even without an overlap.
+    if (polyA->polygon.num_contours || op != bg_Union) {
+	const struct bn_tol poly_tol = BN_TOL_INIT_TOL;
+	if (!stencil->s_v)
+	    return 0;
+	int ovlp = bg_polygons_overlap(&polyA->polygon, &polyB->polygon, &polyA->vp, &poly_tol, stencil->s_v->gv_scale);
+	if (!ovlp)
+	    return 0;
+    } else {
+	// In the case of a union into an empty polygon, what we do is copy the
+	// stencil intact into target and preserve its type - no need to use
+	// bg_clip_polygon and lose the type info
+	bg_polygon_free(&polyA->polygon);
+	bg_polygon_cpy(&polyA->polygon, &polyB->polygon);
+
+	// We want to leave the color and fill settings in dest, but we should
+	// sync some of the information so the target polygon shape can be
+	// updated correctly.  In particular, for a non-generic polygon,
+	// origin_point is important to updating.
+	polyA->type = polyB->type;
+	polyA->vZ = polyB->vZ;
+	polyA->curr_contour_i = polyB->curr_contour_i;
+	polyA->curr_point_i = polyB->curr_point_i;
+	VMOVE(polyA->origin_point, polyB->origin_point);
+	HMOVE(polyA->vp, polyB->vp);
+	bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	return 1;
+    }
+
+    // Perform the specified operation and get the new polygon
+    struct bg_polygon *cp = bg_clip_polygon(op, &polyA->polygon, &polyB->polygon, CLIPPER_MAX, &polyA->vp);
+
+    // Replace the original target polygon with the result
+    bg_polygon_free(&polyA->polygon);
+    polyA->polygon.num_contours = cp->num_contours;
+    polyA->polygon.hole = cp->hole;
+    polyA->polygon.contour = cp->contour;
+
+    // We stole the data from cp and put it in polyA - no longer need the
+    // original cp container
+    BU_PUT(cp, struct bg_polygon);
+
+    // clipper results are always general polygons
+    polyA->type = BV_POLYGON_GENERAL;
+
+    // Make sure everything's current
+    bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+
+    return 1;
+}
+
+
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8
 
 
 /*

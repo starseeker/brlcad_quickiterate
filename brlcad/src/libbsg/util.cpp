@@ -41,6 +41,62 @@
 #include "bv/vlist.h"
 #include "./bsg_private.h"
 
+/* Cast helpers for internal struct access.  The public header uses
+ * incomplete forward-declared bv_*_internal types; the actual allocated
+ * objects are the bsg_*_internal types defined in bsg_private.h. */
+#define BSG_SHAPI(s)    (reinterpret_cast<bsg_shape_internal *>((s)->i))
+#define BSG_SCENEI(vs)  (reinterpret_cast<bsg_scene_set_internal *>((vs)->i))
+#define BSG_SHAPI_CAST(p) (reinterpret_cast<bv_scene_obj_internal *>(p))
+
+/* Local implementation: vlist bounding box (avoids link dep on libbv) */
+static int
+bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
+{
+    struct bv_vlist *vp;
+    int cmd = 0;
+    int disp_mode = 0;
+    int dispmode_used = 0;
+    size_t len = 0;
+    VSETALL(*bmin,  MAX_FASTF);
+    VSETALL(*bmax, -MAX_FASTF);
+    for (BU_LIST_FOR(vp, bv_vlist, vlistp)) {
+        size_t i;
+        for (i = 0; i < vp->nused; i++) {
+            int c = vp->cmd[i];
+            point_t *pt = &vp->pt[i];
+            if (disp_mode == 1 && c != BV_VLIST_MODEL_MAT) continue;
+            disp_mode = 0;
+            switch (c) {
+                case BV_VLIST_POLY_START: case BV_VLIST_POLY_VERTNORM:
+                case BV_VLIST_TRI_START: case BV_VLIST_TRI_VERTNORM:
+                case BV_VLIST_POINT_SIZE: case BV_VLIST_LINE_WIDTH:
+                case BV_VLIST_MODEL_MAT: break;
+                case BV_VLIST_LINE_MOVE: case BV_VLIST_LINE_DRAW:
+                case BV_VLIST_POLY_MOVE: case BV_VLIST_POLY_DRAW:
+                case BV_VLIST_POLY_END: case BV_VLIST_TRI_MOVE:
+                case BV_VLIST_TRI_DRAW: case BV_VLIST_TRI_END:
+                    V_MIN((*bmin)[X], (*pt)[X]); V_MAX((*bmax)[X], (*pt)[X]);
+                    V_MIN((*bmin)[Y], (*pt)[Y]); V_MAX((*bmax)[Y], (*pt)[Y]);
+                    V_MIN((*bmin)[Z], (*pt)[Z]); V_MAX((*bmax)[Z], (*pt)[Z]);
+                    break;
+                case BV_VLIST_DISPLAY_MAT: disp_mode = 1; dispmode_used = 1; /* fall through */
+                case BV_VLIST_POINT_DRAW:
+                    V_MIN((*bmin)[X], (*pt)[X]-1.0); V_MAX((*bmax)[X], (*pt)[X]+1.0);
+                    V_MIN((*bmin)[Y], (*pt)[Y]-1.0); V_MAX((*bmax)[Y], (*pt)[Y]+1.0);
+                    V_MIN((*bmin)[Z], (*pt)[Z]-1.0); V_MAX((*bmax)[Z], (*pt)[Z]+1.0);
+                    break;
+                default: cmd = c; break;
+            }
+        }
+        len += vp->nused;
+    }
+    if (length) *length = len;
+    if (dispmode) *dispmode = dispmode_used;
+    return cmd;
+}
+
+
+
 #define VIEW_NAME_MAXTRIES 100000
 #define DM_DEFAULT_FONT_SIZE 20
 
@@ -184,7 +240,7 @@ _data_tclcad_init(struct bv_data_tclcad *d)
     d->gv_prim_labels.gos_text_color[2] = 0;
 }
 
-void
+extern "C" void
 bsg_view_init(bsg_view *gvp, bsg_scene *s)
 {
     if (!gvp)
@@ -290,7 +346,7 @@ bsg_view_init(bsg_view *gvp, bsg_scene *s)
 
     // Until the app tells us differently, we need to use our local
     // containers
-    BU_GET(gvp->gv_objs.free_scene_obj, bsg_shape);
+    { bsg_shape *_fso; BU_GET(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = (struct bv_scene_obj *)_fso; }
     BU_LIST_INIT(&gvp->gv_objs.free_scene_obj->l);
     BU_LIST_INIT(&gvp->gv_objs.gv_vlfree);
 
@@ -330,7 +386,7 @@ bsg_view_init(bsg_view *gvp, bsg_scene *s)
     bsg_view_update(gvp);
 }
 
-void
+extern "C" void
 bsg_view_free(bsg_view *gvp)
 {
     if (!gvp)
@@ -356,7 +412,7 @@ bsg_view_free(bsg_view *gvp)
 	BU_PUT(sp, bsg_shape);
 	sp = nsp;
     }
-    BU_PUT(gvp->gv_objs.free_scene_obj, bsg_shape);
+    { bsg_shape *_fso = (bsg_shape *)gvp->gv_objs.free_scene_obj; BU_PUT(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = nullptr; }
     if (gvp->gv_s)
 	bu_ptbl_free(&gvp->gv_s->gv_snap_objs);
     if (gvp->gv_s != &gvp->gv_ls)
@@ -442,7 +498,7 @@ _bound_objs_view(int *is_empty, vect_t min, vect_t max, struct bu_ptbl *so, bsg_
 }
 
 
-void
+extern "C" void
 bsg_view_autoview(bsg_view *v, double factor, int all_view_objs)
 {
     vect_t min, max;
@@ -518,7 +574,7 @@ bsg_view_autoview(bsg_view *v, double factor, int all_view_objs)
  * FIXME: this routine is suspect and needs investigating.  if run
  * during view initialization, the shaders regression test fails.
  */
-void
+extern "C" void
 bsg_view_mat_aet(bsg_view *v)
 {
     mat_t tmat;
@@ -538,7 +594,7 @@ bsg_view_mat_aet(bsg_view *v)
     bn_mat_mul2(tmat, v->gv_rotation);
 }
 
-void
+extern "C" void
 bsg_view_settings_init(struct bview_settings *s)
 {
     s->gv_cleared = 1;
@@ -635,7 +691,7 @@ bsg_view_settings_init(struct bview_settings *s)
 
 // TODO - investigate saveview/loadview logic, see if anything
 // makes sense to move here
-void
+extern "C" void
 bsg_view_sync(bsg_view *dest, bsg_view *src)
 {
     if (!src || !dest)
@@ -668,7 +724,7 @@ bsg_view_sync(bsg_view *dest, bsg_view *src)
     MAT_COPY(dest->gv_pmat, src->gv_pmat);
 }
 
-void
+extern "C" void
 bsg_view_update(bsg_view *gvp)
 {
     vect_t work, work1;
@@ -731,8 +787,8 @@ bsg_view_update(bsg_view *gvp)
     }
 }
 
-int
-bsg_material_sync(bsg_material *dest, bsg_material *src)
+extern "C" int
+bsg_material_sync(bsg_material *dest, const bsg_material *src)
 {
     int ret = 0;
     if (!dest || !src)
@@ -778,7 +834,7 @@ bsg_material_sync(bsg_material *dest, bsg_material *src)
     return ret;
 }
 
-int
+extern "C" int
 bsg_view_update_selected(bsg_view *gvp)
 {
     int ret = 0;
@@ -893,7 +949,7 @@ _bv_center(bsg_view *v, int vx, int vy, point_t UNUSED(keypoint), unsigned long 
     return 1;
 }
 
-int
+extern "C" int
 bsg_view_adjust(bsg_view *v, int dx, int dy, point_t keypoint, int UNUSED(mode), unsigned long long flags)
 {
     if (flags == BV_IDLE)
@@ -917,7 +973,7 @@ bsg_view_adjust(bsg_view *v, int dx, int dy, point_t keypoint, int UNUSED(mode),
 }
 
 
-int
+extern "C" int
 bsg_screen_to_view(bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fastf_t y)
 {
     if (!v)
@@ -951,7 +1007,7 @@ bsg_screen_to_view(bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fastf_t y)
     return 0;
 }
 
-int
+extern "C" int
 bsg_screen_pt(point_t *p, fastf_t x, fastf_t y, bsg_view *v)
 {
     if (!p || !v)
@@ -970,7 +1026,7 @@ bsg_screen_pt(point_t *p, fastf_t x, fastf_t y, bsg_view *v)
     return 0;
 }
 
-int
+extern "C" int
 bsg_view_plane(plane_t *p, bsg_view *v)
 {
     if (!p || !v)
@@ -987,7 +1043,7 @@ bsg_view_plane(plane_t *p, bsg_view *v)
     return bg_plane_pt_nrml(p, cpt, vnrml);
 }
 
-size_t
+extern "C" size_t
 bsg_view_clear(bsg_view *v, int flags)
 {
     if (!flags || flags & BV_DB_OBJS) {
@@ -1048,7 +1104,7 @@ bsg_view_clear(bsg_view *v, int flags)
     return ocnt;
 }
 
-void
+extern "C" void
 bsg_shape_stale(bsg_shape *s)
 {
     s->s_dlist_stale = 1;
@@ -1061,13 +1117,13 @@ bsg_shape_stale(bsg_shape *s)
     }
 
     std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-    for (vo_it = s->i->vobjs.begin(); vo_it != s->i->vobjs.end(); vo_it++) {
+    for (vo_it = BSG_SHAPI(s)->vobjs.begin(); vo_it != BSG_SHAPI(s)->vobjs.end(); vo_it++) {
 	bsg_shape *sv = vo_it->second;
 	bsg_shape_stale(sv);
     }
 }
 
-bsg_shape *
+extern "C" bsg_shape *
 bsg_shape_create(bsg_view *v, int type)
 {
     if (!v)
@@ -1086,11 +1142,11 @@ bsg_shape_create(bsg_view *v, int type)
     bsg_shape *free_scene_obj = NULL;
     struct bu_list *vlfree = NULL;
     if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || v->independent || !v->vset)  {
-	free_scene_obj = v->gv_objs.free_scene_obj;
+	free_scene_obj = (bsg_shape *)v->gv_objs.free_scene_obj;
 	vlfree = &v->gv_objs.gv_vlfree;
     } else {
-	free_scene_obj = v->vset->i->free_scene_obj;
-	vlfree = &v->vset->i->vlfree;
+	free_scene_obj = BSG_SCENEI(v->vset)->free_scene_obj;
+	vlfree = &BSG_SCENEI(v->vset)->vlfree;
     }
     if (!free_scene_obj)
 	return NULL;
@@ -1109,9 +1165,9 @@ bsg_shape_create(bsg_view *v, int type)
 	}
     } else {
 	if (type & BV_DB_OBJS) {
-	    otbl = &v->vset->i->shared_db_objs;
+	    otbl = &BSG_SCENEI(v->vset)->shared_db_objs;
 	} else {
-	    otbl = &v->vset->i->shared_view_objs;
+	    otbl = &BSG_SCENEI(v->vset)->shared_view_objs;
 	}
     }
     if (!free_scene_obj)
@@ -1121,7 +1177,7 @@ bsg_shape_create(bsg_view *v, int type)
     // We know where we're going to get the object from - get it
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC(s, bsg_shape);
-	s->i = new bsg_shape_internal;
+	s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
     } else {
 	s = BU_LIST_NEXT(bsg_shape, &free_scene_obj->l);
 	BU_LIST_DEQUEUE(&((s)->l));
@@ -1149,7 +1205,7 @@ bsg_shape_create(bsg_view *v, int type)
     return s;
 }
 
-bsg_shape *
+extern "C" bsg_shape *
 bsg_shape_get(bsg_view *v, int type)
 {
     if (!v)
@@ -1171,7 +1227,7 @@ bsg_shape_get(bsg_view *v, int type)
     return s;
 }
 
-bsg_shape *
+extern "C" bsg_shape *
 bsg_shape_get_child(bsg_shape *sp)
 {
     if (!sp)
@@ -1184,12 +1240,12 @@ bsg_shape_get_child(bsg_shape *sp)
     // Children use their parent's info
     if (BU_LIST_IS_EMPTY(&sp->free_scene_obj->l)) {
 	BU_ALLOC((s), bsg_shape);
-	s->i = new bsg_shape_internal;
+	s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
     } else {
 	s = BU_LIST_NEXT(bsg_shape, &sp->free_scene_obj->l);
 	if (!s) {
 	    BU_ALLOC((s), bsg_shape);
-	    s->i = new bsg_shape_internal;
+	    s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
 	} else {
 	    BU_LIST_DEQUEUE(&((s)->l));
 	}
@@ -1210,7 +1266,7 @@ bsg_shape_get_child(bsg_shape *sp)
     return s;
 }
 
-void
+extern "C" void
 bsg_shape_reset(bsg_shape *s)
 {
     // handle children
@@ -1225,7 +1281,7 @@ bsg_shape_reset(bsg_shape *s)
     bu_ptbl_reset(&s->children);
 
     if (s->i)
-	s->i->vobjs.clear();
+	BSG_SHAPI(s)->vobjs.clear();
 
     // If we have a callback for the internal data, use it
     if (s->s_free_callback)
@@ -1293,7 +1349,7 @@ bsg_shape_reset(bsg_shape *s)
 #define FREE_BV_SCENE_OBJ(p, fp) { \
     BU_LIST_APPEND(fp, &((p)->l)); }
 
-void
+extern "C" void
 bsg_shape_put(bsg_shape *s)
 {
     bsg_log(1, "bsg_shape_put %s[%s]", bu_vls_cstr(&s->s_name), (s->s_v) ? bu_vls_cstr(&s->s_v->gv_name) : "NULL");
@@ -1323,7 +1379,7 @@ bsg_shape_put(bsg_shape *s)
 	FREE_BV_SCENE_OBJ(s, &fs->l);
 }
 
-bsg_shape *
+extern "C" bsg_shape *
 bsg_view_find_shape(bsg_view *v, const char *name)
 {
     if (!v || !name)
@@ -1331,13 +1387,13 @@ bsg_view_find_shape(bsg_view *v, const char *name)
 
     // First look for matches in shared sets, if any are defined
     if (!v->independent && v->vset) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&v->vset->i->shared_db_objs); i++) {
-	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&v->vset->i->shared_db_objs, i);
+	for (size_t i = 0; i < BU_PTBL_LEN(&BSG_SCENEI(v->vset)->shared_db_objs); i++) {
+	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&BSG_SCENEI(v->vset)->shared_db_objs, i);
 	    if (!bu_path_match(name, bu_vls_cstr(&s_c->s_name), 0))
 		return s_c;
 	}
-	for (size_t i = 0; i < BU_PTBL_LEN(&v->vset->i->shared_view_objs); i++) {
-	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&v->vset->i->shared_view_objs, i);
+	for (size_t i = 0; i < BU_PTBL_LEN(&BSG_SCENEI(v->vset)->shared_view_objs); i++) {
+	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&BSG_SCENEI(v->vset)->shared_view_objs, i);
 	    if (!bu_path_match(name, bu_vls_cstr(&s_c->s_name), 0))
 		return s_c;
 	}
@@ -1363,13 +1419,13 @@ static bool
 _uniq_name(const char *name, bsg_view *v)
 {
     if (v->vset) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&v->vset->i->shared_db_objs); i++) {
-	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&v->vset->i->shared_db_objs, i);
+	for (size_t i = 0; i < BU_PTBL_LEN(&BSG_SCENEI(v->vset)->shared_db_objs); i++) {
+	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&BSG_SCENEI(v->vset)->shared_db_objs, i);
 	    if (BU_STR_EQUAL(name, bu_vls_cstr(&s_c->s_name)))
 		return false;
 	}
-	for (size_t i = 0; i < BU_PTBL_LEN(&v->vset->i->shared_view_objs); i++) {
-	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&v->vset->i->shared_view_objs, i);
+	for (size_t i = 0; i < BU_PTBL_LEN(&BSG_SCENEI(v->vset)->shared_view_objs); i++) {
+	    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&BSG_SCENEI(v->vset)->shared_view_objs, i);
 	    if (BU_STR_EQUAL(name, bu_vls_cstr(&s_c->s_name)))
 		return false;
 	}
@@ -1391,7 +1447,7 @@ _uniq_name(const char *name, bsg_view *v)
     return true;
 }
 
-void
+extern "C" void
 bsg_view_uniq_name(struct bu_vls *oname, const char *seed, bsg_view *v)
 {
     if (!oname || !v)
@@ -1418,15 +1474,15 @@ bsg_view_uniq_name(struct bu_vls *oname, const char *seed, bsg_view *v)
     bu_vls_free(&vseed);
 }
 
-bsg_shape *
+extern "C" bsg_shape *
 bsg_shape_for_view(bsg_shape *s, bsg_view *v)
 {
     if (!v || !s || !s->i)
 	return NULL;
 
     std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-    vo_it = s->i->vobjs.find(v);
-    if (vo_it == s->i->vobjs.end()) {
+    vo_it = BSG_SHAPI(s)->vobjs.find(v);
+    if (vo_it == BSG_SHAPI(s)->vobjs.end()) {
 	bsg_log(1, "bsg_shape_for_view %s(%s) - NONE", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name));
 	return NULL;
     }
@@ -1434,30 +1490,30 @@ bsg_shape_for_view(bsg_shape *s, bsg_view *v)
     return vo_it->second;
 }
 
-bsg_shape *
+extern "C" bsg_shape *
 bsg_shape_get_view_obj(bsg_shape *s, bsg_view *v)
 {
     if (!v || !s || !s->i)
 	return NULL;
 
     std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-    vo_it = s->i->vobjs.find(v);
-    if (vo_it != s->i->vobjs.end())
+    vo_it = BSG_SHAPI(s)->vobjs.find(v);
+    if (vo_it != BSG_SHAPI(s)->vobjs.end())
 	return vo_it->second;
 
 
     bsg_shape *vo = NULL;
 
     // View local object - use the view obj pool
-    bsg_shape *free_scene_obj = v->vset->i->free_scene_obj;
+    bsg_shape *free_scene_obj = BSG_SCENEI(v->vset)->free_scene_obj;
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC((vo), bsg_shape);
-	vo->i = new bsg_shape_internal;
+	vo->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
     } else {
 	vo = BU_LIST_NEXT(bsg_shape, &s->free_scene_obj->l);
 	if (!vo) {
 	    BU_ALLOC((vo), bsg_shape);
-	    vo->i = new bsg_shape_internal;
+	    vo->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
 	} else {
 	    BU_LIST_DEQUEUE(&((vo)->l));
 	}
@@ -1479,26 +1535,26 @@ bsg_shape_get_view_obj(bsg_shape *s, bsg_view *v)
     vo->dp = s->dp;
 
 
-    s->i->vobjs[v] = vo;
+    BSG_SHAPI(s)->vobjs[v] = vo;
     vo->s_os = s->s_os;
     bsg_log(1, "bsg_shape_get_view_obj %s[%s]", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name));
 
     return vo;
 }
 
-int
+extern "C" int
 bsg_shape_have_view_obj(bsg_shape *s, bsg_view *v)
 {
     if (!s || !s->i || !v)
 	return 0;
 
     std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-    vo_it = s->i->vobjs.find(v);
-    bsg_log(1, "bv_have_view_obj %s[%s]: %d", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name), (vo_it != s->i->vobjs.end()) ? 1 : 0);
-    return (vo_it != s->i->vobjs.end()) ? 1 : 0;
+    vo_it = BSG_SHAPI(s)->vobjs.find(v);
+    bsg_log(1, "bv_have_view_obj %s[%s]: %d", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name), (vo_it != BSG_SHAPI(s)->vobjs.end()) ? 1 : 0);
+    return (vo_it != BSG_SHAPI(s)->vobjs.end()) ? 1 : 0;
 }
 
-int
+extern "C" int
 bsg_shape_clear_view_obj(bsg_shape *s, bsg_view *v)
 {
     if (!s || !s->i)
@@ -1508,26 +1564,26 @@ bsg_shape_clear_view_obj(bsg_shape *s, bsg_view *v)
 
     if (!v) {
 	std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-	for (vo_it = s->i->vobjs.begin(); vo_it != s->i->vobjs.end(); vo_it++) {
+	for (vo_it = BSG_SHAPI(s)->vobjs.begin(); vo_it != BSG_SHAPI(s)->vobjs.end(); vo_it++) {
 	    bsg_shape *vobj = vo_it->second;
 	    bsg_shape_put(vobj);
 	}
-	s->i->vobjs.clear();
+	BSG_SHAPI(s)->vobjs.clear();
     }
 
     std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-    vo_it = s->i->vobjs.find(v);
-    if (vo_it == s->i->vobjs.end())
+    vo_it = BSG_SHAPI(s)->vobjs.find(v);
+    if (vo_it == BSG_SHAPI(s)->vobjs.end())
 	return 0;
 
     bsg_shape *vobj = vo_it->second;
     bsg_shape_put(vobj);
-    s->i->vobjs.erase(v);
+    BSG_SHAPI(s)->vobjs.erase(v);
 
     return 1;
 }
 
-bsg_shape *
+extern "C" bsg_shape *
 bsg_shape_find_child(bsg_shape *s, const char *vname)
 {
     if (!s || !vname || !BU_PTBL_IS_INITIALIZED(&s->children))
@@ -1541,7 +1597,7 @@ bsg_shape_find_child(bsg_shape *s, const char *vname)
     return NULL;
 }
 
-int
+extern "C" int
 bsg_shape_bound(bsg_shape *sp, bsg_view *v)
 {
     int cmd;
@@ -1568,7 +1624,7 @@ bsg_shape_bound(bsg_shape *sp, bsg_view *v)
 	}
     } else if (bu_list_len(&s->s_vlist)) {
 	int dismode;
-	cmd = bv_vlist_bbox(&s->s_vlist, &s->bmin, &s->bmax, NULL, &dismode);
+	cmd = bsg_vlist_bbox(&s->s_vlist, &s->bmin, &s->bmax, NULL, &dismode);
 	if (cmd) {
 	    bu_log("unknown vlist op %d\n", cmd);
 	}
@@ -1579,7 +1635,7 @@ bsg_shape_bound(bsg_shape *sp, bsg_view *v)
 	// If nothing else has given us an answer, see if other views
 	// can help
 	std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-	for (vo_it = s->i->vobjs.begin(); vo_it != s->i->vobjs.end(); vo_it++) {
+	for (vo_it = BSG_SHAPI(s)->vobjs.begin(); vo_it != BSG_SHAPI(s)->vobjs.end(); vo_it++) {
 	    bsg_shape *lv = vo_it->second;
 	    if (lv->s_type_flags & BV_MESH_LOD) {
 		bsg_lod *i = (bsg_lod *)lv->draw_data;
@@ -1596,7 +1652,7 @@ bsg_shape_bound(bsg_shape *sp, bsg_view *v)
 		}
 	    } else if (bu_list_len(&lv->s_vlist)) {
 		int dismode;
-		cmd = bv_vlist_bbox(&lv->s_vlist, &lv->bmin, &lv->bmax, NULL, &dismode);
+		cmd = bsg_vlist_bbox(&lv->s_vlist, &lv->bmin, &lv->bmax, NULL, &dismode);
 		if (cmd) {
 		    bu_log("unknown vlist op %d\n", cmd);
 		}
@@ -1630,7 +1686,7 @@ bsg_shape_bound(bsg_shape *sp, bsg_view *v)
     return 0;
 }
 
-fastf_t
+extern "C" fastf_t
 bsg_shape_vZ_calc(bsg_shape *s, bsg_view *v, int mode)
 {
     fastf_t vZ = 0.0;
@@ -1672,7 +1728,7 @@ bsg_shape_vZ_calc(bsg_shape *s, bsg_view *v, int mode)
 }
 
 
-struct bu_ptbl *
+extern "C" struct bu_ptbl *
 bsg_view_shapes(bsg_view *v, int type)
 {
     if (type & BV_DB_OBJS) {
@@ -1680,7 +1736,7 @@ bsg_view_shapes(bsg_view *v, int type)
 	    return v->gv_objs.db_objs;
 	} else {
 	    if (v->vset)
-		return &v->vset->i->shared_db_objs;
+		return &BSG_SCENEI(v->vset)->shared_db_objs;
 	}
     }
 
@@ -1689,7 +1745,7 @@ bsg_view_shapes(bsg_view *v, int type)
 	    return v->gv_objs.view_objs;
 	} else {
 	    if (v->vset)
-		return &v->vset->i->shared_view_objs;
+		return &BSG_SCENEI(v->vset)->shared_view_objs;
 	}
     }
 
@@ -1697,8 +1753,8 @@ bsg_view_shapes(bsg_view *v, int type)
 }
 
 
-void
-bsg_shape_sync(bsg_shape *dest, bsg_shape *src)
+extern "C" void
+bsg_shape_sync(bsg_shape *dest, const bsg_shape *src)
 {
     bsg_material_sync(dest->s_os, src->s_os);
     VMOVE(dest->s_center, src->s_center);
@@ -1716,7 +1772,7 @@ bsg_shape_sync(bsg_shape *dest, bsg_shape *src)
     dest->point_scale = src->point_scale;
 }
 
-int
+extern "C" int
 bsg_shape_illum(bsg_shape *s, char ill_state)
 {
     bool changed = 0;
@@ -1732,7 +1788,7 @@ bsg_shape_illum(bsg_shape *s, char ill_state)
 	//bsg_shape_stale(s);
     }
     std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
-    for (vo_it = s->i->vobjs.begin(); vo_it != s->i->vobjs.end(); vo_it++) {
+    for (vo_it = BSG_SHAPI(s)->vobjs.begin(); vo_it != BSG_SHAPI(s)->vobjs.end(); vo_it++) {
 	int cchanged = bsg_shape_illum(vo_it->second, ill_state);
 	if (cchanged)
 	    changed = 1;
@@ -1771,7 +1827,7 @@ bsg_log(int UNUSED(level), const char *UNUSED(fmt), ...)
 #endif
 }
 
-void
+extern "C" void
 bsg_view_print(const char *title, bsg_view *v, int UNUSED(verbosity))
 {
     if (!v)
