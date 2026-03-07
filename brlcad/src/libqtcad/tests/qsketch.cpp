@@ -117,6 +117,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QWidget>
+#include <QWidgetAction>
 
 #include "qtcad/QgSignalFlags.h"
 #include "qtcad/QgSketchFilter.h"
@@ -294,6 +295,9 @@ private slots:
     void on_move_selected_vertices();
     void on_fit_view();
     void on_describe_segments();
+
+protected:
+    void keyPressEvent(QKeyEvent *ev) override;
 
 private:
     void install_filter(QgSketchFilter *f);
