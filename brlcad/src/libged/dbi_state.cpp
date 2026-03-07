@@ -1556,6 +1556,18 @@ BViewState::BViewState(DbiState *s)
     dbis = s;
 }
 
+void
+BViewState::link_to(BViewState *primary)
+{
+    linked_to_ = primary;
+}
+
+void
+BViewState::unlink()
+{
+    linked_to_ = nullptr;
+}
+
 // 0 = valid, 3 = need re-eval
 int
 BViewState::leaf_check(
@@ -2818,6 +2830,11 @@ void DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
     dirty_ = true;
 }
 
+void DrawList::add(const DbiPath &path, int mode, const DrawSettings *overrides)
+{
+    add(path.hashes, mode, overrides);
+}
+
 void DrawList::remove(unsigned long long path_hash, int mode)
 {
     auto it = entries_.begin();
@@ -2964,6 +2981,20 @@ bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
     std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
     if (hpath.empty()) return false;
     unsigned long long ph = dbis_->path_hash(hpath, 0);
+    return deselect(ph, update_hierarchy);
+}
+
+bool SelectionSet::select(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty() || !dbis_) return false;
+    unsigned long long ph = dbis_->path_hash(path.hashes, 0);
+    return select(ph, path.hashes, update_hierarchy);
+}
+
+bool SelectionSet::deselect(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty() || !dbis_) return false;
+    unsigned long long ph = dbis_->path_hash(path.hashes, 0);
     return deselect(ph, update_hierarchy);
 }
 
