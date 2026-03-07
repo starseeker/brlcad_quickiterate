@@ -1200,7 +1200,7 @@ bsg_node_alloc(int type_flags)
     BU_ALLOC(s, bsg_shape);
     if (!s) return NULL;
 
-    s->i = new bsg_scene_obj_internal;
+    s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
 
     /* Minimal initialisation matching bv_obj_reset logic without needing pools. */
     s->s_type_flags = (unsigned long long)type_flags;
@@ -1287,7 +1287,7 @@ bsg_node_free(bsg_shape *s, int recurse)
 	bu_vls_free(&s->s_name);
 
     if (s->i) {
-	delete s->i;
+	delete reinterpret_cast<bsg_shape_internal *>(s->i);
 	s->i = NULL;
     }
 
