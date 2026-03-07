@@ -28,7 +28,6 @@
 #include "vmath.h"
 #include "bsg/defines.h"
 #include "bsg/adc.h"
-#include "bv/faceplate.h"
 
 void
 bsg_adc_model_to_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax)
