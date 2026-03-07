@@ -17,41 +17,21 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-
-// TODO - bv currently conflates scene and camera concepts - for example,
-// data axes and polygons are properly scene objects being viewed by the
-// camera, but at the moment they're directly part of the bv struct.
-//
-// The plan is to address this, so until this notice is removed the bv data
-// structure and related data structures should be considered in flux.
-
-/** @addtogroup libbv */
-/** @{ */
 /** @file bv.h
  *
+ * @deprecated  Use @c bsg.h instead.  This header is a compatibility shim
+ * that forwards to the BRL-CAD Scene Graph (BSG) header.  It will be removed
+ * in a future release.
  */
 
 #ifndef BV_H
 #define BV_H
 
-#include "common.h"
-
-#include "vmath.h"
-#include "bu/vls.h"
-#include "bn.h"
-
-#include "./bv/defines.h"
-#include "./bv/adc.h"
-#include "./bv/lod.h"
-#include "./bv/polygon.h"
-#include "./bv/snap.h"
-#include "./bv/util.h"
-#include "./bv/vlist.h"
-#include "./bv/view_sets.h"
+#include "bsg.h"
+#include "bsg/compat.h"
 
 #endif /* BV_H */
 
-/** @} */
 /*
  * Local Variables:
  * mode: C
