@@ -3466,13 +3466,13 @@ void DrawList::remove(unsigned long long path_hash, int mode)
 {
     auto it = entries_.begin();
     while (it != entries_.end()) {
-        unsigned long long eh = 0;
+        unsigned long long entry_leaf_hash = 0;
         if (!it->path.empty()) {
             // Use the last element (leaf hash) as the path representative,
             // matching BViewState's existing path_hash convention.
-            eh = it->path.back();
+            entry_leaf_hash = it->path.back();
         }
-        if (eh == path_hash && (mode < 0 || it->mode == mode)) {
+        if (entry_leaf_hash == path_hash && (mode < 0 || it->mode == mode)) {
             it = entries_.erase(it);
         } else {
             ++it;
@@ -3597,10 +3597,11 @@ std::vector<std::string> SelectionSet::selected_paths() const
 
 unsigned long long SelectionSet::state_hash() const
 {
+    // Golden ratio hash combining constant (2^32 / phi), reduces collisions
+    static const unsigned long long HASH_GOLDEN = 0x9e3779b9ULL;
     unsigned long long h = 0;
     for (auto ph : selected_) {
-	// Golden ratio hash combining: distributes bits to reduce collisions
-	h ^= ph + 0x9e3779b9 + (h << 6) + (h >> 2);
+	h ^= ph + HASH_GOLDEN + (h << 6) + (h >> 2);
     }
     return h;
 }
