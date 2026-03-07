@@ -32,7 +32,7 @@ extern "C" {
 #include "bu/color.h"
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg.h"
 #include "raytrace.h"
 }
