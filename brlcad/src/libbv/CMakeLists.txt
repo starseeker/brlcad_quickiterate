@@ -1,16 +1,7 @@
-# libbv — backward-compatibility stub.
-#
-# All implementation has moved to libbsg (Step 7 of BSG modernization).
-# libbv is now a stub library that links libbsg so that code still
-# linking against -lbv continues to resolve symbols.
-#
-# The bv/ public headers remain in place during the transition; once all
-# downstream users have fully migrated to bsg/ headers, bv/ and libbv can
-# be deleted entirely.
-
-# Note - libbv_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libbv "bv_stub.c" "libbsg" "" "")
-set_target_properties(libbv PROPERTIES VERSION 20.0.1 SOVERSION 20)
+# libbv — all implementation has moved to libbsg.  This directory is
+# retained only so that in-tree files still referenced via cmakefiles()
+# are tracked by the distribution system.  The stub library has been
+# removed; callers should link against libbsg directly.
 
 add_subdirectory(tests)
 
