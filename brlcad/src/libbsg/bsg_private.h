@@ -21,32 +21,29 @@
  *
  * Internal shared data structures for libbsg.
  *
- * In Phase 1, bsg_shape = bv_scene_obj and bsg_view = bview, so the
- * bsg_* internal types are aliases of the bv_* internals.  As the
- * migration progresses, these will become independent definitions.
  */
 
 #ifndef LIBBSG_BSG_PRIVATE_H
 #define LIBBSG_BSG_PRIVATE_H
 
-/* Pull in the libbv internal structs so we can alias them.
- * BSG_LOCAL_INCLUDE_DIRS in libbsg/CMakeLists.txt adds libbv's source
- * directory to the include path so this relative include resolves. */
-#include "bv_private.h"
-
+#include "common.h"
+#include "bu/list.h"
+#include "bu/ptbl.h"
 #include "bsg/defines.h"
+#include <unordered_map>
 
-/* -----------------------------------------------------------------------
- * Phase 1 compatibility: bsg_scene_obj_internal is the same struct as
- * bv_scene_obj_internal (which is what bsg_shape::i actually points to
- * since bsg_shape == bv_scene_obj in Phase 1).
- * --------------------------------------------------------------------- */
+struct bsg_scene_set_internal {
+    struct bu_ptbl views;
+    struct bu_ptbl shared_db_objs;
+    struct bu_ptbl shared_view_objs;
 
-/* Type alias — no layout difference during Phase 1. */
-typedef bv_scene_obj_internal bsg_scene_obj_internal;
+    bsg_shape  *free_scene_obj;
+    struct bu_list vlfree;
+};
 
-/* Type alias for the view-set internal struct. */
-typedef bview_set_internal    bsg_scene_set_internal;
+struct bsg_shape_internal {
+    std::unordered_map<bsg_view *, bsg_shape *> vobjs;
+};
 
 #endif /* LIBBSG_BSG_PRIVATE_H */
 
