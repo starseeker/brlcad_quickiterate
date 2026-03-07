@@ -28,7 +28,7 @@
 
 #include "bu/path.h"
 #include "bu/mime.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "icv.h"
 #include "dm.h"
 

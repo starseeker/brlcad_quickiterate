@@ -74,7 +74,7 @@
 #include "./fb_X.h"
 #include "./dm-X.h"
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 #include "../include/private.h"
 
