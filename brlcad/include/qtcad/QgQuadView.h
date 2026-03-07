@@ -30,7 +30,7 @@
 
 extern "C" {
 #include "bu/ptbl.h"
-#include "bv.h"
+#include "bsg.h"
 #include "dm.h"
 }
 

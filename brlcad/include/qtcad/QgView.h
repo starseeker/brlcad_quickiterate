@@ -29,7 +29,7 @@
 extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
 #include "dm.h"
 }
 
