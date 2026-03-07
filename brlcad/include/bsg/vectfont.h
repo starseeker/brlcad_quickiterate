@@ -28,6 +28,8 @@
 #ifndef BSG_VECTFONT_H
 #define BSG_VECTFONT_H
 
+#include "bsg/defines.h"
+
 /*                        V E C T F O N T . H
  * BRL-CAD
  *

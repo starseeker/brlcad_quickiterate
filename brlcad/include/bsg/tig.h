@@ -33,6 +33,7 @@
 #include "bu/defines.h"
 #include "bu/color.h"
 #include "bu/file.h"
+#include "bsg/defines.h"
 #include "bsg/plot3.h"
 
 __BEGIN_DECLS

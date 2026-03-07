@@ -110,6 +110,8 @@ __BEGIN_DECLS
 /* ================================================================== *
  * Content inlined from bv/faceplate.h                                *
  * ================================================================== */
+#ifndef DM_BV_FACEPLATE_H
+#define DM_BV_FACEPLATE_H
 
 struct bv_adc_state {
     int         draw;
@@ -185,9 +187,13 @@ struct bv_other_state {
     int gos_font_size;
 };
 
+#endif /* DM_BV_FACEPLATE_H */
+
 /* ================================================================== *
  * Content inlined from bv/tcl_data.h                                 *
  * ================================================================== */
+#ifndef DM_BV_TCL_DATA_H
+#define DM_BV_TCL_DATA_H
 
 #define BV_POLY_CIRCLE_MODE 15
 #define BV_POLY_CONTOUR_MODE 16
@@ -283,9 +289,13 @@ struct bv_data_tclcad {
     struct bv_other_state       gv_prim_labels;
 };
 
+#endif /* DM_BV_TCL_DATA_H */
+
 /* ================================================================== *
  * Content inlined from bv/defines.h                                  *
  * ================================================================== */
+#ifndef BV_DEFINES_H
+#define BV_DEFINES_H
 
 #define BV_MAX 2047.0
 #define BV_MIN -2048.0
@@ -646,9 +656,13 @@ struct bview_set {
     struct bview_settings       settings;
 };
 
+#endif /* BV_DEFINES_H */
+
 /* ================================================================== *
  * Content inlined from bv/vlist.h                                    *
  * ================================================================== */
+#ifndef BV_VLIST_H
+#define BV_VLIST_H
 
 #define BV_VLIST_CHUNK 35
 
@@ -765,9 +779,13 @@ struct bv_vlblock {
 };
 #define BV_CK_VLBLOCK(_p)	BU_CKMAG((_p), BV_VLBLOCK_MAGIC, "bv_vlblock")
 
+#endif /* BV_VLIST_H */
+
 /* ================================================================== *
  * struct bv_polygon (inlined from bv/polygon.h)                      *
  * ================================================================== */
+#ifndef BV_POLYGON_H
+#define BV_POLYGON_H
 
 #define BV_POLYGON_GENERAL    0
 #define BV_POLYGON_CIRCLE     1
@@ -789,6 +807,27 @@ struct bv_polygon {
     struct bg_polygon   polygon;
     void               *u_data;
 };
+
+BSG_EXPORT extern struct bv_scene_obj *bv_create_polygon_obj(struct bview *v, int flags, struct bv_polygon *p);
+BSG_EXPORT extern struct bv_scene_obj *bv_create_polygon(struct bview *v, int flags, int type, point_t *fp);
+
+#define BV_POLYGON_UPDATE_DEFAULT         0
+#define BV_POLYGON_UPDATE_PROPS_ONLY      1
+#define BV_POLYGON_UPDATE_PT_SELECT       2
+#define BV_POLYGON_UPDATE_PT_SELECT_CLEAR 3
+#define BV_POLYGON_UPDATE_PT_MOVE         4
+#define BV_POLYGON_UPDATE_PT_APPEND       5
+BSG_EXPORT extern int bv_update_polygon(struct bv_scene_obj *s, struct bview *v, int utype);
+BSG_EXPORT extern void bv_polygon_vlist(struct bv_scene_obj *s);
+BSG_EXPORT extern struct bv_scene_obj *bv_select_polygon(struct bu_ptbl *objs, point_t *cp);
+BSG_EXPORT extern int bv_move_polygon(struct bv_scene_obj *s, point_t *cp, point_t *pp);
+BSG_EXPORT extern struct bv_scene_obj *bv_dup_view_polygon(const char *nname, struct bv_scene_obj *s);
+BSG_EXPORT extern void bv_polygon_cpy(struct bv_polygon *dest, struct bv_polygon *src);
+BSG_EXPORT extern int bv_polygon_calc_fdelta(struct bv_polygon *p);
+BSG_EXPORT extern struct bg_polygon *bv_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slope, fastf_t line_spacing);
+BSG_EXPORT extern int bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_clip_t op);
+
+#endif /* BV_POLYGON_H */
 
 /* ================================================================== *
  * Function declarations inlined from bv/util.h                       *
@@ -860,6 +899,8 @@ BSG_EXPORT void bv_view_print(const char *title, struct bview *v, int verbosity)
 /* ================================================================== *
  * Function declarations inlined from bv/lod.h                        *
  * ================================================================== */
+#ifndef BV_LOD_H
+#define BV_LOD_H
 
 BSG_EXPORT extern void bv_view_bounds(struct bview *v);
 BSG_EXPORT int bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y);
@@ -885,6 +926,8 @@ BSG_EXPORT void bv_mesh_lod_free(struct bv_scene_obj *s);
 BSG_EXPORT void bv_mesh_lod_detail_setup_clbk(struct bv_mesh_lod *lod, int (*clbk)(struct bv_mesh_lod *, void *), void *cb_data);
 BSG_EXPORT void bv_mesh_lod_detail_clear_clbk(struct bv_mesh_lod *lod, int (*clbk)(struct bv_mesh_lod *, void *));
 BSG_EXPORT void bv_mesh_lod_detail_free_clbk(struct bv_mesh_lod *lod, int (*clbk)(struct bv_mesh_lod *, void *));
+
+#endif /* BV_LOD_H */
 
 /* ================================================================== *
  * Function declarations inlined from bv/view_sets.h                  *
