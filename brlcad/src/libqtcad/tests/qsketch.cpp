@@ -74,8 +74,10 @@
 #include "common.h"
 
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "bu/app.h"
@@ -103,6 +105,7 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
@@ -112,11 +115,13 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QScrollArea>
 #include <QSet>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTableWidget>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QWidget>
@@ -163,6 +168,57 @@ sketch_create_empty(struct db_i *dbip, const char *name)
 /* ------------------------------------------------------------------ */
 /* Wireframe refresh                                                   */
 /* ------------------------------------------------------------------ */
+
+/*
+ * Draw the sketch wireframe directly via ft_plot into the swrast dm.
+ * This is the custom draw callback registered with QgView_SW: it bypasses
+ * the scene-object machinery and renders the sketch vlist directly,
+ * which is both simpler and faster for a single-primitive editor.
+ */
+struct qsketch_draw_ctx {
+    struct rt_edit *es;
+    struct bv_grid_state *grid;
+};
+
+static void
+sketch_draw_custom(struct bview *v, void *udata)
+{
+    struct qsketch_draw_ctx *ctx = (struct qsketch_draw_ctx *)udata;
+    if (!ctx || !ctx->es) return;
+
+    struct dm *dmp = (struct dm *)v->dmp;
+    if (!dmp) return;
+
+    /* The caller (QgSW::paintEvent) already called dm_draw_begin before
+     * invoking us via dm_draw_objs; we just issue draw commands here. */
+
+    /* ---- grid (optional) ---- */
+    if (ctx->grid && ctx->grid->draw) {
+	dm_draw_grid(dmp, ctx->grid, v->gv_scale, v->gv_model2view, 1.0);
+    }
+
+    /* ---- sketch wireframe ---- */
+    const struct rt_sketch_internal *skt =
+	(const struct rt_sketch_internal *)ctx->es->es_int.idb_ptr;
+    if (skt && skt->vert_count > 0 && skt->curve.count > 0) {
+	struct bu_list vlist;
+	BU_LIST_INIT(&vlist);
+
+	struct bg_tess_tol ttol;
+	ttol.magic = BG_TESS_TOL_MAGIC;
+	ttol.abs   = 0.0;
+	ttol.rel   = 0.01;
+	ttol.norm  = 0.0;
+
+	struct bn_tol tol = BN_TOL_INIT_TOL;
+	OBJ[ctx->es->es_int.idb_type].ft_plot(
+	    &vlist, &ctx->es->es_int, &ttol, &tol, v);
+
+	dm_set_fg(dmp, 255, 255, 0, 1, 1.0);  /* yellow wireframe */
+	dm_draw_vlist(dmp, (struct bv_vlist *)&vlist);
+	bv_vlist_cleanup(&vlist);
+    }
+}
 
 /*
  * Write the current edit state back to the database and redisplay.
@@ -303,6 +359,8 @@ private slots:
     void on_toggle_grid(bool checked);
     void on_grid_settings();
     void on_mode_chain_vertex();
+    void on_goto_uv();
+    void on_toggle_segment_reverse();
 
 protected:
     void keyPressEvent(QKeyEvent *ev) override;
@@ -333,6 +391,7 @@ private:
     struct bview         *m_bv   = NULL;
     struct rt_edit       *m_es   = NULL;
     struct bn_tol         m_tol;
+    qsketch_draw_ctx      m_draw_ctx;
 
     /* ---- Qt UI ---- */
     QgView          *m_view   = NULL;
@@ -408,6 +467,11 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     /* ----  QgView ---- */
     m_view = new QgView(this, QgView_SW);
     m_view->set_view(m_bv);
+
+    /* Register our custom draw callback so ft_plot renders the sketch */
+    m_draw_ctx.es   = m_es;
+    m_draw_ctx.grid = &m_bv->gv_s->gv_grid;
+    m_view->set_draw_custom(sketch_draw_custom, &m_draw_ctx);
 
     /* ---- vertex table — allow multi-row selection ---- */
     m_vtable = new QTableWidget(this);
@@ -504,6 +568,8 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 			  &QSketchEditWindow::on_undo);
     edit_menu->addAction("&Delete Selected\tDel", this,
 			  &QSketchEditWindow::on_delete_selected);
+    edit_menu->addAction("&Go To UV…\tCtrl+G", this,
+			  &QSketchEditWindow::on_goto_uv);
     edit_menu->addSeparator();
     edit_menu->addAction("&Flip Arc Complement\tC", this,
 			  &QSketchEditWindow::on_mode_toggle_arc_orient);
@@ -511,6 +577,8 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 			  &QSketchEditWindow::on_mode_arc_radius);
     edit_menu->addAction("Set Arc &Tangency\tT", this,
 			  &QSketchEditWindow::on_mode_set_tangency);
+    edit_menu->addAction("Toggle Segment Re&verse\tV", this,
+			  &QSketchEditWindow::on_toggle_segment_reverse);
     edit_menu->addSeparator();
     edit_menu->addAction("&Chain Segment\tN", this,
 			  &QSketchEditWindow::on_mode_chain_vertex);
@@ -559,6 +627,10 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 
     /* ---- initial display ---- */
     refresh_tables();
+    /* Fit view and draw the sketch on first show */
+    QTimer::singleShot(0, this, [this]() {
+	on_fit_view();
+    });
     set_status("Sketch loaded — choose an edit mode from the toolbar.");
 }
 
@@ -1033,6 +1105,17 @@ void QSketchEditWindow::on_fit_view()
     span *= 1.25;  /* 25% padding */
     if (span < 1.0) span = 1.0;
 
+    /* Centre view on sketch centroid in world space */
+    const struct rt_sketch_internal *skt2 = skt;
+    fastf_t cx = (u_min + u_max) * 0.5;
+    fastf_t cy = (v_min + v_max) * 0.5;
+    point_t world_center;
+    world_center[0] = skt2->V[0] + cx * skt2->u_vec[0] + cy * skt2->v_vec[0];
+    world_center[1] = skt2->V[1] + cx * skt2->u_vec[1] + cy * skt2->v_vec[1];
+    world_center[2] = skt2->V[2] + cx * skt2->u_vec[2] + cy * skt2->v_vec[2];
+    MAT_IDN(m_bv->gv_center);
+    MAT_DELTAS_VEC_NEG(m_bv->gv_center, world_center);
+
     m_bv->gv_scale = span * 0.5;
     m_bv->gv_size  = span;
     m_bv->gv_isize = 1.0 / span;
@@ -1226,6 +1309,29 @@ void QSketchEditWindow::on_grid_settings()
     sb_major_v->setDecimals(0);
     sb_major_v->setValue(gs->res_major_v);
 
+    /* Anchor point — exposed in this dialog (was previously omitted) */
+    QDoubleSpinBox *sb_anchor_u = new QDoubleSpinBox(&dlg);
+    sb_anchor_u->setRange(-99999.0, 99999.0);
+    sb_anchor_u->setDecimals(3);
+    sb_anchor_u->setValue(gs->anchor[0]);
+    sb_anchor_u->setSuffix(" mm");
+
+    QDoubleSpinBox *sb_anchor_v = new QDoubleSpinBox(&dlg);
+    sb_anchor_v->setRange(-99999.0, 99999.0);
+    sb_anchor_v->setDecimals(3);
+    sb_anchor_v->setValue(gs->anchor[1]);
+    sb_anchor_v->setSuffix(" mm");
+
+    /* Row widget for anchor U+V side by side */
+    QWidget *anchor_row = new QWidget(&dlg);
+    {
+	QHBoxLayout *hl = new QHBoxLayout(anchor_row);
+	hl->setContentsMargins(0, 0, 0, 0);
+	hl->addWidget(sb_anchor_u);
+	hl->addWidget(new QLabel("V:"));
+	hl->addWidget(sb_anchor_v);
+    }
+
     QCheckBox *cb_snap = new QCheckBox("Snap to grid", &dlg);
     cb_snap->setChecked(gs->snap);
 
@@ -1236,6 +1342,7 @@ void QSketchEditWindow::on_grid_settings()
     fl->addRow("V spacing:", sb_res_v);
     fl->addRow("Major H every:", sb_major_h);
     fl->addRow("Major V every:", sb_major_v);
+    fl->addRow("Anchor U:", anchor_row);
     fl->addRow(cb_snap);
     fl->addRow(cb_adaptive);
 
@@ -1248,17 +1355,21 @@ void QSketchEditWindow::on_grid_settings()
     if (dlg.exec() != QDialog::Accepted)
 	return;
 
-    gs->res_h      = (fastf_t)sb_res_h->value();
-    gs->res_v      = (fastf_t)sb_res_v->value();
+    gs->res_h       = (fastf_t)sb_res_h->value();
+    gs->res_v       = (fastf_t)sb_res_v->value();
     gs->res_major_h = (int)sb_major_h->value();
     gs->res_major_v = (int)sb_major_v->value();
+    gs->anchor[0]   = (fastf_t)sb_anchor_u->value();
+    gs->anchor[1]   = (fastf_t)sb_anchor_v->value();
     gs->snap        = cb_snap->isChecked() ? 1 : 0;
     gs->adaptive    = cb_adaptive->isChecked() ? 1 : 0;
 
     m_view->need_update(QG_VIEW_REFRESH);
-    set_status(QString("Grid: H=%1 V=%2 mm  snap=%3.")
+    set_status(QString("Grid: H=%1 V=%2 mm  anchor=(%3,%4)  snap=%5.")
 		       .arg(gs->res_h, 0, 'f', 3)
 		       .arg(gs->res_v, 0, 'f', 3)
+		       .arg(gs->anchor[0], 0, 'f', 3)
+		       .arg(gs->anchor[1], 0, 'f', 3)
 		       .arg(gs->snap ? "on" : "off"));
 }
 
@@ -1358,6 +1469,116 @@ void QSketchEditWindow::on_mode_chain_vertex()
     }
 }
 
+/* ---- Go To UV (editable coordinate entry) ---- */
+
+void QSketchEditWindow::on_goto_uv()
+{
+    if (!m_es) return;
+
+    struct rt_sketch_edit *se = sketch_edit();
+
+    /* If a vertex is selected, show its current coords as defaults */
+    const struct rt_sketch_internal *skt = sketch();
+    double default_u = 0.0, default_v = 0.0;
+    if (se && se->curr_vert >= 0
+	    && skt && (size_t)se->curr_vert < skt->vert_count) {
+	default_u = skt->verts[se->curr_vert][0];
+	default_v = skt->verts[se->curr_vert][1];
+    }
+
+    QDialog dlg(this);
+    dlg.setWindowTitle(se && se->curr_vert >= 0
+		       ? QString("Move V[%1] to UV").arg(se->curr_vert)
+		       : "Go To UV (no vertex selected — will be used for next add)");
+    QFormLayout *fl = new QFormLayout(&dlg);
+
+    QDoubleSpinBox *sb_u = new QDoubleSpinBox(&dlg);
+    sb_u->setRange(-99999.0, 99999.0);
+    sb_u->setDecimals(4);
+    sb_u->setValue(default_u);
+    sb_u->setSuffix(" mm");
+
+    QDoubleSpinBox *sb_v = new QDoubleSpinBox(&dlg);
+    sb_v->setRange(-99999.0, 99999.0);
+    sb_v->setDecimals(4);
+    sb_v->setValue(default_v);
+    sb_v->setSuffix(" mm");
+
+    fl->addRow("U:", sb_u);
+    fl->addRow("V:", sb_v);
+
+    QDialogButtonBox *bb = new QDialogButtonBox(
+	    QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    fl->addRow(bb);
+    connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    if (dlg.exec() != QDialog::Accepted)
+	return;
+
+    fastf_t u  = (fastf_t)sb_u->value();
+    fastf_t vv = (fastf_t)sb_v->value();
+
+    if (se && se->curr_vert >= 0) {
+	/* Move the selected vertex */
+	rt_edit_checkpoint(m_es);
+	fastf_t scale = (m_es->local2base > 0.0) ? (1.0 / m_es->local2base) : 1.0;
+	m_es->e_para[0] = u  * scale;
+	m_es->e_para[1] = vv * scale;
+	m_es->e_inpara  = 2;
+	EDOBJ[m_es->es_int.idb_type].ft_set_edit_mode(m_es,
+		ECMD_SKETCH_MOVE_VERTEX);
+	rt_edit_process(m_es);
+	on_sketch_changed();
+	set_status(QString("V[%1] moved to (%2, %3) mm.")
+			   .arg(se->curr_vert)
+			   .arg(u,  0, 'f', 4)
+			   .arg(vv, 0, 'f', 4));
+    } else {
+	/* No vertex selected — create a new one at the given UV */
+	rt_edit_checkpoint(m_es);
+	fastf_t scale = (m_es->local2base > 0.0) ? (1.0 / m_es->local2base) : 1.0;
+	m_es->e_para[0] = u  * scale;
+	m_es->e_para[1] = vv * scale;
+	m_es->e_inpara  = 2;
+	EDOBJ[m_es->es_int.idb_type].ft_set_edit_mode(m_es,
+		ECMD_SKETCH_ADD_VERTEX);
+	rt_edit_process(m_es);
+	on_sketch_changed();
+	set_status(QString("New vertex added at (%1, %2) mm.")
+			   .arg(u,  0, 'f', 4)
+			   .arg(vv, 0, 'f', 4));
+    }
+}
+
+/* ---- Toggle segment reverse flag ---- */
+
+void QSketchEditWindow::on_toggle_segment_reverse()
+{
+    if (!m_es) return;
+    struct rt_sketch_edit *se = sketch_edit();
+    if (!se || se->curr_seg < 0) {
+	set_status("Toggle Reverse: no segment selected. Pick a segment first (S key).");
+	return;
+    }
+
+    rt_edit_checkpoint(m_es);
+    m_es->e_inpara = 0;
+    EDOBJ[m_es->es_int.idb_type].ft_set_edit_mode(m_es,
+	    ECMD_SKETCH_TOGGLE_SEGMENT_REVERSE);
+    rt_edit_process(m_es);
+
+    const struct rt_sketch_internal *skt = sketch();
+    bool now_reversed = skt && skt->curve.reverse
+	    && (size_t)se->curr_seg < skt->curve.count
+	    && skt->curve.reverse[se->curr_seg] != 0;
+
+    on_sketch_changed();
+    set_status(QString("Segment %1 reverse flag: %2.")
+		       .arg(se->curr_seg)
+		       .arg(now_reversed ? "ON" : "OFF"));
+}
+
 void
 QSketchEditWindow::keyPressEvent(QKeyEvent *ev)
 {
@@ -1378,7 +1599,10 @@ QSketchEditWindow::keyPressEvent(QKeyEvent *ev)
 		on_mode_pick_segment();
 	    break;
 	case Qt::Key_G:
-	    on_mode_move_segment();
+	    if (ev->modifiers() & Qt::ControlModifier)
+		on_goto_uv();
+	    else
+		on_mode_move_segment();
 	    break;
 	case Qt::Key_L:
 	    on_mode_add_line();
@@ -1400,6 +1624,9 @@ QSketchEditWindow::keyPressEvent(QKeyEvent *ev)
 	    break;
 	case Qt::Key_N:
 	    on_mode_chain_vertex();
+	    break;
+	case Qt::Key_V:
+	    on_toggle_segment_reverse();
 	    break;
 	case Qt::Key_H:
 	    if (m_grid_action)
@@ -1475,6 +1702,286 @@ QSketchEditWindow::keyPressEvent(QKeyEvent *ev)
 /* main                                                                */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Pre-built demo sketch creation helpers                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Helper: add a vertex to the sketch's vert array, return its index.
+ */
+static int
+skt_add_vert(struct rt_sketch_internal *skt, fastf_t u, fastf_t vv)
+{
+    int vi = (int)skt->vert_count;
+    skt->verts = (point2d_t *)bu_realloc(skt->verts,
+					  (vi + 1) * sizeof(point2d_t),
+					  "skt verts");
+    skt->verts[vi][0] = u;
+    skt->verts[vi][1] = vv;
+    skt->vert_count++;
+    return vi;
+}
+
+static void
+skt_add_line(struct rt_sketch_internal *skt, int s, int e)
+{
+    struct line_seg *ls;
+    BU_ALLOC(ls, struct line_seg);
+    ls->magic = CURVE_LSEG_MAGIC;
+    ls->start = s; ls->end = e;
+    int ci = (int)skt->curve.count;
+    skt->curve.segment = (void **)bu_realloc(skt->curve.segment,
+					      (ci + 1) * sizeof(void *),
+					      "skt segs");
+    skt->curve.reverse = (int *)bu_realloc(skt->curve.reverse,
+					   (ci + 1) * sizeof(int),
+					   "skt reverse");
+    skt->curve.segment[ci] = ls;
+    skt->curve.reverse[ci] = 0;
+    skt->curve.count++;
+}
+
+static void
+skt_add_arc(struct rt_sketch_internal *skt, int s, int e,
+	    fastf_t r, int center_is_left, int orientation)
+{
+    struct carc_seg *cs;
+    BU_ALLOC(cs, struct carc_seg);
+    cs->magic         = CURVE_CARC_MAGIC;
+    cs->start         = s; cs->end = e;
+    cs->radius        = r;
+    cs->center        = -1;
+    cs->center_is_left = center_is_left;
+    cs->orientation   = orientation;
+    int ci = (int)skt->curve.count;
+    skt->curve.segment = (void **)bu_realloc(skt->curve.segment,
+					      (ci + 1) * sizeof(void *),
+					      "skt segs");
+    skt->curve.reverse = (int *)bu_realloc(skt->curve.reverse,
+					   (ci + 1) * sizeof(int),
+					   "skt reverse");
+    skt->curve.segment[ci] = cs;
+    skt->curve.reverse[ci] = 0;
+    skt->curve.count++;
+}
+
+static void
+skt_add_circle(struct rt_sketch_internal *skt, int start, int centre, fastf_t r)
+{
+    /* Full circle: radius < 0, end vertex is centre */
+    struct carc_seg *cs;
+    BU_ALLOC(cs, struct carc_seg);
+    cs->magic  = CURVE_CARC_MAGIC;
+    cs->start  = start;
+    cs->end    = centre;
+    cs->radius = -r;
+    cs->center = -1;
+    cs->center_is_left = 0;
+    cs->orientation    = 0;
+    int ci = (int)skt->curve.count;
+    skt->curve.segment = (void **)bu_realloc(skt->curve.segment,
+					      (ci + 1) * sizeof(void *),
+					      "skt segs");
+    skt->curve.reverse = (int *)bu_realloc(skt->curve.reverse,
+					   (ci + 1) * sizeof(int),
+					   "skt reverse");
+    skt->curve.segment[ci] = cs;
+    skt->curve.reverse[ci] = 0;
+    skt->curve.count++;
+}
+
+/* Allocate and initialise an rt_sketch_internal in the XY plane at origin.
+ * wdb_export() takes ownership of this pointer and will free it; callers
+ * MUST NOT free it themselves after calling wdb_export(). */
+static struct rt_sketch_internal *
+skt_new(void)
+{
+    struct rt_sketch_internal *skt;
+    BU_ALLOC(skt, struct rt_sketch_internal);
+    memset(skt, 0, sizeof(*skt));
+    skt->magic = RT_SKETCH_INTERNAL_MAGIC;
+    VSET(skt->V,     0.0, 0.0, 0.0);
+    VSET(skt->u_vec, 1.0, 0.0, 0.0);
+    VSET(skt->v_vec, 0.0, 1.0, 0.0);
+    return skt;
+}
+
+static struct directory *
+sketch_create_box(struct rt_wdb *wdbp, const char *name, fastf_t w, fastf_t h)
+{
+    struct rt_sketch_internal *skt = skt_new();
+    fastf_t hw = w * 0.5, hh = h * 0.5;
+    int v0 = skt_add_vert(skt, -hw, -hh);
+    int v1 = skt_add_vert(skt,  hw, -hh);
+    int v2 = skt_add_vert(skt,  hw,  hh);
+    int v3 = skt_add_vert(skt, -hw,  hh);
+    skt_add_line(skt, v0, v1);
+    skt_add_line(skt, v1, v2);
+    skt_add_line(skt, v2, v3);
+    skt_add_line(skt, v3, v0);
+    return wdb_export(wdbp, name, (void *)skt, ID_SKETCH, 1.0) == 0
+           ? db_lookup(wdbp->dbip, name, LOOKUP_QUIET) : NULL;
+}
+
+static struct directory *
+sketch_create_rounded_rect(struct rt_wdb *wdbp, const char *name,
+			   fastf_t w, fastf_t h, fastf_t r)
+{
+    struct rt_sketch_internal *skt = skt_new();
+    if (r > w * 0.5) r = w * 0.5;
+    if (r > h * 0.5) r = h * 0.5;
+    fastf_t hw = w * 0.5, hh = h * 0.5;
+    /* Bottom edge */
+    int bl = skt_add_vert(skt, -hw + r, -hh);
+    int br = skt_add_vert(skt,  hw - r, -hh);
+    /* Right edge */
+    int rb = skt_add_vert(skt,  hw, -hh + r);
+    int rt = skt_add_vert(skt,  hw,  hh - r);
+    /* Top edge */
+    int tr = skt_add_vert(skt,  hw - r,  hh);
+    int tl = skt_add_vert(skt, -hw + r,  hh);
+    /* Left edge */
+    int lt = skt_add_vert(skt, -hw,  hh - r);
+    int lb = skt_add_vert(skt, -hw, -hh + r);
+    /* Lines */
+    skt_add_line(skt, bl, br);
+    skt_add_line(skt, rb, rt);
+    skt_add_line(skt, tr, tl);
+    skt_add_line(skt, lt, lb);
+    /* Corner arcs (radius = r, CCW, centre to the left) */
+    skt_add_arc(skt, br, rb, r, 1, 0);
+    skt_add_arc(skt, rt, tr, r, 1, 0);
+    skt_add_arc(skt, tl, lt, r, 1, 0);
+    skt_add_arc(skt, lb, bl, r, 1, 0);
+
+    return wdb_export(wdbp, name, (void *)skt, ID_SKETCH, 1.0) == 0
+           ? db_lookup(wdbp->dbip, name, LOOKUP_QUIET) : NULL;
+}
+
+/* Circle + inner concentric circle (donut cross section) */
+static struct directory *
+sketch_create_annulus(struct rt_wdb *wdbp, const char *name,
+		      fastf_t r_outer, fastf_t r_inner)
+{
+    struct rt_sketch_internal *skt = skt_new();
+    int v_out_s = skt_add_vert(skt,  r_outer, 0.0);
+    int v_out_c = skt_add_vert(skt,  0.0,     0.0);
+    skt_add_circle(skt, v_out_s, v_out_c, r_outer);
+    int v_in_s  = skt_add_vert(skt,  r_inner, 0.0);
+    skt_add_circle(skt, v_in_s, v_out_c, r_inner);
+
+    return wdb_export(wdbp, name, (void *)skt, ID_SKETCH, 1.0) == 0
+           ? db_lookup(wdbp->dbip, name, LOOKUP_QUIET) : NULL;
+}
+
+/* Simple C-shape (outer arc + inner arc + two closing lines) */
+static struct directory *
+sketch_create_C_shape(struct rt_wdb *wdbp, const char *name, fastf_t r)
+{
+    struct rt_sketch_internal *skt = skt_new();
+    fastf_t ang0 = -150.0 * M_PI / 180.0;
+    fastf_t ang1 =  150.0 * M_PI / 180.0;
+    fastf_t r2   = r * 0.65;
+
+    int vo0 = skt_add_vert(skt, r  * cos(ang0), r  * sin(ang0));
+    int vo1 = skt_add_vert(skt, r  * cos(ang1), r  * sin(ang1));
+    int vi0 = skt_add_vert(skt, r2 * cos(ang0), r2 * sin(ang0));
+    int vi1 = skt_add_vert(skt, r2 * cos(ang1), r2 * sin(ang1));
+
+    skt_add_arc( skt, vo0, vo1, r,  0, 0);
+    skt_add_line(skt, vo1, vi1);
+    skt_add_arc( skt, vi1, vi0, r2, 0, 1);
+    skt_add_line(skt, vi0, vo0);
+
+    return wdb_export(wdbp, name, (void *)skt, ID_SKETCH, 1.0) == 0
+           ? db_lookup(wdbp->dbip, name, LOOKUP_QUIET) : NULL;
+}
+
+/* Gear-tooth profile (N teeth around a circle) */
+static struct directory *
+sketch_create_gear(struct rt_wdb *wdbp, const char *name,
+		   fastf_t r_base, fastf_t r_tooth, int nteeth)
+{
+    struct rt_sketch_internal *skt = skt_new();
+
+    for (int t = 0; t < nteeth; t++) {
+	fastf_t a0 = 2.0 * M_PI * t / (fastf_t)nteeth;
+	fastf_t a1 = 2.0 * M_PI * (t + 0.4) / (fastf_t)nteeth;
+	fastf_t a2 = 2.0 * M_PI * (t + 0.6) / (fastf_t)nteeth;
+	fastf_t a3 = 2.0 * M_PI * (t + 1.0) / (fastf_t)nteeth;
+
+	int vb0 = skt_add_vert(skt, r_base  * cos(a0), r_base  * sin(a0));
+	int vb1 = skt_add_vert(skt, r_base  * cos(a1), r_base  * sin(a1));
+	int vt0 = skt_add_vert(skt, r_tooth * cos(a1), r_tooth * sin(a1));
+	int vt1 = skt_add_vert(skt, r_tooth * cos(a2), r_tooth * sin(a2));
+	int vb2 = skt_add_vert(skt, r_base  * cos(a2), r_base  * sin(a2));
+	int vb3 = skt_add_vert(skt, r_base  * cos(a3), r_base  * sin(a3));
+
+	fastf_t arc_r = r_base * 2.0 * sin(M_PI * 0.4 / (fastf_t)nteeth) * 0.6
+			+ r_base * 0.05;
+
+	skt_add_arc( skt, vb0, vb1, arc_r, 0, 0);
+	skt_add_line(skt, vb1, vt0);
+	skt_add_line(skt, vt0, vt1);
+	skt_add_line(skt, vt1, vb2);
+	skt_add_arc( skt, vb2, vb3, arc_r, 0, 0);
+    }
+
+    return wdb_export(wdbp, name, (void *)skt, ID_SKETCH, 1.0) == 0
+           ? db_lookup(wdbp->dbip, name, LOOKUP_QUIET) : NULL;
+}
+
+/* Multi-contour: outer square + inner circle */
+static struct directory *
+sketch_create_multi_contour(struct rt_wdb *wdbp, const char *name)
+{
+    struct rt_sketch_internal *skt = skt_new();
+    fastf_t s = 80.0, r = 25.0;
+    int v0  = skt_add_vert(skt, -s, -s);
+    int v1  = skt_add_vert(skt,  s, -s);
+    int v2  = skt_add_vert(skt,  s,  s);
+    int v3  = skt_add_vert(skt, -s,  s);
+    skt_add_line(skt, v0, v1);
+    skt_add_line(skt, v1, v2);
+    skt_add_line(skt, v2, v3);
+    skt_add_line(skt, v3, v0);
+    int vc  = skt_add_vert(skt,  r,   0.0);
+    int vcc = skt_add_vert(skt,  0.0, 0.0);
+    skt_add_circle(skt, vc, vcc, r);
+
+    return wdb_export(wdbp, name, (void *)skt, ID_SKETCH, 1.0) == 0
+           ? db_lookup(wdbp->dbip, name, LOOKUP_QUIET) : NULL;
+}
+
+/* Create all demo sketches; wdbp must be open and owned by caller.
+ * Returns a vector of (sketch-name, directory*) pairs. */
+static std::vector<std::pair<std::string, struct directory *>>
+create_demo_sketches(struct rt_wdb *wdbp)
+{
+    std::vector<std::pair<std::string, struct directory *>> out;
+    struct directory *dp;
+
+    if ((dp = sketch_create_box(wdbp, "box", 150.0, 100.0)))
+	out.push_back({"box", dp});
+
+    if ((dp = sketch_create_rounded_rect(wdbp, "rounded_rect", 150.0, 100.0, 20.0)))
+	out.push_back({"rounded_rect", dp});
+
+    if ((dp = sketch_create_annulus(wdbp, "annulus", 60.0, 35.0)))
+	out.push_back({"annulus", dp});
+
+    if ((dp = sketch_create_C_shape(wdbp, "C_shape", 60.0)))
+	out.push_back({"C_shape", dp});
+
+    if ((dp = sketch_create_gear(wdbp, "gear", 60.0, 80.0, 8)))
+	out.push_back({"gear", dp});
+
+    if ((dp = sketch_create_multi_contour(wdbp, "multi_contour")))
+	out.push_back({"multi_contour", dp});
+
+    return out;
+}
+
 #include "qsketch.moc"
 
 int
@@ -1482,24 +1989,58 @@ main(int argc, char *argv[])
 {
     bu_setprogname(argv[0]);
 
-    QApplication app(argc, argv);
+    /* Handle --demo-sketches before creating QApplication (no display needed) */
+    if (argc > 1 && strcmp(argv[1], "--demo-sketches") == 0) {
+	if (argc < 3) bu_exit(1, "qsketch: --demo-sketches requires <file.g>\n");
+	const char *g_file = argv[2];
 
-    /* We need exactly 2 positional arguments: <file.g> <sketch_name> */
-    if (argc != 3) {
-	bu_exit(1,
-	    "Usage: qsketch <file.g> <sketch_name>\n"
-	    "\n"
-	    "Opens or creates a sketch primitive in the given .g file\n"
-	    "and presents an interactive Qt editing window.\n");
+	/* Create/open the .g file; get a wdb for writing */
+	struct rt_wdb *wdbp = wdb_fopen(g_file);
+	if (!wdbp) bu_exit(1, "qsketch: cannot open/create '%s'\n", g_file);
+
+	auto demos = create_demo_sketches(wdbp);
+	bu_log("qsketch: created %zu demo sketches in '%s':\n",
+	       demos.size(), g_file);
+	for (auto &p : demos)
+	    bu_log("  %s\n", p.first.c_str());
+	/* wdb_close will also close the underlying dbip */
+	wdb_close(wdbp);
+	return 0;
     }
 
-    const char *g_file   = argv[1];
-    const char *sk_name  = argv[2];
+    /* All remaining modes need a display / QApplication */
+    QApplication app(argc, argv);
 
-    /* ---- open database ---- */
+    /* Parse remaining command line:
+     *   qsketch <file.g> <sketch_name>
+     *   qsketch --screenshot <outfile.png> <file.g> <sketch_name>
+     */
+    const char *screenshot_file = NULL;
+    int arg_start = 1;
+    if (argc > 1 && strcmp(argv[1], "--screenshot") == 0) {
+	if (argc < 3) bu_exit(1, "qsketch: --screenshot requires an output file\n");
+	screenshot_file = argv[2];
+	arg_start = 3;
+    }
+
+    if ((argc - arg_start) != 2) {
+	bu_exit(1,
+	    "Usage: qsketch [--screenshot <out.png>] <file.g> <sketch_name>\n"
+	    "       qsketch --demo-sketches <file.g>\n"
+	    "\n"
+	    "Opens or creates a sketch primitive in the given .g file\n"
+	    "and presents an interactive Qt editing window.\n"
+	    "\n"
+	    "--screenshot <out.png>  Save a screenshot and exit (headless capture)\n"
+	    "--demo-sketches         Create pre-built demo sketches and exit (no display)\n");
+    }
+
+    const char *g_file  = argv[arg_start];
+    const char *sk_name = argv[arg_start + 1];
+
+    /* ---- open / create database ---- */
     struct db_i *dbip = db_open(g_file, DB_OPEN_READWRITE);
     if (dbip == DBI_NULL) {
-	/* Try creating it */
 	struct rt_wdb *wdbp = wdb_fopen(g_file);
 	if (!wdbp)
 	    bu_exit(1, "qsketch: cannot open or create '%s'\n", g_file);
@@ -1512,7 +2053,6 @@ main(int argc, char *argv[])
     if (db_dirbuild(dbip) < 0)
 	bu_exit(1, "qsketch: db_dirbuild failed\n");
 
-    /* ---- look up or create sketch ---- */
     struct directory *dp = db_lookup(dbip, sk_name, LOOKUP_QUIET);
     if (!dp) {
 	bu_log("qsketch: '%s' not found — creating empty sketch.\n", sk_name);
@@ -1526,9 +2066,34 @@ main(int argc, char *argv[])
 		sk_name, dp->d_minor_type);
     }
 
-    /* ---- show window ---- */
     QSketchEditWindow win(dbip, dp);
     win.show();
+
+    if (screenshot_file) {
+	/* Headless screenshot: force rendering then capture window */
+	const char *ssfile = screenshot_file;
+	QTimer::singleShot(2500, &app, [&app, &win, ssfile]() {
+	    /* Force several rounds of repaint to ensure swrast has painted */
+	    for (int i = 0; i < 3; i++) {
+		win.repaint();
+		QCoreApplication::processEvents(QEventLoop::AllEvents, 300);
+	    }
+	    /* Grab using QScreen (captures the X11 window surface) */
+	    QScreen *screen = QGuiApplication::primaryScreen();
+	    QPixmap pm;
+	    if (screen)
+		pm = screen->grabWindow(win.winId());
+	    if (pm.isNull())
+		pm = win.grab();
+	    if (!pm.isNull()) {
+		pm.save(ssfile);
+		bu_log("qsketch: screenshot saved to '%s'\n", ssfile);
+	    } else {
+		bu_log("qsketch: WARNING - screenshot failed\n");
+	    }
+	    app.quit();
+	});
+    }
 
     int ret = app.exec();
 

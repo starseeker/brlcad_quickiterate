@@ -1,0 +1,12 @@
+******************************************
+
+BRL-CAD Release 7.42.1  Crash Report
+    Sat, 07 Mar 2026 04:48:15 UTC, Compilation 0
+    @runnervm0kj6c
+
+Command: qsketch
+Process: 70802
+Path: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build/bin/qsketch
+Date: Sat Mar  7 05:30:20 2026
+
+Call stack backtrace (thread 0):

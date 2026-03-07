@@ -122,6 +122,73 @@ QgSketchFilter::screen_to_uv(int sx, int sy,
     return true;
 }
 
+bool
+QgSketchFilter::snap_vertex_uv(int sx, int sy,
+				fastf_t *u_out, fastf_t *v_out,
+				fastf_t snap_px,
+				int *snapped_idx) const
+{
+    if (snapped_idx)
+	*snapped_idx = -1;
+
+    if (!screen_to_uv(sx, sy, u_out, v_out))
+	return false;
+
+    if (snap_px <= 0.0 || !es || !v)
+	return true;
+
+    const struct rt_sketch_internal *skt =
+	(const struct rt_sketch_internal *)es->es_int.idb_ptr;
+    if (!skt || skt->vert_count == 0)
+	return true;
+
+    /* Model→view transform (including any edit transform) */
+    mat_t m2v;
+    bn_mat_mul(m2v, v->gv_model2view, es->model_changes);
+
+    /* Cursor in view space */
+    vect_t cursor_v;
+    screen_to_view(sx, sy, cursor_v);
+
+    /* Convert snap_px to view-space units.
+     * One pixel = 2 / gv_width view units in X. */
+    fastf_t px_to_view = (v->gv_width > 0)
+	? (2.0 / (fastf_t)v->gv_width)
+	: 0.005;
+    fastf_t threshold2 = (snap_px * px_to_view) * (snap_px * px_to_view);
+
+    fastf_t best_d2  = threshold2;
+    int     best_vi  = -1;
+
+    for (size_t i = 0; i < skt->vert_count; i++) {
+	point_t p3d;
+	VSET(p3d, skt->verts[i][0], skt->verts[i][1], 0.0);
+	/* 3-D → model space (sketch coords already are model-space) */
+	vect_t p3d_model;
+	VJOIN1(p3d_model, skt->V, 1.0, p3d);
+	/* Transform to view space */
+	point_t p_view;
+	MAT4X3PNT(p_view, m2v, p3d_model);
+
+	fastf_t dx = p_view[X] - cursor_v[X];
+	fastf_t dy = p_view[Y] - cursor_v[Y];
+	fastf_t d2 = dx*dx + dy*dy;
+	if (d2 < best_d2) {
+	    best_d2 = d2;
+	    best_vi = (int)i;
+	}
+    }
+
+    if (best_vi >= 0) {
+	*u_out = skt->verts[best_vi][0];
+	*v_out = skt->verts[best_vi][1];
+	if (snapped_idx)
+	    *snapped_idx = best_vi;
+    }
+
+    return true;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* QgSketchPickVertexFilter                                            */
@@ -248,7 +315,8 @@ QgSketchAddVertexFilter::eventFilter(QObject *, QEvent *e)
 	    && m_e->buttons().testFlag(Qt::LeftButton)) {
 
 	fastf_t u = 0.0, vv = 0.0;
-	if (!screen_to_uv(v->gv_mouse_x, v->gv_mouse_y, &u, &vv))
+	/* Use snap_vertex_uv so the new vertex can snap to an existing one */
+	if (!snap_vertex_uv(v->gv_mouse_x, v->gv_mouse_y, &u, &vv))
 	    return true;
 
 	/* Convert base units → local units */
