@@ -500,7 +500,7 @@ class GED_EXPORT DbiState {
 
 	std::vector<unsigned long long> digest_path(const char *path);
 
-	unsigned long long path_hash(std::vector<unsigned long long> &path, size_t max_len);
+	unsigned long long path_hash(const std::vector<unsigned long long> &path, size_t max_len);
 
 	void clear_cache(struct directory *dp);
 
