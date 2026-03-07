@@ -3445,15 +3445,228 @@ BSelectState::state_hash()
 
 /** @} */
 
+/* ---- Phase 4: DrawList implementation ---- */
+
+void DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
+                   const DrawSettings *overrides)
+{
+    if (path_hashes.empty()) return;
+    Entry e;
+    e.path = path_hashes;
+    e.mode = mode;
+    if (overrides) {
+        e.has_settings = true;
+        e.settings = *overrides;
+    }
+    entries_.push_back(std::move(e));
+    dirty_ = true;
+}
+
+void DrawList::remove(unsigned long long path_hash, int mode)
+{
+    auto it = entries_.begin();
+    while (it != entries_.end()) {
+        unsigned long long eh = 0;
+        if (!it->path.empty()) {
+            // Use the last element (leaf hash) as the path representative,
+            // matching BViewState's existing path_hash convention.
+            eh = it->path.back();
+        }
+        if (eh == path_hash && (mode < 0 || it->mode == mode)) {
+            it = entries_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    dirty_ = true;
+}
+
+void DrawList::clear()
+{
+    entries_.clear();
+    drawn_hash_modes_.clear();
+    dirty_ = false;
+}
+
+void DrawList::rebuild_index() const
+{
+    drawn_hash_modes_.clear();
+    for (const auto &e : entries_) {
+        for (const auto &h : e.path) {
+            drawn_hash_modes_[h].insert(e.mode);
+        }
+    }
+    dirty_ = false;
+}
+
+DrawState DrawList::query(unsigned long long path_hash, int mode) const
+{
+    if (dirty_) rebuild_index();
+    auto it = drawn_hash_modes_.find(path_hash);
+    if (it == drawn_hash_modes_.end()) return DrawState::NOT_DRAWN;
+    if (mode < 0) return DrawState::FULLY_DRAWN;
+    if (it->second.find(mode) != it->second.end()) return DrawState::FULLY_DRAWN;
+    return DrawState::NOT_DRAWN;
+}
+
+std::vector<std::vector<unsigned long long>> DrawList::drawn_path_hashes(int mode) const
+{
+    std::vector<std::vector<unsigned long long>> result;
+    for (const auto &e : entries_) {
+        if (mode < 0 || e.mode == mode)
+            result.push_back(e.path);
+    }
+    return result;
+}
+
+size_t DrawList::count(int mode) const
+{
+    if (mode < 0) return entries_.size();
+    size_t n = 0;
+    for (const auto &e : entries_)
+        if (e.mode == mode) ++n;
+    return n;
+}
+
+bool DrawList::empty() const { return entries_.empty(); }
+
+/* ---- Phase 5: SelectionSet implementation ---- */
+
+SelectionSet::SelectionSet(DbiState *d) : dbis_(d) {}
+
+bool SelectionSet::select(unsigned long long path_hash, bool update_hierarchy)
+{
+    if (!path_hash) return false;
+    selected_.insert(path_hash);
+    if (update_hierarchy) recompute_hierarchy();
+    return true;
+}
+
+bool SelectionSet::deselect(unsigned long long path_hash, bool update_hierarchy)
+{
+    auto it = selected_.find(path_hash);
+    if (it == selected_.end()) return false;
+    selected_.erase(it);
+    if (update_hierarchy) recompute_hierarchy();
+    return true;
+}
+
+void SelectionSet::clear()
+{
+    selected_.clear();
+    active_.clear();
+    parents_.clear();
+    ancestors_.clear();
+}
+
+bool SelectionSet::is_selected(unsigned long long path_hash) const
+{ return selected_.count(path_hash) > 0; }
+
+bool SelectionSet::is_active(unsigned long long path_hash) const
+{ return active_.count(path_hash) > 0; }
+
+bool SelectionSet::is_parent(unsigned long long path_hash) const
+{ return parents_.count(path_hash) > 0; }
+
+bool SelectionSet::is_ancestor(unsigned long long path_hash) const
+{ return ancestors_.count(path_hash) > 0; }
+
+bool SelectionSet::select(const char *path_str, bool update_hierarchy)
+{
+    if (!path_str || !dbis_) return false;
+    std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
+    if (hpath.empty()) return false;
+    unsigned long long ph = dbis_->path_hash(hpath, 0);
+    return select(ph, update_hierarchy);
+}
+
+bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
+{
+    if (!path_str || !dbis_) return false;
+    std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
+    if (hpath.empty()) return false;
+    unsigned long long ph = dbis_->path_hash(hpath, 0);
+    return deselect(ph, update_hierarchy);
+}
+
+std::vector<std::string> SelectionSet::selected_paths() const
+{
+    // Full path string lookup deferred to future implementation.
+    return {};
+}
+
+unsigned long long SelectionSet::state_hash() const
+{
+    unsigned long long h = 0;
+    for (auto ph : selected_) {
+	// Golden ratio hash combining: distributes bits to reduce collisions
+	h ^= ph + 0x9e3779b9 + (h << 6) + (h >> 2);
+    }
+    return h;
+}
+
+void SelectionSet::sync_to_drawn(BViewState * /*vs*/)
+{
+    // Highlight marker sync is a future implementation.
+}
+
+void SelectionSet::recompute_hierarchy()
+{
+    active_ = selected_;
+    parents_.clear();
+    ancestors_.clear();
+    // Full hierarchy computation is delegated to BSelectState for now.
+}
+
+/* ---- Phase 5: DbiState SelectionSet management ---- */
+
+SelectionSet *DbiState::get_selection_set(const char *name)
+{
+    if (!name || !strlen(name)) {
+        if (!default_selection_set_)
+            default_selection_set_ = std::make_unique<SelectionSet>(this);
+        return default_selection_set_.get();
+    }
+    auto it = selection_sets_.find(name);
+    if (it != selection_sets_.end()) return it->second.get();
+    selection_sets_[name] = std::make_unique<SelectionSet>(this);
+    return selection_sets_[name].get();
+}
+
+void DbiState::add_selection_set(const char *name)
+{
+    if (!name || !strlen(name)) return;
+    if (selection_sets_.find(name) == selection_sets_.end())
+        selection_sets_[name] = std::make_unique<SelectionSet>(this);
+}
+
+void DbiState::remove_selection_set(const char *name)
+{
+    if (!name || !strlen(name)) {
+        if (default_selection_set_) default_selection_set_->clear();
+        return;
+    }
+    selection_sets_.erase(name);
+}
+
+std::vector<std::string> DbiState::list_selection_sets() const
+{
+    std::vector<std::string> result;
+    for (const auto &kv : selection_sets_) result.push_back(kv.first);
+    return result;
+}
+
 void DbiState::add_observer(IDbiObserver *obs) {
-    if (obs) dbi_observers_.push_back(obs);
+    if (obs && std::find(dbi_observers_.begin(), dbi_observers_.end(), obs) == dbi_observers_.end())
+	dbi_observers_.push_back(obs);
 }
 void DbiState::remove_observer(IDbiObserver *obs) {
     auto it = std::find(dbi_observers_.begin(), dbi_observers_.end(), obs);
     if (it != dbi_observers_.end()) dbi_observers_.erase(it);
 }
 void DbiState::add_scene_observer(ISceneObserver *obs) {
-    if (obs) scene_observers_.push_back(obs);
+    if (obs && std::find(scene_observers_.begin(), scene_observers_.end(), obs) == scene_observers_.end())
+	scene_observers_.push_back(obs);
 }
 void DbiState::remove_scene_observer(ISceneObserver *obs) {
     auto it = std::find(scene_observers_.begin(), scene_observers_.end(), obs);

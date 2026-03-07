@@ -45,6 +45,8 @@
 
 #ifdef __cplusplus
 #include <algorithm>
+#include <functional>
+#include <memory>
 #include <set>
 #include <map>
 #include <unordered_map>
@@ -80,6 +82,51 @@ template<> struct hash<PathHash> { size_t operator()(const PathHash &h) const { 
 }
 
 class GED_EXPORT DbiState;
+class GED_EXPORT BViewState;
+
+// SelectionSet replaces BSelectState with cleaner semantics.
+// It tracks selected paths and hierarchical relationships using path hashes.
+class GED_EXPORT SelectionSet {
+public:
+    explicit SelectionSet(DbiState *);
+    ~SelectionSet() = default;
+
+    // Select/deselect by path hash
+    bool select(unsigned long long path_hash, bool update_hierarchy = true);
+    bool deselect(unsigned long long path_hash, bool update_hierarchy = true);
+    void clear();
+
+    // Query state by path hash
+    bool is_selected(unsigned long long path_hash) const;
+    bool is_active(unsigned long long path_hash) const;
+    bool is_parent(unsigned long long path_hash) const;
+    bool is_ancestor(unsigned long long path_hash) const;
+
+    // Select/deselect by path string
+    bool select(const char *path_str, bool update_hierarchy = true);
+    bool deselect(const char *path_str, bool update_hierarchy = true);
+
+    // Return sorted list of selected path strings
+    std::vector<std::string> selected_paths() const;
+
+    // Compute a hash over the current selection state
+    unsigned long long state_hash() const;
+
+    // Synchronize highlight markers to the given view state
+    void sync_to_drawn(BViewState *vs);
+
+    // Raw access for compatibility with existing code
+    const std::unordered_set<unsigned long long> &selected_hashes() const { return selected_; }
+
+private:
+    DbiState *dbis_;
+    std::unordered_set<unsigned long long> selected_;     // PathHash values
+    std::unordered_set<unsigned long long> active_;       // selected + children
+    std::unordered_set<unsigned long long> parents_;      // immediate parents
+    std::unordered_set<unsigned long long> ancestors_;    // all above parents
+
+    void recompute_hierarchy();
+};
 
 class GED_EXPORT BSelectState {
     public:
@@ -153,6 +200,68 @@ class GED_EXPORT BSelectState {
 };
 
 
+// DrawState values for DrawList::query()
+enum class DrawState { NOT_DRAWN = 0, FULLY_DRAWN = 1, PARTIALLY_DRAWN = 2 };
+
+// Per-path draw settings override (optional)
+struct DrawSettings {
+    bool   has_color = false;
+    struct bu_color color = BU_COLOR_INIT_ZERO;
+    int    line_width = 1;
+    int    mode = 0;
+    bool   draw_solid_lines_only = false;
+    bool   draw_non_subtract_only = false;
+};
+
+// DrawList manages which database paths are drawn in which modes.
+// It is separate from BViewState to cleanly separate "draw intent"
+// from "rendered scene objects".
+//
+// Ownership: DrawList instances are owned by a BViewState.
+class GED_EXPORT DrawList {
+public:
+    DrawList() = default;
+    ~DrawList() = default;
+
+    // Stage a path for drawing in the given mode with optional settings override.
+    // Does not trigger a redraw; call BViewState::redraw() after all changes are staged.
+    void add(const std::vector<unsigned long long> &path_hashes, int mode = 0,
+             const DrawSettings *overrides = nullptr);
+
+    // Remove paths matching the given prefix hash in the given mode (-1 = all modes)
+    void remove(unsigned long long path_hash, int mode = -1);
+
+    // Clear the entire draw list
+    void clear();
+
+    // Query draw state of a path hash
+    // Returns NOT_DRAWN, FULLY_DRAWN, or PARTIALLY_DRAWN
+    DrawState query(unsigned long long path_hash, int mode = -1) const;
+
+    // Return sorted list of drawn path hash vectors, optionally filtered by mode
+    std::vector<std::vector<unsigned long long>> drawn_path_hashes(int mode = -1) const;
+
+    // Return count of staged paths
+    size_t count(int mode = -1) const;
+
+    // Check if this list is empty
+    bool empty() const;
+
+private:
+    // Staged entries: path_hashes + mode + optional settings
+    struct Entry {
+        std::vector<unsigned long long> path;
+        int mode = 0;
+        bool has_settings = false;
+        DrawSettings settings;
+    };
+    std::vector<Entry> entries_;
+    mutable std::unordered_map<unsigned long long, std::unordered_set<int>> drawn_hash_modes_;
+    mutable bool dirty_ = true;
+
+    void rebuild_index() const;
+};
+
 class GED_EXPORT BViewState {
     public:
 	BViewState(DbiState *);
@@ -204,6 +313,9 @@ class GED_EXPORT BViewState {
 	// means direct inspection of most data isn't informative, so we provide
 	// convenience methods that decode it to user-comprehensible info.
 	void print_view_state(struct bu_vls *o = NULL);
+
+	DrawList &draw_list() { return draw_list_; }
+	const DrawList &draw_list() const { return draw_list_; }
 
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
@@ -297,6 +409,8 @@ class GED_EXPORT BViewState {
 	std::unordered_set<unsigned long long> all_partially_drawn_paths;
 
 	friend class BSelectState;
+
+	DrawList draw_list_;
 };
 
 #define GED_DBISTATE_DB_CHANGE   0x01
@@ -463,6 +577,12 @@ class GED_EXPORT DbiState {
 	void add_scene_observer(ISceneObserver *);
 	void remove_scene_observer(ISceneObserver *);
 
+	// SelectionSet management (modern replacement for BSelectState)
+	SelectionSet *get_selection_set(const char *name = nullptr);
+	void          add_selection_set(const char *name);
+	void          remove_selection_set(const char *name = nullptr);
+	std::vector<std::string> list_selection_sets() const;
+
     private:
 	void gather_cyclic(
 		std::unordered_set<unsigned long long> &cyclic,
@@ -488,6 +608,9 @@ class GED_EXPORT DbiState {
 	std::vector<ISceneObserver *>  scene_observers_;
 	void notify_dbi_observers(const std::vector<DbiChangeEvent> &);
 	void notify_scene_observers(const std::vector<SceneChangeEvent> &);
+
+	std::unique_ptr<SelectionSet> default_selection_set_;
+	std::unordered_map<std::string, std::unique_ptr<SelectionSet>> selection_sets_;
 };
 
 
