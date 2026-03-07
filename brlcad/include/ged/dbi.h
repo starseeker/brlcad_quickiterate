@@ -122,8 +122,9 @@ class GED_EXPORT BViewState;
 class GED_EXPORT GObj;
 class GED_EXPORT CombInst;
 
-// SelectionSet replaces BSelectState with cleaner semantics.
-// It tracks selected paths and hierarchical relationships using path hashes.
+// SelectionSet tracks which database paths are currently selected and
+// maintains hierarchical relationships (active subpaths, parent paths,
+// ancestor paths) derived from the selection.
 class GED_EXPORT SelectionSet {
 public:
     explicit SelectionSet(DbiState *);
@@ -132,18 +133,29 @@ public:
     // Select/deselect by path hash (path_vec must be the ordered element hash
     // vector corresponding to path_hash so that hierarchy can be computed)
     bool select(unsigned long long path_hash, const std::vector<unsigned long long> &path_vec, bool update_hierarchy = true);
-    // Convenience overload: inserts hash with an empty path vector.
-    // Hierarchy computation (recompute_hierarchy) will skip this entry since
-    // the path vector is unavailable; prefer the full overload when possible.
-    bool select(unsigned long long path_hash, bool update_hierarchy = true);
     bool deselect(unsigned long long path_hash, bool update_hierarchy = true);
     void clear();
 
     // Query state by path hash
     bool is_selected(unsigned long long path_hash) const;
     bool is_active(unsigned long long path_hash) const;
+    // is_parent: returns true if path_hash is the immediate parent of a selected path
     bool is_parent(unsigned long long path_hash) const;
+    // is_ancestor: returns true if path_hash is any ancestor of a selected path
     bool is_ancestor(unsigned long long path_hash) const;
+
+    // Object-hash queries (use the terminal element hash from a path, i.e. a
+    // database-object name hash, rather than a full path hash).  These answer
+    // questions about whether a given database object appears anywhere above a
+    // selected path in the topology of the database — regardless of which
+    // specific path instance was selected.
+    //
+    // is_obj_immediate_parent: true when obj_hash is the direct-parent object
+    //   of any selected path's leaf element anywhere in the database.
+    bool is_obj_immediate_parent(unsigned long long obj_hash) const;
+    // is_obj_ancestor: true when obj_hash is any higher-level ancestor of any
+    //   selected path's leaf element (not the immediate parent).
+    bool is_obj_ancestor(unsigned long long obj_hash) const;
 
     // Select/deselect by path string
     bool select(const char *path_str, bool update_hierarchy = true);
@@ -157,6 +169,27 @@ public:
 
     // Synchronize highlight markers to the given view state
     void sync_to_drawn(BViewState *vs);
+    // Synchronize highlight markers to all views in the associated ged context
+    bool sync_to_all_views();
+
+    // Expand all selected paths to their leaf solid paths.
+    // Each selected comb is replaced with all of its leaf-solid descendants.
+    void expand();
+
+    // Collapse the selected paths toward the root, replacing groups of sibling
+    // paths that together cover all children of their parent with the parent
+    // path.  The process repeats until no further collapse is possible.
+    void collapse();
+
+    // Revalidate selected paths against the current database state and
+    // regenerate the active set.  Paths that are no longer valid are removed.
+    void refresh();
+
+    // Recompute parent/ancestor/active hierarchy caches from the current
+    // selected_ map.  Called automatically when update_hierarchy=true is
+    // passed to select() or deselect().  May also be called directly after a
+    // batch of select()/deselect(false) calls to update the caches once.
+    void recompute_hierarchy();
 
     // Raw access for compatibility with existing code
     // Returns a snapshot set of all selected path hashes
@@ -174,78 +207,14 @@ private:
     std::unordered_set<unsigned long long> parents_;      // immediate parent path hashes
     std::unordered_set<unsigned long long> ancestors_;    // all ancestor path hashes
 
-    void recompute_hierarchy();
-};
+    // Object-hash sets (keyed by terminal element / name hash, not path hash)
+    std::unordered_set<unsigned long long> obj_immediate_parents_; // direct-parent db objects
+    std::unordered_set<unsigned long long> obj_ancestors_;         // higher-level db objects
 
-class GED_EXPORT BSelectState {
-    public:
-	BSelectState(DbiState *);
-
-	bool select_path(const char *path, bool update);
-	bool select_hpath(std::vector<unsigned long long> &hpath);
-
-	bool deselect_path(const char *path, bool update);
-	bool deselect_hpath(std::vector<unsigned long long> &hpath);
-
-	void clear();
-
-	bool is_selected(unsigned long long);
-	bool is_active(unsigned long long);
-	bool is_active_parent(unsigned long long);
-	bool is_parent_obj(unsigned long long);
-	bool is_immediate_parent_obj(unsigned long long);
-	bool is_grand_parent_obj(unsigned long long);
-
-	std::vector<std::string> list_selected_paths();
-
-	void expand();
-	void collapse();
-
-	void refresh();
-	bool draw_sync();
-
-	unsigned long long state_hash();
-
-	std::unordered_map<unsigned long long, std::vector<unsigned long long>> selected;
-	std::unordered_set<unsigned long long> active_paths; // Solid paths to illuminate
-	std::unordered_set<unsigned long long> active_parents; // Paths above selection
-	// To support highlighting closed paths that have selected primitives
-	// below them, we need more information.  This is different than
-	// highlighting only the paths related to the specific selected full
-	// path - in this situation, the application wants to know about all
-	// paths that are above the leaf *object* that is selected, in whatever
-	// portion of the database.  Immediate parents are combs whose
-	// immediate child is the selected leaf; grand parents are higher level
-	// combs above immediate parents
-	std::unordered_set<unsigned long long> immediate_parents;
-	std::unordered_set<unsigned long long> grand_parents;
-
-	void characterize();
-
-    private:
-	DbiState *dbis;
-
-	void add_paths(
-		unsigned long long c_hash,
-		std::vector<unsigned long long> &path_hashes
-		);
-
-	void clear_paths(
-		unsigned long long c_hash,
-		std::vector<unsigned long long> &path_hashes
-		);
-
-	void expand_paths(
-		std::vector<std::vector<unsigned long long>> &out_paths,
-		unsigned long long c_hash,
-		std::vector<unsigned long long> &path_hashes
-		);
-
-	void collapse_paths(
-		std::vector<std::vector<unsigned long long>> &out_paths
-		);
-
-	void clear_paths(std::vector<unsigned long long> &path_hashes, unsigned long long c_hash);
+    // Internal: expand one path to its leaf-solid sub-paths (recursive)
+    void expand_path(std::vector<std::vector<unsigned long long>> &out_paths,
+                     unsigned long long c_hash,
+                     std::vector<unsigned long long> &path_hashes);
 };
 
 
@@ -282,6 +251,10 @@ public:
 
     // Clear the entire draw list
     void clear();
+
+    // Clear only entries drawn in the given mode.  Entries for all other
+    // modes are preserved.  Use clear() (no argument) to remove everything.
+    void clear(int mode);
 
     // Query draw state of a path hash
     // Returns NOT_DRAWN, FULLY_DRAWN, or PARTIALLY_DRAWN
@@ -457,7 +430,6 @@ class GED_EXPORT BViewState {
 	std::unordered_map<int, std::unordered_set<unsigned long long>> partially_drawn_paths;
 	std::unordered_set<unsigned long long> all_partially_drawn_paths;
 
-	friend class BSelectState;
 	friend class SelectionSet;
 
 	DrawList draw_list_;
@@ -528,17 +500,11 @@ class GED_EXPORT DbiState {
 
 	std::vector<unsigned long long> digest_path(const char *path);
 
-	unsigned long long path_hash(std::vector<unsigned long long> &path, size_t max_len);
+	unsigned long long path_hash(const std::vector<unsigned long long> &path, size_t max_len);
 
 	void clear_cache(struct directory *dp);
 
 	BViewState *get_view_state(struct bview *);
-
-	std::vector<BSelectState *> get_selected_states(const char *sname);
-	BSelectState * find_selected_state(const char *sname);
-
-	void put_selected_state(const char *sname);
-	std::vector<std::string> list_selection_sets();
 
 	// These maps are the ".g ground truth" of the comb structures - the set
 	// associated with each hash contains all the child hashes from the comb
@@ -605,11 +571,6 @@ class GED_EXPORT DbiState {
 	BViewState *shared_vs = NULL;
 	std::unordered_map<struct bview *, BViewState *> view_states;
 
-	// We have a "default" selection state that is always available,
-	// and applications may define other named selection states.
-	BSelectState *default_selected;
-	std::unordered_map<std::string, BSelectState *> selected_sets;
-
 	// Database Instance associated with this container
 	struct ged *gedp = NULL;
 	struct db_i *dbip = NULL;
@@ -638,8 +599,15 @@ class GED_EXPORT DbiState {
 	void add_scene_observer(ISceneObserver *);
 	void remove_scene_observer(ISceneObserver *);
 
-	// SelectionSet management (modern replacement for BSelectState)
+	// SelectionSet management
+	// get_selection_set: returns the named set (or default if name is null/empty).
+	//   Creates a new empty set if the name does not yet exist.
 	SelectionSet *get_selection_set(const char *name = nullptr);
+	// get_selection_sets: returns all sets whose names match the glob pattern.
+	//   If pattern is null or empty, returns the default set.
+	//   If pattern contains a '*', returns all matching named sets.
+	//   Otherwise returns the single named set if it exists.
+	std::vector<SelectionSet *> get_selection_sets(const char *pattern = nullptr);
 	void          add_selection_set(const char *name);
 	void          remove_selection_set(const char *name = nullptr);
 	std::vector<std::string> list_selection_sets() const;
@@ -755,9 +723,6 @@ typedef struct _dbi_state {
 typedef struct _bview_state {
     int dummy; /* MS Visual C hack which can be removed if the struct contains something meaningful */
 } BViewState;
-typedef struct _bselect_state {
-    int dummy; /* MS Visual C hack which can be removed if the struct contains something meaningful */
-} BSelectState;
 
 #endif
 

@@ -16,7 +16,7 @@ database-interface (DBI) API suitable for driving a production-quality
 ```
 qged (QgEdApp, QgEdMainWindow)
   └─ libqtcad (QgModel : QAbstractItemModel, QgItem, QgGL, QgTreeView, …)
-       └─ libged dbi.h (DbiState, BViewState, BSelectState)
+       └─ libged dbi.h (DbiState, BViewState, SelectionSet)
             └─ librt (.g database: struct ged *, struct db_i *, struct directory *)
 ```
 
@@ -35,15 +35,16 @@ qged (QgEdApp, QgEdMainWindow)
 | Drawing attributes | `c_inherit`, `rgb`, `region_id` maps |
 | Change detection | `added`, `changed`, `changed_hashes`, `removed`, `old_names` sets |
 | Views | `shared_vs` + `view_states` map |
-| Selections | `default_selected` + `selected_sets` map |
+| Selections | `default_selection_set_` + `selection_sets_` map (`SelectionSet` instances) |
 | Sync | `unsigned long long update()` — full rebuild from `.g` on each call |
 
 `BViewState` tracks which paths are drawn and in which mode.  Internally it uses
 `s_map` (hash→mode→`bv_scene_obj *`) and several levels of "collapsed"/"drawn" path
 sets that must be kept coherent with each other.
 
-`BSelectState` tracks which paths are selected and provides hierarchical selection
-metadata (active parents, grand parents, etc.).
+`SelectionSet` tracks which paths are selected and provides hierarchical selection
+metadata (`active_`, `parents_`, `ancestors_`, `obj_immediate_parents_`, `obj_ancestors_`).
+It also supports `expand()`, `collapse()`, `refresh()`, and `sync_to_all_views()`.
 
 ### 2.2 QgModel (include/qtcad/QgModel.h, src/libqtcad/QgModel.cpp)
 
@@ -810,12 +811,15 @@ tooling that depends on `libged`, the transition should be staged.
 
 - ~~Rename `BSelectState` → `SelectionSet`, adopt `DbiPath` arguments.~~ **DONE** —
   `SelectionSet` is declared in `include/ged/dbi.h` and implemented in
-  `dbi_state.cpp`.  `DbiState::get_selection_set()` / `add_selection_set()` /
-  `remove_selection_set()` / `list_selection_sets()` are implemented.
-- `BSelectState` is retained in the header for the transition period.
+  `dbi_state.cpp`.  `DbiState::get_selection_set()` / `get_selection_sets()` /
+  `add_selection_set()` / `remove_selection_set()` / `list_selection_sets()` are
+  implemented.
+- ~~`BSelectState` retained for transition.~~ **REMOVED** — all callers migrated to
+  `SelectionSet`; `BSelectState` and its old `DbiState` management methods deleted.
 - ~~Rewrite hierarchy metadata computation using the `GObj`/`CombInst` graph~~
   **DONE (Phase 7)** — `recompute_hierarchy()` uses BFS via `DbiState::p_v` to expand
-  descendants into `active_`; prefix-walk builds `parents_` and `ancestors_`.
+  descendants into `active_`; prefix-walk builds `parents_` and `ancestors_`;
+  reverse-map walk builds `obj_immediate_parents_` and `obj_ancestors_`.
 - **Tests:** selection expand/collapse, highlighting after edit, multi-view sync.
 
 ### Phase 6 — QgModel incremental update  ✅ COMPLETE
@@ -1169,11 +1173,8 @@ architectural work that was deferred during the phase-by-phase rollout.
 
 ### 12.1 Testing
 
-**T1 — Promote `QAbstractItemModelTester` to `Fatal` mode.**
-`src/libqtcad/tests/qgmodel.cpp` line 135 runs the model tester in `Warning` mode;
-the `Fatal`-mode version is commented out above it.  Once all known protocol
-violations are confirmed gone, switch to `Fatal` so any future regression is caught
-immediately.
+**T1 — Promote `QAbstractItemModelTester` to `Fatal` mode.**  ✅ DONE
+`src/libqtcad/tests/qgmodel.cpp` now runs the model tester in `Fatal` mode.
 
 **T2 — Qt model-protocol regression test for `rebuild_item_children()`.**
 Write a Qt unit test (using `QAbstractItemModelTester` in `Fatal` mode) that:
@@ -1209,28 +1210,21 @@ per-view context instead of the global fallback.
 The override should be stored in a separate field (e.g., a flag + override color in
 `bv_obj_settings`) so the original color can be restored when the override is lifted.
 
-**C3 — Add a mode-specific `DrawList::clear()` overload.**
-`include/ged/dbi.h` line 347: the `DrawList::clear()` comment notes it should allow
-mode specification.  Add `void clear(int mode)` that removes only paths drawn in
-the given mode (wireframe, shaded, etc.), leaving other modes intact.
+**C3 — Add a mode-specific `DrawList::clear()` overload.**  ✅ DONE
+`void DrawList::clear(int mode)` is now implemented; it removes only entries drawn in
+the given mode, leaving all other modes intact.
 
-**C4 — Formalize invalid-hash error handling in `QgModel`.**
-`QgModel.cpp` lines 418 and 949: both invalid-hash paths silently `return` with no
-diagnostic.  In debug builds these should `bu_log()` a warning or trigger an
-assertion so that hash-consistency bugs are surfaced during development.
+**C4 — Formalize invalid-hash error handling in `QgModel`.**  ✅ DONE
+Both invalid-hash paths in `QgModel.cpp` (`item_rebuild` and `fetchMore`) now emit
+a `bu_log()` warning with the offending hash value.
 
-**C5 — Remove or update the stale "not the final form" comment in `QgModel.cpp`.**
-`QgModel.cpp` lines 57–66 contain a block comment saying the `dbi.h` C++ structures
-are "not the final form" and predicting a librt-level API.  The DBI layer has now
-matured considerably; the comment should be revised to reflect the current state or
-removed if it no longer conveys useful guidance.
+**C5 — Remove or update the stale "not the final form" comment in `QgModel.cpp`.**  ✅ DONE
+The block comment has been replaced with a concise, accurate description of the DBI
+layer's current role.
 
-**C6 — Fix or remove `SelectionSet::select(ull, bool)` convenience overload.**
-`include/ged/dbi.h` line 138: the convenience overload `select(ull, bool)` inserts
-an empty path vector into `selected_`, which is inconsistent with the invariant that
-path hashes are accompanied by their element vectors.  Either populate the vector by
-looking up the hash in `DbiState::d_map` / `DbiState::p_v`, or remove the overload
-and require callers to use the full `select(ull, vector<ull>, bool)` form.
+**C6 — Fix or remove `SelectionSet::select(ull, bool)` convenience overload.**  ✅ DONE
+The overload was removed.  All callers now use the full `select(ull, vector<ull>, bool)`
+form or the string-path form `select(const char *, bool)`.
 
 ### 12.3 API Migration and Incomplete Features
 
@@ -1280,9 +1274,17 @@ defines `TypeIconDisplayRole`, `HighlightDisplayRole`, `DrawnDisplayRole`, and
 - Extending `data()` to serve those columns.
 - Wiring into the `QgTreeView` header.
 
-**L4 — Verify `BSelectState` removal timeline.**
-Section 9 Q5 established that backward-compat shims are not required.  `BSelectState`
-was retained in `include/ged/dbi.h` during the transition.  Audit all callers to
-confirm they have been migrated to `SelectionSet`, then remove `BSelectState` and
-its implementations from `dbi_state.cpp` along with the `BSelectState` class
-declaration and any remaining `select_path`/`deselect_path` helpers.
+**L4 — `BSelectState` removal.**  ✅ DONE
+`BSelectState` has been fully removed.  All callers have been migrated to
+`SelectionSet`:
+- `QgModel.cpp` highlight/selection display roles now use `SelectionSet`.
+- `QgTreeSelectionModel.cpp` now uses `SelectionSet::select()`, `deselect()`,
+  `recompute_hierarchy()`, and `sync_to_all_views()`.
+- `select2.cpp` (`select` GED command) now uses `SelectionSet` via `get_selection_sets()`.
+- `BViewState::refresh()` and `BViewState::redraw()` now use `get_selection_set(nullptr)`.
+- `SelectionSet` gained `expand()`, `collapse()`, `refresh()`, `sync_to_all_views()`,
+  `is_obj_immediate_parent()`, `is_obj_ancestor()`, and a public `recompute_hierarchy()`.
+- `DbiState` gained `get_selection_sets(pattern)` for multi-set pattern queries.
+- `BSelectState` class declaration, all method implementations, and the old
+  `get_selected_states()` / `find_selected_state()` / `put_selected_state()` helpers
+  have been deleted.

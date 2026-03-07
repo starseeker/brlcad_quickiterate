@@ -54,16 +54,12 @@
 #define ALPHANUM_IMPL
 #include "../libged/alphanum.h"
 
-// TODO - we have to have a reflection of the database state suitable
-// for expressing a Qt Model that can back things like a hierarchy
-// view.  The raw librt data structures have too much implicit state
-// for that - comb instances, for example, must be deduced from the
-// comb trees and are not explicitly expressed as data entities
-// directly.  For the moment we are using the dbi.h C++ structures
-// from libged, but that is not the final form of what we need.  The
-// correct answer is probably a much cleaned up version of what that
-// logic is doing as a librt level API to the database, but that will
-// take time.
+// QgModel uses the DBI layer (dbi.h) from libged as the authoritative
+// source of truth for the database hierarchy.  DbiState, DrawList, and
+// SelectionSet provide explicit, hash-keyed representations of comb
+// instances, draw state, and selection state that are suitable for
+// backing a QAbstractItemModel without requiring extra copies of librt
+// data structures.
 #include "../libged/dbi.h"
 
 
@@ -415,7 +411,7 @@ QgModel::item_rebuild(QgItem *item)
     unsigned long long chash = item->ihash;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     if (dbis->p_v.find(chash) == dbis->p_v.end()) {
-	// TODO - invalid hash
+	bu_log("QgModel::item_rebuild: invalid hash 0x%llx - item may have been removed from the database\n", (unsigned long long)chash);
 	return;
     }
 
@@ -946,7 +942,7 @@ QgModel::fetchMore(const QModelIndex &idx)
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     unsigned long long chash = item->ihash;
     if (dbis->p_v.find(chash) == dbis->p_v.end()) {
-	// TODO - invalid hash
+	bu_log("QgModel::fetchMore: invalid hash 0x%llx - item may have been removed from the database\n", (unsigned long long)chash);
 	return;
     }
 
@@ -1059,7 +1055,7 @@ QgModel::data(const QModelIndex &index, int role) const
 	return QVariant(vs->is_hdrawn(-1, qi->path_hash()));
     }
     if (role == SelectDisplayRole) {
-	BSelectState *ss = dbis->find_selected_state(NULL);
+	SelectionSet *ss = dbis->get_selection_set(nullptr);
 	if (ss)
 	    return QVariant(ss->is_selected(qi->path_hash()));
     }
@@ -1068,22 +1064,25 @@ QgModel::data(const QModelIndex &index, int role) const
 	return QVariant(qi->icon);
 
     if (role == HighlightDisplayRole) {
-	BSelectState *ss = dbis->find_selected_state(NULL);
+	SelectionSet *ss = dbis->get_selection_set(nullptr);
 	if (!ss)
 	    return QVariant();
 	switch (qi->mdl->interaction_mode) {
 	    case 0:
-		if (qi->open_itm == false && ss->is_active_parent(qi->path_hash()))
+		// Highlight closed items that are ancestors of a selection
+		if (qi->open_itm == false && ss->is_ancestor(qi->path_hash()))
 		    return QVariant(1);
 		return QVariant(0);
 	    case 1:
-		if (ss->is_parent_obj(qi->ihash))
+		// Highlight any db object that appears anywhere above a selected leaf
+		if (ss->is_obj_immediate_parent(qi->ihash) || ss->is_obj_ancestor(qi->ihash))
 		    return QVariant(2);
 		return QVariant(0);
 	    case 2:
-		if (ss->is_immediate_parent_obj(qi->ihash))
+		// Distinguish immediate parents from higher-level ancestors
+		if (ss->is_obj_immediate_parent(qi->ihash))
 		    return QVariant(3);
-		if (ss->is_grand_parent_obj(qi->ihash))
+		if (ss->is_obj_ancestor(qi->ihash))
 		    return QVariant(2);
 		return QVariant(0);
 	    default:
