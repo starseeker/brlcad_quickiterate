@@ -9,7 +9,7 @@ add_subdirectory(dm)
 add_subdirectory(gcv)
 add_subdirectory(ged)
 add_subdirectory(icv)
-add_subdirectory(libbsg)
+
 add_subdirectory(nmg)
 add_subdirectory(optical)
 add_subdirectory(qtcad)

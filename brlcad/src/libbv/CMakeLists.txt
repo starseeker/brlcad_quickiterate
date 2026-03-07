@@ -3,7 +3,9 @@ brlcad_find_package(LMDB REQUIRED)
 set(
   LIBBV_SRCS
   adc.c
+  diff.c
   font.c
+  hash.c
   knobs.cpp
   lod.cpp
   polygon.c
@@ -26,8 +28,7 @@ set(
 set(BV_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${LMDB_INCLUDE_DIR})
 
 # Note - libbv_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-# libbsg must be listed before the system deps so its symbols are found first.
-brlcad_addlib(libbv "${LIBBV_SRCS}" "libbsg;${libbv_deps};${LMDB_LIBRARIES}" "" "${BV_LOCAL_INCLUDE_DIRS}"
+brlcad_addlib(libbv "${LIBBV_SRCS}" "${libbv_deps};${LMDB_LIBRARIES}" "" "${BV_LOCAL_INCLUDE_DIRS}"
   # vlist.c defines PLOT3_IMPLEMENTATION before including bv/plot3.h, which
   # causes the plot3_* function bodies to be compiled into this translation
   # unit.  If vlist.c is batched with files that include bv/plot3.h first,
