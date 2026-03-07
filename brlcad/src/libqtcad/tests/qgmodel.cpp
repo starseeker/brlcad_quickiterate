@@ -162,10 +162,8 @@ test_rebuild_item_children(const char *tmppath)
     { const char *av[] = {"g","top1.c","reg1.r","tor1.s",NULL};
       ged_exec_g(gedp, 4, av); }
 
-    /* Open the populated .g in a QgModel */
-    QgModel mdl(NULL, NULL);
-    /* Transfer the gedp so the model sees our populated DB */
-    /* Instead, open the file directly */
+    /* Close the raw gedp; let QgModel open the file with its own machinery
+     * so its internal change callback is properly registered. */
     ged_close(gedp);
     gedp = NULL;
 
@@ -421,11 +419,17 @@ int main(int argc, char *argv[])
      * exploration outputs above do not affect signal counts.             */
     int t2_failures = 0;
     {
-	/* Derive a temp path next to the file already opened */
-	struct bu_vls t2path = BU_VLS_INIT_ZERO;
-	bu_vls_sprintf(&t2path, "%s.t2.g", argv[0]);
-	t2_failures = test_rebuild_item_children(bu_vls_cstr(&t2path));
-	bu_vls_free(&t2path);
+	/* Use a system temp file to avoid depending on argv[0] being writable */
+	char t2path[MAXPATHLEN] = {0};
+	FILE *fp = bu_temp_file(t2path, sizeof(t2path));
+	if (fp) fclose(fp);
+	bu_file_delete(t2path);  /* test_rebuild_item_children creates it fresh */
+	if (!t2path[0]) {
+	    fprintf(stderr, "ERROR: could not obtain temp path for T2\n");
+	    t2_failures = 1;
+	} else {
+	    t2_failures = test_rebuild_item_children(t2path);
+	}
     }
     if (t2_failures)
 	fprintf(stderr, "\nT2: %d check(s) FAILED\n", t2_failures);
