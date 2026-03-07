@@ -260,7 +260,9 @@ test_draw_list(struct ged *gedp)
 	std::vector<unsigned long long> path_child = {h_top1, h_child0};
 	dl.add(path_child, 0);
 	CHECK(dl.count() == 2, "DrawList count()==2 after adding top + child");
-	dl.remove(h_child0);
+	/* remove() takes a full-path hash (same as DbiState::path_hash()) */
+	unsigned long long child_phash = dbis->path_hash(path_child, 0);
+	dl.remove(child_phash);
 	CHECK(dl.count() == 1, "DrawList count()==1 after removing child");
     } else {
 	printf("SKIP: child path remove test (no children in p_v)\n");

@@ -1725,7 +1725,11 @@ BViewState::add_hpath(std::vector<unsigned long long> &path_hashes)
 {
     if (!path_hashes.size())
 	return;
-    staged.push_back(path_hashes);
+    // Add to draw_list_ (mode 0 means "use redraw's mode").  The mode will be
+    // corrected by the end-of-redraw draw_list_ sync to reflect what was actually
+    // drawn.  This replaces the old `staged` temporary queue (A3: DrawList as
+    // the canonical draw-intent source).
+    draw_list_.add(path_hashes, 0);
 }
 
 void
@@ -1794,6 +1798,10 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 		s_keys.erase(phash);
 		all_drawn_paths.erase(phash);
 	    }
+
+	    // Keep draw_list_ in sync immediately so callers don't have to
+	    // wait for the next redraw() to see the removal reflected.
+	    draw_list_.remove(phash, mode);
 	}
     }
 
@@ -2299,7 +2307,6 @@ BViewState::clear()
 {
     s_map.clear();
     s_keys.clear();
-    staged.clear();
     drawn_paths.clear();
     all_drawn_paths.clear();
     partially_drawn_paths.clear();
@@ -2687,32 +2694,56 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
     }
 
-    // Expand (or queue, depending on settings) any staged paths.
+    // Process pending draw_list_ entries: those not yet in s_map (newly added
+    // via add_path()/add_hpath() since the last redraw).  This replaces the old
+    // `staged` temporary queue — draw_list_ is now the canonical draw-intent
+    // source (A3 full implementation).
     if (vs) {
-	for (size_t i = 0; i < staged.size(); i++) {
-	    std::vector<unsigned long long> cpath = staged[i];
+	// entry_vs is declared here so it remains valid throughout the loop body
+	// when draw_vs is set to point at it (scope guard for dangling-pointer safety).
+	struct bv_obj_settings entry_vs;
+	const std::vector<DrawList::Entry> &dl_entries = draw_list_.entries();
+	for (size_t i = 0; i < dl_entries.size(); i++) {
+	    const DrawList::Entry &dl_e = dl_entries[i];
+	    // Skip entries that are already drawn (in s_map)
+	    if (s_map.find(dl_e.full_hash) != s_map.end())
+		continue;
+	    std::vector<unsigned long long> cpath = dl_e.path;
 	    // Validate this path - if the user has specified an invalid
 	    // path, there's nothing else to do
 	    if (!dbis->valid_hash_path(cpath))
 		continue;
-	    unsigned long long phash = dbis->path_hash(cpath, 0);
-	    if (check_status(NULL, NULL, phash, cpath, false))
+	    if (check_status(NULL, NULL, dl_e.full_hash, cpath, false))
 		continue;
+	    // Use entry mode if non-zero, otherwise fall back to vs->s_dmode
+	    int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
+	    // Use entry's settings override if present, otherwise use vs
+	    struct bv_obj_settings *draw_vs = vs;
+	    if (dl_e.has_settings) {
+		// Copy vs first, then apply the per-entry overrides
+		entry_vs = *vs;
+		entry_vs.s_dmode = draw_mode;
+		if (dl_e.settings.has_color) {
+		    entry_vs.color_override = 1;
+		    entry_vs.color[0] = dl_e.settings.color.buc_rgb[0];
+		    entry_vs.color[1] = dl_e.settings.color.buc_rgb[1];
+		    entry_vs.color[2] = dl_e.settings.color.buc_rgb[2];
+		}
+		draw_vs = &entry_vs;
+	    }
 	    mat_t m;
 	    MAT_IDN(m);
 	    dbis->get_path_matrix(m, cpath);
-	    if ((vs->s_dmode == 3 || vs->s_dmode == 5)) {
+	    if ((draw_mode == 3 || draw_mode == 5)) {
 		dbis->get_path_matrix(m, cpath);
-		scene_obj(objs, vs->s_dmode, vs, m, cpath, views, v);
+		scene_obj(objs, draw_mode, draw_vs, m, cpath, views, v);
 		continue;
 	    }
 	    unsigned long long ihash = cpath[cpath.size() - 1];
 	    cpath.pop_back();
-	    gather_paths(objs, ihash, vs->s_dmode, v, vs, m, NULL, cpath, views, &ret);
+	    gather_paths(objs, ihash, draw_mode, v, draw_vs, m, NULL, cpath, views, &ret);
 	}
     }
-    // Staged paths are now added (as long as settings were supplied) - clear the queue
-    staged.clear();
 
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
     // routines have a rough idea of the correct dimensions to use
@@ -2840,6 +2871,8 @@ void DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
     if (path_hashes.empty()) return;
     Entry e;
     e.path = path_hashes;
+    e.full_hash = bu_data_hash(path_hashes.data(),
+                               path_hashes.size() * sizeof(unsigned long long));
     e.mode = mode;
     if (overrides) {
         e.has_settings = true;
@@ -2858,13 +2891,7 @@ void DrawList::remove(unsigned long long path_hash, int mode)
 {
     auto it = entries_.begin();
     while (it != entries_.end()) {
-        unsigned long long entry_leaf_hash = 0;
-        if (!it->path.empty()) {
-            // Use the last element (leaf hash) as the path representative,
-            // matching BViewState's existing path_hash convention.
-            entry_leaf_hash = it->path.back();
-        }
-        if (entry_leaf_hash == path_hash && (mode < 0 || it->mode == mode)) {
+        if (it->full_hash == path_hash && (mode < 0 || it->mode == mode)) {
             it = entries_.erase(it);
         } else {
             ++it;
