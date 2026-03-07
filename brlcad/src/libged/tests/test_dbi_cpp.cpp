@@ -55,6 +55,8 @@ extern "C" void
 test_dbi_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp,
 			   int mode, void *u_data)
 {
+    /* dbip is accessible via gedp->dbip if needed; unused here since the
+     * DbiState is retrieved from the ged pointer in u_data. */
     struct ged *gedp = (struct ged *)u_data;
     DbiState *ctx = (DbiState *)gedp->dbi_state;
     if (!ctx) return;
