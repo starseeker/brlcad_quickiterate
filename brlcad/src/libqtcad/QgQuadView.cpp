@@ -44,7 +44,7 @@
 #include <QtGlobal>
 
 #include "bu/str.h"
-#include "bv.h"
+#include "bsg.h"
 #include "ged/defines.h"
 #include "ged/commands.h"
 #include "qtcad/QgQuadView.h"

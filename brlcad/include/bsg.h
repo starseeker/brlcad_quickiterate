@@ -38,9 +38,13 @@
 #define BSG_H
 
 #include "bsg/defines.h"
-#include "bsg/util.h"
+#include "bsg/adc.h"
 #include "bsg/lod.h"
 #include "bsg/polygon.h"
+#include "bsg/snap.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
+#include "bsg/view_sets.h"
 
 #endif /* BSG_H */
 
