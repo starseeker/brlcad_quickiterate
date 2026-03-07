@@ -247,10 +247,14 @@ inline std::string regex_replace(const std::string& text,
 {
     if (!rx.valid()) { return text; }
 
-    // Estimate output size; resize and retry if the buffer is too small.
+    // Estimate output size; resize and retry with exponential growth if the
+    // buffer is too small.  Some PCRE2 builds (e.g. 10.42) return PCRE2_UNSET
+    // (UINT64_MAX) for outlen on PCRE2_ERROR_NOMEMORY rather than the required
+    // size, so we must not rely on that hint being useful.
+    std::size_t buf_size = text.size() * 2u + 64u;
     std::string out;
-    out.resize(text.size() * 2u + 64u);
-    PCRE2_SIZE outlen = static_cast<PCRE2_SIZE>(out.size());
+    out.resize(buf_size);
+    PCRE2_SIZE outlen = static_cast<PCRE2_SIZE>(buf_size);
 
     int rc = pcre2_substitute_8(
         rx.code(),
@@ -261,8 +265,24 @@ inline std::string regex_replace(const std::string& text,
         reinterpret_cast<PCRE2_SPTR8>(replacement.data()), replacement.size(),
         reinterpret_cast<PCRE2_UCHAR8*>(out.data()), &outlen);
 
-    if (rc == PCRE2_ERROR_NOMEMORY) {
-        out.resize(outlen);
+    // Retry loop: grow the buffer exponentially until pcre2_substitute succeeds.
+    // We cap at 16 doublings (~64× original size) to avoid unbounded growth.
+    for (int attempt = 0; rc == PCRE2_ERROR_NOMEMORY && attempt < 16; ++attempt) {
+        // If PCRE2 set outlen to a sensible (non-sentinel) required size, use
+        // it directly; otherwise fall back to 4× growth.
+        std::size_t new_size;
+        if (outlen != PCRE2_UNSET && outlen > buf_size) {
+            new_size = static_cast<std::size_t>(outlen);
+        } else {
+            new_size = buf_size * 4u;
+        }
+        buf_size = new_size;
+        try {
+            out.resize(buf_size);
+        } catch (const std::length_error&) {
+            return text;  // truly cannot allocate; return input unchanged
+        }
+        outlen = static_cast<PCRE2_SIZE>(buf_size);
         rc = pcre2_substitute_8(
             rx.code(),
             reinterpret_cast<PCRE2_SPTR8>(text.data()), text.size(),
