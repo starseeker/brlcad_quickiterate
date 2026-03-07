@@ -31,7 +31,7 @@ brlcad_manage_files(Inconsolata.txt            ${DOC_DIR}/legal/embedded TRIGGER
 brlcad_manage_files(image-hash.txt             ${DOC_DIR}/legal/embedded TRIGGER libicv)
 brlcad_manage_files(json.txt                   ${DOC_DIR}/legal/embedded TRIGGER libgcv libged)
 brlcad_manage_files(linenoise.txt              ${DOC_DIR}/legal/embedded TRIGGER ganalyze gsh nirt)
-brlcad_manage_files(lod.txt                    ${DOC_DIR}/legal/embedded TRIGGER libbv)
+brlcad_manage_files(lod.txt                    ${DOC_DIR}/legal/embedded TRIGGER libbsg)
 brlcad_manage_files(lz4.txt                    ${DOC_DIR}/legal/embedded TRIGGER librt)
 brlcad_manage_files(marching_cubes.txt         ${DOC_DIR}/legal/embedded TRIGGER librt)
 brlcad_manage_files(msinttypes.txt             ${DOC_DIR}/legal/embedded TRIGGER libbu)

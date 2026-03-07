@@ -2,17 +2,17 @@
 
 set(bsg_test_srcs list.c vlist.c)
 
-set(BSG_TEST_SRC_INCLUDES)
-set(BSG_TEST_SRC_SWITCHES)
-set(BSG_TEST_LIST)
+set(BVIEW_TEST_SRC_INCLUDES)
+set(BVIEW_TEST_SRC_SWITCHES)
+set(BVIEW_TEST_LIST)
 foreach(srcfile ${bsg_test_srcs})
   get_filename_component(NAME_ROOT ${srcfile} NAME_WE)
-  set(BSG_TEST_SRC_INCLUDES "${BSG_TEST_SRC_INCLUDES}\n#include \"libbsg/tests/${srcfile}\"")
+  set(BVIEW_TEST_SRC_INCLUDES "${BVIEW_TEST_SRC_INCLUDES}\n#include \"libbsg/tests/${srcfile}\"")
   set(
-    BSG_TEST_SRC_SWITCHES
-    "${BSG_TEST_SRC_SWITCHES}\n   if (BU_STR_EQUAL(av[0], \"${NAME_ROOT}\")) return ${NAME_ROOT}_main(ac,av);"
+    BVIEW_TEST_SRC_SWITCHES
+    "${BVIEW_TEST_SRC_SWITCHES}\n   if (BU_STR_EQUAL(av[0], \"${NAME_ROOT}\")) return ${NAME_ROOT}_main(ac,av);"
   )
-  set(BSG_TEST_LIST "${BSG_TEST_LIST}\\n  ${NAME_ROOT}")
+  set(BVIEW_TEST_LIST "${BVIEW_TEST_LIST}\\n  ${NAME_ROOT}")
 endforeach(srcfile ${bsg_test_srcs})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../..)

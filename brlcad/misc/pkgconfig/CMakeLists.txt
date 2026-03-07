@@ -36,6 +36,7 @@ set(
   libbu.pc.in
   libbn.pc.in
   libbg.pc.in
+  libbsg.pc.in
   libbv.pc.in
   libnmg.pc.in
   libbrep.pc.in
@@ -66,6 +67,7 @@ foreach(pkgfile ${pkgconfig_DATA})
 endforeach(pkgfile ${pkgconfig_DATA})
 
 cmakefiles(${pkgconfig_DATA})
+cmakefiles(libbsg.pc.in)
 cmakefiles(CMakeLists.txt)
 
 # Local Variables:
