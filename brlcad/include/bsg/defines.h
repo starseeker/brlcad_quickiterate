@@ -210,6 +210,115 @@ typedef struct bview bsg_view;
  */
 typedef struct bview_set bsg_scene;
 
+/**
+ * @brief Floating label overlay attached to a scene node.
+ *
+ * Phase 1: alias of @c bv_label.
+ */
+typedef struct bv_label bsg_label;
+
+/**
+ * @brief Axes overlay display state (model-space or view-space).
+ *
+ * Phase 1: alias of @c bv_axes.
+ */
+typedef struct bv_axes bsg_axes;
+
+/**
+ * @brief Vector-list primitive (single-linked list of 3-D polyline segments).
+ *
+ * Phase 1: alias of @c bv_vlist.
+ */
+typedef struct bv_vlist bsg_vlist;
+
+/**
+ * @brief Named-colour vector-list container (for coloured wireframes).
+ *
+ * Phase 1: alias of @c bv_vlblock.
+ */
+typedef struct bv_vlblock bsg_vlblock;
+
+/**
+ * @brief Polygon overlay state (used by sketch/polygon tools).
+ *
+ * Phase 1: alias of @c bv_polygon.
+ */
+typedef struct bv_polygon bsg_polygon;
+
+/* ----- faceplate overlay sub-states ----- */
+
+/**
+ * @brief Angular-deviation cursor (ADC) overlay state.
+ *
+ * Phase 1: alias of @c bv_adc_state.
+ */
+typedef struct bv_adc_state bsg_adc_state;
+
+/**
+ * @brief Construction-grid overlay state.
+ *
+ * Phase 1: alias of @c bv_grid_state.
+ */
+typedef struct bv_grid_state bsg_grid_state;
+
+/**
+ * @brief Rubber-band selection rectangle overlay state.
+ *
+ * Phase 1: alias of @c bv_interactive_rect_state.
+ */
+typedef struct bv_interactive_rect_state bsg_interactive_rect_state;
+
+/**
+ * @brief View parameter display overlay state.
+ *
+ * Phase 1: alias of @c bv_params_state.
+ */
+typedef struct bv_params_state bsg_params_state;
+
+/**
+ * @brief Single-bit overlay toggle (centre-dot, view-scale, etc.).
+ *
+ * Phase 1: alias of @c bv_other_state.
+ */
+typedef struct bv_other_state bsg_other_state;
+
+/* ----- Tcl/legacy interactive data overlays ----- */
+
+/**
+ * @brief Tcl-driven data axes overlay state.
+ *
+ * Phase 1: alias of @c bv_data_axes_state.
+ */
+typedef struct bv_data_axes_state bsg_data_axes_state;
+
+/**
+ * @brief Tcl-driven arrow overlay state.
+ *
+ * Phase 1: alias of @c bv_data_arrow_state.
+ */
+typedef struct bv_data_arrow_state bsg_data_arrow_state;
+
+/**
+ * @brief Tcl-driven text label overlay state.
+ *
+ * Phase 1: alias of @c bv_data_label_state.
+ */
+typedef struct bv_data_label_state bsg_data_label_state;
+
+/**
+ * @brief Tcl-driven line overlay state.
+ *
+ * Phase 1: alias of @c bv_data_line_state.
+ */
+typedef struct bv_data_line_state bsg_data_line_state;
+
+/**
+ * @brief Container for all Tcl-driven interactive overlay state.
+ *
+ * Phase 1: alias of @c bv_data_tclcad.
+ */
+typedef struct bv_data_tclcad bsg_data_tclcad;
+
 /* ====================================================================== *
  * bsg_camera — new struct (Phase 2 design target)                        *
  *                                                                         *
