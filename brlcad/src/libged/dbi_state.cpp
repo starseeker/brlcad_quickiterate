@@ -3687,8 +3687,8 @@ std::unordered_set<unsigned long long> SelectionSet::selected_hashes() const
 void SelectionSet::sync_to_drawn(BViewState *vs)
 {
     if (!vs || !dbis_) return;
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator so_it;
-    std::unordered_map<int, struct bv_scene_obj *>::iterator m_it;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator so_it;
+    std::unordered_map<int, bsg_shape *>::iterator m_it;
     for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
 	char illum_state = is_active(so_it->first) ? UP : DOWN;
 	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
@@ -3808,7 +3808,7 @@ bool SelectionSet::sync_to_all_views()
     if (!dbis_ || !dbis_->gedp) return false;
     bool changed = false;
     std::unordered_set<BViewState *> vstates;
-    struct bu_ptbl *views = bv_set_views(&dbis_->gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&dbis_->gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	BViewState *vs = dbis_->get_view_state(v);

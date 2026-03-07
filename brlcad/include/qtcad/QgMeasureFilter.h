@@ -104,6 +104,9 @@ class QTCAD_EXPORT QMeasure2DFilter : public QgMeasureFilter
 
     public:
 	bool eventFilter(QObject *, QEvent *e) override;
+
+    private:
+	bool get_point() override;
 };
 
 

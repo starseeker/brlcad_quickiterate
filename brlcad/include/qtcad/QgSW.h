@@ -38,7 +38,6 @@
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QResizeEvent>
-#include <QResizeEvent>
 #include <QWheelEvent>
 #include <QWidget>
 
