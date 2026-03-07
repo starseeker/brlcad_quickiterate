@@ -1366,10 +1366,20 @@ bsg_shape_put(bsg_shape *s)
 	bsg_shape *cg = (bsg_shape *)BU_PTBL_GET(&s->children, i);
 	bsg_shape_put(cg);
     }
+    /* Clear the children list now so that bsg_shape_reset (called below)
+     * does not attempt to bsg_shape_put the same children a second time.
+     * Those shapes may already have been recycled for new objects, causing
+     * a use-after-free / double-free corruption. */
+    if (BU_PTBL_IS_INITIALIZED(&s->children))
+	bu_ptbl_trunc(&s->children, 0);
+
+    /* Save s->s_v before bsg_shape_reset nulls it — we need it to
+     * deregister from root->children after the reset. */
+    bsg_view *sv = s->s_v;
 
     // If this object was selected for snapping, it is no longer a valid candidate
-    if (s->s_v)
-	bu_ptbl_rm(&s->s_v->gv_s->gv_snap_objs, (long *)s);
+    if (sv)
+	bu_ptbl_rm(&sv->gv_s->gv_snap_objs, (long *)s);
 
     bsg_shape_reset(s);
 
@@ -1383,8 +1393,8 @@ bsg_shape_put(bsg_shape *s)
     s->otbl = NULL;
 
     /* Deregister from the per-view scene root (symmetric with bsg_shape_get). */
-    if (s->s_v) {
-	bsg_shape *root = bsg_scene_root_get(s->s_v);
+    if (sv) {
+	bsg_shape *root = bsg_scene_root_get(sv);
 	if (root)
 	    bu_ptbl_rm(&root->children, (long *)s);
     }
