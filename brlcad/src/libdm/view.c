@@ -615,7 +615,10 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     if (s->s_type_flags & structural)
 	return 0; /* recurse into children */
 
-    if (s->s_flag == DOWN && !s->s_force_draw)
+    /* In the normal (non-edit) pass skip illuminated/highlighted shapes;
+     * they are drawn by a dedicated edit-mode traversal.
+     * s_iflag == UP means "this solid is the one being edited/illuminated". */
+    if (s->s_iflag == UP && !s->s_force_draw)
 	return 0;
 
     /* If a camera node has been encountered in the graph, use its matrices.
@@ -633,15 +636,7 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     const bsg_material *mat =
 	(s->s_os && !s->s_inherit_settings) ? s->s_os : &state->material;
 
-    if (s->s_iflag == UP) {
-	dm_set_fg(dmp, 255, 255, 255, 0, mat->transparency);
-    } else {
-	if (mat->color_override) {
-	    dm_set_fg(dmp, mat->color[0], mat->color[1], mat->color[2], 0, mat->transparency);
-	} else {
-	    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
-	}
-    }
+    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
     dm_set_line_attr(dmp, mat->s_line_width, s->s_soldash);
 
     /* Draw geometry. */
@@ -660,6 +655,9 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     } else {
 	dm_draw_obj(dmp, s);
     }
+
+    /* Mark drawn this frame. */
+    s->s_flag = UP;
 
     if (!(s->s_type_flags & BSG_NODE_MESH_LOD))
 	dm_add_arrows(dmp, s);

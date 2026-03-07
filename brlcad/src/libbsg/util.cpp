@@ -1049,7 +1049,7 @@ bsg_view_clear(bsg_view *v, int flags)
     if (!flags || flags & BV_DB_OBJS) {
 	struct bu_ptbl *sg = bsg_view_shapes(v, BV_DB_OBJS | (flags & ~BV_VIEW_OBJS));
 	if (sg) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
+	    for (long i = (long)BU_PTBL_LEN(sg) - 1; i >= 0; i--) {
 		bsg_shape *cg = (bsg_shape *)BU_PTBL_GET(sg, i);
 		bsg_shape_put(cg);
 	    }
@@ -1071,7 +1071,7 @@ bsg_view_clear(bsg_view *v, int flags)
 	if (!flags || flags & BV_DB_OBJS) {
 	    struct bu_ptbl *sg = bsg_view_shapes(v, BV_DB_OBJS | (flags & ~BV_VIEW_OBJS) | BV_LOCAL_OBJS);
 	    if (sg) {
-		for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
+		for (long i = (long)BU_PTBL_LEN(sg) - 1; i >= 0; i--) {
 		    bsg_shape *cg = (bsg_shape *)BU_PTBL_GET(sg, i);
 		    bsg_shape_put(cg);
 		}
@@ -1224,6 +1224,14 @@ bsg_shape_get(bsg_view *v, int type)
     if (s->otbl)
 	bu_ptbl_ins(s->otbl, (long *)s);
 
+    /* Register in the per-view scene root so bsg_view_traverse sees it.
+     * Child objects (BV_CHILD_OBJS) are owned by their parent, not root. */
+    if (!(ltype & BV_CHILD_OBJS)) {
+	bsg_shape *root = bsg_scene_root_get(v);
+	if (root)
+	    bu_ptbl_ins(&root->children, (long *)s);
+    }
+
     return s;
 }
 
@@ -1372,6 +1380,13 @@ bsg_shape_put(bsg_shape *s)
 	bu_ptbl_rm(s->otbl, (long *)s);
 
     s->otbl = NULL;
+
+    /* Deregister from the per-view scene root (symmetric with bsg_shape_get). */
+    if (s->s_v) {
+	bsg_shape *root = bsg_scene_root_get(s->s_v);
+	if (root)
+	    bu_ptbl_rm(&root->children, (long *)s);
+    }
 
     bsg_shape *fs = s->free_scene_obj;
     s->free_scene_obj = NULL;

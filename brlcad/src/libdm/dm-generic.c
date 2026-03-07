@@ -1005,38 +1005,83 @@ dm_drawSolid(struct dm *dmp,
 }
 
 
-int
-dm_draw_head_dl(struct dm *dmp,
-		     struct bu_list *dl,
-		     fastf_t transparency_threshold,
-		     fastf_t inv_viewsize,
-		     short r, short g, short b,
-		     int line_width,
-		     int draw_style,
-		     int draw_edit,
-		     unsigned char *gdc,
-		     int solids_down,
-		     int mv_dlist
-		    )
+/* Visitor state for dm_draw_bsg_view */
+struct _dm_bsg_visitor_data {
+    struct dm      *dmp;
+    bsg_view       *v;
+    fastf_t         transparency_threshold;
+    fastf_t         inv_viewsize;
+    short           r, g, b;
+    int             line_width;
+    int             draw_style;
+    int             draw_edit;
+    unsigned char  *gdc;
+    int             mv_dlist;
+    int             ndrawn;
+};
+
+static int
+_dm_bsg_visitor(bsg_shape *s, const bsg_traversal_state *UNUSED(state), void *user_data)
 {
-    /* Phase 2e: dl_head_scene_obj has been removed from struct display_list.
-     * This legacy function is now a no-op stub.  All rendering should use
-     * dm_draw_bsg_view() instead. */
-    (void)dmp; (void)dl;
-    (void)transparency_threshold; (void)inv_viewsize;
-    (void)r; (void)g; (void)b; (void)line_width;
-    (void)draw_style; (void)draw_edit; (void)gdc;
-    (void)solids_down; (void)mv_dlist;
-    return 0;
+    struct _dm_bsg_visitor_data *d = (struct _dm_bsg_visitor_data *)user_data;
+    struct dm *dmp = d->dmp;
+
+    /* Skip structural nodes — let traversal recurse into them. */
+    unsigned int structural =
+	(unsigned int)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
+		       BSG_NODE_CAMERA    | BSG_NODE_LOD_GROUP);
+    if (s->s_type_flags & structural)
+	return 0; /* recurse */
+
+    /* Edit/normal mode filter:
+     * In normal mode (draw_edit==0): skip illuminated/highlighted shapes.
+     * In edit mode (draw_edit==1): skip normal (non-illuminated) shapes. */
+    if ((s->s_iflag == UP && !d->draw_edit) || (s->s_iflag != UP && d->draw_edit))
+	return 0;
+
+    /* Transparency filter */
+    int opaque = EQUAL(s->s_os->transparency, 1.0);
+    int opaque_only = EQUAL(d->transparency_threshold, 1.0);
+    if (opaque_only) {
+	if (!opaque) return 0;
+    } else {
+	if (opaque || !(s->s_os->transparency > d->transparency_threshold ||
+			EQUAL(s->s_os->transparency, d->transparency_threshold)))
+	    return 0;
+    }
+
+    /* Bound size filter */
+    if (dm_get_bound_flag(dmp) && !s->s_displayobj) {
+	fastf_t ratio = s->s_size * d->inv_viewsize;
+	if (ratio < 0.001) return 0;
+    }
+
+    dm_set_line_attr(dmp, d->line_width, s->s_soldash);
+
+    if (!d->draw_edit) {
+	d->ndrawn += dm_drawSolid(dmp, s, d->r, d->g, d->b, d->draw_style, d->gdc);
+    } else {
+	if (dm_get_displaylist(dmp) && d->mv_dlist) {
+	    dm_draw_dlist(dmp, s->s_dlist);
+	    s->s_flag = UP;
+	    d->ndrawn++;
+	} else {
+	    if (dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist) == BRLCAD_OK) {
+		s->s_flag = UP;
+		d->ndrawn++;
+	    }
+	}
+    }
+
+    return 0; /* always recurse */
 }
 
-
 /**
- * BSG Phase 2e version: iterate scene-root children for the view @p v
- * instead of the legacy per-gdlp dl_head_scene_obj linked list.
+ * Draw scene-graph geometry for view @p v through the BSG traversal visitor.
  *
- * The same filtering logic as dm_draw_head_dl is applied (transparency,
- * bound size, edit state).
+ * All callers that previously used the removed dm_draw_head_dl() should use
+ * this function.  Internally it drives bsg_view_traverse() so that camera,
+ * separator, and LoD-group structural nodes are handled correctly.
  */
 int
 dm_draw_bsg_view(struct dm *dmp, bsg_view *v,
@@ -1053,58 +1098,34 @@ dm_draw_bsg_view(struct dm *dmp, bsg_view *v,
     if (UNLIKELY(!dmp) || !v)
 	return 0;
 
-    bsg_shape *root = bsg_scene_root_get(v);
-    if (!root)
-	return 0;
-
-    bsg_shape *sp;
-    fastf_t ratio;
-    int ndrawn = 0;
-    int opaque = 0;
-    int opaque_only = EQUAL(transparency_threshold, 1.0);
-
-    for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
-	sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
-	if (!sp) continue;
-
-	if (solids_down) sp->s_flag = DOWN;
-
-	if ((sp->s_iflag == UP && !draw_edit) || (sp->s_iflag != UP && draw_edit))
-	    continue;
-
-	opaque = EQUAL(sp->s_os->transparency, 1.0);
-	if (opaque_only) {
-	    if (!opaque) continue;
-	} else {
-	    if (opaque || !(sp->s_os->transparency > transparency_threshold ||
-			   EQUAL(sp->s_os->transparency, transparency_threshold)))
-		continue;
-	}
-
-	if (dm_get_bound_flag(dmp) && !sp->s_displayobj) {
-	    ratio = sp->s_size * inv_viewsize;
-	    if (ratio < 0.001) continue;
-	}
-
-	dm_set_line_attr(dmp, line_width, sp->s_soldash);
-
-	if (!draw_edit) {
-	    ndrawn += dm_drawSolid(dmp, sp, r, g, b, draw_style, gdc);
-	} else {
-	    if (dm_get_displaylist(dmp) && mv_dlist) {
-		dm_draw_dlist(dmp, sp->s_dlist);
-		sp->s_flag = UP;
-		ndrawn++;
-	    } else {
-		if (dm_draw_vlist(dmp, (struct bv_vlist *)&sp->s_vlist) == BRLCAD_OK) {
-		    sp->s_flag = UP;
-		    ndrawn++;
-		}
+    /* solids_down: mark every direct geometry child DOWN before drawing so
+     * that after this call only shapes that were actually rendered have
+     * s_flag == UP.  Structural nodes (camera, separator) are left alone. */
+    if (solids_down) {
+	bsg_shape *root = bsg_scene_root_get(v);
+	if (root) {
+	    for (size_t si = 0; si < BU_PTBL_LEN(&root->children); si++) {
+		bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+		if (sp) sp->s_flag = DOWN;
 	    }
 	}
     }
 
-    return ndrawn;
+    struct _dm_bsg_visitor_data d;
+    d.dmp = dmp;
+    d.v   = v;
+    d.transparency_threshold = transparency_threshold;
+    d.inv_viewsize  = inv_viewsize;
+    d.r = r; d.g = g; d.b = b;
+    d.line_width = line_width;
+    d.draw_style = draw_style;
+    d.draw_edit  = draw_edit;
+    d.gdc        = gdc;
+    d.mv_dlist   = mv_dlist;
+    d.ndrawn     = 0;
+
+    bsg_view_traverse(v, _dm_bsg_visitor, &d);
+    return d.ndrawn;
 }
 
 
