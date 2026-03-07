@@ -33,9 +33,10 @@
  * remains @c bv_scene_obj_internal*.  No reinterpret casts are needed for
  * @c bsg_shape in libbsg code.
  *
- * For all other @c bsg_* types (@c bsg_view, @c bsg_scene, @c bsg_lod, etc.)
- * the typedef-alias approach is still used; @c bsg_scene.i (= @c bview_set.i)
- * remains @c bview_set_internal* and BSG_SCENEI still uses a cast.
+ * For @c bsg_scene (typedef alias of @c bview_set): the @c .i field is now
+ * typed @c bsg_scene_set_internal* (defined in @c bsg/scene_set.h), so
+ * BSG_SCENEI is also a direct accessor with no cast.  @c bview_set_internal
+ * is a typedef alias for @c bsg_scene_set_internal in @c libbv/bv_private.h.
  *
  * ### Phase 2 additions (this file)
  *
@@ -160,29 +161,15 @@ bsg_fire_sensors(bsg_shape *s)
  * Phase 1 layout sanity checks                                           *
  *                                                                        *
  * bsg_shape and bv_scene_obj are independent structs with the same       *
- * field layout; confirm their sizes agree so the reinterpret casts in    *
- * this file remain safe.  Other bsg_* types are typedef aliases of their *
- * bv_* counterparts so no casts are needed there.                        *
+ * field layout; confirm their sizes agree.  The cast helpers             *
+ * bso_to_bv/bv_to_bso have been removed since no direct cross-boundary  *
+ * casts are needed in this file after the Scene/SHAPI cleanup.           *
  * ====================================================================== */
 static_assert(sizeof(bsg_material)  == sizeof(bv_obj_settings),  "bsg_material size mismatch");
 static_assert(sizeof(bsg_shape)     == sizeof(bv_scene_obj),     "bsg_shape / bv_scene_obj layout mismatch");
 static_assert(sizeof(bsg_lod)       == sizeof(bv_mesh_lod),      "bsg_lod size mismatch");
 static_assert(sizeof(bsg_view)      == sizeof(bview),            "bsg_view size mismatch");
 static_assert(sizeof(bsg_scene)     == sizeof(bview_set),        "bsg_scene size mismatch");
-
-/* ====================================================================== *
- * Cast helpers: bsg_shape * <-> bv_scene_obj *                           *
- *                                                                        *
- * Both structs have the same memory layout throughout Phase 1, so these  *
- * reinterpret casts are safe.  Using named helpers keeps the intent      *
- * visible and makes it trivial to grep for all cross-boundary sites.     *
- * ====================================================================== */
-static inline bv_scene_obj *bso_to_bv(bsg_shape *s)
-    { return reinterpret_cast<bv_scene_obj *>(s); }
-static inline const bv_scene_obj *bso_to_bv(const bsg_shape *s)
-    { return reinterpret_cast<const bv_scene_obj *>(s); }
-static inline bsg_shape *bv_to_bso(bv_scene_obj *s)
-    { return reinterpret_cast<bsg_shape *>(s); }
 
 /* ====================================================================== *
  * Phase 2: traversal state                                               *

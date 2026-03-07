@@ -38,13 +38,13 @@
 void
 bv_set_init(struct bview_set *s)
 {
-    BU_GET(s->i, bview_set_internal);
+    BU_GET(s->i, struct bview_set_internal);
     BU_PTBL_INIT(&s->i->views);
     bu_ptbl_init(&s->i->shared_db_objs, 8, "db_objs init");
     bu_ptbl_init(&s->i->shared_view_objs, 8, "view_objs init");
     BU_LIST_INIT(&s->i->vlfree);
     /* init the solid list */
-    BU_GET(s->i->free_scene_obj, bsg_shape);
+    BU_GET(s->i->free_scene_obj, struct bv_scene_obj);
     BU_LIST_INIT(&s->i->free_scene_obj->l);
 }
 
@@ -57,21 +57,21 @@ bv_set_free(struct bview_set *s)
 	bu_ptbl_free(&s->i->shared_view_objs);
 
 	// TODO - replace free_scene_obj with bu_ptbl
-	bsg_shape *sp, *nsp;
-	sp = BU_LIST_NEXT(bsg_shape, &s->i->free_scene_obj->l);
+	struct bv_scene_obj *sp, *nsp;
+	sp = BU_LIST_NEXT(bv_scene_obj, &s->i->free_scene_obj->l);
 	while (BU_LIST_NOT_HEAD(sp, &s->i->free_scene_obj->l)) {
-	    nsp = BU_LIST_PNEXT(bsg_shape, sp);
+	    nsp = BU_LIST_PNEXT(bv_scene_obj, sp);
 	    BU_LIST_DEQUEUE(&((sp)->l));
 	    if (sp->s_free_callback)
 		(*sp->s_free_callback)(sp);
 	    if (sp->s_dlist_free_callback)
 		(*sp->s_dlist_free_callback)(sp);
 	    bu_ptbl_free(&sp->children);
-	    BU_PUT(sp, bsg_shape);
+	    BU_PUT(sp, struct bv_scene_obj);
 	    sp = nsp;
 	}
-	BU_PUT(s->i->free_scene_obj, bsg_shape);
-	BU_PUT(s->i, bview_set_internal);
+	BU_PUT(s->i->free_scene_obj, struct bv_scene_obj);
+	BU_PUT(s->i, struct bview_set_internal);
     }
 
     // TODO - clean up vlfree
@@ -137,7 +137,7 @@ bv_set_find_view(struct bview_set *s, const char *vname)
 struct bv_scene_obj *
 bv_set_fsos(struct bview_set *s)
 {
-    return (struct bv_scene_obj *)s->i->free_scene_obj;
+    return s->i->free_scene_obj;
 }
 
 

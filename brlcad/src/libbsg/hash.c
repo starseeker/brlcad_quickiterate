@@ -209,14 +209,14 @@ _bv_obj_settings_hash(struct bu_data_hash_state *state, struct bv_obj_settings *
     bu_data_hash_update(state, v, sizeof(struct bv_obj_settings));
 }
 
-void
-bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
+static void
+bsg_shape_hash(struct bu_data_hash_state *state, bsg_shape *s)
 {
     /* First, do sanity checks */
     if (!s || !state)
 	return;
 
-    bu_data_hash_update(state, s, sizeof(struct bv_scene_obj));
+    bu_data_hash_update(state, s, sizeof(bsg_shape));
     struct bv_vlist *tvp;
     for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
 	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
@@ -319,14 +319,14 @@ bsg_view_hash(struct bview *v)
 	if (!tbls[t])
 	    continue;
 	for (size_t i = 0; i < BU_PTBL_LEN(tbls[t]); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(tbls[t], i);
+	    bsg_shape *g = (bsg_shape *)BU_PTBL_GET(tbls[t], i);
 	    if (BU_PTBL_IS_INITIALIZED(&g->children)) {
 		for (size_t j = 0; j < BU_PTBL_LEN(&g->children); j++) {
-		    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&g->children, j);
-		    bv_scene_obj_hash(state, s_c);
+		    bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&g->children, j);
+		    bsg_shape_hash(state, s_c);
 		}
 	    }
-	    bv_scene_obj_hash(state, g);
+	    bsg_shape_hash(state, g);
 	}
     }
 

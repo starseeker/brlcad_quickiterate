@@ -30,12 +30,16 @@
 #include "bu/list.h"
 #include "bu/ptbl.h"
 #include "bv/defines.h"
-#include "bsg/scene_set.h"
 #include <unordered_map>
 
-/* bview_set_internal is the legacy name for bsg_scene_set_internal.
- * Both names refer to the same struct; new code should use the bsg_* name. */
-typedef struct bsg_scene_set_internal bview_set_internal;
+struct bview_set_internal {
+    struct bu_ptbl views;
+    struct bu_ptbl shared_db_objs;
+    struct bu_ptbl shared_view_objs;
+
+    struct bv_scene_obj  *free_scene_obj;
+    struct bu_list vlfree;
+};
 
 struct bv_scene_obj_internal {
     std::unordered_map<struct bview *, struct bv_scene_obj *> vobjs;
