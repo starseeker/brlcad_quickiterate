@@ -615,6 +615,12 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     if (s->s_type_flags & structural)
 	return 0; /* recurse into children */
 
+    /* s_flag == DOWN means the shape has been explicitly hidden (e.g. via
+     * "view obj NAME draw DOWN" or by draw-mode filtering in dbi_state).
+     * Skip it entirely — it is still in the scene graph but not visible. */
+    if (s->s_flag == DOWN)
+	return 0;
+
     /* In the normal (non-edit) pass skip illuminated/highlighted shapes;
      * they are drawn by a dedicated edit-mode traversal.
      * s_iflag == UP means "this solid is the one being edited/illuminated". */
@@ -659,9 +665,6 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     } else {
 	dm_draw_obj(dmp, s);
     }
-
-    /* Mark drawn this frame. */
-    s->s_flag = UP;
 
     if (!(s->s_type_flags & BSG_NODE_MESH_LOD))
 	dm_add_arrows(dmp, s);
