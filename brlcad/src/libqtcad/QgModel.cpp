@@ -386,7 +386,9 @@ QgModel::on_dbi_changed(const std::vector<DbiChangeEvent> &events)
 	                            events.begin(), events.end());
 	return;
     }
-    // Called outside g_update(): set the flag and delegate.
+    // Called outside g_update(): store events, mark db changed, then delegate.
+    // The changed_db_flag ensures g_update() processes the update even if
+    // the pending_dbi_events_ accumulated here are the only signal.
     pending_dbi_events_.insert(pending_dbi_events_.end(),
 	                        events.begin(), events.end());
     changed_db_flag = 1;
@@ -759,14 +761,19 @@ QgModel::g_update(struct db_i *n_dbip)
 
 	// Step 2: decide between targeted row operations and a full reset.
 	// Use targeted updates for simple ObjectAdded/Removed/Modified events.
-	// Fall back to full reset for batch events, CombTreeChanged, or if no
+	// Full reset is required for: batch events, CombTreeChanged, or when no
 	// events were collected (e.g. a new file was opened and the DbiState
-	// constructor already populated its state).
-	bool needs_full_reset = pending_dbi_events_.empty();
-	for (const auto &ev : pending_dbi_events_) {
-	    if (ev.batch || ev.kind == DbiChangeKind::CombTreeChanged) {
-		needs_full_reset = true;
-		break;
+	// constructor already populated its state without firing per-object events).
+	bool needs_full_reset = false;
+	if (pending_dbi_events_.empty()) {
+	    // No events: full rebuild required (new file or constructor-time init)
+	    needs_full_reset = true;
+	} else {
+	    for (const auto &ev : pending_dbi_events_) {
+		if (ev.batch || ev.kind == DbiChangeKind::CombTreeChanged) {
+		    needs_full_reset = true;
+		    break;
+		}
 	    }
 	}
 

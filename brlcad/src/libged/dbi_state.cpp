@@ -3672,9 +3672,9 @@ void SelectionSet::sync_to_drawn(BViewState *vs)
     std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator so_it;
     std::unordered_map<int, struct bv_scene_obj *>::iterator m_it;
     for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
-	char ill_state = is_active(so_it->first) ? UP : DOWN;
+	char illum_state = is_active(so_it->first) ? UP : DOWN;
 	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
-	    bv_illum_obj(m_it->second, ill_state);
+	    bv_illum_obj(m_it->second, illum_state);
 	}
     }
 }
@@ -3713,8 +3713,8 @@ void SelectionSet::recompute_hierarchy()
 
 	/* Walk away from root: expand the leaf element's subtree via p_v. */
 	unsigned long long leaf = path.back();
-	/* BFS over comb children */
-	struct pathwalk_entry { std::vector<unsigned long long> p; };
+	/* BFS over comb children: each entry holds the full path to that node. */
+	struct pathwalk_entry { std::vector<unsigned long long> path; };
 	std::queue<pathwalk_entry> frontier;
 	auto p_it = dbis_->p_v.find(leaf);
 	if (p_it != dbis_->p_v.end()) {
@@ -3727,13 +3727,13 @@ void SelectionSet::recompute_hierarchy()
 	while (!frontier.empty()) {
 	    pathwalk_entry e = frontier.front();
 	    frontier.pop();
-	    unsigned long long ehash = dbis_->path_hash(e.p, 0);
+	    unsigned long long ehash = dbis_->path_hash(e.path, 0);
 	    active_.insert(ehash);
-	    unsigned long long eback = e.p.back();
+	    unsigned long long eback = e.path.back();
 	    auto c_it = dbis_->p_v.find(eback);
 	    if (c_it != dbis_->p_v.end()) {
 		for (unsigned long long ch : c_it->second) {
-		    std::vector<unsigned long long> cp = e.p;
+		    std::vector<unsigned long long> cp = e.path;
 		    cp.push_back(ch);
 		    frontier.push({cp});
 		}
