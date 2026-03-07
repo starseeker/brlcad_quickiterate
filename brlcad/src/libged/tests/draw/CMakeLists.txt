@@ -13,6 +13,21 @@ set(
   ged-zap
 )
 
+# If the in-source moss.g is a stub (no real geometry), use the properly-built
+# share/db/moss.g instead.  The draw tests accept an optional second positional
+# argument that names the directory containing moss.g so that control images
+# (first arg, source dir) and moss.g (second arg, binary dir) can differ.
+set(_DRAW_TEST_MOSS_G "${CMAKE_CURRENT_BINARY_DIR}/moss.g")
+set(_SHARE_MOSS_G "${CMAKE_BINARY_DIR}/${DATA_DIR}/db/moss.g")
+add_custom_command(
+  OUTPUT "${_DRAW_TEST_MOSS_G}"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_SHARE_MOSS_G}" "${_DRAW_TEST_MOSS_G}"
+  DEPENDS moss.g
+  COMMENT "Copying share/db/moss.g to draw-test binary directory"
+)
+add_custom_target(draw_test_moss_g DEPENDS "${_DRAW_TEST_MOSS_G}")
+distclean("${_DRAW_TEST_MOSS_G}")
+
 set(
   basic_view_test_ctrls
   v001_ctrl.png
@@ -49,8 +64,9 @@ if(TARGET ged_test_draw)
       add_dependencies(ged_test_draw ${tdp})
     endif ()
   endforeach()
+  add_dependencies(ged_test_draw draw_test_moss_g)
 endif(TARGET ged_test_draw)
-brlcad_add_test(NAME ged_test_drawing_basic COMMAND ged_test_draw -c "${CMAKE_CURRENT_SOURCE_DIR}")
+brlcad_add_test(NAME ged_test_drawing_basic COMMAND ged_test_draw -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 set(
   faceplate_test_ctrls
@@ -71,8 +87,9 @@ if(TARGET ged_test_faceplate)
       add_dependencies(ged_test_faceplate ${tdp})
     endif ()
   endforeach()
+  add_dependencies(ged_test_faceplate draw_test_moss_g)
 endif(TARGET ged_test_faceplate)
-brlcad_add_test(NAME ged_test_drawing_faceplate COMMAND ged_test_faceplate -c "${CMAKE_CURRENT_SOURCE_DIR}")
+brlcad_add_test(NAME ged_test_drawing_faceplate COMMAND ged_test_faceplate -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 set(
   lod_test_ctrls
@@ -90,8 +107,9 @@ if(TARGET ged_test_lod)
       add_dependencies(ged_test_lod ${tdp})
     endif ()
   endforeach()
+  add_dependencies(ged_test_lod draw_test_moss_g)
 endif(TARGET ged_test_lod)
-brlcad_add_test(NAME ged_test_drawing_lod COMMAND ged_test_lod -c "${CMAKE_CURRENT_SOURCE_DIR}")
+brlcad_add_test(NAME ged_test_drawing_lod COMMAND ged_test_lod -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_lod_tmp.g)
 
 set(
@@ -147,9 +165,12 @@ if(TARGET ged_test_select_draw)
       add_dependencies(ged_test_select_draw ${tdp})
     endif ()
   endforeach()
+  add_dependencies(ged_test_select_draw draw_test_moss_g)
 endif(TARGET ged_test_select_draw)
-brlcad_add_test(NAME ged_test_drawing_select COMMAND ged_test_select_draw -c "${CMAKE_CURRENT_SOURCE_DIR}")
+brlcad_add_test(NAME ged_test_drawing_select COMMAND ged_test_select_draw -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_select_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_aet_tmp.g)
 
 set(
   quad_test_ctrls
@@ -193,8 +214,9 @@ if(TARGET ged_test_quad)
       add_dependencies(ged_test_quad ${tdp})
     endif ()
   endforeach()
+  add_dependencies(ged_test_quad draw_test_moss_g)
 endif(TARGET ged_test_quad)
-brlcad_add_test(NAME ged_test_drawing_quad COMMAND ged_test_quad -c "${CMAKE_CURRENT_SOURCE_DIR}")
+brlcad_add_test(NAME ged_test_drawing_quad COMMAND ged_test_quad -c "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_quad_tmp.g)
 
 # The idea here is to test view stability across resize events
@@ -216,6 +238,7 @@ if(TARGET ged_test_aet)
       add_dependencies(ged_test_aet ${tdp})
     endif ()
   endforeach()
+  add_dependencies(ged_test_aet draw_test_moss_g)
 endif(TARGET ged_test_aet)
 
 cmakefiles(

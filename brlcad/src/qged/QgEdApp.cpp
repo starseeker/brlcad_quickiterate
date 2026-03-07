@@ -428,7 +428,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 
     struct ged *gedp = mdl->gedp;
 
-    BSelectState *ss = (gedp->dbi_state) ? ((DbiState *)gedp->dbi_state)->find_selected_state(NULL) : NULL;
+    SelectionSet *ss = (gedp->dbi_state) ? ((DbiState *)gedp->dbi_state)->get_selection_set(nullptr) : nullptr;
     select_hash = (ss) ? ss->state_hash() : 0;
 
     /* Set the local unit conversions */
@@ -492,7 +492,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	    view_flags |= QG_VIEW_SELECT;
 	    // This is what notifies currently drawn solids to update
 	    // in response to a command line selection change
-	    if (ss && ss->draw_sync())
+	    if (ss && ss->sync_to_all_views())
 		view_flags |= QG_VIEW_DRAWN;
 	}
     }

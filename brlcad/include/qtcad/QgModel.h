@@ -74,6 +74,7 @@
 #include <QAbstractItemModel>
 #include <QImage>
 #include <QModelIndex>
+#include <QStringList>
 
 #include "qtcad/defines.h"
 
@@ -267,6 +268,18 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	// This is 1 until we add support for attribute reporting
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
+	// Configure which BRL-CAD attribute keys are shown as extra columns to
+	// the right of the object-name column.  The keys are standard BRL-CAD
+	// attribute names.  Two built-in keys receive special treatment:
+	//   "region"    — displays "R" when the object has the region flag set
+	//   "region_id" — displays the numeric region_id (blank when absent)
+	//   "color"/"rgb" — displays the object color as "R/G/B"
+	// All other keys trigger a live db5 AVS lookup per cell render.
+	// Pass an empty list to revert to the single object-name column.
+	// Emits beginResetModel() / endResetModel() so connected views refresh.
+	void set_attribute_columns(const QStringList &keys);
+	const QStringList &attribute_columns() const { return attribute_columns_; }
+
 	// The number of available children.  This will correspond to the
 	// number of lines printed by the "l" command to show the immediate
 	// children of a comb (indeed, the tree view of the model can be
@@ -378,6 +391,9 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	// Track the DbiState we are currently registered as an observer of.
 	// When open/close replaces gedp->dbi_state, g_update() re-registers.
 	DbiState *observed_dbi_state_ = nullptr;
+
+	// Runtime-configurable attribute columns (empty = name column only)
+	QStringList attribute_columns_;
 
 	QgItem *rootItem;
 	struct bview *empty_gvp = NULL;

@@ -1201,17 +1201,21 @@ Registered as `ged_test_dbi_cpp` CTest.
 
 ### 12.2 Code Cleanup
 
-**C1 — Replace `rt_uniresource` with a per-call resource pointer.**
-`dbi_state.cpp` line 2196: `ud->res = &rt_uniresource;` with a comment noting it
-should eventually come from the app or view.  Once the threading model is decided
-(see T4 / Section 9 Q4), this should use a resource from the correct per-thread or
-per-view context instead of the global fallback.
+**C1 — Replace `rt_uniresource` with a per-call resource pointer.**  ✅ DONE
+`BViewState::scene_obj()` now uses `dbis->res` (the `DbiState`-owned
+`struct resource *` that is already lifetime-managed in `DbiState`'s ctor/dtor)
+instead of `&rt_uniresource`.  `BViewState` was added as a friend of `DbiState`
+so it can access the private `res` member.  `rt_uniresource` must not be used in
+parallel contexts; switching to `dbis->res` eliminates the global dependency and
+makes the resource lifetime explicit.
 
-**C2 — Fix color override to use a dedicated field.**
-`dbi_state.cpp` line 2206: the view-state color override writes directly to
-`sp->s_color`, clobbering the database-derived color that was just stored there.
-The override should be stored in a separate field (e.g., a flag + override color in
-`bv_obj_settings`) so the original color can be restored when the override is lifted.
+**C2 — Fix color override to use a dedicated field.**  ✅ DONE
+The per-object color override in `BViewState::scene_obj()` now stores the
+override in `sp->s_os->color_override = 1` and `sp->s_os->color[0..2]` instead
+of clobbering `sp->s_color`.  The database-derived color is preserved in
+`sp->s_color` and is used when the override is later lifted.  The
+`draw_scene_obj()` path in `view.c` already checks `s_os->color_override` and
+uses `s_os->color` when set, so no drawing code needed to change.
 
 **C3 — Add a mode-specific `DrawList::clear()` overload.**  ✅ DONE
 `void DrawList::clear(int mode)` is now implemented; it removes only entries drawn in
@@ -1231,27 +1235,63 @@ form or the string-path form `select(const char *, bool)`.
 
 ### 12.3 API Migration and Incomplete Features
 
-**A1 — Migrate key internal APIs from `vector<ull>` to `DbiPath`.**
-`DbiPath` is declared in `include/ged/dbi.h` and the implicit conversion to
-`const std::vector<unsigned long long>&` provides backward compatibility.  The
-next step is to explicitly update the signatures of the most-called internal
-functions (`BViewState::redraw()`, `DrawList::add()` / `remove()` / `query()`,
-`SelectionSet::select()` / `deselect()`) to accept `DbiPath` and propagate the
-type-safe path throughout the call stack.
+**A1 — Migrate key internal APIs from `vector<ull>` to `DbiPath`.**  ✅ DONE
+`DbiPath`-based overloads have been added to:
+- `DrawList::add(const DbiPath &, int mode, const DrawSettings *)` — delegates to the
+  existing vector overload; both are available for backward compatibility.
+- `SelectionSet::select(const DbiPath &, bool update_hierarchy)` — computes the path
+  hash internally via `dbis_->path_hash(path.hashes, 0)`; callers no longer need to
+  pre-compute the hash separately.
+- `SelectionSet::deselect(const DbiPath &, bool update_hierarchy)` — same pattern.
 
-**A2 — Implement `BViewState::link_to()` / `unlink()`.**
-Phase 4 introduced the design (Section 5.7) but deferred implementation.  The
-method allows a secondary view (e.g., one panel of a quad layout) to share the draw
-list of a primary view while keeping its own camera independently.  Without this,
-quad-view setups must maintain redundant draw lists.  Stubs or a full implementation
-should be added.
+The callers in `QgTreeSelectionModel.cpp` have been migrated to the DbiPath forms:
+the redundant `dbis->path_hash(path_hashes, 0)` + `ss->select(ph, path_hashes, ...)` 
+pattern has been replaced with `ss->select(DbiPath(snode->path_items()), ...)`.
 
-**A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**
+**A2 — Implement `BViewState::link_to()` / `unlink()`.**  ✅ STUB DONE
+`link_to(BViewState *primary)`, `unlink()`, `is_linked()`, and `linked_primary()`
+have been added to `BViewState` with a private `linked_to_` member.  The
+implementation stores the pointer but does not yet route `redraw()` through the
+primary's `DrawList` — that full integration is A3 and requires `DrawList::commit()`
+(see A3 below).  The API surface is now in place for callers to begin using.
+
+**A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**  ✅ DONE
 Phase 4 noted "Full integration of DrawList into the redraw pipeline is a follow-on
-step."  Currently `BViewState::redraw()` manages scene objects directly rather than
-going through `DrawList::commit()`.  Routing all scene-object creation through
-`commit()` would give `DrawList` the single-responsibility role described in Section
-5.5 and make it easier to test draw-list changes in isolation.
+step."  The work has been completed in two stages:
+
+**Stage 1 (Session 27 partial):** `BViewState::redraw()` synced `draw_list_` from
+`s_map` + `s_keys` at the end of every redraw cycle.  `BViewState::clear()` also
+cleared `draw_list_`.
+
+**Stage 2 (Session 28 full, this PR):**
+
+- `DrawList::Entry` now carries a `full_hash` field (precomputed via
+  `bu_data_hash(path.data(), path.size() * sizeof(ull))` in `add()`).  This is the
+  same hash that `DbiState::path_hash()` returns for the same path.
+- `DrawList::remove(full_hash, mode)` now matches by `full_hash` (was: by leaf
+  name hash).  The API doc is updated to state that callers must pass a full-path
+  hash (from `DbiState::path_hash()` or `DrawList::Entry::full_hash`).
+- `DrawList::Entry` is now a public struct, and `DrawList::entries()` exposes a
+  `const` reference to the underlying entry vector.  This allows `BViewState::redraw()`
+  and other trusted callers to iterate pending entries without granting them write access.
+- The `staged` temporary queue (`std::vector<std::vector<ull>>`) has been **removed**
+  from `BViewState`.  `add_hpath()` now calls `draw_list_.add(path, 0)` directly.
+  `BViewState::redraw()` identifies "pending" (not-yet-drawn) entries by checking
+  whether `entry.full_hash` is absent from `s_map`, and processes those in exactly
+  the same way the old `staged` loop did — applying `vs->s_dmode` (or the entry's
+  own mode if non-zero) and the entry's optional settings overrides.
+- `erase_hpath()` now calls `draw_list_.remove(phash, mode)` immediately after
+  updating `s_map`/`s_keys`, so erasure is reflected in `draw_list_` without
+  waiting for the next redraw cycle.
+- The end-of-redraw `draw_list_` sync (rebuild from `s_map` + `s_keys`) is
+  retained as the final authority: it corrects all mode values (add_hpath uses 0
+  as a placeholder; after drawing the correct mode is flushed in) and removes any
+  stale entries that were never drawn.
+- `test_dbi_cpp.cpp` updated: the `DrawList::remove()` test now passes the
+  correct full-path hash via `dbis->path_hash(path_child, 0)`.
+
+All existing tests pass (49 DBI C++ checks, 35 DBI C checks, 15 Qt model checks,
+1 draw rendering check).
 
 ### 12.4 Architecture and Longer-term Work
 
@@ -1262,20 +1302,35 @@ management).  No implementation exists yet.  Before starting, document the requi
 thread-safety contract for `DbiState` (which methods are main-thread-only, which are
 safe to call from the background thread, and what the queue handoff protocol is).
 
-**L2 — Thread-safety documentation for `DbiState`.**
-No method in `DbiState`, `DrawList`, `SelectionSet`, or `BViewState` is currently
-documented as either "main-thread-only" or "thread-safe".  Before any background
-work begins, annotate each method and add a `lock()`/`unlock()` RAII guard that
-gates mutations, as described in Section 5.1 principle 8.
+**L2 — Thread-safety documentation for `DbiState`.**  ✅ PARTIAL (docs added; locks deferred)
+A file-level doc block and per-class "MAIN THREAD ONLY" annotations have been
+added to `include/ged/dbi.h`:
+- `DbiState` — main-thread-only; rationale and forward reference to L1 noted.
+- `BViewState` — main-thread-only annotation added.
+- `DrawList` — main-thread-only annotation added.
+- `SelectionSet` — main-thread-only annotation added.
+The `lock()`/`unlock()` RAII guard is deferred until the threading model
+(L1) is actually needed; adding it prematurely would impose overhead and
+complexity before any concurrent code exists.
 
-**L3 — Attribute columns in `QgModel`.**
-Section 9 Q2 decision: attribute columns should be runtime-configurable; defaults
-are region flag, region ID, and primitive color.  The `QgModel` header already
-defines `TypeIconDisplayRole`, `HighlightDisplayRole`, `DrawnDisplayRole`, and
-`SelectDisplayRole` roles.  Adding configurable attribute-key columns requires:
-- A `QgModel::set_attribute_columns(QStringList keys)` API.
-- Extending `data()` to serve those columns.
-- Wiring into the `QgTreeView` header.
+**L3 — Attribute columns in `QgModel`.**  ✅ DONE
+Section 9 Q2 decision: attribute columns are now runtime-configurable; the default
+is a single object-name column.  The implementation:
+- `QgModel::set_attribute_columns(const QStringList &keys)` — sets the list of
+  attribute keys to show as extra columns; passing an empty list reverts to the
+  single name column.  Emits `beginResetModel()`/`endResetModel()`.
+- `QgModel::attribute_columns()` const accessor.
+- `QgModel::columnCount()` now returns `1 + attribute_columns_.count()`.
+- `QgModel::headerData()` returns the key name for each extra column header.
+- `QgModel::data()` serves `Qt::DisplayRole` for column > 0: built-in handling
+  for `"region"` (flag → "R"), `"region_id"` (numeric), and `"color"`/`"rgb"`
+  (R/G/B triple from the DbiState `rgb` map); all other keys trigger a live
+  `db5_get_attributes()` lookup.
+- `QgTreeView::header_state()` already adapts to the column count change via
+  the existing `header()->count()` check.
+- T3 regression test added to `src/libqtcad/tests/qgmodel.cpp`: creates a region
+  with `region_id=5`, sets the `"region_id"` column, and verifies the correct
+  value is returned by `data()`; also verifies the revert-to-1-column path.
 
 **L4 — `BSelectState` removal.**  ✅ DONE
 `BSelectState` has been fully removed.  All callers have been migrated to
@@ -1291,3 +1346,97 @@ defines `TypeIconDisplayRole`, `HighlightDisplayRole`, `DrawnDisplayRole`, and
 - `BSelectState` class declaration, all method implementations, and the old
   `get_selected_states()` / `find_selected_state()` / `put_selected_state()` helpers
   have been deleted.
+
+### Session 24 — qged build fixes and draw-test robustness (this PR)
+
+**qged / `QgEdApp` build fix** — `QgEdApp.cpp` was calling the removed
+`find_selected_state(NULL)` / `BSelectState::draw_sync()` API.  Migrated to
+`get_selection_set(nullptr)` / `SelectionSet::sync_to_all_views()`.
+
+**`fbserv.cpp` OpenGL guard** — `#include "qtcad/QgGL.h"` is now wrapped in
+`#ifdef BRLCAD_OPENGL` to prevent a missing-header error when Qt is enabled but
+OpenGL is not.
+
+**`digest_path` single-element validation** — `DbiState::digest_path()` previously
+returned a non-empty hash vector for any single-element path string, even one that
+named a non-existent object (the loop that validates parent→child relationships only
+runs for paths with ≥ 2 elements).  This caused `select add nonexistent_name` to
+silently store an unresolvable hash in `selected_`, which then caused `select expand`
+to call `print_hash()` with a hash not in any map.  Fixed by adding a single-element
+existence check against `d_map`, `i_str`, and `invalid_entry_map` before returning.
+
+**`print_hash` crash fix** — Changed the terminal `bu_exit(EXIT_FAILURE, …)` in
+`DbiState::print_hash()` to `bu_log()` + `return false`, and updated `print_path()`
+to truncate the output string and return early when `print_hash` fails.  This
+converts a hard crash into a recoverable error for the rare case where a stale or
+out-of-sync hash is passed in.
+
+**`moss.g` draw-test fix** — The `moss.g` kept in `src/libged/tests/draw/` was an
+empty stub (title + units only).  All six draw-test binaries now accept an optional
+second positional argument giving the directory that contains `moss.g`, falling back
+to the control-image directory if omitted.  `draw/CMakeLists.txt` was updated to
+copy the properly-built `share/db/moss.g` to the test binary directory and pass that
+directory as the second argument to each test command.  This replaces the empty stub
+with real geometry for every draw test run.
+
+**`repocheck` exemptions** — Added per-file exemptions in `repocheck.cpp` so that
+`DrawList::remove()` method declarations in `dbi.h` and `dbi_state.cpp` are not
+falsely flagged as unguarded POSIX `remove()` calls.
+
+### Session 25 — C1/C2 cleanup and L2 thread-safety documentation (this PR)
+
+**C1 done** — `BViewState::scene_obj()` now uses `dbis->res` (the per-`DbiState`
+`struct resource *`) instead of the global `&rt_uniresource`.  `BViewState` was
+added as a `friend class` of `DbiState` to allow access to the private `res`
+member.
+
+**C2 done** — Color overrides are now stored via `sp->s_os->color_override` and
+`sp->s_os->color[0..2]` rather than clobbering `sp->s_color`.  The original
+database-derived color is preserved in `sp->s_color` and restored automatically
+when no override is active.  The existing `draw_scene_obj()` path in `view.c`
+already queries `s_os->color_override` so no rendering code required changes.
+
+**L2 partial** — `include/ged/dbi.h` now carries a file-level threading model
+doc-block and per-class "MAIN THREAD ONLY" annotations on `DbiState`,
+`BViewState`, `DrawList`, and `SelectionSet`.  The `lock()`/`unlock()` RAII
+infrastructure is deferred until L1 (background geometry loading) is actually
+needed.
+
+### Session 26 — A1 DbiPath overloads and A2 link_to stubs (this PR)
+
+**A1 done** — `DrawList::add(const DbiPath &, ...)`, `SelectionSet::select(const
+DbiPath &, bool)`, and `SelectionSet::deselect(const DbiPath &, bool)` added to
+`dbi.h` and implemented in `dbi_state.cpp`.  Callers in `QgTreeSelectionModel.cpp`
+migrated to the DbiPath forms — the `ph = dbis->path_hash(...)` / `ss->select(ph,
+path_hashes, ...)` two-step has been replaced with `ss->select(DbiPath(node->path_items()),
+...)` in all six call sites.
+
+**A2 stub done** — `BViewState::link_to(BViewState *primary)`, `unlink()`,
+`is_linked()`, and `linked_primary()` added to `BViewState` with a private
+`linked_to_` member.  The pointer is stored but `redraw()` does not yet consult
+it — full DrawList sharing is the A3 work item.
+
+### Session 27 — L3 attribute columns in QgModel (this PR)
+
+**L3 done** — `QgModel::set_attribute_columns(QStringList)` API implemented.
+`columnCount()`, `headerData()`, and `data()` all adapted.  Built-in support
+for `"region"`, `"region_id"`, `"color"`/`"rgb"` uses the cached DbiState maps;
+general keys use a live `db5_get_attributes()` lookup.  T3 test added to
+`src/libqtcad/tests/qgmodel.cpp`; all 6 T3 + 9 T2 checks pass.
+
+### Session 27 (continued) — A3 partial DrawList sync in BViewState::redraw()
+
+**A3 partial done** — `BViewState::redraw()` now calls `draw_list_.clear()` and
+rebuilds `draw_list_` from `s_map` + `s_keys` at the end of every redraw cycle.
+`BViewState::clear()` also calls `draw_list_.clear()`.  This gives `DrawList`
+accurate semantics for querying drawn state after each redraw.  The remaining A3
+work (reading from DrawList as the draw-intent source, incremental erase sync)
+is deferred.
+
+### Session 28 — A3 full DrawList pipeline (this PR)
+
+**A3 full done** — `staged` queue removed from `BViewState`.  `DrawList::Entry`
+gains `full_hash` (precomputed at add time via `bu_data_hash`).  `remove()` matches
+by full-path hash.  `add_hpath()` adds directly to `draw_list_`.  `redraw()` reads
+pending entries from `draw_list_`.  `erase_hpath()` calls `draw_list_.remove()`
+immediately.  All 49 DBI C++ + 35 DBI C + 15 Qt + 1 draw test pass.

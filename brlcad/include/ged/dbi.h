@@ -57,6 +57,25 @@
 #include "rt/op.h"
 #include "ged/defines.h"
 
+/**
+ * @file dbi.h — DBI (Database Interface) layer for BRL-CAD's qged stack.
+ *
+ * Thread-safety model (L2)
+ * ------------------------
+ * NONE of the classes in this file (DbiState, BViewState, DrawList,
+ * SelectionSet) are thread-safe.  Every public method must be called
+ * exclusively from the application main thread unless explicitly marked
+ * otherwise below.
+ *
+ * Background geometry loading is planned (see DBI_TODO.md §12.4 L1) and
+ * will require:
+ *   - A per-DbiState mutex gating all mutations.
+ *   - A producer/consumer queue for geometry results posted from the loader
+ *     thread to be integrated on the main thread.
+ *
+ * Until that work is done callers must ensure single-threaded access.
+ */
+
 // Typed wrappers for the three distinct hash spaces
 struct GHash    { unsigned long long v = 0;
     bool operator==(const GHash &o)    const { return v == o.v; }
@@ -125,6 +144,8 @@ class GED_EXPORT CombInst;
 // SelectionSet tracks which database paths are currently selected and
 // maintains hierarchical relationships (active subpaths, parent paths,
 // ancestor paths) derived from the selection.
+//
+// Thread-safety: MAIN THREAD ONLY.  No locking is performed internally.
 class GED_EXPORT SelectionSet {
 public:
     explicit SelectionSet(DbiState *);
@@ -135,6 +156,11 @@ public:
     bool select(unsigned long long path_hash, const std::vector<unsigned long long> &path_vec, bool update_hierarchy = true);
     bool deselect(unsigned long long path_hash, bool update_hierarchy = true);
     void clear();
+
+    // Preferred type-safe overloads using DbiPath.  The path hash is computed
+    // internally from the DbiPath so callers no longer need to pre-compute it.
+    bool select(const DbiPath &path, bool update_hierarchy = true);
+    bool deselect(const DbiPath &path, bool update_hierarchy = true);
 
     // Query state by path hash
     bool is_selected(unsigned long long path_hash) const;
@@ -235,18 +261,38 @@ struct DrawSettings {
 // It is separate from BViewState to cleanly separate "draw intent"
 // from "rendered scene objects".
 //
+// Thread-safety: MAIN THREAD ONLY.  No locking is performed internally.
+//
 // Ownership: DrawList instances are owned by a BViewState.
 class GED_EXPORT DrawList {
 public:
     DrawList() = default;
     ~DrawList() = default;
 
+    // Each entry records a path to draw, the draw mode, and optional
+    // per-path settings overrides.  full_hash is the precomputed
+    // bu_data_hash of the path vector (same hash DbiState::path_hash()
+    // would return for that path) and is used for O(1) removal.
+    struct Entry {
+        std::vector<unsigned long long> path;
+        unsigned long long full_hash = 0;  // bu_data_hash(path.data(), path.size() * sizeof(ull))
+        int mode = 0;
+        bool has_settings = false;
+        DrawSettings settings;
+    };
+
     // Stage a path for drawing in the given mode with optional settings override.
     // Does not trigger a redraw; call BViewState::redraw() after all changes are staged.
     void add(const std::vector<unsigned long long> &path_hashes, int mode = 0,
              const DrawSettings *overrides = nullptr);
+    // Preferred type-safe overload; DbiPath implicitly converts to const vector ref
+    // so existing call sites that pass a DbiPath will resolve here automatically.
+    void add(const DbiPath &path, int mode = 0,
+             const DrawSettings *overrides = nullptr);
 
-    // Remove paths matching the given prefix hash in the given mode (-1 = all modes)
+    // Remove paths matching the given full path hash in the given mode (-1 = all modes).
+    // path_hash must be the full-path hash (bu_data_hash over the path vector), i.e.
+    // the same value returned by DbiState::path_hash() for that path.
     void remove(unsigned long long path_hash, int mode = -1);
 
     // Clear the entire draw list
@@ -269,14 +315,11 @@ public:
     // Check if this list is empty
     bool empty() const;
 
+    // Read-only access to the underlying entries, e.g. for BViewState::redraw()
+    // to iterate pending (not-yet-drawn) entries.
+    const std::vector<Entry> &entries() const { return entries_; }
+
 private:
-    // Staged entries: path_hashes + mode + optional settings
-    struct Entry {
-        std::vector<unsigned long long> path;
-        int mode = 0;
-        bool has_settings = false;
-        DrawSettings settings;
-    };
     std::vector<Entry> entries_;
     mutable std::unordered_map<unsigned long long, std::unordered_set<int>> drawn_hash_modes_;
     mutable bool dirty_ = true;
@@ -284,6 +327,10 @@ private:
     void rebuild_index() const;
 };
 
+// BViewState manages the set of drawn paths for a specific view and owns the
+// bv_scene_obj instances that correspond to drawn paths.
+//
+// Thread-safety: MAIN THREAD ONLY.  No locking is performed internally.
 class GED_EXPORT BViewState {
     public:
 	BViewState(DbiState *);
@@ -338,6 +385,20 @@ class GED_EXPORT BViewState {
 
 	DrawList &draw_list() { return draw_list_; }
 	const DrawList &draw_list() const { return draw_list_; }
+
+	// Link this view so it sources its draw list from another (primary)
+	// BViewState.  Once linked, redraw() reads the primary's draw list so
+	// quad-view panels share geometry without duplicating draw intent.
+	// Only the camera (struct bview *) remains independent.
+	// Passing nullptr is equivalent to calling unlink().
+	//
+	// NOTE: This is a stub.  The full DrawList-sharing implementation is
+	// deferred (see DBI_TODO.md §12.3 A2/A3).  The pointer is stored and
+	// accessible via is_linked()/linked_primary() for future use.
+	void link_to(BViewState *primary);
+	void unlink();
+	bool is_linked() const { return linked_to_ != nullptr; }
+	BViewState *linked_primary() const { return linked_to_; }
 
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
@@ -404,9 +465,6 @@ class GED_EXPORT BViewState {
 
 	int leaf_check(unsigned long long chash, std::vector<unsigned long long> &path_hashes);
 
-	// Paths supplied by commands to be incorporated into the drawn state by redraw method
-	std::vector<std::vector<unsigned long long>> staged;
-
 	// The collapsed drawn paths from the previous db state, organized
 	// by drawn mode
 	void depth_group_collapse(
@@ -433,6 +491,7 @@ class GED_EXPORT BViewState {
 	friend class SelectionSet;
 
 	DrawList draw_list_;
+	BViewState *linked_to_ = nullptr;
 };
 
 #define GED_DBISTATE_DB_CHANGE   0x01
@@ -470,6 +529,13 @@ public:
 
 struct bu_cache;
 
+// DbiState is the in-memory mirror of a BRL-CAD .g database.  It drives all
+// drawing and selection logic in the qged/libqtcad stack.
+//
+// Thread-safety: MAIN THREAD ONLY.  DbiState holds a struct resource *, raw
+// pointers into librt data structures, and STL containers that are not
+// guarded by any mutex.  All methods must be called from the application main
+// thread.  See DBI_TODO.md §12.4 L1-L2 for the planned locking approach.
 class GED_EXPORT DbiState {
     public:
 	DbiState(struct ged *);
@@ -644,6 +710,8 @@ class GED_EXPORT DbiState {
 	// GObj and CombInst need access to private DbiState internals (res, dcache)
 	friend class GObj;
 	friend class CombInst;
+	// BViewState needs access to res for per-object draw update data
+	friend class BViewState;
 };
 
 

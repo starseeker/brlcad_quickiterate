@@ -413,6 +413,18 @@ DbiState::digest_path(const char *path)
     std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
     std::unordered_map<unsigned long long, unsigned long long>::iterator i_it;
     unsigned long long phash = phe[0];
+
+    // Single-element path: verify the name resolves to a known object
+    if (phe.size() == 1) {
+	if (d_map.find(phash) == d_map.end() &&
+	    i_str.find(phash) == i_str.end() &&
+	    invalid_entry_map.find(phash) == invalid_entry_map.end()) {
+	    bu_log("Invalid path element: %s\n", elements[0].c_str());
+	    return std::vector<unsigned long long>();
+	}
+	return phe;
+    }
+
     for (size_t i = 1; i < phe.size(); i++) {
 	pc_it = p_c.find(phash);
 	// The parent comb structure is stored only under its original name's hash - if
@@ -505,8 +517,7 @@ DbiState::print_hash(struct bu_vls *opath, unsigned long long phash)
 	return true;
     }
 
-    bu_exit(EXIT_FAILURE, "DbiState::print_hash failure, dbi_state.cpp::%d - a hash not known to the database's DbiState was passed in.  This can happen when the dbip contents change and dbi_state->update() isn't called in the parent application after doing so.\n", __LINE__);
-    bu_vls_printf(opath, "\nERROR!!!\n");
+    bu_log("DbiState::print_hash: hash %llu not found in database (dbip contents may have changed without calling dbi_state->update())\n", phash);
     return false;
 }
 
@@ -531,8 +542,10 @@ DbiState::print_path(struct bu_vls *opath, std::vector<unsigned long long> &path
 		}
 	    }
 	}
-	if (!print_hash(opath, path[i]))
-	    continue;
+	if (!print_hash(opath, path[i])) {
+	    bu_vls_trunc(opath, 0);
+	    return;
+	}
 	if (i < path.size() - 1 && (!pmax || i < pmax - 1))
 	    bu_vls_printf(opath, "/");
     }
@@ -1543,6 +1556,18 @@ BViewState::BViewState(DbiState *s)
     dbis = s;
 }
 
+void
+BViewState::link_to(BViewState *primary)
+{
+    linked_to_ = primary;
+}
+
+void
+BViewState::unlink()
+{
+    linked_to_ = nullptr;
+}
+
 // 0 = valid, 3 = need re-eval
 int
 BViewState::leaf_check(
@@ -1700,7 +1725,11 @@ BViewState::add_hpath(std::vector<unsigned long long> &path_hashes)
 {
     if (!path_hashes.size())
 	return;
-    staged.push_back(path_hashes);
+    // Add to draw_list_ (mode 0 means "use redraw's mode").  The mode will be
+    // corrected by the end-of-redraw draw_list_ sync to reflect what was actually
+    // drawn.  This replaces the old `staged` temporary queue (A3: DrawList as
+    // the canonical draw-intent source).
+    draw_list_.add(path_hashes, 0);
 }
 
 void
@@ -1769,6 +1798,10 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 		s_keys.erase(phash);
 		all_drawn_paths.erase(phash);
 	    }
+
+	    // Keep draw_list_ in sync immediately so callers don't have to
+	    // wait for the next redraw() to see the removal reflected.
+	    draw_list_.remove(phash, mode);
 	}
     }
 
@@ -2105,20 +2138,24 @@ BViewState::scene_obj(
     ud->dbip = dbis->gedp->dbip;
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
-    ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view... local_res is temporary, don't use it here
+    ud->res = dbis->res;
     ud->mesh_c = dbis->gedp->ged_lod;
     sp->dp = dp;
     sp->s_i_data = (void *)ud;
 
-    // Get color from path, unless we're overridden
+    // Get color from path, store as the database-derived color.  If the
+    // view state carries a color override, record it in s_os->color so the
+    // original s_color is preserved and can be restored when the override
+    // is lifted.  The draw_scene_obj() path in view.c already checks
+    // s_os->color_override and uses s_os->color when it is set.
     struct bu_color c;
     dbis->path_color(&c, path_hashes);
     bu_color_to_rgb_chars(&c, sp->s_color);
     if (vs && vs->color_override) {
-	// TODO - shouldn't be using s_color for the override...
-	sp->s_color[0] = vs->color[0];
-	sp->s_color[1] = vs->color[1];
-	sp->s_color[2] = vs->color[2];
+	sp->s_os->color_override = 1;
+	sp->s_os->color[0] = vs->color[0];
+	sp->s_os->color[1] = vs->color[1];
+	sp->s_os->color[2] = vs->color[2];
     }
 
     // Set drawing mode
@@ -2270,12 +2307,12 @@ BViewState::clear()
 {
     s_map.clear();
     s_keys.clear();
-    staged.clear();
     drawn_paths.clear();
     all_drawn_paths.clear();
     partially_drawn_paths.clear();
     mode_collapsed.clear();
     all_collapsed.clear();
+    draw_list_.clear();
 }
 
 std::vector<std::string>
@@ -2657,32 +2694,56 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
     }
 
-    // Expand (or queue, depending on settings) any staged paths.
+    // Process pending draw_list_ entries: those not yet in s_map (newly added
+    // via add_path()/add_hpath() since the last redraw).  This replaces the old
+    // `staged` temporary queue — draw_list_ is now the canonical draw-intent
+    // source (A3 full implementation).
     if (vs) {
-	for (size_t i = 0; i < staged.size(); i++) {
-	    std::vector<unsigned long long> cpath = staged[i];
+	// entry_vs is declared here so it remains valid throughout the loop body
+	// when draw_vs is set to point at it (scope guard for dangling-pointer safety).
+	struct bv_obj_settings entry_vs;
+	const std::vector<DrawList::Entry> &dl_entries = draw_list_.entries();
+	for (size_t i = 0; i < dl_entries.size(); i++) {
+	    const DrawList::Entry &dl_e = dl_entries[i];
+	    // Skip entries that are already drawn (in s_map)
+	    if (s_map.find(dl_e.full_hash) != s_map.end())
+		continue;
+	    std::vector<unsigned long long> cpath = dl_e.path;
 	    // Validate this path - if the user has specified an invalid
 	    // path, there's nothing else to do
 	    if (!dbis->valid_hash_path(cpath))
 		continue;
-	    unsigned long long phash = dbis->path_hash(cpath, 0);
-	    if (check_status(NULL, NULL, phash, cpath, false))
+	    if (check_status(NULL, NULL, dl_e.full_hash, cpath, false))
 		continue;
+	    // Use entry mode if non-zero, otherwise fall back to vs->s_dmode
+	    int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
+	    // Use entry's settings override if present, otherwise use vs
+	    struct bv_obj_settings *draw_vs = vs;
+	    if (dl_e.has_settings) {
+		// Copy vs first, then apply the per-entry overrides
+		entry_vs = *vs;
+		entry_vs.s_dmode = draw_mode;
+		if (dl_e.settings.has_color) {
+		    entry_vs.color_override = 1;
+		    entry_vs.color[0] = dl_e.settings.color.buc_rgb[0];
+		    entry_vs.color[1] = dl_e.settings.color.buc_rgb[1];
+		    entry_vs.color[2] = dl_e.settings.color.buc_rgb[2];
+		}
+		draw_vs = &entry_vs;
+	    }
 	    mat_t m;
 	    MAT_IDN(m);
 	    dbis->get_path_matrix(m, cpath);
-	    if ((vs->s_dmode == 3 || vs->s_dmode == 5)) {
+	    if ((draw_mode == 3 || draw_mode == 5)) {
 		dbis->get_path_matrix(m, cpath);
-		scene_obj(objs, vs->s_dmode, vs, m, cpath, views, v);
+		scene_obj(objs, draw_mode, draw_vs, m, cpath, views, v);
 		continue;
 	    }
 	    unsigned long long ihash = cpath[cpath.size() - 1];
 	    cpath.pop_back();
-	    gather_paths(objs, ihash, vs->s_dmode, v, vs, m, NULL, cpath, views, &ret);
+	    gather_paths(objs, ihash, draw_mode, v, draw_vs, m, NULL, cpath, views, &ret);
 	}
     }
-    // Staged paths are now added (as long as settings were supplied) - clear the queue
-    staged.clear();
 
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
     // routines have a rough idea of the correct dimensions to use
@@ -2736,6 +2797,24 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // Now that all path manipulations are finalized, update the
     // sets of drawn paths
     cache_collapsed();
+
+    // Sync DrawList to reflect the current drawn state (s_map + s_keys).
+    // This makes draw_list_.query() and drawn_path_hashes() accurate after
+    // every redraw cycle without requiring callers to maintain the list
+    // manually.  (A3: full DrawList-driven redraw pipeline is the next step.)
+    {
+	draw_list_.clear();
+	std::unordered_map<unsigned long long,
+			   std::vector<unsigned long long>>::iterator dl_sk_it;
+	for (dl_sk_it = s_keys.begin(); dl_sk_it != s_keys.end(); dl_sk_it++) {
+	    unsigned long long phash = dl_sk_it->first;
+	    auto sm_it = s_map.find(phash);
+	    if (sm_it == s_map.end()) continue;
+	    for (auto &mode_pair : sm_it->second) {
+		draw_list_.add(dl_sk_it->second, mode_pair.first);
+	    }
+	}
+    }
 
     return ret;
 }
@@ -2792,6 +2871,8 @@ void DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
     if (path_hashes.empty()) return;
     Entry e;
     e.path = path_hashes;
+    e.full_hash = bu_data_hash(path_hashes.data(),
+                               path_hashes.size() * sizeof(unsigned long long));
     e.mode = mode;
     if (overrides) {
         e.has_settings = true;
@@ -2801,17 +2882,16 @@ void DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
     dirty_ = true;
 }
 
+void DrawList::add(const DbiPath &path, int mode, const DrawSettings *overrides)
+{
+    add(path.hashes, mode, overrides);
+}
+
 void DrawList::remove(unsigned long long path_hash, int mode)
 {
     auto it = entries_.begin();
     while (it != entries_.end()) {
-        unsigned long long entry_leaf_hash = 0;
-        if (!it->path.empty()) {
-            // Use the last element (leaf hash) as the path representative,
-            // matching BViewState's existing path_hash convention.
-            entry_leaf_hash = it->path.back();
-        }
-        if (entry_leaf_hash == path_hash && (mode < 0 || it->mode == mode)) {
+        if (it->full_hash == path_hash && (mode < 0 || it->mode == mode)) {
             it = entries_.erase(it);
         } else {
             ++it;
@@ -2947,6 +3027,20 @@ bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
     std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
     if (hpath.empty()) return false;
     unsigned long long ph = dbis_->path_hash(hpath, 0);
+    return deselect(ph, update_hierarchy);
+}
+
+bool SelectionSet::select(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty() || !dbis_) return false;
+    unsigned long long ph = dbis_->path_hash(path.hashes, 0);
+    return select(ph, path.hashes, update_hierarchy);
+}
+
+bool SelectionSet::deselect(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty() || !dbis_) return false;
+    unsigned long long ph = dbis_->path_hash(path.hashes, 0);
     return deselect(ph, update_hierarchy);
 }
 

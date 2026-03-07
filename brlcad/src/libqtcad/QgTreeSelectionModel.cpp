@@ -72,22 +72,16 @@ QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionMode
 	    if (!(QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))) {
 		if (flags & QItemSelectionModel::Clear && ss->selected().size() > 1) {
 		    ss->clear();
-		    std::vector<unsigned long long> path_hashes = snode->path_items();
-		    unsigned long long ph = dbis->path_hash(path_hashes, 0);
-		    ss->select(ph, path_hashes, false);
+		    ss->select(DbiPath(snode->path_items()), false);
 		} else {
-		    std::vector<unsigned long long> path_hashes = snode->path_items();
-		    unsigned long long ph = dbis->path_hash(path_hashes, 0);
-		    ss->deselect(ph, false);
+		    ss->deselect(DbiPath(snode->path_items()), false);
 		}
 	    }
 	} else {
 	    if (flags & QItemSelectionModel::Clear)
 		ss->clear();
 
-	    std::vector<unsigned long long> path_hashes = snode->path_items();
-	    unsigned long long ph = dbis->path_hash(path_hashes, 0);
-	    ss->select(ph, path_hashes, false);
+	    ss->select(DbiPath(snode->path_items()), false);
 	}
     }
 
@@ -135,9 +129,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 
 	// If we are selecting an already selected node, clear it
 	if (flags & QItemSelectionModel::Select && ss->is_selected(snode->path_hash())) {
-	    std::vector<unsigned long long> path_hashes = snode->path_items();
-	    unsigned long long ph = dbis->path_hash(path_hashes, 0);
-	    ss->deselect(ph, false);
+	    ss->deselect(DbiPath(snode->path_items()), false);
 	    // Done manipulating paths - update metadata
 	    ss->recompute_hierarchy();
 	    unsigned long long sflags = QG_VIEW_SELECT;
@@ -148,15 +140,11 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 	    return;
 	}
 
-	std::vector<unsigned long long> path_hashes = snode->path_items();
-	unsigned long long ph = dbis->path_hash(path_hashes, 0);
-	ss->select(ph, path_hashes, false);
+	ss->select(DbiPath(snode->path_items()), false);
 
     } else {
 
-	std::vector<unsigned long long> path_hashes = snode->path_items();
-	unsigned long long ph = dbis->path_hash(path_hashes, 0);
-	ss->deselect(ph, false);
+	ss->deselect(DbiPath(snode->path_items()), false);
 
     }
 
