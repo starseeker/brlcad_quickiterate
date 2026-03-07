@@ -2118,20 +2118,24 @@ BViewState::scene_obj(
     ud->dbip = dbis->gedp->dbip;
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
-    ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view... local_res is temporary, don't use it here
+    ud->res = dbis->res;
     ud->mesh_c = dbis->gedp->ged_lod;
     sp->dp = dp;
     sp->s_i_data = (void *)ud;
 
-    // Get color from path, unless we're overridden
+    // Get color from path, store as the database-derived color.  If the
+    // view state carries a color override, record it in s_os->color so the
+    // original s_color is preserved and can be restored when the override
+    // is lifted.  The draw_scene_obj() path in view.c already checks
+    // s_os->color_override and uses s_os->color when it is set.
     struct bu_color c;
     dbis->path_color(&c, path_hashes);
     bu_color_to_rgb_chars(&c, sp->s_color);
     if (vs && vs->color_override) {
-	// TODO - shouldn't be using s_color for the override...
-	sp->s_color[0] = vs->color[0];
-	sp->s_color[1] = vs->color[1];
-	sp->s_color[2] = vs->color[2];
+	sp->s_os->color_override = 1;
+	sp->s_os->color[0] = vs->color[0];
+	sp->s_os->color[1] = vs->color[1];
+	sp->s_os->color[2] = vs->color[2];
     }
 
     // Set drawing mode
