@@ -363,12 +363,21 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	void full_model_reset(DbiState *dbis);
 
 	// Apply targeted row-level Qt model updates for a set of DBI events.
-	// Called only when no batch/complex events are present.
+	// Handles ObjectModified on expanded combs via per-row child rebuild
+	// rather than falling back to a full model reset.
 	void apply_incremental_updates(DbiState *dbis, const std::vector<DbiChangeEvent> &events);
 
 	// Reconcile tops_items against the current dbis->tops() list by emitting
 	// per-row begin/endInsertRows / begin/endRemoveRows signals.
 	void reconcile_tops(DbiState *dbis);
+
+	// Rebuild an expanded QgItem's children with per-row insert/remove
+	// signals rather than a full model reset.
+	void rebuild_item_children(QgItem *item, DbiState *dbis);
+
+	// Track the DbiState we are currently registered as an observer of.
+	// When open/close replaces gedp->dbi_state, g_update() re-registers.
+	DbiState *observed_dbi_state_ = nullptr;
 
 	QgItem *rootItem;
 	struct bview *empty_gvp = NULL;
