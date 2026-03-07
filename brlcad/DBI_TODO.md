@@ -1255,12 +1255,18 @@ implementation stores the pointer but does not yet route `redraw()` through the
 primary's `DrawList` — that full integration is A3 and requires `DrawList::commit()`
 (see A3 below).  The API surface is now in place for callers to begin using.
 
-**A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**
+**A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**  ✅ PARTIAL
 Phase 4 noted "Full integration of DrawList into the redraw pipeline is a follow-on
-step."  Currently `BViewState::redraw()` manages scene objects directly rather than
-going through `DrawList::commit()`.  Routing all scene-object creation through
-`commit()` would give `DrawList` the single-responsibility role described in Section
-5.5 and make it easier to test draw-list changes in isolation.
+step."  The first step of A3 is complete: `BViewState::redraw()` now syncs
+`draw_list_` from `s_map` + `s_keys` at the end of every redraw cycle.  This
+makes `draw_list_.query()` and `drawn_path_hashes()` accurate for the current drawn
+state without requiring callers to maintain the list manually.  `BViewState::clear()`
+also clears `draw_list_`.
+
+The remaining A3 work is the reverse direction: making `redraw()` *read from*
+`draw_list_` as the source of draw intent (replacing the current `staged` temporary
+queue as the canonical record), and wiring `erase_hpath()` to remove from
+`draw_list_` incrementally rather than waiting for the next redraw sync.
 
 ### 12.4 Architecture and Longer-term Work
 
@@ -1392,3 +1398,12 @@ it — full DrawList sharing is the A3 work item.
 for `"region"`, `"region_id"`, `"color"`/`"rgb"` uses the cached DbiState maps;
 general keys use a live `db5_get_attributes()` lookup.  T3 test added to
 `src/libqtcad/tests/qgmodel.cpp`; all 6 T3 + 9 T2 checks pass.
+
+### Session 27 (continued) — A3 partial DrawList sync in BViewState::redraw()
+
+**A3 partial done** — `BViewState::redraw()` now calls `draw_list_.clear()` and
+rebuilds `draw_list_` from `s_map` + `s_keys` at the end of every redraw cycle.
+`BViewState::clear()` also calls `draw_list_.clear()`.  This gives `DrawList`
+accurate semantics for querying drawn state after each redraw.  The remaining A3
+work (reading from DrawList as the draw-intent source, incremental erase sync)
+is deferred.

@@ -2305,6 +2305,7 @@ BViewState::clear()
     partially_drawn_paths.clear();
     mode_collapsed.clear();
     all_collapsed.clear();
+    draw_list_.clear();
 }
 
 std::vector<std::string>
@@ -2765,6 +2766,24 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // Now that all path manipulations are finalized, update the
     // sets of drawn paths
     cache_collapsed();
+
+    // Sync DrawList to reflect the current drawn state (s_map + s_keys).
+    // This makes draw_list_.query() and drawn_path_hashes() accurate after
+    // every redraw cycle without requiring callers to maintain the list
+    // manually.  (A3: full DrawList-driven redraw pipeline is the next step.)
+    {
+	draw_list_.clear();
+	std::unordered_map<unsigned long long,
+			   std::vector<unsigned long long>>::iterator dl_sk_it;
+	for (dl_sk_it = s_keys.begin(); dl_sk_it != s_keys.end(); dl_sk_it++) {
+	    unsigned long long phash = dl_sk_it->first;
+	    auto sm_it = s_map.find(phash);
+	    if (sm_it == s_map.end()) continue;
+	    for (auto &mode_pair : sm_it->second) {
+		draw_list_.add(dl_sk_it->second, mode_pair.first);
+	    }
+	}
+    }
 
     return ret;
 }

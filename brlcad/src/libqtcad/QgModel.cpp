@@ -1123,7 +1123,10 @@ QgModel::data(const QModelIndex &index, int role) const
 	return QVariant(QLatin1String(""));
     }
 
-    // General attribute: live AVS lookup
+    // General attribute: live AVS lookup.
+    // NOTE: This is a synchronous db5_get_attributes() call per visible cell.
+    // For performance-sensitive use with many visible rows, prefer the built-in
+    // keys ("region", "region_id", "color") which use cached DbiState maps.
     if (qi->dp && dbis->dbip) {
 	struct bu_attribute_value_set avs;
 	BU_AVS_INIT(&avs);
