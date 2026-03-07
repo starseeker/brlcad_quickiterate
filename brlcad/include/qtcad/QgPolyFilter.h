@@ -81,7 +81,7 @@ class QTCAD_EXPORT QPolyCreateFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 	void finalize(bool);
 
 	struct bu_ptbl bool_objs = BU_PTBL_INIT_ZERO;
@@ -92,7 +92,7 @@ class QTCAD_EXPORT QPolyUpdateFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 
 	struct bu_ptbl bool_objs = BU_PTBL_INIT_ZERO;
 };
@@ -102,7 +102,7 @@ class QTCAD_EXPORT QPolySelectFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
 class QTCAD_EXPORT QPolyPointFilter : public QgPolyFilter
@@ -110,7 +110,7 @@ class QTCAD_EXPORT QPolyPointFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
 class QTCAD_EXPORT QPolyMoveFilter : public QgPolyFilter
@@ -118,7 +118,7 @@ class QTCAD_EXPORT QPolyMoveFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 	struct bu_ptbl move_objs = BU_PTBL_INIT_ZERO;
 };
 

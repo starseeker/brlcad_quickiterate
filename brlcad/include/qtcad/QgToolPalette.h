@@ -147,7 +147,7 @@ class QTCAD_EXPORT QgToolPalette: public QWidget
 	void setIconHeight(int iheight);
 	void setAlwaysSelected(int iheight);  // If 0 can disable all tools, if 1 some tool is always selected
 
-	void resizeEvent(QResizeEvent *pevent);
+	void resizeEvent(QResizeEvent *pevent) override;
 
 	QgToolPaletteElement *selected;
 	QString selected_style = QString("");

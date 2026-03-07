@@ -28,7 +28,6 @@
 
 #include <QKeyEvent>
 #include <QImage>
-#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QObject>
 #include <QOpenGLFunctions>

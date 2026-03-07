@@ -95,7 +95,7 @@ class QTCAD_EXPORT QgQuadView : public QWidget
 	void set_lmouse_move_default(int);
 
     private:
-        bool eventFilter(QObject*, QEvent*);
+bool eventFilter(QObject*, QEvent*) override;
         QgView *createView(unsigned int index);
         QGridLayout *createLayout();
 

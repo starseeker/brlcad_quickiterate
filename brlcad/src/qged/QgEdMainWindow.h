@@ -89,7 +89,7 @@ class QgEdMainWindow : public QMainWindow
 	int InteractionMode(QPoint &gpos);
 
 	// Utility wrapper for the closeEvent to save windowing dimensions
-	void closeEvent(QCloseEvent* e);
+	void closeEvent(QCloseEvent* e) override;
 
     public slots:
 	//void save_image();

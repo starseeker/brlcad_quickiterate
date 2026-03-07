@@ -32,7 +32,6 @@ extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
 #include "bsg.h"
-#include "bsg.h"
 #include "raytrace.h"
 }
 
@@ -52,7 +51,7 @@ class QTCAD_EXPORT QgSelectFilter : public QObject
 	// Primary mouse interaction.  This differs a bit for the
 	// various selection types, hence the virtual definition
 	// in the base class.
-	virtual bool eventFilter(QObject *, QEvent *) { return false; }
+	virtual bool eventFilter(QObject *, QEvent *) override { return false; }
 
 	// Recover info from view (common logic for all selection modes)
 	QMouseEvent *view_sync(QEvent *e);
@@ -76,7 +75,7 @@ class QTCAD_EXPORT QgSelectPntFilter: public QgSelectFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
 class QTCAD_EXPORT QgSelectBoxFilter: public QgSelectFilter
@@ -84,7 +83,7 @@ class QTCAD_EXPORT QgSelectBoxFilter: public QgSelectFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 
     private:
 	fastf_t px = -FLT_MAX;
@@ -96,7 +95,7 @@ class QTCAD_EXPORT QgSelectRayFilter: public QgSelectFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 
 	struct db_i *dbip = nullptr;
 };
