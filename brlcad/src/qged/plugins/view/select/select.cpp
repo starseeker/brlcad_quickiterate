@@ -48,14 +48,10 @@ view_select_tool_create()
 }
 
 extern "C" {
-    struct qged_tool_impl view_select_tool_impl = {
-	view_select_tool_create
-    };
-
-    const struct qged_tool view_select_tool = { &view_select_tool_impl, 2 };
+    const struct qged_tool view_select_tool = { "View Select", view_select_tool_create, 2 };
     const struct qged_tool *view_select_tools[] = { &view_select_tool, nullptr };
 
-    static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, view_select_tools, 1 };
+    static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, QGED_PLUGIN_API_VERSION, view_select_tools, 1 };
 
     COMPILER_DLLEXPORT const struct qged_plugin *qged_plugin_info()
     {

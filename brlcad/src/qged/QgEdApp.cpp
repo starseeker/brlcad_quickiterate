@@ -29,6 +29,7 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "qtcad/QgGeomImport.h"
