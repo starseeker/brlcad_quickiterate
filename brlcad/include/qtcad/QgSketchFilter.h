@@ -244,6 +244,64 @@ private:
 };
 
 
+/**
+ * QgSketchArcRadiusFilter — left-drag to resize the selected arc's radius.
+ *
+ * Requires that a CARC segment has already been selected (curr_seg >= 0
+ * and the segment at that index must have CURVE_CARC_MAGIC).
+ *
+ * On left button press the arc centre is computed from the current sketch
+ * geometry (perpendicular bisector for partial arcs; end vertex for full
+ * circles).  While the left button is held the Euclidean distance from the
+ * cursor to the stored arc centre is used as the new radius, applied via
+ * ECMD_SKETCH_SET_ARC_RADIUS on every mouse-move event.  For full-circle
+ * arcs (radius < 0) the negative-radius convention is preserved.
+ *
+ * Both view_updated and sketch_changed are emitted during the drag.
+ */
+class QTCAD_EXPORT QgSketchArcRadiusFilter : public QgSketchFilter
+{
+    Q_OBJECT
+
+public:
+    bool eventFilter(QObject *, QEvent *e);
+
+private:
+    bool    m_dragging  = false;
+    fastf_t m_center_u  = 0.0;
+    fastf_t m_center_v  = 0.0;
+    bool    m_full_circle = false; /* preserve sign for full-circle arcs */
+};
+
+
+/**
+ * QgSketchCursorTracker — passive mouse-move tracker for UV coordinate display.
+ *
+ * Install this filter alongside (not instead of) the active editing filter.
+ * It watches MouseMove events, computes the cursor's sketch-plane UV
+ * position via screen_to_uv(), and emits uv_moved().  The event is
+ * never consumed (eventFilter always returns false) so it does not
+ * interfere with other filters.
+ *
+ * Typical usage: connect uv_moved to a QLabel in the status bar to provide
+ * a live cursor coordinate readout.
+ */
+class QTCAD_EXPORT QgSketchCursorTracker : public QgSketchFilter
+{
+    Q_OBJECT
+
+public:
+    bool eventFilter(QObject *, QEvent *e);
+
+signals:
+    /**
+     * Emitted on every mouse-move event with the current cursor position
+     * in sketch-plane coordinates (model base units, e.g. mm).
+     */
+    void uv_moved(double u, double v);
+};
+
+
 #endif /* QGSKETCHFILTER_H */
 
 // Local Variables:

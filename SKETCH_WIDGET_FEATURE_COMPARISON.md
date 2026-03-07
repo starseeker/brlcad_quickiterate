@@ -43,10 +43,10 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 | Delete selected segment | ✓ | ✓ | ✓ |
 | Split segment at parameter t | — | — | ✓ (ECMD_SKETCH_SPLIT_SEGMENT) |
 | Live segment table (type, params) | — | — | ✓ |
-| Segment reverse (complement) | ✓ | — | — |
-| Arc: drag-set radius | ✓ | ✓ | partial (radius via dialog) |
+| Segment reverse (complement) | ✓ | — | ✓ (ECMD_SKETCH_TOGGLE_ARC_ORIENT / `C` key) |
+| Arc: drag-set radius | ✓ | ✓ | ✓ (QgSketchArcRadiusFilter / `I` key) |
 | Arc: set tangency angle | ✓ | — | — |
-| Arc: use complement (other half) | ✓ | — | — |
+| Arc: use complement (other half) | ✓ | — | ✓ (ECMD_SKETCH_TOGGLE_ARC_ORIENT / `C` key) |
 | Arc: center sampled for proximity (circle_3pt) | — | ✓ | — |
 | NURB: edit knot vector | — | — | ✓ (ECMD_SKETCH_NURB_EDIT_KV) |
 | NURB: edit weights | — | — | ✓ (ECMD_SKETCH_NURB_EDIT_WEIGHTS) |
@@ -58,8 +58,8 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 | Feature | MGED | Archer | New Qt widget |
 |---------|:----:|:------:|:-------------:|
 | Select multiple segments | ✓ | ✓ (Shift-Button-1 in move mode) | — |
-| Select multiple vertices | ✓ | ✓ (Shift-Button-1 in move mode) | — |
-| Move selection as a group | ✓ | ✓ | — |
+| Select multiple vertices | ✓ | ✓ (Shift-Button-1 in move mode) | ✓ (Shift/Ctrl-click in Vertices table) |
+| Move selection as a group | ✓ | ✓ | ✓ ("Move Selected…" button → ECMD_SKETCH_MOVE_VERTEX_LIST) |
 | Delete selection as a group | ✓ | ✓ | — |
 
 ---
@@ -73,7 +73,7 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 | Scale view (Ctrl+Shift+drag) | — | ✓ | — |
 | Translate view (Shift+drag) | — | ✓ | — |
 | Redraw / refresh button | ✓ | ✓ | automatic on each edit |
-| Fit-to-window (auto-scale) | ✓ | — | — |
+| Fit-to-window (auto-scale) | ✓ | — | ✓ (`F` key / View menu) |
 
 ---
 
@@ -94,7 +94,7 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 
 | Feature | MGED | Archer | New Qt widget |
 |---------|:----:|:------:|:-------------:|
-| Live X/Y cursor position display | ✓ | — | — |
+| Live X/Y cursor position display | ✓ | — | ✓ (QgSketchCursorTracker → status bar UV label) |
 | Live radius display during arc creation | ✓ | — | — |
 | Status / hint text line | ✓ | ✓ (read-only label) | ✓ (QStatusBar) |
 | Editable X/Y coordinate entry (type to move) | ✓ | — | — |
@@ -139,6 +139,9 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 | `G` — move segment | — | — | ✓ |
 | `L` — add line | — | — | ✓ |
 | `R` — add arc (dialog) | — | — | ✓ |
+| `C` — flip arc complement | — | — | ✓ (ECMD_SKETCH_TOGGLE_ARC_ORIENT) |
+| `I` — interactive arc radius drag | — | — | ✓ (QgSketchArcRadiusFilter) |
+| `F` — fit view to sketch | — | — | ✓ |
 | `Enter` — commit line/Bezier | — | — | ✓ |
 | `Ctrl+S` — save | — | — | ✓ |
 | `Ctrl+Z` — undo | — | — | ✓ |
@@ -149,7 +152,7 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 
 | Feature | MGED | Archer | New Qt widget |
 |---------|:----:|:------:|:-------------:|
-| "Describe All Segments" (text dump) | ✓ | — | — |
+| "Describe All Segments" (text dump) | ✓ | — | ✓ (Debug menu, scrollable dialog) |
 | Live vertex/segment tables (always visible) | — | — | ✓ |
 | Highlight selected elements in 3-D view | — | ✓ (data_axes / data_lines) | — |
 
@@ -170,50 +173,43 @@ MGED (`skt_ed.tcl`), Archer (`SketchEditFrame.tcl`), and the new Qt widget
 
 ---
 
-## 13. Gaps in the New Widget (Work Still Needed)
+## 13. Remaining Gaps (Work Still Needed)
 
 The following features from MGED/Archer are **not yet implemented** in the new
-Qt widget and should be considered when extending it:
+Qt widget.  Six of the original ten gaps have been closed (see §3–§7, §10);
+four remain:
 
-1. **Multi-select** — Shift-click to accumulate a vertex/segment selection set
-   and move or delete the group.  The backing API (`ECMD_SKETCH_MOVE_VERTEX_LIST`)
-   is already present; what is missing is the Qt selection-accumulation filter.
-
-2. **Arc tangency** — The `skt_ed.tcl` "Set Tangency" workflow adjusts a circular
+1. **Arc tangency** — The `skt_ed.tcl` "Set Tangency" workflow adjusts a circular
    arc so that it is tangent to an adjacent line or arc at their shared vertex.
    There is no corresponding ECMD in `edsketch.c` yet; it would need to be added
    alongside a UI flow.
 
-3. **Arc complement (use other half)** — `reverse_curr_seg` flips a CARC between
-   the two arcs that share the same start/end/radius.  This is a single-parameter
-   toggle (`center_is_left`) that could be exposed as a button or ECMD.
-
-4. **Interactive arc radius drag** — Dragging from the arc midpoint to resize the
-   radius.  Currently the new widget only supports radius entry via a dialog.
-   An `QgSketchArcRadiusFilter` would handle this.
-
-5. **Live UV coordinate display and editable coordinate entry** — MGED shows the
-   cursor UV position in real time and allows typing coordinates directly.
-   This would be a `QLabel` / `QLineEdit` pair in the status bar or toolbar.
-
-6. **Grid drawing and snap** — Archer's background grid and snap-to-grid are
+2. **Grid drawing and snap** — Archer's background grid and snap-to-grid are
    missing.  `libbv` already provides `bv_snap_grid_2d` and `bv_snap_lines_2d`
    which `rt_edit_snap_point` delegates to; the missing piece is the grid drawing
    in the view and the UI controls to configure spacing / anchor.
 
-7. **Multi-contour support** — Archer/MGED treat `Escape` as "start a new
+3. **Multi-contour support** — Archer/MGED treat `Escape` as "start a new
    contour".  The new widget treats `Escape` as cancel.  Proper multi-contour
    management (creating disconnected closed curves in a single sketch) requires
    a contour list model and segment insertion at the right curve boundary.
 
-8. **Sketch plane parameters (V, A, B)** — Archer exposes the 3-D origin,
+4. **Sketch plane parameters (V, A, B)** — Archer exposes the 3-D origin,
    u-direction vector, and v-direction vector for editing.  The new widget
    assumes the default XY-plane orientation and does not yet provide controls
    to reorient the sketch plane in 3-D.
 
-9. **Fit-to-window / auto-scale** — MGED's "Reset Sketch" auto-scales the
-   canvas so all vertices are visible.  The new widget relies on the user
-   manually adjusting the QgView zoom level.
+---
 
-10. **"Describe All Segments" diagnostic dump** — trivial to add as a menu
-    item wiring `bu_vls` output to a `QMessageBox` or dock widget.
+## 14. Closed Gaps (Previously Missing, Now Implemented)
+
+The following gaps from the original comparison have been addressed:
+
+| Gap | Resolution |
+|-----|-----------|
+| Arc complement toggle | `ECMD_SKETCH_TOGGLE_ARC_ORIENT` (26016) + `C` key / "Flip Arc" toolbar button |
+| Interactive arc radius drag | `ECMD_SKETCH_SET_ARC_RADIUS` (26017) + `QgSketchArcRadiusFilter` + `I` key |
+| Live UV cursor display | `QgSketchCursorTracker` emits `uv_moved`; status bar shows "U: … V: …" |
+| Multi-select move | Vertex table uses `ExtendedSelection`; "Move Selected…" button calls `ECMD_SKETCH_MOVE_VERTEX_LIST` |
+| Fit-to-window | `F` key / View menu computes vertex bounds and adjusts `gv_scale` |
+| Describe all segments | Debug menu shows scrollable text dump with all vertex and segment details |
