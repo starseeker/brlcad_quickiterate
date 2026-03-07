@@ -85,7 +85,7 @@ __BEGIN_DECLS
  *  Vector font definitions, for TIG-PACK fonts.
  */
 /** @{ */
-/** @file bv/vectfont.h */
+/** @file bsg/vectfont.h */
 
 /*
  *	Motion encoding macros
