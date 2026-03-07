@@ -6,8 +6,8 @@ set(
 )
 
 # libbsg_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake.
-# libbsg needs LMDB (used by bv_lod internals) and the same system
-# libraries as libbv.
+# libbsg depends on libbv (Phase 1: bsg_* functions delegate to bv_*) and needs
+# LMDB (used by bv_lod internals).
 brlcad_find_package(LMDB REQUIRED)
 
 set(BSG_LOCAL_INCLUDE_DIRS
