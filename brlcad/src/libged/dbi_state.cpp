@@ -278,7 +278,7 @@ DbiState::populate_maps(struct directory *dp, unsigned long long phash, int rese
 }
 
 unsigned long long
-DbiState::path_hash(std::vector<unsigned long long> &path, size_t max_len)
+DbiState::path_hash(const std::vector<unsigned long long> &path, size_t max_len)
 {
     size_t mlen = (max_len) ? max_len : path.size();
     return bu_data_hash(path.data(), mlen * sizeof(unsigned long long));
@@ -3169,7 +3169,7 @@ void SelectionSet::expand()
     }
     selected_.clear();
     for (const auto &p : out_paths) {
-	unsigned long long ph = dbis_->path_hash(const_cast<std::vector<unsigned long long>&>(p), 0);
+	unsigned long long ph = dbis_->path_hash(p, 0);
 	selected_[ph] = p;
     }
     recompute_hierarchy();
@@ -3203,8 +3203,7 @@ void SelectionSet::collapse()
 	std::unordered_map<unsigned long long, unsigned long long> pcomb;
 	for (unsigned long long k : pckeys) {
 	    const std::vector<unsigned long long> &pc_path = selected_[k];
-	    unsigned long long ppathhash = dbis_->path_hash(
-		const_cast<std::vector<unsigned long long>&>(pc_path), plen - 1);
+	    unsigned long long ppathhash = dbis_->path_hash(pc_path, plen - 1);
 	    grouped_pckeys[ppathhash].insert(k);
 	    pcomb[ppathhash] = pc_path[plen - 2];
 	}
@@ -3256,7 +3255,7 @@ void SelectionSet::collapse()
 
     selected_.clear();
     for (const auto &p : collapsed) {
-	unsigned long long ph = dbis_->path_hash(const_cast<std::vector<unsigned long long>&>(p), 0);
+	unsigned long long ph = dbis_->path_hash(p, 0);
 	selected_[ph] = p;
     }
     recompute_hierarchy();
