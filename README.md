@@ -7,7 +7,8 @@ having a self-contained build.
 Our DocBook documentation is found in brlcad/doc/docbook, and there is
 an elaborate support structure of CMake build logic and support tools
 used to produce html and man page output (and optionally PDF, although
-that feature is seldom used.)
+that feature is seldom used.) See brlcad/misc/CMake/DocBook.cmake and brlcad/misc/CMake/docbook.cmake.in
+for most of the core logic, as well as the brlcad/doc/docbook CMake.
 
 Please investigate whether all of our docbook documentation can successfully
 be converted to asciidoc while still maintain (or even improve, that would
