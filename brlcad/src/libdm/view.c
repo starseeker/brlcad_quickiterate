@@ -666,6 +666,9 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
 	dm_draw_obj(dmp, s);
     }
 
+    /* Mark drawn this frame. */
+    s->s_flag = UP;
+
     if (!(s->s_type_flags & BSG_NODE_MESH_LOD))
 	dm_add_arrows(dmp, s);
 
