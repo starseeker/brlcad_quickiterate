@@ -351,7 +351,7 @@ public:
 	QImage dm_img;
 	m_view->get_viewport_image(dm_img);
 
-	if (!dm_img.isNull() && m_view) {
+	if (!dm_img.isNull()) {
 	    /* Compute where the QgView viewport sits inside this window */
 	    QPoint vp_offset = m_view->mapTo(this, QPoint(0, 0));
 	    QSize  vp_size   = m_view->size();
@@ -2101,9 +2101,11 @@ main(int argc, char *argv[])
 
     if (screenshot_file) {
 	/* Headless screenshot: render directly from swrast DM buffer.
-	 * Wait 200ms for the initial fit-view timer (singleShot(0)) to fire. */
+	 * Wait for the initial fit-view timer (singleShot(0)) to fire and
+	 * for Qt to finish laying out the window before we capture. */
+	static const int SCREENSHOT_DELAY_MS = 500;
 	const char *ssfile = screenshot_file;
-	QTimer::singleShot(500, &app, [&app, &win, ssfile]() {
+	QTimer::singleShot(SCREENSHOT_DELAY_MS, &app, [&app, &win, ssfile]() {
 	    QCoreApplication::processEvents();
 	    win.screenshot_to_file(QString::fromUtf8(ssfile));
 	    bu_log("qsketch: screenshot saved to '%s'\n", ssfile);
