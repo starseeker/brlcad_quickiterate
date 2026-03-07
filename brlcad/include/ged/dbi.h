@@ -93,8 +93,10 @@ public:
     explicit SelectionSet(DbiState *);
     ~SelectionSet() = default;
 
-    // Select/deselect by path hash
-    bool select(unsigned long long path_hash, bool update_hierarchy = true);
+    // Select/deselect by path hash (path_vec must be the ordered element hash
+    // vector corresponding to path_hash so that hierarchy can be computed)
+    bool select(unsigned long long path_hash, const std::vector<unsigned long long> &path_vec, bool update_hierarchy = true);
+    bool select(unsigned long long path_hash, bool update_hierarchy = true); // convenience: inserts hash with empty vec
     bool deselect(unsigned long long path_hash, bool update_hierarchy = true);
     void clear();
 
@@ -118,14 +120,20 @@ public:
     void sync_to_drawn(BViewState *vs);
 
     // Raw access for compatibility with existing code
-    const std::unordered_set<unsigned long long> &selected_hashes() const { return selected_; }
+    // Returns a snapshot set of all selected path hashes
+    std::unordered_set<unsigned long long> selected_hashes() const;
+
+    // Direct access to the full selected map (hash → path vector)
+    const std::unordered_map<unsigned long long, std::vector<unsigned long long>> &selected() const { return selected_; }
 
 private:
     DbiState *dbis_;
-    std::unordered_set<unsigned long long> selected_;     // PathHash values
-    std::unordered_set<unsigned long long> active_;       // selected + children
-    std::unordered_set<unsigned long long> parents_;      // immediate parents
-    std::unordered_set<unsigned long long> ancestors_;    // all above parents
+    // Map from full-path hash to the ordered element-hash vector for that path.
+    // Storing the vector allows hierarchy and path-string computation.
+    std::unordered_map<unsigned long long, std::vector<unsigned long long>> selected_;
+    std::unordered_set<unsigned long long> active_;       // selected + all subpath hashes
+    std::unordered_set<unsigned long long> parents_;      // immediate parent path hashes
+    std::unordered_set<unsigned long long> ancestors_;    // all ancestor path hashes
 
     void recompute_hierarchy();
 };
@@ -411,6 +419,7 @@ class GED_EXPORT BViewState {
 	std::unordered_set<unsigned long long> all_partially_drawn_paths;
 
 	friend class BSelectState;
+	friend class SelectionSet;
 
 	DrawList draw_list_;
 };
