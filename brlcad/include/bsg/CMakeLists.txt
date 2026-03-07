@@ -4,9 +4,12 @@ set(
   compat.h
   defines.h
   lod.h
+  plot3.h
   polygon.h
   snap.h
+  tig.h
   util.h
+  vectfont.h
   view_sets.h
   vlist.h
 )

@@ -31,7 +31,7 @@
 #include <string.h>
 
 #include "bn.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "bg/clip.h"
 
 #include "../ged_private.h"

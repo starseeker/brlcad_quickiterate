@@ -48,7 +48,7 @@
 #include "nmg.h"
 #include "rt/geom.h"
 #include "raytrace.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 
 
 static const char *usage =
