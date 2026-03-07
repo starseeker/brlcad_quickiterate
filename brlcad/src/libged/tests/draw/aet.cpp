@@ -160,12 +160,16 @@ main(int ac, char *av[]) {
     BU_OPT_NULL(d[3]);
 
     /* Done with program name */
-    (void)bu_opt_parse(NULL, ac, (const char **)av, d);
+    int uac = bu_opt_parse(NULL, ac, (const char **)av, d);
 
     if (!bu_file_directory(av[1])) {
 	printf("ERROR: [%s] is not a directory.  Expecting control image directory\n", av[1]);
 	return 2;
     }
+
+    /* If an explicit moss.g directory is provided as av[2], use it; otherwise
+     * fall back to the control image directory (av[1]). */
+    const char *moss_dir = (uac >= 3) ? av[2] : av[1];
 
     /* Enable all the experimental logic */
     bu_setenv("LIBRT_USE_COMB_INSTANCE_SPECIFIERS", "1", 1);
@@ -176,7 +180,7 @@ main(int ac, char *av[]) {
     }
 
     /* make a temporary copy of moss */
-    bu_vls_sprintf(&fname, "%s/moss.g", av[1]);
+    bu_vls_sprintf(&fname, "%s/moss.g", moss_dir);
     std::ifstream orig(bu_vls_cstr(&fname), std::ios::binary);
     std::ofstream tmpg("moss_aet_tmp.g", std::ios::binary);
     tmpg << orig.rdbuf();

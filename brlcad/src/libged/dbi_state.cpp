@@ -413,6 +413,18 @@ DbiState::digest_path(const char *path)
     std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
     std::unordered_map<unsigned long long, unsigned long long>::iterator i_it;
     unsigned long long phash = phe[0];
+
+    // Single-element path: verify the name resolves to a known object
+    if (phe.size() == 1) {
+	if (d_map.find(phash) == d_map.end() &&
+	    i_str.find(phash) == i_str.end() &&
+	    invalid_entry_map.find(phash) == invalid_entry_map.end()) {
+	    bu_log("Invalid path element: %s\n", elements[0].c_str());
+	    return std::vector<unsigned long long>();
+	}
+	return phe;
+    }
+
     for (size_t i = 1; i < phe.size(); i++) {
 	pc_it = p_c.find(phash);
 	// The parent comb structure is stored only under its original name's hash - if
@@ -505,8 +517,7 @@ DbiState::print_hash(struct bu_vls *opath, unsigned long long phash)
 	return true;
     }
 
-    bu_exit(EXIT_FAILURE, "DbiState::print_hash failure, dbi_state.cpp::%d - a hash not known to the database's DbiState was passed in.  This can happen when the dbip contents change and dbi_state->update() isn't called in the parent application after doing so.\n", __LINE__);
-    bu_vls_printf(opath, "\nERROR!!!\n");
+    bu_log("DbiState::print_hash: hash %llu not found in database (dbip contents may have changed without calling dbi_state->update())\n", phash);
     return false;
 }
 
@@ -531,8 +542,10 @@ DbiState::print_path(struct bu_vls *opath, std::vector<unsigned long long> &path
 		}
 	    }
 	}
-	if (!print_hash(opath, path[i]))
-	    continue;
+	if (!print_hash(opath, path[i])) {
+	    bu_vls_trunc(opath, 0);
+	    return;
+	}
 	if (i < path.size() - 1 && (!pmax || i < pmax - 1))
 	    bu_vls_printf(opath, "/");
     }
