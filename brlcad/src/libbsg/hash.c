@@ -29,7 +29,7 @@
 #include "bu/hash.h"
 #include "bu/log.h"
 #include "bn/mat.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/defines.h"

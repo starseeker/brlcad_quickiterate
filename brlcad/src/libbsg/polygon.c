@@ -33,7 +33,7 @@
 #include "bu/vls.h"
 #include "bn/mat.h"
 #include "bn/tol.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bg/lseg.h"

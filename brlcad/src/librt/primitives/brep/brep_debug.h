@@ -49,7 +49,7 @@
 
 using namespace brlcad;
 
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 
 #define BLUEVIOLET 138, 43, 226
 #define CADETBLUE 95, 159, 159
