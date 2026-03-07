@@ -4,6 +4,12 @@ if(TARGET ged_test_tops)
 endif(TARGET ged_test_tops)
 brlcad_add_test(NAME ged_test_tops_moss COMMAND ged_test_tops "${CMAKE_CURRENT_SOURCE_DIR}/ged_tests.g")
 
+brlcad_addexec(ged_test_dbi_c test_dbi_c.c libged TEST)
+if(TARGET ged_test_dbi_c)
+  add_dependencies(ged_test_dbi_c ged_plugins)
+endif(TARGET ged_test_dbi_c)
+brlcad_add_test(NAME ged_test_dbi_c COMMAND ged_test_dbi_c "${CMAKE_CURRENT_BINARY_DIR}/ged_test_dbi_c.g")
+
 brlcad_addexec(ged_test_list test_list.c libged TEST)
 if(TARGET ged_test_list)
   add_dependencies(ged_test_list ged_plugins)
