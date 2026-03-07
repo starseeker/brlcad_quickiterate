@@ -1971,7 +1971,7 @@ brep_facecdt_plot(struct bu_vls *vls, const char *solid_name,
 
     struct bu_list *vhead = p_vhead;
     if (!vhead) {
-	vhead = bv_vlblock_find(vbp, YELLOW);
+	vhead = bsg_vlblock_find(vbp, YELLOW);
     }
     ON_wString wstr;
     ON_TextLog tl(wstr);

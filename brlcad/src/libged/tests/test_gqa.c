@@ -85,7 +85,7 @@ main(int ac, char *av[]) {
 	if (!fp)
 	    bu_exit(EXIT_FAILURE, "Could not open %s for writing\n", gqa_plot_fname);
 	printf("Writing plot data to %s for inspection with overlay command\n", gqa_plot_fname);
-	bv_vlist_to_uplot(fp, &vdata->s_vlist);
+	bsg_vlist_to_uplot(fp, &vdata->s_vlist);
 	fclose(fp);
     } else {
 	bu_exit(EXIT_FAILURE, "No GQA plotting data found.\n");

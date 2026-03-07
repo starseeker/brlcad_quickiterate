@@ -624,7 +624,7 @@ nmg_eval_plot(struct nmg_bool_state *bs, int num)
     }
 
     if (do_anim) {
-	struct bv_vlblock *vbp = bv_vlblock_init(bs->vlfree, 32);
+	struct bv_vlblock *vbp = bsg_vlblock_init(bs->vlfree, 32);
 
 	nmg_vlblock_s(vbp, bs->bs_dest, 0, bs->vlfree);
 	nmg_vlblock_s(vbp, bs->bs_src, 0, bs->vlfree);
@@ -641,7 +641,7 @@ nmg_eval_plot(struct nmg_bool_state *bs, int num)
 	} else {
 	    bu_log("null nmg_vlblock_anim_upcall, no animation\n");
 	}
-	bv_vlblock_free(vbp);
+	bsg_vlblock_free(vbp);
     }
 }
 
