@@ -327,8 +327,12 @@ sketch_seg_sample(const struct rt_sketch_internal *skt,
 	struct bezier_seg *bs = (struct bezier_seg *)seg;
 	int deg = bs->degree;
 
-	/* De Casteljau evaluation */
-	fastf_t pu[16], pv[16];
+	/* Guard against pathologically high degree (RT_EDIT_MAXPARA - 1 = 19) */
+	if (deg >= RT_EDIT_MAXPARA)
+	    return false;
+
+	/* De Casteljau evaluation — RT_EDIT_MAXPARA slots is always sufficient */
+	fastf_t pu[RT_EDIT_MAXPARA], pv[RT_EDIT_MAXPARA];
 	for (int i = 0; i <= deg; i++) {
 	    pu[i] = skt->verts[bs->ctl_points[i]][0];
 	    pv[i] = skt->verts[bs->ctl_points[i]][1];
