@@ -83,6 +83,8 @@ template<> struct hash<PathHash> { size_t operator()(const PathHash &h) const { 
 
 class GED_EXPORT DbiState;
 class GED_EXPORT BViewState;
+class GED_EXPORT GObj;
+class GED_EXPORT CombInst;
 
 // SelectionSet replaces BSelectState with cleaner semantics.
 // It tracks selected paths and hierarchical relationships using path hashes.
@@ -566,6 +568,17 @@ class GED_EXPORT DbiState {
 
 	bool need_update_nref = true;
 
+	// Phase 3 object model: GObj instances keyed by object-name hash.
+	// Populated alongside the flat maps during update_dp(); CombInst
+	// children are owned by GObj::cv and accessed via the GObj.
+	std::unordered_map<unsigned long long, GObj *> gobjs;
+
+	// Convenience accessor for gobjs (returns nullptr if not found)
+	const GObj *get_gobj(unsigned long long hash) const {
+	    auto it = gobjs.find(hash);
+	    return (it != gobjs.end()) ? it->second : nullptr;
+	}
+
 	// Debugging methods for printing out current states - the use of hashes
 	// means direct inspection of most data isn't informative, so we provide
 	// convenience methods that decode it to user-comprehensible info.
@@ -611,6 +624,10 @@ class GED_EXPORT DbiState {
 
 	std::unique_ptr<SelectionSet> default_selection_set_;
 	std::unordered_map<std::string, std::unique_ptr<SelectionSet>> selection_sets_;
+
+	// GObj and CombInst need access to private DbiState internals (res, dcache)
+	friend class GObj;
+	friend class CombInst;
 };
 
 
