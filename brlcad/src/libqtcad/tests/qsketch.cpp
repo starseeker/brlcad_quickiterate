@@ -34,8 +34,8 @@
  * ---------
  *  Left panel  — toolbar with editing-mode buttons
  *  Centre      — QgView (software render) showing the sketch face-on
- *  Right panel — two tables listing vertices and segments
- *  Bottom bar  — status line + Save / Undo / New Line buttons
+ *  Right panel — vertex table (multi-select) + segment table
+ *  Bottom bar  — status line + live UV cursor display
  *
  * Editing modes
  * -------------
@@ -48,12 +48,27 @@
  *                      line segment between them
  *  Add Arc      (R) — start, end, radius dialog
  *  Add Bezier   (B) — click control points, press Enter to commit
+ *  Flip Arc     (C) — toggle center_is_left on selected CARC (arc complement)
+ *  Set R        (I) — drag to resize selected arc's radius interactively
+ *
+ * Multi-select
+ * ------------
+ *  Shift-click / Ctrl-click rows in the Vertices table, then press the
+ *  "Move Selected…" button to shift all selected vertices by a UV delta
+ *  (uses ECMD_SKETCH_MOVE_VERTEX_LIST).
+ *
+ * View
+ * ----
+ *  F / View → Fit to View — fit view scale to sketch bounds.
  *
  * Keyboard shortcuts:
  *  Ctrl+S  — save to .g file
  *  Ctrl+Z  — undo (single level)
  *  Escape  — cancel current operation / return to idle
  *  Delete  — delete selected vertex or segment
+ *  F       — fit view to sketch bounds
+ *  C       — flip arc complement (toggle center_is_left)
+ *  I       — interactive arc radius drag mode
  */
 
 #include "common.h"
@@ -94,6 +109,8 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QSet>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTableWidget>
@@ -272,6 +289,11 @@ private slots:
     void on_mode_add_arc();
     void on_mode_add_bezier();
     void on_delete_selected();
+    void on_mode_toggle_arc_orient();
+    void on_mode_arc_radius();
+    void on_move_selected_vertices();
+    void on_fit_view();
+    void on_describe_segments();
 
 private:
     void install_filter(QgSketchFilter *f);
@@ -305,9 +327,11 @@ private:
     QTableWidget    *m_vtable = NULL;  /* vertex table */
     QTableWidget    *m_stable = NULL;  /* segment table */
     QLabel          *m_status = NULL;
+    QLabel          *m_cursor_label = NULL;  /* live UV cursor readout */
 
     /* ---- active filter ---- */
-    QgSketchFilter  *m_active_filter = NULL;
+    QgSketchFilter  *m_active_filter  = NULL;
+    QgSketchCursorTracker *m_tracker  = NULL;  /* always-on UV tracker */
 
     /* ---- multi-click segment creation ---- */
     CreateMode       m_create_mode = NONE;
@@ -367,13 +391,14 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     m_view = new QgView(this, QgView_SW);
     m_view->set_view(m_bv);
 
-    /* ---- vertex table ---- */
+    /* ---- vertex table — allow multi-row selection ---- */
     m_vtable = new QTableWidget(this);
     m_vtable->setColumnCount(3);
     m_vtable->setHorizontalHeaderLabels({"#", "U", "V"});
     m_vtable->horizontalHeader()->setStretchLastSection(true);
     m_vtable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_vtable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_vtable->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_vtable->setMinimumWidth(200);
 
     /* ---- segment table ---- */
@@ -385,12 +410,19 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     m_stable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_stable->setMinimumWidth(200);
 
-    /* ---- right panel (tables) ---- */
+    /* ---- right panel (tables + Move Sel button) ---- */
     QSplitter *right_split = new QSplitter(Qt::Vertical, this);
     {
 	QGroupBox *vg = new QGroupBox("Vertices");
 	QVBoxLayout *vl = new QVBoxLayout(vg);
 	vl->addWidget(m_vtable);
+	QPushButton *mv_sel_btn = new QPushButton("Move Selected…");
+	mv_sel_btn->setToolTip(
+	    "Move all selected vertices by a UV delta.\n"
+	    "Select rows in the Vertices table using Shift-click / Ctrl-click.");
+	connect(mv_sel_btn, &QPushButton::clicked,
+		this, &QSketchEditWindow::on_move_selected_vertices);
+	vl->addWidget(mv_sel_btn);
 	right_split->addWidget(vg);
     }
     {
@@ -433,6 +465,11 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     mkbtn("Arc",     "Add Arc (R)",       &QSketchEditWindow::on_mode_add_arc);
     mkbtn("Bezier",  "Add Bezier (B)",    &QSketchEditWindow::on_mode_add_bezier);
     tb->addSeparator();
+    mkbtn("Flip Arc","Toggle arc complement — flips center_is_left on selected CARC (C)",
+	  &QSketchEditWindow::on_mode_toggle_arc_orient);
+    mkbtn("Set R",   "Drag to set arc radius — drag on selected CARC (I)",
+	  &QSketchEditWindow::on_mode_arc_radius);
+    tb->addSeparator();
     mkbtn("Delete",  "Delete selected (Del)", &QSketchEditWindow::on_delete_selected);
 
     /* ---- menu bar ---- */
@@ -447,10 +484,42 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 			  &QSketchEditWindow::on_undo);
     edit_menu->addAction("&Delete Selected\tDel", this,
 			  &QSketchEditWindow::on_delete_selected);
+    edit_menu->addSeparator();
+    edit_menu->addAction("&Flip Arc Complement\tC", this,
+			  &QSketchEditWindow::on_mode_toggle_arc_orient);
+    edit_menu->addAction("Set Arc &Radius (drag)\tI", this,
+			  &QSketchEditWindow::on_mode_arc_radius);
+
+    QMenu *view_menu = menuBar()->addMenu("&View");
+    view_menu->addAction("Fit to &View\tF", this,
+			  &QSketchEditWindow::on_fit_view);
+
+    QMenu *debug_menu = menuBar()->addMenu("&Debug");
+    debug_menu->addAction("&Describe All Segments", this,
+			   &QSketchEditWindow::on_describe_segments);
 
     /* ---- status bar ---- */
     m_status = new QLabel("Ready", this);
     statusBar()->addWidget(m_status, 1);
+
+    /* Live UV cursor readout on the right side of the status bar */
+    m_cursor_label = new QLabel("U: —    V: —", this);
+    m_cursor_label->setMinimumWidth(180);
+    m_cursor_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    statusBar()->addPermanentWidget(m_cursor_label);
+
+    /* Cursor tracker — always installed, never consumes events */
+    m_tracker = new QgSketchCursorTracker();
+    m_tracker->v  = m_bv;
+    m_tracker->es = m_es;
+    m_view->add_event_filter(m_tracker);
+    connect(m_tracker, &QgSketchCursorTracker::uv_moved,
+	    this, [this](double u, double vv) {
+		m_cursor_label->setText(
+		    QString("U: %1   V: %2")
+			.arg(u,  0, 'f', 4)
+			.arg(vv, 0, 'f', 4));
+	    });
 
     /* ---- initial display ---- */
     refresh_tables();
@@ -459,6 +528,10 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 
 QSketchEditWindow::~QSketchEditWindow()
 {
+    if (m_tracker) {
+	m_view->clear_event_filter(m_tracker);
+	delete m_tracker;
+    }
     clear_filter();
     if (m_es)
 	rt_edit_destroy(m_es);
@@ -772,6 +845,262 @@ void QSketchEditWindow::on_delete_selected()
     set_status("Nothing selected to delete.");
 }
 
+/* ---- Arc complement (toggle center_is_left) ---- */
+
+void QSketchEditWindow::on_mode_toggle_arc_orient()
+{
+    if (!m_es) return;
+    struct rt_sketch_edit *se = sketch_edit();
+    if (!se || se->curr_seg < 0) {
+	set_status("Flip Arc: no segment selected. Pick a segment first (S key).");
+	return;
+    }
+
+    const struct rt_sketch_internal *skt = sketch();
+    if (!skt) return;
+
+    void *seg = skt->curve.segment[se->curr_seg];
+    if (!seg || *(uint32_t *)seg != CURVE_CARC_MAGIC) {
+	set_status("Flip Arc: selected segment is not an arc.");
+	return;
+    }
+
+    const struct carc_seg *cs = (const struct carc_seg *)seg;
+    if (cs->radius < 0.0) {
+	set_status("Flip Arc: cannot flip a full-circle arc.");
+	return;
+    }
+
+    rt_edit_checkpoint(m_es);
+    m_es->e_inpara = 0;
+    EDOBJ[m_es->es_int.idb_type].ft_set_edit_mode(m_es,
+	    ECMD_SKETCH_TOGGLE_ARC_ORIENT);
+    rt_edit_process(m_es);
+    on_sketch_changed();
+    set_status(QString("Arc %1 orientation flipped.")
+		       .arg(se->curr_seg));
+}
+
+/* ---- Interactive arc radius drag ---- */
+
+void QSketchEditWindow::on_mode_arc_radius()
+{
+    m_create_mode = NONE;
+    m_pending_verts.clear();
+
+    struct rt_sketch_edit *se = sketch_edit();
+    if (!se || se->curr_seg < 0) {
+	set_status("Set Arc Radius: no segment selected. Pick a segment first (S key).");
+	return;
+    }
+
+    const struct rt_sketch_internal *skt = sketch();
+    if (!skt) return;
+
+    void *seg = skt->curve.segment[se->curr_seg];
+    if (!seg || *(uint32_t *)seg != CURVE_CARC_MAGIC) {
+	set_status("Set Arc Radius: selected segment is not an arc.");
+	return;
+    }
+
+    rt_edit_checkpoint(m_es);
+    install_filter(new QgSketchArcRadiusFilter());
+    set_status("Set Arc Radius: drag to resize the selected arc.");
+}
+
+/* ---- Move multiple selected vertices ---- */
+
+void QSketchEditWindow::on_move_selected_vertices()
+{
+    if (!m_es) return;
+
+    QList<QTableWidgetItem *> selected = m_vtable->selectedItems();
+    if (selected.isEmpty()) {
+	set_status("Move Selected: no vertices selected in the Vertices table.");
+	return;
+    }
+
+    /* Collect unique row indices */
+    QSet<int> rows;
+    for (auto *item : selected)
+	rows.insert(item->row());
+
+    /* Ask for UV delta */
+    QDialog dlg(this);
+    dlg.setWindowTitle("Move Selected Vertices");
+    QFormLayout *fl = new QFormLayout(&dlg);
+    QDoubleSpinBox *sb_du = new QDoubleSpinBox(&dlg);
+    sb_du->setRange(-99999.0, 99999.0);
+    sb_du->setDecimals(4);
+    sb_du->setSuffix(" mm");
+    QDoubleSpinBox *sb_dv = new QDoubleSpinBox(&dlg);
+    sb_dv->setRange(-99999.0, 99999.0);
+    sb_dv->setDecimals(4);
+    sb_dv->setSuffix(" mm");
+    fl->addRow("\xce\x94U:", sb_du);
+    fl->addRow("\xce\x94V:", sb_dv);
+    QDialogButtonBox *bb = new QDialogButtonBox(
+	    QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    fl->addRow(bb);
+    connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    if (dlg.exec() != QDialog::Accepted)
+	return;
+
+    rt_edit_checkpoint(m_es);
+
+    /* Pack e_para: [0]=dU, [1]=dV, [2..]=vertex indices */
+    int idx = 0;
+    m_es->e_para[idx++] = (fastf_t)sb_du->value();
+    m_es->e_para[idx++] = (fastf_t)sb_dv->value();
+    for (int r : rows) {
+	if (idx >= RT_EDIT_MAXPARA) break;
+	m_es->e_para[idx++] = (fastf_t)r;
+    }
+    m_es->e_inpara = idx;
+
+    EDOBJ[m_es->es_int.idb_type].ft_set_edit_mode(m_es,
+	    ECMD_SKETCH_MOVE_VERTEX_LIST);
+    rt_edit_process(m_es);
+    on_sketch_changed();
+    set_status(QString("Moved %1 vertex/vertices by (%2, %3) mm.")
+		       .arg(rows.size())
+		       .arg(sb_du->value(), 0, 'f', 4)
+		       .arg(sb_dv->value(), 0, 'f', 4));
+}
+
+/* ---- Fit view to sketch bounds ---- */
+
+void QSketchEditWindow::on_fit_view()
+{
+    const struct rt_sketch_internal *skt = sketch();
+    if (!skt || skt->vert_count == 0) {
+	set_status("Fit View: no vertices to fit.");
+	return;
+    }
+
+    fastf_t u_min = skt->verts[0][0], u_max = skt->verts[0][0];
+    fastf_t v_min = skt->verts[0][1], v_max = skt->verts[0][1];
+    for (size_t i = 1; i < skt->vert_count; i++) {
+	fastf_t u  = skt->verts[i][0];
+	fastf_t vv = skt->verts[i][1];
+	if (u  < u_min) u_min = u;
+	if (u  > u_max) u_max = u;
+	if (vv < v_min) v_min = vv;
+	if (vv > v_max) v_max = vv;
+    }
+
+    fastf_t span_u = u_max - u_min;
+    fastf_t span_v = v_max - v_min;
+    fastf_t span = (span_u > span_v) ? span_u : span_v;
+    span *= 1.25;  /* 25% padding */
+    if (span < 1.0) span = 1.0;
+
+    m_bv->gv_scale = span * 0.5;
+    m_bv->gv_size  = span;
+    m_bv->gv_isize = 1.0 / span;
+    bv_update(m_bv);
+
+    m_view->need_update(QG_VIEW_REFRESH);
+    set_status("View fitted to sketch bounds.");
+}
+
+/* ---- Describe all segments (diagnostic dump) ---- */
+
+void QSketchEditWindow::on_describe_segments()
+{
+    const struct rt_sketch_internal *skt = sketch();
+    if (!skt) {
+	QMessageBox::warning(this, "Describe Segments", "No sketch loaded.");
+	return;
+    }
+
+    QString out;
+    out += QString("Sketch: %1 vertex/vertices, %2 segment(s)\n\n")
+		   .arg((uint)skt->vert_count)
+		   .arg((uint)skt->curve.count);
+
+    out += "Vertices:\n";
+    for (size_t i = 0; i < skt->vert_count; i++) {
+	out += QString("  V[%1] = (%2, %3)\n")
+		       .arg((uint)i)
+		       .arg(skt->verts[i][0], 0, 'g', 6)
+		       .arg(skt->verts[i][1], 0, 'g', 6);
+    }
+
+    out += "\nSegments:\n";
+    for (size_t i = 0; i < skt->curve.count; i++) {
+	void *seg = skt->curve.segment[i];
+	if (!seg) {
+	    out += QString("  S[%1] = NULL\n").arg((uint)i);
+	    continue;
+	}
+	uint32_t magic = *(uint32_t *)seg;
+	int rev = skt->curve.reverse ? skt->curve.reverse[i] : 0;
+
+	if (magic == CURVE_LSEG_MAGIC) {
+	    struct line_seg *ls = (struct line_seg *)seg;
+	    out += QString("  S[%1] Line: V[%2] \xe2\x86\x92 V[%3]%4\n")
+			   .arg((uint)i).arg(ls->start).arg(ls->end)
+			   .arg(rev ? " (reversed)" : "");
+	} else if (magic == CURVE_CARC_MAGIC) {
+	    struct carc_seg *cs = (struct carc_seg *)seg;
+	    if (cs->radius < 0.0) {
+		out += QString("  S[%1] Circle: centre=V[%2] r=%3%4\n")
+			       .arg((uint)i).arg(cs->end)
+			       .arg(-cs->radius, 0, 'g', 6)
+			       .arg(rev ? " (reversed)" : "");
+	    } else {
+		out += QString("  S[%1] Arc: V[%2]\xe2\x86\x92V[%3] r=%4  CIL=%5  CW=%6%7\n")
+			       .arg((uint)i)
+			       .arg(cs->start).arg(cs->end)
+			       .arg(cs->radius, 0, 'g', 6)
+			       .arg(cs->center_is_left ? "yes" : "no")
+			       .arg(cs->orientation ? "yes" : "no")
+			       .arg(rev ? " (reversed)" : "");
+	    }
+	} else if (magic == CURVE_BEZIER_MAGIC) {
+	    struct bezier_seg *bs = (struct bezier_seg *)seg;
+	    QString pts;
+	    for (int k = 0; k <= bs->degree; k++) {
+		if (k) pts += " - ";
+		pts += QString("V[%1]").arg(bs->ctl_points[k]);
+	    }
+	    out += QString("  S[%1] Bezier deg=%2: %3%4\n")
+			   .arg((uint)i).arg(bs->degree).arg(pts)
+			   .arg(rev ? " (reversed)" : "");
+	} else if (magic == CURVE_NURB_MAGIC) {
+	    struct nurb_seg *ns = (struct nurb_seg *)seg;
+	    out += QString("  S[%1] NURB: order=%2 c_size=%3 k_size=%4%5\n")
+			   .arg((uint)i)
+			   .arg(ns->order).arg(ns->c_size).arg(ns->k.k_size)
+			   .arg(rev ? " (reversed)" : "");
+	} else {
+	    out += QString("  S[%1] Unknown magic 0x%2\n")
+			   .arg((uint)i).arg(magic, 0, 16);
+	}
+    }
+
+    /* Show in a scrollable message box */
+    QDialog dlg(this);
+    dlg.setWindowTitle("Segment Description");
+    dlg.resize(600, 400);
+    QVBoxLayout *vl = new QVBoxLayout(&dlg);
+    QScrollArea *sa = new QScrollArea(&dlg);
+    QLabel *lbl = new QLabel(out, sa);
+    lbl->setFont(QFont("Courier New", 9));
+    lbl->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    lbl->setWordWrap(false);
+    sa->setWidget(lbl);
+    sa->setWidgetResizable(true);
+    vl->addWidget(sa);
+    QDialogButtonBox *bb = new QDialogButtonBox(QDialogButtonBox::Ok, &dlg);
+    connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    vl->addWidget(bb);
+    dlg.exec();
+}
+
 /* ---------- keyboard event ---------- */
 
 void
@@ -804,6 +1133,15 @@ QSketchEditWindow::keyPressEvent(QKeyEvent *ev)
 	    break;
 	case Qt::Key_B:
 	    on_mode_add_bezier();
+	    break;
+	case Qt::Key_C:
+	    on_mode_toggle_arc_orient();
+	    break;
+	case Qt::Key_I:
+	    on_mode_arc_radius();
+	    break;
+	case Qt::Key_F:
+	    on_fit_view();
 	    break;
 	case Qt::Key_Z:
 	    if (ev->modifiers() & Qt::ControlModifier)

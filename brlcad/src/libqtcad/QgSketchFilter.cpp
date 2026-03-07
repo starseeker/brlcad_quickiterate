@@ -490,6 +490,207 @@ QgSketchMoveSegmentFilter::eventFilter(QObject *, QEvent *e)
     return false;
 }
 
+
+
+
+/* ------------------------------------------------------------------ */
+/* arc centre helper (shared by QgSketchArcRadiusFilter)              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Compute the centre of a partial circular arc in sketch UV space.
+ * Uses the perpendicular-bisector formula, matching sketch.c and
+ * edsketch.c's split-segment code.
+ *
+ * Returns true on success; false if the geometry is degenerate (start
+ * equals end, or the radius is too small for the chord length).
+ * On success, *cu_out and *cv_out hold the centre coordinates in model
+ * base units (the same units as skt->verts[]).
+ */
+static bool
+sketch_arc_center_uv(const struct rt_sketch_internal *skt,
+		     const struct carc_seg *cs,
+		     fastf_t *cu_out, fastf_t *cv_out)
+{
+    fastf_t sx = skt->verts[cs->start][0];
+    fastf_t sy = skt->verts[cs->start][1];
+    fastf_t ex = skt->verts[cs->end  ][0];
+    fastf_t ey = skt->verts[cs->end  ][1];
+    fastf_t r  = cs->radius;  /* positive for partial arc */
+
+    fastf_t midx = (sx + ex) * 0.5;
+    fastf_t midy = (sy + ey) * 0.5;
+    fastf_t s2mx = midx - sx;
+    fastf_t s2my = midy - sy;
+    fastf_t s2m_len_sq = s2mx*s2mx + s2my*s2my;
+    if (s2m_len_sq <= SMALL_FASTF)
+	return false;
+
+    fastf_t len_sq = r*r - s2m_len_sq;
+    if (len_sq < 0.0)
+	len_sq = 0.0;  /* clamp: arc just barely reaches midpoint */
+
+    /* Perpendicular direction to the start→end chord */
+    fastf_t dirx = -s2my;
+    fastf_t diry =  s2mx;
+    fastf_t dir_len = sqrt(dirx*dirx + diry*diry);
+    dirx /= dir_len;
+    diry /= dir_len;
+
+    fastf_t tmp_len = sqrt(len_sq);
+    fastf_t cx = midx + tmp_len * dirx;
+    fastf_t cy = midy + tmp_len * diry;
+
+    /* Choose the side matching center_is_left.
+     * When the initial centre (midx + tmp_len*dir) lies to the LEFT of the
+     * directed start→end chord, the cross product z-component is positive.
+     * If that left-side initial centre does NOT match center_is_left, flip
+     * to the other perpendicular-bisector root (midx - tmp_len*dir).
+     * This replicates the logic in edsketch.c::ecmd_sketch_split_segment. */
+    fastf_t cross_z = (ex - sx)*(cy - sy) - (ey - sy)*(cx - sx);
+    if ((cross_z <= 0.0) || !cs->center_is_left) {
+	cx = midx - tmp_len * dirx;
+	cy = midy - tmp_len * diry;
+    }
+
+    *cu_out = cx;
+    *cv_out = cy;
+    return true;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* QgSketchArcRadiusFilter                                            */
+/* ------------------------------------------------------------------ */
+
+bool
+QgSketchArcRadiusFilter::eventFilter(QObject *, QEvent *e)
+{
+    if (!es || !v)
+	return false;
+
+    /* Extract mouse coordinates directly — bypass view_sync so that
+     * modifier keys (Shift for multi-select in other filters) do not
+     * block the drag. */
+    QMouseEvent *m_e = NULL;
+    if (e->type() == QEvent::MouseButtonPress
+	    || e->type() == QEvent::MouseButtonRelease
+	    || e->type() == QEvent::MouseMove)
+	m_e = (QMouseEvent *)e;
+    if (!m_e)
+	return false;
+
+    int sx, sy;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    sx = m_e->x();
+    sy = m_e->y();
+#else
+    sx = (int)m_e->position().x();
+    sy = (int)m_e->position().y();
+#endif
+
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)es->ipe_ptr;
+    if (!se || se->curr_seg < 0)
+	return false;
+
+    const struct rt_sketch_internal *skt =
+	(const struct rt_sketch_internal *)es->es_int.idb_ptr;
+    if (!skt)
+	return false;
+
+    void *seg = skt->curve.segment[se->curr_seg];
+    if (!seg || *(uint32_t *)seg != CURVE_CARC_MAGIC)
+	return false;
+
+    struct carc_seg *cs = (struct carc_seg *)seg;
+
+    if (m_e->type() == QEvent::MouseButtonPress
+	    && m_e->buttons().testFlag(Qt::LeftButton)) {
+
+	if (cs->radius < 0.0) {
+	    /* Full circle: centre is the end vertex */
+	    m_center_u  = skt->verts[cs->end][0];
+	    m_center_v  = skt->verts[cs->end][1];
+	    m_full_circle = true;
+	    m_dragging  = true;
+	} else {
+	    /* Partial arc: compute centre via perpendicular bisector */
+	    m_full_circle = false;
+	    m_dragging = sketch_arc_center_uv(skt, cs, &m_center_u, &m_center_v);
+	}
+	return true;
+    }
+
+    if (m_e->type() == QEvent::MouseButtonRelease) {
+	m_dragging = false;
+	return true;
+    }
+
+    if (m_e->type() == QEvent::MouseMove && m_dragging
+	    && m_e->buttons().testFlag(Qt::LeftButton)) {
+
+	fastf_t u = 0.0, vv = 0.0;
+	if (!screen_to_uv(sx, sy, &u, &vv))
+	    return true;
+
+	/* New radius = distance from cursor to stored arc centre */
+	fastf_t du = u  - m_center_u;
+	fastf_t dv = vv - m_center_v;
+	fastf_t new_r = sqrt(du*du + dv*dv);
+
+	if (new_r < SMALL_FASTF)
+	    return true;
+
+	/* Preserve full-circle sign convention */
+	if (m_full_circle)
+	    new_r = -new_r;
+
+	/* Convert base units → local units for e_para */
+	fastf_t scale = (es->local2base > 0.0) ? (1.0 / es->local2base) : 1.0;
+	es->e_para[0] = new_r * scale;
+	es->e_inpara  = 1;
+
+	EDOBJ[es->es_int.idb_type].ft_set_edit_mode(es,
+		ECMD_SKETCH_SET_ARC_RADIUS);
+	rt_edit_process(es);
+
+	emit sketch_changed();
+	emit view_updated(QG_VIEW_REFRESH);
+	return true;
+    }
+
+    return false;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* QgSketchCursorTracker                                              */
+/* ------------------------------------------------------------------ */
+
+bool
+QgSketchCursorTracker::eventFilter(QObject *, QEvent *e)
+{
+    if (e->type() != QEvent::MouseMove)
+	return false;
+
+    QMouseEvent *m_e = (QMouseEvent *)e;
+
+    int sx, sy;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    sx = m_e->x();
+    sy = m_e->y();
+#else
+    sx = (int)m_e->position().x();
+    sy = (int)m_e->position().y();
+#endif
+
+    fastf_t u = 0.0, vv = 0.0;
+    if (screen_to_uv(sx, sy, &u, &vv))
+	emit uv_moved((double)u, (double)vv);
+
+    return false;  /* never consume events */
+}
+
 // Local Variables:
 // tab-width: 8
 // mode: C++
