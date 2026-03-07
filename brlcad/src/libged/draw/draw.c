@@ -46,7 +46,7 @@ static int drawtrees_depth = 0;
  */
 static void
 solid_set_color_info(
-    struct bv_scene_obj *sp,
+    bsg_shape *sp,
     unsigned char *wireframe_color_override,
     struct db_tree_state *tsp)
 {
@@ -84,7 +84,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     if (!dgcdp || !dgcdp->v)
 	return;
 
-    struct bv_scene_obj *sp = bv_obj_get(dgcdp->v, BV_DB_OBJS);
+    bsg_shape *sp = bsg_shape_get(dgcdp->v, BSG_DB_OBJS);
     if (!sp)
 	return;
 
@@ -104,10 +104,10 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 	sp->s_vlen = 0;
 
     struct bv_vlist *bvv = (struct bv_vlist *)vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+    sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
-    bv_scene_obj_bound(sp, dgcdp->v);
+    bsg_shape_bound(sp, dgcdp->v);
 
     db_dup_full_path(&bdata->s_fullpath, pathp);
 
@@ -126,12 +126,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     sp->s_os->transparency = dgcdp->vs.transparency;
     sp->s_os->s_dmode = dgcdp->vs.s_dmode;
 
-    /* append solid to display list */
-    bu_semaphore_acquire(RT_SEM_MODEL);
-    BU_LIST_APPEND(dgcdp->gdlp->dl_head_scene_obj.back, &sp->l);
-    bu_semaphore_release(RT_SEM_MODEL);
-
-    ged_create_vlist_solid_cb(dgcdp->gedp, sp);
+        ged_create_vlist_solid_cb(dgcdp->gedp, sp);
 
 }
 
@@ -158,7 +153,7 @@ _ged_drawH_part2(int dashflag, struct bu_list *vhead, const struct db_full_path 
 }
 
 static fastf_t
-draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *dbip,
+draw_solid_wireframe(bsg_shape *sp, bsg_view *gvp, struct db_i *dbip,
 		     const struct bn_tol *tol, const struct bg_tess_tol *ttol)
 {
     int ret;
@@ -198,14 +193,14 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
 	sp->s_vlen = 0;
 
     struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+    sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
     return 0;
 }
 
 static int
-redraw_solid(struct bv_scene_obj *sp, struct db_i *dbip, struct db_tree_state *tsp, struct bview *gvp, struct bu_list *vlfree)
+redraw_solid(bsg_shape *sp, struct db_i *dbip, struct db_tree_state *tsp, bsg_view *gvp, struct bu_list *vlfree)
 {
     if (sp->s_os->s_dmode == _GED_WIREFRAME) {
 	/* replot wireframe */
@@ -223,15 +218,32 @@ dl_redraw(struct display_list *gdlp, struct ged *gedp, int skip_subtractions)
     struct db_i *dbip = gedp->dbip;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct db_tree_state *tsp = &wdbp->wdb_initial_tree_state;
-    struct bview *gvp = gedp->ged_gvp;
+    bsg_view *gvp = gedp->ged_gvp;
     int ret = 0;
-    struct bv_scene_obj *sp;
     struct bu_list *vlfree = &rt_vlfree;
-    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	if (!skip_subtractions || (skip_subtractions && !sp->s_soldash)) {
-	    ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
+
+    /* Phase 2e: iterate root->children when available.  A shape belongs to
+     * this gdlp if the top-level prefix of its s_fullpath matches dl_path. */
+    bsg_shape *root = gvp ? bsg_scene_root_get(gvp) : NULL;
+    if (root && BU_PTBL_LEN(&root->children) > 0) {
+	const char *dl_path_str = bu_vls_cstr(&gdlp->dl_path);
+	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	    if (!sp->s_u_data)
+		continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    /* Check if this shape's path starts with the gdlp path */
+	    char *sp_path = db_path_to_string(&bdata->s_fullpath);
+	    int matches = (bu_strncmp(sp_path, dl_path_str, strlen(dl_path_str)) == 0);
+	    bu_free(sp_path, "dl_redraw sp_path");
+	    if (!matches)
+		continue;
+	    if (!skip_subtractions || !sp->s_soldash)
+		ret += redraw_solid(sp, dbip, tsp, gvp, vlfree);
 	}
+    /* Phase 2e: shapes are now in root->children; dl_head_scene_obj removed */
     }
+
     ged_create_vlist_display_list_cb(gedp, gdlp);
     return ret;
 }
@@ -268,7 +280,7 @@ append_solid_to_display_list(
     }
 
     /* create solid */
-    struct bv_scene_obj *sp = bv_obj_get(bv_data->v, BV_DB_OBJS);
+    bsg_shape *sp = bsg_shape_get(bv_data->v, BSG_DB_OBJS);
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
@@ -329,10 +341,10 @@ append_solid_to_display_list(
 	    sp->s_vlen = 0;
 
 	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-	sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+	sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
 	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
-	bv_scene_obj_bound(sp, bv_data->v);
+	bsg_shape_bound(sp, bv_data->v);
 
         while (BU_LIST_WHILE(vp, bv_vlist, &(sp->s_vlist))) {
             BU_LIST_DEQUEUE(&vp->l);
@@ -413,11 +425,6 @@ append_solid_to_display_list(
     sp->s_os->transparency = bv_data->transparency;
     sp->s_os->s_dmode = bv_data->dmode;
     MAT_COPY(sp->s_mat, tsp->ts_mat);
-
-    /* append solid to display list */
-    bu_semaphore_acquire(RT_SEM_MODEL);
-    BU_LIST_APPEND(bv_data->gdlp->dl_head_scene_obj.back, &sp->l);
-    bu_semaphore_release(RT_SEM_MODEL);
 
     /* indicate success by returning something other than TREE_NULL */
     BU_GET(curtree, union tree);
@@ -974,7 +981,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
     if (_dgcdp != (struct _ged_client_data *)0) {
 	dgcdp = *_dgcdp;            /* struct copy */
     } else {
-	struct bview *gvp;
+	bsg_view *gvp;
 
 	memset(&dgcdp, 0, sizeof(struct _ged_client_data));
 	dgcdp.gedp = gedp;
@@ -1332,7 +1339,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		wdbp->wdb_initial_tree_state.ts_m = &nmg_model;
 		if (dgcdp.draw_edge_uses) {
 		    bu_vls_printf(gedp->ged_result_str, "Doing the edgeuse thang (-u)\n");
-		    dgcdp.draw_edge_uses_vbp = bv_vlblock_init(vlfree, 32);
+		    dgcdp.draw_edge_uses_vbp = bsg_vlblock_init(vlfree, 32);
 		}
 
 		for (i = 0; i < argc; ++i) {
@@ -1356,7 +1363,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		if (dgcdp.draw_edge_uses) {
 		    _ged_cvt_vlblock_to_solids(gedp, dgcdp.draw_edge_uses_vbp, "_EDGEUSES_", 0);
-		    bv_vlblock_free(dgcdp.draw_edge_uses_vbp);
+		    bsg_vlblock_free(dgcdp.draw_edge_uses_vbp);
 		    dgcdp.draw_edge_uses_vbp = (struct bv_vlblock *)NULL;
 		}
 

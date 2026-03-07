@@ -44,7 +44,7 @@
 
 extern "C" {
 #include "bu/ptbl.h"
-#include "bv.h"
+#include "bsg.h"
 #define DM_WITH_RT
 #include "dm.h"
 }
@@ -67,12 +67,12 @@ class QTCAD_EXPORT QgSW : public QWidget
 	void aet(double a, double e, double t);
 
 	int current = 1;
-	struct bview *v = NULL;
+	bsg_view *v = NULL;
 	struct dm *dmp = NULL;
 	struct fb *ifp = NULL;
 	struct bu_ptbl *dm_set = NULL;
 
-	void (*draw_custom)(struct bview *, void *) = NULL;
+	void (*draw_custom)(bsg_view *, void *) = NULL;
 	void *draw_udata = NULL;
 
 	void enableDefaultKeyBindings();
@@ -105,7 +105,7 @@ class QTCAD_EXPORT QgSW : public QWidget
 
 	bool use_default_keybindings = true;
 	bool use_default_mousebindings = true;
-	int lmouse_mode = BV_SCALE;
+	int lmouse_mode = BSG_SCALE;
 
 	bool m_init = false;
 	int x_prev = -INT_MAX;
@@ -113,7 +113,7 @@ class QTCAD_EXPORT QgSW : public QWidget
 	double x_press_pos = -INT_MAX;
 	double y_press_pos = -INT_MAX;
 
-	struct bview *local_v = NULL;
+	bsg_view *local_v = NULL;
 };
 
 #endif /* QGSW_H */

@@ -65,28 +65,28 @@ void
 QgViewCtrl::sca_mode()
 {
     QTCAD_SLOT("QgViewCtrl::sca_mode", 1);
-    emit lmouse_mode(BV_SCALE);
+    emit lmouse_mode(BSG_SCALE);
 }
 
 void
 QgViewCtrl::rot_mode()
 {
     QTCAD_SLOT("QgViewCtrl::rot_mode", 1);
-    emit lmouse_mode(BV_ROT);
+    emit lmouse_mode(BSG_ROT);
 }
 
 void
 QgViewCtrl::tra_mode()
 {
     QTCAD_SLOT("QgViewCtrl::tra_mode", 1);
-    emit lmouse_mode(BV_TRANS);
+    emit lmouse_mode(BSG_TRANS);
 }
 
 void
 QgViewCtrl::center_mode()
 {
     QTCAD_SLOT("QgViewCtrl::center_mode", 1);
-    emit lmouse_mode(BV_CENTER);
+    emit lmouse_mode(BSG_CENTER);
 }
 
 
@@ -106,7 +106,7 @@ QgViewCtrl::fb_mode_cmd()
     QTCAD_SLOT("QgViewCtrl::fb_mode_cmd", 1);
     if (!gedp->ged_gvp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     switch (v->gv_s->gv_fb_mode) {
 	case 0:
 	    v->gv_s->gv_fb_mode = 2;
@@ -129,7 +129,7 @@ QgViewCtrl::do_view_update(unsigned long long flags)
     QTCAD_SLOT("QgViewCtrl::do_view_update", 1);
     if (!gedp->ged_gvp || !flags)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     switch (v->gv_s->gv_fb_mode) {
 	case 0:
 	    fb_mode->setIcon(QIcon(QPixmap(":images/view/framebuffer_off.png")));

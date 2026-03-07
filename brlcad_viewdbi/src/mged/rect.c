@@ -1,0 +1,368 @@
+/*                          R E C T . C
+ * BRL-CAD
+ *
+ * Copyright (c) 1998-2025 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file mged/rect.c
+ *
+ * Routines to implement MGED's rubber band rectangle capability.
+ *
+ */
+
+#include "common.h"
+
+#include <math.h>
+
+#include "vmath.h"
+#include "ged.h"
+#include "dm.h"
+#include "./mged.h"
+#include "./mged_dm.h"
+
+extern int mged_vscale(struct mged_state *s, fastf_t sfactor);
+
+static void adjust_rect_for_zoom(struct mged_state *);
+
+struct _rubber_band default_rubber_band = {
+    /* rb_rc */		1,
+    /* rb_active */	0,
+    /* rb_draw */	0,
+    /* rb_linewidth */	0,
+    /* rb_linestyle */	's',
+    /* rb_pos */	{ 0, 0 },
+    /* rb_dim */	{ 0, 0 },
+    /* rb_x */		0.0,
+    /* rb_y */		0.0,
+    /* rb_width */	0.0,
+    /* rb_height */	0.0
+};
+
+
+#define RB_O(_m) bu_offsetof(struct _rubber_band, _m)
+struct bu_structparse rubber_band_vparse[] = {
+    {"%d",	1, "draw",	RB_O(rb_draw),		rb_set_dirty_flag, NULL, NULL },
+    {"%d",	1, "linewidth",	RB_O(rb_linewidth),	rb_set_dirty_flag, NULL, NULL },
+    {"%c",	1, "linestyle",	RB_O(rb_linestyle),	rb_set_dirty_flag, NULL, NULL },
+    {"%d",	2, "pos",	RB_O(rb_pos),		set_rect, NULL, NULL },
+    {"%d",	2, "dim",	RB_O(rb_dim),		set_rect, NULL, NULL },
+    {"",	0, (char *)0,	0,			BU_STRUCTPARSE_FUNC_NULL, NULL, NULL }
+};
+
+
+void
+rb_set_dirty_flag(const struct bu_structparse *UNUSED(sdp),
+		  const char *UNUSED(name),
+		  void *UNUSED(base),
+		  const char *UNUSED(value),
+		  void *data)
+{
+    struct mged_state *s = (struct mged_state *)data;
+    MGED_CK_STATE(s);
+    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
+	struct mged_dm *m_dmp = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+	if (m_dmp->dm_rubber_band == rubber_band) {
+	    m_dmp->dm_dirty = 1;
+	    dm_set_dirty(m_dmp->dm_dmp, 1);
+	}
+    }
+}
+
+
+/*
+ * Given position and dimensions in normalized view coordinates, calculate
+ * position and dimensions in image coordinates.
+ */
+void
+rect_view2image(struct mged_state *s)
+{
+    int width;
+    width = dm_get_width(DMP);
+    rubber_band->rb_pos[X] = dm_Normal2Xx(DMP, rubber_band->rb_x);
+    rubber_band->rb_pos[Y] = dm_get_height(DMP) - dm_Normal2Xy(DMP, rubber_band->rb_y, 1);
+    rubber_band->rb_dim[X] = rubber_band->rb_width * (fastf_t)width * 0.5;
+    rubber_band->rb_dim[Y] = rubber_band->rb_height * (fastf_t)width * 0.5;
+}
+
+
+/*
+ * Given position and dimensions in image coordinates, calculate
+ * position and dimensions in normalized view coordinates.
+ */
+void
+rect_image2view(struct mged_state *s)
+{
+    int width = dm_get_width(DMP);
+    rubber_band->rb_x = dm_Xx2Normal(DMP, rubber_band->rb_pos[X]);
+    rubber_band->rb_y = dm_Xy2Normal(DMP, dm_get_height(DMP) - rubber_band->rb_pos[Y], 1);
+    rubber_band->rb_width = rubber_band->rb_dim[X] * 2.0 / (fastf_t)width;
+    rubber_band->rb_height = rubber_band->rb_dim[Y] * 2.0 / (fastf_t)width;
+}
+
+
+void
+set_rect(const struct bu_structparse *sdp,
+	 const char *name,
+	 void *base,
+	 const char *value,
+	 void *data)
+{
+    struct mged_state *s = (struct mged_state *)data;
+    MGED_CK_STATE(s);
+    rect_image2view(s);
+    rb_set_dirty_flag(sdp, name, base, value, data);
+}
+
+
+/*
+ * Adjust the rubber band to have the same aspect ratio as the window.
+ */
+static void
+adjust_rect_for_zoom(struct mged_state *s)
+{
+    fastf_t width, height;
+
+    if (rubber_band->rb_width >= 0.0)
+	width = rubber_band->rb_width;
+    else
+	width = -rubber_band->rb_width;
+
+    if (rubber_band->rb_height >= 0.0)
+	height = rubber_band->rb_height;
+    else
+	height = -rubber_band->rb_height;
+
+    if (width >= height) {
+	if (rubber_band->rb_height >= 0.0)
+	    rubber_band->rb_height = width / dm_get_aspect(DMP);
+	else
+	    rubber_band->rb_height = -width / dm_get_aspect(DMP);
+    } else {
+	if (rubber_band->rb_width >= 0.0)
+	    rubber_band->rb_width = height * dm_get_aspect(DMP);
+	else
+	    rubber_band->rb_width = -height * dm_get_aspect(DMP);
+    }
+}
+
+
+void
+draw_rect(struct mged_state *s)
+{
+    int line_style;
+
+    if (ZERO(rubber_band->rb_width) &&
+	ZERO(rubber_band->rb_height))
+	return;
+
+    if (rubber_band->rb_linestyle == 'd')
+	line_style = 1; /* dashed lines */
+    else
+	line_style = 0; /* solid lines */
+
+    if (rubber_band->rb_active && mged_variables->mv_mouse_behavior == 'z')
+	adjust_rect_for_zoom(s);
+
+    /* draw rectangle */
+    dm_set_fg(DMP,
+		   color_scheme->cs_rubber_band[0],
+		   color_scheme->cs_rubber_band[1],
+		   color_scheme->cs_rubber_band[2], 1, 1.0);
+    dm_set_line_attr(DMP, rubber_band->rb_linewidth, line_style);
+
+    dm_draw_line_2d(DMP,
+		    rubber_band->rb_x,
+		    rubber_band->rb_y * dm_get_aspect(DMP),
+		    rubber_band->rb_x,
+		    (rubber_band->rb_y + rubber_band->rb_height) * dm_get_aspect(DMP));
+    dm_draw_line_2d(DMP,
+		    rubber_band->rb_x,
+		    (rubber_band->rb_y + rubber_band->rb_height) * dm_get_aspect(DMP),
+		    rubber_band->rb_x + rubber_band->rb_width,
+		    (rubber_band->rb_y + rubber_band->rb_height) * dm_get_aspect(DMP));
+    dm_draw_line_2d(DMP,
+		    rubber_band->rb_x + rubber_band->rb_width,
+		    (rubber_band->rb_y + rubber_band->rb_height) * dm_get_aspect(DMP),
+		    rubber_band->rb_x + rubber_band->rb_width,
+		    rubber_band->rb_y * dm_get_aspect(DMP));
+    dm_draw_line_2d(DMP,
+		    rubber_band->rb_x + rubber_band->rb_width,
+		    rubber_band->rb_y * dm_get_aspect(DMP),
+		    rubber_band->rb_x,
+		    rubber_band->rb_y * dm_get_aspect(DMP));
+}
+
+
+void
+paint_rect_area(struct mged_state *s)
+{
+    if (!fbp)
+	return;
+
+    (void)fb_refresh(fbp, rubber_band->rb_pos[X], rubber_band->rb_pos[Y],
+		     rubber_band->rb_dim[X], rubber_band->rb_dim[Y]);
+}
+
+
+void
+rt_rect_area(struct mged_state *s)
+{
+    int xmin, xmax;
+    int ymin, ymax;
+    int width, height;
+    struct bu_vls vls = BU_VLS_INIT_ZERO;
+
+    if (!fbp)
+	return;
+
+    if (ZERO(rubber_band->rb_width) &&
+	ZERO(rubber_band->rb_height))
+	return;
+
+    if (mged_variables->mv_port < 0) {
+	bu_log("rt_rect_area: invalid port number - %d\n", mged_variables->mv_port);
+	return;
+    }
+
+    xmin = rubber_band->rb_pos[X];
+    ymin = rubber_band->rb_pos[Y];
+    width = rubber_band->rb_dim[X];
+    height = rubber_band->rb_dim[Y];
+
+    if (width >= 0) {
+	xmax = xmin + width;
+    } else {
+	xmax = xmin;
+	xmin += width;
+    }
+
+    if (height >= 0) {
+	ymax = ymin + height;
+    } else {
+	ymax = ymin;
+	ymin += height;
+    }
+
+    bu_vls_printf(&vls, "rt -w %d -n %d -V %lf -F %d -j %d,%d,%d,%d -C%d/%d/%d",
+		  dm_get_width(DMP), dm_get_height(DMP), dm_get_aspect(DMP),
+		  mged_variables->mv_port, xmin, ymin, xmax, ymax,
+		  color_scheme->cs_bg[0], color_scheme->cs_bg[1], color_scheme->cs_bg[2]);
+    (void)Tcl_Eval(s->interp, bu_vls_addr(&vls));
+    (void)Tcl_ResetResult(s->interp);
+    bu_vls_free(&vls);
+}
+
+void
+mged_center(struct mged_state *s, point_t center)
+{
+    char *av[5];
+    char xbuf[32];
+    char ybuf[32];
+    char zbuf[32];
+
+    if (s->gedp == GED_NULL) {
+       return;
+    }
+
+    snprintf(xbuf, 32, "%f", center[X]);
+    snprintf(ybuf, 32, "%f", center[Y]);
+    snprintf(zbuf, 32, "%f", center[Z]);
+
+    av[0] = "center";
+    av[1] = xbuf;
+    av[2] = ybuf;
+    av[3] = zbuf;
+    av[4] = (char *)0;
+    ged_exec_center(s->gedp, 4, (const char **)av);
+    (void)mged_svbase(s);
+    view_state->vs_flag = 1;
+}
+
+void
+zoom_rect_area(struct mged_state *s)
+{
+    fastf_t width, height;
+    fastf_t sf;
+    point_t old_model_center;
+    point_t new_model_center;
+    point_t old_view_center;
+    point_t new_view_center;
+
+    if (ZERO(rubber_band->rb_width) &&
+	ZERO(rubber_band->rb_height))
+	return;
+
+    adjust_rect_for_zoom(s);
+
+    /* find old view center */
+    MAT_DELTAS_GET_NEG(old_model_center, view_state->vs_gvp->gv_center);
+    MAT4X3PNT(old_view_center, view_state->vs_gvp->gv_model2view, old_model_center);
+
+    /* calculate new view center */
+    VSET(new_view_center,
+	 rubber_band->rb_x + rubber_band->rb_width / 2.0,
+	 rubber_band->rb_y + rubber_band->rb_height / 2.0,
+	 old_view_center[Z]);
+
+    /* find new model center */
+    MAT4X3PNT(new_model_center, view_state->vs_gvp->gv_view2model, new_view_center);
+    mged_center(s, new_model_center);
+
+    /* zoom in to fill rectangle */
+    if (rubber_band->rb_width >= 0.0)
+	width = rubber_band->rb_width;
+    else
+	width = -rubber_band->rb_width;
+
+    if (rubber_band->rb_height >= 0.0)
+	height = rubber_band->rb_height;
+    else
+	height = -rubber_band->rb_height;
+
+    if (width >= height)
+	sf = width / 2.0;
+    else
+	sf = height / 2.0 * dm_get_aspect(DMP);
+
+    mged_vscale(s, sf);
+
+    rubber_band->rb_x = -1.0;
+    rubber_band->rb_y = -1.0 / dm_get_aspect(DMP);
+    rubber_band->rb_width = 2.0;
+    rubber_band->rb_height = 2.0 / dm_get_aspect(DMP);
+
+    rect_view2image(s);
+
+    {
+	/* need dummy values for func signature--they are unused in the func */
+	const struct bu_structparse *sdp = 0;
+	const char name[] = "name";
+	void *base = 0;
+	const char value[] = "value";
+	rb_set_dirty_flag(sdp, name, base, value, NULL);
+    }
+}
+
+
+/*
+ * Local Variables:
+ * mode: C
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

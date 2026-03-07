@@ -31,7 +31,8 @@
 #include "vmath.h"
 #include "bu/vls.h"
 #include "bn.h"
-#include "bv.h"
+#include "bsg.h"
+#include "bsg.h"
 #include "icv.h"
 
 #include "./dm/defines.h"
@@ -107,7 +108,7 @@ DM_EXPORT extern void dm_draw_data_axes(struct dm *dmp,
 					fastf_t viewSize,
 					struct bv_data_axes_state *bndasp);
 
-DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, bsg_shape *s);
 
 
 DM_EXPORT extern void dm_draw_hud_axes(struct dm *dmp,
@@ -269,7 +270,7 @@ DM_EXPORT extern void dm_set_bound_flag(struct dm *dmp, int bound);
 
 
 
-DM_EXPORT extern int dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern int dm_draw_obj(struct dm *dmp, bsg_shape *s);
 
 
 /* Rather low level exposure of display list concepts.  Needed for MGED
@@ -282,8 +283,7 @@ DM_EXPORT extern int dm_draw_dlist(struct dm *dmp, unsigned int list);
 DM_EXPORT extern int dm_end_dlist(struct dm *dmp);
 DM_EXPORT extern int dm_free_dlists(struct dm *dmp, unsigned int list, int range);
 DM_EXPORT extern int dm_draw_display_list(struct dm *dmp, struct display_list *obj);
-DM_EXPORT extern int dm_draw_head_dl(struct dm *dmp,
-					  struct bu_list *dl,
+DM_EXPORT extern int dm_draw_bsg_view(struct dm *dmp, bsg_view *v,
 					  fastf_t transparency_threshold,
 					  fastf_t inv_viewsize,
 					  short r, short g, short b,
@@ -292,9 +292,7 @@ DM_EXPORT extern int dm_draw_head_dl(struct dm *dmp,
 					  int draw_edit,
 					  unsigned char *gdc,
 					  int solids_down,
-					  int mv_dlist
-					 );
-
+					  int mv_dlist);
 // TODO - this should be using libicv  - right now this is just moving the guts
 // of dmo_png_cmd behind the call table, so only provides PNG...
 DM_EXPORT extern int dm_write_image(struct bu_vls *msgs, FILE *fp, struct dm *dmp);

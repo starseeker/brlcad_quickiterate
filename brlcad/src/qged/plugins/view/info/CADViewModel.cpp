@@ -30,6 +30,7 @@
 #include "bu/avs.h"
 #include "bu/malloc.h"
 #include "qtcad/QgSignalFlags.h"
+#include "bsg/util.h"
 #include "QgEdApp.h"
 #include "CADViewModel.h"
 
@@ -63,7 +64,7 @@ CADViewModel::refresh(unsigned long long)
     if (!gedp)
 	return;
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     struct bu_vls val = BU_VLS_INIT_ZERO;
     QMap<QString, QgKeyValNode*> standard_nodes;
     int i = 0;
@@ -79,15 +80,17 @@ CADViewModel::refresh(unsigned long long)
     standard_nodes.insert("Width", add_pair("Width", bu_vls_cstr(&val), m_root, i));
     bu_vls_sprintf(&val, "%d", v->gv_height);
     standard_nodes.insert("Height", add_pair("Height", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", v->gv_aet[0]);
+    struct bsg_camera view_cam;
+    bsg_view_get_camera(v, &view_cam);
+    bu_vls_sprintf(&val, "%g", view_cam.aet[0]);
     standard_nodes.insert("Az", add_pair("Az", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", v->gv_aet[1]);
+    bu_vls_sprintf(&val, "%g", view_cam.aet[1]);
     standard_nodes.insert("El", add_pair("El", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", v->gv_aet[2]);
+    bu_vls_sprintf(&val, "%g", view_cam.aet[2]);
     standard_nodes.insert("Tw", add_pair("Tw", bu_vls_cstr(&val), m_root, i));
 
     vect_t center;
-    MAT_DELTAS_GET_NEG(center, v->gv_center);
+    MAT_DELTAS_GET_NEG(center, view_cam.center);
     bu_vls_sprintf(&val, "%g", center[0]);
     standard_nodes.insert("Center[X]", add_pair("Center[X]", bu_vls_cstr(&val), m_root, i));
     bu_vls_sprintf(&val, "%g", center[1]);

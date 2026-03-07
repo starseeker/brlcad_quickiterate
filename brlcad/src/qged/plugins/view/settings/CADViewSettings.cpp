@@ -206,7 +206,7 @@ CADViewSettings::checkbox_refresh(unsigned long long)
     if (!gedp)
 	return;
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 
@@ -303,7 +303,7 @@ CADViewSettings::view_refresh(unsigned long long)
     if (!gedp)
 	return;
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     v->gv_s->adaptive_plot_csg = (acsg_ckbx->checkState() == Qt::Checked) ? 1 : 0;
     v->gv_s->adaptive_plot_mesh = (amesh_ckbx->checkState() == Qt::Checked) ? 1 : 0;

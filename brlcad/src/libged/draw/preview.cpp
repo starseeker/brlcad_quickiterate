@@ -113,9 +113,18 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
     }
 
     /* First step:  put eye at view center (view 0, 0, 0) */
-    MAT_COPY(gedp->ged_gvp->gv_rotation, (*m));
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, (*v));
-    bv_update(gedp->ged_gvp);
+    {
+	struct bsg_camera cam;
+	bsg_view_get_camera(gedp->ged_gvp, &cam);
+	MAT_COPY(cam.rotation, (*m));
+	MAT_DELTAS_VEC_NEG(cam.center, (*v));
+	bsg_view_set_camera(gedp->ged_gvp, &cam);
+	/* Propagate to camera node in scene root, if present. */
+	bsg_shape *cam_node = bsg_scene_root_camera(gedp->ged_gvp);
+	if (cam_node)
+	    bsg_camera_node_set(cam_node, &cam);
+    }
+    bsg_view_update(gedp->ged_gvp);
 
     /*
      * Compute camera orientation notch to right (+X) and up (+Y)
@@ -123,8 +132,12 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
      */
     VSET(xv, 0.05, 0.0, 0.0);
     VSET(yv, 0.0, 0.05, 0.0);
-    MAT4X3PNT(xm, gedp->ged_gvp->gv_view2model, xv);
-    MAT4X3PNT(ym, gedp->ged_gvp->gv_view2model, yv);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(xm, _cm.view2model, xv);
+    }
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(ym, _cm.view2model, yv);
+    }
     BV_ADD_VLIST(vlfree, vhead, xm, BV_VLIST_LINE_DRAW);
     BV_ADD_VLIST(vlfree, vhead, (*v), BV_VLIST_LINE_MOVE);
     BV_ADD_VLIST(vlfree, vhead, ym, BV_VLIST_LINE_DRAW);
@@ -134,9 +147,19 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
      * For eye to be at 0, 0, 1, the old 0, 0, -1 needs to become 0, 0, 0.
      */
     VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
-    MAT4X3PNT(new_cent, gedp->ged_gvp->gv_view2model, xlate);
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, new_cent);
-    bv_update(gedp->ged_gvp);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(new_cent, _cm.view2model, xlate);
+    }
+    {
+	struct bsg_camera cam;
+	bsg_view_get_camera(gedp->ged_gvp, &cam);
+	MAT_DELTAS_VEC_NEG(cam.center, new_cent);
+	bsg_view_set_camera(gedp->ged_gvp, &cam);
+	bsg_shape *cam_node = bsg_scene_root_camera(gedp->ged_gvp);
+	if (cam_node)
+	    bsg_camera_node_set(cam_node, &cam);
+    }
+    bsg_view_update(gedp->ged_gvp);
 
     /* If new treewalk is needed, get new objects into view. */
     if (preview_tree_walk_needed) {
@@ -387,7 +410,7 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
 
     bu_vls_printf(gedp->ged_result_str, "\n");
 
-    preview_vbp = bv_vlblock_init(vlfree, 32);
+    preview_vbp = bsg_vlblock_init(vlfree, 32);
 
     bu_vls_printf(gedp->ged_result_str, "eyepoint at (0, 0, 1) viewspace\n");
 
@@ -403,9 +426,13 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
      * Initialize the view to the current one provided by the ged
      * structure in case a view specification is never given.
      */
-    MAT_COPY(*ged_viewrot, gedp->ged_gvp->gv_rotation);
-    VSET(temp, 0.0, 0.0, 1.0);
-    MAT4X3PNT(*ged_eye_model, gedp->ged_gvp->gv_view2model, temp);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	MAT_COPY(*ged_viewrot, _cam.rotation);
+	VSET(temp, 0.0, 0.0, 1.0);
+	MAT4X3PNT(*ged_eye_model, _cam.view2model, temp);
+    }
 
     if (image_name) {
 	/* parse file name and possible extension */
@@ -440,15 +467,15 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
 
     if (draw_eye_path) {
 	if (gedp->new_cmd_forms) {
-	    struct bview *view = gedp->ged_gvp;
-	    bv_vlblock_obj(preview_vbp, view, "preview::eye_path");
+	    bsg_view *view = gedp->ged_gvp;
+	    bsg_vlblock_obj(preview_vbp, view, "preview::eye_path");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, preview_vbp, "EYE_PATH", 0);
 	}
     }
 
     if (preview_vbp) {
-	bv_vlblock_free(preview_vbp);
+	bsg_vlblock_free(preview_vbp);
 	preview_vbp = (struct bv_vlblock *)NULL;
     }
     db_free_anim(gedp->dbip);	/* Forget any anim commands */

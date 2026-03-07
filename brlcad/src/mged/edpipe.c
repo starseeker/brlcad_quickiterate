@@ -40,6 +40,7 @@
 #include "wdb.h"
 
 #include "./mged.h"
+#include "bsg/util.h"
 #include "./sedit.h"
 #include "./mged_dm.h"
 
@@ -295,7 +296,11 @@ find_pipe_pnt_nearest_pnt(struct mged_state *s, const struct bu_list *pipe_hd, c
 
     /* get a direction vector in model space corresponding to z-direction in view */
     VSET(work, 0.0, 0.0, 1.0);
-    MAT4X3VEC(dir, view_state->vs_gvp->gv_view2model, work);
+    {
+	struct bsg_camera _ep;
+	bsg_view_get_camera(view_state->vs_gvp, &_ep);
+	MAT4X3VEC(dir, _ep.view2model, work);
+    }
 
     for (BU_LIST_FOR(ps, wdb_pipe_pnt, pipe_hd)) {
 	fastf_t dist;

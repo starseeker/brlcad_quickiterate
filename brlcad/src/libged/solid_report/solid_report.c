@@ -34,12 +34,12 @@
 #define LAST_SOLID(_sp) DB_FULL_PATH_CUR_DIR(&(_sp)->s_fullpath)
 
 static void
-dl_print_schain(struct bu_list *hdlp, struct db_i *dbip, int lvl, int vlcmds, struct bu_vls *vls)
+dl_print_schain(bsg_view *v, struct db_i *dbip, int lvl, int vlcmds, struct bu_vls *vls)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *root = bsg_scene_root_get(v);
+    bsg_shape *sp;
     struct bv_vlist *vp;
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
     if (!vlcmds) {
 	/*
@@ -52,14 +52,11 @@ dl_print_schain(struct bu_list *hdlp, struct db_i *dbip, int lvl, int vlcmds, st
 
 	if (dbip == DBI_NULL) return;
 
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		if (!sp->s_u_data)
-		    continue;
-		struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (!sp->s_u_data)
+		continue;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
 		if (lvl <= -2) {
 		    /* print only leaves */
@@ -117,16 +114,13 @@ dl_print_schain(struct bu_list *hdlp, struct db_i *dbip, int lvl, int vlcmds, st
 
 		    for (i = 0; i < nused; i++, cmd++, pt++) {
 			bu_vls_printf(vls, "  %s (%g, %g, %g)\n",
-				      bv_vlist_get_cmd_description(*cmd),
+				      bsg_vlist_get_cmd_description(*cmd),
 				      V3ARGS(*pt));
 		    }
 		}
 
 		bu_vls_printf(vls, "  %zu vlist structures, %zu pts\n", nvlist, npts);
-		bu_vls_printf(vls, "  %zu pts (via bv_ck_vlist)\n", bv_ck_vlist(&(sp->s_vlist)));
-	    }
-
-	    gdlp = next_gdlp;
+		bu_vls_printf(vls, "  %zu pts (via bsg_ck_vlist)\n", bsg_ck_vlist(&(sp->s_vlist)));
 	}
 
     } else {
@@ -138,12 +132,9 @@ dl_print_schain(struct bu_list *hdlp, struct db_i *dbip, int lvl, int vlcmds, st
 
 	if (dbip == DBI_NULL) return;
 
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		bu_vls_printf(vls, "-1 %d %d %d\n",
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    bu_vls_printf(vls, "-1 %d %d %d\n",
 			      sp->s_color[0],
 			      sp->s_color[1],
 			      sp->s_color[2]);
@@ -160,9 +151,6 @@ dl_print_schain(struct bu_list *hdlp, struct db_i *dbip, int lvl, int vlcmds, st
 		    for (i = 0; i < nused; i++, cmd++, pt++)
 			bu_vls_printf(vls, "%d %g %g %g\n", *cmd, V3ARGS(*pt));
 		}
-	    }
-
-	    gdlp = next_gdlp;
 	}
 
     }
@@ -215,7 +203,7 @@ ged_solid_report_core(struct ged *gedp, int argc, const char *argv[])
     if (lvl > 3)
 	lvl = 3;
 
-    dl_print_schain(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, lvl, 0, gedp->ged_result_str);
+    dl_print_schain(gedp->ged_gvp, gedp->dbip, lvl, 0, gedp->ged_result_str);
 
     return BRLCAD_OK;
 }

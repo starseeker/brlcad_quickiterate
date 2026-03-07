@@ -60,7 +60,9 @@ ged_view2grid_lu_core(struct ged *gedp, int argc, const char *argv[])
 	sscanf(argv[3], "%lf", &view_pt[Z]) != 1)
 	goto bad;
 
-    MAT4X3PNT(mo_view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(mo_view_pt, _cm.model2view, model_pt);
+    }
     f = gedp->ged_gvp->gv_scale * b2lval;
     VSCALE(mo_view_pt, mo_view_pt, f);
     VSUB2(diff, view_pt, mo_view_pt);

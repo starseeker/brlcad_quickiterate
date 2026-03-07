@@ -33,6 +33,7 @@
 #include "wdb.h"
 
 #include "../edit_private.h"
+#include "bsg/util.h"
 
 #define ECMD_ARS_PICK		5034	/* select an ARS point */
 #define ECMD_ARS_NEXT_PT	5035	/* select next ARS point in same curve */
@@ -296,6 +297,8 @@ ecmd_ars_pick(struct rt_edit *s)
 {
     struct rt_ars_internal *ars=
 	(struct rt_ars_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     struct rt_ars_edit *a = (struct rt_ars_edit *)s->ipe_ptr;
     point_t pick_pt;
     vect_t view_dir;
@@ -332,7 +335,7 @@ ecmd_ars_pick(struct rt_edit *s)
 
     /* Get view direction vector */
     VSET(z_dir, 0.0, 0.0, 1.0);
-    MAT4X3VEC(view_dir, s->vp->gv_view2model, z_dir);
+    MAT4X3VEC(view_dir, _cam.view2model, z_dir);
     find_ars_nearest_pnt(&a->es_ars_crv, &a->es_ars_col, ars, pick_pt, view_dir);
     VMOVE(a->es_pt, &ars->curves[a->es_ars_crv][a->es_ars_col*3]);
     VSCALE(selected_pt, a->es_pt, s->base2local);
@@ -670,6 +673,8 @@ ecmd_ars_move_col(struct rt_edit *s)
 {
     struct rt_ars_internal *ars=
 	(struct rt_ars_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     struct rt_ars_edit *a = (struct rt_ars_edit *)s->ipe_ptr;
     point_t new_pt = VINIT_ZERO;
     vect_t diff;
@@ -697,7 +702,7 @@ ecmd_ars_move_col(struct rt_edit *s)
 	 * that passes through ARS point being moved
 	 */
 	VSET(view_dir, 0.0, 0.0, 1.0);
-	MAT4X3VEC(view_pl, s->vp->gv_view2model, view_dir);
+	MAT4X3VEC(view_pl, _cam.view2model, view_dir);
 	VUNITIZE(view_pl);
 	view_pl[W] = VDOT(view_pl, &ars->curves[a->es_ars_crv][a->es_ars_col*3]);
 
@@ -734,6 +739,8 @@ ecmd_ars_move_crv(struct rt_edit *s)
 {
     struct rt_ars_internal *ars=
 	(struct rt_ars_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     struct rt_ars_edit *a = (struct rt_ars_edit *)s->ipe_ptr;
     point_t new_pt = VINIT_ZERO;
     vect_t diff;
@@ -761,7 +768,7 @@ ecmd_ars_move_crv(struct rt_edit *s)
 	 * that passes through ARS point being moved
 	 */
 	VSET(view_dir, 0.0, 0.0, 1.0);
-	MAT4X3VEC(view_pl, s->vp->gv_view2model, view_dir);
+	MAT4X3VEC(view_pl, _cam.view2model, view_dir);
 	VUNITIZE(view_pl);
 	view_pl[W] = VDOT(view_pl, &ars->curves[a->es_ars_crv][a->es_ars_col*3]);
 
@@ -798,6 +805,8 @@ ecmd_ars_move_pt(struct rt_edit *s)
 {
     struct rt_ars_internal *ars=
 	(struct rt_ars_internal *)s->es_int.idb_ptr;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     struct rt_ars_edit *a = (struct rt_ars_edit *)s->ipe_ptr;
     point_t new_pt = VINIT_ZERO;
     bu_clbk_t f = NULL;
@@ -824,7 +833,7 @@ ecmd_ars_move_pt(struct rt_edit *s)
 	 * that passes through ARS point being moved
 	 */
 	VSET(view_dir, 0.0, 0.0, 1.0);
-	MAT4X3VEC(view_pl, s->vp->gv_view2model, view_dir);
+	MAT4X3VEC(view_pl, _cam.view2model, view_dir);
 	VUNITIZE(view_pl);
 	view_pl[W] = VDOT(view_pl, &ars->curves[a->es_ars_crv][a->es_ars_col*3]);
 
@@ -936,6 +945,8 @@ rt_edit_ars_edit_xy(
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
     struct rt_db_internal *ip = &s->es_int;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
     bu_clbk_t f = NULL;
     void *d = NULL;
 
@@ -960,10 +971,10 @@ rt_edit_ars_edit_xy(
 	case ECMD_ARS_MOVE_PT:
 	case ECMD_ARS_MOVE_CRV:
 	case ECMD_ARS_MOVE_COL:
-	    MAT4X3PNT(pos_view, s->vp->gv_model2view, s->curr_e_axes_pos);
+	    MAT4X3PNT(pos_view, _cam.model2view, s->curr_e_axes_pos);
 	    pos_view[X] = mousevec[X];
 	    pos_view[Y] = mousevec[Y];
-	    MAT4X3PNT(temp, s->vp->gv_view2model, pos_view);
+	    MAT4X3PNT(temp, _cam.view2model, pos_view);
 	    MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
 	    s->e_mvalid = 1;
 	    break;

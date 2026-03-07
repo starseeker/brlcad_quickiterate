@@ -30,6 +30,7 @@
 
 extern "C" {
 #include "bu/malloc.h"
+#include "bsg/util.h"
 }
 #include "bindings.h"
 #include "qtcad/QgGL.h"
@@ -49,8 +50,9 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
 {
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view
-    BU_GET(local_v, struct bview);
-    bv_init(local_v, NULL);
+    BU_GET(local_v, bsg_view);
+    bsg_view_init(local_v, NULL);
+    bsg_scene_root_create(local_v);
     bu_vls_sprintf(&local_v->gv_name, "qtgl");
     v = local_v;
 
@@ -196,7 +198,7 @@ void QgGL::resizeEvent(QResizeEvent *e)
 
 void QgGL::need_update()
 {
-    bv_log(4, "QgGL::need_update");
+    bsg_log(4, "QgGL::need_update");
     QTCAD_SLOT("QgGL::need_update", 1);
     if (!dmp)
 	return;
@@ -334,7 +336,7 @@ void QgGL::stash_hashes()
     } else {
 	prev_dhash = dm_hash(dmp);
     }
-    prev_vhash = bv_hash(v);
+    prev_vhash = bsg_view_hash(v);
 }
 
 bool QgGL::diff_hashes()
@@ -345,7 +347,7 @@ bool QgGL::diff_hashes()
 
     if (dmp)
 	c_dhash = dm_hash(dmp);
-    c_vhash = bv_hash(v);
+    c_vhash = bsg_view_hash(v);
 
     if (dmp && dm_get_dirty(dmp))
 	ret = true;
@@ -388,21 +390,13 @@ void QgGL::aet(double a, double e, double t)
     /* convert from double to fastf_t */
     VMOVE(aet, aetd);
 
-    VMOVE(v->gv_aet, aet);
-
-    /* TODO - based on the suspect bv_mat_aet... */
-    mat_t tmat;
-    fastf_t twist;
-    fastf_t c_twist;
-    fastf_t s_twist;
-    bn_mat_angles(v->gv_rotation, 270.0 + v->gv_aet[1], 0.0, 270.0 - v->gv_aet[0]);
-    twist = -v->gv_aet[2] * DEG2RAD;
-    c_twist = cos(twist);
-    s_twist = sin(twist);
-    bn_mat_zrot(tmat, s_twist, c_twist);
-    bn_mat_mul2(tmat, v->gv_rotation);
-
-    bv_update(v);
+    /* Use camera API - bsg_view_mat_aet_camera recomputes rotation from aet */
+    struct bsg_camera gl_camera;
+    bsg_view_get_camera(v, &gl_camera);
+    VMOVE(gl_camera.aet, aet);
+    bsg_view_mat_aet_camera(&gl_camera);
+    bsg_view_set_camera(v, &gl_camera);
+    bsg_view_update(v);
 }
 
 void

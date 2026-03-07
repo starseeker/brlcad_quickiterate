@@ -44,7 +44,7 @@
 #include <QtGlobal>
 
 #include "bu/str.h"
-#include "bv.h"
+#include "bsg.h"
 #include "ged/defines.h"
 #include "ged/commands.h"
 #include "qtcad/QgQuadView.h"
@@ -64,7 +64,7 @@ QgQuadView::QgQuadView(QWidget *parent, struct ged *gedpRef, int type) : QWidget
     graphicsType = type;
 
     views[UPPER_RIGHT_QUADRANT] = createView(UPPER_RIGHT_QUADRANT);
-    bv_set_add_view(&gedp->ged_views, views[UPPER_RIGHT_QUADRANT]->view());
+    bsg_scene_add_view(&gedp->ged_views, views[UPPER_RIGHT_QUADRANT]->view());
     gedp->ged_gvp = views[UPPER_RIGHT_QUADRANT]->view();
 
     views[UPPER_RIGHT_QUADRANT]->set_current(1);
@@ -164,7 +164,7 @@ QgQuadView::changeToSingleFrame()
 	// Don't want use cpu for views that are not visible
 	if (views[i] != nullptr) {
 	    views[i]->disconnect();
-	    bv_set_rm_view(&gedp->ged_views, views[i]->view());
+	    bsg_scene_rm_view(&gedp->ged_views, views[i]->view());
 	    delete views[i];
 	    views[i] = nullptr;
 	}
@@ -207,7 +207,7 @@ QgQuadView::changeToQuadFrame()
 
 	    // For initial layout calculations, we need to set a screen width
 	    // and height.  This won't be right in the end, but it gives
-	    // bv_view_bounds something to work with
+	    // bsg_view_bounds something to work with
 	    views[i]->view()->gv_width = views[UPPER_RIGHT_QUADRANT]->view()->gv_width;
 	    views[i]->view()->gv_height = views[UPPER_RIGHT_QUADRANT]->view()->gv_height;
 	}
@@ -219,7 +219,7 @@ QgQuadView::changeToQuadFrame()
 	// us in memory usage as a rule, but default to matching the mesh setting
 	// behavior
 	views[i]->view()->gv_s->adaptive_plot_csg = views[UPPER_RIGHT_QUADRANT]->view()->gv_s->adaptive_plot_csg;
-	bv_set_add_view(&gedp->ged_views, views[i]->view());
+	bsg_scene_add_view(&gedp->ged_views, views[i]->view());
     }
 
     // Define the spacers
@@ -272,22 +272,22 @@ QgQuadView::changeToQuadFrame()
     // but if we don't do it here we'll start out with blank windows until something notifies
     // the draw logic it needs to do updates.
     for (int i = UPPER_RIGHT_QUADRANT + 1; i < LOWER_RIGHT_QUADRANT + 1; i++) {
-	bv_autoview(views[i]->view(), BV_AUTOVIEW_SCALE_DEFAULT, 0);
-	bv_view_bounds(views[i]->view());
+	bsg_view_autoview(views[i]->view(), BSG_AUTOVIEW_SCALE_DEFAULT, 0);
+	bsg_view_bounds(views[i]->view());
     }
-    struct bu_ptbl *db_objs = bv_view_objs(views[UPPER_RIGHT_QUADRANT]->view(), BV_DB_OBJS);
+    struct bu_ptbl *db_objs = bsg_view_shapes(views[UPPER_RIGHT_QUADRANT]->view(), BSG_DB_OBJS);
     if (db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(db_objs, i);
+	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(db_objs, i);
 	    for (int j = UPPER_RIGHT_QUADRANT + 1; j < LOWER_RIGHT_QUADRANT + 1; j++) {
 		draw_scene(so, views[j]->view());
 	    }
 	}
     }
-    struct bu_ptbl *local_db_objs = bv_view_objs(views[UPPER_RIGHT_QUADRANT]->view(), BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *local_db_objs = bsg_view_shapes(views[UPPER_RIGHT_QUADRANT]->view(), BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (local_db_objs) {
 	for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(local_db_objs, i);
+	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(local_db_objs, i);
 	    for (int j = UPPER_RIGHT_QUADRANT + 1; j < LOWER_RIGHT_QUADRANT + 1; j++) {
 		draw_scene(so, views[j]->view());
 	    }
@@ -359,7 +359,7 @@ QgQuadView::default_views(int all_views)
     }
 }
 
-struct bview *
+bsg_view *
 QgQuadView::view(int quadrantId)
 {
     if (quadrantId > LOWER_RIGHT_QUADRANT || quadrantId < UPPER_RIGHT_QUADRANT) quadrantId = UPPER_RIGHT_QUADRANT;
@@ -523,7 +523,7 @@ QgQuadView::get_selected()
 void
 QgQuadView::do_view_update(unsigned long long flags)
 {
-    bv_log(4, "QgQuadView::do_view_update");
+    bsg_log(4, "QgQuadView::do_view_update");
     QTCAD_SLOT("QgQuadView::do_view_update", 1);
     for (int i = UPPER_RIGHT_QUADRANT; i < LOWER_RIGHT_QUADRANT + 1; i++) {
 	if (views[i] != nullptr) {

@@ -31,7 +31,8 @@ extern "C" {
 #include "bu/color.h"
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
+#include "bsg.h"
 #include "raytrace.h"
 }
 
@@ -58,7 +59,7 @@ class QTCAD_EXPORT QgSelectFilter : public QObject
 
 	struct bu_ptbl selected_set = BU_PTBL_INIT_ZERO;
 
-	struct bview *v = NULL;
+	bsg_view *v = NULL;
 
 	// Whenever we're doing selections, we may want either all the objects
 	// that match the selection criteria, or just the "closest" object.

@@ -34,39 +34,40 @@ dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparenc
     struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct display_list *gdlp;
     struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     size_t i;
     struct directory **tmp_dpp;
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+    /* Update transparency on matching shapes via scene root */
+    bsg_shape *root = bsg_scene_root_get(gedp->ged_gvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+    for (size_t si = 0; si < nshapes; si++) {
+	sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (!sp->s_u_data)
+	    continue;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    if (!sp->s_u_data)
-		continue;
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-
-	    for (i = 0, tmp_dpp = dpp;
-		 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
-		 ++i, ++tmp_dpp) {
-		if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
-		    break;
-	    }
-
-	    if (*tmp_dpp != RT_DIR_NULL)
-		continue;
-
-	    /* found a match */
-	    sp->s_os->transparency = transparency;
-
+	for (i = 0, tmp_dpp = dpp;
+	     i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
+	     ++i, ++tmp_dpp) {
+	    if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
+		break;
 	}
 
-	ged_create_vlist_display_list_cb(gedp, gdlp);
+	if (*tmp_dpp != RT_DIR_NULL)
+	    continue;
 
-        gdlp = next_gdlp;
+	/* found a match */
+	sp->s_os->transparency = transparency;
     }
 
+    /* Notify the display callback to rebuild display lists per gdlp */
+    gdlp = BU_LIST_NEXT(display_list, hdlp);
+    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
+	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+	ged_create_vlist_display_list_cb(gedp, gdlp);
+	gdlp = next_gdlp;
+    }
 }
 
 

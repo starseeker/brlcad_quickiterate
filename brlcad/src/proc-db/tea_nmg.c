@@ -225,7 +225,7 @@ main(int argc, char **argv)
 	bu_log("Cannot open plot3 file: %s\n", uplot_name);
 	perror("teapot_nmg");
     } else {
-	bv_vlist_to_uplot(fp, &vhead);
+	bsg_vlist_to_uplot(fp, &vhead);
     }
 
     bu_log(" done.\n");

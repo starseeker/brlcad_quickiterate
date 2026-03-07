@@ -40,6 +40,7 @@
 #include "ged.h"
 
 #include "./mged.h"
+#include "bsg/util.h"
 #include "./cmd.h"
 #include "./mged_dm.h"
 
@@ -192,8 +193,12 @@ predictor_frame(struct mged_state *s)
     for (i=0; i < nframes; i++) {
 	bn_mat_mul2(view_state->vs_ModelDelta, predictor);
     }
-    bn_mat_mul(predictorXv2m, predictor, view_state->vs_gvp->gv_view2model);
-    MAT_DELTAS_GET_NEG(center_m, view_state->vs_gvp->gv_center);
+    {
+	struct bsg_camera _pred;
+	bsg_view_get_camera(view_state->vs_gvp, &_pred);
+	bn_mat_mul(predictorXv2m, predictor, _pred.view2model);
+	MAT_DELTAS_GET_NEG(center_m, _pred.center);
+    }
 
     MAT4X3PNT(framecenter_m, predictor, center_m);
 

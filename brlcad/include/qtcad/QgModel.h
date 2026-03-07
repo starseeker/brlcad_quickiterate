@@ -396,7 +396,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	QStringList attribute_columns_;
 
 	QgItem *rootItem;
-	struct bview *empty_gvp = NULL;
+	bsg_view *empty_gvp = NULL;
 	struct db_i *model_dbip = NULL;
 };
 

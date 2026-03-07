@@ -27,7 +27,7 @@
 #include "common.h"
 
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
 #include "raytrace.h" // For finalize polygon sketch export functionality (TODO - need to move...)
 #include "qtcad/QgView.h"
 #include "qtcad/QgSignalFlags.h"
@@ -137,7 +137,7 @@ QgView::do_view_changed()
 void
 QgView::need_update(unsigned long long)
 {
-    bv_log(4, "QgView::need_update");
+    bsg_log(4, "QgView::need_update");
     QTCAD_SLOT("QgView::need_update", 1);
 #ifdef BRLCAD_OPENGL
     if (canvas_gl) {
@@ -151,7 +151,7 @@ QgView::need_update(unsigned long long)
     }
 }
 
-struct bview *
+bsg_view *
 QgView::view()
 {
 #ifdef BRLCAD_OPENGL
@@ -191,7 +191,7 @@ QgView::ifp()
 }
 
 void
-QgView::set_view(struct bview *nv)
+QgView::set_view(bsg_view *nv)
 {
 #ifdef BRLCAD_OPENGL
     if (canvas_gl) {
@@ -332,7 +332,7 @@ QgView::clear_event_filter(QObject *o)
 }
 
 void
-QgView::set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata)
+QgView::set_draw_custom(void (*draw_custom)(bsg_view *, void *), void *draw_udata)
 {
 
 #ifdef BRLCAD_OPENGL

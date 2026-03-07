@@ -235,7 +235,7 @@ QPolyCreate::do_vpoly_copy()
 	return;
     }
     char *sname = bu_strdup(vpoly_name->text().toLocal8Bit().data());
-    struct bv_scene_obj *src_obj = bv_find_obj(gedp->ged_gvp, sname);
+    bsg_shape *src_obj = bsg_view_find_shape(gedp->ged_gvp, sname);
     bu_free(sname, "name cpy");
     if (!src_obj) {
 	bu_vls_free(&vname);
@@ -243,7 +243,7 @@ QPolyCreate::do_vpoly_copy()
     }
 
     // Names are valid, src_obj is ready - do the copy
-    p = bv_dup_view_polygon(bu_vls_cstr(&vname), src_obj);
+    p = bsg_dup_view_polygon(bu_vls_cstr(&vname), src_obj);
     bu_vls_free(&vname);
     if (!p)
 	return;
@@ -293,7 +293,7 @@ QPolyCreate::do_import_sketch()
     }
 
     // Names are valid, dp is ready - try the sketch import
-    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, gedp->ged_gvp, BV_VIEW_OBJS);
+    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, gedp->ged_gvp, BSG_VIEW_OBJS);
     bu_vls_free(&vname);
     if (!p)
 	return;
@@ -380,8 +380,8 @@ QPolyCreate::sketch_sync()
 void
 QPolyCreate::toggle_line_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
-    struct bv_scene_obj *co = (cf) ? cf->wp : NULL;
+    bsg_view *v = (cf) ? cf->v : NULL;
+    bsg_shape *co = (cf) ? cf->wp : NULL;
     if (!v || !co)
 	return;
 
@@ -391,16 +391,15 @@ QPolyCreate::toggle_line_snapping(bool s)
 	v->gv_s->gv_snap_lines = 0;
     } else {
 	// Turn snapping on if we have other polygons to snap to
-	struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-	if (!view_objs)
-	    return;
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
+	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+	bsg_view_find_by_type(v, BSG_NODE_POLYGONS, &poly_objs);
+	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+	    bsg_shape *so = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
 	    if (so == co)
 		continue;
-	    if (so->s_type_flags & BV_POLYGONS)
-		bu_ptbl_ins(&v->gv_s->gv_snap_objs, (long *)so);
+	    bu_ptbl_ins(&v->gv_s->gv_snap_objs, (long *)so);
 	}
+	bu_ptbl_free(&poly_objs);
 	if (BU_PTBL_LEN(&v->gv_s->gv_snap_objs)) {
 	    v->gv_s->gv_snap_lines = 1;
 	} else {
@@ -414,7 +413,7 @@ QPolyCreate::toggle_line_snapping(bool s)
 void
 QPolyCreate::toggle_grid_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : NULL;
     if (!v)
 	return;
 
@@ -431,7 +430,7 @@ QPolyCreate::toggle_grid_snapping(bool s)
 void
 QPolyCreate::checkbox_refresh(unsigned long long)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    bsg_view *v = (cf) ? cf->v : NULL;
     if (!v)
 	return;
 
@@ -495,22 +494,20 @@ QPolyCreate::toplevel_config(bool)
     // This function is called when a top level mode change was initiated
     // by a selection button.  Clear any selected points being displayed.
     if (gedp) {
-	struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
-	if (!view_objs)
-	    return;
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BV_POLYGONS) {
-		// clear any selected points in non-current polygons
-		struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
-		if (ip->curr_point_i != -1) {
-		    draw_change = true;
-		    ip->curr_point_i = -1;
-		    ip->curr_contour_i = 0;
-		    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
-		}
+	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
+	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
+	    // clear any selected points in non-current polygons
+	    struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
+	    if (ip->curr_point_i != -1) {
+		draw_change = true;
+		ip->curr_point_i = -1;
+		ip->curr_contour_i = 0;
+		bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
 	    }
 	}
+	bu_ptbl_free(&poly_objs);
     }
 
     if (draw_change && gedp)
@@ -604,14 +601,15 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // For this particular application, we want to apply booleans to
     // all polygons
     bu_ptbl_reset(&pcf->bool_objs);
-    struct bu_ptbl *view_objs = bv_view_objs(gedp->ged_gvp, BV_VIEW_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    if (s->s_type_flags & BV_POLYGONS && s != p) {
+    {
+	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
+	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
+	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
+	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
+	    if (s != p)
 		bu_ptbl_ins(&pcf->bool_objs, (long *)s);
-	    }
 	}
+	bu_ptbl_free(&poly_objs);
     }
 
     bool ret = cf->eventFilter(NULL, e);

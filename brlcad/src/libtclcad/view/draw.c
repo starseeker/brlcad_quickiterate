@@ -28,6 +28,7 @@
 #include "dm/view.h"
 #include "ged.h"
 #include "tclcad.h"
+#include "bsg/util.h"
 
 /* Private headers */
 #include "../tclcad_private.h"
@@ -68,7 +69,7 @@ key_matches_paths(struct bu_hash_tbl *t, void *udata)
 }
 
 static void
-go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
+go_draw_solid(bsg_view *gdvp, bsg_shape *sp)
 {
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     struct ged *gedp = tvd->gedp;
@@ -91,8 +92,10 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 	params = (struct dm_path_edit_params *)bu_hash_value(entry, NULL);
     }
     if (params) {
-	MAT_COPY(save_mat, gdvp->gv_model2view);
-	bn_mat_mul(edit_model2view, gdvp->gv_model2view, params->edit_mat);
+	struct bsg_camera _dv;
+	bsg_view_get_camera(gdvp, &_dv);
+	MAT_COPY(save_mat, _dv.model2view);
+	bn_mat_mul(edit_model2view, _dv.model2view, params->edit_mat);
 	dm_loadmatrix(dmp, edit_model2view, 0);
     }
 
@@ -120,78 +123,59 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 
 /* Draw all display lists */
 static int
-go_draw_dlist(struct bview *gdvp)
+go_draw_dlist(bsg_view *gdvp)
 {
-    register struct display_list *gdlp;
-    register struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     int line_style = -1;
     struct dm *dmp = (struct dm *)gdvp->dmp;
-    struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
-    struct bu_list *hdlp = (struct bu_list *)ged_dl(tvd->gedp);
+
+    bsg_shape *root = bsg_scene_root_get(gdvp);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
     if (dm_get_transparency(dmp)) {
 	/* First, draw opaque stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (sp->s_os->transparency < 1.0)
+		continue;
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		if (sp->s_os->transparency < 1.0)
-		    continue;
-
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
+	    if (line_style != sp->s_soldash) {
+		line_style = sp->s_soldash;
+		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
 	    }
 
-	    gdlp = next_gdlp;
+	    go_draw_solid(gdvp, sp);
 	}
 
 	/* disable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 0);
 
 	/* Second, draw transparent stuff */
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    /* already drawn above */
+	    if (ZERO(sp->s_os->transparency - 1.0))
+		continue;
 
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		/* already drawn above */
-		if (ZERO(sp->s_os->transparency - 1.0))
-		    continue;
-
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
+	    if (line_style != sp->s_soldash) {
+		line_style = sp->s_soldash;
+		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
 	    }
 
-	    gdlp = next_gdlp;
+	    go_draw_solid(gdvp, sp);
 	}
 
 	/* re-enable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 1);
     } else {
-	gdlp = BU_LIST_NEXT(display_list, hdlp);
-	while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	    next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	    for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-		if (line_style != sp->s_soldash) {
-		    line_style = sp->s_soldash;
-		    (void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
-		}
-
-		go_draw_solid(gdvp, sp);
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    if (line_style != sp->s_soldash) {
+		line_style = sp->s_soldash;
+		(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), line_style);
 	    }
 
-	    gdlp = next_gdlp;
+	    go_draw_solid(gdvp, sp);
 	}
     }
 
@@ -199,12 +183,14 @@ go_draw_dlist(struct bview *gdvp)
 }
 
 void
-go_draw(struct bview *gdvp)
+go_draw(bsg_view *gdvp)
 {
-    (void)dm_loadmatrix((struct dm *)gdvp->dmp, gdvp->gv_model2view, 0);
+    struct bsg_camera _gdvc;
+    bsg_view_get_camera(gdvp, &_gdvc);
+    (void)dm_loadmatrix((struct dm *)gdvp->dmp, _gdvc.model2view, 0);
 
-    if (SMALL_FASTF < gdvp->gv_perspective)
-	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, gdvp->gv_pmat);
+    if (SMALL_FASTF < _gdvc.perspective)
+	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, _gdvc.pmat);
     else
 	(void)dm_loadpmatrix((struct dm *)gdvp->dmp, (fastf_t *)NULL);
 
@@ -235,7 +221,7 @@ to_edit_redraw(struct ged *gedp,
 	for (i = 0; i < subpath.fp_len; ++i) {
 	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(gedp));
 	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(gedp))) {
-		register struct bv_scene_obj *curr_sp;
+		register bsg_shape *curr_sp;
 
 		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
 
@@ -244,15 +230,27 @@ to_edit_redraw(struct ged *gedp,
 		    continue;
 		}
 
-		for (BU_LIST_FOR(curr_sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-
-		    if (!curr_sp->s_u_data)
-			continue;
+		/* Phase 2e: search scene-root children instead of dl_head_scene_obj */
+		bsg_view *_v = (bsg_view *)gedp->ged_gvp;
+		bsg_shape *_root = _v ? bsg_scene_root_get(_v) : NULL;
+		size_t _nshapes = _root ? BU_PTBL_LEN(&_root->children) : 0;
+		for (size_t _si = 0; _si < _nshapes; _si++) {
+		    curr_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si);
+		    if (!curr_sp->s_u_data) continue;
 		    struct ged_bv_data *bdata = (struct ged_bv_data *)curr_sp->s_u_data;
+		    /* Only consider shapes belonging to this gdlp */
+		    struct db_full_path _gdlp_fp;
+		    db_full_path_init(&_gdlp_fp);
+		    if (db_string_to_path(&_gdlp_fp, gedp->dbip, bu_vls_cstr(&gdlp->dl_path)) != 0)
+			{ db_free_full_path(&_gdlp_fp); continue; }
+		    int _belongs = db_full_path_match_top(&_gdlp_fp, &bdata->s_fullpath);
+		    db_free_full_path(&_gdlp_fp);
+		    if (!_belongs) continue;
 
 		    if (db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i])) {
 			struct display_list *last_gdlp;
-			struct bv_scene_obj *sp = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);
+			/* Use the matched shape's draw mode as representative for this group */
+			bsg_shape *sp = curr_sp;
 			struct bu_vls mflag = BU_VLS_INIT_ZERO;
 			struct bu_vls xflag = BU_VLS_INIT_ZERO;
 			char *av[5] = {0};

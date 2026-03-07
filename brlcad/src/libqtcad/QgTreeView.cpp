@@ -304,7 +304,7 @@ QgTreeView::do_draw_toggle(const QModelIndex &index)
     if (!m->gedp)
 	return;
 
-    struct bview *v = m->gedp->ged_gvp;
+    bsg_view *v = m->gedp->ged_gvp;
     if (!v)
 	return;
 
@@ -317,7 +317,7 @@ QgTreeView::do_draw_toggle(const QModelIndex &index)
     unsigned long long phash = dbis->path_hash(path_hashes, 0);
     if (!sv->is_hdrawn(-1, phash)) {
 	sv->add_hpath(path_hashes);
-	std::unordered_set<struct bview *> views;
+	std::unordered_set<bsg_view *> views;
 	views.insert(v);
 	sv->redraw(NULL, views, 1);
     } else {
