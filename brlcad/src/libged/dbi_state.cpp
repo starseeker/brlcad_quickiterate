@@ -1615,7 +1615,7 @@ DbiState::update()
     std::vector<unsigned long long> unused;
     std::unordered_map<unsigned long long, unsigned long long>::iterator im_it;
     for (im_it = i_map.begin(); im_it != i_map.end(); im_it++) {
-	if (used.find(im_it->first) != used.end())
+	if (used.find(im_it->first) == used.end())
 	    unused.push_back(im_it->first);
     }
     for (size_t i = 0; i < unused.size(); i++) {
