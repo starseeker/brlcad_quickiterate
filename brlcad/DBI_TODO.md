@@ -893,13 +893,23 @@ commit.
    correct granularity, or should `DbiState` instances be shareable across `ged`
    contexts when the same `.g` file is open in multiple views?
 
+   DECISION:  Assume one DbiState per struct ged * - indeed, it
+   should be one struct ged * per .g file.  views should all be windows on the same
+   .g file with the same struct ged.
+
 2. **Attribute columns.** The `QgModel` header notes a desire for attribute display
    as additional tree columns.  What attribute keys should be pre-populated?  Should
    this be user-configurable at runtime?
 
+   DECISION:  Ideally this would be runtime configurable.  The defaults should be
+   region flag, region ID and primitive color.
+
 3. **Who command / "drawn list" ownership.** Currently `BViewState` provides the
    authoritative drawn list for the `who` command.  Should `DrawList` own this, or
    should `who` query `DbiState` via a view argument?
+
+   DECISION:  If you need a decision DrawList can own it, but that decision can
+   evolve if the design suggests the who+DbiState approach offers advantages.
 
 4. **Background geometry loading.** The qged `TODO` file mentions async draw
    population as a goal.  This requires the geometry loading thread to safely post
@@ -907,10 +917,22 @@ commit.
    the acceptable threading model?  A single background thread with a result queue,
    or per-object task parallelism?
 
+   DECISION:  In our initial pass, let's go with a single background thread and a
+   result queue.  concurrentqueue.h may be leveraged for the result queue - we are
+   already looking at using it to improve our LoD data cache management.  (By the
+   way, the bu_cache API post-dates the qged effort so it wasn't available at the
+   time - that's the only reason LMDB was used directly.  bu_cache is the correct
+   answer going forward.)
+
 5. **Deprecation timeline for existing dbi.h API.** Since `libged` is a public API,
    the old `DbiState::update()`, `BViewState::redraw()`, and `BSelectState::*` names
    should be kept for at least one release cycle after the new API lands.  Is that
    constraint acceptable?
+
+   There is no need - the C++ aspects were only ever accidentally public and aren't
+   considered part of our true public api.  We do not want to further
+   complicate the code trying to keep old forms around.  Create a migration guide
+   from the old logic to the new - that will do well enough.
 
 ---
 
