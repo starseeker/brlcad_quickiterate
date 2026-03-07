@@ -56,6 +56,68 @@ manage geometry state.  It is the primary source of remaining legacy patterns.
 
 Key open areas in priority order:
 
+## Current State — Session 31 Update (2026-03-07)
+
+### Additional items completed ✅ (Session 31)
+
+- **P1 `src/libged/display_list.c`** `dl_erasePathFromDisplay`: added fast-path when `gd_headDisplay` is empty — calls `dl_match_shapes(gedp, &fp, &to_erase)` and frees matched shapes directly from scene-root.  This fixes the critical bug where `draw` then `erase` left orphan shapes in the scene-root.
+- **P1 `src/libged/display_list.c`** `_dl_eraseAllNamesFromDisplay`: added fast-path scanning scene-root for shapes where `name` appears as a path component.
+- **P1 `src/libged/display_list.c`** `_dl_eraseAllPathsFromDisplay`: added fast-path erasing shapes whose fullpath is a subset of `subpath`.
+- **P1 `src/libged/display_list.c`** `invent_solid`: removed `dl_addToDisplay` call; phony dp is findable by `dl_erasePathFromDisplay` via scene-root traversal.
+- **P1 `src/libged/draw/bigE.c`**: replaced `dl_addToDisplay(gd_headDisplay, ...)` with `db_lookup` existence check; `dgcdp->gdlp = NULL`.
+- **P1 `src/libged/view/saveview.c`**: replaced `gd_headDisplay` iteration with scene-root children traversal to write shell-script `draw` commands.
+- **P1 `src/libged/ged_util.cpp`** `ged_who_argc`: legacy path now counts unique top-level directory pointers from scene-root.
+- **P1 `src/libged/ged_util.cpp`** `ged_who_argv`: legacy path now enumerates scene-root top-level names.
+- **P1 `src/libged/ged_util.cpp`** `_ged_rt_script`: legacy `!new_cmd_forms` branch now writes `draw` commands from scene-root instead of iterating `gd_headDisplay`.
+- **P1 `src/libged/set_transparency/set_transparency.c`**: removed `gd_headDisplay` gdlp loop; replaced with direct per-shape `ged_create_vlist_solid_cb` calls from scene-root.
+- **P1 `src/libtclcad/view/draw.c`** `to_edit_redraw`: removed dead `gd_headDisplay`-driven outer loop; function now unconditionally uses scene-root fast-path.
+- **P1 `src/libged/who/who.c`**: removed conditional `if (BU_LIST_IS_EMPTY(ged_dl(gedp))) { ... } else { gd_headDisplay loop }` — always uses scene-root.
+
+### What remains open ⚠️ (after Session 31)
+
+`gd_headDisplay` is now functionally dead — nothing writes to it and all readers use scene-root.  The remaining work is structural cleanup to **remove** it:
+
+| Item | File | Notes |
+|------|------|-------|
+| Remove struct field | `src/libged/ged_private.h:74` | `struct bu_list *gd_headDisplay` |
+| Remove init/free | `src/libged/ged.cpp:134-135, 230-231` | `BU_GET`/`BU_LIST_INIT`/`BU_PUT` |
+| Remove `ged_dl()` | `src/libged/ged_util.cpp:2561` | Returns `gd_headDisplay` cast |
+| Remove `ged_dl` decl | `include/ged/view.h:265` | |
+| Update `GED_CHECK_DRAWABLE` | `include/ged/view.h:43` | Uses `ged_dl()` for null check; replace with scene-root check |
+| Remove legacy loop bodies | `src/libged/display_list.c` | Dead code after fast-path returns in erase functions |
+| Remove `dl_addToDisplay` | `src/libged/display_list.c` | No longer called anywhere |
+| Remove `headsolid_split/splitGDL` | `src/libged/display_list.c` | Only used internally by `dl_erasePathFromDisplay` legacy path |
+| Clean up MGED callers | `src/mged/buttons.c`, `mater.c`, `attach.c`, `set.c`, `share.c` | Pass empty list to no-op functions |
+| `color.c`, `joint.c` | `src/libged/color/color.c`, `joint/joint.c` | Call no-op `dl_color_soltab`/`dl_set_iflag` on empty list |
+| `zap.c` | `src/libged/zap/zap.c` | `hdlp` used for free-on-empty-list loop; can remove |
+
+#### P2: Remaining camera-field direct writes
+
+| File | Remaining pattern |
+|------|-------------------|
+| `src/libged/draw/loadview.cpp` `_ged_cm_vsize` | `gv_size`, `gv_scale`, `gv_isize` — non-camera view-scale fields; acceptable |
+| `src/librt/primitives/sketch/polygons.c` | `bu_opt_fastf_t(..., &sv->gv_scale)` write — needs a setter API |
+
+#### P2: Remaining flat-list feature work
+
+| App | Feature gap |
+|-----|------------|
+| **MGED** | `illum_gdlp` (illuminated solid tracking) still a raw `display_list*`; needs typed scene-node selection |
+| **MGED** | `createDLists()` — called with empty list; function itself fine |
+| **qged polygon plugins** | typed-node queries instead of `bsg_view_shapes` linear scan |
+
+#### P3: Sensor / LoD integration
+
+- `dbi_state.cpp`: schedule redraws via scene sensors rather than explicit `bsg_shape_stale()` calls.
+
+### Suggested work order for next sessions
+
+1. **Remove `gd_headDisplay` infrastructure**: Remove struct field, init/free, `ged_dl()`, update `GED_CHECK_DRAWABLE`.
+2. **Remove dead code in `display_list.c`**: Remove `dl_addToDisplay`, `headsolid_split`, `headsolid_splitGDL`, legacy loop bodies in erase functions.
+3. **qged polygon plugins**: replace `bsg_view_shapes` linear scan with typed-node queries.
+
+---
+
 ## Current State — Session 30 Update (2026-03-07)
 
 ### Additional items completed ✅ (Session 30)
