@@ -1020,3 +1020,19 @@ suites provide a clean baseline again.
 - ✅ Added comprehensive `bsg_*` typedef aliases to `bsg/defines.h`: `bsg_label`, `bsg_axes`, `bsg_vlist`, `bsg_vlblock`, `bsg_polygon`, `bsg_adc_state`, `bsg_grid_state`, `bsg_interactive_rect_state`, `bsg_params_state`, `bsg_other_state`, `bsg_data_axes_state`, `bsg_data_arrow_state`, `bsg_data_label_state`, `bsg_data_line_state`, `bsg_data_tclcad`.
 - ✅ No changes to `src/libbv/` or `include/bv/defines.h`.
 - ✅ All 5 draw test suites pass (100%): basic, faceplate, lod, select, quad.*
+
+**Session 20 (BSG consumer migration — Step 6)**:
+- ✅ Created `include/bsg/adc.h` — Phase 1 wrapper around `bv/adc.h`; adds `bsg_adc_*` inline aliases using the `bsg_adc_state` typedef.
+- ✅ Created `include/bsg/vlist.h` — Phase 1 wrapper around `bv/vlist.h`; pulls in `bsg_vlist` and `bsg_vlblock` types from `bsg/defines.h`.
+- ✅ Added `adc.h` and `vlist.h` to the installed `bsg/` header set in `include/bsg/CMakeLists.txt`.
+- ✅ **Migrated 22 consumer source files** off `bv/defines.h` → `bsg/defines.h`:
+  - libdm: `adc.c`, `axes.c`, `dm-generic.c`, `dm-gl.c`, `dm-gl_lod.cpp`, `labels.c`, `view.c`, `swrast/dm-swrast.cpp`, `plot/dm-plot.c`, `postscript/dm-ps.c`, `qtgl/dm-qtgl.cpp`, `wgl/dm-wgl.c`, `X/dm-X.c`, `glx/dm-ogl.c`
+  - libged: `draw.cpp`, `ged.cpp`, `osg.cpp`, `scale/scale.c`, `bot/dump/bot_dump.cpp`
+  - libbg: `sat.cpp`
+  - libqtcad: `bindings.cpp`
+  - libtclcad: `commands.c`
+- ✅ Migrated `libdm/adc.c` from `bv/adc.h` → `bsg/adc.h`.
+- ✅ Migrated `libged/grid/grid.c` and `libged/view/snap.c` from `bv/snap.h` → `bsg/snap.h`.
+- ✅ Migrated `librt/vlist.c`, `libnmg/plot.c`, `libged/overlay/overlay.c` from `bv/vlist.h` → `bsg/vlist.h`.
+- ✅ All builds pass (libbsg, libbv, libdm, libged).  Pre-existing test 20/23 image-comparison differences unchanged.
+- ✅ No changes to `src/libbv/` or `include/bv/`.*
