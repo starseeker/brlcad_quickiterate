@@ -791,12 +791,6 @@ int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int r
     sp->s_os->transparency = transparency;
     sp->s_os->s_dmode = dmode;
 
-    /* Phase 2e: register shape in scene-root children (sole insertion point). */
-    {
-	bsg_shape *scene_root = bsg_scene_root_get(gedp->ged_gvp);
-	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
-    }
-
     if (csoltab)
 	color_soltab(sp);
 

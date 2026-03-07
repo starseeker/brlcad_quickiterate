@@ -4,9 +4,11 @@ set(
   defines.h
   lod.h
   polygon.h
+  snap.h
   util.h
+  view_sets.h
 )
-brlcad_manage_files(bsg_headers ${INCLUDE_DIR}/brlcad/bsg REQUIRED libbv)
+brlcad_manage_files(bsg_headers ${INCLUDE_DIR}/brlcad/bsg REQUIRED libbsg)
 
 cmakefiles(CMakeLists.txt)
 

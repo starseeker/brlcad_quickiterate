@@ -750,6 +750,12 @@ BSG_EXPORT struct bv_scene_obj *bsg_scene_fsos(bsg_scene *s);
 /** @brief Snap the view center to the nearest grid line.
  *         Replaces the deprecated bv_view_center_linesnap() call. */
 BSG_EXPORT void bsg_view_center_linesnap(bsg_view *v);
+/** @brief Snap a 2D view point to the nearest snap line. */
+BSG_EXPORT int bsg_snap_lines_2d(bsg_view *v, fastf_t *fx, fastf_t *fy);
+/** @brief Snap a 2D view point to the nearest grid intersection. */
+BSG_EXPORT int bsg_snap_grid_2d(bsg_view *v, fastf_t *fx, fastf_t *fy);
+/** @brief Snap a 3D point to the nearest snap line. */
+BSG_EXPORT int bsg_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p);
 
 __END_DECLS
 

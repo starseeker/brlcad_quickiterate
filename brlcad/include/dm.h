@@ -283,18 +283,6 @@ DM_EXPORT extern int dm_draw_dlist(struct dm *dmp, unsigned int list);
 DM_EXPORT extern int dm_end_dlist(struct dm *dmp);
 DM_EXPORT extern int dm_free_dlists(struct dm *dmp, unsigned int list, int range);
 DM_EXPORT extern int dm_draw_display_list(struct dm *dmp, struct display_list *obj);
-DM_EXPORT extern int dm_draw_head_dl(struct dm *dmp,
-					  struct bu_list *dl,
-					  fastf_t transparency_threshold,
-					  fastf_t inv_viewsize,
-					  short r, short g, short b,
-					  int line_width,
-					  int draw_style,
-					  int draw_edit,
-					  unsigned char *gdc,
-					  int solids_down,
-					  int mv_dlist
-					 );
 DM_EXPORT extern int dm_draw_bsg_view(struct dm *dmp, bsg_view *v,
 					  fastf_t transparency_threshold,
 					  fastf_t inv_viewsize,

@@ -72,13 +72,9 @@ ged_aet_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (iflag) {
-	    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
-	      VADD2(_cv.aet, _cv.aet, aet);
-	    }
+	    VADD2(gedp->ged_gvp->gv_aet, gedp->ged_gvp->gv_aet, aet);
 	} else {
-	    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
-	      VMOVE(_cv.aet, aet);
-	    }
+	    VMOVE(gedp->ged_gvp->gv_aet, aet);
 	}
 	bsg_view_mat_aet(gedp->ged_gvp);
 	bsg_view_update(gedp->ged_gvp);
@@ -111,13 +107,9 @@ ged_aet_core(struct ged *gedp, int argc, const char *argv[])
 	VMOVE(aet, scan);
 
 	if (iflag) {
-	    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
-	      VADD2(_cv.aet, _cv.aet, aet);
-	    }
+	    VADD2(gedp->ged_gvp->gv_aet, gedp->ged_gvp->gv_aet, aet);
 	} else {
-	    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
-	      VMOVE(_cv.aet, aet);
-	    }
+	    VMOVE(gedp->ged_gvp->gv_aet, aet);
 	}
 	bsg_view_mat_aet(gedp->ged_gvp);
 	bsg_view_update(gedp->ged_gvp);

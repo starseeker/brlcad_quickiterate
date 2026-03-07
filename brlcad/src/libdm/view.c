@@ -588,72 +588,6 @@ dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
     }
 }
 
-static void
-draw_scene_obj(struct dm *dmp, bsg_shape *s, bsg_view *v, int force_draw, bsg_material *obj_settings)
-{
-    if (!s || !v || (s->s_flag == DOWN && !force_draw))
-	return;
-
-    int do_force_draw = (force_draw || s->s_force_draw) ? 1 : 0;
-
-    // Draw children. TODO - drawing children first may not
-    // always be the desired behavior - might need interior and exterior
-    // children tables to provide some control
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	bsg_shape *s_c = (bsg_shape *)BU_PTBL_GET(&s->children, i);
-	draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
-    }
-
-    // Assign color attributes
-    if (obj_settings) {
-	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
-    } else {
-	if (s->s_iflag == UP) {
-	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
-	} else {
-	    if (s->s_os->color_override) {
-		dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1], s->s_os->color[2], 0, s->s_os->transparency);
-	    } else {
-		dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, s->s_os->transparency);
-	    }
-	}
-    }
-    dm_set_line_attr(dmp, s->s_os->s_line_width, s->s_soldash);
-
-    // Primary object drawing.  See if we have an active view-specific object - if so,
-    // use that, otherwise use the original object
-    if (s->s_type_flags & BSG_DB_OBJS) {
-	bsg_shape *vo = bsg_shape_for_view(s, v);
-	if (!vo) {
-	    vo = s;
-	    bsg_log(1, "draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
-	} else {
-	    bsg_log(1, "draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
-	}
-
-	// If this is a database object, it may have a view dependent
-	// update to do.
-	if (vo->s_update_callback)
-	    (*vo->s_update_callback)(vo, v, 0);
-
-	dm_draw_obj(dmp, vo);
-    } else {
-	dm_draw_obj(dmp, s);
-    }
-
-    if (!(s->s_type_flags & BSG_NODE_MESH_LOD)) {
-	dm_add_arrows(dmp, s);
-    }
-
-    if (s->s_type_flags & BSG_NODE_AXES) {
-	dm_draw_scene_axes(dmp, s);
-    }
-
-    if (s->s_type_flags & BSG_NODE_LABELS) {
-	dm_draw_label(dmp, s);
-    }
-}
-
 /* ====================================================================== *
  * dm_draw_visitor — BSG traversal visitor for the render loop            *
  *                                                                         *
@@ -681,7 +615,16 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     if (s->s_type_flags & structural)
 	return 0; /* recurse into children */
 
-    if (s->s_flag == DOWN && !s->s_force_draw)
+    /* s_flag == DOWN means the shape has been explicitly hidden (e.g. via
+     * "view obj NAME draw DOWN" or by draw-mode filtering in dbi_state).
+     * Skip it entirely — it is still in the scene graph but not visible. */
+    if (s->s_flag == DOWN)
+	return 0;
+
+    /* In the normal (non-edit) pass skip illuminated/highlighted shapes;
+     * they are drawn by a dedicated edit-mode traversal.
+     * s_iflag == UP means "this solid is the one being edited/illuminated". */
+    if (s->s_iflag == UP && !s->s_force_draw)
 	return 0;
 
     /* If a camera node has been encountered in the graph, use its matrices.
@@ -699,14 +642,10 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     const bsg_material *mat =
 	(s->s_os && !s->s_inherit_settings) ? s->s_os : &state->material;
 
-    if (s->s_iflag == UP) {
-	dm_set_fg(dmp, 255, 255, 255, 0, mat->transparency);
+    if (mat->color_override) {
+	dm_set_fg(dmp, mat->color[0], mat->color[1], mat->color[2], 0, mat->transparency);
     } else {
-	if (mat->color_override) {
-	    dm_set_fg(dmp, mat->color[0], mat->color[1], mat->color[2], 0, mat->transparency);
-	} else {
-	    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
-	}
+	dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
     }
     dm_set_line_attr(dmp, mat->s_line_width, s->s_soldash);
 

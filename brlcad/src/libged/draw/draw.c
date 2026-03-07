@@ -126,15 +126,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     sp->s_os->transparency = dgcdp->vs.transparency;
     sp->s_os->s_dmode = dgcdp->vs.s_dmode;
 
-    /* Phase 2e: register shape exclusively in scene-root children */
-    bu_semaphore_acquire(RT_SEM_MODEL);
-    {
-	bsg_shape *scene_root = bsg_scene_root_get(dgcdp->v);
-	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
-    }
-    bu_semaphore_release(RT_SEM_MODEL);
-
-    ged_create_vlist_solid_cb(dgcdp->gedp, sp);
+        ged_create_vlist_solid_cb(dgcdp->gedp, sp);
 
 }
 
@@ -433,14 +425,6 @@ append_solid_to_display_list(
     sp->s_os->transparency = bv_data->transparency;
     sp->s_os->s_dmode = bv_data->dmode;
     MAT_COPY(sp->s_mat, tsp->ts_mat);
-
-    /* Phase 2e: register shape exclusively in scene-root children */
-    bu_semaphore_acquire(RT_SEM_MODEL);
-    {
-	bsg_shape *scene_root = bsg_scene_root_get(bv_data->v);
-	if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
-    }
-    bu_semaphore_release(RT_SEM_MODEL);
 
     /* indicate success by returning something other than TREE_NULL */
     BU_GET(curtree, union tree);
