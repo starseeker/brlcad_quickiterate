@@ -30,8 +30,8 @@
 
 
 #include "vmath.h"
-#include "bv.h"
-#include "bv/snap.h"
+#include "bsg.h"
+#include "bsg/snap.h"
 
 #include "../ged_private.h"
 
@@ -46,7 +46,7 @@ grid_vsnap(struct ged *gedp)
     bsg_view_get_camera(gedp->ged_gvp, &_cam);
     MAT_DELTAS_GET_NEG(model_pt, _cam.center);
     MAT4X3PNT(view_pt, _cam.model2view, model_pt);
-    bv_snap_grid_2d(gedp->ged_gvp, &view_pt[X], &view_pt[Y]);
+    bsg_snap_grid_2d(gedp->ged_gvp, &view_pt[X], &view_pt[Y]);
     MAT4X3PNT(model_pt, _cam.view2model, view_pt);
     MAT_DELTAS_VEC_NEG(_cam.center, model_pt);
     bsg_view_set_camera(gedp->ged_gvp, &_cam);

@@ -28,13 +28,15 @@
  * This gives external libbv users unchanged behaviour while letting the
  * @c bsg_* API evolve its layout independently in later phases.
  *
- * Because the two structs are distinct C types, wrappers that bridge
- * @c bsg_shape pointers to @c bv_* functions use @c bso_to_bv() /
- * @c bv_to_bso() — thin reinterpret casts that are safe because both
- * structs share the same memory layout throughout Phase 1.
+ * The @c bsg_shape.i field is of type @c bsg_shape_internal* (managed by
+ * libbsg; forward-declared in @c bv/defines.h).  The legacy @c bv_scene_obj.i
+ * remains @c bv_scene_obj_internal*.  No reinterpret casts are needed for
+ * @c bsg_shape in libbsg code.
  *
- * For all other @c bsg_* types (@c bsg_view, @c bsg_scene, @c bsg_lod, etc.)
- * the typedef-alias approach is still used, so no cast is required.
+ * For @c bsg_scene (typedef alias of @c bview_set): the @c .i field is now
+ * typed @c bsg_scene_set_internal* (defined in @c bsg/scene_set.h), so
+ * BSG_SCENEI is also a direct accessor with no cast.  @c bview_set_internal
+ * is a typedef alias for @c bsg_scene_set_internal in @c libbv/bv_private.h.
  *
  * ### Phase 2 additions (this file)
  *
@@ -57,8 +59,8 @@
 #include "bsg/polygon.h"
 
 /* bv/polygon.h declares the legacy functions wrapped in this file */
-#include "bv/polygon.h"
-#include "bv/view_sets.h"
+#include "bsg/polygon.h"
+#include "bsg/view_sets.h"
 
 /* bn/mat.h provides bn_mat_mul() used by bsg_traverse() */
 #include "bn/mat.h"
@@ -72,10 +74,10 @@
 #include "./bsg_private.h"
 
 /* bv/snap.h declares bv_view_center_linesnap, wrapped as bsg_view_center_linesnap */
-#include "bv/snap.h"
+#include "bsg/snap.h"
 
 /* bv/vlist.h provides BV_FREE_VLIST used by bsg_node_free() */
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 
 #include <unordered_map>
 #include <vector>
@@ -159,29 +161,15 @@ bsg_fire_sensors(bsg_shape *s)
  * Phase 1 layout sanity checks                                           *
  *                                                                        *
  * bsg_shape and bv_scene_obj are independent structs with the same       *
- * field layout; confirm their sizes agree so the reinterpret casts in    *
- * this file remain safe.  Other bsg_* types are typedef aliases of their *
- * bv_* counterparts so no casts are needed there.                        *
+ * field layout; confirm their sizes agree.  The cast helpers             *
+ * bso_to_bv/bv_to_bso have been removed since no direct cross-boundary  *
+ * casts are needed in this file after the Scene/SHAPI cleanup.           *
  * ====================================================================== */
 static_assert(sizeof(bsg_material)  == sizeof(bv_obj_settings),  "bsg_material size mismatch");
 static_assert(sizeof(bsg_shape)     == sizeof(bv_scene_obj),     "bsg_shape / bv_scene_obj layout mismatch");
 static_assert(sizeof(bsg_lod)       == sizeof(bv_mesh_lod),      "bsg_lod size mismatch");
 static_assert(sizeof(bsg_view)      == sizeof(bview),            "bsg_view size mismatch");
 static_assert(sizeof(bsg_scene)     == sizeof(bview_set),        "bsg_scene size mismatch");
-
-/* ====================================================================== *
- * Cast helpers: bsg_shape * <-> bv_scene_obj *                           *
- *                                                                        *
- * Both structs have the same memory layout throughout Phase 1, so these  *
- * reinterpret casts are safe.  Using named helpers keeps the intent      *
- * visible and makes it trivial to grep for all cross-boundary sites.     *
- * ====================================================================== */
-static inline bv_scene_obj *bso_to_bv(bsg_shape *s)
-    { return reinterpret_cast<bv_scene_obj *>(s); }
-static inline const bv_scene_obj *bso_to_bv(const bsg_shape *s)
-    { return reinterpret_cast<const bv_scene_obj *>(s); }
-static inline bsg_shape *bv_to_bso(bv_scene_obj *s)
-    { return reinterpret_cast<bsg_shape *>(s); }
 
 /* ====================================================================== *
  * Phase 2: traversal state                                               *
@@ -382,7 +370,7 @@ bsg_node_alloc(int type_flags)
     BU_ALLOC(s, bsg_shape);
     if (!s) return NULL;
 
-    s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+    s->i = new bsg_shape_internal;
 
     /* Minimal initialisation matching bv_obj_reset logic without needing pools. */
     s->s_type_flags = (unsigned long long)type_flags;
@@ -469,7 +457,7 @@ bsg_node_free(bsg_shape *s, int recurse)
 	bu_vls_free(&s->s_name);
 
     if (s->i) {
-	delete reinterpret_cast<bsg_shape_internal *>(s->i);
+	delete s->i;
 	s->i = NULL;
     }
 

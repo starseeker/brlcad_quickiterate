@@ -35,7 +35,9 @@
 #include "bsg/view_sets.h"
 #include "./bsg_private.h"
 
-/* Cast helpers for internal struct access */
+/* bsg_scene.i is nominally bview_set_internal* (since bsg_scene = bview_set),
+ * but libbsg allocates bsg_scene_set_internal there.  A reinterpret_cast is
+ * needed until bsg_scene becomes an independent struct (BSG Phase 6). */
 #define BSG_SCENEI(s)  (reinterpret_cast<bsg_scene_set_internal *>((s)->i))
 
 void
@@ -140,10 +142,10 @@ bsg_scene_find_view(bsg_scene *s, const char *vname)
     return v;
 }
 
-struct bv_scene_obj *
+bsg_shape *
 bsg_scene_fsos(bsg_scene *s)
 {
-    return (struct bv_scene_obj *)BSG_SCENEI(s)->free_scene_obj;
+    return BSG_SCENEI(s)->free_scene_obj;
 }
 
 

@@ -61,7 +61,6 @@
 #include "bu/color.h"
 #include "bg/polygon.h"
 #include "bg/polygon_types.h"
-#include "bv/polygon.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS
@@ -215,6 +214,22 @@ bsg_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp,
  */
 BSG_EXPORT int
 bsg_polygon_csg(bsg_shape *target, bsg_shape *stencil, bg_clip_t op);
+
+/* ====================================================================== *
+ * Lower-level polygon helpers                                             *
+ * ====================================================================== */
+
+BSG_EXPORT void bsg_fill_polygon(bsg_shape *s);
+BSG_EXPORT void bsg_polygon_contour(bsg_shape *s, struct bg_poly_contour *c, int curr_c, int curr_i, int do_pnt);
+BSG_EXPORT int bsg_append_polygon_pt(bsg_shape *s, point_t *np);
+BSG_EXPORT int bsg_select_polygon_pt(bsg_shape *s, point_t *cp);
+BSG_EXPORT void bsg_select_clear_polygon_pt(bsg_shape *s);
+BSG_EXPORT int bsg_move_polygon_pt(bsg_shape *s, point_t *mp);
+BSG_EXPORT int bsg_update_polygon_circle(bsg_shape *s, point_t *cp, fastf_t pixel_size);
+BSG_EXPORT int bsg_update_polygon_ellipse(bsg_shape *s, point_t *cp, fastf_t pixel_size);
+BSG_EXPORT int bsg_update_polygon_rectangle(bsg_shape *s, point_t *cp);
+BSG_EXPORT int bsg_update_polygon_square(bsg_shape *s, point_t *cp);
+BSG_EXPORT int bsg_update_general_polygon(bsg_shape *s, int utype, point_t *cp);
 
 __END_DECLS
 

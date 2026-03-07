@@ -45,8 +45,8 @@
 #include "./dm-plot.h"
 #include "../null/dm-Null.h"
 
-#include "bv/defines.h"
-#include "bv/plot3.h"
+#include "bsg/defines.h"
+#include "bsg/plot3.h"
 
 #include "../include/private.h"
 
@@ -336,7 +336,7 @@ plot_drawVList(struct dm *dmp, struct bv_vlist *vp)
     struct plot_vars *privars = (struct plot_vars *)dmp->i->dm_vars.priv_vars;
 
     if (privars->floating) {
-	bv_vlist_to_uplot(privars->up_fp, &vp->l);
+	bsg_vlist_to_uplot(privars->up_fp, &vp->l);
 
 	return BRLCAD_OK;
     }

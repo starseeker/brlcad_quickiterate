@@ -114,13 +114,13 @@ dl_print_schain(bsg_view *v, struct db_i *dbip, int lvl, int vlcmds, struct bu_v
 
 		    for (i = 0; i < nused; i++, cmd++, pt++) {
 			bu_vls_printf(vls, "  %s (%g, %g, %g)\n",
-				      bv_vlist_get_cmd_description(*cmd),
+				      bsg_vlist_get_cmd_description(*cmd),
 				      V3ARGS(*pt));
 		    }
 		}
 
 		bu_vls_printf(vls, "  %zu vlist structures, %zu pts\n", nvlist, npts);
-		bu_vls_printf(vls, "  %zu pts (via bv_ck_vlist)\n", bv_ck_vlist(&(sp->s_vlist)));
+		bu_vls_printf(vls, "  %zu pts (via bsg_ck_vlist)\n", bsg_ck_vlist(&(sp->s_vlist)));
 	}
 
     } else {

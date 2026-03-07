@@ -44,7 +44,7 @@ plotpoint(const ON_3dPoint &point, struct bu_list *vlfree, struct bv_vlblock *vb
 {
     struct bu_list *vhead;
     ON_3dPoint pointsize(4.0,0,0);
-    vhead = bv_vlblock_find(vbp, red, green, blue);
+    vhead = bsg_vlblock_find(vbp, red, green, blue);
     BV_ADD_VLIST(vlfree, vhead, pointsize, BV_VLIST_POINT_SIZE);
     BV_ADD_VLIST(vlfree, vhead, point, BV_VLIST_POINT_DRAW);
     return;
@@ -58,7 +58,7 @@ plottrim(const ON_BrepTrim &trim, struct bu_list *vlfree, struct bv_vlblock *vbp
 
     ON_TextLog tl(stderr);
 
-    vhead = bv_vlblock_find(vbp, red, green, blue);
+    vhead = bsg_vlblock_find(vbp, red, green, blue);
 
     const ON_Curve* trimCurve = trim.TrimCurveOf();
     ON_Interval dom = trimCurve->Domain();
@@ -107,7 +107,7 @@ plotcurve(const ON_Curve &curve, struct bu_list *vlfree, struct bv_vlblock *vbp,
     struct bu_list *vhead;
     fastf_t pt1[3], pt2[3];
 
-    vhead = bv_vlblock_find(vbp, red, green, blue);
+    vhead = bsg_vlblock_find(vbp, red, green, blue);
 
     if (curve.IsLinear()) {
 	/*
@@ -161,7 +161,7 @@ void plotcurveonsurface(const ON_Curve *curve,
     if (curve->Dimension() != 2)
 	return;
     struct bu_list *vhead;
-    vhead = bv_vlblock_find(vbp, red, green, blue);
+    vhead = bsg_vlblock_find(vbp, red, green, blue);
 
     for (int i = 0; i <= plotres; i++) {
 	ON_2dPoint pt2d;
@@ -198,9 +198,9 @@ plotsurface(const ON_Surface &surf, struct bu_list *vlfree, struct bv_vlblock *v
 
     for (int u = 0; u <= gridres; u++) {
 	if (u == 0 || u == gridres) {
-	    vhead = bv_vlblock_find(vbp, red, green, blue);
+	    vhead = bsg_vlblock_find(vbp, red, green, blue);
 	} else {
-	    vhead = bv_vlblock_find(vbp, (int)(fill_rgb[0]), (int)(fill_rgb[1]), (int)(fill_rgb[2]));
+	    vhead = bsg_vlblock_find(vbp, (int)(fill_rgb[0]), (int)(fill_rgb[1]), (int)(fill_rgb[2]));
 	}
 	for (int v = 1; v <= isocurveres; v++) {
 	    ON_3dPoint p = surf.PointAt(udom.ParameterAt((double)u/(double)gridres), vdom.ParameterAt((double)(v-1)/(double)isocurveres));
@@ -214,9 +214,9 @@ plotsurface(const ON_Surface &surf, struct bu_list *vlfree, struct bv_vlblock *v
 
     for (int v = 0; v <= gridres; v++) {
 	if (v == 0 || v == gridres) {
-	    vhead = bv_vlblock_find(vbp, red, green, blue);
+	    vhead = bsg_vlblock_find(vbp, red, green, blue);
 	} else {
-	    vhead = bv_vlblock_find(vbp, (int)(fill_rgb[0]), (int)(fill_rgb[1]), (int)(fill_rgb[2]));
+	    vhead = bsg_vlblock_find(vbp, (int)(fill_rgb[0]), (int)(fill_rgb[1]), (int)(fill_rgb[2]));
 	}
 	for (int u = 1; u <= isocurveres; u++) {
 	    ON_3dPoint p = surf.PointAt(udom.ParameterAt((double)(u-1)/(double)isocurveres), vdom.ParameterAt((double)v/(double)gridres));
@@ -240,7 +240,7 @@ plotface(const ON_BrepFace &face, struct bu_list *vlfree, struct bv_vlblock *vbp
 
     ON_TextLog tl(stderr);
 
-    vhead = bv_vlblock_find(vbp, red, green, blue);
+    vhead = bsg_vlblock_find(vbp, red, green, blue);
 
     surf->GetDomain(0, &umin, &umax);
     for (int i = 0; i < face.LoopCount(); i++) {
@@ -282,7 +282,7 @@ plotUVDomain2d(ON_BrepFace *face, struct bu_list *vlfree, struct bv_vlblock *vbp
 
     ON_TextLog tl(stderr);
 
-    vhead = bv_vlblock_find(vbp, PURERED);
+    vhead = bsg_vlblock_find(vbp, PURERED);
 
     double width, height;
     ON_BoundingBox loop_bb;
@@ -343,7 +343,7 @@ drawisoUCheckForTrim(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vl
     std::list<const BRNode*> m_trims_right;
     std::list<fastf_t> trim_hits;
 
-    vhead = bv_vlblock_find(vbp, YELLOW);
+    vhead = bsg_vlblock_find(vbp, YELLOW);
 
     const ON_Surface *surf = st->getSurface();
     const CurveTree *ctree = st->m_ctree;
@@ -470,7 +470,7 @@ drawisoVCheckForTrim(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vl
     std::list<const BRNode*> m_trims_above;
     std::list<fastf_t> trim_hits;
 
-    vhead = bv_vlblock_find(vbp, YELLOW);
+    vhead = bsg_vlblock_find(vbp, YELLOW);
 
     const ON_Surface *surf = st->getSurface();
     const CurveTree *ctree = st->m_ctree;
@@ -597,7 +597,7 @@ drawisoU(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vlblock *vbp, 
     fastf_t deltau = (to - from) / curveres;
     const ON_Surface *surf = st->getSurface();
 
-    vhead = bv_vlblock_find(vbp, YELLOW);
+    vhead = bsg_vlblock_find(vbp, YELLOW);
     for (fastf_t u = from; u < to; u = u + deltau) {
 	ON_3dPoint p = surf->PointAt(u, v);
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y, p.x, p.y, p.z);
@@ -623,7 +623,7 @@ drawisoV(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vlblock *vbp, 
     fastf_t deltav = (to - from) / curveres;
     const ON_Surface *surf = st->getSurface();
 
-    vhead = bv_vlblock_find(vbp, YELLOW);
+    vhead = bsg_vlblock_find(vbp, YELLOW);
     for (fastf_t v = from; v < to; v = v + deltav) {
 	ON_3dPoint p = surf->PointAt(u, v);
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y, p.x, p.y, p.z);
@@ -748,21 +748,21 @@ plotsurfaceleafs(const SurfaceTree* surf, struct bu_list *vlfree, struct bv_vlbl
 
     ON_TextLog tl(stderr);
 
-    vhead = bv_vlblock_find(vbp, PURERED);
+    vhead = bsg_vlblock_find(vbp, PURERED);
     BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
-    vhead = bv_vlblock_find(vbp, BLUE);
+    vhead = bsg_vlblock_find(vbp, BLUE);
     BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
-    vhead = bv_vlblock_find(vbp, MAGENTA);
+    vhead = bsg_vlblock_find(vbp, MAGENTA);
     BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
 
     for (std::list<const BBNode*>::const_iterator i = leaves.begin(); i != leaves.end(); i++) {
 	const BBNode* bb = *i;
 	if (bb->m_trimmed) {
-	    vhead = bv_vlblock_find(vbp, PURERED);
+	    vhead = bsg_vlblock_find(vbp, PURERED);
 	} else if (bb->m_checkTrim) {
-	    vhead = bv_vlblock_find(vbp, BLUE);
+	    vhead = bsg_vlblock_find(vbp, BLUE);
 	} else {
-	    vhead = bv_vlblock_find(vbp, MAGENTA);
+	    vhead = bsg_vlblock_find(vbp, MAGENTA);
 	}
 	if (dim3d) {
 	    bb->GetBBox(min, max);
@@ -788,19 +788,19 @@ plottrimleafs(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vlblock *
 
     ON_TextLog tl(stderr);
 
-    vhead = bv_vlblock_find(vbp, PURERED);
+    vhead = bsg_vlblock_find(vbp, PURERED);
     BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
-    vhead = bv_vlblock_find(vbp, BLUE);
+    vhead = bsg_vlblock_find(vbp, BLUE);
     BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
-    vhead = bv_vlblock_find(vbp, MAGENTA);
+    vhead = bsg_vlblock_find(vbp, MAGENTA);
     BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
 
     for (std::list<const BRNode*>::const_iterator i = leaves.begin(); i != leaves.end(); i++) {
 	const BRNode* bb = *i;
 	if (bb->m_XIncreasing) {
-	    vhead = bv_vlblock_find(vbp, GREEN);
+	    vhead = bsg_vlblock_find(vbp, GREEN);
 	} else {
-	    vhead = bv_vlblock_find(vbp, BLUE);
+	    vhead = bsg_vlblock_find(vbp, BLUE);
 	}
 	bb->GetBBox(min, max);
 	if (dim3d) {
@@ -827,7 +827,7 @@ plottrimdirection(const ON_BrepFace &face, struct bu_list *vlfree, struct bv_vlb
 
     ON_TextLog tl(stderr);
 
-    vhead = bv_vlblock_find(vbp, GREEN);
+    vhead = bsg_vlblock_find(vbp, GREEN);
 
     surf->GetDomain(0, &umin, &umax);
     for (int i = 0; i < face.LoopCount(); i++) {
@@ -882,7 +882,7 @@ plotsurfacenormals(const ON_Surface &surf, struct bu_list *vlfree, struct bv_vlb
     struct bu_list *vhead;
     fastf_t pt1[3], pt2[3];
 
-    vhead = bv_vlblock_find(vbp, GREEN);
+    vhead = bsg_vlblock_find(vbp, GREEN);
 
     ON_Interval udom = surf.Domain(0);
     ON_Interval vdom = surf.Domain(1);
@@ -927,7 +927,7 @@ plotsurfaceknots(ON_Surface &surf, struct bu_list *vlfree, struct bv_vlblock *vb
     surf.GetSpanVector(0, spanu);
     surf.GetSpanVector(1, spanv);
 
-    vhead = bv_vlblock_find(vbp, GREEN);
+    vhead = bsg_vlblock_find(vbp, GREEN);
 
     if (dim3d) {
 	for (int u = 0; u <= spanu_cnt; u++) {
@@ -957,7 +957,7 @@ static void
 plot_nurbs_cv(struct bu_list *vlfree, struct bv_vlblock *vbp, int ucount, int vcount, const ON_NurbsSurface *ns)
 {
     struct bu_list *vhead;
-    vhead = bv_vlblock_find(vbp, PEACH);
+    vhead = bsg_vlblock_find(vbp, PEACH);
     ON_3dPoint cp;
     fastf_t pt1[3], pt2[3];
     int i, j, k, temp;
@@ -997,7 +997,7 @@ _brep_vlblock_plot(struct ged *gedp, struct bv_vlblock *vbp, const char *sname)
     if (gedp->new_cmd_forms) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "brep::%s", sname);
-	bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
+	bsg_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
 	bu_vls_free(&nroot);
     } else {
 	_ged_cvt_vlblock_to_solids(gedp, vbp, sname, 0);
@@ -2151,7 +2151,7 @@ _brep_cmd_surface_uv_plot(void *bs, int argc, const char **argv)
 	fastf_t pt1[3], pt2[3];
 	fastf_t delta = U.Length()/1000.0;
 
-	vhead = bv_vlblock_find(vbp, YELLOW);
+	vhead = bsg_vlblock_find(vbp, YELLOW);
 	for (int i = 0; i < 2; i++) {
 	    fastf_t v = V.m_t[i];
 	    for (fastf_t u = U.m_t[0]; u < U.m_t[1]; u = u + delta) {

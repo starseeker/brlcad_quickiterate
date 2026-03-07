@@ -12,6 +12,113 @@ additions documented in `include/bsg/defines.h` and `include/bsg/util.h`.
 
 ---
 
+## Current State — Session 28 Survey (2026-03-07)
+
+### What is fully done ✅
+
+The `include/bv/` header directory and `src/libbv/` source directory have been
+**physically deleted** from the repository.  All implementation lives in
+`libbsg`; `bv.h` is now a deprecated compatibility shim that includes
+`bsg.h + bsg/compat.h`.  All in-tree consumer headers/sources use `bsg.h`
+directly.
+
+**Rendering pipeline** is on the scene graph:
+- `dm_draw_objs()` in `src/libdm/view.c` uses `bsg_view_traverse()` for the
+  entire geometry draw pass.  The old flat `bsg_view_shapes()` loops are gone.
+- `dm_draw_bsg_view()` in `src/libdm/dm-generic.c` likewise drives
+  `bsg_view_traverse()`.
+- `mged/dozoom.c` calls `dm_draw_bsg_view()` via the BSG path.
+- `libqtcad/QgGL.cpp` and `QgSW.cpp` call `dm_draw_objs()` and create a
+  scene root via `bsg_scene_root_create()`.
+
+**Scene-root initialisation** is in place:
+- `libged/ged.cpp`: `bsg_scene_init()` + `bsg_scene_root_create()` called for
+  the default view at GED initialisation.
+- `libqtcad/QgGL.cpp`, `QgSW.cpp`: `bsg_scene_root_create()` called for the
+  local view.
+- `mged/attach.c`: `bsg_scene_root_create()` called after `bsg_view_init()`.
+
+**Camera API** usage:
+- `mged/dozoom.c`: reads camera via `bsg_view_get_camera()`.
+- `libqtcad/QgGL.cpp`: reads/writes camera via `bsg_view_get_camera/set_camera()`.
+- `libged/view/aet.c`: writes AET through `bsg_view_get_camera/set_camera()`.
+- `src/libdm/view.c`: reads camera via `bsg_view_get_camera()` for matrix load.
+- `dm-gl.c` `dl_head_scene_obj` list: removed (Phase 2e complete).
+
+### What remains open ⚠️
+
+The **`display_list` struct** (`include/bsg/defines.h:211`) and the
+`gd_headDisplay` chain (`struct ged_drawable.gd_headDisplay`) are still widely
+used as the *bookkeeping* layer that tracks which geometry paths are drawn.
+The rendering loop no longer uses it directly (it reads from the scene-root
+children), but the *draw/erase/who/zap* commands still walk this list to
+manage geometry state.  It is the primary source of remaining legacy patterns.
+
+Key open areas in priority order:
+
+#### P1: `display_list` bookkeeping migration (affects all apps)
+
+| File | Pattern | Count |
+|------|---------|-------|
+| `src/libged/display_list.c` | `dl_head_scene_obj` iteration, `gd_headDisplay` management | ~20 |
+| `src/libged/draw/draw.c` | `append_solid_to_display_list`, `gd_headDisplay` loops | ~12 |
+| `src/libged/who/who.c` | walks `gd_headDisplay` for "what is drawn" query | ~8 |
+| `src/libged/zap/zap.c` | clears `gd_headDisplay` list | ~4 |
+| `src/libged/garbage_collect/` | rebuilds scene objects via `gd_headDisplay` | ~6 |
+| `src/libged/move/move.c`, `move_all/` | updates paths in `gd_headDisplay` | ~4 |
+| `src/libtclcad/view/draw.c` | `to_edit_redraw` walks `gd_headDisplay` for path matching | ~10 |
+| `src/mged/dozoom.c` | `createDLists()` calls `dm_draw_display_list()` (GL display lists) | 1 |
+| `src/libtclcad/commands.c` | reads `gv_model2view` inline, loops `bsg_scene_views` | ~6 |
+
+The path forward is:
+1. **Replace `gd_headDisplay` list** with `DrawList` (already in `dbi.h`) as
+   the canonical "what is drawn" registry — each entry holds a `DbiPath` plus
+   the hash.  `BViewState::draw_list_` already plays this role; the `ged`
+   C layer needs a thin wrapper (`ged_dl()` already exists, but should
+   delegate to `BViewState` when a `DbiState` is present).
+2. **Scene-root children** are the rendering truth; the bookkeeping list is
+   the query/erase index.  Keep them in sync via `BViewState::add_hpath()` /
+   `erase_hpath()`.
+3. Remove `ged_create_vlist_display_list_callback` once all callers migrated.
+
+#### P2: Remaining camera-field direct writes
+
+| File | Remaining pattern |
+|------|-------------------|
+| `src/libged/draw/loadview.cpp` | direct `gv_aet`, `gv_rotation` writes |
+| `src/libged/draw/preview.cpp` | direct `gv_*` camera field writes |
+| `src/mged/chgview.c` | view-preset cache uses raw `gv_aet` / `gv_rotation` |
+| `src/libtclcad/commands.c` | direct `gv_model2view` reads |
+| `src/librt/edit.cpp`, `primitives/*/ed*.c` | direct `gv_*` reads for pick/highlight |
+
+#### P2: Remaining flat-list feature work
+
+| App | Feature gap |
+|-----|------------|
+| **MGED** | `illum_gdlp` (illuminated solid tracking) still a raw `display_list*`; needs typed scene-node selection |
+| **MGED** | `createDLists()` / `dm_draw_display_list()` — GPU display-list pre-compilation via scene traversal |
+| **libtclcad** | `to_edit_redraw` should walk scene-root children, not `gd_headDisplay` |
+| **qged** | `QgEdApp.cpp` manual view-iteration for redraws → sensor-driven |
+| **qged polygon plugins** | typed-node queries instead of `bsg_view_shapes` linear scan |
+
+#### P3: Sensor / LoD integration
+
+- `dm-gl_lod.cpp`: replace `s_dlist_stale` polling with `BSG_NODE_LOD_GROUP` sensors.
+- `libged/view/lod.cpp`: add `BSG_NODE_LOD_GROUP` node type support.
+- `dbi_state.cpp`: schedule redraws via scene sensors rather than explicit `bsg_shape_stale()` calls.
+
+### Suggested work order for next sessions
+
+1. **Consolidate `gd_headDisplay` → `DrawList`** (libged/display_list.c +
+   libged/draw/draw.c + zap + who + garbage_collect): most impactful single
+   change to remove the dual-tracking complexity.
+2. **Migrate `to_edit_redraw`** in libtclcad to scene-root traversal.
+3. **Camera-field writes** in loadview.cpp / preview.cpp / mged/chgview.c.
+4. **Sensor-driven redraws** in qged (QgEdApp.cpp).
+5. **LoD sensor integration** (dm-gl_lod.cpp, libged/view/lod.cpp).
+
+---
+
 ## Priority legend
 
 | Tag | Meaning |
@@ -24,7 +131,7 @@ additions documented in `include/bsg/defines.h` and `include/bsg/util.h`.
 
 ## 1. `libdm` — Display Manager
 
-### 1.1 `src/libdm/view.c`  **[P1]** – Replace flat-table render loop with graph traversal
+### 1.1 `src/libdm/view.c`  **[DONE ✅]** – Replace flat-table render loop with graph traversal
 
 **Current pattern** (repeated ~8 times in the file):
 ```c
@@ -54,7 +161,7 @@ local_db_objs, view_objs, local_view_objs) collapse into one graph walk.
 - Lines 789–795: `matp_t mat = v->gv_model2view; dm_loadpmatrix(dmp, v->gv_pmat)`
   should become: `bsg_view_get_camera(v, &cam); dm_loadpmatrix(dmp, cam.pmat)`.
 
-### 1.2 `src/libdm/dm-gl.c`  **[P1]** – Replace `dl_head_scene_obj` list walk
+### 1.2 `src/libdm/dm-gl.c`  **[DONE ✅]** – Replace `dl_head_scene_obj` list walk
 
 `dl_head_scene_obj` is the legacy linked-list on a `display_list` struct.
 Line 1549:
@@ -109,7 +216,7 @@ bsg_scene_root_create(qi->mw->canvas->v);
 
 ## 2. `libged` — Geometry Editing Library
 
-### 2.1 `src/libged/ged.cpp` / `include/ged/defines.h`  **[P1]** – Add scene-root creation in GED init
+### 2.1 `src/libged/ged.cpp` / `include/ged/defines.h`  **[DONE ✅]** – Add scene-root creation in GED init
 
 `libged/ged.cpp` lines 112–125 initialise the GED instance:
 ```c
@@ -147,7 +254,7 @@ callers should register a sensor on newly created view objects that schedules a
 re-render (`bsg_shape_add_sensor(s, schedule_redraw_cb, dmp)`) so renderers
 do not need to poll.
 
-### 2.4 `src/libged/draw/draw2.cpp` **[P1]** – Replace flat-table emptiness check with scene-root check
+### 2.4 `src/libged/draw/draw2.cpp` **[DONE ✅]** – Replace flat-table emptiness check with scene-root check
 
 Lines 209–214:
 ```c
@@ -241,7 +348,7 @@ sensor (`bsg_shape_add_sensor`) at draw time that handles re-generation.
 
 ## 3. `libqtcad` — Qt CAD Library
 
-### 3.1 `src/libqtcad/QgGL.cpp` **[P1]** – Replace direct `gv_aet` writes with camera API
+### 3.1 `src/libqtcad/QgGL.cpp` **[DONE ✅]** – Replace direct `gv_aet` writes with camera API
 
 Lines 60–105 use a pattern repeated for every standard view:
 ```c
@@ -267,7 +374,7 @@ if (root && BU_PTBL_LEN(&root->children) > 0) {
 
 Lines 391–405 also write `v->gv_aet` and `v->gv_rotation` directly — same fix.
 
-### 3.2 `src/libqtcad/QgGL.cpp` line 52–53 **[P1]** – Add scene-root creation
+### 3.2 `src/libqtcad/QgGL.cpp` line 52–53 **[DONE ✅]** – Add scene-root creation
 
 ```c
 BU_GET(local_v, bsg_view);
@@ -348,7 +455,7 @@ Should go through `bsg_view_get_camera()` for camera fields and the existing
 
 ## 5. `mged` — Classic Interactive Editor
 
-### 5.1 `src/mged/attach.c` lines 720–724 **[P1]** – Remove manual `gv_objs` initialisation
+### 5.1 `src/mged/attach.c` lines 720–724 **[DONE ✅]** – Remove manual `gv_objs` initialisation
 
 ```c
 BU_GET(view_state->vs_gvp->gv_objs.db_objs, struct bu_ptbl);
@@ -953,7 +1060,14 @@ convention.  Effectively: copy `libbv` → `libbsg`, rename, remove non-BSG elem
 - **Step 6 (consumer migration)**: Progressively migrate consumers from `#include "bv/..."`
   to `#include "libbsg/libbsg.h"`, driving toward enabling
   `BRLCAD_DISABLE_LIBBV_INCLUDES`.
-- **Step 7 (libbv removal)**: Remove `libbv` once all consumers have migrated.
+- **Step 7 (libbv removal)**: ✅ **COMPLETE** (Session 21): All implementation moved from `libbv`
+  to `libbsg`.  `libbv` is now an empty stub (`bv_stub.c`) that links `libbsg.so` so that
+  existing code linking `-lbv` still resolves symbols at runtime.  `source_dirs.cmake` updated
+  so that `libnmg`, `libbrep`, `librt`, `libdm`, `libged`, `libqtcad`, `libtclcad` depend on
+  `libbsg` (not `libbv`).  All consumer `CMakeLists.txt` (`util/`, `libbv/tests/`,
+  `librt/tests/`) updated.  `bsg/compat.h` gains `bv_update_polygon`, `bv_snap_*` aliases.
+  `libbsg.so` is built with `BV_DLL_EXPORTS` + `BSG_DLL_EXPORTS` + `PLOT3_DLL_EXPORTS` so
+  all legacy `bv_*` symbols remain exported.  Full build clean; 23/23 draw+bview tests pass.
 
 ### Session 10 partial work (superseded by pivot)
 
@@ -995,4 +1109,138 @@ suites provide a clean baseline again.
 - ✅ Step 6 — Geometry ingestion (`src/libbsg_dm/geom.c`): `libbsg_shape_wireframe(s, ip, ttol, tol)` calls `ft_plot()` from the primitive functab to populate `libbsg_shape.vlist` from an `rt_db_internal`.
 - ✅ Step 7 — Selection state (`src/libbsg/select.c`): `libbsg_select_state`, `libbsg_select_alloc/free/clear/add_path/rm_path/has_path/count/sync_highlight` — clean re-implementation, no `DbiState` coupling.
 - ✅ Both `libbsg.so` (24 symbols) and `libbsg_dm.a` (3 symbols) build cleanly.
-- Remaining: Step 8 (optional CMake flag `BRLCAD_DISABLE_LIBBV_INCLUDES`).*
+- Remaining: Step 8 (optional CMake flag `BRLCAD_DISABLE_LIBBV_INCLUDES`).  
+**Sessions 14–16 (Incremental build-up Steps 2–4 COMPLETE)**:
+- ✅ Step 2 — Moved `scene_graph.cpp` from `libbv/` to `libbsg/`; renamed from `libbsg_*` back to production `bsg_*` naming convention; 101 `bsg_*` symbols exported from `libbsg.so`.
+- ✅ `libbv` now links `libbsg` for backward compatibility.
+- ✅ Step 3 — Moved `diff.c` and `hash.c` from `libbv/` to `libbsg/`.
+- ✅ Step 4 — Moved `util.cpp` from `libbv/` to `libbsg/`; internal helpers renamed `_bsg_*_compat()` to avoid conflicts with `bv_*` exports; `scene_graph.cpp` wrappers updated to call `_bsg_*_compat` instead of `bv_*`.  Also added `knobs.cpp`, `snap.c`, `polygon.c`, `view_sets.cpp`, `lod.cpp` to `libbsg/`. `libbsg.so` has zero undefined `bv_*` symbols; deps = `libbg;libbn;libbu` only.  
+**Session 17 (BSG fixes)**:
+- ✅ `bsg_traverse` post-order for geometry nodes — visit geometry after children to fix polygon fill draw order.
+- ✅ `bsg_shape_get/put` propagate DB shapes to ALL non-independent sibling views in the same `vset`.
+- ✅ All 5 draw test suites pass: `ged_test_draw`, `ged_test_faceplate`, `ged_test_quad`, `ged_test_select_draw`, `ged_test_lod`.  
+**Session 18 (Step 5 type safety + DBI bug fix)**:
+- ✅ Step 5 partial — `bsg_shape.i` field type changed from `struct bv_scene_obj_internal *` to `struct bsg_shape_internal *` in `bv/defines.h`. The `BSG_SHAPI` macro is now a direct field access with no cast; `BSG_SHAPI_CAST` removed. All 5 allocation sites in `util.cpp` and 1 in `scene_graph.cpp` use `new bsg_shape_internal` directly.
+- ✅ DBI garbage-collection bug fixed: in `DbiState::update()` the condition for collecting unused `i_map`/`i_str` entries was inverted (`!= used.end()` → `== used.end()`), causing used instance-hash entries to be silently erased. This made `print_hash()` crash when the select test tried to print expanded selection paths. Fixed by one-character change.
+- ✅ All 5 draw test suites regenerated and passing (100%): basic, faceplate, lod, select, quad.  
+**Session 19 (BSG cleanup — libbsg only, no libbv changes)**:
+- ✅ Created `include/bsg/scene_set.h` — internal header defining `bsg_scene_set_internal` (used by `bsg_private.h`; not installed as public header).
+- ✅ Updated `src/libbsg/bsg_private.h`: uses `#include "bsg/scene_set.h"` instead of inline struct definition.
+- ✅ BSG_SCENEI remains a `reinterpret_cast` (bsg_scene is still a typedef of bview_set — Phase 6 will make it independent without touching libbv).
+- ✅ Fixed `bsg_scene_fsos()` return type from `bv_scene_obj *` to `bsg_shape *` in `bsg/util.h` and `libbsg/view_sets.cpp`.
+- ✅ Removed `(bsg_shape *)` casts from 3 callers: `mged/dodraw.c`, `libged/display_list.c`, `libged/zap/zap.c`.
+- ✅ Cleaned up `libbsg/hash.c`: renamed internal `bv_scene_obj_hash()` → `bsg_shape_hash()` (static), replaced `bv_scene_group*`/`bv_scene_obj*` casts with `bsg_shape*`.
+- ✅ Removed dead `bso_to_bv`/`bv_to_bso` cast-helper functions from `scene_graph.cpp` (defined but never called).
+- ✅ Added comprehensive `bsg_*` typedef aliases to `bsg/defines.h`: `bsg_label`, `bsg_axes`, `bsg_vlist`, `bsg_vlblock`, `bsg_polygon`, `bsg_adc_state`, `bsg_grid_state`, `bsg_interactive_rect_state`, `bsg_params_state`, `bsg_other_state`, `bsg_data_axes_state`, `bsg_data_arrow_state`, `bsg_data_label_state`, `bsg_data_line_state`, `bsg_data_tclcad`.
+- ✅ No changes to `src/libbv/` or `include/bv/defines.h`.
+- ✅ All 5 draw test suites pass (100%): basic, faceplate, lod, select, quad.*
+
+**Session 20 (BSG consumer migration — Step 6)**:
+- ✅ Created `include/bsg/adc.h` — Phase 1 wrapper around `bv/adc.h`; adds `bsg_adc_*` inline aliases using the `bsg_adc_state` typedef.
+- ✅ Created `include/bsg/vlist.h` — Phase 1 wrapper around `bv/vlist.h`; pulls in `bsg_vlist` and `bsg_vlblock` types from `bsg/defines.h`.
+- ✅ Added `adc.h` and `vlist.h` to the installed `bsg/` header set in `include/bsg/CMakeLists.txt`.
+- ✅ **Migrated 22 consumer source files** off `bv/defines.h` → `bsg/defines.h`:
+  - libdm: `adc.c`, `axes.c`, `dm-generic.c`, `dm-gl.c`, `dm-gl_lod.cpp`, `labels.c`, `view.c`, `swrast/dm-swrast.cpp`, `plot/dm-plot.c`, `postscript/dm-ps.c`, `qtgl/dm-qtgl.cpp`, `wgl/dm-wgl.c`, `X/dm-X.c`, `glx/dm-ogl.c`
+  - libged: `draw.cpp`, `ged.cpp`, `osg.cpp`, `scale/scale.c`, `bot/dump/bot_dump.cpp`
+  - libbg: `sat.cpp`
+  - libqtcad: `bindings.cpp`
+  - libtclcad: `commands.c`
+- ✅ Migrated `libdm/adc.c` from `bv/adc.h` → `bsg/adc.h`.
+- ✅ Migrated `libged/grid/grid.c` and `libged/view/snap.c` from `bv/snap.h` → `bsg/snap.h`.
+- ✅ Migrated `librt/vlist.c`, `libnmg/plot.c`, `libged/overlay/overlay.c` from `bv/vlist.h` → `bsg/vlist.h`.
+- ✅ All builds pass (libbsg, libbv, libdm, libged).  Pre-existing test 20/23 image-comparison differences unchanged.
+- ✅ No changes to `src/libbv/` or `include/bv/`.
+
+**Session 20 (BSG consumer migration — Step 6 COMPLETE)**:
+- ✅ Created `include/bsg/adc.h` — Phase 1 wrapper around `bv/adc.h`; adds `bsg_adc_*` inline aliases using `bsg_adc_state` typedef.
+- ✅ Created `include/bsg/vlist.h` — Phase 1 wrapper around `bv/vlist.h`; canonical BSG type is `bsg_vlist`.
+- ✅ Created `include/bsg/plot3.h` — Phase 1 wrapper around `bv/plot3.h`.
+- ✅ Created `include/bsg/tig.h` — Phase 1 wrapper around `bv/tig.h`.
+- ✅ Created `include/bsg/vectfont.h` — Phase 1 wrapper around `bv/vectfont.h`.
+- ✅ Added all new headers to the installed `bsg/` header set in `include/bsg/CMakeLists.txt`.
+- ✅ **Consumer source migration** (Step 6): Migrated all `bv/` direct includes in consumer libraries to `bsg/` equivalents:
+  - 22 files: `bv/defines.h` → `bsg/defines.h` (libdm ×14, libged ×5, libbg, libqtcad, libtclcad)
+  - 3 files: `bv/vlist.h` → `bsg/vlist.h` (librt/vlist.c, libnmg/plot.c, libged/overlay/overlay.c)
+  - 2 files: `bv/snap.h` → `bsg/snap.h` (libged/grid/grid.c, libged/view/snap.c)
+  - 1 file: `bv/adc.h` → `bsg/adc.h` (libdm/adc.c)
+  - ~65 files: `bv/plot3.h` → `bsg/plot3.h` (librt, libnmg, libbg, libbrep, liboptical, libged, libgcv, rt/, util/, conv/, gtools/, mged/, fb/)
+  - 1 file: `bv/tig.h` → `bsg/tig.h` (rt/rtscale.c)
+- ✅ **Public header migration**: Migrated 9 public headers from `bv/` to `bsg/` equivalents:
+  - `ged.h`, `ged/defines.h`, `rt/view.h`, `rt/edit.h`, `rt/primitives/sketch.h`, `bg/polygon.h` → `bsg/defines.h`
+  - `rt/nmg_conv.h`, `nmg.h`, `brep/cdt.h` → `bsg/vlist.h`
+  - `bn.h`, `RTree.h` → `bsg/plot3.h`; `bn.h` → `bsg/vectfont.h`
+- ✅ Builds clean (libbsg, libbv, libdm, libged, librt, libnmg); no new test failures.
+- ✅ No changes to `src/libbv/` or `include/bv/`.
+
+**Session 20 (BSG consumer migration — Step 6 COMPLETE: Zero bv/ includes outside libbv)**:
+- ✅ Created new `bsg/` wrapper headers: `adc.h`, `vlist.h`, `plot3.h`, `tig.h`, `vectfont.h`.
+- ✅ All new headers added to the installed `bsg/` header set in `include/bsg/CMakeLists.txt`.
+- ✅ **Migrated ~100 consumer source files** off `bv/` → `bsg/` equivalents across libdm, libged, librt, libnmg, libbg, libbrep, liboptical, libgcv, rt/, util/, conv/, gtools/, mged/, fb/.
+- ✅ Migrated 11 public headers: `ged.h`, `ged/defines.h`, `rt/view.h`, `rt/edit.h`, `rt/primitives/sketch.h`, `bg/polygon.h`, `rt/nmg_conv.h`, `nmg.h`, `brep/cdt.h`, `bn.h`, `RTree.h`.
+- ✅ Migrated libbsg internal files: `diff.c`, `hash.c`, `lod.cpp`, `polygon.c`, `scene_graph.cpp`, `snap.c`, `util.cpp`.
+- ✅ Migrated private consumer headers: `libbrep/cdt/cdt.h`, `libdm/dm-gl.h`, `libged/ged_private.h`, `libged/bot/ged_bot.h`, `libged/brep/ged_brep.h`, `libqtcad/bindings.h`, `librt/primitives/brep/brep_debug.h`, `mged/mged.h`, `qged/.../CADViewSettings.h`.
+- ✅ **`grep -rn '#include.*"bv/' src/ include/ | grep -v libbv | grep -v /bv/ | grep -v /bsg/` → ZERO results.** Only `src/libbv/` itself and the bridge `bsg/*.h` headers reference `bv/` directly.
+- ✅ Builds clean (libbsg, libbv, libdm, libged, librt, libnmg, libbrep).
+- ✅ No changes to `src/libbv/` or `include/bv/`.*
+
+**Session 21 (BSG libbv removal — Step 7 COMPLETE)**:
+- ✅ Moved remaining unique `libbv` source files to `libbsg`: `adc.c`, `font.c`, `polygon_op.cpp`,
+  `polygon_fill.cpp`, `vlist.c`, `tig/axis.c`, `tig/list.c`, `tig/marker.c`, `tig/scale.c`,
+  `tig/symbol.c`, `tig/tplot.c`, `tig/vectfont.c`, `tig/vector.c`.
+- ✅ Updated all moved source files: `bv/` → `bsg/` includes; `polygon_op.cpp` uses `bsg_shape*`
+  with explicit casts; `vlist.c` uses `bsg_*` API directly in `bv_vlblock_obj`.
+- ✅ `libbsg/CMakeLists.txt`: added all moved files + `UNITY_BUILD_SKIP vlist.c` + 
+  `BV_DLL_EXPORTS;BSG_DLL_EXPORTS;PLOT3_DLL_EXPORTS` so all legacy `bv_*` symbols are exported.
+- ✅ `libbv/CMakeLists.txt` replaced with stub: single `bv_stub.c` links `libbsg` and anchors
+  the `NEEDED libbsg` dep via `bv_libbsg_anchor = bsg_scene_init`. `libbv.so` is 31K (was 2.4M+).
+- ✅ `src/source_dirs.cmake`: removed `libbv` from `libnmg`, `libbrep`, `librt`, `libdm`,
+  `libged`, `libqtcad`, `libtclcad` deps; `libbv` now only depends on `libbsg`.
+- ✅ `src/util/CMakeLists.txt`: all `plot3-*`/`asc-plot3`/`pixhist3d-plot3` link `libbsg` not `libbv`.
+- ✅ `src/libbv/tests/CMakeLists.txt`, `src/librt/tests/CMakeLists.txt`: link `libbsg`.
+- ✅ `bsg/compat.h`: added `bv_update_polygon`, `bv_snap_lines_2d`, `bv_snap_grid_2d`,
+  `bv_snap_lines_3d` aliases; fixed C++ reserved word `or` → `kr` in `bv_knobs_rot` macro.
+- ✅ `libbsg/snap.c`: added exported `bv_snap_*` wrapper functions for backward compat.
+- ✅ Full build clean; **23/23 draw+bview tests pass** (3 pre-existing image-compare failures unchanged).
+- ✅ `libbsg.so.1.0.0` exports 203 `bsg_*` + `bv_*` symbols; `libbv.so.20.0.1` is a 31 KB stub.
+
+**Session 26 (bsg/ headers self-contained, libbv library removed)**:
+- ✅ All `bsg/` headers made fully self-contained — zero `#include "bv/"` in any `bsg/` header.
+  - `bsg/defines.h` absorbs all content from `bv/defines.h`, `bv/faceplate.h`, `bv/tcl_data.h`.
+  - `bsg/adc.h`, `bsg/vlist.h`, `bsg/polygon.h`, `bsg/tig.h`, `bsg/plot3.h`, `bsg/vectfont.h`
+    all have `bv/` includes removed or inlined.
+- ✅ `BV_EXPORT` aliased to `BSG_EXPORT` for in-tree compatibility.
+- ✅ `libbv` tests disabled in `libbv/tests/CMakeLists.txt`; migrated to `libbsg/tests/`.
+  - New test binaries: `bsg_test` (list.c + vlist.c) and `bsg_plot3`.
+- ✅ libbv stub library removed from CMake build (`libbv/CMakeLists.txt` → `cmakefiles()` only).
+- ✅ `libbv` `set_deps` removed from `source_dirs.cmake`.
+- ✅ `include/CMakeLists.txt`: `bv.h` and `bv/` subdirectory removed; `bsg.h` → `REQUIRED libbsg`.
+- ✅ External CMakeLists (Creo, Cubit, Unigraphics): `libbv` → `libbsg`.
+- ✅ Build verified: libbsg, bsg_test, bsg_plot3 build clean.
+- ✅ `bv/` header files and `libbv/` source files left on disk (tracked via `cmakefiles()` only).
+
+**Session 27 (physical deletion of bv/ and libbv/)**:
+- ✅ `git rm` of all 14 `include/bv/` header files + `CMakeLists.txt`.
+- ✅ `git rm` of all `src/libbv/` source files (15 top-level, 8 `tig/`, all tests).
+- ✅ `include/bv.h` converted to a compatibility shim: includes `bsg.h` + `bsg/compat.h`, deprecated.
+- ✅ Fixed stale `#include "bv/faceplate.h"` in `libbsg/adc.c` (types available via `bsg/adc.h`).
+- ✅ Added `misc/pkgconfig/libbsg.pc.in`; updated `libbv.pc.in` to redirect to `libbsg`.
+- ✅ Updated `misc/pkgconfig/CMakeLists.txt` to include `libbsg.pc.in`.
+- ✅ Updated `misc/win32-msvc/Dll/CMakeLists.txt`: `libbv-static` → `libbsg-static`.
+- ✅ Updated `doc/legal/embedded/CMakeLists.txt`: `TRIGGER libbv` → `TRIGGER libbsg`.
+- ✅ Created `misc/doxygen/libbsg.dox`; added `libbsg` to `DOX_LIBS` and dox file list.
+- ✅ Fixed `bsg_test.c.in` template variable mismatch (`BSG_TEST_*` → `BVIEW_TEST_*`): **18/18 tests pass**.
+- ✅ Migrated remaining 11 `#include "bv.h"` → `#include "bsg.h"` in public headers:
+  - `include/dm.h`, `include/rt/functab.h`, 8 × `include/qtcad/*.h`, `regress/fuzz/fuzz_ged.cpp`.
+- ✅ Updated `bsg.h` doc comment to remove references to deleted `bv/` sub-headers.
+- ✅ Build verified: `libdm`, `librt`, `libged`, `libnmg`, `libbrep` all build clean.
+- ✅ **18/18 bsg tests pass** (bsg_test list/vlist, bsg_plot3 valid/invalid).
+
+**Session 28 (survey + documentation update)**:
+- ✅ Confirmed rendering pipeline is fully on scene graph: `dm_draw_objs()` / `dm_draw_bsg_view()` → `bsg_view_traverse()`.
+- ✅ Confirmed scene-root initialisation in place: libged/ged.cpp, libqtcad/QgGL.cpp, QgSW.cpp, mged/attach.c.
+- ✅ Confirmed camera API in use: mged/dozoom.c, libqtcad/QgGL.cpp, libged/view/aet.c, libdm/view.c.
+- ✅ Confirmed dm-gl.c `dl_head_scene_obj` removed (Phase 2e stub confirmed).
+- ✅ Confirmed draw2.cpp uses `bsg_view_shapes()` / scene-root check.
+- ✅ Added **Session 28 Survey** section at top of this document: current state, remaining open items, suggested work order.
+- ✅ Updated section status markers: 1.1, 1.2, 2.1, 2.4, 3.1, 3.2, 5.1 marked DONE ✅.
+- Key remaining work identified: `display_list` / `gd_headDisplay` bookkeeping migration, camera-field direct writes in loadview/preview/mged/libtclcad, sensor-driven redraws in qged.

@@ -5,9 +5,12 @@ includedir=@includedir@
 datarootdir=@datarootdir@
 datadir=@datadir@
 
+# Compatibility shim — the libbv library has been absorbed into libbsg.
+# New code should use libbsg instead.
+
 Name: libbv
-Description: BRL-CAD View Library
+Description: BRL-CAD View Library (deprecated — use libbsg)
 Version: @BRLCAD_VERSION@
-Requires: libbg libbn libbu
-Libs: -L${libdir} -lbg -lbn -lbu -llmdb @LIBM@
+Requires: libbsg libbg libbn libbu
+Libs: -L${libdir} -lbsg -lbg -lbn -lbu @LIBM@
 Cflags: -I${includedir}/brlcad -I${includedir}

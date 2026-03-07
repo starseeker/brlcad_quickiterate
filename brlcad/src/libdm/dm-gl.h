@@ -32,8 +32,8 @@
 
 #include "vmath.h"
 #include "bu.h"
-#include "bv/vlist.h"
-#include "bv/defines.h"
+#include "bsg/vlist.h"
+#include "bsg/defines.h"
 #include "dm.h"
 
 #define GL_SILENCE_DEPRECATION 1

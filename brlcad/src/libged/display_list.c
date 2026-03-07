@@ -32,7 +32,7 @@
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/color.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "bg/clip.h"
 
 #include "bsg/util.h"
@@ -100,7 +100,7 @@ dl_gdlp_shapes(struct ged *gedp, struct display_list *gdlp, struct bu_ptbl *out)
 static void
 dl_free_shape(struct ged *gedp, bsg_shape *sp)
 {
-    bsg_shape *free_scene_obj = (bsg_shape *)bsg_scene_fsos(&gedp->ged_views);
+    bsg_shape *free_scene_obj = bsg_scene_fsos(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
     ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
@@ -702,7 +702,7 @@ solid_append_vlist(bsg_shape *sp, struct bv_vlist *vlist)
 	sp->s_vlen = 0;
     }
 
-    sp->s_vlen += bv_vlist_cmd_cnt(vlist);
+    sp->s_vlen += bsg_vlist_cmd_cnt(vlist);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(vlist->l));
 }
 
@@ -710,8 +710,8 @@ static void
 solid_copy_vlist(struct db_i *UNUSED(dbip), bsg_shape *sp, struct bv_vlist *vlist, struct bu_list *vlfree)
 {
     BU_LIST_INIT(&(sp->s_vlist));
-    bv_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
-    sp->s_vlen = bv_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
+    bsg_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
+    sp->s_vlen = bsg_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
 }
 
 

@@ -27,7 +27,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QLineEdit>
-#include "bv.h"
+#include "bsg.h"
 #include "ged.h"
 #include "qtcad/QgColorRGB.h"
 #include "qtcad/QgMeasureFilter.h"

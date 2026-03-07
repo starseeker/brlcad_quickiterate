@@ -44,7 +44,7 @@ dl_zap(struct ged *gedp)
     struct db_i *dbip = gedp->dbip;
     struct display_list *gdlp = NULL;
     struct bu_ptbl dls = BU_PTBL_INIT_ZERO;
-    bsg_shape *free_scene_obj = (bsg_shape *)bsg_scene_fsos(&gedp->ged_views);
+    bsg_shape *free_scene_obj = bsg_scene_fsos(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
     /* Phase 2e: free all shapes from root->children across all views */

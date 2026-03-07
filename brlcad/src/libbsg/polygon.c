@@ -33,7 +33,7 @@
 #include "bu/vls.h"
 #include "bn/mat.h"
 #include "bn/tol.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bg/lseg.h"
@@ -44,7 +44,7 @@
 #include "bsg/snap.h"
 
 void
-bv_polygon_contour(bsg_shape *s, struct bg_poly_contour *c, int curr_c, int curr_i, int do_pnt)
+bsg_polygon_contour(bsg_shape *s, struct bg_poly_contour *c, int curr_c, int curr_i, int do_pnt)
 {
     if (!s || !c || !s->s_v)
 	return;
@@ -71,7 +71,7 @@ bv_polygon_contour(bsg_shape *s, struct bg_poly_contour *c, int curr_c, int curr
 }
 
 void
-bv_fill_polygon(bsg_shape *s)
+bsg_fill_polygon(bsg_shape *s)
 {
     if (!s)
 	return;
@@ -103,7 +103,7 @@ bv_fill_polygon(bsg_shape *s)
     fobj->s_soldash = 0;
     bu_color_to_rgb_chars(&p->fill_color, fobj->s_color);
     for (size_t i = 0; i < fill->num_contours; i++) {
-	bv_polygon_contour(fobj, &fill->contour[i], 0, -1, 0);
+	bsg_polygon_contour(fobj, &fill->contour[i], 0, -1, 0);
     }
 }
 
@@ -157,16 +157,16 @@ bsg_polygon_vlist(bsg_shape *s)
 	    s_c->s_color[1] = s->s_color[1];
 	    s_c->s_color[2] = s->s_color[2];
 	    s_c->s_v = s->s_v;
-	    bv_polygon_contour(s_c, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
+	    bsg_polygon_contour(s_c, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
 	    /* bsg_shape_get_child already inserted s_c into s->children */
 	    continue;
 	}
 
-	bv_polygon_contour(s, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
+	bsg_polygon_contour(s, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
     }
 
     if (p->fill_flag) {
-	bv_fill_polygon(s);
+	bsg_fill_polygon(s);
     } else {
 	bsg_shape *fobj = bsg_shape_find_child(s, "*fill*");
 	if (fobj)
@@ -280,7 +280,7 @@ bsg_polygon_cpy(struct bv_polygon *dest, struct bv_polygon *src)
 }
 
 int
-bv_append_polygon_pt(bsg_shape *s, point_t *np)
+bsg_append_polygon_pt(bsg_shape *s, point_t *np)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
@@ -360,7 +360,7 @@ bsg_select_polygon(struct bu_ptbl *objs, point_t *cp)
 }
 
 int
-bv_select_polygon_pt(bsg_shape *s, point_t *cp)
+bsg_select_polygon_pt(bsg_shape *s, point_t *cp)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
@@ -417,7 +417,7 @@ bv_select_polygon_pt(bsg_shape *s, point_t *cp)
 
 
 void
-bv_select_clear_polygon_pt(bsg_shape *s)
+bsg_select_clear_polygon_pt(bsg_shape *s)
 {
     if (!s)
 	return;
@@ -470,7 +470,7 @@ bsg_move_polygon(bsg_shape *s, point_t *cp, point_t *prev_point)
 }
 
 int
-bv_move_polygon_pt(bsg_shape *s, point_t *mp)
+bsg_move_polygon_pt(bsg_shape *s, point_t *mp)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
@@ -501,7 +501,7 @@ bv_move_polygon_pt(bsg_shape *s, point_t *mp)
 }
 
 int
-bv_update_polygon_circle(bsg_shape *s, point_t *cp, fastf_t pixel_size)
+bsg_update_polygon_circle(bsg_shape *s, point_t *cp, fastf_t pixel_size)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
 
@@ -566,7 +566,7 @@ bv_update_polygon_circle(bsg_shape *s, point_t *cp, fastf_t pixel_size)
 }
 
 int
-bv_update_polygon_ellipse(bsg_shape *s, point_t *cp, fastf_t pixel_size)
+bsg_update_polygon_ellipse(bsg_shape *s, point_t *cp, fastf_t pixel_size)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
 
@@ -653,7 +653,7 @@ bv_update_polygon_ellipse(bsg_shape *s, point_t *cp, fastf_t pixel_size)
 }
 
 int
-bv_update_polygon_rectangle(bsg_shape *s, point_t *cp)
+bsg_update_polygon_rectangle(bsg_shape *s, point_t *cp)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
 
@@ -682,7 +682,7 @@ bv_update_polygon_rectangle(bsg_shape *s, point_t *cp)
 }
 
 int
-bv_update_polygon_square(bsg_shape *s, point_t *cp)
+bsg_update_polygon_square(bsg_shape *s, point_t *cp)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
 
@@ -725,27 +725,27 @@ bv_update_polygon_square(bsg_shape *s, point_t *cp)
 }
 
 int
-bv_update_general_polygon(bsg_shape *s, int utype, point_t *cp)
+bsg_update_general_polygon(bsg_shape *s, int utype, point_t *cp)
 {
     struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
 	return 0;
 
     if (utype == BV_POLYGON_UPDATE_PT_APPEND) {
-	return bv_append_polygon_pt(s, cp);
+	return bsg_append_polygon_pt(s, cp);
     }
 
     if (utype == BV_POLYGON_UPDATE_PT_SELECT) {
-	return bv_select_polygon_pt(s, cp);
+	return bsg_select_polygon_pt(s, cp);
     }
 
     if (utype == BV_POLYGON_UPDATE_PT_SELECT_CLEAR) {
-	bv_select_clear_polygon_pt(s);
+	bsg_select_clear_polygon_pt(s);
 	return 1;
     }
 
     if (utype == BV_POLYGON_UPDATE_PT_MOVE) {
-	return bv_move_polygon_pt(s, cp);
+	return bsg_move_polygon_pt(s, cp);
     }
 
     /* Polygon updated, now update view object vlist */
@@ -783,7 +783,7 @@ bsg_update_polygon(bsg_shape *s, bsg_view *v, int utype)
 	}
 
 	if (p->fill_flag) {
-	    bv_fill_polygon(s);
+	    bsg_fill_polygon(s);
 	} else {
 	    if (fobj)
 		bsg_shape_put(fobj);
@@ -807,18 +807,18 @@ bsg_update_polygon(bsg_shape *s, bsg_view *v, int utype)
 	fastf_t d = DIST_PNT_PNT(p1, p2);
 
 	if (p->type == BV_POLYGON_CIRCLE)
-	    return bv_update_polygon_circle(s, &v->gv_point, d);
+	    return bsg_update_polygon_circle(s, &v->gv_point, d);
 	if (p->type == BV_POLYGON_ELLIPSE)
-	    return bv_update_polygon_ellipse(s, &v->gv_point, d);
+	    return bsg_update_polygon_ellipse(s, &v->gv_point, d);
     }
 
     if (p->type == BV_POLYGON_RECTANGLE)
-	return bv_update_polygon_rectangle(s, &v->gv_point);
+	return bsg_update_polygon_rectangle(s, &v->gv_point);
     if (p->type == BV_POLYGON_SQUARE)
-	return bv_update_polygon_square(s, &v->gv_point);
+	return bsg_update_polygon_square(s, &v->gv_point);
     if (p->type != BV_POLYGON_GENERAL)
 	return 0;
-    return bv_update_general_polygon(s, utype, &v->gv_point);
+    return bsg_update_general_polygon(s, utype, &v->gv_point);
 }
 
 bsg_shape *

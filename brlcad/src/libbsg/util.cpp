@@ -38,62 +38,18 @@
 #include "bsg/snap.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "./bsg_private.h"
 
-/* Cast helpers for internal struct access.  The public header uses
- * incomplete forward-declared bv_*_internal types; the actual allocated
- * objects are the bsg_*_internal types defined in bsg_private.h. */
-#define BSG_SHAPI(s)    (reinterpret_cast<bsg_shape_internal *>((s)->i))
+/* Cast helpers for internal struct access.
+ * bsg_shape.i is bsg_shape_internal* (defined in bsg_private.h),
+ * so BSG_SHAPI is a direct accessor with no cast.
+ * bsg_scene.i is nominally bview_set_internal* (since bsg_scene = bview_set),
+ * but libbsg allocates bsg_scene_set_internal there; a reinterpret_cast is
+ * needed until bsg_scene becomes a fully independent struct (Phase 6). */
+#define BSG_SHAPI(s)    ((s)->i)
 #define BSG_SCENEI(vs)  (reinterpret_cast<bsg_scene_set_internal *>((vs)->i))
-#define BSG_SHAPI_CAST(p) (reinterpret_cast<bv_scene_obj_internal *>(p))
 
-/* Local implementation: vlist bounding box (avoids link dep on libbv) */
-static int
-bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
-{
-    struct bv_vlist *vp;
-    int cmd = 0;
-    int disp_mode = 0;
-    int dispmode_used = 0;
-    size_t len = 0;
-    VSETALL(*bmin,  MAX_FASTF);
-    VSETALL(*bmax, -MAX_FASTF);
-    for (BU_LIST_FOR(vp, bv_vlist, vlistp)) {
-        size_t i;
-        for (i = 0; i < vp->nused; i++) {
-            int c = vp->cmd[i];
-            point_t *pt = &vp->pt[i];
-            if (disp_mode == 1 && c != BV_VLIST_MODEL_MAT) continue;
-            disp_mode = 0;
-            switch (c) {
-                case BV_VLIST_POLY_START: case BV_VLIST_POLY_VERTNORM:
-                case BV_VLIST_TRI_START: case BV_VLIST_TRI_VERTNORM:
-                case BV_VLIST_POINT_SIZE: case BV_VLIST_LINE_WIDTH:
-                case BV_VLIST_MODEL_MAT: break;
-                case BV_VLIST_LINE_MOVE: case BV_VLIST_LINE_DRAW:
-                case BV_VLIST_POLY_MOVE: case BV_VLIST_POLY_DRAW:
-                case BV_VLIST_POLY_END: case BV_VLIST_TRI_MOVE:
-                case BV_VLIST_TRI_DRAW: case BV_VLIST_TRI_END:
-                    V_MIN((*bmin)[X], (*pt)[X]); V_MAX((*bmax)[X], (*pt)[X]);
-                    V_MIN((*bmin)[Y], (*pt)[Y]); V_MAX((*bmax)[Y], (*pt)[Y]);
-                    V_MIN((*bmin)[Z], (*pt)[Z]); V_MAX((*bmax)[Z], (*pt)[Z]);
-                    break;
-                case BV_VLIST_DISPLAY_MAT: disp_mode = 1; dispmode_used = 1; /* fall through */
-                case BV_VLIST_POINT_DRAW:
-                    V_MIN((*bmin)[X], (*pt)[X]-1.0); V_MAX((*bmax)[X], (*pt)[X]+1.0);
-                    V_MIN((*bmin)[Y], (*pt)[Y]-1.0); V_MAX((*bmax)[Y], (*pt)[Y]+1.0);
-                    V_MIN((*bmin)[Z], (*pt)[Z]-1.0); V_MAX((*bmax)[Z], (*pt)[Z]+1.0);
-                    break;
-                default: cmd = c; break;
-            }
-        }
-        len += vp->nused;
-    }
-    if (length) *length = len;
-    if (dispmode) *dispmode = dispmode_used;
-    return cmd;
-}
 
 
 
@@ -1177,7 +1133,7 @@ bsg_shape_create(bsg_view *v, int type)
     // We know where we're going to get the object from - get it
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC(s, bsg_shape);
-	s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	s->i = new bsg_shape_internal;
     } else {
 	s = BU_LIST_NEXT(bsg_shape, &free_scene_obj->l);
 	BU_LIST_DEQUEUE(&((s)->l));
@@ -1265,12 +1221,12 @@ bsg_shape_get_child(bsg_shape *sp)
     // Children use their parent's info
     if (BU_LIST_IS_EMPTY(&sp->free_scene_obj->l)) {
 	BU_ALLOC((s), bsg_shape);
-	s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	s->i = new bsg_shape_internal;
     } else {
 	s = BU_LIST_NEXT(bsg_shape, &sp->free_scene_obj->l);
 	if (!s) {
 	    BU_ALLOC((s), bsg_shape);
-	    s->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	    s->i = new bsg_shape_internal;
 	} else {
 	    BU_LIST_DEQUEUE(&((s)->l));
 	}
@@ -1563,12 +1519,12 @@ bsg_shape_get_view_obj(bsg_shape *s, bsg_view *v)
     bsg_shape *free_scene_obj = BSG_SCENEI(v->vset)->free_scene_obj;
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC((vo), bsg_shape);
-	vo->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	vo->i = new bsg_shape_internal;
     } else {
 	vo = BU_LIST_NEXT(bsg_shape, &s->free_scene_obj->l);
 	if (!vo) {
 	    BU_ALLOC((vo), bsg_shape);
-	    vo->i = reinterpret_cast<bv_scene_obj_internal *>(new bsg_shape_internal);
+	    vo->i = new bsg_shape_internal;
 	} else {
 	    BU_LIST_DEQUEUE(&((vo)->l));
 	}

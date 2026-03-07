@@ -32,7 +32,7 @@
 
 #include "bu/opt.h"
 #include "bu/vls.h"
-#include "bv/snap.h"
+#include "bsg/snap.h"
 #include "dm.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -180,7 +180,7 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
 
     if (use_grid) {
 	// Grid operates on view space points
-	bv_snap_grid_2d(gedp->ged_gvp, &view_pt_2d[X], &view_pt_2d[Y]);
+	bsg_snap_grid_2d(gedp->ged_gvp, &view_pt_2d[X], &view_pt_2d[Y]);
     }
 
     if (use_lines) {
@@ -189,7 +189,7 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
 	// It's OK if we have no lines close enough to snap to -
 	// in that case just pass back the view pt.  If we do
 	// have a snap, update the output
-	if (bv_snap_lines_3d(&out_pt, gedp->ged_gvp, &view_pt) == BRLCAD_OK) {
+	if (bsg_snap_lines_3d(&out_pt, gedp->ged_gvp, &view_pt) == BRLCAD_OK) {
 	    { struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
 	      MAT4X3PNT(vp, _cv.model2view, out_pt);
 	    }

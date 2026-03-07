@@ -386,7 +386,7 @@ adcursor(struct mged_state *s)
 
 
 static void
-mged_adc_reset(struct mged_state *s)
+mged_bsg_adc_reset(struct mged_state *s)
 {
     adc_state->adc_dv_x = adc_state->adc_dv_y = 0;
     adc_state->adc_dv_a1 = adc_state->adc_dv_a2 = 0;
@@ -489,7 +489,7 @@ f_adc (
 	    adc_state->adc_draw = 1;
 
 	if (adc_auto) {
-	    mged_adc_reset(s);
+	    mged_bsg_adc_reset(s);
 	    adc_auto = 0;
 	}
 
@@ -1059,7 +1059,7 @@ f_adc (
 
     if (BU_STR_EQUAL(parameter, "reset")) {
 	if (argc == 0) {
-	    mged_adc_reset(s);
+	    mged_bsg_adc_reset(s);
 
 	    adc_set_dirty_flag(s);
 	    return TCL_OK;

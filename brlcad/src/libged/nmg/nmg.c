@@ -171,7 +171,7 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
 
     _ged_cvt_vlblock_to_solids(gedp, vbp, "_LABELFACE_", 0);
 
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
 
     struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
     if (dmp)

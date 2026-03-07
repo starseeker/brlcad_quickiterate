@@ -91,7 +91,7 @@ rtcheck_handler_cleanup(struct ged_rtcheck *rtcp, int type)
     }
     bu_ptbl_rm(&gedp->ged_subp, (long *)p);
     BU_PUT(p, struct ged_subprocess);
-    bv_vlblock_free(rtcp->vbp);
+    bsg_vlblock_free(rtcp->vbp);
     BU_PUT(rtcp, struct ged_rtcheck);
 }
 
@@ -141,7 +141,7 @@ rtcheck_vector_handler(void *clientData, int type)
 
 	    if (have_visual) {
 		bu_log("final nused: %zu\n", rtcp->vbp->nused);
-		bv_vlblock_obj(rtcp->vbp, gedp->ged_gvp, sname);
+		bsg_vlblock_obj(rtcp->vbp, gedp->ged_gvp, sname);
 	    }
 	}
     }
@@ -293,8 +293,8 @@ ged_rtcheck2_core(struct ged *gedp, int argc, const char *argv[])
     rtcp->fp = bu_process_file_open(p, BU_PROCESS_STDOUT);
     /* Needed on Windows for successful rtcheck drawing data communication */
     setmode(fileno(rtcp->fp), O_BINARY);
-    rtcp->vbp = bv_vlblock_init(vlfree, 32);
-    rtcp->vhead = bv_vlblock_find(rtcp->vbp, 0xFF, 0xFF, 0x00);
+    rtcp->vbp = bsg_vlblock_init(vlfree, 32);
+    rtcp->vhead = bsg_vlblock_find(rtcp->vbp, 0xFF, 0xFF, 0x00);
     rtcp->csize = gedp->ged_gvp->gv_scale * 0.01;
     rtcp->read_failed = 0;
     rtcp->draw_read_failed = 0;

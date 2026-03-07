@@ -29,8 +29,8 @@
 
 #include "vmath.h"
 #include "bg/clip.h"
-#include "bv/defines.h"
-#include "bv/adc.h"
+#include "bsg/defines.h"
+#include "bsg/adc.h"
 #include "dm.h"
 #include "./include/private.h"
 
@@ -115,13 +115,13 @@ dm_draw_adc(struct dm *dmp, struct bv_adc_state *adcp, mat_t view2model, mat_t m
     fastf_t angle1, angle2;
 
     if (adcp->anchor_pos == 1) {
-	adc_model_to_adc_view(adcp, model2view, BV_MAX);
-	adc_view_to_adc_grid(adcp, model2view);
+	bsg_adc_model_to_view(adcp, model2view, BV_MAX);
+	bsg_adc_view_to_grid(adcp, model2view);
     } else if (adcp->anchor_pos == 2) {
-	adc_grid_to_adc_view(adcp, view2model, BV_MAX);
+	bsg_adc_grid_to_view(adcp, view2model, BV_MAX);
 	MAT4X3PNT(adcp->pos_model, view2model, adcp->pos_view);
     } else {
-	adc_view_to_adc_grid(adcp, model2view);
+	bsg_adc_view_to_grid(adcp, model2view);
 	MAT4X3PNT(adcp->pos_model, view2model, adcp->pos_view);
     }
 

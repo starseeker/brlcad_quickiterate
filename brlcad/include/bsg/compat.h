@@ -107,8 +107,8 @@
 #define bv_knobs_cmd_process(rv, dr, tv, dt, v, cmd, f, o, m, i) \
     bsg_knobs_cmd_process((rv),(dr),(tv),(dt),(v),(cmd),(f),(o),(m),(i))
 /** @deprecated Use bsg_knobs_rot() instead. */
-#define bv_knobs_rot(v, rv, o, c, or, pp) \
-    bsg_knobs_rot((v),(rv),(o),(c),(or),(pp))
+#define bv_knobs_rot(v, rv, o, c, kr, pp) \
+    bsg_knobs_rot((v),(rv),(o),(c),(kr),(pp))
 /** @deprecated Use bsg_knobs_tran() instead. */
 #define bv_knobs_tran(v, tv, m)        bsg_knobs_tran((v),(tv),(m))
 /** @deprecated Use bsg_view_update_rate_flags() instead. */

@@ -34,7 +34,7 @@
 #include "bu.h"
 #include "bn.h"
 extern "C" {
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/lod.h"
 #include "bsg/util.h"
 #include "dm.h"

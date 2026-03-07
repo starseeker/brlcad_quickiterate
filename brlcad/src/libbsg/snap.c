@@ -38,7 +38,7 @@
 #include "bsg/defines.h"
 #include "bsg/snap.h"
 #include "bsg/util.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 
 struct bv_cp_info {
     double ctol_sq; // square of the distance that defines "close to a line"
@@ -431,6 +431,24 @@ bsg_snap_grid_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
     *vy = view_pt[Y];
 
     return 1;
+}
+
+
+/* ABI compatibility wrappers: pre-built consumers link against bv_snap_* symbols */
+BV_EXPORT int
+bv_snap_lines_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
+{
+    return bsg_snap_lines_2d(v, vx, vy);
+}
+BV_EXPORT int
+bv_snap_grid_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
+{
+    return bsg_snap_grid_2d(v, vx, vy);
+}
+BV_EXPORT int
+bv_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p)
+{
+    return bsg_snap_lines_3d(out_pt, v, p);
 }
 
 
