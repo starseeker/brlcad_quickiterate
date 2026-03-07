@@ -1201,17 +1201,21 @@ Registered as `ged_test_dbi_cpp` CTest.
 
 ### 12.2 Code Cleanup
 
-**C1 — Replace `rt_uniresource` with a per-call resource pointer.**
-`dbi_state.cpp` line 2196: `ud->res = &rt_uniresource;` with a comment noting it
-should eventually come from the app or view.  Once the threading model is decided
-(see T4 / Section 9 Q4), this should use a resource from the correct per-thread or
-per-view context instead of the global fallback.
+**C1 — Replace `rt_uniresource` with a per-call resource pointer.**  ✅ DONE
+`BViewState::scene_obj()` now uses `dbis->res` (the `DbiState`-owned
+`struct resource *` that is already lifetime-managed in `DbiState`'s ctor/dtor)
+instead of `&rt_uniresource`.  `BViewState` was added as a friend of `DbiState`
+so it can access the private `res` member.  `rt_uniresource` must not be used in
+parallel contexts; switching to `dbis->res` eliminates the global dependency and
+makes the resource lifetime explicit.
 
-**C2 — Fix color override to use a dedicated field.**
-`dbi_state.cpp` line 2206: the view-state color override writes directly to
-`sp->s_color`, clobbering the database-derived color that was just stored there.
-The override should be stored in a separate field (e.g., a flag + override color in
-`bv_obj_settings`) so the original color can be restored when the override is lifted.
+**C2 — Fix color override to use a dedicated field.**  ✅ DONE
+The per-object color override in `BViewState::scene_obj()` now stores the
+override in `sp->s_os->color_override = 1` and `sp->s_os->color[0..2]` instead
+of clobbering `sp->s_color`.  The database-derived color is preserved in
+`sp->s_color` and is used when the override is later lifted.  The
+`draw_scene_obj()` path in `view.c` already checks `s_os->color_override` and
+uses `s_os->color` when set, so no drawing code needed to change.
 
 **C3 — Add a mode-specific `DrawList::clear()` overload.**  ✅ DONE
 `void DrawList::clear(int mode)` is now implemented; it removes only entries drawn in
@@ -1262,11 +1266,16 @@ management).  No implementation exists yet.  Before starting, document the requi
 thread-safety contract for `DbiState` (which methods are main-thread-only, which are
 safe to call from the background thread, and what the queue handoff protocol is).
 
-**L2 — Thread-safety documentation for `DbiState`.**
-No method in `DbiState`, `DrawList`, `SelectionSet`, or `BViewState` is currently
-documented as either "main-thread-only" or "thread-safe".  Before any background
-work begins, annotate each method and add a `lock()`/`unlock()` RAII guard that
-gates mutations, as described in Section 5.1 principle 8.
+**L2 — Thread-safety documentation for `DbiState`.**  ✅ PARTIAL (docs added; locks deferred)
+A file-level doc block and per-class "MAIN THREAD ONLY" annotations have been
+added to `include/ged/dbi.h`:
+- `DbiState` — main-thread-only; rationale and forward reference to L1 noted.
+- `BViewState` — main-thread-only annotation added.
+- `DrawList` — main-thread-only annotation added.
+- `SelectionSet` — main-thread-only annotation added.
+The `lock()`/`unlock()` RAII guard is deferred until the threading model
+(L1) is actually needed; adding it prematurely would impose overhead and
+complexity before any concurrent code exists.
 
 **L3 — Attribute columns in `QgModel`.**
 Section 9 Q2 decision: attribute columns should be runtime-configurable; defaults
@@ -1327,3 +1336,22 @@ with real geometry for every draw test run.
 **`repocheck` exemptions** — Added per-file exemptions in `repocheck.cpp` so that
 `DrawList::remove()` method declarations in `dbi.h` and `dbi_state.cpp` are not
 falsely flagged as unguarded POSIX `remove()` calls.
+
+### Session 25 — C1/C2 cleanup and L2 thread-safety documentation (this PR)
+
+**C1 done** — `BViewState::scene_obj()` now uses `dbis->res` (the per-`DbiState`
+`struct resource *`) instead of the global `&rt_uniresource`.  `BViewState` was
+added as a `friend class` of `DbiState` to allow access to the private `res`
+member.
+
+**C2 done** — Color overrides are now stored via `sp->s_os->color_override` and
+`sp->s_os->color[0..2]` rather than clobbering `sp->s_color`.  The original
+database-derived color is preserved in `sp->s_color` and restored automatically
+when no override is active.  The existing `draw_scene_obj()` path in `view.c`
+already queries `s_os->color_override` so no rendering code required changes.
+
+**L2 partial** — `include/ged/dbi.h` now carries a file-level threading model
+doc-block and per-class "MAIN THREAD ONLY" annotations on `DbiState`,
+`BViewState`, `DrawList`, and `SelectionSet`.  The `lock()`/`unlock()` RAII
+infrastructure is deferred until L1 (background geometry loading) is actually
+needed.

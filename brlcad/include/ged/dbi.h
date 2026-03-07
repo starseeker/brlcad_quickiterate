@@ -57,6 +57,25 @@
 #include "rt/op.h"
 #include "ged/defines.h"
 
+/**
+ * @file dbi.h — DBI (Database Interface) layer for BRL-CAD's qged stack.
+ *
+ * Thread-safety model (L2)
+ * ------------------------
+ * NONE of the classes in this file (DbiState, BViewState, DrawList,
+ * SelectionSet) are thread-safe.  Every public method must be called
+ * exclusively from the application main thread unless explicitly marked
+ * otherwise below.
+ *
+ * Background geometry loading is planned (see DBI_TODO.md §12.4 L1) and
+ * will require:
+ *   - A per-DbiState mutex gating all mutations.
+ *   - A producer/consumer queue for geometry results posted from the loader
+ *     thread to be integrated on the main thread.
+ *
+ * Until that work is done callers must ensure single-threaded access.
+ */
+
 // Typed wrappers for the three distinct hash spaces
 struct GHash    { unsigned long long v = 0;
     bool operator==(const GHash &o)    const { return v == o.v; }
@@ -125,6 +144,8 @@ class GED_EXPORT CombInst;
 // SelectionSet tracks which database paths are currently selected and
 // maintains hierarchical relationships (active subpaths, parent paths,
 // ancestor paths) derived from the selection.
+//
+// Thread-safety: MAIN THREAD ONLY.  No locking is performed internally.
 class GED_EXPORT SelectionSet {
 public:
     explicit SelectionSet(DbiState *);
@@ -235,6 +256,8 @@ struct DrawSettings {
 // It is separate from BViewState to cleanly separate "draw intent"
 // from "rendered scene objects".
 //
+// Thread-safety: MAIN THREAD ONLY.  No locking is performed internally.
+//
 // Ownership: DrawList instances are owned by a BViewState.
 class GED_EXPORT DrawList {
 public:
@@ -284,6 +307,10 @@ private:
     void rebuild_index() const;
 };
 
+// BViewState manages the set of drawn paths for a specific view and owns the
+// bv_scene_obj instances that correspond to drawn paths.
+//
+// Thread-safety: MAIN THREAD ONLY.  No locking is performed internally.
 class GED_EXPORT BViewState {
     public:
 	BViewState(DbiState *);
@@ -470,6 +497,13 @@ public:
 
 struct bu_cache;
 
+// DbiState is the in-memory mirror of a BRL-CAD .g database.  It drives all
+// drawing and selection logic in the qged/libqtcad stack.
+//
+// Thread-safety: MAIN THREAD ONLY.  DbiState holds a struct resource *, raw
+// pointers into librt data structures, and STL containers that are not
+// guarded by any mutex.  All methods must be called from the application main
+// thread.  See DBI_TODO.md §12.4 L1-L2 for the planned locking approach.
 class GED_EXPORT DbiState {
     public:
 	DbiState(struct ged *);
@@ -644,6 +678,8 @@ class GED_EXPORT DbiState {
 	// GObj and CombInst need access to private DbiState internals (res, dcache)
 	friend class GObj;
 	friend class CombInst;
+	// BViewState needs access to res for per-object draw update data
+	friend class BViewState;
 };
 
 
