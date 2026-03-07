@@ -316,6 +316,12 @@ QgModel::QgModel(QObject *p, const char *npath)
     gedp->new_cmd_forms = 1;
     bu_setenv("DM_SWRAST", "1", 1);
 
+    // Register as DbiState observer so we receive change notifications
+    {
+	DbiState *dbis = (DbiState *)gedp->dbi_state;
+	dbis->add_observer(this);
+    }
+
     // By default we will use this built-in view, to guarantee that ged_gvp is
     // always valid.  It will usually be overridden by application provided views,
     // but this is our hard guarantee that a QgModel will always be able to work
@@ -353,12 +359,26 @@ QgModel::QgModel(QObject *p, const char *npath)
 
 QgModel::~QgModel()
 {
+    if (gedp && gedp->dbi_state) {
+	DbiState *dbis = (DbiState *)gedp->dbi_state;
+	dbis->remove_observer(this);
+    }
+
     delete items;
 
     bv_free(empty_gvp);
     BU_PUT(empty_gvp, struct bview);
     ged_close(gedp);
     delete rootItem;
+}
+
+void
+QgModel::on_dbi_changed(const std::vector<DbiChangeEvent> &events)
+{
+    if (events.empty()) return;
+    // Use the existing full-model update approach for now;
+    // incremental updates would do targeted row operations.
+    g_update(gedp->dbip);
 }
 
 // Note - this is a private method and must be run from within g_update's
