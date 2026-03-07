@@ -92,7 +92,7 @@
 #include "bu/ptbl.h"
 #include "bg/plane.h"
 #include "bn/tol.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "vmath.h"
 
 __BEGIN_DECLS

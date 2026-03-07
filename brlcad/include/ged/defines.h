@@ -33,9 +33,9 @@
 #include "bu/list.h"
 #include "bu/process.h"
 #include "bu/vls.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "rt/search.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/lod.h"
 #include "dm/fbserv.h" // for fbserv_obj
 #include "rt/wdb.h" // for struct rt_wdb
