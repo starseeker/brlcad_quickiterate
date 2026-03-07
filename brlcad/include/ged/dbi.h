@@ -157,6 +157,11 @@ public:
     bool deselect(unsigned long long path_hash, bool update_hierarchy = true);
     void clear();
 
+    // Preferred type-safe overloads using DbiPath.  The path hash is computed
+    // internally from the DbiPath so callers no longer need to pre-compute it.
+    bool select(const DbiPath &path, bool update_hierarchy = true);
+    bool deselect(const DbiPath &path, bool update_hierarchy = true);
+
     // Query state by path hash
     bool is_selected(unsigned long long path_hash) const;
     bool is_active(unsigned long long path_hash) const;
@@ -268,6 +273,10 @@ public:
     // Does not trigger a redraw; call BViewState::redraw() after all changes are staged.
     void add(const std::vector<unsigned long long> &path_hashes, int mode = 0,
              const DrawSettings *overrides = nullptr);
+    // Preferred type-safe overload; DbiPath implicitly converts to const vector ref
+    // so existing call sites that pass a DbiPath will resolve here automatically.
+    void add(const DbiPath &path, int mode = 0,
+             const DrawSettings *overrides = nullptr);
 
     // Remove paths matching the given prefix hash in the given mode (-1 = all modes)
     void remove(unsigned long long path_hash, int mode = -1);
@@ -366,6 +375,20 @@ class GED_EXPORT BViewState {
 	DrawList &draw_list() { return draw_list_; }
 	const DrawList &draw_list() const { return draw_list_; }
 
+	// Link this view so it sources its draw list from another (primary)
+	// BViewState.  Once linked, redraw() reads the primary's draw list so
+	// quad-view panels share geometry without duplicating draw intent.
+	// Only the camera (struct bview *) remains independent.
+	// Passing nullptr is equivalent to calling unlink().
+	//
+	// NOTE: This is a stub.  The full DrawList-sharing implementation is
+	// deferred (see DBI_TODO.md §12.3 A2/A3).  The pointer is stored and
+	// accessible via is_linked()/linked_primary() for future use.
+	void link_to(BViewState *primary);
+	void unlink();
+	bool is_linked() const { return linked_to_ != nullptr; }
+	BViewState *linked_primary() const { return linked_to_; }
+
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
 	// s_keys holds the ordered individual keys of each drawn solid path - it
@@ -460,6 +483,7 @@ class GED_EXPORT BViewState {
 	friend class SelectionSet;
 
 	DrawList draw_list_;
+	BViewState *linked_to_ = nullptr;
 };
 
 #define GED_DBISTATE_DB_CHANGE   0x01

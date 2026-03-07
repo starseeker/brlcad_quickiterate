@@ -1235,20 +1235,25 @@ form or the string-path form `select(const char *, bool)`.
 
 ### 12.3 API Migration and Incomplete Features
 
-**A1 — Migrate key internal APIs from `vector<ull>` to `DbiPath`.**
-`DbiPath` is declared in `include/ged/dbi.h` and the implicit conversion to
-`const std::vector<unsigned long long>&` provides backward compatibility.  The
-next step is to explicitly update the signatures of the most-called internal
-functions (`BViewState::redraw()`, `DrawList::add()` / `remove()` / `query()`,
-`SelectionSet::select()` / `deselect()`) to accept `DbiPath` and propagate the
-type-safe path throughout the call stack.
+**A1 — Migrate key internal APIs from `vector<ull>` to `DbiPath`.**  ✅ DONE
+`DbiPath`-based overloads have been added to:
+- `DrawList::add(const DbiPath &, int mode, const DrawSettings *)` — delegates to the
+  existing vector overload; both are available for backward compatibility.
+- `SelectionSet::select(const DbiPath &, bool update_hierarchy)` — computes the path
+  hash internally via `dbis_->path_hash(path.hashes, 0)`; callers no longer need to
+  pre-compute the hash separately.
+- `SelectionSet::deselect(const DbiPath &, bool update_hierarchy)` — same pattern.
 
-**A2 — Implement `BViewState::link_to()` / `unlink()`.**
-Phase 4 introduced the design (Section 5.7) but deferred implementation.  The
-method allows a secondary view (e.g., one panel of a quad layout) to share the draw
-list of a primary view while keeping its own camera independently.  Without this,
-quad-view setups must maintain redundant draw lists.  Stubs or a full implementation
-should be added.
+The callers in `QgTreeSelectionModel.cpp` have been migrated to the DbiPath forms:
+the redundant `dbis->path_hash(path_hashes, 0)` + `ss->select(ph, path_hashes, ...)` 
+pattern has been replaced with `ss->select(DbiPath(snode->path_items()), ...)`.
+
+**A2 — Implement `BViewState::link_to()` / `unlink()`.**  ✅ STUB DONE
+`link_to(BViewState *primary)`, `unlink()`, `is_linked()`, and `linked_primary()`
+have been added to `BViewState` with a private `linked_to_` member.  The
+implementation stores the pointer but does not yet route `redraw()` through the
+primary's `DrawList` — that full integration is A3 and requires `DrawList::commit()`
+(see A3 below).  The API surface is now in place for callers to begin using.
 
 **A3 — Complete `DrawList::commit()` integration into `BViewState::redraw()`.**
 Phase 4 noted "Full integration of DrawList into the redraw pipeline is a follow-on
@@ -1355,3 +1360,17 @@ doc-block and per-class "MAIN THREAD ONLY" annotations on `DbiState`,
 `BViewState`, `DrawList`, and `SelectionSet`.  The `lock()`/`unlock()` RAII
 infrastructure is deferred until L1 (background geometry loading) is actually
 needed.
+
+### Session 26 — A1 DbiPath overloads and A2 link_to stubs (this PR)
+
+**A1 done** — `DrawList::add(const DbiPath &, ...)`, `SelectionSet::select(const
+DbiPath &, bool)`, and `SelectionSet::deselect(const DbiPath &, bool)` added to
+`dbi.h` and implemented in `dbi_state.cpp`.  Callers in `QgTreeSelectionModel.cpp`
+migrated to the DbiPath forms — the `ph = dbis->path_hash(...)` / `ss->select(ph,
+path_hashes, ...)` two-step has been replaced with `ss->select(DbiPath(node->path_items()),
+...)` in all six call sites.
+
+**A2 stub done** — `BViewState::link_to(BViewState *primary)`, `unlink()`,
+`is_linked()`, and `linked_primary()` added to `BViewState` with a private
+`linked_to_` member.  The pointer is stored but `redraw()` does not yet consult
+it — full DrawList sharing is the A3 work item.
