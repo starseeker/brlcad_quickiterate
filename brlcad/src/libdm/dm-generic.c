@@ -1073,7 +1073,7 @@ _dm_bsg_visitor(bsg_shape *s, const bsg_traversal_state *UNUSED(state), void *us
 	}
     }
 
-    return 0; /* always recurse */
+    return 0; /* continue traversal (bsg_view_traverse recurses into children) */
 }
 
 /**

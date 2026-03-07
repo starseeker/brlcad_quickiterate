@@ -636,7 +636,11 @@ dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
     const bsg_material *mat =
 	(s->s_os && !s->s_inherit_settings) ? s->s_os : &state->material;
 
-    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
+    if (mat->color_override) {
+	dm_set_fg(dmp, mat->color[0], mat->color[1], mat->color[2], 0, mat->transparency);
+    } else {
+	dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
+    }
     dm_set_line_attr(dmp, mat->s_line_width, s->s_soldash);
 
     /* Draw geometry. */

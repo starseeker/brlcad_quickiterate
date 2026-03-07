@@ -1225,7 +1225,8 @@ bsg_shape_get(bsg_view *v, int type)
 	bu_ptbl_ins(s->otbl, (long *)s);
 
     /* Register in the per-view scene root so bsg_view_traverse sees it.
-     * Child objects (BV_CHILD_OBJS) are owned by their parent, not root. */
+     * BV_DB_OBJS and BV_VIEW_OBJS shapes are top-level scene children.
+     * BV_CHILD_OBJS are owned by their parent shape, not the scene root. */
     if (!(ltype & BV_CHILD_OBJS)) {
 	bsg_shape *root = bsg_scene_root_get(v);
 	if (root)
