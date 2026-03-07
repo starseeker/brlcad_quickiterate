@@ -37,7 +37,7 @@
 #include "bsg/util.h"
 
 size_t
-bv_vlist_cmd_cnt(struct bv_vlist *vlist)
+bsg_vlist_cmd_cnt(struct bv_vlist *vlist)
 {
     size_t num_commands;
     struct bv_vlist *vp;
@@ -112,7 +112,7 @@ bv_vlist_bbox_internal(struct bv_vlist *vp, point_t *bmin, point_t *bmax, int *d
 }
 
 int
-bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
+bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
 {
     struct bv_vlist* vp;
     int cmd = 0;
@@ -136,7 +136,7 @@ bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *leng
 }
 
 const char *
-bv_vlist_get_cmd_description(int cmd)
+bsg_vlist_get_cmd_description(int cmd)
 {
     /* bv_vlist_cmd_descriptions contains descriptions of the first
      * num_described_cmds vlist cmds
@@ -167,7 +167,7 @@ bv_vlist_get_cmd_description(int cmd)
 }
 
 size_t
-bv_ck_vlist(const struct bu_list *vhead)
+bsg_ck_vlist(const struct bu_list *vhead)
 {
     register struct bv_vlist *vp;
     size_t npts = 0;
@@ -195,14 +195,14 @@ bv_ck_vlist(const struct bu_list *vhead)
 		    /* Number is good */
 		} else {
 		    bu_log("  %s (%g, %g, %g)\n",
-			   bv_vlist_get_cmd_description(*cmd),
+			   bsg_vlist_get_cmd_description(*cmd),
 			   V3ARGS(*pt));
-		    bu_bomb("bv_ck_vlist() bad coordinate value\n");
+		    bu_bomb("bsg_ck_vlist() bad coordinate value\n");
 		}
 		/* XXX Need a define for largest command number */
 		if (*cmd < 0 || *cmd > BV_VLIST_CMD_MAX) {
 		    bu_log("cmd = x%x (%d.)\n", *cmd, *cmd);
-		    bu_bomb("bv_ck_vlist() bad vlist command\n");
+		    bu_bomb("bsg_ck_vlist() bad vlist command\n");
 		}
 	    }
 	}
@@ -211,7 +211,7 @@ bv_ck_vlist(const struct bu_list *vhead)
 }
 
 void
-bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
+bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
 {
     struct bv_vlist *vp;
 
@@ -227,7 +227,7 @@ bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list
 }
 
 void
-bv_vlist_cleanup(struct bu_list *hd)
+bsg_vlist_cleanup(struct bu_list *hd)
 {
     register struct bv_vlist *vp;
 
@@ -244,7 +244,7 @@ bv_vlist_cleanup(struct bu_list *hd)
 }
 
 void
-bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
+bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
 {
     register struct bv_vlist *vp;
     size_t nelem;
@@ -305,7 +305,7 @@ bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
 }
 
 void
-bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf)
+bsg_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf)
 {
     register const unsigned char *bp;
     const unsigned char *pp;            /* point pointer */
@@ -338,7 +338,7 @@ bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namev
 }
 
 struct bv_vlblock *
-bv_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists */
+bsg_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists */
 		int max_ent /**< maximum number of entities to get/put */)
 {
     struct bv_vlblock *vbp;
@@ -369,7 +369,7 @@ bv_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists
 }
 
 void
-bv_vlblock_free(struct bv_vlblock *vbp)
+bsg_vlblock_free(struct bv_vlblock *vbp)
 {
     size_t i;
 
@@ -388,7 +388,7 @@ bv_vlblock_free(struct bv_vlblock *vbp)
 }
 
 struct bu_list *
-bv_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b)
+bsg_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b)
 {
     long newrgb;
     size_t n;
@@ -449,11 +449,11 @@ bv_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b)
     }
 
     /* here we go again */
-    return bv_vlblock_find(vbp, r, g, b);
+    return bsg_vlblock_find(vbp, r, g, b);
 }
 
 void
-bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx)
+bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx)
 {
     point_t p;
 
@@ -504,7 +504,7 @@ bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, con
 }
 
 void
-bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
+bsg_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 {
     size_t i;
 
@@ -517,7 +517,7 @@ bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 		 (vbp->rgb[i]>>16) & 0xFF,
 		 (vbp->rgb[i]>> 8) & 0xFF,
 		 (vbp->rgb[i]) & 0xFF);
-	bv_vlist_to_uplot(fp, &(vbp->head[i]));
+	bsg_vlist_to_uplot(fp, &(vbp->head[i]));
     }
 }
 
@@ -537,7 +537,7 @@ bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
     BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 void
-bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree)
+bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree)
 {
     if (!out || !vbp || !f)
 	return;
@@ -571,7 +571,7 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
 	    bu_vls_sprintf(&s->s_name, "%sobj%zd", name_root, i);
 	    struct bv_vlist *bvl = (struct bv_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
-	    s->s_vlen = bv_vlist_cmd_cnt(bvl);
+	    s->s_vlen = bsg_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(s->s_vlist), &(bvl->l));
 	    BU_LIST_INIT(&(bvl->l));
 	    s->s_color[0] = (rgb>>16);
@@ -583,7 +583,7 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
 }
 
 struct bv_scene_obj *
-bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
+bsg_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
 {
     if (!vbp || !v)
 	return NULL;
@@ -600,7 +600,7 @@ bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
 	    bsg_shape *sc = bsg_shape_get_child(s);
 	    struct bv_vlist *bvl = (struct bv_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
-	    sc->s_vlen = bv_vlist_cmd_cnt(bvl);
+	    sc->s_vlen = bsg_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(sc->s_vlist), &(bvl->l));
 	    BU_LIST_INIT(&(bvl->l));
 	    sc->s_color[0] = (rgb>>16);
@@ -614,7 +614,7 @@ bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
 }
 
 void
-bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
+bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
 {
     register struct bv_vlist *vp;
 
@@ -642,7 +642,7 @@ bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
 		    pdv_3cont(fp, *pt);
 		    break;
 		default:
-		    bu_log("bv_vlist_to_uplot: unknown vlist cmd x%x\n",
+		    bu_log("bsg_vlist_to_uplot: unknown vlist cmd x%x\n",
 			   *cmd);
 	    }
 	}

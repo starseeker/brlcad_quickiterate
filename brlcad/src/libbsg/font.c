@@ -33,7 +33,7 @@
 #include "bsg/vlist.h"
 
 void
-bv_vlist_3string(struct bu_list *vhead,
+bsg_vlist_3string(struct bu_list *vhead,
 		 struct bu_list *free_hd, /* source of free vlists */
 		 const char *string,    /* string of chars to be plotted */
 		 const vect_t origin,	/* lower left corner of 1st char */
@@ -106,7 +106,7 @@ bv_vlist_3string(struct bu_list *vhead,
 
 
 void
-bv_vlist_2string(struct bu_list *vhead,
+bsg_vlist_2string(struct bu_list *vhead,
 		 struct bu_list *free_hd,
 		 const char *string,
 		 double x,
@@ -119,7 +119,7 @@ bv_vlist_2string(struct bu_list *vhead,
 
     bn_mat_angles( mat, 0.0, 0.0, theta );
     VSET( p, x, y, 0 );
-    bv_vlist_3string( vhead, free_hd, string, p, mat, scale );
+    bsg_vlist_3string( vhead, free_hd, string, p, mat, scale );
 }
 
 /*

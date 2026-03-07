@@ -57,6 +57,7 @@
 #include "bu/malloc.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
+#include "bsg/defines.h"
 
 __BEGIN_DECLS
 
@@ -179,11 +180,6 @@ struct bv_vlist  {
     } while (0)
 
 
-BV_EXPORT extern size_t bv_vlist_cmd_cnt(struct bv_vlist *vlist);
-BV_EXPORT extern int bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode);
-
-
-
 /**
  * For plotting, a way of separating plots into separate color vlists:
  * blocks of vlists, each with an associated color.
@@ -198,136 +194,52 @@ struct bv_vlblock {
 };
 #define BV_CK_VLBLOCK(_p)	BU_CKMAG((_p), BV_VLBLOCK_MAGIC, "bv_vlblock")
 
+/* BSG function declarations (actual symbols in libbsg) */
+BSG_EXPORT extern size_t bsg_vlist_cmd_cnt(struct bv_vlist *vlist);
+BSG_EXPORT extern int bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode);
+BSG_EXPORT extern const char *bsg_vlist_get_cmd_description(int cmd);
+BSG_EXPORT extern size_t bsg_ck_vlist(const struct bu_list *vhead);
+BSG_EXPORT extern void bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src);
+BSG_EXPORT extern void bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name);
+BSG_EXPORT extern void bsg_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf);
+BSG_EXPORT extern void bsg_vlist_cleanup(struct bu_list *hd);
+BSG_EXPORT extern struct bv_vlblock *bsg_vlblock_init(struct bu_list *free_vlist_hd, int max_ent);
+BSG_EXPORT extern void bsg_vlblock_free(struct bv_vlblock *vbp);
+BSG_EXPORT extern struct bu_list *bsg_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b);
+BSG_EXPORT extern void bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx);
+BSG_EXPORT extern void bsg_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp);
+BSG_EXPORT extern void bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree);
+BSG_EXPORT extern struct bv_scene_obj *bsg_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name);
+BSG_EXPORT extern void bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead);
+BSG_EXPORT extern void bsg_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale);
+BSG_EXPORT extern void bsg_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta);
 
-/**
- * Convert a string to a vlist.
- *
- * 'scale' is the width, in mm, of one character.
- *
- * @param vhead   vhead
- * @param free_hd source of free vlists
- * @param string  string of chars to be plotted
- * @param origin  lower left corner of 1st char
- * @param rot	  Transform matrix (WARNING: may xlate)
- * @param scale   scale factor to change 1x1 char sz
- *
- */
-BV_EXPORT extern void bv_vlist_3string(struct bu_list *vhead,
-				       struct bu_list *free_hd,
-				       const char *string,
-				       const point_t origin,
-				       const mat_t rot,
-				       double scale);
-
-/**
- * Convert string to vlist in 2D
- *
- * A simpler interface, for those cases where the text lies in the X-Y
- * plane.
- *
- * @param vhead		vhead
- * @param free_hd	source of free vlists
- * @param string	string of chars to be plotted
- * @param x		lower left corner of 1st char
- * @param y		lower left corner of 1st char
- * @param scale		scale factor to change 1x1 char sz
- * @param theta 	degrees ccw from X-axis
- *
- */
-BV_EXPORT extern void bv_vlist_2string(struct bu_list *vhead,
-				       struct bu_list *free_hd,
-				       const char *string,
-				       double x,
-				       double y,
-				       double scale,
-				       double theta);
-
-/**
- * Returns the description of a vlist cmd.  Caller is responsible
- * for freeing the returned string.
- */
-BV_EXPORT extern const char *bv_vlist_get_cmd_description(int cmd);
-
-/**
- * Validate an bv_vlist chain for having reasonable values inside.
- * Calls bu_bomb() if not.
- *
- * Returns -
- * npts Number of point/command sets in use.
- */
-BV_EXPORT extern size_t bv_ck_vlist(const struct bu_list *vhead);
-
-
-/**
- * Duplicate the contents of a vlist.  Note that the copy may be more
- * densely packed than the source.
- */
-BV_EXPORT extern void bv_vlist_copy(struct bu_list *vlists,
-				    struct bu_list *dest,
-				    const struct bu_list *src);
-
-
-/**
- * Convert a vlist chain into a blob of network-independent binary,
- * for transmission to another machine.
- *
- * The result is stored in a vls string, so that both the address and
- * length are available conveniently.
- */
-BV_EXPORT extern void bv_vlist_export(struct bu_vls *vls,
-				      struct bu_list *hp,
-				      const char *name);
-
-
-/**
- * Convert a blob of network-independent binary prepared by
- * vls_vlist() and received from another machine, into a vlist chain.
- */
-BV_EXPORT extern void bv_vlist_import(struct bu_list *vlists,
-				      struct bu_list *hp,
-				      struct bu_vls *namevls,
-				      const unsigned char *buf);
-
-BV_EXPORT extern void bv_vlist_cleanup(struct bu_list *hd);
-
-BV_EXPORT extern struct bv_vlblock *bv_vlblock_init(struct bu_list *free_vlist_hd, /* where to get/put free vlists */
-						    int max_ent);
-
-BV_EXPORT extern void bv_vlblock_free(struct bv_vlblock *vbp);
-
-BV_EXPORT extern struct bu_list *bv_vlblock_find(struct bv_vlblock *vbp,
-						 int r,
-						 int g,
-						 int b);
-
-
-BV_EXPORT void bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx);
-
-/**
- * Output a bv_vlblock object in extended UNIX-plot format, including
- * color.
- */
-BV_EXPORT extern void bv_plot_vlblock(FILE *fp,
-				      const struct bv_vlblock *vbp);
-
-BV_EXPORT extern void bv_vlblock_to_objs(struct bu_ptbl *out,
-                                     const char *name_root,
-				     struct bv_vlblock *vbp,
-				     struct bview *v,
-				     struct bv_scene_obj *f,
-				     struct bu_list *vlfree);
-
-
-BV_EXPORT extern struct bv_scene_obj *
-bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name);
-
-/**
- * Output a vlist as an extended 3-D floating point UNIX-Plot file.
- * You provide the file.  Uses libplot3 routines to create the
- * UNIX-Plot output.
- */
-BV_EXPORT extern void bv_vlist_to_uplot(FILE *fp,
-					const struct bu_list *vhead);
+/* Backward-compat inline wrappers: old bv_* names call through to bsg_* */
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wunused-function"
+#endif
+static inline size_t bv_vlist_cmd_cnt(struct bv_vlist *vlist) { return bsg_vlist_cmd_cnt(vlist); }
+static inline int bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode) { return bsg_vlist_bbox(vlistp, bmin, bmax, length, dispmode); }
+static inline const char *bv_vlist_get_cmd_description(int cmd) { return bsg_vlist_get_cmd_description(cmd); }
+static inline size_t bv_ck_vlist(const struct bu_list *vhead) { return bsg_ck_vlist(vhead); }
+static inline void bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src) { bsg_vlist_copy(vlists, dest, src); }
+static inline void bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name) { bsg_vlist_export(vls, hp, name); }
+static inline void bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf) { bsg_vlist_import(vlists, hp, namevls, buf); }
+static inline void bv_vlist_cleanup(struct bu_list *hd) { bsg_vlist_cleanup(hd); }
+static inline struct bv_vlblock *bv_vlblock_init(struct bu_list *free_vlist_hd, int max_ent) { return bsg_vlblock_init(free_vlist_hd, max_ent); }
+static inline void bv_vlblock_free(struct bv_vlblock *vbp) { bsg_vlblock_free(vbp); }
+static inline struct bu_list *bv_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b) { return bsg_vlblock_find(vbp, r, g, b); }
+static inline void bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx) { bsg_vlist_rpp(vlists, hd, minn, maxx); }
+static inline void bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp) { bsg_plot_vlblock(fp, vbp); }
+static inline void bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree) { bsg_vlblock_to_objs(out, name_root, vbp, v, f, vlfree); }
+static inline struct bv_scene_obj *bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name) { return bsg_vlblock_obj(vbp, v, name); }
+static inline void bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead) { bsg_vlist_to_uplot(fp, vhead); }
+static inline void bv_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale) { bsg_vlist_3string(vhead, free_hd, string, origin, rot, scale); }
+static inline void bv_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta) { bsg_vlist_2string(vhead, free_hd, string, x, y, scale, theta); }
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
 
 /** @} */
 
