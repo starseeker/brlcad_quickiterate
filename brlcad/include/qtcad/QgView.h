@@ -67,6 +67,8 @@ class QTCAD_EXPORT QgView : public QWidget
 
 	void save_image(int quad = 0);
 	void render_to_file(const QString &filename);
+	/* Render the current view and return the raw DM pixel data.
+	 * Returns a null QImage (check with isNull()) on failure. */
 	void get_viewport_image(QImage &img);
 
 	bool isValid();

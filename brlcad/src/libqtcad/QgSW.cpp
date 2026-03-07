@@ -45,6 +45,9 @@ extern "C" {
 // this... maybe basing it on the currently visible object bounds?
 #define QTSW_ZMIN -100
 #define QTSW_ZMAX 100
+/* Background grey level used when capturing the viewport as an image.
+ * Dark but not black, so the yellow wireframe is clearly visible. */
+#define QTSW_SCREENSHOT_BG_GREY 40
 
 QgSW::QgSW(QWidget *parent, struct fb *fbp)
     : QWidget(parent), ifp(fbp)
@@ -432,8 +435,8 @@ void QgSW::get_viewport_image(QImage &img)
     if (bg1r == 0 && bg1g == 0 && bg1b == 0 &&
 	bg2r == 0 && bg2g == 0 && bg2b == 0) {
 	/* Default black: override with a neutral dark background */
-	bg1r = bg1g = bg1b = 40;
-	bg2r = bg2g = bg2b = 40;
+	bg1r = bg1g = bg1b = QTSW_SCREENSHOT_BG_GREY;
+	bg2r = bg2g = bg2b = QTSW_SCREENSHOT_BG_GREY;
     }
     dm_set_bg(dmp, bg1r, bg1g, bg1b, bg2r, bg2g, bg2b);
     dm_loadmatrix(dmp, v->gv_model2view, 0);
