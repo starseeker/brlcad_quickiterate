@@ -65,7 +65,9 @@ ged_viewdir_core(struct ged *gedp, int argc, const char *argv[])
 	VSET(view, 0.0, 0.0, 1.0);
     }
 
-    bn_mat_inv(invRot, gedp->ged_gvp->gv_rotation);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      bn_mat_inv(invRot, _cm.rotation);
+    }
     MAT4X3PNT(dir, invRot, view);
     bn_encode_vect(gedp->ged_result_str, dir, 1);
 

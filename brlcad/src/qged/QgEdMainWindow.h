@@ -71,7 +71,7 @@ class QgEdMainWindow : public QMainWindow
 
 	// Get the currently active view of the quad/central display widget
 	QgView * CurrentDisplay();
-	struct bview * CurrentView();
+	bsg_view * CurrentView();
 
 	// Checkpoint display state (used for subsequent diff)
 	void DisplayCheckpoint();
@@ -89,7 +89,7 @@ class QgEdMainWindow : public QMainWindow
 	int InteractionMode(QPoint &gpos);
 
 	// Utility wrapper for the closeEvent to save windowing dimensions
-	void closeEvent(QCloseEvent* e);
+	void closeEvent(QCloseEvent* e) override;
 
     public slots:
 	//void save_image();
@@ -114,32 +114,32 @@ class QgEdMainWindow : public QMainWindow
 	QAction *cad_exit;
 
 	// Organizational widget
-	QWidget *cw = NULL;
+	QWidget *cw = nullptr;
 
 	// Central widgets
-	QgViewCtrl *vcw = NULL;
-	QgQuadView *c4 = NULL;
-	QAction *cad_single_view = NULL;
-	QAction *cad_quad_view = NULL;
+	QgViewCtrl *vcw = nullptr;
+	QgQuadView *c4 = nullptr;
+	QAction *cad_single_view = nullptr;
+	QAction *cad_quad_view = nullptr;
 
 	// Docked widgets
-	QgAttributesModel *stdpropmodel = NULL;
-	QgAttributesModel *userpropmodel = NULL;
-	QgEdPalette *oc = NULL;
-	QgEdPalette *vc = NULL;
-	QgTreeView *treeview = NULL;
+	QgAttributesModel *stdpropmodel = nullptr;
+	QgAttributesModel *userpropmodel = nullptr;
+	QgEdPalette *oc = nullptr;
+	QgEdPalette *vc = nullptr;
+	QgTreeView *treeview = nullptr;
 
 	// Action for toggling treeview's ls or tree view
-	QAction *vm_treeview_mode_toggle = NULL;
+	QAction *vm_treeview_mode_toggle = nullptr;
 
 	// Docking containers
-	QDockWidget *ocd = NULL;
-	QDockWidget *sattrd = NULL;
-	QDockWidget *uattrd = NULL;
-	QDockWidget *vcd = NULL;
-	QMenu *vm_panels = NULL;
-	QgDockWidget *console_dock = NULL;
-	QgDockWidget *tree_dock = NULL;
+	QDockWidget *ocd = nullptr;
+	QDockWidget *sattrd = nullptr;
+	QDockWidget *uattrd = nullptr;
+	QDockWidget *vcd = nullptr;
+	QMenu *vm_panels = nullptr;
+	QgDockWidget *console_dock = nullptr;
+	QgDockWidget *tree_dock = nullptr;
 };
 
 #endif /* QGEDMAINWINDOW_H */

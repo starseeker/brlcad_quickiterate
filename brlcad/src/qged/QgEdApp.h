@@ -34,7 +34,7 @@
 #include <QSet>
 #include <QModelIndex>
 
-#include "bv.h"
+#include "bsg.h"
 #include "raytrace.h"
 #include "ged.h"
 #include "qtcad/QgModel.h"
@@ -60,9 +60,9 @@ class QgEdApp : public QApplication
 	~QgEdApp();
 
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	int load_g_file(const char *gfile = NULL, bool do_conversion = true);
+	int load_g_file(const char *gfile = nullptr, bool do_conversion = true);
 
-	QgModel *mdl = NULL;
+	QgModel *mdl = nullptr;
 
     signals:
 	void view_update(unsigned long long);
@@ -97,7 +97,7 @@ class QgEdApp : public QApplication
 	void element_selected(QgToolPaletteElement *el);
 
     public:
-	QgEdMainWindow *w = NULL;
+	QgEdMainWindow *w = nullptr;
 
     private:
 	std::vector<char *> tmp_av;

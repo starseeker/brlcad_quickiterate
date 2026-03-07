@@ -29,7 +29,8 @@
 #include "bu/list.h"
 #include "bu/vls.h"
 #include "bn/tol.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
+#include "bsg.h"
 #include "rt/defines.h"
 #include "rt/directory.h"
 #include "rt/db_instance.h"
@@ -51,11 +52,11 @@ RT_EXPORT extern void rt_copy_curve(struct rt_curve *crv_out,
 				    const struct rt_curve *crv_in);
 RT_EXPORT extern struct rt_sketch_internal *rt_copy_sketch(const struct rt_sketch_internal *sketch_ip);
 
-RT_EXPORT extern struct bv_scene_obj *
-db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *dp, struct bview *sv, int flags);
+RT_EXPORT extern bsg_shape *
+db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *dp, bsg_view *sv, int flags);
 
 RT_EXPORT extern struct directory *
-db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj *s);
+db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s);
 
 __END_DECLS
 

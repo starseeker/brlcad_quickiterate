@@ -29,27 +29,79 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <unordered_map>
 #include "vmath.h"
 #include "bu.h"
 #include "bn.h"
 extern "C" {
-#include "bv/defines.h"
-#include "bv/lod.h"
+#include "bsg/defines.h"
+#include "bsg/lod.h"
+#include "bsg/util.h"
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"
 }
 
+/* Per-shape sensor handle map: shape -> sensor handle registered on it */
+static std::unordered_map<bsg_shape *, unsigned long long> &dlist_sensor_map()
+{
+    static std::unordered_map<bsg_shape *, unsigned long long> m;
+    return m;
+}
+
+/* Sensor callback: fires when bsg_shape_stale(s) is called.
+ * data is the struct dm * that owns the display list for s.
+ * We mark the DM dirty so the next redraw will rebuild the dlist. */
 static void
-dlist_free_callback(struct bv_scene_obj *s)
+gl_dlist_stale_cb(bsg_shape *s, void *data)
+{
+    if (!data) return;
+    struct dm *dmp = (struct dm *)data;
+    dm_set_dirty(dmp, 1);
+    (void)s; /* s_dlist_stale was already set by bsg_shape_stale() */
+}
+
+/* Register a stale-notification sensor for shape s on DM dmp.
+ * Safe to call multiple times - previous sensor is removed first. */
+static void
+gl_register_dlist_sensor(bsg_shape *s, struct dm *dmp)
+{
+    if (!s || !dmp) return;
+    auto &m = dlist_sensor_map();
+    /* Remove existing sensor if present */
+    auto it = m.find(s);
+    if (it != m.end()) {
+	bsg_shape_rm_sensor(s, it->second);
+	m.erase(it);
+    }
+    unsigned long long h = bsg_shape_add_sensor(s, gl_dlist_stale_cb, dmp);
+    if (h) m[s] = h;
+}
+
+/* Deregister sensor for shape s (called from dlist_free_callback). */
+static void
+gl_deregister_dlist_sensor(bsg_shape *s)
+{
+    if (!s) return;
+    auto &m = dlist_sensor_map();
+    auto it = m.find(s);
+    if (it != m.end()) {
+	bsg_shape_rm_sensor(s, it->second);
+	m.erase(it);
+    }
+}
+
+static void
+dlist_free_callback(bsg_shape *s)
 {
     if (!s)
 	return;
     bu_log("dlist cleanup\n");
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);
+	bsg_group *cg = (bsg_group *)BU_PTBL_GET(&s->children, i);
 	dlist_free_callback(cg);
     }
+    gl_deregister_dlist_sensor(s);
     if (s->s_dlist) {
 	glDeleteLists(s->s_dlist, 1);
 	s->s_dlist = 0;
@@ -64,7 +116,7 @@ dlist_free_callback(struct bv_scene_obj *s)
 // down the big mesh into smaller pieces as in the earlier LoD experiments in
 // order to keep using display lists...
 static int
-gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
+gl_draw_tri(struct dm *dmp, bsg_lod *lod)
 {
     int fcnt = lod->fcnt;
     int pcnt = lod->pcnt;
@@ -72,9 +124,10 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
     const point_t *points = lod->points;
     const point_t *points_orig = lod->points_orig;
     const vect_t *normals = lod->normals;
-    struct bv_scene_obj *s = lod->s;
+    bsg_shape *s = (bsg_shape *)lod->s;
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
+    struct bsg_camera _dm_cam;
 
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
     GLdouble dpt[3];
@@ -90,6 +143,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 
     // If the dlist is stale, clear it
     if (s->s_dlist_stale) {
+	gl_deregister_dlist_sensor(s);
 	glDeleteLists(s->s_dlist, 1);
 	s->s_dlist = 0;
 
@@ -97,10 +151,10 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	    // If we've had a memshrink, the loaded data isn't
 	    // going to be correct to generate new draw info.
 	    // First, find out the current level:
-	    int curr_level = bv_mesh_lod_level(s, -1, 0);
+	    int curr_level = bsg_mesh_lod_level(s, -1, 0);
 
 	    // Trigger a load operation to restore it
-	    bv_mesh_lod_level(s, curr_level, 1);
+	    bsg_mesh_lod_level(s, curr_level, 1);
 
 	    fcnt = lod->fcnt;
 	    pcnt = lod->pcnt;
@@ -161,8 +215,9 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
     if (s->s_dlist) {
 	if (mode == s->s_dlist_mode) {
 	    //bu_log("use dlist %d\n", s->s_dlist);
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -193,12 +248,14 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	s->s_dlist_mode = mode;
 	//bu_log("gen_dlist: %d\n", s->s_dlist);
 	s->s_dlist_free_callback = &dlist_free_callback;
+	gl_register_dlist_sensor(s, dmp);
 	glNewList(s->s_dlist, GL_COMPILE);
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	bsg_view_get_camera(s->s_v, &_dm_cam);
+	MAT_COPY(save_mat, _dm_cam.model2view);
+	bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -237,11 +294,12 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -344,11 +402,12 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -373,10 +432,11 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 }
 
 static int
-gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
+gl_csg_lod(struct dm *dmp, bsg_shape *s)
 {
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
+    struct bsg_camera _dm_cam;
 
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
     GLdouble dpt[3];
@@ -393,6 +453,7 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 
     // If the dlist is stale, clear it
     if (s->s_dlist_stale) {
+	gl_deregister_dlist_sensor(s);
 	glDeleteLists(s->s_dlist, 1);
 	s->s_dlist = 0;
     }
@@ -416,8 +477,9 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
     if (s->s_dlist) {
 	if (mode == s->s_dlist_mode) {
 	    //bu_log("use dlist %d\n", s->s_dlist);
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    bsg_view_get_camera(s->s_v, &_dm_cam);
+	    MAT_COPY(save_mat, _dm_cam.model2view);
+	    bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(s->s_dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -445,12 +507,14 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 	s->s_dlist_mode = mode;
 	bu_log("gen_dlist: %d\n", s->s_dlist);
 	s->s_dlist_free_callback = &dlist_free_callback;
+	gl_register_dlist_sensor(s, dmp);
 	glNewList(s->s_dlist, GL_COMPILE);
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	bsg_view_get_camera(s->s_v, &_dm_cam);
+	MAT_COPY(save_mat, _dm_cam.model2view);
+	bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -519,8 +583,9 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 	    }
 	}
 
-	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	bsg_view_get_camera(s->s_v, &_dm_cam);
+	MAT_COPY(save_mat, _dm_cam.model2view);
+	bn_mat_mul(draw_mat, _dm_cam.model2view, s->s_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
 	glCallList(s->s_dlist);
 	dm_loadmatrix(dmp, save_mat, 0);
@@ -540,14 +605,32 @@ gl_csg_lod(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 extern "C"
-int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
+int gl_draw_obj(struct dm *dmp, bsg_shape *s)
 {
-    if (s->s_type_flags & BV_MESH_LOD) {
-	struct bv_mesh_lod *lod = (struct bv_mesh_lod *)s->draw_data;
+    if (s->s_type_flags & BSG_NODE_LOD_GROUP) {
+	/* Phase 2d: LoD group node — select the appropriate detail level
+	 * child based on viewer distance and draw it. */
+	if (!s->s_v) return BRLCAD_ERROR;
+	struct bsg_camera _lod_cam;
+	bsg_view_get_camera(s->s_v, &_lod_cam);
+	/* Compute eye-to-model-center distance */
+	point_t model_center = VINIT_ZERO;
+	MAT_DELTAS_GET_NEG(model_center, _lod_cam.center);
+	fastf_t dist = DIST_PNT_PNT(_lod_cam.eye_pos, model_center);
+	int child_idx = bsg_lod_group_select_child(s, dist);
+	if (child_idx < 0 || (size_t)child_idx >= BU_PTBL_LEN(&s->children))
+	    return BRLCAD_ERROR;
+	bsg_shape *child = (bsg_shape *)BU_PTBL_GET(&s->children, child_idx);
+	if (!child) return BRLCAD_ERROR;
+	return gl_draw_obj(dmp, child);
+    }
+
+    if (s->s_type_flags & BSG_NODE_MESH_LOD) {
+	bsg_lod *lod = (bsg_lod *)s->draw_data;
 	return gl_draw_tri(dmp, lod);
     }
 
-    if (s->s_type_flags & BV_CSG_LOD) {
+    if (s->s_type_flags & BSG_NODE_CSG_LOD) {
 	return gl_csg_lod(dmp, s);
     }
 

@@ -32,16 +32,17 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/util.h"
 
 #define GET_BV_SCENE_OBJ(p, fp) { \
           if (BU_LIST_IS_EMPTY(fp)) { \
-              BU_ALLOC((p), struct bv_scene_obj); \
+              BU_ALLOC((p), bsg_shape); \
               struct ged_bv_data *bdata; \
               BU_GET(bdata, struct ged_bv_data); \
               db_full_path_init(&bdata->s_fullpath); \
               (p)->s_u_data = (void *)bdata; \
           } else { \
-              p = BU_LIST_NEXT(bv_scene_obj, fp); \
+              p = BU_LIST_NEXT(bsg_shape, fp); \
               BU_LIST_DEQUEUE(&((p)->l)); \
               if ((p)->s_u_data) { \
                   struct ged_bv_data *bdata = (struct ged_bv_data *)(p)->s_u_data; \
@@ -56,7 +57,7 @@
  * Also finds s_vlen;
  */
 static void
-mged_bound_solid(struct mged_state *s, struct bv_scene_obj *sp)
+mged_bound_solid(struct mged_state *s, bsg_shape *sp)
 {
     point_t bmin, bmax;
     size_t length = 0;
@@ -65,7 +66,7 @@ mged_bound_solid(struct mged_state *s, struct bv_scene_obj *sp)
     VSET(bmin, INFINITY, INFINITY, INFINITY);
     VSET(bmax, -INFINITY, -INFINITY, -INFINITY);
 
-    cmd = bv_vlist_bbox(&sp->s_vlist, &bmin, &bmax, &length, &dispmode);
+    cmd = bsg_vlist_bbox(&sp->s_vlist, &bmin, &bmax, &length, &dispmode);
     if (cmd) {
 	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
 	bu_vls_printf(&tmp_vls, "unknown vlist op %d\n", cmd);
@@ -92,14 +93,13 @@ mged_bound_solid(struct mged_state *s, struct bv_scene_obj *sp)
  * This routine must be prepared to run in parallel.
  */
 void
-drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const struct db_full_path *pathp, struct db_tree_state *tsp, struct bv_scene_obj *existing_sp)
+drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const struct db_full_path *pathp, struct db_tree_state *tsp, bsg_shape *existing_sp)
 {
-    struct display_list *gdlp;
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
 
     if (!existing_sp) {
 	/* Handling a new solid */
-	struct bv_scene_obj *free_scene_obj = bv_set_fsos(&s->gedp->ged_views);
+	bsg_shape *free_scene_obj = bsg_scene_fsos(&s->gedp->ged_views);
 	GET_BV_SCENE_OBJ(sp, &free_scene_obj->l);
 	BU_LIST_APPEND(&free_scene_obj->l, &((sp)->l) );
 	sp->s_dlist = 0;
@@ -153,9 +153,11 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	/* Add to linked list of solid structs */
 	bu_semaphore_acquire(RT_SEM_MODEL);
 
-	/* Grab the last display list */
-	gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(s->gedp));
-	BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
+	/* Phase 2e: register shape exclusively in scene-root children */
+	if (view_state && view_state->vs_gvp) {
+	    bsg_shape *scene_root = bsg_scene_root_get(view_state->vs_gvp);
+	    if (scene_root) bu_ptbl_ins(&scene_root->children, (long *)sp);
+	}
 
 	bu_semaphore_release(RT_SEM_MODEL);
     } else {
@@ -174,7 +176,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
  * 0 OK
  */
 int
-replot_original_solid(struct mged_state *s, struct bv_scene_obj *sp)
+replot_original_solid(struct mged_state *s, bsg_shape *sp)
 {
     struct rt_db_internal intern;
     struct directory *dp;
@@ -222,7 +224,7 @@ replot_original_solid(struct mged_state *s, struct bv_scene_obj *sp)
 int
 replot_modified_solid(
 	struct mged_state *s,
-	struct bv_scene_obj *sp,
+	bsg_shape *sp,
 	struct rt_db_internal *ip,
 	const mat_t mat)
 {
@@ -274,7 +276,7 @@ replot_modified_solid(
 void
 add_solid_path_to_result(
     Tcl_Interp *interp,
-    struct bv_scene_obj *sp)
+    bsg_shape *sp)
 {
     struct bu_vls str = BU_VLS_INIT_ZERO;
     if (!sp || !sp->s_u_data)

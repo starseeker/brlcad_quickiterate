@@ -37,7 +37,8 @@
 
 #include "brlcad_ident.h"
 #include "bu.h"
-#include "bv.h"
+#include "bsg.h"
+#include "bsg/util.h"
 
 #define USE_DM 1
 #ifdef USE_DM
@@ -163,7 +164,7 @@ bool
 DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 {
     d = 0; v = 0; l = 0; g = 0;
-    struct bview *bv = gedp->ged_gvp;
+    bsg_view *bv = gedp->ged_gvp;
     if (!bv)
 	return false;
 
@@ -172,7 +173,7 @@ DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 	return false;
 
     d = dm_hash(dmp);
-    v = bv_hash(bv);
+    v = bsg_view_hash(bv);
 
     if (new_cmd_forms && gedp->dbi_state) {
 	if (dbi_state_check) {
@@ -198,7 +199,7 @@ DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 void
 DisplayHash::dirty(struct ged *gedp, const DisplayHash &o)
 {
-    struct bview *bv = gedp->ged_gvp;
+    bsg_view *bv = gedp->ged_gvp;
     if (!bv)
 	return;
 
@@ -406,9 +407,9 @@ GshState::GshState()
 GshState::~GshState()
 {
 #ifdef USE_DM
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
 	if (v->dmp) {
 	    dm_close((struct dm *)v->dmp);
 	    v->dmp = NULL;
@@ -578,37 +579,16 @@ GshState::view_update()
 
     hashes.dirty(gedp, prev_hash);
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     if (dm_get_dirty(dmp)) {
-	if (new_cmd_forms) {
-	    unsigned char *dm_bg1;
-	    unsigned char *dm_bg2;
-	    dm_get_bg(&dm_bg1, &dm_bg2, dmp);
-	    dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
-	    dm_set_dirty(dmp, 0);
-	    dm_draw_objs(v, NULL, NULL);
-	    dm_draw_end(dmp);
-	} else {
-	    matp_t mat = gedp->ged_gvp->gv_model2view;
-	    dm_loadmatrix(dmp, mat, 0);
-	    unsigned char geometry_default_color[] = { 255, 0, 0 };
-	    dm_draw_begin(dmp);
-	    dm_draw_head_dl(dmp, (struct bu_list *)ged_dl(gedp),
-		    1.0, gedp->ged_gvp->gv_isize, -1, -1, -1, 1,
-		    0, 0, geometry_default_color, 1, 0);
-
-	    // Faceplate drawing
-	    if (gedp->dbip) {
-		struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
-		v->gv_base2local = gedp->dbip->dbi_base2local;
-		v->gv_local2base = gedp->dbip->dbi_local2base;
-		dm_draw_viewobjs(wdbp, v, NULL);
-	    } else {
-		dm_draw_viewobjs(NULL, v, NULL);
-	    }
-	    dm_draw_end(dmp);
-	}
+	unsigned char *dm_bg1;
+	unsigned char *dm_bg2;
+	dm_get_bg(&dm_bg1, &dm_bg2, dmp);
+	dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
+	dm_set_dirty(dmp, 0);
+	dm_draw_objs(v, NULL, NULL);
+	dm_draw_end(dmp);
     }
 #endif
 }

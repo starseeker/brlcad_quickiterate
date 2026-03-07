@@ -36,9 +36,9 @@ class QTCAD_EXPORT QgDockWidget : public QDockWidget
 
     public:
 	QgDockWidget(const QString &title, QWidget *parent);
-	bool event(QEvent *e);
+	bool event(QEvent *e) override;
 
-	QgModel *m = NULL;
+	QgModel *m = nullptr;
 
     signals:
 	void banner_click();

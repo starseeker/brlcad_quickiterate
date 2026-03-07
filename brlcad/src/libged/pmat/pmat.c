@@ -46,15 +46,22 @@ ged_pmat_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get the perspective matrix */
     if (argc == 1) {
-	bn_encode_mat(gedp->ged_result_str, gedp->ged_gvp->gv_pmat, 1);
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	bn_encode_mat(gedp->ged_result_str, _cam.pmat, 1);
 	return BRLCAD_OK;
     } else if (argc == 2) {
 	/* set perspective matrix */
 	if (bn_decode_mat(pmat, argv[1]) != 16)
 	    return BRLCAD_ERROR;
 
-	MAT_COPY(gedp->ged_gvp->gv_pmat, pmat);
-	bv_update(gedp->ged_gvp);
+	{
+	    struct bsg_camera _cam;
+	    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	    MAT_COPY(_cam.pmat, pmat);
+	    bsg_view_set_camera(gedp->ged_gvp, &_cam);
+	}
+	bsg_view_update(gedp->ged_gvp);
 
 	return BRLCAD_OK;
     }

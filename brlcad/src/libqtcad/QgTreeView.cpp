@@ -244,7 +244,7 @@ void QgTreeView::context_menu(const QPoint &point)
     QgItem *cnode = static_cast<QgItem *>(index.internalPointer());
 
 
-    QAction* draw_action = new QAction("Draw", NULL);
+    QAction* draw_action = new QAction("Draw", nullptr);
     // https://stackoverflow.com/a/28647342/2037687
     QVariant draw_action_v;
 #if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
@@ -256,7 +256,7 @@ void QgTreeView::context_menu(const QPoint &point)
     connect(draw_action, &QAction::triggered, m, &QgModel::draw_action);
 
 
-    QAction* erase_action = new QAction("Erase", NULL);
+    QAction* erase_action = new QAction("Erase", nullptr);
     QVariant erase_action_v;
 #if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
     erase_action_v = qVariantFromValue((void *)cnode);
@@ -267,7 +267,7 @@ void QgTreeView::context_menu(const QPoint &point)
     connect(erase_action, &QAction::triggered, m, &QgModel::erase_action);
 
 
-    QMenu *menu = new QMenu("Object Actions", NULL);
+    QMenu *menu = new QMenu("Object Actions", nullptr);
     menu->addAction(draw_action);
     menu->addAction(erase_action);
     menu->exec(mapToGlobal(point));
@@ -304,7 +304,7 @@ QgTreeView::do_draw_toggle(const QModelIndex &index)
     if (!m->gedp)
 	return;
 
-    struct bview *v = m->gedp->ged_gvp;
+    bsg_view *v = m->gedp->ged_gvp;
     if (!v)
 	return;
 
@@ -317,9 +317,9 @@ QgTreeView::do_draw_toggle(const QModelIndex &index)
     unsigned long long phash = dbis->path_hash(path_hashes, 0);
     if (!sv->is_hdrawn(-1, phash)) {
 	sv->add_hpath(path_hashes);
-	std::unordered_set<struct bview *> views;
+	std::unordered_set<bsg_view *> views;
 	views.insert(v);
-	sv->redraw(NULL, views, 1);
+	sv->redraw(nullptr, views, 1);
     } else {
 	unsigned long long c_hash = path_hashes[path_hashes.size() - 1];
 	path_hashes.pop_back();

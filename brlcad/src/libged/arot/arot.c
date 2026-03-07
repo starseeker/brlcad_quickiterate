@@ -41,7 +41,9 @@ ged_arot_core(struct ged *gedp, int argc, const char *argv[])
     if ((ret = ged_arot_args(gedp, argc, argv, rmat)) != BRLCAD_OK)
 	return ret;
 
-    return _ged_do_rot(gedp, gedp->ged_gvp->gv_coord, rmat, NULL);
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
+    return _ged_do_rot(gedp, _cam.coord, rmat, NULL);
 }
 
 

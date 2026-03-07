@@ -34,7 +34,7 @@
 #include "vmath.h"
 #include "bu/app.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "tclcad.h"
 #include "ged.h"
 
@@ -551,18 +551,23 @@ mged_setup(struct mged_state *s)
     mged_global_db_ctx.old_dbip = NULL;
     mged_global_db_ctx.post_open_cnt = 0;
 
-    BU_ALLOC(view_state->vs_gvp, struct bview);
-    bv_init(view_state->vs_gvp, NULL);
+    BU_ALLOC(view_state->vs_gvp, bsg_view);
+    bsg_view_init(view_state->vs_gvp, NULL);
+    bsg_scene_root_create(view_state->vs_gvp);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
 
     view_state->vs_gvp->gv_callback = mged_view_callback;
     view_state->vs_gvp->gv_clientData = (void *)view_state;
-    MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, view_state->vs_gvp->gv_center);
+    {
+	struct bsg_camera _sc;
+	bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	MAT_DELTAS_GET_NEG(view_state->vs_orig_pos, _sc.center);
+    }
 
     view_state->vs_gvp->vset = &s->gedp->ged_views;
 
-    bv_set_add_view(&s->gedp->ged_views, view_state->vs_gvp);
+    bsg_scene_add_view(&s->gedp->ged_views, view_state->vs_gvp);
     bu_ptbl_ins(&s->gedp->ged_free_views, (long *)view_state->vs_gvp);
     s->gedp->ged_gvp = view_state->vs_gvp;
 

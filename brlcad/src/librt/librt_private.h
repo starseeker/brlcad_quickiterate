@@ -34,7 +34,7 @@
 #include "common.h"
 
 #include "vmath.h"
-#include "bv.h"
+#include "bsg.h"
 #include "rt/db4.h"
 #include "raytrace.h"
 
@@ -72,7 +72,7 @@ struct db_i_internal {
     uint32_t dbi_magic;
 
     /* BoT level of detail cached data for drawing */
-    struct bv_mesh_lod_context *mesh_c;
+    bsg_mesh_lod_context *mesh_c;
     int mesh_c_completed;
     int mesh_c_target;
 
@@ -220,7 +220,7 @@ extern fastf_t primitive_get_absolute_tolerance(
 
 extern fastf_t primitive_diagonal_samples(
 	struct rt_db_internal *ip,
-	const struct bview *v,
+	const bsg_view *v,
 	const struct bn_tol *tol,
 	fastf_t s_size);
 
@@ -261,8 +261,8 @@ extern int _rt_tcl_list_to_int_array(const char *list, int **array, int *array_l
 extern int _rt_tcl_list_to_fastf_array(const char *list, fastf_t **array, int *array_len);
 
 /* view.c */
-extern fastf_t solid_point_spacing(const struct bview *gvp, fastf_t solid_width);
-extern fastf_t view_avg_sample_spacing(const struct bview *gvp);
+extern fastf_t solid_point_spacing(const bsg_view *gvp, fastf_t solid_width);
+extern fastf_t view_avg_sample_spacing(const bsg_view *gvp);
 
 
 #ifdef USE_OPENCL

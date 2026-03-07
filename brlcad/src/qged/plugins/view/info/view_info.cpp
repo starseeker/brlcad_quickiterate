@@ -30,7 +30,7 @@ view_info_tool_create()
 {
     CADViewModel *vmodel = new CADViewModel();
     QIcon *obj_icon = new QIcon(QPixmap(":info.svg"));
-    QgKeyValView *vview = new QgKeyValView(NULL, 0);
+    QgKeyValView *vview = new QgKeyValView(nullptr, 0);
     vview->setModel(vmodel);
     vview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     vview->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -46,7 +46,7 @@ extern "C" {
     };
 
     const struct qged_tool view_info_tool = { &view_info_tool_impl, 0 };
-    const struct qged_tool *view_info_tools[] = { &view_info_tool, NULL };
+    const struct qged_tool *view_info_tools[] = { &view_info_tool, nullptr };
 
     static const struct qged_plugin pinfo = { QGED_VC_TOOL_PLUGIN, view_info_tools, 1 };
 

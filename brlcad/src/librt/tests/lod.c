@@ -25,7 +25,7 @@
 #include "bu/time.h"
 #include "bu/units.h"
 #include "bg.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "raytrace.h"
 
 int
@@ -73,18 +73,18 @@ main(int argc, char *argv[])
     if (!bot->num_faces)
 	bu_exit(1, "ERROR: %s - no faces found\n", argv[2]);
 
-    struct bv_mesh_lod_context *c = bv_mesh_lod_context_create(argv[1]);
+    bsg_mesh_lod_context *c = bsg_mesh_lod_context_create(argv[1]);
 
-    unsigned long long key = bv_mesh_lod_cache(c, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
+    unsigned long long key = bsg_mesh_lod_cache(c, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
     if (!key)
 	bu_exit(1, "ERROR: %s - lod creation failed\n", argv[2]);
 
-    struct bv_mesh_lod *mlod = bv_mesh_lod_create(c, key);
+    bsg_lod *mlod = bsg_mesh_lod_create(c, key);
     if (!mlod)
 	bu_exit(1, "ERROR: %s - lod creation failed\n", argv[2]);
 
-    struct bv_scene_obj *s;
-    BU_GET(s, struct bv_scene_obj);
+    bsg_shape *s;
+    BU_GET(s, bsg_shape);
     s->draw_data = (void *)mlod;
 
     // TODO Set up initial view
@@ -96,16 +96,16 @@ main(int argc, char *argv[])
     start = bu_gettime();
 
     for (int i = 0; i < 16; i++) {
-	bv_mesh_lod_level(s, i, 0);
+	bsg_mesh_lod_level(s, i, 0);
     }
 
     elapsed = bu_gettime() - start;
     seconds = elapsed / 1000000.0;
     bu_log("lod level setting: %f sec\n", seconds);
 
-    BU_PUT(s, struct bv_scene_obj);
-    bv_mesh_lod_destroy(mlod);
-    bv_mesh_lod_context_destroy(c);
+    BU_PUT(s, bsg_shape);
+    bsg_mesh_lod_destroy(mlod);
+    bsg_mesh_lod_context_destroy(c);
 
     return 0;
 }

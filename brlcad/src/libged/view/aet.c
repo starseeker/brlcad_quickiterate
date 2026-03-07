@@ -47,7 +47,9 @@ ged_aet_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get aet */
     if (argc == 1) {
-	bn_encode_vect(gedp->ged_result_str, gedp->ged_gvp->gv_aet, 1);
+	{ struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	  bn_encode_vect(gedp->ged_result_str, _cv.aet, 1);
+	}
 	return BRLCAD_OK;
     }
 
@@ -70,12 +72,16 @@ ged_aet_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (iflag) {
-	    VADD2(gedp->ged_gvp->gv_aet, gedp->ged_gvp->gv_aet, aet);
+	    struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	    VADD2(_cv.aet, _cv.aet, aet);
+	    bsg_view_set_camera(gedp->ged_gvp, &_cv);
 	} else {
-	    VMOVE(gedp->ged_gvp->gv_aet, aet);
+	    struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	    VMOVE(_cv.aet, aet);
+	    bsg_view_set_camera(gedp->ged_gvp, &_cv);
 	}
-	bv_mat_aet(gedp->ged_gvp);
-	bv_update(gedp->ged_gvp);
+	bsg_view_mat_aet(gedp->ged_gvp);
+	bsg_view_update(gedp->ged_gvp);
 
 	return BRLCAD_OK;
     }
@@ -105,12 +111,16 @@ ged_aet_core(struct ged *gedp, int argc, const char *argv[])
 	VMOVE(aet, scan);
 
 	if (iflag) {
-	    VADD2(gedp->ged_gvp->gv_aet, gedp->ged_gvp->gv_aet, aet);
+	    struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	    VADD2(_cv.aet, _cv.aet, aet);
+	    bsg_view_set_camera(gedp->ged_gvp, &_cv);
 	} else {
-	    VMOVE(gedp->ged_gvp->gv_aet, aet);
+	    struct bsg_camera _cv; bsg_view_get_camera(gedp->ged_gvp, &_cv);
+	    VMOVE(_cv.aet, aet);
+	    bsg_view_set_camera(gedp->ged_gvp, &_cv);
 	}
-	bv_mat_aet(gedp->ged_gvp);
-	bv_update(gedp->ged_gvp);
+	bsg_view_mat_aet(gedp->ged_gvp);
+	bsg_view_update(gedp->ged_gvp);
 
 	return BRLCAD_OK;
     }

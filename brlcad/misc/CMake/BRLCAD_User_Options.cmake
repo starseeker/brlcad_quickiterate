@@ -531,6 +531,24 @@ cmake_dependent_option(
 )
 mark_as_advanced(BRLCAD_EXTRADOCS_VALIDATE)
 
+# =========================================================================
+# libbsg migration aid: BRLCAD_DISABLE_LIBBV_INCLUDES
+#
+# When ON, sets the preprocessor token BRLCAD_DISABLE_LIBBV_INCLUDES to 1
+# in brlcad_config.h.  Code that still uses this define can arrange for
+# a compile-time error so that incomplete libbv → libbsg migrations are
+# caught during a developer build.
+#
+# Default: OFF.  Intended to be enabled by individual developers or CI
+# pipelines once sufficient coverage has been migrated to libbsg.
+# =========================================================================
+option(BRLCAD_DISABLE_LIBBV_INCLUDES
+  "Define BRLCAD_DISABLE_LIBBV_INCLUDES in brlcad_config.h to help enforce libbsg migration"
+  OFF)
+if(BRLCAD_DISABLE_LIBBV_INCLUDES)
+  config_h_append(BRLCAD "#define BRLCAD_DISABLE_LIBBV_INCLUDES 1\n")
+endif(BRLCAD_DISABLE_LIBBV_INCLUDES)
+
 # Local Variables:
 # tab-width: 8
 # mode: cmake

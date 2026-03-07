@@ -26,7 +26,7 @@
 #include "bu/sort.h"
 #include "bg/plane.h"
 #define PLOT_PREFIX_STR bg_plot3_
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "bn/tol.h"
 #include "bg/polygon.h"
 

@@ -143,7 +143,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     // time to call the end callback (if any)
     if (!p->stdin_active && !p->stdout_active && !p->stderr_active) {
 	if (p->end_clbk)
-	    p->end_clbk(0, NULL, NULL, p->end_clbk_data);
+	    p->end_clbk(0, nullptr, nullptr, p->end_clbk_data);
     }
 
     emit ca->view_update(QG_VIEW_REFRESH);
@@ -262,8 +262,8 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     // about some of them to have drawing commands connect properly to the 3D
     // displays.
     if (argc) {
-	char *fname = bu_strdup(bu_dir(NULL, 0, BU_DIR_CURR, argv[0], NULL));
-	if (!bu_file_exists(fname, NULL)) {
+	char *fname = bu_strdup(bu_dir(nullptr, 0, BU_DIR_CURR, argv[0], nullptr));
+	if (!bu_file_exists(fname, nullptr)) {
 	    // Current dir prefix didn't work - were we given a full path rather
 	    // than a relative path?
 	    bu_free(fname, "path");
@@ -323,26 +323,26 @@ QgEdApp::do_quad_view_change(QgView *cv)
 void
 QgEdApp::do_view_changed(unsigned long long flags)
 {
-    bv_log(1, "QgEdApp::do_view_changed");
+    bsg_log(1, "QgEdApp::do_view_changed");
     QTCAD_SLOT("QgEdApp::do_view_changed", 1);
 
     if (flags & QG_VIEW_DRAWN) {
 	// For all associated view states, execute any necessary changes to
 	// view objects and lists
-	std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-	struct bu_ptbl *views = bv_set_views(&mdl->gedp->ged_views);
+	std::unordered_map<BViewState *, std::unordered_set<bsg_view *>> vmap;
+	struct bu_ptbl *views = bsg_scene_views(&mdl->gedp->ged_views);
 	if (mdl->gedp->dbi_state) {
 	    DbiState *dbis = (DbiState *)mdl->gedp->dbi_state;
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-		struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
 		BViewState *bvs = dbis->get_view_state(v);
 		if (!bvs)
 		    continue;
 		vmap[bvs].insert(v);
 	    }
-	    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
+	    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
 	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-		bv_it->first->redraw(NULL, bv_it->second, 1);
+		bv_it->first->redraw(nullptr, bv_it->second, 1);
 	    }
 	}
     }
@@ -376,7 +376,7 @@ QgEdApp::load_g_file(const char *gfile, bool do_conversion)
     const char *av[3];
     av[0] = "opendb";
     av[1] = bu_strdup(fileName.toLocal8Bit().data());
-    av[2] = NULL;
+    av[2] = nullptr;
     int ret = mdl->run_cmd(mdl->gedp->ged_result_str, ac, (const char **)av);
     bu_free((void *)av[1], "filename cpy");
     return ret;
@@ -433,7 +433,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 
     /* Set the local unit conversions */
     if (gedp->dbip) {
-	struct bview *v = w->CurrentView();
+	bsg_view *v = w->CurrentView();
 	v->gv_base2local = gedp->dbip->dbi_base2local;
 	v->gv_local2base = gedp->dbip->dbi_local2base;
     }
@@ -457,8 +457,8 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	ret = mdl->run_cmd(msg, argc, argv);
 
 	if (BU_STR_EQUAL(argv[0], "ert")) {
-	    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, NULL, NULL);
-	    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, NULL, NULL);
+	    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, nullptr, nullptr);
+	    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, nullptr, nullptr);
 	}
     } else {
 	for (int i = 0; i < argc; i++) {
@@ -514,7 +514,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	if (tmp_av.size()) {
 	    // clear tmp_av
 	    for (size_t i = 0; i < tmp_av.size(); i++) {
-		delete tmp_av[i];
+		bu_free(tmp_av[i], "tmp_av entry");
 	    }
 	    tmp_av.clear();
 	    // let the console know that we're done with MORE
@@ -544,7 +544,7 @@ QgEdApp::run_qcmd(const QString &command)
 
     // TODO - replace with "quit" cmd libged callback
     if (BU_STR_EQUAL(cmd, "q")) {
-	w->closeEvent(NULL);
+	w->closeEvent(nullptr);
 	bu_exit(0, "exit");
     }
 
@@ -618,7 +618,7 @@ QgEdApp::element_selected(QgToolPaletteElement *el)
 
     if (curr_view->curr_event_filter) {
 	curr_view->clear_event_filter(curr_view->curr_event_filter);
-	curr_view->curr_event_filter = NULL;
+	curr_view->curr_event_filter = nullptr;
     }
 
     if (el->use_event_filter) {

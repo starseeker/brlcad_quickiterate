@@ -31,7 +31,7 @@
 #include <QCheckBox>
 #include <QLabel>
 #include <QLineEdit>
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 class CADViewSettings : public QWidget
 {

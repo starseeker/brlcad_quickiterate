@@ -32,7 +32,7 @@
 #include "bn.h"
 #include "raytrace.h"
 #include "dm.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "./include/private.h"
 
 void
@@ -101,9 +101,9 @@ dm_draw_data_axes(struct dm *dmp,
 }
 
 void
-dm_draw_scene_axes(struct dm *dmp,  struct bv_scene_obj *s)
+dm_draw_scene_axes(struct dm *dmp,  bsg_shape *s)
 {
-    if (!(s->s_type_flags & BV_AXES))
+    if (!(s->s_type_flags & BSG_NODE_AXES))
 	return;
 
     struct bv_axes *bndasp = (struct bv_axes *)s->s_i_data;

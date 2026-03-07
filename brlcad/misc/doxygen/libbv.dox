@@ -1,11 +1,11 @@
 /* Top level library group */
-/** @defgroup libbv libbv (Graphical View Concepts) */
+/** @defgroup libbv libbv (Graphical View Concepts — deprecated, use libbsg) */
 
 /* Second tier groups */
 /** @ingroup libbv */
-/**   @defgroup bv_defines Definitions */
-/**  @addtogroup bv_defines
-     @brief Types and definitions related to display lists, angle distance cursor, and other generic view constructs.
+/**  @defgroup bv_defines Definitions (deprecated)
+ *   @brief  Legacy type aliases retained for backward compatibility.
+ *           New code should use the @c bsg_* types from @c bsg/defines.h.
  */
 /** @ingroup libbv */
 /**  @defgroup bv_adc Angle-Distance Cursor */

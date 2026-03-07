@@ -106,7 +106,7 @@ main(int ac, char *av[]) {
     gedp->dbi_state = new DbiState(gedp);
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
 
     // Set callback so database changes will update dbi_state
@@ -121,7 +121,7 @@ main(int ac, char *av[]) {
     s_av[4] = NULL;
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     dm_set_width(dmp, 512);
     dm_set_height(dmp, 512);

@@ -45,7 +45,8 @@ extern "C" {
 #include "bu/path.h"
 #include "bu/opt.h"
 #include "bu/sort.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
+#include "bsg/compat.h"
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"
@@ -1116,9 +1117,9 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	return false;
     if (!have_bbox) {
 	if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && gedp->ged_lod) {
-	    key = bv_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
+	    key = bsg_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
 	    if (key) {
-		struct bv_mesh_lod *lod = bv_mesh_lod_create(gedp->ged_lod, key);
+		bsg_lod *lod = bsg_mesh_lod_create(gedp->ged_lod, key);
 		if (lod) {
 		    VMOVE(bmin, lod->bmin);
 		    VMOVE(bmax, lod->bmax);
@@ -1397,7 +1398,7 @@ DbiState::update()
     // For all associated view states, execute any necessary changes to
     // view objects and lists
     std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
@@ -1738,7 +1739,7 @@ BViewState::erase_path(int mode, int argc, const char **argv)
     if (!argc || !argv)
 	return;
 
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
     for (int i = 0; i < argc; i++) {
 	std::vector<unsigned long long> path_hashes = dbis->digest_path(argv[i]);
 	if (!path_hashes.size())
@@ -1755,7 +1756,7 @@ BViewState::erase_path(int mode, int argc, const char **argv)
 void
 BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigned long long> &path_hashes, bool cache_collapse)
 {
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
     std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
     std::unordered_map<int, std::unordered_set<unsigned long long>>::iterator m_it;
     pc_it = dbis->p_c.find(c_hash);
@@ -1772,7 +1773,7 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	unsigned long long phash = dbis->path_hash(path_hashes, 0);
 	sm_it = s_map.find(phash);
 	if (sm_it != s_map.end()) {
-	    std::unordered_map<int, struct bv_scene_obj *>::iterator s_it;
+	    std::unordered_map<int, bsg_shape *>::iterator s_it;
 	    if (mode < 0) {
 		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++)
 		    bv_obj_put(s_it->second);
@@ -1954,11 +1955,11 @@ BViewState::cache_collapsed()
     std::unordered_map<int, std::unordered_set<unsigned long long>> mode_map;
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator sk_it;
     for (sk_it = s_keys.begin(); sk_it != s_keys.end(); sk_it++) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator s_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator s_it;
 	s_it = s_map.find(sk_it->first);
 	if (s_it == s_map.end())
 	    continue;
-	std::unordered_map<int, struct bv_scene_obj *>::iterator sm_it;
+	std::unordered_map<int, bsg_shape *>::iterator sm_it;
 	for (sm_it = s_it->second.begin(); sm_it != s_it->second.end(); sm_it++)
 	    mode_map[sm_it->first].insert(sk_it->first);
     }
@@ -2028,9 +2029,9 @@ BViewState::cache_collapsed()
     depth_group_collapse(all_collapsed, all_drawn_paths, all_partially_drawn_paths, all_depth_groups);
 }
 
-struct bv_scene_obj *
+bsg_shape *
 BViewState::scene_obj(
-	std::unordered_set<struct bv_scene_obj *> &objs,
+	std::unordered_set<bsg_shape *> &objs,
 	int curr_mode,
 	struct bv_obj_settings *vs,
 	matp_t m,
@@ -2041,9 +2042,9 @@ BViewState::scene_obj(
 {
     // Solid - scene object time
     unsigned long long phash = dbis->path_hash(path_hashes, 0);
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
     sm_it = s_map.find(phash);
-    struct bv_scene_obj *sp = NULL;
+    bsg_shape *sp = NULL;
     if (sm_it != s_map.end()) {
 
 	// If we have user supplied settings, we need to do some checking
@@ -2055,7 +2056,7 @@ BViewState::scene_obj(
 		unsigned long long c_hash = phashes[phashes.size() - 1];
 		phashes.pop_back();
 		std::unordered_set<int> erase_modes;
-		std::unordered_map<int, struct bv_scene_obj *>::iterator s_it;
+		std::unordered_map<int, bsg_shape *>::iterator s_it;
 		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++) {
 		    if (s_it->first == curr_mode)
 			continue;
@@ -2209,7 +2210,7 @@ BViewState::scene_obj(
 
 void
 BViewState::walk_tree(
-	std::unordered_set<struct bv_scene_obj *> &objs,
+	std::unordered_set<bsg_shape *> &objs,
 	unsigned long long chash,
 	int curr_mode,
 	struct bview *v,
@@ -2247,7 +2248,7 @@ BViewState::walk_tree(
 // missing objects.
 void
 BViewState::gather_paths(
-	std::unordered_set<struct bv_scene_obj *> &objs,
+	std::unordered_set<bsg_shape *> &objs,
 	unsigned long long c_hash,
 	int curr_mode,
 	struct bview *v,
@@ -2292,7 +2293,7 @@ BViewState::gather_paths(
 	}
     } else {
 	// Solid - scene object time
-	struct bv_scene_obj *nobj = scene_obj(objs, curr_mode, vs, m, path_hashes, views, v);
+	bsg_shape *nobj = scene_obj(objs, curr_mode, vs, m, path_hashes, views, v);
 	if (nobj && ret)
 	    (*ret) |= GED_DBISTATE_VIEW_CHANGE;
     }
@@ -2347,7 +2348,7 @@ BViewState::list_drawn_paths(int mode, bool list_collapsed)
     }
     if (mode != -1 && !list_collapsed) {
 	struct bu_vls vpath = BU_VLS_INIT_ZERO;
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
 	for (sm_it = s_map.begin(); sm_it != s_map.end(); sm_it++) {
 	    if (sm_it->second.find(mode) == sm_it->second.end())
 		continue;
@@ -2380,7 +2381,7 @@ BViewState::count_drawn_paths(int mode, bool list_collapsed)
 	return s_keys.size();
 
     if (mode != -1 && !list_collapsed) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
 	sm_it = s_map.find(mode);
 	if (sm_it != s_map.end())
 	    return sm_it->second.size();
@@ -2446,7 +2447,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
     std::unordered_map<int, std::unordered_set<unsigned long long>> mode_map;
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator sk_it;
     for (sk_it = s_keys.begin(); sk_it != s_keys.end(); sk_it++) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator s_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator s_it;
 	s_it = s_map.find(sk_it->first);
 	if (s_it == s_map.end())
 	    continue;
@@ -2465,7 +2466,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 		continue;
 	}
 
-	std::unordered_map<int, struct bv_scene_obj *>::iterator sm_it;
+	std::unordered_map<int, bsg_shape *>::iterator sm_it;
 	for (sm_it = s_it->second.begin(); sm_it != s_it->second.end(); sm_it++) {
 	    mode_map[sm_it->first].insert(sk_it->first);
 	}
@@ -2478,14 +2479,14 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	std::unordered_set<unsigned long long>::iterator k_it;
 	for (k_it = mkeys.begin(); k_it != mkeys.end(); k_it++) {
 	    std::vector<unsigned long long> &cp = s_keys[*k_it];
-	    struct bv_scene_obj *s = NULL;
+	    bsg_shape *s = NULL;
 	    if (s_map.find(*k_it) != s_map.end()) {
 		if (s_map[*k_it].find(mm_it->first) != s_map[*k_it].end())
 		    s = s_map[*k_it][mm_it->first];
 	    }
 	    if (!s)
 		continue;
-	    struct bv_scene_obj *nso = bv_obj_get(v, BV_DB_OBJS);
+	    bsg_shape *nso = bv_obj_get(v, BV_DB_OBJS);
 	    bv_obj_sync(nso, s);
 	    nso->s_i_data = s->s_i_data;
 	    s->s_i_data = NULL;
@@ -2560,7 +2561,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // drawing has to be delayed until after the initial scene objects are
     // created.  Make a set to track which objects we need to draw in the
     // finalization stage.
-    std::unordered_set<struct bv_scene_obj *> objs;
+    std::unordered_set<bsg_shape *> objs;
 
 
     // First order of business is to go through already drawn solids, if any,
@@ -2593,11 +2594,11 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // which modes they are being visualized with.
     std::unordered_map<int, std::unordered_set<unsigned long long>> mode_map;
     for (sk_it = s_keys.begin(); sk_it != s_keys.end(); sk_it++) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator s_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator s_it;
 	s_it = s_map.find(sk_it->first);
 	if (s_it == s_map.end())
 	    continue;
-	std::unordered_map<int, struct bv_scene_obj *>::iterator sm_it;
+	std::unordered_map<int, bsg_shape *>::iterator sm_it;
 	for (sm_it = s_it->second.begin(); sm_it != s_it->second.end(); sm_it++) {
 	    mode_map[sm_it->first].insert(sk_it->first);
 	}
@@ -2613,7 +2614,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    if (mm_it->second.find(*iv_it) == mm_it->second.end())
 		continue;
 	    std::vector<unsigned long long> &cp = s_keys[*iv_it];
-	    struct bv_scene_obj *s = NULL;
+	    bsg_shape *s = NULL;
 	    if (s_map.find(*iv_it) != s_map.end()) {
 		if (s_map[*iv_it].find(mm_it->first) != s_map[*iv_it].end()) {
 		    ret = GED_DBISTATE_VIEW_CHANGE;
@@ -2682,7 +2683,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
 	for (sz_it = draw_invalid_collapsed.begin(); sz_it != draw_invalid_collapsed.end(); sz_it++) {
 	    std::vector<unsigned long long> cpath = ms_it->second[*sz_it];
-	    struct bv_scene_obj *s = bv_obj_get(v, BV_DB_OBJS);
+	    bsg_shape *s = bv_obj_get(v, BV_DB_OBJS);
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&s->s_name, cpath);
 	    s->s_v = v;
@@ -2765,7 +2766,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // views will be using a shared object pool for anything other than their
     // view specific geometry sub-objects.
     for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	std::unordered_set<struct bv_scene_obj *>::iterator o_it;
+	std::unordered_set<bsg_shape *>::iterator o_it;
 	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
 	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
 	    draw_scene(*o_it, *v_it);
@@ -3088,8 +3089,8 @@ std::unordered_set<unsigned long long> SelectionSet::selected_hashes() const
 void SelectionSet::sync_to_drawn(BViewState *vs)
 {
     if (!vs || !dbis_) return;
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator so_it;
-    std::unordered_map<int, struct bv_scene_obj *>::iterator m_it;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator so_it;
+    std::unordered_map<int, bsg_shape *>::iterator m_it;
     for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
 	char illum_state = is_active(so_it->first) ? UP : DOWN;
 	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
@@ -3209,7 +3210,7 @@ bool SelectionSet::sync_to_all_views()
     if (!dbis_ || !dbis_->gedp) return false;
     bool changed = false;
     std::unordered_set<BViewState *> vstates;
-    struct bu_ptbl *views = bv_set_views(&dbis_->gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&dbis_->gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	BViewState *vs = dbis_->get_view_state(v);

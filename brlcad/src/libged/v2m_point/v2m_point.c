@@ -84,7 +84,9 @@ ged_v2m_point_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* Convert the incoming view point to a model point */
-    MAT4X3PNT(model, gedp->ged_gvp->gv_view2model, view);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(model, _cm.view2model, view);
+    }
     bn_encode_vect(gedp->ged_result_str, model, 1);
 
     return BRLCAD_OK;

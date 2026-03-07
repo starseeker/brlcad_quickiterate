@@ -55,7 +55,7 @@ class QTCAD_EXPORT QgKeyValModel : public QAbstractItemModel
     Q_OBJECT
 
     public:
-	QgKeyValModel(QObject *p = NULL);
+	QgKeyValModel(QObject *p = nullptr);
 	~QgKeyValModel();
 
 	QModelIndex index(int row, int column, const QModelIndex &parent) const;
@@ -88,7 +88,7 @@ class QTCAD_EXPORT QgKeyValDelegate : public QStyledItemDelegate
 	QgKeyValDelegate(QWidget *pparent = 0) : QStyledItemDelegate(pparent) {}
 
 	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
-	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const;
+	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 };
 
 class QTCAD_EXPORT QgKeyValView : public QTreeView
