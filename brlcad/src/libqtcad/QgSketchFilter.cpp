@@ -691,6 +691,88 @@ QgSketchCursorTracker::eventFilter(QObject *, QEvent *e)
     return false;  /* never consume events */
 }
 
+
+/* ------------------------------------------------------------------ */
+/* QgSketchSetTangencyFilter                                          */
+/* ------------------------------------------------------------------ */
+
+bool
+QgSketchSetTangencyFilter::eventFilter(QObject *, QEvent *e)
+{
+    QMouseEvent *m_e = view_sync(e);
+    if (!m_e)
+	return false;
+
+    if (!es)
+	return false;
+
+    if (m_e->type() == QEvent::MouseButtonPress
+	    && m_e->buttons().testFlag(Qt::LeftButton)) {
+
+	const struct rt_sketch_internal *skt =
+	    (const struct rt_sketch_internal *)es->es_int.idb_ptr;
+	if (!skt || skt->curve.count == 0)
+	    return true;
+
+	/* Build model→view matrix */
+	mat_t m2v;
+	bn_mat_mul(m2v, v->gv_model2view, es->model_changes);
+
+	/* Cursor in view space */
+	vect_t cursor_v;
+	screen_to_view(v->gv_mouse_x, v->gv_mouse_y, cursor_v);
+
+	int    best_seg = -1;
+	fastf_t best_d2 = INFINITY;
+	int nsamples    = 16;
+
+	for (size_t si = 0; si < skt->curve.count; si++) {
+	    /* skip the currently selected CARC itself */
+	    struct rt_sketch_edit *se =
+		(struct rt_sketch_edit *)es->ipe_ptr;
+	    if ((int)si == se->curr_seg)
+		continue;
+
+	    for (int k = 0; k <= nsamples; k++) {
+		fastf_t t = (fastf_t)k / (fastf_t)nsamples;
+		point_t p3d;
+		if (!sketch_seg_sample(skt, (int)si, t, &p3d))
+		    continue;
+		point_t p_view;
+		MAT4X3PNT(p_view, m2v, p3d);
+		fastf_t dx = p_view[X] - cursor_v[X];
+		fastf_t dy = p_view[Y] - cursor_v[Y];
+		fastf_t d2 = dx*dx + dy*dy;
+		if (d2 < best_d2) {
+		    best_d2  = d2;
+		    best_seg = (int)si;
+		}
+	    }
+	}
+
+	if (best_seg < 0)
+	    return true;
+
+	rt_edit_checkpoint(es);
+	es->e_para[0] = (fastf_t)best_seg;
+	es->e_para[1] = tangency_angle;
+	es->e_inpara  = 2;
+	EDOBJ[es->es_int.idb_type].ft_set_edit_mode(es,
+		ECMD_SKETCH_SET_TANGENCY);
+	rt_edit_process(es);
+
+	emit sketch_changed();
+	emit view_updated(QG_VIEW_REFRESH);
+	return true;
+    }
+
+    if (m_e->type() == QEvent::MouseButtonPress
+	    || m_e->type() == QEvent::MouseButtonRelease)
+	return true;
+
+    return false;
+}
+
 // Local Variables:
 // tab-width: 8
 // mode: C++

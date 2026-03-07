@@ -183,6 +183,44 @@
  * curr_seg must point to a CARC segment.
  */
 #define ECMD_SKETCH_SET_ARC_RADIUS    26017
+/**
+ * Make the currently selected CARC arc tangent to an adjacent segment at
+ * their shared vertex.
+ *
+ * The operation implements the MGED skt_ed.tcl "Set Tangency" workflow:
+ *   1. Both segments must share exactly one vertex.
+ *   2. The tangent direction of the *adjacent* segment at the shared vertex
+ *      is computed (chord direction for a line; radius-perpendicular for arcs).
+ *   3. Optionally, the tangent is rotated by a user-supplied angle so the
+ *      arc can be tangent at an oblique angle to the adjacent segment.
+ *   4. The radius and center_is_left / orientation flags of curr_seg are
+ *      updated so the arc starts or ends tangentially.
+ *
+ * e_para layout:
+ *   e_para[0]  = index of the *adjacent* segment (the one to be tangent to)
+ *   e_para[1]  = tangency angle in radians (0 = direct tangency, i.e. smooth join)
+ * e_inpara    = 2
+ * curr_seg    must be the CARC segment to be modified (se->curr_seg >= 0).
+ *
+ * Returns BRLCAD_OK on success, BRLCAD_ERROR with a message if the geometry
+ * is degenerate (no shared vertex, zero-length chord, etc.).
+ */
+#define ECMD_SKETCH_SET_TANGENCY      26018
+/**
+ * Edit the sketch plane parameters: origin (V), u-direction vector (A),
+ * and v-direction vector (B).
+ *
+ * e_para layout (all values in model base units / radians as appropriate):
+ *   e_para[0..2]  = new V (3-D origin in model space)
+ *   e_para[3..5]  = new A (u_vec, will be normalised)
+ *   e_para[6..8]  = new B (v_vec, will be normalised)
+ * e_inpara       = 9.
+ *
+ * The function normalises A and B and ensures they are mutually
+ * perpendicular (B is re-orthogonalised against A via Gram-Schmidt).
+ * Returns BRLCAD_ERROR if A has zero length.
+ */
+#define ECMD_SKETCH_SET_PLANE         26019
 
 
 /* ------------------------------------------------------------------ */
@@ -277,6 +315,8 @@ struct rt_edit_menu_item sketch_menu[] = {
     { "Add Vertex",          sketch_ed, ECMD_SKETCH_ADD_VERTEX },
     { "Toggle Arc Orient",   sketch_ed, ECMD_SKETCH_TOGGLE_ARC_ORIENT },
     { "Set Arc Radius",      sketch_ed, ECMD_SKETCH_SET_ARC_RADIUS },
+    { "Set Arc Tangency",    sketch_ed, ECMD_SKETCH_SET_TANGENCY },
+    { "Set Sketch Plane",    sketch_ed, ECMD_SKETCH_SET_PLANE },
     { "", NULL, 0 }
 };
 
@@ -1514,6 +1554,363 @@ ecmd_sketch_set_arc_radius(struct rt_edit *s)
     return 0;
 }
 
+/*
+ * Helper: compute the tangent direction of segment[seg_idx] at vertex
+ * vert_idx in the sketch.  Result is a unit vector in (tx_out, ty_out).
+ * Returns BRLCAD_OK or BRLCAD_ERROR if degenerate.
+ *
+ * Line segments: chord direction toward the OTHER vertex.
+ * CARC arcs:    radius-perpendicular at the given end (uses
+ *               the perpendicular-bisector centre calculation, matching the
+ *               Tcl get_tangent_at_vertex implementation).
+ * Other types:  returns BRLCAD_ERROR (not supported for tangency).
+ */
+static int
+sketch_tangent_at_vertex(const struct rt_sketch_internal *skt,
+			 int seg_idx, int vert_idx,
+			 fastf_t *tx_out, fastf_t *ty_out,
+			 struct bu_vls *log_str)
+{
+    void *seg = skt->curve.segment[seg_idx];
+    if (!seg) {
+	bu_vls_printf(log_str,
+		"sketch_tangent_at_vertex: segment[%d] is NULL\n", seg_idx);
+	return BRLCAD_ERROR;
+    }
+
+    uint32_t magic = *(uint32_t *)seg;
+
+    if (magic == CURVE_LSEG_MAGIC) {
+	struct line_seg *ls = (struct line_seg *)seg;
+	/* Tangent = direction from vert_idx toward the other end */
+	int other = (vert_idx == ls->start) ? ls->end : ls->start;
+	fastf_t dx = skt->verts[other][0] - skt->verts[vert_idx][0];
+	fastf_t dy = skt->verts[other][1] - skt->verts[vert_idx][1];
+	fastf_t len = sqrt(dx*dx + dy*dy);
+	if (len < SMALL_FASTF) {
+	    bu_vls_printf(log_str,
+		    "sketch_tangent_at_vertex: zero-length line segment %d\n",
+		    seg_idx);
+	    return BRLCAD_ERROR;
+	}
+	*tx_out = dx / len;
+	*ty_out = dy / len;
+	return BRLCAD_OK;
+    }
+
+    if (magic == CURVE_CARC_MAGIC) {
+	struct carc_seg *cs = (struct carc_seg *)seg;
+	fastf_t sx = skt->verts[cs->start][0];
+	fastf_t sy = skt->verts[cs->start][1];
+	fastf_t ex = skt->verts[cs->end  ][0];
+	fastf_t ey = skt->verts[cs->end  ][1];
+
+	if (cs->radius < 0.0) {
+	    /* Full circle: tangent at start is perpendicular to start→centre */
+	    if (vert_idx != cs->start) {
+		bu_vls_printf(log_str,
+			"sketch_tangent_at_vertex: full circle has no tangent at end\n");
+		return BRLCAD_ERROR;
+	    }
+	    fastf_t dx = ex - sx;  /* centre - start */
+	    fastf_t dy = ey - sy;
+	    fastf_t len = sqrt(dx*dx + dy*dy);
+	    if (len < SMALL_FASTF) {
+		bu_vls_printf(log_str,
+			"sketch_tangent_at_vertex: full circle degenerate\n");
+		return BRLCAD_ERROR;
+	    }
+	    *tx_out = -dy / len;
+	    *ty_out =  dx / len;
+	    return BRLCAD_OK;
+	}
+
+	/* Partial arc: find centre via perpendicular bisector */
+	fastf_t midx = (sx + ex) * 0.5;
+	fastf_t midy = (sy + ey) * 0.5;
+	fastf_t s2mx = midx - sx, s2my = midy - sy;
+	fastf_t s2m_sq = s2mx*s2mx + s2my*s2my;
+	if (s2m_sq < SMALL_FASTF) {
+	    bu_vls_printf(log_str,
+		    "sketch_tangent_at_vertex: arc endpoints coincide\n");
+	    return BRLCAD_ERROR;
+	}
+	fastf_t r = cs->radius;
+	fastf_t len_sq = r*r - s2m_sq;
+	if (len_sq < 0.0) len_sq = 0.0;
+	fastf_t tmp_len = sqrt(len_sq);
+
+	fastf_t dirx = -s2my, diry = s2mx;
+	fastf_t dir_len = sqrt(dirx*dirx + diry*diry);
+	dirx /= dir_len; diry /= dir_len;
+
+	fastf_t cx = midx + tmp_len * dirx;
+	fastf_t cy = midy + tmp_len * diry;
+	fastf_t cross_z = (ex - sx)*(cy - sy) - (ey - sy)*(cx - sx);
+	if ((cross_z <= 0.0) || !cs->center_is_left) {
+	    cx = midx - tmp_len * dirx;
+	    cy = midy - tmp_len * diry;
+	}
+
+	/* Tangent at vert_idx = perpendicular to (vert - centre),
+	 * oriented according to cs->orientation (CW vs CCW) */
+	fastf_t vx, vy;
+	if (vert_idx == cs->start) {
+	    vx = sx - cx; vy = sy - cy;
+	} else {
+	    vx = ex - cx; vy = ey - cy;
+	}
+	fastf_t vlen = sqrt(vx*vx + vy*vy);
+	if (vlen < SMALL_FASTF) {
+	    bu_vls_printf(log_str,
+		    "sketch_tangent_at_vertex: arc vertex at centre\n");
+	    return BRLCAD_ERROR;
+	}
+	vx /= vlen; vy /= vlen;
+
+	if (cs->orientation) {
+	    *tx_out =  vy; *ty_out = -vx;   /* CW: rotate -90° */
+	} else {
+	    *tx_out = -vy; *ty_out =  vx;   /* CCW: rotate +90° */
+	}
+	/* The perpendicular-to-radius formula above gives a vector that points
+	 * "outward" from the arc in the direction of travel for the END vertex.
+	 * At the START vertex, the arc enters from the opposite direction, so
+	 * we flip it to obtain the tangent pointing into (rather than out of)
+	 * the arc.  No flip is needed for the end vertex. */
+	if (vert_idx == cs->start) {
+	    *tx_out = -*tx_out; *ty_out = -*ty_out;
+	}
+	return BRLCAD_OK;
+    }
+
+    bu_vls_printf(log_str,
+	    "sketch_tangent_at_vertex: unsupported segment type (magic 0x%08x)\n",
+	    magic);
+    return BRLCAD_ERROR;
+}
+
+static int
+ecmd_sketch_set_tangency(struct rt_edit *s)
+{
+    struct rt_sketch_edit *se = (struct rt_sketch_edit *)s->ipe_ptr;
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (se->curr_seg < 0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: no segment selected\n");
+	return BRLCAD_ERROR;
+    }
+
+    if (!s->e_inpara || s->e_inpara < 2) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		"e_para[0]=adj_seg, e_para[1]=angle required\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    void *arc_seg = skt->curve.segment[se->curr_seg];
+    if (!arc_seg || *(uint32_t *)arc_seg != CURVE_CARC_MAGIC) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		"selected segment is not a CARC\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    struct carc_seg *cs = (struct carc_seg *)arc_seg;
+
+    if (cs->radius < 0.0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		"cannot set tangency on a full-circle arc\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    int adj_seg = (int)s->e_para[0];
+    fastf_t angle_rad = s->e_para[1];
+
+    if (adj_seg < 0 || (size_t)adj_seg >= skt->curve.count) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		"adjacent segment index %d out of range [0,%zu)\n",
+		adj_seg, skt->curve.count);
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    if (adj_seg == se->curr_seg) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		"adjacent segment is the same as curr_seg\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    /* Find the shared vertex between the two segments */
+    int v0[2], v1[2], nv0, nv1;
+    {
+	void *adj = skt->curve.segment[adj_seg];
+	uint32_t am = adj ? *(uint32_t *)adj : 0;
+	if (am == CURVE_LSEG_MAGIC) {
+	    struct line_seg *ls = (struct line_seg *)adj;
+	    v1[0] = ls->start; v1[1] = ls->end; nv1 = 2;
+	} else if (am == CURVE_CARC_MAGIC) {
+	    struct carc_seg *acs = (struct carc_seg *)adj;
+	    v1[0] = acs->start; v1[1] = acs->end; nv1 = 2;
+	} else {
+	    bu_vls_printf(s->log_str,
+		    "ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		    "adjacent segment type unsupported\n");
+	    s->e_inpara = 0;
+	    return BRLCAD_ERROR;
+	}
+	v0[0] = cs->start; v0[1] = cs->end; nv0 = 2;
+    }
+
+    int common_vertex = -1;
+    for (int i = 0; i < nv0 && common_vertex < 0; i++) {
+	for (int j = 0; j < nv1 && common_vertex < 0; j++) {
+	    if (v0[i] == v1[j])
+		common_vertex = v0[i];
+	}
+    }
+    if (common_vertex < 0) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		"segments do not share a vertex\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    /* Tangent direction of the adjacent segment at the common vertex */
+    fastf_t tx = 0.0, ty = 0.0;
+    if (sketch_tangent_at_vertex(skt, adj_seg, common_vertex,
+				  &tx, &ty, s->log_str) != BRLCAD_OK) {
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    /* Optionally rotate by tangency_angle */
+    if (fabs(angle_rad) > 1.0e-10) {
+	fastf_t ca = cos(angle_rad), sa = sin(angle_rad);
+	fastf_t ntx =  tx * ca - ty * sa;
+	fastf_t nty =  tx * sa + ty * ca;
+	tx = ntx; ty = nty;
+    }
+
+    /* Convert tangent → radius direction (rotate -90°) */
+    fastf_t rdx = -ty, rdy = tx;
+
+    /* Compute the chord (v2 - v1) for the arc's two vertices */
+    fastf_t ax = skt->verts[cs->start][0], ay = skt->verts[cs->start][1];
+    fastf_t bx = skt->verts[cs->end  ][0], by = skt->verts[cs->end  ][1];
+    fastf_t diffx = ax - bx, diffy = ay - by;
+
+    fastf_t dot = diffx * rdx + diffy * rdy;
+    if (fabs(dot) < 1.0e-10) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_TANGENCY: "
+		"impossible tangency (perpendicular to chord — would give a straight line)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    fastf_t diff_sq = diffx*diffx + diffy*diffy;
+    fastf_t new_r = diff_sq / (-2.0 * dot);
+    if (new_r < 0.0) {
+	new_r = -new_r;
+	rdx = -rdx; rdy = -rdy;
+    }
+
+    /* Compute candidate centres on both sides and pick the closer one */
+    fastf_t vcomx = skt->verts[common_vertex][0];
+    fastf_t vcomy = skt->verts[common_vertex][1];
+    fastf_t cax = vcomx + new_r * rdx, cay = vcomy + new_r * rdy;
+    fastf_t cbx = vcomx - new_r * rdx, cby = vcomy - new_r * rdy;
+
+    int other_v = (common_vertex == cs->start) ? cs->end : cs->start;
+    fastf_t ovx = skt->verts[other_v][0], ovy = skt->verts[other_v][1];
+
+    fastf_t da = fabs(sqrt((cax - ovx)*(cax - ovx) + (cay - ovy)*(cay - ovy)) - new_r);
+    fastf_t db = fabs(sqrt((cbx - ovx)*(cbx - ovx) + (cby - ovy)*(cby - ovy)) - new_r);
+
+    fastf_t cx = (da < db) ? cax : cbx;
+    fastf_t cy = (da < db) ? cay : cby;
+
+    /* Determine center_is_left and orientation from centre position */
+    fastf_t diff2x = cx - bx, diff2y = cy - by;
+    fastf_t cross_cl = diff2x * rdy - diff2y * rdx;
+    cs->center_is_left = (cross_cl > 0.0) ? 1 : 0;
+
+    fastf_t diff1x = ax - cx, diff1y = ay - cy;
+    /* A point one unit along the tangent from the start vertex (ax, ay).
+     * Used to determine orientation (CW vs CCW) via a 2-D cross product:
+     * if the cross product of (start→centre) with (start→tangent_point) is
+     * positive the arc turns counter-clockwise (orientation = 0). */
+    fastf_t tangent_point_x = ax + tx, tangent_point_y = ay + ty;
+    fastf_t diff3x = tangent_point_x - cx, diff3y = tangent_point_y - cy;
+    fastf_t cross_or = diff1x * diff3y - diff1y * diff3x;
+    cs->orientation = (cross_or > 0.0) ? 0 : 1;
+
+    cs->radius = new_r;
+    cs->center = -1;  /* force recompute */
+
+    s->e_inpara = 0;
+    return BRLCAD_OK;
+}
+
+static int
+ecmd_sketch_set_plane(struct rt_edit *s)
+{
+    struct rt_sketch_internal *skt =
+	(struct rt_sketch_internal *)s->es_int.idb_ptr;
+    RT_SKETCH_CK_MAGIC(skt);
+
+    if (!s->e_inpara || s->e_inpara < 9) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_PLANE: "
+		"9 parameters required (V[3] A[3] B[3] in base units)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+
+    VSET(skt->V, s->e_para[0], s->e_para[1], s->e_para[2]);
+
+    vect_t a, b;
+    VSET(a, s->e_para[3], s->e_para[4], s->e_para[5]);
+    VSET(b, s->e_para[6], s->e_para[7], s->e_para[8]);
+
+    fastf_t a_len = MAGNITUDE(a);
+    if (a_len < SMALL_FASTF) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_PLANE: u_vec (A) has zero length\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    VSCALE(a, a, 1.0 / a_len);
+
+    /* Gram-Schmidt: orthogonalise B against A */
+    fastf_t bdota = VDOT(b, a);
+    VJOIN1(b, b, -bdota, a);
+    fastf_t b_len = MAGNITUDE(b);
+    if (b_len < SMALL_FASTF) {
+	bu_vls_printf(s->log_str,
+		"ERROR: ECMD_SKETCH_SET_PLANE: v_vec (B) is parallel to u_vec (A)\n");
+	s->e_inpara = 0;
+	return BRLCAD_ERROR;
+    }
+    VSCALE(b, b, 1.0 / b_len);
+
+    VMOVE(skt->u_vec, a);
+    VMOVE(skt->v_vec, b);
+
+    s->e_inpara = 0;
+    return BRLCAD_OK;
+}
+
 int
 rt_edit_sketch_edit(struct rt_edit *s)
 {
@@ -1560,6 +1957,10 @@ rt_edit_sketch_edit(struct rt_edit *s)
 	    return ecmd_sketch_toggle_arc_orient(s);
 	case ECMD_SKETCH_SET_ARC_RADIUS:
 	    return ecmd_sketch_set_arc_radius(s);
+	case ECMD_SKETCH_SET_TANGENCY:
+	    return ecmd_sketch_set_tangency(s);
+	case ECMD_SKETCH_SET_PLANE:
+	    return ecmd_sketch_set_plane(s);
 	default:
 	    return edit_generic(s);
     }

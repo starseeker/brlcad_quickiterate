@@ -302,6 +302,35 @@ signals:
 };
 
 
+/**
+ * QgSketchSetTangencyFilter — left-click to select an adjacent segment
+ * and make the currently selected arc tangent to it at their shared vertex.
+ *
+ * Workflow:
+ *   1. Install this filter when the user activates tangency mode.
+ *   2. The filter picks the nearest segment to the click position (same
+ *      proximity logic as QgSketchPickSegmentFilter).
+ *   3. It then fires ECMD_SKETCH_SET_TANGENCY with:
+ *        e_para[0] = index of the clicked adjacent segment
+ *        e_para[1] = tangency_angle (in radians, default 0 = smooth join)
+ *   4. Emits sketch_changed() and view_updated(QG_VIEW_REFRESH).
+ *   5. Deactivates itself after one successful pick (single-shot).
+ *
+ * The user can change tangency_angle via the public field before
+ * installing the filter.
+ */
+class QTCAD_EXPORT QgSketchSetTangencyFilter : public QgSketchFilter
+{
+    Q_OBJECT
+
+public:
+    /** Tangency angle in radians (0 = smooth / G1 join). */
+    fastf_t tangency_angle = 0.0;
+
+    bool eventFilter(QObject *, QEvent *e);
+};
+
+
 #endif /* QGSKETCHFILTER_H */
 
 // Local Variables:
