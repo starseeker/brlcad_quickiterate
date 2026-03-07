@@ -30,7 +30,7 @@
 
 
 #include "vmath.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/snap.h"
 
 #include "../ged_private.h"

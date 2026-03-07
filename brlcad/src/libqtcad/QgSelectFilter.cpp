@@ -28,7 +28,7 @@
 extern "C" {
 #include "bu/malloc.h"
 #include "bg/aabb_ray.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/util.h"
 #include "raytrace.h"
 }

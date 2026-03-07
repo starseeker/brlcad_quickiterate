@@ -21,7 +21,7 @@
 #include "common.h"
 
 #include "bu/path.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/util.h"
 #include "tclcad.h"
 
