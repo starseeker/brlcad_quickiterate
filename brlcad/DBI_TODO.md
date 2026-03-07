@@ -1015,6 +1015,7 @@ and provide testable checkpoints at each phase.
 | — | Migration guide (`doc/DBI_MIGRATION.md`) created | ✅ Done |
 | 6 | `QgModel` incremental update: `on_dbi_changed()` stores events; `g_update()` calls `full_model_reset()` or `apply_incremental_updates()` based on event complexity | ✅ Done |
 | 7 | `SelectionSet` hierarchy completion: `selected_paths()`, `recompute_hierarchy()` (BFS), `sync_to_drawn()` (bv_illum_obj pattern) | ✅ Done |
+| 8 | Qt model protocol fixes; observer re-registration; child-level incremental update (`rebuild_item_children`); `canFetchMore()` fix | ✅ Done |
 
 **Files modified by this work:**
 
@@ -1029,11 +1030,12 @@ and provide testable checkpoints at each phase.
   observer infrastructure, `notify_dbi_observers()` call in `update()`
 - `include/qtcad/QgModel.h` — `QgModel` inherits `IDbiObserver`; Phase 6: `in_g_update_`,
   `pending_dbi_events_`, `full_model_reset()`, `apply_incremental_updates()`,
-  `reconcile_tops()` declarations
+  `reconcile_tops()` declarations; Phase 8: `rebuild_item_children()`, `observed_dbi_state_`
 - `src/libqtcad/QgModel.cpp` — Phase 6: `on_dbi_changed()` collects events;
   `g_update()` calls `dbis->update()` before Qt model changes, uses `full_model_reset()`
   or `apply_incremental_updates()` + `reconcile_tops()` based on event set;
-  `full_model_reset()` extracted helper for full `beginResetModel()/endResetModel()` cycle
+  `full_model_reset()` extracted helper for full `beginResetModel()/endResetModel()` cycle;
+  Phase 8: Qt model protocol fixes, observer re-registration, `rebuild_item_children()`
 - `doc/DBI_MIGRATION.md` — new migration guide
 
 ### Phase 6 Design Notes
@@ -1050,7 +1052,8 @@ behavior.  Fixed by:
 - `ObjectModified` / `AttributeChanged` for a solid → `dataChanged()` for all matching items.
 - `ObjectAdded` / `ObjectRemoved` → `reconcile_tops()` which does per-row
   `beginInsertRows`/`endInsertRows` or `beginRemoveRows`/`endRemoveRows`.
-- `ObjectModified` for a comb that has already-expanded children → full reset (fallback).
+- `ObjectModified` for a comb with already-expanded children → `rebuild_item_children()`
+  with per-row `beginRemoveRows`/`endRemoveRows` + `beginInsertRows`/`endInsertRows`.
 - `CombTreeChanged` or `batch=true` → full reset (fallback).
 - Unknown event kind → full reset (fallback).
 
@@ -1064,6 +1067,44 @@ behavior.  Fixed by:
 - `sync_to_drawn()`: iterates `BViewState::s_map` and calls `bv_illum_obj()` — same pattern
   as `BSelectState::draw_sync()`.
 
+### Phase 8 Design Notes (Session 19)
+
+**Qt model protocol fixes** — eliminated all `qt.modeltest: FAIL!` warnings:
+
+1. `QgItem::childCount()` now returns `children.size()` for all items (the actually-loaded
+   count).  The old code returned `c_count` (a pre-fetch estimate) for non-root items,
+   causing `rowCount()` to misreport rows before `fetchMore()` was called.
+
+2. `reconcile_tops()` rewrites: each new top-level item is inserted individually with
+   `beginInsertRows`/`endInsertRows` at the correct sorted position, and `rootItem->children`
+   is updated inside the bracket.  The old code called `layoutAboutToBeChanged()`/
+   `layoutChanged()` for multi-insertions, violating the Qt model protocol when paired with
+   `beginInsertRows`.
+
+3. Removed a bare `emit layoutChanged()` in `g_update()` that had no preceding
+   `layoutAboutToBeChanged()` — a protocol violation caught by `QAbstractItemModelTester`.
+
+4. Same bare `emit layoutChanged()` removed from the null-dbip path in `g_update()`.
+
+**Observer re-registration** — `open`/`closedb` destroy and recreate `gedp->dbi_state`.
+`QgModel` previously stayed registered with the deleted `DbiState_A` and never received
+events from `DbiState_B`, so every update fell through to `full_model_reset()`.  Fixed by
+adding `observed_dbi_state_` tracking; `g_update()` calls `dbis->add_observer(this)` when
+the pointer changes.
+
+**Child-level incremental update** — new `QgModel::rebuild_item_children()` method.
+For `ObjectModified` on a comb that already has expanded children, instead of falling back
+to `full_model_reset()`, the method:
+1. Snapshots the old `item->children` vector.
+2. Calls `item_rebuild()` to obtain the new child list.
+3. Emits `beginRemoveRows`/`endRemoveRows` for the old rows.
+4. Deletes orphaned `QgItem`s that were not reused.
+5. Emits `beginInsertRows`/`endInsertRows` for the new rows.
+This preserves expanded/collapsed state throughout the rest of the tree.
+
+**`canFetchMore()` fix** — added early-return when `item->children` is already populated,
+preventing `canFetchMore()` from returning `true` for items that have been fetched.
+
 ### Remaining Work
 
 - **Regression tests**: unit tests that exercise `on_dbi_changed()` → targeted row signals
@@ -1071,7 +1112,4 @@ behavior.  Fixed by:
 - **`DbiPath` value type**: typed path representation (deferred from Phase 1).
 - **`SelectionSet` path retention**: currently `select(ull, bool)` convenience overload
   inserts an empty path vector — callers should prefer the full overload.
-- **Child-level incremental update**: `apply_incremental_updates()` currently falls back to
-  full reset when a modified comb has expanded children.  A future enhancement would use
-  `item_rebuild()` with individual row signals instead.
 - **C surface**: public C API wrappers for `SelectionSet` and `DbiState::gobjs`.
