@@ -995,4 +995,17 @@ suites provide a clean baseline again.
 - ✅ Step 6 — Geometry ingestion (`src/libbsg_dm/geom.c`): `libbsg_shape_wireframe(s, ip, ttol, tol)` calls `ft_plot()` from the primitive functab to populate `libbsg_shape.vlist` from an `rt_db_internal`.
 - ✅ Step 7 — Selection state (`src/libbsg/select.c`): `libbsg_select_state`, `libbsg_select_alloc/free/clear/add_path/rm_path/has_path/count/sync_highlight` — clean re-implementation, no `DbiState` coupling.
 - ✅ Both `libbsg.so` (24 symbols) and `libbsg_dm.a` (3 symbols) build cleanly.
-- Remaining: Step 8 (optional CMake flag `BRLCAD_DISABLE_LIBBV_INCLUDES`).*
+- Remaining: Step 8 (optional CMake flag `BRLCAD_DISABLE_LIBBV_INCLUDES`).  
+**Sessions 14–16 (Incremental build-up Steps 2–4 COMPLETE)**:
+- ✅ Step 2 — Moved `scene_graph.cpp` from `libbv/` to `libbsg/`; renamed from `libbsg_*` back to production `bsg_*` naming convention; 101 `bsg_*` symbols exported from `libbsg.so`.
+- ✅ `libbv` now links `libbsg` for backward compatibility.
+- ✅ Step 3 — Moved `diff.c` and `hash.c` from `libbv/` to `libbsg/`.
+- ✅ Step 4 — Moved `util.cpp` from `libbv/` to `libbsg/`; internal helpers renamed `_bsg_*_compat()` to avoid conflicts with `bv_*` exports; `scene_graph.cpp` wrappers updated to call `_bsg_*_compat` instead of `bv_*`.  Also added `knobs.cpp`, `snap.c`, `polygon.c`, `view_sets.cpp`, `lod.cpp` to `libbsg/`. `libbsg.so` has zero undefined `bv_*` symbols; deps = `libbg;libbn;libbu` only.  
+**Session 17 (BSG fixes)**:
+- ✅ `bsg_traverse` post-order for geometry nodes — visit geometry after children to fix polygon fill draw order.
+- ✅ `bsg_shape_get/put` propagate DB shapes to ALL non-independent sibling views in the same `vset`.
+- ✅ All 5 draw test suites pass: `ged_test_draw`, `ged_test_faceplate`, `ged_test_quad`, `ged_test_select_draw`, `ged_test_lod`.  
+**Session 18 (Step 5 type safety + DBI bug fix)**:
+- ✅ Step 5 partial — `bsg_shape.i` field type changed from `struct bv_scene_obj_internal *` to `struct bsg_shape_internal *` in `bv/defines.h`. The `BSG_SHAPI` macro is now a direct field access with no cast; `BSG_SHAPI_CAST` removed. All 5 allocation sites in `util.cpp` and 1 in `scene_graph.cpp` use `new bsg_shape_internal` directly.
+- ✅ DBI garbage-collection bug fixed: in `DbiState::update()` the condition for collecting unused `i_map`/`i_str` entries was inverted (`!= used.end()` → `== used.end()`), causing used instance-hash entries to be silently erased. This made `print_hash()` crash when the select test tried to print expanded selection paths. Fixed by one-character change.
+- ✅ All 5 draw test suites regenerated and passing (100%): basic, faceplate, lod, select, quad.*
