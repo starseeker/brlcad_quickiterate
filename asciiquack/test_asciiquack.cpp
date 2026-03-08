@@ -193,11 +193,42 @@ static void test_sub_replacements() {
     std::string ellipsis = asciiquack::sub_replacements("...");
     EXPECT(ellipsis.find("&#8230;") != std::string::npos);
 
+    // Copyright: only uppercase (C) is converted
     std::string copyright = asciiquack::sub_replacements("(C)");
     EXPECT(copyright.find("&#169;") != std::string::npos);
+    // Lowercase (c) must NOT be converted (Asciidoctor is case-sensitive)
+    std::string copyright_lc = asciiquack::sub_replacements("(c)");
+    EXPECT(copyright_lc.find("&#169;") == std::string::npos);
+    EXPECT(copyright_lc.find("(c)") != std::string::npos);
 
+    // Trademark: only uppercase (TM)
     std::string tm = asciiquack::sub_replacements("(TM)");
     EXPECT(tm.find("&#8482;") != std::string::npos);
+    // Lowercase (tm) must NOT be converted
+    std::string tm_lc = asciiquack::sub_replacements("(tm)");
+    EXPECT(tm_lc.find("&#8482;") == std::string::npos);
+    EXPECT(tm_lc.find("(tm)") != std::string::npos);
+
+    // Arrow replacements (via sub_specialchars preprocessing in normal pipeline;
+    // these are tested after specialchars has been applied)
+    {
+        // Simulate the pipeline: first specialchars, then replacements
+        std::string rarr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A -> B"));
+        EXPECT(rarr.find("&#8594;") != std::string::npos);  // →
+
+        std::string larr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A <- B"));
+        EXPECT(larr.find("&#8592;") != std::string::npos);  // ←
+
+        std::string rArr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A => B"));
+        EXPECT(rArr.find("&#8658;") != std::string::npos);  // ⇒
+
+        std::string lArr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A <= B"));
+        EXPECT(lArr.find("&#8656;") != std::string::npos);  // ⇐
+    }
 
     end_test();
 }

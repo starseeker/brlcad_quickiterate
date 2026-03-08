@@ -423,9 +423,10 @@ inline std::string apply_quote_rx(
 
     // Em-dash: -- (but not --- or longer runs).
     // Asciidoctor converts -- to em-dash only when adjacent to whitespace:
-    //   " -- "      → thin-space + em-dash + thin-space (surrounded by spaces)
-    //   "-- " / "--" at start/end of inline context with space on one side
-    // This avoids falsely converting option prefixes like --help or write-- .
+    //   " -- "  (surrounded by spaces) → thin-space + em-dash + thin-space
+    //   "-- "   at start of inline text (list continuation) → thin-space + em-dash + thin-space
+    //   " --"   at end of inline text → thin-space + em-dash
+    // This avoids falsely converting option prefixes like --help or write--.
     {
         // " -- " (space -- space) → thin-space + em-dash + thin-space
         static const aqrx::regex rx_spaced(R"( -- )",
@@ -446,19 +447,19 @@ inline std::string apply_quote_rx(
         static const aqrx::regex rx(R"(\.\.\.)");
         out = aqrx::regex_replace(out, rx, "&#8230;&#8203;");
     }
-    // Copyright
+    // Copyright: only uppercase (C) → ©   (Asciidoctor is case-sensitive here)
     {
-        static const aqrx::regex rx(R"(\([Cc]\))");
+        static const aqrx::regex rx(R"(\(C\))");
         out = aqrx::regex_replace(out, rx, "&#169;");
     }
-    // Registered
+    // Registered: only uppercase (R) → ®
     {
-        static const aqrx::regex rx(R"(\([Rr]\))");
+        static const aqrx::regex rx(R"(\(R\))");
         out = aqrx::regex_replace(out, rx, "&#174;");
     }
-    // Trademark
+    // Trademark: only uppercase TM
     {
-        static const aqrx::regex rx(R"(\([Tt][Mm]\))");
+        static const aqrx::regex rx(R"(\(TM\))");
         out = aqrx::regex_replace(out, rx, "&#8482;");
     }
     // Arrow replacements (Asciidoctor typographic replacements):
@@ -466,9 +467,10 @@ inline std::string apply_quote_rx(
     //   <- → &#8592; (← left arrow)
     //   => → &#8658; (⇒ double right arrow)
     //   <= → &#8656; (⇐ double left arrow)
-    // These must not fire inside ``...`` (already stashed) or after a digit
-    // (to avoid mangling things like "x <= 5" in non-replaced contexts).
-    // Asciidoctor replaces these unconditionally in normal substitution context.
+    // Note: sub_specialchars runs before sub_replacements in the normal pipeline,
+    // so by the time these patterns are applied '<' has been escaped to '&lt;' and
+    // '>' to '&gt;'.  The regex patterns below match those HTML entities, which is
+    // why stashed inline code (``...``) is already safe (it bypasses this step).
     {
         static const aqrx::regex rx_rarr(R"(\-&gt;)", aqrx::ECMAScript | aqrx::optimize);
         static const aqrx::regex rx_larr(R"(&lt;\-)", aqrx::ECMAScript | aqrx::optimize);
