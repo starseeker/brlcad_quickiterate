@@ -17,7 +17,7 @@ who [ [real]| [phony]| [both]]
 [[description]]
 == DESCRIPTION
 
-Lists the top-level objects that are currently displayed. The _phony_ flag asks for just _phony_ objects. _Phony_ objects are typically objects that are drawn in the MGED display, but are not actual database objects. Some _phony_ objects are drawings from the *vdraw* command and the edgeuses drawn by the *ev -u* command. The _real_ flag asks for just _real_ objects, and the _both_ flag asks for both _real_ and _phony_ objects. The default is just _real_objects. Any of the flags may be abbreviated by its first letter. The *x* command also lists displayed shapes, but in more detail.
+Lists the top-level objects that are currently displayed. The _phony_ flag asks for just _phony_ objects. _Phony_ objects are typically objects that are drawn in the MGED display, but are not actual database objects. Some _phony_ objects are drawings from the *vdraw* command and the edgeuses drawn by the *ev -u* command. The _real_ flag asks for just _real_ objects, and the _both_ flag asks for both _real_ and _phony_ objects. The default is just _real_ objects. Any of the flags may be abbreviated by its first letter. The *x* command also lists displayed shapes, but in more detail.
 
 
 [[examples]]

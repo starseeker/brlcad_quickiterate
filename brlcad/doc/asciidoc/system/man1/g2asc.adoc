@@ -36,7 +36,7 @@ On the local machine, convert the mged databases to ASCII using _*g2asc*_ .
 
 ____
 
-scp _file.asc_ remote: _file.asc_
+scp _file.asc_ remote:_file.asc_
 
 
 [quote]

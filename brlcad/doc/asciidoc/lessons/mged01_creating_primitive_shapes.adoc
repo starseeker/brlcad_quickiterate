@@ -178,7 +178,7 @@ Another way to create a sphere is to use the GUI menu system duplicated at the t
 [[view_params]]
 == Viewing a Shape's Parameters
 
-Sometimes when you are making a model, you might want to view a shape's parameters, such as height, width, or radius, in the Command Window. You can easily list the attributes of a shape by typing the l (for "list") command at the Command Window prompt as follows: *l shape_name[ENTER]*footnote:[Note: The command is the lowercase letter l, NOT the number one.]
+Sometimes when you are making a model, you might want to view a shape's parameters, such as height, width, or radius, in the Command Window. You can easily list the attributes of a shape by typing the l (for "list") command at the Command Window prompt as follows: *l shape_name[ENTER]* footnote:[Note: The command is the lowercase letter l, NOT the number one.]
 
 
 [NOTE]

@@ -467,7 +467,3 @@ In this lesson, you:
 * Identified the on-screen help option.
 * Identified the stacker option.
 * Experimented with the attributes of the camo shader.
-
-
-
-

@@ -30,7 +30,7 @@ All values are specified in units of meters, kilograms, and seconds. Note that B
 == OPTIONS
 
 
-*--debug= _MODE_*::
+*--debug=_MODE_*::
 Set the debugging mode. Multiple mode flags can be separated using commas.
 
 
@@ -58,7 +58,7 @@ Draw all of the rays fired by the internal collision detection algorithm.
 The simulation can be configured by setting certain attributes on objects within the specified path.
 
 
-*simulate::type= _TYPE_*::
+*simulate::type=_TYPE_*::
 Specify the type of the associated object.
 
 
@@ -70,19 +70,19 @@ Regard all solids under this combination as belonging to one rigid body.
 
 
 
-*simulate::mass= _SCALAR_*::
+*simulate::mass=_SCALAR_*::
 Specify the mass of the associated object. Objects with a mass of `0.0` are immobile.
 
 
-*simulate::linear_velocity=< _x_, _y_, _z_>*::
+*simulate::linear_velocity=<_x_, _y_, _z_>*::
 Specify the linear velocity of the associated object as a vector.
 
 
-*simulate::angular_velocity=< _x_, _y_, _z_>*::
+*simulate::angular_velocity=<_x_, _y_, _z_>*::
 Specify the angular velocity of the associated object as a vector.
 
 
-*simulate::gravity=< _x_, _y_, _z_>*::
+*simulate::gravity=<_x_, _y_, _z_>*::
 Specify the acceleration due to gravity as a vector. This attribute can only be applied to the topmost object under _path_. The default gravity vector is `<0.0, 0.0, -9.80665>`, specifying an accleration of -9.8 mm/s/s along the z-axis.
 
 

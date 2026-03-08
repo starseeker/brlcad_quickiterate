@@ -118,7 +118,3 @@ En este tutorial usted repasó la apertura de una base de datos y aprendió a:
 * Asignar colores y sombreado de plástico a las regiones de la copa.
 * Utilizar las opciones del sombreado con transparencia y reflexión espejada.
 * Realizar el trazado de rayos de varios ejemplos de la copa.
-
-
-
-

@@ -23,7 +23,7 @@ There are several *OPTION* environment variables that will modify how the BRL-CA
 
 The _TIMEFRAME_, _MAXTIME_, _DEVIATION_, and _AVERAGE_ options control how the benchmark will proceed including how long it should take. Each individual benchmark run will consume at least a minimum _TIMEFRAME_ of wallclock time so that the results can stabilize. After consuming at least the minimum _TIMEFRAME_, additional frames may be computed until the standard deviation from the last _AVERAGE_ count of frames is below the specified _DEVIATION_. When a test is run and it completes in less than _TIMEFRAME_, the raytrace is restarted using double the number of rays from the previous run. If the machine is fast enough, the benchmark may accelerate the number or rays being fired. These additional rays are hypersampled but without any jitter, so it is effectively performing a multiplier amount of work over the initial frame.
 
-There are various *command*s that may be give to the BRL-CAD benchmark that cause it to perform various actions such as invoking the computation tests or filesystem clean-up:
+There are various *command* s that may be give to the BRL-CAD benchmark that cause it to perform various actions such as invoking the computation tests or filesystem clean-up:
 
 *clean* - remove the test-specific pix and log files *clobber* - same as clean, also benchmark.log files and user is prompted *help* - displays a brief usage statement *instructions* - displays more detailed usage instructions *quiet* - quell printing output (still logs) *verbose* - remove the test-specific pix and log files *clean* - remove the test-specific pix and log files *run* - initiate the benchmark analysis
 
@@ -74,5 +74,3 @@ This software is Copyright (c) 2006-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

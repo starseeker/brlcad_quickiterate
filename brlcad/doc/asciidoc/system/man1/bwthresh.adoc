@@ -17,9 +17,9 @@ bwthresh <val>... < <file.bw>
 [[description]]
 == DESCRIPTION
 
-*bwthresh* reads from standard input a stream of black-and-white data in *bw*(5) format and thresholds it among the _val_s, writing the resulting *bw*(5) data to standard output. The _val_s must appear on the command line in strictly increasing order.
+*bwthresh* reads from standard input a stream of black-and-white data in *bw*(5) format and thresholds it among the _val_ s, writing the resulting *bw*(5) data to standard output. The _val_ s must appear on the command line in strictly increasing order.
 
-The grey scale 0..255 is divided evenly into _n_+1 bins, and each pixel of input is compared to the _val_s, to determine which of the _n_+1 grey levels should be output.
+The grey scale 0..255 is divided evenly into _n_+1 bins, and each pixel of input is compared to the _val_ s, to determine which of the _n_+1 grey levels should be output.
 
 
 [[example]]

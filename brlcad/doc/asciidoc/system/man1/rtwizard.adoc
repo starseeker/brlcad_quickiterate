@@ -245,7 +245,7 @@ View the power train and suspension of the truck as color objects in a Mac-/Linu
 [[see_also]]
 == SEE ALSO
 
-*rt*(1), *rtedge*(1), *fbhelp*(1), *fbserv*(1)
+*rt*(1),*rtedge*(1),*fbhelp*(1),*fbserv*(1)
 
 
 [[copyright]]

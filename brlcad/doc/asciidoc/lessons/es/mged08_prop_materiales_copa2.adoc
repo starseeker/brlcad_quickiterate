@@ -128,7 +128,3 @@ En este tutorial usted aprendió a:
 * Asignar valores a la opción de brillo del sombreado de plástico.
 * Asignar valores a la opción de extinción del sombreado de plástico.
 * Experimentar con varias combinaciones de opciones del sombreado de plástico.
-
-
-
-

@@ -82,11 +82,32 @@
        inline marker so adjacent text does not fuse with the markup. -->
   <xsl:template name="inline-trailing-space">
     <xsl:variable name="raw" select="string(.)"/>
-    <xsl:if test="string-length($raw) > 0 and
-                  following-sibling::node() and
-                  translate(substring($raw, string-length($raw), 1),
-                            ' &#9;&#10;&#13;', '') = ''">
-      <xsl:text> </xsl:text>
+    <xsl:if test="string-length($raw) > 0 and following-sibling::node()">
+      <xsl:variable name="last-char" select="substring($raw, string-length($raw), 1)"/>
+      <xsl:choose>
+        <!-- Case 1: element content ends with whitespace (space stripped by normalize-space) -->
+        <xsl:when test="translate($last-char, ' &#9;&#10;&#13;', '') = ''">
+          <xsl:text> </xsl:text>
+        </xsl:when>
+        <!-- Case 2: element content ends with non-whitespace, but the immediately
+             following sibling node starts with a WORD character (a-z, A-Z, 0-9, _).
+             AsciiDoc constrained inline markers (like _x_ or *y*) require the closing
+             marker to be followed by a non-word character; if the next character is a
+             word char, AsciiDoc will not close the marker. Insert a space to create a
+             word boundary so that the constrained marker is parsed correctly.
+             E.g.: <emphasis>g</emphasis>creates → "_g_ creates" (italic g, then creates).
+             Note: only triggers on word chars, NOT on punctuation like "(1)", ",", ")" etc. -->
+        <xsl:otherwise>
+          <xsl:variable name="next-str" select="string(following-sibling::node()[1])"/>
+          <xsl:if test="string-length($next-str) > 0">
+            <xsl:variable name="next-first" select="substring($next-str, 1, 1)"/>
+            <!-- Only add space when next char is alphanumeric or underscore (a word char) -->
+            <xsl:if test="contains('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_', $next-first)">
+              <xsl:text> </xsl:text>
+            </xsl:if>
+          </xsl:if>
+        </xsl:otherwise>
+      </xsl:choose>
     </xsl:if>
   </xsl:template>
 
@@ -106,18 +127,24 @@
           <xsl:text> </xsl:text>
         </xsl:when>
         <!-- Case 2: element content starts with a non-whitespace word char,
-             but the immediately preceding node ends without whitespace.
+             but the immediately preceding sibling is a TEXT NODE that ends without
+             whitespace (not alphanumeric boundary-check needed here since AsciiDoc
+             constrained markers only need a word boundary).
              Insert a space so that AsciiDoc constrained inline markers
              (like _word_ or *word*) have a proper word boundary.
              E.g.: "the<emphasis>args</emphasis>" → "the _args_"
-                   "<emphasis>foo</emphasis><emphasis>bar</emphasis>" → "_foo_ _bar_" -->
+             Note: we only handle text-node predecessors here to avoid double spaces.
+             Adjacent element → element spacing is handled by inline-trailing-space
+             of the preceding element (e.g. <emphasis>foo</emphasis><command>bar</command>). -->
         <xsl:otherwise>
-          <xsl:variable name="prev-str" select="string(preceding-sibling::node()[1])"/>
-          <xsl:variable name="prev-len" select="string-length($prev-str)"/>
-          <xsl:if test="$prev-len > 0">
-            <xsl:variable name="prev-last" select="substring($prev-str, $prev-len, 1)"/>
-            <xsl:if test="translate($prev-last, ' &#9;&#10;&#13;', '') != ''">
-              <xsl:text> </xsl:text>
+          <xsl:if test="preceding-sibling::node()[1][self::text()]">
+            <xsl:variable name="prev-str" select="string(preceding-sibling::node()[1])"/>
+            <xsl:variable name="prev-len" select="string-length($prev-str)"/>
+            <xsl:if test="$prev-len > 0">
+              <xsl:variable name="prev-last" select="substring($prev-str, $prev-len, 1)"/>
+              <xsl:if test="contains('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_', $prev-last)">
+                <xsl:text> </xsl:text>
+              </xsl:if>
             </xsl:if>
           </xsl:if>
         </xsl:otherwise>

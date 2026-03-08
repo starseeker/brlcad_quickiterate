@@ -70,7 +70,7 @@ Sets the elevation of obj[2-5] to the elevation of obj1. Each object uses its ow
 ====
 
 mged>  *edit translate -k . -a obj1 obj2 obj3 obj4 obj5* ::
-Each object uses its own bounding box center as the _from_ point in an operation that moves _to_ the bounding box center of obj1. All _object_s end up centered on obj2.
+Each object uses its own bounding box center as the _from_ point in an operation that moves _to_ the bounding box center of obj1. All _object_ s end up centered on obj2.
 
 
 
@@ -92,7 +92,7 @@ Moves obj _from_ its bounding box center _to_ 7.8 on the z-axis.
 ====
 
 mged> *edit translate -n -k . -a . obj1 obj2 obj3*::
-The _object_s are moved from their own natural origins to their own bounding box centers.
+The _object_ s are moved from their own natural origins to their own bounding box centers.
 
 
 

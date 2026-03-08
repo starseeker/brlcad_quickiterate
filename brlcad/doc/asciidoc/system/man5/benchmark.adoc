@@ -31,7 +31,7 @@ sphflake.g -- A sphereflake.
 [[machine_independence]]
 == MACHINE INDEPENDENCE
 
-The databases are provided in an ASCII format in the "db" directory. ascii-to-binary converters are provided in the "conv" directory. On most systems the command " *make benchmark*" (see the document _Installing the BRL-CAD Package_) will automatically compile, generate the binary .g files, and run the benchmark tests.
+The databases are provided in an ASCII format in the "db" directory. ascii-to-binary converters are provided in the "conv" directory. On most systems the command "*make benchmark*" (see the document _Installing the BRL-CAD Package_) will automatically compile, generate the binary .g files, and run the benchmark tests.
 
 The reference images are distributed in binary BRL-CAD *pix*(5) format. Earlier releases distributed the reference images in the portable ASCII form, and then converted them to the binary form. This consumed a significant amount of extra storage on UNIX machines, so this practice was discontinued. It is assumed that anyone attempting to benchmark a system that can not read pure binary files will at least have access to a UNIX system. That UNIX system can be used to convert the reference images to the portable ASCII form with the *pix2asc*(1) tool, and then those images may be sent to the machine under test.
 

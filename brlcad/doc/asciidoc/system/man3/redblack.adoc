@@ -184,7 +184,7 @@ int trav_type;
 [[description]]
 == DESCRIPTION
 
-These routines implement red-black trees, a form of balanced binary trees, in such a way that all the basic dynamic set operations (e.g., insertion, deletion, search, minimum, maximum, predecessor, and successor) and order-statistic operations (i.e., select and rank) require no more than _O(_log _n)_ time, where _n_ is the number of nodes. They allow storage of arbitrary data structures at tree nodes and also support multiple simultaneous orders (trees) on the same nodes. The trees are based on comparison functions like those used by _qsort(3)._ The routines are available only in _libbu(3B)._
+These routines implement red-black trees, a form of balanced binary trees, in such a way that all the basic dynamic set operations (e.g., insertion, deletion, search, minimum, maximum, predecessor, and successor) and order-statistic operations (i.e., select and rank) require no more than _O(_ log _n)_ time, where _n_ is the number of nodes. They allow storage of arbitrary data structures at tree nodes and also support multiple simultaneous orders (trees) on the same nodes. The trees are based on comparison functions like those used by _qsort(3)._ The routines are available only in _libbu(3B)._
 
 __bu_rb_create__ allocates storage for and initializes the tree header. _Description_ is an explanatory comment that the red-black tree package prints in its diagnostics, __nm_orders__ is the number of simultaneous orders, and `order_funcs()` points to the table of comparison functions (one for each order). These are called with two arguments that point to the application data blocks being compared. Each function must return an integer less than, equal to, or greater than zero according as the first argument is to be considered less than, equal to, or greater than the second. __bu_rb_create__ returns a pointer to a `bu_rb_tree()` structure. This pointer must be saved, as it is a required argument to all the other routines. __bu_rb_create1__ is similar, except that it creates a tree that supports only the single order specified by __order_func.__
 
@@ -200,7 +200,7 @@ The application can specify that the red-black tree package may not insert new n
 
 `bu_rb_search()` traverses _tree_ searching for a node of which the contents equals _data_ according to the comparison function specified by _order._ On success, `bu_rb_search()` returns a pointer to the data in the matching node. Otherwise, it returns _NULL._ The macro __bu_rb_search1(tree, data),__ available in _"bu.h"_, is similar, except that it searches the first (perhaps only) order.
 
-`bu_rb_select()` traverses _tree_ to retrieve the _k_th order statistic (i.e., the data block of rank _k,_ the _k_th-smallest data block) according to the comparison function specified by _order,_ where _k_ is between 1 and the number of nodes in _tree,_ inclusive. On success, `bu_rb_select()` returns a pointer to the block of data of rank _k._ Otherwise, it returns _NULL._ The macro __bu_rb_select1(tree, k),__ available in _"bu.h"_, is similar, except that it uses the first (perhaps only) order.
+`bu_rb_select()` traverses _tree_ to retrieve the _k_ th order statistic (i.e., the data block of rank _k,_ the _k_ th-smallest data block) according to the comparison function specified by _order,_ where _k_ is between 1 and the number of nodes in _tree,_ inclusive. On success, `bu_rb_select()` returns a pointer to the block of data of rank _k._ Otherwise, it returns _NULL._ The macro __bu_rb_select1(tree, k),__ available in _"bu.h"_, is similar, except that it uses the first (perhaps only) order.
 
 `bu_rb_walk()` traverses _tree_ according to the comparison function specified by _order._ The function `visit()` is called for each node in turn, being passed two arguments: a pointer to the data at that node and the depth of the node in the tree for the specified order. The type of tree traversal to perform, specified by __trav_type,__ may be any one of _PREORDER, INORDER,_ and _POSTORDER._ The macro __bu_rb_walk1(tree, visit, trav_type),__ available in _"bu.h"_, is similar, except that it walks the first (perhaps only) order.
 
@@ -255,5 +255,3 @@ This software is Copyright (c) 1999-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

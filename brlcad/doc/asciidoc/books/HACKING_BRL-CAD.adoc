@@ -610,9 +610,9 @@ If you have a multiple cores, you can request parallel compilation with the -j o
 
 Depending on the version of the source code that you started with, BRL-CAD should install into the following folder:
 
-`/usr/brlcad/ _SUBDIR_`
+`/usr/brlcad/_SUBDIR_`
 
-Where _SUBDIR_ is either `rel- _VERSION_` or `dev- _VERSION_`.
+Where _SUBDIR_ is either `rel-_VERSION_` or `dev-_VERSION_`.
 
 
 ===== Performing a Quick Test

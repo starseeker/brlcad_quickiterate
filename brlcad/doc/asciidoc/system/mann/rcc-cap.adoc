@@ -17,7 +17,7 @@ rcc-cap {<rccname newname>} [<height>] [b] [t]
 [[description]]
 == DESCRIPTION
 
-Used to round the end of a cylinder with an ellipsoid. It creates an ELL shape with the given height at one end (base [ _b_] or top [ _t_]) of the specified RCC. If the height option is not specified, a spherical cap will be generated. The default end is the base.
+Used to round the end of a cylinder with an ellipsoid. It creates an ELL shape with the given height at one end (base [_b_] or top [_t_]) of the specified RCC. If the height option is not specified, a spherical cap will be generated. The default end is the base.
 
 
 [[examples]]

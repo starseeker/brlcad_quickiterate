@@ -36,7 +36,7 @@ On the local machine, convert the mged databases to ASCII using _*g2asc*_ .
 
 ____
 
-scp _file.asc_ remote: _file.asc_
+scp _file.asc_ remote:_file.asc_
 
 
 [quote]
@@ -45,7 +45,7 @@ Transfer the converted databases to the remote machine.
 
 ____
 
-ssh remote " **asc2g** _file.asc file.g_"
+ssh remote "**asc2g** _file.asc file.g_"
 
 
 [quote]

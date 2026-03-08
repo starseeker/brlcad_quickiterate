@@ -91,7 +91,7 @@ __DM_CLOSE__ closes the display manager indicated by _dmp_.
 
 
 
-_int_ *DM_DRAW_BEGIN* _( struct dm *dmp )_
+_int_ *DM_DRAW_BEGIN*_( struct dm *dmp )_
 
  __DM_DRAW_BEGIN__  prepares the display manager indicated by  _dmp_  for a round of drawing.
 
@@ -468,7 +468,7 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- _int_ *dm_processOptions* __(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])__
+ _int_ *dm_processOptions*__(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])__
 
  __dm_processOptions__  is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
 
@@ -820,7 +820,7 @@ voidfb_log, format [, arg ] ...);
 
 These routines are designed to provide a device-independent method of using frame buffers or files containing frame buffer images. The coordinate system used is first-quadrant (0..width-1, 0..height-1), with integer addressing. Translation to hardware coordinate systems is handled by the library.
 
-This version of the library assumes that red, green, and blue intensities are described by unsigned 8-bit bytes in the range (0..255). The library interface uses arrays of *RGBpixel*s, which is a typedef for an array of three unsigned chars (this was done to avoid structure padding). Note that a pointer to an *RGBpixel* is thus the name of the *RGBpixel* itself, i.e. no ampersand is needed.
+This version of the library assumes that red, green, and blue intensities are described by unsigned 8-bit bytes in the range (0..255). The library interface uses arrays of *RGBpixel* s, which is a typedef for an array of three unsigned chars (this was done to avoid structure padding). Note that a pointer to an *RGBpixel* is thus the name of the *RGBpixel* itself, i.e. no ampersand is needed.
 
 The exact interpretation of color maps tends to be somewhat device specific. The three ColorMap arrays each have 256 entries of unsigned 16-bit values. In order to accommodate color maps with differing amounts of output resolution, the color map entries are fixed-point fractions in the range (0.0..1.0). In integer notation, the range is (0..65525). For devices with less than 16 bits of output from their color maps, the left-most portion of each entry is used.
 
