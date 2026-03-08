@@ -14,7 +14,6 @@ analyze [options]... [subcommand]
 ----
 
 
-::
 
 [source]
 ----
@@ -22,7 +21,6 @@ summarize {obj}...
 ----
 
 
-::
 
 [source]
 ----
@@ -30,7 +28,6 @@ intersect [options]... {obj1 obj2 [...]}...
 ----
 
 
-::
 
 [source]
 ----
