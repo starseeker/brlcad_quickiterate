@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-kill - Deletes specified objects from the current database.
+kill - Deletes specified _objects_ from the current database.
 
 == SYNOPSIS
 
@@ -31,7 +31,7 @@ The example shows the use of the *kill* command to delete specified objects from
 [example]
 ====
 
-mged> *kill group1 region2 shapeb*::
+mged> **kill group1 region2 shapeb**::
 Deletes _group1, region2_, and _shapeb_ from the database.
 
 

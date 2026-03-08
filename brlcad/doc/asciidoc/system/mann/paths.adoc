@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-paths - Lists all existing paths that start from the specified path_start and end at a primitive shape.
+paths - Lists all existing paths that start from the specified __path_start__ and end at a primitive shape.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *paths* command to list all existing paths that
 .List all paths that start from a specified path start and end at a primitive shape.
 [example]
 ====
-mged>*paths group1 region2*
+mged>**paths group1 region2**
 
 Lists all existing paths that start from _group1/region2_ and end at a primitive shape.
 

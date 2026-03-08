@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-size - Sets the size of the current viewing cube to the specified view_size (in local units). Without arguments, returns the current view size.
+size - Sets the size of the current viewing cube to the specified __view_size__ (in local units). Without arguments, returns the current view size.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *size* command to set the MGED display to a spe
 .Set the size of the MGED display.
 [example]
 ====
-mged>*size 250*
+mged>**size 250**
 
 Sets the MGED display to be 250 units across.
 

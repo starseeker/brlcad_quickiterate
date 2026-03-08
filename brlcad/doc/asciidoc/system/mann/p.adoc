@@ -28,7 +28,7 @@ The example shows the use of the *p* command to precisely set the currently sele
 .Set the currently selected shape parameter of the currently edited shape.
 [example]
 ====
-mged>*p 30*
+mged>**p 30**
 
 Sets the currently selected shape parameter of the currently edited shape to 30 units.
 

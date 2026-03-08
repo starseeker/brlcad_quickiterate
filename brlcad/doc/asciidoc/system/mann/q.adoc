@@ -28,7 +28,7 @@ The example shows the use of the *q* command to quit a current MGED session.
 .Quit MGED
 [example]
 ====
-mged>*q*
+mged>**q**
 
 The current MGED session is ended.
 

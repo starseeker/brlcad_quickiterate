@@ -30,7 +30,7 @@ The example shows the use of the *oed* command to place MGED into matrix edit mo
 .Place MGED in matrix edit mode.
 [example]
 ====
-mged>*oed group1/group2 region1/shapea*
+mged>**oed group1/group2 region1/shapea**
 
 Places MGED into matrix edit mode, editing the matrix in _group2_ that corresponds to _region1_, using _shapea_ as the reference shape.
 

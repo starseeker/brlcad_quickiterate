@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-arb - Creates a new ARB shape with the specified arb_name.
+arb - Creates a new ARB shape with the specified __arb_name__.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The first example shows the use of the *arb* command to create a new ARB shape w
 .Create __new_arb__ with a specific rotation angle and fallback angle.
 [example]
 ====
-mged>*arb new_arb 35 25*
+mged>**arb new_arb 35 25**
 
 Create new_arb with a rotation angle of 35° and a fallback angle of 25°.
 
@@ -37,7 +37,7 @@ Create new_arb with a rotation angle of 35° and a fallback angle of 25°.
 .Using the *ae* command to determine the view orientation of the arb
 [example]
 ====
-mged>*ae 35 25*
+mged>**ae 35 25**
 
 Rotates view to look straight on at square face of __new_arb__.
 

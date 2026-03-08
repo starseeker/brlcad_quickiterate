@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-make - Creates a new_shape of the indicated type.
+make - Creates a __new_shape__ of the indicated type.
 
 == SYNOPSIS
 
@@ -58,7 +58,7 @@ The first example shows the use of the *make* command to create a sphere with a 
 [example]
 ====
 
-mged> *make shapea sph*::
+mged> **make shapea sph**::
 Creates a sphere named _shapea_.
 
 
@@ -68,7 +68,7 @@ Creates a sphere named _shapea_.
 .Generate a list of shape types handled by *make*.
 [example]
 ====
-mged>*make -t*
+mged>**make -t**
 
 Lists the shape types handled by *make*.
 

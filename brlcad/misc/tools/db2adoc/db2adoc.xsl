@@ -419,7 +419,11 @@
     </xsl:for-each>
     <xsl:if test="db:refpurpose">
       <xsl:text> - </xsl:text>
-      <xsl:value-of select="normalize-space(db:refpurpose)"/>
+      <!-- Use apply-templates (not normalize-space/value-of) so that inline
+           markup such as <emphasis>, <command>, <option>, <replaceable> inside
+           the refpurpose is preserved as AsciiDoc inline markup (_italic_,
+           *bold*, etc.).  normalize-space() discards child element markup. -->
+      <xsl:apply-templates select="db:refpurpose/node()"/>
     </xsl:if>
     <xsl:text>&#10;&#10;</xsl:text>
   </xsl:template>
@@ -1784,10 +1788,16 @@
       <xsl:when test="*">
         <xsl:apply-templates/>
       </xsl:when>
+      <!-- Use unconstrained bold (**...**) so that the markup is recognised
+           regardless of adjacent boundary characters.  In particular, <prompt>
+           is often immediately followed by <userinput> with no whitespace
+           separator (e.g. "mged>*cmd*"), and the constrained form (*cmd*)
+           requires whitespace or an explicit boundary character before the
+           opening marker.  The unconstrained form works unconditionally. -->
       <xsl:otherwise>
-        <xsl:text>*</xsl:text>
+        <xsl:text>**</xsl:text>
         <xsl:apply-templates/>
-        <xsl:text>*</xsl:text>
+        <xsl:text>**</xsl:text>
       </xsl:otherwise>
     </xsl:choose>
     <xsl:call-template name="inline-trailing-space"/>

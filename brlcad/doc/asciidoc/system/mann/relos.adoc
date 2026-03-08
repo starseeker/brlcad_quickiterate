@@ -28,7 +28,7 @@ Set the LOS
 .Set the LOS to 50.
 [example]
 ====
-mged>*relos example.c 50*
+mged>**relos example.c 50**
 
 All regions under example.c will have their LOS value reset to 50.
 

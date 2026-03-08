@@ -28,7 +28,7 @@ The example shows the use of the *matpick* command to select the matrix for edit
 .Select a matrix to be edited in a particular region and group.
 [example]
 ====
-mged>*matpick group1/region3*
+mged>**matpick group1/region3**
 
 Selects the matrix for _region3_ in _group1_ for editing.
 

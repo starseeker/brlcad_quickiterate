@@ -252,7 +252,7 @@ When using *rt* to create an animation sequence destined for NTSC video, it is u
 .Render a very high-quality, high-resolution image, very slowly
 [example]
 ====
-*rt -H8 -R -A1.3 -c "set ambSamples=512 gamma=2.2" -C234/245/255 -s4096 -o render_4k.png file.g object*
+**rt -H8 -R -A1.3 -c "set ambSamples=512 gamma=2.2" -C234/245/255 -s4096 -o render_4k.png file.g object**
 
 This command renders with 8x512=4096 additional rays-per-pixel to average color results and determine whether a given hit point is partially shadowed. Ambient occlusion rendering is a simple brute force global illumination method. Hypersampling smooths out edges.
 

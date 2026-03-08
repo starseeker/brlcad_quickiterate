@@ -91,7 +91,7 @@ number of gas tanks:  3
 .Single-Line *gastank* Command
 [example]
 ====
-*gastank -fgastank.g -n3 -H300 -w200 -d400 -r30*
+**gastank -fgastank.g -n3 -H300 -w200 -d400 -r30**
 
 ====
 

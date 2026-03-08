@@ -86,7 +86,7 @@ Return information for one or more 3D vertices.
 .Object Summary
 [example]
 ====
-mged>*brep Brep_1.s info*
+mged>**brep Brep_1.s info**
 
 
 ....
@@ -112,7 +112,7 @@ Reports counts for the various object types, as well as object level info about 
 .First Object Face
 [example]
 ====
-mged>*brep Brep_1.s info F 1*
+mged>**brep Brep_1.s info F 1**
 
 
 ....
@@ -147,7 +147,7 @@ Reports information about the consituent components that make up the topological
 .First Surface
 [example]
 ====
-mged>*brep Brep_1.s info S 1*
+mged>**brep Brep_1.s info S 1**
 
 
 ....
@@ -190,7 +190,7 @@ Detailed information on the geometric data defining the surface.
 .Multiple loops
 [example]
 ====
-mged>*brep Brep_1.s info L 1,5,12*
+mged>**brep Brep_1.s info L 1,5,12**
 
 
 ....

@@ -28,7 +28,7 @@ The output format of the image file will be deduced from the filename, but if th
 .Write a PNG image file of the MGED framebuffer contents.
 [example]
 ====
-mged>*screengrab -F fb.png*
+mged>**screengrab -F fb.png**
 
 Writes the contents of the active MGED framebuffer to the image file _fb.png_.
 

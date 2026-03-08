@@ -103,7 +103,7 @@ number of bolts:  3
 .Single-Line *bolt* Command
 [example]
 ====
-*bolt -o1 -fbolt.g -n3 -hd30 -hh10*
+**bolt -o1 -fbolt.g -n3 -hd30 -hh10**
 
 ====
 
