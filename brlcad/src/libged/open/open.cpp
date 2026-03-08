@@ -148,16 +148,15 @@ ged_opendb_core(struct ged *gedp, int argc, const char *argv[])
     if (gedp->new_cmd_forms)
 	gedp->ged_lod = bsg_mesh_lod_context_create(argv[0]);
 
-    // If enabled, set up the DbiState container for fast structure access.
-    // Delete any pre-existing DbiState first (e.g. the empty one created by
-    // QgModel constructor when no .g was open yet, which closedb above
-    // wouldn't have cleaned up if dbip was NULL at the time of opendb).
+    // If enabled, (re-)initialize the DbiState container for fast structure
+    // access.  Reuse an existing DbiState if present (close_db() was already
+    // called above by ged_exec_closedb); otherwise create one for the first
+    // open.  open_db() populates maps from the new gedp->dbip.
     if (gedp->new_cmd_forms) {
-	if (gedp->dbi_state) {
-	    delete (DbiState *)gedp->dbi_state;
-	    gedp->dbi_state = nullptr;
-	}
-	gedp->dbi_state = new DbiState(gedp);
+	if (!gedp->dbi_state)
+	    gedp->dbi_state = new DbiState(gedp);
+	else
+	    ((DbiState *)gedp->dbi_state)->open_db();
     }
 
     // Set the view units, if we have a view

@@ -203,9 +203,84 @@ DbiState::DbiState(struct ged *ged_p)
     rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
     gedp = ged_p;
-    if (!gedp)
-	return;
-    dbip = gedp->dbip;
+    open_db();
+}
+
+
+DbiState::~DbiState()
+{
+    // Stop loader and release all per-database state.
+    close_db();
+
+    // Release persistent resources that live for the DbiState lifetime.
+    bu_vls_free(&path_string);
+    bu_vls_free(&hash_string);
+    delete shared_vs;
+    shared_vs = nullptr;
+
+    // Delete per-view BViewState objects (heap-allocated by get_view_state()
+    // and owned by DbiState).
+    for (auto &[v, bvs] : view_states)
+	delete bvs;
+    view_states.clear();
+
+    rt_clean_resource_basic(NULL, res);
+    BU_PUT(res, struct resource);
+}
+
+
+void
+DbiState::close_db()
+{
+    // Join the background thread while dbip is still valid.
+    geom_loader_.reset();
+
+    // Clear GObj instances.  Each GObj dtor removes itself from the gobjs
+    // map, so we must check the container on every iteration.
+    while (!gobjs.empty())
+	delete gobjs.begin()->second;
+
+    // Clear all per-database maps.
+    p_c.clear();
+    p_v.clear();
+    d_map.clear();
+    bboxes.clear();
+    c_inherit.clear();
+    rgb.clear();
+    region_id.clear();
+    matrices.clear();
+    i_bool.clear();
+    i_map.clear();
+    i_str.clear();
+
+    // Clear transient state.
+    invalid_entry_map.clear();
+    old_names.clear();
+    changed_hashes.clear();
+    added.clear();
+    changed.clear();
+    removed.clear();
+
+    // Clear BViewState geometry (keep the BViewState objects themselves).
+    if (shared_vs)
+	shared_vs->clear();
+    for (auto &[v, bvs] : view_states)
+	bvs->clear();
+
+    // Close disk cache.
+    if (dcache) {
+	bu_cache_close(dcache);
+	dcache = nullptr;
+    }
+
+    dbip = nullptr;
+}
+
+
+void
+DbiState::open_db()
+{
+    dbip = gedp ? gedp->dbip : nullptr;
     if (!dbip)
 	return;
 
@@ -231,9 +306,7 @@ DbiState::DbiState(struct ged *ged_p)
     }
 
     // Kick off background bbox computation for all solid objects that do not
-    // yet have a cached bbox.  This pre-warms the bboxes map so that the
-    // first draw command can display geometry (or placeholder bounding boxes)
-    // without waiting for synchronous rt_bound_internal() calls.
+    // yet have a cached bbox.
     {
 	std::vector<GeomLoader::WorkItem> items;
 	for (int i = 0; i < RT_DBNHASH; i++) {
@@ -249,28 +322,6 @@ DbiState::DbiState(struct ged *ged_p)
 	if (!items.empty())
 	    start_geom_load(items);
     }
-}
-
-
-DbiState::~DbiState()
-{
-    bu_vls_free(&path_string);
-    bu_vls_free(&hash_string);
-    delete shared_vs;
-    rt_clean_resource_basic(NULL, res);
-    BU_PUT(res, struct resource);
-
-    // Stop background loader before releasing other resources it may read.
-    // unique_ptr dtor calls GeomLoader::~GeomLoader() which joins the thread.
-    geom_loader_.reset();
-
-    // Phase 3: clean up all GObj instances (each GObj dtor deletes its
-    // CombInst children and deregisters from gobjs).
-    while (!gobjs.empty())
-	delete gobjs.begin()->second;
-
-    if (dcache)
-	bu_cache_close(dcache);
 }
 
 
@@ -3694,16 +3745,14 @@ GeomLoader::worker()
 	    }
 	}
 
-	if (!item.dp || !item.hash)
+	// Skip items that were invalidated (dp null, hash zero, or dp->d_namep
+	// null because the object was deleted between push() and now).
+	// Combining all conditions in one check avoids any ambiguity about which
+	// guards have already been verified.  rt_bound_internal will fail
+	// gracefully for any remaining deletions it encounters.
+	if (!item.dp || !item.hash || !item.dp->d_namep)
 	    continue;
 
-	// The directory pointer was resolved on the main thread before being
-	// pushed.  We do NOT access any DbiState STL containers here — only
-	// read-only librt/libdb state (dbip, dp).
-	//
-	// rt_bound_internal is safe to call with a read-only dbip and our own
-	// resource.  If the object was deleted between push() and now,
-	// rt_bound_internal will fail gracefully (returns non-zero).
 	Result r;
 	VSETALL(r.bmin, INFINITY);
 	VSETALL(r.bmax, -INFINITY);
