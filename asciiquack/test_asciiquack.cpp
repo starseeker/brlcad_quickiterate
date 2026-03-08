@@ -5678,6 +5678,178 @@ static void test_manpage_nested_ulist_blank_line() {
 }
 
 
+static void test_manpage_quote_block_indented() {
+    // [quote] blocks should get .RS 3 / .RE indentation in man page output,
+    // matching asciidoctor's man page backend behaviour.
+    begin_test("manpage: quote block gets .RS 3/.RE indentation");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "[quote]\n"
+        "____\n"
+        "This is a quoted paragraph.\n"
+        "____\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, ".RS 3\n");
+    EXPECT_CONTAINS(out, ".RE\n");
+    EXPECT_CONTAINS(out, "This is a quoted paragraph.");
+
+    end_test();
+}
+
+static void test_html_example_block_numbered_title() {
+    // Titled example blocks should have "Example N." prefix in HTML output,
+    // matching asciidoctor's HTML5 backend behaviour.
+    begin_test("html5: titled example block gets 'Example N.' prefix");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        ".Run the program\n"
+        "[example]\n"
+        "====\n"
+        "Run it like this.\n"
+        "====\n"
+        "\n"
+        ".Another example\n"
+        "[example]\n"
+        "====\n"
+        "Do this too.\n"
+        "====\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "Example 1. Run the program");
+    EXPECT_CONTAINS(out, "Example 2. Another example");
+
+    end_test();
+}
+
+static void test_html_table_numbered_title() {
+    // Titled tables should have "Table N." prefix in HTML output,
+    // matching asciidoctor's HTML5 backend behaviour.
+    begin_test("html5: titled table gets 'Table N.' prefix");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        ".My Data Table\n"
+        "|===\n"
+        "|Col A |Col B\n"
+        "|a1 |b1\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "Table 1. My Data Table");
+
+    end_test();
+}
+
+static void test_html_em_dash_spaced() {
+    // " -- " (surrounded by spaces) should produce thin-space + em-dash +
+    // thin-space matching asciidoctor's HTML5 backend.
+    begin_test("html5: ' -- ' becomes thin-space em-dash thin-space");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "Text before -- text after.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "&#8201;&#8212;&#8201;");
+
+    end_test();
+}
+
+static void test_html_em_dash_no_convert_option_names() {
+    // "--option" (without surrounding spaces) should NOT be converted to
+    // an em dash; command-line option names must be preserved.
+    begin_test("html5: '--option' is not converted to em-dash");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "Use the *--log-file* option to redirect output.\n"
+        "Also: -h|--help for usage.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    // em-dash entity must not appear
+    EXPECT(out.find("&#8212;") == std::string::npos);
+    // option names must appear verbatim
+    EXPECT_CONTAINS(out, "--log-file");
+    EXPECT_CONTAINS(out, "--help");
+
+    end_test();
+}
+
+static void test_html_arrow_replacements() {
+    // ->, <-, =>, <= should be replaced with the corresponding Unicode arrow
+    // entities matching asciidoctor's typographic replacements.
+    begin_test("html5: arrow replacements ->, <-, =>, <=");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "A -> B, C <- D, E => F, G <= H.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "&#8594;");   // →
+    EXPECT_CONTAINS(out, "&#8592;");   // ←
+    EXPECT_CONTAINS(out, "&#8658;");   // ⇒
+    EXPECT_CONTAINS(out, "&#8656;");   // ⇐
+
+    end_test();
+}
+
+static void test_html_verbatim_trailing_space_stripped() {
+    // Trailing whitespace on verbatim block lines should be stripped in HTML
+    // output to match asciidoctor's behaviour.
+    begin_test("html5: verbatim block trailing whitespace stripped");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "....\n"
+        "line with trailing spaces   \n"
+        "clean line\n"
+        "....\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    // The trailing spaces must not appear in the output
+    EXPECT(out.find("trailing spaces   ") == std::string::npos);
+    EXPECT_CONTAINS(out, "trailing spaces");
+    EXPECT_CONTAINS(out, "clean line");
+
+    end_test();
+}
+
+
 int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "-v" || std::string(argv[i]) == "--verbose") {
@@ -5939,6 +6111,13 @@ int main(int argc, char* argv[]) {
     test_manpage_admonition_note();
     test_manpage_admonition_warning();
     test_manpage_nested_ulist_blank_line();
+    test_manpage_quote_block_indented();
+    test_html_example_block_numbered_title();
+    test_html_table_numbered_title();
+    test_html_em_dash_spaced();
+    test_html_em_dash_no_convert_option_names();
+    test_html_arrow_replacements();
+    test_html_verbatim_trailing_space_stripped();
 
     // Summary
     std::cout << "\n============================\n";
