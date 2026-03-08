@@ -24,19 +24,19 @@ pixblend [ - [ <r>| <i>] <value>] [-s<seedval>] [-S] [-g<gvalue>] <file1.pix> <f
 == OPTIONS
 
 
-*-r*_VALUE_::
+*-r* _VALUE_::
 This specifies random blending; for each pixel of the output stream, a number will be chosen uniformly from the interval [0, 1]. If this number exceeds VALUE, then the pixel from the first image will be output; otherwise, the pixel from the second image will be output. Note that if VALUE is 0, then the output will equal the first image; if VALUE is 1, then the output will equal the second image.
 
 
 
 
-*-i*_VALUE_::
+*-i* _VALUE_::
 This specifies linear interpolation; for each pixel of the output stream, the interpolated pixel ((1.0 - VALUE) * pixel1 + VALUE * pixel2) will be output (where pixel1 and pixel2 are the corresponding pixels from file1 and file2, respectively). Note that if VALUE is 0, then the output will equal the first image; if VALUE is 1, then the output will equal the second image.
 
 
 
 
-*-s*_SEEDVAL_::
+*-s* _SEEDVAL_::
 Sets the random number seed to SEEDVAL (default is 0).
 
 
@@ -48,7 +48,7 @@ Instructs *pixblend* to use bits from the clock as a random number seed.
 
 
 
-*-g*_GVALUE_::
+*-g* _GVALUE_::
 Tells *pixblend* to "glitterize" the image; if the random draw for a pixel is below GVALUE, then the pixel output is white; otherwise, the pixel used is determined by the ratio set with the *-r* option (see above).
 
 
@@ -88,3 +88,5 @@ This software is Copyright (c) 1995-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

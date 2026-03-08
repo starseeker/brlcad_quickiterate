@@ -30,7 +30,7 @@ The example shows the use of the *fracture* command to create a new NMG shape wi
 ====
 
 mged>*fracture shape1.nmg f*::
-Creates a series of NMG shapes named f_#, one for each face in _shape1.nmg_.
+Creates a series of NMG shapes named f_#, one for each face in _shape1.nmg_ .
 
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

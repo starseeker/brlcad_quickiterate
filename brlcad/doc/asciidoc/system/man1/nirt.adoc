@@ -35,7 +35,7 @@ Causes *nirt* to read the eye point and either the orientation quaternion (new f
 Causes *nirt* to perform a *backout* command before the first *shoot* command (see the description of these two commands below). This is probably only useful with the *-M* option.
 
 
-*-e*_script_::
+*-e* _script_::
 Causes *nirt* to run the _script_ string before reading the standard input. Multiple commands in _script_ may be separated with a semicolon ';'. Scripts specified with either the *-e* or *-f* options are executed in the order in which they are specified on the command line.
 
 
@@ -63,23 +63,23 @@ Causes *nirt* to run in verbose mode. The default is verbose mode, except if sta
 Set flag (_n_) for enable/disable informational header (_n_=1 [on] by default, always off in silent mode).
 
 
-*-u*_n_::
+*-u* _n_::
 Sets the _useair_ member of the __rt_i__ structure to _n_. See the discussion of the _useair_ command below.
 
 
-*-O*_n_::
+*-O* _n_::
 Causes *nirt* to handle multiple regions' claims to segments of a ray according to action _n_. The argument _n_ may be any of the values 0, 1, 2, or 3, or their corresponding key words "resolve", "rebuild_fastgen", "rebuild_all", or "retain". See the discussion of the __overlap_claims__ command below.
 
 
-*-x*_v_::
+*-x* _v_::
 Sets the *librt*(3) debug flags to the hexadecimal bit vector _v_. See the discussion of the _libdebug_ command below.
 
 
-*-X*_v_::
+*-X* _v_::
 Sets *nirt*'s own debug flags to the hexadecimal bit vector _v_. See the discussion of the _debug_ command below.
 
 
-*--xyz*_x y z_::
+*--xyz* _x y z_::
 Initializes the ray origination point to the specified value. See the discussion of the _xyz_ command below.
 
 
@@ -96,7 +96,7 @@ Initializes the ray origination point to the specified value. See the discussion
 Sets the ray origination point to (_x_, _y_, _z_). If this command is invoked with no arguments, *nirt* prints the current ray origination point in model coordinates. Default is (0, 0, 0). Changing (_x_, _y_, _z_) will change (_h_, _v_, _d_), according to the current direction vector.
 
 
-*hv [* _h v_ *[* _d_ *]]*::
+*hv [* _h v_  *[* _d_ *]]*::
 Sets the ray origination point to (_h_, _v_, _d_). If this command is invoked with only two arguments, *nirt* interprets them as _h_ and _v_, and _d_ retains its previous value. If invoked with no argument, the command causes *nirt* to print the current ray origination point in view coordinates. Default is (0, 0, 0). Changing (_h_, _v_, _d_) will change (_x_, _y_, _z_), according to the current direction vector.
 
 
@@ -156,15 +156,15 @@ Writes state information to the state file. The ray origination point and direct
 Reads state information from the state file. The state file loaded may contain any *nirt* commands.
 
 
-*print*_item_::
+*print* _item_::
 Prints the current value of the output item _item_. See the discussion of output statements below.
 
 
-*libdebug*_v_::
+*libdebug* _v_::
 Sets the *librt*(3) debug flags (the _debug_ member of the __rt_g__ structure) to the hexadecimal bit vector _v_. These flags control the amount and kind of diagnostic print statements *librt*(3) executes. If _v_ is 0, then no diagnostics are produced. If this command is invoked with no arguments, *nirt* prints the current value of _v_ and the names of any of its bits that are set. Default is 0.
 
 
-*debug*_v_::
+*debug* _v_::
 Sets *nirt*'s internal debug flags to the hexadecimal bit vector _v_. These flags control the amount and kind of diagnostic print statements *nirt* executes. If _v_ is 0, then no diagnostics are produced. If this command is invoked with no arguments, *nirt* prints the current value of _v_ and the names of any of its bits that are set. Default is 0.
 
 

@@ -24,7 +24,7 @@ Gets/sets view parameters in local units. The *view* command accepts the followi
 == SUBCOMMANDS
 
 
-*ae* [[_-i_]_azimuth elevation_[_twist_]]::
+*ae* [[_-i_] _azimuth elevation_ [_twist_]]::
 Get (without arguments) or set the azimuth, elevation, and (optional) twist. If only 2 arguments are supplied, a twist of 0 is assumed. The _-i_ flag can be used to set the AET incrementally. Setting the azimuth and elevation also changes the eye point while keeping the center and view size static.
 
 

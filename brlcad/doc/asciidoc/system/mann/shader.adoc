@@ -17,7 +17,7 @@ shader {<combination>} {<shader_name>} [<"{shader_ args}">]
 [[description]]
 == DESCRIPTION
 
-Assigns shader parameters to the specified combination. The __shader_name__ indicates which shader should be assigned. If __shader_args__ are supplied, they will be assigned to parameters of the indicated shader. This performs a similar function as the *mater* command.
+Assigns shader parameters to the specified combination. The __shader_name__ indicates which shader should be assigned. If __shader_args__  are supplied, they will be assigned to parameters of the indicated shader. This performs a similar function as the *mater* command.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

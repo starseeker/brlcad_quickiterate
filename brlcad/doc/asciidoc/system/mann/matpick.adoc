@@ -17,7 +17,7 @@ matpick [<#>] [<combination/member>]
 [[description]]
 == DESCRIPTION
 
-Selects which matrix in the illuminated path should be edited. A number may be specified with 0 being the topmost selection. A _combination/member_ may be specified to indicate that the matrix in _combination_ that corresponds to _member_ is to be edited. This command is only useful in matrix edit mode at the point where the user is selecting which matrix in the illuminated path should be edited. It is used internally by MGED; the user should generally use the mouse to make this selection.
+Selects which matrix in the illuminated path should be edited. A number may be specified with 0 being the topmost selection. A _combination/member_ may be specified to indicate that the matrix in  _combination_ that corresponds to _member_ is to be edited. This command is only useful in matrix edit mode at the point where the user is selecting which matrix in the illuminated path should be edited. It is used internally by MGED; the user should generally use the mouse to make this selection.
 
 
 [[examples]]

@@ -24,11 +24,11 @@ The *terrain* program produces pseudo-terrain from procedural noise suitable for
 == OPTIONS
 
 
-*-w*_grid_x_postings_::
+*-w* _grid_x_postings_::
 Specifies the number of grid points in the X dimension. Default is 256.
 
 
-*-n*_grid_y_postings_::
+*-n* _grid_y_postings_::
 Specifies the number of grid points in the Y dimension. Default is 256.
 
 
@@ -40,7 +40,7 @@ Turns of the conversion of the data from host to network format. This only has a
 Turns on verbose mode. Information about which filter is running is printed.
 
 
-*-f*_noise_type_::
+*-f* _noise_type_::
 Selects the type of noise field to be used. Options include
 
 
@@ -73,27 +73,27 @@ A Ridged multi-fractal.
 === Noise Options
 
 
-*-O*_noise_octaves_::
+*-O* _noise_octaves_::
 Specifies the number of octaves of noise to layer. Typical values are 2 through 8.
 
 
-*-L*_noise_Lacunarity_::
+*-L* _noise_Lacunarity_::
 Specifies the scaling factor between successive octaves of noise. Practical values are non-integer numbers between 1.7 and 4.0.
 
 
-*-H*_noise_H_val_::
+*-H* _noise_H_val_::
 Specifies the value of H in the noise equation. Usually 1.0
 
 
-*-S*_noise_scale_::
+*-S* _noise_scale_::
 Scales the noise uniformly in X, Y and Z dimensions by the value __noise_scale.__ Values below 1.0 cause the noise pattern to become smaller. Values above 1.0 cause it to get bigger
 
 
-*-V*_scale_x,scale_y,scale_z_::
+*-V* _scale_x,scale_y,scale_z_::
 Allows non-uniform scaling of the X, Y and Z dimensions. See *-S* above.
 
 
-*-D*_delta_x,delta_y,delta_z_::
+*-D* _delta_x,delta_y,delta_z_::
 Specifies a translation in noise space.
 
 

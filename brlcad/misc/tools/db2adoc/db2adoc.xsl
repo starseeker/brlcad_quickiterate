@@ -90,6 +90,22 @@
     </xsl:if>
   </xsl:template>
 
+  <!-- Emit a single space BEFORE the opening inline marker when the element's
+       text content has a leading whitespace character and there is a preceding
+       sibling node (e.g. <emphasis> MGED</emphasis> where the space before MGED
+       provides the separator between "editor," and the italic word).
+       normalize-space() inside the text() template strips that leading space;
+       this call restores it before the opening marker. -->
+  <xsl:template name="inline-leading-space">
+    <xsl:variable name="raw" select="string(.)"/>
+    <xsl:if test="string-length($raw) > 0 and
+                  preceding-sibling::node() and
+                  translate(substring($raw, 1, 1),
+                            ' &#9;&#10;&#13;', '') = ''">
+      <xsl:text> </xsl:text>
+    </xsl:if>
+  </xsl:template>
+
   <!-- Escape AsciiDoc special characters in plain text context -->
   <xsl:template name="escape-adoc">
     <xsl:param name="text"/>
@@ -1472,18 +1488,23 @@
       </xsl:when>
       <xsl:when test="@role = 'bold' or @role = 'strong' or @role = 'B'
                       or @remap = 'B' or @remap = 'b'">
+        <xsl:call-template name="inline-leading-space"/>
         <xsl:text>*</xsl:text>
         <xsl:apply-templates/>
         <xsl:text>*</xsl:text>
+        <xsl:call-template name="inline-trailing-space"/>
       </xsl:when>
       <xsl:when test="@role = 'underline'">
+        <xsl:call-template name="inline-leading-space"/>
         <xsl:text>[.underline]#</xsl:text>
         <xsl:apply-templates/>
         <xsl:text>#</xsl:text>
+        <xsl:call-template name="inline-trailing-space"/>
       </xsl:when>
       <xsl:otherwise>
         <!-- Skip empty emphasis (no text content) to avoid stray __ artifacts -->
         <xsl:if test="normalize-space(.) != ''">
+          <xsl:call-template name="inline-leading-space"/>
           <!-- Use unconstrained __text__ when content contains underscores,
                to prevent '_name_with_underscores_' from breaking italic parsing.
                Use constrained _text_ for plain words without underscores. -->
@@ -1499,6 +1520,7 @@
               <xsl:text>_</xsl:text>
             </xsl:otherwise>
           </xsl:choose>
+          <xsl:call-template name="inline-trailing-space"/>
         </xsl:if>
       </xsl:otherwise>
     </xsl:choose>
@@ -1506,6 +1528,7 @@
 
   <!-- command: bold monospace -->
   <xsl:template match="db:command">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
@@ -1514,6 +1537,7 @@
 
   <!-- option: bold -->
   <xsl:template match="db:option">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
@@ -1522,6 +1546,7 @@
 
   <!-- replaceable: italic -->
   <xsl:template match="db:replaceable">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>_</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>_</xsl:text>
@@ -1530,6 +1555,7 @@
 
   <!-- literal, code: monospace -->
   <xsl:template match="db:literal | db:code | db:constant | db:type | db:markup">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>`</xsl:text>
@@ -1538,6 +1564,7 @@
 
   <!-- filename, varname, envar: monospace italic -->
   <xsl:template match="db:filename | db:varname | db:envar | db:systemitem">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>`</xsl:text>
@@ -1546,6 +1573,7 @@
 
   <!-- application: italic -->
   <xsl:template match="db:application">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>_</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>_</xsl:text>
@@ -1555,6 +1583,7 @@
   <!-- function: monospace -->
   <xsl:template match="db:function">
     <xsl:variable name="txt" select="normalize-space(.)"/>
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
     <!-- Only append () if the text does not already end with () -->
@@ -1567,6 +1596,7 @@
 
   <!-- parameter: italic monospace -->
   <xsl:template match="db:parameter">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>_</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>_</xsl:text>
@@ -1575,6 +1605,7 @@
 
   <!-- userinput: bold -->
   <xsl:template match="db:userinput">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
@@ -1583,9 +1614,11 @@
 
   <!-- computeroutput: monospace -->
   <xsl:template match="db:computeroutput">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>`</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- prompt: just output text -->

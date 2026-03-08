@@ -17,7 +17,7 @@ ted [] []
 [[description]]
 == DESCRIPTION
 
-The *ted* command places the parameters of the currently edited primitive shape into a file, then starts a text editor for the user to modify the parameters. The editor used is whatever the user has set in the environment variable EDITOR. If EDITOR is not set, then _/bin/ed_ is used. MGED must be in the primitive edit mode prior to using this command. The *red* command performs a similar function for combinations.
+The *ted* command places the parameters of the currently edited primitive shape into a file, then starts a text editor for the user to modify the parameters. The editor used is whatever the user has set in the environment variable EDITOR. If EDITOR is not set, then  _/bin/ed_ is used. MGED must be in the primitive edit mode prior to using this command. The *red* command performs a similar function for combinations.
 
 
 [[examples]]
@@ -45,3 +45,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -23,7 +23,7 @@ Changes the name of __old_name__ to __new_name__. Note that this does not change
 [[examples]]
 == EXAMPLES
 
-The example shows the use of the *mv* command to change an object's __old_name__ to a __new_name__.
+The example shows the use of the *mv* command to change an object's  __old_name__ to a __new_name__.
 
 .Change an object's name.
 [example]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-
