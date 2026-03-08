@@ -2958,11 +2958,21 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 		ph->s_color[0] = 160;
 		ph->s_color[1] = 160;
 		ph->s_color[2] = 160;
-		// Populate s_vlist with the wireframe box
+		// Populate s_vlist with the wireframe box.  Prefer OBB if
+		// available (tighter fit than AABB), fall back to AABB.
 		point_t bmin, bmax;
 		VSET(bmin, bbox_it->second[0], bbox_it->second[1], bbox_it->second[2]);
 		VSET(bmax, bbox_it->second[3], bbox_it->second[4], bbox_it->second[5]);
-		bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &ph->s_vlist, bmin, bmax);
+		auto obb_it = dbis->obbs.find(solid_hash);
+		if (obb_it != dbis->obbs.end()) {
+		    const fastf_t *raw = obb_it->second.data();
+		    point_t obb_pts[8];
+		    for (int k = 0; k < 8; k++)
+			VSET(obb_pts[k], raw[k*3+0], raw[k*3+1], raw[k*3+2]);
+		    bsg_vlist_arb8(&v->gv_objs.gv_vlfree, &ph->s_vlist, obb_pts);
+		} else {
+		    bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &ph->s_vlist, bmin, bmax);
+		}
 		ph->current = 1;  // vlist is ready; skip draw_scene() for this shape
 		bsg_shape_bound(ph, v);
 		bbox_placeholders_[dl_e.full_hash] = ph;

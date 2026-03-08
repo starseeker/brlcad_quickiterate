@@ -508,9 +508,9 @@ bsg_vlist_arb8(struct bu_list *vlists, struct bu_list *hd, const point_t pts[8])
 {
     /* Draw the 12 edges of an arb8 wireframe given 8 arbitrary corner points.
      * Corner ordering follows the BRL-CAD arb8 convention:
-     *   face 0: pts[0]–pts[1]–pts[2]–pts[3]–pts[0]
-     *   face 1: pts[4]–pts[5]–pts[6]–pts[7]–pts[4]
-     *   laterals: pts[0]–pts[4], pts[1]–pts[5], pts[2]–pts[6], pts[3]–pts[7]
+     *   face 0: pts[0]-pts[1]-pts[2]-pts[3]-pts[0]
+     *   face 1: pts[4]-pts[5]-pts[6]-pts[7]-pts[4]
+     *   laterals: pts[0]-pts[4], pts[1]-pts[5], pts[2]-pts[6], pts[3]-pts[7]
      */
     /* Face 0 */
     BSG_ADD_VLIST(vlists, hd, pts[0], BSG_VLIST_LINE_MOVE);

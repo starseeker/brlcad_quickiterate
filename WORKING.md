@@ -160,4 +160,12 @@ points in arb8 corner order.
 Added assertion for `final_obbs > 0` (was only printed, not asserted).
 Verified: 706 OBBs populated from GenericTwin.g.  All 3 assertions now pass.
 
+### OBB placeholders in BViewState::redraw()
+
+The AABB placeholder section in `BViewState::redraw()` now also checks
+`dbis->obbs` for the solid hash.  If an OBB is available, `bsg_vlist_arb8`
+draws the 8-corner wireframe; otherwise falls back to `bsg_vlist_rpp` AABB.
+This means the `redraw()` placeholder path has parity with `bot_adaptive_plot`:
+both draw the tightest available wireframe for a not-yet-loaded primitive.
+
 
