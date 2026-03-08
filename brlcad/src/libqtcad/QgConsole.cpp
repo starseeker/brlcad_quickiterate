@@ -122,7 +122,6 @@ GEDShellCompleter::updateCompletionModel(const QString& console_txt)
 
     // If we've got more than one argument, the last element (the one we are
     // looking to complete) is some sort of db geometry object/path element.
-    // TODO - does QComplete allow for mid-string insertions?
 
     if (!gedp)
 	return;
@@ -189,7 +188,6 @@ class QgConsole::pqImplementation :
 	    return this->font();
 	}
 
-	// TODO - figure out how to implement this...
 	bool consolidateHistory(size_t start, size_t end)
 	{
 	    if (start > end)
@@ -211,9 +209,8 @@ class QgConsole::pqImplementation :
 
 	std::string historyAt(size_t ind)
 	{
-	    const char *cmd = CommandHistory.at(ind).toLocal8Bit().data();
-	    std::string scmd(cmd);
-	    return scmd;
+	    QByteArray ba = CommandHistory.at(ind).toLocal8Bit();
+	    return std::string(ba.data());
 	}
 
 	// Try to keep the scrollbar slider from getting too small to be usable
