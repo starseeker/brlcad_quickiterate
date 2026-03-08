@@ -306,11 +306,42 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     if (have_msg) {
 	w->console->prompt("$ ");
     }
+
+    // Start the background geometry drain timer.  Every BG_GEOM_DRAIN_INTERVAL_MS
+    // milliseconds the timer fires drain_background_geom(), which integrates any
+    // bounding-box results posted by the GeomLoader worker thread and emits a
+    // single view_update signal if new data arrived.  This is the notification-
+    // bundling mechanism: many bbox results that complete within one interval are
+    // coalesced into one repaint instead of thrashing the event loop.
+    geom_drain_timer_ = new QTimer(this);
+    geom_drain_timer_->setInterval(BG_GEOM_DRAIN_INTERVAL_MS);
+    connect(geom_drain_timer_, &QTimer::timeout, this, &QgEdApp::drain_background_geom);
+    geom_drain_timer_->start();
 }
 
 QgEdApp::~QgEdApp() {
     delete mdl;
     // TODO - free rt_vlfree?
+}
+
+void
+QgEdApp::drain_background_geom()
+{
+    QTCAD_SLOT("QgEdApp::drain_background_geom", 1);
+
+    if (!mdl || !mdl->gedp || !mdl->gedp->dbi_state)
+	return;
+
+    DbiState *dbis = static_cast<DbiState *>(mdl->gedp->dbi_state);
+    size_t n = dbis->drain_geom_results();
+    if (n > 0) {
+	// New bounding-box data has arrived from the background loader.
+	// Emit a view_update so that all subscribed views repaint.  Any
+	// additional drain results that complete before the next timer firing
+	// will be bundled into the next emission, keeping the repaint rate
+	// bounded to BG_GEOM_DRAIN_INTERVAL_MS.
+	emit view_update(GED_DBISTATE_VIEW_CHANGE);
+    }
 }
 
 void

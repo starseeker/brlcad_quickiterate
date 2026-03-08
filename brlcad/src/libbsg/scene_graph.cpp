@@ -682,7 +682,8 @@ bsg_lod_group_select_child(const bsg_shape *node, fastf_t viewer_distance)
 }
 
 /* ====================================================================== *
- * Phase 2: new helper functions (Section 9 of TODO.BSG-modernization)   *
+ * Phase 2: new helper functions                                          *
+ * (See doc/TODO.qged-stack.md §4 for BSG open items)                   *
  * ====================================================================== */
 
 /*

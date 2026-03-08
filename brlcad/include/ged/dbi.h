@@ -45,10 +45,15 @@
 
 #ifdef __cplusplus
 #include <algorithm>
+#include <atomic>
+#include <condition_variable>
+#include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <map>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -62,18 +67,21 @@
  *
  * Thread-safety model (L2)
  * ------------------------
- * NONE of the classes in this file (DbiState, BViewState, DrawList,
- * SelectionSet) are thread-safe.  Every public method must be called
- * exclusively from the application main thread unless explicitly marked
- * otherwise below.
+ * Most classes in this file (DbiState, BViewState, DrawList, SelectionSet)
+ * are MAIN THREAD ONLY.  Every public method must be called exclusively
+ * from the application main thread unless explicitly marked otherwise.
  *
- * Background geometry loading is planned (see DBI_TODO.md §12.4 L1) and
- * will require:
- *   - A per-DbiState mutex gating all mutations.
- *   - A producer/consumer queue for geometry results posted from the loader
- *     thread to be integrated on the main thread.
+ * Background geometry loading (L1) is now implemented via GeomLoader.
+ * The background thread is limited to read-only librt operations using
+ * its own per-thread struct resource.  All writes back to DbiState maps
+ * (bboxes, etc.) happen on the main thread inside drain_geom_results(),
+ * which must be called from the main thread.
  *
- * Until that work is done callers must ensure single-threaded access.
+ * The threading contract is therefore:
+ *   - Background thread: calls rt_bound_internal() with its own resource.
+ *     No access to DbiState's STL containers.
+ *   - Main thread: calls drain_geom_results() to integrate results.
+ *     Owns all writes to DbiState maps and notification dispatch.
  */
 
 // Typed wrappers for the three distinct hash spaces
@@ -140,6 +148,7 @@ class GED_EXPORT DbiState;
 class GED_EXPORT BViewState;
 class GED_EXPORT GObj;
 class GED_EXPORT CombInst;
+class GED_EXPORT GeomLoader;
 
 // SelectionSet tracks which database paths are currently selected and
 // maintains hierarchical relationships (active subpaths, parent paths,
@@ -387,14 +396,15 @@ class GED_EXPORT BViewState {
 	const DrawList &draw_list() const { return draw_list_; }
 
 	// Link this view so it sources its draw list from another (primary)
-	// BViewState.  Once linked, redraw() reads the primary's draw list so
-	// quad-view panels share geometry without duplicating draw intent.
-	// Only the camera (bsg_view *) remains independent.
-	// Passing nullptr is equivalent to calling unlink().
-	//
-	// NOTE: This is a stub.  The full DrawList-sharing implementation is
-	// deferred (see DBI_TODO.md §12.3 A2/A3).  The pointer is stored and
-	// accessible via is_linked()/linked_primary() for future use.
+	// BViewState.  Once linked:
+	//   - add_hpath() and erase_hpath() delegate to the primary so that
+	//     draw intent is managed at a single, higher-level location.
+	//   - redraw() processes entries from the primary's draw_list_ in
+	//     addition to its own entries, so quad-view panels share geometry
+	//     without duplicating draw commands.
+	//   - Only the camera (bsg_view *) and the scene-object map remain
+	//     independent per view.
+	// Passing nullptr (or calling unlink()) detaches the view.
 	void link_to(BViewState *primary);
 	void unlink();
 	bool is_linked() const { return linked_to_ != nullptr; }
@@ -528,14 +538,75 @@ public:
 };
 
 struct bu_cache;
+struct resource;
+
+// GeomLoader — background thread that pre-computes bounding boxes for
+// geometry objects so they are available quickly after a .g file is opened.
+//
+// The worker thread calls rt_bound_internal() with its own per-thread
+// struct resource.  Results are posted to an internal result queue.  The
+// main thread integrates results by calling DbiState::drain_geom_results().
+//
+// Thread safety: push() and drain() are the only two public methods; they
+// are protected by a mutex and safe to call from different threads.
+// All other methods are called internally by the worker thread.
+class GED_EXPORT GeomLoader {
+public:
+    // A result posted by the background thread for each successfully
+    // computed bounding box.
+    struct Result {
+        unsigned long long hash = 0;
+        point_t bmin;
+        point_t bmax;
+    };
+
+    // An item on the work queue.  The main thread resolves the directory
+    // pointer before pushing so the background thread never needs to access
+    // DbiState's STL containers.
+    struct WorkItem {
+        unsigned long long hash = 0;
+        struct directory  *dp   = nullptr;
+    };
+
+    explicit GeomLoader(DbiState *dbis);
+    ~GeomLoader();  // signals stop and joins the worker thread
+
+    // Push a set of (hash, dp) pairs onto the work queue (main thread).
+    // Pairs where dp is null, d_flags has RT_DIR_COMB or RT_DIR_HIDDEN set
+    // are silently dropped.
+    void push(const std::vector<WorkItem> &items);
+
+    // Drain all available results (non-blocking, main thread only).
+    // Appends to out and returns the number of results added.
+    size_t drain(std::vector<Result> &out);
+
+private:
+    void worker();  // thread entry point
+
+    DbiState *dbis_;
+
+    // Work queue
+    std::mutex         work_mu_;
+    std::condition_variable work_cv_;
+    std::deque<WorkItem> work_q_;
+    bool               stopping_ = false;
+
+    // Result queue (worker → main thread)
+    std::mutex         result_mu_;
+    std::deque<Result> result_q_;
+
+    std::thread        thread_;
+};
 
 // DbiState is the in-memory mirror of a BRL-CAD .g database.  It drives all
 // drawing and selection logic in the qged/libqtcad stack.
 //
 // Thread-safety: MAIN THREAD ONLY.  DbiState holds a struct resource *, raw
 // pointers into librt data structures, and STL containers that are not
-// guarded by any mutex.  All methods must be called from the application main
-// thread.  See DBI_TODO.md §12.4 L1-L2 for the planned locking approach.
+// guarded by any mutex.  All public methods must be called from the
+// application main thread unless explicitly stated otherwise (e.g.
+// drain_geom_results() is main-thread-only; the background thread in
+// GeomLoader uses only read-only librt operations via its own resource).
 class GED_EXPORT DbiState {
     public:
 	DbiState(struct ged *);
@@ -678,6 +749,22 @@ class GED_EXPORT DbiState {
 	void          remove_selection_set(const char *name = nullptr);
 	std::vector<std::string> list_selection_sets() const;
 
+	// Background geometry loading (L1).
+	//
+	// start_geom_load() pushes the given set of (hash, dp) work items onto
+	// the background loader's work queue.  The loader thread computes bounding
+	// boxes using rt_bound_internal() with its own per-thread resource.
+	// MAIN THREAD ONLY.
+	//
+	// drain_geom_results() drains all available results from the background
+	// loader, integrates bounding boxes into the bboxes map and dcache,
+	// then fires a batched ISceneObserver notification if any results were
+	// processed.  Returns the number of results drained.  MAIN THREAD ONLY.
+	// Callers (e.g., a periodic Qt timer) should call this and trigger a
+	// view repaint when the return value is non-zero.
+	void   start_geom_load(const std::vector<GeomLoader::WorkItem> &items);
+	size_t drain_geom_results();
+
     private:
 	void gather_cyclic(
 		std::unordered_set<unsigned long long> &cyclic,
@@ -707,11 +794,18 @@ class GED_EXPORT DbiState {
 	std::unique_ptr<SelectionSet> default_selection_set_;
 	std::unordered_map<std::string, std::unique_ptr<SelectionSet>> selection_sets_;
 
+	// Background geometry loader — owns the worker thread and queues.
+	// Created in DbiState constructor; destroyed (joining the thread) in
+	// destructor.
+	std::unique_ptr<GeomLoader> geom_loader_;
+
 	// GObj and CombInst need access to private DbiState internals (res, dcache)
 	friend class GObj;
 	friend class CombInst;
 	// BViewState needs access to res for per-object draw update data
 	friend class BViewState;
+	// GeomLoader accesses dbip and d_map for read-only bbox computation
+	friend class GeomLoader;
 };
 
 
