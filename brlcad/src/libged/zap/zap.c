@@ -36,7 +36,6 @@ extern int ged_zap2_core(struct ged *gedp, int argc, const char *argv[]);
 #define FREE_BV_SCENE_OBJ(p, fp) { \
         BU_LIST_APPEND(fp, &((p)->l)); \
         BSG_FREE_VLIST(vlfree, &((p)->s_vlist)); }
-
 static void
 dl_zap(struct ged *gedp)
 {

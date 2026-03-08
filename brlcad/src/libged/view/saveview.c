@@ -32,6 +32,7 @@
 #include "bu/app.h"
 #include "bu/file.h"
 #include "bu/getopt.h"
+#include "bu/ptbl.h"
 
 
 #include "../ged_private.h"

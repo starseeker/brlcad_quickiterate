@@ -1337,6 +1337,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 			if (gedp && gedp->ged_gvp) gedp->ged_gvp->gv_s->bot_threshold = threshold_cached;
 
 			bu_vls_printf(gedp->ged_result_str, "%s: %s redraw failure\n", argv[0], argv[i]);
+			bu_free(paths_to_draw, "draw paths");
 			return BRLCAD_ERROR;
 		    }
 		}
@@ -1722,6 +1723,22 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 		bu_ptbl_free(&drawn_tops);
 		return BRLCAD_ERROR;
 	    }
+	    for (size_t _ti = 0; _ti < BU_PTBL_LEN(&_tops); _ti++) {
+		struct directory *_dp = (struct directory *)BU_PTBL_GET(&_tops, _ti);
+		struct display_list tmp_gdlp;
+		
+		bu_vls_init(&tmp_gdlp.dl_path);
+		bu_vls_strcpy(&tmp_gdlp.dl_path, _dp->d_namep);
+		tmp_gdlp.dl_dp = _dp;
+		ret = dl_redraw(&tmp_gdlp, gedp, 0);
+		bu_vls_free(&tmp_gdlp.dl_path);
+		if (ret < 0) {
+		    bu_ptbl_free(&_tops);
+		    bu_vls_printf(gedp->ged_result_str, "%s: redraw failure\n", argv[0]);
+		    return BRLCAD_ERROR;
+		}
+	    }
+	    bu_ptbl_free(&_tops);
 	}
 	bu_ptbl_free(&drawn_tops);
     } else {

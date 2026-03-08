@@ -37,6 +37,7 @@
 #include "bu/vls.h"
 #include "bsg.h"
 #include "bsg.h"
+#include "bsg/util.h"
 #include "bg/polygon.h"
 #include "rt/defines.h"
 #include "rt/directory.h"

@@ -39,8 +39,10 @@
 #include "bsg/util.h"
 #include "raytrace.h"
 #include "ged.h"
+#include "bsg/util.h"
 
 #include "../dbi.h"
+#include "../ged_private.h"
 
 void print_help_msg(struct bu_vls *str)
 {
