@@ -270,6 +270,9 @@ private:
             case BlockContext::Sidebar:
                 convert_compound(block, doc, out);
                 break;
+            case BlockContext::Table:
+                convert_table(dynamic_cast<const Table&>(block), doc, out);
+                break;
             case BlockContext::Pass:
                 // Raw passthrough: emit as-is (strip HTML if present)
                 out << block.source() << '\n';
@@ -450,6 +453,101 @@ private:
                 convert_block(*child, doc, out);
             }
         }
+    }
+
+    // ── Table ─────────────────────────────────────────────────────────────────
+    //
+    // Renders an AsciiDoc table using the tbl(1) preprocessor macros, following
+    // the same conventions as the upstream Asciidoctor Ruby manpage converter:
+    //   https://github.com/asciidoctor/asciidoctor (lib/asciidoctor/converter/manpage.rb)
+    //
+    // Structure emitted:
+    //
+    //   .TS
+    //   allbox tab(:);
+    //   [header format spec].    ← only when header rows present
+    //   T{...T}:T{...T}          ← header row cells
+    //   .T&                      ← separator between header and body format
+    //   [body format spec].
+    //   T{...T}:T{...T}          ← body (and footer) row cells
+    //   .TE
+    //   .sp
+    //
+    // The document header line already begins with '\"\ t to activate tbl(1).
+
+    void convert_table(const Table& table, const Document& doc,
+                       OutputBuffer& out) const {
+        // Optional block title
+        if (table.has_title()) {
+            out << ".sp\n"
+                << ".it 1 an-trap\n"
+                << ".nr an-no-space-flag 1\n"
+                << ".nr an-break-flag 1\n"
+                << ".br\n"
+                << ".B " << troff_escape(table.title()) << "\n";
+        }
+
+        // Determine number of columns from specs or first non-empty row
+        std::size_t ncols = table.column_specs().size();
+        if (ncols == 0) {
+            for (const auto* sec : {&table.head_rows(),
+                                    &table.body_rows(),
+                                    &table.foot_rows()}) {
+                if (!sec->empty()) { ncols = sec->front().cells().size(); break; }
+            }
+        }
+        if (ncols == 0) { return; }
+
+        out << ".TS\nallbox tab(:);\n";
+
+        const auto& specs = table.column_specs();
+
+        // Emit one tbl format spec line.
+        // Column alignment is taken from column_specs; default is left ('l').
+        // bold=true renders header/footer cells in bold (suffix 'B').
+        auto emit_format = [&](bool bold) {
+            for (std::size_t ci = 0; ci < ncols; ++ci) {
+                if (ci > 0) out << ' ';
+                char align = 'l';
+                if (ci < specs.size() && !specs[ci].halign.empty()) {
+                    char c = specs[ci].halign[0];
+                    if (c == 'c' || c == 'r') align = c;
+                }
+                out << align << 't' << (bold ? "B" : "");
+            }
+            out << ".\n";
+        };
+
+        // Emit one table row; cells are separated by ':' and wrapped in T{...T}.
+        auto emit_row = [&](const TableRow& row) {
+            for (std::size_t ci = 0; ci < ncols; ++ci) {
+                out << "T{\n";
+                if (ci < row.cells().size()) {
+                    out << inline_subs(row.cells()[ci]->source(), doc);
+                }
+                out << "\nT}" << (ci + 1 < ncols ? ":" : "\n");
+            }
+        };
+
+        const bool has_header = !table.head_rows().empty();
+        const bool has_body   = !table.body_rows().empty();
+        const bool has_footer = !table.foot_rows().empty();
+
+        if (has_header) {
+            emit_format(true);
+            for (const auto& row : table.head_rows()) { emit_row(row); }
+            if (has_body || has_footer) {
+                out << ".T&\n";
+                emit_format(false);
+            }
+        } else {
+            emit_format(false);
+        }
+
+        for (const auto& row : table.body_rows()) { emit_row(row); }
+        for (const auto& row : table.foot_rows()) { emit_row(row); }
+
+        out << ".TE\n.sp\n";
     }
 };
 

@@ -1797,50 +1797,101 @@ std::shared_ptr<Table> Parser::parse_table(
         raw_lines.push_back(*ln);
     }
 
-    // Build rows by splitting on |
-    // Simple approach: each line starting with | begins a new row; cells are
-    // separated by ' |' within a line.
-    bool first_row = true;
-    for (const auto& row_line : raw_lines) {
-        if (is_blank(row_line)) {
-            // Blank line separates sections; next row starts a new section
-            first_row = false;
-            continue;
+    // Auto-detect implicit header: a blank line immediately following the first
+    // group of row lines signals that those rows are the header, matching the
+    // upstream Asciidoctor Ruby converter behaviour.
+    if (!has_header) {
+        bool seen_row = false;
+        for (const auto& ln : raw_lines) {
+            if (!ln.empty() && ln[0] == '|') {
+                seen_row = true;
+            } else if (seen_row && is_blank(ln)) {
+                has_header = true;
+                break;
+            }
         }
-        if (row_line.empty() || row_line[0] != '|') { continue; }
+    }
 
+    // Determine the expected number of columns.
+    // If a [cols] attribute provided the column specs we already know ncols.
+    // Otherwise infer from the first row that has content (count | tokens).
+    int ncols = static_cast<int>(tbl->column_specs().size());
+    if (ncols == 0) {
+        for (const auto& ln : raw_lines) {
+            if (is_blank(ln) || ln.empty() || ln[0] != '|') { continue; }
+            std::string content = ln.substr(1);
+            ncols = 1;
+            for (char c : content) { if (c == '|') { ++ncols; } }
+            break;
+        }
+        if (ncols == 0) { ncols = 1; }
+    }
+
+    // Build rows by accumulating cells across lines.
+    //
+    // AsciiDoc allows cells to be written one-per-line OR several-per-line;
+    // a row is completed whenever `ncols` cells have been gathered.
+    // The blank line separates the header group (first_group) from the body.
+    //
+    // Upstream reference:
+    //   https://github.com/asciidoctor/asciidoctor (lib/asciidoctor/converter/*)
+    std::vector<std::shared_ptr<TableCell>> pending;
+    bool in_header_group = has_header;
+
+    auto commit_row = [&]() {
+        if (pending.empty()) { return; }
         TableRow row;
-        // Split by ' |' or '|' at start
-        std::string content = row_line.substr(1);  // strip leading |
-        std::string sep = "|";
-        std::size_t pos = 0;
-        while (true) {
-            auto next_sep = content.find(sep, pos);
-            std::string cell_text;
-            if (next_sep == std::string::npos) {
-                cell_text = content.substr(pos);
-            } else {
-                cell_text = content.substr(pos, next_sep - pos);
-                pos = next_sep + sep.size();
-            }
-            trim(cell_text);
-
-            auto cell = std::make_shared<TableCell>();
-            cell->set_source(cell_text);
-            if (first_row && has_header) {
-                cell->set_cell_context(TableCellContext::Head);
-            }
-            row.add_cell(cell);
-
-            if (next_sep == std::string::npos) { break; }
-        }
-
-        if (first_row && has_header) {
+        for (auto& c : pending) { row.add_cell(c); }
+        pending.clear();
+        if (in_header_group) {
             tbl->head_rows().push_back(std::move(row));
         } else {
             tbl->body_rows().push_back(std::move(row));
         }
-        first_row = false;
+    };
+
+    for (const auto& row_line : raw_lines) {
+        if (is_blank(row_line)) {
+            // A blank line ends the header group and flushes any partial row.
+            commit_row();
+            in_header_group = false;
+            continue;
+        }
+        if (row_line.empty() || row_line[0] != '|') { continue; }
+
+        // Extract every cell from this line.  The leading '|' starts the first
+        // cell; subsequent '|' characters delimit further cells on the same line.
+        std::string content = row_line.substr(1);
+        std::string sep     = "|";
+        std::size_t pos     = 0;
+        while (true) {
+            std::size_t next_sep = content.find(sep, pos);
+            std::string cell_text = (next_sep == std::string::npos)
+                ? content.substr(pos)
+                : content.substr(pos, next_sep - pos);
+            trim(cell_text);
+
+            auto cell = std::make_shared<TableCell>();
+            cell->set_source(cell_text);
+            if (in_header_group) {
+                cell->set_cell_context(TableCellContext::Head);
+            }
+            pending.push_back(std::move(cell));
+
+            // Commit a full row as soon as we have exactly ncols cells.
+            if (static_cast<int>(pending.size()) == ncols) {
+                commit_row();
+            }
+
+            if (next_sep == std::string::npos) { break; }
+            pos = next_sep + sep.size();
+        }
+    }
+    // Flush any trailing partial row (malformed table or last row without
+    // a trailing newline) into the body.
+    if (!pending.empty()) {
+        in_header_group = false;
+        commit_row();
     }
 
     return tbl;

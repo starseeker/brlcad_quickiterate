@@ -1,0 +1,237 @@
+= asciiquack PDF Demo
+Jane Developer <jane@example.com>
+v1.0, 2026-03-07: Initial demo release
+
+This document demonstrates the PDF export features of *asciiquack*
+using embedded Noto fonts for reliable, portable output.
+All text styles, structural elements, and content blocks shown here
+can be reproduced without any external font installation.
+
+''''
+
+== Document Structure
+
+Headings and sections give your document a clear hierarchy.
+asciiquack supports six heading levels with proportional sizes and
+decorative rules under the top two levels.
+
+=== Second-Level Section
+
+Content under a second-level section appears here.
+You can nest sections freely.
+
+==== Third-Level Section
+
+Deeper nesting is also supported, all the way down to level six.
+At each level the font size decreases so the structure remains visually
+clear.
+
+== Text Formatting
+
+inline markup lets you express emphasis and technical content:
+
+* *Bold text* is rendered using the bold font variant.
+* _Italic text_ is rendered using the italic font variant.
+* *_Bold italic_* combines both variants.
+* `Monospace text` is rendered using the monospace font variant.
+* A link: https://asciidoc.org[AsciiDoc website]
+
+=== A Longer Paragraph
+
+The quick brown fox jumps over the lazy dog.
+Pack my box with five dozen liquor jugs.
+How valiantly did Panjandrum Krimhilde fight!
+The five boxing wizards jump quickly.
+Jaded zombies acted quaintly but kept driving their oxen forward.
+Sphinx of black quartz, judge my vow.
+
+== Lists
+
+=== Unordered Lists
+
+* First item at depth zero
+* Second item at depth zero
+** Nested first item at depth one
+** Nested second item at depth one
+*** Deeply nested item
+* Third item at depth zero
+
+=== Ordered Lists
+
+. First step: install the tool
+. Second step: write your document
+.. Sub-step: choose a good title
+.. Sub-step: organise your content
+. Third step: convert to PDF
+. Fourth step: share the result
+
+=== Description Lists
+
+term one:: The definition of the first term is placed after the double-colon
+delimiter. It can continue for several sentences.
+
+term two:: A second term with its associated description.
+
+`code term`:: Technical terms in monospace are a natural fit for
+description lists when documenting an API.
+
+== Tables
+
+Tables present structured data in rows and columns.
+When the first row is separated from the body by a blank line inside the
+`|===` delimiters it is treated as a *header row* and rendered in bold with
+a shaded background.
+Column widths are proportional; a `cols` attribute of `"1,2,1"` makes the
+middle column twice as wide as the flanking columns.
+
+[cols="1,2,1"]
+|===
+| Tool | Description | Language
+
+| asciiquack
+| Converts AsciiDoc to PDF, HTML5, DocBook 5, and man pages
+| C++17
+
+| Asciidoctor
+| The reference AsciiDoc processor and toolchain
+| Ruby
+
+| Pandoc
+| Universal document converter supporting dozens of formats
+| Haskell
+|===
+
+Inline markup such as *bold*, _italic_, and `monospace` works inside table cells
+exactly as it does in body paragraphs.
+
+== Code Blocks
+
+Source code is set in the monospace font with a light grey background.
+
+[source,python]
+.A simple Python function
+----
+def greet(name: str) -> str:
+    """Return a greeting string."""
+    return f"Hello, {name}!"
+
+if __name__ == "__main__":
+    print(greet("world"))
+----
+
+Plain listing blocks work the same way:
+
+----
+$ asciiquack -b pdf examples/demo.adoc
+asciiquack: converting 'examples/demo.adoc'
+asciiquack: output written to 'examples/demo.pdf'
+----
+
+== Admonitions
+
+NOTE: This is a note admonition.  Use it to highlight supplementary
+information that may be helpful but is not strictly necessary.
+
+TIP: Tips provide helpful shortcuts or best practices.
+
+WARNING: Warnings alert the reader to potential pitfalls.
+
+IMPORTANT: Use IMPORTANT for critical information the reader must not miss.
+
+CAUTION: Caution blocks warn of potentially dangerous conditions.
+
+== Block Quotes
+
+[quote, Albert Einstein]
+____
+Imagination is more important than knowledge.  Knowledge is limited.
+Imagination encircles the world.
+____
+
+[quote, Ada Lovelace, Notes on Menabrea's Memoir on Babbage's Analytical Engine]
+____
+The engine can arrange and combine its numerical quantities exactly as if they
+were letters or any other general symbols; and in fact it might bring out its
+results in algebraical notation, were provisions made accordingly.
+____
+
+== Horizontal Rules
+
+A thematic break (horizontal rule) separates major content divisions:
+
+''''
+
+Content continues after the rule above.
+
+== Images
+
+Images are embedded directly in the PDF output.
+JPEG images are stored with the native DCTDecode filter for compact output;
+PNG images are decoded and stored as uncompressed RGB pixel data.
+
+image::asciiquack.png[asciiquack,width=400]
+
+''''
+
+<<<
+
+== Second Page Content
+
+This section begins on a new page because of the explicit page-break
+macro (`<<<`) in the source.
+
+The Noto font family — Noto Sans, Noto Sans Mono, and Noto Serif —
+provides extensive Unicode coverage and is released under the
+_SIL Open Font License 1.1_.  When bundled with asciiquack it
+guarantees that every PDF produced by the tool will contain embedded,
+fully-licensed fonts with no dependency on the host system's font
+installation.
+
+=== Font Embedding Details
+
+Six TrueType font slots are embedded in the PDF output:
+
+[horizontal]
+`pdf-font`:: Regular body text (NotoSans-Regular)
+`pdf-font-bold`:: Bold body text (NotoSans-Bold)
+`pdf-font-italic`:: Italic body text (NotoSans-Italic)
+`pdf-font-bold-italic`:: Bold-italic body text (NotoSans-BoldItalic)
+`pdf-font-mono`:: Monospace text (NotoSansMono-Regular)
+`pdf-font-mono-bold`:: Bold monospace text (NotoSansMono-Bold)
+
+You can override any slot by passing the corresponding document attribute:
+
+----
+asciiquack -b pdf \
+  -a pdf-font=/path/to/MyFont-Regular.ttf \
+  -a pdf-font-bold=/path/to/MyFont-Bold.ttf \
+  document.adoc
+----
+
+Only the slots you specify are overridden; the remaining slots continue
+to use their defaults (Noto fonts when built from the repository, or the
+PDF base-14 Helvetica and Courier families when the Noto fonts are not
+available).
+
+=== Inline Markup Summary
+
+[cols="1,1,1"]
+|===
+| AsciiDoc syntax | Rendered as | Font slot used
+
+| `\*bold*`
+| *bold*
+| F2 (Bold)
+
+| `\_italic_`
+| _italic_
+| F3 (Italic)
+
+| `\*_bold italic_*`
+| *_bold italic_*
+| F4 (BoldItalic)
+
+| `\`mono``
+| `mono`
+| F5 (Mono)
+|===
