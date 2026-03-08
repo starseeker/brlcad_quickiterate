@@ -45,13 +45,14 @@
  *   2. Records DbiState::bboxes/obbs BEFORE calling processEvents() —
  *      capturing the pre-drain pipeline state.
  *   3. Calls processEvents() to let the QgEdApp drain timer fire.
- *   4. Records DbiState::bboxes/obbs AFTER drain.
+ *   4. Records DbiState::bboxes/obbs + lod_results_processed() AFTER drain.
  *   5. Polls until pipeline is quiescent (no new results for 10 cycles).
  *   6. Takes a final screenshot and evaluates pass/fail.
  *
  * Pass criteria:
  *   - bboxes ≥ EXPECTED_BBOXES (AABB stage populated)
  *   - obbs   ≥ EXPECTED_OBBS   (OBB stage populated after drain)
+ *   - lod_results_processed() ≥ EXPECTED_LOD (LoD stage ran for all BoTs)
  *   - Stage 1 screenshot has bright pixels (AABB boxes rendered)
  *   - Stage 3 screenshot has bright pixels (real/LoD geometry rendered)
  */
@@ -60,11 +61,13 @@ class QgedPipelineRunner : public QObject
     Q_OBJECT
 public:
     explicit QgedPipelineRunner(QgEdApp *app, const char *gfile,
-const QString &outdir, QObject *parent = nullptr);
+				const QString &outdir, QObject *parent = nullptr);
 
     /* Expected DrawPipeline counts for GenericTwin.g */
     static constexpr size_t EXPECTED_BBOXES = 2242;
     static constexpr size_t EXPECTED_OBBS   =  706;
+    /* At least 1 LoD result per BoT (703/706 expected from warm-cache path) */
+    static constexpr size_t EXPECTED_LOD    =  700;
 
     /* Polling parameters */
     static constexpr int POLL_INTERVAL_MS  =   50;
@@ -97,10 +100,10 @@ private:
 
     /* Poll state */
     enum Stage { STAGE_INIT, STAGE_LOD_WAIT, STAGE_DONE };
-    Stage  m_stage          = STAGE_INIT;
-    int    m_poll_count     = 0;
+    Stage  m_stage           = STAGE_INIT;
+    int    m_poll_count      = 0;
     int    m_quiescent_polls = 0;
-    size_t m_total_drain    = 0;
+    size_t m_total_drain     = 0;
     size_t m_drain_after_events = 0;
 
     /* DbiState snapshots */
@@ -108,11 +111,12 @@ private:
     size_t m_obbs_before_drain   = 0;
     size_t m_bboxes_after_drain  = 0;
     size_t m_obbs_after_drain    = 0;
+    size_t m_lod_after_drain     = 0;  /* lod_results_processed() after drain */
 
     /* Per-stage bright-pixel counts */
-    int m_bright_1 = -1;   /* Stage 1: pre-drain screenshot  */
-    int m_bright_2 = -1;   /* Stage 2: post-drain screenshot */
-    int m_bright_3 = -1;   /* Stage 3: final screenshot      */
+    int m_bright_1 = -1;   /* Stage 1: pre-drain screenshot            */
+    int m_bright_2 = -1;   /* Stage 2: post-drain screenshot           */
+    int m_bright_3 = -1;   /* Stage 3: final screenshot (LoD rendered) */
 
     QTimer *m_poll_timer = nullptr;
 
