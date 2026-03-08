@@ -20,61 +20,51 @@ brep {obj}info [C2|C3|E|F|L|SB|T|TB|V] [arguments]
 If _obj_ is not a brep object, then *brep* will quit and report that fact. Otherwise, it prints a textual description of the requested information. With not arguments supplied, a summary of data present in the brep object is printed. Otherwise, more detailed information about specified components will be reported.
 
 
-::
 Return information for one or more 2D parametric space geometric curves.
 
 
 
 
-::
 Return information for one or more 3D geometric curves.
 
 
 
 
-::
 Return information for one or more topological 3D edges.
 
 
 
 
-::
 Return information for one or more topological faces.
 
 
 
 
-::
 Return information for one or more 2D parametric space topological trimming loops.
 
 
 
 
-::
 Return information for one or more surfaces.
 
 
 
 
-::
 Return information for one or more piecewise Bezier surfaces.
 
 
 
 
-::
 Return information for one or more 2D parametric space topological trims.
 
 
 
 
-::
 Return information for one or more 2D piecewise Bezier trims.
 
 
 
 
-::
 Return information for one or more 3D vertices.
 
 

@@ -147,7 +147,6 @@ mged> **edit translate -a -z obj1 0 0 5 obj2**::
 
 
 
-::
 These commands perform the same function. The z-coordinate of the bounding box center of obj2 is moved to the z-coordinate of the bounding box center of obj1 _plus 5 units_.
 
 

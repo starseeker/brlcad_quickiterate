@@ -429,10 +429,10 @@ private:
     void convert_paragraph(const Block& block, const Document& doc,
                            OutputBuffer& out) const {
         if (block.has_title()) {
-            out << ".PP\n"
+            out << ".sp\n"
                 << "\\fB" << troff_escape(block.title()) << "\\fP\n";
         }
-        out << ".PP\n"
+        out << ".sp\n"
             << inline_subs(block.source(), doc) << '\n';
     }
 
@@ -493,25 +493,40 @@ private:
         // For example blocks, always emit a numbered "Example N." header,
         // matching DocBook's rendering of both titled and untitled <example>
         // elements.  Titled examples: "Example N. Title"; untitled: "Example N."
+        // Use .B title / .br / .RS 4 style matching asciidoctor's man page backend
+        // so the example title appears bold on its own line and the body is indented.
         if (block.context() == BlockContext::Example) {
             int n = ++counters_["example"];
             std::string header = "Example\\ \\&" + std::to_string(n) + ".";
             if (block.has_title()) {
                 // Apply inline substitutions so _italic_ / *bold* markup in
-                // example titles is rendered as troff font escapes, matching
-                // the DocBook man-page output which preserves <emphasis>.
+                // example titles is rendered as troff font escapes.
                 header += "\\ \\&" + inline_subs(block.title(), doc);
             }
-            out << ".PP\n"
-                << "\\fB" << header << "\\fP\n";
-        } else if (block.has_title()) {
-            out << ".PP\n"
-                << "\\fB" << inline_subs(block.title(), doc) << "\\fP\n";
-        }
-        // Emit children without extra indentation (no .RS 4/.RE wrapper),
-        // matching the flat layout DocBook uses for <example> content.
-        for (const auto& child : block.blocks()) {
-            convert_block(*child, doc, out);
+            // Match asciidoctor's man page backend format:
+            //   .B title   (bold title using .B macro)
+            //   .br        (line break after title)
+            //   .RS 4      (indent body by 4 chars)
+            //   .sp        (space before first content line)
+            //   ...content...
+            //   .RE        (end indent)
+            //   .sp        (space after block)
+            out << ".sp\n"
+                << ".B " << header << "\n"
+                << ".br\n"
+                << ".RS 4\n";
+            for (const auto& child : block.blocks()) {
+                convert_block(*child, doc, out);
+            }
+            out << ".RE\n";
+        } else {
+            if (block.has_title()) {
+                out << ".sp\n"
+                    << "\\fB" << inline_subs(block.title(), doc) << "\\fP\n";
+            }
+            for (const auto& child : block.blocks()) {
+                convert_block(*child, doc, out);
+            }
         }
     }
 
@@ -520,7 +535,7 @@ private:
     void convert_ulist(const List& list, const Document& doc,
                        OutputBuffer& out) const {
         if (list.has_title()) {
-            out << ".PP\n"
+            out << ".sp\n"
                 << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
         // Each item gets its own .sp .RS 4 ... .RE block with proper
@@ -550,7 +565,7 @@ private:
     void convert_olist(const List& list, const Document& doc,
                        OutputBuffer& out) const {
         if (list.has_title()) {
-            out << ".PP\n"
+            out << ".sp\n"
                 << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
         out << ".sp\n"
@@ -572,7 +587,7 @@ private:
     void convert_dlist(const List& list, const Document& doc,
                        OutputBuffer& out) const {
         if (list.has_title()) {
-            out << ".PP\n"
+            out << ".sp\n"
                 << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
         for (const auto& item : list.items()) {
@@ -587,7 +602,7 @@ private:
                 if (!has_content) { continue; }
                 // Body without a term: just emit the content as paragraphs
                 if (!item->source().empty()) {
-                    out << ".PP\n" << inline_subs(item->source(), doc) << '\n';
+                    out << ".sp\n" << inline_subs(item->source(), doc) << '\n';
                 }
                 for (const auto& child : item->blocks()) {
                     convert_block(*child, doc, out);
@@ -606,7 +621,7 @@ private:
                                term_rendered.find("\\fI") != std::string::npos);
             // Use DocBook-style .PP term .RS 4 body .RE instead of .TP, so that
             // the term appears on its own line with the body indented below it.
-            out << ".PP\n";
+            out << ".sp\n";
             if (has_markup) {
                 out << term_rendered << "\n";
             } else {

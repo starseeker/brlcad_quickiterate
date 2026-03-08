@@ -14,7 +14,6 @@ bot [-v] [-V] [-C [0-255|0-255|0-255]] {subcommand} {subcommand arguments}
 ----
 
 
-::
 
 [source]
 ----
@@ -22,7 +21,6 @@ check {degen_faces | extra_edges | flipped_edges | open_edges | solid} {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -30,7 +28,6 @@ chull {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -38,7 +35,6 @@ decimate [-f #] [-e #] {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -46,7 +42,6 @@ extrude {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -54,7 +49,6 @@ flip {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -62,7 +56,6 @@ get {faces | minEdge | maxEdge | orientation | type | vertices} {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -70,7 +63,6 @@ isect {objname} {objname2}
 ----
 
 
-::
 
 [source]
 ----
@@ -78,7 +70,6 @@ remesh {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -86,7 +77,6 @@ set {orientation | type} {objname} {value}
 ----
 
 
-::
 
 [source]
 ----
@@ -94,7 +84,6 @@ smooth [-c [0|1|2]] [-d [0|1|2]] [-e #] [-E #] [-I #] {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -102,7 +91,6 @@ split {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -110,7 +98,6 @@ stat {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -118,7 +105,6 @@ subd [-A [1|2|3|4|5]] [-l #] {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----

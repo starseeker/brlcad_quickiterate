@@ -1116,37 +1116,52 @@
   </xsl:template>
 
   <xsl:template match="db:varlistentry">
-    <!-- term(s) -->
-    <xsl:for-each select="db:term">
-      <xsl:apply-templates/>
-      <xsl:if test="position() != last()">
+    <!-- When the entry has an empty term (e.g. in refsynopsisdiv where multiple
+         cmdsynopsis variants are listed as a variablelist with empty terms),
+         just emit the listitem content directly without any dlist markup.
+         Emitting bare '::' produces literal '::\n' in the AsciiDoc output which
+         renders as visible '::' text in both asciidoctor and man page backends. -->
+    <xsl:variable name="term-text" select="normalize-space(db:term)"/>
+    <xsl:choose>
+      <xsl:when test="string-length($term-text) = 0">
+        <!-- Empty term: emit listitem content directly as top-level blocks -->
+        <xsl:apply-templates select="db:listitem/*"/>
         <xsl:text>&#10;</xsl:text>
-      </xsl:if>
-    </xsl:for-each>
-    <xsl:text>::&#10;</xsl:text>
-    <!-- definition content: each block in the listitem is output via its normal
-         template.  However, AsciiDoc ends a dlist item body at a blank line, so
-         when a listitem contains multiple para/block children we must keep them
-         attached with a '+' list-continuation marker (on its own line, without a
-         preceding blank line).  We achieve this by emitting '+\n' *instead of*
-         the '\n\n' that the db:para template would normally append: we apply
-         inline templates of each para directly, then choose the right separator. -->
-    <xsl:variable name="children" select="db:listitem/*"/>
-    <xsl:for-each select="$children">
-      <xsl:choose>
-        <!-- Para/simpara that is NOT the last child: emit content then +\n
-             (no blank line – the + attaches the next block to this item). -->
-        <xsl:when test="(self::db:para or self::db:simpara) and not(position() = last())">
+      </xsl:when>
+      <xsl:otherwise>
+        <!-- term(s) -->
+        <xsl:for-each select="db:term">
           <xsl:apply-templates/>
-          <xsl:text>&#10;+&#10;</xsl:text>
-        </xsl:when>
-        <!-- All other elements (including the last child): normal rendering. -->
-        <xsl:otherwise>
-          <xsl:apply-templates select="."/>
-        </xsl:otherwise>
-      </xsl:choose>
-    </xsl:for-each>
-    <xsl:text>&#10;</xsl:text>
+          <xsl:if test="position() != last()">
+            <xsl:text>&#10;</xsl:text>
+          </xsl:if>
+        </xsl:for-each>
+        <xsl:text>::&#10;</xsl:text>
+        <!-- definition content: each block in the listitem is output via its normal
+             template.  However, AsciiDoc ends a dlist item body at a blank line, so
+             when a listitem contains multiple para/block children we must keep them
+             attached with a '+' list-continuation marker (on its own line, without a
+             preceding blank line).  We achieve this by emitting '+\n' *instead of*
+             the '\n\n' that the db:para template would normally append: we apply
+             inline templates of each para directly, then choose the right separator. -->
+        <xsl:variable name="children" select="db:listitem/*"/>
+        <xsl:for-each select="$children">
+          <xsl:choose>
+            <!-- Para/simpara that is NOT the last child: emit content then +\n
+                 (no blank line – the + attaches the next block to this item). -->
+            <xsl:when test="(self::db:para or self::db:simpara) and not(position() = last())">
+              <xsl:apply-templates/>
+              <xsl:text>&#10;+&#10;</xsl:text>
+            </xsl:when>
+            <!-- All other elements (including the last child): normal rendering. -->
+            <xsl:otherwise>
+              <xsl:apply-templates select="."/>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:for-each>
+        <xsl:text>&#10;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- ============================================================

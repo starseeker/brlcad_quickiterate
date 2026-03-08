@@ -14,7 +14,6 @@ pnts {subcommand} {subcommand arguments}
 ----
 
 
-::
 
 [source]
 ----
@@ -22,7 +21,6 @@ read [-f [xyzijksrgb]] [-u unit] [--size #] {input_file} {pnts_obj}
 ----
 
 
-::
 
 [source]
 ----
@@ -30,7 +28,6 @@ write [-p #] [--ply] {pnts_obj} {output_filepnts}
 ----
 
 
-::
 
 [source]
 ----
@@ -38,7 +35,6 @@ gen [-t #] [--surface] [--grid] [--rand] [--sobol] [--max-pnts] [--max-time] {ob
 ----
 
 
-::
 
 [source]
 ----
@@ -46,7 +42,6 @@ tri [unit] [-s #]
 ----
 
 
-::
 
 [source]
 ----
