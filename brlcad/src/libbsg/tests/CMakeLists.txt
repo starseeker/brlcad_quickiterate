@@ -1,6 +1,6 @@
 # libbsg tests — migrated from libbv/tests.
 
-set(bsg_test_srcs list.c vlist.c)
+set(bsg_test_srcs list.c vlist.c arb8.c)
 
 set(BVIEW_TEST_SRC_INCLUDES)
 set(BVIEW_TEST_SRC_SWITCHES)
@@ -45,6 +45,8 @@ brlcad_add_test(NAME bsg_vlist_cmd_cnt_1    COMMAND bsg_test vlist 5)
 brlcad_add_test(NAME bsg_vlist_cmd_cnt_15   COMMAND bsg_test vlist 15)
 brlcad_add_test(NAME bsg_vlist_cmd_cnt_45   COMMAND bsg_test vlist 45)
 brlcad_add_test(NAME bsg_vlist_cmd_cnt_500  COMMAND bsg_test vlist 500)
+
+brlcad_add_test(NAME bsg_vlist_arb8_cmd_cnt COMMAND bsg_test arb8)
 
 cmakefiles(
   CMakeLists.txt
