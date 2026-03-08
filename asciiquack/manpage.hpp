@@ -217,21 +217,48 @@ private:
                     continue;
                 }
             }
+            // Cross-reference macro: <<anchor,text>> or <<anchor>>.
+            // In man pages, asciidoctor renders xrefs as just the link text
+            // (or "[anchor]" for bare xrefs), discarding the anchor.
+            if (i + 1 < text.size() && text[i] == '<' && text[i+1] == '<') {
+                auto close = text.find(">>", i + 2);
+                if (close != std::string::npos) {
+                    std::string inner = text.substr(i + 2, close - i - 2);
+                    auto comma = inner.find(',');
+                    if (comma != std::string::npos) {
+                        // <<anchor,text>> → render the text
+                        std::string xref_text = inner.substr(comma + 1);
+                        out += troff_inline(xref_text);
+                    } else {
+                        // <<anchor>> → render as [anchor]
+                        out += '[';
+                        out += troff_inline(inner);
+                        out += ']';
+                    }
+                    i = close + 2;
+                    continue;
+                }
+            }
             // URL link macro: http://url[text] or https://url[text].
-            // For man pages, render as just the link text (matching DocBook's
-            // man-page rendering which shows text only, not the URL).
+            // Render as "text <url>" matching asciidoctor's man page backend
+            // which uses the .URL macro to append the URL after the link text.
             if ((text.substr(i, 7) == "http://" || text.substr(i, 8) == "https://") &&
                 text.find('[', i) != std::string::npos) {
                 auto bracket = text.find('[', i);
                 if (bracket != std::string::npos) {
                     auto close = text.find(']', bracket + 1);
                     if (close != std::string::npos) {
+                        std::string url = text.substr(i, bracket - i);
                         std::string link_text = text.substr(bracket + 1, close - bracket - 1);
                         if (!link_text.empty()) {
+                            // Render as: link text <url>  (angle brackets = troff \(la/\(ra)
                             out += troff_inline(link_text);
+                            out += " \\(la";
+                            out += troff_escape(url);
+                            out += "\\(ra";
                         } else {
-                            // No link text: output the URL
-                            out += troff_inline(text.substr(i, bracket - i));
+                            // No link text: output the URL only
+                            out += troff_inline(url);
                         }
                         i = close + 1;
                         continue;
@@ -568,18 +595,34 @@ private:
             out << ".sp\n"
                 << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
-        out << ".sp\n"
-            << ".RS 4\n";
         int n = 1;
+        // Determine the number of digits in the largest label so the
+        // horizontal offset (\h'-04' for 1-char, '-05' for 2-char, etc.)
+        // can be set correctly – matching asciidoctor's manpage backend.
+        // For simplicity, always use 4 (handles lists up to ~99 items).
         for (const auto& item : list.items()) {
-            out << ".IP " << n << ". 4\n";
-            out << inline_subs(item->source(), doc) << '\n';
+            std::string label = std::to_string(n) + ".";
+            // Asciidoctor uses per-item .RS 4/.RE with a conditional:
+            //   .ie n  \h'-04' N.\h'+01'\c   (nroff: manual horizontal position)
+            //   .el    .IP " N." 4.2          (troff: use IP macro)
+            // This produces clean, properly-wrapped numbered list output in
+            // both nroff (man page viewers) and troff (typeset output).
+            out << ".sp\n"
+                << ".RS 4\n"
+                << ".ie n \\{\\\n"
+                << "\\h'-04'" << " " << label << "\\h'+01'\\c\n"
+                << ".\\}\n"
+                << ".el \\{\\\n"
+                << ".  sp -1\n"
+                << ".  IP \" " << label << "\" 4.2\n"
+                << ".\\}\n"
+                << inline_subs(item->source(), doc) << '\n';
             for (const auto& child : item->blocks()) {
                 convert_block(*child, doc, out);
             }
+            out << ".RE\n";
             ++n;
         }
-        out << ".RE\n";
     }
 
     // ── Description list ──────────────────────────────────────────────────────
@@ -660,14 +703,16 @@ private:
 
     void convert_table(const Table& table, const Document& doc,
                        OutputBuffer& out) const {
-        // Optional block title
+        // Optional block title – asciidoctor prefixes with "Table N." numbering
         if (table.has_title()) {
+            int tnum = ++counters_["table"];
             out << ".sp\n"
                 << ".it 1 an-trap\n"
                 << ".nr an-no-space-flag 1\n"
                 << ".nr an-break-flag 1\n"
                 << ".br\n"
-                << ".B " << troff_escape(table.title()) << "\n";
+                << ".B Table\\ \\&" << tnum << ".\\ \\&"
+                << troff_escape(table.title()) << "\n";
         }
 
         // Determine number of columns from specs or first non-empty row
@@ -702,11 +747,17 @@ private:
         };
 
         // Emit one table row; cells are separated by ':' and wrapped in T{...T}.
+        // Matching asciidoctor's man page backend, add .sp before each cell's
+        // content so the text has proper vertical spacing within tbl output.
         auto emit_row = [&](const TableRow& row) {
             for (std::size_t ci = 0; ci < ncols; ++ci) {
                 out << "T{\n";
                 if (ci < row.cells().size()) {
-                    out << inline_subs(row.cells()[ci]->source(), doc);
+                    const std::string& cell_src = row.cells()[ci]->source();
+                    if (!cell_src.empty()) {
+                        out << ".sp\n";
+                        out << inline_subs(cell_src, doc);
+                    }
                 }
                 out << "\nT}" << (ci + 1 < ncols ? ":" : "\n");
             }
@@ -716,15 +767,12 @@ private:
         const bool has_body   = !table.body_rows().empty();
         const bool has_footer = !table.foot_rows().empty();
 
+        // Asciidoctor man page backend uses a single format line for all rows
+        // (no .T& switch between header and body).  This produces consistent
+        // rendering across groff versions and matches the expected tbl output.
+        emit_format(false);
         if (has_header) {
-            emit_format(true);
             for (const auto& row : table.head_rows()) { emit_row(row); }
-            if (has_body || has_footer) {
-                out << ".T&\n";
-                emit_format(false);
-            }
-        } else {
-            emit_format(false);
         }
 
         for (const auto& row : table.body_rows()) { emit_row(row); }
