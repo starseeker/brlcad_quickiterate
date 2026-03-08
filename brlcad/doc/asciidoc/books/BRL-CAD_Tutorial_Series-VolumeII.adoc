@@ -109,13 +109,13 @@ One advantage to using the GUI, if you aren't familiar with UNIX file management
 [[assign_title]]
 === Assigning a Title to Your Database
 
-You can title your new database to provide an audit trail for you or others who might use your database. After the prompt, in the Command Window, type title followed by a space and a name that reflects the database you are going to make. When you are done, press the ENTER key. For example: *mged>title MySphere[ENTER]* Note that in _BRL-CAD_ versions prior to release 6.0, the title is limited to 72 characters.
+You can title your new database to provide an audit trail for you or others who might use your database. After the prompt, in the Command Window, type title followed by a space and a name that reflects the database you are going to make. When you are done, press the ENTER key. For example: mged>title MySphere[ENTER] Note that in _BRL-CAD_ versions prior to release 6.0, the title is limited to 72 characters.
 
 
 [[set_units]]
 === Selecting a Unit of Length
 
-_MGED_ uses millimeters for all internal mathematical processes; however, you can create your design using some other unit, such as feet. For this lesson, inches is used. To select inches, move your mouse pointer to the File menu at the top of the Command Window. Click on File and then Preferences. A new menu will appear. Select Units and then Inches. If you are not a "point-and-click" type of person and prefer a Command Line, then just type units in after the _MGED_ prompt in the Command Window, followed by the ENTER key. The Command Line looks like: *mged>units in[ENTER]*
+_MGED_ uses millimeters for all internal mathematical processes; however, you can create your design using some other unit, such as feet. For this lesson, inches is used. To select inches, move your mouse pointer to the File menu at the top of the Command Window. Click on File and then Preferences. A new menu will appear. Select Units and then Inches. If you are not a "point-and-click" type of person and prefer a Command Line, then just type units in after the _MGED_ prompt in the Command Window, followed by the ENTER key. The Command Line looks like: mged>units in[ENTER]
 
 
 [[select_primitive]]
@@ -749,7 +749,7 @@ Your sphere will now be placed at (x,y,z)=(4,4,4), as measured in millimeters. N
       
 ....
 
-The radius of your sphere will be 3 mm. The following is the dialog that should appear in your Command Window (including the appropriate responses). *mged>in sph2.s sph* `Enter X, Y, Z of vertex: 4 4 4` `Enter radius: 3` `51 vectors in 0.000543 sec` The last line of this dialog is simply a record of the computer's speed in drawing the shape. It has no real usefulness to the user at this point.
+The radius of your sphere will be 3 mm. The following is the dialog that should appear in your Command Window (including the appropriate responses). mged>in sph2.s sph `Enter X, Y, Z of vertex: 4 4 4` `Enter radius: 3` `51 vectors in 0.000543 sec` The last line of this dialog is simply a record of the computer's speed in drawing the shape. It has no real usefulness to the user at this point.
 
 A sphere has now been created, and a wireframe drawing similar to the one created using the make command should appear in your Graphics Window.
 
@@ -2204,7 +2204,7 @@ In this lesson, you will refine the mug you made in the previous lesson. If you 
 
 Assigning material properties to a region can be done with either the mater or shader command. The program will respond with a series of questions. These concern the various parameters of the shader you select to use in rendering the object.
 
-The most commonly used shader is the plastic shader, which uses a Phong lighting model. Select the plastic shader and set the color to a medium shade of green. The dialog in the Command Window should appear as follows: *mged>mater mug.r[Enter]*
+The most commonly used shader is the plastic shader, which uses a Phong lighting model. Select the plastic shader and set the color to a medium shade of green. The dialog in the Command Window should appear as follows: mged>mater mug.r[Enter]
 
 
 ....

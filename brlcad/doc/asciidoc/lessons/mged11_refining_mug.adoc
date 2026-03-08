@@ -20,7 +20,7 @@ In this lesson, you will refine the mug you made in the previous lesson. If you 
 
 Assigning material properties to a region can be done with either the mater or shader command. The program will respond with a series of questions. These concern the various parameters of the shader you select to use in rendering the object.
 
-The most commonly used shader is the plastic shader, which uses a Phong lighting model. Select the plastic shader and set the color to a medium shade of green. The dialog in the Command Window should appear as follows: *mged>mater mug.r[Enter]*
+The most commonly used shader is the plastic shader, which uses a Phong lighting model. Select the plastic shader and set the color to a medium shade of green. The dialog in the Command Window should appear as follows: mged>mater mug.r[Enter]
 
 
 ....
@@ -124,7 +124,3 @@ In this chapter, you:
 * Assigned material properties to the mug using the mater command.
 * Refined the mug by smoothing the lip.
 * Combined the shapes.
-
-
-
-
