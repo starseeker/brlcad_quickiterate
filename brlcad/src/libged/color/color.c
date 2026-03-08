@@ -243,7 +243,6 @@ _edcolor(struct ged *gedp, int argc, const char *argv[])
 
     /* if there are drawables, update their colors */
     bsg_color_soltab(gedp->ged_gvp);
-    bsg_color_soltab(gedp->ged_gvp);
 
     return BRLCAD_OK;
 }
