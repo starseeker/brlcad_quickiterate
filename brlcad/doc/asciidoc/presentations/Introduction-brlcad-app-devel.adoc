@@ -22,7 +22,3 @@ rt – the main raytracer for rendering images in BRL-CAD.
 nirt – a package for firing rays interactively and getting information about what the rays run into.
 remrt – a network-distributed ray tracing package.
 ----
-
-
-
-

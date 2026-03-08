@@ -121,5 +121,3 @@ There is a known problem where specifying very thin tires with a large inner whe
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

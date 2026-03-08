@@ -30,10 +30,21 @@ En el promp de _MGED_ tipee: *r shRaytrace Control Panelapes2.r u sph2.s u rcc2.
 
 Nota: Asegúrese de haber ingresado correctamente el comando antes de presionar ENTER. Los espacios, o la falta de los mismos, son importantes.
 
-Este comando le dice a _MGED_ que: |===
-
-|r |shapes2.r |u |sph2.s |u |rcc2.s 
-|Cree una región |La llame shapes2.r |Añada el volumen de la forma |sph2.s |Añada el volumen de la forma |rcc2.s 
+Este comando le dice a _MGED_ que: [cols="6*"]
+[%noheader]
+|===
+|r
+|shapes2.r
+|u
+|sph2.s
+|u
+|rcc2.s
+|Cree una región
+|La llame shapes2.r
+|Añada el volumen de la forma
+|sph2.s
+|Añada el volumen de la forma
+|rcc2.s
 |===
 
 
@@ -82,10 +93,19 @@ image::../../lessons/es/images/mged04_commandwindow.png[]
 
 Una versión de una sola línea de estos comandos podría ser: *mater shapes2.r plastic 0 255 0 0[Enter]* Este comando dice que:
 
+[cols="5*"]
+[%noheader]
 |===
-
-|mater |shapes2.r |plastic |0 255 0 |0 
-|Asigne propiedades de la materia a... |la región llamada shapes2.r |Crear una región de plástico |Con el color gris claro |No heredando los colores del tipo de material 
+|mater
+|shapes2.r
+|plastic
+|0 255 0
+|0
+|Asigne propiedades de la materia a...
+|la región llamada shapes2.r
+|Crear una región de plástico
+|Con el color gris claro
+|No heredando los colores del tipo de material
 |===
 
 
@@ -94,10 +114,13 @@ Una versión de una sola línea de estos comandos podría ser: *mater shapes2.r 
 
 Una forma sencilla de limpiar su ventana gráfica y dibujar la nueva región al mismo tiempo es tipeando en el prompt de _MGED_: *B shapes2.r[Enter]* Este comando le dice a _MGED_:
 
+[cols="2*"]
+[%noheader]
 |===
-
-|B |shapes2.r 
-|La B es de Blast (ráfaga) y su función es despejar la ventana gráfica y redibujar el diseño. |La región llamada shapes2.r 
+|B
+|shapes2.r
+|La B es de Blast (ráfaga) y su función es despejar la ventana gráfica y redibujar el diseño.
+|La región llamada shapes2.r
 |===
 
 El comando Blast es la forma corta de combinar los comandos Z y draw.
@@ -128,10 +151,13 @@ La ventana gráfica de _MGED_ se utiliza para mostrar los diferentes tipos de in
 
 Como se mencionó anteriormente, hay un menú de Framebuffer en el panel de control de Raytrace. En la parte superior de este menú hay un botón de control etiquetado como activo. Éste modifica la pantalla con la capa de framebuffer a activada o desactivada. Cerca de la parte inferior del mismo menú hay tres botones de opción: Overlay, Interlay y Underlay. Cuando se selecciona el modo Underlay, se muestran los datos de píxeles debajo o detrás de los datos vectoriales. Por el contrario, cuando el modo Overlay está seleccionado, los datos de píxeles están en frente de los datos vectoriales. El modo interlay es similar al Overlay. La sutil diferencia es una tema avanzado que no se incluirá en este toturial.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../../lessons/es/images/mged04_raytracedshapes.png[] |image:../../lessons/es/images/mged04_fb_overlay_mode.png[] 
-|Framebuffer en modo Underlay |Framebuffer en modo Overlay 
+|image:../../lessons/es/images/mged04_raytracedshapes.png[]
+|image:../../lessons/es/images/mged04_fb_overlay_mode.png[]
+|Framebuffer en modo Underlay
+|Framebuffer en modo Overlay
 |===
 
 Para ver cómo funciona, vaya al menú de Framebuffer y seleccione la opción Overlay. Observe que la representación de malla desaparece. ¿A dónde va? Si contestara "detrás de la visualización de Framebuffer", sería una respuesta correcta. Para ver la geometría del modelo, usted tendría que inactivar el framebuffer o seleccionar el modo Underlay.
@@ -162,7 +188,3 @@ En este tutorial usted aprendió a:
 * Generar el Raytrace de si diseño desde la interfaz gráfica.
 * Utilizar la interfaz gráfica para cambiar capas de la ventana gráfica.
 * Limpiar la ventana gráfica luego de hacer el trazado de rayos de su modelo.
-
-
-
-

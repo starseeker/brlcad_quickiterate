@@ -33,10 +33,19 @@ The most commonly used shader is the plastic shader, which uses a Phong lighting
 
 Enter the appropriate information that is shown in bold font. If you want to use the streamlined version, type: *mater mug.r plastic 32 128 32 0[Enter]*
 
-Diagrammed, this command says: |===
-
-|mater |mug.r |plastic |32 128 32 |0 
-|Assign material properties to a region |Called mug.r |Make the material plastic |Color the mug green |Turn inheritance off* 
+Diagrammed, this command says: [cols="5*"]
+[%noheader]
+|===
+|mater
+|mug.r
+|plastic
+|32 128 32
+|0
+|Assign material properties to a region
+|Called mug.r
+|Make the material plastic
+|Color the mug green
+|Turn inheritance off*
 |===
 
 
@@ -64,10 +73,23 @@ Now let's improve the cup. Notice that the lip of the cup looks a little too squ
 
 At the _MGED_ prompt, type: *in rim.s tor 0 0 3.5 0 0 1 1.625 0.125[Enter]*
 
+[cols="7*"]
+[%noheader]
 |===
-
-|in |rim.s |tor |0 0 3.5 |0 0 1 |1.625 |0.125 
-|Make a shape |Call it rim.s |Make the shape a torus |With x, y, and z vertices of 0, 0, and 3.5 |With x, y, and z of normal vector being 0, 0, and 1 |Radius 1 is 1.625 inches and |Radius 2 is 0.125 inches 
+|in
+|rim.s
+|tor
+|0 0 3.5
+|0 0 1
+|1.625
+|0.125
+|Make a shape
+|Call it rim.s
+|Make the shape a torus
+|With x, y, and z vertices of 0, 0, and 3.5
+|With x, y, and z of normal vector being 0, 0, and 1
+|Radius 1 is 1.625 inches and
+|Radius 2 is 0.125 inches
 |===
 
 
@@ -92,7 +114,3 @@ In this chapter, you:
 * Assigned material properties to the mug using the mater command.
 * Refined the mug by smoothing the lip.
 * Combined the shapes.
-
-
-
-

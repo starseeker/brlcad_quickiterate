@@ -593,5 +593,3 @@ set mged_default(max_text_lines) 1000
 * Raines, Paul. _Tcl/Tk Pocket Reference_. O'Reilly & Associates, Inc., Sebastopol, CA, 1998.
 * Ousterhout, John K. _Tcl and the Tk Toolkit_. Addison-Wesley, Reading, MA, 1994.
 * Welch, Brent B. _Practical Programming in Tcl and Tk, Second Edition_. Prentice Hall, Upper Saddle River, NJ, 1997.
-
-

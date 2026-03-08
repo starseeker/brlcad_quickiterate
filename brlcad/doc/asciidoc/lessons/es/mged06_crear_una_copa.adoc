@@ -99,10 +99,25 @@ Para combinar todas las regiones dentro de un objeto, necesitará ejecutar una d
 
 Esta operación le dice al programa _MGED_ que:
 
+[cols="8*"]
+[%noheader]
 |===
-
-|comb |globet1.c |u |basin1.r |u |stem1.r |u |base1.r 
-|Haga una combinación |La nombre globet1.c |uniendo |la región basin1.r |y |la región stem1.r |y |la región base1.r 
+|comb
+|globet1.c
+|u
+|basin1.r
+|u
+|stem1.r
+|u
+|base1.r
+|Haga una combinación
+|La nombre globet1.c
+|uniendo
+|la región basin1.r
+|y
+|la región stem1.r
+|y
+|la región base1.r
 |===
 
 
@@ -175,7 +190,3 @@ En este tutorial usted aprendió a:
 * Hacer una combinación de las regiones.
 * Visualizar un árbol de datos.
 * Graficar la copa terminada.
-
-
-
-

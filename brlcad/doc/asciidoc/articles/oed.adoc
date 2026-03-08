@@ -743,4 +743,3 @@ The major points of the *oed* command are:
 == Acknowledgements
 
 Thanks to Christopher Sean Morrison, Paul Tanenbaum and Ruth Foutz for proofreading, suggestions and corrections.
-

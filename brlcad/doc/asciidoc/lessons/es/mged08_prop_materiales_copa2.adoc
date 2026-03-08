@@ -24,10 +24,17 @@ Note que en versiones posteriores a _BRL-CAD_ 5.2, se aplican los valores por de
 
 ====
 
-En este ejemplo, el cuadro de entrada de sombreado indica que la transparencia (tr) es de .5 y el reflejo espejado (re) es de .45. Los ocho abreviaturas que se utilizan actualmente en el cuadro de entrada de sombreado son las siguientes: |===
-
-|tr - transparency - transparencia |sp - specular reflectivity - reflexión especular |ri - refractive index - índice de refracción |ex - extinction - extinción 
-|re - mirror reflectance - reflejo espejado |di - diffuse reflectivity - reflesión difusa |sh - shininess - brillo |em - emission - emisión 
+En este ejemplo, el cuadro de entrada de sombreado indica que la transparencia (tr) es de .5 y el reflejo espejado (re) es de .45. Los ocho abreviaturas que se utilizan actualmente en el cuadro de entrada de sombreado son las siguientes: [cols="4*"]
+[%noheader]
+|===
+|tr - transparency - transparencia
+|sp - specular reflectivity - reflexión especular
+|ri - refractive index - índice de refracción
+|ex - extinction - extinción
+|re - mirror reflectance - reflejo espejado
+|di - diffuse reflectivity - reflesión difusa
+|sh - shininess - brillo
+|em - emission - emisión
 |===
 
 
@@ -101,7 +108,3 @@ En este tutorial usted aprendió a:
 * Asignar valores a la opción de brillo del sombreado de plástico.
 * Asignar valores a la opción de extinción del sombreado de plástico.
 * Experimentar con varias combinaciones de opciones del sombreado de plástico.
-
-
-
-

@@ -54,15 +54,39 @@ Una imagen similar a la siguiente debería aparecer en la ventana gráfica image
 Tómese un minuto para observar la ventana de comandos. Inclusive si no hay nada a la vista, en la parte inferior encontrará información sobre la ventana gráfica. Por ejemplo, algo similar a lo siguiente: `cent=(8.000 16.000 24.000) sz=96.000 mm az=35.00 el=25.00 tw=-0.00 ang=(0.00 0.00 0.00)`
 
 Como se detalla en la siguiente tabla, esta información contiene cuatro grupos de datos sobre la vista de la ventana gráfica. .Vista de información en la parte inferior de la ventana de comandos
+[cols="5*"]
 |===
-|Designación de pantalla |Información de vistas |Localización de variables |Unidades por defecto |Valores por defecto 
+|Designación de pantalla
+|Información de vistas
+|Localización de variables
+|Unidades por defecto
+|Valores por defecto
 
-|cent= |vista centrada |Primeros 3 números |Milímetros |0.000 0.000 0.000 
-|sz= |Medida de la vista (Size) |4to número |Milímetros |Dependiente del tamaño seleccionado 
-|az= |Ángulo de vista |5to-6to números |Grados |35.00 
-|el= |25.00 
-|tw= |Giro (Twist) |7mo-10mo números |Grados |0.00 
-|ang= |Ángulo de visión (Angle) |0.00 0.00 0.00 
+|cent=
+|vista centrada
+|Primeros 3 números
+|Milímetros
+|0.000 0.000 0.000
+|sz=
+|Medida de la vista (Size)
+|4to número
+|Milímetros
+|Dependiente del tamaño seleccionado
+|az=
+.2+|Ángulo de vista
+.2+|5to-6to números
+.2+|Grados
+|35.00
+|el=
+|25.00
+|tw=
+|Giro (Twist)
+.2+|7mo-10mo números
+.2+|Grados
+|0.00
+|ang=
+|Ángulo de visión (Angle)
+|0.00 0.00 0.00
 |===
 
 
@@ -84,10 +108,13 @@ Para cambiar el centro utilizando la ventana de comandos, simplemente tipee en e
 
 El tamaño de la vista es la cantidad de espacio modelo que se muestra en la ventana gráfica. Por ejemplo, imagine que usa una cámara con una lente de zoom para fotografiar una rosa. Como se muestra en las siguientes imágenes, si hace zoom sobre la rosa, aparecerá grande en relación a su campo de visión. Si aleja la imagen, aparecerá más pequeña. El tamaño de vista de la rosa de la imagen de la izquierda podría representar sólo 15 mm de diámetro, mientras que el tamaño de la vista para la imagen de la derecha podría representar 100 mm de diámetro. En ambos casos, sin embargo, el tamaño real de la rosa es el mismo.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../../lessons/es/images/mged02_flower_zoomin.jpg[] |image:../../lessons/es/images/mged02_flower_zoomout.jpg[] 
-|Zoom de acercamiento para ver detalles (vista a pequeña escala) |Zoom distante para ver el objeto en relación con su entorno (vista a gran escala) 
+|image:../../lessons/es/images/mged02_flower_zoomin.jpg[]
+|image:../../lessons/es/images/mged02_flower_zoomout.jpg[]
+|Zoom de acercamiento para ver detalles (vista a pequeña escala)
+|Zoom distante para ver el objeto en relación con su entorno (vista a gran escala)
 |===
 
 Para modificar el tamaño de la vista de su radio por medio de la GUI cliquee el botón derecho del mouse para acercar la vista, y el botón izquierdo para alejarla. Cada vez que cliquee cualquiera de los dos botones, la vista del diseño incrementará o decrementará en tamaño en un factor igual a 2 (dos veces más grande o más pequeño que el tamaño previo).
@@ -113,40 +140,55 @@ Para comprender mejor el acimut, imagine que camina alrededor de un camión con 
 
 Nota: Los términos azimuth, elevation y twist son similares a los términos yaw, pitch, and roll, respectivamente, los cuales son comúnmente utilizados en la industria aeroespacial.
 
+[cols="2*"]
+[%noheader]
+|===
+|image:../../lessons/es/images/mged02_truck_front.png[]
+|image:../../lessons/es/images/mged02_truck_35_0.png[]
+|Front (az=0, el=0)
+|az=35, el=0
 |===
 
-|image:../../lessons/es/images/mged02_truck_front.png[] |image:../../lessons/es/images/mged02_truck_35_0.png[] 
-|Front (az=0, el=0) |az=35, el=0 
+[cols="2*"]
+[%noheader]
+|===
+|image:../../lessons/es/images/mged02_truck_left.png[]
+|image:../../lessons/es/images/mged02_truck_rear.png[]
+|Left (az=90, el=0)
+|Rear (az=180, el=0)
 |===
 
+[cols="1*"]
+[%noheader]
 |===
-
-|image:../../lessons/es/images/mged02_truck_left.png[] |image:../../lessons/es/images/mged02_truck_rear.png[] 
-|Left (az=90, el=0) |Rear (az=180, el=0) 
-|===
-
-|===
-
-|image:../../lessons/es/images/mged02_truck_right.png[] 
-|Right (az=270, el=0) 
+|image:../../lessons/es/images/mged02_truck_right.png[]
+|Right (az=270, el=0)
 |===
 
 Por otro lado, la elevación determina la posición del espectador arriba o debajo del objeto. En el ejemplo anterior, usted se desplazó alrededor del camión sin modificar su altura relativa. Tenía una elevación de 0'0, lo que significa que se ubicada al mismo nivel. En la siguientes imágenes ilustrativas, imagine que detiene el camión en un acimut de 35'0 y luego sube a una escalera para fotografiarlo a una elevación de 25'0. Trepando aún más podrá fotografiarlo desde una elevación de 60'0. Si la cámara enfocara directamente hacia abajo, posicionandose exactamente sobre el camión, la elevación sería de 90'0. Si se agachara bajo el camión y mirara directamente hacia arriba, su elevación sería de -90'0.
 
+[cols="2*"]
+[%noheader]
+|===
+|image:../../lessons/es/images/mged02_truck_35_0.png[]
+|image:../../lessons/es/images/mged02_truck_35_25.png[]
+|az=35, el=0
+|az=35, el=25
+|image:../../lessons/es/images/mged02_truck_35_60.png[]
+|image:../../lessons/es/images/mged02_truck_35_90.png[]
+|az=35, el=60
+|az=35, el=90
+|image:../../lessons/es/images/mged02_truck_270_90.png[]
+|image:../../lessons/es/images/mged02_truck_270_-90.png[]
+|Top (az=270, el=90)
+|Bottom (az=270, el=-90)
 |===
 
-|image:../../lessons/es/images/mged02_truck_35_0.png[] |image:../../lessons/es/images/mged02_truck_35_25.png[] 
-|az=35, el=0 |az=35, el=25 
-|image:../../lessons/es/images/mged02_truck_35_60.png[] |image:../../lessons/es/images/mged02_truck_35_90.png[] 
-|az=35, el=60 |az=35, el=90 
-|image:../../lessons/es/images/mged02_truck_270_90.png[] |image:../../lessons/es/images/mged02_truck_270_-90.png[] 
-|Top (az=270, el=90) |Bottom (az=270, el=-90) 
+Finalmente, el giro (que es una configuración opcional en _MGED_) especifica la rotación en relación a la direccion de la vista. La rotación se aplica a la vista antes de que el acimut o la elevación sean designados. Siguiendo con el ejemplo del camión, imagine que se posiciona exactamente delante del camión (az=0, el=0) y luego rota su cámara en sentido horario 14'0. Esto modificará el ángulo de giro de su visión en 14'0, como muestra la siguiente figura de la izquierda. Note nuevamente que no es el camión el que se mueve, sino sólo su vista sobre el mismo. Para saber más sobre giros, mire el comando *ae* en el apéndice A. [cols="1*"]
+[%noheader]
 |===
-
-Finalmente, el giro (que es una configuración opcional en _MGED_) especifica la rotación en relación a la direccion de la vista. La rotación se aplica a la vista antes de que el acimut o la elevación sean designados. Siguiendo con el ejemplo del camión, imagine que se posiciona exactamente delante del camión (az=0, el=0) y luego rota su cámara en sentido horario 14'0. Esto modificará el ángulo de giro de su visión en 14'0, como muestra la siguiente figura de la izquierda. Note nuevamente que no es el camión el que se mueve, sino sólo su vista sobre el mismo. Para saber más sobre giros, mire el comando *ae* en el apéndice A. |===
-
-|image:../../lessons/es/images/mged02_truck_0_0_14.png[] 
-|Front (az=0, el=0, tw=14) 
+|image:../../lessons/es/images/mged02_truck_0_0_14.png[]
+|Front (az=0, el=0, tw=14)
 |===
 
 
@@ -170,12 +212,17 @@ Vamos ahora a experimentar con las distintas vistas de su radio. _MGED_ tiene al
 
 Despliegue el menú View (Vistas) e intente ver su radio desde distintos ángulos.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../../lessons/es/images/mged02_radio_top.png[] |image:../../lessons/es/images/mged02_radio_35_25.png[] 
-|Top |az35,el25 
-|image:../../lessons/es/images/mged02_radio_right.png[] |image:../../lessons/es/images/mged02_radio_front.png[] 
-|Right |Front 
+|image:../../lessons/es/images/mged02_radio_top.png[]
+|image:../../lessons/es/images/mged02_radio_35_25.png[]
+|Top
+|az35,el25
+|image:../../lessons/es/images/mged02_radio_right.png[]
+|image:../../lessons/es/images/mged02_radio_front.png[]
+|Right
+|Front
 |===
 
 También puede seleccionar alguna combinación de acimut, elevación y giro de su vista desde la línea de comandos. Por ejemplo, tipee en un prompt: *ae 128 17 [Enter]* Como muchas otras opciones de la línea de comandos, este método es mucho más preciso al ofrecer mayor control de las medidas en grados de lo que usted necesita modificar.
@@ -193,18 +240,45 @@ Las opciones de atajos de teclado (Shift Grip) de _MGED_ son una combinación de
 En general, la tecla SHIFT translada (mueve), el CTRL rota, y el ALT limita las traslaciones o rotaciones a un eje particular (x, y, o z). Los ejes corresponden a los tres botones del mouse de la siguiente forma: el botón izquierdo para el eje x, el del medio para el eje y y el derecho para el eje z. Además, las teclas SHIFT y CTRL pueden combinarse con cualquier botón del mouse para escalar el objeto, en cuyo caso la tecla ALT no podrá limitar esta acción. La siguiente tabla muestra las distintas opciones y sus funciones.
 
 .Los atajos de teclado y sus efectos
+[cols="5*"]
 |===
-|Función |Combinación de teclas |Efecto en la vista normal |Efecto en modo Edición 
+|Función
+|Combinación de teclas
+|Efecto en la vista normal
+|Efecto en modo Edición
 
-|Translación (Mueve) |SHIFT + cualquier botón del mouse + moviento del mouse |Mueve la vista en cualquier dirección |Translada el objeto en cualquier dirección 
-|Rotación |CTRL + cualquier botón del mouse + moviento del mouse |Rota la vista en cualquier dirección |Rota el objeto en cualquier dirección 
-|Traslación limitada |SHIFT + ALT + botón izquierdo + movimiento del mouse |Mueve la vista en la dirección x |Mueve el objeto en la dirección x 
-|SHIFT + ALT + botón medio + movimiento del mouse |Mueve la vista en la dirección y |Mueve el objeto en la dirección y 
-|SHIFT + ALT + botón derecho + movimiento del mouse |Mueve la vista en la dirección z |Mueve el objeto en la dirección z 
-|Rotación limitada |CTRL + ALT + botón izquierdo + movimiento del mouse |Rota la vista según el eje x |Rota el objeto según el eje x 
-|CTRL + ALT + botón medio + movimiento del mouse |Rota la vista según el eje y |Rota el objeto según el eje y 
-|CTRL + ALT + botón derecho + movimiento del mouse |Rota la vista según el eje z |Rota el objeto según el eje z 
-|Escalar |SHIFT + CTRL + cualquier botón del mouse + movimiento del mouse |Escala la vista en forma creciente o decreciente |Escala el objeto en forma creciente o decreciente 
+|Translación (Mueve)
+|SHIFT + cualquier botón del mouse + moviento del mouse
+|Mueve la vista en cualquier dirección
+|Translada el objeto en cualquier dirección
+|Rotación
+|CTRL + cualquier botón del mouse + moviento del mouse
+|Rota la vista en cualquier dirección
+|Rota el objeto en cualquier dirección
+.3+|Traslación limitada
+|SHIFT + ALT + botón izquierdo + movimiento del mouse
+|Mueve la vista en la dirección x
+|Mueve el objeto en la dirección x
+|SHIFT + ALT + botón medio + movimiento del mouse
+|Mueve la vista en la dirección y
+|Mueve el objeto en la dirección y
+|SHIFT + ALT + botón derecho + movimiento del mouse
+|Mueve la vista en la dirección z
+|Mueve el objeto en la dirección z
+.3+|Rotación limitada
+|CTRL + ALT + botón izquierdo + movimiento del mouse
+|Rota la vista según el eje x
+|Rota el objeto según el eje x
+|CTRL + ALT + botón medio + movimiento del mouse
+|Rota la vista según el eje y
+|Rota el objeto según el eje y
+|CTRL + ALT + botón derecho + movimiento del mouse
+|Rota la vista según el eje z
+|Rota el objeto según el eje z
+|Escalar
+|SHIFT + CTRL + cualquier botón del mouse + movimiento del mouse
+|Escala la vista en forma creciente o decreciente
+|Escala el objeto en forma creciente o decreciente
 |===
 
 
@@ -228,7 +302,3 @@ En este tutorial usted aprendió a:
 * Identificar elementos del sistema de visualización de _MGED_.
 * Visualizar su radio desde distintos ángulos.
 * Trabajar con atajos de teclado.
-
-
-
-

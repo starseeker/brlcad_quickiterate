@@ -16,119 +16,55 @@ This manual is designed to get the user familiar with BRL-CAD and the facilities
 In BRL-CAD objects are constructed using a technique known as ``Combinatorial Solid Geometry'' or ``Constructive Solid Geometry'' or simply ``CSG'' In the CSG approach to modeling This technique involves creating objects by combining primitive shapes together to form complex objects. The primitive shapes are called ``solids''. Each one occupies a volume of three dimensional space. BRL-CAD currently has many primitive solid types. These include:
 
 .Modeling with CSG
+[cols="2*"]
 |===
-|Primitive Shape |BRL-CAD Name 
+|Primitive Shape
+|BRL-CAD Name
 
-|Arbitrary Convex Polyhedron
-
- |arbn
-
- 
-|Arbitrary Convex Polyhedron
-
- |arbn
-
- 
-|Arbitrary Convex Polyhedron (8pt or less)
-
- |arb
-
- 
-|Extruded Bitmap *
-
- |ebm *
-
- 
-|Elliptical Hyperboloid
-
- |ehy
-
- 
-|Ellipsoid
-
- |ell
-
- 
-|Elliptical Paraboloid
-
- |epa
-
- 
-|Elliptical Torus
-
- |eto
-
- 
-|Halfspace
-
- |half
-
- 
-|Height-Field *
-
- |hf *
-
- 
-|N-Manifold Geometry *
-
- |nmg *
-
- 
-|Non-Uniform Rational B-spline *
-
- |nurb *
-
- 
-|particle *
-
- |part *
-
- 
-|polygonal object
-
- |polygon
-
- 
-|pipe *
-
- |pipe *
-
- 
-|Right Elliptical Cylinder
-
- |rec
-
- 
-|Right Hyperbolic Cylinder
-
- |rhc
-
- 
-|Right Parabolic Cylinder
-
- |rpc
-
- 
-|Sphere
-
- |sph
-
- 
-|Truncated General Cone
-
- |tgc
-
- 
-|Torus
-
- |tor
-
- 
-|Volume/Voxel *
-
- |vol *
-
- 
+|Arbitrary Convex Polyhedron 
+|arbn 
+|Arbitrary Convex Polyhedron 
+|arbn 
+|Arbitrary Convex Polyhedron (8pt or less) 
+|arb 
+|Extruded Bitmap * 
+|ebm * 
+|Elliptical Hyperboloid 
+|ehy 
+|Ellipsoid 
+|ell 
+|Elliptical Paraboloid 
+|epa 
+|Elliptical Torus 
+|eto 
+|Halfspace 
+|half 
+|Height-Field * 
+|hf * 
+|N-Manifold Geometry * 
+|nmg * 
+|Non-Uniform Rational B-spline * 
+|nurb * 
+|particle * 
+|part * 
+|polygonal object 
+|polygon 
+|pipe * 
+|pipe * 
+|Right Elliptical Cylinder 
+|rec 
+|Right Hyperbolic Cylinder 
+|rhc 
+|Right Parabolic Cylinder 
+|rpc 
+|Sphere 
+|sph 
+|Truncated General Cone 
+|tgc 
+|Torus 
+|tor 
+|Volume/Voxel * 
+|vol * 
 |===
 
 * = Implementation known to be incomplete as of this writing
@@ -252,28 +188,17 @@ At this point pressing the ``y'' key followed by a return will create the new da
 At this point, mged is asking what type of geometry display window you would like. The default is always ``nu'' for Null or ``no geometry display''. If you are creating geometry, it is desirable to be able to see it. The common choices are:
 
 .Common Choices
+[cols="2*"]
 |===
-|Name
+|Name 
+|Display Type 
 
- |Display Type
-
- 
-
-|X
-
- |X Windows
-
- 
-|glx
-
- |Iris gl under X Windows
-
- 
-|ogl
-
- |OpenGL under X Windows
-
- 
+|X 
+|X Windows 
+|glx 
+|Iris gl under X Windows 
+|ogl 
+|OpenGL under X Windows 
 |===
 
 Enter one of the names listed followed by a return.
@@ -968,13 +893,19 @@ image::images/fillet.gif[width=250]
 The -c (Classic MGED) option causes MGED to start in the style of previous versions of MGED, that is, by prompting the user to select a display manager to attach and by remaining attached to the tty. Without this option MGED will detach itself from the tty and bring up the new GUI. The -d option provides a way to specify a display string. This string is expected to be in the same format as the X DISPLAY environment variable. The -h option causes the help message to print out. The -r option causes the database to be read-only (i.e. no editing allowed). The -x and -X options provide a way for the user to specify the debug level of librt and libbu, respectively. Note that if MGED is started by redirecting stdin or stdout, MGED will not enter interactive mode. Similarly, if MGED is started with a command, that command will be executed and MGED will exit. If the user starts MGED in “’Classic”’ mode, the new GUI is still available via the <<gui,gui>> command. There can be many instances of the GUI running at the same time. Each instance of the GUI owns four display manager windows (panes) and by default each of these panes has its view initialized as follows:
 
 .MGED GUI COMMANDS
+[cols="2*"]
 |===
-|Pane |Azimuth and Elevation 
+|Pane
+|Azimuth and Elevation
 
-|upper left |0 90 
-|upper right |35 25 
-|lower left |0 0 
-|lower right |90 0 
+|upper left
+|0 90
+|upper right
+|35 25
+|lower left
+|0 0
+|lower right
+|90 0
 |===
 
 
@@ -996,18 +927,29 @@ There are also two command interpretation modes. One is where MGED performs obje
 The command window also supports cut and paste as well as text scrolling. The default bindings for these operations are similar to those found in typical X Window applications such as xterm. For example:
 
 .Commands
+[cols="2*"]
 |===
-|Key-Button Sequence |Action 
+|Key-Button Sequence
+|Action
 
-|ButtonPress-1 |begin text selection 
-|ButtonRelease-1 |end text selection 
-|Button1-Motion |add to text selection 
-|Shift-Button1 |modify text selection 
-|Double-Button-1 |select word 
-|Triple-Button-1 |select line 
-|ButtonPress-2 |begin text operation 
-|ButtonRelease-2 |paste text 
-|Button2-Motion |scroll text 
+|ButtonPress-1
+|begin text selection
+|ButtonRelease-1
+|end text selection
+|Button1-Motion
+|add to text selection
+|Shift-Button1
+|modify text selection
+|Double-Button-1
+|select word
+|Triple-Button-1
+|select line
+|ButtonPress-2
+|begin text operation
+|ButtonRelease-2
+|paste text
+|Button2-Motion
+|scroll text
 |===
 
 
@@ -1075,12 +1017,17 @@ The default behaviors in the viewing and editing modes may be overridden by the 
 When the Alt key is held down along with either of the Shift and Control keys the transformations are constrained to a particular axis. For such constrained transformations the mouse buttons have the following meanings:
 
 .CONSTRAINED TRANSFORMATIONS
+[cols="2*"]
 |===
-|Mouse Button |Axis 
+|Mouse Button
+|Axis
 
-|Button-1 |x 
-|Button-2 |y 
-|Button-3 |z 
+|Button-1
+|x
+|Button-2
+|y
+|Button-3
+|z
 |===
 
 Thus, if the view is being transformed, Alt-Shift-Button-1 allows one to drag the objects being viewed left to right along the view-x axis. Similarly, if the model parameters are being transformed, Alt-Ctrl-Button-2 allows one to rotate the object about a line passing through the rotate-about point (as described above) and parallel to a y-axis. The coordinate system to which these transformations are constrained may be specified by the “Constraint Coords” item in the “Settings” menu, which allows the selection of any one of the model, view, and object coordinate systems.
@@ -1095,55 +1042,103 @@ Besides the default mouse button bindings described above, the user can access t
 MGED offers the user “’short cuts”’ to much of the functionality available via the menus as well as the command line interface. The table below lists the default key bindings:
 
 .Short cut
+[cols="2*"]
 |===
-|Key Sequence |Behavior 
+|Key Sequence
+|Behavior
 
-|a |toggle angle distance cursor (ADC) 
-|e |toggle edit axes 
-|m |toggle model axes 
-|v |toggle view axes 
-|i |advance illumination pointer forward 
-|I |advance illumination pointer backward 
-|p |simulate mouse press (i.e. to pick a solid) 
-|3 |view - ae 35 25 
-|4 |view - ae 45 45 
-|f |front view 
-|t |top view 
-|b |bottom view 
-|l |left view 
-|r |right view 
-|R |rear view 
-|s |enter solid illumination state 
-|o |enter object illumination state 
-|q |reject edit 
-|u |zero knobs and sliders 
-|N |shoot a ray with nirt 
-|< F1 > |toggle depthcue 
-|< F2 > |toggle <<zclipping,zclipping>> 
-|< F3 > |toggle perspective 
-|< F4 > |toggle zbuffer 
-|< F5 > |toggle lighting 
-|< F6 > |toggle perspective angle 
-|< F7 > |toggle <<Faceplate,faceplate>> 
-|< F8 > |toggle <<FaceplateGUI,Faceplate GUI>> 
-|< F9 > |toggle <<KeystrokeForwarding,keystroke forwarding>> 
-|< F12 > |zero knobs 
-|< Left > |rotate about y axis 
-|< Right > |rotate about y axis 
-|< Down > |rotate about x axis 
-|< Up > |rotate about x axis 
-|< Shift-Left > |translate in X direction 
-|< Shift-Right > |translate in X direction 
-|< Shift-Down > |translate in Z direction 
-|< Shift-Up > |translate in Z direction 
-|< Control-Shift-Left > |rotate about z axis 
-|< Control-Shift-Right > |rotate about z axis 
-|< Control-Shift-Down > |translate in Y direction 
-|< Control-Shift-Up > |translate in Y direction 
-|< Control-n > |goto next view 
-|< Control-p > |goto previous view 
-|< Control-t > |toggle between the current view and the last view 
-|< Escape > |stop interactive rotation, reject edits, reset mouse behavior 
+|a
+|toggle angle distance cursor (ADC)
+|e
+|toggle edit axes
+|m
+|toggle model axes
+|v
+|toggle view axes
+|i
+|advance illumination pointer forward
+|I
+|advance illumination pointer backward
+|p
+|simulate mouse press (i.e. to pick a solid)
+|3
+|view - ae 35 25
+|4
+|view - ae 45 45
+|f
+|front view
+|t
+|top view
+|b
+|bottom view
+|l
+|left view
+|r
+|right view
+|R
+|rear view
+|s
+|enter solid illumination state
+|o
+|enter object illumination state
+|q
+|reject edit
+|u
+|zero knobs and sliders
+|N
+|shoot a ray with nirt
+|< F1 >
+|toggle depthcue
+|< F2 >
+|toggle <<zclipping,zclipping>>
+|< F3 >
+|toggle perspective
+|< F4 >
+|toggle zbuffer
+|< F5 >
+|toggle lighting
+|< F6 >
+|toggle perspective angle
+|< F7 >
+|toggle <<Faceplate,faceplate>>
+|< F8 >
+|toggle <<FaceplateGUI,Faceplate GUI>>
+|< F9 >
+|toggle <<KeystrokeForwarding,keystroke forwarding>>
+|< F12 >
+|zero knobs
+|< Left >
+|rotate about y axis
+|< Right >
+|rotate about y axis
+|< Down >
+|rotate about x axis
+|< Up >
+|rotate about x axis
+|< Shift-Left >
+|translate in X direction
+|< Shift-Right >
+|translate in X direction
+|< Shift-Down >
+|translate in Z direction
+|< Shift-Up >
+|translate in Z direction
+|< Control-Shift-Left >
+|rotate about z axis
+|< Control-Shift-Right >
+|rotate about z axis
+|< Control-Shift-Down >
+|translate in Y direction
+|< Control-Shift-Up >
+|translate in Y direction
+|< Control-n >
+|goto next view
+|< Control-p >
+|goto previous view
+|< Control-t >
+|toggle between the current view and the last view
+|< Escape >
+|stop interactive rotation, reject edits, reset mouse behavior
 |===
 
 Besides the default key bindings listed above, the user can access menu items with “’alt-key”“sequences. For example, the”“File”“menu can be popped up with alt-f. The raytrace control panel can then be popped up by typing”“r”“(i.e.”“R”“is underlined in the”’Raytrace…" menu item).
@@ -1266,13 +1261,24 @@ The _status bar_ contains two lines for displaying information about the state o
 ** *Multipane Defaults* - sets the view of all four panes to their defaults.
 +
 .Multipane Defaults
+[cols="3*"]
 |===
-|Pane |Azimuth |Elevation 
+|Pane
+|Azimuth
+|Elevation
 
-|upper left |90 |0 
-|upper right |35 |25 
-|lower left |0 |0 
-|lower right |90 |0 
+|upper left
+|90
+|0
+|upper right
+|35
+|25
+|lower left
+|0
+|0
+|lower right
+|90
+|0
 |===
 
 ** *Zero* - stops all rate transformations.
@@ -1293,90 +1299,130 @@ The _status bar_ contains two lines for displaying information about the state o
 *** *Default* - enter the default MGED mouse behavior mode. In this mode, the user gets mouse behavior that is the same as MGED 4.5 and earlier.
 +
 .Default
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |zoom out by a factor of 2 
-|2 |center view, or some edit action if in an edit state 
-|3 |zoom in by a factor of 2 
+|1
+|zoom out by a factor of 2
+|2
+|center view, or some edit action if in an edit state
+|3
+|zoom in by a factor of 2
 |===
 
 *** *Pick edit-solid* - enter pick edit-solid mode. In this mode, the mouse is used to fire rays for selecting a solid to edit. If more than one solid is hit, a listbox of the hit solids is presented. The user then selects a solid to edit from this listbox. If a single solid is hit, it is selected for editing. If no solids were hit, a dialog is popped up saying that nothing was hit. The user must then fire another ray to continue selecting a solid. When a solid is finally selected, solid edit mode is entered. When this happens, the mouse behavior mode is set to default mode. Note - When selecting items from a listbox, a left buttonpress highlights the solid in question until the button is released. To select a solid, double click with the left mouse button.
 +
 .Commands
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |Zoom out by a factor of 2 
-|2 |Fire edit-solid ray 
-|3 |Zoom in by a factor of 2 
+|1
+|Zoom out by a factor of 2
+|2
+|Fire edit-solid ray
+|3
+|Zoom in by a factor of 2
 |===
 
 *** *Pick edit-matrix* - enter pick edit-matrix mode. In this mode, the mouse is used to fire rays for selecting a matrix to edit. If more than one solid is hit, a listbox of the hit solids is presented. The user then selects a solid from this listbox. If a single solid is hit, that solid is selected. If no solids were hit, a dialog is popped up saying that nothing was hit. The user must then fire another ray to continue selecting a matrix to edit. When a solid is finally selected, the user is presented with a listbox consisting of the path components of the selected solid. From this listbox, the user selects a path component. This component determines which matrix will be edited. After selecting the path component, object/matrix edit mode is entered. When this happens, the mouse behavior mode is set to default mode. Note - When selecting items from a listbox, a left buttonpress highlights the solid/matrix in question until the button is released. To select a solid/matrix, double click with the left mouse button.
 +
 .Commands
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |Zoom out by a factor of 2 
-|2 |Fire edit-matrix ray 
-|3 |Zoom in by a factor of 2 
+|1
+|Zoom out by a factor of 2
+|2
+|Fire edit-matrix ray
+|3
+|Zoom in by a factor of 2
 |===
 
 *** *Pick edit-combination* - enter pick edit-combination mode. In this mode, the mouse is used to fire rays for selecting a combination to edit. If more than one combination is hit, a listbox of the hit combinations is presented. The user then selects a combination from this menu. If a single combination is hit, that combination is selected. If no combinations were hit, a dialog is popped up saying that nothing was hit. The user must then fire another ray to continue selecting a combination to edit. When a combination is finally selected, the combination edit tool is presented and initialized with the values of the selected combination. When this happens, the mouse behavior mode is set to default mode. Note - When selecting items from a menu, a left buttonpress highlights the combination in question until the button is released. To select a combination, double click with the left mouse button.
 +
 .Commands
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |Zoom out by a factor of 2 
-|2 |Fire edit-combination ray 
-|3 |Zoom in by a factor of 2 
+|1
+|Zoom out by a factor of 2
+|2
+|Fire edit-combination ray
+|3
+|Zoom in by a factor of 2
 |===
 
 *** *Sweep raytrace-rectangle* - enter sweep raytrace-rectangle mode. If the framebuffer is active, the rectangular area as specified by the user is raytraced. The rectangular area is also painted with the current contents of the framebuffer. Otherwise, only the rectangle is drawn.
 +
 .Command
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |Zoom out by a factor of 2 
-|2 |Draw raytrace-rectangle 
-|3 |Zoom in by a factor of 2 
+|1
+|Zoom out by a factor of 2
+|2
+|Draw raytrace-rectangle
+|3
+|Zoom in by a factor of 2
 |===
 
 *** *Pick raytrace-object(s)* - enter pick raytrace-object mode. In this mode, the user can pick an object for raytracing or for adding to the list of objects to be raytraced.
 *** *Query ray* - enter query ray mode. In this mode, the mouse is used to fire rays. The data from the fired rays can be viewed textually, graphically or both.
 +
 .Commands
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |Zoom out by a factor of 2 
-|2 |Fire query ray 
-|3 |Zoom in by a factor of 2 
+|1
+|Zoom out by a factor of 2
+|2
+|Fire query ray
+|3
+|Zoom in by a factor of 2
 |===
 
 *** *Sweep paint-rectangle* - enter sweep paint-rectangle mode. If the framebuffer is active, the rectangular area as specified by the user is painted with the current contents of the framebuffer. Otherwise, only the rectangle is drawn.
 +
 .commands
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |Zoom out by a factor of 2 
-|2 |Draw paint rectangle 
-|3 |Zoom in by a factor of 2 
+|1
+|Zoom out by a factor of 2
+|2
+|Draw paint rectangle
+|3
+|Zoom in by a factor of 2
 |===
 
 *** *Sweep zoom-rectangle* - enter sweep zoom-rectangle mode. The rectangular area as specified by the user is used to zoom the view. Note - as the user stretches out the zoom rectangle, the rectangle is constrained to be the same shape as the window. This insures that the user gets what he or she sees.
 +
 .Commands
+[cols="2*"]
 |===
-|Mouse Button |Behavior 
+|Mouse Button
+|Behavior
 
-|1 |Zoom out by a factor of 2 
-|2 |Draw zoom-rectangle 
-|3 |Zoom in by a factor of 2 
+|1
+|Zoom out by a factor of 2
+|2
+|Draw zoom-rectangle
+|3
+|Zoom in by a factor of 2
 |===
 
 
@@ -1654,53 +1700,215 @@ x 					delete character
 === MGED User Commands
 
 .MGED User Commands
+[cols="5*"]
+[%noheader]
 |===
-
-|<<percent,%>> |<<ptarb,3ptarb>> |<<questionmark,?>> |<<questionmarkdevel,?devel>> |<<questionmarklib,?lib>> 
-|<<B,B>> |<<E,E>> |<<M,M>> |<<z,Z>> |<<adc,adc>> 
-|<<ae,ae>> |<<analyze,analyze>> |<<animmate,animmate>> |<<apropos,apropos>> |<<aproposdevel,aproposdevel>> 
-|<<aproposlib,aproposlib>> |<<ARB,arb>> |<<arced,arced>> |<<area,area>> |<<arot,arot>> 
-|<<attach,attach>> |<<attr,attr>> |<<autoview,autoview>> |<<bev,bev>> |<<bo,bo>> 
-|<<bot_condense,bot_condense>> |<<bot_decimate,bot_decimate>> |<<bot_face_fuse,bot_face_fuse>> |<<bot_face_sort,bot_face_sort>> |<<bot_face_fuse,bot_face_fuse>> 
-|<<bot_vertex_fuse,bot_vertex_fuse>> |<<build_region,build_region>> |<<c,c>> |<<cat,cat>> |<<center,center>> 
-|<<check,check>> |<<color,color>> |<<comb,comb>> |<<comb_color,comb_color>> |<<copyeval,copyeval>> 
-|<<copymat,copymat>> |<<cp,cp>> |<<cpi,cpi>> |<<d,d>> |<<db,db>> 
-|<<db_glob,db_glob>> |<<dbconcat,dbconcat>> |<<debugbu,debugbu>> |<<debugdir,debugdir>> |<<debuglib,debuglib>> 
-|<<debugnmg,debugnmg>> |<<decompose,decompose>> |<<delay,delay>> |<<dm,dm>> 
-|<<draw,draw>> |<<dup,dup>> |<<e,e>> |<<eac,eac>> |<<echo,echo>> 
-|<<edcodes,edcodes>> |<<edcolor,edcolor>> |<<edcomb,edcomb>> |<<edgedir,edgedir>> |<<edmater,edmater>> 
-|<<eqn,eqn>> |<<erase,erase>> |<<ev,ev>> 
-|<<exit,exit>> |<<expand,expand>> |<<expand_comb,expand_comb>> |<<extrude,extrude>> 
-|<<eye_pt,eye_pt>> |<<facedef,facedef>> |<<facetize,facetize>> |<<find,find>> 
-|<<fracture,fracture>> |<<g,g>> |<<garbage_collect,garbage_collect>> |<<gui,gui>> |<<help,help>> 
-|<<helpdevel,helpdevel>> |<<helplib,helplib>> |<<hide,hide>> |<<history,history>> |<<i,i>> 
-|<<idents,idents>> |<<ill,ill>> |<<in,in>> |<<inside,inside>> |<<item,item>> 
-|<<joint,joint>> |<<journal,journal>> |<<keep,keep>> |<<keypoint,keypoint>> |<<kill,kill>> 
-|<<killall,killall>> |<<killtree,killtree>> |<<knob,knob>> |<<l,l>> |<<labelvert,labelvert>> 
-|<<listeval,listeval>> |<<loadtk,loadtk>> |<<lookat,lookat>> |<<ls,ls>> 
-|<<make,make>> |<<mater,mater>> |<<matpick,matpick>> |<<mirface,mirface>> 
-|<<mirror,mirror>> |<<mrot,mrot>> |<<mv,mv>> |<<mvall,mvall>> |<<nirt,nirt>> 
-|<<nmg_collapse,nmg_collapse>> |<<nmg_simplify,nmg_simplify>> |<<oed,oed>> |<<opendb,opendb>> |<<orientation,orientation>> 
-|<<orot,orot>> |<<oscale,oscale>> |<<overlay,overlay>> |<<p,p>> |<<pathlist,pathlist>> 
-|<<paths,paths>> |<<permute,permute>> |<<plot,plot>> 
-|<<prcolor,prcolor>> |<<prefix,prefix>> |<<press,press>> |<<preview,preview>> 
-|<<prj_add,prj_add>> |<<ps,ps>> |<<pull,pull>> |<<push,push>> |<<putmat,putmat>> 
-|q |<<qorot,qorot>> |<<qray,qray>> |<<query_ray,query_ray>> |<<quit,quit>> 
-|<<qvrot,qvrot>> |<<r,r>> |<<rcodes,rcodes>> |<<rccblend,rcc-blend>> |<<rcccap,rcc-cap>> 
-|<<rcctgc,rcc-tgc>> |<<rcctor,rcc-tor>> |<<red,red>> |<<refresh,refresh>> 
-|<<regdebug,regdebug>> |<<regdef,regdef>> |<<regions,regions>> |<<release,release>> |<<rfarb,rfarb>> 
-|<<rm,rm>> |<<rmater,rmater>> |<<rot,rot>> |<<rotobj,rotobj>> 
-|<<rpparch,rpp-arch>> |<<rppcap,rpp-cap>> |<<rrt,rrt>> |<<rt,rt>> |<<rtcheck,rtcheck>> 
-|<<saveview,saveview>> |<<sca,sca>> |<<sed,sed>> |<<setview,setview>> 
-|<<shader,shader>> |<<shells,shells>> |<<showmats,showmats>> |<<size,size>> |<<solids,solids>> 
-|<<sphpart,sph-part>> |<<status,status>> |<<summary,summary>> |<<sv,sv>> |<<sync,sync>> 
-|<<t,t>> |<<ted,ted>> |<<title,title>> |<<tol,tol>> |<<tops,tops>> 
-|<<torrcc,tor-rcc>> |<<tra,tra>> |<<track,track>> |<<translate,translate>> |<<tree,tree>> 
-|<<units,units>> |<<vars,vars>> |<<vdraw,vdraw>> |<<view,view>> 
-|<<viewsize,viewsize>> |<<vnirt,vnirt>> |<<vquery_ray,vquery_ray>> |<<vrot,vrot>> 
-|<<wcodes,wcodes>> |<<whatid,whatid>> |<<which_shader,which_shader>> |<<whichair,whichair>> |<<whichid,whichid>> 
-|<<who,who>> |<<wmater,wmater>> |<<x,x>> |<<xpush,xpush>> |<<zoom,zoom>> 
-|** 
+|<<percent,%>>
+|<<ptarb,3ptarb>>
+|<<questionmark,?>>
+|<<questionmarkdevel,?devel>>
+|<<questionmarklib,?lib>>
+|<<B,B>>
+|<<E,E>>
+|<<M,M>>
+|<<z,Z>>
+|<<adc,adc>>
+|<<ae,ae>>
+|<<analyze,analyze>>
+|<<animmate,animmate>>
+|<<apropos,apropos>>
+|<<aproposdevel,aproposdevel>>
+|<<aproposlib,aproposlib>>
+|<<ARB,arb>>
+|<<arced,arced>>
+|<<area,area>>
+|<<arot,arot>>
+|<<attach,attach>>
+|<<attr,attr>>
+|<<autoview,autoview>>
+|<<bev,bev>>
+|<<bo,bo>>
+|<<bot_condense,bot_condense>>
+|<<bot_decimate,bot_decimate>>
+|<<bot_face_fuse,bot_face_fuse>>
+|<<bot_face_sort,bot_face_sort>>
+|<<bot_face_fuse,bot_face_fuse>>
+|<<bot_vertex_fuse,bot_vertex_fuse>>
+|<<build_region,build_region>>
+|<<c,c>>
+|<<cat,cat>>
+|<<center,center>>
+|<<check,check>>
+|<<color,color>>
+|<<comb,comb>>
+|<<comb_color,comb_color>>
+|<<copyeval,copyeval>>
+|<<copymat,copymat>>
+|<<cp,cp>>
+|<<cpi,cpi>>
+|<<d,d>>
+|<<db,db>>
+|<<db_glob,db_glob>>
+|<<dbconcat,dbconcat>>
+|<<debugbu,debugbu>>
+|<<debugdir,debugdir>>
+|<<debuglib,debuglib>>
+|<<debugnmg,debugnmg>>
+|<<decompose,decompose>>
+|<<delay,delay>>
+|<<dm,dm>>
+|<<draw,draw>>
+|<<dup,dup>>
+|<<e,e>>
+|<<eac,eac>>
+|<<echo,echo>>
+|<<edcodes,edcodes>>
+|<<edcolor,edcolor>>
+|<<edcomb,edcomb>>
+|<<edgedir,edgedir>>
+|<<edmater,edmater>>
+|<<eqn,eqn>>
+|<<erase,erase>>
+|<<ev,ev>>
+|<<exit,exit>>
+|<<expand,expand>>
+|<<expand_comb,expand_comb>>
+|<<extrude,extrude>>
+|<<eye_pt,eye_pt>>
+|<<facedef,facedef>>
+|<<facetize,facetize>>
+|<<find,find>>
+|<<fracture,fracture>>
+|<<g,g>>
+|<<garbage_collect,garbage_collect>>
+|<<gui,gui>>
+|<<help,help>>
+|<<helpdevel,helpdevel>>
+|<<helplib,helplib>>
+|<<hide,hide>>
+|<<history,history>>
+|<<i,i>>
+|<<idents,idents>>
+|<<ill,ill>>
+|<<in,in>>
+|<<inside,inside>>
+|<<item,item>>
+|<<joint,joint>>
+|<<journal,journal>>
+|<<keep,keep>>
+|<<keypoint,keypoint>>
+|<<kill,kill>>
+|<<killall,killall>>
+|<<killtree,killtree>>
+|<<knob,knob>>
+|<<l,l>>
+|<<labelvert,labelvert>>
+|<<listeval,listeval>>
+|<<loadtk,loadtk>>
+|<<lookat,lookat>>
+|<<ls,ls>>
+|<<make,make>>
+|<<mater,mater>>
+|<<matpick,matpick>>
+|<<mirface,mirface>>
+|<<mirror,mirror>>
+|<<mrot,mrot>>
+|<<mv,mv>>
+|<<mvall,mvall>>
+|<<nirt,nirt>>
+|<<nmg_collapse,nmg_collapse>>
+|<<nmg_simplify,nmg_simplify>>
+|<<oed,oed>>
+|<<opendb,opendb>>
+|<<orientation,orientation>>
+|<<orot,orot>>
+|<<oscale,oscale>>
+|<<overlay,overlay>>
+|<<p,p>>
+|<<pathlist,pathlist>>
+|<<paths,paths>>
+|<<permute,permute>>
+|<<plot,plot>>
+|<<prcolor,prcolor>>
+|<<prefix,prefix>>
+|<<press,press>>
+|<<preview,preview>>
+|<<prj_add,prj_add>>
+|<<ps,ps>>
+|<<pull,pull>>
+|<<push,push>>
+|<<putmat,putmat>>
+|q
+|<<qorot,qorot>>
+|<<qray,qray>>
+|<<query_ray,query_ray>>
+|<<quit,quit>>
+|<<qvrot,qvrot>>
+|<<r,r>>
+|<<rcodes,rcodes>>
+|<<rccblend,rcc-blend>>
+|<<rcccap,rcc-cap>>
+|<<rcctgc,rcc-tgc>>
+|<<rcctor,rcc-tor>>
+|<<red,red>>
+|<<refresh,refresh>>
+|<<regdebug,regdebug>>
+|<<regdef,regdef>>
+|<<regions,regions>>
+|<<release,release>>
+|<<rfarb,rfarb>>
+|<<rm,rm>>
+|<<rmater,rmater>>
+|<<rot,rot>>
+|<<rotobj,rotobj>>
+|<<rpparch,rpp-arch>>
+|<<rppcap,rpp-cap>>
+|<<rrt,rrt>>
+|<<rt,rt>>
+|<<rtcheck,rtcheck>>
+|<<saveview,saveview>>
+|<<sca,sca>>
+|<<sed,sed>>
+|<<setview,setview>>
+|<<shader,shader>>
+|<<shells,shells>>
+|<<showmats,showmats>>
+|<<size,size>>
+|<<solids,solids>>
+|<<sphpart,sph-part>>
+|<<status,status>>
+|<<summary,summary>>
+|<<sv,sv>>
+|<<sync,sync>>
+|<<t,t>>
+|<<ted,ted>>
+|<<title,title>>
+|<<tol,tol>>
+|<<tops,tops>>
+|<<torrcc,tor-rcc>>
+|<<tra,tra>>
+|<<track,track>>
+|<<translate,translate>>
+|<<tree,tree>>
+|<<units,units>>
+|<<vars,vars>>
+|<<vdraw,vdraw>>
+|<<view,view>>
+|<<viewsize,viewsize>>
+|<<vnirt,vnirt>>
+|<<vquery_ray,vquery_ray>>
+|<<vrot,vrot>>
+|<<wcodes,wcodes>>
+|<<whatid,whatid>>
+|<<which_shader,which_shader>>
+|<<whichair,whichair>>
+|<<whichid,whichid>>
+|<<who,who>>
+|<<wmater,wmater>>
+|<<x,x>>
+|<<xpush,xpush>>
+|<<zoom,zoom>>
+|**
 |===
 
 
@@ -5544,16 +5752,33 @@ The “vdraw” command allows drawing of lines and polygons (optionally with pe
 
 
 .MGED Drawing Commands
+[cols="3*"]
+[%noheader]
 |===
-
-|*MGED Drawing Command* |** Vdraw integer |** MGED Action 
-|RT_VLIST_LINE_MOVE |0 |begin a new line at this point 
-|RT_VLIST_LINE_DRAW |1 |draw line from previous point to this point 
-|RT_VLIST_POLY_START |2 |start polygon (argument is surface normal) 
-|RT_VLIST_POLY_MOVE |3 |move to first polygon vertex 
-|RT_VLIST_POLY_DRAW |4 |subsequent polygon vertices 
-|RT_VLIST_POLY_END |5 |last polygon vertex (should be same as first) 
-|RT_VLIST_POLY_VERTNORM |6 |vertex normal (for shading interpolation) 
+|*MGED Drawing Command*
+|** Vdraw integer
+|** MGED Action
+|RT_VLIST_LINE_MOVE
+|0
+|begin a new line at this point
+|RT_VLIST_LINE_DRAW
+|1
+|draw line from previous point to this point
+|RT_VLIST_POLY_START
+|2
+|start polygon (argument is surface normal)
+|RT_VLIST_POLY_MOVE
+|3
+|move to first polygon vertex
+|RT_VLIST_POLY_DRAW
+|4
+|subsequent polygon vertices
+|RT_VLIST_POLY_END
+|5
+|last polygon vertex (should be same as first)
+|RT_VLIST_POLY_VERTNORM
+|6
+|vertex normal (for shading interpolation)
 |===
 
 The_vdraw_commands are:
@@ -5815,16 +6040,49 @@ mged> zoom 2
 === MGED Developer Commands
 
 .MGED Developer Commands
+[cols="5*"]
+[%noheader]
 |===
-
-|<<aip,aip>> |<<cmd_win,cmd_win>> |<<Collaborate2,collaborate>> |<<get_comb,get_comb>> |<<get_dm_list,get_dm_list>> 
-|get_edit_solid |<<get_more_default,get_more_default>> |<<grid2model_lu,grid2model_lu>> |<<grid2view_lu,grid2view_lu>> |<<gui_destroy,gui_destroy>> 
-|<<hist,hist>> |<<make_name,make_name>> |<<mged_update,mged_update>> |<<mmenu_get,mmenu_get>> |<<mmenu_set,mmenu_set>> 
-|<<model2grid_lu,model2grid_lu>> |<<model2view,model2view>> |<<model2view_lu,model2view_lu>> |<<output_hook,output_hook>> |<<put_comb,put_comb>> 
-|put_edit_solid |<<reset_edit_solid,reset_edit_solid>> |<<rset,rset>> |<<set_more_default,set_more_default>> |<<share,share>> 
-|<<solids_on_ray,solids_on_ray>> |<<stuff_str,stuff_str>> |<<svb,svb>> |<<tie,tie>> |<<view2grid_lu,view2grid_lu>> 
-|<<view2model,view2model>> |<<view2model_lu,view2model_lu>> |<<view2model_vec,view2model_vec>> |<<view_ring,view_ring>> |<<viewget,viewget>> 
-|<<viewset,viewset>> |<<winset,winset>> |  |  |  
+|<<aip,aip>>
+|<<cmd_win,cmd_win>>
+|<<Collaborate2,collaborate>>
+|<<get_comb,get_comb>>
+|<<get_dm_list,get_dm_list>>
+|get_edit_solid
+|<<get_more_default,get_more_default>>
+|<<grid2model_lu,grid2model_lu>>
+|<<grid2view_lu,grid2view_lu>>
+|<<gui_destroy,gui_destroy>>
+|<<hist,hist>>
+|<<make_name,make_name>>
+|<<mged_update,mged_update>>
+|<<mmenu_get,mmenu_get>>
+|<<mmenu_set,mmenu_set>>
+|<<model2grid_lu,model2grid_lu>>
+|<<model2view,model2view>>
+|<<model2view_lu,model2view_lu>>
+|<<output_hook,output_hook>>
+|<<put_comb,put_comb>>
+|put_edit_solid
+|<<reset_edit_solid,reset_edit_solid>>
+|<<rset,rset>>
+|<<set_more_default,set_more_default>>
+|<<share,share>>
+|<<solids_on_ray,solids_on_ray>>
+|<<stuff_str,stuff_str>>
+|<<svb,svb>>
+|<<tie,tie>>
+|<<view2grid_lu,view2grid_lu>>
+|<<view2model,view2model>>
+|<<view2model_lu,view2model_lu>>
+|<<view2model_vec,view2model_vec>>
+|<<view_ring,view_ring>>
+|<<viewget,viewget>>
+|<<viewset,viewset>>
+|<<winset,winset>>
+| 
+| 
+| 
 |===
 
 **
@@ -6376,9 +6634,11 @@ mged> winset .my_window
 mged *winset* – Returns the current display manager (i.e., .my_window).
 
 .Mged
+[cols="2*"]
+[%noheader]
 |===
-
-|<<MGEDUserCommands,MGED User Commands>> |<<MGEDDeveloperCommands,MGED Developer Commands>> 
+|<<MGEDUserCommands,MGED User Commands>>
+|<<MGEDDeveloperCommands,MGED Developer Commands>>
 |===
 
 
@@ -6846,5 +7106,3 @@ The TGC solid is a truncated cone with elliptical (or circular) base and top. Th
 *vol*
 
 The vol solid is defined by a 3-dimensional array of unsigned char values. The solid requires a file of these values, the extent of the file (in bytes) in each dimension, the size of each cell, and high and low thresholds. Any value in the file that is between the thresholds (inclusive) represents a solid cell.
-
-

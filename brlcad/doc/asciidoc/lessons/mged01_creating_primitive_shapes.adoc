@@ -103,10 +103,15 @@ For this lesson, you are going to create a single sphere. There are two ways you
 
 You can easily create a sphere from the prompt in the Command Window by typing just a few commands. At the _MGED_ prompt, type: *make sph1.s sph[ENTER] [Note: Use the digit 1, not the letter l]*
 
-This command tells the _MGED_ program to: |===
-
-|make |sph1.s |sph 
-|Make a primitive shape |Name it sph1.s |Make the shape a sphere 
+This command tells the _MGED_ program to: [cols="3*"]
+[%noheader]
+|===
+|make
+|sph1.s
+|sph
+|Make a primitive shape
+|Name it sph1.s
+|Make the shape a sphere
 |===
 
 
@@ -132,10 +137,13 @@ Before using the zap option, make sure you "activate" (i.e., set the focus on) t
 [[draw_object]]
 == Drawing a Previously Created Object
 
-To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to: |===
-
-|draw |sph1.s 
-|Draw a previously created primitive shape |named sph1.s 
+To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to: [cols="2*"]
+[%noheader]
+|===
+|draw
+|sph1.s
+|Draw a previously created primitive shape
+|named sph1.s
 |===
 
 
@@ -261,7 +269,3 @@ In this lesson, you:
 * Used the kill command to eliminate a shape from the database.
 * Edited commands in the Command Window.
 * Used the q or Exit commands to quit the program.
-
-
-
-

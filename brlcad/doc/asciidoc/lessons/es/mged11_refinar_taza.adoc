@@ -41,10 +41,19 @@ Nota: El sombreado de Phong es una técnica de sombreado para imágenes 3D gener
 
 Ingrese la información apropiada que se muestra en negrita. Si desea utilizar el comando de una sola línea, tipee: *mater mug.r plastic 32 128 32 0[Enter]*
 
-El diagrama de este comando es: |===
-
-|mater |mug.r |plastic |32 128 32 |0 
-|Asignar propiedad de material |A la región mug.r |Con material plástico |De color verde |Herencia desactivada=0 
+El diagrama de este comando es: [cols="5*"]
+[%noheader]
+|===
+|mater
+|mug.r
+|plastic
+|32 128 32
+|0
+|Asignar propiedad de material
+|A la región mug.r
+|Con material plástico
+|De color verde
+|Herencia desactivada=0
 |===
 
 
@@ -72,10 +81,23 @@ Ahora vamos a mejorar la taza. Observe que el borde de la taza se ve un poco ang
 
 En el prompt de _MGED_ tipee: *in rim.s tor 0 0 3.5 0 0 1 1.625 0.125[Enter]*
 
+[cols="7*"]
+[%noheader]
 |===
-
-|in |rim.s |tor |0 0 3.5 |0 0 1 |1.625 |0.125 
-|Crear una figura |Llamarla rim.s |Que la figura sea un toro |Con x, y, y z del vértice 0, 0, y 3.5 |Con x, y, y z del vector normal de 0, 0, y 1 |Radio 1 de 1.625 pulgadas |Radio 2 de 0.125 pulgadas 
+|in
+|rim.s
+|tor
+|0 0 3.5
+|0 0 1
+|1.625
+|0.125
+|Crear una figura
+|Llamarla rim.s
+|Que la figura sea un toro
+|Con x, y, y z del vértice 0, 0, y 3.5
+|Con x, y, y z del vector normal de 0, 0, y 1
+|Radio 1 de 1.625 pulgadas
+|Radio 2 de 0.125 pulgadas
 |===
 
 
@@ -100,7 +122,3 @@ En este tutorial usted aprendió a:
 * Asignar propiedades de los materiales a la taza utilizando el comando mater.
 * Refinar la taza.
 * Combinar las figuras.
-
-
-
-

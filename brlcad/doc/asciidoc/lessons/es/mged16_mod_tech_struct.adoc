@@ -150,10 +150,19 @@ Al ver el radio, observará que la antena luce como un tubo. Falta añadirle una
 
 El radio luce cada vez más realista, sin embargo, todavía es sólo un cascarón vacío. Vamos a continuar con la creación de una placa de circuito que irá dentro de la carcaza. Para ello, escriba: *in board.s rpp 3 4 1 31 1 47[Enter]**r board.r u board.s[Enter]*
 
-Dele a la placa un color verde semi-brillante. La forma más sencilla de hacer esto es a través del editor de combinaciones, pero esta vez hemos de enfocarnos en la línea de comandos. Tipee: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Este comando le dice a _MGED_ que: |===
-
-|mater |board.r |"plastic sh=4" |0 198 0 |1 
-|Asigne propiedades de los materiales a... |la región board.r. |Aplique el sombreado de plástico con un valor 4 de brillo |Le otorgue un color verde |Heredando el tipo de color del material 
+Dele a la placa un color verde semi-brillante. La forma más sencilla de hacer esto es a través del editor de combinaciones, pero esta vez hemos de enfocarnos en la línea de comandos. Tipee: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Este comando le dice a _MGED_ que: [cols="5*"]
+[%noheader]
+|===
+|mater
+|board.r
+|"plastic sh=4"
+|0 198 0
+|1
+|Asigne propiedades de los materiales a...
+|la región board.r.
+|Aplique el sombreado de plástico con un valor 4 de brillo
+|Le otorgue un color verde
+|Heredando el tipo de color del material
 |===
 
 
@@ -387,7 +396,3 @@ En este tutorial usted aprendió a:
 * Agregar componentes internos a la radio.
 * Crear modelos especiales de la radio.
 * Redefinir la estructura de la radio.
-
-
-
-

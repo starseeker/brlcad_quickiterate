@@ -43,34 +43,11 @@ Vea su diseño desde diferentes ángulos para asegurarse de que el eto se sitúa
 
 A continuación, cree la base del candelabro con un cilindro circular recto (rcc). Nombre a la figura rcc1.s.
 
-En el menú Edit (Edición). Además de los comandos estándar, se le presentará un menú de trece formas específicas de edición de esta forma. |===
-
-|
-....
-
-Set H
-Set H (Move V)
-Set A
-Set B
-Set c
-Set d
-		  
-....
-
- |
-....
-
-Set A,B
-Set C,D
-Set A,B,C,D
-Rotate H
-Rotate AxB
-Move End H(rt)
-Move End H
-		  
-....
-
- 
+En el menú Edit (Edición). Además de los comandos estándar, se le presentará un menú de trece formas específicas de edición de esta forma. [cols="2*"]
+[%noheader]
+|===
+|`Set H Set H (Move V) Set A Set B Set c Set d`
+|`Set A,B Set C,D Set A,B,C,D Rotate H Rotate AxB Move End H(rt) Move End H`
 |===
 
 
@@ -144,13 +121,29 @@ Ahora que usted ha hecho una serie de regiones y una combinación, sería un bue
 [[candle_assign_mater_prop]]
 == Asignar propiedades de los materiales a los elementos del diseño
 
-Para asignar las propiedades del material a su diseño, vaya al menú Edit (Edición) y seleccione Combination Editor (Editor de Combinaciones). Asignar las siguientes propiedades de material a cada uno de los elementos: |===
-|Element |Shader |Color(s) |Other 
+Para asignar las propiedades del material a su diseño, vaya al menú Edit (Edición) y seleccione Combination Editor (Editor de Combinaciones). Asignar las siguientes propiedades de material a cada uno de los elementos: [cols="4*"]
+|===
+|Element
+|Shader
+|Color(s)
+|Other
 
-|Tabletop |Checker |Red (255 0 0); White (255 255 255) |Scale (10) 
-|Candle Base |Plastic |Medium Gray (128 130 144) | 
-|Candle |Plastic |Light Blue (0 166 255) | 
-|Flame |Plastic |Light Yellow (255 255 190) | 
+|Tabletop
+|Checker
+|Red (255 0 0); White (255 255 255)
+|Scale (10)
+|Candle Base
+|Plastic
+|Medium Gray (128 130 144)
+|
+|Candle
+|Plastic
+|Light Blue (0 166 255)
+|
+|Flame
+|Plastic
+|Light Yellow (255 255 190)
+|
 |===
 
 
@@ -167,10 +160,15 @@ Nota: Como se ha dicho, un color se compone de tres números, que van de 0 a 255
 [[candle_raytrace]]
 == Hacer el trazado de rayos de su diseño (Raytrace)
 
-Antes de hacer el Raytrace, cambie la vista a az35, el25 para tener una visión mejor del diseño terminado y luego quite el diseño anterior con el comando Blast tipeando lo siguiente en el prompt de la ventana de comandos: *B table1.r candle1.c[Enter]* Este comando le dice al programa _MGED_ que: |===
-
-|B |table1.r |candle1.c 
-|Despeje la ventana gráfica |Dibuje la región llamada table1.r |Dibuje la combinación llamada candle1.c 
+Antes de hacer el Raytrace, cambie la vista a az35, el25 para tener una visión mejor del diseño terminado y luego quite el diseño anterior con el comando Blast tipeando lo siguiente en el prompt de la ventana de comandos: *B table1.r candle1.c[Enter]* Este comando le dice al programa _MGED_ que: [cols="3*"]
+[%noheader]
+|===
+|B
+|table1.r
+|candle1.c
+|Despeje la ventana gráfica
+|Dibuje la región llamada table1.r
+|Dibuje la combinación llamada candle1.c
 |===
 
 
@@ -188,7 +186,3 @@ En este tutorial usted aprendió a:
 * Crear customizaciones de color utilizando el editor de combinaciones (Combination Editor).
 * Identificar los atributos del corrector de sombras.
 * Comprender cómo se crean los colores RGB.
-
-
-
-

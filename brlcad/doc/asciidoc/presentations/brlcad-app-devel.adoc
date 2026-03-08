@@ -35,15 +35,23 @@ Non-programmers will need atropine, caffeine, and electro-shock therapy (run, do
 * The Big Six
 
 .
+[cols="2*"]
 |===
-|*Header* |*Library* 
+|*Header*
+|*Library*
 
-|bu.h |libbu 
-|bn.h |libbn 
-|raytrace.h |librt 
-|rtgeom.h |librt / libwdb 
-|wdb.h |libwdb 
-|vmath.h |(data types) 
+|bu.h
+|libbu
+|bn.h
+|libbn
+|raytrace.h
+|librt
+|rtgeom.h
+|librt / libwdb
+|wdb.h
+|libwdb
+|vmath.h
+|(data types)
 |===
 
 
@@ -848,5 +856,3 @@ if ((dbip = db_open(argv[1], "r+w")) != DBI_NULL) {
 ----
 wdb_close(wdbp);
 ----
-
-

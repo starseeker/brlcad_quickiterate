@@ -255,5 +255,3 @@ Reports of bugs or problems should be submitted via electronic mail to <bugs@brl
 == AUTHOR
 
 BRL-CAD Team
-
-

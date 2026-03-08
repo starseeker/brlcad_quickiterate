@@ -70,132 +70,43 @@ Note that an object can now have (1) either an attribute or a body, (2) both an 
 The on-disk version of each object consists of three distinct parts: Object Header, Object Interior, and Object Footer. This is called the external format of the object.
 
 .On-Disk BRL-CAD Object Structure
+[cols="3*"]
 |===
-|Part |Element |Comments 
+|Part
+|Element
+|Comments
 
-|Object Header:
-
-(not compressible)
-
- |Magic1 |Required 
-|HFlags, AFlags, BFlags 
-|Object_Type
-
-(Major_Type, Minor_Type)
-
- 
-|Object_Length |Required 
-||===
-
-|Object Name: ||===
-
-|Name_Length 
-|Name_Data 
-|===
-
-
-
- 
-|Name_Length 
-|Name_Data 
-|===
-
-
-
- |Conditional on flag bit N
-
-Required for Application Data
-
- 
-|Object Name: ||===
-
-|Name_Length 
-|Name_Data 
-|===
-
-
-
- 
-|Name_Length 
-|Name_Data 
-|Object Interior:
-
-(individually compressible)
-
- ||===
-
-|Object Attributes: ||===
-
-|Attribute_Length 
-|Attribute_Data 
-|===
-
-
-
- 
-|Attribute_Length 
-|Attribute_Data 
-|===
-
-
-
- |Conditional on flag bit A
-
-(ZZZ compression)
-
- 
-|Object Attributes: ||===
-
-|Attribute_Length 
-|Attribute_Data 
-|===
-
-
-
- 
-|Attribute_Length 
-|Attribute_Data 
-||===
-
-|Object Body: ||===
-
-|Body_Length 
-|Body_Data 
-|===
-
-
-
- 
-|Body_Length 
-|Body_Data 
-|===
-
-
-
- |Conditional on flag bit B
-
-(ZZZ compression)
-
- 
-|Object Body: ||===
-
-|Body_Length 
-|Body_Data 
-|===
-
-
-
- 
-|Body_Length 
-|Body_Data 
-|Object Footer:
-
-(not compressible)
-
- |Padding |As required to maintain 8-byte object boundaries
-
- 
-|Magic2 |Required 
+.5+|Object Header: (not compressible) 
+|Magic1
+.3+|Required
+|HFlags, AFlags, BFlags
+|Object_Type (Major_Type, Minor_Type) 
+|Object_Length
+|Required
+|Object Name:, Name_Length, Name_Data , Name_Length, Name_Data 
+|Conditional on flag bit N Required for Application Data 
+|Object Name:
+|Name_Length, Name_Data 
+|Name_Length
+|Name_Data
+.2+|Object Interior: (individually compressible) 
+|Object Attributes:, Attribute_Length, Attribute_Data , Attribute_Length, Attribute_Data 
+|Conditional on flag bit A (ZZZ compression) 
+|Object Attributes:
+|Attribute_Length, Attribute_Data 
+|Attribute_Length
+|Attribute_Data
+|Object Body:, Body_Length, Body_Data , Body_Length, Body_Data 
+|Conditional on flag bit B (ZZZ compression) 
+|Object Body:
+|Body_Length, Body_Data 
+|Body_Length
+|Body_Data
+.2+|Object Footer: (not compressible) 
+|Padding
+|As required to maintain 8-byte object boundaries 
+|Magic2
+|Required
 |===
 
 The routines rt_db_get_internal() and rt_db_put_internal() are used to move objects between their format in the database disk file and their internal format in memory. The routines are defined in `librt`.)
@@ -207,11 +118,55 @@ The routines rt_db_get_internal() and rt_db_put_internal() are used to move obje
 The Flags element consists of three 8-bit fields: HFlags, AFlags, and BFlags. The HFlags field is 1 byte containing flag bits that pertain to the noncompressible basic header and the database object as a whole. The AFlags and BFlags fields are each single bytes containing flag bits that pertain to the (potentially compressed) attributes and body, respectively, in the object interior.
 
 .BRL-CAD Flags Structure
+[cols="26*"]
 |===
-8+|HFlags | 8+|AFlags | 8+|BFlags 
+8+|HFlags
+|
+8+|AFlags
+|
+8+|BFlags
 
-|7 |6 |5 |4 |3 |2 |1 |0 | |7 |6 |5 |4 |3 |2 |1 |0 | |7 |6 |5 |4 |3 |2 |1 |0 
-2+|OWid |NP 2+|NWid |r 2+|DLI 2+|AWid |AP |r |r 3+|AZ 2+|BWid |BP |r |r 3+|BZ 
+|7
+|6
+|5
+|4
+|3
+|2
+|1
+|0
+.2+|
+|7
+|6
+|5
+|4
+|3
+|2
+|1
+|0
+.2+|
+|7
+|6
+|5
+|4
+|3
+|2
+|1
+|0
+2+|OWid
+|NP
+2+|NWid
+|r
+2+|DLI
+2+|AWid
+|AP
+|r
+|r
+3+|AZ
+2+|BWid
+|BP
+|r
+|r
+3+|BZ
 |===
 
 [[Wid_Flags]]
@@ -220,13 +175,19 @@ The Flags element consists of three 8-bit fields: HFlags, AFlags, and BFlags. Th
 The length of an object or sub-element in the database is recorded using an unsigned integer. These are variable-width fields based on the magnitude of the maximum number needed. The Wid bits specify the size of the unsigned integer employed in each instance. There are four 2-bit width (Wid) flags: Object_Wid (OWid) and Name_Wid (NWid) (stored in HFlags), Attribute_Wid (AWid) (stored in AFlags), and Body_Wid (BWid) (stored in BFlags). The Wid fields are interpreted in this manner:
 
 .Wid Flag Definitions
+[cols="2*"]
 |===
-|Wid Bits |Width (in bits) of Associated Length Fields 
+|Wid Bits
+|Width (in bits) of Associated Length Fields
 
-|00 |8 
-|01 |16 
-|10 |32 
-|11 |64 
+|00
+|8
+|01
+|16
+|10
+|32
+|11
+|64
 |===
 
 The OWid flag, at the high end of HFlags, encodes the width of the Object_Length field. The NWid flag, in bits 3 and 4 of HFlags, encodes the width of the Name_Length field (when the name element is present; see the N bit, shown later). AWid (or BWid, as the case may be) encodes the width of the Attribute_Length field (when the Object_Attributes or Object_Body element is present; see the AP and BP bits below).
@@ -248,21 +209,19 @@ The bits labeled as "r" in all three flags are reserved for future design work a
 The DLI flag is a 2-bit flag that indicates whether the object is an Application Data Object or a Database Layer Internal Object. The bits are interpreted as follows:
 
 .DLI Flag Structure
+[cols="2*"]
 |===
-|DLI Bits |Meaning 
+|DLI Bits
+|Meaning
 
-|00 |Application Data Object The object contains application-specific data. N must be 1. A and B are determined by what the application presents for storage in the object; both may be 0 (empty Object_Interior).
-
- 
-|01 |Database Layer Internal, Header Object A Header Object must be the first object encountered in the database. In order to support direct concatenation of two existing databases into one new database, additional header objects may appear elsewhere in the database The header object has no object name, object attributes, or object body (e.g., NP=0, AP=0, BP=0). Major_Type=RESERVED, Minor_Type=0.
-
- 
-|10 |Database Layer Internal, Free Storage. Unused space in the database is kept using a special Free DB Storage object that has no object name or object attributes. The object body is null-filled and of the proper size for the storage to be represented. Like all other objects, the total length of the object will be a multiple of 8 bytes. NP=0, AP=0, BP=1. Major_Type=RESERVED, Minor_Type=0.
-
- 
-|11 |Database Layer Internal, Reserved This value is reserved for future use.
-
- 
+|00
+|Application Data Object The object contains application-specific data. N must be 1. A and B are determined by what the application presents for storage in the object; both may be 0 (empty Object_Interior). 
+|01
+|Database Layer Internal, Header Object A Header Object must be the first object encountered in the database. In order to support direct concatenation of two existing databases into one new database, additional header objects may appear elsewhere in the database The header object has no object name, object attributes, or object body (e.g., NP=0, AP=0, BP=0). Major_Type=RESERVED, Minor_Type=0. 
+|10
+|Database Layer Internal, Free Storage. Unused space in the database is kept using a special Free DB Storage object that has no object name or object attributes. The object body is null-filled and of the proper size for the storage to be represented. Like all other objects, the total length of the object will be a multiple of 8 bytes. NP=0, AP=0, BP=1. Major_Type=RESERVED, Minor_Type=0. 
+|11
+|Database Layer Internal, Reserved This value is reserved for future use. 
 |===
 
 The DLI flag is not available to the higher database access layers.
@@ -293,17 +252,27 @@ The ``(A|B)P'' bit indicates whether the Attributes (or, alternatively, Body) el
 The 3-bit ``(A|B)Z'' flag indicates the compression, if any, of the object Attributes (or Body):
 
 .AZ/BZ Flag Definitions
+[cols="2*"]
 |===
-|AZ/BZ Bits |Compression Algorithm 
+|AZ/BZ Bits
+|Compression Algorithm
 
-|000 |None 
-|001 |GNU GZIP 
-|010 |Burroughs-Wheeler 
-|011 |Reserved 
-|100 |Reserved 
-|101 |Reserved 
-|110 |Reserved 
-|111 |Reserved 
+|000
+|None
+|001
+|GNU GZIP
+|010
+|Burroughs-Wheeler
+|011
+|Reserved
+|100
+|Reserved
+|101
+|Reserved
+|110
+|Reserved
+|111
+|Reserved
 |===
 
 
@@ -314,28 +283,56 @@ The 3-bit ``(A|B)Z'' flag indicates the compression, if any, of the object Attri
 The Object_Type element is always 16 bits wide, organized into two 8-bit-wide fields: the Major_Type and the Minor_Type.
 
 .Object_Type Element Structure
+[cols="16*"]
 |===
-16+|Object_Type 
+16+|Object_Type
 
-8+|Major Type 8+|Minor Type 
-|7 |6 |5 |4 |3 |2 |1 |0 |7 |6 |5 |4 |3 |2 |1 |0 
+8+|Major Type
+8+|Minor Type
+|7
+|6
+|5
+|4
+|3
+|2
+|1
+|0
+|7
+|6
+|5
+|4
+|3
+|2
+|1
+|0
 |===
 
 Each different Major_Type value is assigned to a different class of database objects. The following values are defined in this specification:
 
 .Major_Type Values and Meanings
+[cols="2*"]
 |===
-|Value |Object Class 
+|Value
+|Object Class
 
-|0 |Reserved 
-|1 |BRL-CAD Nongeometry Objects 
-|2 |BRL-CAD Geometry Objects 
-|3 |Attribute-Only Objects 
-|8 |Experimental Binary Objects (Unrecorded Structure) (Minor Type Unspecified) 
-|9 |Uniform Array Binary Objects, (Type Described in Minor Type) 
-|10 |MIME_Typed Binary Objects (Attribute "mime_type" Describes Format) 
-|16-31 |Registered-Type Binary Objects 
-|128 |First Non-ARL Type Begins Here 
+|0
+|Reserved
+|1
+|BRL-CAD Nongeometry Objects
+|2
+|BRL-CAD Geometry Objects
+|3
+|Attribute-Only Objects
+|8
+|Experimental Binary Objects (Unrecorded Structure) (Minor Type Unspecified)
+|9
+|Uniform Array Binary Objects, (Type Described in Minor Type)
+|10
+|MIME_Typed Binary Objects (Attribute "mime_type" Describes Format)
+|16-31
+|Registered-Type Binary Objects
+|128
+|First Non-ARL Type Begins Here
 |===
 
 The remainder are available for extending the types of objects that may be stored in the database, allowing BRL-CAD users to extend the database for their own particular purposes far beyond what the "attribute" method permits.
@@ -351,13 +348,19 @@ Major Type 0 is illegal. The rationale is to provide the library an opportunity 
 This class of objects is private to librt and concerns all nongeometric objects needed by the library. For this Major_Type, the following Minor_Type values are defined:
 
 .Major_Type = 1: Minor_Type Values and Meanings
+[cols="2*"]
 |===
-|Minor_Type Value |Object Type 
+|Minor_Type Value
+|Object Type
 
-|0 |Reserved for sanity check 
-|1 |Combination 
-|2 |Grip (Nongeometric) 
-|3 |Joint (Nongeometric) 
+|0
+|Reserved for sanity check
+|1
+|Combination
+|2
+|Grip (Nongeometric)
+|3
+|Joint (Nongeometric)
 |===
 
 All other values reserved for future expansion.
@@ -370,51 +373,95 @@ All other values reserved for future expansion.
 This class of objects is private to librt and concerns all geometric objects needed by the library. Typically, there will be one xxx/xxx.c module in librt for each minor type. For this Major_Type, the following Minor_Type values are defined:
 
 .Major_Type = 2: Minor_Type Values and Meanings
+[cols="2*"]
 |===
-|Minor_Type Value |Object Type 
+|Minor_Type Value
+|Object Type
 
-|0 |Reserved for sanity check 
-|1 |Torus (TOR) 
-|2 |Truncated General Cone (TGC) 
-|3 |Ellipsoid (ELL) 
-|4 |Generalized ARB. V + 7 vectors 
-|5 |ARS 
-|6 |Half-Space (HALF) 
-|7 |Right Elliptical Cylinder (REC) (TGC special case) 
-|8 |Polygonal faceted object (Polysolid) 
-|9 |B-Spline Solid 
-|10 |Sphere (ELL Special Case) 
-|11 |n-Manifold Geometry (NMG) solid 
-|12 |Extruded bitmap solid 
-|13 |Volume (VOL) 
-|14 |ARB with N faces (ARBN) 
-|15 |Pipe (wire) solid (PIPE) 
-|16 |Particle system solid (PART) 
-|17 |Right Parabolic Cylinder (RPC) 
-|18 |Right Hyperbolic Cylinder (RHC) 
-|19 |Elliptical Paraboloid (EPA) 
-|20 |Elliptical Hyperboloid (EHY) 
-|21 |Elliptical Torus (ETO) 
-|22 |Grip Nongeometric 
-|23 |Joint Nongeometric 
-|24 |Height Field (HF) 
-|25 |Displacement Map (DSP) 
-|26 |2D Sketch (SKETCH) 
-|27 |Solid of extrusion (EXTRUDE) 
-|28 |Instanced submodel 
-|29 |FASTGEN4 CLINE solid 
-|30 |Bag o' triangles (BOT) 
-|31 |Combination Record 
-|32 |Experimental binary 
-|33 |Uniform-array binary 
-|34 |MIME-typed binary 
-|35 |Superquadratic ellipsoid 
-|36 |Metaball 
-|37 |Brep object 
-|38 |Hyperboloid of one sheet (HYP) 
-|39 |Constraint object 
-|40 |Solid of revolution 
-|41 |Collection of points (PNTS) 
+|0
+|Reserved for sanity check
+|1
+|Torus (TOR)
+|2
+|Truncated General Cone (TGC)
+|3
+|Ellipsoid (ELL)
+|4
+|Generalized ARB. V + 7 vectors
+|5
+|ARS
+|6
+|Half-Space (HALF)
+|7
+|Right Elliptical Cylinder (REC) (TGC special case)
+|8
+|Polygonal faceted object (Polysolid)
+|9
+|B-Spline Solid
+|10
+|Sphere (ELL Special Case)
+|11
+|n-Manifold Geometry (NMG) solid
+|12
+|Extruded bitmap solid
+|13
+|Volume (VOL)
+|14
+|ARB with N faces (ARBN)
+|15
+|Pipe (wire) solid (PIPE)
+|16
+|Particle system solid (PART)
+|17
+|Right Parabolic Cylinder (RPC)
+|18
+|Right Hyperbolic Cylinder (RHC)
+|19
+|Elliptical Paraboloid (EPA)
+|20
+|Elliptical Hyperboloid (EHY)
+|21
+|Elliptical Torus (ETO)
+|22
+|Grip Nongeometric
+|23
+|Joint Nongeometric
+|24
+|Height Field (HF)
+|25
+|Displacement Map (DSP)
+|26
+|2D Sketch (SKETCH)
+|27
+|Solid of extrusion (EXTRUDE)
+|28
+|Instanced submodel
+|29
+|FASTGEN4 CLINE solid
+|30
+|Bag o' triangles (BOT)
+|31
+|Combination Record
+|32
+|Experimental binary
+|33
+|Uniform-array binary
+|34
+|MIME-typed binary
+|35
+|Superquadratic ellipsoid
+|36
+|Metaball
+|37
+|Brep object
+|38
+|Hyperboloid of one sheet (HYP)
+|39
+|Constraint object
+|40
+|Solid of revolution
+|41
+|Collection of points (PNTS)
 |===
 
 The details of these Minor_Types are provided in Section IV.
@@ -469,27 +516,49 @@ This class of objects contain various "bulk" binary data that might otherwise ha
 Point of Discussion?????Has ramifications... we have to implement type advising, so that applications that use these data can compare the type provided in the minor type code with the type that they're expecting and advise the user (with a warning message) that there is a potential type mismatch.
 
 .Uniform Array Binary Objects Minor_Type Structure
+[cols="8*"]
 |===
-8+|Minor_Type 
+8+|Minor_Type
 
-|7 |6 |5 |4 |3 |2 |1 |0 
-|r |r 2+|Wid |S 3+|Atom 
+|7
+|6
+|5
+|4
+|3
+|2
+|1
+|0
+|r
+|r
+2+|Wid
+|S
+3+|Atom
 |===
 
 The 3-bit ``Atom'' flag indicates the fundamental data type of the atomic elements in the array according to the following scheme:
 
 .Atom Flag Definitions
+[cols="2*"]
 |===
-|Atom Bits |Data Type 
+|Atom Bits
+|Data Type
 
-|000 |Reserved for sanity check 
-|001 |Reserved 
-|010 |float (IEEE, network order) 
-|011 |double (IEEE, network order) 
-|100 |8-bit int 
-|101 |16-bit int 
-|110 |32-bit int 
-|111 |64-bit int 
+|000
+|Reserved for sanity check
+|001
+|Reserved
+|010
+|float (IEEE, network order)
+|011
+|double (IEEE, network order)
+|100
+|8-bit int
+|101
+|16-bit int
+|110
+|32-bit int
+|111
+|64-bit int
 |===
 
 The ``S'' bit indicates whether an integer type is signed (1) or unsigned (0). Floats and doubles (i.e., atomic types with the highest atom bit equal to 0) are explicitly signed, so they will have the ``S'' bit equal to 1. (The bit patterns corresponding to unsigned floats and doubles are reserved for possible other use.)
@@ -497,13 +566,19 @@ The ``S'' bit indicates whether an integer type is signed (1) or unsigned (0). F
 The 2-bit ``Wid'' flag specifies the length (in atomic elements) of the array elements:
 
 .Wid Flag Definitions
+[cols="2*"]
 |===
-|Wid Bits |Atoms per Array Element 
+|Wid Bits
+|Atoms per Array Element
 
-|00 |1 
-|01 |2 
-|10 |3 
-|11 |4 
+|00
+|1
+|01
+|2
+|10
+|3
+|11
+|4
 |===
 
 The remaining Minor_Type bits ``r'' are reserved for the design committee to use for other purposes, possibly including extensions of the ``Atom'' and/or ``Wid'' flags.
@@ -711,8 +786,3 @@ Magic2 (1 byte)
 
 [[Database_Library_Application_Programming_Interface]]
 === Database Library Application Programming Interface (API)
-
-
-
-
-

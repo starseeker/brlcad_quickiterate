@@ -20,16 +20,25 @@ stat [-h] [-?] [-r] [-F<string>] [-C<type1[,type2]...>] [-S<type1[,type2]...>] [
 The GED *stat* command reports information about objects in a BRL-CAD .g file. It produces a tabular output, with options for user configurability and sorting.
 
 Available types reflect geometry object data: .STAT Information Keys - Core Object Info
+[cols="2*"]
+[%noheader]
 |===
-
-|name |Object database name (for example, "primitive.s") 
-|uses |Number of uses, from instancing 
-|size |Size of database object 
-|refs |Number of times object is referenced by COMBs 
-|flags |Flags 
-|major_type |Object major type 
-|minor_type |Object minor type 
-|type |Object type (short name) 
+|name
+|Object database name (for example, "primitive.s")
+|uses
+|Number of uses, from instancing
+|size
+|Size of database object
+|refs
+|Number of times object is referenced by COMBs
+|flags
+|Flags
+|major_type
+|Object major type
+|minor_type
+|Object minor type
+|type
+|Object type (short name)
 |===
 
 
@@ -192,5 +201,3 @@ Write output to _filename_ instead of the command prompt.
 ....
 
 ====
-
-

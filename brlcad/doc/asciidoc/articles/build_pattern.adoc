@@ -29,6 +29,7 @@ The Group Name field is for the name of the combination to be created (or append
 
 The Source String and Replacement String fields must be used together. The source string is the set of characters in each element of the patterned object to be changed. The replacement string is the set of characters that will replace the source string.
 
+.Example of pattern-generated assembly names.
 image::../articles/images/build_pattern_fig01.png[]
 
 The Increment field is only for use when duplicating to the primitive level. It is added to the leftmost number field of each primitive. To determine the increment, examine the primitives of the object(s) you wish to pattern and find the largest span. For example, to create a pattern to the primitive level with the following primitives (which may or may not be in regions or assemblies): 
@@ -94,6 +95,7 @@ Top-level duplications copy the patterned object and reference its entire struct
 
 The rectangular pattern GUI (shown in Figure E-2) is designed to facilitate one-, two-, or three-dimensional rectangular patterns. The default X, Y, and Z directions are positive along each axis. In order to create a rectangle that is not axis aligned, these vectors may be changed with the condition that each must remain precisely perpendicular to the other two. If the Use Directions series is checked, the user specifies the number of copies and the Delta between copies for each axis. If the Use Lists series is checked, the user can specify a list of deltas along each axis.
 
+.The user interface for building rectangular patterns.
 image::../articles/images/build_pattern_fig02.png[]
 
 
@@ -110,12 +112,15 @@ If the Create Az/El series is checked, the user defines the number of azimuths a
 
 The Create Radii and Use Radii List series define offsets from the Starting Radius, allowing the user to create a pattern of concentric spheres. If Create Radii is checked, the user specifies the Number of Radii and the Radius Delta in order to construct a number of equally offset sphere patterns. If the Use Radii List is checked, the user specifies a list of radius offsets.
 
+.The user interface for building spherical patterns.
 image::../articles/images/build_pattern_fig03.png[]
 
 Without the Rotate Azimuth or Rotate Elevation boxes checked, the patterned objects are oriented as built without any rotations. Notice, for example, that every arrow in Figure E-5 points to the left. Notice also that for each patterned arrow, the Object Center (here specified as the tip of the arrow) is located on the circle outline at a distance of one Starting Radius from the Pattern Center. If we set the Object Center to the coordinate at the base of the arrow, the base would then lie on the circular outline. Wherever the Object Center is set is the point at which MGED works with the Object Center coordinate to place and rotate patterned objects.
 
+.Examples of different spherical pattern orientations.
 image::../articles/images/build_pattern_fig04.png[]
 
+.Implementation of spherical patterns.
 image::../articles/images/build_pattern_fig05.png[]
 
 
@@ -124,6 +129,5 @@ image::../articles/images/build_pattern_fig05.png[]
 
 The cylindrical pattern GUI (shown in Figure E-6) facilitates the creation of cylinder-shaped patterns with user-defined center, direction, height, azimuth, and radii inputs. The Base Center is the vertex of the cylinder shape. The Object Center is a user-defined coordinate used to locate the object(s) relative to the Base Center and Height Direction. It acts as the key point for any transformations to the pattern object(s). The Height Direction is the vector along which the cylinder runs. The Starting Height is the offset from the Base Center along the Height Direction that the pattern will place the Object Center.
 
+.The user interface for building cylindrical patterns.
 image::../articles/images/build_pattern_fig06.png[]
-
-

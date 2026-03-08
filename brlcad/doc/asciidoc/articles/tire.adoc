@@ -28,29 +28,42 @@ tire -d 255/40R18
 
 
 
-There are actually a wide variety of standards used in practice to specify tire dimensions. Generally the majority of them have the same "core" information plus additional performance and rim compatibility notations. At this time, BRL-CAD supports the following input format: |===
-
-|Width(mm) |separator |Ratio (#/100) |separator |Inner Diameter(in) 
+There are actually a wide variety of standards used in practice to specify tire dimensions. Generally the majority of them have the same "core" information plus additional performance and rim compatibility notations. At this time, BRL-CAD supports the following input format: [cols="5*"]
+[%noheader]
+|===
+|Width(mm)
+|separator
+|Ratio (#/100)
+|separator
+|Inner Diameter(in)
 |===
 
  Separators can be any non-numeric character, but normally are either "/", "-", or in the case of the latter separator a letter denoting tire structure. Only single character separators are allowed. footnote:[As yet BRL-CAD does not use the structural information (e.g. R = radial construction) in the tire building procedure when a valid structure character is supplied, but as it may do so in the future the "best practice" is to use the letter if available.
 
 ] The ratio specifies the sidewall height in terms of the overall tire width - for example, if a tire is 100mm wide and the Ratio is 40, the sidewall height is 40mm. Examples of valid input strings for tire dimensions include:
 
+[cols="2*"]
+[%noheader]
+|===
+|255/40R18
+|Width=255mm, Ratio=40, Wheel Diameter=18in
+|250-50R17
+|Width=250mm, Ratio=50, Wheel Diameter=17in
+|180/100/15
+|Width=180mm, Ratio=100, Wheel Diameter=15in
 |===
 
-|255/40R18 |Width=255mm, Ratio=40, Wheel Diameter=18in 
-|250-50R17 |Width=250mm, Ratio=50, Wheel Diameter=17in 
-|180/100/15 |Width=180mm, Ratio=100, Wheel Diameter=15in 
+
+
+All three values must be present to have a valid input string. Also note that at the moment this procedure takes ONLY integer arguments and single non-numeric character separators, so the above formatting restrictions need to be observed. Examples of INVALID inputs include: [cols="2*"]
+[%noheader]
 |===
-
-
-
-All three values must be present to have a valid input string. Also note that at the moment this procedure takes ONLY integer arguments and single non-numeric character separators, so the above formatting restrictions need to be observed. Examples of INVALID inputs include: |===
-
-|255.0/40R18 |First number is floating point rather than integer. 
-|250-50RD17 |Multiple characters in second separator. 
-|185.65/15 |"." has significance numerically and will not read correctly. 
+|255.0/40R18
+|First number is floating point rather than integer.
+|250-50RD17
+|Multiple characters in second separator.
+|185.65/15
+|"." has significance numerically and will not read correctly.
 |===
 
  If more precision is needed on any of these inputs, the *tire* tool offers other command-line options to use instead of (or even in combination with) the _d_ flag which accept floating point input. When used _with_ the _d_ flag, they override the value for their particular parameter supplied to the _d_ flag. They are the _W_ flag for maximum width, _R_ for the ratio, and _D_ for the diameter of the wheel. For example, if a width of 255.5mm was needed, the command could be: 
@@ -78,11 +91,21 @@ Tread is the most difficult part of a tire to define in terms of the amount of i
 
 Tread profile and tread pattern are the two factors to consider when specifying tread. Tread profile is the "shape" of the tread on the edges of the tread pattern. Many truck tires have a "squared off" tread, while automobile tires tend to have more rounded tread. Different patterns can be combined with different profiles.
 
-The _t_ flag controls the tread profile, and the _p_ flag controls the tread pattern. Currently, the following profiles and patterns are available: |===
-
-|Profile # |Profile (t) |Pattern # |Pattern (p) 
-|1 |Curved |1 |All-Weather 
-|2 |Squared Off |2 |Off-Road 
+The _t_ flag controls the tread profile, and the _p_ flag controls the tread pattern. Currently, the following profiles and patterns are available: [cols="4*"]
+[%noheader]
+|===
+|Profile #
+|Profile (t)
+|Pattern #
+|Pattern (p)
+|1
+|Curved
+|1
+|All-Weather
+|2
+|Squared Off
+|2
+|Off-Road
 |===
 
 
@@ -252,7 +275,3 @@ Due to the nature of the primitives used to define these shapes, operations such
 * The wheel is generated in response to the tire dimensions and there is currently only one wheel type available in this procedure (users may model and substitute their own wheel designs).
 * Tread is not modeled by default due to performance considerations but can be added using options.
 * Fine grained control of parameters such as tire thickness is available with optional user flags.
-
-
-
-

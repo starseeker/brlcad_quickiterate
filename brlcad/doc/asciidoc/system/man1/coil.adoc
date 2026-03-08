@@ -121,5 +121,3 @@ There are many inputs that will be accepted but will attempt to generate invalid
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -103,10 +103,15 @@ Para este ejemplo, crearemos una esfera simple. Hay dos maneras de crear una fig
 
 Puede fácilmente crear la esfera desde la terminal con sólo unos pocos comandos. En la terminal de _MGED_ tipee: *make sph1.s sph [ENTER] [Nota: Use el dígito 1, no la letra l].*
 
-Este comando le dice al programa _MGED_: |===
-
-|make |sph1.s |sph 
-|Hace la figura primitiva |y la llama sph1.s |siendo la figura de una esfera 
+Este comando le dice al programa _MGED_: [cols="3*"]
+[%noheader]
+|===
+|make
+|sph1.s
+|sph
+|Hace la figura primitiva
+|y la llama sph1.s
+|siendo la figura de una esfera
 |===
 
 
@@ -132,10 +137,13 @@ Antes de usar la opción zap, asegúrese de haber hecho foco en la ventana de co
 [[draw_object]]
 == Dibujar un objeto prediseñado
 
-Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que: |===
-
-|draw |sph1.s 
-|Dibuje el objeto prediseñado |llamado sph1.s 
+Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que: [cols="2*"]
+[%noheader]
+|===
+|draw
+|sph1.s
+|Dibuje el objeto prediseñado
+|llamado sph1.s
 |===
 
 
@@ -259,7 +267,3 @@ En este tutorial usted:
 * Utilizó el comando kill para eliminar una figura de la base de datos.
 * Editó comandos en la ventana de comandos.
 * Utilizó los comandos q o exit para salir del programa.
-
-
-
-

@@ -26,10 +26,15 @@ Create a new database and name it shapes.g. Title your database myShapes.
 
 Begin by making the Command Window active (usually by clicking anywhere in the window). Then, at the _MGED_ prompt, type in the command: *make sph1.s sph [Enter]*
 
-As noted in Lesson 1, this command tells _MGED_ to: |===
-
-|make |sph1.s |sph 
-|Create a shape |Name it sph1.s |Make it a sphere 
+As noted in Lesson 1, this command tells _MGED_ to: [cols="3*"]
+[%noheader]
+|===
+|make
+|sph1.s
+|sph
+|Create a shape
+|Name it sph1.s
+|Make it a sphere
 |===
 
 image::../lessons/images/mged03_wireframe_sph.png[]
@@ -101,10 +106,13 @@ _MGED_ will now ask you to enter the x, y, and z values of the height (H) vector
 
 You should now have new versions of the sphere and rcc shapes. Notice how these two shapes compare in size to the first two you created. The rcc is now in proportion to the sphere and is placed in space off to the left in your Graphics Window. By specifying the dimensions of the shapes and their locations in space, you were able to create the model more precisely.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../lessons/images/mged03_shapes_make_command.png[] |image:../lessons/images/mged03_shapes_in_command.png[] 
-|Shapes Created with Make Command |Shapes Created with In Command 
+|image:../lessons/images/mged03_shapes_make_command.png[]
+|image:../lessons/images/mged03_shapes_in_command.png[]
+|Shapes Created with Make Command
+|Shapes Created with In Command
 |===
 
 
@@ -117,21 +125,53 @@ Clear the Graphics Window by using the Z command. Now make another sphere by typ
 
 The meaning of this longer form of the command is:
 
+[cols="7*"]
+[%noheader]
 |===
-
-|in |sph3.s |sph |4 |4 |4 |3 
-|Insert a primitive shape |Name it sph3.s |Make the primitive shape a sphere |Make the x of the vertex a value of 4 |Make the y of the vertex a value of 4 |Make the z of the vertex a value of 4 |Make the radius a value of 3 
+|in
+|sph3.s
+|sph
+|4
+|4
+|4
+|3
+|Insert a primitive shape
+|Name it sph3.s
+|Make the primitive shape a sphere
+|Make the x of the vertex a value of 4
+|Make the y of the vertex a value of 4
+|Make the z of the vertex a value of 4
+|Make the radius a value of 3
 |===
 
 To make the right circular cylinder using this method, type after the _MGED_ prompt: *in rcc3.s rcc 4 4 0 0 0 4 3[Enter]*
 
 The meaning of this command is:
 
+[cols="10*"]
+[%noheader]
 |===
-
-|in |rcc3.s |rcc |4 |4 |0 |0 |0 |4 |3 
-|Insert a primitive shape |Name it rcc3.s |Make the primitive shape a right circular cylinder |Make the x of the vertex a value of 4 |Make the y of the vertex a value of 4 |Make the z of the vertex a value of 0 |Make the x of the height vector a value of 0 |Make the y of the height vector a value of 0 |Make the z of the height vector a value of 4 |Make the radius a value of 3 
-3+|Make the shape four units long, pointing straight toward positive z 
+|in
+|rcc3.s
+|rcc
+|4
+|4
+|0
+|0
+|0
+|4
+|3
+.2+|Insert a primitive shape
+.2+|Name it rcc3.s
+.2+|Make the primitive shape a right circular cylinder
+.2+|Make the x of the vertex a value of 4
+.2+|Make the y of the vertex a value of 4
+.2+|Make the z of the vertex a value of 0
+|Make the x of the height vector a value of 0
+|Make the y of the height vector a value of 0
+|Make the z of the height vector a value of 4
+.2+|Make the radius a value of 3
+3+|Make the shape four units long, pointing straight toward positive z
 |===
 
 
@@ -140,20 +180,49 @@ The meaning of this command is:
 
 When you are first starting to use _MGED_, if you want to use the Command Window rather than the GUI, you may want to make yourself some blank, combined-command forms for each type of primitive shape you will be creating. This can speed up the design process and help remind you of which values must be entered for each shape. A form for the sphere might be:
 
+[cols="10*"]
+[%noheader]
 |===
-
-|in |? |sph |? |? |? |? 
-|Insert a shape |Name of primitive shape |Type of shape is a sphere |Value of x |Value of y |Value of z |Radius of sph 
-3+|Center 
+|in
+|?
+|sph
+|?
+|?
+|?
+|?
+.2+|Insert a shape
+.2+|Name of primitive shape
+.2+|Type of shape is a sphere
+|Value of x
+|Value of y
+|Value of z
+.2+|Radius of sph
+3+|Center
 |===
 
 A Combined-Command Form for the rcc might be:
 
+[cols="10*"]
+[%noheader]
 |===
-
-|in |? |rcc 3+|? 3+|? |? 
-|Insert a primitive shape |Name of shape |Type of shape is a right circular cylinder |Value of x |Value of y |Value of z |Value of x |Value of y |Value of z |Radius of rcc 
-3+|Vertex 3+|Height vector 
+|in
+|?
+|rcc
+3+|?
+3+|?
+|?
+.2+|Insert a primitive shape
+.2+|Name of shape
+.2+|Type of shape is a right circular cylinder
+|Value of x
+|Value of y
+|Value of z
+|Value of x
+|Value of y
+|Value of z
+.2+|Radius of rcc
+3+|Vertex
+3+|Height vector
 |===
 
 
@@ -194,5 +263,3 @@ In this lesson, you:
 * Considered _MGED_ naming conventions.
 * Viewed your shapes from different perspectives using options of the View menu.
 * Quit the _MGED_ program.
-
-

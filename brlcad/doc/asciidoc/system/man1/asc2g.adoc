@@ -109,5 +109,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == DISCLAIMER
 
 The ASCII representation of BRL-CAD geometry databases is not a fixed format and is allowed to change without deprecation notice. In general, this will not occur any more frequently than the binary geometry database format changes, though both are open specifications. Regardless, the ASCII representation is subject to change without notice and should not be relied upon by external codes. (See _HISTORY_.)
-
-

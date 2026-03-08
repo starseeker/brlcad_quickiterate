@@ -20,16 +20,33 @@ vdraw {<command>} [<args>]
 Allows drawing of lines and polygons (optionally with per vertex normals) in the MGED graphics display. It is used to build a named list of drawing commands for MGED, send the list to the MGED display, modify the list, or delete all or part of the list. All vertices in the _vdraw_ command are in millimeters. The MGED drawing commands are represented by integers in the _vdraw_ command. The MGED drawing commands and the integers that _vdraw_ uses for them are:
 
 .Drawing Commands
+[cols="3*"]
 |===
-|MGED Drawing Command |Vdraw integer |MGED Action 
+|MGED Drawing Command
+|Vdraw integer
+|MGED Action
 
-|RT_VLIST_LINE_MOVE |0 |Begin a new line at this point 
-|RT_VLIST_LINE_DRAW |1 |Draw line from previous point to this point 
-|RT_VLIST_POLY_START |2 |Start polygon (argument is surface normal) 
-|RT_VLIST_POLY_MOVE |3 |move to first polygon vertex 
-|RT_VLIST_POLY_DRAW |4 |Subsequent polygon vertices 
-|RT_VLIST_POLY_END |5 |Last polygon vertex (should be same as first) 
-|RT_VLIST_POLY_VERTNORM |6 |Vertex normal (for shading interpolation) 
+|RT_VLIST_LINE_MOVE
+|0
+|Begin a new line at this point
+|RT_VLIST_LINE_DRAW
+|1
+|Draw line from previous point to this point
+|RT_VLIST_POLY_START
+|2
+|Start polygon (argument is surface normal)
+|RT_VLIST_POLY_MOVE
+|3
+|move to first polygon vertex
+|RT_VLIST_POLY_DRAW
+|4
+|Subsequent polygon vertices
+|RT_VLIST_POLY_END
+|5
+|Last polygon vertex (should be same as first)
+|RT_VLIST_POLY_VERTNORM
+|6
+|Vertex normal (for shading interpolation)
 |===
 
 The *vdraw* commands are as follows:
@@ -159,5 +176,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

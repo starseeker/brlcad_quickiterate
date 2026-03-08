@@ -19,10 +19,13 @@ One potentially confusing aspect of the pipe is that bend points do not always l
 
 In addition, because they are defining turns, points in a pipe are often nonlinear. However, as shown in Figure A-3, collinear points can also be used when a modeler simply wants to achieve a tapered or "stepped" inside or outer diameter on a straight-running tube. Examples of other potential uses include a notched axle on a vehicle, a pressed gear fitting, and a tapered end on a garden hose.
 
+.Basic pipe with parameters.
 image::../articles/images/pipes_fig01.png[]
 
+.Various bend radii.
 image::../articles/images/pipes_fig02.png[]
 
+.Example of special uses of the pipe.
 image::../articles/images/pipes_fig03.png[]
 
 Nonetheless, it is good modeling practice to build your pipe with only those points needed to define its shape. It is not necessary to add extra collinear points along a long straight section of pipe. Note too that pipes are not required to have hollow volume in them at all. The modeler can set the inner diameter to 0 and achieve a solid shape.
@@ -46,6 +49,7 @@ The main challenge of using the pipe to build a coil is to locate where the poin
 
 In the example shown in Figure A-4, the coil diameter is 1/4 (0.25) in, the wire diameter is 1/32 (0.03125) in, and the height of each of the 10 coil sections is 7/32 (0.21875) in.
 
+.Determining the point positions for the copper coil.
 image::../articles/images/pipes_fig04.png[]
 
 The key to properly and precisely positioning points to build a coil section is to use half of the coil diameter as an offset. The first and the last points in the coil must lie on the pipe's path. These points are easily determined at 90°  intervals from the center of the pipe (or, with a bit of trigonometry, at any interval). The rest of the points for the pipe are located at ±  offsets in whichever plane is perpendicular to the pipe height vector from the center of the pipe with the proper height delta (which will generally be 1/4 of the height per coil section).
@@ -65,20 +69,30 @@ To build two turns of a coil at the origin with a coil diameter of 1000 mm, a wi
 * Move the top end point to 500 500 50 using the Edit menu's Move Point option and the *p* command (mged>p 500 500 50).
 * Add points at the following coordinates using the Edit menu's Append Point option and the *p* command (the visual effect for each of the commands is shown to the right of each command):
 
+[cols="2*"]
+[%noheader]
 |===
-
-|- mged>p 500 -500 150 |image:../articles/images/pipes_fig05.png[] 
-|- mged>p -500 -500 250 |image:../articles/images/pipes_fig06.png[] 
-|- mged>p -500 500 350 |image:../articles/images/pipes_fig07.png[] 
-|- mged>p 500 500 450 |image:../articles/images/pipes_fig08.png[] 
-|- mged>p 500 -500 550 |image:../articles/images/pipes_fig09.png[] 
-|- mged>p -500 -500 650 |image:../articles/images/pipes_fig10.png[] 
-|- mged>p -500 500 750 |image:../articles/images/pipes_fig11.png[] 
-|- mged>p 0 500 800 |image:../articles/images/pipes_fig12.png[] 
+|- mged>p 500 -500 150
+|image:../articles/images/pipes_fig05.png[]
+|- mged>p -500 -500 250
+|image:../articles/images/pipes_fig06.png[]
+|- mged>p -500 500 350
+|image:../articles/images/pipes_fig07.png[]
+|- mged>p 500 500 450
+|image:../articles/images/pipes_fig08.png[]
+|- mged>p 500 -500 550
+|image:../articles/images/pipes_fig09.png[]
+|- mged>p -500 -500 650
+|image:../articles/images/pipes_fig10.png[]
+|- mged>p -500 500 750
+|image:../articles/images/pipes_fig11.png[]
+|- mged>p 0 500 800
+|image:../articles/images/pipes_fig12.png[]
 |===
 
 The raytraced image of the coil segment is shown in Figure A-5.
 
+.Raytraced coil segment.
 image::../articles/images/pipes_fig13.png[]
 
 
@@ -94,5 +108,3 @@ Important Points to Remember About the Pipe
 * When modeling a tube with fluid inside of it, model both the tube and fluid as solid pipes and subtract the fluid from the tube.
 
 ====
-
-

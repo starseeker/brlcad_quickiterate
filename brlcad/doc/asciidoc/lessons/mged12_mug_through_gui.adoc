@@ -21,57 +21,13 @@ Begin by opening a new database. Call it mug2.g.
 
 Go to the Create menu and select rcc (right circular cylinder) under the Cones and Cylinders category. Enter the name for the rcc. Call it outside.s.
 
-Go to the Edit menu, where you will be offered the following options: |===
-
-|
-....
-
-		    Set H
-		    Set H (Move V)
-		    Set A
-		    Set B
-		    Set c
-		    Set d
-		    Set A,B
-		    Set C,D
-		    Set A,B,C,D
-		    Rotate H
-		    Rotate AxB
-		    Move End H(rt)
-		    Move End H
-		  
-....
-
- |
-....
-
-		    Rotate
-		    Translate
-		    Scale
-		    None of the Above
-		  
-....
-
- |
-....
-
-		    Reject
-		    Accept
-		    Apply
-		    Reset
-		  
-....
-
- |
-....
-
-		    Primitive Editor
-		    Combination
-		    Editor
-		  
-....
-
- 
+Go to the Edit menu, where you will be offered the following options: [cols="4*"]
+[%noheader]
+|===
+|`Set H Set H (Move V) Set A Set B Set c Set d Set A,B Set C,D Set A,B,C,D Rotate H Rotate AxB Move End H(rt) Move End H`
+|`Rotate Translate Scale None of the Above`
+|`Reject Accept Apply Reset`
+|`Primitive Editor Combination Editor`
 |===
 
 
@@ -107,52 +63,22 @@ Remember that when you scale a shape, the position of the mouse pointer in the G
 [[mug_gui_create_handle]]
 == Creating the Handle of the Mug
 
-Previously, we made the handle of the mug using an elliptical torus. In this lesson, we make the handle by selecting a torus (which is a doughnut shape) from the menu of shapes. Name the torus handle.s. The Edit menu will now offer a different set of parameters than those of the right circular cylinders, as shown in the following list: |===
-
-|
-....
-
-		    Set Radius 1
-		    Set Radius 2
-		  
-....
-
- |
-....
-
-		    Rotate
-		    Translate
-		    Scale
-		    None of the Above
-		  
-....
-
- |
-....
-
-		    Reject
-		    Accept
-		    Apply
-		    Reset
-		  
-....
-
- |
-....
-
-		    Primitive Editor
-		    Combination
-		    Editor
-		  
-....
-
- 
+Previously, we made the handle of the mug using an elliptical torus. In this lesson, we make the handle by selecting a torus (which is a doughnut shape) from the menu of shapes. Name the torus handle.s. The Edit menu will now offer a different set of parameters than those of the right circular cylinders, as shown in the following list: [cols="4*"]
+[%noheader]
+|===
+|`Set Radius 1 Set Radius 2`
+|`Rotate Translate Scale None of the Above`
+|`Reject Accept Apply Reset`
+|`Primitive Editor Combination Editor`
 |===
 
- In this instance, Set Radius 1 changes the distance from the center of the doughnut hole to the middle of the dough. Set Radius 2 changes the radius of the dough ring. With the same technique used in editing the rcc shapes, edit the size of the torus until it looks similar to the following examples: |===
-
-|image:../lessons/images/mged12_mug_handle_frontview.png[] |image:../lessons/images/mged12_mug_handle_topview.png[] 
-|Mug and Handle from a Front View |Mug and Handle from a Top View 
+ In this instance, Set Radius 1 changes the distance from the center of the doughnut hole to the middle of the dough. Set Radius 2 changes the radius of the dough ring. With the same technique used in editing the rcc shapes, edit the size of the torus until it looks similar to the following examples: [cols="2*"]
+[%noheader]
+|===
+|image:../lessons/images/mged12_mug_handle_frontview.png[]
+|image:../lessons/images/mged12_mug_handle_topview.png[]
+|Mug and Handle from a Front View
+|Mug and Handle from a Top View
 |===
 
  Check your mug from the top to make sure the handle is aligned. Accept your changes when you are finished.
@@ -240,7 +166,3 @@ In this lesson, you:
 * Made a region of the combinations.
 * Checked the data tree and made corrections.
 * Assigned material properties using the Combination Editor.
-
-
-
-

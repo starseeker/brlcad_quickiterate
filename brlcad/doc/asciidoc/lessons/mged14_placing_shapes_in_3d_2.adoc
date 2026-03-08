@@ -49,10 +49,13 @@ To position your new spheres, go to Primitive Selection. A submenu of shapes you
 
 
 
-Click on sph2.s and drag it into position. Once you have positioned the eight spheres around the rcc, your design should look similar to the following ones when viewed from the top and front. |===
-
-|image:../lessons/images/mged14_candle_spheres_topview.png[] |image:../lessons/images/mged14_candle_spheres_frontview.png[] 
-|Candle from Top View |Candle from Front View 
+Click on sph2.s and drag it into position. Once you have positioned the eight spheres around the rcc, your design should look similar to the following ones when viewed from the top and front. [cols="2*"]
+[%noheader]
+|===
+|image:../lessons/images/mged14_candle_spheres_topview.png[]
+|image:../lessons/images/mged14_candle_spheres_frontview.png[]
+|Candle from Top View
+|Candle from Front View
 |===
 
 
@@ -287,7 +290,3 @@ In this lesson, you:
 * Drew a grid to help position objects.
 * Checked the data tree and made corrections (if needed).
 * Assigned material properties using the Combination Editor.
-
-
-
-

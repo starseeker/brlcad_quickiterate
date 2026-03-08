@@ -279,5 +279,3 @@ Peter B. Shames
 == BUG REPORTS
 
 Reports of inaccuracies should be submitted via electronic mail to <devs@brlcad.org>
-
-

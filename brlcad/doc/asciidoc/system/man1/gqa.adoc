@@ -126,18 +126,29 @@ Other analyses in the error detection category behave in a similar manner.
 *-A*_analysis_flags_::
 Specifies which computations are to be performed and reported. The _analysis_flags_ parameter is one or more of the following:
 
+[cols="2*"]
 |===
-|value |report generated 
+|value
+|report generated
 
-|A |all 
-|a |Adjacent different air 
-|b |Bounding box dimensions 
-|e |Exposed air 
-|g |Gaps/voids 
-|m |Weight + Centroids + Moments of Inertia 
-|o |Overlaps 
-|v |Volume 
-|w |Weight 
+|A
+|all
+|a
+|Adjacent different air
+|b
+|Bounding box dimensions
+|e
+|Exposed air
+|g
+|Gaps/voids
+|m
+|Weight + Centroids + Moments of Inertia
+|o
+|Overlaps
+|v
+|Volume
+|w
+|Weight
 |===
 
 
@@ -396,5 +407,3 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -24,10 +24,17 @@ Note that in _BRL-CAD_ versions prior to 5.2, the default values are used, but t
 
 ====
 
-In this example, the shader entry box indicates that the transparency (tr) is set at .5 and the mirror reflectance (re) is set at .45. The eight abbreviations currently used in the shader entry box are as follows: |===
-
-|tr - transparency |sp - specular reflectivity |ri - refractive index |ex - extinction 
-|re - mirror reflectance |di - diffuse reflectivity |sh - shininess |em - emission 
+In this example, the shader entry box indicates that the transparency (tr) is set at .5 and the mirror reflectance (re) is set at .45. The eight abbreviations currently used in the shader entry box are as follows: [cols="4*"]
+[%noheader]
+|===
+|tr - transparency
+|sp - specular reflectivity
+|ri - refractive index
+|ex - extinction
+|re - mirror reflectance
+|di - diffuse reflectivity
+|sh - shininess
+|em - emission
 |===
 
 
@@ -101,7 +108,3 @@ In this lesson, you:
 * Assigned values to the shininess option of the plastic shader.
 * Assigned values to the extinction option of the plastic shader.
 * Experimented with various combinations of plastic shader options.
-
-
-
-
