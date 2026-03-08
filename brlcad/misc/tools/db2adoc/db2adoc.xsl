@@ -1373,16 +1373,23 @@
     <xsl:variable name="alt">
       <xsl:call-template name="imagedata-alt"/>
     </xsl:variable>
+    <!-- Prefer @width; fall back to @contentwidth if @width is absent -->
+    <xsl:variable name="img-width">
+      <xsl:choose>
+        <xsl:when test="@width"><xsl:value-of select="@width"/></xsl:when>
+        <xsl:when test="@contentwidth"><xsl:value-of select="@contentwidth"/></xsl:when>
+      </xsl:choose>
+    </xsl:variable>
     <xsl:text>image::</xsl:text>
     <xsl:value-of select="@fileref"/>
     <xsl:text>[</xsl:text>
     <xsl:value-of select="$alt"/>
-    <xsl:if test="@width">
+    <xsl:if test="$img-width != ''">
       <xsl:if test="$alt != ''">
         <xsl:text>,</xsl:text>
       </xsl:if>
       <xsl:text>width=</xsl:text>
-      <xsl:value-of select="@width"/>
+      <xsl:value-of select="$img-width"/>
     </xsl:if>
     <xsl:text>]&#10;&#10;</xsl:text>
   </xsl:template>
@@ -1392,16 +1399,23 @@
     <xsl:variable name="alt">
       <xsl:call-template name="imagedata-alt"/>
     </xsl:variable>
+    <!-- Prefer @width; fall back to @contentwidth if @width is absent -->
+    <xsl:variable name="img-width">
+      <xsl:choose>
+        <xsl:when test="@width"><xsl:value-of select="@width"/></xsl:when>
+        <xsl:when test="@contentwidth"><xsl:value-of select="@contentwidth"/></xsl:when>
+      </xsl:choose>
+    </xsl:variable>
     <xsl:text>image:</xsl:text>
     <xsl:value-of select="@fileref"/>
     <xsl:text>[</xsl:text>
     <xsl:value-of select="$alt"/>
-    <xsl:if test="@width">
+    <xsl:if test="$img-width != ''">
       <xsl:if test="$alt != ''">
         <xsl:text>,</xsl:text>
       </xsl:if>
       <xsl:text>width=</xsl:text>
-      <xsl:value-of select="@width"/>
+      <xsl:value-of select="$img-width"/>
     </xsl:if>
     <xsl:text>]</xsl:text>
   </xsl:template>
@@ -1423,8 +1437,25 @@
 
   <!-- emphasis: italic by default, bold if role="bold"/"strong"/"B", underline if role="underline" -->
   <!-- remap="B" means "render as bold" (from man-page conversions); remap="I" means italic. -->
+  <!-- Emphasis with xlink:href and no text is treated as a hyperlink. -->
   <xsl:template match="db:emphasis">
     <xsl:choose>
+      <!-- Linked emphasis: xl:href present → emit as a URL link -->
+      <xsl:when test="@xl:href">
+        <xsl:variable name="txt" select="normalize-space(.)"/>
+        <xsl:choose>
+          <xsl:when test="$txt != ''">
+            <xsl:value-of select="@xl:href"/>
+            <xsl:text>[</xsl:text>
+            <xsl:apply-templates/>
+            <xsl:text>]</xsl:text>
+          </xsl:when>
+          <xsl:otherwise>
+            <!-- No text: emit the URL bare -->
+            <xsl:value-of select="@xl:href"/>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:when>
       <xsl:when test="@role = 'bold' or @role = 'strong' or @role = 'B'
                       or @remap = 'B' or @remap = 'b'">
         <xsl:text>*</xsl:text>
@@ -1437,9 +1468,12 @@
         <xsl:text>#</xsl:text>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:text>_</xsl:text>
-        <xsl:apply-templates/>
-        <xsl:text>_</xsl:text>
+        <!-- Skip empty emphasis (no text content) to avoid stray __ artifacts -->
+        <xsl:if test="normalize-space(.) != ''">
+          <xsl:text>_</xsl:text>
+          <xsl:apply-templates/>
+          <xsl:text>_</xsl:text>
+        </xsl:if>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
