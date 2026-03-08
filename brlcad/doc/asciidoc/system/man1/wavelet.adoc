@@ -29,7 +29,7 @@ The *wavelet* command will perform Haar wavelet decomposition or reconstruction 
 
 *-# channels* Indicates the number of values in each sample point. For example, to perform a transform on a *pix*(5) file properly, specify "-# 3". This causes the red, green and blue channels to be transformed individually.
 
-*-t {cdfils}* specifies the data type of the input, and hence the data type in which the wavelet calculations will be performed. The letters each stand for the first character of the C programming language data type: _c_haracter, _d_ouble, _f_loat, _i_nt, _l_ong, _s_hort. Note that if lossless decomposition and reconstruction are desired, then data sets should be converted to the next larger data type before being processed.
+*-t {cdfils}* specifies the data type of the input, and hence the data type in which the wavelet calculations will be performed. The letters each stand for the first character of the C programming language data type: *c*haracter, *d*ouble, *f*loat, *i*nt, *l*ong, *s*hort. Note that if lossless decomposition and reconstruction are desired, then data sets should be converted to the next larger data type before being processed.
 
 *-w width* Specify the number of samples per scanline.
 
@@ -74,3 +74,5 @@ This software is Copyright (c) 1999-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

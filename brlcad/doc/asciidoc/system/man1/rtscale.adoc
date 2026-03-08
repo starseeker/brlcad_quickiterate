@@ -17,11 +17,11 @@ rtscale <width> <units> <intervals> <file.log> <optional_string> > <scale.plot3>
 [[description]]
 == DESCRIPTION
 
-*rtscale* supplements the use of _rthide_ by generating a UNIX-Plot of a scale that permits the accurate measuring of _rthide_ plots. _rthide_ provides a hidden-line-removed plot of the geometry, and *rtscale* produces an identical plot file containing just a scale. The two files can then be concatenated making sure that the scale precedes the _rthide_ file to produce a finished plot with scale.
+*rtscale* supplements the use of *rthide* by generating a UNIX-Plot of a scale that permits the accurate measuring of *rthide* plots. *rthide* provides a hidden-line-removed plot of the geometry, and *rtscale* produces an identical plot file containing just a scale. The two files can then be concatenated making sure that the scale precedes the *rthide* file to produce a finished plot with scale.
 
-*Rtscale* operates on the RT log file from the _rthide_ run and produces a UNIX-Plot file of a scale with desired units and number of tick marks. The scale's width is given in model units. A descriptive string may be added. The scale and the strings are plotted in the lower left corner of the image.
+*Rtscale* operates on the RT log file from the *rthide* run and produces a UNIX-Plot file of a scale with desired units and number of tick marks. The scale's width is given in model units. A descriptive string may be added. The scale and the strings are plotted in the lower left corner of the image.
 
-The inputs required are: _width,_ which specifies the length of the scale in model space, _units,_ which may be any units (metric or English), _intervals,_ which allows the user to specifies the number of tickmarks on the scale. _filename,_ which names the RT log file that is used to calculate the view2model matrix for the raytraced. A view such as azimuth 45, elevation 45, is useful for measuring diagonal dimensions of the geometry. Optionally, a _descriptive string_ may be given to identify the view or the model.
+The inputs required are: *width,* which specifies the length of the scale in model space, *units,* which may be any units (metric or English), *intervals,* which allows the user to specifies the number of tickmarks on the scale. *filename,* which names the RT log file that is used to calculate the view2model matrix for the raytraced. A view such as azimuth 45, elevation 45, is useful for measuring diagonal dimensions of the geometry. Optionally, a *descriptive string* may be given to identify the view or the model.
 
 
 [[example]]
@@ -43,7 +43,7 @@ This will result in a 30 mm scale with ten tickmarks being plotted in the lower 
 rtscale 30 mm 10 rt.log "UH-60 a90 e0" > scale.plot3
 ....
 
-Note that a descriptive string longer than 28 characters will be cut off by _plot3-fb_.
+Note that a descriptive string longer than 28 characters will be cut off by *plot3-fb*.
 
 The plot file is now concatenated with the plot file of the image to scale needs to be put on. The order in which they are concatenated is important: the scale is always concatenated over top of the model plot:
 
@@ -53,7 +53,7 @@ The plot file is now concatenated with the plot file of the image to scale needs
 cat scale.plot3 model.plot3 >> model.w.scale.plot3
 ....
 
-The resulting UNIX-Plot of the geometry with a scale added to it can be viewed in several ways. It can be overlaid in _mged_, or it can be rotated to the desired azimuth and elevation with _plot3rot_ and be stored in a file or view with _plot3-fb_:
+The resulting UNIX-Plot of the geometry with a scale added to it can be viewed in several ways. It can be overlaid in *mged*, or it can be rotated to the desired azimuth and elevation with *plot3rot* and be stored in a file or view with *plot3-fb*:
 
 
 ....
@@ -77,7 +77,7 @@ Numerous error conditions are possible, usually due to errors in the geometry da
 [[author]]
 == AUTHOR
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -90,3 +90,5 @@ This software is Copyright (c) 1991-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

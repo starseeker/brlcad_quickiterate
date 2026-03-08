@@ -47,7 +47,7 @@ Doris Kochanek, National Film Board of Canada
 [[author]]
 == AUTHOR
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -60,3 +60,5 @@ This software is Copyright (c) 1988-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

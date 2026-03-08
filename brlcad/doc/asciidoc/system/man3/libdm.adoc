@@ -820,7 +820,7 @@ voidfb_log, format [, arg ] ...);
 
 These routines are designed to provide a device-independent method of using frame buffers or files containing frame buffer images. The coordinate system used is first-quadrant (0..width-1, 0..height-1), with integer addressing. Translation to hardware coordinate systems is handled by the library.
 
-This version of the library assumes that red, green, and blue intensities are described by unsigned 8-bit bytes in the range (0..255). The library interface uses arrays of _RGBpixel_s, which is a typedef for an array of three unsigned chars (this was done to avoid structure padding). Note that a pointer to an _RGBpixel_ is thus the name of the _RGBpixel_ itself, i.e. no ampersand is needed.
+This version of the library assumes that red, green, and blue intensities are described by unsigned 8-bit bytes in the range (0..255). The library interface uses arrays of *RGBpixel*s, which is a typedef for an array of three unsigned chars (this was done to avoid structure padding). Note that a pointer to an *RGBpixel* is thus the name of the *RGBpixel* itself, i.e. no ampersand is needed.
 
 The exact interpretation of color maps tends to be somewhat device specific. The three ColorMap arrays each have 256 entries of unsigned 16-bit values. In order to accommodate color maps with differing amounts of output resolution, the color map entries are fixed-point fractions in the range (0.0..1.0). In integer notation, the range is (0..65525). For devices with less than 16 bits of output from their color maps, the left-most portion of each entry is used.
 
@@ -846,7 +846,7 @@ The following routines work in conjunction with those described above to provide
 
 _Fb_cursor_ places the cursor at the image space coordinates given by _x_ and _y_. If the mode is non-zero, the cursor is made visible, and if mode is zero, the cursor is turned off.
 
-_Fb_scursor_ is the same as _fb_cursor_ except that it places the cursor at the _screen_ space coordinates given by _x_ and _y_.
+_Fb_scursor_ is the same as _fb_cursor_ except that it places the cursor at the *screen* space coordinates given by _x_ and _y_.
 
 _Fb_setcursor_ allows the user to set the bitmap used to represent the cursor, thereby changing the cursor shape. This is not necessarily supported by all hardware. The argument _bits_ is a pointer to an array of unsigned chars containing the bits of the cursor. The arguments _xbits_ and _ybits_ specify the size of the cursor bitmap. The number of bytes in the `bits` array will be the width rounded up to a multiple of eight (so that the cursor "scanlines" are byte aligned) times the height. `bits`[0] is the lower left corner, `bits`[1] is to the right of it, etc. The next line of the `bits` array goes above the current one. Within a byte the most significant bit is the leftmost. The values _xorig_ and _yorig_ specify which bit in the bitmap actually gets placed at the location specified in the cursor move routines. Again, a first quadrant coordinate system is used.
 
@@ -880,15 +880,15 @@ The following devices are supported by the library; not all may be available on 
 
 
 `/dev/debug` _[num]_::
-The "/dev/debug" interface prints one line to logs each call to the frame buffer library._num_ is a bitvector indicating the levels of verbosity of the output. See _fb.h_ for the bit definitions.
+The "/dev/debug" interface prints one line to logs each call to the frame buffer library._num_ is a bitvector indicating the levels of verbosity of the output. See *fb.h* for the bit definitions.
 
 
 _filename_::
 Disk file interface
 
 
-_hostname:_ _[devicename]_::
-TCP-based network links to a remote framebuffer, where _devicename_ is any from this list, for example, fictitious.brlcad.org:/dev/ik0 or fictitious.brlcad.org:/dev/sgi. A _hostname_ with a null_devicename_ will select the default display device on that host. If explicitly specifying a remote device, be careful not to omit the colon between the host and device name, or you will be specifying a local disk file as the result. Note that for security reasons, it is not permitted to access a disk file via the remote interface.
+*hostname:* _[devicename]_::
+TCP-based network links to a remote framebuffer, where _devicename_ is any from this list, for example, fictitious.brlcad.org:/dev/ik0 or fictitious.brlcad.org:/dev/sgi. A *hostname* with a null_devicename_ will select the default display device on that host. If explicitly specifying a remote device, be careful not to omit the colon between the host and device name, or you will be specifying a local disk file as the result. Note that for security reasons, it is not permitted to access a disk file via the remote interface.
 
 
 

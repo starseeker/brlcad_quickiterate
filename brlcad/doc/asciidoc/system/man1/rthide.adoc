@@ -57,7 +57,7 @@ sets the Boolean variable _use_air_ to the given value.
 
 
 *-o*::
-_output.plot3_ specifies a named file for output. By default, the plot is written to hide.plot3.
+*output.plot3* specifies a named file for output. By default, the plot is written to hide.plot3.
 
 
 *-x#*::
@@ -91,7 +91,7 @@ results in a 32 by 32 UNIXplot file of the named model at the specified azimuth 
 
 eliminates cross-hatching due to curvature. However, cross-hatching resulting from sharp changes in gradient cannot be eliminated.
 
-The plotfile resulting from an *rthide* run can be viewed directly via _plot3-fb_ and may be rotated with _plot3rot_ at the user's option:
+The plotfile resulting from an *rthide* run can be viewed directly via _plot3-fb_ and may be rotated with *plot3rot* at the user's option:
 
 
 ....
@@ -120,7 +120,7 @@ or it can be overlaid onto a solid model in _mged_:
 
 This technique can be used to position and plot *rthide* output.
 
-The output of *rthide* can be overlaid on top of a _rt_ shaded image, for "edge enhancement". Here is a complete example, which assumes that FB_FILE points to a valid framebuffer:
+The output of *rthide* can be overlaid on top of a *rt* shaded image, for "edge enhancement". Here is a complete example, which assumes that FB_FILE points to a valid framebuffer:
 
 
 ....
@@ -156,7 +156,7 @@ Most deficiencies observed while using the *rthide* program are usually with the
 [[authors]]
 == AUTHORS
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -169,3 +169,5 @@ This software is Copyright (c) 1990-2022 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

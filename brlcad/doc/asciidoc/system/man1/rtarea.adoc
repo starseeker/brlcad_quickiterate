@@ -19,7 +19,7 @@ rtarea [<options>]... <model.g> <objects>...
 
 The *rtarea* command calculates the exposed, presented and centers of surface areas of specified geometry objects from a particular view. The summary output includes details for individual regions, assemblies (combinations that contain regions), and summarized totals.
 
-The _exposed_ area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page:
+The *exposed* area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page:
 
 
 ....
@@ -93,7 +93,7 @@ An object that combines both of these sheets would thus report as its exposed ar
 
 
 
-_Presented_ area, unlike exposed area, does not take occlusion into account. It is the equivalent of taking each object and considering it in isolation. So for the previous case of two sheets of metal, the Front Cube would report the same area:
+*Presented* area, unlike exposed area, does not take occlusion into account. It is the equivalent of taking each object and considering it in isolation. So for the previous case of two sheets of metal, the Front Cube would report the same area:
 
 
 ....
@@ -231,3 +231,5 @@ Reports of bugs or problems should be submitted via electronic mail to <bugs@brl
 == AUTHOR
 
 BRL-CAD Team
+
+

@@ -47,7 +47,7 @@ Contrast enhance the output image by the given factor. Default value is 2.0. See
 
 
 *-o*::
-_output.bw_ specifies a named BW(5) file for output. By default, the output is displayed on a frame buffer.
+*output.bw* specifies a named BW(5) file for output. By default, the output is displayed on a frame buffer.
 
 
 *-l1*::
@@ -55,7 +55,7 @@ use the alternate "lighting model". In this mode, double precision floating poin
 
 
 
-See the _rt_ manual page for additional arguments that can be used with this program.
+See the *rt* manual page for additional arguments that can be used with this program.
 
 
 [[see_also]]
@@ -86,3 +86,5 @@ This software is Copyright (c) 1990-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -22,7 +22,7 @@ fbcolor [-F<framebuffer>] [ -s|S<screen_squaresize>] [ -w|W<screen_width>] [ -n|
 
 
 *-F* _framebuffer_::
-This option specifies which framebuffer the image is to be saved from. If not given, the environment variable _FB_FILE_ is used to select the display device (see *brlcad*(1)). If _FB_FILE_ has not been set, the default device for your system will be used.
+This option specifies which framebuffer the image is to be saved from. If not given, the environment variable *FB_FILE* is used to select the display device (see *brlcad*(1)). If *FB_FILE* has not been set, the default device for your system will be used.
 
 
 
@@ -32,11 +32,11 @@ The *-SWN* (or *-swn*) options can all be used in the normal way to specify the 
 
 At the same time, *fbcolor* displays the current RGB and HSI values on your terminal. This allows you to record the RGB or HSI values of the colors you select for later use.
 
-*fbcolor* recognizes two main sets of commands; those which select which parameter to edit, and those which vary the value of the selected parameter. ``_r_'', ``_g_'', and ``_b_'' selects the red, green, or blue color for editing, while ``_h_'', ``_s_'', and ``_i_'', (or ``_v_'') selects the hue, saturation, or intensity for editing. There is one other parameter selection character, the ``_/_'', which steps through the list of color parameters in the order given above.
+*fbcolor* recognizes two main sets of commands; those which select which parameter to edit, and those which vary the value of the selected parameter. ``*r*'', ``*g*'', and ``*b*'' selects the red, green, or blue color for editing, while ``*h*'', ``*s*'', and ``*i*'', (or ``*v*'') selects the hue, saturation, or intensity for editing. There is one other parameter selection character, the ``*/*'', which steps through the list of color parameters in the order given above.
 
-``_+_'' and ```.`'' both increment the currently selected parameter by one; ``_-_'' and ``_,_'' both decrement by one, and ``_>_'' and ``_<_'' increments and decrements by 16. The value of each of the parameters can range from 0 to 255 and all parameters wrap in both directions.
+``*+*'' and ```.`'' both increment the currently selected parameter by one; ``*-*'' and ``*,*'' both decrement by one, and ``*>*'' and ``*<*'' increments and decrements by 16. The value of each of the parameters can range from 0 to 255 and all parameters wrap in both directions.
 
-A ``_?_'' prints a short command summary, and typing ``_q_'', ``_Q_'', ``_<CR>_'', or ``_<LF>_'' exits the program.
+A ``*?*'' prints a short command summary, and typing ``*q*'', ``*Q*'', ``*<CR>*'', or ``*<LF>*'' exits the program.
 
 
 [[see_also]]
@@ -61,3 +61,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

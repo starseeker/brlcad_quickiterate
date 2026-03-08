@@ -37,7 +37,7 @@ The *-w*_file_width_ flag specifies the width of each scanline in the input file
 [[format]]
 == FORMAT
 
-A *bw*(5) file contains sequences of pixels. Each pixel is stored as one _unsigned char_. The first pixel in a _bw_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image.
+A *bw*(5) file contains sequences of pixels. Each pixel is stored as one *unsigned char*. The first pixel in a _bw_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image.
 
 
 [[see_also]]
@@ -62,3 +62,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

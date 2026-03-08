@@ -37,13 +37,13 @@ The beginning of an eight bit inverse video colormap might look as follows:
 [[utilities]]
 == UTILITIES
 
-_fb-cmap_ save a colormap from a framebuffer.
+*fb-cmap* save a colormap from a framebuffer.
 
-_cmap-fb_ load a saved colormap into a framebuffer.
+*cmap-fb* load a saved colormap into a framebuffer.
 
-_fbcmap_ loads one of several "standard" colormaps.
+*fbcmap* loads one of several "standard" colormaps.
 
-_fbgamma_ loads gamma correcting colormaps.
+*fbgamma* loads gamma correcting colormaps.
 
 
 [[files]]
@@ -74,3 +74,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

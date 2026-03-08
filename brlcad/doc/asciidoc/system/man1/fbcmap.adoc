@@ -21,7 +21,7 @@ fbcmap [-F<framebuffer>] [ -w|W<scr_width>] [ -n|N<scr_height>] [ -s|S<squarescr
 
 
 *-F* _framebuffer_::
-This option specifies which framebuffer the image is to be saved from. If not given, the environment variable _FB_FILE_ is used to select the display device (see *brlcad*(1)). If _FB_FILE_ has not been set, the default device for your system will be used.
+This option specifies which framebuffer the image is to be saved from. If not given, the environment variable *FB_FILE* is used to select the display device (see *brlcad*(1)). If *FB_FILE* has not been set, the default device for your system will be used.
 
 
 
@@ -86,3 +86,5 @@ This software is Copyright (c) 1986-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
