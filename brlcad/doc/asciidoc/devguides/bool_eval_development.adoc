@@ -112,7 +112,7 @@ For each intersection curve and overlap intersection event:
 
 ==== boolean.cpp
 
-The `ON_Boolean()()` function performs a single Boolean evaluation on two B-Rep objects. A single execution of the *brep* command in MGED or Archer may involve passing several successive pairs of B-Rep objects to this function.
+The `ON_Boolean()` function performs a single Boolean evaluation on two B-Rep objects. A single execution of the *brep* command in MGED or Archer may involve passing several successive pairs of B-Rep objects to this function.
 
 
 ----
@@ -128,7 +128,7 @@ ON_Boolean(
 	
 ----
 
-In the nontrivial case where the bounding boxes of _brep1_ and _brep2_ intersect, `get_evaluated_faces()()` is called to get the trimmed NURBS faces of the evaluated Boolean result. The faces are then combined into a single B-Rep object returned via the _evaluated_brep_ argument.
+In the nontrivial case where the bounding boxes of _brep1_ and _brep2_ intersect, `get_evaluated_faces()` is called to get the trimmed NURBS faces of the evaluated Boolean result. The faces are then combined into a single B-Rep object returned via the _evaluated_brep_ argument.
 
 
 ----
@@ -143,7 +143,7 @@ get_evaluated_faces(
 	
 ----
 
-The intersection curves between the faces of _brep1_ and _brep2_ are found by `get_face_intersection_curves()()`. These curves are used to split the original surfaces into pieces, each becoming a new trimmed NURBS face. The `categorize_trimmed_faces()()` function is used to identify which pieces, based on the Boolean operation, are part of the evaluated result. Each `TrimmedFace` whose `m_belong_to_final` member is marked `TrimmedFace::BELONG` is used by `ON_Boolean()()` to create the final evaluated result.
+The intersection curves between the faces of _brep1_ and _brep2_ are found by `get_face_intersection_curves()`. These curves are used to split the original surfaces into pieces, each becoming a new trimmed NURBS face. The `categorize_trimmed_faces()` function is used to identify which pieces, based on the Boolean operation, are part of the evaluated result. Each `TrimmedFace` whose `m_belong_to_final` member is marked `TrimmedFace::BELONG` is used by `ON_Boolean()` to create the final evaluated result.
 
 
 ----
@@ -160,7 +160,7 @@ get_face_intersection_curves(
 	
 ----
 
-Each pair of _brep1_ and _brep2_ surfaces whose bounding boxes intersect are passed to the `ON_Intersect()()` surface-surface intersection routine. The `get_subcurves_inside_faces()()` routine is used to remove irrelevant parts of the surface-surface intersection curves based on the trimming curves of the associated faces.
+Each pair of _brep1_ and _brep2_ surfaces whose bounding boxes intersect are passed to the `ON_Intersect()` surface-surface intersection routine. The `get_subcurves_inside_faces()` routine is used to remove irrelevant parts of the surface-surface intersection curves based on the trimming curves of the associated faces.
 
 
 ==== intersect.cpp
@@ -188,13 +188,13 @@ ON_Intersect(const ON_Surface *surfA,
 
 The first stage of the surface-surface intersection algorithm attempts to identify overlap intersections (areas where the two surfaces are coincident). Our assumption is that the boundary curve of any overlap region must be formed from isocurves of the overlapping surfaces.
 
-Subcurves of isocurves that intersect both surfaces, such that the surfaces are coincident on one side of the curve but not the other, potentially form part of overlap boundaries. These curves are identified using `find_overlap_boundary_curves()()`. To avoid wasted computations, this function also returns intersection points and non-boundary intersection curves which were found during the search for boundary curves.
+Subcurves of isocurves that intersect both surfaces, such that the surfaces are coincident on one side of the curve but not the other, potentially form part of overlap boundaries. These curves are identified using `find_overlap_boundary_curves()`. To avoid wasted computations, this function also returns intersection points and non-boundary intersection curves which were found during the search for boundary curves.
 
-Then, the `split_overlaps_at_intersections()()` function is run, and curve pieces that share endpoints are stitched together. The stitched boundary curves which close to form loops are recorded as overlap intersection events.
+Then, the `split_overlaps_at_intersections()` function is run, and curve pieces that share endpoints are stitched together. The stitched boundary curves which close to form loops are recorded as overlap intersection events.
 
 The second stage of the surface-surface intersection algorithm attempts to identify other intersection curves and points. The input surfaces _surfA_ and _surfB_ are subdivided into four subsurfaces, whose bounding boxes are tested in pairs to see which subsurfaces potentially intersect. This subdivision repeats to a fixed depth determined by the constant `MAX_SSI_DEPTH` (defined in `brep_defines.h`).
 
-Subsurfaces that lie completely inside an overlap region identified in the first stage are discarded. Each remaining pair of subsurfaces with intersecting bounding boxes is tested for intersection. This is accomplished by approximating each subsurface with two triangles (i.e. a 'split' quad whose corners coincide with those of the actual subsurface patch, which has been split diagonally for a more accurate fit). The triangles are then intersected, and the average of all intersection points is used as the initial guess for a Newton iterative solver, implemented by `newton_ssi()()`, which searches for a point close to the initial guess point which lies on both surfaces.
+Subsurfaces that lie completely inside an overlap region identified in the first stage are discarded. Each remaining pair of subsurfaces with intersecting bounding boxes is tested for intersection. This is accomplished by approximating each subsurface with two triangles (i.e. a 'split' quad whose corners coincide with those of the actual subsurface patch, which has been split diagonally for a more accurate fit). The triangles are then intersected, and the average of all intersection points is used as the initial guess for a Newton iterative solver, implemented by `newton_ssi()`, which searches for a point close to the initial guess point which lies on both surfaces.
 
 Solved points that reside inside an overlap region identified in the first stage are discarded. Of the remaining solved intersection points between _surfA_ and _surfB_, those which are near one another are stitched together into polyline curves. If a line or conic curve can be fit to the polyline curves in 2D, the fit curve replaces the original _surfA_ and/or _surfB_ polyline curve.
 
@@ -217,7 +217,7 @@ Another example is `double ON_Line::MinimumDistanceTo(const ON_Line&)()`. While 
 
 ==== Arrays
 
-OpenNURBS includes two general array classes, `ON_ClassArray` and `ON_SimpleArray`, which are similar to C++'s `std::vector`. Besides having slightly friendlier interfaces, they also feature some higher-level member functions like `Reverse()()` and `Quicksort()()`.
+OpenNURBS includes two general array classes, `ON_ClassArray` and `ON_SimpleArray`, which are similar to C++'s `std::vector`. Besides having slightly friendlier interfaces, they also feature some higher-level member functions like `Reverse()` and `Quicksort()`.
 
 The primary difference between the two classes is that `ON_SimpleArray` doesn't bother constructing and destructing its items. This makes it more efficient than `ON_ClassArray`, but unsuitable for class objects (though pointers to objects are fine). `ON_ClassArray` requires items to have correctly implemented copy and assignment functions.
 
@@ -226,9 +226,9 @@ The NURBS Boolean evaluation implementation generally employs a combined array o
 
 [WARNING]
 ====
-The OpenNURBS array classes do not check for out-of-bounds indexing. This isn't a problem in the simple case where items are added with `Append()()` and elements stem:[[0,]`Count()()`stem:[- 1]] are iterated over.
+The OpenNURBS array classes do not check for out-of-bounds indexing. This isn't a problem in the simple case where items are added with `Append()` and elements stem:[[0,]`Count()`stem:[- 1]] are iterated over.
 
-However, if the array will be a fixed size whose items are assigned in a non-sequential order, both the _capacity_ and _count_ should be set, or else the reported `Count()()` will be incorrect, and copying arrays by assignment won't work.
+However, if the array will be a fixed size whose items are assigned in a non-sequential order, both the _capacity_ and _count_ should be set, or else the reported `Count()` will be incorrect, and copying arrays by assignment won't work.
 
 
 ----
@@ -247,7 +247,7 @@ However, if the array will be a fixed size whose items are assigned in a non-seq
 
 Curves and surfaces are nearly always allocated on the heap and referenced by pointers, both in the OpenNURBS library, and in the NURBS Boolean evaluation implementation.
 
-Mostly these allocations are simply done with the `new` keyword as with any other class. However, a few classes, notably `ON_Brep` have a `New()()` function that wraps the allocation, which is preferred over using `new` directly for technical reasons specified in the OpenNURBS `opennurbs_brep.h` header.
+Mostly these allocations are simply done with the `new` keyword as with any other class. However, a few classes, notably `ON_Brep` have a `New()` function that wraps the allocation, which is preferred over using `new` directly for technical reasons specified in the OpenNURBS `opennurbs_brep.h` header.
 
 Pointers to objects, curves in particular, are generally "stolen" to avoid having to create a new copy of the object.
 
@@ -315,9 +315,9 @@ The NURBS Boolean evaluation implementation generally constructs 2D curves by po
 
 ==== Bounding Boxes
 
-`ON_BoundingBox` is returned by the `BoundingBox()()`, `GetTightBoundingBox()()`, and `GetBBox()()` functions, which are implemented by all geometry classes inheriting from `ON_Geometry`.
+`ON_BoundingBox` is returned by the `BoundingBox()`, `GetTightBoundingBox()`, and `GetBBox()` functions, which are implemented by all geometry classes inheriting from `ON_Geometry`.
 
-The most commonly used members of `ON_BoundingBox` are `Diagonal()()` (usually in an expression such as `bbox.Diagonal().Length()` used as a scalar size estimate), and `IsPointIn()()` and `MinimumDistanceTo()()` (used in intersection tests).
+The most commonly used members of `ON_BoundingBox` are `Diagonal()` (usually in an expression such as `bbox.Diagonal().Length()` used as a scalar size estimate), and `IsPointIn()` and `MinimumDistanceTo()` (used in intersection tests).
 
 
 ==== Domain Intervals
@@ -327,7 +327,7 @@ The most commonly used members of `ON_BoundingBox` are `Diagonal()()` (usually i
 
 [WARNING]
 ====
-The start, end, and overall length of the domain are _arbitrary_, and `m_t[0]` need not be less than `m_t[1]`. If the numerically smaller or larger domain endpoint is needed, these should be accessed via the `Min()()` and `Max()()` member functions.
+The start, end, and overall length of the domain are _arbitrary_, and `m_t[0]` need not be less than `m_t[1]`. If the numerically smaller or larger domain endpoint is needed, these should be accessed via the `Min()` and `Max()` member functions.
 
 ====
 
@@ -336,18 +336,18 @@ The `ParameterAt(double x)()` function translates a _normalized_ parameter (from
 
 ==== Parametric Curves
 
-The most frequently used geometry class is `ON_Curve`, a generic container for parametric curves. The curve is interrogated by using the `PointAt(double t)()` method to evaluate points at arbitrary values inside the curve's domain, which is specified by the `ON_Interval` returned by the `Domain()()` method. The start and end points of the curve have dedicated access methods, `PointAtStart()()` and `PointAtEnd()()`.
+The most frequently used geometry class is `ON_Curve`, a generic container for parametric curves. The curve is interrogated by using the `PointAt(double t)()` method to evaluate points at arbitrary values inside the curve's domain, which is specified by the `ON_Interval` returned by the `Domain()` method. The start and end points of the curve have dedicated access methods, `PointAtStart()` and `PointAtEnd()`.
 
 
 [WARNING]
 ====
-`PointAt()()` takes a real parameter; parameters normalized to stem:[[0, 1]] must be converted. For example, the midpoint of the curve can be found as `curve->PointAt(curve->Domain().ParameterAt(.5))`. `PointAt()()` _does not check_ if the _t_ value you give it is inside the curve's domain, so you have to get this right!
+`PointAt()` takes a real parameter; parameters normalized to stem:[[0, 1]] must be converted. For example, the midpoint of the curve can be found as `curve->PointAt(curve->Domain().ParameterAt(.5))`. `PointAt()` _does not check_ if the _t_ value you give it is inside the curve's domain, so you have to get this right!
 
 ====
 
-All the `PointAt()()` methods return an `ON_3dPoint`, though in the common case where `ON_Curve` objects are representing 2D trim curves, the z coordinate will be 0.0.
+All the `PointAt()` methods return an `ON_3dPoint`, though in the common case where `ON_Curve` objects are representing 2D trim curves, the z coordinate will be 0.0.
 
-It is sometimes necessary to reverse a curve's domain. This is done using the `Reverse()()` method to facilitate stitching curves together. The function has a Boolean `int` return value that must be checked.
+It is sometimes necessary to reverse a curve's domain. This is done using the `Reverse()` method to facilitate stitching curves together. The function has a Boolean `int` return value that must be checked.
 
 
 
@@ -370,11 +370,11 @@ if (curveA->PointAtStart().DistanceTo(curveB->PointAtStart()) < dist_tol) {
 
 [WARNING]
 ====
-Comparing curve endpoints, or even just bounding boxes (retrieved via the `BoundingBox()()` method), is often sufficient in the context of different intersection and stitching procedures. However, it's important to keep in mind that in the general case, the shape of the curve between its endpoints or within its bounding box could be anything. For example, two curves with identical start and end points could both be linear, creating a degenerate loop. A curve whose endpoints are equal within the OpenNURBS `ON_ZERO_TOLERANCE` (testable using the `IsClosed()()` method), may be self-intersecting, or degenerate to a point.
+Comparing curve endpoints, or even just bounding boxes (retrieved via the `BoundingBox()` method), is often sufficient in the context of different intersection and stitching procedures. However, it's important to keep in mind that in the general case, the shape of the curve between its endpoints or within its bounding box could be anything. For example, two curves with identical start and end points could both be linear, creating a degenerate loop. A curve whose endpoints are equal within the OpenNURBS `ON_ZERO_TOLERANCE` (testable using the `IsClosed()` method), may be self-intersecting, or degenerate to a point.
 
 ====
 
-A copy of a curve is easily made using the `Duplicate()()` member function, which simply wraps a standard copy procedure:
+A copy of a curve is easily made using the `Duplicate()` member function, which simply wraps a standard copy procedure:
 
 
 ----
@@ -441,7 +441,7 @@ ON_3dPoint trim_midpt_3d = surface->PointAt(trim_midpt_uv.x, trim_midpt_uv.y);
 
 ==== Boundary Representation Objects
 
-`ON_Brep` is the top-level OpenNURBS class used to represent the two input objects and the evaluated result of the `ON_Boolean()()` function. The geometry is encoded as a collection of faces, which for our purposes should be topologically connected to enclose solid volumes.
+`ON_Brep` is the top-level OpenNURBS class used to represent the two input objects and the evaluated result of the `ON_Boolean()` function. The geometry is encoded as a collection of faces, which for our purposes should be topologically connected to enclose solid volumes.
 
 An object's faces are `ON_BrepFace` objects stored in the `ON_Brep` face array, `m_F[]`.
 
@@ -548,9 +548,9 @@ Suppose for example we have three arrays of corresponding points that are sample
 
 ===== Intersection Tolerances
 
-The `ON_Intersect()()` intersection routines (`intersect.cpp`) generally take an `isect_tol` argument, which is a 3D tolerance normally equal to the constant `ON_INTERSECTION_TOL`. 2D tolerances, following the convention described above, are generally named `isect_tolA` and `isect_tolB`.
+The `ON_Intersect()` intersection routines (`intersect.cpp`) generally take an `isect_tol` argument, which is a 3D tolerance normally equal to the constant `ON_INTERSECTION_TOL`. 2D tolerances, following the convention described above, are generally named `isect_tolA` and `isect_tolB`.
 
-2D tolerance values for curves and surfaces are derived from the 3D tolerance value using the `tolerance_2d_from_3d()()` routines. The length of the diagonal of the 3D bounding box of the curve or surface is divided by the length of the 2D domain to get a rough estimate of what distance in the 2D domain corresponds to the 3D tolerance distance. In other words, the hope is that two points on a `curveA` or `surfA` that are `isect_tolA` units apart in 2D, will evaluate to two 3D points that are `isect_tol` units apart in 3D.
+2D tolerance values for curves and surfaces are derived from the 3D tolerance value using the `tolerance_2d_from_3d()` routines. The length of the diagonal of the 3D bounding box of the curve or surface is divided by the length of the 2D domain to get a rough estimate of what distance in the 2D domain corresponds to the 3D tolerance distance. In other words, the hope is that two points on a `curveA` or `surfA` that are `isect_tolA` units apart in 2D, will evaluate to two 3D points that are `isect_tol` units apart in 3D.
 
 
 [WARNING]
@@ -586,7 +586,7 @@ Start and end points of closed curves are rarely identical. So if a curve is fou
 ====
 Producing subcurves of existing curves is a common operation in the NURBS Boolean evaluation implementation. This is a prime example of an operation that can introduce fuzziness into the evaluation. For example, we may be splitting a curve to remove a portion of it, and end up with two new curves with endpoints that used to align when part of the original curve, but no longer do.
 
-The `Split()()` method of `ON_Curve` can be used to produce subcurves, but in the implementation it's much preferred to use the `sub_curve()()` function defined in `intersect.cpp` which wraps `Split()()` and correctly handles clamping of curve parameters to domain endpoints.
+The `Split()` method of `ON_Curve` can be used to produce subcurves, but in the implementation it's much preferred to use the `sub_curve()` function defined in `intersect.cpp` which wraps `Split()` and correctly handles clamping of curve parameters to domain endpoints.
 
 ====
 
@@ -600,7 +600,7 @@ This fuzziness produced in the solver's results can be mitigated in the context 
 
 [WARNING]
 ====
-It's tempting to test curve characteristics or make inside/outside determinations, etc. by using the `ON_Intersect()()` functions. However, there's a persistent risk that the error in the iteratively solved results will cause incorrect determinations that cascade into larger problems over the course of the evaluation. For this reason, the `ON_Intersect()()` functions should be avoided whenever possible.
+It's tempting to test curve characteristics or make inside/outside determinations, etc. by using the `ON_Intersect()` functions. However, there's a persistent risk that the error in the iteratively solved results will cause incorrect determinations that cascade into larger problems over the course of the evaluation. For this reason, the `ON_Intersect()` functions should be avoided whenever possible.
 
 ====
 
@@ -674,7 +674,7 @@ To make it easier to check that drawn intersection curves are of the correct typ
 image::../../devguides/images/compare_endpoint_style.png[]
 
 
-The ssx pairs are recorded in the `find_overlap_boundary_curves()()` function in `intersect.cpp`.
+The ssx pairs are recorded in the `find_overlap_boundary_curves()` function in `intersect.cpp`.
 
 
 ===== The isocsx Subcommands
@@ -686,7 +686,7 @@ The ssx pairs are recorded in the `find_overlap_boundary_curves()()` function in
 The plotted intersection curves are color-coded for easy type-checking, e.g. overlap intersections are drawn in green.
 
 
-The isocsx curves are written in the `find_overlap_boundary_curves()()` function in `intersect.cpp`.
+The isocsx curves are written in the `find_overlap_boundary_curves()` function in `intersect.cpp`.
 
 
 ===== Face-Evaluation Subcommands
@@ -715,9 +715,9 @@ After each face is drawn independently, all faces are drawn at the same time.
 This subcommand doesn't draw any contextual geometry; only the face curves. Manually drawing a transparent shaded view of the original geometry usually works well for context.
 
 
-The clipped face curves are recorded in `get_face_intersection_curves()()` in `boolean.cpp`.
+The clipped face curves are recorded in `get_face_intersection_curves()` in `boolean.cpp`.
 
-The linked curves and the categorized split faces are recorded in `get_evaluated_faces()()` in `boolean.cpp`.
+The linked curves and the categorized split faces are recorded in `get_evaluated_faces()` in `boolean.cpp`.
 
 
 
@@ -725,9 +725,9 @@ The linked curves and the categorized split faces are recorded in `get_evaluated
 
 It's possible to write out custom curves from any part of the evaluation (i.e. those not covered by *dplot*) and view them in MGED/Archer.
 
-You can pass a 3D `ON_Curve` to the `DebugPlot::Plot3DCurve()()` function or a 2D `ON_Curve` and an associated `ON_Surface` to the `DebugPlot::Plot3DCurve()()` function.
+You can pass a 3D `ON_Curve` to the `DebugPlot::Plot3DCurve()` function or a 2D `ON_Curve` and an associated `ON_Surface` to the `DebugPlot::Plot3DCurve()` function.
 
-Both of these functions take an arbitrary filename for a plot3 file the function will write, as well as a color for the curve. The `DebugPlot::Plot3DCurve()()` has an optional `vlist` parameter which you should omit (see the full definitions in `debug_plot.cpp`).
+Both of these functions take an arbitrary filename for a plot3 file the function will write, as well as a color for the curve. The `DebugPlot::Plot3DCurve()` has an optional `vlist` parameter which you should omit (see the full definitions in `debug_plot.cpp`).
 
 .Writing a 2D Curve as a plot3 File
 [example]
@@ -786,11 +786,11 @@ After you notice a problem in the output shown by the *dplot* command, you need 
 +
 For a multi-part evaluation, you'll need to manually create the appropriate intermediate evaluation, corresponding to the `bool<n>.dplot` showing the error, to run the *brep* command on.
 
-. Set a breakpoint at the `ON_Intersect()()` call in `get_face_intersection_curves()()` with the condition `i == <i> && j == <j>`.
+. Set a breakpoint at the `ON_Intersect()` call in `get_face_intersection_curves()` with the condition `i == <i> && j == <j>`.
 +
-For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
+For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
 
-. Start stepping through the `ON_Intersect()()` call.
+. Start stepping through the `ON_Intersect()` call.
 
 
 [discrete]
@@ -802,11 +802,11 @@ For a multi-part evaluation, you'll need to first skip to the correct invocation
 +
 For a multi-part evaluation, you'll need to manually create the appropriate intermediate evaluation, corresponding to the `bool<n>.dplot` showing the error, to run the *brep* command on.
 
-. Set a breakpoint at the `ON_Intersect()()` call in `get_face_intersection_curves()()` with the condition `dplot->SurfacePairs() == <n - 1> && i == <i> && j == <j>`.
+. Set a breakpoint at the `ON_Intersect()` call in `get_face_intersection_curves()` with the condition `dplot->SurfacePairs() == <n - 1> && i == <i> && j == <j>`.
 +
-For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
+For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
 
-. When the break is reached, add a breakpoint at `find_overlap_boundary_curves()()` and advance to that function.
+. When the break is reached, add a breakpoint at `find_overlap_boundary_curves()` and advance to that function.
 . Step through the intersections, printing out the isocurve endpoints and visualize them in the context of the geometry in Archer (e.g. by centering the view at those points, or creating spheres centered on them, etc.) to find the isocurves of interest:
 
 
@@ -826,9 +826,9 @@ For a multi-part evaluation, you'll need to first skip to the correct invocation
 
 
 . Note the index `<n>` of the surface-surface intersection used as the argument to the *isocsx* subcommand.
-. Set a break after the call to `find_overlap_boundary_curves()()` in `intersect.cpp` with the condition `dplot->SurfacePairs() == <n>`.
+. Set a break after the call to `find_overlap_boundary_curves()` in `intersect.cpp` with the condition `dplot->SurfacePairs() == <n>`.
 +
-For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
+For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
 
 . Inspect the `overlaps` array.
 
@@ -838,11 +838,11 @@ For a multi-part evaluation, you'll need to first skip to the correct invocation
 
 
 . Note the index `<n>` of the surface-surface intersection used as the argument to the *ssx* subcommand, and the index `<k>` assigned to the incorrect intersection event.
-. Set a breakpoint at the `ON_Intersect()()` call in `get_face_intersection_curves()()` with the condition `dplot->SurfacePairs() == <n - 1>`.
+. Set a breakpoint at the `ON_Intersect()` call in `get_face_intersection_curves()` with the condition `dplot->SurfacePairs() == <n - 1>`.
 +
-For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
+For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
 
-. Step into `ON_Intersect()()` and wait for `x.Count() == <k - 1>`.
+. Step into `ON_Intersect()` and wait for `x.Count() == <k - 1>`.
 . Investigate the creation of the next intersection event.
 
 
@@ -851,11 +851,11 @@ For a multi-part evaluation, you'll need to first skip to the correct invocation
 
 
 . Note the index `<n>` of the surface-surface intersection used as the argument to the *ssx* and *fcurves* subcommands, and the index `<k>` assigned by *fcurves* to the incorrect clipped curves.
-. Set a breakpoint at the `get_subcurves_inside_faces()()` call inside `get_face_intersection_curves()()` with the condition `dplot->SurfacePairs() == <n + 1> && k == <k>`.
+. Set a breakpoint at the `get_subcurves_inside_faces()` call inside `get_face_intersection_curves()` with the condition `dplot->SurfacePairs() == <n + 1> && k == <k>`.
 +
-For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
+For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
 
-. Start stepping through `get_face_intersection_curves()()` to investigate how the event intersection curves are being clipped.
+. Start stepping through `get_face_intersection_curves()` to investigate how the event intersection curves are being clipped.
 
 
 [discrete]
@@ -863,11 +863,11 @@ For a multi-part evaluation, you'll need to first skip to the correct invocation
 
 
 . Note the index `<n>` assigned by *lcurves* to the relevant linked curves.
-. Set a breakpoint at the `split_trimmed_face()()` call inside `get_evaluated_faces()()` with the condition `dplot->LinkedCurves() >= <n + 1>`.
+. Set a breakpoint at the `split_trimmed_face()` call inside `get_evaluated_faces()` with the condition `dplot->LinkedCurves() >= <n + 1>`.
 +
-For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
+For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
 
-. Inside `split_trimmed_face()()`, check the input face loops and ssx curves:
+. Inside `split_trimmed_face()`, check the input face loops and ssx curves:
 +
 
 ....
@@ -1005,9 +1005,9 @@ Archer> dplot bool1.dplot fcurves 10
 +
 The clipped curves are shown to be incorrect. This isolates the problem to a point between the time the isocurve-surface intersections were found and the time the clipped curves were created.
 
-. The isocsx plots are written by the `DebugPlot::IsoCSX()()` method inside the `find_overlap_boundary_curves()()` routine in `intersect.cpp`. The `find_overlap_boundary_curves()()` routine is called from the `ON_Intersect()()` surface-surface intersection function, also defined in `intersect.cpp`. The next call after `find_overlap_boundary_curves()()` returns is `split_overlaps_at_intersections()()`.
+. The isocsx plots are written by the `DebugPlot::IsoCSX()` method inside the `find_overlap_boundary_curves()` routine in `intersect.cpp`. The `find_overlap_boundary_curves()` routine is called from the `ON_Intersect()` surface-surface intersection function, also defined in `intersect.cpp`. The next call after `find_overlap_boundary_curves()` returns is `split_overlaps_at_intersections()`.
 +
-To quickly check if the splitting function introduced a problem in the overlap curves, we insert code to write out the overlap curves as `.plot3` files just after the `split_overlaps_at_intersections()()` call.
+To quickly check if the splitting function introduced a problem in the overlap curves, we insert code to write out the overlap curves as `.plot3` files just after the `split_overlaps_at_intersections()` call.
 
 +
 Since the `ssx_index` values reported by *dplot* are numbered from 0, the intersection we want to investigate, whose `ssx_index` is 10, will be the 11th intersection recorded during the evaluation.
@@ -1068,7 +1068,7 @@ When the four curves are drawn, we see they are still correct after splitting, a
 
 . The next step in processing the overlap curves is linking contiguous curve segments together. We'll once again modify the source code, this time to write out the intermediate linked overlap curves.
 +
-Curve endpoints are tested to see if they coincide, and contiguous curves are linked with the `link_curves()()` routine, which returns a linked curve that replaces the original curves in the `overlaps[]` array. We'll write out each such curve returned by `link_curves()()`.
+Curve endpoints are tested to see if they coincide, and contiguous curves are linked with the `link_curves()` routine, which returns a linked curve that replaces the original curves in the `overlaps[]` array. We'll write out each such curve returned by `link_curves()`.
 
 +
 
@@ -1122,7 +1122,7 @@ image::../../devguides/images/intermediate_linked_curves.png[]
 
 . We'll perform the evaluation again via a debugger. `X.brep` is removed from the database, and the `*.dplot` and `*.plot3` files are removed from the working directory.
 +
-A breakpoint is set just before the calls to `link_curves()()` in the `ON_Intersect()()` surface-surface intersection function (line 3885 in `intersect.cpp` at the time of writing), with the condition that `dplot->SurfacePairs() == 10`, and that the overlap indices `i` and `j` match the linked curve of interest.
+A breakpoint is set just before the calls to `link_curves()` in the `ON_Intersect()` surface-surface intersection function (line 3885 in `intersect.cpp` at the time of writing), with the condition that `dplot->SurfacePairs() == 10`, and that the overlap indices `i` and `j` match the linked curve of interest.
 
 +
 
@@ -1142,7 +1142,7 @@ $ gdb mged
 Stepping from the breakpoint (e.g. with gdb's *next* command) we see that the macro test `OVERLAPS_LINKED(Start, End)` evaluates as true, indicating that the start of the `overlaps[i]` curves coincide with the end of the `overlaps[j]` curves.
 
 +
-Looking at the implementation of `link_curves()()` in `intersect.cpp`, we can see that the second curve argument is joined to the first curve argument using the OpenNURBS `ON_NurbsCurve::Append()()` member function. So, the start point of the second curve is joined to the end point of the first curve.
+Looking at the implementation of `link_curves()` in `intersect.cpp`, we can see that the second curve argument is joined to the first curve argument using the OpenNURBS `ON_NurbsCurve::Append()` member function. So, the start point of the second curve is joined to the end point of the first curve.
 
 +
 
@@ -1176,16 +1176,16 @@ link_curves(ON_Curve *&c1, ON_Curve *&c2)
 ----
 
 +
-`link_curves()()` is here being called with `overlaps[j]->m_curve3d` as its first argument and `overlaps[i]->m_curve3d` as its second argument. This matches our intention to link the end of the `overlaps[j]` curves to the start of the `overlaps[i]` curves.
+`link_curves()` is here being called with `overlaps[j]->m_curve3d` as its first argument and `overlaps[i]->m_curve3d` as its second argument. This matches our intention to link the end of the `overlaps[j]` curves to the start of the `overlaps[i]` curves.
 
 +
-However, going back to the `link_curves()()` implementation, we also see a call to `extend_curve_end_to_point()()` which may modify the first curve argument.
+However, going back to the `link_curves()` implementation, we also see a call to `extend_curve_end_to_point()` which may modify the first curve argument.
 
 +
 This intent of this call is to ensure the end point of the first curve meets the start point of the second curve as tightly as possible (tighter than the `isect_tol` value that was used to determine the points were coincident) before the curves are joined together.
 
 +
-However, we see the point argument passed to `extend_curve_end_to_point()()` is `c2->PointAtEnd()`, when it should be `c2->PointAtStart()`.
+However, we see the point argument passed to `extend_curve_end_to_point()` is `c2->PointAtEnd()`, when it should be `c2->PointAtStart()`.
 
 . This error is corrected and the code is rebuilt. The evaluation is re-run, and we use the *dplot* command to verify that the overlap intersection associated with `ssx_index` 10 is now correct.
 +
