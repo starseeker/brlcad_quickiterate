@@ -1348,7 +1348,6 @@ DbiState::update()
 
     // Update the primary data structures
     for(s_it = removed.begin(); s_it != removed.end(); s_it++) {
-	bu_log("removed: %llu\n", *s_it);
 
 	// Combs with this key in their child set need to be updated to refer
 	// to it as an invalid entry.
@@ -1390,7 +1389,6 @@ DbiState::update()
 
     for(g_it = added.begin(); g_it != added.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("added: %s\n", dp->d_namep);
 	unsigned long long hash = update_dp(dp, 0);
 
 	// If this name was previously the source of an invalid reference,
@@ -1400,7 +1398,6 @@ DbiState::update()
 
     for(g_it = changed.begin(); g_it != changed.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("changed: %s\n", dp->d_namep);
 	// Properties need to be updated - comb children, colors, matrices,
 	// bounding box for solids, etc.
 	update_dp(dp, 1);

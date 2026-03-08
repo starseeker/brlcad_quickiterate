@@ -780,7 +780,14 @@ QgModel::g_update(struct db_i *n_dbip)
     }
 
     if (!n_dbip) {
-	// if we have no dbip, clear out everything
+	// if we have no dbip, clear out everything.
+	// Also null out our observer handle: closedb deleted the old DbiState
+	// so observed_dbi_state_ is now a dangling pointer.  Clearing it here
+	// prevents UB in the pointer comparison further down when a new file
+	// is opened and a fresh DbiState is installed.
+	if (observed_dbi_state_) {
+	    observed_dbi_state_ = nullptr;
+	}
 	beginResetModel();
 	for (QgItem *itm : items)
 	    delete itm;
