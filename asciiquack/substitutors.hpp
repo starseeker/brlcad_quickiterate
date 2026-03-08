@@ -284,9 +284,11 @@ inline std::string apply_quote_rx(
         out = aqrx::regex_replace(out, rx, "$1<code>$2</code>");
     }
     // #highlight#
+    // Content must start and end with an alphanumeric character to avoid
+    // false positives on option values like "#/#/#" or "#,#".
     {
         static const aqrx::regex rx(
-            R"((^|[^#a-zA-Z0-9])#(\S|\S.*?\S)#(?=[^#a-zA-Z0-9]|$))",
+            R"((^|[^#a-zA-Z0-9])#([a-zA-Z0-9][^#\n]*[a-zA-Z0-9]|[a-zA-Z0-9])#(?=[^#a-zA-Z0-9]|$))",
             aqrx::ECMAScript | aqrx::optimize);
         out = aqrx::regex_replace(out, rx, "$1<mark>$2</mark>");
     }
