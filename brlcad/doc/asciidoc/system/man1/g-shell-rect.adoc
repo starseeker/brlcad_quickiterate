@@ -22,15 +22,15 @@ g-shell-rect [-a<rpp_args>] [-R<edge_tol>] [-p<plotfile>] [-X<lvl>] [-d<debug_le
 The following command line options are recognized:
 
 
-*-g*__cell_size__::
+*-g* __cell_size__::
 Specify the dimensions (in millimeters) of the grid spacing. The default is 50mm.
 
 
-*-i*__initial_ray_dir__::
+*-i* __initial_ray_dir__::
 Specify the initial ray direction. Valid values are X, Y, or Z. The best results are usually obtained by raytracing in the direction that produces the most hits first.
 
 
-*-d*__debug_level__::
+*-d* __debug_level__::
 Set the debugging level. Higher values produce more debugging information.
 
 
@@ -42,23 +42,23 @@ Suppresses the refinement stage (firing rays from the secondary and tertiary axi
 Output a BOT rather than an NMG.
 
 
-*-a*__rpp_args__::
+*-a* __rpp_args__::
 Add an RPP for refining.
 
 
-*-R*__edge_tol__::
+*-R* __edge_tol__::
 Supply edge tolerance.
 
 
-*-p*_plotfile_::
+*-p* _plotfile_::
 Supply plotfile for plot edge breaking.
 
 
-*-X*_lvl_::
+*-X* _lvl_::
 Supply NMG debug flags.
 
 
-*-o*_output.g_::
+*-o* _output.g_::
 Specifies the name of the BRL-CAD geometry file to create.
 
 

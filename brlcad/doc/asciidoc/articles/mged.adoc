@@ -2283,11 +2283,11 @@ mged> ae -90 90
 
 – View from top direction.
 
-`mged>`*ae 270 0* – View from right hand side.
+`mged>` *ae 270 0* – View from right hand side.
 
-`mged>`*ae 35 25 10* – View from azimuth 35, elevation 25, with view rotated by 10˚.
+`mged>` *ae 35 25 10* – View from azimuth 35, elevation 25, with view rotated by 10˚.
 
-`mged>`*ae -i 0 0 5* – Rotate the current view through 5˚ about the viewing direction.
+`mged>` *ae -i 0 0 5* – Rotate the current view through 5˚ about the viewing direction.
 
 
 
@@ -2369,7 +2369,7 @@ mged> arb new_arb 35 25
 
 – Create __new_arb__ with a rotation angle of 35˚ and a fallback angle of 25˚.
 
-`mged>` <<ae,*ae*>>*35 25* – Rotate view to look straight on at square face of __new_arb__
+`mged>`  <<ae,*ae*>>*35 25* – Rotate view to look straight on at square face of __new_arb__
 
 **
 
@@ -2406,9 +2406,9 @@ mged> <<z,*Z*>>
 
 – Clear the _mged_ display(s).
 
-`mged>` <<E,*E*>>*region_1* – _E_ a single region.
+`mged>`  <<E,*E*>>*region_1* – _E_ a single region.
 
-`mged>` *area* – Calculate the presented area of the enclosing polygon of the region.
+`mged>`  *area* – Calculate the presented area of the enclosing polygon of the region.
 
 **
 
@@ -2450,17 +2450,17 @@ mged> *attach -n myOgl -W 720 -N 486 ogl* – Open a 720x486 OpenGL display wind
 
 mged> *attach -n myX -d remote_host:0 -i myInit X* – Open an X display window named myX on remote_host that is initialized by myInit. – myInit might contain user specified bindings like those found in the default bindings.
 
-`mged>` *toplevel .t* – Create a toplevel window named .t.
+`mged>`  *toplevel .t* – Create a toplevel window named .t.
 
-`mged>` *attach -t 0 -S 800 -n .t.ogl ogl* – Open a 800x800 OpenGL display window named .t.ogl that is not a top-level window.
+`mged>`  *attach -t 0 -S 800 -n .t.ogl ogl* – Open a 800x800 OpenGL display window named .t.ogl that is not a top-level window.
 
-`mged>` *button .t.dismiss -text Dismiss -command “release .t.ogl; destroy .t”* – Create a button to dismiss the display manager etc.
+`mged>`  *button .t.dismiss -text Dismiss -command “release .t.ogl; destroy .t”* – Create a button to dismiss the display manager etc.
 
-`mged>` *pack .t.ogl -expand 1 -fill both* – Pack the display manager inside .t.
+`mged>`  *pack .t.ogl -expand 1 -fill both* – Pack the display manager inside .t.
 
-`mged>` *pack .t.dismiss* – Pack the Dismiss button inside .t.
+`mged>`  *pack .t.dismiss* – Pack the Dismiss button inside .t.
 
-`mged>` *attach* – List the help message that includes the valid display types.
+`mged>`  *attach* – List the help message that includes the valid display types.
 
 **
 
@@ -2538,11 +2538,11 @@ _L_-> unsigned long (64 bit)
 
 Examples:
 
-`mged>`*bo -i -u c cmds /usr/brlcad/html/manuals/mged/mged_cmds.html*
+`mged>` *bo -i -u c cmds /usr/brlcad/html/manuals/mged/mged_cmds.html*
 
 – Create an opaque uniform binary object of characters with the name _cmds_ that contains the contents of the file __/usr/brlcad/html/manuals/mged/mged_cmds.html.__
 
-`mged>`*bo -o /home/jim/cmds.html cmds*
+`mged>` *bo -o /home/jim/cmds.html cmds*
 
 – Copy the contents of the binary object named _cmds_ into the file named _/home/jim/cmds.html._
 
@@ -2740,7 +2740,7 @@ mged> *eval center [vadd2 [center] {2 0 0}]* – Move the center point two mm in
 
 mged> units mm
 
-`mged>`*db adjust sphere.s V [center]*
+`mged>` *db adjust sphere.s V [center]*
 
 **
 
@@ -2972,13 +2972,13 @@ mged> db match *.s
 
 – Get a list of all objects in the database that end with “.s”.
 
-`mged>`*db get cone.s* – Get a list of all the attributes and their values for shape _cone.s_.
+`mged>` *db get cone.s* – Get a list of all the attributes and their values for shape _cone.s_.
 
-`mged>`*db get cone.s V* – Get the value of the _V_ (vertex) attribute of shape _cone.s_.
+`mged>` *db get cone.s V* – Get the value of the _V_ (vertex) attribute of shape _cone.s_.
 
-`mged>`*db put new_cone.s tgc V {0 0 0} H {0 0 1} A {1 0 0} B {0 1 0} C {5 0 0} D {0 5 0}* – Create a new <<TGC,TGC>> shape named __new_cone.s__ with the specified attributes.
+`mged>` *db put new_cone.s tgc V {0 0 0} H {0 0 1} A {1 0 0} B {0 1 0} C {5 0 0} D {0 5 0}* – Create a new <<TGC,TGC>> shape named __new_cone.s__ with the specified attributes.
 
-`mged>`*db adjust new_cone.s V {0 0 10}* – Adjust the _V_ (vertex) attribute of __new_cone.s__ to the value {0 0 10}.
+`mged>` *db adjust new_cone.s V {0 0 10}* – Adjust the _V_ (vertex) attribute of __new_cone.s__ to the value {0 0 10}.
 
 mged *db form tgc* – Display the format used by the _get_ and _put_ commands for the <<TGC,TGC>> shape type.
 
@@ -3004,11 +3004,11 @@ The “dbconcat” command concatenates an existing _BRL-CAD_ database to the da
 
 
 Examples:::
-`mged>`*dbconcat model_two.g two_*
+`mged>` *dbconcat model_two.g two_*
 
-`mged>`*dbconcat -s model_two.g*
+`mged>` *dbconcat -s model_two.g*
 
-`mged>`*dbconcat -c -p model_two.g two_*
+`mged>` *dbconcat -c -p model_two.g two_*
 
 
 
@@ -3020,11 +3020,11 @@ The “debugbu” command allows the user to set or check the debug flags used b
 
 
 Examples:::
-`mged>`debugbu
+`mged>` debugbu
 
 
 
-`mged>` *debugbu 2*
+`mged>`  *debugbu 2*
 
 – Set __bu_debug__ to <MEM_CHECK>.
 
@@ -3064,7 +3064,7 @@ mged> debuglib
 
 – Get a list of available debug values for _librt_ and the current value.
 
-`mged>` *debuglib 1* – Set the _librt_ debug flag to <DEBUG_ALLRAYS> (print info about rays).
+`mged>`  *debuglib 1* – Set the _librt_ debug flag to <DEBUG_ALLRAYS> (print info about rays).
 
 **
 
@@ -3150,23 +3150,23 @@ mged> dm set
 
 – Get a list of the available display manager internal variables.
 
-`mged>`*dm set perspective 1* – Turn on perspective projection in the display.
+`mged>` *dm set perspective 1* – Turn on perspective projection in the display.
 
-`mged>`*dm size* – Return the size to the display manager.
+`mged>` *dm size* – Return the size to the display manager.
 
 mged> *dm size 900 900* – Request that the display manager window be resized to 900x900.
 
-`mged>`*dm m 2 100 200* – Simulate a button2 press at (100, 200) in X screen coordinates.
+`mged>` *dm m 2 100 200* – Simulate a button2 press at (100, 200) in X screen coordinates.
 
-`mged>`*dm am r 400 100* – Start an alternate mouse mode rotation.
+`mged>` *dm am r 400 100* – Start an alternate mouse mode rotation.
 
-`mged>`*dm adc d 300 200* – Start a tick distance manipulation.
+`mged>` *dm adc d 300 200* – Start a tick distance manipulation.
 
-`mged>`*dm con t z 200 200* – Start a constrained translation down the Z axis.
+`mged>` *dm con t z 200 200* – Start a constrained translation down the Z axis.
 
-`mged>`*dm con a d 200 100* – Start a constrained tick distance manipulation.
+`mged>` *dm con a d 200 100* – Start a constrained tick distance manipulation.
 
-`mged>`*dm idle* – End drag.
+`mged>` *dm idle* – End drag.
 
 **
 
@@ -3305,7 +3305,7 @@ mged> edcomb comb1 R 1001 0 50 8
 
 – Make _comb1_ a _region_ and set its _ident_ to 1001, its _air code_ to 0, its _LOS_ to 50, and its _material code_ to 8.
 
-`mged>` *edcomb comb1 0 0 0 0* – Unset the _region_ flag for combination _comb1._
+`mged>`  *edcomb comb1 0 0 0 0* – Unset the _region_ flag for combination _comb1._
 
 **
 
@@ -3408,7 +3408,7 @@ mged> ev region1 shapea
 
 – Display evaluated _region1_ and _shapea_ as shaded polygons.
 
-`mged>`*ev -wT region1* – Display evaluated _region1_ as wireframe without triangulating.
+`mged>` *ev -wT region1* – Display evaluated _region1_ as wireframe without triangulating.
 
 **
 
@@ -3543,7 +3543,7 @@ mged> facedef 1234 a 1 0 0 20
 
 – Move face 1234 such that it is in the _yz_ plane at _x_=20.
 
-`mged>` *facedef 5678 b 0 0 10 10 0 10 10 10 10* – Move face 5678 such that it is in the plane formed by the three points (0 0 10), (10 0 10), and (10 10 10).
+`mged>`  *facedef 5678 b 0 0 10 10 0 10 10 10 10* – Move face 5678 such that it is in the plane formed by the three points (0 0 10), (10 0 10), and (10 10 10).
 
 **
 
@@ -3834,7 +3834,7 @@ mged> inside out_arb in_arb 1 1 1 1 1 1
 
 – Create a shape named __in_arb__ such that each face is 1 <<units,unit>> from the corresponding face in __out_arb.__
 
-`mged>` *inside in_arb 1 1 1 1 1 1* – Create a shape named __in_arb__ such that each face is 1 <<units,unit>> from the corresponding face in the current key shape or the shape currently being edited.
+`mged>`  *inside in_arb 1 1 1 1 1 1* – Create a shape named __in_arb__ such that each face is 1 <<units,unit>> from the corresponding face in the current key shape or the shape currently being edited.
 
 **
 
@@ -4049,9 +4049,9 @@ mged> l region1
 
 – Display details about region1.
 
-`mged>`*l group1/group2/region1/shape3* – Display shape parameters for _shape3_ with matrices applied from the _path._
+`mged>` *l group1/group2/region1/shape3* – Display shape parameters for _shape3_ with matrices applied from the _path._
 
-`mged>`*l -r a/b* – Display all possible paths that start with _a/b_ and end in a primitive _shape_ – The shape parameters with the accumulated transformation applied will be displayed.
+`mged>` *l -r a/b* – Display all possible paths that start with _a/b_ and end in a primitive _shape_ – The shape parameters with the accumulated transformation applied will be displayed.
 
 **
 
@@ -4135,13 +4135,13 @@ mged> ls shape*
 
 – List all objects with names beginning with “shape” (output is formatted).
 
-`mged>`*ls -a shape** – List all objects with names beginning with “shape.”
+`mged>` *ls -a shape** – List all objects with names beginning with “shape.”
 
-`mged>`*ls -p wheel** – List all primitives with names beginning with “wheel.”
+`mged>` *ls -p wheel** – List all primitives with names beginning with “wheel.”
 
-`mged>`*ls -r wheel** – List all regions with names beginning with “wheel.”
+`mged>` *ls -r wheel** – List all regions with names beginning with “wheel.”
 
-`mged>`*ls -c suspension** – List all combinations with names beginning with “suspension.”
+`mged>` *ls -c suspension** – List all combinations with names beginning with “suspension.”
 
 mged> ls -A -o -r Comment {First comment} Comment {Second comment}
 
@@ -4194,7 +4194,7 @@ mged> make shapea sph
 
 – Create a sphere named _shapea._
 
-`mged>` *make -t* – Return a list of shape types handled by _make._
+`mged>`  *make -t* – Return a list of shape types handled by _make._
 
 **
 
@@ -4395,7 +4395,7 @@ mged> opendb model.g
 
 – Close the current database file and open _model.g._
 
-`mged>` *opendb* – Return the name of the current database file.
+`mged>`  *opendb* – Return the name of the current database file.
 
 **
 
@@ -4638,7 +4638,7 @@ mged> ps -t “Test Title” test.ps
 
 – Place a _PostScript_ version of the current MGED display in a file named _test.ps_ and give it the title “Test Title.”
 
-`mged>`*ps -l 10 -t “Test Fat Lines” fat_lines.ps* – This time use fat lines.
+`mged>` *ps -l 10 -t “Test Fat Lines” fat_lines.ps* – This time use fat lines.
 
 **
 
@@ -4768,11 +4768,11 @@ mged> qray
 
 – Print usage message.
 
-`mged>` *qray fmt o* – Returns the overlap format string.
+`mged>`  *qray fmt o* – Returns the overlap format string.
 
-`mged>` *qray oddcolor* – Returns the rgb color used to color odd partitions.
+`mged>`  *qray oddcolor* – Returns the rgb color used to color odd partitions.
 
-`mged>` *qray oddcolor 255 0 0* – Sets the odd partition color to red.
+`mged>`  *qray oddcolor 255 0 0* – Sets the odd partition color to red.
 
 **
 
@@ -5014,7 +5014,7 @@ managerged> release
 
 – Close the current display manager.
 
-`mged>` *release .dm_X0* – Close __.dm_X0.__
+`mged>`  *release .dm_X0* – Close __.dm_X0.__
 
 **
 
@@ -5072,7 +5072,7 @@ mged> rot 0 0 45
 
 – Rotate 45 degrees about the Z axis.
 
-`mged>`*rot 45 45 0* – Rotate 45˚ about the _y_ axis, then rotate 45 degrees about the _x_ axis.
+`mged>` *rot 45 45 0* – Rotate 45˚ about the _y_ axis, then rotate 45 degrees about the _x_ axis.
 
 **
 
@@ -5166,7 +5166,7 @@ mged> rt -s1024 -F/dev/Xl
 
 – Run the _rt_ program to produce a color-shaded image of the current view in the MGED display. The image will be 1024 pixels square and will be displayed on a lingering _X_ framebuffer.
 
-`mged>`*rt -C 200/200/255 – roof* – Run the _rt_ program to produce a color-shaded image of the object _roof_ using MGED s current viewing parameters. The image will have a sky-blue background and will be displayed on the framebuffer specified by the FB_FILE shell variable.
+`mged>` *rt -C 200/200/255 – roof* – Run the _rt_ program to produce a color-shaded image of the object _roof_ using MGED s current viewing parameters. The image will have a sky-blue background and will be displayed on the framebuffer specified by the FB_FILE shell variable.
 
 **
 
@@ -5429,9 +5429,9 @@ mged> status
 
 – Get default information (i.e., state, view_size, local2base, toViewcenter, Viewrot, model2view and view2model).
 
-`mged>` *status Viewrot* – Get the view rotation matrix.
+`mged>`  *status Viewrot* – Get the view rotation matrix.
 
-`mged>` *status state* – Get the edit state.
+`mged>`  *status state* – Get the edit state.
 
 **
 
@@ -5461,7 +5461,7 @@ mged> sv 0 0 0
 
 – The view is unchanged.
 
-`mged>`*sv 1024 0 0* – The view center is moved half way between the current view center and the right side of the view screen.
+`mged>` *sv 1024 0 0* – The view center is moved half way between the current view center and the right side of the view screen.
 
 **
 
@@ -5501,13 +5501,13 @@ mged> t shape*
 
 – List all objects with names beginning with “shape.” (output is formatted)
 
-`mged>`*t -a shape** – List all objects with names beginning with “shape.”
+`mged>` *t -a shape** – List all objects with names beginning with “shape.”
 
-`mged>`*t -s wheel** – List all shapes with names beginning with “wheel.”
+`mged>` *t -s wheel** – List all shapes with names beginning with “wheel.”
 
-`mged>`*t -r wheel** – List all regions with names beginning with “wheel.”
+`mged>` *t -r wheel** – List all regions with names beginning with “wheel.”
 
-`mged>`*t -c suspension** – List all combinations with names beginning with “suspension.”
+`mged>` *t -c suspension** – List all combinations with names beginning with “suspension.”
 
 **
 
@@ -5661,9 +5661,9 @@ mged> tree group1
 
 – Show the structure of the tree rooted at _group1_ down to the primitive shape level.
 
-`mged>` *tree -i 2 group1* – This time use two spaces for each level of indentation.
+`mged>`  *tree -i 2 group1* – This time use two spaces for each level of indentation.
 
-`mged>` *tree -c group1* – No shapes are printed.
+`mged>`  *tree -c group1* – No shapes are printed.
 
 **
 
@@ -5889,19 +5889,19 @@ mged> vdraw open square
 
 – Open a list named _square._
 
-`mged>` *vdraw params color ff00* – Set color to green.
+`mged>`  *vdraw params color ff00* – Set color to green.
 
-`mged>` *vdraw write next 0 0 0 0* – Start a line at the origin.
+`mged>`  *vdraw write next 0 0 0 0* – Start a line at the origin.
 
-`mged>` *vdraw write next 1 100 0 0* – Draw line to (100 0 0).
+`mged>`  *vdraw write next 1 100 0 0* – Draw line to (100 0 0).
 
-`mged>` *vdraw write next 1 100 100 0* – Draw line to (100 100 0).
+`mged>`  *vdraw write next 1 100 100 0* – Draw line to (100 100 0).
 
-`mged>` *vdraw write next 1 0 100 0* – Draw line to (0 100 0).
+`mged>`  *vdraw write next 1 0 100 0* – Draw line to (0 100 0).
 
-`mged>` *vdraw write next 1 0 0 0* – Draw line to (0 0 0).
+`mged>`  *vdraw write next 1 0 0 0* – Draw line to (0 0 0).
 
-`mged>` *vdraw send* – Draw the square in the MGED display.
+`mged>`  *vdraw send* – Draw the square in the MGED display.
 
 **
 
@@ -5927,7 +5927,7 @@ mged> view center
 
 – Get the view center.
 
-`mged>` *view center 0 0 0* – Set the view center at the origin of model space.
+`mged>`  *view center 0 0 0* – Set the view center at the origin of model space.
 
 **
 
@@ -5977,7 +5977,7 @@ mged> vrot 90 0 0
 
 – Rotate 90 degrees about view _x_ axis.
 
-`mged>` *vrot 0 180 0* – Rotate 180 degrees about view _y_ axis.
+`mged>`  *vrot 0 180 0* – Rotate 180 degrees about view _y_ axis.
 
 **
 
@@ -7190,5 +7190,3 @@ The TGC solid is a truncated cone with elliptical (or circular) base and top. Th
 *vol*
 
 The vol solid is defined by a 3-dimensional array of unsigned char values. The solid requires a file of these values, the extent of the file (in bytes) in each dimension, the size of each cell, and high and low thresholds. Any value in the file that is between the thresholds (inclusive) represents a solid cell.
-
-

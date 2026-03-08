@@ -24,19 +24,19 @@ Using *vi*(1) and/or *emacs*(1) -like keystrokes, *fbzoom* allows interactive zo
 toggles the sense of the pan commands.
 
 
-*-F*_frame_buffer_::
+*-F* _frame_buffer_::
 explicitly specifies the frame buffer. Otherwise, the environment variable _FB_FILE_ specifies the current framebuffer; see *brlcad*(1).
 
 
-*-s*(or *-S*) _image_sqrsize_::
+*-s* (or *-S*) _image_sqrsize_::
 displays the image file as a square, _image_sqrsize_ pixels per side (default is 512x512).
 
 
-*-w*(or *-W*) _image_width_::
+*-w* (or *-W*) _image_width_::
 displays the image _image_width_ pixels wide (default is 512).
 
 
-*-n*(or *-N*) _image_height_::
+*-n* (or *-N*) _image_height_::
 displays the image _image_height_ pixels high (default is 512).
 
 

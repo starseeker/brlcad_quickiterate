@@ -17,7 +17,7 @@ bwfilter [-f<type>] [-v] [-d<div>] [-O<offset>] [-s<squaresize>] [-w<width>] [-n
 [[description]]
 == DESCRIPTION
 
-*bwfilter* applies one of several 3x3 kernel filters to a black and white *bw*(5) format file. It will take a file name or else read from standard input. The input file size will be assumed to be 512x512 pixels unless the *-s*, *-w*, or *-n* flags are used to tell it otherwise (see *brlcad*(1)). By default a low pass filter is used. The *-f*_type_ flag can be used to specify a different type of filter.
+*bwfilter* applies one of several 3x3 kernel filters to a black and white *bw*(5) format file. It will take a file name or else read from standard input. The input file size will be assumed to be 512x512 pixels unless the *-s*, *-w*, or *-n* flags are used to tell it otherwise (see *brlcad*(1)). By default a low pass filter is used. The *-f* _type_ flag can be used to specify a different type of filter.
 
 The _type_ choices include:
 

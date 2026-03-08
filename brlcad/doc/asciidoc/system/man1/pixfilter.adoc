@@ -17,7 +17,7 @@ pixfilter [-f<type>] [-v] [-d<div>] [-o<offset>] [-w<width>] [-n<height>] [-s<sq
 [[description]]
 == DESCRIPTION
 
-*pixfilter* applies one of several 3x3 kernel filters to a color *pix*(5) format file. It will take a file name or else read from standard input. The input file size will be assumed to be 512 by 512 pixels unless the *-w*, and/or *-n*, or the *-s* flags are used to tell it otherwise. By default a low pass filter is used. The *-f*_type_ flag can be used to specify a different type of filter.
+*pixfilter* applies one of several 3x3 kernel filters to a color *pix*(5) format file. It will take a file name or else read from standard input. The input file size will be assumed to be 512 by 512 pixels unless the *-w*, and/or *-n*, or the *-s* flags are used to tell it otherwise. By default a low pass filter is used. The *-f* _type_ flag can be used to specify a different type of filter.
 
 The _type_ choices include:
 

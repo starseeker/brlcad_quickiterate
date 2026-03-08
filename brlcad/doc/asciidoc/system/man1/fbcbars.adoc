@@ -29,11 +29,11 @@ The environment variable FB_FILE specifies the current framebuffer; see *brlcad*
 
 Ordinarily, the requested framebuffer size is the device default.
 
-The *-W*_scr_width_ option specifies the width of each output scanline, in pixels.
+The *-W* _scr_width_ option specifies the width of each output scanline, in pixels.
 
-The *-N*_scr_height_ option specifies the desired height in scanlines of the display device.
+The *-N* _scr_height_ option specifies the desired height in scanlines of the display device.
 
-*-S*_squarescrsize_ sets both the height and width to the size given.
+*-S* _squarescrsize_ sets both the height and width to the size given.
 
 
 [[inspirations]]
