@@ -1,6 +1,8 @@
 = Crear el modelo de una taza utilizando la interfaz de MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -171,3 +173,7 @@ En este tutorial usted aprenderá a:
 * Crear una región con las combinaciones.
 * Controlar el árbol de datos y hacer correcciones.
 * Asignar propiedades de los materiales usando el editor de combinaciones (Combination Editor).
+
+
+
+

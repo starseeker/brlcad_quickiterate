@@ -1,6 +1,8 @@
 = Additional Exercises Placing Shapes in 3-D Space
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -318,3 +320,7 @@ In this lesson, you:
 * Drew a grid to help position objects.
 * Checked the data tree and made corrections (if needed).
 * Assigned material properties using the Combination Editor.
+
+
+
+

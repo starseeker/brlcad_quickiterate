@@ -1,5 +1,7 @@
 = MGED Tutorial
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[Preface]]
 == Preface
@@ -7188,3 +7190,5 @@ The TGC solid is a truncated cone with elliptical (or circular) base and top. Th
 *vol*
 
 The vol solid is defined by a 3-dimensional array of unsigned char values. The solid requires a file of these values, the extent of the file (in bytes) in each dimension, the size of each cell, and high and low thresholds. Any value in the file that is between the thresholds (inclusive) represents a solid cell.
+
+

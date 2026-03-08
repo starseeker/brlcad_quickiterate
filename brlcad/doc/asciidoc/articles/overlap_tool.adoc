@@ -1,5 +1,7 @@
 = The Overlap Tool
 :doctype: article
+:toc:
+:toclevels: 3
 
 == Introduction
 
@@ -198,3 +200,6 @@ a/R
   - ant.s
       
 ....
+
+
+

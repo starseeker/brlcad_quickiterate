@@ -1,6 +1,8 @@
 = Using the Extruded Bitmap Primitive
 Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
+:toc:
+:toclevels: 3
 
 The extruded bitmap (ebm) primitive allows the user to make a three-dimensional (3-D) shape from a two-dimensional black-and-white image. This feature can be helpful when dealing with complex outlines, text, or other complicated shapes captured as images.
 
@@ -52,3 +54,4 @@ Points to Remember About the ebm
 * When extruded, all shapes form a single ebm primitive.
 
 ====
+
