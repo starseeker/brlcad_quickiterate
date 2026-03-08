@@ -3727,9 +3727,18 @@ void
 GeomLoader::worker()
 {
     // The worker uses its own resource to avoid contention with the main thread.
+    // IMPORTANT: rt_bound_internal -> rt_gettree -> db_walk_tree (with ncpu==1)
+    // unconditionally uses &rt_uniresource, which is NOT thread-safe.  Instead
+    // we load each primitive with rt_db_get_internal (passing our own resource
+    // so ft_import5 never touches rt_uniresource) and then call ft_bbox directly.
+    // ft_bbox works only from the imported internal form and a tolerance, so it
+    // is fully thread-safe with a per-thread resource.
     struct resource bres;
     memset(&bres, 0, sizeof(bres));
     rt_init_resource(&bres, 1, NULL);
+
+    // Tolerance used by ft_bbox calls; standard BRL-CAD defaults.
+    const struct bn_tol bbox_tol = BN_TOL_INIT_TOL;
 
     while (true) {
 	WorkItem item;
@@ -3747,21 +3756,40 @@ GeomLoader::worker()
 
 	// Skip items that were invalidated (dp null, hash zero, or dp->d_namep
 	// null because the object was deleted between push() and now).
-	// Combining all conditions in one check avoids any ambiguity about which
-	// guards have already been verified.  rt_bound_internal will fail
-	// gracefully for any remaining deletions it encounters.
 	if (!item.dp || !item.hash || !item.dp->d_namep)
 	    continue;
 
-	Result r;
-	VSETALL(r.bmin, INFINITY);
-	VSETALL(r.bmax, -INFINITY);
-	r.hash = item.hash;
-	int bret = rt_bound_internal(dbis_->dbip, item.dp, r.bmin, r.bmax);
-	if (bret != 0) {
-	    // rt_bound_internal returns 0 on success, -1 on failure
+	// Load the primitive's internal form using our thread-local resource.
+	// Passing &bres ensures ft_import5 allocates from our private pools and
+	// never touches the global rt_uniresource.
+	struct rt_db_internal intern;
+	RT_DB_INTERNAL_INIT(&intern);
+	if (rt_db_get_internal(&intern, item.dp, dbis_->dbip, NULL, &bres) < 0) {
+	    // Object may have been deleted or is unreadable between push and now.
 	    continue;
 	}
+
+	// Require a direct bbox function.  Primitives without one (e.g.
+	// halfspace, which is infinite) are skipped.
+	if (!intern.idb_meth || !intern.idb_meth->ft_bbox) {
+	    rt_db_free_internal(&intern);
+	    continue;
+	}
+
+	point_t bmin, bmax;
+	VSETALL(bmin,  INFINITY);
+	VSETALL(bmax, -INFINITY);
+	if (intern.idb_meth->ft_bbox(&intern, &bmin, &bmax, &bbox_tol) != 0) {
+	    // ft_bbox failed; skip this primitive.
+	    rt_db_free_internal(&intern);
+	    continue;
+	}
+	rt_db_free_internal(&intern);
+
+	Result r;
+	r.hash = item.hash;
+	VMOVE(r.bmin, bmin);
+	VMOVE(r.bmax, bmax);
 
 	// Post result to the result queue
 	{
