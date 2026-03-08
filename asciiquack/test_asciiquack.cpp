@@ -1363,6 +1363,43 @@ static void test_bug7_description_list_not_table() {
     end_test();
 }
 
+static void test_dlist_description_on_next_line_no_leading_space() {
+    // When the description of a description list item is on the next line
+    // (i.e. "term::" on its own with the description body on the following
+    // line), the man-page backend must NOT emit a leading space before the
+    // description text.  A leading space would be interpreted as a literal
+    // paragraph in troff output.
+    begin_test("manpage: dlist description-on-next-line has no leading space");
+
+    const std::string src =
+        "= Test(1)\n"
+        ":manvolnum: 1\n"
+        "\n"
+        "== NAME\n"
+        "test - testing\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "*adj_air*::\n"
+        "Detects adjacent air regions.\n"
+        "\n"
+        "*centroid*::\n"
+        "Computes the centroid.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The description line must not start with a space
+    EXPECT(out.find(" Detects") == std::string::npos);
+    EXPECT(out.find("\nDetects") != std::string::npos);
+    EXPECT(out.find(" Computes") == std::string::npos);
+    EXPECT(out.find("\nComputes") != std::string::npos);
+
+    end_test();
+}
+
 static void test_ifeval_numeric() {
     begin_test("parser: ifeval:: numeric comparison");
 
@@ -4921,6 +4958,7 @@ int main(int argc, char* argv[]) {
     test_include_directive();
     test_include_directive_secure_mode();
     test_bug7_description_list_not_table();
+    test_dlist_description_on_next_line_no_leading_space();
 
     // P2 features
     std::cout << "\nP2 features and bug fix tests:\n";
