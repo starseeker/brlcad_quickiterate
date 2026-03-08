@@ -10,7 +10,7 @@ rot - Rotates the view or an object by xyz degrees.
 
 [source]
 ----
-rot {<x y z>}
+rot {x y z}
 ----
 
 

@@ -10,7 +10,7 @@ arb - Creates a new ARB shape with the specified arb_name.
 
 [source]
 ----
-arb {<arb_name>} {<rotation>} {<fallback>}
+arb {arb_name} {rotation} {fallback}
 ----
 
 

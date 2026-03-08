@@ -10,7 +10,7 @@ listeval - Displays primitive shape parameters after applying the accumulated tr
 
 [source]
 ----
-listeval [-t] {<path>}
+listeval [-t] {path}
 ----
 
 

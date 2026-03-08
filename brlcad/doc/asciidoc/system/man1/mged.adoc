@@ -10,7 +10,7 @@ mged - multi-display interactive combinatorial solid geometry editor
 
 [source]
 ----
-mged [-a attach] [-b] [-c] [-d display] [-h|?] [-r] [-x#] [-X#] [-v] [<database.g>] [<mged_command>]
+mged [-a attach] [-b] [-c] [-d display] [-h|?] [-r] [-x#] [-X#] [-v] [database.g] [mged_command]
 ----
 
 

@@ -10,7 +10,7 @@ vrot - Rotates the view on the current geometry display window.
 
 [source]
 ----
-vrot {<xrot yrot zrot>}
+vrot {xrot yrot zrot}
 ----
 
 

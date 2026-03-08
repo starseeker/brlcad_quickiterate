@@ -10,7 +10,7 @@ man - Opens the graphical man page viewer.
 
 [source]
 ----
-man [<cmdname>]
+man [cmdname]
 ----
 
 

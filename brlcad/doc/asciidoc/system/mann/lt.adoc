@@ -10,7 +10,7 @@ lt - Generates a list of the child objects of a combination.
 
 [source]
 ----
-lt [<char>]
+lt [char]
 ----
 
 

@@ -10,7 +10,7 @@ item - Sets the values of ident_number, aircode, material_code, and LOS for the 
 
 [source]
 ----
-item {<region_name>} {<regionID> [<airID> [<materialID> [<los%>]]]}
+item {region_name} {regionID [airID [materialID [los%]]]}
 ----
 
 

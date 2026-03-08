@@ -10,7 +10,7 @@ asc2dsp - convert an ASCII dsp file to the BRL-CAD DSP (Displacement map) binary
 
 [source]
 ----
-asc2dsp <file.asc> <file.dsp>
+asc2dsp file.asc file.dsp
 ----
 
 

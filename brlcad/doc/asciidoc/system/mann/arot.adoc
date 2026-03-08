@@ -10,7 +10,7 @@ arot - Performs a rotation about the specified axis (x y z) using screen units (
 
 [source]
 ----
-arot {<x>} {<y>} {<z>} {<angle>}
+arot {x} {y} {z} {angle}
 ----
 
 

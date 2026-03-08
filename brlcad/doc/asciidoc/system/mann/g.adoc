@@ -10,7 +10,7 @@ g - Creates a special type of combination often referred to as a group. This bui
 
 [source]
 ----
-g {<groupname>} {<objects>}
+g {groupname} {objects}
 ----
 
 

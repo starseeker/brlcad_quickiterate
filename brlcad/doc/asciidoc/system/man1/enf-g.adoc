@@ -10,7 +10,7 @@ enf-g - Elysium Neutral Format Translator (ENF to BRL-CAD)
 
 [source]
 ----
-enf-g [-t<tolerance>] [-i<starting_ident_number>] [-l<name_length_limit>] [-n<part_number_to_name_mapping>] [-v] <input_enf_facet_file> <database.g>
+enf-g [-ttolerance] [-istarting_ident_number] [-lname_length_limit] [-npart_number_to_name_mapping] [-v] input_enf_facet_file database.g
 ----
 
 

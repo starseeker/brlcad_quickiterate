@@ -10,7 +10,7 @@ edgedir - Allows the user to set the direction of an edge by specifying a direct
 
 [source]
 ----
-edgedir [ {<xyz>}] [ {<rot fb>}]
+edgedir [ {xyz}] [ {rot fb}]
 ----
 
 

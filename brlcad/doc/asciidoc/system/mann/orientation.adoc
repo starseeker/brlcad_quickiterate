@@ -10,7 +10,7 @@ orientation - Sets the view direction for MGED from the quaternion specified on 
 
 [source]
 ----
-orientation {<v1 v2 v3 v4>}
+orientation {v1 v2 v3 v4}
 ----
 
 

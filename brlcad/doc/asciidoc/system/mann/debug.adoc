@@ -10,7 +10,7 @@ debug - Allows the user to set or check the flags used by BRL-CAD libraries to e
 
 [source]
 ----
-debug [-h] [-l [<lib>]] [-C [<lib>]] [-V [<val>]] [lib [<flag>]]
+debug [-h] [-l [lib]] [-C [lib]] [-V [val]] [lib [flag]]
 ----
 
 

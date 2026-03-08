@@ -10,7 +10,7 @@ status - Without a subcommand, the status command returns the following informat
 
 [source]
 ----
-status [<subcommands>]
+status [subcommands]
 ----
 
 

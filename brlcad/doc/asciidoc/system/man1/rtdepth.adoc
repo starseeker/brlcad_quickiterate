@@ -10,7 +10,7 @@ rtdepth - compute a depth map of a model.
 
 [source]
 ----
-rtdepth [<options>]... <model.g> <objects>...
+rtdepth [options]... model.g objects...
 ----
 
 

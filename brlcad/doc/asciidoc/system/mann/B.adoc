@@ -10,7 +10,7 @@ B - Clears the mged display of any currently displayed objects, then displays th
 
 [source]
 ----
-B [-A<attribute name/value pairs>] [-s] [-A -o<attribute name/value pairs>] [-C#/#/#] [-L #] [-R] [-S] [<-m1>] {<objects>}
+B [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
 ----
 
 

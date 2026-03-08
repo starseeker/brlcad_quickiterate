@@ -10,7 +10,7 @@ bwdiff - compare two black and white files
 
 [source]
 ----
-bwdiff [ - [<mglen>]] [-b] <file1> <file2>
+bwdiff [ - [mglen]] [-b] file1 file2
 ----
 
 

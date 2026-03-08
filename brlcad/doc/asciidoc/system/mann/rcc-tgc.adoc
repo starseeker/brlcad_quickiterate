@@ -10,7 +10,7 @@ rcc-tgc - Creates a TGC shape with the specified apex (x y z) at one end (base [
 
 [source]
 ----
-rcc-tgc {<rccname newname xyz>} [b] [t]
+rcc-tgc {rccname newname xyz} [b] [t]
 ----
 
 

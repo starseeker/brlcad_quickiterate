@@ -10,7 +10,7 @@ expand - Performs matching of the shell globbing pattern with the names of all t
 
 [source]
 ----
-expand {<globbing_expression>}
+expand {globbing_expression}
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

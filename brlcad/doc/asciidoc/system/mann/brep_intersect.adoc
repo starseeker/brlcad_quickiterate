@@ -10,7 +10,7 @@ brep intersect - Intersect components of specified BRep solids.
 
 [source]
 ----
-brep {<obj>}intersect [<append|translate>] [<arguments>]
+brep {obj}intersect [append|translate] [arguments]
 ----
 
 
@@ -64,5 +64,3 @@ BRLCAD-TEAM
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

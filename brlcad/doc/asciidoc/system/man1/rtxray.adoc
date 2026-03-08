@@ -10,7 +10,7 @@ rtxray - compute a pseudo X-Ray image of a model.
 
 [source]
 ----
-rtxray [<options>]... <model.g> <objects>...
+rtxray [options]... model.g objects...
 ----
 
 

@@ -10,7 +10,7 @@ units - Sets the units being used in mged. Without arguments, returns the curren
 
 [source]
 ----
-units [<units_type>]
+units [units_type]
 ----
 
 
@@ -85,5 +85,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

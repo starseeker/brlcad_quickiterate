@@ -10,7 +10,7 @@ fbcbars - display standard color bars on a framebuffer
 
 [source]
 ----
-fbcbars [-e] [-f] [-s] [-F<framebuffer>] [-S<squarescrsize>] [-W<scr_width>] [-N<scr_height>]
+fbcbars [-e] [-f] [-s] [-Fframebuffer] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height]
 ----
 
 

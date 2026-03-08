@@ -10,7 +10,7 @@ dm - Provides a means to interact with the display manager at a lower level.
 
 [source]
 ----
-dm {<subcommand>} [<args>]
+dm {subcommand} [args]
 ----
 
 

@@ -10,13 +10,13 @@ pixcrop - crop color pix files
 
 [source]
 ----
-pixcrop <in.pix> <out.pix>
+pixcrop in.pix out.pix
 ----
 
 
 [source]
 ----
-pixcrop <in.pix> <out.pix> <inwidth> <outwidth> <outheight> <ulx> <uly> <urx> <ury> <lrx> <lry> <llx> <lly>
+pixcrop in.pix out.pix inwidth outwidth outheight ulx uly urx ury lrx lry llx lly
 ----
 
 

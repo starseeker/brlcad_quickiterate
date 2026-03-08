@@ -10,7 +10,7 @@ g-dxf - AutoCad DXF Translator (BRL-CAD to DXF)
 
 [source]
 ----
-g-dxf [-v] [-i] [-p] [-xX<lvl>] [-D<calculation_tolerance>] [-a<abs_tol>] [-r<rel_tol>] [-n<norm_tol>] [-P<dummy_arg>] [-o<DXF_file>] <database.g> <object(s)>
+g-dxf [-v] [-i] [-p] [-xXlvl] [-Dcalculation_tolerance] [-aabs_tol] [-rrel_tol] [-nnorm_tol] [-Pdummy_arg] [-oDXF_file] database.g object(s)
 ----
 
 

@@ -10,7 +10,7 @@ echo - Echos whatever text is provided as an argument on the command line. This 
 
 [source]
 ----
-echo {<text>} []
+echo {text} []
 ----
 
 

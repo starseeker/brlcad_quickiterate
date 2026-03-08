@@ -10,7 +10,7 @@ tankill-g - TANKILL Translator (TANKILL to BRL-CAD)
 
 [source]
 ----
-tankill-g [-n] [-t<tolerance>] [-i<input_tankill_file>] [-o<database.g>]
+tankill-g [-n] [-ttolerance] [-iinput_tankill_file] [-odatabase.g]
 ----
 
 
@@ -52,5 +52,3 @@ This software is Copyright (c) 1993-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

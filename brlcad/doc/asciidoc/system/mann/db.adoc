@@ -10,7 +10,7 @@ db - Provides an interface to a number of database manipulation routines.
 
 [source]
 ----
-db {<command>} [<arguments>]
+db {command} [arguments]
 ----
 
 

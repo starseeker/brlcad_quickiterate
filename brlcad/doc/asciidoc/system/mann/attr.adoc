@@ -10,7 +10,7 @@ attr - Used to create, change, retrieve, or view attributes of database objects.
 
 [source]
 ----
-attr [get] [set] [rm] [append] [list] [show] [sort] [standardize] [copy] {<object_name_pattern>} [<arguments>]
+attr [get] [set] [rm] [append] [list] [show] [sort] [standardize] [copy] {object_name_pattern} [arguments]
 ----
 
 

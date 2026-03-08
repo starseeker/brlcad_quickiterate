@@ -10,7 +10,7 @@ aproposlib - Searches through the one-line usage messages for a specified BRL-CA
 
 [source]
 ----
-aproposlib {<keyword>}
+aproposlib {keyword}
 ----
 
 

@@ -10,7 +10,7 @@ rt - Executes the BRL-CAD rt program with the default options of "-s512 -M."
 
 [source]
 ----
-rt [<options>] [<-- objects>]
+rt [options] [-- objects]
 ----
 
 

@@ -10,7 +10,7 @@ ply-g - Stanford PLY format Translator (PLY to BRL-CAD)
 
 [source]
 ----
-ply-g [-s<scale_factor>] [-v] [-d] <file.ply> <file.g>
+ply-g [-sscale_factor] [-v] [-d] file.ply file.g
 ----
 
 

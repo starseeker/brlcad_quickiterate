@@ -10,7 +10,7 @@ simulate - a Bullet-based physics simulator for MGED
 
 [source]
 ----
-simulate [<options>]... <path> <duration>
+simulate [options]... path duration
 ----
 
 

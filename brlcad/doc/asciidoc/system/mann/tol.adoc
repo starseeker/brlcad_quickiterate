@@ -10,7 +10,7 @@ tol - Used with no arguments, tol lists the current tolerance settings.
 
 [source]
 ----
-tol [abs<#>] [rel<#>] [norm<#>] [dist<#>] [perp<#>]
+tol [abs#] [rel#] [norm#] [dist#] [perp#]
 ----
 
 
@@ -58,5 +58,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

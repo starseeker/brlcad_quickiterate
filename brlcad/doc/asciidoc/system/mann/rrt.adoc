@@ -10,7 +10,7 @@ rrt - Executes the specified program with the provided options and includes the 
 
 [source]
 ----
-rrt {<program>} [<options>]
+rrt {program} [options]
 ----
 
 

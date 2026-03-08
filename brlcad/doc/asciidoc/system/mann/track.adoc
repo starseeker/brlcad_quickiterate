@@ -10,7 +10,7 @@ track - Builds a simple representation of the linked track of a vehicle such as 
 
 [source]
 ----
-track [<parameters>>]
+track [parameters>]
 ----
 
 

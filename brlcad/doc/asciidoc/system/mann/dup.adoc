@@ -10,7 +10,7 @@ dup - Checks the specified file (which is expected to contain a BRL-CAD model) f
 
 [source]
 ----
-dup {<file>} [<prefix>]
+dup {file} [prefix]
 ----
 
 

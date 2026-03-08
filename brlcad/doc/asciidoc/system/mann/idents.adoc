@@ -10,7 +10,7 @@ idents - Places a summary of the regions in the list of objects specified in the
 
 [source]
 ----
-idents {<file_name>} {<objects>}
+idents {file_name} {objects}
 ----
 
 

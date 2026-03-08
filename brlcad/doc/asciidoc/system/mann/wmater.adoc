@@ -10,7 +10,7 @@ wmater - Lists the shader name and parameters, RGB color, RGB_valid flag, and th
 
 [source]
 ----
-wmater {<file>} {<objects>}
+wmater {file} {objects}
 ----
 
 

@@ -10,7 +10,7 @@ screengrab - Save the current MGED display visual or framebuffer contents to an 
 
 [source]
 ----
-screengrab [<-F>] [<--format fmt>] {<image_file>}
+screengrab [-F] [--format fmt] {image_file}
 ----
 
 

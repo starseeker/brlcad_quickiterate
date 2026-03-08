@@ -10,7 +10,7 @@ pixhist - display a histogram of a color pix file on a framebuffer
 
 [source]
 ----
-pixhist [-v] [<file.pix>]
+pixhist [-v] [file.pix]
 ----
 
 

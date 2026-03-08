@@ -10,7 +10,7 @@ rtcheck - Make UNIX-Plot of overlaps in an mged model, using raytracing
 
 [source]
 ----
-rtcheck [<options>]... <model.g> <objects>... > <overlaps.plot3>
+rtcheck [options]... model.g objects... > overlaps.plot3
 ----
 
 

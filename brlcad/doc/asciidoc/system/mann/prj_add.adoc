@@ -10,7 +10,7 @@ prj_add - Appends information to the specified shaderfile.
 
 [source]
 ----
-prj_add [-t] [-b] [-n] {<shaderfile>} [<image_file>] [<image_width>] [<image_height>]
+prj_add [-t] [-b] [-n] {shaderfile} [image_file] [image_width] [image_height]
 ----
 
 

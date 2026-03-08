@@ -10,7 +10,7 @@ cpi - Copies old_tgc(an existing TGC shape) to a new TGC shape (new_tgc), positi
 
 [source]
 ----
-cpi {<old_tgc new_tgc>}
+cpi {old_tgc new_tgc}
 ----
 
 

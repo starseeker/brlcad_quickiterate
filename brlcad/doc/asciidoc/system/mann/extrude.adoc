@@ -10,7 +10,7 @@ extrude - Modifies an ARB shape by extruding the specified face through the spec
 
 [source]
 ----
-extrude {<##### distance>}
+extrude {##### distance}
 ----
 
 

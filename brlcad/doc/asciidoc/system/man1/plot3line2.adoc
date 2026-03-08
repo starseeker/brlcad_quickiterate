@@ -10,7 +10,7 @@ plot3line2 - output a 2D UnixPlot line
 
 [source]
 ----
-plot3line2 <x1> <y1> <x2> <y2> [ <r> <g> <b>] [ <] <unix_plot> > <unix_plot>
+plot3line2 x1 y1 x2 y2 [ r g b] [ <] unix_plot > unix_plot
 ----
 
 

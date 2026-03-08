@@ -10,7 +10,7 @@ adc - This command controls the angle/distance cursor.
 
 [source]
 ----
-adc [-i] <subcommand>
+adc [-i] subcommand
 ----
 
 

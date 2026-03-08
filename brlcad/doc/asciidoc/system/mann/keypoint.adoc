@@ -10,7 +10,7 @@ keypoint - Without any options, keypoint displays the current keypoint setting. 
 
 [source]
 ----
-keypoint [<xyz>] [reset]
+keypoint [xyz] [reset]
 ----
 
 

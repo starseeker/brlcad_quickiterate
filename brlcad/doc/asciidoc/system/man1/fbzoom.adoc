@@ -10,7 +10,7 @@ fbzoom - modify zoom and window parameters of a frame buffer
 
 [source]
 ----
-fbzoom [-T] [-F<frame_buffer>] [-s|S<image_sqrsize>] [-w|W<image_width>] [-n|N<image_height>]
+fbzoom [-T] [-Fframe_buffer] [-s|Simage_sqrsize] [-w|Wimage_width] [-n|Nimage_height]
 ----
 
 

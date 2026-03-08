@@ -10,7 +10,7 @@ pixinterp2x - interpolate a color pix file twice as large as the original
 
 [source]
 ----
-pixinterp2x [-s<squarefilesize>] [-w<file_width>] [-n<file_height>] [<infile.pix>] > <outfile.pix>
+pixinterp2x [-ssquarefilesize] [-wfile_width] [-nfile_height] [infile.pix] > outfile.pix
 ----
 
 
