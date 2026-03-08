@@ -302,20 +302,24 @@ bot_adaptive_plot(bsg_shape *s, bsg_view *v)
 	    // than AABB), otherwise an AABB wireframe, so the user sees
 	    // something immediately.
 	    if (s->have_bbox) {
-		// Prefer OBB when DbiState has one for this primitive.
+		// Prefer OBB when DbiState has one for this primitive — it is a
+		// tighter fit than the AABB wireframe.
 		bool obb_available = false;
 		if (d->dbis) {
 		    unsigned long long hash = bu_data_hash(
 			dp->d_namep, strlen(dp->d_namep) * sizeof(char));
 		    auto oit = d->dbis->obbs.find(hash);
 		    if (oit != d->dbis->obbs.end()) {
-			// Draw the OBB as a wireframe box using vlist lines
-			// connecting the 8 corner points (same topology as arb8).
-			const fastf_t *pts = oit->second.data();
-			// Use bsg_vlist_arb8 if available, else draw edges manually.
-			// For now draw AABB as fallback — OBB wireframe helper TBD.
-			// (The OBB data is stored for future renderer use.)
-			(void)pts; obb_available = false; /* OBB wireframe helper TBD */
+			// OBB corners are stored as 24 contiguous fastf_t values
+			// (8 pts × 3 coords), in the same arb8 corner order that
+			// ft_oriented_bbox returns.  Reinterpret as point_t[8] and
+			// draw the 12 wireframe edges.
+			const fastf_t *raw = oit->second.data();
+			point_t obb_pts[8];
+			for (int k = 0; k < 8; k++)
+			    VSET(obb_pts[k], raw[k*3+0], raw[k*3+1], raw[k*3+2]);
+			bsg_vlist_arb8(&v->gv_objs.gv_vlfree, &vo->s_vlist, obb_pts);
+			obb_available = true;
 		    }
 		}
 		if (!obb_available) {
@@ -1080,7 +1084,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	ud->ttol = dd->ttol;
 	ud->mesh_c = dd->mesh_c;
 	ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view.  dd->res is temporary, so we don't use it here
-	ud->dbis = NULL;
+	ud->dbis = dd->dbis;
 	s->s_i_data = (void *)ud;
 	s->s_free_callback = &draw_free_data;
 
