@@ -37,6 +37,7 @@
 #include "bsg.h"
 #include "rt/db4.h"
 #include "raytrace.h"
+#include "rt/cache_drawing.h"
 
 /* approximation formula for the circumference of an ellipse */
 #define ELL_CIRCUMFERENCE(a, b) M_PI * ((a) + (b)) * \
@@ -76,9 +77,13 @@
 #  include "concurrentqueue.h"
 
 #  include <atomic>
+#  include <mutex>
 #  include <string>
 #  include <thread>
+#  include <unordered_map>
 #  include <vector>
+
+#  include "bu/cache.h"
 
 /* Single item queued for writing to the LMDB drawing cache. */
 class CacheWriteItem {
@@ -93,22 +98,6 @@ public:
     bool   erase_op  = false;
     size_t data_len  = 0;
     void  *data      = nullptr;
-};
-
-/* Result notification posted to the main-thread result queue after each
- * pipeline stage finishes for one object. */
-struct DrawResult {
-    enum Type { AABB, OBB, LOD } type;
-    unsigned long long hash = 0;
-    char dp_name[512] = {0};
-    /* AABB */
-    point_t bmin = VINIT_ZERO;
-    point_t bmax = VINIT_ZERO;
-    /* OBB: center + 3 half-extent vectors (as produced by bg_3d_obb) */
-    point_t obb_pts[8];    /* 8 corner points of the oriented bounding box */
-    bool    obb_valid = false;
-    /* LOD */
-    unsigned long long lod_key = 0;
 };
 
 /* The per-database 5-stage pipeline state.  Lives in db_i_internal::draw_pipeline
@@ -128,6 +117,12 @@ public:
 
     /* Result queue read by the main thread (drain → scene change). */
     moodycamel::ConcurrentQueue<DrawResult> results_q;
+
+    /* Name map: associates each in-flight rt_db_internal* with its object
+     * name.  Written by attr_worker (producer) before enqueue, read by
+     * aabb/obb/lod workers (consumers) after dequeue.  Protected by name_mu. */
+    std::mutex name_mu;
+    std::unordered_map<struct rt_db_internal *, std::string> ip_names;
 
     struct db_i           *dbip    = nullptr;
     bsg_mesh_lod_context  *lod_ctx = nullptr; /* set from gedp->ged_lod when available */
@@ -166,11 +161,12 @@ struct db_i_internal {
 
 /* Drawing-cache lifecycle – implemented in cache_drawing.cpp, called from
  * db_open.c as extern "C". */
-extern int  db_cache_start(struct db_i *dbip);
-extern void db_cache_stop(struct db_i *dbip);
-extern void db_cache_queue_obj(struct db_i *dbip, const char *name);
-extern int  db_cache_settled(struct db_i *dbip);
-extern void db_cache_set_lod_ctx(struct db_i *dbip, bsg_mesh_lod_context *lod_ctx);
+extern int    db_cache_start(struct db_i *dbip);
+extern void   db_cache_stop(struct db_i *dbip);
+extern void   db_cache_queue_obj(struct db_i *dbip, const char *name);
+extern int    db_cache_settled(struct db_i *dbip);
+extern void   db_cache_set_lod_ctx(struct db_i *dbip, bsg_mesh_lod_context *lod_ctx);
+extern size_t db_cache_drain_results(struct db_i *dbip, void *out_vec);
 
 struct db_i_internal * db_i_internal_create(void);
 void db_i_internal_destroy(struct db_i_internal *i);

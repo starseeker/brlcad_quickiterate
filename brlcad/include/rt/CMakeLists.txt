@@ -6,6 +6,7 @@ set(
   application.h
   binunif.h
   boolweave.h
+  cache_drawing.h
   calc.h
   cmd.h
   comb.h

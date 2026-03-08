@@ -52,6 +52,7 @@ extern "C" {
 #include "bsg/lod.h"
 #include "bsg/vlist.h"
 #include "raytrace.h"
+#include "rt/cache_drawing.h"
 #include "ged/defines.h"
 #include "ged/view.h"
 #include "./ged_private.h"
@@ -232,8 +233,8 @@ DbiState::~DbiState()
 void
 DbiState::close_db()
 {
-    // Join the background thread while dbip is still valid.
-    geom_loader_.reset();
+    // Stop the background pipeline while dbip is still valid.
+    draw_pipeline_.reset();
 
     // Clear GObj instances.  Each GObj dtor removes itself from the gobjs
     // map, so we must check the container on every iteration.
@@ -308,7 +309,7 @@ DbiState::open_db()
     // Kick off background bbox computation for all solid objects that do not
     // yet have a cached bbox.
     {
-	std::vector<GeomLoader::WorkItem> items;
+	std::vector<DrawPipeline::WorkItem> items;
 	for (int i = 0; i < RT_DBNHASH; i++) {
 	    for (struct directory *dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
 		if (dp->d_flags & RT_DIR_COMB)
@@ -1517,11 +1518,11 @@ DbiState::update()
     }
 
     // Queue background bbox computation for added and changed solid objects
-    // whose bboxes were cleared by update_dp().  The loader will populate
+    // whose bboxes were cleared by update_dp().  The pipeline will populate
     // bboxes[] asynchronously; callers should periodically call
     // drain_geom_results() and repaint when it returns non-zero.
     {
-	std::vector<GeomLoader::WorkItem> load_items;
+	std::vector<DrawPipeline::WorkItem> load_items;
 	for (auto *dp : added) {
 	    if (dp->d_flags & RT_DIR_COMB) continue;
 	    unsigned long long h = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
@@ -2261,6 +2262,7 @@ BViewState::scene_obj(
     ud->ttol = &wdbp->wdb_ttol;
     ud->res = dbis->res;
     ud->mesh_c = dbis->gedp->ged_lod;
+    ud->dbis = dbis;
     sp->dp = dp;
     sp->s_i_data = (void *)ud;
 
@@ -3696,239 +3698,138 @@ void DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &event
 	obs->on_scene_changed(events);
 }
 
-/* ---- Background geometry loading (GeomLoader / L1) ---- */
+/* ---- DrawPipeline — thin wrapper around the db_i concurrent pipeline ---- */
 
-GeomLoader::GeomLoader(DbiState *dbis, bsg_mesh_lod_context *lod_ctx)
-    : dbis_(dbis), lod_ctx_(lod_ctx)
-{
-    thread_ = std::thread(&GeomLoader::worker, this);
-}
-
-GeomLoader::~GeomLoader()
-{
-    {
-	std::lock_guard<std::mutex> lk(work_mu_);
-	stopping_ = true;
-    }
-    work_cv_.notify_all();
-    if (thread_.joinable())
-	thread_.join();
-}
+DrawPipeline::DrawPipeline(DbiState *dbis)
+    : dbis_(dbis)
+{}
 
 void
-GeomLoader::push(const std::vector<WorkItem> &items)
+DrawPipeline::push(const std::vector<WorkItem> &items)
 {
-    if (items.empty())
+    if (items.empty() || !dbis_->gedp || !dbis_->gedp->dbip)
 	return;
-    {
-	std::lock_guard<std::mutex> lk(work_mu_);
-	for (const auto &item : items) {
-	    if (!item.dp || !item.hash)
-		continue;
-	    if (item.dp->d_flags & RT_DIR_COMB)
-		continue;
-	    if (item.dp->d_flags & RT_DIR_HIDDEN)
-		continue;
-	    WorkItem wi = item;
-	    // For BoT primitives: queue LoD generation when a context is
-	    // available and the LoD cache doesn't already have an entry.
-	    if (lod_ctx_ && item.dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
-		if (!bsg_mesh_lod_key_get(lod_ctx_, item.dp->d_namep))
-		    wi.needs_lod = true;
-	    }
-	    work_q_.push_back(wi);
-	}
+    struct db_i *dbip = dbis_->gedp->dbip;
+    for (const auto &item : items) {
+	if (!item.dp || !item.hash)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_COMB)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_HIDDEN)
+	    continue;
+	db_cache_queue_obj(dbip, item.dp->d_namep);
     }
-    work_cv_.notify_one();
+    /* Inform the pipeline of the LoD context if it changed */
+    if (dbis_->gedp->ged_lod)
+	db_cache_set_lod_ctx(dbip, dbis_->gedp->ged_lod);
 }
 
 size_t
-GeomLoader::drain(std::vector<Result> &out)
+DrawPipeline::drain(std::vector<Result> &out)
 {
-    std::lock_guard<std::mutex> lk(result_mu_);
-    size_t n = result_q_.size();
-    while (!result_q_.empty()) {
-	out.push_back(result_q_.front());
-	result_q_.pop_front();
+    if (!dbis_->gedp || !dbis_->gedp->dbip)
+	return 0;
+    std::vector<DrawResult> raw;
+    size_t n = db_cache_drain_results(dbis_->gedp->dbip, &raw);
+    for (const auto &dr : raw) {
+	Result r;
+	r.hash    = dr.hash;
+	r.dp_name = dr.dp_name;
+	if (dr.type == DRAWRESULT_AABB) {
+	    r.type = Result::AABB;
+	    VMOVE(r.bmin, dr.bmin);
+	    VMOVE(r.bmax, dr.bmax);
+	} else if (dr.type == DRAWRESULT_OBB) {
+	    r.type      = Result::OBB;
+	    r.obb_valid = (dr.obb_valid != 0);
+	    for (int k = 0; k < 8; k++)
+		VMOVE(r.obb_pts[k], dr.obb_pts[k]);
+	} else {
+	    r.type    = Result::LOD;
+	    r.has_lod = (dr.lod_key != 0);
+	    r.lod_key = dr.lod_key;
+	}
+	out.push_back(r);
     }
     return n;
 }
 
-void
-GeomLoader::worker()
+bool
+DrawPipeline::settled() const
 {
-    // The worker uses its own resource to avoid contention with the main thread.
-    // IMPORTANT: rt_bound_internal -> rt_gettree -> db_walk_tree (with ncpu==1)
-    // unconditionally uses &rt_uniresource, which is NOT thread-safe.  Instead
-    // we load each primitive with rt_db_get_internal (passing our own resource
-    // so ft_import5 never touches rt_uniresource) and then call ft_bbox directly.
-    // ft_bbox works only from the imported internal form and a tolerance, so it
-    // is fully thread-safe with a per-thread resource.
-    struct resource bres;
-    memset(&bres, 0, sizeof(bres));
-    rt_init_resource(&bres, 1, NULL);
-
-    // Tolerance used by ft_bbox calls; standard BRL-CAD defaults.
-    const struct bn_tol bbox_tol = BN_TOL_INIT_TOL;
-
-    while (true) {
-	WorkItem item;
-
-	{
-	    std::unique_lock<std::mutex> lk(work_mu_);
-	    work_cv_.wait(lk, [this]{ return stopping_ || !work_q_.empty(); });
-	    if (stopping_ && work_q_.empty())
-		break;
-	    if (!work_q_.empty()) {
-		item = work_q_.front();
-		work_q_.pop_front();
-	    }
-	}
-
-	// Skip items that were invalidated (dp null, hash zero, or dp->d_namep
-	// null because the object was deleted between push() and now).
-	if (!item.dp || !item.hash || !item.dp->d_namep)
-	    continue;
-
-	// Load the primitive's internal form using our thread-local resource.
-	// Passing &bres ensures ft_import5 allocates from our private pools and
-	// never touches the global rt_uniresource.
-	struct rt_db_internal intern;
-	RT_DB_INTERNAL_INIT(&intern);
-	if (rt_db_get_internal(&intern, item.dp, dbis_->dbip, NULL, &bres) < 0) {
-	    // Object may have been deleted or is unreadable between push and now.
-	    continue;
-	}
-
-	// Require a direct bbox function.  Primitives without one (e.g.
-	// halfspace, which is infinite) are skipped.
-	if (!intern.idb_meth || !intern.idb_meth->ft_bbox) {
-	    rt_db_free_internal(&intern);
-	    continue;
-	}
-
-	point_t bmin, bmax;
-	VSETALL(bmin,  INFINITY);
-	VSETALL(bmax, -INFINITY);
-	if (intern.idb_meth->ft_bbox(&intern, &bmin, &bmax, &bbox_tol) != 0) {
-	    // ft_bbox failed; skip this primitive.
-	    rt_db_free_internal(&intern);
-	    continue;
-	}
-
-	Result r;
-	r.hash = item.hash;
-	VMOVE(r.bmin, bmin);
-	VMOVE(r.bmax, bmax);
-
-	// For BoT primitives: if the item was flagged for LoD generation and
-	// we have a context, generate the LoD cache now.  bsg_mesh_lod_cache()
-	// and bsg_mesh_lod_key_put() are serialised internally via the
-	// bsg_mesh_lod_context mutex added for this purpose, so this call is
-	// safe even though both the worker thread and the main thread may
-	// access the context concurrently.
-	if (item.needs_lod && lod_ctx_ &&
-	    intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
-	    struct rt_bot_internal *bot =
-		(struct rt_bot_internal *)intern.idb_ptr;
-	    RT_BOT_CK_MAGIC(bot);
-	    unsigned long long key = bsg_mesh_lod_cache(
-		lod_ctx_,
-		(const point_t *)bot->vertices, bot->num_vertices,
-		NULL, bot->faces, bot->num_faces, 0, 0.66);
-	    if (key) {
-		bsg_mesh_lod_key_put(lod_ctx_, item.dp->d_namep, key);
-		r.has_lod = true;
-		r.lod_key = key;
-		r.dp_name = item.dp->d_namep;
-	    }
-	}
-
-	rt_db_free_internal(&intern);
-
-	// Post result to the result queue
-	{
-	    std::lock_guard<std::mutex> lk(result_mu_);
-	    result_q_.push_back(r);
-	}
-    }
-
-    rt_clean_resource_basic(NULL, &bres);
+    if (!dbis_->gedp || !dbis_->gedp->dbip)
+	return true;
+    return db_cache_settled(dbis_->gedp->dbip) != 0;
 }
 
 void
-DbiState::start_geom_load(const std::vector<GeomLoader::WorkItem> &items)
+DrawPipeline::set_lod_ctx(bsg_mesh_lod_context *lod_ctx)
+{
+    if (!dbis_->gedp || !dbis_->gedp->dbip)
+	return;
+    db_cache_set_lod_ctx(dbis_->gedp->dbip, lod_ctx);
+}
+
+void
+DbiState::start_geom_load(const std::vector<DrawPipeline::WorkItem> &items)
 {
     if (items.empty())
 	return;
-    // Rebuild the loader if the LoD context became available after the loader
-    // was first created (e.g. gedp->ged_lod was set between updates).  This
-    // allows BoT primitives to get LoD generated even when the context was not
-    // ready at the time the database was first opened.
-    if (geom_loader_ && gedp->ged_lod && !geom_loader_->has_lod_ctx())
-	geom_loader_.reset();
-    if (!geom_loader_)
-	geom_loader_ = std::make_unique<GeomLoader>(this, gedp->ged_lod);
-    geom_loader_->push(items);
+    if (!draw_pipeline_)
+	draw_pipeline_ = std::make_unique<DrawPipeline>(this);
+    // Notify the pipeline if a LoD context is now available
+    if (gedp->ged_lod)
+	draw_pipeline_->set_lod_ctx(gedp->ged_lod);
+    draw_pipeline_->push(items);
 }
 
 size_t
 DbiState::drain_geom_results()
 {
-    if (!geom_loader_)
+    if (!draw_pipeline_)
 	return 0;
 
-    std::vector<GeomLoader::Result> results;
-    size_t n = geom_loader_->drain(results);
+    std::vector<DrawPipeline::Result> results;
+    size_t n = draw_pipeline_->drain(results);
     if (n == 0)
 	return 0;
 
-    // Integrate bboxes into DbiState (main thread owns all writes)
+    // Process results by type
     for (const auto &r : results) {
-	// Only update if we don't already have a bbox (the synchronous path
-	// may have beaten us to it; in that case the synchronous version wins).
-	if (bboxes.find(r.hash) != bboxes.end())
-	    continue;
-
-	// Store in bboxes map
-	bboxes[r.hash].clear();
-	bboxes[r.hash].reserve(6);
-	for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmin[i]);
-	for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmax[i]);
-
-	// Also persist to dcache so future sessions skip the background load
-	if (dcache) {
-	    size_t bsz = sizeof(r.bmin) + sizeof(r.bmax);
-	    std::vector<char> buf(bsz);
-	    memcpy(buf.data(), r.bmin, sizeof(r.bmin));
-	    memcpy(buf.data() + sizeof(r.bmin), r.bmax, sizeof(r.bmax));
-	    std::string k = dbi_cache_key(r.hash, CACHE_OBJ_BOUNDS);
-	    bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
-	}
-    }
-
-    // When the background worker has generated LoD cache data for a BoT
-    // primitive, any shape objects in the view states for that primitive
-    // may currently only hold a temporary bounding-box wireframe
-    // (bot_adaptive_plot drew a placeholder when no LoD key existed).
-    // Stale those shapes and clear their per-view objects so the next
-    // redraw() call regenerates them with proper LoD geometry.
-    {
-	// Collect the set of views across all BViewStates.
-	std::unordered_set<struct bview *> all_views;
-	for (auto &[bv, vs] : view_states)
-	    all_views.insert(bv);
-
-	if (!all_views.empty()) {
-	    for (const auto &r : results) {
-		if (!r.has_lod || r.dp_name.empty())
-		    continue;
+	if (r.type == DrawPipeline::Result::AABB) {
+	    // Only update if we don't already have a bbox (the synchronous path
+	    // may have beaten us to it; in that case the synchronous version wins).
+	    if (bboxes.find(r.hash) != bboxes.end())
+		continue;
+	    bboxes[r.hash].clear();
+	    bboxes[r.hash].reserve(6);
+	    for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmin[i]);
+	    for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmax[i]);
+	    /* dcache is managed by the write_worker in cache_drawing.cpp */
+	} else if (r.type == DrawPipeline::Result::OBB && r.obb_valid) {
+	    /* Store the 8 OBB corner points */
+	    std::array<fastf_t, 24> obb_data;
+	    for (int k = 0; k < 8; k++) {
+		obb_data[k*3+0] = r.obb_pts[k][X];
+		obb_data[k*3+1] = r.obb_pts[k][Y];
+		obb_data[k*3+2] = r.obb_pts[k][Z];
+	    }
+	    obbs[r.hash] = obb_data;
+	} else if (r.type == DrawPipeline::Result::LOD && r.has_lod) {
+	    // LoD is now cached — stale any placeholder shapes so they get
+	    // redrawn with real LoD geometry on the next redraw() pass.
+	    if (!r.dp_name.empty()) {
 		struct directory *dp_lod =
 		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
-		if (!dp_lod)
-		    continue;
-		for (auto &[bv, vs] : view_states)
-		    vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
+		if (dp_lod) {
+		    std::unordered_set<struct bview *> all_views;
+		    for (auto &[bv, vs] : view_states)
+			all_views.insert(bv);
+		    if (!all_views.empty()) {
+			for (auto &[bv, vs] : view_states)
+			    vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
+		    }
+		}
 	    }
 	}
     }
