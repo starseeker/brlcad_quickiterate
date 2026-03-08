@@ -70,7 +70,7 @@ to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, bsg_view *gdvp, str
 	point_ac = ac;
 
 	/* point_ac includes a hole flag */
-	if (mode != BV_POLY_CONTOUR_MODE && point_ac < 4) {
+	if (mode != BSG_POLY_CONTOUR_MODE && point_ac < 4) {
 	    bu_vls_printf(gedp->ged_result_str, "There must be at least 3 points per contour");
 	    Tcl_Free((char *)point_av);
 	    return BRLCAD_ERROR;
@@ -115,7 +115,7 @@ to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, bsg_view *gdvp, str
 
 
 static int
-to_extract_polygons_av(Tcl_Interp *interp, struct ged *gedp, bsg_view *gdvp, bv_data_polygon_state *gdpsp, size_t polygon_ac, const char **polygon_av, int mode, int vflag)
+to_extract_polygons_av(Tcl_Interp *interp, struct ged *gedp, bsg_view *gdvp, bsg_data_polygon_state *gdpsp, size_t polygon_ac, const char **polygon_av, int mode, int vflag)
 {
     register size_t i;
     int ac;
@@ -159,7 +159,7 @@ to_data_polygons_func(Tcl_Interp *interp,
 		      int argc,
 		      const char *argv[])
 {
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -1151,7 +1151,7 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     fastf_t fx, fy;
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -1180,7 +1180,7 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
 
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
-    gdvp->gv_tcl.gv_polygon_mode = BV_POLY_CIRCLE_MODE;
+    gdvp->gv_tcl.gv_polygon_mode = BSG_POLY_CIRCLE_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
@@ -1188,7 +1188,7 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -1234,7 +1234,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     int x, y;
     fastf_t fx, fy;
     point_t v_pt, m_pt;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -1263,7 +1263,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
-    gdvp->gv_tcl.gv_polygon_mode = BV_POLY_CONTOUR_MODE;
+    gdvp->gv_tcl.gv_polygon_mode = BSG_POLY_CONTOUR_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
@@ -1271,7 +1271,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -1604,7 +1604,7 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     fastf_t fx, fy;
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -1641,7 +1641,7 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -1772,7 +1772,7 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     fastf_t fx, fy;
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -1821,7 +1821,7 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     VSET(v_pt, fx, fy, gdvp->gv_tcl.gv_data_vZ);
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {

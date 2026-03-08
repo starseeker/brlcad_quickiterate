@@ -824,7 +824,7 @@ rt_plot_solid(
 
     bsg_vlist_to_uplot(fp, &vhead);
 
-    BV_FREE_VLIST(vlfree, &vhead);
+    BSG_FREE_VLIST(vlfree, &vhead);
     return 0;			/* OK */
 }
 

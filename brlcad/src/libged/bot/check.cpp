@@ -271,7 +271,7 @@ draw_edges(struct ged *gedp, struct rt_bot_internal *bot, int num_edges, int edg
     point_t a,b;
     unsigned char draw_color[3];
     bu_color_to_rgb_chars(color, draw_color);
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list local_vlist;
 
     BU_LIST_INIT(&local_vlist);
@@ -283,8 +283,8 @@ draw_edges(struct ged *gedp, struct rt_bot_internal *bot, int num_edges, int edg
 	VSET(a, bot->vertices[p1*3], bot->vertices[p1*3+1], bot->vertices[p1*3+2]);
 	VSET(b, bot->vertices[p2*3], bot->vertices[p2*3+1], bot->vertices[p2*3+2]);
 	vhead = bsg_vlblock_find(vbp, draw_color[0], draw_color[1], draw_color[2]);
-	BV_ADD_VLIST(vbp->free_vlist_hd, vhead, a, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, a, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BSG_VLIST_LINE_DRAW);
     }
 
     if (gedp->new_cmd_forms) {

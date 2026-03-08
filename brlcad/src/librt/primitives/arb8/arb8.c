@@ -1407,10 +1407,10 @@ rt_arb_free(register struct soltab *stp)
 
 
 #define ARB_FACE(vlist_vlfree, vlist_head, arb_pts, a, b, c, d) \
-    BV_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[a], BV_VLIST_LINE_MOVE); \
-    BV_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[b], BV_VLIST_LINE_DRAW); \
-    BV_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[c], BV_VLIST_LINE_DRAW); \
-    BV_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[d], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[a], BSG_VLIST_LINE_MOVE); \
+    BSG_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[b], BSG_VLIST_LINE_DRAW); \
+    BSG_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[c], BSG_VLIST_LINE_DRAW); \
+    BSG_ADD_VLIST(vlist_vlfree, vlist_head, arb_pts[d], BSG_VLIST_LINE_DRAW);
 
 /**
  * Plot an ARB by tracing out four "U" shaped contours This draws each

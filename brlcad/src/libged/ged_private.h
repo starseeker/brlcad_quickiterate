@@ -263,7 +263,7 @@ GED_EXPORT extern void color_soltab(struct db_i *dbip, bsg_shape *sp);
 
 /* defined in draw.c */
 GED_EXPORT extern void _ged_cvt_vlblock_to_solids(struct ged *gedp,
-				       struct bv_vlblock *vbp,
+				       struct bsg_vlblock *vbp,
 				       const char *name,
 				       int copy);
 

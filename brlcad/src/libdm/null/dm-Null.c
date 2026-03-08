@@ -179,14 +179,14 @@ null_drawPoints3D(struct dm *UNUSED(dmp), int UNUSED(npoints), point_t *UNUSED(p
 
 
 int
-null_drawVList(struct dm *UNUSED(dmp), struct bv_vlist *UNUSED(vp))
+null_drawVList(struct dm *UNUSED(dmp), struct bsg_vlist *UNUSED(vp))
 {
     return 0;
 }
 
 
 int
-null_drawVListHiddenLine(struct dm *UNUSED(dmp), struct bv_vlist *UNUSED(vp))
+null_drawVListHiddenLine(struct dm *UNUSED(dmp), struct bsg_vlist *UNUSED(vp))
 {
     return 0;
 }
@@ -199,7 +199,7 @@ null_draw_obj(struct dm *UNUSED(dmp), bsg_shape *UNUSED(s)) {
 
 
 int
-null_draw(struct dm *dmp, struct bv_vlist *(*callback_function)(void *), void **data)
+null_draw(struct dm *dmp, struct bsg_vlist *(*callback_function)(void *), void **data)
 {
     return dmp == NULL && callback_function == NULL && data == NULL;
 }

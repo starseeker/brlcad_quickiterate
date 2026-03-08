@@ -1440,10 +1440,10 @@ to_bounds(struct ged *gedp,
      * use it for controlling the location of the zclipping plane in
      * dm-ogl.c. dm-X.c uses dm_clipmin and dm_clipmax.
      */
-    if (dm_get_clipmax((struct dm *)gdvp->dmp) && (*dm_get_clipmax((struct dm *)gdvp->dmp))[2] <= BV_MAX)
+    if (dm_get_clipmax((struct dm *)gdvp->dmp) && (*dm_get_clipmax((struct dm *)gdvp->dmp))[2] <= BSG_VIEW_MAX)
 	dm_set_bound((struct dm *)gdvp->dmp, 1.0);
     else
-	dm_set_bound((struct dm *)gdvp->dmp, BV_MAX/((*dm_get_clipmax((struct dm *)gdvp->dmp))[2]));
+	dm_set_bound((struct dm *)gdvp->dmp, BSG_VIEW_MAX/((*dm_get_clipmax((struct dm *)gdvp->dmp))[2]));
 
     (void)dm_make_current((struct dm *)gdvp->dmp);
     (void)dm_set_win_bounds((struct dm *)gdvp->dmp, bounds);
@@ -1876,7 +1876,7 @@ to_data_move_func(struct ged *gedp,
 
     if (BU_STR_EQUAL(argv[1], "data_polygons")) {
 	size_t i, j, k;
-	bv_data_polygon_state *gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	bsg_data_polygon_state *gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
 	if (bu_sscanf(argv[2], "%zu %zu %zu", &i, &j, &k) != 3)
 	    goto bad;
@@ -1933,7 +1933,7 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "data_arrows")) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_data_arrows;
+	struct bsg_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_data_arrows;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_data_arrows.gdas_num_points)
@@ -1974,7 +1974,7 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_arrows")) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_sdata_arrows;
+	struct bsg_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_sdata_arrows;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_sdata_arrows.gdas_num_points)
@@ -2015,7 +2015,7 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "data_axes")) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl.gv_data_axes;
+	struct bsg_data_axes_state *gdasp = &gdvp->gv_tcl.gv_data_axes;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_data_axes.num_points)
@@ -2032,7 +2032,7 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_axes")) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl.gv_sdata_axes;
+	struct bsg_data_axes_state *gdasp = &gdvp->gv_tcl.gv_sdata_axes;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_sdata_axes.num_points)
@@ -2050,7 +2050,7 @@ to_data_move_func(struct ged *gedp,
 
 
     if (BU_STR_EQUAL(argv[1], "data_labels")) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl.gv_data_labels;
+	struct bsg_data_label_state *gdlsp = &gdvp->gv_tcl.gv_data_labels;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_data_labels.gdls_num_labels)
@@ -2067,7 +2067,7 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_labels")) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl.gv_sdata_labels;
+	struct bsg_data_label_state *gdlsp = &gdvp->gv_tcl.gv_sdata_labels;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_sdata_labels.gdls_num_labels)
@@ -2084,7 +2084,7 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "data_lines")) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl.gv_data_lines;
+	struct bsg_data_line_state *gdlsp = &gdvp->gv_tcl.gv_data_lines;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_data_lines.gdls_num_points)
@@ -2125,7 +2125,7 @@ to_data_move_func(struct ged *gedp,
     }
 
     if (BU_STR_EQUAL(argv[1], "sdata_lines")) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl.gv_sdata_lines;
+	struct bsg_data_line_state *gdlsp = &gdvp->gv_tcl.gv_sdata_lines;
 
 	/* Silently ignore */
 	if (dindex >= gdvp->gv_tcl.gv_sdata_lines.gdls_num_points)
@@ -2476,7 +2476,7 @@ to_data_pick_func(struct ged *gedp,
 	    gdvp->gv_tcl.gv_data_polygons.gdps_polygons.num_polygons) {
 	size_t si, sj, sk;
 
-	bv_data_polygon_state *gdpsp = &gdvp->gv_tcl.gv_data_polygons;
+	bsg_data_polygon_state *gdpsp = &gdvp->gv_tcl.gv_data_polygons;
 
 	for (si = 0; si < gdpsp->gdps_polygons.num_polygons; ++si)
 	    for (sj = 0; sj < gdpsp->gdps_polygons.polygon[si].num_contours; ++sj)
@@ -2514,7 +2514,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for label points */
     if (gdvp->gv_tcl.gv_data_labels.gdls_draw &&
 	    gdvp->gv_tcl.gv_data_labels.gdls_num_labels) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl.gv_data_labels;
+	struct bsg_data_label_state *gdlsp = &gdvp->gv_tcl.gv_data_labels;
 
 	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
 	    fastf_t minX, maxX;
@@ -2545,7 +2545,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for selected label points */
     if (gdvp->gv_tcl.gv_sdata_labels.gdls_draw &&
 	    gdvp->gv_tcl.gv_sdata_labels.gdls_num_labels) {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl.gv_sdata_labels;
+	struct bsg_data_label_state *gdlsp = &gdvp->gv_tcl.gv_sdata_labels;
 
 	for (i = 0; i < gdlsp->gdls_num_labels; ++i) {
 	    fastf_t minX, maxX;
@@ -2582,7 +2582,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for line points */
     if (gdvp->gv_tcl.gv_data_lines.gdls_draw &&
 	    gdvp->gv_tcl.gv_data_lines.gdls_num_points) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl.gv_data_lines;
+	struct bsg_data_line_state *gdlsp = &gdvp->gv_tcl.gv_data_lines;
 
 	for (i = 0; i < gdlsp->gdls_num_points; ++i) {
 	    fastf_t minX, maxX;
@@ -2606,7 +2606,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for selected line points */
     if (gdvp->gv_tcl.gv_sdata_lines.gdls_draw &&
 	    gdvp->gv_tcl.gv_sdata_lines.gdls_num_points) {
-	struct bv_data_line_state *gdlsp = &gdvp->gv_tcl.gv_sdata_lines;
+	struct bsg_data_line_state *gdlsp = &gdvp->gv_tcl.gv_sdata_lines;
 
 	for (i = 0; i < gdlsp->gdls_num_points; ++i) {
 	    fastf_t minX, maxX;
@@ -2641,7 +2641,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for arrow points */
     if (gdvp->gv_tcl.gv_data_arrows.gdas_draw &&
 	    gdvp->gv_tcl.gv_data_arrows.gdas_num_points) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_data_arrows;
+	struct bsg_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_data_arrows;
 
 	for (i = 0; i < gdasp->gdas_num_points; ++i) {
 	    fastf_t minX, maxX;
@@ -2670,7 +2670,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for selected arrow points */
     if (gdvp->gv_tcl.gv_sdata_arrows.gdas_draw &&
 	    gdvp->gv_tcl.gv_sdata_arrows.gdas_num_points) {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_sdata_arrows;
+	struct bsg_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_sdata_arrows;
 
 	for (i = 0; i < gdasp->gdas_num_points; ++i) {
 	    fastf_t minX, maxX;
@@ -2705,7 +2705,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for axes points */
     if (gdvp->gv_tcl.gv_data_axes.draw &&
 	    gdvp->gv_tcl.gv_data_axes.num_points) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl.gv_data_axes;
+	struct bsg_data_axes_state *gdasp = &gdvp->gv_tcl.gv_data_axes;
 
 	for (i = 0; i < gdasp->num_points; ++i) {
 	    fastf_t minX, maxX;
@@ -2734,7 +2734,7 @@ to_data_pick_func(struct ged *gedp,
     /* check for selected axes points */
     if (gdvp->gv_tcl.gv_sdata_axes.draw &&
 	    gdvp->gv_tcl.gv_sdata_axes.num_points) {
-	struct bv_data_axes_state *gdasp = &gdvp->gv_tcl.gv_sdata_axes;
+	struct bsg_data_axes_state *gdasp = &gdvp->gv_tcl.gv_sdata_axes;
 
 	for (i = 0; i < gdasp->num_points; ++i) {
 	    fastf_t minX, maxX;
@@ -3649,7 +3649,7 @@ to_idle_mode(struct ged *gedp,
 	need_refresh = 1;
     }
 
-    if (mode != BV_POLY_CONTOUR_MODE ||
+    if (mode != BSG_POLY_CONTOUR_MODE ||
 	    gdvp->gv_tcl.gv_data_polygons.gdps_cflag == 0)
     {
 	struct bu_vls bindings = BU_VLS_INIT_ZERO;
@@ -5789,7 +5789,7 @@ to_snap_view(struct ged *gedp,
 
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fvx, &fvy);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -6432,9 +6432,9 @@ to_create_vlist_callback_solid(void *UNUSED(ctx), bsg_shape *sp)
 			(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
 
 	    if (sp->s_os->s_dmode == 4) {
-		(void)dm_draw_vlist_hidden_line((struct dm *)gdvp->dmp, (struct bv_vlist *)&sp->s_vlist);
+		(void)dm_draw_vlist_hidden_line((struct dm *)gdvp->dmp, (struct bsg_vlist *)&sp->s_vlist);
 	    } else {
-		(void)dm_draw_vlist((struct dm *)gdvp->dmp, (struct bv_vlist *)&sp->s_vlist);
+		(void)dm_draw_vlist((struct dm *)gdvp->dmp, (struct bsg_vlist *)&sp->s_vlist);
 	    }
 
 	    (void)dm_end_dlist((struct dm *)gdvp->dmp);

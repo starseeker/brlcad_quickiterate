@@ -56,8 +56,8 @@ ged_scale_core(struct ged *gedp, int argc, const char *argv[])
     /* scale the view */
     gedp->ged_gvp->gv_scale *= sf1;
 
-    if (gedp->ged_gvp->gv_scale < BV_MINVIEWSIZE)
-	gedp->ged_gvp->gv_scale = BV_MINVIEWSIZE;
+    if (gedp->ged_gvp->gv_scale < BSG_MINVIEWSIZE)
+	gedp->ged_gvp->gv_scale = BSG_MINVIEWSIZE;
     gedp->ged_gvp->gv_size = 2.0 * gedp->ged_gvp->gv_scale;
     gedp->ged_gvp->gv_isize = 1.0 / gedp->ged_gvp->gv_size;
     bsg_view_update(gedp->ged_gvp);

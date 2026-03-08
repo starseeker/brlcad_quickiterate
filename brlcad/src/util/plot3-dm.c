@@ -76,7 +76,7 @@ struct plot_list{
     int pl_draw;
     int pl_edit;
     struct bu_vls pl_name;
-    struct bv_vlblock *pl_vbp;
+    struct bsg_vlblock *pl_vbp;
 };
 
 
@@ -181,7 +181,7 @@ refresh(void) {
 		    rgb = plp->pl_vbp->rgb[i];
 		    dm_set_fg(dmp, (rgb>>16) & 0xFF, (rgb>>8) & 0xFF, rgb & 0xFF, 0, (fastf_t)0.0);
 		}
-		dm_draw_vlist(dmp, (struct bv_vlist *)&plp->pl_vbp->head[i]);
+		dm_draw_vlist(dmp, (struct bsg_vlist *)&plp->pl_vbp->head[i]);
 	    }
     }
 
@@ -490,7 +490,7 @@ static void
 size_reset(void)
 {
     size_t i;
-    struct bv_vlist *tvp;
+    struct bsg_vlist *tvp;
     vect_t min, max;
     vect_t center;
     vect_t radial;
@@ -500,13 +500,13 @@ size_reset(void)
     VSETALL(max, -INFINITY);
 
     for (BU_LIST_FOR(plp, plot_list, &HeadPlot.l)) {
-	struct bv_vlblock *vbp;
+	struct bsg_vlblock *vbp;
 
 	vbp = plp->pl_vbp;
 	for (i=0; i < vbp->nused; i++) {
-	    struct bv_vlist *vp = (struct bv_vlist *)&vbp->head[i];
+	    struct bsg_vlist *vp = (struct bsg_vlist *)&vbp->head[i];
 
-	    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+	    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 		int j;
 		int nused = tvp->nused;
 		int *cmd = tvp->cmd;
@@ -514,19 +514,19 @@ size_reset(void)
 
 		for (j = 0; j < nused; j++, cmd++, pt++) {
 		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
+			case BSG_VLIST_POLY_START:
+			case BSG_VLIST_POLY_VERTNORM:
+			case BSG_VLIST_TRI_START:
+			case BSG_VLIST_TRI_VERTNORM:
 			    break;
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_TRI_MOVE:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
+			case BSG_VLIST_LINE_MOVE:
+			case BSG_VLIST_LINE_DRAW:
+			case BSG_VLIST_POLY_MOVE:
+			case BSG_VLIST_POLY_DRAW:
+			case BSG_VLIST_POLY_END:
+			case BSG_VLIST_TRI_MOVE:
+			case BSG_VLIST_TRI_DRAW:
+			case BSG_VLIST_TRI_END:
 			    VMIN(min, *pt);
 			    VMAX(max, *pt);
 			    break;

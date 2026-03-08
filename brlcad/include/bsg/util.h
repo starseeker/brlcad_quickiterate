@@ -28,7 +28,7 @@
  *
  * In Phase 1 each @c bsg_* function is a trivial wrapper around its
  * @c bv_* counterpart.  Because @c bsg_view = @c bview and @c bsg_shape =
- * @c bv_scene_obj in Phase 1, the wrappers incur no conversion cost.
+ * @c bsg_shape in Phase 1, the wrappers incur no conversion cost.
  *
  * ### Function naming convention
  *

@@ -22,7 +22,7 @@
   * the function bsg_vlist_cmd_cnt() calculates the number of commands in a vlist so
   * we will try all possible cases like empty list and list with different lengths and
   * list which needs more than one chunk of memory so here we will send the lengthe of the
-  * the list and construct it inside bv_vlist.c and compare
+  * the list and construct it inside bsg_vlist.c and compare
   * the results with expected result from bsg_vlist_cmd_cnt(), the <args> format is as follows : expected_result
   */
 
@@ -54,10 +54,10 @@ vlist_main(int argc, char* argv[])
     }
 
     for (int i = 0; i < expected_length; i++) {
-	BV_ADD_VLIST(&vlfree, &head, ptzero, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(&vlfree, &head, ptzero, BSG_VLIST_LINE_DRAW);
     }
 
-    cmd_cnt_length = bsg_vlist_cmd_cnt((struct bv_vlist*) & head);
+    cmd_cnt_length = bsg_vlist_cmd_cnt((struct bsg_vlist*) & head);
 
     return !((size_t)expected_length == cmd_cnt_length);
 }

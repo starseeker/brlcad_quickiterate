@@ -189,8 +189,8 @@ abs_zoom(bsg_view *v)
         }
     }
 
-    if (v->gv_scale < BV_MINVIEWSCALE)
-	v->gv_scale = BV_MINVIEWSCALE;
+    if (v->gv_scale < BSG_MINVIEWSCALE)
+	v->gv_scale = BSG_MINVIEWSCALE;
 
     v->gv_size = 2.0 * v->gv_scale;
     v->gv_isize = 1.0 / v->gv_size;

@@ -196,7 +196,7 @@ QPolyCreate::finalize(bool)
 	    sk_name = bu_strdup(ps->sketch_name->text().toLocal8Bit().data());
 	}
 	if (sk_name && db_lookup(gedp->dbip, sk_name, LOOKUP_QUIET) == RT_DIR_NULL) {
-	    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 	    ip->u_data = (void *)db_scene_obj_to_sketch(gedp->dbip, sk_name, p);
 	    emit view_updated(QG_VIEW_DB);
 	}
@@ -385,7 +385,7 @@ QPolyCreate::toggle_line_snapping(bool s)
     if (!v || !co)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     bu_ptbl_reset(&v->gv_s->gv_snap_objs);
     if (!s) {
 	v->gv_s->gv_snap_lines = 0;
@@ -417,7 +417,7 @@ QPolyCreate::toggle_grid_snapping(bool s)
     if (!v)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     if (!s) {
 	v->gv_s->gv_grid.snap = 0;
     } else {
@@ -499,7 +499,7 @@ QPolyCreate::toplevel_config(bool)
 	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
 	    // clear any selected points in non-current polygons
-	    struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
+	    struct bsg_polygon *ip = (struct bsg_polygon *)s->s_i_data;
 	    if (ip->curr_point_i != -1) {
 		draw_change = true;
 		ip->curr_point_i = -1;
@@ -553,20 +553,20 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     //  whatever is already established - otherwise, grab from the widget
     //  settings
     if (p) {
-	struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 	cf->ptype = ip->type;
     } else {
 	if (ellipse_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_ELLIPSE;
+	    cf->ptype = BSG_POLYGON_ELLIPSE;
 	}
 	if (square_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_SQUARE;
+	    cf->ptype = BSG_POLYGON_SQUARE;
 	}
 	if (rectangle_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_RECTANGLE;
+	    cf->ptype = BSG_POLYGON_RECTANGLE;
 	}
 	if (general_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_GENERAL;
+	    cf->ptype = BSG_POLYGON_GENERAL;
 	}
 
 	cf->op = bg_None;
@@ -617,7 +617,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // Retrieve the scene object from the libqtcad data container
     p = cf->wp;
 
-    if (cf->ptype == BV_POLYGON_GENERAL) {
+    if (cf->ptype == BSG_POLYGON_GENERAL) {
 	close_general_poly->setEnabled(true);
 	close_general_poly->blockSignals(true);
 	close_general_poly->setChecked(false);

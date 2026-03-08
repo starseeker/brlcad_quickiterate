@@ -32,7 +32,7 @@
 
 __BEGIN_DECLS
 
-BSG_EXPORT extern size_t bsg_vlist_cmd_cnt(struct bv_vlist *vlist);
+BSG_EXPORT extern size_t bsg_vlist_cmd_cnt(struct bsg_vlist *vlist);
 BSG_EXPORT extern int bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode);
 BSG_EXPORT extern const char *bsg_vlist_get_cmd_description(int cmd);
 BSG_EXPORT extern size_t bsg_ck_vlist(const struct bu_list *vhead);
@@ -40,13 +40,13 @@ BSG_EXPORT extern void bsg_vlist_copy(struct bu_list *vlists, struct bu_list *de
 BSG_EXPORT extern void bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name);
 BSG_EXPORT extern void bsg_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf);
 BSG_EXPORT extern void bsg_vlist_cleanup(struct bu_list *hd);
-BSG_EXPORT extern struct bv_vlblock *bsg_vlblock_init(struct bu_list *free_vlist_hd, int max_ent);
-BSG_EXPORT extern void bsg_vlblock_free(struct bv_vlblock *vbp);
-BSG_EXPORT extern struct bu_list *bsg_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b);
+BSG_EXPORT extern struct bsg_vlblock *bsg_vlblock_init(struct bu_list *free_vlist_hd, int max_ent);
+BSG_EXPORT extern void bsg_vlblock_free(struct bsg_vlblock *vbp);
+BSG_EXPORT extern struct bu_list *bsg_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b);
 BSG_EXPORT extern void bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx);
-BSG_EXPORT extern void bsg_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp);
-BSG_EXPORT extern void bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree);
-BSG_EXPORT extern struct bv_scene_obj *bsg_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name);
+BSG_EXPORT extern void bsg_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp);
+BSG_EXPORT extern void bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bview *v, struct bsg_shape *f, struct bu_list *vlfree);
+BSG_EXPORT extern struct bsg_shape *bsg_vlblock_obj(struct bsg_vlblock *vbp, struct bview *v, const char *name);
 BSG_EXPORT extern void bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead);
 BSG_EXPORT extern void bsg_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale);
 BSG_EXPORT extern void bsg_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta);

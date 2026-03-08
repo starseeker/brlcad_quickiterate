@@ -128,11 +128,11 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     s = bsg_shape_get(gd->cv, flags);
     s->s_v = gd->cv;
     BU_LIST_INIT(&(s->s_vlist));
-    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_MOVE);
     VSET(s->s_color, 255, 255, 0);
 
-    struct bv_label *l;
-    BU_GET(l, struct bv_label);
+    struct bsg_label *l;
+    BU_GET(l, struct bsg_label);
     BU_VLS_INIT(&l->label);
     bu_vls_sprintf(&l->label, "%s", argv[0]);
     VMOVE(l->p, p);

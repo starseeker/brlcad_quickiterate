@@ -273,7 +273,7 @@ sl_itol(struct scroll_item *mptr, double val)
 	val = 0.0;
     }
 
-    bu_vls_printf(&vls, "knob %s %f", mptr->scroll_cmd, val*BV_MAX);
+    bu_vls_printf(&vls, "knob %s %f", mptr->scroll_cmd, val*BSG_VIEW_MAX);
     Tcl_Eval(s->interp, bu_vls_addr(&vls));
     bu_vls_free(&vls);
 }
@@ -508,7 +508,7 @@ scroll_display(struct mged_state *s, int y_top)
 	    }
 
 	    if (f > 0)
-		xpos = (f + SL_TOL) * BV_MAX;
+		xpos = (f + SL_TOL) * BSG_VIEW_MAX;
 	    else if (f < 0)
 		xpos = (f - SL_TOL) * -MENUXLIM;
 	    else
@@ -521,7 +521,7 @@ scroll_display(struct mged_state *s, int y_top)
 		    color_scheme->cs_slider_line[1],
 		    color_scheme->cs_slider_line[2], 1, 1.0);
 	    dm_draw_line_2d(DMP,
-		    GED2PM1((int)BV_MAX), GED2PM1(y),
+		    GED2PM1((int)BSG_VIEW_MAX), GED2PM1(y),
 		    GED2PM1(MENUXLIM), GED2PM1(y));
 	}
     }

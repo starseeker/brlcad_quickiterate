@@ -113,8 +113,8 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 
 	fx = dm_Xx2Normal(DMP, atoi(argv[1]));
 	fy = dm_Xy2Normal(DMP, atoi(argv[2]), 0);
-	x = fx * BV_MAX;
-	y = fy * BV_MAX;
+	x = fx * BSG_VIEW_MAX;
+	y = fy * BSG_VIEW_MAX;
 
 	if (mged_variables->mv_faceplate &&
 	    mged_variables->mv_orig_gui) {
@@ -133,7 +133,7 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 
 	mged_variables->mv_orig_gui = 0;
 	fy = dm_Xy2Normal(DMP, atoi(argv[2]), 1);
-	y = fy * BV_MAX;
+	y = fy * BSG_VIEW_MAX;
 
     end:
 	if (mged_variables->mv_mouse_behavior == 'q' && !stolen) {
@@ -322,8 +322,8 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 
 	switch (*argv[1]) {
 	    case '1':
-		fx = dm_Xx2Normal(DMP, dm_omx) * BV_MAX - adc_state->adc_dv_x;
-		fy = dm_Xy2Normal(DMP, dm_omy, 1) * BV_MAX - adc_state->adc_dv_y;
+		fx = dm_Xx2Normal(DMP, dm_omx) * BSG_VIEW_MAX - adc_state->adc_dv_x;
+		fy = dm_Xy2Normal(DMP, dm_omy, 1) * BSG_VIEW_MAX - adc_state->adc_dv_y;
 
 		bu_vls_printf(&vls, "adc a1 %lf\n", RAD2DEG*atan2(fy, fx));
 		Tcl_Eval(s->interp, bu_vls_addr(&vls));
@@ -332,8 +332,8 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 		am_mode = AMM_ADC_ANG1;
 		break;
 	    case '2':
-		fx = dm_Xx2Normal(DMP, dm_omx) * BV_MAX - adc_state->adc_dv_x;
-		fy = dm_Xy2Normal(DMP, dm_omy, 1) * BV_MAX - adc_state->adc_dv_y;
+		fx = dm_Xx2Normal(DMP, dm_omx) * BSG_VIEW_MAX - adc_state->adc_dv_x;
+		fy = dm_Xy2Normal(DMP, dm_omy, 1) * BSG_VIEW_MAX - adc_state->adc_dv_y;
 
 		bu_vls_printf(&vls, "adc a2 %lf\n", RAD2DEG*atan2(fy, fx));
 		Tcl_Eval(s->interp, bu_vls_addr(&vls));
@@ -363,9 +363,9 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 
 		break;
 	    case 'd':
-		fx = (dm_Xx2Normal(DMP, dm_omx) * BV_MAX -
+		fx = (dm_Xx2Normal(DMP, dm_omx) * BSG_VIEW_MAX -
 		      adc_state->adc_dv_x) * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local * INV_BV;
-		fy = (dm_Xy2Normal(DMP, dm_omy, 1) * BV_MAX -
+		fy = (dm_Xy2Normal(DMP, dm_omy, 1) * BSG_VIEW_MAX -
 		      adc_state->adc_dv_y) * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local * INV_BV;
 
 		td = sqrt(fx * fx + fy * fy);

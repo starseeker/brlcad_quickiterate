@@ -115,7 +115,7 @@ to_mouse_append_pnt_common(struct ged *gedp,
     gedp->ged_gvp = gdvp;
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &view[X], &view[Y]);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -2201,7 +2201,7 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
     struct bu_vls i_vls = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -2223,7 +2223,7 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
 
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fx, &fy);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -2377,7 +2377,7 @@ to_mouse_poly_cont_func(Tcl_Interp *interp,
     int x, y;
     fastf_t fx, fy;
     point_t v_pt, m_pt;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -2522,7 +2522,7 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
     point_t m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
     struct bu_vls i_vls = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -2545,7 +2545,7 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
 
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fx, &fy);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -2710,7 +2710,7 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
     struct bu_vls i_vls = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl.gv_sdata_polygons;
@@ -2732,7 +2732,7 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
 
     int snapped = 0;
     if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fx, &fy);
     }
     if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
@@ -3164,7 +3164,7 @@ to_data_scale(struct ged *gedp,
 
     /* scale data arrows */
     {
-	struct bv_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_data_arrows;
+	struct bsg_data_arrow_state *gdasp = &gdvp->gv_tcl.gv_data_arrows;
 	point_t vcenter = {0, 0, 0};
 
 	/* Scale the length of each arrow */
@@ -3187,7 +3187,7 @@ to_data_scale(struct ged *gedp,
 
     /* scale data labels */
     {
-	struct bv_data_label_state *gdlsp = &gdvp->gv_tcl.gv_data_labels;
+	struct bsg_data_label_state *gdlsp = &gdvp->gv_tcl.gv_data_labels;
 	point_t vcenter = {0, 0, 0};
 	point_t vpoint;
 

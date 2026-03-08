@@ -61,7 +61,7 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
 #ifndef _WIN32
     bsg_shape *sp;
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
     FILE *fp_r;
     FILE *fp_w;
     int rpid;
@@ -196,29 +196,29 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 	for (size_t si = 0; si < nshapes; si++) {
 	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
-	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		int i;
 		int nused = vp->nused;
 		int *cmd = vp->cmd;
 		point_t *pt = vp->pt;
 		for (i = 0; i < nused; i++, cmd++, pt++) {
 		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
+			case BSG_VLIST_POLY_START:
+			case BSG_VLIST_POLY_VERTNORM:
+			case BSG_VLIST_TRI_START:
+			case BSG_VLIST_TRI_VERTNORM:
 			    continue;
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_TRI_MOVE:
+			case BSG_VLIST_POLY_MOVE:
+			case BSG_VLIST_LINE_MOVE:
+			case BSG_VLIST_TRI_MOVE:
 			    /* Move, not draw */
 			    MAT4X3VEC(last, _pc.rotation, *pt);
 			    continue;
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
+			case BSG_VLIST_POLY_DRAW:
+			case BSG_VLIST_POLY_END:
+			case BSG_VLIST_LINE_DRAW:
+			case BSG_VLIST_TRI_DRAW:
+			case BSG_VLIST_TRI_END:
 			    /* draw.  */
 			    MAT4X3VEC(fin, _pc.rotation, *pt);
 			    break;

@@ -103,7 +103,7 @@ class QPolyMod : public QWidget
 	bool eventFilter(QObject *, QEvent *);
 
     private:
-	void poly_type_settings(struct bv_polygon *ip);
+	void poly_type_settings(struct bsg_polygon *ip);
 	int poly_cnt = 0;
 	bsg_shape *p = nullptr;
 	bool do_bool = false;

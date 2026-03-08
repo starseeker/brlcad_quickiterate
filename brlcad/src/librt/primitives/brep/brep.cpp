@@ -1649,8 +1649,8 @@ plotisoUCheckForTrim(struct bu_list *vlfree, struct bu_list *vhead, const Surfac
 		    //						"\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 		    //						cnt++, x, v, x + deltax, v);
 
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -1739,8 +1739,8 @@ plotisoVCheckForTrim(struct bu_list *vlfree, struct bu_list *vhead, const Surfac
 		    //bu_log("\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 		    //		cnt++, u, y, u, y + deltay);
 
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -1768,8 +1768,8 @@ plotisoU(struct bu_list *vlfree, struct bu_list *vhead, SurfaceTree* st, fastf_t
 	}
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 	VMOVE(pt2, p);
-	BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -1793,8 +1793,8 @@ plotisoV(struct bu_list *vlfree, struct bu_list *vhead, SurfaceTree* st, fastf_t
 	}
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 	VMOVE(pt2, p);
-	BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -1932,8 +1932,8 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 	    const ON_BrepVertex& v2 = brep->m_V[e.m_vi[1]];
 	    VMOVE(pt1, v1.Point());
 	    VMOVE(pt2, v2.Point());
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	} else {
 	    point_t endpt;
 	    ON_Interval dom = crv->Domain();
@@ -1949,7 +1949,7 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 	    double t1 = 0.0;
 	    p = crv->PointAt(dom.ParameterAt(t1));
 	    VMOVE(pt1, p);
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
 
 	    // add segments until the minimum segment count is
 	    // achieved and the distance between the end of the last
@@ -1968,7 +1968,7 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 		    p = crv->PointAt(dom.ParameterAt(t2));
 		    VMOVE(pt2, p);
 		}
-		BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 
 		// advance to next segment
 		t1 = t2;
@@ -1979,7 +1979,7 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 		    t2 = 1.0;
 		}
 	    }
-	    BV_ADD_VLIST(vlfree, vhead, endpt, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, endpt, BSG_VLIST_LINE_DRAW);
 	}
     }
 
@@ -2056,11 +2056,11 @@ rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 	    if (pnt_cnt > 1) {
 		p = poly[0];
 		VMOVE(pt1, p);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
 		for (j = 1; j < pnt_cnt; j++) {
 		    p = poly[j];
 		    VMOVE(pt1, p);
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}

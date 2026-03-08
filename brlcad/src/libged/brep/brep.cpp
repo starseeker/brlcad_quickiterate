@@ -1578,7 +1578,7 @@ ged_brep_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     bsg_vlblock_free(gb.vbp);
-    gb.vbp = (struct bv_vlblock *)NULL;
+    gb.vbp = (struct bsg_vlblock *)NULL;
     rt_db_free_internal(&gb.intern);
     return BRLCAD_ERROR;
 }

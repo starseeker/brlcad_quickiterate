@@ -119,7 +119,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 		    int argc,
 		    const char *argv[])
 {
-    struct bv_data_arrow_state *gdasp;
+    struct bsg_data_arrow_state *gdasp;
 
     if (argv[0][0] == 's')
 	gdasp = &gdvp->gv_tcl.gv_sdata_arrows;

@@ -606,7 +606,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     if (DG_QRAY_GRAPHICS(gedp->i->ged_gdp) && bu_vls_strlen(&nv.plotfile)) {
 	FILE *fp = fopen(bu_vls_cstr(&nv.plotfile), "rb");
 	if (fp) {
-	    struct bv_vlblock*vbp = bsg_vlblock_init(vlfree, 32);
+	    struct bsg_vlblock*vbp = bsg_vlblock_init(vlfree, 32);
 	    fastf_t csize = gedp->ged_gvp->gv_scale * 0.01;
 	    int pret = rt_uplot_to_vlist(vbp, fp, csize, gedp->i->ged_gdp->gd_uplotOutputMode);
 	    fclose(fp);
@@ -684,7 +684,7 @@ ged_vnirt_core(struct ged *gedp, int argc, const char *argv[])
 	sscanf(argv[argc-1], "%lf", &scan[Y]) != 1) {
 	return BRLCAD_ERROR;
     }
-    scan[Z] = BV_MAX;
+    scan[Z] = BSG_VIEW_MAX;
     argc -= 2;
 
     av = (char **)bu_calloc(1, sizeof(char *) * (argc + 5), "gd_vnirt_cmd: av");

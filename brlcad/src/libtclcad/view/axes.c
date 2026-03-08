@@ -36,7 +36,7 @@
 int
 to_axes(struct ged *gedp,
 	bsg_view *gdvp,
-	struct bv_axes *gasp,
+	struct bsg_axes *gasp,
 	int argc,
 	const char *argv[],
 	const char *usage)
@@ -525,7 +525,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		  int argc,
 		  const char *argv[])
 {
-    struct bv_data_axes_state *gdasp;
+    struct bsg_data_axes_state *gdasp;
 
     if (argv[0][0] == 's')
 	gdasp = &gdvp->gv_tcl.gv_sdata_axes;

@@ -600,8 +600,8 @@ dm_draw_prim_labels(struct dm *dmp,
 	    break;
 
 	dm_draw_string_2d(dmp, pl[i].str,
-			  (((int)(pl[i].pt[X]*BV_MAX))+15)*INV_BV,
-			  (((int)(pl[i].pt[Y]*BV_MAX))+15)*INV_BV, 0, 1);
+			  (((int)(pl[i].pt[X]*BSG_VIEW_MAX))+15)*INV_BV,
+			  (((int)(pl[i].pt[Y]*BSG_VIEW_MAX))+15)*INV_BV, 0, 1);
     }
 
     db_free_full_path(&path);

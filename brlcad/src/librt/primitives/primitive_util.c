@@ -400,12 +400,12 @@ plot_ellipse(
 
     ellipse_point_at_radian(p, center, axis_a, axis_b,
 	    radian_step * (num_points - 1));
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_MOVE);
 
     radian = 0;
     for (i = 0; i < num_points; ++i) {
 	ellipse_point_at_radian(p, center, axis_a, axis_b, radian);
-	BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_DRAW);
 
 	radian += radian_step;
     }

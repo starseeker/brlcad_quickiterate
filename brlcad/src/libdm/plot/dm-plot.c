@@ -322,10 +322,10 @@ plot_loadMatrix(struct dm *dmp, fastf_t *mat, int which_eye)
  * Returns 0 if object could be drawn, !0 if object was omitted.
  */
 static int
-plot_drawVList(struct dm *dmp, struct bv_vlist *vp)
+plot_drawVList(struct dm *dmp, struct bsg_vlist *vp)
 {
     static vect_t last;
-    struct bv_vlist *tvp;
+    struct bsg_vlist *tvp;
     point_t *pt_prev=NULL;
     fastf_t dist_prev=1.0;
     fastf_t dist;
@@ -351,7 +351,7 @@ plot_drawVList(struct dm *dmp, struct bv_vlist *vp)
     if (delta < SQRT_SMALL_FASTF)
 	delta = SQRT_SMALL_FASTF;
 
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	int i;
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
@@ -359,24 +359,24 @@ plot_drawVList(struct dm *dmp, struct bv_vlist *vp)
 	for (i = 0; i < nused; i++, cmd++, pt++) {
 	    static vect_t start, fin;
 	    switch (*cmd) {
-		case BV_VLIST_POLY_START:
-		case BV_VLIST_POLY_VERTNORM:
-		case BV_VLIST_TRI_START:
-		case BV_VLIST_TRI_VERTNORM:
+		case BSG_VLIST_POLY_START:
+		case BSG_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_TRI_START:
+		case BSG_VLIST_TRI_VERTNORM:
 		    continue;
-		case BV_VLIST_MODEL_MAT:
+		case BSG_VLIST_MODEL_MAT:
 		    MAT_COPY(privars->plotmat, privars->mod_mat);
 		    continue;
-		case BV_VLIST_DISPLAY_MAT:
+		case BSG_VLIST_DISPLAY_MAT:
 		    MAT4X3PNT(tlate, (privars->mod_mat), *pt);
 		    privars->disp_mat[3] = tlate[0];
 		    privars->disp_mat[7] = tlate[1];
 		    privars->disp_mat[11] = tlate[2];
 		    MAT_COPY(privars->plotmat, privars->disp_mat);
 		    continue;
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_LINE_MOVE:
-		case BV_VLIST_TRI_MOVE:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_LINE_MOVE:
+		case BSG_VLIST_TRI_MOVE:
 		    /* Move, not draw */
 		    if (dmp->i->dm_perspective > 0) {
 			/* cannot apply perspective transformation to
@@ -395,11 +395,11 @@ plot_drawVList(struct dm *dmp, struct bv_vlist *vp)
 		    } else
 			MAT4X3PNT(last, privars->plotmat, *pt);
 		    continue;
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_POLY_END:
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_TRI_DRAW:
-		case BV_VLIST_TRI_END:
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_POLY_END:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_TRI_DRAW:
+		case BSG_VLIST_TRI_END:
 		    /* draw */
 		    if (dmp->i->dm_perspective > 0) {
 			/* cannot apply perspective transformation to
@@ -479,12 +479,12 @@ plot_drawVList(struct dm *dmp, struct bv_vlist *vp)
 
 
 static int
-plot_draw(struct dm *dmp, struct bv_vlist *(*callback_function)(void *), void **data)
+plot_draw(struct dm *dmp, struct bsg_vlist *(*callback_function)(void *), void **data)
 {
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
     if (!callback_function) {
 	if (data) {
-	    vp = (struct bv_vlist *)data;
+	    vp = (struct bsg_vlist *)data;
 	    plot_drawVList(dmp, vp);
 	}
     } else {

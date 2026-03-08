@@ -99,7 +99,7 @@ draw_e_axes(struct mged_state *s)
     point_t v_ap1;                 /* axes position in view coordinates */
     point_t v_ap2;                 /* axes position in view coordinates */
     mat_t rot_mat;
-    struct bv_axes gas;
+    struct bsg_axes gas;
     struct bsg_camera _cam;
 
     bsg_view_get_camera(view_state->vs_gvp, &_cam);
@@ -116,7 +116,7 @@ draw_e_axes(struct mged_state *s)
     } else
 	return;
 
-    memset(&gas, 0, sizeof(struct bv_axes));
+    memset(&gas, 0, sizeof(struct bsg_axes));
     gas.label_flag = 1;
     VMOVE(gas.axes_pos, v_ap1);
     gas.axes_size = axes_state->ax_edit_size1 * INV_BV;
@@ -126,7 +126,7 @@ draw_e_axes(struct mged_state *s)
 
     dm_draw_hud_axes(DMP, view_state->vs_gvp->gv_size, _cam.rotation, &gas);
 
-    memset(&gas, 0, sizeof(struct bv_axes));
+    memset(&gas, 0, sizeof(struct bsg_axes));
     gas.label_flag = 1;
     VMOVE(gas.axes_pos, v_ap2);
     gas.axes_size = axes_state->ax_edit_size2 * INV_BV;
@@ -144,14 +144,14 @@ draw_m_axes(struct mged_state *s)
 {
     point_t m_ap;			/* axes position in model coordinates, mm */
     point_t v_ap;			/* axes position in view coordinates */
-    struct bv_axes gas;
+    struct bsg_axes gas;
     struct bsg_camera _cam;
 
     bsg_view_get_camera(view_state->vs_gvp, &_cam);
     VSCALE(m_ap, axes_state->ax_model_pos, s->dbip->dbi_local2base);
     MAT4X3PNT(v_ap, _cam.model2view, m_ap);
 
-    memset(&gas, 0, sizeof(struct bv_axes));
+    memset(&gas, 0, sizeof(struct bsg_axes));
     gas.label_flag = 1;
     VMOVE(gas.axes_pos, v_ap);
     gas.axes_size = axes_state->ax_model_size * INV_BV;
@@ -167,7 +167,7 @@ void
 draw_v_axes(struct mged_state *s)
 {
     point_t v_ap;			/* axes position in view coordinates */
-    struct bv_axes gas;
+    struct bsg_axes gas;
     struct bsg_camera _cam;
 
     bsg_view_get_camera(view_state->vs_gvp, &_cam);
@@ -176,7 +176,7 @@ draw_v_axes(struct mged_state *s)
 	 axes_state->ax_view_pos[Y] * INV_BV / dm_get_aspect(DMP),
 	 0.0);
 
-    memset(&gas, 0, sizeof(struct bv_axes));
+    memset(&gas, 0, sizeof(struct bsg_axes));
     gas.label_flag = 1;
     VMOVE(gas.axes_pos, v_ap);
     gas.axes_size = axes_state->ax_view_size * INV_BV;

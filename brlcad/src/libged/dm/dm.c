@@ -625,7 +625,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     dm_configure_win(dmp, 0);
     dm_set_pathname(dmp, bu_vls_cstr(&dm_name));
     dm_set_zbuffer(dmp, 1);
-    fastf_t windowbounds[6] = { -1, 1, -1, 1, (int)BV_MIN, (int)BV_MAX };
+    fastf_t windowbounds[6] = { -1, 1, -1, 1, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX };
     dm_set_win_bounds(dmp, windowbounds);
 
     // We have the dmp - let the view know

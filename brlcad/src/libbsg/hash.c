@@ -35,55 +35,55 @@
 #include "bsg/defines.h"
 
 static void
-_bv_adc_state_hash(struct bu_data_hash_state *state, struct bv_adc_state *v)
+_bv_adc_state_hash(struct bu_data_hash_state *state, struct bsg_adc_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_adc_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_adc_state));
 }
 
 static void
-_bv_axes_hash(struct bu_data_hash_state *state, struct bv_axes *v)
+_bv_axes_hash(struct bu_data_hash_state *state, struct bsg_axes *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_axes));
+    bu_data_hash_update(state, v, sizeof(struct bsg_axes));
 }
 
 static void
-_bv_data_arrow_state_hash(struct bu_data_hash_state *state, struct bv_data_arrow_state *v)
+_bv_data_arrow_state_hash(struct bu_data_hash_state *state, struct bsg_data_arrow_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_data_arrow_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_data_arrow_state));
 }
 
 static void
-_bv_data_axes_state_hash(struct bu_data_hash_state *state, struct bv_data_axes_state *v)
+_bv_data_axes_state_hash(struct bu_data_hash_state *state, struct bsg_data_axes_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_data_axes_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_data_axes_state));
     if (v->num_points)
 	bu_data_hash_update(state, v->points, v->num_points * sizeof(point_t));
 }
 
 static void
-_bv_data_label_state_hash(struct bu_data_hash_state *state, struct bv_data_label_state *v)
+_bv_data_label_state_hash(struct bu_data_hash_state *state, struct bsg_data_label_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_data_label_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_data_label_state));
     if (v->gdls_size)
 	bu_data_hash_update(state, v->gdls_points, v->gdls_size * sizeof(point_t));
     for (int i = 0; i < v->gdls_num_labels; i++) {
@@ -94,13 +94,13 @@ _bv_data_label_state_hash(struct bu_data_hash_state *state, struct bv_data_label
 
 
 static void
-_bv_data_line_state_hash(struct bu_data_hash_state *state, struct bv_data_line_state *v)
+_bv_data_line_state_hash(struct bu_data_hash_state *state, struct bsg_data_line_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_data_line_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_data_line_state));
     if (v->gdls_num_points)
 	bu_data_hash_update(state, v->gdls_points, v->gdls_num_points * sizeof(point_t));
 }
@@ -148,65 +148,65 @@ _bg_polygons_hash(struct bu_data_hash_state *state, struct bg_polygons *v)
 }
 
 static void
-_bv_data_polygon_state_hash(struct bu_data_hash_state *state, bv_data_polygon_state *v)
+_bv_data_polygon_state_hash(struct bu_data_hash_state *state, bsg_data_polygon_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(bv_data_polygon_state));
+    bu_data_hash_update(state, v, sizeof(bsg_data_polygon_state));
     _bg_polygons_hash(state, &v->gdps_polygons);
 }
 
 static void
-_bv_grid_state_hash(struct bu_data_hash_state *state, struct bv_grid_state *v)
+_bv_grid_state_hash(struct bu_data_hash_state *state, struct bsg_grid_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_grid_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_grid_state));
 }
 
 static void
-_bv_params_state_hash(struct bu_data_hash_state *state, struct bv_params_state *v)
+_bv_params_state_hash(struct bu_data_hash_state *state, struct bsg_params_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_params_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_params_state));
 }
 
 static void
-_bv_other_state_hash(struct bu_data_hash_state *state, struct bv_other_state *v)
+_bv_other_state_hash(struct bu_data_hash_state *state, struct bsg_other_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_other_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_other_state));
 }
 
 
 static void
-_bv_interactive_rect_state_hash(struct bu_data_hash_state *state, struct bv_interactive_rect_state *v)
+_bv_interactive_rect_state_hash(struct bu_data_hash_state *state, struct bsg_interactive_rect_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_interactive_rect_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_interactive_rect_state));
 }
 
 static void
-_bv_obj_settings_hash(struct bu_data_hash_state *state, struct bv_obj_settings *v)
+_bv_obj_settings_hash(struct bu_data_hash_state *state, struct bsg_obj_settings *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_obj_settings));
+    bu_data_hash_update(state, v, sizeof(struct bsg_obj_settings));
 }
 
 static void
@@ -217,9 +217,9 @@ bsg_shape_hash(struct bu_data_hash_state *state, bsg_shape *s)
 	return;
 
     bu_data_hash_update(state, s, sizeof(bsg_shape));
-    struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
-	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
+    struct bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &((struct bsg_vlist *)&s->s_vlist)->l)) {
+	bu_data_hash_update(state, tvp, sizeof(struct bsg_vlist));
     }
     if (s->s_os)
 	_bv_obj_settings_hash(state, s->s_os);

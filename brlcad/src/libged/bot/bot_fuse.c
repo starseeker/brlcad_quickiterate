@@ -46,7 +46,7 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
     int done;
     point_t pt1, pt2;
     size_t i, cnt;
-    struct bv_vlblock *vbp = NULL;
+    struct bsg_vlblock *vbp = NULL;
     struct bu_list *vhead = NULL;
     struct bu_ptbl faces;
     struct bu_vls plot_file_name = BU_VLS_INIT_ZERO;
@@ -99,8 +99,8 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
 			    VMOVE(pt1, eu->vu_p->v_p->vg_p->coord);
 			    VMOVE(pt2, eu->eumate_p->vu_p->v_p->vg_p->coord);
 			    if (out_type == 1) {
-				BV_ADD_VLIST(vbp->free_vlist_hd, vhead, pt1, BV_VLIST_LINE_MOVE);
-				BV_ADD_VLIST(vbp->free_vlist_hd, vhead, pt2, BV_VLIST_LINE_DRAW);
+				BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, pt1, BSG_VLIST_LINE_MOVE);
+				BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, pt2, BSG_VLIST_LINE_DRAW);
 			    } else if (out_type == 2) {
 				if (!plotfp) {
 				    bu_vls_sprintf(&plot_file_name, "%s.%p.pl", name, (void *)magic_p);

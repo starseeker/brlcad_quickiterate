@@ -102,7 +102,7 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
     struct rt_db_internal internal;
     struct directory *dp;
     int i;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     mat_t mat;
     fastf_t scale;
     struct model* m;

@@ -2752,7 +2752,7 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
 	// Helper lambda that processes one draw_list_ entry set.
 	// entry_vs is declared outside both loops to avoid repeated stack allocs
 	// and to remain valid for draw_vs references within each iteration.
-	struct bv_obj_settings entry_vs;
+	struct bsg_obj_settings entry_vs;
 	auto process_dl_entries = [&](const std::vector<DrawList::Entry> &dl_entries) {
 	    for (size_t i = 0; i < dl_entries.size(); i++) {
 		const DrawList::Entry &dl_e = dl_entries[i];
@@ -2769,7 +2769,7 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
 		// Use entry mode if non-zero, otherwise fall back to vs->s_dmode
 		int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
 		// Use entry's settings override if present, otherwise use vs
-		struct bv_obj_settings *draw_vs = vs;
+		struct bsg_obj_settings *draw_vs = vs;
 		if (dl_e.has_settings) {
 		    // Copy vs first, then apply the per-entry overrides
 		    entry_vs = *vs;

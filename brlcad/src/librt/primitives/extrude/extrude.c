@@ -1394,7 +1394,7 @@ rt_extrude_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
     struct rt_sketch_internal *sketch_ip;
     point_t end_of_h;
     size_t i1, i2, nused1, nused2;
-    struct bv_vlist *vp1, *vp2, *vp2_start;
+    struct bsg_vlist *vp1, *vp2, *vp2_start;
 
     BU_CK_LIST_HEAD(vhead);
     RT_CK_DB_INTERNAL(ip);
@@ -1404,8 +1404,8 @@ rt_extrude_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
 
     if (!extrude_ip->skt) {
 	bu_log("ERROR: no sketch to extrude!\n");
-	BV_ADD_VLIST(vlfree, vhead, extrude_ip->V, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, extrude_ip->V, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, extrude_ip->V, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, extrude_ip->V, BSG_VLIST_LINE_DRAW);
 	return 0;
     }
 
@@ -1421,13 +1421,13 @@ rt_extrude_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
 	} else {
 	    bu_log("Unnamed sketch is empty, nothing to draw\n");
 	}
-	BV_ADD_VLIST(vlfree, vhead, extrude_ip->V, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, extrude_ip->V, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, extrude_ip->V, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, extrude_ip->V, BSG_VLIST_LINE_DRAW);
 	return 0;
     }
 
     /* plot bottom curve */
-    vp1 = BU_LIST_LAST(bv_vlist, vhead);
+    vp1 = BU_LIST_LAST(bsg_vlist, vhead);
     nused1 = vp1->nused;
     if (curve_to_vlist(vlfree, vhead, ttol, extrude_ip->V, extrude_ip->u_vec, extrude_ip->v_vec, sketch_ip, crv)) {
 	bu_log("ERROR: sketch (%s) references non-existent vertices!\n",
@@ -1437,7 +1437,7 @@ rt_extrude_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
 
     /* plot top curve */
     VADD2(end_of_h, extrude_ip->V, extrude_ip->h);
-    vp2 = BU_LIST_LAST(bv_vlist, vhead);
+    vp2 = BU_LIST_LAST(bsg_vlist, vhead);
     nused2 = vp2->nused;
     curve_to_vlist(vlfree, vhead, ttol, end_of_h, extrude_ip->u_vec, extrude_ip->v_vec, sketch_ip, crv);
 
@@ -1446,27 +1446,27 @@ rt_extrude_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
     i1 = nused1;
     if (i1 >= vp1->nused) {
 	i1 = 0;
-	vp1 = BU_LIST_NEXT(bv_vlist, &vp1->l);
+	vp1 = BU_LIST_NEXT(bsg_vlist, &vp1->l);
     }
     i2 = nused2;
     if (i2 >= vp2->nused) {
 	i2 = 0;
-	vp2 = BU_LIST_NEXT(bv_vlist, &vp2->l);
+	vp2 = BU_LIST_NEXT(bsg_vlist, &vp2->l);
 	nused2--;
     }
 
-    while (vp1 != vp2_start || (i1 < BV_VLIST_CHUNK && i2 < BV_VLIST_CHUNK && i1 != nused2)) {
-	BV_ADD_VLIST(vlfree, vhead, vp1->pt[i1], BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, vp2->pt[i2], BV_VLIST_LINE_DRAW);
+    while (vp1 != vp2_start || (i1 < BSG_VLIST_CHUNK && i2 < BSG_VLIST_CHUNK && i1 != nused2)) {
+	BSG_ADD_VLIST(vlfree, vhead, vp1->pt[i1], BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, vp2->pt[i2], BSG_VLIST_LINE_DRAW);
 	i1++;
 	if (i1 >= vp1->nused) {
 	    i1 = 0;
-	    vp1 = BU_LIST_NEXT(bv_vlist, &vp1->l);
+	    vp1 = BU_LIST_NEXT(bsg_vlist, &vp1->l);
 	}
 	i2++;
 	if (i2 >= vp2->nused) {
 	    i2 = 0;
-	    vp2 = BU_LIST_NEXT(bv_vlist, &vp2->l);
+	    vp2 = BU_LIST_NEXT(bsg_vlist, &vp2->l);
 	}
     }
 
@@ -2083,7 +2083,7 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
     int *used_seg;
     size_t i, j, k;
     size_t vert_count = 0;
-    struct bv_vlist *vlp;
+    struct bsg_vlist *vlp;
 
     RT_CK_DB_INTERNAL(ip);
     struct bu_list *vlfree = &rt_vlfree;
@@ -2227,9 +2227,9 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 
     /* count vertices */
     vert_count = 0;
-    for (BU_LIST_FOR (vlp, bv_vlist, &vhead)) {
+    for (BU_LIST_FOR (vlp, bsg_vlist, &vhead)) {
 	for (i = 0; i < vlp->nused; i++) {
-	    if (vlp->cmd[i] == BV_VLIST_LINE_DRAW)
+	    if (vlp->cmd[i] == BSG_VLIST_LINE_DRAW)
 		vert_count++;
 	}
     }
@@ -2245,15 +2245,15 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 
     fu = nmg_cmface(s, verts, vert_count);
     j = 0;
-    for (BU_LIST_FOR (vlp, bv_vlist, &vhead)) {
+    for (BU_LIST_FOR (vlp, bsg_vlist, &vhead)) {
 	for (i = 0; i < vlp->nused; i++) {
-	    if (vlp->cmd[i] == BV_VLIST_LINE_DRAW) {
+	    if (vlp->cmd[i] == BSG_VLIST_LINE_DRAW) {
 		nmg_vertex_gv(*verts[j], vlp->pt[i]);
 		j++;
 	    }
 	}
     }
-    BV_FREE_VLIST(vlfree, &vhead);
+    BSG_FREE_VLIST(vlfree, &vhead);
 
     /* make sure face normal is in correct direction */
     bu_free((char *)verts, "verts");
@@ -2296,9 +2296,9 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 
 	/* calculate plane of this loop */
 	VSETALLN(pl, 0.0, 4);
-	for (BU_LIST_FOR (vlp, bv_vlist, &vhead)) {
+	for (BU_LIST_FOR (vlp, bsg_vlist, &vhead)) {
 	    for (j = 0; j < vlp->nused; j++) {
-		if (vlp->cmd[j] == BV_VLIST_LINE_DRAW) {
+		if (vlp->cmd[j] == BSG_VLIST_LINE_DRAW) {
 		    VCROSS(cross, vlp->pt[j-1], vlp->pt[j]);
 		    VADD2(pl, pl, cross);
 		}
@@ -2307,9 +2307,9 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 
 	VUNITIZE(pl);
 
-	for (BU_LIST_FOR (vlp, bv_vlist, &vhead)) {
+	for (BU_LIST_FOR (vlp, bsg_vlist, &vhead)) {
 	    for (j = 0; j < vlp->nused; j++) {
-		if (vlp->cmd[j] == BV_VLIST_LINE_DRAW) {
+		if (vlp->cmd[j] == BSG_VLIST_LINE_DRAW) {
 		    pl[W] += VDOT(pl, vlp->pt[j]);
 		    pt_count++;
 		}
@@ -2329,9 +2329,9 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 	fu = nmg_add_loop_to_face(s, fu, vertsa, (int)pt_count, fdir);
 
 	k = 0;
-	for (BU_LIST_FOR (vlp, bv_vlist, &vhead)) {
+	for (BU_LIST_FOR (vlp, bsg_vlist, &vhead)) {
 	    for (j = 0; j < vlp->nused; j++) {
-		if (vlp->cmd[j] == BV_VLIST_LINE_DRAW) {
+		if (vlp->cmd[j] == BSG_VLIST_LINE_DRAW) {
 		    if (rev) {
 			nmg_vertex_gv(vertsa[(int)(pt_count) - k - 1], vlp->pt[j]);
 		    } else {
@@ -2341,7 +2341,7 @@ rt_extrude_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip
 		}
 	    }
 	}
-	BV_FREE_VLIST(vlfree, &vhead);
+	BSG_FREE_VLIST(vlfree, &vhead);
     }
 
     /* extrude this face */

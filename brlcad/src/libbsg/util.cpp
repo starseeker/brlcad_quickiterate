@@ -57,7 +57,7 @@
 #define DM_DEFAULT_FONT_SIZE 20
 
 static void
-_data_tclcad_init(struct bv_data_tclcad *d)
+_data_tclcad_init(struct bsg_data_tclcad *d)
 {
     d->gv_polygon_mode = 0;
     d->gv_hide = 0;
@@ -302,7 +302,7 @@ bsg_view_init(bsg_view *gvp, bsg_scene *s)
 
     // Until the app tells us differently, we need to use our local
     // containers
-    { bsg_shape *_fso; BU_GET(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = (struct bv_scene_obj *)_fso; }
+    { bsg_shape *_fso; BU_GET(_fso, bsg_shape); gvp->gv_objs.free_scene_obj = (struct bsg_shape *)_fso; }
     BU_LIST_INIT(&gvp->gv_objs.free_scene_obj->l);
     BU_LIST_INIT(&gvp->gv_objs.gv_vlfree);
 
@@ -417,9 +417,9 @@ _find_view_geom(int *have_geom_objs, struct bu_ptbl *so)
     for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
 	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(so, i);
 	_find_view_geom(have_geom_objs, &s->children);
-	if ((s->s_type_flags & BV_DBOBJ_BASED) ||
-		(s->s_type_flags & BV_POLYGONS) ||
-		(s->s_type_flags & BV_LABELS)) {
+	if ((s->s_type_flags & BSG_NODE_DBOBJ_BASED) ||
+		(s->s_type_flags & BSG_NODE_POLYGONS) ||
+		(s->s_type_flags & BSG_NODE_LABELS)) {
 	    (*have_geom_objs) = 1;
 	    break;
 	}
@@ -434,9 +434,9 @@ _bound_objs_view(int *is_empty, vect_t min, vect_t max, struct bu_ptbl *so, bsg_
 	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(so, i);
 	_bound_objs_view(is_empty, min, max, &s->children, v, have_geom_objs, all_view_objs);
 	if (have_geom_objs && !all_view_objs) {
-	    if (!(s->s_type_flags & BV_DBOBJ_BASED) &&
-		!(s->s_type_flags & BV_POLYGONS) &&
-		!(s->s_type_flags & BV_LABELS))
+	    if (!(s->s_type_flags & BSG_NODE_DBOBJ_BASED) &&
+		!(s->s_type_flags & BSG_NODE_POLYGONS) &&
+		!(s->s_type_flags & BSG_NODE_LABELS))
 		continue;
 	}
 	if (bsg_shape_bound(s, v)) {
@@ -475,10 +475,10 @@ bsg_view_autoview(bsg_view *v, double factor, int all_view_objs)
     VSETALL(min,  INFINITY);
     VSETALL(max, -INFINITY);
 
-    struct bu_ptbl *so = bsg_view_shapes(v, BV_DB_OBJS);
+    struct bu_ptbl *so = bsg_view_shapes(v, BSG_DB_OBJS);
     if (so)
 	_bound_objs(&is_empty, &have_geom_objs, min, max, so, v);
-    struct bu_ptbl *sol = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sol = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (sol)
 	_bound_objs(&is_empty, &have_geom_objs, min, max, sol, v);
 
@@ -489,12 +489,12 @@ bsg_view_autoview(bsg_view *v, double factor, int all_view_objs)
     // view objs (for example, when overlaying a plot file on an empty view)
     // then basing autoview on the view-only objs is more intuitive than just
     // using the default view settings.
-    so = bsg_view_shapes(v, BV_VIEW_OBJS);
+    so = bsg_view_shapes(v, BSG_VIEW_OBJS);
     if (so) {
 	_find_view_geom(&have_geom_objs, so);
 	_bound_objs_view(&is_empty,min, max, so, v, have_geom_objs, all_view_objs);
     }
-    sol = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    sol = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
     if (sol) {
 	_find_view_geom(&have_geom_objs, sol);
 	_bound_objs_view(&is_empty,min, max, sol, v, have_geom_objs, all_view_objs);
@@ -877,8 +877,8 @@ _bv_scale(bsg_view *v, int sensitivity, int factor, point_t UNUSED(keypoint), un
 
     double f = (double)factor/(double)sensitivity;
     v->gv_scale /= f;
-    if (v->gv_scale < BV_MINVIEWSCALE)
-	v->gv_scale = BV_MINVIEWSCALE;
+    if (v->gv_scale < BSG_MINVIEWSCALE)
+	v->gv_scale = BSG_MINVIEWSCALE;
     v->gv_size = 2.0 * v->gv_scale;
     v->gv_isize = 1.0 / v->gv_size;
 
@@ -1002,8 +1002,8 @@ bsg_view_plane(plane_t *p, bsg_view *v)
 extern "C" size_t
 bsg_view_clear(bsg_view *v, int flags)
 {
-    if (!flags || flags & BV_DB_OBJS) {
-	struct bu_ptbl *sg = bsg_view_shapes(v, BV_DB_OBJS | (flags & ~BV_VIEW_OBJS));
+    if (!flags || flags & BSG_DB_OBJS) {
+	struct bu_ptbl *sg = bsg_view_shapes(v, BSG_DB_OBJS | (flags & ~BSG_VIEW_OBJS));
 	if (sg) {
 	    for (long i = (long)BU_PTBL_LEN(sg) - 1; i >= 0; i--) {
 		bsg_shape *cg = (bsg_shape *)BU_PTBL_GET(sg, i);
@@ -1012,8 +1012,8 @@ bsg_view_clear(bsg_view *v, int flags)
 	    bu_ptbl_reset(sg);
 	}
     }
-    if (!flags || flags & BV_VIEW_OBJS) {
-	struct bu_ptbl *sv = bsg_view_shapes(v, BV_VIEW_OBJS | (flags & ~BV_DB_OBJS));
+    if (!flags || flags & BSG_VIEW_OBJS) {
+	struct bu_ptbl *sv = bsg_view_shapes(v, BSG_VIEW_OBJS | (flags & ~BSG_DB_OBJS));
 	if (sv) {
 	    for (long i = (long)BU_PTBL_LEN(sv) - 1; i >= 0; i--) {
 		bsg_shape *s = (bsg_shape *)BU_PTBL_GET(sv, i);
@@ -1023,9 +1023,9 @@ bsg_view_clear(bsg_view *v, int flags)
 	}
     }
 
-    if (!flags || flags & BV_LOCAL_OBJS || v->independent) {
-	if (!flags || flags & BV_DB_OBJS) {
-	    struct bu_ptbl *sg = bsg_view_shapes(v, BV_DB_OBJS | (flags & ~BV_VIEW_OBJS) | BV_LOCAL_OBJS);
+    if (!flags || flags & BSG_LOCAL_OBJS || v->independent) {
+	if (!flags || flags & BSG_DB_OBJS) {
+	    struct bu_ptbl *sg = bsg_view_shapes(v, BSG_DB_OBJS | (flags & ~BSG_VIEW_OBJS) | BSG_LOCAL_OBJS);
 	    if (sg) {
 		for (long i = (long)BU_PTBL_LEN(sg) - 1; i >= 0; i--) {
 		    bsg_shape *cg = (bsg_shape *)BU_PTBL_GET(sg, i);
@@ -1034,8 +1034,8 @@ bsg_view_clear(bsg_view *v, int flags)
 		bu_ptbl_reset(sg);
 	    }
 	}
-	if (!flags || flags & BV_VIEW_OBJS) {
-	    struct bu_ptbl *sv = bsg_view_shapes(v, BV_VIEW_OBJS | (flags & ~BV_DB_OBJS) | BV_LOCAL_OBJS);
+	if (!flags || flags & BSG_VIEW_OBJS) {
+	    struct bu_ptbl *sv = bsg_view_shapes(v, BSG_VIEW_OBJS | (flags & ~BSG_DB_OBJS) | BSG_LOCAL_OBJS);
 	    if (sv) {
 		for (long i = (long)BU_PTBL_LEN(sv) - 1; i >= 0; i--) {
 		    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(sv, i);
@@ -1046,11 +1046,11 @@ bsg_view_clear(bsg_view *v, int flags)
 	}
     }
 
-    struct bu_ptbl *sg = bsg_view_shapes(v, BV_DB_OBJS);
-    struct bu_ptbl *sgl = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sg = bsg_view_shapes(v, BSG_DB_OBJS);
+    struct bu_ptbl *sgl = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 
-    struct bu_ptbl *sv = bsg_view_shapes(v, BV_VIEW_OBJS);
-    struct bu_ptbl *svl = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sv = bsg_view_shapes(v, BSG_VIEW_OBJS);
+    struct bu_ptbl *svl = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
 
     size_t ocnt = 0;
     ocnt += (sg) ? BU_PTBL_LEN(sg) : 0;
@@ -1097,7 +1097,7 @@ bsg_shape_create(bsg_view *v, int type)
     // regardless of whether or not a shared repository is available.
     bsg_shape *free_scene_obj = NULL;
     struct bu_list *vlfree = NULL;
-    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || v->independent || !v->vset)  {
+    if (type & BSG_LOCAL_OBJS || type & BSG_CHILD_OBJS || v->independent || !v->vset)  {
 	free_scene_obj = (bsg_shape *)v->gv_objs.free_scene_obj;
 	vlfree = &v->gv_objs.gv_vlfree;
     } else {
@@ -1111,16 +1111,16 @@ bsg_shape_create(bsg_view *v, int type)
     // to be stored in it, because they are part of the scene only by virtue
     // of their parent object
     struct bu_ptbl *otbl = NULL;
-    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || v->independent || !v->vset)  {
-	if (!(type & BV_CHILD_OBJS)) {
-	    if (type & BV_DB_OBJS) {
+    if (type & BSG_LOCAL_OBJS || type & BSG_CHILD_OBJS || v->independent || !v->vset)  {
+	if (!(type & BSG_CHILD_OBJS)) {
+	    if (type & BSG_DB_OBJS) {
 		otbl = v->gv_objs.db_objs;
 	    } else {
 		otbl = v->gv_objs.view_objs;
 	    }
 	}
     } else {
-	if (type & BV_DB_OBJS) {
+	if (type & BSG_DB_OBJS) {
 	    otbl = &BSG_SCENEI(v->vset)->shared_db_objs;
 	} else {
 	    otbl = &BSG_SCENEI(v->vset)->shared_view_objs;
@@ -1171,7 +1171,7 @@ bsg_shape_get(bsg_view *v, int type)
 
    int ltype = type;
    if (v->independent)
-       ltype |= BV_LOCAL_OBJS;
+       ltype |= BSG_LOCAL_OBJS;
 
     bsg_shape *s = bsg_shape_create(v, ltype);
     if (!s)
@@ -1181,9 +1181,9 @@ bsg_shape_get(bsg_view *v, int type)
 	bu_ptbl_ins(s->otbl, (long *)s);
 
     /* Register in the per-view scene root so bsg_view_traverse sees it.
-     * BV_DB_OBJS and BV_VIEW_OBJS shapes are top-level scene children.
-     * BV_CHILD_OBJS are owned by their parent shape, not the scene root. */
-    if (!(ltype & BV_CHILD_OBJS)) {
+     * BSG_DB_OBJS and BSG_VIEW_OBJS shapes are top-level scene children.
+     * BSG_CHILD_OBJS are owned by their parent shape, not the scene root. */
+    if (!(ltype & BSG_CHILD_OBJS)) {
 	bsg_shape *root = bsg_scene_root_get(v);
 	if (root)
 	    bu_ptbl_ins(&root->children, (long *)s);
@@ -1192,7 +1192,7 @@ bsg_shape_get(bsg_view *v, int type)
 	 * also be visible when drawing any of the sibling views.  Each sibling
 	 * has its own root (so its own camera node / AE) but they all need to
 	 * reference the same top-level geometry node. */
-	if (!v->independent && !(ltype & BV_LOCAL_OBJS) && v->vset) {
+	if (!v->independent && !(ltype & BSG_LOCAL_OBJS) && v->vset) {
 	    struct bu_ptbl *all_views = bsg_scene_views(v->vset);
 	    for (size_t vi = 0; all_views && vi < BU_PTBL_LEN(all_views); vi++) {
 		bsg_view *ov = (bsg_view *)BU_PTBL_GET(all_views, vi);
@@ -1277,15 +1277,15 @@ bsg_shape_reset(bsg_shape *s)
     // If we have a label, do the label freeing steps
     // TODO - this should be using the free callback rather
     // than special casing...
-    if (s->s_type_flags & BV_LABELS) {
-	struct bv_label *la = (struct bv_label *)s->s_i_data;
+    if (s->s_type_flags & BSG_NODE_LABELS) {
+	struct bsg_label *la = (struct bsg_label *)s->s_i_data;
 	bu_vls_free(&la->label);
-	BU_PUT(la, struct bv_label);
+	BU_PUT(la, struct bsg_label);
     }
 
     // free vlist
     if (BU_LIST_IS_INITIALIZED(&s->s_vlist)) {
-	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+	BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
     }
     BU_LIST_INIT(&(s->s_vlist));
 
@@ -1293,7 +1293,7 @@ bsg_shape_reset(bsg_shape *s)
 	BU_VLS_INIT(&s->s_name);
     bu_vls_trunc(&s->s_name, 0);
 
-    bsg_material defaults = BV_OBJ_SETTINGS_INIT;
+    bsg_material defaults = BSG_OBJ_SETTINGS_INIT;
     bsg_material_sync(&s->s_local_os, &defaults);
     s->s_os = &s->s_local_os;
     s->s_inherit_settings = 0;
@@ -1620,14 +1620,14 @@ bsg_shape_bound(bsg_shape *sp, bsg_view *v)
     bsg_shape *s = bsg_shape_for_view(sp, v);
     if (!s)
 	s = sp;
-    if (s->s_type_flags & BV_MESH_LOD) {
+    if (s->s_type_flags & BSG_NODE_MESH_LOD) {
 	bsg_lod *i = (bsg_lod *)s->draw_data;
 	if (i) {
 	    point_t obmin, obmax;
 	    VMOVE(obmin, i->bmin);
 	    VMOVE(obmax, i->bmax);
 	    // Apply the scene matrix to the bounding box values to bound this
-	    // instance, since the BV_MESH_LOD data is based on the
+	    // instance, since the BSG_NODE_MESH_LOD data is based on the
 	    // non-instanced mesh.
 	    MAT4X3PNT(s->bmin, s->s_mat, obmin);
 	    MAT4X3PNT(s->bmax, s->s_mat, obmax);
@@ -1648,14 +1648,14 @@ bsg_shape_bound(bsg_shape *sp, bsg_view *v)
 	std::unordered_map<bsg_view *, bsg_shape *>::iterator vo_it;
 	for (vo_it = BSG_SHAPI(s)->vobjs.begin(); vo_it != BSG_SHAPI(s)->vobjs.end(); vo_it++) {
 	    bsg_shape *lv = vo_it->second;
-	    if (lv->s_type_flags & BV_MESH_LOD) {
+	    if (lv->s_type_flags & BSG_NODE_MESH_LOD) {
 		bsg_lod *i = (bsg_lod *)lv->draw_data;
 		if (i) {
 		    point_t obmin, obmax;
 		    VMOVE(obmin, i->bmin);
 		    VMOVE(obmax, i->bmax);
 		    // Apply the scene matrix to the bounding box values to bound this
-		    // instance, since the BV_MESH_LOD data is based on the
+		    // instance, since the BSG_NODE_MESH_LOD data is based on the
 		    // non-instanced mesh.
 		    MAT4X3PNT(lv->bmin, lv->s_mat, obmin);
 		    MAT4X3PNT(lv->bmax, lv->s_mat, obmax);
@@ -1712,8 +1712,8 @@ bsg_shape_vZ_calc(bsg_shape *s, bsg_view *v, int mode)
 
     double calc_val = (calc_mode) ? -DBL_MAX : DBL_MAX;
     int have_val = 0;
-    struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)(&s->s_vlist))->l)) {
+    struct bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &((struct bsg_vlist *)(&s->s_vlist))->l)) {
 	size_t nused = tvp->nused;
 	point_t *lpt = tvp->pt;
 	for (size_t l = 0; l < nused; l++, lpt++) {
@@ -1742,8 +1742,8 @@ bsg_shape_vZ_calc(bsg_shape *s, bsg_view *v, int mode)
 extern "C" struct bu_ptbl *
 bsg_view_shapes(bsg_view *v, int type)
 {
-    if (type & BV_DB_OBJS) {
-	if (type & BV_LOCAL_OBJS) {
+    if (type & BSG_DB_OBJS) {
+	if (type & BSG_LOCAL_OBJS) {
 	    return v->gv_objs.db_objs;
 	} else {
 	    if (v->vset)
@@ -1751,8 +1751,8 @@ bsg_view_shapes(bsg_view *v, int type)
 	}
     }
 
-    if (type & BV_VIEW_OBJS) {
-	if (type & BV_LOCAL_OBJS) {
+    if (type & BSG_VIEW_OBJS) {
+	if (type & BSG_LOCAL_OBJS) {
 	    return v->gv_objs.view_objs;
 	} else {
 	    if (v->vset)

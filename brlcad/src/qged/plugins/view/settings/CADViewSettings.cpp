@@ -245,7 +245,7 @@ CADViewSettings::checkbox_refresh(unsigned long long)
     mdlaxes_ckbx->setCheckState(v->gv_s->gv_model_axes.draw ? Qt::Checked : Qt::Unchecked);
     mdlaxes_ckbx->blockSignals(false);
 
-    struct bv_params_state *pst = &v->gv_s->gv_view_params;
+    struct bsg_params_state *pst = &v->gv_s->gv_view_params;
 
     // Params group: update main toggle and enable/disable sub-options
     params_ckbx->blockSignals(true);
@@ -319,7 +319,7 @@ CADViewSettings::view_refresh(unsigned long long)
     v->gv_s->gv_grid.draw = (grid_ckbx->checkState() == Qt::Checked) ? 1 : 0;
     v->gv_s->gv_model_axes.draw = (mdlaxes_ckbx->checkState() == Qt::Checked) ? 1 : 0;
 
-    struct bv_params_state *pst = &v->gv_s->gv_view_params;
+    struct bsg_params_state *pst = &v->gv_s->gv_view_params;
     pst->draw = (params_ckbx->checkState() == Qt::Checked) ? 1 : 0;
     pst->draw_size = (params_size_ckbx->checkState() == Qt::Checked) ? 1 : 0;
     pst->draw_center = (params_center_ckbx->checkState() == Qt::Checked) ? 1 : 0;

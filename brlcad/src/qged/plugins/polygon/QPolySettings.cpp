@@ -224,7 +224,7 @@ QPolySettings::settings_sync(bsg_shape *p)
 	return;
 
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 
     edge_color->blockSignals(true);
     edge_color->rgbtext->setText(QString("%1/%2/%3").arg(p->s_color[0]).arg(p->s_color[1]).arg(p->s_color[2]));

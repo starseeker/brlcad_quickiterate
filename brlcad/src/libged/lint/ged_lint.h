@@ -64,7 +64,7 @@ class lint_data {
 
 	bool do_plot = false;
 	struct bu_color *color;
-	struct bv_vlblock *vbp;
+	struct bsg_vlblock *vbp;
 	struct bu_list *vlfree;
 
 	std::map<std::string, std::set<std::string>> im_techniques;

@@ -80,7 +80,7 @@
 
 
 static int
-_bv_adc_state_differ(struct bv_adc_state *v1, struct bv_adc_state *v2)
+_bv_adc_state_differ(struct bsg_adc_state *v1, struct bsg_adc_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -115,7 +115,7 @@ _bv_adc_state_differ(struct bv_adc_state *v1, struct bv_adc_state *v2)
 }
 
 static int
-_bv_axes_differ(struct bv_axes *v1, struct bv_axes *v2)
+_bv_axes_differ(struct bsg_axes *v1, struct bsg_axes *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -145,7 +145,7 @@ _bv_axes_differ(struct bv_axes *v1, struct bv_axes *v2)
 }
 
 static int
-_bv_data_arrow_state_differ(struct bv_data_arrow_state *v1, struct bv_data_arrow_state *v2)
+_bv_data_arrow_state_differ(struct bsg_data_arrow_state *v1, struct bsg_data_arrow_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -167,7 +167,7 @@ _bv_data_arrow_state_differ(struct bv_data_arrow_state *v1, struct bv_data_arrow
 }
 
 static int
-_bv_data_axes_state_differ(struct bv_data_axes_state *v1, struct bv_data_axes_state *v2)
+_bv_data_axes_state_differ(struct bsg_data_axes_state *v1, struct bsg_data_axes_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -188,7 +188,7 @@ _bv_data_axes_state_differ(struct bv_data_axes_state *v1, struct bv_data_axes_st
 }
 
 static int
-_bv_data_label_state_differ(struct bv_data_label_state *v1, struct bv_data_label_state *v2)
+_bv_data_label_state_differ(struct bsg_data_label_state *v1, struct bsg_data_label_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -213,7 +213,7 @@ _bv_data_label_state_differ(struct bv_data_label_state *v1, struct bv_data_label
 
 
 static int
-_bv_data_line_state_differ(struct bv_data_line_state *v1, struct bv_data_line_state *v2)
+_bv_data_line_state_differ(struct bsg_data_line_state *v1, struct bsg_data_line_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -290,7 +290,7 @@ _bg_polygons_differ(struct bg_polygons *v1, struct bg_polygons *v2)
 }
 
 static int
-_bv_data_polygon_state_differ(bv_data_polygon_state *v1, bv_data_polygon_state *v2)
+_bv_data_polygon_state_differ(bsg_data_polygon_state *v1, bsg_data_polygon_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -321,7 +321,7 @@ _bv_data_polygon_state_differ(bv_data_polygon_state *v1, bv_data_polygon_state *
 }
 
 static int
-_bv_grid_state_differ(struct bv_grid_state *v1, struct bv_grid_state *v2)
+_bv_grid_state_differ(struct bsg_grid_state *v1, struct bsg_grid_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -343,7 +343,7 @@ _bv_grid_state_differ(struct bv_grid_state *v1, struct bv_grid_state *v2)
 }
 
 static int
-_bv_params_state_differ(struct bv_params_state *v1, struct bv_params_state *v2)
+_bv_params_state_differ(struct bsg_params_state *v1, struct bsg_params_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -364,7 +364,7 @@ _bv_params_state_differ(struct bv_params_state *v1, struct bv_params_state *v2)
 }
 
 static int
-_bv_other_state_differ(struct bv_other_state *v1, struct bv_other_state *v2)
+_bv_other_state_differ(struct bsg_other_state *v1, struct bsg_other_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -381,7 +381,7 @@ _bv_other_state_differ(struct bv_other_state *v1, struct bv_other_state *v2)
 
 
 static int
-_bv_interactive_rect_state_differ(struct bv_interactive_rect_state *v1, struct bv_interactive_rect_state *v2)
+_bv_interactive_rect_state_differ(struct bsg_interactive_rect_state *v1, struct bsg_interactive_rect_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)

@@ -101,12 +101,12 @@ DM_EXPORT extern int dm_processOptions(struct dm *dmp, struct bu_vls *init_proc_
 
 /* adc.c */
 DM_EXPORT extern void dm_draw_adc(struct dm *dmp,
-				  struct bv_adc_state *adcp, mat_t view2model, mat_t model2view);
+				  struct bsg_adc_state *adcp, mat_t view2model, mat_t model2view);
 
 /* axes.c */
 DM_EXPORT extern void dm_draw_data_axes(struct dm *dmp,
 					fastf_t viewSize,
-					struct bv_data_axes_state *bndasp);
+					struct bsg_data_axes_state *bndasp);
 
 DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, bsg_shape *s);
 
@@ -114,7 +114,7 @@ DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, bsg_shape *s);
 DM_EXPORT extern void dm_draw_hud_axes(struct dm *dmp,
 				   fastf_t viewSize,
 				   const mat_t rmat,
-				   struct bv_axes *bnasp);
+				   struct bsg_axes *bnasp);
 
 /* clip.c */
 DM_EXPORT extern int clip(fastf_t *,
@@ -128,7 +128,7 @@ DM_EXPORT extern int vclip(point_t,
 
 /* grid.c */
 DM_EXPORT extern void dm_draw_grid(struct dm *dmp,
-				   struct bv_grid_state *ggsp,
+				   struct bsg_grid_state *ggsp,
 				   fastf_t scale,
 				   mat_t model2view,
 				   fastf_t base2local);
@@ -149,7 +149,7 @@ DM_EXPORT extern int dm_draw_prim_labels(struct dm *dmp,
 
 /* rect.c */
 DM_EXPORT extern void dm_draw_rect(struct dm *dmp,
-				   struct bv_interactive_rect_state *grsp);
+				   struct bsg_interactive_rect_state *grsp);
 
 /* scale.c */
 DM_EXPORT extern void dm_draw_scale(struct dm *dmp,
@@ -226,8 +226,8 @@ DM_EXPORT extern void dm_set_linestyle(struct dm *dmp, int linestyle);
 DM_EXPORT extern int dm_get_perspective(struct dm *dmp);
 DM_EXPORT extern void dm_set_perspective(struct dm *dmp, fastf_t perspective);
 DM_EXPORT extern int dm_get_display_image(struct dm *dmp, unsigned char **image, int flip, int alpha);
-DM_EXPORT extern int dm_draw_vlist(struct dm *dmp, struct bv_vlist *vp);
-DM_EXPORT extern int dm_draw_vlist_hidden_line(struct dm *dmp, struct bv_vlist *vp);
+DM_EXPORT extern int dm_draw_vlist(struct dm *dmp, struct bsg_vlist *vp);
+DM_EXPORT extern int dm_draw_vlist_hidden_line(struct dm *dmp, struct bsg_vlist *vp);
 DM_EXPORT extern int dm_set_line_attr(struct dm *dmp, int width, int style);
 DM_EXPORT extern int dm_draw_begin(struct dm *dmp);
 DM_EXPORT extern int dm_draw_end(struct dm *dmp);
@@ -244,7 +244,7 @@ DM_EXPORT extern int dm_draw_lines_3d(struct dm *dmp, int npoints, point_t *poin
 DM_EXPORT extern int dm_draw_point_2d(struct dm *dmp, fastf_t x, fastf_t y);
 DM_EXPORT extern int dm_draw_point_3d(struct dm *dmp, point_t pt);
 DM_EXPORT extern int dm_draw_points_3d(struct dm *dmp, int npoints, point_t *points);
-DM_EXPORT extern int dm_draw(struct dm *dmp, struct bv_vlist *(*callback)(void *), void **data);
+DM_EXPORT extern int dm_draw(struct dm *dmp, struct bsg_vlist *(*callback)(void *), void **data);
 DM_EXPORT extern int dm_set_depth_mask(struct dm *dmp, int d_on);
 DM_EXPORT extern int dm_set_debug(struct dm *dmp, int lvl);
 DM_EXPORT extern int dm_get_debug(struct dm *dmp);

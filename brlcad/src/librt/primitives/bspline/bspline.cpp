@@ -636,10 +636,10 @@ rt_nurb_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 
 	vp = c->ctl_points;
 	for (i = 0; i < c->s_size[0]; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_MOVE);
 	    vp += coords;
 	    for (j = 1; j < c->s_size[1]; j++) {
-		BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_DRAW);
 		vp += coords;
 	    }
 	}
@@ -649,9 +649,9 @@ rt_nurb_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 
 	    stride = c->s_size[1] * coords;
 	    vp = &c->ctl_points[j * coords];
-	    BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_MOVE);
 	    for (i = 0; i < c->s_size[0]; i++) {
-		BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_DRAW);
 		vp += stride;
 	    }
 	}

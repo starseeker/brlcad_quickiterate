@@ -37,7 +37,7 @@ extern "C" {
 #include "bindings.h"
 #include "qtcad/QgSW.h"
 
-// Using the full BV_MIN/BV_MAX was causing drawing artifacts with moss I
+// Using the full BSG_VIEW_MIN/BSG_VIEW_MAX was causing drawing artifacts with moss I
 // in shaded mode (I think I was seeing the "Z-fighting" problem:
 // https://www.sjbaker.org/steve/omniv/love_your_z_buffer.html )
 //
