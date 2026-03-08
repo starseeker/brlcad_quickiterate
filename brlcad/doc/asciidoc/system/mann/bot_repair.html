@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>BOT_REPAIR(nged)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>BOT_REPAIR(nged) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>bot_repair - Given an existing BoT object as input, try to generate a manifold solid mesh.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>bot repair [-h] [-a #] [-p #] [-o output_obj] {&lt;input_bot&gt;}...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It is quite common in CAD modeling to encounter a triangle mesh (a Bag of Triangles or "BoT" object in BRL-CAD terms) that does not define an enclosed volume in space. Sometimes this is intentional (such as "plate mode" meshes whose volume is implicitly defined) but more commonly it represents a modeling error - i.e. the <em>intent</em> was to define a closed volume in space, but the mesh elements as defined do not successfully do so.</p>
+</div>
+<div class="paragraph">
+<p>In the fully general case it is impossible to repair such a mesh without manual intervention - if a huge majority of a spherical mesh is cut away, for example, there is no way to know automatically if the original modeling intent was to define the whole sphere or to define (say) a lens shape. However, in many cases the flaws are small compared to the overall shape, and there are simply "holes" in the mesh that can be filled in to produce a valid manifold. There are also even more basic categories of problem where the geoemtry itself does (or rather, <em>can</em>) define a closed volume, but the topology of the mesh itself is incorrect.</p>
+</div>
+<div class="paragraph">
+<p>For those cases which may be suitable for automatic repair, the <strong>bot repair</strong> command attempts to produce valid manifold solid meshes automatically using mesh repair algorithms. By default, topological repairs and hole filling for holes with a size up to five percent of the overall mesh area are the techniques that <strong>bot repair</strong> will attempt to employ. There are also options to adjust the hole sizes considered viable for repair attempts. However, be aware that attempting to repair holes that are <em>very</em> large may produce unexpected results - an output may be closed and manifold, but end up changing the shape of a mesh. Parts of the mesh that are intended to be separate may end up being connected to "close" the shape, losing concave features. Outputs should be inspected - <em>particularly</em> when large hole sizes are specified - to insure the new shape is true to the original intent as well as topologically valid.</p>
+</div>
+<div class="paragraph">
+<p>A "repaired" mesh may either be output as an overwrite of the input mesh (an "in-place" repair) or (if only one input mesh is specified) written to a user-specified object name as a new mesh. Note that in-place repair <em>is</em> destructive - the original mesh is lost - but that method of repair is <em>very</em> useful when correcting large numbers of meshes in a hierarchical model.</p>
+</div>
+<div class="paragraph">
+<p>If an input mesh is already a valid solid, no work is done. If a repair cannot be successfully made, an error is returned.</p>
+</div>
+<div class="paragraph">
+<p>A number of checks are made on a repaired mesh to try and ensure the processing results are valid - in particular, if the bounding box size changes or the surface area of the mesh decreases that is interpreted as an error.</p>
+</div>
+<div class="paragraph">
+<p>Note that this command will <em>not</em> (currently) perform any work on plate mode or surface mode BoTs. If a user is not aware that they have those types of BoT objects in a database, they may be surprised at <strong>bot repair</strong> not operating on those objects. To verify the type of an individual bot, use the command <strong>bot get type objname</strong>. To find all plate mode bots in a database the command <strong>search -type bot -type plate</strong> may be used and to find all surface mode BoTs the command <strong>search -type bot ! -type plate ! -type solid</strong> will work. If a BoT is <em>incorrectly</em> identified as surface, its type may be changed with the command <strong>bot set type objname solid</strong>. Note, however, that changing a BoT&#8217;s type and repairing it when it is <em>intended</em> to be plate mode or surface may result in incorrect geometry per modeling intent, even if the result ends up topologically valid.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="search_options">OPTIONS</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a #</strong></dt>
+<dd>
+<p>Specify an absolute maximum area in mm for a hole size on which repair will be attempted. Unset by default. Overrides the <strong>p</strong> if specified.</p>
+</dd>
+<dt class="hdlist1"><strong>-h</strong></dt>
+<dd>
+<p>Print command help.</p>
+</dd>
+<dt class="hdlist1"><strong>-p #</strong></dt>
+<dd>
+<p>Specify the largest viable hole size for repair as a percentage (0-100) of the mesh area. By default the limit is set to 5 percent. 0 and 100 are interpreted as attempting to fill all holes, which may produce unexpected results. If the <strong>a</strong> is specified it overrides this option.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="exampleblock">
+<div class="title">In-Place Repair</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>bot repair input.bot</strong></p>
+</div>
+<div class="paragraph">
+<p>If a repair is needed, input.bot will be replaced by a new input.bot primitive with the repairs applied.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Outputting Repaired Mesh to Another Object.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>bot repair -o output.bot input.bot</strong></p>
+</div>
+<div class="paragraph">
+<p>If a repair was needed, output.bot holds the altered mesh. The input.bot original is unaltered.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Try Repairing Larger Holes.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>bot repair -p 10.2 input.bot output.bot</strong></p>
+</div>
+<div class="paragraph">
+<p>Attempt repairing holes with area up to 10.2 percent of the mesh area.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Repair all BoT Solids in Database</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>bot repair *</strong></p>
+</div>
+<div class="paragraph">
+<p>Attempt in-place repair of all BoT solids. Any object matching the pattern that is not of the appropriate type is ignored. This option is useful when batch processing large numbers of objects. Output for the user is a list of repaired BoTs, as well as any attempted repairs that failed.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

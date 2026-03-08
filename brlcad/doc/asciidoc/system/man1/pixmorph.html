@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>PIXMORPH(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>PIXMORPH(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>pixmorph - morph two pix(5) images</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>pixmorph [-w&lt;width&gt;] [-n&lt;height&gt;] &lt;picA.pix&gt; &lt;picB.pix&gt; &lt;linesfile&gt; &lt;warpfrac&gt; &lt;dissolvefrac&gt; &gt; &lt;out.pix&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>pixmorph</strong> performs feature-based image metamorphosis between "picA.pix" and "picB.pix". The feature correspondences are specified in the file "linesfile", which can be created using a utility such as <em>morphedit.tcl</em> (see <em>morphedit(1)</em>).</p>
+</div>
+<div class="paragraph">
+<p>The output image is computed in the following fashion. First, for each pixel in the output image, we choose a set <em>A</em> of pixels (and associated weights) from "picA.pix" and another set <em>B</em> of pixels from "picB.pix" (how these sets and weights are chosen will be described momentarily). The pixel values from <em>A</em> are then averaged (using the associated weights) to determine the contribution <em>cA</em> from the original image; the contribution <em>cB</em> is computed similarly. Then, the values <em>cA</em> and <em>cB</em> are interpolated by the value <em>dissolvefrac</em> to compute the final value of the output pixel.</p>
+</div>
+<div class="paragraph">
+<p>Now, the contribution <em>cA</em> from the original image is intended to be the value from <em>picA.pix</em> that gets "warped to" the location in question. It is this computation (more specifically, the computation of <em>A</em> and associated weights) that is the heart of the morphing algorithm, and is described briefly here.</p>
+</div>
+<div class="paragraph">
+<p>First, the linesfile is processed. The linesfile is of the forma b p n lineseg1_initial lineseg1_final lineseg2_initial lineseg2_finallinesegn_initial linesegn_final, where <em>n</em> equals the number of line segments, and <em>a</em>, <em>b</em>, and <em>p</em> are constants that alter the nature of the morph. A line segment is represented as a list of four real numbers (and is interpreted as a directed line segment). For example, 0.1 2.0 0.2 2 0.714844 0.560547 0.988281 0.277344 0.347656 0.646484 0.654297 0.896484 0.341797 0.611328 0.757812 0.265625 0.628906 0.519531 0.925781 0.763672 is a valid lines file. Typically, the pairs <em>linesegi_initial linesegi_final</em> have been placed by the user in the lines file to match up particular features of <em>picA.pix</em> and <em>picB.pix</em> (the feature at <em>linesegi_initial</em> in <em>picA.pix</em> corresponds to the feature at <em>linesegi_final</em> in <em>picB.pix</em>). For instance, <em>lineseg1_initial</em> might be a line segment running down the length of the nose of a person displayed in <em>picA.pix</em>; then <em>lineseg1_final</em> would be a line segment running down the length of the nose of the person featured in <em>picB.pix</em>. See <em>morphedit(1)</em> for more information about creating a lines file.</p>
+</div>
+<div class="paragraph">
+<p>Now, for each line segment pair <em>(s,t)</em>, we perform the following procedure: We interpolate between <em>s</em> and <em>t</em> by factor <em>warpfrac</em> to yield the interpolated line segment <em>s'</em>. From the change in position, scale, and orientation of a line segment from its initial position <em>s</em> to its interpolated counterpart <em>s'</em> we may deduce a linear transformation in the image space. More specifically, if the line segment <em>s</em> must undergo translation, stretching, and rotation to yield <em>s'</em>, we compute a linear transformation <em>T</em> of the image space that performs the same translation, stretching, and rotation. (So <em>T</em> applied to <em>s</em> yields <em>s'</em>.) The inverse <em>T*</em> of this transformation maps <em>s'</em> to <em>s</em>; for instance, <em>T*</em> will take an endpoint of <em>s'</em> to the corresponding endpoint of <em>s</em>, and will preserve the relationship of every other point to the line segment. We apply this inverse <em>T*</em> to the coordinates <em>(x,y)</em> to find an appropriate pixel in the original image. Along with this, we compute a weight based on the length of the line segment <em>s</em> along with its distance from <em>(x,y)</em>. This weight is equal to ( (length <strong> p) / (a + dist) ) </strong> b (where <em>**</em> denotes exponentiation, <em>length</em> is the length of <em>s</em>, <em>dist</em> is the distance from <em>s</em> to <em>(x,y)</em>, and <em>a</em>, <em>b</em>, <em>p</em> are constants chosen by the user and stored in the lines file).</p>
+</div>
+<div class="paragraph">
+<p>The set <em>A</em> of pixels is then collected by performing these computations for each line segment, and the resulting contribution <em>cA</em> is then computed by averaging over <em>A</em> with the appropriate weights.</p>
+</div>
+<div class="paragraph">
+<p>In practice, <em>a</em> = 0.1, <em>b</em> = 2.0, and <em>p</em> = 0.2 seems to work well.</p>
+</div>
+<div class="paragraph">
+<p>In general, the user will wish to set <em>warpfrac</em> = <em>dissolvefrac</em>. Typically, a morph animation will be produced by computing a sequence of images using <em>pixmorph</em>, each with slightly greater <em>warpfrac</em> (and <em>dissolvefrac</em>) (see the example). For a clearer and more thorough explanation, see T. Beier and S. Neely, Feature-Based Image Metamorphosis, "SIGGRAPH 1992 Computer Graphics Proceedings (volume 26 number 2)", (Chicago, July 26-31, 1992), pp 35-42, which presents the algorithm used by <em>pixmorph</em>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="options">OPTIONS</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">*-w*<em>WIDTH</em></dt>
+<dd>
+<p>Tells <strong>pixmorph</strong> that the input images have width WIDTH.</p>
+</dd>
+<dt class="hdlist1">*-n*<em>HEIGHT</em></dt>
+<dd>
+<p>Tells <strong>pixmorph</strong> that the input images have height HEIGHT.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 0.0 0.0 &gt; frame0.pix</p>
+</div>
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 0.2 0.2 &gt; frame1.pix</p>
+</div>
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 0.4 0.4 &gt; frame2.pix</p>
+</div>
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 0.6 0.6 &gt; frame3.pix</p>
+</div>
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 0.8 0.8 &gt; frame4.pix</p>
+</div>
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 1.0 1.0 &gt; frame5.pix</p>
+</div>
+<div class="paragraph">
+<p>Note that the example above will result in <em>frame0.pix</em> = <em>face1.pix</em> and <em>frame5.pix</em> = <em>face2.pix</em>.</p>
+</div>
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 0.5 0.0 &gt; out.pix</p>
+</div>
+<div class="paragraph">
+<p>Note that in this example, <em>dissolvefrac</em> = 0. This will warp <em>face1.pix</em> and <em>face2.pix</em> by the appropriate amount, but will ignore the contributions of <em>face2.pix</em> at the cross-dissolve stage. So the final image <em>out.pix</em> will consist entirely of values from <em>face1.pix</em> warped 50% according to the linesfile <em>lf</em>.</p>
+</div>
+<div class="paragraph">
+<p>pixmorph face1.pix face2.pix lf 0.0 0.5 &gt; out.pix</p>
+</div>
+<div class="paragraph">
+<p>In this example, <em>warpfrac</em> = 0. This will perform a simple 50% cross-dissolve between <em>face1.pix</em> and <em>face2.pix</em>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>brlcad</strong>(1), <strong>morphedit</strong>(1), <strong>pix</strong>(5)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1996-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

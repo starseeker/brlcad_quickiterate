@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Asignación de propiedades de los materiales y trazado de rayos (Raytracing) en MGED</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Asignación de propiedades de los materiales y trazado de rayos (Raytracing) en MGED</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprenderá a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Llamar figuras primitivas creadas anteriormente.</p>
+</li>
+<li>
+<p>Crear una región de dos figuras primitivas.</p>
+</li>
+<li>
+<p>Asignar propiedades de los materiales a sus figuras primitivas desde la ventana de comandos.</p>
+</li>
+<li>
+<p>Limpiar su ventana gráfica y dibujar una nueva región.</p>
+</li>
+<li>
+<p>Generar el Raytrace de si diseño desde la interfaz gráfica.</p>
+</li>
+<li>
+<p>Utilizar la interfaz gráfica para cambiar capas de la ventana gráfica.</p>
+</li>
+<li>
+<p>Limpiar la ventana gráfica luego de hacer el trazado de rayos de su modelo.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="assigning_material_properties_and_raytracing_opendb">Abrir una base de datos</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Para llamar a una figura primitiva creada en el tutorial anterior, inicie <em>MGED</em> e ingrese al menú File (Archivo) seleccionando la opción Open (Abrir). Un panel de control aparecerá con una lista de carpetas y archivos. Selecciones shapes.g y luego Open (Abrir). Un nuevo cuadro se mostrará en pantalla, en el que deberá cliquear OK.</p>
+</div>
+<div class="paragraph">
+<p>Dos ventanas se abrirán en su pantalla. En el prompt de <em>MGED</em> de la ventana de comandos tipee: <strong>draw sph2.s rcc2.s[Enter]</strong></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="create_region">Crear una región</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Antes de que pueda hacer el trazado de rayos de su diseño, usted tiene que hacer una región de las dos formas. Una región es un objeto que tiene propiedades de un material uniforme. La mayoría de las aplicaciones que utilizan los modelos de <em>BRL-CAD</em> consideraran a las regiones como los componentes básicos del modelo. Las regiones se construyen utilizando las operaciones booleanas básicas de unión, intersección y substracción, que se mostrarán en el próximo capítulo.</p>
+</div>
+<div class="paragraph">
+<p>En el promp de <em>MGED</em> tipee: <strong>r shRaytrace Control Panelapes2.r u sph2.s u rcc2.s[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Nota: Asegúrese de haber ingresado correctamente el comando antes de presionar ENTER. Los espacios, o la falta de los mismos, son importantes.</p>
+</div>
+<div class="paragraph">
+<p>Este comando le dice a <em>MGED</em> que:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">r</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">shapes2.r</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">u</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sph2.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">u</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rcc2.s</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Cree una región</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">La llame shapes2.r</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Añada el volumen de la forma</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sph2.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Añada el volumen de la forma</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rcc2.s</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="assign_material_prop">Asignar propiedad de la materia a una región</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Ahora tipee: <strong>mater shapes2.r[Enter]</strong> <em>MGED</em> responderá con:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   shader=
+
+   Shader? ('del' to delete, CR to skip)
+
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Que significa: Tipo de sombra ('del' para borrar, CR para saltear) Tipee entonces: <strong>plastic[Enter]</strong> <em>MGED</em> le preguntará:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   Color = (no color specified)
+
+   Color R G B (0..255)? ('del' to delete, CR to skip)
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Tipee: <strong>0 255 0[Enter]</strong> Eso le asignará a la región el color gris claro. <em>MGED</em> preguntará entonces:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   Inherit = 0 lower nodes (towards leaves) override
+
+   Inheritance (0/1)? (CR to skip)
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Tipee: <strong>0[Enter]</strong> Cuando complete esta seguidilla de comandos, en su ventana gráfica aparecerá algo como el siguiente ejemplo:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged04_commandwindow.png" alt="../../lessons/es/images/mged04_commandwindow.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Una versión de una sola línea de estos comandos podría ser: <strong>mater shapes2.r plastic 0 255 0 0[Enter]</strong> Este comando dice que:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mater</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">shapes2.r</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">plastic</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 255 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Asigne propiedades de la materia a&#8230;&#8203;</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">la región llamada shapes2.r</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Crear una región de plástico</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Con el color gris claro</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No heredando los colores del tipo de material</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="clear_window_new_region">Limpiar la ventana gráfica y dibujar una nueva región</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Una forma sencilla de limpiar su ventana gráfica y dibujar la nueva región al mismo tiempo es tipeando en el prompt de <em>MGED</em>: <strong>B shapes2.r[Enter]</strong> Este comando le dice a <em>MGED</em>:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">B</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">shapes2.r</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">La B es de Blast (ráfaga) y su función es despejar la ventana gráfica y redibujar el diseño.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">La región llamada shapes2.r</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>El comando Blast es la forma corta de combinar los comandos Z y draw.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="raytrace_model">Crear el trazado de rayos (Raytrace) de su modelo</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En el menú File (Archivo) seleccione la opción Raytrace. Aparecerá un cuadro de diálogo llamado Raytrace Control Panel (Panel de control de Raytrace). En la parte superior están los menús de Framebuffer y Objets (Objetos). Seleccione Framebuffer. Un menú desplegable le dará seis opciones: Active, All, Rectangle Area, Overlay, Interlay, y Underlay (en orden: Activo, Todo, Área rectangular, Traer al frente, Combinar capas, y Llevar al fondo). Con Overlay y Underlay, la capa que se envía hacia al frente o al fondo es la de framebuffer. Asegúrese de que las opciones Active (Activo), All (Todo) y Underlay (Llevar al fondo) estén activas (se evidencia con la presencia de un indicador rojo a la izquierda de cada elección). Seleccione OK.</p>
+</div>
+<div class="paragraph">
+<p>Nota: Cuando selecciona Raytrace desde esta ventana de diálogo, se inicia una programa auxiliar (RT) de los paquetes de <em>BRL-CAD</em>. El programa sólo crea el trazado de rayos de los objetos que se han dibujado en la ventana gráfica. Usted puede tener muchas formas, regiones, o combinaciones de ellas en una base de datos, pero si no están dibujados en ese momento en la ventana gráfica, el trazador de rayos las ignorará.</p>
+</div>
+<div class="paragraph">
+<p>Cambie el color de fondo producido por el trazador de rayos mediante la opción Background Color (Color de fondo) en el Panel de Control de Raytrace. Un menú desplegable aparecerá con algunas opciones predefinidas de color, más una herramienta de color. Seleccione el color blanco. El botón de selección debería aparecer ahora en blanco, en concordancia con su selección.</p>
+</div>
+<div class="paragraph">
+<p>Seleccione Raytrace. La ventana gráfica debe empezar a cambiar, y pronto verá su diseño en tonos verdes, con la malla superpuesta en el diseño, como se muestra en el ejemplo siguiente:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged04_raytracedshapes.png" alt="../../lessons/es/images/mged04_raytracedshapes.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Como hemos visto, puede especificar el color de fondo con el que se hará el trazado de rayos.</p>
+</div>
+<div class="paragraph">
+<p>También puede rellenar el framebuffer entero con el color de fondo. Para hacer esto, seleccione el color deseado y luego haga clic en el botón fbclear (despejar framebuffer) situado en la parte inferior del panel de control de Raytrace.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="layers_graphics_window">Cambiando capas de la ventana gráfica</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>La ventana gráfica de <em>MGED</em> se utiliza para mostrar los diferentes tipos de información gráfica: mallas 3D y pixels en 2D (o imágenes). Conceptualmente, cada tipo de datos ocupa una capa diferente en la pantalla. Las mallas en 3D ocupan la capa de mallas (Raytrace), mientras que el 2D píxeles (imágenes) ocupan la capa de framebuffer. Estas capas pueden pensarse como transparencias, y el orden en que se apilan y se muestran puede ser modificado.</p>
+</div>
+<div class="paragraph">
+<p>Como se mencionó anteriormente, hay un menú de Framebuffer en el panel de control de Raytrace. En la parte superior de este menú hay un botón de control etiquetado como activo. Éste modifica la pantalla con la capa de framebuffer a activada o desactivada. Cerca de la parte inferior del mismo menú hay tres botones de opción: Overlay, Interlay y Underlay. Cuando se selecciona el modo Underlay, se muestran los datos de píxeles debajo o detrás de los datos vectoriales. Por el contrario, cuando el modo Overlay está seleccionado, los datos de píxeles están en frente de los datos vectoriales. El modo interlay es similar al Overlay. La sutil diferencia es una tema avanzado que no se incluirá en este toturial.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged04_raytracedshapes.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged04_fb_overlay_mode.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Framebuffer en modo Underlay</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Framebuffer en modo Overlay</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Para ver cómo funciona, vaya al menú de Framebuffer y seleccione la opción Overlay. Observe que la representación de malla desaparece. ¿A dónde va? Si contestara "detrás de la visualización de Framebuffer", sería una respuesta correcta. Para ver la geometría del modelo, usted tendría que inactivar el framebuffer o seleccionar el modo Underlay.</p>
+</div>
+<div class="paragraph">
+<p>La malla tiene un punto amarillo en el centro que marca el centro de la vista (Ver tutorial 2). Esto le permite determinar si el uso de este dispositivo está en modo Overlay o Underlay. Si usted puede ver el punto de color amarillo, el uso de este dispositivo está en modo Underlay. Si le ha dicho a <em>MGED</em> que extraiga algunas figuras, pero la ventana gráfica se ve en blanco, probablemente esté visualizando un framebuffer blanco que enmascara la capa de mallas.</p>
+</div>
+<div class="paragraph">
+<p>Tenga en cuenta que puede cambiar la vista sobre la malla, pero la vista en el uso de framebuffer no se actualiza automáticamente para que coincidan. No es posible la manipulación directa de la vista en el framebuffer. Usted debe realizar nuevamente el trazado de rayos con el fin de actualizar la imagen de framebuffer.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="clear_graphics_window">Despejar la ventana gráfica</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Para borrar por completo la ventana de gráficos, usted puede hacerlo tanto desde la capa de mallas, como en el framebuffer. Recuerde que usted puede limpiar la capa de malla con el comando Z. Para la capa de framebuffer, existe el botón fbclear en el panel de control de Raytrace.</p>
+</div>
+<div class="paragraph">
+<p>En algunos casos, puede que prefiera para desactivar el framebuffer en lugar de borrarlo. Cuando el uso de este dispositivo está inactivo, <em>MGED</em> se ejecuta más rápido porque que no tiene que volver a dibujar el framebuffer cada vez que se actualiza lo expuesto. Se puede activar y desactivar el framebuffer alternadamente con el ítem de activación de framebuffer del Panel de control de Raytrace.</p>
+</div>
+<div class="paragraph">
+<p>Nota: Tenga en cuenta que en la versión de <em>BRL-CAD</em> 5.1 y posteriores, al desactivar el framebuffer no se destruye la imagen que contiene, sino que al reactivar la opción, se recupera la misma imagen. Sin embargo, en las versiones anteriores del paquete, el contenido del framebuffer se pierde al desactivarlo.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="assigning_material_properties_and_raytracing_review">Revisión</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprendió a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Llamar figuras primitivas creadas anteriormente.</p>
+</li>
+<li>
+<p>Crear una región de dos figuras primitivas.</p>
+</li>
+<li>
+<p>Asignar propiedades de los materiales a sus figuras primitivas desde la ventana de comandos.</p>
+</li>
+<li>
+<p>Limpiar su ventana gráfica y dibujar una nueva región.</p>
+</li>
+<li>
+<p>Generar el Raytrace de si diseño desde la interfaz gráfica.</p>
+</li>
+<li>
+<p>Utilizar la interfaz gráfica para cambiar capas de la ventana gráfica.</p>
+</li>
+<li>
+<p>Limpiar la ventana gráfica luego de hacer el trazado de rayos de su modelo.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

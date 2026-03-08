@@ -1,0 +1,3586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>Untitled</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Untitled</h1>
+</div>
+<div id="content">
+<div class="ulist">
+<ul>
+<li>
+<p>../x.php[Articles]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/about.php[About BRL-CAD]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/about.php#article-body[Introduction]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/build_pattern.php[Build Pattern]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/build_pattern.php#build_pattern_generalinfo[Build Pattern Information]</p>
+</li>
+<li>
+<p>../../articles/en/build_pattern.php#build_pattern_names[Pattern Name]</p>
+</li>
+<li>
+<p>../../articles/en/build_pattern.php#build_pattern_fields[Common Fields For All Pattern Fields]</p>
+</li>
+<li>
+<p>../../articles/en/build_pattern.php#build_pattern_stringsub[Strings Substitution]</p>
+</li>
+<li>
+<p>../../articles/en/build_pattern.php#build_pattern_recpatterns[Rectangular Patterns]</p>
+</li>
+<li>
+<p>../../articles/en/build_pattern.php#build_pattern_spherical[Spherical Patterns]</p>
+</li>
+<li>
+<p>../../articles/en/build_pattern.php#build_pattern_cylind[Cylindrical Patterns]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/build_region.php[Build Region]</p>
+</li>
+<li>
+<p>../../articles/en/camo_shader.php[Camouflage Shader]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/camo_shader.php#Introduction[Introduction]</p>
+</li>
+<li>
+<p>../../articles/en/camo_shader.php#Limitations[Limitations]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/ged.php[GED]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/ged.php#Preface[Preface]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#INTRODUCTION[Introduction]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#COMGEOM_BACKGROUND[Comgeom Background]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#COMPUTER_GRAPHICS[Computer Graphics]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#APPROACH_TO_THE_PROBLEM[Approach To The Problem]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#GED_OVERVIEW[GED Overview]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#GED_INTERNAL_DATA_STRUCTURE[GED Internal Data Structure]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#KEYBOARD_COMMANDS[Keyboard Commands]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#PERIPHERAL_DEVICES[Peripheral Devices]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#ANGLE_DISTANCE_CURSOR[ADC]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#VIEWING_FUNCTIONS[Viewing Functions]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#SELECTING_OBJECTS_FOR_EDITING[Selecting Objects For Editing]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#OBJECT_EDITING[Object Editing]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#SOLID_EDITING[Solid Editing]</p>
+</li>
+<li>
+<p>../../articles/en/ged.php#CONCLUSION[Conclusion]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php[MGED]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#Preface[Preface]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Modeling_With_CSG[Modeling With CSG]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#Starting_MGED[Starting MGED]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#The_Screen_Coordinate_System[The Screen Coordinate System]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Creating_Geometry[Creating Geometry]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Editing_Solids[Editing Solids]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Adding_a_Base[Adding A Base]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Adding_a_fillet[Adding A Fillet]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#New_Graphical_User_Interface[MGED’s New Graphical User Interface]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#47403072[MGED’s New Graphical User Interface]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#cmd_line_ed[Command Line Editing]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#Emacs_Bindings[Emacs Bindings]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#VI_Bindings[Vi Bindings]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Insert_Mode[Insert Mode]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Command_Mode[Command Mode]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#MGED_User_Commands[MGED User Commands]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#MGEDDeveloperCommands[MGED Developer Commands]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mged.php#MGED_Tcl_Variables[MGED Tcl Variables]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#MGED_Environment_Variable[MGED Environment Variable]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#MGED_Callback[MGED Callback]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#Glossary[Glossary]</p>
+</li>
+<li>
+<p>../../articles/en/mged.php#BRL-CAD_Solid[BRLCAD Solids]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/mgedrc.php[MGEDRC]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php[About Nirt]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#NIRT_Basic_Syntax_and_operations[Nirt: Basic Syntax and Operations]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Command_Line_Help[Command Line Help]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Loading_a_Model[Loading A Model]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Shooting_a_Ray[Shooting a Ray]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Moving_the_Origination_Point[Moving The Origination Point]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Backing_Out_of_a_Model[Backing Out of a Model]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Changing_the_Direction_of_the_Ray[Changing the Direction of the Ray]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Reporting_of_Overlaps[Reporting of Overlaps]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Graphical_Visualization[Graphical Visualization: NIRT in MGED]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Basic_Usage[Basic Usage]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Backing_Out_with_NIRT_in_MGED[Backing Out with NIRT in MGED]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Ray_Segment_Coloring_with_Nirt[Ray Segment Coloring with NIRT and MGED]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Mouse-Based[Mouse-Based NIRT Usage]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Configuring_NIRT[Configuring NIRT]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Reporting_Options[Reporting Options]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#How_to_Change_the_Reporting_Format[How To Change The Report Format]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Handling_Attribute_Reporting[Handling Attribute Reporting]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Changing_Units[Changing Units]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Other_Options[Other Options]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Silent_and_Verbose_Modes[Silent and Verbose Modes]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Using_Air_Regions[Using Air Regions]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Reading_an_Orientation[Reading an Orientation Matrix and Command]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Scripting_NIRT[Scripting NIRT]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Command_Line_Scripts[Command Line Scripts]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Scripts_Files[Scripts Files]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Defining_a_Custom[Defining a Custom Reporting Format]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Customizing_Report_Output_in_MGED[Customizing Report Output in MGED]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Reporting_Attributes_in_MGED[Reporting Attributes in MGED]</p>
+</li>
+<li>
+<p>../../articles/en/nirt.php#Available_Information_for_Inclusion_in_Reports[Available Information for Inclusion in Reports]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/nirt.php#Summary[Summary]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/oed.php[oed]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/oed.php#oed_Basic_Syntax_and_Operations[oed - Basic Syntax and Operations]</p>
+</li>
+<li>
+<p>../../articles/en/oed.php#Right_Hand_Path_Section[Right Hand Path Selection]</p>
+</li>
+<li>
+<p>../../articles/en/oed.php#Flexible_Manipulation[Flexible_Manipulation]</p>
+</li>
+<li>
+<p>../../articles/en/oed.php#sub_combination_editing[Sub-Combination Editing]</p>
+</li>
+<li>
+<p>../../articles/en/oed.php#Summary[Summary]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/pipes.php[Pipe]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/pipes.php#pipe_general_use[General Use]</p>
+</li>
+<li>
+<p>../../articles/en/pipes.php#pipe_make_coil[Making a Coil]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/projection_shader.php[Projection Shader]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_general[General]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_getimage[Create/Obtain an Image to Project]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_resize[Resize the Graphics Display]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_actframe[Ensure the Framebuffer is Active]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_dispimage[Display the Image]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_overlayimage[Overlay the Image]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_savesettingsfile[Save the Projection Shader Settings File]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_render[Render the Image]</p>
+</li>
+<li>
+<p>../../articles/en/projection_shader.php#projshader_projectfront[Project the Image on the Front]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/tire.php#Overview[Tire]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/tire.php#Specifying_a_Tire[Specifying Tire]</p>
+</li>
+<li>
+<p>../../articles/en/tire.php#Options_for_Tire[Options for Tire]</p>
+</li>
+<li>
+<p>../../articles/en/tire.php#Setting_Tire_Thickness[Setting Tire Thickness]</p>
+</li>
+<li>
+<p>../../articles/en/tire.php#Changing_the_Rim_width[Changing the Rim Width]</p>
+</li>
+<li>
+<p>../../articles/en/tire.php#Changing_the_Redial[Changing the Radial]</p>
+</li>
+<li>
+<p>../../articles/en/tire.php#Other_Options[Other Options]</p>
+</li>
+<li>
+<p>../../articles/en/tire.php#Structure_of_a_Tire[Structure of a Tire Model]</p>
+</li>
+<li>
+<p>../../articles/en/tire.php#Summary[Summary]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../articles/en/TEMPLATE.php[Template]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xx.php[Books]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php[BRL-CAD Tutorial Series-VolumeI]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php#whatisbrlcad[What is Brlcad ?]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php#whycsg[Why CSG Modeling?]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php#packagecontent[Package Content]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php#libraries[Libraries]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php#toolsutilities[Tools Utilities]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php#benchmarkingimages[Benchmark Testing]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeI.php#acknowledgments[Acknowledgments]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php[BRL-CAD Tutorial Series-VolumeII]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Preface[Preface]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Acknowledgments[Acknowledgments]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-1[Creating Primitive Shapes]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#launching_mged[Launching the MGED Program]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#entering_commands[Entering Commands]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#using_gui[Using Gui]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#open_new_database[Open New Database]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#create_new_database[Create New Database]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#assign_title[Assign Title]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#set_units[Set Units]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#select_primitive[Select Primitive]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#create_sphere_cmd_line[Create Sphere Cmd Line]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#clear_window[Clear Window]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#draw_object[Draw Object]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#erase_from_window[Erase From Window]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#create_sphere_gui[Create Sphere Gui]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#view_params[View Params]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#list_db_contents[List db Contents]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#kill_object[Kill Object]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#editing_commands[Editing Commands]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#quitting[Quitting]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#creating_primitive_shapes_review[Creating Primitive Shapes Review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-2[Learning the Viewing Options]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#creating_radio[Creating Radio]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#locating_viewing_info_cmd_window[Locating Viewing info Cmd Window]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#entering_commands[Entering Commands]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#entering_commands[Entering Commands]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#coord_sys_summary[Coord sys Summary]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#view_radio_angles[View Radio Angles]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#shift_grips[Shift Grips]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#learning_viewing_options_review[Learning viewing options Review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lessons-3[Using the Insert Command to Size and Place Shapes]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#new_db_myShapes[New db MyShapes]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#sphere_make[Sphere Make]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#using_in[Using in]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#args_on_one_line[Args on one Line]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#command_combined_in[Command Combined in]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mged_naming_conventions[Mged Naming Conventions]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#view_shapes[View Shapes]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#using_insert_command_quit[Using insert command quit]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#using_insert_command_review[using insert command review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-4[Assigning Material Properties and Raytracing]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#assigning_material_properties_and_raytracing_opendb[Assigning material properties and raytracing opendb]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#create_region[Create Region]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#assign_material_prop[Assign Material Prop]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#clear_window_new_region[Clear Window New Region]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#raytrace_model[Raytrace Model]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#layers_graphics_window[Layers Graphics Window]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#clear_graphics_window[Clear Graphics Window]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#assigning_material_properties_and_raytracing_review[Review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-5[Learning About Boolean Expressions]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#boolean_tools[Boolean Tools]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_regions_bool_ops[Making regions bool ops]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#operator_precedence[Operator Precedence]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#learning_boolean_operations_review[Review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-6[Creating a Goblet]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_new_database[Goblet New Database]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_view_data_tree[Goblet view Data Tree]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#raytracing_goblet[Raytracing Goblet]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#creating_goblet_review[Creating Goblet Review]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_goblet_regions[Making Goblet Regions]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_goblet_region_comb[Making Goblet Region Comb]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_goblet_region_comb[Making Goblet Region Comb]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-8[Assigning Material Properties to Your Goblet]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_review_opening_db[Goblet review opening db]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_assign_colors[Goblet assign colors]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_transparency_mirror[Goblet transparency mirror]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_newforms_raytrace[Goblet newforms Raytrace]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_material_properties_review[Goblet material properties review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson[Assigning More Material Properties to Your Goblet]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_specular_diffuse[Goblet specular diffuse]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_refractive_index[Goblet refractive index]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_shininess[Goblet shininess]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_extinction[Goblet extinction]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_emission[Goblet emission]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_shader_attributes[Goblet shader attributes]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_material_properties2_review[Goblet material properties2 review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-9[Creating a Globe in a Display Box]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_in_display_newdb[Globe in display newdb]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_create_display_box[Globe create display box]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#create_globe_in_box[Create globe in box]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_assign_mater_prop[Globe assign mater prop]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_move_rotate[Globe move rotate]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_use_color_tool[Globe use color tool]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_in_display_box_review[Globe in display box review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-11[Refining the Mug]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_new_db[Mug new db]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_outside_cyl[Mug outside cyl]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_handle[Mug handle]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_comb1[Mug comb1]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_comb2[Mug comb2]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_region[Mug region]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_review[Mug review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-12[Creating the Mug Through the GUI]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_mater_prop_mater_cmd[Mug mater prop mater cmd]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_raytrace1[Mug raytrace1]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_refining[Mug refining]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_torus_cup_combine[Mug torus cup combine]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#refining_mug_review[Refining mug review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-13[Placing Shapes in 3-D Space]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_create_tabletop[candle create tabletop]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_create_base[candle create base]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_create_candle[candle create candle]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_create_flame[candle create flame]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_create_combination[candle create combination]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_check_data_tree[candle check data tree]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_assign_mater_prop[candle assign mater prop]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_raytrace[candle raytrace]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#placing_shapes_in_3d_review[placing shapes in 3d review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-14[Gaining More Practice Placing Shapes in Space]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_base_1st_sphere[candle base 1st sphere]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#multipane_feature[multipane feature]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#copies_of_shapes[copies of shapes]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#practice_make_regions_spheres[practice make regions spheres]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_base_spheres_combine[candle base spheres combine]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#placing_shapes_in_3d_2_review[placing shapes in 3d 2 review]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_assign_mater_prop[candle assign mater prop]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_raytrace[candle raytrace]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#placing_shapes_in_3d_review[placing shapes in 3d review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-15[Creating a Toy Truck]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_cab_in_cmd[truck cab in cmd]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_hood_in_cmd[truck hood in cmd]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_cab_wheel_well[truck cab wheel well]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#ok_accept_apply_reset_cancel_dismiss[ok accept apply reset cancel dismiss]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_wheel_well_prim_edit_cpy[truck wheel well prim edit cpy]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_cab_shape_comb[truck cab shape comb]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_body_in_cmd[truck body in cmd]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#prim_ed_wheel_wells[prim ed wheel wells]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_body_wheel_wells_comb[truck body wheel wells comb]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_cab_body_region[truck cab body region]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_wheels[truck wheels]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_wheels_region[truck wheels region]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_regions_mater_props[truck regions mater props]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#on_screen_help[on screen help]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#stacker_shading[stacker shading]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#using_stacker_shading[using stacker shading]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_combine_regions[truck combine regions]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_raytracing[truck raytracing]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#creating_toy_truck_review[creating toy truck review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-16[Learning Modeling Techniques and Structures]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_shapes_to_regions[Radio shapes to regions]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#body_of_radio[body of radio]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_other_regions[radio other regions]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_assembly_comb[radio assembly comb]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_assign_mater_props[radio assign mater props]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_internal_components[radio internal components]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_specialty_models[radio specialty models]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_structure_redefinition[radio structure redefinition]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeII.php#modeling_techniques_and_structures_review[modeling techniques and structures review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php[BRL-CAD_Tutorial_Series-VolumeIII]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIIintro[Introduction]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#modelprocess[The Model Process]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#The_Importance_of_the_Model_Mission[The Importance of the Model Mission]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#M_O_D_E_L_A_Five-Step_Approach_to_Creating_Effective_Models[M-O-D-E-L: A Five-Step Approach to Creating Effective Models]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php##projshader_resize[Projshader resize]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_getimage[Projshader getimage]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_actframe[Projshader actframe]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_dispimage[Projshader dispimage]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_overlayimage[Projshader overlay image]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_savesettingsfile[Projshader savesettings file]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_projectfront[Projshader projectfront]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_generalinfo[Build pattern generalinfo]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_generalinfo[Build pattern general Info]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_names[Build pattern names]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_fields[Build pattern fields]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_stringsub[Build pattern stringsub]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_recpatterns[Build pattern recpatterns]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_cylind[Build pattern cyl ind]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_spherical[Build pattern spherical]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIImodelprocess[Model process]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIImeasuringdata[Measuring data]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIIorganizing[organizing]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIIdevgeometry[develop geometry]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_recpatterns[Build pattern recpatterns]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php[BRL-CAD_Tutorial_Series-VolumeIV]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#chapt_introduction[Introduction]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Background_Purpose_and_Scope[Background, Purpose, and Scope]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#The_Need_for_Conversion[The Need for Conversion]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#chapt_pert_char[Pert char]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#CSG_vs._BREP[CSG_vs._BREP]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Prerelease_6.0_Database_vs._Current_Format[Prerelease 6.0 Database vs. Current Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converters_Currently_Available_in_BRL-CAD[Converters Currently Available in BRL-CAD]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#sec_convert_from_to_ascii[Convert from to ascii]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_ASCII[Converting From ASCII]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_ASCII[Converting_to_ASCII]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#sec_convert_to_brlcad[Convert to brlcad]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#General_Information_About_Converting_to_BRL-CAD[General Information About Converting to BRL-CAD]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_AutoCAD_DXF_Format[Converting From AutoCAD DXF Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_Elysium_Neutral_Facetted_Format[Converting From Elysium Neutral Facetted Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_EUCLID_Format[Converting From EUCLID Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_FASTGEN_Format[Converting From FASTGEN Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_IGES_Format[Converting From IGES Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_Jack[Converting From Jack]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_NASTRAN_Format[Converting From NASTRAN Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_Pro_E_Format[Converting From Pro/E Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_STL_Format[Converting From STL Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_TANKILL_Format[Converting From TANKILL Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_Unigraphics_Format[Converting From Unigraphics Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_Viewpoint_Datalabs_Format[Converting From Viewpoint Datalabs Format]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#sec_convert_from_brlcad[Convert from brlcad]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#General_Information_About_Converting_From_BRL-CAD[General Information About Converting From BRL-CAD]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_ACAD_Format[Converting to ACAD Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_AutoCAD_DXF_Format[Converting to AutoCAD DXF Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_EUCLID_Format[Converting to EUCLID Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_IGES_Format[Converting to IGES Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_Jack[Converting to Jack]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_STL_Format[Converting to STL Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_TANKILL_Format[Converting to TANKILL Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_VRML_Format[Converting to VRML Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_Wavefront_Format[Converting to Wavefront Format]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_X3D_Format[Converting to X3D Format]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#sec_build_new_converter[Build new converter]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#General_Information_About_Building_a_New_Converter[General Information About Building a New Converter]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#Converting_From_BRL-CAD[Converting From BRL-CAD]</p>
+</li>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#Converting_to_BRL-CAD[Converting to BRL-CAD]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#sec_postconversion_issues[Postconversion issues]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xxx.php[Lessons]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php[Mged01 creating primitive shapes]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#launching_mged[Launching Mged]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#entering_commands[Entering commands]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#using_gui[Using gui]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#open_new_database[Open new database]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#create_new_database[Create new database]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#assign_title[Assign title]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#set_units[Set units]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#select_primitive[Select primitive]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#create_sphere_cmd_line[Create sphere cmd line]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#clear_window[Clear window]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#clear_window[Clear window]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#draw_object[Draw object]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#erase_from_window[Erase from window]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#create_sphere_gui[Create sphere gui]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#view_params[view params]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#list_db_contents[List db contents]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#kill_object[Kill object]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#editing_commands[Editing commands]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#quitting[Quitting]</p>
+</li>
+<li>
+<p>../../lessons/en/mged01_creating_primitive_shapes.php#creating_primitive_shapes_review[Creating primitive shapes review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php[Mged02 Learning Viewing Options in MGED]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php#creating_radio[Creating radio]</p>
+</li>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php#entering_commands[Locating viewing info cmd window]</p>
+</li>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php#viewing_system_elements[Viewing system elements]</p>
+</li>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php#coord_sys_summary[Coord sys summary]</p>
+</li>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php#view_radio_angles[View radio angles]</p>
+</li>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php#shift_grips[Shift grips]</p>
+</li>
+<li>
+<p>../../lessons/en/mged02_learning_viewing_options.php#learning_viewing_options_review[Learning viewing options review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php[Command to Size and Place Shapes]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#new_db_myShapes[New db MyShapes]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#sphere_make[Sphere Make]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#using_in[Using in]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#args_on_one_line[Args on one Line]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#command_combined_in[Command Combined in]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#mged_naming_conventions[Mged Naming Conventions]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#view_shapes[View Shapes]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#using_insert_command_quit[Using insert command quit]</p>
+</li>
+<li>
+<p>../../lessons/en/mged03_using_insert_command.php#using_insert_command_review[using insert command review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#6[Assigning Material Properties and Raytracing]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#assigning_material_properties_and_raytracing_opendb[Assigning material properties and raytracing opendb]</p>
+</li>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#create_region[Create Region]</p>
+</li>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#assign_material_prop[Assign Material Prop]</p>
+</li>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#clear_window_new_region[Clear Window New Region]</p>
+</li>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#raytrace_model[Raytrace Model]</p>
+</li>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#layers_graphics_window[Layers Graphics Window]</p>
+</li>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#clear_graphics_window[Clear Graphics Window]</p>
+</li>
+<li>
+<p>../../lessons/en/mged04_assign_mat_prop_rt.php#assigning_material_properties_and_raytracing_review[Review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged05_learning_boolean_expressions.php#7[Learning About Boolean Expressions]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged05_learning_boolean_expressions.php#boolean_tools[Boolean tools]</p>
+</li>
+<li>
+<p>../../lessons/en/mged05_learning_boolean_expressions.php#boolean_operations[Boolean operations]</p>
+</li>
+<li>
+<p>../../lessons/en/mged05_learning_boolean_expressions.php#making_regions_bool_ops[Making regions bool ops]</p>
+</li>
+<li>
+<p>../../lessons/en/mged05_learning_boolean_expressions.php#operator_precedence[Operator precedence]</p>
+</li>
+<li>
+<p>../../lessons/en/mged05_learning_boolean_expressions.php#learning_boolean_operations_review[Learning boolean operations review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#8[Creating a Goblet]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#goblet_new_database[Goblet New Database]</p>
+</li>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#goblet_view_data_tree[Goblet view Data Tree]</p>
+</li>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#raytracing_goblet[Raytracing Goblet]</p>
+</li>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#creating_goblet_review[Creating Goblet Review]</p>
+</li>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#making_goblet_regions[Making Goblet Regions]</p>
+</li>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#making_goblet_region_comb[Making Goblet Region Comb]</p>
+</li>
+<li>
+<p>../../lessons/en/mged06_creating_a_goblet.php#making_goblet_region_comb[Making Goblet Region Comb]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged07_goblet_material_properties.php#9[Assigning Material Properties to Your Goblet]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged07_goblet_material_properties.php#goblet_review_opening_db[Goblet review opening db]</p>
+</li>
+<li>
+<p>../../lessons/en/mged07_goblet_material_properties.php#goblet_assign_colors[Goblet assign colors]</p>
+</li>
+<li>
+<p>../../lessons/en/mged07_goblet_material_properties.php#goblet_transparency_mirror[Goblet transparency mirror]</p>
+</li>
+<li>
+<p>../../lessons/en/mged07_goblet_material_properties.php#goblet_newforms_raytrace[Goblet newforms Raytrace]</p>
+</li>
+<li>
+<p>../../lessons/en/mged07_goblet_material_properties.php#goblet_material_properties_review[Goblet material properties review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged08_goblet_material_properties2.php#10[Assigning More Material Properties to Your Goblet]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged08_goblet_material_properties2.php#goblet_specular_diffuse[Goblet specular diffuse]</p>
+</li>
+<li>
+<p>../../lessons/en/mged08_goblet_material_properties2.php#goblet_refractive_index[Goblet refractive index]</p>
+</li>
+<li>
+<p>../../lessons/en/mged08_goblet_material_properties2.php#goblet_shininess[Goblet shininess]</p>
+</li>
+<li>
+<p>../../lessons/en/mged08_goblet_material_properties2.php#goblet_extinction[Goblet extinction]</p>
+</li>
+<li>
+<p>../../lessons/en/mged08_goblet_material_properties2.php#goblet_emission[Goblet emission]</p>
+</li>
+<li>
+<p>../../lessons/en/mged08_goblet_material_properties2.php#goblet_shader_attributes[Goblet shader attributes]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#goblet_material_properties2_review#11[Goblet material properties2 review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php[Creating a Globe in a Display Box]</p>
+</li>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#globe_in_display_newdb[Globe in display newdb]</p>
+</li>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#globe_create_display_box[Globe create display box]</p>
+</li>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#create_globe_in_box[Create globe in box]</p>
+</li>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#globe_assign_mater_prop[Globe assign mater prop]</p>
+</li>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#globe_move_rotate[Globe move rotate]</p>
+</li>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#globe_use_color_tool[Globe use color tool]</p>
+</li>
+<li>
+<p>../../lessons/en/mged09_globe_in_display_box.php#globe_in_display_box_review[Globe in display box review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#12[Refining the Mug]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#mug_new_db[Mug new db]</p>
+</li>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#mug_outside_cyl[Mug outside cyl]</p>
+</li>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#mug_handle[Mug handle]</p>
+</li>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#mug_comb1[Mug comb1]</p>
+</li>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#mug_comb2[Mug comb2]</p>
+</li>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#mug_region[Mug region]</p>
+</li>
+<li>
+<p>../../lessons/en/mged10_creating_mug.php#mug_review[Mug review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged11_refining_mug.php#14[Creating the Mug Through the GUI]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged11_refining_mug.php#mug_mater_prop_mater_cmd[Mug mater prop mater cmd]</p>
+</li>
+<li>
+<p>../../lessons/en/mged11_refining_mug.php#mug_raytrace1[Mug raytrace1]</p>
+</li>
+<li>
+<p>../../lessons/en/mged11_refining_mug.php#mug_refining[Mug refining]</p>
+</li>
+<li>
+<p>../../lessons/en/mged11_refining_mug.php#mug_torus_cup_combine[Mug torus cup combine]</p>
+</li>
+<li>
+<p>../../lessons/en/mged11_refining_mug.php#refining_mug_review[Refining mug review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#15[Creating the Mug Through the GUI]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_create_body[Mug gui create body]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_create_handle[Mug gui create handle]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_create_rim[Mug gui create rim]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_create_combinations[Mug gui create combinations]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_make_region[Mug gui make region]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_check_tree[Mug gui check tree]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_comb_edit_props[Mug gui comb edit props]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_gui_raytracing[Mug gui raytracing]</p>
+</li>
+<li>
+<p>../../lessons/en/mged12_mug_through_gui.php#mug_through_gui_review[Mug through gui review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#16[Placing Shapes in 3-D Space]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_create_tabletop[candle create tabletop]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_create_base[candle create base]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_create_candle[candle create candle]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_create_flame[candle create flame]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_create_combination[candle create combination]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_check_data_tree[candle check data tree]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_assign_mater_prop[candle assign mater prop]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#candle_raytrace[candle raytrace]</p>
+</li>
+<li>
+<p>../../lessons/en/mged13_placing_shapes_in_3d.php#placing_shapes_in_3d_review[placing shapes in 3d review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#17[Gaining More Practice Placing Shapes in Space]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#candle_base_1st_sphere[candle base 1st sphere]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#multipane_feature[multipane feature]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#copies_of_shapes[copies of shapes]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#practice_make_regions_spheres[practice make regions spheres]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#candle_base_spheres_combine[candle base spheres combine]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#placing_shapes_in_3d_2_review[placing shapes in 3d 2 review]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#candle_assign_mater_prop[candle assign mater prop]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#candle_raytrace[candle raytrace]</p>
+</li>
+<li>
+<p>../../lessons/en/mged14_placing_shapes_in_3d_2.php#placing_shapes_in_3d_review[placing shapes in 3d review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#17[Creating a Toy Truck]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_cab_in_cmd[truck cab in cmd]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_hood_in_cmd[truck hood in cmd]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_cab_wheel_well[truck cab wheel well]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#ok_accept_apply_reset_cancel_dismiss[ok accept apply reset cancel dismiss]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_wheel_well_prim_edit_cpy[truck wheel well prim edit cpy]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_cab_shape_comb[truck cab shape comb]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_body_in_cmd[truck body in cmd]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#prim_ed_wheel_wells[prim ed wheel wells]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_body_wheel_wells_comb[truck body wheel wells comb]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_cab_body_region[truck cab body region]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_wheels[truck wheels]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_wheels_region[truck wheels region]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_regions_mater_props[truck regions mater props]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#on_screen_help[on screen help]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#stacker_shading[stacker shading]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#using_stacker_shading[using stacker shading]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_combine_regions[truck combine regions]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#truck_raytracing[truck raytracing]</p>
+</li>
+<li>
+<p>../../lessons/en/mged15_creating_a_toy_truck.php#creating_toy_truck_review[creating toy truck review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#19[Learning Modeling Techniques and Structures]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#radio_shapes_to_regions[Radio shapes to regions]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#body_of_radio[body of radio]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#radio_other_regions[radio other regions]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#radio_assembly_comb[radio assembly comb]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#radio_assign_mater_props[radio assign mater props]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#radio_internal_components[radio internal components]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#radio_specialty_models[radio specialty models]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#radio_structure_redefinition[radio structure redefinition]</p>
+</li>
+<li>
+<p>../../lessons/en/mged16_mod_tech_struct.php#modeling_techniques_and_structures_review[modeling techniques and structures review]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xxxx.php[Man 1]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../man1/en/ap-pix.php[AP Pix]</p>
+</li>
+<li>
+<p>../../man1/en/asc2dsp.php[Asc2dsp]</p>
+</li>
+<li>
+<p>../../man1/en/asc2g.php[ASC2G]</p>
+</li>
+<li>
+<p>../../man1/en/asc-nmg.php[ASC NMG]</p>
+</li>
+<li>
+<p>../../man1/en/asc-plot3.php[ASC PLOT 3]</p>
+</li>
+<li>
+<p>../../man1/en/azel.php[Azel]</p>
+</li>
+<li>
+<p>../../man1/en/bary.php[Bary]</p>
+</li>
+<li>
+<p>../../man1/en/benchmark.php[Benchmark]</p>
+</li>
+<li>
+<p>../../man1/en/bot_dump.php[Bot Dump]</p>
+</li>
+<li>
+<p>../../man1/en/brep_simple.php[Brep Simple]</p>
+</li>
+<li>
+<p>../../man1/en/brlcad.php[Brlcad]</p>
+</li>
+<li>
+<p>../../man1/en/brlcad-config.php[BrlCad Config]</p>
+</li>
+<li>
+<p>../../man1/en/buffer.php[Buffer]</p>
+</li>
+<li>
+<p>../../man1/en/bw3-pix.php[BW 3 Pix]</p>
+</li>
+<li>
+<p>../../man1/en/bwcrop.php[BwCrop]</p>
+</li>
+<li>
+<p>../../man1/en/bwdiff.php[BWDfiff]</p>
+</li>
+<li>
+<p>../../man1/en/bw-fb.php[BW FB]</p>
+</li>
+<li>
+<p>../../man1/en/bwfilter.php[BW Filter]</p>
+</li>
+<li>
+<p>../../man1/en/bwhist.php[Bwhist]</p>
+</li>
+<li>
+<p>../../man1/en/bwhisteq.php[Bwhisteq]</p>
+</li>
+<li>
+<p>../../man1/en/bw-imp.php[Bw Imp]</p>
+</li>
+<li>
+<p>../../man1/en/bwmod.php[Bwmod]</p>
+</li>
+<li>
+<p>../../man1/en/bw-pix.php[BW PIX]</p>
+</li>
+<li>
+<p>../../man1/en/bw-png.php[BW PNG]</p>
+</li>
+<li>
+<p>../../man1/en/bw-ps.php[BW PS]</p>
+</li>
+<li>
+<p>../../man1/en/bwrect.php[BW Rect]</p>
+</li>
+<li>
+<p>../../man1/en/bw-rle.php[BW RLE]</p>
+</li>
+<li>
+<p>../../man1/en/bwrot.php[BW ROT]</p>
+</li>
+<li>
+<p>../../man1/en/bwscale.php[BW SCALE]</p>
+</li>
+<li>
+<p>../../man1/en/bwshrink.php[BW Shrink]</p>
+</li>
+<li>
+<p>../../man1/en/bwstat.php[BW STAT]</p>
+</li>
+<li>
+<p>../../man1/en/bwthresh.php[BW THRESH]</p>
+</li>
+<li>
+<p>../../man1/en/cad_boundp.php[CAP Boundp]</p>
+</li>
+<li>
+<p>../../man1/en/cad_parea.php[CAD Parea]</p>
+</li>
+<li>
+<p>../../man1/en/cell-fb.php[Cell FB]</p>
+</li>
+<li>
+<p>../../man1/en/cmap-fb.php[Cmap FB]</p>
+</li>
+<li>
+<p>../../man1/en/coil.php[Coil]</p>
+</li>
+<li>
+<p>../../man1/en/comgeom-g.php[Comgeom G]</p>
+</li>
+<li>
+<p>../../man1/en/conv-vg2g.php[Conv vg2g]</p>
+</li>
+<li>
+<p>../../man1/en/cv.php[Cv]</p>
+</li>
+<li>
+<p>../../man1/en/cy-g.php[Cy-g]</p>
+</li>
+<li>
+<p>../../man1/en/db.php[db]</p>
+</li>
+<li>
+<p>../../man1/en/dbclean.php[Db Clean]</p>
+</li>
+<li>
+<p>../../man1/en/dbcp.php[Db cp]</p>
+</li>
+<li>
+<p>../../man1/en/decimate.php[Decimate]</p>
+</li>
+<li>
+<p>../../man1/en/dpix-pix.php[Dpix pix]</p>
+</li>
+<li>
+<p>../../man1/en/dxf-g.php[Dxf-g]</p>
+</li>
+<li>
+<p>../../man1/en/enf-g.php[enf-g]</p>
+</li>
+<li>
+<p>../../man1/en/euclid-g.php[euclid-g]</p>
+</li>
+<li>
+<p>../../man1/en/fast4-g.php[Fast4-g]</p>
+</li>
+<li>
+<p>../../man1/en/fbanim.php[Fbanim]</p>
+</li>
+<li>
+<p>../../man1/en/fb-bw.php[Fb-bw]</p>
+</li>
+<li>
+<p>../../man1/en/fbcbars.php[Fbcbars]</p>
+</li>
+<li>
+<p>../../man1/en/fbclear.php[Fbclear]</p>
+</li>
+<li>
+<p>../../man1/en/fbcmap.php[Fbcmap]</p>
+</li>
+<li>
+<p>../../man1/en/fb-cmap.php[Fb Cmap]</p>
+</li>
+<li>
+<p>../../man1/en/fbcmrot.php[Fbcmrot]</p>
+</li>
+<li>
+<p>../../man1/en/fbcolor.php[Fbcolor]</p>
+</li>
+<li>
+<p>../../man1/en/fbfade.php[Fbfade]</p>
+</li>
+<li>
+<p>../../man1/en/fb-fb.php[FB-FB]</p>
+</li>
+<li>
+<p>../../man1/en/fbframe.php[Fb Frame]</p>
+</li>
+<li>
+<p>../../man1/en/fbfree.php[Fb Free]</p>
+</li>
+<li>
+<p>../../man1/en/fbgamma.php[Fb Gamma]</p>
+</li>
+<li>
+<p>../../man1/en/fbgrid.php[Fb Grid]</p>
+</li>
+<li>
+<p>../../man1/en/fbhelp.php[Fb Help]</p>
+</li>
+<li>
+<p>../../man1/en/fblabel.php[Fb Label]</p>
+</li>
+<li>
+<p>../../man1/en/fbline.php[Fb Line]</p>
+</li>
+<li>
+<p>../../man1/en/fb-pix.php[Fb pix]</p>
+</li>
+<li>
+<p>../../man1/en/fb-png.php[Fb Png]</p>
+</li>
+<li>
+<p>../../man1/en/fbpoint.php[Fb Point]</p>
+</li>
+<li>
+<p>../../man1/en/fb-rle.php[Fb RLE]</p>
+</li>
+<li>
+<p>../../man1/en/fbscanplot.php[Fb Scanplot]</p>
+</li>
+<li>
+<p>../../man1/en/fbserv.php[Fb Serv]</p>
+</li>
+<li>
+<p>../../man1/en/fbstretch.php[Fb Stretch]</p>
+</li>
+<li>
+<p>../../man1/en/fbzoom.php[Fb zoom]</p>
+</li>
+<li>
+<p>../../man1/en/firpass.php[Fir pass]</p>
+</li>
+<li>
+<p>../../man1/en/g2asc.php[G2asc]</p>
+</li>
+<li>
+<p>../../man1/en/g-acad.php[g-aced]</p>
+</li>
+<li>
+<p>../../man1/en/gdiff2.php[Gdiff2]</p>
+</li>
+<li>
+<p>../../man1/en/g_diff.php[G Diff]</p>
+</li>
+<li>
+<p>../../man1/en/g-dxf.php[G dxf]</p>
+</li>
+<li>
+<p>../../man1/en/g-egg.php[G-egg]</p>
+</li>
+<li>
+<p>../../man1/en/gencolor.php[Gen Color]</p>
+</li>
+<li>
+<p>../../man1/en/g-euclid.php[g-euclid]</p>
+</li>
+<li>
+<p>../../man1/en/gif2fb.php[Gif 2 fb]</p>
+</li>
+<li>
+<p>../../man1/en/gif-fb.php[Gif Fb]</p>
+</li>
+<li>
+<p>../../man1/en/g-iges.php[g-iges]</p>
+</li>
+<li>
+<p>../../man1/en/g_lint.php[G Lint]</p>
+</li>
+<li>
+<p>../../man1/en/g_niff.php[G-niff]</p>
+</li>
+<li>
+<p>../../man1/en/g-nmg.php[G nmg]</p>
+</li>
+<li>
+<p>../../man1/en/g-obj.php[G obj]</p>
+</li>
+<li>
+<p>../../man1/en/gqa.php[gqa]</p>
+</li>
+<li>
+<p>../../man1/en/g-raw.php[G raw]</p>
+</li>
+<li>
+<p>../../man1/en/g-shell-rect.php[G Shell Rect]</p>
+</li>
+<li>
+<p>../../man1/en/g-step.php[G Step]</p>
+</li>
+<li>
+<p>../../man1/en/g-stl.php[G-stl]</p>
+</li>
+<li>
+<p>../../man1/en/g-tankill.php[G tankill]</p>
+</li>
+<li>
+<p>../../man1/en/g-var.php[G-var]</p>
+</li>
+<li>
+<p>../../man1/en/g-x3d.php[G x3d]</p>
+</li>
+<li>
+<p>../../man1/en/halftone.php[Halftone]</p>
+</li>
+<li>
+<p>../../man1/en/hex.php[hex]</p>
+</li>
+<li>
+<p>../../man1/en/iges-g.php[Iges-g]</p>
+</li>
+<li>
+<p>../../man1/en/imgdims.php[Imgdims]</p>
+</li>
+<li>
+<p>../../man1/en/irdisp.php[Irdisp]</p>
+</li>
+<li>
+<p>../../man1/en/ir-X.php[Ir-X]</p>
+</li>
+<li>
+<p>../../man1/en/loop.php[Loop]</p>
+</li>
+<li>
+<p>../../man1/en/mac-pix.php[Mac Pix]</p>
+</li>
+<li>
+<p>../../man1/en/mged.php[Mged]</p>
+</li>
+<li>
+<p>../../man1/en/morphedit.php[Morphedit]</p>
+</li>
+<li>
+<p>../../man1/en/nastran-g.php[Nastran]</p>
+</li>
+<li>
+<p>../../man1/en/nirt.php[Nirt]</p>
+</li>
+<li>
+<p>../../man1/en/nmg-bot.php[nmg-bot]</p>
+</li>
+<li>
+<p>../../man1/en/nmg-rib.php[Nmg-rib]</p>
+</li>
+<li>
+<p>../../man1/en/obj-g.php[obj-g]</p>
+</li>
+<li>
+<p>../../man1/en/patch-g.php[Patch G]</p>
+</li>
+<li>
+<p>../../man1/en/pictx.php[Pictx]</p>
+</li>
+<li>
+<p>../../man1/en/pix2asc.php[Pix 2 asc]</p>
+</li>
+<li>
+<p>../../man1/en/pix-alias.php[Pix Alias]</p>
+</li>
+<li>
+<p>../../man1/en/pixautosize.php[Pix Autosize]</p>
+</li>
+<li>
+<p>../../man1/en/pixbackgnd.php[Pix Backgnd]</p>
+</li>
+<li>
+<p>../../man1/en/pixbgstrip.php[Pix Gstrip]</p>
+</li>
+<li>
+<p>../../man1/en/pixblend.php[Pix Blend]</p>
+</li>
+<li>
+<p>../../man1/en/pixborder.php[Pix border]</p>
+</li>
+<li>
+<p>../../man1/en/pixbustup.php[Pix Bustup]</p>
+</li>
+<li>
+<p>../../man1/en/pix-bw.php[Pix Bw]</p>
+</li>
+<li>
+<p>../../man1/en/pix-bw3.php[Pix Bw 3]</p>
+</li>
+<li>
+<p>../../man1/en/pixclump.php[Pix Clump]</p>
+</li>
+<li>
+<p>../../man1/en/pixcmp.php[Pix Cmp]</p>
+</li>
+<li>
+<p>../../man1/en/pixcolors.php[Pix Color]</p>
+</li>
+<li>
+<p>../../man1/en/pixcut.php[Pix Cut]</p>
+</li>
+<li>
+<p>../../man1/en/pixdiff.php[Pix Diff]</p>
+</li>
+<li>
+<p>../../man1/en/pixfade.php[Pix Fade]</p>
+</li>
+<li>
+<p>../../man1/en/pix-fb.php[Pix fb]</p>
+</li>
+<li>
+<p>../../man1/en/pixfilter.php[Pix Filter]</p>
+</li>
+<li>
+<p>../../man1/en/pixhalve.php[Pix Halve]</p>
+</li>
+<li>
+<p>../../man1/en/pixhist.php[Pix hist]</p>
+</li>
+<li>
+<p>../../man1/en/pixhist3d.php[Pix hist3d]</p>
+</li>
+<li>
+<p>../../man1/en/pixhist3d-plot3.php[Pix hist3d Plot3]</p>
+</li>
+<li>
+<p>../../man1/en/pixinterp2x.php[Pix Interp2x]</p>
+</li>
+<li>
+<p>../../man1/en/pixmatte.php[Pix Matte]</p>
+</li>
+<li>
+<p>../../man1/en/pixmerge.php[Pix Merge]</p>
+</li>
+<li>
+<p>../../man1/en/pixmorph.php[Pix Morph]</p>
+</li>
+<li>
+<p>../../man1/en/pix-png.php[Pix Png]</p>
+</li>
+<li>
+<p>../../man1/en/pix-ppm.php[Pix Ppm]</p>
+</li>
+<li>
+<p>../../man1/en/pix-ps.php[Pix ps]</p>
+</li>
+<li>
+<p>../../man1/en/pixrect.php[Pix Rect]</p>
+</li>
+<li>
+<p>../../man1/en/pix-rle.php[Pix rle]</p>
+</li>
+<li>
+<p>../../man1/en/pixrot.php[Pix rot]</p>
+</li>
+<li>
+<p>../../man1/en/pixsaturate.php[Pix saturate]</p>
+</li>
+<li>
+<p>../../man1/en/pixscale.php[pixscale]</p>
+</li>
+<li>
+<p>../../man1/en/pixshrink.php[Pix Shrink]</p>
+</li>
+<li>
+<p>../../man1/en/pixstat.php[Pix Stat]</p>
+</li>
+<li>
+<p>../../man1/en/pixsubst.php[Pix subst]</p>
+</li>
+<li>
+<p>../../man1/en/pix-sun.php[Pix Sun]</p>
+</li>
+<li>
+<p>../../man1/en/pixtile.php[Pixtile]</p>
+</li>
+<li>
+<p>../../man1/en/pixuntile.php[Pix untile]</p>
+</li>
+<li>
+<p>../../man1/en/plot3-asc.php[Plot3 Asc]</p>
+</li>
+<li>
+<p>../../man1/en/pixcolors.php[Plot 3 Color]</p>
+</li>
+<li>
+<p>../../man1/en/plot3debug.php[Plot 3 debug]</p>
+</li>
+<li>
+<p>../../man1/en/plot3-fb.php[Plot3-fb]</p>
+</li>
+<li>
+<p>../../man1/en/plot3getframe.php[Plot 3 get frame]</p>
+</li>
+<li>
+<p>../../man1/en/plot3-hpgi.php[Plot 3 hpgi]</p>
+</li>
+<li>
+<p>../../man1/en/plot3line2.php[Plot 3 line 2]</p>
+</li>
+<li>
+<p>../../man1/en/plot3-plot3.php[Plot 3]</p>
+</li>
+<li>
+<p>../../man1/en/plot3-ps.php[Plot3 ps]</p>
+</li>
+<li>
+<p>../../man1/en/plot3rot.php[Plot 3 rot]</p>
+</li>
+<li>
+<p>../../man1/en/plot3-tek.php[Plot 3 tek]</p>
+</li>
+<li>
+<p>../../man1/en/plot3-X.php[Plot3 x]</p>
+</li>
+<li>
+<p>../../man1/en/ply-g.php[ply g]</p>
+</li>
+<li>
+<p>../../man1/en/png-bw.php[Png bw]</p>
+</li>
+<li>
+<p>../../man1/en/png-fb.php[Png fb]</p>
+</li>
+<li>
+<p>../../man1/en/png_info.php[Png Info]</p>
+</li>
+<li>
+<p>../../man1/en/png-pix.php[Png Pix]</p>
+</li>
+<li>
+<p>../../man1/en/random.php[Random]</p>
+</li>
+<li>
+<p>../../man1/en/ramapid.php[Ramapid]</p>
+</li>
+<li>
+<p>../../man1/en/remrt.php[Remrt]</p>
+</li>
+<li>
+<p>../../man1/en/reshoot.php[Reshoot]</p>
+</li>
+<li>
+<p>../../man1/en/rel-fb.php[Rle Fb]</p>
+</li>
+<li>
+<p>../../man1/en/rle-pix.php[Rle Pix]</p>
+</li>
+<li>
+<p>../../man1/en/rpatch.php[Rpatch]</p>
+</li>
+<li>
+<p>../../man1/en/rt.php[Rt]</p>
+</li>
+<li>
+<p>../../man1/en/rtarea.php[Rtarea]</p>
+</li>
+<li>
+<p>../../man1/en/rt_bot_faces.php[Rt Bot Faces]</p>
+</li>
+<li>
+<p>../../man1/en/rtcheck.php[Rt Check]</p>
+</li>
+<li>
+<p>../../man1/en/rtedge.php[R Tedge]</p>
+</li>
+<li>
+<p>../../man1/en/rtexample.php[Rt example]</p>
+</li>
+<li>
+<p>../../man1/en/rtg3.php[RTG3]</p>
+</li>
+<li>
+<p>../../man1/en/rthide.php[RT Hide]</p>
+</li>
+<li>
+<p>../../man1/en/rtpp.php[RT PP]</p>
+</li>
+<li>
+<p>../../man1/en/rtrange.php[Rt Range]</p>
+</li>
+<li>
+<p>../../man1/en/rtray.php[R Tray]</p>
+</li>
+<li>
+<p>../../man1/en/rtscale.php[Rt Scale]</p>
+</li>
+<li>
+<p>../../man1/en/rtshot.php[Rt shot]</p>
+</li>
+<li>
+<p>../../man1/en/rtwalk.php[Rt Walk]</p>
+</li>
+<li>
+<p>../../man1/en/rtweight.php[Rt Weight]</p>
+</li>
+<li>
+<p>../../man1/en/rtwizard.php[Rt Wizard]</p>
+</li>
+<li>
+<p>../../man1/en/rtxray.php[Rt xray]</p>
+</li>
+<li>
+<p>../../man1/en/scriptsort.php[Script sort]</p>
+</li>
+<li>
+<p>../../man1/en/secpass.php[Sec Pass]</p>
+</li>
+<li>
+<p>../../man1/en/shapefact.php[Shape Fact]</p>
+</li>
+<li>
+<p>../../man1/en/showshot.php[Show Shot]</p>
+</li>
+<li>
+<p>../../man1/en/showtherm.php[Show Therm]</p>
+</li>
+<li>
+<p>../../man1/en/stl-g.php[Stl g]</p>
+</li>
+<li>
+<p>../../man1/en/sun-pix.php[Sun Pix]</p>
+</li>
+<li>
+<p>../../man1/en/tankill-g.php[Tankill G]</p>
+</li>
+<li>
+<p>../../man1/en/terrain.php[Terrain]</p>
+</li>
+<li>
+<p>../../man1/en/tire.php[Tire]</p>
+</li>
+<li>
+<p>../../man1/en/ug-g.php[Ug g]</p>
+</li>
+<li>
+<p>../../man1/en/vdeck.php[Vdeck]</p>
+</li>
+<li>
+<p>../../man1/en/viewpoint-g.php[View Point]</p>
+</li>
+<li>
+<p>../../man1/en/wavelet.php[wavelet]</p>
+</li>
+<li>
+<p>../../man1/en/wdb_example.php[Wdb Example]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xxxxx.php[Man 3]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../man3/en/libfb.php[Lib fb]</p>
+</li>
+<li>
+<p>../../man3/en/librole.php[Lib Role]</p>
+</li>
+<li>
+<p>../../man3/en/libplot3.php[Lib Plot3]</p>
+</li>
+<li>
+<p>../../man3/en/librt.php[Librt]</p>
+</li>
+<li>
+<p>../../man3/en/libwdb.php[Libwdb]</p>
+</li>
+<li>
+<p>../../man3/en/redblack.php[Red Black]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xxxxxx.php[Man 5]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../man5/en/attributes.php[Attributes]</p>
+</li>
+<li>
+<p>../../man5/en/bw.php[bw]</p>
+</li>
+<li>
+<p>../../man5/en/cmap.php[Cmap]</p>
+</li>
+<li>
+<p>../../man5/en/dsp.php[Dsp]</p>
+</li>
+<li>
+<p>../../man5/en/pix.php[Pix]</p>
+</li>
+<li>
+<p>../../man5/en/plot3.php[Plot 3]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xxxxxxx.php[Mann]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../mann/en/3ptarb.php[3 Ptarb]</p>
+</li>
+<li>
+<p>../../mann/en/adc.php[ADC]</p>
+</li>
+<li>
+<p>../../mann/en/ae.php[AE]</p>
+</li>
+<li>
+<p>../../mann/en/alias-pix.php[Alias Pix]</p>
+</li>
+<li>
+<p>../../mann/en/analyze.php[Analyze]</p>
+</li>
+<li>
+<p>../../mann/en/animmate.php[Animmate]</p>
+</li>
+<li>
+<p>../../mann/en/apropos.php[Apropos]</p>
+</li>
+<li>
+<p>../../mann/en/aproposdevel.php[Apropos Devel]</p>
+</li>
+<li>
+<p>../../mann/en/aproposlib.php[Apropos Lib]</p>
+</li>
+<li>
+<p>../../mann/en/arced.php[Arced]</p>
+</li>
+<li>
+<p>../../mann/en/area.php[Area]</p>
+</li>
+<li>
+<p>../../mann/en/arot.php[Arot]</p>
+</li>
+<li>
+<p>../../mann/en/attach.php[Attach]</p>
+</li>
+<li>
+<p>../../mann/en/attr.php[Attr]</p>
+</li>
+<li>
+<p>../../mann/en/autoview.php[Auto View]</p>
+</li>
+<li>
+<p>../../mann/en/B.php[B]</p>
+</li>
+<li>
+<p>../../mann/en/bb.php[BB]</p>
+</li>
+<li>
+<p>../../mann/en/bev.php[Bev]</p>
+</li>
+<li>
+<p>../../mann/en/bo.php[Bo]</p>
+</li>
+<li>
+<p>../../mann/en/bolt.php[Bolt]</p>
+</li>
+<li>
+<p>../../mann/en/bot_condense.php[Bot Condense]</p>
+</li>
+<li>
+<p>../../mann/en/bot_decimate.php[Bot Decimate]</p>
+</li>
+<li>
+<p>../../mann/en/bot_face_fuse.php[Bot Face Fuse]</p>
+</li>
+<li>
+<p>../../mann/en/bot_face_sort.php[Bot Face Sort]</p>
+</li>
+<li>
+<p>../../mann/en/bot_flip.php[Bot Flip]</p>
+</li>
+<li>
+<p>../../mann/en/bot_sync.php[Bot Sync]</p>
+</li>
+<li>
+<p>../../mann/en/bot_vertex_fuse.php[Bot Vertex Fuse]</p>
+</li>
+<li>
+<p>../../mann/en/brep.php[Brep]</p>
+</li>
+<li>
+<p>../../mann/en/build_region.php[Build Region]</p>
+</li>
+<li>
+<p>../../mann/en/c.php[C]</p>
+</li>
+<li>
+<p>../../mann/en/cat.php[Cat]</p>
+</li>
+<li>
+<p>../../mann/en/center.php[Center]</p>
+</li>
+<li>
+<p>../../mann/en/color.php[Color]</p>
+</li>
+<li>
+<p>../../mann/en/comb.php[Comb]</p>
+</li>
+<li>
+<p>../../mann/en/comb_color.php[Comb Color]</p>
+</li>
+<li>
+<p>../../mann/en/copyeval.php[CopyEval]</p>
+</li>
+<li>
+<p>../../mann/en/copymat.php[Copy Mat]</p>
+</li>
+<li>
+<p>../../mann/en/cp.php[CP]</p>
+</li>
+<li>
+<p>../../mann/en/cpi.php[CPI]</p>
+</li>
+<li>
+<p>../../mann/en/d.php[D]</p>
+</li>
+<li>
+<p>../../mann/en/db.php[DB]</p>
+</li>
+<li>
+<p>../../mann/en/dbconcat.php[DB Concat]</p>
+</li>
+<li>
+<p>../../mann/en/db_glob.php[DB Glob]</p>
+</li>
+<li>
+<p>../../mann/en/dbupgrade.php[DB Upgrade]</p>
+</li>
+<li>
+<p>../../mann/en/debugbu.php[De Bugbu]</p>
+</li>
+<li>
+<p>../../mann/en/debugdir.php[De Bugdir]</p>
+</li>
+<li>
+<p>../../mann/en/debuglib.php[De Buglib]</p>
+</li>
+<li>
+<p>../../mann/en/debugnmg.php[De Bugnmg]</p>
+</li>
+<li>
+<p>../../mann/en/decompose.php[De Compose]</p>
+</li>
+<li>
+<p>../../mann/en/delay.php[Delay]</p>
+</li>
+<li>
+<p>../../mann/en/dm.php[DM]</p>
+</li>
+<li>
+<p>../../mann/en/draw.php[Draw]</p>
+</li>
+<li>
+<p>../../mann/en/dup.php[Dup]</p>
+</li>
+<li>
+<p>../../mann/en/E.php[E]</p>
+</li>
+<li>
+<p>../../mann/en/eac.php[EAC]</p>
+</li>
+<li>
+<p>../../mann/en/echo.php[Echo]</p>
+</li>
+<li>
+<p>../../mann/en/e_command.php[E Command]</p>
+</li>
+<li>
+<p>../../mann/en/edcodes.php[Ed Codes]</p>
+</li>
+<li>
+<p>../../mann/en/edcolor.php[Ed Color]</p>
+</li>
+<li>
+<p>../../mann/en/edcomb.php[Ed Comb]</p>
+</li>
+<li>
+<p>../../mann/en/edgedir.php[Ed Gedir]</p>
+</li>
+<li>
+<p>../../mann/en/edit.php[Edit]</p>
+</li>
+<li>
+<p>../../mann/en/edit_translate.php[Edit Translate]</p>
+</li>
+<li>
+<p>../../mann/en/edmater.php[Ed Mater]</p>
+</li>
+<li>
+<p>../../mann/en/eqn.php[EQN]</p>
+</li>
+<li>
+<p>../../mann/en/erase.php[Erase]</p>
+</li>
+<li>
+<p>../../mann/en/ev.php[EV]</p>
+</li>
+<li>
+<p>../../mann/en/exists.php[Exists]</p>
+</li>
+<li>
+<p>../../mann/en/exit.php[Exit]</p>
+</li>
+<li>
+<p>../../mann/en/expand.php[Expand]</p>
+</li>
+<li>
+<p>../../mann/en/extrude.php[Extrude]</p>
+</li>
+<li>
+<p>../../mann/en/eye_pt.php[Eye Pt]</p>
+</li>
+<li>
+<p>../../mann/en/facedef.php[Face Def]</p>
+</li>
+<li>
+<p>../../mann/en/facetize.php[Facetize]</p>
+</li>
+<li>
+<p>../../mann/en/find.php[Find]</p>
+</li>
+<li>
+<p>../../mann/en/fracture.php[Fracture]</p>
+</li>
+<li>
+<p>../../mann/en/g.php[G]</p>
+</li>
+<li>
+<p>../../mann/en/garbage_collect.php[Garbage Collect]</p>
+</li>
+<li>
+<p>../../mann/en/gastank.php[Gastank]</p>
+</li>
+<li>
+<p>../../mann/en/gqa.php[GQA]</p>
+</li>
+<li>
+<p>../../mann/en/gr.php[GR]</p>
+</li>
+<li>
+<p>../../mann/en/graph.php[Graph]</p>
+</li>
+<li>
+<p>../../mann/en/gui.php[Gui]</p>
+</li>
+<li>
+<p>../../mann/en/handle.php[Handle]</p>
+</li>
+<li>
+<p>../../mann/en/help.php[Help]</p>
+</li>
+<li>
+<p>../../mann/en/helpdevel.php[Help Devel]</p>
+</li>
+<li>
+<p>../../mann/en/helplib.php[Help Lib]</p>
+</li>
+<li>
+<p>../../mann/en/hide.php[Hide]</p>
+</li>
+<li>
+<p>../../mann/en/history.php[History]</p>
+</li>
+<li>
+<p>../../mann/en/i.php[I]</p>
+</li>
+<li>
+<p>../../mann/en/idents.php[Idents]</p>
+</li>
+<li>
+<p>../../mann/en/igraph.php[I Graph]</p>
+</li>
+<li>
+<p>../../mann/en/ill.php[ILL]</p>
+</li>
+<li>
+<p>../../mann/en/in.php[IN]</p>
+</li>
+<li>
+<p>../../mann/en/inside.php[Inside]</p>
+</li>
+<li>
+<p>../../mann/en/Introduction.php[Introduction]</p>
+</li>
+<li>
+<p>../../mann/en/item.php[ITEM]</p>
+</li>
+<li>
+<p>../../mann/en/journal.php[Journal]</p>
+</li>
+<li>
+<p>../../mann/en/keep.php[Keep]</p>
+</li>
+<li>
+<p>../../mann/en/keypoint.php[Key Point]</p>
+</li>
+<li>
+<p>../../mann/en/kill.php[Kill]</p>
+</li>
+<li>
+<p>../../mann/en/killall.php[Kill All]</p>
+</li>
+<li>
+<p>../../mann/en/killtree.php[Kill Tree]</p>
+</li>
+<li>
+<p>../../mann/en/knob.php[Knob]</p>
+</li>
+<li>
+<p>../../mann/en/l.php[L]</p>
+</li>
+<li>
+<p>../../mann/en/labelvert.php[Labelvert]</p>
+</li>
+<li>
+<p>../../mann/en/lc.php[Lc]</p>
+</li>
+<li>
+<p>../../mann/en/listeval.php[Listeval]</p>
+</li>
+<li>
+<p>../../mann/en/loadtk.php[Load Tk]</p>
+</li>
+<li>
+<p>../../mann/en/lookat.php[Lookat]</p>
+</li>
+<li>
+<p>../../mann/en/ls.php[Ls]</p>
+</li>
+<li>
+<p>../../mann/en/M.php[M]</p>
+</li>
+<li>
+<p>../../mann/en/make.php[Make]</p>
+</li>
+<li>
+<p>../../mann/en/make_pnts.php[Make Pnts]</p>
+</li>
+<li>
+<p>../../mann/en/mater.php[Mater]</p>
+</li>
+<li>
+<p>../../mann/en/matpick.php[Mat Pick]</p>
+</li>
+<li>
+<p>../../mann/en/mirface.php[MirFace]</p>
+</li>
+<li>
+<p>../../mann/en/mrot.php[Mrot]</p>
+</li>
+<li>
+<p>../../mann/en/mv.php[Mv]</p>
+</li>
+<li>
+<p>../../mann/en/mvall.php[Mvall]</p>
+</li>
+<li>
+<p>../../mann/en/nirt.php[Nirt]</p>
+</li>
+<li>
+<p>../../mann/en/nmg_collapse.php[NMG Collapse]</p>
+</li>
+<li>
+<p>../../mann/en/nmg_simplify.php[NMG Simplify]</p>
+</li>
+<li>
+<p>../../mann/en/oed.php[oed]</p>
+</li>
+<li>
+<p>../../mann/en/opendb.php[Open DB]</p>
+</li>
+<li>
+<p>../../mann/en/orientation.php[Orientation]</p>
+</li>
+<li>
+<p>../../mann/en/orot.php[Orot]</p>
+</li>
+<li>
+<p>../../mann/en/oscale.php[Oscale]</p>
+</li>
+<li>
+<p>../../mann/en/overlay.php[Over Lay]</p>
+</li>
+<li>
+<p>../../mann/en/p.php[P]</p>
+</li>
+<li>
+<p>../../mann/en/pathlist.php[Pathlist]</p>
+</li>
+<li>
+<p>../../mann/en/paths.php[Path]</p>
+</li>
+<li>
+<p>../../mann/en/permute.php[Permute]</p>
+</li>
+<li>
+<p>../../mann/en/picket_fence.php[Picket Fence]</p>
+</li>
+<li>
+<p>../../mann/en/plot.php[Plot]</p>
+</li>
+<li>
+<p>../../mann/en/prcolor.php[Pr Color]</p>
+</li>
+<li>
+<p>../../mann/en/prefix.php[Prefix]</p>
+</li>
+<li>
+<p>../../mann/en/press.php[Press]</p>
+</li>
+<li>
+<p>../../mann/en/preview.php[Preview]</p>
+</li>
+<li>
+<p>../../mann/en/prj_add.php[Prj Add]</p>
+</li>
+<li>
+<p>../../mann/en/ps.php[Ps]</p>
+</li>
+<li>
+<p>../../mann/en/pull.php[Pull]</p>
+</li>
+<li>
+<p>../../mann/en/push.php[Push]</p>
+</li>
+<li>
+<p>../../mann/en/put_comb.php[Put Comb]</p>
+</li>
+<li>
+<p>../../mann/en/putmat.php[Putmat]</p>
+</li>
+<li>
+<p>../../mann/en/q.php[Q]</p>
+</li>
+<li>
+<p>../../mann/en/qorot.php[Qorot]</p>
+</li>
+<li>
+<p>../../mann/en/qray.php[Qray]</p>
+</li>
+<li>
+<p>../../mann/en/query_ray.php[Query Ray]</p>
+</li>
+<li>
+<p>../../mann/en/quit.php[Quit]</p>
+</li>
+<li>
+<p>../../mann/en/qvrot.php[Qvrot]</p>
+</li>
+<li>
+<p>../../mann/en/r.php[R]</p>
+</li>
+<li>
+<p>../../mann/en/rcc-blend.php[Rcc Blend]</p>
+</li>
+<li>
+<p>../../mann/en/rcc-cap.php[Rcc Cap]</p>
+</li>
+<li>
+<p>../../mann/en/rcc-tgc.php[Rcc Tgc]</p>
+</li>
+<li>
+<p>../../mann/en/rcc-tor.php[rcc-tor]</p>
+</li>
+<li>
+<p>../../mann/en/rcodes.php[Rocdes]</p>
+</li>
+<li>
+<p>../../mann/en/red.php[Red]</p>
+</li>
+<li>
+<p>../../mann/en/refresh.php[Refresh]</p>
+</li>
+<li>
+<p>../../mann/en/regdebug.php[Regdebug]</p>
+</li>
+<li>
+<p>../../mann/en/regdef.php[Regdef]</p>
+</li>
+<li>
+<p>../../mann/en/regions.php[Regions]</p>
+</li>
+<li>
+<p>../../mann/en/reid.php[Reid]</p>
+</li>
+<li>
+<p>../../mann/en/release.php[Release]</p>
+</li>
+<li>
+<p>../../mann/en/rfarb.php[Rfarb]</p>
+</li>
+<li>
+<p>../../mann/en/rm.php[RM]</p>
+</li>
+<li>
+<p>../../mann/en/rmater.php[Rmater]</p>
+</li>
+<li>
+<p>../../mann/en/rot.php[Rot]</p>
+</li>
+<li>
+<p>../../mann/en/rotobj.php[Rotobj]</p>
+</li>
+<li>
+<p>../../mann/en/rpp-arch.php[Rpp Arch]</p>
+</li>
+<li>
+<p>../../mann/en/rpp-cap.php[Rpp Cap]</p>
+</li>
+<li>
+<p>../../mann/en/rrt.php[RRT]</p>
+</li>
+<li>
+<p>../../mann/en/rt.php[Rt]</p>
+</li>
+<li>
+<p>../../mann/en/rtarea.php[Rt area]</p>
+</li>
+<li>
+<p>../../mann/en/rtcheck.php[Rt Check]</p>
+</li>
+<li>
+<p>../../mann/en/saveview.php[Save View]</p>
+</li>
+<li>
+<p>../../mann/en/sca.php[Sca]</p>
+</li>
+<li>
+<p>../../mann/en/search.php[Search]</p>
+</li>
+<li>
+<p>../../mann/en/sed.php[Sed]</p>
+</li>
+<li>
+<p>../../mann/en/setview.php[Set View]</p>
+</li>
+<li>
+<p>../../mann/en/shader.php[Shader]</p>
+</li>
+<li>
+<p>../../mann/en/shell.php[Shell]</p>
+</li>
+<li>
+<p>../../mann/en/showmats.php[Show Mats]</p>
+</li>
+<li>
+<p>../../mann/en/size.php[Size]</p>
+</li>
+<li>
+<p>../../mann/en/solids.php[Solids]</p>
+</li>
+<li>
+<p>../../mann/en/sph-part.php[Sph Part]</p>
+</li>
+<li>
+<p>../../mann/en/status.php[Status]</p>
+</li>
+<li>
+<p>../../mann/en/summary.php[Summary]</p>
+</li>
+<li>
+<p>../../mann/en/sv.php[Sv]</p>
+</li>
+<li>
+<p>../../mann/en/sync.php[Sync]</p>
+</li>
+<li>
+<p>../../mann/en/t.php[T]</p>
+</li>
+<li>
+<p>../../mann/en/ted.php[Ted]</p>
+</li>
+<li>
+<p>../../mann/en/title.php[Title]</p>
+</li>
+<li>
+<p>../../mann/en/tol.php[Tol]</p>
+</li>
+<li>
+<p>../../mann/en/tops.php[Tops]</p>
+</li>
+<li>
+<p>../../mann/en/tor-rcc.php[Tor rcc]</p>
+</li>
+<li>
+<p>../../mann/en/tra.php[Tra]</p>
+</li>
+<li>
+<p>../../mann/en/track.php[Track]</p>
+</li>
+<li>
+<p>../../mann/en/translate.php[Translate]</p>
+</li>
+<li>
+<p>../../mann/en/tree.php[Tree]</p>
+</li>
+<li>
+<p>../../mann/en/units.php[Units]</p>
+</li>
+<li>
+<p>../../mann/en/vars.php[Vars]</p>
+</li>
+<li>
+<p>../../mann/en/vdraw.php[Vdraw]</p>
+</li>
+<li>
+<p>../../mann/en/view.php[View]</p>
+</li>
+<li>
+<p>../../mann/en/viewsize.php[Viewsize]</p>
+</li>
+<li>
+<p>../../mann/en/vnirt.php[Vnirt]</p>
+</li>
+<li>
+<p>../../mann/en/voxelize.php[Voxelize]</p>
+</li>
+<li>
+<p>../../mann/en/vquery_ray.php[Vquery Ray]</p>
+</li>
+<li>
+<p>../../mann/en/vrot.php[vrot]</p>
+</li>
+<li>
+<p>../../mann/en/wcodes.php[Wcodes]</p>
+</li>
+<li>
+<p>../../mann/en/whatid.php[What Id]</p>
+</li>
+<li>
+<p>../../mann/en/whichair.php[WhichAir]</p>
+</li>
+<li>
+<p>../../mann/en/which_shader.php[Which Shader]</p>
+</li>
+<li>
+<p>../../mann/en/who.php[Who]</p>
+</li>
+<li>
+<p>../../mann/en/window.php[Window]</p>
+</li>
+<li>
+<p>../../mann/en/window_frame.php[Window Frame]</p>
+</li>
+<li>
+<p>../../mann/en/wire.php[Wire]</p>
+</li>
+<li>
+<p>../../mann/en/wmater.php[Wmater]</p>
+</li>
+<li>
+<p>../../mann/en/x.php[X]</p>
+</li>
+<li>
+<p>../../mann/en/xpuch.php[Xpuch]</p>
+</li>
+<li>
+<p>../../mann/en/Z.php[Z]</p>
+</li>
+<li>
+<p>../../mann/en/zoom.php[zoom]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xxxxxxxx.php[Presentations]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../presentations/en/Introduction-brlcad-app-devel.php[Application Development with BRL-CAD]</p>
+</li>
+<li>
+<p>../../presentations/en/Introduction-to-tcltk.php[Introduction To TclTK]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../xxxxxxxxx.php[Specifications]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php[BRL-CAD G Format V5]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Background_and_Terminology[Background and Terminology]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Format_of_Data_Elements_Database_External_Format[Format of Data Elements Database External Format]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Definition_of_a_Single_Generic_Database_Object[Definition of a Single, Generic Database Object]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Object_Structure[Object Structure]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Flags[Flags]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Object_Type[Object Type]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Object_Length[Object Length]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Object_Name[Object Name]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Object_Attributes[Object Attributes]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Object_Body[Object Body]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Padding_and_Length_Rounding[Padding and Length Rounding]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#How_Objects_Are_Grouped_into_a_Database[How Objects Are Grouped into a Database]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Details_of_BRL-CAD-Specific_Nongeometric_Database_Object_Types[Details of BRL-CAD-Specific Nongeometric Database Object Types]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Details_of_BRL-CAD-Specific_Geometric_Database_Object_Types[Details of BRL-CAD-Specific Geometric Database Object Types]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Extensions_for_Deferred_Implementation[Extensions for Deferred Implementation]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Community_Feedback_on_the_Proposal[Community Feedback on the Proposal]</p>
+</li>
+<li>
+<p>../../specifications/en/BRL_CAD_g_format_V5.php#Database_Library_Application_Programming_Interface[Database Library Application Programming Interface (API)]</p>
+</li>
+</ul>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

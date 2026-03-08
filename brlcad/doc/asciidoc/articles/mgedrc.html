@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Dwayne L Kregel">
+<title>Setting Up a .mgedrc File</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Setting Up a .mgedrc File</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Dwayne L Kregel</span><br>
+</div>
+</div>
+<div id="content">
+<div class="paragraph">
+<p>Similar to the preferences or settings options in other computer applications, the .mgedrc file is a useful tool to customize the look and functionality of the U.S. Army Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) package and minimize potentially time-consuming actions. Using Multi-Device Geometry Editor (MGED) commands and the Tcl/Tk scripting language, users can modify default settings, specify features to be toggled on or off whenever MGED is started, establish typing shortcuts for a command or a series of commands, locate and size the command and geometry windows, and perform a host of other customizations.</p>
+</div>
+<div class="paragraph">
+<p>The command to create/update a .mgedrc file with the graphical user interface (GUI) is found under the File drop-down menu. When the Create/Update .mgedrc command is called, it writes an extensive list (~500 lines) of default settings and comments representing the default state of the command and graphics windows.</p>
+</div>
+<div class="paragraph">
+<p>As shown in Figure D-1, there are two basic parts to a .mgedrc file: (1) the information before the MGEDRC_HEADER and (2) the information after the MGEDRC_HEADER. The information before the header is any text created by the user. The information after the MGEDRC_HEADER is written by the Create/Update .mgedrc command and is a comprehensive list of the default settings and options for the MGED user interface. If any edits are made to the .mgedrc text after the header, these changes will be overwritten by the default settings if the Create/Update .mgedrc command is called again. The information before the HEADER, however, is not changed.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Remember that when creating/updating .mgedrc files, if any conflicting/repeated commands are found, BRL-CAD "obeys" the last command listed.</p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>In Figure D-1, note that lines have been added before the header to show different raytracing options and the commands have been sectioned into functional divisions separated by comment fields (comment fields are denoted by the symbol "#").</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/mgedrc_fig01.png" alt="../articles/images/mgedrc_fig01.png">
+</div>
+<div class="title">The two basic parts of the .mgedrc file: (1) information before header, and (2) information after header.</div>
+</div>
+<div class="paragraph">
+<p>Each command includes the following four basic components:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the "proc" (procedure) prefix,</p>
+</li>
+<li>
+<p>a unique name,</p>
+</li>
+<li>
+<p>arguments, and</p>
+</li>
+<li>
+<p>the body (i.e., commands that MGED should execute).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The symbol ";" signifies command separation (a return), and the symbol "$" inserts the value of the subsequently named variable.</p>
+</div>
+<div class="paragraph">
+<p>The following text discusses some specific examples of the type of shortcuts that can be created by users to expedite common operations such as executing raytraces with particular parameters, accepting and rejecting edits, setting azimuth and elevation, etc.</p>
+</div>
+<div class="paragraph">
+<p>First, the command to execute a specific kind of raytrace can often be long and tedious to type. For example, if a user wanted to render an image in a window 256 pixels high and wide, with a background color of white, and with the ambient light set to 0.7, the following text would have to be typed:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+rt -s256 -C255/255/255 -A.7
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>However, it is a simple matter to add a line to the user&#8217;s .mgedrc file to automate the calling of this instruction. The user&#8217;s line might be as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+proc 256wa {} {rt -s256 -C255/255/255 -A.7}
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Diagrammed, this line breaks down as follows:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">proc</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">256wa</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">{}</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">{rt -s256 -C255/255/255 -A.7}</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Denotes that a Tcl procedure is being created.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Names the procedure 256wa.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Denotes that there are no arguments.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Denotes the MGED command that will be executed. The rendering will be 256 pixels square size (as signified by -s), will have a background red-greenblue value of 255 255 255 (as signified by the -C option), and will have an ambient light setting of 0.7 (as signified by the -A option).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Now, all the user has to type on the command line to execute a rendering with the previously listed options is the following procedure name:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+256wa
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that this name has been intentionally kept short and function-based. It reduces a 27-character command to a 5-character command and provides the user with an idea of the action it performs. The 256 stands for the rt square size, the w stands for a white background, and the a stands for ambient lighting. But this convention is just a suggestion. The user may choose any name that is unique and does not contain words that are reserved for MGED commands (e.g., create).</p>
+</div>
+<div class="paragraph">
+<p>The .mgedrc file can also be used to create shortcuts for other types of command line or GUI commands. For example, the syntax for creating a shortcut for accepting and rejecting edits from the command line might be as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+proc acc {} {press accept}
+proc rej {} {press reject}
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In addition, a possible shortcut for calling a standard viewing geometry might be as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+proc 145 {} {ae 145 25}
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And to save the extra selection step when making or copying a primitive, the respective procedure syntax for combining the make and sed commands and copy and sed commands might be as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+proc mks {newprim primtype} {make $newprim $primtype; sed $newprim}
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+proc cps {oldprim newprim} {cp $oldprim $newprim; sed $newprim}
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Figure D-2 shows a sample section of a .mgedrc file that allows the user to specify the command line editor, customize the window size and placement, and toggle the function keys.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/mgedrc_fig02.png" alt="../articles/images/mgedrc_fig02.png">
+</div>
+<div class="title">Sample elements and functionality of a .mgedrc file.</div>
+</div>
+<div class="paragraph">
+<p>The diagrammed command for sizing and positioning the command window is as follows:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">set mged_default</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">(geom)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">475 ×  250</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">+65 +80</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets MGED command window defaults.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies command window.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sizes the window width to 475 pixels and the height to 250 pixels.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Denotes window location will be 65 pixels from the left side of the display and 80 pixels from the top edge of the display.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>As illustrated in Figure D-3, to specify the window size, the user inputs width-by-height dimensions for each window (i.e., 475 ×250). To specify the placement of the windows on the display, the user specifies offset distances (i.e., <code>65 +80) from the edges of the display (as measured in pixels). The first number defines the distance for the left/right placement, and the second number is for the up/down placement. The "</code>" symbol indicates a distance from the left side of the display to the left side of the window or from the top of the display to the top of the window. Alternatively, if a "-" symbol were present (as shown on the right side of Figure D-3), it would indicate a distance from the right side of the display to the right side of the window or from the bottom of the display to the bottom of the window.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/mgedrc_fig03.png" alt="../articles/images/mgedrc_fig03.png">
+</div>
+<div class="title">Sample window dimension input and positioning.</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

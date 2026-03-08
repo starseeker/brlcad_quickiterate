@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Christopher Sean Morrison, Karen Mgebrova">
+<title>Օգտվողի մասին BRL-CAD</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Օգտվողի մասին BRL-CAD</h1>
+<div class="details">
+<span id="author" class="author">Christopher Sean Morrison</span><br>
+<span id="email" class="email"><a href="mailto:devs@brlcad.org">devs@brlcad.org</a></span><br>
+<span id="author2" class="author">Karen Mgebrova</span><br>
+</div>
+</div>
+<div id="content">
+<div class="paragraph" id="article-body">
+<p>BRL-CAD հզոր խաչաձեւ հարթակի Open Source համակցական կառուցողական Պինդ Geometry (CSG) մոդելավորման ամուր համակարգ, որը ներառում է ինտերակտիվ 3D ամուր երկրաչափություն խմբագրում, բարձր կատարողական ճառագայթների-հետեւել աջակցություն ցուցաբերելու եւ երկրաչափական վերլուծություն, ցանցային բաշխված framebuffer աջակցություն, պատկերի եւ ազդանշանի մշակման գործիքների ուղին, տեղանքի պլանը գծելը եւ պրոտոնների քարտեզագրման աջակցություն իրական պատկերի սինթեզ է, որ համակարգի կատարողականի վերլուծությունը ելակետային Suite է, ներդրված scripting ինտերֆեյսի եւ գրադարանների համար առողջ արագագործ երկրաչափական ներկայացուցչության եւ վերլուծություն:</p>
+</div>
+<div class="paragraph">
+<p>Ավելի քան 20 տարի, BRL-CAD եղել է հիմնական tri ծառայության ամուր մոդելավորում CAD համակարգի կողմից օգտագործվում է ԱՄՆ ռազմական եւ մոդելի զենք համակարգեր Խոցելիության եւ lethality վերլուծություններ: Կոշտ մոդելավորում համակարգը հաճախ օգտագործվում է մի շարք ռազմական, գիտական ​​եւ արդյունաբերական կիրառություններ այդ թվում `նախագծման եւ վերլուծություն տրանսպորտային միջոցների, մեխանիկական մասերի, եւ ճարտարապետությունը. Փաթեթը է նաեւ օգտագործվել ճառագայթման դոզան պլանավորման, բժշկական արտացոլման, համակարգչային գրաֆիկայի կրթության, CSG հայեցակարգերի եւ մոդելավորման կրթության եւ համակարգի կատարողականի ելակետային փորձարկման ի թիվս այլ նպատակների համար.</p>
+</div>
+<div class="paragraph">
+<p>BRL-CAD աջակցում է մեծ տեսականի, այդ թվում `երկրաչափական ներկայացուցչությունների լայն շարք ավանդական CSG պարզունակ անուղղակի չոր, ինչպիսիք են տներ, ellipsoids, cones, եւ tori, ինչպես նաեւ բացահայտ չոր պատրաստված փակ հավաքածուներից միասնական B-Spline մակերեսներին, ոչ Uniform բանական B-Spline (NURBS) մակերեսների, N-Ջրաբաշխիչ Geometry (NMG), եւ զուտ faceted ցանց երկրաչափություն. Բոլոր երկրաչափական օբյեկտները կարող են համատեղվել օգտագործում են Բուլյան սահմանված-տեսական CSG գործողությունների, այդ թվում միության, խաչմերուկում, եւ տարբերությունը.</p>
+</div>
+<div class="paragraph">
+<p>BRL-CAD եղել են ակտիվ զարգացման հետ դյուրատարություն ժառանգություն, որը ներառում է այնպիսի համակարգերը, որպես Դեկտեմբեր VAX-11/780 անընդմեջ 4.3 BSD, DECStations վազում ULTRIX, Սիլիկոնային գրաֆիկա 3030, 4D «Իրիս», O2, օնիքս, եւ ծագման համակարգերի վազում տարբեր տարբերակները IRIX, Sun Microsystems Sun, 3 – րդ եւ Sun-4 Sparcs վազում SunOS է, Cray 1, Cray X-պատգամավոր, Cray Y-պատգամավոր, եւ Cray 2 վազում UNICOS, Դեկտեմբեր Alpha AXP վազում OSF / 1, Apple Macintosh II վարման A / UX; iPSC/860 Hypercube վազում NX / 2, իսկ արտարժութային Alliant / 8, FX/80, եւ FX/2800. Gould / Encore sel PowerNode6000/9000 եւ NP1, ՀԱՋՈՐԴ workstations, IBM RS/6000, HPPA 9000/700 վազում HPUX, վառ / Stardent, Encore Multi-Max եւ շատ ավելին.</p>
+</div>
+<div class="paragraph">
+<p>BRL-CAD մի հավաքածու է ավելի քան 400 գործիքներ, կոմունալ ծառայությունների, եւ ծրագրեր կազմող ավելի քան մեկ միլիոն գծերը կոդով.Փաթեթը, որը դիտավորյալ նախատեսված է լայնորեն խաչաձեւ պլատֆորմը, եւ ակտիվորեն զարգանում են եւ պահպանվում են ընդհանուր օպերացիոն համակարգ միջավայրում այդ թվում `BSD, Linux, Solaris, Mac OS X, եւ Windows եւ այլն: BRL-CAD, որը բաժանվում է երկուական եւ կոդով ձեւը, ինչպես նաեւ անվճար բաց կոդով ծրագրային ապահովում (FOSS), նախատեսված Open Source նախաձեռնություն (OSI) կողմից լիցենզիայի պայմանները:</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Mike Muuss սկսեց սկզբնական ճարտարապետության եւ նախագծման BRL-CAD դեռեւս 1979 թ. Մշակում, որպես միասնական փաթեթի սկսվել է 1983 թ. Առաջին հրապարակային թողարկումն իրականացվել է 1984 թ. BRL-CAD դարձավ բաց կոդով նախագիծ է 21 դեկտեմբերի 2004 թ.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

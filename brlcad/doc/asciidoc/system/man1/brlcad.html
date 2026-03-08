@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>BRLCAD(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>BRLCAD(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>brlcad - BRL-CAD programs for solid modeling, raytracing, graphics, and image processing</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The BRL-CAD Distribution contains many directories of materials (programs, man pages, documents, libraries, etc.). The major categories of programs are:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>mged</em></dt>
+<dd>
+<p>A multi-device interactive editor for constructing and updating combinatorial solid geometry (CSG) models. See <strong>mged</strong>(1), and see also <em>Understanding the Preparation and Analysis of Solid Models</em> by Michael John Muuss (enclosed, in the "paper" directory).</p>
+</dd>
+<dt class="hdlist1"><em>librt</em></dt>
+<dd>
+<p>A library of functions suitable for interrogation of a CSG solid model, utilizing ray-tracing techniques. See <strong>librt</strong>(3).</p>
+</dd>
+<dt class="hdlist1"><em>rt</em></dt>
+<dd>
+<p>A ray-tracing lighting model, for rendering pictures of <strong>mged</strong>(1) CSG models. See <strong>rt</strong>(1), <strong>rtray</strong>(1), <strong>rtpp</strong>(1).</p>
+</dd>
+<dt class="hdlist1"><em>conv</em></dt>
+<dd>
+<p>Programs to convert <strong>mged</strong>(1) and <strong>pix</strong>(3) format binary files to a portable ASCII form, and back again. See <strong>asc2g</strong>(1), <strong>asc2pix</strong>(1), <strong>conv-vg2g</strong>(1), <strong>g2asc</strong>(1), <strong>pix2asc</strong>(1).</p>
+</dd>
+<dt class="hdlist1"><em>libpkg</em></dt>
+<dd>
+<p>A "message-passing" interface layered on top of TCP network links, to ease construction of network-distributed applications.</p>
+</dd>
+<dt class="hdlist1"><em>libfb</em></dt>
+<dd>
+<p>A generic frame-buffer library which includes support for a number of display devices, as well as file, network, and debugging interfaces. Most programs which use this library have the letters "fb" in their names. To override your system default frame-buffer, the environment variable <code>FB_FILE</code> can be set. In addition, some commands also support a <strong>-F</strong> <em>framebuffer</em> option. Note that the disk file format of <em>libfb</em> is that of <strong>pix</strong>(5), allowing "framebuffer" files to be later processed by any of the "pix" family of programs. See <strong>libfb</strong>(3), <strong>pix-fb</strong>(3), <strong>pix</strong>(5), etc.</p>
+</dd>
+<dt class="hdlist1"><em>fbserv</em></dt>
+<dd>
+<p>TCP-based network server which implements remote frame-buffer services.</p>
+</dd>
+<dt class="hdlist1"><em>libplot3</em></dt>
+<dd>
+<p>A public-domain version of the UNIX-Plot library which differs from that of the standard <strong>libplot</strong>(3), by the addition of 3-D primitives, color, floating point coordinate routines, and the use of a file pointer parameter. See <strong>libplot3</strong>(3), <strong>plot3</strong>(5).</p>
+</dd>
+<dt class="hdlist1"><em>librle</em></dt>
+<dd>
+<p>A Run-Length-Encoding (RLE) library, providing functions originally from the University of Utah in a library package. Note that the current version of this library reads Edition-3 RLE files. See <strong>rle-fb</strong>(1), <strong>fb-rle</strong>(1), <strong>rle-pix</strong>(1), <strong>pix-rle</strong>(1), <strong>librle</strong>(3).</p>
+</dd>
+<dt class="hdlist1"><em>util</em></dt>
+<dd>
+<p>A collection of image-handling utilities, each constructed as individual tools intended to be used in combination. See <strong>ap-pix</strong>(1), <strong>bw-fb</strong>(1), <strong>bw-imp</strong>(1), <strong>bw-pix</strong>(1), <strong>bw3-pix</strong>(1), <strong>bwcrop</strong>(1), <strong>bwdiff</strong>(1), <strong>bwfilter</strong>(1), <strong>bwhist</strong>(1), <strong>bwmod</strong>(1), <strong>bwrect</strong>(1), <strong>bwrot</strong>(1), <strong>bwscale</strong>(1), <strong>bwstat</strong>(1), <strong>dunncolor</strong>(1), <strong>dunnsnap</strong>(1), <strong>fb-bw</strong>(1), <strong>fb-pix</strong>(1), <strong>fb-rle</strong>(1), <strong>fbanim</strong>(1), <strong>fbclear</strong>(1), <strong>fbcmap</strong>(1), <strong>fbcmrot</strong>(1), <strong>fbcolor</strong>(1), <strong>fbframe</strong>(1), <strong>fbgrid</strong>(1), <strong>fbpoint</strong>(1), <strong>fbzoom</strong>(1), <strong>gencolor</strong>(1), <strong>loop</strong>(1), <strong>pix-bw</strong>(1), <strong>pix-bw3</strong>(1), <strong>pix-fb</strong>(1), <strong>pixbackgnd</strong>(1), <strong>pixbustup</strong>(1), <strong>pixdiff</strong>(1), <strong>pixfilter</strong>(1), <strong>pixhist</strong>(1), <strong>pixhist3d-plot3</strong>(1), <strong>pixhist3d</strong>(1), <strong>pixinterp2x</strong>(1), <strong>pixrect</strong>(1), <strong>pixrot</strong>(1), <strong>pixscale</strong>(1), <strong>pixstat</strong>(1), <strong>pixtile</strong>(1), <strong>plot3-fb</strong>(1), <strong>rle-fb</strong>(1), <strong>rle-pix</strong>(1), <strong>wavelet</strong>(1), <strong>bw</strong>(5), <strong>pix</strong>(5), <strong>plot3</strong>(5).</p>
+</dd>
+<dt class="hdlist1"><em>vdeck</em></dt>
+<dd>
+<p>A program to convert <em>mged(1)</em> models to <em>gift(1)</em> format card deck files. See <strong>vdeck</strong>(1).</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="fb_file">FB_FILE</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Whenever a framebuffer is needed, and the <strong>-F</strong> option has not been specified, the environment variable <code>FB_FILE</code> is checked for the device to use. The format of this variable is either <em>[hostname:]</em><code>/dev/</code><em>device_name[num]</em> or <em>UNIX_path</em> , the pathname of a disk file to be used as a "virtual framebuffer". <em>Hostname</em> is the name of a remote machine if the remote framebuffer interface is being used. When a local display device is being specified, the <em>hostname</em> should not be specified, for performance reasons; just the special string <em>device_name</em> is used to select a particular type of framebuffer. <em>Num</em> is type dependent and can either mean a display number or select some options for that type. Note that for security reasons, it is not permitted to access a disk file via the remote interface.</p>
+</div>
+<div class="paragraph">
+<p>If <code>FB_FILE</code> is not set, the default for your system will be used.</p>
+</div>
+<div class="paragraph">
+<p>The use of <code>/dev/</code> before the <em>device_name</em> is simply to distinguish them from filenames. See the end of the <strong>libfb</strong>(3) manual page for a list of the device names and the meanings of any <em>num</em> parameters they may take, and for a more detailed discussion.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="options">OPTIONS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A convention exists for the options used on most of the utilities provided. Random options are usually lower case. Options which could specify either a screen or file size are, by convention, lower case for file information, and upper case for screen information. Here&#8217;s a list of some of the common options you may encounter:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-i</strong></dt>
+<dd>
+<p>Inverse flag. Pretend origin is in upper left corner of screen, for that good old-fashioned fourth-quadrant behavior.</p>
+</dd>
+<dt class="hdlist1"><strong>-c</strong></dt>
+<dd>
+<p>Various. Typically means clear the screen first.</p>
+</dd>
+<dt class="hdlist1"><strong>-z</strong></dt>
+<dd>
+<p>Various. Typically means zoom-in on current area of display.</p>
+</dd>
+<dt class="hdlist1">*-s*<em>square_file_size</em></dt>
+<dd>
+<p><em>WARNING:</em> Behavior is undefined when the <strong>-s</strong> flag is used in conjunction with the <strong>-w*or *-n</strong> flags.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>*-w*<em>file_width</em> *-n*<em>file_height</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">*-S*<em>square_screen_size</em></dt>
+<dd>
+<p><em>WARNING:</em> Behavior is undefined when the <strong>-S</strong> flag is used in conjunction with the <strong>-W*or *-N</strong> flags.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>*-W*<em>screen_width</em> *-N*<em>screen_height</em> *-x*<em>file_x_offset</em> *-y*<em>file_y_offset</em> *-X*<em>screen_x_offset</em> *-Y*<em>screen_y_offset</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">*-#*<em>bytes_per_sample</em></dt>
+<dd>
+<p>specifies the number of bytes per sample, where the flag, where the <em>#</em> character is a literal "pound" or "sharp" sign character, typically found over the numeral "3" on ANSI keyboards. Several programs (like pixrect) can operate on data samples of arbitrary width. For example, a <strong>pix</strong>(5) format file can often be treated like a <strong>bw</strong>(5) format file with a width of three bytes per sample.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="tape_format">TAPE FORMAT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When dealing with large collections of images, as might be needed for making a movie, it frequently becomes desirable to deal with magnetic tapes. Some of the early <strong>pix</strong>(5) tools contained built-in knowledge of the tape format. While this aberrant early design has been corrected in favor of using tape-oriented programs such as <strong>dd</strong>(1) in pipelines with the image tools, our "standard" image format remains.</p>
+</div>
+<div class="paragraph">
+<p>Regardless of image resolution, all tape records are 24k bytes long. If an image does not occupy an integral number of tape records, the last record is padded out. For example, NTSC images in 640x480 format use 37.5 records per image. The <strong>files-tape</strong>(1) utility is helpful in performing this function.</p>
+</div>
+<div class="paragraph">
+<p>The capacity of an average 2400 foot reel of tape at 6250 is 6144 records of 24k bytes each. For the various combinations of density and image resolution, a convention for the number of frames/reel exists:</p>
+</div>
+<div class="paragraph">
+<p>Density Resolution Frames/reel</p>
+</div>
+<div class="paragraph">
+<p>6250 1k 48</p>
+</div>
+<div class="paragraph">
+<p>6250 640x480 160</p>
+</div>
+<div class="paragraph">
+<p>6250 512 192</p>
+</div>
+<div class="paragraph">
+<p>1600 1k 12</p>
+</div>
+<div class="paragraph">
+<p>1600 512 48</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

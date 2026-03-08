@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Asignar más propiedades de los materiales a la copa</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Asignar más propiedades de los materiales a la copa</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprenderá a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Utilizar las opciones de reflexión especular y difusa del sombreado de plástico.</p>
+</li>
+<li>
+<p>Asignar valores a los índices de refracción del sombreado de plástico.</p>
+</li>
+<li>
+<p>Asignar valores a la opción de brillo del sombreado de plástico.</p>
+</li>
+<li>
+<p>Asignar valores a la opción de extinción del sombreado de plástico.</p>
+</li>
+<li>
+<p>Experimentar con varias combinaciones de opciones del sombreado de plástico.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Abra la base de datos goblet.g utilizando cualquiera de métodos aprendidos. Del menú Edit (Edición), seleccione la opción Combination Editor (Editor de combinación). Seleccione basin1.r.</p>
+</div>
+<div class="paragraph">
+<p>En el último tutorial, hemos asignado los valores para los atributos de transparencia y de reflexión espejada. Ahora asignará valores de otras propiedades de sombreado. Cuando selecciona el sombreado de plástico para la región basin1.r, ocho casillas de entrada de atributo aparecen en el editor de combinación. Estas cajas contienen los valores que el usuario ha establecido previamente (por ejemplo, las que se ingresaron previamente para la transparencia y el reflejo espejado) o los valores por defecto que tiene el programa si no se especifican otros. Cuando alguno de estos valores es modificado, el cambio puede ser visto entre llaves en el cuadro Shader (Sombreado) que muestra los ingresos en una cadena de texto además de en los cuadros de entrada de los atributos apropiados, como se puede apreciar en la siguiente imagen:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged08_goblet_combeditor.png" alt="../../lessons/es/images/mged08_goblet_combeditor.png">
+</div>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Note que en versiones posteriores a <em>BRL-CAD</em> 5.2, se aplican los valores por defecto, pero no son visualizados en las cajas de atributo de sombreados.</p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>En este ejemplo, el cuadro de entrada de sombreado indica que la transparencia (tr) es de .5 y el reflejo espejado (re) es de .45. Los ocho abreviaturas que se utilizan actualmente en el cuadro de entrada de sombreado son las siguientes:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">tr - transparency - transparencia</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sp - specular reflectivity - reflexión especular</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ri - refractive index - índice de refracción</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ex - extinction - extinción</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">re - mirror reflectance - reflejo espejado</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">di - diffuse reflectivity - reflesión difusa</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sh - shininess - brillo</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">em - emission - emisión</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="goblet_specular_diffuse">Reflexión especular y difusa</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Cuando la luz se refleja de una superficie brillante, produce dos tipos de reflexiones. Los puntos más notables son causados por reflexión especular. El resto de la superficie produce la reflectividad difusa. Mientras más brillante es la superficie, como en un vaso de cristal, mayor reflexión especular se produce. Mientras más opaca sea la superficie, como en una pared pintada con pintura mate, más reflexión disfusa es producida. En la ilustración siguiente, se muestra un modelo de la relación entre estas reflectividades:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged08_spec_vs_diff_reflectivity.png" alt="../../lessons/es/images/mged08_spec_vs_diff_reflectivity.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Como se observa en la ilustración, la reflexión difusa muestra el color de un objeto al reflejar la luz ambiental desde del objeto. La esfera de la parte superior izquierda muestra el valor máximo de reflexión difusa (1,0), y como resultado, el color de su superficie es uniforme.</p>
+</div>
+<div class="paragraph">
+<p>La reflexión especular, por otra parte, refleja el color de una luz fuente. La esfera de la parte inferior derecha muestra el valor máximo de reflexión especular (1,0), por eso una fuente de luz blanca se refleja fuera de la superficie de la esfera.</p>
+</div>
+<div class="paragraph">
+<p>El rango para la reflexión, tanto especular como difusa, es entre 0,0 y 1,0. Sin embargo, los valores combinados de estas suelen ser igual a 1,0. Recordar, si se van a establecer los valores de uno de estos atributos, es necesario asignar un valor correspondiente al atributo complementario, de manera que la combinación de los valores sea igual a 1,0.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="goblet_refractive_index">Índice de refracción</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Cuando la luz pasa a través de un medio (por ejemplo, aire) a otro medio de (por ejemplo, agua), se dobla de su trayectoria original. El ángulo en que la luz se curva se denomina índice de refracción. Cuanto más disímiles son los medios, mayor es el grado de refracción que se producirá. Por ejemplo, luz solar que pasa a través de un diamante se dobla más que la misma luz solar a través del cristal óptico. El diamante tendría un mayor índice de refracción (aproximadamente 2,42) mientras que el vidrio óptico tendría un menor índice de refracción (aproximadamente 1,71).</p>
+</div>
+<div class="paragraph">
+<p>El rango del índice de refracción de <em>MGED</em> es de 1,0 (el índice de aire) en adelante. Este parámetro sólo es útil para los materiales que tienen un transparencia mayor que 0. El siguiente dibujo de la luz solar pasando a través del agua muestra cómo funciona la refracción.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged08_refractive_index.png" alt="../../lessons/es/images/mged08_refractive_index.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="goblet_shininess">Brillo</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>El brillo de un objeto afecta el índice del componente especular del sombreado de plástico. Mientras mas brillante es la superficie de un objeto, menor será el reflejo de la fuente de luz en la superficie del objeto. El rango de de brillo suele ser un valor entero de 1 a 10.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="goblet_extinction">Extinción</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>El término extinción se aplica al componente transmisivo del sombreado del plástico, e indica la cantidad de luz absorbida por el material del objeto. El valor por defecto es 0.0, y el rango puede ser cualquier número negativo. Éste atributo puede afectar drásticamente otros atributos del sombreado, especialmente el índice de refracción.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="goblet_emission">Emisión</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Emisión es una característica relativamente nueva que se ha añadido al paquete <em>BRL-CAD</em>. Se refiere a la cantidad de brillo artificial del objeto.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="goblet_shader_attributes">Aplicar atributos de material plático a la copa</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Ahora que puede entender los diversos atributos del sombreado del plástico, es tiempo de experimentar con las formas en que afectan al producto final de la copa que ha creado en los últimos dos tutoriales. Habiendo probado los valores para la transparencia y la reflexión espejada, agregue los atributos de reflexión especular y difusa a basin1.r. Una vez que vea cómo estos dos atributos afectan a su diseño, añada el índice de refracción, y a continuación, el brillo y la extinción. Es posible que desee capturar algunos de estos cambios de manera que pueda referirse a ellos más tarde, cuando cree otro modelo que utiliza el mismo sombreado. Recuerde cliquear en Aplicar en el Editor de combinación para que incorpore los cambios.</p>
+</div>
+<div class="paragraph">
+<p>Al cambiar los valores de los atributos del sombreado de plástico, se dará cuenta de que algunos cambios no alteran significativamente el diseño. Esto es porque hay una variedad de formas para producir una mirada particular sobre el objeto. Los siguientes son dos ejemplos de la copa con diversos valores de los atributos de plástico (que crean una diferencia notable) aplicado a basin1.r.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged08_goblet_reflectivity_1.png" alt="../../lessons/es/images/mged08_goblet_reflectivity_1.png">
+</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged08_goblet_reflectivity_2.png" alt="../../lessons/es/images/mged08_goblet_reflectivity_2.png">
+</div>
+</div>
+<div class="paragraph">
+<p>En el momento en que haya terminado de experimentar con el cambio de atributos del sombreado de plástico, la ventana del editor de combinación puede verse como la siguiente:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged08_comb_editor_window_mater_prop.png" alt="../../lessons/es/images/mged08_comb_editor_window_mater_prop.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Tenga en cuenta que en el cuadro de entrada de cadena de Shader se reflejan los valores fijados por el usuario en los cuadros de entrada de cada atributo (por ejemplo, la transparencia de .5), pero no se reflejan los valores por defecto (por ejemplo, el brillo de 10).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="goblet_material_properties2_review">Repasemos&#8230;&#8203;</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprendió a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Utilizar las opciones de reflexión especular y difusa del sombreado de plástico.</p>
+</li>
+<li>
+<p>Asignar valores a los índices de refracción del sombreado de plástico.</p>
+</li>
+<li>
+<p>Asignar valores a la opción de brillo del sombreado de plástico.</p>
+</li>
+<li>
+<p>Asignar valores a la opción de extinción del sombreado de plástico.</p>
+</li>
+<li>
+<p>Experimentar con varias combinaciones de opciones del sombreado de plástico.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

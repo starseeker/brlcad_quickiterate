@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>MGED(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>MGED(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>mged - multi-display interactive combinatorial solid geometry editor</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>mged [-a attach] [-b] [-c] [-d display] [-h|?] [-r] [-x#] [-X#] [-v] [&lt;database.g&gt;] [&lt;mged_command&gt;]</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>MGED</em>, a.k.a. the "Multi-Device Geometry Editor", is the central interaction environment for the BRL-CAD package. It offers both command line and menu driven interactions, as well as wireframe displays and integrated raytracing capabilities. It is the primary tool for BRL-CAD geometry creation and interactive manipulation.</p>
+</div>
+<div class="paragraph">
+<p><em>MGED</em>'s history traces back to the earlier "GED" (a.k.a. "Geometry Editor"), and much of GED&#8217;s functionality is preserved in <em>MGED</em>. A full description of MGED&#8217;s abilities is beyond the scope of this document - the reader is referred to Volumes II and III of the BRL-CAD Tutorial Series, available at <a href="http://brlcad.org,">http://brlcad.org,</a> for a more comprehensive introduction. This document will deal with the various options available when it comes to starting MGED.</p>
+</div>
+<div class="paragraph">
+<p>The primary mode for modern <em>MGED</em> usage is the Tcl/Tk based environment, which offers menu support and a number of Tcl based tools. It is also possible to run more minimalist environments of terminal + framebuffer and a terminal without any display window. <em>MGED</em> also allows users to execute single commands from the command line without starting any environment, allowing for activities such as scripting. Some examples of such usage are present in the Examples section of this document.</p>
+</div>
+<div class="paragraph">
+<p>Technically, <em>MGED</em> can be opened without a database file being supplied, but until one <em>is</em> supplied it will not be terribly useful. This can be done either by supplying a file name on the command line or by opening a database from within <em>MGED</em> using the File-&gt;Open&#8230;&#8203; menu or the <strong>opendb</strong> command.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a attach</strong></dt>
+<dd>
+<p>The <strong>-a</strong> option specifies a display manager to automatically attach to when starting <em>MGED</em>.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Without specifying the <strong>-a</strong> attach option, <em>MGED</em> will prompt which display manager to attach during startup: attach (nu|X|ogl)[nu]?</p>
+</div>
+<div class="paragraph">
+<p>The list of available display managers varies from platform to platform and across releases. However, some commonly available options are the <em>nu</em> (NULL) display manager, which will start <em>MGED</em> without any display manager attached; the <em>X</em> display manager, which provides an X11 graphical wireframe display; and the <em>ogl</em> display manager, which is similar to <em>X</em> but starts up a display manager that uses the OpenGL protocol for drawing wireframes.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-b</strong></dt>
+<dd>
+<p>Supplying the <strong>-b</strong> to <strong>mged</strong> will result in <em>MGED</em> being started as a background process. This is handy if the users still wishes to make use of the terminal from which <em>MGED</em> is being started.</p>
+</dd>
+<dt class="hdlist1"><strong>-c</strong></dt>
+<dd>
+<p>Instructs <em>MGED</em> to start using classic mode instead of the default Tcl/Tk-based GUI. The <strong>-c</strong> option is often used when specifying an <strong>mged_command</strong> to indicate that <em>MGED</em> is being run in a command-mode without a default GUI. Example: <strong>*mged</strong> <strong>-c</strong> db/moss.g tops*</p>
+</dd>
+<dt class="hdlist1"><strong>-d display</strong></dt>
+<dd>
+<p>The <strong>-d</strong> option to <em>MGED</em> specifies which X server to connect to for platforms that have a running X11 server available. This option is an analogous alternative to setting the DISPLAY environment variable. You can specify a local or remote display in X11 HOST:PORT format (e.g., "-d :0" or "-d host:0") and <em>MGED</em> should draw windows to that display.</p>
+</dd>
+<dt class="hdlist1"><strong>-h</strong> or <strong>-?</strong></dt>
+<dd>
+<p>Prints out a brief help statement showing the options available when starting <em>MGED</em>.</p>
+</dd>
+<dt class="hdlist1"><strong>-r</strong></dt>
+<dd>
+<p>Opens the database.g file in read-only mode.</p>
+</dd>
+<dt class="hdlist1"><strong>-x #</strong></dt>
+<dd>
+<p>Specify the debug level of librt.</p>
+</dd>
+<dt class="hdlist1"><strong>-X #</strong></dt>
+<dd>
+<p>Specify the debug level of libbu.</p>
+</dd>
+<dt class="hdlist1"><strong>-v</strong></dt>
+<dd>
+<p>Display the version and exit.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="scripting">SCRIPTING (BATCHING) MGED</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Often it is convenient to generate a series of <em>MGED</em> commands outside <em>MGED</em> and then submit the command list to <em>MGED</em>, which will react as if each command were being manually entered within it. Simply create a file (say, "cmds.txt") with each line being a desired command, and then have <em>MGED</em> execute the list. At the normal shell prompt, execute</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+$ mged -c tgm.g &lt; cmds.txt
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that the procedure described above is very useful in rapid prototyping or automated TGM processing without resorting to low-level library programming in C or C++.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hints">HINTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>MGED</em> database names conventionally end with <code>.g</code> .</p>
+</div>
+<div class="paragraph">
+<p>SIGINT aborts the current command.</p>
+</div>
+<div class="paragraph">
+<p>"q" or EOF exits the program.</p>
+</div>
+<div class="paragraph">
+<p>The ".mgedrc" file is searched for in three places. The first one found is used, and any others are ignored.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>If the environment variable MGED_RCFILE is set, it is used as a path name for the file to be used.</p>
+</li>
+<li>
+<p>If the environment variable HOME is set, then HOME/.mgedrc is used.</p>
+</li>
+<li>
+<p>If the file ".mgedrc" exists in the current directory, it is used.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following are run from the operating system command prompt:</p>
+</div>
+<div class="exampleblock">
+<div class="title">Running the MGED l from the operating system command line.</div>
+<div class="content">
+<div class="paragraph">
+<p>user:~<strong>mged /usr/brlcad/share/brlcad/7.12.2/db/m35.g l component</strong></p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+Opened in READ ONLY mode
+component:  --
+   u bed
+   u frame
+   u cab
+   u suspension
+   u misc
+   u power.train
+	</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Running MGED without a display manager.</div>
+<div class="content">
+<div class="paragraph">
+<p>user:~<strong>mged -c</strong></p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+BRL-CAD Release 7.13.0  Geometry Editor (MGED)
+    Thu, 09 Oct 2008 22:31:41 -0400, Compilation 1
+    user@localhost:/usr/brlcad/
+
+attach (nu|X|ogl)[nu]? nu
+mged&gt;
+	</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Running MGED and bypassing the attach prompt by specifying the X11 display manager.</div>
+<div class="content">
+<div class="paragraph">
+<p>user:~<strong>mged -a X -c</strong></p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+BRL-CAD Release 7.15.0  Geometry Editor (MGED)
+    Tue, 22 Sep 2009 12:40:01 -0400, Compilation 1
+    user@localhost:/usr/brlcad/
+
+ATTACHING X (X Window System (X11))
+
+mged&gt;
+	</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>Computer Graphics for Target Descriptions</em>, BRL Technical Report ARBRL-TR-02480, <em>GED: An Interactive Solid Modeling System for Vulnerability Assessments</em></p>
+</div>
+<div class="paragraph">
+<p><strong>brlcad</strong>(1), <strong>rt</strong>(1), <strong>comgeom-g</strong>(1), <strong>vdeck</strong>(1), <strong>librt</strong>(3)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Error messages are intended to be self-explanatory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1984-2025 United States Government as represented by the U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>
