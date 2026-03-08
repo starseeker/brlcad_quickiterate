@@ -132,8 +132,6 @@ Si realizó estos pasos correctamente, el programa responderá algo similar a:
 
 image::../../lessons/es/images/mged10_mug_wireframe.png[]
 
-image::../../lessons/es/images/mged10_mug_wireframe.png[]
-
 Ahora debe tener la región mug.r como una combinación de formas que contienen el mismo material y color. Usted puede asignar el color y el material en este momento, pero deberá trabajar más sobre el diseño para hacerlo más realista. Por ahora, revise lo que apredió en este tutorial. Cuando esté listo para trabajar de nuevo, puede seguir perfeccionando su diseño en el próximo tutorial.
 
 

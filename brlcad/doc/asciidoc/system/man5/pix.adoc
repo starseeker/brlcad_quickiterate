@@ -6,6 +6,7 @@
 == NAME
 pix - Color RGB image file format and utilities
 
+[[format]]
 == FORMAT
 
 A _pix_ file contains sequences of pixels. Each pixel is stored as three _unsigned char_s, first red, then green, then blue. The intensity of each color ranges from 0 ("off") to 255 ("on"). The first pixel in a _pix_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image.
@@ -15,6 +16,7 @@ By convention, _pix_ images are usually square, and thus their dimensions can be
 At some time in the future _pix_ files will probably get self-typing headers so that parameters such as their size can be automatically determined by programs.
 
 
+[[utilities]]
 == UTILITIES
 
 _pix-fb_ display a .pix format image on a framebuffer.
@@ -52,26 +54,31 @@ _bw3-pix_ merges three .bw files into one .pix file.
 _pix-bw3_ separates .pix file RGB colors into three .bw files.
 
 
+[[files]]
 == FILES
 
 file.pix
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *bw*(5), and above named programs.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

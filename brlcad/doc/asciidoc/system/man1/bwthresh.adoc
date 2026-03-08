@@ -14,6 +14,7 @@ bwthresh <val>... < <file.bw>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bwthresh* reads from standard input a stream of black-and-white data in *bw*(5) format and thresholds it among the _val_s, writing the resulting *bw*(5) data to standard output. The _val_s must appear on the command line in strictly increasing order.
@@ -21,6 +22,7 @@ bwthresh <val>... < <file.bw>
 The grey scale 0..255 is divided evenly into _n_+1 bins, and each pixel of input is compared to the _val_s, to determine which of the _n_+1 grey levels should be output.
 
 
+[[example]]
 == EXAMPLE
 
 The command
@@ -32,21 +34,25 @@ performs the following mapping:
 if (pixel_in < 37)  pixel_out = 0  else if (pixel_in < 143)  pixel_out = 128  else  pixel_out = 255
 
 
+[[see_also]]
 == SEE ALSO
 
 *bwmod*(1), *bwstat*(1), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1991-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ killtree [-a] [-f] [-n] {<objects>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 All specified _objects_ are immediately deleted if they are top-level objects not referenced elsewhere in the database. For each combination among the listed _objects_, the combination as well as any objects that are members of that combination will be deleted. If a member of that combination is itself a combination, then all of its members will also be destroyed. This continues recursively until the primitive shapes are reached and destroyed.
@@ -37,6 +38,7 @@ The *-n* flag causes no objects to be actually killed. Instead, a list of object
 *Use this command with caution.* Killed objects cannot be recovered so *keep* a backup.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *killtree* command to delete specified objects and all references to them from the current database.
@@ -53,16 +55,19 @@ Destroys _group1_, _region2_, and _shapeb_ and removes all references to these o
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *kill*(nged)*killall*(nged)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

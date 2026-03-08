@@ -14,11 +14,13 @@ coil [<options ...>]... [<name>]
 ----
 
 
+[[coil_description]]
 == DESCRIPTION
 
 *coil* creates a pipe shape within _coil.g_ or a user supplied file that implements a coil according to user provided dimensions. If no dimensions are supplied, defaults are used.
 
 
+[[coil_options]]
 == OPTIONS:
 
 
@@ -64,6 +66,7 @@ Instructs the coil tool to create a "left handed" coil (default is "right handed
 
 
 
+[[coil_examples]]
 == EXAMPLES
 
 The following will create coils exercising the various options.
@@ -90,26 +93,31 @@ The following will create coils exercising the various options.
 ====
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Not much error checking yet - need to add.
 
 
+[[author]]
 == AUTHOR
 
 Clifford Yapp
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2009-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bugs]]
 == BUGS
 
 There are many inputs that will be accepted but will attempt to generate invalid pipes.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

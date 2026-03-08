@@ -46,13 +46,7 @@ You can use sections to group sections of your document together, but they are n
 
 image::http://brlcad.org/images/logo/BRL-CAD_gear_logo_w_name_256.png[width=256]
 
-image::http://brlcad.org/images/logo/BRL-CAD_gear_logo_w_name_256.png[width=256]
-
-Another image, but rendered inline image::http://brlcad.org/images/logo/BRL-CAD_gear_logo_64x64.png[width=64]
-
-image::http://brlcad.org/images/logo/BRL-CAD_gear_logo_64x64.png[width=64]
-
- with the paragraph text.
+Another image, but rendered inline image:http://brlcad.org/images/logo/BRL-CAD_gear_logo_64x64.png[width=64] with the paragraph text.
 
 More paragraphs...
 

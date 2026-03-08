@@ -14,11 +14,13 @@ summary [p] [r] [g]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *summary* command with no arguments lists the number of primitive shapes, regions, and nonregion combinations in the current database. If the _p_ argument is supplied, then the name of each _primitive shape_ is also listed. Similarly, the _r_ flag asks for the _region_ names, and _g_ asks for the names of all the combinations (including _region_). The flags may be concatenated to get combined output.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *summary* command with an argument to list a summary of primitive shapes and regions for the current database.
@@ -33,11 +35,13 @@ Lists a summary of primitive shapes and regions for the current database.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

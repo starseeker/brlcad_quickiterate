@@ -14,6 +14,7 @@ dm {<subcommand>} [<args>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Provides a means to interact with the display manager at a lower level. The *dm* command accepts the following subcommands:
@@ -53,6 +54,7 @@ The "valid" subcommand provides a way to determine if a particular type of displ
 
 
 
+[[examples]]
 == EXAMPLES
 
 The examples show the use of the *dm* command with its various subcommands as presented in the Description section.
@@ -148,11 +150,13 @@ Ends the drag.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

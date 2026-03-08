@@ -14,11 +14,13 @@ ps
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 List currently running sub-processes (typically these will be some form of asynchronously launched *rt* render.)
 
 
+[[examples]]
 == EXAMPLES
 
 .List Currently Running Processes
@@ -38,11 +40,13 @@ mged>*ps*
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,11 +14,13 @@ view {<subcommand>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Gets/sets view parameters in local units. The *view* command accepts the following subcommands:
 
 
+[[subcommands]]
 == SUBCOMMANDS
 
 
@@ -78,6 +80,7 @@ Get (without arguments) or set the view in the form of yaw, pitch, roll. A ypr o
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Get the center.
@@ -135,11 +138,13 @@ Creates a script named run_rtedge_script.rt that will run rtedge and create a pi
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -492,6 +492,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
     </xsl:call-template>
@@ -505,6 +510,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
     </xsl:call-template>
@@ -518,6 +528,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:text>[preface]&#10;</xsl:text>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
@@ -532,6 +547,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:text>[appendix]&#10;</xsl:text>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
@@ -546,6 +566,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:text>[dedication]&#10;</xsl:text>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
@@ -558,6 +583,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
     </xsl:call-template>
@@ -863,7 +893,57 @@
        TABLES
        ============================================================ -->
 
+  <!-- Compute the number of columns an entry spans.
+       Checks @namest/@nameend directly, then falls back to @spanname.
+       Returns 1 if the entry does not span multiple columns. -->
+  <xsl:template name="entry-colspan">
+    <xsl:param name="entry" select="."/>
+    <xsl:variable name="namest">
+      <xsl:choose>
+        <xsl:when test="$entry/@namest">
+          <xsl:value-of select="$entry/@namest"/>
+        </xsl:when>
+        <xsl:when test="$entry/@spanname">
+          <xsl:variable name="sn" select="$entry/@spanname"/>
+          <xsl:value-of select="ancestor::db:tgroup/db:spanspec[@spanname=$sn]/@namest"/>
+        </xsl:when>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:variable name="nameend">
+      <xsl:choose>
+        <xsl:when test="$entry/@nameend">
+          <xsl:value-of select="$entry/@nameend"/>
+        </xsl:when>
+        <xsl:when test="$entry/@spanname">
+          <xsl:variable name="sn" select="$entry/@spanname"/>
+          <xsl:value-of select="ancestor::db:tgroup/db:spanspec[@spanname=$sn]/@nameend"/>
+        </xsl:when>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:choose>
+      <xsl:when test="$namest != '' and $nameend != '' and $namest != $nameend">
+        <!-- Count columns from namest to nameend inclusive -->
+        <xsl:variable name="pos-start"
+          select="count(ancestor::db:tgroup/db:colspec[@colname=$namest][1]/preceding-sibling::db:colspec) + 1"/>
+        <xsl:variable name="pos-end"
+          select="count(ancestor::db:tgroup/db:colspec[@colname=$nameend][1]/preceding-sibling::db:colspec) + 1"/>
+        <xsl:choose>
+          <xsl:when test="$pos-end >= $pos-start">
+            <xsl:value-of select="$pos-end - $pos-start + 1"/>
+          </xsl:when>
+          <xsl:otherwise>1</xsl:otherwise>
+        </xsl:choose>
+      </xsl:when>
+      <xsl:otherwise>1</xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
   <xsl:template match="db:table | db:informaltable">
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:if test="db:title">
       <xsl:text>.</xsl:text>
       <xsl:value-of select="normalize-space(db:title)"/>
@@ -875,12 +955,26 @@
     <xsl:text>&#10;</xsl:text>
     <!-- Process tbody rows -->
     <xsl:apply-templates select=".//db:tbody/db:row"/>
+    <!-- Process tfoot rows -->
+    <xsl:apply-templates select=".//db:tfoot/db:row"/>
     <xsl:text>|===&#10;&#10;</xsl:text>
   </xsl:template>
 
   <xsl:template match="db:row">
     <xsl:for-each select="db:entry">
-      <xsl:text>|</xsl:text>
+      <!-- Emit column-span prefix N+| when entry spans multiple columns -->
+      <xsl:variable name="span">
+        <xsl:call-template name="entry-colspan"/>
+      </xsl:variable>
+      <xsl:choose>
+        <xsl:when test="$span > 1">
+          <xsl:value-of select="$span"/>
+          <xsl:text>+|</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>|</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
       <xsl:apply-templates/>
       <xsl:text> </xsl:text>
     </xsl:for-each>
@@ -891,17 +985,55 @@
        IMAGES / FIGURES
        ============================================================ -->
 
+  <!-- Select the single preferred imagedata from a mediaobject context:
+       prefer role='html', then no role, then any first imageobject. -->
+  <xsl:template name="preferred-imagedata">
+    <xsl:choose>
+      <xsl:when test="db:imageobject[@role='html']/db:imagedata">
+        <xsl:apply-templates select="db:imageobject[@role='html'][1]/db:imagedata"/>
+      </xsl:when>
+      <xsl:when test="db:imageobject[not(@role)]/db:imagedata">
+        <xsl:apply-templates select="db:imageobject[not(@role)][1]/db:imagedata"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:apply-templates select="db:imageobject[1]/db:imagedata"/>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <!-- Same selection but in inline (image:) mode -->
+  <xsl:template name="preferred-imagedata-inline">
+    <xsl:choose>
+      <xsl:when test="db:imageobject[@role='html']/db:imagedata">
+        <xsl:apply-templates select="db:imageobject[@role='html'][1]/db:imagedata" mode="inline"/>
+      </xsl:when>
+      <xsl:when test="db:imageobject[not(@role)]/db:imagedata">
+        <xsl:apply-templates select="db:imageobject[not(@role)][1]/db:imagedata" mode="inline"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:apply-templates select="db:imageobject[1]/db:imagedata" mode="inline"/>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
   <xsl:template match="db:figure | db:informalfigure">
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:if test="db:title">
       <xsl:text>.</xsl:text>
       <xsl:value-of select="normalize-space(db:title)"/>
       <xsl:text>&#10;</xsl:text>
     </xsl:if>
-    <xsl:apply-templates select=".//db:imagedata"/>
+    <xsl:for-each select=".//db:mediaobject[1]">
+      <xsl:call-template name="preferred-imagedata"/>
+    </xsl:for-each>
   </xsl:template>
 
   <xsl:template match="db:mediaobject">
-    <xsl:apply-templates select=".//db:imagedata"/>
+    <xsl:call-template name="preferred-imagedata"/>
     <xsl:if test="db:caption">
       <xsl:text>.</xsl:text>
       <xsl:apply-templates select="db:caption/*"/>
@@ -910,9 +1042,10 @@
   </xsl:template>
 
   <xsl:template match="db:inlinemediaobject">
-    <xsl:apply-templates select=".//db:imagedata"/>
+    <xsl:call-template name="preferred-imagedata-inline"/>
   </xsl:template>
 
+  <!-- Block image macro (image::) -->
   <xsl:template match="db:imagedata">
     <xsl:text>image::</xsl:text>
     <xsl:value-of select="@fileref"/>
@@ -922,6 +1055,18 @@
       <xsl:value-of select="@width"/>
     </xsl:if>
     <xsl:text>]&#10;&#10;</xsl:text>
+  </xsl:template>
+
+  <!-- Inline image macro (image:) - no trailing blank line -->
+  <xsl:template match="db:imagedata" mode="inline">
+    <xsl:text>image:</xsl:text>
+    <xsl:value-of select="@fileref"/>
+    <xsl:text>[</xsl:text>
+    <xsl:if test="@width">
+      <xsl:text>width=</xsl:text>
+      <xsl:value-of select="@width"/>
+    </xsl:if>
+    <xsl:text>]</xsl:text>
   </xsl:template>
 
   <xsl:template match="db:imageobject | db:textobject"/>
@@ -1217,7 +1362,7 @@
 
   <xsl:template match="db:colspec | db:spanspec"/>
   <xsl:template match="db:thead"/>  <!-- handled by table template -->
-  <xsl:template match="db:tfoot"/>
+  <xsl:template match="db:tfoot"/>  <!-- handled by table template -->
   <xsl:template match="db:tgroup"/>  <!-- handled by table template - but we need rows -->
   <xsl:template match="db:caption"/>  <!-- handled inline -->
   <xsl:template match="db:abstract"/>

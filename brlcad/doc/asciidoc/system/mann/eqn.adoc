@@ -14,6 +14,7 @@ eqn {<A B C>} []
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Allows the user to rotate the face of an ARB shape by providing the coefficients of an equation of the desired plane for the face. The coefficients _A, B,_ and _C_ are from the plane equation:
@@ -23,6 +24,7 @@ stem:[Ax + By + Cz = D]
 The user must be editing an _ARB_ shape and be rotating a face of the _ARB_ for this command to have any effect. When entering such a state, the user will be asked which of the face vertices should be held constant, and from this information the _D_ coefficient of the equation is determined.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *eqn* command to rotate the face of the ARB being edited to be parallel to the _xy_ plane.
@@ -39,11 +41,13 @@ The face of the _ARB_ is rotated to be parallel to the _xy_ plane.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

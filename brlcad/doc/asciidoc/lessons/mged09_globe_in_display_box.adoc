@@ -22,13 +22,9 @@ Begin by creating a new database. Name your new file cube.g.
 
 Go to the Create menu, select the Arbs category, and then select an arb8 (arbitrary convex polyhedron with eight vertices). When asked to provide a name for the arb8, name it cube1.s. Click on Apply. Go to the Edit menu and select Accept. You now have a cube for the outside of the display box, as in the following: image::../lessons/images/mged09_globe_outside_display_box.png[]
 
-image::../lessons/images/mged09_globe_outside_display_box.png[]
-
 
 
 Repeat the first part of this process to produce another arb8, this time calling this shape cube2.s. Go to the Edit menu and select Scale. Place the mouse pointer in the lower half of the Graphics Window screen and click the middle mouse button until the second cube is slightly smaller than the first cube, as follows: image::../lessons/images/mged09_globe_inside_outside_box.png[]
-
-image::../lessons/images/mged09_globe_inside_outside_box.png[]
 
 
 
@@ -43,8 +39,6 @@ Go to the Create menu and select sph from the list of Ellipsoids. Name the shape
 A sphere should appear inside the cube in the Graphics Window. Change View to Front.
 
 Go to the Edit menu and select Scale. Reduce the size of the sphere until it will fit inside of the cube and then drag it into the center of the cube. Go to Edit and Accept your changes. Your globe and box should appear similar to the following in the az35, el25 view: image::../lessons/images/mged09_globe_wireframe.png[]
-
-image::../lessons/images/mged09_globe_wireframe.png[]
 
 
 
@@ -68,8 +62,6 @@ The display box and globe should reappear in the Graphics Window. Go to the File
 
 Your design should show a light cyan-colored glass cube with a blue globe inside. To eliminate the wireframing, go to Framebuffer (in the Raytrace Panel) and select Overlay. The display should appear similar to the following illustration: image::../lessons/images/mged09_globe_raytraced.png[]
 
-image::../lessons/images/mged09_globe_raytraced.png[]
-
 
 
 To make this design more interesting, you can place the globe on a base. Do this by going back to Framebuffer and clicking on Active to deactivate the framebuffer. Next, go to the Create menu and select the trc (truncated right cone) under the Cones and Cylinders category. Name the shape base1.s. Working from a Front view, go to the Edit menu and select Scale. Click the middle mouse button to reduce the trc in size until the bottom of it appears to be an appropriate size for the globe base. (You may need to increase the size of your Graphics Window or decrease your geometry view size to see the bottom of the trc.) Next, reduce the height of the shape by selecting Set H from the Edit menu and clicking with the middle mouse button. You may need to switch back and forth between these two options a few times to get an acceptable size. When finished, however, do not select Accept yet, as we have more changes to make.
@@ -92,8 +84,6 @@ Our shape should have flipped upside down and jumped to the bottom of the first 
 
 Go to Edit and Primitive Selection and select globe1.r/globe1.s. As you did with the trc shapes, use the Shift Grips to drag the globe down until it is in place on the base. Go back to the Edit menu and select Accept. Your design should look as follows: image::../lessons/images/mged09_globe_base_box_wireframe.png[]
 
-image::../lessons/images/mged09_globe_base_box_wireframe.png[]
-
 
 
 To make a region of the base, type in the Command Window: *r base1.r u base1.s u base2.s[Enter]*
@@ -107,8 +97,6 @@ In the Combination Editor window, click the button to the right of the Name entr
 Apply your changes. Before you can raytrace your completed design, you must first clear the Graphics Window and rebuild your design by typing at the Command Window prompt: *Z[Enter]**draw cube1.r globe1.r base1.r[Enter]*
 
 Change your view to az35, el25 and then raytrace your design, which should appear similar to the following: image::../lessons/images/mged09_globe_base_box_raytraced.png[]
-
-image::../lessons/images/mged09_globe_base_box_raytraced.png[]
 
 
 

@@ -14,11 +14,13 @@ i {<obj_name comb_name>} [<operation>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Adds _obj_name_ to the end of the combination named _comb_name_. The _operation_ may be +, -, or u. If no _operation_ is specified, u is assumed. If _comb_name_ does not exist, it is created.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *i* command to add a specified region to a combination (group).
@@ -35,11 +37,13 @@ Adds _region3_ to the combination _group5_.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

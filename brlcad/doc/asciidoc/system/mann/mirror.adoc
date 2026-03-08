@@ -14,11 +14,13 @@ mirror [<-p "point">] [<-d "dir">] [<-x|-y-|-z>] [<-o offset>] {<from_object to_
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Mirrors an object (shape or combination) across a given axis (_x_ by default). If _from_object_ is a shape, then it is copied to a new shape named _to_object_ that is mirrored across the given axis. If _from_object_ is a combination, then a new combination is created that contains exactly the same members naned _to_object_. Transformation matrices are added to mirror it across the requested axis. The _-x, -y, & -z_ options tell the command which axis to mirror the object. The _-p_ can be used to specify a point to mirror about, and the _-d_ can be used to specify a direction vector to mirror about.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *mirror* command to mirror an object across the _y_ axis.
@@ -55,11 +57,13 @@ Creates a copy of solid.s that is mirrored across a plane parallel to the _y_ ax
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

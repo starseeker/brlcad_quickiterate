@@ -23,6 +23,7 @@ imgdims [-#<bytes_per_pixel>] <num_bytes> \
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *imgdims* uses the autosizing capability of *libbn*(5) to guess the dimensions (in pixels) of an image. The image size may be expressed either implicitly, by specifying the name of the file; or explicitly, by specifying a number of bytes.
@@ -32,21 +33,25 @@ The *-n* option specifies that the dimensions should be extracted directly from 
 If _file_name_ is specified with neither of the *-s* and *-n* options, *imgdims* tries to extract the dimensions from _file_name_, and if that fails it computes the image size and guesses the width and height. If the *-#* option is not specified, *imgdims* determines the pixel size based on the extension on _file_name_. If, additionally, _num_bytes_ was specified or _file_name_ contains none of the recognized extensions, *imgdims* assumes that there are 3-byte-wide pixels.
 
 
+[[see_also]]
 == SEE ALSO
 
 *libbn*(3)
 
 
+[[author]]
 == AUTHOR
 
 Paul Tanenbaum
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1997-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

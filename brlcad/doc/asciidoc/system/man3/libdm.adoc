@@ -77,7 +77,6 @@ _DM_CLOSE_ closes the display manager indicated by_dmp_.
 
 
 
-[[dm_draw_begin]]
 _int_*DM_DRAW_BEGIN*_( struct dm *dmp )_
 
 _DM_DRAW_BEGIN_ prepares the display manager indicated by _dmp_ for a round of drawing.
@@ -415,7 +414,6 @@ _dm_wrap_ wraps_val_ into the range [-1.0, 1.0].
 
 
 
-[[dm_p]]
 _int_*dm_processOptions*_(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])_
 
 _dm_processOptions_ is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
@@ -711,6 +709,7 @@ cwish> .d drawEnd
 
 
 
+[[libfbgeneric]]
 == Generic frame buffer routines
 
 
@@ -727,6 +726,7 @@ intfb_getheight, *fbp);
 ----
 
 
+[[libfbhardware]]
 == Hardware specific frame buffer routines
 
 
@@ -743,6 +743,7 @@ voidfb_log, format [, arg ] ...);
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 These routines are designed to provide a device-independent method of using frame buffers or files containing frame buffer images. The coordinate system used is first-quadrant (0..width-1, 0..height-1), with integer addressing. Translation to hardware coordinate systems is handled by the library.
@@ -800,6 +801,7 @@ The following is a printing routine which this library uses to indicate errors.
 _Fb_log_ will convert, format and print its _args_ under control of _format_ to the standard error output. For more detailed information on the specification of the control string, see *printf*(3S). This function may be supplied by the application if different behavior is desired.
 
 
+[[fb_file_devices]]
 == FB_FILE DEVICES
 
 The following devices are supported by the library; not all may be available on any given system. New device support can be incorporated by the addition of a single module to the library.
@@ -819,6 +821,7 @@ TCP-based network links to a remote framebuffer, where _devicename_ is any from 
 
 
 
+[[examples]]
 == EXAMPLES
 
 _Libfb_ can be loaded with any C program:
@@ -833,6 +836,7 @@ _Libfb_ can be loaded with any C program:
 where _<system-library>_ denotes specific libraries necessary on a particular machine. All machines with networking will require the "-lpkg" option. Machines which support the X Windows(tm) system will require the "-lX11" option.
 
 
+[[return_values]]
 == RETURN VALUES
 
 _fb_close_, _fb_write_, _fb_read_, _fb_wmap_, _fb_rmap_, _fb_clear_, _fb_cursor_, _fb_scursor_, _fb_setcursor_, _fb_window_, _fb_zoom_, _fb_ioinit_, _fb_seek_, _fb_wpixel_, _fb_rpixel_ and _fb_flush_ return -1 to indicate failure. _Fb_open_ returns FB_NULL to indicate failure, and a non-null fb structure pointer upon success. _fb_read_, and _fb_write_ return the number of pixels actually read or written. _fb_gettype_ returns a pointer to a NULL terminated description string.

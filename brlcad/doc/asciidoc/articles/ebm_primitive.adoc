@@ -6,22 +6,20 @@ The extruded bitmap (ebm) primitive allows the user to make a three-dimensional 
 
 For example, the ebm could be used if one wanted to model 3-D letters, such as in a company name, onto the side of a simulated wall or building. Note also that the same image used for the projection can, with some extra processing, form the basis for the ebm (see Figures C-1-C-3).
 
+[[ebm3]]
 image::../articles/images/ebm_primitive_fig01.png[]
 
-image::../articles/images/ebm_primitive_fig01.png[]
-
+[[ebm4]]
 image::../articles/images/ebm_primitive_fig02.png[]
 
-image::../articles/images/ebm_primitive_fig02.png[]
-
-image::../articles/images/ebm_primitive_fig03.png[]
-
+[[ebm5]]
 image::../articles/images/ebm_primitive_fig03.png[]
 
 To make an ebm, the image file must be a black and white (.bw) file. A .bw image is a grayscale raw image file with only one channel. Each pixel can be turned on or off, but it has no color data. As shown in Figures C-2 and C-3, the white part of the image may be extruded in a straight line in the +Z direction to whatever length the user specifies. Regardless of the complexity of the geometry, all of the extruded shapes form a single ebm primitive.
 
 To enter an ebm in a database, the in command must be used. The arguments are as shown in the following example:
 
+[[ebm8]]
 |===
 
 |in |sample.ebm |ebm |image.bw |600 |800 |1 

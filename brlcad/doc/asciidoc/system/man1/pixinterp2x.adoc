@@ -14,6 +14,7 @@ pixinterp2x [-s<squarefilesize>] [-w<file_width>] [-n<file_height>] [<infile.pix
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixinterp2x* does a bilinear interpolation between the pixels of the input *pix*(5) file to create the output file. This program is most useful when creating images for photographing. Even though no additional image information is created, there may be significant photographic advantages to operating the display at its highest resolution.
@@ -37,26 +38,31 @@ Specify both the number of pixels per scanline and the number of scanlines in th
 The interpolated scanlines fall exactly half way between the input lines, and the input lines are exactly preserved. Rather than extrapolate beyond the edges of the file, the first X and Y line is duplicated (left and bottom edge). This differs from the behavior of *pixscale*(1).
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pixscale*(1), *pix*(5)
 
 
+[[bugs]]
 == BUGS
 
 More memory is used than is strictly necessary.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
