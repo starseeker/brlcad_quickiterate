@@ -2558,7 +2558,7 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 #endif
 
 void
-ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f)
+ged_rt_notify_func_set(struct ged *gedp, ged_rt_notify_func_t f)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return;
@@ -2566,8 +2566,8 @@ ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f)
     gedp->i->ged_gdp->gd_rtCmdNotify = f;
 }
 
-ged_drawable_notify_func_t
-ged_dl_notify_func_get(struct ged *gedp)
+ged_rt_notify_func_t
+ged_rt_notify_func_get(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return NULL;

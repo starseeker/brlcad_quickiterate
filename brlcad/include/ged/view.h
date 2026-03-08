@@ -250,12 +250,17 @@ GED_EXPORT struct rt_selection_set *ged_get_selection_set(struct ged *gedp,
 
 
 /* RT command completion notification callback type and accessors */
-typedef void (*ged_drawable_notify_func_t)(int);
+typedef void (*ged_rt_notify_func_t)(int);
 
 GED_EXPORT void
-ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f);
-GED_EXPORT ged_drawable_notify_func_t
-ged_dl_notify_func_get(struct ged *gedp);
+ged_rt_notify_func_set(struct ged *gedp, ged_rt_notify_func_t f);
+GED_EXPORT ged_rt_notify_func_t
+ged_rt_notify_func_get(struct ged *gedp);
+
+/* Deprecated aliases (renamed in Session 34 — were misleadingly named as DL callbacks) */
+#define ged_drawable_notify_func_t      ged_rt_notify_func_t
+#define ged_dl_notify_func_set(g, f)    ged_rt_notify_func_set((g), (f))
+#define ged_dl_notify_func_get(g)       ged_rt_notify_func_get((g))
 
 
 
