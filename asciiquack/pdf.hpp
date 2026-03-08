@@ -71,15 +71,78 @@ struct TextSpan {
     float              size  = 11.0f;  ///< font size in points (0 = use context default)
 };
 
+/// Parse a dimension string (e.g. "3.9in", "150px", "5cm", "50%") and
+/// return the equivalent value in PDF points (1 pt = 1/72 inch).
+/// When no unit suffix is recognised the value is returned as-is (assumed to
+/// already be in points).  A content-area width @p content_w (in points) is
+/// required for percentage values.  Returns 0 on parse failure.
+static float parse_dimension_pts(const std::string& s, float content_w = 468.0f) {
+    if (s.empty()) { return 0.0f; }
+    std::size_t end = 0;
+    float value = 0.0f;
+    try { value = std::stof(s, &end); }
+    catch (...) { return 0.0f; }
+    if (value <= 0.0f) { return 0.0f; }
+    std::string unit = s.substr(end);
+    // Trim leading whitespace from unit string
+    std::size_t us = unit.find_first_not_of(' ');
+    if (us != std::string::npos) { unit = unit.substr(us); }
+    if (unit == "in")  { return value * 72.0f; }
+    if (unit == "cm")  { return value * 72.0f / 2.54f; }
+    if (unit == "mm")  { return value * 72.0f / 25.4f; }
+    if (unit == "px")  { return value * 72.0f / 96.0f; }  // 96 dpi screen
+    if (unit == "pt")  { return value; }
+    if (unit == "pc")  { return value * 12.0f; }           // 1 pica = 12 pt
+    if (unit == "%")   { return value * content_w / 100.0f; }
+    if (unit.empty())  { return value; }                   // bare number → points
+    return 0.0f;  // unrecognised unit → auto
+}
+
 /// Strip AsciiDoc markup that we cannot render (links, macros, etc.) and
 /// leave the visible text only.  This is a best-effort plain-text extractor
 /// used so that the raw AsciiDoc source is never mis-rendered as markup.
+/// Input may contain HTML-encoded characters (&lt; &gt; &amp; etc.) because
+/// sub_attributes() HTML-encodes special characters before this is called;
+/// HTML entities are decoded back to their literal characters on output.
 static std::string strip_markup(const std::string& s) {
     std::string out;
     out.reserve(s.size());
     std::size_t i = 0;
     const std::size_t n = s.size();
+
+    // Helper: try to match a xref at position pos given the open/close tokens.
+    // Returns true and advances pos past the xref, appending display text to out.
+    // open/close are the literal delimiters (e.g. "<<" / ">>" or "&lt;&lt;" / "&gt;&gt;").
+    auto try_xref = [&](const char* open_tok,  std::size_t open_len,
+                        const char* close_tok, std::size_t close_len) -> bool {
+        if (s.compare(i, open_len, open_tok) != 0) { return false; }
+        auto close_pos = s.find(close_tok, i + open_len);
+        if (close_pos == std::string::npos) { return false; }
+        std::string inner = s.substr(i + open_len, close_pos - (i + open_len));
+        auto comma = inner.find(',');
+        std::string anchor_part = (comma != std::string::npos)
+                                  ? inner.substr(0, comma) : inner;
+        // Anchor must not contain spaces or newlines (guards against false matches)
+        if (anchor_part.find(' ') != std::string::npos ||
+            anchor_part.find('\n') != std::string::npos) { return false; }
+        if (comma != std::string::npos) {
+            // <<anchor,text>> → emit the display text (may itself carry markup)
+            out += strip_markup(inner.substr(comma + 1));
+        } else {
+            // <<anchor>> → emit [anchor]
+            out += '[';
+            out += inner;
+            out += ']';
+        }
+        i = close_pos + close_len;
+        return true;
+    };
+
     while (i < n) {
+        // Cross-reference: raw form <<anchor,text>> and HTML-encoded &lt;&lt;...&gt;&gt;
+        if (try_xref("<<",       2, ">>",       2)) { continue; }
+        if (try_xref("&lt;&lt;", 8, "&gt;&gt;", 8)) { continue; }
+
         // link:url[label] or http(s)://url[label]
         if (s.compare(i, 4, "http") == 0 || s.compare(i, 5, "link:") == 0) {
             auto ob = s.find('[', i);
@@ -132,6 +195,25 @@ static std::string strip_markup(const std::string& s) {
         }
         out += s[i++];
     }
+
+    // Decode HTML entities produced by sub_attributes() so that the PDF
+    // writer receives plain characters, not HTML escapes.
+    auto replace_all = [](std::string& str,
+                          const std::string& from, const std::string& to) {
+        std::size_t pos = 0;
+        while ((pos = str.find(from, pos)) != std::string::npos) {
+            str.replace(pos, from.size(), to);
+            pos += to.size();
+        }
+    };
+    replace_all(out, "&amp;",  "&");
+    replace_all(out, "&lt;",   "<");
+    replace_all(out, "&gt;",   ">");
+    replace_all(out, "&quot;", "\"");
+    replace_all(out, "&apos;", "'");
+    replace_all(out, "&#8212;", "\xe2\x80\x94");   // em dash U+2014
+    replace_all(out, "&#8203;", "");               // zero-width space
+    replace_all(out, "&#169;",  "\xc2\xa9");       // copyright ©
     return out;
 }
 
@@ -284,6 +366,9 @@ public:
         content_w_ = doc.page_width() - MARGIN_LEFT - MARGIN_RIGHT;
         new_page();
     }
+
+    /// Return the content area width in points (page width minus both margins).
+    float content_width() const { return content_w_; }
 
     // ── Page management ───────────────────────────────────────────────────────
 
@@ -1129,19 +1214,15 @@ private:
                 }
 
                 // Parse optional width/height hints from block attributes.
-                // Invalid or non-numeric values are silently treated as 0 (auto).
+                // Dimension strings like "3.9in", "150px", "50%" are converted
+                // to PDF points; bare numbers are treated as points already.
                 float hint_w = 0.0f, hint_h = 0.0f;
                 {
+                    const float cw = layout.content_width();
                     const std::string& ws = blk.attr("width");
                     const std::string& hs = blk.attr("height");
-                    if (!ws.empty()) {
-                        try { hint_w = std::stof(ws); }
-                        catch (...) { hint_w = 0.0f; }  // non-numeric → auto
-                    }
-                    if (!hs.empty()) {
-                        try { hint_h = std::stof(hs); }
-                        catch (...) { hint_h = 0.0f; }  // non-numeric → auto
-                    }
+                    if (!ws.empty()) { hint_w = parse_dimension_pts(ws, cw); }
+                    if (!hs.empty()) { hint_h = parse_dimension_pts(hs, cw); }
                 }
 
                 layout.image_block(resolved, hint_w, hint_h);
