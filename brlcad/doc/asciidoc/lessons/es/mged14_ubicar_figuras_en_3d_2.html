@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Ejercicios adicionales de ubicación de imágenes en espacios 3-D</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Ejercicios adicionales de ubicación de imágenes en espacios 3-D</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprenderá a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Crear copias de la figura utilizando el Primitive Editor (Editor de primitivos).</p>
+</li>
+<li>
+<p>Dibujar una cuadrícula para facilitar el posicionamiento de los objetos.</p>
+</li>
+<li>
+<p>Controlar el árbol de datos y hacer correcciones de ser necesario.</p>
+</li>
+<li>
+<p>Asignar propiedades de los materiales utilizando el Combination Editor (Editor de combinaciones).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>En los tutoriales anteriores, hemos creado y editado y ubicado en espacios 3-D distintas formas. Este tutorial proporciona una práctica más avanzada en estas áreas utilizando el diseño del candelabro que creó en el tutorial anterior.</p>
+</div>
+<div class="paragraph">
+<p>Abra la base de datos candle.g y dibuje candle1.c.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="candle_base_1st_sphere">Creando la primera esfera</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Use la GUI para crear una esfera llamada sph1.s. Vaya al menú View (Ver) y seleccione Top View (Vista superior). Del menú Edit (Edición), seleccione Scale (Escala) y modifique el tamaño de la esfera hasta que sea aproximadamente del mismo tamaño que el de la siguiente ilustración:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged14_candle_base_sphere_topview.png" alt="../../lessons/es/images/mged14_candle_base_sphere_topview.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="draw_grid_feature">Utilizando la cuadrícula</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Arrastre la esfera hacia el rcc como se muestra en la imagen anterior. Para hacer esta tarea un poco más fácil, usted puede ir al menú Modes (Modos) y seleccionar Draw Grid (Dibujar cuadrícula). Esto creará una superposición de la cuadrícula en la ventana gráfica que le puede ayudará a posicionar la esfera en la base del candelabro.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multipane_feature">Utilizando la opción Multipane (Multi-panel)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Como se señaló anteriormente, otra característica que está disponible para ayudarle a posicionar sus objetos es la opción Multipane del menú Modes (Modos), que le permitirá tener múltiples puntos de vista del diseño que está creando.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged14_candle_multipane.png" alt="../../lessons/es/images/mged14_candle_multipane.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Al mover una forma, el cambio de posición se refleja en cada panel. Los paneles múltiples le ayudarán a visualizar el espacio 3-D de una forma más completa. En el modo predeterminado, el panel superior izquierdo muestra la vista superior, el panel superior derecho muestra la vista actual, el panel inferior izquierdo muestra la vista frontal y el panel inferior derecho muestra la vista izquierda. Para desactivar la cuadrícula o la vista Multipane, regrese a Modes y cliquee la opción que desea desactivar.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copies_of_shapes">Crear copias de una figura</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Para hacer más piedras para la base, puede utilizar el comando copy en la línea de comandos (cp sph1.s sph2.s), pero otra manera de hacer esto es ir al menú Edit (Editar) y seleccionar Primitive Editor (Editor de primitivos). Tipee sph1.s en el cuadro de texto a la derecha de "Nombre". Cliquee en Reset (Restablecer) y luego cambie el nombre a sph2.s. Cliquee en Apply (Aplicar). Siga haciendo esto hasta que haya hecho ocho piedras. Como cada una de las nuevas esferas es una copia exacta de la primera, no podrá visualizarlas hasta que las mueva de lugar.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged14_primitive_editor.png" alt="../../lessons/es/images/mged14_primitive_editor.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Para posicionar sus nuevas esferas, diríjase a Primitive Selection (Selección de primitivos). Un submenú de la forma que ha creado se desplegará. Utilice la barra de desplazamiento a la derecha de la lista para acceder a las esferas que ha creado, como se muestra en la siguiente ilustración.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged14_primitive_selection_dropdown.png" alt="../../lessons/es/images/mged14_primitive_selection_dropdown.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Cliquee en sph2.s y arrastrelo a su posición. Una vez que haya posicionado las ocho esferas alrededor de la rcc, su diseño debería ser similar al siguiente, desde las vistas superior y frontal.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged14_candle_spheres_topview.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged14_candle_spheres_frontview.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Candelabro desde la vista superior</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Candelabro desde la vista frontal</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Note que en la vista frontal sólo se ven cinco esferas alrededor de la base de la vela, pero hay ocho esferas cuando ve el diseño desde arriba. Esto se debe a que está viendo el espacio 3-D en una pantalla de 2-D y el resto de las esferas están detrás de las que están en el frente. Si cambia la vista a un az35 el25 aparecerán todas las esferas como se muestra en la siguiente figura. Ésta es una de las razones por la que es importante comprobar continuamente su diseño en el modo Multipane. Un error en la colocación de una figura puede no notarse desde una vista en particular y detectarse desde otro punto de vista.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged14_candle_spheres_az35el25.png" alt="../../lessons/es/images/mged14_candle_spheres_az35el25.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="practice_make_regions_spheres">Haciendo regiones de las esferas</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Ahora que todas las esferas están creadas y en su lugar, debe hacer una región de cada una de ellas. Para hacer esto tipee en la ventana de comandos: <strong>r sph1.r u sph1.s[Enter]</strong> <strong>r sph2.r u sph2.s[Enter]</strong> <strong>r sph3.r u sph3.s[Enter]</strong> <strong>r sph4.r u sph4.s[Enter]</strong> <strong>r sph5.r u sph5.s[Enter]</strong> <strong>r sph6.r u sph6.s[Enter]</strong> <strong>r sph7.r u sph7.s[Enter]</strong> <strong>r sph8.r u sph8.s[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Nota: Hay tres maneras fáciles de hacer todas las regiones. La primera consiste en tipear el primer comando: <strong>r sph1.r u sph1.s[Enter]</strong> y luego usar la flecha hacia arriba para recordar este comando. A continuación sustituya el número 1 por un 2, repitiendo estos pasos sucesivamente hasta llegar a la esfera 8.</p>
+</div>
+<div class="paragraph">
+<p>La segunda opción se basa en el hecho de que el intérprete de la línea de comandos de <em>MGED</em> usa el lenguaje Tcl/Tk. Esto nos da acceso a algunos loops de comandos. A continuación hará todas las regiones con un solo comando: <strong>foreach i { 1 2 3 4 5 6 7 8 } { [Enter]</strong> <strong>r sph$i.r u sph$i.s [Enter]</strong> <strong>}[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Esto es mucho más fácil y más rápido que cualquiera de los métodos anteriores. Sin embargo, si hubiera muchas más esferas (por ejemplo 1000 o más), entonces se vuelve más conveniente utilizar una tercera forma que emplea diferentes tipos de bucles:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    for {set i 1} {i `&lt;= 1000} {incr i} {[Enter]
+
+    r sph$i.r u sph$i.s [Enter]
+
+    }
+	  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A continuación, del menú Edit (Editar) seleccione Combination Editor (Editor de combinaciones). Seleccione sph1.r desde el menú desplegable Select From All (Seleccionar entre los existentes). Asigne las propiedades del plástico y el color rojo y luego oprima Apply (Aplicar). Repita esta selección con las siete esferas restantes. Podría usar Apply (Aplicar) después de seleccionar las propiedades del material adecuado y luego escribir el nombre de la próxima esfera, sin embargo, este método requiere que el usuario recuerde actualizar el cuadro de Boolean Expression (por ejemplo, cambiar u sph1.s a u sph2.s) de modo que el booleano de una forma, no se aplique a otra.</p>
+</div>
+<div class="paragraph">
+<p>Nota: Una vez más, mejoraremos la misma operación para las repeticiones múltiples. Esta es otra buena oportunidad para utilizar un loop. <strong>foreach i { 1 2 3 4 5 6 7 8 } {[Enter]</strong> <strong>mater sph$i.r "plastic" 255 0 0 0[Enter]</strong> <strong>}[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>En general, la GUI es buena para hacer una cosa a la vez o para hacer operaciones altamente visuales. La operaciones repetitivas es mejor hacerlas utilizando la línea de comandos.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="candle_base_spheres_combine">Combinando las esferas con la base del candelabro</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Estamos ante una decisión importante. Por el momento, las piedras se superponen en parte con la base del candelabro (la figura rcc1.s). Debido a que dos objetos no pueden ocupar el mismo espacio, tenemos que decidir cómo resolver esta situación. Hay dos opciones:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Podemos tener joyas perfectamente redondas que se sujeten a una superficie cóncava calada en la base del candelabro.</p>
+</li>
+<li>
+<p>Podemos tener una base perfectamente circular con piedras de forma redonda con un corte cilíndrico que se encastren en el candelabro.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Para este tutorial utilizaremos la primera opción.</p>
+</div>
+<div class="paragraph">
+<p>Ahora enfrentamos otra decisión: como lograr este resultado. La clave es que el espacio que ocupan las piedras debe ser substraído del candelabro, pero en la parte que corresponde, el rcc1.s.</p>
+</div>
+<div class="paragraph">
+<p>En la línea de comandos cree rcc1.c tipeando: <strong>comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]</strong> Luego abra el Combination Editor y seleccione base1.r. Modifique la unión de rcc1.s en el campo de la expresión booleana para hacer la unión de rcc1.c (difieren en el tipo, una es la figura, la segunda es una combinación), y cliquee OK. El árbol de base1.r debería verse así:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   u base1.r/R
+
+   u eto1.s
+
+   u rcc1.c
+
+   u rcc1.s
+
+   - sph1.r/R
+
+   u sph1.s
+
+   - sph2.r/R
+
+   u sph2.s
+
+   - sph3.r/R
+
+   u sph3.s
+
+   - sph4.r/R
+
+   u sph4.s
+
+   - sph5.r/R
+
+   u sph5.s
+
+   - sph6.r/R
+
+   u sph6.s
+
+   - sph7.r/R
+
+   u sph7.s
+
+   - sph8.r/R
+
+   u sph8.s
+
+   u eto2.s
+
+   - rcc2.s
+	</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note que podríamos haber logrado los mismos resultados en la línea de comandos mediante el uso del comando rm (Remove) para quitar el espacio de rcc1.s de base1.r y a continuación, añadir rcc1.c: <strong>rm base1.r rcc1.s[Enter]</strong> <strong>r base1.r u rcc1.c[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>El resultado de esto sería un árbol como el siguiente:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    u base1.r/R
+
+    u eto1.s
+
+    u eto2.s
+
+    - rcc2.s
+
+    u rcc1.c
+
+    u rcc1.s
+
+    - sph1.r/R
+
+    u sph1.s
+
+    - sph2.r/R
+
+    u sph2.s
+
+    - sph3.r/R
+
+    u sph3.s
+
+    - sph4.r/R
+
+    u sph4.s
+
+    - sph5.r/R
+
+    u sph5.s
+
+    - sph6.r/R
+
+    u sph6.s
+
+    - sph7.r/R
+
+    u sph7.s
+
+    - sph8.r/R
+
+    u sph8.s
+	  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Por último, podríamos haber evitado crear un objeto intermedio en la base de datos moviendo rcc1.s al final de la expresión booleana de base1.r y luego restando cada una de las joyas de base1.r (por lo tanto, extrayendo materiales de rcc1.s). Esto tendría como resultado:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    u base1.r/R
+
+    u eto1.s
+
+    u eto2.s
+
+    - rcc2.s
+
+    u rcc1.s
+
+    - sph1.r/R
+
+    u sph1.s
+
+    - sph2.r/R
+
+    u sph2.s
+
+    - sph3.r/R
+
+    u sph3.s
+
+    - sph4.r/R
+
+    u sph4.s
+
+    - sph5.r/R
+
+    u sph5.s
+
+    - sph6.r/R
+
+    u sph6.s
+
+    - sph7.r/R
+
+    u sph7.s
+
+    - sph8.r/R
+
+    u sph8.s
+	  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Puede ser una buena práctica considerando los méritos de cada método disponible.</p>
+</div>
+<div class="paragraph">
+<p>Ahora necesitará combinar las piedras con el candelabro candle1.c: <strong>comb candle1.c u sph1.r u sph2.r u sph3.r u sph4.r u sph5.r u sph6.r u sph7.r u sph8.r[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Hay sólo un par de cosas por hacer antes de general el Raytrace del diseño. Si ha habilitado la opción Multipane o la cuadrícula, vuelva al menú Modes (Modos) y desactívelos. A continuación, limpie la pantalla y dibuje su nuevo diseño escribiendo en la ventana de comandos: <strong>B candle1.c table1.r</strong> Su nuevo diseño debería aparecer en la ventana de gráficos. Abra el Raytrace Control Panel (Panel de control de Raytrace) y seleccione un color azul claro (200 236 242) escribiendo los tres valores en el cuadro de entrada Background Color (Color de fondo). El trazado de rayos debe ser similar al siguiente:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged14_candle_spheres_raytraced.png" alt="../../lessons/es/images/mged14_candle_spheres_raytraced.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="placing_shapes_in_3d_2_review">Repasemos&#8230;&#8203;</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprendió a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Crear copias de la figura utilizando el Primitive Editor (Editor de primitivos).</p>
+</li>
+<li>
+<p>Dibujar una cuadrícula para facilitar el posicionamiento de los objetos.</p>
+</li>
+<li>
+<p>Controlar el árbol de datos y hacer correcciones de ser necesario.</p>
+</li>
+<li>
+<p>Asignar propiedades de los materiales utilizando el Combination Editor (Editor de combinaciones).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

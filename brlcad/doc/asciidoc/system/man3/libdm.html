@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Robert G. Parker">
+<title>LIBDM</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="book">
+<div id="header">
+<h1>LIBDM</h1>
+<div class="details">
+<span id="author" class="author">Robert G. Parker</span><br>
+<span id="email" class="email"><a href="mailto:mulferts@austin.dsccc.com">mulferts@austin.dsccc.com</a></span><br>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_preface">Preface</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>LIBDM provides the <a href="#api">API</a> for accessing BrlCad&#8217;s display managers. Display managers can be thought of as configurable drawing machines that grind away on generic drawing commands called vlists resulting in display manager specific drawing actions. Vlists are capable of specifying points, lines and polygons in 3D. Display managers are also capable of drawing 2D points, lines, and strings.</p>
+</div>
+<div class="paragraph">
+<p>The following DM (display manager) types are supported:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Key Frame</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">DM Type</th>
+<th class="tableblock halign-left valign-top">Canvas Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">X</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">X window</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ogl</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mixed X/OpenGL window</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ps</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">postscript file</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">plot</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">unix plot file</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_application_programming_interface">Application Programming Interface</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="api">LIBDM&#8217;s Application Programming Interface</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>struct dm *</em>*DM_OPEN*<em>( int dtype, int argc, char *argv[] )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_OPEN</em> creates a display manager of type <em>dtype</em> and returns a pointer to its <em>dm</em> structure. <em>argc</em> and <em>argv</em> are passed to <a href="#dm_p">dm_processOptions</a> for interpretation.<em>DM_NULL</em> is returned if unable to acquire a display manager.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+    int dtype;
+    int argc;
+    char *argv[];
+    struct dm *dmp;
+
+    /*
+     * Open a 512x512 X display manager window on the local
+     * display using my_default_bindings to set default key
+     * and mouse button bindings.
+     */
+    dtype = DM_TYPE_X;
+    argv[0] = "X_open";
+    argv[1] = "-i";
+    argv[2] = "my_default_bindings";
+    argv[3] = "-S";
+    argv[4] = "512";
+    argv[5] = "-d";
+    argv[6] = ":0";
+    argv[7] = (char *)NULL;
+    dmp = DM_OPEN(dtype, argc, argv);
+     </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_CLOSE*<em>( struct dm *dmp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_CLOSE</em> closes the display manager indicated by_dmp_.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+            /* open a display manager */
+    dmp = DM_OPEN(dtype, argc, argv);
+
+              .  .  .
+
+    /* close the display manager */
+    DM_CLOSE(dmp);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_DRAW_BEGIN*<em>( struct dm *dmp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_DRAW_BEGIN</em> prepares the display manager indicated by <em>dmp</em> for a round of drawing.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+            /* begin another drawing sequence */
+    (void)DM_DRAW_BEGIN(dmp);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_DRAW_END*<em>( struct dm *dmp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_DRAW_END</em> ends the drawing sequence for the display manager indicated by <em>dmp</em>. This should be called before the next call to <em><a href="#dm_draw_begin">DM_DRAW_BEGIN</a></em> in order to see the results of the current drawing sequence.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* end the current drawing sequence */
+    (void)DM_DRAW_END(dmp);
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_NORMAL*<em>( struct dm *dmp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_NORMAL</em> restores the display manager indicated by <em>dmp</em> to a normal mode of operation (i.e. not scaled, rotated, displaced, etc.).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+            /* restore to normal mode */
+    (void)DM_NORMAL(dmp);
+        </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_LOADMATRIX*<em>( struct dm *dmp, mat_t mat, int which_eye )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_LOADMATRIX</em> loads the display manager indicated by <em>dmp</em> with a new transformation matrix. <em>mat</em> indicates the matrix to be loaded.<em>which_eye</em> denotes the eye the matrix applies to and can have a value of 0 to indicate non-stereo, a value of 1 to indicate the right eye, or a value of 2 to indicate the left eye.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+              /* load the display manager with mat --- not using stereo */
+    (void)DM_LOADMATRIX(dmp, mat, 0);</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_DRAW_STRING_2D*<em>( struct dm *dmp, char *str, int x, int y, int size, int use_aspect )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_DRAW_STRING_2D</em> draws a string in the display manager window indicated by <em>dmp</em>. <em>str</em> is a pointer to the string to be drawn. x and y indicate where to begin drawing the string and are expected to be in the range [-2048,2047]. The <em>size</em> argument indicates the font size to use (currently used only by dm-ps). The expected values for <em>size</em> are 0 for small, 1 for medium, 2 for large, and 3 for huge.<em>use_aspect</em> indicates whether to use the aspect ratio to modify the starting point where the string will be drawn.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /*
+     * - draw the string starting at the lower left corner
+     * - use the small font
+     * - don't use aspect ratio to modify string placement
+     */
+    (void)DM_DRAW_STRING_2D(dmp, "starting string at lower left", -2040, -2040, 0, 0)
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_DRAW_LINE_2D*<em>( struct dm *dmp, int x1, int y1, int x2, int y2 )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_DRAW_LINE_2D</em> is used to draw two-dimensional lines in the display manager window indicated by <em>dmp. x1, y1, x2,</em> and <em>y2</em> indicate the coordinates for the line to be drawn.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* draw a line from the lower left corner of the window to the upper right corner */
+    (void)DM_DRAW_LINE_2D(dmp, -2048, -2048, 2047, 2047);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_DRAW_POINT_2D*<em>( struct dm *dmp, int x, int y )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_DRAW_POINT_2D</em> draws a point in the display manager window indicated by <em>dmp</em>.<em>x</em> and <em>y</em> indicate the coordinates for the point to be drawn.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* draw a yellow dot in the center of the window */
+    (void)DM_SET_FGCOLOR(dmp, 230, 230, 0, 1);
+    (void)DM_DRAW_POINT_2D(dmp, 0, 0);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_DRAW_VLIST*<em>( struct dm *dmp, struct rt_vlist *vp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_DRAW_VLIST</em> takes the vlist pointer <em>vp</em> and interprets it for drawing into the display manager window indicated by <em>dmp</em>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* draw the vlists pointed to by view_list_ptr */
+    (void)DM_DRAW_VLIST(dmp, view_list_ptr);
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_SET_FGCOLOR*<em>( struct dm *dmp, short r, short g, short b, int strict )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_SET_FGCOLOR</em> sets the color for drawing in the display manager indicated by <em>dmp</em>.<em>r, g,</em> and <em>b</em> denote the color and have values in the range [0,255].<em>Strict</em> specifies to really use this color (i.e. don&#8217;t allow ogl to do fancy things with the color when depth cueing).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* set the drawing color to red */
+    (void)DM_SET_FGCOLOR(dmp, 220, 0, 0, 1);
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_SET_BGCOLOR*<em>( struct dm *dmp, short r, short g, short b )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_SET_BGCOLOR</em> sets the background color for the display manager indicated by <em>dmp. r, g,</em> and <em>b</em> denote the color and have values in the range [0,255].</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* set the background color to red */
+    (void)DM_SET_BGCOLOR(dmp, 220, 0, 0);
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_GET_BGCOLOR*<em>( struct dm *dmp, Tcl_Interp *interp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_SET_BGCOLOR</em> gets the background color for the display manager indicated by <em>dmp</em> and places the result in interp.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* get the background color */
+    return DM_GET_BGCOLOR(dmp, interp);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_SET_LINE_ATTR*<em>( struct dm *dmp, int width, int style )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_SET_LINE_ATTR</em> sets the display managers (i.e. dmp) line width to width and sets its line style to_style_. Currently, there are only 2 valid values for <em>style: 0</em> for solid lines and 1 for dashed lines.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* set the display manager up to draw fat dashed lines */
+    (void)DM_SET_LINE_ATTR(dmp, 10, 1);
+
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_SET_WIN_BOUNDS*<em>( struct dm *dmp, int clip[6] )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_SET_WIN_BOUNDS</em> sets the view clipping planes for the display manager indicated by_dmp. clip_ is interpreted as follows: {XMIN, XMAX, YMIN, YMAX, ZMIN, ZMAX}</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          int clip[6] = { -2048, 2047, -2048, 2047, -2048, 2047 };
+
+    /* set the display managers clipping planes */
+    (void)DM_SET_WIN_BOUNDS(dmp, clip);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_ENDDLIST*<em>( struct dm *dmp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_ENDDLIST</em> ends the definition of the display list currently being defined for the display manager indicated by <em>dmp</em>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          /* define display list 1 to draw objects */
+    (void)DM_BEGINDLIST(dmp, 1);
+
+    /* Put code to draw objects here */
+
+    (void)DM_ENDDLIST(dmp);
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_DRAWDLIST*<em>( struct dm *dmp, unsigned int list )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_DRAWDLIST</em> draws the previously defined display list list in the display manager indicated by <em>dmp</em>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+          unsigned int i;
+
+    /* draw display lists 1 through 9 */
+    for (i = 1; i &lt; 10; ++i)
+       (void)DM_DRAWDLIST(dmp, i);</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*DM_FREEDLISTS*<em>( struct dm *dmp, unsigned int list, int range )</em></p>
+</div>
+<div class="paragraph">
+<p><em>DM_FREEDLISTS</em> frees the display lists indicated by_list and range. list_ indicates the display list to start with and range indicates the number of display lists to be freed.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+       /* free display lists 10 through 29 */
+    (void)DM_FREEDLISTS(dmp, 10, 20);
+      </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_libdm_s_other_support_routines">LIBDM&#8217;s Other Support Routines</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>int</em>*dm_share_list*<em>( struct dm *dmp1, struct dm *dmp2 )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_share_dlist</em> provides a way to (un)share display lists. If dmp1 and dmp2 are not NULL, dmp1 will share its display lists with dmp2. If dmp2 is NULL, dmp1 will no longer share its display lists.</p>
+</div>
+<div class="paragraph">
+<p><em>void</em>*dm_fogHint*<em>( struct dm *dmp, int fastfog )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_fogHint</em> is used to give a hint to the display manager about whether to use an efficient fog calculation method or the most accurate. Note - this is currently only implemented by the ogl display manager.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+              /* use the most efficient method for calculating fog */
+    dm_fogHint(dmp, 1);
+
+    /* use the most accurate method for calculating fog */
+    dm_fogHint(dmp, 0);
+
+        </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*dm_limit*<em>( val )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_limit</em> takes an integer argument and returns zero if (NOISE &lt;= val &lt; = NOISE) where NOISE is the size of the dead spot around zero. If ( val &lt; -NOISE ), the return value is_( val + NOISE )<em>. If _( NOISE &lt; val ),</em> the return value is <em>( val - NOISE ).</em></p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+              /* The examples below assume that NOISE is 16 */
+
+    /* i = 0 */
+    i = dm_limit(16);
+
+    /* i = 1 */
+    i = dm_limit(17);
+
+    /* i = 0 */
+    i = dm_limit(-16);
+
+    /* i = -1 */
+    i = dm_limit(-17);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*dm_unlimit*<em>( val )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_unlimit</em> takes an integer value and returns zero if <em>( val == 0 ).</em> If <em>( 0 &lt; val ),</em> the return value is <em>( NOISE + val ). If ( val &lt; 0 ),</em> the return value is_( -NOISE + val )._ In short, dm_unlimit puts NOISE back into val.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+            /* i = 0 */
+    i = dm_unlimit(0);
+
+    /* i = 17 */
+    i = dm_unlimit(1);
+
+    /* i = -17 */
+    i = dm_unlimit(-1);
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>fastf_t</em>*dm_wrap*<em>( val )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_wrap</em> wraps_val_ into the range [-1.0, 1.0].</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+              /* f = 0.9 */
+    f = dm_wrap(0.9);
+
+    /* f = -0.5 */
+    f = dm_wrap(1.5);
+
+    /* f = 0.0 */
+    f = dm_wrap(6.0);
+
+    /* f = 1.0 */
+    f = dm_wrap(7.0);
+
+    /* f = 0.5 */
+    f = dm_wrap(-1.5);
+
+    /* f = -1.0 */
+    f = dm_wrap(-5.0);
+
+        </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>int</em>*dm_processOptions*<em>(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_processOptions</em> is used primarily by LIBDM&#8217;s display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Key Frame</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Options</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-d string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option specifies where to draw the display manager. string is expected to be in the same form as the X DISPLAY environment variable.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-i init_script</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option specifies a Tcl script to use to initialize the display manager.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-N height</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option specifies the number of scanlines or height to make the display manager window.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-n name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option specifies a name to use for the display manager.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-S size</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option specifies the display manager windows square size.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option turns on stereo mode and is currently only available with the ogl display manager.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-t 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option specifies whether the display manager window will be a top level window or an embedded window. A non-zero value indicates a top level window, while zero indicates an embedded window.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-W width</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This option specifies the width in pixels of the display manager window.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><em>void</em>*dm_configureWindowShape*<em>( dmp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_configureWindowShape</em> is used to update the internal state of a display manager after its window has been newly created or resized. This routine is typically called by an event handler.</p>
+</div>
+<div class="paragraph">
+<p><em>void</em>*dm_zbuffer*<em>( struct dm *dmp, zbuffer_on )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_zbuffer</em> is used to turn Z-buffering on/off. Note - zbuffering is only supported by the_ogl_ display manager.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+              /* turn zbuffering on */
+    dm_zbuffer(dmp, 1);
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>void<em>dm_lighting</em>( struct dm *dmp, int lighting_on )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_lighting</em> is used to turn lighting on/off. Note - lighting is only supported by the ogl display manager.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+              /* turn lighting on */
+    dm_lighting(dmp, 1);
+        </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><em>fastf_t</em>*dm_Xx2Normal*<em>( struct dm *dmp, int x )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_Xx2Normal</em> takes x in X screen coordinates and returns a value in the range [-1.0, 1.0]. dmp indicates the display manager of interest.</p>
+</div>
+<div class="paragraph">
+<p><em>fastf_t</em>*dm_Xy2Normal*<em>( struct dm *dmp, int y, int use_aspect )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_Xy2Normal</em> takes y in X screen coordinates and returns a value in the range [-1.0, 1.0].<em>dmp</em> indicates the display manager of interest. <em>use_aspect specifies</em> whether to use the window&#8217;s aspect ratio in the calculation.</p>
+</div>
+<div class="paragraph">
+<p><em>int</em>*dm_Normal2Xx*<em>( struct dm *dmp, fastf_t x )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_Normal2Xx</em> takes x in normalized coordinates and returns a value in X screen coordinates.<em>dmp</em> indicates the display manager of interest</p>
+</div>
+<div class="paragraph">
+<p><em>int</em>*dm_Normal2Xy*<em>( struct dm *dmp, fastf_t y )</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_Normal2Xy</em> takes y in normalized coordinates and returns a value in X screen coordinates.<em>dmp</em> indicates the display manager of interest.</p>
+</div>
+<div class="paragraph">
+<p><em>int</em>*Dm_Init*<em>( Tcl_Interp *interp )</em></p>
+</div>
+<div class="paragraph">
+<p><em>Dm_Init initializes</em> LIBDM&#8217;s tcl commands.<em>interp</em> indicates the Tcl interpreter.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_libdm_s_tcl_interface">LIBDM&#8217;s Tcl Interface</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>*dm_bestXType*<em>display</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_bestXType</em> returns the best available display manager type that can be used on the X server indicated by <em>display</em>.<em>Display</em> is specified the same and has the same meaning as the X DISPLAY environment variable.</p>
+</div>
+<div class="paragraph">
+<p>*dm_validXType*<em>display dtype</em></p>
+</div>
+<div class="paragraph">
+<p><em>dm_validXType</em> returns 1 if dtype is a valid display manager type for the X server indicated by_display_. Otherwise, 0 is returned.<em>Display</em> is specified the same and has the same meaning as the X DISPLAY environment variable.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_display_manager_objects">Display Manager Objects</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_name">NAME</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>dm_open - create and manipulate a display manager object.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_synopsis">SYNOPSIS</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>dm_open</strong> [<em>pathName</em> type [options]]</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_command_line_options">COMMAND LINE OPTIONS</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Option:</p>
+</div>
+<div class="paragraph">
+<p>*-N*<em>height</em></p>
+</div>
+<div class="paragraph">
+<p>Specifies the window&#8217;s height (i.e. number of raster lines).</p>
+</div>
+<div class="paragraph">
+<p>Option:</p>
+</div>
+<div class="paragraph">
+<p>*-W*<em>width</em></p>
+</div>
+<div class="paragraph">
+<p>Specifies the window&#8217;s width.</p>
+</div>
+<div class="paragraph">
+<p>Option:</p>
+</div>
+<div class="paragraph">
+<p>*-S*<em>size</em></p>
+</div>
+<div class="paragraph">
+<p>Specifies the window&#8217;s square size (i.e. width and height).</p>
+</div>
+<div class="paragraph">
+<p>Option:</p>
+</div>
+<div class="paragraph">
+<p>*-i*<em>initproc</em></p>
+</div>
+<div class="paragraph">
+<p>Specifies the initialization proc. This proc is called with the pathName as an argument.</p>
+</div>
+<div class="paragraph">
+<p>Option:</p>
+</div>
+<div class="paragraph">
+<p>*-t*<em>0|1&gt;</em></p>
+</div>
+<div class="paragraph">
+<p>Specifies the toplevel flag. 0 indicates the display manager object is an internal window, while 1 indicates a toplevel window.</p>
+</div>
+<div class="paragraph">
+<p>Option:</p>
+</div>
+<div class="paragraph">
+<p><strong>-d</strong> <em>dpy</em></p>
+</div>
+<div class="paragraph">
+<p>Specifies the display string in a format understood by X windows.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_description">DESCRIPTION</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The dm_open command creates a new window (given by the pathName argument) and makes it into a display manager object for displaying geometry. Additional options, described above, may be specified on the command line to configure aspects of the display manager object. The dm_open command returns its pathName argument. At the time this command is invoked, there must not exist a window named pathName, but pathName&#8217;s parent must exist.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_methods">METHODS</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <strong>dm_open</strong> command creates a new Tcl command whose name is pathName. This command may be used to invoke various operations on the display manager object. It has the following general form:</p>
+</div>
+<div class="paragraph">
+<p><em>pathName option ?arg arg &#8230;&#8203;?</em></p>
+</div>
+<div class="paragraph">
+<p>Option and the args determine the exact behavior of the command. The following commands are possible for display manager objects:</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*bg ["r g b"]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get the background color. The rgb components are expected to be integers between 0 and 255. pathName bounds [xmin xmax ymin ymax zmin zmax]</p>
+</div>
+<div class="paragraph">
+<p>Set/get the window bounds. Some display managers use this to calculate clipping planes (i.e. X).</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em> <strong>clear</strong></p>
+</div>
+<div class="paragraph">
+<p>Clear the drawing area using the background color.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em> <strong>close</strong></p>
+</div>
+<div class="paragraph">
+<p>Close the display manager object.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*configure*</p>
+</div>
+<div class="paragraph">
+<p>Called to handle Configure events.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*debug [0|1]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get debug mode. 0 indicates debugging is off while 1 indicates debugging is on.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*drawBegin*</p>
+</div>
+<div class="paragraph">
+<p>Begin the drawing sequence.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*drawEnd*</p>
+</div>
+<div class="paragraph">
+<p>End the drawing sequence. This will cause the graphics pipe to be flushed.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName drawGeom</em>*geo_obj(s)*</p>
+</div>
+<div class="paragraph">
+<p>Draw one or more drawable geometry objects.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em> <strong>drawLine x1 y1 x2 y2</strong></p>
+</div>
+<div class="paragraph">
+<p>Draw the 2D line indicated by endpoints (x1, y1) and (x2, y2). The given coordinates are expected to be in the range [-1, 1].</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*drawPoint x y*</p>
+</div>
+<div class="paragraph">
+<p>Draw the 2D point at position (x, y).</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*drawSList slp*</p>
+</div>
+<div class="paragraph">
+<p>Draw the solid list specified by the solid list pointer (i.e.slp).</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*drawString str x y size use_aspect*</p>
+</div>
+<div class="paragraph">
+<p>Draw the 2D string starting at position (x, y). The x and y coordinates are expected to be in the range [-1, 1]. The size is currently ignored. The use_aspect flag indicates whether or not to use the aspect ratio to modify the starting position.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*drawVList vlp*</p>
+</div>
+<div class="paragraph">
+<p>Draw the vector list specified by the vector list pointer (i.e.vlp).</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*fg ["r g b"]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get the foreground color. The rgb components are expected to be integers between 0 and 255.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*flush*</p>
+</div>
+<div class="paragraph">
+<p>Flushes the X server&#8217;s request buffer.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*get_aspect*</p>
+</div>
+<div class="paragraph">
+<p>Get the window&#8217;s aspect ratio (i.e. width / height).</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*light [0|1]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get light mode. 0 indicates light is off while 1 indicates light is on.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*linestyle [0|1]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get linestyle. 0 indicates solid lines while 1 indicates dashed lines.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*linewidth [width]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get linewidth. This setting determines how fat to draw the wireframe lines.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*listen [port]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get the port used to listen for framebuffer clients. Port values less than zero turn off listening.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*loadmat mat*</p>
+</div>
+<div class="paragraph">
+<p>Load the matrix, mat, into the display manager. This is typically a model2view matrix.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*normal*</p>
+</div>
+<div class="paragraph">
+<p>Restore display manager to a normal mode of operation (i.e. not scaled, rotated, displaced, etc.).</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*observer [subcommand]*</p>
+</div>
+<div class="paragraph">
+<p>This command is used to maintain a list of observers. Observers are objects who have registered an interest in when this display manager object receives pixels in its role as a framebuffer server. Whenever pixel data is received the observers on the list are notified.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*observer attach obs [command]*</p>
+</div>
+<div class="paragraph">
+<p>Add the specified observer, obs, to the list of observers. If command is specified then it is executed each time pixel data is received. Otherwise, the observer is expected to have an update method which is called with the name of this display manager object as an argument.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName observer detach obs</em></p>
+</div>
+<div class="paragraph">
+<p>Remove the specified observer, obs, from the list of observers.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*observer show*</p>
+</div>
+<div class="paragraph">
+<p>Return the list of observers for this display manager object.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*perspective [0|1]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get perspective mode. 0 indicates perspective is off, while 1 indicates perspective is on.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*refreshfb*</p>
+</div>
+<div class="paragraph">
+<p>Draws/displays the pixels stored in the widget&#8217;s framebuffer.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*size [width height]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get the window size.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*sync*</p>
+</div>
+<div class="paragraph">
+<p>Flushes the X server&#8217;s request buffer and waits until all events have been processed.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*zbuffer [0|1]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get zbuffer mode. 0 indicates that zbuffer is off, while 1 indicates zbuffer is on.</p>
+</div>
+<div class="paragraph">
+<p><em>pathName</em>*zclip [0|1]*</p>
+</div>
+<div class="paragraph">
+<p>Set/get zclipping mode. 0 indicates zclipping is off, while 1 indicates zclipping is on.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+The following sequence creates a display manager object and draws two yellow lines that connect the opposite corners of the window.
+cwish&gt; dm_open .d X -t 0 -s 400
+.d
+cwish&gt; pack .d -expand yes -fill both
+cwish&gt; .d drawBegin
+cwish&gt; .d fg "255 255 0"
+cwish&gt; .d drawLine -1 1 1 -1
+cwish&gt; .d drawLine -1 -1 1 1
+cwish&gt; .d drawEnd</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="libfbgeneric">Generic frame buffer routines</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-c" data-lang="c"><h- data-h=name>fb</h-><h- data-h=sym_op>*</h-><h- data-h=name>fb_open</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbfile</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>fb_close</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>fb_read</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>x</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>y</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>addr</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>count</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>RGBpixel</h-><h- data-h=sym_op>*</h-><h- data-h=name>addr</h-><h- data-h=sym_punc>;,</h-> <h- data-h=name>longcount</h-><h- data-h=sym_punc>;</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_write</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>RGBpixel</h-> <h- data-h=sym_op>*</h-><h- data-h=name>addr</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>longcount</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>fb_rmap</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>cmap</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>ColorMap</h-> <h- data-h=sym_op>*</h-><h- data-h=name>cmap</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_wmap</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>ColorMap</h-> <h- data-h=sym_op>*</h-><h- data-h=name>cmap</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_clear</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>RGBpixel</h-> <h- data-h=sym_op>*</h-><h- data-h=name>colorp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fb_gettype</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_getwidth</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_getheight</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="libfbhardware">Hardware specific frame buffer routines</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-c" data-lang="c"><h- data-h=name>intfb_cursor</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>fb_scursor</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>mode</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>x</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>y</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>fb_setcursor</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>bits</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>xbits</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>ybits</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>xorig</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>yorig</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>unsigned</h-> <h- data-h=name>charbits</h-><h- data-h=sym_sqr>[]</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>intxbits</h-><h- data-h=sym_punc>,</h-><h- data-h=name>ybits</h-><h- data-h=sym_punc>;,</h-> <h- data-h=name>intxorig</h-><h- data-h=sym_punc>,</h-><h- data-h=name>yorig</h-><h- data-h=sym_punc>;</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_window</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>fb_zoom</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>x</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>y</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>/</h-> <h- data-h=sym_op>*</h-><h- data-h=name>Buffered</h-> <h- data-h=name>frame</h-> <h- data-h=name>buffer</h-> <h- data-h=name>I</h-><h- data-h=sym_op>/</h-><h- data-h=name>O</h-><h- data-h=sym_punc>:</h-> <h- data-h=sym_op>*/</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>fb_ioinit</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_seek</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>void</h-> <h- data-h=name>fb_tell</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fbp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>xp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>yp</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>fb</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>int</h-> <h- data-h=sym_op>*</h-><h- data-h=name>xp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>yp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_rpixel</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>RGBpixel</h-> <h- data-h=sym_op>*</h-><h- data-h=name>pixelp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_wpixel</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>RGBpixel</h-> <h- data-h=sym_op>*</h-><h- data-h=name>pixelp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intfb_flush</h-><h- data-h=sym_punc>,</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fbp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>voidfb_log</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>format</h-> <h- data-h=sym_sqr>[</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>arg</h-> <h- data-h=sym_sqr>]</h-> <h- data-h=sym_op>...</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>These routines are designed to provide a device-independent method of using frame buffers or files containing frame buffer images. The coordinate system used is first-quadrant (0..width-1, 0..height-1), with integer addressing. Translation to hardware coordinate systems is handled by the library.</p>
+</div>
+<div class="paragraph">
+<p>This version of the library assumes that red, green, and blue intensities are described by unsigned 8-bit bytes in the range (0..255). The library interface uses arrays of <em>RGBpixel_s, which is a typedef for an array of three unsigned chars (this was done to avoid structure padding). Note that a pointer to an _RGBpixel</em> is thus the name of the <em>RGBpixel</em> itself, i.e. no ampersand is needed.</p>
+</div>
+<div class="paragraph">
+<p>The exact interpretation of color maps tends to be somewhat device specific. The three ColorMap arrays each have 256 entries of unsigned 16-bit values. In order to accommodate color maps with differing amounts of output resolution, the color map entries are fixed-point fractions in the range (0.0..1.0). In integer notation, the range is (0..65525). For devices with less than 16 bits of output from their color maps, the left-most portion of each entry is used.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_open</em> is used to open a frame buffer file <em>fbfile</em>. The file may be either the name of a supported frame buffer interface, referenced as "/dev/interface", or the name of a UNIX file. The routine will try to determine if the file opened was a real frame buffer by examining the name, and if so will perform whatever initialization actions are necessary. If the value of <em>fbfile</em> is NULL and the environment variable <code>FB_FILE</code> is set, then the value of <code>FB_FILE</code> is used; otherwise the default frame buffer device for the system is used. See below for more details. The <em>width</em> and <em>height</em> parameters specify the initial size of display desired. If these are zero the default sizes for that device will be used. On a successful open, the frame buffer I/O (fb) structure pointer is returned. This structure contains size you were actually given, as well as the maximum possible size for the selected device. A return of FB_NULL indicates failure.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_close</em> simply closes the frame buffer.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_read</em> reads <em>count</em> pixels from the frame buffer starting at the location specified by <em>x</em> and <em>y</em>, and places them at program memory address specified by <em>addr</em>. <em>Fb_read</em> returns the number of pixels actually read, or -1 on error.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_write</em> writes <em>count</em> pixels from program address <em>addr</em> into the frame buffer starting at the location specified by <em>x</em> and <em>y</em>. <em>Fb_write</em> returns the number of pixels actually written, or -1 on error.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_rmap</em> reads in the color map from the frame buffer and leaves at the location pointed to by <em>cmap</em>.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_wmap</em> writes the color map pointed to by <em>cmap</em> into the frame buffer. If the value of <em>cmap</em> is NULL then a linear color map is used as the default.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_clear</em> erases the frame buffer by setting all pixels to the given color. If the color pointer is NULL, black will be used. On a UNIX file, this entails writing the entire file, which is an expensive operation, whereas on most frame buffer displays this can be done in less than a second by a special command.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_gettype</em> returns a pointer to a string describing the frame buffer specified by the fb pointer.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_getwidth</em> and <em>Fb_getheight</em> returns the current size of the fb frame buffer.</p>
+</div>
+<div class="paragraph">
+<p>The following routines work in conjunction with those described above to provide functions which only apply if the frame buffer file is actually a hardware frame buffer display.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_cursor</em> places the cursor at the image space coordinates given by <em>x</em> and <em>y</em>. If the mode is non-zero, the cursor is made visible, and if mode is zero, the cursor is turned off.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_scursor</em> is the same as <em>fb_cursor</em> except that it places the cursor at the <em>screen</em> space coordinates given by <em>x</em> and <em>y</em>.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_setcursor</em> allows the user to set the bitmap used to represent the cursor, thereby changing the cursor shape. This is not necessarily supported by all hardware. The argument <em>bits</em> is a pointer to an array of unsigned chars containing the bits of the cursor. The arguments <em>xbits</em> and <em>ybits</em> specify the size of the cursor bitmap. The number of bytes in the <code>bits</code> array will be the width rounded up to a multiple of eight (so that the cursor "scanlines" are byte aligned) times the height. <code>bits</code>[0] is the lower left corner, <code>bits</code>[1] is to the right of it, etc. The next line of the <code>bits</code> array goes above the current one. Within a byte the most significant bit is the leftmost. The values <em>xorig</em> and <em>yorig</em> specify which bit in the bitmap actually gets placed at the location specified in the cursor move routines. Again, a first quadrant coordinate system is used.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_window</em> sets the frame buffer window center position to the image space coordinates given by <em>x</em> and <em>y</em>. This command is usually used in conjunction with the <em>fb_zoom</em> routine.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_zoom</em> sets the zoom factor for the X coordinate to <em>x</em> and the zoom factor for the Y coordinate to <em>y</em>. Zooming is generally done by pixel replication in hardware.</p>
+</div>
+<div class="paragraph">
+<p>The following routines work in conjunction with those described above to provide buffered reading and writing of frame buffer images either to a real frame buffer or a UNIX file. The routines use a simple paging strategy to hold “bands” of the image in core. Since horizontal bands are buffered, the ideal motion is to scan left to right, then bottom to top.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_ioinit</em> should be called before using any of the other buffered I/O routines and repeated whenever the frame buffer is reopened.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_seek</em> is used to position the current read/write pointer to the location to the next position to be read or written. It is not necessary to do a <em>fb_seek</em> after every read or write since both <em>fb_rpixel</em> and <em>fb_wpixel</em> imply an automatic move to the next pixel. If you read or write the last pixel on a scan line, the pointer will automatically move to the beginning of the following scan line.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_tell</em> returns the current location of the read write pointer in terms of (X,Y) coordinates on the frame buffer. The X and Y values are returned into the integers pointed to by <em>xp</em> and <em>yp</em>.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_rpixel</em> reads the pixel at the current frame buffer location and returns it into the location specified by <em>pixelp</em>.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_wpixel</em> writes the pixel pointed to by <em>pixelp</em> at the current frame buffer location.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_flush</em> caused any current buffered frame buffer pages to be written out. Unnecessary writes are avoided by the use of page reference bits.</p>
+</div>
+<div class="paragraph">
+<p>The following is a printing routine which this library uses to indicate errors.</p>
+</div>
+<div class="paragraph">
+<p><em>Fb_log</em> will convert, format and print its <em>args</em> under control of <em>format</em> to the standard error output. For more detailed information on the specification of the control string, see <strong>printf</strong>(3S). This function may be supplied by the application if different behavior is desired.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="fb_file_devices">FB_FILE DEVICES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following devices are supported by the library; not all may be available on any given system. New device support can be incorporated by the addition of a single module to the library.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>/dev/debug</code> <em>[num]</em></dt>
+<dd>
+<p>The "/dev/debug" interface prints one line to logs each call to the frame buffer library.<em>num</em> is a bitvector indicating the levels of verbosity of the output. See <em>fb.h</em> for the bit definitions.</p>
+</dd>
+<dt class="hdlist1"><em>filename</em></dt>
+<dd>
+<p>Disk file interface</p>
+</dd>
+<dt class="hdlist1"><em>hostname:</em> <em>[devicename]</em></dt>
+<dd>
+<p>TCP-based network links to a remote framebuffer, where <em>devicename</em> is any from this list, for example, fictitious.brlcad.org:/dev/ik0 or fictitious.brlcad.org:/dev/sgi. A <em>hostname</em> with a null_devicename_ will select the default display device on that host. If explicitly specifying a remote device, be careful not to omit the colon between the host and device name, or you will be specifying a local disk file as the result. Note that for security reasons, it is not permitted to access a disk file via the remote interface.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>Libfb</em> can be loaded with any C program:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+			$  /bin/cc  program.c  -lfb -l\&lt;system-library...\&gt;
+		</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <em>&lt;system-library&gt;</em> denotes specific libraries necessary on a particular machine. All machines with networking will require the "-lpkg" option. Machines which support the X Windows&#8482; system will require the "-lX11" option.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="return_values">RETURN VALUES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>fb_close</em>, <em>fb_write</em>, <em>fb_read</em>, <em>fb_wmap</em>, <em>fb_rmap</em>, <em>fb_clear</em>, <em>fb_cursor</em>, <em>fb_scursor</em>, <em>fb_setcursor</em>, <em>fb_window</em>, <em>fb_zoom</em>, <em>fb_ioinit</em>, <em>fb_seek</em>, <em>fb_wpixel</em>, <em>fb_rpixel</em> and <em>fb_flush</em> return -1 to indicate failure. <em>Fb_open</em> returns FB_NULL to indicate failure, and a non-null fb structure pointer upon success. <em>fb_read</em>, and <em>fb_write</em> return the number of pixels actually read or written. <em>fb_gettype</em> returns a pointer to a NULL terminated description string.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

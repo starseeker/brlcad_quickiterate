@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>GDIFF(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>GDIFF(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>gdiff - a BRL-CAD differential geometry comparator</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>gdiff [&lt;options&gt;]... &lt;left_model.g&gt; [&lt;ancestor_model.g&gt;] &lt;right_model.g&gt;</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>gdiff -G [&lt;grouping_options&gt;]... [&lt;pattern&gt;]...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>gdiff</strong> in its basic mode compares BRL-CAD models specified on the command line, reporting differences according to the specified options. It supports a plain "diff" comparison between two files, as well as a "3-way" comparison that accepts a third file with "ancestral" information that provides a context for the left and right files.</p>
+</div>
+<div class="paragraph">
+<p>In addition to direct comparison, <strong>gdiff</strong> supports a similarity grouping mode (<strong>-G</strong>) that analyzes one or more BRL-CAD database files and clusters them into groups of related models based on <em>per-file content similarity</em> (and optionally on filename similarity for an extra top-level binning pass.) Grouping mode produces a human-readable report showing groups, a representative "newest" file, distances to a computed group center (medoid), and modification dates.</p>
+</div>
+<div class="paragraph">
+<p>The following options are recognized in basic diffing mode:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-a</strong></dt>
+<dd>
+<p>(two-way diff) Report objects added in right_model.g</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>(three-way diff) Report objects added in left_model.g and/or right_model.g</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-d</strong></dt>
+<dd>
+<p>(two-way diff) Report objects deleted in right_model.g</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>(three-way diff) Report objects deleted in left_model.g and/or right_model.g</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-m</strong></dt>
+<dd>
+<p>(two-way diff) Report objects modified in right_model.g</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>(three-way diff) Report objects that are different in left_model.g and/or right_model.g relative to ancestor.g</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-q</strong></dt>
+<dd>
+<p>Decrease the verbosity of the output. Additional specifications will further decrease the output provided. (Opposite effect of <strong>v</strong> option.) All settings for this option will respect other constraints applied to the reporting output.</p>
+</dd>
+<dt class="hdlist1"><strong>-u</strong></dt>
+<dd>
+<p>(two-way diff) Report objects that are identical in left_model.g and right_model.g</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>(three-way diff) Report objects that are identical in ancestor_model.g, left_model.g and right_model.g</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-v</strong></dt>
+<dd>
+<p>Increase the verbosity of the output. Additional specifications will further increase the output provided. (Opposite effect of <strong>q</strong> option.) All settings for this option will respect other constraints applied to the reporting output.</p>
+</dd>
+<dt class="hdlist1"><strong>-t #</strong></dt>
+<dd>
+<p>Set a numerical comparison tolerance used to compare numerical properties. Default value is RT_LEN_TOL, but be aware that this comparison is not aware of units.</p>
+</dd>
+<dt class="hdlist1"><strong>-F "filter_string"</strong></dt>
+<dd>
+<p>Apply filters to the diff output, using the same set of filters available in the <strong>search</strong> command&#8217;s search. See the <strong>search</strong> manual page for more details.</p>
+</dd>
+<dt class="hdlist1"><strong>-M merged_file.g</strong></dt>
+<dd>
+<p>Merge the files being diffed into one output file.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The program returns 0 if the files being compared have no differences that satisfy the user-supplied options, otherwise it returns the total number of differing objects that do satisfy the supplied options. Default is to report all differences that rise above RT_LEN_TOL.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="grouping">GROUPING MODE</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In grouping mode, <strong>gdiff -G</strong> does not compare two databases. Instead, it scans one or more directories and/or file paths, identifies candidate <code>.g</code> files (by pattern), computes a content hash for each file using <em>TLSH</em>, and clusters the files by content similarity.</p>
+</div>
+<div class="sect2">
+<h3 id="grouping-algorithm">Algorithm overview</h3>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Content hashing:</strong> For each .g file, a single TLSH digest is computed over selected inputs: (a) a stable sequence of object names (if enabled), and/or (b) geometry data (if enabled). Geometry can be hashed in a <em>deep</em> mode (similarity-sensitive) or a <em>fast</em> mode (robust but treats any change as maximally different per-object, then aggregates those integers deterministically.)</p>
+</li>
+<li>
+<p><strong>Similarity graph:</strong> All files form vertices in a graph. An undirected edge is added between vertices i and j if the TLSH distance between their hashes satisfies the threshold condition (<code>diff &lt; threshold</code>). TLSH is not a metric (triangle inequality is not guaranteed), so direct metric trees are not used for clustering.</p>
+</li>
+<li>
+<p><strong>Clustering:</strong> Clusters are the connected components of the similarity graph (transitive closure). This captures families like A<sub>B</sub>C even if A and C are not directly similar.</p>
+</li>
+<li>
+<p><strong>Representative files:</strong> Within each cluster, the <em>newest</em> file (by filesystem mtime) is used as the top-level label. A <em>center</em> (medoid) is also identified as the file minimizing total TLSH distance to the other cluster members.</p>
+</li>
+<li>
+<p><strong>Optional filename binning:</strong> If enabled, files are first binned by base-name similarity using a <em>BK-tree</em> and Damerau-Levenshtein edit distance. Clustering then runs independently within each filename bin.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="grouping-report">Report format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Grouping mode prints a one-time header explaining the report, then one or more groups. For each group:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Top-level (newest) line shows the file path and date, followed by a bracketed score which is the TLSH distance from the <em>newest</em> file to the <em>group center</em> (medoid). Top-level lines are column-aligned across groups.</p>
+</li>
+<li>
+<p>Member lines (indented) list each group file (excluding the newest), the TLSH distance of each file to the newest, and the TLSH distance to the group center. Dates are YYYY-MM-DD.</p>
+</li>
+<li>
+<p>Groups (top-level newest lines) are ordered with an <em>alphanumeric</em> comparator (natural sort) by displayed path, so "file2" sorts before "file10".</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="grouping-options">Options (grouping mode)</h3>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-G</strong>, <strong>&#8212;&#8203;group</strong></dt>
+<dd>
+<p>Enable grouping mode - this is needed to trigger grouping mode and enable the other related options. Arguments are treated as directories and/or file paths to scan; patterns may be supplied to constrain discovery (see <strong>-P</strong>).</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;filename-threshold</strong> <em>#</em></dt>
+<dd>
+<p>Enable an initial filename binning pass using Damerau-Levenshtein edit distance less than or equal to <em>#</em>. Files whose base names are within this threshold are grouped into a filename bin; content clustering runs within each bin. Default: disabled.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;threshold</strong> <em>#</em></dt>
+<dd>
+<p>Content similarity threshold for TLSH distances. An undirected similarity edge is added between two files when <code>diff &lt; #</code>. Larger values yield looser clustering (more files per group). Default: 30.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>In normal usage this is the value users will most likely want to adjust. (For large input sets it is <em>highly</em> recommended that hashes be stored and reused with the <strong>&#8212;&#8203;write-hashes</strong> and <strong>&#8212;&#8203;read-hashes</strong> options to save processing time.) Lower and higher values will result in more and less agressive bin creation - the user will need to develop an intuitive feel for what settings produce the most useful groups for their particular inputs.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;use-objnames</strong></dt>
+<dd>
+<p>Include sorted object names (with a seed) when building the content hash. On by default if neither <strong>&#8212;&#8203;use-objnames</strong> or <strong>&#8212;&#8203;use-geometry</strong> is specified - if the other is specified, off unless enabled explicitly.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;use-geometry</strong></dt>
+<dd>
+<p>Include geometry data when building the content hash. On by default if neither <strong>&#8212;&#8203;use-objnames</strong> or <strong>&#8212;&#8203;use-geometry</strong> is specified - if the other is specified, off unless enabled explicitly.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;fast-geometry</strong></dt>
+<dd>
+<p>Use a faster but more sensitive geometry hashing mode. Any geometric change within an object is treated as maximally different at the object level; file-level aggregation is stable but may report larger distances. Useful for speed at the expense of similarity sensitivity. Off by default.</p>
+</dd>
+<dt class="hdlist1"><strong>-P</strong>, <strong>&#8212;&#8203;file-pattern</strong> <em>pattern</em></dt>
+<dd>
+<p>Recursive discovery pattern for selecting .g files under directories. Default: <code>*.g</code>. Multiple patterns may be supplied. Pattern semantics follow shell-style matching.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;read-hashes</strong> <em>file</em></dt>
+<dd>
+<p>Read a cache file of precomputed hashes and reuse matching entries when possible. The cache is versioned and entries are validated against current file size and mtime.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;write-hashes</strong> <em>file</em></dt>
+<dd>
+<p>Write all valid in-memory hashes to a cache file in a versioned CSV format for reuse in subsequent runs.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;display-paths</strong> <em>auto|relative|absolute</em></dt>
+<dd>
+<p>Controls how file paths are shown in reports. <code>auto</code> displays relative paths when all input arguments are relative; otherwise absolute. <code>relative</code> enforces relative, <code>absolute</code> enforces absolute. Default: <code>auto</code>.</p>
+</dd>
+<dt class="hdlist1"><strong>-v</strong>, <strong>-q</strong></dt>
+<dd>
+<p>Verbosity controls apply to grouping mode as well. With verbosity enabled, <strong>gdiff -G</strong> prints a one-time summary before hashing (e.g., number of discovered files, how many will be hashed vs. read from cache) and logs each hashed file with elapsed time in seconds: <code>[hash] path/to/file.g 1.234s</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="example">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="exampleblock">
+<div class="title">Default Diffing Results</div>
+<div class="content">
+<div class="paragraph">
+<p>Running the default options on two pre-prepared examples of Moss World gives us a summary of the status of various objects:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+~: gdiff moss.g moss2.g
+M platform.r
+M ellipse.s
+M light.r
+M _GLOBAL
+M cone.s
+M cone.r
+M box.s
+M tor.r
+D LIGHT
+A tgc_new.s
+A eto.s
+      
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>'M' denotes an object that was modified, 'D' is an object that was deleted, and 'A' is an object that was added.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Alternate Diffing Result Outputs</div>
+<div class="content">
+<div class="paragraph">
+<p>The <strong>v</strong> and <strong>q</strong> options provide various styles of output, as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>-qq</strong> (no output except the return code):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+	~: gdiff -qq moss.g moss2.g
+      
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>-q</strong>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+~: gdiff -q moss.g moss2.g
+Added:
+tgc_new.s, eto.s
+
+Removed:
+LIGHT
+
+Changed:
+platform.r, ellipse.s, light.r, _GLOBAL, cone.s, cone.r, box.s, tor.r
+      
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Objects are reported in lists, categorized by their status.</p>
+</div>
+<div class="paragraph">
+<p>(default):</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+~: gdiff moss.g moss2.g
+M platform.r
+M ellipse.s
+M light.r
+M _GLOBAL
+M cone.s
+M cone.r
+M box.s
+M tor.r
+D LIGHT
+A tgc_new.s
+A eto.s
+      
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If verbosity is not specified, this is the default output.</p>
+</div>
+<div class="paragraph">
+<p><strong>-v</strong>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+~: gdiff -v moss.g moss2.g
+- "platform.r" tree(p): l platform.s
++ "platform.r" tree(p): - {l platform.s} {l cone.s}
+- "ellipse.s" C(p): 0 8.980256080627000869753829 8.980256080627000869753829
++ "ellipse.s" C(p): 0 1.561016355403846755933728 1.561016355403846755933728
+- "ellipse.s" A(p): 14.87607192992999927128039 0 0
++ "ellipse.s" A(p): 5.559274328313033919357622 0 0
+- "light.r" tree(p): l LIGHT
++ "light.r" tree(p): u {l eto.s} {l cone.s}
+- "_GLOBAL" title(a): Gary Moss's "World on a Platter"
++ "_GLOBAL" title(a): Gary Moss's "World on a Platter" - diff 01
+- "cone.s" H(p): 0 0 26.44671630858999833435519
++ "cone.s" H(p): 0 0 37.49945872348094155768194
+- "cone.s" V(p): 16.87542724608999833435519 -34.74353027344000111042988 -16.37908935547000055521494
++ "cone.s" V(p): -23.07777996602787595747941 -46.52170066332633524552875 -19.26697361191882151842947
+- "cone.r" tree(p): l cone.s
++ "cone.r" tree(p): l cone.s {1 0 0 53.2994  0 1 0 10.1428  0 0 1 0  0 0 0 1}
+- "box.s" V4(p): 30.0283355712900004164112 -5.211529731749999783119165 10.41366577147999805674772
++ "box.s" V4(p): 29.46579237282375984818827 -5.211529731749999783119165 10.41366577147999805674772
+- "box.s" V3(p): 30.0283355712900004164112 21.58122539520000060520033 10.41366577147999805674772
++ "box.s" V3(p): 29.46579237282375984818827 21.58122539520000060520033 10.41366577147999805674772
+- "box.s" V2(p): 30.0283355712900004164112 21.58122539520000060520033 -16.37908935547000055521494
++ "box.s" V2(p): 29.46579237282375984818827 21.58122539520000060520033 -16.37908935547000055521494
+- "box.s" V1(p): 30.0283355712900004164112 -5.211529731749999783119165 -16.37908935547000055521494
++ "box.s" V1(p): 29.46579237282375984818827 -5.211529731749999783119165 -16.37908935547000055521494
+- "tor.r" tree(p): l tor
++ "tor.r" tree(p): l tor {1 0 0 8.44652  0 1 0 -56.3571  0 0 1 54.4836  0 0 0 2.71809}
+D LIGHT
+A tgc_new.s
+A eto.s
+      
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The first elevated verbosity level is a more detailed version of the previous setting, with each parameter in the modified objects reported in detail. '-' lines show what was removed for a given attribute or parameter, and '+' lines contain the data that replaced them.</p>
+</div>
+<div class="paragraph">
+<p><strong>-vv</strong>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+~: gdiff -vv moss.g moss2.g
+- "platform.r" tree(p): l platform.s
++ "platform.r" tree(p): - {l platform.s} {l cone.s}
+- "ellipse.s" C(p): 0 8.980256080627000869753829 8.980256080627000869753829
++ "ellipse.s" C(p): 0 1.561016355403846755933728 1.561016355403846755933728
+- "ellipse.s" A(p): 14.87607192992999927128039 0 0
++ "ellipse.s" A(p): 5.559274328313033919357622 0 0
+- "light.r" tree(p): l LIGHT
++ "light.r" tree(p): u {l eto.s} {l cone.s}
+- "_GLOBAL" title(a): Gary Moss's "World on a Platter"
++ "_GLOBAL" title(a): Gary Moss's "World on a Platter" - diff 01
+- "cone.s" H(p): 0 0 26.44671630858999833435519
++ "cone.s" H(p): 0 0 37.49945872348094155768194
+- "cone.s" V(p): 16.87542724608999833435519 -34.74353027344000111042988 -16.37908935547000055521494
++ "cone.s" V(p): -23.07777996602787595747941 -46.52170066332633524552875 -19.26697361191882151842947
+- "cone.r" tree(p): l cone.s
++ "cone.r" tree(p): l cone.s {1 0 0 53.2994  0 1 0 10.1428  0 0 1 0  0 0 0 1}
+- "box.s" V4(p): 30.0283355712900004164112 -5.211529731749999783119165 10.41366577147999805674772
++ "box.s" V4(p): 29.46579237282375984818827 -5.211529731749999783119165 10.41366577147999805674772
+- "box.s" V3(p): 30.0283355712900004164112 21.58122539520000060520033 10.41366577147999805674772
++ "box.s" V3(p): 29.46579237282375984818827 21.58122539520000060520033 10.41366577147999805674772
+- "box.s" V2(p): 30.0283355712900004164112 21.58122539520000060520033 -16.37908935547000055521494
++ "box.s" V2(p): 29.46579237282375984818827 21.58122539520000060520033 -16.37908935547000055521494
+- "box.s" V1(p): 30.0283355712900004164112 -5.211529731749999783119165 -16.37908935547000055521494
++ "box.s" V1(p): 29.46579237282375984818827 -5.211529731749999783119165 -16.37908935547000055521494
+- "tor.r" tree(p): l tor
++ "tor.r" tree(p): l tor {1 0 0 8.44652  0 1 0 -56.3571  0 0 1 54.4836  0 0 0 2.71809}
+D "LIGHT" C(p): 0 0 2.539999961852999810218989
+D "LIGHT" B(p): 0 2.539999961852999810218989 0
+D "LIGHT" A(p): 2.539999961852999810218989 0 0
+D "LIGHT" V(p): 20.15756225586000027760747 -13.52595329284999969843284 5.034742355347000319909512
+D "LIGHT" DB5_MINORTYPE(p): ell
+A "tgc_new.s" D(p): 0 500 0
+A "tgc_new.s" C(p): 250 0 0
+A "tgc_new.s" B(p): 0 250 0
+A "tgc_new.s" A(p): 500 0 0
+A "tgc_new.s" H(p): 0 0 2000
+A "tgc_new.s" V(p): 0 0 -1000
+A "tgc_new.s" DB5_MINORTYPE(p): tgc
+A "eto.s" r_d(p): 1.724149328000026404339451
+A "eto.s" r(p): 13.79319462400021123471561
+A "eto.s" C(p): 3.448298656000062134552309 0 3.448298656000062134552309
+A "eto.s" N(p): 0 0 0.01724149328000028000285049
+A "eto.s" V(p): 8.533195938359670051909234 -11.04524849332910996224655 -1.403988582132086548881489
+A "eto.s" DB5_MINORTYPE(p): eto
+      
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The second elevation of the verbosity level is a fully detailed diff that contains all information added or removed.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Filtering Based on Difference Type</div>
+<div class="content">
+<div class="paragraph">
+<p>The options <strong>a</strong>, <strong>d</strong>, <strong>m</strong>, and <strong>u</strong> control which categories of diff results (added, deleted, modified, and unchanged) are reported. By default added, deleted and modified items are reported, but once one of these four options is specified only those specified are reported:</p>
+</div>
+<div class="paragraph">
+<p>Report only objects added:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -a moss.g moss2.g
+A tgc_new.s
+A eto.s
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Report only objects deleted:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -d moss.g moss2.g
+D LIGHT
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Report both added and deleted objects, but not modified objects:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -a -d moss.g moss2.g
+D LIGHT
+A tgc_new.s
+A eto.s
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Report unmodified objects:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -u moss.g moss2.g
+ellipse.r
+box.r
+all.g
+    
+  </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Filtering Results With Tolerance</div>
+<div class="content">
+<div class="paragraph">
+<p>To eliminate differences in modifications that are too small to be of interest, the <strong>t</strong> is used. What difference constitutes "too small" is up to the user - in this example, we will use 30 millimeters:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -v -t 30.0 moss.g moss2.g
+- "platform.r" tree(p): l platform.s
++ "platform.r" tree(p): - {l platform.s} {l cone.s}
+- "light.r" tree(p): l LIGHT
++ "light.r" tree(p): u {l eto.s} {l cone.s}
+- "_GLOBAL" title(a): Gary Moss's "World on a Platter"
++ "_GLOBAL" title(a): Gary Moss's "World on a Platter" - diff 01
+- "cone.s" V(p): 16.87542724608999833435519 -34.74353027344000111042988 -16.37908935547000055521494
++ "cone.s" V(p): -23.07777996602787595747941 -46.52170066332633524552875 -19.26697361191882151842947
+- "cone.r" tree(p): l cone.s
++ "cone.r" tree(p): l cone.s {1 0 0 53.2994  0 1 0 10.1428  0 0 1 0  0 0 0 1}
+- "tor.r" tree(p): l tor
++ "tor.r" tree(p): l tor {1 0 0 8.44652  0 1 0 -56.3571  0 0 1 54.4836  0 0 0 2.71809}
+D LIGHT
+A tgc_new.s
+A eto.s
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Notice that ellipse.s, which was on earlier lists, is now filtered out. cone.s has a difference in the x coordinates of the parameter V that is large enough to satisfy the tolerance filter, so that parameter stays in. Parameters that are not strictly numerical comparisons, or those that are part of added or deleted objects, remain in the report.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Filtering Results With Search Filters</div>
+<div class="content">
+<div class="paragraph">
+<p>The <em>search</em> filtering technique can be used to select specific subsets of the database to see in reports, using the <strong>F</strong> option. For example, limiting the diff report to only objects of type elliptical torus:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -F "-type eto" moss.g moss2.g
+A eto.s
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that this option will work at all levels of verbosity:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -vv -F "-type eto" moss.g moss2.g
+A "eto.s" r_d(p): 1.724149328000026404339451
+A "eto.s" r(p): 13.79319462400021123471561
+A "eto.s" C(p): 3.448298656000062134552309 0 3.448298656000062134552309
+A "eto.s" N(p): 0 0 0.01724149328000028000285049
+A "eto.s" V(p): 8.533195938359670051909234 -11.04524849332910996224655 -1.403988582132086548881489
+A "eto.s" DB5_MINORTYPE(p): eto
+    
+  </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Combining Multiple Filters</div>
+<div class="content">
+<div class="paragraph">
+<p>The various diff filters can be used together. For example, repeating the search filter with ell types added to the accepted list produces the following:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -vv -F "-type eto -or -type ell" moss.g moss2.g
+- "ellipse.s" C(p): 0 8.980256080627000869753829 8.980256080627000869753829
++ "ellipse.s" C(p): 0 1.561016355403846755933728 1.561016355403846755933728
+- "ellipse.s" A(p): 14.87607192992999927128039 0 0
++ "ellipse.s" A(p): 5.559274328313033919357622 0 0
+D "LIGHT" C(p): 0 0 2.539999961852999810218989
+D "LIGHT" B(p): 0 2.539999961852999810218989 0
+D "LIGHT" A(p): 2.539999961852999810218989 0 0
+D "LIGHT" V(p): 20.15756225586000027760747 -13.52595329284999969843284 5.034742355347000319909512
+D "LIGHT" DB5_MINORTYPE(p): ell
+A "eto.s" r_d(p): 1.724149328000026404339451
+A "eto.s" r(p): 13.79319462400021123471561
+A "eto.s" C(p): 3.448298656000062134552309 0 3.448298656000062134552309
+A "eto.s" N(p): 0 0 0.01724149328000028000285049
+A "eto.s" V(p): 8.533195938359670051909234 -11.04524849332910996224655 -1.403988582132086548881489
+A "eto.s" DB5_MINORTYPE(p): eto
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If we now add the tolerance filter, we see ellipse.s is filtered out:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -vv -t 30.0 -F "-type eto -or -type ell" moss.g moss2.g
+D "LIGHT" C(p): 0 0 2.539999961852999810218989
+D "LIGHT" B(p): 0 2.539999961852999810218989 0
+D "LIGHT" A(p): 2.539999961852999810218989 0 0
+D "LIGHT" V(p): 20.15756225586000027760747 -13.52595329284999969843284 5.034742355347000319909512
+D "LIGHT" DB5_MINORTYPE(p): ell
+A "eto.s" r_d(p): 1.724149328000026404339451
+A "eto.s" r(p): 13.79319462400021123471561
+A "eto.s" C(p): 3.448298656000062134552309 0 3.448298656000062134552309
+A "eto.s" N(p): 0 0 0.01724149328000028000285049
+A "eto.s" V(p): 8.533195938359670051909234 -11.04524849332910996224655 -1.403988582132086548881489
+A "eto.s" DB5_MINORTYPE(p): eto
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>ellipse.s satisfies the search filter, but is filtered by virtue of having no differences larger than 30 in its parameters.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Three Way Differences</div>
+<div class="content">
+<div class="paragraph">
+<p>A "3-way" diff uses an ancestor file as a basis for evaluating the differences between two other files. This ancestor provides a "context" in which it is possible to tell whether a difference between two files is a) the product of a change in one but not the other in comparison to the original or b) whether both have (incompatibly) changed in comparison to the original. For example, if we compare moss2.g from the previous examples to a new file moss3.g:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff moss2.g moss3.g
+M platform.r
+M ellipse.s
+D ellipse.r
+M light.r
+M _GLOBAL
+M cone.s
+M cone.r
+M box.s
+M tor.r
+M eto.s
+M all.g
+M tor
+A ellipse2.r
+A LIGHT
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All we can tell is that these objects differ from each other. If, however, we add moss.g to the comparison as an ancestor file:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff moss2.g moss.g moss3.g
+M platform.r
+M ellipse.s
+D(R) ellipse.r
+M light.r
+M _GLOBAL
+M cone.s
+M cone.r
+M box.s
+M tor.r
+M all.g
+D(L) LIGHT
+M tor
+A(B) tgc_new.s
+C eto.s
+A(R) ellipse2.r
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We can now see that ellipse.r was deleted only from the right file (moss3.g) and was unchanged in moss2.g. Similarly, we can tell that LIGHT wsa deleted from moss2.g, ellipse2.r was added in moss3.g, tgc_new.s was added identically in both moss2.g and moss3.g, and eto.s is different in moss2.g and moss3.g in some fashion that the ancestor file moss.g cannot help gdiff resolve (a conflict, denoted by 'C'.)</p>
+</div>
+<div class="paragraph">
+<p>To delve deeper into the nature of the changes, we increase the verbosity with the <strong>v</strong> option:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -v moss2.g moss.g moss3.g
+M(L) "platform.r" tree(p): - {l platform.s} {l cone.s}
+M(L) "ellipse.s" C(p): 0 1.561016355403846755933728 1.561016355403846755933728
+M(L) "ellipse.s" A(p): 5.559274328313033919357622 0 0
+D(R) ellipse.r
+M(L) "light.r" tree(p): u {l eto.s} {l cone.s}
+M(L) "_GLOBAL" title(p): Gary Moss's "World on a Platter" - diff 01
+M(L) "cone.s" H(p): 0 0 37.49945872348094155768194
+M(L) "cone.s" V(p): -23.07777996602787595747941 -46.52170066332633524552875 -19.26697361191882151842947
+M(L) "cone.r" tree(p): l cone.s {1 0 0 53.2994  0 1 0 10.1428  0 0 1 0  0 0 0 1}
+M(L) "box.s" V4(p): 29.46579237282375984818827 -5.211529731749999783119165 10.41366577147999805674772
+M(L) "box.s" V3(p): 29.46579237282375984818827 21.58122539520000060520033 10.41366577147999805674772
+M(L) "box.s" V2(p): 29.46579237282375984818827 21.58122539520000060520033 -16.37908935547000055521494
+M(L) "box.s" V1(p): 29.46579237282375984818827 -5.211529731749999783119165 -16.37908935547000055521494
+M(L) "tor.r" tree(p): l tor {1 0 0 8.44652  0 1 0 -56.3571  0 0 1 54.4836  0 0 0 2.71809}
+M(R) "all.g" tree(p): u {u {u {l platform.r} {l box.r {1 0 0 -23.6989  0 1 0 13.41  0 0 1 8.02399  0 0 0 1}}}
+{u {l cone.r {1 0 0 22.0492  0 1 0 12.2349  0 0 1 2.11125e-07  0 0 0 1}} {l ellipse2.r {1 0 0 14.6793  0 1 0
+-41.6077  0 0 1 38.7988  0 0 0 1}}}} {u {l tor.r} {l light.r}}
+D(R) "all.g" region_id(p): -1
+D(L) LIGHT
+M(R) "tor" r_h(p): 6.036279429344108216071163
+M(R) "tor" r_a(p): 30.18139425891995841766402
+A(B) tgc_new.s
+C(LA!=RA) eto.s
+A(R) ellipse2.r
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>At this level of verbosity, we can now see that most of the modifications are from the left (moss2.g) file. M(L) denotes a change that is present only in the left file - the right (moss3.g) agrees with the ancestor. Similarly, we can now see that the deletion of ellipse.r, the addition of ellipse2.r and the change to all.g come from moss3.g. The conflict on eto.s is that two add operations (one in moss2.g, one in moss3.g) produced different eto.s primitives - there is no ancestor for eto.s in moss.g, so there is no way to identify one of the eto.s primitives as "correct" - they have equal standing, and manual intervention is needed to determine which eto.s is the "correct" version.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Complex Three Way Differences</div>
+<div class="content">
+<div class="paragraph">
+<p>Conflicts can arise from situations other than incompatible additions - an incompatible modification is also enough to trigger a conflict. Consider three ellipsoids, one of which is an ancestor, one of which has had its A and B vectors modified, and the other of which has had its B and C vectors modified. A three-way diff of these files reports a conflict:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff ell_1.g ell_0.g ell_2.g
+C ell.s
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>However, closer inspection reveals that this conflict is different than the one reported above for the eto.s object:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -v ell_1.g ell_0.g ell_2.g
+C(LM!=RM) ell.s
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This notation indicates that a modification in the left side (ell_1.g) does not match a modification made in ell_2.g. Unlike the eto.s, which reported an add conflict, this is a modification conflict triggered by incompatible, different parameters. Indeed a full verbosity inspection:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -vv ell_1.g ell_0.g ell_2.g
+M(R) "ell.s" C(p): 0 0 300
+C(A) "ell.s" B(p): 0 500 0
+C(L) "ell.s" B(p): 0 510 0
+C(R) "ell.s" B(p): 0 300 0
+M(L) "ell.s" A(p): 1100 0 0
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>reveals that the changes to the A and C parameters are <em>not</em> in conflict - it is the B parameter that is causing the problem.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Merging Files</div>
+<div class="content">
+<div class="paragraph">
+<p>The last and most powerful feature of <strong>gdiff</strong> is to <em>merge</em> two or three different geometry files into a single output file. This is most useful when an ancestor is available and a three way merge can be performed - in the two way case, the "ancestor" is an empty file and the results will tend to include many more conflicts. For example, the three way merge of the moss examples earlier:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -M moss_merged.g moss2.g moss0.g moss3.g
+M platform.r
+M ellipse.s
+D(R) ellipse.r
+M light.r
+M _GLOBAL
+M cone.s
+M cone.r
+M box.s
+M tor.r
+M all.g
+D(L) LIGHT
+M tor
+A(B) tgc_new.s
+C eto.s
+A(R) ellipse2.r
+Merging into moss_merged.g
+~: mged moss_merged.g ls
+CONFLICT(eto.s).left     cone.r/R                 platform.r/R
+CONFLICT(eto.s).right    cone.s                   platform.s
+all.g/                   ellipse.s                tgc_new.s
+box.r/R                  ellipse2.r/R             tor
+box.s                    light.r/R                tor.r/R
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The resulting file has only two conflict objects present - the same eto.s issue that was discussed earlier. Trying to do the same merge <em>without</em> the ancestor file:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    
+~: gdiff -M moss_2way_merge.g moss2.g moss3.g
+M platform.r
+M ellipse.s
+D ellipse.r
+M light.r
+M _GLOBAL
+M cone.s
+M cone.r
+M box.s
+M tor.r
+M eto.s
+M all.g
+M tor
+A ellipse2.r
+A LIGHT
+Merging into moss_2way_merge.g
+~: mged moss_2way_merge.g ls
+CONFLICT(all.g).left/         CONFLICT(light.r).right/R
+CONFLICT(all.g).right/        CONFLICT(platform.r).left/R
+CONFLICT(box.s).left          CONFLICT(platform.r).right/R
+CONFLICT(box.s).right         CONFLICT(tor).left
+CONFLICT(cone.r).left/R       CONFLICT(tor).right
+CONFLICT(cone.r).right/R      CONFLICT(tor.r).left/R
+CONFLICT(cone.s).left         CONFLICT(tor.r).right/R
+CONFLICT(cone.s).right        LIGHT
+CONFLICT(ellipse.s).left      box.r/R
+CONFLICT(ellipse.s).right     ellipse.r/R
+CONFLICT(eto.s).left          ellipse2.r/R
+CONFLICT(eto.s).right         platform.s
+CONFLICT(light.r).left/R      tgc_new.s
+    
+  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The result is far less clean, although the merge was still performed - in this latter case, the end user will have to resolve many more conflicting object states manually.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">GROUPING MODE - Basic Grouping by Content Similarity (-G)</div>
+<div class="content">
+<div class="paragraph">
+<p>A basic example of grouping mode output (note that the actual output will utilize Unicode characters - ascii approximations are used here for broadest display support.)</p>
+</div>
+<div class="paragraph">
+<p>In the example below, you can see two major groupings identified as well as a couple miscellaneous files that don&#8217;t meet the threshold for either group. The filenames indicate that at the default threshold value, the major determinator for which group a file goes in is whether it is a triangle (BoT) conversion or an unfacetized original, which is one of the grouping criteria we would expect for content-based grouping analysis.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+			
+~: gdiff -G /Models
+[group] Discovered 28 .g file(s). 28 to hash, 0 from cache.
+====================== gdiff -G Grouping Summary ======================
+Hash inputs: names+geometry
+Filename binning inactive: all files clustered together by content similarity.
+Distance thresholds (lower value = greater similarity): TLSH &lt; 30
+Columns:
+  Seed/Newest line: [dx####] distance from newest file to group center.
+  Member lines: [d####, dx####] distances to newest and to group center.
+=======================================================================
+
+/Models/Dir1/model_2018-01-12.g         [dx   6]        2018-01-12
+  /Models/Dir1/model_2017_03_14_bot.g   [d   9, dx  10] 2017-03-14
+  /Models/Dir1/model_tri.g              [d   2, dx   7] 2015-08-25
+  /Models/Dir2/model_031215_bot.g       [d   2, dx   5] 2015-03-12
+  /Models/Dir2/model_2015_01_27_bot.g   [d   6, dx   1] 2015-01-27
+  /Models/Dir2/model_011415_bot.g       [d   6, dx   1] 2015-01-16
+  /Models/Dir1/model_111314_bot.g       [d   6, dx   1] 2014-11-13
+  /Models/Dir1/model_110614_bot.g       [d   3, dx   6] 2014-11-06
+  /Models/Dir1/model_032314_bot.g       [d   6, dx   0] 2014-03-23
+  /Models/Dir2/model_021014_bot.g       [d   7, dx   6] 2014-02-25
+  /Models/Dir2/model_020214_bot.g       [d  22, dx  21] 2014-02-02
+  /Models/Dir2/model_012614_bot.g       [d  22, dx  21] 2014-01-26
+  /Models/Dir2/model_011614_bot.g       [d  22, dx  21] 2014-01-16
+/Models/Dir2/model_011415.g             [dx   0]        2015-01-14
+  /Models/Dir1/model_121318.g           [d   1, dx   1] 2014-12-18
+  /Models/Dir1/model_112214.g           [d   1, dx   1] 2014-12-14
+  /Models/Dir1/model_072114.g           [d   2, dx   2] 2014-07-21
+  /Models/Dir2/model_061014.g           [d   3, dx   3] 2014-06-25
+  /Models/Dir2/model_060114.g           [d  15, dx  15] 2014-06-02
+  /Models/Dir2/model_042314.g           [d  15, dx  15] 2014-04-25
+  /Models/Dir2/orig_042014.g            [d  15, dx  15] 2014-04-20
+  /Models/Dir2/model_041814.g           [d  15, dx  15] 2014-04-18
+  /Models/Dir2/orig_041414.g            [d  15, dx  15] 2014-04-15
+  /Models/Dir2/orig_040414.g            [d  16, dx  16] 2014-04-09
+  /Models/Dir2/model_040214.g           [d  16, dx  16] 2014-04-03
+  /Models/Dir2/orig_040114.g            [d  16, dx  16] 2014-04-01
+/Models/Dir2/misc.g                     [dx   0]        2014-02-29
+/Models/Dir2/c.g                        [dx   0]        2014-04-15
+			
+		</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>search</strong>(n)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 2014-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

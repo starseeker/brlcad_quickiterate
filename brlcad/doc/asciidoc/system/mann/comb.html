@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>COMB(nged)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>COMB(nged) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>comb - Create and manipulate BRL-CAD combination with the name combination_name.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>comb [ [-c]| [-r]] [ [-w]| [-f]| [-l]] [ [-S]] {&lt;combination_name&gt;} [&lt;&lt;operator object_name&gt;&gt;]...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <strong>comb</strong> command creates and manipulates <em>BRL-CAD</em> combination objects. For combination creation or appending, <em>operator/object_name</em> pairs of boolean operators and object names are parsed into comb tree entries. (TODO - integrate full expression evaluation like that in <strong>c</strong>.)</p>
+</div>
+<div class="paragraph">
+<p>The following options are recognized:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c</strong></dt>
+<dd>
+<p>Ensures that the combination does not have the region flag set. Conflicts with <strong>-r</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-r</strong></dt>
+<dd>
+<p>Ensures that the combination does have the region flag set. Conflicts with <strong>-c</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-w</strong></dt>
+<dd>
+<p>Moves the contents of a combination to a new combination and makes that combination the sole child of the original combination. See the "fixing nested regions" example below for an illustration of how this option is used. Conflicts with <strong>-f</strong> and <strong>-l</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>-f</strong></dt>
+<dd>
+<p>Flattens a combination that contains only unions into a single top level combination with all of the solids unioned into it, and remove all combinations that were below the input combination that are not used elsewhere in the .g file. (In essence, the latter behavior prevents "orphaned" combinations that are no longer used from showing up as new top level objects in the database.) This feature will not work on any combination containing non-union boolean operations. The following <strong>search</strong> command can be used to find combs that are candidates for flattening:</p>
+</dd>
+</dl>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+		    
+mged&gt; search -type comb ! -below ( -bool + -or -bool - )
+		    
+	    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Conflicts with <strong>-w</strong> and <strong>-l</strong>.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-l</strong></dt>
+<dd>
+<p>"Lift" a region flag to the top comb, and clear all region flags below the comb in the tree. Like the <strong>f</strong> option this option will work to respect the integrity of other geometry in the database, but it is more aggressive in the steps it will take and it will operate on trees that contain non-union booleans. The decision logic is as follows:</p>
+</dd>
+</dl>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Check if regions below the current comb are used elsewhere in the .g file. If they are not, they will simply be converted to combs.</p>
+</li>
+<li>
+<p>For regions that are used elsewhere in the .g file, determine if their parent comb (if that comb is not the original comb supplied to the command) is also used elsewhere in the .g file. If not, the <strong>w</strong> wrapping behavior is used to produce a non-region equivalent comb, and the parent comb is updated to use that new comb instead of the region. If one or more parent combs <em>are</em> used elsewhere (i.e. the parent comb cannot be altered without altering other geometry) the command will fail - manual intervention is required to resolve the situation.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>Conflicts with <strong>-w</strong> and <strong>-f</strong>.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-S</strong></dt>
+<dd>
+<p>Stop if the combination object already exists.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This example shows how to use the <strong>comb</strong> command to create a combination according to a given formula.</p>
+</div>
+<div class="exampleblock">
+<div class="title">Creating a combination.</div>
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">mged&gt;<strong>comb abc u a u b - a + d</strong></dt>
+<dd>
+<p>Creates a combination named <em>abc</em>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Fixing a nested region.</div>
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Nested regions (a region containing another region in its tree) are generally viewed as poor modelling practice. This example shows how to fix an instance of this nesting with minimal disruption to the model.</dt>
+<dd></dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Suppose we have a situation where <em>region2.r</em> is unioned into <em>region1.r</em>, and both <em>region1.r</em> and <em>region2.r</em> have the region flag set, as seen in the tree below.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+mged&gt; tree region1.r
+region1.r/R
+        u region2.r/R
+                u sph.s
+        u comb.c/
+                u arb.s
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This geometry has an error in that one region is not supposed to be combined into another using boolean operations. Further, suppose that one or more assemblies use <em>region2.r</em> and expect it to be a region - i.e., <em>region2.r</em> needs to remain a region with the same contents. To fix this problem without disturbing other geometry using <em>region2.r</em>, first make a combination below <em>region2.r</em> using the <strong>w</strong> flag to <strong>comb</strong>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+mged&gt; comb -w region2.r
+mged&gt; tree region2.r
+region2.r/R
+        u region2.r.c/
+                  u sph.s
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The next step is to adjust the <em>region1.r</em> tree definition to reference the non-region combination instead of <em>region2.r</em>:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+mged&gt; set glob_compat_mode 0
+0
+mged&gt; get region1.r tree
+u {l region2.r} {l comb.c}
+mged&gt; adjust region1.r tree {u {l region2.r.c} {l comb.c}}
+mged&gt; tree region1.r
+region1.r/R
+        u region2.r.c/
+                u sph.s
+        u comb.c/
+                u arb.s
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Because the tree is manipulated as a Tcl list, we need glob compatibility mode to be off on the MGED command line. Once the tree is re-defined, <em>region1.r</em> no longer has <em>region2.r</em> below it, but still defines the same physical volume via <em>region2.r.c</em>.</p>
+</div>
+<div class="paragraph">
+<p>Optionally, the name <em>region2.r.c</em> can be changed to the name <em>region2.c</em> with the <strong>mvall</strong> command:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+mged&gt; mvall region2.r.c region2.c
+mged&gt; tree region1.r
+region1.r/R
+        u region2.c/
+                u sph.s
+        u comb.c/
+                u arb.s
+mged&gt; tree region2.r
+region2.r/R
+        u region2.c/
+                u sph.s
+      
+      </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Flattening a Combination.</div>
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">When a combination contains only unioned objects, it can be flattened with the <strong>f</strong> option.</dt>
+<dd></dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>First, create an appropriate example to properly illustrate the option&#8217;s behavior:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+			  
+mged&gt; make sph1.s sph
+mged&gt; make sph2.s sph
+mged&gt; comb sph1.c u sph1.s
+mged&gt; comb sph2.c u sph2.s
+mged&gt; comb spheres.c u sph1.c u sph2.c
+mged&gt; comb misc.c u sph2.c
+mged&gt; tree spheres.c
+spheres.c/
+         u sph1.c/
+                 u sph1.s
+         u sph2.c/
+                 u sph2.s
+
+mged&gt; tree misc.c
+misc.c/
+         u sph2.c/
+                 u sph2.s
+
+mged&gt; tops
+misc.c/               spheres.c
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note that <em>sph2.c</em> is used in both <em>spheres.c</em> and <em>misc.c</em>, but <em>sph1.c</em> is only used in <em>spheres.c</em> In the <strong>tops</strong> command output, <em>misc.c</em> and <em>spheres.c</em> are the only top level objects. Targeting <em>spheres.c</em> with the <strong>f</strong> option reworks the tree as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+mged&gt; comb -f spheres.c
+mged&gt; tree spheres.c
+spheres.c/
+        u sph1.s
+        u sph2.s
+
+mged&gt; tree misc.c
+misc.c/
+         u sph2.c/
+                 u sph2.s
+
+mged&gt; tops
+misc.c/               spheres.c
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Notice that while <em>spheres.c</em> has indeed been flattened and no longer has the intermediate combinations over its solids, <em>misc.c</em> is still intact. Notice also that while <em>sph2.c</em> was preserved, since it is used by <em>misc.c</em>, <em>sph1.c</em> was removed and does not show up in the <strong>tops</strong> command&#8217;s output since it was no longer used by any object in the database.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Example Of Comb Region Lifting.</div>
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">The <strong>l</strong> option is useful in cases where many <strong>w</strong> type operations are needed.</dt>
+<dd></dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Suppose a geometry has the following structure:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+			  
+mged&gt; make sph1.s sph
+mged&gt; make sph2.s sph
+mged&gt; r r1 u sph1.s
+mged&gt; r r2 u sph2.s
+mged&gt; comb assembly u r1 u r2
+mged&gt; r r3 u r1 - r2
+mged&gt; tops
+assembly/           r3/R
+
+mged&gt; tree assembly
+assembly/
+        u r1/R
+                u sph1.s
+        u r2/R
+                u sph2.s
+mged&gt; tree r3
+r3/R
+        u r1/R
+                u sph1.s
+        - r2/R
+                u sph2.s
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>There are regions below region <em>r3</em>, which is not good modeling practice. The <strong>l</strong> option applied to <em>r3</em> makes <em>r3</em> a region that no longer has regions below it, while at the same time preserving the geometric volumes defined by all existing combs and preserving the meaning of the <em>assembly</em> region definitions:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+mged&gt; comb -l r3
+mged&gt; tree assembly
+assembly/
+        u r1/R
+                u r1.c/
+                         u sph1.s
+        u r2/R
+                u r1.c/
+                         u sph1.s
+mged&gt; tree r3
+r3/R
+        u r1.c/
+                u sph1.s
+        - r2.c/
+                u sph2.s
+
+      
+      </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Example Tree Structure That Will Prevent Successful Region Lifting.</div>
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">While the <strong>l</strong> option can handle many tree configurations, there are some situations where manual intervention is required. This example illustrates one such case.</dt>
+<dd></dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Suppose a geometry has the following structure:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+			  
+mged&gt; make sph1.s sph
+mged&gt; make sph2.s sph
+mged&gt; make sph3.s sph
+mged&gt; r r1 u sph1.s
+mged&gt; r r2 u sph2.s
+mged&gt; comb subassembly u r1 u r2
+mged&gt; r r3 u sph3.s - subassembly
+mged&gt; comb assembly u subassembly
+mged&gt; tops
+assembly/           r3/R
+
+mged&gt; tree assembly
+assembly/
+        u subassembly/
+                u r1/R
+                        u sph1.s
+                u r2/R
+                        u sph2.s
+mged&gt; tree r3
+r3/R
+        u sph3.s
+        - subassembly/
+                u r1/R
+                        u sph1.s
+                u r2/R
+                        u sph2.s
+
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This geometry has regions below region <em>r3</em>, which is not ideal. However, attempting to use the <strong>l</strong> option on <em>r3</em> will produce the following error:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      
+mged&gt; comb -l r3
+Comb region lift failed - the following combs in the tree contain
+regions and are also used outside the tree of r3:
+
+subassembly, containing region r1
+subassembly, containing region r2
+
+The above combs must be reworked before region lifting the tree
+of r3 can succeed.
+      
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>While <em>r3</em> has problems, the geometry tree under <em>assembly</em> is entirely correct. For <em>r3</em> to become a toplevel region with no regions under it, the definition of <em>subassembly</em> would have to change too. Because <em>subassembly</em> is used in the definition of <em>assembly</em>, as well as the definition of <em>r3</em>, changing <em>subassembly</em>'s contents would destroy the meaning of the (valid) <em>assembly</em> comb. Hence, the command fails and does not change the geometry.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

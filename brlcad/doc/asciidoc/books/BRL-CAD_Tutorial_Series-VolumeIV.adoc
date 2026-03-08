@@ -536,7 +536,7 @@ Pro/E makes extensive use of referenced geometry. As discussed in the previous v
 
 The command to start the Pro/E program is specified by each installer. When Pro/E is started, the program looks for a file named `protk.dat` in a few specific places, one of which is in the current directory. This file informs Pro/E about Pro/TOOLKIT modules it should load. There is a `protk.dat` file for the Pro/E-to-BRL-CAD converter, and it is included in the distribution under the pro-engineer directory. Users should copy this file to the directory where they will be starting Pro/E. After that file is in place, Pro/E will load the converter at startup. If the loading succeeds, users will see a message saying ``Installation of Proe-BRL converter succeeded.'' With Pro/E started and the converter module loaded, the user can open any Pro/E model he wants to convert.
 
-The conversion process is started by selecting the ProE-BRL item in the Pro/E drop-down File menu. The converter dialog box, shown in <<fig_converter_dialog_box>>, will then appear.
+The conversion process is started by selecting the *ProE-BRL* item in the Pro/E drop-down *File* menu. The converter dialog box, shown in <<fig_converter_dialog_box>>, will then appear.
 
 [[fig_converter_dialog_box]]
 .Converter dialog box
@@ -545,12 +545,12 @@ image::test_img.eps[]
 The following list provides a description of the use and functionality of the primary elements in the dialog box. Note that the box is preloaded with reasonable defaults for many of the inputs. In addition, if the user has a question about any of the entry windows, check boxes, or buttons, he can move the mouse over them to see a brief explanation of their use.
 
 
-* Output File Name - This is the name of the file to receive the ASCII output.
-* Log File Name - If provided, verbose status logging will be written to that file.
-* Part Name File - If provided, the converter will use that information to map Pro/E part and assembly names into the specified BRL-CAD object names. This file is simply a text file with each line specifying a Pro/E part or assembly name and a BRL-CAD object name separated by white space. Note that the BRL-CAD names should not include any special characters such as ``/'', ``['', ``]'', or white space.
-* Starting Ident Number - Ident numbers will be assigned to the resulting BRL-CAD regions sequentially starting with the number that appears in the window.
-* Max Tessellation Error - This value (expressed in millimeters) is used to control the coarseness of the tessellation. It is the maximum distance between the actual surface and its tessellated approximation. Smaller values here will result in finer tessellations and more triangles. The default value is reasonable for ballistic vulnerability analysis purposes.
-* Angle Control Value - This is a number between 0 and 1 that provides additional control over the coarseness of the tessellation. The exact relationship between the tessellation and this value is not specified in the Pro/E documentation, but the default value of 0.5 seems to work well.
+* *Output File Name* - This is the name of the file to receive the ASCII output.
+* *Log File Name* - If provided, verbose status logging will be written to that file.
+* *Part Name File* - If provided, the converter will use that information to map Pro/E part and assembly names into the specified BRL-CAD object names. This file is simply a text file with each line specifying a Pro/E part or assembly name and a BRL-CAD object name separated by white space. Note that the BRL-CAD names should not include any special characters such as ``/'', ``['', ``]'', or white space.
+* *Starting Ident Number* - Ident numbers will be assigned to the resulting BRL-CAD regions sequentially starting with the number that appears in the window.
+* *Max Tessellation Error* - This value (expressed in millimeters) is used to control the coarseness of the tessellation. It is the maximum distance between the actual surface and its tessellated approximation. Smaller values here will result in finer tessellations and more triangles. The default value is reasonable for ballistic vulnerability analysis purposes.
+* *Angle Control Value* - This is a number between 0 and 1 that provides additional control over the coarseness of the tessellation. The exact relationship between the tessellation and this value is not specified in the Pro/E documentation, but the default value of 0.5 seems to work well.
 
 For more information about the Pro/E file format and import possibilities, see the Parametric Technology Corporation (PTC) web site at http://www.ptc.com[http://www.ptc.com] (PTC, 2003).
 
@@ -1101,3 +1101,4 @@ Before converted geometry can be used in a given application or analysis (e.g., 
 * _Combining Multiple Converted Files Into a Single BRL-CAD Model_ - Files from packages such as Pro/E and Unigraphics are often so large that entire models cannot be loaded all at once, and thus the BRL-CAD import converters for these formats must convert the geometry file by file and system by system. As a result, the BRL-CAD modeler/analyst often has to combine all the files of converted geometry so that they can be displayed and evaluated as a single, integrated model (see the discussion on dbconcat in Volume III of this tutorial series [Butler et al., 2003]).
 * _Combining or Breaking Down Regions to Match Analyst Requirements_ - In some cases, converted geometry does not match the "grouping" requirements of an analyst or application and therefore must be regrouped. For example, the converted objects of an engine might need to be grouped into a single engine region. Conversely, a single engine region might need to be broken down into separate regions.
 * _Reorganizing or Creating a Model Hierarchy_ - Some geometry (e.g., an STL file) is converted with little to no tree structure or organization. In such cases, the modeler/analyst often needs to set up a basic tree hierarchy of parts and assemblies so that the model can be more easily handled. For more information about model structuring, see Volume III of this tutorial series (Butler et al., 2003).
+

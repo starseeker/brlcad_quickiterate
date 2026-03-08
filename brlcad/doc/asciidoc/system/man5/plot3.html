@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>PLOT3(5)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>PLOT3(5) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>plot3 - 3-D and color graphic plotting interface</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Files of this format are produced by programs such as <strong>pixhist3d-plot3</strong>(1), using the routines described in <strong>libplot3</strong>(3) and are interpreted for various devices by standard programs described in <strong>plot</strong>(1G), as well as additional programs such as <strong>plot3-fb</strong>(1). The format of output from <em>libplot3</em> differs from that of <em>libplot</em> only in the addition of 3-D primitives and color. A graphics file is a stream of plotting instructions. Each instruction consists of an ASCII letter usually followed by bytes of binary information. The instructions are executed in order. A point is designated by four bytes representing the <em>x</em> and <em>y</em> values; each value is a signed 16-bit integer. These integers are written with the most significant byte first. Three-dimensional data have an additional <em>z</em> value, which is assumed to be zero for two-dimensional instructions. The last designated point in an <em>l</em>, <em>m</em>, <em>n</em>, <em>p</em>, <em>L</em>, <em>M</em>, <em>N</em>, or <em>P</em> instruction becomes the "current point" for the next instruction.</p>
+</div>
+<div class="paragraph">
+<p>Each of the following descriptions begins with the name of the corresponding routine in <strong>libplot3</strong>(3).</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>m</em></dt>
+<dd>
+<p>move: The next four bytes give a new current point.</p>
+</dd>
+<dt class="hdlist1"><em>n</em></dt>
+<dd>
+<p>cont: Draw a line from the current point to the point given by the next four bytes. See <strong>plot</strong>(1G).</p>
+</dd>
+<dt class="hdlist1"><em>p</em></dt>
+<dd>
+<p>point: Plot the point given by the next four bytes.</p>
+</dd>
+<dt class="hdlist1"><em>l</em></dt>
+<dd>
+<p>line: Draw a line from the point given by the next four bytes to the point given by the following four bytes.</p>
+</dd>
+<dt class="hdlist1"><em>t</em></dt>
+<dd>
+<p>label: Place the following ASCII string so that its first character falls on the current point. The string is terminated by a new-line.</p>
+</dd>
+<dt class="hdlist1"><em>a</em></dt>
+<dd>
+<p>arc: The first four bytes give the center, the next four give the starting point, and the last four give the end point of a circular arc. The least significant coordinate of the end point is used only to determine the quadrant. The arc is drawn counter-clockwise.</p>
+</dd>
+<dt class="hdlist1"><em>c</em></dt>
+<dd>
+<p>circle: The first four bytes give the center of the circle, the next two the radius. Circles and arcs are not supported on all devices.</p>
+</dd>
+<dt class="hdlist1"><em>e</em></dt>
+<dd>
+<p>erase: Start another frame of output.</p>
+</dd>
+<dt class="hdlist1"><em>f</em></dt>
+<dd>
+<p>linmod: Take the following string, up to a new-line, as the style for drawing further lines. The styles are "dotted", "solid", "longdashed", "shortdashed", and "dotdashed". Effective only for the <strong>-T4014</strong> and <strong>-Tver</strong> options of <strong>plot</strong>(1G) (TEKTRONIX 4014 terminal and Versatec plotter).</p>
+</dd>
+<dt class="hdlist1"><em>s</em></dt>
+<dd>
+<p>space: The next four bytes give the lower left corner of the plotting area; the following four give the upper right corner. The plot will be magnified or reduced to fit the device as closely as possible.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The following were added at BRL. Three-dimensional primitives have their <em>z</em> values ignored when displayed on two-dimensional devices.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>C</em></dt>
+<dd>
+<p>color: The next three bytes give respectively the intensities (0..255) of the three color components (additive colors red, green, and blue if a terminal; subtractive colors cyan, magenta, and yellow if hardcopy) to be used for subsequent plotting. The initial color is assumed to be (255,255,255), which is white on a terminal and black on hardcopy. Color specifications are ignored for black-and-white devices.</p>
+</dd>
+<dt class="hdlist1"><em>M</em></dt>
+<dd>
+<p>3move: The next six bytes give a new current point.</p>
+</dd>
+<dt class="hdlist1"><em>N</em></dt>
+<dd>
+<p>3cont: Draw a line from the current point to the point given by the next six bytes. See <strong>plot</strong>(1G).</p>
+</dd>
+<dt class="hdlist1"><em>P</em></dt>
+<dd>
+<p>3point: Plot the point given by the next six bytes.</p>
+</dd>
+<dt class="hdlist1"><em>L</em></dt>
+<dd>
+<p>3line: Draw a line from the point given by the next six bytes to the point given by the following six bytes.</p>
+</dd>
+<dt class="hdlist1"><em>S</em></dt>
+<dd>
+<p>3space: The next six bytes give the minimum corner of the plotting area; the following six give the maximum corner. The plot will be magnified or reduced to fit the device as closely as possible.</p>
+</dd>
+<dt class="hdlist1"><em>F</em></dt>
+<dd>
+<p>3flush:</p>
+</dd>
+<dt class="hdlist1"><em>x</em></dt>
+<dd>
+<p>double_point: The double-precision version of point.</p>
+</dd>
+<dt class="hdlist1"><em>v</em></dt>
+<dd>
+<p>double_line: The double-precision version of line.</p>
+</dd>
+<dt class="hdlist1"><em>o</em></dt>
+<dd>
+<p>double_move: The double-precision version of move.</p>
+</dd>
+<dt class="hdlist1"><em>q</em></dt>
+<dd>
+<p>double_cont: The double-precision version of cont.</p>
+</dd>
+<dt class="hdlist1"><em>w</em></dt>
+<dd>
+<p>double_space: The double-precision version of space.</p>
+</dd>
+<dt class="hdlist1"><em>i</em></dt>
+<dd>
+<p>double_circle: The double-precision version of circle.</p>
+</dd>
+<dt class="hdlist1"><em>r</em></dt>
+<dd>
+<p>double_arc: The double-precision version of arc.</p>
+</dd>
+<dt class="hdlist1"><em>W</em></dt>
+<dd>
+<p>double_3space: The double-precision, 3_D version of space.</p>
+</dd>
+<dt class="hdlist1"><em>X</em></dt>
+<dd>
+<p>double_3point: The double-precision, 3_D version of point.</p>
+</dd>
+<dt class="hdlist1"><em>O</em></dt>
+<dd>
+<p>double_3move: The double-precision, 3_D version of move.</p>
+</dd>
+<dt class="hdlist1"><em>Q</em></dt>
+<dd>
+<p>double_3cont: The double-precision, 3_D version of cont.</p>
+</dd>
+<dt class="hdlist1"><em>V</em></dt>
+<dd>
+<p>double_3line: The double-precision, 3_D version of line.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Space settings that exactly fill the plotting area with unity scaling appear below for devices supported by the filters of <strong>plot</strong>(1G). The upper limit is just outside the plotting area, except for the Megatek which displays the entire range of possible coordinates. In every case the plotting area is taken to be square; points outside may be displayable on devices whose face is not square.</p>
+</div>
+<div class="quoteblock">
+<blockquote>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>DASI 300</em></dt>
+<dd>
+<p>space(0, 0, 4096, 4096);</p>
+</dd>
+<dt class="hdlist1"><em>DASI 300s</em></dt>
+<dd>
+<p>space(0, 0, 4096, 4096);</p>
+</dd>
+<dt class="hdlist1"><em>DASI 450</em></dt>
+<dd>
+<p>space(0, 0, 4096, 4096);</p>
+</dd>
+<dt class="hdlist1">TEKTRONIX 4014</dt>
+<dd>
+<p>space(0, 0, 3120, 3120);</p>
+</dd>
+<dt class="hdlist1">Versatec plotter</dt>
+<dd>
+<p>space(0, 0, 2048, 2048);</p>
+</dd>
+<dt class="hdlist1">Megatek display</dt>
+<dd>
+<p>space(-32768, -32768, 32767, 32767);</p>
+</dd>
+</dl>
+</div>
+</blockquote>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>libplot3</strong>(3), <strong>plot</strong>(n).</p>
+</div>
+<div class="paragraph">
+<p><strong>graph</strong>(1G), <strong>plot</strong>(1G) in the <em>UNIX System User Reference Manual</em>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Douglas A. Gwyn made the 3-D and color extensions to UNIX-plot.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

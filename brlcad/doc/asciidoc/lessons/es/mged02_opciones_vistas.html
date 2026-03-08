@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Reconocer las opciones de vistas en MGED</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Reconocer las opciones de vistas en MGED</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprenderá a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Crear un modelo de un radio (walkie-talkie).</p>
+</li>
+<li>
+<p>Localizar la vista informativa en la ventana de comandos.</p>
+</li>
+<li>
+<p>Identificar elementos del sistema de visualización de <em>MGED</em>.</p>
+</li>
+<li>
+<p>Visualizar el radio desde distintos ángulos.</p>
+</li>
+<li>
+<p>Trabajar con atajos de teclado (Shift Grips).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Los diseños en <em>BRL-CAD</em> están estructurados en el sistema simple de coordenadas x, z e y, al cual nos referiremos a veces como modelo espacial. La ventana gráfica de <em>MGED</em> muestra una porción de este espacio representado. Este sistema se usará tanto para especificar las figuras como para representarlas en la ventana gráfica.</p>
+</div>
+<div class="paragraph">
+<p><em>MGED</em> ofrece una vista por defecto, pero también ofrece una variedad de opciones para modificarla. Usted puede alternar estas vistas durante y luego de la creación del modelo.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="creating_radio">Creando el modelo de un radio</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Para ganar práctica visualizando los modelos actuales vamos a construir el diseño simple de un radio tipo "walkie-talkie". Los comandos que usaremos para hacer esto no son explicados aquí porque no nos concierne en este tutorial. En el tutorial de creación de direcciones de modelos se explicarán en detalle. Ejecute <em>MGED</em> y cree una nueva base de datos llamada radio.g. Recuerde que la única manera de hacer esto es tipeando en una terminal el siguiente comando: <strong>$ mged radio.g [ENTER]</strong>.</p>
+</div>
+<div class="paragraph">
+<p>Tipee lo siguiente en la línea de comandos, chequeando cuidadosamente antes de presionar ENTER. Si se equivoca, use BACKSPACE o las fechas de izquierda/derecha para hacer las correcciones (en el apéndice B hay una lista de comandos de edición).</p>
+</div>
+<div class="paragraph">
+<p>Nota: Tenga un cuidado especial en reconocer cuando se está usando el número uno [1] o la letra ele [l], por ejemplo en la tercera línea de la siguiente lista.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+       in body.s rpp 0 16 0 32 0 48 [ENTER]
+
+       in btn.s rec 8 30 36 0 3 0 4 0 0 0 0 2 [ENTER]
+
+       in btn2.s ell1 8 33 36 4 0 0 2 [ENTER]
+
+       in spkr.s tor 16 16 16 1 0 0 12 1 [ENTER]
+
+       in ant.s rcc 2 2 46 0 0 48 1 [ENTER]
+
+       in knob.s rcc 4 4 40 8 0 0 5 [ENTER]
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Nota: La expresión btn es una abreviación de button (botón en inglés), ant de antenna (antena en inglés), y spkr es una abreviación de speaker (parlante). Los números pueden estar separados por espacios simples, aunque puede usarse espaciados extra para mejorar la legibilidad. En algunos casos (p.e., los comandos r y comb, que se mostrarán más adelante), el espaciado deberá ser exacto.</p>
+</div>
+<div class="paragraph">
+<p>Una imagen similar a la siguiente debería aparecer en la ventana gráfica</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged02_defaultradio.png" alt="../../lessons/es/images/mged02_defaultradio.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="locating_viewing_info_cmd_window">Encontrar información sobre las vistas en la ventana de comandos</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Tómese un minuto para observar la ventana de comandos. Inclusive si no hay nada a la vista, en la parte inferior encontrará información sobre la ventana gráfica. Por ejemplo, algo similar a lo siguiente: <code>cent=(8.000 16.000 24.000) sz=96.000 mm az=35.00 el=25.00 tw=-0.00 ang=(0.00 0.00 0.00)</code></p>
+</div>
+<div class="paragraph">
+<p>Como se detalla en la siguiente tabla, esta información contiene cuatro grupos de datos sobre la vista de la ventana gráfica.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Vista de información en la parte inferior de la ventana de comandos</caption>
+<colgroup>
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Designación de pantalla</th>
+<th class="tableblock halign-left valign-top">Información de vistas</th>
+<th class="tableblock halign-left valign-top">Localización de variables</th>
+<th class="tableblock halign-left valign-top">Unidades por defecto</th>
+<th class="tableblock halign-left valign-top">Valores por defecto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cent=</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">vista centrada</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Primeros 3 números</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Milímetros</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.000 0.000 0.000</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sz=</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Medida de la vista (Size)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4to número</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Milímetros</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Dependiente del tamaño seleccionado</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">az=</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Ángulo de vista</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">5to-6to números</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Grados</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">35.00</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">el=</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">25.00</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">tw=</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Giro (Twist)</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">7mo-10mo números</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Grados</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.00</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ang=</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ángulo de visión (Angle)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0.00 0.00 0.00</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="viewing_system_elements">Identificar elementos del sistema de visualización de MGED.</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_vista_centrada">Vista centrada</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>El primer conjunto de la información le dirá el centro de lo que está viendo. Usted puede cambiar el centro de lo que está mirando, tanto por la GUI como por comandos.</p>
+</div>
+<div class="paragraph">
+<p>Para modificar el centro de la vista de su radio usando la interfaz gráfica, presione la tecla SHIFT y cualquier botón del mouse mientras lo arrastra. También puede mover el centro posicionando el puntero del mouse donde quiere que esté ubicado el centro y luego presionar el botón del medio del mouse.</p>
+</div>
+<div class="paragraph">
+<p>Para cambiar el centro utilizando la ventana de comandos, simplemente tipee en el prompt la palabra "center" seguido de tres valores que corresponderán a la x, la y y la z. <strong>center 0 15 325.735 [Enter]</strong> A medida que cambia su punto de vista de su modelo, observe que los números que están entre paréntesis luego del título cent= cambiarán para reflejar el nuevo centro de la vista.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_tama_o_de_la_vista">Tamaño de la vista</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>El tamaño de la vista es la cantidad de espacio modelo que se muestra en la ventana gráfica. Por ejemplo, imagine que usa una cámara con una lente de zoom para fotografiar una rosa. Como se muestra en las siguientes imágenes, si hace zoom sobre la rosa, aparecerá grande en relación a su campo de visión. Si aleja la imagen, aparecerá más pequeña. El tamaño de vista de la rosa de la imagen de la izquierda podría representar sólo 15 mm de diámetro, mientras que el tamaño de la vista para la imagen de la derecha podría representar 100 mm de diámetro. En ambos casos, sin embargo, el tamaño real de la rosa es el mismo.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_flower_zoomin.jpg" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_flower_zoomout.jpg" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Zoom de acercamiento para ver detalles (vista a pequeña escala)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Zoom distante para ver el objeto en relación con su entorno (vista a gran escala)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Para modificar el tamaño de la vista de su radio por medio de la GUI cliquee el botón derecho del mouse para acercar la vista, y el botón izquierdo para alejarla. Cada vez que cliquee cualquiera de los dos botones, la vista del diseño incrementará o decrementará en tamaño en un factor igual a 2 (dos veces más grande o más pequeño que el tamaño previo).</p>
+</div>
+<div class="paragraph">
+<p>También puede hacer zoom hacia dentro o hacia afuera de su modelo seleccionando del menú View (Vista) las opciones Zoom In o Zoom Out. Un inconveniente de este método es que sólo se puede acercar o alejar una medida cada vez, debido a que el menú desplegable se cierra una vez que se hace la selección.</p>
+</div>
+<div class="paragraph">
+<p>Si se pierde en algún momento mientras crea su modelo, puede usar el comando zap para despejar el diseño de la ventana gráfica, y luego volver a llamar a la figura con el comado draw. Cuando aplica draw en una ventana gráfica vacía <em>MGED</em> reacomoda la vista automáticamente para visualizar lo que acaba de dibujar de modo que utilice la ventana completa.</p>
+</div>
+<div class="paragraph">
+<p>También puede controlar el tamaño de su diseño desde la ventana de comandos con el comando "size", seguido del porcentaje de crecimiento o decrecimiento. Por ejemplo: <strong>size 100 [Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Desde la línea de comandos también se puede acercar o alejar la vista. Por ejemplo, para que su radio aparezca reducido a la mitad, usted debe tipear: <strong>zoom 0.5 [Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Para que su radio se vea dos veces más grande, debería tipear: <strong>zoom 2 [Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Nota: Recuerde que modificando el tamaño de la vista NO se modifica el tamaño del objeto. Sabrá como escalar el tamaño del objeto en el tutorial #6.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_ngulo_de_visualizaci_n">Ángulo de visualización</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Acimut, elevación y giro (todos medidos en grados) determinan la vista que usted tiene en relación al objeto. Acimut (azimuth), determina su ubicación alrededor del objeto (enfrente, a la izquierda o derecha, detrás, o algún punto intermedio). La elevación (elevation) determina su visualización en forma vertical, por encima o por debajo. Y giro (twist) determina el ángulo de rotación que tiene respecto de la dirección de la figura.</p>
+</div>
+<div class="paragraph">
+<p>Para comprender mejor el acimut, imagine que camina alrededor de un camión con una cámara en mano. Como se mostrará en las siguientes ilustraciones, se ubicará en el valor 0&#8217;0 del acimut si se posiciona exactamente frente al camión. El valor irá acrecentándo mientras lo rodee hacia la derecha. De esta manera, si está enfrentado a la puerta del conductor (siendo que el asiento del conductor es de la izquierda) se encontrará a una posición de 90&#8217;0 acimut, detrás del camión será de 180&#8217;0, y del lado de la puerta del acompañante será de 270&#8217;0.</p>
+</div>
+<div class="paragraph">
+<p>Nota: Los términos azimuth, elevation y twist son similares a los términos yaw, pitch, and roll, respectivamente, los cuales son comúnmente utilizados en la industria aeroespacial.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_front.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_35_0.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Front (az=0, el=0)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">az=35, el=0</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_left.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_rear.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Left (az=90, el=0)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Rear (az=180, el=0)</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 100.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_right.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Right (az=270, el=0)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Por otro lado, la elevación determina la posición del espectador arriba o debajo del objeto. En el ejemplo anterior, usted se desplazó alrededor del camión sin modificar su altura relativa. Tenía una elevación de 0&#8217;0, lo que significa que se ubicada al mismo nivel. En la siguientes imágenes ilustrativas, imagine que detiene el camión en un acimut de 35&#8217;0 y luego sube a una escalera para fotografiarlo a una elevación de 25&#8217;0. Trepando aún más podrá fotografiarlo desde una elevación de 60&#8217;0. Si la cámara enfocara directamente hacia abajo, posicionandose exactamente sobre el camión, la elevación sería de 90&#8217;0. Si se agachara bajo el camión y mirara directamente hacia arriba, su elevación sería de -90&#8217;0.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_35_0.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_35_25.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">az=35, el=0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">az=35, el=25</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_35_60.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_35_90.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">az=35, el=60</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">az=35, el=90</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_270_90.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_270_-90.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Top (az=270, el=90)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bottom (az=270, el=-90)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Finalmente, el giro (que es una configuración opcional en <em>MGED</em>) especifica la rotación en relación a la direccion de la vista. La rotación se aplica a la vista antes de que el acimut o la elevación sean designados. Siguiendo con el ejemplo del camión, imagine que se posiciona exactamente delante del camión (az=0, el=0) y luego rota su cámara en sentido horario 14&#8217;0. Esto modificará el ángulo de giro de su visión en 14&#8217;0, como muestra la siguiente figura de la izquierda. Note nuevamente que no es el camión el que se mueve, sino sólo su vista sobre el mismo. Para saber más sobre giros, mire el comando <strong>ae</strong> en el apéndice A.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 100.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_truck_0_0_14.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Front (az=0, el=0, tw=14)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="coord_sys_summary">Relación del Acimut y la Elevación con el sistema de coordenadas xyz</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Como mencionamos al principio de este tutorial, <em>MGED</em> opera en un sistema de coordenadas tridimensional (determinado por los ejes x, y, and z). Acimut se mide por los ejes del plano xy, con el semieje positivo del eje x correspondiendo al acimut igual a 0&#8217;0. Los ángulos positivos del acimut son medidos desde el lado positivo del eje x, yendo hacia y pasando el lado positivo del eje y (sentido antihorario). Los valores negativos de acimut son medidos en la dirección opuesta.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged02_coordsys.png" alt="../../lessons/es/images/mged02_coordsys.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Si el ángulo de acimut es de 0&#8217;0, la elevación es medida en el plano con +90&#8217;0 correspondiendo al semieje positivo del eje z, y -90&#8217;0, si es al semieje negativo. Si el acimut no es 0&#8217;0, los ángulos de elevación están alineados con la dirección del acimut.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="view_radio_angles">Visualizando su radio desde distintos ángulos</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Vamos ahora a experimentar con las distintas vistas de su radio. <em>MGED</em> tiene algunas vistas estándard por defecto, las cuales pudieron apreciarse en el ejemplo del camión. Están incluídas las vistas desde arriba (Top)(az270, el90); desde abajo (Bottom)(az270, el-90); desde la derecha (Right)(az270, el0); desde la izquierda (Left)(az90, el0); de frente (Front)(az0, el0); y por detrás (Rear)(az180, el0); az35, el25; and az45, el45.</p>
+</div>
+<div class="paragraph">
+<p>Despliegue el menú View (Vistas) e intente ver su radio desde distintos ángulos.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_radio_top.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_radio_35_25.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Top</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">az35,el25</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_radio_right.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../../lessons/es/images/mged02_radio_front.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Right</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Front</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>También puede seleccionar alguna combinación de acimut, elevación y giro de su vista desde la línea de comandos. Por ejemplo, tipee en un prompt: <strong>ae 128 17 [Enter]</strong> Como muchas otras opciones de la línea de comandos, este método es mucho más preciso al ofrecer mayor control de las medidas en grados de lo que usted necesita modificar.</p>
+</div>
+<div class="paragraph">
+<p><em>MGED</em> también puede mostrar varias vistas en simultáneo. Seleccione del menú Modes (Modos) la opción Multipane (Multipanel). Pequeños paneles con vistas distintas aparecerán una ventana gráfica, como se muestra en la ilustración:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged02_multipane.png" alt="../../lessons/es/images/mged02_multipane.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="shift_grips">Trabajar con atajos de teclado (Shift Grips)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Las opciones de atajos de teclado (Shift Grip) de <em>MGED</em> son una combinación de presiones de teclado y botones del mouse que pueden ser utilizados de distinta forma. Estos atajos de teclados podrán mover el espacio en torno al espectador, sin modificar el objeto en sí, ni sus coordenadas. Deberá familiarizarse con el modo en que operan porque en el modo edición usted podrá mover y modificar la geometría real de los objetos; y en ambos casos, el cambio parece ser el mismo.</p>
+</div>
+<div class="paragraph">
+<p>En general, la tecla SHIFT translada (mueve), el CTRL rota, y el ALT limita las traslaciones o rotaciones a un eje particular (x, y, o z). Los ejes corresponden a los tres botones del mouse de la siguiente forma: el botón izquierdo para el eje x, el del medio para el eje y y el derecho para el eje z. Además, las teclas SHIFT y CTRL pueden combinarse con cualquier botón del mouse para escalar el objeto, en cuyo caso la tecla ALT no podrá limitar esta acción. La siguiente tabla muestra las distintas opciones y sus funciones.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Los atajos de teclado y sus efectos</caption>
+<colgroup>
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Función</th>
+<th class="tableblock halign-left valign-top">Combinación de teclas</th>
+<th class="tableblock halign-left valign-top">Efecto en la vista normal</th>
+<th class="tableblock halign-left valign-top">Efecto en modo Edición</th>
+<th class="tableblock halign-left valign-top">Translación (Mueve)</th>
+</tr>
+<tr>
+<th class="tableblock halign-left valign-top">SHIFT + cualquier botón del mouse + moviento del mouse</th>
+<th class="tableblock halign-left valign-top">Mueve la vista en cualquier dirección</th>
+<th class="tableblock halign-left valign-top">Translada el objeto en cualquier dirección</th>
+<th class="tableblock halign-left valign-top">Rotación</th>
+<th class="tableblock halign-left valign-top">CTRL + cualquier botón del mouse + moviento del mouse</th>
+</tr>
+<tr>
+<th class="tableblock halign-left valign-top">Rota la vista en cualquier dirección</th>
+<th class="tableblock halign-left valign-top">Rota el objeto en cualquier dirección</th>
+<th class="tableblock halign-left valign-top" rowspan="3">Traslación limitada</th>
+<th class="tableblock halign-left valign-top">SHIFT + ALT + botón izquierdo + movimiento del mouse</th>
+<th class="tableblock halign-left valign-top">Mueve la vista en la dirección x</th>
+</tr>
+<tr>
+<th class="tableblock halign-left valign-top">Mueve el objeto en la dirección x</th>
+<th class="tableblock halign-left valign-top">SHIFT + ALT + botón medio + movimiento del mouse</th>
+<th class="tableblock halign-left valign-top">Mueve la vista en la dirección y</th>
+<th class="tableblock halign-left valign-top">Mueve el objeto en la dirección y</th>
+<th class="tableblock halign-left valign-top">SHIFT + ALT + botón derecho + movimiento del mouse</th>
+</tr>
+<tr>
+<th class="tableblock halign-left valign-top">Mueve la vista en la dirección z</th>
+<th class="tableblock halign-left valign-top">Mueve el objeto en la dirección z</th>
+<th class="tableblock halign-left valign-top" rowspan="3">Rotación limitada</th>
+<th class="tableblock halign-left valign-top">CTRL + ALT + botón izquierdo + movimiento del mouse</th>
+<th class="tableblock halign-left valign-top">Rota la vista según el eje x</th>
+</tr>
+<tr>
+<th class="tableblock halign-left valign-top">Rota el objeto según el eje x</th>
+<th class="tableblock halign-left valign-top">CTRL + ALT + botón medio + movimiento del mouse</th>
+<th class="tableblock halign-left valign-top">Rota la vista según el eje y</th>
+<th class="tableblock halign-left valign-top">Rota el objeto según el eje y</th>
+<th class="tableblock halign-left valign-top">CTRL + ALT + botón derecho + movimiento del mouse</th>
+</tr>
+<tr>
+<th class="tableblock halign-left valign-top">Rota la vista según el eje z</th>
+<th class="tableblock halign-left valign-top">Rota el objeto según el eje z</th>
+<th class="tableblock halign-left valign-top">Escalar</th>
+<th class="tableblock halign-left valign-top">SHIFT + CTRL + cualquier botón del mouse + movimiento del mouse</th>
+<th class="tableblock halign-left valign-top">Escala la vista en forma creciente o decreciente</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Escala el objeto en forma creciente o decreciente</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock caution">
+<table><tr>
+<td class="icon">
+<div class="title">Caution</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Dependiendo de su administrador de escritorio o de la configuración de su entorno gráfico, algunas combinaciones de teclas pueden estar reservadas para otras tareas (p.e.: modificar el tamaño de una ventana). De ser así, usted debe reconfigurarlo para poder habilitar las opciones de Shift Grip. Los zurdos, por ejemplo, podrían haber cambiado el comportamiento de los botones izquierdo y derecho en sus configuraciones de sistema. En tales casos, los términos botón izquierdo del ratón y el botón derecho del ratón debe ser cambiados en todo este documento.</p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>Probablemente, la mejor forma de familiarizarse con las opciones de Shift Grip es probándolas sobre su radio. Utilizando el cuadro previo como guía, pruebe la traslación, rotación y limitación a los distintos ejes, modificando las vistas y escalando la imágen.</p>
+</div>
+<div class="paragraph">
+<p>Nota: Recuerde que las opciones de Shift Grip manipula objetos. A menos que usted se encuentre en el modo Edit (Edición), se modificará únicamente la visión de los diseños.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="learning_viewing_options_review">Revisión</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial usted aprendió a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Crear el diseño de una radio.</p>
+</li>
+<li>
+<p>Localizar información sobre la vista en la ventana de comandos.</p>
+</li>
+<li>
+<p>Identificar elementos del sistema de visualización de <em>MGED</em>.</p>
+</li>
+<li>
+<p>Visualizar su radio desde distintos ángulos.</p>
+</li>
+<li>
+<p>Trabajar con atajos de teclado.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

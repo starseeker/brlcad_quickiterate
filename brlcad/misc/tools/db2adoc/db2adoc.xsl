@@ -443,6 +443,11 @@
     <xsl:text>&#10;----&#10;&#10;</xsl:text>
   </xsl:template>
 
+  <!-- funcsynopsisinfo inside funcsynopsis: verbatim preamble (e.g. #include) -->
+  <xsl:template match="db:funcsynopsisinfo" mode="funcsynopsis">
+    <xsl:value-of select="."/>
+  </xsl:template>
+
   <xsl:template match="db:funcprototype" mode="funcsynopsis">
     <xsl:apply-templates mode="funcsynopsis"/>
     <xsl:text>;&#10;</xsl:text>
@@ -1518,6 +1523,39 @@
   <!-- acronym, abbrev -->
   <xsl:template match="db:acronym | db:abbrev">
     <xsl:apply-templates/>
+  </xsl:template>
+
+  <!-- classname, interfacename, exceptionname: render as monospace -->
+  <xsl:template match="db:classname | db:interfacename | db:exceptionname | db:structname">
+    <xsl:text>`</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>`</xsl:text>
+  </xsl:template>
+
+  <!-- guilabel, guibutton: render as bold (GUI widget label) -->
+  <xsl:template match="db:guilabel | db:guibutton | db:guiicon">
+    <xsl:text>*</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>*</xsl:text>
+  </xsl:template>
+
+  <!-- guimenu, guisubmenu, guimenuitem: render as bold menu path -->
+  <xsl:template match="db:guimenu | db:guisubmenu | db:guimenuitem">
+    <xsl:text>*</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>*</xsl:text>
+  </xsl:template>
+
+  <!-- optional: inline optional argument shown as [text] -->
+  <xsl:template match="db:optional">
+    <xsl:text>[</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>]</xsl:text>
+  </xsl:template>
+
+  <!-- funcsynopsisinfo: verbatim #include or other synopsis preamble -->
+  <xsl:template match="db:funcsynopsisinfo">
+    <xsl:value-of select="."/>
   </xsl:template>
 
   <!-- superscript, subscript -->

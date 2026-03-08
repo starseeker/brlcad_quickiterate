@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>OBJ-G(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>OBJ-G(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>obj-g - Convert a Wavefront Object (obj) file to a BRL-CAD .g database.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>obj-g [-c] [-d] [-f] [-g&lt;grouping_option&gt;] [-H&lt;plate_thickness&gt;] [-i] [-m&lt;mode&gt;] [-o&lt;open_bot_type&gt;] [-p] [-r&lt;bot_orientation&gt;] [-t&lt;distance_tolerance&gt;] [-u&lt;units_str&gt;] [-v]... [-x&lt;rt_debug_flag&gt;] [-X&lt;NMG_debug_flag&gt;] &lt;input.obj&gt; &lt;output.g&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="objg_description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>obj-g</strong> converts a Wavefront Object file to BRL-CAD&#8217;s .g format.</p>
+</div>
+<div class="paragraph">
+<p>Only face elements are supported. Materials and textures associated with face elements are unsupported. Faces associated with materials and/or textures will convert but material properties and textures are ignored. Face groupings convert to BRL-CAD primitives. Any hierarchical structure (i.e. assembly structure) defined in the obj file is not maintained in the conversion. If a face is a member of more than one 'group' grouping, a copy of the face will exist in each group in the resulting model. Primitives are named based on the grouping names and have appended to each name a string which guarantees uniqueness. This unique string includes the obj file grouping index number, face type number (1-4), internal conversion mode (b=native-bot|n=nmg|v=bot-via-nmg) and surface closure status (o=open|c=closed|u=untested). Characters in the original grouping name which may cause problems are replaced with the underscore character.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="objg_options">OPTIONS</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-c</strong></dt>
+<dd>
+<p>Continue processing on nmg-bomb. If this option is set and an nmg-bomb occurs (i.e., fatal error during processing nmg or bot-via-nmg) conversion will fall back to outputting the grouping to 'native-bot' and then continue processing the next grouping. If this option is not set and an nmg-bomb occurs then all processing will stop and the converter will exit.</p>
+</dd>
+<dt class="hdlist1"><strong>-d</strong></dt>
+<dd>
+<p>Output debug information to standard error. Because <strong>-d</strong> results in an extremely large amount of information, it is strongly suggested that standard error be redirected to a file.</p>
+</dd>
+<dt class="hdlist1"><strong>-f</strong></dt>
+<dd>
+<p>Fuse vertices that are within <em>distance_tolerance</em> of each other. This can make the solidity detection more reliable, but may significantly increase processing time during conversion.</p>
+</dd>
+<dt class="hdlist1"><strong>-g <em>grouping_option</em></strong></dt>
+<dd>
+<p>Choose which face grouping, as defined in the obj file, to use to create the BRL-CAD primitives. The grouping_option may be one of (g|o|m|t|n) where g = group (default), o = object, m = material, t = texture, n = none. Choose a grouping option which will produce the appropriate primitives for the intended use of the resulting model. Typically not all groupings exist in every obj file. Do not choose 'none' as the grouping option unless you have a specific need for no grouping. Choosing 'none' for a large conversion will significantly increase the time and system memory required for a conversion to complete. Choosing a grouping which does not exist in the obj file has the same effect as choosing 'none'. Note: It is possible for a single grouping to produce up to four primitives due to the four possible face types that can exist in an obj file. The values of the index numbers appended to the end of the primitive names will give an indication if this has occurred.</p>
+</dd>
+<dt class="hdlist1"><strong>-H <em>plate_thickness</em></strong></dt>
+<dd>
+<p>Plate thickness in mm units of plate or plate-nocos bots created when the bot is not a closed volume. This option is ignored unless the open_bot_type is set to 'plate' or 'plate nocos' (see -o option).</p>
+</dd>
+<dt class="hdlist1"><strong>-i</strong></dt>
+<dd>
+<p>Ignore normals defined in the obj file when the conversion mode is 'native-bots'. This option has no effect when the conversion mode is set to 'nmg' or 'bot-via-nmg', where provided normals are always ignored (see -m option).</p>
+</dd>
+<dt class="hdlist1"><strong>-m <em>mode_option</em></strong></dt>
+<dd>
+<p>Choose the conversion mode. The mode_option may be one of (b|n|v) where b = native-bot (default), n = nmg, v = bot-via-nmg. The 'native-bot' mode is best for a relatively quick conversion where creating solids is not the highest priority. It attempts to identify surface closure (solids) but is not as robust as 'bot-via-nmg'. It is the only mode that supports use of the obj file normals. The 'bot-via-nmg' mode is the best option for creating solids (i.e. volume-mode-bots).</p>
+</dd>
+<dt class="hdlist1"><strong>-o <em>open_bot_type</em></strong></dt>
+<dd>
+<p>Type of bot to create when the primitive is not a closed volume. open_bot_type can be (s|p|n) where s = surface bot (default), p = plate bot, n = plate-nocos bot. Generally use 'surface bot' if open surface thickness is irrelevant or the purpose of the resulting model is strictly visualization. Use 'plate bot' or 'plate-nocos bot' when open surfaces must have a defined thickness. Note: An incorrect plate thickness can create geometry overlaps. Use the '-H' option to define plate thickness.</p>
+</dd>
+<dt class="hdlist1"><strong>-p</strong></dt>
+<dd>
+<p>Plot open edges when creating bots which are not a closed volume. A plot/overlay (.plot3) file will be created with the same name as the bot primitive and be placed in the current directory. If a plot file already exists, it will be overwritten. Closed edges are closed but open edges are not necessarily open. This is due to limitations of the algorithm for identifying open edges.</p>
+</dd>
+<dt class="hdlist1"><strong>-r <em>bot_orientation</em></strong></dt>
+<dd>
+<p>Orientation type to use for bot primitives. bot_orientation can be (1|2|3), where 1 = unoriented, 2 = ccw, and 3 = cw; 1 is default.</p>
+</dd>
+<dt class="hdlist1"><strong>-t <em>distance_tolerance</em></strong></dt>
+<dd>
+<p>Maximum distance, in mm units, where two vertices are considered the same. The default is 0.0005mm, which matches the default raytracer distance tolerance. Do not change this value unless you also change the raytracer distance tolerance.</p>
+</dd>
+<dt class="hdlist1"><strong>-u <em>units_str</em></strong></dt>
+<dd>
+<p>Units of obj file, where units_str can be any valid BRL-CAD unit such as (m|cm|mm|ft|in) or a custom conversion factor from obj file units to mm.</p>
+</dd>
+<dt class="hdlist1"><strong>-v</strong></dt>
+<dd>
+<p>Output verbose user information to standard error (stderr) stream. There are different levels of verbose output where higher levels increase the amount of output information. Each occurrence of this option in the parameter list increases the verbosity level (two levels currently). A large amount of information will be output so redirecting stderr to a file is highly recommended. Verbose messages add warning and detailed conversion status messages to the default status and error messages. <strong>-v</strong> must be enabled for warning messages to be reported.</p>
+</dd>
+<dt class="hdlist1"><strong>-x <em>rt_debug_flag</em></strong></dt>
+<dd>
+<p>Specifies debug bits (see raytrace.h).</p>
+</dd>
+<dt class="hdlist1"><strong>-X <em>NMG_debug_flag</em></strong></dt>
+<dd>
+<p>Specifies debug bits for NMG&#8217;s (see nmg.h).</p>
+</dd>
+<dt class="hdlist1"><strong><em>input.obj</em></strong></dt>
+<dd>
+<p>The path and file name of the input WaveFront Object file.</p>
+</dd>
+<dt class="hdlist1"><strong><em>output.g</em></strong></dt>
+<dd>
+<p>The path and file name of the output BRL-CAD database file. If this file already exists, it will be overwritten.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="objg_examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following will convert the obj file <em>input.obj</em> to the BRL-CAD database <em>output.g</em>.</p>
+</div>
+<div class="exampleblock">
+<div class="title">BOT Conversion</div>
+<div class="content">
+<div class="paragraph">
+<p><strong>obj-g -u mm -i input.obj output.g</strong></p>
+</div>
+<div class="paragraph">
+<p>Convert obj file 'input.obj' to BRL-CAD database file 'output.g' using native-bot conversion mode. Non-closed surfaces will be output as surface-mode bots; closed surfaces will be output as volume-mode bots. BRL-CAD primitives will be created based on the obj file 'group' grouping. The obj file units are set to millimeters (implies conversion factor of 1.0). Any normals specified in the obj file are ignored. All messages will be sent to the display.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">BOT via NMG Conversion</div>
+<div class="content">
+<div class="paragraph">
+<p><strong>obj-g -m v -o p -H 5 -g o -v -v input.obj output.g 2&gt; output.log</strong></p>
+</div>
+<div class="paragraph">
+<p>Convert obj file 'input.obj' to BRL-CAD database file 'output.g' using bot-via-nmg conversion mode. Non-closed surfaces will be output as plate-mode bots, with plate thickness of 5mm. Closed surfaces will be output as volume-mode bots. BRL-CAD primitives will be created based on the obj file 'object' grouping. The obj file units are assumed to be meters (implies conversion factor of 1000.0). Level two verbose messages are enabled. All standard-error messages are sent to the log file 'output.log'.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="objg_diagnostics">DIAGNOSTICS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Numerous warning and error conditions are possible, usually due to invalid source geometry. Descriptive messages are printed on standard error (file descriptor 2). <strong>-v</strong> must be enabled for warning messages to be printed.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Richard Weiss</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 2010-2025 United States Government as represented by the U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

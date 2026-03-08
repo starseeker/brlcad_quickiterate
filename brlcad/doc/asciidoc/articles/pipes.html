@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Dwayne L Kregel">
+<title>Using the Pipe Primitive</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Using the Pipe Primitive</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Dwayne L Kregel</span><br>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="pipe_general_use">General Use</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Fewer primitives and Booleans.</strong> One pipe primitive can effectively represent hundreds of cylinders and tori with their associated subtraction and bounding primitives. This means fewer parameter values to define and simpler regions.</p>
+</li>
+<li>
+<p><strong>Easier editing.</strong> Because the pipe is just one primitive, extending it, hollowing it out, or otherwise changing its parameters can be easily and efficiently performed without having to edit many primitives. Unfortunately, seemingly simple edits to combined geometry can often require not-so-simple changes/calculations associated with the underlying primitives.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Although a pipe is a single primitive (regardless of how long it is and how many bends it has), geometrically, it is effectively a series of cylinders connected by torus sections. As illustrated in Figure A-1, the pipe must have a minimum of two end points (shown in blue). Between the end points can be any number of other points (shown in red) to designate bends in the pipe or changes in pipe diameter. All points (including end points) contain information to define the bend radius, outer diameter, and inner diameter.</p>
+</div>
+<div class="paragraph">
+<p>To build a pipe, points can be appended after a given point, prepended before a given point, moved, or deleted; and the parameters at each point can be independently edited at any time.</p>
+</div>
+<div class="paragraph">
+<p>One potentially confusing aspect of the pipe is that bend points do not always lie along the pipe&#8217;s path. This is because the bend radius dictates the path of the pipe between points. As shown in Figure A-2, which depicts the same pipe with three different bend radii, a small bend radius means the bend point will be closer to the path of the pipe, and a large bend radius means the point will be farther away. Also, because a bend is computationally equivalent to a section of torus, each point is constrained to accept only those bends that are consistent with the parameters of a torus (e.g., the user cannot specify a bend radius that is so small that it violates the defined characteristics of a torus).</p>
+</div>
+<div class="paragraph">
+<p>In addition, because they are defining turns, points in a pipe are often nonlinear. However, as shown in Figure A-3, collinear points can also be used when a modeler simply wants to achieve a tapered or "stepped" inside or outer diameter on a straight-running tube. Examples of other potential uses include a notched axle on a vehicle, a pressed gear fitting, and a tapered end on a garden hose.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/pipes_fig01.png" alt="../articles/images/pipes_fig01.png">
+</div>
+<div class="title">Basic pipe with parameters.</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/pipes_fig02.png" alt="../articles/images/pipes_fig02.png">
+</div>
+<div class="title">Various bend radii.</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/pipes_fig03.png" alt="../articles/images/pipes_fig03.png">
+</div>
+<div class="title">Example of special uses of the pipe.</div>
+</div>
+<div class="paragraph">
+<p>Nonetheless, it is good modeling practice to build your pipe with only those points needed to define its shape. It is not necessary to add extra collinear points along a long straight section of pipe. Note too that pipes are not required to have hollow volume in them at all. The modeler can set the inner diameter to 0 and achieve a solid shape.</p>
+</div>
+<div class="paragraph">
+<p>Modelers should remember that when a pipe is made with the <strong>make</strong> or <strong>create</strong> command, the default values for the previously listed parameters are based upon the size of the view in the graphics window when the pipe is first created. This is important because modelers can sometimes find themselves unable to move or delete certain points due to relatively large bend radii (e.g., that might have been established when the pipe was first created in a relatively large graphics window). These large radii constrain the shape and prevent it from accepting mathematically invalid commands (e.g., a larger inner diameter than outer diameter or an unacceptably tight bend radius).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="pipe_make_coil">Making a Coil</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In addition to using the pipe primitive to make tubular objects such as electrical and hydraulic lines, it can be used to make other types of objects.</p>
+</div>
+<div class="paragraph">
+<p>Consider, for example, the building of a wire coil. The pipe primitive can reduce the complexity of the process by avoiding some of the difficulties associated with combining geometry.</p>
+</div>
+<div class="paragraph">
+<p>The main challenge of using the pipe to build a coil is to locate where the points should be in order to achieve the properly dimensioned geometry. We can start with the following measured dimensions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Diameter of the coil</strong> - The critical measurement here is the center-to-center measurement. It is difficult to measure this directly, but it can be easily derived from an outside-to-outside measurement by subtracting the wire diameter.</p>
+</li>
+<li>
+<p><strong>Diameter of the wire</strong> - This will define the outer diameter (or gauge) of the pipe.</p>
+</li>
+<li>
+<p><strong>Height per coiled section</strong> - The best way to derive this measurement is to take a total measurement of the coil sections and divide by the number of turns. This will ensure the total height and number of turns are correct and will allow one to measure to the tolerance of his tool with minimal error.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In the example shown in Figure A-4, the coil diameter is 1/4 (0.25) in, the wire diameter is 1/32 (0.03125) in, and the height of each of the 10 coil sections is 7/32 (0.21875) in.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/pipes_fig04.png" alt="../articles/images/pipes_fig04.png">
+</div>
+<div class="title">Determining the point positions for the copper coil.</div>
+</div>
+<div class="paragraph">
+<p>The key to properly and precisely positioning points to build a coil section is to use half of the coil diameter as an offset. The first and the last points in the coil must lie on the pipe&#8217;s path. These points are easily determined at 90°intervals from the center of the pipe (or, with a bit of trigonometry, at any interval). The rest of the points for the pipe are located at ±offsets in whichever plane is perpendicular to the pipe height vector from the center of the pipe with the proper height delta (which will generally be 1/4 of the height per coil section).</p>
+</div>
+<div class="paragraph">
+<p>Obviously, the construction of this type of object is a little more advanced than the construction of many of the other types of objects discussed. Thus, the following text provides the user with step-by-step instructions that can also serve as a kind of template when using the pipe primitive to build a coil or similar object.</p>
+</div>
+<div class="paragraph">
+<p>To build two turns of a coil at the origin with a coil diameter of 1000 mm, a wire diameter of 200 mm, and a coil height of 400 mm (running along the +Z axis), the user would perform the following steps (or ones similar to them):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Set the units to millimeters using the <strong>units</strong> command on the command line (<code>mged&gt;units mm</code>) or the Units option in the graphical user interface (GUI) (File -&gt; Preferences -&gt; Units).</p>
+</li>
+<li>
+<p>Set the screen size to 2000 using the <strong>size</strong> command (mged&gt;size 2000) and center the screen at 0 0 400 using the <strong>center</strong> command (mged&gt;center 0 0 400).</p>
+</li>
+<li>
+<p>Create a pipe named spring.s1 using the <strong>make</strong> command (mged&gt;make spring.s1 pipe) from the command line or the Create option from the GUI. Select the pipe for editing using either the <strong>sed</strong> command (mged&gt;sed spring.s1) or the Enter Primitive Name dialog box.</p>
+</li>
+<li>
+<p>With the default pipe in edit mode, set the diameter of the wire. To do this, first set the inner diameter of the wire to 0 by using the Edit menu&#8217;s Set Pipe ID option and the <strong>p</strong> command on the command line (mged&gt;p 0). Next, set the outer diameter to 200 using the Set Pipe OD option and the p command (mged&gt;p 200). (Be sure to set the Pipe inner diameter [ID] and outer diameter [OD], not the Point ID and OD.)</p>
+</li>
+<li>
+<p>Set the pipe bend to 500 mm using the Edit menu&#8217;s Set Pipe Bend option and the <strong>p</strong> command (mged&gt;p 500).</p>
+</li>
+<li>
+<p>Translate the pipe to coordinate 0 500 0 by selecting the Edit menu&#8217;s Translate option and the <strong>p</strong> command (mged&gt;p 0 500 0).</p>
+</li>
+<li>
+<p>Choose the Edit menu&#8217;s Select Point option and use the center mouse button to click on (or near) the top of the pipe segment.</p>
+</li>
+<li>
+<p>Move the top end point to 500 500 50 using the Edit menu&#8217;s Move Point option and the <strong>p</strong> command (mged&gt;p 500 500 50).</p>
+</li>
+<li>
+<p>Add points at the following coordinates using the Edit menu&#8217;s Append Point option and the <strong>p</strong> command (the visual effect for each of the commands is shown to the right of each command):</p>
+</li>
+</ul>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p 500 -500 150</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig05.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p -500 -500 250</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig06.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p -500 500 350</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig07.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p 500 500 450</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig08.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p 500 -500 550</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig09.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p -500 -500 650</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig10.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p -500 500 750</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig11.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">- mged&gt;p 0 500 800</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../articles/images/pipes_fig12.png" alt=""></span></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The raytraced image of the coil segment is shown in Figure A-5.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/pipes_fig13.png" alt="../articles/images/pipes_fig13.png">
+</div>
+<div class="title">Raytraced coil segment.</div>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Important Points to Remember About the Pipe</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Even the end points of a pipe have a bend radius (although it is not used unless the point is changed to an interior point).</p>
+</li>
+<li>
+<p>Each bend radius value must be greater than half the value of its corresponding outer diameter.</p>
+</li>
+<li>
+<p>The pipe primitive does not have to be used for hollow tubes. The inner diameter can be 0, making the object solid.</p>
+</li>
+<li>
+<p>The bend radius at each point constrains the pipe in such a way that the path of the pipe often touches only end points, not those in between.</p>
+</li>
+<li>
+<p>BRL-CAD will not allow points to be added, deleted, or moved if the result of such actions would create pipes with mathematically invalid characteristics.</p>
+</li>
+<li>
+<p>Points may not be coincident; they must be offset by at least 0.0001 mm.</p>
+</li>
+<li>
+<p>When modeling a tube with fluid inside of it, model both the tube and fluid as solid pipes and subtract the fluid from the tube.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

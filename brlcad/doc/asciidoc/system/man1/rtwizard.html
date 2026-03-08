@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>RTWIZARD(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>RTWIZARD(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>rtwizard - Combines images from several raytracing techniques to produce complex images.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>rtwizard [&lt;options&gt;]...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="rtwizard_description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>RtWizard</em> is a tool that orchestrates several BRL-CAD utilities to produce complex images of geometry in prescribed styles. There are two primary modes of operation.</p>
+</div>
+<div class="paragraph">
+<p>The first mode of operation is a graphical client to guide users through the process of creating images interactively. To invoke that mode, simply run <strong>rtwizard</strong> and a wizard-style GUI should appear. Graphical mode has integrated documentation and workflows, and is intended to be discoverable and self-explanatory.</p>
+</div>
+<div class="paragraph">
+<p>The second mode of operation is a command line mode to allow users who already know what options they wish to use to quickly and automatically produce images. It is also useful for programmatic scripting and bulk rendering of images.</p>
+</div>
+<div class="paragraph">
+<p><em>RtWizard</em> generates and composites images in a variety of styles including full-color images, edge line drawings, and "ghosted" images with options for highlighting and emphasizing model features and subsets of models. Color ray tracings are produced by <strong>rt</strong>, "hidden-line drawings" produced by <strong>rtedge</strong>, and semi-transparent / faded greyscale "ghosted" ray tracings are produced with <strong>rt</strong> and a variety of image manipulation tools included with BRL-CAD. GUI-mode presents workflows for setting up each image type, and command-line mode provides the <strong>&#8212;&#8203;type</strong>, described below.</p>
+</div>
+<div class="paragraph">
+<p>The following command-line options are recognized by <strong>rtwizard</strong>:</p>
+</div>
+<div class="paragraph">
+<p><strong>-i</strong> <em>geometry_file</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;input</strong> <em>geometry_file</em></dt>
+<dd>
+<p>Specifying the geometry database containing the objects to be raytraced. The <strong>i</strong> option will override a non-flagged geometry file specification.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-o</strong> <em>output_file[.imgformat]</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;output</strong> <em>output_file[.imgformat]</em></dt>
+<dd>
+<p>The name (and optionally the output image format) of the final image generated by rtwizard. If the output filename uses a .png file extension, the Portable Network Graphics image format will be used when writing out the file. Otherwise, a standard BRL-CAD pix image will be generated.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-d</strong> <em>framebuffer_device</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;fbserv-device</strong> <em>framebuffer_device</em></dt>
+<dd>
+<p>Under the hood, <strong>fbserv</strong> is run to assist with processing. The <strong>-d</strong> option specifies the type of framebuffer <strong>fbserv</strong> should use in lieu of the default memory-only interface (/dev/mem). See <strong>fbhelp</strong> for a listing of available device options. Framebuffer servers started by <strong>rtwizard</strong> are automatically closed after image generation is complete.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-p</strong> <em>port_number</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;fbserv-port</strong> <em>port_number</em></dt>
+<dd>
+<p>The <strong>-p</strong> option specifies the framebuffer port number to use when running <strong>fbserv</strong> to establish a framebuffer. An existing framebuffer server port be specified. In the case of a pre-existing framebuffer servers, <strong>rtwizard</strong> will not close the framebuffer automatically after the raytracing process is complete.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;gui</strong></dt>
+<dd>
+<p>Run rtwizard&#8217;s graphical interface, even if the command line options specify enough information to produce an image.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;no-gui</strong></dt>
+<dd>
+<p>Run rtwizard on the command line, even if the command line options do not specify enough information to produce an image. Overridden by &#8212;&#8203;gui option if both are specified.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-a</strong> <em>angle</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;azimuth</strong> <em>angle)</em></dt>
+<dd>
+<p>Set azimuth angle (in degrees).</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-e</strong> <em>angle</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;elevation</strong> <em>angle</em></dt>
+<dd>
+<p>Set elevation angle (in degrees).</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;twist</strong> <em>angle</em></dt>
+<dd>
+<p>Set twist angle (in degrees).</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-P</strong> <em>angle</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;perspective</strong> <em>angle</em></dt>
+<dd>
+<p>Set the perspective angle (in degrees).</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-z</strong> <em>value</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;zoom</strong> <em>value</em></dt>
+<dd>
+<p>Set the zoom factor, specified as a multiplier on the default view size. Values less than one result in a smaller object in the view. Values greater than one result in larger objects (due to the view being zoomed).</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;center</strong> <em>X Y Z</em></dt>
+<dd>
+<p>Set the xyz coordinates of the center of the view.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-c</strong> <em>obj1[,&#8230;&#8203;]</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;color-objects</strong> <em>obj1[,&#8230;&#8203;]</em></dt>
+<dd>
+<p>Specify objects to render using full color using a comma-separated list. The entire list may be enclosed in double-quotes if object names have spaces (e.g., -c "obj1,obj 2").</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-C</strong> <em>value</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;background-color</strong> <em>value</em></dt>
+<dd>
+<p>Set the background color to use when raytracing full color objects. May use R/G/B or hex style color specification.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-g</strong> <em>obj1[,&#8230;&#8203;]</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;ghost-objects</strong> <em>obj1[,&#8230;&#8203;]</em></dt>
+<dd>
+<p>Specify objects to be rendered using ghosting using a comma-separated list. The entire list may be enclosed in double-quotes if object names have spaces (e.g., -g "obj1,obj 2").</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-G</strong> <em>value</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;ghost-intensity</strong> <em>value</em></dt>
+<dd>
+<p>Control the degree of visibility to use when rendering ghost objects.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-l</strong> <em>obj1[,&#8230;&#8203;]</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;line-objects</strong> <em>obj1[,&#8230;&#8203;]</em></dt>
+<dd>
+<p>Specify objects to render edge lines for using a comma-separated list. The entire list may be enclosed in double-quotes if object names have spaces (e.g., -l "obj1,obj 2").</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;line-color</strong> <em>value</em></dt>
+<dd>
+<p>Specify color to use when rendering edge lines. In addition to R/G/B and hex color specifications, the keyword "region" is also supported - in the latter case, region colors will be used for lines.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;non-line-color</strong> <em>value</em></dt>
+<dd>
+<p>Specify the color to use for non-line rendering.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-n</strong> <em>value</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;height</strong> <em>value</em></dt>
+<dd>
+<p>Specify the height of the generated image in pixels.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-O</strong> <em>value</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;occlusion</strong> <em>value</em></dt>
+<dd>
+<p>Specify the occlusion mode to use for line rendering. See <strong>rtedge</strong> manual page for value options.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-s</strong> <em>value</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;size</strong> <em>value</em></dt>
+<dd>
+<p>Specify the width and height of the generated image in pixels. Width can be overridden by the <strong>w</strong> option and height by the <strong>n</strong> option.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>-t</strong> <em>image_type</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;type</strong> <em>image_type</em></dt>
+<dd>
+<p>Specify the type of image to be rendered. The images produced by <strong>rtwizard</strong> are categorized by <em>picture type</em>. There are six picture types built on full color raytracing, ghost, and edge line renderings.</p>
+</dd>
+</dl>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+If a type is specified and insufficient information is supplied to generate that particular image type, rtwizard will exit with an error.
+</td>
+</tr></table>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">RtWizard Image Types</caption>
+<colgroup>
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Name</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Simple Full-Color Image</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Standard <strong>rt</strong> image.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">B</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Simple Line Drawing</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Standard <strong>rtedge</strong> image.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">C</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Highlighted Image</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Full Color <strong>rt</strong> image enhanced with <strong>rtedge</strong> lines.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">D</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Mixed Full Color and Edges</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Like Type C, except objects may be selectively enhanced with <strong>rtedge</strong> lines.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">E</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ghost Image with Inserts</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A combination of Full Color elements and faded greyscale raytracings for context.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">F</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ghost Image with Inserts and Edges</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A Type E image further enhanced with <strong>rtedge</strong> lines.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><strong>-w</strong> <em>value</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>&#8212;&#8203;width</strong> <em>value</em></dt>
+<dd>
+<p>Specify the width of the generated image in pixels.</p>
+</dd>
+<dt class="hdlist1"><em>geometry_file.g</em></dt>
+<dd>
+<p>For usage compatibility with <strong>rt</strong> and other tools, the first (leftmost) argument without an option flag that identifies an existing .g file is assumed to be the input geometry database. Note, some argument configurations can result in ambiguity (e.g., objects with a .g suffix). As such, The <strong>-i</strong> is preferred for specifying the input geometry database.</p>
+</dd>
+<dt class="hdlist1"><em>output_image.{pix|png}</em></dt>
+<dd>
+<p>This specifies the file name and image format of the resulting image to be output by rtwizard. When specifying the output file name without using a flag, a .pix or .png image format extension is necessary. The first valid, unflagged output file name will be used unless overridden by the <strong>-o</strong>. Note that some option flags accept multiple arguments and can create ambiguity. In such situations <strong>-o</strong> should be used.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Introduction</p>
+</div>
+<div class="exampleblock">
+<div class="title">Simple Full-Color Image</div>
+<div class="content">
+<div class="paragraph">
+<p><strong>rtwizard -i m35.g -c component -o m35.png</strong></p>
+</div>
+<div class="paragraph">
+<p>Results in a default color image of the m35 truck object named 'component' with output saved to m35.png</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Simple Line Drawing Image</div>
+<div class="content">
+<div class="paragraph">
+<p><strong>rtwizard -d /dev/wgl -i m35.g -l component</strong></p>
+</div>
+<div class="paragraph">
+<p>Results in a line drawing of the m35 truck being display in a Windows-specific OpenGL window instead of saving to a file.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Ghost Image with Inserts and Edges</div>
+<div class="content">
+<div class="paragraph">
+<p><strong>rtwizard -i m35.g -c component/power.train -g component -l component</strong></p>
+</div>
+<div class="paragraph">
+<p>Results in a view of the m35 truck highlighting the engine (in color) with the truck being shown as a ghosted, edged background, with output saved to a default rtwizard.pix file.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Complex Image with Non-Default View</div>
+<div class="content">
+<div class="paragraph">
+<p><strong>rtwizard -i m35.g -c component/power.train -g component -l component -a -35 -e 15 -z 1.6</strong></p>
+</div>
+<div class="paragraph">
+<p>Same as the previous image, except viewing the truck from a different direction and zoomed in closer, with output saved to a default rtwizard.pix file.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Multiple Color Objects</div>
+<div class="content">
+<div class="paragraph">
+<p><strong>rtwizard -d /dev/ogl -i m35.g -c component/power.train,component/suspension -z 1.6</strong></p>
+</div>
+<div class="paragraph">
+<p>View the power train and suspension of the truck as color objects in a Mac-/Linux-specific OpenGL window.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>rt</strong>(1),<strong>rtedge</strong>(1),<strong>fbhelp</strong>(1),<strong>fbserv</strong>(1)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 2001-2025 United States Government as represented by the U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

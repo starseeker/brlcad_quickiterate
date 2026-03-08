@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Dwayne L Kregel">
+<title>Using the Projection Shader</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Using the Projection Shader</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Dwayne L Kregel</span><br>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="projshader_general">General</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Though the U.S. Army Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) package has the capability to model highly detailed and complex surfaces of objects, such as the multitude of small chips, connectors, and other electrical components on a circuit board (see Figure B-1), individually building each piece of a complex surface is often labor intensive, time consuming, and unnecessary for the model&#8217;s intended purpose. Thus, the package offers an alternative, the projection shader, to create realistic-looking "skin" for objects.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/projection_shader_fig01.png" alt="../articles/images/projection_shader_fig01.png">
+</div>
+<div class="title">The many components of a circuit board.</div>
+</div>
+<div class="paragraph">
+<p>As its name implies, the projection shader projects an image onto a surface. Unlike the texture shader, however, which fits an image to all available surfaces (stretching/shrinking as necessary), the projection shader projects the image with user-defined dimensions and orientations.</p>
+</div>
+<div class="paragraph">
+<p>There are several ways that advanced users can implement and customize the projection shader in BRL-CAD. The average user can reduce the complexity of the process, however, by complying with the following three basic rules of thumb:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the image to be projected should be square,</p>
+</li>
+<li>
+<p>the geometry window (minus the toolbar and borders) should be square, and</p>
+</li>
+<li>
+<p>the projected image should exactly fill the framebuffer.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The following list identifies the basic tasks needed to use the projection shader:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>create/obtain an image to project,</p>
+</li>
+<li>
+<p>resize the graphics display window or image so that their dimensions match each other,</p>
+</li>
+<li>
+<p>ensure the framebuffer is active,</p>
+</li>
+<li>
+<p>display the image in the framebuffer of the graphics display window,</p>
+</li>
+<li>
+<p>align the image on the geometry by modifying the view parameters,</p>
+</li>
+<li>
+<p>save the projection shader settings file,</p>
+</li>
+<li>
+<p>apply the shader settings file to the object in the combination editor, and</p>
+</li>
+<li>
+<p>render the image.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Each of these steps is discussed in the following paragraphs using the example of the previously mentioned circuit board.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_getimage">Create/Obtain an Image to Project</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The first step in using the projection shader is to create or obtain the image to be projected. The image can be a pre-existing picture file, or it can be created specifically for the projection. In this case, we took a photograph of the circuit board with a digital camera and used a commercially available PC image editor to make the image square. When finished, we saved the image as a .jpg file, with the name circuit_back_950.jpg. (Note that it is wise to include the image dimensions [i.e., 950 pixels wide ×950 pixels high] in the file name because many projection shader tasks rely on them.) To get the image into a BRL-CAD-accepted format (see tutorial box that follows), we converted the .jpg file to a .png file using an image editor and then the .png file to a .pix file using the BRL-CAD png-pix utility. For more information on this utility, consult the man page.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>BRL-CAD recognizes several image file formats, including .pix, .png., and .ppm. Because the package relies on precise color values to perform certain calculations, it does not support lossy file formats (e.g., .jpg), which are based on algorithms that can alter or lose image/color data.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_resize">Resize the Graphics Display Window to Match Image Dimensions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The next step is to "prepare" the area on which the image will be displayed so that it is ready for the image. For the circuit board, the size of the photograph was 950 pixels ×950 pixels high. To make the graphics display window match, we opened the Raytrace Control Panel and used the numbers in the Size window box as a reference to determine how much to enlarge/shrink the graphics display window (by using the mouse to drag the window borders in or out) (see Figure B-2).</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/projection_shader_fig02.png" alt="../articles/images/projection_shader_fig02.png">
+</div>
+<div class="title">Using the Raytrace Control Panel to size the graphics window.</div>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Note that the Raytrace Control Panel (specifically, the Size field) is used here simply to report the result of the user scaling the dimensions of the graphics display area. It is not used to set the desired dimensions (in this case, 950 ×950) of the graphics area by inputting them into the Size field. Any numbers input into this field will only determine the size of the display area in the next raytrace.</p>
+</div>
+<div class="paragraph">
+<p>Also note that some window managers have information boxes that automatically report the size of the graphics display window as it is being enlarged/reduced; however, the dimensions reported in these boxes often represent the size of the entire window (including toolbars, borders, etc.) and not the size of the framebuffer.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_actframe">Ensure the Framebuffer is Active</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A small but sometimes overlooked step before displaying any image onto the graphics display window is to make sure the framebuffer is active. If it is not active, it may appear that nothing happens when a display command is given. There are several ways to check the status of the framebuffer. We went to the Settings pull-down menu in the graphical user interface, selected Framebuffer, and made sure the box next to the Framebuffer Active option was toggled on.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_dispimage">Display the Image in the Graphics Display Window</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After the graphics display window has been prepared and the framebuffer checked/set, the image can be displayed in the graphics window. To do this, we entered the following command:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+pix-fb -F0 -s 950 circuit_back_950.pix
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Diagrammed, the command breaks down as follows:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">pix-fb</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-F0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">950</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">circuit_back_950.pix</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Send a .pix file to a framebuffer.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Use framebuffer number 0.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make it a square image.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">950 pixels wide and high.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Use the image file named circuit_back_950.pix</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For more information on the pix-fb command (including a list of other options the command takes), type pix-fb on the command line or consult the man page.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Note that framebuffers use transmission control protocol (TCP) ports for applications. The framebuffer number that follows the -F option specifies an offset from the TCP port number. Framebuffer 0 is on port 5558. If 0 is already in use, the Multi-Device Geometry Editor (MGED) will use the next available framebuffer number (e.g., 1, 2, 3, etc.). To determine which port MGED is actually using, type "set port" from the MGED command prompt.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_overlayimage">Overlay the Image on the Geometry by Modifying the View Parameters</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With the image and the target geometry displayed, edit the view parameters so that the image is aligned with the geometry on which it is to be projected. In our case, we used the Shift-Grips to scale and translate and the ae command to adjust the azimuth, elevation, and twist of the circuit board wireframe so that its outside edges lined up with the outside edges of the projected image (see Figure B-3). (For a refresher on the functionality of the Shift-Grips, consult chapter 2, Volume II, of the BRL-CAD Tutorial Series.)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_savesettingsfile">Save the Projection Shader Settings File</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After the geometry and image have been aligned, the projection settings (i.e., image file name, image width, image height, and current view parameters) can then be saved to a file using the prj_add command. The prj_add command appends the image file name and the current view parameters to the shader file. In our case, the command was:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+prj_add circuitboard.prj circuit_back_950.pix 950 950
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Diagrammed, this command breaks down as follows:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">prj_add</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">circuitboard.prj</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">circuit_back_950.pix</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">950</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">950</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Add the projection file name and parameters to the shader.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name the shader circuitboard.prj</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Use image file circuit_back_950.pix</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the image 950 pixels wide.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the image 950 pixels high.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/projection_shader_fig03.png" alt="../articles/images/projection_shader_fig03.png">
+</div>
+<div class="title">Fitting the geometry view to the image dimensions.</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_applysettingsfile">Apply the Shader Settings File to the Object in the Combination Editor</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The projection now needs to be applied to the object. We did this by opening the combination editor, typing in the region name cir.r1 in the Name field, and selecting Projection from the pull-down menu to the right of the Shader field. We then typed circuitboard.prj in the Parameter File field and pressed Apply (see Figure B-4). Note that when the name of the shader file is typed into the Parameter File field, the same information is echoed into the Shader field.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_render">Render the Image</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The final step in using the projection shader is to raytrace the object to determine if all the other steps have been performed correctly. In our case, rendering the image identified several problems that we wanted to correct. First of all, as shown in Figure B-5, the holes in the board failed to convey the three-dimensional look we desired. So, we went back and modeled circular cutouts (using cylinder primitives) to improve the appearance. In addition, the rendered image revealed that the image we were using was too dark. So, we ended up adjusting the gamma setting on the original image (a .jpg file) in an external photo editor.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/projection_shader_fig04.png" alt="../articles/images/projection_shader_fig04.png">
+</div>
+<div class="title">Applying the shader settings with the combination editor.</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/projection_shader_fig05.png" alt="../articles/images/projection_shader_fig05.png">
+</div>
+<div class="title">Original image (left) and image with circular cutouts (right).</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="projshader_projectfront">Repeating the Steps to Project the Image on the Front</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After one side of the circuit board was finished, we proceeded to repeat the steps to add more projection parameters to the .prj file and thus project a different image onto the front side of the geometry (see Figure B-6). To do this, we once again had to acquire an image, properly size the geometry window, display the image and the geometry to the geometry window, and set up view parameters. After this was done, these parameters could be added to the existing .prj file by typing the following:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+prj_add circuitboard.prj circuit_front_950.pix 950 950
+      </pre>
+</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/projection_shader_fig06.png" alt="../articles/images/projection_shader_fig06.png">
+</div>
+<div class="title">The projection shader applied to the front of the circuit board.</div>
+</div>
+<div class="paragraph">
+<p>Figure B-7 shows the resulting prj file. (Note that the first projection is on top and the second projection is on the bottom.)</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/projection_shader_fig07.png" alt="../articles/images/projection_shader_fig07.png">
+</div>
+<div class="title">The circuit board .prj file.</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

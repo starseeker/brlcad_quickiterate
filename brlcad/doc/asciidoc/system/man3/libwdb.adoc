@@ -10,25 +10,67 @@ libwdb - library for procedural generation of MGED databases
 
 [source,c]
 ----
-#include "vmath.h" #include "wdb.h"mk_id, FILE *fp, char *title);
+
+#include "vmath.h"
+#include "wdb.h"
+
+mk_id, FILE *fp, char *title);
 mk_half, FILE *fp, char *name, doubled, point_tnorm);
 mk_rpp, FILE *fp, char *name, point_t min ,max, mk_wedge ( fp , name , vert , xdir , zdir , xlen , ylen , zlen , x_top_len ));
-FILE *fp; char *name; point_t vert; vect_t xdir; vect_t zdir; fastf_t xlen; fastf_t ylen; fastf_t zlen; fastf_t x_top_len;mk_arb4, FILE *fp, char *name, point_tpts[]);
+
+FILE	*fp;
+char	*name;
+point_t	vert;
+vect_t	xdir;
+vect_t	zdir;
+fastf_t	xlen;
+fastf_t	ylen;
+fastf_t	zlen;
+fastf_t	x_top_len;
+
+mk_arb4, FILE *fp, char *name, point_tpts[]);
 mk_arb5, FILE *fp, char *name, point_tpts[]);
 mk_arb6, FILE *fp, char *name, point_tpts[]);
 mk_arb7, FILE *fp, char *name, point_tpts[]);
 mk_arb8, FILE *fp, char *name, point_tpts[]);
 mk_sph, FILE *fp, char *name, point_tcenter, fastf_tradius);
 mk_ell, FILE *fp, char *name, point_tcenter, vect_t a , b ,c, mk_tgc ( fp , name , center , a , b , c , d ) FILE *fp, char *name);
-point_t center; vect_t a, b, c, d;mk_tor, FILE *fp, char *name, point_tcenter, vect_tn, double r1 ,r2, mk_cone ( fp , name , base , dir , height , rad1 , rad2 ) FILE *fp);
-char *name; point_t base; vect_t dir; fastf_t height; fastf_t rad1; fastf_t rad2;mk_rcc, FILE *fp, char *name, point_tbase, vect_theight, fastf_tradius);
+
+point_t	center;
+vect_t	a, b, c, d;
+
+mk_tor, FILE *fp, char *name, point_tcenter, vect_tn, double r1 ,r2, mk_cone ( fp , name , base , dir , height , rad1 , rad2 ) FILE *fp);
+
+char	*name;
+point_t	base;
+vect_t	dir;
+fastf_t	height;
+fastf_t	rad1;
+fastf_t	rad2;
+
+
+mk_rcc, FILE *fp, char *name, point_tbase, vect_theight, fastf_tradius);
 mk_pipe, FILE *fp, char *name);
-struct wdb_pipept *headp;mk_pipe_free, struct wdb_pipept *headp);
+
+struct wdb_pipept *headp;
+
+mk_pipe_free, struct wdb_pipept *headp);
 mk_pipe_init, struct wdb_pipept *headp, point_tcoord, fastf_t od , id ,bendradius, mk_add_pipe_pt ( headp , coord , od , id , bendradius ) struct wdb_pipept *headp, point_tcoord);
-fastf_t od, id, bendradius;mk_comb, FILE *fp, char *name, char *matname, char *matparm, char *rgb, mk_fcomb ( fp , name , len , region ) FILE *fp, char *name, mk_memb ( fp , name , mat , op ) FILE *fp);
-char *name; mat_t mat; int op;mk_addmember, char *name, struct wmember *headp, mat_tmat, intop);
+
+fastf_t od, id, bendradius;
+
+mk_comb, FILE *fp, char *name, char *matname, char *matparm, char *rgb, mk_fcomb ( fp , name , len , region ) FILE *fp, char *name, mk_memb ( fp , name , mat , op ) FILE *fp);
+
+char	*name;
+mat_t	mat;
+int	op;
+
+mk_addmember, char *name, struct wmember *headp, mat_tmat, intop);
 mk_lcomb, FILE *fp, char *name, struct wmember *headp, char *matname, char *matparm, char *rgb, mk_lfcomb ( fp , name , headp , region ) FILE *fp, char *name);
-struct wmember *headp;mk_bsolid, FILE *fp, char *name, intnsurf, doubleres);
+
+struct	wmember *headp;
+
+mk_bsolid, FILE *fp, char *name, intnsurf, doubleres);
 mk_bsurf, FILE *filep, struct b_spline *bp);
 
 ----
@@ -118,3 +160,5 @@ This software is Copyright (c) 1987-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="John R. Anderson, Eric W. Edwards">
+<title>BRL-CAD Tutorial Series: Volume IV - Converting Geometry Between BRL-CAD and Other Formats</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="book">
+<div id="header">
+<h1>BRL-CAD Tutorial Series: Volume IV - Converting Geometry Between BRL-CAD and Other Formats</h1>
+<div class="details">
+<span id="author" class="author">John R. Anderson</span><br>
+<span id="author2" class="author">Eric W. Edwards</span><br>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_dedication">Dedication</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>. The authors would like to thank Messrs. Lee Butler, Edwin Davisson, William Landis, and David Davis for technically reviewing this document in a timely manner and for making numerous suggestions to improve its content and presentation. The authors also thank Dr. Paul Tanenbaum for the use of his graphics for figures 1 and 2 and Ms. TraNese Christy for her help in adapting them for presentation in this document. Finally, the authors would like to posthumously acknowledge Mr. Michael Muuss, the original architect of BRL-CAD. Without his vision, intellect, and diligence, this work would not have been possible. Thus, the BRL-CAD Tutorial Series is dedicated to his memory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="chapt_introduction">Introduction</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="Background_Purpose_and_Scope">Background, Purpose, and Scope</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Since 1979, the U.S. Army Research Laboratoryfootnote:[On 30 September 1992, the U.S. Army Ballistic Research Laboratory (BRL) was deactivated and subsequently became part of the U.S. Army Research Laboratory (ARL) on 1 October 1992.</p>
+</div>
+<div class="paragraph">
+<p>] has been developing and distributing the Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) three-dimensional (3-D) solid modeling package to support combat vehicle vulnerability studies and various other military and industrial applications. The software, which is now in its third generation, includes a large collection of tools and utilities, including an interactive geometry editor, raytracing and generic framebuffer libraries, network-distributed image-processing/signal-processing capabilities, and an embedded scripting language.</p>
+</div>
+<div class="paragraph">
+<p>In support of the package, a multivolume tutorial series is being written to assist users with the many features and functionality of BRL-CAD. Three volumes have been published thus far. Volume I provides an overview of the package contents and installation (Butler and Edwards, 2002). Volume II addresses the basic functionality of the package&#8217;s Multi-Device Geometry Editor (MGED) and offers a comprehensive list of the user commands available (Butler et al., 2001). Volume III discusses the modeling process as well as principles and techniques to help maximize BRL-CAD&#8217;s effectiveness (Butler et al., 2003). All of these documents are available for download at <a href="http://ftp.arl.army.mil/brlcad/">http://ftp.arl.army.mil/brlcad/</a>[<a href="http://ftp.arl.army.mil/brlcad/">http://ftp.arl.army.mil/brlcad/</a>] (U.S. Army Research Laboratory, 2003).</p>
+</div>
+<div class="paragraph">
+<p>The purpose of Volume IV is to discuss issues of compatibility and conversion between the BRL-CAD geometry file format and the formats of various other computer-aided design (CAD), computer-aided manufacturing (CAM), and computer-aided engineering (CAE) packages. Conversion is increasingly important for BRL-CAD users who must interact with a growing number of Government and commercial organizations involved in the research, development, testing, and evaluation of today&#8217;s combat systems.</p>
+</div>
+<div class="paragraph">
+<p>Note that this document addresses BRL-CAD geometry converters, not BRL-CAD image converters (e.g., <strong>pix-bw</strong>, <strong>pix-ps</strong>, <strong>pix-rle</strong>, <strong>bw-ps</strong>, and <strong>pl-ps</strong>). For further information on image conversion, see the man page on the utility of interest.</p>
+</div>
+<div class="paragraph">
+<p>Also, because of the many file formats in existence today and the rapidly changing nature of computer software and software companies, it would be impractical to try to address all of the conversion paths and methods that are currently or potentially possible. Many times, conversion from one file format to another is not a one-to-one process. Depending on the amount of time and effort the BRL-CAD user is willing to invest, seemingly incompatible formats can be ``forced'' to convert via another CAD format or via a standardized CAD format (e.g., the Initial Graphics Exchange Specification [IGES] or the Standard for the Exchange of Product Model Data [STEP]). In fact, when it comes to converting from BRL-CAD, the widely accepted Stereo Lithography Tessellation Language (STL) format offers a crude path to convert BRL-CAD objects to virtually any commercial CAD system. The user is reminded, however, that such forced conversions can sometimes produce geometry of such poor quality (e.g., low-resolution or lossy output formats) or poor performance characteristics (e.g., large or computationally intensive output files) that completely rebuilding a model from scratch might be a preferable alternative.</p>
+</div>
+<div class="paragraph">
+<p>In any case, the focus of this document is on the primary formats that convert to and from BRL-CAD. <a href="#chapt_pert_char">chapt_pert_char</a> discusses pertinent characteristics specific to the BRL-CAD format. <a href="#sec_convert_from_to_ascii">sec_convert_from_to_ascii</a> addresses general conversion to/from the American Standard Code for Information Interchange (ASCII) format. <a href="#sec_convert_to_brlcad">sec_convert_to_brlcad</a> addresses the primary formats that convert to BRL-CAD. <a href="#sec_convert_from_brlcad">sec_convert_from_brlcad</a> addresses the primary formats that convert from BRL-CAD. <a href="#sec_build_new_converter">sec_build_new_converter</a> provides guidance for those users who desire to create their own customized converters. And <a href="#sec_postconversion_issues">sec_postconversion_issues</a> addresses postconversion issues. In addition, the user is encouraged to consult the web sites and other resources cited at the end of each converter discussion to obtain the latest information on each format.</p>
+</div>
+<div class="sect3">
+<h4 id="The_Need_for_Conversion">The Need for Conversion</h4>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Since its inception, BRL-CAD has proven itself to be a particularly effective tool for producing high-resolution and physically realistic geometry for ballistic penetration, radar signature, and other types of related analyses. However, several commercial CAD packages have also gained popularity, especially within organizations that design and manufacture military systems. Although these packages are not designed for vulnerability studies per se, their widespread use throughout military circles necessitates that BRL-CAD users be able to convert to and/or from them.</p>
+</div>
+<div class="paragraph">
+<p>There are numerous benefits associated with the use of commercial packages in vulnerability studies. The Survivability/Vulnerability Information Analysis Center (SURVIAC) identified some of the most common benefits in its 2002 State-of-the-Art Report (SOAR) on geometric modeling. They include the following (SURVICE Engineering Company, 2002):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><em>Reduced Modeling Time and Effort</em> - Manufacturers often spend hundreds of hours constructing detailed CAD models to streamline their design, production, and assembly processes (e.g., through computer numerical control equipment). It therefore makes economic sense-and is consistent with the military&#8217;s ongoing commitment to leverage commercial off-the-shelf technology-to take advantage of existing geometric models and data where possible and avoid the significant cost and effort of building new models from scratch.</p>
+</li>
+<li>
+<p><em>Increased Funding and Support</em> - Because commercial packages must maintain a larger user base to stay competitive in the open market, the most popular packages typically possess ample funding and personnel to continuously develop, support, and improve them.</p>
+</li>
+<li>
+<p><em>Compatibility With Standardized Formats</em> - Most commercial packages possess the direct or indirect (through third-party vendors) capability to convert to standard or intermediary geometry formats, making the packages compatible (at least to some degree) with a wide range of other CAD formats.</p>
+</li>
+<li>
+<p><em>Third-Party Add-On Support</em> - Large commercial packages typically offer a variety of plug-ins for other packages/utilities.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Of course, commercial CAD packages also have some common liabilities when used for vulnerability studies. They include the following (SURVICE Engineering Company, 2002):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><em>Incompatible/Inaccessible File Formats</em> - As discussed in <a href="#chapt_pert_char">chapt_pert_char</a>, some CAD formats use the boundary representation (BREP) approach to solid modeling, which is largely incompatible with the constructive solid geometry (CSG) approach that BRL-CAD uses. In addition, although most commercial packages have some capability for data exchange conversion, data storage is often in a proprietary (and therefore inaccessible) native format. Moreover, when target descriptions are converted to a format designed for vulnerability assessment (i.e., BRL-CAD or FASTGEN), they often require manual checking, adjustment, and additional modeling (see <a href="#sec_postconversion_issues">sec_postconversion_issues</a>). Typical problems that must be addressed include the translation of curved and irregular surfaces, the representation of solids of rotation, tolerancing, and interference handling.</p>
+</li>
+<li>
+<p><em>Too Much Detail</em> - Commercial geometry files often contain too much of a good thing for vulnerability analysis. That is to say, commercial CAD packages often model geometry all the way to the ``nuts and bolts'' level, whereas vulnerability analyses are typically concerned only with details down to the level of shielding and critical components. Unfortunately, added detail produces unnecessarily large and complex input files and thus longer processing times for vulnerability assessments.</p>
+</li>
+<li>
+<p><em>Too Little Detail</em> - In addition to providing too much detail, commercial packages sometimes provide too little detail for vulnerability studies. Vulnerability analysts and the applications designed to interrogate geometry rely on geometric measurements and material properties not always present in commercial CAD formats.</p>
+</li>
+<li>
+<p><em>Package-Specific Naming Conventions</em> - Some organizations and CAD packages use unique object naming schemes that make geometry difficult to organize and work with when converted to or from BRL-CAD format.</p>
+</li>
+<li>
+<p><em>Relatively Slow Raytracing Capability</em> - Commercial CAD packages typically have relatively slow raytracing speeds, and raytracing is the primary means of geometry interrogation in vulnerability assessment.</p>
+</li>
+<li>
+<p><em>Limited Integrated Vulnerability Assessment Support</em> - Commercial CAD packages are designed for engineering analysis, not ballistic analysis and therefore offer few, if any, ``shotlining'' tools and limited integrated vulnerability assessment support.</p>
+</li>
+<li>
+<p><em>High Cost</em> - In addition to facing the typically high cost of commercial CAD software, the user often faces the decision of whether or not to invest in non-PC hardware (e.g., UNIX workstations) to obtain maximum performance, especially with large, complex geometry. In addition, users may be required to pay continuing licensing and maintenance fees, often on a per-seat basis (although recent developments have offered PC-based implementations and short-term leasing ``seats'' to make these packages more affordable).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Not surprisingly, when considering the benefits and liabilities of using commercial packages in vulnerability assessment, one can see that the conversion of these formats to/from BRL-CAD is one of the most needed as well as one of the most challenging tasks the BRL-CAD user faces today.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="chapt_pert_char">Pertinent Characteristics of the BRL-CAD Format</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="CSG_vs._BREP">CSG vs. BREP</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As mentioned previously, there are two basic approaches to solid modeling: CSG and BREP. In CSG modeling, an object is represented as a Boolean combination of simple primitive shapes (e.g., spheres, cylinders, cones, etc.). In BREP modeling, an object is represented by a set of surfaces (e.g., facets, triangles, and splines) that are ``stitched'' together to completely enclose the object.</p>
+</div>
+<div class="paragraph">
+<p>For example, as shown in <a href="#fig_die_extrusion">fig_die_extrusion</a>, to geometrically represent a simple extrusion die used in material manufacturing, a CSG model might subtract a cone from a cylinder to achieve the desired shape. Alternatively, a BREP model might achieve the same shape by joining several surfaces (Tanenbaum, 2001).</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="foo.eps" alt="Foofy floof!">
+</div>
+<div class="title">CSG and BREP approaches to representing an extrusion die (Tanenbaum, 2001).</div>
+</div>
+<div class="paragraph">
+<p>Most of the major commercial solid modeling packages currently in distribution (e.g., Pro/ENGINEER [commonly known as Pro/E], Unigraphics, etc.) use the BREP approach, although they do have some CSG capability. BRL-CAD, on the other hand, is primarily a CSG modeling system with some BREP capability.</p>
+</div>
+<div class="paragraph">
+<p>Conversions that occur between CSG and BREP typically involve their ``lowest common denominator.''</p>
+</div>
+<div class="paragraph">
+<p>For BRL-CAD, a simple type of BREP is available in the form of triangles; it is called the Bag of Triangles (BOT) primitive. If the BREP object consists of all triangles, the BRL-CAD representation can be an exact duplicate. But more often, a BREP object consists of smooth, curved surfaces, meaning the BRL-CAD triangle representation will be an approximation of the object. Note that this approximation may be made as close to the true surface as desired, but at the cost of more, smaller triangles (see <a href="#fig_bot">fig_bot</a>) (Tanenbaum, 2001). Thus, the higher degree of smoothness means the greater the impact on file size and performance of any application trying to employ all the triangles.</p>
+</div>
+<div class="paragraph">
+<p>Because most commercial CAD systems have the capability to produce tessellated approximations of their BREP objects, some converters to BRL-CAD (e.g., those with Pro/E and Unigraphics) take advantage of these capabilities. In addition, the previously mentioned STL format, which represents solid objects entirely with triangles, offers the community a universal (albeit crude) way to convert BRL-CAD geometry (via the <strong>g-stl</strong> converter) to nearly any commercial CAD system.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="test_img.eps" alt="test_img.eps">
+</div>
+<div class="title">Approximating a smooth, curved surface (left) with a BOT (right) (Tanenbaum, 2001).</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">BREP Terminology</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">BREP Terminology Boundary representations can take several forms. Although the terms for these forms are sometimes used interchangeably, the following list provides some key distinctions: <em>Polygonal (or Facetized) Geometry</em> - A type of BREP geometry that represents objects with a collection of regions of the plane bounded by a closed path of line segments (polygons). ; <em>Triangle</em> - A special type of polygon that has exactly three sides. ; <em>Non-Uniform Rational B-Spline (NURB) Surface</em> - A piecewise polynomial representation of a smooth, curved surface (e.g., an airplane wing). ; <em>BOT (Bag of Triangles)</em> - A BRL-CAD primitive that consists of a collection of triangles and that gives the package limited BREP capability by approximating solid geometry.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>In the end, although there are benefits to using the BREP methodology (e.g., ease of use, software availability/compatibility, etc.), BRL-CAD developers and vulnerability analysts have found CSG modeling to be the best approach in terms of model accuracy, storage efficiency, precision, and analysis speed.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">CSG or BREP?</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">CSG or BREP? Depending on one&#8217;s point of view, there are advantages and disadvantages to using CSG vs. BREP. Although "the right" approach for a given project ultimately depends on many specifics (e.g., model purpose, hardware/software availability, and compatibility with other users), the following areas should be considered when choosing between CSG and BREP: <em>Realism</em> - Does the model need to approximate real material densities, thicknesses, and volumes, or is the realistic appearance of object surfaces more important? ; <em>Resolution</em> - How geometrically precise must the model be? For example, radar cross-section studies are sensitive to surface detail; ballistic penetration analyses usually are not. ; <em>Resources</em> - How much disk space and memory will be needed to store the geometry and data structures? ; <em>Time</em> - How much CPU time is needed to read, write, and process the model, and how much user time will be needed to understand, modify, and conduct analyses with it?</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Prerelease_6.0_Database_vs._Current_Format">Prerelease 6.0 Database vs. Current Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With the release of BRL-CAD 6.0, an entirely new BRL-CAD database format was introduced. Additional capabilities provided by the new format include unlimited name lengths, object attributes, machine independence (for IEEE floating point architectures), reduced disk space requirements, opaque binary objects, and the capability to hide objects. (For more information on the new database format, see Butler et al. [2003]).</p>
+</div>
+<div class="paragraph">
+<p>Older BRL-CAD databases may be upgraded to the current database (db) format using the <strong>dbupgrade</strong> utility. To execute this command, the user types the following command at the command-line prompt:</p>
+</div>
+<div class="paragraph">
+<p><strong>dbupgrade</strong> <code>oldformat.g</code> <code>currentformat.g</code></p>
+</div>
+<div class="paragraph">
+<p>This command reads an existing input.g database (in the older format) and writes a new output.g in the latest format. Remember that all BRL-CAD geometry files are designated by a <code>.g'' suffix. Thus, the conversion commands discussed in the following sections use a </code>g'' to represent the BRL-CAD file format (e.g., <strong>asc2g</strong>, <strong>dxf-g</strong>, <strong>g-acad</strong>, etc.).</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">What About Databases in the Old Format?</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">What About Databases in the Old Format? Although databases created with BRL-CAD release 6.0 or later are in the new format by default, BRL-CAD retains the ability to work in the old format. Thus, new-database users need not be concerned about losing databases in the old format. Also, whenever a new database format is implemented in the future (typically a rare event), the dbupgrade utility will be modified so that it will always be able to upgrade databases to the current format.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converters_Currently_Available_in_BRL-CAD">Converters Currently Available in BRL-CAD</h3>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">BRL-CAD conversion capabilities.</caption>
+<colgroup>
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">CAD Format</th>
+<th class="tableblock halign-left valign-top">Import Capability?</th>
+<th class="tableblock halign-left valign-top">Export Capability?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ACAD</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ASCII</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">AutoCAD DXF</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Elysium Neutral Facetted</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">EUCLID<sup class="footnote"><a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a></sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">FASGEN</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IGES</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Jack</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">NASTRAN</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pro/E</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">STL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TANKILL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unigraphics</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Viewpoint</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VRML</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Wavefront (.obj)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">X3D</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Y</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="sec_convert_from_to_ascii">Converting From/to ASCII</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With the implementation of BRL-CAD&#8217;s machine-independent database format, the need for converting to or from ASCII format has rapidly diminished. Nonetheless, BRL-CAD still supports ASCII conversions, and release 6.0 introduced a new ASCII format. This format is simply a Tclfootnote:[Tcl/Tk is an interpreted programming language that can be used to extend/customize BRL-CAD functionality. Users are encouraged to consult one of the many texts on Tcl/Tk syntax and use, including <em>Practical Programming in Tcl and Tk</em> (Welch, 1999) and <em>TCL/TK in a Nutshell</em> (Raines and Tranter, 1999).</p>
+</div>
+<div class="paragraph">
+<p>] script that (when executed by a properly empowered Tcl interpreter) rebuilds the database from which it was derived. In contrast, the old ASCII format consisted of a sequence of one-line records that corresponded to the old database format records.</p>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_ASCII">Converting From ASCII</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <strong>asc2g</strong> utility is used to convert ASCII format databases into the new binary format. This utility will always create the new binary format, but it will accept either of the two ASCII formats.</p>
+</div>
+<div class="paragraph">
+<p>The usage for this utility is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>asc2g</strong> <code>input.asc</code> <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>In this command, <code>input.asc</code> is a file previously created using <strong>g2asc</strong> and <code>output.g</code> is the name where the resulting binary database should be stored.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_ASCII">Converting to ASCII</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The converse of the <strong>asc2g</strong> utility is the <strong>g2asc</strong> utility, which is used to convert from either the current database format or the prerelease 6.0 database format to an ASCII format. Databases in the new format will be converted to the new (Tcl script) ASCII format. Databases in the old format will be converted to the old ASCII format.</p>
+</div>
+<div class="paragraph">
+<p>The command for this utility is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g2asc</strong> <code>input.g</code> <code>output.asc</code></p>
+</div>
+<div class="paragraph">
+<p>In this command, the <code>input.g</code> is a BRL-CAD database (old or new format) and <code>output.asc</code> is the name where the ASCII output is placed. As mentioned previously, the form of the ASCII output depends on which database format is used by the input database. If it is known that the input database is in the older BRL-CAD format, then the g2asc may be executed using redirected input and output, as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g2asc</strong> &lt; <code>input.g</code> &gt; <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>If this is attempted using the newer database format, however, an error message will be displayed and no conversion will be performed.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="sec_convert_to_brlcad">Converting to BRL-CAD</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="General_Information_About_Converting_to_BRL-CAD">General Information About Converting to BRL-CAD</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p><a href="#tbl_import_converters">tbl_import_converters</a> contains the primary file formats (other than ASCII) that currently convert to BRL-CAD. Note that, as discussed previously, the "-g" designation at the end of each converter name indicates that the converted file will be in BRL-CAD&#8217;s standard geometry (.g) format.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">BRL-CAD import converters</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">CAD format</th>
+<th class="tableblock halign-left valign-top">Import Converter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">AutoCAD DXF</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">dxf-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Elysium Neutral Facetted</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">enf-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">EUCLID<sup class="footnote"><a id="_footnoteref_2" class="footnote" href="#_footnotedef_2" title="View footnote.">2</a></sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">euclid-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">FASTGEN (FASTGEN4 and PATCH)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">fast4-g/patch-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IGES</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">iges-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Jack</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">jack-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">NASTRAN</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nastran-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pro/E</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">*<sup class="footnote"><a id="_footnoteref_3" class="footnote" href="#_footnotedef_3" title="View footnote.">3</a></sup></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">STL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">stl-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TANKILL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">tankill-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unigraphics</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ug-g</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Viewpoint datalabs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">viewpoint-g</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_AutoCAD_DXF_Format">Converting From AutoCAD DXF Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>DXF is Autodesk Inc.'s proprietary data specification that has been developed to support links with AutoCAD, the company&#8217;s popular CAD software. The format, which has been implemented in many CAD systems (particularly those that work on PCs), is simple and relatively limited; however, it has become a well-established means of exchanging engineering drawings.</p>
+</div>
+<div class="paragraph">
+<p>The DXF format allows for the specification of the units used in the DXF file; however, not all DXF files include this information. Thus, if units information is not found in the DXF file, millimeters (which is also the default and underlying unit of measure in BRL-CAD) is the assumed unit of measure. Of course, if millimeters is not the right choice for a particular user or application, the <strong>-s</strong> (scale) option can be used. This option and the other available options for the <strong>dxf-g</strong> converter are discussed in the text that follows.</p>
+</div>
+<div class="paragraph">
+<p>When using this converter, polygons and meshes are converted to BOT primitives. Each layer becomes a region. Lines, circles, and arcs become n-manifold geometry (NMG) objects, and points become spheres.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">NMG Primitive</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The NMG primitive represents geometry that is defined by points, lines, polygonal facets, and collections thereof. It is the primary BRL-CAD primitive for encoding one- or two-dimensional (2-D) data. For more information on the NMG, see Muuss and Butler (1991) and Weiler (1987).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The command for the <strong>dxf-g</strong> converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>dxf-g</strong> [<strong>options</strong>] <code>input.dxf</code> <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-c</strong> - specifies that only the first color encountered for a layer in the DXF file is used; additional colors for the same layer are ignored.</p>
+</li>
+<li>
+<p><strong>-d</strong> - debug; produces core dump on failure.</p>
+</li>
+<li>
+<p><strong>-s</strong> - applies the specified scale factor to the DXF data (takes an argument).</p>
+</li>
+<li>
+<p><strong>-t</strong> - sets tolerance distance (in millimeters) (default is 0.005) (takes an argument).</p>
+</li>
+<li>
+<p><strong>-v</strong> - verbose; prints out progress information.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information on the DXF file format and import possibilities, see the on-line documentation on the Autodesk web site at <a href="http://adeskftp.autodesk.com/">http://adeskftp.autodesk.com/</a> prodsupp/downloads/dxf.pdf[<a href="http://adeskftp.autodesk.com/">http://adeskftp.autodesk.com/</a> prodsupp/downloads/dxf.pdf] (Autodesk, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_Elysium_Neutral_Facetted_Format">Converting From Elysium Neutral Facetted Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Elysium Inc. was founded in 1984 to provide product structure synchronization and compatibility between different CAD systems. The company claims to hold the industry&#8217;s highest translation success rate and relies on three of its products (CADporter, CADdoctor, and CADserver) to convert geometry between a large number of formats, including Pro/E, Unigraphics, ABAQUS/CAE, ACIS, CATIA, Inventor, I-deas, Metrix Build!IT, One Space Designer, Parasolid, and SolidWorks (Elysium, 2003).</p>
+</div>
+<div class="paragraph">
+<p>The <strong>enf-g</strong> converter was originally written when BRL-CAD developers needed an intermediate format-the Elysium neutral facetted file format-to allow the conversion of Unigraphics geometry to BRL-CAD. The converter converts each part to a BRL-CAD region consisting of one BOT primitive. Ident numbers are incremented for each region. If a part name mapping file is provided, part names in the input file will be output using the corresponding names from the mapping file. The part name mapping file may look similar to the following:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Part name mapping</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">01a3-011-03</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">washer, flat</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">01a2-011-02</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nut, flex</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The syntax for the <strong>enf-g</strong> command is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>enf-g</strong> <code>input_file</code> <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-i starting_ident</strong> - sets the starting ident number (default is 1000).</p>
+</li>
+<li>
+<p><strong>-n part_name_mapping</strong> - sets the mapping from input names to output names.</p>
+</li>
+<li>
+<p><strong>-t tolerance_distance</strong> - sets distance calculation tolerance (in millimeters) (default is 0.005).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information on the Elysium file format and import possibilities, see the Elysium web site at <a href="http://www.elysiuminc.com">http://www.elysiuminc.com</a>[<a href="http://www.elysiuminc.com">http://www.elysiuminc.com</a>] (Elysium, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_EUCLID_Format">Converting From EUCLID Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>EUCLID is one of Europe&#8217;s primary product design, manufacturing, and engineering CAD packages (though it is quickly being superseded by CATIA). Formerly distributed by the European Aeronautic Defence and Space Company&#8217;s Matra Datavision subsidiary and now a product of the IBM subsidiary MDTVISION, the package was developed for the design and manufacture of complex models and has been used on major systems such as the Airbus, Eurocopter, Ariane, Eurofighter, Astrium, and Euromissile.</p>
+</div>
+<div class="paragraph">
+<p>Package features include specialized applications for design, styling, drafting, analysis, machining, and product data management. Recent enhancements have focused on automatic creation of 2-D drawings from 3-D models, milling cycles, two- to four-axis wire cutting, sheet metal design, mold design, and standard data exchange format interfaces.</p>
+</div>
+<div class="paragraph">
+<p>EUCLID offers several data translation interfaces, including those for DXF, IGES, VDA-FS, STL, and SET formats. In addition, other modules are available to help refine and customize data transfer, with direct connectivity at two levels available for CATIA (V4/V5) data transfer using BREPs to handle surface data. EUCLID geometry can be output to standard graphic (e.g., PostScript, Encapsulated PostScript, and Interleaf) and plotting (e.g., CalComp, HP, HP/GL2, OCE, and Versatec) formats as well as to an STL file.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>euclid-g</strong> converter converts an ASCII EUCLID ``decoded'' format file to BRL-CAD. Each part is converted to a BRL-CAD region consisting of a single BOT primitive.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>euclid-g</strong> [<strong>options</strong>]</p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-v</strong> - verbose; prints out progress information.</p>
+</li>
+<li>
+<p><strong>-i <em>input_euclid_db</em></strong> - sets input file name (default is <em>stdin</em>).</p>
+</li>
+<li>
+<p><strong>-o <em>output_brlcad_db</em></strong> - sets output file name (default is <em>stdout</em>).</p>
+</li>
+<li>
+<p><strong>-d tolerance_distance</strong> - sets distance calculation tolerance (in millimeters) (default is 0.005).</p>
+</li>
+<li>
+<p><strong>-n</strong> - produces NMG primitives (default is BOT primitives).</p>
+</li>
+<li>
+<p><strong>-x lvl</strong> - sets librt debug flag (see <em>raytrace.h</em> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-X lvl</strong> - sets NMG library debug flag (see <em>nmg.h</em> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about the EUCLID file format and import possibilities, see the MDTVISION web site at <a href="http://support.mdtvision.com">http://support.mdtvision.com</a>[<a href="http://support.mdtvision.com">http://support.mdtvision.com</a>] (MDTVISION, 2003).</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Header file note</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Note that all header (.h) files-including <code>raytrace.h</code>, <code>nmg.h</code>, and <code>bu.h</code> - are accessible in both the source and binary distributions of BRL-CAD. In the binary distribution, these files are installed in the <code>/user/brlcad/include/brlcad</code> directory.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_FASTGEN_Format">Converting From FASTGEN Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Developed by the Falcon Research and Development Company over 30 years ago, FASTGEN has been widely used in the Department of Defense air combat system assessment community (e.g., the Air Force Research Laboratory, the Joint Technical Coordinating Group for Munitions Effectiveness, and the Joint Technical Coordinating Group on Aircraft Survivability. Now distributed by the Survivability/Vulnerability Information Analysis Center (SURVIAC) as part of the Vulnerability Modeling Tool Set, the FASTGEN format uses geometry BREP based on NASTRAN, with data presented in a generic, open text-based file format.</p>
+</div>
+<div class="paragraph">
+<p>Components of a target are represented in FASTGEN by triangles, quadrilaterals, cones, cylinders, spheres, and hexahedrons. These basic elements are designated as either plate (hollow) or volume (solid) mode and combined using a hierarchical structure for the formation of components and groups (SURVICE Engineering Company, 2002).</p>
+</div>
+<div class="paragraph">
+<p>Notable aerospace firms and support organizations that use FASTGEN include Lockheed Martin, Boeing, Bell Helicopter, Northrop Grumman, Pratt &amp; Whitney, General Electric, KETRON, ITT, BAH, SURVICE Engineering, and ASI.</p>
+</div>
+<div class="paragraph">
+<p>There are several versions of FASTGEN currently in use. FASTGEN converters include FASTGEN4 and preprocessed FASTGEN Version 3 (also referred to as PATCH).</p>
+</div>
+<div class="sect3">
+<h4 id="_fastgen4">FASTGEN4</h4>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <strong>fast4-g</strong> converter converts FASTGEN4 entities to corresponding BRL-CAD objects.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the <strong>fast4-g</strong> command is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>fast4-g</strong> [<strong>options</strong>] <code>fastgen4_input</code> <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-d</strong> - prints verbose debugging output.</p>
+</li>
+<li>
+<p><strong>-q</strong> - prints nothing except errors.</p>
+</li>
+<li>
+<p><strong>-w</strong> - prints warnings about creating default names.</p>
+</li>
+<li>
+<p><strong>-o <em>plot_file_name</em></strong> - creates a UNIX plot file of all CTRI and CQUAD elements processed.</p>
+</li>
+<li>
+<p><strong>-c component_list</strong> - processes only the listed region ids; may be a list (e.g., 3001,4082,5347) or a range (e.g., 2314-3527).</p>
+</li>
+<li>
+<p><strong>-m <em>muves_file_name</em></strong> - creates a MUVES warnings file containing CHGCOMP and CBACKING elements.</p>
+</li>
+<li>
+<p><strong>-b lvl</strong> - sets libbu debug flag (see <em>bu.h</em> in the binary distribution for definitions of BU_DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-x lvl</strong> - sets librt debug flag (see <em>raytrace.h</em> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_preprocessed_fastgen_version_3_patch">Preprocessed FASTGEN Version 3/PATCH</h4>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <strong>patch-g</strong> converter converts preprocessed FASTGEN version 3 files to BRL-CAD format. The syntax for the command is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>patch-g</strong> [<strong>options</strong>] <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-f <em>fastgen.rp</em></strong> - specifies preprocessed FASTGEN file (default is <em>stdin</em>).</p>
+</li>
+<li>
+<p><strong>-a</strong> - processes phantom armor.</p>
+</li>
+<li>
+<p><strong>-n</strong> - processes volume mode as plate mode.</p>
+</li>
+<li>
+<p><strong>-u #</strong> - specifies the number of union operations per region (default is five).</p>
+</li>
+<li>
+<p><strong>-c "x y z"</strong> - specifies the object&#8217;s center (in inches) (for some surface normal calculations).</p>
+</li>
+<li>
+<p><strong>-t title</strong> - specifies optional title (default is ``Untitled MGED database'').</p>
+</li>
+<li>
+<p><strong>-o object_name</strong> - specifies optional top-level name (default is "all").</p>
+</li>
+<li>
+<p><strong>-p</strong> - writes volume and plate mode components as BOTs.</p>
+</li>
+<li>
+<p><strong>-6</strong> - processes plate mode triangles as ARB6 solids (overrides p option for triangles).</p>
+</li>
+<li>
+<p><strong>-i <em>group.file</em></strong> - specifies group labels source file.</p>
+</li>
+<li>
+<p><strong>-m <em>mat.file</em></strong> - specifies materials information source file.</p>
+</li>
+<li>
+<p><strong>-r</strong> - reverses normals for plate mode triangles.</p>
+</li>
+<li>
+<p><strong>-d lvl</strong> - sets debug level.</p>
+</li>
+<li>
+<p><strong>-x lvl</strong> - sets librt debug flag (see <em>raytrace.h</em> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-X lvl</strong> - sets librt NMG debug flag (see <em>nmg.h</em> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-T tolerance_distance</strong> - sets distance tolerance (in inches).</p>
+</li>
+<li>
+<p><strong>-A parallel_tolerance</strong> - sets parallel tolerance (sine).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about the FASTGEN file formats and import possibilities, see the SURVIAC web site at <a href="http://www.bahdayton.com/surviac/fastgen.htm">http://www.bahdayton.com/surviac/fastgen.htm</a>[<a href="http://www.bahdayton.com/surviac/fastgen.htm">http://www.bahdayton.com/surviac/fastgen.htm</a>] (SURVIAC, 2003).</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_IGES_Format">Converting From IGES Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>IGES was developed in 1979 by a consortium of government, industry, and academia representatives. Originally intended to provide a means of exchanging graphics and engineering drawings, IGES was extended to include solid models as well. This specification includes so many different implementations within itself that conversion between IGES flavors has become a small industry. Thus, conversion to/from IGES is a ``hit-or-miss'' proposition (NIST, 2003).</p>
+</div>
+<div class="paragraph">
+<p>The Product Data Exchange using STEP specification is intended to replace IGES and correct the aforementioned deficiency by explicitly identifying different types of conversion and requiring converters to conform to those types. BRL-CAD supports conversion of two implementations of IGES, entirely facetted BREP and CSG with facetted BREP primitives.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the <strong>iges-g</strong> converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>iges-g</strong> [<strong>options</strong>] -o <code>output.g</code> <code>input.iges</code></p>
+</div>
+<div class="paragraph">
+<p>The options available for this command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-n</strong> - combines all the rational B-spline surfaces in the file into one BRL-CAD spline primitive.</p>
+</li>
+<li>
+<p><strong>-d</strong> - converts drawings in the IGES file to 2-D BRL-CAD NMG primitives.</p>
+</li>
+<li>
+<p><strong>-3</strong> - same as the <strong>-d</strong> option, but the final projection to 2-D is not performed. This can produce 3-D drawings in some cases.</p>
+</li>
+<li>
+<p><strong>-t</strong> - converts all trimmed surfaces in the IGES file to a single BRL-CAD NMG primitive.</p>
+</li>
+<li>
+<p><strong>-N primitive_name</strong> - specifies a name for single primitive created using the <strong>-t</strong> or <strong>-n</strong> options.</p>
+</li>
+<li>
+<p><strong>-p</strong> - converts all BREP entities to BRL-CAD NMG primitives rather than the default BOT primitives.</p>
+</li>
+<li>
+<p><strong>-x lvl</strong> - sets librt debug flag (see <code>raytrace.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-X lvl</strong> - sets librt NMG debug flag (see <code>nmg.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The <strong>-n</strong>, <strong>-d</strong>, <strong>-t</strong>, and <strong>-3</strong> options are mutually exclusive. If none of these four options is provided, the default action is to convert only IGES solid model entities (CSG and planar face BREP) to BRL-CAD.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the IGES file format and import possibilities, see the National Institute of Standards and Technology (NIST) web site at <a href="http://www.nist.gov/iges">http://www.nist.gov/iges</a>[<a href="http://www.nist.gov/iges">http://www.nist.gov/iges</a>] (NIST, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_Jack">Converting From Jack</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Jack is a 3-D interactive ergonomics and human factors CAD package developed by the University of Pennsylvania&#8217;s Center for Human Modeling and Simulation. Now maintained and distributed by Electronic Data Systems (EDS) (the company that now also distributes Unigraphics and NASTRAN), the package enables users to study and improve the ergonomics of product design and workplace tasks through the positioning of biomechanically accurate digital humans of various sizes in virtual environments. Jack and Jill digital ``humans'' can tell engineers what they can see and reach, how comfortable they are, when and why they&#8217;re getting hurt, when they&#8217;re getting tired, and other important ergonomics information. The package&#8217;s principal features include a detailed human model, realistic behavioral controls, anthropometric scaling, task animation and evaluation systems, view analysis, automatic reach and grasp, and collision detection and avoidance (The University of Pennsylvania, 2001; EDS, 2003a).</p>
+</div>
+<div class="paragraph">
+<p>The <strong>jack-g</strong> converter creates a single region consisting of a single BOT primitive. The syntax for the converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>jack-g</strong> [<strong>options</strong>] <code>input.jack</code> <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>The options for this command are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-r region_name</strong> - specifies a name for the BRL-CAD region created. If this option is not specified, the input file name will be used to construct a region name.</p>
+</li>
+<li>
+<p><strong>-g group_name</strong> - specifies the name of a combination to create to hold the BRL-CAD region created. If this option is not specified, the combination will not be created.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information on the Jack file format and import possibilities, see the EDS web page at <a href="http://www.eds.com/products/plm/efactory/jack/">http://www.eds.com/products/plm/efactory/jack/</a>[<a href="http://www.eds.com/products/plm/efactory/jack/">http://www.eds.com/products/plm/efactory/jack/</a>] (EDS, 2003a).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_NASTRAN_Format">Converting From NASTRAN Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Originally developed under National Aeronautics and Space Administration (NASA) sponsorship in the mid-1960s, the NASA Structural Analysis (NASTRAN) program was one of the first efforts to consolidate structural mechanics into a single computer program. It has since been used as a general-purpose software tool in numerous industries, including aerospace, automotive, medical, heavy machinery, electronic devices, and consumer products. The program is developed and distributed by the MSC.Software Corporation (MSC) and (as of June 2003) the EDS Corporation. It employs advanced finite element analysis computational techniques to analyze material strength/performance and evaluate static structures and the dynamic motion of structures (SURVICE Engineering Company, 2002; MSC.Software Corporation, 2003).</p>
+</div>
+<div class="paragraph">
+<p>NASTRAN&#8217;s nonlinear analysis capabilities can address a wide range of static and dynamic problems exhibiting both material and geometric nonlinear behavior. Heat transfer problems can also be solved using conduction, convection, and radiation methods under a variety of applied loads and boundary conditions.</p>
+</div>
+<div class="paragraph">
+<p>The NASTRAN finite element modeling program is one of the general-purpose structural analysis programs used worldwide. Even though it was originally intended for structural analysis problems, its current applications include aeroelasticity, heat transfer, fluid structure interaction, acoustics, electromagnetics, and many other applications.</p>
+</div>
+<div class="paragraph">
+<p>NASTRAN includes a file specification for describing geometric data. NASTRAN&#8217;s wide use and adoption by CAD vendors make it well suited as a file standard.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>nastran-g</strong> converter currently only converts CBAR, CROD, CTRIA3, and CQUAD4 elements of NASTRAN files to BRL-CAD format. CBAR and CROD elements become cylinders in BRL-CAD. CTRIA3 and CQUAD4 elements become BOT facets.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>nastran-g</strong> [<strong>options</strong>]</p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-i <em>NASTRAN_input_file</em></strong> - sets input NASTRAN file (default is <code>stdin</code>).</p>
+</li>
+<li>
+<p><strong>-o <em>output.g</em></strong> - sets output file name (default is "nastran.g").</p>
+</li>
+<li>
+<p><strong>-n</strong> - produces NMG primitives (default is BOT primitives).</p>
+</li>
+<li>
+<p><strong>-x lvl</strong> - sets librt debug flag (see <code>raytrace.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-X lvl</strong> - sets NMG library debug flag (see <code>nmg.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-t tolerance_distance</strong> - sets distance calculation tolerance (in millimeters) (default is 0.005).</p>
+</li>
+<li>
+<p><strong>-m</strong> - sets input units to millimeters (default is inches).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more on the NASTRAN file format and import possibilities, see the MSC web site at <a href="http://www.mscsoftware.com">http://www.mscsoftware.com</a>[<a href="http://www.mscsoftware.com">http://www.mscsoftware.com</a>] (MSC.Software Corporation, 2003) and the EDS web site at <a href="http://www.eds.com/products/plm/nastran/">http://www.eds.com/products/plm/nastran/</a>[<a href="http://www.eds.com/products/plm/nastran/">http://www.eds.com/products/plm/nastran/</a>] (EDS, 2003b).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_Pro_E_Format">Converting From Pro/E Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Distributed by the Parametric Technology Corporation (PTC), Pro/E is one of the most widely used commercial CAD packages for designing, engineering, and manufacturing products. The long list of major corporations that use Pro/E software for Product Lifecycle Management includes Boeing, Rolex, Audi, Dell, Nike, Maytag, Braun, and Hewlett-Packard (PTC, 2003).</p>
+</div>
+<div class="paragraph">
+<p>Because of Pro/E&#8217;s popularity in the Defense community, the Pro/E-to-BRL- CAD converter is one of the most important conversion utilities that BRL- CAD offers. Note that unlike the converters for other formats, the Pro/E converter is no longer command-line activated. This converter was written using the Pro/Toolkit module of Pro/E and therefore runs as part of the Pro/E program and GUI.</p>
+</div>
+<div class="paragraph">
+<p>Accordingly, in order to use the converter, the user must have a seat of Pro/E as well as the BRL-CAD distribution. Currently, the converter is only supported on Silicon Graphics (SGI) machines with MIPS processors running the Irix operating system. The source code for this converter is included in the binary distribution, so users can compile it for different platforms if they have the Pro/Toolkit module for that platform.</p>
+</div>
+<div class="paragraph">
+<p>Pro/E models are made up of two elements: parts and assemblies. Part files (which are designated by a <code>.prt</code> extension) are the basic building blocks of Pro/E geometry. Assembly files (which are designated by a <code>.asm</code> extension) are composed of parts and/or other assemblies. The converter produces a BRL-CAD region for each Pro/E part that is converted and a BRL- CAD combination for each Pro/E assembly that is converted. Each of these regions will consist of a single BOT primitive.</p>
+</div>
+<div class="paragraph">
+<p>The conversion of geometry from Pro/E to BRL-CAD is a two-stage process. This converter first produces the ASCII form of BRL-CAD databases. The user then converts these databases to binary form using the <strong>asc2g</strong> utility.</p>
+</div>
+<div class="paragraph">
+<p>In addition, because Pro/E files for most vehicles are so large (often several GBs in size), entire geometries typically cannot be loaded all at once. Thus, the BRL-CAD user often has to convert geometry system by system (e.g., engine, transmission, and suspension) and then concatenate (i.e., join) them together in a single BRL-CAD geometry file. For more detailed information about this process, see the discussion on dbconcat in Volume III of this tutorial series.</p>
+</div>
+<div class="paragraph">
+<p>Pro/E makes extensive use of referenced geometry. As discussed in the previous volume of this tutorial series (see section 5 of Butler et al. [2003]), referencing is the method by which multiple occurrences of objects are created by referring to a single object numerous times with different orientations and locations for each reference. These references are duplicated in BRL-CAD using combinations and transformation matrices. In some cases-such as when geometry is used with vulnerability codes that require each region to have a unique ident number-users may need to use the <strong>xpush</strong> command in MGED after the conversion is complete to replace the references with real geometry. For more information about this procedure, users should consult MGED&#8217;s on-line help or the <strong>xpush</strong> entry in volume II of this tutorial series (see appendix A of Butler et al. [2001]).</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Keys to Converting Pro/E Geometry</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">To maximize the efficiency and effectiveness of converting Pro/E geometry, the BRL-CAD user should first acquire the following information from the Pro/E designer: A list of top-level assemblies - This information is vital in helping the BRL-CAD user gain an understanding of the overall model structure and know where to begin the conversion process. A mapping of part numbers to part names - Although part numbers can be an important aspect of design and manufacturing, they have little meaning for vulnerability analysts, who are more concerned with the descriptive names of the components than the numbers represent.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The command to start the Pro/E program is specified by each installer. When Pro/E is started, the program looks for a file named <code>protk.dat</code> in a few specific places, one of which is in the current directory. This file informs Pro/E about Pro/TOOLKIT modules it should load. There is a <code>protk.dat</code> file for the Pro/E-to-BRL-CAD converter, and it is included in the distribution under the pro-engineer directory. Users should copy this file to the directory where they will be starting Pro/E. After that file is in place, Pro/E will load the converter at startup. If the loading succeeds, users will see a message saying ``Installation of Proe-BRL converter succeeded.'' With Pro/E started and the converter module loaded, the user can open any Pro/E model he wants to convert.</p>
+</div>
+<div class="paragraph">
+<p>The conversion process is started by selecting the ProE-BRL item in the Pro/E drop-down File menu. The converter dialog box, shown in <a href="#fig_converter_dialog_box">fig_converter_dialog_box</a>, will then appear.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="test_img.eps" alt="test_img.eps">
+</div>
+<div class="title">Converter dialog box</div>
+</div>
+<div class="paragraph">
+<p>The following list provides a description of the use and functionality of the primary elements in the dialog box. Note that the box is preloaded with reasonable defaults for many of the inputs. In addition, if the user has a question about any of the entry windows, check boxes, or buttons, he can move the mouse over them to see a brief explanation of their use.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Output File Name - This is the name of the file to receive the ASCII output.</p>
+</li>
+<li>
+<p>Log File Name - If provided, verbose status logging will be written to that file.</p>
+</li>
+<li>
+<p>Part Name File - If provided, the converter will use that information to map Pro/E part and assembly names into the specified BRL-CAD object names. This file is simply a text file with each line specifying a Pro/E part or assembly name and a BRL-CAD object name separated by white space. Note that the BRL-CAD names should not include any special characters such as <code>/'', </code>['', ``]'', or white space.</p>
+</li>
+<li>
+<p>Starting Ident Number - Ident numbers will be assigned to the resulting BRL-CAD regions sequentially starting with the number that appears in the window.</p>
+</li>
+<li>
+<p>Max Tessellation Error - This value (expressed in millimeters) is used to control the coarseness of the tessellation. It is the maximum distance between the actual surface and its tessellated approximation. Smaller values here will result in finer tessellations and more triangles. The default value is reasonable for ballistic vulnerability analysis purposes.</p>
+</li>
+<li>
+<p>Angle Control Value - This is a number between 0 and 1 that provides additional control over the coarseness of the tessellation. The exact relationship between the tessellation and this value is not specified in the Pro/E documentation, but the default value of 0.5 seems to work well.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about the Pro/E file format and import possibilities, see the Parametric Technology Corporation (PTC) web site at <a href="http://www.ptc.com">http://www.ptc.com</a>[<a href="http://www.ptc.com">http://www.ptc.com</a>] (PTC, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="sec_converting_from_stl">Converting From STL Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The STL format was developed by 3D Systems, Inc., in the 1980s for use with its StereoLithography Apparatus (SLA). The SLA device produces a physical 3-D model based on an STL format file. Because of its simplicity, the STL format has become an industry standard for exchanging 3-D models. Unfortunately, this simplicity also presents some limitations.</p>
+</div>
+<div class="paragraph">
+<p>The format consists only of triangles, and each triangle is represented by three vertices and a surface normal vector. Because the vertices for each triangle are explicitly listed, rather than indexed from a list, the topology must be inferred by the receiving system, which can sometimes lead to incorrect geometry.</p>
+</div>
+<div class="paragraph">
+<p>STL files may be either ASCII or binary. The ASCII format includes the capability of including more than one solid part and an optional name for each part, while the binary format can only support a single solid part with no naming.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>stl-g</strong> converter converts STL format to BRL-CAD. The STL format is entirely triangles. The resulting BRL-CAD database will consist of one or more regions and a top-level combination named ``all,'' which contains all the regions produced. Each region will consist of a single BOT primitive.</p>
+</div>
+<div class="paragraph">
+<p>Note that the ASCII format STL file includes a capability to contain more than one solid part. The regions created will be named according to the name specified in the STL file unless a name is provided on the command line. If the STL file does not specify any name, and the user does not provide a name, then the regions produced in the BRL-CAD database will be constructed from the name of the STL file.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the <strong>stl-g</strong> converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>stl-g</strong> [<strong>options</strong>] <code>input.stl</code> <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>where <code>input.stl</code> is the STL file to be converted and <code>output.g</code> is the name of the BRL-CAD database to receive the converted output.</p>
+</div>
+<div class="paragraph">
+<p>The options for this command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-b</strong> - designates that the input STL file is in binary format (the default is ASCII).</p>
+</li>
+<li>
+<p><strong>-c units</strong> - specifies the units used in the STL file. Choices include <code>cm,'' </code>m,'' <code>in,'' </code>ft,'' and many others (the default is millimeters).</p>
+</li>
+<li>
+<p><strong>-N name</strong> - specifies a name for the resulting BRL-CAD region. If more than one region is produced, unique region names will be constructed by adding a suffix consisting of an underscore and an integer.</p>
+</li>
+<li>
+<p><strong>-d</strong> - designates that additional debugging information be printed during the conversion.</p>
+</li>
+<li>
+<p><strong>-i ident</strong> - specifies the ident number assigned to the first region created during the conversion. Additional regions will be assigned sequential ident numbers.</p>
+</li>
+<li>
+<p><strong>-I ident</strong> - specifies the ident number to assign to all the BRL-CAD regions created during this conversion. (This option and the <strong>-i ident</strong> option are mutually exclusive.)</p>
+</li>
+<li>
+<p><strong>-m material_code</strong> - specifies the integer material code to be assigned to each BRL-CAD region created during this conversion.</p>
+</li>
+<li>
+<p><strong>-t tolerance_distance</strong> - specifies the minimum distance (in millimeters) allowed between distinct vertices. Vertices closer than this minimum will be considered to be the same vertex (the default value is 0.005 mm).</p>
+</li>
+<li>
+<p><strong>-x librt_debug_flag</strong> - specifies a flag for the raytracing library that will result in additional debug log messages (see <code>librt/debug.h</code> in the binary distribution for details).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information on the STL file format and import possibilities, see the 3D Systems web site at <a href="http://www.3dsystems.com">http://www.3dsystems.com</a>[<a href="http://www.3dsystems.com">http://www.3dsystems.com</a>] (3D Systems, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_TANKILL_Format">Converting From TANKILL Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Distributed by the Advantage Business Group, a contractor to the British Ministry of Defence, the TANKILL format is used with the TANKILL vulnerability and lethality assessment code. This format is another purely triangulated representation of solid objects.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the tankill-g converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>tankill-g</strong> [<strong>options</strong>]</p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-v</strong> - verbose; prints out progress information.</p>
+</li>
+<li>
+<p><strong>-n</strong> - produces NMG primitives (default is BOT primitives).</p>
+</li>
+<li>
+<p><strong>-i <em>input.tkl</em></strong> - specifies the input TANKILL file (default is <code>stdin</code>).</p>
+</li>
+<li>
+<p><strong>-o <em>output.g</em></strong> - specifies the output BRL-CAD file (default is <code>tankill.g</code>).</p>
+</li>
+<li>
+<p><strong>-k</strong> - keeps components with id = 1001 (normally skipped).</p>
+</li>
+<li>
+<p><strong>-x lvl</strong> - sets librt debug flag (see <code>raytrace.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-X lvl</strong> - sets NMG library debug flag (see <code>nmg.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information on the TANKILL file format and import possibilities, contact the Advantage Business Group at the Barbician, East Street, Farnham, Surrey, GU9 7TB or visit the web site at <a href="http://www.advantage-business.co.uk">http://www.advantage-business.co.uk</a>[<a href="http://www.advantage-business.co.uk">http://www.advantage-business.co.uk</a>] (Advantage Business Group, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_Unigraphics_Format">Converting From Unigraphics Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Like Pro/E, Unigraphics is a widely popular CAD format used by thousands of companies in the United States and abroad, including General Motors, Ford, Kodak, General Electric, Pratt &amp; Whitney, Boeing, and Samsung. Now distributed by EDS (the company that also distributes Jack and a version of NASTRAN), the Unigraphics toolset addresses traditional CAD/CAM/CAE, conceptual and industrial design, knowledge-based engineering, real-time design collaboration, and process automation (EDS, 2003c).</p>
+</div>
+<div class="paragraph">
+<p>There are three modeling methodologies offered with Unigraphics. First, explicit (or traditional) modeling uses points, curves, and surfaces with no associativity or history. Second, history-based modeling uses associative geometric entities. Third, direct modeling uses a combination of both explicit and history-based modeling and also allows the global application of geometric rules and constraints across geometry of all origins (SURVICE Engineering Company, 2002).</p>
+</div>
+<div class="paragraph">
+<p>Unigraphics bases its component geometric modeling capabilities on the Parasolid geometry engine (developed by EDS in Cambridge, England) and related XT file format. This enables Parasolid-based systems (e.g., Unigraphics, Solid Edge, and systems by Parametric Technology, SolidWorks, Bentley Systems, CADKEY, ANSYS, Mechanical Dynamics, and MSC.Software) to share and exchange geometric data without translation via an interoperable data pipeline (SURVICE Engineering Company, 2002).</p>
+</div>
+<div class="paragraph">
+<p>Because the Unigraphics-to-BRL-CAD converter, ug-g, was written using the Unigraphics UG/Open API library, users must have a Unigraphics UG/Open execute or development license in order to run it. This converter is compiled for SGI Irix machines running on MIPS processors; however, users can compile it for other platforms by obtaining the BRL-CAD source distribution and a UG/Open development license from Unigraphics.</p>
+</div>
+<div class="paragraph">
+<p>This converter creates a BRL-CAD region consisting of a single BOT primitive for each Unigraphics part and a combination for each Unigraphics assembly. Each instance of a Unigraphics part is converted independently, so there are no transformation matrices created in the resulting BRL-CAD model. The BRL-CAD regions are given the same name as the parts are assigned in the Unigraphics model, unless a part-name mapping file is provided. Region names are made unique, if necessary, by adding a suffix consisting of a dot and an integer number.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for this converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>ug-g</strong> [<strong>options</strong>] <strong>-o</strong> <code>output.g</code> <code>UG_part_file</code> [<strong>subpart1</strong> <strong>subpart2</strong> &#8230;&#8203;]</p>
+</div>
+<div class="paragraph">
+<p>where the <code>UG_part_file</code> is a Unigraphics part file. If subparts are listed on the command line, only those named parts in the specified part file will be converted.</p>
+</div>
+<div class="paragraph">
+<p>The available options are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-d level</strong> - specifies a debug level for additional log messages. Currently, any nonzero value here provides additional logging.</p>
+</li>
+<li>
+<p><strong>-i initial_ident</strong> - specifies the ident number for the first region created by the conversion. Subsequent regions are assigned sequential ident numbers.</p>
+</li>
+<li>
+<p><strong>-n <em>part_name_file</em></strong> - specifies a file containing a mapping of Unigraphics part and/or assembly names to BRL-CAD object names. If this file is provided, it will be used to create object names in the BRL-CAD model. The format of this file is simply a line per part, with the Unigraphics part/assembly name followed by the desired BRL- CAD object name, separated by white space. Note that the usual restrictions for BRL-CAD object names apply (e.g., no spaces, no special symbols, etc.) For a detailed discussion of recommended naming schemes and restrictions, see section 4 of Volume III (Butler et al., 2003).</p>
+</li>
+<li>
+<p><strong>-R refset_name</strong> - specifies a desired reference set (which Unigraphics uses to provide additional control over assembly components), overriding the reference set specified in the Unigraphics model.</p>
+</li>
+<li>
+<p><strong>-f</strong> - facetizes all the geometry. If this option is not specified, the converter will attempt to create CSG equivalent geometry wherever possible.</p>
+</li>
+<li>
+<p><strong>-s</strong> - lists all features that were attempted to convert to CSG. (This option and the <strong>-f</strong> option are mutually exclusive.)</p>
+</li>
+<li>
+<p><strong>-u</strong> - extracts surface normals from the Unigraphics model. Using this option will result in a BRL-CAD model that is significantly larger than when not using it, but raytraced objects will appear much smoother.</p>
+</li>
+<li>
+<p><strong>-o <em>output.g</em></strong> - specifies the name of the file to receive the BRL-CAD model.</p>
+</li>
+<li>
+<p><strong>-t tolerance_distance</strong> - specifies the minimum distance (in millimeters) allowed between distinct vertices. Vertices closer than this minimum will be considered to be the same vertex (the default value is 0.005 mm).</p>
+</li>
+<li>
+<p><strong>-a surface_normal_tolerance</strong> - specifies a surface normal error tolerance (in degrees) for the facetization process. By default, the surface normal is not considered during facetization.</p>
+</li>
+<li>
+<p><strong>-c min_chamfer</strong> - specifies that any chamfer with dimensions less than the provided minimum (in millimeters) will be ignored. By default, no features are ignored.</p>
+</li>
+<li>
+<p><strong>-r min_round</strong> - specifies that any round (or fillet) with a radius less than the specified minimum (in millimeters) will be ignored. By default, no features are ignored.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information on the Unigraphics file format and conversion potential, see the EDS web site at <a href="http://www.eds.com/products/plm/unigraphics_nx/">http://www.eds.com/products/plm/unigraphics_nx/</a>[<a href="http://www.eds.com/products/plm/unigraphics_nx/">http://www.eds.com/products/plm/unigraphics_nx/</a>] (EDS, 2003c).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_Viewpoint_Datalabs_Format">Converting From Viewpoint Datalabs Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Viewpoint Datalabs started out as a commercial supplier of 3-D models, maintaining a large repository of facetted models of many objects. The company has since grown to provide more services than models, and its model repository is now maintained by Digimation, Inc.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>viewpoint-g</strong> converter converts the Viewpoint Datalabs coor/elem format to BRL-CAD format. Objects in the input files are converted to regions, each consisting of a single BOT primitive. The converter will assign vertex normals if they are present in the input files. Two files are expected, one that contains vertex coordinates (and optional normals) and one that lists the vertex numbers for each polygonal face. This format was used by the original Viewpoint Datalabs model repository. The current repository uses more common formats such as DXF and VRML.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>viewpoint-g</strong> [<strong>options</strong>]</p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-c <em>coord_file_name</em></strong> - sets the input vertex coordinates file name (required).</p>
+</li>
+<li>
+<p><strong>-e <em>elements_file_name</em></strong> - sets the input faces file name (required).</p>
+</li>
+<li>
+<p><strong>-o <em>output_file_name</em></strong> - sets the output BRL-CAD database name (default is <code>viewpoint.g</code>).</p>
+</li>
+<li>
+<p><strong>-t tolerance_distance</strong> - sets distance calculation tolerance (in millimeters) (default is 0.005).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="sec_convert_from_brlcad">Converting From BRL-CAD</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="General_Information_About_Converting_From_BRL-CAD">General Information About Converting From BRL-CAD</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p><a href="#tbl_export_converters">tbl_export_converters</a> contains the primary file formats (other than ASCII) to which BRL- CAD currently converts. Once again, the "g-" designation at the beginning of each converter name indicates that the conversion process begins with BRL-CAD&#8217;s standard geometry (.g) format.</p>
+</div>
+<div class="paragraph">
+<p>Note that most of the BRL-CAD export converters operate by tessellating all the primitive shapes in the BRL-CAD model, then evaluating the Boolean formula for each region. The result of this is a facetted representation of each region. The tessellation tolerances are used to determine the coarseness of the tessellation of curved surfaces. Smaller tolerances result in more, smaller facets and a larger output file. The calculation tolerance is the minimum distance between any two vertices in a region. Any vertices closer than this are fused into a single vertex.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">BRL-CAD export converters.</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">CAD format</th>
+<th class="tableblock halign-left valign-top">Export Converter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ACAD</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-acad</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">AutoCAD DXF</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-acad</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">EUCLID<sup class="footnote"><a id="_footnoteref_4" class="footnote" href="#_footnotedef_4" title="View footnote.">4</a></sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-euclid</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IGES</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-iges</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Jack</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-jack</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">STL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-stl</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TANKILL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-tankill</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VRML</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-vrml</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Wavefront (.obj)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-wave</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">X3D</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">g-x3d</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Occasionally, the Boolean evaluation process will fail. When this happens, an error message specifying the region that failed to convert will be generated. The converter will then proceed to work on the next region to be converted.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_ACAD_Format">Converting to ACAD Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Advanced Computer Aided Design (ACAD) format is the format for the in- house CAD package developed in the early 1980s by Lockheed Martin Tactical Aircraft Systems (then General Dynamics - Fort Worth) and distributed since 1995 by the Electromagnetic Code Consortium. The package was developed to improve the product design process by eliminating manual drawing boards and reducing design iteration cycle times. Notable aircraft programs that have used ACAD include the Joint Strike Fighter (F-35), the Raptor (F-22), the Advanced Technology Fighter, the National Aerospace Plane (X-30), and the Attack/Fighter-Experimental (A/F-X) (SURVICE Engineering Company, 2002).</p>
+</div>
+<div class="paragraph">
+<p>A notable characteristic of ACAD is the layers by which modeled parts are separated and managed (e.g., by subsystem). The package stores geometric data in a relational database that uses parent-child dependencies to enable automatic and rapid geometric modification. For example, changing a control spline of a fuselage will automatically regenerate any surface(s) built with that spline. Any geometry that is associated to the fuselage surface (i.e., plane/curve and surface intersections, fillets, etc.) will then regenerate.</p>
+</div>
+<div class="paragraph">
+<p>One of ACAD&#8217;s strengths is its bidirectional IGES translator, which provides compatibility with other IGES-supported formats, including CADAM, CATIA, COMPUTERVISION, AutoCAD, and Pro/E.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">ACAD or AutoCAD?</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Although these packages are often confused, ACAD was developed by Lockheed Martin and is not connected with AutoCAD, which was developed by Autodesk Inc.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>As its name implies, the <strong>g-acad</strong> utility converts a file in BRL-CAD format to a file in facetted ACAD format. The form of the command is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-acad</strong> [<strong>options</strong>] <strong>-o <em>output_file</em> <em>input.g</em> object(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the g-acad command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-i</strong> - designates that the output be in inches (the default is millimeters).</p>
+</li>
+<li>
+<p><strong>-x lvl</strong> - sets librt debug flag (see <code>raytrace.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-X lvl</strong> - sets the NMG library debug flag (see <code>nmg.h</code> in the binary distribution for definitions of DEBUG_xxx).</p>
+</li>
+<li>
+<p><strong>-e <em>error_file</em></strong> - sends error messages to specified file (default is standard error [<code>stderr</code>]).</p>
+</li>
+<li>
+<p><strong>-v</strong> - verbose; prints out progress information.</p>
+</li>
+<li>
+<p><strong>-D tolerance_distance</strong> - sets distance calculation tolerance (in millimeters) (default is 0.005).</p>
+</li>
+<li>
+<p><strong>-r rel_tess_tol</strong> - sets relative tessellation tolerance (normally 0.0 to 1.0) (default is 0.1).</p>
+</li>
+<li>
+<p><strong>-a abs_tess_tol</strong> - sets absolute tessellation tolerance to specified value (in millimeters) (overrides <strong>-r</strong> option).</p>
+</li>
+<li>
+<p><strong>-n norm_tess_tol</strong> - sets surface normal tessellation tolerance (angle in radians) (overrides <strong>-r</strong> option).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information on the ACAD file format and conversion potential, contact Lockheed Martin Tactical Aircraft Systems at <a href="http://www.lockheedmartin.com">http://www.lockheedmartin.com</a>[<a href="http://www.lockheedmartin.com">http://www.lockheedmartin.com</a>] (Lockheed Martin, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_AutoCAD_DXF_Format">Converting to AutoCAD DXF Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The g-dxf command converts BRL-CAD objects to the previously mentioned AutoCAD DXF format. The syntax for this command is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-dxf</strong> [<strong>options</strong>] <strong><em>input.g</em> object(s</strong>)</p>
+</div>
+<div class="paragraph">
+<p>The options for the g-dxf command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-i</strong> - requests the output DXF file to be in inches (default is millimeters).</p>
+</li>
+<li>
+<p><strong>-o <em>output.dxf</em></strong> - specifies the file to receive the DXF output (default is stdout).</p>
+</li>
+<li>
+<p><strong>-p</strong> - requests that the output DXF file consist of POLYFACE MESH entities (the default is 3DFACE entities).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The command also accepts the <strong>-v</strong>, <strong>-r</strong>, <strong>-a</strong>, <strong>-n</strong>, <strong>-x</strong>, and <strong>-X</strong> options, which have been discussed in the import converters portion of this document (<a href="#sec_convert_to_brlcad">sec_convert_to_brlcad</a>).</p>
+</div>
+<div class="paragraph">
+<p>For more information on the DXF file format and export possibilities, see the on-line documentation on the Autodesk web site at <a href="http://www.autodesk.com">http://www.autodesk.com</a>[<a href="http://www.autodesk.com">http://www.autodesk.com</a>] (Autodesk, Inc., 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_EUCLID_Format">Converting to EUCLID Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <strong>g-euclid</strong> command converts BRL-CAD objects to a EUCLID ``decoded'' facetted format. Note that, as previously mentioned, this format is not native EUCLID format. The form of the command is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-euclid</strong> [<strong>options</strong>] <strong><em>input.g</em> objects(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the <strong>g-euclid</strong> command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-u units</strong> - sets the output units (the default is millimeters).</p>
+</li>
+<li>
+<p><strong>-o <em>output_file_name</em></strong> - sets the output file name (the default is <code>stdout</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about the EUCLID file format and export possibilities, see the MDTVISION web site at <a href="http://support.mdtvision.com">http://support.mdtvision.com</a>[<a href="http://support.mdtvision.com">http://support.mdtvision.com</a>] (MDTVISION, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_IGES_Format">Converting to IGES Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The syntax for the BRL-CAD to IGES converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-iges</strong> [<strong>options</strong>] <strong><em>input.g</em> object(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the g-iges command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-o <em>output_name</em></strong> - indicates the name of the resulting IGES file. If the m option is specified, then this is the name of a directory where resulting IGES files will be placed (the directory must already exist). (The default is <code>stdout</code>.)</p>
+</li>
+<li>
+<p><strong>-f</strong> - designates that the resulting IGES file will be entirely facetted BREP entities. The <strong>-f</strong> and <strong>-t</strong> options (the next option discussed) are mutually exclusive.</p>
+</li>
+<li>
+<p>t** - designates that the resulting IGES file will be entirely trimmed NURB entities similar to the <strong>-f</strong> option, but each facet is represented as a trimmed NURB. The <strong>-f</strong> and <strong>-t</strong> options are mutually exclusive.</p>
+</li>
+<li>
+<p><strong>-m</strong> - Each region in the specified objects is output in an individual IGES file and placed in the directory specified with the <strong>-o</strong> option. This option implies the <strong>-t</strong> option.</p>
+</li>
+<li>
+<p><strong>-s</strong> - Used in conjunction with the <strong>-f</strong> or <strong>-t</strong> options to indicate that the facets should all be expressed as planar NURB surfaces rather than the default simple planar surface.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>With the <strong>-t</strong> and <strong>-f</strong> options, the converter will employ Boolean evaluation of each region. If neither option is specified, then a CSG IGES file will be produced. The command also accepts the previously mentioned <strong>-v</strong>, <strong>-r</strong>, <strong>-a</strong>, <strong>-n</strong>, <strong>-x</strong>, and <strong>-X</strong> options.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Package-Preferred IGES Converter Options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Note that different CAD packages seem to ``prefer'' certain options for the IGES converter. In particular, Pro/E works well with IGES files that use the <strong>-m</strong> option, and Unigraphics works well with IGES files that use the <strong>-s</strong> option.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For more information about the IGES file format and export possibilities, see the NIST web site at <a href="http://www.nist.gov/iges">http://www.nist.gov/iges</a>[<a href="http://www.nist.gov/iges">http://www.nist.gov/iges</a>] (NIST, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_Jack">Converting to Jack</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The syntax for the jack-g converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>jack-g</strong> [<strong>options</strong>] <code>input.jack</code> <code>output.g</code></p>
+</div>
+<div class="paragraph">
+<p>The options for the jack-g command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-r region_name</strong> - specifies the name of the region to create in the BRL-CAD output (by default, this name is constructed from the input filename).</p>
+</li>
+<li>
+<p><strong>-g combination_name</strong> - specifies the name of a combination to be created to hold the region produced. If not specified, no combination will be created.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about the Jack file format and export possibilities, see the EDS web page at <a href="http://www.eds.com/products/plm/efactory/jack">http://www.eds.com/products/plm/efactory/jack</a>[<a href="http://www.eds.com/products/plm/efactory/jack/">http://www.eds.com/products/plm/efactory/jack/</a>] (EDS, 2003a).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_STL_Format">Converting to STL Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The syntax for the BRL-CAD to STL converter is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-stl</strong> [<strong>options</strong>] <strong><em>input.g</em> object(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the <strong>g-stl</strong> command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-o <em>output_name</em></strong> - specifies the name of the file to receive the STL format output. This option is mutually exclusive with the m option. (The default is <code>stdout</code>.)</p>
+</li>
+<li>
+<p><strong>-m <em>directory_name</em></strong> - specifies the name of an existing directory where output STL files will be placed. This option is mutually exclusive with the <strong>-o</strong> option. When this option is exercised, each region in the specified object(s) is output in a separate file written to the specified directory. The file names will be based on the BRL-CAD database path to the region, with <code>/'' characters replaced by </code>@'' and <code>.'' characters replaced by </code>_''.</p>
+</li>
+<li>
+<p><strong>-b</strong> - produces binary format STL files. The combination of this option and the <strong>-o</strong> option produces a binary STL file containing one solid object representing all the regions in the specified object(s). (The default output format is ASCII.)</p>
+</li>
+<li>
+<p><strong>-D calculation_tolerance</strong> - sets the distance calculation tolerance (in millimeters) (the default is 0.005).</p>
+</li>
+<li>
+<p><strong>-i</strong> - produces an STL file in units of inches (the default is millimeters).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The command also accepts the previously mentioned <strong>-v</strong>, <strong>-r</strong>, <strong>-a</strong>, <strong>-n</strong>, <strong>-x</strong>, and <strong>-X</strong> options.</p>
+</div>
+<div class="paragraph">
+<p>For more information on the STL file format and export possibilities, see the 3D Systems web site at <a href="http://www.3dsystems.com">http://www.3dsystems.com</a>[<a href="http://www.3dsystems.com">http://www.3dsystems.com</a>] (3D Systems, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_TANKILL_Format">Converting to TANKILL Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As discussed previously, the TANKILL format is another purely triangulated representation of solid objects.</p>
+</div>
+<div class="paragraph">
+<p>The syntax for the g-tankill command is as follows:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-tankill</strong> [<strong>options</strong>] <strong><em>input.g</em> object(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the <strong>g-tankill</strong> command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-i <em>idents_file</em></strong> - specifies that the ident numbers in the output file should be assigned sequentially as BRL-CAD regions are encountered (rather than using the ident numbers assigned in the BRL-CAD file). A mapping of the assigned ident numbers and the BRL-CAD regions is written to the specified idents_file.</p>
+</li>
+<li>
+<p><strong>-s surroundings_code</strong> - specifies the surroundings code, which is a code TANKILL uses to indicate the type of volume that surrounds an object (the default is 1000).</p>
+</li>
+<li>
+<p><strong>-o <em>output_name</em></strong> - specifies the name of a file to receive the output (default it <code>stdout</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The command also accepts the previously mentioned <strong>-v</strong>, <strong>-r</strong>, <strong>-a</strong>, <strong>-n</strong>, <strong>-x</strong>, and <strong>-X</strong> options.</p>
+</div>
+<div class="paragraph">
+<p>For more information on the TANKILL file format and export possibilities, contact the Advantage Business Group at the Barbician, East Street, Farnham, Surrey GU9 7TB or visit the web site at <a href="http://www.advantage-business.co.uk">http://www.advantage-business.co.uk</a>[<a href="http://www.advantage-business.co.uk">http://www.advantage-business.co.uk</a>] (Advantage Business Group, 2003)</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_VRML_Format">Converting to VRML Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Virtual Reality Modeling Language (VRML) began in 1994 at the first World Wide Web Conference. The format -which is maintained by the nonprofit, vendor-neutral Web3D Consortium- was designed to be a Web-interoperable standard for specifying multiparticipant 3-D graphical visualization tools. When a user selects a hyperlink to a VRML document from within a correctly configured WWW browser, a VRML viewer is launched to navigate through a given geometry (e.g., a model of a building). Future versions of VRML are planned to include more advanced features, including animations, motion physics, and real-time multiuser interaction (Web3D Consortium, 2003b).</p>
+</div>
+<div class="paragraph">
+<p>The g-vrml command converts BRL-CAD objects to the VRML 2.0 format. It takes the following form:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-vrml</strong> [<strong>options</strong>] <strong><em>input.g</em> object(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-d tolerance_distance</strong> - sets distance calculation tolerance in millimeters (the default is 0.005).</p>
+</li>
+<li>
+<p><strong>-u units</strong> - sets the desired output units (the default is millimeters).</p>
+</li>
+<li>
+<p><strong>-o <em>output_file_name</em></strong> - sets output file name (the default is <code>stdout</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The command also accepts the previously mentioned <strong>-v</strong>, <strong>-r</strong>, <strong>-a</strong>, <strong>-n</strong>, <strong>-x</strong>, and <strong>-X</strong> options.</p>
+</div>
+<div class="paragraph">
+<p>For more information on VRML, see the Web3D Consortium web site at <a href="http://www.web3d.org">http://www.web3d.org</a> /fs_technicalinfo.htm[<a href="http://www.web3d.org">http://www.web3d.org</a> /fs_technicalinfo.htm] (Web3D Consortium, 2003b).</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">The Web3D Consortium</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="test_img.eps" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Web3D Consortium is a nonprofit organization promoting open standards for 3-D Web and broadcast applications. Members include leading corporate and educational institutions, including 3Dlabs, ATI Technologies, blaxxun, Nexternet, OpenWorlds, Sony, SGDL Systems, ParallelGraphics, the Naval Postgraduate School, and the Army Simulation, Training, and Instrumentation Command (STRICOM). Notable efforts include developing VRML specifications and an improved, componentized new-generation specification for Web3D, including X3D (see subsection 5.11) (SURVICE Engineering Company, 2002).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_Wavefront_Format">Converting to Wavefront Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Wavefront OBJ format was developed in 1984 by Wavefront Technologies (now Alias, a company that merged with Wavefront under SGI). The format, which was intended for use with the Wavefront Advanced Visualizer, consists of lines, polygons, and smooth surfaces.</p>
+</div>
+<div class="paragraph">
+<p>This <strong>g-wave</strong> converter produces an OBJ file that consists entirely of polygons (triangles). The command takes the following form:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-wave</strong> [<strong>options</strong>] <strong><em>input.g</em> object(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-m</strong> - includes "usemtl" statements in the output (encoded aircode, los, and material number).</p>
+</li>
+<li>
+<p><strong>-i</strong> - sets the output units to inches (the default is millimeters).</p>
+</li>
+<li>
+<p><strong>-d tolerance_distance</strong> - sets distance calculation tolerance in millimeters (the default is 0.005).</p>
+</li>
+<li>
+<p><strong>-u</strong> - includes vertexuse normals in the output.</p>
+</li>
+<li>
+<p><strong>-o <em>output.obj</em></strong> - specifies the output file name (default is <code>stdout</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The command also accepts the previously mentioned <strong>-v</strong>, <strong>-r</strong>, <strong>-a</strong>, <strong>-n</strong>, <strong>-x</strong>, and <strong>-X</strong> options.</p>
+</div>
+<div class="paragraph">
+<p>For more information on the Wavefront file format and export possibilities, see the Alias web site at <a href="http://www.alias.com/eng/index.shtml">http://www.alias.com/eng/index.shtml</a>[<a href="http://www.alias.com/eng/index.shtml">http://www.alias.com/eng/index.shtml</a>] (Alias, 2003).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_X3D_Format">Converting to X3D Format</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The successor to the Web3D Consortium&#8217;s VRML format, the Extensible 3D (X3D) format was designed to be a standard for interactive web- and broadcast-based 3-D content. Its intended uses include engineering and scientific visualization, multimedia presentations, entertainment and educational applications, web pages, and shared virtual worlds. It is also intended to serve as a universal interchange format for integrated 3-D graphics and multimedia. X3D possesses several improvements over VRML, including advanced APIs, additional data encoding formats, stricter conformance, and a componentized architecture that allows for a modular approach (Web3D Consortium, 2003a).</p>
+</div>
+<div class="paragraph">
+<p>The <strong>g-x3d</strong> command converts BRL-CAD objects to the X3D format. It takes the following form:</p>
+</div>
+<div class="paragraph">
+<p><strong>g-x3d</strong> [<strong>options</strong>] <strong><em>input.g</em> object(s)</strong></p>
+</div>
+<div class="paragraph">
+<p>The options for the command are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>-d tolerance_distance</strong> - sets distance calculation tolerance in millimeters (the default is 0.005).</p>
+</li>
+<li>
+<p><strong>-u units</strong> - sets the desired output units (the default is millimeters).</p>
+</li>
+<li>
+<p><strong>-o <em>output_file_name</em></strong> - sets output file name (the default is <code>stdout</code>).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The command also accepts the previously mentioned <strong>-v</strong>, <strong>-r</strong>, <strong>-a</strong>, <strong>-n</strong>, <strong>-x</strong>, and <strong>-X</strong> options.</p>
+</div>
+<div class="paragraph">
+<p>For more information on the X3D file format and export possibilities, see the Web3D Consortium web site at <a href="http://www.web3d.org/technicalinfo/specifications/ISO_IEC_19775">http://www.web3d.org/technicalinfo/specifications/ISO_IEC_19775</a>[<a href="http://www.web3d.org/technicalinfo/specifications/ISO_IEC_19775">http://www.web3d.org/technicalinfo/specifications/ISO_IEC_19775</a>] (Web3D Consortium, 2003a).</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="sec_build_new_converter">Building a New Converter</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="General_Information_About_Building_a_New_Converter">General Information About Building a New Converter</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>If the previously mentioned import/export converters do not meet the user&#8217;s needs, a custom converter can be built. The effort required to accomplish this, of course, depends on the user&#8217;s coding ability, the intended model use, and the available resources. If one needs to convert from a simple ASCII format consisting entirely of triangles to BRL-CAD, a few days of effort will probably suffice. On the other hand, if one wants to develop a converter from a proprietary commercial CAD system to BRL-CAD, several months of effort and training may be required.</p>
+</div>
+<div class="paragraph">
+<p>For example, Pro/E, Unigraphics, and similar commercial CAD systems provide libraries and APIs that a developer can use to access their models. Typically, training is required in order to understand what these libraries can do and how they work, and training in the use of the CAD system itself may be required as a prerequisite to understand the package environment and terminology. The purchase of expensive licenses is also a typical requirement, and, in some cases, the use of the code developed will require the purchase of another license.</p>
+</div>
+<div class="paragraph">
+<p>But before one begins developing a new converter, one should first consider the possibility of using combinations of existing converters. For example, if one needs to convert from a commercial CAD system to BRL-CAD and no converter exists for that system, he might consider importing his model into Pro/E or Unigraphics and converting to BRL-CAD from there.</p>
+</div>
+<div class="paragraph">
+<p>Understandably, this may result in the loss of some information (and repeated conversions usually mean greater losses), but restoring that information manually may be more cost effective than building a new converter from scratch. Another possibility might be to convert the geometry to STL format and then convert the STL to BRL-CAD using stl-g (see <a href="#sec_converting_from_stl">sec_converting_from_stl</a>).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_From_BRL-CAD">Converting From BRL-CAD</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Converters from BRL-CAD to another format generally come in one of two varieties. The first type converts BRL-CAD objects to their CSG counterparts in the receiving system. This type of conversion rarely happens as most commercial CAD systems have extremely limited CSG capabilities. If this is the case, however, the converter merely needs to visit every object in the BRL-CAD model and output it in the form required by the receiving system. A sample code (named g-xxx.c) to accomplish this is included in the conv directory in the BRL-CAD source distribution. The only missing piece of this code is the actual output of the receiving format.</p>
+</div>
+<div class="paragraph">
+<p>The more common type of conversion is when the desired output format is not CSG. Currently, the best choice in this situation is to produce a triangular facetted approximation of the BRL-CAD regions and output that approximation in the receiving format. A sample code (named g-xxx_facets.c) for this approach is also included in the conv directory in the BRL-CAD source distribution. Again, only the part where the facets are output in the receiving format is missing.</p>
+</div>
+<div class="paragraph">
+<p>The sample code performs Boolean evaluation of the regions using tessellated versions of the CSG primitives. This technique is not always successful, so the sample code catches the failures, notifies the user, and continues when a failure occurs.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="Converting_to_BRL-CAD">Converting to BRL-CAD</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A similar situation exists for converting to BRL-CAD. If one is fortunate enough to be converting from a CSG system, then just converting everything to its corresponding BRL-CAD representation is all that is required. The libwdb library distributed with BRL-CAD contains all the routines needed to build primitives, regions, and combinations in BRL-CAD.</p>
+</div>
+<div class="paragraph">
+<p>To create an empty BRL-CAD model, use the following code snippet:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>      struct rt_wdb *wdbp;
+      if( (wdbp=wdb_fopen( new_file_name ) ) == RT_WDB_NULL ) {
+      bu_exit(1, "Failed to open output file (%s)\n", new_file_name);
+      }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then use the wdbp pointer to pass to all the routines in libwdb.</p>
+</div>
+<div class="paragraph">
+<p>For example, to build a sphere centered at coordinates (1.0, 2.0, and 3.0) with a radius of 5.0 mm in BRL-CAD, the following call to mk_sphere will suffice:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>char *sphere_name="s1";
+      point_t center;
+      fastf_t radius;
+      /* set the center and radius values */
+      VSET( center, 1, 2, 3 );
+      radius = 5.0;
+
+
+      /* actually build the sphere */
+      if( mk_sph( wdbp, sphere_name, center, radius ) ) {
+      bu_exit(1, "Failed to make a sphere (%s)\n", sphere_name ;
+      }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To build a region or combination in BRL-CAD, a call to mk_comb will do the job. This is a bit more complicated as it requires building a list of members prior to the call to mk_comb. In the example that follows, a region consisting of primitive <code>s2'' subtracted from primitive </code>s1'' is constructed:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>struct bu_list head;
+      struct wmember *wmp;
+
+
+      /* initialize the list of members for this combination */
+      BU_LIST_INIT( &amp;head );
+
+
+      /* add the first member (use the UNION operator here) */
+      if( (wmp=mk_addmember( "s1", &amp;headp, NULL, WMOP_UNION) ) ==
+      WMEMBER_NULL ) {
+      bu_exit(1, "Failed to add member(s1)\n");
+      }
+
+
+      /* subtract the second member */
+      if( (wmp=mk_addmember( "s2", &amp;headp, NULL, WMOP_SUBTRACT) ) ==
+      WMEMBER_NULL ) {
+      bu_exit(1, "Failed to add member(s2)\n");
+      }
+
+
+      /* build the actual region */q
+      if( mk_comb( wdbp, "region_name", &amp;head, 1, NULL, NULL, NULL, 1000, 0,
+      1, 100, 0, 0, 0 ) ) {
+      bu_exit(1, "Error building region\n");
+      }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the system you are converting from is not a CSG system (which is the most likely case), then you will need to do some processing on the originating system to get the data in a form that BRL-CAD can use. If you have the API module for the originating system, you may be able to use one of those routines to create a triangulated representation of the model. This triangle data can then be used to build BOT primitives in the BRL-CAD model using the mk_bot routine. Each BOT primitive can be placed in a region of its own (as shown previously).</p>
+</div>
+<div class="paragraph">
+<p>A hybrid approach is also possible where simple shapes that can be identified as BRL-CAD primitive shapes are converted as BRL-CAD primitives, and everything else is converted as BOT primitives. If the converter requires building BOT primitives, you might want to consider a converter that produces a BRL-CAD ASCII format database. The "C" mk_bot routine is a very thin wrapper for the actual internal format of the BOT primitive and requires an intimate knowledge of its structure. The ASCII format is considerably simpler and easier to work with in this situation. As mentioned previously, the current ASCII format is simply a Tcl script. For example, the following is the ASCII form of a BRL-CAD database containing a single BOT:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>title {example of a simple BOT primitive}
+      units mm
+      put {tetra} bot mode volume orient rh flags {} V { { 0 0 1000 } { -500
+      0 -1000 } { -500 -500 -1000 } { 500 -500 -1000 }} F { { 0 1 3 } { 0 1
+      2 } { 0 2 3 } { 1 2 3 }}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The aforementioned example creates a BRL-CAD database with the title of <code>example of a simple BOT primitive,'' with preferred units of millimeters and a single tetrahedron-shaped BOT primitive. The line that begins with </code>put'' creates the BOT primitive (note that there are actually only three lines in this example; the last line is wrapped in this report for clarity). This line is a command to the Tcl interpreter. The <code>put'' is the command, </code>tetra'' is the name of the object to be created, and <code>bot'' is the type of object to create. The remainder of the line consists of key/value pairs. This line creates a BOT primitive named </code>tetra,'' using volume mode (meaning this BOT encloses space), with right-hand (rh) rule triangle orientation, and no flags.</p>
+</div>
+<div class="paragraph">
+<p>The V key introduces the list of vertices for this BOT primitive, and the F key introduces the list of triangle faces (each integer is an index into the list of vertices). Additional put commands build more objects in the database. For example, to create a region using the tetra object, the user would append the following line to the aforementioned file:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>put {aregion} comb region yes tree {l tetra}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This line creates a BRL-CAD combination named aregion, which is a region and consists only of the tetra object created earlier. The resulting file is converted to BRL-CAD binary format using asc2g.</p>
+</div>
+<div class="paragraph">
+<p>For an example of code that produces this type of output, see the g2asc.c file in the conv directory of the source distribution.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="sec_postconversion_issues">Postconversion Issues</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Before converted geometry can be used in a given application or analysis (e.g., a vulnerability study), there are several tasks that often need to be performed. They include the following:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><em>Modeling Objects That Failed to Convert</em> - Even in the best conversion processes, there can be individual objects that, for some reason, do not successfully convert to or from the BRL-CAD format. When this happens, the converter reports an error message, and the modeler/analyst must either manually rebuild the objects or-if they are not critical to the model-omit them (see the following bulleted item).</p>
+</li>
+<li>
+<p><em>Remodeling or Eliminating Excessively Detailed, Complex, or Unnecessary Objects</em> - In some cases, the problem with converted geometry is not about objects that failed to convert but rather about objects that did convert. For example, highly detailed objects such as screens, splined grids, and geometrically complex exterior components-which are often not needed for vulnerability studies-may unnecessarily enlarge a model&#8217;s file size and slow its performance speed. Thus, the modeler/analyst has to check for these objects and either remodel them in a simpler manner or eliminate them altogether.</p>
+</li>
+<li>
+<p><em>Modeling Air</em> - Some applications that evaluate ballistic penetration, fire, vaporific effects, etc., require that the interior space within a given geometry contain continuous regions of air. Therefore, it is sometimes necessary to take a converted model and model various air compartments within them (e.g., the crew, passenger, and engine compartments). In addition, in cases where one air region contacts another (e.g., in an open turret hatch, a gun turret, or an exhaust grill), a thin layer of "phantom armor" is sometimes needed to separate the two. For more information about air components and codes, see Winner et al. (2002).</p>
+</li>
+<li>
+<p><em>Assigning Material Codes and Line-of-Sight (LOS) Densities</em> - To more realistically approximate actual material weights and properties, modelers often have to assign material codes to converted geometry regions. In addition, if a region is not solid material, a density percentage is assigned. For a list of standardized material codes and densities, see Winner et al. (2002).</p>
+</li>
+<li>
+<p><em>Assigning Optical Shaders and Colors</em> - Although most engineering analysis applications focus on what geometry is made of, rather than what it looks like, it is often necessary for viewing, publication, or presentation purposes to assign visual properties to converted objects in order to better simulate material characteristics (e.g., mirrored or transparent effects) or to match standard system colors (e.g., electrical systems are forest green [50 145 20]). For a list of standardized system color values, see Volume III of this tutorial series (Butler et al., 2003) or Winner et al. (2002). For more information on coloring and shading in MGED, see Volume II of this tutorial series (Butler et al., 2001).</p>
+</li>
+<li>
+<p><em>Assigning Component Identification Numbers</em> - Some vulnerability interrogation applications rely on components being grouped into common regions. For example, the tank track ident number needs to be assigned to each track link region.</p>
+</li>
+<li>
+<p><em>Assigning Meaningful Names to the Converted Objects</em> - As mentioned previously, some packages (e.g., Pro/E) typically label their geometry with part numbers instead of part names. Although this practice can be effective for manufacturing and other production purposes, when the objects are converted, the modeler/analyst often has to assign meaningful part names so that the model can be more easily organized, analyzed, and manipulated. Accordingly, it is important that complete mappings of part numbers to part names are supplied during the conversion process.</p>
+</li>
+<li>
+<p><em>Combining Multiple Converted Files Into a Single BRL-CAD Model</em> - Files from packages such as Pro/E and Unigraphics are often so large that entire models cannot be loaded all at once, and thus the BRL-CAD import converters for these formats must convert the geometry file by file and system by system. As a result, the BRL-CAD modeler/analyst often has to combine all the files of converted geometry so that they can be displayed and evaluated as a single, integrated model (see the discussion on dbconcat in Volume III of this tutorial series [Butler et al., 2003]).</p>
+</li>
+<li>
+<p><em>Combining or Breaking Down Regions to Match Analyst Requirements</em> - In some cases, converted geometry does not match the "grouping" requirements of an analyst or application and therefore must be regrouped. For example, the converted objects of an engine might need to be grouped into a single engine region. Conversely, a single engine region might need to be broken down into separate regions.</p>
+</li>
+<li>
+<p><em>Reorganizing or Creating a Model Hierarchy</em> - Some geometry (e.g., an STL file) is converted with little to no tree structure or organization. In such cases, the modeler/analyst often needs to set up a basic tree hierarchy of parts and assemblies so that the model can be more easily handled. For more information about model structuring, see Volume III of this tutorial series (Butler et al., 2003).</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footnotes">
+<hr>
+<div class="footnote" id="_footnotedef_1">
+<a href="#_footnoteref_1">1</a>. not native format. 
+</div>
+<div class="footnote" id="_footnotedef_2">
+<a href="#_footnoteref_2">2</a>. not native format. 
+</div>
+<div class="footnote" id="_footnotedef_3">
+<a href="#_footnoteref_3">3</a>. Converter is part of the Pro/E GUI. 
+</div>
+<div class="footnote" id="_footnotedef_4">
+<a href="#_footnoteref_4">4</a>. not native format. 
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

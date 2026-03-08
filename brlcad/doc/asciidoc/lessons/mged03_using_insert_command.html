@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Using the Insert Command in MGED to Size and Place Shapes</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Using the Insert Command in MGED to Size and Place Shapes</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you will:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Create a sphere and a right circular cylinder using the make command.</p>
+</li>
+<li>
+<p>Create the same two shapes using the in (insert) command.</p>
+</li>
+<li>
+<p>Combine arguments on the Command Line to streamline the entry of variables.</p>
+</li>
+<li>
+<p>Develop a combined-command form to help manage Command Line variables.</p>
+</li>
+<li>
+<p>Consider conventions for choosing names for your objects.</p>
+</li>
+<li>
+<p>View your shapes from different perspectives using options of the View menu.</p>
+</li>
+<li>
+<p>Quit the <em>MGED</em> program.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>This lesson focuses on creating shapes from the Command Window using the make and in commands. You will create a sphere (sph) and a right circular cylinder (rcc) using both commands so that you can see how each command works. Later in the lesson, you will practice viewing your model from different angles.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="new_db_myShapes">Creating a New Database from the Command Window</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Create a new database and name it shapes.g. Title your database myShapes.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="sphere_make">Creating a Sphere Using the Make Command</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Begin by making the Command Window active (usually by clicking anywhere in the window). Then, at the <em>MGED</em> prompt, type in the command: <strong>make sph1.s sph [Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>As noted in Lesson 1, this command tells <em>MGED</em> to:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">make</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sph1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sph</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a shape</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name it sph1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make it a sphere</p></td>
+</tr>
+</tbody>
+</table>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged03_wireframe_sph.png" alt="../lessons/images/mged03_wireframe_sph.png">
+</div>
+</div>
+<div class="paragraph">
+<p>A sphere shape has now been created, and a wireframe drawing should appear in your Graphics Window.</p>
+</div>
+<div class="paragraph">
+<p>To make the rcc from the Command Window prompt, type: <strong>make rcc1.s rcc[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged03_wireframe_sph_rcc.png" alt="../lessons/images/mged03_wireframe_sph_rcc.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Using the make command is a fast and easy way to create a shape; however, most models are going to require shapes that have specific parameters, such as height and radius. So, a more precise way to create these shapes is to use the in (insert) command.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="using_in">Using the In Command to Create Shapes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Begin by making the Command Window active (usually done by clicking anywhere in the window). Then, use the Z (zap) command to clear the Graphics Window. You are now ready to create a sphere using the in command. At the <em>MGED</em> prompt type: <strong>in sph2.s sph[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p><em>MGED</em> will respond with: <code>Enter X, Y, Z of vertex:</code></p>
+</div>
+<div class="paragraph">
+<p>You must tell <em>MGED</em> where to position the vertex (center) of your sphere in space. Type at the <em>MGED</em> prompt: <strong>4 4 4[Enter]</strong></p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>As you work in <em>MGED</em>, you will often be asked to enter a value for a vector or a vertex. In <em>MGED</em>, a vector represents the distance and direction from one point in space to another, and a vertex is one single point in space. The values entered for a vector are typically used to create an object with specific dimensions. The values entered for a vertex place the object in space.</p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>Your sphere will now be placed at (x,y,z)=(4,4,4), as measured in millimeters. Notice that the numbers are separated by spaces followed by the ENTER key. <em>MGED</em> will now ask you to:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      Enter radius:
+
+      Type in:
+
+      3[Enter]
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The radius of your sphere will be 3 mm. The following is the dialog that should appear in your Command Window (including the appropriate responses). <strong>mged&gt;in sph2.s sph</strong> <code>Enter X, Y, Z of vertex: 4 4 4</code> <code>Enter radius: 3</code> <code>51 vectors in 0.000543 sec</code> The last line of this dialog is simply a record of the computer&#8217;s speed in drawing the shape. It has no real usefulness to the user at this point.</p>
+</div>
+<div class="paragraph">
+<p>A sphere has now been created, and a wireframe drawing similar to the one created using the make command should appear in your Graphics Window.</p>
+</div>
+<div class="paragraph">
+<p>To make the right circular cylinder, type at the Command Window prompt: <strong>in rcc2.s rcc[Enter]</strong> <em>MGED</em> will ask you to enter values for x, y, and z of the vertex (where you want the center of one end of the rcc placed in space). Type: <strong>4 4 0[Enter]</strong> Be sure to leave spaces between each of these numbers.</p>
+</div>
+<div class="paragraph">
+<p><em>MGED</em> will now ask you to enter the x, y, and z values of the height (H) vector (i.e., how long you want the rcc to be). Type: <strong>0 0 4[Enter]</strong> The last value you will need to enter is the radius of the rcc. Type: <strong>3[Enter]</strong> The dialog in the Command Window for the creation of the rcc should look like this:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+      mged&gt; in rcc2.s rcc
+
+      Enter X, Y, Z of vertex: 4 4 0
+
+      Enter X, Y, Z of height (H) vector: 0 0 4
+
+      Enter radius: 3
+
+      42 vectors in 0.000214 sec
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You should now have new versions of the sphere and rcc shapes. Notice how these two shapes compare in size to the first two you created. The rcc is now in proportion to the sphere and is placed in space off to the left in your Graphics Window. By specifying the dimensions of the shapes and their locations in space, you were able to create the model more precisely.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../lessons/images/mged03_shapes_make_command.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../lessons/images/mged03_shapes_in_command.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Shapes Created with Make Command</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Shapes Created with In Command</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="args_on_one_line">Combining Arguments on One Line</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Another way to use the in command is to combine all of the required information on one line. Once you become familiar with using the in command, you will probably prefer to use this method as it allows you to input all the parameter values more quickly.</p>
+</div>
+<div class="paragraph">
+<p>Clear the Graphics Window by using the Z command. Now make another sphere by typing after the <em>MGED</em> prompt: <strong>in sph3.s sph 4 4 4 3[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>The meaning of this longer form of the command is:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sph3.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sph</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Insert a primitive shape</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name it sph3.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the primitive shape a sphere</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the x of the vertex a value of 4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the y of the vertex a value of 4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the z of the vertex a value of 4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the radius a value of 3</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>To make the right circular cylinder using this method, type after the <em>MGED</em> prompt: <strong>in rcc3.s rcc 4 4 0 0 0 4 3[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>The meaning of this command is:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rcc3.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rcc</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Insert a primitive shape</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Name it rcc3.s</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Make the primitive shape a right circular cylinder</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Make the x of the vertex a value of 4</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Make the y of the vertex a value of 4</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Make the z of the vertex a value of 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the x of the height vector a value of 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the y of the height vector a value of 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the z of the height vector a value of 4</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Make the radius a value of 3</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock">Make the shape four units long, pointing straight toward positive z</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="command_combined_in">Making a Combined-Command Form for the In Command</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When you are first starting to use <em>MGED</em>, if you want to use the Command Window rather than the GUI, you may want to make yourself some blank, combined-command forms for each type of primitive shape you will be creating. This can speed up the design process and help remind you of which values must be entered for each shape. A form for the sphere might be:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">sph</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Insert a shape</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Name of primitive shape</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Type of shape is a sphere</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of x</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of z</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Radius of sph</p></td>
+<td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock">Center</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>A Combined-Command Form for the rcc might be:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">rcc</p></td>
+<td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock">?</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">?</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Insert a primitive shape</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Name of shape</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Type of shape is a right circular cylinder</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of x</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of z</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of x</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of y</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Value of z</p></td>
+<td class="tableblock halign-left valign-top" rowspan="2"><p class="tableblock">Radius of rcc</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock">Vertex</p></td>
+<td class="tableblock halign-left valign-top" colspan="3"><p class="tableblock">Height vector</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mged_naming_conventions">Considering MGED Naming Conventions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You may have noticed that each time you have created a sphere, or rcc, you have given it a different name. <em>MGED</em> doesn&#8217;t care what name you give a shape, but you will find as you develop models that it helps to have some formula, or conventions, when naming shapes. Note also that each name must be unique in the database, and for <em>BRL-CAD</em> releases prior to 6.0, names are limited to 16 characters in length.</p>
+</div>
+<div class="paragraph">
+<p>In this lesson, we sometimes assigned names to the shapes based on their shape type and the order in which we created them. We did this because the shapes had no real function, except to be examples.</p>
+</div>
+<div class="paragraph">
+<p>When you create real-life models, however, you will probably want to assign names as we did for the radio component names, which were based on their functions (e.g., btn for button, ant for antenna, etc.).</p>
+</div>
+<div class="paragraph">
+<p>If you work with more experienced modelers, check with them to see what set of conventions they use. If you work alone, develop a set of naming conventions that works for you and then use it consistently.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="view_shapes">Viewing the Shapes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Practice viewing your new shapes using the View menu. Manipulate your view using the various mouse-key combinations identified in the previous lesson.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="using_insert_command_quit">Quitting MGED</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>If you wish to quit <em>MGED</em>, at this point, type either the letter q or the word quit after the Command Window prompt and then press ENTER. You may also quit the program by selecting Exit from the File menu.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="using_insert_command_review">Review</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Created a sphere and a right circular cylinder using the make command.</p>
+</li>
+<li>
+<p>Created the same two shapes using the in (insert) command.</p>
+</li>
+<li>
+<p>Combined commands to streamline the entry of variables.</p>
+</li>
+<li>
+<p>Developed a combined-command form to help manage Command-Line variables.</p>
+</li>
+<li>
+<p>Considered <em>MGED</em> naming conventions.</p>
+</li>
+<li>
+<p>Viewed your shapes from different perspectives using options of the View menu.</p>
+</li>
+<li>
+<p>Quit the <em>MGED</em> program.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

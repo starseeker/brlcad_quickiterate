@@ -141,7 +141,7 @@ get_evaluated_faces(
 	
 ----
 
-The intersection curves between the faces of _brep1_ and _brep2_ are found by `get_face_intersection_curves()()`. These curves are used to split the original surfaces into pieces, each becoming a new trimmed NURBS face. The `categorize_trimmed_faces()()` function is used to identify which pieces, based on the Boolean operation, are part of the evaluated result. Each TrimmedFace whose `m_belong_to_final` member is marked `TrimmedFace::BELONG` is used by `ON_Boolean()()` to create the final evaluated result.
+The intersection curves between the faces of _brep1_ and _brep2_ are found by `get_face_intersection_curves()()`. These curves are used to split the original surfaces into pieces, each becoming a new trimmed NURBS face. The `categorize_trimmed_faces()()` function is used to identify which pieces, based on the Boolean operation, are part of the evaluated result. Each `TrimmedFace` whose `m_belong_to_final` member is marked `TrimmedFace::BELONG` is used by `ON_Boolean()()` to create the final evaluated result.
 
 
 ----
@@ -209,15 +209,15 @@ When using an OpenNURBS utility that hasn't been used elsewhere in the implement
 
 Misleading methods have been misused in the past. For example, `bool ON_Line::InPlane(ON_Plane& plane)()` appears to test if a line lies in the given plane, but actually constructs a plane that contains the line.
 
-Another example is `double ON_Line::MinimumDistanceTo(const ON_Line&)()`. While the function does indeed return the distance of the shortest path between one line and another, reading the implementation reveals an undocumented assumption that the ON_Line provided as an argument is not on the same infinite line as the instance the method is invoked on. That is, the ON_Lines can be parallel, but not coincident.
+Another example is `double ON_Line::MinimumDistanceTo(const ON_Line&)()`. While the function does indeed return the distance of the shortest path between one line and another, reading the implementation reveals an undocumented assumption that the `ON_Line` provided as an argument is not on the same infinite line as the instance the method is invoked on. That is, the `ON_Line`s can be parallel, but not coincident.
 
 ====
 
 ==== Arrays
 
-OpenNURBS includes two general array classes, ON_ClassArray and ON_SimpleArray, which are similar to C++'s std::vector. Besides having slightly friendlier interfaces, they also feature some higher-level member functions like `Reverse()()` and `Quicksort()()`.
+OpenNURBS includes two general array classes, `ON_ClassArray` and `ON_SimpleArray`, which are similar to C++'s `std::vector`. Besides having slightly friendlier interfaces, they also feature some higher-level member functions like `Reverse()()` and `Quicksort()()`.
 
-The primary difference between the two classes is that ON_SimpleArray doesn't bother constructing and destructing its items. This makes it more efficient than ON_ClassArray, but unsuitable for class objects (though pointers to objects are fine). ON_ClassArray requires items to have correctly implemented copy and assignment functions.
+The primary difference between the two classes is that `ON_SimpleArray` doesn't bother constructing and destructing its items. This makes it more efficient than `ON_ClassArray`, but unsuitable for class objects (though pointers to objects are fine). `ON_ClassArray` requires items to have correctly implemented copy and assignment functions.
 
 The NURBS Boolean evaluation implementation generally employs a combined array of known size to index elements from two input objects. For example, if _brepA_ has stem:[i] faces and _brepB_ has stem:[j] faces, a single array of stem:[i + j] elements is created.
 
@@ -245,7 +245,7 @@ However, if the array will be a fixed size whose items are assigned in a non-seq
 
 Curves and surfaces are nearly always allocated on the heap and referenced by pointers, both in the OpenNURBS library, and in the NURBS Boolean evaluation implementation.
 
-Mostly these allocations are simply done with the `new` keyword as with any other class. However, a few classes, notably ON_Brep have a `New()()` function that wraps the allocation, which is preferred over using `new` directly for technical reasons specified in the OpenNURBS `opennurbs_brep.h` header.
+Mostly these allocations are simply done with the `new` keyword as with any other class. However, a few classes, notably `ON_Brep` have a `New()()` function that wraps the allocation, which is preferred over using `new` directly for technical reasons specified in the OpenNURBS `opennurbs_brep.h` header.
 
 Pointers to objects, curves in particular, are generally "stolen" to avoid having to create a new copy of the object.
 
@@ -295,7 +295,7 @@ This function is also used to determine if objects are close enough to be consid
 
 ==== 2D and 3D Points
 
-The ON_2dPoint and ON_3dPoint classes intuitively implement operators such as `+` and `*` to allow points to be easily summed and scaled.
+The `ON_2dPoint` and `ON_3dPoint` classes intuitively implement operators such as `+` and `*` to allow points to be easily summed and scaled.
 
 The `operator[]()` functions are notable because coordinates are not actually stored as arrays in these classes, but rather in the named members `x`, `y`, and `z`. So while accessing coordinates as `pt[0]`, `pt[1]` is possible, the more readable `pt.x`, `pt.y`, is more typically utilized.
 
@@ -304,23 +304,23 @@ The most frequently used member function is `DistanceTo(const ON_3dPoint &p)()`,
 
 [NOTE]
 ====
-ON_2dPoint objects can be, and are, safely passed to functions that take ON_3dPoint arguments. The ON_3dPoint arguments are constructed from the provided ON_2dPoint objects, with their `z` coordinates set to 0.
+`ON_2dPoint` objects can be, and are, safely passed to functions that take `ON_3dPoint` arguments. The `ON_3dPoint` arguments are constructed from the provided `ON_2dPoint` objects, with their `z` coordinates set to 0.
 
-The NURBS Boolean evaluation implementation generally constructs 2D curves by populating an ON_3dPointArray with 2D points, rather than using an ON_2dPointArray, as the 3D version of the class (besides having additional useful member functions), can be used to initialize an ON_PolylineCurve.
+The NURBS Boolean evaluation implementation generally constructs 2D curves by populating an `ON_3dPointArray` with 2D points, rather than using an `ON_2dPointArray`, as the 3D version of the class (besides having additional useful member functions), can be used to initialize an `ON_PolylineCurve`.
 
 ====
 
 
 ==== Bounding Boxes
 
-ON_BoundingBox is returned by the `BoundingBox()()`, `GetTightBoundingBox()()`, and `GetBBox()()` functions, which are implemented by all geometry classes inheriting from ON_Geometry.
+`ON_BoundingBox` is returned by the `BoundingBox()()`, `GetTightBoundingBox()()`, and `GetBBox()()` functions, which are implemented by all geometry classes inheriting from `ON_Geometry`.
 
-The most commonly used members of ON_BoundingBox are `Diagonal()()` (usually in an expression such as `bbox.Diagonal().Length()` used as a scalar size estimate), and `IsPointIn()()` and `MinimumDistanceTo()()` (used in intersection tests).
+The most commonly used members of `ON_BoundingBox` are `Diagonal()()` (usually in an expression such as `bbox.Diagonal().Length()` used as a scalar size estimate), and `IsPointIn()()` and `MinimumDistanceTo()()` (used in intersection tests).
 
 
 ==== Domain Intervals
 
-ON_Interval is used to represent the domains of parametric curves and surfaces. The domain _starts_ at `m_t[0]` and _ends_ at `m_t[1]`. These members can be set directly or via `Set(double t0, double t1)()`.
+`ON_Interval` is used to represent the domains of parametric curves and surfaces. The domain _starts_ at `m_t[0]` and _ends_ at `m_t[1]`. These members can be set directly or via `Set(double t0, double t1)()`.
 
 
 [WARNING]
@@ -334,7 +334,7 @@ The `ParameterAt(double x)()` function translates a _normalized_ parameter (from
 
 ==== Parametric Curves
 
-The most frequently used geometry class is ON_Curve, a generic container for parametric curves. The curve is interrogated by using the `PointAt(double t)()` method to evaluate points at arbitrary values inside the curve's domain, which is specified by the ON_Interval returned by the `Domain()()` method. The start and end points of the curve have dedicated access methods, `PointAtStart()()` and `PointAtEnd()()`.
+The most frequently used geometry class is `ON_Curve`, a generic container for parametric curves. The curve is interrogated by using the `PointAt(double t)()` method to evaluate points at arbitrary values inside the curve's domain, which is specified by the `ON_Interval` returned by the `Domain()()` method. The start and end points of the curve have dedicated access methods, `PointAtStart()()` and `PointAtEnd()()`.
 
 
 [WARNING]
@@ -343,7 +343,7 @@ The most frequently used geometry class is ON_Curve, a generic container for par
 
 ====
 
-All the `PointAt()()` methods return an ON_3dPoint, though in the common case where ON_Curve objects are representing 2D trim curves, the z coordinate will be 0.0.
+All the `PointAt()()` methods return an `ON_3dPoint`, though in the common case where `ON_Curve` objects are representing 2D trim curves, the z coordinate will be 0.0.
 
 It is sometimes necessary to reverse a curve's domain. This is done using the `Reverse()()` method to facilitate stitching curves together. The function has a Boolean `int` return value that must be checked.
 
@@ -391,18 +391,18 @@ This function is common to all OpenNURBS geometry classes, but curves are by far
 
 ==== Lines
 
-ON_Line is used to represent an infinite line, defined by two points, `from` and `to`.
+`ON_Line` is used to represent an infinite line, defined by two points, `from` and `to`.
 
-ON_Line is not a subclass of ON_Curve and should not be confused with ON_LineCurve (which has an ON_Line member), though it does have some of the same methods as an ON_Curve class, including `PointAt(double t)()`. However, because the line has an infinite domain, it can be evaluated at any `t` value, though evaluating at 0.0 returns `from` and evaluating at 1.0 returns `to`, as if the line was a parametric curve with a domain between 0.0 and 1.0.
+`ON_Line` is not a subclass of `ON_Curve` and should not be confused with `ON_LineCurve` (which has an `ON_Line` member), though it does have some of the same methods as an `ON_Curve` class, including `PointAt(double t)()`. However, because the line has an infinite domain, it can be evaluated at any `t` value, though evaluating at 0.0 returns `from` and evaluating at 1.0 returns `to`, as if the line was a parametric curve with a domain between 0.0 and 1.0.
 
-ON_Line has helpful line-specific methods such as `ClosestPointTo(const ON_3dPoint &point)()`. Again, because the line is treated as infinite, this function doesn't necessarily return a point in the segment between `from` and `to`.
+`ON_Line` has helpful line-specific methods such as `ClosestPointTo(const ON_3dPoint &point)()`. Again, because the line is treated as infinite, this function doesn't necessarily return a point in the segment between `from` and `to`.
 
 
 
 
 ==== Surfaces
 
-An ON_Surface has a similar interface to an ON_Curve, but adapted to support the surface's two domains, _u_ and _v_ (sometimes called _s_ and _t_). These also correspond to as the 0 and 1 surface domains (as in the first example in following) or with an _x_ and _y_ parameterization (as shown in the second example).
+An `ON_Surface` has a similar interface to an `ON_Curve`, but adapted to support the surface's two domains, _u_ and _v_ (sometimes called _s_ and _t_). These also correspond to as the 0 and 1 surface domains (as in the first example in following) or with an _x_ and _y_ parameterization (as shown in the second example).
 
 .Projecting an arbitrary (u, v) point into 3D.
 [example]
@@ -439,18 +439,18 @@ ON_3dPoint trim_midpt_3d = surface->PointAt(trim_midpt_uv.x, trim_midpt_uv.y);
 
 ==== Boundary Representation Objects
 
-ON_Brep is the top-level OpenNURBS class used to represent the two input objects and the evaluated result of the `ON_Boolean()()` function. The geometry is encoded as a collection of faces, which for our purposes should be topologically connected to enclose solid volumes.
+`ON_Brep` is the top-level OpenNURBS class used to represent the two input objects and the evaluated result of the `ON_Boolean()()` function. The geometry is encoded as a collection of faces, which for our purposes should be topologically connected to enclose solid volumes.
 
-An object's faces are ON_BrepFace objects stored in the ON_Brep face array, `m_F[]`.
+An object's faces are `ON_BrepFace` objects stored in the `ON_Brep` face array, `m_F[]`.
 
-Each ON_BrepFace is defined as the subset of an ON_Surface lying inside the face's outerloop::
+Each `ON_BrepFace` is defined as the subset of an `ON_Surface` lying inside the face's outerloop::
  (a.k.a. the face boundary::
 ) and outside all of its innerloops::
  (a.k.a. trim loops::
  or just trims::
 ).
 
-The loops of an ON_BrepFace are listed in its loop array `m_li[]` as indexes into the associated ON_Brep object's ON_BrepLoop array, `m_L[]`. The first (and possibly only) loop listed in the face's loop index array is the outerloop, and all following loops are inner trim loops. The type of the loop is also recorded in the loop's `m_type` member.
+The loops of an `ON_BrepFace` are listed in its loop array `m_li[]` as indexes into the associated `ON_Brep` object's `ON_BrepLoop` array, `m_L[]`. The first (and possibly only) loop listed in the face's loop index array is the outerloop, and all following loops are inner trim loops. The type of the loop is also recorded in the loop's `m_type` member.
 
 
 ----
@@ -465,12 +465,12 @@ brep->m_L[*brep->m_F[0]->m_li.Last()].m_type; // ON_BrepLoop::inner
 
 ==== Intersection Events
 
-There are two OpenNURBS classes for representing intersections. ON_X_EVENT is used for curve-curve and curve-surface intersections. ON_SSX_EVENT is used for surface-surface intersections.
+There are two OpenNURBS classes for representing intersections. `ON_X_EVENT` is used for curve-curve and curve-surface intersections. `ON_SSX_EVENT` is used for surface-surface intersections.
 
 
 [NOTE]
 ====
-An additional class, ON_PX_EVENT has been implemented as an extension to the OpenNURBS API to represent point-point, point-curve, and point-surface intersection events.
+An additional class, `ON_PX_EVENT` has been implemented as an extension to the OpenNURBS API to represent point-point, point-curve, and point-surface intersection events.
 
 ====
 
@@ -507,7 +507,7 @@ It's very easy to confuse the `m_a[]`, `m_b[]`, `m_A[]`, and `m_B[]` arrays, as 
 
 ====
 
-For an ON_X_EVENT representing a curve-curve intersection whose `m_type` is `ON_X_EVENT::ccx_overlap`, (`m_a[0]`, `m_a[1]`) represents the portion of the first curve's domain that overlaps with the second curve, whereas in other cases `m_a[1]` is simply a duplicate of `m_a[0]`.
+For an `ON_X_EVENT` representing a curve-curve intersection whose `m_type` is `ON_X_EVENT::ccx_overlap`, (`m_a[0]`, `m_a[1]`) represents the portion of the first curve's domain that overlaps with the second curve, whereas in other cases `m_a[1]` is simply a duplicate of `m_a[0]`.
 
 As a result, a pattern seen repeatedly in the NURBS Boolean evaluation implementation is a loop over intersection events that gathers intersection points for processing, including overlap endpoints if the event represents an overlap.
 
@@ -584,7 +584,7 @@ Start and end points of closed curves are rarely identical. So if a curve is fou
 ====
 Producing subcurves of existing curves is a common operation in the NURBS Boolean evaluation implementation. This is a prime example of an operation that can introduce fuzziness into the evaluation. For example, we may be splitting a curve to remove a portion of it, and end up with two new curves with endpoints that used to align when part of the original curve, but no longer do.
 
-The `Split()()` method of ON_Curve can be used to produce subcurves, but in the implementation it's much preferred to use the `sub_curve()()` function defined in `intersect.cpp` which wraps `Split()()` and correctly handles clamping of curve parameters to domain endpoints.
+The `Split()()` method of `ON_Curve` can be used to produce subcurves, but in the implementation it's much preferred to use the `sub_curve()()` function defined in `intersect.cpp` which wraps `Split()()` and correctly handles clamping of curve parameters to domain endpoints.
 
 ====
 
@@ -651,13 +651,13 @@ The *dplot* command is used to visualize the results of different stages of the 
 
 Unlike the *brep* command, the *dplot* command is purely a development tool. Its implementation does not honor library boundaries and does not conform to the typical conventions for editor commands, and for this reason is only available as an Archer command in the NURBS Boolean evaluation development branch (https://sourceforge.net/p/brlcad/code/HEAD/tree/brlcad/branches/brep-debug/).
 
-In the development branch, the NURBS Boolean evaluation source code contains additional calls to DebugPlot functions (implemented in `debug_plot.cpp`) that create wireframe visualizations of data produced during the evaluations.
+In the development branch, the NURBS Boolean evaluation source code contains additional calls to `DebugPlot` functions (implemented in `debug_plot.cpp`) that create wireframe visualizations of data produced during the evaluations.
 
 For development convenience, these wireframes are not saved as database objects, but rather are written as files in the current directory, with names of the form `bool1_*.plot3`. An additional `bool1.dplot` is written which describes the `.plot3` files that were written in a format understood by the *dplot* command.
 
 One set of files is written for each evaluation. Between evaluations, a static counter increments the numeric suffix that's used in the output filenames. So for a combination consisting of three objects, the `bool1*` files will hold results from the intermediate boolean evaluation between the first two objects in the combination, and the `bool2*` files will hold results from the final evaluation between the intermediate evaluated object and the remaining leaf of the original comb.
 
-The DebugPlot functions always use the same file names and do not check if written files already exist. It is assumed that you will run an evaluation, inspect the generated files using the *dplot* command, and then manually remove (or just move) the generated `.dplot` and `.plot3` files before performing another evaluation with the *brep* command.
+The `DebugPlot` functions always use the same file names and do not check if written files already exist. It is assumed that you will run an evaluation, inspect the generated files using the *dplot* command, and then manually remove (or just move) the generated `.dplot` and `.plot3` files before performing another evaluation with the *brep* command.
 
 ===== The ssx Subcommands
 
@@ -723,7 +723,7 @@ The linked curves and the categorized split faces are recorded in `get_evaluated
 
 It's possible to write out custom curves from any part of the evaluation (i.e. those not covered by *dplot*) and view them in MGED/Archer.
 
-You can pass a 3D ON_Curve to the `DebugPlot::Plot3DCurve()()` function or a 2D ON_Curve and an associated ON_Surface to the `DebugPlot::Plot3DCurve()()` function.
+You can pass a 3D `ON_Curve` to the `DebugPlot::Plot3DCurve()()` function or a 2D `ON_Curve` and an associated `ON_Surface` to the `DebugPlot::Plot3DCurve()()` function.
 
 Both of these functions take an arbitrary filename for a plot3 file the function will write, as well as a color for the curve. The `DebugPlot::Plot3DCurve()()` has an optional `vlist` parameter which you should omit (see the full definitions in `debug_plot.cpp`).
 
@@ -1202,3 +1202,8 @@ link_curves(ON_Curve *&c1, ON_Curve *&c2)
               
             
 ----
+
+
+
+
+

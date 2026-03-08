@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Clifford Yapp">
+<title>Vehicle Tire and Wheel Creation in BRL-CAD</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Vehicle Tire and Wheel Creation in BRL-CAD</h1>
+<div class="details">
+<span id="author" class="author">Clifford Yapp</span><br>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="Overview">Overview</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Traditionally, <a href="http://brlcad.org">http://brlcad.org</a>[BRL-CAD] tire models have been created using a single cylinder, a torus intersected with a cylinder, or in some cases additional combinations of these primitives. While these approximations are often sufficient for analytical purposes the resulting model is typically a poor visual match to the real tire when raytracing. Creating more complex models to better approximate the tire&#8217;s shape almost always requires more resources than can be justified.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>tire</strong> tool offers a method to generate a model that is dimensionally close to a "real" tire using primitives and CSG operations. The primitives used are the elliptical torus (eto), right circular cylinder (rcc), ellipsoid (ell), and truncated general cone (tgc). When tread is added, the sketch and extrude primitives are also used.</p>
+</div>
+<div class="paragraph">
+<p>By default, a basic steel wheel (a.k.a. "rim") is included in the model. If this wheel does not work for a given modeling purpose, it is quite simple to remove it and substitute in a user-defined wheel so long as the dimensions of the user supplied wheel match the standard wheel at the key points (radius and width).</p>
+</div>
+<div class="paragraph">
+<p>While the <strong>tire</strong> tool <em>can</em> supply tread, it does not do so by default. Complex tread patterns can SIGNIFICANTLY increase the time for analysis and visualization, so the modeler needs to bear this cost in mind.</p>
+</div>
+<div class="paragraph">
+<p>The tire generated is always centered at the global origin.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Specifying_a_Tire">Specifying a Tire with Standard Dimensional Conventions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The default behavior for the tire procedure with no arguments given is to produce a tire of dimensions 215/55R17 without tread in a file named tire.g.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig01.png" alt="../articles/images/tire_fig01.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Since this default is unlikely to meet the needs of most specific modeling tasks, almost all uses of <strong>tire</strong> will need the "-d" flag to customize the dimensions:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tire -d 255/40R18</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>There are actually a wide variety of standards used in practice to specify tire dimensions. Generally the majority of them have the same "core" information plus additional performance and rim compatibility notations. At this time, BRL-CAD supports the following input format:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Width(mm)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">separator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ratio (#/100)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">separator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Inner Diameter(in)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Separators can be any non-numeric character, but normally are either "/", "-", or in the case of the latter separator a letter denoting tire structure. Only single character separators are allowed. footnote:[As yet BRL-CAD does not use the structural information (e.g. R = radial construction) in the tire building procedure when a valid structure character is supplied, but as it may do so in the future the "best practice" is to use the letter if available.</p>
+</div>
+<div class="paragraph">
+<p>] The ratio specifies the sidewall height in terms of the overall tire width - for example, if a tire is 100mm wide and the Ratio is 40, the sidewall height is 40mm. Examples of valid input strings for tire dimensions include:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">255/40R18</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Width=255mm, Ratio=40, Wheel Diameter=18in</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">250-50R17</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Width=250mm, Ratio=50, Wheel Diameter=17in</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">180/100/15</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Width=180mm, Ratio=100, Wheel Diameter=15in</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>All three values must be present to have a valid input string. Also note that at the moment this procedure takes ONLY integer arguments and single non-numeric character separators, so the above formatting restrictions need to be observed. Examples of INVALID inputs include:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">255.0/40R18</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">First number is floating point rather than integer.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">250-50RD17</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple characters in second separator.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">185.65/15</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">"." has significance numerically and will not read correctly.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>If more precision is needed on any of these inputs, the <strong>tire</strong> tool offers other command-line options to use instead of (or even in combination with) the <em>d</em> flag which accept floating point input. When used <em>with</em> the <em>d</em> flag, they override the value for their particular parameter supplied to the <em>d</em> flag. They are the <em>W</em> flag for maximum width, <em>R</em> for the ratio, and <em>D</em> for the diameter of the wheel. For example, if a width of 255.5mm was needed, the command could be:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tire -d 255/40R18 -W 255.5</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>There are limits to the dimensional configurations that can be modeled by <strong>tire</strong> (for example, hub width can not be wider than the maximum tire width), but it should cover most real-world dimensions. Some examples:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig02.png" alt="../articles/images/tire_fig02.png">
+</div>
+</div>
+<div class="paragraph">
+<p>The model that is created by this routine results in a hollow tire with a thickness (by default) related to its radius - the greater the tire radius, the thicker the tire "walls". The structure created is a fairly good geometric tire shape, but does not contain any internal structure <em>within</em> the tire material itself. Modern radial tires in reality are composed of several different layers of varying materials designed to enhance structural strength and performance, but (as of April 2008) the <strong>tire</strong> tool approximates tire surfaces and walls as being a single region.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig03.png" alt="../articles/images/tire_fig03.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Options_for_Tire">Options for Tire Tread Modeling</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Tread is the most difficult part of a tire to define in terms of the amount of input data required. At present it is not possible for a user to define tread on the command line - only built-in tread options are available.footnote:[Note that in most cases, BRL-CAD will not have pre-defined knowledge of specific real world tread patterns.</p>
+</div>
+<div class="paragraph">
+<p>]</p>
+</div>
+<div class="paragraph">
+<p>Tread profile and tread pattern are the two factors to consider when specifying tread. Tread profile is the "shape" of the tread on the edges of the tread pattern. Many truck tires have a "squared off" tread, while automobile tires tend to have more rounded tread. Different patterns can be combined with different profiles.</p>
+</div>
+<div class="paragraph">
+<p>The <em>t</em> flag controls the tread profile, and the <em>p</em> flag controls the tread pattern. Currently, the following profiles and patterns are available:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+<col style="width: 25.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Profile #</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Profile (t)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pattern #</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pattern (p)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Curved</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All-Weather</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Squared Off</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Off-Road</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Using either the <em>t</em> or <em>p</em> flags to the tire command will trigger tread generation. For each flag, a default on the other flag is assumed - if ONLY the <em>p</em> flag is specified, the t value is assumed to be the same and vice versa. To override the assumption, both flags may be specified. Here is the default output for style one:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig04.png" alt="../articles/images/tire_fig04.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Style two is intended more for trucks and other rugged vehicles:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig05.png" alt="../articles/images/tire_fig05.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Using <em>t</em> in place of <em>p</em> would also have produced the same model. Internally the <strong>tire</strong> command must use some pattern and profile for every tread it creates, and for ease of use it will select a default if a pattern or profile is specified by itself. Using the flags together can produce different results - for example, profile 2 with pattern 1:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig06.png" alt="../articles/images/tire_fig06.png">
+</div>
+</div>
+<div class="paragraph">
+<p>There exist two additional user level flags that can change the behavior of the tread routine. The first is the <em>g</em> flag, which can be used to specify different tread depths in integer numbers of 32nds of an inch. For example, the default number two style previously can be rendered with a deeper tread:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tire -p 2 -g 25</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>to produce a different look:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig07.png" alt="../articles/images/tire_fig07.png">
+</div>
+</div>
+<div class="paragraph">
+<p>The other flag is the <em>c</em> flag, which allows user control over how many copies of the master tread pattern are used to encircle the tread surface of the tire. This can be used to create courser or finer tread with the same geometric pattern. For example, if the first profile, second pattern and count of 100 are used:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig08.png" alt="../articles/images/tire_fig08.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Adjusting the count of patterns can be a way to get a different visual tread style without defining a new tread pattern, although it is unlikely to result in a "real" pattern in the sense of representing an in-use tire tread.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>It is important when using the count flag to remember that tread patterns are actual geometry and a high count of patterns can slow down a raytrace considerably. A strategy for models that will see a variety of uses is to include both treaded and slick (non-treaded) tire models in the database under different names, make a tire-model.c combination that is referenced by the vehicle model, and include either the treaded or non-treaded model in the tire-model.c combination based on the analysis.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Setting_Tire_Thickness">Setting Tire Thickness</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Tire thickness is manipulated via the <em>u</em> flag. By default, the tire procedure will adjust the thickness of the tire according to the size of the tire, but there may be cases where it is desirable to change this thickness.</p>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s say, for the sake of argument, a model of a large vehicle tire is needed and it is known that a very thick wall is being used. To start, input the dimensional information:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tire -d 395/85R20 -p 2 -g 30</pre>
+</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig09.png" alt="../articles/images/tire_fig09.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Now, examine the cross section in normal and surface normal views (the tread pattern and depth are added so the cross section WITH tread is shown - it will change with and without tread):</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig10.png" alt="../articles/images/tire_fig10.png">
+</div>
+</div>
+<div class="paragraph">
+<p>This is a visual check - other tools are available for actual dimensional testing. Let&#8217;s say the desired thickness is 70mm. The tire is re-generated thus:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tire -d 395/85R20 -p 2 -g 30 -u 70</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Examining the cross sections again, the thickness increase is clearly seen:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig11.png" alt="../articles/images/tire_fig11.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Changing_the_Rim_width">Changing the Rim Width</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The default behavior of <strong>tire</strong> is to make the rim width (the width of the tire at the point where the outer wall connects with the steel wheel) equal to the width of the tread, which is in turn defined internally as a fraction of the total width. This normally produces reasonable tires, but <strong>tire</strong> does provide the <em>j</em> flag to allow custom values for rim width. The input units are inches.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig12.png" alt="../articles/images/tire_fig12.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Changing_the_Redial">Changing the Radial Location of the Maximum Tire Width</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When <strong>tire</strong> accepts a maximum width specification, it internally decides on a default distance from the tire center where that maximum will occur. This parameter can be adjusted by the modeler with the <em>s</em> flag. Some examples using the narrow rim width model settings from the previous section:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig13.png" alt="../articles/images/tire_fig13.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Other_Options">Other Options</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The other flags available in <strong>tire</strong> relate to naming of the top-level tire object. The <em>a</em> flag automatically appends the dimensional information to the name, making it simple to import multiple tires of different dimensions into a single .g file with the MGED <strong>dbconcat</strong> command. The <em>n</em> option allows the modeler to specify a string other than "tire" for the root name of the top level object. These options can work individually or in concert. So, for example, to generate a top-level name of "car-255-55R17" instead of "tire" for the top level object the following will work:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tire -a -n "car"</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By default, the procedure creates a file called "tire.g" to contain the model. If some other name is desired, a different file name can be supplied as the final argument to the tire procedure. For example,</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>tire mytire.g</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>will create the "mytire.g" file and insert the default tire model.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Structure_of_a_Tire">Structure of a Tire Model</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Although it is not visible to the eye in normal raytracing, the tire models do include knowledge in the model of the presence of air inside the tire as well as the tire and wheel structures themselves. For illustration purposes, the following image displays the air region inside the tire:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/tire_fig14.png" alt="../articles/images/tire_fig14.png">
+</div>
+</div>
+<div class="paragraph">
+<p>The three material regions are defined immediately below the top-level object:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+mged&gt; l tire
+tire:  --
+   u tire-215-55R17.r
+   u air-215-55R17.r
+   u wheel-215-55R17.r
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The names of these regions will change with the dimensions of the tire requested, but the basic form will remain consistent. The tire-215-55R17.r region holds the tire and tread (if tread was requested), wheel-215-55R17.r holds the rim and internal hub of the wheel, and air-215-55R17.r defines a volume inside the tire and wheel not occupied by the other regions.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+mged&gt; tree -d 2 tire
+tire/
+	u tire-215-55R17.r/R
+		u tire-solid-215-55R17.c/
+		- tire-cut-215-55R17.c/
+	u air-215-55R17.r/R
+		u wheel-air-215-55R17.c/
+		u tire-cut-215-55R17.c/
+	u wheel-215-55R17.r/R
+		u Inner-Hub-215-55R17.c/
+		u Wheel-Rim-215-55R17.c/
+      </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Below this level, the structure describes the details of cuts and combination interactions needed to specify the tire shape.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Due to the nature of the primitives used to define these shapes, operations such as scaling along one axis may produce unexpected results. Generally speaking, it is almost always easier and less error-prone to re-generate a tire model with different parameters than it is to edit the tire structure directly. The wheel region is fairly simple to remove and work with but the tire/tread geometries are <em>much</em> more involved.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="Summary">Summary</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><strong>tire</strong> is a procedural geometry database tool to create sophisticated tire models using standard dimensional specifications.</p>
+</li>
+<li>
+<p>The model consists of three regions which define air, tire, and wheel structures.</p>
+</li>
+<li>
+<p>The wheel is generated in response to the tire dimensions and there is currently only one wheel type available in this procedure (users may model and substitute their own wheel designs).</p>
+</li>
+<li>
+<p>Tread is not modeled by default due to performance considerations but can be added using options.</p>
+</li>
+<li>
+<p>Fine grained control of parameters such as tire thickness is available with optional user flags.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

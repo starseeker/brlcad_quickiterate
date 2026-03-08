@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>LIBWDB(3)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>LIBWDB(3) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>libwdb - library for procedural generation of MGED databases</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-c" data-lang="c"><h- data-h=name_mac>#include "vmath.h" #include "wdb.h"mk_id, FILE *fp, char *title);</h->
+<h- data-h=name>mk_half</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>doubled</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tnorm</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_rpp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name_type>point_t</h-> <h- data-h=name>min</h-> <h- data-h=sym_punc>,</h-><h- data-h=name>max</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mk_wedge</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>name</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>vert</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>xdir</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>zdir</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>xlen</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>ylen</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>zlen</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>x_top_len</h-> <h- data-h=sym_par>))</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>point_t</h-> <h- data-h=name>vert</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>vect_t</h-> <h- data-h=name>xdir</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>vect_t</h-> <h- data-h=name>zdir</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>xlen</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>ylen</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>zlen</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>x_top_len</h-><h- data-h=sym_punc>;</h-><h- data-h=name>mk_arb4</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tpts</h-><h- data-h=sym_sqr>[]</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_arb5</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tpts</h-><h- data-h=sym_sqr>[]</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_arb6</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tpts</h-><h- data-h=sym_sqr>[]</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_arb7</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tpts</h-><h- data-h=sym_sqr>[]</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_arb8</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tpts</h-><h- data-h=sym_sqr>[]</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_sph</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tcenter</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>fastf_tradius</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_ell</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tcenter</h-><h- data-h=sym_punc>,</h-> <h- data-h=name_type>vect_t</h-> <h- data-h=name>a</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>b</h-> <h- data-h=sym_punc>,</h-><h- data-h=name>c</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mk_tgc</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>name</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>center</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>a</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>b</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>c</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>d</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name_type>point_t</h-> <h- data-h=name>center</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>vect_t</h-> <h- data-h=name>a</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>b</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>c</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>d</h-><h- data-h=sym_punc>;</h-><h- data-h=name>mk_tor</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tcenter</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>vect_tn</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>double</h-> <h- data-h=name>r1</h-> <h- data-h=sym_punc>,</h-><h- data-h=name>r2</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mk_cone</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>name</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>base</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>dir</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>height</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>rad1</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>rad2</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>point_t</h-> <h- data-h=name>base</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>vect_t</h-> <h- data-h=name>dir</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>height</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>rad1</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>rad2</h-><h- data-h=sym_punc>;</h-><h- data-h=name>mk_rcc</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tbase</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>vect_theight</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>fastf_tradius</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_pipe</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>wdb_pipept</h-> <h- data-h=sym_op>*</h-><h- data-h=name>headp</h-><h- data-h=sym_punc>;</h-><h- data-h=name>mk_pipe_free</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw>struct</h-> <h- data-h=name>wdb_pipept</h-> <h- data-h=sym_op>*</h-><h- data-h=name>headp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_pipe_init</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw>struct</h-> <h- data-h=name>wdb_pipept</h-> <h- data-h=sym_op>*</h-><h- data-h=name>headp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tcoord</h-><h- data-h=sym_punc>,</h-> <h- data-h=name_type>fastf_t</h-> <h- data-h=name>od</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>id</h-> <h- data-h=sym_punc>,</h-><h- data-h=name>bendradius</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mk_add_pipe_pt</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>headp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>coord</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>od</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>id</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>bendradius</h-> <h- data-h=sym_par>)</h-> <h- data-h=kw>struct</h-> <h- data-h=name>wdb_pipept</h-> <h- data-h=sym_op>*</h-><h- data-h=name>headp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>point_tcoord</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name_type>fastf_t</h-> <h- data-h=name>od</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>id</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>bendradius</h-><h- data-h=sym_punc>;</h-><h- data-h=name>mk_comb</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>matname</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>matparm</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>rgb</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mk_fcomb</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>name</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>len</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>region</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mk_memb</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>name</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>mat</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>op</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>mat_t</h-> <h- data-h=name>mat</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>op</h-><h- data-h=sym_punc>;</h-><h- data-h=name>mk_addmember</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw>struct</h-> <h- data-h=name>wmember</h-> <h- data-h=sym_op>*</h-><h- data-h=name>headp</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mat_tmat</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>intop</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_lcomb</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw>struct</h-> <h- data-h=name>wmember</h-> <h- data-h=sym_op>*</h-><h- data-h=name>headp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>matname</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>matparm</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>rgb</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>mk_lfcomb</h-> <h- data-h=sym_par>(</h-> <h- data-h=name>fp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>name</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>headp</h-> <h- data-h=sym_punc>,</h-> <h- data-h=name>region</h-> <h- data-h=sym_par>)</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>wmember</h-> <h- data-h=sym_op>*</h-><h- data-h=name>headp</h-><h- data-h=sym_punc>;</h-><h- data-h=name>mk_bsolid</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>fp</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>name</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>intnsurf</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>doubleres</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>mk_bsurf</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>FILE</h-> <h- data-h=sym_op>*</h-><h- data-h=name>filep</h-><h- data-h=sym_punc>,</h-> <h- data-h=kw>struct</h-> <h- data-h=name>b_spline</h-> <h- data-h=sym_op>*</h-><h- data-h=name>bp</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This library exists to permit writing MGED databases from arbitrary procedures. Some of the high-level structure of MGED databases (e.g., that they start with an ID record, and that COMB records must be followed immediately by MEMBER records) is currently implicit in the calling routines. This library is by no means complete, and routines for writing every type of solid do not yet exist. While it is expected that this library will grow and change as experience is gained, it is not clear what direction that evolution will take. Be prepared for changes in the interface to some of these routines in future releases. All routines take as their first argument the stdio FILE pointer (e.g., stdout) on which the generated MGED database record(s) will be written with fwrite().</p>
+</div>
+<div class="paragraph">
+<p><em>mk_id</em> fwrites an IDENT record on the indicated stdio file, with the string <em>title</em> associated. Note that to have a valid database, the the first record written must have been an IDENT record such as written by this routine.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_half</em> makes a halfspace with name "name". It is specified by the distance "d" from the origin, and the outward pointing normal vector "norm".</p>
+</div>
+<div class="paragraph">
+<p><em>mk_rpp</em> makes an ARB8 called "name" specified as a right rectangular parallelepiped in terms of a minimum point "min" and a maximum point "max".</p>
+</div>
+<div class="paragraph">
+<p><em>mk_wedge</em> makes a right angular wedge called "name" specified by a starting vertex located in the lower left corner of the solid, an x-direction vector, a z-direction vector, an x-length, a y-length, a z-length, and a top x-length. The y-direction vector is the result of x-direction vector cross z-direction vector. All vertices are make in the counterclockwise direction, bottom face first. The top face is made by extruding the bottom face in the z direction.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_arb4</em> makes an ARB8 called "name" described as an ARB4, i.e., by 4 points, the first 3 of which lie on a plane, and the fourth is the "peak".</p>
+</div>
+<div class="paragraph">
+<p><em>mk_arb8</em> makes an ARB8 called "name" described by an array of 8 points in "pts". All plates with 4 points must be co-planar. If there are degeneracies (i.e., all 8 vertices are not distinct), then certain requirements must be met. If we think of the ARB8 as having a top and a bottom plate, the first four points listed must lie on one plate, and the second four points listed must lie on the other plate.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_sph</em> makes a spherical ellipsoid called "name" centered at point "center" with radius "radius". <em>mk_ell</em> makes an ellipsoid called "name" centered at point "center" with three perpendicular radius vectors. The eccentricity of the ellipsoid is controlled by the relative lengths of the three radius vectors.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_tgc</em> makes a truncated general cone called "name" with the base plate centered at "center" and a height vector "height", which is perpendicular to the two end plates. The length of the height vector defines the location of the top plate. The vectors "a" and "b" are the base radius vectors, and the vectors "c" and "d" are the nose vectors.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_tor</em> makes a torus called "name" centered at point "center", with the torus lying in a plane with normal "n". Radius "r1" is the distance from the center point of the torus to the center of the solid part, and radius "f2" is the radius of the solid part.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_cone</em> makes a right circular cone called "name" specified by the center point of the base, a direction or height vector, a height scalar, and a radius for each end of the cone. The direction vector is unitized and serves to derive a vector "a", which is orthogonal to the direction vector and itself. This vector is scaled by both radii to obtain two of four vectors required to make a cone. It is then crossed with the unitized direction vector, and the result thereof is scaled by both radii as well to obtain the last of four vectors needed to make a cone.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_rcc</em> makes a truncated general cone (TGC) with name "name" specified as a right circular cylinder. The base plate of the cylinder is centered at "base", with height vector "height" which is perpendicular to the two end plates, the length of which defines the location of the top plate. The radius given as "radius" defines the size of the end plates.</p>
+</div>
+<div class="paragraph">
+<p><code>mk_pipe()</code> creates a "pipe" solid with the specified "name" and writes it to the file "fp". The user must provide a linked list of "pipe" segments headed by "headp". Each pipe segment includes fields indicating a "control" point for the pipe, an inner diameter, an outer diameter and a bend radius. The inner diameter must be less than the outer diameter, and a zero inner diameter creates a solid wire rather than a hollow pipe. The pipe is constructed along straight lines through successive points, with circular bends (of the indicated radius) connecting the straight sections. The bend radius must be greater than the outer radius. The user is responsible for freeing the memory used by the list of pipe segments (see <code>mk_pipe_free()()</code> below.</p>
+</div>
+<div class="paragraph">
+<p><code>mk_pipe_free()</code> will free the memory used by a linked list of pipe segments. This does not free the list head.</p>
+</div>
+<div class="paragraph">
+<p><code>mk_pipe_init()</code> initializes a linked list of pipe segments with the initial point, inside diameter, outside diameter, and bend radius.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_add_pipe_pt</em> adds another pipe segment to the list with the indicated point, outside radius, inside radius, and bend radius.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_comb</em> defines a combination of name "name", with material properties information included. "len" indicated the number of <em>mk_memb</em> calls (MEMB records) that will immediately follow. "region" is a boolean that is set to mark this combination as a region. "matname" is either a NULL pointer, or a pointer to a string containing the material property name. "matparm" is either a NULL pointer, or a pointer to a string containing the material property parameter information specific to that material. Color is passed as an array of three unsigned chars in "rgb". Color "inherit" is a boolean, and if true, the color and material properties will be passed from upper-level objects to lower-level objects. <em>mk_fcomb</em> makes a simple combination header, with name "name", length "len", and the boolean "region". It functions just like <em>mk_comb</em>. "len" <em>mk_memb</em> calls must immediately follow the call to <em>mk_comb</em> or <em>mk_fcomb</em>. Each call to <em>mk_memb</em> adds a reference to object "name" to the combination. It is transformed by the 4x4 matrix "mat", and is combined by boolean operation "op", chosen from the list of: UNION, INTERSECT, SUBTRACT, from &lt;brlcad/db.h&gt;.</p>
+</div>
+<div class="paragraph">
+<p><em>mk_addmember</em> is used to obtain dynamic storage for a new wmember structure (see <em>wdb.h</em> ). Then <em>mk_lcomb</em> can be used in the same way as <em>mk_comb</em> to make a combination of a linked list of wmember structures. This is the only recommended way to create combinations, because it collects up the details in memory, and produces the combination and member records all at once, rather than in multiple calls, as in <em>mk_comb</em> and <em>mk_memb.</em> The "op" argument must be one of WMOP_UNION, WMOP_SUBTRACT, or WMOP_INTERSECT. In the future, <em>mk_comb</em> and <em>mk_memb</em> will no longer be supported. <em>mk_lfcomb</em> is the linked list equivalent of <em>mk_fcomb.</em> Note that the linked list heads must be initialized by an invocation of BU_LIST_INIT( &amp;head.l );</p>
+</div>
+<div class="paragraph">
+<p>The routine <em>mk_bsolid</em> writes the header for a b-spline solid "name", with "nsurf" surfaces, at "res" resolution. This call must be followed by "nsurf" calls to <em>mk_bsurf</em> which enters the respective surfaces into the combination. This pair work much like the <em>mk_comb</em> and <em>mk_memb</em> pair.</p>
+</div>
+<div class="paragraph">
+<p>The global variable <em>mk_version</em> may be set to 4 or 5, depending on which format BRL-CAD database you wish to write. By default, the most recent version is always created.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLE(S)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Several examples of how to use this library can be found in the proc-db directory of the BRL-CAD source distribution.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>brlcad</strong>(1B), <strong>mged</strong>(1B), <strong>rt</strong>(1B)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="diagnostics">DIAGNOSTICS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>None</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bugs">BUGS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The library is incomplete. The need for the application to know higher-level details is unfortunate, but necessary to keep the library simple. We may pay for this later.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1987-2025 United States Government as represented by the U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

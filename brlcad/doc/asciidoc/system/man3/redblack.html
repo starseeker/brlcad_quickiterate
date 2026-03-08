@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>REDBLACK(3)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>REDBLACK(3) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>redblack - red-black tree operations</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-c" data-lang="c"><h- data-h=name_mac>#include "common.h" #include &lt;stdio.h&gt; #include "bu.h"structbu_rb_tree*bu_rb_create, description, nm_orders, order_funcs);</h->
+<h- data-h=kw_type>char</h-> <h- data-h=sym_op>*</h-><h- data-h=name>description</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>nm_orders</h-><h- data-h=sym_punc>;</h-><h- data-h=kw_type>int</h-> <h- data-h=sym_par>(</h-> <h- data-h=sym_op>**</h-><h- data-h=name>order_funcs</h-><h- data-h=sym_par>)(</h-><h- data-h=kw_type>void</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw_type>void</h-> <h- data-h=sym_op>*</h-><h- data-h=name>bu_rb_curr</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_delete</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_diagnose_tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>trav_type</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>trav_type</h-><h- data-h=sym_punc>;</h-><h- data-h=kw_type>void</h-> <h- data-h=sym_op>*</h-><h- data-h=name>bu_rb_extreme</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>sense</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>sense</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_free</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>free_data</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-><h- data-h=kw_type>void</h-> <h- data-h=sym_par>(</h-> <h- data-h=sym_op>*</h-><h- data-h=name>free_data</h-><h- data-h=sym_par>)(</h-><h- data-h=kw_type>void</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=name>intbu_rb_insert</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>data</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>void</h-> <h- data-h=sym_op>*</h-><h- data-h=name>data</h-><h- data-h=sym_punc>;</h-><h- data-h=name>intbu_rb_is_uniq</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-><h- data-h=kw_type>void</h-> <h- data-h=sym_op>*</h-><h- data-h=name>bu_rb_neighbor</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>sense</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>sense</h-><h- data-h=sym_punc>;</h-><h- data-h=name>intbu_rb_rank</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-><h- data-h=kw_type>void</h-> <h- data-h=sym_op>*</h-><h- data-h=name>bu_rb_search</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>data</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>void</h-> <h- data-h=sym_op>*</h-><h- data-h=name>data</h-><h- data-h=sym_punc>;</h-><h- data-h=kw_type>void</h-> <h- data-h=sym_op>*</h-><h- data-h=name>bu_rb_select</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>k</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>k</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_set_uniqv</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>vec</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=name_type>bitv_t</h-> <h- data-h=name>vec</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_summarize_tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_uniq_all_off</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_uniq_all_on</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-><h- data-h=name>intbu_rb_uniq_off</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-><h- data-h=name>intbu_rb_uniq_on</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-><h- data-h=name>voidbu_rb_walk</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>tree</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>visit</h-><h- data-h=sym_punc>,</h-> <h- data-h=name>trav_type</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw>struct</h-> <h- data-h=name>bu_rb_tree</h-> <h- data-h=sym_op>*</h-><h- data-h=name>tree</h-><h- data-h=sym_punc>;</h-> <h- data-h=kw_type>int</h-> <h- data-h=name>order</h-><h- data-h=sym_punc>;</h-><h- data-h=kw_type>void</h-> <h- data-h=sym_par>(</h-> <h- data-h=sym_op>*</h-><h- data-h=name>visit</h-><h- data-h=sym_par>)(</h-><h- data-h=kw_type>void</h-><h- data-h=sym_par>)</h-><h- data-h=sym_punc>;</h->
+<h- data-h=kw_type>int</h-> <h- data-h=name>trav_type</h-><h- data-h=sym_punc>;</h-></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>These routines implement red-black trees, a form of balanced binary trees, in such a way that all the basic dynamic set operations (e.g., insertion, deletion, search, minimum, maximum, predecessor, and successor) and order-statistic operations (i.e., select and rank) require no more than <em>O(_log _n)</em> time, where <em>n</em> is the number of nodes. They allow storage of arbitrary data structures at tree nodes and also support multiple simultaneous orders (trees) on the same nodes. The trees are based on comparison functions like those used by <em>qsort(3).</em> The routines are available only in <em>libbu(3B).</em></p>
+</div>
+<div class="paragraph">
+<p><em>bu_rb_create</em> allocates storage for and initializes the tree header. <em>Description</em> is an explanatory comment that the red-black tree package prints in its diagnostics, <em>nm_orders</em> is the number of simultaneous orders, and <code>order_funcs()</code> points to the table of comparison functions (one for each order). These are called with two arguments that point to the application data blocks being compared. Each function must return an integer less than, equal to, or greater than zero according as the first argument is to be considered less than, equal to, or greater than the second. <em>bu_rb_create</em> returns a pointer to a <code>bu_rb_tree()</code> structure. This pointer must be saved, as it is a required argument to all the other routines. <em>bu_rb_create1</em> is similar, except that it creates a tree that supports only the single order specified by <em>order_func.</em></p>
+</div>
+<div class="paragraph">
+<p>The application can specify that the red-black tree package may not insert new nodes that compare equal in any of the orders to an existing node. Such uniqueness enforcement is switch selectable and may be controlled independently for each order and modified dynamically. The default behavior is not to enforce any uniqueness.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_free()</code> relinquishes the storage used by <em>tree,</em> calling <code>free_data()</code> to dispose of the application data in the nodes. If <code>free_data()</code> equals <em>BU_RB_RETAIN_DATA</em> (defined in <em>"bu.h"</em>), then the application data blocks are left unaffected. Otherwise, <code>bu_rb_free()</code> calls <code>free_data()</code> once for each block of application data, passing a pointer to the data. Since <em>bu_rb_create1</em> allocates its own table of comparison functions, a memory leak will result if a tree returned by <em>bu_rb_create1</em> is freed before this table is freed. For this reason, <em>bu.h</em> provides the macro <em>bu_rb_free1(tree, free_data),</em> which should be used instead of <code>bu_rb_free()</code> when relinquishing a tree created by <em>bu_rb_create1.</em></p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_insert()</code> creates a new node containing <em>data</em> and adds it to <em>tree,</em> provided that doing so would not violate current uniqueness requirements. If a uniqueness requirement would be violated, <code>bu_rb_insert()</code> does nothing but return a negative integer, the absolute value of which is the first order for which a violation exists. Otherwise, the node is inserted in the appropriate place in each order, as determined by the comparison functions, and <code>bu_rb_insert()</code> returns the number of orders for which the new node compared equal to an existing node in the tree.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_uniq_on()</code> specifies that subsequent insertion of nodes into <em>tree</em> should enforce uniqueness on <em>order,</em> and returns the previous setting of the switch. <code>bu_rb_uniq_off()</code> specifies that subsequent insertion of nodes into <em>tree</em> should proceed without regard for uniqueness on <em>order,</em> and returns the previous setting of the switch. The macros <em>bu_rb_uniq_on1(tree)</em> and <em>bu_rb_uniq_off1(tree)</em> available in <em>"bu.h"</em>, are similar, except that they control the first (perhaps only) order. <code>bu_rb_is_uniq()</code> returns 1 if uniqueness is currently enforced for <em>order</em> in <em>tree,</em> and 0 otherwise. The macro <em>bu_rb_is_uniq1(tree)</em> available in <em>"bu.h"</em>, is similar, except that it queries the first (perhaps only) order. <code>bu_rb_uniq_all_on()</code> and <code>bu_rb_uniq_all_off()</code> set all <em>nm_orders</em> orders identically on or off, and <code>bu_rb_set_uniqv()</code> sets the orders according to the bit vector <em>vec.</em></p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_extreme()</code> searches through <em>tree</em> to find a minimum or maximum node in one of the orders as determined by the corresponding comparison function. <em>Sense</em> is either <em>SENSE_MIN</em> or <em>SENSE_MAX,</em> and <em>order</em> specifies which order to search. <code>bu_rb_extreme()</code> returns a pointer to the extreme data. The macros <em>bu_rb_min(tree, order)</em> and <em>bu_rb_max(tree, order),</em> available in <em>"bu.h"</em>, are implemented in terms of <code>bu_rb_extreme()</code> in the obvious way.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_search()</code> traverses <em>tree</em> searching for a node of which the contents equals <em>data</em> according to the comparison function specified by <em>order.</em> On success, <code>bu_rb_search()</code> returns a pointer to the data in the matching node. Otherwise, it returns <em>NULL.</em> The macro <em>bu_rb_search1(tree, data),</em> available in <em>"bu.h"</em>, is similar, except that it searches the first (perhaps only) order.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_select()</code> traverses <em>tree</em> to retrieve the <em>k_th order statistic (i.e., the data block of rank _k,</em> the <em>k_th-smallest data block) according to the comparison function specified by _order,</em> where <em>k</em> is between 1 and the number of nodes in <em>tree,</em> inclusive. On success, <code>bu_rb_select()</code> returns a pointer to the block of data of rank <em>k.</em> Otherwise, it returns <em>NULL.</em> The macro <em>bu_rb_select1(tree, k),</em> available in <em>"bu.h"</em>, is similar, except that it uses the first (perhaps only) order.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_walk()</code> traverses <em>tree</em> according to the comparison function specified by <em>order.</em> The function <code>visit()</code> is called for each node in turn, being passed two arguments: a pointer to the data at that node and the depth of the node in the tree for the specified order. The type of tree traversal to perform, specified by <em>trav_type,</em> may be any one of <em>PREORDER, INORDER,</em> and <em>POSTORDER.</em> The macro <em>bu_rb_walk1(tree, visit, trav_type),</em> available in <em>"bu.h"</em>, is similar, except that it walks the first (perhaps only) order.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_diagnose_tree()</code> traverses <em>tree</em> according to the comparison function specified by <em>order,</em> printing information about the various structures. The application may optionally store in the <em>rbt_print</em> member of the <code>bu_rb_tree()</code> structure the address of an application-specific print routine. If this pointer is nonzero, <code>bu_rb_diagnose_tree()</code> dereferences it to print information for the data at each node. The type of tree traversal to perform, specified by <em>trav_type,</em> may be any one of <em>PREORDER, INORDER,</em> and <em>POSTORDER.</em></p>
+</div>
+<div class="paragraph">
+<p>The <code>bu_rb_tree()</code> structure contains a pointer to the node most recently accessed (e.g., inserted, discovered in a search, or selected by rank). When the most recent access failed, this current node is undefined. The following commands make use of the current node:</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_curr()</code> returns a pointer to the data in the current node in <em>order,</em> or <em>NULL</em> if the current node is undefined. The macro <em>bu_rb_curr1(tree),</em> available in <em>"bu.h"</em>, is similar, except that it returns a pointer to the data in the current node in the first (perhaps only) order.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_delete()</code> removes a block of application data from <em>tree.</em> Because the algorithms sometimes cause a single block of data to be stored in different nodes for the different orders, the application specifies <em>order,</em> which indicates the block of data (in the current node) to be removed. If the current node is defined, <code>bu_rb_delete()</code> removes this block of data from every order. Otherwise, it prints a warning and returns. The macro <em>bu_rb_delete1(tree),</em> available in <em>"bu.h"</em>, is similar, except that it removes the block of data in the first (perhaps only) order.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_neighbor()</code> returns a pointer to the data in the node adjacent (in <em>order</em>) to the current node, or <em>NULL</em> if the current node is undefined. <em>sense,</em> which may be one of <em>SENSE_MIN</em> and <em>SENSE_MAX,</em> specifies either predecessor or successor, respectively. The macros <em>bu_rb_pred(tree, order)</em> and <em>bu_rb_succ(tree, order),</em> available in <em>"bu.h"</em>, are implemented in terms of <code>bu_rb_neighbor()</code> in the obvious way.</p>
+</div>
+<div class="paragraph">
+<p><code>bu_rb_rank()</code> returns the rank (i.e., position expressed as an integer between 1 and the number of nodes in <em>tree,</em> inclusive) of the current node in <em>order,</em> or <em>NULL</em> if the current node is undefined. The macro <em>bu_rb_rank1(tree),</em> available in <em>"bu.h"</em>, is similar, except that it uses the first (perhaps only) order.</p>
+</div>
+<div class="paragraph">
+<p>The members of the <code>bu_rb_tree()</code> structure, as defined in <em>"bu.h"</em>, are classified into three classes based on their suitability for direct manipulation by applications. Class I, members that applications may read directly, includes</p>
+</div>
+<div class="paragraph">
+<p>uint32_t rbt_magic; /* Magic no. for integrity check <strong>/ int rbt_nm_nodes; /</strong> Number of nodes */</p>
+</div>
+<div class="paragraph">
+<p>Class II, members that applications may read or write directly as necessary, includes</p>
+</div>
+<div class="paragraph">
+<p>void (<strong>rbt_print)(); /</strong> Data pretty-print function <strong>/ int rbt_debug; /</strong> Debug bits <strong>/ char *rbt_description; /</strong> Comment for diagnostics */</p>
+</div>
+<div class="paragraph">
+<p>Class III comprises members that applications should not manipulate directly; any access should be through the routines provided by the red-black tree package. They include</p>
+</div>
+<div class="paragraph">
+<p>int rbt_nm_orders; /* Number of orders <strong>/ int (<strong>rbt_order)(); /</strong> Comparison funcs <strong>/ struct bu_rb_node </strong>rbt_root; /</strong> The actual trees <strong>/ char *rbt_unique; /</strong> Uniqueness flags <strong>/ struct bu_rb_node *rbt_current; /</strong> Current node <strong>/ struct bu_rb_list rbt_nodes; /</strong> All nodes <strong>/ struct bu_rb_list rbt_packages; /</strong> All packages <strong>/ struct bu_rb_node *rbt_empty_node; /</strong> Sentinel for nil */</p>
+</div>
+<div class="paragraph">
+<p>The distinction between classes I and III is not critical, but any direct modification of members in either class will result in unpredictable (probably dire) results. The order of the members within the <code>bu_rb_tree()</code> structure is subject to change in future releases.</p>
+</div>
+<div class="paragraph">
+<p>Diagnostic output may be requested by setting the debug bits in the <code>bu_rb_tree()</code> structure using the debug bit flags defined in <em>"bu.h"</em>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>libbu</strong>(3B), <strong>qsort</strong>(3).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Paul Tanenbaum</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1999-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

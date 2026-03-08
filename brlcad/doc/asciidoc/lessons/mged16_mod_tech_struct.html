@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Learning Modeling Techniques and Structures</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Learning Modeling Techniques and Structures</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you will be:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Making the shapes of the walkie-talkie radio into regions.</p>
+</li>
+<li>
+<p>Gathering the regions into an assembly combination.</p>
+</li>
+<li>
+<p>Assigning material properties to the regions.</p>
+</li>
+<li>
+<p>Adding internal components to the radio.</p>
+</li>
+<li>
+<p>Creating specialty models of the radio.</p>
+</li>
+<li>
+<p>Redefining the structure of the radio.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In Lesson 2, we made the basic shapes of a walkie-talkie radio to gain experience in viewing objects. Now that we have successfully modeled a few simple objects, let&#8217;s return to the radio to make it more realistic and, in so doing, discuss logical techniques and structures in modeling. When finished, our radio should look as follows:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_new_design.png" alt="../lessons/images/mged16_radio_new_design.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="radio_shapes_to_regions">Making the Shapes into Regions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Open the database radio.g that you created in Lesson 2. In the Command Window, use the ls command to list all the contents of your radio. It should read as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   ant.s btn.s knob.s
+
+   body.s btn2.s spkr.s
+	</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now what does this list really contain? Parts to a model radio? Not really. What the list actually comprises is just a collection of shapes (which we have hinted at by using a .s suffix) that (1) do not have material properties, and therefore (2) do not occupy space.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Remember, in <em>MGED</em> no shape truly becomes an object until it is included in a region, which, by definition, is an object or collection of objects that has a common material type.</p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>So our first order of business is to identify the major parts of the radio so we can properly define the regions. So far, our choices are fairly simple. The radio basically consists of (1) a body, which houses the speaker and all of the internal parts; (2) an antenna; (3) a volume control knob, and (4) a talk button. These should be our four regions.</p>
+</div>
+<div class="paragraph">
+<p>Most of these shapes were fairly straightforward to create, with each item consisting of just one or two primitive shapes. However, if we think of the radio as a real-world object, the body of the radio is actually more complex than just a solid box with a few shapes glued to its surface. (Remember that all objects are solid unless constructed to be otherwise.) Therefore, let&#8217;s start with the main component of the radio-the body.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="body_of_radio">The Body of the Radio</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>If we think about it, the body of a radio is actually a hollow case. So, the first thing we need to do is hollow out the case&#8217;s interior to make room for internal components. To do this, we can use the inside command to create a shape, which we&#8217;ll call cavity.s: <strong>inside body.s cavity.s 1 1 1 1 1 1[Enter]</strong> Now, we&#8217;ll make a region called case.r and define it as what&#8217;s left of body.s after cavity.s has been subtracted out. The command should look like this: <strong>r case.r u body.s - cavity.s[Enter]</strong></p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Remember that the inside command was originally created to hollow out objects such as gas tanks and boxes; however, it can also be used to create any new cutaway shape that has some relationship to a pre-existing shape.</p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>With our case now made, we can proceed to cut several holes through this structure to accommodate the antenna, the volume control knob, and the talk button. To do this, we must subtract the three shapes from the case as follows: <strong>r case.r - ant.s - knob.s - btn.s[Enter]</strong> Finally, we need to "glue" the lip around the speaker to the case&#8217;s front face by typing <strong>r case.r u spkr.s[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Our body is now finished. Note that an experienced modeler would probably have combined the preceding three Boolean functions into a single command as follows: <strong>r case.r u body.s - cavity.s - ant.s - knob.s - btn.s u spkr.s[Enter]</strong> If we were to raytrace case.r at this point, we would see the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_default_components_props.png" alt="../lessons/images/mged16_radio_default_components_props.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Note the hole for the antenna in the top of the case and the hole for the talk button on the side of the case. We will now fill these holes with their respective components.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Precedence Review</p>
+</div>
+<div class="paragraph">
+<p>The order in which these primitives were unioned and subtracted is important. We unioned in spkr. s last so that all the subtractions would apply to body.s. The rules of precedence for Boolean operators indicate that subtraction and intersection have a higher priority than union (meaning that they are performed first).</p>
+</div>
+<div class="paragraph">
+<p>Although the following operation is not in proper <em>MGED</em> syntax, it does illustrate the implied parentheses that precede and follow the union operators in our last command: <strong>r case.r u (body.s - cavity.s - ant.s - knob.s - btn.s) u (spkr.s)[Enter]</strong> Optionally, we could&#8217;ve unioned in spkr.s before body.s as follows: <strong>r case.r u spkr.s u body.s - cavity.s - ant.s - knob.s - btn.s[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s consider, however, what would have happened if we had done the following: <strong>r case.r u body.s u spkr.s - cavity.s - ant.s - knob.s - btn.s[Enter]</strong> In this last case, operator precedence would have caused the program to subtract cavity.s, ant.s, knob.s, and btn.s from spkr.s. Nothing would have been subtracted from body.s. Therefore, the holes in the case would not have been created.</p>
+</div>
+<div class="paragraph">
+<p>Subtracting cavity.s, ant.s, knobs, and btn.s from spkr.s would have produced no apparent effect because they do not overlap the volume of spkr.s.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="radio_other_regions">The Other Regions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Making the talk button is simpler than making the case. The button consists of the union of two primitive shapes. To make them into a region, type <strong>r button.r u btn.s u btn2.s[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>The volume knob and antenna are even simpler. They are single primitive shapes that can be made into regions by typing <strong>r knob.r u knob.s[Enter]</strong> <strong>r ant.r u ant.s[Enter]</strong></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="radio_assembly_comb">Gathering the Regions into an Assembly Combination</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Now let&#8217;s take all of the regions we have made so far and gather them into an assembly (or group) combination called radio.c so that we can keep all of these parts together. There are several ways to do this. One way would be to use a similar method to the one we used to make the regions: <strong>comb radio.c u case.r u button.r u knob.r u ant.r[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>A shortcut, however, would be to use the g (group) command as follows: <strong>g radio.c case.r button.r knob.r ant.r[Enter]</strong> Unlike the comb command, the g command assumes that all of the items specified will be unioned together, and so no Boolean operators need to be specified.</p>
+</div>
+<div class="paragraph">
+<p>A final improvement would include using the database name wildcard <strong>.r to quickly and easily specify all of the regions in the database: *g radio.c *.r[Enter]</strong> If we now tree radio.c, we should get the following output in the Command Window.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   radio.c/
+
+   u case.r/R
+
+   u body.s
+
+   - cavity.s
+
+   - ant.s
+
+   - knob.s
+
+   - btn.s
+
+   u spkr.s
+
+   u button.r/R
+
+   u btn.s
+
+   u btn2.s
+
+   u knob.r/R
+
+   u knob.s
+
+   u ant.r/R
+
+   u ant.s
+	</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="radio_assign_mater_props">Assigning Material Properties to the Regions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Thus far, the objects we have created have no material properties other than the gray plastic that <em>MGED</em> assigns by default to any object without assigned material values. Now let&#8217;s improve our design by assigning other material properties to the components.</p>
+</div>
+<div class="paragraph">
+<p>We&#8217;ll give the antenna a realistic look by opening the Combination Editor, choosing ant.r from the drop-down Name menu, selecting mirror from the drop-down Shader menu, and clicking on Apply.</p>
+</div>
+<div class="paragraph">
+<p>We&#8217;ll let the other components remain with the default plastic, but we&#8217;ll assign them different colors. With the Combination Editor still open, select case.r from the drop-down Name menu, select the magenta option from the drop-down Color menu, and then click Apply. Use the same method to assign the volume control knob (knob.r) a blue color. For the talk button (button.r), let&#8217;s keep it gray by leaving the default values in place. The design should appear similar to the following when raytraced in Underlay mode:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_with_mater_props.png" alt="../lessons/images/mged16_radio_with_mater_props.png">
+</div>
+</div>
+<div class="paragraph">
+<p>As we look at our radio now, we can see that the antenna looks a little bit like a straw. In reality, it should have a small cap on the end so that we can raise and lower the antenna. We can approximate this shape by creating an ellipsoid (which we&#8217;ll call ant2.s) and unioning it in with the rest of the antenna as follows: <strong>in ant2.s ell1 2 2 94 0 0 1 3[Enter]</strong> <strong>r ant.r u ant2.s[Enter]</strong></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="radio_internal_components">Adding Internal Components</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Our radio is looking more and more realistic; however, it is still just a hollow shell. Let&#8217;s further improve it by making a circuit board to go inside the case. To do this, type: <strong>in board.s rpp 3 4 1 31 1 47[Enter]</strong> <strong>r board.r u board.s[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s give the board a green semi-shiny color. The easiest way to do this is via the Combination Editor, but this time let&#8217;s use the Command Line approach. Type: <strong>mater board.r "plastic sh=4" 0 198 0 1[Enter]</strong> Diagrammed, this command says to:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+<col style="width: 20.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">mater</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">board.r</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">"plastic sh=4"</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 198 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Assign material properties to</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the region called board.r.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Apply the plastic shader with a shininess of 4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Give it a green color</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Inherit color material type</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Finally, we&#8217;ll include the board with the rest of the components in radio.c as follows: <strong>g radio.c board.r[Enter]</strong> Our radio should now look like the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_wireframe_circ_board.png" alt="../lessons/images/mged16_radio_wireframe_circ_board.png">
+</div>
+</div>
+<div class="paragraph">
+<p>In addition, the tree for radio.c should now look as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   radio.c/
+
+   u case.r/R
+
+   u body.s
+
+   - cavity.s
+
+   - ant.s
+
+   - knob.s
+
+   - btn.s
+
+   u spkr.s
+
+   u button.r/R
+
+   u btn.s
+
+   u btn2.s
+
+   u knob.r/R
+
+   u knob.s
+
+   u ant.r/R
+
+   u ant.s
+
+   u ant2.s
+
+   u board.r/R
+
+   u board.s
+	</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="radio_specialty_models">Making Specialty Models of the Radio</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Now, what would happen to the circuit board if we were to raytrace the radio at this point? It would disappear because it lies within the case. So how can we make the circuit board visible outside of the case?</p>
+</div>
+<div class="paragraph">
+<p>There are two common ways to do this: a transparent view and a cutaway view. Each method has its advantages and disadvantages. With the transparent view, the Boolean operations remain unchanged, but some of the material properties of the "outside shell" are altered to better view interior parts of the model. With the cutaway view, the material properties remain unchanged, but some of the Boolean operations are altered to remove parts of the model that are obstructing our view of other parts. We will try both ways to view the inside of our radio.</p>
+</div>
+<div class="paragraph">
+<p>Different Approaches to Creating Specialty Models</p>
+</div>
+<div class="paragraph">
+<p>An important point to note here is that the transparent and cutaway views are specialty models. They are similar in nature to items a manufacturer might make for special purposes. For example, an automobile manufacturer makes cars for everyday use, but also makes modified versions for display at certain events. The body panels might be replaced with a transparent material or be partially cut away to reveal interior components.</p>
+</div>
+<div class="paragraph">
+<p>Good modeling practice follows the same pattern. The actual model of an item should not have to be changed in order to create a specialty view of it. Instead, a modified version of the item should be created. Thus, the modeler will not have to worry about remembering to return the model to the original condition after its special-purpose use, and the modeler can also retain the "display model" for future use.</p>
+</div>
+<div class="paragraph">
+<p>There are two common approaches to making these specialty models: First, the modeler can copy the original and replace components with modified versions. Second, the modeler can create new, unique parts from scratch and construct the modified item. The method chosen is a matter of personal choice and is usually determined by the extent of the modifications being done and the complexity of the original object.</p>
+</div>
+<div class="sect2">
+<h3 id="_transparent_view">Transparent View</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Making a specialty radio with a transparent case would probably be the easiest way to view the circuit board inside. All we have to do is make a copy of our present radio case and modify its material properties. We&#8217;ll call the specialty case case_clear.r. Type <strong>cp case.r case_clear.r[Enter]</strong> We can now use the Combination Editor to set the material properties on this case without affecting the "master" design of the radio. When this has been done, we can combine this modified case with the other unchanged radio components and group them as a new specialty radio named radio_clear.c.</p>
+</div>
+<div class="paragraph">
+<p>To set the material properties of case_clear.r, choose plastic from the drop-down menu to the right of the Shader entry box in the Combination Editor. (Although this is the shader that is used by default, we want to explicitly select it in order to change one of its values.) Now change the Transparency of the case to a value of .8. Apply the change and close the Combination Editor.</p>
+</div>
+<div class="paragraph">
+<p>Finally, create the specialty radio combination by typing: <strong>g radio_clear.c case_clear.r button.r knob.r ant.r board.r[Enter]</strong> and then Blast the display with <strong>B radio_clear.c[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Now raytrace your design to view the resulting effect. The new transparent case should appear similar to the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_transparent.png" alt="../lessons/images/mged16_radio_transparent.png">
+</div>
+</div>
+<div class="paragraph">
+<p>As shown in the following tree diagram, the structure of this specialty radio_clear.c is not much different than that of the regular radio.c. The only difference is that case.c has been replaced with case_clear.c.</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   radio_clear.c/
+
+   u case_clear.r/R
+
+   u body.s
+
+   - cavity.s
+
+   - ant.s
+
+   - knob.s
+
+   - btn.s
+
+   u spkr.s
+
+   u button.r/R
+
+   u btn.s
+
+   u btn2.s
+
+   u knob.r/R
+
+   u knob.s
+
+   u ant.r/R
+
+   u ant.s
+
+   u ant2.s
+
+   u board.r/R
+
+   u board.s
+	  </pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Notice in the preceding figure that the color chosen for the transparent case does influence the appearance of the internal objects. Although we made the circuit board green, the filter effect of the transparent magenta case-which allows no green light to enter or exit the case-causes the board to appear to be dark purple. This is okay in our situation. However, if accuracy in color is important in a model, the modeler should remember to select a neutral color (such as white or light gray) for the transparent object.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_cutaway_view">Cutaway View</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Another way we can make the interior components of the radio visible is to create a cutaway view. Although it is a little more complex to make than the transparent view was, the cutaway view offers a particularly interesting way to view geometry.</p>
+</div>
+<div class="paragraph">
+<p>There are several ways to make the cutaway view. Probably the easiest way is to use the "chainsaw" method to cut off part of the radio and reveal what is inside.</p>
+</div>
+<div class="paragraph">
+<p>To do this, create an arb8 called cutaway.s, which will be used to cut off the front corner of the radio. Because this is a cutting shape (i.e., it is simply used to erase a portion of another shape and will not actually be viewed), the dimensions of the arb8 are not critical. The only concern is that cutaway.s be as tall as the case so that it completely removes a corner from it.</p>
+</div>
+<div class="paragraph">
+<p>Use the Shift Grips and multiple views (especially the Top view) to align cutaway.s so that it angles diagonally across the top of the radio (as shown in the following wireframe representation). When you&#8217;ve aligned the shape the way you want it, create the following radio_cutaway.c combination that unions in radio.c and subtracts out the shape (cutaway.s) that is covering what you want to see (board.r): <strong>comb radio_cutaway.c u radio.c - cutaway.s[Enter]</strong></p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_cut_wireframe.png" alt="../lessons/images/mged16_radio_cut_wireframe.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Blast the radio_cutaway.c combination onto the display and raytrace. Depending on how your arb8 intersected the radio, the cutaway should look similar to the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_cut_raytrace.png" alt="../lessons/images/mged16_radio_cut_raytrace.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Notice in the preceding figures that cutaway.s removes everything it overlaps (including part of the circuit board). This is okay if we just want to see inside the case. However, if we want to see all of the circuit board and any other component overlapped by cutaway.s (e.g., button.r), we would have to adjust our Boolean operations a little so that the cutaway is subtracted only from our case.</p>
+</div>
+<div class="paragraph">
+<p>To do this, we basically have two options: (1) we could move cutaway.s in the structure so that it is subtracted from only case.r, or (2) we could move cutaway.s in the structure so that it is subtracted from both body.s and spkr.s, the two components that make up case.r. While both of these options would produce the same effect, the first method requires just one subtraction, whereas the second method potentially provides more control by having the user select the individual components that will subtract out the cutting shape.</p>
+</div>
+<div class="paragraph">
+<p>Take a minute and compare the following trees for the cutaways we have discussed so far. Especially note the position of cutaway.s in the different structures. Also, note that when cutaway.s was subtracted from a particular region or combination, the name of that region or combination was changed. The reasoning behind this goes back to our original discussion of specialty models. Remember that our purpose is to create a new special-purpose model, not change the existing model. So, we must change the name of any region or combination that contains any modified components or structures. If we don&#8217;t, the master model will also be changed.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_cutaways.png" alt="../lessons/images/mged16_radio_cutaways.png">
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="radio_structure_redefinition">Redefining the Structure of the Radio</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As shapes are added in a design, the modeler often finds that the structure or association of components needs to change. Thus, we should pause at this point and consider how our radio is structured. While there are many ways to structure a model, two common modeling categories are location and functionality. For our radio, we have so far grouped everything together under the general category of Radio, as shown in the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_structure_1.png" alt="../lessons/images/mged16_radio_structure_1.png">
+</div>
+</div>
+<div class="paragraph">
+<p>If we wanted to categorize our components according to location, however, we might structure the model as follows:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_structure_2.png" alt="../lessons/images/mged16_radio_structure_2.png">
+</div>
+</div>
+<div class="paragraph">
+<p>If we wanted to define our components according to functionality, we might structure the model another way. For instance, to repair an actual radio, we would open the case, take out the circuit board, fix it, and put it back in. When taking out the board, however, the knob and button would probably be attached to it in some way, and so they too would need to come out. Accordingly, our structure should be changed as shown in the following diagram to associate the knob and button with the circuit board.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_structure_3.png" alt="../lessons/images/mged16_radio_structure_3.png">
+</div>
+</div>
+<div class="paragraph">
+<p>To accomplish this restructuring according to functionality, create an assembly called electronics.c to hold these components together. Type: <strong>g electronics.c board.r knob.r button.r[Enter]</strong> Of course, we now need to remove board.r, knob.r, and button.r from the radio.c assembly so that when electronics.c is added to the radio.c assembly, we won&#8217;t have the knob and button included twice in the model. To do this, use the rm (remove) command: <strong>rm radio.c board.r knob.r button.r[Enter]</strong> and then union in the electronics assembly: <strong>g radio.c electronics.c[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Now the tree for radio.c should appear as follows:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   radio.c/
+
+   u case.r/R
+
+   u body.s
+
+   - cavity.s
+
+   - ant.s
+
+   - knob.s
+
+   - btn.s
+
+   u spkr.s
+
+   u ant.r/R
+
+   u ant.s
+
+   u ant2.s
+
+   u electronics.c/
+
+   u board.r/R
+
+   u board.s
+
+   u knob.r/R
+
+   u knob.s
+
+   u button.r/R
+
+   u btn.s
+
+   u btn2.s
+	 </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now let&#8217;s remake our cutaway view. This time, let&#8217;s do what we discussed earlier and make the cutaway remove material from only the case, showing all the other components.</p>
+</div>
+<div class="paragraph">
+<p>First, we need to get rid of the old radio_cutaway.c, which was based on our previous structure. To do this, type <strong>kill radio_cutaway.c[Enter]</strong> and then remake the combination by typing <strong>comb radio_cutaway.c u case.r - cutaway.s u electronics.c u ant.r[Enter]</strong> Now when we Blast the display and raytrace radio_cutaway.c, we should see the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged16_radio_casecut_raytrace.png" alt="../lessons/images/mged16_radio_casecut_raytrace.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="modeling_techniques_and_structures_review">Review</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Made the shapes of the walkie-talkie radio into regions.</p>
+</li>
+<li>
+<p>Gathered the regions into an assembly combination.</p>
+</li>
+<li>
+<p>Assigned material properties to the regions.</p>
+</li>
+<li>
+<p>Added internal components to the radio.</p>
+</li>
+<li>
+<p>Created specialty models of the radio.</p>
+</li>
+<li>
+<p>Redefined the structure of the radio.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

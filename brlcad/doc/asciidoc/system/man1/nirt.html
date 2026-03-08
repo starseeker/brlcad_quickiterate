@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>NIRT(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>NIRT(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>nirt - interactively ray trace a BRL-CAD geometric model</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>nirt [&lt;options&gt;] &lt;model.g&gt; [&lt;objects&gt;]...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>nirt</strong> operates on the specified <em>objects</em> in the database <em>model.g</em>, using <strong>librt</strong>(3) to trace rays according to commands read from the standard input and producing an ASCII report of the results. By default, the user can interact with <strong>nirt</strong>, repeatedly specifying origination points and directions for rays and the format and destination for the reports. Locations may be input and output in either model coordinates (<em>x</em>, <em>y</em>, <em>z</em>) or view (a.k.a. grid-plane) coordinates (<em>h</em>, <em>v</em>, <em>d</em>). Similarly, direction may be input and output either as vectors expressed in model coordinates or as angles of azimuth and elevation.</p>
+</div>
+<div class="sect2">
+<h3 id="options">Options</h3>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-A <em>attribute_name&#8230;&#8203;</em></strong></dt>
+<dd>
+<p>Adds the names to the list of attributes that will be reported when the "attributes" partition information value is specified. See also the <em>attr</em> command below.</p>
+</dd>
+<dt class="hdlist1"><strong>-M</strong></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to read the eye point and either the orientation quaternion (new format) or the view-rotation matrix (old format) from the standard input, and fire a single ray from the point in the specified direction. This option allows <strong>nirt</strong> to be called directly from within <strong>mged</strong> using the <strong>nirt</strong> and <em>rrt</em> commands.</p>
+</dd>
+<dt class="hdlist1"><strong>-b</strong></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to perform a <em>backout</em> command before the first <em>shoot</em> command (see the description of these two commands below). This is probably only useful with the <strong>-M</strong> option.</p>
+</dd>
+<dt class="hdlist1">*-e*<em>script</em></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to run the <em>script</em> string before reading the standard input. Multiple commands in <em>script</em> may be separated with a semicolon ';'. Scripts specified with either the <strong>-e</strong> or <strong>-f</strong> options are executed in the order in which they are specified on the command line.</p>
+</dd>
+<dt class="hdlist1">*-f*<em>format</em></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to load the predefined format (see <strong>-L</strong>) <em>format</em> or script file before reading standard input. Scripts specified with either the <strong>-e</strong> or <strong>-f</strong> options are executed in the order in which they are specified on the command line.</p>
+</dd>
+<dt class="hdlist1"><strong>-E</strong></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to ignore any <strong>-e</strong> or <strong>-f</strong> options specified previously on the command line.</p>
+</dd>
+<dt class="hdlist1"><strong>-L</strong></dt>
+<dd>
+<p>List output formatting options.</p>
+</dd>
+<dt class="hdlist1"><strong>-s</strong></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to run in silent (that is, non-verbose) mode. In this mode, which is useful in a pipeline, <strong>nirt</strong> does not print its initial lines of output or the prompt.</p>
+</dd>
+<dt class="hdlist1"><strong>-v</strong></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to run in verbose mode. The default is verbose mode, except if standard input has been redirected, in which case the default is silent mode.</p>
+</dd>
+<dt class="hdlist1">*-H*<em>n</em></dt>
+<dd>
+<p>Set flag (<em>n</em>) for enable/disable informational header (<em>n</em>=1 [on] by default, always off in silent mode).</p>
+</dd>
+<dt class="hdlist1">*-u*<em>n</em></dt>
+<dd>
+<p>Sets the <em>useair</em> member of the <em>rt_i</em> structure to <em>n</em>. See the discussion of the <em>useair</em> command below.</p>
+</dd>
+<dt class="hdlist1">*-O*<em>n</em></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to handle multiple regions' claims to segments of a ray according to action <em>n</em>. The argument <em>n</em> may be any of the values 0, 1, 2, or 3, or their corresponding key words "resolve", "rebuild_fastgen", "rebuild_all", or "retain". See the discussion of the <em>overlap_claims</em> command below.</p>
+</dd>
+<dt class="hdlist1">*-x*<em>v</em></dt>
+<dd>
+<p>Sets the <strong>librt</strong>(3) debug flags to the hexadecimal bit vector <em>v</em>. See the discussion of the <em>libdebug</em> command below.</p>
+</dd>
+<dt class="hdlist1">*-X*<em>v</em></dt>
+<dd>
+<p>Sets <strong>nirt</strong>'s own debug flags to the hexadecimal bit vector <em>v</em>. See the discussion of the <em>debug</em> command below.</p>
+</dd>
+<dt class="hdlist1">*&#8212;&#8203;xyz*<em>x y z</em></dt>
+<dd>
+<p>Initializes the ray origination point to the specified value. See the discussion of the <em>xyz</em> command below.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p><strong>nirt</strong> will check in two places for a <code>.nirtrc</code> file - first in the current directory, and if it is not found there, in the user&#8217;s home directory. If found, <strong>nirt</strong> begins by reading from it. This start-up file may contain any <strong>nirt</strong> commands and is useful for loading predefined states or initializing actions for output statements.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="commands">Commands</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p><em>center [<em>x y z</em>]</em></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>xyz [<em>x y z</em>]</em></dt>
+<dd>
+<p>Sets the ray origination point to (<em>x</em>, <em>y</em>, <em>z</em>). If this command is invoked with no arguments, <strong>nirt</strong> prints the current ray origination point in model coordinates. Default is (0, 0, 0). Changing (<em>x</em>, <em>y</em>, <em>z</em>) will change (<em>h</em>, <em>v</em>, <em>d</em>), according to the current direction vector.</p>
+</dd>
+<dt class="hdlist1"><em>hv [</em> <em>h v</em> <em>[</em> <em>d</em> <em>]]</em></dt>
+<dd>
+<p>Sets the ray origination point to (<em>h</em>, <em>v</em>, <em>d</em>). If this command is invoked with only two arguments, <strong>nirt</strong> interprets them as <em>h</em> and <em>v</em>, and <em>d</em> retains its previous value. If invoked with no argument, the command causes <strong>nirt</strong> to print the current ray origination point in view coordinates. Default is (0, 0, 0). Changing (<em>h</em>, <em>v</em>, <em>d</em>) will change (<em>x</em>, <em>y</em>, <em>z</em>), according to the current direction vector.</p>
+</dd>
+<dt class="hdlist1"><em>dir [<em>dx dy dz</em>]</em></dt>
+<dd>
+<p>Sets the direction vector to the unit vector in direction (<em>dx</em>, <em>dy</em>, <em>dz</em>). If this command is invoked with no arguments, <strong>nirt</strong> prints the current direction vector. Default is (-1, 0, 0). Changing (<em>dx</em>, <em>dy</em>, <em>dz</em>) will change the azimuth and elevation angles.</p>
+</dd>
+<dt class="hdlist1"><em>ae [<em>az el</em>]</em></dt>
+<dd>
+<p>Sets the direction vector to point <em>from</em> azimuth = <em>az</em> and elevation = <em>el</em>. If this command is invoked with no arguments, <strong>nirt</strong> prints the current values of the azimuth and elevation angles. Default is (0, 0). Changing azimuth and elevation will change the direction vector.</p>
+</dd>
+<dt class="hdlist1"><em>s</em></dt>
+<dd>
+<p>Fires a ray from the current origination point in the current direction.</p>
+</dd>
+<dt class="hdlist1"><em>backout [<em>n</em>]</em></dt>
+<dd>
+<p>Command to set the backout flag. With no option, prints the current value. When activated, backs the ray origination point out of the geometry: <em>h</em> and <em>v</em> retain their previous values and <em>d</em> is set to <em>Dmax</em>, the largest value of <em>d</em> anywhere in the geometry. Default is 0 (deactivated), 1 is active.</p>
+</dd>
+<dt class="hdlist1"><em>useair [<em>n</em>]</em></dt>
+<dd>
+<p>Sets the <em>useair</em> member of the <em>rt_i</em> structure to the integer <em>n</em>. If <em>n</em> is 0, then <strong>nirt</strong> ignores any air in the geometry. If this command is invoked with no arguments, <strong>nirt</strong> prints the current value of <em>useair</em>. Default is 0.</p>
+</dd>
+<dt class="hdlist1"><em>overlap_claims [<em>n</em>]</em></dt>
+<dd>
+<p>Specifies how to handle multiple regions' claims to segments of a ray. If <em>n</em> is 0 or "resolve", then all overlaps are resolved in favor of a single region and any other claimants are ignored. If <em>n</em> is 2 or "rebuild_all", then all overlaps are rebuilt, so any overlapping regions along the ray create individual (geometrically intersecting) partitions. If <em>n</em> is 3 or "retain", then all overlaps are retained. In this case, the resulting partitions are always geometrically disjoint, each one is owned by a single region according to the current overlap resolution strategy, but every claimant is recorded. If <em>n</em> is 1 or "rebuild_fastgen", then <strong>nirt</strong> takes on <em>FASTGEN</em> behavior, so overlaps of plate-mode primitives are rebuilt, but other overlaps are retained. This command is useful with the <em>claimant_count</em>, <em>claimant_list</em>, and <em>claimant_listn</em> output items. Default is "resolve".</p>
+</dd>
+<dt class="hdlist1"><em>attr {-f|-p|attr_names&#8230;&#8203;}</em></dt>
+<dd>
+<p>When used with one or more names, adds the names to the list of attributes that will be printed when the "attributes" value is requested in the output format string.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The <strong>-p</strong> option to the <strong>attr</strong> command causes it to print the list of attributes that will be reported.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-f</strong> option clears the attributes table.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>units [<em>u</em>]</em></dt>
+<dd>
+<p>Causes <strong>nirt</strong> to read and write all distances and locations in units of <em>u</em>. Valid choices for <em>u</em> are "mm"; "cm"; "m"; "in"; and "ft". If this command is invoked with no arguments, <strong>nirt</strong> prints the current choice of I/O units. Default is the units of <em>model.g</em>.</p>
+</dd>
+<dt class="hdlist1"><em>fmt [<em>t format item item &#8230;&#8203;</em>]</em></dt>
+<dd>
+<p>Sets the action for output statements of type <em>t</em>. If this command is invoked with only one argument, a valid statement type, <strong>nirt</strong> prints the current format and items for the specified type. See the discussion of output statements below.</p>
+</dd>
+<dt class="hdlist1"><em>dest [<em>d</em>]</em></dt>
+<dd>
+<p>Sets the destination for subsequent output actions to <em>d</em>. If the first character of <em>d</em> is `|', then <em>d</em> is interpreted as a pipeline to which to write its output. Otherwise, if <em>d</em> is the string "default", <strong>nirt</strong> sets the destination to the standard output. Otherwise, <em>d</em> is interpreted as a file. In any event, <em>d</em> is not closed until the user quits <strong>nirt</strong> or resets the destination by another invocation of the <em>dest</em> command. If this command is invoked with no arguments, <strong>nirt</strong> prints the current value of <em>d</em>. Default is "default", that is, the standard output.</p>
+</dd>
+<dt class="hdlist1"><em>statefile [<em>f</em>]</em></dt>
+<dd>
+<p>Sets the name of the state file to which to dump and from which to load state information. See the discussion of the <em>dump</em> and <em>load</em> commands below. If this command is invoked with no arguments, <strong>nirt</strong> prints the current name of the state file. Default is "nirt_state".</p>
+</dd>
+<dt class="hdlist1"><em>dump</em></dt>
+<dd>
+<p>Writes state information to the state file. The ray origination point and direction vector, useair, units, destination, and all the output actions are dumped.</p>
+</dd>
+<dt class="hdlist1"><em>load</em></dt>
+<dd>
+<p>Reads state information from the state file. The state file loaded may contain any <strong>nirt</strong> commands.</p>
+</dd>
+<dt class="hdlist1"><em>print__item</em></dt>
+<dd>
+<p>Prints the current value of the output item <em>item</em>. See the discussion of output statements below.</p>
+</dd>
+<dt class="hdlist1"><em>libdebug__v</em></dt>
+<dd>
+<p>Sets the <strong>librt</strong>(3) debug flags (the <em>debug</em> member of the <em>rt_g</em> structure) to the hexadecimal bit vector <em>v</em>. These flags control the amount and kind of diagnostic print statements <strong>librt</strong>(3) executes. If <em>v</em> is 0, then no diagnostics are produced. If this command is invoked with no arguments, <strong>nirt</strong> prints the current value of <em>v</em> and the names of any of its bits that are set. Default is 0.</p>
+</dd>
+<dt class="hdlist1"><em>debug__v</em></dt>
+<dd>
+<p>Sets <strong>nirt</strong>'s internal debug flags to the hexadecimal bit vector <em>v</em>. These flags control the amount and kind of diagnostic print statements <strong>nirt</strong> executes. If <em>v</em> is 0, then no diagnostics are produced. If this command is invoked with no arguments, <strong>nirt</strong> prints the current value of <em>v</em> and the names of any of its bits that are set. Default is 0.</p>
+</dd>
+<dt class="hdlist1"><em>?</em></dt>
+<dd>
+<p>Prints a help menu to the standard output.</p>
+</dd>
+<dt class="hdlist1"><em>q</em></dt>
+<dd>
+<p>Quits <strong>nirt</strong>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="output_statements">Output Statements</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>nirt</strong> allows the user a high degree of control, via the <em>fmt</em> command, over what information gets printed out for each ray and in what format. There are six types of output statements, each of which is executed under appropriate circumstances. The types and their use are:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>r</em></dt>
+<dd>
+<p>Ray. The first output statement executed whenever the <em>s</em> command is invoked.</p>
+</dd>
+<dt class="hdlist1"><em>h</em></dt>
+<dd>
+<p>Head. Executed immediately after the ray statement if the ray hits anything.</p>
+</dd>
+<dt class="hdlist1"><em>p</em></dt>
+<dd>
+<p>Partition. Executed once for each partition along the ray if the ray hits anything.</p>
+</dd>
+<dt class="hdlist1"><em>f</em></dt>
+<dd>
+<p>Foot. The last output statement executed if the ray hits anything.</p>
+</dd>
+<dt class="hdlist1"><em>m</em></dt>
+<dd>
+<p>Miss. Executed immediately after the ray statement if the ray hits nothing.</p>
+</dd>
+<dt class="hdlist1"><em>o</em></dt>
+<dd>
+<p>Overlap. Executed once for each overlap along the ray if the ray hits anything.</p>
+</dd>
+<dt class="hdlist1"><em>g</em></dt>
+<dd>
+<p>Gap. Executed once for each gap along the ray if the ray encounters any gaps.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The action associated with each output statement type is essentially a <strong>printf</strong>(3) statement, with a format string and a list of output items. The items may be chosen from a set of values that <strong>nirt</strong> updates according to user commands and location along the ray. These values may be categorized as pertaining to the entire ray, partitions along the ray, or overlaps. The values are explained in the following table.</p>
+</div>
+<div class="paragraph">
+<p>Ray Information</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>x_orig</em></dt>
+<dd>
+<p><em>x</em> coordinate of ray origination point.</p>
+</dd>
+<dt class="hdlist1"><em>y_orig</em></dt>
+<dd>
+<p><em>y</em> coordinate of ray origination point.</p>
+</dd>
+<dt class="hdlist1"><em>z_orig</em></dt>
+<dd>
+<p><em>z</em> coordinate of ray origination point.</p>
+</dd>
+<dt class="hdlist1"><em>d_orig</em></dt>
+<dd>
+<p><em>d</em> coordinate of ray origination point.</p>
+</dd>
+<dt class="hdlist1"><em>h</em></dt>
+<dd>
+<p><em>h</em> coordinate for the entire ray.</p>
+</dd>
+<dt class="hdlist1"><em>v</em></dt>
+<dd>
+<p><em>v</em> coordinate for the entire ray.</p>
+</dd>
+<dt class="hdlist1"><em>x_dir</em></dt>
+<dd>
+<p><em>x</em> component of direction vector.</p>
+</dd>
+<dt class="hdlist1"><em>y_dir</em></dt>
+<dd>
+<p><em>y</em> component of direction vector.</p>
+</dd>
+<dt class="hdlist1"><em>z_dir</em></dt>
+<dd>
+<p><em>z</em> component of direction vector.</p>
+</dd>
+<dt class="hdlist1"><em>a</em></dt>
+<dd>
+<p>azimuth of view (i.e., of ray direction).</p>
+</dd>
+<dt class="hdlist1"><em>e</em></dt>
+<dd>
+<p>elevation of view (i.e., of ray direction).</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Partition Information</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>attributes</em></dt>
+<dd>
+<p>A string variable consisting of the names and values of the attributes requested by the <em>attr</em> command or the <strong>-A</strong> command line option.</p>
+</dd>
+<dt class="hdlist1"><em>x_in</em></dt>
+<dd>
+<p><em>x</em> coordinate of entry into current region.</p>
+</dd>
+<dt class="hdlist1"><em>y_in</em></dt>
+<dd>
+<p><em>y</em> coordinate of entry into current region.</p>
+</dd>
+<dt class="hdlist1"><em>z_in</em></dt>
+<dd>
+<p><em>z</em> coordinate of entry into current region.</p>
+</dd>
+<dt class="hdlist1"><em>d_in</em></dt>
+<dd>
+<p><em>d</em> coordinate of entry into current region.</p>
+</dd>
+<dt class="hdlist1"><em>x_out</em></dt>
+<dd>
+<p><em>x</em> coordinate of exit from current region.</p>
+</dd>
+<dt class="hdlist1"><em>y_out</em></dt>
+<dd>
+<p><em>y</em> coordinate of exit from current region.</p>
+</dd>
+<dt class="hdlist1"><em>z_out</em></dt>
+<dd>
+<p><em>z</em> coordinate of exit from current region.</p>
+</dd>
+<dt class="hdlist1"><em>d_out</em></dt>
+<dd>
+<p><em>d</em> coordinate of exit from current region.</p>
+</dd>
+<dt class="hdlist1"><em>los</em></dt>
+<dd>
+<p>line-of-sight distance through current region.</p>
+</dd>
+<dt class="hdlist1"><em>scaled_los</em></dt>
+<dd>
+<p>scaled line of sight: product of line-of-sight distance through current region and region solidity (sometimes called "percent LOS").</p>
+</dd>
+<dt class="hdlist1"><em>path_name</em></dt>
+<dd>
+<p>full path name of current region.</p>
+</dd>
+<dt class="hdlist1"><em>reg_name</em></dt>
+<dd>
+<p>name of current region, as might be obtained by passing <em>path_name</em> to <strong>basename</strong>(1).</p>
+</dd>
+<dt class="hdlist1"><em>reg_id</em></dt>
+<dd>
+<p>region ID of current region.</p>
+</dd>
+<dt class="hdlist1"><em>claimant_count</em></dt>
+<dd>
+<p>number of regions claiming this partition (that is, participating in a retained overlap).</p>
+</dd>
+<dt class="hdlist1"><em>claimant_list</em></dt>
+<dd>
+<p>space-separated list of names of regions claiming this partition (that is, participating in a retained overlap).</p>
+</dd>
+<dt class="hdlist1"><em>claimant_listn</em></dt>
+<dd>
+<p>Same as <em>claimant_list</em>, except that it is newline-, rather than space-separated.</p>
+</dd>
+<dt class="hdlist1"><em>obliq_in</em></dt>
+<dd>
+<p>entry obliquity for current region.</p>
+</dd>
+<dt class="hdlist1"><em>obliq_out</em></dt>
+<dd>
+<p>exit obliquity for current region.</p>
+</dd>
+<dt class="hdlist1"><em>nm_x_in</em></dt>
+<dd>
+<p><em>x</em> component of entry normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_y_in</em></dt>
+<dd>
+<p><em>y</em> component of entry normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_z_in</em></dt>
+<dd>
+<p><em>z</em> component of entry normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_h_in</em></dt>
+<dd>
+<p><em>h</em> component of entry normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_v_in</em></dt>
+<dd>
+<p><em>v</em> component of entry normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_d_in</em></dt>
+<dd>
+<p><em>d</em> component of entry normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_x_out</em></dt>
+<dd>
+<p><em>x</em> component of exit normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_y_out</em></dt>
+<dd>
+<p><em>y</em> component of exit normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_z_out</em></dt>
+<dd>
+<p><em>z</em> component of exit normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_h_out</em></dt>
+<dd>
+<p><em>h</em> component of exit normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_v_out</em></dt>
+<dd>
+<p><em>v</em> component of exit normal vector</p>
+</dd>
+<dt class="hdlist1"><em>nm_d_out</em></dt>
+<dd>
+<p><em>d</em> component of exit normal vector</p>
+</dd>
+<dt class="hdlist1"><em>surf_num_in</em></dt>
+<dd>
+<p>entry-surface ID of entry solid.</p>
+</dd>
+<dt class="hdlist1"><em>surf_num_out</em></dt>
+<dd>
+<p>exit-surface ID of exit solid.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Gap Information</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>x_gap_in</em></dt>
+<dd>
+<p><em>x</em> coordinate of entry into gap.</p>
+</dd>
+<dt class="hdlist1"><em>y_gap_in</em></dt>
+<dd>
+<p><em>y</em> coordinate of entry into gap.</p>
+</dd>
+<dt class="hdlist1"><em>z_gap_in</em></dt>
+<dd>
+<p><em>z</em> coordinate of entry into gap.</p>
+</dd>
+<dt class="hdlist1"><em>gap_los</em></dt>
+<dd>
+<p>line-of-sight distance through gap.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Overlap Information</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>ov_reg1_name</em></dt>
+<dd>
+<p>name of one of the overlapping regions.</p>
+</dd>
+<dt class="hdlist1"><em>ov_reg2_name</em></dt>
+<dd>
+<p>name of the other overlapping region.</p>
+</dd>
+<dt class="hdlist1"><em>ov_reg1_id</em></dt>
+<dd>
+<p>region ID of one of the overlapping regions.</p>
+</dd>
+<dt class="hdlist1"><em>ov_reg2_id</em></dt>
+<dd>
+<p>region ID of the other overlapping region.</p>
+</dd>
+<dt class="hdlist1"><em>ov_sol_in</em></dt>
+<dd>
+<p>name of one of the overlapping solids.</p>
+</dd>
+<dt class="hdlist1"><em>ov_sol_out</em></dt>
+<dd>
+<p>name of the other overlapping solid.</p>
+</dd>
+<dt class="hdlist1"><em>ov_los</em></dt>
+<dd>
+<p>line-of-sight distance through the overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_x_in</em></dt>
+<dd>
+<p><em>x</em> coordinate of entry into overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_y_in</em></dt>
+<dd>
+<p><em>y</em> coordinate of entry into overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_z_in</em></dt>
+<dd>
+<p><em>z</em> coordinate of entry into overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_d_in</em></dt>
+<dd>
+<p><em>d</em> coordinate of entry into overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_x_out</em></dt>
+<dd>
+<p><em>x</em> coordinate of exit from overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_y_out</em></dt>
+<dd>
+<p><em>y</em> coordinate of exit from overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_z_out</em></dt>
+<dd>
+<p><em>z</em> coordinate of exit from overlap.</p>
+</dd>
+<dt class="hdlist1"><em>ov_d_out</em></dt>
+<dd>
+<p><em>d</em> coordinate of exit from overlap.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hints">HINTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Ray origination coordinates specified with the <em>hv</em> command are immediately converted for internal use to model coordinates, according to the current direction vector. If you want to change the ray direction and origination point, and you&#8217;re using view coordinates, you probably want to change the ray direction <em>before</em> you use the <em>hv</em> command.</p>
+</div>
+<div class="paragraph">
+<p>The name "nirt" stands for "Natalie&#8217;s interactive ray tracer".</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="definitions">DEFINITIONS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The usage in <strong>nirt</strong> of the following terms corresponds to that found in <strong>mged</strong>(1) and elsewhere throughout BRL-CAD. We provide the definitions here for reference.</p>
+</div>
+<div class="sect2">
+<h3 id="view_coordinates">View Coordinates</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We define the view coordinate system (more precisely its basis vectors <em>m</em>, <em>n</em>, and <em>o</em>) in terms of the basis vectors <em>i</em>, <em>j</em>, and <em>k</em> of the model coordinate system as follows:</p>
+</div>
+<div class="paragraph">
+<p><em>m</em> is the opposite of the direction vector and corresponds to <em>d</em>, <em>n</em> = <em>k</em> × <em>m</em> corresponds to <em>h</em>, and <em>o</em> = <em>m</em> × <em>n</em> corresponds to <em>v</em>.</p>
+</div>
+<div class="paragraph">
+<p>Thus if the direction vector is (-1, 0, 0), then (<em>d</em>, <em>h</em>, <em>v</em>) = (<em>x</em>, <em>y</em>, <em>z</em>).</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="azimuth_and_elevation">Azimuth and Elevation</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Azimuth is the angle measured around <em>k</em> (right-hand rule) from the <em>xz</em> plane to <em>m</em>. Elevation is the angle measured toward <em>k</em> from the <em>xy</em> plane to <em>m</em>.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="files">FILES</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em> ~/.nirtrc </em></dt>
+<dd>
+<p>run-time configuration file</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>mged</strong>(1), <strong>librt</strong>(3), <strong>printf</strong>(3)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1984-2025 United States Government as represented by the U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

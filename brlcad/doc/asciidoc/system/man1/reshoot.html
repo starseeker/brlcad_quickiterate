@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>RESHOOT(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>RESHOOT(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>reshoot - re-shoot rays and compare results</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>reshoot &lt;model.g&gt; &lt;objects&gt;... &lt; &lt;raylist&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This program is designed to shoot a set of rays and compare the results with previous results. The program exits with a non-zero status if any rays are different from the previous run, and a 0 status if no differences were found.</p>
+</div>
+<div class="paragraph">
+<p>Typically, an application (probably other than <strong>reshoot</strong>) is run with the RT_G_DEBUG flag DEBUG_ALLHITS set. This will cause librt to log all calls to the application <em>hit</em> routine to the standard error. The logged output can be processed by an <em>awk</em> program to produce input to <strong>reshoot</strong>. Consider the file p.awk with the following contents:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+/Pnt/ { START=index($0,"(") + 1
+       STR=substr($0, START, index($0,")") - START)
+       gsub(  ", "  , "," , STR)
+       printf "Pnt=%s\n",STR
+       }
+/Dir/ { START=index($0,"(") + 1
+       STR=substr($0, START, index($0,")") - START)
+       gsub(  ", "  , "," , STR)
+       printf "Dir=%s\n",STR
+       }
+/PT/  { PIN=$3; POUT=$5 }
+/InHIT/ { INHIT=$2 }
+/OutHIT/ { OUTHIT=$2 }
+/Region/ { printf "	region=%s in=%s in%s out=%s out%s\n",
+	$2,PIN,INHIT,POUT,OUTHIT
+	}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Given this <em>awk</em> program The log file from the application can be processed as follows:</p>
+</div>
+<div class="paragraph">
+<p>awk -f p.awk &lt; logfile &gt; shotlist</p>
+</div>
+<div class="paragraph">
+<p>to produce input for <strong>reshoot</strong>. An example of the input file format for <strong>reshoot</strong> is:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+Pnt=0,0,1
+Dir=0,0,-1
+	region=r1.r in=p1.s indist=10016.8 out=p2.s outdist=10017.8
+	region=r2.r in=p3.s indist=10018.8 out=p4.s outdist=10019.8
+	... (arbitrary many region lines)
+Pnt=0,0,10
+Dir=0,0,-1
+	region=r1.r in=p1.s indist=10016.8 out=p2.s outdist=10017.8
+	region=r2.r in=p3.s indist=10018.8 out=p4.s outdist=10019.8
+	... (arbitrary many region lines)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>There can be an arbitrary number of rays specified in the file. There must not be whitespace between the values of Pnt and between the values of Dir; it is best to comma-separate the three coordinate values. The keywords "Pnt" and "Dir" must occur at the beginning of a line. There can be an arbitrary number of regions along the ray path. Each region must be described on a single line. A new ray is started by a "Pnt" value. Then <strong>reshoot</strong> can be run as follows:</p>
+</div>
+<div class="paragraph">
+<p>reshoot geom.g obj &#8230;&#8203; &lt; shotlist</p>
+</div>
+<div class="paragraph">
+<p>Differences are reported for each ray as they are found:</p>
+</div>
+<div class="paragraph">
+<p>Ray Pt 0,0,1 Dir 0,0,-1 inhit mismatch 17.8177 16.8 outhit mismatch 24.7685 23.8 region name mismatch /oops.r sb r1.r in primitive name mismatch p8.s sb p1.s</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bugs">BUGS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The floating point values logged when the DEBUG_ALLHITS flag is set in RT_G_DEBUG are printed with a %g format. This causes some truncation of precision. This is accounted for by <strong>reshoot</strong> by re-formatting the numbers computed into ascii and re-parsing them back in. This causes the same amount of precision loss as the original values have undergone. However, small actual differences are also overlooked as a result.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 2006-2025 United States Government as represented by the U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>
