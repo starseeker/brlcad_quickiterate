@@ -81,11 +81,11 @@ Before you can create a model, you need to open a new database either through th
 [[open_new_database]]
 === Opening or Creating a New Database when Launching MGED
 
-When launching _MGED_, you can open or create a database at the same time. At the shell prompt (usually a $ or %), in the Terminal Window, type mged followed by a new or existing database name with a .g extension. For example: *mged sphere.g[ENTER]* 
+When launching _MGED_, you can open or create a database at the same time. At the shell prompt (usually a $ or %), in the Terminal Window, type mged followed by a new or existing database name with a .g extension. For example: *mged sphere.g[ENTER]*
 
 image::../lessons/images/mged01_terminal.png[]
 
- If you are creating a new database, a small dialog box asking if you want to create a new database named sphere.g will appear. Click on Yes, and a new database will be created. If sphere.g already exists, _MGED_ will open the sphere.g database as the program is launched.
+If you are creating a new database, a small dialog box asking if you want to create a new database named sphere.g will appear. Click on Yes, and a new database will be created. If sphere.g already exists, _MGED_ will open the sphere.g database as the program is launched.
 
 
 [[create_new_database]]
@@ -93,15 +93,15 @@ image::../lessons/images/mged01_terminal.png[]
 
 Alternatively, once you have launched _MGED_, you can open an existing database or create a new database using the GUI menus (at the top of the Command or Graphics Window) by clicking on File and then either Open or New. Both options bring up a small dialog box. The Open dialog box will ask you to type in the name of an existing database. The New dialog box will ask you to type in the name of a new database. Click on OK to accept the database.
 
-For this lesson, create a new database called sphere.g. To do this, type sphere.g at the end of the path name, as shown in the following illustration. Click on OK to accept the database name. 
+For this lesson, create a new database called sphere.g. To do this, type sphere.g at the end of the path name, as shown in the following illustration. Click on OK to accept the database name.
 
 image::../lessons/images/mged01_commandwindow.png[]
 
- 
+
 
 image::../lessons/images/mged01_graphicswindow.png[]
 
- One advantage to using the GUI, if you aren't familiar with UNIX file management, is that this will show you your current path name, so you will know exactly where your database is going to be located. This can be especially helpful if you have a lot of directories or files to manage.
+One advantage to using the GUI, if you aren't familiar with UNIX file management, is that this will show you your current path name, so you will know exactly where your database is going to be located. This can be especially helpful if you have a lot of directories or files to manage.
 
 
 [[assign_title]]
@@ -370,7 +370,7 @@ Note that in the preceding Command Line expressions, btn is an abbreviation for 
 
 ====
 
-An image similar to the following should now appear in the Graphics Window. 
+An image similar to the following should now appear in the Graphics Window.
 
 image::../lessons/images/mged02_defaultradio.png[]
 
@@ -711,7 +711,7 @@ A sphere shape has now been created, and a wireframe drawing should appear in yo
 
 To make the rcc from the Command Window prompt, type: *make rcc1.s rcc[Enter]*
 
-Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created. 
+Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created.
 
 image::../lessons/images/mged03_wireframe_sph_rcc.png[]
 
@@ -1365,7 +1365,7 @@ In this lesson, you will:
 
 
 
-In this lesson, you will create a goblet similar to the one in the following example. 
+In this lesson, you will create a goblet similar to the one in the following example.
 
 image::../lessons/images/mged06_rtgoblet.png[]
 
@@ -1389,7 +1389,7 @@ Go to the menu bar, select the Cones and Cylinders category, and then select rcc
 [[Editing_the_Base]]
 ==== Editing the Base
 
-Go to the menu bar and select Edit and then Set H. Place the mouse pointer in the lower half of the Graphics Window and click on the middle mouse button several times. The cylinder will become shorter as you click. (Note that the closer your pointer is to the midpoint of the Graphics Window, the smaller the change will be. As you click farther away from the middle, the changes will be greater.) Continue clicking until the cylinder looks like a flat disk, as shown in the following figure. Click on Accept on the Edit menu when done. 
+Go to the menu bar and select Edit and then Set H. Place the mouse pointer in the lower half of the Graphics Window and click on the middle mouse button several times. The cylinder will become shorter as you click. (Note that the closer your pointer is to the midpoint of the Graphics Window, the smaller the change will be. As you click farther away from the middle, the changes will be greater.) Continue clicking until the cylinder looks like a flat disk, as shown in the following figure. Click on Accept on the Edit menu when done.
 
 image::../lessons/images/mged06_gobletbase.png[]
 
@@ -1401,7 +1401,7 @@ image::../lessons/images/mged06_gobletbase.png[]
 
 Go to the menu bar, select Create, select Ellipsoids, and then select sph to create a sphere. You will be asked to provide a name for the sphere. Type ball1.s in the name box and then select Apply. A large sphere will appear in your Graphics Window.
 
-Go to the Edit menu and select Scale. Place the mouse cursor/pointer in the lower half of the Graphics Window and click the middle mouse button until your sphere is about one-quarter the diameter of the base, as shown in the illustration that follows. 
+Go to the Edit menu and select Scale. Place the mouse cursor/pointer in the lower half of the Graphics Window and click the middle mouse button until your sphere is about one-quarter the diameter of the base, as shown in the illustration that follows.
 
 image::../lessons/images/mged06_goblet1stsphere.png[]
 
@@ -1427,7 +1427,7 @@ To edit the new balls you have created, go to the Edit menu and select Primitive
 
 If you were modeling a real goblet, you would want the balls of the stem to overlap slightly. If they barely touch, the stem would be very weak. If they do not touch, then the stem would be made of separate pieces of material suspended in space.
 
-Repeat these steps to move ball3.s into position. When you are finished, your goblet should look as follows from a front view: 
+Repeat these steps to move ball3.s into position. When you are finished, your goblet should look as follows from a front view:
 
 image::../lessons/images/mged06_gobletstem.png[]
 
@@ -1439,7 +1439,7 @@ image::../lessons/images/mged06_gobletstem.png[]
 
 The next step is to make the goblet's basin. Go to the Create menu and select eto to create an elliptical torus. Name the torus basin1.s. Click on Apply. A large eto will appear in your Graphics Window.
 
-Go to the Edit menu and select Set C. Place the mouse arrow in the upper half of the Graphics Window and click on the middle mouse button until your eto is approximately the size of the one in the following figure. If you need to, use Scale to make the basin more proportional to the rest object and use the Shift Grips and multiple views to position the basin. 
+Go to the Edit menu and select Set C. Place the mouse arrow in the upper half of the Graphics Window and click on the middle mouse button until your eto is approximately the size of the one in the following figure. If you need to, use Scale to make the basin more proportional to the rest object and use the Shift Grips and multiple views to position the basin.
 
 image::../lessons/images/mged06_gobletbasestembasin.png[]
 
@@ -1546,7 +1546,7 @@ image::../lessons/images/mged06_base_subtracted_vol.png[]
 
 To raytrace the goblet using the default material properties of gray plastic, go to the File menu and select Raytrace. When the Raytrace Control Panel appears, change the color of the background by clicking on the button to the right of the Background Color box and then clicking on the white option in the drop-down menu. Next, select Raytrace.
 
-When you have finished viewing the goblet from the front view, go to the View option of the menu bar and select az35, el25 and then raytrace. If you want to view the goblet without the wireframe, go to the Framebuffer option of the Raytrace Control Panel and select Overlay. The goblet should look similar to the following illustration: 
+When you have finished viewing the goblet from the front view, go to the View option of the menu bar and select az35, el25 and then raytrace. If you want to view the goblet without the wireframe, go to the Framebuffer option of the Raytrace Control Panel and select Overlay. The goblet should look similar to the following illustration:
 
 image::../lessons/images/mged06_rtgobletaz_35_el_25.png[]
 
@@ -1582,7 +1582,7 @@ In this lesson, you will:
 
 
 
-In this lesson, you will add material properties to the goblet you created in the previous lesson. The finished goblet should appear similar to the one in the following example. 
+In this lesson, you will add material properties to the goblet you created in the previous lesson. The finished goblet should appear similar to the one in the following example.
 
 image::../lessons/images/mged07_goblet_mater_complete.png[]
 
@@ -1629,7 +1629,7 @@ Note: As mentioned previously, it is undesirable to have regions that overlap. A
 
 ====
 
-While the goblet is raytracing, move your mouse cursor to the Framebuffer option of the Raytrace Control Panel menu bar and select Overlay. When the raytrace process is finished, you should have a goblet similar to the following example: 
+While the goblet is raytracing, move your mouse cursor to the Framebuffer option of the Raytrace Control Panel menu bar and select Overlay. When the raytrace process is finished, you should have a goblet similar to the following example:
 
 image::../lessons/images/mged07_goblet_complete_window.png[]
 
@@ -1644,7 +1644,7 @@ The raytraced goblet looks fairly realistic, but it could be enhanced by using o
 
 Just as you applied color and a shader to each of the goblet's three regions, you can adjust the transparency of each region by (1) selecting the region in the Combination Editor, (2) left clicking on the box next to Transparency, and (3) entering any value between 0.0 and 1.0.
 
-For this lesson, open the Combination Editor, click the button to the right of the Name box, choose Select From All Regions in the drop-down menu, and then choose the base1.r region. Make sure plastic is the shader selected and type in .5 to make your region semi-transparent. Click on Apply and repeat this process for each of the other two regions. Then Raytrace the goblet, which should look similar to the following: 
+For this lesson, open the Combination Editor, click the button to the right of the Name box, choose Select From All Regions in the drop-down menu, and then choose the base1.r region. Make sure plastic is the shader selected and type in .5 to make your region semi-transparent. Click on Apply and repeat this process for each of the other two regions. Then Raytrace the goblet, which should look similar to the following:
 
 image::../lessons/images/mged07_goblet_semitransparent.png[]
 
@@ -1656,7 +1656,7 @@ The colors of the semi-transparent goblet are brighter than those of the opaque 
 [[goblet_newforms_raytrace]]
 === Raytracing the New Forms of the Goblet
 
-Click on Apply and Raytrace the design. The new image should appear similar to the following example: 
+Click on Apply and Raytrace the design. The new image should appear similar to the following example:
 
 image::../lessons/images/mged07_goblet_mirror.png[]
 
@@ -1714,7 +1714,7 @@ In this lesson, you will:
 
 Open the goblet.g database using whichever method you prefer. Go to the Edit menu and select Combination Editor. Select basin1.r.
 
-In the last lesson, we assigned values for two shader attributes-transparency and mirror reflectance. In this lesson, we will assign values for still other shader properties. When the plastic shader is selected for region basin1.r, eight attribute entry boxes currently appear in the Combination Editor. These boxes contain either the values that the user has previously set (e.g., those we previously set for transparency and mirror reflectance) or the default values that the raytracer will use if no others are specified. When any of these values is modified, the change can be seen in braces in the shader string box and in the appropriate attribute entry boxes, as indicated by the arrows in the following example: 
+In the last lesson, we assigned values for two shader attributes-transparency and mirror reflectance. In this lesson, we will assign values for still other shader properties. When the plastic shader is selected for region basin1.r, eight attribute entry boxes currently appear in the Combination Editor. These boxes contain either the values that the user has previously set (e.g., those we previously set for transparency and mirror reflectance) or the default values that the raytracer will use if no others are specified. When any of these values is modified, the change can be seen in braces in the shader string box and in the appropriate attribute entry boxes, as indicated by the arrows in the following example:
 
 image::../lessons/images/mged08_goblet_combeditor.png[]
 
@@ -1747,7 +1747,7 @@ In this example, the shader entry box indicates that the transparency (tr) is se
 [[goblet_specular_diffuse]]
 === Specular and Diffuse Reflectivity
 
-When light reflects off of a shiny surface, it produces two types of reflections. The most noticeable highlights are caused by specular reflectivity. The rest of the surface produces diffuse reflectivity. The shinier (or glossier) the surface is, such as on a crystal vase, the more specular reflectivity that is produced. The duller the surface is, such as with a wall painted with flat paint, the more diffuse reflectivity that is produced. A model of the relationship between these reflectivities is shown in the following illustration: 
+When light reflects off of a shiny surface, it produces two types of reflections. The most noticeable highlights are caused by specular reflectivity. The rest of the surface produces diffuse reflectivity. The shinier (or glossier) the surface is, such as on a crystal vase, the more specular reflectivity that is produced. The duller the surface is, such as with a wall painted with flat paint, the more diffuse reflectivity that is produced. A model of the relationship between these reflectivities is shown in the following illustration:
 
 image::../lessons/images/mged08_spec_vs_diff_reflectivity.png[]
 
@@ -1765,7 +1765,7 @@ The range for both specular and diffuse reflectivity is 0.0 through 1.0. However
 
 When light passes through one medium (e.g., air) into another medium (e.g., water), it bends from its original path. The degree to which the light bends is called the refractive index. The more dissimilar the media are, the greater the degree of refraction that will occur. For example, sunlight passing through a diamond will bend more than the same sunlight through optical glass. The diamond would have a higher refractive index (approximately 2.42) whereas optical glass would have a lower refractive index (approximately 1.71).
 
-The range of index of refraction for _MGED_ is 1.0 (the index for air) or greater. This parameter is only useful for materials that have a transparency greater than 0. The following drawing of sunlight passing through water shows how refraction works. 
+The range of index of refraction for _MGED_ is 1.0 (the index for air) or greater. This parameter is only useful for materials that have a transparency greater than 0. The following drawing of sunlight passing through water shows how refraction works.
 
 image::../lessons/images/mged08_refractive_index.png[]
 
@@ -1795,17 +1795,17 @@ Emission is a relatively new feature that has been added to the _BRL-CAD_ packag
 
 Now that you understand the various attributes of the plastic shader, it is time to experiment with how they affect the final product-the goblet you created in the previous two lessons. You have already assigned values for transparency and mirror reflectance. Now add the attributes of specular reflectivity and diffuse reflectivity to basin1.r. Once you see how these two attributes affect your design, add the refractive index, then shininess and extinction. You might want to capture some of these changes so that you can refer to them later, when you are creating other models using the plastic shader. Remember to click Apply in the Combination Editor to actually incorporate the changes.
 
-As you change the values for the attributes of the plastic shader, you will notice that some changes do not significantly alter the design. This is because there are a variety of ways to produce a particular look on an object. The following are two examples of the goblet with various values of the plastic attributes (which do create a noticeable difference) applied to basin1.r. 
+As you change the values for the attributes of the plastic shader, you will notice that some changes do not significantly alter the design. This is because there are a variety of ways to produce a particular look on an object. The following are two examples of the goblet with various values of the plastic attributes (which do create a noticeable difference) applied to basin1.r.
 
 image::../lessons/images/mged08_goblet_reflectivity_1.png[]
 
- 
+
 
 image::../lessons/images/mged08_goblet_reflectivity_2.png[]
 
 
 
-By the time you have finished experimenting with changing attributes of the plastic shader, your Combination Editor window might look something like this: 
+By the time you have finished experimenting with changing attributes of the plastic shader, your Combination Editor window might look something like this:
 
 image::../lessons/images/mged08_comb_editor_window_mater_prop.png[]
 
@@ -1854,13 +1854,13 @@ Begin by creating a new database. Name your new file cube.g.
 [[globe_create_display_box]]
 === Creating the Display Box
 
-Go to the Create menu, select the Arbs category, and then select an arb8 (arbitrary convex polyhedron with eight vertices). When asked to provide a name for the arb8, name it cube1.s. Click on Apply. Go to the Edit menu and select Accept. You now have a cube for the outside of the display box, as in the following: 
+Go to the Create menu, select the Arbs category, and then select an arb8 (arbitrary convex polyhedron with eight vertices). When asked to provide a name for the arb8, name it cube1.s. Click on Apply. Go to the Edit menu and select Accept. You now have a cube for the outside of the display box, as in the following:
 
 image::../lessons/images/mged09_globe_outside_display_box.png[]
 
 
 
-Repeat the first part of this process to produce another arb8, this time calling this shape cube2.s. Go to the Edit menu and select Scale. Place the mouse pointer in the lower half of the Graphics Window screen and click the middle mouse button until the second cube is slightly smaller than the first cube, as follows: 
+Repeat the first part of this process to produce another arb8, this time calling this shape cube2.s. Go to the Edit menu and select Scale. Place the mouse pointer in the lower half of the Graphics Window screen and click the middle mouse button until the second cube is slightly smaller than the first cube, as follows:
 
 image::../lessons/images/mged09_globe_inside_outside_box.png[]
 
@@ -1876,7 +1876,7 @@ Go to the Create menu and select sph from the list of Ellipsoids. Name the shape
 
 A sphere should appear inside the cube in the Graphics Window. Change View to Front.
 
-Go to the Edit menu and select Scale. Reduce the size of the sphere until it will fit inside of the cube and then drag it into the center of the cube. Go to Edit and Accept your changes. Your globe and box should appear similar to the following in the az35, el25 view: 
+Go to the Edit menu and select Scale. Reduce the size of the sphere until it will fit inside of the cube and then drag it into the center of the cube. Go to Edit and Accept your changes. Your globe and box should appear similar to the following in the az35, el25 view:
 
 image::../lessons/images/mged09_globe_wireframe.png[]
 
@@ -1900,7 +1900,7 @@ Before you can raytrace your design, you need to clear the Graphics Window by ty
 
 The display box and globe should reappear in the Graphics Window. Go to the File menu and select Raytrace. Next, select the white option for Background Color. Click on Raytrace.
 
-Your design should show a light cyan-colored glass cube with a blue globe inside. To eliminate the wireframing, go to Framebuffer (in the Raytrace Panel) and select Overlay. The display should appear similar to the following illustration: 
+Your design should show a light cyan-colored glass cube with a blue globe inside. To eliminate the wireframing, go to Framebuffer (in the Raytrace Panel) and select Overlay. The display should appear similar to the following illustration:
 
 image::../lessons/images/mged09_globe_raytraced.png[]
 
@@ -1924,7 +1924,7 @@ To do this, we could use the CTRL and ALT (constrained rotation) keys and left m
 
 Our shape should have flipped upside down and jumped to the bottom of the first trc. (The two zeros you input indicate no rotation along the y and z axes.) Now use the SHIFT key and the left mouse button to drag base2.s upward and sit it on top of base1.s. The two shapes should form a base in which to hold your globe. Check your alignment using multiple views and then Accept your changes.
 
-Go to Edit and Primitive Selection and select globe1.r/globe1.s. As you did with the trc shapes, use the Shift Grips to drag the globe down until it is in place on the base. Go back to the Edit menu and select Accept. Your design should look as follows: 
+Go to Edit and Primitive Selection and select globe1.r/globe1.s. As you did with the trc shapes, use the Shift Grips to drag the globe down until it is in place on the base. Go back to the Edit menu and select Accept. Your design should look as follows:
 
 image::../lessons/images/mged09_globe_base_box_wireframe.png[]
 
@@ -1940,7 +1940,7 @@ In the Combination Editor window, click the button to the right of the Name entr
 
 Apply your changes. Before you can raytrace your completed design, you must first clear the Graphics Window and rebuild your design by typing at the Command Window prompt: *Z[Enter]* *draw cube1.r globe1.r base1.r[Enter]*
 
-Change your view to az35, el25 and then raytrace your design, which should appear similar to the following: 
+Change your view to az35, el25 and then raytrace your design, which should appear similar to the following:
 
 image::../lessons/images/mged09_globe_base_box_raytraced.png[]
 
@@ -2292,7 +2292,7 @@ Now you are faced with a unique situation. The shape rim.s was added to the list
 
 One way to fix this is to clear the display, redisplay the new, complete object, and then raytrace. As discussed previously, the fbclear command in the Raytrace Control Panel clears the framebuffer display, and the Z command in the Command Window clears all wireframed objects. You can redisplay the objects you want to raytrace with the draw command. Type at the prompt: *Z[Enter]* *draw mug.r[Enter]*
 
-Raytrace your mug. It should now look similar to the following. 
+Raytrace your mug. It should now look similar to the following.
 
 image::../lessons/images/mged11_mug_raytraced_rim.png[]
 
@@ -2365,7 +2365,7 @@ If at any time when you are editing through the GUI you don't like your changes,
 
 ====
 
-Next, create an inside right circular cylinder and name it inside.s. Edit the cylinder the same way you edited the outside cylinder. Before you accept your changes, change View to Top and make sure your cylinders are in alignment. If the cylinders are out of alignment, use the SHIFT key and left mouse button to drag the inside cylinder into position. Return your View to Front and Accept your changes when the cylinders are lined up. Your cylinders should look like those in the following example: 
+Next, create an inside right circular cylinder and name it inside.s. Edit the cylinder the same way you edited the outside cylinder. Before you accept your changes, change View to Top and make sure your cylinders are in alignment. If the cylinders are out of alignment, use the SHIFT key and left mouse button to drag the inside cylinder into position. Return your View to Front and Accept your changes when the cylinders are lined up. Your cylinders should look like those in the following example:
 
 image::../lessons/images/mged12_cyls_frontview.png[]
 
@@ -2410,7 +2410,7 @@ Check your mug from the top to make sure the handle is aligned. Accept your chan
 [[mug_gui_create_rim]]
 === Creating the Rim of the Mug
 
-To make the rim of the mug, go to the Create, select tor, and name it rim.s. Select the Rotate command and type on the Command Line: *p 0 90 0[Enter]* to rotate the torus on its side (90'0 about the y axis). Then, Scale and edit the various parameters of the torus using the front and top views until the mug looks similar to the following example. Make sure you Accept your changes when you are finished. 
+To make the rim of the mug, go to the Create, select tor, and name it rim.s. Select the Rotate command and type on the Command Line: *p 0 90 0[Enter]* to rotate the torus on its side (90'0 about the y axis). Then, Scale and edit the various parameters of the torus using the front and top views until the mug looks similar to the following example. Make sure you Accept your changes when you are finished.
 
 image::../lessons/images/mged12_mug_rim_frontview.png[]
 
@@ -2480,7 +2480,7 @@ When you are finished, click on Apply and then Dismiss. In the Command Window th
 [[mug_gui_raytracing]]
 === Raytracing the Design
 
-Go to the View option of the menu bar and select az35, el25. Go to File and then Raytrace. Select a white background color and Raytrace your design. Click on Overlay. When the raytracing is finished, it should look like the following example: 
+Go to the View option of the menu bar and select az35, el25. Go to File and then Raytrace. Select a white background color and Raytrace your design. Click on Overlay. When the raytracing is finished, it should look like the following example:
 
 image::../lessons/images/mged12_mug_gui_finished_raytraced.png[]
 
@@ -2518,7 +2518,7 @@ In this lesson, you will:
 
 In previous lessons, you created and edited shapes. You also placed objects in three-dimensional space. This lesson will provide more advanced practice on creating and editing shapes and placing them in 3-D space.
 
-The design you will make in this lesson is a simple candle in a candle holder sitting on a table (as shown in the following figure). In the next lesson, you will add decorations and lighting to make the design more realistic. 
+The design you will make in this lesson is a simple candle in a candle holder sitting on a table (as shown in the following figure). In the next lesson, you will add decorations and lighting to make the design more realistic.
 
 image::../lessons/images/mged13_candle_design.png[]
 
@@ -2533,7 +2533,7 @@ Create an arb8 from the GUI. Name the shape arb8.s. Go to View and select Front.
 
 Go to the Edit option of the menu bar. The arb8 needs to be made larger, so, under the Edit menu, select Scale. Put the mouse pointer in the upper half of the screen to make the arb8 larger and click the middle mouse button until the sides of the arb8 touch each side of the screen. Use the SHIFT key and left mouse button to drag the arb into position, if necessary.
 
-Under the Edit menu, select Move Faces and then Move Face 4378. Place the mouse pointer in the lower half of the screen and click the middle mouse button until the arb8 is about the thickness of a tabletop. Go back to the Edit menu and Accept the changes, and then use the SHIFT and any mouse key to position the tabletop so that it appears similar to the following: 
+Under the Edit menu, select Move Faces and then Move Face 4378. Place the mouse pointer in the lower half of the screen and click the middle mouse button until the arb8 is about the thickness of a tabletop. Go back to the Edit menu and Accept the changes, and then use the SHIFT and any mouse key to position the tabletop so that it appears similar to the following:
 
 image::../lessons/images/mged13_candle_tabletop_wireframe_front.png[]
 
@@ -2547,7 +2547,7 @@ Make a region of the tabletop by typing at the Command Window prompt: *r table1.
 
 Create an eto and name it eto1.s. To create the bottom of the candle base, you will need to flip the eto 180'0. Type at the Command Window prompt: *rot 0 180 0[Enter]* This tells _MGED_ to rotate the shape 180'0 along the y axis. Next, select Scale and make the eto a little smaller than its default size. Place the eto on the tabletop by using the SHIFT key and left mouse button to drag the base into position.
 
-View your design from different angles to make sure the eto sits flush on the center of the tabletop. Select Accept when you are satisfied with its size and placement. Your base should be similar to the one shown as follows: 
+View your design from different angles to make sure the eto sits flush on the center of the tabletop. Select Accept when you are satisfied with its size and placement. Your base should be similar to the one shown as follows:
 
 image::../lessons/images/mged13_candle_tabletop_eto1_wireframe_front.png[]
 
@@ -2566,13 +2566,13 @@ Go to Edit. In addition to the standard commands, you will be presented with a m
 
 
 
-Scale the shape until it is slightly larger in diameter than the top of the eto1.s (you can check this by switching to a top view). Go back to Edit and select Set H. Reduce the height of the shape until the rcc is about two times the height of eto1.s. Position the cylinder on the candle-holder base. Check the placement of the rcc from the top, left, and front to ensure that it is centered in the eto. Make sure the bottom of the rcc is not quite touching the tabletop. Accept your changes. When done, your design should look like the following: 
+Scale the shape until it is slightly larger in diameter than the top of the eto1.s (you can check this by switching to a top view). Go back to Edit and select Set H. Reduce the height of the shape until the rcc is about two times the height of eto1.s. Position the cylinder on the candle-holder base. Check the placement of the rcc from the top, left, and front to ensure that it is centered in the eto. Make sure the bottom of the rcc is not quite touching the tabletop. Accept your changes. When done, your design should look like the following:
 
 image::../lessons/images/mged13_candle_tabletop_eto1_rcc_wireframe_front.png[]
 
 
 
-The last step in making the candle base is to create another eto. Name it eto2.s. Edit this shape as you did the previous eto and place it on top of the rcc, as shown in the following figure. Accept your changes when finished. Your candle base should now look like this: 
+The last step in making the candle base is to create another eto. Name it eto2.s. Edit this shape as you did the previous eto and place it on top of the rcc, as shown in the following figure. Accept your changes when finished. Your candle base should now look like this:
 
 image::../lessons/images/mged13_candle_tabletop_base_front.png[]
 
@@ -2584,7 +2584,7 @@ Make a region of the three shapes of the base. Name it base1.r. Your Boolean exp
 [[candle_create_candle]]
 === Creating the Candle
 
-Create an rcc and name it rcc2.s. Edit the shape as you did the previous rcc. When you are done, it should look similar to the one in the following illustration. (Note: After you have accepted the changes, you can get all of your tabletop and candle in the Graphics Window by using the SHIFT key and left mouse button to move your view of the design.) 
+Create an rcc and name it rcc2.s. Edit the shape as you did the previous rcc. When you are done, it should look similar to the one in the following illustration. (Note: After you have accepted the changes, you can get all of your tabletop and candle in the Graphics Window by using the SHIFT key and left mouse button to move your view of the design.)
 
 image::../lessons/images/mged13_candle_tabletop_base_candle_front.png[]
 
@@ -2596,11 +2596,11 @@ Make a region of the candle. Your Boolean statement should read: *r candle1.r u 
 [[candle_create_flame]]
 === Creating the Candle Flame
 
-Create a particle (part) and name it part1.s. Edit and position the shape until your design looks like the following one: 
+Create a particle (part) and name it part1.s. Edit and position the shape until your design looks like the following one:
 
 image::../lessons/images/mged13_candle_complete_front.png[]
 
- Make a region of the flame by typing at the Command Window prompt: *r flame1.r u part1.s[Enter]*
+Make a region of the flame by typing at the Command Window prompt: *r flame1.r u part1.s[Enter]*
 
 
 [[candle_create_combination]]
@@ -2674,7 +2674,7 @@ To assign material properties to your design, go to the Edit menu and select the
 
 
 
-Notice that the checker shader for the tabletop includes two color values and a scale value. Type the values for red, white, and a scale of 10 in the boxes, as follows: 
+Notice that the checker shader for the tabletop includes two color values and a scale value. Type the values for red, white, and a scale of 10 in the boxes, as follows:
 
 image::../lessons/images/mged13_candle_comb_ed_checker.png[]
 
@@ -2708,7 +2708,7 @@ Before raytracing, change the View to az35, el25 to give a better view of the co
 
 
 
-To provide the most light on your design, use a white background color. Your raytraced candle should look similar to the following: 
+To provide the most light on your design, use a white background color. Your raytraced candle should look similar to the following:
 
 image::../lessons/images/mged13_candle_raytraced_overlay.png[]
 
@@ -2749,7 +2749,7 @@ Open the candle.g database if it isn't already open and draw candle1.c.
 [[candle_base_1st_sphere]]
 === Making the First Sphere
 
-Using the GUI, create a sphere named sph1.s. Go to the View menu and select Top view. Go to the Edit menu, select Scale, and size the sphere until it is proportionally about the same size as the one in the following illustration: 
+Using the GUI, create a sphere named sph1.s. Go to the View menu and select Top view. Go to the Edit menu, select Scale, and size the sphere until it is proportionally about the same size as the one in the following illustration:
 
 image::../lessons/images/mged14_candle_base_sphere_topview.png[]
 
@@ -2765,7 +2765,7 @@ Drag the sphere into position on the rcc, as shown in the previous illustration.
 [[multipane_feature]]
 === Using the Multipane Feature
 
-As discussed earlier, another feature that is available to help you position each sphere is the Multipane option under the Modes menu. This will allow you to see multiple views of the design you are creating. 
+As discussed earlier, another feature that is available to help you position each sphere is the Multipane option under the Modes menu. This will allow you to see multiple views of the design you are creating.
 
 image::../lessons/images/mged14_candle_multipane.png[]
 
@@ -2777,13 +2777,13 @@ As you move a shape, the change in position will be reflected in each pane. The 
 [[copies_of_shapes]]
 === Creating Copies of a Shape
 
-To make more jewels for the base, you could use the copy command on the Command Line (cp sph1.s sph2.s), but another way to do this is to go to the Edit menu and select Primitive Editor. Type sph1.s in the text box to the right of Name. Click on Reset and then change the name to sph2.s and click Apply. Continue doing this until you've made eight jewels. Because each of the new spheres is an exact copy of the first sphere, you won't be able to see them until you select and then move them. 
+To make more jewels for the base, you could use the copy command on the Command Line (cp sph1.s sph2.s), but another way to do this is to go to the Edit menu and select Primitive Editor. Type sph1.s in the text box to the right of Name. Click on Reset and then change the name to sph2.s and click Apply. Continue doing this until you've made eight jewels. Because each of the new spheres is an exact copy of the first sphere, you won't be able to see them until you select and then move them.
 
 image::../lessons/images/mged14_primitive_editor.png[]
 
 
 
-To position your new spheres, go to Primitive Selection. A submenu of shapes you have created will drop down. Use the scrollbar to the right of the list of shapes to access the spheres you have created, as shown in the following illustration. 
+To position your new spheres, go to Primitive Selection. A submenu of shapes you have created will drop down. Use the scrollbar to the right of the list of shapes to access the spheres you have created, as shown in the following illustration.
 
 image::../lessons/images/mged14_primitive_selection_dropdown.png[]
 
@@ -2802,7 +2802,7 @@ Click on sph2.s and drag it into position. Once you have positioned the eight sp
 
 
 
-Notice from the front view that there appears to only be five spheres around the base of the candle, but there are eight spheres when you view the design from the top. That is because you are viewing 3-D space on a 2-D screen and the spheres in the back are behind the ones in the front. If you change the view to an az35, el25 view, all of the spheres will appear, as shown in the following figure. This is one reason why it is important to continually check your design from multiple views. A mistake in placement that doesn't appear from one view may be very noticeable from another view. 
+Notice from the front view that there appears to only be five spheres around the base of the candle, but there are eight spheres when you view the design from the top. That is because you are viewing 3-D space on a 2-D screen and the spheres in the back are behind the ones in the front. If you change the view to an az35, el25 view, all of the spheres will appear, as shown in the following figure. This is one reason why it is important to continually check your design from multiple views. A mistake in placement that doesn't appear from one view may be very noticeable from another view.
 
 image::../lessons/images/mged14_candle_spheres_az35el25.png[]
 
@@ -3031,7 +3031,7 @@ It would be good practice to consider the relative merits of each of the approac
 
 Now we need to add the jewels to the whole of candle1.c: *comb candle1.c u sph1.r u sph2.r u sph3.r u sph4.r u sph5.r u sph6.r u sph7.r u sph8.r[Enter]*
 
-There are just a couple of things left to do before you raytrace your design. If you have enabled Multipanes or Draw Grid, go back to the Modes menu and disable them. Then, clear your screen and draw your new design by typing in the Command Window: *B candle1.c table1.r* Your new design should appear in the Graphics Window. Open the Raytrace Control Panel and select a pale blue color (200 236 242) by typing the three values in the Background Color entry box. When you raytrace your design, it should look similar to the following one: 
+There are just a couple of things left to do before you raytrace your design. If you have enabled Multipanes or Draw Grid, go back to the Modes menu and disable them. Then, clear your screen and draw your new design by typing in the Command Window: *B candle1.c table1.r* Your new design should appear in the Graphics Window. Open the Raytrace Control Panel and select a pale blue color (200 236 242) by typing the three values in the Background Color entry box. When you raytrace your design, it should look similar to the following one:
 
 image::../lessons/images/mged14_candle_spheres_raytraced.png[]
 
@@ -3071,7 +3071,7 @@ In this lesson, you will:
 
 
 
-In previous lessons, you created and edited shapes to produce simple objects. This lesson focuses on creating a slightly more complex object, a toy truck, from the Command Window. Your completed truck should look similar to the following truck: 
+In previous lessons, you created and edited shapes to produce simple objects. This lesson focuses on creating a slightly more complex object, a toy truck, from the Command Window. Your completed truck should look similar to the following truck:
 
 image::../lessons/images/mged15_truck_design.png[]
 
@@ -3103,7 +3103,7 @@ To make the cab of the truck, you will create a right parallel piped using the i
 
 
 
-You could also have used the streamlined version of: *in cab1.s rpp 0 1 0 1 0 1[Enter]* A cube shape should appear in the Graphics Window, as follows: 
+You could also have used the streamlined version of: *in cab1.s rpp 0 1 0 1 0 1[Enter]* A cube shape should appear in the Graphics Window, as follows:
 
 image::../lessons/images/mged15_truck_cab1s.png[]
 
@@ -3173,7 +3173,7 @@ Note that in older versions of _BRL-CAD_, the faces of an rpp were numbered in a
 
 ====
 
-When in Multipane mode, the design should resemble the following illustration. 
+When in Multipane mode, the design should resemble the following illustration.
 
 image::../lessons/images/mged15_truck_cab_cutoff.png[]
 
@@ -3183,7 +3183,7 @@ image::../lessons/images/mged15_truck_cab_cutoff.png[]
 [[truck_cab_wheel_well]]
 === Using an rcc to Create a Wheel Well in the Cab
 
-Make a cylinder (rcc) to use for cutting away a space for the first wheel of the cab. At the Command Window prompt, type: *make well1.s rcc[Enter]* Go to the Edit menu and click on Primitive Selection, then well1.s. After selecting a Left view, go back to Edit and select Scale. Reduce the size of the rcc until its diameter is about the right size for a wheel well. Go back to Edit and select Rotate. As discussed previously, one way to easily rotate the rcc is by using the CTRL key and the left mouse button to drag the top lip of the rcc down (in a straight line) until the A and C edit labels overlap. However, because we know we want to flip the object exactly 90'0 along the x axis, a better choice is to use the Command Line and type: *p 90 0 0[Enter]* After doing so, you may still have to use the Set H and Scale editing options to resize and the SHIFT key and left mouse button to position your wheel well. When satisfied, select Accept on the Edit menu. Your design should look similar to the following in Multipane mode: 
+Make a cylinder (rcc) to use for cutting away a space for the first wheel of the cab. At the Command Window prompt, type: *make well1.s rcc[Enter]* Go to the Edit menu and click on Primitive Selection, then well1.s. After selecting a Left view, go back to Edit and select Scale. Reduce the size of the rcc until its diameter is about the right size for a wheel well. Go back to Edit and select Rotate. As discussed previously, one way to easily rotate the rcc is by using the CTRL key and the left mouse button to drag the top lip of the rcc down (in a straight line) until the A and C edit labels overlap. However, because we know we want to flip the object exactly 90'0 along the x axis, a better choice is to use the Command Line and type: *p 90 0 0[Enter]* After doing so, you may still have to use the Set H and Scale editing options to resize and the SHIFT key and left mouse button to position your wheel well. When satisfied, select Accept on the Edit menu. Your design should look similar to the following in Multipane mode:
 
 image::../lessons/images/mged15_truck_multipane_1stwheel.png[]
 
@@ -3205,13 +3205,13 @@ The Reset button tells _MGED_ to reset values you have changed in a dialog box t
 [[truck_wheel_well_prim_edit_cpy]]
 === Using the Primitive Editor to Make a Copy of the Wheel Well
 
-To make a copy of your wheel well, go to the Edit menu and select Primitive Editor, which will contain information about the last shape edited through the dialog box (or myPrimitive if nothing has been edited). Erase the old shape's name in the Name entry box. Type in well1.s and press Reset (or press Enter while the cursor is still in the Name entry box). The parameter values of the old shape will be replaced by those of the new shape. The Primitive Editor will change and look something like the following example: 
+To make a copy of your wheel well, go to the Edit menu and select Primitive Editor, which will contain information about the last shape edited through the dialog box (or myPrimitive if nothing has been edited). Erase the old shape's name in the Name entry box. Type in well1.s and press Reset (or press Enter while the cursor is still in the Name entry box). The parameter values of the old shape will be replaced by those of the new shape. The Primitive Editor will change and look something like the following example:
 
 image::../lessons/images/mged15_prim_ed_wheel_well.png[]
 
 
 
-Go back to the Name text box and change the 1 to a 2 and click on OK. Change to Front under the View menu. Go to Edit/Primitive Selection and select well2.s. Use the SHIFT and left mouse button to drag the new wheel well into position, as shown in the following illustration. Check your alignment in Multipane mode and then select Accept when you are finished. 
+Go back to the Name text box and change the 1 to a 2 and click on OK. Change to Front under the View menu. Go to Edit/Primitive Selection and select well2.s. Use the SHIFT and left mouse button to drag the new wheel well into position, as shown in the following illustration. Check your alignment in Multipane mode and then select Accept when you are finished.
 
 image::../lessons/images/mged15_truck_2nd_wheel_wheel_place.png[]
 
@@ -3277,7 +3277,7 @@ If you type ls (list) at the Command Window prompt, you should find that your da
 
 To make the body of the truck, type at the Command Window prompt: *in body1.s rpp 0 2 0 1 0 1.5[Enter]* By now, you should know what this command tells _MGED_ to do. If you have forgotten, refer back to making the cab of the truck.
 
-Edit the body of the truck so that its front face slightly overlaps the cab's back face. Check different views to make sure the body lines up correctly with the cab. Accept your changes when you are done, and then Blast your design. Your truck should now look like the following: 
+Edit the body of the truck so that its front face slightly overlaps the cab's back face. Check different views to make sure the body lines up correctly with the cab. Accept your changes when you are done, and then Blast your design. Your truck should now look like the following:
 
 image::../lessons/images/mged15_truck_cab_body.png[]
 
@@ -3287,7 +3287,7 @@ image::../lessons/images/mged15_truck_cab_body.png[]
 [[prim_ed_wheel_wells]]
 === Using the Primitive Editor to Make Two More Wheel Wells
 
-To make two wheel wells for the body of the truck, repeat the steps used in making the second wheel well. Name your new shapes well3.s and well4.s. Using multiple views, move the new shapes into position so that your truck now looks similar to the following: 
+To make two wheel wells for the body of the truck, repeat the steps used in making the second wheel well. Name your new shapes well3.s and well4.s. Using multiple views, move the new shapes into position so that your truck now looks similar to the following:
 
 image::../lessons/images/mged15_truck_wheel_wells_wireframe.png[]
 
@@ -3351,7 +3351,7 @@ To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0
 
 Change View to Left and then Edit the position of the wheel. To correctly align the wheel with the truck, you will have to Rotate the tire using the CTRL key and any mouse button. Scale and Translate the wheel into position as appropriate and check your alignment from several different views. Accept your changes when finished.
 
-Using the Primitive Editor, make the second, third, and fourth wheels. Move each of these wheels into position until your truck looks like the following: 
+Using the Primitive Editor, make the second, third, and fourth wheels. Move each of these wheels into position until your truck looks like the following:
 
 image::../lessons/images/mged15_truck_wheels.png[]
 
@@ -3386,7 +3386,7 @@ Make a region of the four wheels. When you are finished, your data tree for whee
 
 Your truck is composed of two regions: truck1.r and wheel1.r. Use the Combination Editor and select truck1.r.
 
-In the Combination Editor, the camouflage (camo) shader creates a pseudo-random tricolor camouflage pattern on the object using a fractal noise pattern. The shader offers lots of attributes from which to choose. For now, select a Background Color of black (0 0 0) and make Color #1 green (0 134 0), and Color #2 rust brown (164 96 38). To make the pattern design proportional to the truck, select a Noise Size of .25 and then Apply the selections. The Combination Editor window for the camo shader should look like this: 
+In the Combination Editor, the camouflage (camo) shader creates a pseudo-random tricolor camouflage pattern on the object using a fractal noise pattern. The shader offers lots of attributes from which to choose. For now, select a Background Color of black (0 0 0) and make Color #1 green (0 134 0), and Color #2 rust brown (164 96 38). To make the pattern design proportional to the truck, select a Noise Size of .25 and then Apply the selections. The Combination Editor window for the camo shader should look like this:
 
 image::../lessons/images/mged15_cameo_shader.png[]
 
@@ -3537,7 +3537,7 @@ In this lesson, you will be:
 
 
 
-In Lesson 2, we made the basic shapes of a walkie-talkie radio to gain experience in viewing objects. Now that we have successfully modeled a few simple objects, let's return to the radio to make it more realistic and, in so doing, discuss logical techniques and structures in modeling. When finished, our radio should look as follows: 
+In Lesson 2, we made the basic shapes of a walkie-talkie radio to gain experience in viewing objects. Now that we have successfully modeled a few simple objects, let's return to the radio to make it more realistic and, in so doing, discuss logical techniques and structures in modeling. When finished, our radio should look as follows:
 
 image::../lessons/images/mged16_radio_new_design.png[]
 
@@ -3585,7 +3585,7 @@ Remember that the inside command was originally created to hollow out objects su
 
 With our case now made, we can proceed to cut several holes through this structure to accommodate the antenna, the volume control knob, and the talk button. To do this, we must subtract the three shapes from the case as follows: *r case.r - ant.s - knob.s - btn.s[Enter]* Finally, we need to "glue" the lip around the speaker to the case's front face by typing *r case.r u spkr.s[Enter]*
 
-Our body is now finished. Note that an experienced modeler would probably have combined the preceding three Boolean functions into a single command as follows: *r case.r u body.s - cavity.s - ant.s - knob.s - btn.s u spkr.s[Enter]* If we were to raytrace case.r at this point, we would see the following: 
+Our body is now finished. Note that an experienced modeler would probably have combined the preceding three Boolean functions into a single command as follows: *r case.r u body.s - cavity.s - ant.s - knob.s - btn.s u spkr.s[Enter]* If we were to raytrace case.r at this point, we would see the following:
 
 image::../lessons/images/mged16_radio_default_components_props.png[]
 
@@ -3671,7 +3671,7 @@ Thus far, the objects we have created have no material properties other than the
 
 We'll give the antenna a realistic look by opening the Combination Editor, choosing ant.r from the drop-down Name menu, selecting mirror from the drop-down Shader menu, and clicking on Apply.
 
-We'll let the other components remain with the default plastic, but we'll assign them different colors. With the Combination Editor still open, select case.r from the drop-down Name menu, select the magenta option from the drop-down Color menu, and then click Apply. Use the same method to assign the volume control knob (knob.r) a blue color. For the talk button (button.r), let's keep it gray by leaving the default values in place. The design should appear similar to the following when raytraced in Underlay mode: 
+We'll let the other components remain with the default plastic, but we'll assign them different colors. With the Combination Editor still open, select case.r from the drop-down Name menu, select the magenta option from the drop-down Color menu, and then click Apply. Use the same method to assign the volume control knob (knob.r) a blue color. For the talk button (button.r), let's keep it gray by leaving the default values in place. The design should appear similar to the following when raytraced in Underlay mode:
 
 image::../lessons/images/mged16_radio_with_mater_props.png[]
 
@@ -3704,11 +3704,11 @@ Let's give the board a green semi-shiny color. The easiest way to do this is via
 
 
 
-Finally, we'll include the board with the rest of the components in radio.c as follows: *g radio.c board.r[Enter]* Our radio should now look like the following: 
+Finally, we'll include the board with the rest of the components in radio.c as follows: *g radio.c board.r[Enter]* Our radio should now look like the following:
 
 image::../lessons/images/mged16_radio_wireframe_circ_board.png[]
 
- In addition, the tree for radio.c should now look as follows:
+In addition, the tree for radio.c should now look as follows:
 
 
 ....
@@ -3777,7 +3777,7 @@ To set the material properties of case_clear.r, choose plastic from the drop-dow
 
 Finally, create the specialty radio combination by typing: *g radio_clear.c case_clear.r button.r knob.r ant.r board.r[Enter]* and then Blast the display with *B radio_clear.c[Enter]*
 
-Now raytrace your design to view the resulting effect. The new transparent case should appear similar to the following: 
+Now raytrace your design to view the resulting effect. The new transparent case should appear similar to the following:
 
 image::../lessons/images/mged16_radio_transparent.png[]
 
@@ -3844,13 +3844,13 @@ There are several ways to make the cutaway view. Probably the easiest way is to 
 
 To do this, create an arb8 called cutaway.s, which will be used to cut off the front corner of the radio. Because this is a cutting shape (i.e., it is simply used to erase a portion of another shape and will not actually be viewed), the dimensions of the arb8 are not critical. The only concern is that cutaway.s be as tall as the case so that it completely removes a corner from it.
 
-Use the Shift Grips and multiple views (especially the Top view) to align cutaway.s so that it angles diagonally across the top of the radio (as shown in the following wireframe representation). When you've aligned the shape the way you want it, create the following radio_cutaway.c combination that unions in radio.c and subtracts out the shape (cutaway.s) that is covering what you want to see (board.r): *comb radio_cutaway.c u radio.c - cutaway.s[Enter]* 
+Use the Shift Grips and multiple views (especially the Top view) to align cutaway.s so that it angles diagonally across the top of the radio (as shown in the following wireframe representation). When you've aligned the shape the way you want it, create the following radio_cutaway.c combination that unions in radio.c and subtracts out the shape (cutaway.s) that is covering what you want to see (board.r): *comb radio_cutaway.c u radio.c - cutaway.s[Enter]*
 
 image::../lessons/images/mged16_radio_cut_wireframe.png[]
 
 
 
-Blast the radio_cutaway.c combination onto the display and raytrace. Depending on how your arb8 intersected the radio, the cutaway should look similar to the following: 
+Blast the radio_cutaway.c combination onto the display and raytrace. Depending on how your arb8 intersected the radio, the cutaway should look similar to the following:
 
 image::../lessons/images/mged16_radio_cut_raytrace.png[]
 
@@ -3869,19 +3869,19 @@ image::../lessons/images/mged16_radio_cutaways.png[]
 [[radio_structure_redefinition]]
 === Redefining the Structure of the Radio
 
-As shapes are added in a design, the modeler often finds that the structure or association of components needs to change. Thus, we should pause at this point and consider how our radio is structured. While there are many ways to structure a model, two common modeling categories are location and functionality. For our radio, we have so far grouped everything together under the general category of Radio, as shown in the following: 
+As shapes are added in a design, the modeler often finds that the structure or association of components needs to change. Thus, we should pause at this point and consider how our radio is structured. While there are many ways to structure a model, two common modeling categories are location and functionality. For our radio, we have so far grouped everything together under the general category of Radio, as shown in the following:
 
 image::../lessons/images/mged16_radio_structure_1.png[]
 
 
 
-If we wanted to categorize our components according to location, however, we might structure the model as follows: 
+If we wanted to categorize our components according to location, however, we might structure the model as follows:
 
 image::../lessons/images/mged16_radio_structure_2.png[]
 
 
 
-If we wanted to define our components according to functionality, we might structure the model another way. For instance, to repair an actual radio, we would open the case, take out the circuit board, fix it, and put it back in. When taking out the board, however, the knob and button would probably be attached to it in some way, and so they too would need to come out. Accordingly, our structure should be changed as shown in the following diagram to associate the knob and button with the circuit board. 
+If we wanted to define our components according to functionality, we might structure the model another way. For instance, to repair an actual radio, we would open the case, take out the circuit board, fix it, and put it back in. When taking out the board, however, the knob and button would probably be attached to it in some way, and so they too would need to come out. Accordingly, our structure should be changed as shown in the following diagram to associate the knob and button with the circuit board.
 
 image::../lessons/images/mged16_radio_structure_3.png[]
 
@@ -3938,7 +3938,7 @@ Now the tree for radio.c should appear as follows:
 
 Now let's remake our cutaway view. This time, let's do what we discussed earlier and make the cutaway remove material from only the case, showing all the other components.
 
-First, we need to get rid of the old radio_cutaway.c, which was based on our previous structure. To do this, type *kill radio_cutaway.c[Enter]* and then remake the combination by typing *comb radio_cutaway.c u case.r - cutaway.s u electronics.c u ant.r[Enter]* Now when we Blast the display and raytrace radio_cutaway.c, we should see the following: 
+First, we need to get rid of the old radio_cutaway.c, which was based on our previous structure. To do this, type *kill radio_cutaway.c[Enter]* and then remake the combination by typing *comb radio_cutaway.c u case.r - cutaway.s u electronics.c u ant.r[Enter]* Now when we Blast the display and raytrace radio_cutaway.c, we should see the following:
 
 image::../lessons/images/mged16_radio_casecut_raytrace.png[]
 

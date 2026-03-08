@@ -42,7 +42,7 @@ Seleccione Set H. Desde una vista frontal, mueva el cursor del ratón a la mitad
 
 Nota: Si en algún momento en que edite a través de la GUI no está satisfecho con los cambios, puede rechazar los cambios o restablecerlos desde las opciones del cuadro de diálogo para devolver las variables a su valor original. Sin embargo, si las rechaza, tendrá que volver a entrar en el estado primitivo de edición descrito anteriormente.
 
-A continuación, cree una figura en el interior del cilindro circular recto con nombre inside.s. Edite el cilindro de la misma manera que editó el cilindro exterior. Antes de que usted acepte los cambios, cambie la opción View (Vista) a Up (arriba) y asegúrese de que los cilindros estén alineados. Si los cilindros están fuera de alineación, utilice la tecla SHIFT y el botón izquierdo del ratón para arrastrar el cilindro interior en su posición. Devuelva su vista al frente y acepte los cambios cuando los cilindros estén alineados. Su cilindros deben asemejarse a los del ejemplo siguiente: 
+A continuación, cree una figura en el interior del cilindro circular recto con nombre inside.s. Edite el cilindro de la misma manera que editó el cilindro exterior. Antes de que usted acepte los cambios, cambie la opción View (Vista) a Up (arriba) y asegúrese de que los cilindros estén alineados. Si los cilindros están fuera de alineación, utilice la tecla SHIFT y el botón izquierdo del ratón para arrastrar el cilindro interior en su posición. Devuelva su vista al frente y acepte los cambios cuando los cilindros estén alineados. Su cilindros deben asemejarse a los del ejemplo siguiente:
 
 image::../../lessons/es/images/mged12_cyls_frontview.png[]
 
@@ -82,7 +82,7 @@ Visualice su taza desde arriba para asegurarse de que esté alineada. Acepte los
 [[mug_gui_create_rim]]
 == Creando el borde de la boca de la taza
 
-Para hacer el borde de la taza, seleccione del menú Create (Crear), la opción tor (toro) y cree un toro con el nombre rim.s. Seleccione el comando Rotate (Rotación) y tipee en la línea de comandos: *p 0 90 0[Enter]* para girar el toro sobre sí mismo (90'0 en torno al eje y). Luego, escale y edite los distintos parámetros del toro con las vistas frontal y superior hasta que la taza se vea similar a la del ejemplo siguiente. Asegúrese de aceptar sus cambios cuando haya terminado. 
+Para hacer el borde de la taza, seleccione del menú Create (Crear), la opción tor (toro) y cree un toro con el nombre rim.s. Seleccione el comando Rotate (Rotación) y tipee en la línea de comandos: *p 0 90 0[Enter]* para girar el toro sobre sí mismo (90'0 en torno al eje y). Luego, escale y edite los distintos parámetros del toro con las vistas frontal y superior hasta que la taza se vea similar a la del ejemplo siguiente. Asegúrese de aceptar sus cambios cuando haya terminado.
 
 image::../../lessons/es/images/mged12_mug_rim_frontview.png[]
 
@@ -152,7 +152,7 @@ Cuando esté terminado cliquee en Apply (Aplicar) y luego en Dismiss (Despedir).
 [[mug_gui_raytracing]]
 == Haciendo el trazado de rayos (Raytracing) del diseño
 
-Ir a la opción View (Vista) de la barra de menús y seleccione az35, el25. Ir a File (Archivo) y luego a Raytrace. Seleccione un color de fondo blanco y genere el trazado de su diseño. Haga clic en Overlay (Superposición). Cuando el trazado de rayos se termina, debe verse como el siguiente ejemplo: 
+Ir a la opción View (Vista) de la barra de menús y seleccione az35, el25. Ir a File (Archivo) y luego a Raytrace. Seleccione un color de fondo blanco y genere el trazado de su diseño. Haga clic en Overlay (Superposición). Cuando el trazado de rayos se termina, debe verse como el siguiente ejemplo:
 
 image::../../lessons/es/images/mged12_mug_gui_finished_raytraced.png[]
 

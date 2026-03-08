@@ -22,13 +22,13 @@ Comience creando una nueva base de datos llamada cube.g.
 [[globe_create_display_box]]
 == Creando la caja exhibidora
 
-Vaya al menú Create (Crear), seleccione la categoría Arbs, y luego seleccione un arb8 (polihedro arbitrario convexo de ocho vértices). Cuando se le pregunte por un nombre para el arb8, nómbrelo cube1.s. Cliquee en Apply (Aplicar). Vaya al menú Edit (Editar) y cliquee en Accept (Aceptar). Ahora tiene un cubo para el exterior de la caja, como se muestra en la siguiente figura: 
+Vaya al menú Create (Crear), seleccione la categoría Arbs, y luego seleccione un arb8 (polihedro arbitrario convexo de ocho vértices). Cuando se le pregunte por un nombre para el arb8, nómbrelo cube1.s. Cliquee en Apply (Aplicar). Vaya al menú Edit (Editar) y cliquee en Accept (Aceptar). Ahora tiene un cubo para el exterior de la caja, como se muestra en la siguiente figura:
 
 image::../../lessons/es/images/mged09_globe_outside_display_box.png[]
 
 
 
-Repita la primera parte de este proceso para producir otro arb8, esta vez llame esta forma cube2.s. Vaya al menú Edit (Editar) y cliquee en Scale (Escala). Coloque el puntero del mouse en la mitad inferior de la ventana gráfica y cliquee el botón central del mouse hasta que el segundo cubo sea apenas menor que el primero, como el siguiente: 
+Repita la primera parte de este proceso para producir otro arb8, esta vez llame esta forma cube2.s. Vaya al menú Edit (Editar) y cliquee en Scale (Escala). Coloque el puntero del mouse en la mitad inferior de la ventana gráfica y cliquee el botón central del mouse hasta que el segundo cubo sea apenas menor que el primero, como el siguiente:
 
 image::../../lessons/es/images/mged09_globe_inside_outside_box.png[]
 
@@ -44,7 +44,7 @@ Vaya al menú Create (Crear) y seleccione sph de la lista Ellipsoid (Elipsoides)
 
 Una esfera debería aparecer dentro del cubo en la Graphics Window. Cambie a la vista frontal.
 
-Vaya al menú Edit (Editar) y seleccione Scale (Escalar). Reduzca el tamaño de la esfera hasta que se ajuste dentro del cubo y luego arrástrela hacia el centro del cubo. Vaya a Edit y Acepte los cambios. La esfera y la caja deberían ser similares a la siguiente imagen, en una vista az35 y el25: 
+Vaya al menú Edit (Editar) y seleccione Scale (Escalar). Reduzca el tamaño de la esfera hasta que se ajuste dentro del cubo y luego arrástrela hacia el centro del cubo. Vaya a Edit y Acepte los cambios. La esfera y la caja deberían ser similares a la siguiente imagen, en una vista az35 y el25:
 
 image::../../lessons/es/images/mged09_globe_wireframe.png[]
 
@@ -68,7 +68,7 @@ Antes que pueda generar el Raytrace de su diseño, necesitará limpiar la ventan
 
 La caja y la esfera deberían reaparecer en la ventana gráfica. En el menú File (Archivo) seleccione Raytrace. Luego, seleccione la opción blanca para el Background Color (Color de fondo). Cliquee en Raytrace.
 
-Su diseño debería mostrar un cubo de vidrio cian claro con una esfera azul dentro. Diríjase a Framebuffer (en el Raytrace Panel) y seleccione Overlay (Superposición), para quitar la vista en malla de alambre. La pantalla debería parecerse a la de la siguiente ilustración: 
+Su diseño debería mostrar un cubo de vidrio cian claro con una esfera azul dentro. Diríjase a Framebuffer (en el Raytrace Panel) y seleccione Overlay (Superposición), para quitar la vista en malla de alambre. La pantalla debería parecerse a la de la siguiente ilustración:
 
 image::../../lessons/es/images/mged09_globe_raytraced.png[]
 
@@ -92,7 +92,7 @@ Para ello, podemos utilizar las teclas CTRL y ALT (para limitar la rotación) y 
 
 Nuestra forma debería haberse dado vuelta y pasado a la parte inferior de la primera trc. (Los dos ceros que ingresó indican que no hay rotación a lo largo de los ejes Y y Z). Ahora presione la tecla SHIFT y el botón izquierdo del mouse para arrastrar base2.s y apoyarla en la parte superior de base1.s. Las dos formas deberían constituir una base para sostener su globo. Compruebe la alineación utilizando múltiples vistas y luego acepte los cambios.
 
-En el menú Edit (Editar) y diríjase al Primitive Selection (Selección de primitivos) y cliquee en globe1.r/globe1.s. Como hizo con las formas trc, arrastre la esfera con el mouse y la tecla SHIFT hacia abajo hasta que esté en su lugar sobre la base. Regrese a Edit (Editar) y cliquee en Accept (Aceptar). Su diseño debería verse como el siguiente: 
+En el menú Edit (Editar) y diríjase al Primitive Selection (Selección de primitivos) y cliquee en globe1.r/globe1.s. Como hizo con las formas trc, arrastre la esfera con el mouse y la tecla SHIFT hacia abajo hasta que esté en su lugar sobre la base. Regrese a Edit (Editar) y cliquee en Accept (Aceptar). Su diseño debería verse como el siguiente:
 
 image::../../lessons/es/images/mged09_globe_base_box_wireframe.png[]
 
@@ -108,7 +108,7 @@ En la ventana del editor de combinaciones, cliquee sobre la caja de texto a la d
 
 Aplique sus cambios. Antes que pueda generar el Raytrace de su diseño completo, deberá despejar primero la ventana gráfica y reconstruir su diseño tipeando en el prompt de la línea de comandos: *Z[Enter]* *draw cube1.r globe1.r base1.r[Enter]*
 
-Cambie la vista a az35, el25 y luego genere el Raytrace, el cual deberá ser similar al siguiente: 
+Cambie la vista a az35, el25 y luego genere el Raytrace, el cual deberá ser similar al siguiente:
 
 image::../../lessons/es/images/mged09_globe_base_box_raytraced.png[]
 

@@ -37,6 +37,8 @@ The `-F` option tells the tool it's okay to make assumptions about overlaps when
 
 The overlaps menu has two sections -- New File and Existing File.
 
+
+
 image::../articles/images/overlap_tool_fig01.gif[width=540]
 
 
@@ -47,6 +49,8 @@ image::../articles/images/overlap_tool_fig01.gif[width=540]
 ==== Create New Overlaps File
 
 The Overlap File Tool is launched, which is used to create new overlaps file.
+
+
 
 image::../articles/images/overlap_tool_fig02.gif[width=636]
 
@@ -88,6 +92,8 @@ This option can be used when we want to browse an overlaps file from any locatio
 
 
 == Using the geometry checker GUI
+
+
 
 image::../articles/images/overlap_tool_fig03.png[width=549]
 

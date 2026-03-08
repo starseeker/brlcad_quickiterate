@@ -19,7 +19,7 @@ bwrot [ -rifb| -a<angle>] [-s<squaresize>] [-w<in_width>] [-n<in_height>] [-o<ou
 
 *bwrot* will rotate, vertically invert, and horizontally reverse a black and white *bw*(5) format file or read from standard input if a file name is not given. The *-w* and *-n* flags specify the input file width and number of scan lines in pixels (both values default to 512); they can be set to same value via *-s.*
 
-The *-r* flag reverses the scan lines left to right.  The *-i* flag inverts the image top to bottom.  The *-f* and *-b* flag will rotate the image ninety degrees forward or backward respectively. The sense of the rotation is relative to a first quadrant coordinate system, i.e. origin lower left, where "forward" means clockwise.
+The *-r* flag reverses the scan lines left to right. The *-i* flag inverts the image top to bottom. The *-f* and *-b* flag will rotate the image ninety degrees forward or backward respectively. The sense of the rotation is relative to a first quadrant coordinate system, i.e. origin lower left, where "forward" means clockwise.
 
 Note that a 180 degree rotation can be obtained by both reversing and inverting.
 

@@ -340,6 +340,7 @@
 
   <!-- Command synopsis block -->
   <xsl:template match="db:cmdsynopsis">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[source]&#10;</xsl:text>
     <xsl:text>----&#10;</xsl:text>
     <xsl:apply-templates mode="synopsis"/>
@@ -435,6 +436,7 @@
 
   <!-- Function synopsis -->
   <xsl:template match="db:funcsynopsis">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[source,c]&#10;</xsl:text>
     <xsl:text>----&#10;</xsl:text>
     <xsl:apply-templates mode="funcsynopsis"/>
@@ -1402,6 +1404,7 @@
   <xsl:template match="db:imageobject | db:textobject"/>
 
   <xsl:template match="db:screenshot">
+    <xsl:call-template name="block-sep"/>
     <xsl:apply-templates/>
   </xsl:template>
 
@@ -1626,6 +1629,7 @@
        ============================================================ -->
 
   <xsl:template match="db:procedure">
+    <xsl:call-template name="block-sep"/>
     <xsl:if test="db:title">
       <xsl:text>.</xsl:text>
       <xsl:value-of select="normalize-space(db:title)"/>
@@ -1706,13 +1710,32 @@
 
   <!-- address block: just emit text -->
   <xsl:template match="db:address">
-    <xsl:apply-templates/>
-    <xsl:text>&#10;</xsl:text>
+    <xsl:choose>
+      <!-- Inline in a paragraph: comma-separate components on a single line. -->
+      <xsl:when test="parent::db:para or parent::db:simpara">
+        <xsl:for-each select="*">
+          <xsl:if test="position() > 1"><xsl:text>, </xsl:text></xsl:if>
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:for-each>
+      </xsl:when>
+      <!-- Block address: one component per line. -->
+      <xsl:otherwise>
+        <xsl:apply-templates/>
+        <xsl:text>&#10;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <xsl:template match="db:street | db:city | db:state | db:postcode | db:country | db:otheraddr">
-    <xsl:apply-templates/>
-    <xsl:text>&#10;</xsl:text>
+    <xsl:choose>
+      <xsl:when test="parent::db:address[parent::db:para or parent::db:simpara]">
+        <!-- handled by parent address template in inline mode -->
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:apply-templates/>
+        <xsl:text>&#10;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- ============================================================
@@ -1733,9 +1756,13 @@
     programlisting screen literallayout synopsis figure informalfigure
     table informaltable itemizedlist orderedlist variablelist simplelist
     note warning caution tip important blockquote epigraph example
-    informalexample mediaobject procedure bridgehead para simpara
+    informalexample mediaobject procedure cmdsynopsis funcsynopsis
+    bridgehead para simpara screenshot
     refsection refsect1 refsect2 section chapter appendix preface part
   </xsl:variable>
+  <!-- Normalized (single-space) version for reliable contains() tests. -->
+  <xsl:variable name="block-element-names-norm"
+                select="normalize-space($block-element-names)"/>
 
   <xsl:template match="text()">
     <xsl:choose>
@@ -1752,7 +1779,7 @@
         <xsl:variable name="prev-is-block">
           <xsl:for-each select="preceding-sibling::*[1]">
             <xsl:variable name="local" select="local-name(.)"/>
-            <xsl:if test="contains(concat(' ', $block-element-names, ' '),
+            <xsl:if test="contains(concat(' ', $block-element-names-norm, ' '),
                                    concat(' ', $local, ' '))">1</xsl:if>
           </xsl:for-each>
         </xsl:variable>
@@ -1760,37 +1787,48 @@
         <xsl:variable name="next-is-block">
           <xsl:for-each select="following-sibling::*[1]">
             <xsl:variable name="local" select="local-name(.)"/>
-            <xsl:if test="contains(concat(' ', $block-element-names, ' '),
+            <xsl:if test="contains(concat(' ', $block-element-names-norm, ' '),
                                    concat(' ', $local, ' '))">1</xsl:if>
           </xsl:for-each>
         </xsl:variable>
         <xsl:choose>
-          <!-- Pure-whitespace text node between two INLINE sibling nodes: emit a single
-               space so that adjacent inline elements (e.g. *cmd* `file`) are not
-               fused together (which would break AsciiDoc constrained markup).
-               Skip when a neighbouring sibling is a block element. -->
+          <!-- Pure-whitespace text node between two INLINE sibling ELEMENTS: emit a
+               single space so that adjacent inline elements (e.g. *cmd* `file`) are
+               not fused together (which would break AsciiDoc constrained markup).
+               
+               Rules:
+               - Require preceding-sibling::* (an element before us, ignoring comments/PIs)
+               - Require following-sibling::* (an element after us, ignoring comments/PIs)
+               - Skip when a neighbouring element is a block element
+               - Only emit for the LAST whitespace text node before the following element
+                 (i.e. the immediately-following sibling NODE must be an element, not
+                 another text node or comment) to avoid double spaces when multiple
+                 whitespace-only text nodes or comments fall between two inline elements. -->
           <xsl:when test="string-length($norm) = 0 and
-                          preceding-sibling::node() and
-                          following-sibling::node() and
+                          preceding-sibling::* and
+                          following-sibling::* and
                           $prev-is-block != '1' and
-                          $next-is-block != '1'">
+                          $next-is-block != '1' and
+                          following-sibling::node()[1][self::*]">
             <xsl:text> </xsl:text>
           </xsl:when>
           <xsl:otherwise>
             <!-- Only preserve leading space when there IS a preceding INLINE sibling
-                 (i.e., we are in the middle of inline content).  Do not emit a space
-                 after a block element such as <screen> or <table> because its output
-                 already ends with blank lines and the leading space would produce a
-                 literal-paragraph marker in AsciiDoc. -->
-            <xsl:if test="preceding-sibling::node() and
+                 ELEMENT (i.e., we are in the middle of inline content).  Do not emit a
+                 space after a block element such as <screen> or <table> because its
+                 output already ends with blank lines and the leading space would produce
+                 a literal-paragraph marker in AsciiDoc.  Also skip comments/PIs as
+                 preceding siblings by using preceding-sibling::* instead of ::node(). -->
+            <xsl:if test="preceding-sibling::* and
                           string-length($norm) > 0 and
                           $prev-is-block != '1' and
                           translate(substring(.,1,1),' &#9;&#10;&#13;','') = ''">
               <xsl:text> </xsl:text>
             </xsl:if>
             <xsl:value-of select="$norm"/>
-            <!-- Preserve a single trailing space when the following sibling is inline. -->
-            <xsl:if test="following-sibling::node() and
+            <!-- Preserve a single trailing space when the immediately-following sibling
+                 is an inline element (following-sibling::*[1] exists and is not a block). -->
+            <xsl:if test="following-sibling::node()[1][self::*] and
                           string-length(.) > 1 and
                           string-length($norm) > 0 and
                           $next-is-block != '1' and

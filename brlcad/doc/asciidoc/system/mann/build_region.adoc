@@ -30,7 +30,7 @@ The example demonstrates how to use the *build_region* command to build a region
 ====
 
 mged>*build_region abc 1 2*::
-Creates a region named "abc.r1" consisting of: 
+Creates a region named "abc.r1" consisting of:
 
 
 * u abc.s1
@@ -38,7 +38,7 @@ Creates a region named "abc.r1" consisting of:
 * + abc.s2+1
 * - abc.s2-1
 
- provided that the above shapes already exist in the database.
+provided that the above shapes already exist in the database.
 
 
 

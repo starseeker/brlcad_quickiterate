@@ -40,7 +40,7 @@ Silhouette thickness must everywhere exceed _tolerance_ (no narrow necking-down)
 
 [quote]
 ____
-$ cad_boundp -t 0.1  # _comment_  0 2 0 1  3 2 3 1  2 0 1 0  0 2 3 2  0 2 3 1  0 1 3 2  2 2 2 0  1 0 1 2  2 2 1 2  0 1 3 1  _^D_  1 0  2 0  2 1  3 1  3 2  2 2  1 2  0 2  0 1  1 1
+$ cad_boundp -t 0.1# _comment_ 0 2 0 1 3 2 3 1 2 0 1 0 0 2 3 2 0 2 3 1 0 1 3 2 2 2 2 0 1 0 1 2 2 2 1 2 0 1 3 1 _^D_ 1 0 2 0 2 1 3 1 3 2 2 2 1 2 0 2 0 1 1 1
 
 ____
 

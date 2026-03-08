@@ -17,7 +17,7 @@ bo { [-i u {type}]| [-o]} {<destination>} {<source>}
 [[description]]
 == DESCRIPTION
 
-Used to create or export binary opaque objects. One of _-i_ or _-o_ must be specified to input or output data respectively. The _-i_ option will create a binary object, and the _-o_ option will write out a binary object's data. Currently, only uniform binary objects (arrays of values) are supported on input. On input, the _destination_ is the name of the object to be created, and the source is the path to a file to read. On output, _destination_ is the path to a file to write out with the contents of the binary object specified as the _source_. The _type_ may be one of: 
+Used to create or export binary opaque objects. One of _-i_ or _-o_ must be specified to input or output data respectively. The _-i_ option will create a binary object, and the _-o_ option will write out a binary object's data. Currently, only uniform binary objects (arrays of values) are supported on input. On input, the _destination_ is the name of the object to be created, and the source is the path to a file to read. On output, _destination_ is the path to a file to write out with the contents of the binary object specified as the _source_. The _type_ may be one of:
 
 
 * f -> float
