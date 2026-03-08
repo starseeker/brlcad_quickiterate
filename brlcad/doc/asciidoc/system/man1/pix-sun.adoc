@@ -14,11 +14,13 @@ pix-sun [-d] [-s<squaresize>] [-w<file_width>] [-n<file_height>] < <BRLpixfile> 
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pix-sun* converts the _BRL PIX(5)_ format file on the standard input to a _Sun Rasterfile_ format file on the standard output. The rasterfile produced is a "standard" (as opposed to "byte encoded") image, with 8 bits per pixel, with a palette of 256 colors.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -40,16 +42,19 @@ tells *pix-sun* that the input is _file_width_ pixels wide
 
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

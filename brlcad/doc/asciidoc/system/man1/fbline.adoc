@@ -14,6 +14,7 @@ fbline [-c] [-F<framebuffer>] [-S|s<squaresize>] [-W|w<screen_width>] [-N|n<scre
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fbline* draws a line on the currently selected framebuffer between the points (x1, y1) and (x2, y2). The points must be within the bounds of the framebuffer, or they are silently limited to an edge. Use *fbpoint*(1) to determine where to position the points. The environment variable FB_FILE specifies the current framebuffer; see *brlcad*(1). Alternatively, the framebuffer may be explicitly specified by using the *-F* flag.
@@ -27,26 +28,31 @@ The *-c* flag causes the screen to be cleared before the line is displayed. The 
 The *-r red* , *-g green* , *-b blue* flags specify alternate red, green, and blue rgb values for the line color. The default color is white. Thus, a green line is created by turning off the red and green components, i.e., with *-r 0**-b 0* options.
 
 
+[[example]]
 == EXAMPLE
 
 fbline -s 1024 -c -r0 -b0 82 11 300 472
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *fblabel*(1), *fbpoint*(1), *plot3-fb*(1), *libfb*(3), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1988-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ facedef {<####>} [ [a]| [b]| [c]| [d]| [<parameters>]]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Allows the user to redefine any face of an ARB8 shape. The user must be in Primitive Edit Mode with an _ARB_ selected for editing. The optional parameters may be omitted, and MGED will prompt for the missing values. The options are as follows:
@@ -41,6 +42,7 @@ Return to MGED prompt.
 
 
 
+[[examples]]
 == EXAMPLES
 
 The first example shows the use of the *facedef* command with the _a_ option to redefine a specified face so that it is in another plane. The second example shows the use of the *facedef* command with the _b_ option to redefine a face so that it is in another plane formed by three points.
@@ -68,11 +70,13 @@ Moves face 5678 such that it is in the plane formed by the three points (0 0 10)
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

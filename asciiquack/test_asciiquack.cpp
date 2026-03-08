@@ -727,6 +727,26 @@ static void test_html5_image() {
     end_test();
 }
 
+static void test_html5_inline_image() {
+    begin_test("html5: inline image macro with width param");
+    // When only a width= named param is given, alt should be empty
+    // and width should appear as an HTML attribute.
+    std::string out = html("See image:logo.png[width=64] here.\n");
+    EXPECT_CONTAINS(out, "logo.png");
+    EXPECT_CONTAINS(out, "width=\"64\"");
+    EXPECT_CONTAINS(out, "alt=\"\"");
+    end_test();
+}
+
+static void test_html5_inline_image_alt() {
+    begin_test("html5: inline image macro with alt text and width");
+    std::string out = html("A image:icon.png[the icon,width=32] icon.\n");
+    EXPECT_CONTAINS(out, "icon.png");
+    EXPECT_CONTAINS(out, "alt=\"the icon\"");
+    EXPECT_CONTAINS(out, "width=\"32\"");
+    end_test();
+}
+
 static void test_html5_table() {
     begin_test("html5: basic table");
     std::string out = html("|===\n|Col1 |Col2\n|a |b\n|===\n");
@@ -2498,6 +2518,77 @@ static void test_table_col_style_h() {
 
     // The 'h' style column should render body cells as <th> not <td>
     EXPECT_CONTAINS(out, "<th");
+
+    end_test();
+}
+
+static void test_table_colspan_spec() {
+    begin_test("html5: table cell colspan spec (N+|) emits colspan attribute");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "|===\n"
+        "|Col A |Col B |Col C\n"
+        "\n"
+        "3+|Spanning header\n"
+        "|a |b |c\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // The spanning cell should have colspan="3"
+    EXPECT_CONTAINS(out, "colspan=\"3\"");
+    EXPECT_CONTAINS(out, "Spanning header");
+    // Normal cells must NOT have colspan attribute
+    EXPECT(out.find("colspan=\"1\"") == std::string::npos);
+
+    end_test();
+}
+
+static void test_table_colspan_rowspan_spec() {
+    begin_test("html5: table cell N.M+| colspan+rowspan spec");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "|===\n"
+        "|A |B\n"
+        "\n"
+        "2+|wide\n"
+        "|a |b\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    EXPECT_CONTAINS(out, "colspan=\"2\"");
+    EXPECT_CONTAINS(out, "wide");
+
+    end_test();
+}
+
+static void test_table_normal_pipe_not_spec() {
+    begin_test("html5: table '|' in cell content is not mistaken for cell spec");
+
+    // A cell ending in a style char ('a') should not eat the char as spec
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "|===\n"
+        "|Col1 |Col2\n"
+        "\n"
+        "|this is a |next cell\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    EXPECT_CONTAINS(out, "this is a");
+    EXPECT_CONTAINS(out, "next cell");
+    // No spurious colspan
+    EXPECT(out.find("colspan=") == std::string::npos);
 
     end_test();
 }
@@ -4574,6 +4665,8 @@ int main(int argc, char* argv[]) {
     test_html5_horizontal_rule();
     test_html5_attribute_ref();
     test_html5_image();
+    test_html5_inline_image();
+    test_html5_inline_image_alt();
     test_html5_table();
     test_html5_link_relative();
 
@@ -4663,6 +4756,9 @@ int main(int argc, char* argv[]) {
     test_table_col_alignment();
     test_table_col_repeat();
     test_table_col_style_h();
+    test_table_colspan_spec();
+    test_table_colspan_rowspan_spec();
+    test_table_normal_pipe_not_spec();
     test_section_nesting_warning();
     test_unclosed_block_warning();
 

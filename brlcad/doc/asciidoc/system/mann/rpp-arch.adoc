@@ -14,11 +14,13 @@ rpp-arch {<rppname newname face>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to round a specified face of an RPP by creating an RCC based on the parameters of the RPP.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *rpp-arch* command to create an RCC shape at a specified face of the RPP.
@@ -33,11 +35,13 @@ Creates an RCC shape named _arch.s_ at the 1234 face of the RPP.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

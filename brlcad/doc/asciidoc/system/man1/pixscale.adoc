@@ -14,6 +14,7 @@ pixscale [-r] [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-S<squareoutsiz
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixscale* will take a color *pix*(5) format file of given dimensions and produce a larger or smaller scaled version. The *-w* and *-n* flags specify the input file width and number of scan lines in pixels. They can both be set to the same value via *-s.* Similarly, the *-W* and *-N* flags specify the desired output file width and number of scan lines in pixels. They can both be set to the same value via *-S.* Defaults of 512 are assumed for any unspecified dimensions.
@@ -25,26 +26,31 @@ Specifying the *-r* flag changes from bilinear interpolation to nearest neighbor
 For 2X interpolation, a much faster alternative is *pixinterp2x*(1).
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pixcrop*(1), *pixrect*(1), *pixinterp2x*(1), *pix*(5)
 
 
+[[bugs]]
 == BUGS
 
 This program cannot scale up in one dimension and down in the other at the same time.  The box filter used for scaling down results in the usual high-frequency ripple.  Optional cubic interpolation would be nice.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

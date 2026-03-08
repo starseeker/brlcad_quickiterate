@@ -14,6 +14,7 @@ opendb [-f] [<database.g>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Closes the current database file and opens _database.g_. If _database.g_ is not found, the user is prompted to create a new database of that name. If _database.g_ is not specified on the command line, the name of the current database file is returned.
@@ -25,6 +26,7 @@ Binary-incompatible v4 geometry database files that can be auto-detected will be
 The *opendb*command will look in the current working directory for the file. If the file is in another directory, use the relative or full path to the file or use the *pwd* and *cd* commands to navigate to the file's directory.
 
 
+[[examples]]
 == EXAMPLES
 
 The first example shows the use of the *opendb* command to close the current database file and open the one specified. The second example shows the use of the command with no database name, which returns the name of the current database file.
@@ -81,11 +83,13 @@ Closes any currently open database and opens _model.g_ located at C:\cad_work\.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

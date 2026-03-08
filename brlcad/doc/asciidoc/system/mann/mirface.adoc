@@ -14,11 +14,13 @@ mirface {####} { [x]| [y]| [z]}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Modifies an ARB shape by mirroring the indicated face along the selected _x, y,_ or _z_ axis. An ARB shape must be selected for editing. Not all faces of all ARB types may be edited using this command.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *mirface* command to modify an edited ARB by mirroring the indicated face along the _x, y,_ or _z_ axis.
@@ -33,11 +35,13 @@ Modifies currently edited ARB by moving the face opposite face 1234 such that it
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

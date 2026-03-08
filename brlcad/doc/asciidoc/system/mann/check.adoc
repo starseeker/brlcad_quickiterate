@@ -14,6 +14,7 @@ check <sub-command> [<options>] [<objects>]...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *check* program computes and reports a variety of characteristics of the _objects_ specified from the opened database. The characteristics which can be computed include *mass, centroid, moments of inertia, volume, overlaps, surface area, exposed air, gaps/voids, unconfined air* and *adjacent air.* Only the _objects_ from the database specified on the command line are analyzed.
@@ -27,6 +28,7 @@ For mass/centroid/moments of inertia calculations it is suggested for better acc
 For surface area calculations, the rays are fired from three grids at random azimuth/elevation angles and then taken mean of the values reported by the three grids at the end.
 
 
+[[subcommands]]
 == SUBCOMMANDS
 
 
@@ -72,6 +74,7 @@ Computes the volume of the objects specified.
 
 
 
+[[mass_calculation]]
 == MASS CALCULATION
 
 If mass calculation is selected, a value is calculated and reported for each _object_ specified on the command line. *Note that if there are overlaps or other errors in the geometry, the values reported will be invalid.*
@@ -149,6 +152,7 @@ mged> bo -i u c _DENSITIES filename
 
 
 
+[[geometry_error_detection]]
 == GEOMETRY ERROR DETECTION
 
 All of these calculations run until the grid refinement limit is reached.
@@ -156,6 +160,7 @@ All of these calculations run until the grid refinement limit is reached.
 For each pair of regions that cause an error, the tool reports the two erroneous regions, the maximum line-of-sight thickness of the error, and the in-hit location of the ray that caused that maximum error thickness.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -261,6 +266,7 @@ Specifies a volumetric tolerance value that the three view computations must be 
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Specifying Grid and Target Objects
@@ -401,11 +407,13 @@ Weight:
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

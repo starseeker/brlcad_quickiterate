@@ -14,6 +14,7 @@ brep {<obj>}info [<C2|C3|E|F|L|SB|T|TB|V>] [<arguments>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 If _obj_ is not a brep object, then *brep* will quit and report that fact. Otherwise, it prints a textual description of the requested information. With not arguments supplied, a summary of data present in the brep object is printed. Otherwise, more detailed information about specified components will be reported.
@@ -79,6 +80,7 @@ Return information for one or more 3D vertices.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Object Summary
@@ -203,11 +205,13 @@ Report the trims making up multiple loops.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRLCAD-TEAM
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ vdraw {<command>} [<args>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Allows drawing of lines and polygons (optionally with per vertex normals) in the MGED graphics display. It is used to build a named list of drawing commands for MGED, send the list to the MGED display, modify the list, or delete all or part of the list. All vertices in the _vdraw_ command are in millimeters. The MGED drawing commands are represented by integers in the _vdraw_ command. The MGED drawing commands and the integers that _vdraw_ uses for them are:
@@ -70,6 +71,7 @@ The *vdraw* commands are as follows:
 All textual arguments may be abbreviated by their first letter.
 
 
+[[examples]]
 == EXAMPLES
 
 The eight examples show the use of the *vdraw* command with four different commands and various arguments to build a list of commands to draw a square.
@@ -147,11 +149,13 @@ Draws the square in the MGED display.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

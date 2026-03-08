@@ -14,11 +14,13 @@ rpp-cap {<rppname newname face height>} [0] [1]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Creates an ARB6 with the specified height at a particular face of the given RPP. The optional 0 and 1 refer to the orientation of the ARB6. If 0 is chosen, the peaks of the ARB6 are positioned at the midpoint between the first and second points and at the midpoint between the third and fourth points of the specified face. If 1 is chosen, the peaks of the ARB6 are positioned at the midpoint between the first and fourth points and at the midpoint between the second and third points of the specified face. The default is 0.
 
 
+[[examples]]
 == EXAMPLES
 
 The two examples show the use of the *rpp-cap* command to create an ARB6 with the specified height at a particular face of a given RPP. The second example shows the use of the "1" option.
@@ -42,11 +44,13 @@ Creates an ARB6 shape named _cap.s_ that extends 20 units from the 1234 face of 
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

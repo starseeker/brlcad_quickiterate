@@ -21,8 +21,6 @@ The notion of _path_ in this context refers to the tree of objects that traditio
 
 image::../articles/images/oed_fig01.png[]
 
-image::../articles/images/oed_fig01.png[]
-
 
 
 If we examine the tree structure of this object, we see it resembles a file system - combinations and regions act a bit like "folders" which can hold other folders and files. footnote:[When tree structures are displayed, a "/" suffix denotes a combination and a "/R" denotes a combination that is a region.
@@ -114,8 +112,6 @@ B object1.c
 
 image::../articles/images/oed_fig02.png[]
 
-image::../articles/images/oed_fig02.png[]
-
 
 
 Before beginning the editing process, the *l* command (a.k.a. the "list" command) can be used to view both the combination and its component primitives: 
@@ -177,8 +173,6 @@ The object should turn white, as below:
 
 image::../articles/images/oed_fig03.png[]
 
-image::../articles/images/oed_fig03.png[]
-
 
 
 Once selected, use the *translate* command to shift the combination up the z axis. 
@@ -190,8 +184,6 @@ translate 0 0 5
 
 image::../articles/images/oed_fig04.png[]
 
-image::../articles/images/oed_fig04.png[]
-
 
 
 To accept the edit and end object edit mode type *accept*: 
@@ -200,8 +192,6 @@ accept
 ....
 
 
-
-image::../articles/images/oed_fig05.png[]
 
 image::../articles/images/oed_fig05.png[]
 
@@ -259,8 +249,6 @@ accept
 ....
 
 
-
-image::../articles/images/oed_fig06.png[]
 
 image::../articles/images/oed_fig06.png[]
 
@@ -398,8 +386,6 @@ accept
 
 image::../articles/images/oed_fig07.png[]
 
-image::../articles/images/oed_fig07.png[]
-
 
 
 Compare the results to the previous section. The model is indeed shifted up the z axis, but the distance is somewhat different and the cube now has one edge lined up with the z axis. This is how *translate* works - it interprets its arguments as a _point_ at which the object should be positioned, rather than as a vector along which it should be shifted. (To translate the object using a vector interpretation use the *tra* command instead - its arguments (dx, dy, dz) are treated as how far to move something relative to the current position.) In the previous section, the sphere's origin was the reference point. Now, the cube's first coordinate is being moved to the same absolute position - with different overall results for the model.
@@ -437,8 +423,6 @@ accept
  The first *rot* command rotated the model around a line parallel to the y axis using the first coordinate of cube.s. The second rotation started from the results of the previous rotation and rotated again around a line parallel to the y axis, but this time using the origin of sphere.s.
 
 The *l* command provides a look at the final result:
-
-image::../articles/images/oed_fig08.png[]
 
 image::../articles/images/oed_fig08.png[]
 
@@ -510,8 +494,6 @@ accept
 
 image::../articles/images/oed_fig09.png[]
 
-image::../articles/images/oed_fig09.png[]
-
 
 ....
 
@@ -552,8 +534,6 @@ B bigobject.r
 ....
 
 
-
-image::../articles/images/oed_fig10.png[]
 
 image::../articles/images/oed_fig10.png[]
 
@@ -614,8 +594,6 @@ oed / object1.c/sphere.s
 
 image::../articles/images/oed_fig11.png[]
 
-image::../articles/images/oed_fig11.png[]
-
 
 
 BRL-CAD is now in object edit mode, and visually it looks like it is highlighting precisely the part of the model targeted for translation. However, when translated: 
@@ -634,8 +612,6 @@ B bigobject.r object1.c
 ....
 
 
-
-image::../articles/images/oed_fig12.png[]
 
 image::../articles/images/oed_fig12.png[]
 
@@ -712,8 +688,6 @@ accept
 ....
 B bigobject.r
 ....
-
-image::../articles/images/oed_fig13.png[]
 
 image::../articles/images/oed_fig13.png[]
 

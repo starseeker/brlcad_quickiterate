@@ -56,8 +56,6 @@ Before you can create a model, you need to open a new database either through th
 
 When launching _MGED_, you can open or create a database at the same time. At the shell prompt (usually a $ or %), in the Terminal Window, type mged followed by a new or existing database name with a .g extension. For example: *mged sphere.g[ENTER]*image::../lessons/images/mged01_terminal.png[]
 
-image::../lessons/images/mged01_terminal.png[width=3.9in]
-
  If you are creating a new database, a small dialog box asking if you want to create a new database named sphere.g will appear. Click on Yes, and a new database will be created. If sphere.g already exists, _MGED_ will open the sphere.g database as the program is launched.
 
 
@@ -67,10 +65,6 @@ image::../lessons/images/mged01_terminal.png[width=3.9in]
 Alternatively, once you have launched _MGED_, you can open an existing database or create a new database using the GUI menus (at the top of the Command or Graphics Window) by clicking on File and then either Open or New. Both options bring up a small dialog box. The Open dialog box will ask you to type in the name of an existing database. The New dialog box will ask you to type in the name of a new database. Click on OK to accept the database.
 
 For this lesson, create a new database called sphere.g. To do this, type sphere.g at the end of the path name, as shown in the following illustration. Click on OK to accept the database name. image::../lessons/images/mged01_commandwindow.png[]
-
-image::../lessons/images/mged01_commandwindow.png[]
-
-image::../lessons/images/mged01_graphicswindow.png[]
 
 image::../lessons/images/mged01_graphicswindow.png[]
 

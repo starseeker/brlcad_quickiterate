@@ -14,6 +14,7 @@ glint [<options>] <model.g> <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *glint* uses *librt*(3) to fire an array of parallel rays at the specified _objects_ in the database _model.g_ and reports overlaps, vacuums, and potential problems with air regions. By default, the output consists of single-line reports, each of which contains a tag identifying the report type and then other data as appropriate for that type report. Unless the *-p* option is specified, the exact formats are:
@@ -44,6 +45,7 @@ The space between consecutive partitions is more than _tol_ (see the *-t* option
 
 
 
+[[commandline_options]]
 === Command-line options
 
 
@@ -94,6 +96,7 @@ Sets the *glint* debug flags to _bits_. See the *-r* option for more details. No
 
 
 
+[[example]]
 == EXAMPLE
 
 The command
@@ -103,21 +106,25 @@ glint -a 35 -e 25 -c -g 1 -r 31 -t 0.01 _kitchen.g appliances_
 fires a ray every millimeter and produces overlap reports and every type of air-related report, but no vacuum reports.
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *librt*(3), *strtoul*(3), *plot3*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1995-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -48,16 +48,12 @@ El operador unión, u, junta las formas, por lo que cualquier punto en al menos 
 
 image::../../lessons/es/images/mged05_unionspheres.png[]
 
-image::../../lessons/es/images/mged05_unionspheres.png[]
-
 
 === Substracción
 
 Cuando una forma primitiva tiene una segunda forma solapada substraída de él, el resultado es que la segunda forma desaparece, junto a cualquier volumen que tenga en común con la primera. El operador - (signo menos) significa substracción o diferencia. Esta operación es útil especialmente para ahuecar un cuerpo, remover una pieza formada previamente desde una primitiva, o cuando se tienen intersecciones entre paredes, placas, tuberías, u otras formas conectadas.
 
 En el siguiente ejemplo, una línea roja punteada indica que el ámbito que debe restarse se extiende dentro de la esfera de la derecha. Este parte solapada está parcialmente fuera de la vista en la imagen del trazado de rayos.
-
-image::../../lessons/es/images/mged05_subtractionspheres.png[]
 
 image::../../lessons/es/images/mged05_subtractionspheres.png[]
 
@@ -72,8 +68,6 @@ La operación de intersección no es muy común, a menos que, como se muestra en
 
 image::../../lessons/es/images/mged05_intersectionspheres.png[]
 
-image::../../lessons/es/images/mged05_intersectionspheres.png[]
-
 No hay restricciones importantes cuando se usan los operadores Booleanos de substracción e intersección. Debe haber una primera forma desde la cual una segunda forma puede ser subtraída o intersectada. Si ud tiene solamente una forma dentro de una región o combinación, el operador será ignorado, siendo reemplazado siempre por el de unión.
 
 
@@ -82,8 +76,6 @@ No hay restricciones importantes cuando se usan los operadores Booleanos de subs
 == Crear Regiones con Operaciones Booleanas
 
 Comience abriendo la base de datos shapes.g que creó en la Lección 3. En el prompt de la Ventana de Comando, tipee: *draw sph2.s rcc2.s[Enter]* Este comando dibujará las formas que usará para crear nuestras regiones. Las dos formas lucirán aproximadamente como la siguiente imagen:
-
-image::../../lessons/es/images/mged05_twoprimitivespheres.png[]
 
 image::../../lessons/es/images/mged05_twoprimitivespheres.png[]
 
@@ -101,8 +93,6 @@ En la lección previa, aplicamos las propiedades del material a los objetos desd
 
 image::../../lessons/es/images/mged05_combinationeditor.png[]
 
-image::../../lessons/es/images/mged05_combinationeditor.png[]
-
 Cliquee en el botón al lado de Color y seleccione el rojo.
 
 Ahora cliquee en el botón OK en la esquina inferior izquierda de la ventana de diálogo. Esto aplicará los cambios y cerrará el panel.
@@ -113,15 +103,7 @@ Ahora está listo para trazar este objeto. Desde el menú File (Archivo), active
 
 |===
 
-|image::../../lessons/es/images/mged05_raytracedpart1.png[]
-
-image::../../lessons/es/images/mged05_raytracedpart1.png[]
-
- |image::../../lessons/es/images/mged05_raytracedpart2.png[]
-
-image::../../lessons/es/images/mged05_raytracedpart2.png[]
-
- 
+|image:../../lessons/es/images/mged05_raytracedpart1.png[] |image:../../lessons/es/images/mged05_raytracedpart2.png[] 
 |Raytrace de part1.r |Raytrace de part2.r 
 |===
 
@@ -145,8 +127,6 @@ Esta vez no nos importará fijar un color. (Cuando ningún color es fijado para 
 
 image::../../lessons/es/images/mged05_raytracedpart3.png[]
 
-image::../../lessons/es/images/mged05_raytracedpart3.png[]
-
 Ahora realice el trazado de rayos de los tres objetos que creó. Para dibujar las tres regiones a la vez, tipee: *B part1.r part2.r part3.r*
 
 Hacer esto una vez más no es problemático. Sin embargo, si éstas fueran las tres partes que construyen algún objeto complejo, nos gustaría ser capaces de dibujarlos de forma más conveniente. Para dibujar un conjunto de objetos más fácilmente, creamos una combinación de ensamble para juntarlos a todos. Crearemos una combinación llamada dome.c para nuestras tres regiones. Esto se logrra con el siguiente comando: *comb dome.c u part1.r u part2.r u part3.r*
@@ -160,8 +140,6 @@ Nota: Ya que la creación de combinaciones de ensamble es una tarea muy frecuent
 Todo lo que se necesita para dibujar los tres objetos es el este sencillo comando: *B dome.c*
 
 Ahora podremos realizar el trazado de la serie reunida y obtener la siguiente imagen:
-
-image::../../lessons/es/images/mged05_raytraceddome.png[]
 
 image::../../lessons/es/images/mged05_raytraceddome.png[]
 

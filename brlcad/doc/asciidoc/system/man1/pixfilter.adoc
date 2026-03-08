@@ -14,6 +14,7 @@ pixfilter [-f<type>] [-v] [-d<div>] [-o<offset>] [-w<width>] [-n<height>] [-s<sq
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixfilter* applies one of several 3x3 kernel filters to a color *pix*(5) format file. It will take a file name or else read from standard input. The input file size will be assumed to be 512 by 512 pixels unless the *-w*, and/or *-n*, or the *-s* flags are used to tell it otherwise. By default a low pass filter is used. The *-f*_type_ flag can be used to specify a different type of filter.
@@ -51,26 +52,31 @@ Most filters divide the result of the kernel multiplication by some value in ord
 The *-v* flag displays the kernel values on standard error.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pixscale*(1), *pix*(5)
 
 
+[[bugs]]
 == BUGS
 
 This should allow any 3x3 kernel to be specified.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

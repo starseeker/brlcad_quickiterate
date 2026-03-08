@@ -14,11 +14,13 @@ brlman [<options>]... [<manpage>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *brlman* provides manual page viewing capabilities for BRL-CAD's programs, commands, libraries, and conventions (such as file formats and attribute standards.) On Unix-type systems, its default behavior is to wrap the system *man* command with the appropriate path information to allow man to find and display BRL-CAD's man pages. On systems without a *man* command, *brlman* will instead launch a Tcl/Tk based graphical view that displays html versions of the manual pages. Both versions are generated from the same DocBook source files and contain the same information.
 
 
+[[brlman_options]]
 == OPTIONS
 
 
@@ -44,16 +46,19 @@ Instructs *brlman*_not_ to use its graphical man page viewer, even in situations
 
 
 
+[[author]]
 == AUTHOR
 
 Clifford Yapp
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2016-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,11 +14,13 @@ idents {<file_name>} {<objects>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Places a summary of the regions in the list of _objects_ specified in the file specified. If any regions include other regions, then only the first encountered region in that tree will be listed. The resulting file will contain two lists of regions, one in the order encountered in the list of objects, and the other ordered by ident number. The data written for each region includes (in this order) a sequential region count, the ident number, the air code, the material code, the LOS, and the path to the region.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *idents* command to create a file that will list all regions in specified objects.
@@ -35,16 +37,19 @@ Creates a file named _regions_file_ and lists all the regions in _group1, group2
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *idents*(5).
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

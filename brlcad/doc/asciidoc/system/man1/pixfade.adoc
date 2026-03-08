@@ -14,6 +14,7 @@ pixfade [-f<fraction>] [-p<percentage>] [-m<max>] [-s<squaresize>] [-w<width>] [
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixfade* darkens a color pix file by fading the entire image a fractional amount or by using a pixel value as a maximum level.
@@ -27,21 +28,25 @@ The *-w* and *-n* flags specify the input file width and number of scan lines in
 The *-o* option supplies output file name. If this option is omitted, standard output is used.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1991-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

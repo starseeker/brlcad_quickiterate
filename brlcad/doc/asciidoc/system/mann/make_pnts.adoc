@@ -14,11 +14,13 @@ make_pnts {<ObjectName>} {<FileName>} {<FileDataFormat>} { [ <Units>| <Conversio
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Creates a "pnts" primitive by importing, from a file, coordinate data and optionally color, normal or point-size data. Data must be in text (i.e. ascii) format but the data file does not need to contain only text. Any byte value in the data file not representing one of the ascii characters "0123456789.+-eE" will be considered a delimiter. This includes carriage-returns, line-feeds, commas, spaces and non-printable characters. Consecutive delimiters are treated as one delimiter. Text files can be used from Windows or Unix systems without conversion. Numerical values can be listed in any order but ordering must be consistent. Numerical values can optionally be ignored. See also the *pnts* command.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -45,6 +47,7 @@ The default point size. This is used if the point size is not included in the da
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Create basic point cloud
@@ -93,11 +96,13 @@ Creates a "pnts" primitive named "cloud1.s" using the data file "/home/user/clou
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

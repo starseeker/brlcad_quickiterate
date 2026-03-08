@@ -9,8 +9,6 @@ Though the U.S. Army Ballistic Research Laboratory - Computer-Aided Design (BRL-
 
 image::../articles/images/projection_shader_fig01.png[]
 
-image::../articles/images/projection_shader_fig01.png[]
-
 As its name implies, the projection shader projects an image onto a surface. Unlike the texture shader, however, which fits an image to all available surfaces (stretching/shrinking as necessary), the projection shader projects the image with user-defined dimensions and orientations.
 
 There are several ways that advanced users can implement and customize the projection shader in BRL-CAD. The average user can reduce the complexity of the process, however, by complying with the following three basic rules of thumb:
@@ -52,8 +50,6 @@ BRL-CAD recognizes several image file formats, including .pix, .png., and .ppm. 
 == Resize the Graphics Display Window to Match Image Dimensions
 
 The next step is to "prepare" the area on which the image will be displayed so that it is ready for the image. For the circuit board, the size of the photograph was 950 pixels ×  950 pixels high. To make the graphics display window match, we opened the Raytrace Control Panel and used the numbers in the Size window box as a reference to determine how much to enlarge/shrink the graphics display window (by using the mouse to drag the window borders in or out) (see Figure B-2).
-
-image::../articles/images/projection_shader_fig02.png[]
 
 image::../articles/images/projection_shader_fig02.png[]
 
@@ -127,8 +123,6 @@ prj_add circuitboard.prj circuit_back_950.pix 950 950
 
 image::../articles/images/projection_shader_fig03.png[]
 
-image::../articles/images/projection_shader_fig03.png[]
-
 
 [[projshader_applysettingsfile]]
 == Apply the Shader Settings File to the Object in the Combination Editor
@@ -142,10 +136,6 @@ The projection now needs to be applied to the object. We did this by opening the
 The final step in using the projection shader is to raytrace the object to determine if all the other steps have been performed correctly. In our case, rendering the image identified several problems that we wanted to correct. First of all, as shown in Figure B-5, the holes in the board failed to convey the three-dimensional look we desired. So, we went back and modeled circular cutouts (using cylinder primitives) to improve the appearance. In addition, the rendered image revealed that the image we were using was too dark. So, we ended up adjusting the gamma setting on the original image (a .jpg file) in an external photo editor.
 
 image::../articles/images/projection_shader_fig04.png[]
-
-image::../articles/images/projection_shader_fig04.png[]
-
-image::../articles/images/projection_shader_fig05.png[]
 
 image::../articles/images/projection_shader_fig05.png[]
 
@@ -164,11 +154,7 @@ prj_add circuitboard.prj circuit_front_950.pix 950 950
 
 image::../articles/images/projection_shader_fig06.png[]
 
-image::../articles/images/projection_shader_fig06.png[]
-
 Figure B-7 shows the resulting prj file. (Note that the first projection is on top and the second projection is on the bottom.)
-
-image::../articles/images/projection_shader_fig07.png[]
 
 image::../articles/images/projection_shader_fig07.png[]
 

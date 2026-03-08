@@ -15,6 +15,7 @@ pixclump [-c<R/G/B>] [-f<color_file>] [-x<debug_flags>] [ <infile.pix> [<outfile
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixclump* reads an input stream of _pix_ data, converts each pixel to one of a set of specified colors, and writes out these quantized pixels.
@@ -26,21 +27,25 @@ Each pixel in the input stream is compared to all of the specified colors and re
 The *-x* option may be used to selectively enable various diagnostic print statements.
 
 
+[[hint]]
 == HINT
 
 A typical use for *pixclump* is in renormalizing an image. For example, if a tool such as *pixscale* has been used to transform an image containing a relatively small number of colors, *pixclump* will change pixels whose colors have been interpolated back to one of the original colors.
 
 
+[[author]]
 == AUTHOR
 
 Paul Tanenbaum
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1997-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,11 +14,13 @@ clear
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Clear the _mged_ command window.
 
 
+[[examples]]
 == EXAMPLES
 
 Clear the _mged_ command window.
@@ -35,11 +37,13 @@ The _mged_ command window is clear.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

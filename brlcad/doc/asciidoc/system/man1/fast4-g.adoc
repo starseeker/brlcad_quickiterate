@@ -14,6 +14,7 @@ fast4-g [-dwq] [-o<plot_file>] [-m<muves_warnings>] [-c<id_list>] [-x<RT_DEBUG_F
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fast4-g* converts the specified _file.fastgen4_ to a BRL-CAD _file.g_ file.
@@ -45,6 +46,7 @@ _CCONE1_, _CCONE2_, and _CCONE3_ elements are converted to BRL-CAD truncated rig
 and object names are assigned from the FASTGEN4 _$NAME_ elements using an algorithm to create unique BRL-CAD names.
 
 
+[[example]]
 == EXAMPLE
 
 
@@ -54,26 +56,31 @@ $ fast4-g sample.fastgen4 sample.g
 ----
 
 
+[[see_also]]
 == SEE ALSO
 
 *rpatch*(1), *patch-g*(1)_FASTGEN 4.1 User's Manual_, XRESV Tech Note 94-01, Hugh Griffis and Maty Lentz, April 1994
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Error messages are intended to be self-explanatory.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1994-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

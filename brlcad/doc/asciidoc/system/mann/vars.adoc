@@ -14,6 +14,7 @@ vars [<variable>=<value>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 With no arguments, will list all the MGED variables and their values. If a _variable=value_ string is included on the command line, then that _value_ is assigned to the specified _variable_. Note that no spaces are allowed around the =. The available _variables_ are as follows:
@@ -78,6 +79,7 @@ With no arguments, will list all the MGED variables and their values. If a _vari
 * difference_op -- not currently used.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *vars* command with an argument.
@@ -92,11 +94,13 @@ Turns on the _sliders_.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

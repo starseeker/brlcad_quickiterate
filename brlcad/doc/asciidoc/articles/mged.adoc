@@ -6601,17 +6601,13 @@ See <<space,_space code_>>.
 
 Viewing aspects in <<mged,_mged_>> may be specified in terms of _azimuth_, <<ELEVATION,elevation>>, and <<twist,twist>>.
 
-image::images/az_el_sm.gif[width=250]
-
-
+image:images/az_el_sm.gif[width=250]
 
 _Azimuth_ is the angle (in degrees) around the _z_-axis through which the viewing direction is rotated from the positive _xz_-quarterplane towards the positive _y_-axis. When _azimuth = <<ELEVATION,elevation>>_ = 0, for instance, viewing is parallel to the _x_-axis in the direction of decreasing _x_. When _azimuth_ = 90 degrees, viewing is parallel to the _yz_-plane along some direction of decreasing _y_: the precise direction within the _yz_-plane being specified by the <<ELEVATION,elevation>>. _Azimuth_ can take on any real value.
 
 *Boolean*
 
-The _Boolean_ (i.e., set-theoretic) operations of _union_, _intersection_, and _subtraction_ are used in constructive solid geometry to build complex objects from simpler ones. image::images/bool.gif[width=250]
-
-
+The _Boolean_ (i.e., set-theoretic) operations of _union_, _intersection_, and _subtraction_ are used in constructive solid geometry to build complex objects from simpler ones. image:images/bool.gif[width=250]
 
 *boundary representation*
 
@@ -6706,9 +6702,7 @@ _Primitive solids_ are the basic building blocks of <<CSG,CSG>>solid modeling sy
 * <<torus,Torus>>
 * <<vol,VOL>>
 
-image::images/prims.gif[width=250]
-
-
+image:images/prims.gif[width=250]
 
 *solid edit mode*
 

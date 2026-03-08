@@ -14,11 +14,13 @@ release [name]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Closes a display manager. If invoked with no arguments, the current display manager is closed. Otherwise, _name_ (i.e., the Tcl/Tk path name of the display manager window)is closed.
 
 
+[[examples]]
 == EXAMPLES
 
 The two examples show the use of the *release* command to close either the current display manager (first example) or the one specified with the command (second example).
@@ -42,11 +44,13 @@ Closes _.dm_X0_.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

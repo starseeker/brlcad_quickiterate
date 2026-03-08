@@ -14,6 +14,7 @@ mged [-a attach] [-b] [-c] [-d display] [-h|?] [-r] [-x#] [-X#] [-v] [<database.
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 _MGED_, a.k.a. the "Multi-Device Geometry Editor", is the central interaction environment for the BRL-CAD package. It offers both command line and menu driven interactions, as well as wireframe displays and integrated raytracing capabilities. It is the primary tool for BRL-CAD geometry creation and interactive manipulation.
@@ -67,6 +68,7 @@ Display the version and exit.
 
 
 
+[[scripting]]
 == SCRIPTING (BATCHING) MGED
 
 Often it is convenient to generate a series of _MGED_ commands outside _MGED_ and then submit the command list to _MGED_, which will react as if each command were being manually entered within it. Simply create a file (say, "cmds.txt") with each line being a desired command, and then have _MGED_ execute the list. At the normal shell prompt, execute
@@ -81,6 +83,7 @@ $ mged -c tgm.g < cmds.txt
 Note that the procedure described above is very useful in rapid prototyping or automated TGM processing without resorting to low-level library programming in C or C++.
 
 
+[[hints]]
 == HINTS
 
 _MGED_ database names conventionally end with `.g` .
@@ -97,6 +100,7 @@ The ".mgedrc" file is searched for in three places. The first one found is used,
 
 
 
+[[examples]]
 == EXAMPLES
 
 The following are run from the operating system command prompt:
@@ -162,6 +166,7 @@ mged>
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 _Computer Graphics for Target Descriptions_, BRL Technical Report ARBRL-TR-02480, _GED: An Interactive Solid Modeling System for Vulnerability Assessments_
@@ -169,21 +174,25 @@ _Computer Graphics for Target Descriptions_, BRL Technical Report ARBRL-TR-02480
 *brlcad*(1), *rt*(1), *comgeom-g*(1), *vdeck*(1), *librt*(3)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Error messages are intended to be self-explanatory.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1984-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

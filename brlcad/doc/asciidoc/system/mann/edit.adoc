@@ -23,6 +23,7 @@ edit [<subcommand> [<args>] <object>...] \
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Operates on objects in the database, solely through the use of _subcommand_s. The flexibility of the *edit*_subcommand_s lies in their utilization of a common style of syntax. Coordinates in model space, offsets, and objects are all accepted interchangeably as reference points. A single reference point is equivalent to an absolute point in model space. A pair of reference points specifies a distance or an angle, and is supplied as a set of _from_ - _to_ arguments (a _from_ argument is similar to the concept of a keypoint). Reference points may be incomplete, and specify only one or two coordinates.
@@ -41,6 +42,7 @@ mged> man edit_subcommandName
 
 
 
+[[options]]
 == OPTIONS
 
 
@@ -66,6 +68,7 @@ Sets the coordinate of a particular axis.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Get the authoritative list of available subcommands.
@@ -121,11 +124,13 @@ The nonstandard *-B* option is unique to *fake_subcmd*. An explanation of how it
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

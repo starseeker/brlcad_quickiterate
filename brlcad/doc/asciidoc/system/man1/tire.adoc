@@ -14,6 +14,7 @@ tire [<options ...>]... [<name>]
 ----
 
 
+[[tire_description]]
 == DESCRIPTION
 
 *tire* creates a curved sidewall tire in either the current open database (when run from within MGED) or in _tire.g_ when run from the command line. If no dimensions are supplied defaults are used. The default is to _not_ model tread (due to performance issues), but tread modeling is implemented and available as a user option with the *-p* flag and the *-t* flag.
@@ -21,6 +22,7 @@ tire [<options ...>]... [<name>]
 *-a #* instructs *tire* to automatically add dimensional information to the toplevel object name used in the generated BRL-CAD database tree. Works with the *-n* option or as stand-alone. Output format uses '-' instead of '/' because the latter has significance in BRL-CAD object trees.
 
 
+[[tire_options]]
 == OPTIONS
 
 
@@ -78,6 +80,7 @@ Specify wheel/rim type. If 0, include no wheel. As of 7.12.6 only one wheel type
 
 
 
+[[tire_examples]]
 == EXAMPLE
 
 The following will create a tire with width=185mm, ratio=65mm, and wheel diameter = 15in. The *-t* flag will instruct the procedure to model using tread type one, the *-n* flag will set the root name to 'autowheel' instead of tire, and the *-a* flag will append '-185-65R15' to 'autowheel' to create the final toplevel name 'autowheel-185-65R15' in the database rather than 'tire'.
@@ -90,26 +93,31 @@ The following will create a tire with width=185mm, ratio=65mm, and wheel diamete
 ====
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Not much error checking yet - need to add.
 
 
+[[author]]
 == AUTHOR
 
 Clifford Yapp
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2008-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bugs]]
 == BUGS
 
 There is a known problem where specifying very thin tires with a large inner wheel will cause incorrect geometry to be produced - this has to do with how the elliptical torus primitive is handled. Other extreme cases such as extremely thin tire walls would also be expected to cause problems.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ gdiff [<options>]... <left_object> <right_object>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *gdiff* compares BRL-CAD geometry objects using LIBRT's solid raytracing capabilities and visualizes differences in the display manager.
@@ -23,6 +24,7 @@ Red segments are those generated only from intersections with the _left_obj_ obj
 Users will want to pay careful attention to grid size. By default gdiff will try to guess a reasonable grid spacing using the bounding boxes of the objects in question, but depending on the visual quality of the result users may want to adjust the spacing up or down. Be careful of specifying tolerances that are too fine - performance will drop off rapidly as grid spacing becomes very small.
 
 
+[[gdiff_mged_options]]
 == OPTIONS
 
 
@@ -56,16 +58,19 @@ The "S" option enables a completely different difference testing mode - rather t
 
 
 
+[[author]]
 == AUTHOR
 
 Clifford Yapp
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2016-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
