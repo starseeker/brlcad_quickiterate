@@ -1,6 +1,8 @@
 = Learning Viewing Options in MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -340,3 +342,7 @@ In this lesson, you:
 * Identified elements of the _MGED_ viewing system.
 * Viewed your radio from different angles.
 * Worked with Shift Grips.
+
+
+
+

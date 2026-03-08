@@ -1,6 +1,8 @@
 = BRL-CAD Tutorial Series: Volume II - Introduction to MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: book
+:toc:
+:toclevels: 3
 
 [[Preface]]
 [preface]
@@ -3965,3 +3967,4 @@ In this lesson, you:
 == MGED Commands
 
 Appendix
+

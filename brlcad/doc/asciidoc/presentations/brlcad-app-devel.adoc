@@ -1,6 +1,8 @@
 = Application Development
 Lee A. Butler; John Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 == WARNING
 
@@ -856,3 +858,5 @@ if ((dbip = db_open(argv[1], "r+w")) != DBI_NULL) {
 ----
 wdb_close(wdbp);
 ----
+
+

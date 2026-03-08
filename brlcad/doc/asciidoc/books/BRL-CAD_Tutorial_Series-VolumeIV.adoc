@@ -1,6 +1,8 @@
 = BRL-CAD Tutorial Series: Volume IV - Converting Geometry Between BRL-CAD and Other Formats
 John R. Anderson; Eric W. Edwards
 :doctype: book
+:toc:
+:toclevels: 3
 
 [dedication]
 == Dedication

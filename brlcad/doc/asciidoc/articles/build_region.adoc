@@ -1,6 +1,8 @@
 = Using the build_region Command
 Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
+:toc:
+:toclevels: 3
 
 Just as the Build Pattern tool can help automate the process of building multiple occurrences of objects, the build_region command can help automate the process of creating regions. The command (which currently has no graphical user interface equivalent) uses meaning assigned by the user in the primitive name based on the intended use of the primitive.
 
@@ -68,3 +70,4 @@ image::../articles/images/build_region_fig04.png[]
 Obviously, the overall success or failure of the build_region command depends on primitives being named properly. But if they are, the command can organize them in one automated step, creating complex regions in just a few keystrokes.
 
 Another modeling benefit of the build_region tool is that it allows the user to quickly organize primitives. Assume, for example, that we have used the aforementioned naming convention to construct a complicated region. If there was a subsection of the region that we needed to, say, keep out for another assembly, delete from our database, move slightly, or copy, it would be a simple matter to create a new region with just those primitives that we needed.
+

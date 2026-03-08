@@ -1,6 +1,8 @@
 = Assigning Material Properties and Raytracing in MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -208,3 +210,7 @@ In this lesson you:
 * Raytraced your design from the GUI.
 * Used the GUI to change layers of the Graphics Window.
 * Cleared the Graphics Window after raytracing a model.
+
+
+
+

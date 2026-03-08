@@ -1,6 +1,8 @@
 = Asignar propiedades de los materiales a una copa
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -116,3 +118,7 @@ En este tutorial usted repasó la apertura de una base de datos y aprendió a:
 * Asignar colores y sombreado de plástico a las regiones de la copa.
 * Utilizar las opciones del sombreado con transparencia y reflexión espejada.
 * Realizar el trazado de rayos de varios ejemplos de la copa.
+
+
+
+

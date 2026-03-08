@@ -1,6 +1,8 @@
 = About BRL-CAD
 Christopher Sean Morrison <devs@brlcad.org>
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[article-body]]
 BRL-CAD is a powerful cross-platform Open Source combinatorial Constructive Solid Geometry (CSG) solid modeling system that includes interactive 3D solid geometry editing, high-performance ray-tracing support for rendering and geometric analysis, network-distributed framebuffer support, image and signal-processing tools, path-tracing and photon mapping support for realistic image synthesis, a system performance analysis benchmark suite, an embedded scripting interface, and libraries for robust high-performance geometric representation and analysis.
@@ -19,3 +21,5 @@ BRL-CAD is a collection of more than 400 tools, utilities, and applications comp
 Mike Muuss began the initial architecture and design of BRL-CAD back in 1979. Development as a unified package began in 1983. The first public release was made in 1984. BRL-CAD became an open source project on 21 December 2004.
 
 ====
+
+

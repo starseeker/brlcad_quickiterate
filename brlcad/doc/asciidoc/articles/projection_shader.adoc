@@ -1,6 +1,8 @@
 = Using the Projection Shader
 Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[projshader_general]]
 == General
@@ -188,3 +190,5 @@ Figure B-7 shows the resulting prj file. (Note that the first projection is on t
 
 .The circuit board .prj file.
 image::../articles/images/projection_shader_fig07.png[]
+
+

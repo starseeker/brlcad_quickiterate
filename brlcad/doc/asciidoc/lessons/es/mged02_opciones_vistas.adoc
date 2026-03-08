@@ -1,6 +1,8 @@
 = Reconocer las opciones de vistas en MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -312,3 +314,7 @@ En este tutorial usted aprendió a:
 * Identificar elementos del sistema de visualización de _MGED_.
 * Visualizar su radio desde distintos ángulos.
 * Trabajar con atajos de teclado.
+
+
+
+

@@ -1,6 +1,8 @@
 = Refinando el modelo de la taza
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -130,3 +132,7 @@ En este tutorial usted aprendió a:
 * Asignar propiedades de los materiales a la taza utilizando el comando mater.
 * Refinar la taza.
 * Combinar las figuras.
+
+
+
+

@@ -1,6 +1,8 @@
 = Aprender técnicas de modelado y estructuras
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -428,3 +430,7 @@ En este tutorial usted aprendió a:
 * Agregar componentes internos a la radio.
 * Crear modelos especiales de la radio.
 * Redefinir la estructura de la radio.
+
+
+
+

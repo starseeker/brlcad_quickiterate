@@ -1,6 +1,8 @@
 = Using the Insert Command in MGED to Size and Place Shapes
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -271,3 +273,5 @@ In this lesson, you:
 * Considered _MGED_ naming conventions.
 * Viewed your shapes from different perspectives using options of the View menu.
 * Quit the _MGED_ program.
+
+

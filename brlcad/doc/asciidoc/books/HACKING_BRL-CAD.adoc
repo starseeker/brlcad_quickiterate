@@ -1,6 +1,8 @@
 = HACKING BRL-CAD
 Sean Morrison; Eric Edwards; Harmanpreet Singh; Check Nyah; Issac Kamga; Clifford Yapp; Scott Nesbitt
 :doctype: book
+:toc:
+:toclevels: 3
 
 == Getting Started
 
@@ -1794,3 +1796,4 @@ main(int argc, char *argv[])
     return 0;
 }
 ----
+

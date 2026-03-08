@@ -1,5 +1,7 @@
 = Sommario
 :doctype: article
+:toc:
+:toclevels: 3
 
 SommarioDal 1979, l�Army Research Laboratory degli Stati Uniti sviluppa e distribuisce il pacchetto di modellizzazione solida geometrica costruttiva BRL-CAD, per un vasto campo di applicazioni militari e industriali. Il programma include un grande numero strumenti ed utilit� tra le quali un editor geometrico interattivo, librerie per il il raytracing ed il framebuffer, capacit� di rete per il trattamento di immagini e segnali, un linguaggio di scripting integrato.
 
@@ -128,3 +130,4 @@ Per eseguire il test di prova tramite queste immagini, bisogna lanciare lo scrip
 Gli autori intendono ringraziare i membri dell'Advanced Computer Systems Team, i quali hanno provvidenzialmente revisionato il peresente documento dando molti utili suggerimenti per migliorarne l'accuratezza e la presentazione. Al tempo della sua creazione, questo documento fu preparato dai membri del team tra cui John Anderson, TraNese Christy, Bob Parker, Ron Bowers, e Sean Morrison.
 
 Gli autori vogliono inoltre esprimere un ringraziamento speciale a Mike Muuss, membro del team e autore originale di BRL-CAD, passato a migliore vita nell'autunno del 2000. Senza di lui questo lavoro non sarebbe satto possibile. La BRL-CAD Tutorial Series � dedicata alla sua memoria.
+

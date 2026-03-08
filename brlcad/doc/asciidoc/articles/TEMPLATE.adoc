@@ -1,6 +1,8 @@
 = Article Title
 Firstname Middlename Lastname <devs@brlcad.org>
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[some-descriptive-tag]]
 First paragraph goes here.
@@ -76,3 +78,6 @@ There's a lot more you can do with Docbook/XML. Search the web for references an
 * http://www.openoffice.org/xml/xmerge/docbook/UserGuide.html[http://www.openoffice.org/xml/xmerge/docbook/UserGuide.html]
 
 ====
+
+
+

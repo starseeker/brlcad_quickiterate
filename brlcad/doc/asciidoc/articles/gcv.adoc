@@ -1,6 +1,8 @@
 = The Geometry Conversion Library
 Jon Engbert
 :doctype: article
+:toc:
+:toclevels: 3
 
 == Introduction
 
@@ -629,3 +631,6 @@ $ gcv --output-format=assetimport input_file.ext output_file.ext
 ....
 
 ====
+
+
+

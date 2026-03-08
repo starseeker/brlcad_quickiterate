@@ -1,6 +1,8 @@
 = Refining a Mug Model
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -122,3 +124,7 @@ In this chapter, you:
 * Assigned material properties to the mug using the mater command.
 * Refined the mug by smoothing the lip.
 * Combined the shapes.
+
+
+
+

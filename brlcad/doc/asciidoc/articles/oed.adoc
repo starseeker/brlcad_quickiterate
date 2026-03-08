@@ -1,6 +1,8 @@
 = Object Editing - the oed Command
 Clifford Yapp
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[oed_Basic_Syntax_and_Operations]]
 == oed - Basic Syntax and Operations
@@ -915,3 +917,4 @@ The major points of the *oed* command are:
 == Acknowledgements
 
 Thanks to Christopher Sean Morrison, Paul Tanenbaum and Ruth Foutz for proofreading, suggestions and corrections.
+

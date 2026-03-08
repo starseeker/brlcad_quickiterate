@@ -1,6 +1,8 @@
 = Assigning More Material Properties to a Goblet
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -126,3 +128,7 @@ In this lesson, you:
 * Assigned values to the shininess option of the plastic shader.
 * Assigned values to the extinction option of the plastic shader.
 * Experimented with various combinations of plastic shader options.
+
+
+
+

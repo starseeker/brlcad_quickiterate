@@ -234,6 +234,8 @@
       <xsl:with-param name="info" select="db:info"/>
     </xsl:call-template>
     <xsl:text>:doctype: article&#10;</xsl:text>
+    <xsl:text>:toc:&#10;</xsl:text>
+    <xsl:text>:toclevels: 3&#10;</xsl:text>
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 
@@ -256,6 +258,8 @@
       <xsl:with-param name="info" select="db:info"/>
     </xsl:call-template>
     <xsl:text>:doctype: book&#10;</xsl:text>
+    <xsl:text>:toc:&#10;</xsl:text>
+    <xsl:text>:toclevels: 3&#10;</xsl:text>
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 

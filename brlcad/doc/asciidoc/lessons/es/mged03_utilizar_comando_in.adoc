@@ -1,6 +1,8 @@
 = Usar el comando Insert en MGED para dimensionar y ubicar figuras
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -266,3 +268,5 @@ En este tutorial usted aprendió a:
 * Considerar las convenciones para la elección de los nombres de sus objetos.
 * Visualizar sus figuras desde distintas perspectivas utilizando las opciones del menú View (Vistas).
 * Cerrar el programa _MGED_.
+
+

@@ -1,6 +1,8 @@
 = Crear Figuras Primitivas with MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 Este tutorial le ayudará a:
 
@@ -283,3 +285,7 @@ En este tutorial usted:
 * Utilizó el comando kill para eliminar una figura de la base de datos.
 * Editó comandos en la ventana de comandos.
 * Utilizó los comandos q o exit para salir del programa.
+
+
+
+

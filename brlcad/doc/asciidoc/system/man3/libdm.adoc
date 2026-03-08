@@ -1,6 +1,8 @@
 = LIBDM
 Robert G. Parker <mulferts@austin.dsccc.com>
 :doctype: book
+:toc:
+:toclevels: 3
 
 == Preface
 
@@ -910,3 +912,5 @@ where _<system-library>_ denotes specific libraries necessary on a particular ma
 == RETURN VALUES
 
 _fb_close_, _fb_write_, _fb_read_, _fb_wmap_, _fb_rmap_, _fb_clear_, _fb_cursor_, _fb_scursor_, _fb_setcursor_, _fb_window_, _fb_zoom_, _fb_ioinit_, _fb_seek_, _fb_wpixel_, _fb_rpixel_ and _fb_flush_ return -1 to indicate failure. _Fb_open_ returns FB_NULL to indicate failure, and a non-null fb structure pointer upon success. _fb_read_, and _fb_write_ return the number of pixels actually read or written. _fb_gettype_ returns a pointer to a NULL terminated description string.
+
+

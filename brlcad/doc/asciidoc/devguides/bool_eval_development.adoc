@@ -1,6 +1,8 @@
 = NURBS Boolean Evaluation Development Guide
 Nicholas Reed
 :doctype: article
+:toc:
+:toclevels: 3
 
 == Introduction
 

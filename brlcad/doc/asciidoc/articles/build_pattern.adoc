@@ -1,6 +1,8 @@
 = Using the Build Pattern Tool
 Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[build_pattern_generalinfo]]
 == General Pattern Information
@@ -141,3 +143,5 @@ The cylindrical pattern GUI (shown in Figure E-6) facilitates the creation of cy
 
 .The user interface for building cylindrical patterns.
 image::../articles/images/build_pattern_fig06.png[]
+
+
