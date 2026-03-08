@@ -122,7 +122,7 @@ QgView::view_type()
 
 
 void
-QgView::save_image(int UNUSED(quad))
+QgView::save_image([[maybe_unused]] int quad)
 {
 }
 

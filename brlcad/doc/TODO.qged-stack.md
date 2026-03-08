@@ -222,7 +222,7 @@ Items are grouped by urgency.  Effort estimates are rough.
 | Add `override` to virtual overrides in `qged/` and `libqtcad/` | Many headers | ✅ Done (session 36) — `QgKeyVal.h`, `QgAttributesModel.h`, `QgEdFilter.h`, `QgTreeView.h`, `QPolyCreate.h`, `QPolyMod.h`, `QEll.h`, `CADViewMeasure.h`, `CADViewSelector.h` | — |
 | Move `raytrace.h`-dependent sketch export out of `libqtcad` into `qged` | `QgView.cpp`, `QgPolyFilter.cpp` | ✅ Unused `raytrace.h` includes removed (session 35); `QgSelectFilter.cpp` / `QgMeasureFilter.cpp` legitimately use raytrace for pick/measure | — |
 | Migrate `fbserv.cpp` from `QTcpServer`/`QTcpSocket` to `QLocalServer`/`QLocalSocket` | `fbserv.cpp/.h` | Deferred — requires libpkg Unix-domain-socket support first | 4 h |
-| Convert `QgModel::rootItem` / `items` (raw pointer forest) to `unique_ptr` ownership | `QgModel.cpp/.h` | Open | 4 h |
+| Convert `QgModel::rootItem` / `items` (raw pointer forest) to `unique_ptr` ownership | `QgModel.cpp/.h` | ✅ Done (session 37) — `items` is now a value-type set; `rootItem_` is `unique_ptr<QgItem>`; `QgTreeView.cpp` updated | — |
 | Consolidate view-update signal chain (`do_view_changed` → `view_update`) to eliminate reentrancy risk | `QgEdApp.cpp` | ✅ Coalescing wrapper added via `pending_view_flags_` + `flush_view_changed_` private slot (session 35) | — |
 
 ### Tier 3 — C++17 / Qt modernisation
@@ -232,7 +232,7 @@ Items are grouped by urgency.  Effort estimates are rough.
 | `[[nodiscard]]` on `run_cmd()` and other error-returning functions | ✅ Done (session 35) | — |
 | Implement `QgFlowLayout` Qt6 geometry path (previously stub) | ✅ Done (session 35) — `margin()` removed, using `getContentsMargins()` | — |
 | Implement `QgConsole` mid-string tab completion for Qt6 | Open | 3 h |
-| Apply `[[maybe_unused]]` to replace `UNUSED()` macro calls | Open (C callbacks; low priority) | 1 h |
+| Apply `[[maybe_unused]]` to replace `UNUSED()` macro calls | ✅ Done (session 37) — C++ member functions and free functions migrated; C callbacks (`qgmodel_*`, `rt_cmd_*`, `*_record`, `uniq_test`) intentionally kept with `UNUSED()` | — |
 
 ### Tier 4 — Feature completeness
 
@@ -312,15 +312,15 @@ views.  No special-case branching on command name.  Background-process commands
 (raytrace, etc.) register a completion callback; the post-processing step fires from
 there, not from the synchronous call site.
 
-### 7.4 AABB placeholder rendering
+### 7.4 AABB placeholder rendering ✅ Done (session 36)
 
-Extend `BViewState::redraw()` to emit a lightweight wireframe bounding box for
+`BViewState::redraw()` now emits a lightweight dashed wireframe bounding box for
 solids in `draw_list_` whose geometry is not yet present in `s_map` but whose bbox
 has been pre-computed in `dbis->bboxes`.  This gives users immediate visual feedback
 when opening large `.g` files while the `GeomLoader` worker fills in the real data
 in the background.  When a solid's geometry arrives (via `drain_geom_results()` →
 `ISceneObserver` notification → repaint), the placeholder box is replaced by real
-geometry automatically.
+geometry automatically (`bbox_placeholders_` private map in `BViewState`).
 
 ---
 
