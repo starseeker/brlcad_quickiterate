@@ -448,10 +448,6 @@ obb_worker(std::shared_ptr<DrawPipelineState> p)
 static void
 lod_worker(std::shared_ptr<DrawPipelineState> p)
 {
-    int lod_total = 0;
-    int lod_ctx_missing = 0;
-    int lod_not_bot = 0;
-    int lod_generated = 0;
     while (!p->shutdown) {
 	if (p->q_lod.size_approx() == 0) {
 	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -462,7 +458,6 @@ lod_worker(std::shared_ptr<DrawPipelineState> p)
 	if (!p->q_lod.try_dequeue(ip))
 	    continue;
 
-	lod_total++;
 	std::string ip_name;
 	{
 	    std::lock_guard<std::mutex> lk(p->name_mu);
@@ -473,11 +468,6 @@ lod_worker(std::shared_ptr<DrawPipelineState> p)
 	}
 	const char *name = ip_name.c_str();
 
-	if (!p->lod_ctx) {
-	    lod_ctx_missing++;
-	} else if (ip_name.empty() || ip->idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
-	    lod_not_bot++;
-	} else {
 	if (p->lod_ctx && !ip_name.empty() &&
 	    ip->idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT)
 	{
@@ -486,16 +476,27 @@ lod_worker(std::shared_ptr<DrawPipelineState> p)
 	    if (bot && bot->magic == RT_BOT_INTERNAL_MAGIC
 		&& bot->num_faces > 0 && bot->num_vertices > 0)
 	    {
-		unsigned long long key = bsg_mesh_lod_cache(
-		    p->lod_ctx,
-		    (const point_t *)bot->vertices, bot->num_vertices,
-		    NULL, bot->faces, bot->num_faces, 0, 0.66);
-		if (key) {
-		    lod_generated++;
-		    bsg_mesh_lod_key_put(p->lod_ctx, name, key);
+		unsigned long long hash =
+		    bu_data_hash(name, strlen(name) * sizeof(char));
 
-		    unsigned long long hash =
-			bu_data_hash(name, strlen(name) * sizeof(char));
+		/* Fast path: if the namekey db already has a key for this
+		 * object the LoD data is already cached.  bsg_mesh_lod_key_get
+		 * now uses a per-call MDB_RDONLY transaction (no mutex) so this
+		 * check is cheap even under concurrent read traffic. */
+		unsigned long long key =
+		    bsg_mesh_lod_key_get(p->lod_ctx, name);
+		if (!key) {
+		    /* Cache miss — compute and store POP data.  This is the
+		     * expensive path: it hashes all vertex/face data, runs
+		     * tri_process(), and writes the results to LMDB. */
+		    key = bsg_mesh_lod_cache(
+			p->lod_ctx,
+			(const point_t *)bot->vertices, bot->num_vertices,
+			NULL, bot->faces, bot->num_faces, 0, 0.66);
+		    if (key)
+			bsg_mesh_lod_key_put(p->lod_ctx, name, key);
+		}
+		if (key) {
 		    DrawResult dr; memset(&dr, 0, sizeof(dr));
 		    dr.type    = DRAWRESULT_LOD;
 		    dr.hash    = hash;
@@ -504,7 +505,6 @@ lod_worker(std::shared_ptr<DrawPipelineState> p)
 		    p->results_q.enqueue(dr);
 		}
 	    }
-	}
 	}
 
 	/* LoD worker is the last stage — free the internal. */
@@ -515,8 +515,6 @@ lod_worker(std::shared_ptr<DrawPipelineState> p)
 	BU_PUT(ip, struct rt_db_internal);
     }
 
-    bu_log("lod_worker exiting: total=%d ctx_missing=%d not_bot=%d generated=%d\n",
-	   lod_total, lod_ctx_missing, lod_not_bot, lod_generated);
     p->thread_cnt--;
 }
 

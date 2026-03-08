@@ -3,20 +3,72 @@
 ## Summary
 
 The 5-stage concurrent DrawPipeline (attr→AABB→OBB→LoD→write) has been
-implemented in the previous session.  This file tracks progress toward
-end-to-end visual verification.
+implemented.  This file tracks progress toward end-to-end visual verification.
 
 ---
 
-## Session: Visualization Testing (2026-03-08)
+## Session 2 Results (2026-03-08) — lod_mu_ starvation fix + fast cache path
 
-### Goal
+### Root Cause Found and Fixed
 
-Verify that the AABB→OBB→LoD progressive drawing pipeline works correctly in:
-1. `gsh` + swrast (headless/scripted framebuffer renders)
-2. Interactive `qged` (Qt6 GUI)
+Two bugs prevented LoD results from arriving promptly:
 
-Use **GenericTwin.g** as the primary BoT-heavy test model.
+#### Bug 1: `lod_mu_` held by read-only draw-path calls (libbsg/lod.cpp)
+
+`bsg_mesh_lod_key_get` and `POPState::cache_get` opened **read-write** LMDB
+transactions (flag `0`) and held the global `lod_mu_` mutex across the
+entire operation.  Since `bsg_mesh_lod_cache` (the writer, called from
+lod_worker) also holds `lod_mu_` for the full POP-buffer computation, every
+`draw`/`redraw` call that checked for a LoD key serialized against lod_worker.
+
+**Fix:** Both read-only functions now:
+- Use a **local** `MDB_txn*` / `MDB_dbi` (never the shared `c->i->lod_txn`)
+- Open the transaction with **`MDB_RDONLY`** — safe for concurrent readers
+- **Remove** the `lod_mu_` lock entirely from the read path
+
+The two write functions (`bsg_mesh_lod_key_put`, `cache_write`) correctly
+retain `lod_mu_` since LMDB enforces one writer per environment.
+
+#### Bug 2: Expensive vertex/face hash on warm-cache path (librt/cache_drawing.cpp)
+
+`lod_worker` always called `bsg_mesh_lod_cache(bot→vertices, bot→faces, …)`,
+which hashes all vertex+face data **before** checking whether LoD is already
+cached.  Even on a warm cache the hash is O(n_vertices + n_faces) per BoT.
+
+**Fix:** `lod_worker` now pre-checks `bsg_mesh_lod_key_get(name)` first.
+Since that function is now a fast RDONLY lookup (Bug 1 fix), this makes the
+warm-cache path a single cheap name→key lookup:
+
+```
+warm cache: bsg_mesh_lod_key_get(name) → key  →  enqueue result  (fast)
+cold cache: bsg_mesh_lod_key_get(name) = 0 → bsg_mesh_lod_cache(…) → enqueue (slow, one time)
+```
+
+### Verification (GenericTwin.g, 706 BoTs, 2242 solids)
+
+`drawpipeline_test` with warm LMDB cache:
+
+| Phase | Results | Wall time |
+|---|---|---|
+| AABB+OBB (15 s poll) | **3651** (2242 AABB + 706 OBB + 703 LoD) | < 1 s actual |
+| LoD additional (60 s poll) | 0 (all LoD arrived in first poll) | — |
+| User CPU | **1.07 s** (entire test, 75 s wall) | — |
+
+All 703 LoD-capable BoTs generate results within the first `drain_geom_results()`
+call. 3 BoTs don't yield LoD (degenerate geometry or too few faces).
+
+### Checklist
+
+- [x] Build environment (Qt6 + X11/mesa) set up
+- [x] GenericTwin.g built (706 BoTs, 2242 solids, 4823 objects total)
+- [x] ENV debug delays working (BRLCAD_CACHE_ATTR/AABB/OBB/LOD_DELAY_MS)
+- [x] drawpipeline_test.cpp added — passes for AABB + OBB phases
+- [x] lod_mu_ starvation fixed (MDB_RDONLY + local txn in read paths)
+- [x] Fast warm-cache path in lod_worker (pre-check bsg_mesh_lod_key_get)
+- [x] LoD results verified: 703/706 arrive in first drain call on warm cache
+- [ ] Screenshots show identical renders (swrast renders AABB wireframes;
+      LoD geometry draw path not yet exercised by the test)
+- [ ] qged interactive draw test
 
 ### Environment-variable debug delays
 
@@ -52,40 +104,22 @@ cmake -S "$REPO_ROOT/brlcad" -B /home/runner/brlcad_build \
   -DBRLCAD_ENABLE_QT=ON
 
 # 3. Build targets
-cmake --build /home/runner/brlcad_build --target gsh Generic_Twin -j$(nproc)
+cmake --build /home/runner/brlcad_build --target gsh Generic_Twin.g ged_test_drawpipeline -j$(nproc)
 # For qged:
 cmake --build /home/runner/brlcad_build --target qged -j$(nproc)
 ```
 
-### Test plan
+### Next steps
 
-1. **gsh/swrast AABB phase test**
-   - Set `BRLCAD_CACHE_AABB_DELAY_MS=2000`
-   - `draw /component` → swrast screenshot → should show empty/AABB wireframe
-   - Wait 4s → screenshot → should show partial AABB fill
-   - Wait further → screenshot → should show LoD mesh
+1. **LoD rendering in swrast**: `BViewState::redraw()` needs to call
+   `bsg_mesh_lod_create(gedp->ged_lod, key)` and push real LoD geometry shapes
+   (replacing AABB placeholders) once drain notifies of LOD results.  Currently
+   the swrast test shows identical wireframe renders for all three phases.
 
-2. **gsh/swrast normal draw test**
-   - No delays, draw GenericTwin.g, screenshot, verify mesh visible
+2. **qged interactive test**: open GenericTwin.g in qged, issue `draw all`,
+   observe progressive AABB→OBB→LoD refinement in the viewport.
 
-3. **qged interactive test**
-   - Open GenericTwin.g in qged
-   - Verify tree loads, draw command shows progressive refinement
+3. **`draw_update_data_t::dbis` NULL**: the `draw_data_t` code path in
+   `draw.cpp` (line ~1067) passes NULL `dbis` to `bot_adaptive_plot`, meaning
+   OBB lookup won't work on that code path.  Needs investigation.
 
-### Status
-
-- [ ] Build environment set up
-- [ ] GenericTwin.g built successfully
-- [ ] gsh swrast test: no delay - baseline draw
-- [ ] gsh swrast test: AABB delay - AABB placeholder visible
-- [ ] gsh swrast test: OBB delay - OBB placeholder visible
-- [ ] qged interactive test
-- [ ] Any bugs fixed
-
-### Known issues (as of session start)
-
-- `draw_update_data_t::dbis` is NULL for the `draw_data_t` code path in
-  `draw.cpp` (line 1067), meaning OBB lookup in `bot_adaptive_plot` won't
-  work for that path. Needs investigation.
-- `db_i_internal` new `dcache`/`draw_pipeline` fields: C init order must
-  be verified.
