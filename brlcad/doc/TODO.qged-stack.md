@@ -219,7 +219,7 @@ Items are grouped by urgency.  Effort estimates are rough.
 
 | Item | File(s) | Status | Effort |
 |------|---------|--------|--------|
-| Add `override` to virtual overrides in `qged/` and `libqtcad/` | Many headers | Open | 2 h |
+| Add `override` to virtual overrides in `qged/` and `libqtcad/` | Many headers | ✅ Done (session 36) — `QgKeyVal.h`, `QgAttributesModel.h`, `QgEdFilter.h`, `QgTreeView.h`, `QPolyCreate.h`, `QPolyMod.h`, `QEll.h`, `CADViewMeasure.h`, `CADViewSelector.h` | — |
 | Move `raytrace.h`-dependent sketch export out of `libqtcad` into `qged` | `QgView.cpp`, `QgPolyFilter.cpp` | ✅ Unused `raytrace.h` includes removed (session 35); `QgSelectFilter.cpp` / `QgMeasureFilter.cpp` legitimately use raytrace for pick/measure | — |
 | Migrate `fbserv.cpp` from `QTcpServer`/`QTcpSocket` to `QLocalServer`/`QLocalSocket` | `fbserv.cpp/.h` | Deferred — requires libpkg Unix-domain-socket support first | 4 h |
 | Convert `QgModel::rootItem` / `items` (raw pointer forest) to `unique_ptr` ownership | `QgModel.cpp/.h` | Open | 4 h |
@@ -355,14 +355,28 @@ geometry automatically.
 - ✅ **`mged/cmd.c` `_view_cache`**: Already complete — `_view_cache_save/restore` use
   `bsg_view_get/set_camera()` for camera fields; scalar fields are accessed directly.
 
+### Completed (session 36)
+
+- ✅ **`override` audit complete**: Added `override` to all missing virtual overrides:
+  - `QgKeyVal.h`: `QgKeyValModel::index/parent/rowCount/columnCount/headerData/data/setData`;
+    `QgKeyValDelegate::paint()`
+  - `QgAttributesModel.h`: `hasChildren`, `canFetchMore`, `fetchMore`
+  - `QgEdFilter.h`: `eventFilter`
+  - `QgTreeView.h`: `gObjDelegate::paint()`
+  - Plugin headers: `QPolyCreate`, `QPolyMod`, `QEll`, `CADViewMeasure`, `CADViewSelector`
+    — all `eventFilter` methods now carry `override`.
+- ✅ **BSG P3 helpers already implemented**: `bsg_view_find_by_type()`,
+  `bsg_scene_root_camera()`, `bsg_view_mat_aet_camera()`, and `bsg_sensor_fire()` are
+  all present and functional in `src/libbsg/scene_graph.cpp`.  TODO updated accordingly.
+
 ### Short-term (open)
 
 1. **`QgModel` ownership** (Tier 2): convert `rootItem` and the `items` set to
    `unique_ptr`-based ownership to eliminate the raw-pointer forest.
 
-2. **Add `override` throughout** (Tier 2 / mechanical): prevents silent virtual
-   dispatch breakage when base class signatures change.  Remaining gap is modest —
-   most of the critical paths already use `override`.
+2. **AABB placeholder rendering** (Section 7.4): extend `BViewState::redraw()` to
+   draw a lightweight wireframe bounding-box for paths in `draw_list_` whose full
+   geometry hasn't arrived yet but whose bbox is already in `dbis->bboxes`.
 
 ### Medium-term (modernisation)
 

@@ -44,7 +44,7 @@ class QTCAD_EXPORT QgAttributesModel : public QgKeyValModel
 	explicit QgAttributesModel(QObject *parent = 0, struct db_i *dbip = DBI_NULL, struct directory *dp = RT_DIR_NULL, int show_std = 0, int show_user = 0);
 	~QgAttributesModel();
 
-	bool hasChildren(const QModelIndex &parent) const;
+	bool hasChildren(const QModelIndex &parent) const override;
 	int update(struct db_i *new_dbip, struct directory *dp);
 
     public slots:
@@ -56,8 +56,8 @@ class QTCAD_EXPORT QgAttributesModel : public QgKeyValModel
 	void do_dbi_update(struct db_i *dbip);
 
     protected:
-	bool canFetchMore(const QModelIndex &parent) const;
-	void fetchMore(const QModelIndex &parent);
+	bool canFetchMore(const QModelIndex &parent) const override;
+	void fetchMore(const QModelIndex &parent) override;
 
     private:
 	void add_Children(const char *name, QgKeyValNode *curr_node);

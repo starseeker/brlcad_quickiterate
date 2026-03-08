@@ -83,7 +83,7 @@ class QTCAD_EXPORT gObjDelegate : public QStyledItemDelegate
     public:
 	gObjDelegate(QgTreeView *tv = nullptr, QWidget *pparent = 0) : QStyledItemDelegate(pparent) {cadtreeview = tv  ;}
 
-	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
+	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 
 	QgTreeView *cadtreeview = nullptr;

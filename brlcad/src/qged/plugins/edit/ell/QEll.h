@@ -65,7 +65,7 @@ class QEll : public QWidget
 	void update_viewobj_name(const QString &);
 
     protected:
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
     private:
 	struct directory *dp = nullptr;

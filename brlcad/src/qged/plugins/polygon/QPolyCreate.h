@@ -93,7 +93,7 @@ class QPolyCreate : public QWidget
 	void toggle_grid_snapping(bool);
 
     protected:
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
     private:
 	bg_clip_t op = bg_Union;
