@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>FACETIZE(nged)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>FACETIZE(nged) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>facetize - Creates new_object using old_object as a guide, creating an evaluated NMG or BoT planar approximation of the original shape.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>facetize [-h] [-v] [-q] [-n] [-r] [-s suffix] [-p prefix] [--in-place] [--max-time #] [--max-pnts #] [--resume] [--methods m1,m2,...] [--method-opts METHOD opt1=val opt2=val...] [--no-empty] [--log-file filename] [--disable-fixup] {&lt;old_object new_object&gt;}</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <em>facetize</em> operation in BRL-CAD is, broadly speaking, the processing of creating an explicit planar approximation of a CSG volume by evaluating the boolean expressions used to combine a set of explicit and implicit solid primitives. It is the core operation necessary for creating triangle based meshes from BRL-CAD geometry.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>facetize</strong> command can attempt to produce either triangle-only BoT objects, or N-Manifold Geometry (NMG) objects, but generally speaking BoT generation will have a higher success rate than NMG. BoTs are also more useful when exporting to formats such as STL and OBJ - by default BoT output is what <strong>facetize</strong> will produce.</p>
+</div>
+<div class="paragraph">
+<p>In general Boolean evaluation of meshes is a very difficult problem, and there are also some specific considerations when it comes to preparing geometry for solid shotline raytracing that require more effort than producing a visualization mesh. It is recommended to use the <strong>lint</strong> command, both to verify input objects are well behaved before facetization and to check <strong>facetize</strong> outputs for any potential issues. Often times either the original CSG geometry definitions will need adjustment to avoid coplanar faces, or mesh editing is required to resolve problematic triangle configurations.</p>
+</div>
+<div class="paragraph">
+<p>By default all specified existing objects will be combined into a single mesh, but that is often undesirable when working within BRL-CAD - information stored on region combs such as color will be lost when converting in this fashion. The <strong>-r</strong> option will introspect into the specified objects and perform facetization on a per-region basis. (If the specified input has no regions in its tree, a normal facetization to a single object is performed instead.) The output will be a new hierarchy that references the facetized regions but retains the properties of parent regions. Users looking to interact visually with a shaded display of a model will likely find the <strong>-r</strong> output useful for that purpose.</p>
+</div>
+<div class="paragraph">
+<p>There are a number of different verbosity levels available for the facetize command. One or multiple specifications of the <strong>-v</strong> flag will increase reporting detail. Because full output from facetize can be quite verbose, the user has the option to specify a log file with the <strong>&#8212;&#8203;log-file</strong> option - this will capture <em>all</em> output from the command and allow for more detailed scrutiny of what took place after a conversion has finished.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="facetize_output_modes">Output Characteristics and Processing Controls</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default the <strong>facetize</strong> command attempts to be non-destructive when operating on objects - it will not rename or replace any existing geometry in normal operational modes, and will adjust its naming accordingly when producing new objects. However, if a user <em>wants</em> to replace objects with facetized replacements, this may be accomplished by specifying the <strong>&#8212;&#8203;in-place</strong> option. Note that this is a destructive operation - the original object definitions will be overwritten - so use with care!</p>
+</div>
+<div class="paragraph">
+<p>Users may be a bit startled to see empty (0 face, 0 vertices) BoTs produced by a facetize command, but this is in fact expected behavior when a boolean option legitimately results in an empty mesh. For example, if a sphere in a comb is subtracted from itself, and no other geometry is referenced, the result is a zero (empty) volume. The <strong>lint</strong> command can be used to identify such BoTs - if they <em>are</em> produced, it is often an indication the original CSG definition has some sort of problem. These empty outputs can be suppressed by specifying the <strong>&#8212;&#8203;no-empty</strong> option, but the recommended course is to determine what about the original geometry produced them and either correct any issues or (if the shapes truly are not intended to be present) remove the original CSG definitions producing them.</p>
+</div>
+<div class="paragraph">
+<p>It may happen that a conversion fails part way through the process. This can happen due to user intervention, resource exhaustion, or simply as a consequence of a bug in the conversion logic. If this happens, the intermediate state of the conversion will be stored by BRL-CAD in its cache directory, and the interrupted process may be resumed by re-running <strong>facetize</strong> with the <strong>&#8212;&#8203;resume</strong> option. (If a conversion fails and the command is re-run without specifying <strong>&#8212;&#8203;resume</strong>, previous work will be cleared and the process will start over from the beginning.</p>
+</div>
+<div class="paragraph">
+<p>In normal operation, when converting to BoT output there are post-processing routines that try to identify and automatically fix certain categories of geometric flaws that can crop up during Boolean evaluation. If a user finds that they are getting unexpected output for a particular input, and the log indicates the repair step was run, one option available is to repeat the conversion with these repair steps disabled via the <strong>&#8212;&#8203;disable-fixup</strong> flag. Repair should only be disabled if there is a problem - coplanar subtractions frequently result in thin triangle artifacts lingering after Boolean evaluation due to the imitations of floating point math, and in at least some cases the fixup routines are able to deal with these without requiring manual intervention. (These routines will not <em>always</em> work, so checking of outputs after a conversion with the <strong>lint</strong> command to identify BoTs with potentially problematic features is still recommended - see the <strong>lint</strong> man page for more details.)</p>
+</div>
+<div class="paragraph">
+<p>Different tolerance settings will create finer or coarser meshes. See the <strong>tol</strong> man page for more details.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="facetize_options">Options</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>-h, &#8212;&#8203;help</strong></dt>
+<dd>
+<p>Print help and exit.</p>
+</dd>
+<dt class="hdlist1"><strong>-v[v..], &#8212;&#8203;verbose</strong></dt>
+<dd>
+<p>Prints extra (verbose) information in results. May be overridden by the <strong>&#8212;&#8203;quiet</strong> flag.</p>
+</dd>
+<dt class="hdlist1"><strong>-q, &#8212;&#8203;quiet</strong></dt>
+<dd>
+<p>Suppress all output (overrides verbosity flag.)</p>
+</dd>
+<dt class="hdlist1">**-n, &#8212;&#8203;nmg-output</dt>
+<dd>
+<p>Instructs <strong>facetize</strong> to produce NMG solids rather than BoT solids.</p>
+</dd>
+<dt class="hdlist1"><strong>-r, &#8212;&#8203;regions</strong></dt>
+<dd>
+<p>Rather than converting all specified inputs to one top level object, walk specified trees and individually convert regions to facetized objects. This mode is useful when wanting to display models in shaded mode while preserving color and region ID properties. If no regions are present a normal conversion is performed instead.</p>
+</dd>
+<dt class="hdlist1"><strong>-s, &#8212;&#8203;suffix</strong></dt>
+<dd>
+<p>User specified suffix to use avoiding naming conflicts (naming conflict avoidance is needed needed when creating objects in <strong>-r</strong> mode.)</p>
+</dd>
+<dt class="hdlist1"><strong>-p, &#8212;&#8203;prefix</strong></dt>
+<dd>
+<p>User specified prefix to use avoiding naming conflicts (naming conflict avoidance is needed needed when creating objects in <strong>-r</strong> mode.)</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;in-place</strong></dt>
+<dd>
+<p>Replace the specified object(s) with their facetizations. (WARNING: this option is destructive and will change pre-existing geometry!)</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;max-time #</strong></dt>
+<dd>
+<p>Maximum time to spend per object (in seconds). Default is method specific. Note that specifying shorter times may cut off conversions (particularly using sampling methods) that could succeed with longer runtimes. Per-method time limits can also be adjusted to allow longer runtimes on slower methods.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;max-pnts #</strong></dt>
+<dd>
+<p>Maximum number of pnts per object to use when applying ray sampling methods.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;resume</strong></dt>
+<dd>
+<p>Resume an incomplete facetization process (will utilize cached data from a previous run rather than starting from scratch.) Re-running without this option will clear any old data and start from the beginning.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;methods</strong></dt>
+<dd>
+<p>Accepts a comma separated list of one or more facetization methods to use. The default is to try all algorithims available as needed, but if a user knows they want to try a specific methodology they can call it out using this option.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;method-opts</strong></dt>
+<dd>
+<p>This option can be used to pass parameter values to specific facetize methods. The argument format is "METHOD opt1=val1 opt2=val2 &#8230;&#8203;". See the <strong>&#8212;&#8203;help</strong> output for which methods and parameters are supported by <strong>facetize</strong>.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;no-empty</strong></dt>
+<dd>
+<p>Do not write out empty BoT objects when a Boolean evaluation results in an empty mesh.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;log-file</strong></dt>
+<dd>
+<p>Specify a log file in which to store the full verbose output of a facetization process. This is recommended for large or long running facetize runs to allow users to better understand what steps were taken and what problems might have arisen.</p>
+</dd>
+<dt class="hdlist1"><strong>&#8212;&#8203;disable-fixup</strong></dt>
+<dd>
+<p>By default, BoT facetization will attempt to clear certain categories of undesirable triangles from outputs. Specifying this option will skip that repair attempt.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="methods">Facetization Methods</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In broad, there are two stages to a facetization process. The first stage is the generation of mesh representations for individual geometric primitives - implicit ELL, ARB8, TOR, etc. solids must be represented by mesh approximations before they can become part of an evaluated mesh. Additionally, inputs that are already meshes are checked for suitability - all input meshes, whether generated from implicit shapes or pre-existing as BoTs, must be properly manifold before they can be used for facetization. Once all solids have been successfully converted, the next step is to evaluate the Boolean tree hierarchy by unioning, subtracting or intersecting the various meshes together to produce the evaluated shapes.</p>
+</div>
+<div class="paragraph">
+<p>The process of individual primitive to mesh conversion can sometimes be problematic - routines may take extremely long lengths of time trying to resolve a conversion problem. In order to avoid the process hanging indefinitely with no progress, a timeout is established that limits how long each individual conversion process should take. Various methods have defaults defined internally, so this isn&#8217;t something the user normally needs to concern themselves with, but if they wish to set a limit themselves (either allowing more time or forcing shorter cycles) they can do so with the <strong>&#8212;&#8203;max-time</strong> option.</p>
+</div>
+<div class="paragraph">
+<p>It can be difficult to produce a mesh from a primitive shape. Simply waiting longer for results often isn&#8217;t practical or even the right answer - indeed, infinite looping has been observed in some primitive conversion cases. To work around these limitations, BRL-CAD provides multiple methods that can be used to attempt mesh production in case other methods fail. We deliberately do not document those methods in detail here - they are subject to change as new alternatives are identified that can produce better results. What we <em>do</em> document is how to use the facetize command to see what methods are currently available and control them. The <strong>-h</strong> option will list, at the end of its output, information about all currently available methods and what controls they offer. The facetize option <strong>&#8212;&#8203;methods</strong> can be used to restrict the facetize command to a particular subset of the available methodologies, and the <strong>&#8212;&#8203;method-opts</strong> option is used to pass specific parameters to a specific method.</p>
+</div>
+<div class="paragraph">
+<p>Because many of the facetization methods are sampling based (the raytracer is used to sample the volume) a top level control is available to specify the maximum number of points to use when generating inputs for such methods. (More points generally means a better conversion at the expense of memory and runtime.)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="exampleblock">
+<div class="title">Create a facetized BOT version of an existing object.</div>
+<div class="content">
+<div class="paragraph">
+<p>The example shows the use of the <strong>facetize</strong> command to create a facetized BOT version of an existing object (<em>old_object</em>) and renaming that facetized object (<em>new_object</em>).</p>
+</div>
+<div class="paragraph">
+<p>mged&gt;<strong>facetize region1.r region1.bot</strong></p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Facetize all regions in a hierarchy.</div>
+<div class="content">
+<div class="paragraph">
+<p>This runs the per region conversion on all regions under the "model" assembly and creates a new conversion hierarchy under model_facetized.</p>
+</div>
+<div class="paragraph">
+<p>mged&gt;<strong>facetize -r model model.f</strong></p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Facetize all regions in a hierarchy, attempting only NMG conversion.</div>
+<div class="content">
+<div class="paragraph">
+<p>This runs the NMG approach per region conversion on all regions, but in the case of failure will not attempt any fallback conversion methods.</p>
+</div>
+<div class="paragraph">
+<p>mged&gt;<strong>facetize -r &#8212;&#8203;methods NMG model model.f</strong></p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Retry failed conversion objects in a previous facetization attempt with new methodology.</div>
+<div class="content">
+<div class="paragraph">
+<p>This resumes a failed conversion of <em>model</em>.</p>
+</div>
+<div class="paragraph">
+<p>mged&gt;<strong>facetize -r &#8212;&#8203;resume model model.f</strong></p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Increase Decimation in CM Mode</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>facetize &#8212;&#8203;methods CM &#8212;&#8203;method-opts feature_size=0.06 d_feature_size=2.0 ellipse.r ell.bot</strong></p>
+</div>
+<div class="paragraph">
+<p>The default settings on this object in CM mode will produce a little over 8000 faces in the final bot, but the addition of the <strong>d_feature_size</strong> option with a &gt;1.5 value has dramatically reduced the count to 104.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Decrease Decimation in CM Mode</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>facetize &#8212;&#8203;methods CM &#8212;&#8203;method-opts feature_size=0.06 d_feature_size=0.01 ellipse.r ell.bot</strong></p>
+</div>
+<div class="paragraph">
+<p>If the intent is preserve a more detailed mesh, reducing <strong>decimation-feature-size</strong> will keep more of the original triangles - in the above example, almost 250 thousand of the original 6.9 million faces were retained. NOTE: use lower values here cautiously, as extremely large meshes can be very difficult for many tools to deal with.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="util">USEFUL TRICKS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>These are some useful commands related to the facetization process.</p>
+</div>
+<div class="exampleblock">
+<div class="title">List invalid BoT objects below a comb</div>
+<div class="content">
+<div class="paragraph">
+<p>Use lint -I to report on invalid objects below a comb.</p>
+</div>
+<div class="paragraph">
+<p>mged&gt;<strong>lint -I model.f</strong></p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Pre-extrude Plate Mode BoTs</div>
+<div class="content">
+<div class="paragraph">
+<p>Use search -exec to extrude all plate mode bots before attempting a facetize operation.</p>
+</div>
+<div class="paragraph">
+<p>mged&gt;<strong>search model.f -type bot -type plate -exec "bot extrude -i {}" ";"</strong></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="implementation_notes">Implementation Details</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The current implementation of <strong>facetize</strong> launches primitive facetization operations in a subprocess, to allow for recovery if individual primitives crash, infinite loop, or otherwise trigger what would otherwise be catastrophic behavior. This means that it is essential the operating environment allow the parent program to launch those subprocesses - otherwise, conversion will fail.</p>
+</div>
+<div class="paragraph">
+<p>Unlike previous versions of <strong>facetize</strong>, this version (in BoT mode) will only facetize each primitive once - if a primitive is instanced repeatedly in multiple combs, it will use the same BoT to represent all of those instances. If for some reason this is not desired behavior, the user should first prepare the geometry by making all instances unique with <strong>xpush</strong>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

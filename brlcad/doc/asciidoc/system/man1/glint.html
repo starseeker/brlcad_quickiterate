@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>G_LINT(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>G_LINT(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>glint - a BRL-CAD geometry checker</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>glint [&lt;options&gt;] &lt;model.g&gt; &lt;objects&gt;...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>glint</strong> uses <strong>librt</strong>(3) to fire an array of parallel rays at the specified <em>objects</em> in the database <em>model.g</em> and reports overlaps, vacuums, and potential problems with air regions. By default, the output consists of single-line reports, each of which contains a tag identifying the report type and then other data as appropriate for that type report. Unless the <strong>-p</strong> option is specified, the exact formats are:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><em>overlap__r1 r2 length x_in y_in z_in x_out y_out z_out</em></dt>
+<dd>
+<p>Consecutive partitions overlap by more than <em>tol</em> (see the <strong>-t</strong> option). The data reported are the names of the two regions involved, the length of the overlap along the ray, and the model coordinates of the ray&#8217;s entry into and exit from the overlap.</p>
+</dd>
+<dt class="hdlist1"><em>air_contiguous__r1 a1 r2 a2 x y z</em></dt>
+<dd>
+<p>Consecutive partitions have unlike (nonzero) air codes and the space between them is less than <em>tol</em> (see the <strong>-t</strong> option). The data reported are the names and air codes of the two regions involved and the model coordinates of the point of contiguity.</p>
+</dd>
+<dt class="hdlist1"><em>air_unconfined__r1 (s1) r2 (s2) length x1 y1 z1 x2 y2 z2</em></dt>
+<dd>
+<p>A partition with nonzero air code follows or precedes another partition and the space between them is more than <em>tol</em> (see the <strong>-t</strong> option). The data reported are the names of the two regions (and solids) involved, the length of the gap along the ray, and the model coordinates of the ray&#8217;s exiting the first partition and entering the second.</p>
+</dd>
+<dt class="hdlist1"><em>air_first__r a x y z</em></dt>
+<dd>
+<p>The first partition has a nonzero air code. The data reported are the name and air code of the region involved and the model coordinates of the ray&#8217;s entering the partition.</p>
+</dd>
+<dt class="hdlist1"><em>air_last__r a x y z</em></dt>
+<dd>
+<p>The last partition has a nonzero air code. The data reported are the name and air code of the region involved and the model coordinates of the ray&#8217;s exiting the partition.</p>
+</dd>
+<dt class="hdlist1"><em>vacuum__r1 (s1) r2 (s2) length x1 y1 z1 x2 y2 z2</em></dt>
+<dd>
+<p>The space between consecutive partitions is more than <em>tol</em> (see the <strong>-t</strong> option). The data reported are the names of the two regions (and solids) involved, the length of the gap along the ray, and the model coordinates of the ray&#8217;s exiting the first partition and entering the second.</p>
+</dd>
+</dl>
+</div>
+<div class="sect2">
+<h3 id="commandline_options">Command-line options</h3>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">*-a*<em>az</em></dt>
+<dd>
+<p>Sets the azimuth from which to fire rays to <em>az</em> degrees. The default is 0.</p>
+</dd>
+<dt class="hdlist1"><strong>-c</strong></dt>
+<dd>
+<p>Specifies that one ray should be fired from the center of each grid cell. By default, <strong>glint</strong> fires a ray from one random point in each cell.</p>
+</dd>
+<dt class="hdlist1">*-e*<em>el</em></dt>
+<dd>
+<p>Sets the elevation from which to fire rays to <em>el</em> degrees. The default is 0.</p>
+</dd>
+<dt class="hdlist1">*-g*<em>gridsize</em></dt>
+<dd>
+<p>Sets the width and height of each grid cell to <em>gridsize</em> millimeters. The default is 100 mm.</p>
+</dd>
+<dt class="hdlist1"><strong>-o</strong></dt>
+<dd>
+<p>Causes <strong>glint</strong> to include in each report the model coordinates of the ray origination point. These appear between the tag and the rest of the data.</p>
+</dd>
+<dt class="hdlist1"><strong>-p</strong></dt>
+<dd>
+<p>Causes <strong>glint</strong> to produce its reports as <em>plot3(5)</em> drawing commands instead of ASCII text. This is useful in conjunction with the "overlay" command of <em>mged</em>.</p>
+</dd>
+<dt class="hdlist1">*-r*<em>bits</em></dt>
+<dd>
+<p>Specifies which types of reports to produce. If, after an optional minus sign, <em>bits</em> begins with either "0x" or "0X", the remainder is interpreted in hexadecimal. Otherwise, if <em>bits</em> begins with "0", the remainder is interpreted in octal. Otherwise, <em>bits</em> is interpreted in decimal. The meaning of the individual bits is as follows: 1 overlaps 2 contiguous unlike airs 4 unconfined airs 8 air first on rays 16 air last on rays 32 vacuums. If there was no initial minus sign, then <em>bits</em> specifies which report types to produce. The minus sign implies complementation: when it is present, <em>bits</em> specifies which report types <em>not</em> to produce. The default is 1.</p>
+</dd>
+<dt class="hdlist1"><strong>-s</strong></dt>
+<dd>
+<p>Causes <strong>glint</strong> to collect all the overlap reports and sort them before printing them. The reports for a given pair of regions are printed contiguously, and the clusters of reports for the various pairs of regions appear in order of decreasing cumulative overlap length. By default, <strong>glint</strong> reports overlaps immediately and in the order of their discovery.</p>
+</dd>
+<dt class="hdlist1">*-t*<em>tol</em></dt>
+<dd>
+<p>Sets the tolerance for overlaps, contiguous and unconfined airs, and vacuums to <em>tol</em> millimeters. The default is 0.</p>
+</dd>
+<dt class="hdlist1"><strong>-u</strong></dt>
+<dd>
+<p>Sets the <em>useair</em> member of the <em>rt_i</em> structure to 1, which causes <em>librt</em> to report partitions containing air. It is also set implicitly if any air-related reports have been specified. By default, <em>librt</em> ignores air regions.</p>
+</dd>
+<dt class="hdlist1">*-x*<em>bits</em></dt>
+<dd>
+<p>Sets the <strong>glint</strong> debug flags to <em>bits</em>. See the <strong>-r</strong> option for more details. Note that some of the report types have no corresponding diagnostics.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="example">EXAMPLE</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The command</p>
+</div>
+<div class="paragraph">
+<p>glint -a 35 -e 25 -c -g 1 -r 31 -t 0.01 <em>kitchen.g appliances</em></p>
+</div>
+<div class="paragraph">
+<p>fires a ray every millimeter and produces overlap reports and every type of air-related report, but no vacuum reports.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>mged</strong>(1), <strong>librt</strong>(3), <strong>strtoul</strong>(3), <strong>plot3</strong>(5)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1995-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

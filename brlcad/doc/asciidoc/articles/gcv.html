@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Jon Engbert">
+<title>The Geometry Conversion Library</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>The Geometry Conversion Library</h1>
+<div class="details">
+<span id="author" class="author">Jon Engbert</span><br>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_introduction">Introduction</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Geometry Conversion Library (GCV or libgcv) provides a unified API for geometry conversion capabilities under a plugin-based architecture.</p>
+</div>
+<div class="paragraph">
+<p>The GCV public API is declared in C headers located within <code>include/gcv/</code>. The single <code>include/gcv.h</code> header includes the entire GCV public API.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_architecture">Architecture</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Geometry Conversion Library consists of a stream-based API for geometry conversion and associated operations. Input and output are provided by "reader" and "writer" converters (provided by plugins). Intermediate operations are provided by "filters". Readers and writers are types of filters that provide input and output support for model formats, while basic filters apply transformations to models and geometry.</p>
+</div>
+<div class="paragraph">
+<p>Geometry is stored in an in-memory BRL-CAD database (<code>struct db_i</code> in <code>include/rt/db_instance.h</code>) during the intermediate steps of conversion. For writer filters, this database is marked read-only and its geometry should not be modified. All names within a BRL-CAD database must be unique.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/gcv_architecture.png" alt="../articles/images/gcv_architecture.png">
+</div>
+<div class="title">GCV architecture</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_building_gcv">Building GCV</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>GCV can be built in a similar manner as other BRL-CAD libraries. After configuring with CMake, building the <code>libgcv</code> target will produce a dynamic library. For Unix-based systems, the procedure should be similar to the following:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+$ cd brlcad
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make libgcv</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Plugins can be built under <code>gcv__plugin_name_</code> targets, or collectively under the <code>gcv_plugins</code> target.</p>
+</div>
+<div class="paragraph">
+<p>The command-line utility can be built under the <code>gcv</code> target. At this time, the <code>gcv</code> program is not installed automatically; the binary will be placed into <code>build/src/conv/gcv/</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_example_using_gcv_in_an_application">Example: Using GCV in an application</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following code illustrates a basic use of GCV from within an application. Note that there may be multiple filters providing import/export capabilities for a given format; the below code simply selects the first matching filter encountered.</p>
+</div>
+<div class="exampleblock">
+<div class="title">gcv_app.c</div>
+<div class="content">
+<div class="paragraph">
+<p>TODO: embedded code</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_gcv_public_api">GCV Public API</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The public API for interacting with GCV filter plugins is summarized below.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">GCV public filter API</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>struct gcv_context</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Stores the conversion state. Plugins may store messages in the <code>bu_avs_t</code> member <code>messages</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_context_init()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Initialize a <code>struct gcv_context</code>. Creates an in-memory <code>struct db_i</code> for conversion data.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_context_destroy()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Frees memory associated with a <code>struct gcv_context</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>struct gcv_filter</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Stores characteristics of a filter.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>struct gcv_opts</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Store generic options applying to all filters.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_opts_default()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Initialize a <code>struct gcv_opts</code> with default values.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_list_filters()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Returns a pointer to a <code>const struct bu_ptbl</code> containing all registered filters as <code>const struct gcv_filter</code> pointers.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_execute()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Perform a filter operation on a <code>struct gcv_context</code>. Returns <code>1</code> on success and <code>0</code> on failure. If <code>gcv_options</code> is <code>NULL</code>, the defaults will be used as set by <code>gcv_opts_default()</code>. The parameters <code>argc</code> and <code>argv</code> are used for option parsing as specified by the struct gcv_filter.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_the_internal_plugin_api">The Internal Plugin API</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The GCV plugin API is declared in <code>include/gcv/api.h</code>. Plugins provide an externally-visible <code>const struct gcv_plugin</code> defining their filters, which are described by <code>struct gcv_filter</code>.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">The gcv_filter struct</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies a unique name for the filter, allowing it to be identified by application code.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>filter_type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the type of filter.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>create_opts_fn</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Optional pointer to a function that allocates and initializes <code>struct bu_opt_desc</code> data and an opaque pointer for storing the option data. If non-<code>NULL</code>, <code>free_opts_fn</code> must also be specified. This member is private for use by libgcv and the associated plugin.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>free_opts_fn</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Optional pointer to a function that frees any opaque pointer allocated by <code>create_opts_fn</code>. This member is private for use by libgcv and the associated plugin.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>filter_fn</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pointer to a function which performs the filter operation. The <code>db_i</code> passed to a writer function within a <code>gcv_context</code> is marked read-only (the pointer is to a non-<code>const</code> struct due to in-memory data that may be modified). Filters of type <code>GCV_FILTER_FILTER</code> receive a <code>NULL</code> value for <code>target</code>. Must return <code>1</code> on success and <code>0</code> on failure. This member is private for use by libgcv and the associated plugin.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>As shown in the above table, filters may initialize data structures for processing command-line style option strings via <code>bu_opt</code>. Please refer to <code>include/bu/opt.h</code> for full documentation on the <code>bu_opt</code> API.</p>
+</div>
+<div class="sect2">
+<h3 id="_utility_functions">Utility Functions</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In addition to availability of the rest of the BRL-CAD API, the Geometry Conversion Library provides a number of utility functions that may be useful during plugin development.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">GCV utility functions</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_bot_is_solid()</code>, <code>gcv_bot_is_closed()</code>, <code>gcv_bot_is_orientable()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Performs topological tests for determining whether a given triangular mesh is a manifold, orientable, closed fan satisfying requisite conditions for object solidity. <code>gcv_bot_is_solid()</code> is equivalent to <code>gcv_bot_is_closed &amp;&amp; gcv_bot_is_orientable()</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_facetize()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Produces a triangular mesh tessellation of the object at the given database path using the specified tolerances. Note that if the object at the given path is a combination, a single mesh will be produced from all objects within its tree, and so calling gcv_facetize() on a tree unnecessarily high in the hierarchy and containing many objects is more likely to fail during Boolean evaluation.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>There are also many relevant functions provided by the BRL-CAD API, including a new mesh decimation function.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">BRL-CAD mesh decimation API</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>rt_bot_decimate_gct()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Fast implementation of an iterative mesh decimation algorithm.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_developing_a_minimal_plugin">Developing a Minimal Plugin</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_basic_code">Basic Code</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following steps will implement a minimal plugin providing a reader filter.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Add the following line to <code>misc/mime_cad.types</code>. This file is used to generate <code>include/bu/mime.h</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre>
+model/foo               bar</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This will associate the file extension <code>.bar</code> with a new <code>BU_MIME_MODEL_FOO</code> value of <code>bu_mime_model_t</code>.</p>
+</div>
+</li>
+<li>
+<p>Create the following file at <code>src/libgcv/plugins/foo/CMakeLists.txt</code>:</p>
+<div class="exampleblock">
+<div class="title">CMakeLists.txt</div>
+<div class="content">
+<div class="listingblock">
+<div class="content">
+<pre>
+LIBGCV_ADD_PLUGIN(foo "foo_read.c" "librt;libbu")</pre>
+</div>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>=== Traversing the Database</p>
+<div class="exampleblock">
+<div class="title">foo_read.c</div>
+<div class="content">
+<div class="paragraph">
+<p>TODO: embedded code</p>
+</div>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>BRL-CAD provides the <code>db_walk_tree()</code> function for traversing the database in hierarchical order. You can specify your own visitor callbacks as documented in <code>include/rt/tree.h</code>, or use the region-end functions provided by GCV (<code>include/gcv/util.h</code>) to tessellate geometry at the region level.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">GCV region-end tessellation callbacks</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_region_end()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Apply Boolean evaluation to region-level tessellated meshes using the default NMG Boolean evaluator, replacing each region-level node and its subtree of tessellated leaf meshes with a single BoT structure that is then passed to the specified callback. The <code>client_data</code> pointer should point to a <code>struct gcv_region_end_data</code>. The individual leaf nodes must already be tessellated into BoTs. This can be done by specifying a <code>leaf_func</code> such as <code>rt_booltree_leaf_tess()</code>. In the case of failure, an error message is emitted via <code>bu_log()</code> and the callback is not invoked. Any use of <code>bu_bomb()</code> produced by the callback is trapped and an error message is displayed while continuing the tree walk.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_bottess_region_end()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Boolean evaluator roughly based on UnBBoolean&#8217;s j3dbool (and associated papers). Does not take a callback.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gcv_region_end_mc()</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Experimental variant of <code>gcv_region_end()</code> based on the marching-cubes algorithm. Tessellates leaves internally and does not require a <code>leaf_func</code>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The following example implements a filter that tessellates all geometry into BoT mesh objects and counts the total number of faces.</p>
+</div>
+<div class="exampleblock">
+<div class="title">tessellation_statistics.c</div>
+<div class="content">
+<div class="paragraph">
+<p>TODO: embedded code</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_converting_unsupported_entities">Converting Unsupported Entities</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Although BRL-CAD supports a wide array of common geometric primitives, you may encounter objects that can&#8217;t be directly imported or exported into an analogous entity. In these cases, conversion filters usually tessellate the incompatible geometry (typically during export) or convert it into an approximation or a composite of several other primitives (often during import).</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/gcv_unsupported_tessellation.png" alt="../articles/images/gcv_unsupported_tessellation.png">
+</div>
+<div class="title">Tessellation of incompatible entities</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_comparing_geometry">Comparing Geometry</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When developing a filter, it is often useful to be able to compare different models during testing. This capability is provided by the <code>gdiff</code> tool. There are two versions of <code>gdiff</code>: the standalone command-line version and the <code>gdiff</code> provided within the MGED interface.</p>
+</div>
+<div class="paragraph">
+<p>The command-line <code>gdiff</code> quickly produces a textual summary for a two- or three- way diff of several BRL-CAD databases. Documentation for this utility is available under <code>brlman gdiff</code>.</p>
+</div>
+<div class="paragraph">
+<p>The <code>gdiff</code> command available within the MGED interface provides a different capability. It uses BRL-CAD&#8217;s ray tracer to produce a visual display of the differences between two objects within the same database. To compare geometry from separate databases, you can first merge the databases using the <code>dbconcat</code> command from within MGED. See <code>brlman dbconcat</code> for full documentation.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Usage of MGED&#8217;s gdiff utility</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Usage:</th>
+<th class="tableblock halign-left valign-top"><code>gdiff [OPTION]&#8230;&#8203; obj1 obj2</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;tol=<mark></code>, <code>-t</mark></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Tolerance in millimeters.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;ray-diff</code>, <code>-R</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Test for differences with raytracing.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;view-left</code>, <code>-l</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Visualize volumes added only by left object.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;view-both</code>, <code>-b</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Visualize volumes common to both objects.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;view-right</code>, <code>-r</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Visualize volumes added only by right object.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;grazing</code>, <code>-G</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Report differences in grazing hits (raytracing mode).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="imageblock">
+<div class="content">
+<img src="../articles/images/gcv_using_gdiff.png" alt="../articles/images/gcv_using_gdiff.png">
+</div>
+<div class="title">Using MGED&#8217;s gdiff utility</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_creating_unit_tests">Creating Unit Tests</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD provides a library of standard models that may be used for unit tests, located under <code>$BRLCAD_ROOT/share/db/</code> (note that these files are generated during the build process). Unit tests can be integrated into the build system using the <code>add_test</code> CMake command.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_example_extending_an_application">Example: Extending an Application</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following example will leverage the filter in the above plugin example, <code>tessellation_statistics.c</code>, to implement a function that counts the number of faces in a model after tessellation.</p>
+</div>
+<div class="exampleblock">
+<div class="title">gcv_embedded.c</div>
+<div class="content">
+<div class="paragraph">
+<p>TODO: embedded code</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_the_gcv_frontend">The GCV Frontend</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>GCV includes a command-line front-end utility, <code>gcv</code>, implemented in <code>src/conv/gcv/gcv.c</code>. Full documentation is available under <code>brlman gcv</code> and <code>gcv &#8212;&#8203;help</code>.</p>
+</div>
+<div class="exampleblock">
+<div class="title">Basic usage of the gcv utility</div>
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>
+$ gcv --input=a.stl --output=b.fg4
+Input file format: BU_MIME_MODEL_STL
+Output file format: BU_MIME_MODEL_VND_FASTGEN
+Input file path: a.stl
+Output file path: b.fg4
+    Converting Part: all_cpu_cpw6_cw_cpubox_cpubox.a
+    Using solid name: s.all_cpu_cpw6_cw_cpubox_cpubox.a
+    Making region (all_cpu_cpw6_cw_cpubox_cpubox.a)
+...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Generic options</div>
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>
+$ gcv --input=a.fg4 --output=b.vrml --input-and-output-opts --verbosity=1 --output-only-opts --objects=comp_0001.r</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Filter-specific options</div>
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>
+$ gcv --input=a.fg4 --output=b.obj --input-only-opts --colors=a.fg4.colors --output-only-opts --vertex-normals</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Specifying conversion formats</div>
+<div class="content">
+<div class="literalblock">
+<div class="content">
+<pre>
+$ gcv --input=infile.txt --output=outfile.obj --input-format=stl</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_conversion_filters">Conversion Filters</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>GCV currently contains support for import and export into five model formats, detailed below.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Conversion formats supported by GCV</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Format</th>
+<th class="tableblock halign-left valign-top">File Extension</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">BRL-CAD</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>.g</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">FASTGEN4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>.fg4</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WaveFront Object</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>.obj</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">StereoLithography</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>.stl</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Virtual Reality Modeling Language</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>.vrml</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="sect2">
+<h3 id="_common_conversion_options">Common Conversion Options</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>gcv_opts</code> struct stores generic options applying to many filters, detailed below. Not all options may be applicable to or respected by every filter.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Conversion formats supported by GCV</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>debug_mode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Print debugging info if set to <code>1</code>. Default is <code>0</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>verbosity_level</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verbosity level. The default, level <code>0</code>, is "quiet" (only error messages are produced).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>scale_factor</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify the scale factor to be applied during import or export, as units per mm. Default is <code>1.0</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>calculational_tolerance</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Calculational tolerance. Defaults to the RT defaults. If you use a non-default value, you should set the ray tracer tolerance to match it when using the resulting model.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>tessellation_tolerance</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Tessellation tolerance. The default value is: <code>abs = 0.0</code> <code>rel = 1.0e-2</code> <code>norm = 0.0</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>tessellation_algorithm</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify use of either the default, marching-cubes, or bottess-based tessellation algorithm.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>max_cpus</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Maximum number of processors to utilize where possible. Default is <code>0</code>, specifying the maximum available during execution.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>num_objects</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Number of objects to convert. If <code>0</code> (the default), all top-level objects will be converted.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>object_names</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Names of objects to convert (must have <code>num_objects</code> elements). Default is <code>NULL</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>default_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name assigned to objects without names. Defaults to "<code>unnamed</code>".</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bu_debug_flag</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Debug flag for libbu (see <code>include/bu/debug.h</code>), applied via bitwise-OR with the original value. The original debug flag will be restored after conversion. Defaults to <code>0</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>rt_debug_flag</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Debug flag for librt (see <code>include/rt/debug.h</code>), applied via bitwise-OR with the original value. The original debug flag will be restored after conversion. Defaults to <code>0</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nmg_debug_flag</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Debug flag for libnmg (see <code>include/nmg.h</code>), applied via bitwise-OR with the original value. The original debug flag will be restored after conversion. Defaults to <code>0</code>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="exampleblock">
+<div class="title">Using struct gcv_opts</div>
+<div class="content">
+<div class="listingblock">
+<div class="content">
+<pre>
+static int
+apply_filter_with_options(struct gcv_context *context, const struct gcv_filter *filter, const char *target)
+{
+    struct gcv_opts options;
+    const char *argv[] = { "--colors=colors.dat", "--continue" };
+    const size_t argc = sizeof(argv) / sizeof(argv[0]);
+
+    gcv_opts_default(&amp;options);
+    options-&gt;debug_mode = 1;
+
+    return gcv_execute(context, filter, &amp;options, argc, argv, target);
+}</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_fastgen4_reader">FASTGEN4 Reader</h3>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">FASTGEN4 reader options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;colors=<em>path</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Path to a file specifying component colors.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;muves=<em>path</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a MUVES input file containing any CHGCOMP and CBACKING components.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;plot=<em>path</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a libplot3 plot file of all CTRI and CQUAD elements processed.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;sections=<em>list</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Process only a list ("<code>3001, 4082, 5347</code>") or a range ("<code>2315 - 3527</code>") of section IDs.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_fastgen4_writer">FASTGEN4 Writer</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>At this time, the FASTGEN4 writer plugin does not make use of any filter-specific options.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_obj_reader">OBJ Reader</h3>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">OBJ reader options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;continue</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Continue processing on nmg-bomb. Conversion will fall back to native BoT mode if a fatal error occurs when using the nmg or BoT-via-nmg modes.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;fuse-vertices</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Fuse vertices that are near enough to be considered identical. Can make the solidity detection more reliable, but may significantly increase processing time during the conversion.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;grouping=<em>mode</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Select which OBJ face grouping is used to create BRL-CAD primitives. <code>group</code> = group (default) <code>material</code> = material <code>none</code> = none <code>object</code> = object <code>texture</code> = texture</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;conversion-mode=<em>mode</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Select the conversion mode. <code>bot</code> = native BoT (default) <code>nmg</code> = NMG <code>nmgbot</code> = BoT via NMG</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;bot-plate-thickness=<em>thickness</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Thickness (mm) used when a BoT is not a closed volume and it&#8217;s converted as a plate or plate-nocos BoT.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;bot-ignore-normals</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ignore the normals defined in the input file when using native BoT conversion mode.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;bot-open-type=<em>type</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Select the type used for BoTs that aren&#8217;t closed volumes. <code>surface</code> = surface (default) <code>plate</code> = plate <code>nocos</code> = plate-nocos</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;bot-plot</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Creates a plot/overlay (<code>.plot3</code>) file of open edges for BoTs that aren&#8217;t closed volumes. <code><em>bot_name</em>.plot3</code> will be created in the current directory and will overwrite any existing file with the same name.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;bot-orientation=<em>mode</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Select the BoT orientation mode. <code>unoriented</code> = unoriented (default) <code>ccw</code> = counterclockwise <code>cw</code> = clockwise</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_obj_writer">OBJ Writer</h3>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">OBJ writer options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;vertex-normals</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Output vertex normals.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;usemtl</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Place <code>usemtl</code> statements in the output file. These statements are fictional (they do not refer to any material database). The materials named provide information about the material codes assigned to the objects in the BRL-CAD database. The material names will be of the form "<code><em>aircode<em>_los</em>_material</em></code>", where <em>aircode</em> is the code number for the air represented by that region, if it does represent air; otherwise, this will be <code>0</code>. The <em>los</em> is the Line Of Sight thickness (<code>0</code> to <code>100</code>) assigned to the region, and <em>material</em> is the material code number assigned.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_stl_reader">STL Reader</h3>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">STL reader options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;binary</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify that the input file is in binary STL format (the default assumes ASCII).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;starting-ident=<em>number</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify the starting ident for the regions created. The default is <code>1000</code>. This number will be incremented for each region, unless <code>&#8212;&#8203;constant-ident</code> is specified.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;constant-ident</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify that the starting ident should remain constant.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;material=<em>code</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify the material code that will be assigned to all created regions (the default is <code>1</code>).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_stl_writer">STL Writer</h3>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">STL writer options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;binary</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Write output as a binary STL file. The default is ASCII. In the case of ASCII output, the region name is specified on the "solid" line of the STL file. In the case of binary output, all the regions are output as a single STL part.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;output-dir</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify that the output path should be a directory. Each region converted is written to a separate file. File names are constructed from the full path names of each region (the path from the specified object to the region). Any "<code>/</code>" characters in the path name are replaced by "<code>@</code>" characters and "<code>.</code>" and white space are replaced by "<code>_</code>" characters.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_vrml_reader">VRML Reader</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>At this time, the VRML reader plugin does not make use of any filter-specific options.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_vrml_writer">VRML Writer</h3>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">VRML writer options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;bot-dump</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">BoT dump. Mutually exclusive with <code>&#8212;&#8203;evaluate-all</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;evaluate-all</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Evaluate all, CSG and BoTs. Mutually exclusive with <code>&#8212;&#8203;bot-dump</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_open_asset_import_library_reader">Open Asset Import Library Reader</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Open Asset Import Library (assimp) is an open source library integrated into GCV, capable of loading and converting geometry from 45 3D file-formats.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Conversion extensions supported by Asset Import Library reader</caption>
+<colgroup>
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.3d</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.gltf / .glb (1.0)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.obj</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.3ds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.gltf (2.0)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.off</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.3mf</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.hmp</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ogex</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ac</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ifc</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ply</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ac3d</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.lwo</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.pmx</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.acc</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.lws</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.q3o</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ase</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.lxo</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.q3s</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.b3d</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.md2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.raw</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.blend</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.md3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.sib</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.bvh</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.md5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.smd</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.cms</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.mdc</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.stl</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.cob</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.mdl</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.x</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.dae</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.mesh / .mesh.xml</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.x3d</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.dxf</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ms3d</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.xgl</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.fbx</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.nff</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.zgl</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Asset Import Library reader options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;starting-ident=<em>number</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify the starting ident for the regions created. The default is <code>1000</code>. This number will be incremented for each region, unless <code>&#8212;&#8203;constant-ident</code> is specified.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;constant-ident</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify that the starting ident should remain constant.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;material=<em>code</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify the material code that will be assigned to all created regions (the default is <code>1</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;format=<em>file_fmt</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify the file format for conversion. By default, this is inferred from the file extension.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="exampleblock">
+<div class="title">Specifying the Asset Import reader</div>
+<div class="content">
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+As the Asset Import library handles many formats, some of which are also handled by other conversion methods, it currently must be explicitly called to invoke. The format itself is then inferred from the files extension.
+</td>
+</tr></table>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+$ gcv --input-format=assetimport input_file.ext output_file.ext</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_open_asset_import_library_writer">Open Asset Import Library Writer</h3>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Open Asset Import Library (assimp) is an open source library integrated into GCV, capable of exporting to 15 different 3D file-formats.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Conversion extensions supported by Asset Import Library writer</caption>
+<colgroup>
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.3ds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.fbx</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.pbrt</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.3mf</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.glb</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.ply</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.assbin (assetimport binary)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.gltf</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.stl</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.assxml (assetimport xml)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.json</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.stp</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.dae</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.obj</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.x3d</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Asset Import Library writer options</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&#8212;&#8203;format=<em>file_fmt</em></code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specify the file format for conversion. By default, this is inferred from the file extension.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="exampleblock">
+<div class="title">Specifying the Asset Import writer</div>
+<div class="content">
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+As the Asset Import library handles many formats, some of which are also handled by other conversion methods, it currently must be explicitly called to invoke. The format itself is then inferred from the files extension.
+</td>
+</tr></table>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+$ gcv --output-format=assetimport input_file.ext output_file.ext</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

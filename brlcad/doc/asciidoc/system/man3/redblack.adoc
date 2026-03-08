@@ -10,29 +10,174 @@ redblack - red-black tree operations
 
 [source,c]
 ----
-#include "common.h" #include <stdio.h> #include "bu.h"structbu_rb_tree*bu_rb_create, description, nm_orders, order_funcs);
-char *description; int nm_orders;int ( **order_funcs)(void);
+
+#include "common.h"
+
+#include <stdio.h>
+
+#include "bu.h"
+
+
+structbu_rb_tree*bu_rb_create, description, nm_orders, order_funcs);
+
+
+char *description;
+
+int nm_orders;
+
+int ( **order_funcs)(void);
 void *bu_rb_curr, tree, order);
-struct bu_rb_tree *tree; int order;voidbu_rb_delete, tree, order);
-struct bu_rb_tree *tree; int order;voidbu_rb_diagnose_tree, tree, order, trav_type);
-struct bu_rb_tree *tree; int order; int trav_type;void *bu_rb_extreme, tree, order, sense);
-struct bu_rb_tree *tree; int order; int sense;voidbu_rb_free, tree, free_data);
-struct bu_rb_tree *tree;void ( *free_data)(void);
-intbu_rb_insert, tree, data);
-struct bu_rb_tree *tree; void *data;intbu_rb_is_uniq, tree, order);
-struct bu_rb_tree *tree; int order;void *bu_rb_neighbor, tree, order, sense);
-struct bu_rb_tree *tree; int order; int sense;intbu_rb_rank, tree, order);
-struct bu_rb_tree *tree; int order;void *bu_rb_search, tree, order, data);
-struct bu_rb_tree *tree; int order; void *data;void *bu_rb_select, tree, order, k);
-struct bu_rb_tree *tree; int order; int k;voidbu_rb_set_uniqv, tree, vec);
-struct bu_rb_tree *tree; bitv_t vec;voidbu_rb_summarize_tree, tree);
-struct bu_rb_tree *tree;voidbu_rb_uniq_all_off, tree);
-struct bu_rb_tree *tree;voidbu_rb_uniq_all_on, tree);
-struct bu_rb_tree *tree;intbu_rb_uniq_off, tree, order);
-struct bu_rb_tree *tree; int order;intbu_rb_uniq_on, tree, order);
-struct bu_rb_tree *tree; int order;voidbu_rb_walk, tree, order, visit, trav_type);
-struct bu_rb_tree *tree; int order;void ( *visit)(void);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+
+voidbu_rb_delete, tree, order);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+
+voidbu_rb_diagnose_tree, tree, order, trav_type);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
 int trav_type;
+
+
+void *bu_rb_extreme, tree, order, sense);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+int sense;
+
+
+voidbu_rb_free, tree, free_data);
+
+
+struct bu_rb_tree *tree;
+
+void ( *free_data)(void);
+intbu_rb_insert, tree, data);
+
+
+struct bu_rb_tree *tree;
+
+void *data;
+
+
+intbu_rb_is_uniq, tree, order);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+
+void *bu_rb_neighbor, tree, order, sense);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+int sense;
+
+
+intbu_rb_rank, tree, order);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+
+void *bu_rb_search, tree, order, data);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+void *data;
+
+
+void *bu_rb_select, tree, order, k);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+int k;
+
+
+voidbu_rb_set_uniqv, tree, vec);
+
+
+struct bu_rb_tree *tree;
+
+bitv_t vec;
+
+
+voidbu_rb_summarize_tree, tree);
+
+
+struct bu_rb_tree *tree;
+
+
+voidbu_rb_uniq_all_off, tree);
+
+
+struct bu_rb_tree *tree;
+
+
+voidbu_rb_uniq_all_on, tree);
+
+
+struct bu_rb_tree *tree;
+
+
+intbu_rb_uniq_off, tree, order);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+
+intbu_rb_uniq_on, tree, order);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+
+voidbu_rb_walk, tree, order, visit, trav_type);
+
+
+struct bu_rb_tree *tree;
+
+int order;
+
+void ( *visit)(void);
+
+
+int trav_type;
+
+
+
 ----
 
 
@@ -110,3 +255,5 @@ This software is Copyright (c) 1999-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
