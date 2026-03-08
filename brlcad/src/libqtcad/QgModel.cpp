@@ -166,7 +166,7 @@ QgItem::appendChild(QgItem *c)
 QgItem *
 QgItem::child(int n)
 {
-    if (n < 0 || n >= (int)children.size())
+    if (n < 0 || n >= static_cast<int>(children.size()))
 	return nullptr;
 
     return children[n];
@@ -183,7 +183,7 @@ QgItem::childCount() const
     // it is 0 until fetchMore() has been called.  This is the standard Qt
     // lazy-loading pattern: rowCount() reflects loaded rows, and
     // canFetchMore() signals whether more rows are available.
-    return (int)children.size();
+    return static_cast<int>(children.size());
 }
 
 int
@@ -204,7 +204,7 @@ QgItem::childNumber() const
     if (parentItem) {
 	for (size_t i = 0; i < parentItem->children.size(); i++) {
 	    if (parentItem->children[i] == this)
-		return (int)i;
+		return static_cast<int>(i);
 	}
 	bu_log("WARNING - invalid parent/child inquiry\n");
     }
@@ -464,7 +464,7 @@ QgModel::item_rebuild(QgItem *item)
 	// define a map for quick QgItem * -> index lookups
 	item->c_noderow.clear();
 	for (size_t i = 0; i < nc.size(); i++) {
-	    item->c_noderow[nc[i]] = (int)i;
+	    item->c_noderow[nc[i]] = static_cast<int>(i);
 	}
     }
 }
@@ -551,7 +551,7 @@ QgModel::full_model_reset(DbiState *dbis)
 	rootItem->appendChild(ti);
     rootItem->c_noderow.clear();
     for (size_t i = 0; i < tops_items.size(); i++)
-	rootItem->c_noderow[tops_items[i]] = (int)i;
+	rootItem->c_noderow[tops_items[i]] = static_cast<int>(i);
 
     // Finally, delete the invalid QgItems
     for (QgItem *iv_itm : invalid) {
@@ -573,7 +573,7 @@ QgModel::reconcile_tops(DbiState *dbis)
     std::unordered_set<unsigned long long> new_tops_set(new_tops.begin(), new_tops.end());
 
     // Remove items that are no longer at tops (iterate backwards for stable indices)
-    for (int i = (int)tops_items.size() - 1; i >= 0; i--) {
+    for (int i = static_cast<int>(tops_items.size()) - 1; i >= 0; i--) {
 	if (new_tops_set.count(tops_items[i]->ihash)) continue;
 	beginRemoveRows(QModelIndex(), i, i);
 	QgItem *to_del = tops_items[i];
@@ -586,7 +586,7 @@ QgModel::reconcile_tops(DbiState *dbis)
     // Rebuild c_noderow after all removals
     rootItem->c_noderow.clear();
     for (size_t i = 0; i < tops_items.size(); i++)
-	rootItem->c_noderow[tops_items[i]] = (int)i;
+	rootItem->c_noderow[tops_items[i]] = static_cast<int>(i);
 
     // Collect the set of hashes already in tops_items after removals
     std::unordered_set<unsigned long long> existing_set;
@@ -607,7 +607,7 @@ QgModel::reconcile_tops(DbiState *dbis)
 	tops_items.push_back(nitem);
 	std::sort(tops_items.begin(), tops_items.end(), QgItem_cmp());
 	int ins_pos = 0;
-	for (int j = 0; j < (int)tops_items.size(); j++) {
+	for (int j = 0; j < static_cast<int>(tops_items.size()); j++) {
 	    if (tops_items[j] == nitem) { ins_pos = j; break; }
 	}
 
@@ -619,7 +619,7 @@ QgModel::reconcile_tops(DbiState *dbis)
 	rootItem->children.insert(rootItem->children.begin() + ins_pos, nitem);
 	rootItem->c_noderow.clear();
 	for (size_t j = 0; j < tops_items.size(); j++)
-	    rootItem->c_noderow[tops_items[j]] = (int)j;
+	    rootItem->c_noderow[tops_items[j]] = static_cast<int>(j);
 	endInsertRows();
 
 	existing_set.insert(h);
@@ -643,13 +643,13 @@ QgModel::rebuild_item_children(QgItem *item, DbiState *UNUSED(dbis))
 
     /* Snapshot the old child list before item_rebuild() modifies it. */
     std::vector<QgItem *> old_children = item->children;
-    int old_count = (int)old_children.size();
+    int old_count = static_cast<int>(old_children.size());
 
     /* Rebuild children using the updated DbiState.
      * item_rebuild() replaces item->children in place. */
     item_rebuild(item);
     std::vector<QgItem *> new_children = item->children;
-    int new_count = (int)new_children.size();
+    int new_count = static_cast<int>(new_children.size());
 
     if (new_count == old_count && new_children == old_children)
 	return; /* Nothing actually changed */
@@ -948,7 +948,7 @@ QgModel::fetchMore(const QModelIndex &idx)
     // define a map for quick QgItem * -> index lookups
     item->c_noderow.clear();
     for (size_t i = 0; i < nc.size(); i++) {
-	item->c_noderow[nc[i]] = (int)i;
+	item->c_noderow[nc[i]] = static_cast<int>(i);
     }
     endInsertRows();
     emit check_highlights();
@@ -1100,9 +1100,9 @@ QgModel::data(const QModelIndex &index, int role) const
 	auto it = dbis->rgb.find(qi->ihash);
 	if (it != dbis->rgb.end()) {
 	    unsigned int cval = it->second;
-	    int r = (int)(cval & 0xFFu);
-	    int g = (int)((cval >> 8) & 0xFFu);
-	    int b = (int)((cval >> 16) & 0xFFu);
+	    int r = static_cast<int>(cval & 0xFFu);
+	    int g = static_cast<int>((cval >> 8) & 0xFFu);
+	    int b = static_cast<int>((cval >> 16) & 0xFFu);
 	    return QVariant(QString("%1/%2/%3").arg(r).arg(g).arg(b));
 	}
 	return QVariant(QLatin1String(""));
