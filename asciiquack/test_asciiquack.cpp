@@ -5089,6 +5089,43 @@ static void test_html_nested_ordered_list() {
 }
 
 
+static void test_html_adjacent_inline_space_between() {
+    // Adjacent inline markers need spaces between them so AsciiDoc constrained
+    // formatting marks are properly recognized.
+    // E.g.: "_chName_ *curr*" (from DocBook <emphasis>chName</emphasis><emphasis role="bold">curr</emphasis>)
+    // must render italic "chName" followed by bold "curr" with a space.
+    begin_test("html5: adjacent inline italic+bold have space between them");
+
+    std::string out = html("= T\n\n_chName_ *curr* text\n");
+
+    // Both italic and bold should be present
+    EXPECT_CONTAINS(out, "<em>chName</em>");
+    EXPECT_CONTAINS(out, "<strong>curr</strong>");
+
+    // The em close tag and strong open tag should be separated (not fused)
+    // i.e. no "<em>chName</em><strong>curr</strong>" run together
+    EXPECT(out.find("<em>chName</em><strong>curr</strong>") == std::string::npos);
+
+    end_test();
+}
+
+static void test_html_text_immediately_before_inline() {
+    // Text immediately before an inline element without space:
+    // "the _args_" renders correctly (space inserted by XSL inline-leading-space fix)
+    begin_test("html5: text immediately before inline renders with space");
+
+    // This adoc was produced after the fix: "and the _args_"
+    std::string out = html("= T\n\nand the _args_ here.\n");
+
+    // "args" must be italic
+    EXPECT_CONTAINS(out, "<em>args</em>");
+    // Must NOT have "the" fused with "args" (i.e. "the<em>args</em>")
+    EXPECT(out.find("the<em>") == std::string::npos);
+
+    end_test();
+}
+
+
 int main(int argc, char* argv[]) {
     // Check for -v flag
     for (int i = 1; i < argc; ++i) {
@@ -5333,6 +5370,8 @@ int main(int argc, char* argv[]) {
     test_html_quote_block_positional_attribution_and_citetitle();
     test_html_nested_unordered_list();
     test_html_nested_ordered_list();
+    test_html_adjacent_inline_space_between();
+    test_html_text_immediately_before_inline();
 
     // Summary
     std::cout << "\n============================\n";

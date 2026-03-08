@@ -133,7 +133,7 @@ In MGED, set up the scene you wish to render and then save a script with *savevi
 
 *saveview remrt.rt*
 
-Edit the script and replace the *rt* command with *remrt*. Replace the output file specification (*-o filename*) with a -F0 option to point the render to the fbserv started in the previous step. Also add a -s2048 option to specify a rendering size to match that provided to the fbserv.
+Edit the script and replace the *rt* command with *remrt*. Replace the output file specification ( *-o filename*) with a -F0 option to point the render to the fbserv started in the previous step. Also add a -s2048 option to specify a rendering size to match that provided to the fbserv.
 
 Run the script to launch remrt. You should see output indicating the program has launched. (Note: the port number printed by the default output is not useful - you want to use 4446 by default to connect to remrt.)
 
@@ -263,7 +263,7 @@ Numerous error conditions are possible. Descriptive messages are printed on stan
 [[see_also2]]
 == SEE ALSO
 
-M. Muuss, "_Workstations_, _Networking_, _Distributed Graphics_, _and Parallel Processing_", in "_Computer Graphics Techniques_: _Theory and Practice_", ed: Rogers & Earnshaw, Springer Verlag, New York, pages 409-472
+M. Muuss, " _Workstations_, _Networking_, _Distributed Graphics_, _and Parallel Processing_", in " _Computer Graphics Techniques_: _Theory and Practice_", ed: Rogers & Earnshaw, Springer Verlag, New York, pages 409-472
 
 
 [[bugs]]
@@ -288,5 +288,3 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

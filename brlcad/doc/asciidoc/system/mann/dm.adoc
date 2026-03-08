@@ -41,7 +41,7 @@ The "adc" subcommand provides a way of manipulating the angle distance cursor wh
 
 
 *con* [r] [t] [s] [x] [y] [z] _xpos ypos_::
-This form of the "con" subcommand provides a way to effect constrained manipulation of the view or an object while using the mouse. This simulates the behavior of sliders without taking up screen real estate. The first argument indicates the type of operation to perform (i.e., _r_ for rotation, _t_ for translation, and _s_ for scale). The <_x_|_y_|_z_> argument is the axis of rotation, translation, or scale. The _xpos_ and _ypos_ arguments are in X screen coordinates and are transformed appropriately before being passed to the knob command.
+This form of the "con" subcommand provides a way to effect constrained manipulation of the view or an object while using the mouse. This simulates the behavior of sliders without taking up screen real estate. The first argument indicates the type of operation to perform (i.e., _r_ for rotation, _t_ for translation, and _s_ for scale). The < _x_| _y_| _z_> argument is the axis of rotation, translation, or scale. The _xpos_ and _ypos_ arguments are in X screen coordinates and are transformed appropriately before being passed to the knob command.
 
 
 *con* [a] [x] [y] [1] [2] [d] _xpos ypos_::
@@ -160,5 +160,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

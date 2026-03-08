@@ -51,7 +51,7 @@ Contrast enhance the output image by the given factor. Default value is 2.0. See
 
 
 *-l1*::
-use the alternate "lighting model". In this mode, double precision floating point numbers are written (*-o* must be used). Each number is the actual solid material path length for that ray. This allows for post processing and scaling.
+use the alternate "lighting model". In this mode, double precision floating point numbers are written ( *-o* must be used). Each number is the actual solid material path length for that ray. This allows for post processing and scaling.
 
 
 
@@ -86,5 +86,3 @@ This software is Copyright (c) 1990-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

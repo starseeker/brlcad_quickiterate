@@ -29,7 +29,7 @@ The *-z* flag will zoom and center on the image being displayed to make it fill 
 
 The flags *-R*, *-G*, and *-B* select individual color planes into which the image will be loaded. One or more can be given. By default all three colors are written with the _bw_ pixel value.
 
-The *-w* _file_width_ flag specifies the width of each scanline in the input file, in pixels. The *-n* _file_height_ flag specifies the height in scanlines of the input file. Both are set to to the same value via *-s* _squarefilesize_. (*-W* _scr_width_, *-N* _scr_height_, and *-S* _squarescrsize_ perform these roles for the display device; if none of these three options are used, the display device uses the dimensions of the input file.)
+The *-w* _file_width_ flag specifies the width of each scanline in the input file, in pixels. The *-n* _file_height_ flag specifies the height in scanlines of the input file. Both are set to to the same value via *-s* _squarefilesize_. ( *-W* _scr_width_, *-N* _scr_height_, and *-S* _squarescrsize_ perform these roles for the display device; if none of these three options are used, the display device uses the dimensions of the input file.)
 
 *-x* _file_xoff_, *-y* _file_yoff_, *-X* _scr_xoff_, and *-y* _scr_yoff_ will offset into the file or onto the screen by the given amounts. The coordinate system for these offsets is first quadrant, with the origin at the lower left corner of the image.
 
@@ -62,5 +62,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

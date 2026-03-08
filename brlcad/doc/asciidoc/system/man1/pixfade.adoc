@@ -19,7 +19,7 @@ pixfade [-f<fraction>] [-p<percentage>] [-m<max>] [-s<squaresize>] [-w<width>] [
 
 *pixfade* darkens a color pix file by fading the entire image a fractional amount or by using a pixel value as a maximum level.
 
-The *-f* option specifies a nonnegative fractional multiplier which is used to scale the red, green, and blue values of each pixel. In a similar way, the *-p* option is used to specify the multiplier as a nonnegative percentage. The default is *-f* 0.5 (*-p* 50.0).
+The *-f* option specifies a nonnegative fractional multiplier which is used to scale the red, green, and blue values of each pixel. In a similar way, the *-p* option is used to specify the multiplier as a nonnegative percentage. The default is *-f* 0.5 ( *-p* 50.0).
 
 An alternative way to darken the image is to specify a ceiling pixel level (0 - 255) with the *-m* option. The pixel plotted is the minimum of the ceiling value and each of the red, green, and blue levels of the pixel. If this option is used, the *-f* and *-p* options are ignored.
 

@@ -16,9 +16,7 @@ The authors would like to thank Messrs. Lee Butler, Edwin Davisson, William Land
 [[Background_Purpose_and_Scope]]
 === Background, Purpose, and Scope
 
-Since 1979, the U.S. Army Research Laboratoryfootnote:[On 30 September 1992, the U.S. Army Ballistic Research Laboratory (BRL) was deactivated and subsequently became part of the U.S. Army Research Laboratory (ARL) on 1 October 1992.
-
-] has been developing and distributing the Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) three-dimensional (3-D) solid modeling package to support combat vehicle vulnerability studies and various other military and industrial applications. The software, which is now in its third generation, includes a large collection of tools and utilities, including an interactive geometry editor, raytracing and generic framebuffer libraries, network-distributed image-processing/signal-processing capabilities, and an embedded scripting language.
+Since 1979, the U.S. Army Research Laboratoryfootnote:[On 30 September 1992, the U.S. Army Ballistic Research Laboratory (BRL) was deactivated and subsequently became part of the U.S. Army Research Laboratory (ARL) on 1 October 1992.] has been developing and distributing the Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) three-dimensional (3-D) solid modeling package to support combat vehicle vulnerability studies and various other military and industrial applications. The software, which is now in its third generation, includes a large collection of tools and utilities, including an interactive geometry editor, raytracing and generic framebuffer libraries, network-distributed image-processing/signal-processing capabilities, and an embedded scripting language.
 
 In support of the package, a multivolume tutorial series is being written to assist users with the many features and functionality of BRL-CAD. Three volumes have been published thus far. Volume I provides an overview of the package contents and installation (Butler and Edwards, 2002). Volume II addresses the basic functionality of the package's Multi-Device Geometry Editor (MGED) and offers a comprehensive list of the user commands available (Butler et al., 2001). Volume III discusses the modeling process as well as principles and techniques to help maximize BRL-CAD's effectiveness (Butler et al., 2003). All of these documents are available for download at http://ftp.arl.army.mil/brlcad/[http://ftp.arl.army.mil/brlcad/] (U.S. Army Research Laboratory, 2003).
 
@@ -190,9 +188,7 @@ This command reads an existing input.g database (in the older format) and writes
 [[sec_convert_from_to_ascii]]
 == Converting From/to ASCII
 
-With the implementation of BRL-CAD's machine-independent database format, the need for converting to or from ASCII format has rapidly diminished. Nonetheless, BRL-CAD still supports ASCII conversions, and release 6.0 introduced a new ASCII format. This format is simply a Tclfootnote:[Tcl/Tk is an interpreted programming language that can be used to extend/customize BRL-CAD functionality. Users are encouraged to consult one of the many texts on Tcl/Tk syntax and use, including _Practical Programming in Tcl and Tk_ (Welch, 1999) and _TCL/TK in a Nutshell_ (Raines and Tranter, 1999).
-
-] script that (when executed by a properly empowered Tcl interpreter) rebuilds the database from which it was derived. In contrast, the old ASCII format consisted of a sequence of one-line records that corresponded to the old database format records.
+With the implementation of BRL-CAD's machine-independent database format, the need for converting to or from ASCII format has rapidly diminished. Nonetheless, BRL-CAD still supports ASCII conversions, and release 6.0 introduced a new ASCII format. This format is simply a Tclfootnote:[Tcl/Tk is an interpreted programming language that can be used to extend/customize BRL-CAD functionality. Users are encouraged to consult one of the many texts on Tcl/Tk syntax and use, including _Practical Programming in Tcl and Tk_ (Welch, 1999) and _TCL/TK in a Nutshell_ (Raines and Tranter, 1999).] script that (when executed by a properly empowered Tcl interpreter) rebuilds the database from which it was derived. In contrast, the old ASCII format consisted of a sequence of one-line records that corresponded to the old database format records.
 
 [[Converting_From_ASCII]]
 === Converting From ASCII
@@ -283,7 +279,7 @@ When using this converter, polygons and meshes are converted to BOT primitives. 
 
 The command for the *dxf-g* converter is as follows:
 
-*dxf-g* [*options*] `input.dxf` `output.g`
+*dxf-g* [ *options*] `input.dxf` `output.g`
 
 The options for the command are as follows:
 
@@ -347,7 +343,7 @@ The *euclid-g* converter converts an ASCII EUCLID ``decoded'' format file to BRL
 
 The syntax for the converter is as follows:
 
-*euclid-g* [*options*]
+*euclid-g* [ *options*]
 
 The options for the command are as follows:
 
@@ -388,7 +384,7 @@ The *fast4-g* converter converts FASTGEN4 entities to corresponding BRL-CAD obje
 
 The syntax for the *fast4-g* command is as follows:
 
-*fast4-g* [*options*] `fastgen4_input` `output.g`
+*fast4-g* [ *options*] `fastgen4_input` `output.g`
 
 The options for the command are as follows:
 
@@ -407,7 +403,7 @@ The options for the command are as follows:
 
 The *patch-g* converter converts preprocessed FASTGEN version 3 files to BRL-CAD format. The syntax for the command is as follows:
 
-*patch-g* [*options*] `output.g`
+*patch-g* [ *options*] `output.g`
 
 The options for the command are as follows:
 
@@ -443,7 +439,7 @@ The Product Data Exchange using STEP specification is intended to replace IGES a
 
 The syntax for the *iges-g* converter is as follows:
 
-*iges-g* [*options*] -o `output.g` `input.iges`
+*iges-g* [ *options*] -o `output.g` `input.iges`
 
 The options available for this command are as follows:
 
@@ -469,7 +465,7 @@ Jack is a 3-D interactive ergonomics and human factors CAD package developed by 
 
 The *jack-g* converter creates a single region consisting of a single BOT primitive. The syntax for the converter is as follows:
 
-*jack-g* [*options*] `input.jack` `output.g`
+*jack-g* [ *options*] `input.jack` `output.g`
 
 The options for this command are:
 
@@ -495,7 +491,7 @@ The *nastran-g* converter currently only converts CBAR, CROD, CTRIA3, and CQUAD4
 
 The syntax for the converter is as follows:
 
-*nastran-g* [*options*]
+*nastran-g* [ *options*]
 
 The options for the command are as follows:
 
@@ -572,7 +568,7 @@ Note that the ASCII format STL file includes a capability to contain more than o
 
 The syntax for the *stl-g* converter is as follows:
 
-*stl-g* [*options*] `input.stl` `output.g`
+*stl-g* [ *options*] `input.stl` `output.g`
 
 where `input.stl` is the STL file to be converted and `output.g` is the name of the BRL-CAD database to receive the converted output.
 
@@ -599,7 +595,7 @@ Distributed by the Advantage Business Group, a contractor to the British Ministr
 
 The syntax for the tankill-g converter is as follows:
 
-*tankill-g* [*options*]
+*tankill-g* [ *options*]
 
 The options for the command are as follows:
 
@@ -630,7 +626,7 @@ This converter creates a BRL-CAD region consisting of a single BOT primitive for
 
 The syntax for this converter is as follows:
 
-*ug-g* [*options*] *-o* `output.g` `UG_part_file` [*subpart1* *subpart2* ...]
+*ug-g* [ *options*] *-o* `output.g` `UG_part_file` [ *subpart1* *subpart2* ...]
 
 where the `UG_part_file` is a Unigraphics part file. If subparts are listed on the command line, only those named parts in the specified part file will be converted.
 
@@ -662,7 +658,7 @@ The *viewpoint-g* converter converts the Viewpoint Datalabs coor/elem format to 
 
 The syntax for the converter is as follows:
 
-*viewpoint-g* [*options*]
+*viewpoint-g* [ *options*]
 
 The options for the command are as follows:
 
@@ -734,7 +730,7 @@ One of ACAD's strengths is its bidirectional IGES translator, which provides com
 
 As its name implies, the *g-acad* utility converts a file in BRL-CAD format to a file in facetted ACAD format. The form of the command is as follows:
 
-*g-acad* [*options*] *-o _output_file_ _input.g_ object(s)*
+*g-acad* [ *options*] *-o _output_file_ _input.g_ object(s)*
 
 The options for the g-acad command are as follows:
 
@@ -742,7 +738,7 @@ The options for the g-acad command are as follows:
 * *-i* - designates that the output be in inches (the default is millimeters).
 * *-x lvl* - sets librt debug flag (see `raytrace.h` in the binary distribution for definitions of DEBUG_xxx).
 * *-X lvl* - sets the NMG library debug flag (see `nmg.h` in the binary distribution for definitions of DEBUG_xxx).
-* *-e _error_file_* - sends error messages to specified file (default is standard error [`stderr`]).
+* *-e _error_file_* - sends error messages to specified file (default is standard error [ `stderr`]).
 * *-v* - verbose; prints out progress information.
 * *-D tolerance_distance* - sets distance calculation tolerance (in millimeters) (default is 0.005).
 * *-r rel_tess_tol* - sets relative tessellation tolerance (normally 0.0 to 1.0) (default is 0.1).
@@ -757,7 +753,7 @@ For more information on the ACAD file format and conversion potential, contact L
 
 The g-dxf command converts BRL-CAD objects to the previously mentioned AutoCAD DXF format. The syntax for this command is as follows:
 
-*g-dxf* [*options*] *_input.g_ object(s*)
+*g-dxf* [ *options*] *_input.g_ object(s*)
 
 The options for the g-dxf command are as follows:
 
@@ -776,7 +772,7 @@ For more information on the DXF file format and export possibilities, see the on
 
 The *g-euclid* command converts BRL-CAD objects to a EUCLID ``decoded'' facetted format. Note that, as previously mentioned, this format is not native EUCLID format. The form of the command is as follows:
 
-*g-euclid* [*options*] *_input.g_ objects(s)*
+*g-euclid* [ *options*] *_input.g_ objects(s)*
 
 The options for the *g-euclid* command are as follows:
 
@@ -792,7 +788,7 @@ For more information about the EUCLID file format and export possibilities, see 
 
 The syntax for the BRL-CAD to IGES converter is as follows:
 
-*g-iges* [*options*] *_input.g_ object(s)*
+*g-iges* [ *options*] *_input.g_ object(s)*
 
 The options for the g-iges command are as follows:
 
@@ -821,7 +817,7 @@ For more information about the IGES file format and export possibilities, see th
 
 The syntax for the jack-g converter is as follows:
 
-*jack-g* [*options*] `input.jack` `output.g`
+*jack-g* [ *options*] `input.jack` `output.g`
 
 The options for the jack-g command are as follows:
 
@@ -837,7 +833,7 @@ For more information about the Jack file format and export possibilities, see th
 
 The syntax for the BRL-CAD to STL converter is as follows:
 
-*g-stl* [*options*] *_input.g_ object(s)*
+*g-stl* [ *options*] *_input.g_ object(s)*
 
 The options for the *g-stl* command are as follows:
 
@@ -860,7 +856,7 @@ As discussed previously, the TANKILL format is another purely triangulated repre
 
 The syntax for the g-tankill command is as follows:
 
-*g-tankill* [*options*] *_input.g_ object(s)*
+*g-tankill* [ *options*] *_input.g_ object(s)*
 
 The options for the *g-tankill* command are as follows:
 
@@ -881,7 +877,7 @@ The Virtual Reality Modeling Language (VRML) began in 1994 at the first World Wi
 
 The g-vrml command converts BRL-CAD objects to the VRML 2.0 format. It takes the following form:
 
-*g-vrml* [*options*] *_input.g_ object(s)*
+*g-vrml* [ *options*] *_input.g_ object(s)*
 
 The options for the command are as follows:
 
@@ -910,7 +906,7 @@ The Wavefront OBJ format was developed in 1984 by Wavefront Technologies (now Al
 
 This *g-wave* converter produces an OBJ file that consists entirely of polygons (triangles). The command takes the following form:
 
-*g-wave* [*options*] *_input.g_ object(s)*
+*g-wave* [ *options*] *_input.g_ object(s)*
 
 The options for the command are as follows:
 
@@ -933,7 +929,7 @@ The successor to the Web3D Consortium's VRML format, the Extensible 3D (X3D) for
 
 The *g-x3d* command converts BRL-CAD objects to the X3D format. It takes the following form:
 
-*g-x3d* [*options*] *_input.g_ object(s)*
+*g-x3d* [ *options*] *_input.g_ object(s)*
 
 The options for the command are as follows:
 
@@ -1103,4 +1099,3 @@ Before converted geometry can be used in a given application or analysis (e.g., 
 * _Combining Multiple Converted Files Into a Single BRL-CAD Model_ - Files from packages such as Pro/E and Unigraphics are often so large that entire models cannot be loaded all at once, and thus the BRL-CAD import converters for these formats must convert the geometry file by file and system by system. As a result, the BRL-CAD modeler/analyst often has to combine all the files of converted geometry so that they can be displayed and evaluated as a single, integrated model (see the discussion on dbconcat in Volume III of this tutorial series [Butler et al., 2003]).
 * _Combining or Breaking Down Regions to Match Analyst Requirements_ - In some cases, converted geometry does not match the "grouping" requirements of an analyst or application and therefore must be regrouped. For example, the converted objects of an engine might need to be grouped into a single engine region. Conversely, a single engine region might need to be broken down into separate regions.
 * _Reorganizing or Creating a Model Hierarchy_ - Some geometry (e.g., an STL file) is converted with little to no tree structure or organization. In such cases, the modeler/analyst often needs to set up a basic tree hierarchy of parts and assemblies so that the model can be more easily handled. For more information about model structuring, see Volume III of this tutorial series (Butler et al., 2003).
-

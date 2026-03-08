@@ -17,7 +17,7 @@ sv {<x y>} [<z>]
 [[description]]
 == DESCRIPTION
 
-Moves the view center to (_x, y, z_). If _z_ is not provided, then _z_=0 is used. The parameters _x, y, z_ are integer values relative to the screen. For example, the center of the screen is (0, 0, 0) and the upper left corner is (-2048, 2047, 0).
+Moves the view center to ( _x, y, z_). If _z_ is not provided, then _z_=0 is used. The parameters _x, y, z_ are integer values relative to the screen. For example, the center of the screen is (0, 0, 0) and the upper left corner is (-2048, 2047, 0).
 
 
 [[examples]]

@@ -32,11 +32,11 @@ The *-SWN* (or *-swn*) options can all be used in the normal way to specify the 
 
 At the same time, *fbcolor* displays the current RGB and HSI values on your terminal. This allows you to record the RGB or HSI values of the colors you select for later use.
 
-*fbcolor* recognizes two main sets of commands; those which select which parameter to edit, and those which vary the value of the selected parameter. ``*r*'', ``*g*'', and ``*b*'' selects the red, green, or blue color for editing, while ``*h*'', ``*s*'', and ``*i*'', (or ``*v*'') selects the hue, saturation, or intensity for editing. There is one other parameter selection character, the ``*/*'', which steps through the list of color parameters in the order given above.
+*fbcolor* recognizes two main sets of commands; those which select which parameter to edit, and those which vary the value of the selected parameter. `` *r*'', `` *g*'', and `` *b*'' selects the red, green, or blue color for editing, while `` *h*'', `` *s*'', and `` *i*'', (or `` *v*'') selects the hue, saturation, or intensity for editing. There is one other parameter selection character, the `` */*'', which steps through the list of color parameters in the order given above.
 
-``*+*'' and ```.`'' both increment the currently selected parameter by one; ``*-*'' and ``*,*'' both decrement by one, and ``*>*'' and ``*<*'' increments and decrements by 16. The value of each of the parameters can range from 0 to 255 and all parameters wrap in both directions.
+`` *+*'' and `` `.`'' both increment the currently selected parameter by one; `` *-*'' and `` *,*'' both decrement by one, and `` *>*'' and `` *<*'' increments and decrements by 16. The value of each of the parameters can range from 0 to 255 and all parameters wrap in both directions.
 
-A ``*?*'' prints a short command summary, and typing ``*q*'', ``*Q*'', ``*<CR>*'', or ``*<LF>*'' exits the program.
+A `` *?*'' prints a short command summary, and typing `` *q*'', `` *Q*'', `` *<CR>*'', or `` *<LF>*'' exits the program.
 
 
 [[see_also]]
@@ -61,5 +61,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

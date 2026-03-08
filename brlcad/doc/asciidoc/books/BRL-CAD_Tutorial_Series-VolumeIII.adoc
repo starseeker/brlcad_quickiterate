@@ -491,9 +491,7 @@ image::../books/images/tutorial_series_volIII_fig16.png[]
 Combinations can be created with a variety of commands, depending on the user's requirements. These commands include the following:
 
 
-** _comb_ - creates a combination using Boolean expressions in GIFT footnote:[Geometric information for targets (GIFT) is the single-level operator hierarchy format that is the traditional (and default) notation used in BRL-CAD.
-
-] format. Proceeding left to right, intersections (+) and subtractions (") are performed before unions (u). For example, the command
+** _comb_ - creates a combination using Boolean expressions in GIFT footnote:[Geometric information for targets (GIFT) is the single-level operator hierarchy format that is the traditional (and default) notation used in BRL-CAD.] format. Proceeding left to right, intersections (+) and subtractions (") are performed before unions (u). For example, the command
 
 
 ....
@@ -514,9 +512,7 @@ is evaluated as
 
 ** _c_ - creates a combination using parenthetically ordered Boolean expressions. Where no order is indicated, intersections are performed before subtractions or unions, and then subtractions and unions, which have equal precedence, are performed left to right.
 ** _r_ - creates a region out of primitive shapes or assembly combinations using Boolean expressions in GIFT format. Unless the user specifies otherwise, default region ID, air code, line-of-sight density, and GIFT material values are assigned.
-** _g_creates a combination by automatically unioning all user-specified elements together. Thus, this command does not accept any sort of Boolean operators from the user.footnote:[The *g* command is derived from “group,” the term sometimes used for _assembly combination_.
-
-]
+** _g_creates a combination by automatically unioning all user-specified elements together. Thus, this command does not accept any sort of Boolean operators from the user.footnote:[The *g* command is derived from “group,” the term sometimes used for _assembly combination_.]
 +
 In addition, there are several general recommended practices when dealing with Boolean operations. They are as follows:
 
@@ -914,7 +910,7 @@ Obviously, the construction of this type of object is a little more advanced tha
 To build two turns of a coil at the origin with a coil diameter of 1000 mm, a wire diameter of 200 mm, and a coil height of 400 mm (running along the +Z axis), the user would perform the following steps (or ones similar to them):
 
 
-* Set the units to millimeters using the *units* command on the command line (`mged>units mm`) or the Units option in the graphical user interface (GUI) (File -> Preferences -> Units).
+* Set the units to millimeters using the *units* command on the command line ( `mged>units mm`) or the Units option in the graphical user interface (GUI) (File -> Preferences -> Units).
 * Set the screen size to 2000 using the *size* command (mged>size 2000) and center the screen at 0 0 400 using the *center* command (mged>center 0 0 400).
 * Create a pipe named spring.s1 using the *make* command (mged>make spring.s1 pipe) from the command line or the Create option from the GUI. Select the pipe for editing using either the *sed* command (mged>sed spring.s1) or the Enter Primitive Name dialog box.
 * With the default pipe in edit mode, set the diameter of the wire. To do this, first set the inner diameter of the wire to 0 by using the Edit menu's Set Pipe ID option and the *p* command on the command line (mged>p 0). Next, set the outer diameter to 200 using the Set Pipe OD option and the p command (mged>p 200). (Be sure to set the Pipe inner diameter [ID] and outer diameter [OD], not the Point ID and OD.)

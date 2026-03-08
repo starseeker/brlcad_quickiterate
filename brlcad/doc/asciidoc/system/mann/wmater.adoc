@@ -17,7 +17,7 @@ wmater {<file>} {<objects>}
 [[description]]
 == DESCRIPTION
 
-Lists the shader name and parameters, RGB color, __RGB_valid__ flag, and the inheritance flag to the specified _file_ for the listed_objects_. The format used is compatible with the *rmater* command. If _file_ already exists, the new data is appended to it.
+Lists the shader name and parameters, RGB color, __RGB_valid__ flag, and the inheritance flag to the specified _file_ for the listed _objects_. The format used is compatible with the *rmater* command. If _file_ already exists, the new data is appended to it.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

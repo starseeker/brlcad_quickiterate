@@ -130,7 +130,7 @@ Because many of the facetization methods are sampling based (the raytracer is us
 .Create a facetized BOT version of an existing object.
 [example]
 ====
-The example shows the use of the *facetize* command to create a facetized BOT version of an existing object (__old_object__) and renaming that facetized object (__new_object__).
+The example shows the use of the *facetize* command to create a facetized BOT version of an existing object ( __old_object__) and renaming that facetized object ( __new_object__).
 
 mged>*facetize region1.r region1.bot*
 
@@ -224,5 +224,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -153,7 +153,7 @@ This is the "hypersample" flag, specifying number of extra rays to fire for each
 
 
 *-J #*::
-This is the "jitter" flag, which is a bit vector. If one (*-J 1*), it randomizes the point from which each ray is fired by +/- one half of the pixel size. Useful if doing your own post-filtering for antialiasing, or to eliminate systematic errors. This has been useful in obtaining more accurate results in a volume-calculating raytrace as well. If two (*-J 2*), it shifts the origin of the output frame once for each frame. The shift is along a circular path in the plane of the frame, with a period of ten seconds, and a radius of +/- 1/4 pixel width. If three (*-J 3*), it performs both operations.
+This is the "jitter" flag, which is a bit vector. If one ( *-J 1*), it randomizes the point from which each ray is fired by +/- one half of the pixel size. Useful if doing your own post-filtering for antialiasing, or to eliminate systematic errors. This has been useful in obtaining more accurate results in a volume-calculating raytrace as well. If two ( *-J 2*), it shifts the origin of the output frame once for each frame. The shift is along a circular path in the plane of the frame, with a period of ten seconds, and a radius of +/- 1/4 pixel width. If three ( *-J 3*), it performs both operations.
 
 
 *-K #*::
@@ -497,5 +497,3 @@ Most deficiencies observed while using the *rtedge* program are a consequence of
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

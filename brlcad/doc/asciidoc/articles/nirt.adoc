@@ -88,9 +88,7 @@ Although there are many *nirt* options available, only the database name and obj
 nirt {<model.g>} {<objects>}
 ----
 
-where _objects_ is a list of objects in the database separated by spaces. To begin, select the object __center_cube.r__ object with interactive command line _NIRT_. The form of the command is: footnote:[To quickly find out what objects are in a database, use the commands *mged -c nirt_example.g tops* to see all top level objects and *mged -c nirt_example.g ls* to see all objects in the model.
-
-]:
+where _objects_ is a list of objects in the database separated by spaces. To begin, select the object __center_cube.r__ object with interactive command line _NIRT_. The form of the command is: footnote:[To quickly find out what objects are in a database, use the commands *mged -c nirt_example.g tops* to see all top level objects and *mged -c nirt_example.g ls* to see all objects in the model.]:
 
 
 ....
@@ -197,9 +195,7 @@ center_cube.r        (   1.0000    0.0000    0.5000)   2.0000   0.0000
 [[Backing_Out_of_a_Model]]
 === Backing Out of a Model
 
-Although in both previous cases the ray's origin was inside the cube, _NIRT_ backed up to the point of first intersection along the indicated vector to report both LOS thickness and entry. This behavior is specific to the case of an origination point _inside_ a region. In the case where the origination point of the ray is between two objects belonging to the same region, _NIRT_ will report only those portions of the region along its path forward. To ensure that a ray always starts outside the _entire_ geometry, the *backout* interactive command is used.footnote:[To perform this operation automatically when the model is loaded, supply the _b_ flag to *nirt* at startup: *nirt -b*.
-
-] The backout command moves the starting point outside the bounding box of the model. This ensures that all segments along a given ray path will be reported. As an illustration, reload `nirt_example.g` and this time specify __left_and_right_cubes.r__ (defined as the combination of __left_cube.s__ and __right_cube.s__). Cast rays before and after backout:
+Although in both previous cases the ray's origin was inside the cube, _NIRT_ backed up to the point of first intersection along the indicated vector to report both LOS thickness and entry. This behavior is specific to the case of an origination point _inside_ a region. In the case where the origination point of the ray is between two objects belonging to the same region, _NIRT_ will report only those portions of the region along its path forward. To ensure that a ray always starts outside the _entire_ geometry, the *backout* interactive command is used.footnote:[To perform this operation automatically when the model is loaded, supply the _b_ flag to *nirt* at startup: *nirt -b*.] The backout command moves the starting point outside the bounding box of the model. This ensures that all segments along a given ray path will be reported. As an illustration, reload `nirt_example.g` and this time specify __left_and_right_cubes.r__ (defined as the combination of __left_cube.s__ and __right_cube.s__). Cast rays before and after backout:
 
 
 ....
@@ -366,9 +362,7 @@ nirt>
 	
 ....
 
-Along that vector, __center_overlap.r__ is encountered first, then __all_cubes.r__ intersecting with __center_overlap.r__. footnote:[The last two lines that appear in the output when the direction vector is changed are a result of how the raytracing library keeps track of regions internally. Even when in an overlap, the ray is considered to be in only _one_ region at a time. In this particular overlap situation, it might be either region, so librt selects the region with the lowest bit number (for more information, see rt_defoverlap in librt/bool.c). If the ray happens to exit the lowest bit number region when it exits the overlap the active region changes again and another line is generated. Ultimately the difference is inconsequential and can be disregarded. Both reports contain the key information: the overlap to be removed.
-
-]
+Along that vector, __center_overlap.r__ is encountered first, then __all_cubes.r__ intersecting with __center_overlap.r__. footnote:[The last two lines that appear in the output when the direction vector is changed are a result of how the raytracing library keeps track of regions internally. Even when in an overlap, the ray is considered to be in only _one_ region at a time. In this particular overlap situation, it might be either region, so librt selects the region with the lowest bit number (for more information, see rt_defoverlap in librt/bool.c). If the ray happens to exit the lowest bit number region when it exits the overlap the active region changes again and another line is generated. Ultimately the difference is inconsequential and can be disregarded. Both reports contain the key information: the overlap to be removed.]
 
 It should be pointed out that overlaps are usually regarded as modeling errors and need to be corrected, unless they are below some previously established threshold for precision in the model. One of the potential uses of _NIRT_ is to provide detailed information on which regions are overlapping and where, although tools such as *rtcheck* typically provide more comprehensive summaries of overlap problems.
 
@@ -1090,7 +1084,7 @@ When run from within _MGED_ _NIRT_ uses the current units set within the _MGED_ 
 [[Silent_and_Verbose_Modes]]
 === Silent and Verbose Modes
 
-_NIRT_ supports two behaviors associated with output verbosity. The interactive command line environment uses the verbose mode by default. Verbose mode prints out the headers containing information about the BRL-CAD version number, database name, database title, etc. and also provides the "*nirt>*" command prompt label. Silent mode, used by default inside the MGED command window, does not print any headers or prompt label.
+_NIRT_ supports two behaviors associated with output verbosity. The interactive command line environment uses the verbose mode by default. Verbose mode prints out the headers containing information about the BRL-CAD version number, database name, database title, etc. and also provides the " *nirt>*" command prompt label. Silent mode, used by default inside the MGED command window, does not print any headers or prompt label.
 
 When generating large numbers of results, it is sometimes desirable to switch to silent mode on the command line. This is accomplished by supplying the _s_ option to *nirt*. Similarly, in the _MGED_ window, supplying the _v_ option will produce the full text output of _NIRT_'s interactive mode in the _MGED_ window.
 
@@ -1258,9 +1252,7 @@ q
 	
 ....
 
-Because the intent is to have _only_ the output in the file, the _s_ option is supplied to the *nirt* command. The output is redirected to a file called `output.txt`footnote:[These examples use a standard POSIX-style output redirect to create the file. If this doesn't work, the above script can be edited to use the *dest* command instead.
-
-]
+Because the intent is to have _only_ the output in the file, the _s_ option is supplied to the *nirt* command. The output is redirected to a file called `output.txt`footnote:[These examples use a standard POSIX-style output redirect to create the file. If this doesn't work, the above script can be edited to use the *dest* command instead.]
 
 
 ....
@@ -1641,9 +1633,7 @@ In cases where problems are being encountered, it is possible to use debugging o
 [[librt_Debugging_Information]]
 === librt Debugging Information
 
-In cases where detailed behavior of the core raytracing routines is of interest, it is possible to use the _x_ (lower case "x") option to print additional diagnostic messages.footnote:[librt's diagnostic setting can also be set in the interactive environment with the *libdebug* command.
-
-] See the *librt* header files for more detail about the very extensive debugging options provided.
+In cases where detailed behavior of the core raytracing routines is of interest, it is possible to use the _x_ (lower case "x") option to print additional diagnostic messages.footnote:[librt's diagnostic setting can also be set in the interactive environment with the *libdebug* command.] See the *librt* header files for more detail about the very extensive debugging options provided.
 
 
 ....
@@ -1677,9 +1667,7 @@ center_cube.r        (   1.0000    0.0000    0.0000)   2.0000   0.0000
 [[Debugging_Information]]
 === NIRT Debugging Information
 
-_NIRT_ itself also provides debugging information. It is accessed using the _X_ option.footnote:[The *nirt* level diagnostics can be set in the interactive environment with the *debug* command.
-
-] _NIRT_ provides five different debug flags, as seen in `nirt.h`:
+_NIRT_ itself also provides debugging information. It is accessed using the _X_ option.footnote:[The *nirt* level diagnostics can be set in the interactive environment with the *debug* command.] _NIRT_ provides five different debug flags, as seen in `nirt.h`:
 
 
 ....
@@ -1803,7 +1791,3 @@ center_cube.r        (   1.0000    0.0000    0.0000)   2.0000   0.0000
 
 	
 ....
-
-
-
-
