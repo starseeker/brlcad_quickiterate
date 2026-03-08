@@ -38,8 +38,6 @@ There are a number of known limitations to the NURBS Boolean evaluator as curren
 .Evaluation of a Subtraction
 image::../../devguides/images/evaluation_overview.png[]
 
-image::../../devguides/images/evaluation_overview.png[width=3.9in]
-
 === Technical Approach
 
 The technical approach used for evaluating Boolean operations on NURBS entities involves calculating geometric intersections, trimming surfaces accordingly, and stitching together a resulting object. Boundary representation NURBS objects are composed of faces, edges, and vertices; and these topologically describe how surfaces, curves, and points are joined together to represent geometry. The geometry is used to find intersections. The topology is used in the application of Boolean logic. This is oversimplified as there are also trimming curves, loops, orientations, and other details involved, but this is nonetheless a useful foundation for understanding the basic approach employed.
@@ -477,8 +475,6 @@ The intersection classes enumerate a number of intersection types. Over the cour
 When two curves are coincident with one another over a portion of their domains, `m_type` will be `ON_X_EVENT::ccx_overlap`. .Curve-Curve Overlap Intersection
 image::../../devguides/images/ccx_overlap_event.png[]
 
-image::../../devguides/images/ccx_overlap_event.png[width=3.9in]
-
 
 
 When two surfaces are coincident over a portion of their domains, `m_type` will be `ON_SSX_EVENT::ssx_overlap`.
@@ -486,19 +482,13 @@ When two surfaces are coincident over a portion of their domains, `m_type` will 
 .Surface-Surface Overlap Intersection
 image::images/ssx_overlap_event.png[]
 
-image::../../devguides/images/ssx_overlap_event.png[width=3.9in]
-
 There are two ways that two surfaces can intersect in a curve. If the normals of the surfaces are parallel over all points of the curve, the intersection `m_type` is `ON_SSX_EVENT::ssx_tangent`, and `ON_SSX_EVENT::ssx_transverse` otherwise.
 
 .Surface-Surface Tangent Intersection
 image::../../devguides/images/ssx_tangent_event.png[]
 
-image::../../devguides/images/ssx_tangent_event.png[width=3.9in]
-
 .Surface-Surface Transverse Intersection
 image::../../devguides/images/ssx_transverse_event.png[]
-
-image::../../devguides/images/ssx_transverse_event.png[width=3.9in]
 
 Similarly, if two surfaces intersect at a point, the intersection `m_type` is `ON_SSX_EVENT::ssx_tangent_point` if the normals of the two surfaces are parallel at that point, and `ON_SSX_EVENT::ssx_transverse_point` otherwise.
 
@@ -568,8 +558,6 @@ It's important to remember that because parameterizations are arbitrary, there i
 
 .Different Traversals of the Same Curve
 image::../../devguides/images/curve_traversal_directions.png[]
-
-image::../../devguides/images/curve_traversal_directions.png[width=3.9in]
 
 
 
@@ -677,8 +665,6 @@ To make it easier to check that drawn intersection curves are of the correct typ
 .Curve Endpoint Decoration
 image::../../devguides/images/compare_endpoint_style.png[]
 
-image::../../devguides/images/compare_endpoint_style.png[width=3.9in]
-
 
 The ssx pairs are recorded in the `find_overlap_boundary_curves()()` function in `intersect.cpp`.
 
@@ -712,8 +698,6 @@ This subcommand doesn't draw any contextual geometry; only the linked curves. Ma
 +
 .Linked Curves in Context
 image::../../devguides/images/lcurves_with_shaded_context.png[]
-
-image::../../devguides/images/lcurves_with_shaded_context.png[width=3.9in]
 
 * **dplot bool1.dplot faces** lets you step through the new set of faces formed by splitting the original faces with the final linked intersection curves. Faces that are considered part of the final result are drawn highlighted, while faces that are discarded are drawn dim.
 +
@@ -923,8 +907,6 @@ The file `bool1.dplot` is created in the current directory, as well as a few hun
 ."X" from axis.g
 image::../../devguides/images/axis_X.png[]
 
-image::../../devguides/images/axis_X.png[width=3.9in]
-
 +
 The *ssx* subcommand of *dplot* is used to check that all expected surface-surface intersections were attempted between the B-Rep NURBS versions of the two arb8s, hereafter referred to as _brep1_ and _brep2_.
 
@@ -961,8 +943,6 @@ The surface-surface intersection with `ssx_index` 10 appears incorrect (compare 
 +
 .Comparison of Surface-Surface Intersection Event 10 Versus 13
 image::../../devguides/images/ssx_10_vs_13.png[]
-
-image::../../devguides/images/ssx_10_vs_13.png[width=3.9in]
 
 . The overlap intersection should have been created by stitching together the four isocurve-surface intersections that make each edge of the square overlap.
 +
@@ -1123,8 +1103,6 @@ The intermediate curve represented by `linked_4_7.plot3` (and the subsequent `li
 +
 .Overlay Visualization of Intermediate Linked Curves
 image::../../devguides/images/intermediate_linked_curves.png[]
-
-image::../../devguides/images/intermediate_linked_curves.png[width=5.9in]
 
 . We'll perform the evaluation again via a debugger. `X.brep` is removed from the database, and the `*.dplot` and `*.plot3` files are removed from the working directory.
 +

@@ -14,6 +14,7 @@ center [<x y z>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Positions the center of the _mged_ viewing cube at the specified model coordinates. This is accomplished by moving the eye position while not changing the viewing direction. (The *lookat* command performs a related function by changing the viewing direction, but not moving the eye location.) The coordinates are expected in the current editing units. In case the coordinates are the result of evaluating a formula, they are echoed back. If no coordinates are provided, the current center coordinates (in current editing units, not mm) are printed and can be used in subsequent calculations. See also the *view* command.
@@ -21,6 +22,7 @@ Positions the center of the _mged_ viewing cube at the specified model coordinat
 It is often convenient to use the center of the view when visually selecting key locations in the model for construction or animation because of (1) the visible centering dot on the screen, (2) the fact that zoom and rotation are performed with respect to the view center, (3) the default center-mouse behavior is to move the indicated point to the view center, and (4) the angle/distance cursors are centered by default. This command provides the means to set and retrieve those values numerically.
 
 
+[[examples]]
 == EXAMPLES
 
 The examples show the use of the *center* command to print coordinates of the center of the mged display, move the center of the _mged_ display to a given point, set a Tcl variable to the display center coordinates, move the center point a given distance in a given direction, and update a vertex in the database to be located at the current center of view.
@@ -87,11 +89,13 @@ mged>*db adjust sphere.s V [center]*::
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

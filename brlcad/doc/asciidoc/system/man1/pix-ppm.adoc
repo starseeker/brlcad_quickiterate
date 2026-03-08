@@ -14,6 +14,7 @@ pix-ppm [-a] [-s<squaresize>] [-w<file_width>] [-n<file_height>] [-#<bytes_per_p
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pix-ppm* converts a _BRL PIX(5)_ format file to a _PPM_ (Portable PixMap) format file on the standard output. The PPM file created will be either an RGB file with 3 bytes per pixel (default) or a B&W file with 1 byte per pixel.
@@ -21,6 +22,7 @@ pix-ppm [-a] [-s<squaresize>] [-w<file_width>] [-n<file_height>] [-#<bytes_per_p
 PIX image files do not contain information about their size. The size of the input PIX image file must be specified if the dimensions are not the default 512x512 size.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -50,21 +52,25 @@ tells *pix-ppm* to write image data to the specified _PPM_file_ output file. The
 
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pix-png*(1), *pix-bw*(1), *bw-pix*(1), *pix-fb*(1), *pix*(5), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2009-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

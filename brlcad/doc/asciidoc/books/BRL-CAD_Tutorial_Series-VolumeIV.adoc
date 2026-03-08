@@ -8,6 +8,7 @@ John R. Anderson; Eric W. Edwards
 .
 The authors would like to thank Messrs. Lee Butler, Edwin Davisson, William Landis, and David Davis for technically reviewing this document in a timely manner and for making numerous suggestions to improve its content and presentation. The authors also thank Dr. Paul Tanenbaum for the use of his graphics for figures 1 and 2 and Ms. TraNese Christy for her help in adapting them for presentation in this document. Finally, the authors would like to posthumously acknowledge Mr. Michael Muuss, the original architect of BRL-CAD. Without his vision, intellect, and diligence, this work would not have been possible. Thus, the BRL-CAD Tutorial Series is dedicated to his memory.
 
+[[chapt_introduction]]
 == Introduction
 
 [[Background_Purpose_and_Scope]]
@@ -55,6 +56,7 @@ Not surprisingly, when considering the benefits and liabilities of using commerc
 
 
 
+[[chapt_pert_char]]
 == Pertinent Characteristics of the BRL-CAD Format
 
 [[CSG_vs._BREP]]
@@ -64,8 +66,7 @@ As mentioned previously, there are two basic approaches to solid modeling: CSG a
 
 For example, as shown in <<fig_die_extrusion>>, to geometrically represent a simple extrusion die used in material manufacturing, a CSG model might subtract a cone from a cylinder to achieve the desired shape. Alternatively, a BREP model might achieve the same shape by joining several surfaces (Tanenbaum, 2001).
 
-image::foo.eps[]
-
+[[fig_die_extrusion]]
 image::foo.eps[]
 
 Most of the major commercial solid modeling packages currently in distribution (e.g., Pro/ENGINEER [commonly known as Pro/E], Unigraphics, etc.) use the BREP approach, although they do have some CSG capability. BRL-CAD, on the other hand, is primarily a CSG modeling system with some BREP capability.
@@ -76,16 +77,13 @@ For BRL-CAD, a simple type of BREP is available in the form of triangles; it is 
 
 Because most commercial CAD systems have the capability to produce tessellated approximations of their BREP objects, some converters to BRL-CAD (e.g., those with Pro/E and Unigraphics) take advantage of these capabilities. In addition, the previously mentioned STL format, which represents solid objects entirely with triangles, offers the community a universal (albeit crude) way to convert BRL-CAD geometry (via the *g-stl* converter) to nearly any commercial CAD system.
 
-image::test_img.eps[]
-
+[[fig_bot]]
 image::test_img.eps[]
 
 .BREP Terminology
 |===
 
 |image::test_img.eps[]
-
-image::test_img.eps[]
 
  |BREP Terminology
 
@@ -106,8 +104,6 @@ In the end, although there are benefits to using the BREP methodology (e.g., eas
 |===
 
 |image::test_img.eps[]
-
-image::test_img.eps[]
 
  |CSG or BREP?
 
@@ -138,8 +134,6 @@ This command reads an existing input.g database (in the older format) and writes
 |===
 
 |image::test_img.eps[]
-
-image::test_img.eps[]
 
  |What About Databases in the Old Format?
 
@@ -178,6 +172,7 @@ Although databases created with BRL-CAD release 6.0 or later are in the new form
 |===
 
 
+[[sec_convert_from_to_ascii]]
 == Converting From/to ASCII
 
 With the implementation of BRL-CAD's machine-independent database format, the need for converting to or from ASCII format has rapidly diminished. Nonetheless, BRL-CAD still supports ASCII conversions, and release 6.0 introduced a new ASCII format. This format is simply a Tclfootnote:[Tcl/Tk is an interpreted programming language that can be used to extend/customize BRL-CAD functionality. Users are encouraged to consult one of the many texts on Tcl/Tk syntax and use, including _Practical Programming in Tcl and Tk_ (Welch, 1999) and _TCL/TK in a Nutshell_ (Raines and Tranter, 1999).
@@ -212,6 +207,7 @@ In this command, the `input.g` is a BRL-CAD database (old or new format) and `ou
 If this is attempted using the newer database format, however, an error message will be displayed and no conversion will be performed.
 
 
+[[sec_convert_to_brlcad]]
 == Converting to BRL-CAD
 
 [[General_Information_About_Converting_to_BRL-CAD]]
@@ -219,6 +215,7 @@ If this is attempted using the newer database format, however, an error message 
 
 <<tbl_import_converters>> contains the primary file formats (other than ASCII) that currently convert to BRL-CAD. Note that, as discussed previously, the "-g" designation at the end of each converter name indicates that the converted file will be in BRL-CAD's standard geometry (.g) format.
 
+[[tbl_import_converters]]
 .BRL-CAD import converters
 |===
 |CAD format |Import Converter 
@@ -304,8 +301,6 @@ When using this converter, polygons and meshes are converted to BOT primitives. 
 
 |image::test_img.eps[]
 
-image::test_img.eps[]
-
  |The NMG primitive represents geometry that is defined by points, lines, polygonal facets, and collections thereof. It is the primary BRL-CAD primitive for encoding one- or two-dimensional (2-D) data. For more information on the NMG, see Muuss and Butler (1991) and Weiler (1987).
 
  
@@ -390,8 +385,6 @@ For more information about the EUCLID file format and import possibilities, see 
 |===
 
 |image::test_img.eps[]
-
-image::test_img.eps[]
 
  |Note that all header (.h) files-including `raytrace.h`, `nmg.h`, and `bu.h` - are accessible in both the source and binary distributions of BRL-CAD. In the binary distribution, these files are installed in the `/user/brlcad/include/brlcad` directory.
 
@@ -561,8 +554,6 @@ Pro/E makes extensive use of referenced geometry. As discussed in the previous v
 
 |image::test_img.eps[]
 
-image::test_img.eps[]
-
  |To maximize the efficiency and effectiveness of converting Pro/E geometry, the BRL-CAD user should first acquire the following information from the Pro/E designer: A list of top-level assemblies - This information is vital in helping the BRL-CAD user gain an understanding of the overall model structure and know where to begin the conversion process. A mapping of part numbers to part names - Although part numbers can be an important aspect of design and manufacturing, they have little meaning for vulnerability analysts, who are more concerned with the descriptive names of the components than the numbers represent.
 
  
@@ -572,8 +563,7 @@ The command to start the Pro/E program is specified by each installer. When Pro/
 
 The conversion process is started by selecting the ProE-BRL item in the Pro/E drop-down File menu. The converter dialog box, shown in <<fig_converter_dialog_box>>, will then appear.
 
-image::test_img.eps[]
-
+[[fig_converter_dialog_box]]
 image::test_img.eps[]
 
 The following list provides a description of the use and functionality of the primary elements in the dialog box. Note that the box is preloaded with reasonable defaults for many of the inputs. In addition, if the user has a question about any of the entry windows, check boxes, or buttons, he can move the mouse over them to see a brief explanation of their use.
@@ -710,6 +700,7 @@ The options for the command are as follows:
 * *-t tolerance_distance* - sets distance calculation tolerance (in millimeters) (default is 0.005).
 
 
+[[sec_convert_from_brlcad]]
 == Converting From BRL-CAD
 
 [[General_Information_About_Converting_From_BRL-CAD]]
@@ -719,6 +710,7 @@ The options for the command are as follows:
 
 Note that most of the BRL-CAD export converters operate by tessellating all the primitive shapes in the BRL-CAD model, then evaluating the Boolean formula for each region. The result of this is a facetted representation of each region. The tessellation tolerances are used to determine the coarseness of the tessellation of curved surfaces. Smaller tolerances result in more, smaller facets and a larger output file. The calculation tolerance is the minimum distance between any two vertices in a region. Any vertices closer than this are fused into a single vertex.
 
+[[tbl_export_converters]]
 .BRL-CAD export converters.
 |===
 |CAD format |Export Converter 
@@ -753,8 +745,6 @@ One of ACAD's strengths is its bidirectional IGES translator, which provides com
 |===
 
 |image::test_img.eps[]
-
-image::test_img.eps[]
 
  |Although these packages are often confused, ACAD was developed by Lockheed Martin and is not connected with AutoCAD, which was developed by Autodesk Inc. 
 |===
@@ -836,8 +826,6 @@ With the *-t* and *-f* options, the converter will employ Boolean evaluation of 
 |===
 
 |image::test_img.eps[]
-
-image::test_img.eps[]
 
  |Note that different CAD packages seem to ``prefer'' certain options for the IGES converter. In particular, Pro/E works well with IGES files that use the *-m* option, and Unigraphics works well with IGES files that use the *-s* option. 
 |===
@@ -928,8 +916,6 @@ For more information on VRML, see the Web3D Consortium web site at http://www.we
 
 |image::test_img.eps[]
 
-image::test_img.eps[]
-
  |The Web3D Consortium is a nonprofit organization promoting open standards for 3-D Web and broadcast applications. Members include leading corporate and educational institutions, including 3Dlabs, ATI Technologies, blaxxun, Nexternet, OpenWorlds, Sony, SGDL Systems, ParallelGraphics, the Naval Postgraduate School, and the Army Simulation, Training, and Instrumentation Command (STRICOM). Notable efforts include developing VRML specifications and an improved, componentized new-generation specification for Web3D, including X3D (see subsection 5.11) (SURVICE Engineering Company, 2002).
 
  
@@ -980,6 +966,7 @@ The command also accepts the previously mentioned *-v*, *-r*, *-a*, *-n*, *-x*, 
 For more information on the X3D file format and export possibilities, see the Web3D Consortium web site at http://www.web3d.org/technicalinfo/specifications/ISO_IEC_19775[http://www.web3d.org/technicalinfo/specifications/ISO_IEC_19775] (Web3D Consortium, 2003a).
 
 
+[[sec_build_new_converter]]
 == Building a New Converter
 
 [[General_Information_About_Building_a_New_Converter]]
@@ -1109,6 +1096,7 @@ This line creates a BRL-CAD combination named aregion, which is a region and con
 For an example of code that produces this type of output, see the g2asc.c file in the conv directory of the source distribution.
 
 
+[[sec_postconversion_issues]]
 == Postconversion Issues
 
 Before converted geometry can be used in a given application or analysis (e.g., a vulnerability study), there are several tasks that often need to be performed. They include the following:

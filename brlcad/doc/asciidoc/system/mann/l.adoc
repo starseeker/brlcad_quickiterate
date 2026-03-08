@@ -14,11 +14,13 @@ l [-t] [-v] [-r] {<objects>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Displays a verbose description about the specified list of objects. If a specified _object_ is a path, then any transformation matrices along that _path_ are applied. If the final _path_ component is a combination, the command will list the Boolean formula for the _combination_ and will indicate any accumulated transformations (including any in that _combination_). If a shader and/or color has been assigned to the _combination_, the details will be listed. For a region, its ident, air code, material code, and LOS will also be listed. For primitive shapes, detailed _shape_ parameters will be displayed with the accumulated transformation applied.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -36,6 +38,7 @@ If the _-r_ (recursive) option is used, then each _object_ on the command line w
 
 
 
+[[examples]]
 == EXAMPLES
 
 The three examples show the use of the *l* command to display details about a region, shape parameters, and all possible paths starting with a particular designation.
@@ -70,11 +73,13 @@ Displays all paths that start with a particular designation and end in a primiti
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -1748,6 +1748,164 @@ std::shared_ptr<List> Parser::parse_list(
 // Table
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Table cell spec helpers ──────────────────────────────────────────────────
+//
+// AsciiDoc table cell specifiers have the form:
+//   [colspan][.rowspan]+[halign][valign][style]|content
+//
+// Examples:
+//   |text            – plain cell
+//   2+|text          – colspan 2
+//   .3+|text         – rowspan 3
+//   2.3+|text        – colspan 2, rowspan 3
+//   ^|text           – centre-aligned
+//   a|text           – AsciiDoc-style cell
+//
+// The cell spec is ONLY recognised when it occupies the entire space between
+// the previous pipe (or start of line) and the current pipe with no other
+// intervening content.  This prevents literal '+', digits, or style letters
+// in cell content from being mistaken for specs.
+
+namespace {  // anonymous – file-local helpers
+
+// Describes one cell boundary found in a table row line.
+struct CellBound {
+    std::size_t spec_start;  ///< Start of the cell spec (== pipe_pos if no spec)
+    std::size_t pipe_pos;    ///< Position of the '|' separator
+    int colspan  = 1;
+    int rowspan  = 1;
+};
+
+// Scan `line` for all unescaped '|' separators starting at `start`.
+// For each '|', check if the region between the previous pipe's content-end
+// and this pipe is a valid cell spec.  Populate and return a list of
+// CellBound entries in left-to-right order.
+static std::vector<CellBound> split_table_row_cells(
+        const std::string& line, std::size_t start = 0)
+{
+    std::vector<CellBound> bounds;
+    const std::size_t len = line.size();
+
+    for (std::size_t i = start; i < len; ++i) {
+        if (line[i] != '|') { continue; }
+
+        CellBound b;
+        b.pipe_pos = i;
+        b.colspan  = 1;
+        b.rowspan  = 1;
+
+        // The "available region" for a cell spec begins just after the
+        // previous pipe's '|' (or at `start` for the first cell).
+        std::size_t prev_end = bounds.empty()
+            ? start
+            : bounds.back().pipe_pos + 1;
+
+        // Scan backward from `i` looking for a cell spec.
+        std::size_t j = i;
+
+        // Optional style character [a d e m h l s]
+        if (j > prev_end) {
+            constexpr std::string_view STYLES = "ademhls";
+            if (STYLES.find(line[j - 1]) != std::string_view::npos) { --j; }
+        }
+        // Optional horizontal-alignment character: < ^ >
+        // May be preceded by '.' for vertical alignment: .< .^ .>
+        if (j > prev_end &&
+                (line[j-1] == '<' || line[j-1] == '^' || line[j-1] == '>')) {
+            --j;
+            if (j > prev_end && line[j-1] == '.') { --j; }
+        }
+        // Optional '+' (span marker – required when there are span digits)
+        if (j > prev_end && line[j-1] == '+') {
+            --j;
+            // Digits immediately before '+' (rowspan or colspan)
+            std::size_t num_end = j;
+            while (j > prev_end &&
+                   std::isdigit(static_cast<unsigned char>(line[j-1]))) { --j; }
+
+            if (j < num_end) {
+                // Digits found.  A preceding '.' means these are rowspan digits;
+                // otherwise they are colspan digits.
+                if (j > prev_end && line[j-1] == '.') {
+                    b.rowspan = std::stoi(line.substr(j, num_end - j));
+                    --j;  // consume '.'
+                    // Colspan digits before '.'
+                    std::size_t cs_end = j;
+                    while (j > prev_end &&
+                           std::isdigit(static_cast<unsigned char>(line[j-1]))) { --j; }
+                    if (j < cs_end) {
+                        b.colspan = std::stoi(line.substr(j, cs_end - j));
+                    }
+                } else {
+                    b.colspan = std::stoi(line.substr(j, num_end - j));
+                }
+            }
+        }
+
+        // A cell spec is valid ONLY when `j` reaches all the way back to
+        // `prev_end`, meaning the spec occupies the entire region between
+        // the previous cell's content and this pipe.  If there is any
+        // non-spec content in that region, reset to a plain pipe.
+        if (j != prev_end) {
+            j = i;
+            b.colspan = 1;
+            b.rowspan = 1;
+        }
+        b.spec_start = j;
+        bounds.push_back(b);
+    }
+
+    return bounds;
+}
+
+// Returns true when `line` is a table cell line.
+// A line is a cell line when it starts with '|' or starts with a valid
+// cell spec (digits / '.' / '+' / alignment / style) that ends in '|'.
+static bool is_table_cell_line(const std::string& line) {
+    if (line.empty()) { return false; }
+    if (line[0] == '|') { return true; }
+
+    // Quick forward parse: look for [N][.M]+[align][style]| at the very start.
+    std::size_t i = 0;
+    bool has_spec = false;
+
+    // Optional colspan digits
+    if (i < line.size() && std::isdigit(static_cast<unsigned char>(line[i]))) {
+        while (i < line.size() && std::isdigit(static_cast<unsigned char>(line[i]))) { ++i; }
+        has_spec = true;
+    }
+    // Optional '.' rowspan digits
+    if (i < line.size() && line[i] == '.') {
+        ++i;
+        if (i < line.size() && std::isdigit(static_cast<unsigned char>(line[i]))) {
+            while (i < line.size() && std::isdigit(static_cast<unsigned char>(line[i]))) { ++i; }
+            has_spec = true;
+        } else {
+            return false;
+        }
+    }
+    // '+' required when span digits were found
+    if (has_spec) {
+        if (i < line.size() && line[i] == '+') { ++i; }
+        else { return false; }
+    } else {
+        return false;
+    }
+    // Optional alignment
+    if (i < line.size() && (line[i]=='<' || line[i]=='^' || line[i]=='>')) { ++i; }
+    else if (i < line.size() && line[i] == '.' &&
+             i + 1 < line.size() &&
+             (line[i+1]=='<' || line[i+1]=='^' || line[i+1]=='>')) { i += 2; }
+    // Optional style
+    if (i < line.size()) {
+        constexpr std::string_view STYLES = "ademhls";
+        if (STYLES.find(line[i]) != std::string_view::npos) { ++i; }
+    }
+    return i < line.size() && line[i] == '|';
+}
+
+} // anonymous namespace
+
 std::shared_ptr<Table> Parser::parse_table(
         Reader& reader, Block& parent,
         std::unordered_map<std::string, std::string>& pending_attrs)
@@ -1863,7 +2021,7 @@ std::shared_ptr<Table> Parser::parse_table(
     if (!has_header) {
         bool seen_row = false;
         for (const auto& ln : raw_lines) {
-            if (!ln.empty() && ln[0] == '|') {
+            if (is_table_cell_line(ln)) {
                 seen_row = true;
             } else if (seen_row && is_blank(ln)) {
                 has_header = true;
@@ -1874,14 +2032,14 @@ std::shared_ptr<Table> Parser::parse_table(
 
     // Determine the expected number of columns.
     // If a [cols] attribute provided the column specs we already know ncols.
-    // Otherwise infer from the first row that has content (count | tokens).
+    // Otherwise infer from the first row that has content, counting the logical
+    // column width (accounting for any colspan cell specs).
     int ncols = static_cast<int>(tbl->column_specs().size());
     if (ncols == 0) {
         for (const auto& ln : raw_lines) {
-            if (is_blank(ln) || ln.empty() || ln[0] != '|') { continue; }
-            std::string content = ln.substr(1);
-            ncols = 1;
-            for (char c : content) { if (c == '|') { ++ncols; } }
+            if (is_blank(ln) || !is_table_cell_line(ln)) { continue; }
+            auto bounds = split_table_row_cells(ln);
+            for (const auto& b : bounds) { ncols += b.colspan; }
             break;
         }
         if (ncols == 0) { ncols = 1; }
@@ -1890,19 +2048,25 @@ std::shared_ptr<Table> Parser::parse_table(
     // Build rows by accumulating cells across lines.
     //
     // AsciiDoc allows cells to be written one-per-line OR several-per-line;
-    // a row is completed whenever `ncols` cells have been gathered.
-    // The blank line separates the header group (first_group) from the body.
+    // a row is completed whenever `ncols` logical columns have been gathered
+    // (each cell contributes cell.colspan logical columns).  The blank line
+    // separates the header group from the body.
+    //
+    // Cell spec prefixes like "N+|" (colspan N), ".N+|" (rowspan N),
+    // "N.M+|" (colspan N, rowspan M) are parsed and stored on the cell.
     //
     // Upstream reference:
     //   https://github.com/asciidoctor/asciidoctor (lib/asciidoctor/converter/*)
     std::vector<std::shared_ptr<TableCell>> pending;
     bool in_header_group = has_header;
+    int pending_cols = 0;  // logical column count including colspans
 
     auto commit_row = [&]() {
         if (pending.empty()) { return; }
         TableRow row;
         for (auto& c : pending) { row.add_cell(c); }
         pending.clear();
+        pending_cols = 0;
         if (in_header_group) {
             tbl->head_rows().push_back(std::move(row));
         } else {
@@ -1917,34 +2081,37 @@ std::shared_ptr<Table> Parser::parse_table(
             in_header_group = false;
             continue;
         }
-        if (row_line.empty() || row_line[0] != '|') { continue; }
+        if (!is_table_cell_line(row_line)) { continue; }
 
-        // Extract every cell from this line.  The leading '|' starts the first
-        // cell; subsequent '|' characters delimit further cells on the same line.
-        std::string content = row_line.substr(1);
-        std::string sep     = "|";
-        std::size_t pos     = 0;
-        while (true) {
-            std::size_t next_sep = content.find(sep, pos);
-            std::string cell_text = (next_sep == std::string::npos)
-                ? content.substr(pos)
-                : content.substr(pos, next_sep - pos);
+        // Parse all cell boundaries on this line.
+        auto bounds = split_table_row_cells(row_line);
+        for (std::size_t bi = 0; bi < bounds.size(); ++bi) {
+            const auto& b  = bounds[bi];
+            // Cell content: from (pipe_pos + 1) to the start of the next
+            // cell's spec (or end of string for the last cell).
+            std::size_t content_start = b.pipe_pos + 1;
+            std::size_t content_end   = (bi + 1 < bounds.size())
+                ? bounds[bi + 1].spec_start
+                : row_line.size();
+
+            std::string cell_text = row_line.substr(content_start,
+                                                    content_end - content_start);
             trim(cell_text);
 
             auto cell = std::make_shared<TableCell>();
             cell->set_source(cell_text);
+            cell->set_colspan(b.colspan);
+            cell->set_rowspan(b.rowspan);
             if (in_header_group) {
                 cell->set_cell_context(TableCellContext::Head);
             }
             pending.push_back(std::move(cell));
+            pending_cols += b.colspan;
 
-            // Commit a full row as soon as we have exactly ncols cells.
-            if (static_cast<int>(pending.size()) == ncols) {
+            // Commit a full row as soon as we have ncols logical columns.
+            if (pending_cols >= ncols) {
                 commit_row();
             }
-
-            if (next_sep == std::string::npos) { break; }
-            pos = next_sep + sep.size();
         }
     }
     // Flush any trailing partial row (malformed table or last row without

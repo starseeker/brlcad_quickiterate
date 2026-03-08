@@ -34,6 +34,7 @@ mk_bsurf, FILE *filep, struct b_spline *bp);
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 This library exists to permit writing MGED databases from arbitrary procedures. Some of the high-level structure of MGED databases (e.g., that they start with an ID record, and that COMB records must be followed immediately by MEMBER records) is currently implicit in the calling routines. This library is by no means complete, and routines for writing every type of solid do not yet exist. While it is expected that this library will grow and change as experience is gained, it is not clear what direction that evolution will take. Be prepared for changes in the interface to some of these routines in future releases. All routines take as their first argument the stdio FILE pointer (e.g., stdout) on which the generated MGED database record(s) will be written with fwrite().
@@ -77,36 +78,43 @@ The routine _mk_bsolid_ writes the header for a b-spline solid "name", with "nsu
 The global variable _mk_version_ may be set to 4 or 5, depending on which format BRL-CAD database you wish to write. By default, the most recent version is always created.
 
 
+[[examples]]
 == EXAMPLE(S)
 
 Several examples of how to use this library can be found in the proc-db directory of the BRL-CAD source distribution.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1B), *mged*(1B), *rt*(1B)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 None
 
 
+[[bugs]]
 == BUGS
 
 The library is incomplete. The need for the application to know higher-level details is unfortunate, but necessary to keep the library simple. We may pay for this later.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1987-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

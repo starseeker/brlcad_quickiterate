@@ -14,6 +14,7 @@ comb [ [-c]| [-r]] [ [-w]| [-f]| [-l]] [ [-S]] {<combination_name>} [<<operator 
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *comb* command creates and manipulates _BRL-CAD_ combination objects. For combination creation or appending, _operator/object_name_ pairs of boolean operators and object names are parsed into comb tree entries. (TODO - integrate full expression evaluation like that in *c*.)
@@ -60,6 +61,7 @@ Stop if the combination object already exists.
 
 
 
+[[examples]]
 == EXAMPLES
 
 This example shows how to use the *comb* command to create a combination according to a given formula.
@@ -330,11 +332,13 @@ While _r3_ has problems, the geometry tree under _assembly_ is entirely correct.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

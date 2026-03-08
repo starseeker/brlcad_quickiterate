@@ -14,11 +14,13 @@ lint [-h] [-C] [-M] [-I] [-F "filters"] [<ObjectName>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The 'lint' command analyzes the currently open geometry database (or a subset of that database if object names are supplied as arguments), searching for a variety of problems. By default all defect types are searched for - if one or more of the options enabling a search for a specific type of problem are supplied, only those searches will be performed.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -44,6 +46,7 @@ Apply search command style filters to the set of objects to be tested. Allows, (
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Examine entire database for all defect categories (using lint_tests.g from BRL-CAD repository)
@@ -133,6 +136,7 @@ Found invalid objects:
 ====
 
 
+[[lint_repair]]
 == Repairing Invalid Geometry
 
 The procedures for repairing invalid geometry are specific to the problem and the object. For cyclic paths and invalid references the answer is generally straightforward. For cyclic paths, the cycle must be broken by editing comb definitions so the hierarchy is not self-referencial. For invalid references, either the reference is edited or the missing object is added. When it comes to invalid objects, however, matters become more challenging.
@@ -152,11 +156,13 @@ For BoTs where BRL-CAD's internal tools are inadequate and it is worthwhile to a
 Facetize (when run with the -r option) already tries to clear thin volumes automatically - occasionally it is possible, but in many cases the mesh cannot be automatically repaired without manual intervention in a mesh editing tool. In situtations where coplanar faces are the cause of thin volumes or close faces, the recommended solution is to adjust the original source geometry to avoid coplanarity - slightly "bumping" faces in or out tiny amounts to avoid the mathematically problematic alignments. If a mesh does need to be exported, the *bot strip* command can remove some of the problematic faces as a preliminary step. (Note that there may still be problem triangles present - lint's current BoT testing samples only the center of each triangle, so triangles that are coplanar but not overlapping in the center will not be detected.)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

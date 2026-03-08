@@ -14,6 +14,7 @@ attr [get] [set] [rm] [append] [list] [show] [sort] [standardize] [copy] {<objec
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to create, change, retrieve, or view attributes of database objects. Note that the attribute names may not contain embedded white space, and if attribute values contain embedded white space, they must be surrounded by {} or double quotes.
@@ -31,6 +32,7 @@ A newly formed region always has four attributes automatically assigned to it:
 The 'region' attribute is the 'region flag' mentioned in the edcomb command.
 
 
+[[attr_subcommands]]
 == SUB-COMMANDS
 
 
@@ -74,6 +76,7 @@ Takes the value of the first attribute from the specified object and set the sec
 
 
 
+[[examples]]
 == EXAMPLES
 
 The examples demonstrate the use of the *attr* command and subcommands to assign and list attributes of database objects.
@@ -163,21 +166,25 @@ Produces a list of all material_id values found one or more times in the databas
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *attributes*(5).
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2008-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

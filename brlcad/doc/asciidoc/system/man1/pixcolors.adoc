@@ -14,11 +14,13 @@ pixcolors [-v] < <pixfile>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixcolors* reports on the standard output the number of distinct colors used in the _pix(5)_ format file on the standard input.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -28,16 +30,19 @@ Causes a sorted list of the unique colors used to be printed on standard output 
 
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

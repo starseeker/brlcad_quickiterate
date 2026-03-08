@@ -31,8 +31,6 @@ The Source String and Replacement String fields must be used together. The sourc
 
 image::../articles/images/build_pattern_fig01.png[]
 
-image::../articles/images/build_pattern_fig01.png[]
-
 The Increment field is only for use when duplicating to the primitive level. It is added to the leftmost number field of each primitive. To determine the increment, examine the primitives of the object(s) you wish to pattern and find the largest span. For example, to create a pattern to the primitive level with the following primitives (which may or may not be in regions or assemblies): 
 ....
 
@@ -55,11 +53,7 @@ Finally, the Objects field is used for the names of all the items to be patterne
 [[build_pattern_stringsub]]
 == String Substitution
 
-It is also possible to create a pattern in which a string of characters in each element in the object is changed (e.g., "l_" -> "r_"). This is useful for symmetry applications (e.g., left - right) or series (e.g., 1 - n). Each element of the object must have the source string so the user must be thorough and name each primitive, region, and assembly properly. Consider the following example: image::../articles/images/build_pattern_fig07.png[]
-
-image::../articles/images/build_pattern_fig07.png[]
-
-
+It is also possible to create a pattern in which a string of characters in each element in the object is changed (e.g., "l_" -> "r_"). This is useful for symmetry applications (e.g., left - right) or series (e.g., 1 - n). Each element of the object must have the source string so the user must be thorough and name each primitive, region, and assembly properly. Consider the following example: image:../articles/images/build_pattern_fig07.png[]
 
 Top-level duplications copy the patterned object and reference its entire structure with matrices, as follows: 
 ....
@@ -102,8 +96,6 @@ The rectangular pattern GUI (shown in Figure E-2) is designed to facilitate one-
 
 image::../articles/images/build_pattern_fig02.png[]
 
-image::../articles/images/build_pattern_fig02.png[]
-
 
 [[build_pattern_spherical]]
 == Spherical Patterns
@@ -120,15 +112,9 @@ The Create Radii and Use Radii List series define offsets from the Starting Radi
 
 image::../articles/images/build_pattern_fig03.png[]
 
-image::../articles/images/build_pattern_fig03.png[]
-
 Without the Rotate Azimuth or Rotate Elevation boxes checked, the patterned objects are oriented as built without any rotations. Notice, for example, that every arrow in Figure E-5 points to the left. Notice also that for each patterned arrow, the Object Center (here specified as the tip of the arrow) is located on the circle outline at a distance of one Starting Radius from the Pattern Center. If we set the Object Center to the coordinate at the base of the arrow, the base would then lie on the circular outline. Wherever the Object Center is set is the point at which MGED works with the Object Center coordinate to place and rotate patterned objects.
 
 image::../articles/images/build_pattern_fig04.png[]
-
-image::../articles/images/build_pattern_fig04.png[]
-
-image::../articles/images/build_pattern_fig05.png[]
 
 image::../articles/images/build_pattern_fig05.png[]
 
@@ -137,8 +123,6 @@ image::../articles/images/build_pattern_fig05.png[]
 == Cylindrical Patterns
 
 The cylindrical pattern GUI (shown in Figure E-6) facilitates the creation of cylinder-shaped patterns with user-defined center, direction, height, azimuth, and radii inputs. The Base Center is the vertex of the cylinder shape. The Object Center is a user-defined coordinate used to locate the object(s) relative to the Base Center and Height Direction. It acts as the key point for any transformations to the pattern object(s). The Height Direction is the vector along which the cylinder runs. The Starting Height is the offset from the Base Center along the Height Direction that the pattern will place the Object Center.
-
-image::../articles/images/build_pattern_fig06.png[]
 
 image::../articles/images/build_pattern_fig06.png[]
 

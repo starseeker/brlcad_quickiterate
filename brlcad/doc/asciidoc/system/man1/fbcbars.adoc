@@ -14,6 +14,7 @@ fbcbars [-e] [-f] [-s] [-F<framebuffer>] [-S<squarescrsize>] [-W<scr_width>] [-N
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fbcbars* displays a color bar scale on the currently selected framebuffer. The default pattern is the standard SMPTE color bars.
@@ -35,6 +36,7 @@ The *-N*_scr_height_ option specifies the desired height in scanlines of the dis
 *-S*_squarescrsize_ sets both the height and width to the size given.
 
 
+[[inspirations]]
 == INSPIRATIONS
 
 Mike Pique, University of North Carolina
@@ -42,16 +44,19 @@ Mike Pique, University of North Carolina
 Doris Kochanek, National Film Board of Canada
 
 
+[[author]]
 == AUTHOR
 
 _BRL-CAD Team_
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1988-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

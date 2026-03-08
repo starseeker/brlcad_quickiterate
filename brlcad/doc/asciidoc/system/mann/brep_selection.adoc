@@ -14,6 +14,7 @@ brep {<obj>}selection [<append|translate>] [<arguments>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 If _obj_ is not a brep object, then *brep* will quit and report that fact. Otherwise, attempt to operate on the selected components. This command should be viewed as dangerous and experimental - it can change BRep data, but it does not guarantee preservation of solidity while doing so - if edge curve points are moved, for example, an otherwise solid BRep object will no longer be solid.
@@ -25,11 +26,13 @@ Translate a surface control vertex
 
 
 
+[[author]]
 == AUTHOR
 
 BRLCAD-TEAM
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -20,6 +20,7 @@ pixuntile [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-S<squareoutsize>] 
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixuntile* performs the inverse operation of *pixtile*(1). It takes a large image composed of a collection of small images and places each of them in a separate file. The input and output files are assumed to be in *pix*(5) format. By default, the input file is assumed to be 512x512 pixels in size.
@@ -31,26 +32,31 @@ The files being produced as output will have names of the form _basename.num_, w
 Alternatively, if more than one _basename_ (filename) argument is supplied on the command line, the names of the files are used as the output file names.
 
 
+[[example]]
 == EXAMPLE
 
 *pixuntile -s 1024 -S 128 out < in.pix* will read the 1024x1024 file _in.pix_ and place the 128x128 chunks of that file from lower left to upper right in the files _out.0_ through _out.63_.
 
 
+[[see_also]]
 == SEE ALSO
 
 *pixtile*(1), *brlcad*(1), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1988-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

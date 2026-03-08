@@ -14,6 +14,7 @@ whichair [<options ...>] {<air_codes>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Reports information about the usage of the _air_codes_ property by regions in a .g file. Its default mode is to report which regions in a .g file are using one or a range of region_id values. If a root object is specified, it will report that result only for the regions in the tree of the root object. If the *U* is specified, the reporting is inverted and the command will report the ranges of _unused_ aircodes rather than the regions using various aircodes.
@@ -21,6 +22,7 @@ Reports information about the usage of the _air_codes_ property by regions in a 
 The *eac* command will perform a similar search, but will draw the qualifying regions in the MGED display rather than listing them.
 
 
+[[search_options]]
 == OPTIONS
 
 
@@ -34,6 +36,7 @@ Limit reporting to regions in the CSG tree below _objname_.
 
 
 
+[[examples]]
 == EXAMPLES
 
 For these examples the geometry file used is the standard _m35.g_ included with BRL-CAD.
@@ -80,11 +83,13 @@ Unused air codes:
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

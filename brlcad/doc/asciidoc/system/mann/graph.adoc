@@ -14,11 +14,13 @@ graph [show] [positions]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to query and manipulate properties of the graph that corresponds to the currently opened .g database. The "show" subcommand displays a list of names and types of the objects from the database along with the positions within the graph of their corresponding nodes and their connection edges. The "positions" subcommand displays for each object in the geometric database its name, type, and node and positions within the graph.
 
 
+[[examples]]
 == EXAMPLES
 
 The examples demonstrate the use of the *graph* command and subcommands to access information about the representation of the objects of a database.
@@ -46,11 +48,13 @@ Lists the names, types, positions of the corresponding nodes within the graph fo
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ pixbgstrip [-a] [-t<thresh>] [-x<x_offset_for_bg_pixel>] [-s<squarefilesize>] [-
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixbgstrip* reads a *pix*(5) format file from the named file, or from standard input if no file is specified. For each scanline read, all pixels that match the color of the background pixel are converted to black (0/0/0), and then the new scanline is written on stdout.
@@ -31,26 +32,31 @@ The *-n*_file_height_ flag specifies the height in scanlines of the input file.
 *-s*_squarefilesize_ sets both the height and width to the size given.
 
 
+[[see_also]]
 == SEE ALSO
 
 *pixbackgnd*(1), *pix-fb*(1), *fb-pix*(1), *libfb*(3), *pix*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 If the _pix_ file is shorter than expected, the program exits silently.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1991-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

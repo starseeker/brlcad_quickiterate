@@ -20,6 +20,7 @@ pixtile [-s<squareinsize>] [-w<file_width>] [-n<file_height>] [-S<squareoutsize>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixtile* takes a collection of numbered small images and places them side by side in one larger image. The input and output files are assumed to be in *pix*(5) format. By default, the output file will be made 512x512 pixels in size.
@@ -67,6 +68,7 @@ Alternatively, if more than one _basename_ (filename) argument is supplied on th
 This program is the companion of *fbanim*(1), which will step through these small images on a framebuffer capable of zooming and windowing. Thus many small low resolution frames can be used as an animation "preview" for a higher resolution sequence, the latter of which would go onto video tape or film.
 
 
+[[example]]
 == EXAMPLES
 
 pixtile -S 1024 -s 128 -o 2 anim > out.pix
@@ -78,21 +80,25 @@ pixtile -s 256 lowerleft lowerright upperleft upperright > out.pix
 will read files _lowerleft_, _lowerright_, _upperleft_, and _upperright_, placing them from lower left to upper right in a 512x512 file _out.pix_.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *fbanim*(1), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

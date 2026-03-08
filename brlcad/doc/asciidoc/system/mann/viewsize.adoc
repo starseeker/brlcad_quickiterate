@@ -14,11 +14,13 @@ viewsize {<view_size>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Sets the size of the current viewing cube to the specified view_size (in local units). This size is the length of any side of the square mged display. This command is a synonym for the *size* command. See also the *view* command.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *viewsize* command to set the mged display to a specified number of units.
@@ -33,11 +35,13 @@ Sets the mged display to be 250 units across.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

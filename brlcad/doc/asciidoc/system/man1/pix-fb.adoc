@@ -14,6 +14,7 @@ pix-fb [-aicz1] [-F<framebuffer>] [-m<#lines>] [-s<squarefilesize>] [-w<file_wid
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pix-fb* reads a *pix*(5) format file from the named file, or from standard input if no file is specified, and displays the image on the currently selected framebuffer. The environment variable FB_FILE specifies the current framebuffer, see *brlcad*(1). Alternatively, the framebuffer may be explicitly specified by using the *-F* flag.
@@ -35,31 +36,37 @@ The *-1* flag causes the image to be written to the framebuffer one line at a ti
 The *-p* flag specifies the (integer) number of _seconds_ to pause before the frame-buffer is closed.
 
 
+[[format]]
 == FORMAT
 
 A *pix*(5) file contains sequences of pixels. Each pixel is stored as three _unsigned char_s, first red, then green, then blue. The first pixel in a _pix_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image. By convention, _pix_ images are usually square.
 
 
+[[see_also]]
 == SEE ALSO
 
 *rt*(1), *fb-pix*(1), *libfb*(3), *pix*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 If the _pix_ file is shorter than expected, the program exits silently.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1986-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

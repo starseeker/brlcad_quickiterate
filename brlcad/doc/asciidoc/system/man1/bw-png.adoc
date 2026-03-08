@@ -14,11 +14,13 @@ bw-png [-a] [-n<file_height>] [-w<file_width>] [-s<squaresize>] [<BRLbwfile>] > 
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bw-png* converts a _BRL BW(5)_ format file to a _PNG_ format file on the standard output. The PNG file created will be a Gray scale file with a bit-depth of 8 and a file gamma of 1.0.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -40,16 +42,19 @@ sets both the width and the height for the input to be _squaresize_
 
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1998-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,11 +14,13 @@ gist [<options ...>]... {<(-F model/dir | model.g)>}
 ----
 
 
+[[gist_description]]
 == DESCRIPTION
 
 The Geometric Information Summary Tool - *gist* - is used to create a high level summary conveying visually and textually what geometry is defined with one or a set of .g geometry databases. It can output a PNG image containing renders and information summarizing area, volume and other standard properties as well as the top level structure of the geometry present.
 
 
+[[gist_options]]
 == OPTIONS
 
 
@@ -108,6 +110,7 @@ Print help and exit.
 
 
 
+[[gist_examples]]
 == EXAMPLE
 
 .M35 Truck
@@ -125,11 +128,13 @@ Print help and exit.
 ====
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2008-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

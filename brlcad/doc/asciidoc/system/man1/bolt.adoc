@@ -14,11 +14,13 @@ bolt [<options>]...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bolt* is a program to create a BRL-CAD data base of one of four different kinds of bolts. Up to twenty-six bolts of one type and size may be created. *bolt* uses libwdb to create a database file. This program may be run interactively or the user may specify options on a command line. If the user chooses to run the program interactively he answers the questions as the program prompts him. Below are the options that can be used on the command line.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -60,6 +62,7 @@ Height of bolt stem in millimeters.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Interactive bolt Session
@@ -105,21 +108,25 @@ number of bolts:  3
 Both examples produce the same output - the bolt heads (option 1) are created with a diameter of 30mm and a height of 10mm in a database file called bolt.g.
 
 
+[[author]]
 == AUTHOR
 
 Susan A. Coates
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2005-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[see_also]]
 == SEE ALSO
 
 handle(1), window(1), window_frame(1), gastank(1)
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

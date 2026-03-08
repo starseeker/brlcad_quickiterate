@@ -21,13 +21,7 @@ In addition, because they are defining turns, points in a pipe are often nonline
 
 image::../articles/images/pipes_fig01.png[]
 
-image::../articles/images/pipes_fig01.png[]
-
 image::../articles/images/pipes_fig02.png[]
-
-image::../articles/images/pipes_fig02.png[]
-
-image::../articles/images/pipes_fig03.png[]
 
 image::../articles/images/pipes_fig03.png[]
 
@@ -54,8 +48,6 @@ In the example shown in Figure A-4, the coil diameter is 1/4 (0.25) in, the wire
 
 image::../articles/images/pipes_fig04.png[]
 
-image::../articles/images/pipes_fig04.png[]
-
 The key to properly and precisely positioning points to build a coil section is to use half of the coil diameter as an offset. The first and the last points in the coil must lie on the pipe's path. These points are easily determined at 90°  intervals from the center of the pipe (or, with a bit of trigonometry, at any interval). The rest of the points for the pipe are located at ±  offsets in whichever plane is perpendicular to the pipe height vector from the center of the pipe with the proper height delta (which will generally be 1/4 of the height per coil section).
 
 Obviously, the construction of this type of object is a little more advanced than the construction of many of the other types of objects discussed. Thus, the following text provides the user with step-by-step instructions that can also serve as a kind of template when using the pipe primitive to build a coil or similar object.
@@ -75,51 +67,17 @@ To build two turns of a coil at the origin with a coil diameter of 1000 mm, a wi
 
 |===
 
-|- mged>p 500 -500 150 |image::../articles/images/pipes_fig05.png[]
-
-image::../articles/images/pipes_fig05.png[]
-
- 
-|- mged>p -500 -500 250 |image::../articles/images/pipes_fig06.png[]
-
-image::../articles/images/pipes_fig06.png[]
-
- 
-|- mged>p -500 500 350 |image::../articles/images/pipes_fig07.png[]
-
-image::../articles/images/pipes_fig07.png[]
-
- 
-|- mged>p 500 500 450 |image::../articles/images/pipes_fig08.png[]
-
-image::../articles/images/pipes_fig08.png[]
-
- 
-|- mged>p 500 -500 550 |image::../articles/images/pipes_fig09.png[]
-
-image::../articles/images/pipes_fig09.png[]
-
- 
-|- mged>p -500 -500 650 |image::../articles/images/pipes_fig10.png[]
-
-image::../articles/images/pipes_fig10.png[]
-
- 
-|- mged>p -500 500 750 |image::../articles/images/pipes_fig11.png[]
-
-image::../articles/images/pipes_fig11.png[]
-
- 
-|- mged>p 0 500 800 |image::../articles/images/pipes_fig12.png[]
-
-image::../articles/images/pipes_fig12.png[]
-
- 
+|- mged>p 500 -500 150 |image:../articles/images/pipes_fig05.png[] 
+|- mged>p -500 -500 250 |image:../articles/images/pipes_fig06.png[] 
+|- mged>p -500 500 350 |image:../articles/images/pipes_fig07.png[] 
+|- mged>p 500 500 450 |image:../articles/images/pipes_fig08.png[] 
+|- mged>p 500 -500 550 |image:../articles/images/pipes_fig09.png[] 
+|- mged>p -500 -500 650 |image:../articles/images/pipes_fig10.png[] 
+|- mged>p -500 500 750 |image:../articles/images/pipes_fig11.png[] 
+|- mged>p 0 500 800 |image:../articles/images/pipes_fig12.png[] 
 |===
 
 The raytraced image of the coil segment is shown in Figure A-5.
-
-image::../articles/images/pipes_fig13.png[]
 
 image::../articles/images/pipes_fig13.png[]
 

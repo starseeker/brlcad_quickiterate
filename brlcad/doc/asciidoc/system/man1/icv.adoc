@@ -14,6 +14,7 @@ icv [-h] [-i<file>] [--input-format<fmt>] [-o<file>] [--output-format<fmt>] [-w<
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *icv* is a tool to convert images to and from a variety of image formats. Currently support formats include: .Supported ICV Image Formats
@@ -31,6 +32,7 @@ icv [-h] [-i<file>] [--input-format<fmt>] [-o<file>] [--output-format<fmt>] [-w<
 
 
 
+[[options]]
 == OPTIONS
 
 File types will be deduced unless explicitly specfied with the *input-format* and/or *output-format* options. For file types like PIX that do not encode dimensional information, *icv* will attempt to guess the image size based on various assumptions (a square image, known sizes for image displays, paper sizes at various dots-per-inch, etc.). If the users does know the correct image width and height, they may be specified with the *w* and *n* options.
@@ -66,6 +68,7 @@ Explicitly specify output file format.
 
 
 
+[[example]]
 == EXAMPLE
 
 
@@ -76,21 +79,25 @@ Explicitly specify output file format.
 ....
 
 
+[[see_also]]
 == SEE ALSO
 
 *pix*(5)*bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 Clifford Yapp
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ art [<options>] [<--objects>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The _art_ command is a new, in-progress command that performs similar rendering as in *rt*, using the open-source _Appleseed_ physically based rendering engine. The integration of Appleseed into BRL-CAD is an ongoing effort to make art production-ready through enabling as many rt features as possible so that art is a drop-in replacement. The current status of the project has incorporated several, but not all, features of rt, as well as fixing issues with the Appleseed integration with BRL-CAD, such as z-up orientation and the orthographic view. To run art as one would run rt, simply run bin/art from the command line or, from the MGED raytrace control panel, select "Art" instead of "Raytrace".
@@ -23,6 +24,7 @@ There are some limitations with the current implementation of art. One is that i
 The following example commands are performed in mged, but since art is en evolving command, some issues with running the commands may be observed.
 
 
+[[examples]]
 == EXAMPLES
 
 The first example shows the use of the *art* command to run the art program to produce a color-shaded image. The second example shows the use of the *art* command to run the art program to produce a brightened image. Both commands use a sample object.
@@ -46,11 +48,13 @@ Runs the _art_ program to produce a brightened image of the sample object. The i
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

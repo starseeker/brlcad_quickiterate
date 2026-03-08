@@ -14,6 +14,7 @@ sca { [sfactor]| [x-sfactor y-sfactor z-sfactor]}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Applies a scaling factor to an object or view. When passed one parameter, an "object or view" is applied a uniform scale factor. When passed three parameters, an "object" is applied a unique scale factor to each axis. The effect is determined by the Transform option in the Settings menu. This is normally affected by the current mode of operation in MGED (e.g., matrix edit, primitive edit, or viewing).
@@ -21,6 +22,7 @@ Applies a scaling factor to an object or view. When passed one parameter, an "ob
 NOTE: Three parameters can only be applied in "matrix edit" mode. Only scale pipe and tori primitives uniformly otherwise raytracer and other errors may occur.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *sca* command to apply a scaling factor to an object or view.
@@ -44,11 +46,13 @@ In matrix edit mode, the object being affected will get twice as big along the x
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

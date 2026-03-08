@@ -14,11 +14,13 @@ g-var [-v] [-y] [-s<scale>] [-f] [-o<outfile>] <infile.g> <object>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *g-var* writes the bag of triangle (BOT) primitives of the specified _object_ in a binary array format to _outfile_ or to _stdout_.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -44,11 +46,13 @@ The output will be written to _outfile_. By default the output is written to std
 
 
 
+[[file_format]]
 == FILE FORMAT
 
 _TODO_
 
 
+[[example]]
 == EXAMPLE
 
 
@@ -58,21 +62,25 @@ $ g-var -o sample.mesh sample.g sample_object
 ----
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Error messages are intended to be self-explanatory.
 
 
+[[author]]
 == AUTHOR
 
 Prasad Silva
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2006-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
