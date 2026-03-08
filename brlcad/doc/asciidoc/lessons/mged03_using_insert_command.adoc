@@ -91,7 +91,7 @@ Your sphere will now be placed at (x,y,z)=(4,4,4), as measured in millimeters. N
       
 ....
 
-The radius of your sphere will be 3 mm. The following is the dialog that should appear in your Command Window (including the appropriate responses). *mged>in sph2.s sph* `Enter X, Y, Z of vertex: 4 4 4` `Enter radius: 3` `51 vectors in 0.000543 sec` The last line of this dialog is simply a record of the computer's speed in drawing the shape. It has no real usefulness to the user at this point.
+The radius of your sphere will be 3 mm. The following is the dialog that should appear in your Command Window (including the appropriate responses). mged>in sph2.s sph `Enter X, Y, Z of vertex: 4 4 4` `Enter radius: 3` `51 vectors in 0.000543 sec` The last line of this dialog is simply a record of the computer's speed in drawing the shape. It has no real usefulness to the user at this point.
 
 A sphere has now been created, and a wireframe drawing similar to the one created using the make command should appear in your Graphics Window.
 
@@ -273,5 +273,3 @@ In this lesson, you:
 * Considered _MGED_ naming conventions.
 * Viewed your shapes from different perspectives using options of the View menu.
 * Quit the _MGED_ program.
-
-

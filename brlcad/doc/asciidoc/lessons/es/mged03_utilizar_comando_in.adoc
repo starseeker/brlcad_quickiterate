@@ -86,7 +86,7 @@ Su esfera estará ahora ubicada en(x,y,z)=(4,4,4), medido en milímetros. Recuer
       
 ....
 
-El radio de la esfera será de 3 mm. El siguiente cuadro de diálogo aparecerá en la ventana de comandos (incluyendo las respuestas correspondientes): *mged>in sph2.s sph* `Enter X, Y, Z of vertex: 4 4 4` `Enter radius: 3` `51 vectors in 0.000543 sec` La última línea de este diálogo es simplemente un registro de la velocidad de la computadora en dibujar la forma. No tiene ninguna utilidad real para el usuario en este punto.
+El radio de la esfera será de 3 mm. El siguiente cuadro de diálogo aparecerá en la ventana de comandos (incluyendo las respuestas correspondientes): mged>in sph2.s sph `Enter X, Y, Z of vertex: 4 4 4` `Enter radius: 3` `51 vectors in 0.000543 sec` La última línea de este diálogo es simplemente un registro de la velocidad de la computadora en dibujar la forma. No tiene ninguna utilidad real para el usuario en este punto.
 
 La esfera ha sido creada y su wireframe (marco de alambre), similar al de la esfera creada con el comando make aparecerá en su ventana gráfica.
 

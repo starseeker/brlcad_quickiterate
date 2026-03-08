@@ -1645,12 +1645,23 @@
     <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
-  <!-- userinput: bold -->
+  <!-- userinput: bold (or passthrough when it contains nested inline elements) -->
   <xsl:template match="db:userinput">
     <xsl:call-template name="inline-leading-space"/>
-    <xsl:text>*</xsl:text>
-    <xsl:apply-templates/>
-    <xsl:text>*</xsl:text>
+    <xsl:choose>
+      <!-- When userinput contains element children (e.g. <command>, <option>),
+           don't wrap with bold markers since nested bold markers would produce
+           malformed AsciiDoc like **mged* *-c* text*.
+           Instead, emit the content directly — the child elements supply markup. -->
+      <xsl:when test="*">
+        <xsl:apply-templates/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:text>*</xsl:text>
+        <xsl:apply-templates/>
+        <xsl:text>*</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
     <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
