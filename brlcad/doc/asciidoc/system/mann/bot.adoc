@@ -139,7 +139,7 @@ The *bot* command allows the user to initiate and number of subcommands on BoT p
 
 
 *check*::
-Performs the requested check on the provided solid. Checks are _degen_faces_, _extra_edges_, _flipped_edges_, _open_edges_, or _solid_. The command will return a 1 (if the specified check finds an issue) or 0.
+Performs the requested check on the provided solid. Checks are __degen_faces__, __extra_edges__, __flipped_edges__, __open_edges__, or _solid_. The command will return a 1 (if the specified check finds an issue) or 0.
 
 
 *chull*::

@@ -30,7 +30,7 @@ The first example shows the use of the *dup* command to check for files having t
 ====
 
 mged>*dup other_model.g*::
-Checks _other_model.g_ for names duplicating those in the current model.
+Checks __other_model.g__ for names duplicating those in the current model.
 
 
 
@@ -41,7 +41,7 @@ Checks _other_model.g_ for names duplicating those in the current model.
 ====
 mged>*dup other_model.g abc*
 
-Does the same check as in the first example, but prefixes all the names in _other_model.g_with _abc_ before comparing with the names in the current model.
+Does the same check as in the first example, but prefixes all the names in __other_model.g__with _abc_ before comparing with the names in the current model.
 
 ====
 
@@ -56,3 +56,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

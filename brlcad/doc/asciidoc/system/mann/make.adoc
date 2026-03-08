@@ -17,7 +17,7 @@ make [-t] [<new_shape type>]
 [[description]]
 == DESCRIPTION
 
-Creates a _new_shape_ of the indicated type. The _new_shape_ is sized according to the current view size and is dependent on the _type_. The possible values for _type_ are:
+Creates a __new_shape__ of the indicated type. The __new_shape__ is sized according to the current view size and is dependent on the _type_. The possible values for _type_ are:
 
 
 * arb8 -- ARB (eight vertices)
@@ -85,3 +85,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

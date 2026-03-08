@@ -30,7 +30,7 @@ Display faceted approximation of an object.
 ====
 
 mged>*E some_object*::
-Displays a faceted approximation of _some_object_.
+Displays a faceted approximation of __some_object__.
 
 
 
@@ -47,3 +47,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

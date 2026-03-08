@@ -17,7 +17,7 @@ prefix {<new_prefix objects>>}
 [[description]]
 == DESCRIPTION
 
-Changes the name of all the _objects_ listed by adding the specified _new_ prefix_. All references to the _objects_ will also be changed. The *mvall* command performs a similar function.
+Changes the name of all the _objects_ listed by adding the specified __new_ prefix__. All references to the _objects_ will also be changed. The *mvall* command performs a similar function.
 
 
 [[examples]]
@@ -45,3 +45,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

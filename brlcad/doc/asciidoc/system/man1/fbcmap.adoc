@@ -33,7 +33,7 @@ The *-n* (or *-N*) _scr_height_ option specifies the height of each scanline for
 
 The *-s* (or *-S*) _squarescrsize_ option sets both the height and width to the size given. This size distinction is important only for devices like the Adage framebuffers which have different operating modes based on the display size.
 
-If an optional color _map_number_ is given, that map is used; the default is the standard linear map. There are currently six other maps supplied numbered 1 through 6 as follows:
+If an optional color __map_number__ is given, that map is used; the default is the standard linear map. There are currently six other maps supplied numbered 1 through 6 as follows:
 
 
 1::

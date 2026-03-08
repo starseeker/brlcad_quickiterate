@@ -193,7 +193,7 @@ sets the calculation tolerances used by *librt*(3). If only one number is given,
 
 
 *-U #*::
-sets the Boolean variable _use_air_ to the given value. The default is 0, which ignores regions that have non-zero aircode values.
+sets the Boolean variable __use_air__ to the given value. The default is 0, which ignores regions that have non-zero aircode values.
 
 
 *-V #*::

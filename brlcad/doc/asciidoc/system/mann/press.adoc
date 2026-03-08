@@ -17,10 +17,10 @@ press {<button_label>}
 [[description]]
 == DESCRIPTION
 
-Simulates the pressing of a button. All of these button actions can be run directly as a command. The _button_label_ indicates which button to simulate. The available buttons are as follows:
+Simulates the pressing of a button. All of these button actions can be run directly as a command. The __button_label__ indicates which button to simulate. The available buttons are as follows:
 
 
-* help -- Provides a list of the available _button_labels_.
+* help -- Provides a list of the available __button_labels__.
 * 35,25 -- Switches to a view from an azimuth of 35° and an elevation of 25°.
 * 45,45 -- Switches to a view from an azimuth of 45° and an elevation of 45°.
 * accept -- Simulates the _accept_ button (accepts edits and writes the edited object to the database).
@@ -80,3 +80,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

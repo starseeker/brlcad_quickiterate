@@ -82,7 +82,7 @@ The *vdraw* commands are as follows:
 * send -- send the current command list to the MGED display manager.
 * vlist -- with an argument of "list," return a list of the names of all existing command lists.
 +
--- with an argument of _delete list_name_, delete the specified command list.
+-- with an argument of __delete list_name__, delete the specified command list.
 
 
 All textual arguments may be abbreviated by their first letter.
@@ -176,3 +176,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

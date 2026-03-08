@@ -29,7 +29,7 @@ The *-a* and *-b* options can be used to set the top and bottom intensity, in th
 
 *-w* and *-n* options set the width and height, respectively; *-s* sets them to the same value. By default, the display is assumed to be 512x512 pixels; specifying the *-H* flag, in addition to changing the title height to 90 scanlines (see below), changes the output size to 1024x1024.
 
-By default, the title height is 80 scanlines, or 90 scanlines if the *-H* flag is set, but the *-t*_title_height_ option may be used to specify another value. If _title_height_ is set to zero, then the white bar is omitted as well, and the entire display is smoothly shaded.
+By default, the title height is 80 scanlines, or 90 scanlines if the *-H* flag is set, but the *-t*_title_height_ option may be used to specify another value. If __title_height__ is set to zero, then the white bar is omitted as well, and the entire display is smoothly shaded.
 
 If the *-i* flag is specified, the scanlines will be written out in inverted order (i.e., top to bottom).
 
@@ -72,3 +72,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

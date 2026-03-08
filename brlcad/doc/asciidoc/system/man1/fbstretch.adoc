@@ -28,51 +28,51 @@ The default input image size is 512 by 512. Explicitly specified sizes override 
 === Options
 
 
--f _input_image_name_::
+-f __input_image_name__::
 Inputs the image to be displayed from the specified frame buffer or *pix*(5) file, instead of modifying the output frame buffer in place. This option may not work if input and output frame buffers are the same device.
 
 
--s_input_square_size_::
+-s__input_square_size__::
 Specifies input image width and height.
 
 
--w_input_ width_::
+-w__input_ width__::
 Specifies input image width.
 
 
--n_input_height_::
+-n__input_height__::
 Specifies input image height.
 
 
--a__::
+-a::
 (no averaging) Specifies that output pixels will be sampled from the input, instead of being computed by averaging RGB values.
 
 
--v__::
+-v::
 (verbose) Causes actual sizes and scale factors used to be printed on the standard error output.
 
 
--x_horizontal_scale_factor_::
+-x__horizontal_scale_factor__::
 Scales the image by the specified factor in the horizontal direction; the default is the ratio of requested output to input widths, if specified, otherwise 1.
 
 
--y_vertical_scale_factor_::
+-y__vertical_scale_factor__::
 Scales the image by the specified factor in the vertical direction; the default is the ratio of requested output to input heights, if specified, otherwise 1.
 
 
--S_output_square_size_::
+-S__output_square_size__::
 Specifies output frame buffer width and height.
 
 
--W_output_width_::
+-W__output_width__::
 Specifies output frame buffer width.
 
 
--N_output_height_::
+-N__output_height__::
 Specifies output frame buffer height.
 
 
--F_output_frame_buffer_name_::
+-F__output_frame_buffer_name__::
 Outputs to the specified frame buffer instead of the one specified by the _FB_FILE_ environment variable (or the default, if _FB_FILE_ is not set). If this is the last option specified, the _-F_ is optional.
 
 
@@ -128,3 +128,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

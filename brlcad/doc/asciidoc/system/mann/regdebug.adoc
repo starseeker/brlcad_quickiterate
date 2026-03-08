@@ -17,7 +17,7 @@ regdebug [<debug_level>]
 [[description]]
 == DESCRIPTION
 
-With no options, the *regdebug* command toggles the display manager debug flag. If a _debug_level_ is supplied, then the display manager debug flag is set to that value.
+With no options, the *regdebug* command toggles the display manager debug flag. If a __debug_level__ is supplied, then the display manager debug flag is set to that value.
 
 
 [[examples]]
@@ -45,3 +45,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
