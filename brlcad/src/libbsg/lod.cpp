@@ -1483,12 +1483,17 @@ POPState::set_level(int level)
     curr_level = level;
 }
 
-// Rather than committing all data to LMDB in one transaction, use keys with
-// appended strings to the hash to denote the individual pieces - basically
-// what we were doing with files, but in the db instead
+// Per-object LoD data is stored using keys with appended suffix strings to
+// the content hash (e.g. "<hash>:v0", "<hash>:t2") to denote individual
+// pieces - basically what we were doing with files, but in the db instead.
+// This allows easier removal of larger subcomponents if we need to back off
+// on saved LoD.
 //
-// This will also allow easier removal of larger subcomponents if we need to
-// back off on saved LoD.
+// All writes for a single object are accumulated in a single write transaction
+// (write_txn_bc_) that is committed atomically at the end of cache().  This
+// guarantees that a reader either sees ALL data components for the object or
+// NONE — there is no observable "mixed state" where some keys from the new
+// write and some from a prior write are visible simultaneously.
 bool
 POPState::cache_write(const char *component, std::stringstream &s)
 {
@@ -1499,10 +1504,10 @@ POPState::cache_write(const char *component, std::stringstream &s)
 
     std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
 
-    /* Use batched write transaction (write_txn_bc_) for all writes within a
-     * single cache() call.  bu_cache handles write serialisation internally.
-     * On the first call write_txn_bc_ is NULL and bu_cache_write creates the
-     * transaction; subsequent calls reuse it. */
+    /* All writes within a single cache() call share write_txn_bc_.  On the
+     * first call write_txn_bc_ is NULL and bu_cache_write opens a new write
+     * transaction; subsequent calls reuse it.  The transaction is committed
+     * (or aborted on failure) in cache() after all components are written. */
     size_t wsize = bu_cache_write((void *)buffer.data(), buffer.length(),
 	    keystr.c_str(), c->i->lod_cache, &write_txn_bc_);
     return (wsize > 0);
@@ -2032,9 +2037,24 @@ bsg_mesh_lod_clear_cache(bsg_mesh_lod_context *c, unsigned long long key)
 	cache_del(c, key, CACHE_VERTEX_COUNT);
 	cache_del(c, key, CACHE_TRI_COUNT);
 	cache_del(c, key, CACHE_OBJ_BOUNDS);
-	cache_del(c, key, CACHE_VERT_LEVEL);
-	cache_del(c, key, CACHE_VERTNORM_LEVEL);
-	cache_del(c, key, CACHE_TRI_LEVEL);
+
+	/* The per-level vertex, triangle, and normal data use NUMBERED keys
+	 * (e.g. "v0", "v1", ..., "v15"; "t0"...; "vn0"...).  The CACHE_*_LEVEL
+	 * constants are only the STRING PREFIXES used to form those numbered
+	 * keys — deleting the prefix key itself would miss the actual entries.
+	 * Loop over all possible levels to ensure complete cleanup. */
+	{
+	    struct bu_vls kbuf = BU_VLS_INIT_ZERO;
+	    for (int i = 0; i < POP_MAXLEVEL; i++) {
+		bu_vls_sprintf(&kbuf, "%s%d", CACHE_VERT_LEVEL, i);
+		cache_del(c, key, bu_vls_cstr(&kbuf));
+		bu_vls_sprintf(&kbuf, "%s%d", CACHE_VERTNORM_LEVEL, i);
+		cache_del(c, key, bu_vls_cstr(&kbuf));
+		bu_vls_sprintf(&kbuf, "%s%d", CACHE_TRI_LEVEL, i);
+		cache_del(c, key, bu_vls_cstr(&kbuf));
+	    }
+	    bu_vls_free(&kbuf);
+	}
 
 	// Iterate over the name/key mapper, removing any entry whose stored
 	// value matches `key`.  Use bu_cache_keys to enumerate, then check
