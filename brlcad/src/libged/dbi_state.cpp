@@ -1434,9 +1434,9 @@ DbiState::update()
 	    continue;
 	vmap[bvs].insert(v);
     }
-    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
-    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-	bv_it->first->redraw(NULL, bv_it->second, 1);
+    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator view_it;
+    for (view_it = vmap.begin(); view_it != vmap.end(); view_it++) {
+	view_it->first->redraw(NULL, view_it->second, 1);
     }
 
     // Build and dispatch change events to observers

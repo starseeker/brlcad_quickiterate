@@ -202,7 +202,7 @@ bsg_view_init(bsg_view *gvp, bsg_scene *s)
     if (!gvp)
 	return;
 
-    gvp->magic = BV_MAGIC;
+    gvp->magic = BSG_VIEW_MAGIC;
     gvp->vset = s;
 
     if (!BU_VLS_IS_INITIALIZED(&gvp->gv_name)) {
@@ -1819,7 +1819,7 @@ bsg_log(int UNUSED(level), const char *UNUSED(fmt), ...)
 #ifdef USE_BV_LOG
     if (level < 0 || !fmt)
 	return;
-    const char *brsig = getenv("BV_LOG");
+    const char *brsig = getenv("BSG_LOG");
     if (!brsig)
 	return;
     if (brsig) {

@@ -203,7 +203,7 @@ qtgl_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
      * gets passed in as a "default" context when the application hasn't
      * supplied anything else, so we check the magic value to catch it. */
     bsg_view *vctx = (bsg_view *)ctx;
-    if (!ctx || vctx->magic == BV_MAGIC)
+    if (!ctx || vctx->magic == BSG_VIEW_MAGIC)
 	return NULL;
 
     BU_GET(dmp, struct dm);
