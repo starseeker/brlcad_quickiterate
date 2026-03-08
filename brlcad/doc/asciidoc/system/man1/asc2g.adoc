@@ -82,7 +82,7 @@ The diagnostics are intended to be self-explanatory. Any warning messages are wr
 [[bugs]]
 == BUGS
 
-Reports of bugs or problems should be submitted via e-mail to _<devs@brlcad.org>_.
+Reports of bugs or problems should be submitted via e-mail to _devs@brlcad.org_.
 
 
 [[history]]

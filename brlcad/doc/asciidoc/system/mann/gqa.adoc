@@ -129,7 +129,7 @@ Other analyses in the error detection category behave in a similar manner.
 
 *-A* __analysis_flags__::
 Specifies which computations are to be performed and reported. The __analysis_flags__ parameter is one or more of the following:
-
++
 
 
 [cols="2*"]
@@ -160,35 +160,35 @@ Specifies which computations are to be performed and reported. The __analysis_fl
 |===
 
 
-
++
 Only those reports requested will be provided. The default is *-AA* to produce all reports.
-
++
 *Adjacent different air (a):* Detects air volumes which are next to each other but have different air_code values applied to the region. This would typically indicate that the regions are different types of air, such as crew_air (which fills the crew compartment of a vehicle) and engine_air (which surrounds the engine). When these different types of air adjoin each other, it is generally considered a modeling error.
-
++
 *Bounding box dimensions (b):* Reports the dimensions of an axis-aligned box which fully encloses the _objects_.
-
++
 *Exposed air (e):* This causes checks to be made to see if the ray encounters air regions before (or after all) solid objects. Typically, only the air inside a building or vehicle is modeled if the purpose of the model is to support analysis of that single structure/vehicle. There are exceptions, such as when modeling larger environments for more extended analysis purposes.
-
++
 *Gaps/voids (g):* This reports when there is more than __overlap_tol_dist__ (see the *-t* option below) between objects on the ray path. Note that not all gaps are errors. For example, gaps between a wheel and a fender are expected (unless external air is modeled). Typically, users should perform gap analysis on contained subsets of a model (such as passenger compartments) rather than on whole vehicles.
-
++
 *Overlaps (o):* are two regions which occupy the same space. In the real world, two objects may not occupy the same space. This check is sometimes also known as _interference checking_. Two objects must overlap by at least __overlap_tol_dist__ (see the *-t* option below) to be considered to overlap. Overlap testing causes the grid spacing to be refined until the limit is reached, or an overlap is detected. See the *-g* option below for details on setting the grid spacing. Once overlaps have been detected, grid refinement is not done, and processing stops.
-
++
 *Visualize Overlaps (p):* In MGED, if overlaps are detected, this option causes the overlaps found to be illustrated in the wireframe view via yellow lines.
-
++
 *Volume (v):* Computes the volume of the _objects_ specified on the command line.
-
++
 *Weight (w):* Computes the weight of the _objects_ specified on the command line. See above for density information and order of sourcing.
 
 
 *-a* __azimuth_deg__::
 *Not Implemented.*
-
++
 Sets a rotation (in degrees) of the coordinate system by a given amount about the Z axis. The default is 0. See also: *-e*
 
 
 *-e* __elevation_deg__::
 *Not Implemented.*
-
++
 Sets a rotation (in degrees) of the coordinate system by a given elevation from the XY plane (rotation about X axis?). The default is 0. See also *-a*
 
 
@@ -206,13 +206,13 @@ The default values are 50.0 mm and 0.5 mm, which is equivalent to specifying: *-
 
 *-G*::
 *Not Implemented.*
-
++
 Specifies that the program should create new _assembly combinations_ in the geometry database to represent the overlap pairs. This flag is meaningless if overlap reporting is not turned on with the *-A* option. If regions _rod.r_ and _disk.r_ overlap, this option will cause the creation of an assembly called `_OVERLAP_rod.r_disk.r`, which includes the following items:
 . _rod.r_
 . _disk.r_
 . ___OVERLAP_lines_rod.r_disk.r__
 
-
++
 The last item is an object to represent the overlapping area so that it can be easily seen. The default is that no groups are created.
 
 
@@ -258,7 +258,7 @@ Specifies the Boolean value (0 or 1) for __use_air__ which indicates whether reg
 
 *-u* _distance,volume,weight_::
 Specify the units used when reporting values. Values must be comma delimited and provided in the order _distance_,_volume_, _weight_. For example: *-u "cm,cu ft,kg"* or *-u ,,kg* (The latter example sets only the weight units.) Note that unit values with spaces in their names such as _cu ft_ must be contained in quotes for the shell to keep the values together.
-
++
 The default units are millimeters, cubic millimeters, and grams.
 
 
@@ -272,7 +272,7 @@ Specifies a volumetric tolerance value that the three view computations must be 
 
 *-W* __weight_tolerance[units]__::
 This is like the volume tolerance, *-T*, but is applied to the weight computation results, not the volume computation results.
-
++
 The weight computation tolerance is probably more appropriate when doing whole-vehicle analysis. If weight computation is selected, it is set to a value equal to the weight of an object 1/100 the size of the model, which is made of the most dense material in the table.
 
 
@@ -427,4 +427,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -10,7 +10,7 @@ bw-ps - convert a black and white bw file to PostScript
 
 [source]
 ----
-bw-ps [-e] [-c] [-L] [-sinput_squaresize] [-winput_width] [-ninput_height] [-Sinches_square] [-Winches_width] [-Ninches_height] [infile.bw] > outfile.ps
+bw-ps [-e] [-c] [-L] [-s input_squaresize] [-w input_width] [-n input_height] [-S inches_square] [-W inches_width] [-N inches_height] [infile.bw] > outfile.ps
 ----
 
 
@@ -61,4 +61,4 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

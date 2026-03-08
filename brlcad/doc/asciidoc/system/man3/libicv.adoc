@@ -13,4 +13,4 @@ This file seems to be out of date with the sources. Consult the headers for up-t
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

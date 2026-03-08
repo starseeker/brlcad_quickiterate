@@ -10,7 +10,7 @@ g-shell-rect - Produce triangulated shell from BRL-CAD model
 
 [source]
 ----
-g-shell-rect [-arpp_args] [-Redge_tol] [-pplotfile] [-Xlvl] [-ddebug_level] [-b] [-n] [-iinitial_ray_dir] [-gcell_size] -obrlcad_output_file database.g object(s)
+g-shell-rect [-a rpp_args] [-R edge_tol] [-p plotfile] [-X lvl] [-d debug_level] [-b] [-n] [-i initial_ray_dir] [-g cell_size] -o brlcad_output_file database.g object(s)
 ----
 
 
@@ -95,4 +95,4 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

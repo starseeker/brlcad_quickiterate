@@ -50,7 +50,7 @@ Get (without arguments) or set the eye point. Setting the eye point also changes
 
 *faceplate* [_options_] _subcommand_ [_args_]::
 *Not Implemented.*
-
++
 Manipulate options for the faceplate.
 
 
@@ -147,4 +147,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

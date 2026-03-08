@@ -10,7 +10,7 @@ fbcmap - change the color map of a frame buffer
 
 [source]
 ----
-fbcmap [-Fframebuffer] [ -w|Wscr_width] [ -n|Nscr_height] [ -s|Ssquarescrsize] [map_number]
+fbcmap [-F framebuffer] [ -w|W scr_width] [ -n|N scr_height] [ -s|S squarescrsize] [map_number]
 ----
 
 
@@ -85,4 +85,4 @@ This software is Copyright (c) 1986-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

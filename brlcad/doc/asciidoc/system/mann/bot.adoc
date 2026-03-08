@@ -18,7 +18,7 @@ bot [-v] [-V] [-C [0-255|0-255|0-255]] {subcommand} {subcommand arguments}
 
 [source]
 ----
-check { degen_faces| extra_edges| flipped_edges| open_edges| solid} {objname}
+check {degen_faces | extra_edges | flipped_edges | open_edges | solid} {objname}
 ----
 
 
@@ -58,7 +58,7 @@ flip {objname}
 
 [source]
 ----
-get { faces| minEdge| maxEdge| orientation| type| vertices} {objname}
+get {faces | minEdge | maxEdge | orientation | type | vertices} {objname}
 ----
 
 
@@ -82,7 +82,7 @@ remesh {input_bot} {output_bot}
 
 [source]
 ----
-set { orientation| type} {objname} {value}
+set {orientation | type} {objname} {value}
 ----
 
 
@@ -148,7 +148,7 @@ Generates the BoT's convex hull and store it in an object.
 
 *decimate*::
 Decimates the BoT. The default error metric is Quadric.
-
++
 
 *-f #*::
 Specifies the features size (implies use of GCT decimater)
@@ -186,7 +186,7 @@ Sets the specified property of the provided bot. Properties that can be set are 
 
 *smooth*::
 Smooths the BoT using OpenMesh's Jacobi Laplace smoother.
-
++
 
 *-c [0|1|2]*::
 Specifies the continuity. The default value is 0, meaning shape is continuous, but not the tangent. A value of 1 means the shape and tangent are continuous, and a value of 2 preserves curvature.
@@ -220,7 +220,7 @@ Returns information about the provided BoT.
 
 *subd*::
 Subdivides the provided BoT.
-
++
 
 *-A [1|2|3|4|5]*::
 Specifies the algorithm used to subdivide the BoT. The default is 1 which specifies the loop algorithm. A value of 2 specfies the sqrt3 algorithm, a value of 3 specifies the sqrt3 interpolating algorithm, a value of 4 specifies modified the butterfly algorithm, and a value of 5 specifies the midpoint alorithm.
@@ -278,4 +278,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

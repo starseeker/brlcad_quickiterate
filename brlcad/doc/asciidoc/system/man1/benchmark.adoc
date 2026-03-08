@@ -35,7 +35,7 @@ The _clean_ command removes the test pix and log files. The _clobber_ command re
 [[reporting_results]]
 == REPORTING RESULTS
 
-Please send your BRL-CAD Benchmark results to the developers along with detailed system information to <devs@brlcad.org> Include at least:
+Please send your BRL-CAD Benchmark results to the developers along with detailed system information to devs@brlcad.org Include at least:
 
 0) Compiler name and version (e.g. gcc --version) 1) CPU configuration (e.g. cat /proc/cpuinfo or hinv or sysctl -a) 2) Cache (data and/or instruction) details for L1/L2/L3 and system (e.g. cat /proc/cpuinfo or hinv or sysctl -a) 3) All generated log files (i.e. *.log* after benchmark completes) 4) Anything else you think might be relevant to performance
 
@@ -73,4 +73,4 @@ This software is Copyright (c) 2006-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

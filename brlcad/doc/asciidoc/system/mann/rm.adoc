@@ -17,7 +17,7 @@ rm {combination} {members}
 [[description]]
 == DESCRIPTION
 
-Deletes all occurrences of the listed members from the specified _combination_. The *red, r, comb, c,* and *g*  commands provide other _combination_ editing capabilities.
+Deletes all occurrences of the listed members from the specified _combination_. The *red, r, comb, c,* and *g* commands provide other _combination_ editing capabilities.
 
 
 [[examples]]
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

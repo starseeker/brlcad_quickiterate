@@ -59,7 +59,7 @@ The following examples show the uses of the *db* command to list various objects
 [example]
 ====
 
-mged>*db match *.s*::
+mged> *db match *.s*::
 Gets a list of all objects in the database that end with .s.
 
 
@@ -121,4 +121,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

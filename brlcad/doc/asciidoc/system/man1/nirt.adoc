@@ -96,7 +96,7 @@ Initializes the ray origination point to the specified value. See the discussion
 Sets the ray origination point to (_x_, _y_, _z_). If this command is invoked with no arguments, *nirt* prints the current ray origination point in model coordinates. Default is (0, 0, 0). Changing (_x_, _y_, _z_) will change (_h_, _v_, _d_), according to the current direction vector.
 
 
-*hv [* _h v_  *[* _d_ *]]*::
+*hv [* _h v_ *[* _d_ *]]*::
 Sets the ray origination point to (_h_, _v_, _d_). If this command is invoked with only two arguments, *nirt* interprets them as _h_ and _v_, and _d_ retains its previous value. If invoked with no argument, the command causes *nirt* to print the current ray origination point in view coordinates. Default is (0, 0, 0). Changing (_h_, _v_, _d_) will change (_x_, _y_, _z_), according to the current direction vector.
 
 
@@ -126,9 +126,9 @@ Specifies how to handle multiple regions' claims to segments of a ray. If _n_ is
 
 *attr {-f|-p|attr_names...}*::
 When used with one or more names, adds the names to the list of attributes that will be printed when the "attributes" value is requested in the output format string.
-
++
 The *-p* option to the *attr* command causes it to print the list of attributes that will be reported.
-
++
 The *-f* option clears the attributes table.
 
 
@@ -546,4 +546,4 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

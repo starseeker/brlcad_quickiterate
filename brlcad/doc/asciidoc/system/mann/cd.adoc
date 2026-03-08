@@ -29,7 +29,7 @@ Change directory to the given folder located in the current directory.
 [example]
 ====
 
-mged>*cd test_folder*::
+mged> *cd test_folder*::
 Changes the current directroy to a folder named test_folder that is located within the current directory.
 
 
@@ -42,7 +42,7 @@ Change directory to the given folder using the full path.
 [example]
 ====
 
-mged>*cd C:/geometry/test_folder*::
+mged> *cd C:/geometry/test_folder*::
 Changes the current directroy to a folder named test_folder located at C:/geometry/test_folder.
 
 
@@ -55,7 +55,7 @@ Change directory to the folder above the current folder.
 [example]
 ====
 
-mged>*cd ..*::
+mged> *cd ..*::
 Changes the current directroy to the folder above the current folder.
 
 
@@ -72,4 +72,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

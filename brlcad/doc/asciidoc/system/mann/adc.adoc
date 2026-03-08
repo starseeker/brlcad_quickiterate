@@ -126,7 +126,7 @@ The examples show the use of the *adc* command with no arguments, with _i_, and 
 [example]
 ====
 
-mged>*adc*::
+mged> *adc*::
 Toggle display of angle/distance cursor.
 
 
@@ -136,7 +136,7 @@ Toggle display of angle/distance cursor.
 [example]
 ====
 
-mged>*adc a1 37.5*::
+mged> *adc a1 37.5*::
 Sets angle1 to 37.5 degrees.
 
 
@@ -146,7 +146,7 @@ Sets angle1 to 37.5 degrees.
 [example]
 ====
 
-mged>*adc a1 37.5*::
+mged> *adc a1 37.5*::
 Gets angle1.
 
 
@@ -156,7 +156,7 @@ Gets angle1.
 [example]
 ====
 
-mged>*adc xyz 100 0 0*::
+mged> *adc xyz 100 0 0*::
 Moves ADC position to (100,0,0), model coordinates and local units.
 
 
@@ -173,4 +173,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
