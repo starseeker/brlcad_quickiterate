@@ -10,7 +10,7 @@ pixfilter - apply a 3x3 filter to a color pix file
 
 [source]
 ----
-pixfilter [-f<type>] [-v] [-d<div>] [-o<offset>] [-w<width>] [-n<height>] [-s<squaresize>] [<file.pix>] > <newfile.pix>
+pixfilter [-ftype] [-v] [-ddiv] [-ooffset] [-wwidth] [-nheight] [-ssquaresize] [file.pix] > newfile.pix
 ----
 
 

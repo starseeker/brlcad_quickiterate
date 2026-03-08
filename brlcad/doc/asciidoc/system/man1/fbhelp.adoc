@@ -10,7 +10,7 @@ fbhelp - provide information on frame buffer selections
 
 [source]
 ----
-fbhelp [-F<framebuffer>]
+fbhelp [-Fframebuffer]
 ----
 
 

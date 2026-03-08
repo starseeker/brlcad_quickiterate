@@ -10,7 +10,7 @@ opendb - Closes the current database file and opens database.g.
 
 [source]
 ----
-opendb [-f] [<database.g>]
+opendb [-f] [database.g]
 ----
 
 

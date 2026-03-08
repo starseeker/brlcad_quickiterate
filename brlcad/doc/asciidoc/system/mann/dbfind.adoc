@@ -10,7 +10,7 @@ dbfind - Displays all combinations that have any of the objects specified as a m
 
 [source]
 ----
-dbfind {<objects>}
+dbfind {objects}
 ----
 
 

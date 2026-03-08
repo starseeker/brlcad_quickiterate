@@ -85,7 +85,7 @@ Although there are many *nirt* options available, only the database name and obj
 
 [source]
 ----
-nirt {<model.g>} {<objects>}
+nirt {model.g} {objects}
 ----
 
 where _objects_ is a list of objects in the database separated by spaces. To begin, select the object __center_cube.r__ object with interactive command line _NIRT_. The form of the command is: footnote:[To quickly find out what objects are in a database, use the commands *mged -c nirt_example.g tops* to see all top level objects and *mged -c nirt_example.g ls* to see all objects in the model.]:

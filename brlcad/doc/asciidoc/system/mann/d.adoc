@@ -10,7 +10,7 @@ d - Deletes the specified list of objects from the mged display.
 
 [source]
 ----
-d {<objects>}
+d {objects}
 ----
 
 

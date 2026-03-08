@@ -10,7 +10,7 @@ rthide - ray-traces a model and writes a hidden line removed UNIX-Plot file.
 
 [source]
 ----
-rthide [<options>]... <model.g> <objects>... > <model.plot3>
+rthide [options]... model.g objects... > model.plot3
 ----
 
 

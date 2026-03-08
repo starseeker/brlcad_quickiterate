@@ -10,7 +10,7 @@ regdef - Sets the default region attributes used by the r and c commands when bu
 
 [source]
 ----
-regdef {<regionID>} [<airID> [<los%> [<materialID>]]]
+regdef {regionID} [airID [los% [materialID]]]
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ cv - convert binary data files between representation formats
 
 [source]
 ----
-cv <in_pat> <out_pat> [ [<infile>] <outfile>]
+cv in_pat out_pat [ [infile] outfile]
 ----
 
 

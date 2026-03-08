@@ -10,7 +10,7 @@ bw-png - convert a BRL BW(5) format image to a PNG (Portable Network Graphics) f
 
 [source]
 ----
-bw-png [-a] [-n<file_height>] [-w<file_width>] [-s<squaresize>] [<BRLbwfile>] > <PNG_file>
+bw-png [-a] [-nfile_height] [-wfile_width] [-ssquaresize] [BRLbwfile] > PNG_file
 ----
 
 
@@ -58,5 +58,3 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

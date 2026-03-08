@@ -10,7 +10,7 @@ rtg3 - raytrace a model, writing a COVART (GIFT) 3-component format shotline fil
 
 [source]
 ----
-rtg3 [<options>]... <model.g> <objects>... > <model.cov>
+rtg3 [options]... model.g objects... > model.cov
 ----
 
 

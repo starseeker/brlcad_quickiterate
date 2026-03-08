@@ -10,7 +10,7 @@ nmg_simplify - Attempts to convert an existing nmg_shape to a simpler primitive 
 
 [source]
 ----
-nmg_simplify [ [arb]| [tgc]| [poly]] {<new_shape nmg_shape>}
+nmg_simplify [ [arb]| [tgc]| [poly]] {new_shape nmg_shape}
 ----
 
 

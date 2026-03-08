@@ -10,7 +10,7 @@ push - Forces the effects of all transformation matrices that appear in any comb
 
 [source]
 ----
-push [<objects>]
+push [objects]
 ----
 
 

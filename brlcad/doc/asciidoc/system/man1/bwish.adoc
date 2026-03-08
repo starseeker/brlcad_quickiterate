@@ -10,7 +10,7 @@ bwish - Tcl/Tk-based interactive shell for BRL-CAD
 
 [source]
 ----
-bwish [<script>]...
+bwish [script]...
 ----
 
 

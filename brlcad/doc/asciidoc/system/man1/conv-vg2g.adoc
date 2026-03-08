@@ -10,7 +10,7 @@ conv-vg2g - upgrade old to new format binary MGED database
 
 [source]
 ----
-conv-vg2g <file.vg> <file.g>
+conv-vg2g file.vg file.g
 ----
 
 

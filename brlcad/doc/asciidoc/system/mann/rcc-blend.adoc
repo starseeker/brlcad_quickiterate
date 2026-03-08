@@ -10,7 +10,7 @@ rcc-blend - Generates a blend at an end (base [b] or top [t]) of the specified R
 
 [source]
 ----
-rcc-blend {<rccname newname thickness>} [b] [t]
+rcc-blend {rccname newname thickness} [b] [t]
 ----
 
 

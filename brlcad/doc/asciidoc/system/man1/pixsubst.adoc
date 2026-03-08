@@ -10,7 +10,7 @@ pixsubst - Change color values used in a PIX(5) format image
 
 [source]
 ----
-pixsubst [ <R_in> <G_in> <B_in>] <R_out> <G_out> <B_out> < <pixfile_in> > <pixfile_out>
+pixsubst [ R_in G_in B_in] R_out G_out B_out < pixfile_in > pixfile_out
 ----
 
 

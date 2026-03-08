@@ -10,7 +10,7 @@ g-dot - BRL-CAD to DOT language converter
 
 [source]
 ----
-g-dot [-o<output.dot>] <database.g> <object(s)>
+g-dot [-ooutput.dot] database.g object(s)
 ----
 
 

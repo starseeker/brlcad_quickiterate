@@ -10,7 +10,7 @@ gist - Generate a one page summary of the geometry present in a database.
 
 [source]
 ----
-gist [<options ...>]... {<(-F model/dir | model.g)>}
+gist [options ...]... {(-F model/dir | model.g)}
 ----
 
 

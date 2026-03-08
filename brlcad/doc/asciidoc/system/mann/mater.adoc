@@ -10,7 +10,7 @@ mater - Assigns shader parameters, RGB color, and inheritance to an existing com
 
 [source]
 ----
-mater [-s] {<combination>} [shader_parameters [RGB [inheritance]]]
+mater [-s] {combination} [shader_parameters [RGB [inheritance]]]
 ----
 
 
@@ -28,43 +28,43 @@ mater {-d} {clear}
 
 [source]
 ----
-mater {-d} {import} [-v] {<file.density>}
+mater {-d} {import} [-v] {file.density}
 ----
 
 
 [source]
 ----
-mater {-d} {export} {<file.density>}
+mater {-d} {export} {file.density}
 ----
 
 
 [source]
 ----
-mater {-d} {validate} {<file.density>}
+mater {-d} {validate} {file.density}
 ----
 
 
 [source]
 ----
-mater {-d} {get} [--tol <tolerance>] [--id<[[>|<][=]id]|[id pattern]>] [--density<[[>|<][=]val>] [--name<pattern>] [<pattern>]
+mater {-d} {get} [--tol <tolerance>] [--id[[>|<][=]id]|[id pattern]] [--density[[>|<][=]val] [--namepattern] [pattern]
 ----
 
 
 [source]
 ----
-mater {-d} {set} {<id,density,name>}
+mater {-d} {set} {id,density,name}
 ----
 
 
 [source]
 ----
-mater {-d} {map} {--ids-from-names} {-d<density_file>} {-m<map_file>} [<density_file>] [<map_file>]
+mater {-d} {map} {--ids-from-names} {-ddensity_file} {-mmap_file} [density_file] [map_file]
 ----
 
 
 [source]
 ----
-mater {-d} {map} {--names-from-ids} [<density_file>]
+mater {-d} {map} {--names-from-ids} [density_file]
 ----
 
 

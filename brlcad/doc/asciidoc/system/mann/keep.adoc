@@ -10,7 +10,7 @@ keep - Copies the objects specified to the keep_file.
 
 [source]
 ----
-keep {<keep_file>} {<objects>}
+keep {keep_file} {objects}
 ----
 
 

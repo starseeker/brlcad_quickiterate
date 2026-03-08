@@ -1,12 +1,12 @@
 include(${BRLCAD_CMAKE_DIR}/AsciiDoc.cmake)
 
-verbose_add_subdirectory(doc asciidoc/system)
-verbose_add_subdirectory(doc asciidoc/articles)
-verbose_add_subdirectory(doc asciidoc/books)
-verbose_add_subdirectory(doc asciidoc/devguides)
-verbose_add_subdirectory(doc asciidoc/lessons)
-verbose_add_subdirectory(doc asciidoc/presentations)
-verbose_add_subdirectory(doc asciidoc/specifications)
+verbose_add_subdirectory(asciidoc system)
+verbose_add_subdirectory(asciidoc articles)
+verbose_add_subdirectory(asciidoc books)
+verbose_add_subdirectory(asciidoc devguides)
+verbose_add_subdirectory(asciidoc lessons)
+verbose_add_subdirectory(asciidoc presentations)
+verbose_add_subdirectory(asciidoc specifications)
 
 cmakefiles(
   CMakeLists.txt

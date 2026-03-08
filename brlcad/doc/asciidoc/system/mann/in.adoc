@@ -10,7 +10,7 @@ in - Allows the user to type in the arguments needed to create a shape with the 
 
 [source]
 ----
-in [ [-f]| [-s]] [<new_shape_name>] [<shape_type>] {<parameters>}
+in [ [-f]| [-s]] [new_shape_name] [shape_type] {parameters}
 ----
 
 

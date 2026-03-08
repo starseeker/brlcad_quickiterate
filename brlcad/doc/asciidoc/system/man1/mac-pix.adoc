@@ -10,7 +10,7 @@ mac-pix - convert Apple MacPaint bitmap into pix(5) or bw(5) raster image
 
 [source]
 ----
-mac-pix [-clb] [-s<squareMacSize>] [-w<Mac_width>] [-n<Mac_height>] [-x<Mac_xoff>] [-y<Mac_yoff>] [-X<output_xoff>] [-Y<output_yoff>] [-S<squareOutputSize>] [-W<output_width>] [-N<output_height>] [-C<r/g/b>] [<file.mac>]
+mac-pix [-clb] [-ssquareMacSize] [-wMac_width] [-nMac_height] [-xMac_xoff] [-yMac_yoff] [-Xoutput_xoff] [-Youtput_yoff] [-SsquareOutputSize] [-Woutput_width] [-Noutput_height] [-Cr/g/b] [file.mac]
 ----
 
 

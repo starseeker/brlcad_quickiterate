@@ -10,7 +10,7 @@ bot_decimate - Reduces the number of triangles in the old_bot_primitive and save
 
 [source]
 ----
-bot_decimate [-f<feature_size>] [-c<maximum_chord_error>] [-n<maximum_normal_error>] [-e<minimum_edge_length>] {<new_bot_primitive>} {<old_bot_primitive>}
+bot_decimate [-ffeature_size] [-cmaximum_chord_error] [-nmaximum_normal_error] [-eminimum_edge_length] {new_bot_primitive} {old_bot_primitive}
 ----
 
 

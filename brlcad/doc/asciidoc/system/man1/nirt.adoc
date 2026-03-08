@@ -10,7 +10,7 @@ nirt - interactively ray trace a BRL-CAD geometric model
 
 [source]
 ----
-nirt [<options>] <model.g> [<objects>]...
+nirt [options] model.g [objects]...
 ----
 
 

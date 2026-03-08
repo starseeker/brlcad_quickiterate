@@ -10,7 +10,7 @@ setview - Sets the current view in MGED by specifying rotation angles (in degree
 
 [source]
 ----
-setview {<x-angle y-angle z-angle>}
+setview {x-angle y-angle z-angle}
 ----
 
 

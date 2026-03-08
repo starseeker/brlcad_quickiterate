@@ -10,7 +10,7 @@ rcc-tor - Used to round the edges of the specified RCC by creating a torus based
 
 [source]
 ----
-rcc-tor {<rccname newname>}
+rcc-tor {rccname newname}
 ----
 
 

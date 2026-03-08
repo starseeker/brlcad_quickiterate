@@ -458,9 +458,7 @@
   </xsl:template>
 
   <xsl:template match="db:replaceable" mode="synopsis">
-    <xsl:text>&lt;</xsl:text>
     <xsl:value-of select="normalize-space(.)"/>
-    <xsl:text>&gt;</xsl:text>
   </xsl:template>
 
   <xsl:template match="db:option" mode="synopsis">

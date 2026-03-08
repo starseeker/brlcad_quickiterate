@@ -10,7 +10,7 @@ halftone - Translate a bw file to a halftoned bw file
 
 [source]
 ----
-halftone [-RSa] [-s<squarefilesize>] [-w<file_width>] [-n<file_height>] [-B<contrast>] [-I<Number_Intensity_Levels>] [-M<Method>] [-T<Tone_Scale_Curve_Points>] [-D<debug_level>] < <file.bw>
+halftone [-RSa] [-ssquarefilesize] [-wfile_width] [-nfile_height] [-Bcontrast] [-INumber_Intensity_Levels] [-MMethod] [-TTone_Scale_Curve_Points] [-Ddebug_level] < file.bw
 ----
 
 

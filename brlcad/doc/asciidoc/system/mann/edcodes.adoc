@@ -10,7 +10,7 @@ edcodes - Puts the user into an editor to edit a file that has been filled with 
 
 [source]
 ----
-edcodes [-i] [-r] {<object(s)>}
+edcodes [-i] [-r] {object(s)}
 ----
 
 

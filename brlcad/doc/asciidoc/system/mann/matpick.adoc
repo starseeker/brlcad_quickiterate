@@ -10,7 +10,7 @@ matpick - Selects which matrix in the illuminated path should be edited.
 
 [source]
 ----
-matpick [<#>] [<combination/member>]
+matpick [#] [combination/member]
 ----
 
 

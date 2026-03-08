@@ -10,7 +10,7 @@ bot_vertex_fuse - Used to eliminate duplicate vertices from a BOT solid.
 
 [source]
 ----
-bot_vertex_fuse {<new_bot_solid>} {<old_bot_primitive>>}
+bot_vertex_fuse {new_bot_solid} {old_bot_primitive>}
 ----
 
 

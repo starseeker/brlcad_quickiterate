@@ -10,16 +10,16 @@ edit - Edits objects, using subcommands.
 
 [source]
 ----
-edit [<subcommand> [<args>] <object>...] \
+edit [<subcommand> [<args>] object...] \
      \
     
  [ help| translate| rotate| scale| ]...
  [] <to> [<more_args>]...
  [-n] -k { <from_object>| <from_position>}
  [-n] [ -a| -r] { <to_object>| <to_position>}
- [ {<coords>}| { [ -x { <x>| <x-obj>}] [ -y { <y>| <y-obj>}] [ -z { <z>| <z-obj>}]}]
-  [<path/>] <object> [<offset_distance>]
- <x> [ <y> [<z>]]
+ [ {<coords>}| { [ -x { x| <x-obj>}] [ -y { y| <y-obj>}] [ -z { z| <z-obj>}]}]
+  [path/] object [<offset_distance>]
+ x [ y [z]]
 ----
 
 

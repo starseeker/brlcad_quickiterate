@@ -10,7 +10,7 @@ decompose - Processes an NMG shape and produces a series of new NMG shapes consi
 
 [source]
 ----
-decompose {<NMG_shape>} [<prefix>]
+decompose {NMG_shape} [prefix]
 ----
 
 

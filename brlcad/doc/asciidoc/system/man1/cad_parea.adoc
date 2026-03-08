@@ -10,7 +10,7 @@ cad_parea - compute area of polygon
 
 [source]
 ----
-cad_parea [ -i <input>] [ -o <output>]
+cad_parea [ -i input] [ -o output]
 ----
 
 

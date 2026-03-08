@@ -10,7 +10,7 @@ orot - Performs a rotation of an object during matrix edit.
 
 [source]
 ----
-orot [-i] {<xdeg ydeg zdeg>}
+orot [-i] {xdeg ydeg zdeg}
 ----
 
 

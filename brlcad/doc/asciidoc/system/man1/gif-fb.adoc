@@ -10,7 +10,7 @@ gif-fb - display GIF file on frame buffer
 
 [source]
 ----
-gif-fb [ -F <frame_buffer_file>] [-c] [ -i <image_number>] [-o] [-v] [-z] [ <GIF_file_name>]
+gif-fb [ -F frame_buffer_file] [-c] [ -i image_number] [-o] [-v] [-z] [ GIF_file_name]
 ----
 
 
@@ -102,5 +102,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

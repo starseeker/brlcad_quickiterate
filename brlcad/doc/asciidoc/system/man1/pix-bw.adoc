@@ -10,7 +10,7 @@ pix-bw - combine pix color planes into a bw black and white image
 
 [source]
 ----
-pix-bw [-s<squaresize>] [-w<width>] [-n<height>] [ [-e<ntsc|crt|hdtv|hdr|avg>] [ [ -R<r_weight>] [ -G<g_weight>] [ -B<b_weight>]]] [-o<out.bw>] [ [<]<in.pix>] > <out.bw>
+pix-bw [-ssquaresize] [-wwidth] [-nheight] [ [-entsc|crt|hdtv|hdr|avg] [ [ -Rr_weight] [ -Gg_weight] [ -Bb_weight]]] [-oout.bw] [ [<]in.pix] > out.bw
 ----
 
 

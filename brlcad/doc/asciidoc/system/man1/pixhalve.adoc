@@ -10,7 +10,7 @@ pixhalve - halve a color pix file
 
 [source]
 ----
-pixhalve [-a] [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [<] [<infile.pix>] > <outfile.pix>
+pixhalve [-a] [-ssquareinsize] [-win_width] [-nin_height] [<] [infile.pix] > outfile.pix
 ----
 
 

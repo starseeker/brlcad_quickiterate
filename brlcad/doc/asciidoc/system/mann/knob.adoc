@@ -10,7 +10,7 @@ knob - Provides a method for simulating knob input. With no options, it will dis
 
 [source]
 ----
-knob [-e -i -m -v] [ [-o]| [v]| [m]| [e]| [k]] [ [zap]| [zero]| [<id> [<val>]]]
+knob [-e -i -m -v] [ [-o]| [v]| [m]| [e]| [k]] [ [zap]| [zero]| [id [val]]]
 ----
 
 

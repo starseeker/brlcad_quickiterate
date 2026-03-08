@@ -10,7 +10,7 @@ gdiff - a BRL-CAD differential geometry comparator
 
 [source]
 ----
-gdiff [<options>]... <left_object> <right_object>
+gdiff [options]... left_object right_object
 ----
 
 
@@ -74,5 +74,3 @@ This software is Copyright (c) 2016-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

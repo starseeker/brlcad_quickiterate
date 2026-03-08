@@ -10,7 +10,7 @@ rtscale - supplements rthide output by plotting a scale to indicate drawing size
 
 [source]
 ----
-rtscale <width> <units> <intervals> <file.log> <optional_string> > <scale.plot3>
+rtscale width units intervals file.log optional_string > scale.plot3
 ----
 
 

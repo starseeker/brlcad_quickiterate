@@ -10,7 +10,7 @@ bwrot - rotate, invert, or reverse a black and white bw file
 
 [source]
 ----
-bwrot [ -rifb| -a<angle>] [-s<squaresize>] [-w<in_width>] [-n<in_height>] [-o<out.bw>] [<file.bw>] [ > <out.bw>]
+bwrot [ -rifb| -aangle] [-ssquaresize] [-win_width] [-nin_height] [-oout.bw] [file.bw] [ > out.bw]
 ----
 
 

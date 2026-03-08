@@ -10,7 +10,7 @@ reid - Sequentially renumber the 'region_id' attribute of all regions within a g
 
 [source]
 ----
-reid [ -n| { <num>}] {comb} {regionID}
+reid [ -n| { num}] {comb} {regionID}
 ----
 
 

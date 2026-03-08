@@ -10,7 +10,7 @@ make - Creates a new_shape of the indicated type.
 
 [source]
 ----
-make [-t] [<new_shape type>]
+make [-t] [new_shape type]
 ----
 
 

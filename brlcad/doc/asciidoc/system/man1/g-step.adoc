@@ -10,7 +10,7 @@ g-step - STEP Translator/Exporter (BRL-CAD to STEP AP203)
 
 [source]
 ----
-g-step -o<output_file.stp> <database.g> [<object(s)>]
+g-step -ooutput_file.stp database.g [object(s)]
 ----
 
 

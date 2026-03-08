@@ -10,7 +10,7 @@ patch-g - convert FASTGEN ASCII databases into binary MGED databases.
 
 [source]
 ----
-patch-g [<options>] <output.g>
+patch-g [options] output.g
 ----
 
 

@@ -10,7 +10,7 @@ wire - Creates a BRL-CAD .g file containing wiring or fuel lines.
 
 [source]
 ----
-wire [<options>]...
+wire [options]...
 ----
 
 

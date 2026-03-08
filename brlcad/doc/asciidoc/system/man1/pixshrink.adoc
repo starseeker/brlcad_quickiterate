@@ -10,7 +10,7 @@ pixshrink - shrink a color pix file
 
 [source]
 ----
-pixshrink [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-f<shrink_factor>] [-u] [<infile.pix>] > <outfile.pix>
+pixshrink [-ssquareinsize] [-win_width] [-nin_height] [-fshrink_factor] [-u] [infile.pix] > outfile.pix
 ----
 
 

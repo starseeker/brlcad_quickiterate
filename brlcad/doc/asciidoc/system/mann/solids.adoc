@@ -10,7 +10,7 @@ solids - Lists a summary of all the primitive shapes used in regions referenced 
 
 [source]
 ----
-solids {<file>} {<objects>}
+solids {file} {objects}
 ----
 
 

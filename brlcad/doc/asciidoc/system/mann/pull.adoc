@@ -10,7 +10,7 @@ pull - Pulls the effects of all transformation matrices that appear in any combi
 
 [source]
 ----
-pull [<objects>]
+pull [objects]
 ----
 
 

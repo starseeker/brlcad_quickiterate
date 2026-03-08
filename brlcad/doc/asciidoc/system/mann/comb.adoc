@@ -10,7 +10,7 @@ comb - Create and manipulate BRL-CAD combination with the name combination_name.
 
 [source]
 ----
-comb [ [-c]| [-r]] [ [-w]| [-f]| [-l]] [ [-S]] {<combination_name>} [<<operator object_name>>]...
+comb [ [-c]| [-r]] [ [-w]| [-f]| [-l]] [ [-S]] {combination_name} [<operator object_name>]...
 ----
 
 

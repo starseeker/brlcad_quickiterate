@@ -10,7 +10,7 @@ bigE - Displays objects in an evaluated form.
 
 [source]
 ----
-E {<object>} [-s]
+E {object} [-s]
 ----
 
 

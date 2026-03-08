@@ -10,7 +10,7 @@ whichid - Reports information relating to usage of the region_id property on reg
 
 [source]
 ----
-whichid [<options ...>] {<ident[-ident]>}...
+whichid [options ...] {ident[-ident]}...
 ----
 
 

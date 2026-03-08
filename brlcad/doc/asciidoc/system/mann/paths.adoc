@@ -10,7 +10,7 @@ paths - Lists all existing paths that start from the specified path_start and en
 
 [source]
 ----
-paths {<path_start>}
+paths {path_start}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

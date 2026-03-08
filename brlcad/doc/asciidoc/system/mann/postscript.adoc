@@ -10,7 +10,7 @@ postscript - Temporarily attaches the Postscript display manager and outputs the
 
 [source]
 ----
-postscript [-f<font>] [-t<title>] [-c<creator>] [-s<size_in_inches>] [-l<line_width>] {<output_file>}
+postscript [-ffont] [-ttitle] [-ccreator] [-ssize_in_inches] [-lline_width] {output_file}
 ----
 
 

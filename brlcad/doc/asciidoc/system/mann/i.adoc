@@ -10,7 +10,7 @@ i - Adds obj_name to the end of the combination named comb_name. The operation m
 
 [source]
 ----
-i {<obj_name comb_name>} [<operation>]
+i {obj_name comb_name} [operation]
 ----
 
 

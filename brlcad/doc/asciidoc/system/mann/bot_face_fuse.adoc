@@ -10,7 +10,7 @@ bot_face_fuse - Eliminates duplicate faces from a BOT solid.
 
 [source]
 ----
-bot_face_fuse {<new_bot_primitive>} {<old_bot_primitive>}
+bot_face_fuse {new_bot_primitive} {old_bot_primitive}
 ----
 
 

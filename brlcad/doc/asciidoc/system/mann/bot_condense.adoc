@@ -10,7 +10,7 @@ bot_condense - Used to eliminate unused vertices from a BOT primitive.
 
 [source]
 ----
-bot_condense {<new_bot_primitive>} {<old_bot_primitive>}
+bot_condense {new_bot_primitive} {old_bot_primitive}
 ----
 
 

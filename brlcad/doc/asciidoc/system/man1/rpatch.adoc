@@ -10,7 +10,7 @@ rpatch - convert FASTGEN ASCII databases into a format suitable for
 
 [source]
 ----
-rpatch [-D] [-3] < <FASTGEN_FILE> > <OUTPUT_FILE>
+rpatch [-D] [-3] < FASTGEN_FILE > OUTPUT_FILE
 ----
 
 

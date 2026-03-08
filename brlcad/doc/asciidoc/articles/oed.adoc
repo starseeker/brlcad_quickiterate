@@ -12,7 +12,7 @@ The syntax of *oed* is fairly straightforward: footnote:[Note: _lhs_ is an abbre
 
 [source]
 ----
-oed {<path_lhs>} {<path_rhs>}
+oed {path_lhs} {path_rhs}
 ----
 
 *oed* serves primarily to make working with combinations and regions practical when there are large numbers of primitives involved. It is of course possible to move primitives one by one to desired locations, but the process is extremely tedious for any non-trivial combination of primitives and the result is inflexible - for example,if the modeler wished to return the primitives in a combination to their original position after moving them _as primitives_ the process of moving them would need to be reversed one by one as well. Barring being able to do everything perfectly the first time, individual primitive placement is impractical.

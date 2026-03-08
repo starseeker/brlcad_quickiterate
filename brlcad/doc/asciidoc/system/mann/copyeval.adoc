@@ -10,7 +10,7 @@ copyeval - Creates a new primitive object called new_ primitiveby applying the t
 
 [source]
 ----
-copyeval {<new_primitive path_to_old_primitive>}
+copyeval {new_primitive path_to_old_primitive}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

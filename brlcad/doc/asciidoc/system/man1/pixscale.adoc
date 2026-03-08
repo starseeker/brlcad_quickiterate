@@ -10,7 +10,7 @@ pixscale - change the size of a color pix file
 
 [source]
 ----
-pixscale [-r] [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-S<squareoutsize>] [-W<out_width>] [-N<out_height>] [<infile.pix>] > <outfile.pix>
+pixscale [-r] [-ssquareinsize] [-win_width] [-nin_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] [infile.pix] > outfile.pix
 ----
 
 
