@@ -35,7 +35,7 @@ If you have a FASTGEN2 or FASTGEN3 format file, they can be converted by process
 
 The _file.fastgen4_ file is expected to be in the FASTGEN 4.1 format as defined in the FASTGEN 4.1 User Manual.
 
-_CCONE1_, _CCONE2_, and _CCONE3_ elements are converted to BRL-CAD truncated right cylinders (_TRC_). _CHEX2_ elements are converted to BRL-CAD arbitrary convex polyhedrons (_ARB8_). _CLINE_ elements are converted to BRL-CAD cline solids. _CQUAD_, _CTRI_, and _CHEX1_ elements are converted to faces of a BRL-CAD BOT (Bag Of Triangles). _CSPHERE_ elements are converted to BRL-CAD sphere (_SPH_) solids. BRL-CAD region ident numbers are assigned by combining the FASTGEN4 group and component numbers:
+_CCONE1_, _CCONE2_, and _CCONE3_ elements are converted to BRL-CAD truncated right cylinders ( _TRC_). _CHEX2_ elements are converted to BRL-CAD arbitrary convex polyhedrons ( _ARB8_). _CLINE_ elements are converted to BRL-CAD cline solids. _CQUAD_, _CTRI_, and _CHEX1_ elements are converted to faces of a BRL-CAD BOT (Bag Of Triangles). _CSPHERE_ elements are converted to BRL-CAD sphere ( _SPH_) solids. BRL-CAD region ident numbers are assigned by combining the FASTGEN4 group and component numbers:
 
 
 ....
@@ -84,5 +84,3 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

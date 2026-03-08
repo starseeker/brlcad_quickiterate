@@ -98,11 +98,30 @@
        this call restores it before the opening marker. -->
   <xsl:template name="inline-leading-space">
     <xsl:variable name="raw" select="string(.)"/>
-    <xsl:if test="string-length($raw) > 0 and
-                  preceding-sibling::node() and
-                  translate(substring($raw, 1, 1),
-                            ' &#9;&#10;&#13;', '') = ''">
-      <xsl:text> </xsl:text>
+    <xsl:if test="string-length($raw) > 0 and preceding-sibling::node()">
+      <xsl:variable name="first-char" select="substring($raw, 1, 1)"/>
+      <xsl:choose>
+        <!-- Case 1: element content starts with whitespace (space already in content) -->
+        <xsl:when test="translate($first-char, ' &#9;&#10;&#13;', '') = ''">
+          <xsl:text> </xsl:text>
+        </xsl:when>
+        <!-- Case 2: element content starts with a non-whitespace word char,
+             but the immediately preceding node ends without whitespace.
+             Insert a space so that AsciiDoc constrained inline markers
+             (like _word_ or *word*) have a proper word boundary.
+             E.g.: "the<emphasis>args</emphasis>" → "the _args_"
+                   "<emphasis>foo</emphasis><emphasis>bar</emphasis>" → "_foo_ _bar_" -->
+        <xsl:otherwise>
+          <xsl:variable name="prev-str" select="string(preceding-sibling::node()[1])"/>
+          <xsl:variable name="prev-len" select="string-length($prev-str)"/>
+          <xsl:if test="$prev-len > 0">
+            <xsl:variable name="prev-last" select="substring($prev-str, $prev-len, 1)"/>
+            <xsl:if test="translate($prev-last, ' &#9;&#10;&#13;', '') != ''">
+              <xsl:text> </xsl:text>
+            </xsl:if>
+          </xsl:if>
+        </xsl:otherwise>
+      </xsl:choose>
     </xsl:if>
   </xsl:template>
 
@@ -1792,7 +1811,11 @@
   <!-- footnote -->
   <xsl:template match="db:footnote">
     <xsl:text>footnote:[</xsl:text>
-    <xsl:apply-templates/>
+    <xsl:for-each select="db:para | db:simpara">
+      <xsl:if test="position() > 1"><xsl:text> </xsl:text></xsl:if>
+      <xsl:apply-templates/>
+    </xsl:for-each>
+    <xsl:apply-templates select="node()[not(self::db:para or self::db:simpara)]"/>
     <xsl:text>]</xsl:text>
   </xsl:template>
 

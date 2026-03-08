@@ -17,7 +17,7 @@ cad_parea [ -i <input>] [ -o <output>]
 [[description]]
 == DESCRIPTION
 
-*cad_parea* reads from _input_ (standard input if not given) a series of polygon vertex (_x_,_y_) coordinate values and writes to _output_ (standard output if not given) the polygon's area. Lines not beginning with a number are silently skipped. Vertices are assumed to be given in counter-clockwise cyclic order.
+*cad_parea* reads from _input_ (standard input if not given) a series of polygon vertex ( _x_, _y_) coordinate values and writes to _output_ (standard output if not given) the polygon's area. Lines not beginning with a number are silently skipped. Vertices are assumed to be given in counter-clockwise cyclic order.
 
 
 [[hints]]

@@ -17,7 +17,7 @@ cad_boundp [ -i <input>] [ -o <output>] [ -t <tolerance>] [-v]
 [[description]]
 == DESCRIPTION
 
-*cad_boundp* reads from _input_ (standard input if not specified) a series of line segment endpoint (_x_,_y_) coordinate values describing a two-dimensional view of the edges of a (possibly transparent) three-dimensional object and writes to _output_ (standard output if not specified) the (_x_,_y_) coordinates of vertices of the bounding polygon in counter-clockwise order, starting with the vertex having the smallest _y_ coordinate. If the *-v* argument is used, instead of points the output will consist of line segment data suitable for input into another invocation of *cad_boundp* .
+*cad_boundp* reads from _input_ (standard input if not specified) a series of line segment endpoint ( _x_, _y_) coordinate values describing a two-dimensional view of the edges of a (possibly transparent) three-dimensional object and writes to _output_ (standard output if not specified) the ( _x_, _y_) coordinates of vertices of the bounding polygon in counter-clockwise order, starting with the vertex having the smallest _y_ coordinate. If the *-v* argument is used, instead of points the output will consist of line segment data suitable for input into another invocation of *cad_boundp* .
 
 Input lines not beginning with a number are silently skipped. This feature can be used to accommodate comments or additional control information in the data stream.
 

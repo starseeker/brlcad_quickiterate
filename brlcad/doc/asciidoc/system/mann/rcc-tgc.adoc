@@ -17,7 +17,7 @@ rcc-tgc {<rccname newname xyz>} [b] [t]
 [[description]]
 == DESCRIPTION
 
-Creates a TGC shape with the specified apex (_x y z_) at one end (base [_b_] or top [_t_]) of the specified RCC. The default end is the base.
+Creates a TGC shape with the specified apex ( _x y z_) at one end (base [ _b_] or top [ _t_]) of the specified RCC. The default end is the base.
 
 
 [[examples]]

@@ -17,7 +17,7 @@ track [<parameters>>]
 [[description]]
 == DESCRIPTION
 
-Builds a simple representation of the linked track of a vehicle such as a tank. With no command line arguments, the track command will prompt for all the required input. The vehicle is assumed to be axis-aligned with the front in the +_x_ direction. A combination name for the track is built by appending a unique number to the string track. The information about the track may be included on the command line, and is order-dependent. The parameters are (in order):
+Builds a simple representation of the linked track of a vehicle such as a tank. With no command line arguments, the track command will prompt for all the required input. The vehicle is assumed to be axis-aligned with the front in the + _x_ direction. A combination name for the track is built by appending a unique number to the string track. The information about the track may be included on the command line, and is order-dependent. The parameters are (in order):
 
 
 * _x_ coordinate of center of frontmost roadwheel.

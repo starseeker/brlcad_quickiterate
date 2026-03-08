@@ -14,7 +14,7 @@ The package comprises a large collection of tools, utilities, and libraries incl
 
 Although _BRL-CAD_ has continued to mature in performance and utility, developers have strived to keep the package approachable and easy to use, as evidenced by the package's dual command formats, its newly renovated graphical user interface (GUI), and its customization potential through user scripting.
 
-In addition, a multivolume tutorial series is being developed to assist users in a variety of _BRL-CAD_ areas and applications. The "Introduction to _MGED_," which is the second volume in the series, is intended to provide new users with a basic understanding of the _Multi-Device Geometry Editor_ (_MGED_), which is the heart of the _BRL-CAD_ package. Other volumes focus on installation procedures, advanced features, and programming.
+In addition, a multivolume tutorial series is being developed to assist users in a variety of _BRL-CAD_ areas and applications. The "Introduction to _MGED_," which is the second volume in the series, is intended to provide new users with a basic understanding of the _Multi-Device Geometry Editor_ ( _MGED_), which is the heart of the _BRL-CAD_ package. Other volumes focus on installation procedures, advanced features, and programming.
 
 [[Acknowledgments]]
 [preface]
@@ -203,9 +203,7 @@ Another way to create a sphere is to use the GUI menu system duplicated at the t
 [[view_params]]
 === Viewing a Shape's Parameters
 
-Sometimes when you are making a model, you might want to view a shape's parameters, such as height, width, or radius, in the Command Window. You can easily list the attributes of a shape by typing the l (for "list") command at the Command Window prompt as follows: *l shape_name[ENTER]*footnote:[Note: The command is the lowercase letter l, NOT the number one.
-
-]
+Sometimes when you are making a model, you might want to view a shape's parameters, such as height, width, or radius, in the Command Window. You can easily list the attributes of a shape by typing the l (for "list") command at the Command Window prompt as follows: *l shape_name[ENTER]*footnote:[Note: The command is the lowercase letter l, NOT the number one.]
 
 
 [NOTE]
