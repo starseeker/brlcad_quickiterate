@@ -1,6 +1,5 @@
 = О BRL-CAD
-Christopher Sean Morrison <devs@brlcad.org>
-Ilya
+Christopher Sean Morrison <devs@brlcad.org>; Ilya
 :doctype: article
 
 [[article-body]]

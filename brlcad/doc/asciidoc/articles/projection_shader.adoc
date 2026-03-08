@@ -1,7 +1,5 @@
 = Using the Projection Shader
-Lee A Butler
-Eric W Edwards
-Dwayne L Kregel
+Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
 
 [[projshader_general]]

@@ -1,9 +1,5 @@
 = Asignación de propiedades de los materiales y trazado de rayos (Raytracing) en MGED
-Lee A Butler
-Eric W Edwards
-Betty J Schueler
-Robert G Parker
-John R Anderson
+Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 

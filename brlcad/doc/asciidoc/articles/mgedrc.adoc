@@ -1,7 +1,5 @@
 = Setting Up a .mgedrc File
-Lee A Butler
-Eric W Edwards
-Dwayne L Kregel
+Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
 
 Similar to the preferences or settings options in other computer applications, the .mgedrc file is a useful tool to customize the look and functionality of the U.S. Army Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) package and minimize potentially time-consuming actions. Using Multi-Device Geometry Editor (MGED) commands and the Tcl/Tk scripting language, users can modify default settings, specify features to be toggled on or off whenever MGED is started, establish typing shortcuts for a command or a series of commands, locate and size the command and geometry windows, and perform a host of other customizations.

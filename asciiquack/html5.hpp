@@ -711,7 +711,9 @@ private:
 
     void convert_admonition(const Block& block, const Document& doc,
                             OutputBuffer& out) const {
-        const std::string& name = block.attr("name", "note");
+        // attr(name, fallback) returns by value – safe even when the attribute
+        // is absent (no dangling reference).
+        const std::string name = block.attr("name", "note");
 
         // Determine caption priority:
         // 1. Document locale attribute (e.g. :note-caption: Nota) – user i18n

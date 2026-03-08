@@ -552,6 +552,8 @@ bool is_page_break(const std::string& line) noexcept {
 
 bool looks_like_author_line(const std::string& line) {
     // Author line: FirstName [Middle] [Last] [<email>]
+    // OR a semicolon-separated list of such entries:
+    //   "Author One; Author Two; Author Three"
     // Must start with a word char and not look like an attribute entry.
     if (line.empty() || line[0] == ':') { return false; }
     // Lines that end with sentence-ending punctuation are prose, not author names
@@ -568,7 +570,28 @@ bool looks_like_author_line(const std::string& line) {
     static const aqrx::regex rx(
         R"(^(\w[\w\-'.]*)(?: +(\w[\w\-'.]*))?(?: +(\w[\w\-'.]*))?(?: +<([^>]+)>)?$)",
         aqrx::ECMAScript | aqrx::optimize);
-    return aqrx::regex_match(line, rx);
+    // Try to match the whole line as a single author first.
+    if (aqrx::regex_match(line, rx)) { return true; }
+    // Also accept a semicolon-separated list of individual author entries,
+    // as produced by the db2adoc converter (and used in BRL-CAD docs).
+    // Every segment separated by "; " must itself look like a valid author.
+    if (line.find("; ") != std::string::npos) {
+        std::string rest = line;
+        while (true) {
+            auto sep = rest.find("; ");
+            std::string part = (sep != std::string::npos) ? rest.substr(0, sep) : rest;
+            // Trim leading/trailing whitespace.
+            auto first = part.find_first_not_of(" \t");
+            auto last_pos  = part.find_last_not_of(" \t");
+            if (first == std::string::npos) { return false; }
+            part = part.substr(first, last_pos - first + 1);
+            if (!aqrx::regex_match(part, rx)) { return false; }
+            if (sep == std::string::npos) { break; }
+            rest = rest.substr(sep + 2);
+        }
+        return true;
+    }
+    return false;
 }
 
 std::vector<AuthorInfo> do_parse_author_line(const std::string& line) {
@@ -765,8 +788,9 @@ void Parser::parse_document_header(Reader& reader, Document& doc) {
 
             // For doctype: manpage, parse "name(volnum)" from the title
             // e.g. "git-commit(1)" → manname="git-commit", manvolnum="1"
+            // e.g. "analyze(nged)"  → manname="analyze",   manvolnum="nged"
             if (doc.doctype() == "manpage") {
-                static const aqrx::regex manpage_rx(R"(^(.+?)\((\d+[a-zA-Z0-9]*)\)$)",
+                static const aqrx::regex manpage_rx(R"(^(.+?)\(([a-zA-Z0-9]+)\)$)",
                     aqrx::ECMAScript | aqrx::optimize);
                 aqrx::smatch mm;
                 if (aqrx::regex_match(title, mm, manpage_rx)) {
