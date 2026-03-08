@@ -33,10 +33,12 @@
 
 #include "common.h"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "bu.h"
@@ -415,7 +417,54 @@ test_observer(struct ged *gedp)
 }
 
 /* ------------------------------------------------------------------ */
-/* Section E: BViewState::link_to / unlink                            */
+/* Section E: GeomLoader bbox computation for new primitives          */
+/* ------------------------------------------------------------------ */
+static void
+test_geomloader_bbox(struct ged *gedp)
+{
+    printf("\n--- GeomLoader bbox ---\n");
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    /* Create a new primitive and queue it for background bbox loading. */
+    { const char *av[] = {"in","bbox_sph.s","sph","1","2","3","4",NULL};
+      ged_exec_in(gedp, 7, av); }
+    dbis->update();
+
+    /* Locate the name hash so we can look it up in bboxes once the
+     * background loader is done. */
+    unsigned long long h =
+	bu_data_hash("bbox_sph.s", strlen("bbox_sph.s")*sizeof(char));
+
+    /* Poll drain_geom_results() until the bbox arrives or a 2-second
+     * timeout expires.  drain() integrates results into dbis->bboxes
+     * and fires scene-observer notifications. */
+    bool bbox_arrived = false;
+    for (int i = 0; i < 200; ++i) {
+	dbis->drain_geom_results();
+	if (dbis->bboxes.find(h) != dbis->bboxes.end()) {
+	    bbox_arrived = true;
+	    break;
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    CHECK(bbox_arrived,
+	  "drain_geom_results() delivers bbox for a newly created primitive");
+
+    if (bbox_arrived) {
+	const auto &bb = dbis->bboxes.at(h);
+	/* The sphere center=(1,2,3) radius=4 → min=(-3,-2,-1) max=(5,6,7). */
+	bool finite_bounds =
+	    bb.size() == 6 &&
+	    bb[0] > -INFINITY && bb[0] < INFINITY &&
+	    bb[3] > -INFINITY && bb[3] < INFINITY;
+	CHECK(finite_bounds, "bbox for bbox_sph.s has finite bounds");
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Section F: BViewState::link_to / unlink                            */
 /* ------------------------------------------------------------------ */
 static void
 test_view_state_linking(struct ged *gedp)
@@ -506,6 +555,7 @@ main(int argc, char *argv[])
     test_draw_list(gedp);
     test_selection_set(gedp);
     test_observer(gedp);
+    test_geomloader_bbox(gedp);
     test_view_state_linking(gedp);
 
     ged_close(gedp);
