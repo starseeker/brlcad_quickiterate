@@ -996,6 +996,20 @@
     <xsl:if test="not(ancestor::db:listitem)">
       <xsl:text>&#10;</xsl:text>
     </xsl:if>
+    <!-- When nested inside a listitem and there is following non-whitespace
+         content in the same para, emit a blank line followed by a '+' list
+         continuation marker.  The blank line terminates the last sub-list item
+         so the continuation is captured at the enclosing dlist-item level. -->
+    <xsl:if test="ancestor::db:listitem">
+      <xsl:variable name="tail">
+        <xsl:for-each select="following-sibling::node()">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:if test="string-length(normalize-space($tail)) > 0">
+        <xsl:text>&#10;+&#10;</xsl:text>
+      </xsl:if>
+    </xsl:if>
   </xsl:template>
 
   <xsl:template match="db:orderedlist">
@@ -1011,6 +1025,20 @@
     </xsl:apply-templates>
     <xsl:if test="not(ancestor::db:listitem)">
       <xsl:text>&#10;</xsl:text>
+    </xsl:if>
+    <!-- When nested inside a listitem and there is following non-whitespace
+         content in the same para, emit a blank line followed by a '+' list
+         continuation marker.  The blank line terminates the last sub-list item
+         so the continuation is captured at the enclosing dlist-item level. -->
+    <xsl:if test="ancestor::db:listitem">
+      <xsl:variable name="tail">
+        <xsl:for-each select="following-sibling::node()">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:if test="string-length(normalize-space($tail)) > 0">
+        <xsl:text>&#10;+&#10;</xsl:text>
+      </xsl:if>
     </xsl:if>
   </xsl:template>
 
