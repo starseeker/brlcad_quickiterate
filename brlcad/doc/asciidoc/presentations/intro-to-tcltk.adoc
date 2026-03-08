@@ -254,7 +254,7 @@ image::../presentations/images/special-character-interpretation.png[width=5.5in]
 == Expressions
 
 
-* The *expr*command is used to evaluate math expressions.
+* The *expr* command is used to evaluate math expressions.
 
 
 ----

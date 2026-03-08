@@ -17,7 +17,7 @@ qorot {<x y z dx dy dz angle>}
 [[description]]
 == DESCRIPTION
 
-Rotates an object through the specified _angle_ (in degrees). This command requires that MGED already be in _matrix edit_ mode. The edited object is rotated about the axis defined by the start point ( _x y z_) and the direction vector ( _dx dy dz_).
+Rotates an object through the specified _angle_ (in degrees). This command requires that MGED already be in _matrix edit_ mode. The edited object is rotated about the axis defined by the start point (_x y z_) and the direction vector (_dx dy dz_).
 
 
 [[examples]]
