@@ -29,8 +29,6 @@ extern "C" {
 #include "bu/malloc.h"
 #include "bg/polygon.h"
 #include "bsg.h"
-#include "bsg.h"
-#include "raytrace.h" // For finalize polygon sketch export functionality (TODO - need to move...)
 }
 
 #include "qtcad/QgPolyFilter.h"

@@ -33,10 +33,12 @@
 
 #include "common.h"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "bu.h"
@@ -415,8 +417,107 @@ test_observer(struct ged *gedp)
 }
 
 /* ------------------------------------------------------------------ */
-/* main                                                                */
+/* Section E: GeomLoader bbox computation for new primitives          */
 /* ------------------------------------------------------------------ */
+static void
+test_geomloader_bbox(struct ged *gedp)
+{
+    printf("\n--- GeomLoader bbox ---\n");
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    /* Create a new primitive and queue it for background bbox loading. */
+    { const char *av[] = {"in","bbox_sph.s","sph","1","2","3","4",NULL};
+      ged_exec_in(gedp, 7, av); }
+    dbis->update();
+
+    /* Locate the name hash so we can look it up in bboxes once the
+     * background loader is done. */
+    unsigned long long h =
+	bu_data_hash("bbox_sph.s", strlen("bbox_sph.s")*sizeof(char));
+
+    /* Poll drain_geom_results() until the bbox arrives or a 2-second
+     * timeout expires.  drain() integrates results into dbis->bboxes
+     * and fires scene-observer notifications. */
+    bool bbox_arrived = false;
+    for (int i = 0; i < 200; ++i) {
+	dbis->drain_geom_results();
+	if (dbis->bboxes.find(h) != dbis->bboxes.end()) {
+	    bbox_arrived = true;
+	    break;
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    CHECK(bbox_arrived,
+	  "drain_geom_results() delivers bbox for a newly created primitive");
+
+    if (bbox_arrived) {
+	const auto &bb = dbis->bboxes.at(h);
+	/* The sphere center=(1,2,3) radius=4 → min=(-3,-2,-1) max=(5,6,7). */
+	bool finite_bounds =
+	    bb.size() == 6 &&
+	    bb[0] > -INFINITY && bb[0] < INFINITY &&
+	    bb[3] > -INFINITY && bb[3] < INFINITY;
+	CHECK(finite_bounds, "bbox for bbox_sph.s has finite bounds");
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Section F: BViewState::link_to / unlink                            */
+/* ------------------------------------------------------------------ */
+static void
+test_view_state_linking(struct ged *gedp)
+{
+    printf("\n--- BViewState link_to ---\n");
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+    dbis->update();
+
+    /* Create two BViewState instances directly on the stack (avoids the need
+     * for a full bsg_view lifecycle just for a unit test).
+     * BViewState destructor calls bu_vls_free() on scene-object name VLS
+     * fields and is RAII-safe; no manual cleanup is required here.
+     * The `dbis` pointer outlives the stack frame (owned by gedp). */
+    BViewState primary(dbis);
+    BViewState secondary(dbis);
+
+    /* --- initial state: not linked --- */
+    CHECK(!secondary.is_linked(),              "secondary is not linked initially");
+    CHECK( secondary.linked_primary() == nullptr,
+	   "linked_primary() is nullptr initially");
+
+    /* --- link secondary to primary --- */
+    secondary.link_to(&primary);
+    CHECK( secondary.is_linked(),              "secondary is linked after link_to()");
+    CHECK( secondary.linked_primary() == &primary,
+	   "linked_primary() returns the correct primary BViewState");
+    CHECK(!primary.is_linked(),                "primary itself is not linked");
+
+    /* --- add_hpath on secondary must delegate to primary --- */
+    std::vector<unsigned long long> tops = dbis->tops(false);
+    if (!tops.empty()) {
+	std::vector<unsigned long long> path_vec = {tops[0]};
+	/* add_hpath on secondary → delegates to primary's draw_list */
+	secondary.add_hpath(path_vec);
+	/* DrawList::query() looks up individual path component hashes;
+	 * tops[0] is the name-hash for the top-level object itself. */
+	CHECK(primary.draw_list().query(tops[0]) == DrawState::FULLY_DRAWN,
+	      "primary draw_list has path after delegated add_hpath");
+	CHECK(secondary.draw_list().query(tops[0]) == DrawState::NOT_DRAWN,
+	      "secondary's own draw_list does NOT directly contain the delegated path");
+    } else {
+	printf("SKIP: add_hpath delegation test (no tops objects)\n");
+    }
+
+    /* --- unlink: after unlink secondary manages its own draw_list --- */
+    secondary.unlink();
+    CHECK(!secondary.is_linked(),              "secondary is not linked after unlink()");
+    CHECK( secondary.linked_primary() == nullptr,
+	   "linked_primary() returns nullptr after unlink()");
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -454,6 +555,8 @@ main(int argc, char *argv[])
     test_draw_list(gedp);
     test_selection_set(gedp);
     test_observer(gedp);
+    test_geomloader_bbox(gedp);
+    test_view_state_linking(gedp);
 
     ged_close(gedp);
     bu_file_delete(tmpfile);

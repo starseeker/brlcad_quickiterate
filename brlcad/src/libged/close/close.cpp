@@ -52,15 +52,18 @@ ged_close_core(struct ged *gedp, int UNUSED(argc), const char **UNUSED(argv))
     const char *av[1] = {"zap"};
     ged_exec_zap(gedp, 1, (const char **)av);
 
+    /* Stop the GeomLoader thread and clear per-database state BEFORE
+     * freeing the database.  close_db() joins the worker thread while dbip is
+     * still valid, preventing a use-after-free in RT_CK_DBI.  DbiState
+     * itself is kept alive so the model always has a valid (empty) container. */
+    if (gedp->dbi_state)
+	((DbiState *)gedp->dbi_state)->close_db();
+
     /* close current database */
     if (gedp->dbip)
 	db_close(gedp->dbip);
     gedp->dbip = NULL;
 
-    /* Clean up any old acceleration states, if present */
-    if (gedp->dbi_state)
-	delete (DbiState *)gedp->dbi_state;
-    gedp->dbi_state = NULL;
     if (gedp->ged_lod)
 	bsg_mesh_lod_context_destroy(gedp->ged_lod);
     gedp->ged_lod = NULL;

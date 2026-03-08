@@ -67,6 +67,7 @@
 #ifndef QGMODEL_H
 #define QGMODEL_H
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -217,7 +218,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	~QgModel();
 
 	// .g Db interface and containers
-	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
+	[[nodiscard]] int run_cmd(struct bu_vls *msg, int argc, const char **argv);
 	struct ged *gedp = nullptr;
 
 	// IDbiObserver implementation - called after DbiState::update() completes
@@ -309,7 +310,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	std::unordered_set<struct directory *> changed_dp;
 
 	// Convenience container holding all active QgItems
-	std::unordered_set<QgItem *> *items = nullptr;
+	std::unordered_set<QgItem *> items;
 
 	// Sorted QgItem pointers corresponding to the tops instances
 	std::vector<QgItem *> tops_items;
@@ -395,7 +396,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	// Runtime-configurable attribute columns (empty = name column only)
 	QStringList attribute_columns_;
 
-	QgItem *rootItem;
+	std::unique_ptr<QgItem> rootItem_;
 	bsg_view *empty_gvp = nullptr;
 	struct db_i *model_dbip = nullptr;
 };

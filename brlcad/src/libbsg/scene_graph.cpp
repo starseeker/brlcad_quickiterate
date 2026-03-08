@@ -67,6 +67,7 @@
 
 /* bu/malloc.h for BU_ALLOC/BU_PUT used by standalone node allocator */
 #include "bu/malloc.h"
+#include "bu/log.h"
 #include "bu/vls.h"
 #include "bu/ptbl.h"
 
@@ -317,6 +318,19 @@ bsg_view_set_scale(bsg_view *v, fastf_t scale)
 {
     if (!v) return;
     v->gv_scale = scale;
+}
+
+extern "C" void
+bsg_view_set_size(bsg_view *v, fastf_t size)
+{
+    if (!v) return;
+    if (size <= 0.0) {
+	bu_log("bsg_view_set_size: invalid size %g (must be > 0); ignoring\n", size);
+	return;
+    }
+    v->gv_size = size;
+    v->gv_scale = size * 0.5;
+    v->gv_isize = 1.0 / size;
 }
 
 /* ====================================================================== *

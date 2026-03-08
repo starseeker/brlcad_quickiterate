@@ -502,6 +502,13 @@ class GED_EXPORT BViewState {
 
 	DrawList draw_list_;
 	BViewState *linked_to_ = nullptr;
+
+	// Lightweight wireframe bounding-box placeholders, keyed by full_hash
+	// from draw_list_.  Shown while real geometry hasn't been generated yet
+	// (i.e., path is in draw_list_ but NOT in s_map) when a bbox is already
+	// available in dbis->bboxes.  Replaced automatically on the next
+	// redraw() pass once real geometry arrives.
+	std::unordered_map<unsigned long long, bsg_shape *> bbox_placeholders_;
 };
 
 #define GED_DBISTATE_DB_CHANGE   0x01
@@ -611,6 +618,20 @@ class GED_EXPORT DbiState {
     public:
 	DbiState(struct ged *);
 	~DbiState();
+
+	// Close the current database: stops the GeomLoader thread (joining it
+	// while dbip is still valid), clears all per-database maps, GObj
+	// instances, and BViewState scene-object geometry, and closes the disk
+	// cache.  After this call dbip is nullptr; DbiState remains valid and
+	// can be reused by a subsequent open_db() call.  Safe to call even if
+	// no database is open.
+	void close_db();
+
+	// (Re-)initialize from gedp->dbip.  gedp->dbip must already point at
+	// the new database before this is called.  Populates all per-database
+	// maps, opens the disk cache, and starts the background geometry
+	// loader.  If gedp->dbip is nullptr this is a no-op.
+	void open_db();
 
 	unsigned long long update();
 

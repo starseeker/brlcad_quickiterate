@@ -37,7 +37,7 @@ extern "C" {
 
 // TODO - look into QShortcut, see if it might be a better way
 // to manage this
-int CADkeyPressEvent(bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QKeyEvent *k)
+int CADkeyPressEvent(bsg_view *v, [[maybe_unused]] int x_prev, [[maybe_unused]] int y_prev, QKeyEvent *k)
 {
     QTCAD_EVENT("keyPress", 1);
     if (!v)
@@ -121,7 +121,7 @@ int CADkeyPressEvent(bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QKeyEv
     return 0;
 }
 
-int CADmousePressEvent(bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e)
+int CADmousePressEvent(bsg_view *v, [[maybe_unused]] int x_prev, [[maybe_unused]] int y_prev, QMouseEvent *e)
 {
     QTCAD_EVENT("mousePress", 1);
 
@@ -152,7 +152,7 @@ int CADmousePressEvent(bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QMou
     return 0;
 }
 
-int CADmouseReleaseEvent(bsg_view *v, double x_press, double y_press, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e, int mode)
+int CADmouseReleaseEvent(bsg_view *v, double x_press, double y_press, [[maybe_unused]] int x_prev, [[maybe_unused]] int y_prev, QMouseEvent *e, int mode)
 {
     QTCAD_EVENT("mouseRelease", 1);
 

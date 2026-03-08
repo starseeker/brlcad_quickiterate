@@ -28,7 +28,6 @@
 
 #include "bg/polygon.h"
 #include "bsg.h"
-#include "raytrace.h" // For finalize polygon sketch export functionality (TODO - need to move...)
 #include "qtcad/QgView.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -123,7 +122,7 @@ QgView::view_type()
 
 
 void
-QgView::save_image(int UNUSED(quad))
+QgView::save_image([[maybe_unused]] int quad)
 {
 }
 

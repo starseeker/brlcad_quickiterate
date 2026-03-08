@@ -146,14 +146,12 @@ QSize QgFlowLayout::sizeHint() const
 QSize QgFlowLayout::minimumSize() const
 {
     QSize size;
-    QLayoutItem *item;
-    foreach (item, itemList)
+    for (QLayoutItem *item : itemList)
         size = size.expandedTo(item->minimumSize());
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    // TODO - figure out the right Qt6 logic here...
-    size += QSize(2*margin(), 2*margin());
-#endif
+    int left, top, right, bottom;
+    getContentsMargins(&left, &top, &right, &bottom);
+    size += QSize(left + right, top + bottom);
     return size;
 }
 
@@ -166,8 +164,7 @@ int QgFlowLayout::doLayout(const QRect &rect, bool testOnly) const
     int y = effectiveRect.y();
     int lineHeight = 0;
 
-    QLayoutItem *item;
-    foreach (item, itemList) {
+    for (QLayoutItem *item : itemList) {
         QWidget *wid = item->widget();
         int spaceX = horizontalSpacing();
         if (spaceX == -1)

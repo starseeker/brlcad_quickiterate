@@ -77,7 +77,7 @@ signals:
 	void do_erase_selections();
 
     protected:
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
     private:
 	void select_objs();

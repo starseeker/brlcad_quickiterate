@@ -28,7 +28,7 @@ class QgEdFilter : public QObject
     Q_OBJECT
 
     protected:
-        bool eventFilter(QObject *target, QEvent *e);
+        bool eventFilter(QObject *target, QEvent *e) override;
 };
 
 /*

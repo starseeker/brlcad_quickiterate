@@ -50,6 +50,7 @@ extern "C" {
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bsg/lod.h"
+#include "bsg/vlist.h"
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"
@@ -202,9 +203,84 @@ DbiState::DbiState(struct ged *ged_p)
     rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
     gedp = ged_p;
-    if (!gedp)
-	return;
-    dbip = gedp->dbip;
+    open_db();
+}
+
+
+DbiState::~DbiState()
+{
+    // Stop loader and release all per-database state.
+    close_db();
+
+    // Release persistent resources that live for the DbiState lifetime.
+    bu_vls_free(&path_string);
+    bu_vls_free(&hash_string);
+    delete shared_vs;
+    shared_vs = nullptr;
+
+    // Delete per-view BViewState objects (heap-allocated by get_view_state()
+    // and owned by DbiState).
+    for (auto &[v, bvs] : view_states)
+	delete bvs;
+    view_states.clear();
+
+    rt_clean_resource_basic(NULL, res);
+    BU_PUT(res, struct resource);
+}
+
+
+void
+DbiState::close_db()
+{
+    // Join the background thread while dbip is still valid.
+    geom_loader_.reset();
+
+    // Clear GObj instances.  Each GObj dtor removes itself from the gobjs
+    // map, so we must check the container on every iteration.
+    while (!gobjs.empty())
+	delete gobjs.begin()->second;
+
+    // Clear all per-database maps.
+    p_c.clear();
+    p_v.clear();
+    d_map.clear();
+    bboxes.clear();
+    c_inherit.clear();
+    rgb.clear();
+    region_id.clear();
+    matrices.clear();
+    i_bool.clear();
+    i_map.clear();
+    i_str.clear();
+
+    // Clear transient state.
+    invalid_entry_map.clear();
+    old_names.clear();
+    changed_hashes.clear();
+    added.clear();
+    changed.clear();
+    removed.clear();
+
+    // Clear BViewState geometry (keep the BViewState objects themselves).
+    if (shared_vs)
+	shared_vs->clear();
+    for (auto &[v, bvs] : view_states)
+	bvs->clear();
+
+    // Close disk cache.
+    if (dcache) {
+	bu_cache_close(dcache);
+	dcache = nullptr;
+    }
+
+    dbip = nullptr;
+}
+
+
+void
+DbiState::open_db()
+{
+    dbip = gedp ? gedp->dbip : nullptr;
     if (!dbip)
 	return;
 
@@ -230,9 +306,7 @@ DbiState::DbiState(struct ged *ged_p)
     }
 
     // Kick off background bbox computation for all solid objects that do not
-    // yet have a cached bbox.  This pre-warms the bboxes map so that the
-    // first draw command can display geometry (or placeholder bounding boxes)
-    // without waiting for synchronous rt_bound_internal() calls.
+    // yet have a cached bbox.
     {
 	std::vector<GeomLoader::WorkItem> items;
 	for (int i = 0; i < RT_DBNHASH; i++) {
@@ -248,28 +322,6 @@ DbiState::DbiState(struct ged *ged_p)
 	if (!items.empty())
 	    start_geom_load(items);
     }
-}
-
-
-DbiState::~DbiState()
-{
-    bu_vls_free(&path_string);
-    bu_vls_free(&hash_string);
-    delete shared_vs;
-    rt_clean_resource_basic(NULL, res);
-    BU_PUT(res, struct resource);
-
-    // Stop background loader before releasing other resources it may read.
-    // unique_ptr dtor calls GeomLoader::~GeomLoader() which joins the thread.
-    geom_loader_.reset();
-
-    // Phase 3: clean up all GObj instances (each GObj dtor deletes its
-    // CombInst children and deregisters from gobjs).
-    while (!gobjs.empty())
-	delete gobjs.begin()->second;
-
-    if (dcache)
-	bu_cache_close(dcache);
 }
 
 
@@ -1347,7 +1399,6 @@ DbiState::update()
 
     // Update the primary data structures
     for(s_it = removed.begin(); s_it != removed.end(); s_it++) {
-	bu_log("removed: %llu\n", *s_it);
 
 	// Combs with this key in their child set need to be updated to refer
 	// to it as an invalid entry.
@@ -1389,7 +1440,6 @@ DbiState::update()
 
     for(g_it = added.begin(); g_it != added.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("added: %s\n", dp->d_namep);
 	unsigned long long hash = update_dp(dp, 0);
 
 	// If this name was previously the source of an invalid reference,
@@ -1399,7 +1449,6 @@ DbiState::update()
 
     for(g_it = changed.begin(); g_it != changed.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("changed: %s\n", dp->d_namep);
 	// Properties need to be updated - comb children, colors, matrices,
 	// bounding box for solids, etc.
 	update_dp(dp, 1);
@@ -1867,6 +1916,13 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	    // Keep draw_list_ in sync immediately so callers don't have to
 	    // wait for the next redraw() to see the removal reflected.
 	    draw_list_.remove(phash, mode);
+
+	    // Also clean up any AABB placeholder for this path
+	    auto ph_it = bbox_placeholders_.find(phash);
+	    if (ph_it != bbox_placeholders_.end()) {
+		bsg_shape_put(ph_it->second);
+		bbox_placeholders_.erase(ph_it);
+	    }
 	}
     }
 
@@ -2370,6 +2426,11 @@ BViewState::gather_paths(
 void
 BViewState::clear()
 {
+    // Release any bbox placeholder shapes before clearing state
+    for (auto &[hash, s] : bbox_placeholders_)
+	bsg_shape_put(s);
+    bbox_placeholders_.clear();
+
     s_map.clear();
     s_keys.clear();
     drawn_paths.clear();
@@ -2822,6 +2883,68 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 
 	// Always process this view's own draw list (may have per-view overrides).
 	process_dl_entries(draw_list_.entries());
+    }
+
+    // AABB placeholder rendering (Section 7.4 of TODO.qged-stack.md):
+    //
+    // Release placeholders for paths that now have real geometry in s_map
+    // (real geometry arrived via synchronous or background loading).
+    {
+	std::vector<unsigned long long> stale;
+	for (auto &[phash, s] : bbox_placeholders_) {
+	    if (s_map.find(phash) != s_map.end()) {
+		bsg_shape_put(s);
+		stale.push_back(phash);
+		ret |= GED_DBISTATE_VIEW_CHANGE;
+	    }
+	}
+	for (unsigned long long h : stale)
+	    bbox_placeholders_.erase(h);
+    }
+
+    // Create new AABB placeholders for draw_list_ entries that still have
+    // no real geometry in s_map but DO have a bbox in dbis->bboxes.  The
+    // placeholder is a dashed wireframe bounding box that is visible
+    // immediately while geometry is being generated or loaded in the
+    // background.
+    if (v) {
+	auto make_placeholders = [&](const std::vector<DrawList::Entry> &dl_entries) {
+	    for (const auto &dl_e : dl_entries) {
+		// Skip if already in s_map (real geometry present)
+		if (s_map.find(dl_e.full_hash) != s_map.end()) continue;
+		// Skip if already have a placeholder for this path
+		if (bbox_placeholders_.find(dl_e.full_hash) != bbox_placeholders_.end()) continue;
+		// Need the solid hash (last element in path) to look up bbox
+		if (dl_e.path.empty()) continue;
+		unsigned long long solid_hash = dl_e.path.back();
+		auto bbox_it = dbis->bboxes.find(solid_hash);
+		if (bbox_it == dbis->bboxes.end()) continue;
+		if (bbox_it->second.size() < 6) continue;
+		// Create a lightweight wireframe bbox scene object
+		bsg_shape *ph = bsg_shape_get(v, BSG_DB_OBJS);
+		if (!ph) continue;
+		// print_path takes a non-const ref; make a copy from the const entry
+		std::vector<unsigned long long> path_copy(dl_e.path);
+		dbis->print_path(&ph->s_name, path_copy);
+		ph->s_v = v;
+		ph->s_soldash = 1;  // dashed lines to signal placeholder status
+		// Set a neutral grey so it doesn't clash with actual geometry
+		ph->s_color[0] = 160;
+		ph->s_color[1] = 160;
+		ph->s_color[2] = 160;
+		// Populate s_vlist with the wireframe box
+		point_t bmin, bmax;
+		VSET(bmin, bbox_it->second[0], bbox_it->second[1], bbox_it->second[2]);
+		VSET(bmax, bbox_it->second[3], bbox_it->second[4], bbox_it->second[5]);
+		bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &ph->s_vlist, bmin, bmax);
+		ph->current = 1;  // vlist is ready; skip draw_scene() for this shape
+		bsg_shape_bound(ph, v);
+		bbox_placeholders_[dl_e.full_hash] = ph;
+		ret |= GED_DBISTATE_VIEW_CHANGE;
+	    }
+	};
+	if (linked_to_) make_placeholders(linked_to_->draw_list_.entries());
+	make_placeholders(draw_list_.entries());
     }
 
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
@@ -3604,9 +3727,18 @@ void
 GeomLoader::worker()
 {
     // The worker uses its own resource to avoid contention with the main thread.
+    // IMPORTANT: rt_bound_internal -> rt_gettree -> db_walk_tree (with ncpu==1)
+    // unconditionally uses &rt_uniresource, which is NOT thread-safe.  Instead
+    // we load each primitive with rt_db_get_internal (passing our own resource
+    // so ft_import5 never touches rt_uniresource) and then call ft_bbox directly.
+    // ft_bbox works only from the imported internal form and a tolerance, so it
+    // is fully thread-safe with a per-thread resource.
     struct resource bres;
     memset(&bres, 0, sizeof(bres));
     rt_init_resource(&bres, 1, NULL);
+
+    // Tolerance used by ft_bbox calls; standard BRL-CAD defaults.
+    const struct bn_tol bbox_tol = BN_TOL_INIT_TOL;
 
     while (true) {
 	WorkItem item;
@@ -3622,25 +3754,42 @@ GeomLoader::worker()
 	    }
 	}
 
-	if (!item.dp || !item.hash)
+	// Skip items that were invalidated (dp null, hash zero, or dp->d_namep
+	// null because the object was deleted between push() and now).
+	if (!item.dp || !item.hash || !item.dp->d_namep)
 	    continue;
 
-	// The directory pointer was resolved on the main thread before being
-	// pushed.  We do NOT access any DbiState STL containers here — only
-	// read-only librt/libdb state (dbip, dp).
-	//
-	// rt_bound_internal is safe to call with a read-only dbip and our own
-	// resource.  If the object was deleted between push() and now,
-	// rt_bound_internal will fail gracefully (returns non-zero).
-	Result r;
-	VSETALL(r.bmin, INFINITY);
-	VSETALL(r.bmax, -INFINITY);
-	r.hash = item.hash;
-	int bret = rt_bound_internal(dbis_->dbip, item.dp, r.bmin, r.bmax);
-	if (bret != 0) {
-	    // rt_bound_internal returns 0 on success, -1 on failure
+	// Load the primitive's internal form using our thread-local resource.
+	// Passing &bres ensures ft_import5 allocates from our private pools and
+	// never touches the global rt_uniresource.
+	struct rt_db_internal intern;
+	RT_DB_INTERNAL_INIT(&intern);
+	if (rt_db_get_internal(&intern, item.dp, dbis_->dbip, NULL, &bres) < 0) {
+	    // Object may have been deleted or is unreadable between push and now.
 	    continue;
 	}
+
+	// Require a direct bbox function.  Primitives without one (e.g.
+	// halfspace, which is infinite) are skipped.
+	if (!intern.idb_meth || !intern.idb_meth->ft_bbox) {
+	    rt_db_free_internal(&intern);
+	    continue;
+	}
+
+	point_t bmin, bmax;
+	VSETALL(bmin,  INFINITY);
+	VSETALL(bmax, -INFINITY);
+	if (intern.idb_meth->ft_bbox(&intern, &bmin, &bmax, &bbox_tol) != 0) {
+	    // ft_bbox failed; skip this primitive.
+	    rt_db_free_internal(&intern);
+	    continue;
+	}
+	rt_db_free_internal(&intern);
+
+	Result r;
+	r.hash = item.hash;
+	VMOVE(r.bmin, bmin);
+	VMOVE(r.bmax, bmax);
 
 	// Post result to the result queue
 	{

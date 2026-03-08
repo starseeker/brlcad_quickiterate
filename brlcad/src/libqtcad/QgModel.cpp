@@ -335,11 +335,8 @@ QgModel::QgModel(QObject *p, const char *npath)
     gedp->ged_gvp->independent = 0;
 
     // Set up the root item
-    rootItem = new QgItem(0, this);
-    rootItem->mdl = this;
-
-    items = new std::unordered_set<QgItem *>;
-    items->clear();
+    rootItem_ = std::make_unique<QgItem>(0, this);
+    rootItem_->mdl = this;
 
 
     // If there's no path, at least for the moment we have nothing to model.
@@ -354,7 +351,7 @@ QgModel::QgModel(QObject *p, const char *npath)
 	av[0] = "open";
 	av[1] = npath;
 	av[2] = nullptr;
-	run_cmd(gedp->ged_result_str, ac, (const char **)av);
+	(void)run_cmd(gedp->ged_result_str, ac, (const char **)av);
     }
 }
 
@@ -366,12 +363,16 @@ QgModel::~QgModel()
 	observed_dbi_state_ = nullptr;
     }
 
-    delete items;
+    // Delete all individual QgItem objects stored in the items set.
+    // rootItem_ is a unique_ptr and is released automatically.
+    // Note: QgItem::~QgItem() only calls bu_vls_free() and is therefore
+    // noexcept in practice.
+    for (QgItem *itm : items)
+	delete itm;
 
     bsg_view_free(empty_gvp);
     BU_PUT(empty_gvp, bsg_view);
     ged_close(gedp);
-    delete rootItem;
 }
 
 void
@@ -406,7 +407,7 @@ void
 QgModel::item_rebuild(QgItem *item)
 {
     // Top level is a special case and is handled separately
-    if (item == rootItem) {
+    if (item == rootItem_.get()) {
 	return;
     }
 
@@ -450,7 +451,7 @@ QgModel::item_rebuild(QgItem *item)
 	    nitem->parentItem = item;
 	    nitem->op = dbis->bool_op(item->ihash, *nh_it);
 	    nc.push_back(nitem);
-	    items->insert(nitem);
+	    items.insert(nitem);
 	}
     }
     item->c_count = nc.size();
@@ -483,7 +484,7 @@ QgModel::full_model_reset(DbiState *dbis)
     // invalid parent is invalid.
     std::queue<QgItem *> to_clear;
     std::unordered_set<QgItem *> invalid;
-    for (QgItem *itm : *items) {
+    for (QgItem *itm : items) {
 	if (dbis->p_v.find(itm->ihash) == dbis->p_v.end() &&
 		dbis->d_map.find(itm->ihash) == dbis->d_map.end())
 	    to_clear.push(itm);
@@ -498,7 +499,7 @@ QgModel::full_model_reset(DbiState *dbis)
 	    to_clear.push(child);
     }
 
-    for (QgItem *i_itm : *items) {
+    for (QgItem *i_itm : items) {
 	if (invalid.count(i_itm))
 	    continue;
 	// Remove any invalid QgItem references from the children arrays
@@ -536,26 +537,26 @@ QgModel::full_model_reset(DbiState *dbis)
 	    ntops_items.push_back(v_it->second);
 	} else {
 	    QgItem *nitem = new QgItem(th, this);
-	    nitem->parentItem = rootItem;
+	    nitem->parentItem = rootItem_.get();
 	    nitem->op = dbis->bool_op(0, th);
 	    ntops_items.push_back(nitem);
-	    items->insert(nitem);
+	    items.insert(nitem);
 	}
     }
 
     // Set the new tops items as children of the rootItem.
     std::sort(ntops_items.begin(), ntops_items.end(), QgItem_cmp());
     tops_items = ntops_items;
-    rootItem->children.clear();
+    rootItem_->children.clear();
     for (QgItem *ti : tops_items)
-	rootItem->appendChild(ti);
-    rootItem->c_noderow.clear();
+	rootItem_->appendChild(ti);
+    rootItem_->c_noderow.clear();
     for (size_t i = 0; i < tops_items.size(); i++)
-	rootItem->c_noderow[tops_items[i]] = static_cast<int>(i);
+	rootItem_->c_noderow[tops_items[i]] = static_cast<int>(i);
 
     // Finally, delete the invalid QgItems
     for (QgItem *iv_itm : invalid) {
-	items->erase(iv_itm);
+	items.erase(iv_itm);
 	delete iv_itm;
     }
 
@@ -578,30 +579,30 @@ QgModel::reconcile_tops(DbiState *dbis)
 	beginRemoveRows(QModelIndex(), i, i);
 	QgItem *to_del = tops_items[i];
 	tops_items.erase(tops_items.begin() + i);
-	rootItem->children.erase(rootItem->children.begin() + i);
+	rootItem_->children.erase(rootItem_->children.begin() + i);
 	endRemoveRows();
-	items->erase(to_del);
+	items.erase(to_del);
 	delete to_del;
     }
     // Rebuild c_noderow after all removals
-    rootItem->c_noderow.clear();
+    rootItem_->c_noderow.clear();
     for (size_t i = 0; i < tops_items.size(); i++)
-	rootItem->c_noderow[tops_items[i]] = static_cast<int>(i);
+	rootItem_->c_noderow[tops_items[i]] = static_cast<int>(i);
 
     // Collect the set of hashes already in tops_items after removals
     std::unordered_set<unsigned long long> existing_set;
     for (auto *ti : tops_items) existing_set.insert(ti->ihash);
 
-    // Insert new items one at a time to keep rootItem->children in sync.
+    // Insert new items one at a time to keep rootItem_->children in sync.
     // Using individual beginInsertRows/endInsertRows per item (sorted order)
     // is correct and avoids layoutAboutToBeChanged/layoutChanged complications.
     for (auto h : new_tops) {
 	if (existing_set.count(h)) continue;
 
 	QgItem *nitem = new QgItem(h, this);
-	nitem->parentItem = rootItem;
+	nitem->parentItem = rootItem_.get();
 	nitem->op = dbis->bool_op(0, h);
-	items->insert(nitem);
+	items.insert(nitem);
 
 	// Append to tops_items then sort to find the insertion position
 	tops_items.push_back(nitem);
@@ -611,15 +612,15 @@ QgModel::reconcile_tops(DbiState *dbis)
 	    if (tops_items[j] == nitem) { ins_pos = j; break; }
 	}
 
-	// Insert into rootItem->children at the precise sorted position and
+	// Insert into rootItem_->children at the precise sorted position and
 	// emit the corresponding row-level signal.  The children vector must
 	// be updated INSIDE the begin/end bracket so that rowCount() returns
 	// the updated value when endInsertRows() fires the signal.
 	beginInsertRows(QModelIndex(), ins_pos, ins_pos);
-	rootItem->children.insert(rootItem->children.begin() + ins_pos, nitem);
-	rootItem->c_noderow.clear();
+	rootItem_->children.insert(rootItem_->children.begin() + ins_pos, nitem);
+	rootItem_->c_noderow.clear();
 	for (size_t j = 0; j < tops_items.size(); j++)
-	    rootItem->c_noderow[tops_items[j]] = static_cast<int>(j);
+	    rootItem_->c_noderow[tops_items[j]] = static_cast<int>(j);
 	endInsertRows();
 
 	existing_set.insert(h);
@@ -632,7 +633,7 @@ QgModel::reconcile_tops(DbiState *dbis)
  * keeps its collapsed/expanded state for items that have not changed.
  * Must be called only while in_g_update_ == true (no re-entrancy). */
 void
-QgModel::rebuild_item_children(QgItem *item, DbiState *UNUSED(dbis))
+QgModel::rebuild_item_children(QgItem *item, [[maybe_unused]] DbiState *dbis)
 {
     if (!item || !item->ihash || item->children.empty())
 	return;
@@ -674,7 +675,7 @@ QgModel::rebuild_item_children(QgItem *item, DbiState *UNUSED(dbis))
 	for (QgItem *nc : new_children)
 	    if (nc == oc) { reused = true; break; }
 	if (!reused) {
-	    items->erase(oc);
+	    items.erase(oc);
 	    delete oc;
 	}
     }
@@ -713,7 +714,7 @@ QgModel::apply_incremental_updates(DbiState *dbis, const std::vector<DbiChangeEv
 		unsigned long long obj_hash = ev.object.v;
 		/* Collect items to rebuild (avoid modifying *items during iteration) */
 		std::vector<QgItem *> to_rebuild;
-		for (QgItem *item : *items) {
+		for (QgItem *item : items) {
 		    /* Resolve instance hash to object hash */
 		    unsigned long long h = item->ihash;
 		    auto im = dbis->i_map.find(h);
@@ -779,16 +780,24 @@ QgModel::g_update(struct db_i *n_dbip)
     }
 
     if (!n_dbip) {
-	// if we have no dbip, clear out everything
+	// if we have no dbip, clear out everything.
+	// Also null out our observer handle: close_db() was called by closedb,
+	// resetting DbiState's per-database state.  Clearing observed_dbi_state_
+	// here ensures the re-registration check further down fires correctly
+	// when a new file is opened and open_db() is called on the same
+	// DbiState pointer.
+	if (observed_dbi_state_) {
+	    observed_dbi_state_ = nullptr;
+	}
 	beginResetModel();
-	for (QgItem *itm : *items)
+	for (QgItem *itm : items)
 	    delete itm;
 	// Deleted all items, but we need a root item regardless
 	// of whether a .g is open - recreate it
-	rootItem = new QgItem(0, this);
-	rootItem->mdl = this;
+	rootItem_ = std::make_unique<QgItem>(0, this);
+	rootItem_->mdl = this;
 
-	items->clear();
+	items.clear();
 	tops_items.clear();
 	emit mdl_changed_db((void *)gedp);
 	emit view_change(QG_VIEW_DRAWN);
@@ -875,7 +884,7 @@ QgModel::NodeRow(QgItem *node) const
 QModelIndex
 QgModel::NodeIndex(QgItem *node) const
 {
-    if (node == rootItem)
+    if (node == rootItem_.get())
 	return QModelIndex();
     int nr = NodeRow(node);
     if (nr == -1)
@@ -891,7 +900,7 @@ QgModel::canFetchMore(const QModelIndex &idx) const
 	return false;
 
     QgItem *item = static_cast<QgItem*>(idx.internalPointer());
-    if (item == rootItem)
+    if (item == rootItem_.get())
        	return false;
 
     // canFetchMore() returns true when DB says there are children but we
@@ -917,7 +926,7 @@ QgModel::fetchMore(const QModelIndex &idx)
 
     QgItem *item = static_cast<QgItem*>(idx.internalPointer());
 
-    if (UNLIKELY(item == rootItem)) {
+    if (UNLIKELY(item == rootItem_.get())) {
 	return;
     }
 
@@ -939,7 +948,7 @@ QgModel::fetchMore(const QModelIndex &idx)
 	nitem->parentItem = item;
 	nitem->op = dbis->bool_op(item->ihash, *nh_it);
 	nc.push_back(nitem);
-	items->insert(nitem);
+	items.insert(nitem);
     }
 
     // All done - let the Qt model know
@@ -963,7 +972,7 @@ QgModel::fetchMore(const QModelIndex &idx)
 QgItem *
 QgModel::root()
 {
-    return rootItem;
+    return rootItem_.get();
 }
 
 QgItem *
@@ -974,7 +983,7 @@ QgModel::getItem(const QModelIndex &index) const
         if (item)
             return item;
     }
-    return rootItem;
+    return rootItem_.get();
 }
 
 QModelIndex
@@ -1003,7 +1012,7 @@ QgModel::parent(const QModelIndex &index) const
     QgItem *childItem = getItem(index);
     QgItem *parentItem = childItem ? childItem->parent() : nullptr;
 
-    if (parentItem == rootItem || !parentItem)
+    if (parentItem == rootItem_.get() || !parentItem)
 	return QModelIndex();
 
     return createIndex(parentItem->childNumber(), 0, parentItem);
@@ -1125,7 +1134,7 @@ QgModel::data(const QModelIndex &index, int role) const
 }
 
 QVariant
-QgModel::headerData(int section, Qt::Orientation UNUSED(orientation), int role) const
+QgModel::headerData(int section, [[maybe_unused]] Qt::Orientation orientation, int role) const
 {
     if (role != Qt::DisplayRole)
 	return QVariant();
@@ -1144,7 +1153,7 @@ QgModel::rowCount(const QModelIndex &p) const
 	return 0;
 
     if (!p.isValid())
-	pItem = rootItem;
+	pItem = rootItem_.get();
     else
 	pItem = static_cast<QgItem*>(p.internalPointer());
 
@@ -1152,7 +1161,7 @@ QgModel::rowCount(const QModelIndex &p) const
 }
 
 int
-QgModel::columnCount(const QModelIndex &UNUSED(p)) const
+QgModel::columnCount([[maybe_unused]] const QModelIndex &p) const
 {
     return 1 + attribute_columns_.count();
 }
