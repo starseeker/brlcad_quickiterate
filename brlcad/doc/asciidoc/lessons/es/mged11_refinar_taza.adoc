@@ -20,7 +20,7 @@ En este capítulo, vamos a refinar la taza que usted hizo en el tutorial anterio
 
 La asignación de propiedades de los materiales a una región se puede hacer ya sea con el comando mater (materia) o con el comando shader (sombreado). El programa responderá con una serie de preguntas referidas a los distintos parámetros del sombreado.
 
-El sombreado más comunmente utilizado es el de plástico, que utiliza el modelo de sombreado de Phong. Seleccione el sombreado de plástico y establezca el color en un tono medio de sombreado verde. El diálogo en la ventana de comandos debería similar al siguiente: *mged>mater mug.r[Enter]*
+El sombreado más comunmente utilizado es el de plástico, que utiliza el modelo de sombreado de Phong. Seleccione el sombreado de plástico y establezca el color en un tono medio de sombreado verde. El diálogo en la ventana de comandos debería similar al siguiente: mged>mater mug.r[Enter]
 
 
 ....
@@ -132,7 +132,3 @@ En este tutorial usted aprendió a:
 * Asignar propiedades de los materiales a la taza utilizando el comando mater.
 * Refinar la taza.
 * Combinar las figuras.
-
-
-
-

@@ -84,13 +84,13 @@ One advantage to using the GUI, if you aren't familiar with UNIX file management
 [[assign_title]]
 == Assigning a Title to Your Database
 
-You can title your new database to provide an audit trail for you or others who might use your database. After the prompt, in the Command Window, type title followed by a space and a name that reflects the database you are going to make. When you are done, press the ENTER key. For example: *mged>title MySphere[ENTER]* Note that in _BRL-CAD_ versions prior to release 6.0, the title is limited to 72 characters.
+You can title your new database to provide an audit trail for you or others who might use your database. After the prompt, in the Command Window, type title followed by a space and a name that reflects the database you are going to make. When you are done, press the ENTER key. For example: mged>title MySphere[ENTER] Note that in _BRL-CAD_ versions prior to release 6.0, the title is limited to 72 characters.
 
 
 [[set_units]]
 == Selecting a Unit of Length
 
-_MGED_ uses millimeters for all internal mathematical processes; however, you can create your design using some other unit, such as feet. For this lesson, inches is used. To select inches, move your mouse pointer to the File menu at the top of the Command Window. Click on File and then Preferences. A new menu will appear. Select Units and then Inches. If you are not a "point-and-click" type of person and prefer a Command Line, then just type units in after the _MGED_ prompt in the Command Window, followed by the ENTER key. The Command Line looks like: *mged>units in[ENTER]*
+_MGED_ uses millimeters for all internal mathematical processes; however, you can create your design using some other unit, such as feet. For this lesson, inches is used. To select inches, move your mouse pointer to the File menu at the top of the Command Window. Click on File and then Preferences. A new menu will appear. Select Units and then Inches. If you are not a "point-and-click" type of person and prefer a Command Line, then just type units in after the _MGED_ prompt in the Command Window, followed by the ENTER key. The Command Line looks like: mged>units in[ENTER]
 
 
 [[select_primitive]]
