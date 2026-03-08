@@ -10,7 +10,7 @@ ev - Evaluates the objects specified by tessellating all primitive shapes in the
 
 [source]
 ----
-ev [-dfnrstuvwST] [-P#] [-C#/#/#] {objects} []
+ev [-dfnrstuvwST] [-P #] [-C #/#/#] {objects} []
 ----
 
 
@@ -44,7 +44,7 @@ The first example shows the use of the *ev* command to display two evaluated obj
 [example]
 ====
 
-mged>*ev region1 shapea*::
+mged> *ev region1 shapea*::
 Displays evaluated _region1_ and _shapea_ as shaded polygons.
 
 
@@ -70,4 +70,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

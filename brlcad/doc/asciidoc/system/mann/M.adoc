@@ -29,7 +29,7 @@ Translate the point at specified screen coordinates to the center of the display
 [example]
 ====
 
-mged>*M 1 100 100*::
+mged> *M 1 100 100*::
 The point at screen coordinates (100,100)is repositioned to the center of the display.
 
 
@@ -46,4 +46,4 @@ BRL-CAD
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

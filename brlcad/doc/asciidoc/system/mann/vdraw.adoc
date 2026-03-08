@@ -53,9 +53,9 @@ The *vdraw* commands are as follows:
 
 
 * open -- with no arguments, this returns 1 if there is a open list; 0 otherwise. If an argument is supplied, a command list is opened with the provided name.
-* write-- with arguments of  _i c x y z_, the MGED drawing command *#c* is placed in the _ith_ position of the command list with the vertex as ( _x y z_).
+* write-- with arguments of _i c x y z_, the MGED drawing command *#c* is placed in the _ith_ position of the command list with the vertex as ( _x y z_).
 +
--- with arguments of  _next c x y z_, the command is placed at the end of the list.
+-- with arguments of _next c x y z_, the command is placed at the end of the list.
 
 * insert -- with arguments of _i c x y z_, the MGED drawing command _#c_ is inserted just before the _ith_ position of the command list.
 * delete -- with an integer argument of i, the _ith_ command is deleted.
@@ -65,7 +65,7 @@ The *vdraw* commands are as follows:
 +
 -- with an argument of "all," all the commands on the list are deleted.
 
-* params -- with an argument of  _color rrggbb_, the color of all objects on this list is set. The _rrggbb_ is a hex number representing the color, "ffffff" is white, "ff0000" is red, "00ff00" is green, etc.
+* params -- with an argument of _color rrggbb_, the color of all objects on this list is set. The _rrggbb_ is a hex number representing the color, "ffffff" is white, "ff0000" is red, "00ff00" is green, etc.
 +
 -- with a single string argument, the name of the current list is changed.
 
@@ -175,4 +175,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

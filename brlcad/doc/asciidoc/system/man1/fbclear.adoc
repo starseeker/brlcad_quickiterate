@@ -10,8 +10,8 @@ fbclear - clear a frame buffer image
 
 [source]
 ----
-fbclear [ -c] [-Fframebuffer] [ red green blue] \
-     [ -c] [-Fframebuffer] [gray_value]
+fbclear [ -c] [-F framebuffer] [ red green blue] \
+     [ -c] [-F framebuffer] [gray_value]
 ----
 
 
@@ -48,4 +48,4 @@ This software is Copyright (c) 1986-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

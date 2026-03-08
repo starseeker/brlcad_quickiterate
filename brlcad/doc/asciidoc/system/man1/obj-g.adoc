@@ -10,7 +10,7 @@ obj-g - Convert a Wavefront Object (obj) file to a BRL-CAD .g database.
 
 [source]
 ----
-obj-g [-c] [-d] [-f] [-ggrouping_option] [-Hplate_thickness] [-i] [-mmode] [-oopen_bot_type] [-p] [-rbot_orientation] [-tdistance_tolerance] [-uunits_str] [-v]... [-xrt_debug_flag] [-XNMG_debug_flag] input.obj output.g
+obj-g [-c] [-d] [-f] [-g grouping_option] [-H plate_thickness] [-i] [-m mode] [-o open_bot_type] [-p] [-r bot_orientation] [-t distance_tolerance] [-u units_str] [-v]... [-x rt_debug_flag] [-X NMG_debug_flag] input.obj output.g
 ----
 
 
@@ -141,4 +141,4 @@ This software is Copyright (c) 2010-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

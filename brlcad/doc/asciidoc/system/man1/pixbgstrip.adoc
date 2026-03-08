@@ -10,7 +10,7 @@ pixbgstrip - strip smooth shaded background from a pix(5) file
 
 [source]
 ----
-pixbgstrip [-a] [-tthresh] [-xx_offset_for_bg_pixel] [-ssquarefilesize] [-wfile_width] [-nfile_height] [file.pix]
+pixbgstrip [-a] [-t thresh] [-x x_offset_for_bg_pixel] [-s squarefilesize] [-w file_width] [-n file_height] [file.pix]
 ----
 
 
@@ -59,4 +59,4 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -17,7 +17,7 @@ regdef {regionID} [airID [los% [materialID]]]
 [[description]]
 == DESCRIPTION
 
-Sets the default region attributes used by the *r* and *c*  commands when building a BRL-CAD region. The default _ident_ number is incremented each time a new region is created with the *r* or *c* commands.
+Sets the default region attributes used by the *r* and *c* commands when building a BRL-CAD region. The default _ident_ number is incremented each time a new region is created with the *r* or *c* commands.
 
 
 [[examples]]
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

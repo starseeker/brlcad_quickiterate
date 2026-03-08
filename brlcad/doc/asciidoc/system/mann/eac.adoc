@@ -27,7 +27,7 @@ Adds all the regions in the current model that have any of the specified aircode
 [example]
 ====
 
-mged>*eac 1 2 3*::
+mged> *eac 1 2 3*::
 Draws all regions with _aircodes_ 1, 2, or 3 in the _MGED_ display.
 
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

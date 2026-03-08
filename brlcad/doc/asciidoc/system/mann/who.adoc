@@ -10,7 +10,7 @@ who - Lists the top-level objects that are currently displayed.
 
 [source]
 ----
-who [ [real]| [phony]| [both]]
+who [[real] | [phony] | [both]]
 ----
 
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -29,7 +29,7 @@ The examples demonstrate the use of the *igraph* command to view the correspondi
 [example]
 ====
 
-mged>*igraph*::
+mged> *igraph*::
 Displays a graph that corresponds to the currently opened .g database.
 
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

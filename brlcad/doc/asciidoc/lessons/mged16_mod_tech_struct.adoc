@@ -79,7 +79,7 @@ Precedence Review
 
 The order in which these primitives were unioned and subtracted is important. We unioned in spkr. s last so that all the subtractions would apply to body.s. The rules of precedence for Boolean operators indicate that subtraction and intersection have a higher priority than union (meaning that they are performed first).
 
-Although the following operation is not in proper _MGED_ syntax, it does illustrate the implied parentheses that precede and follow the union operators in our last command: *r case.r u (body.s - cavity.s - ant.s - knob.s - btn.s) u (spkr.s)[Enter]*  Optionally, we could've unioned in spkr.s before body.s as follows: *r case.r u spkr.s u body.s - cavity.s - ant.s - knob.s - btn.s[Enter]*
+Although the following operation is not in proper _MGED_ syntax, it does illustrate the implied parentheses that precede and follow the union operators in our last command: *r case.r u (body.s - cavity.s - ant.s - knob.s - btn.s) u (spkr.s)[Enter]* Optionally, we could've unioned in spkr.s before body.s as follows: *r case.r u spkr.s u body.s - cavity.s - ant.s - knob.s - btn.s[Enter]*
 
 Let's consider, however, what would have happened if we had done the following: *r case.r u body.s u spkr.s - cavity.s - ant.s - knob.s - btn.s[Enter]* In this last case, operator precedence would have caused the program to subtract cavity.s, ant.s, knob.s, and btn.s from spkr.s. Nothing would have been subtracted from body.s. Therefore, the holes in the case would not have been created.
 
@@ -436,7 +436,3 @@ In this lesson, you:
 * Added internal components to the radio.
 * Created specialty models of the radio.
 * Redefined the structure of the radio.
-
-
-
-
