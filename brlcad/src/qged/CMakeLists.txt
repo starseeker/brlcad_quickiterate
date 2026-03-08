@@ -98,6 +98,28 @@ if(BRLCAD_ENABLE_QT)
   add_dependencies(qged_test dm_plugins ged_plugins draw_test_moss_g)
   set_target_properties(qged_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
+  # AABB/OBB/LoD pipeline validation test (swrast, GenericTwin.g)
+  if(Qt6Widgets_FOUND)
+    qt6_wrap_cpp(qged_pipeline_moc_srcs qged_pipeline_runner.h OPTIONS --no-notes)
+  else()
+    qt5_wrap_cpp(qged_pipeline_moc_srcs qged_pipeline_runner.h OPTIONS --no-notes)
+  endif()
+  add_executable(qged_pipeline_test
+    qged_pipeline_test.cpp
+    ${qged_pipeline_moc_srcs}
+    ${qged_srcs} ${moc_srcs} ${theme_qrc}
+  )
+  target_compile_definitions(qged_pipeline_test PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  if(Qt6Widgets_FOUND)
+    target_link_libraries(qged_pipeline_test
+      libqtcad libged librt libbu Qt6::Widgets Qt6::Network)
+  else()
+    target_link_libraries(qged_pipeline_test
+      libqtcad libged librt libbu Qt5::Widgets Qt5::Network)
+  endif()
+  add_dependencies(qged_pipeline_test dm_plugins ged_plugins Generic_Twin.g)
+  set_target_properties(qged_pipeline_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
   foreach(qh ${qth_names})
     distclean(moc_${qh}.cpp_parameters)
   endforeach(qh ${qth_names})
@@ -126,6 +148,8 @@ set(
   view_update_cycle.pdf
   qged_test.cpp
   qged_test_runner.h
+  qged_pipeline_test.cpp
+  qged_pipeline_runner.h
 )
 
 cmakefiles(${qged_ignore_srcs})
