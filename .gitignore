@@ -5,3 +5,6 @@ ged_draw_test_*_cache/
 moss_*.g
 select_*.png
 v_*_diff.png
+# Large secondary prototype repositories (tracked separately in qged branch)
+obol/
+brlcad_viewdbi/
