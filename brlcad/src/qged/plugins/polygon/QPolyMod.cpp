@@ -493,12 +493,12 @@ QPolyMod::toggle_closed_poly(bool checked)
 		if (!vp->polygon.num_contours || !vp->polygon.contour)
 		    cleanup.push_back(target);
 	    }
-	    for (size_t i = 0; i < cleanup.size(); i++) {
-		struct bv_polygon *vp = (struct bv_polygon *)cleanup[i]->s_i_data;
+	    for (bsg_shape *cs : cleanup) {
+		struct bv_polygon *vp = (struct bv_polygon *)cs->s_i_data;
 		bg_polygon_free(&vp->polygon);
 		BU_PUT(vp, struct bv_polygon);
-		cleanup[i]->s_i_data = nullptr;
-		bsg_shape_put(cleanup[i]);
+		cs->s_i_data = nullptr;
+		bsg_shape_put(cs);
 	    }
 	    if (pcnt || op != bg_Union) {
 		bg_polygon_free(&ip->polygon);
@@ -563,12 +563,12 @@ QPolyMod::apply_bool_op()
 	    if (!vp->polygon.num_contours || !vp->polygon.contour)
 		cleanup.push_back(target);
 	}
-	for (size_t i = 0; i < cleanup.size(); i++) {
-	    struct bv_polygon *vp = (struct bv_polygon *)cleanup[i]->s_i_data;
+	for (bsg_shape *cs : cleanup) {
+	    struct bv_polygon *vp = (struct bv_polygon *)cs->s_i_data;
 	    bg_polygon_free(&vp->polygon);
 	    BU_PUT(vp, struct bv_polygon);
-	    cleanup[i]->s_i_data = nullptr;
-	    bsg_shape_put(cleanup[i]);
+	    cs->s_i_data = nullptr;
+	    bsg_shape_put(cs);
 	}
     }
     bu_ptbl_free(&poly_objs);

@@ -2802,14 +2802,11 @@ BViewState::redraw(bsg_material *vs, std::unordered_set<bsg_view *> &views, int 
     // manually.  (A3: full DrawList-driven redraw pipeline is the next step.)
     {
 	draw_list_.clear();
-	std::unordered_map<unsigned long long,
-			   std::vector<unsigned long long>>::iterator dl_sk_it;
-	for (dl_sk_it = s_keys.begin(); dl_sk_it != s_keys.end(); dl_sk_it++) {
-	    unsigned long long phash = dl_sk_it->first;
+	for (auto &[phash, path_vec] : s_keys) {
 	    auto sm_it = s_map.find(phash);
 	    if (sm_it == s_map.end()) continue;
-	    for (auto &mode_pair : sm_it->second) {
-		draw_list_.add(dl_sk_it->second, mode_pair.first);
+	    for (auto &[draw_mode, shape] : sm_it->second) {
+		draw_list_.add(path_vec, draw_mode);
 	    }
 	}
     }

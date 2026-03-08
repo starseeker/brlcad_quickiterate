@@ -209,13 +209,12 @@ CADViewSelector::do_view_update(unsigned long long flags)
 
 	std::set<std::string> ordered_paths;
 	const auto &sel = ss->selected();
-	for (auto s_it = sel.begin(); s_it != sel.end(); s_it++) {
-	    std::string spath = std::string(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(s_it->second)));
+	for (const auto &[hash, path] : sel) {
+	    std::string spath = std::string(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(path)));
 	    ordered_paths.insert(spath);
 	}
-	for (auto o_it = ordered_paths.begin(); o_it != ordered_paths.end(); o_it++) {
-	    group_contents->addItem(QString(o_it->c_str()));
-	}
+	for (const std::string &opath : ordered_paths)
+	    group_contents->addItem(QString(opath.c_str()));
     }
 }
 
@@ -304,8 +303,8 @@ CADViewSelector::do_draw_selections()
     av[0] = bu_strdup("draw");
 
     int i = 0;
-    for (auto s_it = sel.begin(); s_it != sel.end(); s_it++) {
-	av[i+1] = bu_strdup(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(s_it->second)));
+    for (const auto &[hash, path] : sel) {
+	av[i+1] = bu_strdup(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(path)));
 	i++;
     }
 
@@ -334,8 +333,8 @@ CADViewSelector::do_erase_selections()
     av[0] = bu_strdup("erase");
 
     int i = 0;
-    for (auto s_it = sel.begin(); s_it != sel.end(); s_it++) {
-	av[i+1] = bu_strdup(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(s_it->second)));
+    for (const auto &[hash, path] : sel) {
+	av[i+1] = bu_strdup(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(path)));
 	i++;
     }
 
