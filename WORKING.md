@@ -168,4 +168,96 @@ draws the 8-corner wireframe; otherwise falls back to `bsg_vlist_rpp` AABB.
 This means the `redraw()` placeholder path has parity with `bot_adaptive_plot`:
 both draw the tightest available wireframe for a not-yet-loaded primitive.
 
+---
+
+## Session 4 Results (2026-03-08) — gsh + swrast + DbiState validation
+
+### Tests run
+
+#### drawpipeline_test (GenericTwin.g, warm cache)
+
+| Phase | Result |
+|---|---|
+| bboxes | **2242** |
+| OBBs | **706** |
+| drain results | **3651** |
+| Screenshot sizes | 3138 bytes × 3 (red wireframe geometry confirmed) |
+| Test result | **PASSED** |
+
+#### drawpipeline_test (GenericTwin.g, cold cache + 50ms LoD delay)
+
+| Phase | Result |
+|---|---|
+| bboxes | **2242** |
+| OBBs | **706** |
+| drain results | **3127** (75 LoD in 60 s with 50 ms/item delay) |
+| Screenshot sizes | 4078 bytes × 3 |
+| Test result | **PASSED** |
+
+Screenshots decoded: each contains ~15000 non-zero (red wireframe) pixels,
+confirming swrast is rendering geometry correctly.
+
+#### ged_test_dbi_c (C API surface)
+
+All **35 checks passed**.  Fixed a pre-existing C++-compat compilation
+bug first (`typedef struct _dbi_state` → `typedef struct DbiState` in
+`dbi.h`'s C placeholder section, to match `view.h`'s `struct DbiState *`
+forward-reference tag).
+
+#### ged_test_draw_basic / ged_test_draw_lod / ged_test_draw_faceplate
+
+All passed (some approximate-match off-by-ones, no hard failures).
+
+#### ged_test_drawing_select
+
+8 image comparisons differ from control images — **pre-existing failures**
+confirmed by running the test against the original source tree without any
+local changes.  Not introduced by this session.
+
+#### ged_test_gsh_draw (new test — gsh --new-cmds + swrast smoke test)
+
+New test `gsh_draw_test.cpp` added.  Validates the `gsh --new-cmds` code
+path (DbiState setup → swrast attach → `draw all.g` → autoview → screengrab
+→ `Z` clear) against `moss.g`.
+
+| Check | Result |
+|---|---|
+| DbiState created | ✓ |
+| swrast dm attached | ✓ |
+| draw all.g completed | ✓ |
+| screenshot created (2742 bytes) | **PASS** |
+| Z clear completed | **PASS** |
+| Overall | **PASSED** |
+
+### Changes
+
+1. **`include/ged/dbi.h`** — C placeholder struct tags changed from
+   `_dbi_state`/`_bview_state` to `DbiState`/`BViewState` to match
+   `view.h`'s `struct DbiState *dbis` forward reference.  Fixes
+   `-Werror=c++-compat` error that prevented `ged_test_dbi_c.c` from
+   compiling.
+
+2. **`src/libged/tests/draw/gsh_draw_test.cpp`** — New test exercising
+   the `gsh --new-cmds` draw path (DbiState + swrast + draw + screengrab).
+
+3. **`src/libged/tests/draw/CMakeLists.txt`** — Registers `ged_test_gsh_draw`
+   target and `ged_test_gsh_draw_moss` CTest entry.
+
+### Checklist
+
+- [x] Build environment (Qt6 + X11/mesa) set up
+- [x] drawpipeline_test PASSED (warm cache)
+- [x] drawpipeline_test PASSED (cold cache + LoD delay)
+- [x] Screenshots contain red wireframe geometry (swrast rendering confirmed)
+- [x] ged_test_dbi_c — C++-compat bug fixed; all 35 checks pass
+- [x] ged_test_draw_basic / lod / faceplate — all pass
+- [x] ged_test_gsh_draw (new) — gsh --new-cmds + swrast path validated
+- [ ] qged interactive test (requires Xvfb/display)
+
+### Next steps
+
+1. **qged interactive test**: requires a virtual framebuffer (Xvfb) to
+   launch qged.  Open GenericTwin.g in qged, issue `draw all`, observe
+   progressive AABB→OBB→LoD refinement in the viewport.
+
 
