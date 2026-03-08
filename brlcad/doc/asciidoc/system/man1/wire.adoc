@@ -23,7 +23,7 @@ wire [options]...
 [[examples]]
 == EXAMPLES
 
-.Interactive wire Session
+.Interactive *wire* Session
 [example]
 ====
 

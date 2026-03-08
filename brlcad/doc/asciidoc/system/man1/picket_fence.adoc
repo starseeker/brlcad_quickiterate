@@ -32,7 +32,7 @@ The _<prefix>_ above is the second argument to the program. The _spacing_ parame
 [[examples]]
 == EXAMPLES
 
-.picket_fence Example
+.*picket_fence* Example
 [example]
 ====
 *picket_fence fence.g Imy 2000 15 0 0 0 100 6000 0*
