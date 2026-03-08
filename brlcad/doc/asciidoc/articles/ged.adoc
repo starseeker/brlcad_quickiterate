@@ -1,10 +1,5 @@
 = GED: An Interactive Solid Modeling System
-Michael J. Muuss <mulferts@austin.dsccc.com>
-Keith A. Applin
-J. Robert Suckling
-Gary S. Moss
-Earl P. Weaver
-Charles A. Stanley
+Michael J. Muuss <mulferts@austin.dsccc.com>; Keith A. Applin; J. Robert Suckling; Gary S. Moss; Earl P. Weaver; Charles A. Stanley
 :doctype: article
 
 [[Preface]]
