@@ -1,6 +1,5 @@
 = Command History Object Documentation
-Mark L. Ulferts <mulferts@austin.dsccc.com>
-Glenn Durfee
+Mark L. Ulferts <mulferts@austin.dsccc.com>; Glenn Durfee
 :doctype: book
 
 == 

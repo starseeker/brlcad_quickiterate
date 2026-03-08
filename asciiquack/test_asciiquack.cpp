@@ -1943,6 +1943,41 @@ static void test_stem_mathjax_script() {
     end_test();
 }
 
+static void test_multi_author_semicolon() {
+    begin_test("parser: semicolon-separated multi-author line recognised as header");
+
+    // Authors on one line separated by "; " (as produced by db2adoc or fixed
+    // manually).  The attribute entry on the following line must also be
+    // recognised as a header attribute, not body text.
+    const std::string src =
+        "= My Document\n"
+        "Alice B. Smith; Charlie D. Jones; Eve F. Brown\n"
+        ":doctype: article\n"
+        "\n"
+        "Body paragraph.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+
+    // All three authors must be captured.
+    const auto& authors = doc->authors();
+    EXPECT(authors.size() == 3u);
+    if (authors.size() == 3u) {
+        EXPECT(authors[0].firstname == "Alice");
+        EXPECT(authors[1].firstname == "Charlie");
+        EXPECT(authors[2].firstname == "Eve");
+    }
+
+    // The :doctype: attribute entry must have been processed (not emitted as
+    // body text).
+    std::string out = asciiquack::convert_to_html5(*doc);
+    EXPECT(out.find(":doctype:") == std::string::npos);
+    // Author metadata should appear in HTML <head>.
+    EXPECT_CONTAINS(out, "Alice");
+    EXPECT_CONTAINS(out, "Charlie");
+
+    end_test();
+}
+
 static void test_doctype_manpage() {
     begin_test("parser+html5: doctype manpage title parsing");
 
@@ -2090,6 +2125,95 @@ static void test_manpage_table() {
     // Cell content
     EXPECT_CONTAINS(out, "Header A");
     EXPECT_CONTAINS(out, "Cell 1");
+
+    end_test();
+}
+
+static void test_manpage_th_mansource_manmanual() {
+    begin_test("manpage: :mansource: and :manmanual: appear in .TH line");
+
+    const std::string src =
+        "= mycommand(1)\n"
+        ":mansource: BRL-CAD\n"
+        ":manmanual: BRL-CAD User Commands\n"
+        "\n"
+        "== Name\n"
+        "mycommand - a test command\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // .TH must have source and manual fields
+    EXPECT_CONTAINS(out, ".TH \"MYCOMMAND\" \"1\"");
+    EXPECT_CONTAINS(out, "\"BRL-CAD\"");
+    EXPECT_CONTAINS(out, "\"BRL-CAD User Commands\"");
+
+    end_test();
+}
+
+static void test_manpage_alpha_volnum() {
+    begin_test("manpage: non-numeric volume (e.g. \"nged\") parsed from title");
+
+    const std::string src =
+        "= analyze(nged)\n"
+        ":mansource: BRL-CAD\n"
+        ":manmanual: BRL-CAD User Commands\n"
+        "\n"
+        "== Name\n"
+        "analyze - analyze geometry\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+
+    EXPECT(doc->attr("manname")   == "analyze");
+    EXPECT(doc->attr("manvolnum") == "nged");
+
+    std::string out = asciiquack::convert_to_manpage(*doc);
+    EXPECT_CONTAINS(out, ".TH \"ANALYZE\" \"nged\"");
+
+    end_test();
+}
+
+static void test_manpage_dlist_no_double_bold() {
+    begin_test("manpage: dlist term with *bold* markup not double-bolded");
+
+    const std::string src =
+        "= cmd(1)\n"
+        "\n"
+        "== Description\n"
+        "\n"
+        "*-a value*::\n"
+        "  sets option a.\n"
+        "\n"
+        "plain-term::\n"
+        "  plain description.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // troff_inline converts *bold* to \fB...\fR; troff_escape then doubles
+    // every backslash.  The resulting in-memory string for "*-a value*" is
+    // \\fB\-a value\\fR (where \\fB and \\fR are the doubled-backslash forms).
+    //
+    // The old bug wrapped the already-formatted term in an extra \fB...\fR,
+    // producing \fB\\fB\-a value\\fR\fR.  Verify that double-bold pattern
+    // never appears in the output.
+    EXPECT(out.find("\\fB\\\\fB") == std::string::npos);
+
+    // The term line for the explicitly-bolded term must be present.
+    // In-memory the sequence is: \\fB\-a value\\fR
+    // As a C++ literal that is "\\\\fB\\-a value\\\\fR".
+    EXPECT_CONTAINS(out, "\\\\fB\\-a value\\\\fR");
+
+    // Plain term must be auto-bolded.  troff_escape converts '-' to '\-', so
+    // the .TP term line is \fBplain\-term\fR.
+    // As a C++ literal: "\\fBplain\\-term\\fR".
+    EXPECT_CONTAINS(out, "\\fBplain\\-term\\fR");
 
     end_test();
 }
@@ -4305,11 +4429,15 @@ int main(int argc, char* argv[]) {
     test_linkcss_attribute();
     test_stylesheet_attribute();
     test_stem_mathjax_script();
+    test_multi_author_semicolon();
     test_doctype_manpage();
     test_manpage_backend_basic();
     test_manpage_backend_bold_italic();
     test_manpage_backend_listing();
     test_manpage_table();
+    test_manpage_th_mansource_manmanual();
+    test_manpage_alpha_volnum();
+    test_manpage_dlist_no_double_bold();
     test_table_col_alignment();
     test_table_col_repeat();
     test_table_col_style_h();

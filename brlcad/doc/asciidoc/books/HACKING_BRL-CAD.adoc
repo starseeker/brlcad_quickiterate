@@ -1,11 +1,5 @@
 = HACKING BRL-CAD
-Sean Morrison
-Eric Edwards
-Harmanpreet Singh
-Check Nyah
-Issac Kamga
-Clifford Yapp
-Scott Nesbitt
+Sean Morrison; Eric Edwards; Harmanpreet Singh; Check Nyah; Issac Kamga; Clifford Yapp; Scott Nesbitt
 :doctype: book
 
 == Getting Started

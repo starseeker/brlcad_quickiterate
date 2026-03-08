@@ -1,7 +1,5 @@
 = Using the Pipe Primitive
-Lee A Butler
-Eric W Edwards
-Dwayne L Kregel
+Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
 
 [[pipe_general_use]]
