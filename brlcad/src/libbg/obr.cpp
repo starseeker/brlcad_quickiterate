@@ -35,6 +35,7 @@
 #include "bg/plane.h"
 #include "bg/chull.h"
 #include "bg/obr.h"
+#include "bg/pnts.h"
 #include "./bg_private.h"
 
 using GTF = fastf_t;
@@ -147,6 +148,36 @@ bg_3d_coplanar_obr(point_t *center, vect_t *v1, vect_t *v2, const point_t *pnts,
     bu_free(obr_pts3d, "obr_pts3d");
 
     return 0;
+}
+
+/* bg_3d_obb: compute an oriented bounding box for an arbitrary 3D point set.
+ *
+ * Allocates an array of 8 corner points (*pnts) in the librt arb8 convention
+ * and returns BRLCAD_OK on success.  The caller is responsible for freeing
+ * *pnts with bu_free().  Returns BRLCAD_ERROR on failure.
+ *
+ * NOTE: The center/extents API (bg_pnts_obb) is generally more useful; this
+ * function exists for callers that need explicit corner vertices directly.
+ */
+extern "C" int
+bg_3d_obb(point_t **pnts, const point_t *points_3d, int pnt_cnt)
+{
+    if (!pnts || !points_3d || pnt_cnt <= 0)
+	return BRLCAD_ERROR;
+
+    point_t c;
+    vect_t v1, v2, v3;
+    if (bg_pnts_obb(&c, &v1, &v2, &v3, points_3d, (size_t)pnt_cnt) != BRLCAD_OK)
+	return BRLCAD_ERROR;
+
+    *pnts = (point_t *)bu_calloc(8, sizeof(point_t), "bg_3d_obb corners");
+    if (bg_obb_pnts(*pnts, &c, &v1, &v2, &v3) != BRLCAD_OK) {
+	bu_free(*pnts, "bg_3d_obb corners");
+	*pnts = NULL;
+	return BRLCAD_ERROR;
+    }
+
+    return BRLCAD_OK;
 }
 
 /*

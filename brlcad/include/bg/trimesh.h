@@ -143,6 +143,31 @@ bg_trimesh_aabb(point_t *min, point_t *max, const int *faces, size_t num_faces, 
 
 /**
  * @brief
+ * Calculate an oriented bounding box (OBB) for a triangle mesh.
+ *
+ * NOTE:  This routine bounds only those points that are active in the triangle
+ * mesh, not all points present in the supplied points array.
+ *
+ * The OBB is returned as a center point and three half-extent vectors.
+ * Each extent vector points along one axis of the box; its magnitude is the
+ * half-length of the box along that axis.  Use bg_obb_pnts() to recover the
+ * 8 corner vertices.
+ *
+ * @param[out] c  XYZ coordinate of the bbox center
+ * @param[out] v1 first  half-extent vector of the bbox
+ * @param[out] v2 second half-extent vector of the bbox
+ * @param[out] v3 third  half-extent vector of the bbox
+ * @param[in] faces array of trimesh faces
+ * @param[in] num_faces size of faces array
+ * @param[in] p array that holds the points defining the trimesh
+ * @param[in] num_pnts size of pnts array
+ */
+BG_EXPORT extern int
+bg_trimesh_obb(point_t *c, vect_t *v1, vect_t *v2, vect_t *v3,
+	       const int *faces, size_t num_faces, const point_t *p, size_t num_pnts);
+
+/**
+ * @brief
  * Calculate the surface area of a triangle mesh.
  *
  * @param[in] faces array of trimesh faces

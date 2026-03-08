@@ -26,7 +26,7 @@
  *       → q_aabb
  *       ↓ aabb_worker  — ft_bbox, writes AABB to dcache, posts DRAWRESULT_AABB
  *       → q_obb
- *       ↓ obb_worker   — ft_oriented_bbox + bg_3d_obb, writes OBB to dcache,
+ *       ↓ obb_worker   — ft_oriented_bbox, writes OBB to dcache,
  *                        posts DRAWRESULT_OBB
  *       → q_lod
  *       ↓ lod_worker   — bsg_mesh_lod_cache for BoTs, posts DRAWRESULT_LOD
@@ -371,7 +371,6 @@ aabb_worker(std::shared_ptr<DrawPipelineState> p)
  *
  * Consumes rt_db_internal from q_obb.
  * - Calls ft_oriented_bbox to get an arb8 OBB.
- * - Converts arb8 to 8 corner points and calls bg_3d_obb.
  * - Writes OBB (8 corners) to q_write.
  * - Posts DRAWRESULT_OBB to results_q.
  * - Passes rt_db_internal to q_lod.
