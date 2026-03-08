@@ -96,6 +96,7 @@ class QgEdApp : public QApplication
     public slots:
 	void run_qcmd(const QString &command);
 	void element_selected(QgToolPaletteElement *el);
+	void drain_background_geom();
 
 	
     public:
@@ -106,6 +107,10 @@ class QgEdApp : public QApplication
 	unsigned long long select_hash = 0;
 	long history_mark_start = -1;
 	long history_mark_end = -1;
+
+	// Fires every BG_GEOM_DRAIN_INTERVAL_MS milliseconds.
+	static constexpr int BG_GEOM_DRAIN_INTERVAL_MS = 100;
+	QTimer *geom_drain_timer_ = nullptr;
 };
 
 #endif // QGEDAPP_H
