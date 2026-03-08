@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 
@@ -215,6 +216,27 @@ private:
                         continue;
                     }
                 }
+            }
+            // Stem / math macro: stem:[expr], latexmath:[expr], asciimath:[expr].
+            // For man pages, render just the expression content as plain text.
+            {
+                static const char* const prefixes[] = {"stem:", "latexmath:", "asciimath:", nullptr};
+                bool handled = false;
+                for (const char* const* pp = prefixes; *pp; ++pp) {
+                    std::size_t plen = std::strlen(*pp);
+                    if (text.size() > i + plen && text.substr(i, plen) == *pp &&
+                        text[i + plen] == '[') {
+                        auto close = text.find(']', i + plen + 1);
+                        if (close != std::string::npos) {
+                            std::string expr = text.substr(i + plen + 1, close - i - plen - 1);
+                            out += troff_inline(expr);
+                            i = close + 1;
+                            handled = true;
+                            break;
+                        }
+                    }
+                }
+                if (handled) continue;
             }
             // Plain text: escape backslash and minus
             char c = text[i];
