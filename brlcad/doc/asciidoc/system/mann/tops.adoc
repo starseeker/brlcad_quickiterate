@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-tops - Displays a list of all the top-level objects in the current database.
+tops - Displays a list of all the _top-level_ objects in the current database.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ These examples show the use of the *tops* command to list all the top-level obje
 .List all the top-level objects in the current database.
 [example]
 ====
-mged>*tops*
+mged>**tops**
 
 Lists all the top-level objects in the current database.
 
@@ -37,7 +37,7 @@ Lists all the top-level objects in the current database.
 .List all the top-level objects in the current database, including hidden objects.
 [example]
 ====
-mged>*tops -a*
+mged>**tops -a**
 
 Lists all the top-level objects in the current database, including hiddent objects.
 

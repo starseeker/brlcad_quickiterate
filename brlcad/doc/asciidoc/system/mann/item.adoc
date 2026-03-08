@@ -29,7 +29,7 @@ The example shows the use of the *item* command to set the ident number, air cod
 [example]
 ====
 
-mged> *item region_1 1137 0 8 100*::
+mged> **item region_1 1137 0 8 100**::
 Sets the _ident number_ to 1137, _air code_ to 0, _material code_ to 8, and _LOS_ to 100 for __region_1__.
 
 

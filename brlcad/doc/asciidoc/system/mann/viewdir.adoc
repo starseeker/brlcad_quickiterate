@@ -28,7 +28,7 @@ The example shows the use of the *viewdir* command to get the direction vector.
 .Find the current direction vector.
 [example]
 ====
-mged>*viewdir*
+mged>**viewdir**
 
 Returns the direction vector using the current azimuth and elevation.
 

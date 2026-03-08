@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-voxelize - Takes as input a primitive or a collection of primitives, old_obj, and creates a region new_obj which is the collection of voxels(RPPs) approximating the old_obj.
+voxelize - Takes as input a primitive or a collection of primitives, __old_obj__, and creates a region __new_obj__ which is the collection of voxels(RPPs) approximating the __old_obj__.
 
 == SYNOPSIS
 
@@ -29,7 +29,7 @@ The following example shows the use of the *voxelize* command to create a voxeli
 [example]
 ====
 
-mged> *voxelize -d 2 -s "100 100 100" -t 0.3 newregion.r oldregion.r*::
+mged> **voxelize -d 2 -s "100 100 100" -t 0.3 newregion.r oldregion.r**::
 Creates a voxelized region corresponding to the original region _oldregion.r_.
 +
 The region _newregion.r_ consists of the resulting voxels.

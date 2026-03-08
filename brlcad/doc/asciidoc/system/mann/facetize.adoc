@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-facetize - Creates new_object using old_object as a guide, creating an evaluated NMG or BoT planar approximation of the original shape.
+facetize - Creates __new_object__ using __old_object__ as a guide, creating an evaluated NMG or BoT planar approximation of the original shape.
 
 == SYNOPSIS
 
@@ -132,7 +132,7 @@ Because many of the facetization methods are sampling based (the raytracer is us
 ====
 The example shows the use of the *facetize* command to create a facetized BOT version of an existing object (__old_object__) and renaming that facetized object (__new_object__).
 
-mged>*facetize region1.r region1.bot*
+mged>**facetize region1.r region1.bot**
 
 ====
 
@@ -141,7 +141,7 @@ mged>*facetize region1.r region1.bot*
 ====
 This runs the per region conversion on all regions under the "model" assembly and creates a new conversion hierarchy under model_facetized.
 
-mged>*facetize -r model model.f*
+mged>**facetize -r model model.f**
 
 ====
 
@@ -150,7 +150,7 @@ mged>*facetize -r model model.f*
 ====
 This runs the NMG approach per region conversion on all regions, but in the case of failure will not attempt any fallback conversion methods.
 
-mged>*facetize -r --methods NMG model model.f*
+mged>**facetize -r --methods NMG model model.f**
 
 ====
 
@@ -159,14 +159,14 @@ mged>*facetize -r --methods NMG model model.f*
 ====
 This resumes a failed conversion of _model_.
 
-mged>*facetize -r --resume model model.f*
+mged>**facetize -r --resume model model.f**
 
 ====
 
 .Increase Decimation in CM Mode
 [example]
 ====
-mged>*facetize --methods CM --method-opts feature_size=0.06 d_feature_size=2.0 ellipse.r ell.bot*
+mged>**facetize --methods CM --method-opts feature_size=0.06 d_feature_size=2.0 ellipse.r ell.bot**
 
 The default settings on this object in CM mode will produce a little over 8000 faces in the final bot, but the addition of the *d_feature_size* option with a >1.5 value has dramatically reduced the count to 104.
 
@@ -175,7 +175,7 @@ The default settings on this object in CM mode will produce a little over 8000 f
 .Decrease Decimation in CM Mode
 [example]
 ====
-mged>*facetize --methods CM --method-opts feature_size=0.06 d_feature_size=0.01 ellipse.r ell.bot*
+mged>**facetize --methods CM --method-opts feature_size=0.06 d_feature_size=0.01 ellipse.r ell.bot**
 
 If the intent is preserve a more detailed mesh, reducing *decimation-feature-size* will keep more of the original triangles - in the above example, almost 250 thousand of the original 6.9 million faces were retained. NOTE: use lower values here cautiously, as extremely large meshes can be very difficult for many tools to deal with.
 
@@ -192,7 +192,7 @@ These are some useful commands related to the facetization process.
 ====
 Use lint -I to report on invalid objects below a comb.
 
-mged>*lint -I model.f*
+mged>**lint -I model.f**
 
 ====
 
@@ -201,7 +201,7 @@ mged>*lint -I model.f*
 ====
 Use search -exec to extrude all plate mode bots before attempting a facetize operation.
 
-mged>*search model.f -type bot -type plate -exec "bot extrude -i {}" ";"*
+mged>**search model.f -type bot -type plate -exec "bot extrude -i {}" ";"**
 
 ====
 

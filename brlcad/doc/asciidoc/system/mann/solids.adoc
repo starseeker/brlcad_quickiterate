@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-solids - Lists a summary of all the primitive shapes used in regions referenced by the list of objects.
+solids - Lists a summary of all the primitive shapes used in regions referenced by the list of _objects_.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *solids* command to list a summary of all the p
 .List a summary of all the regions in a group.
 [example]
 ====
-mged>*solids shapes_summary group1 regiona*
+mged>**solids shapes_summary group1 regiona**
 
 Writes a summary of all the regions in _group1_ and includes the region named _regiona_. The summary includes detailed shape parameters for the shapes used in the regions.
 

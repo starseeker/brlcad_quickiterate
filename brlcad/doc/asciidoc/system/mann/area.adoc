@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-area - Calculates an approximate presented area of one region in the mged display.
+area - Calculates an approximate presented area of one region in the _mged_ display.
 
 == SYNOPSIS
 
@@ -27,7 +27,7 @@ Calculates an approximate presented area of one region in the mged display. For 
 
 [example]
 ====
-**
+****
 
 
 

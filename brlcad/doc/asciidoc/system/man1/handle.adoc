@@ -93,7 +93,7 @@ number of handles:  3
 .Single-Line *handle* Command
 [example]
 ====
-*handle -fhandle.g -n3 -l200 -H100 -r120 -r210*
+**handle -fhandle.g -n3 -l200 -H100 -r120 -r210**
 
 ====
 

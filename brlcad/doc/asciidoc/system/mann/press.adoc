@@ -63,7 +63,7 @@ The example shows the use of the *press* command to view the object from the top
 .View from the top direction.
 [example]
 ====
-mged>*press top*
+mged>**press top**
 
 Switches to view from the top direction.
 
