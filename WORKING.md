@@ -169,3 +169,69 @@ This means the `redraw()` placeholder path has parity with `bot_adaptive_plot`:
 both draw the tightest available wireframe for a not-yet-loaded primitive.
 
 
+
+---
+
+## Session 4 Changes (2026-03-08) — OBB refactoring from dbi2 migrated
+
+### Summary
+
+Reviewed the `dbi2` prototype code at the repository root level for improvements
+not yet migrated into the main `brlcad` code tree.  The primary improvements
+identified were around oriented bounding box (OBB) computation:
+
+### Changes migrated from dbi2
+
+#### 1. New `bg_pnts_aabb`, `bg_pnts_obb`, `bg_obb_pnts` (new file `src/libbg/pnts.cpp`)
+
+- `bg_pnts_aabb()` — axis-aligned bbox for a flat array of points (with
+  face-inactive vertex exclusion when faces are provided)
+- `bg_pnts_obb()` — oriented bbox for a point array using GTE (same algorithm
+  as the old `bot_oriented_bbox.cpp`, but now a proper library function)
+- `bg_obb_pnts()` — reconstruct 8 corner vertices from OBB center + 3 half-extent vectors;
+  output follows the librt arb8 vertex ordering convention
+
+Public declarations in new file `include/bg/pnts.h`; included from `include/bg.h`.
+
+#### 2. `bg_trimesh_obb` added to `src/libbg/trimesh.cpp`
+
+A face-aware OBB that only considers vertices referenced by at least one
+face in the mesh — this gives a tighter box than an all-vertex AABB or OBB.
+The function filters active vertices via a bitv, then delegates to `bg_pnts_obb`.
+Declaration added to `include/bg/trimesh.h`.
+
+Also updated `bg_trimesh_aabb` to fall back to `bg_pnts_aabb` when called
+with `faces=NULL/num_faces=0` (instead of returning error outright).
+
+#### 3. `bg_3d_obb` implemented in `src/libbg/obr.cpp`
+
+The function was declared in `include/bg/obr.h` but had no body.  Now
+implemented as a wrapper around `bg_pnts_obb` + `bg_obb_pnts`, returning
+the 8 corner points that the old `bg_3d_obb` callers expected.
+
+#### 4. `rt_bot_oriented_bbox` refactored to use `bg_trimesh_obb`
+
+The old implementation in `primitives/bot/bot_oriented_bbox.cpp` directly
+called GTE (`gte::GetContainer` on all BoT vertices) — it did not exclude
+inactive vertices and included direct GTE dependency in librt.
+
+The new implementation:
+1. Calls `bg_trimesh_obb` (face-active vertices only → tighter OBB)
+2. Calls `bg_obb_pnts` to convert center+extents to 8 arb8 corner points
+3. Stores those 8 points into `bbox->pt[]` for the ft_oriented_bbox callers
+
+This removes the direct GTE dependency from `bot_oriented_bbox.cpp` and
+produces a tighter bounding box.
+
+#### 5. Test `src/libbg/tests/bb.c`
+
+New test exercises `bg_pnts_aabb`, `bg_pnts_obb`, `bg_obb_pnts`,
+`bg_trimesh_aabb`, and `bg_trimesh_obb` over 10 iterations with varying
+geometry.  Round-trip validation: `bg_trimesh_obb → bg_obb_pnts → bg_pnts_obb`
+verifies that the 8-corner representation is consistent with the OBB params.
+Registered as `bg_bb` in `tests/CMakeLists.txt`.
+
+### Verification
+
+`bg_bb` test passes (exit code 0, 10 iterations, all checks pass).
+
