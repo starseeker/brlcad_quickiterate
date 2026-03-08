@@ -50,7 +50,6 @@ extern "C" {
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bsg/lod.h"
-#include "bsg/compat.h"
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"
