@@ -542,6 +542,10 @@ private:
             << ".fam C\n";
         // Split into lines, then trim leading and trailing blank lines from the
         // content (matching asciidoctor's man page backend behaviour).
+        static constexpr auto verbatim_is_blank = [](const std::string& s) {
+            return s.find_first_not_of(" \t") == std::string::npos;
+        };
+        static constexpr const char* TAB_SPACES = "        ";  // 8 spaces per tab
         std::istringstream ss(block.source());
         std::vector<std::string> lines;
         {
@@ -549,11 +553,11 @@ private:
             while (std::getline(ss, ln)) { lines.push_back(std::move(ln)); }
         }
         // Trim leading blank lines
-        while (!lines.empty() && lines.front().find_first_not_of(" \t") == std::string::npos) {
+        while (!lines.empty() && verbatim_is_blank(lines.front())) {
             lines.erase(lines.begin());
         }
         // Trim trailing blank lines
-        while (!lines.empty() && lines.back().find_first_not_of(" \t") == std::string::npos) {
+        while (!lines.empty() && verbatim_is_blank(lines.back())) {
             lines.pop_back();
         }
         for (const auto& line : lines) {
@@ -565,7 +569,7 @@ private:
             // replacement, not tabstop-aligned).
             for (char c : line) {
                 if (c == '\t') {
-                    out << "        ";  // 8 spaces per tab
+                    out << TAB_SPACES;
                 } else if (c == '\\') {
                     out << "\\\\";
                 } else {
