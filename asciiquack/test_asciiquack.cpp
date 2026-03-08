@@ -5078,6 +5078,143 @@ static void test_pdf_table() {
     end_test();
 }
 
+static void test_pdf_xref_with_text() {
+    // <<anchor,text>> in paragraph text should emit only the display text in the PDF.
+    begin_test("pdf: <<anchor,text>> xref strips anchor and emits display text");
+
+    // Use an anchor id that shares no words with the display text so we can
+    // verify the id itself is absent while the display text words are present.
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "See <<myanchorid,overview>> for details.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    // Display word must appear in the PDF content stream (PDF writes words as (word) Tj)
+    EXPECT_CONTAINS(pdf, "overview");
+    // The anchor id must NOT appear in the PDF (only display text is rendered)
+    EXPECT(pdf.find("myanchorid") == std::string::npos);
+
+    end_test();
+}
+
+static void test_pdf_xref_bare() {
+    // <<anchor>> (no display text) should emit [anchor] in the PDF.
+    begin_test("pdf: <<anchor>> bare xref emits [anchor]");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "See <<uniqueanchor>> for info.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    // Bare anchor rendered as [anchor] – the anchor name must appear in the PDF
+    EXPECT_CONTAINS(pdf, "uniqueanchor");
+
+    end_test();
+}
+
+static void test_pdf_image_dimension_inches() {
+    // width=3.9in should be converted to ~280.8 points (3.9 × 72), not left as 3.9.
+    begin_test("pdf: image width='3.9in' is converted to points");
+
+    // parse_dimension_pts is a static helper; exercise it through the PDF output
+    // by checking that a known-sized image attribute does NOT produce a tiny rectangle.
+    // We verify this indirectly: when width=3.9in is parsed, the resulting display
+    // width in points (~280.8) must differ substantially from 3.9 points.
+    // We use the parse_dimension_pts function directly via a white-box text.
+    // Since it's in the anonymous namespace we exercise it via an image block
+    // and check the resulting W value written to the PDF content stream.
+
+    // Write a minimal 1x1 white PNG to /tmp for testing
+    static const unsigned char TINY_PNG[] = {
+        0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a, // PNG signature
+        0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52, // IHDR chunk
+        0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01, // 1×1
+        0x08,0x02,0x00,0x00,0x00,0x90,0x77,0x53, // 8bpc RGB
+        0xde,
+        0x00,0x00,0x00,0x0c,0x49,0x44,0x41,0x54, // IDAT chunk
+        0x08,0xd7,0x63,0xf8,0xff,0xff,0x3f,0x00,
+        0x05,0xfe,0x02,0xfe,0xdc,0xcc,0x59,0xe7,
+        0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44, // IEND chunk
+        0xae,0x42,0x60,0x82
+    };
+    const std::string tmp_png = "/tmp/test_dim_tiny.png";
+    {
+        std::ofstream f(tmp_png, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(TINY_PNG), sizeof(TINY_PNG));
+    }
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "image::" + tmp_png + "[width=3.9in]\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    // The image must have been embedded (XObject present)
+    EXPECT_CONTAINS(pdf, "/XObject");
+
+    // The content stream must contain a width value close to 280.8 (3.9 × 72 pts),
+    // not a tiny value of 3.9.  We look for "280" or "281" in the stream.
+    // (PDF content streams write dimensions as floats in the "w 0 0 h x y cm" matrix.)
+    bool has_big_width = (pdf.find("280") != std::string::npos ||
+                          pdf.find("281") != std::string::npos);
+    EXPECT(has_big_width);
+
+    end_test();
+}
+
+static void test_pdf_image_dimension_pixels() {
+    begin_test("pdf: image width='150px' is converted to points (150 / 96 * 72 ≈ 112.5)");
+
+    static const unsigned char TINY_PNG[] = {
+        0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,
+        0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,
+        0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,
+        0x08,0x02,0x00,0x00,0x00,0x90,0x77,0x53,
+        0xde,
+        0x00,0x00,0x00,0x0c,0x49,0x44,0x41,0x54,
+        0x08,0xd7,0x63,0xf8,0xff,0xff,0x3f,0x00,
+        0x05,0xfe,0x02,0xfe,0xdc,0xcc,0x59,0xe7,
+        0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44,
+        0xae,0x42,0x60,0x82
+    };
+    const std::string tmp_png = "/tmp/test_dim_px.png";
+    {
+        std::ofstream f(tmp_png, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(TINY_PNG), sizeof(TINY_PNG));
+    }
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "image::" + tmp_png + "[width=150px]\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "/XObject");
+
+    // 150px at 96dpi → 112.5 pt.  Look for "112" in the stream.
+    EXPECT_CONTAINS(pdf, "112");
+
+    end_test();
+}
+
 static void test_minipdf_jpeg_from_file_loads() {
     begin_test("minipdf: PdfImage::from_jpeg_file returns nullptr for non-JPEG");
 
@@ -6120,6 +6257,10 @@ int main(int argc, char* argv[]) {
     test_minipdf_png_from_file_loads();
     test_minipdf_jpeg_from_file_loads();
     test_pdf_table();
+    test_pdf_xref_with_text();
+    test_pdf_xref_bare();
+    test_pdf_image_dimension_inches();
+    test_pdf_image_dimension_pixels();
     test_minipdf_png_missing_returns_nullptr();
     test_html_bold_adjacent_text_no_fusion();
     test_html_inline_option_trailing_space_preserved();
