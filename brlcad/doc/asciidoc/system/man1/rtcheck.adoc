@@ -100,5 +100,3 @@ Most deficiencies observed while using the *rtcheck* program are a consequence o
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

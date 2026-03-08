@@ -210,7 +210,3 @@ En este tutorial usted aprendió a:
 * Hacer una combinación de las regiones.
 * Visualizar un árbol de datos.
 * Graficar la copa terminada.
-
-
-
-

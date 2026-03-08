@@ -212,7 +212,7 @@ When using an OpenNURBS utility that hasn't been used elsewhere in the implement
 
 Misleading methods have been misused in the past. For example, `bool ON_Line::InPlane(ON_Plane& plane)()` appears to test if a line lies in the given plane, but actually constructs a plane that contains the line.
 
-Another example is `double ON_Line::MinimumDistanceTo(const ON_Line&)()`. While the function does indeed return the distance of the shortest path between one line and another, reading the implementation reveals an undocumented assumption that the `ON_Line` provided as an argument is not on the same infinite line as the instance the method is invoked on. That is, the `ON_Line`s can be parallel, but not coincident.
+Another example is `double ON_Line::MinimumDistanceTo(const ON_Line&)()`. While the function does indeed return the distance of the shortest path between one line and another, reading the implementation reveals an undocumented assumption that the `ON_Line` provided as an argument is not on the same infinite line as the instance the method is invoked on. That is, the `ON_Line` s can be parallel, but not coincident.
 
 ====
 
@@ -505,7 +505,7 @@ It's very easy to confuse the `m_a[]`, `m_b[]`, `m_A[]`, and `m_B[]` arrays, as 
 
 ====
 
-For an `ON_X_EVENT` representing a curve-curve intersection whose `m_type` is `ON_X_EVENT::ccx_overlap`, ( `m_a[0]`, `m_a[1]`) represents the portion of the first curve's domain that overlaps with the second curve, whereas in other cases `m_a[1]` is simply a duplicate of `m_a[0]`.
+For an `ON_X_EVENT` representing a curve-curve intersection whose `m_type` is `ON_X_EVENT::ccx_overlap`, (`m_a[0]`, `m_a[1]`) represents the portion of the first curve's domain that overlaps with the second curve, whereas in other cases `m_a[1]` is simply a duplicate of `m_a[0]`.
 
 As a result, a pattern seen repeatedly in the NURBS Boolean evaluation implementation is a loop over intersection events that gathers intersection points for processing, including overlap endpoints if the event represents an overlap.
 
@@ -539,12 +539,12 @@ Being that operations in 2D tend to be a lot simpler, 2D is normally the dimensi
 
 Generally, when 2D and 3D operations are taking place near one another, you'll see a naming convention being used to disambiguate 2D and 3D data. 3D identifiers are unadorned, while 2D names will be suffixed with 1/2 or A/B.
 
-Suppose for example we have three arrays of corresponding points that are samples along an intersection curve between two surfaces. The 3D array might simply be named `points`. The corresponding 2D points in the domains of the two surfaces involved are then very likely to be named `points1` and `points2` or `pointsA` and `pointsB`. Whether the 1/2 or A/B suffixes are used typically depends on whether the input surfaces have names like `surf1`/ `surf2` or `surfA`/ `surfB`. The latter is more likely to be used when processing intersection events, as members of the OpenNURBS intersection event classes are named `m_a` and `m_b`, etc.
+Suppose for example we have three arrays of corresponding points that are samples along an intersection curve between two surfaces. The 3D array might simply be named `points`. The corresponding 2D points in the domains of the two surfaces involved are then very likely to be named `points1` and `points2` or `pointsA` and `pointsB`. Whether the 1/2 or A/B suffixes are used typically depends on whether the input surfaces have names like `surf1`/`surf2` or `surfA`/`surfB`. The latter is more likely to be used when processing intersection events, as members of the OpenNURBS intersection event classes are named `m_a` and `m_b`, etc.
 
 
 ===== Intersection Tolerances
 
-The `ON_Intersect()` intersection routines ( `intersect.cpp`) generally take an `isect_tol` argument, which is a 3D tolerance normally equal to the constant `ON_INTERSECTION_TOL`. 2D tolerances, following the convention described above, are generally named `isect_tolA` and `isect_tolB`.
+The `ON_Intersect()` intersection routines (`intersect.cpp`) generally take an `isect_tol` argument, which is a 3D tolerance normally equal to the constant `ON_INTERSECTION_TOL`. 2D tolerances, following the convention described above, are generally named `isect_tolA` and `isect_tolB`.
 
 2D tolerance values for curves and surfaces are derived from the 3D tolerance value using the `tolerance_2d_from_3d()` routines. The length of the diagonal of the 3D bounding box of the curve or surface is divided by the length of the 2D domain to get a rough estimate of what distance in the 2D domain corresponds to the 3D tolerance distance. In other words, the hope is that two points on a `curveA` or `surfA` that are `isect_tolA` units apart in 2D, will evaluate to two 3D points that are `isect_tol` units apart in 3D.
 
@@ -558,7 +558,7 @@ The difference between `isect_tol` and `isect_tolA` and `isect_tolB` can be arbi
 
 ===== Curve Traversal Directions
 
-It's important to remember that because parameterizations are arbitrary, there is no correspondence whatsoever between a 2D curve in one surface's domain and another surface's domain, even when those 2D curves evaluate to the same 3D curve. In particular, you cannot assume that traversing different curves along their domain from `m_t[0]` to `m_t[1]` translates to a consistent traversal direction in 3D, or even that each 2D curve's `m_t[0]`/ `m_t[1]` corresponds to the same 3D starting point on a closed curve.
+It's important to remember that because parameterizations are arbitrary, there is no correspondence whatsoever between a 2D curve in one surface's domain and another surface's domain, even when those 2D curves evaluate to the same 3D curve. In particular, you cannot assume that traversing different curves along their domain from `m_t[0]` to `m_t[1]` translates to a consistent traversal direction in 3D, or even that each 2D curve's `m_t[0]`/`m_t[1]` corresponds to the same 3D starting point on a closed curve.
 
 .Different Traversals of the Same Curve
 image::../../devguides/images/curve_traversal_directions.png[]
@@ -778,7 +778,7 @@ After you notice a problem in the output shown by the *dplot* command, you need 
 === If the ssx subcommand shows that a surface-surface intersection is missing...
 
 
-. Use the *info* and *plot* subcommands of the *brep* command to find the indexes ( `<i>` and `<j>`) of the two faces involved in the missing intersection.
+. Use the *info* and *plot* subcommands of the *brep* command to find the indexes (`<i>` and `<j>`) of the two faces involved in the missing intersection.
 +
 For a multi-part evaluation, you'll need to manually create the appropriate intermediate evaluation, corresponding to the `bool<n>.dplot` showing the error, to run the *brep* command on.
 
@@ -794,7 +794,7 @@ For a multi-part evaluation, you'll need to first skip to the correct invocation
 
 
 . Note the index `<n>` of the surface-surface intersection used as the argument to the *isocsx* subcommand.
-. Use the *info* and *plot* subcommands of the *brep* command to find the indexes ( `<i>` and `<j>`) of the two faces involved in the missing intersection.
+. Use the *info* and *plot* subcommands of the *brep* command to find the indexes (`<i>` and `<j>`) of the two faces involved in the missing intersection.
 +
 For a multi-part evaluation, you'll need to manually create the appropriate intermediate evaluation, corresponding to the `bool<n>.dplot` showing the error, to run the *brep* command on.
 
@@ -936,7 +936,7 @@ Press [Enter] to show surface-surface intersection 13
 
 
 +
-All 14 expected intersection events are reported. Each of the two larger-area faces of _brep1_ transversely intersects the two similar faces of _brep2_ ( `ssx_index` 0, 1, 4, 5). Two edges of each of these faces lie in the same plane (the X-Y plane and another plane parallel to it) as two of the four smaller-area faces of the other B-Rep ( `ssx_index` 2, 3, 6, 7, 8, 9, 11, 12). These two pairs of smaller area faces also intersect each other in square overlap intersections ( `ssx_index` 10, 13).
+All 14 expected intersection events are reported. Each of the two larger-area faces of _brep1_ transversely intersects the two similar faces of _brep2_ (`ssx_index` 0, 1, 4, 5). Two edges of each of these faces lie in the same plane (the X-Y plane and another plane parallel to it) as two of the four smaller-area faces of the other B-Rep (`ssx_index` 2, 3, 6, 7, 8, 9, 11, 12). These two pairs of smaller area faces also intersect each other in square overlap intersections (`ssx_index` 10, 13).
 
 . The *ssx <ssx_index>* subcommand of *dplot* is used to check the individual intersection events.
 +

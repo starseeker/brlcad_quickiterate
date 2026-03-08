@@ -216,7 +216,3 @@ In this lesson, you:
 * Made a combination of the regions.
 * Viewed a data tree.
 * Raytraced your completed goblet.
-
-
-
-

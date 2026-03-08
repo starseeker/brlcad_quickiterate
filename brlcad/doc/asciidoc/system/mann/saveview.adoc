@@ -57,11 +57,11 @@ Makes the script run the specified _command_ instead of the default of rt
 
 
 _-l logfile_::
-Makes the script direct log output to the specified _logfile_ instead of to the default of _file_.log ( _file_ is the inputfile basename).
+Makes the script direct log output to the specified _logfile_ instead of to the default of _file_.log (_file_ is the inputfile basename).
 
 
 _-o outputfile_::
-Makes the script output the image to the specified _outputfile_ instead of to the default of _file_.pix ( _file_ is the inputfile basename).
+Makes the script output the image to the specified _outputfile_ instead of to the default of _file_.pix (_file_ is the inputfile basename).
 
 
 _-i inputfile_::

@@ -314,7 +314,3 @@ En este tutorial usted aprendió a:
 * Identificar elementos del sistema de visualización de _MGED_.
 * Visualizar su radio desde distintos ángulos.
 * Trabajar con atajos de teclado.
-
-
-
-

@@ -342,7 +342,3 @@ In this lesson, you:
 * Identified elements of the _MGED_ viewing system.
 * Viewed your radio from different angles.
 * Worked with Shift Grips.
-
-
-
-

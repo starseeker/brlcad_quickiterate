@@ -126,7 +126,3 @@ In this lesson, you:
 * Assigned colors and the plastic shader to regions of the goblet.
 * Used the transparency and mirror reflectance options of the shader.
 * Raytraced various forms of your goblet.
-
-
-
-

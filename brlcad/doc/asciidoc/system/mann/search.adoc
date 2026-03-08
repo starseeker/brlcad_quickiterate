@@ -792,5 +792,3 @@ Bugs resulting from incorrect parsing of shell pattern expressions are the resul
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

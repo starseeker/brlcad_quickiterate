@@ -24,7 +24,7 @@ Gets/sets view parameters in local units. The *view* command accepts the followi
 == SUBCOMMANDS
 
 
-*ae* [[ _-i_] _azimuth elevation_ [ _twist_]]::
+*ae* [[_-i_] _azimuth elevation_ [_twist_]]::
 Get (without arguments) or set the azimuth, elevation, and (optional) twist. If only 2 arguments are supplied, a twist of 0 is assumed. The _-i_ flag can be used to set the AET incrementally. Setting the azimuth and elevation also changes the eye point while keeping the center and view size static.
 
 
@@ -36,19 +36,19 @@ Aligns the eye point with a desired point and the current center (eye -> pt -> c
 Resets the view size, center, and eye point such that all displayed objects are visible in the graphics window. Azimuth and elevation remain static.
 
 
-*center* [ _x y z_]::
+*center* [_x y z_]::
 Get (without arguments) or set the center. Setting the center also changes the eye point while keeping the azimuth, elevation, and view size static.
 
 
-*dir* [[ _-i_] _x y z_ [ _twist_]]::
+*dir* [[_-i_] _x y z_ [_twist_]]::
 Get (without arguments) or set the view in the form of a direction vector and optional twist. Setting the direction also changes the azimuth, elevation, and eye point while keeping the center and view size static. The _-i_ flag can be used to invert all values (for both getting and setting). The direction vector that is returned (without arguments) does not include the twist; the twist can be acertained by taking the inverse of the twist returned with the *ae* subcommand.
 
 
-*eye* [ _x y z_]::
+*eye* [_x y z_]::
 Get (without arguments) or set the eye point. Setting the eye point also changes the center while keeping the azimuth, elevation, and view size static.
 
 
-*faceplate* [ _options_] _subcommand_ [ _args_]::
+*faceplate* [_options_] _subcommand_ [_args_]::
 *Not Implemented.*
 
 Manipulate options for the faceplate.
@@ -62,19 +62,19 @@ Adjusts the current view such that the eye is looking in the direction of the gi
 Returns the current azimuth, elevation, and twist; direction vector; center; eye point; and view size.
 
 
-*quat* [ _v1 v2 v3 v4_]::
+*quat* [_v1 v2 v3 v4_]::
 Get (without arguments) or set the view in the form of a quarternion. Setting the quarternion also changes the azimuth, elevation, and eye point while keeping the center and view size static.
 
 
-*save* [ _-e command_] [ _-l scriptlogfile_] [ _-o scriptoutputfile_] [ _-i scriptinputfile_] _file_ [ _args_]::
+*save* [_-e command_] [_-l scriptlogfile_] [_-o scriptoutputfile_] [_-i scriptinputfile_] _file_ [_args_]::
 Saves the current viewing parameters in the specified _file_ in the form of a shell script that will run the BRL-CAD rt program. The _-e_ flag specifies a command for the script to run instead of the default rt. The _-l_ flag specifies a logfile for the script to write instead of the default inputfile.log. The _-o_ flag specifies the output filename for the script to create instead of the default inputfile.pix. The _-i_ flag specifies the input filename for the script to load instead of the current database (default). Various arguments can be added to the end, such as -s1024 (see the man page for the *rt* command).
 
 
-*size* [ __view_size__]::
+*size* [__view_size__]::
 Get (without arguments) or set the view size. Setting the view size also changes the eye point while keeping the azimuth, elevation, and center static.
 
 
-*ypr* [ _yaw pitch roll_]::
+*ypr* [_yaw pitch roll_]::
 Get (without arguments) or set the view in the form of yaw, pitch, roll. A ypr of 0 0 0 is a rear view (AE = 180, 0). Setting the ypr also changes the azimuth, elevation, and eye point while keeping the center and view size static.
 
 
