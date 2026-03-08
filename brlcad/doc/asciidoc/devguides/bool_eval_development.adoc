@@ -445,12 +445,7 @@ ON_3dPoint trim_midpt_3d = surface->PointAt(trim_midpt_uv.x, trim_midpt_uv.y);
 
 An object's faces are `ON_BrepFace` objects stored in the `ON_Brep` face array, `m_F[]`.
 
-Each `ON_BrepFace` is defined as the subset of an `ON_Surface` lying inside the face's outerloop::
- (a.k.a. the face boundary::
-) and outside all of its innerloops::
- (a.k.a. trim loops::
- or just trims::
-).
+Each `ON_BrepFace` is defined as the subset of an `ON_Surface` lying inside the face's _outerloop_ (a.k.a. the _face boundary_) and outside all of its _innerloops_ (a.k.a. _trim loops_ or just _trims_).
 
 The loops of an `ON_BrepFace` are listed in its loop array `m_li[]` as indexes into the associated `ON_Brep` object's `ON_BrepLoop` array, `m_L[]`. The first (and possibly only) loop listed in the face's loop index array is the outerloop, and all following loops are inner trim loops. The type of the loop is also recorded in the loop's `m_type` member.
 
@@ -1204,8 +1199,3 @@ link_curves(ON_Curve *&c1, ON_Curve *&c2)
               
             
 ----
-
-
-
-
-
