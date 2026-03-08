@@ -44,6 +44,7 @@ BSG_EXPORT extern struct bsg_vlblock *bsg_vlblock_init(struct bu_list *free_vlis
 BSG_EXPORT extern void bsg_vlblock_free(struct bsg_vlblock *vbp);
 BSG_EXPORT extern struct bu_list *bsg_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b);
 BSG_EXPORT extern void bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx);
+BSG_EXPORT extern void bsg_vlist_arb8(struct bu_list *vlists, struct bu_list *hd, const point_t pts[8]);
 BSG_EXPORT extern void bsg_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp);
 BSG_EXPORT extern void bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bview *v, struct bsg_shape *f, struct bu_list *vlfree);
 BSG_EXPORT extern struct bsg_shape *bsg_vlblock_obj(struct bsg_vlblock *vbp, struct bview *v, const char *name);

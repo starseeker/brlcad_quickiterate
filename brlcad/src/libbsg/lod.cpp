@@ -59,7 +59,6 @@
 #include <stdlib.h>
 #include <map>
 #include <set>
-#include <thread>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -71,18 +70,14 @@
 #include <sstream>
 #include <string>
 
-extern "C" {
-#include "lmdb.h"
-}
-
 #include "bio.h"
 
 #include "bu/app.h"
 #include "bu/bitv.h"
+#include "bu/cache.h"
 #include "bu/color.h"
 #include "bu/hash.h"
 #include "bu/malloc.h"
-#include "bu/parallel.h"
 #include "bu/path.h"
 #include "bu/str.h"
 #include "bu/time.h"
@@ -110,7 +105,7 @@ extern "C" {
 
 // Define what format of the cache is current - if it doesn't match, we need
 // to wipe and redo.
-#define CACHE_CURRENT_FORMAT 1
+#define CACHE_CURRENT_FORMAT 2
 
 /* There are various individual pieces of data in the cache associated with
  * each object key.  For lookup they use short suffix strings to distinguish
@@ -595,15 +590,12 @@ _obj_visible(bsg_shape *s, bsg_view *v)
 }
 
 struct bsg_mesh_lod_context_internal {
-    MDB_env *lod_env;
-    MDB_txn *lod_txn;
-    MDB_dbi lod_dbi;
-
-    MDB_env *name_env;
-    MDB_txn *name_txn;
-    MDB_dbi name_dbi;
+    struct bu_cache *lod_cache;
+    struct bu_cache *name_cache;
 
     struct bu_vls *fname;
+    /* lod_mu_ is not needed: bu_cache serialises write transactions
+     * internally.  Concurrent reads are handled by per-call read txns. */
 };
 
 bsg_mesh_lod_context *
@@ -613,8 +605,6 @@ bsg_mesh_lod_context_create(const char *name)
     std::ifstream format_file;
     long disk_format_version = -1;
     char dir[MAXPATHLEN];
-    size_t mreaders = 0;
-    int ncpus = 0;
     if (!name)
 	return NULL;
 
@@ -639,37 +629,9 @@ bsg_mesh_lod_context_create(const char *name)
     bu_vls_init(i->fname);
     bu_vls_sprintf(i->fname, "%s", bu_vls_cstr(&fname));
 
-    // Base maximum readers on an estimate of how many threads
-    // we might want to fire off
-    mreaders = std::thread::hardware_concurrency();
-    if (!mreaders)
-	mreaders = 1;
-    ncpus = bu_avail_cpus();
-    if (ncpus > 0 && (size_t)ncpus > mreaders)
-	mreaders = (size_t)ncpus + 2;
-
-
-    // Set up LMDB environments
-    if (mdb_env_create(&i->lod_env))
-	goto lod_context_fail;
-    if (mdb_env_create(&i->name_env))
-	goto lod_context_fail;
-
-    if (mdb_env_set_maxreaders(i->lod_env, mreaders))
-	goto lod_context_fail;
-    if (mdb_env_set_maxreaders(i->name_env, mreaders))
-	goto lod_context_fail;
-
-    // TODO - the "failure" mode if this limit is ever hit is to back down
-    // the maximum stored LoD on larger objects, but that will take some
-    // doing to implement...
-    if (mdb_env_set_mapsize(i->lod_env, CACHE_MAX_DB_SIZE))
-	goto lod_context_fail;
-
-    if (mdb_env_set_mapsize(i->name_env, CACHE_MAX_DB_SIZE))
-	goto lod_context_fail;
-
-    // Ensure the necessary top level dirs are present
+    // Ensure the necessary top level cache dir is present (bu_cache_open
+    // will create the sub-directories itself, but the top-level cache root
+    // and the POP_CACHEDIR must exist for the format-version file write below).
     bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, NULL);
     if (!bu_file_exists(dir, NULL))
 	bu_mkdir(dir);
@@ -678,6 +640,8 @@ bsg_mesh_lod_context_create(const char *name)
     if (!bu_file_exists(dir, NULL))
 	bu_mkdir(dir);
 
+    // Check the on-disk format version. If it doesn't match the current
+    // version the entire cache must be wiped so it can be regenerated.
     bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, POP_CACHEDIR, "format", NULL);
     format_file.open(dir);
     if (format_file.is_open()) {
@@ -690,39 +654,44 @@ bsg_mesh_lod_context_create(const char *name)
     }
     fp = fopen(dir, "w");
     if (!fp)
-	goto lod_context_close_lod_fail;
+	goto lod_context_fail;
     fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
     fclose(fp);
 
-    // Create the specific LoD LMDB cache dir, if not already present
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, POP_CACHEDIR, bu_vls_cstr(&fname), NULL);
-    if (!bu_file_exists(dir, NULL))
-	bu_mkdir(dir);
+    // Open the LoD data cache.  bu_cache_open will create the directory
+    // BU_DIR_CACHE/POP_CACHEDIR/fname if it doesn't already exist.
+    {
+	struct bu_vls cache_path = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&cache_path, "%s/%s", POP_CACHEDIR, bu_vls_cstr(&fname));
+	// TODO - the "failure" mode if this limit is ever hit is to back down
+	// the maximum stored LoD on larger objects, but that will take some
+	// doing to implement...
+	/* create=1: create the cache directory and database if not present */
+	i->lod_cache = bu_cache_open(bu_vls_cstr(&cache_path), 1, CACHE_MAX_DB_SIZE);
+	bu_vls_free(&cache_path);
+    }
+    if (!i->lod_cache)
+	goto lod_context_fail;
 
-    // Need to call mdb_env_sync() at appropriate points.
-    if (mdb_env_open(i->lod_env, dir, MDB_NOSYNC, 0664))
-	goto lod_context_close_lod_fail;
-
-    // Create the specific name/key LMDB mapping dir, if not already present
-    bu_vls_printf(&fname, "_namekey");
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, POP_CACHEDIR, bu_vls_cstr(&fname), NULL);
-    if (!bu_file_exists(dir, NULL))
-	bu_mkdir(dir);
-
-    // Need to call mdb_env_sync() at appropriate points.
-    if (mdb_env_open(i->name_env, dir, MDB_NOSYNC, 0664))
-	goto lod_context_close_name_fail;
+    // Open the name→key mapping cache.
+    {
+	struct bu_vls cache_path = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&cache_path, "%s/%s_namekey", POP_CACHEDIR, bu_vls_cstr(&fname));
+	/* create=1: create the cache directory and database if not present */
+	i->name_cache = bu_cache_open(bu_vls_cstr(&cache_path), 1, CACHE_MAX_DB_SIZE);
+	bu_vls_free(&cache_path);
+    }
+    if (!i->name_cache)
+	goto lod_context_fail;
 
     // Success - return the context
     bu_vls_free(&fname);
     return c;
 
     // If something went wrong, clean up and return NULL
-lod_context_close_name_fail:
-    mdb_env_close(i->name_env);
-lod_context_close_lod_fail:
-    mdb_env_close(i->lod_env);
 lod_context_fail:
+    if (i->name_cache) bu_cache_close(i->name_cache);
+    if (i->lod_cache)  bu_cache_close(i->lod_cache);
     bu_vls_free(&fname);
     BU_PUT(c->i, struct bsg_mesh_lod_context_internal);
     BU_PUT(c, bsg_mesh_lod_context);
@@ -734,8 +703,8 @@ bsg_mesh_lod_context_destroy(bsg_mesh_lod_context *c)
 {
     if (!c)
 	return;
-    mdb_env_close(c->i->name_env);
-    mdb_env_close(c->i->lod_env);
+    bu_cache_close(c->i->name_cache);
+    bu_cache_close(c->i->lod_cache);
     bu_vls_free(c->i->fname);
     BU_PUT(c->i->fname, struct bu_vls);
     BU_PUT(c->i, struct bsg_mesh_lod_context_internal);
@@ -747,8 +716,6 @@ bsg_mesh_lod_key_get(bsg_mesh_lod_context *c, const char *name)
 {
     if (!c || !name)
 	return 0;
-
-    MDB_val mdb_key, mdb_data;
 
     // Database object names may be of arbitrary length - hash
     // to get the lookup key
@@ -762,18 +729,15 @@ bsg_mesh_lod_key_get(bsg_mesh_lod_context *c, const char *name)
     unsigned long long hash = bu_data_hash(bu_vls_cstr(&keystr), bu_vls_strlen(&keystr)*sizeof(char));
     bu_vls_sprintf(&keystr, "%llu", hash);
 
-    mdb_txn_begin(c->i->name_env, NULL, 0, &c->i->name_txn);
-    mdb_dbi_open(c->i->name_txn, NULL, 0, &c->i->name_dbi);
-    mdb_key.mv_size = bu_vls_strlen(&keystr)*sizeof(char);
-    mdb_key.mv_data = (void *)bu_vls_cstr(&keystr);
-    int rc = mdb_get(c->i->name_txn, c->i->name_dbi, &mdb_key, &mdb_data);
-    if (rc) {
-	mdb_txn_commit(c->i->name_txn);
-	return 0;
+    /* bu_cache_get with t=NULL returns a malloc'd copy; no external lock
+     * needed since bu_cache handles concurrent reads internally. */
+    unsigned long long fkey = 0;
+    void *data = NULL;
+    size_t dsize = bu_cache_get(&data, bu_vls_cstr(&keystr), c->i->name_cache, NULL);
+    if (dsize == sizeof(fkey) && data) {
+	memcpy(&fkey, data, sizeof(fkey));
+	bu_free(data, "name key data");
     }
-    unsigned long long *fkeyp = (unsigned long long *)mdb_data.mv_data;
-    unsigned long long fkey = *fkeyp;
-    mdb_txn_commit(c->i->name_txn);
 
     bu_vls_free(&keystr);
     //bu_log("GOT %s: %llu\n", name, fkey);
@@ -798,22 +762,12 @@ bsg_mesh_lod_key_put(bsg_mesh_lod_context *c, const char *name, unsigned long lo
     unsigned long long hash = bu_data_hash(bu_vls_cstr(&keystr), bu_vls_strlen(&keystr)*sizeof(char));
     bu_vls_sprintf(&keystr, "%llu", hash);
 
-    MDB_val mdb_key;
-    MDB_val mdb_data[2];
-    mdb_txn_begin(c->i->name_env, NULL, 0, &c->i->name_txn);
-    mdb_dbi_open(c->i->name_txn, NULL, 0, &c->i->name_dbi);
-    mdb_key.mv_size = bu_vls_strlen(&keystr)*sizeof(char);
-    mdb_key.mv_data = (void *)bu_vls_cstr(&keystr);
-    mdb_data[0].mv_size = sizeof(key);
-    mdb_data[0].mv_data = (void *)&key;
-    mdb_data[1].mv_size = 0;
-    mdb_data[1].mv_data = NULL;
-    int rc = mdb_put(c->i->name_txn, c->i->name_dbi, &mdb_key, mdb_data, 0);
-    mdb_txn_commit(c->i->name_txn);
+    /* bu_cache_write handles write serialisation internally. */
+    size_t wsize = bu_cache_write((void *)&key, sizeof(key), bu_vls_cstr(&keystr), c->i->name_cache, NULL);
 
     bu_vls_free(&keystr);
     //bu_log("PUT %s: %llu\n", name, key);
-    return rc;
+    return (wsize == sizeof(key)) ? 0 : -1;
 }
 
 // Output record
@@ -930,7 +884,15 @@ class POPState {
 	size_t cache_get(void **data, const char *component);
 	void cache_done();
 	void cache_del(const char *component);
-	MDB_val mdb_key, mdb_data[2];
+	/* Per-POPState bu_cache transaction tokens.
+	 * read_txn_bc_: holds an open read txn between cache_get() and
+	 *   cache_done() calls; bu_cache handles concurrent reads from multiple
+	 *   threads without any external lock.
+	 * write_txn_bc_: accumulates all POPState::cache() writes in a single
+	 *   batched transaction for efficiency; committed/aborted at the end of
+	 *   cache(). */
+	struct bu_cache_txn *read_txn_bc_ = nullptr;
+	struct bu_cache_txn *write_txn_bc_ = nullptr;
 
 	// Specific loading and unloading methods
 	void tri_pop_load(int start_level, int level);
@@ -1521,43 +1483,34 @@ POPState::set_level(int level)
     curr_level = level;
 }
 
-// Rather than committing all data to LMDB in one transaction, use keys with
-// appended strings to the hash to denote the individual pieces - basically
-// what we were doing with files, but in the db instead
+// Per-object LoD data is stored using keys with appended suffix strings to
+// the content hash (e.g. "<hash>:v0", "<hash>:t2") to denote individual
+// pieces - basically what we were doing with files, but in the db instead.
+// This allows easier removal of larger subcomponents if we need to back off
+// on saved LoD.
 //
-// This will also allow easier removal of larger subcomponents if we need to
-// back off on saved LoD.
+// All writes for a single object are accumulated in a single write transaction
+// (write_txn_bc_) that is committed atomically at the end of cache().  This
+// guarantees that a reader either sees ALL data components for the object or
+// NONE — there is no observable "mixed state" where some keys from the new
+// write and some from a prior write are visible simultaneously.
 bool
 POPState::cache_write(const char *component, std::stringstream &s)
 {
     // Prepare inputs for writing
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
     std::string buffer = s.str();
+    if (!buffer.length())
+	return false;
 
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->i->lod_env))
-    //	return false;
+    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
 
-    // Write out key/value to LMDB database, where the key is the hash
-    // and the value is the serialized LoD data
-    char *keycstr = bu_strdup(keystr.c_str());
-    void *bdata = bu_calloc(buffer.length()+1, sizeof(char), "bdata");
-    memcpy(bdata, buffer.data(), buffer.length()*sizeof(char));
-    mdb_txn_begin(c->i->lod_env, NULL, 0, &c->i->lod_txn);
-    mdb_dbi_open(c->i->lod_txn, NULL, 0, &c->i->lod_dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    mdb_data[0].mv_size = buffer.length()*sizeof(char);
-    mdb_data[0].mv_data = bdata;
-    mdb_data[1].mv_size = 0;
-    mdb_data[1].mv_data = NULL;
-    int rc = mdb_put(c->i->lod_txn, c->i->lod_dbi, &mdb_key, mdb_data, 0);
-    mdb_txn_commit(c->i->lod_txn);
-    bu_free(keycstr, "keycstr");
-    bu_free(bdata, "buffer data");
-
-    return (!rc) ? true : false;
+    /* All writes within a single cache() call share write_txn_bc_.  On the
+     * first call write_txn_bc_ is NULL and bu_cache_write opens a new write
+     * transaction; subsequent calls reuse it.  The transaction is committed
+     * (or aborted on failure) in cache() after all components are written. */
+    size_t wsize = bu_cache_write((void *)buffer.data(), buffer.length(),
+	    keystr.c_str(), c->i->lod_cache, &write_txn_bc_);
+    return (wsize > 0);
 }
 
 // This pulls the data, but doesn't close the transaction because the
@@ -1570,31 +1523,17 @@ POPState::cache_get(void **data, const char *component)
     // Construct lookup key
     std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
 
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->i->lod_env))
-    //	return 0;
-    char *keycstr = bu_strdup(keystr.c_str());
-    mdb_txn_begin(c->i->lod_env, NULL, 0, &c->i->lod_txn);
-    mdb_dbi_open(c->i->lod_txn, NULL, 0, &c->i->lod_dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    int rc = mdb_get(c->i->lod_txn, c->i->lod_dbi, &mdb_key, &mdb_data[0]);
-    if (rc) {
-	bu_free(keycstr, "keycstr");
-	(*data) = NULL;
-	return 0;
-    }
-    bu_free(keycstr, "keycstr");
-    (*data) = mdb_data[0].mv_data;
-
-    return mdb_data[0].mv_size;
+    /* Open a per-POPState read transaction via bu_cache.  Concurrent readers
+     * from different threads each own their own bu_cache_txn; no external
+     * lock is needed.  The mapped memory returned by bu_cache_get() remains
+     * valid until cache_done() calls bu_cache_get_done(). */
+    return bu_cache_get(data, keystr.c_str(), c->i->lod_cache, &read_txn_bc_);
 }
 
 void
 POPState::cache_done()
 {
-    mdb_txn_commit(c->i->lod_txn);
+    bu_cache_get_done(&read_txn_bc_);
 }
 
 bool
@@ -1754,11 +1693,23 @@ POPState::cache()
 	is_valid = cache_write(CACHE_OBJ_BOUNDS, s);
     }
 
-    if (!is_valid)
+    if (!is_valid) {
+	bu_cache_write_abort(&write_txn_bc_);
 	return;
+    }
 
     // Serialize triangle-specific data
     is_valid = cache_tri();
+
+    // Commit or abort the batched write transaction
+    if (write_txn_bc_) {
+	if (is_valid) {
+	    if (bu_cache_write_commit(c->i->lod_cache, &write_txn_bc_) != BRLCAD_OK)
+		is_valid = false;
+	} else {
+	    bu_cache_write_abort(&write_txn_bc_);
+	}
+    }
 }
 
 // Transfer coordinate into level precision
@@ -2066,16 +2017,9 @@ bsg_mesh_lod_memshrink(bsg_shape *s)
 static void
 cache_del(bsg_mesh_lod_context *c, unsigned long long hash, const char *component)
 {
-    // Construct lookup key
-    MDB_val mdb_key;
+    // Construct lookup key and clear via bu_cache
     std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-
-    mdb_txn_begin(c->i->lod_env, NULL, 0, &c->i->lod_txn);
-    mdb_dbi_open(c->i->lod_txn, NULL, 0, &c->i->lod_dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keystr.c_str();
-    mdb_del(c->i->lod_txn, c->i->lod_dbi, &mdb_key, NULL);
-    mdb_txn_commit(c->i->lod_txn);
+    bu_cache_clear(keystr.c_str(), c->i->lod_cache, NULL);
 }
 
 
@@ -2093,89 +2037,91 @@ bsg_mesh_lod_clear_cache(bsg_mesh_lod_context *c, unsigned long long key)
 	cache_del(c, key, CACHE_VERTEX_COUNT);
 	cache_del(c, key, CACHE_TRI_COUNT);
 	cache_del(c, key, CACHE_OBJ_BOUNDS);
-	cache_del(c, key, CACHE_VERT_LEVEL);
-	cache_del(c, key, CACHE_VERTNORM_LEVEL);
-	cache_del(c, key, CACHE_TRI_LEVEL);
 
-	// Iterate over the name/key mapper, removing anything with a value
-	// of key
-	MDB_val mdb_key, mdb_data;
-	unsigned long long *fkeyp = NULL;
-	unsigned long long fkey = 0;
-	mdb_txn_begin(c->i->name_env, NULL, 0, &c->i->name_txn);
-	mdb_dbi_open(c->i->name_txn, NULL, 0, &c->i->name_dbi);
-	MDB_cursor *cursor;
-	int rc = mdb_cursor_open(c->i->name_txn, c->i->name_dbi, &cursor);
-	if (rc) {
-	    mdb_txn_commit(c->i->name_txn);
-	    return;
+	/* The per-level vertex, triangle, and normal data use NUMBERED keys
+	 * (e.g. "v0", "v1", ..., "v15"; "t0"...; "vn0"...).  The CACHE_*_LEVEL
+	 * constants are only the STRING PREFIXES used to form those numbered
+	 * keys — deleting the prefix key itself would miss the actual entries.
+	 * Loop over all possible levels to ensure complete cleanup. */
+	{
+	    struct bu_vls kbuf = BU_VLS_INIT_ZERO;
+	    for (int i = 0; i < POP_MAXLEVEL; i++) {
+		bu_vls_sprintf(&kbuf, "%s%d", CACHE_VERT_LEVEL, i);
+		cache_del(c, key, bu_vls_cstr(&kbuf));
+		bu_vls_sprintf(&kbuf, "%s%d", CACHE_VERTNORM_LEVEL, i);
+		cache_del(c, key, bu_vls_cstr(&kbuf));
+		bu_vls_sprintf(&kbuf, "%s%d", CACHE_TRI_LEVEL, i);
+		cache_del(c, key, bu_vls_cstr(&kbuf));
+	    }
+	    bu_vls_free(&kbuf);
 	}
-	rc = mdb_cursor_get(cursor, &mdb_key, &mdb_data, MDB_FIRST);
-	if (rc) {
-	    mdb_txn_commit(c->i->name_txn);
-	    return;
+
+	// Iterate over the name/key mapper, removing any entry whose stored
+	// value matches `key`.  Use bu_cache_keys to enumerate, then check
+	// each value with bu_cache_get and delete matching entries.
+	{
+	    char **keys = NULL;
+	    int nkeys = bu_cache_keys(&keys, c->i->name_cache);
+	    if (nkeys > 0) {
+		struct bu_cache_txn *del_txn = NULL;
+		for (int k = 0; k < nkeys; k++) {
+		    void *data = NULL;
+		    size_t dsize = bu_cache_get(&data, keys[k], c->i->name_cache, NULL);
+		    if (dsize == sizeof(unsigned long long) && data) {
+			unsigned long long stored_key = 0;
+			memcpy(&stored_key, data, sizeof(stored_key));
+			bu_free(data, "name key check");
+			if (stored_key == key)
+			    bu_cache_clear(keys[k], c->i->name_cache, &del_txn);
+		    }
+		    bu_free(keys[k], "cache key");
+		}
+		if (del_txn)
+		    bu_cache_write_commit(c->i->name_cache, &del_txn);
+		bu_free(keys, "keys array");
+	    }
 	}
-	fkeyp = (unsigned long long *)mdb_data.mv_data;
-	fkey = *fkeyp;
-	if (fkey == key)
-	    mdb_cursor_del(cursor, 0);
-	while (!mdb_cursor_get(cursor, &mdb_key, &mdb_data, MDB_NEXT)) {
-	    fkeyp = (unsigned long long *)mdb_data.mv_data;
-	    fkey = *fkeyp;
-	    if (fkey == key)
-		mdb_cursor_del(cursor, 0);
-	}
-	mdb_txn_commit(c->i->name_txn);
 	return;
     }
 
     if (c && !key) {
 
-	MDB_val mdb_key, mdb_data;
-	MDB_cursor *cursor;
-	int rc;
+	// Clear all LoD data
+	{
+	    char **keys = NULL;
+	    int nkeys = bu_cache_keys(&keys, c->i->lod_cache);
+	    if (nkeys > 0) {
+		struct bu_cache_txn *del_txn = NULL;
+		for (int k = 0; k < nkeys; k++) {
+		    bu_cache_clear(keys[k], c->i->lod_cache, &del_txn);
+		    bu_free(keys[k], "cache key");
+		}
+		if (del_txn)
+		    bu_cache_write_commit(c->i->lod_cache, &del_txn);
+		bu_free(keys, "keys array");
+	    }
+	}
 
-	// Clear the actual LoD data
-	mdb_txn_begin(c->i->lod_env, NULL, 0, &c->i->lod_txn);
-	mdb_dbi_open(c->i->lod_txn, NULL, 0, &c->i->lod_dbi);
-	rc = mdb_cursor_open(c->i->lod_txn, c->i->lod_dbi, &cursor);
-	if (rc) {
-	    mdb_txn_commit(c->i->lod_txn);
-	    return;
+	// Clear all name/key mappings
+	{
+	    char **keys = NULL;
+	    int nkeys = bu_cache_keys(&keys, c->i->name_cache);
+	    if (nkeys > 0) {
+		struct bu_cache_txn *del_txn = NULL;
+		for (int k = 0; k < nkeys; k++) {
+		    bu_cache_clear(keys[k], c->i->name_cache, &del_txn);
+		    bu_free(keys[k], "cache key");
+		}
+		if (del_txn)
+		    bu_cache_write_commit(c->i->name_cache, &del_txn);
+		bu_free(keys, "keys array");
+	    }
 	}
-	rc = mdb_cursor_get(cursor, &mdb_key, &mdb_data, MDB_FIRST);
-	if (rc) {
-	    mdb_txn_commit(c->i->lod_txn);
-	    return;
-	}
-	mdb_cursor_del(cursor, 0);
-	while (!mdb_cursor_get(cursor, &mdb_key, &mdb_data, MDB_NEXT))
-	    mdb_cursor_del(cursor, 0);
-	mdb_txn_commit(c->i->lod_txn);
-
-	// Iterate over the name/key mapper, removing anything with a value
-	// of key
-	mdb_txn_begin(c->i->name_env, NULL, 0, &c->i->name_txn);
-	mdb_dbi_open(c->i->name_txn, NULL, 0, &c->i->name_dbi);
-	rc = mdb_cursor_open(c->i->name_txn, c->i->name_dbi, &cursor);
-	if (rc) {
-	    mdb_txn_commit(c->i->name_txn);
-	    return;
-	}
-	rc = mdb_cursor_get(cursor, &mdb_key, &mdb_data, MDB_FIRST);
-	if (rc) {
-	    mdb_txn_commit(c->i->name_txn);
-	    return;
-	}
-	mdb_cursor_del(cursor, 0);
-	while (!mdb_cursor_get(cursor, &mdb_key, &mdb_data, MDB_NEXT))
-	    mdb_cursor_del(cursor, 0);
-	mdb_txn_commit(c->i->name_txn);
 
 	return;
     }
 
-    // Clear everything
+    // Clear everything (no open context - wipe the whole cache directory)
     bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, POP_CACHEDIR, NULL);
     bu_dirclear((const char *)dir);
 }

@@ -186,11 +186,10 @@ The `libbsg` library is the sole owner of all scene-graph functionality.
 > `bsg_view_get_camera`/`bsg_view_set_camera`; scalar fields (gv_scale, gv_size, etc.)
 > are accessed directly as they are not camera fields.
 
-**P3 — `bsg_view_find_by_type()` and `bsg_sensor_fire()` not yet implemented**
-These were identified in the BSG survey as helpers needed for future work but
-not yet blocking anything:
-- `bsg_view_find_by_type(v, flags, result_ptbl)` — collect all nodes of a given type
-- `bsg_sensor_fire(root, type_mask)` — fire sensors on all matching sub-tree nodes
+**P3 — `bsg_view_find_by_type()` and `bsg_sensor_fire()` — ✅ Done**
+Both helpers are implemented in `src/libbsg/scene_graph.cpp` and declared in
+`include/bsg/util.h`.  All present and functional in `src/libbsg/scene_graph.cpp`.
+TODO updated accordingly.
 
 **P3 — sensor-driven redraws in `libqtcad`**
 `QgEdApp.cpp` already has `qged_register_view_sensors` / `qged_deregister_all_sensors`
@@ -312,15 +311,20 @@ views.  No special-case branching on command name.  Background-process commands
 (raytrace, etc.) register a completion callback; the post-processing step fires from
 there, not from the synchronous call site.
 
-### 7.4 AABB placeholder rendering ✅ Done (session 36)
+### 7.4 AABB/OBB placeholder rendering ✅ Done (session 36 + session 3 of DrawPipeline)
 
 `BViewState::redraw()` now emits a lightweight dashed wireframe bounding box for
 solids in `draw_list_` whose geometry is not yet present in `s_map` but whose bbox
 has been pre-computed in `dbis->bboxes`.  This gives users immediate visual feedback
-when opening large `.g` files while the `GeomLoader` worker fills in the real data
+when opening large `.g` files while the `DrawPipeline` worker fills in the real data
 in the background.  When a solid's geometry arrives (via `drain_geom_results()` →
 `ISceneObserver` notification → repaint), the placeholder box is replaced by real
 geometry automatically (`bbox_placeholders_` private map in `BViewState`).
+
+Placeholder wireframe quality is maximized automatically: if the OBB 8-corner data
+is available in `dbis->obbs`, `bsg_vlist_arb8()` draws the tighter OBB wireframe;
+otherwise `bsg_vlist_rpp()` draws the AABB box.  The same logic applies in
+`bot_adaptive_plot()` for the adaptive-plot (per-view) placeholder path.
 
 ---
 
@@ -394,6 +398,23 @@ geometry automatically (`bbox_placeholders_` private map in `BViewState`).
   Exercises `link_to()`, `unlink()`, `is_linked()`, `linked_primary()`, and `add_hpath()`
   delegation.  All 8 new assertions pass.
 
+### Completed (DrawPipeline sessions 2-3)
+
+- ✅ **lod_mu_ starvation fix** (`libbsg/lod.cpp`): `bsg_mesh_lod_key_get` and
+  `POPState::cache_get` now use local `MDB_txn*` + `MDB_RDONLY`, no mutex on read paths.
+  `lod_worker` has a fast warm-cache path via `bsg_mesh_lod_key_get` pre-check.
+  703/706 GenericTwin BoTs deliver LoD results in first `drain_geom_results()` call.
+- ✅ **`draw_data_t::dbis` propagation**: Added `struct DbiState *dbis` to `draw_data_t`
+  (`ged_private.h`).  `draw_gather_paths` propagates it to `ud->dbis`.  `gobjs.cpp` sets it.
+- ✅ **`bsg_vlist_arb8()`** added to `libbsg/vlist.c` + `include/bsg/vlist.h`:
+  draws 12 edges of an arb8 wireframe from 8 arbitrary corner points.
+- ✅ **OBB placeholder wireframe** in `bot_adaptive_plot` (`draw.cpp`) and
+  `BViewState::redraw()` (`dbi_state.cpp`): both now use `bsg_vlist_arb8` when OBB
+  data is available in `dbis->obbs`, falling back to `bsg_vlist_rpp` (AABB).
+- ✅ **DrawPipeline tests**: `drawpipeline_test` asserts 2242 bboxes + 706 OBBs + 3651
+  drain results; `test_dbi_cpp` has 63 checks; new `bsg_vlist_arb8_cmd_cnt` test in
+  `libbsg/tests/arb8.c` verifies the 18-command output of `bsg_vlist_arb8()`.
+
 ### Short-term (open)
 
 *(no Tier 2 or Tier 3 items remaining)*
@@ -420,9 +441,12 @@ geometry automatically (`bbox_placeholders_` private map in `BViewState`).
 | Suite | File | Checks | Notes |
 |-------|------|--------|-------|
 | DBI C surface | `src/libged/tests/test_dbi_c.c` | 35 | C API regression |
-| DBI C++ | `src/libged/tests/test_dbi_cpp.cpp` | 49+ | DbiState/DrawList/SelectionSet/IDbiObserver |
+| DBI C++ | `src/libged/tests/test_dbi_cpp.cpp` | 63+ | DbiState/DrawList/SelectionSet/IDbiObserver/GeomLoader LoD |
 | Qt model | `src/libqtcad/tests/qgmodel.cpp` | 15+ | QAbstractItemModelTester in Fatal mode |
 | Draw rendering | `src/libged/tests/draw/basic.cpp` | — | BViewState::redraw pipeline |
+| DrawPipeline | `src/libged/tests/draw/drawpipeline_test.cpp` | 3 | 2242 bboxes + 706 OBBs + 3651 drain results (GenericTwin.g) |
+| libbsg vlist | `src/libbsg/tests/vlist.c` | 6 | bsg_vlist_cmd_cnt |
+| libbsg arb8 | `src/libbsg/tests/arb8.c` | 1 | bsg_vlist_arb8 generates 18 vlist commands |
 
 Gaps:
 - No test for `GeomLoader` drain-pump behavior (would need mock `dbip`)

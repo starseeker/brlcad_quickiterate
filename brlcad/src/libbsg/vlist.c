@@ -504,6 +504,38 @@ bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, co
 }
 
 void
+bsg_vlist_arb8(struct bu_list *vlists, struct bu_list *hd, const point_t pts[8])
+{
+    /* Draw the 12 edges of an arb8 wireframe given 8 arbitrary corner points.
+     * Corner ordering follows the BRL-CAD arb8 convention:
+     *   face 0: pts[0]-pts[1]-pts[2]-pts[3]-pts[0]
+     *   face 1: pts[4]-pts[5]-pts[6]-pts[7]-pts[4]
+     *   laterals: pts[0]-pts[4], pts[1]-pts[5], pts[2]-pts[6], pts[3]-pts[7]
+     */
+    /* Face 0 */
+    BSG_ADD_VLIST(vlists, hd, pts[0], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, pts[1], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[2], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[3], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[0], BSG_VLIST_LINE_DRAW);
+    /* Face 1 */
+    BSG_ADD_VLIST(vlists, hd, pts[4], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, pts[5], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[6], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[7], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[4], BSG_VLIST_LINE_DRAW);
+    /* Lateral edges */
+    BSG_ADD_VLIST(vlists, hd, pts[0], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, pts[4], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[1], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, pts[5], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[2], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, pts[6], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, pts[3], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, pts[7], BSG_VLIST_LINE_DRAW);
+}
+
+void
 bsg_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp)
 {
     size_t i;

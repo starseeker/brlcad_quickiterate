@@ -71,11 +71,12 @@
  * are MAIN THREAD ONLY.  Every public method must be called exclusively
  * from the application main thread unless explicitly marked otherwise.
  *
- * Background geometry loading (L1) is now implemented via GeomLoader.
- * The background thread is limited to read-only librt operations using
- * its own per-thread struct resource.  All writes back to DbiState maps
- * (bboxes, etc.) happen on the main thread inside drain_geom_results(),
- * which must be called from the main thread.
+ * Background geometry loading (L1) is now implemented via DrawPipeline,
+ * which wraps the 5-stage concurrent pipeline in dbip->i->draw_pipeline
+ * (attr→AABB→OBB→LoD→write).  Background threads use per-thread struct
+ * resource instances and never touch DbiState STL containers.  All writes
+ * back to DbiState maps (bboxes, obbs, etc.) happen on the main thread
+ * inside drain_geom_results(), which must be called from the main thread.
  *
  * The threading contract is therefore:
  *   - Background thread: calls rt_bound_internal() with its own resource.
@@ -148,7 +149,7 @@ class GED_EXPORT DbiState;
 class GED_EXPORT BViewState;
 class GED_EXPORT GObj;
 class GED_EXPORT CombInst;
-class GED_EXPORT GeomLoader;
+class GED_EXPORT DrawPipeline;
 
 // SelectionSet tracks which database paths are currently selected and
 // maintains hierarchical relationships (active subpaths, parent paths,
@@ -410,6 +411,16 @@ class GED_EXPORT BViewState {
 	bool is_linked() const { return linked_to_ != nullptr; }
 	BViewState *linked_primary() const { return linked_to_; }
 
+	// Called by DbiState::drain_geom_results() when a background LoD
+	// generation completes for a BoT primitive.  For every shape in s_map
+	// whose dp matches, this clears the per-view shape objects (which may
+	// only hold a temporary bounding-box wireframe) and marks the shape
+	// stale so that the next redraw() call regenerates proper LoD geometry.
+	// The views set must include all bsg_view * instances for which view
+	// objects should be cleared.
+	void stale_mesh_shapes_for_dp(struct directory *dp,
+				      const std::unordered_set<struct bview *> &views);
+
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
 	// s_keys holds the ordered individual keys of each drawn solid path - it
@@ -547,62 +558,59 @@ public:
 struct bu_cache;
 struct resource;
 
-// GeomLoader — background thread that pre-computes bounding boxes for
-// geometry objects so they are available quickly after a .g file is opened.
+// DrawPipeline — wraps the 5-stage concurrent drawing-data pipeline in
+// dbip->i->draw_pipeline (managed by cache_drawing.cpp).  DbiState uses this
+// class to push new objects for background processing and drain completed
+// DrawResult notifications on the main thread.
 //
-// The worker thread calls rt_bound_internal() with its own per-thread
-// struct resource.  Results are posted to an internal result queue.  The
-// main thread integrates results by calling DbiState::drain_geom_results().
+// The pipeline itself is owned by the db_i (started in db_open, stopped in
+// db_close), so DrawPipeline is just a view into that state — no ownership.
 //
-// Thread safety: push() and drain() are the only two public methods; they
-// are protected by a mutex and safe to call from different threads.
-// All other methods are called internally by the worker thread.
-class GED_EXPORT GeomLoader {
+// For backward compatibility the WorkItem / Result types are kept similar to
+// the old GeomLoader API.
+class GED_EXPORT DrawPipeline {
 public:
-    // A result posted by the background thread for each successfully
-    // computed bounding box.
+    // A result posted to drain_geom_results() for each completed stage.
     struct Result {
+        enum Type { AABB, OBB, LOD } type = AABB;
         unsigned long long hash = 0;
         point_t bmin;
         point_t bmax;
+        // OBB: 8 corner points produced by bg_3d_obb
+        bool    obb_valid = false;
+        point_t obb_pts[8];
+        // LOD fields
+        bool               has_lod = false;
+        unsigned long long lod_key = 0;
+        std::string        dp_name;
     };
 
-    // An item on the work queue.  The main thread resolves the directory
-    // pointer before pushing so the background thread never needs to access
-    // DbiState's STL containers.
     struct WorkItem {
         unsigned long long hash = 0;
         struct directory  *dp   = nullptr;
+        bool               needs_lod = false;  // unused; pipeline always tries
     };
 
-    explicit GeomLoader(DbiState *dbis);
-    ~GeomLoader();  // signals stop and joins the worker thread
+    explicit DrawPipeline(DbiState *dbis);
+    ~DrawPipeline() = default;
 
-    // Push a set of (hash, dp) pairs onto the work queue (main thread).
-    // Pairs where dp is null, d_flags has RT_DIR_COMB or RT_DIR_HIDDEN set
-    // are silently dropped.
+    // Queue objects for background processing.  Objects that are already
+    // being processed (or have complete cached data) are skipped by the
+    // pipeline workers automatically.
     void push(const std::vector<WorkItem> &items);
 
-    // Drain all available results (non-blocking, main thread only).
-    // Appends to out and returns the number of results added.
+    // Drain all pending DrawResult notifications.  Non-blocking; returns 0
+    // immediately when there are no new results.  MAIN THREAD ONLY.
     size_t drain(std::vector<Result> &out);
 
+    // Returns true when all pipeline queues are empty.
+    bool settled() const;
+
+    // Notify the pipeline that a LoD context is now available.
+    void set_lod_ctx(bsg_mesh_lod_context *lod_ctx);
+
 private:
-    void worker();  // thread entry point
-
     DbiState *dbis_;
-
-    // Work queue
-    std::mutex         work_mu_;
-    std::condition_variable work_cv_;
-    std::deque<WorkItem> work_q_;
-    bool               stopping_ = false;
-
-    // Result queue (worker → main thread)
-    std::mutex         result_mu_;
-    std::deque<Result> result_q_;
-
-    std::thread        thread_;
 };
 
 // DbiState is the in-memory mirror of a BRL-CAD .g database.  It drives all
@@ -612,14 +620,14 @@ private:
 // pointers into librt data structures, and STL containers that are not
 // guarded by any mutex.  All public methods must be called from the
 // application main thread unless explicitly stated otherwise (e.g.
-// drain_geom_results() is main-thread-only; the background thread in
-// GeomLoader uses only read-only librt operations via its own resource).
+// drain_geom_results() is main-thread-only; the background pipeline in
+// DrawPipeline uses only read-only librt operations via per-thread resources).
 class GED_EXPORT DbiState {
     public:
 	DbiState(struct ged *);
 	~DbiState();
 
-	// Close the current database: stops the GeomLoader thread (joining it
+	// Close the current database: stops the DrawPipeline (draining it
 	// while dbip is still valid), clears all per-database maps, GObj
 	// instances, and BViewState scene-object geometry, and closes the disk
 	// cache.  After this call dbip is nullptr; DbiState remains valid and
@@ -705,6 +713,12 @@ class GED_EXPORT DbiState {
 	// once per load and/or dimensional change.
 	std::unordered_map<unsigned long long, std::vector<fastf_t>> bboxes;
 
+	// Oriented bounding boxes (OBBs) as 8 corner points (24 fastf_t values)
+	// for primitives that have ft_oriented_bbox.  Populated by the OBB stage
+	// of DrawPipeline via drain_geom_results().  These are tighter than AABB
+	// and can be used for better view frustum culling and placeholder rendering.
+	std::unordered_map<unsigned long long, std::array<fastf_t, 24>> obbs;
+
 
 	// We also have a number of standard attributes that can impact drawing,
 	// which are normally only accessible by loading in the attributes of
@@ -778,12 +792,12 @@ class GED_EXPORT DbiState {
 	// MAIN THREAD ONLY.
 	//
 	// drain_geom_results() drains all available results from the background
-	// loader, integrates bounding boxes into the bboxes map and dcache,
+	// pipeline, integrates bounding boxes into the bboxes map and dcache,
 	// then fires a batched ISceneObserver notification if any results were
 	// processed.  Returns the number of results drained.  MAIN THREAD ONLY.
 	// Callers (e.g., a periodic Qt timer) should call this and trigger a
 	// view repaint when the return value is non-zero.
-	void   start_geom_load(const std::vector<GeomLoader::WorkItem> &items);
+	void   start_geom_load(const std::vector<DrawPipeline::WorkItem> &items);
 	size_t drain_geom_results();
 
     private:
@@ -815,18 +829,17 @@ class GED_EXPORT DbiState {
 	std::unique_ptr<SelectionSet> default_selection_set_;
 	std::unordered_map<std::string, std::unique_ptr<SelectionSet>> selection_sets_;
 
-	// Background geometry loader — owns the worker thread and queues.
-	// Created in DbiState constructor; destroyed (joining the thread) in
-	// destructor.
-	std::unique_ptr<GeomLoader> geom_loader_;
+	// Background drawing-data pipeline — thin wrapper around the
+	// db_i-owned DrawPipelineState (started in db_cache_start).
+	std::unique_ptr<DrawPipeline> draw_pipeline_;
 
 	// GObj and CombInst need access to private DbiState internals (res, dcache)
 	friend class GObj;
 	friend class CombInst;
 	// BViewState needs access to res for per-object draw update data
 	friend class BViewState;
-	// GeomLoader accesses dbip and d_map for read-only bbox computation
-	friend class GeomLoader;
+	// DrawPipeline accesses dbip for db_cache_* calls
+	friend class DrawPipeline;
 };
 
 
