@@ -1452,6 +1452,29 @@ std::shared_ptr<Section> Parser::parse_section(
             auto sub = parse_section(reader, *sect, next_line, sub_attrs);
             if (sub) { sect->append(sub); }
         } else {
+            // Before calling parse_next_block, look ahead past any block-attribute /
+            // anchor / blank lines to find the next meaningful content line.  If that
+            // line turns out to be a section heading at the same or higher level
+            // (smaller or equal level number), stop consuming here so the parent
+            // section (or the document-level loop) can handle the whole group
+            // (attribute + heading) together.  Without this check a block anchor
+            // like "[[description]]" that immediately precedes a peer section would
+            // cause parse_next_block to consume the anchor *and* then recursively
+            // call parse_section with the wrong parent, incorrectly nesting the peer
+            // section as a child.
+            {
+                bool peer_ahead = false;
+                auto ahead = reader.peek_lines(64);
+                for (std::string_view sv : ahead) {
+                    std::string ln{sv};
+                    if (is_blank(ln)) { continue; }
+                    if (is_block_attribute_line(ln) || is_block_title_line(ln)) { continue; }
+                    int ahead_lv = section_level(ln);
+                    if (ahead_lv >= 0 && ahead_lv <= level) { peer_ahead = true; }
+                    break;
+                }
+                if (peer_ahead) { break; }
+            }
             parse_next_block(reader, *sect);
         }
     }
