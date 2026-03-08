@@ -10,14 +10,14 @@ dump - Copies the entire database to the keep_file.
 
 [source]
 ----
-dump {<keep_file>}
+dump {keep_file}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Copies the entire dababase to the _keep_file_. The _keep_file_ is a _BRL-CAD_ database file and will be located in the current working direction (use the *pwd* command to show the current working directory). Note the new file might have a smaller filesize than the current file as dumping the file has the same effect that the *garbage_collect* command has. See also the *keep* command.
+Copies the entire dababase to the __keep_file__. The __keep_file__ is a _BRL-CAD_  database file and will be located in the current working direction (use the *pwd* command to show the current working directory). Note the new file might have a smaller filesize than the current file as dumping the file has the same effect that the *garbage_collect* command has. See also the *keep* command.
 
 
 [[examples]]
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

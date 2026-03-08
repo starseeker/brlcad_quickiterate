@@ -27,6 +27,8 @@ List currently running sub-processes (typically these will be some form of async
 [example]
 ====
 mged>*ps*
+
+
 ....
 
     PID CMD
@@ -50,5 +52,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

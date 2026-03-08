@@ -10,7 +10,7 @@ showmats - Lists the transformation matrices encountered along the specified pat
 
 [source]
 ----
-showmats [<-a>] {<path>}
+showmats [-a] {path}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

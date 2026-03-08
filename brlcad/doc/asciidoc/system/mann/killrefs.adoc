@@ -10,7 +10,7 @@ killrefs - Removes all references to the specified objects from all combinations
 
 [source]
 ----
-killrefs [-n] {<objects>}
+killrefs [-n] {objects}
 ----
 
 
@@ -55,7 +55,7 @@ Lists all references to _group1_ in the database.
 [[see_also]]
 == SEE ALSO
 
-*kill*(nged)*killtree*(nged)
+*kill*(nged) *killtree*(nged)
 
 
 [[author]]
@@ -68,5 +68,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

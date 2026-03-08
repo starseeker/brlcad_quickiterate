@@ -10,7 +10,7 @@ bolt - Creates a BRL-CAD .g file containing bolts.
 
 [source]
 ----
-bolt [<options>]...
+bolt [options]...
 ----
 
 
@@ -28,7 +28,7 @@ bolt [<options>]...
 Type of bolt to be created: 1=>bolt head; 2=>bolt head and washer; 3=>bolt head, washer, and bolt stem; and 4=>bolt head and bolt stem.
 
 
-*-f*_name.g_::
+*-f* _name.g_::
 BRL-CAD file name.
 
 
@@ -68,6 +68,8 @@ Height of bolt stem in millimeters.
 .Interactive bolt Session
 [example]
 ====
+
+
 
 ....
 
@@ -130,5 +132,3 @@ handle(1), window(1), window_frame(1), gastank(1)
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

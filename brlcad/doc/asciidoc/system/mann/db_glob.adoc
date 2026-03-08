@@ -10,14 +10,14 @@ db_glob - Globs cmd_string against the MGED database resulting in an expanded co
 
 [source]
 ----
-db_glob {<cmd_string>}
+db_glob {cmd_string}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Globs _cmd_string_ against the MGED database resulting in an expanded command string.
+Globs __cmd_string__ against the MGED database resulting in an expanded command string.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

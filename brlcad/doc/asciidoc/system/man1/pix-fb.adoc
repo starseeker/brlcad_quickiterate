@@ -10,7 +10,7 @@ pix-fb - display a pix format RGB image file on a framebuffer
 
 [source]
 ----
-pix-fb [-aicz1] [-F<framebuffer>] [-m<#lines>] [-s<squarefilesize>] [-w<file_width>] [-n<file_height>] [-S<squarescrsize>] [-W<scr_width>] [-N<scr_height>] [-x<file_xoff>] [-y<file_yoff>] [-X<scr_xoff>] [-Y<scr_yoff>] [-p<seconds>] [<file.pix>]
+pix-fb [-aicz1] [-Fframebuffer] [-m#lines] [-ssquarefilesize] [-wfile_width] [-nfile_height] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height] [-xfile_xoff] [-yfile_yoff] [-Xscr_xoff] [-Yscr_yoff] [-pseconds] [file.pix]
 ----
 
 
@@ -27,11 +27,11 @@ The *-c* flag causes the screen to be cleared before the image is displayed. The
 
 The *-z* flag will zoom and center on the image being displayed to make it fill the display area, using the libfb fb_zoom() routine. fb_zoom only offers integer zoom factors, so displays with non-square screens (such as the SGI 3D machines) may find this option of limited usefulness.
 
-The *-w*_file_width_ flag specifies the width of each scanline in the input file, in pixels. The *-n*_file_height_ flag specifies the height in scanlines of the input file. Both are set to to the same value via *-s*_squarefilesize_. (*-W*_scr_width_, *-N*_scr_height_, and *-S*_squarescrsize_ perform these roles for the display device; if none of these three options are used, the display device uses the dimensions of the input file.)
+The *-w* _file_width_ flag specifies the width of each scanline in the input file, in pixels. The *-n* _file_height_ flag specifies the height in scanlines of the input file. Both are set to to the same value via *-s* _squarefilesize_. (*-W* _scr_width_, *-N* _scr_height_, and *-S* _squarescrsize_ perform these roles for the display device; if none of these three options are used, the display device uses the dimensions of the input file.)
 
-*-x*_file_xoff_*-y*_file_yoff_ and *-X*_scr_xoff_*-Y*_scr_yoff_ will offset into the file or onto the screen by the given amounts. The coordinate system for these offsets is first quadrant, with the origin at the lower left corner of the image.
+*-x* _file_xoff_ *-y* _file_yoff_ and *-X* _scr_xoff_ *-Y* _scr_yoff_ will offset into the file or onto the screen by the given amounts. The coordinate system for these offsets is first quadrant, with the origin at the lower left corner of the image.
 
-The *-1* flag causes the image to be written to the framebuffer one line at a time, using the *fb_write*(3) routine. This is the default behavior. The *-m*_#lines_ flag can be used to specify the number of lines to be written to the framebuffer in rectangular blocks of scanlines, using the *fb_writerect*(3) routine. In some circumstances, this can result in significantly faster image display, at the expense of the image being written less smoothly. If both *-m* and *-1* are specified, *-1* wins.
+The *-1* flag causes the image to be written to the framebuffer one line at a time, using the *fb_write*(3) routine. This is the default behavior. The *-m* _#lines_ flag can be used to specify the number of lines to be written to the framebuffer in rectangular blocks of scanlines, using the *fb_writerect*(3) routine. In some circumstances, this can result in significantly faster image display, at the expense of the image being written less smoothly. If both *-m* and *-1* are specified, *-1* wins.
 
 The *-p* flag specifies the (integer) number of _seconds_ to pause before the frame-buffer is closed.
 
@@ -39,7 +39,7 @@ The *-p* flag specifies the (integer) number of _seconds_ to pause before the fr
 [[format]]
 == FORMAT
 
-A *pix*(5) file contains sequences of pixels. Each pixel is stored as three _unsigned char_s, first red, then green, then blue. The first pixel in a _pix_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image. By convention, _pix_ images are usually square.
+A *pix*(5) file contains sequences of pixels. Each pixel is stored as three *unsigned char* s, first red, then green, then blue. The first pixel in a _pix_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image. By convention, _pix_ images are usually square.
 
 
 [[see_also]]
@@ -70,5 +70,3 @@ This software is Copyright (c) 1986-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

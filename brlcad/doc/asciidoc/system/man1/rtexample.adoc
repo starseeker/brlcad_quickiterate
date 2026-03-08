@@ -10,7 +10,7 @@ rtexample - shoots a single ray at objects in a geometry database
 
 [source]
 ----
-rtexample <model.g> <objects>...
+rtexample model.g objects...
 ----
 
 
@@ -41,7 +41,7 @@ rtexample <model.g> <objects>...
 [[examples]]
 == EXAMPLE
 
-*rtexample*_car.g_ wheel door
+*rtexample* _car.g_ wheel door
 
 Here, a single ray will be shot at the geometry database _car.g_ and hit reports generated if the ray hits the specified objects.
 
@@ -68,5 +68,3 @@ This software is Copyright (c) 2004-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

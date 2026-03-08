@@ -10,7 +10,7 @@ echo - Echos whatever text is provided as an argument on the command line. This 
 
 [source]
 ----
-echo {<text>} []
+echo {text} []
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

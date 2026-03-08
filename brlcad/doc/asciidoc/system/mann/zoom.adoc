@@ -10,14 +10,14 @@ zoom - Changes the size of the viewing cube for the MGED display, resulting in a
 
 [source]
 ----
-zoom {<scale_factor>}
+zoom {scale_factor}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Changes the size of the viewing cube for the MGED display, resulting in a zoom in or zoom out effect. A _scale_factor_ greater than one reduces the size of the viewing cube (zoom in). A _scale_factor_ of less than one increases the size of the viewing cube (zoom out).
+Changes the size of the viewing cube for the MGED display, resulting in a zoom in or zoom out effect. A __scale_factor__ greater than one reduces the size of the viewing cube (zoom in). A __scale_factor__ of less than one increases the size of the viewing cube (zoom out).
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

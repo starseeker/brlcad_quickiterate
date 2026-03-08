@@ -10,7 +10,7 @@ cd - Changes the directory to the given path.
 
 [source]
 ----
-cd {<path>}
+cd {path}
 ----
 
 
@@ -73,5 +73,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

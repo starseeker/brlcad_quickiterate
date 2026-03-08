@@ -10,7 +10,7 @@ g-iges - IGES Translator (BRL-CAD to IGES)
 
 [source]
 ----
-g-iges [ -f| <t>| <m>] [-v] [-s] [-x<flag1>] [-X<flag2>] [-a<abs_tol>] [-r<rel_tol>] [-n<norm_tol>] [-o<output_file_or_directory>] <database.g> <object(s)>
+g-iges [ -f| t| m] [-v] [-s] [-xflag1] [-Xflag2] [-aabs_tol] [-rrel_tol] [-nnorm_tol] [-ooutput_file_or_directory] database.g object(s)
 ----
 
 
@@ -26,15 +26,15 @@ The following options are recognized
 selects a BREP IGES file consisting of only Manifold Solid BREP Objects. All CSG solids in the specified objects are tessellated to produce facetted BREP objects, then the indicated Boolean operations are performed for each region. Individual regions are written to the IGES file as individual BREP objects. This procedure results in some approximations since curved surface solids, such as TGCs or ellipsoids, are approximated by flat facets. The accuracy of the tessellation may be controlled through the use of the *-a, -r, -n* options.
 
 
-*-a*_abs_tol_::
+*-a* __abs_tol__::
 Sets the absolute tolerance (floating point value) for tessellation.
 
 
-*-r*_rel_tol_::
+*-r* __rel_tol__::
 Sets the relative (to the size of the object) tolerance (floating point value) for tessellation.
 
 
-*-n*_norm_tol_::
+*-n* __norm_tol__::
 Sets the normal tolerance (floating point value 0..1) for tessellation. This value is compared to the dot product of the normals to determine if the surfaces are within tolerance
 
 
@@ -54,19 +54,19 @@ requests debugging information
 all facets in BREP objects should be output in the form of planar NURBs (Intergraph likes their IGES files this way).
 
 
-*-x*_flag1_::
+*-x* _flag1_::
 set the librt debug flag (see raytrace.h for values)
 
 
-*-X*_flag2_::
+*-X* _flag2_::
 set the librt debug flag (see nmg.h for values)
 
 
-*-o*_output_file_or_directory_::
+*-o* __output_file_or_directory__::
 Specifies the output file (or in the case of the -m) the output directory for the iges file(s).
 
 
-*-P*_num_cpus_::
+*-P* __num_cpus__::
 Specifies the number of processors to use.
 
 
@@ -85,7 +85,7 @@ This command will produce an IGES BREP output file, _sample.iges_, from _object1
 [[see_also]]
 == SEE ALSO
 
-*iges-g*(1)_The Initial Graphics Exchange Specification (IGES) Version 5.1_, IGES/PDES Organization, September 1991
+*iges-g*(1) _The Initial Graphics Exchange Specification (IGES) Version 5.1_, IGES/PDES Organization, September 1991
 
 
 [[diagnostics]]
@@ -110,5 +110,3 @@ This software is Copyright (c) 1993-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

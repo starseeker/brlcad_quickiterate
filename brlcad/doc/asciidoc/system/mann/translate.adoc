@@ -10,7 +10,7 @@ translate - Used to precisely control the translation of an object in both primi
 
 [source]
 ----
-translate {<x y z>}
+translate {x y z}
 ----
 
 
@@ -43,5 +43,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

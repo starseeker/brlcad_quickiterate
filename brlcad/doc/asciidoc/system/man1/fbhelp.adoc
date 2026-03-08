@@ -10,16 +10,16 @@ fbhelp - provide information on frame buffer selections
 
 [source]
 ----
-fbhelp [-F<framebuffer>]
+fbhelp [-Fframebuffer]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*fbhelp* displays information about the selection of frame buffer devices available to the *libfb*(3) frame buffer library and the whole family of _fb_ programs in the BRL-CAD package, for the machine *fbhelp* is run on.
+*fbhelp* displays information about the selection of frame buffer devices available to the *libfb*(3) frame buffer library and the whole family of *fb* programs in the BRL-CAD package, for the machine *fbhelp* is run on.
 
-The display device used by a program is taken first from the *-F*_framebuffer_ option if given, else from the environment variable _FB_FILE_, or finally from whatever the default display is for that system. *fbhelp* will tell you what the available choices of frame buffers are, as well as detailed information about any options the currently selected device may have.
+The display device used by a program is taken first from the *-F* _framebuffer_ option if given, else from the environment variable __FB_FILE__, or finally from whatever the default display is for that system. *fbhelp* will tell you what the available choices of frame buffers are, as well as detailed information about any options the currently selected device may have.
 
 
 [[see_also]]
@@ -44,5 +44,3 @@ This software is Copyright (c) 1988-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

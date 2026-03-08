@@ -10,14 +10,14 @@ bwstat - list statistics related to a black and white bw image.
 
 [source]
 ----
-bwstat [-v] [<file.bw>]
+bwstat [-v] [file.bw]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*bwstat* will take the given *bw*(5) format file, or read from standard in. A collection of statistics related to the pixel intensities is produced.  These include:  The number of pixels (and the square root of this, yielding the file dimension if it's square);  the max and min values;  the mean;  the median (dividing line where half the pixels are above this value, half below);  the mode (most frequently occurring value) and the number of pixels at this value;  the variance, standard deviation, and skew.
+*bwstat* will take the given *bw*(5) format file, or read from standard in. A collection of statistics related to the pixel intensities is produced. These include: The number of pixels (and the square root of this, yielding the file dimension if it's square); the max and min values; the mean; the median (dividing line where half the pixels are above this value, half below); the mode (most frequently occurring value) and the number of pixels at this value; the variance, standard deviation, and skew.
 
 The *-v* flag will also dump a histogram of the pixel values.
 
@@ -50,5 +50,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

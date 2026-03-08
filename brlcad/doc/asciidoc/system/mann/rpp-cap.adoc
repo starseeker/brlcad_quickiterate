@@ -10,7 +10,7 @@ rpp-cap - Creates an ARB6 with the specified height at a particular face of the 
 
 [source]
 ----
-rpp-cap {<rppname newname face height>} [0] [1]
+rpp-cap {rppname newname face height} [0] [1]
 ----
 
 
@@ -54,5 +54,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

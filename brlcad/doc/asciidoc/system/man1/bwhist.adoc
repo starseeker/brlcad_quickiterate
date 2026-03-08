@@ -10,7 +10,7 @@ bwhist - display a histogram of a black and white bw file on a framebuffer
 
 [source]
 ----
-bwhist [-v] [<file.bw>]
+bwhist [-v] [file.bw]
 ----
 
 
@@ -19,7 +19,7 @@ bwhist [-v] [<file.bw>]
 
 *bwhist* displays a histogram of the pixel values in a *bw*(5) format file. If a file is not given, standard input is read. The output will be displayed on the frambuffer selected via the `FB_FILE` environment variable (see *libfb*(3)).
 
-The relative frequency is displayed on the x axis scaled so that the maximum is full screen. The value 0 is at the bottom of the screen, 255 is at the top.  The output is overlaid on whatever is currently on the display.
+The relative frequency is displayed on the x axis scaled so that the maximum is full screen. The value 0 is at the bottom of the screen, 255 is at the top.The output is overlaid on whatever is currently on the display.
 
 The *-v* flag will output the histogram values on the terminal.
 
@@ -52,5 +52,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

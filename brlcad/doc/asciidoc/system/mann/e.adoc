@@ -10,7 +10,7 @@ e - Adds the objects in the argument list to the display list so that they will 
 
 [source]
 ----
-e [-A<attribute name/value pairs>] [-s] [-A -o<attribute name/value pairs>] [-C#/#/#] [<-m1>] {<objects>}
+e [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-m1] {objects}
 ----
 
 
@@ -39,7 +39,7 @@ Draws _object1_ and _object2_ in the MGED display.
 .Limit the objects to be drawn to those having specific attribute names and value pairs.
 [example]
 ====
-mged>*e -A -o Comment {First comment} Comment {Second comment}*
+mged>*e -A -o Comment {First comment} Comment {Second comment}* 
 
 Draws objects that have a "Comment" attribute with a value of either "First comment" or "Second comment."
 
@@ -56,5 +56,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

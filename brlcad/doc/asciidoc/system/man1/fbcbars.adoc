@@ -10,7 +10,7 @@ fbcbars - display standard color bars on a framebuffer
 
 [source]
 ----
-fbcbars [-e] [-f] [-s] [-F<framebuffer>] [-S<squarescrsize>] [-W<scr_width>] [-N<scr_height>]
+fbcbars [-e] [-f] [-s] [-Fframebuffer] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height]
 ----
 
 
@@ -29,11 +29,11 @@ The environment variable FB_FILE specifies the current framebuffer; see *brlcad*
 
 Ordinarily, the requested framebuffer size is the device default.
 
-The *-W*_scr_width_ option specifies the width of each output scanline, in pixels.
+The *-W* _scr_width_ option specifies the width of each output scanline, in pixels.
 
-The *-N*_scr_height_ option specifies the desired height in scanlines of the display device.
+The *-N* _scr_height_ option specifies the desired height in scanlines of the display device.
 
-*-S*_squarescrsize_ sets both the height and width to the size given.
+*-S* _squarescrsize_ sets both the height and width to the size given.
 
 
 [[inspirations]]
@@ -47,7 +47,7 @@ Doris Kochanek, National Film Board of Canada
 [[author]]
 == AUTHOR
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -60,5 +60,3 @@ This software is Copyright (c) 1988-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

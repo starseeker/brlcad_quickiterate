@@ -10,7 +10,7 @@ asc-plot3 - produce Plot3 instructions from ASCII representation
 
 [source]
 ----
-asc-plot3 [ <file.asc> [<unix_plot>]]
+asc-plot3 [ file.asc [unix_plot]]
 ----
 
 
@@ -52,5 +52,3 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ g-egg - Panda3D Translator (BRL-CAD to EGG)
 
 [source]
 ----
-g-egg [-v89] [-xX<lvl>] [-a<abs_tol>] [-r<rel_tol>] [-n<norm_tol>] [-D<calculation_tolerance>] [-o<EGG_file>] [-P<number_of_CPUs>] <database.g> <object(s)>
+g-egg [-v89] [-xXlvl] [-aabs_tol] [-rrel_tol] [-nnorm_tol] [-Dcalculation_tolerance] [-oEGG_file] [-Pnumber_of_CPUs] database.g object(s)
 ----
 
 
@@ -52,5 +52,3 @@ This software is Copyright (c) 2009-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ pixcolors - Count/list color values used in a PIX(5) format image
 
 [source]
 ----
-pixcolors [-v] < <pixfile>
+pixcolors [-v] < pixfile
 ----
 
 
@@ -46,5 +46,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

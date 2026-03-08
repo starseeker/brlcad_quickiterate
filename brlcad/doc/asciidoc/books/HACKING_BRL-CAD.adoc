@@ -1,6 +1,8 @@
 = HACKING BRL-CAD
 Sean Morrison; Eric Edwards; Harmanpreet Singh; Check Nyah; Issac Kamga; Clifford Yapp; Scott Nesbitt
 :doctype: book
+:toc:
+:toclevels: 3
 
 == Getting Started
 
@@ -34,7 +36,9 @@ Development of BRL-CAD as a unified software package began in 1983, and its firs
 
 Today, the package's source code repository is credited as being the world's oldest, continuously developed open source repository. As a project, pride is taken in preserving all history and contributions.
 
-The ongoing vision for BRL-CAD development is to provide a robust, powerful, flexible, and comprehensive solid modeling system that includes: 
+The ongoing vision for BRL-CAD development is to provide a robust, powerful, flexible, and comprehensive solid modeling system that includes:
+
+
 * Faithful high-performance geometric representation.
 * Efficient and intuitive geometry editing.
 * Comprehensive conversion support for all solid geometry formats.
@@ -45,7 +49,9 @@ The ongoing vision for BRL-CAD development is to provide a robust, powerful, fle
 
 ==== Key Strengths
 
-All CAD packages are not alike. Among the many strengths of the BRL-CAD package are the following: 
+All CAD packages are not alike. Among the many strengths of the BRL-CAD package are the following:
+
+
 * BRL-CAD is _open source!_ Don't like something? You can make it better.
 * You can leverage _decades of invested development_. BRL-CAD is the most feature-filled open source CAD system available, with hundreds of years time invested.
 * _Your work will get used_. BRL-CAD is in production use and downloaded thousands of times every month by people all around the world.
@@ -60,7 +66,9 @@ All CAD packages are not alike. Among the many strengths of the BRL-CAD package 
 
 ==== Want to Be a Contributor?
 
-With BRL-CAD being a part of the open source community since 2004, contributors from all over the world are able to enhance the features and functions of the package in many different ways. In return, these contributors have had a unique opportunity to: 
+With BRL-CAD being a part of the open source community since 2004, contributors from all over the world are able to enhance the features and functions of the package in many different ways. In return, these contributors have had a unique opportunity to:
+
+
 * Join a team of passionate and talented contributors who share the common values of open source development. Open source emphasizes free redistribution; openly available source code; full, open participation; and nondiscrimination against individuals, groups, technologies, or fields of interest. (To learn more, see http://opensource.org.)
 * Drive needed improvements in the open source software community's support for solid modeling and CAD software capabilities.
 * Experiment with new and state-of-the-art algorithms and ideas within the context of a fully open CAD system that is in production use and has an established user community.
@@ -70,30 +78,28 @@ With BRL-CAD being a part of the open source community since 2004, contributors 
 
 
 
-If you would like to be a BRL-CAD contributor, the primary areas currently identified for future development and enhancement include the following: 
-* _Improved graphical user interface and usability_ to accommodate increasingly varied user needs and participation levels. This includes improving the look-and-feel and features of: 
+If you would like to be a BRL-CAD contributor, the primary areas currently identified for future development and enhancement include the following:
+
+
+* _Improved graphical user interface and usability_ to accommodate increasingly varied user needs and participation levels. This includes improving the look-and-feel and features of:
 ** the primary editing graphical interface (MGED)
 ** the geometric visualization and interaction management system (libdm).
 
-
-* _Improved hybrid boundary representation geometry support_ to support all 3D CAD models regardless of whether they use implicit or explicit geometric representation. Geometry formats we are particularly focusing on include: 
+* _Improved hybrid boundary representation geometry support_ to support all 3D CAD models regardless of whether they use implicit or explicit geometric representation. Geometry formats we are particularly focusing on include:
 ** volumetric models (VOL)
 ** spline-surface (for example, NURBS) and polygonal (for example, triangle mesh) boundary representations (BREP)
 ** implicit primitives.
 
-
-* _Improved geometry services and functionality,_ including the ability to provide: multiuser access controls 
+* _Improved geometry services and functionality,_ including the ability to provide: multiuser access controls
 ** comprehensive revision history
 ** collaborative enhanced multiuser modeling
 ** more flexible application development.
 
-
 * In addition, BRL-CAD's existing geometry kernel functions are continuously being refactored. Help turn them into a comprehensive, scriptable command framework, create an object-oriented geometry kernel application programming interface (API), or build a lightweight network daemon protocol for language agnostic client application development.
-* _Improved open source awareness and increased development participation_ via: 
+* _Improved open source awareness and increased development participation_ via:
 ** establishing strong open source community ties
 ** improving software documentation
 ** openly welcoming new contributors and users.
-
 
 
 
@@ -222,19 +228,11 @@ The BRL-CAD Benchmark provides a practical metric of real-world performance. Cor
 
 BRL-CAD consists of more than 1 million lines of source code spanning more than 20 foundation libraries and 400 application modules.
 
-The majority of BRL-CAD is written in highly portable C and C++, with some GUI and scripting components written in Tcl/Tkfootnote:[http://www.tcl.tk/
-
-]. There is also some support for, and bindings to, other languages available. POSIXfootnote:[http://en.wikipedia.org/wiki/POSIX
-
-] shell scripts are used for deployment integration testing. BRL-CAD uses the CMakefootnote:[http://www.cmake.org/
-
-] build system for compilation and unit testing.
+The majority of BRL-CAD is written in highly portable C and C++, with some GUI and scripting components written in Tcl/Tkfootnote:[http://www.tcl.tk/]. There is also some support for, and bindings to, other languages available. POSIXfootnote:[http://en.wikipedia.org/wiki/POSIX] shell scripts are used for deployment integration testing. BRL-CAD uses the CMakefootnote:[http://www.cmake.org/] build system for compilation and unit testing.
 
 ==== The Big Picture
 
-The source code and most project data are stored in a Gitfootnote:[http://git-scm.com/
-
-] version control system for change tracking and collaborative development. Primary development in the "main" branch is generally stable, but cross-platform compilation is not guaranteed. A separate branch (named STABLE) provides a higher level of quality assurance. Every released version of BRL-CAD is tested and tagged.
+The source code and most project data are stored in a Gitfootnote:[http://git-scm.com/] version control system for change tracking and collaborative development. Primary development in the "main" branch is generally stable, but cross-platform compilation is not guaranteed. A separate branch (named STABLE) provides a higher level of quality assurance. Every released version of BRL-CAD is tested and tagged.
 
 The project aims for an _It Just Works_ approach to compilation whereby a functional build of BRL-CAD is possible without needing to install more than a compiler, CMake, and a build environment--for example, GNU Make or Microsoft Visual Studio. BRL-CAD provides all of the necessary third-party dependencies for download and compilation convenience within source distributions but by default will build using system versions of those dependencies if available.
 
@@ -244,22 +242,16 @@ You can generally focus in on the enhancement or change that interests you witho
 
 ===== History of the Code
 
-As mentioned previously, the initial architecture and design of BRL-CAD began in 1979. Development as a unified package began in 1983. The first public release was in 1984. And on December 21, 2004, BRL-CAD became an open source projectfootnote:[http://developers.slashdot.org/story/05/01/08/1823248/us-army-research-lab-opens-brl-cad-source
+As mentioned previously, the initial architecture and design of BRL-CAD began in 1979. Development as a unified package began in 1983. The first public release was in 1984. And on December 21, 2004, BRL-CAD became an open source projectfootnote:[http://developers.slashdot.org/story/05/01/08/1823248/us-army-research-lab-opens-brl-cad-source].
 
-].
-
-BRL-CAD is a mature code base that has remained active over decades due to continual attention on design and maintainability. Since the project's inception, more than 200 people have directly contributed to BRL-CAD. The project has historically received support from numerous organizations within academia, commercial industry, various government agencies, and from various independent contributors. We credit all contributors in BRL-CAD's authorship documentationfootnote:[See the AUTHORS file in a source distribution.
-
-].
+BRL-CAD is a mature code base that has remained active over decades due to continual attention on design and maintainability. Since the project's inception, more than 200 people have directly contributed to BRL-CAD. The project has historically received support from numerous organizations within academia, commercial industry, various government agencies, and from various independent contributors. We credit all contributors in BRL-CAD's authorship documentationfootnote:[See the AUTHORS file in a source distribution.].
 
 The following diagram illustrates how the number of lines of code in BRL-CAD has changed over time:
 
 
 ===== System Architecture
 
-BRL-CAD is designed based on a UNIXfootnote:[http://en.wikipedia.org/wiki/UNIX
-
-] methodology of the command-line services, providing many tools that work in harmony to complete a specific task. These tools include geometry and image converters, signal and image processing tools, various raytrace applications, geometry manipulators, and much more.
+BRL-CAD is designed based on a UNIXfootnote:[http://en.wikipedia.org/wiki/UNIX] methodology of the command-line services, providing many tools that work in harmony to complete a specific task. These tools include geometry and image converters, signal and image processing tools, various raytrace applications, geometry manipulators, and much more.
 
 To support what has grown into a relatively large software system, BRL-CAD takes advantage of a variety of support libraries that encapsulate and simplify application development. At the heart of BRL-CAD is a multi-representation ray tracing library named LIBRT. BRL-CAD specifies its own file format (files with the extension .g or .asc) for storing information on disk. The ray tracing library uses a suite of other libraries for other basic application functionality.
 
@@ -268,9 +260,7 @@ To support what has grown into a relatively large software system, BRL-CAD takes
 
 BRL-CAD's architecture is designed to be as cross-platform and portable as is realistically and reasonably possible. As such, BRL-CAD maintains support for many legacy systems and devices provided that maintaining such support is not a significant burden on new development.
 
-The code adheres to a published change deprecation and obsolescence policyfootnote:[See the CHANGES file in a source distribution.
-
-] whereby features that have been made publicly available are not removed without appropriate notification. Generally there should be a compelling motivation to remove any existing functionality, but improvements are encouraged.
+The code adheres to a published change deprecation and obsolescence policyfootnote:[See the CHANGES file in a source distribution.] whereby features that have been made publicly available are not removed without appropriate notification. Generally there should be a compelling motivation to remove any existing functionality, but improvements are encouraged.
 
 BRL-CAD has a longstanding heritage of maintaining verifiable, validated, and repeatable results in critical portions of the package, particularly in the ray tracing library. BRL-CAD includes regression tests that will compare runtime behavior against known results and report any deviations from previous results as failures. Considerable attention is put into verification and validation throughout BRL-CAD. Incorrect behavior does not need to be preserved simply to maintain consistency, but it is rare to find genuine errors in the baseline testing results. So, anyone proposing such a behavior change will have to conclusively demonstrate that the previous result is incorrect.
 
@@ -381,7 +371,9 @@ BRL-CAD has a STABLE branch in Git that should always compile and run on all sup
 
 The majority of BRL-CAD is written in ANSI/POSIX C with the intent of strictly conforming with the C standard. The core libraries are all C API, though several--such as the LIBBU and LIBRT libraries--use C++ for implementation details. Our C libraries can use C++ for implementation detail, but they cannot expose C++ in the public API.
 
-Major components of the system are written in the following languages: 
+Major components of the system are written in the following languages:
+
+
 * STEP and NURBS boundary representation support: C++
 * The MGED geometry editor: a combination of C, Tcl/Tk, and Incr Tcl/Tk
 * The BRL-CAD Benchmark, build system, and utility scripts: POSIX-compliant Bourne Shell Script
@@ -389,7 +381,9 @@ Major components of the system are written in the following languages:
 
 
 
-Source code files use the following extensions: 
+Source code files use the following extensions:
+
+
 * C files: .c
 * Header files: .h
 * C++ files: .cpp
@@ -415,8 +409,10 @@ Here are some highlights of our style:
 * Global variables, structures, classes, and other public data containers are discouraged within application code. Do not add any new global variables to existing libraries. Global variables are often a quick solution to some deeper coding problem. However, they carry significant maintenance costs, introduce complexity to the code, make multi-threading support more costly, pollute the public API (symbol-wise at a minimum), increase security risks, are error-prone to use, and usually complicate future efforts to refactor and restructure the code. Using static variables (whether function- or static/file-scoped) is a viable alternative. Restructuring the logic to not be stateful is even better.
 * Exact floating point comparisons are unreliable without requiring IEEE-compliant floating point math, but BRL-CAD does not require such math for portability and for performance reasons. When floating point comparisons are necessary, use the NEAR_EQUAL and NEAR_ZERO macros with a specified tolerance or the EQUAL and ZERO macros where a tolerance is indeterminate. All the macros are available by including bn.h, part of libbn.
 * The code should strive to achieve conformance with the GNU coding standard with a few exceptions. One such exception is not using the GNU indentation style, but instead using the BSD KNF indentation style, which is basically the K&R indentation style with character indentation consistent with the file that you're editing. If this is confusing, use spaces to indent and run the sh/ws.sh script to convert spaces to tabs. We value consistency to preserve maintainability.
-* Stylistic whitespace 
-** No space immediately inside parentheses. 
+* Stylistic whitespace
+** No space immediately inside parentheses.
+
+
 ----
 
 while (1) { ...                   /* ok */
@@ -425,7 +421,9 @@ while ( max ) { ...               /* discouraged */
 ----
 
 
-** Commas and semicolons are followed by whitespace. 
+** Commas and semicolons are followed by whitespace.
+
+
 ----
 
 int main(int argc, char *argv[]); /* ok */
@@ -433,7 +431,9 @@ for (i = 0; i &lt; max; i++) { ...   /* ok */
 ----
 
 
-** No space on arrow operators. 
+** No space on arrow operators.
+
+
 ----
 
 structure->member = 5;            /* ok */
@@ -441,7 +441,9 @@ structure -> member = 5;          /* bad */
 ----
 
 
-** Native language statements (if, while, for, switch, and return) have a separating space; functions do not. 
+** Native language statements (if, while, for, switch, and return) have a separating space; functions do not.
+
+
 ----
 
 int my_function(int i);           /* ok, no space */
@@ -451,7 +453,9 @@ switch(foo) ...                   /* discouraged */
 ----
 
 
-** Comments should have an interior space and be without tabs. 
+** Comments should have an interior space and be without tabs.
+
+
 ----
 
 /** good single-line doxygen */
@@ -467,9 +471,10 @@ switch(foo) ...                   /* discouraged */
 
 
 
+* Naming symbols
+** Variable and public API function names should almost always begin with a lowercase letter.
 
-* Naming symbols 
-** Variable and public API function names should almost always begin with a lowercase letter. 
+
 ----
 
 double localVariable; /* ok */
@@ -478,7 +483,9 @@ double _localVar;     /* bad (looks like member variable)      */
 ----
 
 
-** Do not use Hungarian notation or its variations to show the type of a variable. An exception can be made for pointers on occasion. The name should be concise and meaningful--typing a descriptive name is preferred to someone spending time trying to learn what the name of the variable means. 
+** Do not use Hungarian notation or its variations to show the type of a variable. An exception can be made for pointers on occasion. The name should be concise and meaningful--typing a descriptive name is preferred to someone spending time trying to learn what the name of the variable means.
+
+
 ----
 
 char *name;    /* ok  */
@@ -488,7 +495,9 @@ char *lpszFoo; /* bad */
 ----
 
 
-** Constants should be all upper-case with word boundaries optionally separated by underscores. 
+** Constants should be all upper-case with word boundaries optionally separated by underscores.
+
+
 ----
 
 static const int MAX_READ = 2;  /* ok  */
@@ -496,7 +505,9 @@ static const int arraySize = 8; /* bad */
 ----
 
 
-** Public API (global) function names should be in lowercase with underscores to separate words. Most functions within the core libraries are named with the following convention: [library]_[group]_[action] 
+** Public API (global) function names should be in lowercase with underscores to separate words. Most functions within the core libraries are named with the following convention: [library]_[group]_[action]
+
+
 ----
 
 bu_vls_strcat()
@@ -506,10 +517,9 @@ bn_mat_transpose()
 
 ** Naming exceptions are allowed where the API intentionally mirrors some other familiar programming construct--for example, bu_malloc()+bu_free())--but be as consistent as possible within a file and across a library's API.
 
+* BRL-CAD uses The One True Brace Style from BSD KNF and K&Rfootnote:[http://en.wikipedia.org/wiki/Indent_style]. Opening braces should be on the same line as their statement; closing braces should line up with that same statement. Functions, however, are treated specially, and we place their opening braces on separate lines.
 
-* BRL-CAD uses The One True Brace Style from BSD KNF and K&Rfootnote:[http://en.wikipedia.org/wiki/Indent_style
 
-]. Opening braces should be on the same line as their statement; closing braces should line up with that same statement. Functions, however, are treated specially, and we place their opening braces on separate lines. 
 ----
 
 static int
@@ -696,7 +706,7 @@ Because creating and editing DocBook documentation is greatly simplified by BRL-
 
 For example, if you are writing a new DocBook article in English about the ellipsoid, use the following command to copy the article template to the filename `ellipsoid.xml` in the English articles directory:
 
-~/brlcad$*cp doc/docbook/articles/en/TEMPLATE.xml doc/docbook/articles/en/ellipsoid.xml*
+~/brlcad$ *cp doc/docbook/articles/en/TEMPLATE.xml doc/docbook/articles/en/ellipsoid.xml*
 
 Next, open the file `doc/docbook/articles/en/CMakeLists.txt` in a text editor. Then, add the name of the new document to the file to alert the build system of its existence:
 
@@ -706,7 +716,7 @@ BRL-CAD now knows about the new file and can generate output for it.
 
 You will generally only want to rebuild a specific output (say, HTML) to confirm that output renders properly. To set up the specific targets for the new file, run the command below to refresh the build targets (in this example, the build output directory is called `build`):
 
-~/brlcad/build$*cmake ..*
+~/brlcad/build$ *cmake ..*
 
 This creates a new build target, ellipsoid_article_html, which will build only the HTML output of the document and its dependencies:
 
@@ -776,14 +786,27 @@ Although you can produce HTML, UNIX man pages, and PDF files from the DocBook so
 You can use the following configuration options to turn the compilation of various formats on and off:
 
 .BRL-CAD DocBook Configuration Options
+[cols="3*"]
 |===
-|Option |Description |Setting 
+|Option
+|Description
+|Setting
 
-|BRLCAD_EXTRADOCS |Enable DocBook documentation |ON 
-|BRLCAD_EXTRADOCS_HTML |Enable HTML output |ON 
-|BRLCAD_EXTRADOCS_MAN |Enable UNIX man page output |ON (OFF on Windows) 
-|BRLCAD_EXTRADOCS_PDF |Enable PDF output (needs FOP) |OFF 
-|BRLCAD_EXTRADOCS_PDF_MAN |Enable PDF man page output |Defaults to setting of BRLCAD_EXTRADOCS_PDF 
+|BRLCAD_EXTRADOCS
+|Enable DocBook documentation
+|ON
+|BRLCAD_EXTRADOCS_HTML
+|Enable HTML output
+|ON
+|BRLCAD_EXTRADOCS_MAN
+|Enable UNIX man page output
+|ON (OFF on Windows)
+|BRLCAD_EXTRADOCS_PDF
+|Enable PDF output (needs FOP)
+|OFF
+|BRLCAD_EXTRADOCS_PDF_MAN
+|Enable PDF man page output
+|Defaults to setting of BRLCAD_EXTRADOCS_PDF
 |===
 
 The option to disable the PDF man page output exists to support situations where someone wants the article and tutorial PDFs, without the overhead of generating hundreds of PDFs for the various manual pages. If you do not specifically want PDF versions of the individual manual pages, set the BRLCAD_EXTRADOCS_PDF_MAN option to OFF.
@@ -1737,4 +1760,3 @@ main(int argc, char *argv[])
     return 0;
 }
 ----
-

@@ -10,14 +10,14 @@ pixshrink - shrink a color pix file
 
 [source]
 ----
-pixshrink [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-f<shrink_factor>] [-u] [<infile.pix>] > <outfile.pix>
+pixshrink [-ssquareinsize] [-win_width] [-nin_height] [-fshrink_factor] [-u] [infile.pix] > outfile.pix
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*pixshrink* will take a color *pix*(5) format file of given dimensions and produce a smaller scaled version. The *-w* and *-n* flags specify the input file width and number of scan lines in pixels. They can both be set to the same value via *-s.* Defaults of 512 are assumed for unspecified dimensions. The integer scaling factor (_shrink_factor_) is set with the *-f* flag. By default, the factor is 2. Thus, pixshrink forms the logical opposite of the _pixinterp2x (1)_ program.
+*pixshrink* will take a color *pix*(5) format file of given dimensions and produce a smaller scaled version. The *-w* and *-n* flags specify the input file width and number of scan lines in pixels. They can both be set to the same value via *-s.* Defaults of 512 are assumed for unspecified dimensions. The integer scaling factor (_shrink_factor_) is set with the *-f* flag. By default, the factor is 2. Thus, pixshrink forms the logical opposite of the *pixinterp2x (1)* program.
 
 The program reads the entire image into memory, and then scales the image down to 1/_shrink_factor_ the original size in both dimensions.
 
@@ -52,5 +52,3 @@ This software is Copyright (c) 1990-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

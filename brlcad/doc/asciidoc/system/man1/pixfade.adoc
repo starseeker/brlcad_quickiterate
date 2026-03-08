@@ -10,7 +10,7 @@ pixfade - darken a pix file
 
 [source]
 ----
-pixfade [-f<fraction>] [-p<percentage>] [-m<max>] [-s<squaresize>] [-w<width>] [-n<height>] [-o<out_file.pix>] [<infile.pix>] > <outfile.pix>
+pixfade [-ffraction] [-ppercentage] [-mmax] [-ssquaresize] [-wwidth] [-nheight] [-oout_file.pix] [infile.pix] > outfile.pix
 ----
 
 
@@ -50,5 +50,3 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

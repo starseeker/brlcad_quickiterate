@@ -41,6 +41,7 @@ Numerous error conditions are possible, usually due to errors in the geometry da
 
 ....
 
+
 bash4.0$ mged -c -a nu model.g
 BRL-CAD Release 7.22.1  Geometry Editor (MGED)
     Fri, 08 Feb 2013 15:36:52 -0500, Compilation 0
@@ -53,7 +54,9 @@ Opened in READ ONLY mode
 Historical Model (units=in)
 
 mged> dbupgrade
-upgrade, cancel, or help? [default: help] upgrademged> qbash4.0$ ls
+upgrade, cancel, or help? [default: help] upgrade
+mged> q
+bash4.0$ ls
 model.g model.g.R4.g
 
 ....
@@ -77,5 +80,3 @@ This software is Copyright (c) 2006-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

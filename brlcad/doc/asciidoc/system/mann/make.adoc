@@ -10,14 +10,14 @@ make - Creates a new_shape of the indicated type.
 
 [source]
 ----
-make [-t] [<new_shape type>]
+make [-t] [new_shape type]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Creates a _new_shape_ of the indicated type. The _new_shape_ is sized according to the current view size and is dependent on the _type_. The possible values for _type_ are:
+Creates a __new_shape__ of the indicated type. The __new_shape__ is sized according to the current view size and is dependent on the _type_. The possible values for _type_ are:
 
 
 * arb8 -- ARB (eight vertices)
@@ -52,7 +52,7 @@ Creates a _new_shape_ of the indicated type. The _new_shape_ is sized according 
 [[examples]]
 == EXAMPLES
 
-The first example shows the use of the *make* command to create a sphere with a specified name. The second example shows the use of the *make* command with the _-t_ argument to generate a list of shape types handled by *make*.
+The first example shows the use of the *make* command to create a sphere with a specified name. The second example shows the use of the *make* command with the _-t_  argument to generate a list of shape types handled by *make*.
 
 .Create a sphere having a specified name.
 [example]
@@ -85,5 +85,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

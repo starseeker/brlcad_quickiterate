@@ -10,7 +10,7 @@ fbline - draw a colored line on a framebuffer
 
 [source]
 ----
-fbline [-c] [-F<framebuffer>] [-S|s<squaresize>] [-W|w<screen_width>] [-N|n<screen_height>] [-r<red>] [-g<green>] [-b<blue>] <x1> <y1> <x2> <y2>
+fbline [-c] [-Fframebuffer] [-S|ssquaresize] [-W|wscreen_width] [-N|nscreen_height] [-rred] [-ggreen] [-bblue] x1 y1 x2 y2
 ----
 
 
@@ -25,7 +25,7 @@ The *-S* (or *-s*) flag sets the width and height to the same value. The *-W* (o
 
 The *-c* flag causes the screen to be cleared before the line is displayed. The default behavior is to draw the line on the current image without clearing the screen.
 
-The *-r red* , *-g green* , *-b blue* flags specify alternate red, green, and blue rgb values for the line color. The default color is white. Thus, a green line is created by turning off the red and green components, i.e., with *-r 0**-b 0* options.
+The *-r red* , *-g green* , *-b blue* flags specify alternate red, green, and blue rgb values for the line color. The default color is white. Thus, a green line is created by turning off the red and green components, i.e., with *-r 0* *-b 0* options.
 
 
 [[example]]
@@ -56,5 +56,3 @@ This software is Copyright (c) 1988-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

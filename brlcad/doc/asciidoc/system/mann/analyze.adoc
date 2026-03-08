@@ -10,7 +10,7 @@ analyze - Report and/or compute analytical information about the listed objects.
 
 [source]
 ----
-analyze [<options>]... [<subcommand>]
+analyze [options]... [subcommand]
 ----
 
 
@@ -26,7 +26,7 @@ summarize {obj}...
 
 [source]
 ----
-intersect [<options>]... {obj1 obj2 [...]}...
+intersect [options]... {obj1 obj2 [...]}...
 ----
 
 
@@ -34,7 +34,7 @@ intersect [<options>]... {obj1 obj2 [...]}...
 
 [source]
 ----
-subtract [<options>]... {obj1 obj2 [...]}...
+subtract [options]... {obj1 obj2 [...]}...
 ----
 
 
@@ -273,5 +273,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ hide - Sets the hidden flag for the specified objects.
 
 [source]
 ----
-hide {<objects>}
+hide {objects}
 ----
 
 
@@ -30,7 +30,7 @@ The example shows the use of the *hide* command to flag a specified object as hi
 ====
 
 mged>*hide sol_a*::
-Marks _sol_a_ as hidden.
+Marks __sol_a__ as hidden.
 
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

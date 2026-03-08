@@ -10,7 +10,7 @@ pixcmp - compare two PIX(5) format files pixel by pixel
 
 [source]
 ----
-pixcmp [-b] [-s] [-d] [-q] [-i<SKIP>] [-i<SKIP1:SKIP2>] [-n<COUNT>] <FILE1> [<FILE2>]
+pixcmp [-b] [-s] [-d] [-q] [-iSKIP] [-iSKIP1:SKIP2] [-nCOUNT] FILE1 [FILE2]
 ----
 
 
@@ -98,5 +98,3 @@ This software is Copyright (c) 2004-2024 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

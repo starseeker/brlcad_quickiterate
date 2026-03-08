@@ -10,7 +10,7 @@ track - Builds a simple representation of the linked track of a vehicle such as 
 
 [source]
 ----
-track [<parameters>>]
+track [parameters>]
 ----
 
 
@@ -21,14 +21,14 @@ Builds a simple representation of the linked track of a vehicle such as a tank. 
 
 
 * _x_ coordinate of center of frontmost roadwheel.
-* _x_coordinate of center of rearmost roadwheel.
-* _z_coordinate of center of all roadwheels.
+* _x_ coordinate of center of rearmost roadwheel.
+* _z_ coordinate of center of all roadwheels.
 * radius of all roadwheels.
 * _x_ coordinate of center of drive wheel (rear).
-* _z_coordinate of center of drive wheel (rear).
+* _z_ coordinate of center of drive wheel (rear).
 * radius of drive wheel.
 * _x_ coordinate of center of idler wheel (front).
-* _z_coordinate of center of idler wheel (front).
+* _z_ coordinate of center of idler wheel (front).
 * radius of idler wheel.
 * _y_ coordinate of right side of track.
 * _y_ coordinate of left side of track.
@@ -60,5 +60,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

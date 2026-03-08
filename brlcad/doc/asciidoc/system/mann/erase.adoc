@@ -10,7 +10,7 @@ erase - Deletes the specified list of objects from the MGED display.
 
 [source]
 ----
-erase {<erase>} []
+erase {erase} []
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

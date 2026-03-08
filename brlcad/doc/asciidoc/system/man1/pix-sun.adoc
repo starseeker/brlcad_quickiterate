@@ -10,7 +10,7 @@ pix-sun - convert a BRL PIX(5) format image to a Sun Rasterfile format
 
 [source]
 ----
-pix-sun [-d] [-s<squaresize>] [-w<file_width>] [-n<file_height>] < <BRLpixfile> > <rasterfile>
+pix-sun [-d] [-ssquaresize] [-wfile_width] [-nfile_height] < BRLpixfile > rasterfile
 ----
 
 
@@ -29,7 +29,7 @@ use a dither map
 
 
 *-n file_height*::
-tells *pix-sun* that the input is _file_height_ scanlines tall
+tells *pix-sun* that the input is __file_height__ scanlines tall
 
 
 *-s squaresize*::
@@ -37,7 +37,7 @@ sets both the width and the height for the input to be _squaresize_
 
 
 *-w file_width*::
-tells *pix-sun* that the input is _file_width_ pixels wide
+tells *pix-sun* that the input is __file_width__ pixels wide
 
 
 
@@ -58,5 +58,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

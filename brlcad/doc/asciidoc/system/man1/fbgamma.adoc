@@ -10,7 +10,7 @@ fbgamma - load a gamma correcting colormap
 
 [source]
 ----
-fbgamma [-H] [-o] [-i] [-F<framebuffer>] <val> [ <gval> <bval>]
+fbgamma [-H] [-o] [-i] [-Fframebuffer] val [ gval bval]
 ----
 
 
@@ -39,7 +39,7 @@ The response of a typical monitor is non-linear with respect to input voltage. T
 
 display_intensity = input_voltage ^ gamma,
 
-where gamma will usually lie in the 2.0 to 3.0 range (2.2 is the _NTSC_ standard gamma, 2.5 is a commonly used "typical" value). Most of the time, pixel values of images have been computed assuming a linear mapping between pixel value and displayed intensity. This linear mapping can be approximated by loading a colormap into the display which raises the pixel values to the inverse gamma power.
+where gamma will usually lie in the 2.0 to 3.0 range (2.2 is the *NTSC* standard gamma, 2.5 is a commonly used "typical" value). Most of the time, pixel values of images have been computed assuming a linear mapping between pixel value and displayed intensity. This linear mapping can be approximated by loading a colormap into the display which raises the pixel values to the inverse gamma power.
 
 It should be noted that getting the gamma values "right" involves careful calibration and measurement or your display device. The values are likely to be different for each color channel, and will depend on the brightness setting, etc. (increasing the monitor brightness often lowers the gammas, due to overdriving the high end of the display). Also note that getting the correct colors from a display requires knowledge of the phosphor chromaticities.
 
@@ -70,5 +70,3 @@ This software is Copyright (c) 1987-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org> w
-
-

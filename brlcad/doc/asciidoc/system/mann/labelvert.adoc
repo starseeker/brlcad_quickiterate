@@ -10,7 +10,7 @@ labelvert - Labels the vertices of the indicated objects with their coordinate v
 
 [source]
 ----
-labelvert {<objects>}
+labelvert {objects}
 ----
 
 
@@ -30,7 +30,7 @@ The example shows the use of the *labelvert* command to label the vertices of a 
 ====
 
 mged>*labelvert shapeb*::
-Places coordinate values in the display near the vertices of _shapeb_.
+Places coordinate values in the display near the vertices of _shapeb_ .
 
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

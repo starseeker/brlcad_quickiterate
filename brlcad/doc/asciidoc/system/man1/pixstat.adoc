@@ -10,14 +10,14 @@ pixstat - list statistics related to a color pix image
 
 [source]
 ----
-pixstat [-v] [<file.pix>]
+pixstat [-v] [file.pix]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*pixstat* will take the given *pix*(5) format file, or read from standard in. A collection of statistics related to the pixel intensities is produced for each color plane (red, green, and blue).  These include:  the number of pixels (and the square root of this which is the file dimensions if square);  the max and min values;  the mean;  the median (dividing line where half the pixels are above this value, half below);  the mode (most frequently occurring value) and the number of pixels at this value;  the variance, standard deviation, and skew.
+*pixstat* will take the given *pix*(5) format file, or read from standard in. A collection of statistics related to the pixel intensities is produced for each color plane (red, green, and blue). These include: the number of pixels (and the square root of this which is the file dimensions if square); the max and min values; the mean; the median (dividing line where half the pixels are above this value, half below); the mode (most frequently occurring value) and the number of pixels at this value; the variance, standard deviation, and skew.
 
 The *-v* flag will also dump a histogram of the pixel values.
 
@@ -50,5 +50,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

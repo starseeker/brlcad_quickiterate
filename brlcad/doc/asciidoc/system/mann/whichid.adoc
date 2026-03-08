@@ -10,14 +10,14 @@ whichid - Reports information relating to usage of the region_id property on reg
 
 [source]
 ----
-whichid [<options ...>] {<ident[-ident]>}...
+whichid [options ...] {ident[-ident]}...
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Reports information about the usage of the _region_id_ property by regions in a .g file. Its default mode is to report which regions in a .g file are using one or a range of region_id values. If a root object is specified, it will report that result only for the regions in the tree of the root object. If the *U* is specified, the reporting is inverted and the command will report the ranges of _unused_ ids rather than the regions using various ids.
+Reports information about the usage of the __region_id__ property by regions in a .g file. Its default mode is to report which regions in a .g file are using one or a range of region_id values. If a root object is specified, it will report that result only for the regions in the tree of the root object. If the *U* is specified, the reporting is inverted and the command will report the ranges of _unused_ ids rather than the regions using various ids.
 
 
 [[search_options]]
@@ -43,6 +43,8 @@ For these examples the geometry file used is the standard _ktank.g_ included wit
 [example]
 ====
 mged>*whichid 4000-7000*
+
+
 ....
 
 Region[s] with ident 4001:
@@ -66,6 +68,8 @@ Region[s] with ident 6002:
 [example]
 ====
 mged>*whichid 1000-2000 4000-5000*
+
+
 ....
 
 Region[s] with ident 1010:
@@ -89,6 +93,8 @@ Region[s] with ident 4050:
 [example]
 ====
 mged>*whichid --root tank 1000-2000 4000-5000*
+
+
 ....
 
 Region[s] with ident 4001:
@@ -108,6 +114,8 @@ Region[s] with ident 4050:
 [example]
 ====
 mged>*whichid -U 1-1000*
+
+
 ....
 
 Unused idents:
@@ -145,5 +153,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

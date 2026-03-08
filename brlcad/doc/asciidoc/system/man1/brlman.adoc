@@ -10,7 +10,7 @@ brlman - a manual page viewer for BRL-CAD
 
 [source]
 ----
-brlman [<options>]... [<manpage>]
+brlman [options]... [manpage]
 ----
 
 
@@ -41,7 +41,7 @@ Specify a particular section to use when searching for a man page. Useful when t
 
 
 *--no-gui*::
-Instructs *brlman*_not_ to use its graphical man page viewer, even in situations where there is no command line option. Primarily useful in scripting situations.
+Instructs *brlman* _not_ to use its graphical man page viewer, even in situations where there is no command line option. Primarily useful in scripting situations.
 
 
 
@@ -62,5 +62,3 @@ This software is Copyright (c) 2016-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

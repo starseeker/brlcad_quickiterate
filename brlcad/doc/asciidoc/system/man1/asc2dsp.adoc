@@ -10,7 +10,7 @@ asc2dsp - convert an ASCII dsp file to the BRL-CAD DSP (Displacement map) binary
 
 [source]
 ----
-asc2dsp <file.asc> <file.dsp>
+asc2dsp file.asc file.dsp
 ----
 
 
@@ -54,5 +54,3 @@ This software is Copyright (c) 2012-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

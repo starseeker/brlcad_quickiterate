@@ -10,7 +10,7 @@ nirt - Runs the NIRT program that is distributed with BRL-CAD to intersect a sin
 
 [source]
 ----
-nirt [<nirt_args>]
+nirt [nirt_args]
 ----
 
 
@@ -73,5 +73,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

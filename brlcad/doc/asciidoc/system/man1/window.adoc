@@ -10,7 +10,7 @@ window - Creates a BRL-CAD .g file containing windows.
 
 [source]
 ----
-window [<options>]...
+window [options]...
 ----
 
 
@@ -24,7 +24,7 @@ window [<options>]...
 == OPTIONS
 
 
-*-f*_name.g_::
+*-f* _name.g_::
 BRL-CAD file name.
 
 
@@ -56,6 +56,8 @@ Radius of the corner in millimeters.
 .Interactive window Session
 [example]
 ====
+
+
 
 ....
 
@@ -118,5 +120,3 @@ bolt(1), handle(1), window_frame(1), gastank(1)
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

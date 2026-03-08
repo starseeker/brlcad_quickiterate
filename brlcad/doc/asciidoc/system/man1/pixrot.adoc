@@ -10,7 +10,7 @@ pixrot - rotate, invert, or reverse a color pix file
 
 [source]
 ----
-pixrot [-#bytes] [-rifb] [-s<squaresize>] [-w<in_width>] [-n<in_height>] [<file.pix>] > <newfile.pix>
+pixrot [-#bytes] [-rifb] [-ssquaresize] [-win_width] [-nin_height] [file.pix] > newfile.pix
 ----
 
 
@@ -19,11 +19,11 @@ pixrot [-#bytes] [-rifb] [-s<squaresize>] [-w<in_width>] [-n<in_height>] [<file.
 
 *pixrot* will rotate, invert, or reverse a color *pix*(5) format file or read from standard input if a file name is not given. The *-w* and *-n* flags specify the input file width and number of scan lines in pixels; they can be set to the same value via *-s*.
 
-The *-r* flag reverses the scan lines left to right.  The *-i* flag inverts the image top to bottom.  The *-f* and *-b* flag will rotate the image ninety degrees forward or backward respectively. The sense of the rotation is relative to a first quadrant coordinate system, i.e. origin lower left, where "forward" means clockwise.
+The *-r* flag reverses the scan lines left to right. The *-i* flag inverts the image top to bottom. The *-f* and *-b* flag will rotate the image ninety degrees forward or backward respectively. The sense of the rotation is relative to a first quadrant coordinate system, i.e. origin lower left, where "forward" means clockwise.
 
 Note that a 180 degree rotation can be obtained by both reversing and inverting.
 
-By default three byte pixels are assumed as in the *pix*(5) format. However, the *-#*_bytes_ flag can be used to specify some other pixel size, where _bytes_ is the number of bytes per pixel. Thus this program can be used to manipulate rectangles of other data types, such as an array of floating point numbers, files of text, etc.
+By default three byte pixels are assumed as in the *pix*(5) format. However, the *-#* _bytes_ flag can be used to specify some other pixel size, where _bytes_ is the number of bytes per pixel. Thus this program can be used to manipulate rectangles of other data types, such as an array of floating point numbers, files of text, etc.
 
 
 [[method]]
@@ -41,7 +41,7 @@ A fairly large buffer is kept in memory so that, file size permitting, the entir
 [[bugs]]
 == BUGS
 
-If the file size is very large, excessive seeking may occur on output and the rotation will take a very long time. More complicated algorithms could remedy this.  Rotations of arbitrary angle are not supported.
+If the file size is very large, excessive seeking may occur on output and the rotation will take a very long time. More complicated algorithms could remedy this.Rotations of arbitrary angle are not supported.
 
 
 [[author]]
@@ -60,5 +60,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

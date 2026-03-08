@@ -10,7 +10,7 @@ draw - Adds objects> to the display list so that they will appear on the MGED di
 
 [source]
 ----
-draw [-A<attribute name/value pairs>] [-s] [-A -o<attribute name/value pairs>] [-C#/#/#] [-L #] [-R] [-S] [<-m1>] {<objects>}
+draw [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
 ----
 
 
@@ -74,5 +74,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

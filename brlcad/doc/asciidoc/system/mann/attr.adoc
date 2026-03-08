@@ -10,7 +10,7 @@ attr - Used to create, change, retrieve, or view attributes of database objects.
 
 [source]
 ----
-attr [get] [set] [rm] [append] [list] [show] [sort] [standardize] [copy] {<object_name_pattern>} [<arguments>]
+attr [get] [set] [rm] [append] [list] [show] [sort] [standardize] [copy] {object_name_pattern} [arguments]
 ----
 
 
@@ -20,6 +20,8 @@ attr [get] [set] [rm] [append] [list] [show] [sort] [standardize] [copy] {<objec
 Used to create, change, retrieve, or view attributes of database objects. Note that the attribute names may not contain embedded white space, and if attribute values contain embedded white space, they must be surrounded by {} or double quotes.
 
 A newly formed region always has four attributes automatically assigned to it:
+
+
 
 
 * los
@@ -86,7 +88,7 @@ The examples demonstrate the use of the *attr* command and subcommands to assign
 ====
 
 mged>*attr set region_1 material_id 10*::
-Assigns an attribute name "material_id" to _region_1_. Its value is 10.
+Assigns an attribute name "material_id" to __region_1__. Its value is 10.
 
 
 
@@ -97,7 +99,7 @@ Assigns an attribute name "material_id" to _region_1_. Its value is 10.
 ====
 
 mged>*attr set region_1 comment {This is a comment for region_1}*::
-Assigns an attribute named "comment" to _region_1_. Its value is "This is a comment for region_1."
+Assigns an attribute named "comment" to __region_1__. Its value is "This is a comment for region_1."
 
 
 
@@ -108,7 +110,7 @@ Assigns an attribute named "comment" to _region_1_. Its value is "This is a comm
 ====
 
 mged>*attr show region_1 comment*::
-Lists all the attributes for _region_1_.
+Lists all the attributes for __region_1__.
 
 
 
@@ -118,6 +120,8 @@ Lists all the attributes for _region_1_.
 [example]
 ====
 mged>*attr list **
+
+
 ....
 
 aircode
@@ -144,6 +148,8 @@ Generate a list of all attribute keys found one one or more objects in the datab
 [example]
 ====
 mged>*attr list * material_id **
+
+
 ....
 
 material_id=1
@@ -188,5 +194,3 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

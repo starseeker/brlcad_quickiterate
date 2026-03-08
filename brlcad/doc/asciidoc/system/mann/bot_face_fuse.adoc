@@ -10,7 +10,7 @@ bot_face_fuse - Eliminates duplicate faces from a BOT solid.
 
 [source]
 ----
-bot_face_fuse {<new_bot_primitive>} {<old_bot_primitive>}
+bot_face_fuse {new_bot_primitive} {old_bot_primitive}
 ----
 
 
@@ -30,7 +30,7 @@ The example demonstrates the use of the *bot_face_fuse* command to eliminate dup
 ====
 
 mged>*bot_face_fuse bot1_fused bot1_original*::
-Eliminates any duplicate faces from the primitive named _bot1_original_ and stores the result in the new BOT primitive named _bot1_fused_.
+Eliminates any duplicate faces from the primitive named __bot1_original__ and stores the result in the new BOT primitive named __bot1_fused__.
 
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

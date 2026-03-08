@@ -10,7 +10,7 @@ opendb - Closes the current database file and opens database.g.
 
 [source]
 ----
-opendb [-f] [<database.g>]
+opendb [-f] [database.g]
 ----
 
 
@@ -23,7 +23,7 @@ If the -f option is specified and the database.g is a v4 geometry database, the 
 
 Binary-incompatible v4 geometry database files that can be auto-detected will be automatically converted if all resulting matrices are valid.
 
-The *opendb*command will look in the current working directory for the file. If the file is in another directory, use the relative or full path to the file or use the *pwd* and *cd* commands to navigate to the file's directory.
+The *opendb* command will look in the current working directory for the file. If the file is in another directory, use the relative or full path to the file or use the *pwd* and *cd* commands to navigate to the file's directory.
 
 
 [[examples]]
@@ -53,6 +53,8 @@ Returns the name of the current database file.
 [example]
 ====
 
+
+
 ....
 
 mged> opendb -f model.g
@@ -69,6 +71,8 @@ Closes any currently open database and opens _model.g_ as a binary-incompatible 
 .Open a database using the full path to the file.
 [example]
 ====
+
+
 
 ....
 
@@ -93,5 +97,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -1,11 +1,17 @@
 = Learning About Boolean Expressions
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
-In this lesson, you will: 
+In this lesson, you will:
+
+
 * Learn about combinations and regions.
 * Learn about Boolean operations.
 * Make regions with Boolean operations.
+
+
 
 
 [CAUTION]
@@ -35,7 +41,9 @@ When Boolean operations are used to build up complex shapes from simpler shapes,
 [[boolean_operations]]
 == Boolean Operations
 
-The three Boolean operators employed by the _MGED_ program are union, subtraction, and intersection. You can use Boolean operations to combine shapes to produce more complex shapes. 
+The three Boolean operators employed by the _MGED_ program are union, subtraction, and intersection. You can use Boolean operations to combine shapes to produce more complex shapes.
+
+
 * Union Shapes: Merge two shapes.
 * Subtract Shapes: Remove the volume of one shape from another.
 * Intersect Shapes: Use only the parts of the two shapes that overlap.
@@ -84,10 +92,21 @@ image::../lessons/images/mged05_twoprimitivespheres.png[]
 
 In this lesson, we will create different shapes to demonstrate the function of Boolean operations. In the Command Window, type the following: *r part1.r u rcc2.s - sph2.s[Enter]* This command tells _MGED_ to:
 
+[cols="6*"]
+[%noheader]
 |===
-
-|r |part1.r |u |rcc2.s |- |sph2.s 
-|Make a region |Call it part1.r |Merge... |The shape named rcc2.s |Subtract... |The shape named sph2.s 
+|r
+|part1.r
+|u
+|rcc2.s
+|-
+|sph2.s
+|Make a region
+|Call it part1.r
+|Merge...
+|The shape named rcc2.s
+|Subtract...
+|The shape named sph2.s
 |===
 
 
@@ -109,10 +128,13 @@ At the moment, we have only the primitive shapes displayed, not the region. Befo
 
 We are now ready to raytrace this object. From the File menu, bring up the Raytrace Control Panel and click the Raytrace button. The image you get should look similar to the left-hand image that follows. Note that it may take several minutes to raytrace the window, depending on the speed of your particular system.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../lessons/images/mged05_raytracedpart1.png[] |image:../lessons/images/mged05_raytracedpart2.png[] 
-|Raytraced part1.r |Raytraced part2.r 
+|image:../lessons/images/mged05_raytracedpart1.png[]
+|image:../lessons/images/mged05_raytracedpart2.png[]
+|Raytraced part1.r
+|Raytraced part2.r
 |===
 
 You should see that a spherical "bite" has been taken out of the top of the cylinder.
@@ -173,7 +195,9 @@ This would result in the following Boolean expression: `(shape1 - shape2) u ( (s
 [[learning_boolean_operations_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
+
+
 * Learned about combinations and regions.
 * Learned about Boolean operations.
 * Made regions with Boolean operations.

@@ -10,7 +10,7 @@ rtcheck - Make UNIX-Plot of overlaps in an mged model, using raytracing
 
 [source]
 ----
-rtcheck [<options>]... <model.g> <objects>... > <overlaps.plot3>
+rtcheck [options]... model.g objects... > overlaps.plot3
 ----
 
 
@@ -81,7 +81,7 @@ Numerous error conditions are possible. Descriptive messages are printed on stde
 [[author]]
 == AUTHORS
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -100,5 +100,3 @@ Most deficiencies observed while using the *rtcheck* program are a consequence o
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

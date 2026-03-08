@@ -10,7 +10,7 @@ art - Executes the BRL-CAD art program.
 
 [source]
 ----
-art [<options>] [<--objects>]
+art [options] [--objects]
 ----
 
 
@@ -32,7 +32,7 @@ The first example shows the use of the *art* command to run the art program to p
 .Run the art program to produce a color-shaded image.
 [example]
 ====
-mged>*art -C 255,255,255 -s 1024 share/db/moss.g all.g*
+mged> *art -C 255,255,255 -s 1024 share/db/moss.g all.g*
 
 Runs the _art_ program to produce a color-shaded image of a sample object. The image will be 1024 pixels square and will be displayed on a lingering _X_ framebuffer.
 
@@ -58,5 +58,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

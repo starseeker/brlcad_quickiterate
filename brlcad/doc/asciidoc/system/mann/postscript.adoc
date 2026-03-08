@@ -10,20 +10,20 @@ postscript - Temporarily attaches the Postscript display manager and outputs the
 
 [source]
 ----
-postscript [-f<font>] [-t<title>] [-c<creator>] [-s<size_in_inches>] [-l<line_width>] {<output_file>}
+postscript [-ffont] [-ttitle] [-ccreator] [-ssize_in_inches] [-lline_width] {output_file}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Temporarily attaches the _Postscript_ display manager and outputs the current MGED display to the specified _output_file_ in _PostScript_ format. The _-f_ option allows the _font_ to be user- specified. The _-t_ option allows the user to provide a title (the default is No Title). The _-c_ option allows the user to specify the creator of the file (the default is LIBDM dm-ps). The _s_ specifies the size of the drawing in inches. The _l_ specifies the width of the lines drawn.
+Temporarily attaches the _Postscript_ display manager and outputs the current MGED display to the specified __output_file__ in _PostScript_  format. The _-f_ option allows the _font_ to be user- specified. The _-t_ option allows the user to provide a title (the default is No Title). The _-c_ option allows the user to specify the creator of the file (the default is LIBDM dm-ps). The _s_ specifies the size of the drawing in inches. The _l_ specifies the width of the lines drawn.
 
 
 [[examples]]
 == EXAMPLES
 
-The first example shows the use of the *postscript* command to place a _PostScript_ version of the current MGED display in a specified file and give it a particular title. The second example is much like the first except that a line width is specified and the title and output file names are different.
+The first example shows the use of the *postscript* command to place a _PostScript_  version of the current MGED display in a specified file and give it a particular title. The second example is much like the first except that a line width is specified and the title and output file names are different.
 
 .Place a PostScript version of the current MGED display in a specified file.
 [example]
@@ -39,7 +39,7 @@ Places a _PostScript_ version of the current MGED display in a file named _test.
 ====
 mged>*postscript -l 10 -t "Test Fat Lines" fat_lines.ps*
 
-Places a _PostScript_ version of the current MGED display with fat lines in a file named _fat_lines.ps_ and titles it Test Fat Lines.
+Places a _PostScript_ version of the current MGED display with fat lines in a file named __fat_lines.ps__ and titles it Test Fat Lines.
 
 ====
 
@@ -54,5 +54,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

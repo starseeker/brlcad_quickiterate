@@ -10,7 +10,7 @@ png-fb - display a Portable Network Graphics (PNG) image file on a framebuffer
 
 [source]
 ----
-png-fb [-Hicvz1] [-gscreen_gamma] [-Fframebuffer] [-m#lines] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height] [-xfile_xoff] [-yfile_yoff] [-Xscr_xoff] [-Yscr_yoff] [<file.png>]
+png-fb [-Hicvz1] [-gscreen_gamma] [-Fframebuffer] [-m#lines] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height] [-xfile_xoff] [-yfile_yoff] [-Xscr_xoff] [-Yscr_yoff] [file.png]
 ----
 
 
@@ -66,5 +66,3 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

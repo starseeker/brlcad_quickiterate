@@ -10,7 +10,7 @@ pixclump - quantize the colors in a pix(5) stream
 
 [source]
 ----
-pixclump [-c<R/G/B>] [-f<color_file>] [-x<debug_flags>] [ <infile.pix> [<outfile.pix>]] \
+pixclump [-cR/G/B] [-fcolor_file] [-xdebug_flags] [ infile.pix [outfile.pix]] \
     
 ----
 
@@ -49,5 +49,3 @@ This software is Copyright (c) 1997-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

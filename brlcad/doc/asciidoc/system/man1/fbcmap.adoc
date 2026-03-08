@@ -10,7 +10,7 @@ fbcmap - change the color map of a frame buffer
 
 [source]
 ----
-fbcmap [-F<framebuffer>] [ -w|W<scr_width>] [ -n|N<scr_height>] [ -s|S<squarescrsize>] [<map_number>]
+fbcmap [-Fframebuffer] [ -w|Wscr_width] [ -n|Nscr_height] [ -s|Ssquarescrsize] [map_number]
 ----
 
 
@@ -20,8 +20,8 @@ fbcmap [-F<framebuffer>] [ -w|W<scr_width>] [ -n|N<scr_height>] [ -s|S<squarescr
 *fbcmap* is used to change the color map of a frame buffer.
 
 
-*-F*_framebuffer_::
-This option specifies which framebuffer the image is to be saved from. If not given, the environment variable _FB_FILE_ is used to select the display device (see *brlcad*(1)). If _FB_FILE_ has not been set, the default device for your system will be used.
+*-F* _framebuffer_::
+This option specifies which framebuffer the image is to be saved from. If not given, the environment variable *FB_FILE* is used to select the display device (see *brlcad*(1)). If *FB_FILE* has not been set, the default device for your system will be used.
 
 
 
@@ -33,7 +33,7 @@ The *-n* (or *-N*) _scr_height_ option specifies the height of each scanline for
 
 The *-s* (or *-S*) _squarescrsize_ option sets both the height and width to the size given. This size distinction is important only for devices like the Adage framebuffers which have different operating modes based on the display size.
 
-If an optional color _map_number_ is given, that map is used; the default is the standard linear map. There are currently six other maps supplied numbered 1 through 6 as follows:
+If an optional color __map_number__ is given, that map is used; the default is the standard linear map. There are currently six other maps supplied numbered 1 through 6 as follows:
 
 
 1::
@@ -86,5 +86,3 @@ This software is Copyright (c) 1986-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

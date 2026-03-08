@@ -1,6 +1,8 @@
 = Command History Object Documentation
 Mark L. Ulferts <mulferts@austin.dsccc.com>; Glenn Durfee
 :doctype: book
+:toc:
+:toclevels: 3
 
 == 
 
@@ -11,7 +13,7 @@ ch_open - create and manipulate a command history object.
 
 === SYNOPSIS
 
-_ch_open_[_chName_]
+__ch_open__[_chName_]
 
 
 === DESCRIPTION
@@ -25,25 +27,25 @@ The *ch_open* command creates a new Tcl command whose name is _chName_. This com
 
 _chName option ?arg arg ...?_
 
-_Option_ and the_args_ determine the exact behavior of the command. The following commands are possible for command history objects:
+_Option_ and the _args_ determine the exact behavior of the command. The following commands are possible for command history objects:
 
-_chName_*add command_string _chName_*addM* command_string*
+_chName_  *add command_string _chName_  *addM* command_string*
 
 Add a command to the history and reset the current command pointer.
 
-_chName_*curr*
+_chName_ *curr*
 
 Return the current command in the history.
 
-_chName_*history*
+_chName_ *history*
 
 Return the entire history.
 
-_chName_*next*
+_chName_ *next*
 
 Return the next command in the history making that the current command.
 
-_chName_*prev*
+_chName_ *prev*
 
 Return the previous command in the history making that the current command.
 
@@ -51,6 +53,8 @@ Return the previous command in the history making that the current command.
 === EXAMPLE
 
 The following sequence creates a command history object, adds commands and traverses the history.
+
+
 
 
 ----
@@ -78,7 +82,3 @@ cmd1
 cmd2
 cmd3
 ----
-
-
-
-

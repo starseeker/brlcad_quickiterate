@@ -10,7 +10,7 @@ alias-pix - convert an image from Alias(tm) pix format to BRL PIX(5) format
 
 [source]
 ----
-alias-pix [-v] <ALIASpixfile> <BRLpixfile>
+alias-pix [-v] ALIASpixfile BRLpixfile
 ----
 
 
@@ -34,5 +34,3 @@ print a text summary of the Alias pix file header on standard error output.
 == AUTHOR
 
 BRL-CAD Team
-
-

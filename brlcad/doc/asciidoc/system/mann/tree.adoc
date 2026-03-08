@@ -10,7 +10,7 @@ tree - Lists the contents of the specified objects in a tree-like format that di
 
 [source]
 ----
-tree {<objects(s)>} [-a] [-c] [-d<#>] [-i<#>] [-o<outfile>]
+tree {objects(s)} [-a] [-c] [-d#] [-i#] [-ooutfile]
 ----
 
 
@@ -94,5 +94,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

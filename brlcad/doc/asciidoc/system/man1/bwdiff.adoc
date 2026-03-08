@@ -10,7 +10,7 @@ bwdiff - compare two black and white files
 
 [source]
 ----
-bwdiff [ - [<mglen>]] [-b] <file1> <file2>
+bwdiff [ - [mglen]] [-b] file1 file2
 ----
 
 
@@ -58,5 +58,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

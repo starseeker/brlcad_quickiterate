@@ -10,7 +10,7 @@ vdraw - Allows drawing of lines and polygons (optionally with per vertex normals
 
 [source]
 ----
-vdraw {<command>} [<args>]
+vdraw {command} [args]
 ----
 
 
@@ -20,27 +20,44 @@ vdraw {<command>} [<args>]
 Allows drawing of lines and polygons (optionally with per vertex normals) in the MGED graphics display. It is used to build a named list of drawing commands for MGED, send the list to the MGED display, modify the list, or delete all or part of the list. All vertices in the _vdraw_ command are in millimeters. The MGED drawing commands are represented by integers in the _vdraw_ command. The MGED drawing commands and the integers that _vdraw_ uses for them are:
 
 .Drawing Commands
+[cols="3*"]
 |===
-|MGED Drawing Command |Vdraw integer |MGED Action 
+|MGED Drawing Command
+|Vdraw integer
+|MGED Action
 
-|RT_VLIST_LINE_MOVE |0 |Begin a new line at this point 
-|RT_VLIST_LINE_DRAW |1 |Draw line from previous point to this point 
-|RT_VLIST_POLY_START |2 |Start polygon (argument is surface normal) 
-|RT_VLIST_POLY_MOVE |3 |move to first polygon vertex 
-|RT_VLIST_POLY_DRAW |4 |Subsequent polygon vertices 
-|RT_VLIST_POLY_END |5 |Last polygon vertex (should be same as first) 
-|RT_VLIST_POLY_VERTNORM |6 |Vertex normal (for shading interpolation) 
+|RT_VLIST_LINE_MOVE
+|0
+|Begin a new line at this point
+|RT_VLIST_LINE_DRAW
+|1
+|Draw line from previous point to this point
+|RT_VLIST_POLY_START
+|2
+|Start polygon (argument is surface normal)
+|RT_VLIST_POLY_MOVE
+|3
+|move to first polygon vertex
+|RT_VLIST_POLY_DRAW
+|4
+|Subsequent polygon vertices
+|RT_VLIST_POLY_END
+|5
+|Last polygon vertex (should be same as first)
+|RT_VLIST_POLY_VERTNORM
+|6
+|Vertex normal (for shading interpolation)
 |===
 
 The *vdraw* commands are as follows:
 
 
 * open -- with no arguments, this returns 1 if there is a open list; 0 otherwise. If an argument is supplied, a command list is opened with the provided name.
-* write-- with arguments of _i c x y z_, the MGED drawing command *#c* is placed in the _ith_ position of the command list with the vertex as (_x y z_).
+* write-- with arguments of  _i c x y z_, the MGED drawing command *#c* is placed in the _ith_ position of the command list with the vertex as ( _x y z_).
 +
--- with arguments of _next c x y z_, the command is placed at the end of the list.
+-- with arguments of  _next c x y z_, the command is placed at the end of the list.
 
-* insert -- with arguments of_i c x y z_, the MGED drawing command _#c_ is inserted just before the _ith_position of the command list.
+* insert -- with arguments of _i c x y z_, the MGED drawing command _#c_ is inserted just before the _ith_ position of the command list.
 * delete -- with an integer argument of i, the _ith_ command is deleted.
 +
 -- with an argument of "last," the last command on the list is deleted.
@@ -48,7 +65,7 @@ The *vdraw* commands are as follows:
 +
 -- with an argument of "all," all the commands on the list are deleted.
 
-* params -- with an argument of _color rrggbb_, the color of all objects on this list is set. The _rrggbb_ is a hex number representing the color, "ffffff" is white, "ff0000" is red, "00ff00" is green, etc.
+* params -- with an argument of  _color rrggbb_, the color of all objects on this list is set. The _rrggbb_ is a hex number representing the color, "ffffff" is white, "ff0000" is red, "00ff00" is green, etc.
 +
 -- with a single string argument, the name of the current list is changed.
 
@@ -65,7 +82,7 @@ The *vdraw* commands are as follows:
 * send -- send the current command list to the MGED display manager.
 * vlist -- with an argument of "list," return a list of the names of all existing command lists.
 +
--- with an argument of _delete list_name_, delete the specified command list.
+-- with an argument of __delete list_name__, delete the specified command list.
 
 
 All textual arguments may be abbreviated by their first letter.
@@ -159,5 +176,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

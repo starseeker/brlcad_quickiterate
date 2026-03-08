@@ -10,7 +10,7 @@ pix-ps - convert a color pix file to PostScript
 
 [source]
 ----
-pix-ps [-e] [-c|-l] [-L] [-s<input_squaresize>] [-w<input_width>] [-n<input_height>] [-S<inches_square>] [-W<inches_width>] [-N<inches_height>] [<infile.pix>] > <outfile.ps>
+pix-ps [-e] [-c|-l] [-L] [-sinput_squaresize] [-winput_width] [-ninput_height] [-Sinches_square] [-Winches_width] [-Ninches_height] [infile.pix] > outfile.ps
 ----
 
 
@@ -62,5 +62,3 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

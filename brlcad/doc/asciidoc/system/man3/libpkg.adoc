@@ -44,7 +44,9 @@ An package connection may incur significant overhead if many short messages are 
 [[pkg_def]]
 == PKG Interface Definition
 
-Control Interfaces: 
+Control Interfaces:
+
+
 PKG_OPEN - Open a connection to a host::
 
 ....
@@ -108,7 +110,9 @@ If possible, the connection request from the client is accepted, a pkg_connectio
 
 
 
-I/O Interfaces: 
+I/O Interfaces:
+
+
 PKG_GET - Read bytes from connection, assembling message::
 
 ....
@@ -210,7 +214,9 @@ This routine does a blocking read on the connection until a message of message_t
 
 
 
-User Message Handler Interface: 
+User Message Handler Interface:
+
+
 PKG_SWITCH - Table of User Message Handler Pointers::
 
 ....
@@ -279,5 +285,3 @@ Peter B. Shames
 == BUG REPORTS
 
 Reports of inaccuracies should be submitted via electronic mail to <devs@brlcad.org>
-
-

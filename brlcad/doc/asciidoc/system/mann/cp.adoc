@@ -10,14 +10,14 @@ cp -
 
 [source]
 ----
-cp {<from_object to_object>}
+cp {from_object to_object}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Makes a duplicate of an object (shape or combination). If _from_object_ is a shape, then it is simply copied to a new shape named_to_object_. If _from_object_ is a combination, then a new combination is created that contains exactly the same members, transformation matrices, etc., and it is named _to_object_.
+Makes a duplicate of an object (shape or combination). If __from_object__ is a shape, then it is simply copied to a new shape named __to_object__. If __from_object__ is a combination, then a new combination is created that contains exactly the same members, transformation matrices, etc., and it is named __to_object__.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -1,5 +1,7 @@
 = Sommario
 :doctype: article
+:toc:
+:toclevels: 3
 
 SommarioDal 1979, l�Army Research Laboratory degli Stati Uniti sviluppa e distribuisce il pacchetto di modellizzazione solida geometrica costruttiva BRL-CAD, per un vasto campo di applicazioni militari e industriali. Il programma include un grande numero strumenti ed utilit� tra le quali un editor geometrico interattivo, librerie per il il raytracing ed il framebuffer, capacit� di rete per il trattamento di immagini e segnali, un linguaggio di scripting integrato.
 
@@ -104,12 +106,21 @@ Via via che vengono apportati dei cambiamenti in BRL-CAD, gli sviluppatori ARL p
 Per eseguire il test di prova tramite queste immagini, bisogna lanciare lo script _run.sh_ nella sottocartella "bench", presente nell'albero delle cartelle del sorgente.
 
 .Immagini di prova
+[cols="3*"]
+[%noheader]
 |===
-
-|image:../../articles/it/images/brlcad-overview-benchmark-Moss.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-World.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-Star.jpg[width=2in] 
-|Moss |World |Star 
-|image:../../articles/it/images/brlcad-overview-benchmark-Bldg_391.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-M35.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-Sphflake.jpg[width=2in] 
-|Bldg 391 |M35 |Sphflake 
+|image:../../articles/it/images/brlcad-overview-benchmark-Moss.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-World.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-Star.jpg[width=2in]
+|Moss
+|World
+|Star
+|image:../../articles/it/images/brlcad-overview-benchmark-Bldg_391.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-M35.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-Sphflake.jpg[width=2in]
+|Bldg 391
+|M35
+|Sphflake
 |===
 
 

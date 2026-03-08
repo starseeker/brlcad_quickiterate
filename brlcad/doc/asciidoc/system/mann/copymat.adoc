@@ -10,7 +10,7 @@ copymat - Copies the transformation matrix from a member of one combination to t
 
 [source]
 ----
-copymat {<comb1/memb1 comb2/memb2>}
+copymat {comb1/memb1 comb2/memb2}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

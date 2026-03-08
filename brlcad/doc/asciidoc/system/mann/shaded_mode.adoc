@@ -10,7 +10,7 @@ shaded_mode - Changes the default behavior of draw, e, and B to use the -m1 or -
 
 [source]
 ----
-shaded_mode {<0|1|2>}
+shaded_mode {0|1|2}
 ----
 
 
@@ -43,5 +43,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

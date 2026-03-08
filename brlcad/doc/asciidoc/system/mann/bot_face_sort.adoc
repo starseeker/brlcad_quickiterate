@@ -10,7 +10,7 @@ bot_face_sort - Sorts the list of triangles that constitutes the BOT primitive t
 
 [source]
 ----
-bot_face_sort {<triangles_per_piece>} {<bot_primitive1>} [<bot_primitive2 bot_primitive3>]...
+bot_face_sort {triangles_per_piece} {bot_primitive1} [bot_primitive2 bot_primitive3]...
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

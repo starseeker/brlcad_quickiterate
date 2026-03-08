@@ -1,8 +1,12 @@
 = Refinando el modelo de la taza
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
+
+
 * Asignar propiedades de los materiales a la taza utilizando el comando mater.
 * Refinar la taza.
 * Combinar las figuras.
@@ -16,7 +20,7 @@ En este capítulo, vamos a refinar la taza que usted hizo en el tutorial anterio
 
 La asignación de propiedades de los materiales a una región se puede hacer ya sea con el comando mater (materia) o con el comando shader (sombreado). El programa responderá con una serie de preguntas referidas a los distintos parámetros del sombreado.
 
-El sombreado más comunmente utilizado es el de plástico, que utiliza el modelo de sombreado de Phong. Seleccione el sombreado de plástico y establezca el color en un tono medio de sombreado verde. El diálogo en la ventana de comandos debería similar al siguiente: *mged>mater mug.r[Enter]*
+El sombreado más comunmente utilizado es el de plástico, que utiliza el modelo de sombreado de Phong. Seleccione el sombreado de plástico y establezca el color en un tono medio de sombreado verde. El diálogo en la ventana de comandos debería similar al siguiente: mged>mater mug.r[Enter]
 
 
 ....
@@ -41,10 +45,21 @@ Nota: El sombreado de Phong es una técnica de sombreado para imágenes 3D gener
 
 Ingrese la información apropiada que se muestra en negrita. Si desea utilizar el comando de una sola línea, tipee: *mater mug.r plastic 32 128 32 0[Enter]*
 
-El diagrama de este comando es: |===
+El diagrama de este comando es:
 
-|mater |mug.r |plastic |32 128 32 |0 
-|Asignar propiedad de material |A la región mug.r |Con material plástico |De color verde |Herencia desactivada=0 
+[cols="5*"]
+[%noheader]
+|===
+|mater
+|mug.r
+|plastic
+|32 128 32
+|0
+|Asignar propiedad de material
+|A la región mug.r
+|Con material plástico
+|De color verde
+|Herencia desactivada=0
 |===
 
 
@@ -72,10 +87,23 @@ Ahora vamos a mejorar la taza. Observe que el borde de la taza se ve un poco ang
 
 En el prompt de _MGED_ tipee: *in rim.s tor 0 0 3.5 0 0 1 1.625 0.125[Enter]*
 
+[cols="7*"]
+[%noheader]
 |===
-
-|in |rim.s |tor |0 0 3.5 |0 0 1 |1.625 |0.125 
-|Crear una figura |Llamarla rim.s |Que la figura sea un toro |Con x, y, y z del vértice 0, 0, y 3.5 |Con x, y, y z del vector normal de 0, 0, y 1 |Radio 1 de 1.625 pulgadas |Radio 2 de 0.125 pulgadas 
+|in
+|rim.s
+|tor
+|0 0 3.5
+|0 0 1
+|1.625
+|0.125
+|Crear una figura
+|Llamarla rim.s
+|Que la figura sea un toro
+|Con x, y, y z del vértice 0, 0, y 3.5
+|Con x, y, y z del vector normal de 0, 0, y 1
+|Radio 1 de 1.625 pulgadas
+|Radio 2 de 0.125 pulgadas
 |===
 
 
@@ -86,9 +114,11 @@ Para combinar el toro con la taza, necesitará tipear en el prompt: *comb body.c
 
 Ahora se enfrenta a una situación única. La forma rim.s ha sido añadida a la lista de objetos que se muestra cuando fue creada. Sin embargo, ahora es también una parte de mug.r (a través de body.c). Si realiza el Raytrace de la vista actual tendrá dos copias de esta forma y el trazador de rayos se quejará de que se solapan.
 
-Una forma de solucionar esto es limpiar la pantalla, volver a mostrar de nuevo el objeto completo y, a continuación, realizar el trazado de rayos. Como se ha dicho previamente, el comando fbclear en el panel de control de Raytrace limpia la pantalla de framebuffer, y el comando Z de la ventana de comandos borra todos los objetos mostrados en modo framebuffer. Usted puede volver a mostrar los objetos como trazado de rayos con el comando draw. Tipee en el prompt: *Z[Enter]**draw mug.r[Enter]*
+Una forma de solucionar esto es limpiar la pantalla, volver a mostrar de nuevo el objeto completo y, a continuación, realizar el trazado de rayos. Como se ha dicho previamente, el comando fbclear en el panel de control de Raytrace limpia la pantalla de framebuffer, y el comando Z de la ventana de comandos borra todos los objetos mostrados en modo framebuffer. Usted puede volver a mostrar los objetos como trazado de rayos con el comando draw. Tipee en el prompt: *Z[Enter]* *draw mug.r[Enter]*
 
-Realiza el Raytrace de su taza. Ésta podría verse similar a la siguiente imagen: image::../../lessons/es/images/mged11_mug_raytraced_rim.png[]
+Realiza el Raytrace de su taza. Ésta podría verse similar a la siguiente imagen:
+
+image::../../lessons/es/images/mged11_mug_raytraced_rim.png[]
 
 
 
@@ -96,11 +126,9 @@ Realiza el Raytrace de su taza. Ésta podría verse similar a la siguiente image
 [[refining_mug_review]]
 == Repasemos...
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
+
+
 * Asignar propiedades de los materiales a la taza utilizando el comando mater.
 * Refinar la taza.
 * Combinar las figuras.
-
-
-
-

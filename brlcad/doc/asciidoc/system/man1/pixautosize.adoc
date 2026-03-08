@@ -10,7 +10,7 @@ pixautosize - determine if a file size or byte count is a standard image size
 
 [source]
 ----
-pixautosize [-b<bytes_per_sample>] [-f<file_name>] [-l<file_length>]
+pixautosize [-bbytes_per_sample] [-ffile_name] [-lfile_length]
 ----
 
 
@@ -21,7 +21,7 @@ pixautosize [-b<bytes_per_sample>] [-f<file_name>] [-l<file_length>]
 
 WIDTH=512; HEIGHT=512
 
-The file name can be specified by using the *-f*_file_name_ commandline option, or the file length (in bytes) can be specified by using the *-l*_file_length_ commandline option. One of these two options must be present. In either case, the *-b*_bytes_per_sample_ option can be used to specify the number of bytes which are used for each sample (pixel) in the file. The default value is three (3), which is appropriate for use with *pix*(5) files. This should be changed to one with *-b*`1` when processing a *bw*(5) file. Similarly, the proper value for a *dbw*(5) file is 8 (1 channel of 8 byte samples), and the value for *dpix*(5) files is 24 (3 channels of 8 byte samples).
+The file name can be specified by using the *-f* _file_name_ commandline option, or the file length (in bytes) can be specified by using the *-l* _file_length_ commandline option. One of these two options must be present. In either case, the *-b* _bytes_per_sample_ option can be used to specify the number of bytes which are used for each sample (pixel) in the file. The default value is three (3), which is appropriate for use with *pix*(5) files. This should be changed to one with *-b* `1` when processing a *bw*(5) file. Similarly, the proper value for a *dbw*(5) file is 8 (1 channel of 8 byte samples), and the value for *dpix*(5) files is 24 (3 channels of 8 byte samples).
 
 
 [[examples]]
@@ -88,5 +88,3 @@ This software is Copyright (c) 1992-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

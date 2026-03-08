@@ -10,14 +10,14 @@ check - Check is a geometry analysis tool.
 
 [source]
 ----
-check <sub-command> [<options>] [<objects>]...
+check sub-command [options] [objects]...
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-The *check* program computes and reports a variety of characteristics of the _objects_ specified from the opened database. The characteristics which can be computed include *mass, centroid, moments of inertia, volume, overlaps, surface area, exposed air, gaps/voids, unconfined air* and *adjacent air.* Only the _objects_ from the database specified on the command line are analyzed.
+The *check* program computes and reports a variety of characteristics of the _objects_ specified from the opened database. The characteristics which can be computed include *mass, centroid, moments of inertia, volume, overlaps, surface area, exposed air, gaps/voids, unconfined air* and *adjacent air.*  Only the _objects_ from the database specified on the command line are analyzed.
 
 It works by shooting grids of rays from the three axis-aligned directions (sometimes called _views_) or a single view when azimuth/elevation angles are mentioned.
 
@@ -143,6 +143,8 @@ The geometry editor MGED automatically assigns an index value of `1` to a newly 
 The user will typically want to run *gqa* and verify the results using the *-f* option (see below) before importing the table into the database. For example, if a material index is left out of the table, it is easier to rectify the situation using the external file. Once the table has been verified as correct and complete, it is imported to the database as the binary object *_DENSITIES* . To import the text file into the database, the following command is used:
 
 
+
+
 ....
 
 mged> bo -i u c _DENSITIES filename
@@ -164,11 +166,11 @@ For each pair of regions that cause an error, the tool reports the two erroneous
 == OPTIONS
 
 
-*-a*_azimuth_deg [deg|rad]_::
+*-a* __azimuth_deg [deg|rad]__::
 Sets a rotation (in degrees) of the coordinate system by a given amount about the Z axis. When mentioned, check shoots only one grid of rays along the azimuth/elevation angle. The default is 35. See also *-e* .
 
 
-*-e*_elevation_deg [deg|rad]_::
+*-e* __elevation_deg [deg|rad]__::
 Sets a rotation (in degrees) of the coordinate system by a given elevation from the XY plane (rotation about X axis?). When mentioned, check shoots only one grid of rays along the azimuth/elevation angle. The default is 25. See also *-a* .
 
 
@@ -176,17 +178,17 @@ Sets a rotation (in degrees) of the coordinate system by a given elevation from 
 Enables debugging (off by default).
 
 
-*-f*_filename_::
+*-f* _filename_::
 Specifies that density values should be taken from an external file instead of from the *_DENSITIES* object in the database. This option can be useful when developing the density table with a text editor, prior to importing it to the geometric database.
 
 
-*-g*[_initial_grid_spacing_-]_grid_spacing_limit_ or [_initial_grid_spacing_,]_grid_spacing_limit_::
-Specifies a limit on how far the grid can be refined and optionally the initial spacing between rays in the grids. The first value (if present) indicates the initial spacing between grid rays. The mandatory argument, _grid_spacing_limit_, indicates a lower bound on how fine the grid spacing may get before computation is terminated. In general, the _initial_grid_spacing_ value should be an integer power of the _grid_spacing_limit_. So for example, if _grid_spacing_limit_ has the value 1, then any _initial_grid_spacing_ specified should be in the sequence 2, 4, 8, 16, 32... so that the grid will refine to precisely the lower limit. The grid spacing may be specified with units. For example: *5 mm* or *10 in* . If units are not provided, millimeters are presumed to be the units.
+*-g* [__initial_grid_spacing__-]__grid_spacing_limit__ or [__initial_grid_spacing__,]__grid_spacing_limit__::
+Specifies a limit on how far the grid can be refined and optionally the initial spacing between rays in the grids. The first value (if present) indicates the initial spacing between grid rays. The mandatory argument, __grid_spacing_limit__, indicates a lower bound on how fine the grid spacing may get before computation is terminated. In general, the __initial_grid_spacing__ value should be an integer power of the __grid_spacing_limit__. So for example, if __grid_spacing_limit__ has the value 1, then any __initial_grid_spacing__ specified should be in the sequence 2, 4, 8, 16, 32... so that the grid will refine to precisely the lower limit. The grid spacing may be specified with units. For example: *5 mm* or *10 in* . If units are not provided, millimeters are presumed to be the units.
 
 The default values are 50.0 mm and 0.5 mm, which is equivalent to specifying: *-g 50.0mm-0.5mm* or *-g 50.0mm,0.5mm* on the command line. This is a hard limit. If other analysis constraints are not met, the grid spacing will never be refined smaller than the minimum grid size to satisfy another constraint. The initial grid spacing is divided in half at each refinement step. As a result, if you desire a lower limit to actually be tested, then the initial grid size must be a power of 2 greater. For example, specifying -g10mm,1mm would result in grid spacings of 10, 5, 2.5, 1.25 being used. If the goal was to exactly end at a 1mm grid, then values such as 8 or 16 should have been chosen for the initial values. This would result in testing 16, 8, 4, 2, 1 grid spacing values.
 
 
-*-G*[_grid_width_,]_grid_height_::
+*-G* [__grid_width__,]__grid_height__::
 sets the grid size, if only grid width is mentioned then a _square_ grid size is set.
 
 
@@ -194,20 +196,20 @@ sets the grid size, if only grid width is mentioned then a _square_ grid size is
 Gets 'view information' from the view to setup the eye position of the single grid. Used only for _overlaps_ calculations.
 
 
-*-M*_mass_tolerance[units]_::
+*-M* __mass_tolerance[units]__::
 This is like the volume tolerance, *-V*, but is applied to the mass computation results, not the volume computation results.
 
 The mass computation tolerance is probably more appropriate when doing whole-vehicle analysis. If mass computation is selected, it is set to a value equal to the mass of an object 1/100 the size of the model, which is made of the most dense material in the table.
 
 
-*-n*_num_hits_::
-Specifies that the grid be refined until each region has at least _num_hits_ ray intersections. It applies only when mass or volume calculations are being performed. This limit is not applied per-view, but rather per-analysis. So, for example, it is accepted that a thin object might not be hit at all from one view, but might be hit when it is shot from other views.
+*-n* __num_hits__::
+Specifies that the grid be refined until each region has at least __num_hits__ ray intersections. It applies only when mass or volume calculations are being performed. This limit is not applied per-view, but rather per-analysis. So, for example, it is accepted that a thin object might not be hit at all from one view, but might be hit when it is shot from other views.
 
 The default is 1. Hence, each region must be intersected by a ray at least once during the analysis.
 
 
-*-N*_num_views_::
-Specifies that only the first _num_views_ should be computed. This is principally a debugging option.
+*-N* __num_views__::
+Specifies that only the first __num_views__ should be computed. This is principally a debugging option.
 
 
 *-o*::
@@ -218,7 +220,7 @@ Specifies to display the _overlaps_ as overlays.
 Specifies that *check* should produce plot files for each of the analyses it performs. These can be overlaid on the geometry in _mged_ with the _overlay_ command to help visualize the analysis results. Each of the different analysis types write to a separate plot file and use different colors for drawing.
 
 
-*-P*_ncpu_::
+*-P* _ncpu_::
 Specifies that _ncpu_ CPUs should be used for performing the calculation. By default, all local CPUs are utilized. This option exists primarily to reduce the number of computation threads from the machine maximum. Note that specifying more CPUs than are present on the machine does not increase the number of computation threads.
 
 
@@ -234,24 +236,24 @@ Indicates that *check* should print per-region statistics for mass, volume and s
 Disables the reporting of overlaps. Used only for _overlaps_ sub-command.
 
 
-*-s*_surf_area_tolerance_::
-Specifies a _surface area tolerance_ value that the three view computations must be within for computation to complete. If surface area calculation is selected and this option is not set, then the tolerance is set to 1/1,000 of the estimated surface area of the model bounding box.
+*-s* __surf_area_tolerance__::
+Specifies a _surface area tolerance_  value that the three view computations must be within for computation to complete. If surface area calculation is selected and this option is not set, then the tolerance is set to 1/1,000 of the estimated surface area of the model bounding box.
 
 
-*-S*_samples_per_model_axis_::
-Specifies that the grid spacing will be initially refined so that at least _samples_per_axis_min_ will be shot along each axis of the bounding box of the model. For example, if the objects specified have a bounding box of 0 0 0 -> 4 3 2 and the grid spacing is 1.0, specifying the option *-S 4* will cause the initial grid spacing to be adjusted to 0.5 so that 4 samples will be shot across the Z dimension of the bounding box. The default is to ensure 1 ray per model grid axis.
+*-S* __samples_per_model_axis__::
+Specifies that the grid spacing will be initially refined so that at least __samples_per_axis_min__ will be shot along each axis of the bounding box of the model. For example, if the objects specified have a bounding box of 0 0 0 -> 4 3 2 and the grid spacing is 1.0, specifying the option *-S 4* will cause the initial grid spacing to be adjusted to 0.5 so that 4 samples will be shot across the Z dimension of the bounding box. The default is to ensure 1 ray per model grid axis.
 
 
-*-t*_overlap_tolerance_::
-Sets the tolerance for computing overlaps. The _overlap_tolerance_ must be a positive number equal to or greater than 0.0. Any overlap smaller than the value specified will be ignored. The default value is 0.0, which causes any overlap to be reported/processed. The value may be specified with a unit specifier such as: *-t 1.0mm* or *-t 0.25in.*
+*-t* __overlap_tolerance__::
+Sets the tolerance for computing overlaps. The __overlap_tolerance__ must be a positive number equal to or greater than 0.0. Any overlap smaller than the value specified will be ignored. The default value is 0.0, which causes any overlap to be reported/processed. The value may be specified with a unit specifier such as: *-t 1.0mm* or *-t 0.25in.*
 
 
-*-U*_use_air_::
-Specifies the Boolean value (0 or 1) for _use_air_ which indicates whether regions which are marked as "air" should be retained and included in the raytrace. *Unlike other BRL-CAD raytracing applications, the default is to retain air in the raytracing.* The *-U 0* option causes air regions to be discarded prior to raytracing. If you turn off use_air, and request any analysis that requires it (see *-A* above), then the program will exit with an error message.
+*-U* __use_air__::
+Specifies the Boolean value (0 or 1) for __use_air__ which indicates whether regions which are marked as "air" should be retained and included in the raytrace. *Unlike other BRL-CAD raytracing applications, the default is to retain air in the raytracing.* The *-U 0* option causes air regions to be discarded prior to raytracing. If you turn off use_air, and request any analysis that requires it (see *-A* above), then the program will exit with an error message.
 
 
-*-u*_distance_units,volume_units,mass_units_::
-Specify the units used when reporting values. Values must be comma delimited and provided in the order _distance_units_,_volume_units_, _mass_units_. For example: *-u "cm,cu ft,kg"* or *-u ,,kg* (The latter example sets only the mass units.) Note that unit values with spaces in their names such as _cu ft_ must be contained in quotes for the shell to keep the values together.
+*-u* __distance_units,volume_units,mass_units__::
+Specify the units used when reporting values. Values must be comma delimited and provided in the order __distance_units__,__volume_units__, __mass_units__. For example: *-u "cm,cu ft,kg"* or *-u ,,kg* (The latter example sets only the mass units.) Note that unit values with spaces in their names such as _cu ft_ must be contained in quotes for the shell to keep the values together.
 
 The default units are millimeters, cubic millimeters, and grams.
 
@@ -260,7 +262,7 @@ The default units are millimeters, cubic millimeters, and grams.
 Turns on verbose reporting of computation progress. This is useful for learning how the computation is progressing, and what tolerances are causing further computation to be necessary.
 
 
-*-V*_volume_tolerance[units]_::
+*-V* __volume_tolerance[units]__::
 Specifies a volumetric tolerance value that the three view computations must be within for computation to complete. If volume calculation is selected and this option is not set, then the tolerance is set to 1/1,000 of the volume of the model bounding box. For large, complex objects (such as entire vehicles), this value might need to be set larger to achieve reasonable runtime (or even completion). Given the approximate sampling nature of the algorithm, the three separate view computations will not usually produce identical results.
 
 
@@ -272,7 +274,9 @@ Specifies a volumetric tolerance value that the three view computations must be 
 .Specifying Grid and Target Objects
 [example]
 ====
-The following will check objects hull, turret, and suspension for overlaps. The grid starts at 1 cm and is refined to 1 mm. 
+The following will check objects hull, turret, and suspension for overlaps. The grid starts at 1 cm and is refined to 1 mm.
+
+
 ....
 
 mged> check overlaps -g 1cm-1mm hull turret suspension
@@ -286,7 +290,9 @@ mged> check overlaps -g 1cm-1mm hull turret suspension
 .Specifying Using Non-Default Units
 [example]
 ====
-The following computes volume of hull, turret, and suspension. Results are reported in cubic centimeters (cc). The grid spacing starts at 5 in. and will not be refined below 0.3 mm spacing. 
+The following computes volume of hull, turret, and suspension. Results are reported in cubic centimeters (cc). The grid spacing starts at 5 in. and will not be refined below 0.3 mm spacing.
+
+
 ....
 
 mged> check volume -g5in-0.3mm -u ft,cc,oz hull turret suspension
@@ -300,7 +306,9 @@ mged> check volume -g5in-0.3mm -u ft,cc,oz hull turret suspension
 .Different Analysis Types
 [example]
 ====
-For examples of some independent analysis types, consider the following: 
+For examples of some independent analysis types, consider the following:
+
+
 ....
 
 mged> check overlaps -g50,50 -u m,m^3,kg overlaps
@@ -321,6 +329,8 @@ SUMMARY
 ....
 
 
+
+
 ....
 
 mged> check exp_air -u m,m^3,kg exposed_air.g
@@ -331,6 +341,8 @@ list Exposed Air:
 /exposed_air.g/exposed_air.r count:25921 dist:9m @ (10000 1000 1000)
       
 ....
+
+
 
 
 ....
@@ -345,6 +357,8 @@ list Unconfined Air:
 ....
 
 
+
+
 ....
 
 mged> check gap -u m,m^3,kg gap.g
@@ -356,6 +370,8 @@ list Gaps:
 /gap.g/adj_air2.r /gap.g/closed_box.r count:25921 dist:4m @ (1000 5000 1000)
       
 ....
+
+
 
 
 ....
@@ -373,6 +389,8 @@ grid spacing 12.5mm  799 x 799 x 799
 ....
 
 
+
+
 ....
 
 mged> check surf_area -u m,m^3,kg closed_box.r
@@ -387,6 +405,8 @@ Surface Area:
   Average total surface area: 384.485 m^2
       
 ....
+
+
 
 
 ....
@@ -417,5 +437,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ pix-bw - combine pix color planes into a bw black and white image
 
 [source]
 ----
-pix-bw [-s<squaresize>] [-w<width>] [-n<height>] [ [-e<ntsc|crt|hdtv|hdr|avg>] [ [ -R<r_weight>] [ -G<g_weight>] [ -B<b_weight>]]] [-o<out.bw>] [ [<]<in.pix>] > <out.bw>
+pix-bw [-ssquaresize] [-wwidth] [-nheight] [ [-entsc|crt|hdtv|hdr|avg] [ [ -Rr_weight] [ -Gg_weight] [ -Bb_weight]]] [-oout.bw] [ [<]in.pix] > out.bw
 ----
 
 
@@ -19,28 +19,28 @@ pix-bw [-s<squaresize>] [-w<width>] [-n<height>] [ [-e<ntsc|crt|hdtv|hdr|avg>] [
 
 *pix-bw* will combine or select the color planes of a *pix*(5) format file from its standard input and produce a black and white *bw*(5) file on its standard output.
 
-The *-w*_file_width_ flag specifies the width of each scanline in the input file, in pixels. The *-n*_file_height_ flag specifies the height in scanlines of the input file. They are set to the same value using *-s*_squarefilesize_.
+The *-w* _file_width_ flag specifies the width of each scanline in the input file, in pixels. The *-n* _file_height_ flag specifies the height in scanlines of the input file. They are set to the same value using *-s* _squarefilesize_.
 
-By default all three colors are weighted equally. The *-e*_type_ flag can be used to specify a standard weighting scheme; the _type_ choices include:
+By default all three colors are weighted equally. The *-e* _type_ flag can be used to specify a standard weighting scheme; the _type_ choices include:
 
 
-_ntsc_::
+*ntsc*::
 Weighting used is based on the NTSC primaries and white alignment. Conforming with Rec.ITU-R BT.601-7, this uses 0.299/0.587/0.114 RGB weights. This gives a simplified linear conversion of perceived luminance that reflects human physiological sensitivity to green and least to blue.
 
 
-_crt_::
+*crt*::
 Weighting scheme matches "historic" CRT phosphor chromaticities and a D6500 white alignment. Uses 0.26/0.66/0.08 RGB weights.
 
 
-_hdtv_::
+*hdtv*::
 Weighting scheme matches "modern" HDTV display chromacities. Uses 0.2126/0.7152/0.0722 RGB weights per Rec.ITU-R BT.709
 
 
-_hdr_::
+*hdr*::
 Weighting scheme matches high dynamic range (HDR) chromacities. Uses 0.2627/0.6780/0.0593 RGB weights per Rec.ITU-R BT.2020
 
 
-_avg_::
+*avg*::
 Weighting scheme simply takes the average of all three values (i.e., R + G + B / 3.0).
 
 
@@ -84,5 +84,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

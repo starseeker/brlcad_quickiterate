@@ -10,14 +10,14 @@ plot3line2 - output a 2D UnixPlot line
 
 [source]
 ----
-plot3line2 <x1> <y1> <x2> <y2> [ <r> <g> <b>] [ <] <unix_plot> > <unix_plot>
+plot3line2 x1 y1 x2 y2 [ r g b] [ <] unix_plot > unix_plot
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*plot3line2* outputs a UnixPlot command to draw a line in the XY plane from the point (_x1 y1_) to the point (_x2 y2_). These points can be floating point and the output is always written as a floating point plotting command. If you need an integer command then feed the output of this through *plot3-plot3*(1). If an optional [_r g b_] is given, where _r_, _g_, and _b_ are values from 0 to 255 representing Red, Green, and Blue color values, the line will be drawn in that color. Otherwise the current drawing color (white by default) is used.
+*plot3line2* outputs a UnixPlot command to draw a line in the XY plane from the point (*x1 y1*) to the point (*x2 y2*). These points can be floating point and the output is always written as a floating point plotting command. If you need an integer command then feed the output of this through *plot3-plot3*(1). If an optional [_r g b_] is given, where _r_, _g_, and _b_ are values from 0 to 255 representing Red, Green, and Blue color values, the line will be drawn in that color. Otherwise the current drawing color (white by default) is used.
 
 To allow this command to be used in pipelines, an optional input file can be given. All of the input will be passed through until end of file, and then the line will be appended to the end.
 
@@ -46,5 +46,3 @@ This software is Copyright (c) 1988-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -17,7 +17,7 @@ reair {comb} {aircode}
 [[description]]
 == DESCRIPTION
 
-The 'reair' command assigns the 'aircode' attribute value for all regions within a specified combination. 
+The 'reair' command assigns the 'aircode' attribute value for all regions within a specified combination.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

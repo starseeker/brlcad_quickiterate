@@ -1,8 +1,12 @@
 = Refining a Mug Model
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
-In this lesson, you will: 
+In this lesson, you will:
+
+
 * Assign material properties to the mug using the mater command.
 * Refine the mug.
 * Combine the shapes.
@@ -16,7 +20,7 @@ In this lesson, you will refine the mug you made in the previous lesson. If you 
 
 Assigning material properties to a region can be done with either the mater or shader command. The program will respond with a series of questions. These concern the various parameters of the shader you select to use in rendering the object.
 
-The most commonly used shader is the plastic shader, which uses a Phong lighting model. Select the plastic shader and set the color to a medium shade of green. The dialog in the Command Window should appear as follows: *mged>mater mug.r[Enter]*
+The most commonly used shader is the plastic shader, which uses a Phong lighting model. Select the plastic shader and set the color to a medium shade of green. The dialog in the Command Window should appear as follows: mged>mater mug.r[Enter]
 
 
 ....
@@ -33,10 +37,21 @@ The most commonly used shader is the plastic shader, which uses a Phong lighting
 
 Enter the appropriate information that is shown in bold font. If you want to use the streamlined version, type: *mater mug.r plastic 32 128 32 0[Enter]*
 
-Diagrammed, this command says: |===
+Diagrammed, this command says:
 
-|mater |mug.r |plastic |32 128 32 |0 
-|Assign material properties to a region |Called mug.r |Make the material plastic |Color the mug green |Turn inheritance off* 
+[cols="5*"]
+[%noheader]
+|===
+|mater
+|mug.r
+|plastic
+|32 128 32
+|0
+|Assign material properties to a region
+|Called mug.r
+|Make the material plastic
+|Color the mug green
+|Turn inheritance off*
 |===
 
 
@@ -64,10 +79,23 @@ Now let's improve the cup. Notice that the lip of the cup looks a little too squ
 
 At the _MGED_ prompt, type: *in rim.s tor 0 0 3.5 0 0 1 1.625 0.125[Enter]*
 
+[cols="7*"]
+[%noheader]
 |===
-
-|in |rim.s |tor |0 0 3.5 |0 0 1 |1.625 |0.125 
-|Make a shape |Call it rim.s |Make the shape a torus |With x, y, and z vertices of 0, 0, and 3.5 |With x, y, and z of normal vector being 0, 0, and 1 |Radius 1 is 1.625 inches and |Radius 2 is 0.125 inches 
+|in
+|rim.s
+|tor
+|0 0 3.5
+|0 0 1
+|1.625
+|0.125
+|Make a shape
+|Call it rim.s
+|Make the shape a torus
+|With x, y, and z vertices of 0, 0, and 3.5
+|With x, y, and z of normal vector being 0, 0, and 1
+|Radius 1 is 1.625 inches and
+|Radius 2 is 0.125 inches
 |===
 
 
@@ -78,9 +106,11 @@ To combine the torus with the cup, you will need to type at the prompt: *comb bo
 
 Now you are faced with a unique situation. The shape rim.s was added to the list of objects being displayed when it was created. However, now it is also a part of mug.r (via body.c). If you raytrace the current view, you will have two copies of this shape. The raytracer will complain that they overlap.
 
-One way to fix this is to clear the display, redisplay the new, complete object, and then raytrace. As discussed previously, the fbclear command in the Raytrace Control Panel clears the framebuffer display, and the Z command in the Command Window clears all wireframed objects. You can redisplay the objects you want to raytrace with the draw command. Type at the prompt: *Z[Enter]**draw mug.r[Enter]*
+One way to fix this is to clear the display, redisplay the new, complete object, and then raytrace. As discussed previously, the fbclear command in the Raytrace Control Panel clears the framebuffer display, and the Z command in the Command Window clears all wireframed objects. You can redisplay the objects you want to raytrace with the draw command. Type at the prompt: *Z[Enter]* *draw mug.r[Enter]*
 
-Raytrace your mug. It should now look similar to the following. image::../lessons/images/mged11_mug_raytraced_rim.png[]
+Raytrace your mug. It should now look similar to the following.
+
+image::../lessons/images/mged11_mug_raytraced_rim.png[]
 
 
 
@@ -88,11 +118,9 @@ Raytrace your mug. It should now look similar to the following. image::../lesson
 [[refining_mug_review]]
 == Review
 
-In this chapter, you: 
+In this chapter, you:
+
+
 * Assigned material properties to the mug using the mater command.
 * Refined the mug by smoothing the lip.
 * Combined the shapes.
-
-
-
-

@@ -10,7 +10,7 @@ npush - push matrices down a tree hierarchy
 
 [source]
 ----
-npush [-h] [-?] [-v] [-f] [-x] [-r] [-s] [-d<max_depth>] {arg1 [arg2]...}
+npush [-h] [-?] [-v] [-f] [-x] [-r] [-s] [-dmax_depth] {arg1 [arg2]...}
 ----
 
 
@@ -364,7 +364,7 @@ Halt push operations at the hierarchy level above solids.
 
 
 *-d max_depth*::
-Halt push operations at the hierarchy level specified by _max_depth_.
+Halt push operations at the hierarchy level specified by __max_depth__.
 
 
 
@@ -401,5 +401,3 @@ Push all matrices under given group down to the solid level (matrices will sit b
 ....
 
 ====
-
-

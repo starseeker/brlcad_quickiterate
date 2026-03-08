@@ -1,11 +1,17 @@
 = Expresiones Booleanas
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
+
+
 * Manejar combinaciones y regiones.
 * Utilizar operaciones Booleanas.
 * Crear regiones con operaciones Booleanas.
+
+
 
 
 [CAUTION]
@@ -35,7 +41,9 @@ Cuando las operaciones Booleanas son usadas para construir formas complejas a pa
 [[boolean_operations]]
 == Operaciones Booleanas
 
-Los tres operadores Booleanos empleados por el programa _MGED_ son: unión, substracción e intersección. Puede usar estas operaciones para combinar formas y producir otras más complejas. 
+Los tres operadores Booleanos empleados por el programa _MGED_ son: unión, substracción e intersección. Puede usar estas operaciones para combinar formas y producir otras más complejas.
+
+
 * Union (Unión): Fusión de dos formas.
 * Subtract (Substracción): Quitar el volumen de una forma superpuesta a otra.
 * Intersect (Intersección): Usa solamente las partes de la intersección de dos formas que se superponen.
@@ -81,10 +89,21 @@ image::../../lessons/es/images/mged05_twoprimitivespheres.png[]
 
 Creará entonces formas diferentes para demostrar la función de las operaciones Booleanas. En la ventana de comando, tipee lo siguiente: *r part1.r u rcc2.s - sph2.s[Enter]* Este comando le dirá a _MGED_ que:
 
+[cols="6*"]
+[%noheader]
 |===
-
-|r |part1.r |u |rcc2.s |- |sph2.s 
-|Cree una región |La nombre part1.r |Una... |La forma nombrada rcc2.s |Substraiga... |La forma nombrada sph2.s 
+|r
+|part1.r
+|u
+|rcc2.s
+|-
+|sph2.s
+|Cree una región
+|La nombre part1.r
+|Una...
+|La forma nombrada rcc2.s
+|Substraiga...
+|La forma nombrada sph2.s
 |===
 
 Nota: El primer miembro siempre lleva u minúscula para un operador (por eso al llamar al comando con una sola imagen, por defecto el operador será la unión). El segundo y subsecuente miembro puede usar -, + ó u según lo necesario. La forma de determinar cuáles operadores usar y en qué orden, se desarrollará en un tutorial más avanzado.
@@ -101,10 +120,13 @@ Hasta el momento, sólo tenemos las formas primitivas visualizadas, no la regió
 
 Ahora está listo para trazar este objeto. Desde el menú File (Archivo), active el Raytrace Control Panel (Panel de Control del Trazado de Rayo) y cliquee el botón Raytrace (Trazado de Rayos). La imagen obtenida debería ser similar a la imagen de la izquierda que se muestra a continuación. Nótese que esto puede tomar varios minutos, dependiendo de la velocidad de cada sistema en particular.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../../lessons/es/images/mged05_raytracedpart1.png[] |image:../../lessons/es/images/mged05_raytracedpart2.png[] 
-|Raytrace de part1.r |Raytrace de part2.r 
+|image:../../lessons/es/images/mged05_raytracedpart1.png[]
+|image:../../lessons/es/images/mged05_raytracedpart2.png[]
+|Raytrace de part1.r
+|Raytrace de part2.r
 |===
 
 Debería ver que una porción esférica ha sido sacada de la parte superior del cilindro.
@@ -155,7 +177,9 @@ Resultará en las siguientes expresiones Booleanas: `(shape1 - shape2) u ( (shap
 [[learning_boolean_operations_review]]
 == Repasemos...
 
-En este tutorial, usted aprendió a : 
+En este tutorial, usted aprendió a :
+
+
 * Manejar combinaciones y regiones.
 * Utilizar operaciones Booleanas.
 * Crear regiones con operaciones Booleanas.

@@ -10,7 +10,7 @@ get - Retrieves parameter values of database objects.
 
 [source]
 ----
-get {<object_name_pattern>} [<param_name>]
+get {object_name_pattern} [param_name]
 ----
 
 
@@ -29,6 +29,8 @@ Low level command for extracting specific parameter information from geometry ob
 Use the *get* command to extract the r parameter value from an elliptical torus.
 
 
+
+
 ....
 
 mged> make eto.s eto
@@ -42,6 +44,8 @@ eto.s:  Elliptical Torus (ETO)
 
     
 ....
+
+
 
 
 
@@ -80,5 +84,3 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

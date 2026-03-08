@@ -10,14 +10,14 @@ whichair - Reports information relating to usag of air codes on regions.
 
 [source]
 ----
-whichair [<options ...>] {<air_codes>}
+whichair [options ...] {air_codes}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Reports information about the usage of the _air_codes_ property by regions in a .g file. Its default mode is to report which regions in a .g file are using one or a range of region_id values. If a root object is specified, it will report that result only for the regions in the tree of the root object. If the *U* is specified, the reporting is inverted and the command will report the ranges of _unused_ aircodes rather than the regions using various aircodes.
+Reports information about the usage of the __air_codes__ property by regions in a .g file. Its default mode is to report which regions in a .g file are using one or a range of region_id values. If a root object is specified, it will report that result only for the regions in the tree of the root object. If the *U* is specified, the reporting is inverted and the command will report the ranges of _unused_ aircodes rather than the regions using various aircodes.
 
 The *eac* command will perform a similar search, but will draw the qualifying regions in the MGED display rather than listing them.
 
@@ -45,6 +45,8 @@ For these examples the geometry file used is the standard _m35.g_ included with 
 [example]
 ====
 mged>*whichair 7-10*
+
+
 ....
 
 Region[s] with air code 7:
@@ -69,6 +71,8 @@ Region[s] with air code 8:
 [example]
 ====
 mged>*whichair -U 1-10*
+
+
 ....
 
 Unused air codes:
@@ -93,5 +97,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

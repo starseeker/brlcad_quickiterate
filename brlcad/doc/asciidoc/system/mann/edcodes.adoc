@@ -10,7 +10,7 @@ edcodes - Puts the user into an editor to edit a file that has been filled with 
 
 [source]
 ----
-edcodes [-i] [-r] {<object(s)>}
+edcodes [-i] [-r] {object(s)}
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

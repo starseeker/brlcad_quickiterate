@@ -10,14 +10,14 @@ pixsaturate - saturate a pix file
 
 [source]
 ----
-pixsaturate <saturation> < <infile.pix> > <outfile.pix>
+pixsaturate saturation < infile.pix > outfile.pix
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*pixsaturate* saturates a color pix file using the _saturation_ value. A value of 0 gives monochrome, 1.0 gives the original image, and values larger than 1.0 give a more saturated image.
+*pixsaturate* saturates a color pix file using the *saturation* value. A value of 0 gives monochrome, 1.0 gives the original image, and values larger than 1.0 give a more saturated image.
 
 
 [[see_also]]
@@ -42,5 +42,3 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

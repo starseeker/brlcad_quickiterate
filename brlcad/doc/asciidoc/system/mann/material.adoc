@@ -10,37 +10,37 @@ material - Used to create, change, retrieve, assign, import, or view materials a
 
 [source]
 ----
-material assign {<object_name_pattern>} {<material_name>}
+material assign {object_name_pattern} {material_name}
 ----
 
 
 [source]
 ----
-material create {<object_name_pattern>} {<material_name>}
+material create {object_name_pattern} {material_name}
 ----
 
 
 [source]
 ----
-material import [<--id | --name>] {<file_name>}
+material import [--id | --name] {file_name}
 ----
 
 
 [source]
 ----
-material get {<object_name_pattern>} [<property_group_name>] {<property_name>}
+material get {object_name_pattern} [property_group_name] {property_name}
 ----
 
 
 [source]
 ----
-material remove {<object_name_pattern>} [<property_group_name>] {<property_name>}
+material remove {object_name_pattern} [property_group_name] {property_name}
 ----
 
 
 [source]
 ----
-material set {<object_name_pattern>} [<property_group_name>] {<property_name>} {<property_value>}
+material set {object_name_pattern} [property_group_name] {property_name} {property_value}
 ----
 
 
@@ -52,13 +52,17 @@ Used to create, change, retrieve, assign, import, or view materials and their pr
 A newly formed material will have a minimum of the following data set on creation:
 
 
+
+
 * name
 
 
 
 Material objects are made up of a name (seperate from the object name), parent value, and source value. All of which are variable length strings.
 
-In addition to the three variable length string properties, material objects also contain four key-value lists used for storing additional material information: 
+In addition to the three variable length string properties, material objects also contain four key-value lists used for storing additional material information:
+
+
 * physical
 * mechanical
 * optical
@@ -145,5 +149,3 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

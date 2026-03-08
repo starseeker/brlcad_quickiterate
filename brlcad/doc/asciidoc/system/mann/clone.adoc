@@ -10,7 +10,7 @@ clone - The clone command performs a deep copy of an object, optionally duplicat
 
 [source]
 ----
-clone [<options>]... {object_to_clone}
+clone [options]... {object_to_clone}
 ----
 
 
@@ -96,5 +96,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ reshoot - re-shoot rays and compare results
 
 [source]
 ----
-reshoot <model.g> <objects>... < <raylist>
+reshoot model.g objects... < raylist
 ----
 
 
@@ -94,5 +94,3 @@ This software is Copyright (c) 2006-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

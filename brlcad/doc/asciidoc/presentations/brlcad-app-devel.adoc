@@ -1,6 +1,8 @@
 = Application Development
 Lee A. Butler; John Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 == WARNING
 
@@ -35,15 +37,23 @@ Non-programmers will need atropine, caffeine, and electro-shock therapy (run, do
 * The Big Six
 
 .
+[cols="2*"]
 |===
-|*Header* |*Library* 
+|*Header*
+|*Library*
 
-|bu.h |libbu 
-|bn.h |libbn 
-|raytrace.h |librt 
-|rtgeom.h |librt / libwdb 
-|wdb.h |libwdb 
-|vmath.h |(data types) 
+|bu.h
+|libbu
+|bn.h
+|libbn
+|raytrace.h
+|librt
+|rtgeom.h
+|librt / libwdb
+|wdb.h
+|libwdb
+|vmath.h
+|(data types)
 |===
 
 
@@ -77,7 +87,6 @@ Non-programmers will need atropine, caffeine, and electro-shock therapy (run, do
 
 ** Includes some additional headers
 ** Contains most ray-tracing data structure definitions
-
 
 
 [[Opening_the_Database]]
@@ -409,17 +418,13 @@ Called in do_frame() at the end of a frame, just after raytracing completes.
 *** Space efficient
 *** Network integers (Big-Endian)
 *** IEEE double-precision floating point (Big-Endian)
-
 ** Internal (Editing)
 
 *** Convenient parameter editing
 *** Host float/int representation
-
 ** Prepped (Raytrace)
 
 *** Fast ray/primitive intersections
-
-
 
 
 [[On-Disk_Representation]]
@@ -430,18 +435,14 @@ Called in do_frame() at the end of a frame, just after raytracing completes.
 * Machine independent
 
 ** Only in new database format
-
 * Database access is separate from object retrieval.
 
 ** Database layer returns named objects.
 
 *** Does not understand content.
-
 ** Primitive objects get Bag-o-Bytes to turn into in-memory representation.
 
 *** Have no knowledge of data origins
-
-
 
 
 [[Internal_Representation]]
@@ -451,7 +452,6 @@ Called in do_frame() at the end of a frame, just after raytracing completes.
 * Convenient editing form
 
 ** Host format floating point and integers
-
 * Must be exported to be written to disk
 * Primitive shape data structures defined in h/rtgeom.h
 * Combination (and hence region) structure defined in raytrace.h
@@ -466,11 +466,9 @@ Called in do_frame() at the end of a frame, just after raytracing completes.
 * May not include internal form
 
 ** Saves memory
-
 * May include additional fields
 
 ** Pre-computed values, additional data
-
 
 
 [[Simple_Database_Application]]
@@ -524,7 +522,6 @@ if ((dbip = db_open(argv[1], "r+w")) != DBI_NULL) {
 * Note: All db units are in mm
 
 ** Set mk_conv2mm global for other units
-
 
 
 ----
@@ -600,18 +597,15 @@ wdb_export(wdbp, "mybox", arb, ID_ARB8, mk_conv2mm);
 
 ** Both are same type of database record
 ** old GIFT form detailed here
-
 * Simple boolean tree that contains
 
 ** Names of objects
 ** Boolean operations.
 ** Matrix transformations
-
 * Database record contains no actual geometry.
 * Example code taken from
 
 ** libwdb/wdb_example.c
-
 
 
 [[Constructing_Boolean_List]]
@@ -652,8 +646,6 @@ memcpy(wm_hd->wm_mat, trans_matrix, sizeof(mat_t));
 *** caveat: can use to update boolean tree under special conditions
 
 
-
-
 ----
 int is_region = 1;
 VSET(rgb, 64, 180, 96); /* a nice green */
@@ -681,7 +673,6 @@ mk_lcomb(wdbp,
 ** List of elements
 ** Boolean operations
 ** Matrix transformations.
-
 
 
 ----
@@ -736,7 +727,6 @@ wdb_export(wdbp, "box_n_ball.r", comb, ID_COMBINATION, 1.0);
 * Need to prep the tree to obtain geometry
 
 ** First, create rt instance struct rt_i object
-
 
 
 ----
@@ -807,7 +797,6 @@ for (BU_LIST_FOR(rp, region, &rtip->HeadRegion)) {
 
 ** Contains only modifications
 ** Akin to union filesystem of Unix
-
 * Directory structure tracks whether current version of object is on disk or in inmem database
 * Object retrieval gets most current version
 * Writes to inmem arranged though special wdb_dbopen() call
@@ -848,5 +837,3 @@ if ((dbip = db_open(argv[1], "r+w")) != DBI_NULL) {
 ----
 wdb_close(wdbp);
 ----
-
-

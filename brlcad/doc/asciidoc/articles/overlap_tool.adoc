@@ -1,5 +1,7 @@
 = The Overlap Tool
 :doctype: article
+:toc:
+:toclevels: 3
 
 == Introduction
 
@@ -12,7 +14,9 @@ The biggest assumption made by the overlap tool is that all matrices in the data
 
 === Basic Steps to Launch the Overlaps Tool GUI
 
-In the mged command window: 
+In the mged command window:
+
+
 ....
 
 mged> overlaps_tool -F [.overlaps file]
@@ -35,6 +39,8 @@ The `-F` option tells the tool it's okay to make assumptions about overlaps when
 
 The overlaps menu has two sections -- New File and Existing File.
 
+
+
 image::../articles/images/overlap_tool_fig01.gif[width=540]
 
 
@@ -45,6 +51,8 @@ image::../articles/images/overlap_tool_fig01.gif[width=540]
 ==== Create New Overlaps File
 
 The Overlap File Tool is launched, which is used to create new overlaps file.
+
+
 
 image::../articles/images/overlap_tool_fig02.gif[width=636]
 
@@ -87,6 +95,8 @@ This option can be used when we want to browse an overlaps file from any locatio
 
 == Using the geometry checker GUI
 
+
+
 image::../articles/images/overlap_tool_fig03.png[width=549]
 
 
@@ -104,7 +114,7 @@ The main element of the GUI is the overlap list, which consists of four columns.
 
 The second and third columns are the paths of the overlapping regions. *The region with the smaller bounding-box volume is always listed first*, as the "Left" side of the overlapping pair.
 
-The rightmost column is an estimate of the overlapping volume in mm^3^. This is not a separately calculated value, but rather an estimate derived from the overlap data. It's not particularly accurate for any given overlap pair, but the relative relationship of the estimates is fairly accurate, so pairs with a higher volume estimate generally have a larger overlap volume than pairs with a lower volume estimate.
+The rightmost column is an estimate of the overlapping volume in mm ^3^. This is not a separately calculated value, but rather an estimate derived from the overlap data. It's not particularly accurate for any given overlap pair, but the relative relationship of the estimates is fairly accurate, so pairs with a higher volume estimate generally have a larger overlap volume than pairs with a lower volume estimate.
 
 By default, the overlap list is sorted by highest volume estimate first, but you can click any of the headers to sort ascending/descending by overlap number, left or right path name, or volume estimate.
 
@@ -190,6 +200,3 @@ a/R
   - ant.s
       
 ....
-
-
-

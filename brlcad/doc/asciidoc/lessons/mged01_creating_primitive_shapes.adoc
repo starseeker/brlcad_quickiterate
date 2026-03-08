@@ -1,8 +1,12 @@
 = Creating Primitive Shapes in MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
-In this lesson, you will: 
+In this lesson, you will:
+
+
 * Launch the _MGED_ program.
 * Enter commands at the _MGED_ prompt in the Command Window.
 * Use the _MGED_ Graphical User Interface (GUI).
@@ -54,9 +58,11 @@ Before you can create a model, you need to open a new database either through th
 [[open_new_database]]
 == Opening or Creating a New Database when Launching MGED
 
-When launching _MGED_, you can open or create a database at the same time. At the shell prompt (usually a $ or %), in the Terminal Window, type mged followed by a new or existing database name with a .g extension. For example: *mged sphere.g[ENTER]*image::../lessons/images/mged01_terminal.png[]
+When launching _MGED_, you can open or create a database at the same time. At the shell prompt (usually a $ or %), in the Terminal Window, type mged followed by a new or existing database name with a .g extension. For example: *mged sphere.g[ENTER]*
 
- If you are creating a new database, a small dialog box asking if you want to create a new database named sphere.g will appear. Click on Yes, and a new database will be created. If sphere.g already exists, _MGED_ will open the sphere.g database as the program is launched.
+image::../lessons/images/mged01_terminal.png[width=3.9in]
+
+If you are creating a new database, a small dialog box asking if you want to create a new database named sphere.g will appear. Click on Yes, and a new database will be created. If sphere.g already exists, _MGED_ will open the sphere.g database as the program is launched.
 
 
 [[create_new_database]]
@@ -64,23 +70,27 @@ When launching _MGED_, you can open or create a database at the same time. At th
 
 Alternatively, once you have launched _MGED_, you can open an existing database or create a new database using the GUI menus (at the top of the Command or Graphics Window) by clicking on File and then either Open or New. Both options bring up a small dialog box. The Open dialog box will ask you to type in the name of an existing database. The New dialog box will ask you to type in the name of a new database. Click on OK to accept the database.
 
-For this lesson, create a new database called sphere.g. To do this, type sphere.g at the end of the path name, as shown in the following illustration. Click on OK to accept the database name. image::../lessons/images/mged01_commandwindow.png[]
+For this lesson, create a new database called sphere.g. To do this, type sphere.g at the end of the path name, as shown in the following illustration. Click on OK to accept the database name.
+
+image::../lessons/images/mged01_commandwindow.png[]
+
+
 
 image::../lessons/images/mged01_graphicswindow.png[]
 
- One advantage to using the GUI, if you aren't familiar with UNIX file management, is that this will show you your current path name, so you will know exactly where your database is going to be located. This can be especially helpful if you have a lot of directories or files to manage.
+One advantage to using the GUI, if you aren't familiar with UNIX file management, is that this will show you your current path name, so you will know exactly where your database is going to be located. This can be especially helpful if you have a lot of directories or files to manage.
 
 
 [[assign_title]]
 == Assigning a Title to Your Database
 
-You can title your new database to provide an audit trail for you or others who might use your database. After the prompt, in the Command Window, type title followed by a space and a name that reflects the database you are going to make. When you are done, press the ENTER key. For example: *mged>title MySphere[ENTER]* Note that in _BRL-CAD_ versions prior to release 6.0, the title is limited to 72 characters.
+You can title your new database to provide an audit trail for you or others who might use your database. After the prompt, in the Command Window, type title followed by a space and a name that reflects the database you are going to make. When you are done, press the ENTER key. For example: mged>title MySphere[ENTER] Note that in _BRL-CAD_ versions prior to release 6.0, the title is limited to 72 characters.
 
 
 [[set_units]]
 == Selecting a Unit of Length
 
-_MGED_ uses millimeters for all internal mathematical processes; however, you can create your design using some other unit, such as feet. For this lesson, inches is used. To select inches, move your mouse pointer to the File menu at the top of the Command Window. Click on File and then Preferences. A new menu will appear. Select Units and then Inches. If you are not a "point-and-click" type of person and prefer a Command Line, then just type units in after the _MGED_ prompt in the Command Window, followed by the ENTER key. The Command Line looks like: *mged>units in[ENTER]*
+_MGED_ uses millimeters for all internal mathematical processes; however, you can create your design using some other unit, such as feet. For this lesson, inches is used. To select inches, move your mouse pointer to the File menu at the top of the Command Window. Click on File and then Preferences. A new menu will appear. Select Units and then Inches. If you are not a "point-and-click" type of person and prefer a Command Line, then just type units in after the _MGED_ prompt in the Command Window, followed by the ENTER key. The Command Line looks like: mged>units in[ENTER]
 
 
 [[select_primitive]]
@@ -101,12 +111,19 @@ Historically, the word solid was used for what we now refer to as a primitive sh
 
 For this lesson, you are going to create a single sphere. There are two ways you can create a primitive shape. You can create all shapes through the Command Window and most shapes through the GUI.
 
-You can easily create a sphere from the prompt in the Command Window by typing just a few commands. At the _MGED_ prompt, type: *make sph1.s sph[ENTER] [Note: Use the digit 1, not the letter l]*
+You can easily create a sphere from the prompt in the Command Window by typing just a few commands. At the _MGED_ prompt, type: *make sph1.s sph[ENTER] [Note: Use the digit 1, not the letter l]* 
 
-This command tells the _MGED_ program to: |===
+This command tells the _MGED_ program to:
 
-|make |sph1.s |sph 
-|Make a primitive shape |Name it sph1.s |Make the shape a sphere 
+[cols="3*"]
+[%noheader]
+|===
+|make
+|sph1.s
+|sph
+|Make a primitive shape
+|Name it sph1.s
+|Make the shape a sphere
 |===
 
 
@@ -132,10 +149,15 @@ Before using the zap option, make sure you "activate" (i.e., set the focus on) t
 [[draw_object]]
 == Drawing a Previously Created Object
 
-To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to: |===
+To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to:
 
-|draw |sph1.s 
-|Draw a previously created primitive shape |named sph1.s 
+[cols="2*"]
+[%noheader]
+|===
+|draw
+|sph1.s
+|Draw a previously created primitive shape
+|named sph1.s
 |===
 
 
@@ -156,9 +178,7 @@ Another way to create a sphere is to use the GUI menu system duplicated at the t
 [[view_params]]
 == Viewing a Shape's Parameters
 
-Sometimes when you are making a model, you might want to view a shape's parameters, such as height, width, or radius, in the Command Window. You can easily list the attributes of a shape by typing the l (for "list") command at the Command Window prompt as follows: *l shape_name[ENTER]*footnote:[Note: The command is the lowercase letter l, NOT the number one.
-
-]
+Sometimes when you are making a model, you might want to view a shape's parameters, such as height, width, or radius, in the Command Window. You can easily list the attributes of a shape by typing the l (for "list") command at the Command Window prompt as follows: *l shape_name[ENTER]* footnote:[Note: The command is the lowercase letter l, NOT the number one.]
 
 
 [NOTE]
@@ -167,7 +187,9 @@ Note: If you attempt to type in the Command Window and you see no words appearin
 
 ====
 
-An example of the dialog that might occur in the Command Window for the parameters or attributes of the first sphere you created is as follows: 
+An example of the dialog that might occur in the Command Window for the parameters or attributes of the first sphere you created is as follows:
+
+
 ....
 
 mged> l sph1.s
@@ -242,7 +264,9 @@ Remember, to leave the program at any time, type from the Command Line either th
 [[creating_primitive_shapes_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
+
+
 * Started the _MGED_ program.
 * Entered commands in the Command Window.
 * Used the _MGED_ GUI.
@@ -261,7 +285,3 @@ In this lesson, you:
 * Used the kill command to eliminate a shape from the database.
 * Edited commands in the Command Window.
 * Used the q or Exit commands to quit the program.
-
-
-
-

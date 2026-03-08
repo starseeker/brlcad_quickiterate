@@ -10,7 +10,7 @@ sv - Moves the view center to (x, y, z).
 
 [source]
 ----
-sv {<x y>} [<z>]
+sv {x y} [z]
 ----
 
 
@@ -54,5 +54,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

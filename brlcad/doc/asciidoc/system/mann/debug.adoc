@@ -10,7 +10,7 @@ debug - Allows the user to set or check the flags used by BRL-CAD libraries to e
 
 [source]
 ----
-debug [-h] [-l [<lib>]] [-C [<lib>]] [-V [<val>]] [lib [<flag>]]
+debug [-h] [-l [lib]] [-C [lib]] [-V [val]] [lib [flag]]
 ----
 
 
@@ -47,6 +47,8 @@ Although it shouldn't normally be necessary, the *-V* option provides a way to r
 [example]
 ====
 mged>*debug -h*
+
+
 ....
 
 debug [-h] [-l [lib]] [-C [lib]] [-V [lib] [val]] [lib [flag]]
@@ -67,6 +69,8 @@ Available libs:
 [example]
 ====
 mged>*debug -l BU*
+
+
 ....
 
 BU flags:
@@ -91,6 +95,8 @@ BU flags:
 [example]
 ====
 mged>*debug BU AVS*
+
+
 ....
 
            AVS (0x00000400): bu_avs_() loggin
@@ -100,6 +106,8 @@ mged>*debug BU AVS*
 
 
 mged>*debug BU PATHS*
+
+
 ....
 
            AVS (0x00000400): bu_avs_() logging 
@@ -115,6 +123,8 @@ mged>*debug BU PATHS*
 [example]
 ====
 mged>*debug RT SHOOT*
+
+
 ....
 
          SHOOT (0x00000004): 3 Info about rt_shootray() processing
@@ -129,6 +139,8 @@ mged>*debug RT SHOOT*
 [example]
 ====
 mged>*debug BU*
+
+
 ....
 
            AVS (0x00000400): bu_avs_() logging 
@@ -139,6 +151,8 @@ mged>*debug BU*
 
 
 mged>*debug*
+
+
 ....
 
 BU flags:
@@ -158,12 +172,16 @@ RT flags:
 [example]
 ====
 mged>*debug -C RT*
+
+
 ....
 
     
 ....
 
 mged>*debug*
+
+
 ....
 
 BU flags:
@@ -195,5 +213,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

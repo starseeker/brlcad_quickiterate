@@ -10,14 +10,14 @@ push - Forces the effects of all transformation matrices that appear in any comb
 
 [source]
 ----
-push [<objects>]
+push [objects]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Forces the effects of all transformation matrices that appear in any combinations in the trees from the specified _objects_ down to the primitive shapes. This will change the parameters of the _primitive shapes_ if any of the transformation matrices are not identity matrices. All the transformation matrices visited will be set to identity matrices. This command will fail, and no changes will be made, if any primitive shape referenced by the list of _objects_ is positioned differently in two or more _combinations_. The *xpush* command will perform a similar function, even if some shapes are multiply referenced.
+Forces the effects of all transformation matrices that appear in any combinations in the trees from the specified _objects_ down to the primitive shapes. This will change the parameters of the _primitive shapes_ if any of the transformation matrices are not identity matrices. All the transformation matrices visited will be set to identity matrices. This command will fail, and no changes will be made, if any primitive shape referenced by the list of _objects_ is positioned differently in two or more  _combinations_. The *xpush* command will perform a similar function, even if some shapes are multiply referenced.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

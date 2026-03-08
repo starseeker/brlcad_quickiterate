@@ -10,7 +10,7 @@ apropos - Searches through the one-line usage messages for each mged command and
 
 [source]
 ----
-apropos {<keyword>}
+apropos {keyword}
 ----
 
 
@@ -27,6 +27,8 @@ The *apropos* command searches through the one-line usage messages for specified
 [example]
 ====
 mged>*apropos region*
+
+
 
 
 ....
@@ -51,5 +53,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

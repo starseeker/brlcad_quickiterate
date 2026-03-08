@@ -10,22 +10,22 @@ overlay - Plots the specified UNIX plot_file in the MGED display.
 
 [source]
 ----
-overlay [<-s #>] [<-N viewobj_name>] {<plot_file>} [<viewobj_name>]
+overlay [-s #] [-N viewobj_name] {plot_file} [viewobj_name]
 ----
 
 
 [source]
 ----
-overlay -F [<-i>] [<-c>] [<-z>] [<-X #>] [<-Y #>] [<-w #>] [<-n #>] [<-S #>] [<--format fmt>] {<img_file>}
+overlay -F [-i] [-c] [-z] [-X #] [-Y #] [-w #] [-n #] [-S #] [--format fmt] {img_file}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Plots the specified UNIX _plot_file_ in the current application display or the specified _image file_ in the current application embedded framebuffer. When displaying plot files, multiple files may be specified using a pattern match (e.g., *overlay*_*.plot_).
+Plots the specified UNIX __plot_file__ in the current application display or the specified _image file_ in the current application embedded framebuffer. When displaying plot files, multiple files may be specified using a pattern match (e.g., *overlay* _*.plot_).
 
-When displaying plot files, phony object names are created for each part of the plot file(s) with a unique color. The names are created by adding a color to the specified _viewobj_name_, or to _PLOT_OVERLAY_ if no name is provided. The color suffix is built by converting the RGB color to a six-digit hex number. Each color corresponds to 2 hex digits, so that white becomes "ffffff," red becomes "ff0000," green is "00ff00," etc.
+When displaying plot files, phony object names are created for each part of the plot file(s) with a unique color. The names are created by adding a color to the specified __viewobj_name__, or to _PLOT_OVERLAY_ if no name is provided. The color suffix is built by converting the RGB color to a six-digit hex number. Each color corresponds to 2 hex digits, so that white becomes "ffffff," red becomes "ff0000," green is "00ff00," etc.
 
 Image files will be display in the currently active framebuffer. Currently multiple images cannot be specified by a single *overlay* command (but as the images would overrwrite each other this feature would not be terribly useful in any case.) However, mulitiple images can be written in succession to the same framebuffer using the *-X* and *-Y* offset specification options to offset their positions for simultaneous display. Alternately, if the user wishes to reset the framebuffer before drawing the new image the *-c* option may be specified.
 
@@ -66,5 +66,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

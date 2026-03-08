@@ -10,14 +10,14 @@ asc-nmg - ascii-to-NMG converter
 
 [source]
 ----
-asc-nmg <ascii_file> <nmg.g>
+asc-nmg ascii_file nmg.g
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*asc-nmg* converts the specified _ascii_file_ (not a .asc geometry database) to a binary BRL-CAD _nmg.g_ geometry database file containing NMG objects. The _ascii_file_ is expected to contain lines of the following forms:
+*asc-nmg* converts the specified __ascii_file__ (not a .asc geometry database) to a binary BRL-CAD _nmg.g_ geometry database file containing NMG objects. The __ascii_file__ is expected to contain lines of the following forms:
 
 To start a new outer loop for a face:
 
@@ -61,7 +61,7 @@ If an extrusion vector is specified, then the first face in the NMG objects list
 [[example]]
 == EXAMPLE
 
-If the file _ascii_file_ contains the following:
+If the file __ascii_file__ contains the following:
 
 
 ....
@@ -109,5 +109,3 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

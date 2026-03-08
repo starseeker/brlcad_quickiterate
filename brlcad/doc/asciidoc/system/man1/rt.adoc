@@ -10,14 +10,14 @@ rt - raytrace an mged model, giving a shaded picture
 
 [source]
 ----
-rt [<options>]... <model.g> <objects>...
+rt [options]... model.g objects...
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*rt* operates on the indicated _objects_ in the input _model.g_ and produces a color-shaded image as the output. By default, the output is placed on the current framebuffer as it is computed. The environment variable FB_FILE specifies the current framebuffer, see *brlcad*(1). Alternatively, the output can be stored in a pixel file (*pix*(5) format) by specifying *-o*_output.pix_ or in a PNG image file by specifying *-o*_output.png_ in the option list. The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 = X,Y = +1.0 in view space, with the size of the grid (number of rays fired) specified with *-s*. The *-M* option is most useful when *rt* is being invoked from a shell script created by an *mged*(1)_saveview_ command.
+*rt* operates on the indicated _objects_ in the input _model.g_ and produces a color-shaded image as the output. By default, the output is placed on the current framebuffer as it is computed. The environment variable FB_FILE specifies the current framebuffer, see *brlcad*(1). Alternatively, the output can be stored in a pixel file (*pix*(5) format) by specifying *-o* _output.pix_ or in a PNG image file by specifying *-o* _output.png_ in the option list. The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 = X,Y = +1.0 in view space, with the size of the grid (number of rays fired) specified with *-s*. The *-M* option is most useful when *rt* is being invoked from a shell script created by an *mged*(1) _saveview_ command.
 
 The following options are recognized:
 
@@ -31,7 +31,7 @@ selects which space partitioning algorithm to use
 
 
 *-a #*::
-selects auto-sizing, and gives the view azimuth in degrees. Used with *-e* and conflicts with *-M*.
+selects auto-sizing, and gives the view azimuth in degrees. Used with *-e* and conflicts with *-M* .
 
 
 *-b "# #"*::
@@ -47,7 +47,7 @@ Some common *set* variables include ambSamples, overlay, a_onehit, a_no_booleans
 
 
 *-e #*::
-selects auto-sizing, and gives the view elevation in degrees. Used with *-a* and conflicts with *-M*.
+selects auto-sizing, and gives the view elevation in degrees. Used with *-a* and conflicts with *-M* .
 
 
 *-g #*::
@@ -207,7 +207,7 @@ sets the calculation tolerances used by *librt*(3). If only one number is given,
 
 
 *-U #*::
-sets the Boolean variable _use_air_ to the given value. The default is 0, which ignores regions that have non-zero aircode values.
+sets the Boolean variable __use_air__ to the given value. The default is 0, which ignores regions that have non-zero aircode values.
 
 
 *-V #*::
@@ -223,7 +223,7 @@ turns on the *rt*(1) program debugging flags. See raytrace.h for the meaning of 
 
 
 *-! #*::
-turns on the *libbu*(3) library debugging flags. See bu.h for the meaning of these bits. In particular, specifying *-!1* will cause `bu_bomb()()` to dump core, rather than logging the error and exiting. This is useful with *dbx*(1) or *gdb*(1) for debugging. (Notice that *-x #* sets the *librt*(3) debug flags to the given hexadecimal bit vector. See raytrace.h for the bit definitions.)
+turns on the *libbu*(3) library debugging flags. See bu.h for the meaning of these bits. In particular, specifying *-!1* will cause `bu_bomb()` to dump core, rather than logging the error and exiting. This is useful with *dbx*(1) or *gdb*(1) for debugging. (Notice that *-x #* sets the *librt*(3) debug flags to the given hexadecimal bit vector. See raytrace.h for the bit definitions.)
 
 
 *-+ #*::
@@ -237,13 +237,13 @@ The *rt* program is a simple front-end to *librt*(3) which can be invoked direct
 [[signals]]
 == SIGNALS
 
-You can obtain progress information from a running *rt* process by sending it a SIGUSR1 or SIGINFO signal. The raytracer will report progress via details about the ray sample being processed at the time of the signal. The progress is reported to stderr in a form similar to:  frame 0, xy=1516,2466 on cpu 0, samp=0
+You can obtain progress information from a running *rt* process by sending it a SIGUSR1 or SIGINFO signal. The raytracer will report progress via details about the ray sample being processed at the time of the signal. The progress is reported to stderr in a form similar to: frame 0, xy=1516,2466 on cpu 0, samp=0
 
 
 [[ntsc_animation_tips]]
 == NTSC ANIMATION TIPS
 
-When using *rt* to create an animation sequence destined for NTSC video, it is useful to give all these options at one time: *-V4:3**-c* "set gamma=2.2" *-w1440**-n972**-J1* and then post-process the output using *pixhalve*(1) for final display. Performing the gamma correction inside *rt* instead of post-processing the *pix*(5) file with *bwmod*(1) avoids Mach-bands in dark regions of the image, and retains the maximum amount of image detail.
+When using *rt* to create an animation sequence destined for NTSC video, it is useful to give all these options at one time: *-V4:3* *-c* "set gamma=2.2" *-w1440* *-n972* *-J1* and then post-process the output using *pixhalve*(1) for final display. Performing the gamma correction inside *rt* instead of post-processing the *pix*(5) file with *bwmod*(1) avoids Mach-bands in dark regions of the image, and retains the maximum amount of image detail.
 
 
 [[examples]]
@@ -291,5 +291,3 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

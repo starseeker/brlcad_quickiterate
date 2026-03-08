@@ -10,14 +10,14 @@ oed - Places MGED directly into the matrix edit mode.
 
 [source]
 ----
-oed {<path_lhs path_rhs>}
+oed {path_lhs path_rhs}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Places MGED directly into the matrix edit mode. The _path_rhs_ must be a path to a primitive shape, and _path_lhs_ must be a path to a combination that includes the first component of _path_rhs_ as one of its members. The edited matrix will be the matrix in the final component of _path_lhs_ that corresponds to the first component of _path_rhs_. The last component in _path_rhs_ is used as the reference shape during object editing.
+Places MGED directly into the matrix edit mode. The __path_rhs__ must be a path to a primitive shape, and __path_lhs__ must be a path to a combination that includes the first component of __path_rhs__ as one of its members. The edited matrix will be the matrix in the final component of __path_lhs__ that corresponds to the first component of __path_rhs__. The last component in __path_rhs__  is used as the reference shape during object editing.
 
 Note that for scripting the object to be edited must be in view so a *B* or *draw* must be used on the object before using the *oed* command.
 
@@ -25,7 +25,7 @@ Note that for scripting the object to be edited must be in view so a *B* or *dra
 [[examples]]
 == EXAMPLES
 
-The example shows the use of the *oed* command to place MGED into matrix edit mode. The matrix in the final component of _path_lhs_ that corresponds to the first component of _path_rhs_ will be edited.
+The example shows the use of the *oed* command to place MGED into matrix edit mode. The matrix in the final component of __path_lhs__ that corresponds to the first component of __path_rhs__ will be edited.
 
 .Place MGED in matrix edit mode.
 [example]
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

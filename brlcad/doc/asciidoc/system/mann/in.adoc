@@ -10,14 +10,14 @@ in - Allows the user to type in the arguments needed to create a shape with the 
 
 [source]
 ----
-in [ [-f]| [-s]] [<new_shape_name>] [<shape_type>] {<parameters>}
+in [ [-f]| [-s]] [new_shape_name] [shape_type] {parameters}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Allows the user to type in the arguments needed to create a shape with the name _new_shape_name_ of the type _shape_type_. The command may be invoked with no arguments, and it will prompt the user for all needed information. The _-s_ option will invoke the primitive edit mode on the new shape immediately after creation. The _-f_ option does not draw the new shape, and therefore the _-s_ option may not be used in conjunction with _-f_. The possible values for _shape_type_ are:
+Allows the user to type in the arguments needed to create a shape with the name __new_shape_name__ of the type __shape_type__. The command may be invoked with no arguments, and it will prompt the user for all needed information. The _-s_ option will invoke the primitive edit mode on the new shape immediately after creation. The _-f_ option does not draw the new shape, and therefore the _-s_ option may not be used in conjunction with _-f_. The possible values for __shape_type__ are:
 
 
 * arb8 -- ARB (eight vertices)
@@ -106,5 +106,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

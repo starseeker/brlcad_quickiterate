@@ -10,7 +10,7 @@ g-stl - Stereolithography Translator (BRL-CAD to STL)
 
 [source]
 ----
-g-stl [-o<output_file>] [-m<output_directory>] [-b] [-i] [-8] [-D<calculation_tolerance>] [-a<absolute_tol>] [-r<relative_tol>] [-n<normal_tol>] [-xX<level>] [-v] <database.g> <object(s)>...
+g-stl [-ooutput_file] [-moutput_directory] [-b] [-i] [-8] [-Dcalculation_tolerance] [-aabsolute_tol] [-rrelative_tol] [-nnormal_tol] [-xXlevel] [-v] database.g object(s)...
 ----
 
 
@@ -104,5 +104,3 @@ This software is Copyright (c) 2003-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

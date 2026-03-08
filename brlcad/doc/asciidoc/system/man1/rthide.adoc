@@ -10,7 +10,7 @@ rthide - ray-traces a model and writes a hidden line removed UNIX-Plot file.
 
 [source]
 ----
-rthide [<options>]... <model.g> <objects>... > <model.plot3>
+rthide [options]... model.g objects... > model.plot3
 ----
 
 
@@ -19,7 +19,7 @@ rthide [<options>]... <model.g> <objects>... > <model.plot3>
 
 *rthide* operates on the indicated _objects_ in the input _model.g_ and produces a hidden line removed UNIX-Plot file with bas-relief features. *rthide* produces plots by drawing a boundary whenever a change in region_id is detected. It also recognizes and portrays abrupt changes in surface curvature and changes in surface height. This permits the recognition of pits, protrusions, and changes in surface curvature.
 
-The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 <= X, Y <= +1.0 in view space, with the size of the grid (number of rays fired) specified with *-s* This option is most useful when *rthide* is being invoked from a shell script created by an *mged*(1)_saveview_ command.
+The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 <= X, Y <= +1.0 in view space, with the size of the grid (number of rays fired) specified with *-s* This option is most useful when *rthide* is being invoked from a shell script created by an *mged*(1) _saveview_ command.
 
 The following options are recognized.
 
@@ -53,11 +53,11 @@ Select grid cell height. If _not_ specified, cell height equals cell width.
 
 
 *-U #*::
-sets the Boolean variable _use_air_ to the given value.
+sets the Boolean variable __use_air__ to the given value.
 
 
 *-o*::
-_output.plot3_ specifies a named file for output. By default, the plot is written to hide.plot3.
+*output.plot3* specifies a named file for output. By default, the plot is written to hide.plot3.
 
 
 *-x#*::
@@ -91,7 +91,7 @@ results in a 32 by 32 UNIXplot file of the named model at the specified azimuth 
 
 eliminates cross-hatching due to curvature. However, cross-hatching resulting from sharp changes in gradient cannot be eliminated.
 
-The plotfile resulting from an *rthide* run can be viewed directly via _plot3-fb_ and may be rotated with _plot3rot_ at the user's option:
+The plotfile resulting from an *rthide* run can be viewed directly via _plot3-fb_ and may be rotated with *plot3rot* at the user's option:
 
 
 ....
@@ -120,7 +120,7 @@ or it can be overlaid onto a solid model in _mged_:
 
 This technique can be used to position and plot *rthide* output.
 
-The output of *rthide* can be overlaid on top of a _rt_ shaded image, for "edge enhancement". Here is a complete example, which assumes that FB_FILE points to a valid framebuffer:
+The output of *rthide* can be overlaid on top of a *rt* shaded image, for "edge enhancement". Here is a complete example, which assumes that FB_FILE points to a valid framebuffer:
 
 
 ....
@@ -156,7 +156,7 @@ Most deficiencies observed while using the *rthide* program are usually with the
 [[authors]]
 == AUTHORS
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -169,5 +169,3 @@ This software is Copyright (c) 1990-2022 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

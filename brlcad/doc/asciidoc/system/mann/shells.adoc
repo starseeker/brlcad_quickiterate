@@ -10,14 +10,14 @@ shells - Separates the specified NMG shape into its constituent shells.
 
 [source]
 ----
-shells [<NMG_shape>]
+shells [NMG_shape]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Separates the specified NMG shape into its constituent shells. Each shell is written to the database as a separate NMG object with a name of the form shell with a number appended to make the name unique. If the _NMG_ has only one shell, then only one new object will be created. This differs from the *decompose* command in that *decompose* will actually break the object into a number of separate shells if possible.
+Separates the specified NMG shape into its constituent shells. Each shell is written to the database as a separate NMG object with a name of the form shell with a number appended to make the name unique. If the _NMG_ has only one shell, then only one new object will be created. This differs from the *decompose*  command in that *decompose* will actually break the object into a number of separate shells if possible.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

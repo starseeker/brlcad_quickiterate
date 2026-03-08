@@ -10,7 +10,7 @@ bot_flip - Reverse (i.e. flip) all the facet normals within a BOT primitive.
 
 [source]
 ----
-bot_flip {<bot>} [<bot2 bot3>]...
+bot_flip {bot} [bot2 bot3]...
 ----
 
 
@@ -32,5 +32,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

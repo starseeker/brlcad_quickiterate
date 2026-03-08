@@ -10,7 +10,7 @@ reid - Sequentially renumber the 'region_id' attribute of all regions within a g
 
 [source]
 ----
-reid [ -n| { <num>}] {comb} {regionID}
+reid [ -n| { num}] {comb} {regionID}
 ----
 
 
@@ -48,5 +48,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

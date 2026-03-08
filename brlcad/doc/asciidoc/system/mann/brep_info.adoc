@@ -10,7 +10,7 @@ brep info - Report information about components of a specified BRep solid.
 
 [source]
 ----
-brep {<obj>}info [<C2|C3|E|F|L|SB|T|TB|V>] [<arguments>]
+brep {obj}info [C2|C3|E|F|L|SB|T|TB|V] [arguments]
 ----
 
 
@@ -87,6 +87,8 @@ Return information for one or more 3D vertices.
 [example]
 ====
 mged>*brep Brep_1.s info*
+
+
 ....
 
 Brep_1.s -- Valid: YES, Solid: YES, Plate mode: NO
@@ -111,6 +113,8 @@ Reports counts for the various object types, as well as object level info about 
 [example]
 ====
 mged>*brep Brep_1.s info F 1*
+
+
 ....
 
 face[ 1]: surface(1) reverse(0) loops(1)
@@ -144,6 +148,8 @@ Reports information about the consituent components that make up the topological
 [example]
 ====
 mged>*brep Brep_1.s info S 1*
+
+
 ....
 
 surface[ 1]: ON_NurbsSurface u(0, 18.24) v(0, 3.14159)
@@ -185,6 +191,8 @@ Detailed information on the geometric data defining the surface.
 [example]
 ====
 mged>*brep Brep_1.s info L 1,5,12*
+
+
 ....
 
 loop[1] on face 1 with 4 trims
@@ -215,5 +223,3 @@ BRLCAD-TEAM
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

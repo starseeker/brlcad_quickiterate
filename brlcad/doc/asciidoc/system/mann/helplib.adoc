@@ -10,7 +10,7 @@ helplib - Returns a list of available library commands along with a one-line usa
 
 [source]
 ----
-helplib [<command>]
+helplib [command]
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

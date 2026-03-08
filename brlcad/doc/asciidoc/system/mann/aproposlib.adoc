@@ -10,7 +10,7 @@ aproposlib - Searches through the one-line usage messages for a specified BRL-CA
 
 [source]
 ----
-aproposlib {<keyword>}
+aproposlib {keyword}
 ----
 
 
@@ -29,6 +29,8 @@ The example demonstrates the use of the *aproposlib* command to search the one-l
 [example]
 ====
 mged>*aproposlib mat*
+
+
 
 
 ....
@@ -58,5 +60,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

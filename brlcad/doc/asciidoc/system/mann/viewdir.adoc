@@ -10,7 +10,7 @@ viewdir - Returns the direction vector using the current azimuth and elevation (
 
 [source]
 ----
-viewdir [<-i>]
+viewdir [-i]
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

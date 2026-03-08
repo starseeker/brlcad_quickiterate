@@ -10,14 +10,14 @@ ls - The command with no object argument lists the name of every object in the d
 
 [source]
 ----
-ls [-A -o -a -c -r -s -p -l -q -H -S] [<objects>]
+ls [-A -o -a -c -r -s -p -l -q -H -S] [objects]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-The command with no _object_ argument lists the name of every object in the database (in alphabetical order) except for those marked as hidden with the *hide* command. If the _object_ argument is supplied, only those _objects_ are listed. The _object_ argument may include regular expressions. If the _-A_ option is used, then the arguments are expected to be a list of attribute name/value pairs, and objects having attributes that match the provided list are listed. By default, an object must match all the specified attributes in order to be listed; however, the _-o_ flag indicates that an object matching at least one attribute name/value pair should be listed. See the *attr* command for information on how to set or get attributes. Regular expressions are not supported for attributes. The following options are also allowed:
+The command with no _object_ argument lists the name of every object in the database (in alphabetical order) except for those marked as hidden with the *hide* command. If the _object_ argument is supplied, only those _objects_ are listed. The _object_ argument may include regular expressions. If the _-A_  option is used, then the arguments are expected to be a list of attribute name/value pairs, and objects having attributes that match the provided list are listed. By default, an object must match all the specified attributes in order to be listed; however, the _-o_ flag indicates that an object matching at least one attribute name/value pair should be listed. See the *attr* command for information on how to set or get attributes. Regular expressions are not supported for attributes. The following options are also allowed:
 
 
 * a -- List all objects in the database.
@@ -105,5 +105,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

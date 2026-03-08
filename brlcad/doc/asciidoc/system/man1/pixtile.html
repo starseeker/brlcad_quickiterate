@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>PIXTILE(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>PIXTILE(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>pixtile - paste small images together into one large image</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>pixtile [-s&lt;squareinsize&gt;] [-w&lt;file_width&gt;] [-n&lt;file_height&gt;] [-S&lt;squareoutsize&gt;] [-W&lt;out_width&gt;] [-N&lt;out_height&gt;] [-o&lt;startframe&gt;] &lt;basename&gt; &gt; &lt;file.pix&gt;</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>pixtile [-s&lt;squareinsize&gt;] [-w&lt;file_width&gt;] [-n&lt;file_height&gt;] [-S&lt;squareoutsize&gt;] [-W&lt;out_width&gt;] [-N&lt;out_height&gt;] &lt;file1&gt; &lt;file2&gt;... &lt;fileN&gt; &gt; &lt;file.pix&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>pixtile</strong> takes a collection of numbered small images and places them side by side in one larger image. The input and output files are assumed to be in <strong>pix</strong>(5) format. By default, the output file will be made 512x512 pixels in size.</p>
+</div>
+<div class="paragraph">
+<p>The input files have a default width of 64 pixels per scanline and are usually square, i.e. have the same height as width. Specifying the <strong>-s</strong> flag changes the default size to <em>squareinsize</em> pixels per scanline and <em>squareinsize</em> scanlines as given in the argument list. The <strong>-w</strong> flag can be used to specify the input file width in pixels and the <strong>-n</strong> flag can be used to specify the input file height in scanlines.</p>
+</div>
+<div class="paragraph">
+<p>If the <strong>-S</strong> flag is supplied, the output size is changed from the default value of 512 to <em>squareoutsize</em> pixels per scanline and <em>squareoutsize</em> scanlines. The <strong>-W</strong> flag sets the output width size to <em>out_width</em> pixels per scanline. Similarly, the <strong>-N</strong> flag sets the output height size to <em>out_height</em> scanlines.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">*-s*<em>squareinsize</em></dt>
+<dd>
+<p>Specify both the number of pixels per scanline and the number of scanlines in the input files. The default is 64.</p>
+</dd>
+<dt class="hdlist1">*-w*<em>file_width</em></dt>
+<dd>
+<p>Specify the width (in pixels) per scanline of the input file. The default is 64.</p>
+</dd>
+<dt class="hdlist1">*-n*<em>file_height</em></dt>
+<dd>
+<p>Specify the number of scanlines to be read from the input file. The default is 64.</p>
+</dd>
+<dt class="hdlist1">*-S*<em>squareoutsize</em></dt>
+<dd>
+<p>Specify both the number of pixels per scanline (width) and the number of scanlines (height) for the output file. The default is 512.</p>
+</dd>
+<dt class="hdlist1">*-W*<em>out_width</em></dt>
+<dd>
+<p>Specify the width (in pixels) per scanline of the output file. The default is 512.</p>
+</dd>
+<dt class="hdlist1">*-N*<em>out_height</em></dt>
+<dd>
+<p>Specify the number of scanlines to be sent to the output file. The default is 512.</p>
+</dd>
+<dt class="hdlist1">*-o*<em>startframe</em></dt>
+<dd>
+<p>Specify the starting frame number, where <em>startframe</em> is substituted for <em>num</em> in <em>basename.num</em>.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The files being pasted together should have names of the form <em>basename.num</em>, where <em>basename</em> is given on the command line, and <em>num</em> is a consecutive series of integers. By default the first image is assumed to be number " 0 ", but an alternate <em>startframe</em> can be given by using the <strong>-o</strong> flag and supplying <em>startframe</em>. The program keeps reading these small files until either the next frame does not exist, or the output file is full. They are placed in the output file from lower left to upper right. The progress of the composition is displayed on standard error.</p>
+</div>
+<div class="paragraph">
+<p>If the basename is given as "-" (a minus sign), preceded by a "&#8212;&#8203;" (two minus signs) to terminate <strong>bu_getopt</strong>(3) processing, then the stream of images is read from stdin rather than a file, such as might be generated by a program like <strong>pcd-pix</strong>(1). Such a stream could also be processed into files by <strong>pixbustup</strong>(1).</p>
+</div>
+<div class="paragraph">
+<p>Alternatively, if more than one <em>basename</em> (filename) argument is supplied on the command line, the names of the files being pasted together are assumed to be explicitly stated and the <strong>-o</strong> flag is not valid. This allows files with different names to be used without having to change those names.</p>
+</div>
+<div class="paragraph">
+<p>This program is the companion of <strong>fbanim</strong>(1), which will step through these small images on a framebuffer capable of zooming and windowing. Thus many small low resolution frames can be used as an animation "preview" for a higher resolution sequence, the latter of which would go onto video tape or film.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="example">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>pixtile -S 1024 -s 128 -o 2 anim &gt; out.pix</p>
+</div>
+<div class="paragraph">
+<p>will read files <em>anim.2</em> through <em>anim.65</em>, placing them from lower left to upper right in a 1024x1024 pixel file <em>out.pix</em>.</p>
+</div>
+<div class="paragraph">
+<p>pixtile -s 256 lowerleft lowerright upperleft upperright &gt; out.pix</p>
+</div>
+<div class="paragraph">
+<p>will read files <em>lowerleft</em>, <em>lowerright</em>, <em>upperleft</em>, and <em>upperright</em>, placing them from lower left to upper right in a 512x512 file <em>out.pix</em>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>brlcad</strong>(1), <strong>fbanim</strong>(1), <strong>pix</strong>(5)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

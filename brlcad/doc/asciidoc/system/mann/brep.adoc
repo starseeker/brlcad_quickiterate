@@ -10,7 +10,7 @@ brep - The brep command is the primary means in BRL-CAD for working with NURBS b
 
 [source]
 ----
-brep {<obj>} [ <bool>| <bot>| <bots>| <brep>| <csg>| <flip>| <info>| <intersect>| <pick>| <plate_mode>| <plot>| <selection>| <solid>| <split>| <shrink_surfaces>| <tikz>| <valid>] [<arguments>]
+brep {obj} [ bool| bot| bots| brep| csg| flip| info| intersect| pick| plate_mode| plot| selection| solid| split| shrink_surfaces| tikz| valid] [arguments]
 ----
 
 
@@ -130,5 +130,3 @@ BRLCAD-TEAM
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ dpix-pix - convert a double precision dpix file to a pix file
 
 [source]
 ----
-dpix-pix <file.dpix> > <file.pix>
+dpix-pix file.dpix > file.pix
 ----
 
 
@@ -42,5 +42,3 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

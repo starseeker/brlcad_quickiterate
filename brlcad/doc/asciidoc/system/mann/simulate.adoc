@@ -10,7 +10,7 @@ simulate - a Bullet-based physics simulator for MGED
 
 [source]
 ----
-simulate [<options>]... <path> <duration>
+simulate [options]... path duration
 ----
 
 
@@ -31,7 +31,9 @@ All values are specified in units of meters, kilograms, and seconds. Note that B
 
 
 *--debug=_MODE_*::
-Set the debugging mode. Multiple mode flags can be separated using commas. 
+Set the debugging mode. Multiple mode flags can be separated using commas.
+
+
 _aabb_::
 Draw Bullet's axis-aligned bounding boxes after the simulation step. These can usually be regarded as indicating the "true" position of geometry. Any discrepancies may indicate that the *simulate* command is incorrectly applying the Bullet transformations.
 
@@ -57,7 +59,9 @@ The simulation can be configured by setting certain attributes on objects within
 
 
 *simulate::type=_TYPE_*::
-Specify the type of the associated object. 
+Specify the type of the associated object.
+
+
 _region_::
 Regard all solids under this combination as belonging to one rigid body.
 
@@ -104,5 +108,3 @@ This software is Copyright (c) 2017-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

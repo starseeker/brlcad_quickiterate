@@ -10,7 +10,7 @@ dbfindtree - Displays the full path of all combinations that have any of the obj
 
 [source]
 ----
-dbfindtree {<objects>}
+dbfindtree {objects}
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

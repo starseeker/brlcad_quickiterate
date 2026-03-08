@@ -1,5 +1,7 @@
 = BRL-CAD Manual Pages
 :doctype: article
+:toc:
+:toclevels: 3
 
 BRL-CAD Manual PagesThis is BRL-CAD's tool for viewing manual pages for commands. To bring up the manual page for a specific command select it from the list to the left of this welcome message.
 

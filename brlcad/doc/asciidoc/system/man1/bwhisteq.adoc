@@ -10,7 +10,7 @@ bwhisteq - equalize the histogram of a black and white bw file
 
 [source]
 ----
-bwhisteq [-v] <file.bw> > <file.equalized>
+bwhisteq [-v] file.bw > file.equalized
 ----
 
 
@@ -44,5 +44,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

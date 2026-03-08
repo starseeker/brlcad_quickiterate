@@ -10,14 +10,14 @@ comb - Create and manipulate BRL-CAD combination with the name combination_name.
 
 [source]
 ----
-comb [ [-c]| [-r]] [ [-w]| [-f]| [-l]] [ [-S]] {<combination_name>} [<<operator object_name>>]...
+comb [ [-c]| [-r]] [ [-w]| [-f]| [-l]] [ [-S]] {combination_name} [<operator object_name>]...
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-The *comb* command creates and manipulates _BRL-CAD_ combination objects. For combination creation or appending, _operator/object_name_ pairs of boolean operators and object names are parsed into comb tree entries. (TODO - integrate full expression evaluation like that in *c*.)
+The *comb* command creates and manipulates _BRL-CAD_ combination objects. For combination creation or appending, __operator/object_name__ pairs of boolean operators and object names are parsed into comb tree entries. (TODO - integrate full expression evaluation like that in *c*.)
 
 The following options are recognized:
 
@@ -35,10 +35,14 @@ Moves the contents of a combination to a new combination and makes that combinat
 
 
 *-f*::
-Flattens a combination that contains only unions into a single top level combination with all of the solids unioned into it, and remove all combinations that were below the input combination that are not used elsewhere in the .g file. (In essence, the latter behavior prevents "orphaned" combinations that are no longer used from showing up as new top level objects in the database.) This feature will not work on any combination containing non-union boolean operations. The following *search* command can be used to find combs that are candidates for flattening: 
+Flattens a combination that contains only unions into a single top level combination with all of the solids unioned into it, and remove all combinations that were below the input combination that are not used elsewhere in the .g file. (In essence, the latter behavior prevents "orphaned" combinations that are no longer used from showing up as new top level objects in the database.) This feature will not work on any combination containing non-union boolean operations. The following *search* command can be used to find combs that are candidates for flattening:
+
+
 ....
 
-		    mged> search -type comb ! -below ( -bool + -or -bool - )
+		    
+mged> search -type comb ! -below ( -bool + -or -bool - )
+		    
 	    
 ....
 
@@ -48,11 +52,10 @@ Conflicts with *-w* and *-l*.
 
 
 *-l*::
-"Lift" a region flag to the top comb, and clear all region flags below the comb in the tree. Like the *f* option this option will work to respect the integrity of other geometry in the database, but it is more aggressive in the steps it will take and it will operate on trees that contain non-union booleans. The decision logic is as follows: 
+"Lift" a region flag to the top comb, and clear all region flags below the comb in the tree. Like the *f* option this option will work to respect the integrity of other geometry in the database, but it is more aggressive in the steps it will take and it will operate on trees that contain non-union booleans. The decision logic is as follows:
 . Check if regions below the current comb are used elsewhere in the .g file. If they are not, they will simply be converted to combs.
 . For regions that are used elsewhere in the .g file, determine if their parent comb (if that comb is not the original comb supplied to the command) is also used elsewhere in the .g file. If not, the *w* wrapping behavior is used to produce a non-region equivalent comb, and the parent comb is updated to use that new comb instead of the region. If one or more parent combs _are_ used elsewhere (i.e. the parent comb cannot be altered without altering other geometry) the command will fail - manual intervention is required to resolve the situation.
-
- Conflicts with *-w* and *-f*.
+Conflicts with *-w* and *-f*.
 
 
 *-S*::
@@ -89,7 +92,8 @@ Suppose we have a situation where _region2.r_ is unioned into _region1.r_, and b
 
 ....
 
-      mged> tree region1.r
+      
+mged> tree region1.r
 region1.r/R
         u region2.r/R
                 u sph.s
@@ -104,7 +108,9 @@ This geometry has an error in that one region is not supposed to be combined int
 
 ....
 
-      mged> comb -w region2.rmged> tree region2.r
+      
+mged> comb -w region2.r
+mged> tree region2.r
 region2.r/R
         u region2.r.c/
                   u sph.s
@@ -117,11 +123,13 @@ The next step is to adjust the _region1.r_ tree definition to reference the non-
 
 ....
 
-      mged> set glob_compat_mode 0
+      
+mged> set glob_compat_mode 0
 0
 mged> get region1.r tree
 u {l region2.r} {l comb.c}
-mged> adjust region1.r tree {u {l region2.r.c} {l comb.c}}mged> tree region1.r
+mged> adjust region1.r tree {u {l region2.r.c} {l comb.c}}
+mged> tree region1.r
 region1.r/R
         u region2.r.c/
                 u sph.s
@@ -138,7 +146,9 @@ Optionally, the name _region2.r.c_ can be changed to the name _region2.c_ with t
 
 ....
 
-      mged> mvall region2.r.c region2.cmged> tree region1.r
+      
+mged> mvall region2.r.c region2.c
+mged> tree region1.r
 region1.r/R
         u region2.c/
                 u sph.s
@@ -168,7 +178,14 @@ First, create an appropriate example to properly illustrate the option's behavio
 
 ....
 
-			  mged> make sph1.s sphmged> make sph2.s sphmged> comb sph1.c u sph1.smged> comb sph2.c u sph2.smged> comb spheres.c u sph1.c u sph2.cmged> comb misc.c u sph2.cmged> tree spheres.c
+			  
+mged> make sph1.s sph
+mged> make sph2.s sph
+mged> comb sph1.c u sph1.s
+mged> comb sph2.c u sph2.s
+mged> comb spheres.c u sph1.c u sph2.c
+mged> comb misc.c u sph2.c
+mged> tree spheres.c
 spheres.c/
          u sph1.c/
                  u sph1.s
@@ -191,7 +208,9 @@ Note that _sph2.c_ is used in both _spheres.c_ and _misc.c_, but _sph1.c_ is onl
 
 ....
 
-      mged> comb -f spheres.cmged> tree spheres.c
+      
+mged> comb -f spheres.c
+mged> tree spheres.c
 spheres.c/
         u sph1.s
         u sph2.s
@@ -225,7 +244,14 @@ Suppose a geometry has the following structure:
 
 ....
 
-			  mged> make sph1.s sphmged> make sph2.s sphmged> r r1 u sph1.smged> r r2 u sph2.smged> comb assembly u r1 u r2mged> r r3 u r1 - r2mged> tops
+			  
+mged> make sph1.s sph
+mged> make sph2.s sph
+mged> r r1 u sph1.s
+mged> r r2 u sph2.s
+mged> comb assembly u r1 u r2
+mged> r r3 u r1 - r2
+mged> tops
 assembly/           r3/R
 
 mged> tree assembly
@@ -249,7 +275,9 @@ There are regions below region _r3_, which is not good modeling practice. The *l
 
 ....
 
-      mged> comb -l r3mged> tree assembly
+      
+mged> comb -l r3
+mged> tree assembly
 assembly/
         u r1/R
                 u r1.c/
@@ -284,7 +312,16 @@ Suppose a geometry has the following structure:
 
 ....
 
-			  mged> make sph1.s sphmged> make sph2.s sphmged> make sph3.s sphmged> r r1 u sph1.smged> r r2 u sph2.smged> comb subassembly u r1 u r2mged> r r3 u sph3.s - subassemblymged> comb assembly u subassemblymged> tops
+			  
+mged> make sph1.s sph
+mged> make sph2.s sph
+mged> make sph3.s sph
+mged> r r1 u sph1.s
+mged> r r2 u sph2.s
+mged> comb subassembly u r1 u r2
+mged> r r3 u sph3.s - subassembly
+mged> comb assembly u subassembly
+mged> tops
 assembly/           r3/R
 
 mged> tree assembly
@@ -312,7 +349,8 @@ This geometry has regions below region _r3_, which is not ideal. However, attemp
 
 ....
 
-      mged> comb -l r3
+      
+mged> comb -l r3
 Comb region lift failed - the following combs in the tree contain
 regions and are also used outside the tree of r3:
 
@@ -342,5 +380,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

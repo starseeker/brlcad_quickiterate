@@ -10,7 +10,7 @@ mged - multi-display interactive combinatorial solid geometry editor
 
 [source]
 ----
-mged [-a attach] [-b] [-c] [-d display] [-h|?] [-r] [-x#] [-X#] [-v] [<database.g>] [<mged_command>]
+mged [-a attach] [-b] [-c] [-d display] [-h|?] [-r] [-x#] [-X#] [-v] [database.g] [mged_command]
 ----
 
 
@@ -39,7 +39,7 @@ Supplying the *-b* to *mged* will result in _MGED_ being started as a background
 
 
 *-c*::
-Instructs _MGED_ to start using classic mode instead of the default Tcl/Tk-based GUI. The *-c* option is often used when specifying an *mged_command* to indicate that _MGED_ is being run in a command-mode without a default GUI. Example: **mged**-c* db/moss.g tops*
+Instructs _MGED_ to start using classic mode instead of the default Tcl/Tk-based GUI. The *-c* option is often used when specifying an *mged_command* to indicate that _MGED_ is being run in a command-mode without a default GUI. Example: *mged* *-c* db/moss.g tops
 
 
 *-d display*::
@@ -92,7 +92,9 @@ SIGINT aborts the current command.
 
 "q" or EOF exits the program.
 
-The ".mgedrc" file is searched for in three places. The first one found is used, and any others are ignored. 
+The ".mgedrc" file is searched for in three places. The first one found is used, and any others are ignored.
+
+
 . If the environment variable MGED_RCFILE is set, it is used as a path name for the file to be used.
 . If the environment variable HOME is set, then HOME/.mgedrc is used.
 . If the file ".mgedrc" exists in the current directory, it is used.
@@ -105,10 +107,12 @@ The ".mgedrc" file is searched for in three places. The first one found is used,
 
 The following are run from the operating system command prompt:
 
-.Running the MGEDl from the operating system command line.
+.Running the MGED l from the operating system command line.
 [example]
 ====
 user:~*mged /usr/brlcad/share/brlcad/7.12.2/db/m35.g l component*
+
+
 ....
 
 Opened in READ ONLY mode
@@ -130,6 +134,8 @@ component:  --
 [example]
 ====
 user:~*mged -c*
+
+
 ....
 
 BRL-CAD Release 7.13.0  Geometry Editor (MGED)
@@ -149,6 +155,8 @@ mged>
 [example]
 ====
 user:~*mged -a X -c*
+
+
 ....
 
 BRL-CAD Release 7.15.0  Geometry Editor (MGED)
@@ -196,5 +204,3 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

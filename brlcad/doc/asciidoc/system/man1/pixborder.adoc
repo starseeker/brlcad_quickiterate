@@ -10,7 +10,7 @@ pixborder - add a 1-pixel-wide border to regions of a specified color
 
 [source]
 ----
-pixborder [ -b<'R> <G> <B'>] [ -e<'R> <G> <B'>] [ -i<'R> <G> <B'>] [ -t<'R> <G> <B'>] [ -B<'H> <S> <V'>] [ -E<'H> <S> <V'>] [ -I<'H> <S> <V'>] [ -T<'H> <S> <V'>] [-x<left_edge>] [-y<bottom_edge>] [-X<right_edge>] [-Y<top_edge>] [-a] [-n<file_height>] [-s<squaresize>] [-w<file_width>] [<file.pix>]
+pixborder [ -b'R G B'] [ -e'R G B'] [ -i'R G B'] [ -t'R G B'] [ -B'H S V'] [ -E'H S V'] [ -I'H S V'] [ -T'H S V'] [-xleft_edge] [-ybottom_edge] [-Xright_edge] [-Ytop_edge] [-a] [-nfile_height] [-ssquaresize] [-wfile_width] [file.pix]
 ----
 
 
@@ -52,5 +52,3 @@ This software is Copyright (c) 1996-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ delay - Provides a delay of the specified time before the next command will be p
 
 [source]
 ----
-delay {<seconds microseconds>}
+delay {seconds microseconds}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

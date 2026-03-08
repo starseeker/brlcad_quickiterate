@@ -10,13 +10,13 @@ pixtile - paste small images together into one large image
 
 [source]
 ----
-pixtile [-s<squareinsize>] [-w<file_width>] [-n<file_height>] [-S<squareoutsize>] [-W<out_width>] [-N<out_height>] [-o<startframe>] <basename> > <file.pix>
+pixtile [-ssquareinsize] [-wfile_width] [-nfile_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] [-ostartframe] basename > file.pix
 ----
 
 
 [source]
 ----
-pixtile [-s<squareinsize>] [-w<file_width>] [-n<file_height>] [-S<squareoutsize>] [-W<out_width>] [-N<out_height>] <file1> <file2>... <fileN> > <file.pix>
+pixtile [-ssquareinsize] [-wfile_width] [-nfile_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] file1 file2... fileN > file.pix
 ----
 
 
@@ -27,34 +27,34 @@ pixtile [-s<squareinsize>] [-w<file_width>] [-n<file_height>] [-S<squareoutsize>
 
 The input files have a default width of 64 pixels per scanline and are usually square, i.e. have the same height as width. Specifying the *-s* flag changes the default size to _squareinsize_ pixels per scanline and _squareinsize_ scanlines as given in the argument list. The *-w* flag can be used to specify the input file width in pixels and the *-n* flag can be used to specify the input file height in scanlines.
 
-If the *-S* flag is supplied, the output size is changed from the default value of 512 to _squareoutsize_ pixels per scanline and _squareoutsize_ scanlines. The *-W* flag sets the output width size to _out_width_ pixels per scanline. Similarly, the *-N* flag sets the output height size to _out_height_ scanlines.
+If the *-S* flag is supplied, the output size is changed from the default value of 512 to _squareoutsize_ pixels per scanline and _squareoutsize_ scanlines. The *-W* flag sets the output width size to __out_width__ pixels per scanline. Similarly, the *-N* flag sets the output height size to __out_height__ scanlines.
 
 
-*-s*_squareinsize_::
+*-s* _squareinsize_::
 Specify both the number of pixels per scanline and the number of scanlines in the input files. The default is 64.
 
 
-*-w*_file_width_::
+*-w* _file_width_::
 Specify the width (in pixels) per scanline of the input file. The default is 64.
 
 
-*-n*_file_height_::
+*-n* _file_height_::
 Specify the number of scanlines to be read from the input file. The default is 64.
 
 
-*-S*_squareoutsize_::
+*-S* _squareoutsize_::
 Specify both the number of pixels per scanline (width) and the number of scanlines (height) for the output file. The default is 512.
 
 
-*-W*_out_width_::
+*-W* _out_width_::
 Specify the width (in pixels) per scanline of the output file. The default is 512.
 
 
-*-N*_out_height_::
+*-N* _out_height_::
 Specify the number of scanlines to be sent to the output file. The default is 512.
 
 
-*-o*_startframe_::
+*-o* _startframe_::
 Specify the starting frame number, where _startframe_ is substituted for _num_ in _basename.num_.
 
 
@@ -102,5 +102,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ gif-fb - display GIF file on frame buffer
 
 [source]
 ----
-gif-fb [ -F <frame_buffer_file>] [-c] [ -i <image_number>] [-o] [-v] [-z] [ <GIF_file_name>]
+gif-fb [ -F frame_buffer_file] [-c] [ -i image_number] [-o] [-v] [-z] [ GIF_file_name]
 ----
 
 
@@ -23,7 +23,7 @@ gif-fb [ -F <frame_buffer_file>] [-c] [ -i <image_number>] [-o] [-v] [-z] [ <GIF
 === Options
 
 
-*-F*_frame_buffer_name_::
+*-F* _frame_buffer_name_::
 Outputs to the specified frame buffer instead of the one specified by the *FB_FILE* environment variable (or the default frame buffer, if *FB_FILE* is not set). The frame buffer size requested will be the same as the input GIF screen size. The actual size obtained depends on details of the specific frame buffer.
 
 
@@ -47,7 +47,7 @@ Displays just the specified image (starting counting with 1), rather than displa
 (zoom) Uses the zoom capability of the current framebuffer to make the image as large as possible on the screen while preserving a square aspect ratio to the pixels. This means that the zoom factor in X and Y will be equal to the smaller of the two possible zooms.
 
 
-_GIF_file_name_::
+__GIF_file_name__::
 Specifies the GIF input file to be translated, rather than reading the file from the standard input.
 
 
@@ -77,7 +77,7 @@ gif-fb image.gif
 [[see_also]]
 == SEE ALSO
 
-A Standard Defining a Mechanism for the Storage and Transmission of Raster-Based Graphics Information, June 15, 1987 (CompuServe Incorporated). *libfb*(3)
+A Standard Defining a Mechanism for the Storage and Transmission of Raster-Based Graphics Information, June 15, 1987 (CompuServe Incorporated).*libfb*(3)
 
 
 [[diagnostics]]
@@ -102,5 +102,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

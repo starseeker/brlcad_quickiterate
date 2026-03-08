@@ -10,7 +10,7 @@ ae - Sets the view orientation for the mged display by rotating the eye point ab
 
 [source]
 ----
-ae [ [-i]<azimuth elevation> [<twist>]]
+ae [ [-i]azimuth elevation [twist]]
 ----
 
 
@@ -70,5 +70,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

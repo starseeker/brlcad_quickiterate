@@ -10,7 +10,7 @@ nirt - interactively ray trace a BRL-CAD geometric model
 
 [source]
 ----
-nirt [<options>] <model.g> [<objects>]...
+nirt [options] model.g [objects]...
 ----
 
 
@@ -24,22 +24,22 @@ nirt [<options>] <model.g> [<objects>]...
 
 
 *-A _attribute_name..._*::
-Adds the names to the list of attributes that will be reported when the "attributes" partition information value is specified. See also the _attr_ command below.
+Adds the names to the list of attributes that will be reported when the "attributes" partition information value is specified. See also the *attr* command below.
 
 
 *-M*::
-Causes *nirt* to read the eye point and either the orientation quaternion (new format) or the view-rotation matrix (old format) from the standard input, and fire a single ray from the point in the specified direction. This option allows *nirt* to be called directly from within *mged* using the *nirt* and _rrt_ commands.
+Causes *nirt* to read the eye point and either the orientation quaternion (new format) or the view-rotation matrix (old format) from the standard input, and fire a single ray from the point in the specified direction. This option allows *nirt* to be called directly from within *mged* using the *nirt* and *rrt* commands.
 
 
 *-b*::
-Causes *nirt* to perform a _backout_ command before the first _shoot_ command (see the description of these two commands below). This is probably only useful with the *-M* option.
+Causes *nirt* to perform a *backout* command before the first *shoot* command (see the description of these two commands below). This is probably only useful with the *-M* option.
 
 
-*-e*_script_::
+*-e* _script_::
 Causes *nirt* to run the _script_ string before reading the standard input. Multiple commands in _script_ may be separated with a semicolon ';'. Scripts specified with either the *-e* or *-f* options are executed in the order in which they are specified on the command line.
 
 
-*-f*_format_::
+*-f* _format_::
 Causes *nirt* to load the predefined format (see *-L*) _format_ or script file before reading standard input. Scripts specified with either the *-e* or *-f* options are executed in the order in which they are specified on the command line.
 
 
@@ -59,27 +59,27 @@ Causes *nirt* to run in silent (that is, non-verbose) mode. In this mode, which 
 Causes *nirt* to run in verbose mode. The default is verbose mode, except if standard input has been redirected, in which case the default is silent mode.
 
 
-*-H*_n_::
+*-H* _n_::
 Set flag (_n_) for enable/disable informational header (_n_=1 [on] by default, always off in silent mode).
 
 
-*-u*_n_::
-Sets the _useair_ member of the _rt_i_ structure to _n_. See the discussion of the _useair_ command below.
+*-u* _n_::
+Sets the _useair_ member of the __rt_i__ structure to _n_. See the discussion of the _useair_ command below.
 
 
-*-O*_n_::
-Causes *nirt* to handle multiple regions' claims to segments of a ray according to action _n_. The argument _n_ may be any of the values 0, 1, 2, or 3, or their corresponding key words "resolve", "rebuild_fastgen", "rebuild_all", or "retain". See the discussion of the _overlap_claims_ command below.
+*-O* _n_::
+Causes *nirt* to handle multiple regions' claims to segments of a ray according to action _n_. The argument _n_ may be any of the values 0, 1, 2, or 3, or their corresponding key words "resolve", "rebuild_fastgen", "rebuild_all", or "retain". See the discussion of the __overlap_claims__ command below.
 
 
-*-x*_v_::
+*-x* _v_::
 Sets the *librt*(3) debug flags to the hexadecimal bit vector _v_. See the discussion of the _libdebug_ command below.
 
 
-*-X*_v_::
+*-X* _v_::
 Sets *nirt*'s own debug flags to the hexadecimal bit vector _v_. See the discussion of the _debug_ command below.
 
 
-*--xyz*_x y z_::
+*--xyz* _x y z_::
 Initializes the ray origination point to the specified value. See the discussion of the _xyz_ command below.
 
 
@@ -91,40 +91,40 @@ Initializes the ray origination point to the specified value. See the discussion
 === Commands
 
 
-_center [__x y z__]_
-_xyz [__x y z__]_::
+*center [* _x y z_*]*
+*xyz [* _x y z_*]*::
 Sets the ray origination point to (_x_, _y_, _z_). If this command is invoked with no arguments, *nirt* prints the current ray origination point in model coordinates. Default is (0, 0, 0). Changing (_x_, _y_, _z_) will change (_h_, _v_, _d_), according to the current direction vector.
 
 
-_hv [__h v__[__d__]]_::
+*hv [* _h v_  *[* _d_ *]]*::
 Sets the ray origination point to (_h_, _v_, _d_). If this command is invoked with only two arguments, *nirt* interprets them as _h_ and _v_, and _d_ retains its previous value. If invoked with no argument, the command causes *nirt* to print the current ray origination point in view coordinates. Default is (0, 0, 0). Changing (_h_, _v_, _d_) will change (_x_, _y_, _z_), according to the current direction vector.
 
 
-_dir [__dx dy dz__]_::
+*dir [* _dx dy dz_*]*::
 Sets the direction vector to the unit vector in direction (_dx_, _dy_, _dz_). If this command is invoked with no arguments, *nirt* prints the current direction vector. Default is (-1, 0, 0). Changing (_dx_, _dy_, _dz_) will change the azimuth and elevation angles.
 
 
-_ae [__az el__]_::
+*ae [* _az el_*]*::
 Sets the direction vector to point _from_ azimuth = _az_ and elevation = _el_. If this command is invoked with no arguments, *nirt* prints the current values of the azimuth and elevation angles. Default is (0, 0). Changing azimuth and elevation will change the direction vector.
 
 
-_s_::
+*s*::
 Fires a ray from the current origination point in the current direction.
 
 
-_backout [__n__]_::
+*backout [* _n_*]*::
 Command to set the backout flag. With no option, prints the current value. When activated, backs the ray origination point out of the geometry: _h_ and _v_ retain their previous values and _d_ is set to _Dmax_, the largest value of _d_ anywhere in the geometry. Default is 0 (deactivated), 1 is active.
 
 
-_useair [__n__]_::
-Sets the _useair_ member of the _rt_i_ structure to the integer _n_. If _n_ is 0, then *nirt* ignores any air in the geometry. If this command is invoked with no arguments, *nirt* prints the current value of _useair_. Default is 0.
+*useair [* _n_*]*::
+Sets the _useair_ member of the __rt_i__ structure to the integer _n_. If _n_ is 0, then *nirt* ignores any air in the geometry. If this command is invoked with no arguments, *nirt* prints the current value of _useair_. Default is 0.
 
 
-_overlap_claims [__n__]_::
-Specifies how to handle multiple regions' claims to segments of a ray. If _n_ is 0 or "resolve", then all overlaps are resolved in favor of a single region and any other claimants are ignored. If _n_ is 2 or "rebuild_all", then all overlaps are rebuilt, so any overlapping regions along the ray create individual (geometrically intersecting) partitions. If _n_ is 3 or "retain", then all overlaps are retained. In this case, the resulting partitions are always geometrically disjoint, each one is owned by a single region according to the current overlap resolution strategy, but every claimant is recorded. If _n_ is 1 or "rebuild_fastgen", then *nirt* takes on _FASTGEN_ behavior, so overlaps of plate-mode primitives are rebuilt, but other overlaps are retained. This command is useful with the _claimant_count_, _claimant_list_, and _claimant_listn_ output items. Default is "resolve".
+*overlap_claims [* _n_*]*::
+Specifies how to handle multiple regions' claims to segments of a ray. If _n_ is 0 or "resolve", then all overlaps are resolved in favor of a single region and any other claimants are ignored. If _n_ is 2 or "rebuild_all", then all overlaps are rebuilt, so any overlapping regions along the ray create individual (geometrically intersecting) partitions. If _n_ is 3 or "retain", then all overlaps are retained. In this case, the resulting partitions are always geometrically disjoint, each one is owned by a single region according to the current overlap resolution strategy, but every claimant is recorded. If _n_ is 1 or "rebuild_fastgen", then *nirt* takes on _FASTGEN_ behavior, so overlaps of plate-mode primitives are rebuilt, but other overlaps are retained. This command is useful with the __claimant_count__, __claimant_list__, and __claimant_listn__ output items. Default is "resolve".
 
 
-_attr {-f|-p|attr_names...}_::
+*attr {-f|-p|attr_names...}*::
 When used with one or more names, adds the names to the list of attributes that will be printed when the "attributes" value is requested in the output format string.
 
 The *-p* option to the *attr* command causes it to print the list of attributes that will be reported.
@@ -132,47 +132,47 @@ The *-p* option to the *attr* command causes it to print the list of attributes 
 The *-f* option clears the attributes table.
 
 
-_units [__u__]_::
+*units [* _u_*]*::
 Causes *nirt* to read and write all distances and locations in units of _u_. Valid choices for _u_ are "mm"; "cm"; "m"; "in"; and "ft". If this command is invoked with no arguments, *nirt* prints the current choice of I/O units. Default is the units of _model.g_.
 
 
-_fmt [__t format item item ...__]_::
+*fmt [* _t format item item ..._*]*::
 Sets the action for output statements of type _t_. If this command is invoked with only one argument, a valid statement type, *nirt* prints the current format and items for the specified type. See the discussion of output statements below.
 
 
-_dest [__d__]_::
+*dest [* _d_*]*::
 Sets the destination for subsequent output actions to _d_. If the first character of _d_ is `|', then _d_ is interpreted as a pipeline to which to write its output. Otherwise, if _d_ is the string "default", *nirt* sets the destination to the standard output. Otherwise, _d_ is interpreted as a file. In any event, _d_ is not closed until the user quits *nirt* or resets the destination by another invocation of the _dest_ command. If this command is invoked with no arguments, *nirt* prints the current value of _d_. Default is "default", that is, the standard output.
 
 
-_statefile [__f__]_::
+*statefile [* _f_*]*::
 Sets the name of the state file to which to dump and from which to load state information. See the discussion of the _dump_ and _load_ commands below. If this command is invoked with no arguments, *nirt* prints the current name of the state file. Default is "nirt_state".
 
 
-_dump_::
+*dump*::
 Writes state information to the state file. The ray origination point and direction vector, useair, units, destination, and all the output actions are dumped.
 
 
-_load_::
+*load*::
 Reads state information from the state file. The state file loaded may contain any *nirt* commands.
 
 
-_print__item_::
+*print* _item_::
 Prints the current value of the output item _item_. See the discussion of output statements below.
 
 
-_libdebug__v_::
-Sets the *librt*(3) debug flags (the _debug_ member of the _rt_g_ structure) to the hexadecimal bit vector _v_. These flags control the amount and kind of diagnostic print statements *librt*(3) executes. If _v_ is 0, then no diagnostics are produced. If this command is invoked with no arguments, *nirt* prints the current value of _v_ and the names of any of its bits that are set. Default is 0.
+*libdebug* _v_::
+Sets the *librt*(3) debug flags (the _debug_ member of the __rt_g__ structure) to the hexadecimal bit vector _v_. These flags control the amount and kind of diagnostic print statements *librt*(3) executes. If _v_ is 0, then no diagnostics are produced. If this command is invoked with no arguments, *nirt* prints the current value of _v_ and the names of any of its bits that are set. Default is 0.
 
 
-_debug__v_::
+*debug* _v_::
 Sets *nirt*'s internal debug flags to the hexadecimal bit vector _v_. These flags control the amount and kind of diagnostic print statements *nirt* executes. If _v_ is 0, then no diagnostics are produced. If this command is invoked with no arguments, *nirt* prints the current value of _v_ and the names of any of its bits that are set. Default is 0.
 
 
-_?_::
+*?*::
 Prints a help menu to the standard output.
 
 
-_q_::
+*q*::
 Quits *nirt*.
 
 
@@ -184,31 +184,31 @@ Quits *nirt*.
 *nirt* allows the user a high degree of control, via the _fmt_ command, over what information gets printed out for each ray and in what format. There are six types of output statements, each of which is executed under appropriate circumstances. The types and their use are:
 
 
-_r_::
+*r*::
 Ray. The first output statement executed whenever the _s_ command is invoked.
 
 
-_h_::
+*h*::
 Head. Executed immediately after the ray statement if the ray hits anything.
 
 
-_p_::
+*p*::
 Partition. Executed once for each partition along the ray if the ray hits anything.
 
 
-_f_::
+*f*::
 Foot. The last output statement executed if the ray hits anything.
 
 
-_m_::
+*m*::
 Miss. Executed immediately after the ray statement if the ray hits nothing.
 
 
-_o_::
+*o*::
 Overlap. Executed once for each overlap along the ray if the ray hits anything.
 
 
-_g_::
+*g*::
 Gap. Executed once for each gap along the ray if the ray encounters any gaps.
 
 
@@ -218,47 +218,47 @@ The action associated with each output statement type is essentially a *printf*(
 Ray Information
 
 
-_x_orig_::
+*x_orig*::
 _x_ coordinate of ray origination point.
 
 
-_y_orig_::
+*y_orig*::
 _y_ coordinate of ray origination point.
 
 
-_z_orig_::
+*z_orig*::
 _z_ coordinate of ray origination point.
 
 
-_d_orig_::
+*d_orig*::
 _d_ coordinate of ray origination point.
 
 
-_h_::
+*h*::
 _h_ coordinate for the entire ray.
 
 
-_v_::
+*v*::
 _v_ coordinate for the entire ray.
 
 
-_x_dir_::
+*x_dir*::
 _x_ component of direction vector.
 
 
-_y_dir_::
+*y_dir*::
 _y_ component of direction vector.
 
 
-_z_dir_::
+*z_dir*::
 _z_ component of direction vector.
 
 
-_a_::
+*a*::
 azimuth of view (i.e., of ray direction).
 
 
-_e_::
+*e*::
 elevation of view (i.e., of ray direction).
 
 
@@ -266,135 +266,135 @@ elevation of view (i.e., of ray direction).
 Partition Information
 
 
-_attributes_::
-A string variable consisting of the names and values of the attributes requested by the _attr_ command or the *-A* command line option.
+*attributes*::
+A string variable consisting of the names and values of the attributes requested by the *attr* command or the *-A* command line option.
 
 
-_x_in_::
+*x_in*::
 _x_ coordinate of entry into current region.
 
 
-_y_in_::
+*y_in*::
 _y_ coordinate of entry into current region.
 
 
-_z_in_::
+*z_in*::
 _z_ coordinate of entry into current region.
 
 
-_d_in_::
+*d_in*::
 _d_ coordinate of entry into current region.
 
 
-_x_out_::
+*x_out*::
 _x_ coordinate of exit from current region.
 
 
-_y_out_::
+*y_out*::
 _y_ coordinate of exit from current region.
 
 
-_z_out_::
+*z_out*::
 _z_ coordinate of exit from current region.
 
 
-_d_out_::
+*d_out*::
 _d_ coordinate of exit from current region.
 
 
-_los_::
+*los*::
 line-of-sight distance through current region.
 
 
-_scaled_los_::
+*scaled_los*::
 scaled line of sight: product of line-of-sight distance through current region and region solidity (sometimes called "percent LOS").
 
 
-_path_name_::
+*path_name*::
 full path name of current region.
 
 
-_reg_name_::
-name of current region, as might be obtained by passing _path_name_ to *basename*(1).
+*reg_name*::
+name of current region, as might be obtained by passing *path_name* to *basename*(1).
 
 
-_reg_id_::
+*reg_id*::
 region ID of current region.
 
 
-_claimant_count_::
+*claimant_count*::
 number of regions claiming this partition (that is, participating in a retained overlap).
 
 
-_claimant_list_::
+*claimant_list*::
 space-separated list of names of regions claiming this partition (that is, participating in a retained overlap).
 
 
-_claimant_listn_::
-Same as _claimant_list_, except that it is newline-, rather than space-separated.
+*claimant_listn*::
+Same as __claimant_list__, except that it is newline-, rather than space-separated.
 
 
-_obliq_in_::
+*obliq_in*::
 entry obliquity for current region.
 
 
-_obliq_out_::
+*obliq_out*::
 exit obliquity for current region.
 
 
-_nm_x_in_::
+*nm_x_in*::
 _x_ component of entry normal vector
 
 
-_nm_y_in_::
+*nm_y_in*::
 _y_ component of entry normal vector
 
 
-_nm_z_in_::
+*nm_z_in*::
 _z_ component of entry normal vector
 
 
-_nm_h_in_::
+*nm_h_in*::
 _h_ component of entry normal vector
 
 
-_nm_v_in_::
+*nm_v_in*::
 _v_ component of entry normal vector
 
 
-_nm_d_in_::
+*nm_d_in*::
 _d_ component of entry normal vector
 
 
-_nm_x_out_::
+*nm_x_out*::
 _x_ component of exit normal vector
 
 
-_nm_y_out_::
+*nm_y_out*::
 _y_ component of exit normal vector
 
 
-_nm_z_out_::
+*nm_z_out*::
 _z_ component of exit normal vector
 
 
-_nm_h_out_::
+*nm_h_out*::
 _h_ component of exit normal vector
 
 
-_nm_v_out_::
+*nm_v_out*::
 _v_ component of exit normal vector
 
 
-_nm_d_out_::
+*nm_d_out*::
 _d_ component of exit normal vector
 
 
-_surf_num_in_::
+*surf_num_in*::
 entry-surface ID of entry solid.
 
 
-_surf_num_out_::
+*surf_num_out*::
 exit-surface ID of exit solid.
 
 
@@ -402,19 +402,19 @@ exit-surface ID of exit solid.
 Gap Information
 
 
-_x_gap_in_::
+*x_gap_in*::
 _x_ coordinate of entry into gap.
 
 
-_y_gap_in_::
+*y_gap_in*::
 _y_ coordinate of entry into gap.
 
 
-_z_gap_in_::
+*z_gap_in*::
 _z_ coordinate of entry into gap.
 
 
-_gap_los_::
+*gap_los*::
 line-of-sight distance through gap.
 
 
@@ -422,63 +422,63 @@ line-of-sight distance through gap.
 Overlap Information
 
 
-_ov_reg1_name_::
+*ov_reg1_name*::
 name of one of the overlapping regions.
 
 
-_ov_reg2_name_::
+*ov_reg2_name*::
 name of the other overlapping region.
 
 
-_ov_reg1_id_::
+*ov_reg1_id*::
 region ID of one of the overlapping regions.
 
 
-_ov_reg2_id_::
+*ov_reg2_id*::
 region ID of the other overlapping region.
 
 
-_ov_sol_in_::
+*ov_sol_in*::
 name of one of the overlapping solids.
 
 
-_ov_sol_out_::
+*ov_sol_out*::
 name of the other overlapping solid.
 
 
-_ov_los_::
+*ov_los*::
 line-of-sight distance through the overlap.
 
 
-_ov_x_in_::
+*ov_x_in*::
 _x_ coordinate of entry into overlap.
 
 
-_ov_y_in_::
+*ov_y_in*::
 _y_ coordinate of entry into overlap.
 
 
-_ov_z_in_::
+*ov_z_in*::
 _z_ coordinate of entry into overlap.
 
 
-_ov_d_in_::
+*ov_d_in*::
 _d_ coordinate of entry into overlap.
 
 
-_ov_x_out_::
+*ov_x_out*::
 _x_ coordinate of exit from overlap.
 
 
-_ov_y_out_::
+*ov_y_out*::
 _y_ coordinate of exit from overlap.
 
 
-_ov_z_out_::
+*ov_z_out*::
 _z_ coordinate of exit from overlap.
 
 
-_ov_d_out_::
+*ov_d_out*::
 _d_ coordinate of exit from overlap.
 
 
@@ -501,9 +501,9 @@ The usage in *nirt* of the following terms corresponds to that found in *mged*(1
 [[view_coordinates]]
 === View Coordinates
 
-We define the view coordinate system (more precisely its basis vectors _m_, _n_, and _o_) in terms of the basis vectors _i_, _j_, and _k_ of the model coordinate system as follows:
+We define the view coordinate system (more precisely its basis vectors *m*, *n*, and *o*) in terms of the basis vectors *i*, *j*, and *k* of the model coordinate system as follows:
 
-_m_ is the opposite of the direction vector and corresponds to _d_, _n_ = _k_ × _m_ corresponds to _h_, and _o_ = _m_ × _n_ corresponds to _v_.
+*m* is the opposite of the direction vector and corresponds to _d_, *n* = *k* × *m* corresponds to _h_, and *o* = *m* × *n* corresponds to _v_.
 
 Thus if the direction vector is (-1, 0, 0), then (_d_, _h_, _v_) = (_x_, _y_, _z_).
 
@@ -511,7 +511,7 @@ Thus if the direction vector is (-1, 0, 0), then (_d_, _h_, _v_) = (_x_, _y_, _z
 [[azimuth_and_elevation]]
 === Azimuth and Elevation
 
-Azimuth is the angle measured around _k_ (right-hand rule) from the _xz_ plane to _m_. Elevation is the angle measured toward _k_ from the _xy_ plane to _m_.
+Azimuth is the angle measured around *k* (right-hand rule) from the _xz_ plane to *m*. Elevation is the angle measured toward *k* from the _xy_ plane to *m*.
 
 
 
@@ -547,5 +547,3 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

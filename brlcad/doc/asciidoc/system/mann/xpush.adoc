@@ -10,7 +10,7 @@ xpush - Pushes the effects of transformation matrices in the paths, from the
 
 [source]
 ----
-xpush {<object>}
+xpush {object}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

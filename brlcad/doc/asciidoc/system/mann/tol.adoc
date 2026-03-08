@@ -10,7 +10,7 @@ tol - Used with no arguments, tol lists the current tolerance settings.
 
 [source]
 ----
-tol [abs<#>] [rel<#>] [norm<#>] [dist<#>] [perp<#>]
+tol [abs#] [rel#] [norm#] [dist#] [perp#]
 ----
 
 
@@ -19,14 +19,14 @@ tol [abs<#>] [rel<#>] [norm<#>] [dist<#>] [perp<#>]
 
 The *tol* command, with no arguments, lists the current tolerance settings. If the command line includes any of the keywords followed by a number, then that tolerance setting will be modified. The keywords are as follows:
 
-_Tessellation tolerances:_ The tessellation tolerances are used to control the facetization of primitive shapes. If more than one tolerance value is specified, the tessellation is performed to meet the most stringent.
+*Tessellation tolerances:* The tessellation tolerances are used to control the facetization of primitive shapes. If more than one tolerance value is specified, the tessellation is performed to meet the most stringent.
 
 
 * abs -- This _absolute_ tolerance is specified in mm and represents the maximum allowable error in the distance from the actual shape surface to the tessellated surface. An _absolute_ tolerance of 0 means that the _absolute_ tolerance should be ignored.
 * rel -- This _relative_ tolerance is specified in terms of a fraction of the shape size. The value is multiplied by the size of the shape to determine another bound on the maximum allowable error in the distance from the actual shape surface to the tessellated surface. A _relative_ tolerance of 0 means that the _relative_ tolerance should be ignored.
 * norm -- This _normal_ tolerance is specified in degrees and represents the maximum angle between the actual shape surface normal and the tessellated surface normal. A _normal_ tolerance of 0 means that the _normal_ tolerance should be ignored.
 
-_Calculational tolerances:_ The calculational tolerances are used in evaluating the Boolean operations specified in a combination. This is used, for example, in the *ev, facetize,* and *bev* commands.
+*Calculational tolerances:* The calculational tolerances are used in evaluating the Boolean operations specified in a combination. This is used, for example, in the *ev, facetize,* and *bev* commands.
 
 
 * dist -- The _distance_ tolerance is specified in mm and represents the minimum distance required between two vertices to consider them distinct.
@@ -58,5 +58,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

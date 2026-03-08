@@ -10,7 +10,7 @@ rcc-tor - Used to round the edges of the specified RCC by creating a torus based
 
 [source]
 ----
-rcc-tor {<rccname newname>}
+rcc-tor {rccname newname}
 ----
 
 
@@ -30,7 +30,7 @@ The example shows the use of the *rcc-tor* command to round the edges of an RCC 
 ====
 mged>*rcc-tor rcc.s tor.s*
 
-Creates a TOR shape named _tor.s_ using the parameters of _rcc.s_.
+Creates a TOR shape named _tor.s_ using the parameters of _rcc.s_ .
 
 ====
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

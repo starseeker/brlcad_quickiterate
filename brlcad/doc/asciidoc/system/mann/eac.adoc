@@ -10,7 +10,7 @@ eac - Adds all the regions in the current model that have one of the aircodes in
 
 [source]
 ----
-eac {<air_code(s)>}
+eac {air_code(s)}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

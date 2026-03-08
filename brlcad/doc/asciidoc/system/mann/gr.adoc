@@ -10,7 +10,7 @@ gr, dg - Add or remove primitives or primitive parents from a group using a GUI 
 
 [source]
 ----
-gr {<GroupName>} { <+>| <->} [<ListLimit>] [<-p>]
+gr {GroupName} { +| -} [ListLimit] [-p]
 ----
 
 
@@ -55,5 +55,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

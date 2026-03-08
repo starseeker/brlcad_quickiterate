@@ -10,7 +10,7 @@ lint - Detect and report problems with subsets or all of a .g database.
 
 [source]
 ----
-lint [-h] [-C] [-M] [-I] [-F "filters"] [<ObjectName>]
+lint [-h] [-C] [-M] [-I] [-F "filters"] [ObjectName]
 ----
 
 
@@ -53,6 +53,8 @@ Apply search command style filters to the set of objects to be tested. Allows, (
 [example]
 ====
 mged>*lint*
+
+
 ....
 
 Checking for cyclic paths...
@@ -79,6 +81,8 @@ Found invalid objects:
 [example]
 ====
 mged>*lint -I nonsolid.bot*
+
+
 ....
 
 Checking for invalid objects...
@@ -95,6 +99,8 @@ Found invalid objects:
 [example]
 ====
 mged>*lint -F "! -type bot -name *_1.*"*
+
+
 ....
 
 Checking for cyclic paths...
@@ -119,6 +125,8 @@ Found invalid objects:
 [example]
 ====
 mged>*lint -I bot:empty havoc.bot*
+
+
 ....
 
 Checking for invalid objects...
@@ -166,5 +174,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

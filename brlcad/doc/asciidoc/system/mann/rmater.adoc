@@ -10,14 +10,14 @@ rmater - Reads the specified file and sets the combination shader, color, and in
 
 [source]
 ----
-rmater {<file>}
+rmater {file}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Reads the specified _file_ and sets the combination shader, color, and inheritance values according to those listed in the _file_. The format of the _file_ is expected to be as produced by the *wmater* command.
+Reads the specified _file_ and sets the combination shader, color, and inheritance values according to those listed in the _file_. The format of the _file_ is expected to be as produced by the  *wmater* command.
 
 
 [[examples]]
@@ -30,7 +30,7 @@ The example shows the use of the *rmater* command to read a specified file and s
 ====
 mged>*rmater mater_file*
 
-Reads the file named _mater_file_ and sets the combination attributes according to those listed in the file.
+Reads the file named __mater_file__ and sets the combination attributes according to those listed in the file.
 
 ====
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

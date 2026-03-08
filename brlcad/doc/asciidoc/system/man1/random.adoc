@@ -10,7 +10,7 @@ random - generates a random number between two specified values
 
 [source]
 ----
-random [-s<seed>] [ -g [-c<center>]] [-u] [-v] <low> <high>
+random [-sseed] [ -g [-ccenter]] [-u] [-v] low high
 ----
 
 
@@ -53,5 +53,3 @@ This software is Copyright (c) 2010-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

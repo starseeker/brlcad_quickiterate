@@ -10,14 +10,14 @@ journal - Starts or stops the journaling of MGED commands to a file.
 
 [source]
 ----
-journal [-d] [<journal_file_name>]
+journal [-d] [journal_file_name]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Starts or stops the journaling of MGED commands to a file. If executed with no arguments, the command stops journaling. If _journal_file_name_ is provided, that file will become the recipient of the journaling. If a _-d_ option is also provided, the journaling will include the delays between commands. Journaling is off by default.
+Starts or stops the journaling of MGED commands to a file. If executed with no arguments, the command stops journaling. If __journal_file_name__ is provided, that file will become the recipient of the journaling. If a _-d_ option is also provided, the journaling will include the delays between commands. Journaling is off by default.
 
 
 [[examples]]
@@ -30,7 +30,7 @@ The example shows the use of the *journal* command to start the journaling of a 
 ====
 
 mged>*journal journal_file*::
-Starts journaling to _journal_file_.
+Starts journaling to __journal_file__.
 
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

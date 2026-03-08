@@ -10,7 +10,7 @@ adjust - Adjusts parameters of a solid.
 
 [source]
 ----
-adjust {<solid_name>} {<param_name>} {<value>} [<param_name>] [<value>]
+adjust {solid_name} {param_name} {value} [param_name] [value]
 ----
 
 
@@ -29,6 +29,8 @@ Adjusts the given parameter(s) of a solid to the new value(s).
 Use the *adjust* command to make the A value of a sphere to 100, 0, 0
 
 
+
+
 ....
 
 mged> adust solid.s A "100 0 0"
@@ -44,6 +46,8 @@ mged> adust solid.s A "100 0 0"
 [example]
 ====
 Use the *adjust* command to make the A, B, and C values of a sphere.
+
+
 
 
 ....
@@ -80,5 +84,3 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -47,6 +47,8 @@ The below examples walk through a sample *process* workflow:
 [example]
 ====
 mged>*process*
+
+
 ....
 
 Usage: process [subcommand]
@@ -68,6 +70,8 @@ Subcommands:
 [example]
 ====
 mged>*process list*
+
+
 ....
 
     PID CMD
@@ -100,5 +104,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

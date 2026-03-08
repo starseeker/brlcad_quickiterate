@@ -10,7 +10,7 @@ pix-ppm - convert a BRL-CAD PIX or BW format image to a PPM format image
 
 [source]
 ----
-pix-ppm [-a] [-s<squaresize>] [-w<file_width>] [-n<file_height>] [-#<bytes_per_pixel>] [-o<PPM_file>] [<PIX_file>] > <PPM_file>
+pix-ppm [-a] [-ssquaresize] [-wfile_width] [-nfile_height] [-#bytes_per_pixel] [-oPPM_file] [PIX_file] > PPM_file
 ----
 
 
@@ -35,11 +35,11 @@ sets both the width and the height for the input to be _squaresize_
 
 
 *-w file_width*::
-tells *pix-ppm* that the input is _file_width_ pixels wide
+tells *pix-ppm* that the input is __file_width__ pixels wide
 
 
 *-n file_height*::
-tells *pix-ppm* that the input is _file_height_ scanlines tall
+tells *pix-ppm* that the input is __file_height__ scanlines tall
 
 
 *-# bytes_per_pixel*::
@@ -47,7 +47,7 @@ tells *pix-ppm* how many bytes there are per pixel in the input PIX or BW file
 
 
 *-o PPM_file*::
-tells *pix-ppm* to write image data to the specified _PPM_file_ output file. The *pix-ppm* command will not write out binary image data directly to a terminal device as a safeguard.
+tells *pix-ppm* to write image data to the specified __PPM_file__ output file. The *pix-ppm* command will not write out binary image data directly to a terminal device as a safeguard.
 
 
 
@@ -74,5 +74,3 @@ This software is Copyright (c) 2009-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

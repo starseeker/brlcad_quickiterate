@@ -10,14 +10,14 @@ comb_color - Changes the color of a combination.
 
 [source]
 ----
-comb_color {<combination_name r g b>}
+comb_color {combination_name r g b}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Assigns the color using the provided _rgb_ values to the existing combination named _combination_name_. Valid values for each variable are between 0 and 255. See also the *mater* command.
+Assigns the color using the provided _rgb_ values to the existing combination named __combination_name__. Valid values for each variable are between 0 and 255. See also the *mater* command.
 
 
 [[examples]]
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

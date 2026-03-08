@@ -244,43 +244,51 @@ inline std::string apply_quote_rx(
     //
     // aqrx::regex (ECMAScript) does not support lookbehind, so we capture the
     // character before the opening marker in group $1 and re-emit it.
-    // The lookahead (?=[^*\w]|$) for the closing boundary IS supported.
+    // The lookahead (?=[^*a-zA-Z0-9]|$) for the closing boundary IS supported.
     //
     // Bug #4 fix: exclude '/' and ':' as the preceding character to avoid
     // false positives in URLs (e.g. https://*host*/path).
+    //
+    // NOTE: We intentionally use [a-zA-Z0-9] rather than \w in boundary checks.
+    // \w includes '_', which is also the italic delimiter.  Using \w would
+    // prevent adjacent spans like *bold*_italic_ or _italic_*bold* from
+    // matching, because the closing '*' followed by '_' (or opening '*'
+    // preceded by '_') would be wrongly rejected as being "inside a word".
 
     // *strong*
     {
         static const aqrx::regex rx(
-            R"((^|[^*\w/:])\*(\S|\S.*?\S)\*(?=[^*\w]|$))",
+            R"((^|[^*a-zA-Z0-9/:])\*(\S|\S.*?\S)\*(?=[^*a-zA-Z0-9]|$))",
             aqrx::ECMAScript | aqrx::optimize);
         out = aqrx::regex_replace(out, rx, "$1<strong>$2</strong>");
     }
     // _emphasis_
     {
         static const aqrx::regex rx(
-            R"((^|[^_\w])_(\S|\S.*?\S)_(?=[^_\w]|$))",
+            R"((^|[^_a-zA-Z0-9])_(\S|\S.*?\S)_(?=[^_a-zA-Z0-9]|$))",
             aqrx::ECMAScript | aqrx::optimize);
         out = aqrx::regex_replace(out, rx, "$1<em>$2</em>");
     }
     // `monospace`
     {
         static const aqrx::regex rx(
-            R"((^|[^`\w])`(\S|\S.*?\S)`(?=[^`\w]|$))",
+            R"((^|[^`a-zA-Z0-9])`(\S|\S.*?\S)`(?=[^`a-zA-Z0-9]|$))",
             aqrx::ECMAScript | aqrx::optimize);
         out = aqrx::regex_replace(out, rx, "$1<code>$2</code>");
     }
     // +monospace+ (legacy)
     {
         static const aqrx::regex rx(
-            R"((^|[^+\w])\+(\S|\S.*?\S)\+(?=[^+\w]|$))",
+            R"((^|[^+a-zA-Z0-9])\+(\S|\S.*?\S)\+(?=[^+a-zA-Z0-9]|$))",
             aqrx::ECMAScript | aqrx::optimize);
         out = aqrx::regex_replace(out, rx, "$1<code>$2</code>");
     }
     // #highlight#
+    // Content must start and end with an alphanumeric character to avoid
+    // false positives on option values like "#/#/#" or "#,#".
     {
         static const aqrx::regex rx(
-            R"((^|[^#\w])#(\S|\S.*?\S)#(?=[^#\w]|$))",
+            R"((^|[^#a-zA-Z0-9])#([a-zA-Z0-9][^#\n]*[a-zA-Z0-9]|[a-zA-Z0-9])#(?=[^#a-zA-Z0-9]|$))",
             aqrx::ECMAScript | aqrx::optimize);
         out = aqrx::regex_replace(out, rx, "$1<mark>$2</mark>");
     }

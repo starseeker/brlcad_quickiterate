@@ -10,7 +10,7 @@ gui - Creates an instance of MGEDs default Tcl/Tk graphical user interface (GU
 
 [source]
 ----
-gui [ {-config}| [b]| [c]| [g]] [ {-d}| {<display_string>}] [ {-gd}| {<graphics_display_string>}] [ {-dt}| {<graphics_type>}] [ {id}| {<name>}] [ {-c}| {-h}| {-j}| {-s}]
+gui [ {-config}| [b]| [c]| [g]] [ {-d}| {display_string}] [ {-gd}| {graphics_display_string}] [ {-dt}| {graphics_type}] [ {id}| {name}] [ {-c}| {-h}| {-j}| {-s}]
 ----
 
 
@@ -24,15 +24,15 @@ _-config b c g_::
 Configures the GUI to display the command window, the graphics window, or both. This option is useful only when the GUI is combining the text and graphics windows. See the _-c_ option.
 
 
-_-d display_string_::
+__-d display_string__::
 Displays/draws the GUI on the screen indicated by the display_string. Note that this string format is the same as the X DISPLAY environment variable.
 
 
-_-gd display_string_::
+__-gd display_string__::
 Displays/draws the graphics window on the screen indicated by the display_string. Note that this string format is the same as the X DISPLAY environment variable.
 
 
-_-dt graphics_type_::
+__-dt graphics_type__::
 Indicates the type of graphics windows to use. The possible choices are X and ogl (for machines that support OpenGL). Defaults to ogl, if supported; otherwise X.
 
 
@@ -74,5 +74,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

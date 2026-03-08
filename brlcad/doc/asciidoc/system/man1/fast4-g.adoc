@@ -10,7 +10,7 @@ fast4-g - FASTGEN4 Translator (FASTGEN4 to BRL-CAD)
 
 [source]
 ----
-fast4-g [-dwq] [-o<plot_file>] [-m<muves_warnings>] [-c<id_list>] [-x<RT_DEBUG_FLAG>] [-b<BU_DEBUG_FLAG>] <file.fastgen4> <file.g>
+fast4-g [-dwq] [-oplot_file] [-mmuves_warnings] [-cid_list] [-xRT_DEBUG_FLAG] [-bBU_DEBUG_FLAG] file.fastgen4 file.g
 ----
 
 
@@ -27,9 +27,9 @@ The *-b* option specifies a value for a debug flag for libbu and the *-x* option
 
 The *-o* option indicates that all CTRI and CQUAD elements that get processed should be output to the specified plot_file in libplot3 format. This plot file can be viewed in MGED using the _overlay_ command.
 
-The *-m* option requests that information about any CHGCOMP and CBACKING elements be output in the specified _muves_warnings_ file.
+The *-m* option requests that information about any CHGCOMP and CBACKING elements be output in the specified __muves_warnings__ file.
 
-The *-c* option allows the user to specify a restricted set of components to process from the input file. The _id_list_ may be a comma-separated list of ident numbers and ranges. For example, *-c 3002,5678,9213,1002-1100* will convert only the regions with idents of 3002,5678,9213, and everything from 1002 through 1100.
+The *-c* option allows the user to specify a restricted set of components to process from the input file. The __id_list__ may be a comma-separated list of ident numbers and ranges. For example, *-c 3002,5678,9213,1002-1100* will convert only the regions with idents of 3002,5678,9213, and everything from 1002 through 1100.
 
 If you have a FASTGEN2 or FASTGEN3 format file, they can be converted by processing them with *rpatch* and then providing the resulting rpatch file to the *patch-g* converter. See their respective manual pages for more information.
 
@@ -59,7 +59,7 @@ $ fast4-g sample.fastgen4 sample.g
 [[see_also]]
 == SEE ALSO
 
-*rpatch*(1), *patch-g*(1)_FASTGEN 4.1 User's Manual_, XRESV Tech Note 94-01, Hugh Griffis and Maty Lentz, April 1994
+*rpatch*(1), *patch-g*(1) _FASTGEN 4.1 User's Manual_, XRESV Tech Note 94-01, Hugh Griffis and Maty Lentz, April 1994
 
 
 [[diagnostics]]
@@ -84,5 +84,3 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -20,6 +20,8 @@ debugdir
 Displays a dump of the in-memory directory for the current database file. The information listed for each directory entry includes:
 
 
+
+
 * memory address of the directory structure.
 * name of the object.
 * "d_addr" for objects on disk, or "ptr" for objects in memory.
@@ -57,5 +59,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

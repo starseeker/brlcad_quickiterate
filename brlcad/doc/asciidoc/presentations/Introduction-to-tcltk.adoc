@@ -1,5 +1,7 @@
 = Untitled
 :doctype: article
+:toc:
+:toclevels: 3
 
 == What is Tcl/Tk?
 

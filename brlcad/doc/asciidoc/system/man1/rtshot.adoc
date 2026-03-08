@@ -10,14 +10,14 @@ rtshot - fire one ray at an mged model, for debugging
 
 [source]
 ----
-rtshot [<options>]... <model.g> <objects>...
+rtshot [options]... model.g objects...
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*rtshot* fires a single ray at the indicated _objects_ in the input _model.g_ and produces a printed summary of the geometry that the ray passes through. The orientation of the ray to be fired is specified by giving any two of the three options *-a**-d* and *-p.*
+*rtshot* fires a single ray at the indicated _objects_ in the input _model.g_ and produces a printed summary of the geometry that the ray passes through. The orientation of the ray to be fired is specified by giving any two of the three options *-a* *-d* and *-p.*
 
 
 The::
@@ -53,7 +53,7 @@ This option specifies a list of attribute names to be listed (along with the app
 
 
 *-O # or keyword*::
-This option indicates how overlaps should be handled. The _resolve_ or `0` argument is the default (normal BRL-CAD mode, all overlaps are resolved and no overlaps appear in the output). The _rebuild_fastgen_ or `1` argument mimics FASTGEN4 raytracing (plate-mode overlaps appear in the output). The _rebuild_all_ or `2` argument rebuilds all overlaps that occurred along the ray (all overlaps appear in the output). The _retain_ or `3` argument does not resolve any overlaps (each unique combination of intersection extent and list of claiming regions produces a single partition).
+This option indicates how overlaps should be handled. The _resolve_ or `0` argument is the default (normal BRL-CAD mode, all overlaps are resolved and no overlaps appear in the output). The __rebuild_fastgen__ or `1` argument mimics FASTGEN4 raytracing (plate-mode overlaps appear in the output). The __rebuild_all__ or `2` argument rebuilds all overlaps that occurred along the ray (all overlaps appear in the output). The _retain_ or `3` argument does not resolve any overlaps (each unique combination of intersection extent and list of claiming regions produces a single partition).
 
 
 *-n #*::
@@ -106,5 +106,3 @@ This software is Copyright (c) 1987-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

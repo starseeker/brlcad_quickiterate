@@ -10,7 +10,7 @@ rtg3 - raytrace a model, writing a COVART (GIFT) 3-component format shotline fil
 
 [source]
 ----
-rtg3 [<options>]... <model.g> <objects>... > <model.cov>
+rtg3 [options]... model.g objects... > model.cov
 ----
 
 
@@ -19,7 +19,7 @@ rtg3 [<options>]... <model.g> <objects>... > <model.cov>
 
 *rtg3* operates on the indicated _objects_ in the input _model.g_ and produces a GIFT/COVART shotline file with three components per line, and both entrance and exit obliquity angles on standard output. The region ID field of the output file is set to the region id of each intersected region (partition). If the ray partition is followed by air, the aircode for the air region (and the line-of-sight thickness of the air) is noted on the shotline header line.
 
-The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 <= X,Y <= +1.0 in view space, with the size of the grid (number of rays fired) specified with *-s*. This option is most useful when *rtg3* is being invoked from a shell script created by an *mged*(1)_saveview_ command. Note that it conflicts with *-G#* and *-g#*; negative hit distances have been seen when this conflict was not avoided.
+The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 <= X,Y <= +1.0 in view space, with the size of the grid (number of rays fired) specified with *-s*. This option is most useful when *rtg3* is being invoked from a shell script created by an *mged*(1) _saveview_ command. Note that it conflicts with *-G#* and *-g#*; negative hit distances have been seen when this conflict was not avoided.
 
 The following options are recognized.
 
@@ -49,11 +49,11 @@ Select grid cell height. If _not_ specified, cell height equals cell width. Do n
 
 
 *-U #*::
-sets the Boolean variable _use_air_ to the given value. The default for *rtg3*(1) is on, i.e. *-U1*, but the effect of air regions may be disabled with *-U0*.
+sets the Boolean variable __use_air__ to the given value. The default for *rtg3*(1) is on, i.e. *-U1*, but the effect of air regions may be disabled with *-U0*.
 
 
 *-o*::
-_output.cov_ specifies a named file for COVART-format output. By default, the shotlines are written to stdout.
+*output.cov* specifies a named file for COVART-format output. By default, the shotlines are written to stdout.
 
 
 *-x#*::
@@ -96,11 +96,11 @@ Component line (one for each three components in this ray)
 
 ____
 
-The _GIFT-3_ shotline format has a different convention for the location of the start point (and thus the location of parametric distance zero) along the ray. This difference is handled automatically in *rtg3* by translating the ray's zero distance to the plane containing the model origin, by adding a distance correction factor. For each ray, both the cell center coordinates and the coordinates actually fired from are output.
+The *GIFT-3* shotline format has a different convention for the location of the start point (and thus the location of parametric distance zero) along the ray. This difference is handled automatically in *rtg3* by translating the ray's zero distance to the plane containing the model origin, by adding a distance correction factor. For each ray, both the cell center coordinates and the coordinates actually fired from are output.
 
-Obliquity angles (declensions off the normal) are computed internally in _radians_ but output in _degrees_ to satisfy the _GIFT-3_ format. Note that internally, _librt_ normals always point outward, whereas _GIFT_ normals point inward.
+Obliquity angles (declensions off the normal) are computed internally in _radians_ but output in _degrees_ to satisfy the *GIFT-3* format. Note that internally, _librt_ normals always point outward, whereas *GIFT* normals point inward.
 
-_GIFT_ zero-fills the fields of the component card if there are less than three components. Neither COVART II nor COVART III require this zero-filling, so it is omitted by *rtg3* .
+*GIFT* zero-fills the fields of the component card if there are less than three components. Neither COVART II nor COVART III require this zero-filling, so it is omitted by *rtg3* .
 
 
 [[example]]
@@ -162,7 +162,7 @@ This means that OVERLAP1 and OVERLAP2 share a common space (depth) of #millimete
 [[see_also]]
 == SEE ALSO
 
-*covart*(1V), *gift*(1V), *mged*(1), *rt*(1), *rtray*(1), *librt*(3), *plot3*(5), *ray*(5V);  ``_COVART II - A Simulation Program for Computation of Vulnerable Areas and Repair Times - User Manual_'', Joint Technical Coordinating Group for Munitions Effectiveness, Anti-Air Aerial Target Vulnerability Working Group, 61-JTCG/ME-84-3
+*covart*(1V), *gift*(1V), *mged*(1), *rt*(1), *rtray*(1), *librt*(3), *plot3*(5), *ray*(5V); ``_COVART II - A Simulation Program for Computation of Vulnerable Areas and Repair Times - User Manual_'', Joint Technical Coordinating Group for Munitions Effectiveness, Anti-Air Aerial Target Vulnerability Working Group, 61-JTCG/ME-84-3
 
 
 [[diagnostics]]
@@ -182,7 +182,7 @@ Most deficiencies observed while using the *rtg3* program are usually with the *
 [[authors]]
 == AUTHORS
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -195,5 +195,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

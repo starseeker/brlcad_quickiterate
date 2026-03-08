@@ -10,7 +10,7 @@ bw-pix - convert a black and white image to color format
 
 [source]
 ----
-bw-pix [ [-s<squaresize>] [-w<width>] [-n<height>]] [-o<out.pix>] [ [<]<in.bw>] > [<out.pix>]
+bw-pix [ [-ssquaresize] [-wwidth] [-nheight]] [-oout.pix] [ [<]in.bw] > [out.pix]
 ----
 
 
@@ -42,5 +42,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

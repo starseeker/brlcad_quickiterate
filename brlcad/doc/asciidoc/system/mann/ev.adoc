@@ -10,7 +10,7 @@ ev - Evaluates the objects specified by tessellating all primitive shapes in the
 
 [source]
 ----
-ev [-dfnrstuvwST] [-P<#>] [-C<#/#/#>] {objects} []
+ev [-dfnrstuvwST] [-P#] [-C#/#/#] {objects} []
 ----
 
 
@@ -71,5 +71,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

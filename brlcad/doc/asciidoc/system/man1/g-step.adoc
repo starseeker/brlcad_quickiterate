@@ -10,19 +10,19 @@ g-step - STEP Translator/Exporter (BRL-CAD to STEP AP203)
 
 [source]
 ----
-g-step -o<output_file.stp> <database.g> [<object(s)>]
+g-step -ooutput_file.stp database.g [object(s)]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*g-step* converts the specified objects of the BRL-CAD database, _database.g_, to a STEP AP203 file, _output_file.stp_.
+*g-step* converts the specified objects of the BRL-CAD database, _database.g_, to a STEP AP203 file, __output_file.stp__.
 
 The following options are recognized.
 
 
-*-o*_output_file_or_directory_::
+*-o* __output_file_or_directory__::
 Specifies the output file to which the STEP output is written.
 
 
@@ -68,5 +68,3 @@ This software is Copyright (c) 1993-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

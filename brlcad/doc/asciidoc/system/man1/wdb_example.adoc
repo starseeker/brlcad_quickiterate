@@ -10,7 +10,7 @@ wdb_example - creates a BRL-CAD geometry database from C code
 
 [source]
 ----
-wdb_example <db_file.g>
+wdb_example db_file.g
 ----
 
 
@@ -25,7 +25,7 @@ Note that this is for writing a database and not modifying it. Currently, there 
 [[examples]]
 == EXAMPLES
 
-*wdb_example*_db.g_
+*wdb_example* _db.g_
 
 
 [[see_also]]
@@ -50,5 +50,3 @@ This software is Copyright (c) 2004-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

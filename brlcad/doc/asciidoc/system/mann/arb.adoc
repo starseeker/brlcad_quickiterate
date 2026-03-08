@@ -10,14 +10,14 @@ arb - Creates a new ARB shape with the specified arb_name.
 
 [source]
 ----
-arb {<arb_name>} {<rotation>} {<fallback>}
+arb {arb_name} {rotation} {fallback}
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-The *arb* command creates a new ARB shape with the specified _arb_name_. The new ARB will be 20 inches by 20 inches and 2 inches thick. The square faces will be perpendicular to the direction defined by the rotation and fallback angles. This direction can be determined by interpreting the rotation angle as an azimuth and the fallback angle as an elevation as in the *ae* command.
+The *arb* command creates a new ARB shape with the specified __arb_name__. The new ARB will be 20 inches by 20 inches and 2 inches thick. The square faces will be perpendicular to the direction defined by the rotation and fallback angles. This direction can be determined by interpreting the rotation angle as an azimuth and the fallback angle as an elevation as in the *ae* command.
 
 
 [[examples]]
@@ -39,7 +39,7 @@ Create new_arb with a rotation angle of 35° and a fallback angle of 25°.
 ====
 mged>*ae 35 25*
 
-Rotates view to look straight on at square face of _new_arb_.
+Rotates view to look straight on at square face of __new_arb__.
 
 ====
 
@@ -54,5 +54,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

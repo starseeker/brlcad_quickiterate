@@ -10,7 +10,7 @@ listeval - Displays primitive shape parameters after applying the accumulated tr
 
 [source]
 ----
-listeval [-t] {<path>}
+listeval [-t] {path}
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

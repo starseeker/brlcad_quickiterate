@@ -10,7 +10,7 @@ rtweight - Calculate mass, centroid, and volume of geometry using raytracing
 
 [source]
 ----
-rtweight [<options>]...
+rtweight [options]...
 ----
 
 
@@ -110,5 +110,3 @@ Reports of bugs or problems should be submitted via electronic mail to <bugs@brl
 == AUTHOR
 
 BRL-CAD Team
-
-

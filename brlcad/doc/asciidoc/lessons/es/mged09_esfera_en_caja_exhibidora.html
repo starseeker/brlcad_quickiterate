@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Crear una esfera en una caja exhibidora transparente</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Crear una esfera en una caja exhibidora transparente</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial aprenderá a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Utilizar la GUI para crear una caja exhibidora usando formas arb8.</p>
+</li>
+<li>
+<p>Crear una esfera dentro de la caja exhibidora.</p>
+</li>
+<li>
+<p>Asignar propiedades del material para hacer que los objetos parezcan más reales.</p>
+</li>
+<li>
+<p>Rotar un objeto 180&#8217;0 usando la opción Rotate (Rotación) del menú Edit (Editar)</p>
+</li>
+<li>
+<p>Utilizar la opción de color del Combination Editor para producir colores personalizados.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="globe_in_display_newdb">Crear una nueva base de datos</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Comience creando una nueva base de datos llamada cube.g.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="globe_create_display_box">Creando la caja exhibidora</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Vaya al menú Create (Crear), seleccione la categoría Arbs, y luego seleccione un arb8 (polihedro arbitrario convexo de ocho vértices). Cuando se le pregunte por un nombre para el arb8, nómbrelo cube1.s. Cliquee en Apply (Aplicar). Vaya al menú Edit (Editar) y cliquee en Accept (Aceptar). Ahora tiene un cubo para el exterior de la caja, como se muestra en la siguiente figura:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged09_globe_outside_display_box.png" alt="../../lessons/es/images/mged09_globe_outside_display_box.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Repita la primera parte de este proceso para producir otro arb8, esta vez llame esta forma cube2.s. Vaya al menú Edit (Editar) y cliquee en Scale (Escala). Coloque el puntero del mouse en la mitad inferior de la ventana gráfica y cliquee el botón central del mouse hasta que el segundo cubo sea apenas menor que el primero, como el siguiente:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged09_globe_inside_outside_box.png" alt="../../lessons/es/images/mged09_globe_inside_outside_box.png">
+</div>
+</div>
+<div class="paragraph">
+<p>En el menu View (Vista) y cambie la vista a Front (Frontal). Luego, en el menú Edit (Editar) cliquee en Translate (Traslación). Mantenga apretada la tecla SHIFT y arrastre el cubo interior hacia la posición en el centro del cubo exterior. Repita este proceso desde la vista superior e izquierda hasta que el cubo más pequeño este ubicado en el centro del cubo exterior viéndolo desde todas las perspectivas. Cuando haya terminado, regrese a Edit (Editar) y cliquee en Accept (Aceptar).</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="create_globe_in_box">Crear una esfera dentro de la caja exhibidora</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Vaya al menú Create (Crear) y seleccione sph de la lista Ellipsoid (Elipsoides). Nombre la forma como globe1.s y cliquee en Apply (Aplicar).</p>
+</div>
+<div class="paragraph">
+<p>Una esfera debería aparecer dentro del cubo en la Graphics Window. Cambie a la vista frontal.</p>
+</div>
+<div class="paragraph">
+<p>Vaya al menú Edit (Editar) y seleccione Scale (Escalar). Reduzca el tamaño de la esfera hasta que se ajuste dentro del cubo y luego arrástrela hacia el centro del cubo. Vaya a Edit y Acepte los cambios. La esfera y la caja deberían ser similares a la siguiente imagen, en una vista az35 y el25:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged09_globe_wireframe.png" alt="../../lessons/es/images/mged09_globe_wireframe.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Para ver el contenido de la base de datos, tipee en el prompt de la línea de comandos: <strong>ls[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Debería ver listados a cube1.s, cube2.s y globe1.s, que son las formas que ha creado. Para hacer regiones con estas formas, tipee en el prompt: <strong>r cube1.r u cube1.s - cube2.s[Enter]</strong> <strong>r globe1.r u globe1.s[Enter]</strong></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="globe_assign_mater_prop">Utilizar el Combination Editor para asignar propiedades de los materiales que hacen a los objetos parecer más reales</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En el menú Edit (Editar) seleccione Combination Editor (Editor de combinaciones). En la caja de diálogo, cliquee el botón al lado de la caja de ingreso del Nombre. Seleccione globe1.r desde Select From All o Select From All Regions (Seleccionar de todas las regiones). Haga un doble click sobre el nombre globe1.r. Asigne a esta región un sombreado de nube. Chequee la caja de entrada de expresiones booleanas para asegurarse que la región está hecha de u globe1.s. Cliquee en Apply para aceptar su elección. Cambie la vista en el menú View a az35, el25.</p>
+</div>
+<div class="paragraph">
+<p>Regrese a Name (Nombre) y seleccione cube1.r desde el menú Select From All. Asigne a esta región un sombreado de vidrio. El sombreado de vidrio es un acceso directo para cambiar individualmente los atributos del sombreado plástico para que se parezca al del vidrio.</p>
+</div>
+<div class="paragraph">
+<p>Vaya a la opción Color e ingrese lo valores 244 255 255. Esto le dará a su caja de vidrio un color de luz cian. Cliquee en Apply para aceptar los cambios.</p>
+</div>
+<div class="paragraph">
+<p>Antes que pueda generar el Raytrace de su diseño, necesitará limpiar la ventana gráfica tipenado Z en el prompt de la ventana de comandos. Ambas formas y regiones son mostradas en este punto. Luego, tipee en la ventana de comandos: <strong>draw cube1.r globe1.r[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>La caja y la esfera deberían reaparecer en la ventana gráfica. En el menú File (Archivo) seleccione Raytrace. Luego, seleccione la opción blanca para el Background Color (Color de fondo). Cliquee en Raytrace.</p>
+</div>
+<div class="paragraph">
+<p>Su diseño debería mostrar un cubo de vidrio cian claro con una esfera azul dentro. Diríjase a Framebuffer (en el Raytrace Panel) y seleccione Overlay (Superposición), para quitar la vista en malla de alambre. La pantalla debería parecerse a la de la siguiente ilustración:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged09_globe_raytraced.png" alt="../../lessons/es/images/mged09_globe_raytraced.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Para hacer este diseño más interesante, puede colocar la esfera sobre una base. Regrese a Framebuffer y cliquee en Active para desactivarlo. Luego, en el menú Create (Crear), en la categoría Cones and Cylinders (Conos y cilindros) seleccione el trc (cono truncado recto). Nombre la forma como base1.s. Trabajando desde una vista frontal, vaya al menú Edit (Editar) y seleccione Scale (Escala). Cliquee el botón central del mouse para reducir el trc a un tamaño apropiado, acorde a la base de la esfera. (Puede necesitar incrementar el tamaño de la ventana gráfica o disminuir la vista de la figura para ver la parte inferior del trc). A continuación reduzca la altura seleccionando Set H en el menú Edit (Editar) y cliquee con el botón central del mouse. Es probable que tenga que alternar entre estas dos opciones varias veces para obtener el tamaño adecuado. Cuando haya terminado no haga clic en Accept aún, ya que debemos hacer más cambios.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="globe_move_rotate">Mover y rotar un objeto</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Así junto a otras características en <em>MGED</em>, mover y rotar objetos puede ser realizado de distintas maneras, de acuerdo a la precisión deseada. Como fue descripto previamente, las funciones Shift Grip (Arrastrar utilizando el mouse) pueden ser usadas como una manera rápida para cambiar un objeto cuando su ángulo exacto y localización no son importantes. Alternativamente, para alcanzar una mayor precisión, pueden aplicarse los comandos Translate (Traslación) y Rotate (Rotación) del menú Edit (Editar), ingresando los números de los parámetros específicos en la línea de comandos. En este tutorial, experimentaremos con ambos métodos.</p>
+</div>
+<div class="paragraph">
+<p>Con su trc aún en modo de edición y con una vista frontal, use la tecla SHIFT y el botón izquierdo del mouse para arrastrar la forma hasta situarla en el piso del cubo, apenas tocando la caja interior. Note que podría haber seleccionado Translate (Trasladar) desde el menú Edit (Editar) ingresando los parámetros en la línea de comandos para mover el trc a un lugar exacto; sin embargo, en este caso es suficiente alinear la forma con el método de arrastrar-y-soltar. En este punto, ud puede notar que su trc necesita ser apenas redimensionado para ajustarse mejor a la esfera. Use Scale (Escalar) y Set H (Ajuste h) de ser necesario y luego acepte los cambios.</p>
+</div>
+<div class="paragraph">
+<p>Ahora necesitamos hacer un segundo trc llamado base2.s, el cual usaremos para el techo de la base. En el prompt de la línea de comandos, tipee: <strong>cp base1.s base2.s</strong></p>
+</div>
+<div class="paragraph">
+<p>El segundo trc aparecerá directamente encima del primer trc. Utilizaremos el Primitive Selection (Selección de primitivos) desde el menú Edit (Editar) para nombrarlo base2.s, girarlo y posicionarlo sobre el trc previamente creado.</p>
+</div>
+<div class="paragraph">
+<p>Para ello, podemos utilizar las teclas CTRL y ALT (para limitar la rotación) y el botón izquierdo del mouse moviéndolo hacia arriba y abajo hasta que el trc quede invertido. (Si utiliza este método, tenga en cuenta que puede soltar el botón del ratón y liberar el objeto, tomándolo nuevamente para posicionarlo como sea deseado). Sin embargo, como sabemos que queremos rotar la forma en un valor exacto de 180&#8217;0 sobre el eje x, utilizaremos un método más preciso para rotarla. Seleccione Rotate (Rotación) desde el menú Edit (Editar) y luego tipee los parámetros (abreviado con la p) en la línea de comandos, como se muestra a continuación: <strong>p 180 0 0[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Nuestra forma debería haberse dado vuelta y pasado a la parte inferior de la primera trc. (Los dos ceros que ingresó indican que no hay rotación a lo largo de los ejes Y y Z). Ahora presione la tecla SHIFT y el botón izquierdo del mouse para arrastrar base2.s y apoyarla en la parte superior de base1.s. Las dos formas deberían constituir una base para sostener su globo. Compruebe la alineación utilizando múltiples vistas y luego acepte los cambios.</p>
+</div>
+<div class="paragraph">
+<p>En el menú Edit (Editar) y diríjase al Primitive Selection (Selección de primitivos) y cliquee en globe1.r/globe1.s. Como hizo con las formas trc, arrastre la esfera con el mouse y la tecla SHIFT hacia abajo hasta que esté en su lugar sobre la base. Regrese a Edit (Editar) y cliquee en Accept (Aceptar). Su diseño debería verse como el siguiente:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged09_globe_base_box_wireframe.png" alt="../../lessons/es/images/mged09_globe_base_box_wireframe.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Para hacer la región de la base, tipee en el prompt de la línea de comandos: <strong>r base1.r u base1.s u base2.s[Enter]</strong></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="globe_use_color_tool">Utilizar el Color Tool (Herramientas de color) del Combination Editor (Editor de combinaciones) para producir colores personalizados.</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En la ventana del editor de combinaciones, cliquee sobre la caja de texto a la derecha de Nombre y luego desde Select From All elija base1.r. Asigne a la base una textura de plástico. En la caja de color, ingrese los números: <strong>217 217 217</strong></p>
+</div>
+<div class="paragraph">
+<p>Aplique sus cambios. Antes que pueda generar el Raytrace de su diseño completo, deberá despejar primero la ventana gráfica y reconstruir su diseño tipeando en el prompt de la línea de comandos: <strong>Z[Enter]</strong> <strong>draw cube1.r globe1.r base1.r[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>Cambie la vista a az35, el25 y luego genere el Raytrace, el cual deberá ser similar al siguiente:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../../lessons/es/images/mged09_globe_base_box_raytraced.png" alt="../../lessons/es/images/mged09_globe_base_box_raytraced.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="globe_in_display_box_review">Repasemos&#8230;&#8203;</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>En este tutorial aprendió a:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Utilizar la GUI para crear una caja usando las formas arb8.</p>
+</li>
+<li>
+<p>Crear una esfera dentro de la caja.</p>
+</li>
+<li>
+<p>Utilizar el Combination Editor para asignar propiedades de los materiales que hacen a los objetos parecer más reales.</p>
+</li>
+<li>
+<p>Rotar un objeto 180&#8217;0 usando la opción rotar del menú Edit.</p>
+</li>
+<li>
+<p>Utilizar la opción de color del Combination Editor para producir colores personalizados.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

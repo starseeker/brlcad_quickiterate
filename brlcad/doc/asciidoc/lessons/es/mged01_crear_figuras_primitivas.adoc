@@ -1,8 +1,12 @@
 = Crear Figuras Primitivas with MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
-Este tutorial le ayudará a: 
+Este tutorial le ayudará a:
+
+
 * Arrancar con el programa _MGED_.
 * Ingresar los comandos en una terminal de _MGED_.
 * Usar la interfaz gráfica de usuarios de _MGED_.
@@ -54,9 +58,11 @@ Antes de crear un modelo, necesita abrir una base de datos, así sea por comando
 [[open_new_database]]
 == Abrir o crear una nueva base de datos con MGED
 
-Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _MGED_. En la línea de comando, tipee "mged" seguido por una nueva o por una ya existente base de datos sin olvidar ponerle la extensión .g, por ejemplo: *mged sphere.g [ENTER]*. image::../../lessons/es/images/mged01_terminal.png[]
+Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _MGED_. En la línea de comando, tipee "mged" seguido por una nueva o por una ya existente base de datos sin olvidar ponerle la extensión .g, por ejemplo: *mged sphere.g [ENTER]*.
 
- Si estuviera creando una nueva base de datos, un pequeño cuadro de diálogo le preguntará si desea crear la nueva base de datos llamada sphere.g. Seleccione Si, y entonces _MGED_ abrirá la nueva base de datos. En el caso de que sphere.g existiera, se abrirá la existente.
+image::../../lessons/es/images/mged01_terminal.png[]
+
+Si estuviera creando una nueva base de datos, un pequeño cuadro de diálogo le preguntará si desea crear la nueva base de datos llamada sphere.g. Seleccione Si, y entonces _MGED_ abrirá la nueva base de datos. En el caso de que sphere.g existiera, se abrirá la existente.
 
 
 [[create_new_database]]
@@ -64,23 +70,27 @@ Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _
 
 Al iniciar _MGED_ usted puede crear o abrir una base de datos desde el menú superior Archivo (File), seleccionando luego la opción Nuevo (New) o Abrir (Open). Ambas opciones abren el mismo cuadro de diálogo preguntando por el nombre de la base de datos a crear o el de una ya existente, según corresponda. Para finalizar la selección, presione OK.
 
-Para esta prueba, cree una nueva base de datos llamada sphere.g. Para hacer eso tipee sphere.g al final de la ruta del nombre, tal como muestra la siguiente imagen. Presione OK para aceptar la selección. image::../../lessons/es/images/mged01_commandwindow.png[]
+Para esta prueba, cree una nueva base de datos llamada sphere.g. Para hacer eso tipee sphere.g al final de la ruta del nombre, tal como muestra la siguiente imagen. Presione OK para aceptar la selección.
+
+image::../../lessons/es/images/mged01_commandwindow.png[]
+
+
 
 image::../../lessons/es/images/mged01_graphicswindow.png[]
 
- Una de las ventajas de usar el entorno gráfico, sobre todo si usted no está familiarizado con el administrador de archivos de UNIX, es que le mostrará su nombre de ruta de acceso actual, indicándole exactamente dónde va a ser localizada su base de datos. Será especialmente útil si tiene muchos directorios y archivos para manejar.
+Una de las ventajas de usar el entorno gráfico, sobre todo si usted no está familiarizado con el administrador de archivos de UNIX, es que le mostrará su nombre de ruta de acceso actual, indicándole exactamente dónde va a ser localizada su base de datos. Será especialmente útil si tiene muchos directorios y archivos para manejar.
 
 
 [[assign_title]]
 == Asignarle un título a una base de datos
 
-Puede ponerle un título a su nueva base de datos para proporcionarle a usted y a otros usuarios una idea del contenido de la base de datos. En la ventana de la línea de comando, tipee "title" seguido de un espacio y un nombre que identifique la base de datos que va a crear. Cuando haya terminado, pulse la tecla [ENTER]. Por ejemplo: *mged>title MySphere [ENTER]*. Note que en las versiones de _BRL-CAD_ anteriores a la 6.0, el título está limitado a 72 caracteres.
+Puede ponerle un título a su nueva base de datos para proporcionarle a usted y a otros usuarios una idea del contenido de la base de datos. En la ventana de la línea de comando, tipee "title" seguido de un espacio y un nombre que identifique la base de datos que va a crear. Cuando haya terminado, pulse la tecla [ENTER]. Por ejemplo: mged>title MySphere [ENTER]. Note que en las versiones de _BRL-CAD_ anteriores a la 6.0, el título está limitado a 72 caracteres.
 
 
 [[set_units]]
 == Seleccionar una unidad de medida
 
-_MGED_ utiliza milímetros para todo proceso matemático interno. A pesar de eso, usted puede crear un diseño usando cualquier otra unidad, como por ejemplo, pies. Para el siguiente ejemplo usaremos pulgadas. Para seleccionar la medida de pulgadas, ingrese al menú Archivo (File) y luego la opción Preferencias (Preferences). Aparecerá un nuevo menú donde podrá seleccionar Unidades (Units) y luego Pulgadas (Inches). Si prefiere la línea de comandos, tipee en una la palabra "units" y luego presione [ENTER]. En la terminal de _MGED_ aparecerá una línea que dirá: *mged>units in [ENTER]*.
+_MGED_ utiliza milímetros para todo proceso matemático interno. A pesar de eso, usted puede crear un diseño usando cualquier otra unidad, como por ejemplo, pies. Para el siguiente ejemplo usaremos pulgadas. Para seleccionar la medida de pulgadas, ingrese al menú Archivo (File) y luego la opción Preferencias (Preferences). Aparecerá un nuevo menú donde podrá seleccionar Unidades (Units) y luego Pulgadas (Inches). Si prefiere la línea de comandos, tipee en una la palabra "units" y luego presione [ENTER]. En la terminal de _MGED_ aparecerá una línea que dirá: mged>units in [ENTER].
 
 
 [[select_primitive]]
@@ -101,12 +111,19 @@ La palabra "sólido" fue utilizada históricamente para referirse a las figuras 
 
 Para este ejemplo, crearemos una esfera simple. Hay dos maneras de crear una figura primitiva: por comando o por entorno gráfico.
 
-Puede fácilmente crear la esfera desde la terminal con sólo unos pocos comandos. En la terminal de _MGED_ tipee: *make sph1.s sph [ENTER] [Nota: Use el dígito 1, no la letra l].*
+Puede fácilmente crear la esfera desde la terminal con sólo unos pocos comandos. En la terminal de _MGED_ tipee: *make sph1.s sph [ENTER] [Nota: Use el dígito 1, no la letra l].* 
 
-Este comando le dice al programa _MGED_: |===
+Este comando le dice al programa _MGED_:
 
-|make |sph1.s |sph 
-|Hace la figura primitiva |y la llama sph1.s |siendo la figura de una esfera 
+[cols="3*"]
+[%noheader]
+|===
+|make
+|sph1.s
+|sph
+|Hace la figura primitiva
+|y la llama sph1.s
+|siendo la figura de una esfera
 |===
 
 
@@ -132,10 +149,15 @@ Antes de usar la opción zap, asegúrese de haber hecho foco en la ventana de co
 [[draw_object]]
 == Dibujar un objeto prediseñado
 
-Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que: |===
+Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que:
 
-|draw |sph1.s 
-|Dibuje el objeto prediseñado |llamado sph1.s 
+[cols="2*"]
+[%noheader]
+|===
+|draw
+|sph1.s
+|Dibuje el objeto prediseñado
+|llamado sph1.s
 |===
 
 
@@ -165,7 +187,9 @@ Si intenta escribir en la ventana de comandos y no ve ninguna palabra allí, es 
 
 ====
 
-Un ejemplo de diálogo que podría darse en la ventana de comandos para mostrar los parámetros o atributos de la primera esfera que ha creado es el siguiente: 
+Un ejemplo de diálogo que podría darse en la ventana de comandos para mostrar los parámetros o atributos de la primera esfera que ha creado es el siguiente:
+
+
 ....
 
 mged> l sph1.s
@@ -240,7 +264,9 @@ Recuerde que para salir del programa en cualquier momento, debe tipear en la lí
 [[creating_primitive_shapes_review]]
 == Repasemos
 
-En este tutorial usted: 
+En este tutorial usted:
+
+
 * Inició el programa _MGED_.
 * Ingresó comandos en la línea de comandos.
 * Utilizó el entorno gráfico de _MGED_.
@@ -259,7 +285,3 @@ En este tutorial usted:
 * Utilizó el comando kill para eliminar una figura de la base de datos.
 * Editó comandos en la ventana de comandos.
 * Utilizó los comandos q o exit para salir del programa.
-
-
-
-

@@ -10,7 +10,7 @@ rtedge - ray-traces a model, detects edges, and writes a BRL-CAD color image (.p
 
 [source]
 ----
-rtedge [<options>]... <model.g> <objects>... < <model.pix>
+rtedge [options]... model.g objects... < model.pix
 ----
 
 
@@ -19,7 +19,7 @@ rtedge [<options>]... <model.g> <objects>... < <model.pix>
 
 *rtedge* operates on the indicated _objects_ in the input _model.g_ and produces a BRL-CAD .pix file that indicates the 'edges' in the model file. *rtedge* produces images by drawing a boundary whenever a change in region_id is detected. It also recognizes and portrays abrupt changes in surface curvature and changes in surface height. This permits the recognition of pits, protrusions, and changes in surface curvature.
 
-The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 < = X,Y < = +1.0 in view space, with the size of the grid (number of rays fired) specified with the *-s* option. This option is most useful when *rtedge* is being invoked from a shell script created by an *mged*(1)_saveview_ command.
+The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 < = X,Y < = +1.0 in view space, with the size of the grid (number of rays fired) specified with the *-s* option. This option is most useful when *rtedge* is being invoked from a shell script created by an *mged*(1) _saveview_ command.
 
 The following options are recognized:
 
@@ -33,7 +33,7 @@ selects which space partitioning algorithm to use
 
 
 *-a #*::
-selects auto-sizing, and gives the view azimuth in degrees. Used with *-e* and conflicts with *-M*.
+selects auto-sizing, and gives the view azimuth in degrees. Used with *-e* and conflicts with *-M* .
 
 
 *-b "# #"*::
@@ -41,7 +41,7 @@ is sometimes useful for debugging. A single ray is fired at the pixel coordinate
 
 
 *-e #*::
-selects auto-sizing, and gives the view elevation in degrees. Used with *-a* and conflicts with *-M*.
+selects auto-sizing, and gives the view elevation in degrees. Used with *-a* and conflicts with *-M* .
 
 
 *-g #*::
@@ -193,7 +193,7 @@ sets the calculation tolerances used by *librt*(3). If only one number is given,
 
 
 *-U #*::
-sets the Boolean variable _use_air_ to the given value. The default is 0, which ignores regions that have non-zero aircode values.
+sets the Boolean variable __use_air__ to the given value. The default is 0, which ignores regions that have non-zero aircode values.
 
 
 *-V #*::
@@ -209,7 +209,7 @@ turns on the *rt*(1) program debugging flags. See raytrace.h for the meaning of 
 
 
 *-! #*::
-turns on the *libbu*(3) library debugging flags. See bu.h for the meaning of these bits. In particular, specifying *-!1* will cause `bu_bomb()()` to dump core, rather than logging the error and exiting. This is useful with *dbx*(1) or *gdb*(1) for debugging. (Notice that *-x #* sets the *librt*(3) debug flags to the given hexadecimal bit vector. See raytrace.h for the bit definitions.)
+turns on the *libbu*(3) library debugging flags. See bu.h for the meaning of these bits. In particular, specifying *-!1* will cause `bu_bomb()` to dump core, rather than logging the error and exiting. This is useful with *dbx*(1) or *gdb*(1) for debugging. (Notice that *-x #* sets the *librt*(3) debug flags to the given hexadecimal bit vector. See raytrace.h for the bit definitions.)
 
 
 *-+ #*::
@@ -345,11 +345,11 @@ and
 *-c"set om=#*::
 determine how *rtedge* behaves when performing occlusion checking. There are three valid modes. Mode 2 is the default.
 
-_mode 1 - EDGES_ Only edge pixels are drawn. Edges detected in the first set of geometry are written to the framebuffer if and only if they are NOT occluded by the second set of geometry. Edges are colored according to the foreground or region color options.
+*mode 1 - EDGES* Only edge pixels are drawn. Edges detected in the first set of geometry are written to the framebuffer if and only if they are NOT occluded by the second set of geometry. Edges are colored according to the foreground or region color options.
 
-_mode 2 - ALL HITS_ Edge and non-edge pixels are drawn. All pixels that hit the first set of geometry and are NOT occluded by the second set are written to the framebuffer. Edges are rendered in the foreground or region color; non-edges are rendered in the background color.
+*mode 2 - ALL HITS* Edge and non-edge pixels are drawn. All pixels that hit the first set of geometry and are NOT occluded by the second set are written to the framebuffer. Edges are rendered in the foreground or region color; non-edges are rendered in the background color.
 
-_mode 3 - DITHER_ Edge and dithered non-edge pixels are drawn. This is like mode 2 except non-edge pixels are dithered to make the exterior geometry appear semi-transparent.
+*mode 3 - DITHER* Edge and dithered non-edge pixels are drawn. This is like mode 2 except non-edge pixels are dithered to make the exterior geometry appear semi-transparent.
 
 
 
@@ -497,5 +497,3 @@ Most deficiencies observed while using the *rtedge* program are a consequence of
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

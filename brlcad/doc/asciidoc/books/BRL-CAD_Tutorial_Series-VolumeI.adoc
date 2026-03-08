@@ -1,5 +1,7 @@
 = BRL-CAD Tutorial Series: Volume I - An Overview of BRL-CAD
 :doctype: book
+:toc:
+:toclevels: 3
 
 [[whatisbrlcad]]
 == What is BRL-CAD?
@@ -24,12 +26,15 @@ While polygonal and boundary representation (B-rep) modeling often focuses on ju
 
 In keeping with the UNIX philosophy of developing independent tools to perform single, specific tasks and then linking the tools together in a package, BRL-CAD is basically a collection of libraries, tools, and utilities that work together to create, raytrace, and interrogate geometry and manipulate files and data. The basic data flow structure of the package is illustrated below.
 
+.BRL-CAD Data Flow Structure
 image::../books/images/tutorial_series_volI_fig01.png[width=6in]
 
 [[libraries]]
 == Libraries
 
-The BRL-CAD libraries (designated by the prefix "lib") are designed primarily for the geometric modeler who also wants to tinker with software and, perhaps, design custom tools. Each library fits into one of three categories: (1) creating and/or editing geometry, (2) raytracing geometry, or (3) image handling. The following is a list of the major BRL-CAD libraries and descriptions of their functions. 
+The BRL-CAD libraries (designated by the prefix "lib") are designed primarily for the geometric modeler who also wants to tinker with software and, perhaps, design custom tools. Each library fits into one of three categories: (1) creating and/or editing geometry, (2) raytracing geometry, or (3) image handling. The following is a list of the major BRL-CAD libraries and descriptions of their functions.
+
+
 * libbu - a basic utility (bu) library containing fundamental computer science types of routines, including manipulating data (e.g., converting from host format data to network format data), parallel processing, parsing parameters, handling variable-length strings, performing error checks, converting units from one format to another, manipulating bit vectors, running parallel-safe versions of input/output (I/O) routines, and maintaining symbol tables.
 * libbn - a library of routines to support basic numerical (bn) handling, including 2-D/3-D vector, matrix, and quaternion manipulation; 3-D plotting support; automatic inference of image size (BRL-CAD images have no internal header; image dimensions are intuited from the size of the file); and wavelet decomposition and reconstruction, etc.
 * libdm - BRL-CAD's primary graphics display manager (dm) library. It handles opening windows onto the display and displaying geometry in the graphics window, etc.
@@ -46,13 +51,14 @@ The BRL-CAD libraries (designated by the prefix "lib") are designed primarily fo
 [[toolsutilities]]
 == Tools and Utilities
 
-The application side of BRL-CAD also offers a number of tools and utilities. They primarily concern (1) geometric conversion, (2) geometric interrogation, (3) image format conversion, and (4) command-line-oriented image manipulation. The following is a list of the major BRL-CAD tools and utilities. 
+The application side of BRL-CAD also offers a number of tools and utilities. They primarily concern (1) geometric conversion, (2) geometric interrogation, (3) image format conversion, and (4) command-line-oriented image manipulation. The following is a list of the major BRL-CAD tools and utilities.
+
+
 * MGED (Multiple-Device Geometry Editor) - BRL-CAD's graphics editor. (For detailed guidance on the use of MGED as well as a list of all the MGED commands currently available, see Butler et al. [2001].)
-* Tools for raytracing and interrogating raytraced geometric objects. 
+* Tools for raytracing and interrogating raytraced geometric objects.
 ** rt - the main raytracer for rendering images in BRL-CAD.
 ** nirt - a package for firing rays interactively and getting information about what the rays run into.
 ** remrt - a network-distributed raytracing package.
-
 
 * An assortment of geometric converters to convert to and/or from other geometry formats, including Euclid, ACAD, AutoCAD DXF, TANKILL, Wavefront OBJ, Pro/ENGINEER, JACK (the human factors model for doing workload/usability studies), Viewpoint Data Lab, NASTRAN, Digital Equipment's Object File Format (OFF), Virtual Reality Mark-up Language (VRML), Stereo Lithography (STL), Cyberware Digitizer data, and FASTGEN4.
 * bwish - a Tcl/Tk interpreter in a windowing shell with enhancements compiled into it for accessing BRL-CAD libraries. It also includes various other extensions to the Tcl language.
@@ -77,12 +83,21 @@ As changes are implemented in BRL-CAD, ARL developers run a standard set of comp
 To run the benchmark images, run the script run.sh in the "bench" directory of the source directory tree.
 
 .Standard Benchmark Images
+[cols="3*"]
+[%noheader]
 |===
-
-|image:../books/images/tutorial_series_volI_fig02.png[width=2in] |image:../books/images/tutorial_series_volI_fig03.png[width=2in] |image:../books/images/tutorial_series_volI_fig04.png[width=2in] 
-|Moss |World |Star 
-|image:../books/images/tutorial_series_volI_fig05.png[width=2in] |image:../books/images/tutorial_series_volI_fig06.png[width=2in] |image:../books/images/tutorial_series_volI_fig07.png[width=2in] 
-|Bldg 391 |M35 |Sphflake 
+|image:../books/images/tutorial_series_volI_fig02.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig03.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig04.png[width=2in]
+|Moss
+|World
+|Star
+|image:../books/images/tutorial_series_volI_fig05.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig06.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig07.png[width=2in]
+|Bldg 391
+|M35
+|Sphflake
 |===
 
 [[acknowledgments]]
@@ -91,4 +106,3 @@ To run the benchmark images, run the script run.sh in the "bench" directory of t
 The authors would like to thank the members of the Advanced Computer Systems Team, who reviewed this document in a timely manner and made many helpful suggestions to improve its accuracy and presentation. At the time this document was prepared team members included John Anderson, TraNese Christy, Bob Parker, Ron Bowers, and Sean Morrison.
 
 In addition, the authors would like to especially acknowledge Mike Muuss, a team member and the original architect of BRL-CAD, who passed away in the fall of 2000. Without his vision, this work would not have been possible. Therefore, the BRL-CAD Tutorial Series is dedicated to his memory.
-

@@ -10,7 +10,7 @@ status - Without a subcommand, the status command returns the following informat
 
 [source]
 ----
-status [<subcommands>]
+status [subcommands]
 ----
 
 
@@ -109,5 +109,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ color - Creates an entry in the database that functions as part of a color looku
 
 [source]
 ----
-color [<-e>] [<low high r g b>]
+color [-e] [low high r g b]
 ----
 
 
@@ -54,5 +54,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

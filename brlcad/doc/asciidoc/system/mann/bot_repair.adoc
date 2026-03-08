@@ -10,7 +10,7 @@ bot_repair - Given an existing BoT object as input, try to generate a manifold s
 
 [source]
 ----
-bot repair [-h] [-a #] [-p #] [-o output_obj] {<input_bot>}...
+bot repair [-h] [-a #] [-p #] [-o output_obj] {input_bot}...
 ----
 
 
@@ -100,5 +100,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

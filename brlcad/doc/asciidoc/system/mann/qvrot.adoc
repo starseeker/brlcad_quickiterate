@@ -10,7 +10,7 @@ qvrot - Adjusts the current MGED viewing direction such that the eye is position
 
 [source]
 ----
-qvrot {<dx dy dz angle>}
+qvrot {dx dy dz angle}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

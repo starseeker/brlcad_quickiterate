@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>DM(nged)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>DM(nged) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>dm - Provides a means to interact with the display manager at a lower level.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>dm {&lt;subcommand&gt;} [&lt;args&gt;]</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Provides a means to interact with the display manager at a lower level. The <strong>dm</strong> command accepts the following subcommands:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><strong>set</strong> <em>var</em> <em>val</em></dt>
+<dd>
+<p>The "set" subcommand provides a means to set or query display manager-specific variables. Invoked without any arguments, the <em>set</em> subcommand will return a list of all available internal display manager variables. If only the <em>var</em> argument is specified, the value of that variable is returned. If both <em>var</em> and <em>val</em> are given, then <em>var</em> will be set to <em>val</em>.</p>
+</dd>
+<dt class="hdlist1"><strong>size</strong> <em>width height</em></dt>
+<dd>
+<p>The "size" subcommand provides a means to set or query the window size. If no arguments are given, the display manager&#8217;s window size is returned. If <em>width</em> and <em>height</em> are specified, the display manager makes a request to have its window resized. Note that a size request is just that, a request, so it may be ignored, especially if the user has resized the window using the mouse.</p>
+</dd>
+<dt class="hdlist1"><strong>m</strong> <em>button</em> <em>x y</em></dt>
+<dd>
+<p>The "m" subcommand is used to simulate an <strong>M</strong> command. The <em>button</em> argument determines which mouse button is being used to trigger a call to this command. This value is used in the event handler to effect dragging the faceplate scrollbars. The <em>x</em> and <em>y</em> arguments are in X screen coordinates, which are converted to MGED screen coordinates before being passed to the <strong>M</strong> command.</p>
+</dd>
+<dt class="hdlist1"><strong>am</strong> r t s <em>xy</em></dt>
+<dd>
+<p>The "am" subcommand effects <em>mged&#8217;s</em> alternate mouse mode. The alternate mouse mode gives the user a different way of manipulating the view or an object. For example, the user can drag an object or perhaps rotate the view while using the mouse. The first argument indicates the type of operation to perform (i.e., <em>r</em> for rotation, <em>t</em> for translation, and <em>s</em> for scale). The <em>x</em> and <em>y</em> arguments are in X screen coordinates and are transformed appropriately before being passed to the knob command.</p>
+</dd>
+<dt class="hdlist1"><strong>adc</strong> 1 2 t d <em>xy</em></dt>
+<dd>
+<p>The "adc" subcommand provides a way of manipulating the angle distance cursor while using the mouse. The first argument indicates the type of operation to perform (i.e., <em>1</em> for angle 1, <em>2</em> for angle 2, <em>t</em> for translate, and <em>d</em> for tick distance). The <em>x</em> and <em>y</em> arguments are in X screen coordinates and are transformed appropriately before being passed to the <strong>adc</strong> command (i.e., not "dm adc").</p>
+</dd>
+<dt class="hdlist1"><strong>con</strong> r t s x y z <em>xpos ypos</em></dt>
+<dd>
+<p>This form of the "con" subcommand provides a way to effect constrained manipulation of the view or an object while using the mouse. This simulates the behavior of sliders without taking up screen real estate. The first argument indicates the type of operation to perform (i.e., <em>r</em> for rotation, <em>t</em> for translation, and <em>s</em> for scale). The &lt;<em>x</em>|<em>y</em>|<em>z</em>&gt; argument is the axis of rotation, translation, or scale. The <em>xpos</em> and <em>ypos</em> arguments are in X screen coordinates and are transformed appropriately before being passed to the knob command.</p>
+</dd>
+<dt class="hdlist1"><strong>con</strong> a x y 1 2 d <em>xpos ypos</em></dt>
+<dd>
+<p>This form of the "con" subcommand provides a way to effect constrained manipulation of the angle distance cursor while using the mouse. This simulates the behavior of sliders without taking up screen real estate. The first argument indicates that this is to be applied to the angle distance cursor. The next argument indicates the type of operation to perform (i.e., <em>x</em> for translate in the <em>x</em> direction, <em>y</em> for translate in the <em>y</em> direction, <em>1</em> for angle 1, <em>2</em> for angle 2, and <em>d_for tick distance). The _xpos</em> and <em>ypos</em> arguments are in X screen coordinates and are transformed appropriately before being passed to the knob command.</p>
+</dd>
+<dt class="hdlist1"><strong>valid</strong> ogl X wgl rtgl &#8230;&#8203;</dt>
+<dd>
+<p>The "valid" subcommand provides a way to determine if a particular type of display manager (X Windows, OpenGL, etc.) is available - if the display manager type is supported the string denoting that type (X, ogl, etc.) is returned back, otherwise nothing is returned.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The examples show the use of the <strong>dm</strong> command with its various subcommands as presented in the Description section.</p>
+</div>
+<div class="exampleblock">
+<div class="title">List the available display manager internal variables.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm set</strong></p>
+</div>
+<div class="paragraph">
+<p>Lists the available display manager internal variables.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Turn on perspective projection in the display using var and val arguments.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm set perspective 1</strong></p>
+</div>
+<div class="paragraph">
+<p>Turns on perspective projection in the display.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Query the display manager&#8217;s window size.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm size</strong></p>
+</div>
+<div class="paragraph">
+<p>The display manager&#8217;s window size is returned.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Resize the display manager window.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm size 900 900</strong></p>
+</div>
+<div class="paragraph">
+<p>The display manager window is resized to 900 x 900.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Simulate a button2 press at specific screen coordinates.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm m 2 100 200</strong></p>
+</div>
+<div class="paragraph">
+<p>Simulates a button2 press at (100, 200) in X screen coordinates.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Use the alternate mouse mode to rotate an image.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm am r 400 100</strong></p>
+</div>
+<div class="paragraph">
+<p>Starts an alternate mouse mode rotation at (400, 100).</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Start a tick distance manipulation with the mouse.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm adc d 300 200</strong></p>
+</div>
+<div class="paragraph">
+<p>Starts a tick distance manipulation at (300, 200).</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Start a constrained translation down the Z axis using the mouse.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm con t z 200 200</strong></p>
+</div>
+<div class="paragraph">
+<p>Starts a constrained translation down the Z axis.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">Start a constrained tick distance manipulation using the mouse.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm con a d 200 100</strong></p>
+</div>
+<div class="paragraph">
+<p>Starts a constrained tick distance manipulation.</p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="title">End the mouse drag.</div>
+<div class="content">
+<div class="paragraph">
+<p>mged&gt;<strong>dm idle</strong></p>
+</div>
+<div class="paragraph">
+<p>Ends the drag.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

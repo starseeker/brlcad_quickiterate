@@ -10,39 +10,39 @@ bwfilter - apply a 3x3 filter to a black and white bw file
 
 [source]
 ----
-bwfilter [-f<type>] [-v] [-d<div>] [-O<offset>] [-s<squaresize>] [-w<width>] [-n<height>] [-o<out_file>] [<file.bw>] > <newfile.bw>
+bwfilter [-ftype] [-v] [-ddiv] [-Ooffset] [-ssquaresize] [-wwidth] [-nheight] [-oout_file] [file.bw] > newfile.bw
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-*bwfilter* applies one of several 3x3 kernel filters to a black and white *bw*(5) format file. It will take a file name or else read from standard input. The input file size will be assumed to be 512x512 pixels unless the *-s*, *-w*, or *-n* flags are used to tell it otherwise (see *brlcad*(1)). By default a low pass filter is used. The *-f*_type_ flag can be used to specify a different type of filter.
+*bwfilter* applies one of several 3x3 kernel filters to a black and white *bw*(5) format file. It will take a file name or else read from standard input. The input file size will be assumed to be 512x512 pixels unless the *-s*, *-w*, or *-n* flags are used to tell it otherwise (see *brlcad*(1)). By default a low pass filter is used. The *-f* _type_ flag can be used to specify a different type of filter.
 
 The _type_ choices include:
 
 
-_lo_::
+*lo*::
 low pass, the default.
 
 
-_hi_::
+*hi*::
 high pass
 
 
-_vg_::
+*vg*::
 vertical gradient
 
 
-_hg_::
+*hg*::
 horizontal gradient
 
 
-_la_::
+*la*::
 laplacian
 
 
-_b_::
+*b*::
 boxcar low pass
 
 
@@ -80,5 +80,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -17,7 +17,7 @@ animmate
 [[description]]
 == DESCRIPTION
 
-The *animmate*command starts the Tcl/Tk-based animation tool. ***Need to find and integrate documentation for this tool***
+The *animmate* command starts the Tcl/Tk-based animation tool. ***Need to find and integrate documentation for this tool***
 
 
 [[examples]]
@@ -43,5 +43,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

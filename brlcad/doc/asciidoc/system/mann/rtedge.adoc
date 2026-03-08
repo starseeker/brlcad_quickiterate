@@ -10,14 +10,14 @@ rtedge - Executes the BRL-CAD rtedge program with the default options of "-s512 
 
 [source]
 ----
-rtedge [<options>] [<-- objects>]
+rtedge [options] [-- objects]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Executes the BRL-CAD _rtedge_ program with the default options of "-s512 -M." If perspective is turned on, then the _-p_ option will be included with the value of the perspective angle. The current database name is added to the end of the *rtedge* command line along with either the specified _objects_ or, if none is specified, the list of currently displayed objects. The _rtedge_ program is written such that options may be repeated, and the last occurrence of an option will override any earlier occurrences. This allows the user to specify other _size (-s)_ options. The _-M_ option tells _rtedge_ to read the viewing parameters from standard input. See the _man1_ page on _rtedge_ for details.
+Executes the BRL-CAD _rtedge_ program with the default options of "-s512 -M." If perspective is turned on, then the _-p_ option will be included with the value of the perspective angle. The current database name is added to the end of the *rtedge* command line along with either the specified  _objects_ or, if none is specified, the list of currently displayed objects. The _rtedge_ program is written such that options may be repeated, and the last occurrence of an option will override any earlier occurrences. This allows the user to specify other _size (-s)_ options. The _-M_ option tells _rtedge_ to read the viewing parameters from standard input. See the _man1_ page on _rtedge_ for details.
 
 
 [[examples]]
@@ -54,5 +54,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

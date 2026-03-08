@@ -10,7 +10,7 @@ gist - Generate a one page summary of the geometry present in a database.
 
 [source]
 ----
-gist [<options ...>]... {<(-F model/dir | model.g)>}
+gist [options ...]... {(-F model/dir | model.g)}
 ----
 
 
@@ -138,5 +138,3 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

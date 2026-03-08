@@ -10,14 +10,14 @@ debuglib - Allows the user to set or check the debug flags used by librt.
 
 [source]
 ----
-debuglib [<hex_code>]
+debuglib [hex_code]
 ----
 
 
 [[description]]
 == DESCRIPTION
 
-Allows the user to set or check the debug flags used by _librt_. With no arguments, the *debuglib* command displays all the possible settings for the _librt_ debug flag and the current value. When a _hex_code_ is supplied, that value is used as the new value for the flag. Similar debug commands for other _BRL-CAD_ libraries are *debugbu* for _libbu_ and *debugnmg*for the NMG portion of _librt_.
+Allows the user to set or check the debug flags used by _librt_. With no arguments, the *debuglib* command displays all the possible settings for the _librt_ debug flag and the current value. When a __hex_code__ is supplied, that value is used as the new value for the flag. Similar debug commands for other _BRL-CAD_ libraries are *debugbu* for _libbu_ and *debugnmg* for the NMG portion of _librt_.
 
 
 [[examples]]
@@ -54,5 +54,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ eqn - Allows the user to rotate the face of an ARB shape by providing the coeffi
 
 [source]
 ----
-eqn {<A B C>} []
+eqn {A B C} []
 ----
 
 
@@ -51,5 +51,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

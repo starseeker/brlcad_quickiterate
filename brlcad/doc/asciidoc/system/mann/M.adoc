@@ -10,7 +10,7 @@ M - Send an mged mouse event
 
 [source]
 ----
-M {1/0} {<xpos ypos>}
+M {1/0} {xpos ypos}
 ----
 
 
@@ -47,5 +47,3 @@ BRL-CAD
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

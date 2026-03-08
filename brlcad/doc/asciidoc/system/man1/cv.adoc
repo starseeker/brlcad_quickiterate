@@ -10,7 +10,7 @@ cv - convert binary data files between representation formats
 
 [source]
 ----
-cv <in_pat> <out_pat> [ [<infile>] <outfile>]
+cv in_pat out_pat [ [infile] outfile]
 ----
 
 
@@ -31,13 +31,13 @@ For example, to change a file of host-specific (machine-specific) signed shorts 
 [[see_also]]
 == SEE ALSO
 
-*pix-bw*(1), *dpix-pix*(1), *bw-pix*(1);  M. J. Muuss, ``_Workstations, Networking, Distributed Graphics, and Parallel Processing_`` in Computer Graphics Techniques: Theory and Practice, edited by D. F. Rogers, R. A. Earnshaw, Springer-Verlag, 1990
+*pix-bw*(1), *dpix-pix*(1), *bw-pix*(1); M. J. Muuss, ``_Workstations, Networking, Distributed Graphics, and Parallel Processing_`` in Computer Graphics Techniques: Theory and Practice, edited by D. F. Rogers, R. A. Earnshaw, Springer-Verlag, 1990
 
 
 [[author]]
 == AUTHOR
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -50,5 +50,3 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

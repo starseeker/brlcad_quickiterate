@@ -10,7 +10,7 @@ center - Positions the center of the mged viewing cube at the specified model co
 
 [source]
 ----
-center [<x y z>]
+center [x y z]
 ----
 
 
@@ -99,5 +99,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

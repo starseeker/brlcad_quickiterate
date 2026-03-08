@@ -10,7 +10,7 @@ bb - Report dimensional information about objects using Bounding Boxes
 
 [source]
 ----
-bb [<options>]... <objects>...
+bb [options]... objects...
 ----
 
 
@@ -63,6 +63,8 @@ Print the volume of the bounding box. On by default.
 [example]
 ====
 
+
+
 ....
 
 mged> bb havoc
@@ -82,6 +84,8 @@ Bounding Box Volume: 2092246392.4 cm^3
 [example]
 ====
 
+
+
 ....
 
 mged> bb -q -e havoc
@@ -96,6 +100,8 @@ min {-759.447479 -8437.866455 -890.000000} max {19124.621094 8397.693207 5360.00
 .Bounding Box for multiple components
 [example]
 ====
+
+
 
 ....
 
@@ -116,6 +122,8 @@ Bounding Box Volume: 340782488.9 cm^3
 [example]
 ====
 
+
+
 ....
 
 mged> bb -c havoc_parts_bbox.s havoc_front havoc_middle havoc_tail
@@ -126,6 +134,8 @@ Z Length: 536.0 cm
 Bounding Box Volume: 340782488.9 cm^3
 	
 ....
+
+
 
 
 
@@ -172,5 +182,3 @@ Reports of bugs or problems should be submitted via electronic mail to <bugs@brl
 == AUTHOR
 
 BRL-CAD Team
-
-

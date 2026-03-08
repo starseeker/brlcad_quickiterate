@@ -10,7 +10,7 @@ bot_check - Test a BoT to determine if it satisfies validity criteria.
 
 [source]
 ----
-bot check [degen_faces] [extra_edges] [flipped_edges] [manifold] [open_edges] [solid] {<input_bot>}
+bot check [degen_faces] [extra_edges] [flipped_edges] [manifold] [open_edges] [solid] {input_bot}
 ----
 
 
@@ -81,7 +81,7 @@ Run all checks on _input.bot_. Returns "1" if successful, and "0" if a problem w
 ====
 mged>*bot check open_edges input.bot*
 
-Run just the _open_edges_ test on input.bot, reporting "1" if everything looks valid and "0" if one or more open edges are found.
+Run just the __open_edges__ test on input.bot, reporting "1" if everything looks valid and "0" if one or more open edges are found.
 
 ====
 
@@ -96,5 +96,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

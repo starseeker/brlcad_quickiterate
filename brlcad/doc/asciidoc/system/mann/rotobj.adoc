@@ -10,7 +10,7 @@ rotobj - Rotates the currently edited object by z angle degrees about the z dire
 
 [source]
 ----
-rotobj [-i] [<x-angle>] [<y-angle>] [<z-angle>]
+rotobj [-i] [x-angle] [y-angle] [z-angle]
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-
