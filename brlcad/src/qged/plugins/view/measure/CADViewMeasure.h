@@ -64,7 +64,7 @@ class CADViewMeasure : public QWidget
 	void update_color();
 
     protected:
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
     private:
 	bsg_shape *s = nullptr;
