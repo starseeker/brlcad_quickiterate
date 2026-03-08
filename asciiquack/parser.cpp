@@ -1728,6 +1728,32 @@ std::shared_ptr<List> Parser::parse_list(
             if (nxt.rfind("|===", 0) == 0 || nxt.rfind(",===", 0) == 0) { break; }
             if (!nxt.empty() && nxt[0] == '[' && nxt.back() == ']') { break; }
 
+            // A same-type list item with a DEEPER marker creates a nested
+            // (sub-)list attached to this item.  A SHALLOWER marker ends
+            // this item so it can be processed by the parent list context.
+            if (auto nm = match_list_item(nxt)) {
+                if (nm->type == list_type) {
+                    int root_level = list_marker_level(list_type, root_marker);
+                    int next_level = list_marker_level(list_type, nm->marker);
+                    if (next_level > root_level) {
+                        // Set source so far before parsing the sub-list
+                        if (!src.empty()) {
+                            item->set_source(src);
+                            src.clear();
+                        }
+                        std::unordered_map<std::string, std::string> sub_attrs;
+                        auto sub_list = parse_list(reader, *item,
+                                                   list_type, nxt, sub_attrs);
+                        if (sub_list) { item->append(sub_list); }
+                        continue;
+                    } else if (next_level < root_level) {
+                        // Shallower item – return to parent
+                        break;
+                    }
+                    // Same level handled above (root_marker check)
+                }
+            }
+
             // Otherwise it's simple text continuation
             reader.skip_line();
             if (!src.empty()) { src += ' '; }

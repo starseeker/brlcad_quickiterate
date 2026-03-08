@@ -28,12 +28,9 @@ The external format has several important properties, especially with regard to 
 
 * Numbers are stored in binary for storage efficiency, for speed of reading and writing, and for preventing errors from creeping in due to repetitive conversion between binary and an ASCII string representation. This eliminates the need to use the old g2asc and asc2g to move databases between machines of different architectures.
 * All data in the object wrapper are stored in a machine-independent format, as follows:
-
-
 ** All floating point numbers are stored as IEEE double-precision, in big-endian order, where byte 0 is on the left end of the word.
 ** All integers are stored as either _unsigned_ or _twos-complement signed_ binary numbers in either 8, 16, 32, or 64 bits, in big-endian order.
 ** All character strings are stored in the ASCII 8-bit character set. A string is stored as an integer followed by an array of 8-bit characters. The last character in the array is always a null byte. The integer indicates the number of bytes in the array including the terminating null.
-
 
 
 
@@ -820,8 +817,3 @@ Magic2 (1 byte)
 
 [[Database_Library_Application_Programming_Interface]]
 === Database Library Application Programming Interface (API)
-
-
-
-
-

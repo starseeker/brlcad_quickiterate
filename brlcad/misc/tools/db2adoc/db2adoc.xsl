@@ -886,24 +886,34 @@
 
   <xsl:template match="db:itemizedlist">
     <xsl:param name="depth" select="0"/>
-    <xsl:call-template name="block-sep"/>
+    <!-- Only add block separator when NOT nested inside a listitem (directly or via para) -->
+    <xsl:if test="not(ancestor::db:listitem)">
+      <xsl:call-template name="block-sep"/>
+    </xsl:if>
     <xsl:text>&#10;</xsl:text>
     <xsl:apply-templates select="db:listitem">
       <xsl:with-param name="depth" select="$depth"/>
       <xsl:with-param name="type" select="'bullet'"/>
     </xsl:apply-templates>
-    <xsl:text>&#10;</xsl:text>
+    <xsl:if test="not(ancestor::db:listitem)">
+      <xsl:text>&#10;</xsl:text>
+    </xsl:if>
   </xsl:template>
 
   <xsl:template match="db:orderedlist">
     <xsl:param name="depth" select="0"/>
-    <xsl:call-template name="block-sep"/>
+    <!-- Only add block separator when NOT nested inside a listitem (directly or via para) -->
+    <xsl:if test="not(ancestor::db:listitem)">
+      <xsl:call-template name="block-sep"/>
+    </xsl:if>
     <xsl:text>&#10;</xsl:text>
     <xsl:apply-templates select="db:listitem">
       <xsl:with-param name="depth" select="$depth"/>
       <xsl:with-param name="type" select="'number'"/>
     </xsl:apply-templates>
-    <xsl:text>&#10;</xsl:text>
+    <xsl:if test="not(ancestor::db:listitem)">
+      <xsl:text>&#10;</xsl:text>
+    </xsl:if>
   </xsl:template>
 
   <xsl:template match="db:listitem">

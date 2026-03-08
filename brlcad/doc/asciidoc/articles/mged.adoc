@@ -710,7 +710,6 @@ image::images/fillet.gif[width=250]
 
 ** <<ShiftGrips,Shift Grips (Default Mouse Bindings)>>
 ** <<DefaultKeyBindings,Default Key Bindings>>
-
 * <<ControlPanels,Control Panels>>
 
 ** <<ADCControlPanel,ADC Control Panel>>
@@ -722,7 +721,6 @@ image::images/fillet.gif[width=250]
 ** <<SolidEditorInternal,Solid Editor (Internal)>>
 ** <<CombinationEditor,Combination Editor>>
 ** <<ColorEditor,Color Editor>>
-
 * <<StatusBar,Status Bar>>
 * <<MenuBar,Menu bar>>
 
@@ -739,7 +737,6 @@ image::images/fillet.gif[width=250]
 **** <<RTscript,RT script>>
 **** <<Plot,Plot>>
 **** <<PostScript,PostScript>>
-
 *** <<Preferences,Preferences>>
 
 **** <<Units,units>>
@@ -753,35 +750,28 @@ image::images/fillet.gif[width=250]
 ***** <<feet,feet>>
 ***** <<yards,yards>>
 ***** <<miles,miles>>
-
 **** <<cmd_line_ed,Command Line Edit>>
 
 ***** <<emacs,emacs>>
 ***** <<vi,vi>>
-
 **** <<SpecialCharacters,Special Characters>>
 
 ***** <<TclEvaluation,Tcl Evaluation>>
 ***** <<ObjectNameMatching,Object Name Matching>>
-
 **** <<ColorSchemes,Color Schemes>>
-
 *** <<Close,Close>>
 *** <<Exit,Exit>>
-
 ** <<Edit,Edit>>
 
 *** <<SolidSelection,Solid Selection>>
 *** <<MatrixSelection,Matrix Selection>>
 *** <<SolidEditor,Solid Editor>>
 *** <<CombinationEditor,Combination Editor>>
-
 ** <<Create,Create>>
 
 *** <<MakeSolid,Make Solid>> arb8, arb7, arb6, arb5, arb4, sph, grip, ell, ellg, tor, tgc, tec, rec, trc, rcc, half, rpc, rhc, epa, ehy, eto, part, nmg, pipe
 *** <<SolidEditor,Solid Editor>>
 *** <<CombinationEditor,Combination Editor>>-
-
 ** <<view,View>>
 
 *** <<Top,Top>>
@@ -797,7 +787,6 @@ image::images/fillet.gif[width=250]
 *** <<Default,Default>>
 *** <<MultipaneDefaults,Multipane Defaults>>
 *** <<Zero,Zero>>
-
 ** <<ViewRing,ViewRing>>
 
 *** <<AddView,Add View>>
@@ -806,7 +795,6 @@ image::images/fillet.gif[width=250]
 *** <<NextView,Next View>>
 *** <<PrevView,Prev View>>
 *** <<LastView,Last View>>
-
 ** <<Settings,Settings>>
 
 *** <<MouseBehavior,Mouse Behavior>>
@@ -820,53 +808,45 @@ image::images/fillet.gif[width=250]
 **** <<queryray,Query ray>>
 **** <<Sweeppaintrectangle,Sweep paint-rectangle>>
 **** <<Sweepzoomrectangle,Sweep zoom-rectangle>>
-
 *** <<Transform,Transform>>
 
 **** <<View2,View>>
 **** <<ADC,ADC>>
 **** <<ModelParams,Model Params>>
-
 *** <<ConstraintCoords,Constraint Coords>>
 
 **** <<model,Model>>
 **** <<View3,View>>
 **** <<object,Object>>
-
 *** <<RotateAbout,Rotate About>>
 
 **** <<ViewCenter,View Center>>
 **** <<Eye,Eye>>
 **** <<ModelOrigin,Model Origin>>
 **** <<KeyPoint,Key Point>>
-
 *** <<ActivePane,Active Pane>>
 
 **** <<UpperLeft,Upper Left>>
 **** <<UpperRight,Upper Right>>
 **** <<LowerLeft,Lower Left>>
 **** <<LowerRight,Lower Right>>
-
 *** <<ApplyTo,Apply To>>
 
 **** <<ApplyActivePane,Active Pane>>
 **** <<LocalPanes,Local Panes>>
 **** <<ListedPanes,Listed Panes>>
 **** <<AllPanes,All Panes>>
-
 *** <<QueryRayEffects,Query Ray Effects>>
 
 **** <<Text,Text>>
 **** <<Graphics,Graphics>>
 **** <<both,both>>
-
 *** <<Grid,Grid>>
 
 **** <<Anchor,Anchor>>
 **** <<Spacing,Spacing>>
 **** <<DrawGrid,Draw Grid>>
 **** <<SnapToGrid,Snap To Grid>>
-
 *** <<GridSpacing,Grid Spacing>>
 
 **** <<Autosize,Autosize>>
@@ -884,7 +864,6 @@ image::images/fillet.gif[width=250]
 **** <<foot,foot>>
 **** <<yard,yard>>
 **** <<mile,mile>>
-
 *** <<Framebuffer,Framebuffer>>
 
 **** <<All,All>>
@@ -893,7 +872,6 @@ image::images/fillet.gif[width=250]
 **** <<Underlay,Underlay>>
 **** <<FramebufferActive,Framebuffer Active>>
 **** <<ListenForClients,Listen For Clients>>
-
 *** <<ViewAxesPosition,View Axes Position>>
 
 **** <<Center,Center>>
@@ -901,8 +879,6 @@ image::images/fillet.gif[width=250]
 **** <<UpperLeft,Upper Left>>
 **** <<UpperRight,Upper Right>>
 **** <<LowerRight,Lower Right>>
-
-
 ** <<Modes,Modes>>
 
 *** <<DrawGrid,Draw Grid>>
@@ -917,14 +893,12 @@ image::images/fillet.gif[width=250]
 **** <<View3,View>>
 **** <<model,Model>>
 **** <<Edit,Edit>>
-
 *** <<Multipane2,Multipane>>
 *** <<EditInfo2,Edit Info>>
 *** <<StatusBar2,Status Bar>>
 *** <<Collaborate2,Collaborate>>
 *** <<Rateknobs2,Rateknobs>>
 *** <<DisplayLists2,Display Lists>>
-
 ** <<Misc,Misc>>
 
 *** <<zclipping,Z Clipping>>
@@ -935,7 +909,6 @@ image::images/fillet.gif[width=250]
 *** <<DepthCueing,Depth Cueing>>
 *** <<ZBuffer,Z Buffer>>
 *** <<Lighting,Lighting>>
-
 ** <<Tools,Tools>>
 
 *** <<ADCControlPanel,ADC Control Panel>>
@@ -948,7 +921,6 @@ image::images/fillet.gif[width=250]
 *** <<ColorEditor,Color Editor>>
 *** <<CommandWindow,Command Window>>
 *** <<GeometryWindow3,Geometry Window>>
-
 ** <<Help,Help>>
 
 *** <<AboutMGED,About MGED>>
@@ -958,8 +930,6 @@ image::images/fillet.gif[width=250]
 *** <<Commands,Commands>>
 *** <<Apropos,Apropos>>
 *** <<Manual,Manual>>
-
-
 
 [[GettingStarted]]
 ==== Getting Started
@@ -1280,7 +1250,6 @@ The _status bar_ contains two lines for displaying information about the state o
 *** RT script - saves the current view as an RT script file.
 *** *Plot*- saves the current view as a plot file.
 *** *PostScript*- saves the current view a postscript file.
-
 ** *Preferences*
 
 *** Units
@@ -1294,33 +1263,26 @@ The _status bar_ contains two lines for displaying information about the state o
 **** *feet*- set the unit of measure to feet. 1 foot = 12 inches.
 **** *yards*- set the unit of measure to yards. 1 yard = 36 inches.
 **** *miles*- set the unit of measure to miles. 1 mile = 5280 feet.
-
 *** <<cmd_line_ed,Command Line Edit>>
 
 **** <<emacs,emacs>>
 **** <<vi,vi>>
-
 *** *Special Characters*
 
 **** *Tcl Evaluation* - set the command interpretation mode to Tcl mode. In this mode, globbing is *not* performed against MGED database objects. Rather, the command string is passed, unmodified, to the Tcl interpreter.
 **** *Object Name Matching* - set the command interpretation mode to MGED object name matching. In this mode, globbing is performed against MGED database objects.
-
 *** *Color Schemes* - pops up a tool for setting colors used by drawing panes (display managers).
-
 ** *Close* - close this instance of the MGED GUI.
 ** *Exit* - exits MGED.
-
 * *Edit*
 
 ** *Solid Selection* - pops up a tool for selecting a solid to edit.
 ** *Matrix Selection* - pops up a tool for selecting a matrix to edit. <<SolidEditor,Solid Editor>> - pops up a tool for creating and editing solids. <<CombinationEditor,Combination Editor>> - pops up a tool for creating and editing combinations.
-
 * *Create*
 
 ** *Make Solid* - gives the user a pulldown menu from which to select a solid to create. The following is a list of the available solid types that the <<make,make>> command can create: arb8, arb7, arb6, arb5, arb4, sph, grip, ell, ellg, tor, tgc, tec, rec, trc, rcc, half, rpc, rhc, epa, ehy, eto, part, nmg, pipe.
 ** <<SolidEditor,Solid Editor>> - pops up a tool for creating and editing solids.
 ** <<CombinationEditor,Combination Editor>> - pops up a tool for creating and editing combinations.
-
 * *View*
 
 ** *Top* - view of the top (i.e. azimuth = 270, elevation = 90)
@@ -1358,7 +1320,6 @@ The _status bar_ contains two lines for displaying information about the state o
 |===
 
 ** *Zero* - stops all rate transformations.
-
 * *ViewRing* A view ring is simply a dynamic list of views owned by a pane (display manager). This mechanism supports multiple views within a single pane. A view consists of a position in model space, a view size and an orientation.
 
 ** *Add View* - Adds a view to the view ring.
@@ -1367,7 +1328,6 @@ The _status bar_ contains two lines for displaying information about the state o
 ** *Next View* - go to the next view on the view ring.
 ** *Prev View* - go to the previous view on the view ring.
 ** *Last View* - go to the last view. This can be used to toggle between two arbitrary views.
-
 * *Settings*
 
 ** *Mouse Behavior* - a menu for selecting among the available mouse behaviors.
@@ -1501,53 +1461,45 @@ The _status bar_ contains two lines for displaying information about the state o
 |Zoom in by a factor of 2
 |===
 
-
 ** *Transform* - a menu for selecting a transform mode. The transform mode determines what will be transformed when using the mouse.
 
 *** *View* - set the transform mode to VIEW. When in VIEW mode, the mouse can be used to transform the view. This is the default.
 *** *ADC* - set the transform mode to ADC. When in ADC mode, the mouse can be used to transform the angle distance cursor while the angle distance cursor is being displayed. If the angle distance cursor is not being displayed, the behavior is the same as VIEW mode.
 *** *Model Params* - set the transform mode to Model Params. When in Model Params mode, the mouse can be used to transform the model parameters.
-
 ** *Constraint Coords* - a menu for selecting a coordinate system to use while performing constrained transformations with the mouse.
 
 *** *Model* - constrained transformations will use model coordinates.
 *** *View* - constrained transformations will use view coordinates.
 *** *Object* - constrained transformations will use object coordinates.
-
 ** *Rotate About* - a menu for selecting the point about which to rotate.
 
 *** *View Center* - set the center of rotation to be about the view center.
 *** *Eye* - set the center of rotation to be about the eye.
 *** *Model Origin* - set the center of rotation to be about the model origin.
 *** *Key Point* - set the center of rotation to be about the key point.
-
 ** *Active Pane* - a menu for selecting the active pane. The active pane is the pane (display manager) that is tied to the GUI, effectively becoming the target of GUI interactions that affect panes. In other words, if the user types the command, “’ae 35 25”“in the command window, and the active pane is the upper left pane, then its” view orientation will become azimuth=35 and elevation=25. Similarly, if the user selects Settings/Grid/Draw_Grid from the pulldown menus the drawing of the grid will be toggled in the active pane.
 
 *** *Upper Left* - set the active pane to be the upper left pane. Any interaction with the GUI that affects a pane will be directed at the upper left pane.
 *** *Upper Right* - set the active pane to be the upper right pane. Any interaction with the GUI that affects a pane will be directed at the upper right pane.
 *** *Lower Left* - set the active pane to be the lower left pane. Any interaction with the GUI that affects a pane will be directed at the lower left pane.
 *** *Lower Right* - set the active pane to be the lower right pane. Any interaction with the GUI that affects a pane will be directed at the lower right pane.
-
 ** *Apply To* - a menu for selecting the “’Apply To”’ mode. This further specifies what pane(s) will be affected by actions that affect panes.
 
 *** *Active Pane* - set the “’Apply To”’ mode such that the user’s interaction with the GUI is applied to the active pane.
 *** *Local Panes* - set the “’Apply To”’ mode such that the user’s interaction with the GUI is applied to all panes local to this instance of the GUI.
 *** *Listed Panes* - set the “’Apply To”’ mode such that the user’s interaction with the GUI is applied to all panes listed in the Tcl variable mged_gui(id,apply_list) (Note - id refers to the GUI’s id).
 *** *All Panes* - set the “’Apply To”’ mode such that the user’s interaction with the GUI is applied to all panes.
-
 ** *Query Ray Effects* - a menu for selecting the effects the user will see as a result of firing a query ray.
 
 *** *Text* - set qray effects mode to “’text”’. In this mode, only textual output is used to represent the results of firing a query ray.
 *** *Graphics* - set qray effects mode to “’graphics”’. In this mode, only graphical output is used to represent the results of firing a query ray.
 *** *both* - set qray effects mode to “’both”’. In this mode, both textual and graphical output is used to represent the results of firing a query ray.
-
 ** *Grid* - a menu of grid related settings. A grid is a lattice of points over the pane. The regular spacing between the points gives the user accurate visual cues regarding dimension. After setting the anchor point and grid spacing, the user can use snapping to gain a high degree of accuracy while using the mouse.
 
 *** *Anchor* - this pops up an entry dialog for specifying the grid anchor point. The grid anchor point is a point such that when the grid is drawn one of its points must be located exactly at the anchor point. The anchor point is specified using model coordinates and local units.
 *** <<GridSpacing,Spacing>>
 *** *Draw Grid* - toggles drawing the grid.
 *** *Snap To Grid* - toggles snapping to grid points. When snapping to grid points is active, the user’s mouse actions are “’snapped”’ to the nearest grid point before being further processed. This gives the user a high degree of accuracy while using the mouse.
-
 ** *Grid Spacing* - a menu for selecting “’canned”’ grid spacings. Note - all of these selections will result in a square grid.
 ** *Autosize* - set the grid spacing according to the current view size. The number of ticks will be between 20 and 200 in user units. The major spacing will be set to 10 ticks per major. ole="par
 ** *Arbitrary* - pops up the grid spacing entry dialog. The user can use this to set both the horizontal and vertical tick spacing.
@@ -1564,7 +1516,6 @@ The _status bar_ contains two lines for displaying information about the state o
 ** *foot* - set the horizontal and vertical tick spacing to 1 foot.
 ** *yard* - set the horizontal and vertical tick spacing to 1 yard.
 ** *mile* - set the horizontal and vertical tick spacing to 1 mile.
-
 * *Framebuffer* - a menu of framebuffer related settings.
 
 ** *All* - use the entire pane for the framebuffer.
@@ -1573,7 +1524,6 @@ The _status bar_ contains two lines for displaying information about the state o
 ** *Underlay* - put the framebuffer in underlay mode. In this mode, the framebuffer data is placed in the pane before the geometry is drawn (i.e. the geometry is drawn on top of the framebuffer data).
 ** *Framebuffer Active* - this toggles the framebuffer.
 ** *Listen For Clients* - this toggles listening for clients. If the framebuffer is listening for clients, new data can be passed into the framebuffer. Otherwise, the framebuffer is write protected. Actually, it is also read protected. In other words, in order for programs outside of MGED to communicate with any of MGED’s framebuffers, the intended framebuffers must be listening.
-
 * *View Axes Position* - a menu of “’canned”’ view axes positions.
 
 ** *Center* - locate the view axes in the center of the active pane.
@@ -1595,14 +1545,12 @@ The _status bar_ contains two lines for displaying information about the state o
 **** *View* - toggle display of the view axes. The view axes are used to give the user visual cues indicating the current view of model space. These axes are drawn the same as the model axes, except that the view axes’ position is fixed in view space. This position as well as other characteristics can be set by the user using <<rset,rset>>.
 **** *Model* - toggle display of the model axes. The model axes are used to give the user visual cues indicating the current view of model space. The model axes are by default located at the model origin and are fixed in model space. So, if the user transforms the view, the model axes will move with respect to the view. The model axes position as well as other characteristics can be set by the user using <<rset,rset>>.
 **** *Edit* - toggle display of the edit axes. The edit axes are used to give the user visual cues indicating how the edit is progressing. They consist of a pair of axes. One remains unmoved, while the other moves to indicate how things have changed. Characteristics of the edit axes can be changed using <<rset,rset>>.
-
 *** *Multipane* - toggle between multipane and single pane mode. In multipane mode there are four panes, each with its own state.
 *** *Edit Info* - Toggle display of edit information. If in solid edit state, the edit information is displayed in the internal solid editor. This editor, as its name implies, can be used to edit the solid as well as to view its contents. If in object edit state, the object information is displayed in a dialog box.
 *** <<StatusBar,Status Bar>> - toggle display of the command window’s status bar.
 *** *Collaborate* - toggle collaborate mode. When in collaborate mode, the upper right pane’s view can be shared with other instances of MGED’s new GUI that are also collaborating.
 *** *Rateknobs* - toggle rate knob mode. When in rate knob mode, transformation with the mouse becomes rate based. For example, if the user rotates the view about the X axis, the view continues to rotate about the X axis until the rate rotation is stopped.
 *** *Display Lists* - toggle the use of display lists. This currently affects only Ogl display managers. When using display lists the screen update time is significantly faster. This is especially noticeable when running MGED remotely. Use of display lists is encouraged unless the geometry being viewed is bigger than the Ogl server can handle (i.e. the server runs out of available memory for storing display lists). When this happens the machine will begin to swap (and little else). If huge pieces of geometry need to be viewed, consider toggling off display lists. Note that using display lists while viewing geometry of any significant size will incur noticeable compute time up front to create the display lists.
-
 ** _Misc_
 
 *** _Z Clipping_ - toggles zclipping. When zclipping is active, the Z value of each point is checked against the min and max Z values of the viewing cube. If the Z value of the point is found to be outside this range, it is clipped (i.e. not drawn). Zclipping can be used to remove geometric detail that may be occluding geometry of greater interest.
@@ -1613,7 +1561,6 @@ The _status bar_ contains two lines for displaying information about the state o
 *** *Depth Cueing* - toggles depth cueing. When depth cueing is active, lines that are farther away appear more faint.
 *** *Z Buffer* - toggles Z buffer.
 *** *Lighting* - toggles lighting.
-
 ** *Tools*
 
 *** <<ADCControlPanel,ADC Control Panel>> - pops up a tool for controlling the angle distance cursor.
@@ -1625,7 +1572,6 @@ The _status bar_ contains two lines for displaying information about the state o
 *** <<ColorEditor,Color Editor>> - pops up a tool for defining a color
 *** *Command Window* - this is a convenience button that raises the command window.
 *** *Geometry Window* - this is a convenience button that raises the geometry window.
-
 ** *Help*
 
 *** *About MGED*
@@ -1635,8 +1581,6 @@ The _status bar_ contains two lines for displaying information about the state o
 *** *Commands* - pops up a tool for getting information on MGED’s commands.
 *** *Apropos* - pops up a tool for searching for information about MGED’s commands.
 *** *Manual* - start a tool for browsing the online MGED manual. The web browser that gets started is dependent, first, on the WEB_BROWSER environment variable. If this variable exists and the browser identified by this variable exists, then that browser is used. Failing that the browser specified by the mged_default(web_browser) Tcl variable is tried. As a last resort, the existence of /usr/bin/netscape, /usr/local/bin/netscape and /usr/X11/bin/netscape is checked. If a browser has still not been located, the built-in Tcl browser is used.
-
-
 
 
 
@@ -7190,5 +7134,3 @@ The TGC solid is a truncated cone with elliptical (or circular) base and top. Th
 *vol*
 
 The vol solid is defined by a 3-dimensional array of unsigned char values. The solid requires a file of these values, the extent of the file (in bytes) in each dimension, the size of each cell, and high and low thresholds. Any value in the file that is between the thresholds (inclusive) represents a solid cell.
-
-

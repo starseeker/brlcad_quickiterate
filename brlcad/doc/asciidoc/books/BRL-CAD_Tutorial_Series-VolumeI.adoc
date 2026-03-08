@@ -56,12 +56,9 @@ The application side of BRL-CAD also offers a number of tools and utilities. The
 
 * MGED (Multiple-Device Geometry Editor) - BRL-CAD's graphics editor. (For detailed guidance on the use of MGED as well as a list of all the MGED commands currently available, see Butler et al. [2001].)
 * Tools for raytracing and interrogating raytraced geometric objects.
-
-
 ** rt - the main raytracer for rendering images in BRL-CAD.
 ** nirt - a package for firing rays interactively and getting information about what the rays run into.
 ** remrt - a network-distributed raytracing package.
-
 
 * An assortment of geometric converters to convert to and/or from other geometry formats, including Euclid, ACAD, AutoCAD DXF, TANKILL, Wavefront OBJ, Pro/ENGINEER, JACK (the human factors model for doing workload/usability studies), Viewpoint Data Lab, NASTRAN, Digital Equipment's Object File Format (OFF), Virtual Reality Mark-up Language (VRML), Stereo Lithography (STL), Cyberware Digitizer data, and FASTGEN4.
 * bwish - a Tcl/Tk interpreter in a windowing shell with enhancements compiled into it for accessing BRL-CAD libraries. It also includes various other extensions to the Tcl language.
@@ -109,4 +106,3 @@ To run the benchmark images, run the script run.sh in the "bench" directory of t
 The authors would like to thank the members of the Advanced Computer Systems Team, who reviewed this document in a timely manner and made many helpful suggestions to improve its accuracy and presentation. At the time this document was prepared team members included John Anderson, TraNese Christy, Bob Parker, Ron Bowers, and Sean Morrison.
 
 In addition, the authors would like to especially acknowledge Mike Muuss, a team member and the original architect of BRL-CAD, who passed away in the fall of 2000. Without his vision, this work would not have been possible. Therefore, the BRL-CAD Tutorial Series is dedicated to his memory.
-

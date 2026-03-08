@@ -107,8 +107,6 @@ For a series of uniformly spaced objects, it is good practice to measure the tot
 ====
 
 * _Record measurements as clearly and consistently as possible:_ It is interesting how a "scribble" that is perfectly understandable to the measurement-taker who is still in front of the object can become indecipherable when it is later viewed back in the office (when the object is no longer accessible). Furthermore, despite the best laid plans, projects and personnel can change in midstream, and the person(s) taking measurements may wind up having little or no connection to the person(s) actually interpreting those measurements and building the model. Therefore, all drawings and notations should be sufficiently clear and consistent so that someone unfamiliar with the object could understand and work with the recorded measurements. A few recommendations are given as follows:
-
-
 ** _Include meaningful titles on drawings:_ Detailed drawings and data can be of little value if it is unclear what the overall geometry/view is and how the designated piece ties into the completed model.
 ** _In general, orient drawings in orthogonal views:_ This practice eliminates potential problems associated with perspective and makes drawings easier to read and use. If other angles are desired (and it is not a bad idea to include at least one off-angle view with a few measurements to help confirm reference points), be sure to include azimuth/elevation and information about the orientation relative to the eye point and to the actual vehicle coordinate system. In addition, note any atypical configurations and orientations (e.g., a tank turret rotated in an unusual fashion to allow access to certain components).
 ** _Include offsets from other objects:_ Although these measurements may not actually be primary data (i.e., required inputs for MGED commands), they may help the modeler resolve problems or derive other measurements needed later. For example, when modeling a field of objects on a flat surface (e.g., gauges and buttons on an instrument panel), it is good practice not only to collect the distances of the objects from, say, the edges of the panel but also the distances relative to other objects. This information can be valuable when trying to troubleshoot overlaps or other problems encountered during the evaluation phase.
@@ -116,7 +114,6 @@ For a series of uniformly spaced objects, it is good practice to measure the tot
 +
 .Commonly used measurement symbols and abbreviations.
 image::../books/images/tutorial_series_volIII_table_image_1.png[]
-
 
 
 
@@ -137,8 +134,6 @@ The following list provides some tips to achieve good model structuring:
 * _Use good naming practices:_ Closely associated with the idea of using good organizational conventions to structure geometry is the idea of using good naming conventions to name geometry. Although naming may appear to be a trivial matter, the fact is that it is not always easy to establish titles and schemes that are intuitive, robust, and useful in helping the end user know where he is in a potentially complex model.
 +
 There are few limitations to how files and objects can be named in BRL-CAD (other than that each file/object name must be unique). However, new modelers soon find that random or haphazard naming schemes lead to inefficiency and frustration. Thus, the following general recommendations are provided to help modelers efficiently organize and track what they build.
-
-
 ** Develop logical schemes, stick to them, and document them: If logical or obvious titling schemes (such as a manufacturer's part names or numbers) are already in place, the user should take advantage of them, especially at the highest assembly levels of "complete" or aggregated objects and especially when multiple modelers are involved. This practice helps establish a logical structure (e.g., all engine parts have a prefix of, say, eng), and many users may already know these names.
 +
 Table 3 provides examples of a number of other logical naming conventions traditionally used in BRL-CAD. These conventions include (1) an initial nametag to designate shape/object type or function (i.e., sph for sphere, ant for antenna, and frf for front face); (2) a suffix (or prefix) to designate MGED object type (i.e., .s for primitive shapes [formerly referred to as "solids"], .r for regions, .c for shape combinations, and .a or .g for assembly combinations); and (3) some sort of sequential numbering scheme (i.e., 1, 2, 3, etc.). For more information on BRL-CAD shapes and modeling levels, see Section 5, as well as Lesson 5 and Appendix C of BRL-CAD Tutorial Volume II (Butler et al., 2001).
@@ -179,8 +174,6 @@ As shown in Table 3, an exception to the practice of keeping names short include
 *** Avoid using special characters. Restrict the use of "+" and """ symbols to the suffix of primitive shape combinations, and do not use the "/".
 *** Restrict the use of the period to the suffix of MGED object types. Avoid using other punctuation (e.g., "?," "!," etc.).
 *** Avoid using the lowercase letter "l" by itself (to avoid possible confusion with the number "1").
-
-
 
 
 * Include the right amount of detail: The structure should only be as deep as needed for the application. Obviously, every part, no matter how complex, could in theory be reduced down to the atomic or even subatomic level, but how cost efficient and useful would this be? More is not necessarily better. The modeler should use common sense and consult with the end user(s) when deciding how far to break down components and systems. Insufficient detail can diminish the model's usefulness and reduce user confidence, and yet too much detail can unnecessarily drain time and resources, slow down processing time of application codes, and frustrate users who have to wade through many parts that they do not need to get to what they do need.
@@ -490,7 +483,6 @@ Also, as discussed in Lesson 16 of Volume II (Butler et al., 2001), specialty mo
 ** _Primitive shape combination_ - a combination that intersects, subtracts, or unions primitive shapes. This combination does not actually occupy 3-D space.
 ** _Region_ - the lowest-level combination that assigns material properties to geometry and occupies 3-D space. Because it is impossible for two or more objects to occupy the same physical space, it follows that one region cannot be unioned into or intersected with another region (e.g., a wheel cannot occupy the same space as the axle that connects to it). Conversely, subtraction is valid (e.g., subtracting a wall-mounted radio from the wall on which it hangs). For a reminder of how Boolean combinations work, see Figure 16.
 ** _Assembly combination_ - a type of combination that associates two or more regions or other combinations together.
-
 +
 .Sample Boolean operations.
 image::../books/images/tutorial_series_volIII_fig16.png[]
@@ -525,14 +517,12 @@ is evaluated as
 ** _g_creates a combination by automatically unioning all user-specified elements together. Thus, this command does not accept any sort of Boolean operators from the user.footnote:[The *g* command is derived from “group,” the term sometimes used for _assembly combination_.
 
 ]
-
 +
 In addition, there are several general recommended practices when dealing with Boolean operations. They are as follows:
 
 
 ** _Start with a positive volume:_ The modeler must start with a positive volume before any subtraction or intersection operations are performed. If you are using GIFT notation, this means that you must start with a union operator. If you are using fully parenthesized standard notation, this means that you must specify an object before specifying a subtraction or intersection from it.
 ** _Be mindful of the order of Boolean operations:_ The modeler should make sure unions, intersections, and subtractions are properly ordered in the region structure to achieve the desired effect. For example, imagine that a modeler wants to subtract a hole in a region named bolt.r. As shown in Figure 17, if that region consists of two unioned primitives--head.s and shaft.s--the subtraction in the region must follow the shaft primitive. Alternatively, if the hole is subtracted from the head, the subtraction will have no effect because head.s and hole.s do not share any volume.
-
 +
 .Properly (top) and improperly (bottom) ordered regions.
 image::../books/images/tutorial_series_volIII_fig17.png[]
@@ -1581,4 +1571,3 @@ image::../articles/images/build_region_fig04.png[]
 Obviously, the overall success or failure of the build_region command depends on primitives being named properly. But if they are, the command can organize them in one automated step, creating complex regions in just a few keystrokes.
 
 Another modeling benefit of the build_region tool is that it allows the user to quickly organize primitives. Assume, for example, that we have used the aforementioned naming convention to construct a complicated region. If there was a subsection of the region that we needed to, say, keep out for another assembly, delete from our database, move slightly, or copy, it would be a simple matter to create a new region with just those primitives that we needed.
-

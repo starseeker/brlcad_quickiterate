@@ -208,12 +208,9 @@ The default values are 50.0 mm and 0.5 mm, which is equivalent to specifying: *-
 *Not Implemented.*
 
 Specifies that the program should create new _assembly combinations_ in the geometry database to represent the overlap pairs. This flag is meaningless if overlap reporting is not turned on with the *-A* option. If regions _rod.r_ and _disk.r_ overlap, this option will cause the creation of an assembly called `_OVERLAP_rod.r_disk.r`, which includes the following items:
-
-
 . _rod.r_
 . _disk.r_
 . ___OVERLAP_lines_rod.r_disk.r__
-
 
 
 The last item is an object to represent the overlapping area so that it can be easily seen. The default is that no groups are created.
@@ -431,5 +428,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-
