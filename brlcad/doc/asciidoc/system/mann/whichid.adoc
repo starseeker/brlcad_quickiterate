@@ -42,7 +42,7 @@ For these examples the geometry file used is the standard _ktank.g_ included wit
 .Report all regions using region ids between 4000 and 7000.
 [example]
 ====
-mged>*whichid 4000-7000* 
+mged>*whichid 4000-7000*
 
 
 ....
@@ -67,7 +67,7 @@ Region[s] with ident 6002:
 .Report all regions using region ids between 1000-2000 and 4000-5000.
 [example]
 ====
-mged>*whichid 1000-2000 4000-5000* 
+mged>*whichid 1000-2000 4000-5000*
 
 
 ....
@@ -92,7 +92,7 @@ Region[s] with ident 4050:
 .Report all regions using region ids between 1000-2000 and 4000-5000, limiting results to regions in the tank geomtry tree.
 [example]
 ====
-mged>*whichid --root tank 1000-2000 4000-5000* 
+mged>*whichid --root tank 1000-2000 4000-5000*
 
 
 ....
@@ -113,7 +113,7 @@ Region[s] with ident 4050:
 .Report all unused region_id ranges in the database between 1 and 1000.
 [example]
 ====
-mged>*whichid -U 1-1000* 
+mged>*whichid -U 1-1000*
 
 
 ....

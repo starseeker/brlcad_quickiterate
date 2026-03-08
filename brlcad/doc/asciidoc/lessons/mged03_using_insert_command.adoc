@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create a sphere and a right circular cylinder using the make command.
@@ -28,7 +28,7 @@ Create a new database and name it shapes.g. Title your database myShapes.
 
 Begin by making the Command Window active (usually by clicking anywhere in the window). Then, at the _MGED_ prompt, type in the command: *make sph1.s sph [Enter]*
 
-As noted in Lesson 1, this command tells _MGED_ to: 
+As noted in Lesson 1, this command tells _MGED_ to:
 
 [cols="3*"]
 [%noheader]
@@ -41,7 +41,7 @@ As noted in Lesson 1, this command tells _MGED_ to:
 |Make it a sphere
 |===
 
- 
+
 
 image::../lessons/images/mged03_wireframe_sph.png[]
 

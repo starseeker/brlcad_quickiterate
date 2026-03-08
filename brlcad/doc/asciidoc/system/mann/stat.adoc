@@ -19,7 +19,7 @@ stat [-h] [-?] [-r] [-F<string>] [-C<type1[,type2]...>] [-S<type1[,type2]...>] [
 
 The GED *stat* command reports information about objects in a BRL-CAD .g file. It produces a tabular output, with options for user configurability and sorting.
 
-Available types reflect geometry object data: 
+Available types reflect geometry object data:
 
 .STAT Information Keys - Core Object Info
 [cols="2*"]

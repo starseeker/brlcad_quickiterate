@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create the shapes of the mug through the GUI.
@@ -23,7 +23,7 @@ Begin by opening a new database. Call it mug2.g.
 
 Go to the Create menu and select rcc (right circular cylinder) under the Cones and Cylinders category. Enter the name for the rcc. Call it outside.s.
 
-Go to the Edit menu, where you will be offered the following options: 
+Go to the Edit menu, where you will be offered the following options:
 
 [cols="4*"]
 [%noheader]
@@ -69,7 +69,7 @@ Remember that when you scale a shape, the position of the mouse pointer in the G
 [[mug_gui_create_handle]]
 == Creating the Handle of the Mug
 
-Previously, we made the handle of the mug using an elliptical torus. In this lesson, we make the handle by selecting a torus (which is a doughnut shape) from the menu of shapes. Name the torus handle.s. The Edit menu will now offer a different set of parameters than those of the right circular cylinders, as shown in the following list: 
+Previously, we made the handle of the mug using an elliptical torus. In this lesson, we make the handle by selecting a torus (which is a doughnut shape) from the menu of shapes. Name the torus handle.s. The Edit menu will now offer a different set of parameters than those of the right circular cylinders, as shown in the following list:
 
 [cols="4*"]
 [%noheader]
@@ -80,7 +80,7 @@ Previously, we made the handle of the mug using an elliptical torus. In this les
 |`Primitive Editor Combination Editor`
 |===
 
- In this instance, Set Radius 1 changes the distance from the center of the doughnut hole to the middle of the dough. Set Radius 2 changes the radius of the dough ring. With the same technique used in editing the rcc shapes, edit the size of the torus until it looks similar to the following examples: 
+In this instance, Set Radius 1 changes the distance from the center of the doughnut hole to the middle of the dough. Set Radius 2 changes the radius of the dough ring. With the same technique used in editing the rcc shapes, edit the size of the torus until it looks similar to the following examples:
 
 [cols="2*"]
 [%noheader]
@@ -91,7 +91,7 @@ Previously, we made the handle of the mug using an elliptical torus. In this les
 |Mug and Handle from a Top View
 |===
 
- Check your mug from the top to make sure the handle is aligned. Accept your changes when you are finished.
+Check your mug from the top to make sure the handle is aligned. Accept your changes when you are finished.
 
 
 [[mug_gui_create_rim]]
@@ -119,7 +119,7 @@ To make a region out of the combinations you just created, type at the Command W
 [[mug_gui_check_tree]]
 == Checking the Data Tree
 
-Before continuing, it would be wise to check your data tree and make sure it agrees with the following tree: 
+Before continuing, it would be wise to check your data tree and make sure it agrees with the following tree:
 
 
 ....
@@ -142,7 +142,7 @@ Before continuing, it would be wise to check your data tree and make sure it agr
 	
 ....
 
- If your data tree doesn't look like this example, you will need to go back and figure out where you went wrong. If necessary, you can kill off a shape, combination, or region by typing at the Command Window prompt: *kill [name of shape, combination, or region][Enter]*
+If your data tree doesn't look like this example, you will need to go back and figure out where you went wrong. If necessary, you can kill off a shape, combination, or region by typing at the Command Window prompt: *kill [name of shape, combination, or region][Enter]*
 
 For example, in this lesson you may have created an extra shape, named rim2.s, which you no longer want. To kill this shape, you would type: *kill rim2.s[Enter]*
 
@@ -150,7 +150,7 @@ For example, in this lesson you may have created an extra shape, named rim2.s, w
 [[mug_gui_comb_edit_props]]
 == Assigning Material Properties Using the Combination Editor
 
-Go to the Edit menu and select Combination Editor. Type mug.r in the Name entry box. Press ENTER. Type 0 148 0 in the Color entry box. Select a plastic shader. Check the Boolean Expression box to make sure it says: 
+Go to the Edit menu and select Combination Editor. Type mug.r in the Name entry box. Press ENTER. Type 0 148 0 in the Color entry box. Select a plastic shader. Check the Boolean Expression box to make sure it says:
 
 
 ....
@@ -161,7 +161,7 @@ Go to the Edit menu and select Combination Editor. Type mug.r in the Name entry 
 	
 ....
 
- When you are finished, click on Apply and then Dismiss. In the Command Window then, type at the prompt: *B mug.r[Enter]*
+When you are finished, click on Apply and then Dismiss. In the Command Window then, type at the prompt: *B mug.r[Enter]*
 
 
 [[mug_gui_raytracing]]
@@ -177,7 +177,7 @@ image::../lessons/images/mged12_mug_gui_finished_raytraced.png[]
 [[mug_through_gui_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created the shapes of the mug through the GUI.

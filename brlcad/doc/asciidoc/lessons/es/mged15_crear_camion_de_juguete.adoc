@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Crear un camión de juguete a partir de tres figuras.
@@ -29,7 +29,7 @@ Comience creando una nueva base de datos llamada truck.g.
 [[truck_cab_in_cmd]]
 == Crear una rpp para la cabina del camión utilizando el comando in
 
-Para hacer la cabina del camión, cree un prisma recto paralelo (en inglés: right parallel piped > rpp) utilizando el comando in (de insert > insertar). En el prompt de la ventana de comandos tipee: *in cab1.s rpp[Enter]* _MGED_ le preguntará los valores de XMIN, XMAX, YMIN, YMAX, ZMIN, y ZMAX. Tipee entonces: *0 1 0 1 0 1[Enter]* Esto le dirá a _MGED_ que: 
+Para hacer la cabina del camión, cree un prisma recto paralelo (en inglés: right parallel piped > rpp) utilizando el comando in (de insert > insertar). En el prompt de la ventana de comandos tipee: *in cab1.s rpp[Enter]* _MGED_ le preguntará los valores de XMIN, XMAX, YMIN, YMAX, ZMIN, y ZMAX. Tipee entonces: *0 1 0 1 0 1[Enter]* Esto le dirá a _MGED_ que:
 
 [cols="6*"]
 [%noheader]
@@ -62,7 +62,7 @@ image::../../lessons/es/images/mged15_truck_cab1s.pNG[]
 
 Para hacer el capó del coche, deberá crear otra forma rpp utilizando el comando inside. Este comando fue creado originalmente para ahuecar objetos como tanques de gasolina y cajas, sin embargo, puede ser utilizado para crear cualquier nueva forma que tiene alguna relación con otra forma pre-existente. En este tutorial, se utilizará para cortar materiales por encima del capó y delante de la cabina.
 
-Si está utilizando la versión 6.0 de _BRL-CAD_ o una posterior, en la línea de comandos tipee: *inside cab1.s caboff1.s .5 -.1 .7 -.1 -.1 -.1[Enter]* Este comando le dice a _MGED_ que: 
+Si está utilizando la versión 6.0 de _BRL-CAD_ o una posterior, en la línea de comandos tipee: *inside cab1.s caboff1.s .5 -.1 .7 -.1 -.1 -.1[Enter]* Este comando le dice a _MGED_ que:
 
 [cols="9*"]
 [%noheader]
@@ -141,7 +141,7 @@ image::../../lessons/es/images/mged15_truck_2nd_wheel_wheel_place.pNG[]
 [[truck_cab_shape_comb]]
 == Hacer una combinación con las figuras de la cabina
 
-Ahora es el momento de hacer una combinación de las ditintas figuras de la cabina. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* Este comando le dice a _MGED_ que: 
+Ahora es el momento de hacer una combinación de las ditintas figuras de la cabina. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* Este comando le dice a _MGED_ que:
 
 [cols="10*"]
 [%noheader]
@@ -170,7 +170,7 @@ Ahora es el momento de hacer una combinación de las ditintas figuras de la cabi
 
 
 
-Antes de continuar, debería chequear su árbol de datos tipeando: tree cab1.c. El árbol debería ser: 
+Antes de continuar, debería chequear su árbol de datos tipeando: tree cab1.c. El árbol debería ser:
 
 
 ....
@@ -217,7 +217,7 @@ image::../../lessons/es/images/mged15_truck_wheel_wells_wireframe.pNG[]
 [[truck_body_wheel_wells_comb]]
 == Hacer una combinación con el cuerpo del camión y las cavidades
 
-Cree una combinación con el cuerpo y ambas cavidades, nómbrela body1.c. El árbol de body1.c debería decir: 
+Cree una combinación con el cuerpo y ambas cavidades, nómbrela body1.c. El árbol de body1.c debería decir:
 
 
 ....
@@ -246,7 +246,7 @@ Antes de agregarle las ruedas al camión, debe crear una región con la cabina y
 
 Tal vez la mejor forma para la fabricación de ruedas es el toro. Puede crear esta forma a través de la ventana de comandos para darles un tamaño y una ubicación precisos a su diseño sin su posterior edición. Sin embargo, este tutorial está pensado para darle práctica sobre la rotación y traslación de las formas.
 
-Cree la primera rueda tipeando en el prompt de la línea de comandos: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* Este comando le dice a _MGED_ que: 
+Cree la primera rueda tipeando en el prompt de la línea de comandos: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* Este comando le dice a _MGED_ que:
 
 [cols="7*"]
 [%noheader]
@@ -281,7 +281,7 @@ image::../../lessons/es/images/mged15_truck_wheels.pNG[]
 [[truck_wheels_region]]
 == Hacer una región con las ruedas
 
-Cree una región con las ruedas. Cuando haya terminado, chequee su árbol de datos de wheel1.r. Deberá decir: 
+Cree una región con las ruedas. Cuando haya terminado, chequee su árbol de datos de wheel1.r. Deberá decir:
 
 
 ....
@@ -359,7 +359,7 @@ Al utilizar la opción de apilación, necesita hacer un seguimiento del número 
 [[truck_combine_regions]]
 == Hacer una combinación con las regiones del camión
 
-Para hacer una combinación con las dos regiones del camión, tipee en el prompt de la línea de comandos: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Su árbol de datos de truck1.c debería decir: 
+Para hacer una combinación con las dos regiones del camión, tipee en el prompt de la línea de comandos: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Su árbol de datos de truck1.c debería decir:
 
 
 ....
@@ -425,7 +425,7 @@ Hay un ajuste especial que puede hacer para mejorar el brillo general de la esce
 [[creating_toy_truck_review]]
 == Repasemos...
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Crear un camión de juguete a partir de tres figuras.

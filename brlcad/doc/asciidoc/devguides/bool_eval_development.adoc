@@ -247,7 +247,7 @@ Curves and surfaces are nearly always allocated on the heap and referenced by po
 
 Mostly these allocations are simply done with the `new` keyword as with any other class. However, a few classes, notably ON_Brep have a `New()()` function that wraps the allocation, which is preferred over using `new` directly for technical reasons specified in the OpenNURBS `opennurbs_brep.h` header.
 
-Pointers to objects, curves in particular, are generally "stolen" to avoid having to create a new copy of the object. 
+Pointers to objects, curves in particular, are generally "stolen" to avoid having to create a new copy of the object.
 
 
 [WARNING]
@@ -476,7 +476,7 @@ An additional class, ON_PX_EVENT has been implemented as an extension to the Ope
 
 The intersection classes enumerate a number of intersection types. Over the course of an evaluation, the `m_type` of intersection events is repeatedly checked to determine how each event should be processed.
 
-When two curves are coincident with one another over a portion of their domains, `m_type` will be `ON_X_EVENT::ccx_overlap`. 
+When two curves are coincident with one another over a portion of their domains, `m_type` will be `ON_X_EVENT::ccx_overlap`.
 
 .Curve-Curve Overlap Intersection
 image::../../devguides/images/ccx_overlap_event.png[]
@@ -805,7 +805,7 @@ For a multi-part evaluation, you'll need to manually create the appropriate inte
 For a multi-part evaluation, you'll need to first skip to the correct invocation of `ON_Boolean()()`, either manually, or by conditioning a breakpoint on the value of the static `calls` variable defined at the top of that function.
 
 . When the break is reached, add a breakpoint at `find_overlap_boundary_curves()()` and advance to that function.
-. Step through the intersections, printing out the isocurve endpoints and visualize them in the context of the geometry in Archer (e.g. by centering the view at those points, or creating spheres centered on them, etc.) to find the isocurves of interest: 
+. Step through the intersections, printing out the isocurve endpoints and visualize them in the context of the geometry in Archer (e.g. by centering the view at those points, or creating spheres centered on them, etc.) to find the isocurves of interest:
 
 
 ....
@@ -887,7 +887,7 @@ What follows is a step-by-step debugging of a real issue affecting the `X` combi
 
 This issue was fixed in revision 65179 in the NURBS Boolean evaluation development branch of the source repository (https://sourceforge.net/p/brlcad/code/HEAD/tree/brlcad/branches/brep-debug/).
 
-If you want to follow along, you can reinstate the error in a checkout of the development branch: 
+If you want to follow along, you can reinstate the error in a checkout of the development branch:
 
 
 ....
@@ -899,7 +899,7 @@ $ svn merge -r 65179:65178 ^/brlcad/branches/brep-debug
 
 
 
-. Open `axis.g` in Archer and convert the original combination to `brep`. 
+. Open `axis.g` in Archer and convert the original combination to `brep`.
 
 
 ....

@@ -44,7 +44,7 @@ For these examples the geometry file used is the standard _m35.g_ included with 
 .Report all regions using air codes between 7 and 10.
 [example]
 ====
-mged>*whichair 7-10* 
+mged>*whichair 7-10*
 
 
 ....
@@ -70,7 +70,7 @@ Region[s] with air code 8:
 .Report all unused aircode ranges in the database between 1 and 10.
 [example]
 ====
-mged>*whichair -U 1-10* 
+mged>*whichair -U 1-10*
 
 
 ....

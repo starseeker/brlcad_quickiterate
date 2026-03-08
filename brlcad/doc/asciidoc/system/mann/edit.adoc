@@ -34,7 +34,7 @@ All edit commands interpret a lone point (*.*) as a special operator, called the
 
 If any _from_ coordinates are omitted, they default to the bounding box center of the first _object_ is used as _from_. To use the natural origin of the first _object_ as _from_, _from_object_ must be manually set to whatever _object_ is set to. If any _to_ coordinates are omitted, they default to the values set in _from_.
 
-The quantity and arrangement of standard *edit* arguments as well as their interpretation depends upon the subcommand. See the manual page for a given subcommand for more information on its usage: 
+The quantity and arrangement of standard *edit* arguments as well as their interpretation depends upon the subcommand. See the manual page for a given subcommand for more information on its usage:
 
 
 ....

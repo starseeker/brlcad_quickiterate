@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial aprenderá a: 
+En este tutorial aprenderá a:
 
 
 * Utilizar la GUI para crear una caja exhibidora usando formas arb8.
@@ -118,7 +118,7 @@ image::../../lessons/es/images/mged09_globe_base_box_raytraced.png[]
 [[globe_in_display_box_review]]
 == Repasemos...
 
-En este tutorial aprendió a: 
+En este tutorial aprendió a:
 
 
 * Utilizar la GUI para crear una caja usando las formas arb8.
