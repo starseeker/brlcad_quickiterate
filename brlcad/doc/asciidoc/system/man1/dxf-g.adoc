@@ -34,7 +34,7 @@ Sets a debug flag. The only effect is to cause a core dump on failure. This is p
 Produces very verbose output on stderr.
 
 
-*-s*_scale_factor_::
+*-s*__scale_factor__::
 Provides a scale factor to be applied to the DXF input. This can be used for DXF files that do not provide units information.
 
 
@@ -67,7 +67,7 @@ $ dxf-g sample.dxf sample.g
 [[see_also]]
 == SEE ALSO
 
-_http://images.autodesk.com/adsk/files/dxf_format.pdf_
+__http://images.autodesk.com/adsk/files/dxf_format.pdf__
 
 
 [[diagnostics]]
@@ -92,3 +92,5 @@ This software is Copyright (c) 1993-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

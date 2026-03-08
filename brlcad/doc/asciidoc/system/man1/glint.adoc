@@ -20,7 +20,7 @@ glint [<options>] <model.g> <objects>...
 *glint* uses *librt*(3) to fire an array of parallel rays at the specified _objects_ in the database _model.g_ and reports overlaps, vacuums, and potential problems with air regions. By default, the output consists of single-line reports, each of which contains a tag identifying the report type and then other data as appropriate for that type report. Unless the *-p* option is specified, the exact formats are:
 
 
-*overlap*_r1 r2 length x_in y_in z_in x_out y_out z_out_::
+*overlap*__r1 r2 length x_in y_in z_in x_out y_out z_out__::
 Consecutive partitions overlap by more than _tol_ (see the *-t* option). The data reported are the names of the two regions involved, the length of the overlap along the ray, and the model coordinates of the ray's entry into and exit from the overlap.
 
 
@@ -86,7 +86,7 @@ Sets the tolerance for overlaps, contiguous and unconfined airs, and vacuums to 
 
 
 *-u*::
-Sets the _useair_ member of the _rt_i_ structure to 1, which causes _librt_ to report partitions containing air. It is also set implicitly if any air-related reports have been specified. By default, _librt_ ignores air regions.
+Sets the _useair_ member of the __rt_i__ structure to 1, which causes _librt_ to report partitions containing air. It is also set implicitly if any air-related reports have been specified. By default, _librt_ ignores air regions.
 
 
 *-x*_bits_::

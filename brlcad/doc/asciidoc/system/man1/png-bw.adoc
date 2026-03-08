@@ -29,7 +29,7 @@ png-bw -R -B < _file.png_ > _file.bw_
 
 will equally blend the red and blue color planes.
 
-png-bw _bw_file.png_ < _file.bw_
+png-bw __bw_file.png__ < _file.bw_
 
 will convert a b/w PNG file to _bw(5)_ format.
 
@@ -62,3 +62,5 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

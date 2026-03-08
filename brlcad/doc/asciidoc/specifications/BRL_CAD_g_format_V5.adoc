@@ -23,7 +23,7 @@ In a slight abuse of terminology, the DAG is often spoken of as a tree or collec
 [[Format_of_Data_Elements_Database_External_Format]]
 === Format of Data Elements/Database External Format
 
-The external format has several important properties, especially with regard to the _Object_Body_:
+The external format has several important properties, especially with regard to the __Object_Body__:
 
 
 * Numbers are stored in binary for storage efficiency, for speed of reading and writing, and for preventing errors from creeping in due to repetitive conversion between binary and an ASCII string representation. This eliminates the need to use the old g2asc and asc2g to move databases between machines of different architectures.

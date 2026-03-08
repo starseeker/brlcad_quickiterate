@@ -38,7 +38,7 @@ The following DM (display manager) types are supported:
 
 _struct dm *_*DM_OPEN*_( int dtype, int argc, char *argv[] )_
 
-_DM_OPEN_ creates a display manager of type _dtype_ and returns a pointer to its _dm_ structure. _argc_ and _argv_ are passed to <<dm_p,dm_processOptions>> for interpretation._DM_NULL_ is returned if unable to acquire a display manager.
+__DM_OPEN__ creates a display manager of type _dtype_ and returns a pointer to its _dm_ structure. _argc_ and _argv_ are passed to <<dm_p,dm_processOptions>> for interpretation.__DM_NULL__ is returned if unable to acquire a display manager.
 
 
 
@@ -72,7 +72,7 @@ _DM_OPEN_ creates a display manager of type _dtype_ and returns a pointer to its
 
 _int_*DM_CLOSE*_( struct dm *dmp )_
 
-_DM_CLOSE_ closes the display manager indicated by_dmp_.
+__DM_CLOSE__ closes the display manager indicated by_dmp_.
 
 
 
@@ -93,7 +93,7 @@ _DM_CLOSE_ closes the display manager indicated by_dmp_.
 
 _int_*DM_DRAW_BEGIN*_( struct dm *dmp )_
 
-_DM_DRAW_BEGIN_ prepares the display manager indicated by _dmp_ for a round of drawing.
+__DM_DRAW_BEGIN__ prepares the display manager indicated by _dmp_ for a round of drawing.
 
 
 
@@ -109,7 +109,7 @@ _DM_DRAW_BEGIN_ prepares the display manager indicated by _dmp_ for a round of d
 
 _int_*DM_DRAW_END*_( struct dm *dmp )_
 
-_DM_DRAW_END_ ends the drawing sequence for the display manager indicated by _dmp_. This should be called before the next call to _<<dm_draw_begin,DM_DRAW_BEGIN>>_ in order to see the results of the current drawing sequence.
+__DM_DRAW_END__ ends the drawing sequence for the display manager indicated by _dmp_. This should be called before the next call to __<<dm_draw_begin,DM_DRAW_BEGIN>>__ in order to see the results of the current drawing sequence.
 
 
 
@@ -125,7 +125,7 @@ _DM_DRAW_END_ ends the drawing sequence for the display manager indicated by _dm
 
 _int_*DM_NORMAL*_( struct dm *dmp )_
 
-_DM_NORMAL_ restores the display manager indicated by _dmp_ to a normal mode of operation (i.e. not scaled, rotated, displaced, etc.).
+__DM_NORMAL__ restores the display manager indicated by _dmp_ to a normal mode of operation (i.e. not scaled, rotated, displaced, etc.).
 
 
 
@@ -139,9 +139,9 @@ _DM_NORMAL_ restores the display manager indicated by _dmp_ to a normal mode of 
 
 
 
-_int_*DM_LOADMATRIX*_( struct dm *dmp, mat_t mat, int which_eye )_
+_int_*DM_LOADMATRIX*__( struct dm *dmp, mat_t mat, int which_eye )__
 
-_DM_LOADMATRIX_ loads the display manager indicated by _dmp_ with a new transformation matrix. _mat_ indicates the matrix to be loaded._which_eye_ denotes the eye the matrix applies to and can have a value of 0 to indicate non-stereo, a value of 1 to indicate the right eye, or a value of 2 to indicate the left eye.
+__DM_LOADMATRIX__ loads the display manager indicated by _dmp_ with a new transformation matrix. _mat_ indicates the matrix to be loaded.__which_eye__ denotes the eye the matrix applies to and can have a value of 0 to indicate non-stereo, a value of 1 to indicate the right eye, or a value of 2 to indicate the left eye.
 
 
 
@@ -154,9 +154,9 @@ _DM_LOADMATRIX_ loads the display manager indicated by _dmp_ with a new transfor
 
 
 
-_int_*DM_DRAW_STRING_2D*_( struct dm *dmp, char *str, int x, int y, int size, int use_aspect )_
+_int_*DM_DRAW_STRING_2D*__( struct dm *dmp, char *str, int x, int y, int size, int use_aspect )__
 
-_DM_DRAW_STRING_2D_ draws a string in the display manager window indicated by _dmp_. _str_ is a pointer to the string to be drawn. x and y indicate where to begin drawing the string and are expected to be in the range [-2048,2047]. The _size_ argument indicates the font size to use (currently used only by dm-ps). The expected values for _size_ are 0 for small, 1 for medium, 2 for large, and 3 for huge._use_aspect_ indicates whether to use the aspect ratio to modify the starting point where the string will be drawn.
+__DM_DRAW_STRING_2D__ draws a string in the display manager window indicated by _dmp_. _str_ is a pointer to the string to be drawn. x and y indicate where to begin drawing the string and are expected to be in the range [-2048,2047]. The _size_ argument indicates the font size to use (currently used only by dm-ps). The expected values for _size_ are 0 for small, 1 for medium, 2 for large, and 3 for huge.__use_aspect__ indicates whether to use the aspect ratio to modify the starting point where the string will be drawn.
 
 
 
@@ -176,7 +176,7 @@ _DM_DRAW_STRING_2D_ draws a string in the display manager window indicated by _d
 
 _int_*DM_DRAW_LINE_2D*_( struct dm *dmp, int x1, int y1, int x2, int y2 )_
 
-_DM_DRAW_LINE_2D_ is used to draw two-dimensional lines in the display manager window indicated by _dmp. x1, y1, x2,_ and _y2_ indicate the coordinates for the line to be drawn.
+__DM_DRAW_LINE_2D__ is used to draw two-dimensional lines in the display manager window indicated by _dmp. x1, y1, x2,_ and _y2_ indicate the coordinates for the line to be drawn.
 
 
 
@@ -192,7 +192,7 @@ _DM_DRAW_LINE_2D_ is used to draw two-dimensional lines in the display manager w
 
 _int_*DM_DRAW_POINT_2D*_( struct dm *dmp, int x, int y )_
 
-_DM_DRAW_POINT_2D_ draws a point in the display manager window indicated by _dmp_._x_ and _y_ indicate the coordinates for the point to be drawn.
+__DM_DRAW_POINT_2D__ draws a point in the display manager window indicated by _dmp_._x_ and _y_ indicate the coordinates for the point to be drawn.
 
 
 
@@ -207,9 +207,9 @@ _DM_DRAW_POINT_2D_ draws a point in the display manager window indicated by _dmp
 
 
 
-_int_*DM_DRAW_VLIST*_( struct dm *dmp, struct rt_vlist *vp )_
+_int_*DM_DRAW_VLIST*__( struct dm *dmp, struct rt_vlist *vp )__
 
-_DM_DRAW_VLIST_ takes the vlist pointer _vp_ and interprets it for drawing into the display manager window indicated by _dmp_.
+__DM_DRAW_VLIST__ takes the vlist pointer _vp_ and interprets it for drawing into the display manager window indicated by _dmp_.
 
 
 
@@ -225,7 +225,7 @@ _DM_DRAW_VLIST_ takes the vlist pointer _vp_ and interprets it for drawing into 
 
 _int_*DM_SET_FGCOLOR*_( struct dm *dmp, short r, short g, short b, int strict )_
 
-_DM_SET_FGCOLOR_ sets the color for drawing in the display manager indicated by _dmp_._r, g,_ and _b_ denote the color and have values in the range [0,255]._Strict_ specifies to really use this color (i.e. don't allow ogl to do fancy things with the color when depth cueing).
+__DM_SET_FGCOLOR__ sets the color for drawing in the display manager indicated by _dmp_._r, g,_ and _b_ denote the color and have values in the range [0,255]._Strict_ specifies to really use this color (i.e. don't allow ogl to do fancy things with the color when depth cueing).
 
 
 
@@ -241,7 +241,7 @@ _DM_SET_FGCOLOR_ sets the color for drawing in the display manager indicated by 
 
 _int_*DM_SET_BGCOLOR*_( struct dm *dmp, short r, short g, short b )_
 
-_DM_SET_BGCOLOR_ sets the background color for the display manager indicated by _dmp. r, g,_ and _b_ denote the color and have values in the range [0,255].
+__DM_SET_BGCOLOR__ sets the background color for the display manager indicated by _dmp. r, g,_ and _b_ denote the color and have values in the range [0,255].
 
 
 
@@ -255,9 +255,9 @@ _DM_SET_BGCOLOR_ sets the background color for the display manager indicated by 
 
 
 
-_int_*DM_GET_BGCOLOR*_( struct dm *dmp, Tcl_Interp *interp )_
+_int_*DM_GET_BGCOLOR*__( struct dm *dmp, Tcl_Interp *interp )__
 
-_DM_SET_BGCOLOR_ gets the background color for the display manager indicated by _dmp_ and places the result in interp.
+__DM_SET_BGCOLOR__ gets the background color for the display manager indicated by _dmp_ and places the result in interp.
 
 
 
@@ -273,7 +273,7 @@ _DM_SET_BGCOLOR_ gets the background color for the display manager indicated by 
 
 _int_*DM_SET_LINE_ATTR*_( struct dm *dmp, int width, int style )_
 
-_DM_SET_LINE_ATTR_ sets the display managers (i.e. dmp) line width to width and sets its line style to_style_. Currently, there are only 2 valid values for _style: 0_ for solid lines and 1 for dashed lines.
+__DM_SET_LINE_ATTR__ sets the display managers (i.e. dmp) line width to width and sets its line style to_style_. Currently, there are only 2 valid values for _style: 0_ for solid lines and 1 for dashed lines.
 
 
 
@@ -290,7 +290,7 @@ _DM_SET_LINE_ATTR_ sets the display managers (i.e. dmp) line width to width and 
 
 _int_*DM_SET_WIN_BOUNDS*_( struct dm *dmp, int clip[6] )_
 
-_DM_SET_WIN_BOUNDS_ sets the view clipping planes for the display manager indicated by_dmp. clip_ is interpreted as follows: {XMIN, XMAX, YMIN, YMAX, ZMIN, ZMAX}
+__DM_SET_WIN_BOUNDS__ sets the view clipping planes for the display manager indicated by_dmp. clip_ is interpreted as follows: {XMIN, XMAX, YMIN, YMAX, ZMIN, ZMAX}
 
 
 
@@ -308,7 +308,7 @@ _DM_SET_WIN_BOUNDS_ sets the view clipping planes for the display manager indica
 
 _int_*DM_ENDDLIST*_( struct dm *dmp )_
 
-_DM_ENDDLIST_ ends the definition of the display list currently being defined for the display manager indicated by _dmp_.
+__DM_ENDDLIST__ ends the definition of the display list currently being defined for the display manager indicated by _dmp_.
 
 
 
@@ -328,7 +328,7 @@ _DM_ENDDLIST_ ends the definition of the display list currently being defined fo
 
 _int_*DM_DRAWDLIST*_( struct dm *dmp, unsigned int list )_
 
-_DM_DRAWDLIST_ draws the previously defined display list list in the display manager indicated by _dmp_.
+__DM_DRAWDLIST__ draws the previously defined display list list in the display manager indicated by _dmp_.
 
 
 
@@ -346,7 +346,7 @@ _DM_DRAWDLIST_ draws the previously defined display list list in the display man
 
 _int_*DM_FREEDLISTS*_( struct dm *dmp, unsigned int list, int range )_
 
-_DM_FREEDLISTS_ frees the display lists indicated by_list and range. list_ indicates the display list to start with and range indicates the number of display lists to be freed.
+__DM_FREEDLISTS__ frees the display lists indicated by_list and range. list_ indicates the display list to start with and range indicates the number of display lists to be freed.
 
 
 
@@ -365,11 +365,11 @@ _DM_FREEDLISTS_ frees the display lists indicated by_list and range. list_ indic
 
 _int_*dm_share_list*_( struct dm *dmp1, struct dm *dmp2 )_
 
-_dm_share_dlist_ provides a way to (un)share display lists. If dmp1 and dmp2 are not NULL, dmp1 will share its display lists with dmp2. If dmp2 is NULL, dmp1 will no longer share its display lists.
+__dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 are not NULL, dmp1 will share its display lists with dmp2. If dmp2 is NULL, dmp1 will no longer share its display lists.
 
 _void_*dm_fogHint*_( struct dm *dmp, int fastfog )_
 
-_dm_fogHint_ is used to give a hint to the display manager about whether to use an efficient fog calculation method or the most accurate. Note - this is currently only implemented by the ogl display manager.
+__dm_fogHint__ is used to give a hint to the display manager about whether to use an efficient fog calculation method or the most accurate. Note - this is currently only implemented by the ogl display manager.
 
 
 
@@ -389,7 +389,7 @@ _dm_fogHint_ is used to give a hint to the display manager about whether to use 
 
 _int_*dm_limit*_( val )_
 
-_dm_limit_ takes an integer argument and returns zero if (NOISE <= val < = NOISE) where NOISE is the size of the dead spot around zero. If ( val < -NOISE ), the return value is_( val + NOISE )_. If _( NOISE < val ),_ the return value is _( val - NOISE )._
+__dm_limit__ takes an integer argument and returns zero if (NOISE <= val < = NOISE) where NOISE is the size of the dead spot around zero. If ( val < -NOISE ), the return value is_( val + NOISE )_. If _( NOISE < val ),_ the return value is _( val - NOISE )._
 
 
 
@@ -416,7 +416,7 @@ _dm_limit_ takes an integer argument and returns zero if (NOISE <= val < = NOISE
 
 _int_*dm_unlimit*_( val )_
 
-_dm_unlimit_ takes an integer value and returns zero if _( val == 0 )._ If _( 0 < val ),_ the return value is _( NOISE + val ). If ( val < 0 ),_ the return value is_( -NOISE + val )._ In short, dm_unlimit puts NOISE back into val.
+__dm_unlimit__ takes an integer value and returns zero if _( val == 0 )._ If _( 0 < val ),_ the return value is _( NOISE + val ). If ( val < 0 ),_ the return value is_( -NOISE + val )._ In short, dm_unlimit puts NOISE back into val.
 
 
 
@@ -436,9 +436,9 @@ _dm_unlimit_ takes an integer value and returns zero if _( val == 0 )._ If _( 0 
 
 
 
-_fastf_t_*dm_wrap*_( val )_
+__fastf_t__*dm_wrap*_( val )_
 
-_dm_wrap_ wraps_val_ into the range [-1.0, 1.0].
+__dm_wrap__ wraps_val_ into the range [-1.0, 1.0].
 
 
 
@@ -468,9 +468,9 @@ _dm_wrap_ wraps_val_ into the range [-1.0, 1.0].
 
 
 
-_int_*dm_processOptions*_(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])_
+_int_*dm_processOptions*__(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])__
 
-_dm_processOptions_ is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
+__dm_processOptions__ is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
 
 
 
@@ -502,11 +502,11 @@ _dm_processOptions_ is used primarily by LIBDM's display manager open routines t
 
 _void_*dm_configureWindowShape*_( dmp )_
 
-_dm_configureWindowShape_ is used to update the internal state of a display manager after its window has been newly created or resized. This routine is typically called by an event handler.
+__dm_configureWindowShape__ is used to update the internal state of a display manager after its window has been newly created or resized. This routine is typically called by an event handler.
 
-_void_*dm_zbuffer*_( struct dm *dmp, zbuffer_on )_
+_void_*dm_zbuffer*__( struct dm *dmp, zbuffer_on )__
 
-_dm_zbuffer_ is used to turn Z-buffering on/off. Note - zbuffering is only supported by the_ogl_ display manager.
+__dm_zbuffer__ is used to turn Z-buffering on/off. Note - zbuffering is only supported by the_ogl_ display manager.
 
 
 
@@ -520,9 +520,9 @@ _dm_zbuffer_ is used to turn Z-buffering on/off. Note - zbuffering is only suppo
 
 
 
-_void__dm_lighting__( struct dm *dmp, int lighting_on )_
+_void___dm_lighting____( struct dm *dmp, int lighting_on )__
 
-_dm_lighting_ is used to turn lighting on/off. Note - lighting is only supported by the ogl display manager.
+__dm_lighting__ is used to turn lighting on/off. Note - lighting is only supported by the ogl display manager.
 
 
 
@@ -536,36 +536,36 @@ _dm_lighting_ is used to turn lighting on/off. Note - lighting is only supported
 
 
 
-_fastf_t_*dm_Xx2Normal*_( struct dm *dmp, int x )_
+__fastf_t__*dm_Xx2Normal*_( struct dm *dmp, int x )_
 
-_dm_Xx2Normal_ takes x in X screen coordinates and returns a value in the range [-1.0, 1.0]. dmp indicates the display manager of interest.
+__dm_Xx2Normal__ takes x in X screen coordinates and returns a value in the range [-1.0, 1.0]. dmp indicates the display manager of interest.
 
-_fastf_t_*dm_Xy2Normal*_( struct dm *dmp, int y, int use_aspect )_
+__fastf_t__*dm_Xy2Normal*__( struct dm *dmp, int y, int use_aspect )__
 
-_dm_Xy2Normal_ takes y in X screen coordinates and returns a value in the range [-1.0, 1.0]._dmp_ indicates the display manager of interest. _use_aspect specifies_ whether to use the window's aspect ratio in the calculation.
+__dm_Xy2Normal__ takes y in X screen coordinates and returns a value in the range [-1.0, 1.0]._dmp_ indicates the display manager of interest. __use_aspect specifies__ whether to use the window's aspect ratio in the calculation.
 
-_int_*dm_Normal2Xx*_( struct dm *dmp, fastf_t x )_
+_int_*dm_Normal2Xx*__( struct dm *dmp, fastf_t x )__
 
-_dm_Normal2Xx_ takes x in normalized coordinates and returns a value in X screen coordinates._dmp_ indicates the display manager of interest
+__dm_Normal2Xx__ takes x in normalized coordinates and returns a value in X screen coordinates._dmp_ indicates the display manager of interest
 
-_int_*dm_Normal2Xy*_( struct dm *dmp, fastf_t y )_
+_int_*dm_Normal2Xy*__( struct dm *dmp, fastf_t y )__
 
-_dm_Normal2Xy_ takes y in normalized coordinates and returns a value in X screen coordinates._dmp_ indicates the display manager of interest.
+__dm_Normal2Xy__ takes y in normalized coordinates and returns a value in X screen coordinates._dmp_ indicates the display manager of interest.
 
-_int_*Dm_Init*_( Tcl_Interp *interp )_
+_int_*Dm_Init*__( Tcl_Interp *interp )__
 
-_Dm_Init initializes_ LIBDM's tcl commands._interp_ indicates the Tcl interpreter.
+__Dm_Init initializes__ LIBDM's tcl commands._interp_ indicates the Tcl interpreter.
 
 
 === LIBDM's Tcl Interface
 
 *dm_bestXType*_display_
 
-_dm_bestXType_ returns the best available display manager type that can be used on the X server indicated by _display_._Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
+__dm_bestXType__ returns the best available display manager type that can be used on the X server indicated by _display_._Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
 
 *dm_validXType*_display dtype_
 
-_dm_validXType_ returns 1 if dtype is a valid display manager type for the X server indicated by_display_. Otherwise, 0 is returned._Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
+__dm_validXType__ returns 1 if dtype is a valid display manager type for the X server indicated by_display_. Otherwise, 0 is returned._Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
 
 
 == Display Manager Objects
@@ -824,53 +824,53 @@ This version of the library assumes that red, green, and blue intensities are de
 
 The exact interpretation of color maps tends to be somewhat device specific. The three ColorMap arrays each have 256 entries of unsigned 16-bit values. In order to accommodate color maps with differing amounts of output resolution, the color map entries are fixed-point fractions in the range (0.0..1.0). In integer notation, the range is (0..65525). For devices with less than 16 bits of output from their color maps, the left-most portion of each entry is used.
 
-_Fb_open_ is used to open a frame buffer file _fbfile_. The file may be either the name of a supported frame buffer interface, referenced as "/dev/interface", or the name of a UNIX file. The routine will try to determine if the file opened was a real frame buffer by examining the name, and if so will perform whatever initialization actions are necessary. If the value of _fbfile_ is NULL and the environment variable `FB_FILE` is set, then the value of `FB_FILE` is used; otherwise the default frame buffer device for the system is used. See below for more details. The _width_ and _height_ parameters specify the initial size of display desired. If these are zero the default sizes for that device will be used. On a successful open, the frame buffer I/O (fb) structure pointer is returned. This structure contains size you were actually given, as well as the maximum possible size for the selected device. A return of FB_NULL indicates failure.
+__Fb_open__ is used to open a frame buffer file _fbfile_. The file may be either the name of a supported frame buffer interface, referenced as "/dev/interface", or the name of a UNIX file. The routine will try to determine if the file opened was a real frame buffer by examining the name, and if so will perform whatever initialization actions are necessary. If the value of _fbfile_ is NULL and the environment variable `FB_FILE` is set, then the value of `FB_FILE` is used; otherwise the default frame buffer device for the system is used. See below for more details. The _width_ and _height_ parameters specify the initial size of display desired. If these are zero the default sizes for that device will be used. On a successful open, the frame buffer I/O (fb) structure pointer is returned. This structure contains size you were actually given, as well as the maximum possible size for the selected device. A return of FB_NULL indicates failure.
 
-_Fb_close_ simply closes the frame buffer.
+__Fb_close__ simply closes the frame buffer.
 
-_Fb_read_ reads _count_ pixels from the frame buffer starting at the location specified by _x_ and _y_, and places them at program memory address specified by _addr_. _Fb_read_ returns the number of pixels actually read, or -1 on error.
+__Fb_read__ reads _count_ pixels from the frame buffer starting at the location specified by _x_ and _y_, and places them at program memory address specified by _addr_. __Fb_read__ returns the number of pixels actually read, or -1 on error.
 
-_Fb_write_ writes _count_ pixels from program address _addr_ into the frame buffer starting at the location specified by _x_ and _y_. _Fb_write_ returns the number of pixels actually written, or -1 on error.
+__Fb_write__ writes _count_ pixels from program address _addr_ into the frame buffer starting at the location specified by _x_ and _y_. __Fb_write__ returns the number of pixels actually written, or -1 on error.
 
-_Fb_rmap_ reads in the color map from the frame buffer and leaves at the location pointed to by _cmap_.
+__Fb_rmap__ reads in the color map from the frame buffer and leaves at the location pointed to by _cmap_.
 
-_Fb_wmap_ writes the color map pointed to by _cmap_ into the frame buffer. If the value of _cmap_ is NULL then a linear color map is used as the default.
+__Fb_wmap__ writes the color map pointed to by _cmap_ into the frame buffer. If the value of _cmap_ is NULL then a linear color map is used as the default.
 
-_Fb_clear_ erases the frame buffer by setting all pixels to the given color. If the color pointer is NULL, black will be used. On a UNIX file, this entails writing the entire file, which is an expensive operation, whereas on most frame buffer displays this can be done in less than a second by a special command.
+__Fb_clear__ erases the frame buffer by setting all pixels to the given color. If the color pointer is NULL, black will be used. On a UNIX file, this entails writing the entire file, which is an expensive operation, whereas on most frame buffer displays this can be done in less than a second by a special command.
 
-_Fb_gettype_ returns a pointer to a string describing the frame buffer specified by the fb pointer.
+__Fb_gettype__ returns a pointer to a string describing the frame buffer specified by the fb pointer.
 
-_Fb_getwidth_ and _Fb_getheight_ returns the current size of the fb frame buffer.
+__Fb_getwidth__ and __Fb_getheight__ returns the current size of the fb frame buffer.
 
 The following routines work in conjunction with those described above to provide functions which only apply if the frame buffer file is actually a hardware frame buffer display.
 
-_Fb_cursor_ places the cursor at the image space coordinates given by _x_ and _y_. If the mode is non-zero, the cursor is made visible, and if mode is zero, the cursor is turned off.
+__Fb_cursor__ places the cursor at the image space coordinates given by _x_ and _y_. If the mode is non-zero, the cursor is made visible, and if mode is zero, the cursor is turned off.
 
-_Fb_scursor_ is the same as _fb_cursor_ except that it places the cursor at the *screen* space coordinates given by _x_ and _y_.
+__Fb_scursor__ is the same as __fb_cursor__ except that it places the cursor at the *screen* space coordinates given by _x_ and _y_.
 
-_Fb_setcursor_ allows the user to set the bitmap used to represent the cursor, thereby changing the cursor shape. This is not necessarily supported by all hardware. The argument _bits_ is a pointer to an array of unsigned chars containing the bits of the cursor. The arguments _xbits_ and _ybits_ specify the size of the cursor bitmap. The number of bytes in the `bits` array will be the width rounded up to a multiple of eight (so that the cursor "scanlines" are byte aligned) times the height. `bits`[0] is the lower left corner, `bits`[1] is to the right of it, etc. The next line of the `bits` array goes above the current one. Within a byte the most significant bit is the leftmost. The values _xorig_ and _yorig_ specify which bit in the bitmap actually gets placed at the location specified in the cursor move routines. Again, a first quadrant coordinate system is used.
+__Fb_setcursor__ allows the user to set the bitmap used to represent the cursor, thereby changing the cursor shape. This is not necessarily supported by all hardware. The argument _bits_ is a pointer to an array of unsigned chars containing the bits of the cursor. The arguments _xbits_ and _ybits_ specify the size of the cursor bitmap. The number of bytes in the `bits` array will be the width rounded up to a multiple of eight (so that the cursor "scanlines" are byte aligned) times the height. `bits`[0] is the lower left corner, `bits`[1] is to the right of it, etc. The next line of the `bits` array goes above the current one. Within a byte the most significant bit is the leftmost. The values _xorig_ and _yorig_ specify which bit in the bitmap actually gets placed at the location specified in the cursor move routines. Again, a first quadrant coordinate system is used.
 
-_Fb_window_ sets the frame buffer window center position to the image space coordinates given by _x_ and _y_. This command is usually used in conjunction with the _fb_zoom_ routine.
+__Fb_window__ sets the frame buffer window center position to the image space coordinates given by _x_ and _y_. This command is usually used in conjunction with the __fb_zoom__ routine.
 
-_Fb_zoom_ sets the zoom factor for the X coordinate to _x_ and the zoom factor for the Y coordinate to _y_. Zooming is generally done by pixel replication in hardware.
+__Fb_zoom__ sets the zoom factor for the X coordinate to _x_ and the zoom factor for the Y coordinate to _y_. Zooming is generally done by pixel replication in hardware.
 
 The following routines work in conjunction with those described above to provide buffered reading and writing of frame buffer images either to a real frame buffer or a UNIX file. The routines use a simple paging strategy to hold “bands” of the image in core. Since horizontal bands are buffered, the ideal motion is to scan left to right, then bottom to top.
 
-_Fb_ioinit_ should be called before using any of the other buffered I/O routines and repeated whenever the frame buffer is reopened.
+__Fb_ioinit__ should be called before using any of the other buffered I/O routines and repeated whenever the frame buffer is reopened.
 
-_Fb_seek_ is used to position the current read/write pointer to the location to the next position to be read or written. It is not necessary to do a _fb_seek_ after every read or write since both _fb_rpixel_ and _fb_wpixel_ imply an automatic move to the next pixel. If you read or write the last pixel on a scan line, the pointer will automatically move to the beginning of the following scan line.
+__Fb_seek__ is used to position the current read/write pointer to the location to the next position to be read or written. It is not necessary to do a __fb_seek__ after every read or write since both __fb_rpixel__ and __fb_wpixel__ imply an automatic move to the next pixel. If you read or write the last pixel on a scan line, the pointer will automatically move to the beginning of the following scan line.
 
-_Fb_tell_ returns the current location of the read write pointer in terms of (X,Y) coordinates on the frame buffer. The X and Y values are returned into the integers pointed to by _xp_ and _yp_.
+__Fb_tell__ returns the current location of the read write pointer in terms of (X,Y) coordinates on the frame buffer. The X and Y values are returned into the integers pointed to by _xp_ and _yp_.
 
-_Fb_rpixel_ reads the pixel at the current frame buffer location and returns it into the location specified by _pixelp_.
+__Fb_rpixel__ reads the pixel at the current frame buffer location and returns it into the location specified by _pixelp_.
 
-_Fb_wpixel_ writes the pixel pointed to by _pixelp_ at the current frame buffer location.
+__Fb_wpixel__ writes the pixel pointed to by _pixelp_ at the current frame buffer location.
 
-_Fb_flush_ caused any current buffered frame buffer pages to be written out. Unnecessary writes are avoided by the use of page reference bits.
+__Fb_flush__ caused any current buffered frame buffer pages to be written out. Unnecessary writes are avoided by the use of page reference bits.
 
 The following is a printing routine which this library uses to indicate errors.
 
-_Fb_log_ will convert, format and print its _args_ under control of _format_ to the standard error output. For more detailed information on the specification of the control string, see *printf*(3S). This function may be supplied by the application if different behavior is desired.
+__Fb_log__ will convert, format and print its _args_ under control of _format_ to the standard error output. For more detailed information on the specification of the control string, see *printf*(3S). This function may be supplied by the application if different behavior is desired.
 
 
 [[fb_file_devices]]
@@ -911,6 +911,6 @@ where _<system-library>_ denotes specific libraries necessary on a particular ma
 [[return_values]]
 == RETURN VALUES
 
-_fb_close_, _fb_write_, _fb_read_, _fb_wmap_, _fb_rmap_, _fb_clear_, _fb_cursor_, _fb_scursor_, _fb_setcursor_, _fb_window_, _fb_zoom_, _fb_ioinit_, _fb_seek_, _fb_wpixel_, _fb_rpixel_ and _fb_flush_ return -1 to indicate failure. _Fb_open_ returns FB_NULL to indicate failure, and a non-null fb structure pointer upon success. _fb_read_, and _fb_write_ return the number of pixels actually read or written. _fb_gettype_ returns a pointer to a NULL terminated description string.
+__fb_close__, __fb_write__, __fb_read__, __fb_wmap__, __fb_rmap__, __fb_clear__, __fb_cursor__, __fb_scursor__, __fb_setcursor__, __fb_window__, __fb_zoom__, __fb_ioinit__, __fb_seek__, __fb_wpixel__, __fb_rpixel__ and __fb_flush__ return -1 to indicate failure. __Fb_open__ returns FB_NULL to indicate failure, and a non-null fb structure pointer upon success. __fb_read__, and __fb_write__ return the number of pixels actually read or written. __fb_gettype__ returns a pointer to a NULL terminated description string.
 
 

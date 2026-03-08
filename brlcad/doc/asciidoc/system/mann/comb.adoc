@@ -17,7 +17,7 @@ comb [ [-c]| [-r]] [ [-w]| [-f]| [-l]] [ [-S]] {<combination_name>} [<<operator 
 [[description]]
 == DESCRIPTION
 
-The *comb* command creates and manipulates _BRL-CAD_ combination objects. For combination creation or appending, _operator/object_name_ pairs of boolean operators and object names are parsed into comb tree entries. (TODO - integrate full expression evaluation like that in *c*.)
+The *comb* command creates and manipulates _BRL-CAD_ combination objects. For combination creation or appending, __operator/object_name__ pairs of boolean operators and object names are parsed into comb tree entries. (TODO - integrate full expression evaluation like that in *c*.)
 
 The following options are recognized:
 
@@ -383,3 +383,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
