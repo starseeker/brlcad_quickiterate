@@ -1,2 +1,7 @@
 # BRL-CAD build directory - created during CMake configure/build
 brlcad_build/
+# Test runtime artifacts
+ged_draw_test_*_cache/
+moss_*.g
+select_*.png
+v_*_diff.png
