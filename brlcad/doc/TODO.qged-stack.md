@@ -311,20 +311,30 @@ views.  No special-case branching on command name.  Background-process commands
 (raytrace, etc.) register a completion callback; the post-processing step fires from
 there, not from the synchronous call site.
 
-### 7.4 AABB/OBB placeholder rendering ✅ Done (session 36 + session 3 of DrawPipeline)
+### 7.4 AABB/OBB → LoD progressive placeholder rendering ✅ Done (session 36 + DrawPipeline sessions 3–7)
 
-`BViewState::redraw()` now emits a lightweight dashed wireframe bounding box for
-solids in `draw_list_` whose geometry is not yet present in `s_map` but whose bbox
-has been pre-computed in `dbis->bboxes`.  This gives users immediate visual feedback
-when opening large `.g` files while the `DrawPipeline` worker fills in the real data
-in the background.  When a solid's geometry arrives (via `drain_geom_results()` →
-`ISceneObserver` notification → repaint), the placeholder box is replaced by real
-geometry automatically (`bbox_placeholders_` private map in `BViewState`).
+BoT primitives now render through a single, consolidated placeholder mechanism
+inside `bot_adaptive_plot()` in `draw.cpp`:
 
-Placeholder wireframe quality is maximized automatically: if the OBB 8-corner data
-is available in `dbis->obbs`, `bsg_vlist_arb8()` draws the tighter OBB wireframe;
-otherwise `bsg_vlist_rpp()` draws the AABB box.  The same logic applies in
-`bot_adaptive_plot()` for the adaptive-plot (per-view) placeholder path.
+1. **AABB placeholder** — on the first `draw` command, `bot_adaptive_plot` is called
+   for each BoT.  If the LoD key is not yet available, it draws an immediate AABB
+   wireframe using `bsg_vlist_rpp()` with `vo->draw_data = NULL` (placeholder marker).
+2. **OBB placeholder** — when the background `DrawPipeline` finishes the OBB stage,
+   `drain_geom_results()` stores the 8-corner data in `dbis->obbs`.  The placeholder
+   shape's `s_update_callback` (set to `bsg_mesh_lod_view`) fires, causing
+   `bot_adaptive_plot` to redraw with the tighter `bsg_vlist_arb8()` OBB wireframe.
+3. **LoD geometry** — when the LoD stage completes, `drain_geom_results()` calls
+   `stale_mesh_shapes_for_dp()` (clears placeholder view-objects) and then
+   `QgEdApp::drain_background_geom()` calls `do_view_changed(QG_VIEW_DRAWN)` which
+   schedules `flush_view_changed_()` → `BViewState::redraw()` → `bot_adaptive_plot`
+   with the LoD key now available → real `BSG_NODE_MESH_LOD` view-objects created.
+
+The earlier `bbox_placeholders_` map in `BViewState` (a secondary dashed-grey
+placeholder system that duplicated the above logic outside `bot_adaptive_plot`) was
+removed.  It was a dead code path: `draw_list_` is always synced to `s_map` at the
+end of each `redraw()`, so every entry in `draw_list_` already had an `s_map` entry
+and the skip-condition `s_map.find(full_hash) != s_map.end()` was always true.
+All placeholder work now flows exclusively through `bot_adaptive_plot()`.
 
 ---
 
@@ -372,12 +382,11 @@ otherwise `bsg_vlist_rpp()` draws the AABB box.  The same logic applies in
 - ✅ **BSG P3 helpers already implemented**: `bsg_view_find_by_type()`,
   `bsg_scene_root_camera()`, `bsg_view_mat_aet_camera()`, and `bsg_sensor_fire()` are
   all present and functional in `src/libbsg/scene_graph.cpp`.  TODO updated accordingly.
-- ✅ **AABB placeholder rendering** (Section 7.4): `BViewState::redraw()` now emits
-  lightweight dashed wireframe bounding-box scene objects for draw_list_ entries whose
-  full geometry hasn't been generated yet but whose bbox is pre-computed in
-  `dbis->bboxes`.  Placeholders are stored in `bbox_placeholders_` (new private member),
-  released when real geometry arrives on the next `redraw()` pass, and cleaned up
-  properly in `clear()` and `erase_hpath()`.  `bsg_vlist_rpp()` populates the vlist.
+- ✅ **AABB placeholder rendering** (Section 7.4): Initial implementation added
+  `bbox_placeholders_` to `BViewState`.  Superseded in session 7 of DrawPipeline by
+  the consolidated `bot_adaptive_plot()` placeholder path (AABB → OBB → LoD).
+  The `bbox_placeholders_` map has been removed; all placeholder logic is now
+  exclusively in `draw.cpp::bot_adaptive_plot()`.
 
 ### Completed (session 37)
 

@@ -29,7 +29,8 @@
  *
  * The test verifies this pipeline progression in three stages:
  *
- *   Stage 1 - right after "draw all": AABB boxes drawn, OBBs not yet drained.
+ *   Stage 1 - right after "draw all": AABB placeholder wireframes drawn,
+ *              OBBs and LoD not yet drained.
  *              Expected: bboxes >= EXPECTED_BBOXES, obbs == 0 (async pending).
  *
  *   Stage 2 - after processEvents() lets the QgEdApp 100ms drain timer fire.
@@ -38,17 +39,16 @@
  *                        lod_results_processed() >= EXPECTED_LOD.
  *
  *   Stage 3 - after additional processEvents() passes let the LoD-triggered
- *              stale-shape redraw complete (flush_view_changed_ -> redraw()).
- *              Screenshot should show LoD/OBB geometry rather than AABB boxes.
+ *              bvs->redraw() complete (do_view_changed(QG_VIEW_DRAWN) fires
+ *              from drain_background_geom, schedules flush_view_changed_,
+ *              which calls bvs->redraw() -> bot_adaptive_plot -> real LoD
+ *              view objects with BSG_NODE_MESH_LOD flag set).
+ *              Expected: lod_shape_count >= EXPECTED_LOD_SHAPES.
  *
- * The test FAILS if lod_results_processed() == 0 after Stage 2 drain, which
- * would indicate the LoD pipeline stage never produced data for qged.
- *
- * Note on why manual drain=0 in Stage 3 polling: the QgEdApp drain timer
- * fires during processEvents() in Stage 2 and consumes ALL 3651 pipeline
- * results (AABB+OBB+LoD) automatically.  Manual drain_geom_results() calls
- * therefore return 0 -- but lod_results_processed() (a cumulative counter
- * in DbiState) records the true total regardless of who called drain.
+ * The test FAILS if:
+ *   - lod_results_processed() == 0 after Stage 2 drain (LoD data never cached)
+ *   - lod_shape_count() < EXPECTED_LOD_SHAPES after Stage 3 redraw (OBB
+ *     placeholders not replaced by real LoD geometry in the viewport)
  *
  * Usage:
  *   qged_pipeline_test <path/to/GenericTwin.g> [outdir]
@@ -105,16 +105,18 @@ return QImage();
     m_app->w->update();
 
     if (flush_events) {
-/* Multiple processEvents() passes to work through the Qt signal/slot
- * chain: drain_geom_results -> notify_scene_observers -> view_update
- * -> do_view_changed -> flush_view_changed_ -> redraw():
- *
- *   pass 1: drain timer fires; stale_mesh_shapes_for_dp called;
- *           do_view_changed() queued via notify_scene_observers
- *   pass 2: do_view_changed() runs; flush_view_changed_ queued
- *   pass 3: flush_view_changed_ runs; bvs->redraw() replaces
- *           placeholder shapes with LoD geometry; repaint queued
- *   pass 4: viewport repaint processes; swrast renders LoD geometry
+/* Four processEvents() passes flush the full LoD render chain.
+ * Fewer than 4 would leave the viewport render incomplete:
+ *   pass 1: QTimer fires drain_background_geom; it detects new LoD results
+ *           and calls do_view_changed(QG_VIEW_DRAWN), which queues
+ *           flush_view_changed_ via QueuedConnection.
+ *   pass 2: flush_view_changed_ runs; bvs->redraw() is called; LoD view
+ *           objects created via bot_adaptive_plot(); emits view_update(DRAWN),
+ *           itself delivered as a queued signal.
+ *   pass 3: view_update slots fire (QgQuadView, etc.);
+ *           QgView::need_update() schedules the swrast repaint event.
+ *   pass 4: swrast paintGL() executes; LoD geometry written to framebuffer.
+ * With only 3 passes, grab() would capture the pre-repaint framebuffer.
  */
 QApplication::processEvents();
 QApplication::processEvents();
@@ -236,10 +238,7 @@ bu_vls_trunc(&msg, 0);
      * Drain via processEvents():
      *
      * The QgEdApp drain timer fires every 100ms.  Two processEvents()
-     * calls are sufficient to:
-     *   (a) let the timer fire -> drain_geom_results() runs -> ALL 3651 pipeline
-     *       results (AABB+OBB+LoD) are consumed; lod_drain_count_ incremented
-     *   (b) process any queued signals emitted during drain
+     * calls let the timer fire and process queued signals.
      * ------------------------------------------------------------------ */
     QApplication::processEvents();
     QApplication::processEvents();
@@ -263,11 +262,12 @@ bu_vls_trunc(&msg, 0);
     bu_log("  Stage 2 bright px: %d\n", m_bright_2);
 
     /* ------------------------------------------------------------------
-     * Stage 3: poll for full LoD drain completion (up to MAX_LOD_POLLS).
-     * While OBBs and LoD data were consumed during Stage 2's processEvents(),
-     * the LoD results trigger stale_mesh_shapes_for_dp() -> redraw() via a
-     * queued signal chain that may not have completed yet.  Poll until
-     * pipeline is quiescent, then take a final screenshot.
+     * Stage 3: poll until pipeline is quiescent, then take final screenshot.
+     *
+     * After lod_results_processed() advances, drain_background_geom() calls
+     * do_view_changed(QG_VIEW_DRAWN) which triggers flush_view_changed_ ->
+     * bvs->redraw() -> bot_adaptive_plot creates real LoD view objects.
+     * This cycle runs asynchronously; poll until quiescent.
      * ------------------------------------------------------------------ */
     bu_log("\n--- Stage 3: polling for LoD redraw completion ---\n");
     m_stage = STAGE_LOD_WAIT;
@@ -341,7 +341,7 @@ return;
 
     /* Take final screenshot with full event-loop flush.
      * Four processEvents() passes let the LoD-triggered redraw chain
-     * complete: drain->notify->do_view_changed->flush_view_changed_->redraw. */
+     * complete: drain->do_view_changed->flush_view_changed_->bvs->redraw. */
     QImage shot3 = grab_screenshot("pipeline_03_final", true);
     m_bright_3 = bright_pixels(shot3);
 
@@ -349,12 +349,30 @@ return;
     size_t final_obbs   = dbis->obbs.size();
     size_t final_lod    = dbis->lod_results_processed();
 
+    /* Count shapes that bot_adaptive_plot replaced with real LoD geometry
+     * (BSG_NODE_MESH_LOD flag set in the per-view object).  This is the
+     * definitive check that the LoD render transition happened.
+     *
+     * Use the active view (ged_gvp) so that get_view_state() returns the
+     * BViewState that actually owns the shapes drawn into that view.  If
+     * ged_gvp is NULL fall back to shared_vs which covers all shared-state
+     * views used by QgEdApp in single-view mode. */
+    {
+struct bview *v = m_app->mdl->gedp->ged_gvp;
+BViewState *bvs = v ? dbis->get_view_state(v) : nullptr;
+if (!bvs)
+    bvs = dbis->shared_vs;
+if (bvs && v)
+    m_lod_shapes_3 = bvs->lod_shape_count(v);
+    }
+
     bu_log("\n--- Final Evaluation ---\n");
     bu_log("  bboxes before drain: %zu  (stage 1 snapshot)\n", m_bboxes_before_drain);
     bu_log("  obbs   before drain: %zu  (stage 1 snapshot)\n", m_obbs_before_drain);
     bu_log("  bboxes after  drain: %zu  (expected >= %zu)\n",  final_bboxes, EXPECTED_BBOXES);
     bu_log("  obbs   after  drain: %zu  (expected >= %zu)\n",  final_obbs,   EXPECTED_OBBS);
     bu_log("  lod results:         %zu  (expected >= %zu)\n",  final_lod,    EXPECTED_LOD);
+    bu_log("  lod shapes rendered: %zu  (expected >= %zu)\n",  m_lod_shapes_3, EXPECTED_LOD_SHAPES);
     bu_log("  bright px: stage1=%d  stage2=%d  stage3=%d\n",
    m_bright_1, m_bright_2, m_bright_3);
 
@@ -388,6 +406,19 @@ bu_log("PASS: lod_results_processed %zu >= %zu  (LoD stage OK)\n",
        final_lod, EXPECTED_LOD);
     }
 
+    /* Required: LoD geometry must have been RENDERED (OBB placeholders
+     * replaced by actual LoD view objects via bot_adaptive_plot).
+     * This confirms the full pipeline AABB -> OBB -> LoD visual transition. */
+    if (m_lod_shapes_3 < EXPECTED_LOD_SHAPES) {
+bu_log("FAIL: lod_shape_count %zu < expected %zu "
+       "(LoD geometry not rendered -- OBB placeholders still active)\n",
+       m_lod_shapes_3, EXPECTED_LOD_SHAPES);
+pass = false;
+    } else {
+bu_log("PASS: lod_shape_count %zu >= %zu  (LoD rendering OK)\n",
+       m_lod_shapes_3, EXPECTED_LOD_SHAPES);
+    }
+
     /* Required: viewport must show geometry (bright pixels) */
     if (m_bright_3 <= 0) {
 bu_log("FAIL: Stage 3 screenshot is black (swrast rendered nothing)\n");
@@ -415,13 +446,13 @@ bu_log("INFO: OBBs already %zu at Stage 1 -- pipeline completed early "
     }
 
     /* Informational: progressive rendering if screenshots differ */
-    if (m_bright_3 != m_bright_1) {
-bu_log("INFO: Stage 3 differs from Stage 1 "
-       "(stage1=%d  stage3=%d) -- progressive refinement visible\n",
-       m_bright_1, m_bright_3);
+    if (m_bright_3 != m_bright_2) {
+bu_log("INFO: Stage 3 differs from Stage 2 "
+       "(stage2=%d  stage3=%d) -- LoD replaced OBB placeholders visually\n",
+       m_bright_2, m_bright_3);
     } else {
-bu_log("INFO: Stage 1 and Stage 3 have same pixel count -- "
-       "geometry stable (expected for warm cache)\n");
+bu_log("INFO: Stage 3 and Stage 2 have same pixel count -- "
+       "LoD geometry visually similar to OBB at current zoom level\n");
     }
 
     finish(pass);

@@ -64,10 +64,14 @@ public:
 				const QString &outdir, QObject *parent = nullptr);
 
     /* Expected DrawPipeline counts for GenericTwin.g */
-    static constexpr size_t EXPECTED_BBOXES = 2242;
-    static constexpr size_t EXPECTED_OBBS   =  706;
+    static constexpr size_t EXPECTED_BBOXES     = 2242;
+    static constexpr size_t EXPECTED_OBBS       =  706;
     /* At least 1 LoD result per BoT (703/706 expected from warm-cache path) */
-    static constexpr size_t EXPECTED_LOD    =  700;
+    static constexpr size_t EXPECTED_LOD        =  700;
+    /* At least this many shapes should have real LoD view objects (BSG_NODE_MESH_LOD)
+     * after the LoD redraw.  All 706 BoTs should get real geometry; allow a
+     * small tolerance for edge cases. */
+    static constexpr size_t EXPECTED_LOD_SHAPES =  700;
 
     /* Polling parameters */
     static constexpr int POLL_INTERVAL_MS  =   50;
@@ -112,6 +116,7 @@ private:
     size_t m_bboxes_after_drain  = 0;
     size_t m_obbs_after_drain    = 0;
     size_t m_lod_after_drain     = 0;  /* lod_results_processed() after drain */
+    size_t m_lod_shapes_3        = 0;  /* lod_shape_count() at Stage 3 final  */
 
     /* Per-stage bright-pixel counts */
     int m_bright_1 = -1;   /* Stage 1: pre-drain screenshot            */

@@ -421,6 +421,13 @@ class GED_EXPORT BViewState {
 	void stale_mesh_shapes_for_dp(struct directory *dp,
 				      const std::unordered_set<struct bview *> &views);
 
+	// Count mesh shapes in this view state that have a live LoD view object
+	// for the given bsg_view (i.e. bot_adaptive_plot has run and created
+	// real geometry with BSG_NODE_MESH_LOD set, not a bbox placeholder).
+	// Returns 0 if v is NULL.  Diagnostic/test use only — iterates all
+	// shapes in s_map and is not suitable for hot paths on large scenes.
+	size_t lod_shape_count(struct bview *v);
+
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
 	// s_keys holds the ordered individual keys of each drawn solid path - it
@@ -514,12 +521,6 @@ class GED_EXPORT BViewState {
 	DrawList draw_list_;
 	BViewState *linked_to_ = nullptr;
 
-	// Lightweight wireframe bounding-box placeholders, keyed by full_hash
-	// from draw_list_.  Shown while real geometry hasn't been generated yet
-	// (i.e., path is in draw_list_ but NOT in s_map) when a bbox is already
-	// available in dbis->bboxes.  Replaced automatically on the next
-	// redraw() pass once real geometry arrives.
-	std::unordered_map<unsigned long long, bsg_shape *> bbox_placeholders_;
 };
 
 #define GED_DBISTATE_DB_CHANGE   0x01
