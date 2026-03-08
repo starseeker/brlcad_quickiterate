@@ -619,6 +619,20 @@ class GED_EXPORT DbiState {
 	DbiState(struct ged *);
 	~DbiState();
 
+	// Close the current database: stops the GeomLoader thread (joining it
+	// while dbip is still valid), clears all per-database maps, GObj
+	// instances, and BViewState scene-object geometry, and closes the disk
+	// cache.  After this call dbip is nullptr; DbiState remains valid and
+	// can be reused by a subsequent open_db() call.  Safe to call even if
+	// no database is open.
+	void close_db();
+
+	// (Re-)initialize from gedp->dbip.  gedp->dbip must already point at
+	// the new database before this is called.  Populates all per-database
+	// maps, opens the disk cache, and starts the background geometry
+	// loader.  If gedp->dbip is nullptr this is a no-op.
+	void open_db();
+
 	unsigned long long update();
 
 	std::vector<unsigned long long> tops(bool show_cyclic);
