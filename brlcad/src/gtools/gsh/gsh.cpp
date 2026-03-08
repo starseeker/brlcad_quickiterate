@@ -157,13 +157,12 @@ class DisplayHash {
 	unsigned long long d = 0;
 	unsigned long long v = 0;
 	unsigned long long l = 0;
-	unsigned long long g = 0;
 };
 
 bool
 DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 {
-    d = 0; v = 0; l = 0; g = 0;
+    d = 0; v = 0; l = 0;
     bsg_view *bv = gedp->ged_gvp;
     if (!bv)
 	return false;
@@ -191,8 +190,6 @@ DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 	l = dl_name_hash(gedp);
     }
 
-    g = ged_dl_hash(ged_dl(gedp));
-
     return true;
 }
 
@@ -214,9 +211,6 @@ DisplayHash::dirty(struct ged *gedp, const DisplayHash &o)
 	dm_set_dirty(dmp, 1);
     }
     if (l != o.l) {
-	dm_set_dirty(dmp, 1);
-    }
-    if (g != o.g) {
 	dm_set_dirty(dmp, 1);
     }
 }

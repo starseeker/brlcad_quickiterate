@@ -35,10 +35,13 @@
 #include "bu/cmd.h"
 #include "bu/opt.h"
 #include "bu/path.h"
+#include "bu/ptbl.h"
 #include "raytrace.h"
 #include "ged.h"
+#include "bsg/util.h"
 
 #include "../dbi.h"
+#include "../ged_private.h"
 
 void print_help_msg(struct bu_vls *str)
 {
@@ -163,9 +166,26 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
 	    who_objs.push_back(wpaths[i]);
 	}
     } else {
-	struct display_list *gdlp;
-	for (BU_LIST_FOR(gdlp, display_list, (struct bu_list *)ged_dl(gedp)))
-	    who_objs.push_back(std::string(bu_vls_cstr(&gdlp->dl_path)));
+	/* Phase 2e: enumerate unique top-level objects from scene-root */
+	bsg_shape *_root = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+	if (_root) {
+	    struct bu_ptbl _tops;
+	    bu_ptbl_init(&_tops, 8, "gc_tops");
+	    for (size_t _i = 0; _i < BU_PTBL_LEN(&_root->children); _i++) {
+		bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _i);
+		if (!_sp || !_sp->s_u_data) continue;
+		struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+		if (!_bd->s_fullpath.fp_len) continue;
+		struct directory *_dp = _bd->s_fullpath.fp_names[0];
+		if (_dp->d_addr == RT_DIR_PHONY_ADDR) continue;
+		bu_ptbl_ins_unique(&_tops, (long *)_dp);
+	    }
+	    for (size_t _ti = 0; _ti < BU_PTBL_LEN(&_tops); _ti++) {
+		struct directory *_dp = (struct directory *)BU_PTBL_GET(&_tops, _ti);
+		who_objs.push_back(std::string(_dp->d_namep));
+	    }
+	    bu_ptbl_free(&_tops);
+	}
     }
 
     /* Create "working" database. */

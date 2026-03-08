@@ -24,14 +24,17 @@
  */
 
 #include <set>
+#include <unordered_map>
 #include <unordered_set>
 #include <QFileInfo>
 #include <QFile>
+#include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QTextStream>
-#include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
+#include "bu/ptbl.h"
+#include "bsg/util.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdApp.h"
@@ -39,6 +42,59 @@
 #include "QgEdFilter.h"
 
 #include "../libged/dbi.h"
+
+/* --------------------------------------------------------------------------
+ * P2: Sensor-driven redraws.
+ *
+ * We register a bsg_sensor on every shape in each view's scene root.  When
+ * bsg_shape_stale() fires on any shape (e.g. after a LOD switch or a
+ * display-list invalidation) the callback schedules a Qt repaint by invoking
+ * do_view_changed(QG_VIEW_REFRESH) via a queued meta-call so the signal is
+ * safely emitted from whatever thread fired the sensor.
+ * -------------------------------------------------------------------------- */
+
+static std::unordered_map<bsg_shape *, unsigned long long> &qged_sensor_map()
+{
+    static std::unordered_map<bsg_shape *, unsigned long long> m;
+    return m;
+}
+
+static void
+qged_shape_stale_cb(bsg_shape *s, void *ctx)
+{
+    (void)s;
+    if (!ctx) return;
+    QgEdApp *app = static_cast<QgEdApp *>(ctx);
+    QMetaObject::invokeMethod(app, "do_view_changed",
+	Qt::QueuedConnection,
+	Q_ARG(unsigned long long, (unsigned long long)QG_VIEW_REFRESH));
+}
+
+static void
+qged_register_view_sensors(QgEdApp *app, bsg_view *v)
+{
+    if (!app || !v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    auto &m = qged_sensor_map();
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	if (!s) continue;
+	if (m.find(s) != m.end()) continue;
+	unsigned long long h = bsg_shape_add_sensor(s, qged_shape_stale_cb, app);
+	if (h) m[s] = h;
+    }
+}
+
+static void
+qged_deregister_all_sensors()
+{
+    auto &m = qged_sensor_map();
+    for (auto &kv : m) {
+	bsg_shape_rm_sensor(kv.first, kv.second);
+    }
+    m.clear();
+}
 
 int
 qged_pre_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
@@ -65,6 +121,7 @@ qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp
 int
 qged_pre_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
 {
+    qged_deregister_all_sensors();
     return BRLCAD_OK;
 }
 
@@ -144,7 +201,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     // time to call the end callback (if any)
     if (!p->stdin_active && !p->stdout_active && !p->stderr_active) {
 	if (p->end_clbk)
-	    p->end_clbk(0, nullptr, nullptr, p->end_clbk_data);
+	    p->end_clbk(0, NULL, NULL, p->end_clbk_data);
     }
 
     emit ca->view_update(QG_VIEW_REFRESH);
@@ -306,42 +363,11 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     if (have_msg) {
 	w->console->prompt("$ ");
     }
-
-    // Start the background geometry drain timer.  Every BG_GEOM_DRAIN_INTERVAL_MS
-    // milliseconds the timer fires drain_background_geom(), which integrates any
-    // bounding-box results posted by the GeomLoader worker thread and emits a
-    // single view_update signal if new data arrived.  This is the notification-
-    // bundling mechanism: many bbox results that complete within one interval are
-    // coalesced into one repaint instead of thrashing the event loop.
-    geom_drain_timer_ = new QTimer(this);
-    geom_drain_timer_->setInterval(BG_GEOM_DRAIN_INTERVAL_MS);
-    connect(geom_drain_timer_, &QTimer::timeout, this, &QgEdApp::drain_background_geom);
-    geom_drain_timer_->start();
 }
 
 QgEdApp::~QgEdApp() {
     delete mdl;
     // TODO - free rt_vlfree?
-}
-
-void
-QgEdApp::drain_background_geom()
-{
-    QTCAD_SLOT("QgEdApp::drain_background_geom", 1);
-
-    if (!mdl || !mdl->gedp || !mdl->gedp->dbi_state)
-	return;
-
-    DbiState *dbis = static_cast<DbiState *>(mdl->gedp->dbi_state);
-    size_t n = dbis->drain_geom_results();
-    if (n > 0) {
-	// New bounding-box data has arrived from the background loader.
-	// Emit a view_update so that all subscribed views repaint.  Any
-	// additional drain results that complete before the next timer firing
-	// will be bundled into the next emission, keeping the repaint rate
-	// bounded to BG_GEOM_DRAIN_INTERVAL_MS.
-	emit view_update(GED_DBISTATE_VIEW_CHANGE);
-    }
 }
 
 void
@@ -372,8 +398,18 @@ QgEdApp::do_view_changed(unsigned long long flags)
 		    continue;
 		vmap[bvs].insert(v);
 	    }
-	    for (auto &[bvs, vset] : vmap)
-		bvs->redraw(nullptr, vset, 1);
+	    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
+	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
+		bv_it->first->redraw(NULL, bv_it->second, 1);
+	    }
+	}
+	/* P2: After (re)drawing, register stale-notification sensors on all
+	 * shapes now present in every view's scene root. */
+	if (views) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
+		qged_register_view_sensors(this, v);
+	    }
 	}
     }
 
