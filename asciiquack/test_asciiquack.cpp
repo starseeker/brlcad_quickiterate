@@ -2218,6 +2218,221 @@ static void test_manpage_dlist_no_double_bold() {
     end_test();
 }
 
+static void test_manpage_backend_auto_doctype() {
+    begin_test("manpage: -b manpage backend auto-implies doctype=manpage");
+
+    // Document uses `:doctype: manpage` in header but ParseOptions keeps
+    // the default doctype ("article").  The post-header fixup should still
+    // extract manname and manvolnum from the title.
+    const std::string src =
+        "= SEARCH(nged)\n"
+        ":doctype: manpage\n"
+        ":mansource: BRL-CAD\n"
+        ":manmanual: BRL-CAD User Commands\n"
+        "\n"
+        "== Name\n"
+        "search - find objects\n";
+
+    // Simulate what asciiquack does when -b manpage is passed without -d manpage:
+    // it sets doctype="manpage" before parsing.
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";  // set by -b manpage in asciiquack.cpp
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+
+    EXPECT(doc->attr("manname")   == "SEARCH");
+    EXPECT(doc->attr("manvolnum") == "nged");
+
+    std::string out = asciiquack::convert_to_manpage(*doc);
+    EXPECT_CONTAINS(out, ".TH \"SEARCH\" \"nged\"");
+
+    end_test();
+}
+
+static void test_manpage_backend_indoctype() {
+    begin_test("manpage: :doctype: manpage in header triggers post-fixup");
+
+    // When the user doesn't pass -b manpage but the file sets :doctype: manpage,
+    // the post-header fixup runs after attribute processing and extracts the
+    // manname / manvolnum from the title.
+    const std::string src =
+        "= ANALYZE(nged)\n"
+        ":doctype: manpage\n"
+        ":mansource: BRL-CAD\n"
+        ":manmanual: BRL-CAD User Commands\n"
+        "\n"
+        "== Name\n"
+        "analyze - analyze geometry\n";
+
+    // Parse with default doctype ("article") – the :doctype: header entry
+    // overrides to "manpage" during parsing.
+    asciiquack::ParseOptions opts;
+    // no explicit opts.doctype override – defaults to "article"
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+
+    EXPECT(doc->attr("manname")   == "ANALYZE");
+    EXPECT(doc->attr("manvolnum") == "nged");
+
+    end_test();
+}
+
+static void test_manpage_empty_term_suppressed() {
+    begin_test("manpage: empty-term DL items with no body are suppressed");
+
+    // Multiple synopsis variants separated by standalone "::" markers should
+    // render as sequential .nf blocks with no .TP / empty-bold lines.
+    const std::string src =
+        "= cmd(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "\n"
+        "[source]\n"
+        "----\n"
+        "cmd [options]\n"
+        "----\n"
+        "\n"
+        "::\n"
+        "\n"
+        "[source]\n"
+        "----\n"
+        "cmd subcommand\n"
+        "----\n"
+        "\n"
+        "== Description\n"
+        "Desc.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // No ".TP\n\\fB\\fR" (empty bold term) should appear
+    EXPECT(out.find("\\fB\\fR") == std::string::npos);
+    // Both synopsis blocks should be present
+    EXPECT_CONTAINS(out, "cmd [options]");
+    EXPECT_CONTAINS(out, "cmd subcommand");
+
+    end_test();
+}
+
+static void test_html5_empty_dlist_suppressed() {
+    begin_test("html5: all-empty DL (only empty-term no-body items) produces no output");
+
+    const std::string src =
+        "= Test\n"
+        "\n"
+        "[source]\n"
+        "----\n"
+        "cmd1\n"
+        "----\n"
+        "\n"
+        "::\n"
+        "\n"
+        "[source]\n"
+        "----\n"
+        "cmd2\n"
+        "----\n";
+
+    asciiquack::ParseOptions opts;
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // No empty dlist wrapper should appear
+    EXPECT(out.find("class=\"dlist\"") == std::string::npos);
+    // Both code blocks still rendered
+    EXPECT_CONTAINS(out, "cmd1");
+    EXPECT_CONTAINS(out, "cmd2");
+
+    end_test();
+}
+
+static void test_dlist_body_not_swallowed_by_table() {
+    begin_test("parser: table delimiter after DL body terminates item, not swallowed");
+
+    // A table block immediately following a DL item body text (no blank line,
+    // no list-continuation '+') must be parsed as a sibling block, not as
+    // continuation text inside the item.
+    const std::string src =
+        "= Test\n"
+        "\n"
+        "== Section\n"
+        "\n"
+        "*-opt*::\n"
+        "Description text. .Title\n"
+        "|===\n"
+        "|A |B\n"
+        "\n"
+        "|1 |2\n"
+        "|===\n"
+        "\n"
+        "== Next Section\n"
+        "\n"
+        "After table.\n";
+
+    asciiquack::ParseOptions opts;
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // The table must be rendered
+    EXPECT_CONTAINS(out, "<table");
+    // The Next Section heading must appear
+    EXPECT_CONTAINS(out, "Next Section");
+    // The table delimiters must NOT be treated as text inside the DL item
+    EXPECT(out.find("|===") == std::string::npos);
+
+    end_test();
+}
+
+static void test_html5_block_anchor_on_example() {
+    begin_test("html5: [[anchor]] before example block sets id on div");
+
+    const std::string src =
+        "= Test\n"
+        "\n"
+        "See <<myexample,the example>>.\n"
+        "\n"
+        "[[myexample]]\n"
+        ".My Example\n"
+        "[example]\n"
+        "====\n"
+        "Example content here.\n"
+        "====\n";
+
+    asciiquack::ParseOptions opts;
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // The example block div must have id="myexample"
+    EXPECT_CONTAINS(out, "id=\"myexample\"");
+    // The cross-reference link must point to #myexample
+    EXPECT_CONTAINS(out, "href=\"#myexample\"");
+
+    end_test();
+}
+
+static void test_html5_block_anchor_on_paragraph() {
+    begin_test("html5: [[anchor]] before paragraph sets id on div");
+
+    const std::string src =
+        "= Test\n"
+        "\n"
+        "See <<target>>.\n"
+        "\n"
+        "[[target]]\n"
+        "This is the target paragraph.\n";
+
+    asciiquack::ParseOptions opts;
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // The paragraph div must carry id="target"
+    EXPECT_CONTAINS(out, "id=\"target\"");
+    // The href in the xref must point to #target
+    EXPECT_CONTAINS(out, "href=\"#target\"");
+
+    end_test();
+}
+
 static void test_table_col_alignment() {
     begin_test("html5: table cols alignment prefix (< ^ >)");
 
@@ -4438,6 +4653,13 @@ int main(int argc, char* argv[]) {
     test_manpage_th_mansource_manmanual();
     test_manpage_alpha_volnum();
     test_manpage_dlist_no_double_bold();
+    test_manpage_backend_auto_doctype();
+    test_manpage_backend_indoctype();
+    test_manpage_empty_term_suppressed();
+    test_html5_empty_dlist_suppressed();
+    test_dlist_body_not_swallowed_by_table();
+    test_html5_block_anchor_on_example();
+    test_html5_block_anchor_on_paragraph();
     test_table_col_alignment();
     test_table_col_repeat();
     test_table_col_style_h();

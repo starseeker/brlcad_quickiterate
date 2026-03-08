@@ -131,6 +131,7 @@ Performing many subtractions at the same time can take a while and if MGED is ki
 
 By default, the overlap GUI will refuse to subtract any combination that doesn't reduce to a single solid. That's because subtracting a non-trivial combination complicates the re-written tree, and can lead to cycles (a - b - a).
 
+[[subtraction_assumptions]]
 Providing the `-F` ("first") option to the overlaps_tool command causes the overlap GUI to assume that the overlap between an overlapping pair only involves the first unioned solid in their respective trees. Subtracting a combination with the `-F` option enabled results in just the first unioned solid of that combination being subtracted from the first unioned solid in the other object's tree.
 
 For example, if _a_ overlaps _b_ and they look like this:

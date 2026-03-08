@@ -450,6 +450,25 @@ private:
                 << "\\fB" << troff_escape(list.title()) << "\\fR\n";
         }
         for (const auto& item : list.items()) {
+            // Empty-term items (generated e.g. by db2adoc for multi-variant
+            // synopsis blocks) carry no visible term.  If the body is also
+            // empty there is nothing to render; skip the item entirely.
+            // If there IS body content but no term, emit it as a .PP block
+            // so the content appears without a spurious empty-bold tag line.
+            bool term_empty = item->term().empty();
+            if (term_empty) {
+                bool has_content = !item->source().empty() || !item->blocks().empty();
+                if (!has_content) { continue; }
+                // Body without a term: just emit the content as paragraphs
+                if (!item->source().empty()) {
+                    out << ".PP\n" << inline_subs(item->source(), doc) << '\n';
+                }
+                for (const auto& child : item->blocks()) {
+                    convert_block(*child, doc, out);
+                }
+                continue;
+            }
+
             // Emit the term via inline_subs so that explicit bold/italic markup
             // (*term*) is handled correctly.  Do not add an extra \fB...\fR
             // wrapper here – that would double-bold terms that are already

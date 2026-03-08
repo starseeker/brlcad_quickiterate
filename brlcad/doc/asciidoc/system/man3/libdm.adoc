@@ -77,6 +77,7 @@ _DM_CLOSE_ closes the display manager indicated by_dmp_.
 
 
 
+[[dm_draw_begin]]
 _int_*DM_DRAW_BEGIN*_( struct dm *dmp )_
 
 _DM_DRAW_BEGIN_ prepares the display manager indicated by _dmp_ for a round of drawing.
@@ -414,6 +415,7 @@ _dm_wrap_ wraps_val_ into the range [-1.0, 1.0].
 
 
 
+[[dm_p]]
 _int_*dm_processOptions*_(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])_
 
 _dm_processOptions_ is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.

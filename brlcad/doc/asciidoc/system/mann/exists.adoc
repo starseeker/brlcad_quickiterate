@@ -19,6 +19,7 @@ exists {expression} [<expression>]...
 *exists* works in a fashion similar to Unix-style test commands (internally it is based on NetBSD's test code) but tests _objects_ in the current open database rather than files in a file system. If an object matching a valid expression or expressions is found 1 is returned, otherwise 0 is returned. Expressions are formed using <<primaries,PRIMARIES>> and <<operators,OPERATORS>>. A simple object name with no primaries or operators will return true if db_lookup succeeds and the object is non-null (TODO).
 
 
+[[primaries]]
 == PRIMARIES:
 
 
@@ -84,6 +85,7 @@ Returns TRUE if the objects exist and the volume of the bounding box of object1 
 
 
 
+[[operators]]
 == OPERATORS:
 
 primaries can be combined with the following operators:

@@ -41,6 +41,7 @@ d2.r
 
 
 
+[[search_options]]
 == OPTIONS
 
 
@@ -82,6 +83,7 @@ By default, only the "top level" objects in any search are used as starting poin
 The "flat" searches that are specified by using '|' as a modifier to other paths will use every object in the database as starting points for full tree walks and consequently will be significantly more expensive for complex tree hierarchies. The "truly flat" iterative search triggered by the the stand-alone '|' path specifier will be faster, but because it does not walk the tree hierarchy depth-related options (-above, -below, -depth, etc.) will not function.
 
 
+[[primitives]]
 == PRIMITIVES:
 
 
@@ -234,6 +236,7 @@ The the pattern _volume_ can be used as a mirror of plate, in that it will repor
 
 
 
+[[operators]]
 == OPERATORS
 
 
@@ -488,6 +491,7 @@ Prints all BoT primitives using "plate" mode, instead of the closed-mesh-requiri
 
 ====
 
+[[v_examples]]
 .Verbose Reporting of Search Information
 [example]
 ====

@@ -552,6 +552,13 @@ private:
         out << "</div>\n";  // sect<N>
     }
 
+    // ── Helper: emit an optional id="..." attribute ────────────────────────────
+
+    static void emit_id_attr(const Block& block, OutputBuffer& out) {
+        const std::string& id = block.id();
+        if (!id.empty()) { out << " id=\"" << id << "\""; }
+    }
+
     // ── Paragraph ─────────────────────────────────────────────────────────────
 
     void convert_paragraph(const Block& block, const Document& doc,
@@ -559,7 +566,9 @@ private:
         std::string role = block.role();
         out << "<div class=\"paragraph";
         if (!role.empty()) { out << " " << role; }
-        out << "\">\n";
+        out << "\"";
+        emit_id_attr(block, out);
+        out << ">\n";
 
         if (block.has_title()) {
             out << "<div class=\"title\">" << subs(block.title(), doc) << "</div>\n";
@@ -581,7 +590,9 @@ private:
         const std::string& language = lang_explicit.empty() ? lang_pos2 : lang_explicit;
         bool is_source = (style == "source") || !language.empty();
 
-        out << "<div class=\"listingblock\">\n";
+        out << "<div class=\"listingblock\"";
+        emit_id_attr(block, out);
+        out << ">\n";
         if (block.has_title()) {
             out << "<div class=\"title\">" << subs(block.title(), doc) << "</div>\n";
         }
@@ -627,7 +638,9 @@ private:
 
     void convert_literal(const Block& block, const Document& doc,
                          OutputBuffer& out) const {
-        out << "<div class=\"literalblock\">\n";
+        out << "<div class=\"literalblock\"";
+        emit_id_attr(block, out);
+        out << ">\n";
         if (block.has_title()) {
             out << "<div class=\"title\">" << subs(block.title(), doc) << "</div>\n";
         }
@@ -641,7 +654,9 @@ private:
 
     void convert_example(const Block& block, const Document& doc,
                          OutputBuffer& out) const {
-        out << "<div class=\"exampleblock\">\n";
+        out << "<div class=\"exampleblock\"";
+        emit_id_attr(block, out);
+        out << ">\n";
         if (block.has_title()) {
             out << "<div class=\"title\">" << subs(block.title(), doc) << "</div>\n";
         }
@@ -660,7 +675,9 @@ private:
         const std::string& attribution = block.attr("attribution");
         const std::string& citetitle   = block.attr("citetitle");
 
-        out << "<div class=\"" << (verse ? "verseblock" : "quoteblock") << "\">\n";
+        out << "<div class=\"" << (verse ? "verseblock" : "quoteblock") << "\"";
+        emit_id_attr(block, out);
+        out << ">\n";
         if (block.has_title()) {
             out << "<div class=\"title\">" << subs(block.title(), doc) << "</div>\n";
         }
@@ -695,7 +712,9 @@ private:
 
     void convert_sidebar(const Block& block, const Document& doc,
                          OutputBuffer& out) const {
-        out << "<div class=\"sidebarblock\">\n"
+        out << "<div class=\"sidebarblock\"";
+        emit_id_attr(block, out);
+        out << ">\n"
             << "<div class=\"content\">\n";
         if (block.has_title()) {
             out << "<div class=\"title\">" << subs(block.title(), doc) << "</div>\n";
@@ -847,12 +866,29 @@ private:
 
     void convert_dlist(const List& list, const Document& doc,
                        OutputBuffer& out) const {
+        // Check whether this DL has any non-empty items to render.  An empty-
+        // term item with no body (generated e.g. by db2adoc for multi-variant
+        // synopsis blocks) is pure separator noise; suppress the entire <dl>
+        // if every item is empty so that callers see no spurious markup.
+        bool has_visible = false;
+        for (const auto& item : list.items()) {
+            if (!item->term().empty() || !item->source().empty() || !item->blocks().empty()) {
+                has_visible = true;
+                break;
+            }
+        }
+        if (!has_visible) { return; }
+
         out << "<div class=\"dlist\">\n";
         if (list.has_title()) {
             out << "<div class=\"title\">" << subs(list.title(), doc) << "</div>\n";
         }
         out << "<dl>\n";
         for (const auto& item : list.items()) {
+            // Skip completely empty items (empty term + no body)
+            if (item->term().empty() && item->source().empty() && item->blocks().empty()) {
+                continue;
+            }
             out << "<dt class=\"hdlist1\">" << subs(item->term(), doc) << "</dt>\n";
             if (!item->source().empty() || !item->blocks().empty()) {
                 out << "<dd>\n";

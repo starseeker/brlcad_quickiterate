@@ -231,12 +231,23 @@ std::optional<ListMatch> match_list_item(const std::string& line) {
     // Description: term:: [optional text]  or  term;;
     // Guard: exclude lines that start with '|' (table rows/separators – Bug #7)
     if (line.empty() || line[0] != '|') {
+        // Primary pattern: term followed by :: or ;; (term must start with
+        // a non-whitespace char and have at least one more character).
         static const aqrx::regex rx(
             R"(^(?!//[^/])([ \t]*)([^ \t].+?)(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
             aqrx::ECMAScript | aqrx::optimize);
         aqrx::smatch m;
         if (aqrx::regex_match(line, m, rx)) {
             return ListMatch{ListType::Description, m[3].str(), m[4].matched ? m[4].str() : ""};
+        }
+        // Empty-term pattern: a line that is exactly "::" or "::" followed by
+        // body text.  This is valid AsciiDoc and is used in generated synopses.
+        static const aqrx::regex empty_rx(
+            R"(^(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
+            aqrx::ECMAScript | aqrx::optimize);
+        aqrx::smatch em;
+        if (aqrx::regex_match(line, em, empty_rx)) {
+            return ListMatch{ListType::Description, em[1].str(), em[2].matched ? em[2].str() : ""};
         }
     }
     // Callout: <N> text or <.> text
@@ -886,6 +897,23 @@ void Parser::parse_document_header(Reader& reader, Document& doc) {
             continue;
         }
         if (!parse_attribute_entry(reader, doc)) { break; }
+    }
+
+    // ── Post-header manpage title fix-up ──────────────────────────────────────
+    // If the file set :doctype: manpage via an attribute entry (processed above)
+    // but the title was already parsed before that attribute was seen, the
+    // manname/manvolnum attributes will not have been extracted from the title.
+    // Re-run the extraction now so that the .TH header is correct even when
+    // the user does not pass -b manpage / -d manpage on the command line.
+    if (doc.doctype() == "manpage" && !doc.has_attr("manname")) {
+        const std::string& title = doc.doctitle();
+        static const aqrx::regex manpage_rx(R"(^(.+?)\(([a-zA-Z0-9]+)\)$)",
+            aqrx::ECMAScript | aqrx::optimize);
+        aqrx::smatch mm;
+        if (aqrx::regex_match(title, mm, manpage_rx)) {
+            doc.set_attr("manname",   mm[1].str());
+            doc.set_attr("manvolnum", mm[2].str());
+        }
     }
 }
 
@@ -1668,6 +1696,14 @@ std::shared_ptr<List> Parser::parse_list(
                 }
                 continue;
             }
+
+            // A block delimiter (|===, ----, ====, etc.) or a block attribute
+            // line ([source,...]) terminates the item body paragraph.  Without
+            // an explicit list-continuation '+', these blocks belong to the
+            // parent context, not to this list item.
+            if (classify_delimiter(nxt).has_value()) { break; }
+            if (nxt.rfind("|===", 0) == 0 || nxt.rfind(",===", 0) == 0) { break; }
+            if (!nxt.empty() && nxt[0] == '[' && nxt.back() == ']') { break; }
 
             // Otherwise it's simple text continuation
             reader.skip_line();

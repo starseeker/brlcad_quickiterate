@@ -290,6 +290,12 @@ int main(int argc, char* argv[]) {
     ConvertParams params;
     params.backend  = result["backend"].as<std::string>();
     params.doctype  = result["doctype"].as<std::string>();
+
+    // When the manpage backend is selected, automatically imply doctype=manpage
+    // (matching Asciidoctor behaviour) unless the user explicitly passed -d.
+    if (params.backend == "manpage" && !result.count("doctype")) {
+        params.doctype = "manpage";
+    }
     params.out_file = result["out-file"].as<std::string>();
     params.dest_dir = result["destination-dir"].as<std::string>();
     params.quiet    = result.count("quiet") > 0;
