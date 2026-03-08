@@ -72,7 +72,7 @@ _struct dm *_ *DM_OPEN* _( int dtype, int argc, char *argv[] )_
 
 _int_ *DM_CLOSE* _( struct dm *dmp )_
 
-__DM_CLOSE__ closes the display manager indicated by_dmp_.
+__DM_CLOSE__ closes the display manager indicated by _dmp_.
 
 
 
@@ -91,7 +91,7 @@ __DM_CLOSE__ closes the display manager indicated by_dmp_.
 
 
 
-_int_ *DM_DRAW_BEGIN*_( struct dm *dmp )_
+_int_ *DM_DRAW_BEGIN* _( struct dm *dmp )_
 
  __DM_DRAW_BEGIN__  prepares the display manager indicated by  _dmp_  for a round of drawing.
 
@@ -223,7 +223,7 @@ __DM_DRAW_VLIST__ takes the vlist pointer  _vp_  and interprets it for drawing i
 
 
 
-_int_*DM_SET_FGCOLOR* _( struct dm *dmp, short r, short g, short b, int strict )_
+_int_ *DM_SET_FGCOLOR* _( struct dm *dmp, short r, short g, short b, int strict )_
 
  __DM_SET_FGCOLOR__  sets the color for drawing in the display manager indicated by  _dmp_. _r, g,_ and  _b_ denote the color and have values in the range [0,255]. _Strict_  specifies to really use this color (i.e. don't allow ogl to do fancy things with the color when depth cueing).
 
@@ -239,7 +239,7 @@ _int_*DM_SET_FGCOLOR* _( struct dm *dmp, short r, short g, short b, int strict )
 
 
 
-_int_*DM_SET_BGCOLOR* _( struct dm *dmp, short r, short g, short b )_
+_int_ *DM_SET_BGCOLOR* _( struct dm *dmp, short r, short g, short b )_
 
  __DM_SET_BGCOLOR__ sets the background color for the display manager indicated by  _dmp. r, g,_  and  _b_  denote the color and have values in the range [0,255].
 
@@ -326,7 +326,7 @@ __DM_ENDDLIST__ ends the definition of the display list currently being defined 
 
 
 
-_int_*DM_DRAWDLIST* _( struct dm *dmp, unsigned int list )_
+_int_ *DM_DRAWDLIST* _( struct dm *dmp, unsigned int list )_
 
 __DM_DRAWDLIST__ draws the previously defined display list list in the display manager indicated by  _dmp_.
 
@@ -468,7 +468,7 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- _int_ *dm_processOptions*__(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])__
+ _int_ *dm_processOptions* __(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])__
 
  __dm_processOptions__  is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
 
@@ -888,7 +888,7 @@ Disk file interface
 
 
 *hostname:* _[devicename]_::
-TCP-based network links to a remote framebuffer, where _devicename_ is any from this list, for example, fictitious.brlcad.org:/dev/ik0 or fictitious.brlcad.org:/dev/sgi. A *hostname* with a null_devicename_ will select the default display device on that host. If explicitly specifying a remote device, be careful not to omit the colon between the host and device name, or you will be specifying a local disk file as the result. Note that for security reasons, it is not permitted to access a disk file via the remote interface.
+TCP-based network links to a remote framebuffer, where _devicename_ is any from this list, for example, fictitious.brlcad.org:/dev/ik0 or fictitious.brlcad.org:/dev/sgi. A *hostname* with a null _devicename_ will select the default display device on that host. If explicitly specifying a remote device, be careful not to omit the colon between the host and device name, or you will be specifying a local disk file as the result. Note that for security reasons, it is not permitted to access a disk file via the remote interface.
 
 
 
@@ -912,5 +912,3 @@ where _<system-library>_ denotes specific libraries necessary on a particular ma
 == RETURN VALUES
 
 __fb_close__, __fb_write__, __fb_read__, __fb_wmap__, __fb_rmap__, __fb_clear__, __fb_cursor__, __fb_scursor__, __fb_setcursor__, __fb_window__, __fb_zoom__, __fb_ioinit__, __fb_seek__, __fb_wpixel__, __fb_rpixel__ and __fb_flush__ return -1 to indicate failure. __Fb_open__ returns FB_NULL to indicate failure, and a non-null fb structure pointer upon success. __fb_read__, and __fb_write__ return the number of pixels actually read or written. __fb_gettype__ returns a pointer to a NULL terminated description string.
-
-

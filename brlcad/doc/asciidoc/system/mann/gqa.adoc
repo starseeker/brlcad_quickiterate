@@ -197,7 +197,7 @@ Specifies that density values should be taken from an external file instead of f
 
 
 *-g* __[initial_grid_spacing-]grid_spacing_limit__::
-Specifies a limit on how far the grid can be refined and optionally the initial spacing between rays in the grids. The first value (if present) indicates the initial spacing between grid rays. The mandatory argument, "__grid_spacing_limit__," indicates a lower bound on how fine the grid spacing may get before computation is terminated. In general, the __initial_grid_spacing__ value should be an integer power of the __grid_spacing_limit__. So for example, if __grid_spacing_limit__ has the value 1, then any __initial_grid_spacing__ specified should be in the sequence 2, 4, 8, 16, 32... so that the grid will refine to precisely the lower limit. The grid spacing may be specified with units. For example: *5 mm* or *10 in.* If units are not provided, millimeters are presumed to be the units.
+Specifies a limit on how far the grid can be refined and optionally the initial spacing between rays in the grids. The first value (if present) indicates the initial spacing between grid rays. The mandatory argument, " __grid_spacing_limit__," indicates a lower bound on how fine the grid spacing may get before computation is terminated. In general, the __initial_grid_spacing__ value should be an integer power of the __grid_spacing_limit__. So for example, if __grid_spacing_limit__ has the value 1, then any __initial_grid_spacing__ specified should be in the sequence 2, 4, 8, 16, 32... so that the grid will refine to precisely the lower limit. The grid spacing may be specified with units. For example: *5 mm* or *10 in.* If units are not provided, millimeters are presumed to be the units.
 
 
 
@@ -257,7 +257,7 @@ Specifies the Boolean value (0 or 1) for __use_air__ which indicates whether reg
 
 
 *-u* _distance,volume,weight_::
-Specify the units used when reporting values. Values must be comma delimited and provided in the order _distance_,_volume_, _weight_. For example: *-u "cm,cu ft,kg"* or *-u ,,kg* (The latter example sets only the weight units.) Note that unit values with spaces in their names such as _cu ft_ must be contained in quotes for the shell to keep the values together.
+Specify the units used when reporting values. Values must be comma delimited and provided in the order _distance_, _volume_, _weight_. For example: *-u "cm,cu ft,kg"* or *-u ,,kg* (The latter example sets only the weight units.) Note that unit values with spaces in their names such as _cu ft_ must be contained in quotes for the shell to keep the values together.
 
 The default units are millimeters, cubic millimeters, and grams.
 

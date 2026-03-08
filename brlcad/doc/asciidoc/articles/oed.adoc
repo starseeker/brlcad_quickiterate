@@ -7,9 +7,7 @@ Clifford Yapp
 [[oed_Basic_Syntax_and_Operations]]
 == oed - Basic Syntax and Operations
 
-The syntax of *oed* is fairly straightforward: footnote:[Note: _lhs_ is an abbreviation for left hand side and rhs similarly stands for right hand side, given the assumption that a path is displayed as an ASCII stream with left to right text orientation (e.g. /toplevel/level-1/level-2/etc.)
-
-]
+The syntax of *oed* is fairly straightforward: footnote:[Note: _lhs_ is an abbreviation for left hand side and rhs similarly stands for right hand side, given the assumption that a path is displayed as an ASCII stream with left to right text orientation (e.g. /toplevel/level-1/level-2/etc.)]
 
 
 [source]
@@ -27,9 +25,7 @@ image::../articles/images/oed_fig01.png[]
 
 
 
-If we examine the tree structure of this object, we see it resembles a file system - combinations and regions act a bit like "folders" which can hold other folders and files. footnote:[When tree structures are displayed, a "/" suffix denotes a combination and a "/R" denotes a combination that is a region.
-
-]
+If we examine the tree structure of this object, we see it resembles a file system - combinations and regions act a bit like "folders" which can hold other folders and files. footnote:[When tree structures are displayed, a "/" suffix denotes a combination and a "/R" denotes a combination that is a region.]
 
 
 ....
@@ -52,9 +48,7 @@ lollipop/
     
 ....
 
-In the "file system" of a BRL-CAD object combinations can hold combinations, regions and primitives. Regions can hold combinations and primitives. footnote:[Regions will accept other regions as constructive arguments if given, but this is not good practice - BRL-CAD assumes a region is composed of combinations and primitives which share a material type.
-
-] Primitives are always leaves on the tree - they do not "contain" anything. Combinations, regions, and primitives can have associated with them transformation data (sort of like metadata in a file system) that tells BRL-CAD how to manipulate the combination, region, or primitive in question. It is this data that will be acted upon when the *oed* command is used. So in the above example the full "path" of the outer-candy-sphere.c combination used in lollipop would be:
+In the "file system" of a BRL-CAD object combinations can hold combinations, regions and primitives. Regions can hold combinations and primitives. footnote:[Regions will accept other regions as constructive arguments if given, but this is not good practice - BRL-CAD assumes a region is composed of combinations and primitives which share a material type.] Primitives are always leaves on the tree - they do not "contain" anything. Combinations, regions, and primitives can have associated with them transformation data (sort of like metadata in a file system) that tells BRL-CAD how to manipulate the combination, region, or primitive in question. It is this data that will be acted upon when the *oed* command is used. So in the above example the full "path" of the outer-candy-sphere.c combination used in lollipop would be:
 
 
 ....
@@ -94,15 +88,9 @@ oed /lollipop/outer-candy-shell.r outer-candy-sphere.c/stick.s
 
 is needed to have *oed* actually enter edit mode on lollipop's outer-candy-sphere.c. Because they are primitives in the outer-candy-sphere.c combination, outer-candy-sphere.s, core.s and stick.s are all legal - there will be illustrations later of the consequences of different primitive choices.
 
-To demonstrate basic *oed* behavior an example is in order. footnote:[Bear in mind that these examples will be using very basic primitives for the sake of simplicity and it is not guaranteed that they will behave well for things like raytracing. In this document raytraced screenshots are included to aid visualization. Most of them are simple but there are sometimes a number of extra steps needed to actually allow the objects to be raytraced with the results seen here.
+To demonstrate basic *oed* behavior an example is in order. footnote:[Bear in mind that these examples will be using very basic primitives for the sake of simplicity and it is not guaranteed that they will behave well for things like raytracing. In this document raytraced screenshots are included to aid visualization. Most of them are simple but there are sometimes a number of extra steps needed to actually allow the objects to be raytraced with the results seen here.] footnote:[__path_lhs__ will be set to "/" for these simple cases - this means either we will be working with combinations that are not contained within any other combination/region or the intent is to transform _every_ instance of the combination/region present regardless of where it appears in the tree structure. "/" denotes the toplevel lhs path, or the "root of all trees" in the database. Because every object in the database exists "on its own" at the top level as well as inside tree structures, operating on any object with a "/" path_lhs will always edit the matrix associated with that particular combination/region independently of any other transformations applied within tree structures.]
 
-] footnote:[__path_lhs__ will be set to "/" for these simple cases - this means either we will be working with combinations that are not contained within any other combination/region or the intent is to transform _every_ instance of the combination/region present regardless of where it appears in the tree structure. "/" denotes the toplevel lhs path, or the "root of all trees" in the database. Because every object in the database exists "on its own" at the top level as well as inside tree structures, operating on any object with a "/" path_lhs will always edit the matrix associated with that particular combination/region independently of any other transformations applied within tree structures.
-
-]
-
-In an empty MGED session, create a new geometry database called __oed_examples.g__. Enable the model coordinate axes display by entering the MGED command *rset ax model_draw 1*. Create two primitives: footnote:[This document will respect the normal BRL-CAD naming convention: use the .s extension for primitives, the .c extension for combinations below regions, and the .r extension for regions. Combinations above regions have no extension.
-
-]
+In an empty MGED session, create a new geometry database called __oed_examples.g__. Enable the model coordinate axes display by entering the MGED command *rset ax model_draw 1*. Create two primitives: footnote:[This document will respect the normal BRL-CAD naming convention: use the .s extension for primitives, the .c extension for combinations below regions, and the .r extension for regions. Combinations above regions have no extension.]
 
 
 ....
@@ -123,9 +111,7 @@ There should now be a sphere and a cube visible on the screen. Next create a com
 comb object1.c u sphere.s u cube.s
 ....
 
-After this command both the primitives and the combination are present in the display, which will result in overlaps. Use the *B* command to reduce the display to just the combination. footnote:[The *B* abbreviation stands for "blast" - i.e. remove all objects from being displayed, and draw only the specified objects.
-
-]
+After this command both the primitives and the combination are present in the display, which will result in overlaps. Use the *B* command to reduce the display to just the combination. footnote:[The *B* abbreviation stands for "blast" - i.e. remove all objects from being displayed, and draw only the specified objects.]
 
 
 ....
@@ -546,9 +532,7 @@ It might be reasonable to expect the *oed* command to use the center of the comb
 
 For example, to rotate object2.c around the z axis intersecting point (2,2,0) the keypoint must be set explicitly - this is not a point that can be selected by identifying a primitive.
 
-First, check the current keypoint value: footnote:[Note that keypoint is a meaningless concept until in object edit mode, so the first step is to enter that mode.
-
-]
+First, check the current keypoint value: footnote:[Note that keypoint is a meaningless concept until in object edit mode, so the first step is to enter that mode.]
 
 
 ....
@@ -892,9 +876,7 @@ object1.c:  --
 
 
 
-There is a lot of potential here for unintended consequences. On the other hand, in some cases the modeler may _want_ all instances of object1.c to pick up the changes. Awareness of the dangers inherent to this type of operation is an important skill for a modeler to acquire. footnote:[(Obviously, this example was intended for behavior demonstration and not as an example of best-practice modeling.)
-
-]
+There is a lot of potential here for unintended consequences. On the other hand, in some cases the modeler may _want_ all instances of object1.c to pick up the changes. Awareness of the dangers inherent to this type of operation is an important skill for a modeler to acquire. footnote:[(Obviously, this example was intended for behavior demonstration and not as an example of best-practice modeling.)]
 
 
 [[Summary]]
@@ -917,4 +899,3 @@ The major points of the *oed* command are:
 == Acknowledgements
 
 Thanks to Christopher Sean Morrison, Paul Tanenbaum and Ruth Foutz for proofreading, suggestions and corrections.
-

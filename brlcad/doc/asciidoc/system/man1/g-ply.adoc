@@ -17,7 +17,7 @@ g-ply [-v] [-xX<lvl>] [-a<abs_tess_tol>] [-r<rel_tess_tol>] [-n<norm_tess_tol>] 
 [[description]]
 == DESCRIPTION
 
-*g-ply* converts the specified_object(s)_ from a BRL-CAD _database.g_ file to the _Stanfort PLY_ file format.
+*g-ply* converts the specified _object(s)_ from a BRL-CAD _database.g_ file to the _Stanfort PLY_ file format.
 
 The following options are recognized.
 
@@ -97,5 +97,3 @@ This software is Copyright (c) 2003-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

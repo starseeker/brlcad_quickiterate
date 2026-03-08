@@ -46,9 +46,7 @@ There are actually a wide variety of standards used in practice to specify tire 
 |Inner Diameter(in)
 |===
 
-Separators can be any non-numeric character, but normally are either "/", "-", or in the case of the latter separator a letter denoting tire structure. Only single character separators are allowed. footnote:[As yet BRL-CAD does not use the structural information (e.g. R = radial construction) in the tire building procedure when a valid structure character is supplied, but as it may do so in the future the "best practice" is to use the letter if available.
-
-] The ratio specifies the sidewall height in terms of the overall tire width - for example, if a tire is 100mm wide and the Ratio is 40, the sidewall height is 40mm. Examples of valid input strings for tire dimensions include:
+Separators can be any non-numeric character, but normally are either "/", "-", or in the case of the latter separator a letter denoting tire structure. Only single character separators are allowed. footnote:[As yet BRL-CAD does not use the structural information (e.g. R = radial construction) in the tire building procedure when a valid structure character is supplied, but as it may do so in the future the "best practice" is to use the letter if available.] The ratio specifies the sidewall height in terms of the overall tire width - for example, if a tire is 100mm wide and the Ratio is 40, the sidewall height is 40mm. Examples of valid input strings for tire dimensions include:
 
 
 
@@ -103,9 +101,7 @@ image::../articles/images/tire_fig03.png[]
 [[Options_for_Tire]]
 == Options for Tire Tread Modeling
 
-Tread is the most difficult part of a tire to define in terms of the amount of input data required. At present it is not possible for a user to define tread on the command line - only built-in tread options are available.footnote:[Note that in most cases, BRL-CAD will not have pre-defined knowledge of specific real world tread patterns.
-
-]
+Tread is the most difficult part of a tire to define in terms of the amount of input data required. At present it is not possible for a user to define tread on the command line - only built-in tread options are available.footnote:[Note that in most cases, BRL-CAD will not have pre-defined knowledge of specific real world tread patterns.]
 
 Tread profile and tread pattern are the two factors to consider when specifying tread. Tread profile is the "shape" of the tread on the edges of the tread pattern. Many truck tires have a "squared off" tread, while automobile tires tend to have more rounded tread. Different patterns can be combined with different profiles.
 
@@ -333,7 +329,3 @@ Due to the nature of the primitives used to define these shapes, operations such
 * The wheel is generated in response to the tire dimensions and there is currently only one wheel type available in this procedure (users may model and substitute their own wheel designs).
 * Tread is not modeled by default due to performance considerations but can be added using options.
 * Fine grained control of parameters such as tire thickness is available with optional user flags.
-
-
-
-

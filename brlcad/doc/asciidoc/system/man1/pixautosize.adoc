@@ -55,7 +55,7 @@ For a major shell script which uses this program, examine *pixinfo.sh*(1) .
 [[see_also]]
 == SEE ALSO
 
-pixinfo.*sh*(1), *pix-fb*(1), *libfb*(3), *bw*(5), *pix*(5)
+pixinfo. *sh*(1), *pix-fb*(1), *libfb*(3), *bw*(5), *pix*(5)
 
 
 [[diagnostics]]
@@ -88,5 +88,3 @@ This software is Copyright (c) 1992-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-
