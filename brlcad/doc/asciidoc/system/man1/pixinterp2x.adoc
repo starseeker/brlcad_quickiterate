@@ -22,15 +22,15 @@ pixinterp2x [-s<squarefilesize>] [-w<file_width>] [-n<file_height>] [<infile.pix
 This is a very fast implementation of one special case of interpolation; the general tool for interpolation is *pixscale*(1).
 
 
-*-w*_file_width_::
+*-w* _file_width_::
 Specify the width (in pixels) of the scanlines in the input file. The default is 512.
 
 
-*-n*_file_height_::
+*-n* _file_height_::
 Specify the number of scanlines of input to be processed. The default is 512.
 
 
-*-s*_squarefilesize_::
+*-s* _squarefilesize_::
 Specify both the number of pixels per scanline and the number of scanlines in the file to process.
 
 
@@ -66,3 +66,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

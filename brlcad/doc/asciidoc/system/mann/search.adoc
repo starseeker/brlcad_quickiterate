@@ -565,7 +565,7 @@ Reports all comb instances included in their parent comb with a non-identity pos
 .Finding all Regions with RGB color 180 180 180
 [example]
 ====
-*search -type region ( -attr color=180/180/180 -or -attr rgb=180/180/180 )*
+*search -type region ( -attr color=180/180/180 -or -attr rgb=180/180/180 )* 
 
 Prints all regions with their color attribute set to 180/180/180. Some files may use _rgb_ instead of color, so to be comprehensive an _-or_ option is used to check both possibilities.
 
@@ -574,7 +574,7 @@ Prints all regions with their color attribute set to 180/180/180. Some files may
 .Find All Combs Containing At Least One of Two Objects (dbfind)
 [example]
 ====
-*search |. ( -depth 0 -above=1 -name obj1 ) -or ( -depth 0 -above=1 -name obj2 )*
+*search |. ( -depth 0 -above=1 -name obj1 ) -or ( -depth 0 -above=1 -name obj2 )* 
 
 Prints all combs immediately above either obj1 or obj2. This more or less mimics the results of the dbfind command, although it will be somewhat slower (noticably so on large databases.)
 
@@ -583,7 +583,7 @@ Prints all combs immediately above either obj1 or obj2. This more or less mimics
 .Finding all regions containing an intersection of obj2
 [example]
 ====
-*search |/ -maxdepth 0 -type region -above ( -name obj2 -bool + )*
+*search |/ -maxdepth 0 -type region -above ( -name obj2 -bool + )* 
 
 Prints all regions immediately above obj2 where obj2 is included using an intersection operation.
 
@@ -592,7 +592,7 @@ Prints all regions immediately above obj2 where obj2 is included using an inters
 .Finding all Plate-Mode BoT Objects
 [example]
 ====
-*search -type bot -param mode=plate*
+*search -type bot -param mode=plate* 
 
 Prints all BoT primitives using "plate" mode, instead of the closed-mesh-requiring "volume" mode.
 

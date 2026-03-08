@@ -4957,6 +4957,47 @@ static void test_minipdf_png_missing_returns_nullptr() {
     end_test();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// XSL inline-element trailing-space fix (rendered via asciiquack)
+// These tests verify that text rendered from XSL-produced AsciiDoc (where
+// DocBook <option>-w </option>or patterns occur) does not fuse with adjacent
+// text.  The adoc produced by db2adoc.xsl now inserts a space after the
+// closing bold/italic marker when the element content had trailing whitespace.
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void test_html_bold_adjacent_text_no_fusion() {
+    // Simulate: *-w* or *-n* (where XSL previously produced *-w*or *-n*)
+    begin_test("html5: bold marker followed directly by text is not fused");
+
+    const std::string src =
+        "= T\n\n"
+        "*-w* or *-n* flags.\n";
+    std::string out = html(src);
+
+    // Must have the space preserved between the bold marker and "or"
+    EXPECT_CONTAINS(out, "<strong>-w</strong> or <strong>-n</strong>");
+
+    end_test();
+}
+
+static void test_html_inline_option_trailing_space_preserved() {
+    // Verify that the pattern "*-w* or" produces a readable dlist term
+    begin_test("html5: dlist term with bold+space+text renders correctly");
+
+    const std::string src =
+        "= T\n\n"
+        "*-s* _square_size_::\n"
+        "The size.\n"
+        "*-w* or *-h*::\n"
+        "Width or height.\n";
+    std::string out = html(src);
+
+    // The term "*-w* or *-h*" should produce a dt with the space intact
+    EXPECT_CONTAINS(out, "<strong>-w</strong> or <strong>-h</strong>");
+
+    end_test();
+}
+
 
 
 int main(int argc, char* argv[]) {
@@ -5197,6 +5238,8 @@ int main(int argc, char* argv[]) {
     test_minipdf_jpeg_from_file_loads();
     test_pdf_table();
     test_minipdf_png_missing_returns_nullptr();
+    test_html_bold_adjacent_text_no_fusion();
+    test_html_inline_option_trailing_space_preserved();
 
     // Summary
     std::cout << "\n============================\n";

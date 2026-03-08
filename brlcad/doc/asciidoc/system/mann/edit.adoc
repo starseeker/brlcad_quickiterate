@@ -30,7 +30,7 @@ Operates on objects in the database, solely through the use of _subcommand_s. Th
 
 The format of the standard options accepted by subcommands, *-n*, *-k*, *-a*/*-r*, and *-x*/ *-y*/*-z*, is defined here. The interpretation of these options, however, is left up to the implementation of a given subcommand.
 
-All edit commands interpret a lone point (*.*) as a special operator, called the batch operator. The batch operator is accepted as an argument to the options *-k*, *-a*, and *-r*. In a batch operation, each individual _object_ is operated on using the bounding box center of itself in place of the batch operator. While all _object_'s move together in a non-batch operation, in batch operations, each _object_ may move independently of all other _object_'s.
+All edit commands interpret a lone point (*.* ) as a special operator, called the batch operator. The batch operator is accepted as an argument to the options *-k*, *-a*, and *-r*. In a batch operation, each individual _object_ is operated on using the bounding box center of itself in place of the batch operator. While all _object_'s move together in a non-batch operation, in batch operations, each _object_ may move independently of all other _object_'s.
 
 If any _from_ coordinates are omitted, they default to the bounding box center of the first _object_ is used as _from_. To use the natural origin of the first _object_ as _from_, __from_object__ must be manually set to whatever _object_ is set to. If any _to_ coordinates are omitted, they default to the values set in _from_.
 

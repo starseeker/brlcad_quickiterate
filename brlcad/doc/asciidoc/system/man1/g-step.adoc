@@ -22,7 +22,7 @@ g-step -o<output_file.stp> <database.g> [<object(s)>]
 The following options are recognized.
 
 
-*-o*__output_file_or_directory__::
+*-o* __output_file_or_directory__::
 Specifies the output file to which the STEP output is written.
 
 

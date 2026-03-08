@@ -88,7 +88,7 @@ Ahora que todas las esferas están creadas y en su lugar, debe hacer una región
 
 Nota: Hay tres maneras fáciles de hacer todas las regiones. La primera consiste en tipear el primer comando: *r sph1.r u sph1.s[Enter]* y luego usar la flecha hacia arriba para recordar este comando. A continuación sustituya el número 1 por un 2, repitiendo estos pasos sucesivamente hasta llegar a la esfera 8.
 
-La segunda opción se basa en el hecho de que el intérprete de la línea de comandos de _MGED_ usa el lenguaje Tcl/Tk. Esto nos da acceso a algunos loops de comandos. A continuación hará todas las regiones con un solo comando: *foreach i { 1 2 3 4 5 6 7 8 } { [Enter]* *r sph$i.r u sph$i.s [Enter]* *}[Enter]*
+La segunda opción se basa en el hecho de que el intérprete de la línea de comandos de _MGED_  usa el lenguaje Tcl/Tk. Esto nos da acceso a algunos loops de comandos. A continuación hará todas las regiones con un solo comando: *foreach i { 1 2 3 4 5 6 7 8 } { [Enter]* *r sph$i.r u sph$i.s [Enter]* *}[Enter]* 
 
 Esto es mucho más fácil y más rápido que cualquiera de los métodos anteriores. Sin embargo, si hubiera muchas más esferas (por ejemplo 1000 o más), entonces se vuelve más conveniente utilizar una tercera forma que emplea diferentes tipos de bucles:
 
@@ -125,7 +125,7 @@ Para este tutorial utilizaremos la primera opción.
 
 Ahora enfrentamos otra decisión: como lograr este resultado. La clave es que el espacio que ocupan las piedras debe ser substraído del candelabro, pero en la parte que corresponde, el rcc1.s.
 
-En la línea de comandos cree rcc1.c tipeando: *comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]* Luego abra el Combination Editor y seleccione base1.r. Modifique la unión de rcc1.s en el campo de la expresión booleana para hacer la unión de rcc1.c (difieren en el tipo, una es la figura, la segunda es una combinación), y cliquee OK. El árbol de base1.r debería verse así:
+En la línea de comandos cree rcc1.c tipeando: *comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]*  Luego abra el Combination Editor y seleccione base1.r. Modifique la unión de rcc1.s en el campo de la expresión booleana para hacer la unión de rcc1.c (difieren en el tipo, una es la figura, la segunda es una combinación), y cliquee OK. El árbol de base1.r debería verse así:
 
 
 ....
@@ -178,7 +178,7 @@ En la línea de comandos cree rcc1.c tipeando: *comb rcc1.c u rcc1.s - sph1.r - 
 
 
 
-Note que podríamos haber logrado los mismos resultados en la línea de comandos mediante el uso del comando rm (Remove) para quitar el espacio de rcc1.s de base1.r y a continuación, añadir rcc1.c: *rm base1.r rcc1.s[Enter]* *r base1.r u rcc1.c[Enter]*
+Note que podríamos haber logrado los mismos resultados en la línea de comandos mediante el uso del comando rm (Remove) para quitar el espacio de rcc1.s de base1.r y a continuación, añadir rcc1.c: *rm base1.r rcc1.s[Enter]*  *r base1.r u rcc1.c[Enter]* 
 
 El resultado de esto sería un árbol como el siguiente:
 
@@ -286,7 +286,7 @@ Por último, podríamos haber evitado crear un objeto intermedio en la base de d
 
 Puede ser una buena práctica considerando los méritos de cada método disponible.
 
-Ahora necesitará combinar las piedras con el candelabro candle1.c: *comb candle1.c u sph1.r u sph2.r u sph3.r u sph4.r u sph5.r u sph6.r u sph7.r u sph8.r[Enter]*
+Ahora necesitará combinar las piedras con el candelabro candle1.c: *comb candle1.c u sph1.r u sph2.r u sph3.r u sph4.r u sph5.r u sph6.r u sph7.r u sph8.r[Enter]* 
 
 Hay sólo un par de cosas por hacer antes de general el Raytrace del diseño. Si ha habilitado la opción Multipane o la cuadrícula, vuelva al menú Modes (Modos) y desactívelos. A continuación, limpie la pantalla y dibuje su nuevo diseño escribiendo en la ventana de comandos: *B candle1.c table1.r* Su nuevo diseño debería aparecer en la ventana de gráficos. Abra el Raytrace Control Panel (Panel de control de Raytrace) y seleccione un color azul claro (200 236 242) escribiendo los tres valores en el cuadro de entrada Background Color (Color de fondo). El trazado de rayos debe ser similar al siguiente:
 

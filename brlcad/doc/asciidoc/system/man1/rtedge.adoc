@@ -33,7 +33,7 @@ selects which space partitioning algorithm to use
 
 
 *-a #*::
-selects auto-sizing, and gives the view azimuth in degrees. Used with *-e* and conflicts with *-M*.
+selects auto-sizing, and gives the view azimuth in degrees. Used with *-e* and conflicts with *-M* .
 
 
 *-b "# #"*::
@@ -41,7 +41,7 @@ is sometimes useful for debugging. A single ray is fired at the pixel coordinate
 
 
 *-e #*::
-selects auto-sizing, and gives the view elevation in degrees. Used with *-a* and conflicts with *-M*.
+selects auto-sizing, and gives the view elevation in degrees. Used with *-a* and conflicts with *-M* .
 
 
 *-g #*::

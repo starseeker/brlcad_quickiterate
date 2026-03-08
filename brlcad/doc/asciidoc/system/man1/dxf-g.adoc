@@ -34,11 +34,11 @@ Sets a debug flag. The only effect is to cause a core dump on failure. This is p
 Produces very verbose output on stderr.
 
 
-*-s*__scale_factor__::
+*-s* __scale_factor__::
 Provides a scale factor to be applied to the DXF input. This can be used for DXF files that do not provide units information.
 
 
-*-t*_tolerance_::
+*-t* _tolerance_::
 Specifies the maximum distance (in mm) between two vertices at which the two vertices will be considered to be the same vertex.
 
 

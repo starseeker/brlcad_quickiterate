@@ -21,7 +21,7 @@ Executes the specified _program_ with the provided _options_ and includes the cu
 
 __program options database_name objects.__
 
-The *rrt* command also provides the current MGED viewing parameters to the _program_ on standard input. Many BRL-CAD programs use the _-M_ option to indicate that viewing parameters will be provided on standard input. The *rt* command can be simulated with *rrt* as:
+The *rrt* command also provides the current MGED viewing parameters to the _program_ on standard input. Many BRL-CAD programs use the _-M_ option to indicate that viewing parameters will be provided on standard input. The *rt* command can be simulated with *rrt*  as:
 
 _rrt /usr/brlcad/bin/rt -M -s50_
 

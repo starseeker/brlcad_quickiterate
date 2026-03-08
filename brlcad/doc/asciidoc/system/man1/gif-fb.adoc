@@ -23,7 +23,7 @@ gif-fb [ -F <frame_buffer_file>] [-c] [ -i <image_number>] [-o] [-v] [-z] [ <GIF
 === Options
 
 
-*-F*_frame_buffer_name_::
+*-F* _frame_buffer_name_::
 Outputs to the specified frame buffer instead of the one specified by the *FB_FILE* environment variable (or the default frame buffer, if *FB_FILE* is not set). The frame buffer size requested will be the same as the input GIF screen size. The actual size obtained depends on details of the specific frame buffer.
 
 

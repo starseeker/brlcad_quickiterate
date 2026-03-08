@@ -27,21 +27,21 @@ The *-S* flag causes a surpentine raster to be used rather than a left to right 
 
 The *-a* flag is used when automatic file sizing is wanted. This does not work on pipes.
 
-The *-w*_file_width_ flag specifies the width of each scanline in the input file, in pixels.
+The *-w* _file_width_ flag specifies the width of each scanline in the input file, in pixels.
 
-The *-n*_file_height_ flag specifies the height in scanlines of the input file.
+The *-n* _file_height_ flag specifies the height in scanlines of the input file.
 
-*-s*_squarefilesize_ sets both the height and width to the size given.
+*-s* _squarefilesize_ sets both the height and width to the size given.
 
-*-B*_contrast_ will define a floating point value to be used as the Beta portion of a edge sharpening algorithm. The default is 0.0, which is no sharpening.
+*-B* _contrast_ will define a floating point value to be used as the Beta portion of a edge sharpening algorithm. The default is 0.0, which is no sharpening.
 
-*-I*_Levels_ defines the number of different intensity levels to use on output. The default is 2 (1 bit) and the max is 256 (8 bits).
+*-I* _Levels_ defines the number of different intensity levels to use on output. The default is 2 (1 bit) and the max is 256 (8 bits).
 
-*-M*_method_ allows a choice of dither methods. The default is 0 a Floyd-Steinberg diffused error dither, 1 is a 45 degree classical clustered halftone screen, 2 is a simple threshold dither, 3 is a 0 degree dispersed halftone screen.
+*-M* _method_ allows a choice of dither methods. The default is 0 a Floyd-Steinberg diffused error dither, 1 is a 45 degree classical clustered halftone screen, 2 is a simple threshold dither, 3 is a 0 degree dispersed halftone screen.
 
-The *-T*_x1 y1 x2 y2 ..._ parameter is used to define a curve to be used as a tone scale. The resulting curve is used to map input pixels to output pixels. The default curve is -T 0 0 128 128 255 255; a curve suggested by Robert Ulichney in Digital Halftoning is -T 0 0 15 0 128 100 200 200 240 255 255 255.
+The *-T* _x1 y1 x2 y2 ..._ parameter is used to define a curve to be used as a tone scale. The resulting curve is used to map input pixels to output pixels. The default curve is -T 0 0 128 128 255 255; a curve suggested by Robert Ulichney in Digital Halftoning is -T 0 0 15 0 128 100 200 200 240 255 255 255.
 
-*-D*_debug_level_ supplies the debug level; setting the argument to 9 provides all debugging.
+*-D* _debug_level_ supplies the debug level; setting the argument to 9 provides all debugging.
 
 
 [[format]]

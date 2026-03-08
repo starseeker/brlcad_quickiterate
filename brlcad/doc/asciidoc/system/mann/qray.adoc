@@ -33,7 +33,7 @@ Set or get the type of _effects_ that will occur when firing a query ray. The ef
 
 
 *echo* [_0|1_]::
-Sets or gets the value of _echo_. If set to 1, the actual *nirt* command used will be echoed to the screen.
+Sets or gets the value of _echo_. If set to 1, the actual *nirt*  command used will be echoed to the screen.
 
 
 *oddcolor* [_r g b_]::
@@ -118,3 +118,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
