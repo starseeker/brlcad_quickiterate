@@ -24,7 +24,7 @@ window_frame [<options>]...
 == OPTIONS
 
 
-*-f*_name.g_::
+*-f* _name.g_::
 BRL-CAD file name.
 
 
@@ -127,3 +127,5 @@ bolt(1), handle(1), window(1), gastank(1)
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -24,15 +24,15 @@ pix-alias [-s<squaresize>] [-w<file_width>] [-n<file_height>] < <BRLpixfile> > <
 == OPTIONS
 
 
-*-n*_file_height_::
+*-n* _file_height_::
 tells *pix-alias* that the input is __file_height__ scanlines tall
 
 
-*-w*_file_width_::
+*-w* _file_width_::
 tells *pix-alias* that the input is __file_width__ pixels wide
 
 
-*-s*_squaresize_::
+*-s* _squaresize_::
 sets both the width and the height for the input to be _squaresize_
 
 

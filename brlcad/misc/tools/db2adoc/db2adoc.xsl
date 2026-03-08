@@ -76,6 +76,20 @@
     <xsl:value-of select="normalize-space($text)"/>
   </xsl:template>
 
+  <!-- Emit a single space when the current element's text content has a trailing
+       whitespace character (e.g. <option>-w </option>or).  normalize-space() inside
+       the text() template strips that space; this call restores it after the closing
+       inline marker so adjacent text does not fuse with the markup. -->
+  <xsl:template name="inline-trailing-space">
+    <xsl:variable name="raw" select="string(.)"/>
+    <xsl:if test="string-length($raw) > 0 and
+                  following-sibling::node() and
+                  translate(substring($raw, string-length($raw), 1),
+                            ' &#9;&#10;&#13;', '') = ''">
+      <xsl:text> </xsl:text>
+    </xsl:if>
+  </xsl:template>
+
   <!-- Escape AsciiDoc special characters in plain text context -->
   <xsl:template name="escape-adoc">
     <xsl:param name="text"/>
@@ -1495,6 +1509,7 @@
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- option: bold -->
@@ -1502,6 +1517,7 @@
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- replaceable: italic -->
@@ -1509,6 +1525,7 @@
     <xsl:text>_</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>_</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- literal, code: monospace -->
@@ -1516,6 +1533,7 @@
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>`</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- filename, varname, envar: monospace italic -->
@@ -1523,6 +1541,7 @@
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>`</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- application: italic -->
@@ -1530,6 +1549,7 @@
     <xsl:text>_</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>_</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- function: monospace -->
@@ -1542,6 +1562,7 @@
       <xsl:text>()</xsl:text>
     </xsl:if>
     <xsl:text>`</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- parameter: italic monospace -->
@@ -1549,6 +1570,7 @@
     <xsl:text>_</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>_</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- userinput: bold -->
@@ -1556,6 +1578,7 @@
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- computeroutput: monospace -->
