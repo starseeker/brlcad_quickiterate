@@ -380,30 +380,20 @@ geometry automatically.
 1. **`QgModel` ownership** (Tier 2): convert `rootItem` and the `items` set to
    `unique_ptr`-based ownership to eliminate the raw-pointer forest.
 
-2. **AABB placeholder rendering** (Section 7.4): ✅ Done (session 36). The
-   placeholder shows a dashed grey wireframe box while the solid's geometry
-   is still being computed.  The placeholder is replaced automatically when
-   `BViewState::redraw()` next runs and finds real geometry for that path.
-
 ### Medium-term (modernisation)
 
-3. **`fbserv.cpp` → `QLocalSocket`** (Tier 2): requires libpkg to gain Unix-domain-
+2. **`fbserv.cpp` → `QLocalSocket`** (Tier 2): requires libpkg to gain Unix-domain-
    socket support before the Qt layer can be switched.  Investigate in a libpkg session.
 
-4. **`QgConsole` tab completion review** (Tier 3): the stale TODO comments in the tab
+3. **`QgConsole` tab completion review** (Tier 3): the stale TODO comments in the tab
    completion code have been removed.  The existing `split_slash` mechanism handles
    mid-string path completions.  Verify in an interactive session that `draw foo/ba<TAB>`
    completes correctly.  No known Qt6 API breakage remains.
 
 ### Longer-term (features)
 
-6. **AABB placeholder rendering** (Section 7.4 above): natural follow-on to
-   `GeomLoader`; straightforward given the current bbox cache.
-
-7. **Primitive editing** (Tier 4): the largest single feature gap.  The design
+4. **Primitive editing** (Tier 4): the largest single feature gap.  The design
    (Section 7.1) is clear; implementation is substantial but incremental.
-
-8. **BSG P3 items**: `bsg_view_find_by_type()` / `bsg_sensor_fire()` helpers.
 
 ---
 
