@@ -336,7 +336,7 @@ private:
 //
 // Use the static factory methods to load an image from disk:
 //   PdfImage::from_jpeg_file(path)  – load a JPEG
-//   PdfImage::from_png_file(path)   – load a PNG  (requires MINIPDF_USE_ZLIB)
+//   PdfImage::from_png_file(path)   – load a PNG (via bundled lodepng)
 //   PdfImage::from_file(path)       – try JPEG then PNG automatically
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -354,8 +354,7 @@ public:
     [[nodiscard]] static std::shared_ptr<PdfImage>
     from_jpeg_file(const std::string& path);
 
-    /// Load a PNG image from @p path (requires zlib; compile with
-    /// -DMINIPDF_USE_ZLIB and link -lz).
+    /// Load a PNG image from @p path (uses the bundled lodepng library).
     /// Returns nullptr on failure (file not found, unsupported format, etc.).
     [[nodiscard]] static std::shared_ptr<PdfImage>
     from_png_file(const std::string& path);

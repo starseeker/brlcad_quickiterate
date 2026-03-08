@@ -62,7 +62,9 @@ Benchmark: 1 000 in-process iterations on `benchmark/sample-data/mdbasics.adoc`
 
 ### Other dependencies
 
-- Syntax highlighting (if C++23 available): µlight (https://github.com/eisenwave/ulight)
 - Command line options: cxxopts (https://github.com/jarro2783/cxxopts)
 - PDF writing: minimal subset of libharu (https://github.com/libharu/libharu)
 - Font support: struetype fork of stb_truetype (https://github.com/starseeker/struetype)
+- PNG support: LodePNG (https://github.com/lvandeve/lodepng)
+- fonts: Noto (https://fonts.google.com/noto) 
+- Syntax highlighting (if C++23 available): µlight (https://github.com/eisenwave/ulight)
