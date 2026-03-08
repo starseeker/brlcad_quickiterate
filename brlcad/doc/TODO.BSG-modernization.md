@@ -56,6 +56,56 @@ manage geometry state.  It is the primary source of remaining legacy patterns.
 
 Key open areas in priority order:
 
+## Current State — Session 32 Update (2026-03-07)
+
+### Additional items completed ✅ (Session 32) — gd_headDisplay REMOVED
+
+- **`src/libged/ged_private.h`**: Removed `gd_headDisplay` field from `struct ged_drawable`.
+- **`src/libged/ged.cpp`**: Removed `BU_GET`/`BU_LIST_INIT`/`BU_PUT` calls for `gd_headDisplay`.
+- **`src/libged/ged_util.cpp`** `ged_dl()`: Body replaced with `return NULL` (struct field gone).
+- **`include/ged/view.h`** `GED_CHECK_DRAWABLE`: Changed condition from `!ged_dl(_gedp)` to `(_gedp)->ged_gvp == GED_VIEW_NULL`.
+- **`include/ged/view.h`**: Removed `dl_addToDisplay` declaration; updated `ged_dl` comment.
+- **`src/libged/display_list.c`** — dead code removed:
+  - `dl_addToDisplay()` — removed (was the sole writer to gd_headDisplay)
+  - `headsolid_split()` — removed (called dl_addToDisplay)
+  - `headsolid_splitGDL()` — removed (called headsolid_split)
+  - `eraseAllSubpathsFromSolidList()` — removed (was dead legacy helper)
+  - `_dl_eraseFirstSubpath()` — removed (was dead legacy helper)
+  - `_dl_freeDisplayListItem()` — removed (was dead legacy helper)
+  - `dl_erasePathFromDisplay()` — collapsed to pure scene-root implementation (no hdlp)
+  - `_dl_eraseAllNamesFromDisplay()` — collapsed to pure scene-root implementation
+  - `_dl_eraseAllPathsFromDisplay()` — collapsed to pure scene-root implementation
+- **`src/libged/zap/zap.c`** `dl_zap()`: Removed `hdlp` and dead display-list-header free loop.
+- **`src/libged/joint/joint.c`**: Removed `dl_set_iflag(gedp->i->ged_gdp->gd_headDisplay, DOWN)` call.
+- **`src/libged/vutil.c`** `ged_dl_hash()`: Simplified to `return 0` (dl is always NULL now).
+- **`src/libged/ged_private.h`**: Removed `_dl_freeDisplayListItem` declaration.
+
+### What remains open ⚠️ (after Session 32)
+
+`gd_headDisplay` is **fully removed** from the codebase. No remaining references.
+
+Remaining long-term cleanup:
+
+| Item | File | Notes |
+|------|------|-------|
+| Migrate `ged_dl()` callers away | `mged/buttons.c`, `mged/mater.c`, `mged/attach.c`, `mged/set.c`, `mged/share.c` | All call no-op `dl_set_iflag`/`dl_color_soltab`/`createDLists` with the returned NULL; harmless but can be cleaned up |
+| Remove `ged_dl()` entirely | `ged_util.cpp`, `include/ged/view.h` | Currently a no-op stub returning NULL; external code (libtclcad, mged) still calls it |
+| Remove `dl_color_soltab`/`dl_set_iflag` stubs | `display_list.c`, `include/ged/view.h` | Are no-ops accepting any pointer; can be removed once all callers are cleaned up |
+| Remove `dl_bounding_sph` stub | `display_list.c` | No-op; callers use `bsg_bounding_sph` |
+| `ged_dl_hash` (in `vutil.c`) | callers in `gsh.cpp` | Returns 0 forever; `gsh.cpp` caller should switch to `dl_name_hash(gedp)` |
+
+#### P2: Remaining camera-field direct writes
+
+| File | Remaining pattern |
+|------|-------------------|
+| `src/librt/primitives/sketch/polygons.c` | `bu_opt_fastf_t(..., &sv->gv_scale)` write — needs a setter API |
+
+#### P3: Sensor / LoD integration
+
+- `dbi_state.cpp`: schedule redraws via scene sensors rather than explicit `bsg_shape_stale()` calls.
+
+---
+
 ## Current State — Session 31 Update (2026-03-07)
 
 ### Additional items completed ✅ (Session 31)

@@ -2558,11 +2558,10 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 #endif
 
 struct display_list *
-ged_dl(struct ged *gedp)
+ged_dl(struct ged *UNUSED(gedp))
 {
-    if (!gedp || !gedp->i || !gedp->i->ged_gdp)
-	return NULL;
-    return (struct display_list *)gedp->i->ged_gdp->gd_headDisplay;
+    /* gd_headDisplay has been removed; always return NULL */
+    return NULL;
 }
 
 void
