@@ -4503,7 +4503,6 @@ static void test_pdf_image_images_dir_resolution() {
     end_test();
 }
 
-#ifdef MINIPDF_USE_ZLIB
 static void test_minipdf_png_from_file_loads() {
     begin_test("minipdf: PdfImage::from_file loads the demo PNG");
 
@@ -4532,7 +4531,6 @@ static void test_minipdf_png_from_file_loads() {
 
     end_test();
 }
-#endif // MINIPDF_USE_ZLIB
 
 static void test_pdf_table() {
     begin_test("pdf: table renders cell content with valid PDF structure");
@@ -4819,9 +4817,7 @@ int main(int argc, char* argv[]) {
     test_pdf_image_xobject_structure();
     test_pdf_image_xobject_xref_valid();
     test_pdf_image_images_dir_resolution();
-#ifdef MINIPDF_USE_ZLIB
     test_minipdf_png_from_file_loads();
-#endif
     test_minipdf_jpeg_from_file_loads();
     test_pdf_table();
     test_minipdf_png_missing_returns_nullptr();
