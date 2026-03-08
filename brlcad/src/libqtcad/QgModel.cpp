@@ -166,7 +166,7 @@ QgItem::appendChild(QgItem *c)
 QgItem *
 QgItem::child(int n)
 {
-    if (n < 0 || n >= (int)children.size())
+    if (n < 0 || n >= static_cast<int>(children.size()))
 	return nullptr;
 
     return children[n];
@@ -183,7 +183,7 @@ QgItem::childCount() const
     // it is 0 until fetchMore() has been called.  This is the standard Qt
     // lazy-loading pattern: rowCount() reflects loaded rows, and
     // canFetchMore() signals whether more rows are available.
-    return (int)children.size();
+    return static_cast<int>(children.size());
 }
 
 int
@@ -204,7 +204,7 @@ QgItem::childNumber() const
     if (parentItem) {
 	for (size_t i = 0; i < parentItem->children.size(); i++) {
 	    if (parentItem->children[i] == this)
-		return i;
+		return static_cast<int>(i);
 	}
 	bu_log("WARNING - invalid parent/child inquiry\n");
     }
@@ -430,17 +430,14 @@ QgModel::item_rebuild(QgItem *item)
     }
 
     std::unordered_map<unsigned long long, QgItem *> oc;
-    for (size_t i = 0; i < item->children.size(); i++) {
-	QgItem *qii = item->children[i];
+    for (QgItem *qii : item->children)
 	oc[qii->ihash] = qii;
-    }
 
     // Iterate the instance's array of child hashes, building up the
     // corresponding QgItems array using either the stored QgItems from the
     // previous state or new items.
     std::vector<QgItem *> nc;
-    std::vector<unsigned long long>::reverse_iterator nh_it;
-    for (nh_it = nh.rbegin(); nh_it != nh.rend(); nh_it++) {
+    for (auto nh_it = nh.rbegin(); nh_it != nh.rend(); ++nh_it) {
 	// For each new child, look up its instance in the original data to see
 	// if we have a corresponding QgItem available.
 	if (oc.find(*nh_it) != oc.end()) {
@@ -467,7 +464,7 @@ QgModel::item_rebuild(QgItem *item)
 	// define a map for quick QgItem * -> index lookups
 	item->c_noderow.clear();
 	for (size_t i = 0; i < nc.size(); i++) {
-	    item->c_noderow[nc[i]] = i;
+	    item->c_noderow[nc[i]] = static_cast<int>(i);
 	}
     }
 }
@@ -486,9 +483,7 @@ QgModel::full_model_reset(DbiState *dbis)
     // invalid parent is invalid.
     std::queue<QgItem *> to_clear;
     std::unordered_set<QgItem *> invalid;
-    std::unordered_set<QgItem *>::iterator s_it;
-    for (s_it = items->begin(); s_it != items->end(); s_it++) {
-	QgItem *itm = *s_it;
+    for (QgItem *itm : *items) {
 	if (dbis->p_v.find(itm->ihash) == dbis->p_v.end() &&
 		dbis->d_map.find(itm->ihash) == dbis->d_map.end())
 	    to_clear.push(itm);
@@ -499,19 +494,17 @@ QgModel::full_model_reset(DbiState *dbis)
 	QgItem *i_itm = to_clear.front();
 	to_clear.pop();
 	invalid.insert(i_itm);
-	for (size_t i = 0; i < i_itm->children.size(); i++)
-	    to_clear.push(i_itm->children[i]);
+	for (QgItem *child : i_itm->children)
+	    to_clear.push(child);
     }
 
-    for (s_it = items->begin(); s_it != items->end(); s_it++) {
-	if (invalid.find(*s_it) != invalid.end())
+    for (QgItem *i_itm : *items) {
+	if (invalid.count(i_itm))
 	    continue;
-	QgItem *i_itm = *s_it;
 	// Remove any invalid QgItem references from the children arrays
 	std::vector<QgItem *> vchildren;
-	for (size_t i = 0; i < i_itm->children.size(); i++) {
-	    QgItem *itm = i_itm->children[i];
-	    if (invalid.find(itm) == invalid.end()) {
+	for (QgItem *itm : i_itm->children) {
+	    if (!invalid.count(itm)) {
 		// Valid - keep it
 		vchildren.push_back(itm);
 	    }
@@ -526,9 +519,8 @@ QgModel::full_model_reset(DbiState *dbis)
     std::vector<unsigned long long> tops = dbis->tops(true);
     std::unordered_set<unsigned long long> tset(tops.begin(), tops.end());
     std::unordered_map<unsigned long long, QgItem *> vtops_items;
-    for (size_t i = 0; i < tops_items.size(); i++) {
-	QgItem *titem = tops_items[i];
-	if (tset.find(titem->ihash) != tset.end()) {
+    for (QgItem *titem : tops_items) {
+	if (tset.count(titem->ihash)) {
 	    // Still a tops item
 	    vtops_items[titem->ihash] = titem;
 	}
@@ -538,15 +530,14 @@ QgModel::full_model_reset(DbiState *dbis)
     // QgItems, and make new ones.
     std::vector<QgItem *> ntops_items;
 
-    for (size_t i = 0; i < tops.size(); i++) {
-	std::unordered_map<unsigned long long, QgItem *>::iterator v_it;
-	v_it = vtops_items.find(tops[i]);
+    for (unsigned long long th : tops) {
+	auto v_it = vtops_items.find(th);
 	if (v_it != vtops_items.end()) {
 	    ntops_items.push_back(v_it->second);
 	} else {
-	    QgItem *nitem = new QgItem(tops[i], this);
+	    QgItem *nitem = new QgItem(th, this);
 	    nitem->parentItem = rootItem;
-	    nitem->op = dbis->bool_op(0, tops[i]);
+	    nitem->op = dbis->bool_op(0, th);
 	    ntops_items.push_back(nitem);
 	    items->insert(nitem);
 	}
@@ -556,18 +547,14 @@ QgModel::full_model_reset(DbiState *dbis)
     std::sort(ntops_items.begin(), ntops_items.end(), QgItem_cmp());
     tops_items = ntops_items;
     rootItem->children.clear();
-    for (size_t i = 0; i < tops_items.size(); i++) {
-	rootItem->appendChild(tops_items[i]);
-    }
+    for (QgItem *ti : tops_items)
+	rootItem->appendChild(ti);
     rootItem->c_noderow.clear();
-    for (size_t i = 0; i < tops_items.size(); i++) {
-	rootItem->c_noderow[tops_items[i]] = i;
-    }
+    for (size_t i = 0; i < tops_items.size(); i++)
+	rootItem->c_noderow[tops_items[i]] = static_cast<int>(i);
 
     // Finally, delete the invalid QgItems
-    std::unordered_set<QgItem *>::iterator iv_it;
-    for (iv_it = invalid.begin(); iv_it != invalid.end(); iv_it++) {
-	QgItem *iv_itm = *iv_it;
+    for (QgItem *iv_itm : invalid) {
 	items->erase(iv_itm);
 	delete iv_itm;
     }
@@ -586,7 +573,7 @@ QgModel::reconcile_tops(DbiState *dbis)
     std::unordered_set<unsigned long long> new_tops_set(new_tops.begin(), new_tops.end());
 
     // Remove items that are no longer at tops (iterate backwards for stable indices)
-    for (int i = (int)tops_items.size() - 1; i >= 0; i--) {
+    for (int i = static_cast<int>(tops_items.size()) - 1; i >= 0; i--) {
 	if (new_tops_set.count(tops_items[i]->ihash)) continue;
 	beginRemoveRows(QModelIndex(), i, i);
 	QgItem *to_del = tops_items[i];
@@ -599,7 +586,7 @@ QgModel::reconcile_tops(DbiState *dbis)
     // Rebuild c_noderow after all removals
     rootItem->c_noderow.clear();
     for (size_t i = 0; i < tops_items.size(); i++)
-	rootItem->c_noderow[tops_items[i]] = (int)i;
+	rootItem->c_noderow[tops_items[i]] = static_cast<int>(i);
 
     // Collect the set of hashes already in tops_items after removals
     std::unordered_set<unsigned long long> existing_set;
@@ -620,7 +607,7 @@ QgModel::reconcile_tops(DbiState *dbis)
 	tops_items.push_back(nitem);
 	std::sort(tops_items.begin(), tops_items.end(), QgItem_cmp());
 	int ins_pos = 0;
-	for (int j = 0; j < (int)tops_items.size(); j++) {
+	for (int j = 0; j < static_cast<int>(tops_items.size()); j++) {
 	    if (tops_items[j] == nitem) { ins_pos = j; break; }
 	}
 
@@ -632,7 +619,7 @@ QgModel::reconcile_tops(DbiState *dbis)
 	rootItem->children.insert(rootItem->children.begin() + ins_pos, nitem);
 	rootItem->c_noderow.clear();
 	for (size_t j = 0; j < tops_items.size(); j++)
-	    rootItem->c_noderow[tops_items[j]] = (int)j;
+	    rootItem->c_noderow[tops_items[j]] = static_cast<int>(j);
 	endInsertRows();
 
 	existing_set.insert(h);
@@ -656,13 +643,13 @@ QgModel::rebuild_item_children(QgItem *item, DbiState *UNUSED(dbis))
 
     /* Snapshot the old child list before item_rebuild() modifies it. */
     std::vector<QgItem *> old_children = item->children;
-    int old_count = (int)old_children.size();
+    int old_count = static_cast<int>(old_children.size());
 
     /* Rebuild children using the updated DbiState.
      * item_rebuild() replaces item->children in place. */
     item_rebuild(item);
     std::vector<QgItem *> new_children = item->children;
-    int new_count = (int)new_children.size();
+    int new_count = static_cast<int>(new_children.size());
 
     if (new_count == old_count && new_children == old_children)
 	return; /* Nothing actually changed */
@@ -794,11 +781,8 @@ QgModel::g_update(struct db_i *n_dbip)
     if (!n_dbip) {
 	// if we have no dbip, clear out everything
 	beginResetModel();
-	std::unordered_set<QgItem *>::iterator s_it;
-	for (s_it = items->begin(); s_it != items->end(); s_it++) {
-	    QgItem *itm = *s_it;
+	for (QgItem *itm : *items)
 	    delete itm;
-	}
 	// Deleted all items, but we need a root item regardless
 	// of whether a .g is open - recreate it
 	rootItem = new QgItem(0, this);
@@ -950,8 +934,7 @@ QgModel::fetchMore(const QModelIndex &idx)
 
     std::vector<unsigned long long> &nh = dbis->p_v[chash];
     std::vector<QgItem *> nc;
-    std::vector<unsigned long long>::reverse_iterator nh_it;
-    for (nh_it = nh.rbegin(); nh_it != nh.rend(); nh_it++) {
+    for (auto nh_it = nh.rbegin(); nh_it != nh.rend(); ++nh_it) {
 	QgItem *nitem = new QgItem(*nh_it, this);
 	nitem->parentItem = item;
 	nitem->op = dbis->bool_op(item->ihash, *nh_it);
@@ -965,7 +948,7 @@ QgModel::fetchMore(const QModelIndex &idx)
     // define a map for quick QgItem * -> index lookups
     item->c_noderow.clear();
     for (size_t i = 0; i < nc.size(); i++) {
-	item->c_noderow[nc[i]] = i;
+	item->c_noderow[nc[i]] = static_cast<int>(i);
     }
     endInsertRows();
     emit check_highlights();
@@ -1117,9 +1100,9 @@ QgModel::data(const QModelIndex &index, int role) const
 	auto it = dbis->rgb.find(qi->ihash);
 	if (it != dbis->rgb.end()) {
 	    unsigned int cval = it->second;
-	    int r = (int)(cval & 0xFFu);
-	    int g = (int)((cval >> 8) & 0xFFu);
-	    int b = (int)((cval >> 16) & 0xFFu);
+	    int r = static_cast<int>(cval & 0xFFu);
+	    int g = static_cast<int>((cval >> 8) & 0xFFu);
+	    int b = static_cast<int>((cval >> 16) & 0xFFu);
 	    return QVariant(QString("%1/%2/%3").arg(r).arg(g).arg(b));
 	}
 	return QVariant(QLatin1String(""));

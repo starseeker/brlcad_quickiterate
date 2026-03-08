@@ -2424,7 +2424,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
     unsigned long long ret = 0;
 
     // Make sure the view knows how to update the oriented bounding box
-    v->gv_bounds_update = &bv_view_bounds;
+    v->gv_bounds_update = &bsg_view_bounds;
 
     // If we have specific paths specified, the leaves of those paths
     // denote which paths need refreshing.  We need to process them
@@ -2530,22 +2530,19 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	return 0;
 
     // Make sure the views know how to update the oriented bounding box
-    std::unordered_set<struct bview *>::iterator v_it;
-    for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	struct bview *v = *v_it;
-	v->gv_bounds_update = &bv_view_bounds;
+    for (struct bview *v : views) {
+	v->gv_bounds_update = &bsg_view_bounds;
     }
 
     // For most operations on objects, we need only the current view (for
     // independent views) or a single instance of any representative view (for
     // shared state views).
-    struct bview *v = NULL;
+    struct bview *v = nullptr;
     if (views.size() == 1)
 	v = (*(views.begin()));
     if (!v && views.size() > 1) {
 	// If we have multiple views, we want a non-independent view
-	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    struct bview *nv = *v_it;
+	for (struct bview *nv : views) {
 	    if (nv->independent)
 		continue;
 	    v = nv;
@@ -2749,9 +2746,8 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
     // routines have a rough idea of the correct dimensions to use
     if (!no_autoview) {
-	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bv_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
-	}
+	for (struct bview *vw : views)
+	    bv_autoview(vw, BV_AUTOVIEW_SCALE_DEFAULT, 0);
     }
 
     // Update geometry.  draw_scene will avoid repeat creation of geometry
@@ -2765,11 +2761,10 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // work for the "top level" object used for adaptive cases, since shared
     // views will be using a shared object pool for anything other than their
     // view specific geometry sub-objects.
-    for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	std::unordered_set<bsg_shape *>::iterator o_it;
-	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
-	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
-	    draw_scene(*o_it, *v_it);
+    for (struct bview *vw : views) {
+	for (bsg_shape *obj : objs) {
+	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&obj->s_name), bu_vls_cstr(&vw->gv_name));
+	    draw_scene(obj, vw);
 	}
     }
 
@@ -2790,9 +2785,8 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // Now that we have the finalized geometry, do a finishing autoview,
     // unless suppressed
     if (!no_autoview) {
-	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bv_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
-	}
+	for (struct bview *vw : views)
+	    bv_autoview(vw, BV_AUTOVIEW_SCALE_DEFAULT, 0);
     }
 
     // Now that all path manipulations are finalized, update the
@@ -2805,14 +2799,11 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // manually.  (A3: full DrawList-driven redraw pipeline is the next step.)
     {
 	draw_list_.clear();
-	std::unordered_map<unsigned long long,
-			   std::vector<unsigned long long>>::iterator dl_sk_it;
-	for (dl_sk_it = s_keys.begin(); dl_sk_it != s_keys.end(); dl_sk_it++) {
-	    unsigned long long phash = dl_sk_it->first;
+	for (auto &[phash, path_vec] : s_keys) {
 	    auto sm_it = s_map.find(phash);
 	    if (sm_it == s_map.end()) continue;
-	    for (auto &mode_pair : sm_it->second) {
-		draw_list_.add(dl_sk_it->second, mode_pair.first);
+	    for (auto &[draw_mode, shape] : sm_it->second) {
+		draw_list_.add(path_vec, draw_mode);
 	    }
 	}
     }

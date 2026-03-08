@@ -55,17 +55,13 @@ QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionMode
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     SelectionSet *ss = dbis->get_selection_set(nullptr);
 
-#if 0
+    // Materialise the index list on the stack to avoid per-element heap
+    // allocation; using a local value also fixes the Windows crash described at
+    // https://stackoverflow.com/q/15123109/2037687 because the QModelIndexList
+    // outlives any internal Qt temporary that selection.indexes() might create.
     QModelIndexList dl = selection.indexes();
-    for (long int i = 0; i < dl.size(); i++) {
-	QgItem *snode = static_cast<QgItem *>(dl.at(i).internalPointer());
-#else
-    // Above should work (and does on Linux) - using a Windows workaround from
-    // https://stackoverflow.com/q/15123109/2037687 for the moment...
-    QModelIndexList *dl = new QModelIndexList(selection.indexes());
-    for (long int i = 0; i < dl->size(); i++) {
-	QgItem *snode = static_cast<QgItem *>(dl->at(i).internalPointer());
-#endif
+    for (const QModelIndex &idx : dl) {
+	QgItem *snode = static_cast<QgItem *>(idx.internalPointer());
 
 	// If we are selecting an already selected node, clear it
 	if (flags & QItemSelectionModel::Select && ss->is_selected(snode->path_hash())) {
