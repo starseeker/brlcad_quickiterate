@@ -425,8 +425,11 @@ test_view_state_linking(struct ged *gedp)
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     dbis->update();
 
-    /* Create two BViewState instances directly (avoids the need for a full
-     * bsg_view lifecycle just for a unit test). */
+    /* Create two BViewState instances directly on the stack (avoids the need
+     * for a full bsg_view lifecycle just for a unit test).
+     * BViewState destructor calls bu_vls_free() on scene-object name VLS
+     * fields and is RAII-safe; no manual cleanup is required here.
+     * The `dbis` pointer outlives the stack frame (owned by gedp). */
     BViewState primary(dbis);
     BViewState secondary(dbis);
 
