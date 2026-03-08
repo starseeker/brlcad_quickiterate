@@ -10,7 +10,7 @@ pixhalve - halve a color pix file
 
 [source]
 ----
-pixhalve [-a] [-ssquareinsize] [-win_width] [-nin_height] [<] [infile.pix] > outfile.pix
+pixhalve [-a] [-s squareinsize] [-w in_width] [-n in_height] [<] [infile.pix] > outfile.pix
 ----
 
 
@@ -43,4 +43,4 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

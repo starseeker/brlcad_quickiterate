@@ -80,7 +80,7 @@ indicates that the _rtsrv_ program should change directory *cd*(2) to the indica
 
 *convert*::
 indicates that *remrt* should send across an ASCII machine-independent version of the ".g" database file using the command:
-
++
 
 ....
 
@@ -287,4 +287,4 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -13,11 +13,11 @@ edit - Edits objects, using subcommands.
 edit [<subcommand> [<args>] object...] \
      \
     
- [ help| translate| rotate| scale| ]...
+ [help | translate | rotate | scale | ]...
  [] <to> [<more_args>]...
- [-n] -k { <from_object>| <from_position>}
- [-n] [ -a| -r] { <to_object>| <to_position>}
- [ {<coords>}| { [ -x { x| <x-obj>}] [ -y { y| <y-obj>}] [ -z { z| <z-obj>}]}]
+ [-n] -k {<from_object> | <from_position>}
+ [-n] [-a | -r] {<to_object> | <to_position>}
+ [{<coords>} | { [ -x {x | <x-obj>}] [ -y {y | <y-obj>}] [ -z {z | <z-obj>}]}]
   [path/] object [<offset_distance>]
  x [ y [z]]
 ----
@@ -135,4 +135,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

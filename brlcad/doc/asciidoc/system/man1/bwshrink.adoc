@@ -10,7 +10,7 @@ bwshrink - shrink a black and white bw file
 
 [source]
 ----
-bwshrink [-ssquareinsize] [-win_width] [-nin_height] [-fshrink_factor] [-u] [infile.bw] > outfile.bw
+bwshrink [-s squareinsize] [-w in_width] [-n in_height] [-f shrink_factor] [-u] [infile.bw] > outfile.bw
 ----
 
 
@@ -51,4 +51,4 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

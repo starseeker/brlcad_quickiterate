@@ -10,7 +10,7 @@ gif2fb - display GIF file on frame buffer
 
 [source]
 ----
-gif2fb [-H] [-v] [ -Fframe_buffer_name] GIF_file_name
+gif2fb [-H] [-v] [ -F frame_buffer_name] GIF_file_name
 ----
 
 
@@ -47,4 +47,4 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

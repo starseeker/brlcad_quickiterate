@@ -10,7 +10,7 @@ g-nff - NFF Translator (BRL-CAD to NFF)
 
 [source]
 ----
-g-nff [-v] [-i] [-xXlvl] [-eerror_file] [-Dcalculation_tolerance] [-aabs_tol] [-rrel_tol] [-nnorm_tol] [-ooutput.nff] database.g object(s)
+g-nff [-v] [-i] [-xX lvl] [-e error_file] [-D calculation_tolerance] [-a abs_tol] [-r rel_tol] [-n norm_tol] [-o output.nff] database.g object(s)
 ----
 
 
@@ -51,4 +51,4 @@ This software is Copyright (c) 2003-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

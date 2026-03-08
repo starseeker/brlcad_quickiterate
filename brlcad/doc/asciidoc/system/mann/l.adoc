@@ -47,7 +47,7 @@ The three examples show the use of the *l* command to display details about a re
 [example]
 ====
 
-mged>*l region1*::
+mged> *l region1*::
 Displays details about region1.
 
 
@@ -82,4 +82,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

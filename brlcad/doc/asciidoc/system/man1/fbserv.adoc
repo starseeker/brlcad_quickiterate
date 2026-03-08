@@ -10,7 +10,7 @@ fbserv - Frame-buffer Server
 
 [source]
 ----
-fbserv [ -s| S| square_size] [ -w| W| width] [ -n| N| height] [-pport_number] [-Fframe_buffer] [-v] [port_number] [frame_buffer]
+fbserv [-s | S | square_size] [-w | W | width] [-n | N | height] [-p port_number] [-F frame_buffer] [-v] [port_number] [frame_buffer]
 ----
 
 
@@ -67,4 +67,4 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

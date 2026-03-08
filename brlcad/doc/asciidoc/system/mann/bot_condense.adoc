@@ -31,7 +31,7 @@ The examples shows the use of the *bot_condense* command to eliminate unused ver
 Eliminating unused vertices from a primitive named __bot1_original__ and storing the result in a new primitive named __bot1_condensed__.
 
 
-mged>*bot_condense bot1_condensed bot1_original*::
+mged> *bot_condense bot1_condensed bot1_original*::
 The unused vertices were deleted from bot1_original and the result was saved in bot1_condensed.
 
 
@@ -42,10 +42,10 @@ The unused vertices were deleted from bot1_original and the result was saved in 
 [[author]]
 == AUTHOR
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
 
 
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

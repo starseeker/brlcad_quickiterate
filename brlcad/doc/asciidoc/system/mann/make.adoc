@@ -52,13 +52,13 @@ Creates a __new_shape__ of the indicated type. The __new_shape__ is sized accord
 [[examples]]
 == EXAMPLES
 
-The first example shows the use of the *make* command to create a sphere with a specified name. The second example shows the use of the *make* command with the _-t_  argument to generate a list of shape types handled by *make*.
+The first example shows the use of the *make* command to create a sphere with a specified name. The second example shows the use of the *make* command with the _-t_ argument to generate a list of shape types handled by *make*.
 
 .Create a sphere having a specified name.
 [example]
 ====
 
-mged>*make shapea sph*::
+mged> *make shapea sph*::
 Creates a sphere named _shapea_.
 
 
@@ -84,4 +84,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -17,7 +17,7 @@ rmater {file}
 [[description]]
 == DESCRIPTION
 
-Reads the specified _file_ and sets the combination shader, color, and inheritance values according to those listed in the _file_. The format of the _file_ is expected to be as produced by the  *wmater* command.
+Reads the specified _file_ and sets the combination shader, color, and inheritance values according to those listed in the _file_. The format of the _file_ is expected to be as produced by the *wmater* command.
 
 
 [[examples]]
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

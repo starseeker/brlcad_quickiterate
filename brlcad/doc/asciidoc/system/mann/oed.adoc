@@ -17,7 +17,7 @@ oed {path_lhs path_rhs}
 [[description]]
 == DESCRIPTION
 
-Places MGED directly into the matrix edit mode. The __path_rhs__ must be a path to a primitive shape, and __path_lhs__ must be a path to a combination that includes the first component of __path_rhs__ as one of its members. The edited matrix will be the matrix in the final component of __path_lhs__ that corresponds to the first component of __path_rhs__. The last component in __path_rhs__  is used as the reference shape during object editing.
+Places MGED directly into the matrix edit mode. The __path_rhs__ must be a path to a primitive shape, and __path_lhs__ must be a path to a combination that includes the first component of __path_rhs__ as one of its members. The edited matrix will be the matrix in the final component of __path_lhs__ that corresponds to the first component of __path_rhs__. The last component in __path_rhs__ is used as the reference shape during object editing.
 
 Note that for scripting the object to be edited must be in view so a *B* or *draw* must be used on the object before using the *oed* command.
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
