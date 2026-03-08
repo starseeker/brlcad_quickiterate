@@ -28,7 +28,7 @@ target_link_libraries(
   libbn-static
   libbrep-static
   libbu-static
-  libbv-static
+  libbsg-static
   libged-static
   regex-static
   librt-static
@@ -91,7 +91,7 @@ target_link_libraries(
   libbn-static
   libbrep-static
   libbu-static
-  libbv-static
+  libbsg-static
   libged-static
   regex-static
   librt-static

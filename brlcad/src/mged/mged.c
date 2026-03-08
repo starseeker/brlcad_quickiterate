@@ -71,7 +71,7 @@
 #  define LIBTERMIO_IMPLEMENTATION
 #  include "libtermio.h"
 #endif
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -311,7 +311,11 @@ new_edit_mats(struct mged_state *s)
 	    continue;
 
 	set_curr_dm(s, p);
-	bn_mat_mul(view_state->vs_model2objview, view_state->vs_gvp->gv_model2view, MEDIT(s)->model_changes);
+	{
+	    struct bsg_camera _mc;
+	    bsg_view_get_camera(view_state->vs_gvp, &_mc);
+	    bn_mat_mul(view_state->vs_model2objview, _mc.model2view, MEDIT(s)->model_changes);
+	}
 	bn_mat_inv(view_state->vs_objview2model, view_state->vs_model2objview);
 
 	/* Keep rt_edit’s own cached matrix in sync for external users */
@@ -325,7 +329,7 @@ new_edit_mats(struct mged_state *s)
 
 
 void
-mged_view_callback(struct bview *gvp,
+mged_view_callback(bsg_view *gvp,
 		   void *clientData)
 {
     struct mged_state *s = MGED_STATE;
@@ -335,7 +339,9 @@ mged_view_callback(struct bview *gvp,
 	return;
 
     if (s->global_editing_state != ST_VIEW) {
-	bn_mat_mul(vsp->vs_model2objview, gvp->gv_model2view, MEDIT(s)->model_changes);
+	struct bsg_camera _mvc;
+	bsg_view_get_camera(gvp, &_mvc);
+	bn_mat_mul(vsp->vs_model2objview, _mvc.model2view, MEDIT(s)->model_changes);
 	bn_mat_inv(vsp->vs_objview2model, vsp->vs_model2objview);
     }
     vsp->vs_flag = 1;
@@ -350,7 +356,7 @@ mged_view_callback(struct bview *gvp,
 void
 new_mats(struct mged_state *s)
 {
-    bv_update(view_state->vs_gvp);
+    bsg_view_update(view_state->vs_gvp);
 }
 
 
@@ -2211,7 +2217,7 @@ main(int argc, char *argv[])
 
     if (s->dbip != DBI_NULL) {
 	setview(s, 0.0, 0.0, 0.0);
-	ged_dl_notify_func_set(s->gedp, mged_notify);
+	ged_rt_notify_func_set(s->gedp, mged_notify);
     }
 
     /* --- Now safe to process commands. --- */

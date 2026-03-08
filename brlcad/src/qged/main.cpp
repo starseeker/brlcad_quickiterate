@@ -44,7 +44,7 @@
 static void
 qged_usage(const char *cmd, struct bu_opt_desc *d) {
     struct bu_vls str = BU_VLS_INIT_ZERO;
-    char *option_help = bu_opt_describe(d, NULL);
+    char *option_help = bu_opt_describe(d, nullptr);
     bu_vls_sprintf(&str, "Usage: %s [options] [file.g]\n", cmd);
     if (option_help) {
 	bu_vls_printf(&str, "Options:\n%s\n", option_help);
@@ -85,11 +85,11 @@ main(int argc, char **argv)
 
     /* Handle top level application options */
     struct bu_opt_desc d[6];
-    BU_OPT(d[0],  "h", "help",   "", NULL, &print_help,    "Print help and exit");
-    BU_OPT(d[1],  "?", "",       "", NULL, &print_help,    "");
-    BU_OPT(d[2],  "c", "no-gui", "", NULL, &console_mode,  "Run without GUI");
-    BU_OPT(d[3],  "s", "swrast", "", NULL, &swrast_mode,   "Use software rendering for 3D view");
-    BU_OPT(d[4],  "4", "quad",   "", NULL, &quad_mode,     "Launch using quad view");
+    BU_OPT(d[0],  "h", "help",   "", nullptr, &print_help,    "Print help and exit");
+    BU_OPT(d[1],  "?", "",       "", nullptr, &print_help,    "");
+    BU_OPT(d[2],  "c", "no-gui", "", nullptr, &console_mode,  "Run without GUI");
+    BU_OPT(d[3],  "s", "swrast", "", nullptr, &swrast_mode,   "Use software rendering for 3D view");
+    BU_OPT(d[4],  "4", "quad",   "", nullptr, &quad_mode,     "Launch using quad view");
     BU_OPT_NULL(d[5]);
 
     // High level options are only defined prior to the file argument (if there

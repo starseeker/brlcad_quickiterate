@@ -43,6 +43,7 @@
 
 #include "./mged.h"
 #include "./mged_dm.h"
+#include "bsg/util.h"
 #include "./sedit.h"
 #include "./cmd.h"
 #include "./f_cmd.h"
@@ -74,11 +75,13 @@ f_make(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	const char *av[8];
 	char center[512];
 	char scale[128];
+	struct bsg_camera _mc;
+	bsg_view_get_camera(view_state->vs_gvp, &_mc);
 
 	sprintf(center, "%.17f %.17f %.17f",
-		(ZERO(view_state->vs_gvp->gv_center[MDX])) ? 0.0 : -view_state->vs_gvp->gv_center[MDX],
-		(ZERO(view_state->vs_gvp->gv_center[MDY])) ? 0.0 : -view_state->vs_gvp->gv_center[MDY],
-		(ZERO(view_state->vs_gvp->gv_center[MDZ])) ? 0.0 : -view_state->vs_gvp->gv_center[MDZ]);
+		(ZERO(_mc.center[MDX])) ? 0.0 : -_mc.center[MDX],
+		(ZERO(_mc.center[MDY])) ? 0.0 : -_mc.center[MDY],
+		(ZERO(_mc.center[MDZ])) ? 0.0 : -_mc.center[MDZ]);
 	sprintf(scale, "%.17f", view_state->vs_gvp->gv_scale * 2.0);
 
 	av[0] = argv[0];

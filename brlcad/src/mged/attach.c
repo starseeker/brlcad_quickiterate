@@ -44,6 +44,7 @@
 #include "vmath.h"
 #include "bu/env.h"
 #include "bu/ptbl.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -505,7 +506,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
     share_dlist(s->mged_curr_dm);
 
     if (dm_get_displaylist(DMP) && mged_variables->mv_dlist && !dlist_state->dl_active) {
-	createDLists(s, (struct bu_list *)ged_dl(s->gedp));
+	createDListAll(s, NULL);
 	dlist_state->dl_active = 1;
     }
 
@@ -711,7 +712,7 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 
     BU_ALLOC(view_state, struct _view_state);
     *view_state = *target_dm->dm_view_state;			/* struct copy */
-    BU_ALLOC(view_state->vs_gvp, struct bview);
+    BU_ALLOC(view_state->vs_gvp, bsg_view);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
 
@@ -722,6 +723,8 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 
     BU_GET(view_state->vs_gvp->gv_objs.view_objs, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->gv_objs.view_objs, 8, "view_objs init");
+
+    bsg_scene_root_create(view_state->vs_gvp);
 
     view_state->vs_gvp->vset = &s->gedp->ged_views;
     view_state->vs_gvp->independent = 0;

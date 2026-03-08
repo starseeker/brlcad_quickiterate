@@ -27,7 +27,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QLineEdit>
-#include "bv.h"
+#include "bsg.h"
 #include "ged.h"
 #include "qtcad/QgColorRGB.h"
 #include "qtcad/QgMeasureFilter.h"
@@ -67,10 +67,10 @@ class CADViewMeasure : public QWidget
 	bool eventFilter(QObject *, QEvent *);
 
     private:
-	struct bv_scene_obj *s = NULL;
-	QgMeasureFilter *mf = NULL;
-	QMeasure2DFilter *f2d = NULL;
-	QMeasure3DFilter *f3d = NULL;
+	bsg_shape *s = nullptr;
+	QgMeasureFilter *mf = nullptr;
+	QMeasure2DFilter *f2d = nullptr;
+	QMeasure3DFilter *f3d = nullptr;
 };
 
 // Local Variables:

@@ -38,7 +38,9 @@
 #include "bu/vls.h"
 #include "dm.h"
 #include "./fbserv.h"
-#include "qtcad/QgGL.h"
+#ifdef BRLCAD_OPENGL
+#  include "qtcad/QgGL.h"
+#endif
 #include "qtcad/QgSW.h"
 
 void
@@ -211,7 +213,7 @@ qdm_open_client_handler(struct fbserv_obj *fbsp, int i, void *data)
 }
 #endif
 
-// Because swrast uses a bview as its context pointer, we need to unpack the
+// Because swrast uses a bsg_view as its context pointer, we need to unpack the
 // app data to get our Qt widget ctx when using that display method.  In other
 // words, the swrast backend is generic - it has no knowledge of Qt - and the
 // Qt widget we need to notify for update/redraw purposes is coming (from the

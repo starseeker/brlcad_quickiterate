@@ -24,6 +24,7 @@
  */
 
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 
 #include "bu/opt.h"
 #include "bu/malloc.h"
@@ -32,6 +33,17 @@
 #include "QgEdApp.h"
 
 #include "CADViewSettings.h"
+
+/* Helper: connect a checkbox using the signal available in the installed Qt */
+static void
+ckbx_connect_update(QCheckBox *cb, CADViewSettings *parent)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    QObject::connect(cb, &QCheckBox::checkStateChanged, parent, &CADViewSettings::view_update_int);
+#else
+    QObject::connect(cb, &QCheckBox::stateChanged, parent, &CADViewSettings::view_update_int);
+#endif
+}
 
 CADViewSettings::CADViewSettings(QWidget *)
 {
@@ -42,65 +54,101 @@ CADViewSettings::CADViewSettings(QWidget *)
     amesh_ckbx = new QCheckBox("Adaptive Plotting (Mesh)");
     adc_ckbx = new QCheckBox("Angle/Dist. Cursor");
     cdot_ckbx = new QCheckBox("Center Dot");
-    fb_ckbx = new QCheckBox("Framebuffer");
-    fbo_ckbx = new QCheckBox("FB Overlay");
-    fps_ckbx = new QCheckBox("FPS");
     grid_ckbx = new QCheckBox("Grid");
     mdlaxes_ckbx = new QCheckBox("Model Axes");
-    params_ckbx = new QCheckBox("Parameters");
     scale_ckbx = new QCheckBox("Scale");
     viewaxes_ckbx = new QCheckBox("View Axes");
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+
     wl->addWidget(acsg_ckbx);
-    QObject::connect(acsg_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
+    ckbx_connect_update(acsg_ckbx, this);
+
     wl->addWidget(amesh_ckbx);
-    QObject::connect(amesh_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
+    ckbx_connect_update(amesh_ckbx, this);
+
     wl->addWidget(adc_ckbx);
-    QObject::connect(adc_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
+    ckbx_connect_update(adc_ckbx, this);
+
     wl->addWidget(cdot_ckbx);
-    QObject::connect(cdot_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(fb_ckbx);
-    QObject::connect(fb_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(fbo_ckbx);
-    QObject::connect(fbo_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(fps_ckbx);
-    QObject::connect(fps_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(grid_ckbx);
-    QObject::connect(grid_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(mdlaxes_ckbx);
-    QObject::connect(mdlaxes_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(params_ckbx);
-    QObject::connect(params_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(scale_ckbx);
-    QObject::connect(scale_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(viewaxes_ckbx);
-    QObject::connect(viewaxes_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::view_update_int);
+    ckbx_connect_update(cdot_ckbx, this);
+
+    // Framebuffer group: FB on/off, with FB Overlay as a sub-option
+    fb_ckbx = new QCheckBox("Framebuffer");
+    fbo_ckbx = new QCheckBox("FB Overlay");
+    fbo_ckbx->setEnabled(false);  // enabled only when Framebuffer is on
+
+    QVBoxLayout *fb_vl = new QVBoxLayout;
+    fb_vl->setContentsMargins(0, 0, 0, 0);
+    fb_vl->addWidget(fb_ckbx);
+    QHBoxLayout *fbo_hl = new QHBoxLayout;
+    fbo_hl->setContentsMargins(16, 0, 0, 0);
+    fbo_hl->addWidget(fbo_ckbx);
+    fb_vl->addLayout(fbo_hl);
+    wl->addLayout(fb_vl);
+
+    ckbx_connect_update(fb_ckbx, this);
+    ckbx_connect_update(fbo_ckbx, this);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    QObject::connect(fb_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::fb_state_changed);
 #else
-    wl->addWidget(acsg_ckbx);
-    QObject::connect(acsg_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(amesh_ckbx);
-    QObject::connect(amesh_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(adc_ckbx);
-    QObject::connect(adc_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(cdot_ckbx);
-    QObject::connect(cdot_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(fb_ckbx);
-    QObject::connect(fb_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(fbo_ckbx);
-    QObject::connect(fbo_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(fps_ckbx);
-    QObject::connect(fps_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(grid_ckbx);
-    QObject::connect(grid_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(mdlaxes_ckbx);
-    QObject::connect(mdlaxes_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(params_ckbx);
-    QObject::connect(params_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(scale_ckbx);
-    QObject::connect(scale_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
-    wl->addWidget(viewaxes_ckbx);
-    QObject::connect(viewaxes_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::view_update_int);
+    QObject::connect(fb_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::fb_state_changed);
 #endif
+
+    wl->addWidget(grid_ckbx);
+    ckbx_connect_update(grid_ckbx, this);
+
+    wl->addWidget(mdlaxes_ckbx);
+    ckbx_connect_update(mdlaxes_ckbx, this);
+
+    // View Parameters group: overall on/off plus per-element sub-options
+    params_grp = new QGroupBox("View Parameters");
+    params_ckbx = new QCheckBox("Show Parameters");
+    params_size_ckbx = new QCheckBox("Size");
+    params_center_ckbx = new QCheckBox("Center");
+    params_az_ckbx = new QCheckBox("Azimuth");
+    params_el_ckbx = new QCheckBox("Elevation");
+    params_tw_ckbx = new QCheckBox("Twist");
+    fps_ckbx = new QCheckBox("FPS");
+
+    // Sub-options start disabled; enabled when params is on
+    params_size_ckbx->setEnabled(false);
+    params_center_ckbx->setEnabled(false);
+    params_az_ckbx->setEnabled(false);
+    params_el_ckbx->setEnabled(false);
+    params_tw_ckbx->setEnabled(false);
+    fps_ckbx->setEnabled(false);
+
+    QVBoxLayout *params_vl = new QVBoxLayout;
+    params_vl->addWidget(params_ckbx);
+    QVBoxLayout *sub_vl = new QVBoxLayout;
+    sub_vl->setContentsMargins(16, 0, 0, 0);
+    sub_vl->addWidget(params_size_ckbx);
+    sub_vl->addWidget(params_center_ckbx);
+    sub_vl->addWidget(params_az_ckbx);
+    sub_vl->addWidget(params_el_ckbx);
+    sub_vl->addWidget(params_tw_ckbx);
+    sub_vl->addWidget(fps_ckbx);
+    params_vl->addLayout(sub_vl);
+    params_grp->setLayout(params_vl);
+    wl->addWidget(params_grp);
+
+    ckbx_connect_update(params_ckbx, this);
+    ckbx_connect_update(params_size_ckbx, this);
+    ckbx_connect_update(params_center_ckbx, this);
+    ckbx_connect_update(params_az_ckbx, this);
+    ckbx_connect_update(params_el_ckbx, this);
+    ckbx_connect_update(params_tw_ckbx, this);
+    ckbx_connect_update(fps_ckbx, this);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    QObject::connect(params_ckbx, &QCheckBox::checkStateChanged, this, &CADViewSettings::params_state_changed);
+#else
+    QObject::connect(params_ckbx, &QCheckBox::stateChanged, this, &CADViewSettings::params_state_changed);
+#endif
+
+    wl->addWidget(scale_ckbx);
+    ckbx_connect_update(scale_ckbx, this);
+
+    wl->addWidget(viewaxes_ckbx);
+    ckbx_connect_update(viewaxes_ckbx, this);
 
     this->setLayout(wl);
 }
@@ -128,6 +176,27 @@ CADViewSettings::view_update_int(int)
 }
 
 void
+CADViewSettings::fb_state_changed(int state)
+{
+    bool on = (state == Qt::Checked);
+    fbo_ckbx->setEnabled(on);
+    if (!on)
+	fbo_ckbx->setCheckState(Qt::Unchecked);
+}
+
+void
+CADViewSettings::params_state_changed(int state)
+{
+    bool on = (state == Qt::Checked);
+    params_size_ckbx->setEnabled(on);
+    params_center_ckbx->setEnabled(on);
+    params_az_ckbx->setEnabled(on);
+    params_el_ckbx->setEnabled(on);
+    params_tw_ckbx->setEnabled(on);
+    fps_ckbx->setEnabled(on);
+}
+
+void
 CADViewSettings::checkbox_refresh(unsigned long long)
 {
     QgModel *m = ((QgEdApp *)qApp)->mdl;
@@ -137,108 +206,90 @@ CADViewSettings::checkbox_refresh(unsigned long long)
     if (!gedp)
 	return;
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 
     acsg_ckbx->blockSignals(true);
-    if (v->gv_s->adaptive_plot_csg) {
-	acsg_ckbx->setCheckState(Qt::Checked);
-    } else {
-	acsg_ckbx->setCheckState(Qt::Unchecked);
-    }
+    acsg_ckbx->setCheckState(v->gv_s->adaptive_plot_csg ? Qt::Checked : Qt::Unchecked);
     acsg_ckbx->blockSignals(false);
 
     amesh_ckbx->blockSignals(true);
-    if (v->gv_s->adaptive_plot_mesh) {
-	amesh_ckbx->setCheckState(Qt::Checked);
-    } else {
-	amesh_ckbx->setCheckState(Qt::Unchecked);
-    }
+    amesh_ckbx->setCheckState(v->gv_s->adaptive_plot_mesh ? Qt::Checked : Qt::Unchecked);
     amesh_ckbx->blockSignals(false);
 
     adc_ckbx->blockSignals(true);
-    if (v->gv_s->gv_adc.draw) {
-	adc_ckbx->setCheckState(Qt::Checked);
-    } else {
-	adc_ckbx->setCheckState(Qt::Unchecked);
-    }
+    adc_ckbx->setCheckState(v->gv_s->gv_adc.draw ? Qt::Checked : Qt::Unchecked);
     adc_ckbx->blockSignals(false);
 
     cdot_ckbx->blockSignals(true);
-    if (v->gv_s->gv_center_dot.gos_draw) {
-	cdot_ckbx->setCheckState(Qt::Checked);
-    } else {
-	cdot_ckbx->setCheckState(Qt::Unchecked);
-    }
+    cdot_ckbx->setCheckState(v->gv_s->gv_center_dot.gos_draw ? Qt::Checked : Qt::Unchecked);
     cdot_ckbx->blockSignals(false);
 
+    // Framebuffer: update main toggle then enable/disable overlay sub-option
     fb_ckbx->blockSignals(true);
-    if (v->gv_s->gv_fb_mode != 0) {
-	fb_ckbx->setCheckState(Qt::Checked);
-    } else {
-	fb_ckbx->setCheckState(Qt::Unchecked);
-    }
+    bool fb_on = (v->gv_s->gv_fb_mode != 0);
+    fb_ckbx->setCheckState(fb_on ? Qt::Checked : Qt::Unchecked);
     fb_ckbx->blockSignals(false);
 
+    fbo_ckbx->setEnabled(fb_on);
     fbo_ckbx->blockSignals(true);
-    if (v->gv_s->gv_fb_mode == 1) {
-	fbo_ckbx->setCheckState(Qt::Checked);
-    } else {
-	fbo_ckbx->setCheckState(Qt::Unchecked);
-    }
+    fbo_ckbx->setCheckState((v->gv_s->gv_fb_mode == 1) ? Qt::Checked : Qt::Unchecked);
     fbo_ckbx->blockSignals(false);
 
     grid_ckbx->blockSignals(true);
-    if (v->gv_s->gv_grid.draw) {
-	grid_ckbx->setCheckState(Qt::Checked);
-    } else {
-	grid_ckbx->setCheckState(Qt::Unchecked);
-    }
+    grid_ckbx->setCheckState(v->gv_s->gv_grid.draw ? Qt::Checked : Qt::Unchecked);
     grid_ckbx->blockSignals(false);
 
     mdlaxes_ckbx->blockSignals(true);
-    if (v->gv_s->gv_model_axes.draw) {
-	mdlaxes_ckbx->setCheckState(Qt::Checked);
-    } else {
-	mdlaxes_ckbx->setCheckState(Qt::Unchecked);
-    }
+    mdlaxes_ckbx->setCheckState(v->gv_s->gv_model_axes.draw ? Qt::Checked : Qt::Unchecked);
     mdlaxes_ckbx->blockSignals(false);
 
-
-    // TODO - add other params checkboxes
     struct bv_params_state *pst = &v->gv_s->gv_view_params;
+
+    // Params group: update main toggle and enable/disable sub-options
     params_ckbx->blockSignals(true);
-    if (pst->draw) {
-	params_ckbx->setCheckState(Qt::Checked);
-    } else {
-	params_ckbx->setCheckState(Qt::Unchecked);
-    }
+    bool params_on = (pst->draw != 0);
+    params_ckbx->setCheckState(params_on ? Qt::Checked : Qt::Unchecked);
     params_ckbx->blockSignals(false);
 
+    params_size_ckbx->setEnabled(params_on);
+    params_center_ckbx->setEnabled(params_on);
+    params_az_ckbx->setEnabled(params_on);
+    params_el_ckbx->setEnabled(params_on);
+    params_tw_ckbx->setEnabled(params_on);
+    fps_ckbx->setEnabled(params_on);
+
+    params_size_ckbx->blockSignals(true);
+    params_size_ckbx->setCheckState(pst->draw_size ? Qt::Checked : Qt::Unchecked);
+    params_size_ckbx->blockSignals(false);
+
+    params_center_ckbx->blockSignals(true);
+    params_center_ckbx->setCheckState(pst->draw_center ? Qt::Checked : Qt::Unchecked);
+    params_center_ckbx->blockSignals(false);
+
+    params_az_ckbx->blockSignals(true);
+    params_az_ckbx->setCheckState(pst->draw_az ? Qt::Checked : Qt::Unchecked);
+    params_az_ckbx->blockSignals(false);
+
+    params_el_ckbx->blockSignals(true);
+    params_el_ckbx->setCheckState(pst->draw_el ? Qt::Checked : Qt::Unchecked);
+    params_el_ckbx->blockSignals(false);
+
+    params_tw_ckbx->blockSignals(true);
+    params_tw_ckbx->setCheckState(pst->draw_tw ? Qt::Checked : Qt::Unchecked);
+    params_tw_ckbx->blockSignals(false);
+
     fps_ckbx->blockSignals(true);
-    if (pst->draw_fps) {
-	fps_ckbx->setCheckState(Qt::Checked);
-    } else {
-	fps_ckbx->setCheckState(Qt::Unchecked);
-    }
+    fps_ckbx->setCheckState(pst->draw_fps ? Qt::Checked : Qt::Unchecked);
     fps_ckbx->blockSignals(false);
 
-
     scale_ckbx->blockSignals(true);
-    if (v->gv_s->gv_view_scale.gos_draw) {
-	scale_ckbx->setCheckState(Qt::Checked);
-    } else {
-	scale_ckbx->setCheckState(Qt::Unchecked);
-    }
+    scale_ckbx->setCheckState(v->gv_s->gv_view_scale.gos_draw ? Qt::Checked : Qt::Unchecked);
     scale_ckbx->blockSignals(false);
 
     viewaxes_ckbx->blockSignals(true);
-    if (v->gv_s->gv_view_axes.draw) {
-	viewaxes_ckbx->setCheckState(Qt::Checked);
-    } else {
-	viewaxes_ckbx->setCheckState(Qt::Unchecked);
-    }
+    viewaxes_ckbx->setCheckState(v->gv_s->gv_view_axes.draw ? Qt::Checked : Qt::Unchecked);
     viewaxes_ckbx->blockSignals(false);
 }
 
@@ -252,69 +303,33 @@ CADViewSettings::view_refresh(unsigned long long)
     if (!gedp)
 	return;
 
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
-    if (acsg_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->adaptive_plot_csg = 1;
-    } else {
-	v->gv_s->adaptive_plot_csg = 0;
-    }
-    if (amesh_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->adaptive_plot_mesh = 1;
-    } else {
-	v->gv_s->adaptive_plot_mesh = 0;
-    }
-    if (adc_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->gv_adc.draw = 1;
-    } else {
-	v->gv_s->gv_adc.draw = 0;
-    }
-    if (cdot_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->gv_center_dot.gos_draw = 1;
-    } else {
-	v->gv_s->gv_center_dot.gos_draw = 0;
-    }
+    v->gv_s->adaptive_plot_csg = (acsg_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    v->gv_s->adaptive_plot_mesh = (amesh_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    v->gv_s->gv_adc.draw = (adc_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    v->gv_s->gv_center_dot.gos_draw = (cdot_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+
     if (fb_ckbx->checkState() == Qt::Checked) {
-	if (fbo_ckbx->checkState() == Qt::Checked) {
-	    v->gv_s->gv_fb_mode = 1;
-	} else {
-	    v->gv_s->gv_fb_mode = 2;
-	}
+	v->gv_s->gv_fb_mode = (fbo_ckbx->checkState() == Qt::Checked) ? 1 : 2;
     } else {
 	v->gv_s->gv_fb_mode = 0;
     }
 
+    v->gv_s->gv_grid.draw = (grid_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    v->gv_s->gv_model_axes.draw = (mdlaxes_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+
     struct bv_params_state *pst = &v->gv_s->gv_view_params;
-    if (fps_ckbx->checkState() == Qt::Checked) {
-	pst->draw_fps = 1;
-    } else {
-	pst->draw_fps = 0;
-    }
-    if (grid_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->gv_grid.draw = 1;
-    } else {
-	v->gv_s->gv_grid.draw = 0;
-    }
-    if (mdlaxes_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->gv_model_axes.draw = 1;
-    } else {
-	v->gv_s->gv_model_axes.draw = 0;
-    }
-    if (params_ckbx->checkState() == Qt::Checked) {
-	pst->draw = 1;
-    } else {
-	pst->draw = 0;
-    }
-    if (scale_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->gv_view_scale.gos_draw = 1;
-    } else {
-	v->gv_s->gv_view_scale.gos_draw = 0;
-    }
-    if (viewaxes_ckbx->checkState() == Qt::Checked) {
-	v->gv_s->gv_view_axes.draw = 1;
-    } else {
-	v->gv_s->gv_view_axes.draw = 0;
-    }
+    pst->draw = (params_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    pst->draw_size = (params_size_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    pst->draw_center = (params_center_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    pst->draw_az = (params_az_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    pst->draw_el = (params_el_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    pst->draw_tw = (params_tw_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    pst->draw_fps = (fps_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+
+    v->gv_s->gv_view_scale.gos_draw = (scale_ckbx->checkState() == Qt::Checked) ? 1 : 0;
+    v->gv_s->gv_view_axes.draw = (viewaxes_ckbx->checkState() == Qt::Checked) ? 1 : 0;
 
     emit settings_changed(QG_VIEW_DRAWN);
 }

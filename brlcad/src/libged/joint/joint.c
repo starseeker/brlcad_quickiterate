@@ -261,7 +261,7 @@ joint_mesh(struct ged *gedp, int argc, const char *argv[])
     }
 
     topc = ged_who_argv(gedp, topv, (const char **)(topv+2000));
-    dl_set_iflag(gedp->i->ged_gdp->gd_headDisplay, DOWN);
+    bsg_set_iflag(gedp->ged_gvp, DOWN);
 
     (void)db_walk_tree(gedp->dbip, topc, (const char **)topv,
 		     1,			/* Number of cpus */
@@ -275,8 +275,8 @@ joint_mesh(struct ged *gedp, int argc, const char *argv[])
      * Now we draw the overlays.  We do this by building a mesh from
      * each grip to every other grip in that list.
      */
-    vbp = bv_vlblock_init(vlfree, 32);
-    vhead = bv_vlblock_find(vbp, 0x00, 0xff, 0xff);
+    vbp = bsg_vlblock_init(vlfree, 32);
+    vhead = bsg_vlblock_find(vbp, 0x00, 0xff, 0xff);
 
     for (BU_LIST_FOR(jp, artic_joints, &artic_head)) {
 	i=0;
@@ -296,13 +296,13 @@ joint_mesh(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (gedp->new_cmd_forms) {
-	struct bview *view = gedp->ged_gvp;
-	bv_vlblock_obj(vbp, view, "joint");
+	bsg_view *view = gedp->ged_gvp;
+	bsg_vlblock_obj(vbp, view, "joint");
     } else {
 	_ged_cvt_vlblock_to_solids(gedp, vbp, name, 0);
     }
 
-    bv_vlblock_free(vbp);
+    bsg_vlblock_free(vbp);
     while (BU_LIST_WHILE(jp, artic_joints, &artic_head)) {
 	while (BU_LIST_WHILE(gp, artic_grips, &jp->head)) {
 	    BU_LIST_DEQUEUE(&gp->l);

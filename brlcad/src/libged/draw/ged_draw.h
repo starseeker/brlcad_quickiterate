@@ -40,7 +40,7 @@ struct ged_solid_data {
     int wireframe_color[3];
     fastf_t transparency;
     int dmode;
-    struct bview *v;
+    bsg_view *v;
 };
 
 struct _ged_client_data {
@@ -50,7 +50,7 @@ struct _ged_client_data {
     struct display_list *gdlp;
     int fastpath_count;			/* statistics */
     struct bv_vlblock *draw_edge_uses_vbp;
-    struct bview *v;
+    bsg_view *v;
 
     /* bigE related members */
     struct application *ap;
@@ -75,7 +75,7 @@ struct _ged_client_data {
     int draw_edge_uses;
     int do_not_draw_nmg_solids_during_debugging;
 
-    struct bv_obj_settings vs;
+    bsg_material vs;
 };
 
 struct ged_command_tab {

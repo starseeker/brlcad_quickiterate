@@ -37,7 +37,8 @@
 #include "bu/parse.h"
 #include "bu/vls.h"
 #include "bn/tol.h"
-#include "bv.h"
+#include "bsg.h"
+#include "bsg.h"
 #include "rt/geom.h"
 #include "rt/defines.h"
 #include "rt/application.h"
@@ -130,15 +131,15 @@ struct rt_functab {
 		   struct rt_db_internal * /*ip*/,
 		   const struct bg_tess_tol * /*ttol*/,
 		   const struct bn_tol * /*tol*/,
-		   const struct bview * /*view info*/);
-#define RTFUNCTAB_FUNC_PLOT_CAST(_func) ((int (*)(struct bu_list *, struct rt_db_internal *, const struct bg_tess_tol *, const struct bn_tol *, const struct bview *))((void (*)(void))_func))
+		   const bsg_view * /*view info*/);
+#define RTFUNCTAB_FUNC_PLOT_CAST(_func) ((int (*)(struct bu_list *, struct rt_db_internal *, const struct bg_tess_tol *, const struct bn_tol *, const bsg_view *))((void (*)(void))_func))
 
     int (*ft_adaptive_plot)(struct bu_list * /*vhead*/,
 	                    struct rt_db_internal * /*ip*/,
 			    const struct bn_tol * /*tol*/,
-			    const struct bview * /* view info */,
+			    const bsg_view * /* view info */,
 			    fastf_t /* s_size */);
-#define RTFUNCTAB_FUNC_ADAPTIVE_PLOT_CAST(_func) ((int (*)(struct bu_list *, struct rt_db_internal *, const struct bn_tol *, const struct bview *, fastf_t))((void (*)(void))_func))
+#define RTFUNCTAB_FUNC_ADAPTIVE_PLOT_CAST(_func) ((int (*)(struct bu_list *, struct rt_db_internal *, const struct bn_tol *, const bsg_view *, fastf_t))((void (*)(void))_func))
 
     void (*ft_vshot)(struct soltab * /*stp*/[],
 		     struct xray *[] /*rp*/,
@@ -318,13 +319,13 @@ struct rt_functab {
      * of all the leaf wireframes.  Normally the latter won't be what apps want,
      * since it wouldn't reuse solid leaf wireframes, but from an API perspective
      * it's what this function would return... */
-    int (*ft_scene_obj)(struct bv_scene_obj * /*s*/,
+    int (*ft_scene_obj)(bsg_shape * /*s*/,
 		   struct directory * /*dp*/,
 		   struct db_i * /*dbip*/,
 		   const struct bg_tess_tol * /*ttol*/,
 		   const struct bn_tol * /*tol*/,
-		   const struct bview * /*v*/);
-#define RTFUNCTAB_FUNC_SCENE_OBJ_CAST(_func) ((int (*)(struct bv_scene_obj *, struct directory *, struct db_i *, const struct bg_tess_tol *, const struct bn_tol *, const struct bview *))((void (*)(void))_func))
+		   const bsg_view * /*v*/);
+#define RTFUNCTAB_FUNC_SCENE_OBJ_CAST(_func) ((int (*)(bsg_shape *, struct directory *, struct db_i *, const struct bg_tess_tol *, const struct bn_tol *, const bsg_view *))((void (*)(void))_func))
 
 };
 

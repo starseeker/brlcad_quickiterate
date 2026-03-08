@@ -118,9 +118,13 @@ _ged_pipe_append_pnt_common(struct ged *gedp, int argc, const char *argv[], stru
     else
 	prevpp = BU_LIST_FIRST(wdb_pipe_pnt, &pipeip->pipe_segs_head);
 
-    MAT4X3PNT(view_pp_coord, gedp->ged_gvp->gv_model2view, prevpp->pp_coord);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(view_pp_coord, _cm.model2view, prevpp->pp_coord);
+    }
     view_ps_pt[Z] = view_pp_coord[Z];
-    MAT4X3PNT(ps_pt, gedp->ged_gvp->gv_view2model, view_ps_pt);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      MAT4X3PNT(ps_pt, _cm.view2model, view_ps_pt);
+    }
 
     if ((*func)(pipeip, (struct wdb_pipe_pnt *)NULL, ps_pt) == (struct wdb_pipe_pnt *)NULL) {
 	rt_db_free_internal(&intern);
@@ -301,8 +305,10 @@ ged_find_pipe_pnt_nearest_pnt_core(struct ged *gedp, int argc, const char *argv[
 	return BRLCAD_ERROR;
     }
 
-    nearest = rt_pipe_find_pnt_nearest_pnt(&((struct rt_pipe_internal *)intern.idb_ptr)->pipe_segs_head,
-				     model_pt, gedp->ged_gvp->gv_view2model);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      nearest = rt_pipe_find_pnt_nearest_pnt(&((struct rt_pipe_internal *)intern.idb_ptr)->pipe_segs_head,
+				     model_pt, _cm.view2model);
+    }
     seg_i = rt_pipe_get_i_seg((struct rt_pipe_internal *)intern.idb_ptr, nearest);
     rt_db_free_internal(&intern);
 

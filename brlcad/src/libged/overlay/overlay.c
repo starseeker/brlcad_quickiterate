@@ -28,7 +28,7 @@
 
 #include "bu/path.h"
 #include "bu/mime.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "icv.h"
 #include "dm.h"
 
@@ -202,7 +202,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 		bu_vls_free(&vname);
 		return BRLCAD_ERROR;
 	    }
-	    vbp = bv_vlblock_init(vlfree, 32);
+	    vbp = bsg_vlblock_init(vlfree, 32);
 	    for (size_t i = 0; i < count; i++) {
 		if ((fp = fopen(files[i], "rb")) == NULL) {
 		    bu_vls_printf(gedp->ged_result_str, "ged_overlay_core: failed to open file - %s\n", files[i]);
@@ -214,7 +214,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 		ret = rt_uplot_to_vlist(vbp, fp, size, gedp->i->ged_gdp->gd_uplotOutputMode);
 		fclose(fp);
 		if (ret < 0) {
-		    bv_vlblock_free(vbp);
+		    bsg_vlblock_free(vbp);
 		    bu_argv_free(count, files);
 		    bu_vls_free(&nroot);
 		    bu_vls_free(&vname);
@@ -223,11 +223,11 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 	    bu_argv_free(count, files);
 	} else {
-	    vbp = bv_vlblock_init(vlfree, 32);
+	    vbp = bsg_vlblock_init(vlfree, 32);
 	    ret = rt_uplot_to_vlist(vbp, fp, size, gedp->i->ged_gdp->gd_uplotOutputMode);
 	    fclose(fp);
 	    if (ret < 0) {
-		bv_vlblock_free(vbp);
+		bsg_vlblock_free(vbp);
 		bu_vls_free(&nroot);
 		bu_vls_free(&vname);
 		return BRLCAD_ERROR;
@@ -235,13 +235,13 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (gedp->new_cmd_forms) {
-	    struct bview *v = gedp->ged_gvp;
-	    bv_vlblock_obj(vbp, v, bu_vls_cstr(&nroot));
+	    bsg_view *v = gedp->ged_gvp;
+	    bsg_vlblock_obj(vbp, v, bu_vls_cstr(&nroot));
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&vname), 0);
 	}
 
-	bv_vlblock_free(vbp);
+	bsg_vlblock_free(vbp);
 	bu_vls_free(&nroot);
 	bu_vls_free(&vname);
 

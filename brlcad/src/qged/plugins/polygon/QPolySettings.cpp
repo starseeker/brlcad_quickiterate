@@ -145,12 +145,12 @@ QPolySettings::~QPolySettings()
 }
 
 bool
-QPolySettings::uniq_obj_name(struct bu_vls *oname, struct bview *v)
+QPolySettings::uniq_obj_name(struct bu_vls *oname, bsg_view *v)
 {
     if (!v || !oname)
 	return false;
 
-    char *vname = NULL;
+    char *vname = nullptr;
     if (view_name->placeholderText().length()) {
 	vname = bu_strdup(view_name->placeholderText().toLocal8Bit().data());
     }
@@ -163,7 +163,7 @@ QPolySettings::uniq_obj_name(struct bu_vls *oname, struct bview *v)
     // See if the supplied name will collide.  If it will, then reject.  If we want
     // an output name, fail with a message box
     struct bu_vls ovname = BU_VLS_INIT_ZERO;
-    bv_uniq_obj_name(&ovname, vname, v);
+    bsg_view_uniq_name(&ovname, vname, v);
     if (!BU_STR_EQUAL(bu_vls_cstr(&ovname), vname)) {
 	if (!oname)
 	    return false;
@@ -218,7 +218,7 @@ QPolySettings::do_grid_snapping_changed()
 
 
 void
-QPolySettings::settings_sync(struct bv_scene_obj *p)
+QPolySettings::settings_sync(bsg_shape *p)
 {
     if (!p)
 	return;

@@ -33,8 +33,9 @@
 #include <QMap>
 #include <QSet>
 #include <QModelIndex>
+#include <QTimer>
 
-#include "bv.h"
+#include "bsg.h"
 #include "raytrace.h"
 #include "ged.h"
 #include "qtcad/QgModel.h"
@@ -60,9 +61,9 @@ class QgEdApp : public QApplication
 	~QgEdApp();
 
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	int load_g_file(const char *gfile = NULL, bool do_conversion = true);
+	int load_g_file(const char *gfile = nullptr, bool do_conversion = true);
 
-	QgModel *mdl = NULL;
+	QgModel *mdl = nullptr;
 
     signals:
 	void view_update(unsigned long long);
@@ -96,14 +97,28 @@ class QgEdApp : public QApplication
 	void run_qcmd(const QString &command);
 	void element_selected(QgToolPaletteElement *el);
 
+	// Slot connected to the background-geometry drain timer.
+	// Called every ~100 ms; drains DbiState::drain_geom_results() and
+	// emits view_update when new bounding-box data has arrived.
+	// This is the notification-bundling mechanism: multiple background bbox
+	// results that arrive within one timer interval are coalesced into a
+	// single view_update emission rather than triggering a repaint for each
+	// individual result.
+	void drain_background_geom();
+
     public:
-	QgEdMainWindow *w = NULL;
+	QgEdMainWindow *w = nullptr;
 
     private:
 	std::vector<char *> tmp_av;
 	unsigned long long select_hash = 0;
 	long history_mark_start = -1;
 	long history_mark_end = -1;
+
+	// Periodic timer for draining background geometry results.
+	// Fires every BG_GEOM_DRAIN_INTERVAL_MS milliseconds.
+	static constexpr int BG_GEOM_DRAIN_INTERVAL_MS = 100;
+	QTimer *geom_drain_timer_ = nullptr;
 };
 
 #endif // QGEDAPP_H

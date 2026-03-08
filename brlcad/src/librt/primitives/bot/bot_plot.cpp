@@ -166,7 +166,7 @@ plot_node(const vdsNode *node, void *udata)
 }
 
 static fastf_t
-avg_sample_spacing(const struct bview *gvp)
+avg_sample_spacing(const bsg_view *gvp)
 {
     fastf_t view_aspect = (fastf_t)gvp->gv_width / gvp->gv_height;
     fastf_t x_size = gvp->gv_size;
@@ -177,7 +177,7 @@ avg_sample_spacing(const struct bview *gvp)
 }
 
 extern "C" int
-rt_bot_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const struct bview *v, fastf_t UNUSED(s_size))
+rt_bot_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const bsg_view *v, fastf_t UNUSED(s_size))
 {
     double d1, d2, d3;
     point_t min;
@@ -250,7 +250,7 @@ rt_bot_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const str
 // making the vlist copies... this duplication results in massive additional
 // memory usage for large BoTs.
 extern "C" int
-rt_bot_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const struct bview *info)
+rt_bot_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const bsg_view *info)
 {
     struct rt_bot_internal *bot_ip;
     size_t i;

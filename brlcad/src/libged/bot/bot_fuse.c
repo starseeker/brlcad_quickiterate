@@ -32,7 +32,7 @@
 #include "bu/getopt.h"
 #include "bu/parallel.h"
 #include "rt/geom.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 
 #include "../ged_private.h"
 
@@ -63,8 +63,8 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
     }
 
     if (out_type == 1) {
-	vbp = bv_vlblock_init(vlfree, 32);
-	vhead = bv_vlblock_find(vbp, 0xFF, 0xFF, 0x00);
+	vbp = bsg_vlblock_init(vlfree, 32);
+	vhead = bsg_vlblock_find(vbp, 0xFF, 0xFF, 0x00);
     }
 
     bu_ptbl_init(&faces, 64, "faces buffer");
@@ -130,13 +130,13 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
 	if (gedp->new_cmd_forms) {
 	    struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	    bu_vls_sprintf(&nroot, "bot_fuse::%s", name);
-	    struct bview *view = gedp->ged_gvp;
-	    bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
+	    bsg_view *view = gedp->ged_gvp;
+	    bsg_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
 	    bu_vls_free(&nroot);
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, vbp, name, 0);
 	}
-	bv_vlblock_free(vbp);
+	bsg_vlblock_free(vbp);
 	bu_log("Showing open edges...\n");
     } else if (out_type == 2) {
 	if (plotfp) {

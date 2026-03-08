@@ -25,7 +25,7 @@
 
 #ifndef QGEDPALETTE_H
 #define QGEDPALETTE_H
-#include <iostream>
+#include <vector>
 #include "qtcad/QgToolPalette.h"
 
 class QgEdPalette : public QgToolPalette
@@ -45,6 +45,9 @@ class QgEdPalette : public QgToolPalette
 
     private:
 	int m_mode = 0;
+	/* Handles for loaded plugin libraries; closed in destructor after
+	 * all child widgets have been destroyed. */
+	std::vector<void *> m_dl_handles;
 };
 
 #endif /* QGEDPALETTE_H */

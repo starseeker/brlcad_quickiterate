@@ -73,12 +73,12 @@ int main(int argc, char *argv[])
     if (argc != 1)
 	bu_exit(-1, "need to specify .g file\n");
 
-    QgModel sm(NULL, argv[0]);
+    QgModel sm(nullptr, argv[0]);
     QgModel *s = &sm;
 
     //open_tops(s, -1);
 
-    QgTreeView tree(NULL, s);
+    QgTreeView tree(nullptr, s);
     tree.setWindowTitle(argv[0]);
     tree.show();
 

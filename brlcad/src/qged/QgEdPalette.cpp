@@ -37,15 +37,14 @@ QgEdPalette::QgEdPalette(int mode, QWidget *pparent)
     m_mode = mode;
 
     // Load plugins for this particular palette type
-    const char *ppath = bu_dir(NULL, 0, BU_DIR_LIBEXEC, "qged", NULL);
+    const char *ppath = bu_dir(nullptr, 0, BU_DIR_LIBEXEC, "qged", nullptr);
     char **filenames;
     struct bu_vls plugin_pattern = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&plugin_pattern, "*%s", QGED_PLUGIN_SUFFIX);
     size_t nfiles = bu_file_list(ppath, bu_vls_cstr(&plugin_pattern), &filenames);
     std::map<int, std::set<QgToolPaletteElement *>> c_map;
-    for (size_t i = 0; i < nfiles; i++) {
-	char pfile[MAXPATHLEN] = {0};
-	bu_dir(pfile, MAXPATHLEN, BU_DIR_LIBEXEC, "qged", filenames[i], NULL);
+    for (size_t i = 0; i < nfiles; i++) {	char pfile[MAXPATHLEN] = {0};
+	bu_dir(pfile, MAXPATHLEN, BU_DIR_LIBEXEC, "qged", filenames[i], nullptr);
 	void *dl_handle;
 	dl_handle = bu_dlopen(pfile, BU_RTLD_NOW);
 	if (!dl_handle) {
@@ -59,7 +58,7 @@ QgEdPalette::QgEdPalette(int mode, QWidget *pparent)
 	{
 	    const char *psymbol = "qged_plugin_info";
 	    void *info_val = bu_dlsym(dl_handle, psymbol);
-	    const struct qged_plugin *(*plugin_info)() = (const struct qged_plugin *(*)())(intptr_t)info_val;
+	    const struct qged_plugin *(*plugin_info)(void) = (const struct qged_plugin *(*)(void))(intptr_t)info_val;
 	    if (!plugin_info) {
 		const char * const error_msg = bu_dlerror();
 
@@ -86,42 +85,51 @@ QgEdPalette::QgEdPalette(int mode, QWidget *pparent)
 	    }
 
 	    if (!plugin->cmd_cnt) {
-		bu_log("Plugin '%s' contains no commands, (skipping)\n", pfile);
+		bu_log("Plugin '%s' contains no commands (skipping)\n", pfile);
 		bu_dlclose(dl_handle);
 		continue;
 	    }
 
-	    const struct qged_tool **cmds = plugin->cmds;
-	    uint32_t ptype = *((const uint32_t *)(plugin));
+	    /* Validate ABI version before attempting to use any other fields */
+	    if (plugin->api_version != QGED_PLUGIN_API_VERSION) {
+		bu_log("Plugin '%s' has api_version %u, expected %d (skipping)\n",
+		       pfile, plugin->api_version, QGED_PLUGIN_API_VERSION);
+		bu_dlclose(dl_handle);
+		continue;
+	    }
 
-	    if (ptype == (uint32_t)mode) {
-		for (int c = 0; c < plugin->cmd_cnt; c++) {
-		    const struct qged_tool *cmd = cmds[c];
-		    QgToolPaletteElement *el = (QgToolPaletteElement *)(*cmd->i->tool_create)();
-		    c_map[cmd->palette_priority].insert(el);
+	    /* Check whether this plugin belongs to the palette being constructed */
+	    if ((int)plugin->plugin_type != mode) {
+		/* Plugin is valid but targets a different palette - close and move on */
+		bu_dlclose(dl_handle);
+		continue;
+	    }
+
+	    /* Plugin is accepted - keep the handle so we can release it later */
+	    m_dl_handles.push_back(dl_handle);
+
+	    const struct qged_tool **cmds = plugin->cmds;
+	    for (int c = 0; c < plugin->cmd_cnt; c++) {
+		const struct qged_tool *cmd = cmds[c];
+		if (!cmd || !cmd->tool_create)
+		    continue;
+		const char *tname = cmd->name ? cmd->name : "(unnamed)";
+		QgToolPaletteElement *el = (QgToolPaletteElement *)(*cmd->tool_create)();
+		if (!el) {
+		    bu_log("Tool '%s' from '%s' returned NULL (skipping)\n", tname, pfile);
+		    continue;
 		}
+		bu_log("Loaded tool '%s' from '%s'\n", tname, pfile);
+		c_map[cmd->palette_priority].insert(el);
 	    }
 	}
     }
     bu_argv_free(nfiles, filenames);
     bu_vls_free(&plugin_pattern);
 
-    std::map<int, std::set<QgToolPaletteElement *>>::iterator e_it;
-    for (e_it = c_map.begin(); e_it != c_map.end(); e_it++) {
-	std::set<QgToolPaletteElement *>::iterator el_it;
-	for (el_it = e_it->second.begin(); el_it != e_it->second.end(); el_it++) {
-	    QgToolPaletteElement *el = *el_it;
+    for (auto &[priority, elems] : c_map) {
+	for (QgToolPaletteElement *el : elems)
 	    addElement(el);
-	}
-    }
-
-    // Add placeholder oc tool until we implement more real tools
-    if (mode == QGED_OC_TOOL_PLUGIN) {
-	QIcon *obj_icon = new QIcon();
-	QString obj_label("primitive controls ");
-	QPushButton *obj_control = new QPushButton(obj_label);
-	QgToolPaletteElement *el = new QgToolPaletteElement(obj_icon, obj_control);
-	addElement(el);
     }
 }
 
@@ -141,6 +149,10 @@ QgEdPalette::makeCurrent(QWidget *w)
 
 QgEdPalette::~QgEdPalette()
 {
+    /* Child widgets are destroyed by Qt before this destructor body runs, so
+     * it is safe to release the plugin library handles now. */
+    for (void *h : m_dl_handles)
+	bu_dlclose(h);
 }
 
 /*

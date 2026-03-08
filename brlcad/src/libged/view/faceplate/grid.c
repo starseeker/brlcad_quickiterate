@@ -33,7 +33,7 @@
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
 
 #include "../../ged_private.h"
 #include "../ged_view.h"
@@ -393,7 +393,7 @@ _fp_cmd_grid(void *bs, int argc, const char **argv)
     int help = 0;
     struct _ged_view_info *gd = (struct _ged_view_info *)bs;
     struct ged *gedp = gd->gedp;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     const char *usage_string = "view faceplate grid subcmd [args]";
     const char *purpose_string = "manipulate faceplate grid overlay";

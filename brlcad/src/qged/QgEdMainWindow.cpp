@@ -355,7 +355,7 @@ QgEdMainWindow::do_dm_init()
     // dm) can be delayed, so we put these invocations in a slot that is
     // specifically triggered once the underlying widgets have informed us that
     // they're ready to go.
-    const char *av[5] = {NULL};
+    const char *av[5] = {nullptr};
     av[0] = "dm";
     av[1] = "bg";
     av[2] = "110/110/110";
@@ -382,7 +382,7 @@ QgEdMainWindow::isValid3D()
 void
 QgEdMainWindow::close()
 {
-    closeEvent(NULL);
+    closeEvent(nullptr);
     QMainWindow::close();
 }
 
@@ -428,7 +428,7 @@ QgEdMainWindow::CurrentDisplay()
     return c4->get();
 }
 
-struct bview *
+bsg_view *
 QgEdMainWindow::CurrentView()
 {
     return c4->view();

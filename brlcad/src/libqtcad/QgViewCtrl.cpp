@@ -65,28 +65,28 @@ void
 QgViewCtrl::sca_mode()
 {
     QTCAD_SLOT("QgViewCtrl::sca_mode", 1);
-    emit lmouse_mode(BV_SCALE);
+    emit lmouse_mode(BSG_SCALE);
 }
 
 void
 QgViewCtrl::rot_mode()
 {
     QTCAD_SLOT("QgViewCtrl::rot_mode", 1);
-    emit lmouse_mode(BV_ROT);
+    emit lmouse_mode(BSG_ROT);
 }
 
 void
 QgViewCtrl::tra_mode()
 {
     QTCAD_SLOT("QgViewCtrl::tra_mode", 1);
-    emit lmouse_mode(BV_TRANS);
+    emit lmouse_mode(BSG_TRANS);
 }
 
 void
 QgViewCtrl::center_mode()
 {
     QTCAD_SLOT("QgViewCtrl::center_mode", 1);
-    emit lmouse_mode(BV_CENTER);
+    emit lmouse_mode(BSG_CENTER);
 }
 
 
@@ -94,7 +94,7 @@ void
 QgViewCtrl::fbclear_cmd()
 {
     QTCAD_SLOT("QgViewCtrl::fbclear_cmd", 1);
-    const char *av[2] = {NULL};
+    const char *av[2] = {nullptr};
     av[0] = "fbclear";
     ged_exec_fbclear(gedp, 1, (const char **)av);
     emit view_changed(QG_VIEW_REFRESH);
@@ -106,7 +106,7 @@ QgViewCtrl::fb_mode_cmd()
     QTCAD_SLOT("QgViewCtrl::fb_mode_cmd", 1);
     if (!gedp->ged_gvp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     switch (v->gv_s->gv_fb_mode) {
 	case 0:
 	    v->gv_s->gv_fb_mode = 2;
@@ -129,7 +129,7 @@ QgViewCtrl::do_view_update(unsigned long long flags)
     QTCAD_SLOT("QgViewCtrl::do_view_update", 1);
     if (!gedp->ged_gvp || !flags)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     switch (v->gv_s->gv_fb_mode) {
 	case 0:
 	    fb_mode->setIcon(QIcon(QPixmap(":images/view/framebuffer_off.png")));
@@ -168,7 +168,7 @@ void
 QgViewCtrl::raytrace_cmd()
 {
     QTCAD_SLOT("QgViewCtrl::raytrace_cmd", 1);
-    const char *av[4] = {NULL};
+    const char *av[4] = {nullptr};
     struct bu_vls pid_str = BU_VLS_INIT_ZERO;
 
     ged_clbk_set(gedp, "ert", BU_CLBK_DURING, &rt_cmd_start, (void *)this);
@@ -190,8 +190,8 @@ QgViewCtrl::raytrace_cmd()
     emit view_changed(QG_VIEW_REFRESH);
 
 cmd_cleanup:
-    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, NULL, NULL);
-    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, NULL, NULL);
+    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, nullptr, nullptr);
+    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, nullptr, nullptr);
     bu_vls_free(&pid_str);
 }
 

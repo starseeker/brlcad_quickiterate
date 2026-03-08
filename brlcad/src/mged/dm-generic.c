@@ -42,6 +42,7 @@
 #include "vmath.h"
 #include "raytrace.h"
 #include "ged.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -147,7 +148,7 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 	    else
 		VSET(view_pt, fx, fy, 1.0);
 
-	    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+	    { struct bsg_camera _dg; bsg_view_get_camera(view_state->vs_gvp, &_dg); MAT4X3PNT(model_pt, _dg.view2model, view_pt); }
 	    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 	    if (dm_get_zclip(DMP))
 		bu_vls_printf(&vls, "nirt -c --xyz %lf %lf %lf",
@@ -192,7 +193,7 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 		snap_to_grid(s, &fx, &fy);
 
 	    VSET(view_pt, fx, fy, 1.0);
-	    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+	    { struct bsg_camera _dg; bsg_view_get_camera(view_state->vs_gvp, &_dg); MAT4X3PNT(model_pt, _dg.view2model, view_pt); }
 	    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 	    bu_vls_printf(&vls, "adc xyz %lf %lf %lf\n", model_pt[X], model_pt[Y], model_pt[Z]);
 	} else if (grid_state->snap && !stolen &&
@@ -201,10 +202,10 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 	    point_t model_pt;
 
 	    snap_to_grid(s, &fx, &fy);
-	    MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	    { struct bsg_camera _dg2; bsg_view_get_camera(view_state->vs_gvp, &_dg2); MAT4X3PNT(view_pt, _dg2.model2view, MEDIT(s)->curr_e_axes_pos); }
 	    view_pt[X] = fx;
 	    view_pt[Y] = fy;
-	    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+	    { struct bsg_camera _dg; bsg_view_get_camera(view_state->vs_gvp, &_dg); MAT4X3PNT(model_pt, _dg.view2model, view_pt); }
 	    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 	    bu_vls_printf(&vls, "p %lf %lf %lf", model_pt[X], model_pt[Y], model_pt[Z]);
 	} else if (grid_state->snap && !stolen &&
@@ -213,10 +214,10 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 	    point_t model_pt;
 
 	    snap_to_grid(s, &fx, &fy);
-	    MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	    { struct bsg_camera _dg2; bsg_view_get_camera(view_state->vs_gvp, &_dg2); MAT4X3PNT(view_pt, _dg2.model2view, MEDIT(s)->curr_e_axes_pos); }
 	    view_pt[X] = fx;
 	    view_pt[Y] = fy;
-	    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+	    { struct bsg_camera _dg; bsg_view_get_camera(view_state->vs_gvp, &_dg); MAT4X3PNT(model_pt, _dg.view2model, view_pt); }
 	    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 	    bu_vls_printf(&vls, "translate %lf %lf %lf", model_pt[X], model_pt[Y], model_pt[Z]);
 	} else if (grid_state->snap && !stolen &&
@@ -227,11 +228,10 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 	    point_t vcenter;
 
 	    snap_to_grid(s, &fx, &fy);
-	    MAT_DELTAS_GET_NEG(vcenter, view_state->vs_gvp->gv_center);
-	    MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, vcenter);
+	    { struct bsg_camera _dg3; bsg_view_get_camera(view_state->vs_gvp, &_dg3); MAT_DELTAS_GET_NEG(vcenter, _dg3.center); MAT4X3PNT(view_pt, _dg3.model2view, vcenter); }
 	    view_pt[X] = fx;
 	    view_pt[Y] = fy;
-	    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+	    { struct bsg_camera _dg; bsg_view_get_camera(view_state->vs_gvp, &_dg); MAT4X3PNT(model_pt, _dg.view2model, view_pt); }
 	    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 	    bu_vls_printf(&vls, "center %lf %lf %lf", model_pt[X], model_pt[Y], model_pt[Z]);
 	} else
@@ -351,7 +351,7 @@ common_dm(struct mged_state *s, int argc, const char *argv[])
 		    if (grid_state->snap)
 			snap_to_grid(s, &view_pt[X], &view_pt[Y]);
 
-		    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+		    { struct bsg_camera _dg; bsg_view_get_camera(view_state->vs_gvp, &_dg); MAT4X3PNT(model_pt, _dg.view2model, view_pt); }
 		    VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 
 		    bu_vls_printf(&vls, "adc xyz %lf %lf %lf\n", model_pt[X], model_pt[Y], model_pt[Z]);

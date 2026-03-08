@@ -47,6 +47,7 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/util.h"
 
 
 /**
@@ -172,8 +173,6 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     mat_t rot;
     struct bv_vlist *vp = NULL;
     struct directory *dp = NULL;
-    struct display_list *gdlp = NULL;
-    struct display_list *next_gdlp = NULL;
     vect_t eye_model = VINIT_ZERO;
     vect_t sav_center = VINIT_ZERO;
     vect_t sav_start = VINIT_ZERO;
@@ -181,7 +180,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* static due to setjmp */
     static int mode = 0;
-    static struct bv_scene_obj *sp;
+    static bsg_shape *sp;
 
     CHECK_DBI_NULL;
 
@@ -214,11 +213,11 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		break;
 	    }
 
-	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-		for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    {
+		bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+		size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+		for (size_t si = 0; si < nshapes; si++) {
+		    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 		    if (!sp->s_u_data)
 			continue;
 		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
@@ -230,8 +229,6 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    Tcl_AppendResult(interp, "animating EYE solid\n", (char *)NULL);
 		    goto work;
 		}
-
-		gdlp = next_gdlp;
 	    }
 	    /* Fall through */
 	default:
@@ -255,20 +252,32 @@ work:
 	switch (mode) {
 	    case -1:
 		/* First step:  put eye in center */
-		view_state->vs_gvp->gv_scale = scale;
-		MAT_COPY(view_state->vs_gvp->gv_rotation, rot);
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
-		new_mats(s);
-		/* Second step:  put eye in front */
-		VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
-		MAT4X3PNT(eye_model, view_state->vs_gvp->gv_view2model, xlate);
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
+		{
+		    struct bsg_camera _rc;
+		    bsg_view_get_camera(view_state->vs_gvp, &_rc);
+		    view_state->vs_gvp->gv_scale = scale;
+		    MAT_COPY(_rc.rotation, rot);
+		    MAT_DELTAS_VEC_NEG(_rc.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_rc);
+		    new_mats(s);
+		    /* Second step:  put eye in front */
+		    VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
+		    bsg_view_get_camera(view_state->vs_gvp, &_rc);
+		    MAT4X3PNT(eye_model, _rc.view2model, xlate);
+		    MAT_DELTAS_VEC_NEG(_rc.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_rc);
+		}
 		new_mats(s);
 		break;
 	    case 0:
-		view_state->vs_gvp->gv_scale = scale;
-		MAT_IDN(view_state->vs_gvp->gv_rotation);	/* top view */
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
+		{
+		    struct bsg_camera _r0;
+		    bsg_view_get_camera(view_state->vs_gvp, &_r0);
+		    view_state->vs_gvp->gv_scale = scale;
+		    MAT_IDN(_r0.rotation);	/* top view */
+		    MAT_DELTAS_VEC_NEG(_r0.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_r0);
+		}
 		new_mats(s);
 		break;
 	    case 1:

@@ -30,6 +30,7 @@
 #include "RTree.h"
 #include "bu/cmd.h"
 #include "brep/defines.h"
+#include "bsg/util.h"
 #include "./ged_brep.h"
 
 struct _ged_brep_ipick {
@@ -77,9 +78,10 @@ _brep_cmd_edge_pick(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     } else {
 	// If not explicitly specified, get the ray from GED
-	VSET(origin, -gedp->ged_gvp->gv_center[MDX], -gedp->ged_gvp->gv_center[MDY], -gedp->ged_gvp->gv_center[MDZ]);
+	{ struct bsg_camera _cam; bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	VSET(origin, -_cam.center[MDX], -_cam.center[MDY], -_cam.center[MDZ]);
 	VSCALE(origin, origin, gedp->dbip->dbi_base2local);
-	VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(dir, _cam.rotation + 8, 3); }
 	VSCALE(dir, dir, -1.0);
 	// Back outside the shape using the brep bounding box diagonal length
 	ON_BoundingBox brep_bb = brep->BoundingBox();
@@ -226,9 +228,10 @@ _brep_cmd_face_pick(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     } else {
 	// If not explicitly specified, get the ray from GED
-	VSET(origin, -gedp->ged_gvp->gv_center[MDX], -gedp->ged_gvp->gv_center[MDY], -gedp->ged_gvp->gv_center[MDZ]);
+	{ struct bsg_camera _cam; bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	VSET(origin, -_cam.center[MDX], -_cam.center[MDY], -_cam.center[MDZ]);
 	VSCALE(origin, origin, gedp->dbip->dbi_base2local);
-	VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(dir, _cam.rotation + 8, 3); }
 	VSCALE(dir, dir, -1.0);
 	// Back outside the shape using the brep bounding box diagonal length
 	ON_BoundingBox brep_bb = brep->BoundingBox();
@@ -398,9 +401,10 @@ _brep_cmd_vertex_pick(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     } else {
 	// If not explicitly specified, get the ray from GED
-	VSET(origin, -gedp->ged_gvp->gv_center[MDX], -gedp->ged_gvp->gv_center[MDY], -gedp->ged_gvp->gv_center[MDZ]);
+	{ struct bsg_camera _cam; bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	VSET(origin, -_cam.center[MDX], -_cam.center[MDY], -_cam.center[MDZ]);
 	VSCALE(origin, origin, gedp->dbip->dbi_base2local);
-	VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(dir, _cam.rotation + 8, 3); }
 	VSCALE(dir, dir, -1.0);
 	// Back outside the shape using the brep bounding box diagonal length
 	for (int i = 0; i < 3; i++) {

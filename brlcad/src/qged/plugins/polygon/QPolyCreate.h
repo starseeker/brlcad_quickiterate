@@ -98,10 +98,10 @@ class QPolyCreate : public QWidget
     private:
 	bg_clip_t op = bg_Union;
 	int poly_cnt = 0;
-	struct bv_scene_obj *p = NULL;
+	bsg_shape *p = nullptr;
 	bool do_bool = false;
 
-	QgPolyFilter *cf = NULL;
+	QgPolyFilter *cf = nullptr;
 	QPolyCreateFilter *pcf;
 };
 
