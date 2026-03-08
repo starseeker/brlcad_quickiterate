@@ -96,9 +96,16 @@ class QgEdApp : public QApplication
     public slots:
 	void run_qcmd(const QString &command);
 	void element_selected(QgToolPaletteElement *el);
+
+	// Slot connected to the background-geometry drain timer.
+	// Called every ~100 ms; drains DbiState::drain_geom_results() and
+	// emits view_update when new bounding-box data has arrived.
+	// This is the notification-bundling mechanism: multiple background bbox
+	// results that arrive within one timer interval are coalesced into a
+	// single view_update emission rather than triggering a repaint for each
+	// individual result.
 	void drain_background_geom();
 
-	
     public:
 	QgEdMainWindow *w = nullptr;
 
@@ -108,6 +115,7 @@ class QgEdApp : public QApplication
 	long history_mark_start = -1;
 	long history_mark_end = -1;
 
+	// Periodic timer for draining background geometry results.
 	// Fires every BG_GEOM_DRAIN_INTERVAL_MS milliseconds.
 	static constexpr int BG_GEOM_DRAIN_INTERVAL_MS = 100;
 	QTimer *geom_drain_timer_ = nullptr;
