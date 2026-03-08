@@ -420,5 +420,5 @@ geometry automatically (`bbox_placeholders_` private map in `BViewState`).
 
 Gaps:
 - No test for `GeomLoader` drain-pump behavior (would need mock `dbip`)
-- No test for `BViewState::link_to()` draw sharing
+- ~~No test for `BViewState::link_to()` draw sharing~~ — ✅ Added `test_view_state_linking()` to `test_dbi_cpp.cpp` (session 37): covers `link_to()`/`unlink()`/`is_linked()`/`linked_primary()`/delegation via `add_hpath()`
 - No integration test for `IDbiObserver` → `QgModel` → repaint cycle
