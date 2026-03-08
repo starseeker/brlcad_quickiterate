@@ -12,6 +12,30 @@ additions documented in `include/bsg/defines.h` and `include/bsg/util.h`.
 
 ---
 
+## Current State — Session 34 Update (2026-03-08)
+
+### Additional items completed ✅ (Session 34)
+
+- **`include/ged/view.h`**: Renamed `ged_drawable_notify_func_t` → `ged_rt_notify_func_t` and `ged_dl_notify_func_set/get` → `ged_rt_notify_func_set/get`.  Backward-compat `#define` macros kept for external callers.  This resolves the misleading "DL callback" naming for what was always the RT-completion notification.
+- **`src/libged/ged_util.cpp`**: Renamed the function bodies to match.
+- **`src/libged/ged_private.h`**: Updated `gd_rtCmdNotify` field type from `ged_drawable_notify_func_t` → `ged_rt_notify_func_t`.
+- **`src/mged/mged.c`**, **`src/libtclcad/commands.c`**: Updated call sites to use `ged_rt_notify_func_set`.
+- **`include/bsg/util.h`**: Added `bsg_view_set_scale()` setter declaration (with Doxygen).
+- **`src/libbsg/scene_graph.cpp`**: Added `bsg_view_set_scale()` implementation.
+- **`src/librt/primitives/sketch/polygons.c`**: Replaced direct `&sv->gv_scale` write in `bu_opt_fastf_t` call with a temporary variable + `bsg_view_set_scale()` call.  This removes the last remaining direct `gv_scale` write outside of libbsg.
+
+### What remains open ⚠️ (after Session 34)
+
+All display-list compatibility stubs have been removed, and the callback and
+scale APIs have been cleaned up.  Only long-term items remain:
+
+| Item | File | Notes |
+|------|------|-------|
+| Camera direct writes in loadview `_ged_cm_vsize` | `src/libged/draw/loadview.cpp` | Sets `gv_size`, `gv_scale`, `gv_isize` — acceptable since `bsg_camera` does not cover view-scale; `gv_size`/`gv_isize` have no accessor yet |
+| DBI sensor-driven redraws | `dbi_state.cpp` | Long-term L1 item |
+
+---
+
 ## Current State — Session 28 Survey (2026-03-07)
 
 ### What is fully done ✅

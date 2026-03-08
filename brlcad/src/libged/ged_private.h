@@ -74,7 +74,7 @@ struct ged_drawable {
     struct bu_list              *gd_headVDraw;          /**< @brief  head of vdraw list */
     struct vd_curve             *gd_currVHead;          /**< @brief  current vdraw head */
 
-    ged_drawable_notify_func_t  gd_rtCmdNotify; /**< @brief  function called when rt command completes */
+    ged_rt_notify_func_t        gd_rtCmdNotify; /**< @brief  function called when rt command completes */
 
     int                         gd_uplotOutputMode;     /**< @brief  output mode for unix plots */
 

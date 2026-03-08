@@ -465,6 +465,18 @@ BSG_EXPORT fastf_t bsg_view_scale(const bsg_view *v);
 BSG_EXPORT fastf_t bsg_view_local2base(const bsg_view *v);
 BSG_EXPORT fastf_t bsg_view_base2local(const bsg_view *v);
 
+/**
+ * @brief Set the view scale.
+ *
+ * Updates @c gv_scale directly on @p v.  In Phase 2 this write will be
+ * routed through the camera node; until then it is a direct field write
+ * wrapped in an API call so that callers do not depend on the field layout.
+ *
+ * @param v      Target view (must not be NULL).
+ * @param scale  New scale value (half the model diameter visible in the view).
+ */
+BSG_EXPORT void bsg_view_set_scale(bsg_view *v, fastf_t scale);
+
 /* ====================================================================== *
  * Phase 2: camera accessor                                               *
  * ====================================================================== */

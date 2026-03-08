@@ -312,6 +312,13 @@ bsg_view_base2local(const bsg_view *v)
     return v->gv_base2local;
 }
 
+extern "C" void
+bsg_view_set_scale(bsg_view *v, fastf_t scale)
+{
+    if (!v) return;
+    v->gv_scale = scale;
+}
+
 /* ====================================================================== *
  * Phase 2: camera accessor (updated: bsg_view_get_camera existed,        *
  *          bsg_view_set_camera is new)                                   *
