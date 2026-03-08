@@ -341,10 +341,8 @@ QgEdApp::do_view_changed(unsigned long long flags)
 		    continue;
 		vmap[bvs].insert(v);
 	    }
-	    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
-	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-		bv_it->first->redraw(nullptr, bv_it->second, 1);
-	    }
+	    for (auto &[bvs, vset] : vmap)
+		bvs->redraw(nullptr, vset, 1);
 	}
     }
 
@@ -467,10 +465,9 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	    tmp_av.push_back(tstr);
 	}
 	char **av = (char **)bu_calloc(tmp_av.size() + 1, sizeof(char *), "argv array");
-	// Assemble the full command we have thus var
-	for (size_t i = 0; i < tmp_av.size(); i++) {
+	// Assemble the full command we have thus far
+	for (size_t i = 0; i < tmp_av.size(); i++)
 	    av[i] = tmp_av[i];
-	}
 	int ac = (int)tmp_av.size();
 	ret = mdl->run_cmd(msg, ac, (const char **)av);
     }
@@ -514,9 +511,8 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	// If we were in an incremental command, we're done now -
 	if (tmp_av.size()) {
 	    // clear tmp_av
-	    for (size_t i = 0; i < tmp_av.size(); i++) {
-		bu_free(tmp_av[i], "tmp_av entry");
-	    }
+	    for (char *s : tmp_av)
+		bu_free(s, "tmp_av entry");
 	    tmp_av.clear();
 	    // let the console know that we're done with MORE
 	    QgConsole *console = w->console;

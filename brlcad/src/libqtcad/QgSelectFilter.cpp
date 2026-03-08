@@ -376,9 +376,8 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 	if (so)
 	    bu_ptbl_ins(&selected_set, (long *)so);
     } else {
-	std::unordered_set<std::string>::iterator a_it;
-	for (a_it = rc.active.begin(); a_it != rc.active.end(); a_it++) {
-	    bu_vls_sprintf(&dpath, "%s",  a_it->c_str());
+	for (const std::string &active_path : rc.active) {
+	    bu_vls_sprintf(&dpath, "%s", active_path.c_str());
 	    if (bu_vls_cstr(&dpath)[0] == '/')
 		bu_vls_nibble(&dpath, 1);
 	    bsg_shape *so = bsg_view_find_shape(v, bu_vls_cstr(&dpath));
