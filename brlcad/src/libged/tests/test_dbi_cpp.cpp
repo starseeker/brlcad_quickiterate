@@ -44,8 +44,10 @@
 #include "bu.h"
 #include "bu/ptbl.h"
 #include "raytrace.h"
+#include "wdb.h"
 #include "ged.h"
 #include "ged/dbi.h"
+#include "bsg/lod.h"
 
 /* ------------------------------------------------------------------ */
 /* Database-change callback: populates DbiState's added/changed/      */
@@ -464,7 +466,104 @@ test_geomloader_bbox(struct ged *gedp)
 }
 
 /* ------------------------------------------------------------------ */
-/* Section F: BViewState::link_to / unlink                            */
+/* Section F: GeomLoader background LoD generation for BoT meshes     */
+/* ------------------------------------------------------------------ */
+static void
+test_geomloader_lod(struct ged *gedp)
+{
+    printf("\n--- GeomLoader LoD generation ---\n");
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    /* Set up a temporary LoD context for this test if the ged instance
+     * doesn't already have one (typical for unit tests that open a db
+     * directly rather than going through 'ged open').
+     * NOTE: this must be set BEFORE creating the BoT and calling update()
+     * so that start_geom_load() either creates a fresh GeomLoader with
+     * lod_ctx set, or detects that the context has become available and
+     * rebuilds the loader. */
+    bool created_lod_ctx = false;
+    if (!gedp->ged_lod) {
+	gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
+	created_lod_ctx = true;
+    }
+    if (!gedp->ged_lod) {
+	printf("SKIP: unable to create ged_lod context\n");
+	return;
+    }
+
+    /* Create a simple BoT (tetrahedron: 4 vertices, 4 faces) so that
+     * GeomLoader has a mesh primitive to process.  mk_bot writes it
+     * directly into the .g database. */
+    const char *bot_name = "lod_test_bot.s";
+    static fastf_t verts[12] = {
+	0.0, 0.0, 0.0,
+	1.0, 0.0, 0.0,
+	0.5, 1.0, 0.0,
+	0.5, 0.5, 1.0
+    };
+    static int faces[12] = {
+	0, 1, 2,
+	0, 1, 3,
+	1, 2, 3,
+	0, 2, 3
+    };
+    struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
+    mk_bot(wdbp, bot_name,
+	   RT_BOT_SOLID, RT_BOT_UNORIENTED, 0,
+	   4, 4, verts, faces, NULL, NULL);
+
+    /* Ensure no stale LoD key from a prior test run so needs_lod is set.
+     * This must be done before update() so push() sees no key for the BoT. */
+    unsigned long long old_key = bsg_mesh_lod_key_get(gedp->ged_lod, bot_name);
+    if (old_key)
+	bsg_mesh_lod_clear_cache(gedp->ged_lod, old_key);
+
+    /* Inform DbiState of the new primitive.  Because gedp->ged_lod is now
+     * set, start_geom_load() will (re-)create GeomLoader with the lod_ctx,
+     * and push() will mark the BoT with needs_lod=true. */
+    dbis->update();
+
+    /* Poll drain_geom_results() until the LoD key arrives or a 5-second
+     * timeout expires.  Background generation is triggered automatically
+     * inside start_geom_load() when lod_ctx is set (gedp->ged_lod != NULL). */
+    bool lod_arrived = false;
+    for (int i = 0; i < 500; ++i) {
+	dbis->drain_geom_results();
+	unsigned long long key = bsg_mesh_lod_key_get(gedp->ged_lod, bot_name);
+	if (key) {
+	    lod_arrived = true;
+	    break;
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    CHECK(lod_arrived,
+	  "drain_geom_results() generates LoD cache for a newly created BoT");
+
+    if (lod_arrived) {
+	unsigned long long key = bsg_mesh_lod_key_get(gedp->ged_lod, bot_name);
+	bsg_lod *lod = bsg_mesh_lod_create(gedp->ged_lod, key);
+	CHECK(lod != NULL, "bsg_mesh_lod_create() succeeds with background-generated key");
+	if (lod) {
+	    /* Basic sanity: LoD bounding box should be finite. */
+	    bool finite_bbox =
+		lod->bmin[0] > -INFINITY && lod->bmax[0] < INFINITY;
+	    CHECK(finite_bbox,
+		  "background-generated LoD has finite bounding box");
+	    bsg_mesh_lod_destroy(lod);
+	}
+    }
+
+    /* Clean up the temporary LoD context we created for this test. */
+    if (created_lod_ctx) {
+	bsg_mesh_lod_context_destroy(gedp->ged_lod);
+	gedp->ged_lod = NULL;
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Section G: BViewState::link_to / unlink                            */
 /* ------------------------------------------------------------------ */
 static void
 test_view_state_linking(struct ged *gedp)
@@ -556,6 +655,7 @@ main(int argc, char *argv[])
     test_selection_set(gedp);
     test_observer(gedp);
     test_geomloader_bbox(gedp);
+    test_geomloader_lod(gedp);
     test_view_state_linking(gedp);
 
     ged_close(gedp);

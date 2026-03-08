@@ -59,6 +59,7 @@
 #include <stdlib.h>
 #include <map>
 #include <set>
+#include <mutex>
 #include <thread>
 #include <vector>
 #include <unordered_map>
@@ -604,6 +605,11 @@ struct bsg_mesh_lod_context_internal {
     MDB_dbi name_dbi;
 
     struct bu_vls *fname;
+
+    // Serialises all LMDB read/write transactions so that bsg_mesh_lod_*
+    // functions may be called concurrently from multiple threads (e.g. a
+    // background GeomLoader thread and the main thread).
+    std::mutex lod_mu_;
 };
 
 bsg_mesh_lod_context *
@@ -762,6 +768,7 @@ bsg_mesh_lod_key_get(bsg_mesh_lod_context *c, const char *name)
     unsigned long long hash = bu_data_hash(bu_vls_cstr(&keystr), bu_vls_strlen(&keystr)*sizeof(char));
     bu_vls_sprintf(&keystr, "%llu", hash);
 
+    std::lock_guard<std::mutex> lk(c->i->lod_mu_);
     mdb_txn_begin(c->i->name_env, NULL, 0, &c->i->name_txn);
     mdb_dbi_open(c->i->name_txn, NULL, 0, &c->i->name_dbi);
     mdb_key.mv_size = bu_vls_strlen(&keystr)*sizeof(char);
@@ -769,6 +776,7 @@ bsg_mesh_lod_key_get(bsg_mesh_lod_context *c, const char *name)
     int rc = mdb_get(c->i->name_txn, c->i->name_dbi, &mdb_key, &mdb_data);
     if (rc) {
 	mdb_txn_commit(c->i->name_txn);
+	bu_vls_free(&keystr);
 	return 0;
     }
     unsigned long long *fkeyp = (unsigned long long *)mdb_data.mv_data;
@@ -800,6 +808,7 @@ bsg_mesh_lod_key_put(bsg_mesh_lod_context *c, const char *name, unsigned long lo
 
     MDB_val mdb_key;
     MDB_val mdb_data[2];
+    std::lock_guard<std::mutex> lk(c->i->lod_mu_);
     mdb_txn_begin(c->i->name_env, NULL, 0, &c->i->name_txn);
     mdb_dbi_open(c->i->name_txn, NULL, 0, &c->i->name_dbi);
     mdb_key.mv_size = bu_vls_strlen(&keystr)*sizeof(char);
@@ -931,6 +940,9 @@ class POPState {
 	void cache_done();
 	void cache_del(const char *component);
 	MDB_val mdb_key, mdb_data[2];
+	// Held between cache_get() and cache_done() to serialise LMDB access
+	// when multiple threads share the same bsg_mesh_lod_context.
+	std::unique_lock<std::mutex> cache_lock_;
 
 	// Specific loading and unloading methods
 	void tri_pop_load(int start_level, int level);
@@ -1544,6 +1556,9 @@ POPState::cache_write(const char *component, std::stringstream &s)
     char *keycstr = bu_strdup(keystr.c_str());
     void *bdata = bu_calloc(buffer.length()+1, sizeof(char), "bdata");
     memcpy(bdata, buffer.data(), buffer.length()*sizeof(char));
+    // Serialise write transaction: one writer at a time across all threads
+    // sharing this bsg_mesh_lod_context.
+    std::lock_guard<std::mutex> lk(c->i->lod_mu_);
     mdb_txn_begin(c->i->lod_env, NULL, 0, &c->i->lod_txn);
     mdb_dbi_open(c->i->lod_txn, NULL, 0, &c->i->lod_dbi);
     mdb_key.mv_size = keystr.length()*sizeof(char);
@@ -1574,6 +1589,12 @@ POPState::cache_get(void **data, const char *component)
     // the default size limit (511)
     //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->i->lod_env))
     //	return 0;
+
+    // Acquire the context mutex; it is held until cache_done() is called.
+    // This ensures the LMDB transaction (and the mapped memory it exposes)
+    // remains exclusively owned by this POPState until the caller is done.
+    cache_lock_ = std::unique_lock<std::mutex>(c->i->lod_mu_);
+
     char *keycstr = bu_strdup(keystr.c_str());
     mdb_txn_begin(c->i->lod_env, NULL, 0, &c->i->lod_txn);
     mdb_dbi_open(c->i->lod_txn, NULL, 0, &c->i->lod_dbi);
@@ -1595,6 +1616,8 @@ void
 POPState::cache_done()
 {
     mdb_txn_commit(c->i->lod_txn);
+    // Release the mutex acquired in cache_get().
+    cache_lock_.unlock();
 }
 
 bool
