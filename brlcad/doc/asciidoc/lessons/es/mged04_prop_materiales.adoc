@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 
+
+
 * Llamar figuras primitivas creadas anteriormente.
 * Crear una región de dos figuras primitivas.
 * Asignar propiedades de los materiales a sus figuras primitivas desde la ventana de comandos.
@@ -30,7 +32,9 @@ En el promp de _MGED_ tipee: *r shRaytrace Control Panelapes2.r u sph2.s u rcc2.
 
 Nota: Asegúrese de haber ingresado correctamente el comando antes de presionar ENTER. Los espacios, o la falta de los mismos, son importantes.
 
-Este comando le dice a _MGED_ que: [cols="6*"]
+Este comando le dice a _MGED_ que: 
+
+[cols="6*"]
 [%noheader]
 |===
 |r
@@ -53,7 +57,7 @@ Este comando le dice a _MGED_ que: [cols="6*"]
 [[assign_material_prop]]
 == Asignar propiedad de la materia a una región
 
-Ahora tipee: *mater shapes2.r[Enter]*_MGED_ responderá con:
+Ahora tipee: *mater shapes2.r[Enter]* _MGED_ responderá con:
 
 
 ....
@@ -65,7 +69,7 @@ Ahora tipee: *mater shapes2.r[Enter]*_MGED_ responderá con:
       
 ....
 
-Que significa: Tipo de sombra ('del' para borrar, CR para saltear) Tipee entonces: *plastic[Enter]*_MGED_ le preguntará:
+Que significa: Tipo de sombra ('del' para borrar, CR para saltear) Tipee entonces: *plastic[Enter]* _MGED_ le preguntará:
 
 
 ....
@@ -181,6 +185,8 @@ Nota: Tenga en cuenta que en la versión de _BRL-CAD_ 5.1 y posteriores, al desa
 == Revisión
 
 En este tutorial usted aprendió a: 
+
+
 * Llamar figuras primitivas creadas anteriormente.
 * Crear una región de dos figuras primitivas.
 * Asignar propiedades de los materiales a sus figuras primitivas desde la ventana de comandos.

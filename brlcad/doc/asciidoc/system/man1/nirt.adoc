@@ -96,7 +96,7 @@ _xyz [__x y z__]_::
 Sets the ray origination point to (_x_, _y_, _z_). If this command is invoked with no arguments, *nirt* prints the current ray origination point in model coordinates. Default is (0, 0, 0). Changing (_x_, _y_, _z_) will change (_h_, _v_, _d_), according to the current direction vector.
 
 
-_hv [__h v__[__d__]]_::
+_hv [_ _h v_ _[_ _d_ _]]_::
 Sets the ray origination point to (_h_, _v_, _d_). If this command is invoked with only two arguments, *nirt* interprets them as _h_ and _v_, and _d_ retains its previous value. If invoked with no argument, the command causes *nirt* to print the current ray origination point in view coordinates. Default is (0, 0, 0). Changing (_h_, _v_, _d_) will change (_x_, _y_, _z_), according to the current direction vector.
 
 
@@ -503,7 +503,7 @@ The usage in *nirt* of the following terms corresponds to that found in *mged*(1
 
 We define the view coordinate system (more precisely its basis vectors _m_, _n_, and _o_) in terms of the basis vectors _i_, _j_, and _k_ of the model coordinate system as follows:
 
-_m_ is the opposite of the direction vector and corresponds to _d_, _n_ = _k_ × _m_ corresponds to _h_, and _o_ = _m_ × _n_ corresponds to _v_.
+_m_ is the opposite of the direction vector and corresponds to _d_,  _n_ = _k_ × _m_ corresponds to _h_, and  _o_ = _m_ × _n_ corresponds to _v_.
 
 Thus if the direction vector is (-1, 0, 0), then (_d_, _h_, _v_) = (_x_, _y_, _z_).
 

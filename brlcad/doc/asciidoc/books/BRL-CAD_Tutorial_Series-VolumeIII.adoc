@@ -105,6 +105,8 @@ For a series of uniformly spaced objects, it is good practice to measure the tot
 ====
 
 * _Record measurements as clearly and consistently as possible:_ It is interesting how a "scribble" that is perfectly understandable to the measurement-taker who is still in front of the object can become indecipherable when it is later viewed back in the office (when the object is no longer accessible). Furthermore, despite the best laid plans, projects and personnel can change in midstream, and the person(s) taking measurements may wind up having little or no connection to the person(s) actually interpreting those measurements and building the model. Therefore, all drawings and notations should be sufficiently clear and consistent so that someone unfamiliar with the object could understand and work with the recorded measurements. A few recommendations are given as follows: 
+
+
 ** _Include meaningful titles on drawings:_ Detailed drawings and data can be of little value if it is unclear what the overall geometry/view is and how the designated piece ties into the completed model.
 ** _In general, orient drawings in orthogonal views:_ This practice eliminates potential problems associated with perspective and makes drawings easier to read and use. If other angles are desired (and it is not a bad idea to include at least one off-angle view with a few measurements to help confirm reference points), be sure to include azimuth/elevation and information about the orientation relative to the eye point and to the actual vehicle coordinate system. In addition, note any atypical configurations and orientations (e.g., a tank turret rotated in an unusual fashion to allow access to certain components).
 ** _Include offsets from other objects:_ Although these measurements may not actually be primary data (i.e., required inputs for MGED commands), they may help the modeler resolve problems or derive other measurements needed later. For example, when modeling a field of objects on a flat surface (e.g., gauges and buttons on an instrument panel), it is good practice not only to collect the distances of the objects from, say, the edges of the panel but also the distances relative to other objects. This information can be valuable when trying to troubleshoot overlaps or other problems encountered during the evaluation phase.
@@ -133,6 +135,8 @@ The following list provides some tips to achieve good model structuring:
 * _Use good naming practices:_ Closely associated with the idea of using good organizational conventions to structure geometry is the idea of using good naming conventions to name geometry. Although naming may appear to be a trivial matter, the fact is that it is not always easy to establish titles and schemes that are intuitive, robust, and useful in helping the end user know where he is in a potentially complex model.
 +
 There are few limitations to how files and objects can be named in BRL-CAD (other than that each file/object name must be unique). However, new modelers soon find that random or haphazard naming schemes lead to inefficiency and frustration. Thus, the following general recommendations are provided to help modelers efficiently organize and track what they build. 
+
+
 ** Develop logical schemes, stick to them, and document them: If logical or obvious titling schemes (such as a manufacturer's part names or numbers) are already in place, the user should take advantage of them, especially at the highest assembly levels of "complete" or aggregated objects and especially when multiple modelers are involved. This practice helps establish a logical structure (e.g., all engine parts have a prefix of, say, eng), and many users may already know these names.
 +
 Table 3 provides examples of a number of other logical naming conventions traditionally used in BRL-CAD. These conventions include (1) an initial nametag to designate shape/object type or function (i.e., sph for sphere, ant for antenna, and frf for front face); (2) a suffix (or prefix) to designate MGED object type (i.e., .s for primitive shapes [formerly referred to as "solids"], .r for regions, .c for shape combinations, and .a or .g for assembly combinations); and (3) some sort of sequential numbering scheme (i.e., 1, 2, 3, etc.). For more information on BRL-CAD shapes and modeling levels, see Section 5, as well as Lesson 5 and Appendix C of BRL-CAD Tutorial Volume II (Butler et al., 2001).
@@ -185,6 +189,8 @@ As shown in Table 3, an exception to the practice of keeping names short include
 Note that it is not unusual for a modeler to select relatively arbitrary names when shapes and parts are first made and then go back and rename them as the model develops. There are two commands to rename database objects.
 
 To rename only the database object, type the following: 
+
+
 ....
 
 mv  oldname newname
@@ -196,6 +202,8 @@ mv  oldname newname
 Note that this command changes only the name of a particular object and not any references to the object that may occur in combinations throughout the database.
 
 To change an object's name and all references to that object, the mvall (move all) command can be used as follows: 
+
+
 ....
 
 mvall oldname newname
@@ -405,6 +413,8 @@ There are several other tools that can make the duplication process easier--name
 * _Use the best method for exporting and importing pieces of a database:_ Sometimes a modeler will want to save a portion of a model to be added to another database, to be reinserted into the original database as a copy, to be saved for future use, or to be edited as a new database (e.g., using a crew member or engine from one database in a different database). There are two commonly used methods to export and import geometry in BRL-CAD: (1) using the keep and dbconcat commands from the command line, or (2) using the export and import commands from the GUI.
 +
 For the first method, the keep command exports data either creating a new database file or appending objects to an existing database. The form of the command is as follows: 
+
+
 ....
 
 mged>  keep filename.g object(s)
@@ -412,6 +422,8 @@ mged>  keep filename.g object(s)
 ....
 
  The *dbconcat* command adds the contents of an existing database file to the database currently open. The user may import the database as is or choose to rename each element of the geometry by specifying a prefix. The user may alternatively use the -s or -p option to add a computer-generated suffix (-s) or prefix (-p). The form of the command is as follows: 
+
+
 ....
 
 mged>  dbconcat [-s, -p] filename.g [prefix]
@@ -425,6 +437,8 @@ Another way to move data to and from separate databases is by using the export a
 
 +
 It is good modeling practice to check for duplicate names before inserting new geometry into your database. To check for duplicates, use the dup command from the command line. This command compares external database file object names with current database file object names and reports duplicate names. The form of the dup command is as follows: 
+
+
 ....
 
 mged>  dbconcat [-s, -p] filename.g [prefix]
@@ -459,7 +473,9 @@ The half space is a prime example of an overly large bounding primitive. Because
 
 * _Consider the possibility of articulations, animations, and presentations:_ Sometimes models need to be able to simulate movement in parts and personnel or to show unique views for presentation purposes. Unfortunately, the modeler (or even the user) cannot always predict all the possible uses at the outset of a project. Therefore, it is wise, especially in organizations that use many different types of model applications, to try to design and build models with the thought that they may need to be articulated, animated, or presented in different configurations at some point.
 +
-For articulation and animation, this generally means that objects that normally move together (e.g., components on a helicopter rotor, tank turret, etc.) should be grouped together in assembly combinations (as shown in Figure 15). .Example of grouping objects for articulation.
+For articulation and animation, this generally means that objects that normally move together (e.g., components on a helicopter rotor, tank turret, etc.) should be grouped together in assembly combinations (as shown in Figure 15). 
+
+.Example of grouping objects for articulation.
 image::../books/images/tutorial_series_volIII_fig15.png[]
 
  In the example shown in Figure 15, we would want to create a turret_asy assembly with turret_armor, main_gun, and commanders_hatch in it.
@@ -484,6 +500,8 @@ Combinations can be created with a variety of commands, depending on the user's 
 ** _comb_ - creates a combination using Boolean expressions in GIFT footnote:[Geometric information for targets (GIFT) is the single-level operator hierarchy format that is the traditional (and default) notation used in BRL-CAD.
 
 ] format. Proceeding left to right, intersections (+) and subtractions (") are performed before unions (u). For example, the command 
+
+
 ....
 
 comb comb_name u a - b + c
@@ -491,6 +509,8 @@ comb comb_name u a - b + c
 ....
 
  is evaluated as 
+
+
 ....
 
 ((a - b) + c).
@@ -829,6 +849,8 @@ Regardless of the type of setup, the following recommendations are made to achie
 Documentation is often written at the end of the modeling project and published as a formal technical or summary report. Another good method is to document significant items as they are encountered throughout the modeling process. This practice records important information while it is fresh in the mind of the modeler as well as reduces the amount of writing required at the end of the project (when energy and/or interest levels may be low).
 
 Finally, it is a good idea to embed the documentation (e.g., as a text file) directly into the database so that it always remains connected to the geometry it addresses. For example, the command 
+
+
 ....
 
 dbbinary -i u c documentation /home/fred/doc.txt
@@ -1027,6 +1049,8 @@ A small but sometimes overlooked step before displaying any image onto the graph
 === Display the Image in the Graphics Display Window
 
 After the graphics display window has been prepared and the framebuffer checked/set, the image can be displayed in the graphics window. To do this, we entered the following command: 
+
+
 ....
 
 pix-fb -F0 -s 950 circuit_back_950.pix
@@ -1070,6 +1094,8 @@ With the image and the target geometry displayed, edit the view parameters so th
 === Save the Projection Shader Settings File
 
 After the geometry and image have been aligned, the projection settings (i.e., image file name, image width, image height, and current view parameters) can then be saved to a file using the prj_add command. The prj_add command appends the image file name and the current view parameters to the shader file. In our case, the command was: 
+
+
 ....
 
 prj_add circuitboard.prj circuit_back_950.pix 950 950
@@ -1119,6 +1145,8 @@ image::../articles/images/projection_shader_fig05.png[]
 === Repeating the Steps to Project the Image on the Front
 
 After one side of the circuit board was finished, we proceeded to repeat the steps to add more projection parameters to the .prj file and thus project a different image onto the front side of the geometry (see Figure B-6). To do this, we once again had to acquire an image, properly size the geometry window, display the image and the geometry to the geometry window, and set up view parameters. After this was done, these parameters could be added to the existing .prj file by typing the following: 
+
+
 ....
 
 prj_add circuitboard.prj circuit_front_950.pix 950 950
@@ -1213,6 +1241,8 @@ In Figure D-1, note that lines have been added before the header to show differe
 image::../articles/images/mgedrc_fig01.png[]
 
 Each command includes the following four basic components: 
+
+
 * the "proc" (procedure) prefix,
 * a unique name,
 * arguments, and
@@ -1225,6 +1255,8 @@ The symbol ";" signifies command separation (a return), and the symbol "$" inser
 The following text discusses some specific examples of the type of shortcuts that can be created by users to expedite common operations such as executing raytraces with particular parameters, accepting and rejecting edits, setting azimuth and elevation, etc.
 
 First, the command to execute a specific kind of raytrace can often be long and tedious to type. For example, if a user wanted to render an image in a window 256 pixels high and wide, with a background color of white, and with the ambient light set to 0.7, the following text would have to be typed: 
+
+
 ....
 
 rt -s256 -C255/255/255 -A.7
@@ -1232,13 +1264,17 @@ rt -s256 -C255/255/255 -A.7
 ....
 
  However, it is a simple matter to add a line to the user's .mgedrc file to automate the calling of this instruction. The user's line might be as follows: 
+
+
 ....
 
 proc 256wa {} {rt -s256 -C255/255/255 -A.7}
     
 ....
 
- Diagrammed, this line breaks down as follows: [cols="4*"]
+ Diagrammed, this line breaks down as follows: 
+
+[cols="4*"]
 [%noheader]
 |===
 |proc
@@ -1252,6 +1288,8 @@ proc 256wa {} {rt -s256 -C255/255/255 -A.7}
 |===
 
  Now, all the user has to type on the command line to execute a rendering with the previously listed options is the following procedure name: 
+
+
 ....
 
 256wa
@@ -1261,6 +1299,8 @@ proc 256wa {} {rt -s256 -C255/255/255 -A.7}
  Note that this name has been intentionally kept short and function-based. It reduces a 27-character command to a 5-character command and provides the user with an idea of the action it performs. The 256 stands for the rt square size, the w stands for a white background, and the a stands for ambient lighting. But this convention is just a suggestion. The user may choose any name that is unique and does not contain words that are reserved for MGED commands (e.g., create).
 
 The .mgedrc file can also be used to create shortcuts for other types of command line or GUI commands. For example, the syntax for creating a shortcut for accepting and rejecting edits from the command line might be as follows: 
+
+
 ....
 
 proc acc {} {press accept}
@@ -1269,6 +1309,8 @@ proc rej {} {press reject}
 ....
 
  In addition, a possible shortcut for calling a standard viewing geometry might be as follows: 
+
+
 ....
 
 proc 145 {} {ae 145 25}
@@ -1276,6 +1318,8 @@ proc 145 {} {ae 145 25}
 ....
 
  And to save the extra selection step when making or copying a primitive, the respective procedure syntax for combining the make and sed commands and copy and sed commands might be as follows: 
+
+
 ....
 
 proc mks {newprim primtype} {make $newprim $primtype; sed $newprim}
@@ -1283,6 +1327,8 @@ proc mks {newprim primtype} {make $newprim $primtype; sed $newprim}
 ....
 
  and 
+
+
 ....
 
 proc cps {oldprim newprim} {cp $oldprim $newprim; sed $newprim}
@@ -1297,7 +1343,9 @@ Figure D-2 shows a sample section of a .mgedrc file that allows the user to spec
 .Sample elements and functionality of a .mgedrc file.
 image::../articles/images/mgedrc_fig02.png[]
 
-The diagrammed command for sizing and positioning the command window is as follows: [cols="4*"]
+The diagrammed command for sizing and positioning the command window is as follows: 
+
+[cols="4*"]
 [%noheader]
 |===
 |set mged_default
@@ -1352,6 +1400,8 @@ The Source String and Replacement String fields must be used together. The sourc
 image::../articles/images/build_pattern_fig01.png[]
 
 The Increment field is only for use when duplicating to the primitive level. It is added to the leftmost number field of each primitive. To determine the increment, examine the primitives of the object(s) you wish to pattern and find the largest span. For example, to create a pattern to the primitive level with the following primitives (which may or may not be in regions or assemblies): 
+
+
 ....
 
 part.s22 part.s22-1 part.s23 part.s24 part.s24+1 part.s24-1 part.s25,
@@ -1359,6 +1409,8 @@ part.s22 part.s22-1 part.s23 part.s24 part.s24+1 part.s24-1 part.s25,
 ....
 
  one needs to determine the span. Note that the leftmost numbers in these primitives range from 22–25.  Thus, as shown in the following expression, the span is four (inclusively). *******NEED FIGURE HERE***** If we use an increment of four, we will get the following set of primitives. 
+
+
 ....
 
 part.s26 part.s26-1 part.s27 part.s28 part.s28+1 part.s28-1 part.s29
@@ -1376,6 +1428,8 @@ Finally, the Objects field is used for the names of all the items to be patterne
 It is also possible to create a pattern in which a string of characters in each element in the object is changed (e.g., "l_" -> "r_"). This is useful for symmetry applications (e.g., left - right) or series (e.g., 1 - n). Each element of the object must have the source string so the user must be thorough and name each primitive, region, and assembly properly. Consider the following example: image:../articles/images/build_pattern_fig07.png[]
 
 Top-level duplications copy the patterned object and reference its entire structure with matrices, as follows: 
+
+
 ....
 
 /pattern group
@@ -1387,6 +1441,8 @@ Top-level duplications copy the patterned object and reference its entire struct
 ....
 
  Region-level duplications copy all assembly and regions and reference from the region level down with matrices. 
+
+
 ....
 
 /pattern group
@@ -1397,6 +1453,8 @@ Top-level duplications copy the patterned object and reference its entire struct
 ....
 
  Primitive-level duplications copy the entire tree structure to the primitive level without matrices using an increment on all primitives. 
+
+
 ....
 
 /pattern group
@@ -1476,6 +1534,8 @@ Next, we create an arb8 for one long side of the wagon tub. It is named wgn.s1. 
 image::../articles/images/build_region_fig02.png[]
 
 Now we have created the following four primitives: 
+
+
 ....
 
 wgn.s1 wgn.s2 wgn.s2+1 wgn.s2-1
@@ -1483,6 +1543,8 @@ wgn.s1 wgn.s2 wgn.s2+1 wgn.s2-1
 ....
 
  If we separate the primitives sequentially as follows, 
+
+
 ....
 
 wgn.s1
@@ -1492,6 +1554,8 @@ wgn.s2 wgn.s2+1 wgn.s2-1,
 ....
 
  we can begin to see the Boolean structure falling out of the naming convention 
+
+
 ....
 
 u wgn.s1

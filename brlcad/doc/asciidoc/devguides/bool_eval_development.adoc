@@ -248,6 +248,8 @@ Curves and surfaces are nearly always allocated on the heap and referenced by po
 Mostly these allocations are simply done with the `new` keyword as with any other class. However, a few classes, notably ON_Brep have a `New()()` function that wraps the allocation, which is preferred over using `new` directly for technical reasons specified in the OpenNURBS `opennurbs_brep.h` header.
 
 Pointers to objects, curves in particular, are generally "stolen" to avoid having to create a new copy of the object. 
+
+
 [WARNING]
 ====
 Classes containing heap-allocated objects delete them in their destructors. Proper stealing of pointers requires the instance's members be set to NULL.
@@ -337,13 +339,15 @@ The most frequently used geometry class is ON_Curve, a generic container for par
 
 [WARNING]
 ====
-`PointAt()()` takes a real parameter; parameters normalized to stem:[[0, 1]] must be converted. For example, the midpoint of the curve can be found as `curve->PointAt(curve->Domain().ParameterAt(.5))`. `PointAt()()`_does not check_ if the _t_ value you give it is inside the curve's domain, so you have to get this right!
+`PointAt()()` takes a real parameter; parameters normalized to stem:[[0, 1]] must be converted. For example, the midpoint of the curve can be found as `curve->PointAt(curve->Domain().ParameterAt(.5))`. `PointAt()()` _does not check_ if the _t_ value you give it is inside the curve's domain, so you have to get this right!
 
 ====
 
 All the `PointAt()()` methods return an ON_3dPoint, though in the common case where ON_Curve objects are representing 2D trim curves, the z coordinate will be 0.0.
 
 It is sometimes necessary to reverse a curve's domain. This is done using the `Reverse()()` method to facilitate stitching curves together. The function has a Boolean `int` return value that must be checked.
+
+
 
 
 ----
@@ -472,7 +476,9 @@ An additional class, ON_PX_EVENT has been implemented as an extension to the Ope
 
 The intersection classes enumerate a number of intersection types. Over the course of an evaluation, the `m_type` of intersection events is repeatedly checked to determine how each event should be processed.
 
-When two curves are coincident with one another over a portion of their domains, `m_type` will be `ON_X_EVENT::ccx_overlap`. .Curve-Curve Overlap Intersection
+When two curves are coincident with one another over a portion of their domains, `m_type` will be `ON_X_EVENT::ccx_overlap`. 
+
+.Curve-Curve Overlap Intersection
 image::../../devguides/images/ccx_overlap_event.png[]
 
 
@@ -800,6 +806,8 @@ For a multi-part evaluation, you'll need to first skip to the correct invocation
 
 . When the break is reached, add a breakpoint at `find_overlap_boundary_curves()()` and advance to that function.
 . Step through the intersections, printing out the isocurve endpoints and visualize them in the context of the geometry in Archer (e.g. by centering the view at those points, or creating spheres centered on them, etc.) to find the isocurves of interest: 
+
+
 ....
 
 (gdb) print surf1_isocurve->PointAtStart()
@@ -880,6 +888,8 @@ What follows is a step-by-step debugging of a real issue affecting the `X` combi
 This issue was fixed in revision 65179 in the NURBS Boolean evaluation development branch of the source repository (https://sourceforge.net/p/brlcad/code/HEAD/tree/brlcad/branches/brep-debug/).
 
 If you want to follow along, you can reinstate the error in a checkout of the development branch: 
+
+
 ....
 
 $ svn merge -r 65179:65178 ^/brlcad/branches/brep-debug
@@ -890,6 +900,8 @@ $ svn merge -r 65179:65178 ^/brlcad/branches/brep-debug
 
 
 . Open `axis.g` in Archer and convert the original combination to `brep`. 
+
+
 ....
 
 Archer> opendb axis.g
@@ -911,6 +923,8 @@ image::../../devguides/images/axis_X.png[]
 The *ssx* subcommand of *dplot* is used to check that all expected surface-surface intersections were attempted between the B-Rep NURBS versions of the two arb8s, hereafter referred to as _brep1_ and _brep2_.
 
 +
+
+
 
 ....
 

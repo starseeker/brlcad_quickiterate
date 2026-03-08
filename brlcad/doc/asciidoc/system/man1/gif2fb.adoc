@@ -23,7 +23,7 @@ gif2fb [-H] [-v] [ -F<frame_buffer_name>] <GIF_file_name>
 [[see_also]]
 == SEE ALSO
 
-A Standard Defining a Mechanism for the Storage and Transmission of Raster-Based Graphics Information, June 15, 1987 (CompuServe Incorporated). *libfb*(3) , *gif-fb*(1)
+A Standard Defining a Mechanism for the Storage and Transmission of Raster-Based Graphics Information, June 15, 1987 (CompuServe Incorporated).  *libfb*(3) , *gif-fb*(1)
 
 
 [[diagnostics]]

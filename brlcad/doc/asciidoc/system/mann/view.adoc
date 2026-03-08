@@ -28,7 +28,7 @@ Gets/sets view parameters in local units. The *view* command accepts the followi
 Get (without arguments) or set the azimuth, elevation, and (optional) twist. If only 2 arguments are supplied, a twist of 0 is assumed. The _-i_ flag can be used to set the AET incrementally. Setting the azimuth and elevation also changes the eye point while keeping the center and view size static.
 
 
-*align*_[-i] x y z_::
+*align* _[-i] x y z_::
 Aligns the eye point with a desired point and the current center (eye -> pt -> center). The _-i_ flag can be used to align from the opposite direction (eye -> center -> pt). Align changes the eye point, azimuth, and elevation while keeping the center and view size static.
 
 
@@ -54,7 +54,7 @@ Get (without arguments) or set the eye point. Setting the eye point also changes
 Manipulate options for the faceplate.
 
 
-*lookat*_x y z_::
+*lookat* _x y z_::
 Adjusts the current view such that the eye is looking in the direction of the given coordinates, but does not move the eye point nor change the view size. Center, azimuth, and elevation will change.
 
 

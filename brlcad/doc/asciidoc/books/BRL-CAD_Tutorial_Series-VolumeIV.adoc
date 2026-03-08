@@ -108,7 +108,7 @@ With the release of BRL-CAD 6.0, an entirely new BRL-CAD database format was int
 
 Older BRL-CAD databases may be upgraded to the current database (db) format using the *dbupgrade* utility. To execute this command, the user types the following command at the command-line prompt:
 
-*dbupgrade*`oldformat.g``currentformat.g`
+*dbupgrade* `oldformat.g` `currentformat.g`
 
 This command reads an existing input.g database (in the older format) and writes a new output.g in the latest format. Remember that all BRL-CAD geometry files are designated by a ``.g'' suffix. Thus, the conversion commands discussed in the following sections use a ``g'' to represent the BRL-CAD file format (e.g., *asc2g*, *dxf-g*, *g-acad*, etc.).
 
@@ -199,7 +199,7 @@ The *asc2g* utility is used to convert ASCII format databases into the new binar
 
 The usage for this utility is as follows:
 
-*asc2g*`input.asc``output.g`
+*asc2g* `input.asc` `output.g`
 
 In this command, `input.asc` is a file previously created using *g2asc* and `output.g` is the name where the resulting binary database should be stored.
 
@@ -211,7 +211,7 @@ The converse of the *asc2g* utility is the *g2asc* utility, which is used to con
 
 The command for this utility is as follows:
 
-*g2asc*`input.g``output.asc`
+*g2asc* `input.g` `output.asc`
 
 In this command, the `input.g` is a BRL-CAD database (old or new format) and `output.asc` is the name where the ASCII output is placed. As mentioned previously, the form of the ASCII output depends on which database format is used by the input database. If it is known that the input database is in the older BRL-CAD format, then the g2asc may be executed using redirected input and output, as follows:
 
@@ -281,7 +281,7 @@ When using this converter, polygons and meshes are converted to BOT primitives. 
 
 The command for the *dxf-g* converter is as follows:
 
-*dxf-g* [*options*] `input.dxf``output.g`
+*dxf-g* [*options*] `input.dxf` `output.g`
 
 The options for the command are as follows:
 
@@ -320,7 +320,7 @@ The *enf-g* converter was originally written when BRL-CAD developers needed an i
 
 The syntax for the *enf-g* command is as follows:
 
-*enf-g*`input_file``output.g`
+*enf-g* `input_file` `output.g`
 
 The options for the command are as follows:
 
@@ -386,7 +386,7 @@ The *fast4-g* converter converts FASTGEN4 entities to corresponding BRL-CAD obje
 
 The syntax for the *fast4-g* command is as follows:
 
-*fast4-g* [*options*] `fastgen4_input``output.g`
+*fast4-g* [*options*] `fastgen4_input` `output.g`
 
 The options for the command are as follows:
 
@@ -441,7 +441,7 @@ The Product Data Exchange using STEP specification is intended to replace IGES a
 
 The syntax for the *iges-g* converter is as follows:
 
-*iges-g* [*options*] -o `output.g``input.iges`
+*iges-g* [*options*] -o `output.g` `input.iges`
 
 The options available for this command are as follows:
 
@@ -467,7 +467,7 @@ Jack is a 3-D interactive ergonomics and human factors CAD package developed by 
 
 The *jack-g* converter creates a single region consisting of a single BOT primitive. The syntax for the converter is as follows:
 
-*jack-g* [*options*] `input.jack``output.g`
+*jack-g* [*options*] `input.jack` `output.g`
 
 The options for this command are:
 
@@ -570,7 +570,7 @@ Note that the ASCII format STL file includes a capability to contain more than o
 
 The syntax for the *stl-g* converter is as follows:
 
-*stl-g* [*options*] `input.stl``output.g`
+*stl-g* [*options*] `input.stl` `output.g`
 
 where `input.stl` is the STL file to be converted and `output.g` is the name of the BRL-CAD database to receive the converted output.
 
@@ -633,7 +633,7 @@ This converter creates a BRL-CAD region consisting of a single BOT primitive for
 
 The syntax for this converter is as follows:
 
-*ug-g* [*options*] *-o*`output.g``UG_part_file` [*subpart1**subpart2* ...]
+*ug-g* [*options*] *-o* `output.g` `UG_part_file` [*subpart1* *subpart2* ...]
 
 where the `UG_part_file` is a Unigraphics part file. If subparts are listed on the command line, only those named parts in the specified part file will be converted.
 
@@ -737,7 +737,7 @@ One of ACAD's strengths is its bidirectional IGES translator, which provides com
 
 As its name implies, the *g-acad* utility converts a file in BRL-CAD format to a file in facetted ACAD format. The form of the command is as follows:
 
-*g-acad* [*options*] *-o _output_file__input.g_ object(s)*
+*g-acad* [*options*] *-o _output_file_ _input.g_ object(s)*
 
 The options for the g-acad command are as follows:
 
@@ -824,7 +824,7 @@ For more information about the IGES file format and export possibilities, see th
 
 The syntax for the jack-g converter is as follows:
 
-*jack-g* [*options*] `input.jack``output.g`
+*jack-g* [*options*] `input.jack` `output.g`
 
 The options for the jack-g command are as follows:
 
@@ -983,6 +983,8 @@ A similar situation exists for converting to BRL-CAD. If one is fortunate enough
 To create an empty BRL-CAD model, use the following code snippet:
 
 
+
+
 ----
       struct rt_wdb *wdbp;
       if( (wdbp=wdb_fopen( new_file_name ) ) == RT_WDB_NULL ) {
@@ -995,6 +997,8 @@ To create an empty BRL-CAD model, use the following code snippet:
 Then use the wdbp pointer to pass to all the routines in libwdb.
 
 For example, to build a sphere centered at coordinates (1.0, 2.0, and 3.0) with a radius of 5.0 mm in BRL-CAD, the following call to mk_sphere will suffice:
+
+
 
 
 ----
@@ -1015,6 +1019,8 @@ char *sphere_name="s1";
 
 
 To build a region or combination in BRL-CAD, a call to mk_comb will do the job. This is a bit more complicated as it requires building a list of members prior to the call to mk_comb. In the example that follows, a region consisting of primitive ``s2'' subtracted from primitive ``s1'' is constructed:
+
+
 
 
 ----
@@ -1054,6 +1060,8 @@ If the system you are converting from is not a CSG system (which is the most lik
 A hybrid approach is also possible where simple shapes that can be identified as BRL-CAD primitive shapes are converted as BRL-CAD primitives, and everything else is converted as BOT primitives. If the converter requires building BOT primitives, you might want to consider a converter that produces a BRL-CAD ASCII format database. The "C" mk_bot routine is a very thin wrapper for the actual internal format of the BOT primitive and requires an intimate knowledge of its structure. The ASCII format is considerably simpler and easier to work with in this situation. As mentioned previously, the current ASCII format is simply a Tcl script. For example, the following is the ASCII form of a BRL-CAD database containing a single BOT:
 
 
+
+
 ----
 title {example of a simple BOT primitive}
       units mm
@@ -1067,6 +1075,8 @@ title {example of a simple BOT primitive}
 The aforementioned example creates a BRL-CAD database with the title of ``example of a simple BOT primitive,'' with preferred units of millimeters and a single tetrahedron-shaped BOT primitive. The line that begins with ``put'' creates the BOT primitive (note that there are actually only three lines in this example; the last line is wrapped in this report for clarity). This line is a command to the Tcl interpreter. The ``put'' is the command, ``tetra'' is the name of the object to be created, and ``bot'' is the type of object to create. The remainder of the line consists of key/value pairs. This line creates a BOT primitive named ``tetra,'' using volume mode (meaning this BOT encloses space), with right-hand (rh) rule triangle orientation, and no flags.
 
 The V key introduces the list of vertices for this BOT primitive, and the F key introduces the list of triangle faces (each integer is an index into the list of vertices). Additional put commands build more objects in the database. For example, to create a region using the tetra object, the user would append the following line to the aforementioned file:
+
+
 
 
 ----

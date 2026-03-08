@@ -22,6 +22,8 @@ In Figure D-1, note that lines have been added before the header to show differe
 image::../articles/images/mgedrc_fig01.png[]
 
 Each command includes the following four basic components: 
+
+
 * the "proc" (procedure) prefix,
 * a unique name,
 * arguments, and
@@ -34,6 +36,8 @@ The symbol ";" signifies command separation (a return), and the symbol "$" inser
 The following text discusses some specific examples of the type of shortcuts that can be created by users to expedite common operations such as executing raytraces with particular parameters, accepting and rejecting edits, setting azimuth and elevation, etc.
 
 First, the command to execute a specific kind of raytrace can often be long and tedious to type. For example, if a user wanted to render an image in a window 256 pixels high and wide, with a background color of white, and with the ambient light set to 0.7, the following text would have to be typed: 
+
+
 ....
 
 rt -s256 -C255/255/255 -A.7
@@ -41,13 +45,17 @@ rt -s256 -C255/255/255 -A.7
 ....
 
  However, it is a simple matter to add a line to the user's .mgedrc file to automate the calling of this instruction. The user's line might be as follows: 
+
+
 ....
 
 proc 256wa {} {rt -s256 -C255/255/255 -A.7}
     
 ....
 
- Diagrammed, this line breaks down as follows: [cols="4*"]
+ Diagrammed, this line breaks down as follows: 
+
+[cols="4*"]
 [%noheader]
 |===
 |proc
@@ -61,6 +69,8 @@ proc 256wa {} {rt -s256 -C255/255/255 -A.7}
 |===
 
  Now, all the user has to type on the command line to execute a rendering with the previously listed options is the following procedure name: 
+
+
 ....
 
 256wa
@@ -70,6 +80,8 @@ proc 256wa {} {rt -s256 -C255/255/255 -A.7}
  Note that this name has been intentionally kept short and function-based. It reduces a 27-character command to a 5-character command and provides the user with an idea of the action it performs. The 256 stands for the rt square size, the w stands for a white background, and the a stands for ambient lighting. But this convention is just a suggestion. The user may choose any name that is unique and does not contain words that are reserved for MGED commands (e.g., create).
 
 The .mgedrc file can also be used to create shortcuts for other types of command line or GUI commands. For example, the syntax for creating a shortcut for accepting and rejecting edits from the command line might be as follows: 
+
+
 ....
 
 proc acc {} {press accept}
@@ -78,6 +90,8 @@ proc rej {} {press reject}
 ....
 
  In addition, a possible shortcut for calling a standard viewing geometry might be as follows: 
+
+
 ....
 
 proc 145 {} {ae 145 25}
@@ -85,6 +99,8 @@ proc 145 {} {ae 145 25}
 ....
 
  And to save the extra selection step when making or copying a primitive, the respective procedure syntax for combining the make and sed commands and copy and sed commands might be as follows: 
+
+
 ....
 
 proc mks {newprim primtype} {make $newprim $primtype; sed $newprim}
@@ -92,6 +108,8 @@ proc mks {newprim primtype} {make $newprim $primtype; sed $newprim}
 ....
 
  and 
+
+
 ....
 
 proc cps {oldprim newprim} {cp $oldprim $newprim; sed $newprim}
@@ -106,7 +124,9 @@ Figure D-2 shows a sample section of a .mgedrc file that allows the user to spec
 .Sample elements and functionality of a .mgedrc file.
 image::../articles/images/mgedrc_fig02.png[]
 
-The diagrammed command for sizing and positioning the command window is as follows: [cols="4*"]
+The diagrammed command for sizing and positioning the command window is as follows: 
+
+[cols="4*"]
 [%noheader]
 |===
 |set mged_default

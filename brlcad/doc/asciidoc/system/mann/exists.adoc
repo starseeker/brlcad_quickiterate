@@ -24,63 +24,63 @@ exists {expression} [<expression>]...
 == PRIMARIES:
 
 
-*-c*_object_::
+*-c* _object_::
 Returns TRUE if the object is a combination
 
 
-*-e*_object_::
+*-e* _object_::
 Returns TRUE if the object exists. This reports only the results of db_lookup without doing any further testing to check for null objects, and constitutes the most basic existence test available for a database object.
 
 
-*-n*_object_::
+*-n* _object_::
 Returns TRUE if the object exists and is a NULL database object. **TODO**
 
 
-*-p*_object_::
+*-p* _object_::
 Returns TRUE if the object exists and is a geometric primitive. (Empty geometric primitives and 2D primitives like sketch will pass.)
 
 
-*-v*_object_::
+*-v* _object_::
 Returns TRUE if the object exists and has a bounding box with non-zero volume. (A sketch primitive would not pass this test.)
 
 
-_object1_*=*_object2_::
+_object1_ *=* _object2_::
 Returns TRUE if the objects exist and their serialized binary contents are equal.
 
 
-_object1_*!=*_object2_::
+_object1_ *!=* _object2_::
 Returns TRUE if the objects exist and their serialized binary contents are not equal.
 
 
-_object1_*<*_object2_::
+_object1_ *<* _object2_::
 Returns TRUE if the objects exist and the size of the serialized binary representation of object1 is less than the size of the serialized binary representation of object 2.
 
 
-_object1_*>*_object2_::
+_object1_ *>* _object2_::
 Returns TRUE if the objects exist and the size of the serialized binary representation of object1 is greater than the size of the serialized binary representation of object 2.
 
 
-_object1_*beq*_object2_::
+_object1_ *beq* _object2_::
 Returns TRUE if the objects exist and their bounding box volumes are equal. *TODO* - eventually, when the right APIs become available, an "-req" option will be added for a more-expensive-but-more-accurate raytrace based volumetric comparison as well.
 
 
-_object1_*bne*_object2_::
+_object1_ *bne* _object2_::
 Returns TRUE if the objects exist and their bounding box volumes are not equal. *TODO* - eventually, when the right APIs become available, a "-rne" option will be added for a more-expensive-but-more-accurate raytrace based volumetric comparison as well.
 
 
-_object1_*bgt*_object2_::
+_object1_ *bgt* _object2_::
 Returns TRUE if the objects exist and the volume of the bounding box of object1 is greater than the volume of the bounding box for object2. *TODO* - eventually, when the right APIs become available, an "-rgt" option will be added for a more-expensive-but-more-accurate raytrace based volumetric comparison as well.
 
 
-_object1_*bge*_object2_::
+_object1_ *bge* _object2_::
 Returns TRUE if the objects exist and the volume of the bounding box of object1 is greater than or equal to the volume of the bounding box for object2. *TODO* - eventually, when the right APIs become available, an "-rge" option will be added for a more-expensive-but-more-accurate raytrace based volumetric comparison as well.
 
 
-_object1_*blt*_object2_::
+_object1_ *blt* _object2_::
 Returns TRUE if the objects exist and the volume of the bounding box of object1 is less than the volume of the bounding box for object2. *TODO* - eventually, when the right APIs become available, an "-rlt" option will be added for a more-expensive-but-more-accurate raytrace based volumetric comparison as well.
 
 
-_object1_*ble*_object2_::
+_object1_ *ble* _object2_::
 Returns TRUE if the objects exist and the volume of the bounding box of object1 is less than or equal to the volume of the bounding box for object2. *TODO* - eventually, when the right APIs become available, an "-rle" option will be added for a more-expensive-but-more-accurate raytrace based volumetric comparison as well.
 
 
@@ -92,19 +92,19 @@ Returns TRUE if the objects exist and the volume of the bounding box of object1 
 primaries can be combined with the following operators:
 
 
-*!*_expression_::
+*!* _expression_::
 True if _expression_ is false.
 
 
-_expression_*-a*_expression_::
+_expression_ *-a* _expression_::
 The and operator operates like the logical AND operator - TRUE only if both expressions are true.
 
 
-_expression_*-o*_expression_::
+_expression_ *-o* _expression_::
 The logical OR operator - true if either expression is true.
 
 
-*(*_expression_*)*::
+*(* _expression_ *)*::
 Evaluates to true if the expression inside the parentheses evaluates to true. Used to establish order of operations.
 
 
@@ -130,6 +130,8 @@ The following are run from the MGED command prompt:
 .Example1
 [example]
 ====
+
+
 
 ....
 

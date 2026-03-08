@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 Este tutorial le ayudará a: 
+
+
 * Arrancar con el programa _MGED_.
 * Ingresar los comandos en una terminal de _MGED_.
 * Usar la interfaz gráfica de usuarios de _MGED_.
@@ -54,7 +56,9 @@ Antes de crear un modelo, necesita abrir una base de datos, así sea por comando
 [[open_new_database]]
 == Abrir o crear una nueva base de datos con MGED
 
-Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _MGED_. En la línea de comando, tipee "mged" seguido por una nueva o por una ya existente base de datos sin olvidar ponerle la extensión .g, por ejemplo: *mged sphere.g [ENTER]*. image::../../lessons/es/images/mged01_terminal.png[]
+Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _MGED_. En la línea de comando, tipee "mged" seguido por una nueva o por una ya existente base de datos sin olvidar ponerle la extensión .g, por ejemplo: *mged sphere.g [ENTER]*. 
+
+image::../../lessons/es/images/mged01_terminal.png[]
 
  Si estuviera creando una nueva base de datos, un pequeño cuadro de diálogo le preguntará si desea crear la nueva base de datos llamada sphere.g. Seleccione Si, y entonces _MGED_ abrirá la nueva base de datos. En el caso de que sphere.g existiera, se abrirá la existente.
 
@@ -64,7 +68,11 @@ Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _
 
 Al iniciar _MGED_ usted puede crear o abrir una base de datos desde el menú superior Archivo (File), seleccionando luego la opción Nuevo (New) o Abrir (Open). Ambas opciones abren el mismo cuadro de diálogo preguntando por el nombre de la base de datos a crear o el de una ya existente, según corresponda. Para finalizar la selección, presione OK.
 
-Para esta prueba, cree una nueva base de datos llamada sphere.g. Para hacer eso tipee sphere.g al final de la ruta del nombre, tal como muestra la siguiente imagen. Presione OK para aceptar la selección. image::../../lessons/es/images/mged01_commandwindow.png[]
+Para esta prueba, cree una nueva base de datos llamada sphere.g. Para hacer eso tipee sphere.g al final de la ruta del nombre, tal como muestra la siguiente imagen. Presione OK para aceptar la selección. 
+
+image::../../lessons/es/images/mged01_commandwindow.png[]
+
+ 
 
 image::../../lessons/es/images/mged01_graphicswindow.png[]
 
@@ -103,7 +111,9 @@ Para este ejemplo, crearemos una esfera simple. Hay dos maneras de crear una fig
 
 Puede fácilmente crear la esfera desde la terminal con sólo unos pocos comandos. En la terminal de _MGED_ tipee: *make sph1.s sph [ENTER] [Nota: Use el dígito 1, no la letra l].*
 
-Este comando le dice al programa _MGED_: [cols="3*"]
+Este comando le dice al programa _MGED_: 
+
+[cols="3*"]
 [%noheader]
 |===
 |make
@@ -137,7 +147,9 @@ Antes de usar la opción zap, asegúrese de haber hecho foco en la ventana de co
 [[draw_object]]
 == Dibujar un objeto prediseñado
 
-Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que: [cols="2*"]
+Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que: 
+
+[cols="2*"]
 [%noheader]
 |===
 |draw
@@ -174,6 +186,8 @@ Si intenta escribir en la ventana de comandos y no ve ninguna palabra allí, es 
 ====
 
 Un ejemplo de diálogo que podría darse en la ventana de comandos para mostrar los parámetros o atributos de la primera esfera que ha creado es el siguiente: 
+
+
 ....
 
 mged> l sph1.s
@@ -249,6 +263,8 @@ Recuerde que para salir del programa en cualquier momento, debe tipear en la lí
 == Repasemos
 
 En este tutorial usted: 
+
+
 * Inició el programa _MGED_.
 * Ingresó comandos en la línea de comandos.
 * Utilizó el entorno gráfico de _MGED_.

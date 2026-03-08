@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 In this lesson, you will: 
+
+
 * Create an outside cylinder using the in command.
 * Create an inside cylinder for hollowing out the larger shape cylinder.
 * Create a handle for your mug.
@@ -38,7 +40,7 @@ The diagram of this command is as follows:
 |The shape type is right circular cylinder
 |===
 
-_MGED_ will ask you the following questions about the cylinder you want to make. Type in the values given in bold. Make sure you leave spaces between variable values. *Enter X, Y, Z of vertex: 0 0 0[Enter]**Enter X, Y, Z of height (H) vector: 0 0 3.5[Enter]**Enter radius: 1.75[Enter]*
+_MGED_ will ask you the following questions about the cylinder you want to make. Type in the values given in bold. Make sure you leave spaces between variable values. *Enter X, Y, Z of vertex: 0 0 0[Enter]* *Enter X, Y, Z of height (H) vector: 0 0 3.5[Enter]* *Enter radius: 1.75[Enter]*
 
 Note that the streamlined way to do this would be to type: *in bodyout.s rcc 0 0 0 0 0 3.5 1.75[Enter]*
 
@@ -113,7 +115,7 @@ The diagram of this command is:
 |The x, y, and z of the normal vector is 1, 0, and 0
 |===
 
-The program will ask you to enter more values for the elliptical torus you are creating. Type in the values shown in bold. *Enter radius of revolution, r: 1.45[Enter]**Enter X, Y, Z, of vector C: 0.6 0 0[Enter]**Enter elliptical semi-minor axis, d: 0.2[Enter]*
+The program will ask you to enter more values for the elliptical torus you are creating. Type in the values shown in bold. *Enter radius of revolution, r: 1.45[Enter]* *Enter X, Y, Z, of vector C: 0.6 0 0[Enter]* *Enter elliptical semi-minor axis, d: 0.2[Enter]*
 
 A doughnut shape should appear on the right-hand side of the body. If you look carefully, you can see that about one-third of the elliptical torus intersects the body.
 
@@ -208,6 +210,8 @@ You should now have the region mug.r that is a combination of shapes containing 
 == Review
 
 In this lesson you: 
+
+
 * Created an outside cylinder using the in command.
 * Created an inside cylinder for hollowing out the larger shape cylinder.
 * Created a handle for your mug.

@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 In this lesson, you will: 
+
+
 * Recall primitive shapes made previously.
 * Make a region of two primitive shapes.
 * Assign material properties to your primitive shapes from the Command Window.
@@ -35,7 +37,9 @@ Make sure you key in the information correctly before you press ENTER. Spaces, o
 
 ====
 
-This command tells _MGED_ to: [cols="6*"]
+This command tells _MGED_ to: 
+
+[cols="6*"]
 [%noheader]
 |===
 |r
@@ -58,7 +62,7 @@ This command tells _MGED_ to: [cols="6*"]
 [[assign_material_prop]]
 == Assigning Material Properties to a Region
 
-Now type in: *mater shapes2.r[Enter]*_MGED_ will respond with:
+Now type in: *mater shapes2.r[Enter]* _MGED_ will respond with:
 
 
 ....
@@ -69,7 +73,7 @@ Now type in: *mater shapes2.r[Enter]*_MGED_ will respond with:
       
 ....
 
-Type in: *plastic[Enter]*_MGED_ will ask:
+Type in: *plastic[Enter]* _MGED_ will ask:
 
 
 ....
@@ -195,6 +199,8 @@ Note that in _BRL-CAD_ versions 5.1 and later, turning off the framebuffer does 
 == Review
 
 In this lesson you: 
+
+
 * Recalled primitive shapes made previously.
 * Made a region of two primitive shapes.
 * Assigned material properties to your primitive shapes from the Command Window.

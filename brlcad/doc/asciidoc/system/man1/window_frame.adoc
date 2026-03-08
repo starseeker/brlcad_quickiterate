@@ -61,6 +61,8 @@ Actual width of the frame in millimeters.
 [example]
 ====
 
+
+
 ....
 
 The window frames are composed of 4 arb8s and 8

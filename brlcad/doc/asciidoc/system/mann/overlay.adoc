@@ -23,7 +23,7 @@ overlay -F [<-i>] [<-c>] [<-z>] [<-X #>] [<-Y #>] [<-w #>] [<-n #>] [<-S #>] [<-
 [[description]]
 == DESCRIPTION
 
-Plots the specified UNIX _plot_file_ in the current application display or the specified _image file_ in the current application embedded framebuffer. When displaying plot files, multiple files may be specified using a pattern match (e.g., *overlay*_*.plot_).
+Plots the specified UNIX _plot_file_ in the current application display or the specified _image file_ in the current application embedded framebuffer. When displaying plot files, multiple files may be specified using a pattern match (e.g., *overlay* _*.plot_).
 
 When displaying plot files, phony object names are created for each part of the plot file(s) with a unique color. The names are created by adding a color to the specified _viewobj_name_, or to _PLOT_OVERLAY_ if no name is provided. The color suffix is built by converting the RGB color to a six-digit hex number. Each color corresponds to 2 hex digits, so that white becomes "ffffff," red becomes "ff0000," green is "00ff00," etc.
 

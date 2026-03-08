@@ -69,6 +69,8 @@ Height of bolt stem in millimeters.
 [example]
 ====
 
+
+
 ....
 
 $ bolt
