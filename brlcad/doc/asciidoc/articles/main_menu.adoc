@@ -9,7 +9,6 @@
 ** ../../articles/en/about.php[About BRL-CAD]
 
 *** ../../articles/en/about.php#article-body[Introduction]
-
 ** ../../articles/en/build_pattern.php[Build Pattern]
 
 *** ../../articles/en/build_pattern.php#build_pattern_generalinfo[Build Pattern Information]
@@ -19,13 +18,11 @@
 *** ../../articles/en/build_pattern.php#build_pattern_recpatterns[Rectangular Patterns]
 *** ../../articles/en/build_pattern.php#build_pattern_spherical[Spherical Patterns]
 *** ../../articles/en/build_pattern.php#build_pattern_cylind[Cylindrical Patterns]
-
 ** ../../articles/en/build_region.php[Build Region]
 ** ../../articles/en/camo_shader.php[Camouflage Shader]
 
 *** ../../articles/en/camo_shader.php#Introduction[Introduction]
 *** ../../articles/en/camo_shader.php#Limitations[Limitations]
-
 ** ../../articles/en/ged.php[GED]
 
 *** ../../articles/en/ged.php#Preface[Preface]
@@ -43,7 +40,6 @@
 *** ../../articles/en/ged.php#OBJECT_EDITING[Object Editing]
 *** ../../articles/en/ged.php#SOLID_EDITING[Solid Editing]
 *** ../../articles/en/ged.php#CONCLUSION[Conclusion]
-
 ** ../../articles/en/mged.php[MGED]
 
 *** ../../articles/en/mged.php#Preface[Preface]
@@ -55,28 +51,23 @@
 **** ../../articles/en/mged.php#Editing_Solids[Editing Solids]
 **** ../../articles/en/mged.php#Adding_a_Base[Adding A Base]
 **** ../../articles/en/mged.php#Adding_a_fillet[Adding A Fillet]
-
 *** ../../articles/en/mged.php#New_Graphical_User_Interface[MGED’s New Graphical User Interface]
 
 **** ../../articles/en/mged.php#47403072[MGED’s New Graphical User Interface]
-
 *** ../../articles/en/mged.php#cmd_line_ed[Command Line Editing]
 
 **** ../../articles/en/mged.php#Emacs_Bindings[Emacs Bindings]
 **** ../../articles/en/mged.php#VI_Bindings[Vi Bindings]
 **** ../../articles/en/mged.php#Insert_Mode[Insert Mode]
 **** ../../articles/en/mged.php#Command_Mode[Command Mode]
-
 *** ../../articles/en/mged.php#MGED_User_Commands[MGED User Commands]
 
 **** ../../articles/en/mged.php#MGEDDeveloperCommands[MGED Developer Commands]
-
 *** ../../articles/en/mged.php#MGED_Tcl_Variables[MGED Tcl Variables]
 *** ../../articles/en/mged.php#MGED_Environment_Variable[MGED Environment Variable]
 *** ../../articles/en/mged.php#MGED_Callback[MGED Callback]
 *** ../../articles/en/mged.php#Glossary[Glossary]
 *** ../../articles/en/mged.php#BRL-CAD_Solid[BRLCAD Solids]
-
 ** ../../articles/en/mgedrc.php[MGEDRC]
 ** ../../articles/en/nirt.php[About Nirt]
 
@@ -89,7 +80,6 @@
 **** ../../articles/en/nirt.php#Backing_Out_of_a_Model[Backing Out of a Model]
 **** ../../articles/en/nirt.php#Changing_the_Direction_of_the_Ray[Changing the Direction of the Ray]
 **** ../../articles/en/nirt.php#Reporting_of_Overlaps[Reporting of Overlaps]
-
 *** ../../articles/en/nirt.php#Graphical_Visualization[Graphical Visualization: NIRT in MGED]
 
 **** ../../articles/en/nirt.php#Basic_Usage[Basic Usage]
@@ -97,19 +87,16 @@
 **** ../../articles/en/nirt.php#Ray_Segment_Coloring_with_Nirt[Ray Segment Coloring with NIRT and MGED]
 **** ../../articles/en/nirt.php#Mouse-Based[Mouse-Based NIRT Usage]
 **** ../../articles/en/nirt.php#Configuring_NIRT[Configuring NIRT]
-
 *** ../../articles/en/nirt.php#Reporting_Options[Reporting Options]
 
 **** ../../articles/en/nirt.php#How_to_Change_the_Reporting_Format[How To Change The Report Format]
 **** ../../articles/en/nirt.php#Handling_Attribute_Reporting[Handling Attribute Reporting]
 **** ../../articles/en/nirt.php#Changing_Units[Changing Units]
-
 *** ../../articles/en/nirt.php#Other_Options[Other Options]
 
 **** ../../articles/en/nirt.php#Silent_and_Verbose_Modes[Silent and Verbose Modes]
 **** ../../articles/en/nirt.php#Using_Air_Regions[Using Air Regions]
 **** ../../articles/en/nirt.php#Reading_an_Orientation[Reading an Orientation Matrix and Command]
-
 *** ../../articles/en/nirt.php#Scripting_NIRT[Scripting NIRT]
 
 **** ../../articles/en/nirt.php#Command_Line_Scripts[Command Line Scripts]
@@ -118,9 +105,7 @@
 **** ../../articles/en/nirt.php#Customizing_Report_Output_in_MGED[Customizing Report Output in MGED]
 **** ../../articles/en/nirt.php#Reporting_Attributes_in_MGED[Reporting Attributes in MGED]
 **** ../../articles/en/nirt.php#Available_Information_for_Inclusion_in_Reports[Available Information for Inclusion in Reports]
-
 *** ../../articles/en/nirt.php#Summary[Summary]
-
 ** ../../articles/en/oed.php[oed]
 
 *** ../../articles/en/oed.php#oed_Basic_Syntax_and_Operations[oed - Basic Syntax and Operations]
@@ -128,12 +113,10 @@
 *** ../../articles/en/oed.php#Flexible_Manipulation[Flexible_Manipulation]
 *** ../../articles/en/oed.php#sub_combination_editing[Sub-Combination Editing]
 *** ../../articles/en/oed.php#Summary[Summary]
-
 ** ../../articles/en/pipes.php[Pipe]
 
 *** ../../articles/en/pipes.php#pipe_general_use[General Use]
 *** ../../articles/en/pipes.php#pipe_make_coil[Making a Coil]
-
 ** ../../articles/en/projection_shader.php[Projection Shader]
 
 *** ../../articles/en/projection_shader.php#projshader_general[General]
@@ -145,7 +128,6 @@
 *** ../../articles/en/projection_shader.php#projshader_savesettingsfile[Save the Projection Shader Settings File]
 *** ../../articles/en/projection_shader.php#projshader_render[Render the Image]
 *** ../../articles/en/projection_shader.php#projshader_projectfront[Project the Image on the Front]
-
 ** ../../articles/en/tire.php#Overview[Tire]
 
 *** ../../articles/en/tire.php#Specifying_a_Tire[Specifying Tire]
@@ -156,9 +138,7 @@
 *** ../../articles/en/tire.php#Other_Options[Other Options]
 *** ../../articles/en/tire.php#Structure_of_a_Tire[Structure of a Tire Model]
 *** ../../articles/en/tire.php#Summary[Summary]
-
 ** ../../articles/en/TEMPLATE.php[Template]
-
 * ../xx.php[Books]
 
 ** ../../books/BRL-CAD_Tutorial_Series-VolumeI.php[BRL-CAD Tutorial Series-VolumeI]
@@ -170,7 +150,6 @@
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeI.php#toolsutilities[Tools Utilities]
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeI.php#benchmarkingimages[Benchmark Testing]
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeI.php#acknowledgments[Acknowledgments]
-
 ** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php[BRL-CAD Tutorial Series-VolumeII]
 
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Preface[Preface]
@@ -196,7 +175,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#editing_commands[Editing Commands]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#quitting[Quitting]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#creating_primitive_shapes_review[Creating Primitive Shapes Review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-2[Learning the Viewing Options]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#creating_radio[Creating Radio]
@@ -207,7 +185,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#view_radio_angles[View Radio Angles]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#shift_grips[Shift Grips]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#learning_viewing_options_review[Learning viewing options Review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lessons-3[Using the Insert Command to Size and Place Shapes]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#new_db_myShapes[New db MyShapes]
@@ -219,7 +196,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#view_shapes[View Shapes]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#using_insert_command_quit[Using insert command quit]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#using_insert_command_review[using insert command review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-4[Assigning Material Properties and Raytracing]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#assigning_material_properties_and_raytracing_opendb[Assigning material properties and raytracing opendb]
@@ -230,14 +206,12 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#layers_graphics_window[Layers Graphics Window]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#clear_graphics_window[Clear Graphics Window]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#assigning_material_properties_and_raytracing_review[Review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-5[Learning About Boolean Expressions]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#boolean_tools[Boolean Tools]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_regions_bool_ops[Making regions bool ops]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#operator_precedence[Operator Precedence]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#learning_boolean_operations_review[Review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-6[Creating a Goblet]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_new_database[Goblet New Database]
@@ -247,7 +221,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_goblet_regions[Making Goblet Regions]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_goblet_region_comb[Making Goblet Region Comb]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#making_goblet_region_comb[Making Goblet Region Comb]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-8[Assigning Material Properties to Your Goblet]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_review_opening_db[Goblet review opening db]
@@ -255,7 +228,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_transparency_mirror[Goblet transparency mirror]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_newforms_raytrace[Goblet newforms Raytrace]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_material_properties_review[Goblet material properties review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson[Assigning More Material Properties to Your Goblet]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_specular_diffuse[Goblet specular diffuse]
@@ -264,7 +236,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_extinction[Goblet extinction]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_emission[Goblet emission]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_shader_attributes[Goblet shader attributes]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#goblet_material_properties2_review[Goblet material properties2 review]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-9[Creating a Globe in a Display Box]
@@ -275,7 +246,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_move_rotate[Globe move rotate]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_use_color_tool[Globe use color tool]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#globe_in_display_box_review[Globe in display box review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-11[Refining the Mug]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_new_db[Mug new db]
@@ -285,7 +255,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_comb2[Mug comb2]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_region[Mug region]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_review[Mug review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-12[Creating the Mug Through the GUI]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_mater_prop_mater_cmd[Mug mater prop mater cmd]
@@ -293,7 +262,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_refining[Mug refining]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#mug_torus_cup_combine[Mug torus cup combine]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#refining_mug_review[Refining mug review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-13[Placing Shapes in 3-D Space]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_create_tabletop[candle create tabletop]
@@ -305,7 +273,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_assign_mater_prop[candle assign mater prop]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_raytrace[candle raytrace]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#placing_shapes_in_3d_review[placing shapes in 3d review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-14[Gaining More Practice Placing Shapes in Space]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_base_1st_sphere[candle base 1st sphere]
@@ -317,7 +284,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_assign_mater_prop[candle assign mater prop]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#candle_raytrace[candle raytrace]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#placing_shapes_in_3d_review[placing shapes in 3d review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-15[Creating a Toy Truck]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_cab_in_cmd[truck cab in cmd]
@@ -339,7 +305,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_combine_regions[truck combine regions]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#truck_raytracing[truck raytracing]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#creating_toy_truck_review[creating toy truck review]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#Lesson-16[Learning Modeling Techniques and Structures]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_shapes_to_regions[Radio shapes to regions]
@@ -351,8 +316,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_specialty_models[radio specialty models]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#radio_structure_redefinition[radio structure redefinition]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeII.php#modeling_techniques_and_structures_review[modeling techniques and structures review]
-
-
 ** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php[BRL-CAD_Tutorial_Series-VolumeIII]
 
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIIintro[Introduction]
@@ -360,7 +323,6 @@
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#The_Importance_of_the_Model_Mission[The Importance of the Model Mission]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#M_O_D_E_L_A_Five-Step_Approach_to_Creating_Effective_Models[M-O-D-E-L: A Five-Step Approach to Creating Effective Models]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php##projshader_resize[Projshader resize]
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_getimage[Projshader getimage]
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#projshader_actframe[Projshader actframe]
@@ -381,25 +343,21 @@
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIIorganizing[organizing]
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#volIIIdevgeometry[develop geometry]
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#build_pattern_recpatterns[Build pattern recpatterns]
-
 ** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php[BRL-CAD_Tutorial_Series-VolumeIV]
 
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#chapt_introduction[Introduction]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Background_Purpose_and_Scope[Background, Purpose, and Scope]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#The_Need_for_Conversion[The Need for Conversion]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#chapt_pert_char[Pert char]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#CSG_vs._BREP[CSG_vs._BREP]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Prerelease_6.0_Database_vs._Current_Format[Prerelease 6.0 Database vs. Current Format]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converters_Currently_Available_in_BRL-CAD[Converters Currently Available in BRL-CAD]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#sec_convert_from_to_ascii[Convert from to ascii]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_ASCII[Converting From ASCII]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_ASCII[Converting_to_ASCII]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#sec_convert_to_brlcad[Convert to brlcad]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#General_Information_About_Converting_to_BRL-CAD[General Information About Converting to BRL-CAD]
@@ -415,7 +373,6 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_TANKILL_Format[Converting From TANKILL Format]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_Unigraphics_Format[Converting From Unigraphics Format]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_From_Viewpoint_Datalabs_Format[Converting From Viewpoint Datalabs Format]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#sec_convert_from_brlcad[Convert from brlcad]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#General_Information_About_Converting_From_BRL-CAD[General Information About Converting From BRL-CAD]
@@ -429,16 +386,12 @@
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_VRML_Format[Converting to VRML Format]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_Wavefront_Format[Converting to Wavefront Format]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIV.php#Converting_to_X3D_Format[Converting to X3D Format]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#sec_build_new_converter[Build new converter]
 
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#General_Information_About_Building_a_New_Converter[General Information About Building a New Converter]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#Converting_From_BRL-CAD[Converting From BRL-CAD]
 **** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#Converting_to_BRL-CAD[Converting to BRL-CAD]
-
 *** ../../books/BRL-CAD_Tutorial_Series-VolumeIII.php#sec_postconversion_issues[Postconversion issues]
-
-
 * ../xxx.php[Lessons]
 
 ** ../../lessons/en/mged01_creating_primitive_shapes.php[Mged01 creating primitive shapes]
@@ -463,7 +416,6 @@
 *** ../../lessons/en/mged01_creating_primitive_shapes.php#editing_commands[Editing commands]
 *** ../../lessons/en/mged01_creating_primitive_shapes.php#quitting[Quitting]
 *** ../../lessons/en/mged01_creating_primitive_shapes.php#creating_primitive_shapes_review[Creating primitive shapes review]
-
 ** ../../lessons/en/mged02_learning_viewing_options.php[Mged02 Learning Viewing Options in MGED]
 
 *** ../../lessons/en/mged02_learning_viewing_options.php#creating_radio[Creating radio]
@@ -473,7 +425,6 @@
 *** ../../lessons/en/mged02_learning_viewing_options.php#view_radio_angles[View radio angles]
 *** ../../lessons/en/mged02_learning_viewing_options.php#shift_grips[Shift grips]
 *** ../../lessons/en/mged02_learning_viewing_options.php#learning_viewing_options_review[Learning viewing options review]
-
 ** ../../lessons/en/mged03_using_insert_command.php[Command to Size and Place Shapes]
 
 *** ../../lessons/en/mged03_using_insert_command.php#new_db_myShapes[New db MyShapes]
@@ -485,7 +436,6 @@
 *** ../../lessons/en/mged03_using_insert_command.php#view_shapes[View Shapes]
 *** ../../lessons/en/mged03_using_insert_command.php#using_insert_command_quit[Using insert command quit]
 *** ../../lessons/en/mged03_using_insert_command.php#using_insert_command_review[using insert command review]
-
 ** ../../lessons/en/mged04_assign_mat_prop_rt.php#6[Assigning Material Properties and Raytracing]
 
 *** ../../lessons/en/mged04_assign_mat_prop_rt.php#assigning_material_properties_and_raytracing_opendb[Assigning material properties and raytracing opendb]
@@ -496,7 +446,6 @@
 *** ../../lessons/en/mged04_assign_mat_prop_rt.php#layers_graphics_window[Layers Graphics Window]
 *** ../../lessons/en/mged04_assign_mat_prop_rt.php#clear_graphics_window[Clear Graphics Window]
 *** ../../lessons/en/mged04_assign_mat_prop_rt.php#assigning_material_properties_and_raytracing_review[Review]
-
 ** ../../lessons/en/mged05_learning_boolean_expressions.php#7[Learning About Boolean Expressions]
 
 *** ../../lessons/en/mged05_learning_boolean_expressions.php#boolean_tools[Boolean tools]
@@ -504,7 +453,6 @@
 *** ../../lessons/en/mged05_learning_boolean_expressions.php#making_regions_bool_ops[Making regions bool ops]
 *** ../../lessons/en/mged05_learning_boolean_expressions.php#operator_precedence[Operator precedence]
 *** ../../lessons/en/mged05_learning_boolean_expressions.php#learning_boolean_operations_review[Learning boolean operations review]
-
 ** ../../lessons/en/mged06_creating_a_goblet.php#8[Creating a Goblet]
 
 *** ../../lessons/en/mged06_creating_a_goblet.php#goblet_new_database[Goblet New Database]
@@ -514,7 +462,6 @@
 *** ../../lessons/en/mged06_creating_a_goblet.php#making_goblet_regions[Making Goblet Regions]
 *** ../../lessons/en/mged06_creating_a_goblet.php#making_goblet_region_comb[Making Goblet Region Comb]
 *** ../../lessons/en/mged06_creating_a_goblet.php#making_goblet_region_comb[Making Goblet Region Comb]
-
 ** ../../lessons/en/mged07_goblet_material_properties.php#9[Assigning Material Properties to Your Goblet]
 
 *** ../../lessons/en/mged07_goblet_material_properties.php#goblet_review_opening_db[Goblet review opening db]
@@ -522,7 +469,6 @@
 *** ../../lessons/en/mged07_goblet_material_properties.php#goblet_transparency_mirror[Goblet transparency mirror]
 *** ../../lessons/en/mged07_goblet_material_properties.php#goblet_newforms_raytrace[Goblet newforms Raytrace]
 *** ../../lessons/en/mged07_goblet_material_properties.php#goblet_material_properties_review[Goblet material properties review]
-
 ** ../../lessons/en/mged08_goblet_material_properties2.php#10[Assigning More Material Properties to Your Goblet]
 
 *** ../../lessons/en/mged08_goblet_material_properties2.php#goblet_specular_diffuse[Goblet specular diffuse]
@@ -531,7 +477,6 @@
 *** ../../lessons/en/mged08_goblet_material_properties2.php#goblet_extinction[Goblet extinction]
 *** ../../lessons/en/mged08_goblet_material_properties2.php#goblet_emission[Goblet emission]
 *** ../../lessons/en/mged08_goblet_material_properties2.php#goblet_shader_attributes[Goblet shader attributes]
-
 ** ../../lessons/en/mged09_globe_in_display_box.php#goblet_material_properties2_review#11[Goblet material properties2 review]
 
 *** ../../lessons/en/mged09_globe_in_display_box.php[Creating a Globe in a Display Box]
@@ -542,7 +487,6 @@
 *** ../../lessons/en/mged09_globe_in_display_box.php#globe_move_rotate[Globe move rotate]
 *** ../../lessons/en/mged09_globe_in_display_box.php#globe_use_color_tool[Globe use color tool]
 *** ../../lessons/en/mged09_globe_in_display_box.php#globe_in_display_box_review[Globe in display box review]
-
 ** ../../lessons/en/mged10_creating_mug.php#12[Refining the Mug]
 
 *** ../../lessons/en/mged10_creating_mug.php#mug_new_db[Mug new db]
@@ -552,7 +496,6 @@
 *** ../../lessons/en/mged10_creating_mug.php#mug_comb2[Mug comb2]
 *** ../../lessons/en/mged10_creating_mug.php#mug_region[Mug region]
 *** ../../lessons/en/mged10_creating_mug.php#mug_review[Mug review]
-
 ** ../../lessons/en/mged11_refining_mug.php#14[Creating the Mug Through the GUI]
 
 *** ../../lessons/en/mged11_refining_mug.php#mug_mater_prop_mater_cmd[Mug mater prop mater cmd]
@@ -560,7 +503,6 @@
 *** ../../lessons/en/mged11_refining_mug.php#mug_refining[Mug refining]
 *** ../../lessons/en/mged11_refining_mug.php#mug_torus_cup_combine[Mug torus cup combine]
 *** ../../lessons/en/mged11_refining_mug.php#refining_mug_review[Refining mug review]
-
 ** ../../lessons/en/mged12_mug_through_gui.php#15[Creating the Mug Through the GUI]
 
 *** ../../lessons/en/mged12_mug_through_gui.php#mug_gui_create_body[Mug gui create body]
@@ -572,7 +514,6 @@
 *** ../../lessons/en/mged12_mug_through_gui.php#mug_gui_comb_edit_props[Mug gui comb edit props]
 *** ../../lessons/en/mged12_mug_through_gui.php#mug_gui_raytracing[Mug gui raytracing]
 *** ../../lessons/en/mged12_mug_through_gui.php#mug_through_gui_review[Mug through gui review]
-
 ** ../../lessons/en/mged13_placing_shapes_in_3d.php#16[Placing Shapes in 3-D Space]
 
 *** ../../lessons/en/mged13_placing_shapes_in_3d.php#candle_create_tabletop[candle create tabletop]
@@ -584,7 +525,6 @@
 *** ../../lessons/en/mged13_placing_shapes_in_3d.php#candle_assign_mater_prop[candle assign mater prop]
 *** ../../lessons/en/mged13_placing_shapes_in_3d.php#candle_raytrace[candle raytrace]
 *** ../../lessons/en/mged13_placing_shapes_in_3d.php#placing_shapes_in_3d_review[placing shapes in 3d review]
-
 ** ../../lessons/en/mged14_placing_shapes_in_3d_2.php#17[Gaining More Practice Placing Shapes in Space]
 
 *** ../../lessons/en/mged14_placing_shapes_in_3d_2.php#candle_base_1st_sphere[candle base 1st sphere]
@@ -596,7 +536,6 @@
 *** ../../lessons/en/mged14_placing_shapes_in_3d_2.php#candle_assign_mater_prop[candle assign mater prop]
 *** ../../lessons/en/mged14_placing_shapes_in_3d_2.php#candle_raytrace[candle raytrace]
 *** ../../lessons/en/mged14_placing_shapes_in_3d_2.php#placing_shapes_in_3d_review[placing shapes in 3d review]
-
 ** ../../lessons/en/mged15_creating_a_toy_truck.php#17[Creating a Toy Truck]
 
 *** ../../lessons/en/mged15_creating_a_toy_truck.php#truck_cab_in_cmd[truck cab in cmd]
@@ -618,7 +557,6 @@
 *** ../../lessons/en/mged15_creating_a_toy_truck.php#truck_combine_regions[truck combine regions]
 *** ../../lessons/en/mged15_creating_a_toy_truck.php#truck_raytracing[truck raytracing]
 *** ../../lessons/en/mged15_creating_a_toy_truck.php#creating_toy_truck_review[creating toy truck review]
-
 ** ../../lessons/en/mged16_mod_tech_struct.php#19[Learning Modeling Techniques and Structures]
 
 *** ../../lessons/en/mged16_mod_tech_struct.php#radio_shapes_to_regions[Radio shapes to regions]
@@ -630,8 +568,6 @@
 *** ../../lessons/en/mged16_mod_tech_struct.php#radio_specialty_models[radio specialty models]
 *** ../../lessons/en/mged16_mod_tech_struct.php#radio_structure_redefinition[radio structure redefinition]
 *** ../../lessons/en/mged16_mod_tech_struct.php#modeling_techniques_and_structures_review[modeling techniques and structures review]
-
-
 * ../xxxx.php[Man 1]
 
 ** ../../man1/en/ap-pix.php[AP Pix]
@@ -846,7 +782,6 @@
 ** ../../man1/en/viewpoint-g.php[View Point]
 ** ../../man1/en/wavelet.php[wavelet]
 ** ../../man1/en/wdb_example.php[Wdb Example]
-
 * ../xxxxx.php[Man 3]
 
 ** ../../man3/en/libfb.php[Lib fb]
@@ -855,7 +790,6 @@
 ** ../../man3/en/librt.php[Librt]
 ** ../../man3/en/libwdb.php[Libwdb]
 ** ../../man3/en/redblack.php[Red Black]
-
 * ../xxxxxx.php[Man 5]
 
 ** ../../man5/en/attributes.php[Attributes]
@@ -864,7 +798,6 @@
 ** ../../man5/en/dsp.php[Dsp]
 ** ../../man5/en/pix.php[Pix]
 ** ../../man5/en/plot3.php[Plot 3]
-
 * ../xxxxxxx.php[Mann]
 
 ** ../../mann/en/3ptarb.php[3 Ptarb]
@@ -1089,12 +1022,10 @@
 ** ../../mann/en/xpuch.php[Xpuch]
 ** ../../mann/en/Z.php[Z]
 ** ../../mann/en/zoom.php[zoom]
-
 * ../xxxxxxxx.php[Presentations]
 
 ** ../../presentations/en/Introduction-brlcad-app-devel.php[Application Development with BRL-CAD]
 ** ../../presentations/en/Introduction-to-tcltk.php[Introduction To TclTK]
-
 * ../xxxxxxxxx.php[Specifications]
 
 ** ../../specifications/en/BRL_CAD_g_format_V5.php[BRL-CAD G Format V5]
@@ -1102,7 +1033,6 @@
 *** ../../specifications/en/BRL_CAD_g_format_V5.php#Background_and_Terminology[Background and Terminology]
 
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Format_of_Data_Elements_Database_External_Format[Format of Data Elements Database External Format]
-
 *** ../../specifications/en/BRL_CAD_g_format_V5.php#Definition_of_a_Single_Generic_Database_Object[Definition of a Single, Generic Database Object]
 
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Object_Structure[Object Structure]
@@ -1119,7 +1049,3 @@
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Extensions_for_Deferred_Implementation[Extensions for Deferred Implementation]
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Community_Feedback_on_the_Proposal[Community Feedback on the Proposal]
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Database_Library_Application_Programming_Interface[Database Library Application Programming Interface (API)]
-
-
-
-

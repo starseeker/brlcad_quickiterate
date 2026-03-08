@@ -82,36 +82,24 @@ If you would like to be a BRL-CAD contributor, the primary areas currently ident
 
 
 * _Improved graphical user interface and usability_ to accommodate increasingly varied user needs and participation levels. This includes improving the look-and-feel and features of:
-
-
 ** the primary editing graphical interface (MGED)
 ** the geometric visualization and interaction management system (libdm).
 
-
 * _Improved hybrid boundary representation geometry support_ to support all 3D CAD models regardless of whether they use implicit or explicit geometric representation. Geometry formats we are particularly focusing on include:
-
-
 ** volumetric models (VOL)
 ** spline-surface (for example, NURBS) and polygonal (for example, triangle mesh) boundary representations (BREP)
 ** implicit primitives.
 
-
 * _Improved geometry services and functionality,_ including the ability to provide: multiuser access controls
-
-
 ** comprehensive revision history
 ** collaborative enhanced multiuser modeling
 ** more flexible application development.
 
-
 * In addition, BRL-CAD's existing geometry kernel functions are continuously being refactored. Help turn them into a comprehensive, scriptable command framework, create an object-oriented geometry kernel application programming interface (API), or build a lightweight network daemon protocol for language agnostic client application development.
 * _Improved open source awareness and increased development participation_ via:
-
-
 ** establishing strong open source community ties
 ** improving software documentation
 ** openly welcoming new contributors and users.
-
 
 
 
@@ -438,8 +426,6 @@ Here are some highlights of our style:
 * Exact floating point comparisons are unreliable without requiring IEEE-compliant floating point math, but BRL-CAD does not require such math for portability and for performance reasons. When floating point comparisons are necessary, use the NEAR_EQUAL and NEAR_ZERO macros with a specified tolerance or the EQUAL and ZERO macros where a tolerance is indeterminate. All the macros are available by including bn.h, part of libbn.
 * The code should strive to achieve conformance with the GNU coding standard with a few exceptions. One such exception is not using the GNU indentation style, but instead using the BSD KNF indentation style, which is basically the K&R indentation style with character indentation consistent with the file that you're editing. If this is confusing, use spaces to indent and run the sh/ws.sh script to convert spaces to tabs. We value consistency to preserve maintainability.
 * Stylistic whitespace
-
-
 ** No space immediately inside parentheses.
 
 
@@ -501,10 +487,7 @@ switch(foo) ...                   /* discouraged */
 
 
 
-
 * Naming symbols
-
-
 ** Variable and public API function names should almost always begin with a lowercase letter.
 
 
@@ -549,7 +532,6 @@ bn_mat_transpose()
 
 
 ** Naming exceptions are allowed where the API intentionally mirrors some other familiar programming construct--for example, bu_malloc()+bu_free())--but be as consistent as possible within a file and across a library's API.
-
 
 * BRL-CAD uses The One True Brace Style from BSD KNF and K&Rfootnote:[http://en.wikipedia.org/wiki/Indent_style
 
@@ -1796,4 +1778,3 @@ main(int argc, char *argv[])
     return 0;
 }
 ----
-

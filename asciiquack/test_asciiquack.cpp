@@ -5033,6 +5033,62 @@ static void test_html_quote_block_positional_attribution_and_citetitle() {
 
 
 
+static void test_html_nested_unordered_list() {
+    // ** items should create nested sub-lists, not be treated as bold text
+    begin_test("html5: nested unordered list (** creates sub-list)");
+
+    std::string out = html(
+        "* Level 1\n"
+        "** Level 2a\n"
+        "** Level 2b\n"
+        "* Back to level 1\n");
+
+    // Level 1 items should each be in <li>
+    EXPECT_CONTAINS(out, "<ul>");
+    EXPECT_CONTAINS(out, "Level 1");
+    EXPECT_CONTAINS(out, "Level 2a");
+    EXPECT_CONTAINS(out, "Level 2b");
+    EXPECT_CONTAINS(out, "Back to level 1");
+
+    // Level 2a and 2b should be in a nested <ul>
+    // The sub-list must appear INSIDE the Level 1 <li>
+    auto ul1 = out.find("<ul>");
+    auto ul2 = out.find("<ul>", ul1 + 1);
+    EXPECT(ul2 != std::string::npos);  // nested <ul> must exist
+
+    // "Level 2a" must appear AFTER the second <ul>
+    auto pos_2a = out.find("Level 2a");
+    EXPECT(pos_2a > ul2);
+
+    // No bold markers like ** should appear in the output paragraphs
+    EXPECT(out.find("<strong> Level 2a </strong>") == std::string::npos);
+
+    end_test();
+}
+
+static void test_html_nested_ordered_list() {
+    // .. items should create nested ordered sub-lists
+    begin_test("html5: nested ordered list (.. creates sub-list)");
+
+    std::string out = html(
+        ". Step 1\n"
+        ".. Step 1a\n"
+        ".. Step 1b\n"
+        ". Step 2\n");
+
+    EXPECT_CONTAINS(out, "<ol");
+    EXPECT_CONTAINS(out, "Step 1");
+    EXPECT_CONTAINS(out, "Step 1a");
+    EXPECT_CONTAINS(out, "Step 2");
+
+    auto ol1 = out.find("<ol");
+    auto ol2 = out.find("<ol", ol1 + 1);
+    EXPECT(ol2 != std::string::npos);  // nested <ol> must exist
+
+    end_test();
+}
+
+
 int main(int argc, char* argv[]) {
     // Check for -v flag
     for (int i = 1; i < argc; ++i) {
@@ -5275,6 +5331,8 @@ int main(int argc, char* argv[]) {
     test_html_inline_option_trailing_space_preserved();
     test_html_quote_block_positional_attribution();
     test_html_quote_block_positional_attribution_and_citetitle();
+    test_html_nested_unordered_list();
+    test_html_nested_ordered_list();
 
     // Summary
     std::cout << "\n============================\n";
