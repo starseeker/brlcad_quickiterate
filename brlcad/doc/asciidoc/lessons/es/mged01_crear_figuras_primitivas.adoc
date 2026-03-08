@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-Este tutorial le ayudará a: 
+Este tutorial le ayudará a:
 
 
 * Arrancar con el programa _MGED_.
@@ -111,7 +111,7 @@ Para este ejemplo, crearemos una esfera simple. Hay dos maneras de crear una fig
 
 Puede fácilmente crear la esfera desde la terminal con sólo unos pocos comandos. En la terminal de _MGED_ tipee: *make sph1.s sph [ENTER] [Nota: Use el dígito 1, no la letra l].*
 
-Este comando le dice al programa _MGED_: 
+Este comando le dice al programa _MGED_:
 
 [cols="3*"]
 [%noheader]
@@ -147,7 +147,7 @@ Antes de usar la opción zap, asegúrese de haber hecho foco en la ventana de co
 [[draw_object]]
 == Dibujar un objeto prediseñado
 
-Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que: 
+Para dibujar una esfera ya guardada, tipee en la linea de comandos lo siguiente: *draw sph1.s [ENTER].* Este comando le dice al programa _MGED_ que:
 
 [cols="2*"]
 [%noheader]
@@ -185,7 +185,7 @@ Si intenta escribir en la ventana de comandos y no ve ninguna palabra allí, es 
 
 ====
 
-Un ejemplo de diálogo que podría darse en la ventana de comandos para mostrar los parámetros o atributos de la primera esfera que ha creado es el siguiente: 
+Un ejemplo de diálogo que podría darse en la ventana de comandos para mostrar los parámetros o atributos de la primera esfera que ha creado es el siguiente:
 
 
 ....
@@ -262,7 +262,7 @@ Recuerde que para salir del programa en cualquier momento, debe tipear en la lí
 [[creating_primitive_shapes_review]]
 == Repasemos
 
-En este tutorial usted: 
+En este tutorial usted:
 
 
 * Inició el programa _MGED_.

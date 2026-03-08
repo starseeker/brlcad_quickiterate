@@ -46,7 +46,7 @@ The below examples walk through a sample *process* workflow:
 .Process Help
 [example]
 ====
-mged>*process* 
+mged>*process*
 
 
 ....
@@ -69,7 +69,7 @@ Subcommands:
 .List Currently Running Processes
 [example]
 ====
-mged>*process list* 
+mged>*process list*
 
 
 ....

@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Crear la figura de una taza desde el GUI.
@@ -23,7 +23,7 @@ Comience por abrir una nueva base de datos. Llámela mug2.g.
 
 Diríjase al menú Create (Crear) y seleccione rcc (right circular cylinder = cilindro circular recto) bajo la categoría Cones and Cylinders (Conos y cilindros). Ingrese el nombre del rcc. Llámelo outside.s.
 
-Vaya al menú Edit (Edición), donde encontrará las siguientes opciones: 
+Vaya al menú Edit (Edición), donde encontrará las siguientes opciones:
 
 [cols="4*"]
 [%noheader]
@@ -54,7 +54,7 @@ Nota: Recuerde que cuando se cambia la escala de una forma, la posición del pun
 [[mug_gui_create_handle]]
 == Crear el asa de la taza
 
-Anteriormente, hemos hecho el asa de la taza con un toro elíptico. En este tutorial, haremos la manija seleccionando un toro (que es una figura con forma de rosquilla) en el menú de formas. Nómbrelo handle.s. El menú Edición ahora ofrecerá un conjunto diferente de parámetros detallados en la siguiente lista: 
+Anteriormente, hemos hecho el asa de la taza con un toro elíptico. En este tutorial, haremos la manija seleccionando un toro (que es una figura con forma de rosquilla) en el menú de formas. Nómbrelo handle.s. El menú Edición ahora ofrecerá un conjunto diferente de parámetros detallados en la siguiente lista:
 
 [cols="4*"]
 [%noheader]
@@ -65,7 +65,7 @@ Anteriormente, hemos hecho el asa de la taza con un toro elíptico. En este tuto
 |`Primitive Editor Combination Editor`
 |===
 
- En este caso, Set Radio 1 cambia la distancia desde el centro del orificio del toro a la mitad del cuerpo del mismo. Set Radio 2 cambia el radio del toro, el cual define su grosor. Con la misma técnica utilizada en la edición de las formas rcc, modificar el tamaño del toro hasta que se vea similar los siguientes ejemplos: 
+En este caso, Set Radio 1 cambia la distancia desde el centro del orificio del toro a la mitad del cuerpo del mismo. Set Radio 2 cambia el radio del toro, el cual define su grosor. Con la misma técnica utilizada en la edición de las formas rcc, modificar el tamaño del toro hasta que se vea similar los siguientes ejemplos:
 
 [cols="2*"]
 [%noheader]
@@ -76,7 +76,7 @@ Anteriormente, hemos hecho el asa de la taza con un toro elíptico. En este tuto
 |Taza y asa desde una vista superior
 |===
 
- Visualice su taza desde arriba para asegurarse de que esté alineada. Acepte los cambios cuando esté terminada.
+Visualice su taza desde arriba para asegurarse de que esté alineada. Acepte los cambios cuando esté terminada.
 
 
 [[mug_gui_create_rim]]
@@ -104,7 +104,7 @@ Para crear una región partiendo de las combinaciones que acaba de crear, tipee 
 [[mug_gui_check_tree]]
 == Controlando el árbol de datos (Data Tree)
 
-Antes de continuar, sería recomendable controlar el árbol de datos. Asegúrese de que está de acuerdo con el siguiente árbol: 
+Antes de continuar, sería recomendable controlar el árbol de datos. Asegúrese de que está de acuerdo con el siguiente árbol:
 
 
 ....
@@ -127,7 +127,7 @@ Antes de continuar, sería recomendable controlar el árbol de datos. Asegúrese
 	
 ....
 
- Si su árbol de datos no se parece a este ejemplo, tendrá que volver y averiguar dónde ha ido mal. De ser necesario, puede eliminar una forma, una combinación, o una región escribiendo en el prompt de la ventana de comandos: *kill [name of shape, combination, or region][Enter]*
+Si su árbol de datos no se parece a este ejemplo, tendrá que volver y averiguar dónde ha ido mal. De ser necesario, puede eliminar una forma, una combinación, o una región escribiendo en el prompt de la ventana de comandos: *kill [name of shape, combination, or region][Enter]*
 
 Por ejemplo, en este tutorial usted ha creado una figura extra llamada rim2.s, que ya no utilizará. Para eiminar esta figura deberá tipear: *kill rim2.s[Enter]*
 
@@ -135,7 +135,7 @@ Por ejemplo, en este tutorial usted ha creado una figura extra llamada rim2.s, q
 [[mug_gui_comb_edit_props]]
 == Asignar propiedades de los materiales utilizando el Combination Editor (Editor de combinaciones)
 
-Vaya al menú Edit (Edición) y seleccione la combinación Editor (Editor). Escriba mug.r en la caja de entrada de Nombre. Pulse ENTER. Tipee 0 148 0 en el cuadro de entrada de color. Seleccione un sombreado de plástico. Marque la casilla Boolean Expression (Expresión booleana) para asegurarse de que diga: 
+Vaya al menú Edit (Edición) y seleccione la combinación Editor (Editor). Escriba mug.r en la caja de entrada de Nombre. Pulse ENTER. Tipee 0 148 0 en el cuadro de entrada de color. Seleccione un sombreado de plástico. Marque la casilla Boolean Expression (Expresión booleana) para asegurarse de que diga:
 
 
 ....
@@ -146,7 +146,7 @@ Vaya al menú Edit (Edición) y seleccione la combinación Editor (Editor). Escr
 	
 ....
 
- Cuando esté terminado cliquee en Apply (Aplicar) y luego en Dismiss (Despedir). En la venana de comandos tipee en el prompt: *B mug.r[Enter]*
+Cuando esté terminado cliquee en Apply (Aplicar) y luego en Dismiss (Despedir). En la venana de comandos tipee en el prompt: *B mug.r[Enter]*
 
 
 [[mug_gui_raytracing]]
@@ -162,7 +162,7 @@ image::../../lessons/es/images/mged12_mug_gui_finished_raytraced.png[]
 [[mug_through_gui_review]]
 == Repasemos...
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Crear la figura de una taza desde el GUI.

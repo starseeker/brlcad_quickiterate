@@ -19,7 +19,7 @@ rtarea [<options>]...
 
 For displayed objects, the _rtarea_ command calculates the exposed, presented and centers of surface areas. The summary output includes details for individual regions, assemblies (combinations that contain regions), and summarized totals. By default current display azimuth and elevation are used for computations. Summary units are current MGED editing units.
 
-The _exposed_ area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page: 
+The _exposed_ area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page:
 
 
 ....
@@ -37,7 +37,7 @@ The _exposed_ area corresponds to what a human observer would see looking at the
       
 ....
 
- The exposed area of the Front Cube corresponds to the total area of the sheet, since it is not occluded by any other object: 
+The exposed area of the Front Cube corresponds to the total area of the sheet, since it is not occluded by any other object:
 
 
 ....
@@ -55,7 +55,7 @@ The _exposed_ area corresponds to what a human observer would see looking at the
       
 ....
 
- The Rear Cube, on the other hand, IS occluded by the Front Cube and would thus report only a fraction of its area as exposed: 
+The Rear Cube, on the other hand, IS occluded by the Front Cube and would thus report only a fraction of its area as exposed:
 
 
 ....
@@ -73,7 +73,7 @@ The _exposed_ area corresponds to what a human observer would see looking at the
       
 ....
 
- An object that combines both of these sheets would thus report as its exposed area the sum of the exposed areas of the individual sheets: 
+An object that combines both of these sheets would thus report as its exposed area the sum of the exposed areas of the individual sheets:
 
 
 ....
@@ -93,7 +93,7 @@ The _exposed_ area corresponds to what a human observer would see looking at the
 
 
 
-_Presented_ area, unlike exposed area, does not take occlusion into account. It is the equivalent of taking each object and considering it in isolation. So for the previous case of two sheets of metal, the Front Cube would report the same area: 
+_Presented_ area, unlike exposed area, does not take occlusion into account. It is the equivalent of taking each object and considering it in isolation. So for the previous case of two sheets of metal, the Front Cube would report the same area:
 
 
 ....
@@ -111,7 +111,7 @@ _Presented_ area, unlike exposed area, does not take occlusion into account. It 
       
 ....
 
- The Rear Cube, on the other hand, ALSO reports its full area: 
+The Rear Cube, on the other hand, ALSO reports its full area:
 
 
 ....
@@ -129,7 +129,7 @@ _Presented_ area, unlike exposed area, does not take occlusion into account. It 
       
 ....
 
- When reporting the presented area of the group, there is a subtle point - rtarea does not count area covered by multiple regions multiple times when totaling the presented area. So for the group containing both cubes, the presented area is NOT the cumulative area of both regions' presented areas but the area of the union of those two areas. In this case, that works out to be the same as the exposed area. 
+When reporting the presented area of the group, there is a subtle point - rtarea does not count area covered by multiple regions multiple times when totaling the presented area. So for the group containing both cubes, the presented area is NOT the cumulative area of both regions' presented areas but the area of the union of those two areas. In this case, that works out to be the same as the exposed area.
 
 
 ....

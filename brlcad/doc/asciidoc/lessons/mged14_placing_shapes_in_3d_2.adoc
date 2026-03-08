@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create copies of a shape using the Primitive Editor.
@@ -59,7 +59,7 @@ image::../lessons/images/mged14_primitive_selection_dropdown.png[]
 
 
 
-Click on sph2.s and drag it into position. Once you have positioned the eight spheres around the rcc, your design should look similar to the following ones when viewed from the top and front. 
+Click on sph2.s and drag it into position. Once you have positioned the eight spheres around the rcc, your design should look similar to the following ones when viewed from the top and front.
 
 [cols="2*"]
 [%noheader]
@@ -91,7 +91,7 @@ There are three easier ways to make all of the regions. The first involves typin
 
 The second approach is based upon the fact that the Command Line interpreter of _MGED_ uses the Tcl/Tk language. This gives us access to some convenient loop commands. The following will make all of the regions for us in a single command: *foreach i { 1 2 3 4 5 6 7 8 } { [Enter]* *r sph$i.r u sph$i.s [Enter]* *}[Enter]*
 
-This is much easier and faster than either of the previous methods. However, if there were many more spheres (say 1000 or more), then it might be easier to use a third approach, which employs a different loop type: 
+This is much easier and faster than either of the previous methods. However, if there were many more spheres (say 1000 or more), then it might be easier to use a third approach, which employs a different loop type:
 
 
 ....
@@ -123,17 +123,17 @@ In general, the graphical interface is good for doing one thing at a time or doi
 [[candle_base_spheres_combine]]
 == Combining the Spheres with the Candle Base
 
-We are now faced with an important decision. At the moment, the jewels overlap a portion of the candle base (specifically, the rcc1.s portion). Because two objects cannot occupy the same space, we must decide how to resolve this situation. There are two choices: 
+We are now faced with an important decision. At the moment, the jewels overlap a portion of the candle base (specifically, the rcc1.s portion). Because two objects cannot occupy the same space, we must decide how to resolve this situation. There are two choices:
 
 
 * We can have perfectly round jewels with dents in the side of the candle base where the jewels are mounted.
 * We can have a perfectly round base with a cylindrical bite taken out of the back of each jewel.
 
- For this lesson, we will use the first choice.
+For this lesson, we will use the first choice.
 
 Now we are faced with a second decision: how to achieve this result. The key is that the space the jewels occupy must be subtracted from the correct part (rcc1.s) of the base.
 
-On the Command Line, create rcc1.c by typing: *comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]* Next, bring up the Combination Editor and select base1.r. Change the union of rcc1.s in the Boolean Expression window to a union of rcc1.c, and click OK. The tree of base1.r should now look like: 
+On the Command Line, create rcc1.c by typing: *comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]* Next, bring up the Combination Editor and select base1.r. Change the union of rcc1.s in the Boolean Expression window to a union of rcc1.c, and click OK. The tree of base1.r should now look like:
 
 
 ....
@@ -191,7 +191,7 @@ On the Command Line, create rcc1.c by typing: *comb rcc1.c u rcc1.s - sph1.r - s
 ====
 Note that we could have achieved the same results on the Command Line by using the rm (remove) command to remove rcc1.s from base1.r and then adding rcc1.c: *rm base1.r rcc1.s[Enter]* *r base1.r u rcc1.c[Enter]*
 
-This would have resulted in a very similar tree as above: 
+This would have resulted in a very similar tree as above:
 
 
 ....
@@ -244,7 +244,7 @@ This would have resulted in a very similar tree as above:
 
 
 
-Finally, we could have avoided making an intermediate object in the database by moving rcc1.s to the end of the Boolean equation for base1.r and then subtracting each of the jewels from base1.r (hence, removing material from rcc1.s). This would have resulted in: 
+Finally, we could have avoided making an intermediate object in the database by moving rcc1.s to the end of the Boolean equation for base1.r and then subtracting each of the jewels from base1.r (hence, removing material from rcc1.s). This would have resulted in:
 
 
 ....
@@ -311,7 +311,7 @@ image::../lessons/images/mged14_candle_spheres_raytraced.png[]
 [[placing_shapes_in_3d_2_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created copies of a shape using the Primitive Editor.

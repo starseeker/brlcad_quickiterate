@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Launch the _MGED_ program.
@@ -111,7 +111,7 @@ For this lesson, you are going to create a single sphere. There are two ways you
 
 You can easily create a sphere from the prompt in the Command Window by typing just a few commands. At the _MGED_ prompt, type: *make sph1.s sph[ENTER] [Note: Use the digit 1, not the letter l]*
 
-This command tells the _MGED_ program to: 
+This command tells the _MGED_ program to:
 
 [cols="3*"]
 [%noheader]
@@ -147,7 +147,7 @@ Before using the zap option, make sure you "activate" (i.e., set the focus on) t
 [[draw_object]]
 == Drawing a Previously Created Object
 
-To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to: 
+To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to:
 
 [cols="2*"]
 [%noheader]
@@ -187,7 +187,7 @@ Note: If you attempt to type in the Command Window and you see no words appearin
 
 ====
 
-An example of the dialog that might occur in the Command Window for the parameters or attributes of the first sphere you created is as follows: 
+An example of the dialog that might occur in the Command Window for the parameters or attributes of the first sphere you created is as follows:
 
 
 ....
@@ -264,7 +264,7 @@ Remember, to leave the program at any time, type from the Command Line either th
 [[creating_primitive_shapes_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Started the _MGED_ program.

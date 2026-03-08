@@ -7,7 +7,7 @@ Lee A Butler; Michael John Muuss; Paul J Tanenbaum; John R Anderson; Robert G Pa
 
 BRL-CAD is a constructive solid geometry (CSG) modeling system. Primitive solid shapes are combined using boolean operations to form regions of homogeneous material.
 
-The database is organized as a _directed acyclic graph_ (DAG), which is comprised of: 
+The database is organized as a _directed acyclic graph_ (DAG), which is comprised of:
 
 
 * primitive _solids_ - the minimal elements of the DAG.
@@ -21,11 +21,11 @@ In a slight abuse of terminology, the DAG is often spoken of as a tree or collec
 [[Format_of_Data_Elements_Database_External_Format]]
 === Format of Data Elements/Database External Format
 
-The external format has several important properties, especially with regard to the _Object_Body_: 
+The external format has several important properties, especially with regard to the _Object_Body_:
 
 
 * Numbers are stored in binary for storage efficiency, for speed of reading and writing, and for preventing errors from creeping in due to repetitive conversion between binary and an ASCII string representation. This eliminates the need to use the old g2asc and asc2g to move databases between machines of different architectures.
-* All data in the object wrapper are stored in a machine-independent format, as follows: 
+* All data in the object wrapper are stored in a machine-independent format, as follows:
 
 
 ** All floating point numbers are stored as IEEE double-precision, in big-endian order, where byte 0 is on the left end of the word.
@@ -50,7 +50,7 @@ In the case of librt, each database object will contain exactly one combination 
 
 All objects share certain common properties, which are stored in a standardized _object wrapper_ consisting of an Object Header and an Object Footer.
 
-The Object Header consists of: 
+The Object Header consists of:
 
 
 * An 8-bit Magic1 element that holds a specific magic number value used for database integrity checking.
@@ -61,7 +61,7 @@ The Object Header consists of:
 
 
 
-The Object Footer consists of: 
+The Object Footer consists of:
 
 
 * Any padding bytes necessary to bring the total size of the object in bytes to an integral multiple of 8.
@@ -69,7 +69,7 @@ The Object Footer consists of:
 
 
 
-Objects may store application-specific information in an Object Interior. 
+Objects may store application-specific information in an Object Interior.
 
 
 * An object may optionally have an Object_Attributes element consisting of a pair of fields: Attribute_Length and Attribute_Data. From the point of view of the database interface specification, the names and values of these attributes are opaque (but a standardized import and export encoding API is provided).
@@ -491,7 +491,7 @@ An attribute-only object may not have an object body; thus, flag bit B must alwa
 
 As used by the rt family of applications codes, these attribute-only objects will contain "macros" for shaders. The shader name and its parameters shall be encoded as a single ASCII string, which is the value of the "oshader=" attribute. An rt shader named "macro" (or equivalent) would take a single parameter "obj=", which would specify the name of the attribute-only object in the database from which the actual shader and shader parameter information would be extracted.
 
-There will be one attribute-only object with a reserved object name of "_GLOBAL" that will be used to contain various kinds of states that are global to the entire ".g" database and that had previously been found in the database header itself. There will be the following BRL-CAD-specific attributes whose meaning is predefined for the _GLOBAL object: 
+There will be one attribute-only object with a reserved object name of "_GLOBAL" that will be used to contain various kinds of states that are global to the entire ".g" database and that had previously been found in the database header itself. There will be the following BRL-CAD-specific attributes whose meaning is predefined for the _GLOBAL object:
 
 
 * title = The database "title" string previously found in the database header.
@@ -640,7 +640,7 @@ See the section on DLI flags. In the case of Free objects, the name is not retai
 [[Object_Attributes]]
 === Object Attributes
 
-An object may optionally have an Object_Attributes element which stores an association list (key=value) binding attributes to values: 
+An object may optionally have an Object_Attributes element which stores an association list (key=value) binding attributes to values:
 
 
 ....
@@ -651,18 +651,18 @@ aname1=value1, aname2=value2, ..., anameN=valueN
 
 The keys are ASCII strings of unlimited length. These attributes are intended for direct use by programs. There will be a WWW registry of attribute names presently in use to prevent two application developers from using the same attribute name for different purposes.
 
-For attribute names and ASCII attribute values, The decision was taken to support 8-bit ASCII only. The on-disk encoding of this will simply be: 
+For attribute names and ASCII attribute values, The decision was taken to support 8-bit ASCII only. The on-disk encoding of this will simply be:
 
 
 ....
 aname1 NULL value1 NULL ... anameN NULL valueN NULL NULL
 ....
 
- where NULL represents a byte with all bits zero. The NULL in place of anameN+1 signals the end of the ASCII attribute data.
+where NULL represents a byte with all bits zero. The NULL in place of anameN+1 signals the end of the ASCII attribute data.
 
 Every object in the database may have zero or more attributes attached to it; the meaning of these attributes will vary depending on which application or library processes them.
 
-There are several aname conventions that all BRL-CAD applications are expected to respect. There will be a WWW extendable registry of "in-use" anames, so that independent applications developers may select aname strings for their own use without fear of name conflicts later. The initial registry would include: 
+There are several aname conventions that all BRL-CAD applications are expected to respect. There will be a WWW extendable registry of "in-use" anames, so that independent applications developers may select aname strings for their own use without fear of name conflicts later. The initial registry would include:
 
 
 * comment = Every object may optionally have a comment that contains a string of an arbitrary number of newline-terminated lines of text. These are strings for use by humans only. None of the BRL-CAD software may parse or interpret these strings other than to print them and edit them when requested by the user. They are provided for the modeler to place notes in.
@@ -680,7 +680,7 @@ There are several aname conventions that all BRL-CAD applications are expected t
 * rlist = The proposed BRL-CAD "replacement list" field would be stored on a binary-block attribute ("rlist="). [deferred implementation]
 * macro = If present, specifies name of an attribute-only object to be consulted for additional attribute values.
 
- All other attributes, from whatever source, would be stored similarly, including application-specific and end-user-created attributes.
+All other attributes, from whatever source, would be stored similarly, including application-specific and end-user-created attributes.
 
 
 [[Object_Body]]
@@ -692,7 +692,7 @@ The contents of the Object Body are opaque?? to the database layer. The contents
 [[Padding_and_Length_Rounding]]
 === Padding and Length Rounding
 
-The minimal object is a Free object (with no name) 8 bytes long: 
+The minimal object is a Free object (with no name) 8 bytes long:
 
 
 ....
@@ -705,9 +705,9 @@ ObjLen = 8 (1 byte)
 Magic2 (1 byte)
 ....
 
- This is why we have chosen the 8-bit size for our chunks. Pad bytes are inserted as necessary in the Object Footer immediately before the second magic number so that the final byte of the object is the Magic2 byte. The pad bytes are not counted as part of the Body_Length, but are counted as part of the Object_Length.
+This is why we have chosen the 8-bit size for our chunks. Pad bytes are inserted as necessary in the Object Footer immediately before the second magic number so that the final byte of the object is the Magic2 byte. The pad bytes are not counted as part of the Body_Length, but are counted as part of the Object_Length.
 
-The minimal valid object is thus the following Free object: 
+The minimal valid object is thus the following Free object:
 
 
 ....
@@ -722,7 +722,7 @@ Magic2 (1 byte)
 
 
 
-The header of the database will always look like this: 
+The header of the database will always look like this:
 
 
 ....
@@ -737,7 +737,7 @@ Magic2 (1 byte)
 
 
 
-The hex and ASCII dump of this object would look something this: 
+The hex and ASCII dump of this object would look something this:
 
 
 ....
@@ -746,7 +746,7 @@ The hex and ASCII dump of this object would look something this:
 
 
 
-The minimal valid allocated database storage object (with an Object_Name, no Object_Attributes or Object_Body) would thus be: 
+The minimal valid allocated database storage object (with an Object_Name, no Object_Attributes or Object_Body) would thus be:
 
 
 ....
@@ -764,7 +764,7 @@ Magic2 (1 byte)
 
 
 
-Without the padding, that (rather useless) object would be 11 bytes long. Given the rounding requirements, it is clear that all allocated storage objects in the database must be at least 16 bytes long. A database object with a minimal Object_Body would need 12 bytes, which would need to be padded out to 16 bytes as well: 
+Without the padding, that (rather useless) object would be 11 bytes long. Given the rounding requirements, it is clear that all allocated storage objects in the database must be at least 16 bytes long. A database object with a minimal Object_Body would need 12 bytes, which would need to be padded out to 16 bytes as well:
 
 
 ....

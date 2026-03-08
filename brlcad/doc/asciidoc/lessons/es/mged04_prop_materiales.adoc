@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Llamar figuras primitivas creadas anteriormente.
@@ -32,7 +32,7 @@ En el promp de _MGED_ tipee: *r shRaytrace Control Panelapes2.r u sph2.s u rcc2.
 
 Nota: Asegúrese de haber ingresado correctamente el comando antes de presionar ENTER. Los espacios, o la falta de los mismos, son importantes.
 
-Este comando le dice a _MGED_ que: 
+Este comando le dice a _MGED_ que:
 
 [cols="6*"]
 [%noheader]
@@ -184,7 +184,7 @@ Nota: Tenga en cuenta que en la versión de _BRL-CAD_ 5.1 y posteriores, al desa
 [[assigning_material_properties_and_raytracing_review]]
 == Revisión
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Llamar figuras primitivas creadas anteriormente.

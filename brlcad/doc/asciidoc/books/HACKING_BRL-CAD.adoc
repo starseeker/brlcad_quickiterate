@@ -34,7 +34,7 @@ Development of BRL-CAD as a unified software package began in 1983, and its firs
 
 Today, the package's source code repository is credited as being the world's oldest, continuously developed open source repository. As a project, pride is taken in preserving all history and contributions.
 
-The ongoing vision for BRL-CAD development is to provide a robust, powerful, flexible, and comprehensive solid modeling system that includes: 
+The ongoing vision for BRL-CAD development is to provide a robust, powerful, flexible, and comprehensive solid modeling system that includes:
 
 
 * Faithful high-performance geometric representation.
@@ -47,7 +47,7 @@ The ongoing vision for BRL-CAD development is to provide a robust, powerful, fle
 
 ==== Key Strengths
 
-All CAD packages are not alike. Among the many strengths of the BRL-CAD package are the following: 
+All CAD packages are not alike. Among the many strengths of the BRL-CAD package are the following:
 
 
 * BRL-CAD is _open source!_ Don't like something? You can make it better.
@@ -64,7 +64,7 @@ All CAD packages are not alike. Among the many strengths of the BRL-CAD package 
 
 ==== Want to Be a Contributor?
 
-With BRL-CAD being a part of the open source community since 2004, contributors from all over the world are able to enhance the features and functions of the package in many different ways. In return, these contributors have had a unique opportunity to: 
+With BRL-CAD being a part of the open source community since 2004, contributors from all over the world are able to enhance the features and functions of the package in many different ways. In return, these contributors have had a unique opportunity to:
 
 
 * Join a team of passionate and talented contributors who share the common values of open source development. Open source emphasizes free redistribution; openly available source code; full, open participation; and nondiscrimination against individuals, groups, technologies, or fields of interest. (To learn more, see http://opensource.org.)
@@ -76,17 +76,17 @@ With BRL-CAD being a part of the open source community since 2004, contributors 
 
 
 
-If you would like to be a BRL-CAD contributor, the primary areas currently identified for future development and enhancement include the following: 
+If you would like to be a BRL-CAD contributor, the primary areas currently identified for future development and enhancement include the following:
 
 
-* _Improved graphical user interface and usability_ to accommodate increasingly varied user needs and participation levels. This includes improving the look-and-feel and features of: 
+* _Improved graphical user interface and usability_ to accommodate increasingly varied user needs and participation levels. This includes improving the look-and-feel and features of:
 
 
 ** the primary editing graphical interface (MGED)
 ** the geometric visualization and interaction management system (libdm).
 
 
-* _Improved hybrid boundary representation geometry support_ to support all 3D CAD models regardless of whether they use implicit or explicit geometric representation. Geometry formats we are particularly focusing on include: 
+* _Improved hybrid boundary representation geometry support_ to support all 3D CAD models regardless of whether they use implicit or explicit geometric representation. Geometry formats we are particularly focusing on include:
 
 
 ** volumetric models (VOL)
@@ -94,7 +94,7 @@ If you would like to be a BRL-CAD contributor, the primary areas currently ident
 ** implicit primitives.
 
 
-* _Improved geometry services and functionality,_ including the ability to provide: multiuser access controls 
+* _Improved geometry services and functionality,_ including the ability to provide: multiuser access controls
 
 
 ** comprehensive revision history
@@ -103,7 +103,7 @@ If you would like to be a BRL-CAD contributor, the primary areas currently ident
 
 
 * In addition, BRL-CAD's existing geometry kernel functions are continuously being refactored. Help turn them into a comprehensive, scriptable command framework, create an object-oriented geometry kernel application programming interface (API), or build a lightweight network daemon protocol for language agnostic client application development.
-* _Improved open source awareness and increased development participation_ via: 
+* _Improved open source awareness and increased development participation_ via:
 
 
 ** establishing strong open source community ties
@@ -397,7 +397,7 @@ BRL-CAD has a STABLE branch in Git that should always compile and run on all sup
 
 The majority of BRL-CAD is written in ANSI/POSIX C with the intent of strictly conforming with the C standard. The core libraries are all C API, though several--such as the LIBBU and LIBRT libraries--use C++ for implementation details. Our C libraries can use C++ for implementation detail, but they cannot expose C++ in the public API.
 
-Major components of the system are written in the following languages: 
+Major components of the system are written in the following languages:
 
 
 * STEP and NURBS boundary representation support: C++
@@ -407,7 +407,7 @@ Major components of the system are written in the following languages:
 
 
 
-Source code files use the following extensions: 
+Source code files use the following extensions:
 
 
 * C files: .c
@@ -435,10 +435,10 @@ Here are some highlights of our style:
 * Global variables, structures, classes, and other public data containers are discouraged within application code. Do not add any new global variables to existing libraries. Global variables are often a quick solution to some deeper coding problem. However, they carry significant maintenance costs, introduce complexity to the code, make multi-threading support more costly, pollute the public API (symbol-wise at a minimum), increase security risks, are error-prone to use, and usually complicate future efforts to refactor and restructure the code. Using static variables (whether function- or static/file-scoped) is a viable alternative. Restructuring the logic to not be stateful is even better.
 * Exact floating point comparisons are unreliable without requiring IEEE-compliant floating point math, but BRL-CAD does not require such math for portability and for performance reasons. When floating point comparisons are necessary, use the NEAR_EQUAL and NEAR_ZERO macros with a specified tolerance or the EQUAL and ZERO macros where a tolerance is indeterminate. All the macros are available by including bn.h, part of libbn.
 * The code should strive to achieve conformance with the GNU coding standard with a few exceptions. One such exception is not using the GNU indentation style, but instead using the BSD KNF indentation style, which is basically the K&R indentation style with character indentation consistent with the file that you're editing. If this is confusing, use spaces to indent and run the sh/ws.sh script to convert spaces to tabs. We value consistency to preserve maintainability.
-* Stylistic whitespace 
+* Stylistic whitespace
 
 
-** No space immediately inside parentheses. 
+** No space immediately inside parentheses.
 
 
 ----
@@ -449,7 +449,7 @@ while ( max ) { ...               /* discouraged */
 ----
 
 
-** Commas and semicolons are followed by whitespace. 
+** Commas and semicolons are followed by whitespace.
 
 
 ----
@@ -459,7 +459,7 @@ for (i = 0; i &lt; max; i++) { ...   /* ok */
 ----
 
 
-** No space on arrow operators. 
+** No space on arrow operators.
 
 
 ----
@@ -469,7 +469,7 @@ structure -> member = 5;          /* bad */
 ----
 
 
-** Native language statements (if, while, for, switch, and return) have a separating space; functions do not. 
+** Native language statements (if, while, for, switch, and return) have a separating space; functions do not.
 
 
 ----
@@ -481,7 +481,7 @@ switch(foo) ...                   /* discouraged */
 ----
 
 
-** Comments should have an interior space and be without tabs. 
+** Comments should have an interior space and be without tabs.
 
 
 ----
@@ -500,10 +500,10 @@ switch(foo) ...                   /* discouraged */
 
 
 
-* Naming symbols 
+* Naming symbols
 
 
-** Variable and public API function names should almost always begin with a lowercase letter. 
+** Variable and public API function names should almost always begin with a lowercase letter.
 
 
 ----
@@ -514,7 +514,7 @@ double _localVar;     /* bad (looks like member variable)      */
 ----
 
 
-** Do not use Hungarian notation or its variations to show the type of a variable. An exception can be made for pointers on occasion. The name should be concise and meaningful--typing a descriptive name is preferred to someone spending time trying to learn what the name of the variable means. 
+** Do not use Hungarian notation or its variations to show the type of a variable. An exception can be made for pointers on occasion. The name should be concise and meaningful--typing a descriptive name is preferred to someone spending time trying to learn what the name of the variable means.
 
 
 ----
@@ -526,7 +526,7 @@ char *lpszFoo; /* bad */
 ----
 
 
-** Constants should be all upper-case with word boundaries optionally separated by underscores. 
+** Constants should be all upper-case with word boundaries optionally separated by underscores.
 
 
 ----
@@ -536,7 +536,7 @@ static const int arraySize = 8; /* bad */
 ----
 
 
-** Public API (global) function names should be in lowercase with underscores to separate words. Most functions within the core libraries are named with the following convention: [library]_[group]_[action] 
+** Public API (global) function names should be in lowercase with underscores to separate words. Most functions within the core libraries are named with the following convention: [library]_[group]_[action]
 
 
 ----
@@ -551,7 +551,7 @@ bn_mat_transpose()
 
 * BRL-CAD uses The One True Brace Style from BSD KNF and K&Rfootnote:[http://en.wikipedia.org/wiki/Indent_style
 
-]. Opening braces should be on the same line as their statement; closing braces should line up with that same statement. Functions, however, are treated specially, and we place their opening braces on separate lines. 
+]. Opening braces should be on the same line as their statement; closing braces should line up with that same statement. Functions, however, are treated specially, and we place their opening braces on separate lines.
 
 
 ----

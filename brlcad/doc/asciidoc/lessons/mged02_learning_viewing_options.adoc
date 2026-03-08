@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create a model radio.
@@ -67,7 +67,7 @@ image::../lessons/images/mged02_defaultradio.png[]
 
 Now take a minute to look at the Command Window. Even if nothing is in the window, enclosed in the bottom border is a string of information about the Graphics Window. An example string might read: `cent=(8.000 16.000 24.000) sz=96.000 mm az=35.00 el=25.00 tw=-0.00 ang=(0.00 0.00 0.00)`
 
-As detailed in the following table, this information contains four groups of viewing data about the Graphics Window. 
+As detailed in the following table, this information contains four groups of viewing data about the Graphics Window.
 
 .Viewing Data at the Bottom of the Command Window
 [cols="5*"]
@@ -213,7 +213,7 @@ Elevation, on the other hand, involves the viewer's position above or below an o
 |Bottom (az=270, el=-90)
 |===
 
-Finally, twist (which is an optional setting in _MGED_) specifies a rotation about the viewing direction. This rotation is applied to the view after azimuth and elevation have been designated. So, returning to our truck example, imagine standing in front of the vehicle (az=0, el=0) and then tilting your camera counterclockwise 14'0. This would give your view a 14'0 twist angle, as shown in the following figure (on the left). Note again that it is not the truck that is tipped up, but simply your view of it. For more information on specifying twist, see the *ae* command in Appendix A. 
+Finally, twist (which is an optional setting in _MGED_) specifies a rotation about the viewing direction. This rotation is applied to the view after azimuth and elevation have been designated. So, returning to our truck example, imagine standing in front of the vehicle (az=0, el=0) and then tilting your camera counterclockwise 14'0. This would give your view a 14'0 twist angle, as shown in the following figure (on the left). Note again that it is not the truck that is tipped up, but simply your view of it. For more information on specifying twist, see the *ae* command in Appendix A.
 
 [cols="1*"]
 [%noheader]
@@ -332,7 +332,7 @@ Remember, although the Shift Grip options may appear to be manipulating objects,
 [[learning_viewing_options_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created a model radio.

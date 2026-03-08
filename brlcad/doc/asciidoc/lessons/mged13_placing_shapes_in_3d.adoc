@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create, edit, and place shapes in 3-D space.
@@ -51,7 +51,7 @@ image::../lessons/images/mged13_candle_tabletop_eto1_wireframe_front.png[]
 
 The next step in creating a candle base is to make a right circular cylinder (rcc). Name the shape rcc1.s.
 
-Go to Edit. In addition to the standard commands, you will be presented with a menu of thirteen shape-specific ways to edit this shape. 
+Go to Edit. In addition to the standard commands, you will be presented with a menu of thirteen shape-specific ways to edit this shape.
 
 [cols="2*"]
 [%noheader]
@@ -108,7 +108,7 @@ To make a combination of the parts of the candle, type at the Command Window pro
 [[candle_check_data_tree]]
 == Checking the Data Tree
 
-Now that you have made a number of regions and a combination, it would be a good time to check your data tree and make sure it agrees with the following tree. If you find that you have made a mistake in any of the parts of the tree, you can change them in the Boolean Expression box of the Combination Editor (refer to Lesson 5). At the Command Line prompt, type: *tree candle1.c[Enter]* Your Boolean expression should read: 
+Now that you have made a number of regions and a combination, it would be a good time to check your data tree and make sure it agrees with the following tree. If you find that you have made a mistake in any of the parts of the tree, you can change them in the Boolean Expression box of the Combination Editor (refer to Lesson 5). At the Command Line prompt, type: *tree candle1.c[Enter]* Your Boolean expression should read:
 
 
 ....
@@ -141,7 +141,7 @@ Now that you have made a number of regions and a combination, it would be a good
 [[candle_assign_mater_prop]]
 == Assigning Material Properties to the Elements of the Design
 
-To assign material properties to your design, go to the Edit menu and select the Combination Editor. Assign the following material properties to each of the elements: 
+To assign material properties to your design, go to the Edit menu and select the Combination Editor. Assign the following material properties to each of the elements:
 
 [cols="4*"]
 |===
@@ -189,7 +189,7 @@ As discussed previously, a color is made up of three numbers, ranging from 0 to 
 [[candle_raytrace]]
 == Raytracing Your Design
 
-Before raytracing, change the View to az35, el25 to give a better view of the completed design and then Blast the old design by typing at the Command Window prompt: *B table1.r candle1.c[Enter]* This command tells the _MGED_ program to: 
+Before raytracing, change the View to az35, el25 to give a better view of the completed design and then Blast the old design by typing at the Command Window prompt: *B table1.r candle1.c[Enter]* This command tells the _MGED_ program to:
 
 [cols="3*"]
 [%noheader]
@@ -214,7 +214,7 @@ image::../lessons/images/mged13_candle_raytraced_overlay.png[]
 [[placing_shapes_in_3d_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created, edited, and placed shapes in 3-D space.

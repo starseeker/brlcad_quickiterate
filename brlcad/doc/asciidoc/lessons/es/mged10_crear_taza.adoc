@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Crear el cilindro externo utilizando el comando in.
@@ -209,7 +209,7 @@ Ahora debe tener la región mug.r como una combinación de formas que contienen 
 [[mug_review]]
 == Repasemos...
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Crear el cilindro externo utilizando el comando in.

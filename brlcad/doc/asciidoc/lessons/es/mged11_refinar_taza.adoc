@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Asignar propiedades de los materiales a la taza utilizando el comando mater.
@@ -43,7 +43,7 @@ Nota: El sombreado de Phong es una técnica de sombreado para imágenes 3D gener
 
 Ingrese la información apropiada que se muestra en negrita. Si desea utilizar el comando de una sola línea, tipee: *mater mug.r plastic 32 128 32 0[Enter]*
 
-El diagrama de este comando es: 
+El diagrama de este comando es:
 
 [cols="5*"]
 [%noheader]
@@ -124,7 +124,7 @@ image::../../lessons/es/images/mged11_mug_raytraced_rim.png[]
 [[refining_mug_review]]
 == Repasemos...
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Asignar propiedades de los materiales a la taza utilizando el comando mater.

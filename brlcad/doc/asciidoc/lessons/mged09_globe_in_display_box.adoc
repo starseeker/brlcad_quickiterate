@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson you will: 
+In this lesson you will:
 
 
 * Use the GUI to create a display box using arb8 shapes.
@@ -118,7 +118,7 @@ image::../lessons/images/mged09_globe_base_box_raytraced.png[]
 [[globe_in_display_box_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Used the GUI to create a display box using arb8 shapes.

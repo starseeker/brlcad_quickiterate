@@ -27,7 +27,7 @@ Although he never got a chance to review this document, much of this work is a r
 [[Lesson-1]]
 == Creating Primitive Shapes
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Launch the _MGED_ program.
@@ -136,7 +136,7 @@ For this lesson, you are going to create a single sphere. There are two ways you
 
 You can easily create a sphere from the prompt in the Command Window by typing just a few commands. At the _MGED_ prompt, type: *make sph1.s sph[ENTER] [Note: Use the digit 1, not the letter l]*
 
-This command tells the _MGED_ program to: 
+This command tells the _MGED_ program to:
 
 [cols="3*"]
 [%noheader]
@@ -172,7 +172,7 @@ Before using the zap option, make sure you "activate" (i.e., set the focus on) t
 [[draw_object]]
 === Drawing a Previously Created Object
 
-To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to: 
+To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to:
 
 [cols="2*"]
 [%noheader]
@@ -212,7 +212,7 @@ Note: If you attempt to type in the Command Window and you see no words appearin
 
 ====
 
-An example of the dialog that might occur in the Command Window for the parameters or attributes of the first sphere you created is as follows: 
+An example of the dialog that might occur in the Command Window for the parameters or attributes of the first sphere you created is as follows:
 
 
 ....
@@ -289,7 +289,7 @@ Remember, to leave the program at any time, type from the Command Line either th
 [[creating_primitive_shapes_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Started the _MGED_ program.
@@ -317,7 +317,7 @@ In this lesson, you:
 [[Lesson-2]]
 == Learning the Viewing Options
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create a model radio.
@@ -382,7 +382,7 @@ image::../lessons/images/mged02_defaultradio.png[]
 
 Now take a minute to look at the Command Window. Even if nothing is in the window, enclosed in the bottom border is a string of information about the Graphics Window. An example string might read: `cent=(8.000 16.000 24.000) sz=96.000 mm az=35.00 el=25.00 tw=-0.00 ang=(0.00 0.00 0.00)`
 
-As detailed in the following table, this information contains four groups of viewing data about the Graphics Window. 
+As detailed in the following table, this information contains four groups of viewing data about the Graphics Window.
 
 .Viewing Data at the Bottom of the Command Window
 [cols="5*"]
@@ -528,7 +528,7 @@ Elevation, on the other hand, involves the viewer's position above or below an o
 |Bottom (az=270, el=-90)
 |===
 
-Finally, twist (which is an optional setting in _MGED_) specifies a rotation about the viewing direction. This rotation is applied to the view after azimuth and elevation have been designated. So, returning to our truck example, imagine standing in front of the vehicle (az=0, el=0) and then tilting your camera counterclockwise 14'0. This would give your view a 14'0 twist angle, as shown in the following figure (on the left). Note again that it is not the truck that is tipped up, but simply your view of it. For more information on specifying twist, see the *ae* command in Appendix A. 
+Finally, twist (which is an optional setting in _MGED_) specifies a rotation about the viewing direction. This rotation is applied to the view after azimuth and elevation have been designated. So, returning to our truck example, imagine standing in front of the vehicle (az=0, el=0) and then tilting your camera counterclockwise 14'0. This would give your view a 14'0 twist angle, as shown in the following figure (on the left). Note again that it is not the truck that is tipped up, but simply your view of it. For more information on specifying twist, see the *ae* command in Appendix A.
 
 [cols="1*"]
 [%noheader]
@@ -647,7 +647,7 @@ Remember, although the Shift Grip options may appear to be manipulating objects,
 [[learning_viewing_options_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created a model radio.
@@ -662,7 +662,7 @@ In this lesson, you:
 [[Lesson-3]]
 == Using the Insert Command to Size and Place Shapes
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create a sphere and a right circular cylinder using the make command.
@@ -688,7 +688,7 @@ Create a new database and name it shapes.g. Title your database myShapes.
 
 Begin by making the Command Window active (usually by clicking anywhere in the window). Then, at the _MGED_ prompt, type in the command: *make sph1.s sph [Enter]*
 
-As noted in Lesson 1, this command tells _MGED_ to: 
+As noted in Lesson 1, this command tells _MGED_ to:
 
 [cols="3*"]
 [%noheader]
@@ -701,7 +701,7 @@ As noted in Lesson 1, this command tells _MGED_ to:
 |Make it a sphere
 |===
 
- 
+
 
 image::../lessons/images/mged03_wireframe_sph.png[]
 
@@ -936,7 +936,7 @@ In this lesson, you:
 [[Lesson-4]]
 == Assigning Material Properties and Raytracing
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Recall primitive shapes made previously.
@@ -971,7 +971,7 @@ Make sure you key in the information correctly before you press ENTER. Spaces, o
 
 ====
 
-This command tells _MGED_ to: 
+This command tells _MGED_ to:
 
 [cols="6*"]
 [%noheader]
@@ -1132,7 +1132,7 @@ Note that in _BRL-CAD_ versions 5.1 and later, turning off the framebuffer does 
 [[assigning_material_properties_and_raytracing_review]]
 === Review
 
-In this lesson you: 
+In this lesson you:
 
 
 * Recalled primitive shapes made previously.
@@ -1149,14 +1149,14 @@ In this lesson you:
 [[Lesson-5]]
 == Lesson 5: Learning About Boolean Expressions
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Learn about combinations and regions.
 * Learn about Boolean operations.
 * Make regions with Boolean operations.
 
- 
+
 
 
 [CAUTION]
@@ -1186,7 +1186,7 @@ When Boolean operations are used to build up complex shapes from simpler shapes,
 [[boolean_operations]]
 === Boolean Operations
 
-The three Boolean operators employed by the _MGED_ program are union, subtraction, and intersection. You can use Boolean operations to combine shapes to produce more complex shapes. 
+The three Boolean operators employed by the _MGED_ program are union, subtraction, and intersection. You can use Boolean operations to combine shapes to produce more complex shapes.
 
 
 * Union Shapes: Merge two shapes.
@@ -1340,7 +1340,7 @@ This would result in the following Boolean expression: `(shape1 - shape2) u ( (s
 [[learning_boolean_operations_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Learned about combinations and regions.
@@ -1353,7 +1353,7 @@ In this lesson, you:
 [[Lesson-6]]
 == Creating a Goblet
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create a new database.
@@ -1497,7 +1497,7 @@ _MGED_ requires a certain logical order to the model data tree so it knows how t
 
 To view the data tree for this combination, type at the Command Window prompt: *tree goblet1.c[Enter]*
 
-_MGED_ will respond with: 
+_MGED_ will respond with:
 
 
 ....
@@ -1556,7 +1556,7 @@ image::../lessons/images/mged06_rtgobletaz_35_el_25.png[]
 [[creating_goblet_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created a new database.
@@ -1572,7 +1572,7 @@ In this lesson, you:
 [[Lesson-7]]
 == Assigning Material Properties to Your Goblet
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Review how to open an existing database.
@@ -1687,7 +1687,7 @@ Remember that when using these options, the combined value of both options shoul
 [[goblet_material_properties_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Reviewed how to open an existing database.
@@ -1701,7 +1701,7 @@ In this lesson, you:
 [[Lesson-8]]
 == Assigning More Material Properties to Your Goblet
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Use the specular and diffuse reflectivity options of the plastic shader.
@@ -1727,7 +1727,7 @@ Note that in _BRL-CAD_ versions prior to 5.2, the default values are used, but t
 
 ====
 
-In this example, the shader entry box indicates that the transparency (tr) is set at .5 and the mirror reflectance (re) is set at .45. The eight abbreviations currently used in the shader entry box are as follows: 
+In this example, the shader entry box indicates that the transparency (tr) is set at .5 and the mirror reflectance (re) is set at .45. The eight abbreviations currently used in the shader entry box are as follows:
 
 [cols="4*"]
 [%noheader]
@@ -1817,7 +1817,7 @@ Notice that while the shader string entry box reflects the values set by the use
 [[goblet_material_properties2_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Used the specular reflectivity and diffuse reflectivity options of the plastic shader.
@@ -1834,7 +1834,7 @@ In this lesson, you:
 
 In previous lessons, you combined various shapes into new objects. These new objects have been created using solid building blocks, much like those used in a wooden toy truck. However, in real life, most of the objects that you will design will consist of an outside shell and various inside parts.
 
-In this lesson you will: 
+In this lesson you will:
 
 
 * Use the GUI to create a display box using arb8 shapes.
@@ -1950,7 +1950,7 @@ image::../lessons/images/mged09_globe_base_box_raytraced.png[]
 [[globe_in_display_box_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Used the GUI to create a display box using arb8 shapes.
@@ -1965,7 +1965,7 @@ In this lesson, you:
 [[Lesson-10]]
 == Creating a Mug
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create an outside cylinder using the in command.
@@ -2172,7 +2172,7 @@ You should now have the region mug.r that is a combination of shapes containing 
 [[mug_review]]
 === Review
 
-In this lesson you: 
+In this lesson you:
 
 
 * Created an outside cylinder using the in command.
@@ -2188,7 +2188,7 @@ In this lesson you:
 [[Lesson-11]]
 == Refining the Mug
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Assign material properties to the mug using the mater command.
@@ -2221,7 +2221,7 @@ The most commonly used shader is the plastic shader, which uses a Phong lighting
 
 Enter the appropriate information that is shown in bold font. If you want to use the streamlined version, type: *mater mug.r plastic 32 128 32 0[Enter]*
 
-Diagrammed, this command says: 
+Diagrammed, this command says:
 
 [cols="5*"]
 [%noheader]
@@ -2302,7 +2302,7 @@ image::../lessons/images/mged11_mug_raytraced_rim.png[]
 [[refining_mug_review]]
 === Review
 
-In this chapter, you: 
+In this chapter, you:
 
 
 * Assigned material properties to the mug using the mater command.
@@ -2315,7 +2315,7 @@ In this chapter, you:
 [[Lesson-12]]
 == Creating the Mug Through the GUI
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create the shapes of the mug through the GUI.
@@ -2336,7 +2336,7 @@ Begin by opening a new database. Call it mug2.g.
 
 Go to the Create menu and select rcc (right circular cylinder) under the Cones and Cylinders category. Enter the name for the rcc. Call it outside.s.
 
-Go to the Edit menu, where you will be offered the following options: 
+Go to the Edit menu, where you will be offered the following options:
 
 [cols="4*"]
 [%noheader]
@@ -2382,7 +2382,7 @@ Remember that when you scale a shape, the position of the mouse pointer in the G
 [[mug_gui_create_handle]]
 === Creating the Handle of the Mug
 
-Previously, we made the handle of the mug using an elliptical torus. In this lesson, we make the handle by selecting a torus (which is a doughnut shape) from the menu of shapes. Name the torus handle.s. The Edit menu will now offer a different set of parameters than those of the right circular cylinders, as shown in the following list: 
+Previously, we made the handle of the mug using an elliptical torus. In this lesson, we make the handle by selecting a torus (which is a doughnut shape) from the menu of shapes. Name the torus handle.s. The Edit menu will now offer a different set of parameters than those of the right circular cylinders, as shown in the following list:
 
 [cols="4*"]
 [%noheader]
@@ -2393,7 +2393,7 @@ Previously, we made the handle of the mug using an elliptical torus. In this les
 |`Primitive Editor Combination Editor`
 |===
 
- In this instance, Set Radius 1 changes the distance from the center of the doughnut hole to the middle of the dough. Set Radius 2 changes the radius of the dough ring. With the same technique used in editing the rcc shapes, edit the size of the torus until it looks similar to the following examples: 
+In this instance, Set Radius 1 changes the distance from the center of the doughnut hole to the middle of the dough. Set Radius 2 changes the radius of the dough ring. With the same technique used in editing the rcc shapes, edit the size of the torus until it looks similar to the following examples:
 
 [cols="2*"]
 [%noheader]
@@ -2404,7 +2404,7 @@ Previously, we made the handle of the mug using an elliptical torus. In this les
 |Mug and Handle from a Top View
 |===
 
- Check your mug from the top to make sure the handle is aligned. Accept your changes when you are finished.
+Check your mug from the top to make sure the handle is aligned. Accept your changes when you are finished.
 
 
 [[mug_gui_create_rim]]
@@ -2432,7 +2432,7 @@ To make a region out of the combinations you just created, type at the Command W
 [[mug_gui_check_tree]]
 === Checking the Data Tree
 
-Before continuing, it would be wise to check your data tree and make sure it agrees with the following tree: 
+Before continuing, it would be wise to check your data tree and make sure it agrees with the following tree:
 
 
 ....
@@ -2455,7 +2455,7 @@ Before continuing, it would be wise to check your data tree and make sure it agr
 	
 ....
 
- If your data tree doesn't look like this example, you will need to go back and figure out where you went wrong. If necessary, you can kill off a shape, combination, or region by typing at the Command Window prompt: *kill [name of shape, combination, or region][Enter]*
+If your data tree doesn't look like this example, you will need to go back and figure out where you went wrong. If necessary, you can kill off a shape, combination, or region by typing at the Command Window prompt: *kill [name of shape, combination, or region][Enter]*
 
 For example, in this lesson you may have created an extra shape, named rim2.s, which you no longer want. To kill this shape, you would type: *kill rim2.s[Enter]*
 
@@ -2463,7 +2463,7 @@ For example, in this lesson you may have created an extra shape, named rim2.s, w
 [[mug_gui_comb_edit_props]]
 === Assigning Material Properties Using the Combination Editor
 
-Go to the Edit menu and select Combination Editor. Type mug.r in the Name entry box. Press ENTER. Type 0 148 0 in the Color entry box. Select a plastic shader. Check the Boolean Expression box to make sure it says: 
+Go to the Edit menu and select Combination Editor. Type mug.r in the Name entry box. Press ENTER. Type 0 148 0 in the Color entry box. Select a plastic shader. Check the Boolean Expression box to make sure it says:
 
 
 ....
@@ -2474,7 +2474,7 @@ Go to the Edit menu and select Combination Editor. Type mug.r in the Name entry 
 	
 ....
 
- When you are finished, click on Apply and then Dismiss. In the Command Window then, type at the prompt: *B mug.r[Enter]*
+When you are finished, click on Apply and then Dismiss. In the Command Window then, type at the prompt: *B mug.r[Enter]*
 
 
 [[mug_gui_raytracing]]
@@ -2490,7 +2490,7 @@ image::../lessons/images/mged12_mug_gui_finished_raytraced.png[]
 [[mug_through_gui_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created the shapes of the mug through the GUI.
@@ -2506,7 +2506,7 @@ In this lesson, you:
 [[lesson-13]]
 == Placing Shapes in 3-D Space
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create, edit, and place shapes in 3-D space.
@@ -2555,7 +2555,7 @@ image::../lessons/images/mged13_candle_tabletop_eto1_wireframe_front.png[]
 
 The next step in creating a candle base is to make a right circular cylinder (rcc). Name the shape rcc1.s.
 
-Go to Edit. In addition to the standard commands, you will be presented with a menu of thirteen shape-specific ways to edit this shape. 
+Go to Edit. In addition to the standard commands, you will be presented with a menu of thirteen shape-specific ways to edit this shape.
 
 [cols="2*"]
 [%noheader]
@@ -2612,7 +2612,7 @@ To make a combination of the parts of the candle, type at the Command Window pro
 [[candle_check_data_tree]]
 === Checking the Data Tree
 
-Now that you have made a number of regions and a combination, it would be a good time to check your data tree and make sure it agrees with the following tree. If you find that you have made a mistake in any of the parts of the tree, you can change them in the Boolean Expression box of the Combination Editor (refer to Lesson 5). At the Command Line prompt, type: *tree candle1.c[Enter]* Your Boolean expression should read: 
+Now that you have made a number of regions and a combination, it would be a good time to check your data tree and make sure it agrees with the following tree. If you find that you have made a mistake in any of the parts of the tree, you can change them in the Boolean Expression box of the Combination Editor (refer to Lesson 5). At the Command Line prompt, type: *tree candle1.c[Enter]* Your Boolean expression should read:
 
 
 ....
@@ -2645,7 +2645,7 @@ Now that you have made a number of regions and a combination, it would be a good
 [[candle_assign_mater_prop]]
 === Assigning Material Properties to the Elements of the Design
 
-To assign material properties to your design, go to the Edit menu and select the Combination Editor. Assign the following material properties to each of the elements: 
+To assign material properties to your design, go to the Edit menu and select the Combination Editor. Assign the following material properties to each of the elements:
 
 [cols="4*"]
 |===
@@ -2693,7 +2693,7 @@ As discussed previously, a color is made up of three numbers, ranging from 0 to 
 [[candle_raytrace]]
 === Raytracing Your Design
 
-Before raytracing, change the View to az35, el25 to give a better view of the completed design and then Blast the old design by typing at the Command Window prompt: *B table1.r candle1.c[Enter]* This command tells the _MGED_ program to: 
+Before raytracing, change the View to az35, el25 to give a better view of the completed design and then Blast the old design by typing at the Command Window prompt: *B table1.r candle1.c[Enter]* This command tells the _MGED_ program to:
 
 [cols="3*"]
 [%noheader]
@@ -2718,7 +2718,7 @@ image::../lessons/images/mged13_candle_raytraced_overlay.png[]
 [[placing_shapes_in_3d_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created, edited, and placed shapes in 3-D space.
@@ -2732,7 +2732,7 @@ In this lesson, you:
 [[lesson-14]]
 == Gaining More Practice Placing Shapes in Space
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create copies of a shape using the Primitive Editor.
@@ -2789,7 +2789,7 @@ image::../lessons/images/mged14_primitive_selection_dropdown.png[]
 
 
 
-Click on sph2.s and drag it into position. Once you have positioned the eight spheres around the rcc, your design should look similar to the following ones when viewed from the top and front. 
+Click on sph2.s and drag it into position. Once you have positioned the eight spheres around the rcc, your design should look similar to the following ones when viewed from the top and front.
 
 [cols="2*"]
 [%noheader]
@@ -2821,7 +2821,7 @@ There are three easier ways to make all of the regions. The first involves typin
 
 The second approach is based upon the fact that the Command Line interpreter of _MGED_ uses the Tcl/Tk language. This gives us access to some convenient loop commands. The following will make all of the regions for us in a single command: *foreach i { 1 2 3 4 5 6 7 8 } { [Enter]* *r sph$i.r u sph$i.s [Enter]* *}[Enter]*
 
-This is much easier and faster than either of the previous methods. However, if there were many more spheres (say 1000 or more), then it might be easier to use a third approach, which employs a different loop type: 
+This is much easier and faster than either of the previous methods. However, if there were many more spheres (say 1000 or more), then it might be easier to use a third approach, which employs a different loop type:
 
 
 ....
@@ -2853,17 +2853,17 @@ In general, the graphical interface is good for doing one thing at a time or doi
 [[candle_base_spheres_combine]]
 === Combining the Spheres with the Candle Base
 
-We are now faced with an important decision. At the moment, the jewels overlap a portion of the candle base (specifically, the rcc1.s portion). Because two objects cannot occupy the same space, we must decide how to resolve this situation. There are two choices: 
+We are now faced with an important decision. At the moment, the jewels overlap a portion of the candle base (specifically, the rcc1.s portion). Because two objects cannot occupy the same space, we must decide how to resolve this situation. There are two choices:
 
 
 * We can have perfectly round jewels with dents in the side of the candle base where the jewels are mounted.
 * We can have a perfectly round base with a cylindrical bite taken out of the back of each jewel.
 
- For this lesson, we will use the first choice.
+For this lesson, we will use the first choice.
 
 Now we are faced with a second decision: how to achieve this result. The key is that the space the jewels occupy must be subtracted from the correct part (rcc1.s) of the base.
 
-On the Command Line, create rcc1.c by typing: *comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]* Next, bring up the Combination Editor and select base1.r. Change the union of rcc1.s in the Boolean Expression window to a union of rcc1.c, and click OK. The tree of base1.r should now look like: 
+On the Command Line, create rcc1.c by typing: *comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]* Next, bring up the Combination Editor and select base1.r. Change the union of rcc1.s in the Boolean Expression window to a union of rcc1.c, and click OK. The tree of base1.r should now look like:
 
 
 ....
@@ -2921,7 +2921,7 @@ On the Command Line, create rcc1.c by typing: *comb rcc1.c u rcc1.s - sph1.r - s
 ====
 Note that we could have achieved the same results on the Command Line by using the rm (remove) command to remove rcc1.s from base1.r and then adding rcc1.c: *rm base1.r rcc1.s[Enter]* *r base1.r u rcc1.c[Enter]*
 
-This would have resulted in a very similar tree as above: 
+This would have resulted in a very similar tree as above:
 
 
 ....
@@ -2974,7 +2974,7 @@ This would have resulted in a very similar tree as above:
 
 
 
-Finally, we could have avoided making an intermediate object in the database by moving rcc1.s to the end of the Boolean equation for base1.r and then subtracting each of the jewels from base1.r (hence, removing material from rcc1.s). This would have resulted in: 
+Finally, we could have avoided making an intermediate object in the database by moving rcc1.s to the end of the Boolean equation for base1.r and then subtracting each of the jewels from base1.r (hence, removing material from rcc1.s). This would have resulted in:
 
 
 ....
@@ -3041,7 +3041,7 @@ image::../lessons/images/mged14_candle_spheres_raytraced.png[]
 [[placing_shapes_in_3d_2_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created copies of a shape using the Primitive Editor.
@@ -3055,7 +3055,7 @@ In this lesson, you:
 [[lesson-15]]
 == Creating a Toy Truck
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create a toy truck from three shapes.
@@ -3082,7 +3082,7 @@ Begin by creating a new database called truck.g.
 [[truck_cab_in_cmd]]
 === Creating an rpp for the Cab of the Truck Using the In Command
 
-To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]* _MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to: 
+To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]* _MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to:
 
 [cols="6*"]
 [%noheader]
@@ -3115,7 +3115,7 @@ image::../lessons/images/mged15_truck_cab1s.png[]
 
 To make the hood of the cab, you will need to make another rpp shape, this time using the inside command. This special command was originally created to hollow out objects such as gas tanks and boxes; however, it can be used to create any new shape that has some relationship to a pre-existing shape. In this lesson, it is used to cut away material above the hood and in front of the cab.
 
-If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to: 
+If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to:
 
 [cols="9*"]
 [%noheader]
@@ -3145,7 +3145,7 @@ If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, t
 
 [NOTE]
 ====
-In this example, each negative thickness number indicates that caboff1.s will protrude through the corresponding face of cab1.s. Running the l (list) command, you can see the vertices for the box it creates: 
+In this example, each negative thickness number indicates that caboff1.s will protrude through the corresponding face of cab1.s. Running the l (list) command, you can see the vertices for the box it creates:
 
 
 ....
@@ -3221,7 +3221,7 @@ image::../lessons/images/mged15_truck_2nd_wheel_wheel_place.png[]
 [[truck_cab_shape_comb]]
 === Making a Combination of the Cab Shapes
 
-It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to: 
+It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to:
 
 [cols="10*"]
 [%noheader]
@@ -3250,7 +3250,7 @@ It is now time to make a combination of the various cab shapes. *comb cab1.c u c
 
 
 
-Before you go any further, you should check your data tree by typing tree cab1.c. The data tree should say: 
+Before you go any further, you should check your data tree by typing tree cab1.c. The data tree should say:
 
 
 ....
@@ -3297,7 +3297,7 @@ image::../lessons/images/mged15_truck_wheel_wells_wireframe.png[]
 [[truck_body_wheel_wells_comb]]
 === Making a Combination of the Truck Body and Wheel Wells
 
-Make a combination of the truck body and the two new wheel wells. Name it body1.c. The tree for body1.c should say: 
+Make a combination of the truck body and the two new wheel wells. Name it body1.c. The tree for body1.c should say:
 
 
 ....
@@ -3326,7 +3326,7 @@ Before adding wheels to the truck, you need to make a region of the cab and body
 
 Perhaps the best shape for making wheels is the torus. You can create a shape through the Command Window that has the correct size and placement for your design without further editing. However, this lesson is designed to give you practice rotating and translating shapes.
 
-To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to: 
+To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to:
 
 [cols="7*"]
 [%noheader]
@@ -3361,7 +3361,7 @@ image::../lessons/images/mged15_truck_wheels.png[]
 [[truck_wheels_region]]
 === Making a Region of the Wheels
 
-Make a region of the four wheels. When you are finished, your data tree for wheel1.r should say: 
+Make a region of the four wheels. When you are finished, your data tree for wheel1.r should say:
 
 
 ....
@@ -3439,7 +3439,7 @@ When using the stacker option, you need to keep track of the number of character
 [[truck_combine_regions]]
 === Making a Combination of the Truck Regions
 
-To make a combination of the two truck regions, type at the Command Window prompt: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Your data tree for truck1.c should read: 
+To make a combination of the two truck regions, type at the Command Window prompt: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Your data tree for truck1.c should read:
 
 
 ....
@@ -3505,7 +3505,7 @@ There is a special adjustment we can make to improve the overall brightness of t
 [[creating_toy_truck_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created a toy truck from three shapes.
@@ -3525,7 +3525,7 @@ In this lesson, you:
 [[lesson-16]]
 == Learning Modeling Techniques and Structures
 
-In this lesson, you will be: 
+In this lesson, you will be:
 
 
 * Making the shapes of the walkie-talkie radio into regions.
@@ -3546,7 +3546,7 @@ image::../lessons/images/mged16_radio_new_design.png[]
 [[radio_shapes_to_regions]]
 === Making the Shapes into Regions
 
-Open the database radio.g that you created in Lesson 2. In the Command Window, use the ls command to list all the contents of your radio. It should read as follows: 
+Open the database radio.g that you created in Lesson 2. In the Command Window, use the ls command to list all the contents of your radio. It should read as follows:
 
 
 ....
@@ -3557,7 +3557,7 @@ Open the database radio.g that you created in Lesson 2. In the Command Window, u
 	
 ....
 
- Now what does this list really contain? Parts to a model radio? Not really. What the list actually comprises is just a collection of shapes (which we have hinted at by using a .s suffix) that (1) do not have material properties, and therefore (2) do not occupy space.
+Now what does this list really contain? Parts to a model radio? Not really. What the list actually comprises is just a collection of shapes (which we have hinted at by using a .s suffix) that (1) do not have material properties, and therefore (2) do not occupy space.
 
 
 [NOTE]
@@ -3624,7 +3624,7 @@ Now let's take all of the regions we have made so far and gather them into an as
 
 A shortcut, however, would be to use the g (group) command as follows: *g radio.c case.r button.r knob.r ant.r[Enter]* Unlike the comb command, the g command assumes that all of the items specified will be unioned together, and so no Boolean operators need to be specified.
 
-A final improvement would include using the database name wildcard *.r to quickly and easily specify all of the regions in the database: *g radio.c *.r[Enter]* If we now tree radio.c, we should get the following output in the Command Window. 
+A final improvement would include using the database name wildcard *.r to quickly and easily specify all of the regions in the database: *g radio.c *.r[Enter]* If we now tree radio.c, we should get the following output in the Command Window.
 
 
 ....
@@ -3685,7 +3685,7 @@ As we look at our radio now, we can see that the antenna looks a little bit like
 
 Our radio is looking more and more realistic; however, it is still just a hollow shell. Let's further improve it by making a circuit board to go inside the case. To do this, type: *in board.s rpp 3 4 1 31 1 47[Enter]* *r board.r u board.s[Enter]*
 
-Let's give the board a green semi-shiny color. The easiest way to do this is via the Combination Editor, but this time let's use the Command Line approach. Type: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Diagrammed, this command says to: 
+Let's give the board a green semi-shiny color. The easiest way to do this is via the Combination Editor, but this time let's use the Command Line approach. Type: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Diagrammed, this command says to:
 
 [cols="5*"]
 [%noheader]
@@ -3708,7 +3708,7 @@ Finally, we'll include the board with the rest of the components in radio.c as f
 
 image::../lessons/images/mged16_radio_wireframe_circ_board.png[]
 
- In addition, the tree for radio.c should now look as follows: 
+ In addition, the tree for radio.c should now look as follows:
 
 
 ....
@@ -3783,7 +3783,7 @@ image::../lessons/images/mged16_radio_transparent.png[]
 
 
 
-As shown in the following tree diagram, the structure of this specialty radio_clear.c is not much different than that of the regular radio.c. The only difference is that case.c has been replaced with case_clear.c. 
+As shown in the following tree diagram, the structure of this specialty radio_clear.c is not much different than that of the regular radio.c. The only difference is that case.c has been replaced with case_clear.c.
 
 
 ....
@@ -3889,7 +3889,7 @@ image::../lessons/images/mged16_radio_structure_3.png[]
 
 To accomplish this restructuring according to functionality, create an assembly called electronics.c to hold these components together. Type: *g electronics.c board.r knob.r button.r[Enter]* Of course, we now need to remove board.r, knob.r, and button.r from the radio.c assembly so that when electronics.c is added to the radio.c assembly, we won't have the knob and button included twice in the model. To do this, use the rm (remove) command: *rm radio.c board.r knob.r button.r[Enter]* and then union in the electronics assembly: *g radio.c electronics.c[Enter]*
 
-Now the tree for radio.c should appear as follows: 
+Now the tree for radio.c should appear as follows:
 
 
 ....
@@ -3948,7 +3948,7 @@ image::../lessons/images/mged16_radio_casecut_raytrace.png[]
 [[modeling_techniques_and_structures_review]]
 === Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Made the shapes of the walkie-talkie radio into regions.

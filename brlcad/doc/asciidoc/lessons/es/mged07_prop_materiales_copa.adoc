@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Repasar como abrir una base de datos existente.
@@ -110,7 +110,7 @@ Recuerde que al utilizar estas opciones, los valores ingresados deberán ser men
 [[goblet_material_properties_review]]
 == Repasemos...
 
-En este tutorial usted repasó la apertura de una base de datos y aprendió a: 
+En este tutorial usted repasó la apertura de una base de datos y aprendió a:
 
 
 * Asignar colores y sombreado de plástico a las regiones de la copa.

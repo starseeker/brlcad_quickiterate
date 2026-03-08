@@ -137,7 +137,7 @@ Edit the script and replace the *rt* command with *remrt*. Replace the output fi
 
 Run the script to launch remrt. You should see output indicating the program has launched. (Note: the port number printed by the default output is not useful - you want to use 4446 by default to connect to remrt.)
 
-*./remrt.rt* 
+*./remrt.rt*
 
 
 ....
@@ -167,7 +167,7 @@ Note that it is seeking servers - we have not given *remrt* any instructions on 
 
 *rtsrv -d machinename 4446*
 
-If successful, both *remrt* and *rtsrv* will being producing output. The *rtsrv* will be more verbose, and should look like the following: 
+If successful, both *remrt* and *rtsrv* will being producing output. The *rtsrv* will be more verbose, and should look like the following:
 
 
 ....
@@ -189,7 +189,7 @@ ph_enqueue: 3612672 3616767 0
 
 
 
-Upon completion, remrt will notify the user and exit. For this examle, the full remrt output is: 
+Upon completion, remrt will notify the user and exit. For this examle, the full remrt output is:
 
 
 ....
@@ -241,7 +241,7 @@ host_lookup_by_hostent(localhost) got localhost?
     
 ....
 
- The framebuffer started in the beginning will now hold the image results. To save those results to a file, the *fb-png* is used:
+The framebuffer started in the beginning will now hold the image results. To save those results to a file, the *fb-png* is used:
 
 *fb-png -F0 -s2048 image.png*
 

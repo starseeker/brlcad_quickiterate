@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Crear, editar y ubicar figuras en espacios 3-D.
@@ -51,7 +51,7 @@ image::../../lessons/es/images/mged13_candle_tabletop_eto1_wireframe_front.png[]
 
 A continuación, cree la base del candelabro con un cilindro circular recto (rcc). Nombre a la figura rcc1.s.
 
-En el menú Edit (Edición). Además de los comandos estándar, se le presentará un menú de trece formas específicas de edición de esta forma. 
+En el menú Edit (Edición). Además de los comandos estándar, se le presentará un menú de trece formas específicas de edición de esta forma.
 
 [cols="2*"]
 [%noheader]
@@ -108,7 +108,7 @@ Para hacer una combinación con las partes del candelabro, tipee en el prompt de
 [[candle_check_data_tree]]
 == Controlar el árbol de datos
 
-Ahora que usted ha hecho una serie de regiones y una combinación, sería un buen momento para revisar su árbol de datos y asegurarse de que está de acuerdo con el siguiente árbol. Si detecta algún error en cualquiera de las partes del árbol, puede solucionarlo desde la caja Boolean Expression (Expression booleana) del editor de combinaciones (ver tutorial 5). En la línea de comandos tipee: *tree candle1.c[Enter]* Su expresión booleana debería ser: 
+Ahora que usted ha hecho una serie de regiones y una combinación, sería un buen momento para revisar su árbol de datos y asegurarse de que está de acuerdo con el siguiente árbol. Si detecta algún error en cualquiera de las partes del árbol, puede solucionarlo desde la caja Boolean Expression (Expression booleana) del editor de combinaciones (ver tutorial 5). En la línea de comandos tipee: *tree candle1.c[Enter]* Su expresión booleana debería ser:
 
 
 ....
@@ -141,7 +141,7 @@ Ahora que usted ha hecho una serie de regiones y una combinación, sería un bue
 [[candle_assign_mater_prop]]
 == Asignar propiedades de los materiales a los elementos del diseño
 
-Para asignar las propiedades del material a su diseño, vaya al menú Edit (Edición) y seleccione Combination Editor (Editor de Combinaciones). Asignar las siguientes propiedades de material a cada uno de los elementos: 
+Para asignar las propiedades del material a su diseño, vaya al menú Edit (Edición) y seleccione Combination Editor (Editor de Combinaciones). Asignar las siguientes propiedades de material a cada uno de los elementos:
 
 [cols="4*"]
 |===
@@ -184,7 +184,7 @@ Nota: Como se ha dicho, un color se compone de tres números, que van de 0 a 255
 [[candle_raytrace]]
 == Hacer el trazado de rayos de su diseño (Raytrace)
 
-Antes de hacer el Raytrace, cambie la vista a az35, el25 para tener una visión mejor del diseño terminado y luego quite el diseño anterior con el comando Blast tipeando lo siguiente en el prompt de la ventana de comandos: *B table1.r candle1.c[Enter]* Este comando le dice al programa _MGED_ que: 
+Antes de hacer el Raytrace, cambie la vista a az35, el25 para tener una visión mejor del diseño terminado y luego quite el diseño anterior con el comando Blast tipeando lo siguiente en el prompt de la ventana de comandos: *B table1.r candle1.c[Enter]* Este comando le dice al programa _MGED_ que:
 
 [cols="3*"]
 [%noheader]
@@ -209,7 +209,7 @@ image::../../lessons/es/images/mged13_candle_raytraced_overlay.png[]
 [[placing_shapes_in_3d_review]]
 == Repasemos...
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Crear, editar y ubicar figuras en espacios 3-D.

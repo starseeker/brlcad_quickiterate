@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Hacer regiones con las figuras del radio walkie-talkie.
@@ -23,7 +23,7 @@ image::../../lessons/images/mged16_radio_new_design.png[]
 [[radio_shapes_to_regions]]
 == Hacer regiones con las figuras
 
-Abra la base de datos radio.g que creó en el tutorial 2. En el línea de comandos utilice el comando ls para listar todos los contenidos de su radio. Deberá decir lo siguiente: 
+Abra la base de datos radio.g que creó en el tutorial 2. En el línea de comandos utilice el comando ls para listar todos los contenidos de su radio. Deberá decir lo siguiente:
 
 
 ....
@@ -34,7 +34,7 @@ Abra la base de datos radio.g que creó en el tutorial 2. En el línea de comand
 	
 ....
 
- En realidad, esta lista no contiene piezas del modelo de un radio, sino que es una colección de formas (que se reconocen mediante el sufijo .s) que: (1) no tienen propiedades de los materiales, y por lo tanto (2) no ocupan lugar en el espacio.
+En realidad, esta lista no contiene piezas del modelo de un radio, sino que es una colección de formas (que se reconocen mediante el sufijo .s) que: (1) no tienen propiedades de los materiales, y por lo tanto (2) no ocupan lugar en el espacio.
 
 
 [NOTE]
@@ -101,7 +101,7 @@ Ahora vamos a tomar todas las regiones que hemos hecho hasta ahora y reunirlas e
 
 Una forma más corta sería utilizar el comando g (group > grupo): *g radio.c case.r button.r knob.r ant.r[Enter]* A diferencia del comando comb, el comando g supone que todos los elementos especificados se unirán en uno, por lo que no es necesario especificar operadores booleanos.
 
-La mejor opción incluiría el uso del comodín *.r para especificar rápida y sencillamente todas las regiones de la base de datos: *g radio.c *.r[Enter]* Si ahora viéramos el árbol de radio.c, debemos obtener el siguiente resultado en la ventana de comandos: 
+La mejor opción incluiría el uso del comodín *.r para especificar rápida y sencillamente todas las regiones de la base de datos: *g radio.c *.r[Enter]* Si ahora viéramos el árbol de radio.c, debemos obtener el siguiente resultado en la ventana de comandos:
 
 
 ....
@@ -162,7 +162,7 @@ Al ver el radio, observará que la antena luce como un tubo. Falta añadirle una
 
 El radio luce cada vez más realista, sin embargo, todavía es sólo un cascarón vacío. Vamos a continuar con la creación de una placa de circuito que irá dentro de la carcaza. Para ello, escriba: *in board.s rpp 3 4 1 31 1 47[Enter]* *r board.r u board.s[Enter]*
 
-Dele a la placa un color verde semi-brillante. La forma más sencilla de hacer esto es a través del editor de combinaciones, pero esta vez hemos de enfocarnos en la línea de comandos. Tipee: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Este comando le dice a _MGED_ que: 
+Dele a la placa un color verde semi-brillante. La forma más sencilla de hacer esto es a través del editor de combinaciones, pero esta vez hemos de enfocarnos en la línea de comandos. Tipee: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Este comando le dice a _MGED_ que:
 
 [cols="5*"]
 [%noheader]
@@ -185,7 +185,7 @@ Finalmente, agruparemos la placa con el resto de los componentes de radio.c de l
 
 image::../../lessons/images/mged16_radio_wireframe_circ_board.png[]
 
- Además, el árbol de radio.c debería ser: 
+ Además, el árbol de radio.c debería ser:
 
 
 ....
@@ -260,7 +260,7 @@ image::../../lessons/images/mged16_radio_transparent.png[]
 
 
 
-Como se muestra en el siguiente diagrama de árbol, la estructura de radio_clear.c no es muy diferente a la de radio.c. La única diferencia es que case.c ha sido sustituido por case_clear.c. 
+Como se muestra en el siguiente diagrama de árbol, la estructura de radio_clear.c no es muy diferente a la de radio.c. La única diferencia es que case.c ha sido sustituido por case_clear.c.
 
 
 ....
@@ -360,7 +360,7 @@ image::../../lessons/images/mged16_radio_structure_3.png[]
 
 Para llevar a cabo esta reestructuración de acuerdo a la funcionalidad, cree una combinación de montaje llamada electronics.c para mantener estos componentes agrupados. Tipee entonces: *g electronics.c board.r knob.r button.r[Enter]* Por supuesto, ahora tenemos que quitar board.r, knob.r y button.r de la combinación de ensamble radio.c de modo que cuando electronics.c se agrega a radio.c, no tenga el mando y el botón incluido dos veces en el modelo. Para ello, utilice el comando rm (remove > borrar): *rm radio.c board.r knob.r button.r[Enter]* y agrupe ambas combinaciones: *g radio.c electronics.c[Enter]*
 
-Ahora el árbol de radio.c debería ser: 
+Ahora el árbol de radio.c debería ser:
 
 
 ....
@@ -419,7 +419,7 @@ image::../../lessons/images/mged16_radio_casecut_raytrace.png[]
 [[modeling_techniques_and_structures_review]]
 == Repasemos...
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Hacer regiones con las figuras de la radio walkie-talkie.

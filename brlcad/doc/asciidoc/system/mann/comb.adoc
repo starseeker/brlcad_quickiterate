@@ -35,7 +35,7 @@ Moves the contents of a combination to a new combination and makes that combinat
 
 
 *-f*::
-Flattens a combination that contains only unions into a single top level combination with all of the solids unioned into it, and remove all combinations that were below the input combination that are not used elsewhere in the .g file. (In essence, the latter behavior prevents "orphaned" combinations that are no longer used from showing up as new top level objects in the database.) This feature will not work on any combination containing non-union boolean operations. The following *search* command can be used to find combs that are candidates for flattening: 
+Flattens a combination that contains only unions into a single top level combination with all of the solids unioned into it, and remove all combinations that were below the input combination that are not used elsewhere in the .g file. (In essence, the latter behavior prevents "orphaned" combinations that are no longer used from showing up as new top level objects in the database.) This feature will not work on any combination containing non-union boolean operations. The following *search* command can be used to find combs that are candidates for flattening:
 
 
 ....
@@ -52,13 +52,13 @@ Conflicts with *-w* and *-l*.
 
 
 *-l*::
-"Lift" a region flag to the top comb, and clear all region flags below the comb in the tree. Like the *f* option this option will work to respect the integrity of other geometry in the database, but it is more aggressive in the steps it will take and it will operate on trees that contain non-union booleans. The decision logic is as follows: 
+"Lift" a region flag to the top comb, and clear all region flags below the comb in the tree. Like the *f* option this option will work to respect the integrity of other geometry in the database, but it is more aggressive in the steps it will take and it will operate on trees that contain non-union booleans. The decision logic is as follows:
 
 
 . Check if regions below the current comb are used elsewhere in the .g file. If they are not, they will simply be converted to combs.
 . For regions that are used elsewhere in the .g file, determine if their parent comb (if that comb is not the original comb supplied to the command) is also used elsewhere in the .g file. If not, the *w* wrapping behavior is used to produce a non-region equivalent comb, and the parent comb is updated to use that new comb instead of the region. If one or more parent combs _are_ used elsewhere (i.e. the parent comb cannot be altered without altering other geometry) the command will fail - manual intervention is required to resolve the situation.
 
- Conflicts with *-w* and *-f*.
+Conflicts with *-w* and *-f*.
 
 
 *-S*::

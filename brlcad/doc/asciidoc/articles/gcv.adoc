@@ -21,7 +21,7 @@ image::../articles/images/gcv_architecture.png[]
 
 == Building GCV
 
-GCV can be built in a similar manner as other BRL-CAD libraries. After configuring with CMake, building the `libgcv` target will produce a dynamic library. For Unix-based systems, the procedure should be similar to the following: 
+GCV can be built in a similar manner as other BRL-CAD libraries. After configuring with CMake, building the `libgcv` target will produce a dynamic library. For Unix-based systems, the procedure should be similar to the following:
 
 
 ....

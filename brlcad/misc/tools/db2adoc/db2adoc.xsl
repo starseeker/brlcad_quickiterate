@@ -1725,6 +1725,18 @@
     while preserving leading/trailing space characters for word boundaries
     (only when there is adjacent inline content).
   -->
+
+  <!-- Helper key: is an element a block-level DocBook element (one that produces
+       its own paragraph/block in the AsciiDoc output)?  We cannot call a template
+       from inside a predicate in XSLT 1.0, so we use an explicit test string. -->
+  <xsl:variable name="block-element-names">
+    programlisting screen literallayout synopsis figure informalfigure
+    table informaltable itemizedlist orderedlist variablelist simplelist
+    note warning caution tip important blockquote epigraph example
+    informalexample mediaobject procedure bridgehead para simpara
+    refsection refsect1 refsect2 section chapter appendix preface part
+  </xsl:variable>
+
   <xsl:template match="text()">
     <xsl:choose>
       <xsl:when test="ancestor::db:programlisting or ancestor::db:screen or
@@ -1734,28 +1746,54 @@
       </xsl:when>
       <xsl:otherwise>
         <xsl:variable name="norm" select="normalize-space(.)"/>
+        <!-- Determine whether the immediately preceding sibling element (if any) is
+             a block-level DocBook element.  Block elements already end with \n\n so
+             no additional inter-element space should be emitted after them. -->
+        <xsl:variable name="prev-is-block">
+          <xsl:for-each select="preceding-sibling::*[1]">
+            <xsl:variable name="local" select="local-name(.)"/>
+            <xsl:if test="contains(concat(' ', $block-element-names, ' '),
+                                   concat(' ', $local, ' '))">1</xsl:if>
+          </xsl:for-each>
+        </xsl:variable>
+        <!-- Same check for the immediately following sibling element. -->
+        <xsl:variable name="next-is-block">
+          <xsl:for-each select="following-sibling::*[1]">
+            <xsl:variable name="local" select="local-name(.)"/>
+            <xsl:if test="contains(concat(' ', $block-element-names, ' '),
+                                   concat(' ', $local, ' '))">1</xsl:if>
+          </xsl:for-each>
+        </xsl:variable>
         <xsl:choose>
-          <!-- Pure-whitespace text node between two sibling nodes: emit a single
+          <!-- Pure-whitespace text node between two INLINE sibling nodes: emit a single
                space so that adjacent inline elements (e.g. *cmd* `file`) are not
-               fused together (which would break AsciiDoc constrained markup). -->
+               fused together (which would break AsciiDoc constrained markup).
+               Skip when a neighbouring sibling is a block element. -->
           <xsl:when test="string-length($norm) = 0 and
                           preceding-sibling::node() and
-                          following-sibling::node()">
+                          following-sibling::node() and
+                          $prev-is-block != '1' and
+                          $next-is-block != '1'">
             <xsl:text> </xsl:text>
           </xsl:when>
           <xsl:otherwise>
-            <!-- Only preserve leading space when there IS a preceding sibling node
-                 (i.e., we are in the middle of inline content). -->
+            <!-- Only preserve leading space when there IS a preceding INLINE sibling
+                 (i.e., we are in the middle of inline content).  Do not emit a space
+                 after a block element such as <screen> or <table> because its output
+                 already ends with blank lines and the leading space would produce a
+                 literal-paragraph marker in AsciiDoc. -->
             <xsl:if test="preceding-sibling::node() and
                           string-length($norm) > 0 and
+                          $prev-is-block != '1' and
                           translate(substring(.,1,1),' &#9;&#10;&#13;','') = ''">
               <xsl:text> </xsl:text>
             </xsl:if>
             <xsl:value-of select="$norm"/>
-            <!-- Preserve a single trailing space when there IS a following sibling node. -->
+            <!-- Preserve a single trailing space when the following sibling is inline. -->
             <xsl:if test="following-sibling::node() and
                           string-length(.) > 1 and
                           string-length($norm) > 0 and
+                          $next-is-block != '1' and
                           translate(substring(.,string-length(.),1),' &#9;&#10;&#13;','') = ''">
               <xsl:text> </xsl:text>
             </xsl:if>
