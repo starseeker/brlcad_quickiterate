@@ -669,7 +669,9 @@ private:
         emit_id_attr(block, out);
         out << ">\n";
         if (block.has_title()) {
-            out << "<div class=\"title\">" << subs(block.title(), doc) << "</div>\n";
+            int n = ++counters_["example"];
+            out << "<div class=\"title\">Example " << n << ". "
+                << subs(block.title(), doc) << "</div>\n";
         }
         out << "<div class=\"content\">\n";
         for (const auto& child : block.blocks()) {
@@ -954,7 +956,9 @@ private:
         out << "\">\n";
 
         if (table.has_title()) {
-            out << "<caption class=\"title\">" << subs(table.title(), doc) << "</caption>\n";
+            int n = ++counters_["table"];
+            out << "<caption class=\"title\">Table " << n << ". "
+                << subs(table.title(), doc) << "</caption>\n";
         }
 
         // Colgroup
