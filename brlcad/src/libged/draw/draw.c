@@ -1365,9 +1365,6 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 			dgcdp.gdlp = NULL;
 		    }
 
-		    if (0) /* gdlp check removed */
-			continue;
-
 		    av[0] = (char *)argv[i];
 		    ret = db_walk_tree(gedp->dbip,
 				       ac,
