@@ -271,12 +271,22 @@ private:
             out << "<div id=\"header\">\n";
             if (!doc.doctitle().empty()) {
                 if (doctype == "manpage") {
-                    // Man page: title is "<name>(<volume>)" e.g. "git-commit(1)"
-                    // The manvolnum attribute, if set, appends the section number.
+                    // Man page: build title as "<manname>(<manvolnum>)".
+                    // We use manname + manvolnum rather than doctitle() to avoid
+                    // duplication: the document title "RT(1)" already contains
+                    // the section number, and manvolnum is also "1", so appending
+                    // manvolnum to doctitle() would produce "RT(1)(1)".
+                    const std::string& manname   = doc.attr("manname");
                     const std::string& manvolnum = doc.attr("manvolnum");
-                    std::string manpage_title = sub_specialchars(doc.doctitle());
-                    if (!manvolnum.empty()) {
-                        manpage_title += "(" + sub_specialchars(manvolnum) + ")";
+                    std::string manpage_title;
+                    if (!manname.empty()) {
+                        manpage_title = sub_specialchars(manname);
+                        if (!manvolnum.empty()) {
+                            manpage_title += "(" + sub_specialchars(manvolnum) + ")";
+                        }
+                    } else {
+                        // Fallback: doctitle already contains the full "name(vol)" form
+                        manpage_title = sub_specialchars(doc.doctitle());
                     }
                     out << "<h1>" << manpage_title << " Manual Page</h1>\n";
                 } else {
