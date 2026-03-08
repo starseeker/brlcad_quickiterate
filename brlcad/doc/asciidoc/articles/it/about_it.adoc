@@ -31,8 +31,6 @@ Coerentemente alla filosofia UNIX consistente nello sviluppare strumenti indipen
 
 image::../../articles/it/images/brlcad-overview-data-flow.png[width=6in]
 
-image::../../articles/it/images/brlcad-overview-data-flow.png[width=100%]
-
 
 [discrete]
 === Le librerie
@@ -108,33 +106,9 @@ Per eseguire il test di prova tramite queste immagini, bisogna lanciare lo scrip
 .Immagini di prova
 |===
 
-|image::../../articles/it/images/brlcad-overview-benchmark-Moss.jpg[width=2in]
-
-image::../../articles/it/images/brlcad-overview-benchmark-Moss.jpg[]
-
- |image::../../articles/it/images/brlcad-overview-benchmark-World.jpg[width=2in]
-
-image::../../articles/it/images/brlcad-overview-benchmark-World.jpg[]
-
- |image::../../articles/it/images/brlcad-overview-benchmark-Star.jpg[width=2in]
-
-image::../../articles/it/images/brlcad-overview-benchmark-Star.jpg[]
-
- 
+|image:../../articles/it/images/brlcad-overview-benchmark-Moss.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-World.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-Star.jpg[width=2in] 
 |Moss |World |Star 
-|image::../../articles/it/images/brlcad-overview-benchmark-Bldg_391.jpg[width=2in]
-
-image::../../articles/it/images/brlcad-overview-benchmark-Bldg_391.jpg[]
-
- |image::../../articles/it/images/brlcad-overview-benchmark-M35.jpg[width=2in]
-
-image::../../articles/it/images/brlcad-overview-benchmark-M35.jpg[]
-
- |image::../../articles/it/images/brlcad-overview-benchmark-Sphflake.jpg[width=2in]
-
-image::../../articles/it/images/brlcad-overview-benchmark-Sphflake.jpg[]
-
- 
+|image:../../articles/it/images/brlcad-overview-benchmark-Bldg_391.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-M35.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-Sphflake.jpg[width=2in] 
 |Bldg 391 |M35 |Sphflake 
 |===
 

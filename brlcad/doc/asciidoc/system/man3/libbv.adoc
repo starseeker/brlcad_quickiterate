@@ -32,6 +32,7 @@ voidpl_space, FILE *fp, intx0, inty0, intx1, inty1);
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 These subroutines generate graphic output commands for processing with the _plot(1)_ plotting filters. They are slightly more general than those in _libplot_ as these take a file pointer. They also include the BRL 3-D extensions to the plot intermediate code.
@@ -51,11 +52,13 @@ There are also 2-D and 3_D double-precision versions, with arguments identical t
 See _plot3(5)_ and _plot(5)_ for a description of the effect of the remaining functions.
 
 
+[[files]]
 == FILES
 
 /usr/brlcad/lib/libbv`.`a produces output for *plot*(1G) filters
 
 
+[[warnings]]
 == WARNINGS
 
 In order to compile a program containing these functions in _file.c_ it is necessary to use ``cc _file.c_ -lplot3''.
@@ -63,21 +66,25 @@ In order to compile a program containing these functions in _file.c_ it is neces
 _Color_ specification and three-dimensional primitives are BRL extensions to the "unix plot" language that are not generally found on other systems.
 
 
+[[see_also]]
 == SEE ALSO
 
 *plot*(1), *pl-fb*(1), *plot3*(5), *plot*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

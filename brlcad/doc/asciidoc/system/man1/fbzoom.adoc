@@ -14,6 +14,7 @@ fbzoom [-T] [-F<frame_buffer>] [-s|S<image_sqrsize>] [-w|W<image_width>] [-n|N<i
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Using *vi*(1) and/or *emacs*(1) -like keystrokes, *fbzoom* allows interactive zooming and panning of a frame buffer. Using the optional command line arguments,
@@ -119,21 +120,25 @@ Exit
 Note that these commands change the way the frame buffer is viewed but not the image in the frame buffer.
 
 
+[[see_also]]
 == SEE ALSO
 
 *bw-fb*(1), *gif-fb*(1), *pix-fb*(1), *plot3-fb*(1), *rle-fb*(1)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1986-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

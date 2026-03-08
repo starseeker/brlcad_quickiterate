@@ -14,6 +14,7 @@ press {<button_label>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Simulates the pressing of a button. All of these button actions can be run directly as a command. The _button_label_ indicates which button to simulate. The available buttons are as follows:
@@ -54,6 +55,7 @@ Simulates the pressing of a button. All of these button actions can be run direc
 * edit -- (deprecated) Toggles between edit and view modes for knobs and sliders (useful during editing to allow the knobs and sliders to be used for either editing operations (in edit mode) or to adjust the view without affecting the edited object (in view mode).
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *press* command to view the object from the top direction.
@@ -68,11 +70,13 @@ Switches to view from the top direction.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ units [<units_type>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Without arguments, returns the current type of units that _mged_ is using. If a _units_type_ is specified, _mged_ switches to editing in the indicated units. The actual database is always stored in millimeters, and the display is adjusted to the user's choice of units. If the _units_type_ specified on the command line is one of the types allowed, it will be written to the database file as the preferred units and succeeding invocations will use those units. The _units_type_ strings that will be remembered as the preferred editing unit are as follows:
@@ -59,6 +60,7 @@ _Units_type_ strings that may be used, but will not be remembered as the preferr
 * parsec
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *units* command with a _units_type_ argument to switch the editing units.
@@ -73,11 +75,13 @@ Switch to editing in inches and remember this as the preferred editing units for
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

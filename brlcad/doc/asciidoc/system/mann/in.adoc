@@ -14,6 +14,7 @@ in [ [-f]| [-s]] [<new_shape_name>] [<shape_type>] {<parameters>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Allows the user to type in the arguments needed to create a shape with the name _new_shape_name_ of the type _shape_type_. The command may be invoked with no arguments, and it will prompt the user for all needed information. The _-s_ option will invoke the primitive edit mode on the new shape immediately after creation. The _-f_ option does not draw the new shape, and therefore the _-s_ option may not be used in conjunction with _-f_. The possible values for _shape_type_ are:
@@ -56,6 +57,7 @@ Allows the user to type in the arguments needed to create a shape with the name 
 * datum -- Datum Point, Line, Plane
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *in* command to create a shape of a specified type.
@@ -94,11 +96,13 @@ Creates an _ebm_ named _new1.s_ using database object dbobj, dimensions of origi
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

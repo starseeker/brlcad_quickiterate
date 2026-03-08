@@ -14,6 +14,7 @@ bwmod [-c] [ -a<add> -s<sub> -m<mult> -d<div> -A -e<exp> -r<root> -S<shift> -M<a
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bwmod* will perform a series of arithmetic operations on each 8-bit pixel of its input/output stream. This is a *bw*(5) file format. The pixel values range from 0 to 255 and are internally operated on in floating point form (unless the *-c* option has been specified) so that dynamic range, truncation, and sign are not a problem. On output they are converted back to 8-bit unsigned values, with clipping to 0 and 255 for values less than 0 and greater than 255. If any pixels are clipped, the numbers of pixels clipped, low and high, are reported to standard error on completion.
@@ -25,6 +26,7 @@ Any number of operations can be given and they are applied in order. The choices
 All arguments can be floating point values. Note that this command can be applied to color *pix*(5) files also, but no distinction can be made between color planes.
 
 
+[[examples]]
 == EXAMPLES
 
 The command *bwmod -m-1 -a255 < file.bw > file2.bw*
@@ -42,21 +44,25 @@ where 1.409 results from (255.0-100.0)/(210.0-100.0), which is what one would us
 *gencolor -r 11 80 >file.bw**gencolor -r 262131 100 >>file.bw**gencolor -r 2 210 >>file.bw*
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pix*(5), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ clone [<options>]... {object_to_clone}
 ----
 
 
+[[options]]
 == OPTIONS
 
 
@@ -77,6 +78,7 @@ This option pertains to the copy naming convention. Increment the _next_ number 
 
 
 
+[[description]]
 == DESCRIPTION
 
 Clone performs a deep copy, traversing the entire hierarchy of the object specified and creating a new independent hierarchy. The *clone* command uses an automatic naming convention as it creates copies, incrementing and/or appending to numbers encountered in the object specified. The number convention may be configured with the *-i* and *-c* options.
@@ -84,11 +86,13 @@ Clone performs a deep copy, traversing the entire hierarchy of the object specif
 If you specify different numbers of copies with the *-a*, *-b*, and/or *-n* options, the last value of *n* specified will be used for the number of copies.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

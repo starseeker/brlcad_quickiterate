@@ -14,6 +14,7 @@ rtexample <model.g> <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 
@@ -37,6 +38,7 @@ rtexample <model.g> <objects>...
 ....
 
 
+[[examples]]
 == EXAMPLE
 
 *rtexample*_car.g_ wheel door
@@ -44,21 +46,25 @@ rtexample <model.g> <objects>...
 Here, a single ray will be shot at the geometry database _car.g_ and hit reports generated if the ray hits the specified objects.
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *rt*(1), *librt*(3)
 
 
+[[author]]
 == AUTHORS
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2004-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

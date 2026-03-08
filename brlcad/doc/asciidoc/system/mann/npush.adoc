@@ -14,6 +14,7 @@ npush [-h] [-?] [-v] [-f] [-x] [-r] [-s] [-d<max_depth>] {arg1 [arg2]...}
 ----
 
 
+[[npush_background]]
 == Background: Matrices in BRL-CAD
 
 BRL-CAD uses a global coordinate system in which all objects are placed. This means each region must uniquely occupy its own portion of that space in order to avoid overlapping with another region. Naively, this means that all objects defined in a .g file need to individually describe distinct volumes using unique primitives. While possible, such an approach is quite wasteful if different regions define the same shape and vary only in the positioning of that shape. A classic example is as a standard bolt used hundereds of times in assembling a machine - ideally such a shape should only need to be described once, and then _instances_ of that shape are positioned to identify individual bolts in the overall model.
@@ -59,11 +60,13 @@ we see that the instance of sph3_2.r in sph3 also has a matrix offsetting its po
 As useful as these matrices are, users frequently need to consolidate multiple levels of positioning within a COMB tree, or even eliminate them completely if a client's code is not able to properly interpret the matrix information of a COMB hierarchy for its own processing. Thus, specific logic is available in BRL-CAD to accomplish these tasks.
 
 
+[[npush_overview]]
 == Overview
 
 The GED command *npush* defines logic for "moving" matrix operations within a COMB tree, without changing the position of individual object instances in the tree definition.
 
 
+[[npush_depth]]
 == A Note on Depth
 
 It is worth taking a little time to define what we are referring to when we discuss the concept of depth when it comes to applying matrix pushing operations. Consider the hierarchy:
@@ -191,6 +194,7 @@ sph_011/
 ....
 
 
+[[npush_special_depths]]
 == Pushing relative to Regions and Shapes
 
 In addition to numerical depth limits, *npush* offers two additional specifiers that are more aware of specific types of objects in trees. The *r* option will push matrices down to a level just above region references, and the *s* option will push matrices to a level just above primitive shapes. For example, using the following hierarchy:
@@ -335,6 +339,7 @@ sph_016/
 Unlike sph16a and sph16_1, sph_016 has not seen any changes to its volumetric definition. sph_016 is the "top level" object specified for this push, and as such constitutes a reliable termination point for any need to propagate tree changes. Even if any combs elsewhere in the database reference sph_016, they will not see any volumetric changes as a consequence of the operation and do not need to redefine their trees to preserve original sph_016 trees for external use in copies of sph_016.
 
 
+[[search_options]]
 == OPTIONS
 
 
@@ -364,6 +369,7 @@ Halt push operations at the hierarchy level specified by _max_depth_.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Push all matrices under a group down to the region level

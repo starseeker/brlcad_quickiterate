@@ -14,11 +14,13 @@ bot_face_fuse {<new_bot_primitive>} {<old_bot_primitive>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Eliminates duplicate faces from a BOT solid. It returns the number of faces eliminated.
 
 
+[[examples]]
 == EXAMPLES
 
 The example demonstrates the use of the *bot_face_fuse* command to eliminate duplicate faces from a BOT primitive.
@@ -35,11 +37,13 @@ Eliminates any duplicate faces from the primitive named _bot1_original_ and stor
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

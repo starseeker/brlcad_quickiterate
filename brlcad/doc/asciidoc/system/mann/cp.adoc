@@ -14,11 +14,13 @@ cp {<from_object to_object>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Makes a duplicate of an object (shape or combination). If _from_object_ is a shape, then it is simply copied to a new shape named_to_object_. If _from_object_ is a combination, then a new combination is created that contains exactly the same members, transformation matrices, etc., and it is named _to_object_.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the command *cp* to duplicate a combination.
@@ -33,11 +35,13 @@ Duplicate combination comb1 and call it comb2.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *3dm-g* converts the _file.3dm_ Rhino3D file to a BRL-CAD _file.g_ file.
@@ -21,6 +22,7 @@
 BRL-CAD utilizes the OpenNURBS library for reading and processing 3dm files. Since BRL-CAD also uses this library internally for NURBS support, 3dm-g import is generally a very direct and relatively problem free conversion path.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -38,6 +40,7 @@ Verbose reporting of conversion progress.
 
 
 
+[[example]]
 == EXAMPLE
 
 .Verbose Reporting of Search Information
@@ -50,21 +53,25 @@ This example imports the BRL-CAD copy of NIST's MBE PMI models 7-10 to nist.g wh
 ====
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 User will see OpenNURBS diagnostic reporting as the 3dm file is read.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1999-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

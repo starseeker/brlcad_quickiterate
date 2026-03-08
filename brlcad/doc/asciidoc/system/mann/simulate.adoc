@@ -14,6 +14,7 @@ simulate [<options>]... <path> <duration>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *simulate* performs rigid-body physics evaluation. The Bullet physics engine is used with a collision algorithm that utilizes the librt ray tracer.
@@ -25,6 +26,7 @@ The _duration_ parameter specifies the duration of the physics simulation (each 
 All values are specified in units of meters, kilograms, and seconds. Note that Bullet is primarily designed for objects of sizes between approximately 0.05 and 10.0 meters, with a collision tolerance of 0.004 meters; hence, using *simulate* on a model that is significantly different from this scale may give worse results.
 
 
+[[simulate_options]]
 == OPTIONS
 
 
@@ -48,6 +50,7 @@ Draw all of the rays fired by the internal collision detection algorithm.
 
 
 
+[[simulate_attributes]]
 == OBJECT ATTRIBUTES
 
 The simulation can be configured by setting certain attributes on objects within the specified path.
@@ -85,16 +88,19 @@ Specify the number of rays along the radii of the circular grids of rays fired d
 
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2017-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -128,11 +128,13 @@ sync {objname}
 
 
 
+[[description]]
 == DESCRIPTION
 
 The *bot* command allows the user to initiate and number of subcommands on BoT primitives. The -v command turns on verbose output. The -V command visualizes the results. The -C command sets the RGB plotting color.
 
 
+[[subcommands]]
 == SUBCOMMANDS
 
 
@@ -236,6 +238,7 @@ Synchronizes connected BoT triangle orientations.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Set the orientation of a BoT to right-hand
@@ -266,11 +269,13 @@ Returns information about bot_solid.s.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ pixcmp [-b] [-s] [-d] [-q] [-i<SKIP>] [-i<SKIP1:SKIP2>] [-n<COUNT>] <FILE1> [<FI
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixcmp* computes and reports differences between two *PIX*(5) format files on a pixel-by-pixel basis. The utility can operate either on individual pixels (default) or on bytes (with *-b*).
@@ -23,6 +24,7 @@ The tool allows users to specify a number of pixels (or bytes) to skip in each i
 If either _FILE_ is specified as `-`, input is read from standard input. If both inputs are standard input, interleaved data is expected.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -56,6 +58,7 @@ Compare up to _COUNT_ pixels (or bytes with *-b*).
 
 
 
+[[exit_status]]
 == EXIT STATUS
 
 
@@ -73,21 +76,25 @@ Differences of multiple channels or missing pixels were found.
 
 
 
+[[see_also]]
 == SEE ALSO
 
 *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2004-2024 by the United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

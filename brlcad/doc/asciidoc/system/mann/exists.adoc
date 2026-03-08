@@ -14,6 +14,7 @@ exists {expression} [<expression>]...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *exists* works in a fashion similar to Unix-style test commands (internally it is based on NetBSD's test code) but tests _objects_ in the current open database rather than files in a file system. If an object matching a valid expression or expressions is found 1 is returned, otherwise 0 is returned. Expressions are formed using <<primaries,PRIMARIES>> and <<operators,OPERATORS>>. A simple object name with no primaries or operators will return true if db_lookup succeeds and the object is non-null (TODO).
@@ -111,6 +112,7 @@ Evaluates to true if the expression inside the parentheses evaluates to true. Us
 The *-a* operator has higher precedence than the *-o* operator.
 
 
+[[a_note_on_expressions]]
 == A Note on Expressions
 
 All primaries and operands must be expressed as separate arguments to exists. In practice, this means that there must be a space between each element in a exists expression. E.g. !(-c object1.s -a (object1.s -beq object2.s)) must be written as:
@@ -120,6 +122,7 @@ All primaries and operands must be expressed as separate arguments to exists. In
 While this may seem like a rather verbose way of writing the expression, it greatly simplifies the parsing of the expression and is standard for virtually all *test* type commands.
 
 
+[[examples]]
 == EXAMPLES
 
 The following are run from the MGED command prompt:
@@ -139,26 +142,31 @@ mged> exists object1.s
 ====
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Errors will be returned if parsing of the arguments fails, or one of the primaries' evaluation functions returns an error.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2008-2025 United States Government as represented by the U.S. Army Research Laboratory. Portions Copyright 1990, 1993, 1994 The Regents of the University of California, per copyright and license information from OpenBSD and NetBSD. For more details see the copyright statements in exists.c and exists.h .
 
 
+[[bugs]]
 == BUGS
 
 TODO.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

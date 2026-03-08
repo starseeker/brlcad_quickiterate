@@ -14,6 +14,7 @@ rt [<options>]... <model.g> <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *rt* operates on the indicated _objects_ in the input _model.g_ and produces a color-shaded image as the output. By default, the output is placed on the current framebuffer as it is computed. The environment variable FB_FILE specifies the current framebuffer, see *brlcad*(1). Alternatively, the output can be stored in a pixel file (*pix*(5) format) by specifying *-o*_output.pix_ or in a PNG image file by specifying *-o*_output.png_ in the option list. The orientation of the rays to be fired may be specified by the *-a* and *-e* options, in which case the model will be autosized, and the grid will be centered on the centroid of the model, with ray spacing chosen to span the entire set of _objects_. Alternatively, with the *-M* option, a transformation matrix may be provided on standard input which maps model-space to view-space. In this case, the grid ranges from -1.0 = X,Y = +1.0 in view space, with the size of the grid (number of rays fired) specified with *-s*. The *-M* option is most useful when *rt* is being invoked from a shell script created by an *mged*(1)_saveview_ command.
@@ -233,16 +234,19 @@ specifies (setting argument to "t") that output is NOT binary (default is that i
 The *rt* program is a simple front-end to *librt*(3) which can be invoked directly, or via the *rt* command in *mged*(1).
 
 
+[[signals]]
 == SIGNALS
 
 You can obtain progress information from a running *rt* process by sending it a SIGUSR1 or SIGINFO signal. The raytracer will report progress via details about the ray sample being processed at the time of the signal. The progress is reported to stderr in a form similar to:  frame 0, xy=1516,2466 on cpu 0, samp=0
 
 
+[[ntsc_animation_tips]]
 == NTSC ANIMATION TIPS
 
 When using *rt* to create an animation sequence destined for NTSC video, it is useful to give all these options at one time: *-V4:3**-c* "set gamma=2.2" *-w1440**-n972**-J1* and then post-process the output using *pixhalve*(1) for final display. Performing the gamma correction inside *rt* instead of post-processing the *pix*(5) file with *bwmod*(1) avoids Mach-bands in dark regions of the image, and retains the maximum amount of image detail.
 
 
+[[examples]]
 == EXAMPLES
 
 .Render a very high-quality, high-resolution image, very slowly
@@ -259,26 +263,31 @@ Note: for optimal results, rendering may be performed at 2X or higher resolution
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *mged*(1), *pix-fb*(1), *png-fb*(1), *rtray*(1), *rtpp*(1), *librt*(3), *ray*(5V), *pix*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible, usually due to errors in the geometry database. Descriptive messages are printed on stderr (file descriptor 2).
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1984-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

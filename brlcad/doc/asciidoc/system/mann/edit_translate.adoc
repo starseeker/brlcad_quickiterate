@@ -21,6 +21,7 @@ edit translate [] <to> <object>... \
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to move one or more instances of primitive or combination objects. The positions of _object_'s are translated from _from_ to _to_.
@@ -28,6 +29,7 @@ Used to move one or more instances of primitive or combination objects. The posi
 See the *edit* command's manual for more information.
 
 
+[[examples]]
 == EXAMPLES
 
 .A not particularly useful demonstration of the command's capabilities.
@@ -178,11 +180,13 @@ By splitting the larger command, an interesting detail was revealed. In the larg
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

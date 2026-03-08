@@ -14,11 +14,13 @@ apropos {<keyword>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *apropos* command searches through the one-line usage messages for specified _mged_ commands and displays the commands that match.
 
 
+[[examples]]
 == EXAMPLES
 
 .List all commands having "region" in their one-line usage messages.
@@ -39,11 +41,13 @@ regdef regions reid remat summary wcodes whatid whichair whichid
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

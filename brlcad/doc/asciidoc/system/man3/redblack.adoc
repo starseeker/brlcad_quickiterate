@@ -36,6 +36,7 @@ int trav_type;
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 These routines implement red-black trees, a form of balanced binary trees, in such a way that all the basic dynamic set operations (e.g., insertion, deletion, search, minimum, maximum, predecessor, and successor) and order-statistic operations (i.e., select and rank) require no more than _O(_log _n)_ time, where _n_ is the number of nodes. They allow storage of arbitrary data structures at tree nodes and also support multiple simultaneous orders (trees) on the same nodes. The trees are based on comparison functions like those used by _qsort(3)._ The routines are available only in _libbu(3B)._
@@ -87,21 +88,25 @@ The distinction between classes I and III is not critical, but any direct modifi
 Diagnostic output may be requested by setting the debug bits in the `bu_rb_tree()` structure using the debug bit flags defined in _"bu.h"_.
 
 
+[[see_also]]
 == SEE ALSO
 
 *libbu*(3B), *qsort*(3).
 
 
+[[author]]
 == AUTHOR
 
 Paul Tanenbaum
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1999-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

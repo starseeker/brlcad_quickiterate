@@ -5,11 +5,13 @@
 == NAME
 libpkg - Message passing abstraction library supporting communication between cooperating processes over TCP connections
 
+[[pkg_background]]
 == BACKGROUND
 
 The following is a description of the libpkg routines kindly provided by Peter B. Shames on 26 Sept 1986, and updated 14 Nov 1986 by PC Dykstra to reflect BRL extensions since the first writing. It was intended that an RFC be published at some point, but at this point this document (plus the source code) is all we have. In the CAD distribution, the remote framebuffer interface (libfb/if_remote.c) and server (fbserv), communicate using this protocol.
 
 
+[[pkg_overview]]
 == Overview
 
 A prototype interface that implements a fairly simple message passing abstraction between cooperating processes running over TCP connections has been developed by Mike Muuss, Charles Kennedy, and Phillip Dykstra at BRL. Some experiments have been run at STScI to implement this interface on a DECnet link with good success. A few changes have been suggested to improve network throughput for data flows that consist of short message traffic or byte-stream traffic.
@@ -17,6 +19,7 @@ A prototype interface that implements a fairly simple message passing abstractio
 This note describes the motivation for developing such an interface and describes the subroutine interfaces and functionality. The interface routine descriptions and portions of the textual descriptions have been taken directly from the source code provided by Muuss and Kennedy which has been the only available description to date.
 
 
+[[why_pkg]]
 == Why a message interface?
 
 The interface - PKG provides a simple interface for managing client/server connections in a distributed environment. A server task is initialized to wait for incoming requests from clients. Clients open a connection to the server task which executes on some host processor waiting for incoming requests. Messages with identifying type codes are passed between processes, with optional appended data blocks. The interface is non-blocking and accepts arbitrary data messages of arbitrary length.
@@ -26,6 +29,7 @@ An example - interaction with a remote data archive may require request for serv
 A [counter] example - Athena's XWindow uses a client-server model to provide screen/window management services for distributed processes. XWindow is very permissive of different window management policies and provides hooks for implementing various user interfaces. At the lowest level, XWindow requires a reliable duplex byte-stream, which can be implemented in many operating environments. Because XWindow wants to manage all process-window communications directly, it builds its own block stream protocol to manage the connection. This permits the interactive update required by some processes, but basically is the same paradigm as PKG, defined within the window system.
 
 
+[[pkg_desc]]
 == PKG Interface description
 
 The PKG interface implements an client-server network connection that multiplexes synchronous and asynchronous messages across stream connections. Connection control is provided by open/ close routines, where the client authentication is handled prior to establishing the connection. Server side actions include initialization, client connection, and client request servicing. Client side actions include server request, reply processing, possible connection negotiation, and data transfer processing.
@@ -37,6 +41,7 @@ Once the connection is established it may be used to process a full- duplex asyn
 An package connection may incur significant overhead if many short messages are passed between processes, so a buffered stream connection may be requested. The application calls the pkg_stream interface rather than the usual pkg_send request, and PKG builds a message buffer and passes it to the client as it gets filled. A stream buffer may be flushed with an explicit call to the pkg_flush routine.
 
 
+[[pkg_def]]
 == PKG Interface Definition
 
 Control Interfaces: 
@@ -246,6 +251,7 @@ See pkg.h for the actual names of the structure elements.
 
 
 
+[[pkg_impl_notes]]
 == Implementation Notes
 
 At least two implementations of the PKG interface have been done, one based on TCP/IP connections, the other based on DECnet connections. Future releases of PKG will be layered on top of a virtual stream library known as NET.
@@ -253,6 +259,7 @@ At least two implementations of the PKG interface have been done, one based on T
 The implementation running on 4.2BSD UNIX takes advantage of the "writev" syscall which can output the header and data in a single syscall/TCP_PUSH cycle. The advantage of the short data copy is realized only when writev can not be used, or when a pkg_flush is not required (a la PKG_STREAM).]
 
 
+[[pkg_future_devel]]
 == Future Developments
 
 Further development of the lower levels of the interface will be provided so that this message passing abstraction can be provided on top of both DECnet and TCP/IP network layers, with other implementations provided as required. The program interface layer is to be as described in the body of this note, the lower layers will interface to the network layers using whatever subroutine interfaces are most appropriate for the system hosting the interface. A simple read/write/open/close abstraction may be provided at a lower layer to further isolate the network layers from the message handling layer.
@@ -262,11 +269,13 @@ Where it is necessary to cross network protocol boundaries, message relay proces
 It is not anticipated that full asynchronous I/O implementation will work particularly well across domain boundaries, but all other forms of message transfer should work quite well. As already noted, buffered stream I/O may be perfectly satisfactory for many applications where full interaction is not required. Where applicable, this mode of interface is to be preferred over full asynchronous I/O. Further development of this interface layer on other protocol families is possible, perhaps even on low level networks like BITNET and certainly on connection oriented X.25 or OSI networks.
 
 
+[[author]]
 == AUTHOR
 
 Peter B. Shames
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of inaccuracies should be submitted via electronic mail to <devs@brlcad.org>

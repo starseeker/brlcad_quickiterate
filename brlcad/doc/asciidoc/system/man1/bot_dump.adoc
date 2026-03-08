@@ -14,6 +14,7 @@ bot_dump [-b] [-n] [-m<directory>] [-o<file>] [ -t<dxf>| <obj>| <sat>| <stl>] [-
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bot_dump*
@@ -31,6 +32,7 @@ The *-t* is used to specify the desired output file type. The default output typ
 The *-u* option takes a units string that indicates the unit conversion to perform during output (converting from internal millimeter values to the unit type specified).
 
 
+[[example]]
 == EXAMPLE
 
 
@@ -40,21 +42,25 @@ $ bot_dump  -o some_bot_dump.dxf  -t dxf  sample.g  some_bot
 ----
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Error messages are intended to be self-explanatory.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2008-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

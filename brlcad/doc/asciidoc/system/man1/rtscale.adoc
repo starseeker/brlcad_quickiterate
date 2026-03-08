@@ -14,6 +14,7 @@ rtscale <width> <units> <intervals> <file.log> <optional_string> > <scale.plot3>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *rtscale* supplements the use of _rthide_ by generating a UNIX-Plot of a scale that permits the accurate measuring of _rthide_ plots. _rthide_ provides a hidden-line-removed plot of the geometry, and *rtscale* produces an identical plot file containing just a scale. The two files can then be concatenated making sure that the scale precedes the _rthide_ file to produce a finished plot with scale.
@@ -23,6 +24,7 @@ rtscale <width> <units> <intervals> <file.log> <optional_string> > <scale.plot3>
 The inputs required are: _width,_ which specifies the length of the scale in model space, _units,_ which may be any units (metric or English), _intervals,_ which allows the user to specifies the number of tickmarks on the scale. _filename,_ which names the RT log file that is used to calculate the view2model matrix for the raytraced. A view such as azimuth 45, elevation 45, is useful for measuring diagonal dimensions of the geometry. Optionally, a _descriptive string_ may be given to identify the view or the model.
 
 
+[[example]]
 == EXAMPLE
 
 This section shows the ordinary usage of *rtscale*. For example:
@@ -60,26 +62,31 @@ plot3rot -a# -e# -g model.w.scale.plot3 | plot3-fb
 ....
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *plot3rot*(1), *rt*(1), *rthide*(1), *librt*(3), *libplot3*(3), *plot3*(5), *ray*(5V)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible, usually due to errors in the geometry database. Descriptive messages are printed on standard error (file descriptor 2).
 
 
+[[author]]
 == AUTHOR
 
 _BRL-CAD Team_
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1991-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
