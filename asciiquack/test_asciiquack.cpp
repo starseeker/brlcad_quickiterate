@@ -2207,8 +2207,8 @@ static void test_manpage_table() {
     // Cell delimiters for long-text cells
     EXPECT_CONTAINS(out, "T{");
     EXPECT_CONTAINS(out, "T}");
-    // Header row separator
-    EXPECT_CONTAINS(out, ".T&");
+    // Single format line for all rows (matching asciidoctor: no .T& header switch)
+    EXPECT(out.find(".T&") == std::string::npos);
     // Cell content
     EXPECT_CONTAINS(out, "Header A");
     EXPECT_CONTAINS(out, "Cell 1");
@@ -5383,9 +5383,134 @@ static void test_manpage_nested_bold_fp_restore() {
     end_test();
 }
 
+static void test_manpage_xref_with_text() {
+    // <<anchor,text>> should render as just the link text, discarding the anchor id.
+    begin_test("manpage: <<anchor,text>> xref renders link text only");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "See <<some_section,the section>> for details.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Should contain the link text, not the raw xref syntax
+    EXPECT_CONTAINS(out, "the section");
+    EXPECT(out.find("<<") == std::string::npos);
+    EXPECT(out.find(">>") == std::string::npos);
+    EXPECT(out.find("some_section") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_xref_bare() {
+    // <<anchor>> (no text) should render as [anchor].
+    begin_test("manpage: <<anchor>> bare xref renders as [anchor]");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "See <<myanchor>> for info.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, "[myanchor]");
+    EXPECT(out.find("<<") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_dlist_term_with_embedded_colons() {
+    // A dlist term like *key::subkey=VALUE*:: should preserve the full term
+    // text (including the embedded '::'), not truncate at the first '::'.
+    begin_test("manpage: dlist term containing '::' is preserved correctly");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "*simulate::type=_TYPE_*::\n"
+        "Specify the type.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Term should be the full "simulate::type=TYPE" (bold, with italic TYPE)
+    EXPECT_CONTAINS(out, "simulate::type=");
+    EXPECT_CONTAINS(out, "Specify the type.");
+    // The literal asterisk should NOT appear in the dlist term
+    // (i.e., *simulate should not appear verbatim – the bold is applied)
+    EXPECT(out.find("\\fB*simulate") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_url_shows_url_after_text() {
+    // http://url[text] should render as "text <url>" matching asciidoctor.
+    begin_test("manpage: URL macro renders as 'text <url>'");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "See http://example.com[example site] for info.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Should contain both the link text and the URL
+    EXPECT_CONTAINS(out, "example site");
+    EXPECT_CONTAINS(out, "example.com");
+
+    end_test();
+}
+
 
 int main(int argc, char* argv[]) {
-    // Check for -v flag
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "-v" || std::string(argv[i]) == "--verbose") {
             g_verbose = true;
@@ -5637,6 +5762,10 @@ int main(int argc, char* argv[]) {
     test_manpage_constrained_bold_gt_boundary();
     test_manpage_unconstrained_bold_gt_boundary();
     test_manpage_nested_bold_fp_restore();
+    test_manpage_xref_with_text();
+    test_manpage_xref_bare();
+    test_manpage_dlist_term_with_embedded_colons();
+    test_manpage_url_shows_url_after_text();
 
     // Summary
     std::cout << "\n============================\n";
