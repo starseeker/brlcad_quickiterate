@@ -55,7 +55,7 @@ bsg_vlist_cmd_cnt(struct bsg_vlist *vlist)
 }
 
 static int
-bv_vlist_bbox_internal(struct bsg_vlist *vp, point_t *bmin, point_t *bmax, int *disp_mode, int *dispmode_used)
+bsg_vlist_bbox_internal(struct bsg_vlist *vp, point_t *bmin, point_t *bmax, int *disp_mode, int *dispmode_used)
 {
     size_t i;
     size_t nused = vp->nused;
@@ -120,7 +120,7 @@ bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *len
     int dispmode_used = 0;
     size_t len = 0;
     for (BU_LIST_FOR(vp, bsg_vlist, vlistp)) {
-	cmd = bv_vlist_bbox_internal(vp, bmin, bmax, &disp_mode, &dispmode_used);
+	cmd = bsg_vlist_bbox_internal(vp, bmin, bmax, &disp_mode, &dispmode_used);
 	if (cmd) {
 	    break;
 	}

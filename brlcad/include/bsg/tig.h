@@ -45,7 +45,7 @@ __BEGIN_DECLS
  * connect them with line segments.  For markers, use tp_mlist(),
  * below.  This "C" interface expects arrays of INTs.
  */
-BV_EXPORT extern void tp_i2list(FILE *fp,
+BSG_EXPORT extern void tp_i2list(FILE *fp,
 				int *x,
 				int *y,
 				int npoints);
@@ -60,11 +60,11 @@ BV_EXPORT extern void tp_i2list(FILE *fp,
  *
  * Originally written in August 04, 1978
  */
-BV_EXPORT extern void tp_2list(FILE *fp,
+BSG_EXPORT extern void tp_2list(FILE *fp,
 			       double *x,
 			       double *y,
 			       int npoints);
-BV_EXPORT extern void BU_FORTRAN(f2list, F2LIST)(FILE **fpp,
+BSG_EXPORT extern void BU_FORTRAN(f2list, F2LIST)(FILE **fpp,
 						 float *x,
 						 float *y,
 						 int *n);
@@ -75,12 +75,12 @@ BV_EXPORT extern void BU_FORTRAN(f2list, F2LIST)(FILE **fpp,
  *
  * Originally written in August 04, 1978
  */
-BV_EXPORT extern void tp_3list(FILE *fp,
+BSG_EXPORT extern void tp_3list(FILE *fp,
 			       double *x,
 			       double *y,
 			       double *z,
 			       int npoints);
-BV_EXPORT extern void BU_FORTRAN(f3list, F3LIST)(FILE **fpp,
+BSG_EXPORT extern void BU_FORTRAN(f3list, F3LIST)(FILE **fpp,
 						 float *x,
 						 float *y,
 						 float *z,
@@ -106,7 +106,7 @@ BV_EXPORT extern void BU_FORTRAN(f3list, F3LIST)(FILE **fpp,
  *@li	2	Draw connecting lines only.
  *@li	3	Draw line and marks
  */
-BV_EXPORT extern void tp_2mlist(FILE *fp,
+BSG_EXPORT extern void tp_2mlist(FILE *fp,
 				double *x,
 				double *y,
 				int npoints,
@@ -118,7 +118,7 @@ BV_EXPORT extern void tp_2mlist(FILE *fp,
 /**
  * This FORTRAN interface expects arrays of REALs (single precision).
  */
-BV_EXPORT extern void BU_FORTRAN(f2mlst, F2MLST)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(f2mlst, F2MLST)(FILE **fp,
 						 float *x,
 						 float *y,
 						 int *np,
@@ -126,43 +126,43 @@ BV_EXPORT extern void BU_FORTRAN(f2mlst, F2MLST)(FILE **fp,
 						 int *mark,
 						 int *interval,
 						 float *size);
-BV_EXPORT extern void tp_2marker(FILE *fp,
+BSG_EXPORT extern void tp_2marker(FILE *fp,
 				 int c,
 				 double x,
 				 double y,
 				 double scale);
-BV_EXPORT extern void BU_FORTRAN(f2mark, F2MARK)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(f2mark, F2MARK)(FILE **fp,
 						 int *c,
 						 float *x,
 						 float *y,
 						 float *scale);
-BV_EXPORT extern void tp_3marker(FILE *fp,
+BSG_EXPORT extern void tp_3marker(FILE *fp,
 				 int c,
 				 double x,
 				 double y,
 				 double z,
 				 double scale);
-BV_EXPORT extern void BU_FORTRAN(f3mark, F3MARK)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(f3mark, F3MARK)(FILE **fp,
 						 int *c,
 						 float *x,
 						 float *y,
 						 float *z,
 						 float *scale);
-BV_EXPORT extern void tp_2number(FILE *fp,
+BSG_EXPORT extern void tp_2number(FILE *fp,
 				 double input,
 				 int x,
 				 int y,
 				 int cscale,
 				 double theta,
 				 int digits);
-BV_EXPORT extern void BU_FORTRAN(f2numb, F2NUMB)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(f2numb, F2NUMB)(FILE **fp,
 						 float *input,
 						 int *x,
 						 int *y,
 						 float *cscale,
 						 float *theta,
 						 int *digits);
-BV_EXPORT extern void tp_scale(int idata[],
+BSG_EXPORT extern void tp_scale(int idata[],
 			       int elements,
 			       int mode,
 			       int length,
@@ -170,26 +170,26 @@ BV_EXPORT extern void tp_scale(int idata[],
 			       double *min,
 			       double *dx);
 
-BV_EXPORT extern void BU_FORTRAN(fscale, FSCALE)(int idata[],
+BSG_EXPORT extern void BU_FORTRAN(fscale, FSCALE)(int idata[],
 						 int *elements,
 						 char *mode,
 						 int *length,
 						 int odata[],
 						 double *min,
 						 double *dx);
-BV_EXPORT extern void tp_2symbol(FILE *fp,
+BSG_EXPORT extern void tp_2symbol(FILE *fp,
 				 char *string,
 				 double x,
 				 double y,
 				 double scale,
 				 double theta);
-BV_EXPORT extern void BU_FORTRAN(f2symb, F2SYMB)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(f2symb, F2SYMB)(FILE **fp,
 						 char *string,
 						 float *x,
 						 float *y,
 						 float *scale,
 						 float *theta);
-BV_EXPORT extern void tp_plot(FILE *fp,
+BSG_EXPORT extern void tp_plot(FILE *fp,
 			      int xp,
 			      int yp,
 			      int xl,
@@ -200,7 +200,7 @@ BV_EXPORT extern void tp_plot(FILE *fp,
 			      float y[],
 			      int n,
 			      double cscale);
-BV_EXPORT extern void BU_FORTRAN(fplot, FPLOT)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(fplot, FPLOT)(FILE **fp,
 					       int *xp,
 					       int *yp,
 					       int *xl,
@@ -211,18 +211,18 @@ BV_EXPORT extern void BU_FORTRAN(fplot, FPLOT)(FILE **fp,
 					       float *y,
 					       int *n,
 					       float *cscale);
-BV_EXPORT extern void tp_ftoa(float x, char *s);
-BV_EXPORT extern void tp_fixsc(float *x,
+BSG_EXPORT extern void tp_ftoa(float x, char *s);
+BSG_EXPORT extern void tp_fixsc(float *x,
 			       int npts,
 			       float size,
 			       float *xs,
 			       float *xmin,
 			       float *xmax,
 			       float *dx);
-BV_EXPORT extern void tp_sep(float x,
+BSG_EXPORT extern void tp_sep(float x,
 			     float *coef,
 			     int *ex);
-BV_EXPORT extern double tp_ipow(double x,
+BSG_EXPORT extern double tp_ipow(double x,
 				int n);
 
 
@@ -240,7 +240,7 @@ BV_EXPORT extern double tp_ipow(double x,
  *
  * Originally written on August 01, 1978
  */
-BV_EXPORT extern void tp_3axis(FILE *fp,
+BSG_EXPORT extern void tp_3axis(FILE *fp,
 			       char *string,
 			       point_t origin,
 			       mat_t rot,
@@ -251,7 +251,7 @@ BV_EXPORT extern void tp_3axis(FILE *fp,
 			       double label_incr,
 			       double tick_separation,
 			       double char_width);
-BV_EXPORT extern void BU_FORTRAN(f3axis, F3AXIS)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(f3axis, F3AXIS)(FILE **fp,
 						 char *string,
 						 float *x,
 						 float *y,
@@ -264,17 +264,17 @@ BV_EXPORT extern void BU_FORTRAN(f3axis, F3AXIS)(FILE **fp,
 						 float *label_incr,
 						 float *tick_separation,
 						 float *char_width);
-BV_EXPORT extern void tp_3symbol(FILE *fp,
+BSG_EXPORT extern void tp_3symbol(FILE *fp,
 				 char *string,
 				 point_t origin,
 				 mat_t rot,
 				 double scale);
-BV_EXPORT extern void tp_3vector(FILE *plotfp,
+BSG_EXPORT extern void tp_3vector(FILE *plotfp,
 				 point_t from,
 				 point_t to,
 				 double fromheadfract,
 				 double toheadfract);
-BV_EXPORT extern void BU_FORTRAN(f3vect, F3VECT)(FILE **fp,
+BSG_EXPORT extern void BU_FORTRAN(f3vect, F3VECT)(FILE **fp,
 						 float *fx,
 						 float *fy,
 						 float *fz,

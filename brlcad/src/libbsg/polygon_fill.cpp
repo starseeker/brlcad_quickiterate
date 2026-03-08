@@ -38,7 +38,7 @@
  * this way instead of a single number allows us to handle vertical lines (i.e.
  * infinite slope) cleanly */
 struct bg_polygon *
-bv_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slope, fastf_t line_spacing)
+bsg_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slope, fastf_t line_spacing)
 {
     struct bg_polygon poly_2d;
 
@@ -192,7 +192,7 @@ bv_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slo
 
 
 extern "C"
-int bv_polygon_calc_fdelta(struct bsg_polygon *p)
+int bsg_polygon_calc_fdelta(struct bsg_polygon *p)
 {
     if (!p)
 	return 0;

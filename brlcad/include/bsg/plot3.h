@@ -47,7 +47,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @addtogroup bv_plot
+/** @addtogroup bsg_plot
  *
  * @brief A public-domain UNIX plot library, for 2-D and 3-D plotting in 16-bit
  * VAX signed integer spaces, or 64-bit IEEE floating point.

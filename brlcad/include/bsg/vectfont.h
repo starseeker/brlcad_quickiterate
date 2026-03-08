@@ -54,7 +54,7 @@
 
 __BEGIN_DECLS
 
-/** @addtogroup bv_vfont
+/** @addtogroup bsg_vfont
  *
  *  @brief
  *  Terminal Independent Graphics Display Package.
@@ -96,7 +96,7 @@ __BEGIN_DECLS
 #define bneg(x, y)	NEGY, brt(x, y)
 #define dneg(x, y)	NEGY, drk(x, y)
 
-BV_EXPORT extern int *tp_getchar(const unsigned char *c);
+BSG_EXPORT extern int *tp_getchar(const unsigned char *c);
 
 /** @} */
 

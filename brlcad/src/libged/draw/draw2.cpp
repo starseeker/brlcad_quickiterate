@@ -248,11 +248,11 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	    continue;
 	vmap[bvs].insert(v);
     }
-    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
-    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
+    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator view_it;
+    for (view_it = vmap.begin(); view_it != vmap.end(); view_it++) {
 	for (size_t i = 0; i < (size_t)argc; ++i)
-	    bv_it->first->add_path(argv[i]);
-	bv_it->first->redraw(&vs, bv_it->second, !(blank_slate && !no_autoview));
+	    view_it->first->add_path(argv[i]);
+	view_it->first->redraw(&vs, view_it->second, !(blank_slate && !no_autoview));
     }
 
     return BRLCAD_OK;

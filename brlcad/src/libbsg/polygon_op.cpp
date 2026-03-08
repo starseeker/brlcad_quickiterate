@@ -35,7 +35,7 @@
 #include "bsg/util.h"
 
 int
-bv_polygon_csg(struct bsg_shape *target, struct bsg_shape *stencil, bg_clip_t op)
+bsg_polygon_csg(struct bsg_shape *target, struct bsg_shape *stencil, bg_clip_t op)
 {
     bsg_shape *tgt = (bsg_shape *)target;
     bsg_shape *sten = (bsg_shape *)stencil;

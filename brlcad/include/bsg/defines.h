@@ -100,12 +100,11 @@
 #  endif
 #endif
 
-/* Legacy: keep BV_EXPORT as an alias for BSG_EXPORT */
-#ifndef BV_EXPORT
-#  define BV_EXPORT BSG_EXPORT
-#endif
 
 __BEGIN_DECLS
+
+/** @brief Magic number for @c bsg_view (= @c bview) instances. */
+#define BSG_VIEW_MAGIC BV_MAGIC
 
 /* ================================================================== *
  * Content inlined from bv/faceplate.h                                *
