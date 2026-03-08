@@ -17,7 +17,7 @@ voxelize [ [-d]| {n}] [ [-s]| {"%s %s %s"}] [ [-t]| {f}] {<new_obj old_obj>} [<o
 [[description]]
 == DESCRIPTION
 
-Takes as input a primitive or a collection of primitives ,__old_obj__, and creates a region __new_obj__ which is the collection of voxels(RPPs) approximating the __old_obj__. The _-d_ option specifies the level of detail (precision in approximation of volume) required (default is 1). An argument of n means that n * n rays will be shot through each row, and an approximation of volume filled in each voxel region is reached averaging these n * n values. The _-s_ option lets the user specify the voxel size in each direction (default is 1, 1, 1 in current units). Note that setting the voxel size too small can increase the filesize exponentially. The _-t_ option specifies the threshold volume to decide if voxel is to be included in the voxelized output (default is .5). The threshold should always be a value between 0 and 1.
+Takes as input a primitive or a collection of primitives ,__old_obj__, and creates a region  __new_obj__ which is the collection of voxels(RPPs) approximating the __old_obj__. The _-d_ option specifies the level of detail (precision in approximation of volume) required (default is 1). An argument of n means that n * n rays will be shot through each row, and an approximation of volume filled in each voxel region is reached averaging these n * n values. The _-s_ option lets the user specify the voxel size in each direction (default is 1, 1, 1 in current units). Note that setting the voxel size too small can increase the filesize exponentially. The _-t_ option specifies the threshold volume to decide if voxel is to be included in the voxelized output (default is .5). The threshold should always be a value between 0 and 1.
 
 
 [[examples]]
@@ -38,7 +38,7 @@ The _-d 2_ option means that on each voxel row, 2*2(=4) rays are uniformly shot 
 
 _-s "100 100 100"_ sets the size of the voxels as 100 current units in each dimension. Note that setting the voxel size too small can increase the filesize exponentially.
 
-_-t 0.3_ means that a voxel region is considered to be "filled" if the approximated volume of _oldregion.r_ filling this voxel region is 30% of its total volume.
+_-t 0.3_  means that a voxel region is considered to be "filled" if the approximated volume of _oldregion.r_ filling this voxel region is 30% of its total volume.
 
 
 

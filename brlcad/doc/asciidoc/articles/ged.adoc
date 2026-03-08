@@ -15,7 +15,7 @@ For many years the production and modification of target descriptions, no matter
 
 As the Army's lead laboratory for vulnerability technology, the Ballistic Research Laboratory (BRL) constantly performs vulnerability analyses for a wide variety of military systems. Vital to these vulnerability studies are three dimensional computer models of the physical characteristics of these systems. These computer models are generally called target descriptions. Since the mid 1960's, BRL has used a solid modeling technique called combinatorial geometry (COMGEOM) to model targets. The COMGEOM technique uses logic operations to combine basic geometric shapes or primitives to produce the three-dimensional target description. The COMGEOM target descriptions are processed by the Geometric Information For Targets
 
-_(GIFT)\u1,2\d_
+ _(GIFT)\u1,2\d_ 
 
 
 ----
@@ -111,7 +111,7 @@ To execute GED, one simply types "ged file", where "file" is the data file to be
 
 In the following pages, the GED keyboard commands will be presented and discussed. Examples will be given in appropriate cases. Table III, at the end of this section, presents a summary of the GED keyboard commands and the function of each.
 
-*c oldsolid newsolid*
+ *c oldsolid newsolid* 
 
 This command is used to produce and display a copy of a solid. In this case, the solid "oldsolid" will be copied into a solid called "newsolid". A new identical solid record is added to the data file. The solid parameters are copied as they appear in the solid record.
 
@@ -126,7 +126,7 @@ Examples:     c arb8 hullbot.s
 
 
 
-*n old new*
+ *n old new* 
 
 This command is used to rename objects in the data file. In this case, the object "old" will be renamed "new". A note of caution: the name is changed only in the object record itself, not in any member records. Thus if the object "old" appears as a member of any other object, the name will not be changed there.
 
@@ -140,11 +140,11 @@ Examples:     n test hull
 
 
 
-*Z*
+ *Z* 
 
 This command clears (Zaps) the screen of all displayed objects.
 
-*g group obj1 obj2 ..... objn*
+ *g group obj1 obj2 ..... objn* 
 
 This command creates or appends to a combination record and is used to group objects together either for editing or displaying purposes. In this case, "obj1" through "objn" are added as members to the combination "group". If "group" does not exist, it is created and "obj1" through "objn" are added as members.
 
@@ -175,7 +175,7 @@ Examples:    r hulltop.r + hulltop.s - hullleft.s - hullright.s
 
 
 
-*i object combname brname*
+ *i object combname brname* 
 
 This command is used to make an instance of an object. An instance of an object is produced by creating a combination and making the object a member. In this case, an instance of "object" is made by creating the combination record "combname" (if "combname" does not already exist) and adding "object" as a member. This member also has a second name "brname" added to the member record, which can be thought of as the name of this branch in the hierarchical data structure. If "combname" already exists, then "object" is added as the next member and "brname" is added as the branch name.
 
@@ -192,7 +192,7 @@ Examples:       i heround ammo he1
 
 
 
-*f face distance*
+ *f face distance* 
 
 This command allows the user to project a face of an arb (arbitrary polyhedron) being edited a normal distance to create a new arb. The value of "face" is 4 digits such as 1256. If the face is projected in the wrong direction use a negative "distance". One use for this command is for producing armor plates of a desired thickness.
 
@@ -206,7 +206,7 @@ Examples:     f 1234 20
 
 
 
-*l object*
+ *l object* 
 
 This command is used to list information about objects in the data file. The information listed depends on what type of record "object" is. If "object" is a combination record, then the members are listed. If "object" is a solid record, then the GED general solid type and the parameters as presently in the data file are listed. Note: only the solid parameters as they exist in the solid record are listed, no transformation matrix is applied. Hence, if the solid was edited as a member of a combination, the "l" command will not reflect the editing in the listed parameters.
 
@@ -222,7 +222,7 @@ Examples:      l hull
 
 
 
-*mirror -[axis] oldsolid newsolid*
+ *mirror -[axis] oldsolid newsolid* 
 
 This command is used to create and display a new solid record which is the mirror image of an existing solid. The mirror image is about an axis and is created by changing the signs on the solid's parameters depending on which axis the solid is mirrored about. In this case, a mirror image of the solid "oldsolid" will created about the axis indicated by "axis" and the new solid record will be called "newsolid". The only acceptable values for the parameter "axis" are "x", "y", and "z".
 
@@ -236,11 +236,11 @@ Examples:     mirror -y tur.left.s tur.right.s
 
 
 
-*p dx [dy] [dz]*
+ *p dx [dy] [dz]* 
 
 This command allows a user in the SOLID EDITING mode to input exact parameter modifications by the keyboard. The meaning of the values typed after the p command varies depending on what solid editing feature is being used. Examples of this command will be given in the discussion on solid editing.
 
-*D comb mem1 mem2 .... memn*
+ *D comb mem1 mem2 .... memn* 
 
 This command allows one to delete members from a combination record. In this case, members "mem1" through "memn" will be deleted from the combination "comb".
 
@@ -254,7 +254,7 @@ Examples:     D tank hull wheels
 
 
 
-*I region item air*
+ *I region item air* 
 
 This command allows one to change the item or air code numbers of a region. If the air code ("air") is not included, a zero is assumed. To change the air code, a zero item code should be used (see second example below).
 
@@ -269,23 +269,23 @@ Examples:
 
 
 
-*e object*
+ *e object* 
 
 This command is used to display (draw) objects on the screen. In this case, "object" will be displayed on the screen. Note that "object" must be found in the table of contents.
 
-*d object*
+ *d object* 
 
 This command is used to drop (delete) objects from the display. In this case, "object" will be deleted from the screen display. This command is opposite of the "e" command.
 
-*k object*
+ *k object* 
 
 This command is used to remove (kill) objects from the data file. In this case, "object" will be removed from the data file. Note the distinction between the "d" command which deletes objects from the display and the "k" command which removes objects from the data file.
 
-*t*
+ *t* 
 
 This command produces a list of the table of contents of all objects in the data file. The objects are listed a screenfull at a time. A carriage return will produce the next screenfull.
 
-*a arbname rot fb*
+ *a arbname rot fb* 
 
 This command is used to create and display a new arb8 solid record. This new arb8 has two square (5 units x 5 units) parallel faces which are 0.5 units apart. These parallel faces are in planes whose orientations are defined by the two input angles - the rotation (rot) angle and the fallback (fb) angle. The orientation of armor plates are frequently defined using rotation and fallback angles. The vertex of this new arb8 is located in the center of the screen.
 
@@ -299,11 +299,11 @@ Examples:     a hullsec3.s 45 30
 
 
 
-*x*
+ *x* 
 
 This command is the display debug command. It will produce a list of all objects that have been displayed , the paths traversed to draw the objects, and whether or not the objects are displayed in the present view.
 
-*q*
+ *q* 
 
 This command is used to quit the graphics editor code. This is the normal halt.
 
@@ -391,7 +391,7 @@ The object editing features can be invoked in any order and at any time once an 
 
 The solid editing feature allows the user to interactively translate, rotate, scale, and modify individual parameters of a solid. Whenever one is in the solid edit mode, the parameters of the solid being edited are listed and continually updated at the bottom of the screen. Certain parameters are also labeled on the solid being edited. Solid editing is generally used to "build" objects by producing solids of the desired shape and size in the correct orientation and position. Once the object is built, object editing is used to scale, orient, and position the object in the description. The general philosophy of solid editing is to first create a copy of a prototype solid with the desired name and then to edit this solid. The prototype solids should not be edited. As an example, suppose one were to build the sample object "heround" mentioned earlier. To produce the base of the shell, one would need a cylindrical shaped solid. The prototype solid is the TGC (see Table I), so one would type:
 
-*c tgc shellcase.s*
+ *c tgc shellcase.s* 
 
 A new solid record called shellcase.s would be created and displayed on the screen. This shellcase.s solid would then be edited using solid editing to produce the exact solid parameters desired. The solid record tgc would be unchanged and available for copying the next time a cylindrical solid is needed.
 
@@ -401,23 +401,23 @@ Recall, in the section on object editing it was mentioned that since a solid is 
 
 Solid TRANSLATION allows the user to place the solid being edited anywhere in the description. To invoke this option, one presses the function button labeled "solid trans" (see Figure 3). To move the solid, use the data tablet and pen. Whenever the pen is pressed, the VERTEX of the solid moves to that location on the screen. One can read the actual coordinates of the vertex on the bottom of the screen, along with the other parameters. If the actual desired coordinates of the vertex are known, one can place the solid exactly using the "p" keyboard command. For example, to place a solid's vertex at the coordinates (x, y, z) one would type
 
-*p x y z*
+ *p x y z* 
 
 The solid would then jump to this location.
 
 The solid SCALE feature allows the user to scale the solid being edited to any desirable size. The scaling is done about the vertex of the solid, hence NO translation of the solid occurs. The scaling is performed using the data tablet and pen, just as in object scaling. One can input an exact scale factor using the "p" keyboard command. For example, typing
 
-*p factor*
+ *p factor* 
 
 will scale the solid by an amount equal to "factor". The value of "factor" is absolute - the original solid is scaled. The size of the original solid is defined when the "solid scale" function button is pressed. By setting "factor" equal to one, the original size solid will be displayed on the screen.
 
 Solid ROTATION allows the user to rotate the solid being edited to any desired orientation. The rotation is performed about the vertex of the solid. To select this option, one presses the function button labeled "solid rotate" (see Figure 3). The actual rotation is done using the joystick. One can input exact angles to rotate the solid by using the "p" keyboard command. For example, typing
 
-*p alpha beta gamma*
+ *p alpha beta gamma* 
 
 will rotate the solid "alpha" degrees about the x-axis, "beta" degrees about the y-axis, and "gamma" degrees about the z-axis. Alpha, beta, and gamma are measured from the original "zero" orientation of the solid, defined when the "solid edit" function button was pressed. Hence, typing
 
-*p 0 0 0*
+ *p 0 0 0* 
 
 will always return the solid to its original position (its position when the current solid editing session began).
 
@@ -472,7 +472,7 @@ These values are continually updated during solid editing.
 
 The user can force the line containing an edge through any point using the "p" keyboard command. Hence typing
 
-*p x y z*
+ *p x y z* 
 
 will force the line containing the edge being edited to pass through the point (x, y, z). No check is made for concave ARBs or for ARBs with crossed edges. Visual feedback from the display is considered adequate to detect these situations.
 
@@ -501,7 +501,7 @@ rotate AxB
 
 The scaling of the lengths of the vectors is done using the data tablet and pen in the same manner as object editing. Exact vector lengths can be achieved easily using the "p" keyboard command. If one is scaling a vector, then typing
 
-*p x*
+ *p x* 
 
 will make the vector being scaled have a length equal to "x".
 
@@ -525,7 +525,7 @@ d   |d|
 
 
 
-_AxB a b g rot fb_
+ _AxB a b g rot fb_ 
 
 where "a", "b", "g" are the direction cosines and "rot" and "fb" are the rotation and fallback angles of the listed vector.
 
@@ -618,5 +618,3 @@ Table IV presents a summary of parameter editing for each of the general solid c
 == CONCLUSION
 
 BRL has developed the Army's first interactive solid modeling system, called GED. GED performs two basic functions: viewing and editing. The standard viewing capabilities of zooming, slewing, slicing, and rotation are available. Likewise, all the standard editing features are also available. The user easily traverses the hierarchical data structure, applying the editing functions of rotation, translation, and scaling to any position in the hierarchy. The hierarchical structure can be modified and regrouped and regions created and modified. Specific parameter editing can also be applied to the solids to produce any shape solid desired. GED has made great gains in reducing the bottleneck the target description process has been creating in the vulnerability process at BRL.
-
-

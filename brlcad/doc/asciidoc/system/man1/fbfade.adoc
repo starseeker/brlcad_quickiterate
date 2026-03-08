@@ -33,31 +33,31 @@ fbfade [-H] [ -f <input_image_name>] [ -s <input_square_size>] [ -w <input_width
 Inputs the image to be displayed from the specified frame buffer or *pix*(5) file, instead of using pure background (which fades out the image already on the output frame buffer).
 
 
--s__input_square_size__::
+-s __input_square_size__::
 Specifies input image width and height.
 
 
--w__input_width__::
+-w __input_width__::
 Specifies input image width.
 
 
--n__input_height__::
+-n __input_height__::
 Specifies input image height.
 
 
--S__output_square_size__::
+-S __output_square_size__::
 Specifies output frame buffer width and height.
 
 
--W__output_width__::
+-W __output_width__::
 Specifies output frame buffer width.
 
 
--N__output_height__::
+-N __output_height__::
 Specifies output frame buffer height.
 
 
--F__output_frame_buffer_name__::
+-F __output_frame_buffer_name__::
 Outputs to the specified frame buffer instead of the one specified by the __FB_FILE__ environment variable (or the default, if __FB_FILE__ is not set). If this is the last option specified, the _-F_ is optional.
 
 
@@ -119,5 +119,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

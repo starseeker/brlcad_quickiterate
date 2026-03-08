@@ -32,15 +32,15 @@ The default input image size is 512 by 512. Explicitly specified sizes override 
 Inputs the image to be displayed from the specified frame buffer or *pix*(5) file, instead of modifying the output frame buffer in place. This option may not work if input and output frame buffers are the same device.
 
 
--s__input_square_size__::
+-s __input_square_size__::
 Specifies input image width and height.
 
 
--w__input_ width__::
+-w __input_ width__::
 Specifies input image width.
 
 
--n__input_height__::
+-n __input_height__::
 Specifies input image height.
 
 
@@ -52,27 +52,27 @@ Specifies input image height.
 (verbose) Causes actual sizes and scale factors used to be printed on the standard error output.
 
 
--x__horizontal_scale_factor__::
+-x __horizontal_scale_factor__::
 Scales the image by the specified factor in the horizontal direction; the default is the ratio of requested output to input widths, if specified, otherwise 1.
 
 
--y__vertical_scale_factor__::
+-y __vertical_scale_factor__::
 Scales the image by the specified factor in the vertical direction; the default is the ratio of requested output to input heights, if specified, otherwise 1.
 
 
--S__output_square_size__::
+-S __output_square_size__::
 Specifies output frame buffer width and height.
 
 
--W__output_width__::
+-W __output_width__::
 Specifies output frame buffer width.
 
 
--N__output_height__::
+-N __output_height__::
 Specifies output frame buffer height.
 
 
--F__output_frame_buffer_name__::
+-F __output_frame_buffer_name__::
 Outputs to the specified frame buffer instead of the one specified by the _FB_FILE_ environment variable (or the default, if _FB_FILE_ is not set). If this is the last option specified, the _-F_ is optional.
 
 
@@ -128,5 +128,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

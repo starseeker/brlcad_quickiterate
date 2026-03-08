@@ -47,7 +47,7 @@ Moves every instance of each obj[1-5] in the same direction and by the same dist
 [example]
 ====
 
-mged> *edit translate -a -z obj1 obj2 obj3 obj4 obj5* ::
+mged>  *edit translate -a -z obj1 obj2 obj3 obj4 obj5* ::
 The _from_ point defaults to the bounding box center of the first target _object_, which is obj2. Every instance of objects obj2 - obj5 is moved _from_ obj2 _to_ the z-axis of obj1. If the z-coordinate of _from_ was 7, and the z-coordinate of _to_ was 5, then each object would move -2 units in the z-axis.
 
 
@@ -58,7 +58,7 @@ The _from_ point defaults to the bounding box center of the first target _object
 [example]
 ====
 
-mged> *edit translate -k . -a -z obj1 obj2 obj3 obj4 obj5* ::
+mged>  *edit translate -k . -a -z obj1 obj2 obj3 obj4 obj5* ::
 Sets the elevation of obj[2-5] to the elevation of obj1. Each object uses its own bounding box center as the _from_ point in an operation that moves _to_ the bounding box center of obj1.
 
 
@@ -69,7 +69,7 @@ Sets the elevation of obj[2-5] to the elevation of obj1. Each object uses its ow
 [example]
 ====
 
-mged> *edit translate -k . -a obj1 obj2 obj3 obj4 obj5* ::
+mged>  *edit translate -k . -a obj1 obj2 obj3 obj4 obj5* ::
 Each object uses its own bounding box center as the _from_ point in an operation that moves _to_ the bounding box center of obj1. All _object_s end up centered on obj2.
 
 
@@ -113,7 +113,7 @@ Moves obj1 up or down _from_ the elevation of its bounding box center _to_ the a
 [example]
 ====
 
-mged> *edit translate -n -k obj1 -n -a -z obj2/obj3 obj1* ::
+mged>  *edit translate -n -k obj1 -n -a -z obj2/obj3 obj1* ::
 
 
 
@@ -158,19 +158,19 @@ These commands perform the same function. The z-coordinate of the bounding box c
 [example]
 ====
 
-mged> *edit translate -k -x c/obj1 1.5 -y c/obj2 0 3 -z c/obj3 0 0 10 -a -x b/c/obj4 2 -y b/c/obj5 0 4 -z b/c/obj6 0 0 20 obj7 obj8* ::
+mged>  *edit translate -k -x c/obj1 1.5 -y c/obj2 0 3 -z c/obj3 0 0 10 -a -x b/c/obj4 2 -y b/c/obj5 0 4 -z b/c/obj6 0 0 20 obj7 obj8* ::
 Every use of *translate* involves a _from_ point and a _to_ point. One of the more flexible features of the edit commands is the capability to use an object and an offset to specify each axis of these points individually. The command in this example can be broken down to three simpler commands, in order to ease comprehension:
 
 
-mged> *edit translate -k -x c/obj1 1.5 -a -x b/c/obj4 2 obj7 obj8* ::
+mged>  *edit translate -k -x c/obj1 1.5 -a -x b/c/obj4 2 obj7 obj8* ::
 
 
 
-mged> *edit translate -k -y c/obj2 0 3 -a -y b/c/obj5 0 4 obj7 obj8* ::
+mged>  *edit translate -k -y c/obj2 0 3 -a -y b/c/obj5 0 4 obj7 obj8* ::
 
 
 
-mged> *edit translate -k -z c/obj3 0 0 10 -a -z b/c/obj6 0 0 20 obj7 obj8* ::
+mged>  *edit translate -k -z c/obj3 0 0 10 -a -z b/c/obj6 0 0 20 obj7 obj8* ::
 In the first shortened command, the _from_ point is set to the x-coordinate of the apparent point of the bounding box center of the instance of obj1 in combination c, _plus 1.5_. The _to_ point is set to the x-coordinate of the apparent point of the bounding box center of the specific instance of obj4 in combination c in combination b, _plus 2_. Both obj7 and obj8 move from _from_ to _to_, ending up the same relative distance from each other.The other shortened commands are similar.
 
 By splitting the larger command, an interesting detail was revealed. In the larger command, every point was set explicitly, so none defaulted. In the first shortened command, the _y_ and _z_ _from_ values default to the bounding box center of obj7. Since the _y_ and _z_ _to_ values default to the values set by _from_, neither obj7 nor obj8 will move in the _y_ or _z_ axes.
@@ -190,5 +190,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

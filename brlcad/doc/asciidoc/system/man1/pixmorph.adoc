@@ -38,13 +38,13 @@ In general, the user will wish to set _warpfrac_ = _dissolvefrac_. Typically, a 
 == OPTIONS
 
 
-*-w*_WIDTH_::
+*-w* _WIDTH_::
 Tells *pixmorph* that the input images have width WIDTH.
 
 
 
 
-*-n*_HEIGHT_::
+*-n* _HEIGHT_::
 Tells *pixmorph* that the input images have height HEIGHT.
 
 

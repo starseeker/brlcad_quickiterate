@@ -17,7 +17,7 @@ gqa [<options>] <model.g> <objects>
 [[description]]
 == DESCRIPTION
 
-The *gqa* program computes and reports a variety of characteristics of the _objects_ specified from the given _model.g_ geometric description. The characteristics which can be computed include *weight, volume, overlaps, exposed air, gaps/voids,* and *adjacent air.* Only the _objects_ from the database specified on the command line are analyzed.
+The *gqa* program computes and reports a variety of characteristics of the _objects_ specified from the given _model.g_ geometric description. The characteristics which can be computed include *weight, volume, overlaps, exposed air, gaps/voids,*  and *adjacent air.* Only the _objects_ from the database specified on the command line are analyzed.
 
 It works by shooting grids of rays from the three axis-aligned directions (sometimes called _views_).
 
@@ -429,5 +429,3 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -30,7 +30,7 @@ The example shows the use of the *rcc-tor* command to round the edges of an RCC 
 ====
 mged>*rcc-tor rcc.s tor.s*
 
-Creates a TOR shape named _tor.s_ using the parameters of _rcc.s_.
+Creates a TOR shape named _tor.s_ using the parameters of _rcc.s_ .
 
 ====
 

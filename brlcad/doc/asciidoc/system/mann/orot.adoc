@@ -17,7 +17,7 @@ orot [-i] {<xdeg ydeg zdeg>}
 [[description]]
 == DESCRIPTION
 
-Performs a rotation of an object during matrix edit. The rotation is performed, in order: _xdeg_ about the _x_ axis, then _ydeg_ about the _y_axis, and finally _zdeg_ about the _z_ axis. If the _-i_ flag is given, then the angles are interpreted as increments to the last object rotation. The *rotobj* command is a synonym for _orot._
+Performs a rotation of an object during matrix edit. The rotation is performed, in order: _xdeg_  about the _x_ axis, then _ydeg_ about the _y_ axis, and finally _zdeg_ about the _z_ axis. If the _-i_ flag is given, then the angles are interpreted as increments to the last object rotation. The *rotobj* command is a synonym for _orot._
 
 
 [[examples]]
