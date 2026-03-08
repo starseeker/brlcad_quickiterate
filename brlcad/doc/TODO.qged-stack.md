@@ -375,10 +375,22 @@ geometry automatically.
   released when real geometry arrives on the next `redraw()` pass, and cleaned up
   properly in `clear()` and `erase_hpath()`.  `bsg_vlist_rpp()` populates the vlist.
 
+### Completed (session 37)
+
+- ✅ **`QgModel` ownership migration** (Tier 2):
+  - `QgModel.h`: `std::unordered_set<QgItem *> *items` → value-type `std::unordered_set<QgItem *> items`
+    (eliminates outer heap allocation + null check).  `QgItem *rootItem` → `std::unique_ptr<QgItem> rootItem_`
+    (automatic lifetime management; `<memory>` added to header).
+  - `QgModel.cpp`: removed `new`/`delete` for `items` and `rootItem`; all `items->` → `items.`;
+    all `*items` range loops → direct; all `rootItem == ...` comparisons → `rootItem_.get() == ...`;
+    all member accesses `rootItem->` → `rootItem_->`; `new QgItem(...)` → `std::make_unique<QgItem>(...)`;
+    return sites in `root()`/`getItem()` use `rootItem_.get()`.
+  - `QgTreeView.cpp`: `*m->items` → `m->items`; `m->items->find()` → `m->items.find()`.
+  - All existing qgmodel tests pass.
+
 ### Short-term (open)
 
-1. **`QgModel` ownership** (Tier 2): convert `rootItem` and the `items` set to
-   `unique_ptr`-based ownership to eliminate the raw-pointer forest.
+*(no items remaining from the Tier 2 short-term backlog)*
 
 ### Medium-term (modernisation)
 
