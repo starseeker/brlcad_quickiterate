@@ -1640,30 +1640,38 @@
 
   <!-- classname, interfacename, exceptionname: render as monospace -->
   <xsl:template match="db:classname | db:interfacename | db:exceptionname | db:structname">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>`</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- guilabel, guibutton: render as bold (GUI widget label) -->
   <xsl:template match="db:guilabel | db:guibutton | db:guiicon">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- guimenu, guisubmenu, guimenuitem: render as bold menu path -->
   <xsl:template match="db:guimenu | db:guisubmenu | db:guimenuitem">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>*</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>*</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- optional: inline optional argument shown as [text] -->
   <xsl:template match="db:optional">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>[</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>]</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- funcsynopsisinfo: verbatim #include or other synopsis preamble -->
@@ -1673,15 +1681,19 @@
 
   <!-- superscript, subscript -->
   <xsl:template match="db:superscript">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>^</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>^</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <xsl:template match="db:subscript">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>~</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>~</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- ============================================================
@@ -1690,11 +1702,13 @@
 
   <!-- citerefentry: link to another man page -->
   <xsl:template match="db:citerefentry">
+    <xsl:call-template name="inline-leading-space"/>
     <xsl:text>*</xsl:text>
     <xsl:value-of select="normalize-space(db:refentrytitle)"/>
     <xsl:text>*(</xsl:text>
     <xsl:value-of select="normalize-space(db:manvolnum)"/>
     <xsl:text>)</xsl:text>
+    <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
   <!-- link -->
