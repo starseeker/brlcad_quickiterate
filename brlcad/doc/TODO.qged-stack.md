@@ -342,6 +342,18 @@ geometry automatically.
 - ✅ **View-update coalescing**: `do_view_changed` now accumulates flags into
   `pending_view_flags_` and dispatches work via a single `flush_view_changed_` private
   slot (QueuedConnection).  Eliminates synchronous reentrancy risk.
+- ✅ **Qt `foreach` migration**: `QgFlowLayout`, `QgAccordion`, `QgToolPalette` migrated
+  from deprecated Qt `foreach` to C++17 range-based for loops.
+- ✅ **`QgConsole::setMargin` Qt6 fix**: `setMargin(0)` guarded block replaced with
+  `setContentsMargins(0,0,0,0)` which works in both Qt5 and Qt6.
+- ✅ **`QgAttributesModel` `QRegExp` simplification**: `val.split(QRegExp("/"))` with
+  Qt5/Qt6 guard replaced by `val.split("/")` which works in both.
+- ✅ **`QgConsole::historyAt` dangling pointer fix**: Stored `QByteArray` before taking
+  `.data()` pointer, eliminating UB from reading a destroyed temporary.
+- ✅ **`QgModel` destructor leak fix**: Added iteration-and-delete of all `QgItem *` in
+  the `items` set before deleting the set container.
+- ✅ **`mged/cmd.c` `_view_cache`**: Already complete — `_view_cache_save/restore` use
+  `bsg_view_get/set_camera()` for camera fields; scalar fields are accessed directly.
 
 ### Short-term (open)
 
@@ -352,16 +364,15 @@ geometry automatically.
    dispatch breakage when base class signatures change.  Remaining gap is modest —
    most of the critical paths already use `override`.
 
-3. **`mged/cmd.c` `_view_cache` camera migration** (BSG P2): low-risk, migrate
-   `_view_cache` struct from raw `gv_aet`/`gv_rotation` to `bsg_view_get/set_camera()`.
-
 ### Medium-term (modernisation)
 
-4. **`fbserv.cpp` → `QLocalSocket`** (Tier 2): requires libpkg to gain Unix-domain-
+3. **`fbserv.cpp` → `QLocalSocket`** (Tier 2): requires libpkg to gain Unix-domain-
    socket support before the Qt layer can be switched.  Investigate in a libpkg session.
 
-5. **`QgConsole` mid-string tab completion for Qt6** (Tier 3): the tab-completion
-   path was simplified when Qt6 removed some APIs.  Needs a Qt6-specific reimplementation.
+4. **`QgConsole` tab completion review** (Tier 3): the stale TODO comments in the tab
+   completion code have been removed.  The existing `split_slash` mechanism handles
+   mid-string path completions.  Verify in an interactive session that `draw foo/ba<TAB>`
+   completes correctly.  No known Qt6 API breakage remains.
 
 ### Longer-term (features)
 

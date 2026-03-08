@@ -210,7 +210,7 @@ class QgConsole::pqImplementation :
 	std::string historyAt(size_t ind)
 	{
 	    QByteArray ba = CommandHistory.at(ind).toLocal8Bit();
-	    return std::string(ba.data());
+	    return std::string(ba.constData(), ba.size());
 	}
 
 	// Try to keep the scrollbar slider from getting too small to be usable

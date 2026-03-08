@@ -29,7 +29,6 @@ extern "C" {
 #include "bu/malloc.h"
 #include "bg/polygon.h"
 #include "bsg.h"
-#include "bsg.h"
 }
 
 #include "qtcad/QgPolyFilter.h"
