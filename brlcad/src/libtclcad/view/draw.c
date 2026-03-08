@@ -203,19 +203,16 @@ to_edit_redraw(struct ged *gedp,
 	       const char *argv[])
 {
     size_t i;
-    register struct display_list *gdlp;
-    register struct display_list *next_gdlp;
     struct db_full_path subpath;
     int ret = BRLCAD_OK;
 
     if (argc != 2)
 	return BRLCAD_ERROR;
 
-    /* Phase 2e: if gd_headDisplay is empty, use scene-root children to
-     * enumerate drawn paths and re-draw any that contain the given subpath.
-     * This handles the future state where gd_headDisplay is no longer
-     * maintained by draw commands.                                           */
-    if (BU_LIST_IS_EMPTY((struct bu_list *)ged_dl(gedp))) {
+    /* Phase 2e: gd_headDisplay is no longer populated by draw commands; use
+     * scene-root children to enumerate drawn paths and re-draw any that
+     * contain the given subpath.                                             */
+    {
 	if (db_string_to_path(&subpath, gedp->dbip, argv[1]) == 0) {
 	    /* Collect unique top-level directory pointers from scene-root. */
 	    bsg_view *_v = (bsg_view *)gedp->ged_gvp;
@@ -259,100 +256,9 @@ to_edit_redraw(struct ged *gedp,
 	    bu_ptbl_free(&drawn_tops);
 	    db_free_full_path(&subpath);
 	}
-	to_refresh_all_views(current_top);
-	return ret;
-    }
-
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, ged_dl(gedp))) {
-	gdlp->dl_wflag = 0;
-	gdlp = BU_LIST_PNEXT(display_list, gdlp);
-    }
-
-    if (db_string_to_path(&subpath, gedp->dbip, argv[1]) == 0) {
-	for (i = 0; i < subpath.fp_len; ++i) {
-	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(gedp));
-	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(gedp))) {
-		register bsg_shape *curr_sp;
-
-		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-		if (gdlp->dl_wflag) {
-		    gdlp = next_gdlp;
-		    continue;
-		}
-
-		/* Phase 2e: search scene-root children instead of dl_head_scene_obj */
-		bsg_view *_v = (bsg_view *)gedp->ged_gvp;
-		bsg_shape *_root = _v ? bsg_scene_root_get(_v) : NULL;
-		size_t _nshapes = _root ? BU_PTBL_LEN(&_root->children) : 0;
-		for (size_t _si = 0; _si < _nshapes; _si++) {
-		    curr_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _si);
-		    if (!curr_sp->s_u_data) continue;
-		    struct ged_bv_data *bdata = (struct ged_bv_data *)curr_sp->s_u_data;
-		    /* Only consider shapes belonging to this gdlp */
-		    struct db_full_path _gdlp_fp;
-		    db_full_path_init(&_gdlp_fp);
-		    if (db_string_to_path(&_gdlp_fp, gedp->dbip, bu_vls_cstr(&gdlp->dl_path)) != 0)
-			{ db_free_full_path(&_gdlp_fp); continue; }
-		    int _belongs = db_full_path_match_top(&_gdlp_fp, &bdata->s_fullpath);
-		    db_free_full_path(&_gdlp_fp);
-		    if (!_belongs) continue;
-
-		    if (db_full_path_search(&bdata->s_fullpath, subpath.fp_names[i])) {
-			struct display_list *last_gdlp;
-			/* Use the matched shape's draw mode as representative for this group */
-			bsg_shape *sp = curr_sp;
-			struct bu_vls mflag = BU_VLS_INIT_ZERO;
-			struct bu_vls xflag = BU_VLS_INIT_ZERO;
-			char *av[5] = {0};
-			int arg = 0;
-
-			av[arg++] = (char *)argv[0];
-			if (sp->s_os->s_dmode == 4) {
-			    av[arg++] = "-h";
-			} else {
-			    bu_vls_printf(&mflag, "-m%d", sp->s_os->s_dmode);
-			    bu_vls_printf(&xflag, "-x%f", sp->s_os->transparency);
-			    av[arg++] = bu_vls_addr(&mflag);
-			    av[arg++] = bu_vls_addr(&xflag);
-			}
-			av[arg] = bu_vls_strdup(&gdlp->dl_path);
-
-			ret = ged_exec(gedp, arg + 1, (const char **)av);
-
-			bu_free(av[arg], "to_edit_redraw");
-			bu_vls_free(&mflag);
-			bu_vls_free(&xflag);
-
-			/* The function call above causes gdlp to be
-			 * removed from the display list. A new one is
-			 * then created and appended to the end.  Here
-			 * we put it back where it belongs (i.e. as
-			 * specified by the user).  This also prevents
-			 * an infinite loop where the last and the
-			 * second to last list items play leap frog
-			 * with the end of list.
-			 */
-			last_gdlp = BU_LIST_PREV(display_list, (struct bu_list *)ged_dl(gedp));
-			BU_LIST_DEQUEUE(&last_gdlp->l);
-			BU_LIST_INSERT(&next_gdlp->l, &last_gdlp->l);
-			last_gdlp->dl_wflag = 1;
-
-			goto end;
-		    }
-		}
-
-	    end:
-		gdlp = next_gdlp;
-	    }
-	}
-
-	db_free_full_path(&subpath);
     }
 
     to_refresh_all_views(current_top);
-
     return ret;
 }
 

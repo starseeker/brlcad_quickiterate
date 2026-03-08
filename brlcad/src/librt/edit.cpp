@@ -587,7 +587,7 @@ rt_edit_knob_cmd_process(
 	    fastf_t *eamt = NULL;
 	    fastf_t *leamt = NULL;
 	    fastf_t *tvec_c;
-	    fastf_t sf = f * v->gv_local2base / v->gv_scale;
+	    fastf_t sf = f * bsg_view_local2base(v) / bsg_view_scale(v);
 
 	    tvec_c = &(*tvec)[ind];
 
@@ -611,7 +611,7 @@ rt_edit_knob_cmd_process(
 		*tvec_c = f;
 	    } else {
 		*eamt = sf;
-		*tvec_c = f - *leamt * v->gv_scale * v->gv_base2local;
+		*tvec_c = f - *leamt * bsg_view_scale(v) * bsg_view_base2local(v);
 	    }
 	    *leamt = *eamt;
 
@@ -754,7 +754,7 @@ rt_knob_edit_tran(struct rt_edit *s,
 	    break;
 	case 'v':
 	default:
-	    VSCALE(p2, tvec, s->local2base / s->vp->gv_scale);
+	    VSCALE(p2, tvec, s->local2base / bsg_view_scale(s->vp));
 	    MAT4X3PNT(work, _cam.view2model, p2);
 	    MAT_DELTAS_GET_NEG(vcenter, _cam.center);
 	    VSUB2(delta, work, vcenter);

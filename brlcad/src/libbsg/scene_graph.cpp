@@ -288,6 +288,31 @@ bsg_traverse(bsg_shape *root,
 }
 
 /* ====================================================================== *
+ * Phase 2: view-scale accessors                                         *
+ * ====================================================================== */
+
+extern "C" fastf_t
+bsg_view_scale(const bsg_view *v)
+{
+    if (!v) return 0.0;
+    return v->gv_scale;
+}
+
+extern "C" fastf_t
+bsg_view_local2base(const bsg_view *v)
+{
+    if (!v) return 1.0;
+    return v->gv_local2base;
+}
+
+extern "C" fastf_t
+bsg_view_base2local(const bsg_view *v)
+{
+    if (!v) return 1.0;
+    return v->gv_base2local;
+}
+
+/* ====================================================================== *
  * Phase 2: camera accessor (updated: bsg_view_get_camera existed,        *
  *          bsg_view_set_camera is new)                                   *
  * ====================================================================== */

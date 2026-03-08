@@ -211,28 +211,6 @@ dozoom(struct mged_state *s, int which_eye)
 }
 
 /*
- * Create Display Lists
- */
-void
-createDLists(void *data, struct bu_list *hdlp)
-{
-    struct mged_state *s = (struct mged_state *)data;
-    MGED_CK_STATE(s);
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	dm_set_dirty(DMP, 1);
-	dm_draw_display_list(DMP, gdlp);
-
-	gdlp = next_gdlp;
-    }
-}
-
-/*
  * Create a display list for "sp" for every display manager
  * manager that:
  * 1 - supports display lists

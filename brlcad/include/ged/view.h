@@ -38,9 +38,9 @@
 __BEGIN_DECLS
 
 
-/** Check if a drawable exists */
+/** Check if a drawable exists (scene-root is available when a view is present) */
 #define GED_CHECK_DRAWABLE(_gedp, _flags) \
-    if (!ged_dl(_gedp)) { \
+    if ((_gedp)->ged_gvp == GED_VIEW_NULL) { \
 	int ged_check_drawable_quiet = (_flags) & GED_QUIET; \
 	if (!ged_check_drawable_quiet) { \
 	    bu_vls_trunc((_gedp)->ged_result_str, 0); \
@@ -66,17 +66,11 @@ struct ged_bv_data {
 };
 
 /* defined in display_list.c */
-GED_EXPORT void dl_set_iflag(struct bu_list *hdlp, int iflag);
-GED_EXPORT extern void dl_color_soltab(struct bu_list *hdlp);
 GED_EXPORT extern void dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split);
-GED_EXPORT extern struct display_list *dl_addToDisplay(struct bu_list *hdlp, struct db_i *dbip, const char *name);
 
-/* BSG Phase 2e versions — operate on scene-root children instead of dl_head_scene_obj */
+/* BSG Phase 2e versions — operate on scene-root children */
 GED_EXPORT extern void bsg_color_soltab(bsg_view *v);
 GED_EXPORT extern void bsg_set_iflag(bsg_view *v, int iflag);
-
-/* Check ged_bv data associated with a display list */
-GED_EXPORT extern unsigned long long ged_dl_hash(struct display_list *dl);
 
 /**
  * ged_find_shapes_by_path — BSG Phase 2e helper.
@@ -255,14 +249,9 @@ GED_EXPORT struct rt_selection_set *ged_get_selection_set(struct ged *gedp,
 
 
 
-/* Accessors for display list based drawing info.  Eventually we want to migrate
- * off of direct usage of these containers completely, but for now the older
- * drawing path (which MGED and Archer use) needs them.
- */
+/* RT command completion notification callback type and accessors */
 typedef void (*ged_drawable_notify_func_t)(int);
 
-GED_EXPORT struct display_list *
-ged_dl(struct ged *gedp);
 GED_EXPORT void
 ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f);
 GED_EXPORT ged_drawable_notify_func_t

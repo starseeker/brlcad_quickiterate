@@ -40,14 +40,11 @@ extern int ged_zap2_core(struct ged *gedp, int argc, const char *argv[]);
 static void
 dl_zap(struct ged *gedp)
 {
-    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
     struct db_i *dbip = gedp->dbip;
-    struct display_list *gdlp = NULL;
-    struct bu_ptbl dls = BU_PTBL_INIT_ZERO;
     bsg_shape *free_scene_obj = bsg_scene_fsos(&gedp->ged_views);
     struct bu_list *vlfree = &rt_vlfree;
 
-    /* Phase 2e: free all shapes from root->children across all views */
+    /* Free all shapes from root->children across all views */
     struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     if (views) {
 	for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
@@ -73,18 +70,6 @@ dl_zap(struct ged *gedp)
 	    bu_ptbl_reset(&root->children);
 	}
     }
-
-    /* Free all display list headers */
-    while (BU_LIST_WHILE(gdlp, display_list, hdlp)) {
-	BU_LIST_DEQUEUE(&gdlp->l);
-	bu_ptbl_ins_unique(&dls, (long *)gdlp);
-    }
-    for (size_t i = 0; i < BU_PTBL_LEN(&dls); i++) {
-	gdlp = (struct display_list *)BU_PTBL_GET(&dls, i);
-	bu_vls_free(&gdlp->dl_path);
-	BU_FREE(gdlp, struct display_list);
-    }
-    bu_ptbl_free(&dls);
 }
 
 /*

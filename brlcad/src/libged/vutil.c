@@ -151,43 +151,6 @@ _ged_do_tra(struct ged *gedp,
     return BRLCAD_OK;
 }
 
-unsigned long long
-ged_dl_hash(struct display_list *dl)
-{
-    if (!dl)
-	return 0;
-
-    struct bu_data_hash_state *state = bu_data_hash_create();
-    if (!state)
-	return 0;
-
-    /* Phase 2e: use root->children as the sole source of shapes */
-    bsg_view *v = NULL;
-    struct display_list *first_gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)dl);
-    if (BU_LIST_NOT_HEAD(first_gdlp, dl)) {
-	/* Get view from the gedp's default view — dl is the gd_headDisplay list */
-	(void)first_gdlp;
-    }
-    /* Fall back to the context's gedp->ged_gvp when dl has no shapes yet */
-    if (!v) {
-	/* The caller (ged_dl_hash) passes gedp->i->ged_gdp->gd_headDisplay.
-	 * We can get gedp->ged_gvp from the outer scope — but ged_dl_hash
-	 * has no gedp reference here.  Use scene-root directly via any view
-	 * that has children.  ged_dl_hash has already been migrated in
-	 * display_list.c; this legacy path is kept for external callers. */
-    }
-
-    /* Iterate all views' root->children to hash scene content. */
-    /* Note: this function now takes the dl as an opaque key; the real
-     * hashing is done by dl_name_hash(gedp) in display_list.c. */
-    (void)v;
-
-    unsigned long long hash_val = bu_data_hash_val(state);
-    bu_data_hash_destroy(state);
-
-    return hash_val;
-}
-
 void
 nmg_plot_eu(struct ged *gedp, struct edgeuse *es_eu, const struct bn_tol *tol, struct bu_list *vlfree)
 {

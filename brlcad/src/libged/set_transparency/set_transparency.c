@@ -31,9 +31,6 @@
 void
 dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparency)
 {
-    struct bu_list *hdlp = gedp->i->ged_gdp->gd_headDisplay;
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
     bsg_shape *sp;
     size_t i;
     struct directory **tmp_dpp;
@@ -61,12 +58,11 @@ dl_set_transparency(struct ged *gedp, struct directory **dpp, double transparenc
 	sp->s_os->transparency = transparency;
     }
 
-    /* Notify the display callback to rebuild display lists per gdlp */
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-	ged_create_vlist_display_list_cb(gedp, gdlp);
-	gdlp = next_gdlp;
+    /* Phase 2e: notify per-solid vlist callback directly from scene-root;
+     * gd_headDisplay is no longer populated, so the per-gdlp loop is gone. */
+    for (size_t si = 0; si < nshapes; si++) {
+	sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	if (sp) ged_create_vlist_solid_cb(gedp, sp);
     }
 }
 

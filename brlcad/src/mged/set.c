@@ -412,7 +412,7 @@ set_dlist(const struct bu_structparse *UNUSED(sdp),
 	    if (dm_get_displaylist(dlp1->dm_dmp) &&
 		dlp1->dm_dlist_state->dl_active == 0) {
 		set_curr_dm(s, dlp1);
-		createDLists((void *)s, (struct bu_list *)ged_dl(s->gedp));
+		createDListAll((void *)s, NULL);
 		dlp1->dm_dlist_state->dl_active = 1;
 		dlp1->dm_dirty = 1;
 		dm_set_dirty(dlp1->dm_dmp, 1);

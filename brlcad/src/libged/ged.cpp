@@ -131,8 +131,6 @@ ged_init(struct ged *gedp)
     gedp->ged_fbs->fbs_listener.fbsl_fd = -1;
 
     BU_GET(gedp->i->ged_gdp, struct ged_drawable);
-    BU_GET(gedp->i->ged_gdp->gd_headDisplay, struct bu_list);
-    BU_LIST_INIT(gedp->i->ged_gdp->gd_headDisplay);
     BU_GET(gedp->i->ged_gdp->gd_headVDraw, struct bu_list);
     BU_LIST_INIT(gedp->i->ged_gdp->gd_headVDraw);
 
@@ -227,10 +225,8 @@ ged_free(struct ged *gedp)
 	}
 	bu_ptbl_free(&gedp->free_solids);
 
-	if (gedp->i->ged_gdp->gd_headDisplay)
-	    BU_PUT(gedp->i->ged_gdp->gd_headDisplay, struct bu_vls);
 	if (gedp->i->ged_gdp->gd_headVDraw)
-	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_vls);
+	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_list);
 	qray_free(gedp->i->ged_gdp);
 	BU_PUT(gedp->i->ged_gdp, struct ged_drawable);
     }
