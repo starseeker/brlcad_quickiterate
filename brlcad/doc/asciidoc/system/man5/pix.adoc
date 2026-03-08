@@ -9,7 +9,7 @@ pix - Color RGB image file format and utilities
 [[format]]
 == FORMAT
 
-A _pix_ file contains sequences of pixels. Each pixel is stored as three *unsigned char*s, first red, then green, then blue. The intensity of each color ranges from 0 ("off") to 255 ("on"). The first pixel in a _pix_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image.
+A _pix_ file contains sequences of pixels. Each pixel is stored as three *unsigned char* s, first red, then green, then blue. The intensity of each color ranges from 0 ("off") to 255 ("on"). The first pixel in a _pix_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image.
 
 By convention, _pix_ images are usually square, and thus their dimensions can be determined by the file size. If this is not the case, often only the file width need be known by a program reading the file. History has left us with two "standard" sizes, 512x512 and the "higher" 1024x1024. A common practice for other file sizes is to include the file width in the filename.
 
@@ -82,5 +82,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

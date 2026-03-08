@@ -25,7 +25,7 @@ The *-n* _file_height_ and *-N* _scr_height_ flags specify the height in scanlin
 
 *-s* _squarefilesize_ and *-S* _squarescrsize_ set both the height and width to the size given (for input file and display device respectively).
 
-( _scr_width_ and _scr_height_ must be set to positive values, either separately via *-W* and *-N*, or jointly via *-S*. This is because they start with default values of zero.)
+(_scr_width_ and _scr_height_ must be set to positive values, either separately via *-W* and *-N*, or jointly via *-S*. This is because they start with default values of zero.)
 
 *-o* _out_file.bw_ is a way of specifying output file name.
 

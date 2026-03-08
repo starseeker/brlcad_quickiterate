@@ -39,7 +39,7 @@ Note: this command was previously named "dbbinary".
 [[examples]]
 == EXAMPLES
 
-The examples show the use of the *bo* command to both create ( _-i_ option) and to retrieve a binary object ( _-o_ option).
+The examples show the use of the *bo* command to both create (_-i_ option) and to retrieve a binary object (_-o_ option).
 
 .Create an opaque uniform binary object of characters with a specified name containing the contents of a particular file.
 [example]

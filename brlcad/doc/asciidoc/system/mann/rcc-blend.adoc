@@ -17,7 +17,7 @@ rcc-blend {<rccname newname thickness>} [b] [t]
 [[description]]
 == DESCRIPTION
 
-Generates a blend at an end (base [ _b_] or top [ _t_]) of the specified RCC shape. The thickness is the radius of the TOR curvature. The blend is saved as a region made up of an RCC and a TOR. The default end is the base.
+Generates a blend at an end (base [_b_] or top [_t_]) of the specified RCC shape. The thickness is the radius of the TOR curvature. The blend is saved as a region made up of an RCC and a TOR. The default end is the base.
 
 
 [[examples]]

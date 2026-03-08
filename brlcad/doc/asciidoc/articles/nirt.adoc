@@ -1084,7 +1084,7 @@ When run from within _MGED_ _NIRT_ uses the current units set within the _MGED_ 
 [[Silent_and_Verbose_Modes]]
 === Silent and Verbose Modes
 
-_NIRT_ supports two behaviors associated with output verbosity. The interactive command line environment uses the verbose mode by default. Verbose mode prints out the headers containing information about the BRL-CAD version number, database name, database title, etc. and also provides the " *nirt>*" command prompt label. Silent mode, used by default inside the MGED command window, does not print any headers or prompt label.
+_NIRT_ supports two behaviors associated with output verbosity. The interactive command line environment uses the verbose mode by default. Verbose mode prints out the headers containing information about the BRL-CAD version number, database name, database title, etc. and also provides the "*nirt>*" command prompt label. Silent mode, used by default inside the MGED command window, does not print any headers or prompt label.
 
 When generating large numbers of results, it is sometimes desirable to switch to silent mode on the command line. This is accomplished by supplying the _s_ option to *nirt*. Similarly, in the _MGED_ window, supplying the _v_ option will produce the full text output of _NIRT_'s interactive mode in the _MGED_ window.
 
@@ -1252,7 +1252,7 @@ q
 	
 ....
 
-Because the intent is to have _only_ the output in the file, the _s_ option is supplied to the *nirt* command. The output is redirected to a file called `output.txt`footnote:[These examples use a standard POSIX-style output redirect to create the file. If this doesn't work, the above script can be edited to use the *dest* command instead.]
+Because the intent is to have _only_ the output in the file, the _s_ option is supplied to the *nirt* command. The output is redirected to a file called `output.txt` footnote:[These examples use a standard POSIX-style output redirect to create the file. If this doesn't work, the above script can be edited to use the *dest* command instead.]
 
 
 ....
