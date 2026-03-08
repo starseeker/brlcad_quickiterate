@@ -1,6 +1,5 @@
 = Application Development
-Lee A. Butler
-John Anderson
+Lee A. Butler; John Anderson
 :doctype: article
 
 == WARNING

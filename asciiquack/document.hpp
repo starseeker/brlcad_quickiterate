@@ -184,11 +184,23 @@ public:
         return attributes_.count(name) > 0;
     }
 
-    /// Return the attribute value, or @p fallback if not set.
-    [[nodiscard]] const std::string& attr(const std::string& name,
-                                          const std::string& fallback = empty_) const {
+    /// Return a stable reference to the attribute value, or to the empty
+    /// string if the attribute is not set.  The returned reference is valid
+    /// as long as the block is alive and the attribute is not removed.
+    [[nodiscard]] const std::string& attr(const std::string& name) const {
         auto it = attributes_.find(name);
-        return (it != attributes_.end()) ? it->second : fallback;
+        return (it != attributes_.end()) ? it->second : empty_;
+    }
+
+    /// Return the attribute value by value, or @p fallback if not set.
+    ///
+    /// This overload deliberately returns by value (not by reference) so that
+    /// the caller can safely store the result even when the attribute is absent
+    /// and the fallback would otherwise be a dangling reference to a temporary.
+    [[nodiscard]] std::string attr(const std::string& name,
+                                   std::string fallback) const {
+        auto it = attributes_.find(name);
+        return (it != attributes_.end()) ? it->second : std::move(fallback);
     }
 
     void set_attr(std::string name, std::string value) {

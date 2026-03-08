@@ -190,10 +190,16 @@ private:
 
         // .TH TITLE SECTION DATE [SOURCE [MANUAL]]
         const std::string& manname   = doc.attr("manname");
-        const std::string& manvolnum = doc.attr("manvolnum", "1");
-        const std::string& date      = doc.attr("revdate", doc.attr("docdate"));
-        const std::string& source    = doc.attr("source");
-        const std::string& manual    = doc.attr("manual");
+        // attr(name, fallback) returns by value – safe even when the attribute
+        // is absent (no dangling reference).
+        const std::string  manvolnum = doc.attr("manvolnum", "1");
+        const std::string  date      = doc.attr("revdate",   doc.attr("docdate"));
+        // :mansource: and :manmanual: are the canonical attribute names used in
+        // BRL-CAD man page headers; accept them as aliases for :source: / :manual:.
+        const std::string  source    = doc.has_attr("source")
+            ? doc.attr("source") : doc.attr("mansource");
+        const std::string  manual    = doc.has_attr("manual")
+            ? doc.attr("manual") : doc.attr("manmanual");
 
         // Uppercase the command name for the title
         std::string manname_upper;
@@ -354,7 +360,7 @@ private:
 
     void convert_admonition(const Block& block, const Document& doc,
                             OutputBuffer& out) const {
-        const std::string& name = block.attr("name", "note");
+        const std::string name = block.attr("name", "note");
         std::string label = name;
         // Title-case
         if (!label.empty()) {
@@ -444,8 +450,22 @@ private:
                 << "\\fB" << troff_escape(list.title()) << "\\fR\n";
         }
         for (const auto& item : list.items()) {
-            out << ".TP\n"
-                << "\\fB" << inline_subs(item->term(), doc) << "\\fR\n";
+            // Emit the term via inline_subs so that explicit bold/italic markup
+            // (*term*) is handled correctly.  Do not add an extra \fB...\fR
+            // wrapper here – that would double-bold terms that are already
+            // marked *bold* in the source.
+            std::string term_rendered = inline_subs(item->term(), doc);
+            // If the term has no inline formatting (plain text), bold it with
+            // \fB...\fR so it stands out on the .TP line, matching Asciidoctor
+            // man page output conventions.
+            bool has_markup = (term_rendered.find("\\fB") != std::string::npos ||
+                               term_rendered.find("\\fI") != std::string::npos);
+            out << ".TP\n";
+            if (has_markup) {
+                out << term_rendered << "\n";
+            } else {
+                out << "\\fB" << term_rendered << "\\fR\n";
+            }
             if (!item->source().empty()) {
                 out << inline_subs(item->source(), doc) << '\n';
             }
