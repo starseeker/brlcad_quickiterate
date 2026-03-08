@@ -416,6 +416,27 @@ QgEdApp::do_view_changed(unsigned long long flags)
     bsg_log(1, "QgEdApp::do_view_changed");
     QTCAD_SLOT("QgEdApp::do_view_changed", 1);
 
+    // Coalesce: accumulate flags and schedule a single deferred flush so that
+    // re-entrant or rapid-fire calls from multiple signals do not recursively
+    // re-enter this slot before the event loop has had a chance to drain.
+    pending_view_flags_ |= flags;
+    if (!view_change_pending_) {
+	view_change_pending_ = true;
+	QMetaObject::invokeMethod(this, "flush_view_changed_",
+	    Qt::QueuedConnection);
+    }
+}
+
+void
+QgEdApp::flush_view_changed_()
+{
+    // Snapshot and clear the pending state before doing any work, so that
+    // signals emitted during the work (e.g. view_update → widget → view_changed)
+    // can schedule a fresh batch rather than being lost.
+    unsigned long long flags = pending_view_flags_;
+    pending_view_flags_ = 0;
+    view_change_pending_ = false;
+
     if (flags & QG_VIEW_DRAWN) {
 	// For all associated view states, execute any necessary changes to
 	// view objects and lists
@@ -450,7 +471,7 @@ QgEdApp::open_file()
 {
     QTCAD_SLOT("QgEdApp::open_file", 1);
 
-    load_g_file();
+    (void)load_g_file();
 }
 
 int

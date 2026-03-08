@@ -319,6 +319,15 @@ bsg_view_set_scale(bsg_view *v, fastf_t scale)
     v->gv_scale = scale;
 }
 
+extern "C" void
+bsg_view_set_size(bsg_view *v, fastf_t size)
+{
+    if (!v) return;
+    v->gv_size = size;
+    v->gv_scale = size * 0.5;
+    v->gv_isize = 1.0 / size;
+}
+
 /* ====================================================================== *
  * Phase 2: camera accessor (updated: bsg_view_get_camera existed,        *
  *          bsg_view_set_camera is new)                                   *

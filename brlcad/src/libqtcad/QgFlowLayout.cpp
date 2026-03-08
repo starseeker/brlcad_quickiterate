@@ -150,10 +150,9 @@ QSize QgFlowLayout::minimumSize() const
     foreach (item, itemList)
         size = size.expandedTo(item->minimumSize());
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    // TODO - figure out the right Qt6 logic here...
-    size += QSize(2*margin(), 2*margin());
-#endif
+    int left, top, right, bottom;
+    getContentsMargins(&left, &top, &right, &bottom);
+    size += QSize(left + right, top + bottom);
     return size;
 }
 

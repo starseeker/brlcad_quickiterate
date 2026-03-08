@@ -217,7 +217,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 	~QgModel();
 
 	// .g Db interface and containers
-	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
+	[[nodiscard]] int run_cmd(struct bu_vls *msg, int argc, const char **argv);
 	struct ged *gedp = nullptr;
 
 	// IDbiObserver implementation - called after DbiState::update() completes

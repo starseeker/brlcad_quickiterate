@@ -354,7 +354,7 @@ QgModel::QgModel(QObject *p, const char *npath)
 	av[0] = "open";
 	av[1] = npath;
 	av[2] = nullptr;
-	run_cmd(gedp->ged_result_str, ac, (const char **)av);
+	(void)run_cmd(gedp->ged_result_str, ac, (const char **)av);
     }
 }
 
