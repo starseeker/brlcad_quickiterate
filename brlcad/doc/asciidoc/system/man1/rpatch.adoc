@@ -23,7 +23,7 @@ This program reformats FASTGEN files to a form usable by *patch-g* . The *-D* op
 [[example]]
 == EXAMPLE
 
-rpatch < _fastgen_file_ > _file.rpatch_
+rpatch < __fastgen_file__ > _file.rpatch_
 
 
 [[diagnostics]]
@@ -54,3 +54,5 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

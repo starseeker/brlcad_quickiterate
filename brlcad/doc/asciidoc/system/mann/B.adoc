@@ -30,7 +30,7 @@ The following are run from the MGED command prompt.
 ====
 
 mged>*B some_object*::
-The display clears, and the object named _some_object_ is displayed.
+The display clears, and the object named __some_object__ is displayed.
 
 
 
@@ -56,3 +56,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

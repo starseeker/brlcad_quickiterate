@@ -17,7 +17,7 @@ cpi {<old_tgc new_tgc>}
 [[description]]
 == DESCRIPTION
 
-Copies _old_tgc_(an existing TGC shape) to a new TGC shape (_new_tgc_), positions the new TGC such that its base vertex is coincident with the center of the top of _old_tgc_, and puts _mged_ into the primitive edit state with _new_tgc_ selected for editing. This command was typically used in creating models of wiring or piping runs; however, a pipe primitive has since been added to _BRL-CAD_ to handle such requirements.
+Copies __old_tgc__(an existing TGC shape) to a new TGC shape (__new_tgc__), positions the new TGC such that its base vertex is coincident with the center of the top of __old_tgc__, and puts _mged_ into the primitive edit state with __new_tgc__ selected for editing. This command was typically used in creating models of wiring or piping runs; however, a pipe primitive has since been added to _BRL-CAD_ to handle such requirements.
 
 
 [[examples]]
@@ -30,7 +30,7 @@ The example shows the use of the *cpi* command to copy an existing TGC shape to 
 ====
 mged>*cpi tgc_a tgc_b*
 
-Copies _tgc_a_ to _tgc_b_ and translates _tgc_b_ to the end of _tgc_a_.
+Copies __tgc_a__ to __tgc_b__ and translates __tgc_b__ to the end of __tgc_a__.
 
 ====
 
@@ -45,3 +45,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

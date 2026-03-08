@@ -39,7 +39,7 @@ Closes the current display manager.
 ====
 mged>*release .dm_X0*
 
-Closes _.dm_X0_.
+Closes __.dm_X0__.
 
 ====
 
@@ -54,3 +54,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

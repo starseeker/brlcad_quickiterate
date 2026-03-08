@@ -47,7 +47,7 @@ Displays just the specified image (starting counting with 1), rather than displa
 (zoom) Uses the zoom capability of the current framebuffer to make the image as large as possible on the screen while preserving a square aspect ratio to the pixels. This means that the zoom factor in X and Y will be equal to the smaller of the two possible zooms.
 
 
-_GIF_file_name_::
+__GIF_file_name__::
 Specifies the GIF input file to be translated, rather than reading the file from the standard input.
 
 
@@ -102,3 +102,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

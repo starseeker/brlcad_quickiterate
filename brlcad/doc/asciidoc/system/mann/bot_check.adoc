@@ -81,7 +81,7 @@ Run all checks on _input.bot_. Returns "1" if successful, and "0" if a problem w
 ====
 mged>*bot check open_edges input.bot*
 
-Run just the _open_edges_ test on input.bot, reporting "1" if everything looks valid and "0" if one or more open edges are found.
+Run just the __open_edges__ test on input.bot, reporting "1" if everything looks valid and "0" if one or more open edges are found.
 
 ====
 

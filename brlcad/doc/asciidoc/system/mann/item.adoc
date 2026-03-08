@@ -30,7 +30,7 @@ The example shows the use of the *item* command to set the ident number, air cod
 ====
 
 mged>*item region_1 1137 0 8 100*::
-Sets the _ident number_ to 1137, _air code_ to 0, _material code_ to 8, and _LOS_ to 100 for _region_1_.
+Sets the _ident number_ to 1137, _air code_ to 0, _material code_ to 8, and _LOS_ to 100 for __region_1__.
 
 
 
@@ -47,3 +47,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -30,7 +30,7 @@ The example shows the use of the *unhide* command to remove the flag that specif
 ====
 
 mged>*unhide sol_a*::
-Removes the flag that marks _sol_a_ as hidden.
+Removes the flag that marks __sol_a__ as hidden.
 
 
 
@@ -47,3 +47,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
