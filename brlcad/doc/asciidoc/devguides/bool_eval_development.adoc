@@ -58,8 +58,13 @@ The NURBS surface-surface intersection algorithm is based on the "NURBS Intersec
 
 === The Boolean Evaluation Algorithm
 
-Evaluating a BooleanThis is a high-level overview of the Boolean evaluation performed on two B-Rep objects.
+.Evaluating a Boolean
 
+.Summary
+This is a high-level overview of the Boolean evaluation performed on two B-Rep objects.
+
+
+.Prerequisites
 Make sure you have two entities that are geometric, solid, and valid; that they are topologically connected, describe manifold surfaces, and enclose some non-infinite volume.
 
 Make sure you have a valid Boolean operation (i.e., UNION, SUBTRACT, INTERSECT).
@@ -1199,3 +1204,8 @@ link_curves(ON_Curve *&c1, ON_Curve *&c2)
               
             
 ----
+
+
+
+
+
