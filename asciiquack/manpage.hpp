@@ -532,20 +532,45 @@ private:
     // ── Verbatim (listing / literal) ──────────────────────────────────────────
 
     static void convert_verbatim(const Block& block, OutputBuffer& out) {
-        out << ".if n .RS 4\n"
+        if (block.has_title()) {
+            out << ".sp\n"
+                << "\\fB" << troff_escape(block.title()) << "\\fP\n";
+        }
+        out << ".sp\n"
+            << ".if n .RS 4\n"
             << ".nf\n"
             << ".fam C\n";
-        // Emit each line with leading period protection
+        // Split into lines, then trim leading and trailing blank lines from the
+        // content (matching asciidoctor's man page backend behaviour).
         std::istringstream ss(block.source());
-        std::string line;
-        while (std::getline(ss, line)) {
+        std::vector<std::string> lines;
+        {
+            std::string ln;
+            while (std::getline(ss, ln)) { lines.push_back(std::move(ln)); }
+        }
+        // Trim leading blank lines
+        while (!lines.empty() && lines.front().find_first_not_of(" \t") == std::string::npos) {
+            lines.erase(lines.begin());
+        }
+        // Trim trailing blank lines
+        while (!lines.empty() && lines.back().find_first_not_of(" \t") == std::string::npos) {
+            lines.pop_back();
+        }
+        for (const auto& line : lines) {
             if (!line.empty() && (line[0] == '.' || line[0] == '\'')) {
                 out << "\\&";
             }
-            // Escape backslashes
+            // Expand tabs to 8 spaces and escape backslashes, matching
+            // asciidoctor's man page backend behavior (simple tab→8-space
+            // replacement, not tabstop-aligned).
             for (char c : line) {
-                if (c == '\\') { out << "\\\\"; }
-                else           { out << c; }
+                if (c == '\t') {
+                    out << "        ";  // 8 spaces per tab
+                } else if (c == '\\') {
+                    out << "\\\\";
+                } else {
+                    out << c;
+                }
             }
             out << '\n';
         }
