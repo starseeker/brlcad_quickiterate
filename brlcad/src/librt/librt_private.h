@@ -60,27 +60,117 @@
     } \
 } while (0)
 
+/* -----------------------------------------------------------------------
+ * Drawing cache infrastructure
+ * -----------------------------------------------------------------------
+ * cache_drawing.cpp implements a 5-stage concurrent pipeline that
+ * computes drawing data (attrs → AABB → OBB → LoD → write) in background
+ * threads, storing results in an LMDB-backed bu_cache and posting
+ * DrawResult notifications to a lock-free queue readable by the main thread.
+ *
+ * The concurrentqueue.h header (moodycamel, MIT license) provides the
+ * lock-free multi-producer/multi-consumer queue used between stages.
+ * ----------------------------------------------------------------------- */
+
+#ifdef __cplusplus
+#  include "concurrentqueue.h"
+
+#  include <atomic>
+#  include <string>
+#  include <thread>
+#  include <vector>
+
+/* Single item queued for writing to the LMDB drawing cache. */
+class CacheWriteItem {
+public:
+    CacheWriteItem();
+    CacheWriteItem(const char *key, const void *data, size_t len);
+    CacheWriteItem(const CacheWriteItem &o);
+    CacheWriteItem& operator=(const CacheWriteItem &o);
+    ~CacheWriteItem();
+
+    char   key[BU_CACHE_KEY_MAXLEN] = {0};
+    bool   erase_op  = false;
+    size_t data_len  = 0;
+    void  *data      = nullptr;
+};
+
+/* Result notification posted to the main-thread result queue after each
+ * pipeline stage finishes for one object. */
+struct DrawResult {
+    enum Type { AABB, OBB, LOD } type;
+    unsigned long long hash = 0;
+    char dp_name[512] = {0};
+    /* AABB */
+    point_t bmin = VINIT_ZERO;
+    point_t bmax = VINIT_ZERO;
+    /* OBB: center + 3 half-extent vectors (as produced by bg_3d_obb) */
+    point_t obb_pts[8];    /* 8 corner points of the oriented bounding box */
+    bool    obb_valid = false;
+    /* LOD */
+    unsigned long long lod_key = 0;
+};
+
+/* The per-database 5-stage pipeline state.  Lives in db_i_internal::draw_pipeline
+ * as an opaque void* so that C translation units (db_open.c) don't need to
+ * include C++ headers. */
+class DrawPipelineState {
+public:
+    std::atomic<bool> shutdown{false};
+    std::atomic<int>  thread_cnt{0};
+
+    /* Inter-stage queues (lock-free, moodycamel). */
+    moodycamel::ConcurrentQueue<std::string>             q_init;   /* object names → attr stage */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *> q_aabb;   /* cracked internal → AABB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *> q_obb;    /* post-AABB → OBB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *> q_lod;    /* post-OBB  → LoD */
+    moodycamel::ConcurrentQueue<CacheWriteItem>          q_write;  /* pending LMDB writes */
+
+    /* Result queue read by the main thread (drain → scene change). */
+    moodycamel::ConcurrentQueue<DrawResult> results_q;
+
+    struct db_i           *dbip    = nullptr;
+    bsg_mesh_lod_context  *lod_ctx = nullptr; /* set from gedp->ged_lod when available */
+    struct bu_cache       *dcache  = nullptr; /* same pointer as dbip->i->dcache */
+
+    /* Worker thread handles. */
+    std::vector<std::thread> threads;
+};
+
+#endif  /* __cplusplus */
 
 __BEGIN_DECLS
 
-// TODO - eventually, all the "LIBRT ONLY" elements in db_i should move here.
-// The librt prep caching container should also go here.
-//
-// At the moment, it is just an experiment to put drawing related object data
-// caches in the db_i.
+/* C-visible struct – C++ members are hidden behind the opaque void* fields. */
 struct db_i_internal {
     uint32_t dbi_magic;
 
-    /* BoT level of detail cached data for drawing */
+    /* BoT level of detail cached data for drawing (legacy – kept for bsg API) */
     bsg_mesh_lod_context *mesh_c;
     int mesh_c_completed;
     int mesh_c_target;
+
+    /* General drawing data cache (AABB, OBB, attrs).  Opened/closed by
+     * db_cache_start/stop in cache_drawing.cpp. */
+    struct bu_cache *dcache;
+
+    /* Opaque pointer to DrawPipelineState (C++ type).  Managed entirely by
+     * db_cache_start / db_cache_stop. */
+    void *draw_pipeline;
 
     // TODO - really need to get the rt prep cache container
     // in here and add a pointer slot to it for rt_db_internal
     // so the librt point generation routines can take advantage
     // of cached prep even if they're using an inmem db...
 };
+
+/* Drawing-cache lifecycle – implemented in cache_drawing.cpp, called from
+ * db_open.c as extern "C". */
+extern int  db_cache_start(struct db_i *dbip);
+extern void db_cache_stop(struct db_i *dbip);
+extern void db_cache_queue_obj(struct db_i *dbip, const char *name);
+extern int  db_cache_settled(struct db_i *dbip);
+extern void db_cache_set_lod_ctx(struct db_i *dbip, bsg_mesh_lod_context *lod_ctx);
 
 struct db_i_internal * db_i_internal_create(void);
 void db_i_internal_destroy(struct db_i_internal *i);
