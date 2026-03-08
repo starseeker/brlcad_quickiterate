@@ -502,6 +502,13 @@ class GED_EXPORT BViewState {
 
 	DrawList draw_list_;
 	BViewState *linked_to_ = nullptr;
+
+	// Lightweight wireframe bounding-box placeholders, keyed by full_hash
+	// from draw_list_.  Shown while real geometry hasn't been generated yet
+	// (i.e., path is in draw_list_ but NOT in s_map) when a bbox is already
+	// available in dbis->bboxes.  Replaced automatically on the next
+	// redraw() pass once real geometry arrives.
+	std::unordered_map<unsigned long long, bsg_shape *> bbox_placeholders_;
 };
 
 #define GED_DBISTATE_DB_CHANGE   0x01

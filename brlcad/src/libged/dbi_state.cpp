@@ -50,6 +50,7 @@ extern "C" {
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bsg/lod.h"
+#include "bsg/vlist.h"
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"
@@ -1867,6 +1868,13 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	    // Keep draw_list_ in sync immediately so callers don't have to
 	    // wait for the next redraw() to see the removal reflected.
 	    draw_list_.remove(phash, mode);
+
+	    // Also clean up any AABB placeholder for this path
+	    auto ph_it = bbox_placeholders_.find(phash);
+	    if (ph_it != bbox_placeholders_.end()) {
+		bsg_shape_put(ph_it->second);
+		bbox_placeholders_.erase(ph_it);
+	    }
 	}
     }
 
@@ -2370,6 +2378,11 @@ BViewState::gather_paths(
 void
 BViewState::clear()
 {
+    // Release any bbox placeholder shapes before clearing state
+    for (auto &[hash, s] : bbox_placeholders_)
+	bsg_shape_put(s);
+    bbox_placeholders_.clear();
+
     s_map.clear();
     s_keys.clear();
     drawn_paths.clear();
@@ -2822,6 +2835,68 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 
 	// Always process this view's own draw list (may have per-view overrides).
 	process_dl_entries(draw_list_.entries());
+    }
+
+    // AABB placeholder rendering (Section 7.4 of TODO.qged-stack.md):
+    //
+    // Release placeholders for paths that now have real geometry in s_map
+    // (real geometry arrived via synchronous or background loading).
+    {
+	std::vector<unsigned long long> stale;
+	for (auto &[phash, s] : bbox_placeholders_) {
+	    if (s_map.find(phash) != s_map.end()) {
+		bsg_shape_put(s);
+		stale.push_back(phash);
+		ret |= GED_DBISTATE_VIEW_CHANGE;
+	    }
+	}
+	for (unsigned long long h : stale)
+	    bbox_placeholders_.erase(h);
+    }
+
+    // Create new AABB placeholders for draw_list_ entries that still have
+    // no real geometry in s_map but DO have a bbox in dbis->bboxes.  The
+    // placeholder is a dashed wireframe bounding box that is visible
+    // immediately while geometry is being generated or loaded in the
+    // background.
+    if (v) {
+	auto make_placeholders = [&](const std::vector<DrawList::Entry> &dl_entries) {
+	    for (const auto &dl_e : dl_entries) {
+		// Skip if already in s_map (real geometry present)
+		if (s_map.find(dl_e.full_hash) != s_map.end()) continue;
+		// Skip if already have a placeholder for this path
+		if (bbox_placeholders_.find(dl_e.full_hash) != bbox_placeholders_.end()) continue;
+		// Need the solid hash (last element in path) to look up bbox
+		if (dl_e.path.empty()) continue;
+		unsigned long long solid_hash = dl_e.path.back();
+		auto bbox_it = dbis->bboxes.find(solid_hash);
+		if (bbox_it == dbis->bboxes.end()) continue;
+		if (bbox_it->second.size() < 6) continue;
+		// Create a lightweight wireframe bbox scene object
+		bsg_shape *ph = bsg_shape_get(v, BSG_DB_OBJS);
+		if (!ph) continue;
+		// print_path takes a non-const ref; make a copy from the const entry
+		std::vector<unsigned long long> path_copy(dl_e.path);
+		dbis->print_path(&ph->s_name, path_copy);
+		ph->s_v = v;
+		ph->s_soldash = 1;  // dashed lines to signal placeholder status
+		// Set a neutral grey so it doesn't clash with actual geometry
+		ph->s_color[0] = 160;
+		ph->s_color[1] = 160;
+		ph->s_color[2] = 160;
+		// Populate s_vlist with the wireframe box
+		point_t bmin, bmax;
+		VSET(bmin, bbox_it->second[0], bbox_it->second[1], bbox_it->second[2]);
+		VSET(bmax, bbox_it->second[3], bbox_it->second[4], bbox_it->second[5]);
+		bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &ph->s_vlist, bmin, bmax);
+		ph->current = 1;  // vlist is ready; skip draw_scene() for this shape
+		bsg_shape_bound(ph, v);
+		bbox_placeholders_[dl_e.full_hash] = ph;
+		ret |= GED_DBISTATE_VIEW_CHANGE;
+	    }
+	};
+	if (linked_to_) make_placeholders(linked_to_->draw_list_.entries());
+	make_placeholders(draw_list_.entries());
     }
 
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
