@@ -125,6 +125,11 @@ class QgEdApp : public QApplication
 	static constexpr int BG_GEOM_DRAIN_INTERVAL_MS = 100;
 	QTimer *geom_drain_timer_ = nullptr;
 
+	// Tracks how many LoD results have been processed across all drain
+	// calls so far for the current file.  Used to detect when new LoD
+	// data has arrived and a full scene redraw is needed.
+	size_t last_lod_count_ = 0;
+
 	// Coalescing flags for do_view_changed.  When a do_view_changed call
 	// arrives while a queued invocation is already pending, the new flags
 	// are OR-ed in here so that the single queued call handles everything.

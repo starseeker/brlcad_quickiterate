@@ -402,6 +402,33 @@ QgEdApp::drain_background_geom()
 	// bounded to BG_GEOM_DRAIN_INTERVAL_MS.
 	emit view_update(GED_DBISTATE_VIEW_CHANGE);
     }
+
+    // When LoD data for BoT primitives has been newly cached, the placeholder
+    // OBB/AABB wireframes in the scene are stale: stale_mesh_shapes_for_dp()
+    // cleared their per-view objects during drain_geom_results().  A plain
+    // view_update() only schedules a viewport repaint; it does NOT call
+    // BViewState::redraw(), which is the only code path that replaces cleared
+    // placeholder view-objects with real LoD geometry via bot_adaptive_plot().
+    //
+    // Detect newly arrived LoD results (lod_results_processed() advanced) and
+    // schedule a scene redraw via do_view_changed(QG_VIEW_DRAWN).  The
+    // coalescing logic in do_view_changed() ensures that only one redraw is
+    // triggered even if multiple timer firings produce LoD batches.
+    //
+    // If a new file was opened, DbiState resets lod_results_processed() to 0
+    // (in open_db / DbiState constructor).  Detect that rollback (cur < last)
+    // and reset our local counter so the first LoD batch of the new file is
+    // correctly detected.
+    size_t cur_lod = dbis->lod_results_processed();
+    if (cur_lod < last_lod_count_) {
+	bsg_log(2, "QgEdApp: lod counter rolled back (%zu -> %zu) — new file opened\n",
+		last_lod_count_, cur_lod);
+	last_lod_count_ = 0;
+    }
+    if (cur_lod > last_lod_count_) {
+	last_lod_count_ = cur_lod;
+	do_view_changed(QG_VIEW_DRAWN);
+    }
 }
 
 void
