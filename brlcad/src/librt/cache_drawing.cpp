@@ -198,7 +198,7 @@ attr_worker(std::shared_ptr<DrawPipelineState> p)
 	int inherit = 0;
 	{
 	    const char *s = bu_avs_get(&avs, "inherit");
-	    if (BU_STR_EQUAL(s, "1"))
+	    if (s && BU_STR_EQUAL(s, "1"))
 		inherit = 1;
 	}
 	make_key(ckey, hash, CACHE_INHERIT_FLAG);
@@ -503,6 +503,10 @@ db_cache_start(struct db_i *dbip)
 
     /* In-memory databases have no filename → skip LMDB cache */
     if (dbip->dbi_filename && strlen(dbip->dbi_filename)) {
+	/* Size the LMDB map to 2× the .g file size.  The drawing cache stores
+	 * preprocessed data (bboxes, OBBs, attr copies) that is typically
+	 * smaller than the raw geometry, but a 2× multiplier gives headroom
+	 * for growth without requiring frequent remap operations. */
 	long long fsize = 2 * bu_file_size(dbip->dbi_filename);
 	if (fsize <= 0)
 	    fsize = 0;

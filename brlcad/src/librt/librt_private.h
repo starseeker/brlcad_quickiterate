@@ -120,7 +120,12 @@ public:
 
     /* Name map: associates each in-flight rt_db_internal* with its object
      * name.  Written by attr_worker (producer) before enqueue, read by
-     * aabb/obb/lod workers (consumers) after dequeue.  Protected by name_mu. */
+     * aabb/obb workers (consumers) after dequeue.  Protected by name_mu.
+     *
+     * Cleanup contract: lod_worker is the LAST consumer; it must call
+     *   p->ip_names.erase(ip);
+     * before freeing the rt_db_internal* so the map never grows unboundedly.
+     * aabb/obb workers MUST NOT erase — they only read. */
     std::mutex name_mu;
     std::unordered_map<struct rt_db_internal *, std::string> ip_names;
 
