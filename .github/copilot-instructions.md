@@ -158,9 +158,12 @@ The following differences are **known and accepted** – do not try to "fix" the
 
 1. **NAME/description italic markup**: asciidoctor preserves `_word_` as literal underscores
    in man page output; asciiquack converts them to `\fIword\fP` italic.  We keep asciiquack's
-   behaviour.  Normalised away by stripping `[0-9]+m` codes and `_word_` underscore pairs.
-2. **Email address colour**: asciidoctor wraps `devs@brlcad.org` in colour codes `34m…0m`;
-   asciiquack emits it plain.  Filtered by `devs@brlcad`.
+   behaviour.  Normalised away by stripping `[0-9]+m` codes and boundary-anchored `_phrase_`
+   pairs (single underscores, no internal underscores, bounded by space/punctuation).
+   Double-underscore `__word__` patterns (e.g. `__old_bot_primitive__`) are also stripped.
+2. **Email address colour/angle-brackets**: asciidoctor wraps email addresses in colour codes
+   `34m…0m` or `<...>` angle brackets; asciiquack emits them plain.
+   Filtered by `devs@brlcad` and `bugs@brlcad`.
 3. **Date in footer**: asciidoctor adds a `2026-03-08`-style date to the footer; asciiquack
    does not.  Filtered by `BRL-CAD.*[0-9]` and `BRL-CAD\t`.
 4. **asciidoctor `#` mangling bug**: `*-C #/#/#*` → asciidoctor emits `-C //#` (wrong);
@@ -171,12 +174,16 @@ The following differences are **known and accepted** – do not try to "fix" the
 
 ```bash
 normalize_groff() {
-    # Strip groff -Tascii terminal bold/italic codes (must strip longer seqs first).
+    # Strip groff -Tascii terminal bold/italic codes.
     # [0-9]+m covers: 1m (bold-on), 22m (bold-off), 4m (italic-on), 24m (italic-off),
     # 0m (reset), 34m (link colour), etc.
-    # Also strip asciidoctor's literal _word_ and *word* markup that it preserves
-    # in the NAME section (we keep asciiquack's behaviour of converting these).
-    sed 's/[0-9]\+m//g; s/_\([a-zA-Z][a-zA-Z0-9_. ,-]*\)_/\1/g; s/\*\([^*]*\)\*/\1/g'
+    # Strip __double_underscore__ italic (asciidoctor preserves in NAME section).
+    # Strip boundary-anchored _phrase_ italic (space/punct bounded, no internal underscores).
+    # Strip *word* bold markup preserved by asciidoctor in NAME section.
+    sed 's/[0-9]\+m//g' | \
+    sed 's/__\([a-zA-Z][a-zA-Z0-9_]*\)__/\1/g' | \
+    sed 's/\(^\|[ (]\)_\([^_]*\)_\([ ,.:;!?>)\n]\|$\)/\1\2\3/g' | \
+    sed 's/\*\([^*]*\)\*/\1/g'
 }
 ```
 
@@ -187,7 +194,10 @@ REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 AQ=/tmp/aq_build/asciiquack   # or $REPO_ROOT/bext_output/noinstall/bin/asciiquack
 
 normalize_groff() {
-    sed 's/[0-9]\+m//g; s/_\([a-zA-Z][a-zA-Z0-9_. ,-]*\)_/\1/g; s/\*\([^*]*\)\*/\1/g'
+    sed 's/[0-9]\+m//g' | \
+    sed 's/__\([a-zA-Z][a-zA-Z0-9_]*\)__/\1/g' | \
+    sed 's/\(^\|[ (]\)_\([^_]*\)_\([ ,.:;!?>)\n]\|$\)/\1\2\3/g' | \
+    sed 's/\*\([^*]*\)\*/\1/g'
 }
 
 adoc="$REPO_ROOT/brlcad/doc/asciidoc/system/man1/nirt.adoc"
@@ -195,7 +205,7 @@ asciidoctor -b manpage -o /tmp/ad_nirt.1 "$adoc" 2>/dev/null
 $AQ -b manpage "$adoc" -o /tmp/aq_nirt.1 2>/dev/null
 diff <(groff -t -Tascii -man /tmp/ad_nirt.1 2>/dev/null | col -b | normalize_groff) \
      <(groff -t -Tascii -man /tmp/aq_nirt.1 2>/dev/null | col -b | normalize_groff) | \
-  grep "^[<>]" | grep -Pv "BRL-CAD.*[0-9]|BRL-CAD\t|devs@brlcad|//#"
+  grep "^[<>]" | grep -Pv "BRL-CAD.*[0-9]|BRL-CAD\t|devs@brlcad|bugs@brlcad|//#"
 ```
 
 ### Bulk comparison (mann + man1, asciidoctor vs asciiquack)
@@ -205,7 +215,10 @@ REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 AQ=$REPO_ROOT/bext_output/noinstall/bin/asciiquack
 
 normalize_groff() {
-    sed 's/[0-9]\+m//g; s/_\([a-zA-Z][a-zA-Z0-9_. ,-]*\)_/\1/g; s/\*\([^*]*\)\*/\1/g'
+    sed 's/[0-9]\+m//g' | \
+    sed 's/__\([a-zA-Z][a-zA-Z0-9_]*\)__/\1/g' | \
+    sed 's/\(^\|[ (]\)_\([^_]*\)_\([ ,.:;!?>)\n]\|$\)/\1\2\3/g' | \
+    sed 's/\*\([^*]*\)\*/\1/g'
 }
 
 fixed=0; minor=0; large=0; total=0
@@ -217,7 +230,7 @@ for adoc in $REPO_ROOT/brlcad/doc/asciidoc/system/mann/*.adoc \
   ndiff=$(diff \
     <(groff -t -Tascii -man /tmp/ad_cmp.nged 2>/dev/null | col -b | normalize_groff) \
     <(groff -t -Tascii -man /tmp/aq_cmp.nged 2>/dev/null | col -b | normalize_groff) | \
-    grep "^[<>]" | grep -Pcv "BRL-CAD.*[0-9]|BRL-CAD\t|devs@brlcad|//#")
+    grep "^[<>]" | grep -Pcv "BRL-CAD.*[0-9]|BRL-CAD\t|devs@brlcad|bugs@brlcad|//#")
   if   [ "$ndiff" -le 0 ]; then fixed=$((fixed+1))
   elif [ "$ndiff" -le 6 ]; then minor=$((minor+1))
   else                          large=$((large+1)); fi
@@ -272,7 +285,14 @@ The active work stream is in the `copilot/validate-asciiquack-outputs` branch.  
   g2asc, asc2g.  asciiquack's rendering is arguably more correct.
 - **saveview/remrt verbatim blocks**: leading-spaces/indentation differences in shell script
   blocks.
-- **gqa/search/comb/rtwizard**: large diffs – investigate.
+- **gqa/search/comb/rtwizard**: large diffs – investigate (likely dlist continuation `+`
+  paragraphs rendered with double indentation vs single, and nested `.RS 4` issues).
+- **Line wrapping**: asciidoctor and asciiquack wrap at slightly different widths in some
+  cases (different `.RS`/`.RE` depth affects available width). Results in same content
+  split differently across lines (cat, cpi, db_glob, e, decompose, status, vdraw, etc.).
+  These are minor cosmetic differences (2-4 diff lines).
+- **Double-space after period**: `Endianness flipped.  Converting` (two spaces) vs one
+  space (dbupgrade). Minor formatting quirk.
 
 ## Important Notes
 
