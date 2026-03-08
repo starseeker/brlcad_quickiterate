@@ -26,11 +26,13 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <QApplication>
 #include <QFileInfo>
 #include <QFile>
 #include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include <QThread>
 #include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
@@ -415,6 +417,8 @@ QgEdApp::do_view_changed(unsigned long long flags)
 {
     bsg_log(1, "QgEdApp::do_view_changed");
     QTCAD_SLOT("QgEdApp::do_view_changed", 1);
+    // Must run on the main thread: all view-state mutations are main-thread-only.
+    Q_ASSERT(QThread::currentThread() == qApp->thread());
 
     // Coalesce: accumulate flags and schedule a single deferred flush so that
     // re-entrant or rapid-fire calls from multiple signals do not recursively

@@ -366,7 +366,13 @@ QgModel::~QgModel()
 	observed_dbi_state_ = nullptr;
     }
 
-    delete items;
+    // Delete all individual QgItem objects stored in the items set, then the
+    // set itself.  rootItem is allocated separately and deleted last.
+    if (items) {
+	for (QgItem *itm : *items)
+	    delete itm;
+	delete items;
+    }
 
     bsg_view_free(empty_gvp);
     BU_PUT(empty_gvp, bsg_view);

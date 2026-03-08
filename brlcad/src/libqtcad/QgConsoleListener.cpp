@@ -27,7 +27,7 @@
 #include "common.h"
 
 #include <iostream>
-#include <QCoreApplication>
+#include <QApplication>
 #include <QThread>
 #include "qtcad/QgConsoleListener.h"
 
@@ -99,7 +99,7 @@ void QConsoleListener::on_callbackReady()
     // All access to the shared ged_result_str is confined to this slot,
     // so there is no data race with other main-thread code that reads or
     // truncates the same buffer.
-    Q_ASSERT(QThread::currentThread() == QCoreApplication::instance()->thread());
+    Q_ASSERT(QThread::currentThread() == qApp->thread());
     if (!callback)
 	return;
     size_t s1 = bu_vls_strlen(process->gedp->ged_result_str);

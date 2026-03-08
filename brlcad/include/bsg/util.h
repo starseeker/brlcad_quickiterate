@@ -486,7 +486,8 @@ BSG_EXPORT void bsg_view_set_scale(bsg_view *v, fastf_t scale);
  * field layout.
  *
  * @param v     Target view (must not be NULL).
- * @param size  New size value (model diameter visible in the view; > 0).
+ * @param size  New size value (model diameter visible in the view; must be > 0;
+ *              values <= 0 are silently ignored to avoid division-by-zero).
  */
 BSG_EXPORT void bsg_view_set_size(bsg_view *v, fastf_t size);
 

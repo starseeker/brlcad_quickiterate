@@ -322,7 +322,7 @@ bsg_view_set_scale(bsg_view *v, fastf_t scale)
 extern "C" void
 bsg_view_set_size(bsg_view *v, fastf_t size)
 {
-    if (!v) return;
+    if (!v || size <= 0.0) return;
     v->gv_size = size;
     v->gv_scale = size * 0.5;
     v->gv_isize = 1.0 / size;
