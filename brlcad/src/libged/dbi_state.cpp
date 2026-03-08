@@ -30,7 +30,11 @@
 #include "common.h"
 
 #include <algorithm>
+#include <condition_variable>
+#include <deque>
 #include <map>
+#include <mutex>
+#include <thread>
 
 extern "C" {
 #include "bu/cache.h"
@@ -225,6 +229,26 @@ DbiState::DbiState(struct ged *ged_p)
 	    update_dp(dp, 0);
 	}
     }
+
+    // Kick off background bbox computation for all solid objects that do not
+    // yet have a cached bbox.  This pre-warms the bboxes map so that the
+    // first draw command can display geometry (or placeholder bounding boxes)
+    // without waiting for synchronous rt_bound_internal() calls.
+    {
+	std::vector<GeomLoader::WorkItem> items;
+	for (int i = 0; i < RT_DBNHASH; i++) {
+	    for (struct directory *dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+		if (dp->d_flags & RT_DIR_COMB)
+		    continue;  // combs require recursive DbiState access; skip
+		unsigned long long hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
+		if (bboxes.find(hash) != bboxes.end())
+		    continue;  // already have a cached bbox
+		items.push_back({hash, dp});
+	    }
+	}
+	if (!items.empty())
+	    start_geom_load(items);
+    }
 }
 
 
@@ -235,6 +259,10 @@ DbiState::~DbiState()
     delete shared_vs;
     rt_clean_resource_basic(NULL, res);
     BU_PUT(res, struct resource);
+
+    // Stop background loader before releasing other resources it may read.
+    // unique_ptr dtor calls GeomLoader::~GeomLoader() which joins the thread.
+    geom_loader_.reset();
 
     // Phase 3: clean up all GObj instances (each GObj dtor deletes its
     // CombInst children and deregisters from gobjs).
@@ -1440,6 +1468,28 @@ DbiState::update()
 	    notify_dbi_observers(events);
     }
 
+    // Queue background bbox computation for added and changed solid objects
+    // whose bboxes were cleared by update_dp().  The loader will populate
+    // bboxes[] asynchronously; callers should periodically call
+    // drain_geom_results() and repaint when it returns non-zero.
+    {
+	std::vector<GeomLoader::WorkItem> load_items;
+	for (auto *dp : added) {
+	    if (dp->d_flags & RT_DIR_COMB) continue;
+	    unsigned long long h = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
+	    if (bboxes.find(h) == bboxes.end())
+		load_items.push_back({h, dp});
+	}
+	for (auto *dp : changed) {
+	    if (dp->d_flags & RT_DIR_COMB) continue;
+	    unsigned long long h = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
+	    // Changed objects had their bboxes cleared by update_dp(); always re-queue.
+	    load_items.push_back({h, dp});
+	}
+	if (!load_items.empty())
+	    start_geom_load(load_items);
+    }
+
     // Updates done, clear items stored by callbacks
     added.clear();
     changed.clear();
@@ -1730,6 +1780,14 @@ BViewState::add_hpath(std::vector<unsigned long long> &path_hashes)
     // corrected by the end-of-redraw draw_list_ sync to reflect what was actually
     // drawn.  This replaces the old `staged` temporary queue (A3: DrawList as
     // the canonical draw-intent source).
+    //
+    // View-sets-as-higher-level-responsibility (from dbi2 design): when this
+    // view is linked to a primary, draw intent is managed at the primary level.
+    // Delegate the add to the primary so all linked views share one draw list.
+    if (linked_to_) {
+	linked_to_->add_hpath(path_hashes);
+	return;
+    }
     draw_list_.add(path_hashes, 0);
 }
 
@@ -1756,6 +1814,13 @@ BViewState::erase_path(int mode, int argc, const char **argv)
 void
 BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigned long long> &path_hashes, bool cache_collapse)
 {
+    // View-sets-as-higher-level-responsibility: when linked, draw intent is
+    // owned by the primary.  Delegate the erase to keep draw lists consistent.
+    if (linked_to_) {
+	linked_to_->erase_hpath(mode, c_hash, path_hashes, cache_collapse);
+	return;
+    }
+
     std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
     std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
     std::unordered_map<int, std::unordered_set<unsigned long long>>::iterator m_it;
@@ -2696,51 +2761,68 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // via add_path()/add_hpath() since the last redraw).  This replaces the old
     // `staged` temporary queue — draw_list_ is now the canonical draw-intent
     // source (A3 full implementation).
+    //
+    // View-sets-as-higher-level-responsibility (from dbi2 design):
+    // If this view is linked to a primary, also process the primary's
+    // draw_list_ entries.  This is the mechanism by which quad-view panels
+    // share geometry without requiring each view to independently manage its
+    // draw commands.  The primary's entries are processed FIRST so that this
+    // view's own overrides can take precedence.
     if (vs) {
-	// entry_vs is declared here so it remains valid throughout the loop body
-	// when draw_vs is set to point at it (scope guard for dangling-pointer safety).
+	// Helper lambda that processes one draw_list_ entry set.
+	// entry_vs is declared outside both loops to avoid repeated stack allocs
+	// and to remain valid for draw_vs references within each iteration.
 	struct bv_obj_settings entry_vs;
-	const std::vector<DrawList::Entry> &dl_entries = draw_list_.entries();
-	for (size_t i = 0; i < dl_entries.size(); i++) {
-	    const DrawList::Entry &dl_e = dl_entries[i];
-	    // Skip entries that are already drawn (in s_map)
-	    if (s_map.find(dl_e.full_hash) != s_map.end())
-		continue;
-	    std::vector<unsigned long long> cpath = dl_e.path;
-	    // Validate this path - if the user has specified an invalid
-	    // path, there's nothing else to do
-	    if (!dbis->valid_hash_path(cpath))
-		continue;
-	    if (check_status(NULL, NULL, dl_e.full_hash, cpath, false))
-		continue;
-	    // Use entry mode if non-zero, otherwise fall back to vs->s_dmode
-	    int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
-	    // Use entry's settings override if present, otherwise use vs
-	    struct bv_obj_settings *draw_vs = vs;
-	    if (dl_e.has_settings) {
-		// Copy vs first, then apply the per-entry overrides
-		entry_vs = *vs;
-		entry_vs.s_dmode = draw_mode;
-		if (dl_e.settings.has_color) {
-		    entry_vs.color_override = 1;
-		    entry_vs.color[0] = dl_e.settings.color.buc_rgb[0];
-		    entry_vs.color[1] = dl_e.settings.color.buc_rgb[1];
-		    entry_vs.color[2] = dl_e.settings.color.buc_rgb[2];
+	auto process_dl_entries = [&](const std::vector<DrawList::Entry> &dl_entries) {
+	    for (size_t i = 0; i < dl_entries.size(); i++) {
+		const DrawList::Entry &dl_e = dl_entries[i];
+		// Skip entries that are already drawn (in s_map)
+		if (s_map.find(dl_e.full_hash) != s_map.end())
+		    continue;
+		std::vector<unsigned long long> cpath = dl_e.path;
+		// Validate this path - if the user has specified an invalid
+		// path, there's nothing else to do
+		if (!dbis->valid_hash_path(cpath))
+		    continue;
+		if (check_status(NULL, NULL, dl_e.full_hash, cpath, false))
+		    continue;
+		// Use entry mode if non-zero, otherwise fall back to vs->s_dmode
+		int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
+		// Use entry's settings override if present, otherwise use vs
+		struct bv_obj_settings *draw_vs = vs;
+		if (dl_e.has_settings) {
+		    // Copy vs first, then apply the per-entry overrides
+		    entry_vs = *vs;
+		    entry_vs.s_dmode = draw_mode;
+		    if (dl_e.settings.has_color) {
+			entry_vs.color_override = 1;
+			entry_vs.color[0] = dl_e.settings.color.buc_rgb[0];
+			entry_vs.color[1] = dl_e.settings.color.buc_rgb[1];
+			entry_vs.color[2] = dl_e.settings.color.buc_rgb[2];
+		    }
+		    draw_vs = &entry_vs;
 		}
-		draw_vs = &entry_vs;
-	    }
-	    mat_t m;
-	    MAT_IDN(m);
-	    dbis->get_path_matrix(m, cpath);
-	    if ((draw_mode == 3 || draw_mode == 5)) {
+		mat_t m;
+		MAT_IDN(m);
 		dbis->get_path_matrix(m, cpath);
-		scene_obj(objs, draw_mode, draw_vs, m, cpath, views, v);
-		continue;
+		if ((draw_mode == 3 || draw_mode == 5)) {
+		    dbis->get_path_matrix(m, cpath);
+		    scene_obj(objs, draw_mode, draw_vs, m, cpath, views, v);
+		    continue;
+		}
+		unsigned long long ihash = cpath[cpath.size() - 1];
+		cpath.pop_back();
+		gather_paths(objs, ihash, draw_mode, v, draw_vs, m, NULL, cpath, views, &ret);
 	    }
-	    unsigned long long ihash = cpath[cpath.size() - 1];
-	    cpath.pop_back();
-	    gather_paths(objs, ihash, draw_mode, v, draw_vs, m, NULL, cpath, views, &ret);
-	}
+	};
+
+	// When linked, process the primary's draw list first so its content
+	// is visible in this (secondary) view without additional draw commands.
+	if (linked_to_)
+	    process_dl_entries(linked_to_->draw_list_.entries());
+
+	// Always process this view's own draw list (may have per-view overrides).
+	process_dl_entries(draw_list_.entries());
     }
 
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
@@ -3466,6 +3548,170 @@ void DbiState::notify_dbi_observers(const std::vector<DbiChangeEvent> &events) {
 void DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &events) {
     for (auto *obs : scene_observers_)
 	obs->on_scene_changed(events);
+}
+
+/* ---- Background geometry loading (GeomLoader / L1) ---- */
+
+GeomLoader::GeomLoader(DbiState *dbis)
+    : dbis_(dbis)
+{
+    thread_ = std::thread(&GeomLoader::worker, this);
+}
+
+GeomLoader::~GeomLoader()
+{
+    {
+	std::lock_guard<std::mutex> lk(work_mu_);
+	stopping_ = true;
+    }
+    work_cv_.notify_all();
+    if (thread_.joinable())
+	thread_.join();
+}
+
+void
+GeomLoader::push(const std::vector<WorkItem> &items)
+{
+    if (items.empty())
+	return;
+    {
+	std::lock_guard<std::mutex> lk(work_mu_);
+	for (const auto &item : items) {
+	    if (!item.dp || !item.hash)
+		continue;
+	    if (item.dp->d_flags & RT_DIR_COMB)
+		continue;
+	    if (item.dp->d_flags & RT_DIR_HIDDEN)
+		continue;
+	    work_q_.push_back(item);
+	}
+    }
+    work_cv_.notify_one();
+}
+
+size_t
+GeomLoader::drain(std::vector<Result> &out)
+{
+    std::lock_guard<std::mutex> lk(result_mu_);
+    size_t n = result_q_.size();
+    while (!result_q_.empty()) {
+	out.push_back(result_q_.front());
+	result_q_.pop_front();
+    }
+    return n;
+}
+
+void
+GeomLoader::worker()
+{
+    // The worker uses its own resource to avoid contention with the main thread.
+    struct resource bres;
+    memset(&bres, 0, sizeof(bres));
+    rt_init_resource(&bres, 1, NULL);
+
+    while (true) {
+	WorkItem item;
+
+	{
+	    std::unique_lock<std::mutex> lk(work_mu_);
+	    work_cv_.wait(lk, [this]{ return stopping_ || !work_q_.empty(); });
+	    if (stopping_ && work_q_.empty())
+		break;
+	    if (!work_q_.empty()) {
+		item = work_q_.front();
+		work_q_.pop_front();
+	    }
+	}
+
+	if (!item.dp || !item.hash)
+	    continue;
+
+	// The directory pointer was resolved on the main thread before being
+	// pushed.  We do NOT access any DbiState STL containers here — only
+	// read-only librt/libdb state (dbip, dp).
+	//
+	// rt_bound_internal is safe to call with a read-only dbip and our own
+	// resource.  If the object was deleted between push() and now,
+	// rt_bound_internal will fail gracefully (returns non-zero).
+	Result r;
+	VSETALL(r.bmin, INFINITY);
+	VSETALL(r.bmax, -INFINITY);
+	r.hash = item.hash;
+	int bret = rt_bound_internal(dbis_->dbip, item.dp, r.bmin, r.bmax);
+	if (bret != 0) {
+	    // rt_bound_internal returns 0 on success, -1 on failure
+	    continue;
+	}
+
+	// Post result to the result queue
+	{
+	    std::lock_guard<std::mutex> lk(result_mu_);
+	    result_q_.push_back(r);
+	}
+    }
+
+    rt_clean_resource_basic(NULL, &bres);
+}
+
+void
+DbiState::start_geom_load(const std::vector<GeomLoader::WorkItem> &items)
+{
+    if (items.empty())
+	return;
+    if (!geom_loader_)
+	geom_loader_ = std::make_unique<GeomLoader>(this);
+    geom_loader_->push(items);
+}
+
+size_t
+DbiState::drain_geom_results()
+{
+    if (!geom_loader_)
+	return 0;
+
+    std::vector<GeomLoader::Result> results;
+    size_t n = geom_loader_->drain(results);
+    if (n == 0)
+	return 0;
+
+    // Integrate bboxes into DbiState (main thread owns all writes)
+    for (const auto &r : results) {
+	// Only update if we don't already have a bbox (the synchronous path
+	// may have beaten us to it; in that case the synchronous version wins).
+	if (bboxes.find(r.hash) != bboxes.end())
+	    continue;
+
+	// Store in bboxes map
+	bboxes[r.hash].clear();
+	bboxes[r.hash].reserve(6);
+	for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmin[i]);
+	for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmax[i]);
+
+	// Also persist to dcache so future sessions skip the background load
+	if (dcache) {
+	    size_t bsz = sizeof(r.bmin) + sizeof(r.bmax);
+	    std::vector<char> buf(bsz);
+	    memcpy(buf.data(), r.bmin, sizeof(r.bmin));
+	    memcpy(buf.data() + sizeof(r.bmin), r.bmax, sizeof(r.bmax));
+	    std::string k = dbi_cache_key(r.hash, CACHE_OBJ_BOUNDS);
+	    bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+	}
+    }
+
+    // Fire a single batched scene-change notification so that observers
+    // (e.g., QgViewport) know to request a repaint.
+    {
+	std::vector<SceneChangeEvent> events;
+	for (const auto &r : results) {
+	    SceneChangeEvent ev;
+	    ev.path  = PathHash{r.hash};
+	    ev.batch = false;
+	    events.push_back(ev);
+	}
+	notify_scene_observers(events);
+    }
+
+    return n;
 }
 
 /* ---- Phase 3: GObj and CombInst implementations ---- */

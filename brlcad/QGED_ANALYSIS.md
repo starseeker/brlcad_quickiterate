@@ -77,9 +77,10 @@ worst structural problems in the *libged* layer:
 | 8 | Qt model protocol fixes; `rebuild_item_children()`; observer re-registration | ✅ Done |
 | 9 | `DbiPath` value type; C surface (`ged_dbi_*`, `ged_selection_*`); regression tests | ✅ Done |
 
-Cleanup items C1-C6, A1-A3, L2-L4 are also complete.  The only remaining DBI
-open item is **L1 (background geometry loading)**, which has a decision but no
-implementation.
+Cleanup items C1-C6, A1-A3, L2-L4 are also complete.  **L1 (background
+geometry loading) is now implemented** (Session 29): `GeomLoader` background
+thread + drain + QgEdApp timer.  `BViewState::link_to()` is fully implemented.
+All DBI architecture items are complete.
 
 The DBI layer is now architecturally sound for its current feature set.
 
@@ -390,13 +391,13 @@ As of Phase 9, `include/ged/dbi.h` carries "MAIN THREAD ONLY" annotations on
 or synchronisation primitives, and none of these classes are used from background
 threads today.
 
-The L1 (background geometry loading) work item requires this constraint to be
-relaxed in a controlled way.  The approved approach (Section 9, Q4 decision in
-`DBI_OLD_ANALYSIS.md`) is a single background worker thread posting to a result
-queue.  This work has not started.
+The L1 (background geometry loading) is now implemented.  The `GeomLoader`
+background thread uses its own `struct resource` and never accesses any DbiState
+STL containers.  The main thread owns all writes via `drain_geom_results()`.
+Thread-safety contract is satisfied.
 
-**Severity:** Low currently (no concurrent access today); design must be respected
-when L1 is implemented.
+**Severity:** Addressed.  `GeomLoader` worker accesses only `dbip` (read-only)
+and its own per-thread resource.  All DbiState state mutations remain main-thread-only.
 
 ---
 
@@ -543,23 +544,25 @@ so plugins cannot add new `libged`-style commands.
 
 ## 10. Open Architecture Items
 
-### L1 — Background geometry loading (not started)
+### L1 — Background geometry loading  ✅ DONE (Session 29)
 
-**Decision** (from `DBI_OLD_ANALYSIS.md` Section 9 Q4): single background worker
-thread posting to a result queue; `concurrentqueue.h` is the candidate queue
-implementation.
+Implementation complete.  See `DBI_OLD_ANALYSIS.md §12.4 L1` for the full
+design description.  Summary:
 
-Required design work:
-1. Define which `DbiState` methods may be called from the background thread
-   (likely: read-only path lookups only).
-2. Define the result queue schema: what data the background thread produces
-   and how it is handed off to the main thread.
-3. Add `lock()`/`unlock()` RAII guards to `DbiState` for the mutation paths
-   that the background thread might trigger indirectly.
-4. Connect the background thread's completion signal to `BViewState::redraw()`
-   on the main thread via `Qt::QueuedConnection`.
-
-This is the single highest-impact remaining architecture item.
+- `GeomLoader` class (in `include/ged/dbi.h` + `src/libged/dbi_state.cpp`):
+  background thread + mutex-protected work/result queues.  Worker calls
+  `rt_bound_internal()` with its own `struct resource`.  No access to
+  DbiState STL containers from the background thread.
+- `DbiState::start_geom_load(items)` — pushes `(hash, dp)` work items;
+  called at file open and after `update()` for added/changed solids.
+- `DbiState::drain_geom_results()` — integrates bbox results, updates
+  `bboxes` map and `dcache`, fires batched `ISceneObserver` notification.
+- `QgEdApp` 100 ms `QTimer` calls `drain_background_geom()` which calls
+  `drain_geom_results()` and emits `view_update` when data arrives.  Results
+  within one interval are coalesced into one repaint (notification bundling).
+- `BViewState::link_to()` fully implemented: draw intent managed at primary
+  level; linked views share geometry automatically via primary's `draw_list_`.
+  View sets are now a higher-level responsibility (dbi2 design goal achieved).
 
 ### Primitive editing (qged/TODO #6)
 
@@ -589,11 +592,17 @@ A single `ViewUpdateRequest` event (posted with `QMetaObject::invokeMethod(...,
 Qt::QueuedConnection)`) that coalesces multiple update requests within one event
 loop iteration would eliminate the reentrancy risk and simplify the signal graph.
 
-### BViewState::link_to — full DrawList sharing (A2 partial)
+### BViewState::link_to — full DrawList sharing  ✅ DONE (Session 29)
 
-`BViewState::link_to(BViewState *primary)` stores the pointer but does not yet
-route `redraw()` through the primary's `DrawList`.  The quad view should share
-draw state between views.  This is the remaining half of A2/A3.
+`BViewState::link_to(BViewState *primary)` is now fully implemented:
+- `add_hpath()` delegates to the primary's `add_hpath()` when linked, so draw
+  intent is managed at the primary (higher) level.
+- `erase_hpath()` delegates to the primary when linked.
+- `redraw()` processes the primary's `draw_list_` entries first (via a shared
+  `process_dl_entries` lambda), then its own entries, so a linked quad-view
+  panel automatically displays everything the primary displays without needing
+  separate draw commands.
+- Only the camera (`bsg_view *`) and per-view scene object map remain independent.
 
 ---
 

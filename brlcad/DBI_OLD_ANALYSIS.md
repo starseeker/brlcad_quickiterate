@@ -1295,12 +1295,31 @@ All existing tests pass (49 DBI C++ checks, 35 DBI C checks, 15 Qt model checks,
 
 ### 12.4 Architecture and Longer-term Work
 
-**L1 — Background geometry loading.**
-Section 9 Q4 decision: a single background worker thread posts results via a result
-queue (candidate: `concurrentqueue.h`, already being considered for LoD cache
-management).  No implementation exists yet.  Before starting, document the required
-thread-safety contract for `DbiState` (which methods are main-thread-only, which are
-safe to call from the background thread, and what the queue handoff protocol is).
+**L1 — Background geometry loading.**  ✅ DONE (Session 29)
+`GeomLoader` class added to `include/ged/dbi.h` and implemented in
+`src/libged/dbi_state.cpp`.  Architecture:
+- `GeomLoader` owns a background worker thread, a mutex-protected work queue
+  (`std::deque<WorkItem>`), and a mutex-protected result queue
+  (`std::deque<Result>`).
+- `WorkItem` carries both the object hash and the `struct directory *` pointer.
+  The main thread resolves the dp before pushing, so the background thread
+  never accesses any DbiState STL containers (no data races).
+- Worker calls `rt_bound_internal()` with its own `struct resource` (initialized
+  with `rt_init_resource(&bres, 1, NULL)`).  Hidden and comb objects are skipped.
+- `DbiState::start_geom_load(items)` — main thread method to push work items.
+  Called from the `DbiState` constructor (for all solids without cached bboxes)
+  and from `update()` (for added/changed solid objects).
+- `DbiState::drain_geom_results()` — main thread method to drain completed
+  results; updates `bboxes` map and `dcache`; fires a batched
+  `ISceneObserver::on_scene_changed()` notification; returns result count.
+- `QgEdApp` wires a 100 ms `QTimer` to `drain_background_geom()`, which calls
+  `drain_geom_results()` and emits `view_update(GED_DBISTATE_VIEW_CHANGE)` when
+  new data arrives.  This coalesces all results within one timer interval into a
+  single repaint, bounding the repaint rate.
+- `BViewState::link_to()` fully implemented: `add_hpath()` and `erase_hpath()`
+  delegate to primary; `redraw()` processes primary's draw_list_ entries before
+  its own, so linked (quad-view) panels share geometry without independent draw
+  commands.  View sets are now a higher-level responsibility.
 
 **L2 — Thread-safety documentation for `DbiState`.**  ✅ PARTIAL (docs added; locks deferred)
 A file-level doc block and per-class "MAIN THREAD ONLY" annotations have been
