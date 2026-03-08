@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-opendb - Closes the current database file and opens database.g.
+opendb - Closes the current database file and opens _database.g_.
 
 == SYNOPSIS
 
@@ -34,7 +34,7 @@ The first example shows the use of the *opendb* command to close the current dat
 .Close the current database and open another one.
 [example]
 ====
-mged>*opendb model.g*
+mged>**opendb model.g**
 
 Closes the current database file and opens _model.g_.
 
@@ -43,7 +43,7 @@ Closes the current database file and opens _model.g_.
 .Return the name of the current database file.
 [example]
 ====
-mged>*opendb*
+mged>**opendb**
 
 Returns the name of the current database file.
 

@@ -28,7 +28,7 @@ The example shows the use of the *who* command to list the top-level phony objec
 .List the top-level phony objects that are currently displayed.
 [example]
 ====
-mged>*who p*
+mged>**who p**
 
 Lists all top-level _phony_ objects currently displayed.
 

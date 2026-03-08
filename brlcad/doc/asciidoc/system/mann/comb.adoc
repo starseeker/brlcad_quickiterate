@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-comb - Create and manipulate BRL-CAD combination with the name combination_name.
+comb - Create and manipulate BRL-CAD combination with the name __combination_name__.
 
 == SYNOPSIS
 
@@ -75,7 +75,7 @@ This example shows how to use the *comb* command to create a combination accordi
 [example]
 ====
 
-mged> *comb abc u a u b - a + d*::
+mged> **comb abc u a u b - a + d**::
 Creates a combination named _abc_.
 
 
@@ -382,5 +382,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
-
-

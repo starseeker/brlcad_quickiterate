@@ -29,7 +29,7 @@ The example shows the use of the *edcolor* command to edit the color table.
 [example]
 ====
 
-mged> *edcolor*::
+mged> **edcolor**::
 The user can now edit the color table.
 
 

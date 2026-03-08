@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-center - Positions the center of the mged viewing cube at the specified model coordinates. Without arguments, returns the current center.
+center - Positions the center of the _mged_ viewing cube at the specified model coordinates. Without arguments, returns the current center.
 
 == SYNOPSIS
 
@@ -30,7 +30,7 @@ The examples show the use of the *center* command to print coordinates of the ce
 .Printing the coordinates of the center of the _mged_ display.
 [example]
 ====
-mged>*center*
+mged>**center**
 
 Prints out the coordinates of the center of the mged display.
 
@@ -39,7 +39,7 @@ Prints out the coordinates of the center of the mged display.
 .Moving the center of the _mged_ display to a specified point.
 [example]
 ====
-mged>*center 12.5 5.6 8.7*
+mged>**center 12.5 5.6 8.7**
 
 The center of the _mged_ display is moved to the point (12.5, 5.6, 8.7).
 
@@ -48,7 +48,7 @@ The center of the _mged_ display is moved to the point (12.5, 5.6, 8.7).
 .Set Tcl variable $oldcent to the display center coordinates.
 [example]
 ====
-mged>*set oldcent [center]*
+mged>**set oldcent [center]**
 
 Sets the Tcl variable $oldcent to the display center coordinates.
 
@@ -58,15 +58,15 @@ Sets the Tcl variable $oldcent to the display center coordinates.
 [example]
 ====
 
-mged> *set glob_compat_mode 0*::
+mged> **set glob_compat_mode 0**::
 
 
 
-mged> *units mm*::
+mged> **units mm**::
 
 
 
-mged> *eval center [vadd2[center] {2 0 0}]*::
+mged> **eval center [vadd2[center] {2 0 0}]**::
 Moves the center point 2 mm in the model + x direction.
 
 
@@ -77,11 +77,11 @@ Moves the center point 2 mm in the model + x direction.
 [example]
 ====
 
-mged> *units mm*::
+mged> **units mm**::
 
 
 
-mged> *db adjust sphere.s V [center]*::
+mged> **db adjust sphere.s V [center]**::
 
 
 

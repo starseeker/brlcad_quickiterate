@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-g - Creates a special type of combination often referred to as a group. This builds a combination by unioning together all the listed objects.
+g - Creates a special type of combination often referred to as a group. This builds a combination by unioning together all the listed _objects_.
 
 == SYNOPSIS
 
@@ -29,7 +29,7 @@ The example shows the use of the *g* command to create or extend a specified gro
 [example]
 ====
 
-mged> *g group.c shape1.s*::
+mged> **g group.c shape1.s**::
 Creates or extends group.c by unioning in _shape1.s_.
 
 

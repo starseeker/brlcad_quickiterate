@@ -28,7 +28,7 @@ Set the aircode
 .Set the aircode to 2.
 [example]
 ====
-mged>*reair example.c 2*
+mged>**reair example.c 2**
 
 All regions under example.c will have their aircode reset to 2.
 

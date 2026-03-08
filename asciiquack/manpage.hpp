@@ -97,12 +97,32 @@ private:
     /// Apply inline troff markup (bold/italic/mono) to a pre-substituted string.
     /// Also escapes plain-text characters that have special meaning in troff
     /// (backslash and minus sign).  The caller must NOT apply troff_escape()
-    /// afterwards, or the \fB...\fR sequences generated here will be corrupted.
+    /// afterwards, or the \fB...\fP sequences generated here will be corrupted.
     /// Nested inline markup (e.g. italic inside bold: *foo _bar_ baz*) is handled
     /// by recursively calling troff_inline() on the content of each span.
+    ///
+    /// NOTE: Inline span closings use \fP (restore previous font) rather than
+    /// \fR (set roman), matching asciidoctor's manpage backend behaviour.  \fP
+    /// properly restores the enclosing font context so that, for example, italic
+    /// inside a bold title correctly returns to bold after the italic word.
     [[nodiscard]] static std::string troff_inline(const std::string& text) {
         std::string out;
         out.reserve(text.size() + 32);
+
+        // Helper: returns true if character c is NOT a valid opening boundary
+        // character for a constrained inline span.  Matches asciidoctor's rule:
+        //   (^|[^\p{Word};:}])
+        // i.e. a word character (letter/digit/_), or one of ;, :, }  – all
+        // preclude constrained parsing.
+        // In addition, > and < are excluded because asciidoctor processes them
+        // as HTML entities (&gt; / &lt;) before applying inline patterns; the
+        // resulting trailing ';' in those entities falls into the ';' exclusion.
+        auto is_constrained_open_invalid = [](char c) -> bool {
+            if (std::isalnum(static_cast<unsigned char>(c)) || c == '_') return true;
+            if (c == ';' || c == ':' || c == '}') return true;
+            if (c == '>' || c == '<') return true;  // would become &gt;/&lt; with ;
+            return false;
+        };
         std::size_t i = 0;
 
         // Find the end of a constrained inline span starting at `start` (one past
@@ -136,18 +156,19 @@ private:
                 if (end != std::string::npos) {
                     out += "\\fB";
                     out += troff_inline(text.substr(i + 2, end - i - 2));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 2;
                     continue;
                 }
             }
-            // Constrained bold: *word*
-            if (text[i] == '*' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
+            // Constrained bold: *word* – opening * must not be preceded by an
+            // invalid boundary character (word chars, ;, :, }, <, >).
+            if (text[i] == '*' && (i == 0 || !is_constrained_open_invalid(text[i-1]))) {
                 auto end = find_constrained_end(i + 1, '*');
                 if (end != std::string::npos) {
                     out += "\\fB";
                     out += troff_inline(text.substr(i + 1, end - i - 1));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 1;
                     continue;
                 }
@@ -158,18 +179,18 @@ private:
                 if (end != std::string::npos) {
                     out += "\\fI";
                     out += troff_inline(text.substr(i + 2, end - i - 2));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 2;
                     continue;
                 }
             }
-            // Constrained italic: _word_
-            if (text[i] == '_' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
+            // Constrained italic: _word_ – same boundary rules as bold.
+            if (text[i] == '_' && (i == 0 || !is_constrained_open_invalid(text[i-1]))) {
                 auto end = find_constrained_end(i + 1, '_');
                 if (end != std::string::npos) {
                     out += "\\fI";
                     out += troff_inline(text.substr(i + 1, end - i - 1));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 1;
                     continue;
                 }
@@ -178,20 +199,20 @@ private:
             if (i + 1 < text.size() && text[i] == '`' && text[i+1] == '`') {
                 auto end = text.find("``", i + 2);
                 if (end != std::string::npos) {
-                    out += "\\fC";
+                    out += "\\f(CW";
                     out += troff_inline(text.substr(i + 2, end - i - 2));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 2;
                     continue;
                 }
             }
-            // Constrained mono: `word`
-            if (text[i] == '`' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
+            // Constrained mono: `word` – same boundary rules as bold.
+            if (text[i] == '`' && (i == 0 || !is_constrained_open_invalid(text[i-1]))) {
                 auto end = find_constrained_end(i + 1, '`');
                 if (end != std::string::npos) {
-                    out += "\\fC";
+                    out += "\\f(CW";
                     out += troff_inline(text.substr(i + 1, end - i - 1));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 1;
                     continue;
                 }
@@ -409,7 +430,7 @@ private:
                            OutputBuffer& out) const {
         if (block.has_title()) {
             out << ".PP\n"
-                << "\\fB" << troff_escape(block.title()) << "\\fR\n";
+                << "\\fB" << troff_escape(block.title()) << "\\fP\n";
         }
         out << ".PP\n"
             << inline_subs(block.source(), doc) << '\n';
@@ -452,7 +473,7 @@ private:
         }
 
         out << ".sp\n"
-            << "\\fB" << label << "\\fR\n"
+            << "\\fB" << label << "\\fP\n"
             << ".RS 4\n";
 
         if (block.content_model() == ContentModel::Simple) {
@@ -482,10 +503,10 @@ private:
                 header += "\\ \\&" + inline_subs(block.title(), doc);
             }
             out << ".PP\n"
-                << "\\fB" << header << "\\fR\n";
+                << "\\fB" << header << "\\fP\n";
         } else if (block.has_title()) {
             out << ".PP\n"
-                << "\\fB" << inline_subs(block.title(), doc) << "\\fR\n";
+                << "\\fB" << inline_subs(block.title(), doc) << "\\fP\n";
         }
         // Emit children without extra indentation (no .RS 4/.RE wrapper),
         // matching the flat layout DocBook uses for <example> content.
@@ -500,7 +521,7 @@ private:
                        OutputBuffer& out) const {
         if (list.has_title()) {
             out << ".PP\n"
-                << "\\fB" << troff_escape(list.title()) << "\\fR\n";
+                << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
         // Each item gets its own .sp .RS 4 ... .RE block with proper
         // .ie n (nroff bullet) / .el (troff IP bullet) conditional,
@@ -530,7 +551,7 @@ private:
                        OutputBuffer& out) const {
         if (list.has_title()) {
             out << ".PP\n"
-                << "\\fB" << troff_escape(list.title()) << "\\fR\n";
+                << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
         out << ".sp\n"
             << ".RS 4\n";
@@ -552,7 +573,7 @@ private:
                        OutputBuffer& out) const {
         if (list.has_title()) {
             out << ".PP\n"
-                << "\\fB" << troff_escape(list.title()) << "\\fR\n";
+                << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
         for (const auto& item : list.items()) {
             // Empty-term items (generated e.g. by db2adoc for multi-variant
@@ -589,7 +610,7 @@ private:
             if (has_markup) {
                 out << term_rendered << "\n";
             } else {
-                out << "\\fB" << term_rendered << "\\fR\n";
+                out << "\\fB" << term_rendered << "\\fP\n";
             }
             out << ".RS 4\n";
             if (!item->source().empty()) {

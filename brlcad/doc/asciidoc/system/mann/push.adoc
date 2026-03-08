@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-push - Forces the effects of all transformation matrices that appear in any combinations in the trees from the specified objects down to the primitive shapes.
+push - Forces the effects of all transformation matrices that appear in any combinations in the trees from the specified _objects_ down to the primitive shapes.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *push* command to push the effects of any trans
 .Push the effects of any transformation matrices in trees headed by two specified objects down to the primitive shapes.
 [example]
 ====
-mged>*push group1 regiona*
+mged>**push group1 regiona**
 
 Pushes the effects of any transformation matrices in the trees headed by _group1_ and _regiona_ down to the primitive shapes.
 

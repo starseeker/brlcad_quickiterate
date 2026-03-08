@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-saveview - Saves the current viewing parameters in the specified file in the form of a shell script that will run the BRL-CAD rt program as if it had been executed from within MGED using the rt -s512 command.
+saveview - Saves the current viewing parameters in the specified _file_ in the form of a shell script that will run the BRL-CAD _rt_ program as if it had been executed from within MGED using the *rt -s512* command.
 
 == SYNOPSIS
 
@@ -78,7 +78,7 @@ The example shows the use of the *saveview* command to create a file that will c
 .Save current viewing parameters in a specified file in the form of a shell script to run the BRL-CAD _rt_ program.
 [example]
 ====
-mged>*saveview script.rt -s1024*
+mged>**saveview script.rt -s1024**
 
 Creates (or appends to) a file named _script.rt_ that will contain a POSX shell script for running the _rt_ program and create a color-shaded image of the current MGED display. The image produced will be 1024 pixels square due to the additional *-s1024* arg specified after the script name. Additional args are passed to _rt_.
 
