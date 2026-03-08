@@ -576,7 +576,7 @@ public:
         unsigned long long hash = 0;
         point_t bmin;
         point_t bmax;
-        // OBB: 8 corner points produced by bg_3d_obb
+        // OBB: 8 corner points produced by ft_oriented_bbox
         bool    obb_valid = false;
         point_t obb_pts[8];
         // LOD fields

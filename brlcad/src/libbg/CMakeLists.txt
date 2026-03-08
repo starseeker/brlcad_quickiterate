@@ -18,6 +18,7 @@ set(
   obr.cpp
   pca.cpp
   plane.cpp
+  pnts.cpp
   polygon.c
   polygon_op.cpp
   polygon_triangulate.cpp
