@@ -2403,6 +2403,120 @@ static void test_manpage_empty_term_suppressed() {
     end_test();
 }
 
+static void test_manpage_dlist_plus_continuation_multi() {
+    begin_test("manpage: dlist item with multiple '+' continuations renders all paragraphs");
+
+    // Each '+' on its own line attaches the next paragraph to the dlist item.
+    // All three paragraphs must appear separately in the output, not fused with
+    // a literal '+' between them.
+    const std::string src =
+        "= cmd(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "cmd - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "cmd\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "*-c \"arg\"*::\n"
+        "First paragraph of the description.\n"
+        "+\n"
+        "Second paragraph attached via plus.\n"
+        "+\n"
+        "Third paragraph also attached.\n"
+        "\n"
+        "*-e*::\n"
+        "Simple option.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // All three paragraphs must be present without the literal ' + ' separator
+    EXPECT_CONTAINS(out, "First paragraph of the description.");
+    EXPECT_CONTAINS(out, "Second paragraph attached via plus.");
+    EXPECT_CONTAINS(out, "Third paragraph also attached.");
+    EXPECT(out.find("First paragraph") != std::string::npos &&
+           out.find("Second paragraph") != std::string::npos &&
+           out.find("Third paragraph") != std::string::npos);
+    // The literal ' + ' must NOT appear as rendered text between paragraphs
+    EXPECT(out.find("description. +\nSecond") == std::string::npos);
+    EXPECT(out.find("description. + Second") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_stem_macro_stripped() {
+    begin_test("manpage: stem:[...] macro renders as plain expression text");
+
+    const std::string src =
+        "= eqn(nged)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "eqn - rotate ARB face\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "eqn A B C\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "The plane equation is stem:[Ax + By + Cz = D].\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The expression must appear as plain text, not with the stem:[...] wrapper
+    EXPECT_CONTAINS(out, "Ax + By + Cz = D");
+    EXPECT(out.find("stem:[") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_dlist_nested_olist() {
+    begin_test("manpage: dlist item with immediately-following ordered list as sub-list");
+
+    // An ordered list immediately following the dlist body (no blank line, no '+')
+    // should be rendered as a child list, not consumed as body text.
+    const std::string src =
+        "= cmd(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "cmd - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "cmd\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "*-l*::\n"
+        "The decision logic is as follows:\n"
+        ". Step one.\n"
+        ". Step two.\n"
+        "\n"
+        "*-S*::\n"
+        "Simple option.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, "The decision logic is as follows:");
+    EXPECT_CONTAINS(out, "Step one.");
+    EXPECT_CONTAINS(out, "Step two.");
+    // The list items must NOT be concatenated as plain text (". Step one. . Step two.")
+    EXPECT(out.find(". Step one. . Step two.") == std::string::npos);
+
+    end_test();
+}
+
 static void test_html5_empty_dlist_suppressed() {
     begin_test("html5: all-empty DL (only empty-term no-body items) produces no output");
 
@@ -5283,6 +5397,9 @@ int main(int argc, char* argv[]) {
     test_manpage_backend_auto_doctype();
     test_manpage_backend_indoctype();
     test_manpage_empty_term_suppressed();
+    test_manpage_dlist_plus_continuation_multi();
+    test_manpage_stem_macro_stripped();
+    test_manpage_dlist_nested_olist();
     test_html5_empty_dlist_suppressed();
     test_dlist_body_not_swallowed_by_table();
     test_html5_block_anchor_on_example();
