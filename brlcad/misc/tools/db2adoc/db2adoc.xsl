@@ -1830,9 +1830,23 @@
        GLOSSARY
        ============================================================ -->
 
+  <!-- glossterm: when inside a glossentry, render as a dlist term.
+       When used inline (inside a para, title, etc.), render as italic. -->
   <xsl:template match="db:glossterm">
-    <xsl:apply-templates/>
-    <xsl:text>::&#10;</xsl:text>
+    <xsl:choose>
+      <xsl:when test="parent::db:glossentry">
+        <xsl:apply-templates/>
+        <xsl:text>::&#10;</xsl:text>
+      </xsl:when>
+      <xsl:otherwise>
+        <!-- Inline glossterm: render as italic emphasis -->
+        <xsl:call-template name="inline-leading-space"/>
+        <xsl:text>_</xsl:text>
+        <xsl:apply-templates/>
+        <xsl:text>_</xsl:text>
+        <xsl:call-template name="inline-trailing-space"/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- ============================================================
