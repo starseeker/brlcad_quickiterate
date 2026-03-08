@@ -646,31 +646,32 @@ private:
 
     void convert_compound(const Block& block, const Document& doc,
                           OutputBuffer& out) const {
-        // For example blocks, always emit a numbered "Example N." header,
-        // matching DocBook's rendering of both titled and untitled <example>
-        // elements.  Titled examples: "Example N. Title"; untitled: "Example N."
-        // Use .B title / .br / .RS 4 style matching asciidoctor's man page backend
-        // so the example title appears bold on its own line and the body is indented.
+        // For example blocks with titles, emit "Example N. Title" header
+        // matching asciidoctor's man page backend.  Untitled example blocks
+        // still get .RS 4 / .RE indentation but no numbered header.
         if (block.context() == BlockContext::Example) {
-            int n = ++counters_["example"];
-            std::string header = "Example\\ \\&" + std::to_string(n) + ".";
             if (block.has_title()) {
+                int n = ++counters_["example"];
+                std::string header = "Example\\ \\&" + std::to_string(n) + ".\\ \\&";
                 // Apply inline substitutions so _italic_ / *bold* markup in
                 // example titles is rendered as troff font escapes.
-                header += "\\ \\&" + inline_subs(block.title(), doc);
+                header += inline_subs(block.title(), doc);
+                // Match asciidoctor's man page backend format:
+                //   .B title   (bold title using .B macro)
+                //   .br        (line break after title)
+                //   .RS 4      (indent body by 4 chars)
+                //   .sp        (space before first content line)
+                //   ...content...
+                //   .RE        (end indent)
+                //   .sp        (space after block)
+                out << ".sp\n"
+                    << ".B " << header << "\n"
+                    << ".br\n"
+                    << ".RS 4\n";
+            } else {
+                out << ".sp\n"
+                    << ".RS 4\n";
             }
-            // Match asciidoctor's man page backend format:
-            //   .B title   (bold title using .B macro)
-            //   .br        (line break after title)
-            //   .RS 4      (indent body by 4 chars)
-            //   .sp        (space before first content line)
-            //   ...content...
-            //   .RE        (end indent)
-            //   .sp        (space after block)
-            out << ".sp\n"
-                << ".B " << header << "\n"
-                << ".br\n"
-                << ".RS 4\n";
             for (const auto& child : block.blocks()) {
                 convert_block(*child, doc, out);
             }
