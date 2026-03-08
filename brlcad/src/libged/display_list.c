@@ -232,6 +232,8 @@ _dl_eraseAllPathsFromDisplay(struct ged *gedp, const char *path, const int skip_
     db_free_full_path(&subpath);
 }
 
+    struct bu_ptbl to_free = BU_PTBL_INIT_ZERO;
+    bu_ptbl_init(&to_free, 8, "_dl_eraseAllPathsFromDisplay");
 
 void
 color_soltab(struct db_i *dbip, bsg_shape *sp)
