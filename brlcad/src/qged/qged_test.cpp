@@ -195,7 +195,8 @@ return 2;
     bu_log("Starting qged (swrast mode), will open %s ...\n", gfile);
 
     /* QgEdApp with no .g file arg (we call load_g_file in the runner).
-     * Pass argc=0 so the constructor's "if (argc)" block is skipped. */
+     * qargc=0 so QgEdApp's "if (argc)" block skips automatic file loading.
+     * qargv[0]=argv[0] gives Qt the program name for internal use. */
     int   qargc = 0;
     char *qargv[2] = { argv[0], nullptr };
     QgEdApp app(qargc, qargv, 1 /*swrast*/, 0 /*quad*/);

@@ -316,3 +316,77 @@ geometry into the 3D viewport, not just the dark theme background.
 - [x] qged_test: screenshot saved (1100×800 PNG, 37935 bytes)
 - [x] Test PASSED: +3425 bright wireframe pixels after draw all.g
 
+---
+
+## Session 6 Results (2026-03-08) — AABB/OBB/LoD pipeline validation in qged
+
+### Objective
+
+Verify that the DrawPipeline AABB→OBB→LoD progressive BoT drawing
+behavior works correctly **inside qged** (Qt event loop, swrast DM,
+QgEdApp drain timer, BViewState::redraw).
+
+### Key finding: AABB is sync, OBB/LoD are async
+
+During investigation, the pipeline stages were confirmed as:
+
+- **AABB bboxes**: populated **synchronously** during the `draw all`
+  command (via `DbiState::update_dp` walking the comb tree).
+  2242 bboxes were present immediately after `draw all`, before any drain.
+- **OBB** + **LoD results**: populated **asynchronously** by the background
+  `DrawPipeline`.  Before `QApplication::processEvents()`, obbs == 0.
+  After one processEvents pass (which lets the QgEdApp 100ms drain timer
+  fire), obbs == 706.
+
+### drawpipeline_test baseline (headless, GenericTwin.g)
+
+| Metric | Value |
+|---|---|
+| bboxes | 2242 |
+| OBBs | 706 |
+| drain results | 3651 |
+| Test result | **PASSED** |
+
+### qged_pipeline_test (new — `src/qged/qged_pipeline_test.cpp`)
+
+Three-stage validation inside qged (GenericTwin.g, 706 BoTs, swrast):
+
+| Stage | bboxes | obbs | bright px | Description |
+|-------|--------|------|-----------|-------------|
+| 1 pre-drain | **2242** | **0** | 27,690 | Draw issued, OBBs async-pending; AABB placeholder wireframes visible |
+| 2 post-drain | 2242 | **706** | 28,746 | After processEvents drain; OBB wireframes replace AABB (+1056 px) |
+| 3 final | 2242 | 706 | 28,746 | Pipeline quiescent; geometry stable |
+
+The **+1,056 bright pixels** from Stage 1→2 confirms that BViewState::redraw()
+successfully transitions from AABB placeholder wireframes to tighter OBB
+wireframes as drain results arrive.
+
+```
+PASS: bboxes 2242 ≥ 2242  (AABB stage OK)
+PASS: obbs 706 ≥ 706  (OBB stage OK)
+PASS: Stage 3 has 28746 bright pixels (viewport shows geometry)
+PASS: Stage 1 has 27690 bright pixels (AABB boxes visible)
+INFO: OBBs were 0 at Stage 1 — async OBB pipeline confirmed async
+INFO: Stage 3 differs from Stage 1 (stage1=27690  stage3=28746) — progressive refinement visible
+```
+
+**Test result: PASSED**
+
+### Changes
+
+1. **`src/qged/qged_pipeline_test.cpp`** — AABB/OBB/LoD pipeline validation.
+2. **`src/qged/qged_pipeline_runner.h`** — Qt `Q_OBJECT` runner class.
+3. **`src/qged/CMakeLists.txt`** — Adds `qged_pipeline_test` target.
+4. **`.gitignore`** — Added `qged_pipeline_cache/`.
+5. **`WORKING.md`** — Updated with session 6 results.
+
+### Checklist
+
+- [x] Rebuild qged, drawpipeline_test, GenericTwin.g
+- [x] drawpipeline_test baseline: 2242 bboxes, 706 OBBs, 3651 drain → PASSED
+- [x] Confirm AABB is sync, OBB/LoD are async (observed in test output)
+- [x] qged_pipeline_test Stage 1: bboxes=2242, obbs=0, 27690 bright px
+- [x] qged_pipeline_test Stage 2: obbs=706 after drain, +1056 bright px
+- [x] qged_pipeline_test: progressive refinement confirmed (AABB→OBB visible)
+- [x] Test PASSED
+
