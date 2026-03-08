@@ -14,6 +14,7 @@ bwdiff [ - [<mglen>]] [-b] <file1> <file2>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bwdiff* compares two black and white *bw*(5) format files in one of several ways, and writes the results on standard out. The default method of comparison is to record the differences as offsets from neutral, half-intensity grey (128). The value written will be brighter than this neutral grey by an amount proportional to the signed difference between the pixels in _file1_ and _file2_. That is, pixels which are brighter in _file1_ than in _file2_ will be brighter than the neutral grey, while pixels which are dimmer in _file1_ than in _file2_ will be dimmer. This difference is divided by two so that the results will fit in the 0->255 output range.
@@ -27,6 +28,7 @@ The flags *-g -l -e* and *-n* are relational operations, standing for greater-th
 Note that this program also produces useful results on color *pix*(5) files.
 
 
+[[example]]
 == EXAMPLE
 
 Suppose you ran *pixstat*(1) on a file and found the modes to be red=107, green=93, blue=70. You could display those pixels whose colors are at these values by:
@@ -34,21 +36,25 @@ Suppose you ran *pixstat*(1) on a file and found the modes to be red=107, green=
 gencolor 107 93 70 | bwdiff -e _file.pix_ - | pix-fb
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pixdiff*(1), *bwstat*(1), *bw*(5), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

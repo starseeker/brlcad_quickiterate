@@ -14,6 +14,7 @@ rtshot [<options>]... <model.g> <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *rtshot* fires a single ray at the indicated _objects_ in the input _model.g_ and produces a printed summary of the geometry that the ray passes through. The orientation of the ray to be fired is specified by giving any two of the three options *-a**-d* and *-p.*
@@ -71,31 +72,37 @@ This option specifies the radius of the ray bundle. Each ring is evenly spaced w
 The *rtshot* program is a simple front-end to *librt*(3) which can be invoked directly by the user. If a ray bundle is desired, all of the *-n* , *-c* , and *-R* options must be specified. The output from a ray bundle is handled as a single ray. Any overlaps between rays in the bundle are resolved by favoring rays closer to the central ray. The default is to fire a single ray.
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *rt*(1), *pix-fb*(1), *rtray*(1), *rtpp*(1), *librt*(3), *ray*(5V), *pix*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible. Descriptive messages are printed on standard error.
 
 
+[[bugs]]
 == BUGS
 
 Most deficiencies observed while using the *rtshot* program are usually with the *librt*(3) package instead.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1987-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

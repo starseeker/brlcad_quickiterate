@@ -14,6 +14,7 @@ facetize [-h] [-v] [-q] [-n] [-r] [-s suffix] [-p prefix] [--in-place] [--max-ti
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The _facetize_ operation in BRL-CAD is, broadly speaking, the processing of creating an explicit planar approximation of a CSG volume by evaluating the boolean expressions used to combine a set of explicit and implicit solid primitives. It is the core operation necessary for creating triangle based meshes from BRL-CAD geometry.
@@ -27,6 +28,7 @@ By default all specified existing objects will be combined into a single mesh, b
 There are a number of different verbosity levels available for the facetize command. One or multiple specifications of the *-v* flag will increase reporting detail. Because full output from facetize can be quite verbose, the user has the option to specify a log file with the *--log-file* option - this will capture _all_ output from the command and allow for more detailed scrutiny of what took place after a conversion has finished.
 
 
+[[facetize_output_modes]]
 == Output Characteristics and Processing Controls
 
 By default the *facetize* command attempts to be non-destructive when operating on objects - it will not rename or replace any existing geometry in normal operational modes, and will adjust its naming accordingly when producing new objects. However, if a user _wants_ to replace objects with facetized replacements, this may be accomplished by specifying the *--in-place* option. Note that this is a destructive operation - the original object definitions will be overwritten - so use with care!
@@ -40,6 +42,7 @@ In normal operation, when converting to BoT output there are post-processing rou
 Different tolerance settings will create finer or coarser meshes. See the *tol* man page for more details.
 
 
+[[facetize_options]]
 == Options
 
 
@@ -109,6 +112,7 @@ By default, BoT facetization will attempt to clear certain categories of undesir
 
 
 
+[[methods]]
 == Facetization Methods
 
 In broad, there are two stages to a facetization process. The first stage is the generation of mesh representations for individual geometric primitives - implicit ELL, ARB8, TOR, etc. solids must be represented by mesh approximations before they can become part of an evaluated mesh. Additionally, inputs that are already meshes are checked for suitability - all input meshes, whether generated from implicit shapes or pre-existing as BoTs, must be properly manifold before they can be used for facetization. Once all solids have been successfully converted, the next step is to evaluate the Boolean tree hierarchy by unioning, subtracting or intersecting the various meshes together to produce the evaluated shapes.
@@ -120,6 +124,7 @@ It can be difficult to produce a mesh from a primitive shape. Simply waiting lon
 Because many of the facetization methods are sampling based (the raytracer is used to sample the volume) a top level control is available to specify the maximum number of points to use when generating inputs for such methods. (More points generally means a better conversion at the expense of memory and runtime.)
 
 
+[[examples]]
 == EXAMPLES
 
 .Create a facetized BOT version of an existing object.
@@ -177,6 +182,7 @@ If the intent is preserve a more detailed mesh, reducing *decimation-feature-siz
 ====
 
 
+[[util]]
 == USEFUL TRICKS
 
 These are some useful commands related to the facetization process.
@@ -200,6 +206,7 @@ mged>*search model.f -type bot -type plate -exec "bot extrude -i {}" ";"*
 ====
 
 
+[[implementation_notes]]
 == Implementation Details
 
 The current implementation of *facetize* launches primitive facetization operations in a subprocess, to allow for recovery if individual primitives crash, infinite loop, or otherwise trigger what would otherwise be catastrophic behavior. This means that it is essential the operating environment allow the parent program to launch those subprocesses - otherwise, conversion will fail.
@@ -207,11 +214,13 @@ The current implementation of *facetize* launches primitive facetization operati
 Unlike previous versions of *facetize*, this version (in BoT mode) will only facetize each primitive once - if a primitive is instanced repeatedly in multiple combs, it will use the same BoT to represent all of those instances. If for some reason this is not desired behavior, the user should first prepare the geometry by making all instances unique with *xpush*.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

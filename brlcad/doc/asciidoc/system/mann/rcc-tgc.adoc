@@ -14,11 +14,13 @@ rcc-tgc {<rccname newname xyz>} [b] [t]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Creates a TGC shape with the specified apex (_x y z_) at one end (base [_b_] or top [_t_]) of the specified RCC. The default end is the base.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *rcc-tgc* command to create a TGC shape with the specified apex at the base of the specified RCC.
@@ -33,11 +35,13 @@ Creates a TGC shape named _tgc.s_ with an apex at (0 2 4) from the base of _rcc.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -32,11 +32,13 @@ process gabort {glob}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *process* offers a program-agnostic means of managing subprocesses launched by a GED application. The most common instances of this phenomena are long running *rt* commands on large models, but there are other commands such as *rtcheck* that also operate in this asynchronous manner. If one of these processes is running too long or consuming too many resources, *process* allows users to identify and stop these processes from the GED command line.
 
 
+[[examples]]
 == EXAMPLES
 
 The below examples walk through a sample *process* workflow:
@@ -88,11 +90,13 @@ Using the reported PID from *process list*, the above line terminates the *rtche
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

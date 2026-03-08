@@ -574,11 +574,68 @@ inline std::string apply_quote_rx(
         out = std::move(after);
     }
 
-    // Inline image: image:path[alt]
+    // Inline image: image:path[attrs]
+    // The bracket content follows AsciiDoc attribute list syntax:
+    //   [alt,width=N]    – first positional param is alt text
+    //   [width=N]        – only named param; alt text defaults to empty
+    // Named attributes (width=, height=) are emitted as HTML attributes.
     {
         static const aqrx::regex rx(R"(image:([^\[]+)\[([^\]]*)\])",
                                    aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx, R"(<span class="image"><img src="$1" alt="$2"></span>)");
+        std::string after;
+        auto begin = aqrx::sregex_iterator(out.begin(), out.end(), rx);
+        auto end   = aqrx::sregex_iterator{};
+        std::size_t last = 0;
+        for (auto it = begin; it != end; ++it) {
+            const aqrx::smatch& m = *it;
+            after.append(out, last, static_cast<std::size_t>(m.position()) - last);
+
+            const std::string& target  = m[1].str();
+            const std::string& bracket = m[2].str();
+
+            // Parse bracket: split on commas, first token without '=' is alt.
+            std::string alt_text;
+            std::string width_val;
+            std::string height_val;
+            {
+                std::istringstream ss(bracket);
+                std::string tok;
+                bool first_tok = true;
+                while (std::getline(ss, tok, ',')) {
+                    // Trim leading/trailing whitespace
+                    auto b = tok.find_first_not_of(" \t");
+                    auto e = tok.find_last_not_of(" \t");
+                    if (b == std::string::npos) { first_tok = false; continue; }
+                    tok = tok.substr(b, e - b + 1);
+
+                    auto eq = tok.find('=');
+                    if (eq == std::string::npos) {
+                        // Positional param
+                        if (first_tok) { alt_text = tok; }
+                    } else {
+                        std::string key = tok.substr(0, eq);
+                        std::string val = tok.substr(eq + 1);
+                        if (key == "width")  { width_val  = val; }
+                        if (key == "height") { height_val = val; }
+                    }
+                    first_tok = false;
+                }
+            }
+
+            std::string html = "<span class=\"image\"><img src=\""
+                             + target
+                             + "\" alt=\""
+                             + sub_specialchars(alt_text) + "\"";
+            if (!width_val.empty())  { html += " width=\""  + width_val  + "\""; }
+            if (!height_val.empty()) { html += " height=\"" + height_val + "\""; }
+            html += "></span>";
+            after += html;
+
+            last = static_cast<std::size_t>(m.position()) +
+                   static_cast<std::size_t>(m.length());
+        }
+        after.append(out, last);
+        out = std::move(after);
     }
 
     // ── UI macros ─────────────────────────────────────────────────────────────

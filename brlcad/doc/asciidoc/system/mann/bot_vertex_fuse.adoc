@@ -14,11 +14,13 @@ bot_vertex_fuse {<new_bot_solid>} {<old_bot_primitive>>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to eliminate duplicate vertices from a BOT solid. It returns the number of vertices eliminated. No tolerance is used, so the vertices must match exactly to be considered duplicates.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *bot_vertex_fuse* command to eliminate duplicate vertices from a BOT solid and store the result in a new BOT primitive.
@@ -35,11 +37,13 @@ Eliminates any duplicate vertices from the primitive named _bot1_original_ and s
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

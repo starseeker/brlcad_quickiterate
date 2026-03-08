@@ -14,6 +14,7 @@ fbcmap [-F<framebuffer>] [ -w|W<scr_width>] [ -n|N<scr_height>] [ -s|S<squarescr
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fbcmap* is used to change the color map of a frame buffer.
@@ -63,21 +64,25 @@ a map with a series of color deltas. This map is mostly black with the following
 There are also three special maps used to quickly change the display to a solid color for adjusting a camera without losing image memory, numbered 10 through 12 for black, white, and 18% neutral grey, respectively.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *fbcmrot*(1), *fbgamma*(1), *cmap-fb*(1), *fb-cmap*(1), *cmap*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1986-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

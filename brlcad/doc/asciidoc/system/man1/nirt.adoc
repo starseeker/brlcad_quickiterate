@@ -14,10 +14,12 @@ nirt [<options>] <model.g> [<objects>]...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *nirt* operates on the specified _objects_ in the database _model.g_, using *librt*(3) to trace rays according to commands read from the standard input and producing an ASCII report of the results. By default, the user can interact with *nirt*, repeatedly specifying origination points and directions for rays and the format and destination for the reports. Locations may be input and output in either model coordinates (_x_, _y_, _z_) or view (a.k.a. grid-plane) coordinates (_h_, _v_, _d_). Similarly, direction may be input and output either as vectors expressed in model coordinates or as angles of azimuth and elevation.
 
+[[options]]
 === Options
 
 
@@ -85,6 +87,7 @@ Initializes the ray origination point to the specified value. See the discussion
 *nirt* will check in two places for a `.nirtrc` file - first in the current directory, and if it is not found there, in the user's home directory. If found, *nirt* begins by reading from it. This start-up file may contain any *nirt* commands and is useful for loading predefined states or initializing actions for output statements.
 
 
+[[commands]]
 === Commands
 
 
@@ -175,6 +178,7 @@ Quits *nirt*.
 
 
 
+[[output_statements]]
 === Output Statements
 
 *nirt* allows the user a high degree of control, via the _fmt_ command, over what information gets printed out for each ray and in what format. There are six types of output statements, each of which is executed under appropriate circumstances. The types and their use are:
@@ -481,6 +485,7 @@ _d_ coordinate of exit from overlap.
 
 
 
+[[hints]]
 == HINTS
 
 Ray origination coordinates specified with the _hv_ command are immediately converted for internal use to model coordinates, according to the current direction vector. If you want to change the ray direction and origination point, and you're using view coordinates, you probably want to change the ray direction _before_ you use the _hv_ command.
@@ -488,10 +493,12 @@ Ray origination coordinates specified with the _hv_ command are immediately conv
 The name "nirt" stands for "Natalie's interactive ray tracer".
 
 
+[[definitions]]
 == DEFINITIONS
 
 The usage in *nirt* of the following terms corresponds to that found in *mged*(1) and elsewhere throughout BRL-CAD. We provide the definitions here for reference.
 
+[[view_coordinates]]
 === View Coordinates
 
 We define the view coordinate system (more precisely its basis vectors _m_, _n_, and _o_) in terms of the basis vectors _i_, _j_, and _k_ of the model coordinate system as follows:
@@ -501,12 +508,14 @@ _m_ is the opposite of the direction vector and corresponds to _d_, _n_ = _k_ ×
 Thus if the direction vector is (-1, 0, 0), then (_d_, _h_, _v_) = (_x_, _y_, _z_).
 
 
+[[azimuth_and_elevation]]
 === Azimuth and Elevation
 
 Azimuth is the angle measured around _k_ (right-hand rule) from the _xz_ plane to _m_. Elevation is the angle measured toward _k_ from the _xy_ plane to _m_.
 
 
 
+[[files]]
 == FILES
 
 
@@ -516,21 +525,25 @@ run-time configuration file
 
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *librt*(3), *printf*(3)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1984-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

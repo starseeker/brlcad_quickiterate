@@ -14,6 +14,7 @@ bb [<options>]... <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 _bb_ calculates a bounding box for an object or set of objects supplied as arguments, and reports information about bounding box dimensions at the MGED command prompt. It supports various options, most of which control the type of information reported. It can optionally create an ARB8 in a database corresponding to the bounding box of the object(s). By default, an axis-aligned bounding box (AABB) is created, but support for an oriented bounding box (OBB) is available as well.
@@ -55,6 +56,7 @@ Print the volume of the bounding box. On by default.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Determine the size of the bounding box for a Havoc helicopter
@@ -148,21 +150,25 @@ havoc_parts_bbox.s:  ARB8
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *make_bb*(nged).
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2009-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <bugs@brlcad.org>.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team

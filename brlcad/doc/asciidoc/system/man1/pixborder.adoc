@@ -14,6 +14,7 @@ pixborder [ -b<'R> <G> <B'>] [ -e<'R> <G> <B'>] [ -i<'R> <G> <B'>] [ -t<'R> <G> 
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixborder* reads an input stream of _pix_ data, looking for maximal contiguous regions of a specified interior color, and writes out the _pix_ data with all pixels on the boundaries of these regions changed to a specified border color.
@@ -29,21 +30,25 @@ The *-a* option is for autosizing. The *-w* option is for file width, the *-n* o
 Changes are restricted to a specified rectangular portion of the image (by default this is the entire image). The *-x* option sets the left edge of that rectangle: no pixels to the left of this edge are changed. The *-X*, *-y*, and *-Y* options respectively set the right, bottom, and top edges in the same manner.
 
 
+[[hint]]
 == HINT
 
 To obtain borders more than one pixel wide, one can run several copies of *pixborder* in a pipeline. In doing this to get, for instance, a border made up of constant-thickness segments of different colors, one should produce all the segments of a given layer before beginning any segments of the next inner layer.
 
 
+[[author]]
 == AUTHOR
 
 Paul Tanenbaum
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1996-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

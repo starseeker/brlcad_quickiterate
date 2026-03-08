@@ -24,8 +24,6 @@ TraNese Christy
 
 image::../presentations/images/tk-based-gui-for-mged.png[width=5.5in]
 
-image::../presentations/images/tk-based-gui-for-mged.png[width=5.5in]
-
 
 == Tcl Syntax
 
@@ -250,8 +248,6 @@ image::../presentations/images/tk-based-gui-for-mged.png[width=5.5in]
 
 
 * Special Character Interpretation
-
-image::../presentations/images/special-character-interpretation.png[width=5.5in]
 
 image::../presentations/images/special-character-interpretation.png[width=5.5in]
 
@@ -532,10 +528,6 @@ sph-part s1.s s2.s part.s
 
 image::../presentations/images/copy-sph-part-left.png[width=5.5in]
 
-image::../presentations/images/copy-sph-part-left.png[width=5.5in]
-
-image::../presentations/images/copy-sph-part-right.png[width=5.5in]
-
 image::../presentations/images/copy-sph-part-right.png[width=5.5in]
 
 
@@ -555,8 +547,6 @@ image::../presentations/images/copy-sph-part-right.png[width=5.5in]
 
 
 * Create the default .mgedrc from inside MGED:
-
-image::../presentations/images/mged-defaults.png[width=5.5in]
 
 image::../presentations/images/mged-defaults.png[width=5.5in]
 

@@ -15,6 +15,7 @@ fbcolor [-F<framebuffer>] [ -s|S<screen_squaresize>] [ -w|W<screen_width>] [ -n|
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fbcolor* is an interactive color picking facility. It allows you to pick and display colors, by varying parameters in either RGB (red, green, blue) or HSI (hue, saturation, intensity) space.
@@ -38,21 +39,25 @@ At the same time, *fbcolor* displays the current RGB and HSI values on your term
 A ``_?_'' prints a short command summary, and typing ``_q_'', ``_Q_'', ``_<CR>_'', or ``_<LF>_'' exits the program.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *fbclear*(1), *fbcmap*(1)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,11 +14,13 @@ refresh
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Updates the MGED display.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *refresh* command to update the MGED display.
@@ -33,11 +35,13 @@ Updates the MGED display.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

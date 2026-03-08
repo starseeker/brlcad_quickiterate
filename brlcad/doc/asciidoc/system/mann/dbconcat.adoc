@@ -14,6 +14,7 @@ dbconcat [<-t>] [<-u>] [<-c>] [<-s|-p>] [<-L>] [<-O>] {<database_file>} [<affix>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Concatenates an existing _BRL-CAD_ database to the database currently being edited. Note that each _BRL-CAD_ object must have a unique name, so naming rules are defined that will automatically rename conflicting objects as they are merged in to a databse.
@@ -25,6 +26,7 @@ Alternatively, if an _affix_ string is supplied, then objects from the incoming 
 Other options are used to indicate whether or not to preserve incoming metadata such as title, units and region color table.
 
 
+[[dbconcat_options]]
 == OPTIONS
 
 
@@ -58,6 +60,7 @@ Indicates that the units of the incoming _database_file_ should become the units
 
 
 
+[[examples]]
 == EXAMPLES
 
 This example shows the use of the *dbconcat* command to copy all objects in a particular database to the current database. It also shows how to add a particular prefix to every object copied.
@@ -92,11 +95,13 @@ Copies all the objects in _model_two.g_ to the current database. No object names
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

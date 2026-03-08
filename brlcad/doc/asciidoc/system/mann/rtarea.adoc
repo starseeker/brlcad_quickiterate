@@ -14,6 +14,7 @@ rtarea [<options>]...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 For displayed objects, the _rtarea_ command calculates the exposed, presented and centers of surface areas. The summary output includes details for individual regions, assemblies (combinations that contain regions), and summarized totals. By default current display azimuth and elevation are used for computations. Summary units are current MGED editing units.
@@ -139,6 +140,7 @@ It should be noted that rtarea only counts surfaces with a surface normal that h
 WARNING: _Rtarea_ may not correctly report area or center when instancing is done at the group level. Using *xpush* can be a workaround for this problem.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -184,6 +186,7 @@ Sets the librt(3) debug flags to the given hexadecimal bit vector. See raytrace.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Calculate exposed and presented surface areas
@@ -236,16 +239,19 @@ Calculate exposed and presented surface areas of the displayed objects using cur
 ====
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1987-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <bugs@brlcad.org>.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team

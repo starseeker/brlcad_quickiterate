@@ -14,6 +14,7 @@ bot repair [-h] [-a #] [-p #] [-o output_obj] {<input_bot>}...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 It is quite common in CAD modeling to encounter a triangle mesh (a Bag of Triangles or "BoT" object in BRL-CAD terms) that does not define an enclosed volume in space. Sometimes this is intentional (such as "plate mode" meshes whose volume is implicitly defined) but more commonly it represents a modeling error - i.e. the _intent_ was to define a closed volume in space, but the mesh elements as defined do not successfully do so.
@@ -31,6 +32,7 @@ A number of checks are made on a repaired mesh to try and ensure the processing 
 Note that this command will _not_ (currently) perform any work on plate mode or surface mode BoTs. If a user is not aware that they have those types of BoT objects in a database, they may be surprised at *bot repair* not operating on those objects. To verify the type of an individual bot, use the command *bot get type objname*. To find all plate mode bots in a database the command *search -type bot -type plate* may be used and to find all surface mode BoTs the command *search -type bot ! -type plate ! -type solid* will work. If a BoT is _incorrectly_ identified as surface, its type may be changed with the command *bot set type objname solid*. Note, however, that changing a BoT's type and repairing it when it is _intended_ to be plate mode or surface may result in incorrect geometry per modeling intent, even if the result ends up topologically valid.
 
 
+[[search_options]]
 == OPTIONS
 
 
@@ -48,6 +50,7 @@ Specify the largest viable hole size for repair as a percentage (0-100) of the m
 
 
 
+[[examples]]
 == EXAMPLES
 
 .In-Place Repair
@@ -87,11 +90,13 @@ Attempt in-place repair of all BoT solids. Any object matching the pattern that 
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

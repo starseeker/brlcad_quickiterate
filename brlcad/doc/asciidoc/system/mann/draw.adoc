@@ -14,6 +14,7 @@ draw [-A<attribute name/value pairs>] [-s] [-A -o<attribute name/value pairs>] [
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Adds _objects_ to the display list so that they will appear on the MGED display. The *e* command is a synonym for draw.
@@ -28,6 +29,7 @@ Adds _objects_ to the display list so that they will appear on the MGED display.
 * The _-S_ option tells draw to be "simplified" by skipping subtraction objects when drawing, not drawing NMG interior surfaces, and potentially more. Skipping subtractions is useful in situations where an object has many large objects subtracted from it but those objects have relatively minimal impact on the shape. This results in the default wireframe bearing little resemablance to the evaluated shape.
 
 
+[[examples]]
 == EXAMPLES
 
 The following examples show the use of the *draw* command to draw particular objects, to specify color, to draw with shape lines rather than dot-dash lines, and to limit the objects to be drawn to those having specific attribute names and value pairs.
@@ -62,11 +64,13 @@ Objects having a Comment attribute with a value of either "First comment" or "Se
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,11 +14,13 @@ mrot {<x y z>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Rotates the view using model _x y z_.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *mrot* command to rotate the view using model _x y z_.
@@ -33,11 +35,13 @@ Rotates the view about the model _z_ axis by 10°.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

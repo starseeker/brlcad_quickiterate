@@ -1,6 +1,7 @@
 = BRL-CAD Tutorial Series: Volume I - An Overview of BRL-CAD
 :doctype: book
 
+[[whatisbrlcad]]
 == What is BRL-CAD?
 
 Since the late 1950s, computers have been used to assist with the design and study of combat vehicle systems. The result has been a reduction in the amount of time and money required to take a system from the drawing board to full-scale production as well as increased efficiency in testing and evaluation.
@@ -11,20 +12,21 @@ Now comprising almost a million lines of C code, BRL-CAD has become a powerful c
 
 A particular strength of the package lies in its ability to build and analyze realistic models of complex objects using a relatively small set of "primitive shapes." To do this, the shapes are manipulated by employing the basic Boolean operations of union, subtraction, and intersection. Another strength of the package is the speed of its raytracer, which is one of the fastest in existence. Finally, BRL-CAD users can accurately model objects on scales ranging from the subatomic through the galactic and get "all the details, all the time."
 
+[[whycsg]]
 == Why CSG Modeling?
 
 Although BRL-CAD has been used for a wide variety of engineering and graphics applications, the package's primary purpose continues to be the support of (1) ballistic and (2) electromagnetic analyses. Accordingly, developers have found CSG modeling to be the best approach in terms of model accuracy, storage efficiency, precision, and speed of computational analysis.
 
 While polygonal and boundary representation (B-rep) modeling often focuses on just the surfaces of objects, CSG modeling focuses on the entire volume and content of objects. This gives BRL-CAD the capability to be "more than skin deep" and build objects with real-world materials, densities, and thicknesses so that analysts can study physical phenomena such as ballistic penetration and thermal, radiative, neutron, and other types of transport.
 
+[[packagecontent]]
 == Package Content
 
 In keeping with the UNIX philosophy of developing independent tools to perform single, specific tasks and then linking the tools together in a package, BRL-CAD is basically a collection of libraries, tools, and utilities that work together to create, raytrace, and interrogate geometry and manipulate files and data. The basic data flow structure of the package is illustrated below.
 
 image::../books/images/tutorial_series_volI_fig01.png[width=6in]
 
-image::../books/images/tutorial_series_volI_fig01.png[width=100%]
-
+[[libraries]]
 == Libraries
 
 The BRL-CAD libraries (designated by the prefix "lib") are designed primarily for the geometric modeler who also wants to tinker with software and, perhaps, design custom tools. Each library fits into one of three categories: (1) creating and/or editing geometry, (2) raytracing geometry, or (3) image handling. The following is a list of the major BRL-CAD libraries and descriptions of their functions. 
@@ -41,6 +43,7 @@ The BRL-CAD libraries (designated by the prefix "lib") are designed primarily fo
 
 
 
+[[toolsutilities]]
 == Tools and Utilities
 
 The application side of BRL-CAD also offers a number of tools and utilities. They primarily concern (1) geometric conversion, (2) geometric interrogation, (3) image format conversion, and (4) command-line-oriented image manipulation. The following is a list of the major BRL-CAD tools and utilities. 
@@ -66,6 +69,7 @@ The application side of BRL-CAD also offers a number of tools and utilities. The
 
 
 
+[[benchmarkingimages]]
 == Benchmark Testing
 
 As changes are implemented in BRL-CAD, ARL developers run a standard set of computationally intensive image files (shown in Figure 2) on a common machine in order to benchmark and compare raytrace performance. In addition, these images are provided with each source distribution of the package so that users can also test performance on their machines, if desired.
@@ -75,36 +79,13 @@ To run the benchmark images, run the script run.sh in the "bench" directory of t
 .Standard Benchmark Images
 |===
 
-|image::../books/images/tutorial_series_volI_fig02.png[width=2in]
-
-image::../books/images/tutorial_series_volI_fig02.png[]
-
- |image::../books/images/tutorial_series_volI_fig03.png[width=2in]
-
-image::../books/images/tutorial_series_volI_fig03.png[]
-
- |image::../books/images/tutorial_series_volI_fig04.png[width=2in]
-
-image::../books/images/tutorial_series_volI_fig04.png[]
-
- 
+|image:../books/images/tutorial_series_volI_fig02.png[width=2in] |image:../books/images/tutorial_series_volI_fig03.png[width=2in] |image:../books/images/tutorial_series_volI_fig04.png[width=2in] 
 |Moss |World |Star 
-|image::../books/images/tutorial_series_volI_fig05.png[width=2in]
-
-image::../books/images/tutorial_series_volI_fig05.png[]
-
- |image::../books/images/tutorial_series_volI_fig06.png[width=2in]
-
-image::../books/images/tutorial_series_volI_fig06.png[]
-
- |image::../books/images/tutorial_series_volI_fig07.png[width=2in]
-
-image::../books/images/tutorial_series_volI_fig07.png[]
-
- 
+|image:../books/images/tutorial_series_volI_fig05.png[width=2in] |image:../books/images/tutorial_series_volI_fig06.png[width=2in] |image:../books/images/tutorial_series_volI_fig07.png[width=2in] 
 |Bldg 391 |M35 |Sphflake 
 |===
 
+[[acknowledgments]]
 == Acknowledgments
 
 The authors would like to thank the members of the Advanced Computer Systems Team, who reviewed this document in a timely manner and made many helpful suggestions to improve its accuracy and presentation. At the time this document was prepared team members included John Anderson, TraNese Christy, Bob Parker, Ron Bowers, and Sean Morrison.

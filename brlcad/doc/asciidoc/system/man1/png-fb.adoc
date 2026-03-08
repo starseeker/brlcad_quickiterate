@@ -14,6 +14,7 @@ png-fb [-Hicvz1] [-gscreen_gamma] [-Fframebuffer] [-m#lines] [-Ssquarescrsize] [
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *png-fb* reads a _PNG_ format file from the named file, or from standard in if no file is specified, and displays the image on the currently selected framebuffer. The environment variable FB_FILE may be used to specify the current framebuffer, see *brlcad*(1). Alternatively, the framebuffer may be explicitly specified by using the *-F* flag.
@@ -43,21 +44,25 @@ The *-N scr_height* flag specifies the height in scanlines of the display device
 The *-1* flag causes the image to be written to the framebuffer one line at a time, using the *fb_write*(3) routine. This is the default behavior. The *-m #lines* flag can be used to specify the number of lines to be written to the framebuffer in rectangular blocks of scanlines, using the *fb_writerect*(3) routine. In some circumstances, this can result in significantly faster image display, at the expense of the image being written less smoothly. If both *-m* and *-1* are specified, *-1* wins.
 
 
+[[see_also]]
 == SEE ALSO
 
 *rt*(1), *fb-png*(1), *libfb*(3), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 John R. Anderson
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1998-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ bwrect [-s<squaresize>] [-w<width>] [-n<height>] [-S<out_squaresize>] [-W<out_wi
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bwrect* extracts a rectangular region from a black and white *bw*(5) format file. The default input image size is 512x512. The x,y coordinates of the origin (the default xorig=0, yorig=0 corresponds to the lower left corner) are passed as arguments for *-x* and *-y*.
@@ -31,26 +32,31 @@ The *-n*_file_height_ and *-N*_scr_height_ flags specify the height in scanlines
 This utility supports pipes and can read/write from/to them.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *bwcrop*(1), *bwscale*(1), *pixrect*(1), *bw*(5)
 
 
+[[bugs]]
 == BUGS
 
 We ought to allow the questions to be answered on the command line so that shell scripts, etc., could use this.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

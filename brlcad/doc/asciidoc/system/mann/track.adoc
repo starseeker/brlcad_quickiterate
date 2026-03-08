@@ -14,6 +14,7 @@ track [<parameters>>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Builds a simple representation of the linked track of a vehicle such as a tank. With no command line arguments, the track command will prompt for all the required input. The vehicle is assumed to be axis-aligned with the front in the +_x_ direction. A combination name for the track is built by appending a unique number to the string track. The information about the track may be included on the command line, and is order-dependent. The parameters are (in order):
@@ -34,6 +35,7 @@ Builds a simple representation of the linked track of a vehicle such as a tank. 
 * track thickness.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *track* command with arguments to build a simple track.
@@ -48,11 +50,13 @@ Builds a simple track using the provided arguments.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

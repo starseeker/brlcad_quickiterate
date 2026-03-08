@@ -17,8 +17,7 @@ Remember that when creating/updating .mgedrc files, if any conflicting/repeated 
 
 In Figure D-1, note that lines have been added before the header to show different raytracing options and the commands have been sectioned into functional divisions separated by comment fields (comment fields are denoted by the symbol "#").
 
-image::../articles/images/mgedrc_fig01.png[]
-
+[[mgedrc6]]
 image::../articles/images/mgedrc_fig01.png[]
 
 Each command includes the following four basic components: 
@@ -95,8 +94,7 @@ proc cps {oldprim newprim} {cp $oldprim $newprim; sed $newprim}
 
 Figure D-2 shows a sample section of a .mgedrc file that allows the user to specify the command line editor, customize the window size and placement, and toggle the function keys.
 
-image::../articles/images/mgedrc_fig02.png[]
-
+[[mgedrc13]]
 image::../articles/images/mgedrc_fig02.png[]
 
 The diagrammed command for sizing and positioning the command window is as follows: |===
@@ -109,7 +107,6 @@ The diagrammed command for sizing and positioning the command window is as follo
 
 As illustrated in Figure D-3, to specify the window size, the user inputs width-by-height dimensions for each window (i.e., 475 ×  250). To specify the placement of the windows on the display, the user specifies offset distances (i.e., +65 +80) from the edges of the display (as measured in pixels). The first number defines the distance for the left/right placement, and the second number is for the up/down placement. The "+" symbol indicates a distance from the left side of the display to the left side of the window or from the top of the display to the top of the window. Alternatively, if a "-" symbol were present (as shown on the right side of Figure D-3), it would indicate a distance from the right side of the display to the right side of the window or from the bottom of the display to the bottom of the window.
 
-image::../articles/images/mgedrc_fig03.png[]
-
+[[mgedrc16]]
 image::../articles/images/mgedrc_fig03.png[]
 

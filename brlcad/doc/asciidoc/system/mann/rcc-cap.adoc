@@ -14,11 +14,13 @@ rcc-cap {<rccname newname>} [<height>] [b] [t]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to round the end of a cylinder with an ellipsoid. It creates an ELL shape with the given height at one end (base [_b_] or top [_t_]) of the specified RCC. If the height option is not specified, a spherical cap will be generated. The default end is the base.
 
 
+[[examples]]
 == EXAMPLES
 
 The two examples show the use of the *rcc-cap* command to round the base and the top of a cylinder with an ellipsoid.
@@ -42,11 +44,13 @@ Creates an ELL shape named _cap.s_ with a radius of 20 units at the top of _rcc.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

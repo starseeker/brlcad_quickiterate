@@ -14,6 +14,7 @@ remrt [<options>]... <model.g> <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *remrt* is intended to be an entirely plug-compatible replacement for the *rt*(1) program. While _rt_ can operate on more than one processor of a shared memory MIMD style multi-processor, it can not spread the work out across the network. *remrt* and its companion program *rtsrv*(1) implement a *libpkg*(3)-based protocol for distributing the task of ray-traced rendering out to an arbitrary number of processors on the network. Those processors can be from an arbitrary mix of vendors, with differing instruction sets and data representations, operating at widely different speeds.
@@ -241,36 +242,43 @@ host_lookup_by_hostent(localhost) got localhost?
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *rtsrv*(1), *rt*(1), *scriptsort*(1), *brlcad*(1), *mged*(1), *pix-fb*(1), *rtray*(1), *rtpp*(1), *librt*(3), *ray*(5V), *pix*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible. Descriptive messages are printed on standard error.
 
 
+[[see_also2]]
 == SEE ALSO
 
 M. Muuss, "_Workstations_, _Networking_, _Distributed Graphics_, _and Parallel Processing_", in "_Computer Graphics Techniques_: _Theory and Practice_", ed: Rogers & Earnshaw, Springer Verlag, New York, pages 409-472
 
 
+[[bugs]]
 == BUGS
 
 Most deficiencies observed while using the *remrt* program are usually with the *rt*(1) program, with which it shares a substantial amount of common code, or with the *librt*(3) library. If a frame fails to render properly, try processing it on a single machine using *rt*(1) to determine if the problem is in the ray-tracing side of things, or the distributed computation side of things.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1994-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

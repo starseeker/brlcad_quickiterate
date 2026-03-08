@@ -10,6 +10,7 @@ benchmark - runs the BRL-CAD benchmark
 _[OPTION=value] benchmark [command] [OPTION=value] [RT_OPTIONS]_
 
 
+[[description]]
 == DESCRIPTION
 
 The *benchmark* suite will test the performance of a given system by iteratively rendering several well-known datasets into 512x512 images where performance metrics are documented and fairly well understood. The local machine performance is compared to the base system (called VGR) and a numeric "VGR" multiplier of performance is computed. This number is a simplified metric from which one may qualitatively compare cpu and cache performance, versions of BRL-CAD, and different compiler characteristics.
@@ -31,6 +32,7 @@ When the benchmark completes, output should be saved to several log files includ
 The _clean_ command removes the test pix and log files. The _clobber_ command removes those same files as well as any *benchmark.log files encountered, and prompting the user beforehand. The generated tabular _summary_ file will not be removed automatically regardless of invocation command. The _summary_ file must always be manually deleted.
 
 
+[[reporting_results]]
 == REPORTING RESULTS
 
 Please send your BRL-CAD Benchmark results to the developers along with detailed system information to <devs@brlcad.org> Include at least:
@@ -38,6 +40,7 @@ Please send your BRL-CAD Benchmark results to the developers along with detailed
 0) Compiler name and version (e.g. gcc --version) 1) CPU configuration (e.g. cat /proc/cpuinfo or hinv or sysctl -a) 2) Cache (data and/or instruction) details for L1/L2/L3 and system (e.g. cat /proc/cpuinfo or hinv or sysctl -a) 3) All generated log files (i.e. *.log* after benchmark completes) 4) Anything else you think might be relevant to performance
 
 
+[[examples]]
 == EXAMPLES
 
 _benchmark run_ default run of the suite, taking approximately 10 minutes
@@ -49,21 +52,25 @@ _benchmark run DEVIATION=1 TIMEFRAME=60 MAXTIME=600_ excessive analysis, attempt
 _benchmark clean_ delete all of the log and pix image files generated during a benchmark analysis, leaving only the summary file and any *benchmark.log files
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *rt*(1), *pix-fb*(1), *librt*(3), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 _BRL-CAD Team_
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2006-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

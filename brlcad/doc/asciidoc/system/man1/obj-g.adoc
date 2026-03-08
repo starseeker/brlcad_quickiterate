@@ -14,6 +14,7 @@ obj-g [-c] [-d] [-f] [-g<grouping_option>] [-H<plate_thickness>] [-i] [-m<mode>]
 ----
 
 
+[[objg_description]]
 == DESCRIPTION
 
 *obj-g* converts a Wavefront Object file to BRL-CAD's .g format.
@@ -21,6 +22,7 @@ obj-g [-c] [-d] [-f] [-g<grouping_option>] [-H<plate_thickness>] [-i] [-m<mode>]
 Only face elements are supported. Materials and textures associated with face elements are unsupported. Faces associated with materials and/or textures will convert but material properties and textures are ignored. Face groupings convert to BRL-CAD primitives. Any hierarchical structure (i.e. assembly structure) defined in the obj file is not maintained in the conversion. If a face is a member of more than one 'group' grouping, a copy of the face will exist in each group in the resulting model. Primitives are named based on the grouping names and have appended to each name a string which guarantees uniqueness. This unique string includes the obj file grouping index number, face type number (1-4), internal conversion mode (b=native-bot|n=nmg|v=bot-via-nmg) and surface closure status (o=open|c=closed|u=untested). Characters in the original grouping name which may cause problems are replaced with the underscore character.
 
 
+[[objg_options]]
 == OPTIONS
 
 
@@ -94,6 +96,7 @@ The path and file name of the output BRL-CAD database file. If this file already
 
 
 
+[[objg_examples]]
 == EXAMPLES
 
 The following will convert the obj file _input.obj_ to the BRL-CAD database _output.g_.
@@ -117,21 +120,25 @@ Convert obj file 'input.obj' to BRL-CAD database file 'output.g' using bot-via-n
 ====
 
 
+[[objg_diagnostics]]
 == DIAGNOSTICS
 
 Numerous warning and error conditions are possible, usually due to invalid source geometry. Descriptive messages are printed on standard error (file descriptor 2). *-v* must be enabled for warning messages to be printed.
 
 
+[[author]]
 == AUTHOR
 
 Richard Weiss
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2010-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

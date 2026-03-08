@@ -34,8 +34,6 @@ As noted in Lesson 1, this command tells _MGED_ to: |===
 
 image::../lessons/images/mged03_wireframe_sph.png[]
 
-image::../lessons/images/mged03_wireframe_sph.png[]
-
 
 
 A sphere shape has now been created, and a wireframe drawing should appear in your Graphics Window.
@@ -43,8 +41,6 @@ A sphere shape has now been created, and a wireframe drawing should appear in yo
 To make the rcc from the Command Window prompt, type: *make rcc1.s rcc[Enter]*
 
 Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created. image::../lessons/images/mged03_wireframe_sph_rcc.png[]
-
-image::../lessons/images/mged03_wireframe_sph_rcc.png[]
 
 
 
@@ -107,15 +103,7 @@ You should now have new versions of the sphere and rcc shapes. Notice how these 
 
 |===
 
-|image::../lessons/images/mged03_shapes_make_command.png[]
-
-image::../lessons/images/mged03_shapes_make_command.png[]
-
- |image::../lessons/images/mged03_shapes_in_command.png[]
-
-image::../lessons/images/mged03_shapes_in_command.png[]
-
- 
+|image:../lessons/images/mged03_shapes_make_command.png[] |image:../lessons/images/mged03_shapes_in_command.png[] 
 |Shapes Created with Make Command |Shapes Created with In Command 
 |===
 
@@ -143,7 +131,7 @@ The meaning of this command is:
 
 |in |rcc3.s |rcc |4 |4 |0 |0 |0 |4 |3 
 |Insert a primitive shape |Name it rcc3.s |Make the primitive shape a right circular cylinder |Make the x of the vertex a value of 4 |Make the y of the vertex a value of 4 |Make the z of the vertex a value of 0 |Make the x of the height vector a value of 0 |Make the y of the height vector a value of 0 |Make the z of the height vector a value of 4 |Make the radius a value of 3 
-|Make the shape four units long, pointing straight toward positive z 
+3+|Make the shape four units long, pointing straight toward positive z 
 |===
 
 
@@ -156,16 +144,16 @@ When you are first starting to use _MGED_, if you want to use the Command Window
 
 |in |? |sph |? |? |? |? 
 |Insert a shape |Name of primitive shape |Type of shape is a sphere |Value of x |Value of y |Value of z |Radius of sph 
-|Center 
+3+|Center 
 |===
 
 A Combined-Command Form for the rcc might be:
 
 |===
 
-|in |? |rcc |? |? |? 
+|in |? |rcc 3+|? 3+|? |? 
 |Insert a primitive shape |Name of shape |Type of shape is a right circular cylinder |Value of x |Value of y |Value of z |Value of x |Value of y |Value of z |Radius of rcc 
-|Vertex |Height vector 
+3+|Vertex 3+|Height vector 
 |===
 
 

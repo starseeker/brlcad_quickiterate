@@ -14,6 +14,7 @@ random [-s<seed>] [ -g [-c<center>]] [-u] [-v] <low> <high>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *random* generates a random number between the two values given by _low_ and _high_, which are required arguments. The number can be uniform across the entire range or it can be a gaussian distribution around the center of the range (or a named center).
@@ -25,6 +26,7 @@ The *-u* option specifies that the random number distribution should be uniform 
 The *-v* option specifies verbose diagnostic output.
 
 
+[[examples]]
 == EXAMPLES
 
 
@@ -35,16 +37,19 @@ random -g 40 2000
 ....
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2010-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

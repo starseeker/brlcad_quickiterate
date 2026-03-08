@@ -14,6 +14,7 @@ brep {<obj>}plot [<C2|C3|E|F|F2d|FSBB|FSBB2d|FTBB|FTBB2d|FTD|I|L|L2d|S|SCV|SK|SK
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 If _obj_ is not a brep object, then report that fact and exit. Otherwise, generate 3D scene visuals of the specified _obj_ brep data. Note that the user may need to use *autoview* to center the view on the plotted data; the command does not automatically do so, in order to allow for debugging scenarios where it is desirable to maintain a fixed view.
@@ -177,6 +178,7 @@ Plot the wireframe view of a constrained Delaunay triangulation of one or more B
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Plot single face
@@ -207,11 +209,13 @@ Plots the various loops making up the definition of faces 1, 3, 5 and 10 in Brep
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRLCAD-TEAM
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

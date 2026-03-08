@@ -65,8 +65,6 @@ There will be a number of models used to illustrate various _NIRT_ behaviors, al
 
 image::../articles/images/nirt_fig01.png[]
 
-image::../articles/images/nirt_fig01.png[]
-
 
 
 Although there are many *nirt* options available, only the database name and objects are essential to get started: 
@@ -361,11 +359,7 @@ mged>
 
 image::../articles/images/nirt_fig02.png[]
 
-image::../articles/images/nirt_fig02.png[]
-
  Select the _MGED_ view window and press "3" to view the path of the ray: image::../articles/images/nirt_fig03.png[]
-
-image::../articles/images/nirt_fig03.png[]
 
  Because the ray encountered only a single region, the only visible path drawn is the intersection path of the ray and the region (the light blue line). The region intersection was backed out to the first intersection with that region, despite the origination point of the ray being at the center of the sphere. 
 [NOTE]
@@ -400,8 +394,6 @@ mged>
 
 image::../articles/images/nirt_fig04.png[]
 
-image::../articles/images/nirt_fig04.png[]
-
  The ray did indeed intersect a solid area as indicated in the report, but only in one of the two cubes making up the region. Repeating the steps using the _b_ flag to back the origination point out produces somewhat different results: 
 ....
 
@@ -418,8 +410,6 @@ left_and_right_cubes.r (   -1.000     0.000     0.000)     2.00    0.000
 mged> ae 90 0
 	
 ....
-
-image::../articles/images/nirt_fig05.png[]
 
 image::../articles/images/nirt_fig05.png[]
 
@@ -458,8 +448,6 @@ mged> ae 90 0
 
 image::../articles/images/nirt_fig06.png[]
 
-image::../articles/images/nirt_fig06.png[]
-
  There are three regions present, according to the text report. The first region encountered is that associated with _right_cube.r_, and the portion of the ray intersection in that region is light blue. The second region, _center_cube.r_, has its intersection with the yellow ray. Note the color of the intersection in _left_cube.r_ is the same as that shown for _right_cube.r_. *It is important to realize that the same intersection color in two different areas does NOT imply that they are the same region, material, etc. Nor do different colors guarantee that noncontiguous geometric areas are in different regions.* The color swap is simply an aid when viewing two different contiguous solid regions that would otherwise be indistinguishable visually. For example, if all three cubes were unioned into a single region, the wireframe would look identical but the region report would be very different. In that case, there would be only one region, and only one line color would be needed. To illustrate: 
 ....
 
@@ -476,8 +464,6 @@ all_cubes.r          (    3.000     0.000     0.000)     6.00    0.000
 mged> ae 90 0
 	
 ....
-
-image::../articles/images/nirt_fig07.png[]
 
 image::../articles/images/nirt_fig07.png[]
 
@@ -503,8 +489,6 @@ mged> ae 90 0
 
 image::../articles/images/nirt_fig08.png[]
 
-image::../articles/images/nirt_fig08.png[]
-
  To illustrate overlaps, both _center_cube.r_ and _all_cubes.r_ are drawn at the same time: 
 ....
 
@@ -525,8 +509,6 @@ mged> ae 90 0
 
 image::../articles/images/nirt_fig09.png[]
 
-image::../articles/images/nirt_fig09.png[]
-
 
 
 
@@ -544,8 +526,6 @@ mged>
 ....
 
  To aid with aiming, the grid overlay is enabled from the menu: Settings->Grid->Draw Grid. Grid spacing is adjusted with Settings->Grid Spacing->Autosize: image::../articles/images/nirt_fig10.png[]
-
-image::../articles/images/nirt_fig10.png[]
 
  With the mouse behavior set to Query Ray, the following results are from casting rays at (approximately) the (-2 mm, 0 mm), (0 mm, 0 mm), and (2 mm, 0 mm) grid points: 
 ....
@@ -606,8 +586,6 @@ When using _NIRT_ within _MGED_, some of its settings can be changed through a g
 
 Earlier, mouse-based _NIRT_ ray casting was enabled via a menu option. The Query Ray Control Panel offers a more convenient option for toggling the same behavior via the *Mouse Active* check box in the lower left corner of the dialog box. Selecting this check box and clicking *Apply* will activate the mouse as a trigger for a ray cast. Clearing the *Mouse Active* check box and clicking *Apply* will restore the default behavior. image::../articles/images/nirt_fig11.png[]
 
-image::../articles/images/nirt_fig11.png[]
-
 
 
 
@@ -616,17 +594,11 @@ image::../articles/images/nirt_fig11.png[]
 
 Although the default colors normally work well, it is possible to adjust the colors used for regions, overlaps, and gaps: image::../articles/images/nirt_fig12.png[]
 
-image::../articles/images/nirt_fig12.png[]
-
  The *odd* and *even* colors correspond to solid areas of regions, *void* is a gap between regions, and *overlap* is the color for overlapping regions. Select a color by typing in an RGB color designation directly or using the drop-down menu visible on the right end of each color entry: image::../articles/images/nirt_fig13.png[]
-
-image::../articles/images/nirt_fig13.png[]
 
 
 
 If the default color listings are insufficient, the *Color Tool* can be used for more fine-tuned selection: image::../articles/images/nirt_fig14.png[]
-
-image::../articles/images/nirt_fig14.png[]
 
 
 
@@ -635,8 +607,6 @@ image::../articles/images/nirt_fig14.png[]
 ==== Customizing the Pseudo-Primitive Base Name
 
 _MGED_ and _NIRT_ use "pseudo" primitives to describe the actual graphical lines. They will not behave like "normal" primitives, but they do need a name. By default, these names are the string "query_ray" and the color used for the string. For example, the pseudo-primitive list after running _NIRT_ on the cube example with a gap is given below: image::../articles/images/nirt_fig08.png[]
-
-image::../articles/images/nirt_fig08.png[]
 
 
 ....
@@ -663,8 +633,6 @@ mged> erase query_rayff00ff
 
  will remove _only_ the purple line segment and leave the others: image::../articles/images/nirt_fig15.png[]
 
-image::../articles/images/nirt_fig15.png[]
-
 
 
 The Query Ray Control Panel also offers a way to customize the base name used for these pseudo-primitives. Changing the *Base Name* from query_ray to line_segment and rerunning _NIRT_ results in pseudo-primitives named: 
@@ -677,8 +645,6 @@ mged> who p
 
 image::../articles/images/nirt_fig16.png[]
 
-image::../articles/images/nirt_fig16.png[]
-
 
 
 
@@ -686,8 +652,6 @@ image::../articles/images/nirt_fig16.png[]
 ==== Echoing the Internal nirt Command
 
 The *Echo Cmd* check box in the *Effects* row allows the user to enable/disable the printing of the internal *nirt* command being run by _MGED_. image::../articles/images/nirt_fig17.png[]
-
-image::../articles/images/nirt_fig17.png[]
 
  For example, with *Echo Cmd* selected, casting a ray into the last example in the previous section results in: 
 ....
@@ -722,8 +686,6 @@ left_cube.r          (   -1.000     0.022     0.011)     2.00    0.000
 ==== Selecting Graphical and Textual Output
 
 By default, _NIRT_ in _MGED_ outputs both graphical and text-based output. This is reflected in the drop-down menu on the right side of the *Effects* row in the Query Ray Control Panel, which is set to *Both*. The other options in the drop-down menu allow the user to specify only *Graphics* (no text report is printed) or only *Text* (no ray path is drawn in the wireframe.) image::../articles/images/nirt_fig18.png[]
-
-image::../articles/images/nirt_fig18.png[]
 
 
 
@@ -783,8 +745,6 @@ reg_name,path_name,reg_id,x_in,y_in,z_in,d_in,x_out,y_out,z_out,d_out,los,scaled
 ....
 
  The output of the shot command is then copied to a file (for example, test.csv) and imported into a spreadsheet: image::../articles/images/nirt_fig19.png[]
-
-image::../articles/images/nirt_fig19.png[]
 
 
 
@@ -1022,8 +982,6 @@ left_and_right_cubes.r (  -1.0000    0.0000    0.0000)   2.0000   0.0000
 
 The Query Ray Control Panel also offers a way to select the Use Air option: image::../articles/images/nirt_fig20.png[]
 
-image::../articles/images/nirt_fig20.png[]
-
 
 
 
@@ -1196,8 +1154,6 @@ reg_name,path_name,reg_id,x_in,y_in,z_in,d_in,x_out,y_out,z_out,d_out,los,scaled
 
  As before, this format is trivially imported into a spreadsheet: image::../articles/images/nirt_fig21.png[]
 
-image::../articles/images/nirt_fig21.png[]
-
 
 
 
@@ -1264,8 +1220,6 @@ If a user wishes to save the current session configuration of an interactive com
 
 The Query Ray Control Panel discussed earlier also provides access to the reporting logic used by _MGED_ when calling _NIRT_, but it does not provide any graphical aid when it comes to laying out the formatting. All layout logic must be defined with the same syntax already seen for the script files. Customizations of this logic in _MGED_ are done using the *Advanced* option in the lower right corner of the Query Ray Control Panel, which brings up the following window: image::../articles/images/nirt_fig22.png[]
 
-image::../articles/images/nirt_fig22.png[]
-
  Note also the last line of this dialog box, which provides a place for script commands to be executed before the internal *s* command is run. It functions just like the _-e_ option on the normal command line, including the syntax of separating all commands except the last one with semicolons. This is useful for setup not possible in normal command line operation, as illustrated in the next section.
 
 
@@ -1276,13 +1230,9 @@ As mentioned earlier, reporting attributes with _NIRT_ inside of _MGED_ is more 
 
 The first step is to open the Query Ray Advanced Settings dialog box shown in the previous section. Examining the default _NIRT_ formatting file used on the command line reveals that the partition formatting string needs a *%s* variable added and the *attributes* variable in position to be supplied to the *%s*. Also the *Attrib* column header is added to *Head*. image::../articles/images/nirt_fig23.png[]
 
-image::../articles/images/nirt_fig23.png[]
-
 
 
 The second step is to use the *Script* line in this dialog box to add *rgb* to the attributes list. Because the script line is run before _MGED_ sends the *s* command, the attributes list will be updated by the time the ray is cast and the subsequent report is generated. image::../articles/images/nirt_fig24.png[]
-
-image::../articles/images/nirt_fig24.png[]
 
 
 
@@ -1329,7 +1279,7 @@ The author would like to thank Bob Parker, John Anderson, Janine Gettier, and Ch
 
 |===
 
-|*Ray Variables* 
+2+|*Ray Variables* 
 |x_orig |x coordinate of ray origination point. 
 |y_orig |y coordinate of ray origination point. 
 |z_orig |z coordinate of ray origination point. 
@@ -1345,7 +1295,7 @@ The author would like to thank Bob Parker, John Anderson, Janine Gettier, and Ch
 
 |===
 
-|*Partition Variables* 
+2+|*Partition Variables* 
 |attributes |A string variable consisting of the names and values of the attributes requested by the *attr* interactive command or the -A command line option. 
 |x_in |x coordinate of entry into current region. 
 |y_in |y coordinate of entry into current region. 
@@ -1385,7 +1335,7 @@ The author would like to thank Bob Parker, John Anderson, Janine Gettier, and Ch
 
 |===
 
-|*Overlap Variables* 
+2+|*Overlap Variables* 
 |ov_reg1_name |name of one of the overlapping regions. 
 |ov_reg2_name |name of the other overlapping region. 
 |ov_reg1_id |region ID of one of the overlapping regions. 
@@ -1405,7 +1355,7 @@ The author would like to thank Bob Parker, John Anderson, Janine Gettier, and Ch
 
 |===
 
-|*Gap Variables* 
+2+|*Gap Variables* 
 |x_gap_in |x coordinate of entry into gap. 
 |y_gap_in |y coordinate of entry into gap. 
 |z_gap_in |z coordinate of entry into gap. 

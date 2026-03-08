@@ -24,7 +24,7 @@ The fractal pattern has infinite resolution. As a result, the borders of the col
 .Table 2
 |===
 |parameter |Abbreviation |Default Value 
-|Noise Parameters 
+3+|Noise Parameters 
 
 |lacunarity |l |2.1753974 
 |H |H |1.0 
@@ -32,7 +32,7 @@ The fractal pattern has infinite resolution. As a result, the borders of the col
 |size |s |1.0 
 |vscale |v |1.0/1.0/1.0 
 |delta |d |1000/1000/1000 
-|*Shader Specific Parameters* 
+3+|*Shader Specific Parameters* 
 |thresh1 |t1 |-0.25 
 |thresh2 |t2 |0.25 
 |color1 |c1 |97/74/41 

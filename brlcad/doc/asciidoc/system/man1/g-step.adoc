@@ -14,6 +14,7 @@ g-step -o<output_file.stp> <database.g> [<object(s)>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *g-step* converts the specified objects of the BRL-CAD database, _database.g_, to a STEP AP203 file, _output_file.stp_.
@@ -29,6 +30,7 @@ Specifies the output file to which the STEP output is written.
 There are some inherent limits when writing BRL-CAD geometry to the AP203 format. The primary solid object representation used by STEP is the NURBS Boundary Representation, and BRL-CAD's CSG models must be converted to that representation upon export. Boolean operations are not supported in AP203, so the objects are either to write out all objects and post-process them in another system to get the final forms or have BRL-CAD itself perform the boolean evaluation at the region level. The latter will eventually be the default, but for the moment that feature is not yet ready for general deployment.
 
 
+[[example]]
 == EXAMPLES
 
 .Export All .g File Contents
@@ -50,16 +52,19 @@ Writes out the hierarchies associated with the combs cab and suspension, along w
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1993-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

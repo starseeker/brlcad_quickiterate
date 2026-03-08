@@ -14,6 +14,7 @@ dbupgrade
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *dbupgrade* operates on the currently open input geometry databasefile in MGED. After dbupgrade is complete, the working database will be upgraded and a backup file will be saved preserving the original "pre-upgrade" version of the .g file. Keep the backup file until it is clear all necessary information was successfully preserved.
@@ -23,11 +24,13 @@ Starting with v5, the geometry file format is platform independent. For v4 .g fi
 The older process of running *g2asc*(1) and *asc2g*(1) on a database to preserve a text version as a work-around for platform specific binary files is no longer necessary.
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *g2asc*(1), *asc2g*(1).
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible, usually due to errors in the geometry database. In the case of a binary-incompatible v4 file, some errors may reflect incomplete conversion code. Descriptive messages are printed on standard error (file descriptor 2).
@@ -58,16 +61,19 @@ model.g model.g.R4.g
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2006-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

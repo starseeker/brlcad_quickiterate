@@ -15,8 +15,6 @@ Open the goblet.g database using whichever method you prefer. Go to the Edit men
 
 In the last lesson, we assigned values for two shader attributes-transparency and mirror reflectance. In this lesson, we will assign values for still other shader properties. When the plastic shader is selected for region basin1.r, eight attribute entry boxes currently appear in the Combination Editor. These boxes contain either the values that the user has previously set (e.g., those we previously set for transparency and mirror reflectance) or the default values that the raytracer will use if no others are specified. When any of these values is modified, the change can be seen in braces in the shader string box and in the appropriate attribute entry boxes, as indicated by the arrows in the following example: image::../lessons/images/mged08_goblet_combeditor.png[]
 
-image::../lessons/images/mged08_goblet_combeditor.png[]
-
 
 
 
@@ -39,8 +37,6 @@ In this example, the shader entry box indicates that the transparency (tr) is se
 
 When light reflects off of a shiny surface, it produces two types of reflections. The most noticeable highlights are caused by specular reflectivity. The rest of the surface produces diffuse reflectivity. The shinier (or glossier) the surface is, such as on a crystal vase, the more specular reflectivity that is produced. The duller the surface is, such as with a wall painted with flat paint, the more diffuse reflectivity that is produced. A model of the relationship between these reflectivities is shown in the following illustration: image::../lessons/images/mged08_spec_vs_diff_reflectivity.png[]
 
-image::../lessons/images/mged08_spec_vs_diff_reflectivity.png[]
-
 
 
 As seen in the illustration, diffuse reflectivity shows an object's color by reflecting ambient light off the object. The upper left ball exhibits the maximum value for diffuse reflectivity (1.0), and as a result, its surface color is uniform.
@@ -56,8 +52,6 @@ The range for both specular and diffuse reflectivity is 0.0 through 1.0. However
 When light passes through one medium (e.g., air) into another medium (e.g., water), it bends from its original path. The degree to which the light bends is called the refractive index. The more dissimilar the media are, the greater the degree of refraction that will occur. For example, sunlight passing through a diamond will bend more than the same sunlight through optical glass. The diamond would have a higher refractive index (approximately 2.42) whereas optical glass would have a lower refractive index (approximately 1.71).
 
 The range of index of refraction for _MGED_ is 1.0 (the index for air) or greater. This parameter is only useful for materials that have a transparency greater than 0. The following drawing of sunlight passing through water shows how refraction works. image::../lessons/images/mged08_refractive_index.png[]
-
-image::../lessons/images/mged08_refractive_index.png[]
 
 
 
@@ -87,17 +81,11 @@ Now that you understand the various attributes of the plastic shader, it is time
 
 As you change the values for the attributes of the plastic shader, you will notice that some changes do not significantly alter the design. This is because there are a variety of ways to produce a particular look on an object. The following are two examples of the goblet with various values of the plastic attributes (which do create a noticeable difference) applied to basin1.r. image::../lessons/images/mged08_goblet_reflectivity_1.png[]
 
-image::../lessons/images/mged08_goblet_reflectivity_1.png[]
-
-image::../lessons/images/mged08_goblet_reflectivity_2.png[]
-
 image::../lessons/images/mged08_goblet_reflectivity_2.png[]
 
 
 
 By the time you have finished experimenting with changing attributes of the plastic shader, your Combination Editor window might look something like this: image::../lessons/images/mged08_comb_editor_window_mater_prop.png[]
-
-image::../lessons/images/mged08_comb_editor_window_mater_prop.png[]
 
 
 

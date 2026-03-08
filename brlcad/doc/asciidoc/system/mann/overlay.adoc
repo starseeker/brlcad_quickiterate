@@ -20,6 +20,7 @@ overlay -F [<-i>] [<-c>] [<-z>] [<-X #>] [<-Y #>] [<-w #>] [<-n #>] [<-S #>] [<-
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Plots the specified UNIX _plot_file_ in the current application display or the specified _image file_ in the current application embedded framebuffer. When displaying plot files, multiple files may be specified using a pattern match (e.g., *overlay*_*.plot_).
@@ -33,6 +34,7 @@ The *-w*, *-n*, and *-S* options are used to specify image size for formats such
 By default, images are displayed in the framebuffer using their original size. If the users wishes to use all available space in the image window to display an image, the *-z* may be specified to focus the framebuffer on the image. The *-i* option may be used to invert an image's display in the y (vertical) direction.
 
 
+[[examples]]
 == EXAMPLES
 
 .Plot a UNIX plot file in the MGED display.
@@ -54,11 +56,13 @@ Plots the image file _image.png_ in the MGED framebuffer, first clearing any pre
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ gqa [<options>] <objects>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *gqa* program computes and reports a variety of characteristics of the _objects_ specified from the given _model.g_ geometric description. The characteristics which can be computed include *weight, volume, overlaps, exposed air, gaps/voids,* and *adjacent air.* Only the _objects_ from the database specified on the command line are analyzed.
@@ -27,6 +28,7 @@ For error and interface calculations, the grid is refined until an error is foun
 When multiple calculations are performed, the most extensive path is taken. For example, if weight and overlap calculations are performed, then the grid will be refined until the refinement limit is reached, or an overlap is detected.
 
 
+[[volume_and_weight_calculation]]
 == VOLUME AND WEIGHT CALCULATION
 
 If volume or weight calculation is selected, a value is calculated and reported for each _object_ specified on the command line. *Note that if there are overlaps or other errors in the geometry, the values reported will be invalid.*
@@ -105,11 +107,13 @@ Density information is sourced in the following order: 1. Filename explicitly su
 The geometry editor MGED automatically assigns an index value of `1` to a newly created region. While this default can be handy when a vast majority of objects are made from the same material, it can lead to surprising errors when objects which are supposed to have a certain weight are computed to have different weight because one or two regions were not set to the correct, nondefault index value. As a result, it is advised that the index value `1` never be used. If this practice is followed, then an error message will be generated for any regions which have not had their material index set to something other than the default.
 
 
+[[geometry_error_detection]]
 == GEOMETRY ERROR DETECTION
 
 All of these calculations run until an error is detected, or until the grid refinement limit is reached.
 
 
+[[overlap_detection]]
 == OVERLAP DETECTION
 
 For each pair of regions that overlap, the tool reports the two regions that overlap, the maximum line-of-sight thickness of the overlap, and the in-hit location of the ray that caused that maximum overlap thickness.
@@ -117,6 +121,7 @@ For each pair of regions that overlap, the tool reports the two regions that ove
 Other analyses in the error detection category behave in a similar manner.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -258,6 +263,7 @@ The weight computation tolerance is probably more appropriate when doing whole-v
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Default Behavior
@@ -381,11 +387,13 @@ Weight:
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

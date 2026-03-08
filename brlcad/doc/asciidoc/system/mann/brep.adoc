@@ -14,6 +14,7 @@ brep {<obj>} [ <bool>| <bot>| <bots>| <brep>| <csg>| <flip>| <info>| <intersect>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *brep* exposes a combination of BRep manipulation functionality both defined in the OpenNURBS libraries and implemented in BRL-CAD's own libraries. Also handled by this command are a number of type conversions - in particular, *bot* subcommands will generate meshes from BRep data and the *csg* subcommand will attempt to find a CSG implicit representation of the shape of a specified NURBS BRep. Also, the *brep* subcommand will attempt to generate a BRep representation of the specified CSG object.
@@ -119,11 +120,13 @@ Report if the BRep object is topologically valid.
 
 
 
+[[author]]
 == AUTHOR
 
 BRLCAD-TEAM
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

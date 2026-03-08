@@ -14,6 +14,7 @@ plot3rot [ -x# -y# -z#] [ -X# -Y# -Z#] [-s#] [ -a# -e#] [-g#] [-M] [-m#] [-v] [-
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *plot3rot* will rotate translate or scale a UnixPlot file (see *plot3*(5)). Any number of the above options can be given. Each operation is performed left to right in the order in which they appear on the command line, and the operations are concatenated. It is important to note that rotations are not commutative, so the order they are specified in is important. Typing the command without any arguments gives a useful summary.
@@ -33,6 +34,7 @@ The *-m#* flag takes a quoted string of 16 floating point numbers as its paramet
 UnixPlot is traditionally a first quadrant 2D plotting space with X increasing to the right of the plot, and Y increasing up the plot. The "front" of a solid model in the BRL-CAD Package is traditionally defined by the right handed system of X coming out of the screen toward you, Y increasing to the right, and Z increasing up the display (elevation above the XY ground plane). The *-g* flag is a convenient shorthand to transform azimuths and elevations described in _gift_ notation (as degrees off the front or -X view) into the UnixPlot coordinate system for display. If used, this option should usually appear as the last argument, because it acts by modifying the rotation already established. The *-g* command has exactly the same effect as giving *-z-90 -x-90* in the same place.
 
 
+[[examples]]
 == EXAMPLES
 
 The command
@@ -58,21 +60,25 @@ plot3rot -a35 -e25 -g < file.plot3 | plot3-fb
 The final *-g* converts the _gift_ style azimuth and elevations into the conventional UnixPlot (screen) X,Y coordinate system.
 
 
+[[see_also]]
 == SEE ALSO
 
 *plot3-plot3*(1), *plot3debug*(1), *plot3-fb*(1), *libplot3*(3), *plot3*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1988-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

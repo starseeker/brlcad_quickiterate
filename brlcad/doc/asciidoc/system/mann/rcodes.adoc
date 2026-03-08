@@ -14,11 +14,13 @@ rcodes {<file_name>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Reads the specified file and assigns the region attributes to the regions listed. The file is expected to be in the format produced by the *wcodes* command.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *rcodes* command to set the region-specific attributes according to the values found in the specified file.
@@ -33,11 +35,13 @@ Reads the file named _region_codes_ and sets the region-specific attributes acco
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ rtcheck [<options>]... <model.g> <objects>... > <overlaps.plot3>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *rtcheck* operates on the indicated _objects_ in the input _model.g_ and produces a floating point 3-D BRL-style *plot3*(5) format file on standard output, in millimeters.
@@ -65,31 +66,37 @@ Specify that rtcheck should output plot file data in text format. Default is bin
 The *rtcheck* program is a simple front-end to *librt*(3) which is most useful when used from *mged*(1). The output can be independently viewed using the UNIX-plot viewers like *plot3-fb*(1), *tplot*(1), etc.
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *rt*(1), *rtray*(1), *rtpp*(1), *plot3-fb*(1), *tplot*(1), *libplot3*(3), *librt*(3), *plot3*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible. Descriptive messages are printed on stderr (file descriptor 2).
 
 
+[[author]]
 == AUTHORS
 
 _BRL-CAD Team_
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1988-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bugs]]
 == BUGS
 
 Most deficiencies observed while using the *rtcheck* program are a consequence of problems in *librt.*(3)
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

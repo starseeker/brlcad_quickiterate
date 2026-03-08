@@ -208,10 +208,10 @@ The Flags element consists of three 8-bit fields: HFlags, AFlags, and BFlags. Th
 
 .BRL-CAD Flags Structure
 |===
-|HFlags | |AFlags | |BFlags 
+8+|HFlags | 8+|AFlags | 8+|BFlags 
 
 |7 |6 |5 |4 |3 |2 |1 |0 | |7 |6 |5 |4 |3 |2 |1 |0 | |7 |6 |5 |4 |3 |2 |1 |0 
-|OWid |NP |NWid |r |DLI |AWid |AP |r |r |AZ |BWid |BP |r |r |BZ 
+2+|OWid |NP 2+|NWid |r 2+|DLI 2+|AWid |AP |r |r 3+|AZ 2+|BWid |BP |r |r 3+|BZ 
 |===
 
 [[Wid_Flags]]
@@ -315,9 +315,9 @@ The Object_Type element is always 16 bits wide, organized into two 8-bit-wide fi
 
 .Object_Type Element Structure
 |===
-|Object_Type 
+16+|Object_Type 
 
-|Major Type |Minor Type 
+8+|Major Type 8+|Minor Type 
 |7 |6 |5 |4 |3 |2 |1 |0 |7 |6 |5 |4 |3 |2 |1 |0 
 |===
 
@@ -470,10 +470,10 @@ Point of Discussion?????Has ramifications... we have to implement type advising,
 
 .Uniform Array Binary Objects Minor_Type Structure
 |===
-|Minor_Type 
+8+|Minor_Type 
 
 |7 |6 |5 |4 |3 |2 |1 |0 
-|r |r |Wid |S |Atom 
+|r |r 2+|Wid |S 3+|Atom 
 |===
 
 The 3-bit ``Atom'' flag indicates the fundamental data type of the atomic elements in the array according to the following scheme:

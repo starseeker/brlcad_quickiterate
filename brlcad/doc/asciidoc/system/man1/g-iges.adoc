@@ -14,6 +14,7 @@ g-iges [ -f| <t>| <m>] [-v] [-s] [-x<flag1>] [-X<flag2>] [-a<abs_tol>] [-r<rel_t
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *g-iges* converts the specified objects of the BRL-CAD database, _database.g_, to an IGES version 5.1 file, _file.iges_.
@@ -73,6 +74,7 @@ Specifies the number of processors to use.
 If neither the -f , -t , nor the -m options are selected, the default is a CSG IGES file. In this situation, all regions will be written to the IGES file as Boolean trees with all possible solids represented by their IGES CSG equivalent. In cases where there is no IGES CSG equivalent, the BRL-CAD solid is tesellated (using the provided tolerances), and a BREP object is written for that solid.
 
 
+[[example]]
 == EXAMPLE
 
 g-iges -f -o _gsample.iges sample.g object1_
@@ -80,26 +82,31 @@ g-iges -f -o _gsample.iges sample.g object1_
 This command will produce an IGES BREP output file, _sample.iges_, from _object1_ of the BRL-CAD database file _sample.g_.
 
 
+[[see_also]]
 == SEE ALSO
 
 *iges-g*(1)_The Initial Graphics Exchange Specification (IGES) Version 5.1_, IGES/PDES Organization, September 1991
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Error messages are intended to be self-explanatory.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1993-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

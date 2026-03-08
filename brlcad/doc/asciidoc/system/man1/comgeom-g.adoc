@@ -15,6 +15,7 @@ comgeom-g [-d<debug_lvl>] [-v<version_num>] [-s<name_suffix>] <file.cg> <file.g>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Read a COMGEOM version 4 or version 5 format model from a GIFT-style input file, convert the geometry into the internal form used by the BRL-CAD package, and write an MGED-style binary database.
@@ -30,36 +31,43 @@ In the resulting .g file, high-level group all.g is created. If the *-s* option 
 The units used in a COMGEOM file are specified on a header record. The units of an MGED database are always millimeters. *comgeom-g* performs automatic units conversion using the built-in units conversion feature of *libwdb*(3).
 
 
+[[example]]
 == EXAMPLE
 
 comgeom-g -d1 -v4 _file.cg file.g_
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 The diagnostics are intended to be self-explanatory. Familiarity with GIFT COMGEOM terminology will be helpful.
 
 
+[[bugs]]
 == BUGS
 
 It is expected that the input file should be a valid COMGEOM model. While quite a bit of input checking is performed, wildly incorrect input may produce amusing results.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *mged*(1), *libwdb*(3)
 
 
+[[author]]
 == AUTHOR
 
 _BRL-CAD Team_
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

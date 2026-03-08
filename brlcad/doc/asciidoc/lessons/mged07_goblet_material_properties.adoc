@@ -12,8 +12,6 @@ In this lesson, you will:
 
 In this lesson, you will add material properties to the goblet you created in the previous lesson. The finished goblet should appear similar to the one in the following example. image::../lessons/images/mged07_goblet_mater_complete.png[]
 
-image::../lessons/images/mged07_goblet_mater_complete.png[]
-
 
 
 [[goblet_review_opening_db]]
@@ -59,8 +57,6 @@ Note: As mentioned previously, it is undesirable to have regions that overlap. A
 
 While the goblet is raytracing, move your mouse cursor to the Framebuffer option of the Raytrace Control Panel menu bar and select Overlay. When the raytrace process is finished, you should have a goblet similar to the following example: image::../lessons/images/mged07_goblet_complete_window.png[]
 
-image::../lessons/images/mged07_goblet_complete_window.png[]
-
 
 
 
@@ -74,8 +70,6 @@ Just as you applied color and a shader to each of the goblet's three regions, yo
 
 For this lesson, open the Combination Editor, click the button to the right of the Name box, choose Select From All Regions in the drop-down menu, and then choose the base1.r region. Make sure plastic is the shader selected and type in .5 to make your region semi-transparent. Click on Apply and repeat this process for each of the other two regions. Then Raytrace the goblet, which should look similar to the following: image::../lessons/images/mged07_goblet_semitransparent.png[]
 
-image::../lessons/images/mged07_goblet_semitransparent.png[]
-
 
 
 The colors of the semi-transparent goblet are brighter than those of the opaque goblet because more light is allowed to penetrate the plastic material. You could make the goblet more realistic in appearance by returning to the Combination Editor and adding a Mirror Reflectance. For each region, place your mouse cursor in the box next to this option, click the left mouse button, and type in .45. This will cause about half of the available light to be reflected off the surface of the goblet.
@@ -85,8 +79,6 @@ The colors of the semi-transparent goblet are brighter than those of the opaque 
 == Raytracing the New Forms of the Goblet
 
 Click on Apply and Raytrace the design. The new image should appear similar to the following example: image::../lessons/images/mged07_goblet_mirror.png[]
-
-image::../lessons/images/mged07_goblet_mirror.png[]
 
 
 

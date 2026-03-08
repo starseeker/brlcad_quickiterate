@@ -14,6 +14,7 @@ fb-png [-ic] [-#<nbytes/pixel>] [-g<gamma>] [-F<framebuffer>] [-s<squaresize>] [
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fb-png* will take a region of a framebuffer display and save it as a color _png_ format file. The environment variable `FB_FILE` is used to select the display device (see *brlcad*(1)). If this variable is not set, the default device for your system will be used. Alternatively, the framebuffer may be explicitly specified by using the *-F* flag.
@@ -29,21 +30,25 @@ The *-c* flag specifies that the color map in the frame buffer should be applied
 The *-g*_gamma_ flag sets the specified gamma correction value into the created PNG file. A value of 0.6 is a close approximation of PC display monitors. A negative gamma value disables writing a gAMA chunk out entirely (and is the default).
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *png-fb*(1), *fb-bw*(1), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 John R. Anderson
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1998-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

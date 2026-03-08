@@ -14,6 +14,7 @@ t [-a] [-c] [-r] [-s] [<objects>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *t* command with no _object_ argument lists the name of every object in the database (in alphabetical order) except those marked as hidden with the hide command. If the _object_ argument is supplied, only those _objects_ are listed. The _object_ argument may include regular expressions for matching. The following options are also allowed:
@@ -27,6 +28,7 @@ The *t* command with no _object_ argument lists the name of every object in the 
 The *t* command is a synonym for the *ls* command. Note that when any of the above options are used, the output is not formatted.
 
 
+[[examples]]
 == EXAMPLES
 
 The five examples show the use of the *t* command with different arguments to list names of objects, combinations, regions, or shapes.
@@ -77,11 +79,13 @@ Lists all combinations with names beginning with suspension.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

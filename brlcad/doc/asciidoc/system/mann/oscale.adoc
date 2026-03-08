@@ -14,11 +14,13 @@ oscale {<scale_factor>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 This command of matrix edit mode modifies the matrix to perform a uniform scale operation. A _scale_factor_ of 2 doubles the size of the associated object, and a _scale_factor_ of 0.5 reduces it by half.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *oscale* command to increase the size of a currently edited object by a specified factor.
@@ -33,11 +35,13 @@ Increases the size of the currently edited object by a factor of 3.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

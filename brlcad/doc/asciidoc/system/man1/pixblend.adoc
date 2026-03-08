@@ -14,11 +14,13 @@ pixblend [ - [ <r>| <i>] <value>] [-s<seedval>] [-S] [-g<gvalue>] <file1.pix> <f
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixblend*, given two streams of data, typically *pix*(5) or *bw*(5) images, generates a "blended" output stream of the same size. This routine operates on a pixel-by-pixel basis, and thus is independent of the resolution of the image. The type of blending performed is determined by the following options:
 
 
+[[options]]
 == OPTIONS
 
 
@@ -52,6 +54,7 @@ Tells *pixblend* to "glitterize" the image; if the random draw for a pixel is be
 
 
 
+[[examples]]
 == EXAMPLES
 
 pixblend -i .25 source.pix destination.pix > out.pix
@@ -63,21 +66,25 @@ pixblend -r .5 -s source.pix destination.pix > out.pix
 pixblend -r .5 -s 23 source.pix destination.pix > out.pix
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *gencolor*(1), *pix*(5), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1995-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ pix-png [-a] [-g<gamma>] [-n<file_height>] [-w<file_width>] [-s<squaresize>] [-o
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pix-png* converts a _BRL PIX(5)_ format file to a _PNG_ format file on the standard output. The PNG file created will be an RGB file with a bit-depth of 8 and a file gamma of 1.0.
@@ -21,6 +22,7 @@ pix-png [-a] [-g<gamma>] [-n<file_height>] [-w<file_width>] [-s<squaresize>] [-o
 PIX image files do not contain information about their size. The size of the input PIX image file must be specified if the dimensions are not the default 512x512 size.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -50,21 +52,25 @@ tells *pix-png* to write image data to the specified _PNG_file_ output file. The
 
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *png-pix*(1), *pix-fb*(1), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1998-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ reshoot <model.g> <objects>... < <raylist>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 This program is designed to shoot a set of rays and compare the results with previous results. The program exits with a non-zero status if any rays are different from the previous run, and a 0 status if no differences were found.
@@ -71,21 +72,25 @@ Differences are reported for each ray as they are found:
 Ray Pt 0,0,1 Dir 0,0,-1 inhit mismatch 17.8177 16.8 outhit mismatch 24.7685 23.8 region name mismatch /oops.r sb r1.r in primitive name mismatch p8.s sb p1.s
 
 
+[[bugs]]
 == BUGS
 
 The floating point values logged when the DEBUG_ALLHITS flag is set in RT_G_DEBUG are printed with a %g format. This causes some truncation of precision. This is accounted for by *reshoot* by re-formatting the numbers computed into ascii and re-parsing them back in. This causes the same amount of precision loss as the original values have undergone. However, small actual differences are also overlooked as a result.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2006-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

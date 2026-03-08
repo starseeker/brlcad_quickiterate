@@ -40,6 +40,7 @@ subtract [<options>]... {obj1 obj2 [...]}...
 
 
 
+[[description]]
 == DESCRIPTION
 
 The *analyze* command provides an array of reporting and shape generation capabilities. The classic behavior (and the behavior users will see if calling without specifying a subcommand) is a report summarizing geometric information about the specified solid(s). This behavior may also be explicitly invoked by the *summarize* subcommand.
@@ -51,6 +52,7 @@ The *intersect* will take the first object specified and intersect it with any s
 The *subtract* will take the first object specified and subtract from it any subsequently specified objects.
 
 
+[[examples]]
 == EXAMPLES
 
 .Analyze a particular ARB
@@ -261,11 +263,13 @@ point#, (point)
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

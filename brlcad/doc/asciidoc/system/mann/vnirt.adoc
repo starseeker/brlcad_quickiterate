@@ -14,11 +14,13 @@ vnirt [<nirt args>] {<x y>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Interprets _x_ and _y_ as view coordinates (i.e., +-2047) and converts them to model coordinates (local units) using a value of 2047 for view _z_ before passing them to nirt. All other arguments are passed to nirt without modification.
 
 
+[[examples]]
 == EXAMPLES
 
 .Shoot a ray at 1000 pixels up and centered left/right
@@ -40,11 +42,13 @@ Shoots a ray 1000 pixels to the right of center.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

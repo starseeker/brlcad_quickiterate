@@ -14,8 +14,6 @@ En este tutorial usted aprenderá a:
 
 En el tutorial 2, usted creó las formas básicas de un radio walkie-talkie para adquirir experiencia en la visualización de los objetos. Ahora volverá a trabajar sobre el radio para que se vea más realista al tiempo que aprende técnicas y estructuras lógicas en el modelado. Cuando haya terminado, su radio deberá verse como la siguiente imagen: image::../../lessons/images/mged16_radio_new_design.png[]
 
-image::../../lessons/images/mged16_radio_new_design.png[]
-
 
 
 [[radio_shapes_to_regions]]
@@ -59,8 +57,6 @@ Recuerde que el comando inside fue creado originalmente para ahuecar objetos tal
 Una vez terminada la carcaza, podemos proceder al corte de varios agujeros que atraviesen la estructura para posicionar la antena, el control de volumen, y la el botón de habla. Para ello, hay que restarle las tres formas a la carcaza de la siguiente manera: *r case.r - ant.s - knob.s - btn.s[Enter]* Para finalizar deberá "pegar" el borde alrededor del parlante en la parte frontal de la carcaza. Tipee entonces: *r case.r u spkr.s[Enter]*
 
 Nuestro cuerpo está ahora terminado. Puede que un modelador con experiencia combine las últimas tres funciones booleanas en un solo comando de la siguiente manera: *r case.r u body.s - cavity.s - ant.s - knob.s - btn.s u spkr.s[Enter]* Si generara el trazado de rayos en este punto, debería aparecerle en la ventana gráfica una imagen similar a esta: image::../../lessons/images/mged16_radio_default_components_props.png[]
-
-image::../../lessons/images/mged16_radio_default_components_props.png[]
 
 
 
@@ -144,8 +140,6 @@ Dele a la antena un aspecto realista. Abra el editor de combinaciones, seleccion
 
 Dejaremos que los otros componentes queden con el sombreado de plástico predeterminado, pero vamos a asignarles diferentes colores. Con el editor de combinaciones todavía abierto, seleccione case.r en el menú desplegable de nombre, seleccione la opción color magenta en el de color y aplique los cambios. Utilice el mismo método para asignar al control de volumen (knob.r) un color azul. Al botón de habla (button.r), vamos a mantenerlo en gris dejando los valores predeterminados. El diseño debería ser similar al siguiente una vez que genere el Raytrace en modo Underlay: image::../../lessons/images/mged16_radio_with_mater_props.png[]
 
-image::../../lessons/images/mged16_radio_with_mater_props.png[]
-
 
 
 Al ver el radio, observará que la antena luce como un tubo. Falta añadirle una pequeña tapa en el extremo para que es pueda subir y bajar fácilmente. Para crearla, utilice un elipsoide, nómbrelo ant2.s, y únalo al extreño de la antena de la siguiente manera: *in ant2.s ell1 2 2 94 0 0 1 3[Enter]**r ant.r u ant2.s[Enter]*
@@ -165,8 +159,6 @@ Dele a la placa un color verde semi-brillante. La forma más sencilla de hacer e
 
 
 Finalmente, agruparemos la placa con el resto de los componentes de radio.c de la siguiente manera: *g radio.c board.r[Enter]* El radio deberá verse como esta imagen: image::../../lessons/images/mged16_radio_wireframe_circ_board.png[]
-
-image::../../lessons/images/mged16_radio_wireframe_circ_board.png[]
 
  Además, el árbol de radio.c debería ser: 
 ....
@@ -237,8 +229,6 @@ Finalmente, cree la combinación del radio especial tipeando: *g radio_clear.c c
 
 Genere el Raytrace de su diseño para ver los efectos resultantes. La nueva carcaza traslúcida deberá verse similar a la siguiente: image::../../lessons/images/mged16_radio_transparent.png[]
 
-image::../../lessons/images/mged16_radio_transparent.png[]
-
 
 
 Como se muestra en el siguiente diagrama de árbol, la estructura de radio_clear.c no es muy diferente a la de radio.c. La única diferencia es que case.c ha sido sustituido por case_clear.c. 
@@ -302,13 +292,9 @@ Para ello, cree una arb8 y nómbrelo cutaway.s, el cual utilizará para cortar l
 
 Utilice los diferentes puntos de vista, especialmente la vista superior, para alinear la figura de corte cutaway.s de modo que los ángulos corten diagonalmente la parte superior del radio (como se muestra en la representación siguiente). Cuando haya alineado la figura tal como usted desea, cree la combinación radio_cutaway.c uniendo radio.c y substrayendo la forma (cutaway.s) que cubre lo que desea ver (board.r): *comb radio_cutaway.c u radio.c - cutaway.s[Enter]*image::../../lessons/images/mged16_radio_cut_wireframe.png[]
 
-image::../../lessons/images/mged16_radio_cut_wireframe.png[]
-
 
 
 Utilice el comando Blast sobre la combinación radio_cutaway.c para ver el diseño y genere el Raytrace. Dependiendo de cómo arb8 intersecta el radio, el corte debería ser similar al siguiente: image::../../lessons/images/mged16_radio_cut_raytrace.png[]
-
-image::../../lessons/images/mged16_radio_cut_raytrace.png[]
 
 
 
@@ -317,8 +303,6 @@ Observe en las figuras anteriores que cutaway.s elimina todo lo que se solapa (i
 Para ello, tiene básicamente dos opciones: (1) utilizar cutaway.s para que sólo substraiga de case.r, o (2) utilizar cutaway.s para que substraiga de body.s y spkr.s, los dos componentes que conforman case.r. Si bien ambas opciones producirían el mismo efecto, el primer método sólo requiere una resta, mientras que el segundo proporciona un mayor control permitiendo que el usuario seleccione los componentes que serán seccionados durante el corte en forma individualizada.
 
 Tómese un minuto y compare los árboles de ambos cortes. Preste especial atención a la posición de cutaway.s en las diferentes estructuras. También tenga en cuenta que cuando cutaway.s se substrae de una región o de una combinación, el nombre de esa región o combinación se ha modificado. La explicación de esto se remonta al inicio cuando se explicaron los usos de los modelos especiales. Recuerde que nuestro propósito es crear un nuevo modelo para un uso específico, no cambiar el modelo existente. Por lo tanto, tenemos que cambiar el nombre de una región o de una combinación que haya sufrido cualquier modificación en los componentes o en su estructura. Si no lo hacemos, el modelo original también se modificará.
-
-image::../../lessons/images/mged16_radio_cutaways.png[]
 
 image::../../lessons/images/mged16_radio_cutaways.png[]
 
@@ -331,17 +315,11 @@ Como las formas se agregan a un diseño, el diseñador a menudo encuentra que la
 
 image::../../lessons/images/mged16_radio_structure_1.png[]
 
-image::../../lessons/images/mged16_radio_structure_1.png[]
-
 Si quisiéramos clasificar nuestros componentes de acuerdo a la ubicación podemos estructurar el modelo de la siguiente manera:
 
 image::../../lessons/images/mged16_radio_structure_2.png[]
 
-image::../../lessons/images/mged16_radio_structure_2.png[]
-
 Si quisiera definir los componentes de acuerdo a la funcionalidad, debería estructurarlos de otra manera. Por ejemplo, para reparar una radio real, queremos abrir la carcaza, sacar la placa de circuito, arreglarlo, y volver a ponerla. Pero cuando saque la placa, el mando y el botón deberían estar unidos de alguna forma a ella, ya que se relacionan en su funciones. En consecuencia, la estructura debe ser modificada como se muestra en el siguiente gráfico para asociar el mando y el botón con la tarjeta de circuitos.
-
-image::../../lessons/images/mged16_radio_structure_3.png[]
 
 image::../../lessons/images/mged16_radio_structure_3.png[]
 
@@ -395,8 +373,6 @@ Ahora el árbol de radio.c debería ser:
 Ahora pruebe rehacer la vista en corte, pero recortando sólo el material de la carcaza, dejando a la vista todos los demás componentes.
 
 En primer lugar, debe deshacerse del radio_cutaway.c que se basaba en la estructura anterior. Para ello, tipee: *kill radio_cutaway.c[Enter]* y luego rehaga la combinación tipeando: *comb radio_cutaway.c u case.r - cutaway.s u electronics.c u ant.r[Enter]* Ahora, cuando redibuje utilizando el comando Blast y genere el trazado de rayos de radio_cutaway.c nuevamente, debería ver lo siguiente: image::../../lessons/images/mged16_radio_casecut_raytrace.png[]
-
-image::../../lessons/images/mged16_radio_casecut_raytrace.png[]
 
 
 

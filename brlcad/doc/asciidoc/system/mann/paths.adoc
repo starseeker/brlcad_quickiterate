@@ -14,11 +14,13 @@ paths {<path_start>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Lists all existing paths that start from the specified _path_start_ and end at a primitive shape. The _path_start_ may be specified by / separated components, or they may be separated by spaces (but not both).
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *paths* command to list all existing paths that start from the specified path start and end at a primitive shape.
@@ -33,11 +35,13 @@ Lists all existing paths that start from _group1/region2_ and end at a primitive
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

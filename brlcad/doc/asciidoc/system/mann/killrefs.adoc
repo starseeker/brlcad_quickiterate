@@ -14,6 +14,7 @@ killrefs [-n] {<objects>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Removes all references to the specified _objects_ from all combinations in the database. Note that the references are removed immediately unless the *-n* flag is passed. The *-n* flag causes the command to return a string of the objects that would be affected in a scriptable list format without actually editing them. See also the *killall* command.
@@ -21,6 +22,7 @@ Removes all references to the specified _objects_ from all combinations in the d
 *Use this command with caution.* Killed objects cannot be recovered so *keep* a backup.
 
 
+[[examples]]
 == EXAMPLES
 
 This example shows the use of the *killrefs* command to remove all references to the specified _objects_ from the database.
@@ -50,16 +52,19 @@ Lists all references to _group1_ in the database.
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *kill*(nged)*killtree*(nged)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

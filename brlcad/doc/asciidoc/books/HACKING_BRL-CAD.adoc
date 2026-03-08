@@ -111,14 +111,10 @@ Let's take a quick look at just some of the high-level features provided by BRL-
 
 image::../books/images/hacking_brlcad_tracked_mine.png[width=100%]
 
-image::../books/images/hacking_brlcad_tracked_mine.png[width=100%]
-
 BRL-CAD focuses on solid modeling CAD. Solid modeling is distinguished from other forms of geometric modeling by an emphasis on being physically accurate, fully describing 3D space. Shown is a 3D model of a Goliath tracked mine, a German-engineered remote controlled vehicle used during World War II. This model was created by students new to BRL-CAD in the span of about 2 weeks, starting from actual measurements in a museum.
 
 
 ==== Raytracing
-
-image::../books/images/hacking_brlcad_bearing_cc.png[width=100%]
 
 image::../books/images/hacking_brlcad_bearing_cc.png[width=100%]
 
@@ -138,14 +134,10 @@ This screenshot shows a model imported from the Rhino3D 3DM file format into BRL
 
 image::../books/images/hacking_brlcad_sflake2_cc.png[width=100%]
 
-image::../books/images/hacking_brlcad_sflake2_cc.png[width=100%]
-
 BRL-CAD provides a comprehensive procedural geometry interface as a means for creating models algorithmically instead of manually. This screenshot shows a classic "Sphere Flake" model with five levels of recursion, specular reflections, multiple light sources, environment mapping, checkered texture synthesis, ambient occlusion, and soft shadows.
 
 
 ==== Boundary Representation
-
-image::../books/images/hacking_brlcad_teapot.png[width=100%]
 
 image::../books/images/hacking_brlcad_teapot.png[width=100%]
 
@@ -156,8 +148,6 @@ Boundary representation NURBS surface geometry is one of the dominant geometric 
 
 image::../books/images/hacking_brlcad_stryker_slat.png[width=100%]
 
-image::../books/images/hacking_brlcad_stryker_slat.png[width=100%]
-
 Representing more than 8 trillion rays fired at this 11-million-polygon scene (amounting to more than 20 million rays per second on 2004 hardware), this figure signifies the path tracing capability of BRL-CAD. A full light simulation was computed to generate the image with all exterior and interior vehicle detail, including every nut, bolt, wire, and component inside the vehicle and every leaf and blade of grass modeled as actual geometry (with no textures and no procedural geometry).
 
 
@@ -165,11 +155,7 @@ Representing more than 8 trillion rays fired at this 11-million-polygon scene (a
 
 image::../books/images/hacking_brlcad_M1A1_9x10_300dpi_cc.png[width=100%]
 
-image::../books/images/hacking_brlcad_M1A1_9x10_300dpi_cc.png[width=100%]
-
 While now a fully hybrid modeling system, BRL-CAD has its roots in CSG modeling with implicit primitives. This image, provided courtesy of GSI Solutions, Inc., depicts a detailed M1A1 tank on a pedestal in a mirrored showcase room. The model is entirely constructed from implicit primitives and CSG boolean operations.
-
-image::../books/images/hacking_brlcad_csg.png[width=100%]
 
 image::../books/images/hacking_brlcad_csg.png[width=100%]
 
@@ -178,18 +164,12 @@ image::../books/images/hacking_brlcad_csg.png[width=100%]
 
 image::../books/images/hacking_brlcad_havoc_c.png[width=100%]
 
-image::../books/images/hacking_brlcad_havoc_c.png[width=100%]
-
-image::../books/images/hacking_brlcad_havoc_views_c.png[width=100%]
-
 image::../books/images/hacking_brlcad_havoc_views_c.png[width=100%]
 
 This raytrace image is a multiple-view hidden line rendering of an Mi28 Havoc Russian attack helicopter using BRL-CAD's rtedge utility. The model is entirely composed of implicit primitives combined together with CSG boolean operations.
 
 
 ==== Scripting Interface
-
-image::../books/images/hacking_brlcad_Sgi_cube_cc.png[width=100%]
 
 image::../books/images/hacking_brlcad_Sgi_cube_cc.png[width=100%]
 
@@ -681,8 +661,6 @@ If you are comfortable with working with DocBook XML directly, we recommend that
 
 image::../books/images/hacking_brlcad_emacs-nxml.png[width=100%]
 
-image::../books/images/hacking_brlcad_emacs-nxml.png[width=100%]
-
 Aside from error checking tools like nXML, the ability to pinpoint errors in a document's formatting is built into the BRL-CAD compilation process. That process uses a tool called xmllint to report incorrect formatting. When, for example, the error illustrated in the image above is encountered during BRL-CAD's build, xmllint produces the following error:
 
 
@@ -721,8 +699,6 @@ For example, if you are writing a new DocBook article in English about the ellip
 ~/brlcad$*cp doc/docbook/articles/en/TEMPLATE.xml doc/docbook/articles/en/ellipsoid.xml*
 
 Next, open the file `doc/docbook/articles/en/CMakeLists.txt` in a text editor. Then, add the name of the new document to the file to alert the build system of its existence:
-
-image::../books/images/hacking_brlcad_docbook_CMakeLists.png[width=100%]
 
 image::../books/images/hacking_brlcad_docbook_CMakeLists.png[width=100%]
 
@@ -770,8 +746,6 @@ This generates a file named `brlcad/build/share/doc/html/articles/en/ellipsoid.h
 
 image::../books/images/hacking_brlcad_example_docbook_default_output.png[width=100%]
 
-image::../books/images/hacking_brlcad_example_docbook_default_output.png[width=100%]
-
 Now that all the pieces are in place, you can begin the documentation cycle:
 
 
@@ -783,8 +757,6 @@ In the following example, all of the previous elements are combined into a DocBo
 
 image::../books/images/hacking_brlcad_docbook_working_session.png[width=100%]
 
-image::../books/images/hacking_brlcad_docbook_working_session.png[width=100%]
-
 
 ==== Adding a Translated Document to BRL-CAD
 
@@ -793,8 +765,6 @@ By and large, adding translations of BRL-CAD documents follows the same process 
 BRL-CAD uses the http://www-01.sil.org/iso639-3/codes.asp[ISO 639-1 language codes] (http://www-01.sil.org/iso639-3/codes.asp) as language-specific subdirectories within the higher-level categories. These are two-letter codes that represent the names of languages (for example, `pt` for Portuguese). If a language is not listed in ISO 639-1, use that's language's three-letter code from ISO 639-2 or (if necessary) ISO 639-3 instead.
 
 Currently, all translations are manually created and manually maintained. If you are working with translated documents, you are not limited to the ASCII character set; you can use Unicode characters in a document. The following example is the Armenian translation of the BRL-CAD introduction documentation:
-
-image::../books/images/hacking_brlcad_brlcad_intro_hy.png[width=100%]
 
 image::../books/images/hacking_brlcad_brlcad_intro_hy.png[width=100%]
 
@@ -848,8 +818,6 @@ One of the best examples of DocBook output customization in BRL-CAD is work done
 
 image::../books/images/hacking_brlcad_tutorial_1_pdf.png[width=100%]
 
-image::../books/images/hacking_brlcad_tutorial_1_pdf.png[width=100%]
-
 A number of elements are needed to achieve this result:
 
 
@@ -872,14 +840,10 @@ The easiest way to contribute as a documenter is through BRL-CAD's wiki (a websi
 
 image::../books/images/hacking_brlcad_brlcad-wiki.png[width=100%]
 
-image::../books/images/hacking_brlcad_brlcad-wiki.png[width=100%]
-
 
 ==== Man Pages
 
 Man pages are command-specific or program-specific documentation which thoroughly document and demonstrate the use of that command or program. Man pages may reference other man pages, but they are intended to be the primary source of documentation for a specific tool and should be written with a very tight focus.
-
-image::../books/images/hacking_brlcad_man_page_search.png[width=100%]
 
 image::../books/images/hacking_brlcad_man_page_search.png[width=100%]
 
@@ -892,14 +856,10 @@ API documentation is the lowest level, most authoritative documentation of BRL-C
 
 image::../books/images/hacking_brlcad_doxygen_output.png[width=100%]
 
-image::../books/images/hacking_brlcad_doxygen_output.png[width=100%]
-
 
 ==== Lessons
 
 Lessons are documents that are used to train a user to master a particular aspect of BRL-CAD. Unlike other documents, lessons focus on step-by-step teaching.
-
-image::../books/images/hacking_brlcad_tcl_tk_presentation.png[width=100%]
 
 image::../books/images/hacking_brlcad_tcl_tk_presentation.png[width=100%]
 
@@ -910,14 +870,10 @@ These can be technical reports, journal articles, conference papers, and/or simi
 
 image::../books/images/hacking_brlcad_article_tire_pdf.png[width=100%]
 
-image::../books/images/hacking_brlcad_article_tire_pdf.png[width=100%]
-
 
 ==== Books
 
 Books are typically large documents that cover many aspects of BRL-CAD. In some cases, books can be collections of lessons, reports, articles, and/or other forms of documentation that are compiled between one set of covers.
-
-image::../books/images/hacking_brlcad_book_vol3_pdf.png[width=100%]
 
 image::../books/images/hacking_brlcad_book_vol3_pdf.png[width=100%]
 
@@ -928,14 +884,10 @@ Specifications are formal documents that define formats or protocols that others
 
 image::../books/images/hacking_brlcad_g_spec_pdf.png[width=100%]
 
-image::../books/images/hacking_brlcad_g_spec_pdf.png[width=100%]
-
 
 ==== Presentations
 
 Presentations can range from an overview of the entire BRL-CAD package to an in-depth review of a specific feature or technical algorithm. Presentations are often used when marketing or explaining some aspect of BRL-CAD to people who are not familiar with it.
-
-image::../books/images/hacking_brlcad_tcl_tk_presentation.png[width=100%]
 
 image::../books/images/hacking_brlcad_tcl_tk_presentation.png[width=100%]
 
@@ -1070,8 +1022,6 @@ In addition, if you have a suggestion for new feature, feel free to submit a req
 BRL-CAD has a large and passionate community of users and contributors. We need people to work with that community and to help with marketing and promoting the software.
 
 As well, we need professional-quality artwork. Everything from logos to diagrams to icons. And just about anything in between. Your efforts will help give BRL-CAD a more polished look and will support our outreach and marketing efforts.
-
-image::../books/images/hacking_brlcad_xyz.png[width=100%]
 
 image::../books/images/hacking_brlcad_xyz.png[width=100%]
 

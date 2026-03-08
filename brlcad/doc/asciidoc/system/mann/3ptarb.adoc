@@ -14,11 +14,13 @@
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Build an ARB8 shape by extruding a quadrilateral through a given thickness. The arguments may be provided on the command line; if they are not, they will be prompted for. The x1, y1, and z1 are the coordinates of one corner of the quadrilateral. x2, y2, z2, and x3, y3, z3 are the coordinates of two other corners. Only two coordinates of the fourth point are specified, and the code calculates the third coordinate to ensure all four points are coplanar. The x|y|z parameter indicates which coordinate of the fourth point will be calculated by the code. The coord1 and coord2 parameters supply the other two coordinates. The direction of extrusion for the quadrilateral is determined from the order of the four resulting points by the right-hand rule; the quadrilateral is extruded toward a viewer for whom the points appear in counter-clockwise order.
 
 
+[[examples]]
 == EXAMPLES
 
 The following are run from the MGED command prompt:
@@ -72,11 +74,13 @@ Same as above example, but with all arguments supplied on the command line.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ pixmatte [-a] [-w<bytes_wide>] [-glen] <in1> <in2> <true_out> <false_out> > <out
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Given four streams of data elements, where element is of arbitrary width, typically *pix*(5) or *bw*(5) images, *pixmatte* outputs a stream of the same number of data elements. The value of the output stream is determined element-by-element, by comparing the first (foreground) input stream with the second (background, or matte) input stream. If the formula holds true, the element from the true-output stream is written, otherwise, the element from the false-output stream is written. Each of these streams comes from a file, or is given as a constant. A particular file may be used to feed more than one stream, and the name '-' specifies stdin. For example, the foreground file may also be the true-output file. This routine operates on an element-by-element basis, and thus is independent of the resolution of the image.
@@ -27,6 +28,7 @@ The *-a* flag can be used with *-n* or *-e* to specify approximately equal or ap
 The *-w#* flag specifies the width (in bytes) of each element; the default is 3, _i.e._*pix*(5) file format. A width of 1 is used for processing *bw*(5) files. It is unclear if other widths are useful.
 
 
+[[examples]]
 == EXAMPLES
 
 To compare all foreground pixels to black (all bytes zero), selecting the foreground pixels when true and a background elsewhere, specify:
@@ -50,21 +52,25 @@ To set to black all pixels that approximately match (by +/- 1) a given backgroun
 pixmatte -a -e fg.pix bg.pix =0/0/0 fg.pix
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *gencolor*(1), *pixbackgnd*(1), *pixmerge*(1), *pix*(5), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

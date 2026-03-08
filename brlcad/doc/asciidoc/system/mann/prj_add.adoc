@@ -14,21 +14,25 @@ prj_add [-t] [-b] [-n] {<shaderfile>} [<image_file>] [<image_width>] [<image_hei
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Appends information to the specified _shaderfile_. The information appended is in the form required by the projection shader (_prj_) and includes the _image_file_ (typically a pix file), the _image_width_ and _image_height_, and current view parameters from the MGED display. The resulting _shaderfile_ may then be used as the parameter to the _prj_ shader. Before executing this command, the region wireframe display in MGED should be aligned with the _image_file_ (underlaid in MGEDs framebuffer) and the _image_file_ should have the same height and width as the MGED display. The _-t_ option indicates that the image should be projected through the object. The _-n_ option requests that antialiasing not be done.
 
 
+[[examples]]
 == EXAMPLES
 
 !--There are no examples.-->
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

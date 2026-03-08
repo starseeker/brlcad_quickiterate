@@ -976,10 +976,13 @@ private:
             out << "<thead>\n";
             for (const auto& row : table.head_rows()) {
                 out << "<tr>\n";
-                for (std::size_t ci = 0; ci < row.cells().size(); ++ci) {
-                    const auto& cell = row.cells()[ci];
-                    out << "<th class=\"tableblock " << col_halign(ci) << " valign-top\">"
-                        << subs(cell->source(), doc) << "</th>\n";
+                std::size_t col_pos = 0;
+                for (const auto& cell : row.cells()) {
+                    const int cs = cell->colspan();
+                    out << "<th class=\"tableblock " << col_halign(col_pos) << " valign-top\"";
+                    if (cs > 1) { out << " colspan=\"" << cs << "\""; }
+                    out << ">" << subs(cell->source(), doc) << "</th>\n";
+                    col_pos += static_cast<std::size_t>(cs);
                 }
                 out << "</tr>\n";
             }
@@ -991,26 +994,33 @@ private:
             out << "<tbody>\n";
             for (const auto& row : table.body_rows()) {
                 out << "<tr>\n";
-                for (std::size_t ci = 0; ci < row.cells().size(); ++ci) {
-                    const auto& cell = row.cells()[ci];
+                std::size_t col_pos = 0;
+                for (const auto& cell : row.cells()) {
+                    const int cs = cell->colspan();
                     // Determine alignment: cell-level overrides column spec
                     std::string halign = cell->halign().empty()
-                                         ? col_halign(ci)
+                                         ? col_halign(col_pos)
                                          : "halign-" + cell->halign();
                     // Column style 'h' makes the cell a header cell
-                    bool is_header_col = (ci < col_specs.size() &&
-                                          col_specs[ci].style == "h");
+                    bool is_header_col = (col_pos < col_specs.size() &&
+                                          col_specs[col_pos].style == "h");
+                    std::string colspan_attr = (cs > 1)
+                        ? " colspan=\"" + std::to_string(cs) + "\""
+                        : "";
                     if (is_header_col) {
-                        out << "<th class=\"tableblock " << halign << " valign-top\">"
+                        out << "<th class=\"tableblock " << halign << " valign-top\""
+                            << colspan_attr << ">"
                             << "<p class=\"tableblock\">"
                             << subs(cell->source(), doc)
                             << "</p></th>\n";
                     } else {
-                        out << "<td class=\"tableblock " << halign << " valign-top\">"
+                        out << "<td class=\"tableblock " << halign << " valign-top\""
+                            << colspan_attr << ">"
                             << "<p class=\"tableblock\">"
                             << subs(cell->source(), doc)
                             << "</p></td>\n";
                     }
+                    col_pos += static_cast<std::size_t>(cs);
                 }
                 out << "</tr>\n";
             }
@@ -1022,12 +1032,15 @@ private:
             out << "<tfoot>\n";
             for (const auto& row : table.foot_rows()) {
                 out << "<tr>\n";
-                for (std::size_t ci = 0; ci < row.cells().size(); ++ci) {
-                    const auto& cell = row.cells()[ci];
-                    out << "<td class=\"tableblock " << col_halign(ci) << " valign-top\">"
-                        << "<p class=\"tableblock\">"
+                std::size_t col_pos = 0;
+                for (const auto& cell : row.cells()) {
+                    const int cs = cell->colspan();
+                    out << "<td class=\"tableblock " << col_halign(col_pos) << " valign-top\"";
+                    if (cs > 1) { out << " colspan=\"" << cs << "\""; }
+                    out << "><p class=\"tableblock\">"
                         << subs(cell->source(), doc)
                         << "</p></td>\n";
+                    col_pos += static_cast<std::size_t>(cs);
                 }
                 out << "</tr>\n";
             }

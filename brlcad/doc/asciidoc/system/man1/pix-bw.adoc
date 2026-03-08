@@ -14,6 +14,7 @@ pix-bw [-s<squaresize>] [-w<width>] [-n<height>] [ [-e<ntsc|crt|hdtv|hdr|avg>] [
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pix-bw* will combine or select the color planes of a *pix*(5) format file from its standard input and produce a black and white *bw*(5) file on its standard output.
@@ -49,6 +50,7 @@ Individual color plane(s) can be selected via the *-R#*, *-G#*, and *-B#* option
 If 0 is supplied by the user for weights, then the weights assigned are 1.0 divided by the number of colors selected.
 
 
+[[examples]]
 == EXAMPLES
 
 pix-bw -R0.0 -B0.0 < _file.pix_ > _file.bw_
@@ -60,21 +62,25 @@ pix-bw -R0.3 -G0.6 -B0.1 < _file.pix_ > _file.bw_
 applies weights close to the *-ntsc* flag.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *pix-bw3*(1), *bw-pix*(1), *pix*(5), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

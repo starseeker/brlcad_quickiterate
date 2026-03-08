@@ -14,6 +14,7 @@ ev [-dfnrstuvwST] [-P<#>] [-C<#/#/#>] {objects} []
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Evaluates the _objects_ specified by tessellating all primitive shapes in the objects and then performing any Boolean operations specified in them. The result is then displayed in the MGED display according to specified options.
@@ -34,6 +35,7 @@ Evaluates the _objects_ specified by tessellating all primitive shapes in the ob
 * _C#/#/#_--Draw all objects in the specified rgb color.
 
 
+[[examples]]
 == EXAMPLES
 
 The first example shows the use of the *ev* command to display two evaluated objects as shaded polygons. The second example shows the use of the *ev* command to display an evaluated object as wireframe without triangulating.
@@ -59,11 +61,13 @@ Displays an evaluated object, _region1_, as wireframe without triangulation.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

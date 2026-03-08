@@ -11,6 +11,7 @@ In addition, the following individuals and organizations are thanked for contrib
 
 Finally, the authors would especially like to acknowledge Mr. Michael Muuss, the original architect of BRL-CAD, who passed away in the fall of 2000. Without his vision, intellect, and diligence, this work would not have been possible. The BRL-CAD Tutorial Series is dedicated to his memory.
 
+[[volIIIintro]]
 == Introduction
 
 Since 1979, the U.S. Army Research Laboratory (ARL) has been developing and distributing the U.S. Army Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) constructive solid geometry (CSG) modeling package for a wide range of military and industrial applications. The package includes a large collection of tools and utilities including an interactive geometry editor, raytracing and generic framebuffer libraries, network-distributed image-processing/signal-processing capabilities, and an embedded scripting language.
@@ -21,6 +22,7 @@ The purpose of Volume III is to discuss the components of the modeling process a
 
 Future volumes in the tutorial series are planned to discuss geometry format conversion, advanced modeling features, and programming options.
 
+[[volIIImodelprocess]]
 == The Model Process
 
 [[The_Importance_of_the_Model_Mission]]
@@ -36,11 +38,7 @@ Radar signature studies, on the other hand, often call for a different type of m
 
 image::../books/images/tutorial_series_volIII_fig01.png[width=4in]
 
-image::../books/images/tutorial_series_volIII_fig01.png[width=80%]
-
 image::../books/images/tutorial_series_volIII_fig02.png[width=4in]
-
-image::../books/images/tutorial_series_volIII_fig02.png[width=80%]
 
 It is also important to note that some models will need to serve multiple missions. If the modeler suspects that this will be the case with a model, it should be built to the highest level of detail that any of the intended users requires (and, of course, that time/resources permit).
 
@@ -63,11 +61,10 @@ As shown in Figure 3, the modeling process can be thought of as a wagon wheel wi
 
 image::../books/images/tutorial_series_volIII_fig03.png[width=4in]
 
-image::../books/images/tutorial_series_volIII_fig03.png[width=4in]
-
 For example, the organization phase is often the first step in large or complex modeling projects because it helps the modeler establish a tree structure that will guide him in collecting/measuring the right (or right amount of) data. Also, the modeler often detects missing or inaccurate data in the geometry development phase, which requires a return to the measurement phase. Finally, in cases involving the conversion of geometry from another source, the measurement and development phases might be nonapplicable, and a modeler might skip directly to the evaluation phase.
 
 
+[[volIIImeasuringdata]]
 == Measuring data
 
 Unless a modeler is creating a conceptually new geometry, he must work from a variety of information sources to build a model. In some cases, blueprints or mechanical drawings exist. In others, a trip to the field is required to physically measure objects and orientations. In still others, geometry exists in another CAD format and needs to be converted to BRL-CAD format. As shown in Table 1, each type of measurement source has its own set of advantages and disadvantages, depending on the modeler's and/or user's point of view.
@@ -78,29 +75,17 @@ Unless a modeler is creating a conceptually new geometry, he must work from a va
 |Data Sources |Advantages |Disadvantages 
 |Blueprints/schematics/mechanical drawings/photographs
 
-image::../books/images/tutorial_series_volIII_fig30.png[width=1in]
-
-image::../books/images/tutorial_series_volIII_fig30.png[]
-
-
+image:../books/images/tutorial_series_volIII_fig30.png[width=1in]
 
  |Can save time/resources by providing precise measurements with minimal data collection effort. Can also suggest ways to structure the model (e.g., by providing wiring diagrams, subsystem schematics, etc.). |Can sometimes be difficult to read. Do not always show all needed measurements or views. Are not always consistent with the actual objects they represent (e.g., design changes sometimes occur during development or manufacturing). 
 |Measurable objects
 
-image::../books/images/tutorial_series_volIII_fig21.png[width=1in]
-
-image::../books/images/tutorial_series_volIII_fig21.png[]
-
-
+image:../books/images/tutorial_series_volIII_fig21.png[width=1in]
 
  |Can arguably provide the best source of verifiable information by providing hands-on access to the actual objects being modeled. |Can be resource and labor intensive and can be limited by the objects’ availability, accessibility, and measurability, resulting in missed measurements. 
 |Converted geometry
 
-image::../books/images/tutorial_series_volIII_fig22.png[width=1in]
-
-image::../books/images/tutorial_series_volIII_fig22.png[]
-
-
+image:../books/images/tutorial_series_volIII_fig22.png[width=1in]
 
  |Can offer significant savings in data collection and/or measurement efforts. |Can have missing data, unfamiliar naming schemes, and alternate/dissimilar geometry formats (e.g., feature-based objects, splines, etc.). Can also be unsuitable for a given application because the original model was developed for a different purpose. 
 |===
@@ -127,11 +112,10 @@ For a series of uniformly spaced objects, it is good practice to measure the tot
 +
 image::../books/images/tutorial_series_volIII_table_image_1.png[]
 
-image::../books/images/tutorial_series_volIII_table_image_1.png[]
 
 
 
-
+[[volIIIorganizing]]
 == Organizing the Structure
 
 Taking the time to map out a tree structure of an object before building it is another important step in the modeling process, especially if the object being constructed is elaborate, if modeling time and resources are limited, if the work is being performed as a team, or if the model will be passed on to someone else later.
@@ -266,11 +250,7 @@ mvall oldname newname
 +
 image::../books/images/tutorial_series_volIII_fig04.png[]
 
-image::../books/images/tutorial_series_volIII_fig04.png[]
-
 +
-image::../books/images/tutorial_series_volIII_fig05.png[]
-
 image::../books/images/tutorial_series_volIII_fig05.png[]
 
 +
@@ -280,6 +260,7 @@ The structuring phase, of course, gets trickier and more subjective as the model
 It is also important to remember that the tree structure in MGED is independent of the geometry created. The structure is simply a tool to help the user organize and work with the database. Accordingly, the tree structure can be manipulated to suit whatever needs the user(s) may have. Consider the example of a model of a room containing a table and a cup on top of the table. If one wanted to relocate the table (along with the cup) next to a wall, one could create a temporary combination containing the table and the cup. This combination could then be used to move the two objects together to their new location. After the objects are in position, the temporary combination could be "pushed" (see discussion of the push command in Section 5) and then deleted using the kill command (see Appendix A of Volume II [Butler et al., 2001]).
 
 
+[[volIIIdevgeometry]]
 == Developing Geometry
 
 In the end, the heart of the modeling process is the actual construction of the geometry. All the best measurement, organization, evaluation, and documentation would be ineffective unless the geometric shapes that make up a model are built and built correctly.
@@ -314,8 +295,6 @@ The following are some general tips regarding the efficient development of geome
 ] 
 |image::../books/images/tutorial_series_volIII_fig24.png[]
 
-image::../books/images/tutorial_series_volIII_fig24.png[]
-
 
 
  |
@@ -323,17 +302,11 @@ image::../books/images/tutorial_series_volIII_fig24.png[]
 ** Each face must be a plane.
 ** Illegal variations include the following:
 +
-image::../books/images/tutorial_series_volIII_fig23.png[]
-
-image::../books/images/tutorial_series_volIII_fig23.png[]
-
-
+image:../books/images/tutorial_series_volIII_fig23.png[]
 
 
  
 |image::../books/images/tutorial_series_volIII_fig25.png[]
-
-image::../books/images/tutorial_series_volIII_fig25.png[]
 
 
 
@@ -343,8 +316,6 @@ image::../books/images/tutorial_series_volIII_fig25.png[]
 
  
 |image::../books/images/tutorial_series_volIII_fig26.png[]
-
-image::../books/images/tutorial_series_volIII_fig26.png[]
 
 
 
@@ -356,8 +327,6 @@ image::../books/images/tutorial_series_volIII_fig26.png[]
 
  
 |image::../books/images/tutorial_series_volIII_fig27.png[]
-
-image::../books/images/tutorial_series_volIII_fig27.png[]
 
 
 
@@ -371,8 +340,6 @@ image::../books/images/tutorial_series_volIII_fig27.png[]
  
 |image::../books/images/tutorial_series_volIII_fig28.png[]
 
-image::../books/images/tutorial_series_volIII_fig28.png[]
-
 
 
  |
@@ -383,8 +350,6 @@ image::../books/images/tutorial_series_volIII_fig28.png[]
 
  
 |image::../books/images/tutorial_series_volIII_fig29.png[]
-
-image::../books/images/tutorial_series_volIII_fig29.png[]
 
 
 
@@ -441,21 +406,13 @@ Note the in and inside commands are often the best ways to create a primitive in
 .Coordinate axes of a turreted ground vehicle.
 image::../books/images/tutorial_series_volIII_fig06.png[]
 
-image::../books/images/tutorial_series_volIII_fig06.png[]
-
 +
-image::../books/images/tutorial_series_volIII_fig07.png[]
-
 image::../books/images/tutorial_series_volIII_fig07.png[]
 
 +
 image::../books/images/tutorial_series_volIII_fig08.png[]
 
-image::../books/images/tutorial_series_volIII_fig08.png[]
-
 +
-image::../books/images/tutorial_series_volIII_fig09.png[]
-
 image::../books/images/tutorial_series_volIII_fig09.png[]
 
 * _Build multiple occurrences of objects in the most advantageous manner:_ Sometimes a modeler will have to make several occurrences of an object. For example, imagine modeling a box of new, identical pencils. Wouldn't it be convenient to take advantage of the similarities involved? There are two basic techniques for constructing such collections. The first involves actually replicating geometry; the second involves referencing shared geometry.
@@ -468,11 +425,7 @@ As shown in Table 7, there are trade-offs to be considered when using each of th
 +
 image::../books/images/tutorial_series_volIII_fig10.png[]
 
-image::../books/images/tutorial_series_volIII_fig10.png[]
-
 +
-image::../books/images/tutorial_series_volIII_fig11.png[]
-
 image::../books/images/tutorial_series_volIII_fig11.png[]
 
 +
@@ -552,16 +505,10 @@ Imagine that a user wants half of a sphere for the target geometry (see Figure 1
 +
 image::../books/images/tutorial_series_volIII_fig12.png[]
 
-image::../books/images/tutorial_series_volIII_fig12.png[]
-
 +
 image::../books/images/tutorial_series_volIII_fig13.png[]
 
-image::../books/images/tutorial_series_volIII_fig13.png[]
-
 +
-image::../books/images/tutorial_series_volIII_fig14.png[]
-
 image::../books/images/tutorial_series_volIII_fig14.png[]
 
 +
@@ -576,8 +523,6 @@ The half space is a prime example of an overly large bounding primitive. Because
 +
 For articulation and animation, this generally means that objects that normally move together (e.g., components on a helicopter rotor, tank turret, etc.) should be grouped together in assembly combinations (as shown in Figure 15). image::../books/images/tutorial_series_volIII_fig15.png[]
 
-image::../books/images/tutorial_series_volIII_fig15.png[]
-
  In the example shown in Figure 15, we would want to create a turret_asy assembly with turret_armor, main_gun, and commanders_hatch in it.
 
 +
@@ -590,8 +535,6 @@ Also, as discussed in Lesson 16 of Volume II (Butler et al., 2001), specialty mo
 ** _Assembly combination_ - a type of combination that associates two or more regions or other combinations together.
 
 +
-image::../books/images/tutorial_series_volIII_fig16.png[]
-
 image::../books/images/tutorial_series_volIII_fig16.png[]
 
 +
@@ -631,8 +574,6 @@ In addition, there are several general recommended practices when dealing with B
 +
 image::../books/images/tutorial_series_volIII_fig17.png[]
 
-image::../books/images/tutorial_series_volIII_fig17.png[]
-
 +
 
 [NOTE]
@@ -647,6 +588,7 @@ Table 8 shows some RGB colors traditionally used in MGED (out of a possible 17 m
 
 * _Take advantage of advanced/automation modeling tools:_ BRL-CAD offers many tools that can help users perform advanced functions or automate complex or tedious aspects of the geometry development process. Examples of some these tools, which are discussed in Appendices A-F, include the pipe primitive (which can automate the building of wiring or hydraulic lines), the projection shader (which can paste words or images onto geometry instead of having to build them), the extruded bitmap (which can turn two-dimensional objects [e.g., a building floor plan] into 3-D geometry [e.g., walls]), the .mgedrc file (which can create customized shortcuts for many MGED operations), the Build Pattern tool (which can automatically replicate objects in a specified pattern), and the build_region command (which can automatically build regions by grouping together similarly named objects).
 
+[[mgedcolors]]
 .Traditionally used MGED colors.
 |===
 
@@ -717,6 +659,7 @@ Table 8 shows some RGB colors traditionally used in MGED (out of a possible 17 m
 |Green yellow |147 219 112 
 |===
 
+[[system-color-codes]]
 .Commonly used system-color codes.
 |===
 
@@ -773,8 +716,6 @@ Shotlining is the principal method of interrogation in BRL-CAD. Rays are fired t
 
 image::../books/images/tutorial_series_volIII_fig18.png[]
 
-image::../books/images/tutorial_series_volIII_fig18.png[]
-
 There are several ways to evaluate BRL-CAD geometry. These include (1) rendering the image using rt, (2) checking for overlaps using rtcheck (or the lesser-known/used glint or MGED's overlap tool), and (3) checking for faulty material composition (e.g., densities) using rtweight.
 
 Generally, as soon as a region is completed, it is good practice to raytrace it using rt. This allows the user to visually verify that all Boolean logic is correct and that the geometry has no obvious problems. If there is anything questionable, it can then be examined more closely with a raytrace that highlights that particular area. Note that rendering is also a good way to compare geometry with drawings, sketches, photographs, or images from other CAD systems.
@@ -793,16 +734,12 @@ This command could also be run from outside of MGED. The command "rtcheck" is ty
 
 image::../books/images/tutorial_series_volIII_fig19.png[]
 
-image::../books/images/tutorial_series_volIII_fig19.png[]
-
 
 [NOTE]
 ====
 When first checking larger assemblies, it is wise to use a relatively low-resolution rtcheck grid size--say, 128 × 128 pixels. Often, there are simple errors that produce large numbers of overlaps, and reporting them all takes a long time. Starting with low resolution, however, allows the user to quickly find and eliminate gross errors and proceed to the insidious small overlaps using a tighter grid and more specific view parameters.
 
 ====
-
-image::../books/images/tutorial_series_volIII_fig20.png[]
 
 image::../books/images/tutorial_series_volIII_fig20.png[]
 
@@ -876,13 +813,7 @@ In addition, because they are defining turns, points in a pipe are often nonline
 
 image::../articles/images/pipes_fig01.png[]
 
-image::../articles/images/pipes_fig01.png[]
-
 image::../articles/images/pipes_fig02.png[]
-
-image::../articles/images/pipes_fig02.png[]
-
-image::../articles/images/pipes_fig03.png[]
 
 image::../articles/images/pipes_fig03.png[]
 
@@ -909,8 +840,6 @@ In the example shown in Figure A-4, the coil diameter is 1/4 (0.25) in, the wire
 
 image::../articles/images/pipes_fig04.png[]
 
-image::../articles/images/pipes_fig04.png[]
-
 The key to properly and precisely positioning points to build a coil section is to use half of the coil diameter as an offset. The first and the last points in the coil must lie on the pipe's path. These points are easily determined at 90°  intervals from the center of the pipe (or, with a bit of trigonometry, at any interval). The rest of the points for the pipe are located at ±  offsets in whichever plane is perpendicular to the pipe height vector from the center of the pipe with the proper height delta (which will generally be 1/4 of the height per coil section).
 
 Obviously, the construction of this type of object is a little more advanced than the construction of many of the other types of objects discussed. Thus, the following text provides the user with step-by-step instructions that can also serve as a kind of template when using the pipe primitive to build a coil or similar object.
@@ -930,51 +859,17 @@ To build two turns of a coil at the origin with a coil diameter of 1000 mm, a wi
 
 |===
 
-|- mged>p 500 -500 150 |image::../articles/images/pipes_fig05.png[]
-
-image::../articles/images/pipes_fig05.png[]
-
- 
-|- mged>p -500 -500 250 |image::../articles/images/pipes_fig06.png[]
-
-image::../articles/images/pipes_fig06.png[]
-
- 
-|- mged>p -500 500 350 |image::../articles/images/pipes_fig07.png[]
-
-image::../articles/images/pipes_fig07.png[]
-
- 
-|- mged>p 500 500 450 |image::../articles/images/pipes_fig08.png[]
-
-image::../articles/images/pipes_fig08.png[]
-
- 
-|- mged>p 500 -500 550 |image::../articles/images/pipes_fig09.png[]
-
-image::../articles/images/pipes_fig09.png[]
-
- 
-|- mged>p -500 -500 650 |image::../articles/images/pipes_fig10.png[]
-
-image::../articles/images/pipes_fig10.png[]
-
- 
-|- mged>p -500 500 750 |image::../articles/images/pipes_fig11.png[]
-
-image::../articles/images/pipes_fig11.png[]
-
- 
-|- mged>p 0 500 800 |image::../articles/images/pipes_fig12.png[]
-
-image::../articles/images/pipes_fig12.png[]
-
- 
+|- mged>p 500 -500 150 |image:../articles/images/pipes_fig05.png[] 
+|- mged>p -500 -500 250 |image:../articles/images/pipes_fig06.png[] 
+|- mged>p -500 500 350 |image:../articles/images/pipes_fig07.png[] 
+|- mged>p 500 500 450 |image:../articles/images/pipes_fig08.png[] 
+|- mged>p 500 -500 550 |image:../articles/images/pipes_fig09.png[] 
+|- mged>p -500 -500 650 |image:../articles/images/pipes_fig10.png[] 
+|- mged>p -500 500 750 |image:../articles/images/pipes_fig11.png[] 
+|- mged>p 0 500 800 |image:../articles/images/pipes_fig12.png[] 
 |===
 
 The raytraced image of the coil segment is shown in Figure A-5.
-
-image::../articles/images/pipes_fig13.png[]
 
 image::../articles/images/pipes_fig13.png[]
 
@@ -1000,8 +895,6 @@ Important Points to Remember About the Pipe
 === General
 
 Though the U.S. Army Ballistic Research Laboratory - Computer-Aided Design (BRL-CAD) package has the capability to model highly detailed and complex surfaces of objects, such as the multitude of small chips, connectors, and other electrical components on a circuit board (see Figure B-1), individually building each piece of a complex surface is often labor intensive, time consuming, and unnecessary for the model's intended purpose. Thus, the package offers an alternative, the projection shader, to create realistic-looking "skin" for objects.
-
-image::../articles/images/projection_shader_fig01.png[]
 
 image::../articles/images/projection_shader_fig01.png[]
 
@@ -1046,8 +939,6 @@ BRL-CAD recognizes several image file formats, including .pix, .png., and .ppm. 
 === Resize the Graphics Display Window to Match Image Dimensions
 
 The next step is to "prepare" the area on which the image will be displayed so that it is ready for the image. For the circuit board, the size of the photograph was 950 pixels ×  950 pixels high. To make the graphics display window match, we opened the Raytrace Control Panel and used the numbers in the Size window box as a reference to determine how much to enlarge/shrink the graphics display window (by using the mouse to drag the window borders in or out) (see Figure B-2).
-
-image::../articles/images/projection_shader_fig02.png[]
 
 image::../articles/images/projection_shader_fig02.png[]
 
@@ -1121,8 +1012,6 @@ prj_add circuitboard.prj circuit_back_950.pix 950 950
 
 image::../articles/images/projection_shader_fig03.png[]
 
-image::../articles/images/projection_shader_fig03.png[]
-
 
 [[projshader_applysettingsfile]]
 === Apply the Shader Settings File to the Object in the Combination Editor
@@ -1136,10 +1025,6 @@ The projection now needs to be applied to the object. We did this by opening the
 The final step in using the projection shader is to raytrace the object to determine if all the other steps have been performed correctly. In our case, rendering the image identified several problems that we wanted to correct. First of all, as shown in Figure B-5, the holes in the board failed to convey the three-dimensional look we desired. So, we went back and modeled circular cutouts (using cylinder primitives) to improve the appearance. In addition, the rendered image revealed that the image we were using was too dark. So, we ended up adjusting the gamma setting on the original image (a .jpg file) in an external photo editor.
 
 image::../articles/images/projection_shader_fig04.png[]
-
-image::../articles/images/projection_shader_fig04.png[]
-
-image::../articles/images/projection_shader_fig05.png[]
 
 image::../articles/images/projection_shader_fig05.png[]
 
@@ -1158,11 +1043,7 @@ prj_add circuitboard.prj circuit_front_950.pix 950 950
 
 image::../articles/images/projection_shader_fig06.png[]
 
-image::../articles/images/projection_shader_fig06.png[]
-
 Figure B-7 shows the resulting prj file. (Note that the first projection is on top and the second projection is on the bottom.)
-
-image::../articles/images/projection_shader_fig07.png[]
 
 image::../articles/images/projection_shader_fig07.png[]
 
@@ -1174,22 +1055,20 @@ The extruded bitmap (ebm) primitive allows the user to make a three-dimensional 
 
 For example, the ebm could be used if one wanted to model 3-D letters, such as in a company name, onto the side of a simulated wall or building. Note also that the same image used for the projection can, with some extra processing, form the basis for the ebm (see Figures C-1-C-3).
 
+[[ebm3]]
 image::../articles/images/ebm_primitive_fig01.png[]
 
-image::../articles/images/ebm_primitive_fig01.png[]
-
+[[ebm4]]
 image::../articles/images/ebm_primitive_fig02.png[]
 
-image::../articles/images/ebm_primitive_fig02.png[]
-
-image::../articles/images/ebm_primitive_fig03.png[]
-
+[[ebm5]]
 image::../articles/images/ebm_primitive_fig03.png[]
 
 To make an ebm, the image file must be a black and white (.bw) file. A .bw image is a grayscale raw image file with only one channel. Each pixel can be turned on or off, but it has no color data. As shown in Figures C-2 and C-3, the white part of the image may be extruded in a straight line in the +Z direction to whatever length the user specifies. Regardless of the complexity of the geometry, all of the extruded shapes form a single ebm primitive.
 
 To enter an ebm in a database, the in command must be used. The arguments are as shown in the following example:
 
+[[ebm8]]
 |===
 
 |in |sample.ebm |ebm |image.bw |600 |800 |1 
@@ -1225,8 +1104,7 @@ Remember that when creating/updating .mgedrc files, if any conflicting/repeated 
 
 In Figure D-1, note that lines have been added before the header to show different raytracing options and the commands have been sectioned into functional divisions separated by comment fields (comment fields are denoted by the symbol "#").
 
-image::../articles/images/mgedrc_fig01.png[]
-
+[[mgedrc6]]
 image::../articles/images/mgedrc_fig01.png[]
 
 Each command includes the following four basic components: 
@@ -1303,8 +1181,7 @@ proc cps {oldprim newprim} {cp $oldprim $newprim; sed $newprim}
 
 Figure D-2 shows a sample section of a .mgedrc file that allows the user to specify the command line editor, customize the window size and placement, and toggle the function keys.
 
-image::../articles/images/mgedrc_fig02.png[]
-
+[[mgedrc13]]
 image::../articles/images/mgedrc_fig02.png[]
 
 The diagrammed command for sizing and positioning the command window is as follows: |===
@@ -1317,8 +1194,7 @@ The diagrammed command for sizing and positioning the command window is as follo
 
 As illustrated in Figure D-3, to specify the window size, the user inputs width-by-height dimensions for each window (i.e., 475 ×  250). To specify the placement of the windows on the display, the user specifies offset distances (i.e., +65 +80) from the edges of the display (as measured in pixels). The first number defines the distance for the left/right placement, and the second number is for the up/down placement. The "+" symbol indicates a distance from the left side of the display to the left side of the window or from the top of the display to the top of the window. Alternatively, if a "-" symbol were present (as shown on the right side of Figure D-3), it would indicate a distance from the right side of the display to the right side of the window or from the bottom of the display to the bottom of the window.
 
-image::../articles/images/mgedrc_fig03.png[]
-
+[[mgedrc16]]
 image::../articles/images/mgedrc_fig03.png[]
 
 [appendix]
@@ -1353,8 +1229,6 @@ The Source String and Replacement String fields must be used together. The sourc
 
 image::../articles/images/build_pattern_fig01.png[]
 
-image::../articles/images/build_pattern_fig01.png[]
-
 The Increment field is only for use when duplicating to the primitive level. It is added to the leftmost number field of each primitive. To determine the increment, examine the primitives of the object(s) you wish to pattern and find the largest span. For example, to create a pattern to the primitive level with the following primitives (which may or may not be in regions or assemblies): 
 ....
 
@@ -1377,11 +1251,7 @@ Finally, the Objects field is used for the names of all the items to be patterne
 [[build_pattern_stringsub]]
 === String Substitution
 
-It is also possible to create a pattern in which a string of characters in each element in the object is changed (e.g., "l_" -> "r_"). This is useful for symmetry applications (e.g., left - right) or series (e.g., 1 - n). Each element of the object must have the source string so the user must be thorough and name each primitive, region, and assembly properly. Consider the following example: image::../articles/images/build_pattern_fig07.png[]
-
-image::../articles/images/build_pattern_fig07.png[]
-
-
+It is also possible to create a pattern in which a string of characters in each element in the object is changed (e.g., "l_" -> "r_"). This is useful for symmetry applications (e.g., left - right) or series (e.g., 1 - n). Each element of the object must have the source string so the user must be thorough and name each primitive, region, and assembly properly. Consider the following example: image:../articles/images/build_pattern_fig07.png[]
 
 Top-level duplications copy the patterned object and reference its entire structure with matrices, as follows: 
 ....
@@ -1424,8 +1294,6 @@ The rectangular pattern GUI (shown in Figure E-2) is designed to facilitate one-
 
 image::../articles/images/build_pattern_fig02.png[]
 
-image::../articles/images/build_pattern_fig02.png[]
-
 
 [[build_pattern_spherical]]
 === Spherical Patterns
@@ -1442,15 +1310,9 @@ The Create Radii and Use Radii List series define offsets from the Starting Radi
 
 image::../articles/images/build_pattern_fig03.png[]
 
-image::../articles/images/build_pattern_fig03.png[]
-
 Without the Rotate Azimuth or Rotate Elevation boxes checked, the patterned objects are oriented as built without any rotations. Notice, for example, that every arrow in Figure E-5 points to the left. Notice also that for each patterned arrow, the Object Center (here specified as the tip of the arrow) is located on the circle outline at a distance of one Starting Radius from the Pattern Center. If we set the Object Center to the coordinate at the base of the arrow, the base would then lie on the circular outline. Wherever the Object Center is set is the point at which MGED works with the Object Center coordinate to place and rotate patterned objects.
 
 image::../articles/images/build_pattern_fig04.png[]
-
-image::../articles/images/build_pattern_fig04.png[]
-
-image::../articles/images/build_pattern_fig05.png[]
 
 image::../articles/images/build_pattern_fig05.png[]
 
@@ -1459,8 +1321,6 @@ image::../articles/images/build_pattern_fig05.png[]
 === Cylindrical Patterns
 
 The cylindrical pattern GUI (shown in Figure E-6) facilitates the creation of cylinder-shaped patterns with user-defined center, direction, height, azimuth, and radii inputs. The Base Center is the vertex of the cylinder shape. The Object Center is a user-defined coordinate used to locate the object(s) relative to the Base Center and Height Direction. It acts as the key point for any transformations to the pattern object(s). The Height Direction is the vector along which the cylinder runs. The Starting Height is the offset from the Base Center along the Height Direction that the pattern will place the Object Center.
-
-image::../articles/images/build_pattern_fig06.png[]
 
 image::../articles/images/build_pattern_fig06.png[]
 
@@ -1478,14 +1338,12 @@ The user includes the Boolean operation and relational information in the name o
 
 For example, let's say we want to build the four rounded corners of a "tub" region for a toy metal wagon assembly (see Figure F-1). We could choose something such as "wgn"--an abbreviated form of "wagon"--as the tag. This tag is short, easy to type, and representative of the final assembly name. Our primitives would therefore be of the form wgn.s#.
 
-image::../articles/images/build_region_fig01.png[]
-
+[[build_region5]]
 image::../articles/images/build_region_fig01.png[]
 
 Next, we create an arb8 for one long side of the wagon tub. It is named wgn.s1. After that, we create an rcc for one corner of the tub. It is named wgn.s2. To get a hollow quarter cylinder, we need to subtract a cylinder and intersect a bounding box (see Figure F-2). In order to relate the subtraction and intersecting primitives with wgn.s2, they will each share the same root name, wgn.s2. The subtraction primitive will be named wgn.s2-1, and the intersecting primitive will be named wgn.s2+1.
 
-image::../articles/images/build_region_fig02.png[]
-
+[[build_region7]]
 image::../articles/images/build_region_fig02.png[]
 
 Now we have created the following four primitives: 
@@ -1515,14 +1373,12 @@ u wgn.s2 + wgn.s2+1 - wgn.s2-1
 
  If we wanted to make a second subtraction from wgn.s2--say, for a drain hole in the corner of the wagon--we would name that primitive wgn.s2-2 (see Figure F-3). We can break this name down as follows: *****NEED IMAGE HERE*****
 
-image::../articles/images/build_region_fig03.png[]
-
+[[build_region9]]
 image::../articles/images/build_region_fig03.png[]
 
 Note that the root name stays the same so we can maintain the relationship, and the second number (associated with the Boolean operation) is incremented sequentially.
 
-image::../articles/images/build_region_fig04.png[]
-
+[[build_region11]]
 image::../articles/images/build_region_fig04.png[]
 
 Obviously, the overall success or failure of the build_region command depends on primitives being named properly. But if they are, the command can organize them in one automated step, creating complex regions in just a few keystrokes.

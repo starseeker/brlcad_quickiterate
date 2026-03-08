@@ -14,11 +14,13 @@ window [<options>]...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *window* is a program to create a BRL-CAD database of windows. Up to twenty-six windows of the same size may be created. The windows are made with rounded corners. *window* uses libwdb to create a BRL-CAD database. The windows are composed of two arb8s and four cylinders. This program may be run interactively or the user may specify options on a command line. If the user chooses to run the program interactively, he answers the questions as the program prompts him. Below are the options that can be used on the command line.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -48,6 +50,7 @@ Radius of the corner in millimeters.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Interactive window Session
@@ -93,21 +96,25 @@ number of windows:  3
 Both of these examples create a database named window.g containing three windows with a height of 200mm, width of 300mm, depth of 20mm, and corner radius of 30mm.
 
 
+[[author]]
 == AUTHOR
 
 Susan A. Coates
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2005-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[see_also]]
 == SEE ALSO
 
 bolt(1), handle(1), window_frame(1), gastank(1)
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

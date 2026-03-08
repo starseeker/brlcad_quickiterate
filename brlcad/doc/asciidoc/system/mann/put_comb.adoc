@@ -14,11 +14,13 @@ put_comb {<comb_name>} [is_Region [ [id]| [air]| [material]| [los]]] {<color>} {
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Command for inserting regions and combinations with attributes set using a single line command - useful in scripting situations.
 
 
+[[examples]]
 == EXAMPLES
 
 The *put_comb* expects one of two particular forms of input - combination or region.
@@ -68,11 +70,13 @@ material_id {32} los {1}
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

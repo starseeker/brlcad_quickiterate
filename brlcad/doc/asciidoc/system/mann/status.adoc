@@ -14,6 +14,7 @@ status [<subcommands>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Without a subcommand, the *status* command returns the following information: current state, view size of the current display manager, the conversion factor from local model units to the base units (mm) stored in the database, and the view matrices of the current display manager. *Status* accepts the following subcommands:
@@ -65,6 +66,7 @@ Print the usage message.
 
 
 
+[[examples]]
 == EXAMPLES
 
 The three examples show the use of the *status* command with and without subcommands.
@@ -97,11 +99,13 @@ Gets the edit state.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

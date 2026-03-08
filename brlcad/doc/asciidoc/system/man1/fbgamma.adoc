@@ -14,6 +14,7 @@ fbgamma [-H] [-o] [-i] [-F<framebuffer>] <val> [ <gval> <bval>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fbgamma* loads a gamma correcting colormap into a framebuffer. If a single value is given, that number is used for all three color channels. If three values are specified, they will be applied to the red, green, and blue channels respectively.
@@ -31,6 +32,7 @@ A framebuffer may be explicitly selected with the *-F* option, followed by the n
 The *-i* option requests that a standard gamma calibration image be displayed on the framebuffer. This image consists of intensity ramps with patches of solid color, and vertically adjacent patches containing alternating black and colored scanlines. When using gamma to compensate for non-linearity of a display, the gamma values should be adjusted until vertically adjacent ramps of the same color appear equal in intensity for all patches.
 
 
+[[theory]]
 == THEORY
 
 The response of a typical monitor is non-linear with respect to input voltage. To a fairly high degree of accuracy, the response can be expressed as:
@@ -46,21 +48,25 @@ If possible one should gamma correct a picture before loading it into a display 
 A gamma value greater than unity will saturate colors by pushing them away from the white point and closer to the primaries (as viewed on a chromaticity diagram). A gamma less than unity will desaturate colors by moving them closer to the white point.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *fbcmap*(1), *cmap-fb*(1), *fb-cmap*(1)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1987-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org> w

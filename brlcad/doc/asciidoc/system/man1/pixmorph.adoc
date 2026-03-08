@@ -14,6 +14,7 @@ pixmorph [-w<width>] [-n<height>] <picA.pix> <picB.pix> <linesfile> <warpfrac> <
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixmorph* performs feature-based image metamorphosis between "picA.pix" and "picB.pix". The feature correspondences are specified in the file "linesfile", which can be created using a utility such as _morphedit.tcl_ (see _morphedit(1)_).
@@ -33,6 +34,7 @@ In practice, _a_ = 0.1, _b_ = 2.0, and _p_ = 0.2 seems to work well.
 In general, the user will wish to set _warpfrac_ = _dissolvefrac_. Typically, a morph animation will be produced by computing a sequence of images using _pixmorph_, each with slightly greater _warpfrac_ (and _dissolvefrac_) (see the example).  For a clearer and more thorough explanation, see  T. Beier and S. Neely, Feature-Based Image Metamorphosis, "SIGGRAPH 1992 Computer Graphics Proceedings (volume 26 number 2)", (Chicago, July 26-31, 1992), pp 35-42,  which presents the algorithm used by _pixmorph_.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -48,6 +50,7 @@ Tells *pixmorph* that the input images have height HEIGHT.
 
 
 
+[[examples]]
 == EXAMPLES
 
 pixmorph face1.pix face2.pix lf 0.0 0.0 > frame0.pix
@@ -73,21 +76,25 @@ pixmorph face1.pix face2.pix lf 0.0 0.5 > out.pix
 In this example, _warpfrac_ = 0. This will perform a simple 50% cross-dissolve between _face1.pix_ and _face2.pix_.
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *morphedit*(1), *pix*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1996-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

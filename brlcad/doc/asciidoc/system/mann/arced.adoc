@@ -14,6 +14,7 @@ arced {<comb/memb>} {<anim_command>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The objects in a BRL-CAD model are stored as Boolean combinations of primitive shapes and/or other combinations. These combinations are stored as Boolean trees, with each leaf of the tree including a corresponding transformation matrix. The *arced* command provides a means for directly editing these matrices. The first argument to the *arced* command must identify the combination and which member's matrix is to be edited. The _comb/memb_ argument indicates that member _memb_ of combination _comb_ has the matrix to be edited. The remainder of the *arced*command line consists of an animation command to be applied to that matrix. The available animation commands are: 
@@ -33,6 +34,7 @@ Right multiply the members matrix with the given matrix.
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Rotate body/head 45 degrees about Z axis
@@ -45,11 +47,13 @@ Rotates member head (in combination body) about the _z_ axis through a 45° angl
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

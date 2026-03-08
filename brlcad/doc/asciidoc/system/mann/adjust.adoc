@@ -14,11 +14,13 @@ adjust {<solid_name>} {<param_name>} {<value>} [<param_name>] [<value>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Adjusts the given parameter(s) of a solid to the new value(s).
 
 
+[[examples]]
 == EXAMPLES
 
 .Adjust the A Value of a Sphere
@@ -56,21 +58,25 @@ mged> adust solid.s A "100 0 0" B "0 100 0" C "0 0 100"
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *get*(n).
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2008-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

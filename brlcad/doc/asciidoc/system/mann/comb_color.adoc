@@ -14,11 +14,13 @@ comb_color {<combination_name r g b>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Assigns the color using the provided _rgb_ values to the existing combination named _combination_name_. Valid values for each variable are between 0 and 255. See also the *mater* command.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the command *comb_color* to assign a specific color to a specific region.
@@ -33,11 +35,13 @@ Assigns the color green to _region.r_.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ gui [ {-config}| [b]| [c]| [g]] [ {-d}| {<display_string>}] [ {-gd}| {<graphics_
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Creates an instance of MGEDs default Tcl/Tk graphical user interface (GUI). The following options are allowed:
@@ -57,16 +58,19 @@ Prints the help message.
 
 
 
+[[examples]]
 == EXAMPLES
 
 There were no examples given for this command.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

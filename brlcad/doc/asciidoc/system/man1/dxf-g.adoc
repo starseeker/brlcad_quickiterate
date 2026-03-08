@@ -14,6 +14,7 @@ dxf-g [-c] [-d] [-v] [-s<scale_factor>] [-t<tolerance>] <file.dxf> <database.g>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *dxf-g* converts the specified _file.dxf_ to a BRL-CAD _database.g_ file.
@@ -53,6 +54,7 @@ The POLYLINE entities in AUTOCAD are actually a container for numerous different
 SOLID entities are 2D shapes with a solid fill, but this converter does not do any filling. Each layer is converted to a separate object. Colors are also converted.
 
 
+[[example]]
 == EXAMPLE
 
 
@@ -62,26 +64,31 @@ $ dxf-g sample.dxf sample.g
 ----
 
 
+[[see_also]]
 == SEE ALSO
 
 _http://images.autodesk.com/adsk/files/dxf_format.pdf_
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Error messages are intended to be self-explanatory.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1993-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

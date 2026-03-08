@@ -14,6 +14,7 @@ bw-fb [-ahiczRGB] [-F<framebuffer>] [-s<squarefilesize>] [-w<file_width>] [-n<fi
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *bw-fb* reads a *bw*(5) format file from standard input if an input file is not given, and displays the image on the currently selected framebuffer. The environment variable _FB_FILE_ specifies the current framebuffer; see *brlcad*(1). Alternatively, the framebuffer may be explicitly specified by using the *-F* flag.
@@ -33,26 +34,31 @@ The *-w*_file_width_ flag specifies the width of each scanline in the input file
 *-x*_file_xoff_, *-y*_file_yoff_, *-X*_scr_xoff_, and *-y*_scr_yoff_ will offset into the file or onto the screen by the given amounts. The coordinate system for these offsets is first quadrant, with the origin at the lower left corner of the image.
 
 
+[[format]]
 == FORMAT
 
 A *bw*(5) file contains sequences of pixels. Each pixel is stored as one _unsigned char_. The first pixel in a _bw_ file is the lower left corner of the image. The pixels proceed from left-to-right across each scanline, with scanlines being written from the bottom to the top of the image.
 
 
+[[see_also]]
 == SEE ALSO
 
 *fb-bw*(1), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ g-raw [-o<output_file>] [-m<output_directory>] [-i] [-8] [-D<calculation_toleran
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *g-raw* converts the specified _object(s)_ from a BRL-CAD _database.g_ file to the _stereolithography_ file format.
@@ -67,6 +68,7 @@ Enable verbose output.
 
 
 
+[[example]]
 == EXAMPLE
 
 
@@ -76,21 +78,25 @@ $ g-raw -o sample.raw sample.g sample_object
 ----
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Error messages are intended to be self-explanatory.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2013-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

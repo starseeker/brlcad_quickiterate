@@ -12,8 +12,6 @@ En este tutorial usted aprenderá a:
 
 En este tutorial, le agregará a la copa creada en el tutorial anterior, propiedades de los materiales. La copa terminará se verá de forma similar a la de la siguiente imagen. image::../../lessons/es/images/mged07_goblet_mater_complete.png[]
 
-image::../../lessons/es/images/mged07_goblet_mater_complete.png[]
-
 
 
 [[goblet_review_opening_db]]
@@ -52,8 +50,6 @@ Nota: Como se mencionó anteriormente, no es conveniente que las regiones se sup
 
 Mientras se genera el trazado de la copa, mueva el cursor al la opción Framebuffer de la barra de menú del Raytrace Control Panel (Panel de control de Raytrace) y cliquee Overlay (Traer al frente). Cuendo el trazado de rayos finalice, debería ver una copa similar a la de la siguiente imagen: image::../../lessons/es/images/mged07_goblet_complete_window.png[]
 
-image::../../lessons/es/images/mged07_goblet_complete_window.png[]
-
 
 
 
@@ -67,8 +63,6 @@ Cuando aplique color y sombreado a cada una de las tres regiones de la copa, ust
 
 Para este tutorial, abra Combination Editor (Editor de combinación), haga clic en el botón a la derecho del cuadro Name (Nombre), presione Select From All Regions (Selección desde todas las regiones) en el menú desplegable y, a continuación, elija la región base1.r. Aplique el sombreado de plástico y tipee .5 para que su región sea semi-transparente. Cliquee en Apply (Aplicar) y repita este procedimiento para cada una de las otras dos regiones. Entonces rehaga el trazado de rayos de la copa, la cual deberá verse similar a la siguiente: image::../../lessons/es/images/mged07_goblet_semitransparent.png[]
 
-image::../../lessons/es/images/mged07_goblet_semitransparent.png[]
-
 
 
 Los colores de la copa semi-transparente son más brillantes que los de las copas opaca porque es mayor la cantidad de luz que puede penetrar el material plástico. Usted puede hacer la copa más realista en apariencia volviendo al Combination Editor (Editor de combinación) y agregando una reflexión espejada. Para cada región, coloque el cursor en la casilla que aparece junto a esta opción, cliquee en el botón izquierdo del ratón, y tipee .45. Esto hará que la mitad de la luz disponible se refleje en la superficie de la copa.
@@ -78,8 +72,6 @@ Los colores de la copa semi-transparente son más brillantes que los de las copa
 == Realizando el trazado de rayos de una nueva forma de la copa
 
 Cliquee en aplicar y realice nuevamente el trazado de rayos de su diseño. Una nueva imagen similar a la siguiente aparecerá en su ventana gráfica: image::../../lessons/es/images/mged07_goblet_mirror.png[]
-
-image::../../lessons/es/images/mged07_goblet_mirror.png[]
 
 
 

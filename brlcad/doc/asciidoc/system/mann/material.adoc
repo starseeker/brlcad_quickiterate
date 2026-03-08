@@ -44,6 +44,7 @@ material set {<object_name_pattern>} [<property_group_name>] {<property_name>} {
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to create, change, retrieve, assign, import, or view materials and their properties. Note that properties and property materials are cases sensitive and should not contain whitespace.
@@ -66,6 +67,7 @@ In addition to the three variable length string properties, material objects als
 
 
 
+[[attr_subcommands]]
 == SUB-COMMANDS
 
 
@@ -99,6 +101,7 @@ Set a material property on the object, optionally from one of the material's fou
 
 
 
+[[examples]]
 == EXAMPLES
 
 The examples demonstrate the use of the *material* command and subcommands.
@@ -126,16 +129,19 @@ Outputs the value of density.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2008-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

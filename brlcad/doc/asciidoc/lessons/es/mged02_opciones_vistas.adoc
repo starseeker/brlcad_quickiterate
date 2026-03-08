@@ -45,8 +45,6 @@ Nota: La expresión btn es una abreviación de button (botón en inglés), ant d
 
 Una imagen similar a la siguiente debería aparecer en la ventana gráfica image::../../lessons/es/images/mged02_defaultradio.png[]
 
-image::../../lessons/es/images/mged02_defaultradio.png[]
-
 
 
 
@@ -88,15 +86,7 @@ El tamaño de la vista es la cantidad de espacio modelo que se muestra en la ven
 
 |===
 
-|image::../../lessons/es/images/mged02_flower_zoomin.jpg[]
-
-image::../../lessons/es/images/mged02_flower_zoomin.jpg[]
-
- |image::../../lessons/es/images/mged02_flower_zoomout.jpg[]
-
-image::../../lessons/es/images/mged02_flower_zoomout.jpg[]
-
- 
+|image:../../lessons/es/images/mged02_flower_zoomin.jpg[] |image:../../lessons/es/images/mged02_flower_zoomout.jpg[] 
 |Zoom de acercamiento para ver detalles (vista a pequeña escala) |Zoom distante para ver el objeto en relación con su entorno (vista a gran escala) 
 |===
 
@@ -125,39 +115,19 @@ Nota: Los términos azimuth, elevation y twist son similares a los términos yaw
 
 |===
 
-|image::../../lessons/es/images/mged02_truck_front.png[]
-
-image::../../lessons/es/images/mged02_truck_front.png[]
-
- |image::../../lessons/es/images/mged02_truck_35_0.png[]
-
-image::../../lessons/es/images/mged02_truck_35_0.png[]
-
- 
+|image:../../lessons/es/images/mged02_truck_front.png[] |image:../../lessons/es/images/mged02_truck_35_0.png[] 
 |Front (az=0, el=0) |az=35, el=0 
 |===
 
 |===
 
-|image::../../lessons/es/images/mged02_truck_left.png[]
-
-image::../../lessons/es/images/mged02_truck_left.png[]
-
- |image::../../lessons/es/images/mged02_truck_rear.png[]
-
-image::../../lessons/es/images/mged02_truck_rear.png[]
-
- 
+|image:../../lessons/es/images/mged02_truck_left.png[] |image:../../lessons/es/images/mged02_truck_rear.png[] 
 |Left (az=90, el=0) |Rear (az=180, el=0) 
 |===
 
 |===
 
-|image::../../lessons/es/images/mged02_truck_right.png[]
-
-image::../../lessons/es/images/mged02_truck_right.png[]
-
- 
+|image:../../lessons/es/images/mged02_truck_right.png[] 
 |Right (az=270, el=0) 
 |===
 
@@ -165,45 +135,17 @@ Por otro lado, la elevación determina la posición del espectador arriba o deba
 
 |===
 
-|image::../../lessons/es/images/mged02_truck_35_0.png[]
-
-image::../../lessons/es/images/mged02_truck_35_0.png[]
-
- |image::../../lessons/es/images/mged02_truck_35_25.png[]
-
-image::../../lessons/es/images/mged02_truck_35_25.png[]
-
- 
+|image:../../lessons/es/images/mged02_truck_35_0.png[] |image:../../lessons/es/images/mged02_truck_35_25.png[] 
 |az=35, el=0 |az=35, el=25 
-|image::../../lessons/es/images/mged02_truck_35_60.png[]
-
-image::../../lessons/es/images/mged02_truck_35_60.png[]
-
- |image::../../lessons/es/images/mged02_truck_35_90.png[]
-
-image::../../lessons/es/images/mged02_truck_35_90.png[]
-
- 
+|image:../../lessons/es/images/mged02_truck_35_60.png[] |image:../../lessons/es/images/mged02_truck_35_90.png[] 
 |az=35, el=60 |az=35, el=90 
-|image::../../lessons/es/images/mged02_truck_270_90.png[]
-
-image::../../lessons/es/images/mged02_truck_270_90.png[]
-
- |image::../../lessons/es/images/mged02_truck_270_-90.png[]
-
-image::../../lessons/es/images/mged02_truck_270_-90.png[]
-
- 
+|image:../../lessons/es/images/mged02_truck_270_90.png[] |image:../../lessons/es/images/mged02_truck_270_-90.png[] 
 |Top (az=270, el=90) |Bottom (az=270, el=-90) 
 |===
 
 Finalmente, el giro (que es una configuración opcional en _MGED_) especifica la rotación en relación a la direccion de la vista. La rotación se aplica a la vista antes de que el acimut o la elevación sean designados. Siguiendo con el ejemplo del camión, imagine que se posiciona exactamente delante del camión (az=0, el=0) y luego rota su cámara en sentido horario 14'0. Esto modificará el ángulo de giro de su visión en 14'0, como muestra la siguiente figura de la izquierda. Note nuevamente que no es el camión el que se mueve, sino sólo su vista sobre el mismo. Para saber más sobre giros, mire el comando *ae* en el apéndice A. |===
 
-|image::../../lessons/es/images/mged02_truck_0_0_14.png[]
-
-image::../../lessons/es/images/mged02_truck_0_0_14.png[]
-
- 
+|image:../../lessons/es/images/mged02_truck_0_0_14.png[] 
 |Front (az=0, el=0, tw=14) 
 |===
 
@@ -215,8 +157,6 @@ image::../../lessons/es/images/mged02_truck_0_0_14.png[]
 == Relación del Acimut y la Elevación con el sistema de coordenadas xyz
 
 Como mencionamos al principio de este tutorial, _MGED_ opera en un sistema de coordenadas tridimensional (determinado por los ejes x, y, and z). Acimut se mide por los ejes del plano xy, con el semieje positivo del eje x correspondiendo al acimut igual a 0'0. Los ángulos positivos del acimut son medidos desde el lado positivo del eje x, yendo hacia y pasando el lado positivo del eje y (sentido antihorario). Los valores negativos de acimut son medidos en la dirección opuesta.
-
-image::../../lessons/es/images/mged02_coordsys.png[]
 
 image::../../lessons/es/images/mged02_coordsys.png[]
 
@@ -232,33 +172,15 @@ Despliegue el menú View (Vistas) e intente ver su radio desde distintos ángulo
 
 |===
 
-|image::../../lessons/es/images/mged02_radio_top.png[]
-
-image::../../lessons/es/images/mged02_radio_top.png[]
-
- |image::../../lessons/es/images/mged02_radio_35_25.png[]
-
-image::../../lessons/es/images/mged02_radio_35_25.png[]
-
- 
+|image:../../lessons/es/images/mged02_radio_top.png[] |image:../../lessons/es/images/mged02_radio_35_25.png[] 
 |Top |az35,el25 
-|image::../../lessons/es/images/mged02_radio_right.png[]
-
-image::../../lessons/es/images/mged02_radio_right.png[]
-
- |image::../../lessons/es/images/mged02_radio_front.png[]
-
-image::../../lessons/es/images/mged02_radio_front.png[]
-
- 
+|image:../../lessons/es/images/mged02_radio_right.png[] |image:../../lessons/es/images/mged02_radio_front.png[] 
 |Right |Front 
 |===
 
 También puede seleccionar alguna combinación de acimut, elevación y giro de su vista desde la línea de comandos. Por ejemplo, tipee en un prompt: *ae 128 17 [Enter]* Como muchas otras opciones de la línea de comandos, este método es mucho más preciso al ofrecer mayor control de las medidas en grados de lo que usted necesita modificar.
 
 _MGED_ también puede mostrar varias vistas en simultáneo. Seleccione del menú Modes (Modos) la opción Multipane (Multipanel). Pequeños paneles con vistas distintas aparecerán una ventana gráfica, como se muestra en la ilustración:
-
-image::../../lessons/es/images/mged02_multipane.png[]
 
 image::../../lessons/es/images/mged02_multipane.png[]
 

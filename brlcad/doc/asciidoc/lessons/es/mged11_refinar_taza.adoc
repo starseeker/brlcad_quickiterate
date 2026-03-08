@@ -64,8 +64,6 @@ Abra el Panel de control de Raytrace y seleccione Raytrace. Usted debe obtener u
 
 image::../../lessons/es/images/mged11_mug_raytraced_norim.png[]
 
-image::../../lessons/es/images/mged11_mug_raytraced_norim.png[]
-
 
 [[mug_refining]]
 == Refinando la taza
@@ -91,8 +89,6 @@ Ahora se enfrenta a una situación única. La forma rim.s ha sido añadida a la 
 Una forma de solucionar esto es limpiar la pantalla, volver a mostrar de nuevo el objeto completo y, a continuación, realizar el trazado de rayos. Como se ha dicho previamente, el comando fbclear en el panel de control de Raytrace limpia la pantalla de framebuffer, y el comando Z de la ventana de comandos borra todos los objetos mostrados en modo framebuffer. Usted puede volver a mostrar los objetos como trazado de rayos con el comando draw. Tipee en el prompt: *Z[Enter]**draw mug.r[Enter]*
 
 Realiza el Raytrace de su taza. Ésta podría verse similar a la siguiente imagen: image::../../lessons/es/images/mged11_mug_raytraced_rim.png[]
-
-image::../../lessons/es/images/mged11_mug_raytraced_rim.png[]
 
 
 

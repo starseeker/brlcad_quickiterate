@@ -14,11 +14,13 @@ Z
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Zap (i.e., clear) the _mged_ display.
 
 
+[[examples]]
 == EXAMPLES
 
 Clear the _mged_ display.
@@ -35,11 +37,13 @@ The _mged_ display is clear.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

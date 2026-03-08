@@ -14,6 +14,7 @@ bo { [-i u {type}]| [-o]} {<destination>} {<source>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Used to create or export binary opaque objects. One of _-i_ or _-o_ must be specified to input or output data respectively. The _-i_ option will create a binary object, and the _-o_ option will write out a binary object's data. Currently, only uniform binary objects (arrays of values) are supported on input. On input, the _destination_ is the name of the object to be created, and the source is the path to a file to read. On output, _destination_ is the path to a file to write out with the contents of the binary object specified as the _source_. The _type_ may be one of: 
@@ -33,6 +34,7 @@ Used to create or export binary opaque objects. One of _-i_ or _-o_ must be spec
 Note: this command was previously named "dbbinary".
 
 
+[[examples]]
 == EXAMPLES
 
 The examples show the use of the *bo* command to both create (_-i_ option) and to retrieve a binary object (_-o_ option).
@@ -65,11 +67,13 @@ Copies the contents of the binary object named _cmds_ into the file named _/home
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

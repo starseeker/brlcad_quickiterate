@@ -12,14 +12,12 @@ The user includes the Boolean operation and relational information in the name o
 
 For example, let's say we want to build the four rounded corners of a "tub" region for a toy metal wagon assembly (see Figure F-1). We could choose something such as "wgn"--an abbreviated form of "wagon"--as the tag. This tag is short, easy to type, and representative of the final assembly name. Our primitives would therefore be of the form wgn.s#.
 
-image::../articles/images/build_region_fig01.png[]
-
+[[build_region5]]
 image::../articles/images/build_region_fig01.png[]
 
 Next, we create an arb8 for one long side of the wagon tub. It is named wgn.s1. After that, we create an rcc for one corner of the tub. It is named wgn.s2. To get a hollow quarter cylinder, we need to subtract a cylinder and intersect a bounding box (see Figure F-2). In order to relate the subtraction and intersecting primitives with wgn.s2, they will each share the same root name, wgn.s2. The subtraction primitive will be named wgn.s2-1, and the intersecting primitive will be named wgn.s2+1.
 
-image::../articles/images/build_region_fig02.png[]
-
+[[build_region7]]
 image::../articles/images/build_region_fig02.png[]
 
 Now we have created the following four primitives: 
@@ -49,14 +47,12 @@ u wgn.s2 + wgn.s2+1 - wgn.s2-1
 
  If we wanted to make a second subtraction from wgn.s2--say, for a drain hole in the corner of the wagon--we would name that primitive wgn.s2-2 (see Figure F-3). We can break this name down as follows: *****NEED IMAGE HERE*****
 
-image::../articles/images/build_region_fig03.png[]
-
+[[build_region9]]
 image::../articles/images/build_region_fig03.png[]
 
 Note that the root name stays the same so we can maintain the relationship, and the second number (associated with the Boolean operation) is incremented sequentially.
 
-image::../articles/images/build_region_fig04.png[]
-
+[[build_region11]]
 image::../articles/images/build_region_fig04.png[]
 
 Obviously, the overall success or failure of the build_region command depends on primitives being named properly. But if they are, the command can organize them in one automated step, creating complex regions in just a few keystrokes.

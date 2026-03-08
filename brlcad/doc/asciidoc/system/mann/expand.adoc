@@ -14,11 +14,13 @@ expand {<globbing_expression>}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Performs matching of the _globbing_expression_ with the names of all the objects in the database. It returns all those that successfully match.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *expand* command to display a list of all database object names having a particular ending.
@@ -35,11 +37,13 @@ A list of all database object names that end in .r is displayed.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

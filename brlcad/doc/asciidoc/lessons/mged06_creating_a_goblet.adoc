@@ -14,8 +14,6 @@ In this lesson, you will:
 
 In this lesson, you will create a goblet similar to the one in the following example. image::../lessons/images/mged06_rtgoblet.png[]
 
-image::../lessons/images/mged06_rtgoblet.png[]
-
 
 
 [[goblet_new_database]]
@@ -38,8 +36,6 @@ Go to the menu bar, select the Cones and Cylinders category, and then select rcc
 
 Go to the menu bar and select Edit and then Set H. Place the mouse pointer in the lower half of the Graphics Window and click on the middle mouse button several times. The cylinder will become shorter as you click. (Note that the closer your pointer is to the midpoint of the Graphics Window, the smaller the change will be. As you click farther away from the middle, the changes will be greater.) Continue clicking until the cylinder looks like a flat disk, as shown in the following figure. Click on Accept on the Edit menu when done. image::../lessons/images/mged06_gobletbase.png[]
 
-image::../lessons/images/mged06_gobletbase.png[]
-
 
 
 
@@ -49,8 +45,6 @@ image::../lessons/images/mged06_gobletbase.png[]
 Go to the menu bar, select Create, select Ellipsoids, and then select sph to create a sphere. You will be asked to provide a name for the sphere. Type ball1.s in the name box and then select Apply. A large sphere will appear in your Graphics Window.
 
 Go to the Edit menu and select Scale. Place the mouse cursor/pointer in the lower half of the Graphics Window and click the middle mouse button until your sphere is about one-quarter the diameter of the base, as shown in the illustration that follows. image::../lessons/images/mged06_goblet1stsphere.png[]
-
-image::../lessons/images/mged06_goblet1stsphere.png[]
 
 
 
@@ -76,8 +70,6 @@ If you were modeling a real goblet, you would want the balls of the stem to over
 
 Repeat these steps to move ball3.s into position. When you are finished, your goblet should look as follows from a front view: image::../lessons/images/mged06_gobletstem.png[]
 
-image::../lessons/images/mged06_gobletstem.png[]
-
 
 
 
@@ -87,8 +79,6 @@ image::../lessons/images/mged06_gobletstem.png[]
 The next step is to make the goblet's basin. Go to the Create menu and select eto to create an elliptical torus. Name the torus basin1.s. Click on Apply. A large eto will appear in your Graphics Window.
 
 Go to the Edit menu and select Set C. Place the mouse arrow in the upper half of the Graphics Window and click on the middle mouse button until your eto is approximately the size of the one in the following figure. If you need to, use Scale to make the basin more proportional to the rest object and use the Shift Grips and multiple views to position the basin. image::../lessons/images/mged06_gobletbasestembasin.png[]
-
-image::../lessons/images/mged06_gobletbasestembasin.png[]
 
 
 
@@ -170,8 +160,6 @@ Remember that regions define volumes of uniform material. In the real world (and
 
 image::../lessons/images/mged06_base_subtracted_vol.png[]
 
-image::../lessons/images/mged06_base_subtracted_vol.png[]
-
 
 [[raytracing_goblet]]
 == Raytracing the Goblet
@@ -179,8 +167,6 @@ image::../lessons/images/mged06_base_subtracted_vol.png[]
 To raytrace the goblet using the default material properties of gray plastic, go to the File menu and select Raytrace. When the Raytrace Control Panel appears, change the color of the background by clicking on the button to the right of the Background Color box and then clicking on the white option in the drop-down menu. Next, select Raytrace.
 
 When you have finished viewing the goblet from the front view, go to the View option of the menu bar and select az35, el25 and then raytrace. If you want to view the goblet without the wireframe, go to the Framebuffer option of the Raytrace Control Panel and select Overlay. The goblet should look similar to the following illustration: image::../lessons/images/mged06_rtgobletaz_35_el_25.png[]
-
-image::../lessons/images/mged06_rtgobletaz_35_el_25.png[]
 
 
 

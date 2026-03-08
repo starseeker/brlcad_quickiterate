@@ -56,11 +56,13 @@ tri spsr
 
 
 
+[[description]]
 == DESCRIPTION
 
 Allows the user to create/write/generate "pnts" primitives. See also the *make_pnts* command.
 
 
+[[subcommands]]
 == SUBCOMMANDS
 
 
@@ -146,6 +148,7 @@ Apply the Screened Poisson Surface Reconstruction methodology to generate a mesh
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Read a point cloud file
@@ -167,11 +170,13 @@ Write the XYZ coordinates of the "pnts" primitive point_cloud.s1 to a file calle
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

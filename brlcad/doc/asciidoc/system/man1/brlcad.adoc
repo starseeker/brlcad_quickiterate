@@ -6,6 +6,7 @@
 == NAME
 brlcad - BRL-CAD programs for solid modeling, raytracing, graphics, and image processing
 
+[[description]]
 == DESCRIPTION
 
 The BRL-CAD Distribution contains many directories of materials (programs, man pages, documents, libraries, etc.). The major categories of programs are:
@@ -57,6 +58,7 @@ A program to convert _mged(1)_ models to _gift(1)_ format card deck files. See *
 
 
 
+[[fb_file]]
 == FB_FILE
 
 Whenever a framebuffer is needed, and the *-F* option has not been specified, the environment variable `FB_FILE` is checked for the device to use. The format of this variable is either _[hostname:]_`/dev/`_device_name[num]_ or _UNIX_path_ , the pathname of a disk file to be used as a "virtual framebuffer". _Hostname_ is the name of a remote machine if the remote framebuffer interface is being used. When a local display device is being specified, the _hostname_ should not be specified, for performance reasons; just the special string _device_name_ is used to select a particular type of framebuffer. _Num_ is type dependent and can either mean a display number or select some options for that type. Note that for security reasons, it is not permitted to access a disk file via the remote interface.
@@ -66,6 +68,7 @@ If `FB_FILE` is not set, the default for your system will be used.
 The use of `/dev/` before the _device_name_ is simply to distinguish them from filenames. See the end of the *libfb*(3) manual page for a list of the device names and the meanings of any _num_ parameters they may take, and for a more detailed discussion.
 
 
+[[options]]
 == OPTIONS
 
 A convention exists for the options used on most of the utilities provided. Random options are usually lower case. Options which could specify either a screen or file size are, by convention, lower case for file information, and upper case for screen information. Here's a list of some of the common options you may encounter:
@@ -105,6 +108,7 @@ specifies the number of bytes per sample, where the flag, where the _#_ characte
 
 
 
+[[tape_format]]
 == TAPE FORMAT
 
 When dealing with large collections of images, as might be needed for making a movie, it frequently becomes desirable to deal with magnetic tapes. Some of the early *pix*(5) tools contained built-in knowledge of the tape format. While this aberrant early design has been corrected in favor of using tape-oriented programs such as *dd*(1) in pipelines with the image tools, our "standard" image format remains.
@@ -126,16 +130,19 @@ Density Resolution Frames/reel
 1600 512 48
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ rtedge [<options>]... <model.g> <objects>... < <model.pix>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *rtedge* operates on the indicated _objects_ in the input _model.g_ and produces a BRL-CAD .pix file that indicates the 'edges' in the model file. *rtedge* produces images by drawing a boundary whenever a change in region_id is detected. It also recognizes and portrays abrupt changes in surface curvature and changes in surface height. This permits the recognition of pits, protrusions, and changes in surface curvature.
@@ -223,6 +224,7 @@ Set special *rtedge* configuration variables.
 The *rtedge* program is a simple front-end to *librt*(3).
 
 
+[[additional_options]]
 == ADDITIONAL OPTIONS
 
 In addition to rendering simple white edges on a black background (or black on white), *rtedge* allows arbitrary color combinations. It also allows rendering into an existing framebuffer and occlusion detection between two pieces of geometry. To configure behavior, *rtedge* makes copious use of the *-c* option for configuring settings. *rtedge* replaced the now obsolete *lgt* utility.
@@ -320,6 +322,7 @@ configure whether to render both sides of an edge. result are edges twice as thi
 
 
 
+[[occlusion_checking]]
 == OCCLUSION CHECKING
 
 *rtedge* has the ability to perform occlusion checking between two sets of BRL-CAD objects from the same database. Occlusion checking determines which set of geometry is closer to the eyepoint and thus should be rendered. The first set is that specified in the basic object list (after the database). This set will be rendered using edge detection. The second is specified using a *-c* option.
@@ -351,6 +354,7 @@ _mode 3 - DITHER_ Edge and dithered non-edge pixels are drawn. This is like mode
 
 
 
+[[examples]]
 == EXAMPLES
 
 *rtedge* can be somewhat complicated to configure. These examples illustrate both simple and complex examples. Hopefully they will be enough to get you started. These examples use the havoc.g target description that may be found in the source distribution.
@@ -457,16 +461,19 @@ In general, if you are mixing *rt* and *rtedge* renderings, and the objects bein
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *rt*(1), *fbserv*(1), *librt*(3)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible, usually due to errors in the geometry database. Descriptive messages are printed on stderr (file descriptor 2).
 
 
+[[author]]
 == AUTHORS
 
 Ronald Anthony Bowers
@@ -474,16 +481,19 @@ Ronald Anthony Bowers
 Michael John Muuss
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 2001-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bugs]]
 == BUGS
 
 Most deficiencies observed while using the *rtedge* program are a consequence of problems in *librt*(3).
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

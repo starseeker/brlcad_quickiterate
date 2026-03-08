@@ -14,6 +14,7 @@ bot extrude [<-h>] [<-q>] [<-i>] [<-R>] [<-C>] [<-F>] {<input_bot>} [<output_bot
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Given a BoT solid using "plate" mode to implicitly define a volume, generate an explicit volumentric BoT to approximately represent the same volume. The default mode is to produce a BoT, but if the user prefers a CSG tree of implicit shapes that output can be generated with *-C*. (Usually the resulting tree is quite large, since it uses one primitive for every mesh element, and typically *-C* is recommended only for debugging.) Note that the volumetric representation produces will typically not be an _exact_ match to the original plate mode volume - cylinders are used to "fill in" mesh edges and this can produce small artifacts at outer vertex points. Typically, especially with small thickness values for plates, these artifacts are not significant - the "cylinders" themselves are also facetized approximations of the "thickness volume" claimed by edges. Just as spheres are approximated by a triangle mesh when facetized, a plate mode's "volume" is approximated when extruded.
@@ -25,6 +26,7 @@ By default outer edges of a plate mode BoT are not represented by cylinders. Thi
 The most problematic plate mode BoTs to represent as volumes are those with view dependent behavior - i.e., those with "face_mode" set. In the strict sense such objects do not claim a well defined volume in space - in/out hit points and partitions will change for the same intersecting line segment depending on what direction the ray is coming from. By default *bot extrude* will warn and exit when encountering such volumes, but if the user is willing to accept the differences between the original and a volumetric approximation they may instruct *bot extrude* to proceed with the *-F* option.
 
 
+[[dbconcat_options]]
 == OPTIONS
 
 
@@ -54,6 +56,7 @@ Produce a volumetric BoT output even if the input BoT's parameters indicate it i
 
 
 
+[[examples]]
 == EXAMPLES
 
 Generate a volumetric BoT from a plate mode BoT (standard case.)
@@ -79,11 +82,13 @@ Uses the *--in-place* to replace plate mode BoTs in the .g file with their volum
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

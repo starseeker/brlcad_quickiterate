@@ -49,8 +49,6 @@ The union operator, u, joins shapes so that any point in at least one of them wi
 
 image::../lessons/images/mged05_unionspheres.png[]
 
-image::../lessons/images/mged05_unionspheres.png[]
-
 
 [[Subtraction]]
 === Subtraction
@@ -58,8 +56,6 @@ image::../lessons/images/mged05_unionspheres.png[]
 When a primitive shape has a second, overlapping shape subtracted from it, the result is that the second shape disappears, together with any common volume it had with the first shape. The - (minus sign) operator signifies subtraction or difference. This operation is especially useful in hollowing a body, removing an oddly shaped piece of a primitive shape, or accounting for edge intersections of walls, plates, piping, or other connected shapes.
 
 In the following example, a dotted red line indicates that the sphere being subtracted extends inside the sphere on the right. This overlapping portion is partially out of view in the raytraced image.
-
-image::../lessons/images/mged05_subtractionspheres.png[]
 
 image::../lessons/images/mged05_subtractionspheres.png[]
 
@@ -75,8 +71,6 @@ The intersection operation is rarely useful unless, as shown in the following fi
 
 image::../lessons/images/mged05_intersectionspheres.png[]
 
-image::../lessons/images/mged05_intersectionspheres.png[]
-
 There is one important restriction when using the Boolean subtraction and intersection operators. There must be a first shape from which a second shape can be subtracted or intersected. If you have only one shape within a region or combination, the operator will be ignored and the union operator will always be used.
 
 
@@ -85,8 +79,6 @@ There is one important restriction when using the Boolean subtraction and inters
 == Making Regions with Boolean Operations
 
 Begin by opening the database shapes.g that you created in Lesson 3. At the Command Window prompt, type: *draw sph2.s rcc2.s[Enter]* This lets us see the shapes we will be using to create our regions. As seen earlier, the two shapes should look something like the following:
-
-image::../lessons/images/mged05_twoprimitivespheres.png[]
 
 image::../lessons/images/mged05_twoprimitivespheres.png[]
 
@@ -109,8 +101,6 @@ In the previous lesson, we applied material properties to objects from the Comma
 
 image::../lessons/images/mged05_combinationeditor.png[]
 
-image::../lessons/images/mged05_combinationeditor.png[]
-
 Click on the button next to Color and select red from the pull-down menu.
 
 Now click the OK button at the bottom left of the dialog window. This will apply your changes and close the panel.
@@ -121,15 +111,7 @@ We are now ready to raytrace this object. From the File menu, bring up the Raytr
 
 |===
 
-|image::../lessons/images/mged05_raytracedpart1.png[]
-
-image::../lessons/images/mged05_raytracedpart1.png[]
-
- |image::../lessons/images/mged05_raytracedpart2.png[]
-
-image::../lessons/images/mged05_raytracedpart2.png[]
-
- 
+|image:../lessons/images/mged05_raytracedpart1.png[] |image:../lessons/images/mged05_raytracedpart2.png[] 
 |Raytraced part1.r |Raytraced part2.r 
 |===
 
@@ -158,8 +140,6 @@ This time we won't bother to set a color. (When no color is set for objects, the
 
 image::../lessons/images/mged05_raytracedpart3.png[]
 
-image::../lessons/images/mged05_raytracedpart3.png[]
-
 Now let's raytrace all three objects we have created together. To draw the three regions at once, we could type: *B part1.r part2.r part3.r*
 
 Doing this once is no problem. However, if these were three parts that made up some complex object, we might like to be able to draw all of them more conveniently. To make drawing a collection of objects together easier, we create an assembly combination to gather them all together. We will create one called dome.c for our three regions. This is accomplished by the following command: *comb dome.c u part1.r u part2.r u part3.r*
@@ -178,8 +158,6 @@ Because creating assembly combinations is a very common task, there is a shortcu
 All that is necessary to draw all three objects is the much simpler command: *B dome.c*
 
 Now we can raytrace the collected set and get the following image:
-
-image::../lessons/images/mged05_raytraceddome.png[]
 
 image::../lessons/images/mged05_raytraceddome.png[]
 

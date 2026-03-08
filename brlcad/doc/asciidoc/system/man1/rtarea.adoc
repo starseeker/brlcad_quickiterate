@@ -14,6 +14,7 @@ rtarea [<options>]... <model.g> <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *rtarea* command calculates the exposed, presented and centers of surface areas of specified geometry objects from a particular view. The summary output includes details for individual regions, assemblies (combinations that contain regions), and summarized totals.
@@ -157,6 +158,7 @@ Number of steps.
 The *rtarea* program employs *librt*(3) for the geometry interrogation.
 
 
+[[additional_options]]
 == ADDITIONAL OPTIONS
 
 To configure its behavior, *rtarea* makes use of the *-c* option.
@@ -174,6 +176,7 @@ determine whether area centers should be computed and reported. Valid values are
 
 
 
+[[examples]]
 == EXAMPLES
 
 .Rtarea processing of example.g
@@ -186,26 +189,31 @@ The command *rtarea -c "set cc=1" example.g all* computes the area and centers f
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *rt*(1), *pix-fb*(1), *librt*(3), *pix*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible. Descriptive messages are printed on stderr.
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1987-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <bugs@brlcad.org>.
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team

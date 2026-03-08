@@ -34,8 +34,6 @@ Como pudo apreciar en el tutorial #1, este comando le dice a _MGED_ que: |===
 
 image::../../lessons/mged/using_insert_command_images/wireframesphere.png[]
 
-image::../../lessons/mged/using_insert_command_images/wireframesphere.png[]
-
 
 
 La figura de una esfera fue creada y en su ventana gráfica aparecerá un dibujo de la misma en forma de wireframe.
@@ -43,8 +41,6 @@ La figura de una esfera fue creada y en su ventana gráfica aparecerá un dibujo
 Para crear el rcc desde la ventana de comandos tipee en el prompt: *make rcc1.s rcc [Enter]*
 
 Su ventana gráfica deberá mostrar un rcc grande, con la vista por defecto de az35, el25, viéndose como si entersectara con la esfera previamente creada. image::../../lessons/es/images/mged03_wireframespherecylinder.png[]
-
-image::../../lessons/es/images/mged03_wireframespherecylinder.png[]
 
 
 
@@ -102,15 +98,7 @@ Deberías tener ahora nuevas versiones de la esfera y del RCC. Compare las dimen
 
 |===
 
-|image::../../lessons/es/images/mged03_shapes_make_command.png[]
-
-image::../../lessons/es/images/mged03_shapes_make_command.png[]
-
- |image::../../lessons/es/images/mged03_shapes_in_command.png[]
-
-image::../../lessons/es/images/mged03_shapes_in_command.png[]
-
- 
+|image:../../lessons/es/images/mged03_shapes_make_command.png[] |image:../../lessons/es/images/mged03_shapes_in_command.png[] 
 |Figuras creadas con el comando make |Figuras creadas con el comando in 
 |===
 
@@ -138,7 +126,7 @@ Este comando significa:
 
 |in |rcc3.s |rcc |4 |4 |0 |0 |0 |4 |3 
 |Insertar una figura primitiva |Llamarla rcc3.s |Hacer de la figura primitiva un cilindro circular recto (RCC) |Dar a la x del vértice el valor 4 |Dar a la y del vértice el valor 4 |Dar a la z del vértice el valor 0 |Dar a la x del vector de altura el valor 0 |Dar a la y del vector de altura el valor 0 |Dar a la z del vector de altura el valor 4 |Dar al radio el valor de 3 
-|Hacer la forma de cuatro unidades de largo, apuntando directamente hacia z positivo 
+3+|Hacer la forma de cuatro unidades de largo, apuntando directamente hacia z positivo 
 |===
 
 
@@ -151,16 +139,16 @@ Cuando usted comienza a usar _MGED_, si desea utilizar la ventana de comandos en
 
 |in |? |sph |? |? |? |? 
 |Insertar una figura |Nombre de la figura |La figura es una esfera |Valor de x |Valor de y |Valor de z |radio de la esfera 
-|Centro 
+3+|Centro 
 |===
 
 Un ejemplo para el RCC puede ser:
 
 |===
 
-|in |? |rcc |? |? |? 
+|in |? |rcc 3+|? 3+|? |? 
 |Insertar figura primitiva |Nombre de la figura |La figura es un cilindro circular recto |Valor de x |Valor de y |Valor de z |Valor de x |Valor de y |Valor de z |radio del rcc 
-|Vértice |Vector de altura 
+3+|Vértice 3+|Vector de altura 
 |===
 
 

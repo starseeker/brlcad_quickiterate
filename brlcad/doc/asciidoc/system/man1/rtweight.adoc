@@ -14,6 +14,7 @@ rtweight [<options>]... <model.g> <objects>...
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *rtweight* operates on the indicated _objects_ in _model.g_. Material density information and region line of sight (LOS) thickness measurements obtained via ray tracing are used to calculate the mass for each region encountered. It will calculate and report volume of the objects specified. With material properties, it will also report per-region mass information as well as the overall geometric centroid. All calculations take any Boolean operations into consideration.
@@ -65,31 +66,37 @@ Specify the maximum number of processor cores to be used on multicore systems. T
 *rtweight* also accepts all other options that the *rt*(1) program implements, such as for non-square views, perspective, etc.
 
 
+[[see_also]]
 == SEE ALSO
 
 *mged*(1), *rt*(1), *librt*(3)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible. Descriptive messages are printed on standard error (file descriptor 2).
 
 
+[[bugs]]
 == BUGS
 
 Most deficiencies observed while using the *rtweight* program are usually with the *librt*(3) package instead.
 
 
+[[author]]
 == AUTHOR
 
 James E. Hunt
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1991-2025 United States Government as represented by the U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

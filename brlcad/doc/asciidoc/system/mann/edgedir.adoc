@@ -14,11 +14,13 @@ edgedir [ {<xyz>}] [ {<rot fb>}]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Allows the user to set the direction of an edge by specifying a direction vector in the form of _x, y,_ and _z_ components or via rotation and fallback angles. This can only be done while moving an edge of an ARB.
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *edgedir* command to rotate an edge to be parallel to the _y_ axis.
@@ -35,11 +37,13 @@ Rotates the edge being edited to be parallel to the _y_ axis.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

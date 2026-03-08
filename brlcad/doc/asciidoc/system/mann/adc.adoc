@@ -14,6 +14,7 @@ adc [-i] <subcommand>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 This command controls the angle/distance cursor. The *adc* command with no arguments toggles the display of the angle/distance cursor (ADC). The _-i_ option, if specified, causes the given value(s) to be treated as increments. Note that the _-i_ option is ignored when getting values or when used with subcommands where this option makes no sense. You can also control the position, angles, and radius of the ADC using a knob or the knob command. This command accepts the following subcommands:
@@ -117,6 +118,7 @@ Print the help message.
 
 
 
+[[examples]]
 == EXAMPLES
 
 The examples show the use of the *adc* command with no arguments, with _i_, and with subcommands.
@@ -162,11 +164,13 @@ Moves ADC position to (100,0,0), model coordinates and local units.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

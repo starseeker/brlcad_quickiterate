@@ -14,11 +14,13 @@ remat {assembly} {value}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The *remat* sets the material for all regions found under the given assembly to the inputted value. If a region is given, it will set the material for just that region.
 
 
+[[examples]]
 == EXAMPLES
 
 Set the material
@@ -33,11 +35,13 @@ All regions under example.c will have their material code reset to 5.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

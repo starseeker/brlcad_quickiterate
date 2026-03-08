@@ -14,11 +14,13 @@ reair {comb} {aircode}
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The 'reair' command assigns the 'aircode' attribute value for all regions within a specified combination. 
 
 
+[[examples]]
 == EXAMPLES
 
 Set the aircode
@@ -33,11 +35,13 @@ All regions under example.c will have their aircode reset to 2.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

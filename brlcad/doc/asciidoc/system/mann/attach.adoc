@@ -14,11 +14,13 @@ attach [-d<display_string>] [-i<init_script>] [-n<name>] [-t<is_toplevel>] [-W<w
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 This command is used to open a display window. The set of supported window types includes X and ogl. It should be noted that *attach* no longer releases previously attached display windows (i.e., multiple attaches are supported). To destroy a display window, use the *release* command.
 
 
+[[examples]]
 == EXAMPLES
 
 These examples demonstrate the use of the *attach* command to open ogl and X display windows.
@@ -73,11 +75,13 @@ Lists the help message that includes the valid display types.
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

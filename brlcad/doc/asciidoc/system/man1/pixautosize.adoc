@@ -14,6 +14,7 @@ pixautosize [-b<bytes_per_sample>] [-f<file_name>] [-l<file_length>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *pixautosize* determines if a given file is one of the standard sizes used in the BRL-CAD package, _i.e._ one of the sizes recognized by the *-a* option on *pix-fb*(1). If the dimensions are recognized, it prints a string suitable for use in a Bourne shell *sh*(1) script to set the variables WIDTH and HEIGHT, _e.g._
@@ -23,6 +24,7 @@ WIDTH=512; HEIGHT=512
 The file name can be specified by using the *-f*_file_name_ commandline option, or the file length (in bytes) can be specified by using the *-l*_file_length_ commandline option. One of these two options must be present. In either case, the *-b*_bytes_per_sample_ option can be used to specify the number of bytes which are used for each sample (pixel) in the file. The default value is three (3), which is appropriate for use with *pix*(5) files. This should be changed to one with *-b*`1` when processing a *bw*(5) file. Similarly, the proper value for a *dbw*(5) file is 8 (1 channel of 8 byte samples), and the value for *dpix*(5) files is 24 (3 channels of 8 byte samples).
 
 
+[[examples]]
 == EXAMPLES
 
 These two examples both give the result of
@@ -50,11 +52,13 @@ eval `pixautosize -b 3 -f $FILE` # sets WIDTH, HEIGHT
 For a major shell script which uses this program, examine *pixinfo.sh*(1) .
 
 
+[[see_also]]
 == SEE ALSO
 
 pixinfo.*sh*(1), *pix-fb*(1), *libfb*(3), *bw*(5), *pix*(5)
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 If the file or file_length specified does not match any of the standard sizes, one of these messages is printed on standard error:
@@ -68,16 +72,19 @@ In this case, the string printed on standard output is:
 WIDTH=0; HEIGHT=0
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1992-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -6,6 +6,7 @@
 == NAME
 plot3 - 3-D and color graphic plotting interface
 
+[[description]]
 == DESCRIPTION
 
 Files of this format are produced by programs such as *pixhist3d-plot3*(1), using the routines described in *libplot3*(3) and are interpreted for various devices by standard programs described in *plot*(1G), as well as additional programs such as *plot3-fb*(1). The format of output from _libplot3_ differs from that of _libplot_ only in the addition of 3-D primitives and color. A graphics file is a stream of plotting instructions. Each instruction consists of an ASCII letter usually followed by bytes of binary information. The instructions are executed in order. A point is designated by four bytes representing the _x_ and _y_ values; each value is a signed 16-bit integer. These integers are written with the most significant byte first. Three-dimensional data have an additional _z_ value, which is assumed to be zero for two-dimensional instructions. The last designated point in an _l_, _m_, _n_, _p_, _L_, _M_, _N_, or _P_ instruction becomes the "current point" for the next instruction.
@@ -168,6 +169,7 @@ space(-32768, -32768, 32767, 32767);
 ____
 
 
+[[see_also]]
 == SEE ALSO
 
 *libplot3*(3), *plot*(n).
@@ -175,16 +177,19 @@ ____
 *graph*(1G), *plot*(1G) in the _UNIX System User Reference Manual_.
 
 
+[[author]]
 == AUTHOR
 
 Douglas A. Gwyn made the 3-D and color extensions to UNIX-plot.
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

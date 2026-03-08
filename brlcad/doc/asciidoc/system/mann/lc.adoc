@@ -14,11 +14,13 @@ lc [ -d| -m| -s] [-r] [-z] [ -0| -1| -2| -3| -4| -5| -6] [ -f| { <FileName>}] {<
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 The 'lc' command lists a set of codes (i.e. attributes) of regions within a group/combination. Listed in columns are the following: 'region_id', 'material_id', 'los', 'aircode', 'region name', 'region parent'. If a value is unset, it is reported as '--'.
 
 
+[[options]]
 == OPTIONS
 
 
@@ -58,11 +60,13 @@ Identifies output should be to a file and specifies the file name. If the path i
 
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

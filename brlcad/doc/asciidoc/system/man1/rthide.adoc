@@ -14,6 +14,7 @@ rthide [<options>]... <model.g> <objects>... > <model.plot3>
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *rthide* operates on the indicated _objects_ in the input _model.g_ and produces a hidden line removed UNIX-Plot file with bas-relief features. *rthide* produces plots by drawing a boundary whenever a change in region_id is detected. It also recognizes and portrays abrupt changes in surface curvature and changes in surface height. This permits the recognition of pits, protrusions, and changes in surface curvature.
@@ -67,6 +68,7 @@ Set librt debug flags to (hexadecimal) number.
 The *rthide* program is a simple front-end to *librt*(3) which is most useful when used with *mged*(1).
 
 
+[[example]]
 == EXAMPLE
 
 This section shows the ordinary usage of *rthide* . For example,
@@ -133,31 +135,37 @@ The output of *rthide* can be overlaid on top of a _rt_ shaded image, for "edge 
 ....
 
 
+[[see_also]]
 == SEE ALSO
 
 *cell-fb*(1), *mged*(1), *plot3-fb*(1), *plot3rot*(1), *rt*(1), *rtray*(1), *rtregis*(1), *rtscale*(1), *librt*(3), *libplot3*(3), *plot3*(5), *ray*(5V).
 
 
+[[diagnostics]]
 == DIAGNOSTICS
 
 Numerous error conditions are possible, usually due to errors in the geometry database. Descriptive messages are printed on standard error (file descriptor 2).
 
 
+[[bugs]]
 == BUGS
 
 Most deficiencies observed while using the *rthide* program are usually with the *librt*(3) package instead.
 
 
+[[authors]]
 == AUTHORS
 
 _BRL-CAD Team_
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1990-2022 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

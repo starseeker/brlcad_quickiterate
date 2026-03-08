@@ -14,11 +14,13 @@ mvall [<-n>] [<(-f mapping_file) | (old_name new_name)>]
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Changes the name of _old_name_ to _new_name_. This will also change any references to _old_name_ that may occur in other combinations in the database. If the _-f_ variation of the command is used, all _old_name__new_name_ pairings are read from the _mapping_file_ and processed as previously stated. The _-n_ flag returns all groups that will be affected if the command were run but without changing the name, essentially running a *dbfind* on the _old_name_.
 
 
+[[examples]]
 == EXAMPLES
 
 .Change the name of an object everywhere it occurs in the database.
@@ -46,16 +48,19 @@ bad_name good_name
 ====
 
 
+[[see_also]]
 == SEE ALSO
 
 mv prefix
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

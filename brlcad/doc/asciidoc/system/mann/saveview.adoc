@@ -14,6 +14,7 @@ saveview [-e<command>] [-l<logfile>] [-o<outputfile>] [-e<inputfile>] {<file>} [
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 Saves the current viewing parameters in the specified _file_ in the form of a shell script that will run the BRL-CAD _rt_ program as if it had been executed from within MGED using the *rt -s512* command. Any _args_ included on the *saveview* command line will be copied to the _file_ as options to the _rt_ program. If the _file_ already exists, the script will be appended to it. This is useful in setting up images to be raytraced later. The default script produced by "saveview test.rt" looks like:
@@ -69,6 +70,7 @@ Makes the script load data from _inputfile_ instead of from the default of the c
 
 
 
+[[examples]]
 == EXAMPLES
 
 The example shows the use of the *saveview* command to create a file that will contain a script to run the _rt_ program and create a color-shaded image of the current MGED display.
@@ -83,11 +85,13 @@ Creates (or appends to) a file named _script.rt_ that will contain a POSX shell 
 ====
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

@@ -14,6 +14,7 @@ fb-bw [-i] [-F<framebuffer>] [-X<scr_xoff>] [-Y<scr_yoff>] [-s<squaresize>] [-w<
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *fb-bw* will take a region of a framebuffer display and save it as a black and white *bw*(5) format file. The environment variable `FB_FILE` is used to select the display device (see *brlcad*(1)). If this variable is not set, the default device for your system will be used. Alternatively, the framebuffer may be explicitly specified by using the *-F* flag.
@@ -25,21 +26,25 @@ A first quadrant coordinate system is used (origin in lower left of screen), and
 An equal blending of red, green, and blue is done. For more complicated black and white conversion use *fb-pix*(1) and *pix-bw*(1).
 
 
+[[see_also]]
 == SEE ALSO
 
 *brlcad*(1), *bw-fb*(1), *fb-pix*(1), *pix-bw*(1), *bw*(5)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>

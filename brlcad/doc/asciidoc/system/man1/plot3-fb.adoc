@@ -14,6 +14,7 @@ plot3-fb [-id] [-O|o] [-t<line_thickness>] [-F<framebuffer>] [-S|s<squaresize>] 
 ----
 
 
+[[description]]
 == DESCRIPTION
 
 *plot3-fb* displays a BRL extended three dimensional UNIX plot file on a framebuffer. The environment variable `FB_FILE` is used to select the display device (see *brlcad*(1)); if this variable is not set, the default device for your system will be used. Alternatively, the framebuffer may be explicitly specified by using the *-F* flag. By default, the display size is assumed to be 512x512 pixels. The *-S*, *-W*, and *-N* (or *-s*, *-w*, and *-n*) flags allow different screen sizes to be set. The plotting space will fill the given screen dimensions. No attempt is made at present to preserve aspect.
@@ -25,21 +26,25 @@ If _file.plot3_ is not specified, the plot commands are read from standard input
 Note that 3-D UNIX plot is a superset of the standard UNIX plot format, thus this program can display normal plot files as well.
 
 
+[[see_also]]
 == SEE ALSO
 
 *plot3rot*(1), *plot3debug*(1), *libplot3*(3), *brlcad*(1)
 
 
+[[author]]
 == AUTHOR
 
 BRL-CAD Team
 
 
+[[copyright]]
 == COPYRIGHT
 
 This software is Copyright (c) 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.
 
 
+[[bug_reports]]
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
