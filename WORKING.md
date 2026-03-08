@@ -252,12 +252,67 @@ path (DbiState setup → swrast attach → `draw all.g` → autoview → screeng
 - [x] ged_test_dbi_c — C++-compat bug fixed; all 35 checks pass
 - [x] ged_test_draw_basic / lod / faceplate — all pass
 - [x] ged_test_gsh_draw (new) — gsh --new-cmds + swrast path validated
-- [ ] qged interactive test (requires Xvfb/display)
+- [x] qged interactive test — qged_test validates swrast draw path in qged
 
 ### Next steps
 
-1. **qged interactive test**: requires a virtual framebuffer (Xvfb) to
-   launch qged.  Open GenericTwin.g in qged, issue `draw all`, observe
-   progressive AABB→OBB→LoD refinement in the viewport.
+1. **qged DrawPipeline drain test**: verify AABB→OBB→LoD refinement visible
+   in qged viewport by adding a drain polling loop to qged_test, waiting
+   for background geometry to arrive before screenshotting the LoD state.
 
+---
+
+## Session 5 Results (2026-03-08) — qged swrast validation
+
+### Build and environment
+
+- Qt6 dev packages (`qt6-base-dev qt6-svg-dev`) + Xvfb installed.
+- qged built with `BRLCAD_ENABLE_QT=ON` (1100×800 dark-theme window).
+- swrast DM (`-s` flag) used in all tests to avoid needing a GPU.
+
+### qged startup smoke test
+
+`qged -h` prints usage cleanly (exit 0).
+
+`qged -s moss.g` with 5-second timeout:
+- Starts, opens moss.g, shows main window.
+- Killed by timeout (expected — event loop is interactive).
+- No crash, no assertion failure.
+
+### qged_test (new — `src/qged/qged_test.cpp`)
+
+Automated validation of the full qged draw pipeline:
+
+| Step | Result |
+|---|---|
+| `QgEdApp` constructed (swrast=1) | ✓ |
+| Window 1100×800 shown | ✓ |
+| `load_g_file(moss.g)` | OK |
+| Bright pixels before draw | 4586 (UI chrome only) |
+| `draw all.g` + `autoview` | ret=0 |
+| Bright pixels after draw | **8011** |
+| **Pixels added by draw** | **+3425** (wireframe geometry) |
+| Screenshot saved | `qged_test_after.png` (37935 bytes) |
+| Test result | **PASSED** |
+
+The before/after pixel count difference proves swrast rendered actual
+geometry into the 3D viewport, not just the dark theme background.
+
+### Changes
+
+1. **`src/qged/qged_test.cpp`** — Automated qged draw test.
+2. **`src/qged/qged_test_runner.h`** — Qt `Q_OBJECT` class for the test runner.
+3. **`src/qged/CMakeLists.txt`** — Adds `qged_test` build target
+   (excluded from `all`, requires `DISPLAY`).
+4. **`.gitignore`** — Added `qged_test_cache/` runtime artifact.
+5. **`WORKING.md`** — Updated with session 5 results.
+
+### Checklist
+
+- [x] Install Qt6 dev packages (base + svg) + Xvfb
+- [x] Build qged with Qt6 enabled
+- [x] qged startup smoke test (help + 5s timeout open)
+- [x] qged_test: before/after draw pixel count confirms geometry rendered
+- [x] qged_test: screenshot saved (1100×800 PNG, 37935 bytes)
+- [x] Test PASSED: +3425 bright wireframe pixels after draw all.g
 
