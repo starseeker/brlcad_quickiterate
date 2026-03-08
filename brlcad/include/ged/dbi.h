@@ -410,6 +410,16 @@ class GED_EXPORT BViewState {
 	bool is_linked() const { return linked_to_ != nullptr; }
 	BViewState *linked_primary() const { return linked_to_; }
 
+	// Called by DbiState::drain_geom_results() when a background LoD
+	// generation completes for a BoT primitive.  For every shape in s_map
+	// whose dp matches, this clears the per-view shape objects (which may
+	// only hold a temporary bounding-box wireframe) and marks the shape
+	// stale so that the next redraw() call regenerates proper LoD geometry.
+	// The views set must include all bsg_view * instances for which view
+	// objects should be cleared.
+	void stale_mesh_shapes_for_dp(struct directory *dp,
+				      const std::unordered_set<struct bview *> &views);
+
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
 	// s_keys holds the ordered individual keys of each drawn solid path - it
@@ -547,12 +557,15 @@ public:
 struct bu_cache;
 struct resource;
 
-// GeomLoader — background thread that pre-computes bounding boxes for
-// geometry objects so they are available quickly after a .g file is opened.
+// GeomLoader — background thread that pre-computes bounding boxes and LoD
+// cache data for geometry objects so they are available quickly after a .g
+// file is opened or modified.
 //
-// The worker thread calls rt_bound_internal() with its own per-thread
-// struct resource.  Results are posted to an internal result queue.  The
-// main thread integrates results by calling DbiState::drain_geom_results().
+// The worker thread calls ft_bbox() with its own per-thread struct resource
+// (never touching the global rt_uniresource).  For BoT primitives it also
+// calls bsg_mesh_lod_cache() + bsg_mesh_lod_key_put() to pre-populate the
+// LoD disk cache so that the adaptive draw path (bot_adaptive_plot) can find
+// the data without blocking on the first draw.
 //
 // Thread safety: push() and drain() are the only two public methods; they
 // are protected by a mutex and safe to call from different threads.
@@ -560,11 +573,19 @@ struct resource;
 class GED_EXPORT GeomLoader {
 public:
     // A result posted by the background thread for each successfully
-    // computed bounding box.
+    // computed bounding box and (optionally) LoD cache entry.
     struct Result {
         unsigned long long hash = 0;
         point_t bmin;
         point_t bmax;
+        // LoD fields: populated when the worker also generated the mesh LoD
+        // cache for a BoT primitive.  dp_name is the object's name in the .g
+        // database so that drain_geom_results() can look up the directory
+        // pointer and stale any shape objects that were previously drawn with
+        // only a bounding-box wireframe placeholder.
+        bool               has_lod  = false;
+        unsigned long long lod_key  = 0;
+        std::string        dp_name;   // non-empty only when has_lod == true
     };
 
     // An item on the work queue.  The main thread resolves the directory
@@ -573,9 +594,15 @@ public:
     struct WorkItem {
         unsigned long long hash = 0;
         struct directory  *dp   = nullptr;
+        // When true the worker will also run bsg_mesh_lod_cache() for this
+        // BoT primitive, provided a lod_ctx_ was supplied at construction.
+        bool               needs_lod = false;
     };
 
-    explicit GeomLoader(DbiState *dbis);
+    // lod_ctx may be null; when non-null the worker will pre-generate the
+    // LoD cache for BoT primitives (thread-safe via lod_ctx's internal mutex).
+    explicit GeomLoader(DbiState *dbis,
+                        bsg_mesh_lod_context *lod_ctx = nullptr);
     ~GeomLoader();  // signals stop and joins the worker thread
 
     // Push a set of (hash, dp) pairs onto the work queue (main thread).
@@ -587,10 +614,15 @@ public:
     // Appends to out and returns the number of results added.
     size_t drain(std::vector<Result> &out);
 
+    // Returns true if this loader was constructed with a LoD context.
+    bool has_lod_ctx() const { return lod_ctx_ != nullptr; }
+
 private:
     void worker();  // thread entry point
 
     DbiState *dbis_;
+    // LoD context passed at construction; may be null (no LoD generation).
+    bsg_mesh_lod_context *lod_ctx_ = nullptr;
 
     // Work queue
     std::mutex         work_mu_;

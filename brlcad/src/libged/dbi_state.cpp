@@ -2441,6 +2441,30 @@ BViewState::clear()
     draw_list_.clear();
 }
 
+void
+BViewState::stale_mesh_shapes_for_dp(
+	struct directory *dp,
+	const std::unordered_set<struct bview *> &views)
+{
+    // Called by DbiState::drain_geom_results() on the main thread when the
+    // background GeomLoader has finished generating LoD cache data for a BoT
+    // primitive.  For each shape in s_map that references this directory
+    // pointer, we clear the per-view child shapes (which may currently hold
+    // only a temporary bounding-box wireframe) and mark the parent shape stale
+    // so the next redraw() call will regenerate them with proper LoD geometry.
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp || sp->dp != dp || !sp->mesh_obj)
+		continue;
+	    // Clear the per-view object (bbox wireframe placeholder, if any)
+	    // for every view that was active at drain time.
+	    for (auto *v : views)
+		bsg_shape_clear_view_obj(sp, v);
+	    bsg_shape_stale(sp);
+	}
+    }
+}
+
 std::vector<std::string>
 BViewState::list_drawn_paths(int mode, bool list_collapsed)
 {
@@ -3674,8 +3698,8 @@ void DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &event
 
 /* ---- Background geometry loading (GeomLoader / L1) ---- */
 
-GeomLoader::GeomLoader(DbiState *dbis)
-    : dbis_(dbis)
+GeomLoader::GeomLoader(DbiState *dbis, bsg_mesh_lod_context *lod_ctx)
+    : dbis_(dbis), lod_ctx_(lod_ctx)
 {
     thread_ = std::thread(&GeomLoader::worker, this);
 }
@@ -3705,7 +3729,14 @@ GeomLoader::push(const std::vector<WorkItem> &items)
 		continue;
 	    if (item.dp->d_flags & RT_DIR_HIDDEN)
 		continue;
-	    work_q_.push_back(item);
+	    WorkItem wi = item;
+	    // For BoT primitives: queue LoD generation when a context is
+	    // available and the LoD cache doesn't already have an entry.
+	    if (lod_ctx_ && item.dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
+		if (!bsg_mesh_lod_key_get(lod_ctx_, item.dp->d_namep))
+		    wi.needs_lod = true;
+	    }
+	    work_q_.push_back(wi);
 	}
     }
     work_cv_.notify_one();
@@ -3784,12 +3815,36 @@ GeomLoader::worker()
 	    rt_db_free_internal(&intern);
 	    continue;
 	}
-	rt_db_free_internal(&intern);
 
 	Result r;
 	r.hash = item.hash;
 	VMOVE(r.bmin, bmin);
 	VMOVE(r.bmax, bmax);
+
+	// For BoT primitives: if the item was flagged for LoD generation and
+	// we have a context, generate the LoD cache now.  bsg_mesh_lod_cache()
+	// and bsg_mesh_lod_key_put() are serialised internally via the
+	// bsg_mesh_lod_context mutex added for this purpose, so this call is
+	// safe even though both the worker thread and the main thread may
+	// access the context concurrently.
+	if (item.needs_lod && lod_ctx_ &&
+	    intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
+	    struct rt_bot_internal *bot =
+		(struct rt_bot_internal *)intern.idb_ptr;
+	    RT_BOT_CK_MAGIC(bot);
+	    unsigned long long key = bsg_mesh_lod_cache(
+		lod_ctx_,
+		(const point_t *)bot->vertices, bot->num_vertices,
+		NULL, bot->faces, bot->num_faces, 0, 0.66);
+	    if (key) {
+		bsg_mesh_lod_key_put(lod_ctx_, item.dp->d_namep, key);
+		r.has_lod = true;
+		r.lod_key = key;
+		r.dp_name = item.dp->d_namep;
+	    }
+	}
+
+	rt_db_free_internal(&intern);
 
 	// Post result to the result queue
 	{
@@ -3806,8 +3861,14 @@ DbiState::start_geom_load(const std::vector<GeomLoader::WorkItem> &items)
 {
     if (items.empty())
 	return;
+    // Rebuild the loader if the LoD context became available after the loader
+    // was first created (e.g. gedp->ged_lod was set between updates).  This
+    // allows BoT primitives to get LoD generated even when the context was not
+    // ready at the time the database was first opened.
+    if (geom_loader_ && gedp->ged_lod && !geom_loader_->has_lod_ctx())
+	geom_loader_.reset();
     if (!geom_loader_)
-	geom_loader_ = std::make_unique<GeomLoader>(this);
+	geom_loader_ = std::make_unique<GeomLoader>(this, gedp->ged_lod);
     geom_loader_->push(items);
 }
 
@@ -3843,6 +3904,32 @@ DbiState::drain_geom_results()
 	    memcpy(buf.data() + sizeof(r.bmin), r.bmax, sizeof(r.bmax));
 	    std::string k = dbi_cache_key(r.hash, CACHE_OBJ_BOUNDS);
 	    bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+	}
+    }
+
+    // When the background worker has generated LoD cache data for a BoT
+    // primitive, any shape objects in the view states for that primitive
+    // may currently only hold a temporary bounding-box wireframe
+    // (bot_adaptive_plot drew a placeholder when no LoD key existed).
+    // Stale those shapes and clear their per-view objects so the next
+    // redraw() call regenerates them with proper LoD geometry.
+    {
+	// Collect the set of views across all BViewStates.
+	std::unordered_set<struct bview *> all_views;
+	for (auto &[bv, vs] : view_states)
+	    all_views.insert(bv);
+
+	if (!all_views.empty()) {
+	    for (const auto &r : results) {
+		if (!r.has_lod || r.dp_name.empty())
+		    continue;
+		struct directory *dp_lod =
+		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
+		if (!dp_lod)
+		    continue;
+		for (auto &[bv, vs] : view_states)
+		    vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
+	    }
 	}
     }
 
