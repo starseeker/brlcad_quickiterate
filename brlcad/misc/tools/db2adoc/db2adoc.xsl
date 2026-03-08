@@ -1522,9 +1522,14 @@
 
   <!-- function: monospace -->
   <xsl:template match="db:function">
+    <xsl:variable name="txt" select="normalize-space(.)"/>
     <xsl:text>`</xsl:text>
     <xsl:apply-templates/>
-    <xsl:text>()`</xsl:text>
+    <!-- Only append () if the text does not already end with () -->
+    <xsl:if test="not(substring($txt, string-length($txt) - 1) = '()')">
+      <xsl:text>()</xsl:text>
+    </xsl:if>
+    <xsl:text>`</xsl:text>
   </xsl:template>
 
   <!-- parameter: italic monospace -->

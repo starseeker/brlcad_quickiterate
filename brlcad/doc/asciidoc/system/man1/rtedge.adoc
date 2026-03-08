@@ -209,7 +209,7 @@ turns on the *rt*(1) program debugging flags. See raytrace.h for the meaning of 
 
 
 *-! #*::
-turns on the *libbu*(3) library debugging flags. See bu.h for the meaning of these bits. In particular, specifying *-!1* will cause `bu_bomb()()` to dump core, rather than logging the error and exiting. This is useful with *dbx*(1) or *gdb*(1) for debugging. (Notice that *-x #* sets the *librt*(3) debug flags to the given hexadecimal bit vector. See raytrace.h for the bit definitions.)
+turns on the *libbu*(3) library debugging flags. See bu.h for the meaning of these bits. In particular, specifying *-!1* will cause `bu_bomb()` to dump core, rather than logging the error and exiting. This is useful with *dbx*(1) or *gdb*(1) for debugging. (Notice that *-x #* sets the *librt*(3) debug flags to the given hexadecimal bit vector. See raytrace.h for the bit definitions.)
 
 
 *-+ #*::
