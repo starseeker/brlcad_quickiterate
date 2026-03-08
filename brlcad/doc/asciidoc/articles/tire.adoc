@@ -1,6 +1,8 @@
 = Vehicle Tire and Wheel Creation in BRL-CAD
 Clifford Yapp
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[Overview]]
 == Overview
@@ -331,3 +333,7 @@ Due to the nature of the primitives used to define these shapes, operations such
 * The wheel is generated in response to the tire dimensions and there is currently only one wheel type available in this procedure (users may model and substitute their own wheel designs).
 * Tread is not modeled by default due to performance considerations but can be added using options.
 * Fine grained control of parameters such as tire thickness is available with optional user flags.
+
+
+
+

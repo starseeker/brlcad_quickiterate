@@ -1,6 +1,8 @@
 = Creating a Globe in a Display Box
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson you will:
 
@@ -126,3 +128,7 @@ In this lesson, you:
 * Used the Combination Editor to assign material properties that make the objects appear more realistic.
 * Rotated an object 180'0 using the rotate option of the Edit menu.
 * Used the color option of the Combination Editor to produce customized colors.
+
+
+
+

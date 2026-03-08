@@ -1,6 +1,8 @@
 = Asignar más propiedades de los materiales a la copa
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -126,3 +128,7 @@ En este tutorial usted aprendió a:
 * Asignar valores a la opción de brillo del sombreado de plástico.
 * Asignar valores a la opción de extinción del sombreado de plástico.
 * Experimentar con varias combinaciones de opciones del sombreado de plástico.
+
+
+
+

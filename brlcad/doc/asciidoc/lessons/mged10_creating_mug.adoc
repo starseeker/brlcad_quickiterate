@@ -1,6 +1,8 @@
 = Creating a Mug
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -218,3 +220,7 @@ In this lesson you:
 * Created a combination to produce the body of your mug.
 * Created a combination to join the handle to the body.
 * Created a region of combined shapes with the same material and color.
+
+
+
+

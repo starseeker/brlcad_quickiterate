@@ -1,5 +1,7 @@
 = Untitled
 :doctype: article
+:toc:
+:toclevels: 3
 
 
 * ../x.php[Articles]
@@ -1117,3 +1119,7 @@
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Extensions_for_Deferred_Implementation[Extensions for Deferred Implementation]
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Community_Feedback_on_the_Proposal[Community Feedback on the Proposal]
 **** ../../specifications/en/BRL_CAD_g_format_V5.php#Database_Library_Application_Programming_Interface[Database Library Application Programming Interface (API)]
+
+
+
+

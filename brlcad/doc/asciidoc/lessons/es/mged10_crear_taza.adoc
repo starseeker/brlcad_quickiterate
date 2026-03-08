@@ -1,6 +1,8 @@
 = Crear una taza
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -218,3 +220,7 @@ En este tutorial usted aprendió a:
 * Crear una combinación para producir el cuerpo de su taza.
 * Crear una combinación para unir el asa al cuerpo de la taza.
 * Crear una región para combinar las figuras con igual material y color.
+
+
+
+

@@ -1,6 +1,8 @@
 = Asignación de propiedades de los materiales y trazado de rayos (Raytracing) en MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -194,3 +196,7 @@ En este tutorial usted aprendió a:
 * Generar el Raytrace de si diseño desde la interfaz gráfica.
 * Utilizar la interfaz gráfica para cambiar capas de la ventana gráfica.
 * Limpiar la ventana gráfica luego de hacer el trazado de rayos de su modelo.
+
+
+
+

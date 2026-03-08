@@ -1,5 +1,7 @@
 = Camouflage shader
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[Introduction]]
 == Introduction
@@ -97,3 +99,5 @@ This specifies a translation in noise space for the origin of region space. Sinc
 == Limitations
 
 Because of the continuous nature of the fractal noise space, it is impossible to get a splash of color1 directly adjacent to a splash of color3.
+
+
