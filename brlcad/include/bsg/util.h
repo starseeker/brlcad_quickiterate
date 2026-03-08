@@ -477,6 +477,19 @@ BSG_EXPORT fastf_t bsg_view_base2local(const bsg_view *v);
  */
 BSG_EXPORT void bsg_view_set_scale(bsg_view *v, fastf_t scale);
 
+/**
+ * @brief Set the view size (model diameter visible in the view).
+ *
+ * Updates @c gv_size, @c gv_scale (= size * 0.5), and @c gv_isize (= 1.0 / size)
+ * atomically.  Use this instead of direct field writes so that the three
+ * coupled fields stay consistent and the call site does not depend on the
+ * field layout.
+ *
+ * @param v     Target view (must not be NULL).
+ * @param size  New size value (model diameter visible in the view; > 0).
+ */
+BSG_EXPORT void bsg_view_set_size(bsg_view *v, fastf_t size);
+
 /* ====================================================================== *
  * Phase 2: camera accessor                                               *
  * ====================================================================== */

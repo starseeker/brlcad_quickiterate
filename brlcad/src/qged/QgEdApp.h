@@ -60,8 +60,8 @@ class QgEdApp : public QApplication
 	QgEdApp(int &argc, char *argv[], int swrast_mode = 0, int quad_mode = 0);
 	~QgEdApp();
 
-	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	int load_g_file(const char *gfile = nullptr, bool do_conversion = true);
+	[[nodiscard]] int run_cmd(struct bu_vls *msg, int argc, const char **argv);
+	[[nodiscard]] int load_g_file(const char *gfile = nullptr, bool do_conversion = true);
 
 	QgModel *mdl = nullptr;
 
@@ -109,6 +109,11 @@ class QgEdApp : public QApplication
     public:
 	QgEdMainWindow *w = nullptr;
 
+    private slots:
+	// Internal slot that performs the actual work once the event loop is
+	// re-entered after a batch of coalesced do_view_changed calls.
+	void flush_view_changed_();
+
     private:
 	std::vector<char *> tmp_av;
 	unsigned long long select_hash = 0;
@@ -119,6 +124,12 @@ class QgEdApp : public QApplication
 	// Fires every BG_GEOM_DRAIN_INTERVAL_MS milliseconds.
 	static constexpr int BG_GEOM_DRAIN_INTERVAL_MS = 100;
 	QTimer *geom_drain_timer_ = nullptr;
+
+	// Coalescing flags for do_view_changed.  When a do_view_changed call
+	// arrives while a queued invocation is already pending, the new flags
+	// are OR-ed in here so that the single queued call handles everything.
+	unsigned long long pending_view_flags_ = 0;
+	bool view_change_pending_ = false;
 };
 
 #endif // QGEDAPP_H

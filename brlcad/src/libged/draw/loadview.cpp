@@ -32,6 +32,7 @@
 #include "../ged_private.h"
 extern "C" {
 #include "./ged_draw.h"
+#include "bsg/util.h"
 }
 
 /**
@@ -46,9 +47,7 @@ _ged_cm_vsize(struct ged *gedp, vect_t *UNUSED(v), mat_t *UNUSED(m), const int a
     if (argc < 2)
 	return -1;
     /* for some reason, scale is supposed to be half of size... */
-    gedp->ged_gvp->gv_size = atof(argv[1]);
-    gedp->ged_gvp->gv_scale = gedp->ged_gvp->gv_size * 0.5;
-    gedp->ged_gvp->gv_isize = 1.0 / gedp->ged_gvp->gv_size;
+    bsg_view_set_size(gedp->ged_gvp, atof(argv[1]));
     return 0;
 }
 
