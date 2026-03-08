@@ -29,7 +29,7 @@ Using this program with grave accents in a shell script in order to interactivel
 [[example]]
 == EXAMPLES
 
-*fbpoint*  by itself is used to pick coordinates or pixel values from a display.
+*fbpoint* by itself is used to pick coordinates or pixel values from a display.
 
 fbscanplot `fbpoint -y`
 

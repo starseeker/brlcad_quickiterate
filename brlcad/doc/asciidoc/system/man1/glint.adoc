@@ -74,7 +74,7 @@ Causes *glint* to produce its reports as _plot3(5)_ drawing commands instead of 
 
 
 *-r*_bits_::
-Specifies which types of reports to produce. If, after an optional minus sign, _bits_ begins with either "0x" or "0X", the remainder is interpreted in hexadecimal. Otherwise, if _bits_ begins with "0", the remainder is interpreted in octal. Otherwise, _bits_ is interpreted in decimal. The meaning of the individual bits is as follows:  1 overlaps  2 contiguous unlike airs  4 unconfined airs  8 air first on rays  16 air last on rays  32 vacuums.  If there was no initial minus sign, then _bits_ specifies which report types to produce. The minus sign implies complementation: when it is present, _bits_ specifies which report types _not_ to produce. The default is 1.
+Specifies which types of reports to produce. If, after an optional minus sign, _bits_ begins with either "0x" or "0X", the remainder is interpreted in hexadecimal. Otherwise, if _bits_ begins with "0", the remainder is interpreted in octal. Otherwise, _bits_ is interpreted in decimal. The meaning of the individual bits is as follows: 1 overlaps 2 contiguous unlike airs 4 unconfined airs 8 air first on rays 16 air last on rays 32 vacuums. If there was no initial minus sign, then _bits_ specifies which report types to produce. The minus sign implies complementation: when it is present, _bits_ specifies which report types _not_ to produce. The default is 1.
 
 
 *-s*::

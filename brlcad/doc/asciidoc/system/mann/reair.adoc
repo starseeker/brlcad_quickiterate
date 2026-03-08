@@ -17,7 +17,7 @@ reair {comb} {aircode}
 [[description]]
 == DESCRIPTION
 
-The 'reair' command assigns the 'aircode' attribute value for all regions within a specified combination. 
+The 'reair' command assigns the 'aircode' attribute value for all regions within a specified combination.
 
 
 [[examples]]

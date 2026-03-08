@@ -77,7 +77,7 @@ gif-fb image.gif
 [[see_also]]
 == SEE ALSO
 
-A Standard Defining a Mechanism for the Storage and Transmission of Raster-Based Graphics Information, June 15, 1987 (CompuServe Incorporated).  *libfb*(3)
+A Standard Defining a Mechanism for the Storage and Transmission of Raster-Based Graphics Information, June 15, 1987 (CompuServe Incorporated).*libfb*(3)
 
 
 [[diagnostics]]
