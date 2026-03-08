@@ -316,6 +316,12 @@ main(int argc, char **argv)
     } else {
 	bu_log("PASS: %zu bboxes populated\n", final_bboxes);
     }
+    if (final_obbs == 0) {
+	bu_log("FAIL: No OBBs populated after drain (OBB stage not working?)\n");
+	pass = 0;
+    } else {
+	bu_log("PASS: %zu OBBs populated\n", final_obbs);
+    }
     if (n == 0) {
 	bu_log("FAIL: drain_geom_results() returned 0 results total\n");
 	pass = 0;

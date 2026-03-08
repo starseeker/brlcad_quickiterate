@@ -111,15 +111,53 @@ cmake --build /home/runner/brlcad_build --target qged -j$(nproc)
 
 ### Next steps
 
-1. **LoD rendering in swrast**: `BViewState::redraw()` needs to call
-   `bsg_mesh_lod_create(gedp->ged_lod, key)` and push real LoD geometry shapes
-   (replacing AABB placeholders) once drain notifies of LOD results.  Currently
-   the swrast test shows identical wireframe renders for all three phases.
+~~3. **`draw_data_t::dbis` NULL**: the `draw_data_t` code path in `draw.cpp`
+   was passing NULL `dbis` to `bot_adaptive_plot`, meaning OBB lookup would
+   not work. **Fixed in session 3.**~~
 
-2. **qged interactive test**: open GenericTwin.g in qged, issue `draw all`,
+1. **qged interactive test**: open GenericTwin.g in qged, issue `draw all`,
    observe progressive AABB→OBB→LoD refinement in the viewport.
 
-3. **`draw_update_data_t::dbis` NULL**: the `draw_data_t` code path in
-   `draw.cpp` (line ~1067) passes NULL `dbis` to `bot_adaptive_plot`, meaning
-   OBB lookup won't work on that code path.  Needs investigation.
+2. **LoD rendering in swrast screenshots**: the swrast screenshots all show
+   the same size because the LoD data is immediately available on warm cache.
+   To see the progressive AABB→OBB→LoD cycle:
+   - Delete or clear the `dp_test_cache` LMDB directory first (cold cache)
+   - Or use `BRLCAD_CACHE_LOD_DELAY_MS=5000` to artificially delay LoD
+   - Then screenshots 1 and 2 will show AABB/OBB wireframes; 3 will show LoD mesh
+
+---
+
+## Session 3 Changes (2026-03-08)
+
+### draw_data_t::dbis propagation
+
+The `draw_data_t` struct (used by the legacy `draw_gather_paths` tree walk)
+had no `dbis` field. When `draw_gather_paths` created a `draw_update_data_t`
+(the per-shape callback struct), it set `ud->dbis = NULL`.  This meant
+`bot_adaptive_plot` couldn't access `d->dbis->obbs` for OBB wireframes.
+
+**Fix:** Added `struct DbiState *dbis` to `draw_data_t` in `ged_private.h`.
+Changed `draw.cpp` to propagate `dd->dbis` → `ud->dbis`.  Set `dd.dbis`
+in `gobjs.cpp` caller.
+
+### OBB placeholder wireframe (bsg_vlist_arb8)
+
+`bot_adaptive_plot` had a TODO comment: `obb_available = false` (always fell
+back to the AABB box even when OBB data was in `d->dbis->obbs`).
+
+**Fix:** The placeholder drawing path now:
+1. Checks `d->dbis->obbs` for the hash of `dp->d_namep`
+2. If found, reads the 24 fastf_t corners, calls new `bsg_vlist_arb8()`
+3. Falls back to `bsg_vlist_rpp()` AABB box only if no OBB or no dbis
+
+**New function `bsg_vlist_arb8`** added to `libbsg/vlist.c` +
+`include/bsg/vlist.h`.  Draws 12 edges of an arb8 wireframe (face 0: 0→1→2→3→0,
+face 1: 4→5→6→7→4, laterals: 0→4, 1→5, 2→6, 3→7) from 8 arbitrary corner
+points in arb8 corner order.
+
+### drawpipeline_test improvement
+
+Added assertion for `final_obbs > 0` (was only printed, not asserted).
+Verified: 706 OBBs populated from GenericTwin.g.  All 3 assertions now pass.
+
 
