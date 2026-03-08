@@ -248,12 +248,29 @@ cmakefiles(
   moss.png
   rook.g
   util.cpp
+  drawpipeline_test.cpp
   ${basic_view_test_ctrls}
   ${faceplate_test_ctrls}
   ${lod_test_ctrls}
   ${select_test_ctrls}
   ${quad_test_ctrls}
   ${aet_test_ctrls}
+)
+
+# DrawPipeline visual test (uses GenericTwin.g for BoT-heavy testing)
+brlcad_addexec(ged_test_drawpipeline "drawpipeline_test.cpp;util.cpp" "libged;libdm" TEST)
+if(TARGET ged_test_drawpipeline)
+  foreach(tdp ${test_deps})
+    if(TARGET ${tdp})
+      add_dependencies(ged_test_drawpipeline ${tdp})
+    endif()
+  endforeach()
+  add_dependencies(ged_test_drawpipeline Generic_Twin.g)
+endif()
+brlcad_add_test(NAME ged_test_drawpipeline_generic
+  COMMAND ged_test_drawpipeline
+    "${CMAKE_BINARY_DIR}/${DATA_DIR}/db/faa/Generic_Twin.g"
+    "${CMAKE_CURRENT_BINARY_DIR}/dp_test_output"
 )
 
 cmakefiles(CMakeLists.txt)
