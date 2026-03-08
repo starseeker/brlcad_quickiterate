@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>put(nged)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>put(nged) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>put - mged command which creates a new object of indicated type with supplied attributes. Similar to the in command, but without prompting - making it especially useful for scripting.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>put {object type} [attrs]...</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Creates a new <em>object</em> of indicated <em>type</em>. Objects attributes are per-object dependent, although there are some similarities among different object types (i.e. both sph and ell have a vertex 'V'). Use the <strong>form</strong> command for possible attributes and correct paramater forming. Possible values for <em>type</em> are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>annot &#8212;&#8203; 2d annotations</p>
+</li>
+<li>
+<p>arb8 &#8212;&#8203; ARB (eight vertices)</p>
+</li>
+<li>
+<p>arbn &#8212;&#8203; ARB (n vertices)</p>
+</li>
+<li>
+<p>ars &#8212;&#8203; Arbitrary faceted solid</p>
+</li>
+<li>
+<p>binunif &#8212;&#8203; Uniform-array binary object</p>
+</li>
+<li>
+<p>bot &#8212;&#8203; bag of triangles</p>
+</li>
+<li>
+<p>brep &#8212;&#8203; Boundary Representation</p>
+</li>
+<li>
+<p>cline &#8212;&#8203; Cline element</p>
+</li>
+<li>
+<p>comb &#8212;&#8203; Combination</p>
+</li>
+<li>
+<p>constrnt &#8212;&#8203; Constraint</p>
+</li>
+<li>
+<p>datum &#8212;&#8203; Datum set</p>
+</li>
+<li>
+<p>dsp &#8212;&#8203; Displacement map</p>
+</li>
+<li>
+<p>ebm &#8212;&#8203; Extruded bitmap</p>
+</li>
+<li>
+<p>ehy &#8212;&#8203; Elliptical Hyperboloid</p>
+</li>
+<li>
+<p>ell &#8212;&#8203; Ellipsoid</p>
+</li>
+<li>
+<p>epa &#8212;&#8203; Elliptical Paraboloid</p>
+</li>
+<li>
+<p>eto &#8212;&#8203; Elliptical Torus</p>
+</li>
+<li>
+<p>extrude &#8212;&#8203; 2d Extrusion</p>
+</li>
+<li>
+<p>grip &#8212;&#8203; Support for joints</p>
+</li>
+<li>
+<p>half &#8212;&#8203; Half space</p>
+</li>
+<li>
+<p>hrt &#8212;&#8203; Heart</p>
+</li>
+<li>
+<p>hyp &#8212;&#8203; Hyperboloid</p>
+</li>
+<li>
+<p>joint &#8212;&#8203; Joint</p>
+</li>
+<li>
+<p>material &#8212;&#8203; Material</p>
+</li>
+<li>
+<p>metaball &#8212;&#8203; Metaball</p>
+</li>
+<li>
+<p>nmg &#8212;&#8203; Non-Manifold Geometry</p>
+</li>
+<li>
+<p>part &#8212;&#8203; Particle</p>
+</li>
+<li>
+<p>pipe &#8212;&#8203; Pipe</p>
+</li>
+<li>
+<p>pnts &#8212;&#8203; Collection of points</p>
+</li>
+<li>
+<p>poly &#8212;&#8203; Polygon</p>
+</li>
+<li>
+<p>rec &#8212;&#8203; Truncated General Cone (right elliptical cylinder)</p>
+</li>
+<li>
+<p>revolve &#8212;&#8203; Truncated general revolve</p>
+</li>
+<li>
+<p>rhc &#8212;&#8203; Right Hyperbolic Cylinder</p>
+</li>
+<li>
+<p>rpc &#8212;&#8203; Right Parabolic Cylinder</p>
+</li>
+<li>
+<p>script &#8212;&#8203; Procedural script</p>
+</li>
+<li>
+<p>sketch &#8212;&#8203; 2d sketch</p>
+</li>
+<li>
+<p>sph &#8212;&#8203; Ellipsoid (sphere)</p>
+</li>
+<li>
+<p>submodel &#8212;&#8203; Instanced submodel</p>
+</li>
+<li>
+<p>superell &#8212;&#8203; Superquadratic Ellipsoid</p>
+</li>
+<li>
+<p>tgc &#8212;&#8203; Truncated General Cone</p>
+</li>
+<li>
+<p>tor &#8212;&#8203; Torus</p>
+</li>
+<li>
+<p>vol &#8212;&#8203; 3d volume</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following are run from the MGED command prompt.</p>
+</div>
+<div class="exampleblock">
+<div class="title">Create a sphere.</div>
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">mged&gt; <strong>put ball sph V {0 0 0} A {100 0 0} B {0 100 0} C {0 0 100}</strong></dt>
+<dd>
+<p>Creates a sphere named "ball", centered at (0,0,0), and with radius 100</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

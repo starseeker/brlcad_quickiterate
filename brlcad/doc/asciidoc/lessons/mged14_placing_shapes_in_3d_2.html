@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Additional Exercises Placing Shapes in 3-D Space</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Additional Exercises Placing Shapes in 3-D Space</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you will:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Create copies of a shape using the Primitive Editor.</p>
+</li>
+<li>
+<p>Draw a grid to help position objects.</p>
+</li>
+<li>
+<p>Check the data tree and make corrections (if needed).</p>
+</li>
+<li>
+<p>Assign material properties using the Combination Editor.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In previous lessons, we created and edited shapes and placed objects in 3-D space. This lesson provides more advanced practice in these areas using the candle design you created in the last lesson.</p>
+</div>
+<div class="paragraph">
+<p>Open the candle.g database if it isn&#8217;t already open and draw candle1.c.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="candle_base_1st_sphere">Making the First Sphere</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Using the GUI, create a sphere named sph1.s. Go to the View menu and select Top view. Go to the Edit menu, select Scale, and size the sphere until it is proportionally about the same size as the one in the following illustration:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged14_candle_base_sphere_topview.png" alt="../lessons/images/mged14_candle_base_sphere_topview.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="draw_grid_feature">Using the Draw Grid Feature</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Drag the sphere into position on the rcc, as shown in the previous illustration. To make this task a little easier, you can go to the Modes menu and select Draw Grid. This will create a grid overlay in the Graphics Window, which can help you position your spheres on the candle base.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multipane_feature">Using the Multipane Feature</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As discussed earlier, another feature that is available to help you position each sphere is the Multipane option under the Modes menu. This will allow you to see multiple views of the design you are creating.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged14_candle_multipane.png" alt="../lessons/images/mged14_candle_multipane.png">
+</div>
+</div>
+<div class="paragraph">
+<p>As you move a shape, the change in position will be reflected in each pane. The multipanes help you visualize where the shape is in 3-D space. In the default mode, the top left pane shows the top view, the top right pane shows the current view, the bottom left pane shows the front view, and the bottom right pane shows the left view. To turn off either the grid or the multipane functions, go back to Modes and select the feature you want to disable.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copies_of_shapes">Creating Copies of a Shape</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To make more jewels for the base, you could use the copy command on the Command Line (cp sph1.s sph2.s), but another way to do this is to go to the Edit menu and select Primitive Editor. Type sph1.s in the text box to the right of Name. Click on Reset and then change the name to sph2.s and click Apply. Continue doing this until you&#8217;ve made eight jewels. Because each of the new spheres is an exact copy of the first sphere, you won&#8217;t be able to see them until you select and then move them.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged14_primitive_editor.png" alt="../lessons/images/mged14_primitive_editor.png">
+</div>
+</div>
+<div class="paragraph">
+<p>To position your new spheres, go to Primitive Selection. A submenu of shapes you have created will drop down. Use the scrollbar to the right of the list of shapes to access the spheres you have created, as shown in the following illustration.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged14_primitive_selection_dropdown.png" alt="../lessons/images/mged14_primitive_selection_dropdown.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Click on sph2.s and drag it into position. Once you have positioned the eight spheres around the rcc, your design should look similar to the following ones when viewed from the top and front.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../lessons/images/mged14_candle_spheres_topview.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../lessons/images/mged14_candle_spheres_frontview.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Candle from Top View</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Candle from Front View</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Notice from the front view that there appears to only be five spheres around the base of the candle, but there are eight spheres when you view the design from the top. That is because you are viewing 3-D space on a 2-D screen and the spheres in the back are behind the ones in the front. If you change the view to an az35, el25 view, all of the spheres will appear, as shown in the following figure. This is one reason why it is important to continually check your design from multiple views. A mistake in placement that doesn&#8217;t appear from one view may be very noticeable from another view.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged14_candle_spheres_az35el25.png" alt="../lessons/images/mged14_candle_spheres_az35el25.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="practice_make_regions_spheres">Making Regions of the Spheres</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Now that all your spheres are made and in place, it is time to make a region of each sphere. To do this, type the following in the Command Window: <strong>r sph1.r u sph1.s[Enter]</strong> <strong>r sph2.r u sph2.s[Enter]</strong> <strong>r sph3.r u sph3.s[Enter]</strong> <strong>r sph4.r u sph4.s[Enter]</strong> <strong>r sph5.r u sph5.s[Enter]</strong> <strong>r sph6.r u sph6.s[Enter]</strong> <strong>r sph7.r u sph7.s[Enter]</strong> <strong>r sph8.r u sph8.s[Enter]</strong></p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>There are three easier ways to make all of the regions. The first involves typing the first command: <strong>r sph1.r u sph1.s[Enter]</strong> and then using the up arrow to recall this command. Now use the left arrow to move backward in the Command Line to replace both occurrences of the number "1" with "2" and press ENTER. Repeat this for each of the numbers 3 through 8.</p>
+</div>
+<div class="paragraph">
+<p>The second approach is based upon the fact that the Command Line interpreter of <em>MGED</em> uses the Tcl/Tk language. This gives us access to some convenient loop commands. The following will make all of the regions for us in a single command: <strong>foreach i { 1 2 3 4 5 6 7 8 } { [Enter]</strong> <strong>r sph$i.r u sph$i.s [Enter]</strong> <strong>}[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>This is much easier and faster than either of the previous methods. However, if there were many more spheres (say 1000 or more), then it might be easier to use a third approach, which employs a different loop type:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    for {set i 1} {i `&lt;= 1000} {incr i} {[Enter]
+
+      r sph$i.r u sph$i.s [Enter]
+
+    }
+	  </pre>
+</div>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>Next, go to Edit and then Combination Editor. Select sph1.r from the Select From All choice in the pull-down menu to the right of the Name entry box. Assign properties of plastic and the color red and then press Apply. We then can go back to the Select From All menu listing and repeat this process for the other seven spheres. Alternatively, we could use Apply after selecting the appropriate material properties and then type in the next sphere&#8217;s name; however, this method requires the user to remember to update the Boolean Expression box (e.g., change u sph1.s to u sph2.s) so that the Booleans for one shape are not applied to another shape.</p>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Once again, we are performing the same operation multiple times. This is another good opportunity to use a loop. <strong>foreach i { 1 2 3 4 5 6 7 8 } {[Enter]</strong> <strong>mater sph$i.r "plastic" 255 0 0 0[Enter]</strong> <strong>}[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>In general, the graphical interface is good for doing one thing at a time or doing highly visual operations. Repetitive operations are best performed using a Command Line interface.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="candle_base_spheres_combine">Combining the Spheres with the Candle Base</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We are now faced with an important decision. At the moment, the jewels overlap a portion of the candle base (specifically, the rcc1.s portion). Because two objects cannot occupy the same space, we must decide how to resolve this situation. There are two choices:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>We can have perfectly round jewels with dents in the side of the candle base where the jewels are mounted.</p>
+</li>
+<li>
+<p>We can have a perfectly round base with a cylindrical bite taken out of the back of each jewel.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For this lesson, we will use the first choice.</p>
+</div>
+<div class="paragraph">
+<p>Now we are faced with a second decision: how to achieve this result. The key is that the space the jewels occupy must be subtracted from the correct part (rcc1.s) of the base.</p>
+</div>
+<div class="paragraph">
+<p>On the Command Line, create rcc1.c by typing: <strong>comb rcc1.c u rcc1.s - sph1.r - sph2.r - sph3.r - sph4.r - sph5.r - sph6.r - sph7.r - sph8.r[Enter]</strong> Next, bring up the Combination Editor and select base1.r. Change the union of rcc1.s in the Boolean Expression window to a union of rcc1.c, and click OK. The tree of base1.r should now look like:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   u base1.r/R
+
+     u eto1.s
+
+     u rcc1.c
+
+       u rcc1.s
+
+       - sph1.r/R
+
+         u sph1.s
+
+       - sph2.r/R
+
+         u sph2.s
+
+       - sph3.r/R
+
+         u sph3.s
+
+       - sph4.r/R
+
+         u sph4.s
+
+       - sph5.r/R
+
+         u sph5.s
+
+       - sph6.r/R
+
+         u sph6.s
+
+       - sph7.r/R
+
+         u sph7.s
+
+       - sph8.r/R
+
+         u sph8.s
+
+     u eto2.s
+
+     - rcc2.s
+	</pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Note that we could have achieved the same results on the Command Line by using the rm (remove) command to remove rcc1.s from base1.r and then adding rcc1.c: <strong>rm base1.r rcc1.s[Enter]</strong> <strong>r base1.r u rcc1.c[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>This would have resulted in a very similar tree as above:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    u base1.r/R
+
+      u eto1.s
+
+      u eto2.s
+
+      - rcc2.s
+
+      u rcc1.c
+
+        u rcc1.s
+
+        - sph1.r/R
+
+          u sph1.s
+
+        - sph2.r/R
+
+          u sph2.s
+
+        - sph3.r/R
+
+          u sph3.s
+
+        - sph4.r/R
+
+          u sph4.s
+
+        - sph5.r/R
+
+          u sph5.s
+
+        - sph6.r/R
+
+          u sph6.s
+
+        - sph7.r/R
+
+          u sph7.s
+
+        - sph8.r/R
+
+          u sph8.s
+	  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Finally, we could have avoided making an intermediate object in the database by moving rcc1.s to the end of the Boolean equation for base1.r and then subtracting each of the jewels from base1.r (hence, removing material from rcc1.s). This would have resulted in:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+    u base1.r/R
+
+      u eto1.s
+
+      u eto2.s
+
+      - rcc2.s
+
+      u rcc1.s
+
+      - sph1.r/R
+
+        u sph1.s
+
+      - sph2.r/R
+
+        u sph2.s
+
+      - sph3.r/R
+
+        u sph3.s
+
+      - sph4.r/R
+
+        u sph4.s
+
+      - sph5.r/R
+
+        u sph5.s
+
+      - sph6.r/R
+
+        u sph6.s
+
+      - sph7.r/R
+
+        u sph7.s
+
+      - sph8.r/R
+
+        u sph8.s
+	  </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It would be good practice to consider the relative merits of each of the approaches discussed.</p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>Now we need to add the jewels to the whole of candle1.c: <strong>comb candle1.c u sph1.r u sph2.r u sph3.r u sph4.r u sph5.r u sph6.r u sph7.r u sph8.r[Enter]</strong></p>
+</div>
+<div class="paragraph">
+<p>There are just a couple of things left to do before you raytrace your design. If you have enabled Multipanes or Draw Grid, go back to the Modes menu and disable them. Then, clear your screen and draw your new design by typing in the Command Window: <strong>B candle1.c table1.r</strong> Your new design should appear in the Graphics Window. Open the Raytrace Control Panel and select a pale blue color (200 236 242) by typing the three values in the Background Color entry box. When you raytrace your design, it should look similar to the following one:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged14_candle_spheres_raytraced.png" alt="../lessons/images/mged14_candle_spheres_raytraced.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="placing_shapes_in_3d_2_review">Review</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Created copies of a shape using the Primitive Editor.</p>
+</li>
+<li>
+<p>Drew a grid to help position objects.</p>
+</li>
+<li>
+<p>Checked the data tree and made corrections (if needed).</p>
+</li>
+<li>
+<p>Assigned material properties using the Combination Editor.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

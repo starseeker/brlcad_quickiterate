@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>PIXMATTE(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>PIXMATTE(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>pixmatte - matte (merge) two pix(5) or bw(5) images by a formula</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>pixmatte [-a] [-w&lt;bytes_wide&gt;] [-glen] &lt;in1&gt; &lt;in2&gt; &lt;true_out&gt; &lt;false_out&gt; &gt; &lt;output&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Given four streams of data elements, where element is of arbitrary width, typically <strong>pix</strong>(5) or <strong>bw</strong>(5) images, <strong>pixmatte</strong> outputs a stream of the same number of data elements. The value of the output stream is determined element-by-element, by comparing the first (foreground) input stream with the second (background, or matte) input stream. If the formula holds true, the element from the true-output stream is written, otherwise, the element from the false-output stream is written. Each of these streams comes from a file, or is given as a constant. A particular file may be used to feed more than one stream, and the name '-' specifies stdin. For example, the foreground file may also be the true-output file. This routine operates on an element-by-element basis, and thus is independent of the resolution of the image.</p>
+</div>
+<div class="paragraph">
+<p>A constant value is specified instead of a filename if the first character of what would be the filename is an equal sign (=). The value is specified as a slash-separated string of <em>bytes_wide</em> decimal numbers, with no separating white space. If in1 and in2 are both specified as constant values, the output file will be 512 x 512.</p>
+</div>
+<div class="paragraph">
+<p>The formula can be any combination of <strong>-g</strong> (in1 greater than in2), <strong>-l</strong> (in1 less than in2), <strong>-e</strong> (in1 equal to in2), <strong>-n</strong> (in1 not equal to in2). For example: <strong>-ge</strong> specifies in1 greater than or equal to in2; that is, when each byte of the in1 element is greater than or equal to the corresponding byte of the in2 element.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-a</strong> flag can be used with <strong>-n</strong> or <strong>-e</strong> to specify approximately equal or approximately not equal to match dithered backgrounds. (Approximate equality exists when all bytes in the elements match to within plus or minus one.) It can also be used in combination with <strong>-g</strong> and/or <strong>-l</strong>; the effect of this usage is to exclude those elements which meet the approximately-equal criterion. If <strong>-a</strong> is used, at least one of <strong>-g</strong>, <strong>-l</strong>, <strong>-e</strong>, <strong>-n</strong> must be used.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-w#</strong> flag specifies the width (in bytes) of each element; the default is 3, <em>i.e.</em> <strong>pix</strong>(5) file format. A width of 1 is used for processing <strong>bw</strong>(5) files. It is unclear if other widths are useful.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To compare all foreground pixels to black (all bytes zero), selecting the foreground pixels when true and a background elsewhere, specify:</p>
+</div>
+<div class="paragraph">
+<p>pixmatte -g fg.pix =0/0/0 fg.pix bg.pix</p>
+</div>
+<div class="paragraph">
+<p>To keep all foreground pixels greater than 20/20/20, and replace all those less than or equal to it with 200/0/200, use:</p>
+</div>
+<div class="paragraph">
+<p>pixmatte -g fg.pix =20/20/20 fg.pix =200/0/200</p>
+</div>
+<div class="paragraph">
+<p>To keep all foreground pixels which are not equal to 63/0/127, and to replace those which are equal with a generated background from stdin, use the following commands (can be useful when compositing an <strong>rt</strong>(1) generated image on top of a nicer background):</p>
+</div>
+<div class="paragraph">
+<p>pixbackgnd -t0 160 200 |pixmatte -n fg.pix =63/0/127 fg.pix - |pix-fb</p>
+</div>
+<div class="paragraph">
+<p>To produce a black-and-white stencil matte file for further processing, use:</p>
+</div>
+<div class="paragraph">
+<p>pixmatte -n fg.pix bg.pix =255/255/255 =0/0/0</p>
+</div>
+<div class="paragraph">
+<p>To set to black all pixels that approximately match (by +/- 1) a given background file, use:</p>
+</div>
+<div class="paragraph">
+<p>pixmatte -a -e fg.pix bg.pix =0/0/0 fg.pix</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>brlcad</strong>(1), <strong>gencolor</strong>(1), <strong>pixbackgnd</strong>(1), <strong>pixmerge</strong>(1), <strong>pix</strong>(5), <strong>bw</strong>(5)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1989-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

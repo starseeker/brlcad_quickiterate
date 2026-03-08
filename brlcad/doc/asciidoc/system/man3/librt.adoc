@@ -12,7 +12,14 @@ This file seems to be out of date with the sources. Consult the headers for up-t
 
 [source,c]
 ----
-#include "vmath.h" #include "raytrace.h" extern struct rt_functab OBJ[]; extern struct rt_g rt_g;structrt_i*rt_dirbuild, char *mged_file_name, char *buf, intlen);
+
+#include "vmath.h"
+#include "raytrace.h"
+
+extern struct rt_functab OBJ[];
+extern struct rt_g rt_g;
+
+structrt_i*rt_dirbuild, char *mged_file_name, char *buf, intlen);
 intrt_gettree, struct rt_i *rtip, char *object_name);
 voidrt_prep, struct rt_i *rtip);
 intrt_shootray, struct application *ap);
@@ -20,7 +27,10 @@ voidrt_prep_timer(void);
 doublert_read_timer, char *buf, intlen);
 voidrt_pr_partitions, struct rt_i *rtip struct partition *phead, char *title);
 voidrt_pr_seg, struct seg *segp);
-segp;structsoltab*rt_find_solid(void);
+
+segp;
+
+structsoltab*rt_find_solid(void);
 
 ----
 
@@ -211,3 +221,5 @@ This software is Copyright (c) 1986-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

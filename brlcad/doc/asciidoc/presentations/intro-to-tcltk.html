@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="TraNese Christy">
+<title>Introduction to Tcl/Tk</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Introduction to Tcl/Tk</h1>
+<div class="details">
+<span id="author" class="author">TraNese Christy</span><br>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_what_is_tcl_tk">What is Tcl/Tk?</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Tool Command Language/ToolKit.</p>
+</li>
+<li>
+<p>Tcl is an embeddable and extensible interpreted language.</p>
+</li>
+<li>
+<p>Tk is a toolkit for building user interfaces.</p>
+</li>
+<li>
+<p>Combined, they provide a programming system for development and use of GUI applications.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_benefits_of_tcl_tk">Benefits of Tcl/Tk</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Ease of providing applications with a powerful scripting language</p>
+</li>
+<li>
+<p>An excellent "glue language"</p>
+</li>
+<li>
+<p>User convenience</p>
+</li>
+<li>
+<p>Portability</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_tcl_tk-based_gui_for_mged">Tcl/Tk-Based GUI for MGED</h2>
+<div class="sectionbody">
+<div class="imageblock">
+<div class="content">
+<img src="../presentations/images/tk-based-gui-for-mged.png" alt="../presentations/images/tk-based-gui-for-mged.png" width="5.5in">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_tcl_syntax">Tcl Syntax</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>A command is a list of words.</p>
+</li>
+<li>
+<p>First word on the command line is the command name, any additional words are arguments.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      -- command [arg1 ... argn
+      mged&gt; puts "Hello World"
+      Hello World
+    </pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Words can be grouped with double quotes (" ") or curly braces ({}).</p>
+</li>
+<li>
+<p>Commands are terminated with a newline or semicolon.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_variables">Variables</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Variable names are case-sensitive.</p>
+</li>
+<li>
+<p>Declarations are not necessary.</p>
+</li>
+<li>
+<p>set <em>varName [value]</em></p>
+</li>
+<li>
+<p>Assigns <em>value</em> to the variable <em>varName</em>.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set day Friday
+
+      Friday
+      mged&gt; set day
+      Friday
+
+      mged&gt; set day 25
+
+      25
+    </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_lists">Lists</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>An ordered set of strings</p>
+</li>
+<li>
+<p>Specified with curly braces</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set colors {red yellow green blue}
+      red yellow green blue
+    </pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Sometimes created with "list" command</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set colors [list red yellow green blue]
+      red yellow green blue
+    </pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Can extract elements from the list using the "lindex" command (indices start at zero)</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; lindex {red yellow green blue} 2
+     green
+   </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_arrays">Arrays</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Uses associative arrays</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>&#8212;&#8203; Strings used to index the array elements</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set profit(January) 1500
+      1500
+    </pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set profit(February) -200
+      -200
+    </pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+    mged&gt; set profit(January)
+    1500
+  </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_special_characters">Special Characters</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Dollar sign $</p>
+<div class="paragraph">
+<p>&#8212;&#8203;Substitutes the value of the variable</p>
+</div>
+</li>
+<li>
+<p>Square brackets [ ]</p>
+<div class="paragraph">
+<p>&#8212;&#8203; Replaces contents with the result of evaluating the command</p>
+</div>
+</li>
+<li>
+<p>Backslash \</p>
+<div class="paragraph">
+<p>&#8212;&#8203; Allows special characters such as newlines, [, and $ to be inserted without being treated specially</p>
+</div>
+</li>
+<li>
+<p>Double quotes " "</p>
+<div class="paragraph">
+<p>&#8212;&#8203; Allows special characters to be processed normally</p>
+</div>
+</li>
+<li>
+<p>Curly braces {}</p>
+<div class="paragraph">
+<p>&#8212;&#8203; Disables special characters</p>
+</div>
+</li>
+<li>
+<p>Parentheses ()</p>
+<div class="paragraph">
+<p>&#8212;&#8203; Delimits key values in arrays</p>
+</div>
+</li>
+<li>
+<p>== Special Character Examples</p>
+<div class="paragraph">
+<p>&#8212;&#8203; At the beginning of a line, signifies a comment to follow</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set name Elvis
+      Elvis</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; puts "Hello name"
+      Hello name
+    </pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+     mged&gt; puts "Hello $name"
+     Hello Elvis
+   </pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set len [string length $name]
+      5
+    </pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>&#8212;&#8203; string length $name returns 5</p>
+</li>
+<li>
+<p>&#8212;&#8203; len gets the value 5</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_special_character_examples_cont_d">Special Character Examples (cont&#8217;d)</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; set price 1.41
+      1.41
+      mged&gt; puts "Gasoline: \$ $price/gallon"
+      Gasoline: $1.41/gallon
+      mged&gt; puts {Gasoline: \$ $price/gallon}
+      Gasoline: \$ $price/gallon
+      mged&gt; set product 1; #This is a comment
+      1</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_special_character_conflicts">Special Character Conflicts</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>MGED traditional "name globbing" characters conflict with Tcl/Tk usage:</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>&#8212;&#8203; MGED follows Unix shell filename patterns.</p>
+</li>
+<li>
+<p>&#8212;&#8203; Tcl/Tk has different interpretation of * and [].</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Users can select which interpretation of special characters:</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>.mgedrc: set MGED variable</p>
+</li>
+<li>
+<p>glob_compat_mode</p>
+</li>
+<li>
+<p>set glob_compat_mode 0 (for Tcl evaluation)</p>
+</li>
+<li>
+<p>set glob_compat_mode 1 (for object name matching)</p>
+</li>
+<li>
+<p>Menu: File-&gt;Preferences-&gt;Special Characters</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_special_character_interpretation">Special Character Interpretation</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Special Character Interpretation</p>
+</li>
+</ul>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../presentations/images/special-character-interpretation.png" alt="../presentations/images/special-character-interpretation.png" width="5.5in">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_expressions">Expressions</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>The *expr*command is used to evaluate math expressions.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt; expr 2 + 2
+
+      4
+
+      mged&gt; expr (3 + 2) * 4
+
+      20
+
+      mged&gt; in ball.s sph 0 0 0 [expr 3 + 4]</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>&#8212;&#8203; A sphere is created with a vertex (0,0,0) and a radius of 7.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_control_flow">Control Flow</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>
+      if {test} {body1} [else {body2}]
+
+      mged&gt; set temp 90
+
+      90
+
+      mged&gt; if {$temp &gt; 75} {
+
+      puts "It's hot"
+
+      } else {
+
+      puts "It's moderate"
+
+      }
+
+      It's hot
+    </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_control_flow_cont_d">Control Flow (cont&#8217;d)</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>
+      while {test} {body}
+
+      mged&gt; set time 3
+
+      3
+
+      mged&gt; while {$time &gt; 0} {
+
+      puts "Time is $time"
+
+      set time [expr $time - 1]
+
+      }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Time is 3</p>
+</div>
+<div class="paragraph">
+<p>Time is 2</p>
+</div>
+<div class="paragraph">
+<p>Time is 1</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_control_flow_cont_d">Control Flow (cont&#8217;d)</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>
+      for{init} {test} {reinit} {body}
+      for {set time 3} {$time &gt; 0} {set time [expr $time - 1]} {puts "Time is $time"}
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Time is 3</p>
+</div>
+<div class="paragraph">
+<p>Time is 2</p>
+</div>
+<div class="paragraph">
+<p>Time is 1</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_control_flow_cont_d">Control Flow (cont&#8217;d)</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>
+      foreach
+      varList list{body}
+      mged&gt;
+      foreach fruit {apples pears peaches} {
+      puts "I like $fruit"}</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>I like apples</p>
+</div>
+<div class="paragraph">
+<p>I like pears</p>
+</div>
+<div class="paragraph">
+<p>I like peaches</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      mged&gt;
+      foreach {key val} {sky blue grass green snow white} {
+      puts "The $key is $val"
+      }
+    </pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The sky is blue</p>
+</div>
+<div class="paragraph">
+<p>The grass is green</p>
+</div>
+<div class="paragraph">
+<p>The snow is white</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mged_commands">MGED Commands</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>
+     get
+     obj[attr]
+     Returns a list of the object's attributes. If attr is specified,
+      only the value for that attribute is returned.
+      mged&gt;
+      get foo.r
+      comb region yes id 200 los 100 GIFTmater 2 rgb {100 100 100}
+      mged&gt;
+      get foo.r rgb
+      100 100 100
+      mged&gt;
+      get foo.s
+      ell V {0 0 0} A {4 0 0} B {0 4 0} C {0 0 4}
+    </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mged_commands_cont_d">MGED Commands (cont&#8217;d)</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>adjust obj attr value[attr value]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Modifies the object&#8217;s attribute(s) by adjusting the value of the attribute(s) to the new value(s).</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>ls[-c -r -s]</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Without any options, lists every object in the database.</p>
+</li>
+<li>
+<p>With the "c" option, lists all nonhidden combinations; "r" option lists all nonhidden regions; and "s" option lists all nonhidden primitives.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mged_examples">MGED Examples</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Task: Change the color of all regions to blue.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+
+      mged&gt;
+      foreach region [ls -r] {
+      adjust $region rgb {0 0 255}
+      }
+    </pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Task: Print all regions with nonzero air codes.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Task: Print all regions with nonzero air codes.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+
+      mged&gt;
+      foreach reg [ls -r] {
+      if {[get $reg air] != 0} {
+      puts "$reg"
+      }
+      }
+    </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mged_examples_cont_d">MGED Examples (cont&#8217;d)</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Task: Print all objects with the inherit flag set.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+
+      mged&gt; foreach obj [ls -c] {
+      if {[get $obj inherit] == "yes"} {
+      puts "$obj"
+      }
+      }
+    </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_procedures">Procedures</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>User-Defined commands</p>
+</li>
+<li>
+<p>proc</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+      procName{args} {body}
+      mged&gt;
+      proc add {x y} {
+      set answer [expr $x + $y]
+      return $answer
+      }
+      mged&gt;add 123 456
+      579</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Create new MGED commands</p>
+</li>
+<li>
+<p>Save in .mgedrc</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_procedure_example">Procedure Example</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Procedure that generates a PART that encompasses two specified SPHs</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>
+
+    proc sph-part {sph1 sph2 newname} {
+    foreach {vx1 vy1 vz1} [lindex [get $sph1 V] 0] {}
+    foreach {vx2 vy2 vz2} [lindex [get $sph2 V] 0] {}
+    foreach {ax1 ay1 az1} [lindex [get $sph1 A] 0] {}
+    foreach {ax2 ay2 az2} [lindex [get $sph2 A] 0] {}
+    set radius1 [expr sqrt($ax1*$ax1 + $ay1*$ay1 + $az1*$az1)]
+    set radius2 [expr sqrt($ax2*$ax2 + $ay2*$ay2 + $az2*$az2)]
+    set hx [expr $vx2-$vx1]
+    set hy [expr $vy2-$vy1]
+    set hz [expr $vz2-$vz1]
+    in $newname part $vx1 $vy1 $vz1 $hx $hy $hz $radius1 $radius2
+    }
+  </pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_procedure_example_cont_d">Procedure Example (cont&#8217;d)</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>
+ mged&gt;
+sph-part s1.s s2.s part.s</pre>
+</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../presentations/images/copy-sph-part-left.png" alt="../presentations/images/copy-sph-part-left.png" width="5.5in">
+</div>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../presentations/images/copy-sph-part-right.png" alt="../presentations/images/copy-sph-part-right.png" width="5.5in">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_the_source_command">The "source" Command</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>source <em>fileName</em></p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Reads and executes the file as a Tcl script.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Create the file with a text editor.</p>
+</li>
+<li>
+<p>Reload the file with "source" changes are made.</p>
+</li>
+<li>
+<p>The proc or the source command can be placed in .mgedrc.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mged_defaults">MGED Defaults</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Create the default .mgedrc from inside MGED:</p>
+</li>
+</ul>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../presentations/images/mged-defaults.png" alt="../presentations/images/mged-defaults.png" width="5.5in">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mged_customization">MGED Customization</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Placed in the file</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">mgedrc</div>
+<p>In local directory or home</p>
+</div>
+<div class="paragraph">
+<p><mark><mark></mark><mark></mark></mark><mark><mark></mark> MGEDRC_HEADER <mark></mark></mark><mark><mark></mark><mark></mark></mark></p>
+</div>
+<div class="paragraph">
+<p># You can modify the values below. However, if you want</p>
+</div>
+<div class="paragraph">
+<p># to add new lines, add them above the MGEDRC_HEADER.</p>
+</div>
+<div class="paragraph">
+<p># Note - it&#8217;s not a good idea to set the same variables</p>
+</div>
+<div class="paragraph">
+<p># above the MGEDRC_HEADER that are set below (i.e., the last</p>
+</div>
+<div class="paragraph">
+<p># value set wins).</p>
+</div>
+<div class="paragraph">
+<p># Determines the maximum number of lines of</p>
+</div>
+<div class="paragraph">
+<p># output displayed in the command window</p>
+</div>
+<div class="paragraph">
+<p>set mged_default(max_text_lines) 1000</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_incr_tcl_tk">[incr Tcl/Tk]</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Object-oriented extension to Tcl.</p>
+</li>
+<li>
+<p>Provides support to build large programs.</p>
+</li>
+<li>
+<p>New applications in BRL-CAD are being written in [incr Tcl/Tk].</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_useful_references">Useful References</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Raines, Paul. <em>Tcl/Tk Pocket Reference</em>. O&#8217;Reilly &amp; Associates, Inc., Sebastopol, CA, 1998.</p>
+</li>
+<li>
+<p>Ousterhout, John K. <em>Tcl and the Tk Toolkit</em>. Addison-Wesley, Reading, MA, 1994.</p>
+</li>
+<li>
+<p>Welch, Brent B. <em>Practical Programming in Tcl and Tk, Second Edition</em>. Prentice Hall, Upper Saddle River, NJ, 1997.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

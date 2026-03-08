@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>PLOT3ROT(1)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>PLOT3ROT(1) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>plot3rot - rotate, translate, or scale a UnixPlot file</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_synopsis">SYNOPSIS</h2>
+<div class="sectionbody">
+<div class="listingblock">
+<div class="content">
+<pre>plot3rot [ -x# -y# -z#] [ -X# -Y# -Z#] [-s#] [ -a# -e#] [-g#] [-M] [-m#] [-v] [-S#] &lt; &lt;unix_plot&gt; &gt; &lt;unix_plot&gt;</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="description">DESCRIPTION</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>plot3rot</strong> will rotate translate or scale a UnixPlot file (see <strong>plot3</strong>(5)). Any number of the above options can be given. Each operation is performed left to right in the order in which they appear on the command line, and the operations are concatenated. It is important to note that rotations are not commutative, so the order they are specified in is important. Typing the command without any arguments gives a useful summary.</p>
+</div>
+<div class="paragraph">
+<p>The lower case <strong>-x# -y# -z#</strong> flags perform a rotation about the X, Y, and Z axes respectively by the given number of degrees. A positive value indicates a right handed rotation. Upper case <strong>-X# -Y# -Z#</strong> are translations along these axes in whatever units the plot file is in. The <strong>-s#</strong> flag applies a scale factor up (&gt; 1) or down (&lt; 1) to the plot.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-a# -e#</strong> flags are for azimuth and elevation about the center point. They are really shorthands for positive Z axis and negative X axis rotations respectively, and should be used in the order shown for the proper combined effect to occur. These flags also cause the plot to auto-center based on the "space" command in the plot file, and the new "space" command will be shrunk to fit the rotated plot as tightly as possible.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-M</strong> flag causes the plot to auto-center based on the "space" command in the plot file in much the same way that the <strong>rt</strong>(1) ray tracer does to a model bounding box. I.e. a sphere is fit to this space and the diameter and center of this sphere are used as the center and width of the plot in all three dimensions. This has the advantage of keeping the entire model in view from any angle, and is invariant with respect to viewing direction. It has the disadvantage that the "space" will be enlarged on every cascaded pass through <strong>plot3rot</strong>(1) where the <strong>-M</strong> flag is used.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-S#</strong> flag takes a quoted string of 6 floating point numbers ("min_x min_y min_z max_x max_y max_z"), which are immediately output as a "space" command, and which override any spaces specified by "space" commands found in the input file, as well as any spaces which are computed by translating, rotating, or scaling from those input spaces as directed by other flags.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-v</strong> flag signals that verbose mode is requested. When set, the initial transformation matrix is printed. In addition, every time a <em>space</em> command is encountered in the input file, the old and new bounding RPP is printed.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>-m#</strong> flag takes a quoted string of 16 floating point numbers as its parameter. This string is a 4x4 rotation matrix (see h/vmath.h for details). Note that when using this flag, do not use <strong>-a#, -e#,</strong> or <strong>-g.</strong></p>
+</div>
+<div class="paragraph">
+<p>UnixPlot is traditionally a first quadrant 2D plotting space with X increasing to the right of the plot, and Y increasing up the plot. The "front" of a solid model in the BRL-CAD Package is traditionally defined by the right handed system of X coming out of the screen toward you, Y increasing to the right, and Z increasing up the display (elevation above the XY ground plane). The <strong>-g</strong> flag is a convenient shorthand to transform azimuths and elevations described in <em>gift</em> notation (as degrees off the front or -X view) into the UnixPlot coordinate system for display. If used, this option should usually appear as the last argument, because it acts by modifying the rotation already established. The <strong>-g</strong> command has exactly the same effect as giving <strong>-z-90 -x-90</strong> in the same place.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="examples">EXAMPLES</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The command</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+plot3rot -z30 -x20 &lt; file.plot3 &gt; file2.plot3</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>performs a 30 degree positive rotation about the Z axis (counter clockwise as viewed from the top), and then translates by 20 units <em>along this rotated axis.</em> If the order of these arguments was reversed the effect would not be the same.</p>
+</div>
+<div class="paragraph">
+<p>To view a plot of a model the way one would see it from a ray trace command, you could use:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+rthide -a35 -e25 -o file.plot3
+
+plot3rot -a35 -e25 -g &lt; file.plot3 | plot3-fb</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The final <strong>-g</strong> converts the <em>gift</em> style azimuth and elevations into the conventional UnixPlot (screen) X,Y coordinate system.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="see_also">SEE ALSO</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong>plot3-plot3</strong>(1), <strong>plot3debug</strong>(1), <strong>plot3-fb</strong>(1), <strong>libplot3</strong>(3), <strong>plot3</strong>(5)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="author">AUTHOR</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>BRL-CAD Team</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="copyright">COPYRIGHT</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This software is Copyright &#169; 1988-2025 by the United States Government as represented by U.S. Army Research Laboratory.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bug_reports">BUG REPORTS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Reports of bugs or problems should be submitted via electronic mail to &lt;devs@brlcad.org&gt;</p>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

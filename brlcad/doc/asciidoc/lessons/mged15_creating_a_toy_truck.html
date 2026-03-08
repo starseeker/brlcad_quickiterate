@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<meta name="author" content="Lee A Butler, Eric W Edwards, Betty J Schueler, Robert G Parker, John R Anderson">
+<title>Creating a Toy Truck</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>Creating a Toy Truck</h1>
+<div class="details">
+<span id="author" class="author">Lee A Butler</span><br>
+<span id="author2" class="author">Eric W Edwards</span><br>
+<span id="author3" class="author">Betty J Schueler</span><br>
+<span id="author4" class="author">Robert G Parker</span><br>
+<span id="author5" class="author">John R Anderson</span><br>
+</div>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you will:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Create a toy truck from three shapes.</p>
+</li>
+<li>
+<p>Make copies of shapes using the Primitive Editor.</p>
+</li>
+<li>
+<p>Make combinations and regions of a more complex object.</p>
+</li>
+<li>
+<p>Check the data tree for accuracy.</p>
+</li>
+<li>
+<p>List contents of the database.</p>
+</li>
+<li>
+<p>Assign material properties using the Combination Editor.</p>
+</li>
+<li>
+<p>Identify the difference between OK, Accept, Apply, Reset, Cancel, and Dismiss.</p>
+</li>
+<li>
+<p>Identify the on-screen help option.</p>
+</li>
+<li>
+<p>Identify the stacker option.</p>
+</li>
+<li>
+<p>Experiment with the attributes of the camo shader.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In previous lessons, you created and edited shapes to produce simple objects. This lesson focuses on creating a slightly more complex object, a toy truck, from the Command Window. Your completed truck should look similar to the following truck:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_design.png" alt="../lessons/images/mged15_truck_design.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Begin by creating a new database called truck.g.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_cab_in_cmd">Creating an rpp for the Cab of the Truck Using the In Command</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: <strong>in cab1.s rpp[Enter]</strong> <em>MGED</em> will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: <strong>0 1 0 1 0 1[Enter]</strong> This will tell <em>MGED</em> to:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+<col style="width: 16.67%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of the rpp&#8217;s XMIN 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of the rpp&#8217;s XMAX 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of the rpp&#8217;s YMIN 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of the rpp&#8217;s YMAX 1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of the rpp&#8217;s ZMIN 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of the rpp&#8217;s ZMAX 1</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>You could also have used the streamlined version of: <strong>in cab1.s rpp 0 1 0 1 0 1[Enter]</strong> A cube shape should appear in the Graphics Window, as follows:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_cab1s.png" alt="../lessons/images/mged15_truck_cab1s.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_hood_in_cmd">Using the Inside Command to Create an rpp for the Hood of the Cab</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To make the hood of the cab, you will need to make another rpp shape, this time using the inside command. This special command was originally created to hollow out objects such as gas tanks and boxes; however, it can be used to create any new shape that has some relationship to a pre-existing shape. In this lesson, it is used to cut away material above the hood and in front of the cab.</p>
+</div>
+<div class="paragraph">
+<p>If you are using <em>BRL-CAD</em> version 6.0 or later, at the Command Window prompt, type: <strong>inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]</strong> The inside command tells <em>MGED</em> to:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+<col style="width: 11.11%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">inside</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cab1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">caboff1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-.1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.7</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-.1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-.1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-.1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Inside the shape</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">named cab1.s,</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">create rpp called caboff1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make face 1234 (front) -.1 units thick</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make face 5678 (rear) .7 units thick</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make face 1485 (right) -.1 units thick</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make face 2376 (left) -.1 units thick</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make face 1265 (bottom) .5 units thick</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make face 3487 (top) -.1 units thick</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In this example, each negative thickness number indicates that caboff1.s will protrude through the corresponding face of cab1.s. Running the l (list) command, you can see the vertices for the box it creates:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+caboff1.s:  ARB8
+	  1 (1.1, -0.1, 0.5)
+	  2 (1.1, 1.1, 0.5)
+	  3 (1.1, 1.1, 1.1)
+	  4 (1.1, -0.1, 1.1)
+	  5 (0.7, -0.1, 0.5)
+	  6 (0.7, 1.1, 0.5)
+	  7 (0.7, 1.1, 1.1)
+	  8 (0.7, -0.1, 1.1)
+	  </pre>
+</div>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="admonitionblock note">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Note that in older versions of <em>BRL-CAD</em>, the faces of an rpp were numbered in a different order. So, if your results don&#8217;t match, kill caboff1.s and run this command instead: <strong>inside cab1.s caboff1.s .5 -.1 .7 -.1 -.1 -.1[Enter]</strong></p>
+</div>
+</td>
+</tr></table>
+</div>
+<div class="paragraph">
+<p>When in Multipane mode, the design should resemble the following illustration.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_cab_cutoff.png" alt="../lessons/images/mged15_truck_cab_cutoff.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_cab_wheel_well">Using an rcc to Create a Wheel Well in the Cab</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Make a cylinder (rcc) to use for cutting away a space for the first wheel of the cab. At the Command Window prompt, type: <strong>make well1.s rcc[Enter]</strong> Go to the Edit menu and click on Primitive Selection, then well1.s. After selecting a Left view, go back to Edit and select Scale. Reduce the size of the rcc until its diameter is about the right size for a wheel well. Go back to Edit and select Rotate. As discussed previously, one way to easily rotate the rcc is by using the CTRL key and the left mouse button to drag the top lip of the rcc down (in a straight line) until the A and C edit labels overlap. However, because we know we want to flip the object exactly 90&#8217;0 along the x axis, a better choice is to use the Command Line and type: <strong>p 90 0 0[Enter]</strong> After doing so, you may still have to use the Set H and Scale editing options to resize and the SHIFT key and left mouse button to position your wheel well. When satisfied, select Accept on the Edit menu. Your design should look similar to the following in Multipane mode:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_multipane_1stwheel.png" alt="../lessons/images/mged15_truck_multipane_1stwheel.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ok_accept_apply_reset_cancel_dismiss">The Difference Between OK, Accept, Apply, Reset, Cancel, and Dismiss</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The GUI environment of <em>MGED</em> offers users several options for applying, accepting, or rejecting changes made through buttons at the bottom of dialog pop-up windows. To use any of these options, just place the mouse cursor over the desired button and click the left mouse button.</p>
+</div>
+<div class="paragraph">
+<p>Selecting the Accept or OK button will tell <em>MGED</em> to record the changes you have made to a shape, region, or combination. <em>MGED</em> uses the Accept and OK buttons interchangeably. When you select Accept or OK, the window you are using will automatically close.</p>
+</div>
+<div class="paragraph">
+<p>The Apply button tells <em>MGED</em> to apply a change you have made and wait for further instructions. The window does not automatically close. This enables you to make changes to several things without having to reopen the window for each change.</p>
+</div>
+<div class="paragraph">
+<p>The Reset button tells <em>MGED</em> to reset values you have changed in a dialog box to the last values you applied or accepted. The Reset button does not close the dialog box. The Cancel or Dismiss buttons discard any changes made in the dialog box and leave values unchanged from their last stored settings. These two buttons close the dialog box.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_wheel_well_prim_edit_cpy">Using the Primitive Editor to Make a Copy of the Wheel Well</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To make a copy of your wheel well, go to the Edit menu and select Primitive Editor, which will contain information about the last shape edited through the dialog box (or myPrimitive if nothing has been edited). Erase the old shape&#8217;s name in the Name entry box. Type in well1.s and press Reset (or press Enter while the cursor is still in the Name entry box). The parameter values of the old shape will be replaced by those of the new shape. The Primitive Editor will change and look something like the following example:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_prim_ed_wheel_well.png" alt="../lessons/images/mged15_prim_ed_wheel_well.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Go back to the Name text box and change the 1 to a 2 and click on OK. Change to Front under the View menu. Go to Edit/Primitive Selection and select well2.s. Use the SHIFT and left mouse button to drag the new wheel well into position, as shown in the following illustration. Check your alignment in Multipane mode and then select Accept when you are finished.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_2nd_wheel_wheel_place.png" alt="../lessons/images/mged15_truck_2nd_wheel_wheel_place.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_cab_shape_comb">Making a Combination of the Cab Shapes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It is now time to make a combination of the various cab shapes. <strong>comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]</strong> This command tells <em>MGED</em> to:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+<col style="width: 10.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">comb</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cab1.c</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">u</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cab1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">caboff1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">well1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">well2.s</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make a combination</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name it cab1.c</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make a union</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">of the shape cab1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">minus</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the shape caboff1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">minus</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the shape well1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">minus</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">the shape well2.s</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Before you go any further, you should check your data tree by typing tree cab1.c. The data tree should say:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   cab1.c/
+
+   u cab1.s
+
+   - caboff1.s
+
+   - well1.s
+
+   - well2.s
+	</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you type ls (list) at the Command Window prompt, you should find that your database is composed of the combination cab1.c and the shapes cab1.s, caboff1.s, well1.s, and well2.s. You will find as you make more complex objects that you will periodically refer to the list of the database to ensure it is composed of the elements you want.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_body_in_cmd">Creating an rpp for the Body of the Truck Using the In Command</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To make the body of the truck, type at the Command Window prompt: <strong>in body1.s rpp 0 2 0 1 0 1.5[Enter]</strong> By now, you should know what this command tells <em>MGED</em> to do. If you have forgotten, refer back to making the cab of the truck.</p>
+</div>
+<div class="paragraph">
+<p>Edit the body of the truck so that its front face slightly overlaps the cab&#8217;s back face. Check different views to make sure the body lines up correctly with the cab. Accept your changes when you are done, and then Blast your design. Your truck should now look like the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_cab_body.png" alt="../lessons/images/mged15_truck_cab_body.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="prim_ed_wheel_wells">Using the Primitive Editor to Make Two More Wheel Wells</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To make two wheel wells for the body of the truck, repeat the steps used in making the second wheel well. Name your new shapes well3.s and well4.s. Using multiple views, move the new shapes into position so that your truck now looks similar to the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_wheel_wells_wireframe.png" alt="../lessons/images/mged15_truck_wheel_wells_wireframe.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_body_wheel_wells_comb">Making a Combination of the Truck Body and Wheel Wells</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Make a combination of the truck body and the two new wheel wells. Name it body1.c. The tree for body1.c should say:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   body1.c/
+
+   u body1.s
+
+   - well3.s
+
+   - well4.s
+	</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_cab_body_region">Making a Region of the Cab and Body</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Before adding wheels to the truck, you need to make a region of the cab and body. At the Command Window prompt, type: <strong>r truck1.r u cab1.c u body1.c[Enter]</strong></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_wheels">Making Wheels for the Truck</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Perhaps the best shape for making wheels is the torus. You can create a shape through the Command Window that has the correct size and placement for your design without further editing. However, this lesson is designed to give you practice rotating and translating shapes.</p>
+</div>
+<div class="paragraph">
+<p>To make the first wheel, type at the Command Window prompt: <strong>in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]</strong> This command tells <em>MGED</em> to:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+<col style="width: 14.29%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">wheel1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">tor</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0 0 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.5774 .5774 .5774</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.18</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">.08</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a shape</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name it wheel1.s</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the shape a torus</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the values of the vertex 0 0 0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the values for x, y, and z of the normal vector .5774 .5774 .5774</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of the outer radius .18</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Make the value of radius 2 (the tire thickness) .08</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Change View to Left and then Edit the position of the wheel. To correctly align the wheel with the truck, you will have to Rotate the tire using the CTRL key and any mouse button. Scale and Translate the wheel into position as appropriate and check your alignment from several different views. Accept your changes when finished.</p>
+</div>
+<div class="paragraph">
+<p>Using the Primitive Editor, make the second, third, and fourth wheels. Move each of these wheels into position until your truck looks like the following:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_truck_wheels.png" alt="../lessons/images/mged15_truck_wheels.png">
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_wheels_region">Making a Region of the Wheels</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Make a region of the four wheels. When you are finished, your data tree for wheel1.r should say:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   wheel1.r/R
+
+   u wheel1.s
+
+   u wheel2.s
+
+   u wheel3.s
+
+   u wheel4.s
+	</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_regions_mater_props">Assigning Material Properties to the Truck Regions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Your truck is composed of two regions: truck1.r and wheel1.r. Use the Combination Editor and select truck1.r.</p>
+</div>
+<div class="paragraph">
+<p>In the Combination Editor, the camouflage (camo) shader creates a pseudo-random tricolor camouflage pattern on the object using a fractal noise pattern. The shader offers lots of attributes from which to choose. For now, select a Background Color of black (0 0 0) and make Color #1 green (0 134 0), and Color #2 rust brown (164 96 38). To make the pattern design proportional to the truck, select a Noise Size of .25 and then Apply the selections. The Combination Editor window for the camo shader should look like this:</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="../lessons/images/mged15_cameo_shader.png" alt="../lessons/images/mged15_cameo_shader.png">
+</div>
+</div>
+<div class="paragraph">
+<p>Apply a black color and plastic shader to the wheels (wheel1.r) and click on OK. Then raytrace your design.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="on_screen_help">Using the On-Screen Help Option</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You have probably noticed that many of the <em>MGED</em> menus offer a wide variety of options from which to choose. With so many choices available, it is easy to forget what a particular selection does. To help users quickly access basic information about the various <em>MGED</em> options, the program offers a context-sensitive, on-screen help feature.</p>
+</div>
+<div class="paragraph">
+<p>The on-screen help can be accessed from any menu or pop-up window by placing the mouse cursor over the name of any option in the menu or window and clicking the right mouse button. The only place this feature doesn&#8217;t work is in the geometry portion of the Graphics Window, where the design is drawn.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="stacker_shading">The Stacker Option</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In previous lessons, you applied color and a shader to an object to make it appear realistic. Sometimes, however, you will need to apply two or three shaders to an object to get the design you want.</p>
+</div>
+<div class="paragraph">
+<p><em>MGED</em> offers three categories of shaders: paint, plastic, and light. Any combination of these three types of shaders can be applied to the same object using the stacker option of the shader menu.</p>
+</div>
+<div class="paragraph">
+<p>There are three plastic shaders: glass, mirror, and plastic. A plastic shader is used to give the perception of space. It does this by making the object&#8217;s surface shiny so that it reflects light. A plastic shader is normally applied last in the stacker process.</p>
+</div>
+<div class="paragraph">
+<p>The paint shaders are used to apply pigment and texture to the surface of an object. Color is pigment, and texture is the three-dimensional quality of the surface material (such as stucco paint).</p>
+</div>
+<div class="paragraph">
+<p>Pigment shaders include camo, texture (color), texture (black/white), fake star, cloud, checker, test map, and projection. Texture shaders include bump map, fbm bump, and tur bump. Paint shaders are normally applied first in the stacking process and are used in combination with the plastic shader.</p>
+</div>
+<div class="paragraph">
+<p>The light shader is used to produce illumination in the scene. This helps produce realism in the final image. The light shader is technically complex and is not discussed in this tutorial.</p>
+</div>
+<div class="paragraph">
+<p>The camo shader involves applying pigments, in a random pattern, to the surface of an object. The camo shader doesn&#8217;t indicate the three-dimensional nature of an object. If you want your design to show depth, you will need to stack the camo shader and the plastic shader.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="using_stacker_shading">Using the Stacker Option</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To use the stacker option, open the Combination Editor and select truck1.r. Click on the button to the right of the Shader entry box and then select stack from the drop-down menu. A button with the words Add Shader will appear under the text box. Click on the button and then select camouflage. Set the Background Color to black (0 0 0), Color #1 to green (0 134 0), and Color #2 to rust brown (164 96 38). Make the Noise Size .25. Click on Add Shader once again and select plastic.</p>
+</div>
+<div class="paragraph">
+<p>At this point, your Combination Editor window may have gone off the bottom of the screen. If this happens, reduce the size of the window as much as you can and then drag it up to the top of the screen. The buttons at the bottom of the box should now appear, and you can Apply your selections.</p>
+</div>
+<div class="admonitionblock caution">
+<table><tr>
+<td class="icon">
+<div class="title">Caution</div>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When using the stacker option, you need to keep track of the number of characters and spaces in the shader text box. <em>MGED</em> versions prior to release 6.0 will only recognize 64 characters/spaces, so be careful stacking shaders with complex attributes.</p>
+</div>
+</td>
+</tr></table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_combine_regions">Making a Combination of the Truck Regions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To make a combination of the two truck regions, type at the Command Window prompt: <strong>comb truck1.c u truck1.r u wheel1.r[Enter]</strong> <strong>B truck1.c[Enter]</strong> Your data tree for truck1.c should read:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>
+   truck1.c/
+
+   u truck1.r/R
+
+   u cab1.c/
+
+   u cab1.s
+
+   - caboff1.s
+
+   - well1.s
+
+   - well2.s
+
+   u body1.c
+
+   u body1.s
+
+   - well3.s
+
+   - well4.s
+
+   u wheel1.r/R
+
+   u wheel1.s
+
+   u wheel2.s
+
+   u wheel3.s
+
+   u wheel4.s
+	</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="truck_raytracing">Raytracing the Truck</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The last step in creating your truck is to raytrace your design. When the raytracer has finished, notice that the top and one side of the truck are very dark. This is because there is very little light falling on them. Because we have not specified any light sources for our scene, <em>MGED</em> provides us with a set of default lights. These defaults consist of a dim light at the location of the viewer and a brighter one located to the left and below the viewer. Since the primary light is not really shining on one side of the truck, it is dark.</p>
+</div>
+<div class="paragraph">
+<p>There is a special adjustment we can make to improve the overall brightness of the scene. We can adjust the amount of ambient light, which is light that does not come from a particular light source but is a measure of the light generally present in the scene. To adjust the amount of ambient light, click on the Advanced Settings button in the Raytrace Control Panel. Next to Other Options, type -A .9 and click Dismiss. Now when you raytrace, you will get a much lighter image.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../lessons/images/mged15_truck_default_lighting.png" alt=""></span></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><span class="image"><img src="../lessons/images/mged15_truck_ambient_lighting.png" alt=""></span></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Truck with Default Lighting</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Truck with Added Ambient Light</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="creating_toy_truck_review">Review</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In this lesson, you:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Created a toy truck from three shapes.</p>
+</li>
+<li>
+<p>Made copies of shapes using the Primitive Editor.</p>
+</li>
+<li>
+<p>Made combinations and regions of a more complex object.</p>
+</li>
+<li>
+<p>Checked the data tree for accuracy.</p>
+</li>
+<li>
+<p>Listed contents of the database.</p>
+</li>
+<li>
+<p>Assigned material properties using the Combination Editor.</p>
+</li>
+<li>
+<p>Identified the difference between OK, Accept, Apply, Reset, Cancel, and Dismiss.</p>
+</li>
+<li>
+<p>Identified the on-screen help option.</p>
+</li>
+<li>
+<p>Identified the stacker option.</p>
+</li>
+<li>
+<p>Experimented with the attributes of the camo shader.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>

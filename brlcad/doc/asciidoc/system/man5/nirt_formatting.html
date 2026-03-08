@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="asciiquack 0.1.0">
+<title>DRAFT!!! NIRT Output Formatting Specifications(5)</title>
+<style>
+/* asciiquack default stylesheet (minimal) */
+body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:1em 2em;line-height:1.6;color:#333}
+h1,h2,h3,h4,h5,h6{color:#2c5282;line-height:1.2;margin-top:1.4em}
+h1{font-size:2em;border-bottom:2px solid #2c5282;padding-bottom:.25em}
+h2{font-size:1.6em;border-bottom:1px solid #ccc}
+code,pre{font-family:monospace;background:#f5f5f5;border-radius:3px}
+pre{padding:1em;overflow:auto;border-left:4px solid #ccc}
+code{padding:.1em .3em}
+.listingblock pre{background:#282c34;color:#abb2bf;border:none}
+table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ddd;padding:.5em .75em;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+.admonitionblock table{border:none;width:100%}
+.admonitionblock td.icon{width:80px;font-weight:bold;text-transform:uppercase}
+.admonitionblock td.content{padding:.5em 1em}
+.admonitionblock.note td.icon{color:#31708f}
+.admonitionblock.tip td.icon{color:#3c763d}
+.admonitionblock.warning td.icon{color:#8a6d3b}
+.admonitionblock.important td.icon{color:#a94442}
+.admonitionblock.caution td.icon{color:#a94442}
+blockquote{border-left:4px solid #ccc;padding:.5em 1em;margin:1em 0;color:#555;font-style:italic}
+.sidebarblock{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+#header,#content,#footer{margin-bottom:1em}
+#footer{border-top:1px solid #ccc;padding-top:.5em;color:#666;font-size:.9em}
+#header .details{font-size:.9em;color:#666}
+mark{background:#ff9}
+.exampleblock{border:1px solid #ddd;border-radius:4px;padding:1em;margin:1em 0}
+img{max-width:100%;height:auto}
+.imageblock{text-align:center;margin:1em 0}
+.imageblock .title{font-style:italic;color:#666;margin-top:.5em}
+video,audio{max-width:100%}
+.videoblock,.audioblock{margin:1em 0}
+.sectnum{margin-right:.25em}
+#toc{background:#f8f8f8;border:1px solid #ddd;border-radius:4px;padding:1em 1.5em;margin:1em 0;display:inline-block;min-width:200px}
+#toctitle{font-weight:bold;margin-bottom:.5em}
+#toc ul{list-style:none;padding-left:0;margin:0}
+#toc ul ul{padding-left:1.5em}
+#toc a{text-decoration:none;color:#2c5282}
+#toc a:hover{text-decoration:underline}
+#toc li{margin:.25em 0}
+#footnotes{border-top:1px solid #ccc;margin-top:1em;padding-top:.5em}
+.footnote{font-size:.9em;color:#666;margin:.25em 0}
+sup.footnote{font-size:.75em;vertical-align:super;line-height:0}
+sup.footnote a{color:#2c5282;text-decoration:none}
+kbd{font-family:monospace;border:1px solid #ccc;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f5f5f5}
+.keyseq{font-family:monospace;font-size:.9em}
+b.button{border:1px solid #aaa;border-radius:3px;padding:.1em .35em;font-size:.9em;background:#f0f0f0;font-weight:normal}
+.menuseq,.menu,.menuitem{font-style:italic}
+.caret{font-style:normal;font-weight:bold}
+b.conum,span.conum{display:inline-block;background:#555;color:#fff;border-radius:50%;width:1.2em;height:1.2em;text-align:center;line-height:1.2em;font-size:.8em;font-weight:bold;font-style:normal;margin:0 .1em}
+.colist{margin:.5em 0}
+.colist ol{list-style:none;padding-left:0}
+.stemblock{margin:1em 0}
+h-[data-h=err]{color:#e06c75}
+h-[data-h=cmt],h-[data-h=cmt_dlim],h-[data-h=cmt_doc],h-[data-h=cmt_doc_dlim]{color:#7f848e;font-style:italic}
+h-[data-h=str],h-[data-h=str_dlim],h-[data-h=str_deco]{color:#98c379}
+h-[data-h=str_esc],h-[data-h=str_intp],h-[data-h=str_intp_dlim]{color:#56b6c2}
+h-[data-h=num],h-[data-h=num_dlim],h-[data-h=num_deco]{color:#d19a66}
+h-[data-h=kw],h-[data-h=kw_ctrl],h-[data-h=kw_op],h-[data-h=kw_this]{color:#c678dd}
+h-[data-h=kw_type]{color:#e5c07b}
+h-[data-h=name],h-[data-h=name_decl]{color:#abb2bf}
+h-[data-h=name_fun],h-[data-h=name_fun_decl],h-[data-h=name_fun_pre]{color:#61afef}
+h-[data-h=name_type],h-[data-h=name_type_decl],h-[data-h=name_type_pre]{color:#e5c07b}
+h-[data-h=name_var],h-[data-h=name_var_decl]{color:#e06c75}
+h-[data-h=name_cons],h-[data-h=name_cons_decl],h-[data-h=name_cons_pre]{color:#d19a66}
+h-[data-h=name_mac],h-[data-h=name_mac_decl],h-[data-h=name_mac_pre],h-[data-h=name_dirt],h-[data-h=name_dirt_pre]{color:#56b6c2}
+h-[data-h=name_life],h-[data-h=name_life_decl]{color:#d19a66}
+h-[data-h=name_attr],h-[data-h=name_attr_decl]{color:#e5c07b}
+h-[data-h=name_inst],h-[data-h=name_inst_decl],h-[data-h=asm_inst_pre]{color:#56b6c2}
+h-[data-h=name_labl],h-[data-h=name_labl_decl]{color:#e06c75}
+h-[data-h=name_para],h-[data-h=name_para_decl]{color:#e06c75}
+h-[data-h=name_cmd],h-[data-h=name_opt]{color:#61afef}
+h-[data-h=name_nt],h-[data-h=name_nt_decl]{color:#56b6c2}
+h-[data-h=sym_op]{color:#56b6c2}
+h-[data-h=sym_punc]{color:#abb2bf}
+h-[data-h=sym_brac],h-[data-h=sym_par],h-[data-h=sym_sqr],h-[data-h=sym_bket]{color:#abb2bf}
+h-[data-h=diff_del],h-[data-h=diff_del_dlim]{color:#e06c75}
+h-[data-h=diff_ins],h-[data-h=diff_ins_dlim]{color:#98c379}
+h-[data-h=diff_head],h-[data-h=diff_head_dlim],h-[data-h=diff_head_hunk],h-[data-h=diff_head_hunk_dlim]{color:#7f848e}
+h-[data-h=diff_mod],h-[data-h=diff_mod_dlim]{color:#d19a66}
+h-[data-h=mk_tag],h-[data-h=mk_tag_decl],h-[data-h=mk_tag_dlim]{color:#e06c75}
+h-[data-h=mk_attr],h-[data-h=mk_attr_decl]{color:#d19a66}
+h-[data-h=mk_attr_pre]{color:#61afef}
+</style>
+</head>
+<body class="manpage">
+<div id="header">
+<h1>DRAFT!!! NIRT Output Formatting Specifications(5) Manual Page</h1>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_name">NAME</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>nirt_formatting - DRAFT!!! Document supported output formatting specifications for Natalie&#8217;s Interactive RayTracer (NIRT)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nirt_format_overview">Overview</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>One of the most powerful features of Natalie&#8217;s Interactive RayTracer (NIRT) is the ability to support user-defined output formatting for its outputs. The <strong>fmt</strong> command allows on-the-fly alteration of what and how various values generated by shotline intersections, using a subset of the <a href="http://www.cplusplus.com/reference/cstdio/printf/">http://www.cplusplus.com/reference/cstdio/printf/</a>[C/C++ printf format specifier syntax] for flexibile template specification and a series of pre-defined keys to specify individual elements of generated results. The general form of a <strong>fmt</strong> command is:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>fmt 'char' "format string" [keys]...</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where the "char" argument is replaced by a single character identifying the category of output the format string applies. The "format string" is the printf style formatting string, and the keys will line up with format specifiers in the string the same way variables in C/C++ line up with specifiers in a printf format string.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nirt_format_categories">Output Categories</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>NIRT offers seven categories of output reporting:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+<col style="width: 33.33%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Category Name</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Char</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Description</strong></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Ray</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>r</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Report of ray information. The formatting associated with r will print once per ray, regardless of whether a region is encountered.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Header</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>h</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">First output after a ray hits anything, typically used to identify columns in subsequent output. Printed once per ray.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Partition</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>p</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Output for each region encountered by the ray. Typically this will be where most of the information about a model is reported.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Footnote</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>f</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Last output statement after a ray hits anything; a "footnote" line after the ray has completed its evaluations. Printed once per ray.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Gap</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>g</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Output written once for each gap the ray may encounter.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Miss</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>m</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If triggered, prints a message that nothing was hit; maximum once per ray.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Overlap</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>o</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Output written once for each overlap along the ray.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nirt_format_str">Format Strings</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>NIRT&#8217;s format specifications are a subset of those found in printf implementations. Specifically, the d, i, and f types are supported, as well as width and precision specifiers.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nirt_format_keys">Reporting Keys - Connecting Data to Format Strings</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Unlike the full C/C++ printf, NIRT accepts only pre-defined string keys that identify elements of specific information related to each cateogry of output. Ray information is consistent over an entire shot event, and therefore Ray keys may be used in all categories:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Ray Variables</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x_orig</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x coordinate of ray origination point.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y_orig</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y coordinate of ray origination point.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z_orig</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z coordinate of ray origination point.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d_orig</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d coordinate of ray origination point.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">h</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">h coordinate for the entire ray.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">v</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">v coordinate for the entire ray.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x_dir</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x component of direction vector.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y_dir</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y component of direction vector.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z_dir</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z component of direction vector.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">a</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">azimuth of view (i.e., of ray direction).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">e</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">elevation of view (i.e., of ray direction).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Footnote and Miss categories have no particular keys unique to them, although they (like all categories) can use the Ray keys if desired. Partition, Overlap, and Gap, on the other hand, have keys that are unique to their contexts and valid only within those contexts:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Partition Variables</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">attributes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A string variable consisting of the names and values of the attributes requested by the <strong>attr</strong> interactive command or the -A command line option.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x coordinate of entry into current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y coordinate of entry into current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z coordinate of entry into current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d coordinate of entry into current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x coordinate of exit from current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y coordinate of exit from current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z coordinate of exit from current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d coordinate of exit from current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">los</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">line-of-sight distance through current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">scaled_los</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">scaled line of sight: product of line-of-sight distance through current region and region solidity (sometimes called ``percent LOS''). Note that "region solidity" refers to a thickness equivalence factor often used to simulate material properties like density.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">path_name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">full path name of current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">reg_name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name of current region</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">reg_id</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">region ID of current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">claimant_count</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">number of regions claiming this partition (that is, participating in a retained overlap).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">claimant_list</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">space-separated list of names of regions claiming this partition (that is, participating in a retained overlap).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">claimant_listn</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Same as claimant_list, except that it is newline, rather than space-separated.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">obliq_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">entry obliquity for current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">obliq_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">exit obliquity for current region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_x_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x component of entry normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_y_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y component of entry normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_z_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z component of entry normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_h_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">h component of entry normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_v_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">v component of entry normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_d_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d component of entry normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_x_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x component of exit normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_y_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y component of exit normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_z_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z component of exit normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_h_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">h component of exit normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_v_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">v component of exit normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">nm_d_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d component of exit normal vector</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">surf_num_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">entry-surface ID of entry solid.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">surf_num_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">exit-surface ID of exit solid.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Overlap Variables</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_reg1_name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name of one of the overlapping regions.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_reg2_name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name of the other overlapping region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_reg1_id</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">region ID of one of the overlapping regions.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_reg2_id</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">region ID of the other overlapping region.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_sol_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name of one of the overlapping solids.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_sol_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">name of the other overlapping solid.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_los</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">line-of-sight distance through the overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_x_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x coordinate of entry into overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_y_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y coordinate of entry into overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_z_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z coordinate of entry into overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_d_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d coordinate of entry into overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_x_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x coordinate of exit from overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_y_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y coordinate of exit from overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_z_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z coordinate of exit from overlap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ov_d_out</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">d coordinate of exit from overlap.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Gap Variables</caption>
+<colgroup>
+<col style="width: 50.00%">
+<col style="width: 50.00%">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x_gap_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">x coordinate of entry into gap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y_gap_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">y coordinate of entry into gap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z_gap_in</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">z coordinate of entry into gap.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gap_los</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">line-of-sight distance through gap.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+</div>
+</div>
+</body>
+</html>
