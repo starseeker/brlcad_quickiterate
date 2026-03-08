@@ -205,6 +205,7 @@ struct ListMatch {
     ListType    type;
     std::string marker;   ///< the leading marker characters
     std::string text;     ///< rest of the line after the marker
+    std::string term;     ///< for description lists: the term before the marker (from regex)
 };
 
 std::optional<ListMatch> match_list_item(const std::string& line) {
@@ -238,7 +239,7 @@ std::optional<ListMatch> match_list_item(const std::string& line) {
             aqrx::ECMAScript | aqrx::optimize);
         aqrx::smatch m;
         if (aqrx::regex_match(line, m, rx)) {
-            return ListMatch{ListType::Description, m[3].str(), m[4].matched ? m[4].str() : ""};
+            return ListMatch{ListType::Description, m[3].str(), m[4].matched ? m[4].str() : "", m[2].str()};
         }
         // Empty-term pattern: a line that is exactly "::" or "::" followed by
         // body text.  This is valid AsciiDoc and is used in generated synopses.
@@ -1682,11 +1683,19 @@ std::shared_ptr<List> Parser::parse_list(
         if (!lm) { return nullptr; }
 
         if (list_type == ListType::Description) {
-            // term is everything before the '::' / ';;' marker
-            auto marker_pos = text_line.find(lm->marker);
-            std::string term = (marker_pos != std::string::npos)
-                                ? text_line.substr(0, marker_pos)
-                                : text_line;
+            // Use the term captured directly by the regex matcher rather than
+            // searching for the marker in the line with find().  Using find()
+            // would stop at the FIRST occurrence of '::' in the line, which
+            // is wrong when the term itself contains '::' (e.g. attribute-style
+            // terms like '*simulate::type=_TYPE_*::').  The regex correctly
+            // identifies the term via the lazy match that leaves the trailing
+            // '::' + end-of-line as the dlist separator.
+            std::string term = lm->term;
+            if (term.empty()) {
+                // Fallback for empty-term matches (the '::-only' pattern)
+                // which has no term captured.
+                term = "";
+            }
             trim(term);
             item->set_term(term);
         }
