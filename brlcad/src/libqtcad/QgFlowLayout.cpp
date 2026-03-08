@@ -146,8 +146,7 @@ QSize QgFlowLayout::sizeHint() const
 QSize QgFlowLayout::minimumSize() const
 {
     QSize size;
-    QLayoutItem *item;
-    foreach (item, itemList)
+    for (QLayoutItem *item : itemList)
         size = size.expandedTo(item->minimumSize());
 
     int left, top, right, bottom;
@@ -165,8 +164,7 @@ int QgFlowLayout::doLayout(const QRect &rect, bool testOnly) const
     int y = effectiveRect.y();
     int lineHeight = 0;
 
-    QLayoutItem *item;
-    foreach (item, itemList) {
+    for (QLayoutItem *item : itemList) {
         QWidget *wid = item->widget();
         int spaceX = horizontalSpacing();
         if (spaceX == -1)
