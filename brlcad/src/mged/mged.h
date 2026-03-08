@@ -413,7 +413,6 @@ void add_solid_path_to_result(Tcl_Interp *interpreter, bsg_shape *sp);
 int redraw_visible_objects(struct mged_state *s);
 
 /* dozoom.c */
-void createDLists(void *, struct bu_list *hdlp);
 void createDListSolid(void *, bsg_shape *);
 void createDListAll(void *, struct display_list *);
 void freeDListsAll(void *, unsigned int dlist, int range);

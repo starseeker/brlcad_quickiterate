@@ -24,14 +24,18 @@
  */
 
 #include <set>
+#include <unordered_map>
 #include <unordered_set>
 #include <QFileInfo>
 #include <QFile>
+#include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QTextStream>
 #include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
+#include "bu/ptbl.h"
+#include "bsg/util.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdApp.h"
@@ -39,6 +43,59 @@
 #include "QgEdFilter.h"
 
 #include "../libged/dbi.h"
+
+/* --------------------------------------------------------------------------
+ * P2: Sensor-driven redraws.
+ *
+ * We register a bsg_sensor on every shape in each view's scene root.  When
+ * bsg_shape_stale() fires on any shape (e.g. after a LOD switch or a
+ * display-list invalidation) the callback schedules a Qt repaint by invoking
+ * do_view_changed(QG_VIEW_REFRESH) via a queued meta-call so the signal is
+ * safely emitted from whatever thread fired the sensor.
+ * -------------------------------------------------------------------------- */
+
+static std::unordered_map<bsg_shape *, unsigned long long> &qged_sensor_map()
+{
+    static std::unordered_map<bsg_shape *, unsigned long long> m;
+    return m;
+}
+
+static void
+qged_shape_stale_cb(bsg_shape *s, void *ctx)
+{
+    (void)s;
+    if (!ctx) return;
+    QgEdApp *app = static_cast<QgEdApp *>(ctx);
+    QMetaObject::invokeMethod(app, "do_view_changed",
+	Qt::QueuedConnection,
+	Q_ARG(unsigned long long, (unsigned long long)QG_VIEW_REFRESH));
+}
+
+static void
+qged_register_view_sensors(QgEdApp *app, bsg_view *v)
+{
+    if (!app || !v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    auto &m = qged_sensor_map();
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	if (!s) continue;
+	if (m.find(s) != m.end()) continue;
+	unsigned long long h = bsg_shape_add_sensor(s, qged_shape_stale_cb, app);
+	if (h) m[s] = h;
+    }
+}
+
+static void
+qged_deregister_all_sensors()
+{
+    auto &m = qged_sensor_map();
+    for (auto &kv : m) {
+	bsg_shape_rm_sensor(kv.first, kv.second);
+    }
+    m.clear();
+}
 
 int
 qged_pre_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
@@ -65,6 +122,7 @@ qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp
 int
 qged_pre_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
 {
+    qged_deregister_all_sensors();
     return BRLCAD_OK;
 }
 
@@ -373,7 +431,14 @@ QgEdApp::do_view_changed(unsigned long long flags)
 		vmap[bvs].insert(v);
 	    }
 	    for (auto &[bvs, vset] : vmap)
-		bvs->redraw(nullptr, vset, 1);
+		bvs->redraw(nullptr, vset, 1);	}
+	/* P2: After (re)drawing, register stale-notification sensors on all
+	 * shapes now present in every view's scene root. */
+	if (views) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
+		qged_register_view_sensors(this, v);
+	    }
 	}
     }
 

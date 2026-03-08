@@ -1075,16 +1075,22 @@ ged_who_argc(struct ged *gedp)
 	return 0;
     }
 
-    struct display_list *gdlp = NULL;
-    size_t visibleCount = 0;
-
-    if (!gedp || !gedp->i->ged_gdp || !gedp->i->ged_gdp->gd_headDisplay)
-	return 0;
-
-    for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay)) {
-	visibleCount++;
+    /* Phase 2e: count unique top-level names from scene-root children */
+    bsg_shape *_root = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+    if (!_root) return 0;
+    struct bu_ptbl _tops;
+    bu_ptbl_init(&_tops, 8, "who_argc_tops");
+    for (size_t _i = 0; _i < BU_PTBL_LEN(&_root->children); _i++) {
+	bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _i);
+	if (!_sp || !_sp->s_u_data) continue;
+	struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+	if (!_bd->s_fullpath.fp_len) continue;
+	struct directory *_dp = _bd->s_fullpath.fp_names[0];
+	if (_dp->d_addr == RT_DIR_PHONY_ADDR) continue;
+	bu_ptbl_ins_unique(&_tops, (long *)_dp);
     }
-
+    size_t visibleCount = BU_PTBL_LEN(&_tops);
+    bu_ptbl_free(&_tops);
     return visibleCount;
 }
 
@@ -1123,25 +1129,36 @@ ged_who_argv(struct ged *gedp, char **start, const char **end)
 	}
     }
 
-    struct display_list *gdlp;
-
-    if (!gedp || !gedp->i->ged_gdp || !gedp->i->ged_gdp->gd_headDisplay)
-	return 0;
-
     if (UNLIKELY(!start || !end)) {
 	bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() called with NULL args\n");
 	return 0;
     }
 
-    for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay)) {
-	if (((struct directory *)gdlp->dl_dp)->d_addr == RT_DIR_PHONY_ADDR)
-	    continue;
-
-	if ((vp != NULL) && ((const char **)vp < end)) {
-	    *vp++ = bu_strdup(bu_vls_addr(&gdlp->dl_path));
-	} else {
-	    bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() ran out of space at %s\n", ((struct directory *)gdlp->dl_dp)->d_namep);
-	    break;
+    /* Phase 2e: enumerate unique top-level objects from scene-root */
+    {
+	bsg_shape *_root = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+	if (_root) {
+	    struct bu_ptbl _tops;
+	    bu_ptbl_init(&_tops, 8, "who_argv_tops");
+	    for (size_t _i = 0; _i < BU_PTBL_LEN(&_root->children); _i++) {
+		bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _i);
+		if (!_sp || !_sp->s_u_data) continue;
+		struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+		if (!_bd->s_fullpath.fp_len) continue;
+		struct directory *_dp = _bd->s_fullpath.fp_names[0];
+		if (_dp->d_addr == RT_DIR_PHONY_ADDR) continue;
+		bu_ptbl_ins_unique(&_tops, (long *)_dp);
+	    }
+	    for (size_t _ti = 0; _ti < BU_PTBL_LEN(&_tops); _ti++) {
+		struct directory *_dp = (struct directory *)BU_PTBL_GET(&_tops, _ti);
+		if ((vp != NULL) && ((const char **)vp < end)) {
+		    *vp++ = bu_strdup(_dp->d_namep);
+		} else {
+		    bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() ran out of space at %s\n", _dp->d_namep);
+		    break;
+		}
+	    }
+	    bu_ptbl_free(&_tops);
 	}
     }
 
@@ -1999,11 +2016,25 @@ _ged_rt_write(struct ged *gedp,
 		    }
 		}
 	    } else {
-		struct display_list *gdlp;
-		for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay)) {
-		    if (((struct directory *)gdlp->dl_dp)->d_addr == RT_DIR_PHONY_ADDR)
-			continue;
-		    fprintf(fp, "draw %s;\n", bu_vls_addr(&gdlp->dl_path));
+		/* Phase 2e: use scene-root children */
+		bsg_shape *_root = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+		if (_root) {
+		    struct bu_ptbl _tops;
+		    bu_ptbl_init(&_tops, 8, "rt_write_tops");
+		    for (size_t _i = 0; _i < BU_PTBL_LEN(&_root->children); _i++) {
+			bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _i);
+			if (!_sp || !_sp->s_u_data) continue;
+			struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+			if (!_bd->s_fullpath.fp_len) continue;
+			struct directory *_dp = _bd->s_fullpath.fp_names[0];
+			if (_dp->d_addr == RT_DIR_PHONY_ADDR) continue;
+			bu_ptbl_ins_unique(&_tops, (long *)_dp);
+		    }
+		    for (size_t _ti = 0; _ti < BU_PTBL_LEN(&_tops); _ti++) {
+			struct directory *_dp = (struct directory *)BU_PTBL_GET(&_tops, _ti);
+			fprintf(fp, "draw %s;\n", _dp->d_namep);
+		    }
+		    bu_ptbl_free(&_tops);
 		}
 	    }
 	} else {
@@ -2529,16 +2560,8 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 
 #endif
 
-struct display_list *
-ged_dl(struct ged *gedp)
-{
-    if (!gedp || !gedp->i || !gedp->i->ged_gdp)
-	return NULL;
-    return (struct display_list *)gedp->i->ged_gdp->gd_headDisplay;
-}
-
 void
-ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f)
+ged_rt_notify_func_set(struct ged *gedp, ged_rt_notify_func_t f)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return;
@@ -2546,8 +2569,8 @@ ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f)
     gedp->i->ged_gdp->gd_rtCmdNotify = f;
 }
 
-ged_drawable_notify_func_t
-ged_dl_notify_func_get(struct ged *gedp)
+ged_rt_notify_func_t
+ged_rt_notify_func_get(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return NULL;

@@ -1213,11 +1213,14 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		struct _ged_client_data dgcdp_save;
 
 		for (i = 0; i < argc; ++i) {
-		    if (drawtrees_depth == 1)
-			dgcdp.gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
-
-		    if (dgcdp.gdlp == GED_DISPLAY_LIST_NULL)
-			continue;
+		    if (drawtrees_depth == 1) {
+			/* Phase 2e: replace dl_addToDisplay with db_lookup existence check */
+			const char *_cp = strrchr(argv[i], '/');
+			const char *_leaf = _cp ? _cp + 1 : argv[i];
+			if (db_lookup(gedp->dbip, _leaf, LOOKUP_NOISY) == RT_DIR_NULL)
+			    continue;
+			dgcdp.gdlp = NULL;
+		    }
 
 		    dgcdp_save = dgcdp;
 
@@ -1254,11 +1257,10 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		bu_free(eav, "eav");
 		return eret;
 	    } else {
-		struct display_list **paths_to_draw;
-		struct display_list *gdlp;
+		const char **paths_to_draw;
 
-		paths_to_draw = (struct display_list **)
-		    bu_malloc(sizeof(struct display_list *) * argc,
+		paths_to_draw = (const char **)
+		    bu_malloc(sizeof(const char *) * argc,
 		    "redraw paths");
 
 		/* create solids */
@@ -1273,15 +1275,20 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		    draw_data.dmode = dgcdp.vs.s_dmode;
 		    draw_data.v = gedp->ged_gvp;
 
-		    dgcdp.gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
-		    draw_data.gdlp = dgcdp.gdlp;
+		    /* Phase 2e: replace dl_addToDisplay with existence check */
+		    {
+			const char *_cp = strrchr(argv[i], '/');
+			const char *_leaf = _cp ? _cp + 1 : argv[i];
+			if (db_lookup(gedp->dbip, _leaf, LOOKUP_NOISY) == RT_DIR_NULL) {
+			    paths_to_draw[i] = NULL;
+			    continue;
+			}
+		    }
+		    dgcdp.gdlp = NULL;
+		    draw_data.gdlp = NULL;
 
 		    /* store draw path */
-		    paths_to_draw[i] = dgcdp.gdlp;
-
-		    if (dgcdp.gdlp == GED_DISPLAY_LIST_NULL) {
-			continue;
-		    }
+		    paths_to_draw[i] = argv[i];
 
 		    av[0] = (char *)argv[i];
 		    ret = db_walk_tree(gedp->dbip,
@@ -1311,18 +1318,24 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		/* calculate plot vlists for solids of each draw path */
 		for (i = 0; i < argc; ++i) {
-		    gdlp = paths_to_draw[i];
-
-		    if (gdlp == GED_DISPLAY_LIST_NULL) {
+		    if (!paths_to_draw[i])
 			continue;
-		    }
 
-		    ret = dl_redraw(gdlp, gedp, dgcdp.vs.draw_non_subtract_only);
+		    /* Create a temporary display_list on stack for dl_redraw */
+		    struct display_list tmp_gdlp;
+		    
+		    bu_vls_init(&tmp_gdlp.dl_path);
+		    bu_vls_strcpy(&tmp_gdlp.dl_path, paths_to_draw[i]);
+		    tmp_gdlp.dl_dp = db_lookup(gedp->dbip, paths_to_draw[i], LOOKUP_QUIET);
+
+		    ret = dl_redraw(&tmp_gdlp, gedp, dgcdp.vs.draw_non_subtract_only);
+		    bu_vls_free(&tmp_gdlp.dl_path);
 		    if (ret < 0) {
 			/* restore view bot threshold */
 			if (gedp && gedp->ged_gvp) gedp->ged_gvp->gv_s->bot_threshold = threshold_cached;
 
 			bu_vls_printf(gedp->ged_result_str, "%s: %s redraw failure\n", argv[0], argv[i]);
+			bu_free(paths_to_draw, "draw paths");
 			return BRLCAD_ERROR;
 		    }
 		}
@@ -1343,11 +1356,14 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		}
 
 		for (i = 0; i < argc; ++i) {
-		    if (drawtrees_depth == 1)
-			dgcdp.gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
-
-		    if (dgcdp.gdlp == GED_DISPLAY_LIST_NULL)
-			continue;
+		    if (drawtrees_depth == 1) {
+			/* Phase 2e: replace dl_addToDisplay with db_lookup existence check */
+			const char *_cp = strrchr(argv[i], '/');
+			const char *_leaf = _cp ? _cp + 1 : argv[i];
+			if (db_lookup(gedp->dbip, _leaf, LOOKUP_NOISY) == RT_DIR_NULL)
+			    continue;
+			dgcdp.gdlp = NULL;
+		    }
 
 		    av[0] = (char *)argv[i];
 		    ret = db_walk_tree(gedp->dbip,
@@ -1435,8 +1451,10 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 	    /* Done checking options. If our display is non-empty,
 	     * add -R to keep current view.
 	     */
-	    if (BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay)) {
-		bu_vls_strcat(&vls, " -R");
+	    {
+		bsg_shape *_sr = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+		if (_sr && BU_PTBL_LEN(&_sr->children) > 0)
+		    bu_vls_strcat(&vls, " -R");
 	    }
 	    break;
 	}
@@ -1562,8 +1580,10 @@ ged_draw_guts(struct ged *gedp, int argc, const char *argv[], int kind)
 	bu_vls_free(&vls);
 
 	empty_display = 1;
-	if (BU_LIST_NON_EMPTY(gedp->i->ged_gdp->gd_headDisplay)) {
-	    empty_display = 0;
+	{
+	    bsg_shape *_sr = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+	    if (_sr && BU_PTBL_LEN(&_sr->children) > 0)
+		empty_display = 0;
 	}
 
 	/* First, delete any mention of these objects.
@@ -1655,7 +1675,6 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 	return ged_redraw2_core(gedp, argc, argv);
 
     int ret;
-    struct display_list *gdlp;
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
@@ -1665,18 +1684,38 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
     bu_vls_trunc(gedp->ged_result_str, 0);
 
     if (argc == 1) {
-	/* redraw everything */
-	for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay))
-	{
-	    ret = dl_redraw(gdlp, gedp, 0);
-	    if (ret < 0) {
-		bu_vls_printf(gedp->ged_result_str, "%s: redraw failure\n", argv[0]);
-		return BRLCAD_ERROR;
+	/* redraw everything — enumerate unique top-level names from scene root */
+	bsg_shape *_root = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+	if (_root) {
+	    struct bu_ptbl _tops;
+	    bu_ptbl_init(&_tops, 8, "redraw_all_tops");
+	    for (size_t _i = 0; _i < BU_PTBL_LEN(&_root->children); _i++) {
+		bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root->children, _i);
+		if (!_sp || !_sp->s_u_data) continue;
+		struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+		if (!_bd->s_fullpath.fp_len) continue;
+		bu_ptbl_ins_unique(&_tops, (long *)_bd->s_fullpath.fp_names[0]);
 	    }
+	    for (size_t _ti = 0; _ti < BU_PTBL_LEN(&_tops); _ti++) {
+		struct directory *_dp = (struct directory *)BU_PTBL_GET(&_tops, _ti);
+		struct display_list tmp_gdlp;
+		
+		bu_vls_init(&tmp_gdlp.dl_path);
+		bu_vls_strcpy(&tmp_gdlp.dl_path, _dp->d_namep);
+		tmp_gdlp.dl_dp = _dp;
+		ret = dl_redraw(&tmp_gdlp, gedp, 0);
+		bu_vls_free(&tmp_gdlp.dl_path);
+		if (ret < 0) {
+		    bu_ptbl_free(&_tops);
+		    bu_vls_printf(gedp->ged_result_str, "%s: redraw failure\n", argv[0]);
+		    return BRLCAD_ERROR;
+		}
+	    }
+	    bu_ptbl_free(&_tops);
 	}
     } else {
 	int i, found_path;
-	struct db_full_path obj_path, dl_path;
+	struct db_full_path obj_path;
 
 	/* redraw the specified paths */
 	for (i = 1; i < argc; ++i) {
@@ -1688,31 +1727,33 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 
 	    found_path = 0;
-	    for (BU_LIST_FOR(gdlp, display_list, gedp->i->ged_gdp->gd_headDisplay))
-	    {
-		ret = db_string_to_path(&dl_path, gedp->dbip,
-			bu_vls_addr(&gdlp->dl_path));
-		if (ret < 0) {
-		    bu_vls_printf(gedp->ged_result_str,
-			    "%s: %s is not a valid path\n", argv[0],
-			    bu_vls_addr(&gdlp->dl_path));
-		    return BRLCAD_ERROR;
-		}
-
-		/* this display list path matches/contains the redraw path */
-		if (db_full_path_match_top(&dl_path, &obj_path)) {
+	    /* Phase 2e: check scene-root children for matching path prefix */
+	    bsg_shape *_root2 = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+	    if (_root2) {
+		for (size_t _i = 0; _i < BU_PTBL_LEN(&_root2->children); _i++) {
+		    bsg_shape *_sp = (bsg_shape *)BU_PTBL_GET(&_root2->children, _i);
+		    if (!_sp || !_sp->s_u_data) continue;
+		    struct ged_bv_data *_bd = (struct ged_bv_data *)_sp->s_u_data;
+		    if (!_bd->s_fullpath.fp_len) continue;
+		    if (!db_full_path_match_top(&_bd->s_fullpath, &obj_path)) continue;
+		    /* found a shape in this draw path */
 		    found_path = 1;
-		    db_free_full_path(&dl_path);
-
-		    ret = dl_redraw(gdlp, gedp, 0);
+		    struct directory *_top = _bd->s_fullpath.fp_names[0];
+		    struct display_list tmp_gdlp;
+		    
+		    bu_vls_init(&tmp_gdlp.dl_path);
+		    bu_vls_strcpy(&tmp_gdlp.dl_path, _top->d_namep);
+		    tmp_gdlp.dl_dp = _top;
+		    ret = dl_redraw(&tmp_gdlp, gedp, 0);
+		    bu_vls_free(&tmp_gdlp.dl_path);
 		    if (ret < 0) {
+			db_free_full_path(&obj_path);
 			bu_vls_printf(gedp->ged_result_str,
 				"%s: %s redraw failure\n", argv[0], argv[i]);
 			return BRLCAD_ERROR;
 		    }
 		    break;
 		}
-		db_free_full_path(&dl_path);
 	    }
 
 	    db_free_full_path(&obj_path);

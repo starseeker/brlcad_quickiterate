@@ -37,6 +37,7 @@
 #include "bu/vls.h"
 #include "bsg.h"
 #include "bsg.h"
+#include "bsg/util.h"
 #include "bg/polygon.h"
 #include "rt/defines.h"
 #include "rt/directory.h"
@@ -270,7 +271,9 @@ end:
 	if (have_view) {
 	    val = bu_avs_get(&lavs, "VIEWSCALE");
 	    if (val) {
-		bu_opt_fastf_t(NULL, 1, (const char **)&val, (void *)&sv->gv_scale);
+		fastf_t _scale = 0.0;
+		bu_opt_fastf_t(NULL, 1, (const char **)&val, (void *)&_scale);
+		bsg_view_set_scale(sv, _scale);
 	    } else {
 		have_view = 0;
 	    }
@@ -463,7 +466,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s)
 	}
 	bu_avs_add(&lavs, "POLYGON_TYPE", bu_vls_cstr(&val));
 	// Save view
-	bu_vls_sprintf(&val, "%.15e", s->s_v->gv_scale);
+	bu_vls_sprintf(&val, "%.15e", bsg_view_scale(s->s_v));
 	bu_avs_add(&lavs, "VIEWSCALE", bu_vls_cstr(&val));
 	quat_t rquat;
 	quat_t cquat;
