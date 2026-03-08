@@ -1,6 +1,8 @@
 = Ejercicios adicionales de ubicación de imágenes en espacios 3-D
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En este tutorial usted aprenderá a:
 
@@ -303,3 +305,7 @@ En este tutorial usted aprendió a:
 * Dibujar una cuadrícula para facilitar el posicionamiento de los objetos.
 * Controlar el árbol de datos y hacer correcciones de ser necesario.
 * Asignar propiedades de los materiales utilizando el Combination Editor (Editor de combinaciones).
+
+
+
+

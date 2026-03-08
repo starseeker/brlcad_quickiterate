@@ -1,6 +1,8 @@
 = Creating a Toy Truck
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -465,3 +467,7 @@ In this lesson, you:
 * Identified the on-screen help option.
 * Identified the stacker option.
 * Experimented with the attributes of the camo shader.
+
+
+
+

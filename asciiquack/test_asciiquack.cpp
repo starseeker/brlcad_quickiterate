@@ -691,6 +691,36 @@ static void test_html5_inline_monospace() {
     end_test();
 }
 
+static void test_html5_inline_adjacent_spans() {
+    begin_test("html5: constrained bold/italic adjacent without space");
+
+    // Constrained bold immediately followed by italic delimiter (no space)
+    // e.g. *-e*_script_ as it appears in BRL-CAD man page dlist terms.
+    {
+        std::string out = html("*-e*_script_\n");
+        EXPECT_CONTAINS(out, "<strong>-e</strong>");
+        EXPECT_CONTAINS(out, "<em>script</em>");
+        // Must NOT emit literal asterisks
+        EXPECT(out.find("*-e*") == std::string::npos);
+    }
+
+    // Constrained italic immediately followed by bold delimiter (no space)
+    {
+        std::string out = html("_foo_*bar*\n");
+        EXPECT_CONTAINS(out, "<em>foo</em>");
+        EXPECT_CONTAINS(out, "<strong>bar</strong>");
+    }
+
+    // Constrained bold glued to an alphanumeric word must NOT match
+    {
+        std::string out = html("*bold*only\n");
+        // Should remain literal (no strong tag) since 'only' is glued
+        EXPECT(out.find("<strong>bold</strong>only") == std::string::npos);
+    }
+
+    end_test();
+}
+
 static void test_html5_embedded() {
     begin_test("html5: embedded (no header/footer)");
     asciiquack::ParseOptions opts;
@@ -4995,6 +5025,7 @@ int main(int argc, char* argv[]) {
     test_html5_inline_bold();
     test_html5_inline_italic();
     test_html5_inline_monospace();
+    test_html5_inline_adjacent_spans();
     test_html5_embedded();
     test_html5_horizontal_rule();
     test_html5_attribute_ref();

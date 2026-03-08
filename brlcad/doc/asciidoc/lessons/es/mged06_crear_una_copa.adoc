@@ -1,6 +1,8 @@
 = Crear una copa
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 En esta lección podrás:
 
@@ -208,3 +210,7 @@ En este tutorial usted aprendió a:
 * Hacer una combinación de las regiones.
 * Visualizar un árbol de datos.
 * Graficar la copa terminada.
+
+
+
+

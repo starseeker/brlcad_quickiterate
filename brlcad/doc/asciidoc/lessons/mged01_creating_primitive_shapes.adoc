@@ -1,6 +1,8 @@
 = Creating Primitive Shapes in MGED
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
+:toc:
+:toclevels: 3
 
 In this lesson, you will:
 
@@ -285,3 +287,7 @@ In this lesson, you:
 * Used the kill command to eliminate a shape from the database.
 * Edited commands in the Command Window.
 * Used the q or Exit commands to quit the program.
+
+
+
+

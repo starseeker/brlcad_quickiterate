@@ -1,6 +1,8 @@
 = Using the Pipe Primitive
 Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[pipe_general_use]]
 == General Use
@@ -108,3 +110,5 @@ Important Points to Remember About the Pipe
 * When modeling a tube with fluid inside of it, model both the tube and fluid as solid pipes and subtract the fluid from the tube.
 
 ====
+
+

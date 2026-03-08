@@ -1,6 +1,8 @@
 = Interactive Raytracing: The nirt Command
 Clifford Yapp
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[About_NIRT]]
 == About NIRT
@@ -1801,3 +1803,7 @@ center_cube.r        (   1.0000    0.0000    0.0000)   2.0000   0.0000
 
 	
 ....
+
+
+
+

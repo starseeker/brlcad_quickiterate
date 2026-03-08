@@ -1,6 +1,8 @@
 = BRL-CAD Database Format
 Lee A Butler; Michael John Muuss; Paul J Tanenbaum; John R Anderson; Robert G Parker; Ronald A Bowers; Christopher T Johnson; Eric W Edwards
 :doctype: article
+:toc:
+:toclevels: 3
 
 [[Background_and_Terminology]]
 == Background and Terminology
@@ -827,3 +829,8 @@ Magic2 (1 byte)
 
 [[Database_Library_Application_Programming_Interface]]
 === Database Library Application Programming Interface (API)
+
+
+
+
+
