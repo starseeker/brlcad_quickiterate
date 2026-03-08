@@ -54,5 +54,3 @@ This software is Copyright (c) 2012-2025 United States Government as represented
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

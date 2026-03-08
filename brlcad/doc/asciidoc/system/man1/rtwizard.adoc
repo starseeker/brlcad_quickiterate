@@ -143,15 +143,30 @@ Specify the type of image to be rendered. The images produced by *rtwizard* are 
 NOTE: If a type is specified and insufficient information is supplied to generate that particular image type, rtwizard will exit with an error.
 
 .RtWizard Image Types
+[cols="3*"]
 |===
-|Type |Name |Description 
+|Type
+|Name
+|Description
 
-|A |Simple Full-Color Image |Standard *rt* image. 
-|B |Simple Line Drawing |Standard *rtedge* image. 
-|C |Highlighted Image |Full Color *rt* image enhanced with *rtedge* lines. 
-|D |Mixed Full Color and Edges |Like Type C, except objects may be selectively enhanced with *rtedge* lines. 
-|E |Ghost Image with Inserts |A combination of Full Color elements and faded greyscale raytracings for context. 
-|F |Ghost Image with Inserts and Edges |A Type E image further enhanced with *rtedge* lines. 
+|A
+|Simple Full-Color Image
+|Standard *rt* image.
+|B
+|Simple Line Drawing
+|Standard *rtedge* image.
+|C
+|Highlighted Image
+|Full Color *rt* image enhanced with *rtedge* lines.
+|D
+|Mixed Full Color and Edges
+|Like Type C, except objects may be selectively enhanced with *rtedge* lines.
+|E
+|Ghost Image with Inserts
+|A combination of Full Color elements and faded greyscale raytracings for context.
+|F
+|Ghost Image with Inserts and Edges
+|A Type E image further enhanced with *rtedge* lines.
 |===
 
 
@@ -247,5 +262,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

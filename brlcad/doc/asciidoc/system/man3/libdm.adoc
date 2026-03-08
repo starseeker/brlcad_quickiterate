@@ -9,13 +9,19 @@ LIBDM provides the <<api,API>> for accessing BrlCad's display managers. Display 
 The following DM (display manager) types are supported:
 
 .Key Frame
+[cols="2*"]
 |===
-|DM Type |Canvas Type 
+|DM Type
+|Canvas Type
 
-|X |X window 
-|ogl |mixed X/OpenGL window 
-|ps |postscript file 
-|plot |unix plot file 
+|X
+|X window
+|ogl
+|mixed X/OpenGL window
+|ps
+|postscript file
+|plot
+|unix plot file
 |===
 
 
@@ -419,17 +425,27 @@ _int_*dm_processOptions*_(struct dm *dmp, struct bu_vls *vls, int argc, char *ar
 _dm_processOptions_ is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
 
 .Key Frame
+[cols="2*"]
 |===
-|Options |Description 
+|Options
+|Description
 
-|-d string |This option specifies where to draw the display manager. string is expected to be in the same form as the X DISPLAY environment variable. 
-|-i init_script |This option specifies a Tcl script to use to initialize the display manager. 
-|-N height |This option specifies the number of scanlines or height to make the display manager window. 
-|-n name |This option specifies a name to use for the display manager. 
-|-S size |This option specifies the display manager windows square size. 
-|-s |This option turns on stereo mode and is currently only available with the ogl display manager. 
-|-t 0|1 |This option specifies whether the display manager window will be a top level window or an embedded window. A non-zero value indicates a top level window, while zero indicates an embedded window. 
-|-W width |This option specifies the width in pixels of the display manager window. 
+|-d string
+|This option specifies where to draw the display manager. string is expected to be in the same form as the X DISPLAY environment variable.
+|-i init_script
+|This option specifies a Tcl script to use to initialize the display manager.
+|-N height
+|This option specifies the number of scanlines or height to make the display manager window.
+|-n name
+|This option specifies a name to use for the display manager.
+|-S size
+|This option specifies the display manager windows square size.
+|-s
+|This option turns on stereo mode and is currently only available with the ogl display manager.
+|-t 0|1
+|This option specifies whether the display manager window will be a top level window or an embedded window. A non-zero value indicates a top level window, while zero indicates an embedded window.
+|-W width
+|This option specifies the width in pixels of the display manager window.
 |===
 
 
@@ -840,5 +856,3 @@ where _<system-library>_ denotes specific libraries necessary on a particular ma
 == RETURN VALUES
 
 _fb_close_, _fb_write_, _fb_read_, _fb_wmap_, _fb_rmap_, _fb_clear_, _fb_cursor_, _fb_scursor_, _fb_setcursor_, _fb_window_, _fb_zoom_, _fb_ioinit_, _fb_seek_, _fb_wpixel_, _fb_rpixel_ and _fb_flush_ return -1 to indicate failure. _Fb_open_ returns FB_NULL to indicate failure, and a non-null fb structure pointer upon success. _fb_read_, and _fb_write_ return the number of pixels actually read or written. _fb_gettype_ returns a pointer to a NULL terminated description string.
-
-

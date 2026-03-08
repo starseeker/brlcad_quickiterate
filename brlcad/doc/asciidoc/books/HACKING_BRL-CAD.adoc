@@ -776,14 +776,27 @@ Although you can produce HTML, UNIX man pages, and PDF files from the DocBook so
 You can use the following configuration options to turn the compilation of various formats on and off:
 
 .BRL-CAD DocBook Configuration Options
+[cols="3*"]
 |===
-|Option |Description |Setting 
+|Option
+|Description
+|Setting
 
-|BRLCAD_EXTRADOCS |Enable DocBook documentation |ON 
-|BRLCAD_EXTRADOCS_HTML |Enable HTML output |ON 
-|BRLCAD_EXTRADOCS_MAN |Enable UNIX man page output |ON (OFF on Windows) 
-|BRLCAD_EXTRADOCS_PDF |Enable PDF output (needs FOP) |OFF 
-|BRLCAD_EXTRADOCS_PDF_MAN |Enable PDF man page output |Defaults to setting of BRLCAD_EXTRADOCS_PDF 
+|BRLCAD_EXTRADOCS
+|Enable DocBook documentation
+|ON
+|BRLCAD_EXTRADOCS_HTML
+|Enable HTML output
+|ON
+|BRLCAD_EXTRADOCS_MAN
+|Enable UNIX man page output
+|ON (OFF on Windows)
+|BRLCAD_EXTRADOCS_PDF
+|Enable PDF output (needs FOP)
+|OFF
+|BRLCAD_EXTRADOCS_PDF_MAN
+|Enable PDF man page output
+|Defaults to setting of BRLCAD_EXTRADOCS_PDF
 |===
 
 The option to disable the PDF man page output exists to support situations where someone wants the article and tutorial PDFs, without the overhead of generating hundreds of PDFs for the various manual pages. If you do not specifically want PDF versions of the individual manual pages, set the BRLCAD_EXTRADOCS_PDF_MAN option to OFF.
@@ -1737,4 +1750,3 @@ main(int argc, char *argv[])
     return 0;
 }
 ----
-

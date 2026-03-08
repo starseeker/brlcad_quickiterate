@@ -1188,8 +1188,3 @@ link_curves(ON_Curve *&c1, ON_Curve *&c2)
               
             
 ----
-
-
-
-
-

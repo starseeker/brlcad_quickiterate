@@ -44,17 +44,22 @@ Another paragraph with embedded list is shown here. Each paragraph gets its own 
 
 You can use sections to group sections of your document together, but they are not necessary.
 
+.Example embedded image text.
 image::http://brlcad.org/images/logo/BRL-CAD_gear_logo_w_name_256.png[width=256]
 
 Another image, but rendered inline image:http://brlcad.org/images/logo/BRL-CAD_gear_logo_64x64.png[width=64] with the paragraph text.
 
 More paragraphs...
 
+[cols="2*"]
 |===
-|Type |Description 
+|Type
+|Description
 
-|ell |Generalized Ellipsoid 
-|arb8 |Arbitrary Regular Polyhedron with up to 8 vertices 
+|ell
+|Generalized Ellipsoid
+|arb8
+|Arbitrary Regular Polyhedron with up to 8 vertices
 |===
 
 
@@ -67,6 +72,3 @@ There's a lot more you can do with Docbook/XML. Search the web for references an
 * http://www.openoffice.org/xml/xmerge/docbook/UserGuide.html[http://www.openoffice.org/xml/xmerge/docbook/UserGuide.html]
 
 ====
-
-
-
