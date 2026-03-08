@@ -368,6 +368,9 @@ QgModel::~QgModel()
 
     // Delete all individual QgItem objects stored in the items set, then the
     // set itself.  rootItem is allocated separately and deleted last.
+    // Note: QgItem::~QgItem() only calls bu_vls_free() and is therefore
+    // noexcept in practice; the full unique_ptr migration (pending) will
+    // remove the manual loop entirely.
     if (items) {
 	for (QgItem *itm : *items)
 	    delete itm;
