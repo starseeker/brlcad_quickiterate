@@ -361,7 +361,7 @@ determine how *rtedge* behaves when performing occlusion checking. There are thr
 
 Note that in practice it will usually be easiest to use the _saveview_ command in *mged* to produce a script and then modify that script to run *rtedge* .
 
-.rtedge rendering of havoc.g
+.*rtedge* rendering of havoc.g
 [example]
 ====
 *rtedge -s 1024 -o new.pix havoc.g havoc*

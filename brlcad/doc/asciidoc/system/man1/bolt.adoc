@@ -65,7 +65,7 @@ Height of bolt stem in millimeters.
 [[examples]]
 == EXAMPLES
 
-.Interactive bolt Session
+.Interactive *bolt* Session
 [example]
 ====
 
@@ -100,7 +100,7 @@ number of bolts:  3
 
 ====
 
-.Single-Line bolt Command
+.Single-Line *bolt* Command
 [example]
 ====
 *bolt -o1 -fbolt.g -n3 -hd30 -hh10*

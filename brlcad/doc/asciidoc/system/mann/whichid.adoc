@@ -89,7 +89,7 @@ Region[s] with ident 4050:
 
 ====
 
-.Report all regions using region ids between 1000-2000 and 4000-5000, limiting results to regions in the tank geomtry tree.
+.Report all regions using region ids between 1000-2000 and 4000-5000, limiting results to regions in the _tank_ geomtry tree.
 [example]
 ====
 mged>*whichid --root tank 1000-2000 4000-5000*

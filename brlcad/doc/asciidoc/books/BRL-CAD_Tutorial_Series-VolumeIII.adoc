@@ -483,6 +483,8 @@ Also, as discussed in Lesson 16 of Volume II (Butler et al., 2001), specialty mo
 ** _Primitive shape combination_ - a combination that intersects, subtracts, or unions primitive shapes. This combination does not actually occupy 3-D space.
 ** _Region_ - the lowest-level combination that assigns material properties to geometry and occupies 3-D space. Because it is impossible for two or more objects to occupy the same physical space, it follows that one region cannot be unioned into or intersected with another region (e.g., a wheel cannot occupy the same space as the axle that connects to it). Conversely, subtraction is valid (e.g., subtracting a wall-mounted radio from the wall on which it hangs). For a reminder of how Boolean combinations work, see Figure 16.
 ** _Assembly combination_ - a type of combination that associates two or more regions or other combinations together.
+
++
 +
 .Sample Boolean operations.
 image::../books/images/tutorial_series_volIII_fig16.png[]
@@ -513,12 +515,16 @@ is evaluated as
 ** _c_ - creates a combination using parenthetically ordered Boolean expressions. Where no order is indicated, intersections are performed before subtractions or unions, and then subtractions and unions, which have equal precedence, are performed left to right.
 ** _r_ - creates a region out of primitive shapes or assembly combinations using Boolean expressions in GIFT format. Unless the user specifies otherwise, default region ID, air code, line-of-sight density, and GIFT material values are assigned.
 ** _g_ creates a combination by automatically unioning all user-specified elements together. Thus, this command does not accept any sort of Boolean operators from the user.footnote:[The *g* command is derived from “group,” the term sometimes used for _assembly combination_.]
+
++
 +
 In addition, there are several general recommended practices when dealing with Boolean operations. They are as follows:
 
 
 ** _Start with a positive volume:_ The modeler must start with a positive volume before any subtraction or intersection operations are performed. If you are using GIFT notation, this means that you must start with a union operator. If you are using fully parenthesized standard notation, this means that you must specify an object before specifying a subtraction or intersection from it.
 ** _Be mindful of the order of Boolean operations:_ The modeler should make sure unions, intersections, and subtractions are properly ordered in the region structure to achieve the desired effect. For example, imagine that a modeler wants to subtract a hole in a region named bolt.r. As shown in Figure 17, if that region consists of two unioned primitives--head.s and shaft.s--the subtraction in the region must follow the shaft primitive. Alternatively, if the hole is subtracted from the head, the subtraction will have no effect because head.s and hole.s do not share any volume.
+
++
 +
 .Properly (top) and improperly (bottom) ordered regions.
 image::../books/images/tutorial_series_volIII_fig17.png[]

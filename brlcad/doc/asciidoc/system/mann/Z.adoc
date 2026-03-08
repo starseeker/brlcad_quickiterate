@@ -25,7 +25,7 @@ Zap (i.e., clear) the _mged_ display.
 
 Clear the _mged_ display.
 
-.Enter Z to clear the mged display.
+.Enter *Z* to clear the _mged_ display.
 [example]
 ====
 

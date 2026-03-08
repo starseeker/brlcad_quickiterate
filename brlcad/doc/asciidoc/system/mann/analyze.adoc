@@ -55,7 +55,7 @@ The *subtract* will take the first object specified and subtract from it any sub
 [[examples]]
 == EXAMPLES
 
-.Analyze a particular ARB
+.Analyze a particular _ARB_
 [example]
 ====
 mged>*analyze box.s*
@@ -102,7 +102,7 @@ box.s:  ARB8
 
 ====
 
-.Analyze a particular TOR
+.Analyze a particular _TOR_
 [example]
 ====
 mged>*analyze tor*

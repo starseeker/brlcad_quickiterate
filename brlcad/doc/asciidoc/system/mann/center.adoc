@@ -27,7 +27,7 @@ It is often convenient to use the center of the view when visually selecting key
 
 The examples show the use of the *center* command to print coordinates of the center of the mged display, move the center of the _mged_ display to a given point, set a Tcl variable to the display center coordinates, move the center point a given distance in a given direction, and update a vertex in the database to be located at the current center of view.
 
-.Printing the coordinates of the center of the mged display.
+.Printing the coordinates of the center of the _mged_ display.
 [example]
 ====
 mged>*center*
@@ -36,7 +36,7 @@ Prints out the coordinates of the center of the mged display.
 
 ====
 
-.Moving the center of the mged display to a specified point.
+.Moving the center of the _mged_ display to a specified point.
 [example]
 ====
 mged>*center 12.5 5.6 8.7*
