@@ -17,7 +17,7 @@ g2asc <input.g> <output.asc>
 [[description]]
 == DESCRIPTION
 
-_*g2asc*_ is a utility provided by BRL-CAD used to convert _*mged(1)*_ geometry databases in binary format to ASCII form to be later converted back by _*asc2g(1)*_. Databases in the new format will be converted to the new (Tcl script) ASCII format and databases in the old format will be converted to the old ASCII format (see _HISTORY_).
+**g2asc** is a utility provided by BRL-CAD used to convert _*mged(1)*_ geometry databases in binary format to ASCII form to be later converted back by _*asc2g(1)*_. Databases in the new format will be converted to the new (Tcl script) ASCII format and databases in the old format will be converted to the old ASCII format (see *HISTORY*).
 
 The local machine binary representation of a mged database is inherently non-portable. _*g2asc*_ and its converse, _*asc2g*_ , are simple filters which convert between the binary form and an ASCII representation.
 
@@ -58,13 +58,13 @@ ____
 [[options]]
 == OPTIONS
 
-_*g2asc*_ does not take any options. However, you have to supply the input and output files.
+**g2asc** does not take any options. However, you have to supply the input and output files.
 
 
 [[files]]
 == FILES
 
-_input.g_ is a geometry database previously created using _*mged*_ and _output.asc_ is the name of the file in which the ASCII representation should be stored.
+_input.g_ is a geometry database previously created using **mged** and _output.asc_ is the name of the file in which the ASCII representation should be stored.
 
 
 [[see_also]]
@@ -96,7 +96,7 @@ In contrast, the old ASCII format consisted of a sequence of one-line records th
 [[author]]
 == AUTHORS
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -108,4 +108,6 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[disclaimer]]
 == DISCLAIMER
 
-The ASCII representation of BRL-CAD geometry databases is not a fixed format and is allowed to change without deprecation notice. In general, this will not occur any more frequently than the binary geometry database format changes, though both are open specifications. Regardless, the ASCII representation is subject to change without notice and should not be relied upon by external codes. (See _HISTORY_.)
+The ASCII representation of BRL-CAD geometry databases is not a fixed format and is allowed to change without deprecation notice. In general, this will not occur any more frequently than the binary geometry database format changes, though both are open specifications. Regardless, the ASCII representation is subject to change without notice and should not be relied upon by external codes. (See *HISTORY*.)
+
+

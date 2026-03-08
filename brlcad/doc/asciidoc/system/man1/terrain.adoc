@@ -44,27 +44,27 @@ Turns on verbose mode. Information about which filter is running is printed.
 Selects the type of noise field to be used. Options include
 
 
-_L_::
+*L*::
 A lunar-like surface.
 
 
-_f_::
+*f*::
 Fractional Brownian motion (fBm).
 
 
-_t_::
+*t*::
 Turbulence.
 
 
-_T_::
+*T*::
 Turbulence inverted: 1.0 - turb(pt).
 
 
-_m_::
+*m*::
 A Multi-fractal.
 
 
-_r_::
+*r*::
 A Ridged multi-fractal.
 
 
@@ -116,3 +116,5 @@ This software is Copyright (c) 2000-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
