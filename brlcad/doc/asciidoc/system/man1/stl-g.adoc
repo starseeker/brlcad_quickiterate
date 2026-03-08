@@ -10,7 +10,7 @@ stl-g - Stereolithography Translator (STL to BRL-CAD)
 
 [source]
 ----
-stl-g [-db] [-iinitial_ident] [-Iconstant_ident] [-mmaterial_code] [-Nforced_name] [-cunits] [-ttolerance] [-xRT_DEBUG_FLAG] file.stl file.g
+stl-g [-db] [-i initial_ident] [-I constant_ident] [-m material_code] [-N forced_name] [-c units] [-t tolerance] [-x RT_DEBUG_FLAG] file.stl file.g
 ----
 
 
@@ -51,4 +51,4 @@ This software is Copyright (c) 1999-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

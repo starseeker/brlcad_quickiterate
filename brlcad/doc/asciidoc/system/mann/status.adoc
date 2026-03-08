@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-status - Without a subcommand, the status command returns the following information: current state, view size of the current display manager, the conversion factor from local model units to the base units (mm) stored in the database, and the view matrices of the current display manager.
+status - Without a subcommand, the *status* command returns the following information: current state, view size of the current display manager, the conversion factor from local model units to the base units (mm) stored in the database, and the view matrices of the current display manager.
 
 == SYNOPSIS
 
@@ -74,7 +74,7 @@ The three examples show the use of the *status* command with and without subcomm
 .Get default information such as current state, view size of the current display manager, the conversion factor from local model units to the base units (mm) stored in the database, and the view matrices of the current display manager.
 [example]
 ====
-mged>*status*
+mged>**status**
 
 Gets default information (i.e., state, view size, local2base, toViewcenter, Viewrot, model2view and view2model).
 
@@ -83,7 +83,7 @@ Gets default information (i.e., state, view size, local2base, toViewcenter, View
 .Get the view rotation matrix.
 [example]
 ====
-mged>*status Viewrot*
+mged>**status Viewrot**
 
 Gets the view rotation matrix.
 
@@ -92,7 +92,7 @@ Gets the view rotation matrix.
 .Get the edit state.
 [example]
 ====
-mged>*status state*
+mged>**status state**
 
 Gets the edit state.
 
@@ -108,4 +108,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

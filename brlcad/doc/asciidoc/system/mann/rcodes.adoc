@@ -28,7 +28,7 @@ The example shows the use of the *rcodes* command to set the region-specific att
 .Assign region-specific attributes to listed regions.
 [example]
 ====
-mged>*rcodes region_codes*
+mged>**rcodes region_codes**
 
 Reads the file named __region_codes__ and sets the region-specific attributes according to the values found in the file.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -10,13 +10,13 @@ pixtile - paste small images together into one large image
 
 [source]
 ----
-pixtile [-ssquareinsize] [-wfile_width] [-nfile_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] [-ostartframe] basename > file.pix
+pixtile [-s squareinsize] [-w file_width] [-n file_height] [-S squareoutsize] [-W out_width] [-N out_height] [-o startframe] basename > file.pix
 ----
 
 
 [source]
 ----
-pixtile [-ssquareinsize] [-wfile_width] [-nfile_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] file1 file2... fileN > file.pix
+pixtile [-s squareinsize] [-w file_width] [-n file_height] [-S squareoutsize] [-W out_width] [-N out_height] file1 file2... fileN > file.pix
 ----
 
 
@@ -101,4 +101,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -4,13 +4,13 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-B - Clears the mged display of any currently displayed objects, then displays the list of objects provided in the parameter list.
+B - Clears the _mged_ display of any currently displayed objects, then displays the list of objects provided in the parameter list.
 
 == SYNOPSIS
 
 [source]
 ----
-B [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
+B [-A attribute name/value pairs] [-s] [-A -o attribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
 ----
 
 
@@ -29,7 +29,7 @@ The following are run from the MGED command prompt.
 [example]
 ====
 
-mged>*B some_object*::
+mged> **B some_object**::
 The display clears, and the object named __some_object__ is displayed.
 
 
@@ -39,7 +39,7 @@ The display clears, and the object named __some_object__ is displayed.
 .Draw objects having an attribute with a value
 [example]
 ====
-mged>*B -A -o Comment {First comment} Comment {Second comment}*
+mged>**B -A -o Comment {First comment} Comment {Second comment}**
 
 The display clears, then draws objects that have a "Comment" attribute with a value of either "First comment" or "Second comment."
 
@@ -55,4 +55,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

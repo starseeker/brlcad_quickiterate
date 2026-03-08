@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-pull - Pulls the effects of all transformation matrices that appear in any combinations or primitives in the trees from the leaves up to the specified objects or node.
+pull - Pulls the effects of all transformation matrices that appear in any combinations or primitives in the trees from the leaves up to the specified _objects_ or node.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *pull* command to pull the effects of any trans
 .Pull the effects of any transformation matrices from the leaves(primitive shapes) of the tree up to the specified head nodes(objects).
 [example]
 ====
-mged>*pull group1 regiona*
+mged>**pull group1 regiona**
 
 Pulls the effects of any transformation matrices from the primitive shapes in the tree up to the root nodes specified by _group1_ and _regiona_.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

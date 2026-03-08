@@ -116,14 +116,14 @@ Print help and exit.
 .M35 Truck
 [example]
 ====
-*gist -o m35.png m35.g -t component*
+**gist -o m35.png m35.g -t component**
 
 ====
 
 .KTANK reuse existing working directory
 [example]
 ====
-*gist ktank.g -Z -o ktank.png*
+**gist ktank.g -Z -o ktank.png**
 
 ====
 
@@ -137,4 +137,4 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -85,9 +85,15 @@
     <xsl:if test="string-length($raw) > 0 and following-sibling::node()">
       <xsl:variable name="last-char" select="substring($raw, string-length($raw), 1)"/>
       <xsl:choose>
-        <!-- Case 1: element content ends with whitespace (space stripped by normalize-space) -->
+        <!-- Case 1: element content ends with whitespace (space stripped by normalize-space).
+             Only add a space when the following sibling text does NOT itself start with
+             whitespace – otherwise we would produce a double space (e.g. "_-A_  option"). -->
         <xsl:when test="translate($last-char, ' &#9;&#10;&#13;', '') = ''">
-          <xsl:text> </xsl:text>
+          <xsl:variable name="next-str" select="string(following-sibling::node()[1])"/>
+          <xsl:variable name="next-first" select="substring($next-str, 1, 1)"/>
+          <xsl:if test="translate($next-first, ' &#9;&#10;&#13;', '') != ''">
+            <xsl:text> </xsl:text>
+          </xsl:if>
         </xsl:when>
         <!-- Case 2: element content ends with non-whitespace, but the immediately
              following sibling node starts with a WORD character (a-z, A-Z, 0-9, _).
@@ -122,9 +128,16 @@
     <xsl:if test="string-length($raw) > 0 and preceding-sibling::node()">
       <xsl:variable name="first-char" select="substring($raw, 1, 1)"/>
       <xsl:choose>
-        <!-- Case 1: element content starts with whitespace (space already in content) -->
+        <!-- Case 1: element content starts with whitespace.
+             Only add a space when the preceding sibling does NOT already end with
+             whitespace – otherwise we produce a double space (e.g. "simple  __x__"). -->
         <xsl:when test="translate($first-char, ' &#9;&#10;&#13;', '') = ''">
-          <xsl:text> </xsl:text>
+          <xsl:variable name="prev-str" select="string(preceding-sibling::node()[1])"/>
+          <xsl:variable name="prev-len" select="string-length($prev-str)"/>
+          <xsl:variable name="prev-last" select="substring($prev-str, $prev-len, 1)"/>
+          <xsl:if test="$prev-len = 0 or translate($prev-last, ' &#9;&#10;&#13;', '') != ''">
+            <xsl:text> </xsl:text>
+          </xsl:if>
         </xsl:when>
         <!-- Case 2: element content starts with a non-whitespace word char,
              but the immediately preceding sibling is a TEXT NODE that ends without
@@ -406,7 +419,11 @@
     </xsl:for-each>
     <xsl:if test="db:refpurpose">
       <xsl:text> - </xsl:text>
-      <xsl:value-of select="normalize-space(db:refpurpose)"/>
+      <!-- Use apply-templates (not normalize-space/value-of) so that inline
+           markup such as <emphasis>, <command>, <option>, <replaceable> inside
+           the refpurpose is preserved as AsciiDoc inline markup (_italic_,
+           *bold*, etc.).  normalize-space() discards child element markup. -->
+      <xsl:apply-templates select="db:refpurpose/node()"/>
     </xsl:if>
     <xsl:text>&#10;&#10;</xsl:text>
   </xsl:template>
@@ -473,16 +490,30 @@
       <xsl:when test="$choice = 'req'">
         <xsl:text>{</xsl:text>
         <xsl:for-each select="db:arg | db:group">
-          <xsl:if test="position() > 1"><xsl:text>|</xsl:text></xsl:if>
-          <xsl:apply-templates select="." mode="synopsis"/>
+          <xsl:if test="position() > 1"><xsl:text> | </xsl:text></xsl:if>
+          <!-- First child: suppress the leading space that db:arg normally emits -->
+          <xsl:variable name="content">
+            <xsl:apply-templates select="." mode="synopsis"/>
+          </xsl:variable>
+          <xsl:choose>
+            <xsl:when test="position() = 1">
+              <xsl:value-of select="substring($content, 2)"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:value-of select="substring($content, 2)"/>
+            </xsl:otherwise>
+          </xsl:choose>
         </xsl:for-each>
         <xsl:text>}</xsl:text>
       </xsl:when>
       <xsl:otherwise>
         <xsl:text>[</xsl:text>
         <xsl:for-each select="db:arg | db:group">
-          <xsl:if test="position() > 1"><xsl:text>|</xsl:text></xsl:if>
-          <xsl:apply-templates select="." mode="synopsis"/>
+          <xsl:if test="position() > 1"><xsl:text> | </xsl:text></xsl:if>
+          <xsl:variable name="content">
+            <xsl:apply-templates select="." mode="synopsis"/>
+          </xsl:variable>
+          <xsl:value-of select="substring($content, 2)"/>
         </xsl:for-each>
         <xsl:text>]</xsl:text>
       </xsl:otherwise>
@@ -507,9 +538,19 @@
     <xsl:text>&gt;</xsl:text>
   </xsl:template>
 
-  <!-- text in synopsis mode -->
+  <!-- text in synopsis mode: normalize whitespace but preserve a trailing space
+       when the text ends with whitespace and is followed by another node
+       (e.g. the space between "-f " and <replaceable>font</replaceable> in an <arg>). -->
   <xsl:template match="text()" mode="synopsis">
-    <xsl:value-of select="normalize-space(.)"/>
+    <xsl:variable name="raw" select="."/>
+    <xsl:variable name="norm" select="normalize-space($raw)"/>
+    <xsl:if test="string-length($norm) > 0">
+      <xsl:value-of select="$norm"/>
+      <xsl:variable name="last-char" select="substring($raw, string-length($raw), 1)"/>
+      <xsl:if test="translate($last-char, ' &#9;&#10;&#13;', '') = '' and following-sibling::node()">
+        <xsl:text> </xsl:text>
+      </xsl:if>
+    </xsl:if>
   </xsl:template>
 
   <!-- Function synopsis -->
@@ -922,9 +963,13 @@
   <xsl:template match="db:example">
     <xsl:call-template name="block-sep"/>
     <xsl:if test="db:title">
-      <xsl:text>.</xsl:text>
-      <xsl:value-of select="normalize-space(db:title)"/>
-      <xsl:text>&#10;</xsl:text>
+      <xsl:variable name="t" select="normalize-space(db:title)"/>
+      <xsl:if test="string-length($t) > 0">
+        <xsl:text>.</xsl:text>
+        <!-- Apply inline templates to preserve emphasis/_italic_ in the title -->
+        <xsl:apply-templates select="db:title/node()"/>
+        <xsl:text>&#10;</xsl:text>
+      </xsl:if>
     </xsl:if>
     <xsl:text>[example]&#10;====&#10;</xsl:text>
     <xsl:apply-templates select="*[not(self::db:title)]"/>
@@ -956,6 +1001,20 @@
     <xsl:if test="not(ancestor::db:listitem)">
       <xsl:text>&#10;</xsl:text>
     </xsl:if>
+    <!-- When nested inside a listitem and there is following non-whitespace
+         content in the same para, emit a blank line followed by a '+' list
+         continuation marker.  The blank line terminates the last sub-list item
+         so the continuation is captured at the enclosing dlist-item level. -->
+    <xsl:if test="ancestor::db:listitem">
+      <xsl:variable name="tail">
+        <xsl:for-each select="following-sibling::node()">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:if test="string-length(normalize-space($tail)) > 0">
+        <xsl:text>&#10;+&#10;</xsl:text>
+      </xsl:if>
+    </xsl:if>
   </xsl:template>
 
   <xsl:template match="db:orderedlist">
@@ -971,6 +1030,20 @@
     </xsl:apply-templates>
     <xsl:if test="not(ancestor::db:listitem)">
       <xsl:text>&#10;</xsl:text>
+    </xsl:if>
+    <!-- When nested inside a listitem and there is following non-whitespace
+         content in the same para, emit a blank line followed by a '+' list
+         continuation marker.  The blank line terminates the last sub-list item
+         so the continuation is captured at the enclosing dlist-item level. -->
+    <xsl:if test="ancestor::db:listitem">
+      <xsl:variable name="tail">
+        <xsl:for-each select="following-sibling::node()">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:if test="string-length(normalize-space($tail)) > 0">
+        <xsl:text>&#10;+&#10;</xsl:text>
+      </xsl:if>
     </xsl:if>
   </xsl:template>
 
@@ -1043,17 +1116,52 @@
   </xsl:template>
 
   <xsl:template match="db:varlistentry">
-    <!-- term(s) -->
-    <xsl:for-each select="db:term">
-      <xsl:apply-templates/>
-      <xsl:if test="position() != last()">
+    <!-- When the entry has an empty term (e.g. in refsynopsisdiv where multiple
+         cmdsynopsis variants are listed as a variablelist with empty terms),
+         just emit the listitem content directly without any dlist markup.
+         Emitting bare '::' produces literal '::\n' in the AsciiDoc output which
+         renders as visible '::' text in both asciidoctor and man page backends. -->
+    <xsl:variable name="term-text" select="normalize-space(db:term)"/>
+    <xsl:choose>
+      <xsl:when test="string-length($term-text) = 0">
+        <!-- Empty term: emit listitem content directly as top-level blocks -->
+        <xsl:apply-templates select="db:listitem/*"/>
         <xsl:text>&#10;</xsl:text>
-      </xsl:if>
-    </xsl:for-each>
-    <xsl:text>::&#10;</xsl:text>
-    <!-- definition content -->
-    <xsl:apply-templates select="db:listitem/*"/>
-    <xsl:text>&#10;</xsl:text>
+      </xsl:when>
+      <xsl:otherwise>
+        <!-- term(s) -->
+        <xsl:for-each select="db:term">
+          <xsl:apply-templates/>
+          <xsl:if test="position() != last()">
+            <xsl:text>&#10;</xsl:text>
+          </xsl:if>
+        </xsl:for-each>
+        <xsl:text>::&#10;</xsl:text>
+        <!-- definition content: each block in the listitem is output via its normal
+             template.  However, AsciiDoc ends a dlist item body at a blank line, so
+             when a listitem contains multiple para/block children we must keep them
+             attached with a '+' list-continuation marker (on its own line, without a
+             preceding blank line).  We achieve this by emitting '+\n' *instead of*
+             the '\n\n' that the db:para template would normally append: we apply
+             inline templates of each para directly, then choose the right separator. -->
+        <xsl:variable name="children" select="db:listitem/*"/>
+        <xsl:for-each select="$children">
+          <xsl:choose>
+            <!-- Para/simpara that is NOT the last child: emit content then +\n
+                 (no blank line – the + attaches the next block to this item). -->
+            <xsl:when test="(self::db:para or self::db:simpara) and not(position() = last())">
+              <xsl:apply-templates/>
+              <xsl:text>&#10;+&#10;</xsl:text>
+            </xsl:when>
+            <!-- All other elements (including the last child): normal rendering. -->
+            <xsl:otherwise>
+              <xsl:apply-templates select="."/>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:for-each>
+        <xsl:text>&#10;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- ============================================================
@@ -1695,10 +1803,16 @@
       <xsl:when test="*">
         <xsl:apply-templates/>
       </xsl:when>
+      <!-- Use unconstrained bold (**...**) so that the markup is recognised
+           regardless of adjacent boundary characters.  In particular, <prompt>
+           is often immediately followed by <userinput> with no whitespace
+           separator (e.g. "mged>*cmd*"), and the constrained form (*cmd*)
+           requires whitespace or an explicit boundary character before the
+           opening marker.  The unconstrained form works unconditionally. -->
       <xsl:otherwise>
-        <xsl:text>*</xsl:text>
+        <xsl:text>**</xsl:text>
         <xsl:apply-templates/>
-        <xsl:text>*</xsl:text>
+        <xsl:text>**</xsl:text>
       </xsl:otherwise>
     </xsl:choose>
     <xsl:call-template name="inline-trailing-space"/>
@@ -1713,9 +1827,16 @@
     <xsl:call-template name="inline-trailing-space"/>
   </xsl:template>
 
-  <!-- prompt: just output text -->
+  <!-- prompt: just output text.
+       When the prompt is inside a <term> (e.g. inside a <varlistentry>), DocBook XSL
+       preserves the trailing whitespace, so we call inline-trailing-space.
+       In plain <para> context, DocBook strips the trailing space during troff rendering,
+       so we skip the trailing-space call to match that behaviour. -->
   <xsl:template match="db:prompt">
     <xsl:apply-templates/>
+    <xsl:if test="ancestor::db:term">
+      <xsl:call-template name="inline-trailing-space"/>
+    </xsl:if>
   </xsl:template>
 
   <!-- quote -->
@@ -1851,11 +1972,13 @@
     <xsl:apply-templates/>
   </xsl:template>
 
-  <!-- email -->
+  <!-- email: emit address text directly without angle-bracket wrapping.
+       DocBook renders <email> elements without angle brackets in troff output;
+       we match that behaviour so the adoc source matches.  Literal < > already
+       in the source XML (e.g. &lt;bugs@brlcad.org&gt;) pass through as-is
+       and will render with angle brackets in the man page, which is correct. -->
   <xsl:template match="db:email">
-    <xsl:text>&lt;</xsl:text>
     <xsl:apply-templates/>
-    <xsl:text>&gt;</xsl:text>
   </xsl:template>
 
   <!-- footnote -->

@@ -28,9 +28,9 @@ Technically, _MGED_ can be opened without a database file being supplied, but un
 
 *-a attach*::
 The *-a* option specifies a display manager to automatically attach to when starting _MGED_.
-
++
 Without specifying the *-a* attach option, _MGED_ will prompt which display manager to attach during startup: attach (nu|X|ogl)[nu]?
-
++
 The list of available display managers varies from platform to platform and across releases. However, some commonly available options are the _nu_ (NULL) display manager, which will start _MGED_ without any display manager attached; the _X_ display manager, which provides an X11 graphical wireframe display; and the _ogl_ display manager, which is similar to _X_ but starts up a display manager that uses the OpenGL protocol for drawing wireframes.
 
 
@@ -107,10 +107,10 @@ The ".mgedrc" file is searched for in three places. The first one found is used,
 
 The following are run from the operating system command prompt:
 
-.Running the MGED l from the operating system command line.
+.Running the _MGED_ *l* from the operating system command line.
 [example]
 ====
-user:~*mged /usr/brlcad/share/brlcad/7.12.2/db/m35.g l component*
+user:~**mged /usr/brlcad/share/brlcad/7.12.2/db/m35.g l component**
 
 
 ....
@@ -130,10 +130,10 @@ component:  --
 
 ====
 
-.Running MGED without a display manager.
+.Running _MGED_ without a display manager.
 [example]
 ====
-user:~*mged -c*
+user:~**mged -c**
 
 
 ....
@@ -151,10 +151,10 @@ mged>
 
 ====
 
-.Running MGED and bypassing the attach prompt by specifying the X11 display manager.
+.Running _MGED_ and bypassing the attach prompt by specifying the X11 display manager.
 [example]
 ====
-user:~*mged -a X -c*
+user:~**mged -a X -c**
 
 
 ....
@@ -203,4 +203,4 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

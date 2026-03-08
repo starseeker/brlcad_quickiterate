@@ -25,11 +25,11 @@ Ends the MGED process. It is a synonym for the *quit* command.
 
 The example shows the use of the *exit* command to stop MGED.
 
-.Using the exit command to end MGED.
+.Using the *exit* command to end MGED.
 [example]
 ====
 
-mged>*exit*::
+mged> **exit**::
 MGED stops.
 
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

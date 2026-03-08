@@ -10,7 +10,7 @@ obj-g - Convert a Wavefront Object (obj) file to a BRL-CAD .g database.
 
 [source]
 ----
-obj-g [-c] [-d] [-f] [-ggrouping_option] [-Hplate_thickness] [-i] [-mmode] [-oopen_bot_type] [-p] [-rbot_orientation] [-tdistance_tolerance] [-uunits_str] [-v]... [-xrt_debug_flag] [-XNMG_debug_flag] input.obj output.g
+obj-g [-c] [-d] [-f] [-g grouping_option] [-H plate_thickness] [-i] [-m mode] [-o open_bot_type] [-p] [-r bot_orientation] [-t distance_tolerance] [-u units_str] [-v]... [-x rt_debug_flag] [-X NMG_debug_flag] input.obj output.g
 ----
 
 
@@ -104,7 +104,7 @@ The following will convert the obj file _input.obj_ to the BRL-CAD database _out
 .BOT Conversion
 [example]
 ====
-*obj-g -u mm -i input.obj output.g*
+**obj-g -u mm -i input.obj output.g**
 
 Convert obj file 'input.obj' to BRL-CAD database file 'output.g' using native-bot conversion mode. Non-closed surfaces will be output as surface-mode bots; closed surfaces will be output as volume-mode bots. BRL-CAD primitives will be created based on the obj file 'group' grouping. The obj file units are set to millimeters (implies conversion factor of 1.0). Any normals specified in the obj file are ignored. All messages will be sent to the display.
 
@@ -113,7 +113,7 @@ Convert obj file 'input.obj' to BRL-CAD database file 'output.g' using native-bo
 .BOT via NMG Conversion
 [example]
 ====
-*obj-g -m v -o p -H 5 -g o -v -v input.obj output.g 2> output.log*
+**obj-g -m v -o p -H 5 -g o -v -v input.obj output.g 2> output.log**
 
 Convert obj file 'input.obj' to BRL-CAD database file 'output.g' using bot-via-nmg conversion mode. Non-closed surfaces will be output as plate-mode bots, with plate thickness of 5mm. Closed surfaces will be output as volume-mode bots. BRL-CAD primitives will be created based on the obj file 'object' grouping. The obj file units are assumed to be meters (implies conversion factor of 1000.0). Level two verbose messages are enabled. All standard-error messages are sent to the log file 'output.log'.
 
@@ -141,4 +141,4 @@ This software is Copyright (c) 2010-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

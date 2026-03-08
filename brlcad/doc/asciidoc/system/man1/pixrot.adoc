@@ -10,7 +10,7 @@ pixrot - rotate, invert, or reverse a color pix file
 
 [source]
 ----
-pixrot [-#bytes] [-rifb] [-ssquaresize] [-win_width] [-nin_height] [file.pix] > newfile.pix
+pixrot [-#bytes] [-rifb] [-s squaresize] [-w in_width] [-n in_height] [file.pix] > newfile.pix
 ----
 
 
@@ -59,4 +59,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

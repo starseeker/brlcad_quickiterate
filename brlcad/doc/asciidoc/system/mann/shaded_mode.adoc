@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-shaded_mode - Changes the default behavior of draw, e, and B to use the -m1 or -m2 options.
+shaded_mode - Changes the default behavior of *draw*, *e*, and *B* to use the _-m1_ or _-m2_ options.
 
 == SYNOPSIS
 
@@ -26,7 +26,7 @@ The *shaded_mode* command changes the default behavior for the *draw*, *e*, and 
 .Change the default draw option to -m1
 [example]
 ====
-mged>*shaded_mode 1*
+mged>**shaded_mode 1**
 
 The shaded mode is now set to 1 and any draw commands will use -m1 as a default option.
 
@@ -42,4 +42,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

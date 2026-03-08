@@ -28,7 +28,7 @@ The example shows the use of the *copymat* command to set the matrix for a membe
 .Set the matrix for a member in one combination equal to the matrix for another member in another combination.
 [example]
 ====
-mged>*copymat comb1/memb1 comb2/memb2*
+mged>**copymat comb1/memb1 comb2/memb2**
 
 Sets the matrix for member _memb2_ in combination _comb2_ equal to the matrix for member _memb1_ in combination _comb1_.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

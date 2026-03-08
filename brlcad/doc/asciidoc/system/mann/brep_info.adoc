@@ -20,61 +20,51 @@ brep {obj}info [C2|C3|E|F|L|SB|T|TB|V] [arguments]
 If _obj_ is not a brep object, then *brep* will quit and report that fact. Otherwise, it prints a textual description of the requested information. With not arguments supplied, a summary of data present in the brep object is printed. Otherwise, more detailed information about specified components will be reported.
 
 
-::
 Return information for one or more 2D parametric space geometric curves.
 
 
 
 
-::
 Return information for one or more 3D geometric curves.
 
 
 
 
-::
 Return information for one or more topological 3D edges.
 
 
 
 
-::
 Return information for one or more topological faces.
 
 
 
 
-::
 Return information for one or more 2D parametric space topological trimming loops.
 
 
 
 
-::
 Return information for one or more surfaces.
 
 
 
 
-::
 Return information for one or more piecewise Bezier surfaces.
 
 
 
 
-::
 Return information for one or more 2D parametric space topological trims.
 
 
 
 
-::
 Return information for one or more 2D piecewise Bezier trims.
 
 
 
 
-::
 Return information for one or more 3D vertices.
 
 
@@ -86,7 +76,7 @@ Return information for one or more 3D vertices.
 .Object Summary
 [example]
 ====
-mged>*brep Brep_1.s info*
+mged>**brep Brep_1.s info**
 
 
 ....
@@ -112,7 +102,7 @@ Reports counts for the various object types, as well as object level info about 
 .First Object Face
 [example]
 ====
-mged>*brep Brep_1.s info F 1*
+mged>**brep Brep_1.s info F 1**
 
 
 ....
@@ -147,7 +137,7 @@ Reports information about the consituent components that make up the topological
 .First Surface
 [example]
 ====
-mged>*brep Brep_1.s info S 1*
+mged>**brep Brep_1.s info S 1**
 
 
 ....
@@ -190,7 +180,7 @@ Detailed information on the geometric data defining the surface.
 .Multiple loops
 [example]
 ====
-mged>*brep Brep_1.s info L 1,5,12*
+mged>**brep Brep_1.s info L 1,5,12**
 
 
 ....
@@ -222,4 +212,4 @@ BRLCAD-TEAM
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

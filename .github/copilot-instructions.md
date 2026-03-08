@@ -145,77 +145,154 @@ for dir in articles books devguides lessons lessons/es presentations specificati
 done
 ```
 
-## Comparing DocBook vs asciiquack Output
+## Comparing asciidoctor vs asciiquack Output
 
-The primary comparison workflow is to render both the DocBook-generated man page and the asciiquack-generated man page as plain text, then diff them.
+The active comparison workflow uses **asciidoctor** as the reference renderer (not DocBook).
+Both `.adoc` files are rendered to man page troff via their respective tools, then rendered
+to plain text with `groff -Tascii | col -b`, normalized to strip terminal formatting codes,
+and diffed.
+
+### Accepted differences (filtered from counts)
+
+The following differences are **known and accepted** – do not try to "fix" them:
+
+1. **NAME/description italic markup**: asciidoctor preserves `_word_` as literal underscores
+   in man page output; asciiquack converts them to `\fIword\fP` italic.  We keep asciiquack's
+   behaviour.  Normalised away by stripping `[0-9]+m` codes and boundary-anchored `_phrase_`
+   pairs (single underscores, no internal underscores, bounded by space/punctuation).
+   Double-underscore `__word__` patterns (e.g. `__old_bot_primitive__`) are also stripped.
+2. **Email address colour/angle-brackets**: asciidoctor wraps email addresses in colour codes
+   `34m…0m` or `<...>` angle brackets; asciiquack emits them plain.
+   Filtered by `devs@brlcad` and `bugs@brlcad`.
+3. **Date in footer**: asciidoctor adds a `2026-03-08`-style date to the footer; asciiquack
+   does not.  Filtered by `BRL-CAD.*[0-9]` and `BRL-CAD\t`.
+4. **asciidoctor `#` mangling bug**: `*-C #/#/#*` → asciidoctor emits `-C //#` (wrong);
+   asciiquack emits `-C #/#/#` (correct).  Same bug affects `-T #,#`, `-#`, etc.
+   Filtered by `//#`.
+
+### Normalisation function
+
+```bash
+normalize_groff() {
+    # Strip groff -Tascii terminal bold/italic codes.
+    # [0-9]+m covers: 1m (bold-on), 22m (bold-off), 4m (italic-on), 24m (italic-off),
+    # 0m (reset), 34m (link colour), etc.
+    # Strip __double_underscore__ italic (asciidoctor preserves in NAME section).
+    # Strip boundary-anchored _phrase_ italic (space/punct bounded, no internal underscores).
+    # Strip *word* bold markup preserved by asciidoctor in NAME section.
+    sed 's/[0-9]\+m//g' | \
+    sed 's/__\([a-zA-Z][a-zA-Z0-9_]*\)__/\1/g' | \
+    sed 's/\(^\|[ (]\)_\([^_]*\)_\([ ,.:;!?>)\n]\|$\)/\1\2\3/g' | \
+    sed 's/\*\([^*]*\)\*/\1/g'
+}
+```
+
+### Single-file comparison (asciidoctor vs asciiquack)
 
 ```bash
 REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 AQ=/tmp/aq_build/asciiquack   # or $REPO_ROOT/bext_output/noinstall/bin/asciiquack
 
-# Generate asciiquack man page from the committed .adoc file
-$AQ -b manpage "$REPO_ROOT/brlcad/doc/asciidoc/system/man1/nirt.adoc" -o /tmp/nirt_aq.1
+normalize_groff() {
+    sed 's/[0-9]\+m//g' | \
+    sed 's/__\([a-zA-Z][a-zA-Z0-9_]*\)__/\1/g' | \
+    sed 's/\(^\|[ (]\)_\([^_]*\)_\([ ,.:;!?>)\n]\|$\)/\1\2\3/g' | \
+    sed 's/\*\([^*]*\)\*/\1/g'
+}
 
-# Render both to plain text and diff
-man -l $REPO_ROOT/brlcad_build/share/man/man1/nirt.1 2>/dev/null | col -b > /tmp/nirt_db.txt
-man -l /tmp/nirt_aq.1 2>/dev/null | col -b > /tmp/nirt_aq.txt
-diff /tmp/nirt_db.txt /tmp/nirt_aq.txt
+adoc="$REPO_ROOT/brlcad/doc/asciidoc/system/man1/nirt.adoc"
+asciidoctor -b manpage -o /tmp/ad_nirt.1 "$adoc" 2>/dev/null
+$AQ -b manpage "$adoc" -o /tmp/aq_nirt.1 2>/dev/null
+diff <(groff -t -Tascii -man /tmp/ad_nirt.1 2>/dev/null | col -b | normalize_groff) \
+     <(groff -t -Tascii -man /tmp/aq_nirt.1 2>/dev/null | col -b | normalize_groff) | \
+  grep "^[<>]" | grep -Pv "BRL-CAD.*[0-9]|BRL-CAD\t|devs@brlcad|bugs@brlcad|//#"
 ```
 
-### Bulk comparison of all mann pages
+### Bulk comparison (mann + man1, asciidoctor vs asciiquack)
 
 ```bash
 REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 AQ=$REPO_ROOT/bext_output/noinstall/bin/asciiquack
 
-mismatches=0; total=0; issues=""
-for db_man in $REPO_ROOT/brlcad_build/share/man/mann/*.nged; do
-  base=$(basename "$db_man" .nged)
-  adoc="$REPO_ROOT/brlcad/doc/asciidoc/system/mann/${base}.adoc"
-  [ -f "$adoc" ] || continue
-  $AQ -b manpage "$adoc" -o /tmp/aq_compare.nged 2>/dev/null
-  db_text=$(man -l "$db_man" 2>/dev/null | col -b)
-  aq_text=$(man -l /tmp/aq_compare.nged 2>/dev/null | col -b)
+normalize_groff() {
+    sed 's/[0-9]\+m//g' | \
+    sed 's/__\([a-zA-Z][a-zA-Z0-9_]*\)__/\1/g' | \
+    sed 's/\(^\|[ (]\)_\([^_]*\)_\([ ,.:;!?>)\n]\|$\)/\1\2\3/g' | \
+    sed 's/\*\([^*]*\)\*/\1/g'
+}
+
+fixed=0; minor=0; large=0; total=0
+for adoc in $REPO_ROOT/brlcad/doc/asciidoc/system/mann/*.adoc \
+            $REPO_ROOT/brlcad/doc/asciidoc/system/man1/*.adoc; do
   total=$((total+1))
-  if [ "$db_text" != "$aq_text" ]; then
-    mismatches=$((mismatches+1)); issues="$issues $base"
-  fi
+  asciidoctor -b manpage -o /tmp/ad_cmp.nged "$adoc" 2>/dev/null
+  $AQ -b manpage "$adoc" -o /tmp/aq_cmp.nged 2>/dev/null
+  ndiff=$(diff \
+    <(groff -t -Tascii -man /tmp/ad_cmp.nged 2>/dev/null | col -b | normalize_groff) \
+    <(groff -t -Tascii -man /tmp/aq_cmp.nged 2>/dev/null | col -b | normalize_groff) | \
+    grep "^[<>]" | grep -Pcv "BRL-CAD.*[0-9]|BRL-CAD\t|devs@brlcad|bugs@brlcad|//#")
+  if   [ "$ndiff" -le 0 ]; then fixed=$((fixed+1))
+  elif [ "$ndiff" -le 6 ]; then minor=$((minor+1))
+  else                          large=$((large+1)); fi
 done
-echo "Total: $total, Mismatches: $mismatches"
-echo "Mismatched: $issues"
+echo "Total: $total  Exact=$fixed  Minor(1-6)=$minor  Larger=$large"
 ```
 
-## Current Work: DocBook vs asciiquack Comparison (PR: copilot/analyze-output-differences)
+To list large-diff pages:
+```bash
+for adoc in ...; do
+  base=$(basename "$adoc" .adoc)
+  ...
+  if [ "$ndiff" -gt 6 ]; then echo "$ndiff $base"; fi
+done | sort -rn | head -20
+```
 
-The active work stream is in the `copilot/analyze-output-differences` branch.  Each session should:
+## Current Work: asciidoctor vs asciiquack Comparison (PR: copilot/validate-asciiquack-outputs)
+
+The active work stream is in the `copilot/validate-asciiquack-outputs` branch.  Each session should:
 
 1. Build/rebuild the asciiquack binary from `asciiquack/` sources in `/tmp/aq_build/`
-2. Configure brlcad_build with `BRLCAD_EXTRADOCS=ON` and build relevant docbook targets
+2. Run `sudo gem install asciidoctor` if asciidoctor is not available
 3. Use the bulk comparison script above to find mismatches
-4. Investigate and fix issues in either `brlcad/misc/tools/db2adoc/db2adoc.xsl` (XSL converter) or `asciiquack/` sources (man page backend, HTML backend)
+4. Investigate and fix issues in `asciiquack/` sources (man page backend, parser)
 5. Add tests to `asciiquack/test_asciiquack.cpp` for new fixes
-6. Regenerate committed `.adoc` files using the regeneration script above
-7. Run `asciiquack_tests` to confirm all tests pass
-8. Use `report_progress` to commit
+6. Run `asciiquack_tests` to confirm all tests pass
+7. Use `report_progress` to commit
 
-### Issues fixed so far
+### Issues fixed so far (copilot/validate-asciiquack-outputs)
 
 - Inline element trailing/leading space (word boundary rules)
 - Adjacent inline elements losing space between them
-- `db:footnote` with `<para>` children emitting `\n\n` inside `footnote:[...]`
-- `<userinput>` with nested element children producing malformed bold markers
-- Synopsis `<replaceable>` emitting `<name>` instead of bare `name`
-- `funcsynopsis` whitespace: `normalize-space()` stripping spaces inside type names
-- `funcsynopsis` paren placement: `paramdef` `position()=1/last()` counting wrong
 - man page backend: double-escaping of troff macros (`\\fB` instead of `\fB`)
 - man page backend: nested inline markup (e.g. `*-A _attr_*` → italic inside bold)
 - man page backend: constrained marker end-detection (underscore in middle of word)
+- Verbatim blocks: `.sp` prefix, tab→8-space expansion, trim leading/trailing blank lines
+- Nested dlist inside dlist item: child dlist rendered OUTSIDE parent `.RS 4` (pnts page)
+- Single-character dlist terms (`1::`, `2::`) now parsed correctly
+- xref `<<anchor>>` guard: anchor part must not contain spaces (fixes `"^<<"` in text)
+- dlist term auto-bold removed: plain terms no longer wrapped in `\fB...\fP`
+- Compact dlist: consecutive empty-body items joined with `, ` on one term line
+- Untitled example blocks: indented with `.RS 4`/`.RE` but no "Example N." prefix
+- Example N. numbering only applied to titled example blocks
 
 ### Known remaining differences (investigate next session)
 
-- **Example block titles**: DocBook renders `Example N. Title` with a numbered prefix; asciiquack renders just `Title` (the `[example]` block title in AsciiDoc doesn't number)
-- **dlist (.TP) indentation style**: DocBook uses `.RS 4`/`.RE` for consistent indent; asciiquack uses standard `.TP` which groff formats slightly differently (minor)
-- **Synopsis spacing**: minor whitespace differences in rendered synopsis lines
+- **Multi-term dlist format**: asciidoctor emits each preceding term on its own line then
+  `last-term:: body-inline`; asciiquack joins all terms on one line then indents body with
+  `.RS 4`.  Affects ~8 pages (lc, make_pnts, comgeom-g, rtg3, gr, etc.)
+- **Nested inline `_*bold*_` italic-containing-bold**: asciidoctor emits `\fI*word*\fB\fP`
+  (leaving `*` literal); asciiquack emits `\fI\fBword\fP\fP` (proper nesting).  Affects
+  g2asc, asc2g.  asciiquack's rendering is arguably more correct.
+- **saveview/remrt verbatim blocks**: leading-spaces/indentation differences in shell script
+  blocks.
+- **gqa/search/comb/rtwizard**: large diffs – investigate (likely dlist continuation `+`
+  paragraphs rendered with double indentation vs single, and nested `.RS 4` issues).
+- **Line wrapping**: asciidoctor and asciiquack wrap at slightly different widths in some
+  cases (different `.RS`/`.RE` depth affects available width). Results in same content
+  split differently across lines (cat, cpi, db_glob, e, decompose, status, vdraw, etc.).
+  These are minor cosmetic differences (2-4 diff lines).
+- **Double-space after period**: `Endianness flipped.  Converting` (two spaces) vs one
+  space (dbupgrade). Minor formatting quirk.
 
 ## Important Notes
 

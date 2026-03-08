@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-keypoint - Without any options, keypoint displays the current keypoint setting. If a point is specified, then that point becomes the keypoint . If reset is specified, then the default keypoint is restored.
+keypoint - Without any options, *keypoint* displays the current keypoint setting. If a point is specified, then that point becomes the _keypoint_ . If _reset_ is specified, then the default _keypoint_ is restored.
 
 == SYNOPSIS
 
@@ -29,7 +29,7 @@ The example shows the use of the *keypoint* command to set the keypoint in model
 [example]
 ====
 
-mged>*keypoint 10 20 30*::
+mged> **keypoint 10 20 30**::
 Sets the _keypoint_ to the point (10 20 30) in model units.
 
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

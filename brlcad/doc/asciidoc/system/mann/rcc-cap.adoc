@@ -28,7 +28,7 @@ The two examples show the use of the *rcc-cap* command to round the base and the
 .Round the base of a specified cylinder.
 [example]
 ====
-mged>*rcc-cap rcc.s cap.s 20*
+mged>**rcc-cap rcc.s cap.s 20**
 
 Creates an ELL shape named _cap.s_ with a radius of 20 units at the base of _rcc.s_.
 
@@ -37,7 +37,7 @@ Creates an ELL shape named _cap.s_ with a radius of 20 units at the base of _rcc
 .Round the top of a specified cylinder.
 [example]
 ====
-mged>*rcc-cap rcc.s cap.s 20 t*
+mged>**rcc-cap rcc.s cap.s 20 t**
 
 Creates an ELL shape named _cap.s_ with a radius of 20 units at the top of _rcc.s_.
 
@@ -53,4 +53,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

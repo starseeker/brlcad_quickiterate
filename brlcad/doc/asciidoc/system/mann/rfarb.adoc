@@ -28,7 +28,7 @@ The example shows the use of the *rfarb* command to create a new ARB8 shape.
 .Create a new ARB8 shape.
 [example]
 ====
-mged>*rfarb*
+mged>**rfarb**
 
 Creates a new ARB8 shape according to arguments supplied in responses to prompts.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

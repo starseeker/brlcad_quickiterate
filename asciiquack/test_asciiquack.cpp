@@ -193,11 +193,42 @@ static void test_sub_replacements() {
     std::string ellipsis = asciiquack::sub_replacements("...");
     EXPECT(ellipsis.find("&#8230;") != std::string::npos);
 
+    // Copyright: only uppercase (C) is converted
     std::string copyright = asciiquack::sub_replacements("(C)");
     EXPECT(copyright.find("&#169;") != std::string::npos);
+    // Lowercase (c) must NOT be converted (Asciidoctor is case-sensitive)
+    std::string copyright_lc = asciiquack::sub_replacements("(c)");
+    EXPECT(copyright_lc.find("&#169;") == std::string::npos);
+    EXPECT(copyright_lc.find("(c)") != std::string::npos);
 
+    // Trademark: only uppercase (TM)
     std::string tm = asciiquack::sub_replacements("(TM)");
     EXPECT(tm.find("&#8482;") != std::string::npos);
+    // Lowercase (tm) must NOT be converted
+    std::string tm_lc = asciiquack::sub_replacements("(tm)");
+    EXPECT(tm_lc.find("&#8482;") == std::string::npos);
+    EXPECT(tm_lc.find("(tm)") != std::string::npos);
+
+    // Arrow replacements (via sub_specialchars preprocessing in normal pipeline;
+    // these are tested after specialchars has been applied)
+    {
+        // Simulate the pipeline: first specialchars, then replacements
+        std::string rarr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A -> B"));
+        EXPECT(rarr.find("&#8594;") != std::string::npos);  // →
+
+        std::string larr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A <- B"));
+        EXPECT(larr.find("&#8592;") != std::string::npos);  // ←
+
+        std::string rArr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A => B"));
+        EXPECT(rArr.find("&#8658;") != std::string::npos);  // ⇒
+
+        std::string lArr = asciiquack::sub_replacements(
+            asciiquack::sub_specialchars("A <= B"));
+        EXPECT(lArr.find("&#8656;") != std::string::npos);  // ⇐
+    }
 
     end_test();
 }
@@ -2145,7 +2176,7 @@ static void test_manpage_backend_bold_italic() {
     std::string out = asciiquack::convert_to_manpage(*doc);
 
     EXPECT_CONTAINS(out, "\\fB");
-    EXPECT_CONTAINS(out, "\\fR");
+    EXPECT_CONTAINS(out, "\\fP");
     EXPECT_CONTAINS(out, "\\fI");
 
     end_test();
@@ -2207,8 +2238,8 @@ static void test_manpage_table() {
     // Cell delimiters for long-text cells
     EXPECT_CONTAINS(out, "T{");
     EXPECT_CONTAINS(out, "T}");
-    // Header row separator
-    EXPECT_CONTAINS(out, ".T&");
+    // Single format line for all rows (matching asciidoctor: no .T& header switch)
+    EXPECT(out.find(".T&") == std::string::npos);
     // Cell content
     EXPECT_CONTAINS(out, "Header A");
     EXPECT_CONTAINS(out, "Cell 1");
@@ -2283,10 +2314,10 @@ static void test_manpage_dlist_no_double_bold() {
     auto doc = asciiquack::Parser::parse_string(src, opts);
     std::string out = asciiquack::convert_to_manpage(*doc);
 
-    // troff_inline converts *bold* to \fB...\fR with single backslashes;
+    // troff_inline converts *bold* to \fB...\fP with single backslashes;
     // troff_escape is no longer applied afterwards (it would double-escape them).
     // The resulting in-memory string for "*-a value*" is:
-    //   \fB\-a value\fR  (single backslashes throughout)
+    //   \fB\-a value\fP  (single backslashes throughout)
     //
     // The old bug (before the fix) wrapped the already-formatted term in an
     // extra \fB...\fR, producing \fB\\fB\-a value\\fR\fR.  Verify that
@@ -2294,14 +2325,15 @@ static void test_manpage_dlist_no_double_bold() {
     EXPECT(out.find("\\fB\\fB") == std::string::npos);
 
     // The term line for the explicitly-bolded term must be present.
-    // In-memory the sequence is: \fB\-a value\fR
-    // As a C++ literal that is "\\fB\\-a value\\fR".
-    EXPECT_CONTAINS(out, "\\fB\\-a value\\fR");
+    // In-memory the sequence is: \fB\-a value\fP
+    // As a C++ literal that is "\\fB\\-a value\\fP".
+    EXPECT_CONTAINS(out, "\\fB\\-a value\\fP");
 
-    // Plain term must be auto-bolded.  escape_plain converts '-' to '\-', so
-    // the .TP term line is \fBplain\-term\fR.
-    // As a C++ literal: "\\fBplain\\-term\\fR".
-    EXPECT_CONTAINS(out, "\\fBplain\\-term\\fR");
+    // Plain terms are NOT auto-bolded (matching asciidoctor's man page backend).
+    // escape_plain converts '-' to '\-', so the term line is just plain\-term.
+    EXPECT_CONTAINS(out, "plain\\-term");
+    // Verify no auto-bold wrapping was added to the plain term.
+    EXPECT(out.find("\\fBplain\\-term\\fP") == std::string::npos);
 
     end_test();
 }
@@ -2399,6 +2431,120 @@ static void test_manpage_empty_term_suppressed() {
     // Both synopsis blocks should be present
     EXPECT_CONTAINS(out, "cmd [options]");
     EXPECT_CONTAINS(out, "cmd subcommand");
+
+    end_test();
+}
+
+static void test_manpage_dlist_plus_continuation_multi() {
+    begin_test("manpage: dlist item with multiple '+' continuations renders all paragraphs");
+
+    // Each '+' on its own line attaches the next paragraph to the dlist item.
+    // All three paragraphs must appear separately in the output, not fused with
+    // a literal '+' between them.
+    const std::string src =
+        "= cmd(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "cmd - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "cmd\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "*-c \"arg\"*::\n"
+        "First paragraph of the description.\n"
+        "+\n"
+        "Second paragraph attached via plus.\n"
+        "+\n"
+        "Third paragraph also attached.\n"
+        "\n"
+        "*-e*::\n"
+        "Simple option.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // All three paragraphs must be present without the literal ' + ' separator
+    EXPECT_CONTAINS(out, "First paragraph of the description.");
+    EXPECT_CONTAINS(out, "Second paragraph attached via plus.");
+    EXPECT_CONTAINS(out, "Third paragraph also attached.");
+    EXPECT(out.find("First paragraph") != std::string::npos &&
+           out.find("Second paragraph") != std::string::npos &&
+           out.find("Third paragraph") != std::string::npos);
+    // The literal ' + ' must NOT appear as rendered text between paragraphs
+    EXPECT(out.find("description. +\nSecond") == std::string::npos);
+    EXPECT(out.find("description. + Second") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_stem_macro_stripped() {
+    begin_test("manpage: stem:[...] macro renders as plain expression text");
+
+    const std::string src =
+        "= eqn(nged)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "eqn - rotate ARB face\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "eqn A B C\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "The plane equation is stem:[Ax + By + Cz = D].\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The expression must appear as plain text, not with the stem:[...] wrapper
+    EXPECT_CONTAINS(out, "Ax + By + Cz = D");
+    EXPECT(out.find("stem:[") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_dlist_nested_olist() {
+    begin_test("manpage: dlist item with immediately-following ordered list as sub-list");
+
+    // An ordered list immediately following the dlist body (no blank line, no '+')
+    // should be rendered as a child list, not consumed as body text.
+    const std::string src =
+        "= cmd(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "cmd - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "cmd\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "*-l*::\n"
+        "The decision logic is as follows:\n"
+        ". Step one.\n"
+        ". Step two.\n"
+        "\n"
+        "*-S*::\n"
+        "Simple option.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, "The decision logic is as follows:");
+    EXPECT_CONTAINS(out, "Step one.");
+    EXPECT_CONTAINS(out, "Step two.");
+    // The list items must NOT be concatenated as plain text (". Step one. . Step two.")
+    EXPECT(out.find(". Step one. . Step two.") == std::string::npos);
 
     end_test();
 }
@@ -5126,9 +5272,616 @@ static void test_html_text_immediately_before_inline() {
     end_test();
 }
 
+// ── New tests: \fP font-restore and constrained bold boundary rules ─────────
+
+static void test_manpage_fp_font_restore() {
+    // Inline spans must close with \fP (restore previous font) not \fR (roman)
+    // so that e.g. italic inside a bold title correctly returns to bold.
+    begin_test("manpage: inline spans use \\fP (restore) not \\fR (roman)");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "Use *bold* and _italic_ and `mono` text.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // All closing escapes must be \fP, never \fR, in inline spans
+    EXPECT_CONTAINS(out, "\\fB");
+    EXPECT_CONTAINS(out, "\\fI");
+    EXPECT_CONTAINS(out, "\\fP");
+
+    // \fR must not appear as a closing span (only \fP should close spans)
+    // This check covers the generated inline markup section
+    EXPECT(out.find("bold\\fR") == std::string::npos);
+    EXPECT(out.find("italic\\fR") == std::string::npos);
+    EXPECT(out.find("mono\\fR") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_constrained_bold_gt_boundary() {
+    // '>' immediately before '*' must NOT trigger constrained bold,
+    // matching asciidoctor's behaviour (> becomes &gt; with trailing ';'
+    // which is excluded from the boundary character set).
+    begin_test("manpage: 'cmd>*text*' does NOT produce bold (> is not a boundary char)");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "mged>*ae -90 90*\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The *ae -90 90* should NOT be parsed as bold (> is invalid boundary char)
+    // The asterisks should appear as literal characters in the output
+    EXPECT_CONTAINS(out, "mged>*ae");
+    EXPECT(out.find("mged>\\fB") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_unconstrained_bold_gt_boundary() {
+    // Unconstrained bold (**...**) must work regardless of boundary chars.
+    // This is how db2adoc.xsl now emits <userinput> content.
+    begin_test("manpage: 'cmd>**text**' produces bold (unconstrained form)");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "mged>**ae -90 90**\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The **ae -90 90** should be rendered as bold (unconstrained form)
+    EXPECT_CONTAINS(out, "mged>\\fBae");
+
+    end_test();
+}
+
+static void test_manpage_nested_bold_fp_restore() {
+    // Bold-in-bold: nested *Z* inside an already-bold example title.
+    // With \fP (restore), "to clear" should remain in the enclosing bold
+    // context rather than reverting to roman after the inner \fBZ\fP.
+    begin_test("manpage: nested bold inside bold title uses \\fP to restore outer bold");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        ".Enter *Z* to clear the _mged_ display.\n"
+        "[example]\n"
+        "====\n"
+        "mged> Z\n"
+        "====\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Example title: the outer \fB closes with \fP, inner spans also use \fP
+    // "\fBZ\fP to clear the \fImged\fP display.\fP"
+    EXPECT_CONTAINS(out, "\\fBZ\\fP");
+    EXPECT_CONTAINS(out, "\\fImged\\fP");
+    // No \fR closings from inline spans
+    EXPECT(out.find("\\fBZ\\fR") == std::string::npos);
+    EXPECT(out.find("\\fImged\\fR") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_xref_with_text() {
+    // <<anchor,text>> should render as just the link text, discarding the anchor id.
+    begin_test("manpage: <<anchor,text>> xref renders link text only");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "See <<some_section,the section>> for details.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Should contain the link text, not the raw xref syntax
+    EXPECT_CONTAINS(out, "the section");
+    EXPECT(out.find("<<") == std::string::npos);
+    EXPECT(out.find(">>") == std::string::npos);
+    EXPECT(out.find("some_section") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_xref_bare() {
+    // <<anchor>> (no text) should render as [anchor].
+    begin_test("manpage: <<anchor>> bare xref renders as [anchor]");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "See <<myanchor>> for info.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, "[myanchor]");
+    EXPECT(out.find("<<") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_dlist_term_with_embedded_colons() {
+    // A dlist term like *key::subkey=VALUE*:: should preserve the full term
+    // text (including the embedded '::'), not truncate at the first '::'.
+    begin_test("manpage: dlist term containing '::' is preserved correctly");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "*simulate::type=_TYPE_*::\n"
+        "Specify the type.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Term should be the full "simulate::type=TYPE" (bold, with italic TYPE)
+    EXPECT_CONTAINS(out, "simulate::type=");
+    EXPECT_CONTAINS(out, "Specify the type.");
+    // The literal asterisk should NOT appear in the dlist term
+    // (i.e., *simulate should not appear verbatim – the bold is applied)
+    EXPECT(out.find("\\fB*simulate") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_url_shows_url_after_text() {
+    // http://url[text] should render as "text <url>" matching asciidoctor.
+    begin_test("manpage: URL macro renders as 'text <url>'");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "See http://example.com[example site] for info.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Should contain both the link text and the URL
+    EXPECT_CONTAINS(out, "example site");
+    EXPECT_CONTAINS(out, "example.com");
+
+    end_test();
+}
+
+static void test_manpage_em_dash() {
+    // -- in regular text should produce \(em (troff em dash) matching asciidoctor.
+    begin_test("manpage: -- in text becomes \\(em em-dash");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "* autosize -- if nonzero, the view is set.\n"
+        "* triple --- not an em-dash.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // -- becomes \(em
+    EXPECT_CONTAINS(out, "\\(em");
+    // --- should NOT become \(em (only exactly -- is substituted)
+    EXPECT_CONTAINS(out, "\\-\\-\\-");
+
+    end_test();
+}
+
+static void test_manpage_ellipsis() {
+    // ... in text should produce .\|.\|. (asciidoctor man page backend form).
+    begin_test("manpage: ... in text becomes .\\|.\\|.");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "Some text... and more.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, ".\\|.\\|.");
+
+    end_test();
+}
+
+static void test_manpage_admonition_note() {
+    // NOTE admonition should use asciidoctor's .if n .sp / .RS 4 / .it 1 an-trap
+    // format so the title appears indented (tab-level) in nroff output.
+    begin_test("manpage: NOTE admonition uses asciidoctor RS4 format");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "NOTE: This is a note.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Should use the asciidoctor RS 4 + an-trap format
+    EXPECT_CONTAINS(out, ".if n .sp\n");
+    EXPECT_CONTAINS(out, ".it 1 an-trap\n");
+    EXPECT_CONTAINS(out, ".nr an-no-space-flag 1\n");
+    EXPECT_CONTAINS(out, ".B Note\n");
+    EXPECT_CONTAINS(out, "This is a note.\n");
+    EXPECT_CONTAINS(out, ".sp .5v\n");
+
+    end_test();
+}
+
+static void test_manpage_admonition_warning() {
+    begin_test("manpage: WARNING admonition produces .B Warning");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "WARNING: This is a warning.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, ".B Warning\n");
+    EXPECT_CONTAINS(out, "This is a warning.\n");
+
+    end_test();
+}
+
+static void test_manpage_nested_ulist_blank_line() {
+    // A nested ** list separated from its parent * item by a blank line
+    // should still be attached to the parent as a child (AsciiDoc nesting
+    // is determined by marker depth, not blank lines).
+    begin_test("manpage: nested ulist with blank line before children");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "* parent item:\n"
+        "\n"
+        "** child item.\n"
+        "* sibling.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The child bullet should be nested inside the parent's .RS 4 block.
+    // After the parent's closing .RE, the sibling should start a new .RS 4.
+    // We verify nesting by checking that .RS 4 for child is inside parent .RS 4.
+    // Simple check: both parent and child .RS 4 / .RE appear in output.
+    EXPECT_CONTAINS(out, "parent item:");
+    EXPECT_CONTAINS(out, "child item.");
+    EXPECT_CONTAINS(out, "sibling.");
+
+    // The child should appear before the sibling's .RS 4 block
+    auto child_pos   = out.find("child item.");
+    auto sibling_pos = out.find("sibling.");
+    EXPECT(child_pos < sibling_pos);
+
+    end_test();
+}
+
+
+static void test_manpage_quote_block_indented() {
+    // [quote] blocks should get .RS 3 / .RE indentation in man page output,
+    // matching asciidoctor's man page backend behaviour.
+    begin_test("manpage: quote block gets .RS 3/.RE indentation");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "[quote]\n"
+        "____\n"
+        "This is a quoted paragraph.\n"
+        "____\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, ".RS 3\n");
+    EXPECT_CONTAINS(out, ".RE\n");
+    EXPECT_CONTAINS(out, "This is a quoted paragraph.");
+
+    end_test();
+}
+
+static void test_html_example_block_numbered_title() {
+    // Titled example blocks should have "Example N." prefix in HTML output,
+    // matching asciidoctor's HTML5 backend behaviour.
+    begin_test("html5: titled example block gets 'Example N.' prefix");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        ".Run the program\n"
+        "[example]\n"
+        "====\n"
+        "Run it like this.\n"
+        "====\n"
+        "\n"
+        ".Another example\n"
+        "[example]\n"
+        "====\n"
+        "Do this too.\n"
+        "====\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "Example 1. Run the program");
+    EXPECT_CONTAINS(out, "Example 2. Another example");
+
+    end_test();
+}
+
+static void test_html_table_numbered_title() {
+    // Titled tables should have "Table N." prefix in HTML output,
+    // matching asciidoctor's HTML5 backend behaviour.
+    begin_test("html5: titled table gets 'Table N.' prefix");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        ".My Data Table\n"
+        "|===\n"
+        "|Col A |Col B\n"
+        "|a1 |b1\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "Table 1. My Data Table");
+
+    end_test();
+}
+
+static void test_html_em_dash_spaced() {
+    // " -- " (surrounded by spaces) should produce thin-space + em-dash +
+    // thin-space matching asciidoctor's HTML5 backend.
+    begin_test("html5: ' -- ' becomes thin-space em-dash thin-space");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "Text before -- text after.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "&#8201;&#8212;&#8201;");
+
+    end_test();
+}
+
+static void test_html_em_dash_no_convert_option_names() {
+    // "--option" (without surrounding spaces) should NOT be converted to
+    // an em dash; command-line option names must be preserved.
+    begin_test("html5: '--option' is not converted to em-dash");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "Use the *--log-file* option to redirect output.\n"
+        "Also: -h|--help for usage.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    // em-dash entity must not appear
+    EXPECT(out.find("&#8212;") == std::string::npos);
+    // option names must appear verbatim
+    EXPECT_CONTAINS(out, "--log-file");
+    EXPECT_CONTAINS(out, "--help");
+
+    end_test();
+}
+
+static void test_html_arrow_replacements() {
+    // ->, <-, =>, <= should be replaced with the corresponding Unicode arrow
+    // entities matching asciidoctor's typographic replacements.
+    begin_test("html5: arrow replacements ->, <-, =>, <=");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "A -> B, C <- D, E => F, G <= H.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    EXPECT_CONTAINS(out, "&#8594;");   // →
+    EXPECT_CONTAINS(out, "&#8592;");   // ←
+    EXPECT_CONTAINS(out, "&#8658;");   // ⇒
+    EXPECT_CONTAINS(out, "&#8656;");   // ⇐
+
+    end_test();
+}
+
+static void test_html_verbatim_trailing_space_stripped() {
+    // Trailing whitespace on verbatim block lines should be stripped in HTML
+    // output to match asciidoctor's behaviour.
+    begin_test("html5: verbatim block trailing whitespace stripped");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "....\n"
+        "line with trailing spaces   \n"
+        "clean line\n"
+        "....\n";
+
+    auto doc = asciiquack::Parser::parse_string(src, {});
+    std::string out = asciiquack::Html5Converter().convert(*doc);
+
+    // The trailing spaces must not appear in the output
+    EXPECT(out.find("trailing spaces   ") == std::string::npos);
+    EXPECT_CONTAINS(out, "trailing spaces");
+    EXPECT_CONTAINS(out, "clean line");
+
+    end_test();
+}
+
 
 int main(int argc, char* argv[]) {
-    // Check for -v flag
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "-v" || std::string(argv[i]) == "--verbose") {
             g_verbose = true;
@@ -5283,6 +6036,9 @@ int main(int argc, char* argv[]) {
     test_manpage_backend_auto_doctype();
     test_manpage_backend_indoctype();
     test_manpage_empty_term_suppressed();
+    test_manpage_dlist_plus_continuation_multi();
+    test_manpage_stem_macro_stripped();
+    test_manpage_dlist_nested_olist();
     test_html5_empty_dlist_suppressed();
     test_dlist_body_not_swallowed_by_table();
     test_html5_block_anchor_on_example();
@@ -5373,6 +6129,26 @@ int main(int argc, char* argv[]) {
     test_html_nested_ordered_list();
     test_html_adjacent_inline_space_between();
     test_html_text_immediately_before_inline();
+    test_manpage_fp_font_restore();
+    test_manpage_constrained_bold_gt_boundary();
+    test_manpage_unconstrained_bold_gt_boundary();
+    test_manpage_nested_bold_fp_restore();
+    test_manpage_xref_with_text();
+    test_manpage_xref_bare();
+    test_manpage_dlist_term_with_embedded_colons();
+    test_manpage_url_shows_url_after_text();
+    test_manpage_em_dash();
+    test_manpage_ellipsis();
+    test_manpage_admonition_note();
+    test_manpage_admonition_warning();
+    test_manpage_nested_ulist_blank_line();
+    test_manpage_quote_block_indented();
+    test_html_example_block_numbered_title();
+    test_html_table_numbered_title();
+    test_html_em_dash_spaced();
+    test_html_em_dash_no_convert_option_names();
+    test_html_arrow_replacements();
+    test_html_verbatim_trailing_space_stripped();
 
     // Summary
     std::cout << "\n============================\n";

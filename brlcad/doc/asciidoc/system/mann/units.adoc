@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-units - Sets the units being used in mged. Without arguments, returns the current units being used in mged.
+units - Sets the units being used in _mged_. Without arguments, returns the current units being used in _mged_.
 
 == SYNOPSIS
 
@@ -68,7 +68,7 @@ The example shows the use of the *units* command with a __units_type__ argument 
 .Switch the editing units to inches.
 [example]
 ====
-mged>*units in*
+mged>**units in**
 
 Switch to editing in inches and remember this as the preferred editing units for this database.
 
@@ -84,4 +84,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

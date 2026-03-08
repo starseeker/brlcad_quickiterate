@@ -14,7 +14,6 @@ pnts {subcommand} {subcommand arguments}
 ----
 
 
-::
 
 [source]
 ----
@@ -22,7 +21,6 @@ read [-f [xyzijksrgb]] [-u unit] [--size #] {input_file} {pnts_obj}
 ----
 
 
-::
 
 [source]
 ----
@@ -30,7 +28,6 @@ write [-p #] [--ply] {pnts_obj} {output_filepnts}
 ----
 
 
-::
 
 [source]
 ----
@@ -38,7 +35,6 @@ gen [-t #] [--surface] [--grid] [--rand] [--sobol] [--max-pnts] [--max-time] {ob
 ----
 
 
-::
 
 [source]
 ----
@@ -46,7 +42,6 @@ tri [unit] [-s #]
 ----
 
 
-::
 
 [source]
 ----
@@ -68,7 +63,7 @@ Allows the user to create/write/generate "pnts" primitives. See also the *make_p
 
 *read*::
 Reads point data from an input file.
-
++
 
 *-f [xyzijksrgb]*::
 Specifies the format of input data
@@ -86,7 +81,7 @@ Sets the default size for each point (default is 0).
 
 *write*::
 Writes point data to an output file.
-
++
 
 *-p #*::
 Specifies the number of significant digits (defualt 17).
@@ -100,7 +95,7 @@ Writes output in PLY format.
 
 *gen*::
 Generates a point set from the object and stores the set in a "pnts" primitive.
-
++
 
 *-t #*::
 Specifies the sampling grid spacing (in mm)
@@ -134,7 +129,7 @@ Specifies the maximum time to spend per method (in seconds) when using non-grid 
 
 *tri [unit]*::
 Generates unit or scaled triangles for each pnt in a point set. If no normal information is present, uses origin at avg of all set points to make normals.
-
++
 
 *-s #*::
 Specifies the scale factor to apply to unit triangles - scales the triangle to size with the triangle centered on the original point.
@@ -154,7 +149,7 @@ Apply the Screened Poisson Surface Reconstruction methodology to generate a mesh
 .Read a point cloud file
 [example]
 ====
-mged>*pnts read -f xyz -u in --size 1 pointsfile.txt point_cloud.s1*
+mged>**pnts read -f xyz -u in --size 1 pointsfile.txt point_cloud.s1**
 
 Creates a "pnts" primitive named "point_cloud.s1" using the data file "pointsfile.txt" where the data file only contains the point coordinates listed in the order "xyz." The units of the file data is "in" and the default point size is set to "1.0" (in current model units).
 
@@ -163,7 +158,7 @@ Creates a "pnts" primitive named "point_cloud.s1" using the data file "pointsfil
 .Write a points file from a "pnts" primitive.
 [example]
 ====
-mged>*pnts write -p 3 point_cloud.s1 pointsfile.txt*
+mged>**pnts write -p 3 point_cloud.s1 pointsfile.txt**
 
 Write the XYZ coordinates of the "pnts" primitive point_cloud.s1 to a file called "pointsfile.txt" and and give 3 significant digits.
 
@@ -179,4 +174,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

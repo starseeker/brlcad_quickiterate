@@ -10,7 +10,7 @@
 
 [source]
 ----
-3dm-g [-r] [-v] [-h] {-oout.g} {file.3dm}
+3dm-g [-r] [-v] [-h] {-o out.g} {file.3dm}
 ----
 
 
@@ -46,7 +46,7 @@ Verbose reporting of conversion progress.
 .Verbose Reporting of Search Information
 [example]
 ====
-mged>*3dm-g -r -o nist.g NIST_MBE_PMI_7-10.3dm*
+mged>**3dm-g -r -o nist.g NIST_MBE_PMI_7-10.3dm**
 
 This example imports the BRL-CAD copy of NIST's MBE PMI models 7-10 to nist.g while randomizing the colors assigned to objects.
 
@@ -74,4 +74,4 @@ This software is Copyright (c) 1999-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

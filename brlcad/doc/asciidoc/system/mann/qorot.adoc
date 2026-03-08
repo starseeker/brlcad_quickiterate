@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-qorot - Rotates an object through the specified angle (in degrees).
+qorot - Rotates an object through the specified _angle_ (in degrees).
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *qorot* command to rotate a currently edited ob
 .Rotate a currently edited object.
 [example]
 ====
-mged>*qorot 1 2 3 0 0 1 25*
+mged>**qorot 1 2 3 0 0 1 25**
 
 Rotates the currently edited object through 25° about the axis through the point (1, 2, 3) and in the Z-direction.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

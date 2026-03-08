@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-d - Deletes the specified list of objects from the mged display.
+d - Deletes the specified list of objects from the _mged_ display.
 
 == SYNOPSIS
 
@@ -25,10 +25,10 @@ Deletes the specified list of objects from the _mged_ display. This is a synonym
 
 The example shows the use of the *d* command to delete a region and a shape from the _mged_ display.
 
-.Delete a region and a shape from the mged display.
+.Delete a region and a shape from the _mged_ display.
 [example]
 ====
-mged>*d region1 shapea*
+mged>**d region1 shapea**
 
 Deletes _region1_ and _shapea_ from the _mged_ display.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

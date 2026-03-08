@@ -114,7 +114,7 @@ The examples demonstrate the use of the *material* command and subcommands.
 [example]
 ====
 
-mged>*material import --id .density*::
+mged> **material import --id .density**::
 Imports the density file _.density_ to material objects and names the objects based on the file's ids.
 
 
@@ -125,7 +125,7 @@ Imports the density file _.density_ to material objects and names the objects ba
 [example]
 ====
 
-mged>*material get copper physical density*::
+mged> **material get copper physical density**::
 Outputs the value of density.
 
 
@@ -148,4 +148,4 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

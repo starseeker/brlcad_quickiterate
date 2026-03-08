@@ -4,13 +4,13 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-draw - Adds objects> to the display list so that they will appear on the MGED display. The e command is a synonym for draw.
+draw - Adds _objects_> to the display list so that they will appear on the _MGED_ display. The *e* command is a synonym for *draw*.
 
 == SYNOPSIS
 
 [source]
 ----
-draw [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
+draw [-A attribute name/value pairs] [-s] [-A -o attribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
 ----
 
 
@@ -34,11 +34,11 @@ Adds _objects_ to the display list so that they will appear on the MGED display.
 
 The following examples show the use of the *draw* command to draw particular objects, to specify color, to draw with shape lines rather than dot-dash lines, and to limit the objects to be drawn to those having specific attribute names and value pairs.
 
-.Draw specific objects in the MGED display.
+.Draw specific objects in the _MGED_ display.
 [example]
 ====
 
-mged>*draw object1 object2*::
+mged> **draw object1 object2**::
 _Object1_ and _object2_ are drawn in the _MGED_ display.
 
 
@@ -48,7 +48,7 @@ _Object1_ and _object2_ are drawn in the _MGED_ display.
 .Specify the color used to draw the object.
 [example]
 ====
-mged>*draw -C 255/255/255 object2*
+mged>**draw -C 255/255/255 object2**
 
 Object2 is drawn in white.
 
@@ -57,7 +57,7 @@ Object2 is drawn in white.
 .Limit the objects to be drawn to those having specific attribute names and value pairs.
 [example]
 ====
-mged>*draw -A -o Comment {First comment} Comment {Second comment}*
+mged>**draw -A -o Comment {First comment} Comment {Second comment}**
 
 Objects having a Comment attribute with a value of either "First comment" or "Second comment" are drawn.
 
@@ -73,4 +73,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -28,7 +28,7 @@ The example shows the use of the *zoom* command to reduce the size of the viewin
 .Reduce the size of the viewing cube by half.
 [example]
 ====
-mged>*zoom 2*
+mged>**zoom 2**
 
 Reduces the size of the current viewing cube by half (effectively doubling the size of objects in the display).
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

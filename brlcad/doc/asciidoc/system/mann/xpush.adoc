@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-xpush - Pushes the effects of transformation matrices in the paths, from the specified object to the primitive shapes, into the shapes and replaces all the transformation matrices with identity matrices.
+xpush - Pushes the effects of transformation matrices in the paths, from the specified _object_ to the primitive shapes, into the shapes and replaces all the transformation matrices with identity matrices.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *xpush* command to move all the effects of the 
 .Move effects of transformation matrices in a tree rooted at an object to the shape level.
 [example]
 ====
-mged>*xpush group1*
+mged>**xpush group1**
 
 Moves all the effects of the transformation matrices in the tree rooted at _group1_ down to the shape level (creating new shapes if needed).
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

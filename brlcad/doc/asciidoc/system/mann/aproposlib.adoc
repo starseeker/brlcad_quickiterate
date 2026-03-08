@@ -25,10 +25,10 @@ The *aproposlib* command searches through the one-line usage messages for a spec
 
 The example demonstrates the use of the *aproposlib* command to search the one-line usage messages for a particular BRL-CAD library interface command.
 
-.Using the aproposlib command to search the one-line usage messages for a particular BRL-CAD library interface command containing "mat."
+.Using the *aproposlib* command to search the one-line usage messages for a particular BRL-CAD library interface command containing "mat."
 [example]
 ====
-mged>*aproposlib mat*
+mged>**aproposlib mat**
 
 
 
@@ -59,4 +59,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

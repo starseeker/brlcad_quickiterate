@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-exists - The exists command evaluates an expression and return 1 if true, zero if false. It serves roughly the same purpose for objects in a BRL-CAD database that the UNIX test command serves for files on a file system, with additional features specific to geometry and minus some of the filesystem specific options of test.
+exists - The *exists* command evaluates an expression and return 1 if true, zero if false. It serves roughly the same purpose for objects in a BRL-CAD database that the UNIX test command serves for files on a file system, with additional features specific to geometry and minus some of the filesystem specific options of test.
 
 == SYNOPSIS
 
@@ -171,4 +171,4 @@ TODO.
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

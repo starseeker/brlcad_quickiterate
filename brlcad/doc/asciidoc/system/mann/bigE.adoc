@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-bigE - Displays objects in an evaluated form.
+bigE - Displays _objects_ in an evaluated form.
 
 == SYNOPSIS
 
@@ -25,11 +25,11 @@ Displays objects in an evaluated form. All the Boolean operations indicated in e
 
 Display faceted approximation of an object.
 
-.Display objects in an evaluated form
+.Display _objects_ in an evaluated form
 [example]
 ====
 
-mged>*E some_object*::
+mged> **E some_object**::
 Displays a faceted approximation of __some_object__.
 
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

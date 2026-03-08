@@ -28,7 +28,7 @@ The example shows the use of the *translate* command to move a currently edited 
 .Move a currently edited object.
 [example]
 ====
-mged>*translate 10 20 30*
+mged>**translate 10 20 30**
 
 ====
 
@@ -42,4 +42,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

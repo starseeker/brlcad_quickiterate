@@ -10,7 +10,7 @@ bwscale - change the size of a black and white bw file
 
 [source]
 ----
-bwscale [-r] [-ssquareinsize] [-win_width] [-nin_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] [infile.bw] > outfile.bw
+bwscale [-r] [-s squareinsize] [-w in_width] [-n in_height] [-S squareoutsize] [-W out_width] [-N out_height] [infile.bw] > outfile.bw
 ----
 
 
@@ -55,4 +55,4 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

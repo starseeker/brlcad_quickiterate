@@ -28,7 +28,7 @@ The example shows the use of the *refresh* command to update the MGED display.
 .Update the MGED display.
 [example]
 ====
-mged>*refresh*
+mged>**refresh**
 
 Updates the MGED display.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

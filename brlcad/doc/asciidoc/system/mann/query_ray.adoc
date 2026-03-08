@@ -28,7 +28,7 @@ The example shows the use of the *query_ray* command to fire a single ray throug
 .Fire a ray through the center of the MGED display.
 [example]
 ====
-mged>*query_ray*
+mged>**query_ray**
 
 Fires a single ray through the center of the MGED display.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

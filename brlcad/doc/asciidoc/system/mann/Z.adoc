@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-Z - Clears the mged display.
+Z - Clears the _mged_ display.
 
 == SYNOPSIS
 
@@ -25,11 +25,11 @@ Zap (i.e., clear) the _mged_ display.
 
 Clear the _mged_ display.
 
-.Enter Z to clear the mged display.
+.Enter *Z* to clear the _mged_ display.
 [example]
 ====
 
-mged>*Z*::
+mged> **Z**::
 The _mged_ display is clear.
 
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -28,7 +28,7 @@ The example shows the use of the *color* command to make an entry in the color l
 .Making an entry in the color lookup table for regions within a specified range of idents using the color red.
 [example]
 ====
-mged>*color 1100 1200 255 0 0*
+mged>**color 1100 1200 255 0 0**
 
 Makes an entry in the color lookup table for regions with idents from 1100-1200 using the color red.
 
@@ -37,7 +37,7 @@ Makes an entry in the color lookup table for regions with idents from 1100-1200 
 .Open the color table editor
 [example]
 ====
-mged>*color -e*
+mged>**color -e**
 
 Opens a text editor which displays and allows editing for the current color table
 
@@ -53,4 +53,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

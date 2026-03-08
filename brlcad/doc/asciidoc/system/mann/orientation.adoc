@@ -28,7 +28,7 @@ The example shows the use of the *orientation* command to set the view direction
 .Set the view direction for MGED.
 [example]
 ====
-mged>*orientation 1 0 0 0*
+mged>**orientation 1 0 0 0**
 
 Sets the viewing direction to bottom.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

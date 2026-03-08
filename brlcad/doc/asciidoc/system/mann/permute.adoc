@@ -28,7 +28,7 @@ The example shows the use of the *permute* command to rearrange the vertices of 
 .Rearrange the vertices of an ARB being edited.
 [example]
 ====
-mged>*permute 321*
+mged>**permute 321**
 
 Rearranges the vertices of the currently edited ARB such that vertex 3 becomes vertex 1, vertex 2 remains 2, and vertex 1 becomes 3.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

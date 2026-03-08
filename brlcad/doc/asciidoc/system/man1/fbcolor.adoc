@@ -10,7 +10,7 @@ fbcolor - interactively pick colors
 
 [source]
 ----
-fbcolor [-Fframebuffer] [ -s|Sscreen_squaresize] [ -w|Wscreen_width] [ -n|Nscreen_height] \
+fbcolor [-F framebuffer] [ -s|S screen_squaresize] [ -w|W screen_width] [ -n|N screen_height] \
     
 ----
 
@@ -60,4 +60,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

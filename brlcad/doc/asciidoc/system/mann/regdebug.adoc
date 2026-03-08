@@ -28,7 +28,7 @@ The example shows the use of the *regdebug* command to toggle the display manage
 .Toggle display manager debug flag.
 [example]
 ====
-mged>*regdebug*
+mged>**regdebug**
 
 Toggles the display manager debug flag.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

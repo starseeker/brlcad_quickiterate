@@ -26,7 +26,7 @@ List currently running sub-processes (typically these will be some form of async
 .List Currently Running Processes
 [example]
 ====
-mged>*ps*
+mged>**ps**
 
 
 ....
@@ -51,4 +51,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

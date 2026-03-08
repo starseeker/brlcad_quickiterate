@@ -88,7 +88,7 @@ The following will create a tire with width=185mm, ratio=65mm, and wheel diamete
 .Creating a 185/65R15 tire with wheel
 [example]
 ====
-*tire -d 185/65R15 -t 1 -a -n autowheel*
+**tire -d 185/65R15 -t 1 -a -n autowheel**
 
 ====
 
@@ -120,4 +120,4 @@ There is a known problem where specifying very thin tires with a large inner whe
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

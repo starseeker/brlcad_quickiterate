@@ -32,10 +32,10 @@ The _<prefix>_ above is the second argument to the program. The _spacing_ parame
 [[examples]]
 == EXAMPLES
 
-.picket_fence Example
+.*picket_fence* Example
 [example]
 ====
-*picket_fence fence.g Imy 2000 15 0 0 0 100 6000 0*
+**picket_fence fence.g Imy 2000 15 0 0 0 100 6000 0**
 
 ====
 
@@ -57,4 +57,4 @@ This software is Copyright (c) 2005-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

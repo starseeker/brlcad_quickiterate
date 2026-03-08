@@ -10,7 +10,7 @@ npush - push matrices down a tree hierarchy
 
 [source]
 ----
-npush [-h] [-?] [-v] [-f] [-x] [-r] [-s] [-dmax_depth] {arg1 [arg2]...}
+npush [-h] [-?] [-v] [-f] [-x] [-r] [-s] [-d max_depth] {arg1 [arg2]...}
 ----
 
 
@@ -375,7 +375,7 @@ Halt push operations at the hierarchy level specified by __max_depth__.
 .Push all matrices under a group down to the region level
 [example]
 ====
-mged>*npush -r group*
+mged>**npush -r group**
 
 Push all matrices under given group down to the region level (matrices will sit in group above regions).
 
@@ -390,7 +390,7 @@ Push all matrices under given group down to the region level (matrices will sit 
 .Push all matrices under a group down to the solid level
 [example]
 ====
-mged>*npush -s group*
+mged>**npush -s group**
 
 Push all matrices under given group down to the solid level (matrices will sit below regions).
 

@@ -80,7 +80,7 @@ indicates that the _rtsrv_ program should change directory *cd*(2) to the indica
 
 *convert*::
 indicates that *remrt* should send across an ASCII machine-independent version of the ".g" database file using the command:
-
++
 
 ....
 
@@ -125,19 +125,19 @@ The following steps will set up a local (single machine) example remrt session. 
 
 Launch an *fbserv* instance on the desired port and with the desired type (we will use port 0 and /dev/X for a Linux-based X11 rendering - windows users can try /dev/wgl.) For a somewhat larger render we specify a size of 2048 pixels square.
 
-*fbserv -s2048 -p0 -F/dev/X*
+**fbserv -s2048 -p0 -F/dev/X**
 
 If an graphical framebuffer was specified, a window should appear. Otherwise, fbserv will silently wait for input.
 
 In MGED, set up the scene you wish to render and then save a script with *saveview*
 
-*saveview remrt.rt*
+**saveview remrt.rt**
 
 Edit the script and replace the *rt* command with *remrt*. Replace the output file specification (*-o filename*) with a -F0 option to point the render to the fbserv started in the previous step. Also add a -s2048 option to specify a rendering size to match that provided to the fbserv.
 
 Run the script to launch remrt. You should see output indicating the program has launched. (Note: the port number printed by the default output is not useful - you want to use 4446 by default to connect to remrt.)
 
-*./remrt.rt*
+**./remrt.rt**
 
 
 ....
@@ -165,7 +165,7 @@ pkg_permserver(rtsrv, 8): unknown service
 
 Note that it is seeking servers - we have not given *remrt* any instructions on how to start its own. To start a server and see the system work, we set up a local directory containing the same .g file we used to set up the scene, and from that directory run *rtsrv*. (For these purposes we also add the *-d* so we can see more of what is happening. Without this option, if anything isn't set up correctly rtsrv can fail with cryptic errors.)
 
-*rtsrv -d machinename 4446*
+**rtsrv -d machinename 4446**
 
 If successful, both *remrt* and *rtsrv* will being producing output. The *rtsrv* will be more verbose, and should look like the following:
 
@@ -243,7 +243,7 @@ host_lookup_by_hostent(localhost) got localhost?
 
 The framebuffer started in the beginning will now hold the image results. To save those results to a file, the *fb-png* is used:
 
-*fb-png -F0 -s2048 image.png*
+**fb-png -F0 -s2048 image.png**
 
 ====
 
@@ -287,4 +287,4 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

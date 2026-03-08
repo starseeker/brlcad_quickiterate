@@ -27,7 +27,7 @@ Resets the view size and the view center such that all displayed objects are wit
 [example]
 ====
 
-mged>*autoview*::
+mged> **autoview**::
 The view resets so that all objects displayed can be seen.
 
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

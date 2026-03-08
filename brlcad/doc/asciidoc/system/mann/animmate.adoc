@@ -23,10 +23,9 @@ The *animmate* command starts the Tcl/Tk-based animation tool. ***Need to find a
 [[examples]]
 == EXAMPLES
 
-.
 [example]
 ====
-**
+****
 
 
 
@@ -42,4 +41,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

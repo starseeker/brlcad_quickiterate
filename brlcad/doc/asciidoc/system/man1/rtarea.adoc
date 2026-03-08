@@ -19,7 +19,7 @@ rtarea [options]... model.g objects...
 
 The *rtarea* command calculates the exposed, presented and centers of surface areas of specified geometry objects from a particular view. The summary output includes details for individual regions, assemblies (combinations that contain regions), and summarized totals.
 
-The *exposed*  area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page:
+The *exposed* area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page:
 
 
 ....
@@ -157,7 +157,7 @@ The model geometry is the list of _objects_ in the input database _model.g_.
 
 
 *-X #*::
-Sets rtarea debug flags to a (hexadecimal) number. A flag value of 1 causes 3-D plot output to be written to stdout. All solid RPPs are plotted as grey boxes, and the walk path is in alternating blue and green segments. A flag value of 2 adds red segments for all attempted steps, as well as the final steps. A flag value of 3 adds some debugging prints to stderr in addition to the plots. This is useful for immediate path review, e.g., *rtarea -X 1 ... | tiris*
+Sets rtarea debug flags to a (hexadecimal) number. A flag value of 1 causes 3-D plot output to be written to stdout. All solid RPPs are plotted as grey boxes, and the walk path is in alternating blue and green segments. A flag value of 2 adds red segments for all attempted steps, as well as the final steps. A flag value of 3 adds some debugging prints to stderr in addition to the plots. This is useful for immediate path review, e.g., **rtarea -X 1 ... | tiris**
 
 
 *-x #*::
@@ -196,9 +196,9 @@ determine whether area centers should be computed and reported. Valid values are
 .Rtarea processing of example.g
 [example]
 ====
-The command *rtarea example.g all* computes the area for model 'example.g' group 'all'.
+The command **rtarea example.g all** computes the area for model 'example.g' group 'all'.
 
-The command *rtarea -c "set cc=1" example.g all* computes the area and centers for model 'example.g' group 'all'.
+The command **rtarea -c "set cc=1" example.g all** computes the area and centers for model 'example.g' group 'all'.
 
 ====
 

@@ -205,6 +205,7 @@ struct ListMatch {
     ListType    type;
     std::string marker;   ///< the leading marker characters
     std::string text;     ///< rest of the line after the marker
+    std::string term;     ///< for description lists: the term before the marker (from regex)
 };
 
 std::optional<ListMatch> match_list_item(const std::string& line) {
@@ -232,13 +233,13 @@ std::optional<ListMatch> match_list_item(const std::string& line) {
     // Guard: exclude lines that start with '|' (table rows/separators – Bug #7)
     if (line.empty() || line[0] != '|') {
         // Primary pattern: term followed by :: or ;; (term must start with
-        // a non-whitespace char and have at least one more character).
+        // a non-whitespace char; single-character terms are allowed).
         static const aqrx::regex rx(
-            R"(^(?!//[^/])([ \t]*)([^ \t].+?)(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
+            R"(^(?!//[^/])([ \t]*)([^ \t].*?)(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
             aqrx::ECMAScript | aqrx::optimize);
         aqrx::smatch m;
         if (aqrx::regex_match(line, m, rx)) {
-            return ListMatch{ListType::Description, m[3].str(), m[4].matched ? m[4].str() : ""};
+            return ListMatch{ListType::Description, m[3].str(), m[4].matched ? m[4].str() : "", m[2].str()};
         }
         // Empty-term pattern: a line that is exactly "::" or "::" followed by
         // body text.  This is valid AsciiDoc and is used in generated synopses.
@@ -1168,6 +1169,17 @@ bool Parser::parse_next_block(Reader& reader, Block& parent) {
         return true;
     }
 
+    // ── Orphaned list-continuation marker '+' ─────────────────────────────────
+    // A lone '+' at the section/document level (outside a list item's
+    // collect_item loop) is an AsciiDoc list-continuation marker that has no
+    // attached list item – typically because blank lines separate it from the
+    // preceding dlist entry.  Consume it silently to prevent an infinite loop
+    // where parse_paragraph immediately returns nullptr each iteration.
+    if (line == "+") {
+        reader.skip_line();
+        return true;
+    }
+
     // ── Thematic break ────────────────────────────────────────────────────────
     if (is_thematic_break(line)) {
         reader.skip_line();
@@ -1348,6 +1360,89 @@ bool Parser::parse_next_block(Reader& reader, Block& parent) {
         return true;
     }
 
+    // ── Multi-term dlist: extra term lines before the actual term:: line ───────
+    // AsciiDoc allows multiple terms to share a single dlist body by listing
+    // extra term lines (without '::') immediately before the 'term::' line.
+    // e.g.:
+    //   *-0*
+    //   *-1*
+    //   *-6*::
+    //   Description body.
+    // The extra-term lines don't have '::' so match_list_item() misses them.
+    // Here we look ahead: if the current line looks like a potential extra term
+    // (non-blank, non-delimiter, not a section title, not a list item) and the
+    // NEXT non-blank line is a dlist item, treat the accumulated lines as extra
+    // terms and synthesize them onto the dlist item's term.
+    {
+        // Collect candidate extra-term lines from the reader (we'll push them
+        // back if this isn't actually a multi-term dlist situation).
+        std::vector<std::string> extra_terms;
+        bool is_multi_term = false;
+        std::string dlist_line;
+
+        // Consume the current line as a candidate extra term
+        if (!is_blank(line) && !classify_delimiter(line) && section_level(line) < 0 &&
+            line != "+" && !match_block_image(line)) {
+            reader.skip_line();  // consume 'line'
+            extra_terms.push_back(line);
+
+            // Peek ahead: collect more non-blank lines until we hit a blank,
+            // delimiter, section, or list item
+            while (reader.has_more_lines()) {
+                auto np = reader.peek_line();
+                if (!np) { break; }
+                std::string nl{*np};
+                if (is_blank(nl) || classify_delimiter(nl) || section_level(nl) >= 0 ||
+                    nl == "+" || match_block_image(nl)) { break; }
+                // If this line IS a dlist item, we found the real term::
+                if (auto nm = match_list_item(nl);
+                    nm && nm->type == ListType::Description) {
+                    dlist_line = nl;
+                    is_multi_term = true;
+                    // Don't consume the dlist line — parse_list() will skip it
+                    // internally (it expects the first_line to still be in the
+                    // reader so it can consume it via reader.skip_line()).
+                    break;
+                }
+                // If it's a non-dlist list item, stop - not a multi-term dlist
+                if (match_list_item(nl)) { break; }
+                reader.skip_line();
+                extra_terms.push_back(nl);
+            }
+
+            if (is_multi_term) {
+                // Parse the actual dlist item from the dlist_line as normal,
+                // then prepend the extra terms to the resulting item's term.
+                auto lst = parse_list(reader, parent, ListType::Description,
+                                      dlist_line, pending_attrs);
+                if (lst && !lst->items().empty()) {
+                    auto& first_item = lst->items().front();
+                    // Prepend extra terms (joined with spaces) to the existing term
+                    std::string extra_prefix;
+                    for (const auto& et : extra_terms) {
+                        if (!extra_prefix.empty()) { extra_prefix += ' '; }
+                        extra_prefix += et;
+                    }
+                    if (!extra_prefix.empty()) {
+                        std::string combined = extra_prefix;
+                        if (!first_item->term().empty()) {
+                            combined += ' ';
+                            combined += first_item->term();
+                        }
+                        first_item->set_term(combined);
+                    }
+                    apply_block_attributes(*lst, pending_attrs, pending_title, pending_id);
+                    parent.append(lst);
+                }
+                return true;
+            } else {
+                // Not a multi-term dlist – push the consumed lines back and fall
+                // through to paragraph parsing below.
+                reader.unshift_lines(extra_terms);
+            }
+        }
+    }
+
     // ── Paragraph (including admonition paragraph) ─────────────────────────────
     {
         auto block = parse_paragraph(reader, parent, pending_attrs);
@@ -1524,6 +1619,10 @@ BlockPtr Parser::parse_paragraph(
         if (is_line_comment(line)) { reader.skip_line(); break; }
         if (section_level(line) >= 0) { break; }
         if (classify_delimiter(line)) { break; }
+        // A standalone '+' on its own line is an AsciiDoc list-continuation
+        // marker.  It must NOT be consumed as paragraph text; the list-item
+        // collector that invoked parse_next_block() will handle it.
+        if (line == "+") { break; }
         if (match_block_image(line))  { break; }
         if (match_list_item(line))    { break; }
         if (line.rfind("|===", 0) == 0) { break; }
@@ -1667,17 +1766,26 @@ std::shared_ptr<List> Parser::parse_list(
         if (!lm) { return nullptr; }
 
         if (list_type == ListType::Description) {
-            // term is everything before the '::' / ';;' marker
-            auto marker_pos = text_line.find(lm->marker);
-            std::string term = (marker_pos != std::string::npos)
-                                ? text_line.substr(0, marker_pos)
-                                : text_line;
+            // Use the term captured directly by the regex matcher rather than
+            // searching for the marker in the line with find().  Using find()
+            // would stop at the FIRST occurrence of '::' in the line, which
+            // is wrong when the term itself contains '::' (e.g. attribute-style
+            // terms like '*simulate::type=_TYPE_*::').  The regex correctly
+            // identifies the term via the lazy match that leaves the trailing
+            // '::' + end-of-line as the dlist separator.
+            std::string term = lm->term;
+            // term may be empty for '::-only' patterns; that is acceptable.
             trim(term);
             item->set_term(term);
         }
 
         // Collect simple text continuation lines
         std::string src = lm->text;
+        // Track whether item->set_source() has already been called.  After the
+        // first continuation block, any further plain-text lines must be emitted
+        // as child Paragraph blocks rather than via a second set_source() call
+        // (which would overwrite the first source).
+        bool source_set = false;
 
         while (reader.has_more_lines()) {
             auto peeked = reader.peek_line();
@@ -1698,6 +1806,7 @@ std::shared_ptr<List> Parser::parse_list(
                 if (!src.empty()) {
                     item->set_source(src);
                     src.clear();
+                    source_set = true;
                 }
                 // Skip blank lines before the next attached block
                 reader.skip_blank_lines();
@@ -1727,10 +1836,17 @@ std::shared_ptr<List> Parser::parse_list(
             if (classify_delimiter(nxt).has_value()) { break; }
             if (nxt.rfind("|===", 0) == 0 || nxt.rfind(",===", 0) == 0) { break; }
             if (!nxt.empty() && nxt[0] == '[' && nxt.back() == ']') { break; }
+            // A block title line (starts with '.' followed by non-'. ') also
+            // terminates the item body.  Block titles belong to the block that
+            // follows them, not to the current list item's paragraph text.
+            if (is_block_title_line(nxt)) { break; }
 
             // A same-type list item with a DEEPER marker creates a nested
             // (sub-)list attached to this item.  A SHALLOWER marker ends
             // this item so it can be processed by the parent list context.
+            // A DIFFERENT-TYPE list item (e.g. an ordered list inside a dlist
+            // body) is attached to this item as an implicit continuation block,
+            // without requiring an explicit '+' marker.
             if (auto nm = match_list_item(nxt)) {
                 if (nm->type == list_type) {
                     int root_level = list_marker_level(list_type, root_marker);
@@ -1751,13 +1867,83 @@ std::shared_ptr<List> Parser::parse_list(
                         break;
                     }
                     // Same level handled above (root_marker check)
+                } else {
+                    // Different-type list (e.g. ordered list immediately after
+                    // a dlist body, without an explicit '+').  Attach it as an
+                    // implicit continuation block of this item.
+                    if (!src.empty()) {
+                        item->set_source(src);
+                        src.clear();
+                    }
+                    parse_next_block(reader, *item);
+                    reader.skip_blank_lines();
+                    continue;
+                }
+            }
+
+            // A DIFFERENT-TYPE list item (e.g. an ordered list inside a dlist
+            // body) is attached to this item as an implicit continuation block,
+            // without requiring an explicit '+' marker.
+            if (auto nm = match_list_item(nxt)) {
+                if (nm->type == list_type) {
+                    int root_level = list_marker_level(list_type, root_marker);
+                    int next_level = list_marker_level(list_type, nm->marker);
+                    if (next_level > root_level) {
+                        // Set source so far before parsing the sub-list
+                        if (!src.empty()) {
+                            item->set_source(src);
+                            src.clear();
+                            source_set = true;
+                        }
+                        std::unordered_map<std::string, std::string> sub_attrs;
+                        auto sub_list = parse_list(reader, *item,
+                                                   list_type, nxt, sub_attrs);
+                        if (sub_list) { item->append(sub_list); }
+                        continue;
+                    } else if (next_level < root_level) {
+                        // Shallower item – return to parent
+                        break;
+                    }
+                    // Same level handled above (root_marker check)
+                } else {
+                    // Different-type list (e.g. ordered list immediately after
+                    // a dlist body, without an explicit '+').  Attach it as an
+                    // implicit continuation block of this item.
+                    if (!src.empty()) {
+                        item->set_source(src);
+                        src.clear();
+                        source_set = true;
+                    }
+                    parse_next_block(reader, *item);
+                    reader.skip_blank_lines();
+                    continue;
                 }
             }
 
             // Otherwise it's simple text continuation
             reader.skip_line();
-            if (!src.empty()) { src += ' '; }
-            src += nxt;
+            if (source_set) {
+                // Source was already committed; add subsequent text as a child Para
+                auto child = std::make_shared<Block>(
+                    BlockContext::Paragraph, item.get(), ContentModel::Simple);
+                child->set_source(nxt);
+                // Accumulate further lines into this child paragraph
+                while (reader.has_more_lines()) {
+                    auto np = reader.peek_line();
+                    if (!np) { break; }
+                    std::string nl{*np};
+                    if (is_blank(nl) || nl == "+" || classify_delimiter(nl).has_value() ||
+                        match_list_item(nl)) {
+                        break;
+                    }
+                    reader.skip_line();
+                    child->set_source(child->source() + ' ' + nl);
+                }
+                item->append(child);
+            } else {
+                if (!src.empty()) { src += ' '; }
+                src += nxt;
+            }
         }
 
         if (!src.empty()) {
@@ -1783,7 +1969,24 @@ std::shared_ptr<List> Parser::parse_list(
         auto lm = match_list_item(line);
         if (!lm) { break; }
         if (lm->type != list_type) { break; }
-        if (lm->marker != root_marker) { break; }
+
+        // Deeper marker: attach as a sub-list to the last item (handles the
+        // case where a blank line separates a parent item from its children --
+        // AsciiDoc nesting is determined by marker depth, not blank lines).
+        if (lm->marker != root_marker) {
+            int root_level = list_marker_level(list_type, root_marker);
+            int next_level = list_marker_level(list_type, lm->marker);
+            if (next_level > root_level && !list->items().empty()) {
+                // Attach sub-list to the last item in this list
+                auto& last_item = list->items().back();
+                std::unordered_map<std::string, std::string> sub_attrs;
+                auto sub_list = parse_list(reader, *last_item,
+                                           list_type, line, sub_attrs);
+                if (sub_list) { last_item->append(sub_list); }
+                continue;
+            }
+            break;
+        }
 
         reader.skip_line();
         auto item = collect_item(line);

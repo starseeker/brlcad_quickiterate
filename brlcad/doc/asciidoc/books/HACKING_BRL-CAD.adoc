@@ -281,7 +281,7 @@ Project documentation
 
 `doc/docbook`::
 User documentation in XML format
-
++
 See doc/docbook/README for more details
 
 
@@ -295,7 +295,7 @@ Scripts and resources for regression testing
 
 `src/`::
 Application and library source code
-
++
 See src/README for more details
 
 
@@ -552,7 +552,7 @@ Check out our list of available mini tasks that we call http://brlcad.org/wiki/D
 
 ==== Two-Week Tasks
 
-If you have few hours to spare each day, check our http://brlcad.org/xref/source/TODO[TODO list] (http://brlcad.org/xref/source/TODO). These tasks can help potential developers do modifications and submit patches to gain commit access to our code repository. You should be able to complete the tasks on this list within 14 days. Before starting on a task, however, you should discuss it with other developers on our mailing list <brlcad-devel@lists.sourceforge.net>.
+If you have few hours to spare each day, check our http://brlcad.org/xref/source/TODO[TODO list] (http://brlcad.org/xref/source/TODO). These tasks can help potential developers do modifications and submit patches to gain commit access to our code repository. You should be able to complete the tasks on this list within 14 days. Before starting on a task, however, you should discuss it with other developers on our mailing list brlcad-devel@lists.sourceforge.net.
 
 We also have a http://sourceforge.net/p/brlcad/code/HEAD/tree/brlcad/trunk/BUGS[BUGS] file, included in each binary and source distribution, which lists the application bugs that developers are invited to fix. If you plan to tackle a bug, remember to report it in our http://sourceforge.net/p/brlcad/bugs/[bug tracker].
 
@@ -621,7 +621,7 @@ You don't have to install BRL-CAD. Instead, you can just run the binaries that a
 
 *bin/benchmark; bin/mged;*
 
-That's it! If you have a Release compile, you can submit your benchmark results to <benchmark@brlcad.org>.
+That's it! If you have a Release compile, you can submit your benchmark results to benchmark@brlcad.org.
 
 
 
@@ -992,7 +992,7 @@ Project documentation
 
 `doc/docbook`::
 User documentation in XML format
-
++
 See the file `doc/docbook/README` for more details
 
 
@@ -1035,9 +1035,9 @@ Let's take a look at a few other ways that you can contribute to the BRL-CAD pro
 
 ==== Bug Reporting and Feature Requests
 
-Finding bugs in software is often a challenging task for developers. If you find a problem with the software, file a bug report on BRL-CAD's official https://github.com/BRL-CAD/brlcad/issues[issue tracking page] on SourceForge (http://sourceforge.net/p/brlcad/bugs/). Please remember to provide enough detail so that we can reproduce the problem. You can also post to our developer mailing list at <brlcad-devel@lists.sourceforge.net>.
+Finding bugs in software is often a challenging task for developers. If you find a problem with the software, file a bug report on BRL-CAD's official https://github.com/BRL-CAD/brlcad/issues[issue tracking page] on SourceForge (http://sourceforge.net/p/brlcad/bugs/). Please remember to provide enough detail so that we can reproduce the problem. You can also post to our developer mailing list at brlcad-devel@lists.sourceforge.net.
 
-In addition, if you have a suggestion for new feature, feel free to submit a request on BRL-CAD's official http://sourceforge.net/p/brlcad/feature-requests/[feature request page] (http://sourceforge.net/p/brlcad/feature-requests/) on SourceForge. You can also post to our developer mailing list at <brlcad-devel@lists.sourceforge.net>.
+In addition, if you have a suggestion for new feature, feel free to submit a request on BRL-CAD's official http://sourceforge.net/p/brlcad/feature-requests/[feature request page] (http://sourceforge.net/p/brlcad/feature-requests/) on SourceForge. You can also post to our developer mailing list at brlcad-devel@lists.sourceforge.net.
 
 
 ==== Outreach and Artwork

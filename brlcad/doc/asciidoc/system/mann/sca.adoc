@@ -10,7 +10,7 @@ sca - Used to apply a scaling factor.
 
 [source]
 ----
-sca { [sfactor]| [x-sfactor y-sfactor z-sfactor]}
+sca {[sfactor] | [x-sfactor y-sfactor z-sfactor]}
 ----
 
 
@@ -30,7 +30,7 @@ The example shows the use of the *sca* command to apply a scaling factor to an o
 .Apply a scaling factor to an object or view.
 [example]
 ====
-mged>*sca 2*
+mged>**sca 2**
 
 In matrix edit mode, the object being affected will get twice as big. In view mode, the size of the view will be doubled (showing twice the volume of space, hence making objects appear half their previous size on the display).
 
@@ -39,7 +39,7 @@ In matrix edit mode, the object being affected will get twice as big. In view mo
 .Apply a scaling factor to an object.
 [example]
 ====
-mged>*sca 2 1 1*
+mged>**sca 2 1 1**
 
 In matrix edit mode, the object being affected will get twice as big along the x-axis.
 
@@ -55,4 +55,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

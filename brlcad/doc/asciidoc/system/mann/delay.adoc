@@ -28,7 +28,7 @@ The example shows the use of the *delay* command to delay the next command by th
 .Delay the next command by a specified amount of time.
 [example]
 ====
-mged>*delay 5 0*
+mged>**delay 5 0**
 
 Delays the next command for 5 seconds.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

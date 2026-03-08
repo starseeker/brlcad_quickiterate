@@ -10,7 +10,7 @@ pixshrink - shrink a color pix file
 
 [source]
 ----
-pixshrink [-ssquareinsize] [-win_width] [-nin_height] [-fshrink_factor] [-u] [infile.pix] > outfile.pix
+pixshrink [-s squareinsize] [-w in_width] [-n in_height] [-f shrink_factor] [-u] [infile.pix] > outfile.pix
 ----
 
 
@@ -51,4 +51,4 @@ This software is Copyright (c) 1990-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

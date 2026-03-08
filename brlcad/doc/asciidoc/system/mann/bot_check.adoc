@@ -70,7 +70,7 @@ Run all of the checks, passing only if each individual check is successful.
 .Basic example
 [example]
 ====
-mged>*bot check input.bot*
+mged>**bot check input.bot**
 
 Run all checks on _input.bot_. Returns "1" if successful, and "0" if a problem was found.
 
@@ -79,7 +79,7 @@ Run all checks on _input.bot_. Returns "1" if successful, and "0" if a problem w
 .Specific test
 [example]
 ====
-mged>*bot check open_edges input.bot*
+mged>**bot check open_edges input.bot**
 
 Run just the __open_edges__ test on input.bot, reporting "1" if everything looks valid and "0" if one or more open edges are found.
 
@@ -95,4 +95,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

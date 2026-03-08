@@ -10,7 +10,7 @@ fbpoint - point at and identify screen coordinates
 
 [source]
 ----
-fbpoint [-Fframebuffer] [-wwidth] [-nheight] [-ssquaresize] [ -x [prefix]] [ -y [prefix]] [ initialx initialy]
+fbpoint [-F framebuffer] [-w width] [-n height] [-s squaresize] [ -x [prefix]] [ -y [prefix]] [ initialx initialy]
 ----
 
 
@@ -61,4 +61,4 @@ This software is Copyright (c) 1986-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

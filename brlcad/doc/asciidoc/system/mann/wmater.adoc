@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-wmater - Lists the shader name and parameters, RGB color, RGB_valid flag, and the inheritance flag to the specified file for the listed objects.
+wmater - Lists the shader name and parameters, RGB color, __RGB_valid__ flag, and the inheritance flag to the specified _file_ for the listed _objects_.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *wmater* command to list the shader parameters 
 .List the shader parameters of two objects to a specified file.
 [example]
 ====
-mged>*wmater mater_file group1 regiona*
+mged>**wmater mater_file group1 regiona**
 
 Lists the shader parameters of _group1_ and _regiona_ to __mater_file__.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

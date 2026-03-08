@@ -10,7 +10,7 @@ g-var - Produce (OpenGL) Vertex Arrays from BOT BRL-CAD geometry
 
 [source]
 ----
-g-var [-v] [-y] [-sscale] [-f] [-ooutfile] infile.g object
+g-var [-v] [-y] [-s scale] [-f] [-o outfile] infile.g object
 ----
 
 
@@ -32,7 +32,7 @@ Request verbose output.
 Transform the coordinate system from xyz to xzy.
 
 
-*-s* *scale*::
+*-s* **scale**::
 Scale the output geometry by factor _scale_. By default the scale factor is 0.001 (standard transformation from meters to millimeters).
 
 
@@ -83,4 +83,4 @@ This software is Copyright (c) 2006-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

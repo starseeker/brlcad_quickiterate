@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 
@@ -96,12 +97,32 @@ private:
     /// Apply inline troff markup (bold/italic/mono) to a pre-substituted string.
     /// Also escapes plain-text characters that have special meaning in troff
     /// (backslash and minus sign).  The caller must NOT apply troff_escape()
-    /// afterwards, or the \fB...\fR sequences generated here will be corrupted.
+    /// afterwards, or the \fB...\fP sequences generated here will be corrupted.
     /// Nested inline markup (e.g. italic inside bold: *foo _bar_ baz*) is handled
     /// by recursively calling troff_inline() on the content of each span.
+    ///
+    /// NOTE: Inline span closings use \fP (restore previous font) rather than
+    /// \fR (set roman), matching asciidoctor's manpage backend behaviour.  \fP
+    /// properly restores the enclosing font context so that, for example, italic
+    /// inside a bold title correctly returns to bold after the italic word.
     [[nodiscard]] static std::string troff_inline(const std::string& text) {
         std::string out;
         out.reserve(text.size() + 32);
+
+        // Helper: returns true if character c is NOT a valid opening boundary
+        // character for a constrained inline span.  Matches asciidoctor's rule:
+        //   (^|[^\p{Word};:}])
+        // i.e. a word character (letter/digit/_), or one of ;, :, }  – all
+        // preclude constrained parsing.
+        // In addition, > and < are excluded because asciidoctor processes them
+        // as HTML entities (&gt; / &lt;) before applying inline patterns; the
+        // resulting trailing ';' in those entities falls into the ';' exclusion.
+        auto is_constrained_open_invalid = [](char c) -> bool {
+            if (std::isalnum(static_cast<unsigned char>(c)) || c == '_') return true;
+            if (c == ';' || c == ':' || c == '}') return true;
+            if (c == '>' || c == '<') return true;  // would become &gt;/&lt; with ;
+            return false;
+        };
         std::size_t i = 0;
 
         // Find the end of a constrained inline span starting at `start` (one past
@@ -129,24 +150,48 @@ private:
         };
 
         while (i < text.size()) {
+            // Em-dash: -- (but not --- or ----).
+            // Asciidoctor man page backend converts -- to \(em.
+            if (text[i] == '-' && i + 1 < text.size() && text[i+1] == '-') {
+                // Ensure it's exactly -- (not ---, ----, etc.)
+                bool prev_dash = (i > 0 && text[i-1] == '-');
+                bool next_dash = (i + 2 < text.size() && text[i+2] == '-');
+                if (!prev_dash && !next_dash) {
+                    out += "\\(em";
+                    i += 2;
+                    continue;
+                }
+            }
+            // Ellipsis: ... → .\|.\|.  (asciidoctor man page backend form)
+            if (text[i] == '.' && i + 2 < text.size() && text[i+1] == '.' && text[i+2] == '.') {
+                // Make sure it's not part of a longer run
+                bool prev_dot = (i > 0 && text[i-1] == '.');
+                bool next_dot = (i + 3 < text.size() && text[i+3] == '.');
+                if (!prev_dot && !next_dot) {
+                    out += ".\\|.\\|.";
+                    i += 3;
+                    continue;
+                }
+            }
             // Unconstrained bold: **...**
             if (i + 1 < text.size() && text[i] == '*' && text[i+1] == '*') {
                 auto end = text.find("**", i + 2);
                 if (end != std::string::npos) {
                     out += "\\fB";
                     out += troff_inline(text.substr(i + 2, end - i - 2));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 2;
                     continue;
                 }
             }
-            // Constrained bold: *word*
-            if (text[i] == '*' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
+            // Constrained bold: *word* – opening * must not be preceded by an
+            // invalid boundary character (word chars, ;, :, }, <, >).
+            if (text[i] == '*' && (i == 0 || !is_constrained_open_invalid(text[i-1]))) {
                 auto end = find_constrained_end(i + 1, '*');
                 if (end != std::string::npos) {
                     out += "\\fB";
                     out += troff_inline(text.substr(i + 1, end - i - 1));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 1;
                     continue;
                 }
@@ -157,18 +202,18 @@ private:
                 if (end != std::string::npos) {
                     out += "\\fI";
                     out += troff_inline(text.substr(i + 2, end - i - 2));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 2;
                     continue;
                 }
             }
-            // Constrained italic: _word_
-            if (text[i] == '_' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
+            // Constrained italic: _word_ – same boundary rules as bold.
+            if (text[i] == '_' && (i == 0 || !is_constrained_open_invalid(text[i-1]))) {
                 auto end = find_constrained_end(i + 1, '_');
                 if (end != std::string::npos) {
                     out += "\\fI";
                     out += troff_inline(text.substr(i + 1, end - i - 1));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 1;
                     continue;
                 }
@@ -177,22 +222,144 @@ private:
             if (i + 1 < text.size() && text[i] == '`' && text[i+1] == '`') {
                 auto end = text.find("``", i + 2);
                 if (end != std::string::npos) {
-                    out += "\\fC";
+                    out += "\\f(CW";
                     out += troff_inline(text.substr(i + 2, end - i - 2));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 2;
                     continue;
                 }
             }
-            // Constrained mono: `word`
-            if (text[i] == '`' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
+            // Constrained mono: `word` – same boundary rules as bold.
+            if (text[i] == '`' && (i == 0 || !is_constrained_open_invalid(text[i-1]))) {
                 auto end = find_constrained_end(i + 1, '`');
                 if (end != std::string::npos) {
-                    out += "\\fC";
+                    out += "\\f(CW";
                     out += troff_inline(text.substr(i + 1, end - i - 1));
-                    out += "\\fR";
+                    out += "\\fP";
                     i = end + 1;
                     continue;
+                }
+            }
+            // Cross-reference macro: <<anchor,text>> or <<anchor>>.
+            // In man pages, asciidoctor renders xrefs as just the link text
+            // (or "[anchor]" for bare xrefs), discarding the anchor.
+            // Guard: only match if the content between << and >> looks like a
+            // valid xref (no newlines; the anchor part must contain no spaces).
+            if (i + 1 < text.size() && text[i] == '<' && text[i+1] == '<') {
+                auto close = text.find(">>", i + 2);
+                if (close != std::string::npos) {
+                    std::string inner = text.substr(i + 2, close - i - 2);
+                    auto comma = inner.find(',');
+                    // The anchor portion (before the comma, or the whole inner
+                    // if no comma) must not contain spaces or newlines.
+                    std::string anchor_part = (comma != std::string::npos)
+                                              ? inner.substr(0, comma) : inner;
+                    bool valid_xref = (anchor_part.find(' ') == std::string::npos &&
+                                       anchor_part.find('\n') == std::string::npos);
+                    if (valid_xref) {
+                        if (comma != std::string::npos) {
+                            // <<anchor,text>> → render the text
+                            std::string xref_text = inner.substr(comma + 1);
+                            out += troff_inline(xref_text);
+                        } else {
+                            // <<anchor>> → render as [anchor]
+                            out += '[';
+                            out += troff_inline(inner);
+                            out += ']';
+                        }
+                        i = close + 2;
+                        continue;
+                    }
+                }
+            }
+            // URL link macro: http://url[text] or https://url[text].
+            // Render as "text <url>" matching asciidoctor's man page backend
+            // which uses the .URL macro to append the URL after the link text.
+            if ((text.substr(i, 7) == "http://" || text.substr(i, 8) == "https://") &&
+                text.find('[', i) != std::string::npos) {
+                auto bracket = text.find('[', i);
+                if (bracket != std::string::npos) {
+                    auto close = text.find(']', bracket + 1);
+                    if (close != std::string::npos) {
+                        std::string url = text.substr(i, bracket - i);
+                        std::string link_text = text.substr(bracket + 1, close - bracket - 1);
+                        if (!link_text.empty()) {
+                            // Render as: link text <url>  (angle brackets = troff \(la/\(ra)
+                            out += troff_inline(link_text);
+                            out += " \\(la";
+                            out += troff_escape(url);
+                            out += "\\(ra";
+                        } else {
+                            // No link text: output the URL only
+                            out += troff_inline(url);
+                        }
+                        i = close + 1;
+                        continue;
+                    }
+                }
+            }
+            // Stem / math macro: stem:[expr], latexmath:[expr], asciimath:[expr].
+            // For man pages, render just the expression content as plain text.
+            {
+                static const char* const prefixes[] = {"stem:", "latexmath:", "asciimath:", nullptr};
+                bool handled = false;
+                for (const char* const* pp = prefixes; *pp; ++pp) {
+                    std::size_t plen = std::strlen(*pp);
+                    if (text.size() > i + plen && text.substr(i, plen) == *pp &&
+                        text[i + plen] == '[') {
+                        auto close = text.find(']', i + plen + 1);
+                        if (close != std::string::npos) {
+                            std::string expr = text.substr(i + plen + 1, close - i - plen - 1);
+                            out += troff_inline(expr);
+                            i = close + 1;
+                            handled = true;
+                            break;
+                        }
+                    }
+                }
+                if (handled) continue;
+            }
+            // Unconstrained subscript: ~~text~~ → plain text (no subscript in man)
+            if (i + 1 < text.size() && text[i] == '~' && text[i+1] == '~') {
+                auto end = text.find("~~", i + 2);
+                if (end != std::string::npos) {
+                    out += troff_inline(text.substr(i + 2, end - i - 2));
+                    i = end + 2;
+                    continue;
+                }
+            }
+            // Constrained subscript: ~word~ → plain text (strip ~ markers)
+            if (text[i] == '~' && i + 1 < text.size() && text[i+1] != '~' && text[i+1] != ' ') {
+                auto end = text.find('~', i + 1);
+                if (end != std::string::npos && end > i + 1) {
+                    // Make sure the closing ~ is not followed by ~
+                    bool next_is_tilde = (end + 1 < text.size() && text[end+1] == '~');
+                    if (!next_is_tilde) {
+                        out += troff_inline(text.substr(i + 1, end - i - 1));
+                        i = end + 1;
+                        continue;
+                    }
+                }
+            }
+            // Unconstrained superscript: ^^text^^ → plain text
+            if (i + 1 < text.size() && text[i] == '^' && text[i+1] == '^') {
+                auto end = text.find("^^", i + 2);
+                if (end != std::string::npos) {
+                    out += troff_inline(text.substr(i + 2, end - i - 2));
+                    i = end + 2;
+                    continue;
+                }
+            }
+            // Constrained superscript: ^word^ → plain text
+            if (text[i] == '^' && i + 1 < text.size() && text[i+1] != '^' && text[i+1] != ' ') {
+                auto end = text.find('^', i + 1);
+                if (end != std::string::npos && end > i + 1) {
+                    bool next_is_caret = (end + 1 < text.size() && text[end+1] == '^');
+                    if (!next_is_caret) {
+                        out += troff_inline(text.substr(i + 1, end - i - 1));
+                        i = end + 1;
+                        continue;
+                    }
                 }
             }
             // Plain text: escape backslash and minus
@@ -365,30 +532,59 @@ private:
     void convert_paragraph(const Block& block, const Document& doc,
                            OutputBuffer& out) const {
         if (block.has_title()) {
-            out << ".PP\n"
-                << "\\fB" << troff_escape(block.title()) << "\\fR\n";
+            out << ".sp\n"
+                << "\\fB" << troff_escape(block.title()) << "\\fP\n";
         }
-        out << ".PP\n"
+        out << ".sp\n"
             << inline_subs(block.source(), doc) << '\n';
     }
 
     // ── Verbatim (listing / literal) ──────────────────────────────────────────
 
     static void convert_verbatim(const Block& block, OutputBuffer& out) {
-        out << ".if n .RS 4\n"
+        if (block.has_title()) {
+            out << ".sp\n"
+                << "\\fB" << troff_escape(block.title()) << "\\fP\n";
+        }
+        out << ".sp\n"
+            << ".if n .RS 4\n"
             << ".nf\n"
             << ".fam C\n";
-        // Emit each line with leading period protection
+        // Split into lines, then trim leading and trailing blank lines from the
+        // content (matching asciidoctor's man page backend behaviour).
+        static constexpr auto verbatim_is_blank = [](const std::string& s) {
+            return s.find_first_not_of(" \t") == std::string::npos;
+        };
+        static constexpr const char* TAB_SPACES = "        ";  // 8 spaces per tab
         std::istringstream ss(block.source());
-        std::string line;
-        while (std::getline(ss, line)) {
+        std::vector<std::string> lines;
+        {
+            std::string ln;
+            while (std::getline(ss, ln)) { lines.push_back(std::move(ln)); }
+        }
+        // Trim leading blank lines
+        while (!lines.empty() && verbatim_is_blank(lines.front())) {
+            lines.erase(lines.begin());
+        }
+        // Trim trailing blank lines
+        while (!lines.empty() && verbatim_is_blank(lines.back())) {
+            lines.pop_back();
+        }
+        for (const auto& line : lines) {
             if (!line.empty() && (line[0] == '.' || line[0] == '\'')) {
                 out << "\\&";
             }
-            // Escape backslashes
+            // Expand tabs to 8 spaces and escape backslashes, matching
+            // asciidoctor's man page backend behavior (simple tab→8-space
+            // replacement, not tabstop-aligned).
             for (char c : line) {
-                if (c == '\\') { out << "\\\\"; }
-                else           { out << c; }
+                if (c == '\t') {
+                    out << TAB_SPACES;
+                } else if (c == '\\') {
+                    out << "\\\\";
+                } else {
+                    out << c;
+                }
             }
             out << '\n';
         }
@@ -408,9 +604,32 @@ private:
             label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
         }
 
-        out << ".sp\n"
-            << "\\fB" << label << "\\fR\n"
-            << ".RS 4\n";
+        // Match asciidoctor's man page backend format for admonition blocks:
+        //   .if n .sp
+        //   .RS 4
+        //   .it 1 an-trap
+        //   .nr an-no-space-flag 1
+        //   .nr an-break-flag 1
+        //   .br
+        //   .ps +1
+        //   .B Note
+        //   .ps -1
+        //   .br
+        //   .sp
+        //   content
+        //   .sp .5v
+        //   .RE
+        out << ".if n .sp\n"
+            << ".RS 4\n"
+            << ".it 1 an-trap\n"
+            << ".nr an-no-space-flag 1\n"
+            << ".nr an-break-flag 1\n"
+            << ".br\n"
+            << ".ps +1\n"
+            << ".B " << label << "\n"
+            << ".ps -1\n"
+            << ".br\n"
+            << ".sp\n";
 
         if (block.content_model() == ContentModel::Simple) {
             out << inline_subs(block.source(), doc) << '\n';
@@ -419,22 +638,66 @@ private:
                 convert_block(*child, doc, out);
             }
         }
-        out << ".RE\n";
+        out << ".sp .5v\n"
+            << ".RE\n";
     }
 
     // ── Compound block (example, quote, sidebar) ──────────────────────────────
 
     void convert_compound(const Block& block, const Document& doc,
                           OutputBuffer& out) const {
-        if (block.has_title()) {
-            out << ".PP\n"
-                << "\\fB" << troff_escape(block.title()) << "\\fR\n";
+        // For example blocks with titles, emit "Example N. Title" header
+        // matching asciidoctor's man page backend.  Untitled example blocks
+        // still get .RS 4 / .RE indentation but no numbered header.
+        if (block.context() == BlockContext::Example) {
+            if (block.has_title()) {
+                int n = ++counters_["example"];
+                std::string header = "Example\\ \\&" + std::to_string(n) + ".\\ \\&";
+                // Apply inline substitutions so _italic_ / *bold* markup in
+                // example titles is rendered as troff font escapes.
+                header += inline_subs(block.title(), doc);
+                // Match asciidoctor's man page backend format:
+                //   .B title   (bold title using .B macro)
+                //   .br        (line break after title)
+                //   .RS 4      (indent body by 4 chars)
+                //   .sp        (space before first content line)
+                //   ...content...
+                //   .RE        (end indent)
+                //   .sp        (space after block)
+                out << ".sp\n"
+                    << ".B " << header << "\n"
+                    << ".br\n"
+                    << ".RS 4\n";
+            } else {
+                out << ".sp\n"
+                    << ".RS 4\n";
+            }
+            for (const auto& child : block.blocks()) {
+                convert_block(*child, doc, out);
+            }
+            out << ".RE\n";
+        } else if (block.context() == BlockContext::Quote ||
+                   block.context() == BlockContext::Verse) {
+            // Quote/verse blocks get .RS 3 / .RE indentation to match
+            // asciidoctor's man page backend behaviour.
+            if (block.has_title()) {
+                out << ".sp\n"
+                    << "\\fB" << inline_subs(block.title(), doc) << "\\fP\n";
+            }
+            out << ".RS 3\n";
+            for (const auto& child : block.blocks()) {
+                convert_block(*child, doc, out);
+            }
+            out << ".RE\n";
+        } else {
+            if (block.has_title()) {
+                out << ".sp\n"
+                    << "\\fB" << inline_subs(block.title(), doc) << "\\fP\n";
+            }
+            for (const auto& child : block.blocks()) {
+                convert_block(*child, doc, out);
+            }
         }
-        out << ".RS 4\n";
-        for (const auto& child : block.blocks()) {
-            convert_block(*child, doc, out);
-        }
-        out << ".RE\n";
     }
 
     // ── Unordered list ────────────────────────────────────────────────────────
@@ -442,22 +705,29 @@ private:
     void convert_ulist(const List& list, const Document& doc,
                        OutputBuffer& out) const {
         if (list.has_title()) {
-            out << ".PP\n"
-                << "\\fB" << troff_escape(list.title()) << "\\fR\n";
+            out << ".sp\n"
+                << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
-        out << ".sp\n"
-            << ".RS 4\n";
+        // Each item gets its own .sp .RS 4 ... .RE block with proper
+        // .ie n (nroff bullet) / .el (troff IP bullet) conditional,
+        // matching DocBook XSL output for <itemizedlist> items.
         for (const auto& item : list.items()) {
-            out << ".ie n \\{\\[bu]\\ \n";
-            out << ".el \\{\\[bu]\\ \n";
-            out << ".\\}\n";
+            out << ".sp\n"
+                << ".RS 4\n"
+                << ".ie n \\{\\\n"
+                << "\\h'-04'\\(bu\\h'+03'\\c\n"
+                << ".\\}\n"
+                << ".el \\{\\\n"
+                << ".sp -1\n"
+                << ".IP \\(bu 2.3\n"
+                << ".\\}\n";
             out << inline_subs(item->source(), doc) << '\n';
             // Sub-blocks
             for (const auto& child : item->blocks()) {
                 convert_block(*child, doc, out);
             }
+            out << ".RE\n";
         }
-        out << ".RE\n";
     }
 
     // ── Ordered list ──────────────────────────────────────────────────────────
@@ -465,21 +735,37 @@ private:
     void convert_olist(const List& list, const Document& doc,
                        OutputBuffer& out) const {
         if (list.has_title()) {
-            out << ".PP\n"
-                << "\\fB" << troff_escape(list.title()) << "\\fR\n";
+            out << ".sp\n"
+                << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
-        out << ".sp\n"
-            << ".RS 4\n";
         int n = 1;
+        // Determine the number of digits in the largest label so the
+        // horizontal offset (\h'-04' for 1-char, '-05' for 2-char, etc.)
+        // can be set correctly – matching asciidoctor's manpage backend.
+        // For simplicity, always use 4 (handles lists up to ~99 items).
         for (const auto& item : list.items()) {
-            out << ".IP " << n << ". 4\n";
-            out << inline_subs(item->source(), doc) << '\n';
+            std::string label = std::to_string(n) + ".";
+            // Asciidoctor uses per-item .RS 4/.RE with a conditional:
+            //   .ie n  \h'-04' N.\h'+01'\c   (nroff: manual horizontal position)
+            //   .el    .IP " N." 4.2          (troff: use IP macro)
+            // This produces clean, properly-wrapped numbered list output in
+            // both nroff (man page viewers) and troff (typeset output).
+            out << ".sp\n"
+                << ".RS 4\n"
+                << ".ie n \\{\\\n"
+                << "\\h'-04'" << " " << label << "\\h'+01'\\c\n"
+                << ".\\}\n"
+                << ".el \\{\\\n"
+                << ".  sp -1\n"
+                << ".  IP \" " << label << "\" 4.2\n"
+                << ".\\}\n"
+                << inline_subs(item->source(), doc) << '\n';
             for (const auto& child : item->blocks()) {
                 convert_block(*child, doc, out);
             }
+            out << ".RE\n";
             ++n;
         }
-        out << ".RE\n";
     }
 
     // ── Description list ──────────────────────────────────────────────────────
@@ -487,50 +773,89 @@ private:
     void convert_dlist(const List& list, const Document& doc,
                        OutputBuffer& out) const {
         if (list.has_title()) {
-            out << ".PP\n"
-                << "\\fB" << troff_escape(list.title()) << "\\fR\n";
+            out << ".sp\n"
+                << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
-        for (const auto& item : list.items()) {
+        const auto& items = list.items();
+        for (std::size_t idx = 0; idx < items.size(); ++idx) {
+            const auto& item = *items[idx];
             // Empty-term items (generated e.g. by db2adoc for multi-variant
             // synopsis blocks) carry no visible term.  If the body is also
             // empty there is nothing to render; skip the item entirely.
             // If there IS body content but no term, emit it as a .PP block
             // so the content appears without a spurious empty-bold tag line.
-            bool term_empty = item->term().empty();
+            bool term_empty = item.term().empty();
             if (term_empty) {
-                bool has_content = !item->source().empty() || !item->blocks().empty();
+                bool has_content = !item.source().empty() || !item.blocks().empty();
                 if (!has_content) { continue; }
                 // Body without a term: just emit the content as paragraphs
-                if (!item->source().empty()) {
-                    out << ".PP\n" << inline_subs(item->source(), doc) << '\n';
+                if (!item.source().empty()) {
+                    out << ".sp\n" << inline_subs(item.source(), doc) << '\n';
                 }
-                for (const auto& child : item->blocks()) {
+                for (const auto& child : item.blocks()) {
                     convert_block(*child, doc, out);
                 }
                 continue;
             }
 
+            // Compact list behavior (matching asciidoctor's man page backend):
+            // When one or more consecutive items have completely empty bodies
+            // (no source text and no child blocks), they are joined with ", "
+            // onto the same term line as the next item that has content.
+            // Collect the leading empty-body items into a single term string.
+            std::string combined_term = inline_subs(item.term(), doc);
+            std::size_t lead = idx;
+            while (item.source().empty() && item.blocks().empty() &&
+                   lead + 1 < items.size()) {
+                // Peek at the next item
+                const auto& nxt = *items[lead + 1];
+                if (!nxt.term().empty()) {
+                    ++lead;
+                    combined_term += ", ";
+                    combined_term += inline_subs(nxt.term(), doc);
+                } else {
+                    break;
+                }
+                // If the next item also has no body, keep collecting
+                if (!nxt.source().empty() || !nxt.blocks().empty()) {
+                    break;
+                }
+            }
+            // Advance the outer loop index to skip items we consumed above
+            idx = lead;
+            const auto& body_item = *items[idx];
+
             // Emit the term via inline_subs so that explicit bold/italic markup
-            // (*term*) is handled correctly.  Do not add an extra \fB...\fR
-            // wrapper here – that would double-bold terms that are already
-            // marked *bold* in the source.
-            std::string term_rendered = inline_subs(item->term(), doc);
-            // If the term has no inline formatting (plain text), bold it with
-            // \fB...\fR so it stands out on the .TP line, matching Asciidoctor
-            // man page output conventions.
-            bool has_markup = (term_rendered.find("\\fB") != std::string::npos ||
-                               term_rendered.find("\\fI") != std::string::npos);
-            out << ".TP\n";
-            if (has_markup) {
-                out << term_rendered << "\n";
-            } else {
-                out << "\\fB" << term_rendered << "\\fR\n";
+            // (*term*) is handled correctly.  Do NOT auto-add \fB...\fP for
+            // plain terms – asciidoctor only applies the markup that is
+            // explicitly present in the source.
+            // Use DocBook-style .PP term .RS 4 body .RE instead of .TP, so that
+            // the term appears on its own line with the body indented below it.
+            out << ".sp\n";
+            out << combined_term << "\n";
+            out << ".RS 4\n";
+            if (!body_item.source().empty()) {
+                out << inline_subs(body_item.source(), doc) << '\n';
             }
-            if (!item->source().empty()) {
-                out << inline_subs(item->source(), doc) << '\n';
+            // Render child blocks.  Tables and nested dlist blocks must be
+            // rendered OUTSIDE the .RS 4 indentation to appear at the standard
+            // paragraph level (matching asciidoctor's man page backend behavior).
+            // For each such child, close the .RS 4, render, and reopen .RS 4 for
+            // subsequent non-table/non-dlist children.
+            bool in_rs4 = true;
+            for (const auto& child : body_item.blocks()) {
+                bool outside_rs4 = (child->context() == BlockContext::Table ||
+                                    child->context() == BlockContext::Dlist);
+                if (outside_rs4) {
+                    if (in_rs4) { out << ".RE\n"; in_rs4 = false; }
+                    convert_block(*child, doc, out);
+                } else {
+                    if (!in_rs4) { out << ".RS 4\n"; in_rs4 = true; }
+                    convert_block(*child, doc, out);
+                }
             }
-            for (const auto& child : item->blocks()) {
-                convert_block(*child, doc, out);
+            if (in_rs4) {
+                out << ".RE\n";
             }
         }
     }
@@ -557,14 +882,16 @@ private:
 
     void convert_table(const Table& table, const Document& doc,
                        OutputBuffer& out) const {
-        // Optional block title
+        // Optional block title – asciidoctor prefixes with "Table N." numbering
         if (table.has_title()) {
+            int tnum = ++counters_["table"];
             out << ".sp\n"
                 << ".it 1 an-trap\n"
                 << ".nr an-no-space-flag 1\n"
                 << ".nr an-break-flag 1\n"
                 << ".br\n"
-                << ".B " << troff_escape(table.title()) << "\n";
+                << ".B Table\\ \\&" << tnum << ".\\ \\&"
+                << troff_escape(table.title()) << "\n";
         }
 
         // Determine number of columns from specs or first non-empty row
@@ -599,11 +926,17 @@ private:
         };
 
         // Emit one table row; cells are separated by ':' and wrapped in T{...T}.
+        // Matching asciidoctor's man page backend, add .sp before each cell's
+        // content so the text has proper vertical spacing within tbl output.
         auto emit_row = [&](const TableRow& row) {
             for (std::size_t ci = 0; ci < ncols; ++ci) {
                 out << "T{\n";
                 if (ci < row.cells().size()) {
-                    out << inline_subs(row.cells()[ci]->source(), doc);
+                    const std::string& cell_src = row.cells()[ci]->source();
+                    if (!cell_src.empty()) {
+                        out << ".sp\n";
+                        out << inline_subs(cell_src, doc);
+                    }
                 }
                 out << "\nT}" << (ci + 1 < ncols ? ":" : "\n");
             }
@@ -613,15 +946,12 @@ private:
         const bool has_body   = !table.body_rows().empty();
         const bool has_footer = !table.foot_rows().empty();
 
+        // Asciidoctor man page backend uses a single format line for all rows
+        // (no .T& switch between header and body).  This produces consistent
+        // rendering across groff versions and matches the expected tbl output.
+        emit_format(false);
         if (has_header) {
-            emit_format(true);
             for (const auto& row : table.head_rows()) { emit_row(row); }
-            if (has_body || has_footer) {
-                out << ".T&\n";
-                emit_format(false);
-            }
-        } else {
-            emit_format(false);
         }
 
         for (const auto& row : table.body_rows()) { emit_row(row); }

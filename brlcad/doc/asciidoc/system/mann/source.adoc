@@ -26,7 +26,7 @@ The *source* command reads and executes an external file. The command will look 
 .Read in an external file.
 [example]
 ====
-mged>*source example.txt*
+mged>**source example.txt**
 
 Reads and executes the file example.txt located in the current working directory.
 
@@ -35,7 +35,7 @@ Reads and executes the file example.txt located in the current working directory
 .Read in an external file using the full path to the file.
 [example]
 ====
-mged>*source C:/cad_work/example.txt*
+mged>**source C:/cad_work/example.txt**
 
 Reads and executes the file example.txt located at C:\cad_work\.
 
@@ -51,4 +51,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

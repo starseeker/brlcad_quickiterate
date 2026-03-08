@@ -10,7 +10,7 @@ ug-g - Unigraphics Translator (Unigraphics to BRL-CAD)
 
 [source]
 ----
-ug-g [-dlevel] [-istarting_ident_number] [-npart_no_to_part_name_mapping_file] [-tsurface_tolerance] [-asurface_normal_tolerance] [-Ruse_refset_name] [-cmin_chamfer] [-rmin_round] [-f] [-s] [-u] -odatabase.g part_filename [ subpart1 subpart2...]
+ug-g [-d level] [-i starting_ident_number] [-n part_no_to_part_name_mapping_file] [-t surface_tolerance] [-a surface_normal_tolerance] [-R use_refset_name] [-c min_chamfer] [-r min_round] [-f] [-s] [-u] -o database.g part_filename [ subpart1 subpart2...]
 ----
 
 
@@ -47,4 +47,4 @@ This software is Copyright (c) 1984-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

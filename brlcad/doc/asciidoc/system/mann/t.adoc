@@ -36,7 +36,7 @@ The five examples show the use of the *t* command with different arguments to li
 .List all objects with names beginning with "shape."
 [example]
 ====
-mged>*t shape**
+mged>**t shape***
 
 Lists all objects with names beginning with shape. (output is formatted)
 
@@ -45,7 +45,7 @@ Lists all objects with names beginning with shape. (output is formatted)
 .List all objects with names beginning with "shape."
 [example]
 ====
-mged>*t -a shape**
+mged>**t -a shape***
 
 Lists all objects with names beginning with shape.
 
@@ -54,7 +54,7 @@ Lists all objects with names beginning with shape.
 .List all shapes with names beginning with wheel.
 [example]
 ====
-mged>*t -s wheel**
+mged>**t -s wheel***
 
 Lists all shapes with names beginning with wheel.
 
@@ -63,7 +63,7 @@ Lists all shapes with names beginning with wheel.
 .List all regions with names beginning with wheel.
 [example]
 ====
-mged>*t -r wheel**
+mged>**t -r wheel***
 
 Lists all regions with names beginning with wheel.
 
@@ -72,7 +72,7 @@ Lists all regions with names beginning with wheel.
 .List all combinations with names beginning with suspension.
 [example]
 ====
-mged>*t -c suspension**
+mged>**t -c suspension***
 
 Lists all combinations with names beginning with suspension.
 
@@ -88,4 +88,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

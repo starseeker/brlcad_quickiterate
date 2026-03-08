@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-nmg_collapse - Simplifies an existing nmg_shape by a process of edge decimation.
+nmg_collapse - Simplifies an existing __nmg_shape__ by a process of edge decimation.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *nmg_collapse* command to simplify an existing 
 .Create a new nmg shape by decimating the edges of an existing nmg shape.
 [example]
 ====
-mged>*nmg_collapse nmg_old nmg_new 1.0 10.0*
+mged>**nmg_collapse nmg_old nmg_new 1.0 10.0**
 
 Decimates edges in __nmg_old__ to produce an NMG with an error no greater than 1.0 units. The process will not create any triangles with an angle less than 10°. The new NMG shape will be named __nmg_new__.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

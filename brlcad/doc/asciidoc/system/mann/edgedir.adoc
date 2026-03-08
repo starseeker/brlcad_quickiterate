@@ -4,13 +4,13 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-edgedir - Allows the user to set the direction of an edge by specifying a direction vector in the form of x, y, and z components or via rotation and fallback angles.
+edgedir - Allows the user to set the direction of an edge by specifying a direction vector in the form of _x, y,_ and _z_ components or via rotation and fallback angles.
 
 == SYNOPSIS
 
 [source]
 ----
-edgedir [ {xyz}] [ {rot fb}]
+edgedir [{xyz}] [{rot fb}]
 ----
 
 
@@ -25,11 +25,11 @@ Allows the user to set the direction of an edge by specifying a direction vector
 
 The example shows the use of the *edgedir* command to rotate an edge to be parallel to the _y_ axis.
 
-.Rotate an edge to be parallel to the y axis.
+.Rotate an edge to be parallel to the _y_ axis.
 [example]
 ====
 
-mged>*edgedir 0 1 0*::
+mged> **edgedir 0 1 0**::
 Rotates the edge being edited to be parallel to the _y_ axis.
 
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

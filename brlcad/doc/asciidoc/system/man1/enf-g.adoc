@@ -10,7 +10,7 @@ enf-g - Elysium Neutral Format Translator (ENF to BRL-CAD)
 
 [source]
 ----
-enf-g [-ttolerance] [-istarting_ident_number] [-lname_length_limit] [-npart_number_to_name_mapping] [-v] input_enf_facet_file database.g
+enf-g [-t tolerance] [-i starting_ident_number] [-l name_length_limit] [-n part_number_to_name_mapping] [-v] input_enf_facet_file database.g
 ----
 
 
@@ -51,4 +51,4 @@ This software is Copyright (c) 2001-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

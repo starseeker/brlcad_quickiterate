@@ -28,7 +28,7 @@ The example shows the use of the *rcc-tor* command to round the edges of an RCC 
 .Round the edges of an RCC.
 [example]
 ====
-mged>*rcc-tor rcc.s tor.s*
+mged>**rcc-tor rcc.s tor.s**
 
 Creates a TOR shape named _tor.s_ using the parameters of _rcc.s_ .
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

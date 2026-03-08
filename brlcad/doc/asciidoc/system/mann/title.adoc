@@ -28,7 +28,7 @@ The example shows the use of the *title* command with an argument to rename the 
 .Rename the current database.
 [example]
 ====
-mged>*title This is my \\"database\\"*
+mged>**title This is my \\"database\\"**
 
 Sets the title of the current database to _This is my "database."_
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

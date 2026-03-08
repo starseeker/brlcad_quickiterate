@@ -42,7 +42,7 @@ The example shows the use of the *debugdir* command to get a dump of the in-memo
 .Get a dump of the in-memory directory.
 [example]
 ====
-mged>*debugdir*
+mged>**debugdir**
 
 Gets a dump of the in-memory directory.
 
@@ -58,4 +58,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

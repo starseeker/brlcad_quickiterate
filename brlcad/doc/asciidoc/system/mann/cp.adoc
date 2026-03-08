@@ -28,7 +28,7 @@ The example shows the use of the command *cp* to duplicate a combination.
 .Duplicate a combination.
 [example]
 ====
-mged>*cp comb1 comb2*
+mged>**cp comb1 comb2**
 
 Duplicate combination comb1 and call it comb2.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

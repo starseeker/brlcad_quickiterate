@@ -20,7 +20,6 @@ brep {obj}intersect [append|translate] [arguments]
 Low level routines for intersecting elements of BRep solids and visualizing the results.
 
 
-::
 Visualize intersecting two BREP objects. The last argument specifies what portions of each to intersect; if it is not specified, it defaults to SS:
 
 
@@ -63,4 +62,4 @@ BRLCAD-TEAM
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-edit - Edits objects, using subcommands.
+edit - Edits objects, using _subcommand_ s.
 
 == SYNOPSIS
 
@@ -13,11 +13,11 @@ edit - Edits objects, using subcommands.
 edit [<subcommand> [<args>] object...] \
      \
     
- [ help| translate| rotate| scale| ]...
+ [help | translate | rotate | scale | ]...
  [] <to> [<more_args>]...
- [-n] -k { <from_object>| <from_position>}
- [-n] [ -a| -r] { <to_object>| <to_position>}
- [ {<coords>}| { [ -x { x| <x-obj>}] [ -y { y| <y-obj>}] [ -z { z| <z-obj>}]}]
+ [-n] -k {<from_object> | <from_position>}
+ [-n] [-a | -r] {<to_object> | <to_position>}
+ [{<coords>} | { [ -x {x | <x-obj>}] [ -y {y | <y-obj>}] [ -z {z | <z-obj>}]}]
   [path/] object [<offset_distance>]
  x [ y [z]]
 ----
@@ -77,11 +77,11 @@ Sets the coordinate of a particular axis.
 [example]
 ====
 
-mged> *edit*::
+mged> **edit**::
 
 
 
-mged> *edit help*::
+mged> **edit help**::
 Prints usage and a list of available subcommands.
 
 
@@ -92,7 +92,7 @@ Prints usage and a list of available subcommands.
 [example]
 ====
 
-mged> *edit translate*::
+mged> **edit translate**::
 Print usage of the translate subcommand
 
 
@@ -103,22 +103,22 @@ Print usage of the translate subcommand
 [example]
 ====
 
-mged> *edit translate help*::
+mged> **edit translate help**::
 
 
 
-mged> *edit help translate*::
+mged> **edit help translate**::
 Print extended usage of the translate subcommand. Each subcommand also accepts _help_ as an argument, so that the extended usage is still available if *edit translate* is aliased to something else.
 
 
 
 ====
 
-.A fake subcommand is used to show how standard edit arguments and nonstandard edit arguments are used.
+.A fake subcommand is used to show how standard *edit* arguments and nonstandard *edit* arguments are used.
 [example]
 ====
 
-mged> *edit fake_subcmd -B 12 -k sph.s 1.5 7 -a 0 0 0 cube.s*::
+mged> **edit fake_subcmd -B 12 -k sph.s 1.5 7 -a 0 0 0 cube.s**::
 The nonstandard *-B* option is unique to *fake_subcmd*. An explanation of how it is used would be found in the manual for fake_subcmd, if there were one. The remaining options and arguments are standardized. The *-k* and *-a* options are used to specify a _from_ - _to_ pair, as defined in this manual for *edit*. The interpretation of the vector created by these points would be defined in the *fake_subcmd* manual.
 
 
@@ -135,4 +135,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

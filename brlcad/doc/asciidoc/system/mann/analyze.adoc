@@ -14,7 +14,6 @@ analyze [options]... [subcommand]
 ----
 
 
-::
 
 [source]
 ----
@@ -22,7 +21,6 @@ summarize {obj}...
 ----
 
 
-::
 
 [source]
 ----
@@ -30,7 +28,6 @@ intersect [options]... {obj1 obj2 [...]}...
 ----
 
 
-::
 
 [source]
 ----
@@ -55,10 +52,10 @@ The *subtract* will take the first object specified and subtract from it any sub
 [[examples]]
 == EXAMPLES
 
-.Analyze a particular ARB
+.Analyze a particular _ARB_
 [example]
 ====
-mged>*analyze box.s*
+mged>**analyze box.s**
 
 
 ....
@@ -102,10 +99,10 @@ box.s:  ARB8
 
 ====
 
-.Analyze a particular TOR
+.Analyze a particular _TOR_
 [example]
 ====
-mged>*analyze tor*
+mged>**analyze tor**
 
 
 ....
@@ -133,7 +130,7 @@ tor:  torus (TOR)
 .Points inside a sphere
 [example]
 ====
-mged>*l sph.s*
+mged>**l sph.s**
 
 
 ....
@@ -152,7 +149,7 @@ sph.s:  ellipsoid (ELL)
       
 ....
 
-mged>*l pnts.s*
+mged>**l pnts.s**
 
 
 ....
@@ -170,7 +167,7 @@ point#, (point)
       
 ....
 
-mged>*analyze intersect -o inside.s pnts.s sph.s*
+mged>**analyze intersect -o inside.s pnts.s sph.s**
 
 
 ....
@@ -179,7 +176,7 @@ mged>*analyze intersect -o inside.s pnts.s sph.s*
       
 ....
 
-mged>*l inside.s*
+mged>**l inside.s**
 
 
 ....
@@ -199,7 +196,7 @@ point#, (point)
 .Points outside a sphere
 [example]
 ====
-mged>*l sph.s*
+mged>**l sph.s**
 
 
 ....
@@ -218,7 +215,7 @@ sph.s:  ellipsoid (ELL)
       
 ....
 
-mged>*l pnts.s*
+mged>**l pnts.s**
 
 
 ....
@@ -236,7 +233,7 @@ point#, (point)
       
 ....
 
-mged>*analyze subtract -o outside.s pnts.s sph*
+mged>**analyze subtract -o outside.s pnts.s sph**
 
 
 ....
@@ -245,7 +242,7 @@ mged>*analyze subtract -o outside.s pnts.s sph*
       
 ....
 
-mged>*l outside.s*
+mged>**l outside.s**
 
 
 ....
@@ -272,4 +269,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

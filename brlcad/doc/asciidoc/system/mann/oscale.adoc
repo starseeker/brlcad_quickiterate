@@ -28,7 +28,7 @@ The example shows the use of the *oscale* command to increase the size of a curr
 .Increase a currently edited object by a specified factor.
 [example]
 ====
-mged>*oscale 3*
+mged>**oscale 3**
 
 Increases the size of the currently edited object by a factor of 3.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

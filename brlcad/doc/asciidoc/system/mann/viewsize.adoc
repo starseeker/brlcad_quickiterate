@@ -28,7 +28,7 @@ The example shows the use of the *viewsize* command to set the mged display to a
 .Set the size of the mged display.
 [example]
 ====
-mged>*viewsize 250*
+mged>**viewsize 250**
 
 Sets the mged display to be 250 units across.
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

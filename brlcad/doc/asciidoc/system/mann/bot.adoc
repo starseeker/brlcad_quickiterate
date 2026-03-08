@@ -14,15 +14,13 @@ bot [-v] [-V] [-C [0-255|0-255|0-255]] {subcommand} {subcommand arguments}
 ----
 
 
-::
 
 [source]
 ----
-check { degen_faces| extra_edges| flipped_edges| open_edges| solid} {objname}
+check {degen_faces | extra_edges | flipped_edges | open_edges | solid} {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -30,7 +28,6 @@ chull {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -38,7 +35,6 @@ decimate [-f #] [-e #] {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -46,7 +42,6 @@ extrude {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -54,15 +49,13 @@ flip {objname}
 ----
 
 
-::
 
 [source]
 ----
-get { faces| minEdge| maxEdge| orientation| type| vertices} {objname}
+get {faces | minEdge | maxEdge | orientation | type | vertices} {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -70,7 +63,6 @@ isect {objname} {objname2}
 ----
 
 
-::
 
 [source]
 ----
@@ -78,15 +70,13 @@ remesh {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
-set { orientation| type} {objname} {value}
+set {orientation | type} {objname} {value}
 ----
 
 
-::
 
 [source]
 ----
@@ -94,7 +84,6 @@ smooth [-c [0|1|2]] [-d [0|1|2]] [-e #] [-E #] [-I #] {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -102,7 +91,6 @@ split {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -110,7 +98,6 @@ stat {objname}
 ----
 
 
-::
 
 [source]
 ----
@@ -118,7 +105,6 @@ subd [-A [1|2|3|4|5]] [-l #] {input_bot} {output_bot}
 ----
 
 
-::
 
 [source]
 ----
@@ -148,7 +134,7 @@ Generates the BoT's convex hull and store it in an object.
 
 *decimate*::
 Decimates the BoT. The default error metric is Quadric.
-
++
 
 *-f #*::
 Specifies the features size (implies use of GCT decimater)
@@ -186,7 +172,7 @@ Sets the specified property of the provided bot. Properties that can be set are 
 
 *smooth*::
 Smooths the BoT using OpenMesh's Jacobi Laplace smoother.
-
++
 
 *-c [0|1|2]*::
 Specifies the continuity. The default value is 0, meaning shape is continuous, but not the tangent. A value of 1 means the shape and tangent are continuous, and a value of 2 preserves curvature.
@@ -220,7 +206,7 @@ Returns information about the provided BoT.
 
 *subd*::
 Subdivides the provided BoT.
-
++
 
 *-A [1|2|3|4|5]*::
 Specifies the algorithm used to subdivide the BoT. The default is 1 which specifies the loop algorithm. A value of 2 specfies the sqrt3 algorithm, a value of 3 specifies the sqrt3 interpolating algorithm, a value of 4 specifies modified the butterfly algorithm, and a value of 5 specifies the midpoint alorithm.
@@ -244,7 +230,7 @@ Synchronizes connected BoT triangle orientations.
 .Set the orientation of a BoT to right-hand
 [example]
 ====
-mged>*bot set orientation bot_solid.s rh*
+mged>**bot set orientation bot_solid.s rh**
 
 Sets the orientation of solid bot_solid.s to right-handed (counter-clockwise).
 
@@ -253,7 +239,7 @@ Sets the orientation of solid bot_solid.s to right-handed (counter-clockwise).
 .Return the orientation of a solid.
 [example]
 ====
-mged>*bot get orientation bot_solid.s*
+mged>**bot get orientation bot_solid.s**
 
 Returns the orientation of bot_solid.s. Note that this will return ccw (right-handed), cw (left-handed) or none (unoriented).
 
@@ -262,7 +248,7 @@ Returns the orientation of bot_solid.s. Note that this will return ccw (right-ha
 .Return information of a solid.
 [example]
 ====
-mged>*bot stat bot_solid.s*
+mged>**bot stat bot_solid.s**
 
 Returns information about bot_solid.s.
 
@@ -278,4 +264,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

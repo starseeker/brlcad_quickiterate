@@ -38,7 +38,7 @@ See the _nirt(1)_ man page for options documentation.
 .Run the NIRT program to fire a ray through the GED display.
 [example]
 ====
-mged>*nirt*
+mged>**nirt**
 
 Fires a single ray through the center of the GED display.
 
@@ -47,7 +47,7 @@ Fires a single ray through the center of the GED display.
 .Run the NIRT program to fire a ray through the GED display and report air.
 [example]
 ====
-mged>*nirt -u 1*
+mged>**nirt -u 1**
 
 Fires a single ray through the center of the GED display and report air regions.
 
@@ -56,7 +56,7 @@ Fires a single ray through the center of the GED display and report air regions.
 .Run the NIRT program to fire a ray through the GED display and include LOS and material ID per region.
 [example]
 ====
-mged>*nirt -A LOS -A material_id*
+mged>**nirt -A LOS -A material_id**
 
 Fires a single ray through the center of the GED display and includes LOS and material ID per region.
 
@@ -72,4 +72,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

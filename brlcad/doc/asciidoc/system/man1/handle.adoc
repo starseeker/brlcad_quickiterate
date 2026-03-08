@@ -53,7 +53,7 @@ Radius, r2, of the tori in millimeters.
 [[examples]]
 == EXAMPLES
 
-.Interactive handle Session
+.Interactive *handle* Session
 [example]
 ====
 
@@ -90,10 +90,10 @@ number of handles:  3
 
 ====
 
-.Single-Line handle Command
+.Single-Line *handle* Command
 [example]
 ====
-*handle -fhandle.g -n3 -l200 -H100 -r120 -r210*
+**handle -fhandle.g -n3 -l200 -H100 -r120 -r210**
 
 ====
 
@@ -121,4 +121,4 @@ bolt(1), window(1), window_frame(1), gastank(1)
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
