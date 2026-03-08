@@ -79,7 +79,7 @@ QgAccordion::addObject(QgAccordionObject *o)
 	selected = o;
     }
     objs.insert(o);
-    foreach(QgAccordionObject *obj, objs) {
+    for (QgAccordionObject *obj : objs) {
 	if (obj == selected) {
 	    obj->objscrollarea->show();
 	} else {
@@ -98,7 +98,7 @@ QgAccordion::open(QgAccordionObject *o)
 
     selected = o;
 
-    foreach(QgAccordionObject *obj, objs) {
+    for (QgAccordionObject *obj : objs) {
 	if (obj == selected) {
 	    obj->objscrollarea->show();
 	} else {

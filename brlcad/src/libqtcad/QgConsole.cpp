@@ -539,10 +539,7 @@ QgConsole::QgConsole(QWidget* Parent) :
     Implementation(new pqImplementation(*this))
 {
     QVBoxLayout* const l = new QVBoxLayout(this);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    // TODO - figure out what to do for Qt6 here...
-    l->setMargin(0);
-#endif
+    l->setContentsMargins(0, 0, 0, 0);
     l->addWidget(this->Implementation);
     QObject::connect(this, &QgConsole::queued_log, this, &QgConsole::printStringBeforePrompt);
 }
