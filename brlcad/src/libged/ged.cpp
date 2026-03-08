@@ -51,6 +51,7 @@
 
 #include "./ged_private.h"
 #include "./include/plugin.h"
+#include "ged/dbi.h"
 
 extern "C" void libged_init(void);
 
@@ -64,6 +65,15 @@ ged_close(struct ged *gedp)
 {
     if (gedp == GED_NULL)
 	return;
+
+    /* Stop the GeomLoader background thread BEFORE freeing the database.
+     * DbiState holds a non-owning pointer to dbip; destroying it first ensures
+     * ~GeomLoader() joins the worker thread while dbip is still valid, preventing
+     * a use-after-free that would trigger RT_CK_DBI from the worker. */
+    if (gedp->dbi_state) {
+	delete (DbiState *)gedp->dbi_state;
+	gedp->dbi_state = NULL;
+    }
 
     if (gedp->dbip) {
 	db_close(gedp->dbip);
