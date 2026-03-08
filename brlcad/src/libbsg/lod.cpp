@@ -768,20 +768,25 @@ bsg_mesh_lod_key_get(bsg_mesh_lod_context *c, const char *name)
     unsigned long long hash = bu_data_hash(bu_vls_cstr(&keystr), bu_vls_strlen(&keystr)*sizeof(char));
     bu_vls_sprintf(&keystr, "%llu", hash);
 
-    std::lock_guard<std::mutex> lk(c->i->lod_mu_);
-    mdb_txn_begin(c->i->name_env, NULL, 0, &c->i->name_txn);
-    mdb_dbi_open(c->i->name_txn, NULL, 0, &c->i->name_dbi);
+    /* Use a local read-only transaction so concurrent readers (draw path,
+     * lod_worker) don't serialize against each other or against the writer.
+     * MDB_RDONLY transactions are safe to open from multiple threads without
+     * any external lock; each gets its own snapshot of the database. */
+    MDB_txn *rtxn = NULL;
+    MDB_dbi rdbi;
+    mdb_txn_begin(c->i->name_env, NULL, MDB_RDONLY, &rtxn);
+    mdb_dbi_open(rtxn, NULL, 0, &rdbi);
     mdb_key.mv_size = bu_vls_strlen(&keystr)*sizeof(char);
     mdb_key.mv_data = (void *)bu_vls_cstr(&keystr);
-    int rc = mdb_get(c->i->name_txn, c->i->name_dbi, &mdb_key, &mdb_data);
+    int rc = mdb_get(rtxn, rdbi, &mdb_key, &mdb_data);
     if (rc) {
-	mdb_txn_commit(c->i->name_txn);
+	mdb_txn_abort(rtxn);
 	bu_vls_free(&keystr);
 	return 0;
     }
     unsigned long long *fkeyp = (unsigned long long *)mdb_data.mv_data;
     unsigned long long fkey = *fkeyp;
-    mdb_txn_commit(c->i->name_txn);
+    mdb_txn_abort(rtxn);
 
     bu_vls_free(&keystr);
     //bu_log("GOT %s: %llu\n", name, fkey);
@@ -940,9 +945,12 @@ class POPState {
 	void cache_done();
 	void cache_del(const char *component);
 	MDB_val mdb_key, mdb_data[2];
-	// Held between cache_get() and cache_done() to serialise LMDB access
-	// when multiple threads share the same bsg_mesh_lod_context.
-	std::unique_lock<std::mutex> cache_lock_;
+	/* Per-POPState read transaction — open with MDB_RDONLY so that
+	 * concurrent readers from different threads (draw path, drain callback)
+	 * do not block lod_worker's write transaction.  Each POPState owns its
+	 * own MDB_txn handle; no external lock is needed for concurrent reads. */
+	MDB_txn *read_txn_ = nullptr;
+	MDB_dbi read_dbi_;
 
 	// Specific loading and unloading methods
 	void tri_pop_load(int start_level, int level);
@@ -1590,19 +1598,20 @@ POPState::cache_get(void **data, const char *component)
     //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->i->lod_env))
     //	return 0;
 
-    // Acquire the context mutex; it is held until cache_done() is called.
-    // This ensures the LMDB transaction (and the mapped memory it exposes)
-    // remains exclusively owned by this POPState until the caller is done.
-    cache_lock_ = std::unique_lock<std::mutex>(c->i->lod_mu_);
-
+    /* Open a per-POPState MDB_RDONLY transaction.  Concurrent readers from
+     * different threads each own their own MDB_txn; no mutex is needed.
+     * The mapped memory returned by mdb_get() remains valid until
+     * cache_done() calls mdb_txn_abort(). */
     char *keycstr = bu_strdup(keystr.c_str());
-    mdb_txn_begin(c->i->lod_env, NULL, 0, &c->i->lod_txn);
-    mdb_dbi_open(c->i->lod_txn, NULL, 0, &c->i->lod_dbi);
+    mdb_txn_begin(c->i->lod_env, NULL, MDB_RDONLY, &read_txn_);
+    mdb_dbi_open(read_txn_, NULL, 0, &read_dbi_);
     mdb_key.mv_size = keystr.length()*sizeof(char);
     mdb_key.mv_data = (void *)keycstr;
-    int rc = mdb_get(c->i->lod_txn, c->i->lod_dbi, &mdb_key, &mdb_data[0]);
+    int rc = mdb_get(read_txn_, read_dbi_, &mdb_key, &mdb_data[0]);
     if (rc) {
 	bu_free(keycstr, "keycstr");
+	mdb_txn_abort(read_txn_);
+	read_txn_ = nullptr;
 	(*data) = NULL;
 	return 0;
     }
@@ -1615,9 +1624,10 @@ POPState::cache_get(void **data, const char *component)
 void
 POPState::cache_done()
 {
-    mdb_txn_commit(c->i->lod_txn);
-    // Release the mutex acquired in cache_get().
-    cache_lock_.unlock();
+    if (read_txn_) {
+	mdb_txn_abort(read_txn_);
+	read_txn_ = nullptr;
+    }
 }
 
 bool
