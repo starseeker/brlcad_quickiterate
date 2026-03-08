@@ -5509,6 +5509,66 @@ static void test_manpage_url_shows_url_after_text() {
     end_test();
 }
 
+static void test_manpage_em_dash() {
+    // -- in regular text should produce \(em (troff em dash) matching asciidoctor.
+    begin_test("manpage: -- in text becomes \\(em em-dash");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "* autosize -- if nonzero, the view is set.\n"
+        "* triple --- not an em-dash.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // -- becomes \(em
+    EXPECT_CONTAINS(out, "\\(em");
+    // --- should NOT become \(em (only exactly -- is substituted)
+    EXPECT_CONTAINS(out, "\\-\\-\\-");
+
+    end_test();
+}
+
+static void test_manpage_ellipsis() {
+    // ... in text should produce .\|.\|. (asciidoctor man page backend form).
+    begin_test("manpage: ... in text becomes .\\|.\\|.");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "Some text... and more.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, ".\\|.\\|.");
+
+    end_test();
+}
+
 
 int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
@@ -5766,6 +5826,8 @@ int main(int argc, char* argv[]) {
     test_manpage_xref_bare();
     test_manpage_dlist_term_with_embedded_colons();
     test_manpage_url_shows_url_after_text();
+    test_manpage_em_dash();
+    test_manpage_ellipsis();
 
     // Summary
     std::cout << "\n============================\n";

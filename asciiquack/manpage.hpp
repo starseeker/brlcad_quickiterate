@@ -150,6 +150,29 @@ private:
         };
 
         while (i < text.size()) {
+            // Em-dash: -- (but not --- or ----).
+            // Asciidoctor man page backend converts -- to \(em.
+            if (text[i] == '-' && i + 1 < text.size() && text[i+1] == '-') {
+                // Ensure it's exactly -- (not ---, ----, etc.)
+                bool prev_dash = (i > 0 && text[i-1] == '-');
+                bool next_dash = (i + 2 < text.size() && text[i+2] == '-');
+                if (!prev_dash && !next_dash) {
+                    out += "\\(em";
+                    i += 2;
+                    continue;
+                }
+            }
+            // Ellipsis: ... → .\|.\|.  (asciidoctor man page backend form)
+            if (text[i] == '.' && i + 2 < text.size() && text[i+1] == '.' && text[i+2] == '.') {
+                // Make sure it's not part of a longer run
+                bool prev_dot = (i > 0 && text[i-1] == '.');
+                bool next_dot = (i + 3 < text.size() && text[i+3] == '.');
+                if (!prev_dot && !next_dot) {
+                    out += ".\\|.\\|.";
+                    i += 3;
+                    continue;
+                }
+            }
             // Unconstrained bold: **...**
             if (i + 1 < text.size() && text[i] == '*' && text[i+1] == '*') {
                 auto end = text.find("**", i + 2);
@@ -285,6 +308,49 @@ private:
                     }
                 }
                 if (handled) continue;
+            }
+            // Unconstrained subscript: ~~text~~ → plain text (no subscript in man)
+            if (i + 1 < text.size() && text[i] == '~' && text[i+1] == '~') {
+                auto end = text.find("~~", i + 2);
+                if (end != std::string::npos) {
+                    out += troff_inline(text.substr(i + 2, end - i - 2));
+                    i = end + 2;
+                    continue;
+                }
+            }
+            // Constrained subscript: ~word~ → plain text (strip ~ markers)
+            if (text[i] == '~' && i + 1 < text.size() && text[i+1] != '~' && text[i+1] != ' ') {
+                auto end = text.find('~', i + 1);
+                if (end != std::string::npos && end > i + 1) {
+                    // Make sure the closing ~ is not followed by ~
+                    bool next_is_tilde = (end + 1 < text.size() && text[end+1] == '~');
+                    if (!next_is_tilde) {
+                        out += troff_inline(text.substr(i + 1, end - i - 1));
+                        i = end + 1;
+                        continue;
+                    }
+                }
+            }
+            // Unconstrained superscript: ^^text^^ → plain text
+            if (i + 1 < text.size() && text[i] == '^' && text[i+1] == '^') {
+                auto end = text.find("^^", i + 2);
+                if (end != std::string::npos) {
+                    out += troff_inline(text.substr(i + 2, end - i - 2));
+                    i = end + 2;
+                    continue;
+                }
+            }
+            // Constrained superscript: ^word^ → plain text
+            if (text[i] == '^' && i + 1 < text.size() && text[i+1] != '^' && text[i+1] != ' ') {
+                auto end = text.find('^', i + 1);
+                if (end != std::string::npos && end > i + 1) {
+                    bool next_is_caret = (end + 1 < text.size() && text[end+1] == '^');
+                    if (!next_is_caret) {
+                        out += troff_inline(text.substr(i + 1, end - i - 1));
+                        i = end + 1;
+                        continue;
+                    }
+                }
             }
             // Plain text: escape backslash and minus
             char c = text[i];

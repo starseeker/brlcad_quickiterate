@@ -1691,11 +1691,7 @@ std::shared_ptr<List> Parser::parse_list(
             // identifies the term via the lazy match that leaves the trailing
             // '::' + end-of-line as the dlist separator.
             std::string term = lm->term;
-            if (term.empty()) {
-                // Fallback for empty-term matches (the '::-only' pattern)
-                // which has no term captured.
-                term = "";
-            }
+            // term may be empty for '::-only' patterns; that is acceptable.
             trim(term);
             item->set_term(term);
         }
@@ -1757,6 +1753,10 @@ std::shared_ptr<List> Parser::parse_list(
             if (classify_delimiter(nxt).has_value()) { break; }
             if (nxt.rfind("|===", 0) == 0 || nxt.rfind(",===", 0) == 0) { break; }
             if (!nxt.empty() && nxt[0] == '[' && nxt.back() == ']') { break; }
+            // A block title line (starts with '.' followed by non-'. ') also
+            // terminates the item body.  Block titles belong to the block that
+            // follows them, not to the current list item's paragraph text.
+            if (is_block_title_line(nxt)) { break; }
 
             // A same-type list item with a DEEPER marker creates a nested
             // (sub-)list attached to this item.  A SHALLOWER marker ends
