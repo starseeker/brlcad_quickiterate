@@ -331,7 +331,7 @@ void
 QgTreeView::redo_expansions(void *)
 {
     QTCAD_SLOT("QgTreeView::redo_expansions", 1);
-    for (QgItem *itm : *m->items) {
+    for (QgItem *itm : m->items) {
 	QModelIndex idx = m->NodeIndex(itm);
 	if (itm->open_itm && !isExpanded(idx)) {
 	    setExpanded(idx, true);
@@ -349,7 +349,7 @@ QgTreeView::redo_highlights()
     QModelIndex selected_idx = selected();
     if (!selected_idx.isValid()) {
 	QgItem *cnode = static_cast<QgItem *>(cached_selection_idx.internalPointer());
-	if (m->items->find(cnode) != m->items->end()) {
+	if (m->items.find(cnode) != m->items.end()) {
 	    selected_idx = cached_selection_idx;
 	    selectionModel()->select(selected_idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
 	} else {
