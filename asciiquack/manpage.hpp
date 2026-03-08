@@ -676,6 +676,19 @@ private:
                 convert_block(*child, doc, out);
             }
             out << ".RE\n";
+        } else if (block.context() == BlockContext::Quote ||
+                   block.context() == BlockContext::Verse) {
+            // Quote/verse blocks get .RS 3 / .RE indentation to match
+            // asciidoctor's man page backend behaviour.
+            if (block.has_title()) {
+                out << ".sp\n"
+                    << "\\fB" << inline_subs(block.title(), doc) << "\\fP\n";
+            }
+            out << ".RS 3\n";
+            for (const auto& child : block.blocks()) {
+                convert_block(*child, doc, out);
+            }
+            out << ".RE\n";
         } else {
             if (block.has_title()) {
                 out << ".sp\n"

@@ -422,20 +422,24 @@ inline std::string apply_quote_rx(
     std::string out = text;
 
     // Em-dash: -- (but not --- or longer runs).
-    // Capture one char before/after to avoid lookbehind; re-emit them.
+    // Asciidoctor converts -- to em-dash only when adjacent to whitespace:
+    //   " -- "      → thin-space + em-dash + thin-space (surrounded by spaces)
+    //   "-- " / "--" at start/end of inline context with space on one side
+    // This avoids falsely converting option prefixes like --help or write-- .
     {
-        // Match a non-dash, then --, then a non-dash (handles middle cases)
-        static const aqrx::regex rx_mid(R"(([^-])--([^-]))",
-                                       aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx_mid, "$1&#8212;&#8203;$2");
-        // Match -- at start of string followed by non-dash
-        static const aqrx::regex rx_start(R"(^--([^-]))",
+        // " -- " (space -- space) → thin-space + em-dash + thin-space
+        static const aqrx::regex rx_spaced(R"( -- )",
+                                           aqrx::ECMAScript | aqrx::optimize);
+        out = aqrx::regex_replace(out, rx_spaced, "&#8201;&#8212;&#8201;");
+        // "-- " at start of string (e.g. list-item continuation "-- body")
+        // → thin-space + em-dash + thin-space, consuming the trailing space
+        static const aqrx::regex rx_start(R"(^-- )",
                                           aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx_start, "&#8212;&#8203;$1");
-        // Match non-dash followed by -- at end of string
-        static const aqrx::regex rx_end(R"(([^-])--$)",
+        out = aqrx::regex_replace(out, rx_start, "&#8201;&#8212;&#8201;");
+        // " --" at end of string (space before -- at end of text)
+        static const aqrx::regex rx_end(R"( --$)",
                                         aqrx::ECMAScript | aqrx::optimize);
-        out = aqrx::regex_replace(out, rx_end, "$1&#8212;&#8203;");
+        out = aqrx::regex_replace(out, rx_end, "&#8201;&#8212;");
     }
     // Ellipsis: ...
     {
@@ -456,6 +460,24 @@ inline std::string apply_quote_rx(
     {
         static const aqrx::regex rx(R"(\([Tt][Mm]\))");
         out = aqrx::regex_replace(out, rx, "&#8482;");
+    }
+    // Arrow replacements (Asciidoctor typographic replacements):
+    //   -> → &#8594; (→ right arrow)
+    //   <- → &#8592; (← left arrow)
+    //   => → &#8658; (⇒ double right arrow)
+    //   <= → &#8656; (⇐ double left arrow)
+    // These must not fire inside ``...`` (already stashed) or after a digit
+    // (to avoid mangling things like "x <= 5" in non-replaced contexts).
+    // Asciidoctor replaces these unconditionally in normal substitution context.
+    {
+        static const aqrx::regex rx_rarr(R"(\-&gt;)", aqrx::ECMAScript | aqrx::optimize);
+        static const aqrx::regex rx_larr(R"(&lt;\-)", aqrx::ECMAScript | aqrx::optimize);
+        static const aqrx::regex rx_rArr(R"(=&gt;)",  aqrx::ECMAScript | aqrx::optimize);
+        static const aqrx::regex rx_lArr(R"(&lt;=)",  aqrx::ECMAScript | aqrx::optimize);
+        out = aqrx::regex_replace(out, rx_rarr, "&#8594;");
+        out = aqrx::regex_replace(out, rx_larr, "&#8592;");
+        out = aqrx::regex_replace(out, rx_rArr, "&#8658;");
+        out = aqrx::regex_replace(out, rx_lArr, "&#8656;");
     }
     // Smart apostrophe: word' or 'word
     {
@@ -928,7 +950,29 @@ inline std::string apply_quote_rx(
 
 /// Apply only special-character escaping (for verbatim / listing blocks).
 [[nodiscard]] inline std::string apply_verbatim_subs(const std::string& text) {
-    return sub_specialchars(text);
+    // Strip trailing whitespace from each line to match Asciidoctor's behaviour,
+    // then apply special character escaping.
+    std::string stripped;
+    stripped.reserve(text.size());
+    std::size_t line_start = 0;
+    while (line_start <= text.size()) {
+        std::size_t nl = text.find('\n', line_start);
+        std::size_t line_end = (nl == std::string::npos) ? text.size() : nl;
+        // Find last non-space character in this line
+        std::size_t last_non_space = line_end;
+        while (last_non_space > line_start &&
+               (text[last_non_space - 1] == ' ' || text[last_non_space - 1] == '\t')) {
+            --last_non_space;
+        }
+        stripped.append(text, line_start, last_non_space - line_start);
+        if (nl != std::string::npos) {
+            stripped += '\n';
+            line_start = nl + 1;
+        } else {
+            break;
+        }
+    }
+    return sub_specialchars(stripped);
 }
 
 /// Apply header-level subs: specialcharacters + attributes.
