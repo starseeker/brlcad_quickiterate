@@ -46,26 +46,22 @@ With no arguments, will list all the MGED variables and their values. If a _vari
 ** r -- raytrace rectangular area.
 ** s -- fire ray for primitive edit selection.
 ** z -- zoom rectangular area.
-
 * coords -- see the following list of coordinate systems to use for transformations:
 
 ** m -- model coordinates.
 ** v -- view coordinates.
 ** o -- object coordinates.
-
 * rotate_about -- see the following list of centers of rotation:
 
 ** v -- view center.
 ** e -- eye.
 ** m -- model origin.
 ** k -- keypoint.
-
 * transform -- see the following list of things to transform:
 
 ** a -- transform the angle distance cursor if active; otherwise same as v.
 ** e -- apply transformations to the edit.
 ** v -- apply transformations to the view.
-
 * predictor -- if nonzero, the predictor frame will be displayed.
 * predictor_advance -- the number of seconds into the future to advance the predictor frame.
 * predictor_length -- not currently used.
@@ -104,5 +100,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-
