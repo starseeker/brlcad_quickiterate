@@ -274,7 +274,7 @@ Specifies a volumetric tolerance value that the three view computations must be 
 .Specifying Grid and Target Objects
 [example]
 ====
-The following will check objects hull, turret, and suspension for overlaps. The grid starts at 1 cm and is refined to 1 mm. 
+The following will check objects hull, turret, and suspension for overlaps. The grid starts at 1 cm and is refined to 1 mm.
 
 
 ....
@@ -290,7 +290,7 @@ mged> check overlaps -g 1cm-1mm hull turret suspension
 .Specifying Using Non-Default Units
 [example]
 ====
-The following computes volume of hull, turret, and suspension. Results are reported in cubic centimeters (cc). The grid spacing starts at 5 in. and will not be refined below 0.3 mm spacing. 
+The following computes volume of hull, turret, and suspension. Results are reported in cubic centimeters (cc). The grid spacing starts at 5 in. and will not be refined below 0.3 mm spacing.
 
 
 ....
@@ -306,7 +306,7 @@ mged> check volume -g5in-0.3mm -u ft,cc,oz hull turret suspension
 .Different Analysis Types
 [example]
 ====
-For examples of some independent analysis types, consider the following: 
+For examples of some independent analysis types, consider the following:
 
 
 ....
@@ -328,7 +328,7 @@ SUMMARY
       
 ....
 
- 
+
 
 
 ....
@@ -342,7 +342,7 @@ list Exposed Air:
       
 ....
 
- 
+
 
 
 ....
@@ -356,7 +356,7 @@ list Unconfined Air:
       
 ....
 
- 
+
 
 
 ....
@@ -371,7 +371,7 @@ list Gaps:
       
 ....
 
- 
+
 
 
 ....
@@ -388,7 +388,7 @@ grid spacing 12.5mm  799 x 799 x 799
       
 ....
 
- 
+
 
 
 ....
@@ -406,7 +406,7 @@ Surface Area:
       
 ....
 
- 
+
 
 
 ....

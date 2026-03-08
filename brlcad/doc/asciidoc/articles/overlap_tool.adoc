@@ -12,7 +12,7 @@ The biggest assumption made by the overlap tool is that all matrices in the data
 
 === Basic Steps to Launch the Overlaps Tool GUI
 
-In the mged command window: 
+In the mged command window:
 
 
 ....

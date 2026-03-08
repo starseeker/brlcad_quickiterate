@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-In this lesson, you will: 
+In this lesson, you will:
 
 
 * Create a toy truck from three shapes.
@@ -29,7 +29,7 @@ Begin by creating a new database called truck.g.
 [[truck_cab_in_cmd]]
 == Creating an rpp for the Cab of the Truck Using the In Command
 
-To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]* _MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to: 
+To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]* _MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to:
 
 [cols="6*"]
 [%noheader]
@@ -62,7 +62,7 @@ image::../lessons/images/mged15_truck_cab1s.png[]
 
 To make the hood of the cab, you will need to make another rpp shape, this time using the inside command. This special command was originally created to hollow out objects such as gas tanks and boxes; however, it can be used to create any new shape that has some relationship to a pre-existing shape. In this lesson, it is used to cut away material above the hood and in front of the cab.
 
-If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to: 
+If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to:
 
 [cols="9*"]
 [%noheader]
@@ -92,7 +92,7 @@ If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, t
 
 [NOTE]
 ====
-In this example, each negative thickness number indicates that caboff1.s will protrude through the corresponding face of cab1.s. Running the l (list) command, you can see the vertices for the box it creates: 
+In this example, each negative thickness number indicates that caboff1.s will protrude through the corresponding face of cab1.s. Running the l (list) command, you can see the vertices for the box it creates:
 
 
 ....
@@ -168,7 +168,7 @@ image::../lessons/images/mged15_truck_2nd_wheel_wheel_place.png[]
 [[truck_cab_shape_comb]]
 == Making a Combination of the Cab Shapes
 
-It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to: 
+It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to:
 
 [cols="10*"]
 [%noheader]
@@ -197,7 +197,7 @@ It is now time to make a combination of the various cab shapes. *comb cab1.c u c
 
 
 
-Before you go any further, you should check your data tree by typing tree cab1.c. The data tree should say: 
+Before you go any further, you should check your data tree by typing tree cab1.c. The data tree should say:
 
 
 ....
@@ -244,7 +244,7 @@ image::../lessons/images/mged15_truck_wheel_wells_wireframe.png[]
 [[truck_body_wheel_wells_comb]]
 == Making a Combination of the Truck Body and Wheel Wells
 
-Make a combination of the truck body and the two new wheel wells. Name it body1.c. The tree for body1.c should say: 
+Make a combination of the truck body and the two new wheel wells. Name it body1.c. The tree for body1.c should say:
 
 
 ....
@@ -273,7 +273,7 @@ Before adding wheels to the truck, you need to make a region of the cab and body
 
 Perhaps the best shape for making wheels is the torus. You can create a shape through the Command Window that has the correct size and placement for your design without further editing. However, this lesson is designed to give you practice rotating and translating shapes.
 
-To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to: 
+To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to:
 
 [cols="7*"]
 [%noheader]
@@ -308,7 +308,7 @@ image::../lessons/images/mged15_truck_wheels.png[]
 [[truck_wheels_region]]
 == Making a Region of the Wheels
 
-Make a region of the four wheels. When you are finished, your data tree for wheel1.r should say: 
+Make a region of the four wheels. When you are finished, your data tree for wheel1.r should say:
 
 
 ....
@@ -386,7 +386,7 @@ When using the stacker option, you need to keep track of the number of character
 [[truck_combine_regions]]
 == Making a Combination of the Truck Regions
 
-To make a combination of the two truck regions, type at the Command Window prompt: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Your data tree for truck1.c should read: 
+To make a combination of the two truck regions, type at the Command Window prompt: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Your data tree for truck1.c should read:
 
 
 ....
@@ -452,7 +452,7 @@ There is a special adjustment we can make to improve the overall brightness of t
 [[creating_toy_truck_review]]
 == Review
 
-In this lesson, you: 
+In this lesson, you:
 
 
 * Created a toy truck from three shapes.

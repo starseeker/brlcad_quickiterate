@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En esta lección podrás: 
+En esta lección podrás:
 
 
 * Crear una nueva base de datos.
@@ -140,7 +140,7 @@ _MGED_ requiere una cierta lógica para el árbol de datos, es decir, para saber
 
 Para ver el árbol de datos para esta combinación, tipee en el prompt de la ventana de comandos: *tree globet1.c[Enter]*
 
-_MGED_ responderá con: 
+_MGED_ responderá con:
 
 
 ....
@@ -199,7 +199,7 @@ image::../../lessons/es/images/mged06_rtgobletaz_35el_25.png[]
 [[creating_goblet_review]]
 == Repaso
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Crear un nueva base de datos.

@@ -2,7 +2,7 @@
 Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
-En este tutorial usted aprenderá a: 
+En este tutorial usted aprenderá a:
 
 
 * Utilizar las opciones de reflexión especular y difusa del sombreado de plástico.
@@ -28,7 +28,7 @@ Note que en versiones posteriores a _BRL-CAD_ 5.2, se aplican los valores por de
 
 ====
 
-En este ejemplo, el cuadro de entrada de sombreado indica que la transparencia (tr) es de .5 y el reflejo espejado (re) es de .45. Los ocho abreviaturas que se utilizan actualmente en el cuadro de entrada de sombreado son las siguientes: 
+En este ejemplo, el cuadro de entrada de sombreado indica que la transparencia (tr) es de .5 y el reflejo espejado (re) es de .45. Los ocho abreviaturas que se utilizan actualmente en el cuadro de entrada de sombreado son las siguientes:
 
 [cols="4*"]
 [%noheader]
@@ -118,7 +118,7 @@ Tenga en cuenta que en el cuadro de entrada de cadena de Shader se reflejan los 
 [[goblet_material_properties2_review]]
 == Repasemos...
 
-En este tutorial usted aprendió a: 
+En este tutorial usted aprendió a:
 
 
 * Utilizar las opciones de reflexión especular y difusa del sombreado de plástico.

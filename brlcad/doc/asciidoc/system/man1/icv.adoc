@@ -17,7 +17,7 @@ icv [-h] [-i<file>] [--input-format<fmt>] [-o<file>] [--output-format<fmt>] [-w<
 [[description]]
 == DESCRIPTION
 
-*icv* is a tool to convert images to and from a variety of image formats. Currently support formats include: 
+*icv* is a tool to convert images to and from a variety of image formats. Currently support formats include:
 
 .Supported ICV Image Formats
 [cols="2*"]

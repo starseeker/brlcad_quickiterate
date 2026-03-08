@@ -21,7 +21,7 @@ Low level routines for intersecting elements of BRep solids and visualizing the 
 
 
 ::
-Visualize intersecting two BREP objects. The last argument specifies what portions of each to intersect; if it is not specified, it defaults to SS: 
+Visualize intersecting two BREP objects. The last argument specifies what portions of each to intersect; if it is not specified, it defaults to SS:
 
 
 PP::
