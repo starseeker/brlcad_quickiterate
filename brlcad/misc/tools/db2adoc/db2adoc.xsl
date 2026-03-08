@@ -1470,9 +1470,21 @@
       <xsl:otherwise>
         <!-- Skip empty emphasis (no text content) to avoid stray __ artifacts -->
         <xsl:if test="normalize-space(.) != ''">
-          <xsl:text>_</xsl:text>
-          <xsl:apply-templates/>
-          <xsl:text>_</xsl:text>
+          <!-- Use unconstrained __text__ when content contains underscores,
+               to prevent '_name_with_underscores_' from breaking italic parsing.
+               Use constrained _text_ for plain words without underscores. -->
+          <xsl:choose>
+            <xsl:when test="contains(normalize-space(.), '_')">
+              <xsl:text>__</xsl:text>
+              <xsl:apply-templates/>
+              <xsl:text>__</xsl:text>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>_</xsl:text>
+              <xsl:apply-templates/>
+              <xsl:text>_</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
         </xsl:if>
       </xsl:otherwise>
     </xsl:choose>

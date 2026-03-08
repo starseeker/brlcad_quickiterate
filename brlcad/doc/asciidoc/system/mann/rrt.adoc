@@ -19,7 +19,7 @@ rrt {<program>} [<options>]
 
 Executes the specified _program_ with the provided _options_ and includes the current database name and the list of currently displayed objects on the command line. This command effectively executes:
 
-_program options database_name objects._
+__program options database_name objects.__
 
 The *rrt* command also provides the current MGED viewing parameters to the _program_ on standard input. Many BRL-CAD programs use the _-M_ option to indicate that viewing parameters will be provided on standard input. The *rt* command can be simulated with *rrt* as:
 
@@ -53,3 +53,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

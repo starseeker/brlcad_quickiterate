@@ -17,7 +17,7 @@ keep {<keep_file>} {<objects>}
 [[description]]
 == DESCRIPTION
 
-Copies the _objects_ specified to the _keep_file_. If _keep_file_ does not exist, it is created. If _keep_file_ does exist, the _objects_ are appended to it. The _keep_file_ is a _BRL-CAD_ database file. The _objects_ in the list must exist in the current database.
+Copies the _objects_ specified to the __keep_file__. If __keep_file__ does not exist, it is created. If __keep_file__ does exist, the _objects_ are appended to it. The __keep_file__ is a _BRL-CAD_ database file. The _objects_ in the list must exist in the current database.
 
 
 [[examples]]
@@ -47,3 +47,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -17,7 +17,7 @@ nmg_simplify [ [arb]| [tgc]| [poly]] {<new_shape nmg_shape>}
 [[description]]
 == DESCRIPTION
 
-Attempts to convert an existing nmg_shape to a simpler primitive shape type. The user may specify which type to attempt by including _arb, tgc,_ or _poly_ on the command line. If no shape type is specified, all will be attempted in the above order. If _tgc_ is specified, the code will attempt to determine if the _nmg_shape_ is an approximation of a TGC shape.
+Attempts to convert an existing nmg_shape to a simpler primitive shape type. The user may specify which type to attempt by including _arb, tgc,_ or _poly_ on the command line. If no shape type is specified, all will be attempted in the above order. If _tgc_ is specified, the code will attempt to determine if the __nmg_shape__ is an approximation of a TGC shape.
 
 
 [[examples]]
@@ -45,3 +45,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

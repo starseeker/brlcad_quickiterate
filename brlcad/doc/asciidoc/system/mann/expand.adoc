@@ -17,7 +17,7 @@ expand {<globbing_expression>}
 [[description]]
 == DESCRIPTION
 
-Performs matching of the _globbing_expression_ with the names of all the objects in the database. It returns all those that successfully match.
+Performs matching of the __globbing_expression__ with the names of all the objects in the database. It returns all those that successfully match.
 
 
 [[examples]]
@@ -47,3 +47,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

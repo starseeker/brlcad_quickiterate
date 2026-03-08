@@ -70,7 +70,7 @@ Get (without arguments) or set the view in the form of a quarternion. Setting th
 Saves the current viewing parameters in the specified _file_ in the form of a shell script that will run the BRL-CAD rt program. The _-e_ flag specifies a command for the script to run instead of the default rt. The _-l_ flag specifies a logfile for the script to write instead of the default inputfile.log. The _-o_ flag specifies the output filename for the script to create instead of the default inputfile.pix. The _-i_ flag specifies the input filename for the script to load instead of the current database (default). Various arguments can be added to the end, such as -s1024 (see the man page for the *rt* command).
 
 
-*size* [_view_size_]::
+*size* [__view_size__]::
 Get (without arguments) or set the view size. Setting the view size also changes the eye point while keeping the azimuth, elevation, and center static.
 
 

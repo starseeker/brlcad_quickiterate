@@ -53,7 +53,7 @@ Select grid cell height. If _not_ specified, cell height equals cell width.
 
 
 *-U #*::
-sets the Boolean variable _use_air_ to the given value.
+sets the Boolean variable __use_air__ to the given value.
 
 
 *-o*::

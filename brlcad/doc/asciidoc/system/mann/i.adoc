@@ -17,7 +17,7 @@ i {<obj_name comb_name>} [<operation>]
 [[description]]
 == DESCRIPTION
 
-Adds _obj_name_ to the end of the combination named _comb_name_. The _operation_ may be +, -, or u. If no _operation_ is specified, u is assumed. If _comb_name_ does not exist, it is created.
+Adds __obj_name__ to the end of the combination named __comb_name__. The _operation_ may be +, -, or u. If no _operation_ is specified, u is assumed. If __comb_name__ does not exist, it is created.
 
 
 [[examples]]
@@ -47,3 +47,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

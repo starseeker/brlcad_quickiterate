@@ -13,7 +13,7 @@ ch_open - create and manipulate a command history object.
 
 === SYNOPSIS
 
-_ch_open_[_chName_]
+__ch_open__[_chName_]
 
 
 === DESCRIPTION

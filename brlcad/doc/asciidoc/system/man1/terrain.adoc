@@ -86,7 +86,7 @@ Specifies the value of H in the noise equation. Usually 1.0
 
 
 *-S*_noise_scale_::
-Scales the noise uniformly in X, Y and Z dimensions by the value _noise_scale._ Values below 1.0 cause the noise pattern to become smaller. Values above 1.0 cause it to get bigger
+Scales the noise uniformly in X, Y and Z dimensions by the value __noise_scale.__ Values below 1.0 cause the noise pattern to become smaller. Values above 1.0 cause it to get bigger
 
 
 *-V*_scale_x,scale_y,scale_z_::

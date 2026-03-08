@@ -746,7 +746,7 @@ Finally, we add transparency to the same regions:
 
 [NOTE]
 ====
-Remember when setting region colors to check for the presence of a _regionid_colortable_ attribute on the _GLOBAL object - if such a table is present (the m35.g sample model has one, for example) you need to remove that table (and for MGED wireframes, re-open the database) before the colors on the individual regions will "take":
+Remember when setting region colors to check for the presence of a __regionid_colortable__ attribute on the _GLOBAL object - if such a table is present (the m35.g sample model has one, for example) you need to remove that table (and for MGED wireframes, re-open the database) before the colors on the individual regions will "take":
 
 
 ....

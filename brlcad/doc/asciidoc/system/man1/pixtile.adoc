@@ -27,7 +27,7 @@ pixtile [-s<squareinsize>] [-w<file_width>] [-n<file_height>] [-S<squareoutsize>
 
 The input files have a default width of 64 pixels per scanline and are usually square, i.e. have the same height as width. Specifying the *-s* flag changes the default size to _squareinsize_ pixels per scanline and _squareinsize_ scanlines as given in the argument list. The *-w* flag can be used to specify the input file width in pixels and the *-n* flag can be used to specify the input file height in scanlines.
 
-If the *-S* flag is supplied, the output size is changed from the default value of 512 to _squareoutsize_ pixels per scanline and _squareoutsize_ scanlines. The *-W* flag sets the output width size to _out_width_ pixels per scanline. Similarly, the *-N* flag sets the output height size to _out_height_ scanlines.
+If the *-S* flag is supplied, the output size is changed from the default value of 512 to _squareoutsize_ pixels per scanline and _squareoutsize_ scanlines. The *-W* flag sets the output width size to __out_width__ pixels per scanline. Similarly, the *-N* flag sets the output height size to __out_height__ scanlines.
 
 
 *-s*_squareinsize_::
@@ -102,3 +102,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

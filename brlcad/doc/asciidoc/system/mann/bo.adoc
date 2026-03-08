@@ -46,7 +46,7 @@ The examples show the use of the *bo* command to both create (_-i_ option) and t
 ====
 mged>*bo -i u c cmds /usr/brlcad/html/manuals/mged/mged_cmds.html*
 
-Creates an opaque uniform binary object of characters with the name _cmds_ that contains the contents of the file _/usr/brlcad/html/manuals/mged/mged_cmds.html_.
+Creates an opaque uniform binary object of characters with the name _cmds_ that contains the contents of the file __/usr/brlcad/html/manuals/mged/mged_cmds.html__.
 
 ====
 
@@ -79,3 +79,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

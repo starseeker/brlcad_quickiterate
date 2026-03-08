@@ -29,11 +29,11 @@ autosize the input file to determine file image height and width
 
 
 *-n file_height*::
-tells *bw-png* that the input is _file_height_ scanlines tall
+tells *bw-png* that the input is __file_height__ scanlines tall
 
 
 *-w file_width*::
-tells *bw-png* that the input is _file_width_ pixels wide
+tells *bw-png* that the input is __file_width__ pixels wide
 
 
 *-s squaresize*::
@@ -58,3 +58,5 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

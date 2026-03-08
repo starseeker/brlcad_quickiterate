@@ -88,7 +88,7 @@ Although there are many *nirt* options available, only the database name and obj
 nirt {<model.g>} {<objects>}
 ----
 
-where _objects_ is a list of objects in the database separated by spaces. To begin, select the object _center_cube.r_ object with interactive command line _NIRT_. The form of the command is: footnote:[To quickly find out what objects are in a database, use the commands *mged -c nirt_example.g tops* to see all top level objects and *mged -c nirt_example.g ls* to see all objects in the model.
+where _objects_ is a list of objects in the database separated by spaces. To begin, select the object __center_cube.r__ object with interactive command line _NIRT_. The form of the command is: footnote:[To quickly find out what objects are in a database, use the commands *mged -c nirt_example.g tops* to see all top level objects and *mged -c nirt_example.g ls* to see all objects in the model.
 
 ]:
 
@@ -167,7 +167,7 @@ What happened and what do these results mean? The following table breaks down th
 |Additional attributes the region in question has assigned and the user requested (in this case, none were requested)
 |===
 
-Because the ray only hit _center_cube.r_, only _center_cube.r_ appears in the report. (Remember _NIRT_ was only supplied with _center_cube.r_ for a target object to begin with.) Many examples of real world _NIRT_ usage will have much more complex geometries and hence longer reports.
+Because the ray only hit __center_cube.r__, only __center_cube.r__ appears in the report. (Remember _NIRT_ was only supplied with __center_cube.r__ for a target object to begin with.) Many examples of real world _NIRT_ usage will have much more complex geometries and hence longer reports.
 
 
 [[Moving_the_Origination_Point]]
@@ -199,7 +199,7 @@ center_cube.r        (   1.0000    0.0000    0.5000)   2.0000   0.0000
 
 Although in both previous cases the ray's origin was inside the cube, _NIRT_ backed up to the point of first intersection along the indicated vector to report both LOS thickness and entry. This behavior is specific to the case of an origination point _inside_ a region. In the case where the origination point of the ray is between two objects belonging to the same region, _NIRT_ will report only those portions of the region along its path forward. To ensure that a ray always starts outside the _entire_ geometry, the *backout* interactive command is used.footnote:[To perform this operation automatically when the model is loaded, supply the _b_ flag to *nirt* at startup: *nirt -b*.
 
-] The backout command moves the starting point outside the bounding box of the model. This ensures that all segments along a given ray path will be reported. As an illustration, reload `nirt_example.g` and this time specify _left_and_right_cubes.r_ (defined as the combination of _left_cube.s_ and _right_cube.s_). Cast rays before and after backout:
+] The backout command moves the starting point outside the bounding box of the model. This ensures that all segments along a given ray path will be reported. As an illustration, reload `nirt_example.g` and this time specify __left_and_right_cubes.r__ (defined as the combination of __left_cube.s__ and __right_cube.s__). Cast rays before and after backout:
 
 
 ....
@@ -235,7 +235,7 @@ left_and_right_cubes.r (  -1.0000    0.0000    0.0000)   2.0000   0.0000
 	
 ....
 
-Note that in the first raytrace, _left_and_right_cubes.r_ did not backtrack to generate its LOS thickness value, and when the backout option was applied, _left_and_right_cubes.r_ gained an extra entry. The double report for _left_and_right_cubes.r_ is not a mistake; the ray did indeed enter and exit the region twice once the *backout* interactive command changed the origination point.
+Note that in the first raytrace, __left_and_right_cubes.r__ did not backtrack to generate its LOS thickness value, and when the backout option was applied, __left_and_right_cubes.r__ gained an extra entry. The double report for __left_and_right_cubes.r__ is not a mistake; the ray did indeed enter and exit the region twice once the *backout* interactive command changed the origination point.
 
 It is important to understand that the *backout* interactive command does not permanently change the origination point of the ray; it requests an automatic adjustment of the origination point based on the model _for the casting of the ray_, and then restores the original specified origination point. If the user no longer wishes to have _NIRT_ back the origination point out of the model, deactivating the backout flag (supplying 0 to the *backout* interactive command) will restore the non-backout point. If the *xyz* interactive command is used to change the origination point while backout is activated, the backout routine will back out from the new point. For example:
 
@@ -317,7 +317,7 @@ The first shot, in the default -x direction, intersects one of the sections. The
 [[Reporting_of_Overlaps]]
 === Reporting of Overlaps
 
-In many cases, a geometry will have overlaps: errors where a model is assigning two physical regions to one volume. To demonstrate this behavior, _NIRT_ is reloaded with _overlap_example_:
+In many cases, a geometry will have overlaps: errors where a model is assigning two physical regions to one volume. To demonstrate this behavior, _NIRT_ is reloaded with __overlap_example__:
 
 
 ....
@@ -348,7 +348,7 @@ nirt>
 	
 ....
 
-The last line in the preceding report is reporting that the regions _all_cubes.r_ and _center_overlap.r_ are both claiming the same volume, starting at (1, 0, 0) and continuing to do so for 2 mm per the LOS thickness. If the direction and origin are changed to shoot along the z axis:
+The last line in the preceding report is reporting that the regions __all_cubes.r__ and __center_overlap.r__ are both claiming the same volume, starting at (1, 0, 0) and continuing to do so for 2 mm per the LOS thickness. If the direction and origin are changed to shoot along the z axis:
 
 
 ....
@@ -366,7 +366,7 @@ nirt>
 	
 ....
 
-Along that vector, _center_overlap.r_ is encountered first, then _all_cubes.r_ intersecting with _center_overlap.r_. footnote:[The last two lines that appear in the output when the direction vector is changed are a result of how the raytracing library keeps track of regions internally. Even when in an overlap, the ray is considered to be in only _one_ region at a time. In this particular overlap situation, it might be either region, so librt selects the region with the lowest bit number (for more information, see rt_defoverlap in librt/bool.c). If the ray happens to exit the lowest bit number region when it exits the overlap the active region changes again and another line is generated. Ultimately the difference is inconsequential and can be disregarded. Both reports contain the key information: the overlap to be removed.
+Along that vector, __center_overlap.r__ is encountered first, then __all_cubes.r__ intersecting with __center_overlap.r__. footnote:[The last two lines that appear in the output when the direction vector is changed are a result of how the raytracing library keeps track of regions internally. Even when in an overlap, the ray is considered to be in only _one_ region at a time. In this particular overlap situation, it might be either region, so librt selects the region with the lowest bit number (for more information, see rt_defoverlap in librt/bool.c). If the ray happens to exit the lowest bit number region when it exits the overlap the active region changes again and another line is generated. Ultimately the difference is inconsequential and can be disregarded. Both reports contain the key information: the overlap to be removed.
 
 ]
 
@@ -428,7 +428,7 @@ When a miss is reported by _NIRT_, no line is drawn in the wireframe view.
 [[Backing_Out_with_NIRT_in_MGED]]
 === Backing Out with NIRT in MGED
 
-Because _NIRT_'s interactive mode cannot be used while in _MGED_, the _b_ flag must be provided to the invocation of the *nirt* _MGED_ command to back out the origination point while using _NIRT_ within _MGED_. For comparison purposes, it is more instructive to examine _left_and_right_cubes.r_ than _center_cube.r_. To generate a "no backout" control view, the display is cleared, _left_and_right_cubes.r_ is drawn, the view direction is set, _NIRT_ (no _b_ flag) is run, and the view is switched to view the ray path:
+Because _NIRT_'s interactive mode cannot be used while in _MGED_, the _b_ flag must be provided to the invocation of the *nirt* _MGED_ command to back out the origination point while using _NIRT_ within _MGED_. For comparison purposes, it is more instructive to examine __left_and_right_cubes.r__ than __center_cube.r__. To generate a "no backout" control view, the display is cleared, __left_and_right_cubes.r__ is drawn, the view direction is set, _NIRT_ (no _b_ flag) is run, and the view is switched to view the ray path:
 
 
 ....
@@ -521,7 +521,7 @@ mged> ae 90 0
 
 image::../articles/images/nirt_fig06.png[]
 
-There are three regions present, according to the text report. The first region encountered is that associated with _right_cube.r_, and the portion of the ray intersection in that region is light blue. The second region, _center_cube.r_, has its intersection with the yellow ray. Note the color of the intersection in _left_cube.r_ is the same as that shown for _right_cube.r_. *It is important to realize that the same intersection color in two different areas does NOT imply that they are the same region, material, etc. Nor do different colors guarantee that noncontiguous geometric areas are in different regions.* The color swap is simply an aid when viewing two different contiguous solid regions that would otherwise be indistinguishable visually. For example, if all three cubes were unioned into a single region, the wireframe would look identical but the region report would be very different. In that case, there would be only one region, and only one line color would be needed. To illustrate:
+There are three regions present, according to the text report. The first region encountered is that associated with __right_cube.r__, and the portion of the ray intersection in that region is light blue. The second region, __center_cube.r__, has its intersection with the yellow ray. Note the color of the intersection in __left_cube.r__ is the same as that shown for __right_cube.r__. *It is important to realize that the same intersection color in two different areas does NOT imply that they are the same region, material, etc. Nor do different colors guarantee that noncontiguous geometric areas are in different regions.* The color swap is simply an aid when viewing two different contiguous solid regions that would otherwise be indistinguishable visually. For example, if all three cubes were unioned into a single region, the wireframe would look identical but the region report would be very different. In that case, there would be only one region, and only one line color would be needed. To illustrate:
 
 
 ....
@@ -546,7 +546,7 @@ image::../articles/images/nirt_fig07.png[]
 
 Without the color-changing mechanism, the two previous situations would have been visually identical despite having very different properties.
 
-The other two situations that result in a color change are gaps and overlaps. A gap in _NIRT_ is any area along the ray path *after a solid portion of a region is encountered* and *before the last solid portion of a region is encountered* that does not intersect a region. As an illustration, casting the same ray through just _left_cube.r_ and _right_cube.r_ results in a gap where _center_cube.r_ was in the first example in this section:
+The other two situations that result in a color change are gaps and overlaps. A gap in _NIRT_ is any area along the ray path *after a solid portion of a region is encountered* and *before the last solid portion of a region is encountered* that does not intersect a region. As an illustration, casting the same ray through just __left_cube.r__ and __right_cube.r__ results in a gap where __center_cube.r__ was in the first example in this section:
 
 
 ....
@@ -570,7 +570,7 @@ mged> ae 90 0
 
 image::../articles/images/nirt_fig08.png[]
 
-To illustrate overlaps, both _center_cube.r_ and _all_cubes.r_ are drawn at the same time:
+To illustrate overlaps, both __center_cube.r__ and __all_cubes.r__ are drawn at the same time:
 
 
 ....
@@ -602,7 +602,7 @@ image::../articles/images/nirt_fig09.png[]
 
 In addition to providing a *nirt* command on the _MGED_ command line, there is a mouse-based trigger that can be used. In the _MGED_ menu, selecting Settings->Mouse Behavior->Query Ray will change the behavior of the mouse. Selecting the view window, placing the mouse at some point over the model, and performing a click will cast a ray in the view direction, centered at the point under the mouse pointer rather than the view center.
 
-For this example, bring up _left_cube.r_, _center_cube.r_, and _right_cube.r_:
+For this example, bring up __left_cube.r__, __center_cube.r__, and __right_cube.r__:
 
 
 ....
@@ -721,7 +721,7 @@ query_rayffff00 query_rayffff query_rayff00ff
 	  
 ....
 
-This naming convention is used almost completely as an internal mechanism by _MGED_ and _NIRT_. For example, an *l* command on _query_rayffff_ does not work:
+This naming convention is used almost completely as an internal mechanism by _MGED_ and _NIRT_. For example, an *l* command on __query_rayffff__ does not work:
 
 
 ....
@@ -914,7 +914,7 @@ nirt>  dest default
 
 
 
-When dealing with spaces between models, it is sometimes advantageous to report gaps in _NIRT_'s output. _MGED_'s visualization routines show gaps between regions as purple lines, but the default text report does not include information about gaps. Sometimes it is desirable to get exact information on gaps, particularly when they represent errors in a model. The _gap1_ and _gap2_ formats will include information about gaps. Running _NIRT_ on the _left_and_right_cubes.r_ object with backout enabled provides an example:
+When dealing with spaces between models, it is sometimes advantageous to report gaps in _NIRT_'s output. _MGED_'s visualization routines show gaps between regions as purple lines, but the default text report does not include information about gaps. Sometimes it is desirable to get exact information on gaps, particularly when they represent errors in a model. The _gap1_ and _gap2_ formats will include information about gaps. Running _NIRT_ on the __left_and_right_cubes.r__ object with backout enabled provides an example:
 
 
 ....
@@ -1045,7 +1045,7 @@ Reporting attributes when running _NIRT_ from within _MGED_ is more involved. Th
 [[Changing_Units]]
 === Changing Units
 
-By default _NIRT_'s interactive command line mode reads and writes all dimensions in millimeters, regardless of the units set in the geometry file. This is configurable via the *units* command, which will accept mm, cm, m, in, and ft as arguments or print the current unit with no arguments. Using _center_cube.r_ as an example:
+By default _NIRT_'s interactive command line mode reads and writes all dimensions in millimeters, regardless of the units set in the geometry file. This is configurable via the *units* command, which will accept mm, cm, m, in, and ft as arguments or print the current unit with no arguments. Using __center_cube.r__ as an example:
 
 
 ....
@@ -1098,7 +1098,7 @@ When generating large numbers of results, it is sometimes desirable to switch to
 [[Using_Air_Regions]]
 === Using Air Regions
 
-Air regions have a special status in BRL-CAD, and by default _NIRT_ does not report them. If the user _does_ wish to have air regions reported, the _u_ option is supplied with an argument of 1 to activate air region reporting. This is illustrated with a _center_cube_air.r_ object:
+Air regions have a special status in BRL-CAD, and by default _NIRT_ does not report them. If the user _does_ wish to have air regions reported, the _u_ option is supplied with an argument of 1 to activate air region reporting. This is illustrated with a __center_cube_air.r__ object:
 
 
 ....
@@ -1125,7 +1125,7 @@ left_and_right_cubes.r (  -1.0000    0.0000    0.0000)   2.0000   0.0000
 	
 ....
 
-In the first case, area in between the cubes of _left_and_right_cubes.r_ is reported as a gap when gap reporting is enabled. In the second case, _center_cube_air.r_ is treated as a region and a new region report line is generated instead of a gap report.
+In the first case, area in between the cubes of __left_and_right_cubes.r__ is reported as a gap when gap reporting is enabled. In the second case, __center_cube_air.r__ is treated as a region and a new region report line is generated instead of a gap report.
 
 The Query Ray Control Panel also offers a way to select the Use Air option:
 
@@ -1192,7 +1192,7 @@ all_cubes.r          (   0.0000    0.0000    1.0000)   2.0000   0.0000
 
 
 
-It's important to be aware that the order of _e_ and _f_ options matters. They are read in from left to right and each option is aware of the effects of the previous options. Using the gap format with the _left_and_right_cubes.r_ object, both orders of the _e_ and _f_ options produce different results:
+It's important to be aware that the order of _e_ and _f_ options matters. They are read in from left to right and each option is aware of the effects of the previous options. Using the gap format with the __left_and_right_cubes.r__ object, both orders of the _e_ and _f_ options produce different results:
 
 
 ....
@@ -1368,7 +1368,7 @@ fmt g ""
 	
 ....
 
-Running the _center_cube.r_ object:
+Running the __center_cube.r__ object:
 
 
 ....

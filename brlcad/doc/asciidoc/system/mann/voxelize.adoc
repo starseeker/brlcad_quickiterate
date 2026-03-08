@@ -17,13 +17,13 @@ voxelize [ [-d]| {n}] [ [-s]| {"%s %s %s"}] [ [-t]| {f}] {<new_obj old_obj>} [<o
 [[description]]
 == DESCRIPTION
 
-Takes as input a primitive or a collection of primitives ,_old_obj_, and creates a region _new_obj_ which is the collection of voxels(RPPs) approximating the _old_obj_. The _-d_ option specifies the level of detail (precision in approximation of volume) required (default is 1). An argument of n means that n * n rays will be shot through each row, and an approximation of volume filled in each voxel region is reached averaging these n * n values. The _-s_ option lets the user specify the voxel size in each direction (default is 1, 1, 1 in current units). Note that setting the voxel size too small can increase the filesize exponentially. The _-t_ option specifies the threshold volume to decide if voxel is to be included in the voxelized output (default is .5). The threshold should always be a value between 0 and 1.
+Takes as input a primitive or a collection of primitives ,__old_obj__, and creates a region __new_obj__ which is the collection of voxels(RPPs) approximating the __old_obj__. The _-d_ option specifies the level of detail (precision in approximation of volume) required (default is 1). An argument of n means that n * n rays will be shot through each row, and an approximation of volume filled in each voxel region is reached averaging these n * n values. The _-s_ option lets the user specify the voxel size in each direction (default is 1, 1, 1 in current units). Note that setting the voxel size too small can increase the filesize exponentially. The _-t_ option specifies the threshold volume to decide if voxel is to be included in the voxelized output (default is .5). The threshold should always be a value between 0 and 1.
 
 
 [[examples]]
 == EXAMPLES
 
-The following example shows the use of the *voxelize* command to create a voxelized version of an existing object (_old_object_) and naming the output(_new_object_).
+The following example shows the use of the *voxelize* command to create a voxelized version of an existing object (__old_object__) and naming the output(__new_object__).
 
 .Create a voxelized version of an existing primitive or collection.
 [example]
@@ -55,3 +55,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

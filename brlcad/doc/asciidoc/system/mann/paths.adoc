@@ -17,7 +17,7 @@ paths {<path_start>}
 [[description]]
 == DESCRIPTION
 
-Lists all existing paths that start from the specified _path_start_ and end at a primitive shape. The _path_start_ may be specified by / separated components, or they may be separated by spaces (but not both).
+Lists all existing paths that start from the specified __path_start__ and end at a primitive shape. The __path_start__ may be specified by / separated components, or they may be separated by spaces (but not both).
 
 
 [[examples]]
@@ -45,3 +45,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -49,7 +49,7 @@ Select grid cell height. If _not_ specified, cell height equals cell width. Do n
 
 
 *-U #*::
-sets the Boolean variable _use_air_ to the given value. The default for *rtg3*(1) is on, i.e. *-U1*, but the effect of air regions may be disabled with *-U0*.
+sets the Boolean variable __use_air__ to the given value. The default for *rtg3*(1) is on, i.e. *-U1*, but the effect of air regions may be disabled with *-U0*.
 
 
 *-o*::

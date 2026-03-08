@@ -25,11 +25,11 @@ pix-alias [-s<squaresize>] [-w<file_width>] [-n<file_height>] < <BRLpixfile> > <
 
 
 *-n*_file_height_::
-tells *pix-alias* that the input is _file_height_ scanlines tall
+tells *pix-alias* that the input is __file_height__ scanlines tall
 
 
 *-w*_file_width_::
-tells *pix-alias* that the input is _file_width_ pixels wide
+tells *pix-alias* that the input is __file_width__ pixels wide
 
 
 *-s*_squaresize_::
@@ -54,3 +54,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

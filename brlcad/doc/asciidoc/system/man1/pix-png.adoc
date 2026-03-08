@@ -35,11 +35,11 @@ sets the specified gamma correction value into the created PNG file. A value of 
 
 
 *-n file_height*::
-tells *pix-png* that the input is _file_height_ scanlines tall
+tells *pix-png* that the input is __file_height__ scanlines tall
 
 
 *-w file_width*::
-tells *pix-png* that the input is _file_width_ pixels wide
+tells *pix-png* that the input is __file_width__ pixels wide
 
 
 *-s squaresize*::
@@ -47,7 +47,7 @@ sets both the width and the height for the input to be _squaresize_
 
 
 *-o PNG_file*::
-tells *pix-png* to write image data to the specified _PNG_file_ output file. The *pix-png* command will not write out binary image data directly to a terminal device as a safeguard.
+tells *pix-png* to write image data to the specified __PNG_file__ output file. The *pix-png* command will not write out binary image data directly to a terminal device as a safeguard.
 
 
 
@@ -74,3 +74,5 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

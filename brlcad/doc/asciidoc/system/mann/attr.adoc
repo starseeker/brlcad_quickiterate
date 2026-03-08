@@ -88,7 +88,7 @@ The examples demonstrate the use of the *attr* command and subcommands to assign
 ====
 
 mged>*attr set region_1 material_id 10*::
-Assigns an attribute name "material_id" to _region_1_. Its value is 10.
+Assigns an attribute name "material_id" to __region_1__. Its value is 10.
 
 
 
@@ -99,7 +99,7 @@ Assigns an attribute name "material_id" to _region_1_. Its value is 10.
 ====
 
 mged>*attr set region_1 comment {This is a comment for region_1}*::
-Assigns an attribute named "comment" to _region_1_. Its value is "This is a comment for region_1."
+Assigns an attribute named "comment" to __region_1__. Its value is "This is a comment for region_1."
 
 
 
@@ -110,7 +110,7 @@ Assigns an attribute named "comment" to _region_1_. Its value is "This is a comm
 ====
 
 mged>*attr show region_1 comment*::
-Lists all the attributes for _region_1_.
+Lists all the attributes for __region_1__.
 
 
 

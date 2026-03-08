@@ -17,9 +17,9 @@ dbclean <in_model.g> <out_model.g>
 [[description]]
 == DESCRIPTION
 
-*dbclean* operates on the indicated input database _in_model.g_ and produces a compacter version of the same as _out_model.g._
+*dbclean* operates on the indicated input database __in_model.g__ and produces a compacter version of the same as __out_model.g.__
 
-The objective is to remove "holes" in the original database which resulted from use of the _kill_/_killall_ commands in *mged*(1). Note that when a database is compacted in this manner, the compacting is dependent on the successful completion of the converters *g2asc*(1) and *asc2g*(1). The compacting will only be aborted if one of the conversions fails. Thus, when either converter "skips" solids, *dbclean* will continue, and _out_model.g_ will be written, albeit without the skipped solids. This will also result in a smaller database.
+The objective is to remove "holes" in the original database which resulted from use of the _kill_/_killall_ commands in *mged*(1). Note that when a database is compacted in this manner, the compacting is dependent on the successful completion of the converters *g2asc*(1) and *asc2g*(1). The compacting will only be aborted if one of the conversions fails. Thus, when either converter "skips" solids, *dbclean* will continue, and __out_model.g__ will be written, albeit without the skipped solids. This will also result in a smaller database.
 
 
 [[example]]

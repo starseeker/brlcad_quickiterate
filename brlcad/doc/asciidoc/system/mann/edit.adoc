@@ -32,7 +32,7 @@ The format of the standard options accepted by subcommands, *-n*, *-k*, *-a*/*-r
 
 All edit commands interpret a lone point (*.*) as a special operator, called the batch operator. The batch operator is accepted as an argument to the options *-k*, *-a*, and *-r*. In a batch operation, each individual _object_ is operated on using the bounding box center of itself in place of the batch operator. While all _object_'s move together in a non-batch operation, in batch operations, each _object_ may move independently of all other _object_'s.
 
-If any _from_ coordinates are omitted, they default to the bounding box center of the first _object_ is used as _from_. To use the natural origin of the first _object_ as _from_, _from_object_ must be manually set to whatever _object_ is set to. If any _to_ coordinates are omitted, they default to the values set in _from_.
+If any _from_ coordinates are omitted, they default to the bounding box center of the first _object_ is used as _from_. To use the natural origin of the first _object_ as _from_, __from_object__ must be manually set to whatever _object_ is set to. If any _to_ coordinates are omitted, they default to the values set in _from_.
 
 The quantity and arrangement of standard *edit* arguments as well as their interpretation depends upon the subcommand. See the manual page for a given subcommand for more information on its usage:
 
@@ -53,15 +53,15 @@ Use the natural origin of the object specified as an argument to *-k*, *-a*, or 
 
 
 *-k*::
-Sets the keypoint _from_ to either _from_object_'s bounding box center or _from_position_.
+Sets the keypoint _from_ to either __from_object__'s bounding box center or __from_position__.
 
 
 *-a*::
-Sets the destination point _to_ to either _to_object_'s bounding box center or _to_position_.
+Sets the destination point _to_ to either __to_object__'s bounding box center or __to_position__.
 
 
 *-r*::
-Sets the destination point _to_ to a point offset by _to_position_ from the _from_ point.
+Sets the destination point _to_ to a point offset by __to_position__ from the _from_ point.
 
 
 *-x* *-y* *-z*::
@@ -136,3 +136,5 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
