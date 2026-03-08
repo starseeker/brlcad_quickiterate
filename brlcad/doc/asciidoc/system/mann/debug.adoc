@@ -46,7 +46,9 @@ Although it shouldn't normally be necessary, the *-V* option provides a way to r
 .Display help and available libraries
 [example]
 ====
-mged>*debug -h*
+mged>*debug -h* 
+
+
 ....
 
 debug [-h] [-l [lib]] [-C [lib]] [-V [lib] [val]] [lib [flag]]
@@ -66,7 +68,9 @@ Available libs:
 .List available flags for LIBBU
 [example]
 ====
-mged>*debug -l BU*
+mged>*debug -l BU* 
+
+
 ....
 
 BU flags:
@@ -90,7 +94,9 @@ BU flags:
 .Set LIBBU flags for bu_avs and path debugging
 [example]
 ====
-mged>*debug BU AVS*
+mged>*debug BU AVS* 
+
+
 ....
 
            AVS (0x00000400): bu_avs_() loggin
@@ -99,7 +105,9 @@ mged>*debug BU AVS*
 
 
 
-mged>*debug BU PATHS*
+mged>*debug BU PATHS* 
+
+
 ....
 
            AVS (0x00000400): bu_avs_() logging 
@@ -114,7 +122,9 @@ mged>*debug BU PATHS*
 .Set LIBRT flag for rt_shootray processing
 [example]
 ====
-mged>*debug RT SHOOT*
+mged>*debug RT SHOOT* 
+
+
 ....
 
          SHOOT (0x00000004): 3 Info about rt_shootray() processing
@@ -128,7 +138,9 @@ mged>*debug RT SHOOT*
 .List LIBBU's active debugging flags and all active debugging flags
 [example]
 ====
-mged>*debug BU*
+mged>*debug BU* 
+
+
 ....
 
            AVS (0x00000400): bu_avs_() logging 
@@ -138,7 +150,9 @@ mged>*debug BU*
 
 
 
-mged>*debug*
+mged>*debug* 
+
+
 ....
 
 BU flags:
@@ -157,13 +171,17 @@ RT flags:
 .Clear LIBRT debug flags
 [example]
 ====
-mged>*debug -C RT*
+mged>*debug -C RT* 
+
+
 ....
 
     
 ....
 
-mged>*debug*
+ mged>*debug* 
+
+
 ....
 
 BU flags:

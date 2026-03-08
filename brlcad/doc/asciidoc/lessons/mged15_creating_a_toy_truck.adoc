@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 In this lesson, you will: 
+
+
 * Create a toy truck from three shapes.
 * Make copies of shapes using the Primitive Editor.
 * Make combinations and regions of a more complex object.
@@ -16,7 +18,9 @@ In this lesson, you will:
 
 
 
-In previous lessons, you created and edited shapes to produce simple objects. This lesson focuses on creating a slightly more complex object, a toy truck, from the Command Window. Your completed truck should look similar to the following truck: image::../lessons/images/mged15_truck_design.png[]
+In previous lessons, you created and edited shapes to produce simple objects. This lesson focuses on creating a slightly more complex object, a toy truck, from the Command Window. Your completed truck should look similar to the following truck: 
+
+image::../lessons/images/mged15_truck_design.png[]
 
 
 
@@ -25,7 +29,9 @@ Begin by creating a new database called truck.g.
 [[truck_cab_in_cmd]]
 == Creating an rpp for the Cab of the Truck Using the In Command
 
-To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]*_MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to: [cols="6*"]
+To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]* _MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to: 
+
+[cols="6*"]
 [%noheader]
 |===
 |0
@@ -44,7 +50,9 @@ To make the cab of the truck, you will create a right parallel piped using the i
 
 
 
-You could also have used the streamlined version of: *in cab1.s rpp 0 1 0 1 0 1[Enter]* A cube shape should appear in the Graphics Window, as follows: image::../lessons/images/mged15_truck_cab1s.png[]
+You could also have used the streamlined version of: *in cab1.s rpp 0 1 0 1 0 1[Enter]* A cube shape should appear in the Graphics Window, as follows: 
+
+image::../lessons/images/mged15_truck_cab1s.png[]
 
 
 
@@ -54,7 +62,9 @@ You could also have used the streamlined version of: *in cab1.s rpp 0 1 0 1 0 1[
 
 To make the hood of the cab, you will need to make another rpp shape, this time using the inside command. This special command was originally created to hollow out objects such as gas tanks and boxes; however, it can be used to create any new shape that has some relationship to a pre-existing shape. In this lesson, it is used to cut away material above the hood and in front of the cab.
 
-If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to: [cols="9*"]
+If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to: 
+
+[cols="9*"]
 [%noheader]
 |===
 |inside
@@ -83,6 +93,8 @@ If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, t
 [NOTE]
 ====
 In this example, each negative thickness number indicates that caboff1.s will protrude through the corresponding face of cab1.s. Running the l (list) command, you can see the vertices for the box it creates: 
+
+
 ....
 
 caboff1.s:  ARB8
@@ -108,7 +120,9 @@ Note that in older versions of _BRL-CAD_, the faces of an rpp were numbered in a
 
 ====
 
-When in Multipane mode, the design should resemble the following illustration. image::../lessons/images/mged15_truck_cab_cutoff.png[]
+When in Multipane mode, the design should resemble the following illustration. 
+
+image::../lessons/images/mged15_truck_cab_cutoff.png[]
 
 
 
@@ -116,7 +130,9 @@ When in Multipane mode, the design should resemble the following illustration. i
 [[truck_cab_wheel_well]]
 == Using an rcc to Create a Wheel Well in the Cab
 
-Make a cylinder (rcc) to use for cutting away a space for the first wheel of the cab. At the Command Window prompt, type: *make well1.s rcc[Enter]* Go to the Edit menu and click on Primitive Selection, then well1.s. After selecting a Left view, go back to Edit and select Scale. Reduce the size of the rcc until its diameter is about the right size for a wheel well. Go back to Edit and select Rotate. As discussed previously, one way to easily rotate the rcc is by using the CTRL key and the left mouse button to drag the top lip of the rcc down (in a straight line) until the A and C edit labels overlap. However, because we know we want to flip the object exactly 90'0 along the x axis, a better choice is to use the Command Line and type: *p 90 0 0[Enter]* After doing so, you may still have to use the Set H and Scale editing options to resize and the SHIFT key and left mouse button to position your wheel well. When satisfied, select Accept on the Edit menu. Your design should look similar to the following in Multipane mode: image::../lessons/images/mged15_truck_multipane_1stwheel.png[]
+Make a cylinder (rcc) to use for cutting away a space for the first wheel of the cab. At the Command Window prompt, type: *make well1.s rcc[Enter]* Go to the Edit menu and click on Primitive Selection, then well1.s. After selecting a Left view, go back to Edit and select Scale. Reduce the size of the rcc until its diameter is about the right size for a wheel well. Go back to Edit and select Rotate. As discussed previously, one way to easily rotate the rcc is by using the CTRL key and the left mouse button to drag the top lip of the rcc down (in a straight line) until the A and C edit labels overlap. However, because we know we want to flip the object exactly 90'0 along the x axis, a better choice is to use the Command Line and type: *p 90 0 0[Enter]* After doing so, you may still have to use the Set H and Scale editing options to resize and the SHIFT key and left mouse button to position your wheel well. When satisfied, select Accept on the Edit menu. Your design should look similar to the following in Multipane mode: 
+
+image::../lessons/images/mged15_truck_multipane_1stwheel.png[]
 
 
 
@@ -136,11 +152,15 @@ The Reset button tells _MGED_ to reset values you have changed in a dialog box t
 [[truck_wheel_well_prim_edit_cpy]]
 == Using the Primitive Editor to Make a Copy of the Wheel Well
 
-To make a copy of your wheel well, go to the Edit menu and select Primitive Editor, which will contain information about the last shape edited through the dialog box (or myPrimitive if nothing has been edited). Erase the old shape's name in the Name entry box. Type in well1.s and press Reset (or press Enter while the cursor is still in the Name entry box). The parameter values of the old shape will be replaced by those of the new shape. The Primitive Editor will change and look something like the following example: image::../lessons/images/mged15_prim_ed_wheel_well.png[]
+To make a copy of your wheel well, go to the Edit menu and select Primitive Editor, which will contain information about the last shape edited through the dialog box (or myPrimitive if nothing has been edited). Erase the old shape's name in the Name entry box. Type in well1.s and press Reset (or press Enter while the cursor is still in the Name entry box). The parameter values of the old shape will be replaced by those of the new shape. The Primitive Editor will change and look something like the following example: 
+
+image::../lessons/images/mged15_prim_ed_wheel_well.png[]
 
 
 
-Go back to the Name text box and change the 1 to a 2 and click on OK. Change to Front under the View menu. Go to Edit/Primitive Selection and select well2.s. Use the SHIFT and left mouse button to drag the new wheel well into position, as shown in the following illustration. Check your alignment in Multipane mode and then select Accept when you are finished. image::../lessons/images/mged15_truck_2nd_wheel_wheel_place.png[]
+Go back to the Name text box and change the 1 to a 2 and click on OK. Change to Front under the View menu. Go to Edit/Primitive Selection and select well2.s. Use the SHIFT and left mouse button to drag the new wheel well into position, as shown in the following illustration. Check your alignment in Multipane mode and then select Accept when you are finished. 
+
+image::../lessons/images/mged15_truck_2nd_wheel_wheel_place.png[]
 
 
 
@@ -148,7 +168,9 @@ Go back to the Name text box and change the 1 to a 2 and click on OK. Change to 
 [[truck_cab_shape_comb]]
 == Making a Combination of the Cab Shapes
 
-It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to: [cols="10*"]
+It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to: 
+
+[cols="10*"]
 [%noheader]
 |===
 |comb
@@ -176,6 +198,8 @@ It is now time to make a combination of the various cab shapes. *comb cab1.c u c
 
 
 Before you go any further, you should check your data tree by typing tree cab1.c. The data tree should say: 
+
+
 ....
 
    cab1.c/
@@ -200,7 +224,9 @@ If you type ls (list) at the Command Window prompt, you should find that your da
 
 To make the body of the truck, type at the Command Window prompt: *in body1.s rpp 0 2 0 1 0 1.5[Enter]* By now, you should know what this command tells _MGED_ to do. If you have forgotten, refer back to making the cab of the truck.
 
-Edit the body of the truck so that its front face slightly overlaps the cab's back face. Check different views to make sure the body lines up correctly with the cab. Accept your changes when you are done, and then Blast your design. Your truck should now look like the following: image::../lessons/images/mged15_truck_cab_body.png[]
+Edit the body of the truck so that its front face slightly overlaps the cab's back face. Check different views to make sure the body lines up correctly with the cab. Accept your changes when you are done, and then Blast your design. Your truck should now look like the following: 
+
+image::../lessons/images/mged15_truck_cab_body.png[]
 
 
 
@@ -208,7 +234,9 @@ Edit the body of the truck so that its front face slightly overlaps the cab's ba
 [[prim_ed_wheel_wells]]
 == Using the Primitive Editor to Make Two More Wheel Wells
 
-To make two wheel wells for the body of the truck, repeat the steps used in making the second wheel well. Name your new shapes well3.s and well4.s. Using multiple views, move the new shapes into position so that your truck now looks similar to the following: image::../lessons/images/mged15_truck_wheel_wells_wireframe.png[]
+To make two wheel wells for the body of the truck, repeat the steps used in making the second wheel well. Name your new shapes well3.s and well4.s. Using multiple views, move the new shapes into position so that your truck now looks similar to the following: 
+
+image::../lessons/images/mged15_truck_wheel_wells_wireframe.png[]
 
 
 
@@ -217,6 +245,8 @@ To make two wheel wells for the body of the truck, repeat the steps used in maki
 == Making a Combination of the Truck Body and Wheel Wells
 
 Make a combination of the truck body and the two new wheel wells. Name it body1.c. The tree for body1.c should say: 
+
+
 ....
 
    body1.c/
@@ -243,7 +273,9 @@ Before adding wheels to the truck, you need to make a region of the cab and body
 
 Perhaps the best shape for making wheels is the torus. You can create a shape through the Command Window that has the correct size and placement for your design without further editing. However, this lesson is designed to give you practice rotating and translating shapes.
 
-To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to: [cols="7*"]
+To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to: 
+
+[cols="7*"]
 [%noheader]
 |===
 |in
@@ -266,7 +298,9 @@ To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0
 
 Change View to Left and then Edit the position of the wheel. To correctly align the wheel with the truck, you will have to Rotate the tire using the CTRL key and any mouse button. Scale and Translate the wheel into position as appropriate and check your alignment from several different views. Accept your changes when finished.
 
-Using the Primitive Editor, make the second, third, and fourth wheels. Move each of these wheels into position until your truck looks like the following: image::../lessons/images/mged15_truck_wheels.png[]
+Using the Primitive Editor, make the second, third, and fourth wheels. Move each of these wheels into position until your truck looks like the following: 
+
+image::../lessons/images/mged15_truck_wheels.png[]
 
 
 
@@ -275,6 +309,8 @@ Using the Primitive Editor, make the second, third, and fourth wheels. Move each
 == Making a Region of the Wheels
 
 Make a region of the four wheels. When you are finished, your data tree for wheel1.r should say: 
+
+
 ....
 
    wheel1.r/R
@@ -297,7 +333,9 @@ Make a region of the four wheels. When you are finished, your data tree for whee
 
 Your truck is composed of two regions: truck1.r and wheel1.r. Use the Combination Editor and select truck1.r.
 
-In the Combination Editor, the camouflage (camo) shader creates a pseudo-random tricolor camouflage pattern on the object using a fractal noise pattern. The shader offers lots of attributes from which to choose. For now, select a Background Color of black (0 0 0) and make Color #1 green (0 134 0), and Color #2 rust brown (164 96 38). To make the pattern design proportional to the truck, select a Noise Size of .25 and then Apply the selections. The Combination Editor window for the camo shader should look like this: image::../lessons/images/mged15_cameo_shader.png[]
+In the Combination Editor, the camouflage (camo) shader creates a pseudo-random tricolor camouflage pattern on the object using a fractal noise pattern. The shader offers lots of attributes from which to choose. For now, select a Background Color of black (0 0 0) and make Color #1 green (0 134 0), and Color #2 rust brown (164 96 38). To make the pattern design proportional to the truck, select a Noise Size of .25 and then Apply the selections. The Combination Editor window for the camo shader should look like this: 
+
+image::../lessons/images/mged15_cameo_shader.png[]
 
 
 
@@ -348,7 +386,9 @@ When using the stacker option, you need to keep track of the number of character
 [[truck_combine_regions]]
 == Making a Combination of the Truck Regions
 
-To make a combination of the two truck regions, type at the Command Window prompt: *comb truck1.c u truck1.r u wheel1.r[Enter]**B truck1.c[Enter]* Your data tree for truck1.c should read: 
+To make a combination of the two truck regions, type at the Command Window prompt: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Your data tree for truck1.c should read: 
+
+
 ....
 
    truck1.c/
@@ -395,6 +435,8 @@ The last step in creating your truck is to raytrace your design. When the raytra
 
 There is a special adjustment we can make to improve the overall brightness of the scene. We can adjust the amount of ambient light, which is light that does not come from a particular light source but is a measure of the light generally present in the scene. To adjust the amount of ambient light, click on the Advanced Settings button in the Raytrace Control Panel. Next to Other Options, type -A .9 and click Dismiss. Now when you raytrace, you will get a much lighter image.
 
+
+
 [cols="2*"]
 [%noheader]
 |===
@@ -411,6 +453,8 @@ There is a special adjustment we can make to improve the overall brightness of t
 == Review
 
 In this lesson, you: 
+
+
 * Created a toy truck from three shapes.
 * Made copies of shapes using the Primitive Editor.
 * Made combinations and regions of a more complex object.

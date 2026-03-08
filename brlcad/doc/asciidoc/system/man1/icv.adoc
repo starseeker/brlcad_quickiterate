@@ -17,7 +17,9 @@ icv [-h] [-i<file>] [--input-format<fmt>] [-o<file>] [--output-format<fmt>] [-w<
 [[description]]
 == DESCRIPTION
 
-*icv* is a tool to convert images to and from a variety of image formats. Currently support formats include: .Supported ICV Image Formats
+*icv* is a tool to convert images to and from a variety of image formats. Currently support formats include: 
+
+.Supported ICV Image Formats
 [cols="2*"]
 |===
 |Format
@@ -50,27 +52,27 @@ File types will be deduced unless explicitly specfied with the *input-format* an
 Print help and exit.
 
 
-*-i*_file_, *--input*_file_::
+*-i* _file_, *--input* _file_::
 Specify an input file. If none is specified, the first non-option-related argument will be used as the input file name.
 
 
-*-o*_file_, *--output*_file_::
+*-o* _file_, *--output* _file_::
 Specify an input file. If none is specified, the second non-option-related argument will be used as the output file name.
 
 
-*-w*_#_, *--width*_#_::
+*-w* _#_, *--width* _#_::
 Specify the width of the input image. Useful for file types such as PIX that do not encode explicit size information.
 
 
-*-n*_#_, *--height*_#_::
+*-n* _#_, *--height* _#_::
 Specify the height of the input image. Useful for file types such as PIX that do not encode explicit size information.
 
 
-*--input-format*_fmt_::
+*--input-format* _fmt_::
 Explicitly specify input file format.
 
 
-*--output-format*_fmt_::
+*--output-format* _fmt_::
 Explicitly specify output file format.
 
 
@@ -90,7 +92,7 @@ Explicitly specify output file format.
 [[see_also]]
 == SEE ALSO
 
-*pix*(5)*bw*(5)
+*pix*(5) *bw*(5)
 
 
 [[author]]

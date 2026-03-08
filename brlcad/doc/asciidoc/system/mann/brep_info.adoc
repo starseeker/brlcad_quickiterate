@@ -86,7 +86,9 @@ Return information for one or more 3D vertices.
 .Object Summary
 [example]
 ====
-mged>*brep Brep_1.s info*
+mged>*brep Brep_1.s info* 
+
+
 ....
 
 Brep_1.s -- Valid: YES, Solid: YES, Plate mode: NO
@@ -110,7 +112,9 @@ Reports counts for the various object types, as well as object level info about 
 .First Object Face
 [example]
 ====
-mged>*brep Brep_1.s info F 1*
+mged>*brep Brep_1.s info F 1* 
+
+
 ....
 
 face[ 1]: surface(1) reverse(0) loops(1)
@@ -143,7 +147,9 @@ Reports information about the consituent components that make up the topological
 .First Surface
 [example]
 ====
-mged>*brep Brep_1.s info S 1*
+mged>*brep Brep_1.s info S 1* 
+
+
 ....
 
 surface[ 1]: ON_NurbsSurface u(0, 18.24) v(0, 3.14159)
@@ -184,7 +190,9 @@ Detailed information on the geometric data defining the surface.
 .Multiple loops
 [example]
 ====
-mged>*brep Brep_1.s info L 1,5,12*
+mged>*brep Brep_1.s info L 1,5,12* 
+
+
 ....
 
 loop[1] on face 1 with 4 trims

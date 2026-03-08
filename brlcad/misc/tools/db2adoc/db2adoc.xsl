@@ -22,7 +22,17 @@
 
   <xsl:output method="text" encoding="UTF-8" indent="no"/>
   <xsl:strip-space elements="*"/>
-  <xsl:preserve-space elements="db:programlisting db:screen db:literallayout db:synopsis db:address"/>
+  <!-- preserve-space for elements with mixed content (inline text + elements):
+       Adding db:para and its common inline containers ensures that inter-element
+       whitespace (e.g. the space between <command>foo</command> <filename>bar</filename>)
+       is not stripped before our text() template can handle it. -->
+  <xsl:preserve-space elements="db:programlisting db:screen db:literallayout db:synopsis db:address
+                                 db:para db:simpara db:title db:term db:phrase
+                                 db:emphasis db:command db:option db:filename db:varname
+                                 db:envar db:systemitem db:literal db:code db:constant
+                                 db:type db:markup db:application db:function db:parameter
+                                 db:replaceable db:userinput db:computeroutput db:prompt
+                                 db:entry db:refpurpose db:citetitle db:link"/>
 
   <!-- ============================================================
        PARAMETERS
@@ -102,6 +112,24 @@
       <xsl:with-param name="str" select="'.'"/>
       <xsl:with-param name="n" select="$depth + 1"/>
     </xsl:call-template>
+  </xsl:template>
+
+  <!-- ============================================================
+       BLOCK-IN-PARA SEPARATOR
+       When a block-level element (table, figure, listing, list,
+       admonition, etc.) is a direct child of db:para or db:simpara,
+       a blank line must be emitted first so that any preceding inline
+       text is closed as a proper AsciiDoc paragraph before the block
+       attributes start.  Call this at the very start of every template
+       that produces a block-level AsciiDoc construct.
+       ============================================================ -->
+
+  <xsl:template name="block-sep">
+    <!-- If we're inside a para/simpara, ensure a blank line separates us
+         from any preceding inline content on the same line. -->
+    <xsl:if test="parent::db:para or parent::db:simpara">
+      <xsl:text>&#10;&#10;</xsl:text>
+    </xsl:if>
   </xsl:template>
 
   <!-- ============================================================
@@ -657,30 +685,35 @@
        ============================================================ -->
 
   <xsl:template match="db:note">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[NOTE]&#10;====&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>====&#10;&#10;</xsl:text>
   </xsl:template>
 
   <xsl:template match="db:warning">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[WARNING]&#10;====&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>====&#10;&#10;</xsl:text>
   </xsl:template>
 
   <xsl:template match="db:caution">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[CAUTION]&#10;====&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>====&#10;&#10;</xsl:text>
   </xsl:template>
 
   <xsl:template match="db:tip">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[TIP]&#10;====&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>====&#10;&#10;</xsl:text>
   </xsl:template>
 
   <xsl:template match="db:important">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[IMPORTANT]&#10;====&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>====&#10;&#10;</xsl:text>
@@ -691,6 +724,7 @@
        ============================================================ -->
 
   <xsl:template match="db:blockquote">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[quote</xsl:text>
     <xsl:if test="db:attribution">
       <xsl:text>, </xsl:text>
@@ -702,6 +736,7 @@
   </xsl:template>
 
   <xsl:template match="db:epigraph">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;[quote</xsl:text>
     <xsl:if test="db:attribution">
       <xsl:text>, </xsl:text>
@@ -717,6 +752,7 @@
        ============================================================ -->
 
   <xsl:template match="db:programlisting">
+    <xsl:call-template name="block-sep"/>
     <xsl:variable name="lang">
       <xsl:choose>
         <xsl:when test="@language"><xsl:value-of select="@language"/></xsl:when>
@@ -738,6 +774,7 @@
   </xsl:template>
 
   <xsl:template match="db:screen | db:computeroutput[parent::db:para/parent::db:example or parent::db:para/parent::db:refsection]">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;....&#10;</xsl:text>
     <xsl:value-of select="."/>
     <xsl:if test="substring(., string-length(.), 1) != '&#10;'">
@@ -747,6 +784,7 @@
   </xsl:template>
 
   <xsl:template match="db:literallayout">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;....&#10;</xsl:text>
     <xsl:value-of select="."/>
     <xsl:if test="substring(., string-length(.), 1) != '&#10;'">
@@ -756,6 +794,7 @@
   </xsl:template>
 
   <xsl:template match="db:synopsis">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;----&#10;</xsl:text>
     <xsl:value-of select="."/>
     <xsl:if test="substring(., string-length(.), 1) != '&#10;'">
@@ -769,6 +808,7 @@
        ============================================================ -->
 
   <xsl:template match="db:example">
+    <xsl:call-template name="block-sep"/>
     <xsl:if test="db:title">
       <xsl:text>.</xsl:text>
       <xsl:value-of select="normalize-space(db:title)"/>
@@ -780,6 +820,7 @@
   </xsl:template>
 
   <xsl:template match="db:informalexample">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>[example]&#10;====&#10;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>====&#10;&#10;</xsl:text>
@@ -791,6 +832,7 @@
 
   <xsl:template match="db:itemizedlist">
     <xsl:param name="depth" select="0"/>
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;</xsl:text>
     <xsl:apply-templates select="db:listitem">
       <xsl:with-param name="depth" select="$depth"/>
@@ -801,6 +843,7 @@
 
   <xsl:template match="db:orderedlist">
     <xsl:param name="depth" select="0"/>
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;</xsl:text>
     <xsl:apply-templates select="db:listitem">
       <xsl:with-param name="depth" select="$depth"/>
@@ -856,6 +899,7 @@
 
   <!-- simplelist -->
   <xsl:template match="db:simplelist">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;</xsl:text>
     <xsl:for-each select="db:member">
       <xsl:text>* </xsl:text>
@@ -870,6 +914,7 @@
        ============================================================ -->
 
   <xsl:template match="db:variablelist">
+    <xsl:call-template name="block-sep"/>
     <xsl:text>&#10;</xsl:text>
     <xsl:apply-templates select="db:varlistentry"/>
     <xsl:text>&#10;</xsl:text>
@@ -939,6 +984,7 @@
   </xsl:template>
 
   <xsl:template match="db:table | db:informaltable">
+    <xsl:call-template name="block-sep"/>
     <xsl:if test="@xml:id">
       <xsl:text>[[</xsl:text>
       <xsl:value-of select="@xml:id"/>
@@ -1259,6 +1305,7 @@
   </xsl:template>
 
   <xsl:template match="db:figure | db:informalfigure">
+    <xsl:call-template name="block-sep"/>
     <xsl:if test="@xml:id">
       <xsl:text>[[</xsl:text>
       <xsl:value-of select="@xml:id"/>
@@ -1276,6 +1323,7 @@
   </xsl:template>
 
   <xsl:template match="db:mediaobject">
+    <xsl:call-template name="block-sep"/>
     <!-- In AsciiDoc the block title (caption) must appear BEFORE the image
          macro.  Emit it first, then the image. -->
     <xsl:if test="db:caption">
@@ -1685,21 +1733,34 @@
         <xsl:value-of select="."/>
       </xsl:when>
       <xsl:otherwise>
-        <!-- Only preserve leading space when there IS a preceding sibling node
-             (i.e., we are in the middle of inline content). -->
-        <xsl:if test="preceding-sibling::node() and
-                      string-length(normalize-space(.)) > 0 and
-                      translate(substring(.,1,1),' &#9;&#10;&#13;','') = ''">
-          <xsl:text> </xsl:text>
-        </xsl:if>
-        <xsl:value-of select="normalize-space(.)"/>
-        <!-- Preserve a single trailing space when there IS a following sibling node. -->
-        <xsl:if test="following-sibling::node() and
-                      string-length(.) > 1 and
-                      string-length(normalize-space(.)) > 0 and
-                      translate(substring(.,string-length(.),1),' &#9;&#10;&#13;','') = ''">
-          <xsl:text> </xsl:text>
-        </xsl:if>
+        <xsl:variable name="norm" select="normalize-space(.)"/>
+        <xsl:choose>
+          <!-- Pure-whitespace text node between two sibling nodes: emit a single
+               space so that adjacent inline elements (e.g. *cmd* `file`) are not
+               fused together (which would break AsciiDoc constrained markup). -->
+          <xsl:when test="string-length($norm) = 0 and
+                          preceding-sibling::node() and
+                          following-sibling::node()">
+            <xsl:text> </xsl:text>
+          </xsl:when>
+          <xsl:otherwise>
+            <!-- Only preserve leading space when there IS a preceding sibling node
+                 (i.e., we are in the middle of inline content). -->
+            <xsl:if test="preceding-sibling::node() and
+                          string-length($norm) > 0 and
+                          translate(substring(.,1,1),' &#9;&#10;&#13;','') = ''">
+              <xsl:text> </xsl:text>
+            </xsl:if>
+            <xsl:value-of select="$norm"/>
+            <!-- Preserve a single trailing space when there IS a following sibling node. -->
+            <xsl:if test="following-sibling::node() and
+                          string-length(.) > 1 and
+                          string-length($norm) > 0 and
+                          translate(substring(.,string-length(.),1),' &#9;&#10;&#13;','') = ''">
+              <xsl:text> </xsl:text>
+            </xsl:if>
+          </xsl:otherwise>
+        </xsl:choose>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>

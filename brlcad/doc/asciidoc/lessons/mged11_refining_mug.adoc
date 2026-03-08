@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 In this lesson, you will: 
+
+
 * Assign material properties to the mug using the mater command.
 * Refine the mug.
 * Combine the shapes.
@@ -33,7 +35,9 @@ The most commonly used shader is the plastic shader, which uses a Phong lighting
 
 Enter the appropriate information that is shown in bold font. If you want to use the streamlined version, type: *mater mug.r plastic 32 128 32 0[Enter]*
 
-Diagrammed, this command says: [cols="5*"]
+Diagrammed, this command says: 
+
+[cols="5*"]
 [%noheader]
 |===
 |mater
@@ -100,9 +104,11 @@ To combine the torus with the cup, you will need to type at the prompt: *comb bo
 
 Now you are faced with a unique situation. The shape rim.s was added to the list of objects being displayed when it was created. However, now it is also a part of mug.r (via body.c). If you raytrace the current view, you will have two copies of this shape. The raytracer will complain that they overlap.
 
-One way to fix this is to clear the display, redisplay the new, complete object, and then raytrace. As discussed previously, the fbclear command in the Raytrace Control Panel clears the framebuffer display, and the Z command in the Command Window clears all wireframed objects. You can redisplay the objects you want to raytrace with the draw command. Type at the prompt: *Z[Enter]**draw mug.r[Enter]*
+One way to fix this is to clear the display, redisplay the new, complete object, and then raytrace. As discussed previously, the fbclear command in the Raytrace Control Panel clears the framebuffer display, and the Z command in the Command Window clears all wireframed objects. You can redisplay the objects you want to raytrace with the draw command. Type at the prompt: *Z[Enter]* *draw mug.r[Enter]*
 
-Raytrace your mug. It should now look similar to the following. image::../lessons/images/mged11_mug_raytraced_rim.png[]
+Raytrace your mug. It should now look similar to the following. 
+
+image::../lessons/images/mged11_mug_raytraced_rim.png[]
 
 
 
@@ -111,6 +117,8 @@ Raytrace your mug. It should now look similar to the following. image::../lesson
 == Review
 
 In this chapter, you: 
+
+
 * Assigned material properties to the mug using the mater command.
 * Refined the mug by smoothing the lip.
 * Combined the shapes.
