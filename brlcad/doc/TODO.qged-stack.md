@@ -368,15 +368,22 @@ geometry automatically.
 - ✅ **BSG P3 helpers already implemented**: `bsg_view_find_by_type()`,
   `bsg_scene_root_camera()`, `bsg_view_mat_aet_camera()`, and `bsg_sensor_fire()` are
   all present and functional in `src/libbsg/scene_graph.cpp`.  TODO updated accordingly.
+- ✅ **AABB placeholder rendering** (Section 7.4): `BViewState::redraw()` now emits
+  lightweight dashed wireframe bounding-box scene objects for draw_list_ entries whose
+  full geometry hasn't been generated yet but whose bbox is pre-computed in
+  `dbis->bboxes`.  Placeholders are stored in `bbox_placeholders_` (new private member),
+  released when real geometry arrives on the next `redraw()` pass, and cleaned up
+  properly in `clear()` and `erase_hpath()`.  `bsg_vlist_rpp()` populates the vlist.
 
 ### Short-term (open)
 
 1. **`QgModel` ownership** (Tier 2): convert `rootItem` and the `items` set to
    `unique_ptr`-based ownership to eliminate the raw-pointer forest.
 
-2. **AABB placeholder rendering** (Section 7.4): extend `BViewState::redraw()` to
-   draw a lightweight wireframe bounding-box for paths in `draw_list_` whose full
-   geometry hasn't arrived yet but whose bbox is already in `dbis->bboxes`.
+2. **AABB placeholder rendering** (Section 7.4): ✅ Done (session 36). The
+   placeholder shows a dashed grey wireframe box while the solid's geometry
+   is still being computed.  The placeholder is replaced automatically when
+   `BViewState::redraw()` next runs and finds real geometry for that path.
 
 ### Medium-term (modernisation)
 
