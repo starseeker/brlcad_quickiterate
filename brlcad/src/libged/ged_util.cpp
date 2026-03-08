@@ -2557,13 +2557,6 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 
 #endif
 
-struct display_list *
-ged_dl(struct ged *UNUSED(gedp))
-{
-    /* gd_headDisplay has been removed; always return NULL */
-    return NULL;
-}
-
 void
 ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f)
 {

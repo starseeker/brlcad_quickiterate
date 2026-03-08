@@ -151,13 +151,6 @@ _ged_do_tra(struct ged *gedp,
     return BRLCAD_OK;
 }
 
-unsigned long long
-ged_dl_hash(struct display_list *UNUSED(dl))
-{
-    /* gd_headDisplay has been removed; use dl_name_hash(gedp) instead. */
-    return 0;
-}
-
 void
 nmg_plot_eu(struct ged *gedp, struct edgeuse *es_eu, const struct bn_tol *tol, struct bu_list *vlfree)
 {

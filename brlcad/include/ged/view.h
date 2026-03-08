@@ -66,16 +66,11 @@ struct ged_bv_data {
 };
 
 /* defined in display_list.c */
-GED_EXPORT void dl_set_iflag(struct bu_list *hdlp, int iflag);
-GED_EXPORT extern void dl_color_soltab(struct bu_list *hdlp);
 GED_EXPORT extern void dl_erasePathFromDisplay(struct ged *gedp, const char *path, int allow_split);
 
 /* BSG Phase 2e versions — operate on scene-root children */
 GED_EXPORT extern void bsg_color_soltab(bsg_view *v);
 GED_EXPORT extern void bsg_set_iflag(bsg_view *v, int iflag);
-
-/* Check ged_bv data associated with a display list */
-GED_EXPORT extern unsigned long long ged_dl_hash(struct display_list *dl);
 
 /**
  * ged_find_shapes_by_path — BSG Phase 2e helper.
@@ -254,14 +249,9 @@ GED_EXPORT struct rt_selection_set *ged_get_selection_set(struct ged *gedp,
 
 
 
-/* ged_dl() now always returns NULL; gd_headDisplay has been removed.
- * Use scene-root children via bsg_scene_root_get(gedp->ged_gvp) instead.
- * Kept for backward-compatibility with any external code that still calls it.
- */
+/* RT command completion notification callback type and accessors */
 typedef void (*ged_drawable_notify_func_t)(int);
 
-GED_EXPORT struct display_list *
-ged_dl(struct ged *gedp);
 GED_EXPORT void
 ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f);
 GED_EXPORT ged_drawable_notify_func_t

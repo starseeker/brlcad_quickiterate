@@ -105,19 +105,6 @@ if (scene_root) bu_ptbl_rm(&scene_root->children, (const long *)sp);
 
 
 
-int
-dl_bounding_sph(struct bu_list *hdlp, vect_t *min, vect_t *max, int pflag)
-{
-    /* Phase 2e: dl_bounding_sph via hdlp/dl_head_scene_obj is replaced by
-     * bsg_bounding_sph(v, min, max, pflag).  This stub avoids breaking any
-     * callers that haven't been updated yet. */
-    (void)hdlp; (void)pflag;
-    VSETALL((*min),  INFINITY);
-    VSETALL((*max), -INFINITY);
-    return 1; /* is_empty = 1 */
-}
-
-
 /*
  * BSG Phase 2e version of dl_bounding_sph: iterates scene-root children
  * for the given view, avoiding the nested gdlp → dl_head_scene_obj loop.
@@ -293,19 +280,6 @@ color_soltab(bsg_shape *sp)
 
 
 /*
- * Pass through the solid table and set pointer to appropriate
- * mater structure.
- */
-void
-dl_color_soltab(struct bu_list *hdlp)
-{
-    /* Phase 2e: dl_color_soltab on the legacy hdlp is a no-op once shapes
-     * are tracked via root->children.  Use bsg_color_soltab(v) instead. */
-    if (!hdlp) return;
-}
-
-
-/*
  * BSG Phase 2e version: recolor all shapes in the scene-root children of v.
  */
 void
@@ -424,16 +398,6 @@ int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int r
     return 0;           /* OK */
 
 }
-
-void
-dl_set_iflag(struct bu_list *hdlp, int iflag)
-{
-    /* Phase 2e: dl_set_iflag on the legacy hdlp is a no-op once shapes are
-     * tracked via root->children.  Use bsg_set_iflag(v, iflag) instead. */
-    if (!hdlp) return;
-    (void)iflag;
-}
-
 
 /*
  * BSG Phase 2e version: set the iflag on all shapes in the scene-root children.

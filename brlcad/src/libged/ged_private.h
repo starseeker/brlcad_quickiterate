@@ -257,7 +257,6 @@ GED_EXPORT extern int _ged_combadd2(struct ged *gedp,
 /* defined in display_list.c */
 GED_EXPORT extern void _dl_eraseAllNamesFromDisplay(struct ged *gedp, const char *name, const int skip_first);
 GED_EXPORT extern void _dl_eraseAllPathsFromDisplay(struct ged *gedp, const char *path, const int skip_first);
-GED_EXPORT extern int dl_bounding_sph(struct bu_list *hdlp, vect_t *min, vect_t *max, int pflag);
 GED_EXPORT extern int bsg_bounding_sph(bsg_view *v, vect_t *min, vect_t *max, int pflag);
 
 GED_EXPORT extern void color_soltab(bsg_shape *sp);

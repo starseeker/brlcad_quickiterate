@@ -56,6 +56,36 @@ manage geometry state.  It is the primary source of remaining legacy patterns.
 
 Key open areas in priority order:
 
+## Current State — Session 33 Update (2026-03-08)
+
+### Additional items completed ✅ (Session 33) — Compatibility stubs removed
+
+- **`src/libged/display_list.c`**: Removed `dl_bounding_sph`, `dl_color_soltab`, `dl_set_iflag` no-op stubs.
+- **`include/ged/view.h`**: Removed declarations of `dl_color_soltab`, `dl_set_iflag`, `ged_dl()`, `ged_dl_hash()`; cleaned up compat comment block; renamed `ged_dl_notify_func_set/get` comment to accurately describe the function.
+- **`src/libged/ged_util.cpp`**: Removed `ged_dl()` stub.
+- **`src/libged/vutil.c`**: Removed `ged_dl_hash()` stub.
+- **`src/libged/ged_private.h`**: Removed `dl_bounding_sph` declaration.
+- **`src/mged/mater.c`** `mged_color_soltab()`: Removed `dl_color_soltab(ged_dl(...))` call (no-op); `bsg_color_soltab` already present.
+- **`src/mged/buttons.c`**: Removed both `dl_set_iflag(ged_dl(...), DOWN)` calls (no-ops); `bsg_set_iflag` already present.
+- **`src/libged/color/color.c`**: Removed `dl_color_soltab(ged_dl(...))` call (no-op); `bsg_color_soltab` already present.
+- **`src/mged/attach.c`**, **`set.c`**, **`share.c`**: Replaced `createDLists(s, ged_dl(s->gedp))` calls with `createDListAll(s, NULL)` (the scene-root equivalent that was already implemented).
+- **`src/mged/dozoom.c`**: Removed dead `createDLists()` function (iterates empty display list; replaced by `createDListAll` which uses scene-root children).
+- **`src/mged/mged.h`**: Removed `createDLists` declaration.
+- **`src/gtools/gsh/gsh.cpp`**: Removed `g` field from `DisplayHash` struct and `ged_dl_hash(ged_dl(gedp))` call (was always 0).
+
+### What remains open ⚠️ (after Session 33)
+
+All display-list compatibility stubs have been removed. The only remaining BSG cleanup items are long-term:
+
+| Item | File | Notes |
+|------|------|-------|
+| Remove `ged_dl_notify_func_set/get` misleading names | `ged_util.cpp`, `include/ged/view.h` | These are real callbacks for RT completion; not display-list related; rename to `ged_rt_notify_func_set/get` |
+| `ged_drawable_notify_func_t` typedef rename | `include/ged/view.h` | Misleading name; rename when renaming the accessors |
+| Camera direct writes in loadview/preview/mged/libtclcad | Various | Remaining P2 camera migration |
+| DBI sensor-driven redraws | `dbi_state.cpp` | Long-term L1 item |
+
+---
+
 ## Current State — Session 32 Update (2026-03-07)
 
 ### Additional items completed ✅ (Session 32) — gd_headDisplay REMOVED
