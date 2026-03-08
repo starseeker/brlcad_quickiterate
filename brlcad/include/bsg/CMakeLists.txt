@@ -1,11 +1,11 @@
 set(
   bsg_headers
   adc.h
-  compat.h
   defines.h
   lod.h
   plot3.h
   polygon.h
+  scene_set.h
   snap.h
   tig.h
   util.h

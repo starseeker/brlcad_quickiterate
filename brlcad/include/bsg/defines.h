@@ -511,6 +511,11 @@ struct bv_mesh_lod {
     void *i;
 };
 
+struct bv_mesh_lod_context_internal;
+struct bv_mesh_lod_context {
+    struct bv_mesh_lod_context_internal *i;
+};
+
 #define BV_SNAP_SHARED 0x1
 #define BV_SNAP_LOCAL  0x2
 #define BV_SNAP_DB     0x4
@@ -829,117 +834,6 @@ BSG_EXPORT extern int bv_polygon_csg(struct bv_scene_obj *target, struct bv_scen
 
 #endif /* BV_POLYGON_H */
 
-/* ================================================================== *
- * Function declarations inlined from bv/util.h                       *
- * ================================================================== */
-
-BSG_EXPORT extern void bv_init(struct bview *v, struct bview_set *s);
-BSG_EXPORT extern void bv_free(struct bview *v);
-BSG_EXPORT void bv_mat_aet(struct bview *v);
-BSG_EXPORT extern void bv_settings_init(struct bview_settings *s);
-
-#define BV_AUTOVIEW_SCALE_DEFAULT -1
-BSG_EXPORT extern void bv_autoview(struct bview *v, fastf_t scale, int all_view_objs);
-BSG_EXPORT extern void bv_sync(struct bview *dest, struct bview *src);
-BSG_EXPORT extern int bv_obj_settings_sync(struct bv_obj_settings *dest, struct bv_obj_settings *src);
-BSG_EXPORT extern void bv_update(struct bview *gvp);
-BSG_EXPORT extern int bv_update_selected(struct bview *gvp);
-
-#define BV_KNOBS_ALL  0
-#define BV_KNOBS_RATE 1
-#define BV_KNOBS_ABS  2
-BSG_EXPORT extern void bv_knobs_reset(struct bview_knobs *k, int category);
-BSG_EXPORT extern unsigned long long bv_knobs_hash(struct bview_knobs *k, struct bu_data_hash_state *state);
-BSG_EXPORT extern int bv_knobs_cmd_process(vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, struct bview *v, const char *cmd, fastf_t f, char origin, int model_flag, int incr_flag);
-BSG_EXPORT extern void bv_knobs_rot(struct bview *v, const vect_t rvec, char origin, char coords, const matp_t obj_rot, const pointp_t pvt_pt);
-BSG_EXPORT extern void bv_knobs_tran(struct bview *v, const vect_t tvec, int model_flag);
-BSG_EXPORT extern void bv_update_rate_flags(struct bview *v);
-BSG_EXPORT extern int bv_differ(struct bview *v1, struct bview *v2);
-BSG_EXPORT extern unsigned long long bv_hash(struct bview *v);
-BSG_EXPORT extern unsigned long long bv_dl_hash(struct display_list *dl);
-BSG_EXPORT extern size_t bv_clear(struct bview *v, int flags);
-
-#define BV_IDLE       0x000
-#define BV_ROT        0x001
-#define BV_TRANS      0x002
-#define BV_SCALE      0x004
-#define BV_CENTER     0x008
-#define BV_CON_X      0x010
-#define BV_CON_Y      0x020
-#define BV_CON_Z      0x040
-#define BV_CON_GRID   0x080
-#define BV_CON_LINES  0x100
-
-BSG_EXPORT extern int bv_adjust(struct bview *v, int dx, int dy, point_t keypoint, int mode, unsigned long long flags);
-BSG_EXPORT extern int bv_screen_to_view(struct bview *v, fastf_t *fx, fastf_t *fy, fastf_t x, fastf_t y);
-BSG_EXPORT extern int bv_screen_pt(point_t *p, fastf_t x, fastf_t y, struct bview *v);
-BSG_EXPORT extern int bv_scene_obj_bound(struct bv_scene_obj *s, struct bview *v);
-BSG_EXPORT extern fastf_t bv_vZ_calc(struct bv_scene_obj *s, struct bview *v, int mode);
-BSG_EXPORT extern void bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj *src);
-BSG_EXPORT void bv_obj_stale(struct bv_scene_obj *s);
-BSG_EXPORT struct bv_scene_obj *bv_obj_create(struct bview *v, int type);
-BSG_EXPORT struct bv_scene_obj *bv_obj_get(struct bview *v, int type);
-BSG_EXPORT struct bv_scene_obj *bv_obj_get_child(struct bv_scene_obj *s);
-BSG_EXPORT void bv_obj_reset(struct bv_scene_obj *s);
-BSG_EXPORT void bv_obj_put(struct bv_scene_obj *o);
-BSG_EXPORT struct bv_scene_obj *bv_find_child(struct bv_scene_obj *s, const char *vname);
-BSG_EXPORT struct bv_scene_obj *bv_find_obj(struct bview *v, const char *vname);
-BSG_EXPORT void bv_uniq_obj_name(struct bu_vls *oname, const char *seed, struct bview *v);
-BSG_EXPORT struct bv_scene_obj *bv_obj_for_view(struct bv_scene_obj *s, struct bview *v);
-BSG_EXPORT struct bv_scene_obj *bv_obj_get_vo(struct bv_scene_obj *s, struct bview *v);
-BSG_EXPORT int bv_obj_have_vo(struct bv_scene_obj *s, struct bview *v);
-BSG_EXPORT int bv_clear_view_obj(struct bv_scene_obj *s, struct bview *v);
-BSG_EXPORT int bv_illum_obj(struct bv_scene_obj *s, char ill_state);
-BSG_EXPORT struct bu_ptbl *bv_view_objs(struct bview *v, int type);
-BSG_EXPORT int bv_view_plane(plane_t *p, struct bview *v);
-#define BV_ENABLE_ENV_LOGGING 1
-BSG_EXPORT void bv_log(int level, const char *fmt, ...)  _BU_ATTR_PRINTF23;
-BSG_EXPORT void bv_view_print(const char *title, struct bview *v, int verbosity);
-
-/* ================================================================== *
- * Function declarations inlined from bv/lod.h                        *
- * ================================================================== */
-#ifndef BV_LOD_H
-#define BV_LOD_H
-
-BSG_EXPORT extern void bv_view_bounds(struct bview *v);
-BSG_EXPORT int bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y);
-BSG_EXPORT int bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, int x2, int y2);
-
-struct bv_mesh_lod_context_internal;
-struct bv_mesh_lod_context {
-    struct bv_mesh_lod_context_internal *i;
-};
-
-BSG_EXPORT struct bv_mesh_lod_context *bv_mesh_lod_context_create(const char *name);
-BSG_EXPORT void bv_mesh_lod_context_destroy(struct bv_mesh_lod_context *c);
-BSG_EXPORT void bv_mesh_lod_clear_cache(struct bv_mesh_lod_context *c, unsigned long long key);
-BSG_EXPORT unsigned long long bv_mesh_lod_cache(struct bv_mesh_lod_context *c, const point_t *v, size_t vcnt, const vect_t *vn, int *f, size_t fcnt, unsigned long long user_key, fastf_t fratio);
-BSG_EXPORT unsigned long long bv_mesh_lod_key_get(struct bv_mesh_lod_context *c, const char *name);
-BSG_EXPORT int bv_mesh_lod_key_put(struct bv_mesh_lod_context *c, const char *name, unsigned long long key);
-BSG_EXPORT struct bv_mesh_lod *bv_mesh_lod_create(struct bv_mesh_lod_context *c, unsigned long long key);
-BSG_EXPORT void bv_mesh_lod_destroy(struct bv_mesh_lod *l);
-BSG_EXPORT void bv_mesh_lod_memshrink(struct bv_scene_obj *s);
-BSG_EXPORT int bv_mesh_lod_view(struct bv_scene_obj *s, struct bview *v, int reset);
-BSG_EXPORT int bv_mesh_lod_level(struct bv_scene_obj *s, int level, int reset);
-BSG_EXPORT void bv_mesh_lod_free(struct bv_scene_obj *s);
-BSG_EXPORT void bv_mesh_lod_detail_setup_clbk(struct bv_mesh_lod *lod, int (*clbk)(struct bv_mesh_lod *, void *), void *cb_data);
-BSG_EXPORT void bv_mesh_lod_detail_clear_clbk(struct bv_mesh_lod *lod, int (*clbk)(struct bv_mesh_lod *, void *));
-BSG_EXPORT void bv_mesh_lod_detail_free_clbk(struct bv_mesh_lod *lod, int (*clbk)(struct bv_mesh_lod *, void *));
-
-#endif /* BV_LOD_H */
-
-/* ================================================================== *
- * Function declarations inlined from bv/view_sets.h                  *
- * ================================================================== */
-
-BSG_EXPORT void bv_set_init(struct bview_set *s);
-BSG_EXPORT void bv_set_free(struct bview_set *s);
-BSG_EXPORT void bv_set_add_view(struct bview_set *s, struct bview *v);
-BSG_EXPORT void bv_set_rm_view(struct bview_set *s, struct bview *v);
-BSG_EXPORT struct bu_ptbl *bv_set_views(struct bview_set *s);
-BSG_EXPORT struct bview *bv_set_find_view(struct bview_set *s, const char *vname);
-BSG_EXPORT struct bv_scene_obj *bv_set_fsos(struct bview_set *s);
 
 /* ====================================================================== *
  * Phase 1: typedef aliases                                               *
@@ -1303,24 +1197,24 @@ struct bsg_camera {
 #define BSG_MATERIAL_INIT  BV_OBJ_SETTINGS_INIT
 
 /* Interaction mode flags */
-#define BSG_IDLE      BV_IDLE
-#define BSG_ROT       BV_ROT
-#define BSG_TRANS     BV_TRANS
-#define BSG_SCALE     BV_SCALE
-#define BSG_CENTER    BV_CENTER
-#define BSG_CON_X     BV_CON_X
-#define BSG_CON_Y     BV_CON_Y
-#define BSG_CON_Z     BV_CON_Z
-#define BSG_CON_GRID  BV_CON_GRID
-#define BSG_CON_LINES BV_CON_LINES
+#define BSG_IDLE      0x000
+#define BSG_ROT       0x001
+#define BSG_TRANS     0x002
+#define BSG_SCALE     0x004
+#define BSG_CENTER    0x008
+#define BSG_CON_X     0x010
+#define BSG_CON_Y     0x020
+#define BSG_CON_Z     0x040
+#define BSG_CON_GRID  0x080
+#define BSG_CON_LINES 0x100
 
 /* Knob reset categories */
-#define BSG_KNOBS_ALL  BV_KNOBS_ALL
-#define BSG_KNOBS_RATE BV_KNOBS_RATE
-#define BSG_KNOBS_ABS  BV_KNOBS_ABS
+#define BSG_KNOBS_ALL  0
+#define BSG_KNOBS_RATE 1
+#define BSG_KNOBS_ABS  2
 
 /* Autoview scale sentinel */
-#define BSG_AUTOVIEW_SCALE_DEFAULT BV_AUTOVIEW_SCALE_DEFAULT
+#define BSG_AUTOVIEW_SCALE_DEFAULT -1
 
 /* View range constants */
 #define BSG_VIEW_MAX    BV_MAX

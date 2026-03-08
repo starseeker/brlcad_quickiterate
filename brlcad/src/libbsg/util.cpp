@@ -321,7 +321,7 @@ bsg_view_init(bsg_view *gvp, bsg_scene *s)
     gvp->gv_local2base = 1.0;
 
     // Initialize knob vars
-    bsg_knobs_reset(&gvp->k, BV_KNOBS_ALL);
+    bsg_knobs_reset(&gvp->k, BSG_KNOBS_ALL);
     gvp->k.origin_m = '\0';
     gvp->k.origin_o = '\0';
     gvp->k.origin_v = '\0';
@@ -908,20 +908,20 @@ _bv_center(bsg_view *v, int vx, int vy, point_t UNUSED(keypoint), unsigned long 
 extern "C" int
 bsg_view_adjust(bsg_view *v, int dx, int dy, point_t keypoint, int UNUSED(mode), unsigned long long flags)
 {
-    if (flags == BV_IDLE)
+    if (flags == BSG_IDLE)
 	return 0;
 
     // TODO - figure out why these need to be flipped for qdm to do the right thing...
-    if (flags & BV_ROT)
+    if (flags & BSG_ROT)
 	return _bv_rot(v, dy, dx, keypoint, flags);
 
-    if (flags & BV_TRANS)
+    if (flags & BSG_TRANS)
 	return _bv_trans(v, dx, dy, keypoint, flags);
 
-    if (flags & BV_SCALE)
+    if (flags & BSG_SCALE)
 	return _bv_scale(v, dx, dy, keypoint, flags);
 
-    if (flags & BV_CENTER)
+    if (flags & BSG_CENTER)
 	return _bv_center(v, dx, dy, keypoint, flags);
 
 
