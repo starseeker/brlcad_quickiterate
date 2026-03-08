@@ -3,9 +3,13 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 
+
+
 * Manejar combinaciones y regiones.
 * Utilizar operaciones Booleanas.
 * Crear regiones con operaciones Booleanas.
+
+ 
 
 
 [CAUTION]
@@ -36,6 +40,8 @@ Cuando las operaciones Booleanas son usadas para construir formas complejas a pa
 == Operaciones Booleanas
 
 Los tres operadores Booleanos empleados por el programa _MGED_ son: unión, substracción e intersección. Puede usar estas operaciones para combinar formas y producir otras más complejas. 
+
+
 * Union (Unión): Fusión de dos formas.
 * Subtract (Substracción): Quitar el volumen de una forma superpuesta a otra.
 * Intersect (Intersección): Usa solamente las partes de la intersección de dos formas que se superponen.
@@ -170,6 +176,8 @@ Resultará en las siguientes expresiones Booleanas: `(shape1 - shape2) u ( (shap
 == Repasemos...
 
 En este tutorial, usted aprendió a : 
+
+
 * Manejar combinaciones y regiones.
 * Utilizar operaciones Booleanas.
 * Crear regiones con operaciones Booleanas.

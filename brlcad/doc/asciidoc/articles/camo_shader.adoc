@@ -8,6 +8,8 @@ The "camo" shader creates a pseudo-random tri-color camouflage pattern on the ob
 
 The fractal noise function produces a pseudo- random number in the range [-1.0 ... 1.0] from the 3-space coordinates of a point in the bounding volume of the region. This noise value is used to determine the color of the object at the given location.
 
+
+
 .Table 1
 [cols="2*"]
 |===
@@ -25,6 +27,8 @@ The fractal noise function produces a pseudo- random number in the range [-1.0 .
 
 
 The fractal pattern has infinite resolution. As a result, the borders of the color splashes never become pixelated, no mater how close the eyepoint is to the surface.
+
+
 
 .Table 2
 [cols="3*"]

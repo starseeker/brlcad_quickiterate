@@ -52,6 +52,8 @@ Used to create, change, retrieve, assign, import, or view materials and their pr
 A newly formed material will have a minimum of the following data set on creation:
 
 
+
+
 * name
 
 
@@ -59,6 +61,8 @@ A newly formed material will have a minimum of the following data set on creatio
 Material objects are made up of a name (seperate from the object name), parent value, and source value. All of which are variable length strings.
 
 In addition to the three variable length string properties, material objects also contain four key-value lists used for storing additional material information: 
+
+
 * physical
 * mechanical
 * optical

@@ -27,6 +27,8 @@ wire [<options>]...
 [example]
 ====
 
+
+
 ....
 
 Enter mged file name (25 char max).
