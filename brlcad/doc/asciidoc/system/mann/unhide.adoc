@@ -10,7 +10,7 @@ unhide - Removes the hidden flag for the specified objects.
 
 [source]
 ----
-unhide {<objects>}
+unhide {objects}
 ----
 
 

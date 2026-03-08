@@ -10,7 +10,7 @@ bwmod - arithmetically modify pixel values in black and white bw file
 
 [source]
 ----
-bwmod [-c] [ -a<add> -s<sub> -m<mult> -d<div> -A -e<exp> -r<root> -S<shift> -M<and> -O<or> -X<xor> -R -t] <file.bw> > <file2.bw>
+bwmod [-c] [ -aadd -ssub -mmult -ddiv -A -eexp -rroot -Sshift -Mand -Oor -Xxor -R -t] file.bw > file2.bw
 ----
 
 

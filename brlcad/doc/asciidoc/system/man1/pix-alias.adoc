@@ -10,7 +10,7 @@ pix-alias - convert an image from pix format to Alias(tm) pix format
 
 [source]
 ----
-pix-alias [-s<squaresize>] [-w<file_width>] [-n<file_height>] < <BRLpixfile> > <ALIASpixfile>
+pix-alias [-ssquaresize] [-wfile_width] [-nfile_height] < BRLpixfile > ALIASpixfile
 ----
 
 
@@ -54,5 +54,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

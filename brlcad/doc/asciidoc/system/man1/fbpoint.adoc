@@ -10,7 +10,7 @@ fbpoint - point at and identify screen coordinates
 
 [source]
 ----
-fbpoint [-F<framebuffer>] [-w<width>] [-n<height>] [-s<squaresize>] [ -x [<prefix>]] [ -y [<prefix>]] [ <initialx> <initialy>]
+fbpoint [-Fframebuffer] [-wwidth] [-nheight] [-ssquaresize] [ -x [prefix]] [ -y [prefix]] [ initialx initialy]
 ----
 
 

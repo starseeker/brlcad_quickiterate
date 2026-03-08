@@ -10,7 +10,7 @@ cp -
 
 [source]
 ----
-cp {<from_object to_object>}
+cp {from_object to_object}
 ----
 
 

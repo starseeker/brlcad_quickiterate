@@ -10,7 +10,7 @@ pixhist3d - display RGB color space utilization
 
 [source]
 ----
-pixhist3d [<file.pix>]
+pixhist3d [file.pix]
 ----
 
 

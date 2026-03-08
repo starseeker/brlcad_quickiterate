@@ -10,7 +10,7 @@ fb-bw - save a framebuffer image in a black and white bw file
 
 [source]
 ----
-fb-bw [-i] [-F<framebuffer>] [-X<scr_xoff>] [-Y<scr_yoff>] [-s<squaresize>] [-w<width>] [-n<height>] [<file.bw>]
+fb-bw [-i] [-Fframebuffer] [-Xscr_xoff] [-Yscr_yoff] [-ssquaresize] [-wwidth] [-nheight] [file.bw]
 ----
 
 

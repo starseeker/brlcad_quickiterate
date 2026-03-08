@@ -10,7 +10,7 @@ tor-rcc - Creates an RCC shape that fills in the hole of a specified TOR.
 
 [source]
 ----
-tor-rcc {<torname>} {<newname>}
+tor-rcc {torname} {newname}
 ----
 
 

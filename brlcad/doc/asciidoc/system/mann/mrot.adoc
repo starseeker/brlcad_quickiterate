@@ -10,7 +10,7 @@ mrot - Rotates the view using model x y z.
 
 [source]
 ----
-mrot {<x y z>}
+mrot {x y z}
 ----
 
 

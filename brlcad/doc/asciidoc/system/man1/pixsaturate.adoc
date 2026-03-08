@@ -10,7 +10,7 @@ pixsaturate - saturate a pix file
 
 [source]
 ----
-pixsaturate <saturation> < <infile.pix> > <outfile.pix>
+pixsaturate saturation < infile.pix > outfile.pix
 ----
 
 

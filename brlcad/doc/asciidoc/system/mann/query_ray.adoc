@@ -10,7 +10,7 @@ query_ray - Runs the NIRT program that is distributed with BRL-CAD to intersect 
 
 [source]
 ----
-query_ray [<nirt_args>]
+query_ray [nirt_args]
 ----
 
 

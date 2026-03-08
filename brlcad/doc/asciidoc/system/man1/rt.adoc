@@ -10,7 +10,7 @@ rt - raytrace an mged model, giving a shaded picture
 
 [source]
 ----
-rt [<options>]... <model.g> <objects>...
+rt [options]... model.g objects...
 ----
 
 

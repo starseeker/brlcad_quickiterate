@@ -10,7 +10,7 @@ sed - Places MGED directly into the primitive edit mode.
 
 [source]
 ----
-sed {<path>}
+sed {path}
 ----
 
 

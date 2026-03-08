@@ -10,7 +10,7 @@ pathlist - Lists all existing paths that start from the specified combinations a
 
 [source]
 ----
-pathlist {<combinations>}
+pathlist {combinations}
 ----
 
 

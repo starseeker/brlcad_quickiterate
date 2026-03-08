@@ -10,7 +10,7 @@ red - Creates a file describing the specified combination and starts an editor f
 
 [source]
 ----
-red {<combination>}
+red {combination}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

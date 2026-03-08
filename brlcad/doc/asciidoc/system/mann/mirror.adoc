@@ -10,7 +10,7 @@ mirror - Mirrors a shape or combination across a given axis.
 
 [source]
 ----
-mirror [<-p "point">] [<-d "dir">] [<-x|-y-|-z>] [<-o offset>] {<from_object to_object>}
+mirror [-p "point"] [-d "dir"] [-x|-y-|-z] [-o offset] {from_object to_object}
 ----
 
 

@@ -10,7 +10,7 @@ copymat - Copies the transformation matrix from a member of one combination to t
 
 [source]
 ----
-copymat {<comb1/memb1 comb2/memb2>}
+copymat {comb1/memb1 comb2/memb2}
 ----
 
 

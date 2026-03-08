@@ -10,7 +10,7 @@ edcomb - Allows the user to modify the attributes of a combination.
 
 [source]
 ----
-edcomb {<combname>} [<regionflag regionID airID los% materialID>]
+edcomb {combname} [regionflag regionID airID los% materialID]
 ----
 
 

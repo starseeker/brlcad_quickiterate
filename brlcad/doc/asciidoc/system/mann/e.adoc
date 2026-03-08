@@ -10,7 +10,7 @@ e - Adds the objects in the argument list to the display list so that they will 
 
 [source]
 ----
-e [-A<attribute name/value pairs>] [-s] [-A -o<attribute name/value pairs>] [-C#/#/#] [<-m1>] {<objects>}
+e [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-m1] {objects}
 ----
 
 
@@ -56,5 +56,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

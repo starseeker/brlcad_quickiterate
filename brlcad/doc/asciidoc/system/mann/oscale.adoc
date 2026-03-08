@@ -10,7 +10,7 @@ oscale - This command of matrix edit mode modifies the matrix to perform a unifo
 
 [source]
 ----
-oscale {<scale_factor>}
+oscale {scale_factor}
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

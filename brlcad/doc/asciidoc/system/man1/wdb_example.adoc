@@ -10,7 +10,7 @@ wdb_example - creates a BRL-CAD geometry database from C code
 
 [source]
 ----
-wdb_example <db_file.g>
+wdb_example db_file.g
 ----
 
 

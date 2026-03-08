@@ -10,7 +10,7 @@ icv - Convert images to and from various formats
 
 [source]
 ----
-icv [-h] [-i<file>] [--input-format<fmt>] [-o<file>] [--output-format<fmt>] [-w<width>] [<input_file>] [<output_file>]
+icv [-h] [-ifile] [--input-formatfmt] [-ofile] [--output-formatfmt] [-wwidth] [input_file] [output_file]
 ----
 
 

@@ -10,7 +10,7 @@ plot3-plot3 - convert an extended to a simple UnixPlot file
 
 [source]
 ----
-plot3-plot3 [-v] [-S] < <unix_plot> > <unix_plot>
+plot3-plot3 [-v] [-S] < unix_plot > unix_plot
 ----
 
 

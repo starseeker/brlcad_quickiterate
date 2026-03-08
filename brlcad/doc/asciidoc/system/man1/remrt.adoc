@@ -10,7 +10,7 @@ remrt - network distributed (remote) ray-trace dispatcher
 
 [source]
 ----
-remrt [<options>]... <model.g> <objects>...
+remrt [options]... model.g objects...
 ----
 
 

@@ -10,7 +10,7 @@ debuglib - Allows the user to set or check the debug flags used by librt.
 
 [source]
 ----
-debuglib [<hex_code>]
+debuglib [hex_code]
 ----
 
 

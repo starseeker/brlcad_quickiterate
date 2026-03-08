@@ -10,7 +10,7 @@ g-raw - RAW Translator (BRL-CAD to RAW)
 
 [source]
 ----
-g-raw [-o<output_file>] [-m<output_directory>] [-i] [-8] [-D<calculation_tolerance>] [-a<absolute_tol>] [-r<relative_tol>] [-n<normal_tol>] [-xX<level>] [-v] <database.g> <object(s)>...
+g-raw [-ooutput_file] [-moutput_directory] [-i] [-8] [-Dcalculation_tolerance] [-aabsolute_tol] [-rrelative_tol] [-nnormal_tol] [-xXlevel] [-v] database.g object(s)...
 ----
 
 
@@ -100,5 +100,3 @@ This software is Copyright (c) 2013-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

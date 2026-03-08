@@ -10,7 +10,7 @@ bwstat - list statistics related to a black and white bw image.
 
 [source]
 ----
-bwstat [-v] [<file.bw>]
+bwstat [-v] [file.bw]
 ----
 
 

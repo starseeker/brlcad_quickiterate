@@ -10,9 +10,9 @@ fbfade - fade a frame buffer image in or out
 
 [source]
 ----
-fbfade [-H] [ -f <input_image_name>] [ -s <input_square_size>] [ -w <input_width>] \
-     [ -n <input_height>] [ -S <output_square_size>] [ -W <output_width>] [ -N <output_height>] \
-     [ [-F] <output_frame_buffer_name>]
+fbfade [-H] [ -f input_image_name] [ -s input_square_size] [ -w input_width] \
+     [ -n input_height] [ -S output_square_size] [ -W output_width] [ -N output_height] \
+     [ [-F] output_frame_buffer_name]
 ----
 
 

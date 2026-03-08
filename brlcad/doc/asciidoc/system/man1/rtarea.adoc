@@ -10,7 +10,7 @@ rtarea - Calculate exposed and presented surface areas
 
 [source]
 ----
-rtarea [<options>]... <model.g> <objects>...
+rtarea [options]... model.g objects...
 ----
 
 

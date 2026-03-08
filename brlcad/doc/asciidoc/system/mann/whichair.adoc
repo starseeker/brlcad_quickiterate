@@ -10,7 +10,7 @@ whichair - Reports information relating to usag of air codes on regions.
 
 [source]
 ----
-whichair [<options ...>] {<air_codes>}
+whichair [options ...] {air_codes}
 ----
 
 

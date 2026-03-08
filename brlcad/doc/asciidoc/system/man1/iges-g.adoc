@@ -10,7 +10,7 @@ iges-g - IGES Translator (IGES CSG to BRL-CAD)
 
 [source]
 ----
-iges-g [-X<NMG_debug_flag>] [-x<rt_debug_flag>] [-N<solid_name>] [-b] [ -n| <d>| <3>| <t>] -o<database.g> <file.iges>
+iges-g [-XNMG_debug_flag] [-xrt_debug_flag] [-Nsolid_name] [-b] [ -n| d| 3| t] -odatabase.g file.iges
 ----
 
 

@@ -10,7 +10,7 @@ pixmerge - merge two pix(5) or bw(5) images by a formula
 
 [source]
 ----
-pixmerge [-glen] [-w<bytes_wide>] [-C<r/g/b>] <foreground.pix> [<background.pix>] > <out.pix>
+pixmerge [-glen] [-wbytes_wide] [-Cr/g/b] foreground.pix [background.pix] > out.pix
 ----
 
 

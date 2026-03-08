@@ -10,7 +10,7 @@ loop - generate numerical indices for shell loops, etc.
 
 [source]
 ----
-loop [-c] <start> <finish> [<increment>]
+loop [-c] start finish [increment]
 ----
 
 

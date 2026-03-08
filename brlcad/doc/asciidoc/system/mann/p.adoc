@@ -10,7 +10,7 @@ p - Provides precise control over primitive editing operations that would normal
 
 [source]
 ----
-p {<value1>} [<value2 value3>]
+p {value1} [value2 value3]
 ----
 
 

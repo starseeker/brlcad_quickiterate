@@ -10,7 +10,7 @@ M - Send an mged mouse event
 
 [source]
 ----
-M {1/0} {<xpos ypos>}
+M {1/0} {xpos ypos}
 ----
 
 

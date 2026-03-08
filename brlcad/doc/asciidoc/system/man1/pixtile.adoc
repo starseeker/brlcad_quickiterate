@@ -10,13 +10,13 @@ pixtile - paste small images together into one large image
 
 [source]
 ----
-pixtile [-s<squareinsize>] [-w<file_width>] [-n<file_height>] [-S<squareoutsize>] [-W<out_width>] [-N<out_height>] [-o<startframe>] <basename> > <file.pix>
+pixtile [-ssquareinsize] [-wfile_width] [-nfile_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] [-ostartframe] basename > file.pix
 ----
 
 
 [source]
 ----
-pixtile [-s<squareinsize>] [-w<file_width>] [-n<file_height>] [-S<squareoutsize>] [-W<out_width>] [-N<out_height>] <file1> <file2>... <fileN> > <file.pix>
+pixtile [-ssquareinsize] [-wfile_width] [-nfile_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] file1 file2... fileN > file.pix
 ----
 
 

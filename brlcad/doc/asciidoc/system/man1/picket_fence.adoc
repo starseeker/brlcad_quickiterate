@@ -10,7 +10,7 @@ picket_fence - Creates a BRL-CAD .g file containing picket fences.
 
 [source]
 ----
-picket_fence [<filename>] [<prefix>] [<height>] [<spacing>] [<x0>] [<y0>] [<z0>] []... [<xn>] [<yn>] [<zn>] [-r]
+picket_fence [filename] [prefix] [height] [spacing] [x0] [y0] [z0] []... [xn] [yn] [zn] [-r]
 ----
 
 

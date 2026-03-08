@@ -10,7 +10,7 @@ rtarea - Calculate exposed, presented and centers of surface areas (MGED Command
 
 [source]
 ----
-rtarea [<options>]...
+rtarea [options]...
 ----
 
 

@@ -2283,21 +2283,22 @@ static void test_manpage_dlist_no_double_bold() {
     auto doc = asciiquack::Parser::parse_string(src, opts);
     std::string out = asciiquack::convert_to_manpage(*doc);
 
-    // troff_inline converts *bold* to \fB...\fR; troff_escape then doubles
-    // every backslash.  The resulting in-memory string for "*-a value*" is
-    // \\fB\-a value\\fR (where \\fB and \\fR are the doubled-backslash forms).
+    // troff_inline converts *bold* to \fB...\fR with single backslashes;
+    // troff_escape is no longer applied afterwards (it would double-escape them).
+    // The resulting in-memory string for "*-a value*" is:
+    //   \fB\-a value\fR  (single backslashes throughout)
     //
-    // The old bug wrapped the already-formatted term in an extra \fB...\fR,
-    // producing \fB\\fB\-a value\\fR\fR.  Verify that double-bold pattern
-    // never appears in the output.
-    EXPECT(out.find("\\fB\\\\fB") == std::string::npos);
+    // The old bug (before the fix) wrapped the already-formatted term in an
+    // extra \fB...\fR, producing \fB\\fB\-a value\\fR\fR.  Verify that
+    // double-bold pattern never appears in the output.
+    EXPECT(out.find("\\fB\\fB") == std::string::npos);
 
     // The term line for the explicitly-bolded term must be present.
-    // In-memory the sequence is: \\fB\-a value\\fR
-    // As a C++ literal that is "\\\\fB\\-a value\\\\fR".
-    EXPECT_CONTAINS(out, "\\\\fB\\-a value\\\\fR");
+    // In-memory the sequence is: \fB\-a value\fR
+    // As a C++ literal that is "\\fB\\-a value\\fR".
+    EXPECT_CONTAINS(out, "\\fB\\-a value\\fR");
 
-    // Plain term must be auto-bolded.  troff_escape converts '-' to '\-', so
+    // Plain term must be auto-bolded.  escape_plain converts '-' to '\-', so
     // the .TP term line is \fBplain\-term\fR.
     // As a C++ literal: "\\fBplain\\-term\\fR".
     EXPECT_CONTAINS(out, "\\fBplain\\-term\\fR");

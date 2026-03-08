@@ -10,7 +10,7 @@ rtwizard - Combines images from several raytracing techniques to produce complex
 
 [source]
 ----
-rtwizard [<options>]...
+rtwizard [options]...
 ----
 
 

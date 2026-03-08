@@ -10,7 +10,7 @@ facedef - Allows the user to redefine any face of an ARB8 shape.
 
 [source]
 ----
-facedef {<####>} [ [a]| [b]| [c]| [d]| [<parameters>]]
+facedef {####} [ [a]| [b]| [c]| [d]| [parameters]]
 ----
 
 

@@ -10,7 +10,7 @@ labelvert - Labels the vertices of the indicated objects with their coordinate v
 
 [source]
 ----
-labelvert {<objects>}
+labelvert {objects}
 ----
 
 

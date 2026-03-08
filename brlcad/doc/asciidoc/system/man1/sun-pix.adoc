@@ -10,7 +10,7 @@ sun-pix - convert Sun bitmaps from screendump(1) into pix(5) or bw(5) raster ima
 
 [source]
 ----
-sun-pix [-b] [-H] [-i] [-P] [-v] [-C] [<sun.bitmap>]
+sun-pix [-b] [-H] [-i] [-P] [-v] [-C] [sun.bitmap]
 ----
 
 

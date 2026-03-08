@@ -10,7 +10,7 @@ dpix-pix - convert a double precision dpix file to a pix file
 
 [source]
 ----
-dpix-pix <file.dpix> > <file.pix>
+dpix-pix file.dpix > file.pix
 ----
 
 

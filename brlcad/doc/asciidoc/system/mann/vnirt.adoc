@@ -10,7 +10,7 @@ vnirt - Interprets x and y as view coordinates (i.e., +-2047) and converts them 
 
 [source]
 ----
-vnirt [<nirt args>] {<x y>}
+vnirt [nirt args] {x y}
 ----
 
 

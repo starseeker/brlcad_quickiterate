@@ -10,8 +10,8 @@ fb-fb - copy an image on one frame buffer to another
 
 [source]
 ----
-fb-fb [-v] [-F<output_framebuffer>] \
-     [-v] <input_framebuffer> [<output_framebuffer>]
+fb-fb [-v] [-Foutput_framebuffer] \
+     [-v] input_framebuffer [output_framebuffer]
 ----
 
 

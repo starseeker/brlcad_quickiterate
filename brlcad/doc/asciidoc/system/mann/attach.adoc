@@ -10,7 +10,7 @@ attach - Opens a display window.
 
 [source]
 ----
-attach [-d<display_string>] [-i<init_script>] [-n<name>] [-t<is_toplevel>] [-W<width>] [-N<height>] [-S<square_size>] [<win_type>]
+attach [-ddisplay_string] [-iinit_script] [-nname] [-tis_toplevel] [-Wwidth] [-Nheight] [-Ssquare_size] [win_type]
 ----
 
 

@@ -10,7 +10,7 @@ asc-plot3 - produce Plot3 instructions from ASCII representation
 
 [source]
 ----
-asc-plot3 [ <file.asc> [<unix_plot>]]
+asc-plot3 [ file.asc [unix_plot]]
 ----
 
 

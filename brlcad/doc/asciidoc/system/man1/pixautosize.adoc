@@ -10,7 +10,7 @@ pixautosize - determine if a file size or byte count is a standard image size
 
 [source]
 ----
-pixautosize [-b<bytes_per_sample>] [-f<file_name>] [-l<file_length>]
+pixautosize [-bbytes_per_sample] [-ffile_name] [-lfile_length]
 ----
 
 

@@ -10,13 +10,13 @@ bwcrop - crop black and white bw files
 
 [source]
 ----
-bwcrop <in.bw> <out.bw>
+bwcrop in.bw out.bw
 ----
 
 
 [source]
 ----
-bwcrop <in.bw> <out.bw> <inwidth> <outwidth> <outheight> <ulx> <uly> <urx> <ury> <lrx> <lry> <llx> <lly>
+bwcrop in.bw out.bw inwidth outwidth outheight ulx uly urx ury lrx lry llx lly
 ----
 
 

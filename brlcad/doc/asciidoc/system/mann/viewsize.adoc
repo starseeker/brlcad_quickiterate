@@ -10,7 +10,7 @@ viewsize - Sets the size of the current viewing cube to the specified view_size 
 
 [source]
 ----
-viewsize {<view_size>}
+viewsize {view_size}
 ----
 
 

@@ -10,7 +10,7 @@ plot3-fb - display 3-D UNIX plot on a framebuffer
 
 [source]
 ----
-plot3-fb [-id] [-O|o] [-t<line_thickness>] [-F<framebuffer>] [-S|s<squaresize>] [-W|w<width>] [-N|n<height>] [<] <file.plot3>
+plot3-fb [-id] [-O|o] [-tline_thickness] [-Fframebuffer] [-S|ssquaresize] [-W|wwidth] [-N|nheight] [<] file.plot3
 ----
 
 

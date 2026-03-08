@@ -10,7 +10,7 @@ coil - Generate various types of coils, using pipe control points calculated fro
 
 [source]
 ----
-coil [<options ...>]... [<name>]
+coil [options ...]... [name]
 ----
 
 

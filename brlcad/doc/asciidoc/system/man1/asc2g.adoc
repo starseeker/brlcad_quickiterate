@@ -10,7 +10,7 @@ asc2g - convert a BRL-CAD mged geometry database from ASCII to binary form.
 
 [source]
 ----
-asc2g <input.asc> <output.g>
+asc2g input.asc output.g
 ----
 
 

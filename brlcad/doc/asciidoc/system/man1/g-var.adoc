@@ -10,7 +10,7 @@ g-var - Produce (OpenGL) Vertex Arrays from BOT BRL-CAD geometry
 
 [source]
 ----
-g-var [-v] [-y] [-s<scale>] [-f] [-o<outfile>] <infile.g> <object>
+g-var [-v] [-y] [-sscale] [-f] [-ooutfile] infile.g object
 ----
 
 

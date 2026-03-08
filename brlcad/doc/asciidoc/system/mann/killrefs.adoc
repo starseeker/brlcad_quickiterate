@@ -10,7 +10,7 @@ killrefs - Removes all references to the specified objects from all combinations
 
 [source]
 ----
-killrefs [-n] {<objects>}
+killrefs [-n] {objects}
 ----
 
 
@@ -68,5 +68,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

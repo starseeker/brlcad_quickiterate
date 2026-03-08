@@ -10,7 +10,7 @@ erase - Deletes the specified list of objects from the MGED display.
 
 [source]
 ----
-erase {<erase>} []
+erase {erase} []
 ----
 
 

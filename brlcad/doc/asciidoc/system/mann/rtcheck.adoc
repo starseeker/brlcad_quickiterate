@@ -10,7 +10,7 @@ rtcheck - Executes the BRL-CAD rtcheck program with the default options of "-s50
 
 [source]
 ----
-rtcheck [<options>]
+rtcheck [options]
 ----
 
 

@@ -10,7 +10,7 @@ t - Lists the names of specified objects in the database in alphabetical order d
 
 [source]
 ----
-t [-a] [-c] [-r] [-s] [<objects>]
+t [-a] [-c] [-r] [-s] [objects]
 ----
 
 

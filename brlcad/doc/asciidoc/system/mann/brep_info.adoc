@@ -10,7 +10,7 @@ brep info - Report information about components of a specified BRep solid.
 
 [source]
 ----
-brep {<obj>}info [<C2|C3|E|F|L|SB|T|TB|V>] [<arguments>]
+brep {obj}info [C2|C3|E|F|L|SB|T|TB|V] [arguments]
 ----
 
 
@@ -223,5 +223,3 @@ BRLCAD-TEAM
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -1,7 +1,7 @@
-verbose_add_subdirectory(asciidoc/system man1)
-verbose_add_subdirectory(asciidoc/system man3)
-verbose_add_subdirectory(asciidoc/system man5)
-verbose_add_subdirectory(asciidoc/system mann)
+verbose_add_subdirectory(system man1)
+verbose_add_subdirectory(system man3)
+verbose_add_subdirectory(system man5)
+verbose_add_subdirectory(system mann)
 
 cmakefiles(
   CMakeLists.txt

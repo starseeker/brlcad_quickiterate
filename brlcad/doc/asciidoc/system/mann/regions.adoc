@@ -10,7 +10,7 @@ regions - Creates a summary of all the regions in the specified list of objects.
 
 [source]
 ----
-regions {<output_file>} {<objects>}
+regions {output_file} {objects}
 ----
 
 

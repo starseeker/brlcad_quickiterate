@@ -10,7 +10,7 @@ cd - Changes the directory to the given path.
 
 [source]
 ----
-cd {<path>}
+cd {path}
 ----
 
 

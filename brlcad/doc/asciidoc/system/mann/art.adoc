@@ -10,7 +10,7 @@ art - Executes the BRL-CAD art program.
 
 [source]
 ----
-art [<options>] [<--objects>]
+art [options] [--objects]
 ----
 
 

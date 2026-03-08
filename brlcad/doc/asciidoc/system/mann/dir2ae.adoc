@@ -10,7 +10,7 @@ dir2ae - Returns the azimuth and elevation (AE) using the provided direction vec
 
 [source]
 ----
-dir2ae [-i] {<dx dy dz>}
+dir2ae [-i] {dx dy dz}
 ----
 
 

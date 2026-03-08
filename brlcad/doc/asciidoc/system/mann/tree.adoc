@@ -10,7 +10,7 @@ tree - Lists the contents of the specified objects in a tree-like format that di
 
 [source]
 ----
-tree {<objects(s)>} [-a] [-c] [-d<#>] [-i<#>] [-o<outfile>]
+tree {objects(s)} [-a] [-c] [-d#] [-i#] [-ooutfile]
 ----
 
 

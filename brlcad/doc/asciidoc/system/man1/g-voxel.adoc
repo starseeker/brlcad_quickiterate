@@ -10,7 +10,7 @@ g-voxel - generates a list of voxels from a BRL-CAD database
 
 [source]
 ----
-g-voxel [ -s<"dx> <dy> <dz">] [-d<n>] [-t<f>] <model.g> <objects>...
+g-voxel [ -s"dx dy dz"] [-dn] [-tf] model.g objects...
 ----
 
 

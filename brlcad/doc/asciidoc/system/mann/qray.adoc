@@ -10,7 +10,7 @@ qray - Gets/sets query ray characteristics.
 
 [source]
 ----
-qray [<subcommand>]
+qray [subcommand]
 ----
 
 

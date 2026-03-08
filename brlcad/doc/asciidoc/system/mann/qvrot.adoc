@@ -10,7 +10,7 @@ qvrot - Adjusts the current MGED viewing direction such that the eye is position
 
 [source]
 ----
-qvrot {<dx dy dz angle>}
+qvrot {dx dy dz angle}
 ----
 
 

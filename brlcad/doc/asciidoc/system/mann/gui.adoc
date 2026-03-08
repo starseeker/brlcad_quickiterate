@@ -10,7 +10,7 @@ gui - Creates an instance of MGEDs default Tcl/Tk graphical user interface (GU
 
 [source]
 ----
-gui [ {-config}| [b]| [c]| [g]] [ {-d}| {<display_string>}] [ {-gd}| {<graphics_display_string>}] [ {-dt}| {<graphics_type>}] [ {id}| {<name>}] [ {-c}| {-h}| {-j}| {-s}]
+gui [ {-config}| [b]| [c]| [g]] [ {-d}| {display_string}] [ {-gd}| {graphics_display_string}] [ {-dt}| {graphics_type}] [ {id}| {name}] [ {-c}| {-h}| {-j}| {-s}]
 ----
 
 
@@ -74,5 +74,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

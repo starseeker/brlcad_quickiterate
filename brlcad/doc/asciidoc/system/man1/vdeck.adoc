@@ -10,7 +10,7 @@ vdeck - generate COM-GEOM decks from a GED file
 
 [source]
 ----
-vdeck <file.vg> \
+vdeck file.vg \
     
 ----
 

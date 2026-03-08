@@ -10,7 +10,7 @@ g2asc - convert a BRL-CAD mged geometry database from binary to ASCII form.
 
 [source]
 ----
-g2asc <input.g> <output.asc>
+g2asc input.g output.asc
 ----
 
 

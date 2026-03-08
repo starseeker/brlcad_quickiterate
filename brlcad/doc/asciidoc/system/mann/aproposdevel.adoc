@@ -10,7 +10,7 @@ aproposdevel - Searches through the one-line usage messages for specified mged d
 
 [source]
 ----
-aproposdevel {<keyword>}
+aproposdevel {keyword}
 ----
 
 

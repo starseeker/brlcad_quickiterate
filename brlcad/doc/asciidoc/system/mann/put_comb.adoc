@@ -10,7 +10,7 @@ put_comb - Insert combinations and regions - allows definition of both boolean e
 
 [source]
 ----
-put_comb {<comb_name>} [is_Region [ [id]| [air]| [material]| [los]]] {<color>} {<shader>} {<inherit>} {<boolean_expr>}
+put_comb {comb_name} [is_Region [ [id]| [air]| [material]| [los]]] {color} {shader} {inherit} {boolean_expr}
 ----
 
 

@@ -10,7 +10,7 @@ pix-ppm - convert a BRL-CAD PIX or BW format image to a PPM format image
 
 [source]
 ----
-pix-ppm [-a] [-s<squaresize>] [-w<file_width>] [-n<file_height>] [-#<bytes_per_pixel>] [-o<PPM_file>] [<PIX_file>] > <PPM_file>
+pix-ppm [-a] [-ssquaresize] [-wfile_width] [-nfile_height] [-#bytes_per_pixel] [-oPPM_file] [PIX_file] > PPM_file
 ----
 
 

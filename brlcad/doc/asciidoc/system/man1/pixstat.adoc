@@ -10,7 +10,7 @@ pixstat - list statistics related to a color pix image
 
 [source]
 ----
-pixstat [-v] [<file.pix>]
+pixstat [-v] [file.pix]
 ----
 
 

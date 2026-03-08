@@ -10,7 +10,7 @@ sv - Moves the view center to (x, y, z).
 
 [source]
 ----
-sv {<x y>} [<z>]
+sv {x y} [z]
 ----
 
 

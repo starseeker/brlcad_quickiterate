@@ -10,7 +10,7 @@ bwhisteq - equalize the histogram of a black and white bw file
 
 [source]
 ----
-bwhisteq [-v] <file.bw> > <file.equalized>
+bwhisteq [-v] file.bw > file.equalized
 ----
 
 

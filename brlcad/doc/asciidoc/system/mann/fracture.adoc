@@ -10,7 +10,7 @@ fracture - Creates a new NMG shape for every face in the specified NMG_shape
 
 [source]
 ----
-fracture {<NMG_shape>} [<prefix>]
+fracture {NMG_shape} [prefix]
 ----
 
 

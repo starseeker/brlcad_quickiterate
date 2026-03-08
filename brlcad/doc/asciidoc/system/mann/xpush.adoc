@@ -10,7 +10,7 @@ xpush - Pushes the effects of transformation matrices in the paths, from the
 
 [source]
 ----
-xpush {<object>}
+xpush {object}
 ----
 
 

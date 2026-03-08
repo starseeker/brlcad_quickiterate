@@ -10,7 +10,7 @@ png-bw - convert a Portable Networks Graphics (PNG) format file to a BW format
 
 [source]
 ----
-png-bw [-ntsc] [-crt] [ -R [<num>]] [ -G [<num>]] [ -B [<num>]] [<in.png>] > <out.bw>
+png-bw [-ntsc] [-crt] [ -R [num]] [ -G [num]] [ -B [num]] [in.png] > out.bw
 ----
 
 

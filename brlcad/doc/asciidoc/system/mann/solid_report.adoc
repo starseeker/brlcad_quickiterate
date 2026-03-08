@@ -10,7 +10,7 @@ solid_report - Lists all the primitive shapes currently drawn in the MGED displa
 
 [source]
 ----
-solid_report [<level>]
+solid_report [level]
 ----
 
 

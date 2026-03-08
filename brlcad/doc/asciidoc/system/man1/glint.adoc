@@ -10,7 +10,7 @@ glint - a BRL-CAD geometry checker
 
 [source]
 ----
-glint [<options>] <model.g> <objects>...
+glint [options] model.g objects...
 ----
 
 

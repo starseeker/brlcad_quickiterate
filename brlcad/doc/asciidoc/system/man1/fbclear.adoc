@@ -10,8 +10,8 @@ fbclear - clear a frame buffer image
 
 [source]
 ----
-fbclear [ -c] [-F<framebuffer>] [ <red> <green> <blue>] \
-     [ -c] [-F<framebuffer>] [<gray_value>]
+fbclear [ -c] [-Fframebuffer] [ red green blue] \
+     [ -c] [-Fframebuffer] [gray_value]
 ----
 
 

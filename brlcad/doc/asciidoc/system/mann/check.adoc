@@ -10,7 +10,7 @@ check - Check is a geometry analysis tool.
 
 [source]
 ----
-check <sub-command> [<options>] [<objects>]...
+check sub-command [options] [objects]...
 ----
 
 

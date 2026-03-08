@@ -10,7 +10,7 @@ color - Creates an entry in the database that functions as part of a color looku
 
 [source]
 ----
-color [<-e>] [<low high r g b>]
+color [-e] [low high r g b]
 ----
 
 

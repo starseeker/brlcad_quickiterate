@@ -10,7 +10,7 @@ rtshot - fire one ray at an mged model, for debugging
 
 [source]
 ----
-rtshot [<options>]... <model.g> <objects>...
+rtshot [options]... model.g objects...
 ----
 
 

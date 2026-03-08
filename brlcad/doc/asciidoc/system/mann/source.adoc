@@ -10,7 +10,7 @@ source - Reads an external file and executes its contents.
 
 [source]
 ----
-source {<example.txt>}
+source {example.txt}
 ----
 
 

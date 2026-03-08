@@ -10,7 +10,7 @@ shader - Assigns shader parameters to the specified combination.
 
 [source]
 ----
-shader {<combination>} {<shader_name>} [<"{shader_ args}">]
+shader {combination} {shader_name} ["{shader_ args}"]
 ----
 
 

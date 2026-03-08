@@ -10,7 +10,7 @@ pix-sun - convert a BRL PIX(5) format image to a Sun Rasterfile format
 
 [source]
 ----
-pix-sun [-d] [-s<squaresize>] [-w<file_width>] [-n<file_height>] < <BRLpixfile> > <rasterfile>
+pix-sun [-d] [-ssquaresize] [-wfile_width] [-nfile_height] < BRLpixfile > rasterfile
 ----
 
 
@@ -58,5 +58,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

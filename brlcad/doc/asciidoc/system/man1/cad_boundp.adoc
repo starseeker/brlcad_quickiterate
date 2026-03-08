@@ -10,7 +10,7 @@ cad_boundp - find bounding polygon of two-dimensional view
 
 [source]
 ----
-cad_boundp [ -i <input>] [ -o <output>] [ -t <tolerance>] [-v]
+cad_boundp [ -i input] [ -o output] [ -t tolerance] [-v]
 ----
 
 

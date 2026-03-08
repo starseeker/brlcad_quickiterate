@@ -10,7 +10,7 @@ pixdiff - highlight pixel colors which differ between two files
 
 [source]
 ----
-pixdiff <file1.pix> <file2.pix> > <out.pix>
+pixdiff file1.pix file2.pix > out.pix
 ----
 
 

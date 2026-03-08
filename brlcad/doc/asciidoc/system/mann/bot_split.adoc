@@ -10,7 +10,7 @@ bot_split - Split a single BOT primitive, containing disjoint groups of facets, 
 
 [source]
 ----
-bot_split {<bot>} [<bot2 bot3>]...
+bot_split {bot} [bot2 bot3]...
 ----
 
 

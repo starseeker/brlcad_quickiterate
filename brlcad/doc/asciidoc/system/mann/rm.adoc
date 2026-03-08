@@ -10,7 +10,7 @@ rm - Deletes all occurrences of the listed members from the specified combinatio
 
 [source]
 ----
-rm {<combination>} {<members>}
+rm {combination} {members}
 ----
 
 

@@ -10,7 +10,7 @@ exists - The exists command evaluates an expression and return 1 if true, zero i
 
 [source]
 ----
-exists {expression} [<expression>]...
+exists {expression} [expression]...
 ----
 
 
@@ -172,5 +172,3 @@ TODO.
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ rtedge - Executes the BRL-CAD rtedge program with the default options of "-s512 
 
 [source]
 ----
-rtedge [<options>] [<-- objects>]
+rtedge [options] [-- objects]
 ----
 
 

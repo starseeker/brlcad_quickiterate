@@ -10,7 +10,7 @@ fbframe - place a colored frame around a framebuffer
 
 [source]
 ----
-fbframe [-F<framebuffer>] [-w|W<frame_width>] [-n|N<frame_height>] [-s|S<squareframesize>]
+fbframe [-Fframebuffer] [-w|Wframe_width] [-n|Nframe_height] [-s|Ssquareframesize]
 ----
 
 

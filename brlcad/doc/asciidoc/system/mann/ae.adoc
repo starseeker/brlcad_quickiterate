@@ -10,7 +10,7 @@ ae - Sets the view orientation for the mged display by rotating the eye point ab
 
 [source]
 ----
-ae [ [-i]<azimuth elevation> [<twist>]]
+ae [ [-i]azimuth elevation [twist]]
 ----
 
 

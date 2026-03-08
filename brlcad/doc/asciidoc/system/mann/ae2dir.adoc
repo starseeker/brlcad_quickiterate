@@ -10,7 +10,7 @@ ae2dir - Returns the direction vector using the provided azimuth and elevation (
 
 [source]
 ----
-ae2dir [-i] {<azimuth>} {<elevation>}
+ae2dir [-i] {azimuth} {elevation}
 ----
 
 

@@ -10,7 +10,7 @@ reshoot - re-shoot rays and compare results
 
 [source]
 ----
-reshoot <model.g> <objects>... < <raylist>
+reshoot model.g objects... < raylist
 ----
 
 

@@ -10,7 +10,7 @@ qorot - Rotates an object through the specified angle (in degrees).
 
 [source]
 ----
-qorot {<x y z dx dy dz angle>}
+qorot {x y z dx dy dz angle}
 ----
 
 

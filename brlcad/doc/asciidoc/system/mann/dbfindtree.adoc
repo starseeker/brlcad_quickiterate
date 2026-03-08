@@ -10,7 +10,7 @@ dbfindtree - Displays the full path of all combinations that have any of the obj
 
 [source]
 ----
-dbfindtree {<objects>}
+dbfindtree {objects}
 ----
 
 

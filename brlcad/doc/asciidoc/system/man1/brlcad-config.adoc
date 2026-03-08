@@ -10,7 +10,7 @@ brlcad-config - script to get information about the installed version of BRL-CAD
 
 [source]
 ----
-brlcad-config [ --prefix [<=DIR>]] [--libs] [--cflags] [--version] [--help]
+brlcad-config [ --prefix [=DIR]] [--libs] [--cflags] [--version] [--help]
 ----
 
 

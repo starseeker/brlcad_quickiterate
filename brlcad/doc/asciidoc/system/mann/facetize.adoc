@@ -10,7 +10,7 @@ facetize - Creates new_object using old_object as a guide, creating an evaluated
 
 [source]
 ----
-facetize [-h] [-v] [-q] [-n] [-r] [-s suffix] [-p prefix] [--in-place] [--max-time #] [--max-pnts #] [--resume] [--methods m1,m2,...] [--method-opts METHOD opt1=val opt2=val...] [--no-empty] [--log-file filename] [--disable-fixup] {<old_object new_object>}
+facetize [-h] [-v] [-q] [-n] [-r] [-s suffix] [-p prefix] [--in-place] [--max-time #] [--max-pnts #] [--resume] [--methods m1,m2,...] [--method-opts METHOD opt1=val opt2=val...] [--no-empty] [--log-file filename] [--disable-fixup] {old_object new_object}
 ----
 
 

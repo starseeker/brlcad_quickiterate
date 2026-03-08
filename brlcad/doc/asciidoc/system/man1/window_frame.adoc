@@ -10,7 +10,7 @@ window_frame - Creates a BRL-CAD .g file containing window frames.
 
 [source]
 ----
-window_frame [<options>]...
+window_frame [options]...
 ----
 
 
@@ -127,5 +127,3 @@ bolt(1), handle(1), window(1), gastank(1)
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

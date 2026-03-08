@@ -10,7 +10,7 @@ pixhist3d-plot3 - output RGB color space utilization in 3D unix-plot form
 
 [source]
 ----
-pixhist3d-plot3 [ [<file.pix>]| <plot>]
+pixhist3d-plot3 [ [file.pix]| plot]
 ----
 
 

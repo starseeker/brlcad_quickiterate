@@ -10,7 +10,7 @@ rtedge - ray-traces a model, detects edges, and writes a BRL-CAD color image (.p
 
 [source]
 ----
-rtedge [<options>]... <model.g> <objects>... < <model.pix>
+rtedge [options]... model.g objects... < model.pix
 ----
 
 

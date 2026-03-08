@@ -10,7 +10,7 @@ dxf-g - DXF Translator (DXF to BRL-CAD)
 
 [source]
 ----
-dxf-g [-c] [-d] [-v] [-s<scale_factor>] [-t<tolerance>] <file.dxf> <database.g>
+dxf-g [-c] [-d] [-v] [-sscale_factor] [-ttolerance] file.dxf database.g
 ----
 
 
@@ -92,5 +92,3 @@ This software is Copyright (c) 1993-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ ill - Performs the function of selecting an object after entering solid (i.e., p
 
 [source]
 ----
-ill {<obj_name>}
+ill {obj_name}
 ----
 
 

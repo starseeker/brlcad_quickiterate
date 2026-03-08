@@ -10,7 +10,7 @@ debugnmg - Displays a list of all possible debug flags available for NMG process
 
 [source]
 ----
-debugnmg [<hex_code>]
+debugnmg [hex_code]
 ----
 
 

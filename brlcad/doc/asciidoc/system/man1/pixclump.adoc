@@ -10,7 +10,7 @@ pixclump - quantize the colors in a pix(5) stream
 
 [source]
 ----
-pixclump [-c<R/G/B>] [-f<color_file>] [-x<debug_flags>] [ <infile.pix> [<outfile.pix>]] \
+pixclump [-cR/G/B] [-fcolor_file] [-xdebug_flags] [ infile.pix [outfile.pix]] \
     
 ----
 

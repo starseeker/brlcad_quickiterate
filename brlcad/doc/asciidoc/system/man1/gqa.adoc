@@ -10,7 +10,7 @@ gqa - a BRL-CAD quantitative geometry analysis tool
 
 [source]
 ----
-gqa [<options>] <model.g> <objects>
+gqa [options] model.g objects
 ----
 
 

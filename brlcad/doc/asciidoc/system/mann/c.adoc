@@ -10,7 +10,7 @@ c - Creates a BRL-CAD combination with the name combination_name.
 
 [source]
 ----
-c [-c] [-r] {<combination_name>} [<Boolean_expression>]
+c [-c] [-r] {combination_name} [Boolean_expression]
 ----
 
 

@@ -10,13 +10,13 @@ gdiff - a BRL-CAD differential geometry comparator
 
 [source]
 ----
-gdiff [<options>]... <left_model.g> [<ancestor_model.g>] <right_model.g>
+gdiff [options]... left_model.g [ancestor_model.g] right_model.g
 ----
 
 
 [source]
 ----
-gdiff -G [<grouping_options>]... [<pattern>]...
+gdiff -G [grouping_options]... [pattern]...
 ----
 
 

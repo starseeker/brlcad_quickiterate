@@ -10,7 +10,7 @@ bwfilter - apply a 3x3 filter to a black and white bw file
 
 [source]
 ----
-bwfilter [-f<type>] [-v] [-d<div>] [-O<offset>] [-s<squaresize>] [-w<width>] [-n<height>] [-o<out_file>] [<file.bw>] > <newfile.bw>
+bwfilter [-ftype] [-v] [-ddiv] [-Ooffset] [-ssquaresize] [-wwidth] [-nheight] [-oout_file] [file.bw] > newfile.bw
 ----
 
 

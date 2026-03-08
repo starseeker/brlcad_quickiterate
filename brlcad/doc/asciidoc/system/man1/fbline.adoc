@@ -10,7 +10,7 @@ fbline - draw a colored line on a framebuffer
 
 [source]
 ----
-fbline [-c] [-F<framebuffer>] [-S|s<squaresize>] [-W|w<screen_width>] [-N|n<screen_height>] [-r<red>] [-g<green>] [-b<blue>] <x1> <y1> <x2> <y2>
+fbline [-c] [-Fframebuffer] [-S|ssquaresize] [-W|wscreen_width] [-N|nscreen_height] [-rred] [-ggreen] [-bblue] x1 y1 x2 y2
 ----
 
 

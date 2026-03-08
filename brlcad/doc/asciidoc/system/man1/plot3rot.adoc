@@ -10,7 +10,7 @@ plot3rot - rotate, translate, or scale a UnixPlot file
 
 [source]
 ----
-plot3rot [ -x# -y# -z#] [ -X# -Y# -Z#] [-s#] [ -a# -e#] [-g#] [-M] [-m#] [-v] [-S#] < <unix_plot> > <unix_plot>
+plot3rot [ -x# -y# -z#] [ -X# -Y# -Z#] [-s#] [ -a# -e#] [-g#] [-M] [-m#] [-v] [-S#] < unix_plot > unix_plot
 ----
 
 

@@ -10,7 +10,7 @@ showshot - generate MGED commands to represent a ray through some geometry
 
 [source]
 ----
-showshot [-n<name>] [-r<radius>]
+showshot [-nname] [-rradius]
 ----
 
 

@@ -10,10 +10,10 @@ fbstretch - stretch a frame buffer image
 
 [source]
 ----
-fbstretch [ -f <input_image_name>] [ -s <input_square_size>] [ -w <input_width>] \
-     [ -n <input_height>] [-a] [ -x <horizontal_scale> <factor>] [ -y <vertical_scale> <factor>] \
-     [-v] [ -S <output_square_size>] [ -W <output_width>] [ -N <output_height>] \
-     [ [-F] <output_frame_buffer> <name>]
+fbstretch [ -f input_image_name] [ -s input_square_size] [ -w input_width] \
+     [ -n input_height] [-a] [ -x horizontal_scale factor] [ -y vertical_scale factor] \
+     [-v] [ -S output_square_size] [ -W output_width] [ -N output_height] \
+     [ [-F] output_frame_buffer name]
 ----
 
 

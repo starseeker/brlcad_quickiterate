@@ -10,7 +10,7 @@ rtexample - shoots a single ray at objects in a geometry database
 
 [source]
 ----
-rtexample <model.g> <objects>...
+rtexample model.g objects...
 ----
 
 

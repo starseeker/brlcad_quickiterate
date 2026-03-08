@@ -10,7 +10,7 @@ pixbustup - break up concatenated pix images into separate files
 
 [source]
 ----
-pixbustup <basename> <width> [<image_offset>] [<first_number>] < <input.pix>
+pixbustup basename width [image_offset] [first_number] < input.pix
 ----
 
 

@@ -10,7 +10,7 @@ ap-pix - convert Applicon files to pix files
 
 [source]
 ----
-ap-pix [-v] <file.ap> > <file.pix>
+ap-pix [-v] file.ap > file.pix
 ----
 
 

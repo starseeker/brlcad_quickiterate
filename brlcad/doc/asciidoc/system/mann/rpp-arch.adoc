@@ -10,7 +10,7 @@ rpp-arch - Used to round a specified face of an RPP by creating an RCC based on 
 
 [source]
 ----
-rpp-arch {<rppname newname face>}
+rpp-arch {rppname newname face}
 ----
 
 

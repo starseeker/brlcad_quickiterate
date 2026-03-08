@@ -10,7 +10,7 @@ mv - Changes the name of old_name to new_name.
 
 [source]
 ----
-mv {<old_name new_name>}
+mv {old_name new_name}
 ----
 
 

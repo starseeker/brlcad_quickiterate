@@ -10,7 +10,7 @@ fblabel - display a text string on a framebuffer
 
 [source]
 ----
-fblabel [-dca] [-F<framebuffer>] [-f<fontname>] [-{sS}<squaresize>] [-{wW}<width>] [-{nN}<height>] [-C<r/g/b>] <x_position> <y_position> <text_string>
+fblabel [-dca] [-Fframebuffer] [-ffontname] [-{sS}squaresize] [-{wW}width] [-{nN}height] [-Cr/g/b] x_position y_position text_string
 ----
 
 

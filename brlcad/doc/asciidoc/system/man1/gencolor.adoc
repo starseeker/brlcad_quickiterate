@@ -10,7 +10,7 @@ gencolor - output a pattern of byte values
 
 [source]
 ----
-gencolor [-r<#>] [-p -b] [-{sS}<squaresize>] [-{wW}<width>] [-{nN}<height>] [ <val1>... <valN>]
+gencolor [-r#] [-p -b] [-{sS}squaresize] [-{wW}width] [-{nN}height] [ val1... valN]
 ----
 
 

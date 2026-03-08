@@ -10,7 +10,7 @@ tra - Translates the view or an object.
 
 [source]
 ----
-tra {<dx>} {<dy>} {<dz>}
+tra {dx} {dy} {dz}
 ----
 
 

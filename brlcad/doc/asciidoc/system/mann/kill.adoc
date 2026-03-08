@@ -10,7 +10,7 @@ kill - Deletes specified objects from the current database.
 
 [source]
 ----
-kill [-f] {<objects>}
+kill [-f] {objects}
 ----
 
 

@@ -10,7 +10,7 @@ pixcolors - Count/list color values used in a PIX(5) format image
 
 [source]
 ----
-pixcolors [-v] < <pixfile>
+pixcolors [-v] < pixfile
 ----
 
 

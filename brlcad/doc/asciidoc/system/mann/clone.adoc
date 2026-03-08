@@ -10,7 +10,7 @@ clone - The clone command performs a deep copy of an object, optionally duplicat
 
 [source]
 ----
-clone [<options>]... {object_to_clone}
+clone [options]... {object_to_clone}
 ----
 
 

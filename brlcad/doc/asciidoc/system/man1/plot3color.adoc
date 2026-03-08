@@ -10,7 +10,7 @@ plot3color - output a UnixPlot color command
 
 [source]
 ----
-plot3color <r> <g> <b> [ <] <unix_plot> > <unix_plot>
+plot3color r g b [ <] unix_plot > unix_plot
 ----
 
 

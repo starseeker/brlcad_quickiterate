@@ -10,7 +10,7 @@ lint - Detect and report problems with subsets or all of a .g database.
 
 [source]
 ----
-lint [-h] [-C] [-M] [-I] [-F "filters"] [<ObjectName>]
+lint [-h] [-C] [-M] [-I] [-F "filters"] [ObjectName]
 ----
 
 

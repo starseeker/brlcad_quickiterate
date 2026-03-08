@@ -86,23 +86,55 @@ private:
                                           const Document&    doc) const {
         // Apply attribute substitution first
         std::string s = sub_attributes(text, doc.attributes());
-        // Apply basic inline markup conversions for troff
-        s = troff_inline(s);
-        return troff_escape(s);
+        // Apply basic inline markup conversions for troff.
+        // troff_inline() already escapes plain-text content; do NOT apply
+        // troff_escape() afterwards or it will double-escape the \fB...\fR
+        // markers that troff_inline() has just generated.
+        return troff_inline(s);
     }
 
     /// Apply inline troff markup (bold/italic/mono) to a pre-substituted string.
+    /// Also escapes plain-text characters that have special meaning in troff
+    /// (backslash and minus sign).  The caller must NOT apply troff_escape()
+    /// afterwards, or the \fB...\fR sequences generated here will be corrupted.
+    /// Nested inline markup (e.g. italic inside bold: *foo _bar_ baz*) is handled
+    /// by recursively calling troff_inline() on the content of each span.
     [[nodiscard]] static std::string troff_inline(const std::string& text) {
         std::string out;
         out.reserve(text.size() + 32);
         std::size_t i = 0;
+
+        // Find the end of a constrained inline span starting at `start` (one past
+        // the opening marker).  The closing marker character is `marker`.  A valid
+        // constrained close must be:
+        //  - preceded by a non-whitespace character, AND
+        //  - followed by a non-word character (or end of string).
+        // Returns npos if no valid close is found.
+        auto find_constrained_end = [&](std::size_t start, char marker) -> std::size_t {
+            for (std::size_t j = start; j < text.size(); ++j) {
+                if (text[j] != marker) continue;
+                // Preceding char must be non-whitespace
+                if (j == 0) continue;
+                char prev = text[j - 1];
+                if (prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r') continue;
+                // Following char must be non-word (or end of string)
+                if (j + 1 < text.size()) {
+                    char next = text[j + 1];
+                    if (std::isalnum(static_cast<unsigned char>(next)) || next == '_') continue;
+                }
+                // Non-empty span
+                if (j > start) return j;
+            }
+            return std::string::npos;
+        };
+
         while (i < text.size()) {
             // Unconstrained bold: **...**
             if (i + 1 < text.size() && text[i] == '*' && text[i+1] == '*') {
                 auto end = text.find("**", i + 2);
                 if (end != std::string::npos) {
                     out += "\\fB";
-                    out += text.substr(i + 2, end - i - 2);
+                    out += troff_inline(text.substr(i + 2, end - i - 2));
                     out += "\\fR";
                     i = end + 2;
                     continue;
@@ -110,10 +142,10 @@ private:
             }
             // Constrained bold: *word*
             if (text[i] == '*' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
-                auto end = text.find('*', i + 1);
-                if (end != std::string::npos && end > i + 1) {
+                auto end = find_constrained_end(i + 1, '*');
+                if (end != std::string::npos) {
                     out += "\\fB";
-                    out += text.substr(i + 1, end - i - 1);
+                    out += troff_inline(text.substr(i + 1, end - i - 1));
                     out += "\\fR";
                     i = end + 1;
                     continue;
@@ -124,7 +156,7 @@ private:
                 auto end = text.find("__", i + 2);
                 if (end != std::string::npos) {
                     out += "\\fI";
-                    out += text.substr(i + 2, end - i - 2);
+                    out += troff_inline(text.substr(i + 2, end - i - 2));
                     out += "\\fR";
                     i = end + 2;
                     continue;
@@ -132,10 +164,10 @@ private:
             }
             // Constrained italic: _word_
             if (text[i] == '_' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
-                auto end = text.find('_', i + 1);
-                if (end != std::string::npos && end > i + 1) {
+                auto end = find_constrained_end(i + 1, '_');
+                if (end != std::string::npos) {
                     out += "\\fI";
-                    out += text.substr(i + 1, end - i - 1);
+                    out += troff_inline(text.substr(i + 1, end - i - 1));
                     out += "\\fR";
                     i = end + 1;
                     continue;
@@ -146,7 +178,7 @@ private:
                 auto end = text.find("``", i + 2);
                 if (end != std::string::npos) {
                     out += "\\fC";
-                    out += text.substr(i + 2, end - i - 2);
+                    out += troff_inline(text.substr(i + 2, end - i - 2));
                     out += "\\fR";
                     i = end + 2;
                     continue;
@@ -154,17 +186,26 @@ private:
             }
             // Constrained mono: `word`
             if (text[i] == '`' && (i == 0 || !std::isalnum(static_cast<unsigned char>(text[i-1])))) {
-                auto end = text.find('`', i + 1);
-                if (end != std::string::npos && end > i + 1) {
+                auto end = find_constrained_end(i + 1, '`');
+                if (end != std::string::npos) {
                     out += "\\fC";
-                    out += text.substr(i + 1, end - i - 1);
+                    out += troff_inline(text.substr(i + 1, end - i - 1));
                     out += "\\fR";
                     i = end + 1;
                     continue;
                 }
             }
-            out += text[i];
+            // Plain text: escape backslash and minus
+            char c = text[i];
+            if (c == '\\') { out += "\\\\"; }
+            else if (c == '-') { out += "\\-"; }
+            else { out += c; }
             ++i;
+        }
+        // If the output line starts with '.' or '\'' it would be interpreted as a
+        // troff macro. Prepend \& (zero-width non-printing character) to avoid that.
+        if (!out.empty() && (out[0] == '.' || out[0] == '\'')) {
+            out.insert(0, "\\&");
         }
         return out;
     }

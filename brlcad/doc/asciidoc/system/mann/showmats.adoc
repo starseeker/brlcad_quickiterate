@@ -10,7 +10,7 @@ showmats - Lists the transformation matrices encountered along the specified pat
 
 [source]
 ----
-showmats [<-a>] {<path>}
+showmats [-a] {path}
 ----
 
 

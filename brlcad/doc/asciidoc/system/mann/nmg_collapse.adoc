@@ -10,7 +10,7 @@ nmg_collapse - Simplifies an existing nmg_shape by a process of edge decimation.
 
 [source]
 ----
-nmg_collapse {<old_nmg_shape new_nmg_shape maximum_error_dist>} [<minimum_angle>]
+nmg_collapse {old_nmg_shape new_nmg_shape maximum_error_dist} [minimum_angle]
 ----
 
 

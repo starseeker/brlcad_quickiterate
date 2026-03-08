@@ -10,7 +10,7 @@ wavelet - perform a haar wavelet decomposition/reconstruction
 
 [source]
 ----
-wavelet [-1] [-2] [-d] [-r] [-#<channels>] [ -t [ <c>| <d>| <f>| <i>| <l>| <s>]] [-w<width>] [-n<scanlines>] [-s<squaresize>] [-S<square_out_size>] [-W<width_out>] < <file> > <wavelet>
+wavelet [-1] [-2] [-d] [-r] [-#channels] [ -t [ c| d| f| i| l| s]] [-wwidth] [-nscanlines] [-ssquaresize] [-Ssquare_out_size] [-Wwidth_out] < file > wavelet
 ----
 
 

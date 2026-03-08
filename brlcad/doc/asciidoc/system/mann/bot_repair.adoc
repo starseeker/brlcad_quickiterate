@@ -10,7 +10,7 @@ bot_repair - Given an existing BoT object as input, try to generate a manifold s
 
 [source]
 ----
-bot repair [-h] [-a #] [-p #] [-o output_obj] {<input_bot>}...
+bot repair [-h] [-a #] [-p #] [-o output_obj] {input_bot}...
 ----
 
 

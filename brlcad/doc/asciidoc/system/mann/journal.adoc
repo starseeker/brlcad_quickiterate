@@ -10,7 +10,7 @@ journal - Starts or stops the journaling of MGED commands to a file.
 
 [source]
 ----
-journal [-d] [<journal_file_name>]
+journal [-d] [journal_file_name]
 ----
 
 

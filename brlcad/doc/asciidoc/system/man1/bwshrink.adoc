@@ -10,7 +10,7 @@ bwshrink - shrink a black and white bw file
 
 [source]
 ----
-bwshrink [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-f<shrink_factor>] [-u] [<infile.bw>] > <outfile.bw>
+bwshrink [-ssquareinsize] [-win_width] [-nin_height] [-fshrink_factor] [-u] [infile.bw] > outfile.bw
 ----
 
 

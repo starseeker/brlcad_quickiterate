@@ -10,7 +10,7 @@ oed - Places MGED directly into the matrix edit mode.
 
 [source]
 ----
-oed {<path_lhs path_rhs>}
+oed {path_lhs path_rhs}
 ----
 
 

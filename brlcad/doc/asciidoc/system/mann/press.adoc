@@ -10,7 +10,7 @@ press - Simulates the pressing of a button.
 
 [source]
 ----
-press {<button_label>}
+press {button_label}
 ----
 
 

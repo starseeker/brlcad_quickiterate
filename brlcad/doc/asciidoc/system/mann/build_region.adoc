@@ -10,7 +10,7 @@ build_region - Builds a region from existing solids that have specifically forma
 
 [source]
 ----
-build_region [-a<region_num>] {<tag start_num end_num>}
+build_region [-aregion_num] {tag start_num end_num}
 ----
 
 
@@ -55,5 +55,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

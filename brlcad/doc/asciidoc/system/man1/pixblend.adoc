@@ -10,7 +10,7 @@ pixblend - blend two pix(5) or bw(5) images
 
 [source]
 ----
-pixblend [ - [ <r>| <i>] <value>] [-s<seedval>] [-S] [-g<gvalue>] <file1.pix> <file2.pix> > <out.pix>
+pixblend [ - [ r| i] value] [-sseedval] [-S] [-ggvalue] file1.pix file2.pix > out.pix
 ----
 
 
