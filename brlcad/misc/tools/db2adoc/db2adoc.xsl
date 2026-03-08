@@ -1421,10 +1421,12 @@
        INLINE MARKUP
        ============================================================ -->
 
-  <!-- emphasis: italic by default, bold if role="bold" -->
+  <!-- emphasis: italic by default, bold if role="bold"/"strong"/"B", underline if role="underline" -->
+  <!-- remap="B" means "render as bold" (from man-page conversions); remap="I" means italic. -->
   <xsl:template match="db:emphasis">
     <xsl:choose>
-      <xsl:when test="@role = 'bold' or @role = 'strong'">
+      <xsl:when test="@role = 'bold' or @role = 'strong' or @role = 'B'
+                      or @remap = 'B' or @remap = 'b'">
         <xsl:text>*</xsl:text>
         <xsl:apply-templates/>
         <xsl:text>*</xsl:text>

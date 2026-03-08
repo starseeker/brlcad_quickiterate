@@ -55,7 +55,7 @@ Specify the rim width in inches.
 
 
 *-n name #*::
-allows the user to specify a name other than 'tire' for the root name of the toplevel database object. Works with the _-a_ option or as stand-alone.
+allows the user to specify a name other than 'tire' for the root name of the toplevel database object. Works with the *-a* option or as stand-alone.
 
 
 *-p type#*::
@@ -121,3 +121,5 @@ There is a known problem where specifying very thin tires with a large inner whe
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

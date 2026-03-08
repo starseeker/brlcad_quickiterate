@@ -44,75 +44,75 @@ displays the image _image_height_ pixels high (default is 512).
 *fbzoom* will display the image currently in the frame buffer and then act on commands entered by the user. Available commands are:
 
 
-_b ^V_::
+*b ^V*::
 zoom Bigger (*2)
 
 
-_s_::
+*s*::
 zoom Smaller (*0.5)
 
 
-_+_::
+*+*::
 zoom Bigger (+1)
 
 
-_-_::
+*-*::
 zoom Smaller (-1)
 
 
-_h B_::
+*h B*::
 pan Left (1)
 
 
-_j N_::
+*j N*::
 pan Down (1)
 
 
-_k P_::
+*k P*::
 pan Up (1)
 
 
-_l F_::
+*l F*::
 pan Right (1)
 
 
-_H ^B_::
+*H ^B*::
 pan Left (many)
 
 
-_J ^N_::
+*J ^N*::
 pan Down (many)
 
 
-_K ^P_::
+*K ^P*::
 pan Up (many)
 
 
-_L ^F_::
+*L ^F*::
 pan Right (many)
 
 
-_T_::
+*T*::
 toggle sense of pan commands
 
 
-_c_::
+*c*::
 goto Center
 
 
-_z_::
+*z*::
 zoom 1 1
 
 
-_r_::
+*r*::
 Reset to normal
 
 
-_q_::
+*q*::
 Exit
 
 
-_RETURN_::
+*RETURN*::
 Exit
 
 
@@ -142,3 +142,5 @@ This software is Copyright (c) 1986-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

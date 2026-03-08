@@ -35,7 +35,7 @@ voidpl_space, FILE *fp, intx0, inty0, intx1, inty1);
 [[description]]
 == DESCRIPTION
 
-These subroutines generate graphic output commands for processing with the _plot(1)_ plotting filters. They are slightly more general than those in _libplot_ as these take a file pointer. They also include the BRL 3-D extensions to the plot intermediate code.
+These subroutines generate graphic output commands for processing with the *plot(1)* plotting filters. They are slightly more general than those in *libplot* as these take a file pointer. They also include the BRL 3-D extensions to the plot intermediate code.
 
 _Pl_space_ or _pl_3space_ must be used before any of the graphic primitives to declare the amount of space necessary. See _plot3(5)_.
 
@@ -88,3 +88,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -50,35 +50,35 @@ The first argument to the "host" command is the name of the server machine. It w
 The second argument to the "host" command describes "when" this machine should be used.
 
 
-_always_::
+*always*::
 says that whenever this host is not participating in the computation, repeated attempts should be made (every 5 minutes) to start an _rtsrv_ process on that machine. This option is most useful for machines where the system administrator and/or owner of the machine won't mind your using the machine at any time. (Note that _rtsrv_ runs at the lowest priority by default, so this isn't too terribly uncivilized. But be polite and ask first.)
 
 
-_night_::
+*night*::
 indicates that the machine should only be used during the night and on weekends. Night extends from 1800 through 0000 to 0800. Saturday and Sunday are considered to be in night time for the entire day.
 
 
-_hacknight_::
-indicates that the machine is owned by a late-night "hacker", and can be used while that hacker is likely to be asleep. Hacking tends to run from 1300 through 0000 to 0400, so _hacknight_ is the time period from 0400 to 1300.
+*hacknight*::
+indicates that the machine is owned by a late-night "hacker", and can be used while that hacker is likely to be asleep. Hacking tends to run from 1300 through 0000 to 0400, so *hacknight* is the time period from 0400 to 1300.
 
 
-_passive_::
+*passive*::
 indicates that *remrt* should never attempt to initiate an _rtsrv_ process on this machine, but if the user should happen to start _rtsrv_ manually on the machine and direct it to join the computational fray, then the necessary information will be available.
 
 
 If an unlisted machine should join the fray, it will be added::
-with a "when" value of _passive_ and a "where" value of _convert_. When an _rtsrv_ passes from night into day, it is automatically terminated by *remrt* at the appointed time.
+with a "when" value of *passive* and a "where" value of *convert*. When an _rtsrv_ passes from night into day, it is automatically terminated by *remrt* at the appointed time.
 
 
 
 The third argument to the "host" command is the "where" parameter, which indicates where the BRL-CAD ".g" file (and any related texture maps) can be found.
 
 
-_cd_::
+*cd*::
 indicates that the _rtsrv_ program should change directory *cd*(2) to the indicated directory path, and should just read the data files in that directory as _rt_ normally would. This can be used to specify NFS or RFS mounted remote directories, or static copies of the binary database file(s) needed to perform the ray-tracing. This is the most efficient way of operating _rtsrv_, but it also requires some manual preparation on the part of the user to install all the required files in the designated location.
 
 
-_convert_::
+*convert*::
 indicates that *remrt* should send across an ASCII machine-independent version of the ".g" database file using the command:
 
 
@@ -88,7 +88,7 @@ indicates that *remrt* should send across an ASCII machine-independent version o
 	
 ....
 
-before starting up the _rtsrv_ program in that same directory. This relieves the user of the burden of setting up the ".g" database file, but suffers from several drawbacks. First, the transmission of a large database can take a noticeable amount of time. Second, should the server host go down and then re-join the fray, the database will be sent again, because *remrt* has no easy way to tell if the previous ".g" file is still intact after the crash/restart. Third, *remrt* has no way to tell what auxiliary files might be needed for this ".g" file, and thus can not send them automatically. If the ".g" file references height field, extruded bit-map, or volumetric solids, the associated data files will not be present on a _convert_ mode server. The same applies for texture map and bump map files.
+before starting up the _rtsrv_ program in that same directory. This relieves the user of the burden of setting up the ".g" database file, but suffers from several drawbacks. First, the transmission of a large database can take a noticeable amount of time. Second, should the server host go down and then re-join the fray, the database will be sent again, because *remrt* has no easy way to tell if the previous ".g" file is still intact after the crash/restart. Third, *remrt* has no way to tell what auxiliary files might be needed for this ".g" file, and thus can not send them automatically. If the ".g" file references height field, extruded bit-map, or volumetric solids, the associated data files will not be present on a *convert* mode server. The same applies for texture map and bump map files.
 
 
 
@@ -288,3 +288,5 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
