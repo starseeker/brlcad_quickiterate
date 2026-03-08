@@ -243,23 +243,33 @@ private:
             // Cross-reference macro: <<anchor,text>> or <<anchor>>.
             // In man pages, asciidoctor renders xrefs as just the link text
             // (or "[anchor]" for bare xrefs), discarding the anchor.
+            // Guard: only match if the content between << and >> looks like a
+            // valid xref (no newlines; the anchor part must contain no spaces).
             if (i + 1 < text.size() && text[i] == '<' && text[i+1] == '<') {
                 auto close = text.find(">>", i + 2);
                 if (close != std::string::npos) {
                     std::string inner = text.substr(i + 2, close - i - 2);
                     auto comma = inner.find(',');
-                    if (comma != std::string::npos) {
-                        // <<anchor,text>> → render the text
-                        std::string xref_text = inner.substr(comma + 1);
-                        out += troff_inline(xref_text);
-                    } else {
-                        // <<anchor>> → render as [anchor]
-                        out += '[';
-                        out += troff_inline(inner);
-                        out += ']';
+                    // The anchor portion (before the comma, or the whole inner
+                    // if no comma) must not contain spaces or newlines.
+                    std::string anchor_part = (comma != std::string::npos)
+                                              ? inner.substr(0, comma) : inner;
+                    bool valid_xref = (anchor_part.find(' ') == std::string::npos &&
+                                       anchor_part.find('\n') == std::string::npos);
+                    if (valid_xref) {
+                        if (comma != std::string::npos) {
+                            // <<anchor,text>> → render the text
+                            std::string xref_text = inner.substr(comma + 1);
+                            out += troff_inline(xref_text);
+                        } else {
+                            // <<anchor>> → render as [anchor]
+                            out += '[';
+                            out += troff_inline(inner);
+                            out += ']';
+                        }
+                        i = close + 2;
+                        continue;
                     }
-                    i = close + 2;
-                    continue;
                 }
             }
             // URL link macro: http://url[text] or https://url[text].
@@ -752,55 +762,77 @@ private:
             out << ".sp\n"
                 << "\\fB" << troff_escape(list.title()) << "\\fP\n";
         }
-        for (const auto& item : list.items()) {
+        const auto& items = list.items();
+        for (std::size_t idx = 0; idx < items.size(); ++idx) {
+            const auto& item = *items[idx];
             // Empty-term items (generated e.g. by db2adoc for multi-variant
             // synopsis blocks) carry no visible term.  If the body is also
             // empty there is nothing to render; skip the item entirely.
             // If there IS body content but no term, emit it as a .PP block
             // so the content appears without a spurious empty-bold tag line.
-            bool term_empty = item->term().empty();
+            bool term_empty = item.term().empty();
             if (term_empty) {
-                bool has_content = !item->source().empty() || !item->blocks().empty();
+                bool has_content = !item.source().empty() || !item.blocks().empty();
                 if (!has_content) { continue; }
                 // Body without a term: just emit the content as paragraphs
-                if (!item->source().empty()) {
-                    out << ".sp\n" << inline_subs(item->source(), doc) << '\n';
+                if (!item.source().empty()) {
+                    out << ".sp\n" << inline_subs(item.source(), doc) << '\n';
                 }
-                for (const auto& child : item->blocks()) {
+                for (const auto& child : item.blocks()) {
                     convert_block(*child, doc, out);
                 }
                 continue;
             }
 
+            // Compact list behavior (matching asciidoctor's man page backend):
+            // When one or more consecutive items have completely empty bodies
+            // (no source text and no child blocks), they are joined with ", "
+            // onto the same term line as the next item that has content.
+            // Collect the leading empty-body items into a single term string.
+            std::string combined_term = inline_subs(item.term(), doc);
+            std::size_t lead = idx;
+            while (item.source().empty() && item.blocks().empty() &&
+                   lead + 1 < items.size()) {
+                // Peek at the next item
+                const auto& nxt = *items[lead + 1];
+                if (!nxt.term().empty()) {
+                    ++lead;
+                    combined_term += ", ";
+                    combined_term += inline_subs(nxt.term(), doc);
+                } else {
+                    break;
+                }
+                // If the next item also has no body, keep collecting
+                if (!nxt.source().empty() || !nxt.blocks().empty()) {
+                    break;
+                }
+            }
+            // Advance the outer loop index to skip items we consumed above
+            idx = lead;
+            const auto& body_item = *items[idx];
+
             // Emit the term via inline_subs so that explicit bold/italic markup
-            // (*term*) is handled correctly.  Do not add an extra \fB...\fR
-            // wrapper here – that would double-bold terms that are already
-            // marked *bold* in the source.
-            std::string term_rendered = inline_subs(item->term(), doc);
-            // If the term has no inline formatting (plain text), bold it with
-            // \fB...\fR so it stands out, matching DocBook variablelist style.
-            bool has_markup = (term_rendered.find("\\fB") != std::string::npos ||
-                               term_rendered.find("\\fI") != std::string::npos);
+            // (*term*) is handled correctly.  Do NOT auto-add \fB...\fP for
+            // plain terms – asciidoctor only applies the markup that is
+            // explicitly present in the source.
             // Use DocBook-style .PP term .RS 4 body .RE instead of .TP, so that
             // the term appears on its own line with the body indented below it.
             out << ".sp\n";
-            if (has_markup) {
-                out << term_rendered << "\n";
-            } else {
-                out << "\\fB" << term_rendered << "\\fP\n";
-            }
+            out << combined_term << "\n";
             out << ".RS 4\n";
-            if (!item->source().empty()) {
-                out << inline_subs(item->source(), doc) << '\n';
+            if (!body_item.source().empty()) {
+                out << inline_subs(body_item.source(), doc) << '\n';
             }
-            // Render child blocks.  Tables must be rendered OUTSIDE the .RS 4
-            // indentation to appear at the standard paragraph level (matching
-            // asciidoctor's man page backend behavior).  For each table child,
-            // close the .RS 4, render the table, and reopen .RS 4 for subsequent
-            // non-table children.
+            // Render child blocks.  Tables and nested dlist blocks must be
+            // rendered OUTSIDE the .RS 4 indentation to appear at the standard
+            // paragraph level (matching asciidoctor's man page backend behavior).
+            // For each such child, close the .RS 4, render, and reopen .RS 4 for
+            // subsequent non-table/non-dlist children.
             bool in_rs4 = true;
-            for (const auto& child : item->blocks()) {
-                if (child->context() == BlockContext::Table) {
+            for (const auto& child : body_item.blocks()) {
+                bool outside_rs4 = (child->context() == BlockContext::Table ||
+                                    child->context() == BlockContext::Dlist);
+                if (outside_rs4) {
                     if (in_rs4) { out << ".RE\n"; in_rs4 = false; }
                     convert_block(*child, doc, out);
                 } else {

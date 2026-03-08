@@ -233,9 +233,9 @@ std::optional<ListMatch> match_list_item(const std::string& line) {
     // Guard: exclude lines that start with '|' (table rows/separators – Bug #7)
     if (line.empty() || line[0] != '|') {
         // Primary pattern: term followed by :: or ;; (term must start with
-        // a non-whitespace char and have at least one more character).
+        // a non-whitespace char; single-character terms are allowed).
         static const aqrx::regex rx(
-            R"(^(?!//[^/])([ \t]*)([^ \t].+?)(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
+            R"(^(?!//[^/])([ \t]*)([^ \t].*?)(:{2,4}|;;)(?:$|[ \t]+(.+)$))",
             aqrx::ECMAScript | aqrx::optimize);
         aqrx::smatch m;
         if (aqrx::regex_match(line, m, rx)) {
