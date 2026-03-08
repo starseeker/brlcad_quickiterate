@@ -38,7 +38,7 @@ dl_print_schain(bsg_view *v, struct db_i *dbip, int lvl, int vlcmds, struct bu_v
 {
     bsg_shape *root = bsg_scene_root_get(v);
     bsg_shape *sp;
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
     size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
     if (!vlcmds) {
@@ -99,13 +99,13 @@ dl_print_schain(bsg_view *v, struct db_i *dbip, int lvl, int vlcmds, struct bu_v
 		/* Print the actual vector list */
 		nvlist = 0;
 		npts = 0;
-		for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+		for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		    size_t i;
 		    size_t nused = vp->nused;
 		    int *cmd = vp->cmd;
 		    point_t *pt = vp->pt;
 
-		    BV_CK_VLIST(vp);
+		    BSG_CK_VLIST(vp);
 		    nvlist++;
 		    npts += nused;
 
@@ -140,13 +140,13 @@ dl_print_schain(bsg_view *v, struct db_i *dbip, int lvl, int vlcmds, struct bu_v
 			      sp->s_color[2]);
 
 		/* Print the actual vector list */
-		for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+		for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		    size_t i;
 		    size_t nused = vp->nused;
 		    int *cmd = vp->cmd;
 		    point_t *pt = vp->pt;
 
-		    BV_CK_VLIST(vp);
+		    BSG_CK_VLIST(vp);
 
 		    for (i = 0; i < nused; i++, cmd++, pt++)
 			bu_vls_printf(vls, "%d %g %g %g\n", *cmd, V3ARGS(*pt));

@@ -154,12 +154,12 @@ dl_select(bsg_view *v, struct bu_vls *vls, double vx, double vy, double vwidth, 
 	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
 	    point_t vmin, vmax;
-	    struct bv_vlist *vp;
+	    struct bsg_vlist *vp;
 
 	    vmax[X] = vmax[Y] = vmax[Z] = -INFINITY;
 	    vmin[X] = vmin[Y] = vmin[Z] =  INFINITY;
 
-	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		size_t j;
 		size_t nused = vp->nused;
 		int *cmd = vp->cmd;
@@ -167,22 +167,22 @@ dl_select(bsg_view *v, struct bu_vls *vls, double vx, double vy, double vwidth, 
 		point_t vpt;
 		for (j = 0; j < nused; j++, cmd++, pt++) {
 		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
-			case BV_VLIST_POINT_SIZE:
-			case BV_VLIST_LINE_WIDTH:
+			case BSG_VLIST_POLY_START:
+			case BSG_VLIST_POLY_VERTNORM:
+			case BSG_VLIST_TRI_START:
+			case BSG_VLIST_TRI_VERTNORM:
+			case BSG_VLIST_POINT_SIZE:
+			case BSG_VLIST_LINE_WIDTH:
 			    /* attribute, not location */
 			    break;
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_TRI_MOVE:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
+			case BSG_VLIST_LINE_MOVE:
+			case BSG_VLIST_LINE_DRAW:
+			case BSG_VLIST_POLY_MOVE:
+			case BSG_VLIST_POLY_DRAW:
+			case BSG_VLIST_POLY_END:
+			case BSG_VLIST_TRI_MOVE:
+			case BSG_VLIST_TRI_DRAW:
+			case BSG_VLIST_TRI_END:
 			    MAT4X3PNT(vpt, model2view, *pt);
 			    V_MIN(vmin[X], vpt[X]);
 			    V_MAX(vmax[X], vpt[X]);
@@ -275,9 +275,9 @@ dl_select_partial(bsg_view *v, struct bu_vls *vls, double vx, double vy, double 
 	    continue;
 	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-	struct bv_vlist *vp;
+	struct bsg_vlist *vp;
 
-	for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 	    size_t j;
 	    size_t nused = vp->nused;
 	    int *cmd = vp->cmd;
@@ -285,20 +285,20 @@ dl_select_partial(bsg_view *v, struct bu_vls *vls, double vx, double vy, double 
 	    point_t vpt;
 	    for (j = 0; j < nused; j++, cmd++, pt++) {
 		switch (*cmd) {
-		    case BV_VLIST_POLY_START:
-		    case BV_VLIST_POLY_VERTNORM:
-		    case BV_VLIST_TRI_START:
-		    case BV_VLIST_TRI_VERTNORM:
+		    case BSG_VLIST_POLY_START:
+		    case BSG_VLIST_POLY_VERTNORM:
+		    case BSG_VLIST_TRI_START:
+		    case BSG_VLIST_TRI_VERTNORM:
 			/* Has normal vector, not location */
 			break;
-		    case BV_VLIST_LINE_MOVE:
-		    case BV_VLIST_LINE_DRAW:
-		    case BV_VLIST_POLY_MOVE:
-		    case BV_VLIST_POLY_DRAW:
-		    case BV_VLIST_POLY_END:
-		    case BV_VLIST_TRI_MOVE:
-		    case BV_VLIST_TRI_DRAW:
-		    case BV_VLIST_TRI_END:
+		    case BSG_VLIST_LINE_MOVE:
+		    case BSG_VLIST_LINE_DRAW:
+		    case BSG_VLIST_POLY_MOVE:
+		    case BSG_VLIST_POLY_DRAW:
+		    case BSG_VLIST_POLY_END:
+		    case BSG_VLIST_TRI_MOVE:
+		    case BSG_VLIST_TRI_DRAW:
+		    case BSG_VLIST_TRI_END:
 			MAT4X3PNT(vpt, model2view, *pt);
 
 			if (rflag) {

@@ -35,7 +35,7 @@ extern int ged_zap2_core(struct ged *gedp, int argc, const char *argv[]);
 #define FIRST_SOLID(_sp)      ((_sp)->s_fullpath.fp_names[0])
 #define FREE_BV_SCENE_OBJ(p, fp) { \
         BU_LIST_APPEND(fp, &((p)->l)); \
-        BV_FREE_VLIST(vlfree, &((p)->s_vlist)); }
+        BSG_FREE_VLIST(vlfree, &((p)->s_vlist)); }
 
 static void
 dl_zap(struct ged *gedp)
@@ -68,7 +68,7 @@ dl_zap(struct ged *gedp)
 		}
 		ged_destroy_vlist_cb(gedp, sp->s_dlist, 1);
 		BU_LIST_APPEND(&free_scene_obj->l, &(sp)->l);
-		BV_FREE_VLIST(vlfree, &sp->s_vlist);
+		BSG_FREE_VLIST(vlfree, &sp->s_vlist);
 	    }
 	    bu_ptbl_reset(&root->children);
 	}

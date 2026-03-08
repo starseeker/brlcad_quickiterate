@@ -203,7 +203,7 @@ qtgl_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
      * gets passed in as a "default" context when the application hasn't
      * supplied anything else, so we check the magic value to catch it. */
     bsg_view *vctx = (bsg_view *)ctx;
-    if (!ctx || vctx->magic == BV_MAGIC)
+    if (!ctx || vctx->magic == BSG_VIEW_MAGIC)
 	return NULL;
 
     BU_GET(dmp, struct dm);
@@ -673,8 +673,8 @@ struct dm_impl dm_qtgl_impl = {
     {0, 0, 0},			/* bg1 color */
     {0, 0, 0},			/* bg2 color */
     {0, 0, 0},			/* fg color */
-    {BV_MIN, BV_MIN, BV_MIN},	/* clipmin */
-    {BV_MAX, BV_MAX, BV_MAX},	/* clipmax */
+    {BSG_VIEW_MIN, BSG_VIEW_MIN, BSG_VIEW_MIN},	/* clipmin */
+    {BSG_VIEW_MAX, BSG_VIEW_MAX, BSG_VIEW_MAX},	/* clipmax */
     0,				/* no debugging */
     0,				/* no perspective */
     1,				/* depth buffer is writable */

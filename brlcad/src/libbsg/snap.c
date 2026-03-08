@@ -51,16 +51,16 @@ struct bv_cp_info {
 
 struct bv_cp_info_tcl {
     struct bv_cp_info c;
-    struct bv_data_line_state *c_lset; // container holding closest line
+    struct bsg_data_line_state *c_lset; // container holding closest line
     int c_l;     // index of closest line
 
-    struct bv_data_line_state *c_lset2; // container holding 2nd closest line
+    struct bsg_data_line_state *c_lset2; // container holding 2nd closest line
     int c_l2;   // index of 2nd closest line
 };
 #define BV_CP_INFO_TCL_INIT {BV_CP_INFO_INIT, NULL, -1, NULL, -1}
 
 static int
-_find_closest_tcl_point(struct bv_cp_info_tcl *s, point_t *p, struct bv_data_line_state *lines)
+_find_closest_tcl_point(struct bv_cp_info_tcl *s, point_t *p, struct bsg_data_line_state *lines)
 {
     int ret = 0;
     point_t P0, P1;
@@ -181,8 +181,8 @@ _find_closest_obj_point(struct bv_cp_info *s, point_t *p, bsg_shape *o)
     if (!bu_list_len(&o->s_vlist))
 	return 0;
 
-    struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &o->s_vlist)) {
+    struct bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &o->s_vlist)) {
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;
@@ -190,10 +190,10 @@ _find_closest_obj_point(struct bv_cp_info *s, point_t *p, bsg_shape *o)
 	point_t *pt2 = NULL;
 	for (int i = 0; i < nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    pt2 = pt;
 		    break;
-		case BV_VLIST_LINE_DRAW:
+		case BSG_VLIST_LINE_DRAW:
 		    pt1 = pt2;
 		    pt2 = pt;
 		    break;
@@ -265,16 +265,16 @@ bsg_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p)
 
     // If we're not in Tcl mode only, we are looking at objects - either
     // all of them, or a specified subset
-    if (gv_s->gv_snap_flags != BV_SNAP_TCL) {
+    if (gv_s->gv_snap_flags != BSG_SNAP_TCL) {
 	struct bv_cp_info *s = &cpinfo.c;
 	s->ctol_sq = line_tol_sq(v, 1);
 	if (BU_PTBL_LEN(&gv_s->gv_snap_objs) > 0) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
 		bsg_shape *so = (bsg_shape *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
 		if (gv_s->gv_snap_flags) {
-		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->s_type_flags & BV_DB_OBJS)))
+		    if (gv_s->gv_snap_flags == BSG_SNAP_DB && (!(so->s_type_flags & BSG_DB_OBJS)))
 			continue;
-		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->s_type_flags & BV_VIEW_OBJS)))
+		    if (gv_s->gv_snap_flags == BSG_SNAP_VIEW && (!(so->s_type_flags & BSG_VIEW_OBJS)))
 			continue;
 		}
 		bsg_material *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
@@ -282,32 +282,32 @@ bsg_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p)
 		ret += _find_closest_obj_point(s, p, so);
 	    }
 	} else {
-	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_DB)) {
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_SHARED)) {
-		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BV_DB_OBJS);
+	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_DB)) {
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_SHARED)) {
+		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_DB_OBJS);
 		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
 			bsg_shape *so = (bsg_shape *)BU_PTBL_GET(sobjs, i);
 			ret += _find_closest_obj_point(s, p, so);
 		    }
 		}
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_LOCAL)) {
-		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_LOCAL)) {
+		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
 		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
 			bsg_shape *so = (bsg_shape *)BU_PTBL_GET(sobjs, i);
 			ret += _find_closest_obj_point(s, p, so);
 		    }
 		}
 	    }
-	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_VIEW)) {
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_SHARED)) {
-		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BV_VIEW_OBJS);
+	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_VIEW)) {
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_SHARED)) {
+		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_VIEW_OBJS);
 		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
 			bsg_shape *so = (bsg_shape *)BU_PTBL_GET(sobjs, i);
 			ret += _find_closest_obj_point(s, p, so);
 		    }
 		}
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_LOCAL)) {
-		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_LOCAL)) {
+		    struct bu_ptbl *sobjs = bsg_view_shapes(v, BSG_VIEW_OBJS | BSG_LOCAL_OBJS);
 		    for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
 			bsg_shape *so = (bsg_shape *)BU_PTBL_GET(sobjs, i);
 			ret += _find_closest_obj_point(s, p, so);
@@ -322,7 +322,7 @@ bsg_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p)
     // and how do we handle snapping when close enough to multiple lines?  We
     // probably want to prefer intersections between lines to closest line
     // point if we are close to multiple lines...
-    if (!gv_s->gv_snap_flags || gv_s->gv_snap_flags & BV_SNAP_TCL) {
+    if (!gv_s->gv_snap_flags || gv_s->gv_snap_flags & BSG_SNAP_TCL) {
 	int tret = 0;
 	int lwidth;
 	lwidth = (v->gv_tcl.gv_data_lines.gdls_line_width) ? v->gv_tcl.gv_data_lines.gdls_line_width : 1;
@@ -433,23 +433,6 @@ bsg_snap_grid_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
     return 1;
 }
 
-
-/* ABI compatibility wrappers: pre-built consumers link against bv_snap_* symbols */
-BV_EXPORT int
-bv_snap_lines_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
-{
-    return bsg_snap_lines_2d(v, vx, vy);
-}
-BV_EXPORT int
-bv_snap_grid_2d(bsg_view *v, fastf_t *vx, fastf_t *vy)
-{
-    return bsg_snap_grid_2d(v, vx, vy);
-}
-BV_EXPORT int
-bv_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p)
-{
-    return bsg_snap_lines_3d(out_pt, v, p);
-}
 
 
 /*

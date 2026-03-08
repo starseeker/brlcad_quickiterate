@@ -52,7 +52,7 @@ dl_set_flag(bsg_view *v, int flag)
 struct ged_rtcheck {
     struct ged_subprocess *rrtp;
     FILE *fp;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
     double csize;
     void *chan;

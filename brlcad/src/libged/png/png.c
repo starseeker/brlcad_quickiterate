@@ -148,11 +148,11 @@ draw_png_solid(fastf_t perspective, unsigned char **image, bsg_shape *sp, matp_t
     static vect_t last;
     point_t clipmin = {-1.0, -1.0, -MAX_FASTF};
     point_t clipmax = {1.0, 1.0, MAX_FASTF};
-    struct bv_vlist *tvp;
+    struct bsg_vlist *tvp;
     point_t *pt_prev=NULL;
     fastf_t dist_prev=1.0;
     fastf_t dist;
-    struct bv_vlist *vp = (struct bv_vlist *)&sp->s_vlist;
+    struct bsg_vlist *vp = (struct bsg_vlist *)&sp->s_vlist;
     fastf_t delta;
     struct coord coord1;
     struct coord coord2;
@@ -167,7 +167,7 @@ draw_png_solid(fastf_t perspective, unsigned char **image, bsg_shape *sp, matp_t
     if (delta < SQRT_SMALL_FASTF)
         delta = SQRT_SMALL_FASTF;
 
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
         size_t i;
         size_t nused = tvp->nused;
         int *cmd = tvp->cmd;
@@ -175,14 +175,14 @@ draw_png_solid(fastf_t perspective, unsigned char **image, bsg_shape *sp, matp_t
         for (i = 0; i < nused; i++, cmd++, pt++) {
             static vect_t start, fin;
             switch (*cmd) {
-                case BV_VLIST_POLY_START:
-                case BV_VLIST_POLY_VERTNORM:
-                case BV_VLIST_TRI_START:
-                case BV_VLIST_TRI_VERTNORM:
+                case BSG_VLIST_POLY_START:
+                case BSG_VLIST_POLY_VERTNORM:
+                case BSG_VLIST_TRI_START:
+                case BSG_VLIST_TRI_VERTNORM:
                     continue;
-                case BV_VLIST_POLY_MOVE:
-                case BV_VLIST_LINE_MOVE:
-                case BV_VLIST_TRI_MOVE:
+                case BSG_VLIST_POLY_MOVE:
+                case BSG_VLIST_LINE_MOVE:
+                case BSG_VLIST_TRI_MOVE:
                     /* Move, not draw */
                     if (perspective > 0) {
                         /* cannot apply perspective transformation to
@@ -201,11 +201,11 @@ draw_png_solid(fastf_t perspective, unsigned char **image, bsg_shape *sp, matp_t
                     } else
                         MAT4X3PNT(last, psmat, *pt);
                     continue;
-                case BV_VLIST_POLY_DRAW:
-                case BV_VLIST_POLY_END:
-                case BV_VLIST_LINE_DRAW:
-                case BV_VLIST_TRI_DRAW:
-                case BV_VLIST_TRI_END:
+                case BSG_VLIST_POLY_DRAW:
+                case BSG_VLIST_POLY_END:
+                case BSG_VLIST_LINE_DRAW:
+                case BSG_VLIST_TRI_DRAW:
+                case BSG_VLIST_TRI_END:
                     /* draw */
                     if (perspective > 0) {
                         /* cannot apply perspective transformation to

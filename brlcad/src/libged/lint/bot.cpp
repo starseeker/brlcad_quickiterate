@@ -157,7 +157,7 @@ class lint_worker_data {
 	lint_worker_data(struct rt_i *rtip, struct resource *res);
 	~lint_worker_data();
 	void shoot(int ind, bool reverse);
-	void plot_bad_tris(struct bv_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree);
+	void plot_bad_tris(struct bsg_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree);
 
 	nlohmann::json tresults;
 	bool condition_flag = false;
@@ -255,7 +255,7 @@ lint_worker_data::shoot(int ind, bool reverse)
 }
 
 void
-lint_worker_data::plot_bad_tris(struct bv_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree)
+lint_worker_data::plot_bad_tris(struct bsg_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree)
 {
     if (!vbp || !vhead || !vlfree)
 	return;
@@ -267,10 +267,10 @@ lint_worker_data::plot_bad_tris(struct bv_vlblock *vbp, struct bu_list *vhead, s
 	point_t v[3];
 	for (int i = 0; i < 3; i++)
 	    VMOVE(v[i], &bot->vertices[bot->faces[tri_ind*3+i]*3]);
-	BV_ADD_VLIST(vlfree, vhead, v[0], BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, v[1], BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v[2], BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v[0], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[0], BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, v[1], BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[2], BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[0], BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -648,7 +648,7 @@ bot_checks(lint_data *bdata, struct directory *dp, struct rt_bot_internal *bot)
 
     if (bdata->do_plot) {
 	struct bu_color *color = bdata->color;
-	struct bv_vlblock *vbp = bdata->vbp;
+	struct bsg_vlblock *vbp = bdata->vbp;
 	struct bu_list *vlfree = bdata->vlfree;
 	unsigned char rgb[3] = {255, 255, 0};
 	if (color)

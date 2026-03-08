@@ -1434,9 +1434,9 @@ DbiState::update()
 	    continue;
 	vmap[bvs].insert(v);
     }
-    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
-    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-	bv_it->first->redraw(NULL, bv_it->second, 1);
+    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator view_it;
+    for (view_it = vmap.begin(); view_it != vmap.end(); view_it++) {
+	view_it->first->redraw(NULL, view_it->second, 1);
     }
 
     // Build and dispatch change events to observers
@@ -1840,14 +1840,14 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	    std::unordered_map<int, bsg_shape *>::iterator s_it;
 	    if (mode < 0) {
 		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++)
-		    bv_obj_put(s_it->second);
+		    bsg_shape_put(s_it->second);
 		for (m_it = drawn_paths.begin(); m_it != drawn_paths.end(); m_it++)
 		    m_it->second.erase(phash);
 		s_map.erase(phash);
 	    } else {
 		s_it = sm_it->second.find(mode);
 		if (s_it != sm_it->second.end()) {
-		    bv_obj_put(s_it->second);
+		    bsg_shape_put(s_it->second);
 		    sm_it->second.erase(s_it);
 		    drawn_paths[mode].erase(phash);
 		    s_map[phash].erase(mode);
@@ -2097,7 +2097,7 @@ bsg_shape *
 BViewState::scene_obj(
 	std::unordered_set<bsg_shape *> &objs,
 	int curr_mode,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -2145,7 +2145,7 @@ BViewState::scene_obj(
 		    if (sp->s_flag != UP)
 			sp->s_flag = UP;
 		}
-		if (bv_obj_settings_sync(sp->s_os, vs))
+		if (bsg_material_sync(sp->s_os, vs))
 		    objs.insert(sp);
 	    }
 
@@ -2156,27 +2156,27 @@ BViewState::scene_obj(
 	    std::unordered_set<struct bview *>::iterator v_it;
 	    if (sp->csg_obj) {
 		for (v_it = views.begin(); v_it != views.end(); v_it++) {
-		    int have_adaptive = bv_obj_have_vo(sp, *v_it);
+		    int have_adaptive = bsg_shape_have_view_obj(sp, *v_it);
 		    if ((*v_it)->gv_s->adaptive_plot_csg && !have_adaptive) {
-			bv_obj_stale(sp);
+			bsg_shape_stale(sp);
 			sp->curve_scale = -1; // Make sure a rework is triggered
 			objs.insert(sp);
 		    }
-		    if (!(*v_it)->gv_s->adaptive_plot_csg && have_adaptive && bv_clear_view_obj(sp, *v_it)) {
-			bv_obj_stale(sp);
+		    if (!(*v_it)->gv_s->adaptive_plot_csg && have_adaptive && bsg_shape_clear_view_obj(sp, *v_it)) {
+			bsg_shape_stale(sp);
 			objs.insert(sp);
 		    }
 		}
 	    }
 	    if (sp->mesh_obj) {
 		for (v_it = views.begin(); v_it != views.end(); v_it++) {
-		    int have_adaptive = bv_obj_have_vo(sp, *v_it);
+		    int have_adaptive = bsg_shape_have_view_obj(sp, *v_it);
 		    if ((*v_it)->gv_s->adaptive_plot_mesh && !have_adaptive) {
-			bv_obj_stale(sp);
+			bsg_shape_stale(sp);
 			objs.insert(sp);
 		    }
-		    if (!(*v_it)->gv_s->adaptive_plot_mesh && have_adaptive && bv_clear_view_obj(sp, *v_it)) {
-			bv_obj_stale(sp);
+		    if (!(*v_it)->gv_s->adaptive_plot_mesh && have_adaptive && bsg_shape_clear_view_obj(sp, *v_it)) {
+			bsg_shape_stale(sp);
 			objs.insert(sp);
 		    }
 		}
@@ -2187,7 +2187,7 @@ BViewState::scene_obj(
     }
 
     // No pre-existing object - make a new one
-    sp = bv_obj_get(v, BV_DB_OBJS);
+    sp = bsg_shape_get(v, BSG_DB_OBJS);
 
     // Find the leaf directory pointer
     struct directory *dp = dbis->get_hdp(path_hashes[path_hashes.size()-1]);
@@ -2278,7 +2278,7 @@ BViewState::walk_tree(
 	unsigned long long chash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -2316,7 +2316,7 @@ BViewState::gather_paths(
 	unsigned long long c_hash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	matp_t lm,
 	std::vector<unsigned long long> &path_hashes,
@@ -2482,7 +2482,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
     if (!v)
 	return 0;
 
-    bv_log(1, "BViewState::refresh");
+    bsg_log(1, "BViewState::refresh");
     // We (well, callers) need to be able to tell if the redraw pass actually
     // changed anything.
     unsigned long long ret = 0;
@@ -2550,8 +2550,8 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    }
 	    if (!s)
 		continue;
-	    bsg_shape *nso = bv_obj_get(v, BV_DB_OBJS);
-	    bv_obj_sync(nso, s);
+	    bsg_shape *nso = bsg_shape_get(v, BSG_DB_OBJS);
+	    bsg_shape_sync(nso, s);
 	    nso->s_i_data = s->s_i_data;
 	    s->s_i_data = NULL;
 	    s_map[*k_it].erase(mm_it->first);
@@ -2563,10 +2563,10 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    nso->dp = s->dp;
 	    s_map[*k_it][mm_it->first] = nso;
 
-	    //bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
+	    //bsg_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    bu_log("refresh %s[%s]\n", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    draw_scene(nso, v);
-	    bv_obj_put(s);
+	    bsg_shape_put(s);
 	}
     }
 
@@ -2583,9 +2583,9 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 }
 
 unsigned long long
-BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
+BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
 {
-    bv_log(1, "BViewState::redraw");
+    bsg_log(1, "BViewState::redraw");
     // We (well, callers) need to be able to tell if the redraw pass actually
     // changed anything.
     unsigned long long ret = 0;
@@ -2686,10 +2686,10 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 		if (s) {
 		    // Invalid - remove any scene object geometry
 		    ret = GED_DBISTATE_VIEW_CHANGE;
-		    bv_obj_reset(s);
+		    bsg_shape_reset(s);
 		    s->s_v = v;
 		} else {
-		    s = bv_obj_get(v, BV_DB_OBJS);
+		    s = bsg_shape_get(v, BSG_DB_OBJS);
 		    // print path name, set view - otherwise empty
 		    dbis->print_path(&s->s_name, cp);
 		    s->s_v = v;
@@ -2699,7 +2699,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    }
 	    if (s) {
 		// Geometry is suspect - clear to prepare for regeneration
-		bv_obj_put(s);
+		bsg_shape_put(s);
 		s_map[*iv_it].erase(mm_it->first);
 		ret = GED_DBISTATE_VIEW_CHANGE;
 	    }
@@ -2744,7 +2744,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
 	for (sz_it = draw_invalid_collapsed.begin(); sz_it != draw_invalid_collapsed.end(); sz_it++) {
 	    std::vector<unsigned long long> cpath = ms_it->second[*sz_it];
-	    bsg_shape *s = bv_obj_get(v, BV_DB_OBJS);
+	    bsg_shape *s = bsg_shape_get(v, BSG_DB_OBJS);
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&s->s_name, cpath);
 	    s->s_v = v;
@@ -2771,7 +2771,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	// Helper lambda that processes one draw_list_ entry set.
 	// entry_vs is declared outside both loops to avoid repeated stack allocs
 	// and to remain valid for draw_vs references within each iteration.
-	struct bv_obj_settings entry_vs;
+	struct bsg_obj_settings entry_vs;
 	auto process_dl_entries = [&](const std::vector<DrawList::Entry> &dl_entries) {
 	    for (size_t i = 0; i < dl_entries.size(); i++) {
 		const DrawList::Entry &dl_e = dl_entries[i];
@@ -2788,7 +2788,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 		// Use entry mode if non-zero, otherwise fall back to vs->s_dmode
 		int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
 		// Use entry's settings override if present, otherwise use vs
-		struct bv_obj_settings *draw_vs = vs;
+		struct bsg_obj_settings *draw_vs = vs;
 		if (dl_e.has_settings) {
 		    // Copy vs first, then apply the per-entry overrides
 		    entry_vs = *vs;
@@ -2828,7 +2828,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // routines have a rough idea of the correct dimensions to use
     if (!no_autoview) {
 	for (struct bview *vw : views)
-	    bv_autoview(vw, BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	    bsg_view_autoview(vw, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
     }
 
     // Update geometry.  draw_scene will avoid repeat creation of geometry
@@ -2844,7 +2844,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // view specific geometry sub-objects.
     for (struct bview *vw : views) {
 	for (bsg_shape *obj : objs) {
-	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&obj->s_name), bu_vls_cstr(&vw->gv_name));
+	    bsg_log(3, "redraw %s[%s]", bu_vls_cstr(&obj->s_name), bu_vls_cstr(&vw->gv_name));
 	    draw_scene(obj, vw);
 	}
     }
@@ -2867,7 +2867,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // unless suppressed
     if (!no_autoview) {
 	for (struct bview *vw : views)
-	    bv_autoview(vw, BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	    bsg_view_autoview(vw, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
     }
 
     // Now that all path manipulations are finalized, update the
@@ -3157,7 +3157,7 @@ std::unordered_set<unsigned long long> SelectionSet::selected_hashes() const
 }
 
 /* Phase 7: Synchronize highlight markers to the given view state.
- * Uses the same bv_illum_obj() pattern as BSelectState::draw_sync(). */
+ * Uses the same bsg_shape_illum() pattern as BSelectState::draw_sync(). */
 void SelectionSet::sync_to_drawn(BViewState *vs)
 {
     if (!vs || !dbis_) return;
@@ -3166,7 +3166,7 @@ void SelectionSet::sync_to_drawn(BViewState *vs)
     for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
 	char illum_state = is_active(so_it->first) ? UP : DOWN;
 	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
-	    bv_illum_obj(m_it->second, illum_state);
+	    bsg_shape_illum(m_it->second, illum_state);
 	}
     }
 }
@@ -3292,7 +3292,7 @@ bool SelectionSet::sync_to_all_views()
 	for (auto &so_kv : vs->s_map) {
 	    char ill = is_active(so_kv.first) ? UP : DOWN;
 	    for (auto &m_kv : so_kv.second) {
-		if (bv_illum_obj(m_kv.second, ill))
+		if (bsg_shape_illum(m_kv.second, ill))
 		    changed = true;
 	    }
 	}

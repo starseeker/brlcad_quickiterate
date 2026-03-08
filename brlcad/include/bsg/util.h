@@ -28,7 +28,7 @@
  *
  * In Phase 1 each @c bsg_* function is a trivial wrapper around its
  * @c bv_* counterpart.  Because @c bsg_view = @c bview and @c bsg_shape =
- * @c bv_scene_obj in Phase 1, the wrappers incur no conversion cost.
+ * @c bsg_shape in Phase 1, the wrappers incur no conversion cost.
  *
  * ### Function naming convention
  *
@@ -133,7 +133,7 @@ BSG_EXPORT void bsg_view_mat_aet(bsg_view *v);
  * ====================================================================== */
 
 /** Use the default autoview scale (0.5 model scale ↔ 2.0 view factor). */
-#define BSG_AUTOVIEW_SCALE_DEFAULT BV_AUTOVIEW_SCALE_DEFAULT
+#define BSG_AUTOVIEW_SCALE_DEFAULT -1
 
 /** @brief Auto-fit the view.  Replaces bv_autoview(). */
 BSG_EXPORT void bsg_view_autoview(bsg_view *v, fastf_t scale,

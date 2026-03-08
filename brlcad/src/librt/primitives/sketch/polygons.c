@@ -91,8 +91,8 @@ db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *d
     }
 
     // Have a sketch - create an empty polygon
-    struct bv_polygon *p;
-    BU_GET(p, struct bv_polygon);
+    struct bsg_polygon *p;
+    BU_GET(p, struct bsg_polygon);
 
     /* Start translating the sketch info into a polygon */
     all_segment_nodes = (struct segment_node *)bu_calloc(sketch_ip->curve.count, sizeof(struct segment_node), "all_segment_nodes");
@@ -209,7 +209,7 @@ end:
     bsg_shape *s = bsg_create_polygon_obj(sv, flags, p);
     if (!s) {
 	bg_polygon_free(&p->polygon);
-	BU_PUT(p, struct bv_polygon);
+	BU_PUT(p, struct bsg_polygon);
 	return NULL;
     }
     bu_vls_init(&s->s_name);
@@ -251,19 +251,19 @@ end:
 	}
 	val = bu_avs_get(&lavs, "POLYGON_TYPE");
 	if (BU_STR_EQUAL(val, "CIRCLE")) {
-	    p->type = BV_POLYGON_CIRCLE;
+	    p->type = BSG_POLYGON_CIRCLE;
 	}
 	if (BU_STR_EQUAL(val, "ELLIPSE")) {
-	    p->type = BV_POLYGON_ELLIPSE;
+	    p->type = BSG_POLYGON_ELLIPSE;
 	}
 	if (BU_STR_EQUAL(val, "RECTANGLE")) {
-	    p->type = BV_POLYGON_RECTANGLE;
+	    p->type = BSG_POLYGON_RECTANGLE;
 	}
 	if (BU_STR_EQUAL(val, "SQUARE")) {
-	    p->type = BV_POLYGON_SQUARE;
+	    p->type = BSG_POLYGON_SQUARE;
 	}
 	if (BU_STR_EQUAL(val, "GENERAL")) {
-	    p->type = BV_POLYGON_GENERAL;
+	    p->type = BSG_POLYGON_GENERAL;
 	}
 
 	// See if we have a stored view
@@ -355,7 +355,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s)
     struct rt_sketch_internal *sketch_ip;
     struct line_seg *lsg;
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
+    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     for (size_t j = 0; j < p->polygon.num_contours; ++j)
 	num_verts += p->polygon.contour[j].num_points;
 
@@ -445,16 +445,16 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, bsg_shape *s)
 	bu_vls_sprintf(&val, "%g", p->fill_delta);
 	bu_avs_add(&lavs, "POLYGON_FILL_DELTA", bu_vls_cstr(&val));
 	switch (p->type) {
-	    case BV_POLYGON_CIRCLE:
+	    case BSG_POLYGON_CIRCLE:
 		bu_vls_sprintf(&val, "CIRCLE");
 		break;
-	    case BV_POLYGON_ELLIPSE:
+	    case BSG_POLYGON_ELLIPSE:
 		bu_vls_sprintf(&val, "ELLIPSE");
 		break;
-	    case BV_POLYGON_RECTANGLE:
+	    case BSG_POLYGON_RECTANGLE:
 		bu_vls_sprintf(&val, "RECTANGLE");
 		break;
-	    case BV_POLYGON_SQUARE:
+	    case BSG_POLYGON_SQUARE:
 		bu_vls_sprintf(&val, "SQUARE");
 		break;
 	    default:

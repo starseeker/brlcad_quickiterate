@@ -111,9 +111,9 @@ go_draw_solid(bsg_view *gdvp, bsg_shape *sp)
 			    (unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
 
 	if (sp->s_os->s_dmode == 4) {
-	    (void)dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&sp->s_vlist);
+	    (void)dm_draw_vlist_hidden_line(dmp, (struct bsg_vlist *)&sp->s_vlist);
 	} else {
-	    (void)dm_draw_vlist(dmp, (struct bv_vlist *)&sp->s_vlist);
+	    (void)dm_draw_vlist(dmp, (struct bsg_vlist *)&sp->s_vlist);
 	}
     }
     if (params) {

@@ -103,7 +103,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
 	sp->s_vlen = 0;
 
-    struct bv_vlist *bvv = (struct bv_vlist *)vhead;
+    struct bsg_vlist *bvv = (struct bsg_vlist *)vhead;
     sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
@@ -192,7 +192,7 @@ draw_solid_wireframe(bsg_shape *sp, bsg_view *gvp, struct db_i *dbip,
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
 	sp->s_vlen = 0;
 
-    struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
+    struct bsg_vlist *bvv = (struct bsg_vlist *)&vhead;
     sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
@@ -205,7 +205,7 @@ redraw_solid(bsg_shape *sp, struct db_i *dbip, struct db_tree_state *tsp, bsg_vi
     if (sp->s_os->s_dmode == _GED_WIREFRAME) {
 	/* replot wireframe */
 	if (BU_LIST_NON_EMPTY(&sp->s_vlist)) {
-	    BV_FREE_VLIST(vlfree, &sp->s_vlist);
+	    BSG_FREE_VLIST(vlfree, &sp->s_vlist);
 	}
 	return draw_solid_wireframe(sp, gvp, dbip, tsp->ts_tol, tsp->ts_ttol);
     }
@@ -257,7 +257,7 @@ append_solid_to_display_list(
 {
     point_t min, max;
     union tree *curtree;
-    struct ged_solid_data *bv_data = (struct ged_solid_data *)client_data;
+    struct ged_solid_data *draw_data = (struct ged_solid_data *)client_data;
 
     RT_CK_DB_INTERNAL(ip);
     BG_CK_TESS_TOL(tsp->ts_ttol);
@@ -267,7 +267,7 @@ append_solid_to_display_list(
     VSETALL(min, INFINITY);
     VSETALL(max, -INFINITY);
 
-    if (!bv_data) {
+    if (!draw_data) {
         return TREE_NULL;
     }
 
@@ -280,7 +280,7 @@ append_solid_to_display_list(
     }
 
     /* create solid */
-    bsg_shape *sp = bsg_shape_get(bv_data->v, BSG_DB_OBJS);
+    bsg_shape *sp = bsg_shape_get(draw_data->v, BSG_DB_OBJS);
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
@@ -320,7 +320,7 @@ append_solid_to_display_list(
          */
         int plot_status;
         struct bu_list vhead;
-        struct bv_vlist *vp;
+        struct bsg_vlist *vp;
 
         BU_LIST_INIT(&vhead);
 
@@ -340,13 +340,13 @@ append_solid_to_display_list(
 	if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
 	    sp->s_vlen = 0;
 
-	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
+	struct bsg_vlist *bvv = (struct bsg_vlist *)&vhead;
 	sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
 	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
-	bsg_shape_bound(sp, bv_data->v);
+	bsg_shape_bound(sp, draw_data->v);
 
-        while (BU_LIST_WHILE(vp, bv_vlist, &(sp->s_vlist))) {
+        while (BU_LIST_WHILE(vp, bsg_vlist, &(sp->s_vlist))) {
             BU_LIST_DEQUEUE(&vp->l);
             bu_free(vp, "solid vp");
         }
@@ -357,7 +357,7 @@ append_solid_to_display_list(
     sp->s_flag = DOWN;
     sp->s_iflag = DOWN;
 
-    if (bv_data->draw_solid_lines_only) {
+    if (draw_data->draw_solid_lines_only) {
         sp->s_soldash = 0;
     } else {
         sp->s_soldash = (tsp->ts_sofar & (TS_SOFAR_MINUS|TS_SOFAR_INTER));
@@ -380,8 +380,8 @@ append_solid_to_display_list(
         tsp->ts_mater.ma_color[GRN] = 128;
         tsp->ts_mater.ma_color[BLU] = 128;
 
-        if (bv_data->wireframe_color_override) {
-            solid_set_color_info(sp, (unsigned char *)&(bv_data->wireframe_color), tsp);
+        if (draw_data->wireframe_color_override) {
+            solid_set_color_info(sp, (unsigned char *)&(draw_data->wireframe_color), tsp);
         } else {
             solid_set_color_info(sp, NULL, tsp);
         }
@@ -391,11 +391,11 @@ append_solid_to_display_list(
         tsp->ts_mater.ma_color[BLU] = mater_color[BLU];
 
     } else {
-        if (bv_data->wireframe_color_override) {
+        if (draw_data->wireframe_color_override) {
 	    unsigned char wire_color[3];
-	    wire_color[RED] = (unsigned char)bv_data->wireframe_color[RED];
-	    wire_color[GRN] = (unsigned char)bv_data->wireframe_color[GRN];
-	    wire_color[BLU] = (unsigned char)bv_data->wireframe_color[BLU];
+	    wire_color[RED] = (unsigned char)draw_data->wireframe_color[RED];
+	    wire_color[GRN] = (unsigned char)draw_data->wireframe_color[GRN];
+	    wire_color[BLU] = (unsigned char)draw_data->wireframe_color[BLU];
             solid_set_color_info(sp, wire_color, tsp);
         } else {
 	    const char *attr_color = bu_avs_get(&ip->idb_avs, db5_standard_attribute(ATTR_COLOR));
@@ -422,8 +422,8 @@ append_solid_to_display_list(
     }
 
     sp->s_dlist = 0;
-    sp->s_os->transparency = bv_data->transparency;
-    sp->s_os->s_dmode = bv_data->dmode;
+    sp->s_os->transparency = draw_data->transparency;
+    sp->s_os->s_dmode = draw_data->dmode;
     MAT_COPY(sp->s_mat, tsp->ts_mat);
 
     /* indicate success by returning something other than TREE_NULL */
@@ -1263,18 +1263,18 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		/* create solids */
 		for (i = 0; i < argc; ++i) {
-		    struct ged_solid_data bv_data;
-		    bv_data.draw_solid_lines_only = dgcdp.vs.draw_solid_lines_only;
-		    bv_data.wireframe_color_override = dgcdp.vs.color_override;
-		    bv_data.wireframe_color[0]= dgcdp.vs.color[0];
-		    bv_data.wireframe_color[1]= dgcdp.vs.color[1];
-		    bv_data.wireframe_color[2]= dgcdp.vs.color[2];
-		    bv_data.transparency= dgcdp.vs.transparency;
-		    bv_data.dmode = dgcdp.vs.s_dmode;
-		    bv_data.v = gedp->ged_gvp;
+		    struct ged_solid_data draw_data;
+		    draw_data.draw_solid_lines_only = dgcdp.vs.draw_solid_lines_only;
+		    draw_data.wireframe_color_override = dgcdp.vs.color_override;
+		    draw_data.wireframe_color[0]= dgcdp.vs.color[0];
+		    draw_data.wireframe_color[1]= dgcdp.vs.color[1];
+		    draw_data.wireframe_color[2]= dgcdp.vs.color[2];
+		    draw_data.transparency= dgcdp.vs.transparency;
+		    draw_data.dmode = dgcdp.vs.s_dmode;
+		    draw_data.v = gedp->ged_gvp;
 
 		    dgcdp.gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
-		    bv_data.gdlp = dgcdp.gdlp;
+		    draw_data.gdlp = dgcdp.gdlp;
 
 		    /* store draw path */
 		    paths_to_draw[i] = dgcdp.gdlp;
@@ -1292,7 +1292,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 				       NULL,
 				       wireframe_region_end,
 				       append_solid_to_display_list,
-				       (void *)&bv_data);
+				       (void *)&draw_data);
 		}
 
 		/* We need to know the view size in order to choose
@@ -1364,7 +1364,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		if (dgcdp.draw_edge_uses) {
 		    _ged_cvt_vlblock_to_solids(gedp, dgcdp.draw_edge_uses_vbp, "_EDGEUSES_", 0);
 		    bsg_vlblock_free(dgcdp.draw_edge_uses_vbp);
-		    dgcdp.draw_edge_uses_vbp = (struct bv_vlblock *)NULL;
+		    dgcdp.draw_edge_uses_vbp = (struct bsg_vlblock *)NULL;
 		}
 
 		/* Destroy NMG */

@@ -29,10 +29,10 @@
 
 __BEGIN_DECLS
 
-BSG_EXPORT void bsg_adc_model_to_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BSG_EXPORT void bsg_adc_grid_to_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BSG_EXPORT void bsg_adc_view_to_grid(struct bv_adc_state *adcs, mat_t model2view);
-BSG_EXPORT void bsg_adc_reset(struct bv_adc_state *adcs, mat_t view2model, mat_t model2view);
+BSG_EXPORT void bsg_adc_model_to_view(struct bsg_adc_state *adcs, mat_t model2view, fastf_t amax);
+BSG_EXPORT void bsg_adc_grid_to_view(struct bsg_adc_state *adcs, mat_t model2view, fastf_t amax);
+BSG_EXPORT void bsg_adc_view_to_grid(struct bsg_adc_state *adcs, mat_t model2view);
+BSG_EXPORT void bsg_adc_reset(struct bsg_adc_state *adcs, mat_t view2model, mat_t model2view);
 
 __END_DECLS
 

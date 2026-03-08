@@ -1507,7 +1507,7 @@ nmg_special_wedge_processing(struct nmg_vu_stuff *vs, int start, int end, double
 	FILE *fp;
 	struct model *m;
 	long *b;
-	struct bv_vlblock *vbp;
+	struct bsg_vlblock *vbp;
 	static int num = 0;
 
 	bu_log("nmg_special_wedge_processing(start=%d, end=%d, lo=%g, hi=%g, wclass=%s)\n",

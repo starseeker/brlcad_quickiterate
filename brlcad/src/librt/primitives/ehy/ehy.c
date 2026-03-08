@@ -818,14 +818,14 @@ ehy_plot_hyperbola(
 
     z = pts->p[Z];
     VJOIN2(p, ehy_V, ehy_hyperbola_y(mag_H, c, r, -z), Ru, -z, Hu);
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_MOVE);
 
     node = pts->next;
     while (node != NULL) {
 	z = node->p[Z];
 	VJOIN2(p, ehy_V, ehy_hyperbola_y(mag_H, c, r, -z), Ru, -z, Hu);
 
-	BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_DRAW);
 
 	node = node->next;
     }
@@ -1127,13 +1127,13 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     }
 
     /* Draw the top ellipse */
-    BV_ADD_VLIST(vlfree, vhead,
+    BSG_ADD_VLIST(vlfree, vhead,
 		 &ellipses[nell-1][(nseg-1)*ELEMENTS_PER_VECT],
-		 BV_VLIST_LINE_MOVE);
+		 BSG_VLIST_LINE_MOVE);
     for (i = 0; i < nseg; i++) {
-	BV_ADD_VLIST(vlfree, vhead,
+	BSG_ADD_VLIST(vlfree, vhead,
 		     &ellipses[nell-1][i*ELEMENTS_PER_VECT],
-		     BV_VLIST_LINE_DRAW);
+		     BSG_VLIST_LINE_DRAW);
     }
 
     /* connect ellipses */
@@ -1147,13 +1147,13 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	    nseg /= 2;	/* # segs in 'bottom' ellipse */
 
 	/* Draw the current ellipse */
-	BV_ADD_VLIST(vlfree, vhead,
+	BSG_ADD_VLIST(vlfree, vhead,
 		     &ellipses[bottom][(nseg-1)*ELEMENTS_PER_VECT],
-		     BV_VLIST_LINE_MOVE);
+		     BSG_VLIST_LINE_MOVE);
 	for (j = 0; j < nseg; j++) {
-	    BV_ADD_VLIST(vlfree, vhead,
+	    BSG_ADD_VLIST(vlfree, vhead,
 			 &ellipses[bottom][j*ELEMENTS_PER_VECT],
-			 BV_VLIST_LINE_DRAW);
+			 BSG_VLIST_LINE_DRAW);
 	}
 
 	/* make connections between ellipses */
@@ -1162,22 +1162,22 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 		jj = j + j;	/* top ellipse index */
 	    else
 		jj = j;
-	    BV_ADD_VLIST(vlfree, vhead,
+	    BSG_ADD_VLIST(vlfree, vhead,
 			 &ellipses[bottom][j*ELEMENTS_PER_VECT],
-			 BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead,
+			 BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead,
 			 &ellipses[top][jj*ELEMENTS_PER_VECT],
-			 BV_VLIST_LINE_DRAW);
+			 BSG_VLIST_LINE_DRAW);
 	}
     }
 
     VADD2(Work, xip->ehy_V, xip->ehy_H);
     for (i = 0; i < nseg; i++) {
 	/* Draw connector */
-	BV_ADD_VLIST(vlfree, vhead, Work, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead,
+	BSG_ADD_VLIST(vlfree, vhead, Work, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead,
 		     &ellipses[0][i*ELEMENTS_PER_VECT],
-		     BV_VLIST_LINE_DRAW);
+		     BSG_VLIST_LINE_DRAW);
     }
 
     /* free mem */

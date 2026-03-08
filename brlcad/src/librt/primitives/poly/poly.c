@@ -502,11 +502,11 @@ rt_pg_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tes
 	struct rt_pg_face_internal *pp;
 
 	pp = &pgp->poly[p];
-	BV_ADD_VLIST(vlfree, vhead, &pp->verts[3*(pp->npts-1)],
-		     BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, &pp->verts[3*(pp->npts-1)],
+		     BSG_VLIST_LINE_MOVE);
 	for (i=0; i < pp->npts; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, &pp->verts[3*i],
-			 BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, &pp->verts[3*i],
+			 BSG_VLIST_LINE_DRAW);
 	}
     }
     return 0;		/* OK */
@@ -540,13 +540,13 @@ rt_pg_plot_poly(struct bu_list *vhead, struct rt_db_internal *ip, const struct b
 	VSUB2(bb, &pp->verts[3*(0)], &pp->verts[3*(2)]);
 	VCROSS(norm, aa, bb);
 	VUNITIZE(norm);
-	BV_ADD_VLIST(vlfree, vhead, norm, BV_VLIST_POLY_START);
+	BSG_ADD_VLIST(vlfree, vhead, norm, BSG_VLIST_POLY_START);
 
-	BV_ADD_VLIST(vlfree, vhead, &pp->verts[3*(pp->npts-1)], BV_VLIST_POLY_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, &pp->verts[3*(pp->npts-1)], BSG_VLIST_POLY_MOVE);
 	for (i=0; i < pp->npts-1; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, &pp->verts[3*i], BV_VLIST_POLY_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, &pp->verts[3*i], BSG_VLIST_POLY_DRAW);
 	}
-	BV_ADD_VLIST(vlfree, vhead, &pp->verts[3*(pp->npts-1)], BV_VLIST_POLY_END);
+	BSG_ADD_VLIST(vlfree, vhead, &pp->verts[3*(pp->npts-1)], BSG_VLIST_POLY_END);
     }
     return 0;		/* OK */
 }

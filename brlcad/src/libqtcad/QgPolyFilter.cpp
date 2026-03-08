@@ -78,7 +78,7 @@ QgPolyFilter::close_polygon()
 {
     // Close the general polygon - if that's what we're creating,
     // at this point it will still be open.
-    struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)wp->s_i_data;
     if (ip && ip->polygon.contour[0].open) {
 
 	if (ip->polygon.contour[0].num_points < 3) {
@@ -86,7 +86,7 @@ QgPolyFilter::close_polygon()
 	    // three points, just remove - we didn't get enough
 	    // to make a closed polygon.
 	    bg_polygon_free(&ip->polygon);
-	    BU_PUT(ip, struct bv_polygon);
+	    BU_PUT(ip, struct bsg_polygon);
 	    bsg_shape_put(wp);
 	    wp = nullptr;
 	    return false;
@@ -117,8 +117,8 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    wp = bsg_create_polygon(v, BSG_VIEW_OBJS, ptype, &v->gv_point);
 	    wp->s_v = v;
 
-	    struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
-	    if (ptype == BV_POLYGON_GENERAL) {
+	    struct bsg_polygon *ip = (struct bsg_polygon *)wp->s_i_data;
+	    if (ptype == BSG_POLYGON_GENERAL) {
 		// For general polygons, we need to identify the active contour
 		// for update operations to work.
 		//
@@ -169,8 +169,8 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 
 	// If we are in the process of creating a general polygon, after the initial creation
 	// left clicks will append new points
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
-	if (ip->type == BV_POLYGON_GENERAL) {
+	struct bsg_polygon *ip = (struct bsg_polygon *)wp->s_i_data;
+	if (ip->type == BSG_POLYGON_GENERAL) {
 	    wp->s_v->gv_mouse_x = v->gv_mouse_x;
 	    wp->s_v->gv_mouse_y = v->gv_mouse_y;
 	    bsg_update_polygon(wp, wp->s_v, BSG_POLYGON_UPDATE_PT_APPEND);
@@ -189,8 +189,8 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    return true;
 
 	// Non-general polygon creation doesn't use right click.
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
-	if (ip->type != BV_POLYGON_GENERAL)
+	struct bsg_polygon *ip = (struct bsg_polygon *)wp->s_i_data;
+	if (ip->type != BSG_POLYGON_GENERAL)
 	    return true;
 
 	// When creating a general polygon, right click indicates we're done.
@@ -212,8 +212,8 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    return true;
 
 	// General polygon creation doesn't use mouse movement.
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
-	if (ip->type == BV_POLYGON_GENERAL)
+	struct bsg_polygon *ip = (struct bsg_polygon *)wp->s_i_data;
+	if (ip->type == BSG_POLYGON_GENERAL)
 	    return true;
 
 	// For every other polygon type, call the libbv update routine
@@ -236,8 +236,8 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	// General polygons are finalized by a right-click close, since
 	// appending multiple points requires multiple mouse click-and-release
 	// operations
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
-	if (ip && ip->type == BV_POLYGON_GENERAL)
+	struct bsg_polygon *ip = (struct bsg_polygon *)wp->s_i_data;
+	if (ip && ip->type == BSG_POLYGON_GENERAL)
 	    return true;
 
 	// For all non-general polygons, mouse release is the signal
@@ -311,8 +311,8 @@ QPolyUpdateFilter::eventFilter(QObject *, QEvent *e)
     if (m_e->type() == QEvent::MouseMove) {
 
 	// General polygon creation doesn't use mouse movement.
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
-	if (ip->type == BV_POLYGON_GENERAL)
+	struct bsg_polygon *ip = (struct bsg_polygon *)wp->s_i_data;
+	if (ip->type == BSG_POLYGON_GENERAL)
 	    return true;
 
 	// For every other polygon type, call the libbv update routine
@@ -343,7 +343,7 @@ QPolySelectFilter::eventFilter(QObject *, QEvent *e)
 	    wp = bsg_select_polygon(view_objs, &v->gv_point);
 	    if (!wp)
 		return true;
-	    struct bv_polygon *vp = (struct bv_polygon *)wp->s_i_data;
+	    struct bsg_polygon *vp = (struct bsg_polygon *)wp->s_i_data;
 	    ptype = vp->type;
 	    close_general_poly = (vp->polygon.contour) ? vp->polygon.contour[0].open : 1;
 	    // TODO - either set or sync other C++ class setting copies (color, fill, etc.)
@@ -367,10 +367,10 @@ QPolyPointFilter::eventFilter(QObject *, QEvent *e)
 	return false;
 
     // The point filter needs an active general polygon to operate on
-    if (!wp || ptype != BV_POLYGON_GENERAL)
+    if (!wp || ptype != BSG_POLYGON_GENERAL)
 	return false;
 
-    struct bv_polygon *vp = (struct bv_polygon *)wp->s_i_data;
+    struct bsg_polygon *vp = (struct bsg_polygon *)wp->s_i_data;
 
     // If we have a Left release, clear point selection
     if (m_e->type() == QEvent::MouseButtonRelease) {

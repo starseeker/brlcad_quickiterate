@@ -435,7 +435,7 @@ main(int argc, char *argv[])
     s->mv_context = 1;
 
     // Prepare mousevec.  xpos and ypos coordinates should be in the range of
-    // BV_MIN <= val <= BV_MAX, which defines the outer limits of the pixel
+    // BSG_VIEW_MIN <= val <= BSG_VIEW_MAX, which defines the outer limits of the pixel
     // screen from which mouse inputs would come.
     //
     // In essense, xpos and ypos are intended to simulate what a GUI toolkit

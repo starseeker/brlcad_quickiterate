@@ -422,19 +422,19 @@ rt_hlf_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     VADD2(y_1, cent, ybase);
     VSUB2(y_2, cent, ybase);
 
-    BV_ADD_VLIST(vlfree, vhead, x_1, BV_VLIST_LINE_MOVE);	/* the cross */
-    BV_ADD_VLIST(vlfree, vhead, x_2, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, y_1, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, y_2, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, x_2, BV_VLIST_LINE_DRAW);	/* the box */
-    BV_ADD_VLIST(vlfree, vhead, y_1, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, x_1, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, y_2, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_1, BSG_VLIST_LINE_MOVE);	/* the cross */
+    BSG_ADD_VLIST(vlfree, vhead, x_2, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, y_1, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, y_2, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_2, BSG_VLIST_LINE_DRAW);	/* the box */
+    BSG_ADD_VLIST(vlfree, vhead, y_1, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, x_1, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, y_2, BSG_VLIST_LINE_DRAW);
 
     VSCALE(tip, hip->eqn, 500);
     VADD2(tip, cent, tip);
-    BV_ADD_VLIST(vlfree, vhead, cent, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, tip, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, cent, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, tip, BSG_VLIST_LINE_DRAW);
     return 0;
 }
 

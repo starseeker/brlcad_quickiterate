@@ -169,7 +169,7 @@ struct cstate {
 
 
 struct ged_gqa_plot {
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
 } ged_gqa_plot;
 
@@ -805,8 +805,8 @@ _gqa_overlap(struct application *ap,
 
     if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
 	bu_semaphore_acquire(state->sem_worker);
-	BV_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ihit, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ohit, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ihit, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ohit, BSG_VLIST_LINE_DRAW);
 	bu_semaphore_release(state->sem_worker);
     }
 

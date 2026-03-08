@@ -245,14 +245,14 @@ _scene_radius(point_t *sbbc, fastf_t *radius, bsg_view *v)
     VSETALL(min,  INFINITY);
     VSETALL(max, -INFINITY);
     int have_objs = 0;
-    struct bu_ptbl *so = bsg_view_shapes(v, BV_DB_OBJS);
+    struct bu_ptbl *so = bsg_view_shapes(v, BSG_DB_OBJS);
     if (!so)
 	return;
     for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
 	bsg_shape *g = (bsg_shape *)BU_PTBL_GET(so, i);
 	obj_bb(&have_objs, &min, &max, g, v);
     }
-    struct bu_ptbl *sol = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sol = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (sol) {
 	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
 	    bsg_shape *g = (bsg_shape *)BU_PTBL_GET(sol, i);
@@ -422,14 +422,14 @@ bsg_view_shapes_select(struct bu_ptbl *sset, bsg_view *v, int x, int y)
     // Having constructed the box, test the scene objects against it.  Any that intersect,
     // add them to the set
     std::set<bsg_shape *> active;
-    struct bu_ptbl *so = bsg_view_shapes(v, BV_DB_OBJS);
+    struct bu_ptbl *so = bsg_view_shapes(v, BSG_DB_OBJS);
     if (so) {
 	for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(so, i);
 	    _find_active_objs(active, s, v, obb_c, obb_e1, obb_e2, obb_e3);
 	}
     }
-    struct bu_ptbl *sol = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sol = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (sol) {
 	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(sol, i);
@@ -520,14 +520,14 @@ bsg_view_shapes_rect_select(struct bu_ptbl *sset, bsg_view *v, int x1, int y1, i
     // Having constructed the box, test the scene objects against it.  Any that intersect,
     // add them to the set
     std::set<bsg_shape *> active;
-    struct bu_ptbl *so = bsg_view_shapes(v, BV_DB_OBJS);
+    struct bu_ptbl *so = bsg_view_shapes(v, BSG_DB_OBJS);
     if (so) {
 	for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(so, i);
 	    _find_active_objs(active, s, v, obb_c, obb_e1, obb_e2, obb_e3);
 	}
     }
-    struct bu_ptbl *sol = bsg_view_shapes(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sol = bsg_view_shapes(v, BSG_DB_OBJS | BSG_LOCAL_OBJS);
     if (sol) {
 	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(sol, i);
@@ -594,7 +594,7 @@ _obj_visible(bsg_shape *s, bsg_view *v)
     return 0;
 }
 
-struct bv_mesh_lod_context_internal {
+struct bsg_mesh_lod_context_internal {
     MDB_env *lod_env;
     MDB_txn *lod_txn;
     MDB_dbi lod_dbi;
@@ -633,8 +633,8 @@ bsg_mesh_lod_context_create(const char *name)
     // Create the context
     bsg_mesh_lod_context *c;
     BU_GET(c, bsg_mesh_lod_context);
-    BU_GET(c->i, struct bv_mesh_lod_context_internal);
-    struct bv_mesh_lod_context_internal *i = c->i;
+    BU_GET(c->i, struct bsg_mesh_lod_context_internal);
+    struct bsg_mesh_lod_context_internal *i = c->i;
     BU_GET(i->fname, struct bu_vls);
     bu_vls_init(i->fname);
     bu_vls_sprintf(i->fname, "%s", bu_vls_cstr(&fname));
@@ -724,7 +724,7 @@ lod_context_close_lod_fail:
     mdb_env_close(i->lod_env);
 lod_context_fail:
     bu_vls_free(&fname);
-    BU_PUT(c->i, struct bv_mesh_lod_context_internal);
+    BU_PUT(c->i, struct bsg_mesh_lod_context_internal);
     BU_PUT(c, bsg_mesh_lod_context);
     return NULL;
 }
@@ -738,7 +738,7 @@ bsg_mesh_lod_context_destroy(bsg_mesh_lod_context *c)
     mdb_env_close(c->i->lod_env);
     bu_vls_free(c->i->fname);
     BU_PUT(c->i->fname, struct bu_vls);
-    BU_PUT(c->i, struct bv_mesh_lod_context_internal);
+    BU_PUT(c->i, struct bsg_mesh_lod_context_internal);
     BU_PUT(c, bsg_mesh_lod_context);
 }
 
@@ -824,7 +824,7 @@ class rec {
 
 
 class POPState;
-struct bv_mesh_lod_internal {
+struct bsg_mesh_lod_internal {
     POPState *s;
 };
 
@@ -1930,8 +1930,8 @@ bsg_mesh_lod_create(bsg_mesh_lod_context *c, unsigned long long key)
     // Set up info container
     bsg_lod *lod;
     BU_GET(lod, bsg_lod);
-    BU_GET(lod->i, struct bv_mesh_lod_internal);
-    ((struct bv_mesh_lod_internal *)lod->i)->s = p;
+    BU_GET(lod->i, struct bsg_mesh_lod_internal);
+    ((struct bsg_mesh_lod_internal *)lod->i)->s = p;
     lod->c = (void *)c;
     p->lod = lod;
 
@@ -1951,10 +1951,10 @@ bsg_mesh_lod_destroy(bsg_lod *lod)
     if (!lod)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     delete i->s;
     i->s = NULL;
-    BU_PUT(i, struct bv_mesh_lod_internal);
+    BU_PUT(i, struct bsg_mesh_lod_internal);
     lod->i = NULL;
     BU_PUT(lod, bsg_lod);
 }
@@ -1978,7 +1978,7 @@ bsg_mesh_lod_level(bsg_shape *s, int level, int reset)
     bsg_lod *l = (bsg_lod *)s->draw_data;
     if (!l)
 	return -1;
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     POPState *sp = i->s;
     if (level < 0)
 	return sp->curr_level;
@@ -2031,7 +2031,7 @@ bsg_mesh_lod_view(bsg_shape *s, bsg_view *v, int reset)
     if (!l)
 	return -1;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     POPState *sp = i->s;
     int ret = sp->curr_level;
     int vscale = (int)((double)sp->get_level(v->gv_size) * v->gv_s->lod_scale);
@@ -2057,7 +2057,7 @@ bsg_mesh_lod_memshrink(bsg_shape *s)
     if (!l)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     POPState *sp = i->s;
     sp->shrink_memory();
     bu_log("memshrink\n");
@@ -2190,7 +2190,7 @@ bsg_mesh_lod_detail_setup_clbk(
     if (!lod || !clbk)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     POPState *s = i->s;
     s->full_detail_setup_clbk = clbk;
     s->detail_clbk_data = clbk_data;
@@ -2205,7 +2205,7 @@ bsg_mesh_lod_detail_clear_clbk(
     if (!lod || !clbk)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     POPState *s = i->s;
     s->full_detail_clear_clbk = clbk;
 }
@@ -2219,7 +2219,7 @@ bsg_mesh_lod_detail_free_clbk(
     if (!lod || !clbk)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     POPState *s = i->s;
     s->full_detail_free_clbk = clbk;
 }
@@ -2230,7 +2230,7 @@ bsg_mesh_lod_free(bsg_shape *s)
     if (!s || !s->draw_data)
 	return;
     bsg_lod *l = (bsg_lod *)s->draw_data;
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     delete i->s;
     s->draw_data = NULL;
 }

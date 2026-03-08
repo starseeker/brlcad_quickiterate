@@ -171,7 +171,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
     if (e->type() == QEvent::MouseButtonPress) {
 	px = v->gv_mouse_x;
 	py = v->gv_mouse_y;
-	struct bv_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+	struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
 	grsp->line_width = 1;
 	grsp->dim[0] = 0;
 	grsp->dim[1] = 0;
@@ -187,7 +187,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
     }
 
     if (e->type() == QEvent::MouseMove) {
-	struct bv_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+	struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
 	grsp->draw = 1;
 	grsp->dim[0] = v->gv_mouse_x - px;
 	grsp->dim[1] = (v->gv_height - v->gv_mouse_y) - v->gv_s->gv_rect.pos[1];
@@ -218,7 +218,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 #endif
 
 	// reset rectangle
-	struct bv_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+	struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
 	grsp->draw = 0;
 	grsp->line_width = 0;
 	grsp->pos[0] = 0;

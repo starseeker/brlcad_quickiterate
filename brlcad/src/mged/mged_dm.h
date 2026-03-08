@@ -394,7 +394,7 @@ struct mged_dm {
     struct _rubber_band	*dm_rubber_band;
     struct _mged_variables *dm_mged_variables;
     struct _color_scheme	*dm_color_scheme;
-    struct bv_grid_state *dm_grid_state;
+    struct bsg_grid_state *dm_grid_state;
     struct _axes_state	*dm_axes_state;
     struct _dlist_state	*dm_dlist_state;
 

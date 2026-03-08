@@ -64,7 +64,7 @@ class QTCAD_EXPORT QgPolyFilter : public QObject
 	bsg_view *v = nullptr;
 	bg_clip_t op = bg_None;
 	bsg_shape *wp = nullptr;
-	int ptype = BV_POLYGON_CIRCLE;
+	int ptype = BSG_POLYGON_CIRCLE;
 	bool close_general_poly = true; // set to false if application wants to allow non-closed polygons
 	struct bu_color fill_color = BU_COLOR_BLUE;
 	struct bu_color edge_color = BU_COLOR_YELLOW;

@@ -144,17 +144,17 @@ rt_sample_pnts(bsg_shape *s, struct rt_db_internal *ip)
 	VADD2(v3pp, v3fp, pn->v);
 #if 0
 	/* Wireframe  */
-	BV_ADD_VLIST(vlfree, vhead, v1pp, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, v2pp, BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v3pp, BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v1pp, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v1pp, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, v2pp, BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v3pp, BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v1pp, BSG_VLIST_LINE_DRAW);
 #else
 	/* Shaded */
-	BV_ADD_VLIST(vlfree, vhead, pn->n, BV_VLIST_TRI_START);
-	BV_ADD_VLIST(vlfree, vhead, v1pp, BV_VLIST_TRI_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, v2pp, BV_VLIST_TRI_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v3pp, BV_VLIST_TRI_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v1pp, BV_VLIST_TRI_END);
+	BSG_ADD_VLIST(vlfree, vhead, pn->n, BSG_VLIST_TRI_START);
+	BSG_ADD_VLIST(vlfree, vhead, v1pp, BSG_VLIST_TRI_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, v2pp, BSG_VLIST_TRI_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v3pp, BSG_VLIST_TRI_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v1pp, BSG_VLIST_TRI_END);
 #endif
     }
 

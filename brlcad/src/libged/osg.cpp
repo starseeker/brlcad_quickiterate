@@ -55,7 +55,7 @@ struct osg_stuff {
 static void
 _osgLoadHiddenSolid(osg::Geode *geode, bsg_shape *sp)
 {
-    register struct bv_vlist *vp = (struct bv_vlist *)&sp->s_vlist;
+    register struct bsg_vlist *vp = (struct bsg_vlist *)&sp->s_vlist;
     osg::Vec3dArray* vertices;
 }
 
@@ -63,9 +63,9 @@ _osgLoadHiddenSolid(osg::Geode *geode, bsg_shape *sp)
 static void
 _osgLoadSolid(osg::Geode *geode, osg::Geometry *geom, osg::Vec3dArray *vertices, osg::Vec3dArray *normals, bsg_shape *sp)
 {
-    struct bv_vlist *tvp;
+    struct bsg_vlist *tvp;
     int first;
-    register struct bv_vlist *vp = (struct bv_vlist *)&sp->s_vlist;
+    register struct bsg_vlist *vp = (struct bsg_vlist *)&sp->s_vlist;
     int begin;
     int nverts;
 
@@ -77,14 +77,14 @@ _osgLoadSolid(osg::Geode *geode, osg::Geometry *geom, osg::Vec3dArray *vertices,
     begin = 0;
     nverts = 0;
     first = 1;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	int i;
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;
 	for (i = 0; i < nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    /* Move, start line */
 		    if (first == 0) {
 			geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINE_STRIP,begin,nverts));
@@ -103,21 +103,21 @@ _osgLoadSolid(osg::Geode *geode, osg::Geometry *geom, osg::Vec3dArray *vertices,
 		    nverts = 1;
 		    //bu_log("_ged_osgLoadSolid: loaded point - (%lf %lf %lf)\n", (*pt)[X], (*pt)[Y], (*pt)[Z]);
 		    break;
-		case BV_VLIST_POLY_START:
+		case BSG_VLIST_POLY_START:
 		    normals->push_back(osg::Vec3d((*pt)[X], (*pt)[Y], (*pt)[Z]));
 		    begin += nverts;
 		    nverts = 0;
 
 		    break;
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_POLY_DRAW:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_POLY_DRAW:
 		    vertices->push_back(osg::Vec3d((*pt)[X], (*pt)[Y], (*pt)[Z]));
 		    ++nverts;
 
 		    //bu_log("_ged_osgLoadSolid: loaded point - (%lf %lf %lf)\n", (*pt)[X], (*pt)[Y], (*pt)[Z]);
 		    break;
-		case BV_VLIST_POLY_END:
+		case BSG_VLIST_POLY_END:
 		    //vertices->push_back(osg::Vec3d((*pt)[X], (*pt)[Y], (*pt)[Z]));
 		    //++nverts;
 		    geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POLYGON,begin,nverts));
@@ -126,7 +126,7 @@ _osgLoadSolid(osg::Geode *geode, osg::Geometry *geom, osg::Vec3dArray *vertices,
 		    bu_log("Add polygon: begin - %d, nverts - %d\n", begin, nverts);
 
 		    break;
-		case BV_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_POLY_VERTNORM:
 		    break;
 	    }
 	}
