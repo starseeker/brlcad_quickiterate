@@ -62,7 +62,7 @@ The examples show the use of the *dm* command with its various subcommands as pr
 .List the available display manager internal variables.
 [example]
 ====
-mged>*dm set*
+mged>**dm set**
 
 Lists the available display manager internal variables.
 
@@ -71,7 +71,7 @@ Lists the available display manager internal variables.
 .Turn on perspective projection in the display using _var_ and _val_ arguments.
 [example]
 ====
-mged>*dm set perspective 1*
+mged>**dm set perspective 1**
 
 Turns on perspective projection in the display.
 
@@ -80,7 +80,7 @@ Turns on perspective projection in the display.
 .Query the display manager's window size.
 [example]
 ====
-mged>*dm size*
+mged>**dm size**
 
 The display manager's window size is returned.
 
@@ -89,7 +89,7 @@ The display manager's window size is returned.
 .Resize the display manager window.
 [example]
 ====
-mged>*dm size 900 900*
+mged>**dm size 900 900**
 
 The display manager window is resized to 900 x 900.
 
@@ -98,7 +98,7 @@ The display manager window is resized to 900 x 900.
 .Simulate a button2 press at specific screen coordinates.
 [example]
 ====
-mged>*dm m 2 100 200*
+mged>**dm m 2 100 200**
 
 Simulates a button2 press at (100, 200) in X screen coordinates.
 
@@ -107,7 +107,7 @@ Simulates a button2 press at (100, 200) in X screen coordinates.
 .Use the alternate mouse mode to rotate an image.
 [example]
 ====
-mged>*dm am r 400 100*
+mged>**dm am r 400 100**
 
 Starts an alternate mouse mode rotation at (400, 100).
 
@@ -116,7 +116,7 @@ Starts an alternate mouse mode rotation at (400, 100).
 .Start a tick distance manipulation with the mouse.
 [example]
 ====
-mged>*dm adc d 300 200*
+mged>**dm adc d 300 200**
 
 Starts a tick distance manipulation at (300, 200).
 
@@ -125,7 +125,7 @@ Starts a tick distance manipulation at (300, 200).
 .Start a constrained translation down the Z axis using the mouse.
 [example]
 ====
-mged>*dm con t z 200 200*
+mged>**dm con t z 200 200**
 
 Starts a constrained translation down the Z axis.
 
@@ -134,7 +134,7 @@ Starts a constrained translation down the Z axis.
 .Start a constrained tick distance manipulation using the mouse.
 [example]
 ====
-mged>*dm con a d 200 100*
+mged>**dm con a d 200 100**
 
 Starts a constrained tick distance manipulation.
 
@@ -143,7 +143,7 @@ Starts a constrained tick distance manipulation.
 .End the mouse drag.
 [example]
 ====
-mged>*dm idle*
+mged>**dm idle**
 
 Ends the drag.
 

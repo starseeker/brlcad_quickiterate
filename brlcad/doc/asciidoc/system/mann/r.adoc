@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-r - Creates a region with the specified region_name.
+r - Creates a region with the specified __region_name__.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *r* command to create a region consisting of tw
 .Create a region using operations and object pairs.
 [example]
 ====
-mged>*r new_region u shape1 - shape2 u shape3 + group4*
+mged>**r new_region u shape1 - shape2 u shape3 + group4**
 
 Creates a region named __new_region__ that consists of two parts unioned together. The first part is _shape1_ with _shape2_ subtracted. The second part is the intersection of _shape3_ and the combination _group4_.
 

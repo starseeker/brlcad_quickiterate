@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-apropos - Searches through the one-line usage messages for each mged command and displays the name of each command where a match is found.
+apropos - Searches through the one-line usage messages for each _mged_ command and displays the name of each command where a match is found.
 
 == SYNOPSIS
 
@@ -26,7 +26,7 @@ The *apropos* command searches through the one-line usage messages for specified
 .List all commands having "region" in their one-line usage messages.
 [example]
 ====
-mged>*apropos region*
+mged>**apropos region**
 
 
 

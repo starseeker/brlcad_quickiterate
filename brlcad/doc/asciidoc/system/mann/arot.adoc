@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-arot - Performs a rotation about the specified axis (x y z) using screen units (-2048 to +2048).
+arot - Performs a rotation about the specified axis (_x y z_) using screen units (-2048 to +2048).
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example demonstrates the use of the *arot* command to rotate a view or shape
 .Rotating a view or shape 10 degrees about the z axis.
 [example]
 ====
-mged>*arot 0 0 1 10*
+mged>**arot 0 0 1 10**
 
 The view or shape is rotated 10 degrees about the z axis.
 

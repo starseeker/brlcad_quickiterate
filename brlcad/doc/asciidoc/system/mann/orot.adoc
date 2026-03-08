@@ -28,7 +28,7 @@ The example shows the use of the *orot* command to rotate a currently edited obj
 .Rotate a currently edited object.
 [example]
 ====
-mged>*orot 0 0 35*
+mged>**orot 0 0 35**
 
 Rotates currently edited object by 35° about the Z-axis from the original orientation.
 

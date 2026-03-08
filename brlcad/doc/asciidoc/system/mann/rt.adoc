@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-rt - Executes the BRL-CAD rt program with the default options of "-s512 -M."
+rt - Executes the BRL-CAD _rt_ program with the default options of "-s512 -M."
 
 == SYNOPSIS
 
@@ -26,7 +26,7 @@ Executes the BRL-CAD _rt_ program with the default options of "-s512 -M." If per
 .Run the _rt_ program to produce a color-shaded image of the current view in MGED.
 [example]
 ====
-mged>*rt -s1024 -F/dev/Xl*
+mged>**rt -s1024 -F/dev/Xl**
 
 Runs the _rt_ program to produce a color-shaded image of the current view in the MGED display. The image will be 1024 pixels square and will be displayed on a lingering _X_ framebuffer.
 
@@ -35,7 +35,7 @@ Runs the _rt_ program to produce a color-shaded image of the current view in the
 .Run the _rt_ program to produce a color-shaded image of an object using MGED's current viewing parameters.
 [example]
 ====
-mged>*rt -C 234/245/255 -- roof*
+mged>**rt -C 234/245/255 -- roof**
 
 Runs the _rt_ program to produce a color-shaded image of the object _roof_ using MGED's current viewing parameters. The image will have a sky-blue background and will be displayed on the framebuffer specified by the FB_FILE shell variable.
 
@@ -44,7 +44,7 @@ Runs the _rt_ program to produce a color-shaded image of the object _roof_ using
 .Run _rt_ to produce a color-shaded image with increased ambient lighting and ambient occlusion enabled.
 [example]
 ====
-mged>*rt -A1.2 -c "set ambSamples=64"*
+mged>**rt -A1.2 -c "set ambSamples=64"**
 
 Runs the _rt_ program to produce a ambient occlusion color-shaded image of the currently display object(s) using MGED's current viewing parameters. Image brightness is increased with the -A ambient 1.2 value (default is typically 0.8). Brightness in dark shadowed sections of the model are then attenuated with the ambient occlusion ambSamples setting which specifies the number of sample rays to shoot.
 

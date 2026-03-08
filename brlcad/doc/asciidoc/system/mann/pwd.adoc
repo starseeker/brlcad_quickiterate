@@ -29,7 +29,7 @@ Print the current working directory.
 [example]
 ====
 
-mged> *pwd*::
+mged> **pwd**::
 Returns the current working directory.
 
 

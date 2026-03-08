@@ -110,7 +110,7 @@ The following are run from the operating system command prompt:
 .Running the _MGED_ *l* from the operating system command line.
 [example]
 ====
-user:~*mged /usr/brlcad/share/brlcad/7.12.2/db/m35.g l component*
+user:~**mged /usr/brlcad/share/brlcad/7.12.2/db/m35.g l component**
 
 
 ....
@@ -133,7 +133,7 @@ component:  --
 .Running _MGED_ without a display manager.
 [example]
 ====
-user:~*mged -c*
+user:~**mged -c**
 
 
 ....
@@ -154,7 +154,7 @@ mged>
 .Running _MGED_ and bypassing the attach prompt by specifying the X11 display manager.
 [example]
 ====
-user:~*mged -a X -c*
+user:~**mged -a X -c**
 
 
 ....

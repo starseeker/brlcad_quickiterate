@@ -28,7 +28,7 @@ The example shows the use of the *shells* command to break an NMG shape into its
 .Break an NMG shape into its constituent shells.
 [example]
 ====
-mged>*object.nmg*
+mged>**object.nmg**
 
 Breaks the NMG shape named _object.nmg_ into its constituent shells.
 

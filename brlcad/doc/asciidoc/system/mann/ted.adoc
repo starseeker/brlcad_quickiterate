@@ -28,7 +28,7 @@ The example shows the use of the *ted* command to place the parameters of a curr
 .Use a text editor to modify a currently edited shape.
 [example]
 ====
-mged>*ted*
+mged>**ted**
 
 Starts a text editor to modify a currently edited shape.
 

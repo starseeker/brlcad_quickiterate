@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-debugbu - Allows the user to set or check the debug flags used by libbu.
+debugbu - Allows the user to set or check the debug flags used by _libbu_.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The first example shows the use of the *debugbu* command (without an argument) t
 .Display a list of available __bu_debug__ values and the current value.
 [example]
 ====
-mged>*debugbu*
+mged>**debugbu**
 
 Lists available __bu_debug__ values and the current value.
 
@@ -37,7 +37,7 @@ Lists available __bu_debug__ values and the current value.
 .Set a new value for __bu_debug__.
 [example]
 ====
-mged>*debugbu 2*
+mged>**debugbu 2**
 
 Sets __bu_debug__ to <MEM_CHECK>.
 

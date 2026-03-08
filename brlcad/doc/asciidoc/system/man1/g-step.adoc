@@ -36,7 +36,7 @@ There are some inherent limits when writing BRL-CAD geometry to the AP203 format
 .Export All .g File Contents
 [example]
 ====
-*g-step -o m35.stp m35.g*
+**g-step -o m35.stp m35.g**
 
 Writes out the full hierarchy of the .g file to m35.stp .
 
@@ -45,7 +45,7 @@ Writes out the full hierarchy of the .g file to m35.stp .
 .Export Parts of a .g File
 [example]
 ====
-*g-step -o m35.stp m35.g cab suspension*
+**g-step -o m35.stp m35.g cab suspension**
 
 Writes out the hierarchies associated with the combs cab and suspension, along with all combs and solids needed to define those hierarchies.
 

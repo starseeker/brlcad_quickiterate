@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-preview - Allows the user to preview animation scripts in MGED.
+preview - Allows the user to _preview_ animation scripts in MGED.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *preview* command to preview specified frames o
 .Preview an animation script.
 [example]
 ====
-mged>*preview -D 101 -K 237 script.rt*
+mged>**preview -D 101 -K 237 script.rt**
 
 Displays the animation script stored in the file named _script.rt_ from frame number 101 through frame number 237.
 

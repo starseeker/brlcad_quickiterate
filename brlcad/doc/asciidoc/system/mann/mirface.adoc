@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-mirface - Modifies an ARB shape by mirroring the indicated face along the selected x, y, or z axis.
+mirface - Modifies an ARB shape by mirroring the indicated face along the selected _x, y,_ or _z_ axis.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *mirface* command to modify an edited ARB by mi
 .Modify an ARB shape by mirroring the indicated face along the x, y, or z axis.
 [example]
 ====
-mged>*mirface 1234 x*
+mged>**mirface 1234 x**
 
 Modifies currently edited ARB by moving the face opposite face 1234 such that it is the mirror image of face 1234 across the _yz_ plane.
 

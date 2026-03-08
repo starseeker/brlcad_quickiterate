@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-helpdevel - Returns a list of available developer commands along with a one-line usage message for each. If a command is supplied as an argument, the one-line usage message for that command is returned.
+helpdevel - Returns a list of available _developer_ commands along with a one-line usage message for each. If a command is supplied as an argument, the one-line usage message for that command is returned.
 
 == SYNOPSIS
 
@@ -29,7 +29,7 @@ The example shows the use of the *helpdevel* command to display a one-line usage
 [example]
 ====
 
-mged> *helpdevel winset*::
+mged> **helpdevel winset**::
 Displays a one-line usage message for the *winset* command.
 
 

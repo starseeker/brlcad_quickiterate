@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-sv - Moves the view center to (x, y, z).
+sv - Moves the view center to (_x, y, z_).
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The two examples show the use of the *sv* command to move the view center to a p
 .Keep the view center at the center of the screen.
 [example]
 ====
-mged>*sv 0 0 0*
+mged>**sv 0 0 0**
 
 The view is unchanged.
 
@@ -37,7 +37,7 @@ The view is unchanged.
 .Move the view center half way between the current view center and the right side of the view screen.
 [example]
 ====
-mged>*sv 1024 0 0*
+mged>**sv 1024 0 0**
 
 The view center is moved half way between the current view center and the right side of the view screen.
 

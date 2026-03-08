@@ -98,7 +98,7 @@ number of window frames:  3
 .Single-Line *window_frame* Command
 [example]
 ====
-*window_frame -fwin.frm.g -n3 -H200 -w300 -d20 -r30 -i10*
+**window_frame -fwin.frm.g -n3 -H200 -w300 -d20 -r30 -i10**
 
 ====
 

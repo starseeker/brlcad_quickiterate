@@ -47,7 +47,7 @@ The three examples show the use of the *l* command to display details about a re
 [example]
 ====
 
-mged> *l region1*::
+mged> **l region1**::
 Displays details about region1.
 
 
@@ -57,7 +57,7 @@ Displays details about region1.
 .Display shape parameters for a particular shape.
 [example]
 ====
-mged>*l group1/group2/region1/shape3*
+mged>**l group1/group2/region1/shape3**
 
 Displays shape parameters for _shape3_ with matrices applied from the _path_.
 
@@ -66,7 +66,7 @@ Displays shape parameters for _shape3_ with matrices applied from the _path_.
 .Display all paths that start with a particular designation and end in a primitive shape.
 [example]
 ====
-mged>*l -r a/b*
+mged>**l -r a/b**
 
 Displays all paths that start with a particular designation and end in a primitive shape. Also, the shape parameters with the accumulated transformation applied will be displayed.
 

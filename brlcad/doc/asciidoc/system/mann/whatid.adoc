@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-whatid - Lists the ident number of the specified region.
+whatid - Lists the ident number of the specified _region_.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *whatid* command to list the ident number of a 
 .List the ident number of a specified region.
 [example]
 ====
-mged>*whatid regiona*
+mged>**whatid regiona**
 
 Gets the ident number for regiona.
 

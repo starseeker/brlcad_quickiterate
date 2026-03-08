@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-vquery_ray - Interprets x and y as view coordinates (i.e., +-2047) and converts them to model coordinates (local units) using a value of 2047 for view z before passing them to nirt.
+vquery_ray - Interprets _x_ and _y_ as view coordinates (i.e., +-2047) and converts them to model coordinates (local units) using a value of 2047 for view _z_ before passing them to nirt.
 
 == SYNOPSIS
 
@@ -26,7 +26,7 @@ Interprets _x_ and _y_ as view coordinates (i.e., +-2047) and converts them to m
 .Shoot a ray at 1000 pixels up and centered left/right
 [example]
 ====
-mged>*vquery_ray 0 1000*
+mged>**vquery_ray 0 1000**
 
 Shoots a ray 1000 pixels up from center.
 
@@ -35,7 +35,7 @@ Shoots a ray 1000 pixels up from center.
 .Shoot a ray centered top/bottom and 1000 pixels to the right.
 [example]
 ====
-mged>*vquery_ray 1000 0*
+mged>**vquery_ray 1000 0**
 
 Shoots a ray 1000 pixels to the right of center.
 

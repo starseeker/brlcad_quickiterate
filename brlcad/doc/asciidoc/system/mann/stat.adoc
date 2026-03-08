@@ -84,7 +84,7 @@ Write output to _filename_ instead of the command prompt.
 .Default Output
 [example]
 ====
-*stat **
+**stat ***
 
 
 ....
@@ -110,7 +110,7 @@ Write output to _filename_ instead of the command prompt.
 .Sorting by Size
 [example]
 ====
-*stat -S "size" **
+**stat -S "size" ***
 
 
 ....
@@ -136,7 +136,7 @@ Write output to _filename_ instead of the command prompt.
 .Sorting by Size, Reversed Order
 [example]
 ====
-*stat -S "!size" **
+**stat -S "!size" ***
 
 
 ....
@@ -162,7 +162,7 @@ Write output to _filename_ instead of the command prompt.
 .Filtering by Type
 [example]
 ====
-*stat -F "-type brep" **
+**stat -F "-type brep" ***
 
 
 ....
@@ -181,7 +181,7 @@ Write output to _filename_ instead of the command prompt.
 .Custom Columns
 [example]
 ====
-*stat -C "name,type,size,color" **
+**stat -C "name,type,size,color" ***
 
 
 ....

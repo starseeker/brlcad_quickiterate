@@ -199,7 +199,7 @@ Introduction
 .Simple Full-Color Image
 [example]
 ====
-*rtwizard -i m35.g -c component -o m35.png*
+**rtwizard -i m35.g -c component -o m35.png**
 
 Results in a default color image of the m35 truck object named 'component' with output saved to m35.png
 
@@ -208,7 +208,7 @@ Results in a default color image of the m35 truck object named 'component' with 
 .Simple Line Drawing Image
 [example]
 ====
-*rtwizard -d /dev/wgl -i m35.g -l component*
+**rtwizard -d /dev/wgl -i m35.g -l component**
 
 Results in a line drawing of the m35 truck being display in a Windows-specific OpenGL window instead of saving to a file.
 
@@ -217,7 +217,7 @@ Results in a line drawing of the m35 truck being display in a Windows-specific O
 .Ghost Image with Inserts and Edges
 [example]
 ====
-*rtwizard -i m35.g -c component/power.train -g component -l component*
+**rtwizard -i m35.g -c component/power.train -g component -l component**
 
 Results in a view of the m35 truck highlighting the engine (in color) with the truck being shown as a ghosted, edged background, with output saved to a default rtwizard.pix file.
 
@@ -226,7 +226,7 @@ Results in a view of the m35 truck highlighting the engine (in color) with the t
 .Complex Image with Non-Default View
 [example]
 ====
-*rtwizard -i m35.g -c component/power.train -g component -l component -a -35 -e 15 -z 1.6*
+**rtwizard -i m35.g -c component/power.train -g component -l component -a -35 -e 15 -z 1.6**
 
 Same as the previous image, except viewing the truck from a different direction and zoomed in closer, with output saved to a default rtwizard.pix file.
 
@@ -235,7 +235,7 @@ Same as the previous image, except viewing the truck from a different direction 
 .Multiple Color Objects
 [example]
 ====
-*rtwizard -d /dev/ogl -i m35.g -c component/power.train,component/suspension -z 1.6*
+**rtwizard -d /dev/ogl -i m35.g -c component/power.train,component/suspension -z 1.6**
 
 View the power train and suspension of the truck as color objects in a Mac-/Linux-specific OpenGL window.
 

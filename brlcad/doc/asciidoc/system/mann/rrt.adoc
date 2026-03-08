@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-rrt - Executes the specified program with the provided options and includes the current database name and the list of currently displayed objects on the command line.
+rrt - Executes the specified _program_ with the provided _options_ and includes the current database name and the list of currently displayed objects on the command line.
 
 == SYNOPSIS
 
@@ -36,7 +36,7 @@ The example shows the use of the *rrt* command to execute the specified program 
 .Execute a specified program and list the current database name and currently displayed objects.
 [example]
 ====
-mged>*rrt echo*
+mged>**rrt echo**
 
 Lists the current database name and currently displayed objects.
 

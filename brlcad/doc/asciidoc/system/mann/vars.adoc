@@ -83,7 +83,7 @@ The example shows the use of the *vars* command with an argument.
 .Display the sliders.
 [example]
 ====
-mged>*vars sliders=1*
+mged>**vars sliders=1**
 
 Turns on the _sliders_.
 

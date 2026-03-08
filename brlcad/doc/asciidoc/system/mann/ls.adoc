@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-ls - The command with no object argument lists the name of every object in the database (in alphabetical order) except for those marked as hidden with the hide command. If the object argument is supplied, only those objects are listed.
+ls - The command with no _object_ argument lists the name of every object in the database (in alphabetical order) except for those marked as hidden with the *hide* command. If the object argument is supplied, only those objects are listed.
 
 == SYNOPSIS
 
@@ -42,7 +42,7 @@ The examples show the use of the *ls* command and its options to list objects, p
 [example]
 ====
 
-mged> *ls shape**::
+mged> **ls shape***::
 Lists all objects with names beginning with "shape" (output is formatted).
 
 
@@ -52,7 +52,7 @@ Lists all objects with names beginning with "shape" (output is formatted).
 .List all objects beginning with a particular name.
 [example]
 ====
-mged>*ls -a shape**
+mged>**ls -a shape***
 
 Lists all objects with names beginning with "shape."
 
@@ -61,7 +61,7 @@ Lists all objects with names beginning with "shape."
 .List all primitives beginning with a particular name.
 [example]
 ====
-mged>*ls -p wheel**
+mged>**ls -p wheel***
 
 Lists all primitives with names beginning with "wheel."
 
@@ -70,7 +70,7 @@ Lists all primitives with names beginning with "wheel."
 .List all regions beginning with a particular name.
 [example]
 ====
-mged>*ls -r wheel**
+mged>**ls -r wheel***
 
 Lists all regions with names beginning with "wheel."
 
@@ -79,7 +79,7 @@ Lists all regions with names beginning with "wheel."
 .List all combinations beginning with a particular name.
 [example]
 ====
-mged>*ls -c suspension**
+mged>**ls -c suspension***
 
 Lists all combinations with names beginning with "suspension."
 
@@ -88,7 +88,7 @@ Lists all combinations with names beginning with "suspension."
 .List all regions having particular attributes.
 [example]
 ====
-mged>*ls -A -o -r Comment{First comment} Comment{Second comment}*
+mged>**ls -A -o -r Comment{First comment} Comment{Second comment}**
 
 Lists all regions that have a "Comment" attribute that is set to either "First comment" or "Second comment."
 

@@ -28,7 +28,7 @@ The example shows the use of the *nmg_simplify* command to convert an existing n
 .Convert an existing shape to a polysolid.
 [example]
 ====
-mged>*nmg_simplify poly shapea.poly shapea.nmg*
+mged>**nmg_simplify poly shapea.poly shapea.nmg**
 
 Converts the nmg shape named _shapea.nmg_ to a polysolid named _shapea.poly_.
 

@@ -35,7 +35,7 @@ Alternatively, if more than one _basename_ (filename) argument is supplied on th
 [[example]]
 == EXAMPLE
 
-*pixuntile -s 1024 -S 128 out < in.pix* will read the 1024x1024 file _in.pix_ and place the 128x128 chunks of that file from lower left to upper right in the files _out.0_ through _out.63_.
+**pixuntile -s 1024 -S 128 out < in.pix** will read the 1024x1024 file _in.pix_ and place the 128x128 chunks of that file from lower left to upper right in the files _out.0_ through _out.63_.
 
 
 [[see_also]]

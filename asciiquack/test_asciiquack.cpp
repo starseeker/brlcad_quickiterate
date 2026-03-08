@@ -2145,7 +2145,7 @@ static void test_manpage_backend_bold_italic() {
     std::string out = asciiquack::convert_to_manpage(*doc);
 
     EXPECT_CONTAINS(out, "\\fB");
-    EXPECT_CONTAINS(out, "\\fR");
+    EXPECT_CONTAINS(out, "\\fP");
     EXPECT_CONTAINS(out, "\\fI");
 
     end_test();
@@ -2283,10 +2283,10 @@ static void test_manpage_dlist_no_double_bold() {
     auto doc = asciiquack::Parser::parse_string(src, opts);
     std::string out = asciiquack::convert_to_manpage(*doc);
 
-    // troff_inline converts *bold* to \fB...\fR with single backslashes;
+    // troff_inline converts *bold* to \fB...\fP with single backslashes;
     // troff_escape is no longer applied afterwards (it would double-escape them).
     // The resulting in-memory string for "*-a value*" is:
-    //   \fB\-a value\fR  (single backslashes throughout)
+    //   \fB\-a value\fP  (single backslashes throughout)
     //
     // The old bug (before the fix) wrapped the already-formatted term in an
     // extra \fB...\fR, producing \fB\\fB\-a value\\fR\fR.  Verify that
@@ -2294,14 +2294,14 @@ static void test_manpage_dlist_no_double_bold() {
     EXPECT(out.find("\\fB\\fB") == std::string::npos);
 
     // The term line for the explicitly-bolded term must be present.
-    // In-memory the sequence is: \fB\-a value\fR
-    // As a C++ literal that is "\\fB\\-a value\\fR".
-    EXPECT_CONTAINS(out, "\\fB\\-a value\\fR");
+    // In-memory the sequence is: \fB\-a value\fP
+    // As a C++ literal that is "\\fB\\-a value\\fP".
+    EXPECT_CONTAINS(out, "\\fB\\-a value\\fP");
 
     // Plain term must be auto-bolded.  escape_plain converts '-' to '\-', so
-    // the .TP term line is \fBplain\-term\fR.
-    // As a C++ literal: "\\fBplain\\-term\\fR".
-    EXPECT_CONTAINS(out, "\\fBplain\\-term\\fR");
+    // the .TP term line is \fBplain\-term\fP.
+    // As a C++ literal: "\\fBplain\\-term\\fP".
+    EXPECT_CONTAINS(out, "\\fBplain\\-term\\fP");
 
     end_test();
 }
@@ -5240,6 +5240,149 @@ static void test_html_text_immediately_before_inline() {
     end_test();
 }
 
+// ── New tests: \fP font-restore and constrained bold boundary rules ─────────
+
+static void test_manpage_fp_font_restore() {
+    // Inline spans must close with \fP (restore previous font) not \fR (roman)
+    // so that e.g. italic inside a bold title correctly returns to bold.
+    begin_test("manpage: inline spans use \\fP (restore) not \\fR (roman)");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "Use *bold* and _italic_ and `mono` text.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // All closing escapes must be \fP, never \fR, in inline spans
+    EXPECT_CONTAINS(out, "\\fB");
+    EXPECT_CONTAINS(out, "\\fI");
+    EXPECT_CONTAINS(out, "\\fP");
+
+    // \fR must not appear as a closing span (only \fP should close spans)
+    // This check covers the generated inline markup section
+    EXPECT(out.find("bold\\fR") == std::string::npos);
+    EXPECT(out.find("italic\\fR") == std::string::npos);
+    EXPECT(out.find("mono\\fR") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_constrained_bold_gt_boundary() {
+    // '>' immediately before '*' must NOT trigger constrained bold,
+    // matching asciidoctor's behaviour (> becomes &gt; with trailing ';'
+    // which is excluded from the boundary character set).
+    begin_test("manpage: 'cmd>*text*' does NOT produce bold (> is not a boundary char)");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "mged>*ae -90 90*\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The *ae -90 90* should NOT be parsed as bold (> is invalid boundary char)
+    // The asterisks should appear as literal characters in the output
+    EXPECT_CONTAINS(out, "mged>*ae");
+    EXPECT(out.find("mged>\\fB") == std::string::npos);
+
+    end_test();
+}
+
+static void test_manpage_unconstrained_bold_gt_boundary() {
+    // Unconstrained bold (**...**) must work regardless of boundary chars.
+    // This is how db2adoc.xsl now emits <userinput> content.
+    begin_test("manpage: 'cmd>**text**' produces bold (unconstrained form)");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "mged>**ae -90 90**\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The **ae -90 90** should be rendered as bold (unconstrained form)
+    EXPECT_CONTAINS(out, "mged>\\fBae");
+
+    end_test();
+}
+
+static void test_manpage_nested_bold_fp_restore() {
+    // Bold-in-bold: nested *Z* inside an already-bold example title.
+    // With \fP (restore), "to clear" should remain in the enclosing bold
+    // context rather than reverting to roman after the inner \fBZ\fP.
+    begin_test("manpage: nested bold inside bold title uses \\fP to restore outer bold");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        ".Enter *Z* to clear the _mged_ display.\n"
+        "[example]\n"
+        "====\n"
+        "mged> Z\n"
+        "====\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Example title: the outer \fB closes with \fP, inner spans also use \fP
+    // "\fBZ\fP to clear the \fImged\fP display.\fP"
+    EXPECT_CONTAINS(out, "\\fBZ\\fP");
+    EXPECT_CONTAINS(out, "\\fImged\\fP");
+    // No \fR closings from inline spans
+    EXPECT(out.find("\\fBZ\\fR") == std::string::npos);
+    EXPECT(out.find("\\fImged\\fR") == std::string::npos);
+
+    end_test();
+}
+
 
 int main(int argc, char* argv[]) {
     // Check for -v flag
@@ -5490,6 +5633,10 @@ int main(int argc, char* argv[]) {
     test_html_nested_ordered_list();
     test_html_adjacent_inline_space_between();
     test_html_text_immediately_before_inline();
+    test_manpage_fp_font_restore();
+    test_manpage_constrained_bold_gt_boundary();
+    test_manpage_unconstrained_bold_gt_boundary();
+    test_manpage_nested_bold_fp_restore();
 
     // Summary
     std::cout << "\n============================\n";

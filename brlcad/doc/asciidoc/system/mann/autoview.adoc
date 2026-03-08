@@ -27,7 +27,7 @@ Resets the view size and the view center such that all displayed objects are wit
 [example]
 ====
 
-mged> *autoview*::
+mged> **autoview**::
 The view resets so that all objects displayed can be seen.
 
 

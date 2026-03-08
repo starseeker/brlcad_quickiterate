@@ -28,7 +28,7 @@ The example shows the use of the *debugnmg* with a hex code argument to set the 
 .Using the hex code argument to set the NMG debug flag value.
 [example]
 ====
-mged>*debugnmg 100*
+mged>**debugnmg 100**
 
 Sets the _NMG_ debug flag to get details on the classification process.
 

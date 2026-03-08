@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-ev - Evaluates the objects specified by tessellating all primitive shapes in the objects and then performing any Boolean operations specified in the objects. The result is then displayed in the MGED display according to specified options.
+ev - Evaluates the _objects_ specified by tessellating all primitive shapes in the objects and then performing any Boolean operations specified in the _objects_. The result is then displayed in the MGED display according to specified options.
 
 == SYNOPSIS
 
@@ -44,7 +44,7 @@ The first example shows the use of the *ev* command to display two evaluated obj
 [example]
 ====
 
-mged> *ev region1 shapea*::
+mged> **ev region1 shapea**::
 Displays evaluated _region1_ and _shapea_ as shaded polygons.
 
 
@@ -54,7 +54,7 @@ Displays evaluated _region1_ and _shapea_ as shaded polygons.
 .Display an evaluated object as wireframe without triangulation.
 [example]
 ====
-mged>*ev -wT region1*
+mged>**ev -wT region1**
 
 Displays an evaluated object, _region1_, as wireframe without triangulation.
 

@@ -28,7 +28,7 @@ The example shows the use of the command *comb_color* to assign a specific color
 .Assign a color to a specific region.
 [example]
 ====
-mged>*comb_color region.r 0 255 0*
+mged>**comb_color region.r 0 255 0**
 
 Assigns the color green to _region.r_.
 

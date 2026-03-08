@@ -28,7 +28,7 @@ The example shows the use of the *putmat* command to set the transformation matr
 .Set the transformation matrix for a specified region in a specified group to the identity matrix.
 [example]
 ====
-mged>*putmat group1/regiona I*
+mged>**putmat group1/regiona I**
 
 Sets the transformation matrix for _regiona_ in _group1_ to the identity matrix.
 

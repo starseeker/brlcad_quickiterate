@@ -28,7 +28,7 @@ The two examples show the use of the *release* command to close either the curre
 .Close the current display manager.
 [example]
 ====
-mged>*release*
+mged>**release**
 
 Closes the current display manager.
 
@@ -37,7 +37,7 @@ Closes the current display manager.
 .Close a specified display manager.
 [example]
 ====
-mged>*release .dm_X0*
+mged>**release .dm_X0**
 
 Closes __.dm_X0__.
 

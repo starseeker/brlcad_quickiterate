@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-rtedge - Executes the BRL-CAD rtedge program with the default options of "-s512 -M."
+rtedge - Executes the BRL-CAD _rtedge_ program with the default options of "-s512 -M."
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The first example shows the use of the *rtedge* command to run the _rtedge_ prog
 .Run the _rtedge_ program to produce an edge image of the current view in MGED.
 [example]
 ====
-mged>*rtedge -s1024*
+mged>**rtedge -s1024**
 
 Runs the _rtedge_ program to produce an edge image of the current view in the MGED display. The image will be white lines on a black background and will be 1024 pixels square.
 
@@ -37,7 +37,7 @@ Runs the _rtedge_ program to produce an edge image of the current view in the MG
 .Run the _rtedge_ program to produce an edge image with black lines on a white background.
 [example]
 ====
-mged>*rt -W*
+mged>**rt -W**
 
 Runs the _rtedge_ program to produce an edge image of the currently drawn objects using MGED's current viewing parameters. The image will have black lines on a white background.
 

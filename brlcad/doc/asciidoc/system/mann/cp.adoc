@@ -28,7 +28,7 @@ The example shows the use of the command *cp* to duplicate a combination.
 .Duplicate a combination.
 [example]
 ====
-mged>*cp comb1 comb2*
+mged>**cp comb1 comb2**
 
 Duplicate combination comb1 and call it comb2.
 

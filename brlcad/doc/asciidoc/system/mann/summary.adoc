@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-summary - The summary command with no arguments lists the number of primitive shapes, regions, and nonregion combinations in the current database.
+summary - The *summary* command with no arguments lists the number of primitive shapes, regions, and nonregion combinations in the current database.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *summary* command with an argument to list a su
 .List a summary of primitive shapes and regions for the current database.
 [example]
 ====
-mged>*summary pr*
+mged>**summary pr**
 
 Lists a summary of primitive shapes and regions for the current database.
 

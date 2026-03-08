@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED Commands
 
 == NAME
-tol - Used with no arguments, tol lists the current tolerance settings.
+tol - Used with no arguments, *tol* lists the current tolerance settings.
 
 == SYNOPSIS
 
@@ -41,7 +41,7 @@ The example shows the use of the *tol* command to set the relative and perpendic
 .Set the relative and perpendicularity tolerances.
 [example]
 ====
-mged>*tol rel .05 perp 1e-6*
+mged>**tol rel .05 perp 1e-6**
 
 Sets the _relative_ tolerance to 5% and the _perpendicularity_ tolerance to 1e-06 (cosine of 89.9999°).
 

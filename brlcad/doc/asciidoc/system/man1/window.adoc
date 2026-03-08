@@ -91,7 +91,7 @@ number of windows:  3
 .Single-Line *window* Command
 [example]
 ====
-*window -fwindow.g -n3 -H200 -w300 -d20 -r30*
+**window -fwindow.g -n3 -H200 -w300 -d20 -r30**
 
 ====
 

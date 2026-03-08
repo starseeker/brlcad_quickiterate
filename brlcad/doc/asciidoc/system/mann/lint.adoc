@@ -52,7 +52,7 @@ Apply search command style filters to the set of objects to be tested. Allows, (
 .Examine entire database for all defect categories (using lint_tests.g from BRL-CAD repository)
 [example]
 ====
-mged>*lint*
+mged>**lint**
 
 
 ....
@@ -80,7 +80,7 @@ Found invalid objects:
 .Check the validity of a single geometry object (using lint_tests.g from BRL-CAD repository)
 [example]
 ====
-mged>*lint -I nonsolid.bot*
+mged>**lint -I nonsolid.bot**
 
 
 ....
@@ -98,7 +98,7 @@ Found invalid objects:
 .Examine all non-BoT objects in the database matching the name pattern "*_1.*" for invalidity (using VIA OpenBook part d STEP conversion)
 [example]
 ====
-mged>*lint -F "! -type bot -name *_1.*"*
+mged>**lint -F "! -type bot -name *_1.*"**
 
 
 ....
@@ -124,7 +124,7 @@ Found invalid objects:
 .Test for empty bots (using havoc model facetized with -r option)
 [example]
 ====
-mged>*lint -I bot:empty havoc.bot*
+mged>**lint -I bot:empty havoc.bot**
 
 
 ....

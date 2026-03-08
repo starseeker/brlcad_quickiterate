@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-bot_decimate - Reduces the number of triangles in the old_bot_primitive and saves the results to the new_bot_primitive.
+bot_decimate - Reduces the number of triangles in the __old_bot_primitive__ and saves the results to the __new_bot_primitive__.
 
 == SYNOPSIS
 
@@ -31,27 +31,27 @@ These examples demonstrate the use of the *bot_decimate* command to create new p
 Creating a new BOT primitive by reducing the number of triangles in the old BOT primitive and specifying the maximum chord error and maximum normal error between the old and new primitives.
 
 
-mged> *bot_decimate -c 0.5 -n 10.0 bot.new abot*::
+mged> **bot_decimate -c 0.5 -n 10.0 bot.new abot**::
 Creates a new BOT primitive named _bot.new_ by reducing the number of triangles in _abot_ while keeping the resulting surface within 0.5 units of the surface of _abot_ and keeping the surface normals within 10 degrees.
 +
 Note that the constraints specified only relate the output BOT primitive to the input BOT primitive for a single invocation of the command. Repeated application of this command on its own BOT output will result in a final BOT primitive that has unknown relationships to the original BOT primitive. For example:
 
 
-mged> *bot_decimate -c 10.0 bot_b bot_a*::
+mged> **bot_decimate -c 10.0 bot_b bot_a**::
 
 
 
-mged> *bot_decimate -c 10.0 bot_c bot_b*::
+mged> **bot_decimate -c 10.0 bot_c bot_b**::
 
 +
 This sequence of commands will produce primitive __bot_c__ with up to 20.0 units of chord error between __bot_a__ and __bot_c__.
 
 
-mged> *bot_decimate -c 10.0 bot_b bot_a*::
+mged> **bot_decimate -c 10.0 bot_b bot_a**::
 
 
 
-mged> *bot_decimate -n 5.0 bot_c bot_b*::
+mged> **bot_decimate -n 5.0 bot_c bot_b**::
 
 +
 This sequence of commands will produce primitive __bot_c__ with no guaranteed relationships to __bot_a__.

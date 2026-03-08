@@ -206,7 +206,7 @@ Sets the librt(3) debug flags to the given hexadecimal bit vector. See raytrace.
 .Calculate exposed and presented surface areas
 [example]
 ====
-mged>*rtarea*
+mged>**rtarea**
 
 Calculate exposed and presented surface areas of the displayed objects using current azimuth, elevation and size. Results are reported in current editing units.
 
@@ -215,7 +215,7 @@ Calculate exposed and presented surface areas of the displayed objects using cur
 .Calculate exposed, presented and centers of surface areas
 [example]
 ====
-mged>*rtarea -c "set cc=1"*
+mged>**rtarea -c "set cc=1"**
 
 Calculate exposed, presented and centers of surface areas of the displayed objects using current azimuth, elevation and size. Results are reported in current editing units.
 
@@ -224,11 +224,11 @@ Calculate exposed, presented and centers of surface areas of the displayed objec
 .Calculate exposed and presented surface areas (results in inches)
 [example]
 ====
-mged>*units in*
+mged>**units in**
 
 Set current editing units to inches.
 
-mged>*rtarea*
+mged>**rtarea**
 
 Calculate exposed and presented surface areas of the displayed objects using current azimuth, elevation and size. Results reported in inches.
 
@@ -237,7 +237,7 @@ Calculate exposed and presented surface areas of the displayed objects using cur
 .Calculate exposed and presented surface areas (az=35, el=25, auto-size)
 [example]
 ====
-mged>*rtarea -a35 -e25*
+mged>**rtarea -a35 -e25**
 
 Calculate exposed and presented surface areas of the displayed objects using azimuth 35, elevation 25 and size auto-set for best fit. Results reported in current editing units.
 
@@ -246,7 +246,7 @@ Calculate exposed and presented surface areas of the displayed objects using azi
 .Calculate exposed and presented surface areas (1x1 inch grid cells)
 [example]
 ====
-mged>*rtarea -g25.4*
+mged>**rtarea -g25.4**
 
 Calculate exposed and presented surface areas of the displayed objects using current azimuth, elevation and size. The grid cell width and height is 25.4 millimeters (i.e. 1 inch). Results reported in current editing units.
 

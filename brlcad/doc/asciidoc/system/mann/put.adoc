@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-put - mged command which creates a new object of indicated type with supplied attributes. Similar to the in command, but without prompting - making it especially useful for scripting.
+put - _mged_ command which creates a new object of indicated type with supplied attributes. Similar to the *in* command, but without prompting - making it especially useful for scripting.
 
 == SYNOPSIS
 
@@ -73,7 +73,7 @@ The following are run from the MGED command prompt.
 [example]
 ====
 
-mged> *put ball sph V {0 0 0} A {100 0 0} B {0 100 0} C {0 0 100}*::
+mged> **put ball sph V {0 0 0} A {100 0 0} B {0 100 0} C {0 0 100}**::
 Creates a sphere named "ball", centered at (0,0,0), and with radius 100
 
 

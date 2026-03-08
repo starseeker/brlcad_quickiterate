@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-idents - Places a summary of the regions in the list of objects specified in the file specified.
+idents - Places a summary of the regions in the list of _objects_ specified in the file specified.
 
 == SYNOPSIS
 
@@ -29,7 +29,7 @@ The example shows the use of the *idents* command to create a file that will lis
 [example]
 ====
 
-mged> *idents regions_file group1 group2 region3*::
+mged> **idents regions_file group1 group2 region3**::
 Creates a file named __regions_file__ and lists all the regions in _group1, group2,_ and _region3_ in the file.
 
 

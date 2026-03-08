@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-db_glob - Globs cmd_string against the MGED database resulting in an expanded command string.
+db_glob - Globs __cmd_string__ against the MGED database resulting in an expanded command string.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *db_glob* command to return an expanded command
 .Return an expanded command string to list specified objects.
 [example]
 ====
-mged>*db_glob "l r23\[0-9\]"*
+mged>**db_glob "l r23\[0-9\]"**
 
 Returns a command string to list objects r230 through r239.
 

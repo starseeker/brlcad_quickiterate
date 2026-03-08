@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-prj_add - Appends information to the specified shaderfile.
+prj_add - Appends information to the specified _shaderfile_.
 
 == SYNOPSIS
 

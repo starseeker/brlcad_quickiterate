@@ -29,7 +29,7 @@ The example demonstrates how to use the *build_region* command to build a region
 [example]
 ====
 
-mged> *build_region abc 1 2*::
+mged> **build_region abc 1 2**::
 Creates a region named "abc.r1" consisting of:
 
 

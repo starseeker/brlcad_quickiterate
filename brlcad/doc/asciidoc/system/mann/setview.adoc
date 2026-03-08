@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-setview - Sets the current view in MGED by specifying rotation angles (in degrees) about the x, y, and z axes.
+setview - Sets the current view in MGED by specifying rotation angles (in degrees) about the _x, y,_ and _z_ axes.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *setview* command to set the current view accor
 .Set the current view in MGED.
 [example]
 ====
-mged>*setview 90 180 90*
+mged>**setview 90 180 90**
 
 Sets the current view to that set by *ae 0 0*.
 

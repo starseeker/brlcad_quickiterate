@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD MGED User Commands
 
 == NAME
-brep - The brep command is the primary means in BRL-CAD for working with NURBS boundary representation objects (a.k.a brep objects). Because there is a large amount of functionality implemented for this purpose, the brep command defines subcommands to organize these capabilities.
+brep - The *brep* command is the primary means in BRL-CAD for working with NURBS boundary representation objects (a.k.a brep objects). Because there is a large amount of functionality implemented for this purpose, the *brep* command defines subcommands to organize these capabilities.
 
 == SYNOPSIS
 

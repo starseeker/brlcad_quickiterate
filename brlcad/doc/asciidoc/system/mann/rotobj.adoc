@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-rotobj - Rotates the currently edited object by z angle degrees about the z direction, y angle degrees about the y direction, and x angle degrees about the x direction in that order.
+rotobj - Rotates the currently edited object by _z_ angle degrees about the _z_ direction, _y_ angle degrees about the _y_ direction, and _x_ angle degrees about the _x_ direction in that order.
 
 == SYNOPSIS
 
@@ -28,7 +28,7 @@ The example shows the use of the *rotobj* command to rotate the currently edited
 .Rotate the current object by a specified number of degrees in the _x, y,_ and _z_ directions.
 [example]
 ====
-mged>*rotobj 0 0 25*
+mged>**rotobj 0 0 25**
 
 Rotates the currently edited object by 25° about the _z_ direction from the original orientation.
 

@@ -4,7 +4,7 @@
 :manmanual: BRL-CAD User Commands
 
 == NAME
-mvall - Changes the name of old_name to new_name wherever it occurs in the database.
+mvall - Changes the name of __old_name__ to __new_name__ wherever it occurs in the database.
 
 == SYNOPSIS
 
@@ -26,7 +26,7 @@ Changes the name of __old_name__ to __new_name__. This will also change any refe
 .Change the name of an object everywhere it occurs in the database.
 [example]
 ====
-mged>*mvall shapea shapeb*
+mged>**mvall shapea shapeb**
 
 Changes the name of _shapea_ to _shapeb_ everywhere it occurs in the database.
 
