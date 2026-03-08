@@ -111,7 +111,7 @@ La palabra "sólido" fue utilizada históricamente para referirse a las figuras 
 
 Para este ejemplo, crearemos una esfera simple. Hay dos maneras de crear una figura primitiva: por comando o por entorno gráfico.
 
-Puede fácilmente crear la esfera desde la terminal con sólo unos pocos comandos. En la terminal de _MGED_ tipee: *make sph1.s sph [ENTER] [Nota: Use el dígito 1, no la letra l].*
+Puede fácilmente crear la esfera desde la terminal con sólo unos pocos comandos. En la terminal de _MGED_ tipee: *make sph1.s sph [ENTER] [Nota: Use el dígito 1, no la letra l].* 
 
 Este comando le dice al programa _MGED_:
 
