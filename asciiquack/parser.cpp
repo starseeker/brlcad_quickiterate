@@ -1168,6 +1168,17 @@ bool Parser::parse_next_block(Reader& reader, Block& parent) {
         return true;
     }
 
+    // ── Orphaned list-continuation marker '+' ─────────────────────────────────
+    // A lone '+' at the section/document level (outside a list item's
+    // collect_item loop) is an AsciiDoc list-continuation marker that has no
+    // attached list item – typically because blank lines separate it from the
+    // preceding dlist entry.  Consume it silently to prevent an infinite loop
+    // where parse_paragraph immediately returns nullptr each iteration.
+    if (line == "+") {
+        reader.skip_line();
+        return true;
+    }
+
     // ── Thematic break ────────────────────────────────────────────────────────
     if (is_thematic_break(line)) {
         reader.skip_line();
@@ -1524,6 +1535,10 @@ BlockPtr Parser::parse_paragraph(
         if (is_line_comment(line)) { reader.skip_line(); break; }
         if (section_level(line) >= 0) { break; }
         if (classify_delimiter(line)) { break; }
+        // A standalone '+' on its own line is an AsciiDoc list-continuation
+        // marker.  It must NOT be consumed as paragraph text; the list-item
+        // collector that invoked parse_next_block() will handle it.
+        if (line == "+") { break; }
         if (match_block_image(line))  { break; }
         if (match_list_item(line))    { break; }
         if (line.rfind("|===", 0) == 0) { break; }
@@ -1678,6 +1693,11 @@ std::shared_ptr<List> Parser::parse_list(
 
         // Collect simple text continuation lines
         std::string src = lm->text;
+        // Track whether item->set_source() has already been called.  After the
+        // first continuation block, any further plain-text lines must be emitted
+        // as child Paragraph blocks rather than via a second set_source() call
+        // (which would overwrite the first source).
+        bool source_set = false;
 
         while (reader.has_more_lines()) {
             auto peeked = reader.peek_line();
@@ -1698,6 +1718,7 @@ std::shared_ptr<List> Parser::parse_list(
                 if (!src.empty()) {
                     item->set_source(src);
                     src.clear();
+                    source_set = true;
                 }
                 // Skip blank lines before the next attached block
                 reader.skip_blank_lines();
@@ -1731,6 +1752,9 @@ std::shared_ptr<List> Parser::parse_list(
             // A same-type list item with a DEEPER marker creates a nested
             // (sub-)list attached to this item.  A SHALLOWER marker ends
             // this item so it can be processed by the parent list context.
+            // A DIFFERENT-TYPE list item (e.g. an ordered list inside a dlist
+            // body) is attached to this item as an implicit continuation block,
+            // without requiring an explicit '+' marker.
             if (auto nm = match_list_item(nxt)) {
                 if (nm->type == list_type) {
                     int root_level = list_marker_level(list_type, root_marker);
@@ -1751,13 +1775,83 @@ std::shared_ptr<List> Parser::parse_list(
                         break;
                     }
                     // Same level handled above (root_marker check)
+                } else {
+                    // Different-type list (e.g. ordered list immediately after
+                    // a dlist body, without an explicit '+').  Attach it as an
+                    // implicit continuation block of this item.
+                    if (!src.empty()) {
+                        item->set_source(src);
+                        src.clear();
+                    }
+                    parse_next_block(reader, *item);
+                    reader.skip_blank_lines();
+                    continue;
+                }
+            }
+
+            // A DIFFERENT-TYPE list item (e.g. an ordered list inside a dlist
+            // body) is attached to this item as an implicit continuation block,
+            // without requiring an explicit '+' marker.
+            if (auto nm = match_list_item(nxt)) {
+                if (nm->type == list_type) {
+                    int root_level = list_marker_level(list_type, root_marker);
+                    int next_level = list_marker_level(list_type, nm->marker);
+                    if (next_level > root_level) {
+                        // Set source so far before parsing the sub-list
+                        if (!src.empty()) {
+                            item->set_source(src);
+                            src.clear();
+                            source_set = true;
+                        }
+                        std::unordered_map<std::string, std::string> sub_attrs;
+                        auto sub_list = parse_list(reader, *item,
+                                                   list_type, nxt, sub_attrs);
+                        if (sub_list) { item->append(sub_list); }
+                        continue;
+                    } else if (next_level < root_level) {
+                        // Shallower item – return to parent
+                        break;
+                    }
+                    // Same level handled above (root_marker check)
+                } else {
+                    // Different-type list (e.g. ordered list immediately after
+                    // a dlist body, without an explicit '+').  Attach it as an
+                    // implicit continuation block of this item.
+                    if (!src.empty()) {
+                        item->set_source(src);
+                        src.clear();
+                        source_set = true;
+                    }
+                    parse_next_block(reader, *item);
+                    reader.skip_blank_lines();
+                    continue;
                 }
             }
 
             // Otherwise it's simple text continuation
             reader.skip_line();
-            if (!src.empty()) { src += ' '; }
-            src += nxt;
+            if (source_set) {
+                // Source was already committed; add subsequent text as a child Para
+                auto child = std::make_shared<Block>(
+                    BlockContext::Paragraph, item.get(), ContentModel::Simple);
+                child->set_source(nxt);
+                // Accumulate further lines into this child paragraph
+                while (reader.has_more_lines()) {
+                    auto np = reader.peek_line();
+                    if (!np) { break; }
+                    std::string nl{*np};
+                    if (is_blank(nl) || nl == "+" || classify_delimiter(nl).has_value() ||
+                        match_list_item(nl)) {
+                        break;
+                    }
+                    reader.skip_line();
+                    child->set_source(child->source() + ' ' + nl);
+                }
+                item->append(child);
+            } else {
+                if (!src.empty()) { src += ' '; }
+                src += nxt;
+            }
         }
 
         if (!src.empty()) {
