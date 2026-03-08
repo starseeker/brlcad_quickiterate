@@ -86,14 +86,21 @@ The new image is substantially different in appearance from the original image. 
 
 Remember that when using these options, the combined value of both options should be less than 1.0. The following table shows you just some of the many possible combinations you could use:
 
+[cols="2*"]
 |===
-|Transparency Value |Mirror Reflectance Value 
+|Transparency Value
+|Mirror Reflectance Value
 
-|.50 |.49 
-|.35 |.64 
-|.20 |.57 
-|.10 |.89 
-|.89 |.10 
+|.50
+|.49
+|.35
+|.64
+|.20
+|.57
+|.10
+|.89
+|.89
+|.10
 |===
 
 
@@ -105,7 +112,3 @@ In this lesson, you:
 * Assigned colors and the plastic shader to regions of the goblet.
 * Used the transparency and mirror reflectance options of the shader.
 * Raytraced various forms of your goblet.
-
-
-
-

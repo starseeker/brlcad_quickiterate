@@ -18,15 +18,23 @@ icv [-h] [-i<file>] [--input-format<fmt>] [-o<file>] [--output-format<fmt>] [-w<
 == DESCRIPTION
 
 *icv* is a tool to convert images to and from a variety of image formats. Currently support formats include: .Supported ICV Image Formats
+[cols="2*"]
 |===
-|Format |Extension 
+|Format
+|Extension
 
-|PIX - pixel sequence of R/G/B values stored as unsigned chars. |pix 
-|Double PIX - double precision pixel sequence |dpix 
-|Portable Network Graphics |png 
-|PPM - "lowest common denominator" Netbpm color iamge format |ppm 
-|BW - black and white image data |bw 
-|(TODO) Utah Raster Toolkit Run-Length Encoded (RLE) |rle 
+|PIX - pixel sequence of R/G/B values stored as unsigned chars.
+|pix
+|Double PIX - double precision pixel sequence
+|dpix
+|Portable Network Graphics
+|png
+|PPM - "lowest common denominator" Netbpm color iamge format
+|ppm
+|BW - black and white image data
+|bw
+|(TODO) Utah Raster Toolkit Run-Length Encoded (RLE)
+|rle
 |===
 
 
@@ -101,5 +109,3 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

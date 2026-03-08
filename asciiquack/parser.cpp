@@ -1916,12 +1916,29 @@ std::shared_ptr<Table> Parser::parse_table(
 
     auto tbl = std::make_shared<Table>(&parent);
 
-    // Check for header option in pending_attrs
-    bool has_header = false;
+    // Check for header / noheader option in pending_attrs.
+    // AsciiDoc supports two equivalent syntaxes:
+    //   [options="header"]  or  [%header]   → explicit header row
+    //   [options="noheader"] or [%noheader] → no header row (also suppresses
+    //                                         automatic header detection)
+    bool has_header  = false;
+    bool no_header   = false;
     auto opt_it = pending_attrs.find("options");
-    if (opt_it != pending_attrs.end() &&
-        opt_it->second.find("header") != std::string::npos) {
-        has_header = true;
+    if (opt_it != pending_attrs.end()) {
+        if (opt_it->second.find("noheader") != std::string::npos) {
+            no_header = true;
+        } else if (opt_it->second.find("header") != std::string::npos) {
+            has_header = true;
+        }
+    }
+    // Also handle the [%noheader] / [%header] short-hand (stored as "1").
+    auto role_it = pending_attrs.find("1");
+    if (role_it != pending_attrs.end()) {
+        if (role_it->second == "%noheader") {
+            no_header = true;
+        } else if (role_it->second == "%header") {
+            has_header = true;
+        }
     }
     // "cols" attribute for column specs
     auto cols_it = pending_attrs.find("cols");
@@ -2018,7 +2035,8 @@ std::shared_ptr<Table> Parser::parse_table(
     // Auto-detect implicit header: a blank line immediately following the first
     // group of row lines signals that those rows are the header, matching the
     // upstream Asciidoctor Ruby converter behaviour.
-    if (!has_header) {
+    // [%noheader] / [options="noheader"] suppresses this auto-detection.
+    if (!has_header && !no_header) {
         bool seen_row = false;
         for (const auto& ln : raw_lines) {
             if (is_table_cell_line(ln)) {
@@ -2052,6 +2070,20 @@ std::shared_ptr<Table> Parser::parse_table(
     // (each cell contributes cell.colspan logical columns).  The blank line
     // separates the header group from the body.
     //
+    // Multi-line cell content is supported: lines that do not start a new
+    // cell (i.e. are not cell-start lines) are appended to the source of
+    // the last open cell, separated by a single space.  This handles the
+    // common case where the DocBook-to-AsciiDoc XSL emits each entry on
+    // its own line followed by continuation lines for block-level content
+    // (inline images, extra paragraphs, etc.).
+    //
+    // Blank line semantics:
+    //   - A blank line that arrives when there is no pending partial row
+    //     (pending.empty()) ends the header group (header/body separator).
+    //   - A blank line that arrives in the middle of a row (pending not
+    //     empty, pending_cols < ncols) is treated as whitespace within the
+    //     last open cell – it does NOT commit the row or end the header.
+    //
     // Cell spec prefixes like "N+|" (colspan N), ".N+|" (rowspan N),
     // "N.M+|" (colspan N, rowspan M) are parsed and stored on the cell.
     //
@@ -2076,12 +2108,28 @@ std::shared_ptr<Table> Parser::parse_table(
 
     for (const auto& row_line : raw_lines) {
         if (is_blank(row_line)) {
-            // A blank line ends the header group and flushes any partial row.
-            commit_row();
-            in_header_group = false;
+            if (pending.empty()) {
+                // Blank line between complete rows: end the header group.
+                in_header_group = false;
+            }
+            // Blank lines within a partial row are silently absorbed;
+            // they do not commit the row or change the header group state.
             continue;
         }
-        if (!is_table_cell_line(row_line)) { continue; }
+        if (!is_table_cell_line(row_line)) {
+            // Continuation line (not a cell-start line): append its text to
+            // the last open cell so that multi-line cell content is preserved.
+            if (!pending.empty()) {
+                auto& last = pending.back();
+                std::string src = last->source();
+                if (!src.empty()) { src += ' '; }
+                std::string cont = row_line;
+                trim(cont);
+                src += cont;
+                last->set_source(src);
+            }
+            continue;
+        }
 
         // Parse all cell boundaries on this line.
         auto bounds = split_table_row_cells(row_line);

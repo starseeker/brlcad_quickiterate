@@ -574,5 +574,3 @@ Table IV presents a summary of parameter editing for each of the general solid c
 == CONCLUSION
 
 BRL has developed the Army's first interactive solid modeling system, called GED. GED performs two basic functions: viewing and editing. The standard viewing capabilities of zooming, slewing, slicing, and rotation are available. Likewise, all the standard editing features are also available. The user easily traverses the hierarchical data structure, applying the editing functions of rotation, translation, and scaling to any position in the hierarchy. The hierarchical structure can be modified and regrouped and regions created and modified. Specific parameter editing can also be applied to the solids to produce any shape solid desired. GED has made great gains in reducing the bottleneck the target description process has been creating in the vulnerability process at BRL.
-
-

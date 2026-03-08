@@ -27,10 +27,15 @@ To begin making the body, you will need to create an outside right circular cyli
 
 The diagram of this command is as follows:
 
+[cols="3*"]
+[%noheader]
 |===
-
-|in |bodyout.s |rcc 
-|Make a shape |Call it bodyout.s |The shape type is right circular cylinder 
+|in
+|bodyout.s
+|rcc
+|Make a shape
+|Call it bodyout.s
+|The shape type is right circular cylinder
 |===
 
 _MGED_ will ask you the following questions about the cylinder you want to make. Type in the values given in bold. Make sure you leave spaces between variable values. *Enter X, Y, Z of vertex: 0 0 0[Enter]**Enter X, Y, Z of height (H) vector: 0 0 3.5[Enter]**Enter radius: 1.75[Enter]*
@@ -39,10 +44,21 @@ Note that the streamlined way to do this would be to type: *in bodyout.s rcc 0 0
 
 The diagram of this command is as follows:
 
+[cols="6*"]
+[%noheader]
 |===
-
-|in |bodyout.s |rcc |0 0 0 |0 0 3.5 |1.75 
-|Make a shape |Call it bodyout.s |The shape type is right circular cylinder |The x, y, and z of vertex is 0 0 0 |The x, y, and z of the height vector is 0 0 3.5 |The radius is 1.75 
+|in
+|bodyout.s
+|rcc
+|0 0 0
+|0 0 3.5
+|1.75
+|Make a shape
+|Call it bodyout.s
+|The shape type is right circular cylinder
+|The x, y, and z of vertex is 0 0 0
+|The x, y, and z of the height vector is 0 0 3.5
+|The radius is 1.75
 |===
 
 A shape of a cylinder, in wireframe form, will appear in the Graphics Window.
@@ -55,10 +71,21 @@ Using this same method, type in the information for the inside right circular cy
 
 The diagram of this command is:
 
+[cols="6*"]
+[%noheader]
 |===
-
-|in |bodyin.s |rcc |0 0 0.25 |0 0 3.5 |1.5 
-|Make a shape |Call it bodyin.s |The shape type is right circular cylinder |The x, y, and z of vertex is 0, 0, and 0.25 |The x, y, and z of the height vector is 0, 0, and 3.5 |The radius is 1.5 
+|in
+|bodyin.s
+|rcc
+|0 0 0.25
+|0 0 3.5
+|1.5
+|Make a shape
+|Call it bodyin.s
+|The shape type is right circular cylinder
+|The x, y, and z of vertex is 0, 0, and 0.25
+|The x, y, and z of the height vector is 0, 0, and 3.5
+|The radius is 1.5
 |===
 
 A second cylinder, inside the first cylinder, should now appear in the Graphics Window.
@@ -71,10 +98,19 @@ Now you will want to enter some information about the body's handle. The shape t
 
 The diagram of this command is:
 
+[cols="5*"]
+[%noheader]
 |===
-
-|in |handle.s |eto |0 2.5 1.75 |1 0 0 
-|Make a shape |Name it handle.s |The shape type is elliptical torus |The x, y, and z of the vertex is 0, 2.5, and 1.75 |The x, y, and z of the normal vector is 1, 0, and 0 
+|in
+|handle.s
+|eto
+|0 2.5 1.75
+|1 0 0
+|Make a shape
+|Name it handle.s
+|The shape type is elliptical torus
+|The x, y, and z of the vertex is 0, 2.5, and 1.75
+|The x, y, and z of the normal vector is 1, 0, and 0
 |===
 
 The program will ask you to enter more values for the elliptical torus you are creating. Type in the values shown in bold. *Enter radius of revolution, r: 1.45[Enter]**Enter X, Y, Z, of vector C: 0.6 0 0[Enter]**Enter elliptical semi-minor axis, d: 0.2[Enter]*
@@ -89,10 +125,21 @@ The next step is to combine the two cylinders into the body of the mug. To do th
 
 You have told the program to make the combination body.c out of the union of bodyout.s minus bodyin.s.
 
+[cols="6*"]
+[%noheader]
 |===
-
-|comb |body.c |u |bodyout.s |- |bodyin.s 
-|Make a combination |Call it body.c |Create a union of |bodyout.s cylinder |and subtract |bodyin.s cylinder 
+|comb
+|body.c
+|u
+|bodyout.s
+|-
+|bodyin.s
+|Make a combination
+|Call it body.c
+|Create a union of
+|bodyout.s cylinder
+|and subtract
+|bodyin.s cylinder
 |===
 
 
@@ -101,10 +148,21 @@ You have told the program to make the combination body.c out of the union of bod
 
 To combine the handle with the outside cylinder, type: *comb handle.c u handle.s - bodyout.s[Enter]*
 
+[cols="6*"]
+[%noheader]
 |===
-
-|comb |handle.c |u |handle.s |- |bodyout.s 
-|Make a combination |Call it handle.c |Create a union of |the handle.s torus |and subtract |the bodyout.s cylinder 
+|comb
+|handle.c
+|u
+|handle.s
+|-
+|bodyout.s
+|Make a combination
+|Call it handle.c
+|Create a union of
+|the handle.s torus
+|and subtract
+|the bodyout.s cylinder
 |===
 
 
@@ -113,10 +171,21 @@ To combine the handle with the outside cylinder, type: *comb handle.c u handle.s
 
 The last step, of this part of making the mug is to make a region out of your combinations. Type: *r mug.r u body.c u handle.c[Enter]*
 
+[cols="6*"]
+[%noheader]
 |===
-
-|r |mug.r |u |body.c |u |handle.c 
-|Make a region of shapes of the same material and color |Call it mug.r |Create a union of |the body.c combination |and merge it with |the handle.c combination 
+|r
+|mug.r
+|u
+|body.c
+|u
+|handle.c
+|Make a region of shapes of the same material and color
+|Call it mug.r
+|Create a union of
+|the body.c combination
+|and merge it with
+|the handle.c combination
 |===
 
 If you did this correctly, the program should say something similar to:
@@ -145,7 +214,3 @@ In this lesson you:
 * Created a combination to produce the body of your mug.
 * Created a combination to join the handle to the body.
 * Created a region of combined shapes with the same material and color.
-
-
-
-

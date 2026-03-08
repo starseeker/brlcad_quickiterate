@@ -66,18 +66,29 @@ Prints extra (verbose) information in results. Can be stacked up to 3 times for 
 By default, only the "top level" objects in any search are used as starting points in the search. The default mode if no path is explicitly specified returns a list of all objects found matching the criteria using the top level objects as inputs. Specifying paths is done as follows:
 
 .Path Specifiers
+[cols="2*"]
 |===
-|Form |Results 
+|Form
+|Results
 
-|/ |Search using top level objects in database as starting points, return list of matching full paths. 
-|. |Search using top level objects in database as starting points, return list of all matching objects (defualt). 
-|| |Iterate over all objects in the database without doing a tree walk, return list of all matching objects. 
-||/ |Search using every object in the database as a starting point, return list of matching full paths. 
-||. |Search using every object in the database as a starting point, return list of all matching objects. 
-|/objname |Use object _objname_ as the starting point, return list of matching full paths. 
-|objname |Use object _objname_ as the starting point, return list of all matching objects. 
-||/objname |Use every object below _objname_ as starting points, return list of matching full paths. 
-||objname |Use every object below _objname_ as starting points, return list of all matching objects. 
+|/
+|Search using top level objects in database as starting points, return list of matching full paths.
+|.
+|Search using top level objects in database as starting points, return list of all matching objects (defualt).
+||
+|Iterate over all objects in the database without doing a tree walk, return list of all matching objects.
+||/
+|Search using every object in the database as a starting point, return list of matching full paths.
+||.
+|Search using every object in the database as a starting point, return list of all matching objects.
+|/objname
+|Use object _objname_ as the starting point, return list of matching full paths.
+|objname
+|Use object _objname_ as the starting point, return list of all matching objects.
+||/objname
+|Use every object below _objname_ as starting points, return list of matching full paths.
+||objname
+|Use every object below _objname_ as starting points, return list of all matching objects.
 |===
 
  One search command may use multiple paths, each of which can specify its own mode - such a "mixed mode" search will return a list of full paths and objects in the order paths were supplied to search.
@@ -141,31 +152,55 @@ True if the object is a combination and has _n_ nodes. This option also supports
 Returns TRUE if the object has parameter _param_. Unlike *-attr*, which looks only at general attributes stored as metadata on objects, the *-param* filters based only on the internal geometric object's characteristics. If a specific value is also supplied for the parameter with an equal condition, TRUE is returned if the object both has the parameter and the parameter is set to value _val._ In the case of >, <, >=, and <= there are two possibilities - if _val_ is numerical a numerical comparison is performed, otherwise a string comparison is performed. Both _attrib_ and _val_ are treated as patterns under shell pattern matching rules when a string comparison is performed, but in numerical mode only the parameter name is pattern matched.
 
 The following table outlines what parameters are visible to the *-param* option. Because BRL-CAD uses the same internal containers for some types, some parameters will be present even when they do not make sense for the specific subtype. Examples include using arb8's container for arb4 and tgc for rcc. Note: there are also a number of primitives whose parameters are not exposed in a way that that *-param* can access them: arbn, ars, brep, bspline, dsp, metaball, nmg, pipe, pnts, and poly. .Primitive Parameters
+[cols="2*"]
 |===
-|Primitive |Available Parameters 
+|Primitive
+|Available Parameters
 
-|arb8 (arb4, arb5, arb6, arb7) |V1, V2, V3, V4, V5, V6, V7, V8 
-|bot |mode[surf,volume,plate,plate_nocos], orient[no,lh,rh], V, F, T 
-|cline |V, H, R, T 
-|ebm |F, W, N, H, M 
-|ehy |V, H, A, r_1, r_2, c 
-|ell (sph) |V, A, B, C 
-|epa |V, H, A, r_1, r_2 
-|eto |V, N, C, r, r_d 
-|extrude |V, H, A, B, S, K 
-|grip |V, N, L 
-|half |N, d 
-|hf |cfile, dfile, fmt, w, n, shorts, file2mm, v, x, y, xlen, ylen, zscale 
-|hyp |V, H, A, b, bnr 
-|part |V, H, r_v, r_h 
-|revolve |V, axis, R, ang, sk_name 
-|rhc |V, H, B, r, c 
-|rpc |V, H, B, r 
-|sketch |V, A, B, VL, SL 
-|submodel |file, treetop, meth 
-|tgc (rcc, rec, tec, trc) |V, H, A, B, C, D 
-|tor |V, H, r_a, r_h 
-|vol |file, w, n, d, lo, hi, size, mat 
+|arb8 (arb4, arb5, arb6, arb7)
+|V1, V2, V3, V4, V5, V6, V7, V8
+|bot
+|mode[surf,volume,plate,plate_nocos], orient[no,lh,rh], V, F, T
+|cline
+|V, H, R, T
+|ebm
+|F, W, N, H, M
+|ehy
+|V, H, A, r_1, r_2, c
+|ell (sph)
+|V, A, B, C
+|epa
+|V, H, A, r_1, r_2
+|eto
+|V, N, C, r, r_d
+|extrude
+|V, H, A, B, S, K
+|grip
+|V, N, L
+|half
+|N, d
+|hf
+|cfile, dfile, fmt, w, n, shorts, file2mm, v, x, y, xlen, ylen, zscale
+|hyp
+|V, H, A, b, bnr
+|part
+|V, H, r_v, r_h
+|revolve
+|V, axis, R, ang, sk_name
+|rhc
+|V, H, B, r, c
+|rpc
+|V, H, B, r
+|sketch
+|V, A, B, VL, SL
+|submodel
+|file, treetop, meth
+|tgc (rcc, rec, tec, trc)
+|V, H, A, B, C, D
+|tor
+|V, H, r_a, r_h
+|vol
+|file, w, n, d, lo, hi, size, mat
 |===
 
 
@@ -189,15 +224,23 @@ True if the size of the object is within the range specified. NOTE: for combs, e
 
 *-stdattr*::
 Returns TRUE if an object has ONLY standard attributes associated with it. Standard attributes in BRL-CAD are: .Standard Attributes
+[cols="2*"]
 |===
-|Attribute |Value Type 
+|Attribute
+|Value Type
 
-|GIFTmater |# 
-|inherit |0 or 1 
-|material_id |# 
-|oshader |shader string 
-|region_id |# 
-|rgb |#/#/# 
+|GIFTmater
+|#
+|inherit
+|0 or 1
+|material_id
+|#
+|oshader
+|shader string
+|region_id
+|#
+|rgb
+|#/#/#
 |===
 
 
@@ -205,24 +248,69 @@ Returns TRUE if an object has ONLY standard attributes associated with it. Stand
 
 *-type*_pattern_::
 Returns TRUE if the type of the object matches _pattern._ Pattern evaluation is done using shell pattern matching. Types recognized include: .Primitives
+[cols="6*"]
+[%noheader]
 |===
-
-|arb4 |arb5 |arb6 |arb7 |arb8 |arbn 
-|annot |ars |binunif |bot |brep |bspline 
-|cline |constrnt |datum |dsp |ebm |ehy 
-|ell |epa |eto |extrude |grip |half 
-|hf |hrt |hyp |joint |metaball |nmg 
-|part |pipe |pnts |poly |rec |rhc 
-|rpc |script |sketch |sph |submodel |superell 
-|tgc |tor |vol | | | 
+|arb4
+|arb5
+|arb6
+|arb7
+|arb8
+|arbn
+|annot
+|ars
+|binunif
+|bot
+|brep
+|bspline
+|cline
+|constrnt
+|datum
+|dsp
+|ebm
+|ehy
+|ell
+|epa
+|eto
+|extrude
+|grip
+|half
+|hf
+|hrt
+|hyp
+|joint
+|metaball
+|nmg
+|part
+|pipe
+|pnts
+|poly
+|rec
+|rhc
+|rpc
+|script
+|sketch
+|sph
+|submodel
+|superell
+|tgc
+|tor
+|vol
+|
+|
+|
 |===
 
 .Combinations
+[cols="2*"]
 |===
-|Type |Abbreviations Recognized 
+|Type
+|Abbreviations Recognized
 
-|combination |c, comb, combination 
-|region |r, reg, region 
+|combination
+|c, comb, combination
+|region
+|r, reg, region
 |===
 
 
@@ -658,5 +746,3 @@ Bugs resulting from incorrect parsing of shell pattern expressions are the resul
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

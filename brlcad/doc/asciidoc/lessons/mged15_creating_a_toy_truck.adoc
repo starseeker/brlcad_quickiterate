@@ -25,10 +25,21 @@ Begin by creating a new database called truck.g.
 [[truck_cab_in_cmd]]
 == Creating an rpp for the Cab of the Truck Using the In Command
 
-To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]*_MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to: |===
-
-|0 |1 |0 |1 |0 |1 
-|Make the value of the rpp's XMIN 0 |Make the value of the rpp's XMAX 1 |Make the value of the rpp's YMIN 0 |Make the value of the rpp's YMAX 1 |Make the value of the rpp's ZMIN 0 |Make the value of the rpp's ZMAX 1 
+To make the cab of the truck, you will create a right parallel piped using the in (insert) command. At the Command Window prompt, type: *in cab1.s rpp[Enter]*_MGED_ will ask you to enter values for XMIN, XMAX, YMIN, YMAX, ZMIN, and ZMAX. Type at the prompt: *0 1 0 1 0 1[Enter]* This will tell _MGED_ to: [cols="6*"]
+[%noheader]
+|===
+|0
+|1
+|0
+|1
+|0
+|1
+|Make the value of the rpp's XMIN 0
+|Make the value of the rpp's XMAX 1
+|Make the value of the rpp's YMIN 0
+|Make the value of the rpp's YMAX 1
+|Make the value of the rpp's ZMIN 0
+|Make the value of the rpp's ZMAX 1
 |===
 
 
@@ -43,10 +54,27 @@ You could also have used the streamlined version of: *in cab1.s rpp 0 1 0 1 0 1[
 
 To make the hood of the cab, you will need to make another rpp shape, this time using the inside command. This special command was originally created to hollow out objects such as gas tanks and boxes; however, it can be used to create any new shape that has some relationship to a pre-existing shape. In this lesson, it is used to cut away material above the hood and in front of the cab.
 
-If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to: |===
-
-|inside |cab1.s |caboff1.s |-.1 |.7 |-.1 |-.1 |.5 |-.1 
-|Inside the shape |named cab1.s, |create rpp called caboff1.s |Make face 1234 (front) -.1 units thick |Make face 5678 (rear) .7 units thick |Make face 1485 (right) -.1 units thick |Make face 2376 (left) -.1 units thick |Make face 1265 (bottom) .5 units thick |Make face 3487 (top) -.1 units thick 
+If you are using _BRL-CAD_ version 6.0 or later, at the Command Window prompt, type: *inside cab1.s caboff1.s -.1 .7 -.1 -.1 .5 -.1[Enter]* The inside command tells _MGED_ to: [cols="9*"]
+[%noheader]
+|===
+|inside
+|cab1.s
+|caboff1.s
+|-.1
+|.7
+|-.1
+|-.1
+|.5
+|-.1
+|Inside the shape
+|named cab1.s,
+|create rpp called caboff1.s
+|Make face 1234 (front) -.1 units thick
+|Make face 5678 (rear) .7 units thick
+|Make face 1485 (right) -.1 units thick
+|Make face 2376 (left) -.1 units thick
+|Make face 1265 (bottom) .5 units thick
+|Make face 3487 (top) -.1 units thick
 |===
 
 
@@ -120,10 +148,29 @@ Go back to the Name text box and change the 1 to a 2 and click on OK. Change to 
 [[truck_cab_shape_comb]]
 == Making a Combination of the Cab Shapes
 
-It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to: |===
-
-|comb |cab1.c |u |cab1.s |- |caboff1.s |- |well1.s |- |well2.s 
-|Make a combination |Name it cab1.c |Make a union |of the shape cab1.s |minus |the shape caboff1.s |minus |the shape well1.s |minus |the shape well2.s 
+It is now time to make a combination of the various cab shapes. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* This command tells _MGED_ to: [cols="10*"]
+[%noheader]
+|===
+|comb
+|cab1.c
+|u
+|cab1.s
+|-
+|caboff1.s
+|-
+|well1.s
+|-
+|well2.s
+|Make a combination
+|Name it cab1.c
+|Make a union
+|of the shape cab1.s
+|minus
+|the shape caboff1.s
+|minus
+|the shape well1.s
+|minus
+|the shape well2.s
 |===
 
 
@@ -196,10 +243,23 @@ Before adding wheels to the truck, you need to make a region of the cab and body
 
 Perhaps the best shape for making wheels is the torus. You can create a shape through the Command Window that has the correct size and placement for your design without further editing. However, this lesson is designed to give you practice rotating and translating shapes.
 
-To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to: |===
-
-|in |wheel1.s |tor |0 0 0 |.5774 .5774 .5774 |.18 |.08 
-|Create a shape |Name it wheel1.s |Make the shape a torus |Make the values of the vertex 0 0 0 |Make the values for x, y, and z of the normal vector .5774 .5774 .5774 |Make the value of the outer radius .18 |Make the value of radius 2 (the tire thickness) .08 
+To make the first wheel, type at the Command Window prompt: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* This command tells _MGED_ to: [cols="7*"]
+[%noheader]
+|===
+|in
+|wheel1.s
+|tor
+|0 0 0
+|.5774 .5774 .5774
+|.18
+|.08
+|Create a shape
+|Name it wheel1.s
+|Make the shape a torus
+|Make the values of the vertex 0 0 0
+|Make the values for x, y, and z of the normal vector .5774 .5774 .5774
+|Make the value of the outer radius .18
+|Make the value of radius 2 (the tire thickness) .08
 |===
 
 
@@ -335,10 +395,13 @@ The last step in creating your truck is to raytrace your design. When the raytra
 
 There is a special adjustment we can make to improve the overall brightness of the scene. We can adjust the amount of ambient light, which is light that does not come from a particular light source but is a measure of the light generally present in the scene. To adjust the amount of ambient light, click on the Advanced Settings button in the Raytrace Control Panel. Next to Other Options, type -A .9 and click Dismiss. Now when you raytrace, you will get a much lighter image.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../lessons/images/mged15_truck_default_lighting.png[] |image:../lessons/images/mged15_truck_ambient_lighting.png[] 
-|Truck with Default Lighting |Truck with Added Ambient Light 
+|image:../lessons/images/mged15_truck_default_lighting.png[]
+|image:../lessons/images/mged15_truck_ambient_lighting.png[]
+|Truck with Default Lighting
+|Truck with Added Ambient Light
 |===
 
 
@@ -358,7 +421,3 @@ In this lesson, you:
 * Identified the on-screen help option.
 * Identified the stacker option.
 * Experimented with the attributes of the camo shader.
-
-
-
-

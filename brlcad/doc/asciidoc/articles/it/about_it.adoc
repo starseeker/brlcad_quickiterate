@@ -104,12 +104,21 @@ Via via che vengono apportati dei cambiamenti in BRL-CAD, gli sviluppatori ARL p
 Per eseguire il test di prova tramite queste immagini, bisogna lanciare lo script _run.sh_ nella sottocartella "bench", presente nell'albero delle cartelle del sorgente.
 
 .Immagini di prova
+[cols="3*"]
+[%noheader]
 |===
-
-|image:../../articles/it/images/brlcad-overview-benchmark-Moss.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-World.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-Star.jpg[width=2in] 
-|Moss |World |Star 
-|image:../../articles/it/images/brlcad-overview-benchmark-Bldg_391.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-M35.jpg[width=2in] |image:../../articles/it/images/brlcad-overview-benchmark-Sphflake.jpg[width=2in] 
-|Bldg 391 |M35 |Sphflake 
+|image:../../articles/it/images/brlcad-overview-benchmark-Moss.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-World.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-Star.jpg[width=2in]
+|Moss
+|World
+|Star
+|image:../../articles/it/images/brlcad-overview-benchmark-Bldg_391.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-M35.jpg[width=2in]
+|image:../../articles/it/images/brlcad-overview-benchmark-Sphflake.jpg[width=2in]
+|Bldg 391
+|M35
+|Sphflake
 |===
 
 
@@ -119,4 +128,3 @@ Per eseguire il test di prova tramite queste immagini, bisogna lanciare lo scrip
 Gli autori intendono ringraziare i membri dell'Advanced Computer Systems Team, i quali hanno provvidenzialmente revisionato il peresente documento dando molti utili suggerimenti per migliorarne l'accuratezza e la presentazione. Al tempo della sua creazione, questo documento fu preparato dai membri del team tra cui John Anderson, TraNese Christy, Bob Parker, Ron Bowers, e Sean Morrison.
 
 Gli autori vogliono inoltre esprimere un ringraziamento speciale a Mike Muuss, membro del team e autore originale di BRL-CAD, passato a migliore vita nell'autunno del 2000. Senza di lui questo lavoro non sarebbe satto possibile. La BRL-CAD Tutorial Series � dedicata alla sua memoria.
-

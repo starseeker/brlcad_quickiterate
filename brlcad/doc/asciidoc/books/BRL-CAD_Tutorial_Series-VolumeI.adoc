@@ -24,6 +24,7 @@ While polygonal and boundary representation (B-rep) modeling often focuses on ju
 
 In keeping with the UNIX philosophy of developing independent tools to perform single, specific tasks and then linking the tools together in a package, BRL-CAD is basically a collection of libraries, tools, and utilities that work together to create, raytrace, and interrogate geometry and manipulate files and data. The basic data flow structure of the package is illustrated below.
 
+.BRL-CAD Data Flow Structure
 image::../books/images/tutorial_series_volI_fig01.png[width=6in]
 
 [[libraries]]
@@ -77,12 +78,21 @@ As changes are implemented in BRL-CAD, ARL developers run a standard set of comp
 To run the benchmark images, run the script run.sh in the "bench" directory of the source directory tree.
 
 .Standard Benchmark Images
+[cols="3*"]
+[%noheader]
 |===
-
-|image:../books/images/tutorial_series_volI_fig02.png[width=2in] |image:../books/images/tutorial_series_volI_fig03.png[width=2in] |image:../books/images/tutorial_series_volI_fig04.png[width=2in] 
-|Moss |World |Star 
-|image:../books/images/tutorial_series_volI_fig05.png[width=2in] |image:../books/images/tutorial_series_volI_fig06.png[width=2in] |image:../books/images/tutorial_series_volI_fig07.png[width=2in] 
-|Bldg 391 |M35 |Sphflake 
+|image:../books/images/tutorial_series_volI_fig02.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig03.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig04.png[width=2in]
+|Moss
+|World
+|Star
+|image:../books/images/tutorial_series_volI_fig05.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig06.png[width=2in]
+|image:../books/images/tutorial_series_volI_fig07.png[width=2in]
+|Bldg 391
+|M35
+|Sphflake
 |===
 
 [[acknowledgments]]
@@ -91,4 +101,3 @@ To run the benchmark images, run the script run.sh in the "bench" directory of t
 The authors would like to thank the members of the Advanced Computer Systems Team, who reviewed this document in a timely manner and made many helpful suggestions to improve its accuracy and presentation. At the time this document was prepared team members included John Anderson, TraNese Christy, Bob Parker, Ron Bowers, and Sean Morrison.
 
 In addition, the authors would like to especially acknowledge Mike Muuss, a team member and the original architect of BRL-CAD, who passed away in the fall of 2000. Without his vision, this work would not have been possible. Therefore, the BRL-CAD Tutorial Series is dedicated to his memory.
-
