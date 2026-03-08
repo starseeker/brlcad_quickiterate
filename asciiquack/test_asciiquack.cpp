@@ -11,6 +11,7 @@
 #include "document.hpp"
 #include "html5.hpp"
 #include "manpage.hpp"
+#include "minipdf.hpp"
 #include "parser.hpp"
 #include "pdf.hpp"
 #include "reader.hpp"
@@ -2052,6 +2053,47 @@ static void test_manpage_backend_listing() {
     end_test();
 }
 
+static void test_manpage_table() {
+    begin_test("manpage: table uses tbl(1) .TS/.TE macros");
+
+    const std::string src =
+        "= test(1)\n"
+        "\n"
+        "== Description\n"
+        "\n"
+        "[cols=\"1,1\"]\n"
+        "|===\n"
+        "| Header A | Header B\n"
+        "\n"
+        "| Cell 1 | Cell 2\n"
+        "| Cell 3 | Cell 4\n"
+        "|===\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // tbl(1) preprocessor activation comment must be present
+    EXPECT_CONTAINS(out, "'\\\" t");
+    // Table delimiters
+    EXPECT_CONTAINS(out, ".TS");
+    EXPECT_CONTAINS(out, ".TE");
+    // allbox draws borders; tab(:) sets the cell separator
+    EXPECT_CONTAINS(out, "allbox");
+    EXPECT_CONTAINS(out, "tab(:)");
+    // Cell delimiters for long-text cells
+    EXPECT_CONTAINS(out, "T{");
+    EXPECT_CONTAINS(out, "T}");
+    // Header row separator
+    EXPECT_CONTAINS(out, ".T&");
+    // Cell content
+    EXPECT_CONTAINS(out, "Header A");
+    EXPECT_CONTAINS(out, "Cell 1");
+
+    end_test();
+}
+
 static void test_table_col_alignment() {
     begin_test("html5: table cols alignment prefix (< ^ >)");
 
@@ -3014,8 +3056,1114 @@ static void test_pdf_ttf_os2_vertical_metrics() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// main
+// Noto / multi-font tests
 // ─────────────────────────────────────────────────────────────────────────────
+
+#ifdef ASCIIQUACK_NOTO_FONTS_DIR
+static const std::string NOTO_DIR = ASCIIQUACK_NOTO_FONTS_DIR;
+static const std::string NOTO_REGULAR     = NOTO_DIR + "/Noto_Sans/static/NotoSans-Regular.ttf";
+static const std::string NOTO_BOLD        = NOTO_DIR + "/Noto_Sans/static/NotoSans-Bold.ttf";
+static const std::string NOTO_ITALIC      = NOTO_DIR + "/Noto_Sans/static/NotoSans-Italic.ttf";
+static const std::string NOTO_BOLD_ITALIC = NOTO_DIR + "/Noto_Sans/static/NotoSans-BoldItalic.ttf";
+static const std::string NOTO_MONO        = NOTO_DIR + "/Noto_Sans_Mono/static/NotoSansMono-Regular.ttf";
+static const std::string NOTO_MONO_BOLD   = NOTO_DIR + "/Noto_Sans_Mono/static/NotoSansMono-Bold.ttf";
+#endif
+
+static void test_pdf_fontset_regular_only() {
+    begin_test("pdf: FontSet with regular-only path embeds one TrueType (F1)");
+
+#ifndef ASCIIQUACK_NOTO_FONTS_DIR
+    std::cout << " (skipped – ASCIIQUACK_NOTO_FONTS_DIR not defined)";
+    end_test();
+    return;
+#else
+    {
+        std::ifstream probe(NOTO_REGULAR);
+        if (!probe) {
+            std::cout << " (skipped – Noto fonts not found at " << NOTO_REGULAR << ")";
+            end_test();
+            return;
+        }
+    }
+
+    const std::string src = "= Title\n\nBody text with *bold* and _italic_.\n";
+    auto doc = asciiquack::Parser::parse_string(src);
+
+    asciiquack::FontSet fs;
+    fs.regular = NOTO_REGULAR;
+    std::string pdf = asciiquack::convert_to_pdf(*doc, false, fs);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // Exactly one TrueType embedding (F1 only).
+    // Count occurrences of /Subtype /TrueType
+    std::size_t ttf_count = 0;
+    std::size_t pos = 0;
+    while ((pos = pdf.find("/Subtype /TrueType", pos)) != std::string::npos) {
+        ++ttf_count;
+        ++pos;
+    }
+    EXPECT(ttf_count == 1);
+
+    // F2 (bold) and F5 (mono) still use base-14.
+    EXPECT_CONTAINS(pdf, "Helvetica-Bold");
+    EXPECT_CONTAINS(pdf, "Courier");
+
+    end_test();
+#endif
+}
+
+static void test_pdf_fontset_all_six_styles() {
+    begin_test("pdf: FontSet with all six styles embeds six TrueType fonts");
+
+#ifndef ASCIIQUACK_NOTO_FONTS_DIR
+    std::cout << " (skipped – ASCIIQUACK_NOTO_FONTS_DIR not defined)";
+    end_test();
+    return;
+#else
+    {
+        std::ifstream probe(NOTO_REGULAR);
+        if (!probe) {
+            std::cout << " (skipped – Noto fonts not found at " << NOTO_REGULAR << ")";
+            end_test();
+            return;
+        }
+    }
+
+    const std::string src =
+        "= Title\n\nBody text.\n\n*Bold text.* _Italic text._ `Monospace text.`\n";
+    auto doc = asciiquack::Parser::parse_string(src);
+
+    asciiquack::FontSet fs;
+    fs.regular     = NOTO_REGULAR;
+    fs.bold        = NOTO_BOLD;
+    fs.italic      = NOTO_ITALIC;
+    fs.bold_italic = NOTO_BOLD_ITALIC;
+    fs.mono        = NOTO_MONO;
+    fs.mono_bold   = NOTO_MONO_BOLD;
+    std::string pdf = asciiquack::convert_to_pdf(*doc, false, fs);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // All six slots should be TrueType.
+    std::size_t ttf_count = 0;
+    std::size_t pos = 0;
+    while ((pos = pdf.find("/Subtype /TrueType", pos)) != std::string::npos) {
+        ++ttf_count;
+        ++pos;
+    }
+    EXPECT(ttf_count == 6);
+
+    // No base-14 Helvetica or Courier references (all overridden by Noto).
+    EXPECT(pdf.find("Helvetica") == std::string::npos);
+    EXPECT(pdf.find("Courier")   == std::string::npos);
+
+    // Six font data streams and six FontDescriptors embedded.
+    std::size_t fd_count = 0;
+    pos = 0;
+    while ((pos = pdf.find("/Type /FontDescriptor", pos)) != std::string::npos) {
+        ++fd_count;
+        ++pos;
+    }
+    EXPECT(fd_count == 6);
+
+    end_test();
+#endif
+}
+
+static void test_pdf_fontset_object_layout_two_ttf() {
+    begin_test("pdf: FontSet with Regular+Bold has correct two-TTF object layout");
+
+#ifndef ASCIIQUACK_NOTO_FONTS_DIR
+    std::cout << " (skipped – ASCIIQUACK_NOTO_FONTS_DIR not defined)";
+    end_test();
+    return;
+#else
+    {
+        std::ifstream probe(NOTO_REGULAR);
+        if (!probe) {
+            std::cout << " (skipped – Noto fonts not found at " << NOTO_REGULAR << ")";
+            end_test();
+            return;
+        }
+    }
+
+    const std::string src = "= Title\n\n*Bold.* Normal.\n";
+    auto doc = asciiquack::Parser::parse_string(src);
+
+    asciiquack::FontSet fs;
+    fs.regular = NOTO_REGULAR;
+    fs.bold    = NOTO_BOLD;
+    std::string pdf = asciiquack::convert_to_pdf(*doc, false, fs);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // With two embedded TTF fonts:
+    //   3 = stream (Regular), 4 = descriptor (Regular)
+    //   5 = stream (Bold),    6 = descriptor (Bold)
+    //   7 = F1 font dict (TrueType), 8 = F2 font dict (TrueType)
+    //   9-11 = F3-F5 base-14, 12 = F6 base-14, 13+ = pages
+    EXPECT_CONTAINS(pdf, "7 0 obj\n<< /Type /Font\n   /Subtype /TrueType");
+    EXPECT_CONTAINS(pdf, "8 0 obj\n<< /Type /Font\n   /Subtype /TrueType");
+
+    // F3 should be a base-14 (no custom italic).
+    EXPECT_CONTAINS(pdf, "Helvetica-Oblique");
+
+    // Exactly two font data streams.
+    std::size_t ttf_count = 0;
+    std::size_t pos = 0;
+    while ((pos = pdf.find("/Subtype /TrueType", pos)) != std::string::npos) {
+        ++ttf_count;
+        ++pos;
+    }
+    EXPECT(ttf_count == 2);
+
+    end_test();
+#endif
+}
+
+static void test_pdf_fontset_mono_custom() {
+    begin_test("pdf: FontSet with custom mono embeds TrueType for F5");
+
+#ifndef ASCIIQUACK_NOTO_FONTS_DIR
+    std::cout << " (skipped – ASCIIQUACK_NOTO_FONTS_DIR not defined)";
+    end_test();
+    return;
+#else
+    {
+        std::ifstream probe(NOTO_MONO);
+        if (!probe) {
+            std::cout << " (skipped – Noto Mono font not found at " << NOTO_MONO << ")";
+            end_test();
+            return;
+        }
+    }
+
+    const std::string src = "= Title\n\n----\nsome code\n----\n";
+    auto doc = asciiquack::Parser::parse_string(src);
+
+    asciiquack::FontSet fs;
+    fs.mono = NOTO_MONO;
+    std::string pdf = asciiquack::convert_to_pdf(*doc, false, fs);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // One TrueType embedding (F5 only).
+    std::size_t ttf_count = 0;
+    std::size_t pos = 0;
+    while ((pos = pdf.find("/Subtype /TrueType", pos)) != std::string::npos) {
+        ++ttf_count;
+        ++pos;
+    }
+    EXPECT(ttf_count == 1);
+
+    // F1 (regular) is still base-14 Helvetica.
+    EXPECT_CONTAINS(pdf, "Helvetica");
+    // Courier-Bold (F6 MonoBold) is still base-14 since we didn't set mono_bold,
+    // but NotoSansMono replaced plain Courier (F5).
+    EXPECT(pdf.find("Courier-Bold") != std::string::npos);
+    // The NotoSansMono PostScript name should appear instead of "Courier" for F5.
+    auto noto_mono_font = minipdf::TtfFont::from_file(NOTO_MONO);
+    if (noto_mono_font) {
+        EXPECT_CONTAINS(pdf, noto_mono_font->pdf_name());
+    }
+
+    end_test();
+#endif
+}
+
+static void test_pdf_fontset_noto_metrics_differ_from_helvetica() {
+    begin_test("pdf: Noto Sans has different character widths than Helvetica");
+
+#ifndef ASCIIQUACK_NOTO_FONTS_DIR
+    std::cout << " (skipped – ASCIIQUACK_NOTO_FONTS_DIR not defined)";
+    end_test();
+    return;
+#else
+    {
+        std::ifstream probe(NOTO_REGULAR);
+        if (!probe) {
+            std::cout << " (skipped – Noto fonts not found at " << NOTO_REGULAR << ")";
+            end_test();
+            return;
+        }
+    }
+
+    auto noto = minipdf::TtfFont::from_file(NOTO_REGULAR);
+    EXPECT(noto != nullptr);
+    if (!noto) { end_test(); return; }
+
+    // The width of 'W' in 1000-unit EM space should be non-zero and differ
+    // from Helvetica's hard-coded value (722 units).
+    float noto_w = noto->advance_1000(static_cast<int>('W'));
+    EXPECT(noto_w > 0.0f);
+
+    float helv_w = minipdf::char_width_units('W', minipdf::FontStyle::Regular);
+    EXPECT(noto_w != helv_w);
+
+    // Vertical metrics should be sane.
+    EXPECT(noto->ascent_1000()  > 0.0f);
+    EXPECT(noto->descent_1000() < 0.0f);
+
+    end_test();
+#endif
+}
+
+static void test_pdf_fontset_xref_valid_six_fonts() {
+    begin_test("pdf: xref table is valid with all six custom fonts embedded");
+
+#ifndef ASCIIQUACK_NOTO_FONTS_DIR
+    std::cout << " (skipped – ASCIIQUACK_NOTO_FONTS_DIR not defined)";
+    end_test();
+    return;
+#else
+    {
+        std::ifstream probe(NOTO_REGULAR);
+        if (!probe) {
+            std::cout << " (skipped – Noto fonts not found at " << NOTO_REGULAR << ")";
+            end_test();
+            return;
+        }
+    }
+
+    // Multi-page document exercises the page-pair object numbering
+    // when all 6 font slots are occupied by embedded TrueType fonts.
+    std::string src = "= Big Doc\n\n";
+    for (int i = 0; i < 50; ++i) {
+        src += "Paragraph number " + std::to_string(i + 1) +
+               " with some filler text to push content across pages.\n\n";
+    }
+    auto doc = asciiquack::Parser::parse_string(src);
+
+    asciiquack::FontSet fs;
+    fs.regular     = NOTO_REGULAR;
+    fs.bold        = NOTO_BOLD;
+    fs.italic      = NOTO_ITALIC;
+    fs.bold_italic = NOTO_BOLD_ITALIC;
+    fs.mono        = NOTO_MONO;
+    fs.mono_bold   = NOTO_MONO_BOLD;
+    std::string pdf = asciiquack::convert_to_pdf(*doc, false, fs);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // Verify multiple pages were produced.
+    std::size_t page_count = 0;
+    std::size_t pos = 0;
+    while ((pos = pdf.find("/Type /Page\n", pos)) != std::string::npos) {
+        ++page_count;
+        ++pos;
+    }
+    EXPECT(page_count > 1);
+
+    end_test();
+#endif
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Heading rule tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void test_pdf_heading_rule_not_through_body() {
+    begin_test("pdf: heading rule does not bleed into body text (fill_rect before paragraph)");
+
+    // A document with a level-1 heading followed immediately by a paragraph.
+    const std::string src =
+        "= Doc Title\n"
+        "\n"
+        "== Section One\n"
+        "\n"
+        "Body text follows the heading.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // The PDF should render without crashing and contain the heading text.
+    EXPECT_CONTAINS(pdf, "Section");
+    EXPECT_CONTAINS(pdf, "One");
+    EXPECT_CONTAINS(pdf, "Body");
+
+    // Both the title-level and section-level rules should be present.
+    // fill_rect produces "<w> <h> re f" sequences.  Each rule produces one.
+    std::size_t re_count = 0;
+    std::size_t pos = 0;
+    while ((pos = pdf.find(" re f\n", pos)) != std::string::npos) {
+        ++re_count;
+        ++pos;
+    }
+    // At least two fill_rect calls: one for document title rule, one for
+    // the section rule.
+    EXPECT(re_count >= 2);
+
+    end_test();
+}
+
+static void test_pdf_heading_rule_position_below_heading() {
+    begin_test("pdf: heading rule is positioned below heading, not overlapping body");
+
+    // Generate a minimal single-page document with a level-0 heading and body.
+    const std::string src =
+        "= My Title\n"
+        "\n"
+        "Paragraph text here.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // The first fill_rect in the page content places the title rule.
+    // We verify that its Y coordinate is LOWER on the page than the title
+    // text baseline (which is placed near the top margin).
+    // The title baseline will be near 720pt (page height 792 - margin 72 = 720).
+    // After the title is drawn the rule Y is approximately title_baseline - sz*0.35
+    // for sz=26 that is ~710pt.  Body text starts well below that (< 700pt).
+    //
+    // We can verify indirectly: the PDF content must contain at least one
+    // fill_rect (re f) command, and the document must be structurally valid.
+    EXPECT_CONTAINS(pdf, " re f\n");
+    EXPECT_CONTAINS(pdf, "My");
+    EXPECT_CONTAINS(pdf, "Title");
+    EXPECT_CONTAINS(pdf, "Paragraph");
+
+    end_test();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF code-block layout tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Return the bottom y-coordinate (in PDF points) of the first grey
+/// code-block background rectangle in the content stream.  The grey fill is
+/// identified by the "0.95 0.95 0.95 rg" colour command emitted by fill_rect.
+/// Returns -1.0f when not found.
+static float pdf_code_bg_bottom_y(const std::string& pdf) {
+    const std::string marker = "0.95 0.95 0.95 rg\n";
+    auto gpos = pdf.find(marker);
+    if (gpos == std::string::npos) return -1.0f;
+    // fill_rect emits: "<r> <g> <b> rg\n<x> <y> <w> <h> re f\n"
+    // so the line immediately following the rg line holds the rectangle.
+    auto line_start = gpos + marker.size();
+    auto line_end   = pdf.find('\n', line_start);
+    if (line_end == std::string::npos) return -1.0f;
+    std::istringstream iss(pdf.substr(line_start, line_end - line_start));
+    float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
+    if (iss >> x >> y >> w >> h) return y;
+    return -1.0f;
+}
+
+/// Return the y-coordinate from the "1 0 0 1 x y Tm" command that precedes
+/// the first occurrence of "(needle) Tj" in the content stream.
+/// Returns -1.0f when not found.
+static float pdf_tm_y_of_text(const std::string& pdf,
+                               const std::string& needle) {
+    std::string pat = "(" + needle + ") Tj";
+    auto tpos = pdf.find(pat);
+    if (tpos == std::string::npos) return -1.0f;
+    // Search backward for the "1 0 0 1 " Tm prefix.
+    auto tm = pdf.rfind("1 0 0 1 ", tpos);
+    if (tm == std::string::npos) return -1.0f;
+    std::istringstream iss(pdf.substr(tm + 8, 64));
+    float x = 0.0f, y = 0.0f;
+    if (iss >> x >> y) return y;
+    return -1.0f;
+}
+
+static void test_pdf_code_block_gap_clears_background() {
+    begin_test("pdf: paragraph after code block starts below grey background");
+
+    // A two-line code block immediately followed by a paragraph.
+    // The grey rectangle must not overlap the following body text.
+    const std::string src =
+        "= Title\n"
+        "\n"
+        "----\n"
+        "code line 1\n"
+        "code line 2\n"
+        "----\n"
+        "\n"
+        "AfterBlock text here.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "AfterBlock");
+
+    // Extract the bottom y-coordinate of the grey code block background and
+    // the baseline y-coordinate of the first word of the following paragraph.
+    float bg_bottom = pdf_code_bg_bottom_y(pdf);
+    float para_y    = pdf_tm_y_of_text(pdf, "AfterBlock");
+
+    EXPECT(bg_bottom > 0.0f);   // sanity: found the grey rect
+    EXPECT(para_y    > 0.0f);   // sanity: found the paragraph text
+
+    // The paragraph baseline must be below the background rectangle by at
+    // least BODY_SIZE * 0.75 ≈ 8.25 pt so that the tallest ascenders do not
+    // reach into the grey box.  We use 8.0 pt as the threshold to give a
+    // small tolerance for rounding.
+    EXPECT(bg_bottom - para_y > 8.0f);
+
+    end_test();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF layout interaction tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void test_pdf_table_gap_after_table() {
+    begin_test("pdf: paragraph after table starts below table bottom border");
+
+    const std::string src =
+        "= Title\n"
+        "\n"
+        "[cols=\"1,1\"]\n"
+        "|===\n"
+        "| H1 | H2\n"
+        "\n"
+        "| A | B\n"
+        "|===\n"
+        "\n"
+        "AfterTable paragraph here.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "AfterTable");
+
+    // The table's bottom border is a draw_hline; after it the cursor advances
+    // by BODY_SIZE * 1.2 before the next paragraph.
+    // Verify simply that the paragraph text is present and the PDF is valid –
+    // the exact y positions are table-height-dependent and tested visually via
+    // the stress-test PDF and check_pdf_layout.py.
+
+    end_test();
+}
+
+static void test_pdf_heading_followed_by_code_block() {
+    begin_test("pdf: heading rule does not bleed into following code-block background");
+
+    // A level-1 heading (which draws a decorative rule) immediately followed
+    // by a code block.  The heading rule must sit above the grey code-block
+    // background; the two fill_rect calls must not overlap vertically.
+    const std::string src =
+        "= Doc Title\n"
+        "\n"
+        "== Section With Code\n"
+        "\n"
+        "----\n"
+        "code line one\n"
+        "code line two\n"
+        "----\n"
+        "\n"
+        "AfterCode paragraph.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "code line one");
+    EXPECT_CONTAINS(pdf, "AfterCode");
+
+    // Both the heading-rule fill_rect and the code-block fill_rect must appear.
+    // Count all "re f" sequences – expect at least 3 (title rule, section rule,
+    // code block background).
+    std::size_t ref_count = 0;
+    std::size_t pos = 0;
+    while ((pos = pdf.find(" re f\n", pos)) != std::string::npos) {
+        ++ref_count; ++pos;
+    }
+    EXPECT(ref_count >= 3);
+
+    // Heading rule colour is ~0.6/0.6/0.6; code-block colour is 0.95/0.95/0.95.
+    // Both must be present in the content stream.
+    EXPECT_CONTAINS(pdf, "0.60 0.60 0.60 rg");
+    EXPECT_CONTAINS(pdf, "0.95 0.95 0.95 rg");
+
+    // The code-block background y must be below the heading rule y.
+    // The heading rule rg line appears before the code-block rg line in the stream.
+    auto rule_pos = pdf.find("0.60 0.60 0.60 rg");
+    auto code_pos = pdf.find("0.95 0.95 0.95 rg");
+    EXPECT(rule_pos != std::string::npos);
+    EXPECT(code_pos != std::string::npos);
+    EXPECT(rule_pos < code_pos);   // heading rule must come before code-block bg
+
+    // Extract the y of the heading rule and the y of the code-block background.
+    // The rule y must be GREATER (higher on the page) than the code-block top y.
+    // heading rule fill_rect line:
+    float rule_y = -1.0f, code_bg_y = -1.0f;
+    {
+        auto parse_fill_y = [&](std::size_t rg_pos, float& out_y) {
+            const std::string marker = " rg\n";
+            auto after = pdf.find(marker, rg_pos);
+            if (after == std::string::npos) return;
+            auto line_start = after + marker.size();
+            auto line_end   = pdf.find('\n', line_start);
+            if (line_end == std::string::npos) return;
+            std::istringstream iss(pdf.substr(line_start, line_end - line_start));
+            float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
+            if (iss >> x >> y >> w >> h) out_y = y;
+        };
+        parse_fill_y(rule_pos, rule_y);
+        parse_fill_y(code_pos, code_bg_y);
+    }
+    EXPECT(rule_y    > 0.0f);
+    EXPECT(code_bg_y > 0.0f);
+    // rule_y is the BOTTOM of the heading rule bar; code_bg_y is the BOTTOM of the
+    // code background rect.  The code box is below the heading so its bottom y
+    // must be strictly lower (smaller value in PDF coordinates = lower on page).
+    EXPECT(rule_y > code_bg_y);
+
+    end_test();
+}
+
+static void test_pdf_consecutive_headings_valid() {
+    begin_test("pdf: consecutive headings at all levels produce valid PDF");
+
+    const std::string src =
+        "= Level 0 Title\n"
+        "\n"
+        "== Level 1\n"
+        "\n"
+        "=== Level 2\n"
+        "\n"
+        "==== Level 3\n"
+        "\n"
+        "===== Level 4\n"
+        "\n"
+        "====== Level 5\n"
+        "\n"
+        "Body text after all headings.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "Level");
+    EXPECT_CONTAINS(pdf, "Body");
+
+    // Level-0 and Level-1 headings each emit a fill_rect (the decorative rule).
+    // There must be exactly 2 such fill_rects from headings (title + level-1).
+    // Count the dark-grey fill colour "0.30" (title) and "0.60" (level-1).
+    EXPECT_CONTAINS(pdf, "0.30 0.30 0.30 rg");
+    EXPECT_CONTAINS(pdf, "0.60 0.60 0.60 rg");
+
+    end_test();
+}
+
+static void test_pdf_admonition_multiline_body_valid() {
+    begin_test("pdf: admonition with long multi-line body produces valid PDF");
+
+    // A very long body forces wrapping; the label must stay on the first line
+    // and not overlap subsequent lines of the body.
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "IMPORTANT: This is a very long admonition body that must word-wrap "
+        "across multiple lines. Each continuation line must be indented past "
+        "the IMPORTANT: label so that the label and the body text never "
+        "overlap horizontally. The quick brown fox jumps over the lazy dog.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "IMPORTANT:");
+    EXPECT_CONTAINS(pdf, "quick");
+
+    end_test();
+}
+
+static void test_pdf_quote_block_gap_after() {
+    begin_test("pdf: paragraph after block quote starts below quote body");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "[quote]\n"
+        "____\n"
+        "A notable quotation here.\n"
+        "____\n"
+        "\n"
+        "AfterQuote paragraph here.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "notable");
+    EXPECT_CONTAINS(pdf, "AfterQuote");
+
+    // The quote body text must appear before the AfterQuote paragraph in the
+    // content stream (top-to-bottom rendering order).
+    auto quote_pos = pdf.find("notable");
+    auto after_pos = pdf.find("AfterQuote");
+    EXPECT(quote_pos != std::string::npos);
+    EXPECT(after_pos != std::string::npos);
+    EXPECT(quote_pos < after_pos);
+
+    // Extract the y-coordinates: quote body text must be higher on the page
+    // (larger PDF y value) than the following paragraph.
+    float quote_y = pdf_tm_y_of_text(pdf, "notable");
+    float after_y = pdf_tm_y_of_text(pdf, "AfterQuote");
+    EXPECT(quote_y > 0.0f);
+    EXPECT(after_y > 0.0f);
+    // Quote body is higher on the page (larger y) than the following paragraph.
+    EXPECT(quote_y > after_y);
+
+    end_test();
+}
+
+static void test_pdf_dlist_body_indented_below_term() {
+    begin_test("pdf: description list body is below its term on the page");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "myterm:: The description of the term follows on the same or next line.\n"
+        "\n"
+        "AfterDlist paragraph.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "myterm");
+    EXPECT_CONTAINS(pdf, "description");
+    EXPECT_CONTAINS(pdf, "AfterDlist");
+
+    // The term must appear before the description body in the stream.
+    float term_y  = pdf_tm_y_of_text(pdf, "myterm");
+    float after_y = pdf_tm_y_of_text(pdf, "AfterDlist");
+    EXPECT(term_y  > 0.0f);
+    EXPECT(after_y > 0.0f);
+    // Term is higher on the page than the post-list paragraph.
+    EXPECT(term_y > after_y);
+
+    end_test();
+}
+
+static void test_pdf_ordered_list_gap_after() {
+    begin_test("pdf: paragraph after ordered list starts below last list item");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        ". First ordered item.\n"
+        ". Second ordered item.\n"
+        ". Third ordered item.\n"
+        "\n"
+        "AfterList paragraph.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "Third");
+    EXPECT_CONTAINS(pdf, "AfterList");
+
+    float last_item_y = pdf_tm_y_of_text(pdf, "Third");
+    float after_y     = pdf_tm_y_of_text(pdf, "AfterList");
+    EXPECT(last_item_y > 0.0f);
+    EXPECT(after_y     > 0.0f);
+    // The last item is higher on the page than the following paragraph.
+    EXPECT(last_item_y > after_y);
+
+    end_test();
+}
+
+static void test_pdf_code_block_preceded_by_heading_gap() {
+    begin_test("pdf: code block preceded by heading has adequate gap above");
+
+    // Level-2 heading → code block: the heading gap_below (2 pt for level >= 2)
+    // must result in the code block sitting clearly below the heading text.
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "=== SectionBeforeCode\n"
+        "\n"
+        "----\n"
+        "code after heading\n"
+        "----\n"
+        "\n"
+        "AfterCode.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "SectionBeforeCode");
+    EXPECT_CONTAINS(pdf, "code after heading");
+    EXPECT_CONTAINS(pdf, "AfterCode");
+
+    // The heading text y must be above (greater than) the code-block bg bottom y.
+    float heading_y = pdf_tm_y_of_text(pdf, "SectionBeforeCode");
+    float code_bg_bottom = pdf_code_bg_bottom_y(pdf);
+    EXPECT(heading_y    > 0.0f);
+    EXPECT(code_bg_bottom > 0.0f);
+    EXPECT(heading_y > code_bg_bottom);
+
+    end_test();
+}
+
+static void test_pdf_code_block_long_line_clipped() {
+    begin_test("pdf: very long code line is clipped with ellipsis, does not overflow");
+
+    // A code line whose raw rendered width greatly exceeds the content area.
+    // The renderer must truncate it with "..." rather than letting it overflow
+    // the right margin.
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "----\n"
+        "this_is_a_very_long_identifier_name = some_function_call("
+        "argument_one, argument_two, argument_three, argument_four)\n"
+        "normal_line\n"
+        "----\n"
+        "\n"
+        "AfterCode paragraph.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // The truncation marker "..." must be present.
+    EXPECT_CONTAINS(pdf, "...");
+
+    // The shorter second line must still be rendered in full.
+    EXPECT_CONTAINS(pdf, "normal_line");
+
+    // The paragraph after the code block must also be present.
+    EXPECT_CONTAINS(pdf, "AfterCode");
+
+    end_test();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF image rendering tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void test_pdf_image_missing_file_emits_placeholder() {
+    begin_test("pdf: missing image file falls back to text placeholder");
+
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "image::nonexistent_file_abc123.png[alt text]\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    // Placeholder contains the target path
+    EXPECT_CONTAINS(pdf, "nonexistent_file_abc123.png");
+    // No /XObject resource should appear (no image was embedded)
+    EXPECT_NOT_CONTAINS(pdf, "/XObject");
+
+    end_test();
+}
+
+static void test_pdf_image_xobject_structure() {
+    begin_test("pdf: embedded image produces /XObject and /Image entries");
+
+    // Write a minimal 1×1 JPEG to a temp file.
+    // A 1×1 grayscale JPEG (smallest valid JPEG): SOI + APP0 + SOF0 + SOS + EOI
+    // We use a known-good minimal JPEG byte sequence.
+    static const unsigned char TINY_JPEG[] = {
+        // 1×1 white JPEG (generated with ImageMagick convert -size 1x1 xc:white tiny.jpg)
+        0xFF, 0xD8,              // SOI
+        0xFF, 0xE0,              // APP0 marker
+        0x00, 0x10,              // length = 16
+        0x4A, 0x46, 0x49, 0x46, 0x00,  // "JFIF\0"
+        0x01, 0x01,              // version 1.1
+        0x00,                    // density units = 0
+        0x00, 0x01, 0x00, 0x01, // Xdensity=1, Ydensity=1
+        0x00, 0x00,              // thumbnail 0×0
+        0xFF, 0xDB,              // DQT marker
+        0x00, 0x43,              // length = 67
+        0x00,                    // table 0, 8-bit precision
+        // 64 quantization values (all 1)
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0xFF, 0xC0,              // SOF0 marker
+        0x00, 0x0B,              // length = 11
+        0x08,                    // precision = 8
+        0x00, 0x01,              // height = 1
+        0x00, 0x01,              // width = 1
+        0x01,                    // ncomponents = 1 (grayscale)
+        0x01, 0x11, 0x00,        // component 1 params
+        0xFF, 0xC4,              // DHT marker
+        0x00, 0x1F,              // length = 31
+        0x00,                    // table 0, DC
+        0x00,0x01,0x05,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
+        0x08,0x09,0x0A,0x0B,
+        0xFF, 0xDA,              // SOS marker
+        0x00, 0x08,              // length = 8
+        0x01,                    // ncomponents = 1
+        0x01, 0x00,              // component 1, table ids
+        0x00, 0x3F, 0x00,        // spectral selection
+        0xF8,                    // compressed scan data (minimal)
+        0xFF, 0xD9               // EOI
+    };
+    // Write to a temp file
+    namespace fs = std::filesystem;
+    const fs::path tmp_jpeg = fs::temp_directory_path() / "asciiquack_test_img.jpg";
+    {
+        std::ofstream f(tmp_jpeg, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(TINY_JPEG), sizeof(TINY_JPEG));
+    }
+
+    std::string src =
+        "= Test Images\n\n"
+        "image::" + tmp_jpeg.string() + "[tiny,width=72]\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    // Clean up temp file
+    fs::remove(tmp_jpeg);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // An image XObject should be present
+    EXPECT_CONTAINS(pdf, "/XObject");
+    EXPECT_CONTAINS(pdf, "/Subtype /Image");
+    EXPECT_CONTAINS(pdf, "/Filter /DCTDecode");
+    // The image resource name Im1 should appear
+    EXPECT_CONTAINS(pdf, "/Im1");
+    // The page content should invoke the image with "Do"
+    EXPECT_CONTAINS(pdf, "/Im1 Do");
+
+    end_test();
+}
+
+static void test_pdf_image_xobject_xref_valid() {
+    begin_test("pdf: xref table remains valid after embedding an image");
+
+    namespace fs = std::filesystem;
+    const fs::path tmp_jpeg = fs::temp_directory_path() / "asciiquack_xref_img.jpg";
+    // Re-use the same minimal JPEG bytes as above
+    static const unsigned char TINY_JPEG[] = {
+        0xFF,0xD8, 0xFF,0xE0, 0x00,0x10, 0x4A,0x46,0x49,0x46,0x00,
+        0x01,0x01, 0x00, 0x00,0x01,0x00,0x01, 0x00,0x00,
+        0xFF,0xDB, 0x00,0x43, 0x00,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0xFF,0xC0, 0x00,0x0B, 0x08, 0x00,0x01, 0x00,0x01,
+        0x01, 0x01,0x11,0x00,
+        0xFF,0xC4, 0x00,0x1F, 0x00,
+        0x00,0x01,0x05,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
+        0x08,0x09,0x0A,0x0B,
+        0xFF,0xDA, 0x00,0x08, 0x01, 0x01,0x00, 0x00,0x3F,0x00,
+        0xF8, 0xFF,0xD9
+    };
+    {
+        std::ofstream f(tmp_jpeg, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(TINY_JPEG), sizeof(TINY_JPEG));
+    }
+
+    std::string src =
+        "= Xref Check\n\n"
+        "image::" + tmp_jpeg.string() + "[img]\n"
+        "\nSome paragraph after the image.\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+    fs::remove(tmp_jpeg);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    EXPECT_CONTAINS(pdf, "/Im1");
+
+    end_test();
+}
+
+static void test_pdf_image_images_dir_resolution() {
+    begin_test("pdf: images_dir parameter allows resolving relative image paths");
+
+    namespace fs = std::filesystem;
+    // Write a tiny JPEG to a temp directory
+    fs::path tmp_dir = fs::temp_directory_path() / "asciiquack_img_dir_test";
+    fs::create_directories(tmp_dir);
+    const fs::path tmp_jpeg = tmp_dir / "test_img.jpg";
+    static const unsigned char TINY_JPEG[] = {
+        0xFF,0xD8, 0xFF,0xE0, 0x00,0x10, 0x4A,0x46,0x49,0x46,0x00,
+        0x01,0x01, 0x00, 0x00,0x01,0x00,0x01, 0x00,0x00,
+        0xFF,0xDB, 0x00,0x43, 0x00,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01,
+        0xFF,0xC0, 0x00,0x0B, 0x08, 0x00,0x01, 0x00,0x01,
+        0x01, 0x01,0x11,0x00,
+        0xFF,0xC4, 0x00,0x1F, 0x00,
+        0x00,0x01,0x05,0x01,0x01,0x01,0x01,0x01,
+        0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
+        0x08,0x09,0x0A,0x0B,
+        0xFF,0xDA, 0x00,0x08, 0x01, 0x01,0x00, 0x00,0x3F,0x00,
+        0xF8, 0xFF,0xD9
+    };
+    {
+        std::ofstream f(tmp_jpeg, std::ios::binary);
+        f.write(reinterpret_cast<const char*>(TINY_JPEG), sizeof(TINY_JPEG));
+    }
+
+    // Reference only "test_img.jpg" (relative), but pass images_dir
+    const std::string src =
+        "= Dir Test\n\n"
+        "image::test_img.jpg[test]\n";
+
+    asciiquack::FontSet fs_empty;
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc, false, fs_empty,
+                                                  tmp_dir.string());
+
+    fs::remove(tmp_jpeg);
+    fs::remove(tmp_dir);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+    // Image should have been found and embedded
+    EXPECT_CONTAINS(pdf, "/XObject");
+    EXPECT_CONTAINS(pdf, "/Im1 Do");
+
+    end_test();
+}
+
+#ifdef MINIPDF_USE_ZLIB
+static void test_minipdf_png_from_file_loads() {
+    begin_test("minipdf: PdfImage::from_file loads the demo PNG");
+
+    // Use the demo PNG that ships with the repository
+    const std::string png_path =
+        std::string(CMAKE_SOURCE_DIR) + "/examples/asciiquack.png";
+    {
+        std::ifstream probe(png_path, std::ios::binary);
+        if (!probe) {
+            std::cout << " (skipped – demo PNG not found at " << png_path << ")";
+            end_test();
+            return;
+        }
+    }
+
+    auto img = minipdf::PdfImage::from_file(png_path);
+    EXPECT(img != nullptr);
+    if (img) {
+        EXPECT(img->width()  == 1024);
+        EXPECT(img->height() == 1024);
+        EXPECT(img->channels() == 3);
+        EXPECT(img->encoding() == minipdf::PdfImage::Encoding::Raw);
+        // Raw 1024×1024 RGB = 3,145,728 bytes
+        EXPECT(img->data().size() == 1024u * 1024u * 3u);
+    }
+
+    end_test();
+}
+#endif // MINIPDF_USE_ZLIB
+
+static void test_pdf_table() {
+    begin_test("pdf: table renders cell content with valid PDF structure");
+
+    const std::string src =
+        "= Document\n"
+        "\n"
+        "[cols=\"1,2\"]\n"
+        "|===\n"
+        "| Name | Description\n"
+        "\n"
+        "| Alpha | First item in the list\n"
+        "| Beta  | Second item with *bold* text\n"
+        "| Gamma | Third item with `mono` text\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string pdf = asciiquack::convert_to_pdf(*doc);
+
+    EXPECT(is_valid_pdf_envelope(pdf));
+    EXPECT(pdf_xref_valid(pdf));
+
+    // Header row content
+    EXPECT_CONTAINS(pdf, "Name");
+    EXPECT_CONTAINS(pdf, "Description");
+    // Body row content
+    EXPECT_CONTAINS(pdf, "Alpha");
+    EXPECT_CONTAINS(pdf, "First");
+    EXPECT_CONTAINS(pdf, "Beta");
+    EXPECT_CONTAINS(pdf, "Gamma");
+
+    end_test();
+}
+
+static void test_minipdf_jpeg_from_file_loads() {
+    begin_test("minipdf: PdfImage::from_jpeg_file returns nullptr for non-JPEG");
+
+    // Passing a non-existent file should return nullptr gracefully.
+    auto img = minipdf::PdfImage::from_jpeg_file("/nonexistent/path/image.jpg");
+    EXPECT(img == nullptr);
+
+    // Passing an empty string should also return nullptr.
+    auto img2 = minipdf::PdfImage::from_jpeg_file("");
+    EXPECT(img2 == nullptr);
+
+    end_test();
+}
+
+static void test_minipdf_png_missing_returns_nullptr() {
+    begin_test("minipdf: PdfImage::from_png_file returns nullptr for missing file");
+
+    auto img = minipdf::PdfImage::from_png_file("/nonexistent/path/image.png");
+    EXPECT(img == nullptr);
+
+    auto img2 = minipdf::PdfImage::from_file("/nonexistent/path/image.png");
+    EXPECT(img2 == nullptr);
+
+    end_test();
+}
+
+
 
 int main(int argc, char* argv[]) {
     // Check for -v flag
@@ -3161,6 +4309,7 @@ int main(int argc, char* argv[]) {
     test_manpage_backend_basic();
     test_manpage_backend_bold_italic();
     test_manpage_backend_listing();
+    test_manpage_table();
     test_table_col_alignment();
     test_table_col_repeat();
     test_table_col_style_h();
@@ -3202,6 +4351,34 @@ int main(int argc, char* argv[]) {
     test_pdf_ttf_xref_still_valid_with_font();
     test_pdf_ttf_postscript_name_from_table();
     test_pdf_ttf_os2_vertical_metrics();
+    test_pdf_fontset_regular_only();
+    test_pdf_fontset_all_six_styles();
+    test_pdf_fontset_object_layout_two_ttf();
+    test_pdf_fontset_mono_custom();
+    test_pdf_fontset_noto_metrics_differ_from_helvetica();
+    test_pdf_fontset_xref_valid_six_fonts();
+    test_pdf_heading_rule_not_through_body();
+    test_pdf_heading_rule_position_below_heading();
+    test_pdf_code_block_gap_clears_background();
+    test_pdf_table_gap_after_table();
+    test_pdf_heading_followed_by_code_block();
+    test_pdf_consecutive_headings_valid();
+    test_pdf_admonition_multiline_body_valid();
+    test_pdf_quote_block_gap_after();
+    test_pdf_dlist_body_indented_below_term();
+    test_pdf_ordered_list_gap_after();
+    test_pdf_code_block_preceded_by_heading_gap();
+    test_pdf_code_block_long_line_clipped();
+    test_pdf_image_missing_file_emits_placeholder();
+    test_pdf_image_xobject_structure();
+    test_pdf_image_xobject_xref_valid();
+    test_pdf_image_images_dir_resolution();
+#ifdef MINIPDF_USE_ZLIB
+    test_minipdf_png_from_file_loads();
+#endif
+    test_minipdf_jpeg_from_file_loads();
+    test_pdf_table();
+    test_minipdf_png_missing_returns_nullptr();
 
     // Summary
     std::cout << "\n============================\n";

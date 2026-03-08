@@ -7,10 +7,10 @@
 /// blocks, admonition blocks, inline bold / italic / monospace text, and
 /// basic horizontal rules.
 ///
-/// An optional TrueType body font can be specified via the `pdf-font` document
-/// attribute (absolute or relative path to a .ttf file).  When provided it is
-/// embedded in the PDF and used for all regular/body text; bold, italic and
-/// monospace text continue to use the PDF base-14 fonts.
+/// Custom TrueType fonts can be specified per-style via the FontSet struct
+/// (attributes: pdf-font, pdf-font-bold, pdf-font-italic, pdf-font-bold-italic,
+/// pdf-font-mono, pdf-font-mono-bold).  When a style has no custom font the
+/// corresponding PDF base-14 fallback (Helvetica family / Courier) is used.
 ///
 /// Usage:
 ///   auto doc = Parser::parse_string(src, opts);
@@ -18,6 +18,15 @@
 ///   std::string pdf_bytes = asciiquack::convert_to_pdf(*doc, true);       // A4
 ///   std::string pdf_bytes = asciiquack::convert_to_pdf(*doc, false,
 ///                               "/usr/share/fonts/myfont.ttf");  // custom body font
+///
+///   asciiquack::FontSet fs;
+///   fs.regular    = "/path/to/NotoSans-Regular.ttf";
+///   fs.bold       = "/path/to/NotoSans-Bold.ttf";
+///   fs.italic     = "/path/to/NotoSans-Italic.ttf";
+///   fs.bold_italic = "/path/to/NotoSans-BoldItalic.ttf";
+///   fs.mono       = "/path/to/NotoSansMono-Regular.ttf";
+///   fs.mono_bold  = "/path/to/NotoSansMono-Bold.ttf";
+///   std::string pdf_bytes = asciiquack::convert_to_pdf(*doc, false, fs);
 
 #pragma once
 
@@ -26,6 +35,7 @@
 #include "substitutors.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <functional>
@@ -34,6 +44,22 @@
 #include <vector>
 
 namespace asciiquack {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Font set – paths to optional TrueType fonts for each style slot
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Paths to TrueType (.ttf) font files for each text style used in the PDF
+/// output.  Leave any field empty to fall back to the corresponding PDF
+/// base-14 font (Helvetica family for body text, Courier for monospace).
+struct FontSet {
+    std::string regular;     ///< pdf-font              – body text (F1)
+    std::string bold;        ///< pdf-font-bold         – bold text (F2)
+    std::string italic;      ///< pdf-font-italic       – italic text (F3)
+    std::string bold_italic; ///< pdf-font-bold-italic  – bold-italic text (F4)
+    std::string mono;        ///< pdf-font-mono         – monospace text (F5)
+    std::string mono_bold;   ///< pdf-font-mono-bold    – bold monospace text (F6)
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inline text spans
@@ -249,12 +275,12 @@ public:
     static constexpr float MARGIN_BOTTOM = 72.0f;
 
     // ── Default typography ────────────────────────────────────────────────────
-    static constexpr float BODY_SIZE  = 11.0f;
-    static constexpr float CODE_SIZE  = 10.0f;
-    static constexpr float LINE_RATIO = 1.35f;   ///< line height = size × ratio
+    static constexpr float BODY_SIZE          = 11.0f;
+    static constexpr float CODE_SIZE          = 10.0f;
+    static constexpr float LINE_RATIO         = 1.35f;   ///< line height = size × ratio
+    static constexpr float CODE_RIGHT_PADDING = 4.0f;    ///< right padding inside code block (pt)
 
     explicit PdfLayout(minipdf::Document& doc) : doc_(doc) {
-        body_font_ = doc.body_font().get();  // non-owning; Document owns the shared_ptr
         content_w_ = doc.page_width() - MARGIN_LEFT - MARGIN_RIGHT;
         new_page();
     }
@@ -367,23 +393,23 @@ public:
         static const float SIZES[] = {26.0f, 22.0f, 18.0f, 15.0f, 13.0f, 12.0f};
         float sz = SIZES[std::min(level, 5)];
         float lh = sz * LINE_RATIO;
+        float bar_h = (level == 0) ? 3.0f : (level == 1) ? 1.5f : 0.0f;
 
         // Extra space before heading (except at very top of first page)
         float space_before = (cursor_y_ < doc_.page_height() - MARGIN_TOP - 2.0f)
                              ? sz * 1.2f : 0.0f;
-        ensure_space(space_before + lh + 2.0f);
-        cursor_y_ -= space_before;
 
-        // Draw a coloured rule under top-level headings
-        if (level <= 1) {
-            float bar_h = (level == 0) ? 3.0f : 1.5f;
-            float bar_y = cursor_y_ - lh - 2.0f;
-            // Light grey for level 0, lighter for level 1
-            float c = (level == 0) ? 0.3f : 0.6f;
-            page_->fill_rect(MARGIN_LEFT, bar_y,
-                             content_w_, bar_h,
-                             c, c, c);
-        }
+        // For ruled headings the space consumed is:
+        //   space_before + lh (one heading line) + bar_offset + bar_h + gap_below
+        // gap_below must be large enough that body-text ascenders (≈ BODY_SIZE)
+        // do not reach up into the bar.  A gap of BODY_SIZE * 1.5 is sufficient.
+        const float gap_below = (level <= 1) ? BODY_SIZE * 1.5f : 2.0f;
+        // bar_offset = distance from last heading line baseline to bar bottom
+        // ≈ sz * 0.35 (just past heading descenders)
+        const float bar_offset = sz * 0.35f;
+        ensure_space(space_before + lh +
+                     (bar_h > 0.0f ? bar_offset + bar_h + gap_below : gap_below));
+        cursor_y_ -= space_before;
 
         auto spans = parse_spans(title, minipdf::FontStyle::Bold);
         // Force heading size onto all spans
@@ -391,8 +417,20 @@ public:
         spans = merge_spans(std::move(spans));
         wrap_spans(spans, lh, 0.0f);
 
-        // Small gap after heading rule
-        cursor_y_ -= (level <= 1) ? 4.0f : 2.0f;
+        // Draw a coloured rule after the heading text.  The bar is placed just
+        // below the last heading line's descenders, so it acts as a visual
+        // separator between the heading block and the following body text.
+        if (level <= 1) {
+            // cursor_y_ is now at last_line_baseline - lh; recover last baseline
+            float last_baseline = cursor_y_ + lh;
+            float bar_bottom = last_baseline - bar_offset;
+            float c = (level == 0) ? 0.3f : 0.6f;
+            page_->fill_rect(MARGIN_LEFT, bar_bottom, content_w_, bar_h, c, c, c);
+            // Advance cursor to below the bar with enough room for body text
+            cursor_y_ = bar_bottom - bar_h - gap_below;
+        } else {
+            cursor_y_ -= gap_below;
+        }
     }
 
     // ── Paragraph ─────────────────────────────────────────────────────────────
@@ -437,22 +475,90 @@ public:
         std::string line;
         while (std::getline(ss, line)) {
             ensure_space(lh);
+            // Clip lines that would overflow the right margin.  Truncate
+            // characters from the end and append "..." to signal clipping.
+            float avail_w = content_w_ - indent - CODE_RIGHT_PADDING;
+            float line_w  = tw(line, minipdf::FontStyle::Mono, CODE_SIZE);
+            if (line_w > avail_w) {
+                const std::string ellipsis = "...";
+                float ell_w = tw(ellipsis, minipdf::FontStyle::Mono, CODE_SIZE);
+                while (!line.empty() &&
+                       tw(line, minipdf::FontStyle::Mono, CODE_SIZE)
+                           + ell_w > avail_w) {
+                    line.pop_back();
+                }
+                line += ellipsis;
+            }
             page_->place_text(MARGIN_LEFT + indent, cursor_y_,
                                minipdf::FontStyle::Mono, CODE_SIZE, line);
             cursor_y_ -= lh;
         }
-        cursor_y_ -= CODE_SIZE * 0.5f;
+        // Gap below the code block must be large enough that the ascenders of
+        // the following paragraph (≈ BODY_SIZE × 0.75) do not reach up into the
+        // grey background rectangle.  The minimum required is ~8.9 pt; use
+        // BODY_SIZE (11 pt) for a comfortable, visually consistent separation.
+        cursor_y_ -= BODY_SIZE;
     }
 
     // ── Horizontal rule ───────────────────────────────────────────────────────
 
     void hrule() {
-        ensure_space(8.0f);
+        // Leave room above the rule (4 pt) and enough room below so that
+        // ascenders of the following text (≈ BODY_SIZE × 0.85) do not reach
+        // up through the rule line.
+        const float gap_below = BODY_SIZE * 0.85f;
+        ensure_space(4.0f + gap_below);
         cursor_y_ -= 4.0f;
         page_->draw_hline(MARGIN_LEFT, cursor_y_,
                           MARGIN_LEFT + content_w_, 0.5f,
                           0.5f, 0.5f, 0.5f);
-        cursor_y_ -= 4.0f;
+        cursor_y_ -= gap_below;
+    }
+
+    // ── Image block ───────────────────────────────────────────────────────────
+
+    /// Embed a raster image (JPEG or PNG) at the current cursor position.
+    ///
+    /// The image is scaled to fit within the content area while preserving its
+    /// aspect ratio.  When @p hint_w is non-zero it is used as the requested
+    /// display width in points; otherwise the image fills the content width.
+    /// @p hint_h is an optional height override (0 = maintain aspect ratio).
+    ///
+    /// When the image cannot be loaded (missing file, unsupported format) a
+    /// plain-text placeholder is emitted instead.
+    void image_block(const std::string& path,
+                     float hint_w = 0.0f, float hint_h = 0.0f) {
+        auto img = minipdf::PdfImage::from_file(path);
+        if (!img) {
+            // Fall back to a text placeholder
+            paragraph("[image: " + path + "]");
+            return;
+        }
+
+        // Determine display dimensions
+        float img_w = (img->width()  > 0) ? static_cast<float>(img->width())  : 1.0f;
+        float img_h = (img->height() > 0) ? static_cast<float>(img->height()) : 1.0f;
+        float aspect = img_h / img_w;
+
+        float disp_w = (hint_w > 0.0f) ? hint_w : content_w_;
+        disp_w = std::min(disp_w, content_w_);  // never overflow margin
+
+        float disp_h = (hint_h > 0.0f) ? hint_h : disp_w * aspect;
+
+        ensure_space(disp_h + BODY_SIZE);  // image height + one body line below
+        if (disp_h > (cursor_y_ - MARGIN_BOTTOM)) {
+            // Still too tall after a possible page break; clamp to page
+            disp_h = cursor_y_ - MARGIN_BOTTOM - BODY_SIZE;
+            if (disp_h <= 0.0f) { disp_h = BODY_SIZE; }
+            disp_w = disp_h / aspect;
+        }
+
+        // Add image to document and place it
+        std::string res = doc_.add_image(img);
+        // PDF y is from the bottom; cursor_y_ is the TOP-LEFT origin in our model
+        float img_y = cursor_y_ - disp_h;
+        page_->place_image(MARGIN_LEFT, img_y, disp_w, disp_h, res);
+        cursor_y_ = img_y - BODY_SIZE * 0.5f;  // small gap below image
     }
 
     // ── Page break ────────────────────────────────────────────────────────────
@@ -476,9 +582,6 @@ public:
 
     void admonition(const std::string& label, const std::string& body_text) {
         float lh = BODY_SIZE * LINE_RATIO;
-        float indent = 54.0f;  // leave room for the label on the left
-
-        ensure_space(lh * 2.0f);
 
         // Label (NOTE, TIP, etc.) in bold
         std::string lbl = label;
@@ -486,6 +589,14 @@ public:
             c = static_cast<char>(
                     std::toupper(static_cast<unsigned char>(c)));
         }
+
+        // Indent body text past the label.  Computed dynamically so that long
+        // labels like "IMPORTANT:" don't overflow into the body text area.
+        float indent = tw(lbl + ":", minipdf::FontStyle::Bold, BODY_SIZE)
+                       + BODY_SIZE;  ///< label width + one-em gap
+
+        ensure_space(lh * 2.0f);
+
         page_->place_text(MARGIN_LEFT, cursor_y_,
                           minipdf::FontStyle::Bold, BODY_SIZE, lbl + ":");
 
@@ -601,15 +712,222 @@ public:
     [[nodiscard]] float cursor_y() const { return cursor_y_; }
     [[nodiscard]] float content_w() const { return content_w_; }
 
+    // ── Table ─────────────────────────────────────────────────────────────────
+
+    /// One pre-processed table row passed to table_block().
+    struct TableRowData {
+        std::vector<std::string> cells;  ///< pre-substituted cell text
+        bool                     header; ///< true → bold text + shaded background
+    };
+
+    /// Render a grid table.
+    ///
+    /// Column widths are given as absolute points and must sum to roughly
+    /// content_w_.  Each row is a TableRowData with pre-substituted cell text.
+    /// An optional block @p title is rendered above the table.
+    ///
+    /// The implementation:
+    ///   - draws a light-grey background for header rows;
+    ///   - word-wraps cell text to fit within each column;
+    ///   - calls ensure_space() once per row so the table can span pages;
+    ///   - draws a thin (0.5 pt) grid around every cell.
+    void table_block(const std::vector<float>& col_w,
+                     const std::vector<TableRowData>& rows,
+                     const std::string& title = "") {
+        if (col_w.empty() || rows.empty()) { return; }
+
+        const std::size_t ncols    = col_w.size();
+        const float       lh       = BODY_SIZE * LINE_RATIO;
+        const float       pad_x    = 4.0f;          ///< horizontal cell padding (pts)
+        // Vertical padding must clear the text ascenders / descenders.
+        // cursor_y_ is the text BASELINE; ascenders extend roughly
+        // 0.75 × BODY_SIZE above the baseline, descenders ~0.25 × below.
+        const float       pad_top  = BODY_SIZE * 0.85f; ///< baseline → top border gap
+        const float       pad_bot  = BODY_SIZE * 0.35f; ///< last-baseline → bottom gap
+        const float       bdr      = 0.5f;          ///< border line width (pts)
+        const float       bdr_grey = 0.5f;           ///< border grey level
+
+        if (!title.empty()) { block_title(title); }
+
+        // ── helpers ──────────────────────────────────────────────────────────
+
+        // Count how many wrapped lines are needed to fit @p spans in @p avail_w.
+        auto count_lines = [&](const std::vector<TextSpan>& spans,
+                               float avail_w) -> int {
+            if (spans.empty()) { return 1; }
+            float space_w  = tw(" ", minipdf::FontStyle::Regular, BODY_SIZE);
+            int   lines    = 1;
+            float line_w   = 0.0f;
+            for (const auto& sp : spans) {
+                std::istringstream ss(sp.text);
+                std::string        tok;
+                while (std::getline(ss, tok, ' ')) {
+                    if (tok.empty()) { continue; }
+                    float ww   = tw(tok, sp.style, sp.size);
+                    float need = (line_w == 0.0f) ? ww : line_w + space_w + ww;
+                    if (need > avail_w && line_w > 0.0f) { ++lines; line_w = ww; }
+                    else                                  { line_w = need; }
+                }
+            }
+            return lines;
+        };
+
+        // ── row rendering ────────────────────────────────────────────────────
+
+        float table_x = MARGIN_LEFT;
+        float table_w = content_w_;
+
+        for (const auto& row : rows) {
+            const auto base = row.header ? minipdf::FontStyle::Bold
+                                         : minipdf::FontStyle::Regular;
+
+            // Compute row height: tallest cell drives the row.
+            // row_h = pad_top (above first baseline) + nl × lh + pad_bot (below last baseline)
+            float row_h = pad_top + lh + pad_bot;
+            for (std::size_t ci = 0; ci < ncols; ++ci) {
+                const std::string& txt = (ci < row.cells.size())
+                                          ? row.cells[ci] : "";
+                if (txt.empty()) { continue; }
+                auto spans = merge_spans(parse_spans(txt, base));
+                for (auto& sp : spans) { sp.size = BODY_SIZE; }
+                float avail_w = col_w[ci] - 2.0f * pad_x;
+                int   nl      = count_lines(spans, avail_w);
+                float cell_h  = pad_top + static_cast<float>(nl) * lh + pad_bot;
+                row_h = std::max(row_h, cell_h);
+            }
+
+            ensure_space(row_h + bdr);
+
+            float row_top    = cursor_y_;
+            float row_bottom = row_top - row_h;
+
+            // Header rows: light-grey fill.
+            if (row.header) {
+                page_->fill_rect(table_x, row_bottom, table_w, row_h,
+                                 0.88f, 0.88f, 0.88f);
+            }
+
+            // Render cell text – cursor is temporarily manipulated per cell and
+            // restored afterwards so all cells in the same row share row_top.
+            float x_cell = table_x;
+            for (std::size_t ci = 0; ci < ncols; ++ci) {
+                const std::string& txt = (ci < row.cells.size())
+                                          ? row.cells[ci] : "";
+                if (!txt.empty()) {
+                    auto spans = merge_spans(parse_spans(txt, base));
+                    for (auto& sp : spans) { sp.size = BODY_SIZE; }
+                    float saved  = cursor_y_;
+                    cursor_y_    = row_top - pad_top;
+                    wrap_spans_in_cell(spans, lh,
+                                       x_cell + pad_x,
+                                       col_w[ci] - 2.0f * pad_x);
+                    cursor_y_ = saved;
+                }
+                x_cell += col_w[ci];
+            }
+
+            // Top border for this row.
+            page_->draw_hline(table_x, row_top, table_x + table_w,
+                              bdr, bdr_grey, bdr_grey, bdr_grey);
+
+            // Vertical column separators (drawn as thin filled rectangles).
+            {
+                float vx = table_x;
+                for (std::size_t ci = 0; ci <= ncols; ++ci) {
+                    page_->fill_rect(vx - bdr * 0.5f, row_bottom,
+                                     bdr, row_h + bdr,
+                                     bdr_grey, bdr_grey, bdr_grey);
+                    if (ci < ncols) { vx += col_w[ci]; }
+                }
+            }
+
+            cursor_y_ = row_bottom;
+        }
+
+        // Bottom border of the last row.
+        page_->draw_hline(table_x, cursor_y_, table_x + table_w,
+                          bdr, bdr_grey, bdr_grey, bdr_grey);
+
+        cursor_y_ -= BODY_SIZE * 1.2f;   // gap below table
+    }
+
 private:
+    /// Word-wrap @p spans into lines and place them starting at the absolute
+    /// position (x_start, cursor_y_), clipped to @p avail_w points wide.
+    ///
+    /// Unlike wrap_spans(), this helper does NOT call ensure_space() – it is the
+    /// caller's responsibility to have already guaranteed sufficient vertical
+    /// space for the entire row before invoking this function.
+    void wrap_spans_in_cell(const std::vector<TextSpan>& spans,
+                            float line_h,
+                            float x_start,
+                            float avail_w) {
+        if (spans.empty()) { return; }
+
+        struct Word {
+            std::string        text;
+            minipdf::FontStyle style;
+            float              size;
+        };
+
+        float space_w = tw(" ", minipdf::FontStyle::Regular, BODY_SIZE);
+
+        std::vector<Word> words;
+        for (const auto& sp : spans) {
+            std::istringstream ss(sp.text);
+            std::string        tok;
+            while (std::getline(ss, tok, ' ')) {
+                if (!tok.empty()) {
+                    words.push_back({tok, sp.style, sp.size});
+                }
+            }
+        }
+        if (words.empty()) { return; }
+
+        // Build wrapped lines.
+        struct Line {
+            std::vector<Word> words;
+            float             total_w = 0.0f;
+        };
+        std::vector<Line> lines;
+        lines.push_back({});
+
+        for (const auto& w : words) {
+            float ww   = tw(w.text, w.style, w.size);
+            float need = lines.back().words.empty()
+                             ? ww
+                             : lines.back().total_w + space_w + ww;
+            if (need > avail_w && !lines.back().words.empty()) {
+                lines.push_back({});
+            }
+            float add = lines.back().words.empty() ? ww : space_w + ww;
+            lines.back().total_w += add;
+            lines.back().words.push_back(w);
+        }
+
+        // Render – no ensure_space; caller already reserved the row height.
+        for (const auto& line : lines) {
+            float x     = x_start;
+            bool  first = true;
+            for (const auto& w : line.words) {
+                if (!first) { x += space_w; }
+                page_->place_text(x, cursor_y_, w.style, w.size, w.text);
+                x += tw(w.text, w.style, w.size);
+                first = false;
+            }
+            cursor_y_ -= line_h;
+        }
+    }
+
     /// Measure the rendered width of @p text in the given style/size, using
-    /// the custom body font for Regular text when one is attached.
+    /// the custom font for that style when one is attached.
     [[nodiscard]] float tw(const std::string& text,
                            minipdf::FontStyle style, float size) const {
-        if (body_font_ && style == minipdf::FontStyle::Regular) {
+        const auto& ttf = doc_.get_font(style);
+        if (ttf) {
             float w = 0.0f;
             for (char c : text) {
-                w += body_font_->advance_1000(static_cast<unsigned char>(c));
+                w += ttf->advance_1000(static_cast<unsigned char>(c));
             }
             return w * size / 1000.0f;
         }
@@ -620,7 +938,6 @@ private:
     minipdf::Page*          page_      = nullptr;
     float                   cursor_y_  = 0.0f;
     float                   content_w_ = 0.0f;
-    const minipdf::TtfFont* body_font_ = nullptr;  ///< non-owning; may be nullptr
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -629,13 +946,33 @@ private:
 
 class PdfConverter {
 public:
-    explicit PdfConverter(bool a4 = false, const std::string& font_path = "")
+    explicit PdfConverter(bool a4 = false, const FontSet& fonts = {},
+                          const std::string& images_dir = "")
         : page_size_(a4 ? minipdf::PageSize::A4 : minipdf::PageSize::Letter),
-          body_font_(minipdf::TtfFont::from_file(font_path)) {}
+          images_dir_(images_dir) {
+        using FS = minipdf::FontStyle;
+        auto load = [](const std::string& path) {
+            return minipdf::TtfFont::from_file(path);
+        };
+        fonts_[static_cast<std::size_t>(FS::Regular)]     = load(fonts.regular);
+        fonts_[static_cast<std::size_t>(FS::Bold)]        = load(fonts.bold);
+        fonts_[static_cast<std::size_t>(FS::Oblique)]     = load(fonts.italic);
+        fonts_[static_cast<std::size_t>(FS::BoldOblique)] = load(fonts.bold_italic);
+        fonts_[static_cast<std::size_t>(FS::Mono)]        = load(fonts.mono);
+        fonts_[static_cast<std::size_t>(FS::MonoBold)]    = load(fonts.mono_bold);
+    }
 
     [[nodiscard]] std::string convert(const Document& doc) const {
         minipdf::Document pdf(page_size_);
-        if (body_font_) { pdf.set_body_font(body_font_); }
+        using FS = minipdf::FontStyle;
+        static constexpr FS styles[] = {
+            FS::Regular, FS::Bold, FS::Oblique,
+            FS::BoldOblique, FS::Mono, FS::MonoBold
+        };
+        for (auto s : styles) {
+            const auto& f = fonts_[static_cast<std::size_t>(s)];
+            if (f) { pdf.set_font(s, f); }
+        }
         PdfLayout layout(pdf);
 
         render_document(doc, layout);
@@ -644,8 +981,9 @@ public:
     }
 
 private:
-    minipdf::PageSize               page_size_;
-    std::shared_ptr<minipdf::TtfFont> body_font_;
+    minipdf::PageSize                              page_size_;
+    std::array<std::shared_ptr<minipdf::TtfFont>, 6> fonts_{};
+    std::string                                    images_dir_;
 
     // ── Apply attribute substitution (document header and simple paragraphs)
     [[nodiscard]] static std::string attrs(const std::string& text,
@@ -743,6 +1081,10 @@ private:
                 render_compound(blk, doc, layout, list_depth);
                 break;
 
+            case BlockContext::Table:
+                render_table(dynamic_cast<const Table&>(blk), doc, layout);
+                break;
+
             case BlockContext::Pass:
                 // Raw pass-through: emit as plain text (PDF cannot render HTML)
                 layout.paragraph(blk.source());
@@ -756,10 +1098,55 @@ private:
                 layout.page_break();
                 break;
 
-            case BlockContext::Image:
-                // Images not yet supported; emit a placeholder
-                layout.paragraph("[image: " + blk.attr("target") + "]");
+            case BlockContext::Image: {                // Resolve the image target to a file path.
+                // Try, in order:
+                //   1. target as-is (absolute or relative to cwd)
+                //   2. images_dir_ / target
+                //   3. imagesdir document attribute + "/" + target
+                std::string target = blk.attr("target");
+                std::string resolved;
+                {
+                    auto try_path = [](const std::string& p) -> bool {
+                        if (p.empty()) { return false; }
+                        std::ifstream tf(p, std::ios::binary);
+                        return static_cast<bool>(tf);
+                    };
+                    if (try_path(target)) {
+                        resolved = target;
+                    } else if (!images_dir_.empty()) {
+                        std::string candidate = images_dir_ + "/" + target;
+                        if (try_path(candidate)) { resolved = candidate; }
+                    }
+                    if (resolved.empty()) {
+                        // Try document imagesdir attribute
+                        std::string idir = doc.attr("imagesdir");
+                        if (!idir.empty()) {
+                            std::string candidate = idir + "/" + target;
+                            if (try_path(candidate)) { resolved = candidate; }
+                        }
+                    }
+                    if (resolved.empty()) { resolved = target; }
+                }
+
+                // Parse optional width/height hints from block attributes.
+                // Invalid or non-numeric values are silently treated as 0 (auto).
+                float hint_w = 0.0f, hint_h = 0.0f;
+                {
+                    const std::string& ws = blk.attr("width");
+                    const std::string& hs = blk.attr("height");
+                    if (!ws.empty()) {
+                        try { hint_w = std::stof(ws); }
+                        catch (...) { hint_w = 0.0f; }  // non-numeric → auto
+                    }
+                    if (!hs.empty()) {
+                        try { hint_h = std::stof(hs); }
+                        catch (...) { hint_h = 0.0f; }  // non-numeric → auto
+                    }
+                }
+
+                layout.image_block(resolved, hint_w, hint_h);
                 break;
+            }
 
             case BlockContext::Preamble:
             default:
@@ -892,21 +1279,94 @@ private:
         }
         layout.skip(4.0f);
     }
+
+    // ── Table ─────────────────────────────────────────────────────────────────
+    //
+    // Converts the Table AST node into the PdfLayout::TableRowData intermediate
+    // representation and delegates rendering to PdfLayout::table_block().
+    //
+    // Column widths are computed proportionally from the ColumnSpec weights.
+    // When no specs are present every column receives an equal share of the
+    // content width.
+
+    void render_table(const Table& tbl, const Document& doc,
+                      PdfLayout& layout) const {
+        const auto& specs = tbl.column_specs();
+
+        // Determine number of columns.
+        std::size_t ncols = specs.size();
+        if (ncols == 0) {
+            for (const auto* sec : {&tbl.head_rows(),
+                                    &tbl.body_rows(),
+                                    &tbl.foot_rows()}) {
+                if (!sec->empty()) { ncols = sec->front().cells().size(); break; }
+            }
+        }
+        if (ncols == 0) { return; }
+
+        // Proportional column widths.
+        int total_weight = 0;
+        for (std::size_t i = 0; i < ncols; ++i) {
+            total_weight += (i < specs.size() && specs[i].width > 0)
+                                ? specs[i].width : 1;
+        }
+        std::vector<float> col_w(ncols);
+        for (std::size_t i = 0; i < ncols; ++i) {
+            int w = (i < specs.size() && specs[i].width > 0) ? specs[i].width : 1;
+            col_w[i] = layout.content_w()
+                       * static_cast<float>(w) / static_cast<float>(total_weight);
+        }
+
+        // Build row data with attribute-substituted cell text.
+        std::vector<PdfLayout::TableRowData> rows;
+        auto append = [&](const std::vector<TableRow>& src, bool header) {
+            for (const auto& row : src) {
+                PdfLayout::TableRowData rd;
+                rd.header = header;
+                for (const auto& cell : row.cells()) {
+                    rd.cells.push_back(attrs(cell->source(), doc));
+                }
+                rows.push_back(std::move(rd));
+            }
+        };
+        append(tbl.head_rows(), true);
+        append(tbl.body_rows(), false);
+        append(tbl.foot_rows(), false);
+
+        std::string title = tbl.has_title() ? attrs(tbl.title(), doc) : "";
+        layout.table_block(col_w, rows, title);
+    }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Free function convenience wrapper
+// Free function convenience wrappers
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Convert a parsed Document to a PDF byte string using a FontSet.
+/// @param a4         When true, use A4 page size; otherwise Letter (default).
+/// @param fonts      Paths to TrueType font files for each text style.  Any empty
+///                   path falls back to the corresponding PDF base-14 font.
+/// @param images_dir Base directory to search for image files referenced by
+///                   image:: blocks.  When empty, only the target path as written
+///                   in the source and the document's imagesdir attribute are tried.
+[[nodiscard]] inline std::string convert_to_pdf(const Document& doc,
+                                                 bool a4,
+                                                 const FontSet& fonts,
+                                                 const std::string& images_dir = "") {
+    return PdfConverter{a4, fonts, images_dir}.convert(doc);
+}
 
 /// Convert a parsed Document to a PDF byte string.
 /// @param a4        When true, use A4 page size; otherwise Letter (default).
 /// @param font_path Optional path to a TrueType (.ttf) file to use as the
-///                  body text font.  When empty (default) or unreadable,
-///                  the PDF base-14 font Helvetica is used instead.
+///                  body text font (FontStyle::Regular / F1).  When empty
+///                  (default) or unreadable, Helvetica is used instead.
 [[nodiscard]] inline std::string convert_to_pdf(const Document& doc,
                                                  bool a4 = false,
                                                  const std::string& font_path = "") {
-    return PdfConverter{a4, font_path}.convert(doc);
+    FontSet fs;
+    fs.regular = font_path;
+    return PdfConverter{a4, fs}.convert(doc);
 }
 
 } // namespace asciiquack

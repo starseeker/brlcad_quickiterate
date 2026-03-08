@@ -147,11 +147,43 @@ static int convert_one(const std::string&    source_path,
     } else if (params.backend == "pdf") {
         bool a4 = (params.attributes.count("pdf-page-size") &&
                    params.attributes.at("pdf-page-size") == "A4");
-        std::string font_path;
-        if (params.attributes.count("pdf-font")) {
-            font_path = params.attributes.at("pdf-font");
+
+        auto get_attr = [&](const std::string& key) -> std::string {
+            auto it = params.attributes.find(key);
+            return (it != params.attributes.end()) ? it->second : "";
+        };
+
+        asciiquack::FontSet fonts;
+        fonts.regular     = get_attr("pdf-font");
+        fonts.bold        = get_attr("pdf-font-bold");
+        fonts.italic      = get_attr("pdf-font-italic");
+        fonts.bold_italic = get_attr("pdf-font-bold-italic");
+        fonts.mono        = get_attr("pdf-font-mono");
+        fonts.mono_bold   = get_attr("pdf-font-mono-bold");
+
+        // When no body font is explicitly given, fall back to the bundled
+        // Noto fonts (defined at build time via ASCIIQUACK_NOTO_FONTS_DIR).
+#ifdef ASCIIQUACK_NOTO_FONTS_DIR
+        if (fonts.regular.empty()) {
+            const std::string noto = ASCIIQUACK_NOTO_FONTS_DIR;
+            fonts.regular     = noto + "/Noto_Sans/static/NotoSans-Regular.ttf";
+            if (fonts.bold.empty())
+                fonts.bold        = noto + "/Noto_Sans/static/NotoSans-Bold.ttf";
+            if (fonts.italic.empty())
+                fonts.italic      = noto + "/Noto_Sans/static/NotoSans-Italic.ttf";
+            if (fonts.bold_italic.empty())
+                fonts.bold_italic = noto + "/Noto_Sans/static/NotoSans-BoldItalic.ttf";
+            if (fonts.mono.empty())
+                fonts.mono        = noto + "/Noto_Sans_Mono/static/NotoSansMono-Regular.ttf";
+            if (fonts.mono_bold.empty())
+                fonts.mono_bold   = noto + "/Noto_Sans_Mono/static/NotoSansMono-Bold.ttf";
         }
-        output = asciiquack::convert_to_pdf(*doc, a4, font_path);
+#endif
+
+        output = asciiquack::convert_to_pdf(*doc, a4, fonts,
+            source_path != "<stdin>"
+                ? fs::path{source_path}.parent_path().string()
+                : "");
     } else if (params.backend == "docbook5" || params.backend == "docbook") {
         output = asciiquack::convert_to_docbook5(*doc);
     } else {
