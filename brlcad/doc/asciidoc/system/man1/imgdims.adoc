@@ -10,7 +10,7 @@ imgdims - guess the width and height of an image file
 
 [source]
 ----
-imgdims [-ns] [-#<bytes_per_pixel>] <file_name>
+imgdims [-ns] [-#bytes_per_pixel] file_name
 ----
 
 or
@@ -18,7 +18,7 @@ or
 
 [source]
 ----
-imgdims [-#<bytes_per_pixel>] <num_bytes> \
+imgdims [-#bytes_per_pixel] num_bytes \
     
 ----
 

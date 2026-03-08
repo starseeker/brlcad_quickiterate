@@ -10,7 +10,7 @@ permute - Permutes the vertex labels for the face of an ARB shape that is curren
 
 [source]
 ----
-permute {<tuple>}
+permute {tuple}
 ----
 
 

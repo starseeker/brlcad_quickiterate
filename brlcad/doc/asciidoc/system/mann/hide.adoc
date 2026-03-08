@@ -10,7 +10,7 @@ hide - Sets the hidden flag for the specified objects.
 
 [source]
 ----
-hide {<objects>}
+hide {objects}
 ----
 
 

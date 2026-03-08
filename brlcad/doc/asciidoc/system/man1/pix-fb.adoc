@@ -10,7 +10,7 @@ pix-fb - display a pix format RGB image file on a framebuffer
 
 [source]
 ----
-pix-fb [-aicz1] [-F<framebuffer>] [-m<#lines>] [-s<squarefilesize>] [-w<file_width>] [-n<file_height>] [-S<squarescrsize>] [-W<scr_width>] [-N<scr_height>] [-x<file_xoff>] [-y<file_yoff>] [-X<scr_xoff>] [-Y<scr_yoff>] [-p<seconds>] [<file.pix>]
+pix-fb [-aicz1] [-Fframebuffer] [-m#lines] [-ssquarefilesize] [-wfile_width] [-nfile_height] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height] [-xfile_xoff] [-yfile_yoff] [-Xscr_xoff] [-Yscr_yoff] [-pseconds] [file.pix]
 ----
 
 

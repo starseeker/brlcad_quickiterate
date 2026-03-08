@@ -10,7 +10,7 @@ voxelize - Takes as input a primitive or a collection of primitives, old_obj, an
 
 [source]
 ----
-voxelize [ [-d]| {n}] [ [-s]| {"%s %s %s"}] [ [-t]| {f}] {<new_obj old_obj>} [<old_obj1 old_obj2 ...>]
+voxelize [ [-d]| {n}] [ [-s]| {"%s %s %s"}] [ [-t]| {f}] {new_obj old_obj} [old_obj1 old_obj2 ...]
 ----
 
 

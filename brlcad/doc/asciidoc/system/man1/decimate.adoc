@@ -10,7 +10,7 @@ decimate - Reduce image or data file of MxN tuples to one of size IxJ
 
 [source]
 ----
-decimate <nbytes/pixel> <width> <height> [ <outwidth> <outheight>]
+decimate nbytes/pixel width height [ outwidth outheight]
 ----
 
 

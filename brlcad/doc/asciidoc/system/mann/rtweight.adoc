@@ -10,7 +10,7 @@ rtweight - Calculate mass, centroid, and volume of geometry using raytracing
 
 [source]
 ----
-rtweight [<options>]...
+rtweight [options]...
 ----
 
 

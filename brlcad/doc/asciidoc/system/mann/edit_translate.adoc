@@ -10,14 +10,14 @@ edit translate - Translates the positions of objects, using coordinates, offsets
 
 [source]
 ----
-edit translate [] <to> <object>... \
+edit translate [] <to> object... \
      \
     
  [-n] -k { <from_object>| <from_position>}
  [-n] [ -a| -r] { <to_object>| <to_position>}
- [ {<coords>}| { [ -x { <x>| <x-obj>}] [ -y { <y>| <y-obj>}] [ -z { <z>| <z-obj>}]}]
-  [<path/>] <object> [<offset_distance>]
- <x> [ <y> [<z>]]
+ [ {<coords>}| { [ -x { x| <x-obj>}] [ -y { y| <y-obj>}] [ -z { z| <z-obj>}]}]
+  [path/] object [<offset_distance>]
+ x [ y [z]]
 ----
 
 

@@ -10,7 +10,7 @@ rmater - Reads the specified file and sets the combination shader, color, and in
 
 [source]
 ----
-rmater {<file>}
+rmater {file}
 ----
 
 

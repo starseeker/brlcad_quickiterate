@@ -10,7 +10,7 @@ l - Displays a verbose description about the specified list of objects.
 
 [source]
 ----
-l [-t] [-v] [-r] {<objects>}
+l [-t] [-v] [-r] {objects}
 ----
 
 

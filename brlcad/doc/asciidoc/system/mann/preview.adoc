@@ -10,7 +10,7 @@ preview - Allows the user to preview animation scripts in MGED.
 
 [source]
 ----
-preview [-v] [-d<delay>] [-D<start_frame_number>] [K<end_frame_number>] {<rt_script_file>}
+preview [-v] [-ddelay] [-Dstart_frame_number] [Kend_frame_number] {rt_script_file}
 ----
 
 

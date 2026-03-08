@@ -10,7 +10,7 @@ ls - The command with no object argument lists the name of every object in the d
 
 [source]
 ----
-ls [-A -o -a -c -r -s -p -l -q -H -S] [<objects>]
+ls [-A -o -a -c -r -s -p -l -q -H -S] [objects]
 ----
 
 

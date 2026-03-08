@@ -10,13 +10,13 @@ pixuntile - break image up into separate files
 
 [source]
 ----
-pixuntile [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-S<squareoutsize>] [-W<out_width>] [-N<out_height>] [-o<startframe>] <basename> < <file.pix>
+pixuntile [-ssquareinsize] [-win_width] [-nin_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] [-ostartframe] basename < file.pix
 ----
 
 
 [source]
 ----
-pixuntile [-s<squareinsize>] [-w<in_width>] [-n<in_height>] [-S<squareoutsize>] [-W<out_width>] [-N<out_height>] <file1> <file2>... <fileN> < <file.pix>
+pixuntile [-ssquareinsize] [-win_width] [-nin_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] file1 file2... fileN < file.pix
 ----
 
 

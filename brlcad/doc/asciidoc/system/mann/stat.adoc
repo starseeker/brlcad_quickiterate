@@ -10,7 +10,7 @@ stat - report information about objects in a BRL-CAD database
 
 [source]
 ----
-stat [-h] [-?] [-r] [-F<string>] [-C<type1[,type2]...>] [-S<type1[,type2]...>] [-o<filename>] {glob pattern}
+stat [-h] [-?] [-r] [-Fstring] [-Ctype1[,type2]...] [-Stype1[,type2]...] [-ofilename] {glob pattern}
 ----
 
 

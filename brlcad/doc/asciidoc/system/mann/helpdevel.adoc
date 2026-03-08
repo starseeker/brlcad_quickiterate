@@ -10,7 +10,7 @@ helpdevel - Returns a list of available developer commands along with a one-line
 
 [source]
 ----
-helpdevel [<command>]
+helpdevel [command]
 ----
 
 

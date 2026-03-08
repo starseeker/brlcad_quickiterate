@@ -10,7 +10,7 @@ pnts - Creates/writes/generates a "pnts" (i.e. point cloud) primitive.
 
 [source]
 ----
-pnts {<subcommand>} {<subcommand arguments>}
+pnts {subcommand} {subcommand arguments}
 ----
 
 
@@ -180,5 +180,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

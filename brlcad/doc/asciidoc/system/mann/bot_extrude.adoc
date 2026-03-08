@@ -10,7 +10,7 @@ bot_extrude - Generate a volumetric BoT to explicitly represent the volume claim
 
 [source]
 ----
-bot extrude [<-h>] [<-q>] [<-i>] [<-R>] [<-C>] [<-F>] {<input_bot>} [<output_bot>]
+bot extrude [-h] [-q] [-i] [-R] [-C] [-F] {input_bot} [output_bot]
 ----
 
 

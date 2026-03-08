@@ -10,7 +10,7 @@ fbfree - free any frame buffer resources
 
 [source]
 ----
-fbfree [ -F <framebuffer>]
+fbfree [ -F framebuffer]
 ----
 
 

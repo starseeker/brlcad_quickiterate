@@ -10,7 +10,7 @@ mvall - Changes the name of old_name to new_name wherever it occurs in the datab
 
 [source]
 ----
-mvall [<-n>] [<(-f mapping_file) | (old_name new_name)>]
+mvall [-n] [(-f mapping_file) | (old_name new_name)]
 ----
 
 

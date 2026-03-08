@@ -10,7 +10,7 @@ dbclean - a shell script for compacting mged databases.
 
 [source]
 ----
-dbclean <in_model.g> <out_model.g>
+dbclean in_model.g out_model.g
 ----
 
 

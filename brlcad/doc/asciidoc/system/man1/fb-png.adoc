@@ -10,7 +10,7 @@ fb-png - save a framebuffer image in a color Portable Network Graphics (PNG) fil
 
 [source]
 ----
-fb-png [-ic] [-#<nbytes/pixel>] [-g<gamma>] [-F<framebuffer>] [-s<squaresize>] [-w<width>] [-n<height>] [<file.png>]
+fb-png [-ic] [-#nbytes/pixel] [-ggamma] [-Fframebuffer] [-ssquaresize] [-wwidth] [-nheight] [file.png]
 ----
 
 

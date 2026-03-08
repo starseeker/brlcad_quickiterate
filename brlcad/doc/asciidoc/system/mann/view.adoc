@@ -10,7 +10,7 @@ view - Gets/sets the view parameters (local units).
 
 [source]
 ----
-view {<subcommand>}
+view {subcommand}
 ----
 
 

@@ -10,7 +10,7 @@ asc-nmg - ascii-to-NMG converter
 
 [source]
 ----
-asc-nmg <ascii_file> <nmg.g>
+asc-nmg ascii_file nmg.g
 ----
 
 
@@ -109,5 +109,3 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

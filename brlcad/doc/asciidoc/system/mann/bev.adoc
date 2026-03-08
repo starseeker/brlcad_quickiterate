@@ -10,7 +10,7 @@ bev - Performs the operations indicated in the Boolean_formula and stores the re
 
 [source]
 ----
-bev [-t] [-P#] {<new_obj>} {<Boolean_formula>}
+bev [-t] [-P#] {new_obj} {Boolean_formula}
 ----
 
 

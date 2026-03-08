@@ -10,7 +10,7 @@ plot3-asc - convert a Plot3 stream to ASCII
 
 [source]
 ----
-plot3-asc [-v] [<unix_plot>]
+plot3-asc [-v] [unix_plot]
 ----
 
 

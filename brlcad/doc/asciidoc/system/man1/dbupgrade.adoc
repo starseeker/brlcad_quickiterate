@@ -10,7 +10,7 @@ dbupgrade - a program to upgrade BRL-CAD mged geometry databases files to the cu
 
 [source]
 ----
-dbupgrade <input.g> <output.g>
+dbupgrade input.g output.g
 ----
 
 

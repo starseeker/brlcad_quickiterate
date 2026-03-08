@@ -10,7 +10,7 @@ eye_pt - Positions the eye point to the given x, y, and z coordinates. Without a
 
 [source]
 ----
-eye_pt [<x y z>]
+eye_pt [x y z]
 ----
 
 

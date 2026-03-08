@@ -10,7 +10,7 @@ fb-pix - save a framebuffer image in a color pix file
 
 [source]
 ----
-fb-pix [-ic] [-F<framebuffer>] [-s<squaresize>] [-w<width>] [-n<height>] [<file.pix>]
+fb-pix [-ic] [-Fframebuffer] [-ssquaresize] [-wwidth] [-nheight] [file.pix]
 ----
 
 

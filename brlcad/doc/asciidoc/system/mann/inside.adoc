@@ -10,7 +10,7 @@ inside - Creates a new shape that is inside an existing shape.
 
 [source]
 ----
-inside [<outside_shape_name new_inside_shape_name>] {<parameters>}
+inside [outside_shape_name new_inside_shape_name] {parameters}
 ----
 
 

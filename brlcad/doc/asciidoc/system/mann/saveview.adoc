@@ -10,7 +10,7 @@ saveview - Saves the current viewing parameters in the specified file in the for
 
 [source]
 ----
-saveview [-e<command>] [-l<logfile>] [-o<outputfile>] [-e<inputfile>] {<file>} [<args>]
+saveview [-ecommand] [-llogfile] [-ooutputfile] [-einputfile] {file} [args]
 ----
 
 

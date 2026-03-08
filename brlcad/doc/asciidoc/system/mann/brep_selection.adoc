@@ -10,7 +10,7 @@ brep selection - Operate on components of a specified BRep solid.
 
 [source]
 ----
-brep {<obj>}selection [<append|translate>] [<arguments>]
+brep {obj}selection [append|translate] [arguments]
 ----
 
 
@@ -36,5 +36,3 @@ BRLCAD-TEAM
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

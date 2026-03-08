@@ -10,13 +10,13 @@ pix2asc, asc2pix - encode and decode color pixel files
 
 [source]
 ----
-pix2asc < <file.pix> > <file.asc>
+pix2asc < file.pix > file.asc
 ----
 
 
 [source]
 ----
-asc2pix < <file.asc> > <file.pix>
+asc2pix < file.asc > file.pix
 ----
 
 

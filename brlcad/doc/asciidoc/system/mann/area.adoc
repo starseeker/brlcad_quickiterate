@@ -10,7 +10,7 @@ area - Calculates an approximate presented area of one region in the mged displa
 
 [source]
 ----
-area [<tolerance>]
+area [tolerance]
 ----
 
 
@@ -45,5 +45,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -10,7 +10,7 @@ r - Creates a region with the specified region_name.
 
 [source]
 ----
-r {<region_name>} {<operation object>}
+r {region_name} {operation object}
 ----
 
 

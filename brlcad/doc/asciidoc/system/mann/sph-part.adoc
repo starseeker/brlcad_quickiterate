@@ -10,7 +10,7 @@ sph-part - Creates a PART shape that encompasses two specified SPH shapes based 
 
 [source]
 ----
-sph-part {<sph1name sph2name newname>}
+sph-part {sph1name sph2name newname}
 ----
 
 

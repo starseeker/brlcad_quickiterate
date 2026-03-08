@@ -10,7 +10,7 @@ rcc-cap - Used to round the end of a cylinder with an ellipsoid.
 
 [source]
 ----
-rcc-cap {<rccname newname>} [<height>] [b] [t]
+rcc-cap {rccname newname} [height] [b] [t]
 ----
 
 

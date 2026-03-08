@@ -10,13 +10,13 @@ overlay - Plots the specified UNIX plot_file in the MGED display.
 
 [source]
 ----
-overlay [<-s #>] [<-N viewobj_name>] {<plot_file>} [<viewobj_name>]
+overlay [-s #] [-N viewobj_name] {plot_file} [viewobj_name]
 ----
 
 
 [source]
 ----
-overlay -F [<-i>] [<-c>] [<-z>] [<-X #>] [<-Y #>] [<-w #>] [<-n #>] [<-S #>] [<--format fmt>] {<img_file>}
+overlay -F [-i] [-c] [-z] [-X #] [-Y #] [-w #] [-n #] [-S #] [--format fmt] {img_file}
 ----
 
 

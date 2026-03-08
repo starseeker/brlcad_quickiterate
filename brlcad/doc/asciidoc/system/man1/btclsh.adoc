@@ -10,7 +10,7 @@ btclsh - Tcl-based interactive shell for BRL-CAD
 
 [source]
 ----
-btclsh [<script>]...
+btclsh [script]...
 ----
 
 

@@ -10,7 +10,7 @@ debugbu - Allows the user to set or check the debug flags used by libbu.
 
 [source]
 ----
-debugbu [<hex_code>]
+debugbu [hex_code]
 ----
 
 

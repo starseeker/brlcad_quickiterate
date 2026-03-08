@@ -10,7 +10,7 @@ bot_sync - Synchronizes the normals of all facets within a BOT primitive so they
 
 [source]
 ----
-bot_sync {<bot>} [<bot2 bot3>]...
+bot_sync {bot} [bot2 bot3]...
 ----
 
 

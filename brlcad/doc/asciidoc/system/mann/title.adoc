@@ -10,7 +10,7 @@ title - Returns the title string for the current database or, if used with an ar
 
 [source]
 ----
-title [<string>]
+title [string]
 ----
 
 

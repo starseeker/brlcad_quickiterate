@@ -10,7 +10,7 @@ g-iges - IGES Translator (BRL-CAD to IGES)
 
 [source]
 ----
-g-iges [ -f| <t>| <m>] [-v] [-s] [-x<flag1>] [-X<flag2>] [-a<abs_tol>] [-r<rel_tol>] [-n<norm_tol>] [-o<output_file_or_directory>] <database.g> <object(s)>
+g-iges [ -f| t| m] [-v] [-s] [-xflag1] [-Xflag2] [-aabs_tol] [-rrel_tol] [-nnorm_tol] [-ooutput_file_or_directory] database.g object(s)
 ----
 
 

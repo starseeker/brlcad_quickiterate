@@ -10,7 +10,7 @@ adjust - Adjusts parameters of a solid.
 
 [source]
 ----
-adjust {<solid_name>} {<param_name>} {<value>} [<param_name>] [<value>]
+adjust {solid_name} {param_name} {value} [param_name] [value]
 ----
 
 

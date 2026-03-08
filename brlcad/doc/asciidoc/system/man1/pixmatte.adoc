@@ -10,7 +10,7 @@ pixmatte - matte (merge) two pix(5) or bw(5) images by a formula
 
 [source]
 ----
-pixmatte [-a] [-w<bytes_wide>] [-glen] <in1> <in2> <true_out> <false_out> > <output>
+pixmatte [-a] [-wbytes_wide] [-glen] in1 in2 true_out false_out > output
 ----
 
 

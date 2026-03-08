@@ -10,7 +10,7 @@ vars - With no arguments, will list all the MGED variables and their values.
 
 [source]
 ----
-vars [<variable>=<value>]
+vars [variable=value]
 ----
 
 

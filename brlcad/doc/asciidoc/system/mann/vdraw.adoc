@@ -10,7 +10,7 @@ vdraw - Allows drawing of lines and polygons (optionally with per vertex normals
 
 [source]
 ----
-vdraw {<command>} [<args>]
+vdraw {command} [args]
 ----
 
 
