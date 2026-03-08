@@ -116,7 +116,6 @@ image::../presentations/images/tk-based-gui-for-mged.png[width=5.5in]
 ** -- Strings used to index the array elements
 
 
-
 ----
 
       mged> set profit(January) 1500
@@ -235,7 +234,6 @@ image::../presentations/images/tk-based-gui-for-mged.png[width=5.5in]
 
 ** -- MGED follows Unix shell filename patterns.
 ** -- Tcl/Tk has different interpretation of * and [].
-
 * Users can select which interpretation of special characters:
 
 ** .mgedrc: set MGED variable
@@ -243,7 +241,6 @@ image::../presentations/images/tk-based-gui-for-mged.png[width=5.5in]
 ** set glob_compat_mode 0 (for Tcl evaluation)
 ** set glob_compat_mode 1 (for object name matching)
 ** Menu: File->Preferences->Special Characters
-
 
 
 == Special Character Interpretation
@@ -409,12 +406,10 @@ The snow is white
 * adjust obj attr value[attr value]
 
 ** Modifies the object's attribute(s) by adjusting the value of the attribute(s) to the new value(s).
-
 * ls[-c -r -s]
 
 ** Without any options, lists every object in the database.
 ** With the "c" option, lists all nonhidden combinations; "r" option lists all nonhidden regions; and "s" option lists all nonhidden primitives.
-
 
 
 == MGED Examples
@@ -539,7 +534,6 @@ image::../presentations/images/copy-sph-part-right.png[width=5.5in]
 * source _fileName_
 
 ** Reads and executes the file as a Tcl script.
-
 * Create the file with a text editor.
 * Reload the file with "source" changes are made.
 * The proc or the source command can be placed in .mgedrc.
@@ -595,5 +589,3 @@ set mged_default(max_text_lines) 1000
 * Raines, Paul. _Tcl/Tk Pocket Reference_. O'Reilly & Associates, Inc., Sebastopol, CA, 1998.
 * Ousterhout, John K. _Tcl and the Tk Toolkit_. Addison-Wesley, Reading, MA, 1994.
 * Welch, Brent B. _Practical Programming in Tcl and Tk, Second Edition_. Prentice Hall, Upper Saddle River, NJ, 1997.
-
-
