@@ -5,9 +5,10 @@
 
 // parsing...
 
-    ==(o )===
-      ( ._> ::
-      `---'//
+     __
+   <(o )___
+    ( ._> /
+     `---'
 
 ----
 quack:: true
@@ -15,14 +16,13 @@ duck:: ascii
 ----
 ```
 
-A C++17 translation of asciidoctor.
+A C++17 translation of (most of) asciidoctor.
 
-Currently a work in progress.  The desired end state is a clean,
-self-contained, strictly C++17 compliant codebase that can handle
-most of what real-world asciidoc use would entail - we'll see if
-we get there.
+This is intending to be a minimalist, self-contained tool that can be used to
+produce output along the lines of asciidoctor, but without some of its most
+complex features - for example, our PDF output is quite basic since most full
+featured solutions to that problem are also extremely heavy.
 
-Command line option via https://github.com/jarro2783/cxxopts
 
 ## Building
 
@@ -60,13 +60,9 @@ Benchmark: 1 000 in-process iterations on `benchmark/sample-data/mdbasics.adoc`
 | asciiquack / embedded PCRE2 (no JIT) | ~0.77 ms | ~1 291 | **~4× faster** |
 | asciiquack / system PCRE2 (JIT) | ~0.65 ms | ~1 541 | **~4.8× faster** |
 
-### Why not RE2?
+### Other dependencies
 
-RE2 was evaluated but cannot serve as a drop-in backend because several
-patterns require features RE2 intentionally omits:
-
-- **Backreferences** – e.g. `([-*_])…\1` (thematic-break detection)
-- **Lookahead assertions** – e.g. `(?=[^*\w]|$)` (constrained inline quotes)
-- **Negative lookahead** – e.g. `(?!//[^/])` (description-list guard)
-
-PCRE2 is equally fast in practice and supports the full pattern set.
+- Syntax highlighting (if C++23 available): µlight (https://github.com/eisenwave/ulight)
+- Command line options: cxxopts (https://github.com/jarro2783/cxxopts)
+- PDF writing: minimal subset of libharu (https://github.com/libharu/libharu)
+- Font support: struetype fork of stb_truetype (https://github.com/starseeker/struetype)

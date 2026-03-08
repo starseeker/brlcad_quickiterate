@@ -39,6 +39,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <array>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -327,6 +328,62 @@ private:
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PdfImage – raster image for embedding as a PDF image XObject
+//
+// Two pixel encodings are supported:
+//   Raw – uncompressed 24-bit RGB (3 bytes per pixel, row-major, top-to-bottom)
+//   Dct – raw JPEG file bytes; embedded with /Filter /DCTDecode
+//
+// Use the static factory methods to load an image from disk:
+//   PdfImage::from_jpeg_file(path)  – load a JPEG
+//   PdfImage::from_png_file(path)   – load a PNG  (requires MINIPDF_USE_ZLIB)
+//   PdfImage::from_file(path)       – try JPEG then PNG automatically
+// ─────────────────────────────────────────────────────────────────────────────
+
+class PdfImage {
+public:
+    enum class Encoding { Raw, Dct };
+
+    PdfImage(const PdfImage&)            = delete;
+    PdfImage& operator=(const PdfImage&) = delete;
+    PdfImage(PdfImage&&)                 = default;
+    PdfImage& operator=(PdfImage&&)      = default;
+
+    /// Load a JPEG image from @p path.
+    /// Returns nullptr if the file cannot be opened or is not a valid JPEG.
+    [[nodiscard]] static std::shared_ptr<PdfImage>
+    from_jpeg_file(const std::string& path);
+
+    /// Load a PNG image from @p path (requires zlib; compile with
+    /// -DMINIPDF_USE_ZLIB and link -lz).
+    /// Returns nullptr on failure (file not found, unsupported format, etc.).
+    [[nodiscard]] static std::shared_ptr<PdfImage>
+    from_png_file(const std::string& path);
+
+    /// Try JPEG first (by magic bytes), then PNG.
+    /// Returns nullptr if neither format can be loaded.
+    [[nodiscard]] static std::shared_ptr<PdfImage>
+    from_file(const std::string& path);
+
+    [[nodiscard]] int      width()    const noexcept { return width_;    }
+    [[nodiscard]] int      height()   const noexcept { return height_;   }
+    [[nodiscard]] int      channels() const noexcept { return channels_; }
+    [[nodiscard]] Encoding encoding() const noexcept { return enc_;      }
+    [[nodiscard]] const std::vector<unsigned char>& data() const noexcept {
+        return data_;
+    }
+
+private:
+    PdfImage() = default;
+
+    int                        width_    = 0;
+    int                        height_   = 0;
+    int                        channels_ = 3;  ///< 1 = gray, 3 = RGB
+    Encoding                   enc_      = Encoding::Raw;
+    std::vector<unsigned char> data_;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /// Return width of ASCII character c in 1/1000 pt units at 1 pt font size.
 inline float char_width_units(char c, FontStyle style) {
@@ -479,6 +536,25 @@ public:
     // ── Internal access for Document::to_string() ─────────────────────────────
     [[nodiscard]] const std::string& raw_content() const { return content_; }
 
+    // ── Image operations ──────────────────────────────────────────────────────
+
+    /// Place an image XObject (previously added to the document via
+    /// Document::add_image()) at the given display position and size.
+    ///
+    /// @param x        Left edge of the image in points (PDF x, from page left).
+    /// @param y        Bottom edge of the image in points (PDF y, from page bottom).
+    /// @param w_pts    Display width in points.
+    /// @param h_pts    Display height in points.
+    /// @param res_name Resource name, e.g. "Im1" (returned by Document::add_image()).
+    void place_image(float x, float y, float w_pts, float h_pts,
+                     const std::string& res_name) {
+        content_ += "q\n";
+        content_ += fmtf(w_pts) + " 0 0 " + fmtf(h_pts) + " "
+                  + fmtf(x) + " " + fmtf(y) + " cm\n";
+        content_ += "/" + res_name + " Do\n";
+        content_ += "Q\n";
+    }
+
 private:
     std::string content_;   ///< accumulated PDF content stream operators
 };
@@ -511,46 +587,112 @@ public:
     [[nodiscard]] float page_height() const { return ph_; }
     [[nodiscard]] std::size_t page_count() const { return pages_.size(); }
 
-    /// Attach an optional TrueType body font.  When set, F1 (regular text)
-    /// becomes an embedded TrueType font instead of the base-14 Helvetica.
-    void set_body_font(std::shared_ptr<TtfFont> font) { body_font_ = std::move(font); }
-    [[nodiscard]] const std::shared_ptr<TtfFont>& body_font() const { return body_font_; }
+    /// Attach an optional TrueType font for the given style slot.
+    /// When set, the corresponding F1–F6 resource becomes an embedded TrueType
+    /// font instead of the PDF base-14 fallback.
+    void set_font(FontStyle style, std::shared_ptr<TtfFont> font) {
+        auto idx = static_cast<std::size_t>(style);
+        if (idx < fonts_.size()) { fonts_[idx] = std::move(font); }
+    }
+
+    /// Return the TrueType font for the given style (may be nullptr).
+    [[nodiscard]] const std::shared_ptr<TtfFont>& get_font(FontStyle style) const {
+        auto idx = static_cast<std::size_t>(style);
+        if (idx < fonts_.size()) { return fonts_[idx]; }
+        static const std::shared_ptr<TtfFont> null_font;
+        return null_font;
+    }
+
+    /// Backward-compatible helper: attach a TrueType font for regular body text
+    /// (FontStyle::Regular / F1).  Equivalent to set_font(FontStyle::Regular, …).
+    void set_body_font(std::shared_ptr<TtfFont> font) {
+        set_font(FontStyle::Regular, std::move(font));
+    }
+    [[nodiscard]] const std::shared_ptr<TtfFont>& body_font() const {
+        return get_font(FontStyle::Regular);
+    }
+
+    // ── Image XObjects ────────────────────────────────────────────────────────
+
+    /// Embed a raster image in the document and return its PDF resource name
+    /// ("Im1", "Im2", …).  The returned name is used with Page::place_image().
+    std::string add_image(std::shared_ptr<PdfImage> img) {
+        std::string name = "Im" + std::to_string(images_.size() + 1);
+        images_.push_back({std::move(img), name});
+        return name;
+    }
+
+    /// Return the number of images that have been added to the document.
+    [[nodiscard]] std::size_t image_count() const noexcept {
+        return images_.size();
+    }
 
     // ── PDF serialisation ─────────────────────────────────────────────────────
 
     /// Serialise the document to a PDF byte string.
     ///
-    /// Object ID layout when body_font_ is **not** set (default, base-14 only):
+    /// Object ID layout (base-14 only, no embedded fonts):
     ///   1   Catalog
     ///   2   Pages tree
-    ///   3–8 F1–F6 font dicts (Helvetica … Courier-Bold, /Type1 base-14)
+    ///   3–8 F1–F6 font dicts
     ///   9+  (content, page) pairs
     ///
-    /// Object ID layout when body_font_ **is** set (TrueType body font):
-    ///   1   Catalog
-    ///   2   Pages tree
-    ///   3   TrueType font data stream (/FontFile2)
-    ///   4   FontDescriptor
-    ///   5   F1 font dict (/TrueType, references 3 and 4)
-    ///   6–10 F2–F6 font dicts (Helvetica-Bold … Courier-Bold, /Type1 base-14)
-    ///   11+ (content, page) pairs
+    /// Object ID layout with N embedded TrueType fonts
+    /// (one stream + descriptor pair per style that has a custom font,
+    /// emitted in FontStyle enum order before the font dicts):
+    ///   1            Catalog
+    ///   2            Pages tree
+    ///   3, 4         stream + FontDescriptor for the first embedded style
+    ///   5, 6         stream + FontDescriptor for the second embedded style
+    ///   …            (2 objects per additional embedded style)
+    ///   3+2*N … 8+2*N  F1–F6 font dicts
+    ///   9+2*N … 8+2*N+M  image XObjects (M = image count; new, zero when no images)
+    ///   9+2*N+M+      (content, page) pairs
+    ///
+    /// Backward-compatible: with no custom fonts and no images the layout is
+    /// identical to the original fixed layout.
     [[nodiscard]] std::string to_string() const {
-        const bool has_ttf = body_font_ != nullptr;
+        // ── Determine which styles have embedded TrueType fonts ───────────────
+        constexpr int N_FONTS = 6;
+        static const FontStyle FONT_STYLE_ORDER[N_FONTS] = {
+            FontStyle::Regular, FontStyle::Bold, FontStyle::Oblique,
+            FontStyle::BoldOblique, FontStyle::Mono, FontStyle::MonoBold
+        };
 
-        // Object ID assignment
-        const int TTF_DATA_ID  = has_ttf ? 3 : 0;   // font data stream
-        const int TTF_FD_ID    = has_ttf ? 4 : 0;   // FontDescriptor
-        const int FONT_BASE_ID = has_ttf ? 5 : 3;   // first font dict (F1)
-        constexpr int N_FONTS  = 6;
-        const int BODY_BASE_ID = FONT_BASE_ID + N_FONTS;  // first page pair
+        // ttf_slot[i]: if non-negative, the object ID of the data stream for
+        // FONT_STYLE_ORDER[i].  -1 means use a base-14 Type1 font.
+        int stream_id[N_FONTS] = {-1, -1, -1, -1, -1, -1};
+        int desc_id  [N_FONTS] = {-1, -1, -1, -1, -1, -1};
+        int next_obj = 3;
+        int n_ttf    = 0;
+        for (int i = 0; i < N_FONTS; ++i) {
+            if (fonts_[static_cast<std::size_t>(i)]) {
+                stream_id[i] = next_obj;
+                desc_id  [i] = next_obj + 1;
+                next_obj += 2;
+                ++n_ttf;
+            }
+        }
+
+        const int FONT_BASE_ID = next_obj;               // first font dict object
+        const int N_IMG        = static_cast<int>(images_.size());
+        const int IMG_BASE_ID  = FONT_BASE_ID + N_FONTS; // first image XObject
+        const int BODY_BASE_ID = IMG_BASE_ID + N_IMG;    // first page-pair object
 
         const int n_pages    = static_cast<int>(pages_.size());
         const int total_objs = BODY_BASE_ID + n_pages * 2;
 
-        const std::size_t ttf_reserve =
-            has_ttf ? body_font_->raw_bytes().size() : 0;
+        // Reserve enough space: header + font data + image data + page content.
+        std::size_t ttf_reserve = 0;
+        for (const auto& f : fonts_) {
+            if (f) { ttf_reserve += f->raw_bytes().size(); }
+        }
+        std::size_t img_reserve = 0;
+        for (const auto& e : images_) {
+            if (e.image) { img_reserve += e.image->data().size(); }
+        }
         std::string buf;
-        buf.reserve(64 * 1024 + ttf_reserve);
+        buf.reserve(64 * 1024 + ttf_reserve + img_reserve);
 
         // Byte-offset table (index = object ID, value = file offset).
         std::vector<std::size_t> offsets(static_cast<std::size_t>(total_objs + 1), 0);
@@ -576,66 +718,65 @@ public:
                    + " /Count " + std::to_string(n_pages) + " >>\nendobj\n";
         }
 
-        // ── Objects 3 & 4: TrueType font stream + FontDescriptor (optional) ───
-        if (has_ttf) {
-            const auto& ttf_bytes = body_font_->raw_bytes();
+        // ── TrueType font data streams and FontDescriptors ────────────────────
+        for (int i = 0; i < N_FONTS; ++i) {
+            if (stream_id[i] < 0) { continue; }
+            const auto& ttf      = fonts_[static_cast<std::size_t>(i)];
+            const auto& ttf_bytes = ttf->raw_bytes();
             const auto  ttf_len   = ttf_bytes.size();
 
-            // Object 3: Font data stream
-            offsets[static_cast<std::size_t>(TTF_DATA_ID)] = buf.size();
-            buf += std::to_string(TTF_DATA_ID) + " 0 obj\n"
+            // Font data stream
+            offsets[static_cast<std::size_t>(stream_id[i])] = buf.size();
+            buf += std::to_string(stream_id[i]) + " 0 obj\n"
                    "<< /Length "  + std::to_string(ttf_len)
                    + " /Length1 " + std::to_string(ttf_len) + " >>\nstream\n";
             buf.append(reinterpret_cast<const char*>(ttf_bytes.data()), ttf_len);
             buf += "\nendstream\nendobj\n";
 
-            // Object 4: FontDescriptor
-            offsets[static_cast<std::size_t>(TTF_FD_ID)] = buf.size();
-            buf += std::to_string(TTF_FD_ID) + " 0 obj\n"
+            // FontDescriptor
+            offsets[static_cast<std::size_t>(desc_id[i])] = buf.size();
+            buf += std::to_string(desc_id[i]) + " 0 obj\n"
                    "<< /Type /FontDescriptor\n"
-                   "   /FontName /" + body_font_->pdf_name() + "\n"
+                   "   /FontName /" + ttf->pdf_name() + "\n"
                    "   /Flags 32\n"
                    "   /FontBBox ["
-                   + std::to_string(body_font_->bbox_x0()) + " "
-                   + std::to_string(body_font_->bbox_y0()) + " "
-                   + std::to_string(body_font_->bbox_x1()) + " "
-                   + std::to_string(body_font_->bbox_y1()) + "]\n"
+                   + std::to_string(ttf->bbox_x0()) + " "
+                   + std::to_string(ttf->bbox_y0()) + " "
+                   + std::to_string(ttf->bbox_x1()) + " "
+                   + std::to_string(ttf->bbox_y1()) + "]\n"
                    "   /ItalicAngle 0\n"
-                   "   /Ascent "    + std::to_string(static_cast<int>(body_font_->ascent_1000()))    + "\n"
-                   "   /Descent "   + std::to_string(static_cast<int>(body_font_->descent_1000()))   + "\n"
-                   "   /CapHeight " + std::to_string(static_cast<int>(body_font_->cap_height_1000())) + "\n"
+                   "   /Ascent "    + std::to_string(static_cast<int>(ttf->ascent_1000()))     + "\n"
+                   "   /Descent "   + std::to_string(static_cast<int>(ttf->descent_1000()))    + "\n"
+                   "   /CapHeight " + std::to_string(static_cast<int>(ttf->cap_height_1000())) + "\n"
                    "   /StemV 80\n"
-                   "   /FontFile2 " + std::to_string(TTF_DATA_ID) + " 0 R\n"
+                   "   /FontFile2 " + std::to_string(stream_id[i]) + " 0 R\n"
                    ">>\nendobj\n";
         }
 
         // ── Font objects F1–F6 ────────────────────────────────────────────────
-        static const FontStyle FONT_STYLE_ORDER[N_FONTS] = {
-            FontStyle::Regular, FontStyle::Bold, FontStyle::Oblique,
-            FontStyle::BoldOblique, FontStyle::Mono, FontStyle::MonoBold
-        };
         for (int i = 0; i < N_FONTS; ++i) {
             int fid = FONT_BASE_ID + i;
             offsets[static_cast<std::size_t>(fid)] = buf.size();
 
-            if (i == 0 && has_ttf) {
-                // F1 = embedded TrueType; build /Widths array for chars 32–255
+            if (stream_id[i] >= 0) {
+                // Embedded TrueType: build /Widths array for chars 32–255
+                const auto& ttf = fonts_[static_cast<std::size_t>(i)];
                 std::string widths = "[";
                 for (int ch = 32; ch <= 255; ++ch) {
                     if (ch > 32) { widths += ' '; }
                     widths += std::to_string(
-                        static_cast<int>(body_font_->advance_1000(ch)));
+                        static_cast<int>(ttf->advance_1000(ch)));
                 }
                 widths += "]";
 
                 buf += std::to_string(fid) + " 0 obj\n"
                        "<< /Type /Font\n"
                        "   /Subtype /TrueType\n"
-                       "   /BaseFont /" + body_font_->pdf_name() + "\n"
+                       "   /BaseFont /" + ttf->pdf_name() + "\n"
                        "   /FirstChar 32\n"
                        "   /LastChar 255\n"
                        "   /Widths " + widths + "\n"
-                       "   /FontDescriptor " + std::to_string(TTF_FD_ID) + " 0 R\n"
+                       "   /FontDescriptor " + std::to_string(desc_id[i]) + " 0 R\n"
                        "   /Encoding /WinAnsiEncoding\n"
                        ">>\nendobj\n";
             } else {
@@ -654,6 +795,41 @@ public:
                        + std::to_string(FONT_BASE_ID + i) + " 0 R ";
         }
         font_dict += ">>";
+
+        // ── Image XObjects ────────────────────────────────────────────────────
+        for (int i = 0; i < N_IMG; ++i) {
+            const auto& entry = images_[static_cast<std::size_t>(i)];
+            const auto& img   = *entry.image;
+            int oid = IMG_BASE_ID + i;
+            offsets[static_cast<std::size_t>(oid)] = buf.size();
+
+            const char* cs = (img.channels() == 1) ? "/DeviceGray" : "/DeviceRGB";
+            buf += std::to_string(oid) + " 0 obj\n"
+                   "<< /Type /XObject /Subtype /Image\n"
+                   "   /Width "  + std::to_string(img.width())  + "\n"
+                   "   /Height " + std::to_string(img.height()) + "\n"
+                   "   /ColorSpace " + std::string(cs) + "\n"
+                   "   /BitsPerComponent 8\n";
+            if (img.encoding() == PdfImage::Encoding::Dct) {
+                buf += "   /Filter /DCTDecode\n";
+            }
+            buf += "   /Length " + std::to_string(img.data().size()) + "\n"
+                   ">>\nstream\n";
+            buf.append(reinterpret_cast<const char*>(img.data().data()),
+                       img.data().size());
+            buf += "\nendstream\nendobj\n";
+        }
+
+        // Build the /XObject sub-dictionary (when images are present)
+        std::string xobject_part;
+        if (N_IMG > 0) {
+            xobject_part = " /XObject << ";
+            for (int i = 0; i < N_IMG; ++i) {
+                xobject_part += "/" + images_[static_cast<std::size_t>(i)].res_name
+                              + " " + std::to_string(IMG_BASE_ID + i) + " 0 R ";
+            }
+            xobject_part += ">>";
+        }
 
         // ── Per-page objects ──────────────────────────────────────────────────
         for (int i = 0; i < n_pages; ++i) {
@@ -676,7 +852,7 @@ public:
                    "<< /Type /Page\n"
                    "   /Parent 2 0 R\n"
                    "   /MediaBox [0 0 " + fmtf(pg.width) + " " + fmtf(pg.height) + "]\n"
-                   "   /Resources << /Font " + font_dict + " >>\n"
+                   "   /Resources << /Font " + font_dict + xobject_part + " >>\n"
                    "   /Contents " + std::to_string(cid) + " 0 R\n"
                    ">>\nendobj\n";
         }
@@ -705,10 +881,18 @@ public:
     }
 
 private:
-    float                    pw_;         ///< page width  (pts)
-    float                    ph_;         ///< page height (pts)
-    std::vector<Page>        pages_;
-    std::shared_ptr<TtfFont> body_font_;  ///< optional embedded TrueType body font
+    float             pw_;    ///< page width  (pts)
+    float             ph_;    ///< page height (pts)
+    std::vector<Page> pages_;
+    /// Optional embedded TrueType fonts, one per FontStyle (indexed by enum value).
+    /// nullptr means use the PDF base-14 fallback for that style.
+    std::array<std::shared_ptr<TtfFont>, 6> fonts_{};
+
+    struct ImageEntry {
+        std::shared_ptr<PdfImage> image;
+        std::string               res_name;  ///< e.g. "Im1"
+    };
+    std::vector<ImageEntry> images_;
 };
 
 } // namespace minipdf
