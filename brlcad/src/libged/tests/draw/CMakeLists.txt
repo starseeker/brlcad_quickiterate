@@ -273,7 +273,26 @@ brlcad_add_test(NAME ged_test_drawpipeline_generic
     "${CMAKE_CURRENT_BINARY_DIR}/dp_test_output"
 )
 
-cmakefiles(CMakeLists.txt)
+# gsh --new-cmds + swrast smoke test (uses moss.g, validates DbiState draw path)
+brlcad_addexec(ged_test_gsh_draw "gsh_draw_test.cpp;util.cpp" "libged;libdm" TEST)
+if(TARGET ged_test_gsh_draw)
+  foreach(tdp ${test_deps})
+    if(TARGET ${tdp})
+      add_dependencies(ged_test_gsh_draw ${tdp})
+    endif()
+  endforeach()
+  add_dependencies(ged_test_gsh_draw draw_test_moss_g)
+endif()
+brlcad_add_test(NAME ged_test_gsh_draw_moss
+  COMMAND ged_test_gsh_draw
+    "${CMAKE_CURRENT_BINARY_DIR}/moss.g"
+    "${CMAKE_CURRENT_BINARY_DIR}/gsh_draw_output"
+)
+
+cmakefiles(
+  gsh_draw_test.cpp
+  CMakeLists.txt
+)
 
 # Local Variables:
 # tab-width: 8

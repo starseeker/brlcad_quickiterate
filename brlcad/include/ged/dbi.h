@@ -913,10 +913,10 @@ class GED_EXPORT GObj {
 #else
 
 /* Placeholders to allow for compilation when we're included in a C file */
-typedef struct _dbi_state {
+typedef struct DbiState {
     int dummy; /* MS Visual C hack which can be removed if the struct contains something meaningful */
 } DbiState;
-typedef struct _bview_state {
+typedef struct BViewState {
     int dummy; /* MS Visual C hack which can be removed if the struct contains something meaningful */
 } BViewState;
 
