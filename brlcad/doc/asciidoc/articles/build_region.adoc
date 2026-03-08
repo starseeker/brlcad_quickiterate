@@ -23,6 +23,8 @@ Next, we create an arb8 for one long side of the wagon tub. It is named wgn.s1. 
 image::../articles/images/build_region_fig02.png[]
 
 Now we have created the following four primitives: 
+
+
 ....
 
 wgn.s1 wgn.s2 wgn.s2+1 wgn.s2-1
@@ -30,6 +32,8 @@ wgn.s1 wgn.s2 wgn.s2+1 wgn.s2-1
 ....
 
  If we separate the primitives sequentially as follows, 
+
+
 ....
 
 wgn.s1
@@ -39,6 +43,8 @@ wgn.s2 wgn.s2+1 wgn.s2-1,
 ....
 
  we can begin to see the Boolean structure falling out of the naming convention 
+
+
 ....
 
 u wgn.s1

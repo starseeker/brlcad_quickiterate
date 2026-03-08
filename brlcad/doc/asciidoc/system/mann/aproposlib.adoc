@@ -31,6 +31,8 @@ The example demonstrates the use of the *aproposlib* command to search the one-l
 mged>*aproposlib mat*
 
 
+
+
 ....
 
 dgo_rtweight dm_drawDataAxes dm_drawModelAxes dm_drawViewAxes dm_loadmat mat_ae

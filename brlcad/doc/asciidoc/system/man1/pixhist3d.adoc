@@ -33,7 +33,7 @@ The environment variable `FB_FILE` is used to select the display device (see *br
 [[see_also]]
 == SEE ALSO
 
-*brlcad*(1), *pixhist3d-plot3*(1), *pixhist*(1), *pixstat*(1)*pix*(5)
+*brlcad*(1), *pixhist3d-plot3*(1), *pixhist*(1), *pixstat*(1) *pix*(5)
 
 
 [[author]]

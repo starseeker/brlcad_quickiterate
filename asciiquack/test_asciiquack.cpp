@@ -2593,6 +2593,58 @@ static void test_table_normal_pipe_not_spec() {
     end_test();
 }
 
+static void test_table_rowspan_html() {
+    begin_test("html5: table rowspan= attribute is emitted");
+
+    // .2+| means the cell spans 2 rows (rowspan=2)
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "[cols=\"2*\"]\n"
+        "|===\n"
+        "|H1 |H2\n"
+        "\n"
+        ".2+|spans two |first\n"
+        "|second\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // The spanning cell must have rowspan="2"
+    EXPECT_CONTAINS(out, "rowspan=\"2\"");
+    EXPECT_CONTAINS(out, "spans two");
+    EXPECT_CONTAINS(out, "first");
+    EXPECT_CONTAINS(out, "second");
+
+    end_test();
+}
+
+static void test_table_rowspan_colspan_combined() {
+    begin_test("html5: table combined colspan and rowspan attributes");
+
+    // 2.2+| means colspan=2 AND rowspan=2
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "[cols=\"3*\"]\n"
+        "|===\n"
+        "|H1 |H2 |H3\n"
+        "\n"
+        "2.2+|big |C\n"
+        "|D |E\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    EXPECT_CONTAINS(out, "rowspan=\"2\"");
+    EXPECT_CONTAINS(out, "colspan=\"2\"");
+    EXPECT_CONTAINS(out, "big");
+
+    end_test();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Multi-line table cell tests
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4924,6 +4976,8 @@ int main(int argc, char* argv[]) {
     test_table_colspan_spec();
     test_table_colspan_rowspan_spec();
     test_table_normal_pipe_not_spec();
+    test_table_rowspan_html();
+    test_table_rowspan_colspan_combined();
     test_table_multiline_cell_continuation();
     test_table_multiline_cell_inline_image();
     test_table_leading_blank_no_header();

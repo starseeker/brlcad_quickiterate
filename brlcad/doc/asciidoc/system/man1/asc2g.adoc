@@ -27,7 +27,7 @@ This was traditionally performed so the files could be transferred to another ma
 [[examples]]
 == EXAMPLE
 
-_*g2asc*__file.g file.asc_
+_*g2asc*_ _file.g file.asc_
 
 
 [quote]
@@ -45,7 +45,7 @@ Transfer the converted databases to the remote machine.
 
 ____
 
-ssh remote "_*asc2g*__file.asc file.g_"
+ssh remote "_*asc2g*_ _file.asc file.g_"
 
 
 [quote]

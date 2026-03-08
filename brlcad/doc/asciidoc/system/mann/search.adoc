@@ -22,6 +22,8 @@ search [<options>]... [<path1>] [<path2>]... [<search plan>]...
 Search Inputs are specified using <<primitives,PATHS>> and matching of objects is done according to a search plan built using boolean expressions constructed using the <<primitives,PRIMITIVES>> and <<operators,OPERATORS>> described below. Note that <<search_options,OPTIONS>> are not used to form search plans - unlike the search plan they are specified _before_ the paths and are used to control settings that apply globally to *search*'s behavior and reporting during the execution of the search.
 
 The results of the search command will be sorted according to David Koelle's "alphanum" algorithm, which is basically a human-intuitive ordering for strings with letters and numbers. For example, a result returning d1.r, d10.r and d2.r will be sorted as: 
+
+
 ....
 
 d1.r
@@ -31,6 +33,8 @@ d10.r
 ....
 
  instead of the default ASCII character ordering, which would look like: 
+
+
 ....
 
 d1.r
@@ -64,6 +68,8 @@ Prints extra (verbose) information in results. Can be stacked up to 3 times for 
 == PATHS:
 
 By default, only the "top level" objects in any search are used as starting points in the search. The default mode if no path is explicitly specified returns a list of all objects found matching the criteria using the top level objects as inputs. Specifying paths is done as follows:
+
+
 
 .Path Specifiers
 [cols="2*"]
@@ -100,58 +106,60 @@ The "flat" searches that are specified by using '|' as a modifier to other paths
 == PRIMITIVES:
 
 
-*-attr*_attrib[>/</=val]_::
+*-attr* _attrib[>/</=val]_::
 Returns TRUE if the object has attribute _attrib_. If a specific value is also supplied for the attribute with an equal condition, TRUE is returned if the object both has the attribute and the attribute is set to value _val._ In the case of >, <, >=, and <= there are two possibilities - if _val_ is numerical a numerical comparison is performed, otherwise a string comparison is performed. Both _attrib_ and _val_ are treated as patterns under shell pattern matching rules when a string comparison is performed, but in numerical mode only the attribute name is pattern matched.
 
 
-*-bool*_u/+/-_::
+*-bool* _u/+/-_::
 True if the object in question is being combined into the local hierarchy with the specified boolean operation. Recognized types are Union (u), Intersection (+), and Subtraction (-).
 
 Note that by convention, top level objects are implicitly "unioned" into the database. To see only objects that have been unioned into a comb tree without returning the top level comb object as well, use the *-mindepth* option to filter for returns deeper in the tree.
 
 
-*-depth*_[>/</=]depth_::
+*-depth* _[>/</=]depth_::
 True if the depth of the object in the tree is within the range specified.
 
 
-*-exec*_expression arg1 arg2 ... ";"_::
+*-exec* _expression arg1 arg2 ... ";"_::
 True if the Tcl expression returns true. Any pair of curly braces ('{}') in an arguemt is replaced by the name or full path of the object. The semicolon terminates the argument list and must not be omitted. Remember to quote the parameters properly. The semicolon must stand on its own and must be quoted.
 
 When using multiple -exec filters, keep in mind that filters are evaluated lazily, so if you have two -execs and the first one returns false for one node, the second one will not run at all.
 
 
-*-iname*_pattern_::
+*-iname* _pattern_::
 Like *name* except the match is case insensitive.
 
 
-*-iregex*_pattern_::
+*-iregex* _pattern_::
 Like *regex* except the match is case insensitive.
 
 
-*-matrix*_IDN|{#,#,#,#,#,#,#,#,#,#,#,#,#,#,#,#}_::
+*-matrix* _IDN|{#,#,#,#,#,#,#,#,#,#,#,#,#,#,#,#}_::
 True if the object in question is being combined into the local hierarchy with an with the specified matrix. This is useful in combination with the *!* operator, for finding objects in a hierarchy with matricies over them. "IDN" is a shorthand that allows users to specify an identity matrix more succinctly.
 
 
-*-maxdepth*_n_::
+*-maxdepth* _n_::
 True if the depth of the object in the tree is less than or equal to _n_.
 
 
-*-mindepth*_n_::
+*-mindepth* _n_::
 True if the depth of the object in the tree is greater than or equal to _n_.
 
 
-*-name*_pattern_::
+*-name* _pattern_::
 True if the object name (not the full path, just the name) matches _pattern_. The evaluation is done according to shell pattern matching rules.
 
 
-*-nnodes*_n_::
+*-nnodes* _n_::
 True if the object is a combination and has _n_ nodes. This option also supports supplying <, >, <=, and >= in front of the number to support returning true for objects with node counts less than, greater than, less than or equal to, and greater than or equal to _n_.
 
 
-*-param*_param[>/</=val]_::
+*-param* _param[>/</=val]_::
 Returns TRUE if the object has parameter _param_. Unlike *-attr*, which looks only at general attributes stored as metadata on objects, the *-param* filters based only on the internal geometric object's characteristics. If a specific value is also supplied for the parameter with an equal condition, TRUE is returned if the object both has the parameter and the parameter is set to value _val._ In the case of >, <, >=, and <= there are two possibilities - if _val_ is numerical a numerical comparison is performed, otherwise a string comparison is performed. Both _attrib_ and _val_ are treated as patterns under shell pattern matching rules when a string comparison is performed, but in numerical mode only the parameter name is pattern matched.
 
-The following table outlines what parameters are visible to the *-param* option. Because BRL-CAD uses the same internal containers for some types, some parameters will be present even when they do not make sense for the specific subtype. Examples include using arb8's container for arb4 and tgc for rcc. Note: there are also a number of primitives whose parameters are not exposed in a way that that *-param* can access them: arbn, ars, brep, bspline, dsp, metaball, nmg, pipe, pnts, and poly. .Primitive Parameters
+The following table outlines what parameters are visible to the *-param* option. Because BRL-CAD uses the same internal containers for some types, some parameters will be present even when they do not make sense for the specific subtype. Examples include using arb8's container for arb4 and tgc for rcc. Note: there are also a number of primitives whose parameters are not exposed in a way that that *-param* can access them: arbn, ars, brep, bspline, dsp, metaball, nmg, pipe, pnts, and poly. 
+
+.Primitive Parameters
 [cols="2*"]
 |===
 |Primitive
@@ -206,7 +214,7 @@ The following table outlines what parameters are visible to the *-param* option.
 
 
 
-*-path*_pattern_::
+*-path* _pattern_::
 True if the object path matches _pattern._ The evaluation is done according to shell pattern matching rules.
 
 
@@ -214,16 +222,18 @@ True if the object path matches _pattern._ The evaluation is done according to s
 Evaluates to TRUE - used to print out the path and name of the object.
 
 
-*-regex*_pattern_::
+*-regex* _pattern_::
 True if the object path matches _pattern._ Pattern evaluation is done using Regular Expression matching.
 
 
-*-size*_[>/</=]size_::
+*-size* _[>/</=]size_::
 True if the size of the object is within the range specified. NOTE: for combs, extrudes, and other composite objects this filter considers _only_ the object definition itself, not its related elements.
 
 
 *-stdattr*::
-Returns TRUE if an object has ONLY standard attributes associated with it. Standard attributes in BRL-CAD are: .Standard Attributes
+Returns TRUE if an object has ONLY standard attributes associated with it. Standard attributes in BRL-CAD are: 
+
+.Standard Attributes
 [cols="2*"]
 |===
 |Attribute
@@ -246,8 +256,10 @@ Returns TRUE if an object has ONLY standard attributes associated with it. Stand
 
 
 
-*-type*_pattern_::
-Returns TRUE if the type of the object matches _pattern._ Pattern evaluation is done using shell pattern matching. Types recognized include: .Primitives
+*-type* _pattern_::
+Returns TRUE if the type of the object matches _pattern._ Pattern evaluation is done using shell pattern matching. Types recognized include: 
+
+.Primitives
 [cols="6*"]
 [%noheader]
 |===
@@ -301,6 +313,8 @@ Returns TRUE if the type of the object matches _pattern._ Pattern evaluation is 
 |
 |===
 
+ 
+
 .Combinations
 [cols="2*"]
 |===
@@ -330,31 +344,31 @@ The the pattern _volume_ can be used as a mirror of plate, in that it will repor
 == OPERATORS
 
 
-*(*_expression_*)*::
+*(* _expression_ *)*::
 Evaluates to true if the expression inside the parentheses evaluates to true. Used to establish order of operations.
 
 
-*-below[>/</=val]*_expression_::
+*-below[>/</=val]* _expression_::
 The below operator applies the expression to every object below the matching object in the tree hierarchy. E.g. searching with -below -name start\* on /component/region.r/start_comb.c/prim1.s would return prim1.s, as the object below start_comb.c
 
 Optionally, inequality and equality constraints on depth can be appended to the operator to limit what relative depths are accepted as matches.
 
 
-_expression_*-and*_expression_ (a.k.a. -a)::
+_expression_ *-and* _expression_ (a.k.a. -a)::
 The and operator operates like the logical AND operator - TRUE only if both expressions are true. AND is the default operator assumed if two expressions are present with no operator explicitly defined.
 
 
-*-above[>/</=val]*_expression_::
+*-above[>/</=val]* _expression_::
 The above operator applies the expression to every object above the current full path to that object, and returns TRUE if one or more of them satisfies the expression. E.g., searching with -above -name s\* on /component/region.r/start_comb.c/prim1.s would return TRUE for /component and /component/region.r as start_comb.c is below both of them, but would return FALSE for any deeper objects (i.e., prim1.s in this example).
 
 Optionally, inequality and equality constraints on depth can be appended to the operator to limit what relative depths are accepted as matches.
 
 
-*-not*_expression_ (a.k.a. !)::
+*-not* _expression_ (a.k.a. !)::
 The logical NOT operator - returns the opposite of the evaluation result of expression.
 
 
-_expression_*-or*_expression_ (a.k.a. -o)::
+_expression_ *-or* _expression_ (a.k.a. -o)::
 The logical OR operator - true if either expression is true.
 
 
@@ -589,7 +603,9 @@ Prints all BoT primitives using "plate" mode, instead of the closed-mesh-requiri
 ====
 Search allows for multiple levels of verbose reporting. The first level will report the total number of items found. The second level will report the boolean operator used at each step along the path. The next, and final level, will report the primitive type of each object along the path. Increased verbosity can be supplied two different ways; as a single flag with each 'v' indicating an elevated level (search -vv.. ), as well as stacked -v flags (search -v -v ..).
 
-mged>*search -v /all.g ! -type comb*
+mged>*search -v /all.g ! -type comb* 
+
+
 ....
 
 /all.g/box.r/box.s
@@ -607,6 +623,8 @@ mged>*search -v /all.g ! -type comb*
 First level of verbosity will print the total number of items found in the search. This is especially useful when coupled with the '-exec' flag which may or may not print the number of items effected by the exec.
 
 
+
+
 ....
 
 mged> search -vv /all.g ! -type comb
@@ -614,6 +632,8 @@ mged> search -vv /all.g ! -type comb
 mged> search -v -v /all.g ! -type comb
 	  
 ....
+
+ 
 
 
 ....
@@ -633,6 +653,8 @@ mged> search -v -v /all.g ! -type comb
 Second level of verbosity will print the total number of items found in the search as well as the boolean operators at each step along the path.
 
 
+
+
 ....
 
 mged> search -vvv /all.g ! -type comb
@@ -640,6 +662,8 @@ mged> search -vvv /all.g ! -type comb
 mged> search -v -v -v /all.g ! -type comb
 	
 ....
+
+ 
 
 
 ....
@@ -664,9 +688,14 @@ At max verbosity, print the total number of items found in the search, the boole
 [example]
 ====
 There are two available methods for working with sets of *search* results. The first is the *exec* option, which is used in the following example to search for all regions below subtractions or intersections in the m35.g example model in BRL-CAD and draw the objects' wireframes in the display manager: 
+
+
 ....
 
-	  mged> search all.g -type region -and ( -below -bool - -or -below -bool + ) -exec draw "{}" ";"mged> autoview
+	  
+	    mged> search all.g -type region -and ( -below -bool - -or -below -bool + ) -exec draw "{}" ";"
+	    mged> autoview
+	  
 	
 ....
 
@@ -675,27 +704,40 @@ There are two available methods for working with sets of *search* results. The f
 Another possibility, especially useful for doing multiple sequential operations which would be awkward to write out in a single search line, is to assign the results of a search command to a Tcl variable. To illustrate, let's randomize the colors of all regions in the "cab" assembly of the m35.g example model and then assign a glass shader with transparency as a follow-on step.
 
 First, we collect the set of search results into a Tcl variable: 
+
+
 ....
 
-	  mged>  set glob_compat_mode 0mged>  set search_results [search cab -type region]
+	  
+	    mged>  set glob_compat_mode 0
+	    mged>  set search_results [search cab -type region]
+	  
 	
 ....
 
 
 
 Next we randomize the colors using Tcl's functionality (here we use random numbers and avoid any value less than 30 to keep objects more visible): 
+
+
 ....
 
-	  mged>  foreach i $search_results {attr set $i color [expr {int(rand()*225)+30}]/[expr {int(rand()*225)+30}]/[expr {int(rand()*225)+30}]}
+	  
+	    mged>  foreach i $search_results {attr set $i color [expr {int(rand()*225)+30}]/[expr {int(rand()*225)+30}]/[expr {int(rand()*225)+30}]}
+	  
 	
 ....
 
 
 
 Finally, we add transparency to the same regions: 
+
+
 ....
 
-	  mged>  foreach i $search_results {attr set $i shader {glass {tr 0.7 ri 1}}}
+	  
+	    mged>  foreach i $search_results {attr set $i shader {glass {tr 0.7 ri 1}}}
+	  
 	
 ....
 
@@ -705,9 +747,13 @@ Finally, we add transparency to the same regions:
 [NOTE]
 ====
 Remember when setting region colors to check for the presence of a _regionid_colortable_ attribute on the _GLOBAL object - if such a table is present (the m35.g sample model has one, for example) you need to remove that table (and for MGED wireframes, re-open the database) before the colors on the individual regions will "take": 
+
+
 ....
 
-	    mged>  attr rm _GLOBAL regionid_colortable
+	    
+	      mged>  attr rm _GLOBAL regionid_colortable
+	    
 	  
 ....
 

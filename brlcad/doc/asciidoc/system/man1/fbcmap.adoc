@@ -20,7 +20,7 @@ fbcmap [-F<framebuffer>] [ -w|W<scr_width>] [ -n|N<scr_height>] [ -s|S<squarescr
 *fbcmap* is used to change the color map of a frame buffer.
 
 
-*-F*_framebuffer_::
+*-F* _framebuffer_::
 This option specifies which framebuffer the image is to be saved from. If not given, the environment variable _FB_FILE_ is used to select the display device (see *brlcad*(1)). If _FB_FILE_ has not been set, the default device for your system will be used.
 
 

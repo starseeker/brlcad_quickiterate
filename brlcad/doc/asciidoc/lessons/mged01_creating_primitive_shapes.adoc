@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 In this lesson, you will: 
+
+
 * Launch the _MGED_ program.
 * Enter commands at the _MGED_ prompt in the Command Window.
 * Use the _MGED_ Graphical User Interface (GUI).
@@ -54,7 +56,9 @@ Before you can create a model, you need to open a new database either through th
 [[open_new_database]]
 == Opening or Creating a New Database when Launching MGED
 
-When launching _MGED_, you can open or create a database at the same time. At the shell prompt (usually a $ or %), in the Terminal Window, type mged followed by a new or existing database name with a .g extension. For example: *mged sphere.g[ENTER]*image::../lessons/images/mged01_terminal.png[]
+When launching _MGED_, you can open or create a database at the same time. At the shell prompt (usually a $ or %), in the Terminal Window, type mged followed by a new or existing database name with a .g extension. For example: *mged sphere.g[ENTER]* 
+
+image::../lessons/images/mged01_terminal.png[]
 
  If you are creating a new database, a small dialog box asking if you want to create a new database named sphere.g will appear. Click on Yes, and a new database will be created. If sphere.g already exists, _MGED_ will open the sphere.g database as the program is launched.
 
@@ -64,7 +68,11 @@ When launching _MGED_, you can open or create a database at the same time. At th
 
 Alternatively, once you have launched _MGED_, you can open an existing database or create a new database using the GUI menus (at the top of the Command or Graphics Window) by clicking on File and then either Open or New. Both options bring up a small dialog box. The Open dialog box will ask you to type in the name of an existing database. The New dialog box will ask you to type in the name of a new database. Click on OK to accept the database.
 
-For this lesson, create a new database called sphere.g. To do this, type sphere.g at the end of the path name, as shown in the following illustration. Click on OK to accept the database name. image::../lessons/images/mged01_commandwindow.png[]
+For this lesson, create a new database called sphere.g. To do this, type sphere.g at the end of the path name, as shown in the following illustration. Click on OK to accept the database name. 
+
+image::../lessons/images/mged01_commandwindow.png[]
+
+ 
 
 image::../lessons/images/mged01_graphicswindow.png[]
 
@@ -103,7 +111,9 @@ For this lesson, you are going to create a single sphere. There are two ways you
 
 You can easily create a sphere from the prompt in the Command Window by typing just a few commands. At the _MGED_ prompt, type: *make sph1.s sph[ENTER] [Note: Use the digit 1, not the letter l]*
 
-This command tells the _MGED_ program to: [cols="3*"]
+This command tells the _MGED_ program to: 
+
+[cols="3*"]
 [%noheader]
 |===
 |make
@@ -137,7 +147,9 @@ Before using the zap option, make sure you "activate" (i.e., set the focus on) t
 [[draw_object]]
 == Drawing a Previously Created Object
 
-To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to: [cols="2*"]
+To recall the sphere, type the command on the Command Line as follows: *draw sph1.s[ENTER]* This command tells the _MGED_ program to: 
+
+[cols="2*"]
 [%noheader]
 |===
 |draw
@@ -176,6 +188,8 @@ Note: If you attempt to type in the Command Window and you see no words appearin
 ====
 
 An example of the dialog that might occur in the Command Window for the parameters or attributes of the first sphere you created is as follows: 
+
+
 ....
 
 mged> l sph1.s
@@ -251,6 +265,8 @@ Remember, to leave the program at any time, type from the Command Line either th
 == Review
 
 In this lesson, you: 
+
+
 * Started the _MGED_ program.
 * Entered commands in the Command Window.
 * Used the _MGED_ GUI.

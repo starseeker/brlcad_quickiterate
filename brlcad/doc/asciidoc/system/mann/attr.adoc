@@ -22,6 +22,8 @@ Used to create, change, retrieve, or view attributes of database objects. Note t
 A newly formed region always has four attributes automatically assigned to it:
 
 
+
+
 * los
 * material_id
 * region
@@ -117,7 +119,9 @@ Lists all the attributes for _region_1_.
 .List all the attribute types present on one or more objects in a database
 [example]
 ====
-mged>*attr list **
+mged>*attr list ** 
+
+
 ....
 
 aircode
@@ -143,7 +147,9 @@ Generate a list of all attribute keys found one one or more objects in the datab
 .List all the material_id attribute values in use in a database
 [example]
 ====
-mged>*attr list * material_id **
+mged>*attr list * material_id ** 
+
+
 ....
 
 material_id=1

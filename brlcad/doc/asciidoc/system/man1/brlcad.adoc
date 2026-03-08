@@ -33,7 +33,7 @@ A "message-passing" interface layered on top of TCP network links, to ease const
 
 
 _libfb_::
-A generic frame-buffer library which includes support for a number of display devices, as well as file, network, and debugging interfaces. Most programs which use this library have the letters "fb" in their names. To override your system default frame-buffer, the environment variable `FB_FILE` can be set. In addition, some commands also support a *-F*_framebuffer_ option. Note that the disk file format of _libfb_ is that of *pix*(5), allowing "framebuffer" files to be later processed by any of the "pix" family of programs. See *libfb*(3), *pix-fb*(3), *pix*(5), etc.
+A generic frame-buffer library which includes support for a number of display devices, as well as file, network, and debugging interfaces. Most programs which use this library have the letters "fb" in their names. To override your system default frame-buffer, the environment variable `FB_FILE` can be set. In addition, some commands also support a *-F* _framebuffer_ option. Note that the disk file format of _libfb_ is that of *pix*(5), allowing "framebuffer" files to be later processed by any of the "pix" family of programs. See *libfb*(3), *pix-fb*(3), *pix*(5), etc.
 
 
 _fbserv_::

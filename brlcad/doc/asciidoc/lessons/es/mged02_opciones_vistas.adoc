@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 
+
+
 * Crear un modelo de un radio (walkie-talkie).
 * Localizar la vista informativa en la ventana de comandos.
 * Identificar elementos del sistema de visualización de _MGED_.
@@ -43,7 +45,9 @@ Nota: Tenga un cuidado especial en reconocer cuando se está usando el número u
 
 Nota: La expresión btn es una abreviación de button (botón en inglés), ant de antenna (antena en inglés), y spkr es una abreviación de speaker (parlante). Los números pueden estar separados por espacios simples, aunque puede usarse espaciados extra para mejorar la legibilidad. En algunos casos (p.e., los comandos r y comb, que se mostrarán más adelante), el espaciado deberá ser exacto.
 
-Una imagen similar a la siguiente debería aparecer en la ventana gráfica image::../../lessons/es/images/mged02_defaultradio.png[]
+Una imagen similar a la siguiente debería aparecer en la ventana gráfica 
+
+image::../../lessons/es/images/mged02_defaultradio.png[]
 
 
 
@@ -53,7 +57,9 @@ Una imagen similar a la siguiente debería aparecer en la ventana gráfica image
 
 Tómese un minuto para observar la ventana de comandos. Inclusive si no hay nada a la vista, en la parte inferior encontrará información sobre la ventana gráfica. Por ejemplo, algo similar a lo siguiente: `cent=(8.000 16.000 24.000) sz=96.000 mm az=35.00 el=25.00 tw=-0.00 ang=(0.00 0.00 0.00)`
 
-Como se detalla en la siguiente tabla, esta información contiene cuatro grupos de datos sobre la vista de la ventana gráfica. .Vista de información en la parte inferior de la ventana de comandos
+Como se detalla en la siguiente tabla, esta información contiene cuatro grupos de datos sobre la vista de la ventana gráfica. 
+
+.Vista de información en la parte inferior de la ventana de comandos
 [cols="5*"]
 |===
 |Designación de pantalla
@@ -184,7 +190,9 @@ Por otro lado, la elevación determina la posición del espectador arriba o deba
 |Bottom (az=270, el=-90)
 |===
 
-Finalmente, el giro (que es una configuración opcional en _MGED_) especifica la rotación en relación a la direccion de la vista. La rotación se aplica a la vista antes de que el acimut o la elevación sean designados. Siguiendo con el ejemplo del camión, imagine que se posiciona exactamente delante del camión (az=0, el=0) y luego rota su cámara en sentido horario 14'0. Esto modificará el ángulo de giro de su visión en 14'0, como muestra la siguiente figura de la izquierda. Note nuevamente que no es el camión el que se mueve, sino sólo su vista sobre el mismo. Para saber más sobre giros, mire el comando *ae* en el apéndice A. [cols="1*"]
+Finalmente, el giro (que es una configuración opcional en _MGED_) especifica la rotación en relación a la direccion de la vista. La rotación se aplica a la vista antes de que el acimut o la elevación sean designados. Siguiendo con el ejemplo del camión, imagine que se posiciona exactamente delante del camión (az=0, el=0) y luego rota su cámara en sentido horario 14'0. Esto modificará el ángulo de giro de su visión en 14'0, como muestra la siguiente figura de la izquierda. Note nuevamente que no es el camión el que se mueve, sino sólo su vista sobre el mismo. Para saber más sobre giros, mire el comando *ae* en el apéndice A. 
+
+[cols="1*"]
 [%noheader]
 |===
 |image:../../lessons/es/images/mged02_truck_0_0_14.png[]
@@ -297,6 +305,8 @@ Nota: Recuerde que las opciones de Shift Grip manipula objetos. A menos que uste
 == Revisión
 
 En este tutorial usted aprendió a: 
+
+
 * Crear el diseño de una radio.
 * Localizar información sobre la vista en la ventana de comandos.
 * Identificar elementos del sistema de visualización de _MGED_.

@@ -41,7 +41,7 @@ rtexample <model.g> <objects>...
 [[examples]]
 == EXAMPLE
 
-*rtexample*_car.g_ wheel door
+*rtexample* _car.g_ wheel door
 
 Here, a single ray will be shot at the geometry database _car.g_ and hit reports generated if the ray hits the specified objects.
 

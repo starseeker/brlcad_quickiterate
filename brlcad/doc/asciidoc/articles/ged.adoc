@@ -76,6 +76,8 @@ The main function of the GED system is to edit target descriptions with immediat
 The GED is a modular code written in the C programming language which presently runs under the BRL UNIX Networking System\u4\d.
 
 
+
+
 ----
 
 \u4\d Michael John Muuss, "BRLNET - The Implementation of a
@@ -110,6 +112,8 @@ In the following pages, the GED keyboard commands will be presented and discusse
 *c oldsolid newsolid*
 
 This command is used to produce and display a copy of a solid. In this case, the solid "oldsolid" will be copied into a solid called "newsolid". A new identical solid record is added to the data file. The solid parameters are copied as they appear in the solid record. 
+
+
 ----
 
 Examples:     c arb8 hullbot.s
@@ -123,6 +127,8 @@ Examples:     c arb8 hullbot.s
 *n old new*
 
 This command is used to rename objects in the data file. In this case, the object "old" will be renamed "new". A note of caution: the name is changed only in the object record itself, not in any member records. Thus if the object "old" appears as a member of any other object, the name will not be changed there. 
+
+
 ----
 
 Examples:     n test hull
@@ -139,6 +145,8 @@ This command clears (Zaps) the screen of all displayed objects.
 *g group obj1 obj2 ..... objn*
 
 This command creates or appends to a combination record and is used to group objects together either for editing or displaying purposes. In this case, "obj1" through "objn" are added as members to the combination "group". If "group" does not exist, it is created and "obj1" through "objn" are added as members. 
+
+
 ----
 
 Examples:   g shell hull turret
@@ -153,6 +161,8 @@ r region op1 sol1 op2 sol2 .... opn soln
 This command is used to create regions or append to regions. If "region" exists, then solids "sol1" through "soln" are added as members with "op1" through "opn" as the defining operations. If "region" does not exist, then it is created and solids "sol1" through "soln" are added as members with "op1" through "opn" as the defining operations. A region is merely a combination record with a flag set and is distinguished from other combinations (groups) since it has meaning to the COMGEOM solid modeling system.
 
 When a region is created, the item and air codes are set equal to zero. To change the item and air codes use the "I" command. Note: In the past all members of a region had to be solids, but recently regions have been allowed as members of regions. Hence, the names "soli" can also be regions now. 
+
+
 ----
 
 Examples:    r hulltop.r + hulltop.s - hullleft.s - hullright.s
@@ -168,6 +178,8 @@ Examples:    r hulltop.r + hulltop.s - hullleft.s - hullright.s
 This command is used to make an instance of an object. An instance of an object is produced by creating a combination and making the object a member. In this case, an instance of "object" is made by creating the combination record "combname" (if "combname" does not already exist) and adding "object" as a member. This member also has a second name "brname" added to the member record, which can be thought of as the name of this branch in the hierarchical data structure. If "combname" already exists, then "object" is added as the next member and "brname" is added as the branch name.
 
 An instance is used to refer to an object, without making actual copies of the object. Instances are useful when one is adding a certain component to a target description many times. Furthermore, any modifications to an object which has been instanced need only be done in the original (prototype) object. These modifications will then be automatically reflected in all the instances of the object. 
+
+
 ----
 
 Examples:       i heround ammo he1
@@ -181,6 +193,8 @@ Examples:       i heround ammo he1
 *f face distance*
 
 This command allows the user to project a face of an arb (arbitrary polyhedron) being edited a normal distance to create a new arb. The value of "face" is 4 digits such as 1256. If the face is projected in the wrong direction use a negative "distance". One use for this command is for producing armor plates of a desired thickness. 
+
+
 ----
 
 Examples:     f 1234 20
@@ -193,6 +207,8 @@ Examples:     f 1234 20
 *l object*
 
 This command is used to list information about objects in the data file. The information listed depends on what type of record "object" is. If "object" is a combination record, then the members are listed. If "object" is a solid record, then the GED general solid type and the parameters as presently in the data file are listed. Note: only the solid parameters as they exist in the solid record are listed, no transformation matrix is applied. Hence, if the solid was edited as a member of a combination, the "l" command will not reflect the editing in the listed parameters. 
+
+
 ----
 
 Examples:      l hull
@@ -207,6 +223,8 @@ Examples:      l hull
 *mirror -[axis] oldsolid newsolid*
 
 This command is used to create and display a new solid record which is the mirror image of an existing solid. The mirror image is about an axis and is created by changing the signs on the solid's parameters depending on which axis the solid is mirrored about. In this case, a mirror image of the solid "oldsolid" will created about the axis indicated by "axis" and the new solid record will be called "newsolid". The only acceptable values for the parameter "axis" are "x", "y", and "z". 
+
+
 ----
 
 Examples:     mirror -y tur.left.s tur.right.s
@@ -223,6 +241,8 @@ This command allows a user in the SOLID EDITING mode to input exact parameter mo
 *D comb mem1 mem2 .... memn*
 
 This command allows one to delete members from a combination record. In this case, members "mem1" through "memn" will be deleted from the combination "comb". 
+
+
 ----
 
 Examples:     D tank hull wheels
@@ -235,6 +255,8 @@ Examples:     D tank hull wheels
 *I region item air*
 
 This command allows one to change the item or air code numbers of a region. If the air code ("air") is not included, a zero is assumed. To change the air code, a zero item code should be used (see second example below). 
+
+
 ----
 
 Examples:
@@ -264,6 +286,8 @@ This command produces a list of the table of contents of all objects in the data
 *a arbname rot fb*
 
 This command is used to create and display a new arb8 solid record. This new arb8 has two square (5 units x 5 units) parallel faces which are 0.5 units apart. These parallel faces are in planes whose orientations are defined by the two input angles - the rotation (rot) angle and the fallback (fb) angle. The orientation of armor plates are frequently defined using rotation and fallback angles. The vertex of this new arb8 is located in the center of the screen. 
+
+
 ----
 
 Examples:     a hullsec3.s 45 30
@@ -300,6 +324,8 @@ The DATA TABLET is a graphics input device containing an X-Y coordinate grid whi
 == ANGLE DISTANCE CURSOR (ADC)
 
 The angle distance cursor is a construction aid used to measure angles and distances. It should be noted that all measurements are made in the projected space of the screen, so one should measure only in a view normal to the surface where the measurement is to take place. The ADC is placed on (or removed from) the display by pushing the "ADC" function switch button (see Figure 3). The ADC consists of three cursors which cover the entire screen. Figure 5 depicts the ADC as it appears on the screen. All the cursors are centered at the same point and can be moved to any location on the screen. Two of these cursors rotate for angle measuring purposes. Angle cursor 1 is solid while angle cursor 2 is dashed. Angle cursor 1 has movable tic marks for measuring distances on the screen. The two angle cursors move with the horizontal and vertical lines of the main cursor. The resulting effect is the moving of the center point horizontally or vertically. The ADC is controlled by the bottom row of the control dial knobs (see Figure 4) : 
+
+
 ----
 
      Knob 6   moves the center in the horizontal direction
@@ -403,6 +429,8 @@ For parameter editing, the solid type determines the menu items. The GED code re
 The GENERAL ARB class of solids represents all the convex polyhedrons (RPP, BOX, RAW, and ARBs). The ARBs comprise five classes of polyhedrons each with a characteristic number of vertices. These are the ARB8, ARB7, ARB6, ARB5, and ARB4, where the ARB8 has eight vertices, etc. GED handles all these ARBs as ARB8s, but with some vertices equal. All the eight vertices of the GENERAL ARB are labeled on the screen, although in certain cases (RAW,ARB7,ARB6,ARB5,ARB4) some vertices will be equal. Figure 6 depicts typical ARBs as they would be displayed and labeled during solid editing.
 
 To edit the ARB vertices, EDGES are moved. Hence, the GENERAL ARB menu is a list of edges to move: 
+
+
 ----
 
 GENERAL ARB MENU
@@ -425,6 +453,8 @@ GENERAL ARB MENU
 The edge to be moved is selected from this menu and is then moved using the data tablet and pen. When the pen is pressed, the line containing the selected edge is moved so it goes through the pen location and is parallel to the original edge. The endpoints of the new edge are then calculated to remain in the "bounding" planes of that edge. In the case of the ARB8, for example, the bounding planes for edge 58 are planes 4378 and 1265 (see Figure 6).
 
 The information printed on the bottom of the screen is the x, y, z coordinates of the eight vertices: 
+
+
 ----
 
  vertex         coordinates
@@ -451,6 +481,8 @@ will force the line containing the edge being edited to pass through the point (
 The TGC general class of solids includes all the cylindrical COMGEOM solids. The defining parameters of the TGC are two base vectors (A and B), a height vector (H), two top vectors (C and D), and the vertex (V). Reference 1 contains more information on these parameters. The top vectors C and D are directed the same as the base vectors A and B respectively, hence the top vectors are defined only by their lengths (c and d). Figure 7 depicts these parameters on typical TGCs. When a TGC is edited in the solid editing mode, only vectors A and B are labeled on the display.
 
 All the vectors (A,B,C,D,H) of the TGC can be scaled during parameter editing. In addition, the height vector (H) and the base (AxB) can be rotated. These parameter editing options are reflected in the TGC menu: 
+
+
 ----
 
 TGC MENU
@@ -474,6 +506,8 @@ will make the vector being scaled have a length equal to "x".
 To rotate vector H or surface AxB, one uses the joystick. Since vectors C and D have the same direction as vectors A and B respectively, the top and bottom surfaces of the TGC will remain parallel. Hence rotating the base surface (AxB) will also rotate the top surface. The "p" keyboard command is not used with the parameter rotation of the TGC.
 
 During solid editing, the parameters of the TGC are constantly updated on the bottom of the screen:
+
+
 
 
 ----
@@ -502,6 +536,8 @@ The ELLG general class represents all the ellipsoidal solids, including spheres 
 The parameter editing of the ELLG consists of scaling the lengths of the vectors A, B, C. These parameter editing options are listed in the menu:
 
 
+
+
 ----
 
 
@@ -516,6 +552,8 @@ ELLG MENU
 The scaling of these vectors is done using the data tablet and pen in exactly the same manner as in object scaling. The "p" keyboard command again can be used to produce a vector of desired length.
 
 The parameters of the ELLG are continually updated on the bottom of the screen during solid editing:
+
+
 
 
 ----
@@ -539,6 +577,8 @@ The TOR general class of solids contains only one type of torus, one with circul
 The parameter editing of the TOR consists of scaling the radii, hence the menu contains only two members:
 
 
+
+
 ----
 
 
@@ -552,6 +592,8 @@ scale radius 2
 As before, the scaling of these radii are done using the data tablet and pen and the "p" keyboard command can be used to produce a radius of any desired length.
 
 The parameters of the TOR are continually updated on the bottom of the screen during solid editing:
+
+
 
 
 ----

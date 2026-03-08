@@ -32,7 +32,7 @@ Request verbose output.
 Transform the coordinate system from xyz to xzy.
 
 
-*-s**scale*::
+*-s* *scale*::
 Scale the output geometry by factor _scale_. By default the scale factor is 0.001 (standard transformation from meters to millimeters).
 
 

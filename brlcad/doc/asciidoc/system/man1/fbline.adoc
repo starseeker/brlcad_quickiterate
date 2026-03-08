@@ -25,7 +25,7 @@ The *-S* (or *-s*) flag sets the width and height to the same value. The *-W* (o
 
 The *-c* flag causes the screen to be cleared before the line is displayed. The default behavior is to draw the line on the current image without clearing the screen.
 
-The *-r red* , *-g green* , *-b blue* flags specify alternate red, green, and blue rgb values for the line color. The default color is white. Thus, a green line is created by turning off the red and green components, i.e., with *-r 0**-b 0* options.
+The *-r red* , *-g green* , *-b blue* flags specify alternate red, green, and blue rgb values for the line color. The default color is white. Thus, a green line is created by turning off the red and green components, i.e., with *-r 0* *-b 0* options.
 
 
 [[example]]

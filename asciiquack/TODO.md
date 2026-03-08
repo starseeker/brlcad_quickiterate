@@ -44,7 +44,7 @@
 | Audio block macro (`audio::url[opts]`) | |
 | Basic tables (`\|===`) | |
 | Table column spec: proportional, alignment, repeat, style | |
-| Table cell spec: colspan (`N+\|`), rowspan (`.N+\|`), combined (`N.M+\|`) | HTML5 `colspan=` emitted; rowspan stored but not yet rendered |
+| Table cell spec: colspan (`N+\|`), rowspan (`.N+\|`), combined (`N.M+\|`) | HTML5 `colspan=` and `rowspan=` emitted |
 | Block title (`.Title`) | |
 | Block anchor (`[[id]]`) | |
 | Block attribute lines (`[source,lang]`, etc.) | |

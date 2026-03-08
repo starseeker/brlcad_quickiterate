@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 
+
+
 * Crear el cilindro externo utilizando el comando in.
 * Crear el cilindro interno para generar el vacío en la figura cilíndrica más grande.
 * Crear el asa de su taza.
@@ -38,7 +40,7 @@ El diagrama de este comando es:
 |La figura es un cilindro circular
 |===
 
-_MGED_ le pedirá los siguientes datos sobre del cilindro que usted desea crear. Tipee los valores dados en negrita. Asegúrese de dejar espacios entre los valores de las variables. *Enter X, Y, Z of vertex: 0 0 0[Enter]**Enter X, Y, Z of height (H) vector: 0 0 3.5[Enter]**Enter radius: 1.75[Enter]*
+_MGED_ le pedirá los siguientes datos sobre del cilindro que usted desea crear. Tipee los valores dados en negrita. Asegúrese de dejar espacios entre los valores de las variables. *Enter X, Y, Z of vertex: 0 0 0[Enter]* *Enter X, Y, Z of height (H) vector: 0 0 3.5[Enter]* *Enter radius: 1.75[Enter]*
 
 Note que el formato de una sola línea para darle todos estos datos al programa sería: *in bodyout.s rcc 0 0 0 0 0 3.5 1.75[Enter]*
 
@@ -113,7 +115,7 @@ El diagrama de este comando es:
 |La x, y, y z del vector normal es 1, 0, y 0
 |===
 
-El programa le pedirá lo siguientes datos de la figura a crear. Tipee los valores mostrados en negrita. *Enter X, Y, Z, of vector C: .6 0 0[Enter]**Enter radius of revolution, r: 1.45[Enter]**Enter elliptical semi-minor axis, d: 0.2[Enter]*
+El programa le pedirá lo siguientes datos de la figura a crear. Tipee los valores mostrados en negrita. *Enter X, Y, Z, of vector C: .6 0 0[Enter]* *Enter radius of revolution, r: 1.45[Enter]* *Enter elliptical semi-minor axis, d: 0.2[Enter]*
 
 La figura de una rosquilla debe aparecer en el lado derecho del cuerpo. Si usted mira atentamente, podrá ver que alrededor de un tercio del toro elíptico corta el cuerpo.
 
@@ -208,6 +210,8 @@ Ahora debe tener la región mug.r como una combinación de formas que contienen 
 == Repasemos...
 
 En este tutorial usted aprendió a: 
+
+
 * Crear el cilindro externo utilizando el comando in.
 * Crear el cilindro interno para generar el vacío en la figura cilíndrica más grande.
 * Crear el asa de su taza.

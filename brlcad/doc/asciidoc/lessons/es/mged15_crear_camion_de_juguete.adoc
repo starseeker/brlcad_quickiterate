@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 
+
+
 * Crear un camión de juguete a partir de tres figuras.
 * Hacer copias de figuras utilizando el editor de primitivos.
 * Hacer combinaciones y regiones de objetos más complejos.
@@ -16,7 +18,9 @@ En este tutorial usted aprenderá a:
 
 
 
-En los tutoriales anteriores, ha creado y editado figuras para producir objetos simples. Este tutorial se centra en la creación de un objeto algo más complejo, un camión de juguete, utilizando la ventana de comandos. Su camión terminado deberá ser similar al siguiente: image::../../lessons/es/images/mged15_truck_design.pNG[]
+En los tutoriales anteriores, ha creado y editado figuras para producir objetos simples. Este tutorial se centra en la creación de un objeto algo más complejo, un camión de juguete, utilizando la ventana de comandos. Su camión terminado deberá ser similar al siguiente: 
+
+image::../../lessons/es/images/mged15_truck_design.pNG[]
 
 
 
@@ -25,7 +29,9 @@ Comience creando una nueva base de datos llamada truck.g.
 [[truck_cab_in_cmd]]
 == Crear una rpp para la cabina del camión utilizando el comando in
 
-Para hacer la cabina del camión, cree un prisma recto paralelo (en inglés: right parallel piped > rpp) utilizando el comando in (de insert > insertar). En el prompt de la ventana de comandos tipee: *in cab1.s rpp[Enter]*_MGED_ le preguntará los valores de XMIN, XMAX, YMIN, YMAX, ZMIN, y ZMAX. Tipee entonces: *0 1 0 1 0 1[Enter]* Esto le dirá a _MGED_ que: [cols="6*"]
+Para hacer la cabina del camión, cree un prisma recto paralelo (en inglés: right parallel piped > rpp) utilizando el comando in (de insert > insertar). En el prompt de la ventana de comandos tipee: *in cab1.s rpp[Enter]* _MGED_ le preguntará los valores de XMIN, XMAX, YMIN, YMAX, ZMIN, y ZMAX. Tipee entonces: *0 1 0 1 0 1[Enter]* Esto le dirá a _MGED_ que: 
+
+[cols="6*"]
 [%noheader]
 |===
 |0
@@ -44,7 +50,9 @@ Para hacer la cabina del camión, cree un prisma recto paralelo (en inglés: rig
 
 
 
-Puede también utilizar el comando con formato de una sola línea: *in cab1.s rpp 0 1 0 1 0 1[Enter]* Una figura cúbica debería aparecer en la ventana gráfica, como muestra la siguiente imagen: image::../../lessons/es/images/mged15_truck_cab1s.pNG[]
+Puede también utilizar el comando con formato de una sola línea: *in cab1.s rpp 0 1 0 1 0 1[Enter]* Una figura cúbica debería aparecer en la ventana gráfica, como muestra la siguiente imagen: 
+
+image::../../lessons/es/images/mged15_truck_cab1s.pNG[]
 
 
 
@@ -54,7 +62,9 @@ Puede también utilizar el comando con formato de una sola línea: *in cab1.s rp
 
 Para hacer el capó del coche, deberá crear otra forma rpp utilizando el comando inside. Este comando fue creado originalmente para ahuecar objetos como tanques de gasolina y cajas, sin embargo, puede ser utilizado para crear cualquier nueva forma que tiene alguna relación con otra forma pre-existente. En este tutorial, se utilizará para cortar materiales por encima del capó y delante de la cabina.
 
-Si está utilizando la versión 6.0 de _BRL-CAD_ o una posterior, en la línea de comandos tipee: *inside cab1.s caboff1.s .5 -.1 .7 -.1 -.1 -.1[Enter]* Este comando le dice a _MGED_ que: [cols="9*"]
+Si está utilizando la versión 6.0 de _BRL-CAD_ o una posterior, en la línea de comandos tipee: *inside cab1.s caboff1.s .5 -.1 .7 -.1 -.1 -.1[Enter]* Este comando le dice a _MGED_ que: 
+
+[cols="9*"]
 [%noheader]
 |===
 |inside
@@ -83,7 +93,9 @@ En este ejemplo, cada espesor con valor negativo indica que caboff1.s va a sobre
 
 Nota: Tenga en cuenta que en las versiones de _BRL-CAD_ 6.0 en adelante las caras de un rpp son numeradas en un orden diferente que en versiones anteriores. Así que, si va a usar una versión anterior a 6.0, el siguiente orden es el que regirá en el comando inside: *inside caboff1.s cab1.s un 0,7 -. -. -. 1 1 .5 -. 1 [Enter]* (El orden de las caras en este caso es frontal, posterior, derecha, izquierda, inferior y superior)
 
-Cuando está en modo Multipane, el diseño debería verse como la siguiente ilustración: image::../../lessons/es/images/mged15_truck_cab_cutoff.pNG[]
+Cuando está en modo Multipane, el diseño debería verse como la siguiente ilustración: 
+
+image::../../lessons/es/images/mged15_truck_cab_cutoff.pNG[]
 
 
 
@@ -91,7 +103,9 @@ Cuando está en modo Multipane, el diseño debería verse como la siguiente ilus
 [[truck_cab_wheel_well]]
 == Utilizar un rcc para crear la cavidad de la rueda en la cabina
 
-Crear un cilindro (rcc) a utilizar para cortar un espacio para la primera rueda de la cabina. En la ventana de comandos del sistema, escriba: *make well1.s rcc [Enter]* En el menú Edit (Edición), diríjase a Primitive Selection (Selección de primitivos) y luego seleccione well1.s. Aplique la vista izquierda, vuelva a Edit (Editar) y seleccione Scale (Escala). Reduzca el tamaño del rcc, hasta que su diámetro sea el indicado para la rueda. Regrese a Edit (Edición) y seleccione Rotate (Rotación). Como se ha dicho, un método sencillo para rotar el CCR es mediante el uso de la tecla CTRL y el botón izquierdo del mouse. Sin embargo, como sabemos que queremos voltear el objeto exactamente 90'0 a lo largo del eje x, una mejor opción es usar la línea de comandos. Tipee entonces: *p 90 0 0 [Enter]* Después de esto, todavía puede tener que utilizar Set H (Ajuste h - de altura) además de las opciones de escala para redimensionar y la tecla SHIFT + botón izquierdo del mouse para posicionar su rueda. Cuando haya finalizado, seleccione Aceptar. Su diseño debe ser similar al siguiente en el modo Multipane: image::../../lessons/es/images/mged15_truck_multipane_1stwheel.pNG[]
+Crear un cilindro (rcc) a utilizar para cortar un espacio para la primera rueda de la cabina. En la ventana de comandos del sistema, escriba: *make well1.s rcc [Enter]* En el menú Edit (Edición), diríjase a Primitive Selection (Selección de primitivos) y luego seleccione well1.s. Aplique la vista izquierda, vuelva a Edit (Editar) y seleccione Scale (Escala). Reduzca el tamaño del rcc, hasta que su diámetro sea el indicado para la rueda. Regrese a Edit (Edición) y seleccione Rotate (Rotación). Como se ha dicho, un método sencillo para rotar el CCR es mediante el uso de la tecla CTRL y el botón izquierdo del mouse. Sin embargo, como sabemos que queremos voltear el objeto exactamente 90'0 a lo largo del eje x, una mejor opción es usar la línea de comandos. Tipee entonces: *p 90 0 0 [Enter]* Después de esto, todavía puede tener que utilizar Set H (Ajuste h - de altura) además de las opciones de escala para redimensionar y la tecla SHIFT + botón izquierdo del mouse para posicionar su rueda. Cuando haya finalizado, seleccione Aceptar. Su diseño debe ser similar al siguiente en el modo Multipane: 
+
+image::../../lessons/es/images/mged15_truck_multipane_1stwheel.pNG[]
 
 
 
@@ -111,11 +125,15 @@ El botón Reset (Restablecer) le dice a _MGED_ que regrese los valores que han s
 [[truck_wheel_well_prim_edit_cpy]]
 == Uso del Primitive Editor (Editor de primitivos) para hacer una copia de la cavidad de la rueda
 
-Para realizar una copia de la cavidad de la rueda, vaya al menú Edit (Edición) y seleccione Primitive Editor (Editor de primitivos), que contendrá la información de la última forma editada (o dirá myPrimitive si nada ha sido editado). Borre el nombre de la figura anterior en el cuadro de entrada Nombre. Escriba well1.s y oprima Reset (Restablecer) (o pulse Enter mientras el cursor se encuentra todavía en el cuadro de entrada Nombre). Los valores de los parámetros de la forma antigua se sustituirán por las de la nueva forma. El editor va a cambiar y se verá similar al siguiente ejemplo: image::../../lessons/es/images/mged15_prim_ed_wheel_well.pNG[]
+Para realizar una copia de la cavidad de la rueda, vaya al menú Edit (Edición) y seleccione Primitive Editor (Editor de primitivos), que contendrá la información de la última forma editada (o dirá myPrimitive si nada ha sido editado). Borre el nombre de la figura anterior en el cuadro de entrada Nombre. Escriba well1.s y oprima Reset (Restablecer) (o pulse Enter mientras el cursor se encuentra todavía en el cuadro de entrada Nombre). Los valores de los parámetros de la forma antigua se sustituirán por las de la nueva forma. El editor va a cambiar y se verá similar al siguiente ejemplo: 
+
+image::../../lessons/es/images/mged15_prim_ed_wheel_well.pNG[]
 
 
 
-Vuelva al cuadro de texto Nombre y cambie el 1 por un 2 y haga clic en OK. Cambie la vista al frente en el menú View (Vista). Diríjase a Edit/Primitive Selection (Edición/Selección de primitivos) y cliquee en well2.s. Utilice el SHIFT y botón izquierdo del mouse para arrastrar la nueva cavidad de la rueda a su posición, como se muestra en la ilustración siguiente. Verifique su alineación en el modo Multipane y presione Accept (Aceptar) cuando haya terminado. image::../../lessons/es/images/mged15_truck_2nd_wheel_wheel_place.pNG[]
+Vuelva al cuadro de texto Nombre y cambie el 1 por un 2 y haga clic en OK. Cambie la vista al frente en el menú View (Vista). Diríjase a Edit/Primitive Selection (Edición/Selección de primitivos) y cliquee en well2.s. Utilice el SHIFT y botón izquierdo del mouse para arrastrar la nueva cavidad de la rueda a su posición, como se muestra en la ilustración siguiente. Verifique su alineación en el modo Multipane y presione Accept (Aceptar) cuando haya terminado. 
+
+image::../../lessons/es/images/mged15_truck_2nd_wheel_wheel_place.pNG[]
 
 
 
@@ -123,7 +141,9 @@ Vuelva al cuadro de texto Nombre y cambie el 1 por un 2 y haga clic en OK. Cambi
 [[truck_cab_shape_comb]]
 == Hacer una combinación con las figuras de la cabina
 
-Ahora es el momento de hacer una combinación de las ditintas figuras de la cabina. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* Este comando le dice a _MGED_ que: [cols="10*"]
+Ahora es el momento de hacer una combinación de las ditintas figuras de la cabina. *comb cab1.c u cab1.s - caboff1.s - well1.s - well2.s[Enter]* Este comando le dice a _MGED_ que: 
+
+[cols="10*"]
 [%noheader]
 |===
 |comb
@@ -151,6 +171,8 @@ Ahora es el momento de hacer una combinación de las ditintas figuras de la cabi
 
 
 Antes de continuar, debería chequear su árbol de datos tipeando: tree cab1.c. El árbol debería ser: 
+
+
 ....
 
    cab1.c/
@@ -175,7 +197,9 @@ Si escribe ls (lista) en la ventana de comandos del sistema, encontrará que su 
 
 Para hacer el cuerpo del camión, tipee en el prompt de la línea de comandos: *in body1.s rpp 0 2 0 1 0 1.5[Enter]* A esta altura ya debería saber qué es lo que este comando le dice a _MGED_ que haga. Si lo ha olvidado, regrese al ejemplo de cuando creó la cabina del camión.
 
-Edite el cuerpo de la camioneta para que su cara frontal se superponga ligeramente con la cara posterior de la cabina. Compruebe desde diferentes puntos de vista que el cuerpo esté correctamente alineado con la cabina. Acepte los cambios cuando haya terminado y, a continuación utilice el comando blast para dibujar su diseño. Su camión ahora debería tener el siguiente aspecto: image::../../lessons/es/images/mged15_truck_cab_body.pNG[]
+Edite el cuerpo de la camioneta para que su cara frontal se superponga ligeramente con la cara posterior de la cabina. Compruebe desde diferentes puntos de vista que el cuerpo esté correctamente alineado con la cabina. Acepte los cambios cuando haya terminado y, a continuación utilice el comando blast para dibujar su diseño. Su camión ahora debería tener el siguiente aspecto: 
+
+image::../../lessons/es/images/mged15_truck_cab_body.pNG[]
 
 
 
@@ -183,7 +207,9 @@ Edite el cuerpo de la camioneta para que su cara frontal se superponga ligeramen
 [[prim_ed_wheel_wells]]
 == Utilizar el Primitive Editor para hacer las otras dos cavidades para las ruedas
 
-Para hacer los dos huecos de las ruedas traseras en el cuerpo de la camioneta, repita los pasos utilizados en la creación de la segunda cavidad. Nombre a las nuevas figuras well3.s y well4.s. Utilice múltiples puntos de vista, y mueva las nuevas formas en la posición indicada hasta que su camión tenga una apariencia similar al siguiente: image::../../lessons/es/images/mged15_truck_wheel_wells_wireframe.pNG[]
+Para hacer los dos huecos de las ruedas traseras en el cuerpo de la camioneta, repita los pasos utilizados en la creación de la segunda cavidad. Nombre a las nuevas figuras well3.s y well4.s. Utilice múltiples puntos de vista, y mueva las nuevas formas en la posición indicada hasta que su camión tenga una apariencia similar al siguiente: 
+
+image::../../lessons/es/images/mged15_truck_wheel_wells_wireframe.pNG[]
 
 
 
@@ -192,6 +218,8 @@ Para hacer los dos huecos de las ruedas traseras en el cuerpo de la camioneta, r
 == Hacer una combinación con el cuerpo del camión y las cavidades
 
 Cree una combinación con el cuerpo y ambas cavidades, nómbrela body1.c. El árbol de body1.c debería decir: 
+
+
 ....
 
    body1.c/
@@ -218,7 +246,9 @@ Antes de agregarle las ruedas al camión, debe crear una región con la cabina y
 
 Tal vez la mejor forma para la fabricación de ruedas es el toro. Puede crear esta forma a través de la ventana de comandos para darles un tamaño y una ubicación precisos a su diseño sin su posterior edición. Sin embargo, este tutorial está pensado para darle práctica sobre la rotación y traslación de las formas.
 
-Cree la primera rueda tipeando en el prompt de la línea de comandos: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* Este comando le dice a _MGED_ que: [cols="7*"]
+Cree la primera rueda tipeando en el prompt de la línea de comandos: *in wheel1.s tor 0 0 0 .5774 .5774 .5774 .18 .08[Enter]* Este comando le dice a _MGED_ que: 
+
+[cols="7*"]
 [%noheader]
 |===
 |in
@@ -241,7 +271,9 @@ Cree la primera rueda tipeando en el prompt de la línea de comandos: *in wheel1
 
 Cambie a la vista izquierda y luego edite la posición de la rueda. Para una correcta alineación de la rueda con el camión, deberá girar el neumático con la tecla CTRL y cualquier botón del ratón. Escale y traslade la rueda a su posición y verifique la alineación desde varios puntos de vista distintos. Acepte los cambios cuando haya terminado.
 
-Utilice el Primitive Editor (Editor de Primitivos) de la misma forma con el resto de las ruedas. Mueva cada una de las ruedas a su posición hasta que su camioneta sea similar a la siguiente: image::../../lessons/es/images/mged15_truck_wheels.pNG[]
+Utilice el Primitive Editor (Editor de Primitivos) de la misma forma con el resto de las ruedas. Mueva cada una de las ruedas a su posición hasta que su camioneta sea similar a la siguiente: 
+
+image::../../lessons/es/images/mged15_truck_wheels.pNG[]
 
 
 
@@ -250,6 +282,8 @@ Utilice el Primitive Editor (Editor de Primitivos) de la misma forma con el rest
 == Hacer una región con las ruedas
 
 Cree una región con las ruedas. Cuando haya terminado, chequee su árbol de datos de wheel1.r. Deberá decir: 
+
+
 ....
 
    wheel1.r/R
@@ -272,7 +306,9 @@ Cree una región con las ruedas. Cuando haya terminado, chequee su árbol de dat
 
 Su camión se compone de dos regiones: truck1.r y wheel1.r. Utilice el Combinación Editor y seleccione truck1.r.
 
-En el Combination Editor (Editor de combinaciones), el sombreado de camuflaje (camo shader) crea un patrón tricolor pseudo-aleatorio de camuflaje en el objeto utilizando un patrón de ruido fractal. El sombreado ofrece gran cantidad de atributos entre los que elegir. Por ahora, seleccione un color de fondo de negro (0 0 0) y complete el Color #1 con verde (0 134 0), y el Color #2 con marrón pardo (164 96 38). Para hacer el patrón proporcional al diseño de la camioneta, seleccione un tamaño de .25 de ruido y, a continuación acepte las selecciones. La ventana del editor de sombreado debería tener este aspecto: image::../../lessons/es/images/mged15_cameo_shader.pNG[]
+En el Combination Editor (Editor de combinaciones), el sombreado de camuflaje (camo shader) crea un patrón tricolor pseudo-aleatorio de camuflaje en el objeto utilizando un patrón de ruido fractal. El sombreado ofrece gran cantidad de atributos entre los que elegir. Por ahora, seleccione un color de fondo de negro (0 0 0) y complete el Color #1 con verde (0 134 0), y el Color #2 con marrón pardo (164 96 38). Para hacer el patrón proporcional al diseño de la camioneta, seleccione un tamaño de .25 de ruido y, a continuación acepte las selecciones. La ventana del editor de sombreado debería tener este aspecto: 
+
+image::../../lessons/es/images/mged15_cameo_shader.pNG[]
 
 
 
@@ -323,7 +359,9 @@ Al utilizar la opción de apilación, necesita hacer un seguimiento del número 
 [[truck_combine_regions]]
 == Hacer una combinación con las regiones del camión
 
-Para hacer una combinación con las dos regiones del camión, tipee en el prompt de la línea de comandos: *comb truck1.c u truck1.r u wheel1.r[Enter]**B truck1.c[Enter]* Su árbol de datos de truck1.c debería decir: 
+Para hacer una combinación con las dos regiones del camión, tipee en el prompt de la línea de comandos: *comb truck1.c u truck1.r u wheel1.r[Enter]* *B truck1.c[Enter]* Su árbol de datos de truck1.c debería decir: 
+
+
 ....
 
    truck1.c/
@@ -370,6 +408,8 @@ El último paso en la creación de su camión es generar el Raytrace de su dise�
 
 Hay un ajuste especial que puede hacer para mejorar el brillo general de la escena, ajustando la cantidad de luz ambiente, que es la luz que no viene de una fuente de luz en particular, sino que es una medida de luz presente en toda la escena. Para ajustar la cantidad de la luz ambiental, haga clic en el botón Advanced Settings (Configuración avanzada) en el panel de control de Raytrace. Junto a la otras opciones preexistentes, tipee -A .9. Ahora cuando genere el Raytrace, obtendrá una imagen mucho más iluminada.
 
+
+
 [cols="2*"]
 [%noheader]
 |===
@@ -386,6 +426,8 @@ Hay un ajuste especial que puede hacer para mejorar el brillo general de la esce
 == Repasemos...
 
 En este tutorial usted aprendió a: 
+
+
 * Crear un camión de juguete a partir de tres figuras.
 * Hacer copias de figuras utilizando el editor de primitivos.
 * Hacer combinaciones y regiones de objetos más complejos.

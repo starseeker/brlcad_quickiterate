@@ -3,6 +3,8 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 In this lesson, you will: 
+
+
 * Create a sphere and a right circular cylinder using the make command.
 * Create the same two shapes using the in (insert) command.
 * Combine arguments on the Command Line to streamline the entry of variables.
@@ -26,7 +28,9 @@ Create a new database and name it shapes.g. Title your database myShapes.
 
 Begin by making the Command Window active (usually by clicking anywhere in the window). Then, at the _MGED_ prompt, type in the command: *make sph1.s sph [Enter]*
 
-As noted in Lesson 1, this command tells _MGED_ to: [cols="3*"]
+As noted in Lesson 1, this command tells _MGED_ to: 
+
+[cols="3*"]
 [%noheader]
 |===
 |make
@@ -37,6 +41,8 @@ As noted in Lesson 1, this command tells _MGED_ to: [cols="3*"]
 |Make it a sphere
 |===
 
+ 
+
 image::../lessons/images/mged03_wireframe_sph.png[]
 
 
@@ -45,7 +51,9 @@ A sphere shape has now been created, and a wireframe drawing should appear in yo
 
 To make the rcc from the Command Window prompt, type: *make rcc1.s rcc[Enter]*
 
-Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created. image::../lessons/images/mged03_wireframe_sph_rcc.png[]
+Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created. 
+
+image::../lessons/images/mged03_wireframe_sph_rcc.png[]
 
 
 
@@ -81,11 +89,11 @@ Your sphere will now be placed at (x,y,z)=(4,4,4), as measured in millimeters. N
       
 ....
 
-The radius of your sphere will be 3 mm. The following is the dialog that should appear in your Command Window (including the appropriate responses). *mged>in sph2.s sph*`Enter X, Y, Z of vertex: 4 4 4``Enter radius: 3``51 vectors in 0.000543 sec` The last line of this dialog is simply a record of the computer's speed in drawing the shape. It has no real usefulness to the user at this point.
+The radius of your sphere will be 3 mm. The following is the dialog that should appear in your Command Window (including the appropriate responses). *mged>in sph2.s sph* `Enter X, Y, Z of vertex: 4 4 4` `Enter radius: 3` `51 vectors in 0.000543 sec` The last line of this dialog is simply a record of the computer's speed in drawing the shape. It has no real usefulness to the user at this point.
 
 A sphere has now been created, and a wireframe drawing similar to the one created using the make command should appear in your Graphics Window.
 
-To make the right circular cylinder, type at the Command Window prompt: *in rcc2.s rcc[Enter]*_MGED_ will ask you to enter values for x, y, and z of the vertex (where you want the center of one end of the rcc placed in space). Type: *4 4 0[Enter]* Be sure to leave spaces between each of these numbers.
+To make the right circular cylinder, type at the Command Window prompt: *in rcc2.s rcc[Enter]* _MGED_ will ask you to enter values for x, y, and z of the vertex (where you want the center of one end of the rcc placed in space). Type: *4 4 0[Enter]* Be sure to leave spaces between each of these numbers.
 
 _MGED_ will now ask you to enter the x, y, and z values of the height (H) vector (i.e., how long you want the rcc to be). Type: *0 0 4[Enter]* The last value you will need to enter is the radius of the rcc. Type: *3[Enter]* The dialog in the Command Window for the creation of the rcc should look like this:
 

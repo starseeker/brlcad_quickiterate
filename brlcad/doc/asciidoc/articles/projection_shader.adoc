@@ -75,6 +75,8 @@ A small but sometimes overlooked step before displaying any image onto the graph
 == Display the Image in the Graphics Display Window
 
 After the graphics display window has been prepared and the framebuffer checked/set, the image can be displayed in the graphics window. To do this, we entered the following command: 
+
+
 ....
 
 pix-fb -F0 -s 950 circuit_back_950.pix
@@ -118,6 +120,8 @@ With the image and the target geometry displayed, edit the view parameters so th
 == Save the Projection Shader Settings File
 
 After the geometry and image have been aligned, the projection settings (i.e., image file name, image width, image height, and current view parameters) can then be saved to a file using the prj_add command. The prj_add command appends the image file name and the current view parameters to the shader file. In our case, the command was: 
+
+
 ....
 
 prj_add circuitboard.prj circuit_back_950.pix 950 950
@@ -167,6 +171,8 @@ image::../articles/images/projection_shader_fig05.png[]
 == Repeating the Steps to Project the Image on the Front
 
 After one side of the circuit board was finished, we proceeded to repeat the steps to add more projection parameters to the .prj file and thus project a different image onto the front side of the geometry (see Figure B-6). To do this, we once again had to acquire an image, properly size the geometry window, display the image and the geometry to the geometry window, and set up view parameters. After this was done, these parameters could be added to the existing .prj file by typing the following: 
+
+
 ....
 
 prj_add circuitboard.prj circuit_front_950.pix 950 950

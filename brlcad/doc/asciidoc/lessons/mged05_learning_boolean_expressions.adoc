@@ -3,9 +3,13 @@ Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 In this lesson, you will: 
+
+
 * Learn about combinations and regions.
 * Learn about Boolean operations.
 * Make regions with Boolean operations.
+
+ 
 
 
 [CAUTION]
@@ -36,6 +40,8 @@ When Boolean operations are used to build up complex shapes from simpler shapes,
 == Boolean Operations
 
 The three Boolean operators employed by the _MGED_ program are union, subtraction, and intersection. You can use Boolean operations to combine shapes to produce more complex shapes. 
+
+
 * Union Shapes: Merge two shapes.
 * Subtract Shapes: Remove the volume of one shape from another.
 * Intersect Shapes: Use only the parts of the two shapes that overlap.
@@ -188,6 +194,8 @@ This would result in the following Boolean expression: `(shape1 - shape2) u ( (s
 == Review
 
 In this lesson, you: 
+
+
 * Learned about combinations and regions.
 * Learned about Boolean operations.
 * Made regions with Boolean operations.

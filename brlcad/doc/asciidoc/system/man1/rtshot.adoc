@@ -17,7 +17,7 @@ rtshot [<options>]... <model.g> <objects>...
 [[description]]
 == DESCRIPTION
 
-*rtshot* fires a single ray at the indicated _objects_ in the input _model.g_ and produces a printed summary of the geometry that the ray passes through. The orientation of the ray to be fired is specified by giving any two of the three options *-a**-d* and *-p.*
+*rtshot* fires a single ray at the indicated _objects_ in the input _model.g_ and produces a printed summary of the geometry that the ray passes through. The orientation of the ray to be fired is specified by giving any two of the three options *-a* *-d* and *-p.*
 
 
 The::

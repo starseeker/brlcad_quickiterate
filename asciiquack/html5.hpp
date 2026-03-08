@@ -13,6 +13,7 @@
 #include "substitutors.hpp"
 #include "outbuf.hpp"
 
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include "aqregex.hpp"
@@ -943,11 +944,23 @@ private:
         // Colgroup
         const auto& col_specs = table.column_specs();
 
-        // Helper: compute total width for proportional→percentage conversion.
+        // Compute total proportional width so we can convert to CSS percentages.
         // If all widths are 0 (auto-width), skip colgroup entirely.
+        int total_width = 0;
+        bool all_auto = true;
+        for (const auto& cs : col_specs) {
+            if (cs.width > 0) { total_width += cs.width; all_auto = false; }
+        }
+        if (total_width == 0) { total_width = 1; }  // guard against divide-by-zero
+
+        // Helper: convert proportional width to CSS percentage string.
         auto colgroup_style = [&](const ColumnSpec& cs) -> std::string {
-            if (cs.width == 0) { return ""; }
-            return "width: " + std::to_string(cs.width) + "%";
+            if (cs.width == 0 || all_auto) { return ""; }
+            // Round to 2 decimal places (Asciidoctor compatibility).
+            double pct = 100.0 * cs.width / total_width;
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%.2f%%", pct);
+            return std::string("width: ") + buf;
         };
 
         // Build a map from column index → CSS halign class using column specs.
@@ -979,8 +992,10 @@ private:
                 std::size_t col_pos = 0;
                 for (const auto& cell : row.cells()) {
                     const int cs = cell->colspan();
+                    const int rs = cell->rowspan();
                     out << "<th class=\"tableblock " << col_halign(col_pos) << " valign-top\"";
                     if (cs > 1) { out << " colspan=\"" << cs << "\""; }
+                    if (rs > 1) { out << " rowspan=\"" << rs << "\""; }
                     out << ">" << subs(cell->source(), doc) << "</th>\n";
                     col_pos += static_cast<std::size_t>(cs);
                 }
@@ -997,6 +1012,7 @@ private:
                 std::size_t col_pos = 0;
                 for (const auto& cell : row.cells()) {
                     const int cs = cell->colspan();
+                    const int rs = cell->rowspan();
                     // Determine alignment: cell-level overrides column spec
                     std::string halign = cell->halign().empty()
                                          ? col_halign(col_pos)
@@ -1004,18 +1020,18 @@ private:
                     // Column style 'h' makes the cell a header cell
                     bool is_header_col = (col_pos < col_specs.size() &&
                                           col_specs[col_pos].style == "h");
-                    std::string colspan_attr = (cs > 1)
-                        ? " colspan=\"" + std::to_string(cs) + "\""
-                        : "";
+                    std::string span_attrs;
+                    if (cs > 1) { span_attrs += " colspan=\"" + std::to_string(cs) + "\""; }
+                    if (rs > 1) { span_attrs += " rowspan=\"" + std::to_string(rs) + "\""; }
                     if (is_header_col) {
                         out << "<th class=\"tableblock " << halign << " valign-top\""
-                            << colspan_attr << ">"
+                            << span_attrs << ">"
                             << "<p class=\"tableblock\">"
                             << subs(cell->source(), doc)
                             << "</p></th>\n";
                     } else {
                         out << "<td class=\"tableblock " << halign << " valign-top\""
-                            << colspan_attr << ">"
+                            << span_attrs << ">"
                             << "<p class=\"tableblock\">"
                             << subs(cell->source(), doc)
                             << "</p></td>\n";
@@ -1035,8 +1051,10 @@ private:
                 std::size_t col_pos = 0;
                 for (const auto& cell : row.cells()) {
                     const int cs = cell->colspan();
+                    const int rs = cell->rowspan();
                     out << "<td class=\"tableblock " << col_halign(col_pos) << " valign-top\"";
                     if (cs > 1) { out << " colspan=\"" << cs << "\""; }
+                    if (rs > 1) { out << " rowspan=\"" << rs << "\""; }
                     out << "><p class=\"tableblock\">"
                         << subs(cell->source(), doc)
                         << "</p></td>\n";

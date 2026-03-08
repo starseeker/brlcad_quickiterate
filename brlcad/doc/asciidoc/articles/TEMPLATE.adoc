@@ -20,6 +20,8 @@ The preceding _benchmark_ command example can get a lot more complex.
 ====
 
 When you run the *benchmark* with the *help* option, you might see this output: 
+
+
 ....
 sean@gcc1-power7 bin]$benchmark help
           Usage: ./benchmark [command(s)] [OPTION=value] [RT_OPTIONS]
@@ -32,7 +34,9 @@ sean@gcc1-power7 bin]$benchmark help
 
 
 
-Another paragraph with embedded list is shown here. Each paragraph gets its own para and should be wrapped for readability and localized context diff comparisons. A list of items:
+Another paragraph with embedded list is shown here. Each paragraph gets its own para and should be wrapped for readability and localized context diff comparisons. A list of items: 
+
+
 * Bullet item 1.
 * Bullet item 2.
 

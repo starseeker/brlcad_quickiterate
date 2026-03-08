@@ -53,6 +53,8 @@ Returns the name of the current database file.
 [example]
 ====
 
+
+
 ....
 
 mged> opendb -f model.g
@@ -69,6 +71,8 @@ Closes any currently open database and opens _model.g_ as a binary-incompatible 
 .Open a database using the full path to the file.
 [example]
 ====
+
+
 
 ....
 

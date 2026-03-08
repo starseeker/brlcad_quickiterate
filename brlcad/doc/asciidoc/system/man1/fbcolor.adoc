@@ -21,7 +21,7 @@ fbcolor [-F<framebuffer>] [ -s|S<screen_squaresize>] [ -w|W<screen_width>] [ -n|
 *fbcolor* is an interactive color picking facility. It allows you to pick and display colors, by varying parameters in either RGB (red, green, blue) or HSI (hue, saturation, intensity) space.
 
 
-*-F*_framebuffer_::
+*-F* _framebuffer_::
 This option specifies which framebuffer the image is to be saved from. If not given, the environment variable _FB_FILE_ is used to select the display device (see *brlcad*(1)). If _FB_FILE_ has not been set, the default device for your system will be used.
 
 
