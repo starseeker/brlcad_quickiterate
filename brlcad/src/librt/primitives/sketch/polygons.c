@@ -270,7 +270,9 @@ end:
 	if (have_view) {
 	    val = bu_avs_get(&lavs, "VIEWSCALE");
 	    if (val) {
-		bu_opt_fastf_t(NULL, 1, (const char **)&val, (void *)&sv->gv_scale);
+		fastf_t _scale = 0.0;
+		bu_opt_fastf_t(NULL, 1, (const char **)&val, (void *)&_scale);
+		bsg_view_set_scale(sv, _scale);
 	    } else {
 		have_view = 0;
 	    }
