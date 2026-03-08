@@ -650,12 +650,8 @@ db_i_internal_create(void)
 {
     struct db_i_internal *i;
     BU_GET(i, struct db_i_internal);
-    i->dbi_magic       = DBI_MAGIC;
-    i->mesh_c          = NULL;
-    i->mesh_c_completed = 0;
-    i->mesh_c_target   = 0;
-    i->dcache          = NULL;
-    i->draw_pipeline   = NULL;
+    i->dbi_magic = DBI_MAGIC;
+    /* BU_GET zero-initializes all other fields (mesh_c, dcache, draw_pipeline, etc.) */
     return i;
 }
 

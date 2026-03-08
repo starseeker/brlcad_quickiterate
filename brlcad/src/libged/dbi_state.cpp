@@ -3805,7 +3805,9 @@ DbiState::drain_geom_results()
 	    bboxes[r.hash].reserve(6);
 	    for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmin[i]);
 	    for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmax[i]);
-	    /* dcache is managed by the write_worker in cache_drawing.cpp */
+	    /* NOTE: LMDB persistence is handled by write_worker in
+	     * cache_drawing.cpp (aabb_worker enqueues to q_write); no
+	     * duplicate write needed here. */
 	} else if (r.type == DrawPipeline::Result::OBB && r.obb_valid) {
 	    /* Store the 8 OBB corner points */
 	    std::array<fastf_t, 24> obb_data;
