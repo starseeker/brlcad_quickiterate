@@ -167,7 +167,7 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
 	}
     } else {
 	/* Phase 2e: enumerate unique top-level objects from scene-root */
-	bsg_shape *_root = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : NULL;
+	bsg_shape *_root = gedp->ged_gvp ? bsg_scene_root_get(gedp->ged_gvp) : nullptr;
 	if (_root) {
 	    struct bu_ptbl _tops;
 	    bu_ptbl_init(&_tops, 8, "gc_tops");

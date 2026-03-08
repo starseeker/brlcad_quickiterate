@@ -201,7 +201,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     // time to call the end callback (if any)
     if (!p->stdin_active && !p->stdout_active && !p->stderr_active) {
 	if (p->end_clbk)
-	    p->end_clbk(0, NULL, NULL, p->end_clbk_data);
+	    p->end_clbk(0, nullptr, nullptr, p->end_clbk_data);
     }
 
     emit ca->view_update(QG_VIEW_REFRESH);
@@ -399,8 +399,8 @@ QgEdApp::do_view_changed(unsigned long long flags)
 		vmap[bvs].insert(v);
 	    }
 	    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
-	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-		bv_it->first->redraw(NULL, bv_it->second, 1);
+	    for (bv_it = vmap.begin(); bv_it != vmap.end(); ++bv_it) {
+		bv_it->first->redraw(nullptr, bv_it->second, 1);
 	    }
 	}
 	/* P2: After (re)drawing, register stale-notification sensors on all
