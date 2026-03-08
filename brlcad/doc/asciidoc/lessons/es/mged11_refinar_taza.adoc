@@ -1,9 +1,5 @@
 = Refinando el modelo de la taza
-Lee A Butler
-Eric W Edwards
-Betty J Schueler
-Robert G Parker
-John R Anderson
+Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 

@@ -232,9 +232,12 @@
   </xsl:template>
 
   <!-- Emit author line(s) from info block -->
+  <!-- In AsciiDoc, multiple authors must appear on a single line separated
+       by "; ".  Emit them that way so the parser can recognise all authors. -->
   <xsl:template name="emit-authors">
     <xsl:param name="info"/>
-    <xsl:for-each select="$info/db:author | $info/db:authorgroup/db:author">
+    <xsl:variable name="authors" select="$info/db:author | $info/db:authorgroup/db:author"/>
+    <xsl:for-each select="$authors">
       <xsl:variable name="fn" select="normalize-space(db:personname/db:firstname)"/>
       <xsl:variable name="on" select="normalize-space(db:personname/db:othername)"/>
       <xsl:variable name="sn" select="normalize-space(db:personname/db:surname)"/>
@@ -251,17 +254,25 @@
         </xsl:if>
       </xsl:variable>
       <xsl:if test="normalize-space($fullname) != ''">
+        <xsl:if test="position() &gt; 1">
+          <xsl:text>; </xsl:text>
+        </xsl:if>
         <xsl:value-of select="normalize-space($fullname)"/>
         <xsl:if test="$em != ''">
           <xsl:text> &lt;</xsl:text>
           <xsl:value-of select="$em"/>
           <xsl:text>&gt;</xsl:text>
         </xsl:if>
-        <xsl:text>&#10;</xsl:text>
       </xsl:if>
     </xsl:for-each>
     <xsl:if test="$info/db:corpauthor">
+      <xsl:if test="count($authors) &gt; 0">
+        <xsl:text>; </xsl:text>
+      </xsl:if>
       <xsl:value-of select="normalize-space($info/db:corpauthor)"/>
+    </xsl:if>
+    <!-- Final newline after all authors -->
+    <xsl:if test="count($authors) &gt; 0 or $info/db:corpauthor">
       <xsl:text>&#10;</xsl:text>
     </xsl:if>
   </xsl:template>

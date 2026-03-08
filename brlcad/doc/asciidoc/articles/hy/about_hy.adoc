@@ -1,6 +1,5 @@
 = Օգտվողի մասին BRL-CAD
-Christopher Sean Morrison <devs@brlcad.org>
-Karen Mgebrova
+Christopher Sean Morrison <devs@brlcad.org>; Karen Mgebrova
 :doctype: article
 
 [[article-body]]

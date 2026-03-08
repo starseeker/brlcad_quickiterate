@@ -1,12 +1,5 @@
 = BRL-CAD Database Format
-Lee A Butler
-Michael John Muuss
-Paul J Tanenbaum
-John R Anderson
-Robert G Parker
-Ronald A Bowers
-Christopher T Johnson
-Eric W Edwards
+Lee A Butler; Michael John Muuss; Paul J Tanenbaum; John R Anderson; Robert G Parker; Ronald A Bowers; Christopher T Johnson; Eric W Edwards
 :doctype: article
 
 [[Background_and_Terminology]]

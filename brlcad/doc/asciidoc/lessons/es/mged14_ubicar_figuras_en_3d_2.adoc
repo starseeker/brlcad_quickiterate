@@ -1,9 +1,5 @@
 = Ejercicios adicionales de ubicación de imágenes en espacios 3-D
-Lee A Butler
-Eric W Edwards
-Betty J Schueler
-Robert G Parker
-John R Anderson
+Lee A Butler; Eric W Edwards; Betty J Schueler; Robert G Parker; John R Anderson
 :doctype: article
 
 En este tutorial usted aprenderá a: 

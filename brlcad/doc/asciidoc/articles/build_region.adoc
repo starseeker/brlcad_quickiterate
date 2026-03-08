@@ -1,7 +1,5 @@
 = Using the build_region Command
-Lee A Butler
-Eric W Edwards
-Dwayne L Kregel
+Lee A Butler; Eric W Edwards; Dwayne L Kregel
 :doctype: article
 
 Just as the Build Pattern tool can help automate the process of building multiple occurrences of objects, the build_region command can help automate the process of creating regions. The command (which currently has no graphical user interface equivalent) uses meaning assigned by the user in the primitive name based on the intended use of the primitive.
