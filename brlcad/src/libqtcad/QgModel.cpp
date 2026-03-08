@@ -633,7 +633,7 @@ QgModel::reconcile_tops(DbiState *dbis)
  * keeps its collapsed/expanded state for items that have not changed.
  * Must be called only while in_g_update_ == true (no re-entrancy). */
 void
-QgModel::rebuild_item_children(QgItem *item, DbiState *UNUSED(dbis))
+QgModel::rebuild_item_children(QgItem *item, [[maybe_unused]] DbiState *dbis)
 {
     if (!item || !item->ihash || item->children.empty())
 	return;
@@ -1126,7 +1126,7 @@ QgModel::data(const QModelIndex &index, int role) const
 }
 
 QVariant
-QgModel::headerData(int section, Qt::Orientation UNUSED(orientation), int role) const
+QgModel::headerData(int section, [[maybe_unused]] Qt::Orientation orientation, int role) const
 {
     if (role != Qt::DisplayRole)
 	return QVariant();
@@ -1153,7 +1153,7 @@ QgModel::rowCount(const QModelIndex &p) const
 }
 
 int
-QgModel::columnCount(const QModelIndex &UNUSED(p)) const
+QgModel::columnCount([[maybe_unused]] const QModelIndex &p) const
 {
     return 1 + attribute_columns_.count();
 }
