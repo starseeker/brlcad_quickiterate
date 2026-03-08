@@ -800,6 +800,14 @@ class GED_EXPORT DbiState {
 	void   start_geom_load(const std::vector<DrawPipeline::WorkItem> &items);
 	size_t drain_geom_results();
 
+	// Cumulative count of LoD results processed by drain_geom_results()
+	// since the last open_db() / update() call.  This counter is incremented
+	// by whoever calls drain_geom_results() — including the QgEdApp 100ms
+	// drain timer — so it reflects the true total even when the caller does
+	// not capture the per-call return value of drain_geom_results().
+	// Read from the main thread only.
+	size_t lod_results_processed() const { return lod_drain_count_; }
+
     private:
 	void gather_cyclic(
 		std::unordered_set<unsigned long long> &cyclic,
@@ -832,6 +840,10 @@ class GED_EXPORT DbiState {
 	// Background drawing-data pipeline — thin wrapper around the
 	// db_i-owned DrawPipelineState (started in db_cache_start).
 	std::unique_ptr<DrawPipeline> draw_pipeline_;
+
+	// Running count of LOD results integrated by drain_geom_results().
+	// Reset to 0 in open_db().  Accessible via lod_results_processed().
+	size_t lod_drain_count_ = 0;
 
 	// GObj and CombInst need access to private DbiState internals (res, dcache)
 	friend class GObj;

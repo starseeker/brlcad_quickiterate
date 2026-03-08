@@ -285,6 +285,9 @@ DbiState::open_db()
     if (!dbip)
 	return;
 
+    /* Reset LoD drain counter for the new database */
+    lod_drain_count_ = 0;
+
     // Set up cache
     {
 	struct bu_vls fname = BU_VLS_INIT_ZERO;
@@ -3830,6 +3833,7 @@ DbiState::drain_geom_results()
 	} else if (r.type == DrawPipeline::Result::LOD && r.has_lod) {
 	    // LoD is now cached — stale any placeholder shapes so they get
 	    // redrawn with real LoD geometry on the next redraw() pass.
+	    ++lod_drain_count_;
 	    if (!r.dp_name.empty()) {
 		struct directory *dp_lod =
 		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
