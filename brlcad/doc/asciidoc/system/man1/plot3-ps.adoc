@@ -21,7 +21,7 @@ plot3-ps [-ec] [-s|S<square_output_size>] [-w|W<output_width>] [-n|N<output_heig
 
 All UnixPlot line types are supported.
 
-If no UnixPlot _space_ directive is seen, the default space ranges from (0, 0, 0) to (4096, 4096, 4096).
+If no UnixPlot *space* directive is seen, the default space ranges from (0, 0, 0) to (4096, 4096, 4096).
 
 
 [[bugs]]
@@ -58,3 +58,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

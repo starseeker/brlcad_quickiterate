@@ -22,27 +22,27 @@ pixfilter [-f<type>] [-v] [-d<div>] [-o<offset>] [-w<width>] [-n<height>] [-s<sq
 The _type_ choices include:
 
 
-_lo_::
+*lo*::
 low pass (the default)
 
 
-_hi_::
+*hi*::
 high pass
 
 
-_vg_::
+*vg*::
 vertical gradient
 
 
-_hg_::
+*hg*::
 horizontal gradient
 
 
-_la_::
+*la*::
 laplacian
 
 
-_b_::
+*b*::
 boxcar low pass
 
 
@@ -80,3 +80,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

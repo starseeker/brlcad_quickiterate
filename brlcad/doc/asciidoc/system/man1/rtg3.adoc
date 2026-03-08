@@ -53,7 +53,7 @@ sets the Boolean variable _use_air_ to the given value. The default for *rtg3*(1
 
 
 *-o*::
-_output.cov_ specifies a named file for COVART-format output. By default, the shotlines are written to stdout.
+*output.cov* specifies a named file for COVART-format output. By default, the shotlines are written to stdout.
 
 
 *-x#*::
@@ -96,11 +96,11 @@ Component line (one for each three components in this ray)
 
 ____
 
-The _GIFT-3_ shotline format has a different convention for the location of the start point (and thus the location of parametric distance zero) along the ray. This difference is handled automatically in *rtg3* by translating the ray's zero distance to the plane containing the model origin, by adding a distance correction factor. For each ray, both the cell center coordinates and the coordinates actually fired from are output.
+The *GIFT-3* shotline format has a different convention for the location of the start point (and thus the location of parametric distance zero) along the ray. This difference is handled automatically in *rtg3* by translating the ray's zero distance to the plane containing the model origin, by adding a distance correction factor. For each ray, both the cell center coordinates and the coordinates actually fired from are output.
 
-Obliquity angles (declensions off the normal) are computed internally in _radians_ but output in _degrees_ to satisfy the _GIFT-3_ format. Note that internally, _librt_ normals always point outward, whereas _GIFT_ normals point inward.
+Obliquity angles (declensions off the normal) are computed internally in _radians_ but output in _degrees_ to satisfy the *GIFT-3* format. Note that internally, _librt_ normals always point outward, whereas *GIFT* normals point inward.
 
-_GIFT_ zero-fills the fields of the component card if there are less than three components. Neither COVART II nor COVART III require this zero-filling, so it is omitted by *rtg3* .
+*GIFT* zero-fills the fields of the component card if there are less than three components. Neither COVART II nor COVART III require this zero-filling, so it is omitted by *rtg3* .
 
 
 [[example]]
@@ -182,7 +182,7 @@ Most deficiencies observed while using the *rtg3* program are usually with the *
 [[authors]]
 == AUTHORS
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -195,3 +195,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+

@@ -58,7 +58,7 @@ It is expected that the input file should be a valid COMGEOM model. While quite 
 [[author]]
 == AUTHOR
 
-_BRL-CAD Team_
+*BRL-CAD Team*
 
 
 [[copyright]]
@@ -71,3 +71,5 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+
+
