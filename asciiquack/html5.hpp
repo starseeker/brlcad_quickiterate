@@ -683,8 +683,14 @@ private:
 
     void convert_quote(const Block& block, const Document& doc,
                        OutputBuffer& out, bool verse) const {
-        const std::string& attribution = block.attr("attribution");
-        const std::string& citetitle   = block.attr("citetitle");
+        // Named attrs take precedence; fall back to positional attrs:
+        // [quote, attribution, citetitle] → positional "2" and "3".
+        const std::string& attribution = !block.attr("attribution").empty()
+                                         ? block.attr("attribution")
+                                         : block.attr("2");
+        const std::string& citetitle   = !block.attr("citetitle").empty()
+                                         ? block.attr("citetitle")
+                                         : block.attr("3");
 
         out << "<div class=\"" << (verse ? "verseblock" : "quoteblock") << "\"";
         emit_id_attr(block, out);

@@ -1193,8 +1193,10 @@ private:
 
     void render_quote(const Block& blk, const Document& doc,
                       PdfLayout& layout) const {
-        std::string attribution = blk.attr("attribution");
-        std::string citetitle   = blk.attr("citetitle");
+        std::string attribution = !blk.attr("attribution").empty()
+                                  ? blk.attr("attribution") : blk.attr("2");
+        std::string citetitle   = !blk.attr("citetitle").empty()
+                                  ? blk.attr("citetitle") : blk.attr("3");
         if (!citetitle.empty()) {
             if (!attribution.empty()) { attribution += ", "; }
             attribution += citetitle;

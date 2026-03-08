@@ -4998,6 +4998,39 @@ static void test_html_inline_option_trailing_space_preserved() {
     end_test();
 }
 
+static void test_html_quote_block_positional_attribution() {
+    // [quote, Author] uses positional attribute "2" for the attribution.
+    // Previously the HTML output omitted the attribution because
+    // convert_quote() was only checking the named "attribution" attr.
+    begin_test("html5: quote block with positional attribution");
+
+    std::string out = html(
+        "[quote, Mike Muuss]\n"
+        "____\n"
+        "The future exists first in the imagination.\n"
+        "____\n");
+    EXPECT_CONTAINS(out, "quoteblock");
+    EXPECT_CONTAINS(out, "Mike Muuss");
+    EXPECT_CONTAINS(out, "attribution");
+
+    end_test();
+}
+
+static void test_html_quote_block_positional_attribution_and_citetitle() {
+    // [quote, Author, Title] uses positional "2" and "3".
+    begin_test("html5: quote block with positional attribution and citetitle");
+
+    std::string out = html(
+        "[quote, Abe Lincoln, Famous Speeches]\n"
+        "____\n"
+        "You can fool all the people some of the time.\n"
+        "____\n");
+    EXPECT_CONTAINS(out, "Abe Lincoln");
+    EXPECT_CONTAINS(out, "<cite>Famous Speeches</cite>");
+
+    end_test();
+}
+
 
 
 int main(int argc, char* argv[]) {
@@ -5240,6 +5273,8 @@ int main(int argc, char* argv[]) {
     test_minipdf_png_missing_returns_nullptr();
     test_html_bold_adjacent_text_no_fusion();
     test_html_inline_option_trailing_space_preserved();
+    test_html_quote_block_positional_attribution();
+    test_html_quote_block_positional_attribution_and_citetitle();
 
     // Summary
     std::cout << "\n============================\n";

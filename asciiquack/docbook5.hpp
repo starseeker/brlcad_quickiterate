@@ -460,8 +460,10 @@ private:
         if (block.has_title()) {
             out << "<title>" << xml_escape(block.title()) << "</title>\n";
         }
-        const std::string& attr = block.attr("attribution", "");
-        const std::string& cit  = block.attr("citetitle",   "");
+        const std::string attr = !block.attr("attribution").empty()
+                                 ? block.attr("attribution") : block.attr("2");
+        const std::string cit  = !block.attr("citetitle").empty()
+                                 ? block.attr("citetitle") : block.attr("3");
         if (!attr.empty() || !cit.empty()) {
             out << "<attribution>";
             if (!attr.empty()) { out << xml_escape(attr); }
@@ -484,8 +486,10 @@ private:
         if (block.has_title()) {
             out << "<title>" << xml_escape(block.title()) << "</title>\n";
         }
-        const std::string& attr = block.attr("attribution", "");
-        const std::string& cit  = block.attr("citetitle",   "");
+        const std::string attr = !block.attr("attribution").empty()
+                                 ? block.attr("attribution") : block.attr("2");
+        const std::string cit  = !block.attr("citetitle").empty()
+                                 ? block.attr("citetitle") : block.attr("3");
         if (!attr.empty() || !cit.empty()) {
             out << "<attribution>";
             if (!attr.empty()) { out << xml_escape(attr); }
