@@ -801,7 +801,6 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	mmenu_set_all(s, MENU_L1, NULL);
 	mmenu_set_all(s, MENU_L2, NULL);
 
-	dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
 	bsg_set_iflag(s->gedp->ged_gvp, DOWN);
 
 	illum_gdlp = GED_DISPLAY_LIST_NULL;
@@ -891,8 +890,7 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     illump = NULL;		/* None selected */
 
     /* Clear illumination flags */
-    dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
-	bsg_set_iflag(s->gedp->ged_gvp, DOWN);
+    bsg_set_iflag(s->gedp->ged_gvp, DOWN);
 
     mged_color_soltab(s);
     (void)chg_state(s, s->global_editing_state, ST_VIEW, "Edit Reject");
