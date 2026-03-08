@@ -1222,9 +1222,6 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 			dgcdp.gdlp = NULL;
 		    }
 
-		    if (0) /* gdlp check removed: scene-root always valid */
-			continue;
-
 		    dgcdp_save = dgcdp;
 
 		    if (dgcdp.vs.s_dmode == _GED_SHADED_MODE_EVAL) {
