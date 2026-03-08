@@ -715,9 +715,22 @@
   </xsl:template>
 
   <xsl:template match="db:formalpara">
-    <xsl:text>.</xsl:text>
-    <xsl:value-of select="normalize-space(db:title)"/>
-    <xsl:text>&#10;</xsl:text>
+    <!-- Title may be a direct db:title child, or nested in db:info/db:title -->
+    <xsl:variable name="ftitle">
+      <xsl:choose>
+        <xsl:when test="db:title">
+          <xsl:value-of select="normalize-space(db:title)"/>
+        </xsl:when>
+        <xsl:when test="db:info/db:title">
+          <xsl:value-of select="normalize-space(db:info/db:title)"/>
+        </xsl:when>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:if test="string-length($ftitle) > 0">
+      <xsl:text>.</xsl:text>
+      <xsl:value-of select="$ftitle"/>
+      <xsl:text>&#10;</xsl:text>
+    </xsl:if>
     <xsl:apply-templates select="db:para"/>
   </xsl:template>
 
