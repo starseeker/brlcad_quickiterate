@@ -212,6 +212,7 @@ struct draw_data_t {
     int bool_op;
     struct resource *res;
     bsg_mesh_lod_context *mesh_c;
+    struct DbiState *dbis; /* NULL when called outside DbiState context */
 
     /* To avoid the need for multiple subtree walking
      * functions, we also set up to support a bounding
