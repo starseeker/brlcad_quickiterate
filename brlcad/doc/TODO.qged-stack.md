@@ -387,10 +387,16 @@ geometry automatically (`bbox_placeholders_` private map in `BViewState`).
     return sites in `root()`/`getItem()` use `rootItem_.get()`.
   - `QgTreeView.cpp`: `*m->items` → `m->items`; `m->items->find()` → `m->items.find()`.
   - All existing qgmodel tests pass.
+- ✅ **Tier 3 `[[maybe_unused]]` migration**: C++ member/free functions in `libqtcad` migrated from
+  `UNUSED()` macro to `[[maybe_unused]]` attribute.  C callbacks (`qgmodel_*`, `rt_cmd_*`,
+  `*_record`, `uniq_test`) intentionally retained with `UNUSED()`.
+- ✅ **`BViewState::link_to()` test**: `test_view_state_linking()` added to `test_dbi_cpp.cpp`.
+  Exercises `link_to()`, `unlink()`, `is_linked()`, `linked_primary()`, and `add_hpath()`
+  delegation.  All 8 new assertions pass.
 
 ### Short-term (open)
 
-*(no items remaining from the Tier 2 short-term backlog)*
+*(no Tier 2 or Tier 3 items remaining)*
 
 ### Medium-term (modernisation)
 
