@@ -25,7 +25,7 @@ Displays objects in an evaluated form. All the Boolean operations indicated in e
 
 Display faceted approximation of an object.
 
-.Display objects in an evaluated form
+.Display _objects_ in an evaluated form
 [example]
 ====
 

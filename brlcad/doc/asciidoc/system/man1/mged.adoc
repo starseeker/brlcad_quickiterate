@@ -107,7 +107,7 @@ The ".mgedrc" file is searched for in three places. The first one found is used,
 
 The following are run from the operating system command prompt:
 
-.Running the MGED l from the operating system command line.
+.Running the _MGED_ *l* from the operating system command line.
 [example]
 ====
 user:~*mged /usr/brlcad/share/brlcad/7.12.2/db/m35.g l component*
@@ -130,7 +130,7 @@ component:  --
 
 ====
 
-.Running MGED without a display manager.
+.Running _MGED_ without a display manager.
 [example]
 ====
 user:~*mged -c*
@@ -151,7 +151,7 @@ mged>
 
 ====
 
-.Running MGED and bypassing the attach prompt by specifying the X11 display manager.
+.Running _MGED_ and bypassing the attach prompt by specifying the X11 display manager.
 [example]
 ====
 user:~*mged -a X -c*

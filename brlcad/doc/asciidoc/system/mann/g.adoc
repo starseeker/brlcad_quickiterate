@@ -25,7 +25,7 @@ Creates a special type of combination often referred to as a group. This builds 
 
 The example shows the use of the *g* command to create or extend a specified group by unioning it with specified objects.
 
-.Create a group with a groupname and specified objects.
+.Create a group with a _groupname_ and specified objects.
 [example]
 ====
 

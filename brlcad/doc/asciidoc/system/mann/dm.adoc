@@ -68,7 +68,7 @@ Lists the available display manager internal variables.
 
 ====
 
-.Turn on perspective projection in the display using var and val arguments.
+.Turn on perspective projection in the display using _var_ and _val_ arguments.
 [example]
 ====
 mged>*dm set perspective 1*

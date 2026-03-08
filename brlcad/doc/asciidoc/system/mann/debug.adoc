@@ -65,7 +65,7 @@ Available libs:
 
 ====
 
-.List available flags for LIBBU
+.List available flags for _LIBBU_
 [example]
 ====
 mged>*debug -l BU*
@@ -91,7 +91,7 @@ BU flags:
 
 ====
 
-.Set LIBBU flags for bu_avs and path debugging
+.Set _LIBBU_ flags for bu_avs and path debugging
 [example]
 ====
 mged>*debug BU AVS*
@@ -119,7 +119,7 @@ mged>*debug BU PATHS*
 
 ====
 
-.Set LIBRT flag for rt_shootray processing
+.Set _LIBRT_ flag for rt_shootray processing
 [example]
 ====
 mged>*debug RT SHOOT*

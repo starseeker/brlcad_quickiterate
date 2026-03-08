@@ -109,7 +109,7 @@ Moves obj1 up or down _from_ the elevation of its bounding box center _to_ the a
 
 ====
 
-.Same result as above, but moving from the natural origin of obj1 rather than its bounding box center.
+.Same result as above, but moving _from_ the natural origin of obj1 rather than its bounding box center.
 [example]
 ====
 
@@ -124,7 +124,7 @@ mged> *edit translate -n -k . -n -a -z obj2/obj3 obj1*::
 
 ====
 
-.The use of object paths and individual coordinate specifiers.
+.The use of _object_ paths and individual coordinate specifiers.
 [example]
 ====
 

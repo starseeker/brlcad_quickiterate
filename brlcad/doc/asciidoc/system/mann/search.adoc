@@ -684,7 +684,7 @@ At max verbosity, print the total number of items found in the search, the boole
 
 ====
 
-.Operating on Sets of search Results
+.Operating on Sets of *search* Results
 [example]
 ====
 There are two available methods for working with sets of *search* results. The first is the *exec* option, which is used in the following example to search for all regions below subtractions or intersections in the m35.g example model in BRL-CAD and draw the objects' wireframes in the display manager:

@@ -75,7 +75,7 @@ Makes the script load data from _inputfile_ instead of from the default of the c
 
 The example shows the use of the *saveview* command to create a file that will contain a script to run the _rt_ program and create a color-shaded image of the current MGED display.
 
-.Save current viewing parameters in a specified file in the form of a shell script to run the BRL-CAD rt program.
+.Save current viewing parameters in a specified file in the form of a shell script to run the BRL-CAD _rt_ program.
 [example]
 ====
 mged>*saveview script.rt -s1024*

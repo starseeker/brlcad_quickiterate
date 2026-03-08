@@ -407,7 +407,7 @@ This function is common to all OpenNURBS geometry classes, but curves are by far
 
 An `ON_Surface` has a similar interface to an `ON_Curve`, but adapted to support the surface's two domains, _u_ and _v_ (sometimes called _s_ and _t_). These also correspond to as the 0 and 1 surface domains (as in the first example in following) or with an _x_ and _y_ parameterization (as shown in the second example).
 
-.Projecting an arbitrary (u, v) point into 3D.
+.Projecting an arbitrary stem:[(u, v)] point into 3D.
 [example]
 ====
 

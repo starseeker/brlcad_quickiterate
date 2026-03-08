@@ -962,7 +962,8 @@
       <xsl:variable name="t" select="normalize-space(db:title)"/>
       <xsl:if test="string-length($t) > 0">
         <xsl:text>.</xsl:text>
-        <xsl:value-of select="$t"/>
+        <!-- Apply inline templates to preserve emphasis/_italic_ in the title -->
+        <xsl:apply-templates select="db:title/node()"/>
         <xsl:text>&#10;</xsl:text>
       </xsl:if>
     </xsl:if>
