@@ -25,7 +25,7 @@ gdiff -G [<grouping_options>]... [<pattern>]...
 
 *gdiff* in its basic mode compares BRL-CAD models specified on the command line, reporting differences according to the specified options. It supports a plain "diff" comparison between two files, as well as a "3-way" comparison that accepts a third file with "ancestral" information that provides a context for the left and right files.
 
-In addition to direct comparison, *gdiff* supports a similarity grouping mode (*-G*) that analyzes one or more BRL-CAD database files and clusters them into groups of related models based on _per-file content similarity_ (and optionally on filename similarity for an extra top-level binning pass.) Grouping mode produces a human-readable report showing groups, a representative "newest" file, distances to a computed group center (medoid), and modification dates.
+In addition to direct comparison, *gdiff* supports a similarity grouping mode ( *-G*) that analyzes one or more BRL-CAD database files and clusters them into groups of related models based on _per-file content similarity_ (and optionally on filename similarity for an extra top-level binning pass.) Grouping mode produces a human-readable report showing groups, a representative "newest" file, distances to a computed group center (medoid), and modification dates.
 
 The following options are recognized in basic diffing mode:
 
@@ -88,7 +88,7 @@ In grouping mode, *gdiff -G* does not compare two databases. Instead, it scans o
 
 
 * *Content hashing:* For each .g file, a single TLSH digest is computed over selected inputs: (a) a stable sequence of object names (if enabled), and/or (b) geometry data (if enabled). Geometry can be hashed in a _deep_ mode (similarity-sensitive) or a _fast_ mode (robust but treats any change as maximally different per-object, then aggregates those integers deterministically.)
-* *Similarity graph:* All files form vertices in a graph. An undirected edge is added between vertices i and j if the TLSH distance between their hashes satisfies the threshold condition (`diff < threshold`). TLSH is not a metric (triangle inequality is not guaranteed), so direct metric trees are not used for clustering.
+* *Similarity graph:* All files form vertices in a graph. An undirected edge is added between vertices i and j if the TLSH distance between their hashes satisfies the threshold condition ( `diff < threshold`). TLSH is not a metric (triangle inequality is not guaranteed), so direct metric trees are not used for clustering.
 * *Clustering:* Clusters are the connected components of the similarity graph (transitive closure). This captures families like A~B~C even if A and C are not directly similar.
 * *Representative files:* Within each cluster, the _newest_ file (by filesystem mtime) is used as the top-level label. A _center_ (medoid) is also identified as the file minimizing total TLSH distance to the other cluster members.
 * *Optional filename binning:* If enabled, files are first binned by base-name similarity using a _BK-tree_ and Damerau-Levenshtein edit distance. Clustering then runs independently within each filename bin.
@@ -851,5 +851,3 @@ This software is Copyright (c) 2014-2025 by the United States Government as repr
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

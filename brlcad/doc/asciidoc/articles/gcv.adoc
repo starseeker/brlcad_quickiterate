@@ -15,7 +15,7 @@ The GCV public API is declared in C headers located within `include/gcv/`. The s
 
 The Geometry Conversion Library consists of a stream-based API for geometry conversion and associated operations. Input and output are provided by "reader" and "writer" converters (provided by plugins). Intermediate operations are provided by "filters". Readers and writers are types of filters that provide input and output support for model formats, while basic filters apply transformations to models and geometry.
 
-Geometry is stored in an in-memory BRL-CAD database (`struct db_i` in `include/rt/db_instance.h`) during the intermediate steps of conversion. For writer filters, this database is marked read-only and its geometry should not be modified. All names within a BRL-CAD database must be unique.
+Geometry is stored in an in-memory BRL-CAD database ( `struct db_i` in `include/rt/db_instance.h`) during the intermediate steps of conversion. For writer filters, this database is marked read-only and its geometry should not be modified. All names within a BRL-CAD database must be unique.
 
 .GCV architecture
 image::../articles/images/gcv_architecture.png[]
@@ -37,7 +37,7 @@ $ make libgcv
 
 
 
-Plugins can be built under `gcv__plugin_name_` targets, or collectively under the `gcv_plugins` target.
+Plugins can be built under `gcv_ _plugin_name_` targets, or collectively under the `gcv_plugins` target.
 
 The command-line utility can be built under the `gcv` target. At this time, the `gcv` program is not installed automatically; the binary will be placed into `build/src/conv/gcv/`.
 
@@ -173,7 +173,7 @@ TODO: embedded code
 
 === Traversing the Database
 
-BRL-CAD provides the `db_walk_tree()` function for traversing the database in hierarchical order. You can specify your own visitor callbacks as documented in `include/rt/tree.h`, or use the region-end functions provided by GCV (`include/gcv/util.h`) to tessellate geometry at the region level.
+BRL-CAD provides the `db_walk_tree()` function for traversing the database in hierarchical order. You can specify your own visitor callbacks as documented in `include/rt/tree.h`, or use the region-end functions provided by GCV ( `include/gcv/util.h`) to tessellate geometry at the region level.
 
 .GCV region-end tessellation callbacks
 [cols="2*"]
@@ -631,6 +631,3 @@ $ gcv --output-format=assetimport input_file.ext output_file.ext
 ....
 
 ====
-
-
-

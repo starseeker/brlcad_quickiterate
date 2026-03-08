@@ -23,7 +23,7 @@ The *-r* flag reverses the scan lines left to right. The *-i* flag inverts the i
 
 Note that a 180 degree rotation can be obtained by both reversing and inverting.
 
-By default three byte pixels are assumed as in the *pix*(5) format. However, the *-#*_bytes_ flag can be used to specify some other pixel size, where _bytes_ is the number of bytes per pixel. Thus this program can be used to manipulate rectangles of other data types, such as an array of floating point numbers, files of text, etc.
+By default three byte pixels are assumed as in the *pix*(5) format. However, the *-#* _bytes_ flag can be used to specify some other pixel size, where _bytes_ is the number of bytes per pixel. Thus this program can be used to manipulate rectangles of other data types, such as an array of floating point numbers, files of text, etc.
 
 
 [[method]]
