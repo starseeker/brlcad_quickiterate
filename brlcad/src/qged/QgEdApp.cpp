@@ -31,6 +31,7 @@
 #include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "bu/ptbl.h"
@@ -429,11 +430,8 @@ QgEdApp::do_view_changed(unsigned long long flags)
 		    continue;
 		vmap[bvs].insert(v);
 	    }
-	    std::unordered_map<BViewState *, std::unordered_set<bsg_view *>>::iterator bv_it;
-	    for (bv_it = vmap.begin(); bv_it != vmap.end(); ++bv_it) {
-		bv_it->first->redraw(nullptr, bv_it->second, 1);
-	    }
-	}
+	    for (auto &[bvs, vset] : vmap)
+		bvs->redraw(nullptr, vset, 1);	}
 	/* P2: After (re)drawing, register stale-notification sensors on all
 	 * shapes now present in every view's scene root. */
 	if (views) {
