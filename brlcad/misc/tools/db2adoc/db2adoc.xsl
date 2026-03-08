@@ -450,6 +450,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
     </xsl:call-template>
@@ -464,6 +469,11 @@
     <xsl:variable name="level">
       <xsl:call-template name="heading-level"/>
     </xsl:variable>
+    <xsl:if test="@xml:id">
+      <xsl:text>[[</xsl:text>
+      <xsl:value-of select="@xml:id"/>
+      <xsl:text>]]&#10;</xsl:text>
+    </xsl:if>
     <xsl:call-template name="section-mark">
       <xsl:with-param name="level" select="$level"/>
     </xsl:call-template>
