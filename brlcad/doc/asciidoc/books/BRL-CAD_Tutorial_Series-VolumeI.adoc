@@ -30,7 +30,7 @@ image::../books/images/tutorial_series_volI_fig01.png[width=6in]
 [[libraries]]
 == Libraries
 
-The BRL-CAD libraries (designated by the prefix "lib") are designed primarily for the geometric modeler who also wants to tinker with software and, perhaps, design custom tools. Each library fits into one of three categories: (1) creating and/or editing geometry, (2) raytracing geometry, or (3) image handling. The following is a list of the major BRL-CAD libraries and descriptions of their functions. 
+The BRL-CAD libraries (designated by the prefix "lib") are designed primarily for the geometric modeler who also wants to tinker with software and, perhaps, design custom tools. Each library fits into one of three categories: (1) creating and/or editing geometry, (2) raytracing geometry, or (3) image handling. The following is a list of the major BRL-CAD libraries and descriptions of their functions.
 
 
 * libbu - a basic utility (bu) library containing fundamental computer science types of routines, including manipulating data (e.g., converting from host format data to network format data), parallel processing, parsing parameters, handling variable-length strings, performing error checks, converting units from one format to another, manipulating bit vectors, running parallel-safe versions of input/output (I/O) routines, and maintaining symbol tables.
@@ -49,11 +49,11 @@ The BRL-CAD libraries (designated by the prefix "lib") are designed primarily fo
 [[toolsutilities]]
 == Tools and Utilities
 
-The application side of BRL-CAD also offers a number of tools and utilities. They primarily concern (1) geometric conversion, (2) geometric interrogation, (3) image format conversion, and (4) command-line-oriented image manipulation. The following is a list of the major BRL-CAD tools and utilities. 
+The application side of BRL-CAD also offers a number of tools and utilities. They primarily concern (1) geometric conversion, (2) geometric interrogation, (3) image format conversion, and (4) command-line-oriented image manipulation. The following is a list of the major BRL-CAD tools and utilities.
 
 
 * MGED (Multiple-Device Geometry Editor) - BRL-CAD's graphics editor. (For detailed guidance on the use of MGED as well as a list of all the MGED commands currently available, see Butler et al. [2001].)
-* Tools for raytracing and interrogating raytraced geometric objects. 
+* Tools for raytracing and interrogating raytraced geometric objects.
 
 
 ** rt - the main raytracer for rendering images in BRL-CAD.

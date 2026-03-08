@@ -25,7 +25,7 @@ where the "char" argument is replaced by a single character identifying the cate
 [[nirt_format_categories]]
 == Output Categories
 
-NIRT offers seven categories of output reporting: 
+NIRT offers seven categories of output reporting:
 
 [cols="3*"]
 [%noheader]
@@ -68,7 +68,7 @@ NIRT's format specifications are a subset of those found in printf implementatio
 [[nirt_format_keys]]
 == Reporting Keys - Connecting Data to Format Strings
 
-Unlike the full C/C++ printf, NIRT accepts only pre-defined string keys that identify elements of specific information related to each cateogry of output. Ray information is consistent over an entire shot event, and therefore Ray keys may be used in all categories: 
+Unlike the full C/C++ printf, NIRT accepts only pre-defined string keys that identify elements of specific information related to each cateogry of output. Ray information is consistent over an entire shot event, and therefore Ray keys may be used in all categories:
 
 .Ray Variables
 [cols="2*"]
@@ -98,7 +98,7 @@ Unlike the full C/C++ printf, NIRT accepts only pre-defined string keys that ide
 |elevation of view (i.e., of ray direction).
 |===
 
- Footnote and Miss categories have no particular keys unique to them, although they (like all categories) can use the Ray keys if desired. Partition, Overlap, and Gap, on the other hand, have keys that are unique to their contexts and valid only within those contexts: 
+Footnote and Miss categories have no particular keys unique to them, although they (like all categories) can use the Ray keys if desired. Partition, Overlap, and Gap, on the other hand, have keys that are unique to their contexts and valid only within those contexts:
 
 .Partition Variables
 [cols="2*"]
@@ -172,7 +172,7 @@ Unlike the full C/C++ printf, NIRT accepts only pre-defined string keys that ide
 |exit-surface ID of exit solid.
 |===
 
- 
+
 
 .Overlap Variables
 [cols="2*"]
@@ -210,7 +210,7 @@ Unlike the full C/C++ printf, NIRT accepts only pre-defined string keys that ide
 |d coordinate of exit from overlap.
 |===
 
- 
+
 
 .Gap Variables
 [cols="2*"]

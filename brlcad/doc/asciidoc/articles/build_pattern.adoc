@@ -32,7 +32,7 @@ The Source String and Replacement String fields must be used together. The sourc
 .Example of pattern-generated assembly names.
 image::../articles/images/build_pattern_fig01.png[]
 
-The Increment field is only for use when duplicating to the primitive level. It is added to the leftmost number field of each primitive. To determine the increment, examine the primitives of the object(s) you wish to pattern and find the largest span. For example, to create a pattern to the primitive level with the following primitives (which may or may not be in regions or assemblies): 
+The Increment field is only for use when duplicating to the primitive level. It is added to the leftmost number field of each primitive. To determine the increment, examine the primitives of the object(s) you wish to pattern and find the largest span. For example, to create a pattern to the primitive level with the following primitives (which may or may not be in regions or assemblies):
 
 
 ....
@@ -41,7 +41,7 @@ part.s22 part.s22-1 part.s23 part.s24 part.s24+1 part.s24-1 part.s25,
       
 ....
 
- one needs to determine the span. Note that the leftmost numbers in these primitives range from 22–25.  Thus, as shown in the following expression, the span is four (inclusively). *******NEED FIGURE HERE***** If we use an increment of four, we will get the following set of primitives. 
+one needs to determine the span. Note that the leftmost numbers in these primitives range from 22–25.Thus, as shown in the following expression, the span is four (inclusively). *******NEED FIGURE HERE***** If we use an increment of four, we will get the following set of primitives.
 
 
 ....
@@ -50,7 +50,7 @@ part.s26 part.s26-1 part.s27 part.s28 part.s28+1 part.s28-1 part.s29
       
 ....
 
- Although it is acceptable to use a greater increment, gaps in numbers may be troublesome if one is using this capability extensively.
+Although it is acceptable to use a greater increment, gaps in numbers may be troublesome if one is using this capability extensively.
 
 Finally, the Objects field is used for the names of all the items to be patterned.
 
@@ -60,7 +60,7 @@ Finally, the Objects field is used for the names of all the items to be patterne
 
 It is also possible to create a pattern in which a string of characters in each element in the object is changed (e.g., "l_" -> "r_"). This is useful for symmetry applications (e.g., left - right) or series (e.g., 1 - n). Each element of the object must have the source string so the user must be thorough and name each primitive, region, and assembly properly. Consider the following example: image:../articles/images/build_pattern_fig07.png[]
 
-Top-level duplications copy the patterned object and reference its entire structure with matrices, as follows: 
+Top-level duplications copy the patterned object and reference its entire structure with matrices, as follows:
 
 
 ....
@@ -73,7 +73,7 @@ Top-level duplications copy the patterned object and reference its entire struct
       
 ....
 
- Region-level duplications copy all assembly and regions and reference from the region level down with matrices. 
+Region-level duplications copy all assembly and regions and reference from the region level down with matrices.
 
 
 ....
@@ -85,7 +85,7 @@ Top-level duplications copy the patterned object and reference its entire struct
       
 ....
 
- Primitive-level duplications copy the entire tree structure to the primitive level without matrices using an increment on all primitives. 
+Primitive-level duplications copy the entire tree structure to the primitive level without matrices using an increment on all primitives.
 
 
 ....

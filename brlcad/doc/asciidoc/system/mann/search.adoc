@@ -21,7 +21,7 @@ search [<options>]... [<path1>] [<path2>]... [<search plan>]...
 
 Search Inputs are specified using <<primitives,PATHS>> and matching of objects is done according to a search plan built using boolean expressions constructed using the <<primitives,PRIMITIVES>> and <<operators,OPERATORS>> described below. Note that <<search_options,OPTIONS>> are not used to form search plans - unlike the search plan they are specified _before_ the paths and are used to control settings that apply globally to *search*'s behavior and reporting during the execution of the search.
 
-The results of the search command will be sorted according to David Koelle's "alphanum" algorithm, which is basically a human-intuitive ordering for strings with letters and numbers. For example, a result returning d1.r, d10.r and d2.r will be sorted as: 
+The results of the search command will be sorted according to David Koelle's "alphanum" algorithm, which is basically a human-intuitive ordering for strings with letters and numbers. For example, a result returning d1.r, d10.r and d2.r will be sorted as:
 
 
 ....
@@ -32,7 +32,7 @@ d10.r
       
 ....
 
- instead of the default ASCII character ordering, which would look like: 
+instead of the default ASCII character ordering, which would look like:
 
 
 ....
@@ -97,7 +97,7 @@ By default, only the "top level" objects in any search are used as starting poin
 |Use every object below _objname_ as starting points, return list of all matching objects.
 |===
 
- One search command may use multiple paths, each of which can specify its own mode - such a "mixed mode" search will return a list of full paths and objects in the order paths were supplied to search.
+One search command may use multiple paths, each of which can specify its own mode - such a "mixed mode" search will return a list of full paths and objects in the order paths were supplied to search.
 
 The "flat" searches that are specified by using '|' as a modifier to other paths will use every object in the database as starting points for full tree walks and consequently will be significantly more expensive for complex tree hierarchies. The "truly flat" iterative search triggered by the the stand-alone '|' path specifier will be faster, but because it does not walk the tree hierarchy depth-related options (-above, -below, -depth, etc.) will not function.
 
@@ -157,7 +157,7 @@ True if the object is a combination and has _n_ nodes. This option also supports
 *-param* _param[>/</=val]_::
 Returns TRUE if the object has parameter _param_. Unlike *-attr*, which looks only at general attributes stored as metadata on objects, the *-param* filters based only on the internal geometric object's characteristics. If a specific value is also supplied for the parameter with an equal condition, TRUE is returned if the object both has the parameter and the parameter is set to value _val._ In the case of >, <, >=, and <= there are two possibilities - if _val_ is numerical a numerical comparison is performed, otherwise a string comparison is performed. Both _attrib_ and _val_ are treated as patterns under shell pattern matching rules when a string comparison is performed, but in numerical mode only the parameter name is pattern matched.
 
-The following table outlines what parameters are visible to the *-param* option. Because BRL-CAD uses the same internal containers for some types, some parameters will be present even when they do not make sense for the specific subtype. Examples include using arb8's container for arb4 and tgc for rcc. Note: there are also a number of primitives whose parameters are not exposed in a way that that *-param* can access them: arbn, ars, brep, bspline, dsp, metaball, nmg, pipe, pnts, and poly. 
+The following table outlines what parameters are visible to the *-param* option. Because BRL-CAD uses the same internal containers for some types, some parameters will be present even when they do not make sense for the specific subtype. Examples include using arb8's container for arb4 and tgc for rcc. Note: there are also a number of primitives whose parameters are not exposed in a way that that *-param* can access them: arbn, ars, brep, bspline, dsp, metaball, nmg, pipe, pnts, and poly.
 
 .Primitive Parameters
 [cols="2*"]
@@ -231,7 +231,7 @@ True if the size of the object is within the range specified. NOTE: for combs, e
 
 
 *-stdattr*::
-Returns TRUE if an object has ONLY standard attributes associated with it. Standard attributes in BRL-CAD are: 
+Returns TRUE if an object has ONLY standard attributes associated with it. Standard attributes in BRL-CAD are:
 
 .Standard Attributes
 [cols="2*"]
@@ -257,7 +257,7 @@ Returns TRUE if an object has ONLY standard attributes associated with it. Stand
 
 
 *-type* _pattern_::
-Returns TRUE if the type of the object matches _pattern._ Pattern evaluation is done using shell pattern matching. Types recognized include: 
+Returns TRUE if the type of the object matches _pattern._ Pattern evaluation is done using shell pattern matching. Types recognized include:
 
 .Primitives
 [cols="6*"]
@@ -313,7 +313,7 @@ Returns TRUE if the type of the object matches _pattern._ Pattern evaluation is 
 |
 |===
 
- 
+
 
 .Combinations
 [cols="2*"]
@@ -603,7 +603,7 @@ Prints all BoT primitives using "plate" mode, instead of the closed-mesh-requiri
 ====
 Search allows for multiple levels of verbose reporting. The first level will report the total number of items found. The second level will report the boolean operator used at each step along the path. The next, and final level, will report the primitive type of each object along the path. Increased verbosity can be supplied two different ways; as a single flag with each 'v' indicating an elevated level (search -vv.. ), as well as stacked -v flags (search -v -v ..).
 
-mged>*search -v /all.g ! -type comb* 
+mged>*search -v /all.g ! -type comb*
 
 
 ....
@@ -633,7 +633,7 @@ mged> search -v -v /all.g ! -type comb
 	  
 ....
 
- 
+
 
 
 ....
@@ -663,7 +663,7 @@ mged> search -v -v -v /all.g ! -type comb
 	
 ....
 
- 
+
 
 
 ....
@@ -687,7 +687,7 @@ At max verbosity, print the total number of items found in the search, the boole
 .Operating on Sets of search Results
 [example]
 ====
-There are two available methods for working with sets of *search* results. The first is the *exec* option, which is used in the following example to search for all regions below subtractions or intersections in the m35.g example model in BRL-CAD and draw the objects' wireframes in the display manager: 
+There are two available methods for working with sets of *search* results. The first is the *exec* option, which is used in the following example to search for all regions below subtractions or intersections in the m35.g example model in BRL-CAD and draw the objects' wireframes in the display manager:
 
 
 ....
@@ -703,7 +703,7 @@ There are two available methods for working with sets of *search* results. The f
 
 Another possibility, especially useful for doing multiple sequential operations which would be awkward to write out in a single search line, is to assign the results of a search command to a Tcl variable. To illustrate, let's randomize the colors of all regions in the "cab" assembly of the m35.g example model and then assign a glass shader with transparency as a follow-on step.
 
-First, we collect the set of search results into a Tcl variable: 
+First, we collect the set of search results into a Tcl variable:
 
 
 ....
@@ -717,7 +717,7 @@ First, we collect the set of search results into a Tcl variable:
 
 
 
-Next we randomize the colors using Tcl's functionality (here we use random numbers and avoid any value less than 30 to keep objects more visible): 
+Next we randomize the colors using Tcl's functionality (here we use random numbers and avoid any value less than 30 to keep objects more visible):
 
 
 ....
@@ -730,7 +730,7 @@ Next we randomize the colors using Tcl's functionality (here we use random numbe
 
 
 
-Finally, we add transparency to the same regions: 
+Finally, we add transparency to the same regions:
 
 
 ....
@@ -746,7 +746,7 @@ Finally, we add transparency to the same regions:
 
 [NOTE]
 ====
-Remember when setting region colors to check for the presence of a _regionid_colortable_ attribute on the _GLOBAL object - if such a table is present (the m35.g sample model has one, for example) you need to remove that table (and for MGED wireframes, re-open the database) before the colors on the individual regions will "take": 
+Remember when setting region colors to check for the presence of a _regionid_colortable_ attribute on the _GLOBAL object - if such a table is present (the m35.g sample model has one, for example) you need to remove that table (and for MGED wireframes, re-open the database) before the colors on the individual regions will "take":
 
 
 ....

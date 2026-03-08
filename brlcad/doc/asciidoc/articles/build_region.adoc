@@ -22,7 +22,7 @@ Next, we create an arb8 for one long side of the wagon tub. It is named wgn.s1. 
 .Arb8, cylinder, and two Boolean primitives.
 image::../articles/images/build_region_fig02.png[]
 
-Now we have created the following four primitives: 
+Now we have created the following four primitives:
 
 
 ....
@@ -31,7 +31,7 @@ wgn.s1 wgn.s2 wgn.s2+1 wgn.s2-1
     
 ....
 
- If we separate the primitives sequentially as follows, 
+If we separate the primitives sequentially as follows,
 
 
 ....
@@ -42,7 +42,7 @@ wgn.s2 wgn.s2+1 wgn.s2-1,
     
 ....
 
- we can begin to see the Boolean structure falling out of the naming convention 
+we can begin to see the Boolean structure falling out of the naming convention
 
 
 ....
@@ -53,7 +53,7 @@ u wgn.s2 + wgn.s2+1 - wgn.s2-1
     
 ....
 
- If we wanted to make a second subtraction from wgn.s2--say, for a drain hole in the corner of the wagon--we would name that primitive wgn.s2-2 (see Figure F-3). We can break this name down as follows: *****NEED IMAGE HERE*****
+If we wanted to make a second subtraction from wgn.s2--say, for a drain hole in the corner of the wagon--we would name that primitive wgn.s2-2 (see Figure F-3). We can break this name down as follows: *****NEED IMAGE HERE*****
 
 [[build_region9]]
 .The region and the subtraction primitives.
