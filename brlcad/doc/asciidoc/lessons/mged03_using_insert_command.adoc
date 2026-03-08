@@ -51,7 +51,7 @@ A sphere shape has now been created, and a wireframe drawing should appear in yo
 
 To make the rcc from the Command Window prompt, type: *make rcc1.s rcc[Enter]*
 
-Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created. 
+Your Graphics Window should now display a large rcc that, from the default view of az35, el25, looks as if it intersects the sphere you previously created.
 
 image::../lessons/images/mged03_wireframe_sph_rcc.png[]
 

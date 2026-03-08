@@ -19,6 +19,8 @@ oed {<path_lhs>} {<path_rhs>}
 
 The notion of _path_ in this context refers to the tree of objects that traditionally makes up a CSG model. Primitives will be combined with other primitives to make groups of objects, and the "path" to any individual shape within the combinations is described by the series of nodes in the tree that identify the object of interest. For example, take a simple model of a lollipop:
 
+
+
 image::../articles/images/oed_fig01.png[]
 
 
@@ -130,6 +132,8 @@ B object1.c
 
 
 
+
+
 image::../articles/images/oed_fig02.png[]
 
 
@@ -199,6 +203,8 @@ Changes made during an object edit are not written to the database file unless a
 
 The object should turn white, as below:
 
+
+
 image::../articles/images/oed_fig03.png[]
 
 
@@ -212,6 +218,8 @@ translate 0 0 5
 
 Both the sphere and the cube should have shifted together.
 
+
+
 image::../articles/images/oed_fig04.png[]
 
 
@@ -222,6 +230,8 @@ To accept the edit and end object edit mode type *accept*:
 ....
 accept
 ....
+
+
 
 
 
@@ -287,6 +297,8 @@ rot 0 0 90
 ....
 accept
 ....
+
+
 
 
 
@@ -448,6 +460,8 @@ accept
 
 
 
+
+
 image::../articles/images/oed_fig07.png[]
 
 
@@ -499,6 +513,8 @@ accept
 The first *rot* command rotated the model around a line parallel to the y axis using the first coordinate of cube.s. The second rotation started from the results of the previous rotation and rotated again around a line parallel to the y axis, but this time using the origin of sphere.s.
 
 The *l* command provides a look at the final result:
+
+
 
 image::../articles/images/oed_fig08.png[]
 
@@ -586,6 +602,8 @@ rot 0 0 90
 accept
 ....
 
+
+
 image::../articles/images/oed_fig09.png[]
 
 
@@ -636,6 +654,8 @@ r bigobject.r u object1.c u object3.c
 ....
 B bigobject.r
 ....
+
+
 
 
 
@@ -708,6 +728,8 @@ oed / object1.c/sphere.s
 
 
 
+
+
 image::../articles/images/oed_fig11.png[]
 
 
@@ -732,6 +754,8 @@ accept
 ....
 B bigobject.r object1.c
 ....
+
+
 
 
 
@@ -830,6 +854,8 @@ accept
 ....
 B bigobject.r
 ....
+
+
 
 image::../articles/images/oed_fig13.png[]
 

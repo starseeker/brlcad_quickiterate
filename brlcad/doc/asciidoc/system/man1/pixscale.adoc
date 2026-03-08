@@ -35,7 +35,7 @@ For 2X interpolation, a much faster alternative is *pixinterp2x*(1).
 [[bugs]]
 == BUGS
 
-This program cannot scale up in one dimension and down in the other at the same time.  The box filter used for scaling down results in the usual high-frequency ripple.  Optional cubic interpolation would be nice.
+This program cannot scale up in one dimension and down in the other at the same time.The box filter used for scaling down results in the usual high-frequency ripple.Optional cubic interpolation would be nice.
 
 
 [[author]]

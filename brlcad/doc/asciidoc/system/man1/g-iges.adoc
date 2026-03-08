@@ -85,7 +85,7 @@ This command will produce an IGES BREP output file, _sample.iges_, from _object1
 [[see_also]]
 == SEE ALSO
 
-*iges-g*(1)  _The Initial Graphics Exchange Specification (IGES) Version 5.1_, IGES/PDES Organization, September 1991
+*iges-g*(1) _The Initial Graphics Exchange Specification (IGES) Version 5.1_, IGES/PDES Organization, September 1991
 
 
 [[diagnostics]]

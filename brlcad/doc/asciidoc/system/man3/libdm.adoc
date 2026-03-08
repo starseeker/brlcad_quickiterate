@@ -878,7 +878,7 @@ The following devices are supported by the library; not all may be available on 
 
 
 `/dev/debug` _[num]_::
-The "/dev/debug" interface prints one line to logs each call to the frame buffer library.  _num_ is a bitvector indicating the levels of verbosity of the output. See _fb.h_ for the bit definitions.
+The "/dev/debug" interface prints one line to logs each call to the frame buffer library._num_ is a bitvector indicating the levels of verbosity of the output. See _fb.h_ for the bit definitions.
 
 
 _filename_::

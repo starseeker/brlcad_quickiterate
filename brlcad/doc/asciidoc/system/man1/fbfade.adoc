@@ -106,7 +106,7 @@ Error messages are intended to be self-explanatory.
 [[authors]]
 == AUTHORS
 
-Douglas A. Gwyn, BRL/VLD-VMB;  Gary S. Moss, BRL/VLD-VMB
+Douglas A. Gwyn, BRL/VLD-VMB;Gary S. Moss, BRL/VLD-VMB
 
 
 [[copyright]]

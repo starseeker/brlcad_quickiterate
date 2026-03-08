@@ -41,7 +41,7 @@ pixmatte -g fg.pix =20/20/20 fg.pix =200/0/200
 
 To keep all foreground pixels which are not equal to 63/0/127, and to replace those which are equal with a generated background from stdin, use the following commands (can be useful when compositing an *rt*(1) generated image on top of a nicer background):
 
-pixbackgnd -t0 160 200 |  pixmatte -n fg.pix =63/0/127 fg.pix - |  pix-fb
+pixbackgnd -t0 160 200 |pixmatte -n fg.pix =63/0/127 fg.pix - |pix-fb
 
 To produce a black-and-white stencil matte file for further processing, use:
 

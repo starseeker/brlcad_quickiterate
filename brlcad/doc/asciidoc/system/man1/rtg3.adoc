@@ -162,7 +162,7 @@ This means that OVERLAP1 and OVERLAP2 share a common space (depth) of #millimete
 [[see_also]]
 == SEE ALSO
 
-*covart*(1V), *gift*(1V), *mged*(1), *rt*(1), *rtray*(1), *librt*(3), *plot3*(5), *ray*(5V);  ``_COVART II - A Simulation Program for Computation of Vulnerable Areas and Repair Times - User Manual_'', Joint Technical Coordinating Group for Munitions Effectiveness, Anti-Air Aerial Target Vulnerability Working Group, 61-JTCG/ME-84-3
+*covart*(1V), *gift*(1V), *mged*(1), *rt*(1), *rtray*(1), *librt*(3), *plot3*(5), *ray*(5V); ``_COVART II - A Simulation Program for Computation of Vulnerable Areas and Repair Times - User Manual_'', Joint Technical Coordinating Group for Munitions Effectiveness, Anti-Air Aerial Target Vulnerability Working Group, 61-JTCG/ME-84-3
 
 
 [[diagnostics]]

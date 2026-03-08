@@ -503,7 +503,7 @@ The usage in *nirt* of the following terms corresponds to that found in *mged*(1
 
 We define the view coordinate system (more precisely its basis vectors _m_, _n_, and _o_) in terms of the basis vectors _i_, _j_, and _k_ of the model coordinate system as follows:
 
-_m_ is the opposite of the direction vector and corresponds to _d_,  _n_ = _k_ × _m_ corresponds to _h_, and  _o_ = _m_ × _n_ corresponds to _v_.
+_m_ is the opposite of the direction vector and corresponds to _d_, _n_ = _k_ × _m_ corresponds to _h_, and _o_ = _m_ × _n_ corresponds to _v_.
 
 Thus if the direction vector is (-1, 0, 0), then (_d_, _h_, _v_) = (_x_, _y_, _z_).
 

@@ -14,7 +14,7 @@ In this lesson, you will be:
 
 
 
-In Lesson 2, we made the basic shapes of a walkie-talkie radio to gain experience in viewing objects. Now that we have successfully modeled a few simple objects, let's return to the radio to make it more realistic and, in so doing, discuss logical techniques and structures in modeling. When finished, our radio should look as follows: 
+In Lesson 2, we made the basic shapes of a walkie-talkie radio to gain experience in viewing objects. Now that we have successfully modeled a few simple objects, let's return to the radio to make it more realistic and, in so doing, discuss logical techniques and structures in modeling. When finished, our radio should look as follows:
 
 image::../lessons/images/mged16_radio_new_design.png[]
 
@@ -62,7 +62,7 @@ Remember that the inside command was originally created to hollow out objects su
 
 With our case now made, we can proceed to cut several holes through this structure to accommodate the antenna, the volume control knob, and the talk button. To do this, we must subtract the three shapes from the case as follows: *r case.r - ant.s - knob.s - btn.s[Enter]* Finally, we need to "glue" the lip around the speaker to the case's front face by typing *r case.r u spkr.s[Enter]*
 
-Our body is now finished. Note that an experienced modeler would probably have combined the preceding three Boolean functions into a single command as follows: *r case.r u body.s - cavity.s - ant.s - knob.s - btn.s u spkr.s[Enter]* If we were to raytrace case.r at this point, we would see the following: 
+Our body is now finished. Note that an experienced modeler would probably have combined the preceding three Boolean functions into a single command as follows: *r case.r u body.s - cavity.s - ant.s - knob.s - btn.s u spkr.s[Enter]* If we were to raytrace case.r at this point, we would see the following:
 
 image::../lessons/images/mged16_radio_default_components_props.png[]
 
@@ -148,7 +148,7 @@ Thus far, the objects we have created have no material properties other than the
 
 We'll give the antenna a realistic look by opening the Combination Editor, choosing ant.r from the drop-down Name menu, selecting mirror from the drop-down Shader menu, and clicking on Apply.
 
-We'll let the other components remain with the default plastic, but we'll assign them different colors. With the Combination Editor still open, select case.r from the drop-down Name menu, select the magenta option from the drop-down Color menu, and then click Apply. Use the same method to assign the volume control knob (knob.r) a blue color. For the talk button (button.r), let's keep it gray by leaving the default values in place. The design should appear similar to the following when raytraced in Underlay mode: 
+We'll let the other components remain with the default plastic, but we'll assign them different colors. With the Combination Editor still open, select case.r from the drop-down Name menu, select the magenta option from the drop-down Color menu, and then click Apply. Use the same method to assign the volume control knob (knob.r) a blue color. For the talk button (button.r), let's keep it gray by leaving the default values in place. The design should appear similar to the following when raytraced in Underlay mode:
 
 image::../lessons/images/mged16_radio_with_mater_props.png[]
 
@@ -181,11 +181,11 @@ Let's give the board a green semi-shiny color. The easiest way to do this is via
 
 
 
-Finally, we'll include the board with the rest of the components in radio.c as follows: *g radio.c board.r[Enter]* Our radio should now look like the following: 
+Finally, we'll include the board with the rest of the components in radio.c as follows: *g radio.c board.r[Enter]* Our radio should now look like the following:
 
 image::../lessons/images/mged16_radio_wireframe_circ_board.png[]
 
- In addition, the tree for radio.c should now look as follows:
+In addition, the tree for radio.c should now look as follows:
 
 
 ....
@@ -254,7 +254,7 @@ To set the material properties of case_clear.r, choose plastic from the drop-dow
 
 Finally, create the specialty radio combination by typing: *g radio_clear.c case_clear.r button.r knob.r ant.r board.r[Enter]* and then Blast the display with *B radio_clear.c[Enter]*
 
-Now raytrace your design to view the resulting effect. The new transparent case should appear similar to the following: 
+Now raytrace your design to view the resulting effect. The new transparent case should appear similar to the following:
 
 image::../lessons/images/mged16_radio_transparent.png[]
 
@@ -321,13 +321,13 @@ There are several ways to make the cutaway view. Probably the easiest way is to 
 
 To do this, create an arb8 called cutaway.s, which will be used to cut off the front corner of the radio. Because this is a cutting shape (i.e., it is simply used to erase a portion of another shape and will not actually be viewed), the dimensions of the arb8 are not critical. The only concern is that cutaway.s be as tall as the case so that it completely removes a corner from it.
 
-Use the Shift Grips and multiple views (especially the Top view) to align cutaway.s so that it angles diagonally across the top of the radio (as shown in the following wireframe representation). When you've aligned the shape the way you want it, create the following radio_cutaway.c combination that unions in radio.c and subtracts out the shape (cutaway.s) that is covering what you want to see (board.r): *comb radio_cutaway.c u radio.c - cutaway.s[Enter]* 
+Use the Shift Grips and multiple views (especially the Top view) to align cutaway.s so that it angles diagonally across the top of the radio (as shown in the following wireframe representation). When you've aligned the shape the way you want it, create the following radio_cutaway.c combination that unions in radio.c and subtracts out the shape (cutaway.s) that is covering what you want to see (board.r): *comb radio_cutaway.c u radio.c - cutaway.s[Enter]*
 
 image::../lessons/images/mged16_radio_cut_wireframe.png[]
 
 
 
-Blast the radio_cutaway.c combination onto the display and raytrace. Depending on how your arb8 intersected the radio, the cutaway should look similar to the following: 
+Blast the radio_cutaway.c combination onto the display and raytrace. Depending on how your arb8 intersected the radio, the cutaway should look similar to the following:
 
 image::../lessons/images/mged16_radio_cut_raytrace.png[]
 
@@ -346,19 +346,19 @@ image::../lessons/images/mged16_radio_cutaways.png[]
 [[radio_structure_redefinition]]
 == Redefining the Structure of the Radio
 
-As shapes are added in a design, the modeler often finds that the structure or association of components needs to change. Thus, we should pause at this point and consider how our radio is structured. While there are many ways to structure a model, two common modeling categories are location and functionality. For our radio, we have so far grouped everything together under the general category of Radio, as shown in the following: 
+As shapes are added in a design, the modeler often finds that the structure or association of components needs to change. Thus, we should pause at this point and consider how our radio is structured. While there are many ways to structure a model, two common modeling categories are location and functionality. For our radio, we have so far grouped everything together under the general category of Radio, as shown in the following:
 
 image::../lessons/images/mged16_radio_structure_1.png[]
 
 
 
-If we wanted to categorize our components according to location, however, we might structure the model as follows: 
+If we wanted to categorize our components according to location, however, we might structure the model as follows:
 
 image::../lessons/images/mged16_radio_structure_2.png[]
 
 
 
-If we wanted to define our components according to functionality, we might structure the model another way. For instance, to repair an actual radio, we would open the case, take out the circuit board, fix it, and put it back in. When taking out the board, however, the knob and button would probably be attached to it in some way, and so they too would need to come out. Accordingly, our structure should be changed as shown in the following diagram to associate the knob and button with the circuit board. 
+If we wanted to define our components according to functionality, we might structure the model another way. For instance, to repair an actual radio, we would open the case, take out the circuit board, fix it, and put it back in. When taking out the board, however, the knob and button would probably be attached to it in some way, and so they too would need to come out. Accordingly, our structure should be changed as shown in the following diagram to associate the knob and button with the circuit board.
 
 image::../lessons/images/mged16_radio_structure_3.png[]
 
@@ -415,7 +415,7 @@ Now the tree for radio.c should appear as follows:
 
 Now let's remake our cutaway view. This time, let's do what we discussed earlier and make the cutaway remove material from only the case, showing all the other components.
 
-First, we need to get rid of the old radio_cutaway.c, which was based on our previous structure. To do this, type *kill radio_cutaway.c[Enter]* and then remake the combination by typing *comb radio_cutaway.c u case.r - cutaway.s u electronics.c u ant.r[Enter]* Now when we Blast the display and raytrace radio_cutaway.c, we should see the following: 
+First, we need to get rid of the old radio_cutaway.c, which was based on our previous structure. To do this, type *kill radio_cutaway.c[Enter]* and then remake the combination by typing *comb radio_cutaway.c u case.r - cutaway.s u electronics.c u ant.r[Enter]* Now when we Blast the display and raytrace radio_cutaway.c, we should see the following:
 
 image::../lessons/images/mged16_radio_casecut_raytrace.png[]
 

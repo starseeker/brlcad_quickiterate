@@ -45,11 +45,11 @@ Specifies the maximum distance (in mm) between two vertices at which the two ver
 
 The _file.dxf_ file is expected to be in the ASCII Autodesk DXF format as defined in the Autocad 2006 manuals. This converter handles entities of types:
 
-POLYLINE  LWPOLYLINE  LEADER  DIMENSION  VERTEX  LINE  CIRCLE  ARC  ELLIPSE  3DFACE  TEXT  MTEXT  ATTRIB  SOLID  SPLINE
+POLYLINELWPOLYLINELEADERDIMENSIONVERTEXLINECIRCLEARCELLIPSE3DFACETEXTMTEXTATTRIBSOLIDSPLINE
 
 The POLYLINE entities in AUTOCAD are actually a container for numerous different entity types. The types of POLYLINE entities converted include:
 
-3D polylines;  3D polygon meshes;  polyface meshes
+3D polylines;3D polygon meshes;polyface meshes
 
 SOLID entities are 2D shapes with a solid fill, but this converter does not do any filling. Each layer is converted to a separate object. Colors are also converted.
 

@@ -31,7 +31,7 @@ bwthresh 37 143 < _file.bw_ > _file2.bw_
 
 performs the following mapping:
 
-if (pixel_in < 37)  pixel_out = 0  else if (pixel_in < 143)  pixel_out = 128  else  pixel_out = 255
+if (pixel_in < 37)pixel_out = 0else if (pixel_in < 143)pixel_out = 128elsepixel_out = 255
 
 
 [[see_also]]

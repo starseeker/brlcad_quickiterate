@@ -610,12 +610,7 @@ The options for the command are as follows:
 * *-x lvl* - sets librt debug flag (see `raytrace.h` in the binary distribution for definitions of DEBUG_xxx).
 * *-X lvl* - sets NMG library debug flag (see `nmg.h` in the binary distribution for definitions of DEBUG_xxx).
 
-For more information on the TANKILL file format and import possibilities, contact the Advantage Business Group at the Barbician
- East Street
- Farnham, Surrey
- GU9 7TB
-
- or visit the web site at http://www.advantage-business.co.uk[http://www.advantage-business.co.uk] (Advantage Business Group, 2003).
+For more information on the TANKILL file format and import possibilities, contact the Advantage Business Group at the Barbician, East Street, Farnham, Surrey, GU9 7TB or visit the web site at http://www.advantage-business.co.uk[http://www.advantage-business.co.uk] (Advantage Business Group, 2003).
 
 
 [[Converting_From_Unigraphics_Format]]

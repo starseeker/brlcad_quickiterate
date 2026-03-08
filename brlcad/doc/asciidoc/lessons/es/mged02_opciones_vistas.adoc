@@ -45,7 +45,7 @@ Nota: Tenga un cuidado especial en reconocer cuando se está usando el número u
 
 Nota: La expresión btn es una abreviación de button (botón en inglés), ant de antenna (antena en inglés), y spkr es una abreviación de speaker (parlante). Los números pueden estar separados por espacios simples, aunque puede usarse espaciados extra para mejorar la legibilidad. En algunos casos (p.e., los comandos r y comb, que se mostrarán más adelante), el espaciado deberá ser exacto.
 
-Una imagen similar a la siguiente debería aparecer en la ventana gráfica 
+Una imagen similar a la siguiente debería aparecer en la ventana gráfica
 
 image::../../lessons/es/images/mged02_defaultradio.png[]
 

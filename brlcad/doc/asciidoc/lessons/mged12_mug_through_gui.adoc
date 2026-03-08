@@ -52,7 +52,7 @@ If at any time when you are editing through the GUI you don't like your changes,
 
 ====
 
-Next, create an inside right circular cylinder and name it inside.s. Edit the cylinder the same way you edited the outside cylinder. Before you accept your changes, change View to Top and make sure your cylinders are in alignment. If the cylinders are out of alignment, use the SHIFT key and left mouse button to drag the inside cylinder into position. Return your View to Front and Accept your changes when the cylinders are lined up. Your cylinders should look like those in the following example: 
+Next, create an inside right circular cylinder and name it inside.s. Edit the cylinder the same way you edited the outside cylinder. Before you accept your changes, change View to Top and make sure your cylinders are in alignment. If the cylinders are out of alignment, use the SHIFT key and left mouse button to drag the inside cylinder into position. Return your View to Front and Accept your changes when the cylinders are lined up. Your cylinders should look like those in the following example:
 
 image::../lessons/images/mged12_cyls_frontview.png[]
 
@@ -97,7 +97,7 @@ Check your mug from the top to make sure the handle is aligned. Accept your chan
 [[mug_gui_create_rim]]
 == Creating the Rim of the Mug
 
-To make the rim of the mug, go to the Create, select tor, and name it rim.s. Select the Rotate command and type on the Command Line: *p 0 90 0[Enter]* to rotate the torus on its side (90'0 about the y axis). Then, Scale and edit the various parameters of the torus using the front and top views until the mug looks similar to the following example. Make sure you Accept your changes when you are finished. 
+To make the rim of the mug, go to the Create, select tor, and name it rim.s. Select the Rotate command and type on the Command Line: *p 0 90 0[Enter]* to rotate the torus on its side (90'0 about the y axis). Then, Scale and edit the various parameters of the torus using the front and top views until the mug looks similar to the following example. Make sure you Accept your changes when you are finished.
 
 image::../lessons/images/mged12_mug_rim_frontview.png[]
 
@@ -167,7 +167,7 @@ When you are finished, click on Apply and then Dismiss. In the Command Window th
 [[mug_gui_raytracing]]
 == Raytracing the Design
 
-Go to the View option of the menu bar and select az35, el25. Go to File and then Raytrace. Select a white background color and Raytrace your design. Click on Overlay. When the raytracing is finished, it should look like the following example: 
+Go to the View option of the menu bar and select az35, el25. Go to File and then Raytrace. Select a white background color and Raytrace your design. Click on Overlay. When the raytracing is finished, it should look like the following example:
 
 image::../lessons/images/mged12_mug_gui_finished_raytraced.png[]
 

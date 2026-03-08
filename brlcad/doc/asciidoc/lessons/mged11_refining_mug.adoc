@@ -106,7 +106,7 @@ Now you are faced with a unique situation. The shape rim.s was added to the list
 
 One way to fix this is to clear the display, redisplay the new, complete object, and then raytrace. As discussed previously, the fbclear command in the Raytrace Control Panel clears the framebuffer display, and the Z command in the Command Window clears all wireframed objects. You can redisplay the objects you want to raytrace with the draw command. Type at the prompt: *Z[Enter]* *draw mug.r[Enter]*
 
-Raytrace your mug. It should now look similar to the following. 
+Raytrace your mug. It should now look similar to the following.
 
 image::../lessons/images/mged11_mug_raytraced_rim.png[]
 
