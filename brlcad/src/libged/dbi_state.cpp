@@ -2097,7 +2097,7 @@ bsg_shape *
 BViewState::scene_obj(
 	std::unordered_set<bsg_shape *> &objs,
 	int curr_mode,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -2278,7 +2278,7 @@ BViewState::walk_tree(
 	unsigned long long chash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -2316,7 +2316,7 @@ BViewState::gather_paths(
 	unsigned long long c_hash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	matp_t lm,
 	std::vector<unsigned long long> &path_hashes,
@@ -2583,7 +2583,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 }
 
 unsigned long long
-BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
+BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
 {
     bsg_log(1, "BViewState::redraw");
     // We (well, callers) need to be able to tell if the redraw pass actually
@@ -2771,7 +2771,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	// Helper lambda that processes one draw_list_ entry set.
 	// entry_vs is declared outside both loops to avoid repeated stack allocs
 	// and to remain valid for draw_vs references within each iteration.
-	struct bv_obj_settings entry_vs;
+	struct bsg_obj_settings entry_vs;
 	auto process_dl_entries = [&](const std::vector<DrawList::Entry> &dl_entries) {
 	    for (size_t i = 0; i < dl_entries.size(); i++) {
 		const DrawList::Entry &dl_e = dl_entries[i];
@@ -2788,7 +2788,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 		// Use entry mode if non-zero, otherwise fall back to vs->s_dmode
 		int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
 		// Use entry's settings override if present, otherwise use vs
-		struct bv_obj_settings *draw_vs = vs;
+		struct bsg_obj_settings *draw_vs = vs;
 		if (dl_e.has_settings) {
 		    // Copy vs first, then apply the per-entry overrides
 		    entry_vs = *vs;

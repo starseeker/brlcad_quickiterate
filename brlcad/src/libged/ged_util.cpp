@@ -1218,7 +1218,7 @@ _ged_do_list(struct ged *gedp, struct directory *dp, int verbose)
 }
 
 void
-_ged_cvt_vlblock_to_solids(struct ged *gedp, struct bv_vlblock *vbp, const char *name, int copy)
+_ged_cvt_vlblock_to_solids(struct ged *gedp, struct bsg_vlblock *vbp, const char *name, int copy)
 {
     size_t i;
     char shortname[32] = {0};

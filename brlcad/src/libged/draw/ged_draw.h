@@ -49,7 +49,7 @@ struct _ged_client_data {
     struct rt_wdb *wdbp;
     struct display_list *gdlp;
     int fastpath_count;			/* statistics */
-    struct bv_vlblock *draw_edge_uses_vbp;
+    struct bsg_vlblock *draw_edge_uses_vbp;
     bsg_view *v;
 
     /* bigE related members */

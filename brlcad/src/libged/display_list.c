@@ -42,7 +42,7 @@
 #define FIRST_SOLID(_sp)      ((_sp)->s_fullpath.fp_names[0])
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
         BU_LIST_APPEND(fp, &((p)->l)); \
-        BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
+        BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 
 /* defined in draw_calc.cpp */
@@ -696,7 +696,7 @@ bsg_color_soltab(bsg_view *v)
 }
 
 static void
-solid_append_vlist(bsg_shape *sp, struct bv_vlist *vlist)
+solid_append_vlist(bsg_shape *sp, struct bsg_vlist *vlist)
 {
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist))) {
 	sp->s_vlen = 0;
@@ -707,11 +707,11 @@ solid_append_vlist(bsg_shape *sp, struct bv_vlist *vlist)
 }
 
 static void
-solid_copy_vlist(struct db_i *UNUSED(dbip), bsg_shape *sp, struct bv_vlist *vlist, struct bu_list *vlfree)
+solid_copy_vlist(struct db_i *UNUSED(dbip), bsg_shape *sp, struct bsg_vlist *vlist, struct bu_list *vlfree)
 {
     BU_LIST_INIT(&(sp->s_vlist));
     bsg_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
-    sp->s_vlen = bsg_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
+    sp->s_vlen = bsg_vlist_cmd_cnt((struct bsg_vlist *)(&(sp->s_vlist)));
 }
 
 
@@ -761,9 +761,9 @@ int invent_solid(struct ged *gedp, char *name, struct bu_list *vhead, long int r
     dp = db_diradd(dbip, name, RT_DIR_PHONY_ADDR, 0, RT_DIR_SOLID, (void *)&type);
 
     if (copy) {
-	solid_copy_vlist(dbip, sp, (struct bv_vlist *)vhead, vlfree);
+	solid_copy_vlist(dbip, sp, (struct bsg_vlist *)vhead, vlfree);
     } else {
-	solid_append_vlist(sp, (struct bv_vlist *)vhead);
+	solid_append_vlist(sp, (struct bsg_vlist *)vhead);
 	BU_LIST_INIT(vhead);
     }
     bsg_shape_bound(sp, gedp->ged_gvp);

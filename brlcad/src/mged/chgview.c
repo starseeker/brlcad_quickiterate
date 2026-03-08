@@ -3127,8 +3127,8 @@ mged_vscale(struct mged_state *s, fastf_t sfactor)
 
     view_state->vs_gvp->gv_scale *= sfactor;
 
-    if (view_state->vs_gvp->gv_scale < BV_MINVIEWSIZE) {
-	view_state->vs_gvp->gv_scale = BV_MINVIEWSIZE;
+    if (view_state->vs_gvp->gv_scale < BSG_MINVIEWSIZE) {
+	view_state->vs_gvp->gv_scale = BSG_MINVIEWSIZE;
     }
 
     f = view_state->vs_gvp->gv_scale / view_state->vs_gvp->gv_i_scale;

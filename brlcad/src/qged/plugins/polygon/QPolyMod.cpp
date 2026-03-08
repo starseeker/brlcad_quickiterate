@@ -214,11 +214,11 @@ QPolyMod::mod_names_reset()
 }
 
 void
-QPolyMod::poly_type_settings(struct bv_polygon *ip)
+QPolyMod::poly_type_settings(struct bsg_polygon *ip)
 {
     if (!ip || !ip->polygon.contour)
 	return;
-    if (ip->type == BV_POLYGON_GENERAL) {
+    if (ip->type == BSG_POLYGON_GENERAL) {
 	general_mode_opts->setEnabled(true);
 	close_general_poly->setEnabled(true);
 	close_general_poly->blockSignals(true);
@@ -257,7 +257,7 @@ QPolyMod::polygon_update_props()
     if (!gedp)
 	return;
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 
     // Pull settings
     bu_color_to_rgb_chars(&ps->edge_color->bc, p->s_color);
@@ -301,7 +301,7 @@ QPolyMod::toplevel_config(bool)
 	for (size_t i = 0; i < BU_PTBL_LEN(&poly_objs); i++) {
 	    bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&poly_objs, i);
 	    // clear any selected points in non-current polygons
-	    struct bv_polygon *ip = (struct bv_polygon *)s->s_i_data;
+	    struct bsg_polygon *ip = (struct bsg_polygon *)s->s_i_data;
 	    if (ip->curr_point_i != -1) {
 		bu_log("Clear pnt selection\n");
 		draw_change = true;
@@ -320,7 +320,7 @@ QPolyMod::toplevel_config(bool)
     // the general settings on that basis
 
     if (p) {
-	struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 	poly_type_settings(ip);
     }
 
@@ -335,14 +335,14 @@ QPolyMod::clear_pnt_selection(bool checked)
     if (checked)
 	return;
     int ptype = -1;
-    struct bv_polygon *ip = nullptr;
+    struct bsg_polygon *ip = nullptr;
     if (p) {
-	ip = (struct bv_polygon *)p->s_i_data;
+	ip = (struct bsg_polygon *)p->s_i_data;
 	if (!ip)
 	    return;
 	ptype = ip->type;
     }
-    if (ptype != BV_POLYGON_GENERAL) {
+    if (ptype != BSG_POLYGON_GENERAL) {
 	return;
     }
     bu_log("got pnt selection clear\n");
@@ -380,7 +380,7 @@ QPolyMod::select(const QString &poly)
 	    QString pname(bu_vls_cstr(&s->s_name));
 	    if (pname == poly) {
 		p = s;
-		struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+		struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 		poly_type_settings(ip);
 		ps->settings_sync(p);
 		ps->view_name->setText(pname);
@@ -406,13 +406,13 @@ void
 QPolyMod::toggle_closed_poly(bool checked)
 {
     int ptype = -1;
-    struct bv_polygon *ip = nullptr;
+    struct bsg_polygon *ip = nullptr;
     if (p) {
-	ip = (struct bv_polygon *)p->s_i_data;
+	ip = (struct bsg_polygon *)p->s_i_data;
 	ptype = ip->type;
     }
 
-    if (!ip || ptype != BV_POLYGON_GENERAL) {
+    if (!ip || ptype != BSG_POLYGON_GENERAL) {
 	if (!checked) {
 	    close_general_poly->blockSignals(true);
 	    close_general_poly->setChecked(true);
@@ -429,7 +429,7 @@ QPolyMod::toggle_closed_poly(bool checked)
     if (!ip->polygon.contour)
 	return;
 
-    if (checked && ptype == BV_POLYGON_GENERAL) {
+    if (checked && ptype == BSG_POLYGON_GENERAL) {
 	// A contour with less than 3 points can't be closed
 	if (ip->polygon.contour[0].num_points < 3) {
 	    ip->polygon.contour[0].open = 1;
@@ -467,7 +467,7 @@ QPolyMod::toggle_closed_poly(bool checked)
     if (!gedp)
 	return;
 
-    if (do_bool && ip->type == BV_POLYGON_GENERAL && close_general_poly->isChecked()) {
+    if (do_bool && ip->type == BSG_POLYGON_GENERAL && close_general_poly->isChecked()) {
 	struct bu_ptbl poly_objs = BU_PTBL_INIT_ZERO;
 	bsg_view_find_by_type(gedp->ged_gvp, BSG_NODE_POLYGONS, &poly_objs);
 	if (BU_PTBL_LEN(&poly_objs) > 0) {
@@ -489,20 +489,20 @@ QPolyMod::toggle_closed_poly(bool checked)
 		if (target == p)
 		    continue;
 		pcnt += bsg_polygon_csg(target, p, op);
-		struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
+		struct bsg_polygon *vp = (struct bsg_polygon *)target->s_i_data;
 		if (!vp->polygon.num_contours || !vp->polygon.contour)
 		    cleanup.push_back(target);
 	    }
 	    for (bsg_shape *cs : cleanup) {
-		struct bv_polygon *vp = (struct bv_polygon *)cs->s_i_data;
+		struct bsg_polygon *vp = (struct bsg_polygon *)cs->s_i_data;
 		bg_polygon_free(&vp->polygon);
-		BU_PUT(vp, struct bv_polygon);
+		BU_PUT(vp, struct bsg_polygon);
 		cs->s_i_data = nullptr;
 		bsg_shape_put(cs);
 	    }
 	    if (pcnt || op != bg_Union) {
 		bg_polygon_free(&ip->polygon);
-		BU_PUT(ip, struct bv_polygon);
+		BU_PUT(ip, struct bsg_polygon);
 		bsg_shape_put(p);
 		p = nullptr;
 	    }
@@ -530,7 +530,7 @@ QPolyMod::apply_bool_op()
     if (!gedp)
 	return;
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 
     if (!ip->polygon.contour)
 	return;
@@ -559,14 +559,14 @@ QPolyMod::apply_bool_op()
 	    if (target == p)
 		continue;
 	    bsg_polygon_csg(target, p, op);
-	    struct bv_polygon *vp = (struct bv_polygon *)target->s_i_data;
+	    struct bsg_polygon *vp = (struct bsg_polygon *)target->s_i_data;
 	    if (!vp->polygon.num_contours || !vp->polygon.contour)
 		cleanup.push_back(target);
 	}
 	for (bsg_shape *cs : cleanup) {
-	    struct bv_polygon *vp = (struct bv_polygon *)cs->s_i_data;
+	    struct bsg_polygon *vp = (struct bsg_polygon *)cs->s_i_data;
 	    bg_polygon_free(&vp->polygon);
-	    BU_PUT(vp, struct bv_polygon);
+	    BU_PUT(vp, struct bsg_polygon);
 	    cs->s_i_data = nullptr;
 	    bsg_shape_put(cs);
 	}
@@ -586,7 +586,7 @@ QPolyMod::align_to_poly()
     if (!gedp)
 	return;
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 
     point_t center;
     vect_t dir = VINIT_ZERO;
@@ -615,9 +615,9 @@ QPolyMod::delete_poly()
     if (!gedp)
 	return;
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
     bg_polygon_free(&ip->polygon);
-    BU_PUT(ip, struct bv_polygon);
+    BU_PUT(ip, struct bsg_polygon);
     bsg_shape_put(p);
     mod_names->setCurrentIndex(0);
     if (mod_names->currentText().length()) {
@@ -679,7 +679,7 @@ QPolyMod::sketch_name_edit()
 	    sname = bu_strdup(ps->sketch_name->text().toLocal8Bit().data());
 	}
 
-	struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 	if (!sname && ip->u_data) {
 	    struct directory *dp = (struct directory *)ip->u_data;
 	    ps->sketch_name->setPlaceholderText(QString(dp->d_namep));
@@ -756,7 +756,7 @@ QPolyMod::sketch_name_update()
     if (!sk_name)
 	return;
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
     if (ip->u_data) {
 	// remove previous dp, if name is different.  If name
 	// matches, we're done
@@ -843,7 +843,7 @@ QPolyMod::toggle_line_snapping(bool s)
     if (!v || !co)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     bu_ptbl_reset(&v->gv_s->gv_snap_objs);
     if (!s) {
 	v->gv_s->gv_snap_lines = 0;
@@ -876,7 +876,7 @@ QPolyMod::toggle_grid_snapping(bool s)
     if (!v)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     if (!s) {
 	v->gv_s->gv_grid.snap = 0;
     } else {
@@ -929,7 +929,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
 
     // We might be selecting or modifying - if the former, we may
     // not have a current polygon.
-    struct bv_polygon *ip = (p) ? (struct bv_polygon *)p->s_i_data : nullptr;
+    struct bsg_polygon *ip = (p) ? (struct bsg_polygon *)p->s_i_data : nullptr;
 
     // The mouse filter to use depends on the mode - find out
     cf = puf;
@@ -937,7 +937,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
 	cf = psf;
     if (move_mode->isChecked())
 	cf = pmf;
-    if (update_mode->isChecked() && ip && ip->type == BV_POLYGON_GENERAL) {
+    if (update_mode->isChecked() && ip && ip->type == BSG_POLYGON_GENERAL) {
 	if (append_pnt->isChecked() || select_pnt->isChecked())
 	    cf = ppf;
     }
@@ -945,7 +945,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
     // Set libqtcad know what the current polygon is
     cf->wp = p;
     cf->v = (p) ? p->s_v : gedp->ged_gvp;
-    cf->ptype = (ip) ? ip->type : BV_POLYGON_GENERAL;
+    cf->ptype = (ip) ? ip->type : BSG_POLYGON_GENERAL;
     checkbox_refresh(0);
 
     // Connect whatever the current filter is to pass on updating signals from
@@ -967,7 +967,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
 
     // Retrieve the scene object from the libqtcad data container
     p = cf->wp;
-    ip = (p) ? (struct bv_polygon *)p->s_i_data : nullptr;
+    ip = (p) ? (struct bsg_polygon *)p->s_i_data : nullptr;
 
     // If we need to, update our selected list entry
     if (select_mode->isChecked() && p) {

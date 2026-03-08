@@ -23,14 +23,14 @@
  *
  * ### Phase 1 (struct layout)
  *
- * @c struct @c bsg_shape and @c struct @c bv_scene_obj are two independent
+ * @c struct @c bsg_shape and @c struct @c bsg_shape are two independent
  * struct definitions with identical field layouts (defined in @c bv/defines.h).
  * This gives external libbv users unchanged behaviour while letting the
  * @c bsg_* API evolve its layout independently in later phases.
  *
  * The @c bsg_shape.i field is of type @c bsg_shape_internal* (managed by
- * libbsg; forward-declared in @c bv/defines.h).  The legacy @c bv_scene_obj.i
- * remains @c bv_scene_obj_internal*.  No reinterpret casts are needed for
+ * libbsg; forward-declared in @c bv/defines.h).  The legacy @c bsg_shape.i
+ * remains @c bsg_scene_obj_internal*.  No reinterpret casts are needed for
  * @c bsg_shape in libbsg code.
  *
  * For @c bsg_scene (typedef alias of @c bview_set): the @c .i field is now
@@ -76,7 +76,7 @@
 /* bv/snap.h declares bv_view_center_linesnap, wrapped as bsg_view_center_linesnap */
 #include "bsg/snap.h"
 
-/* bv/vlist.h provides BV_FREE_VLIST used by bsg_node_free() */
+/* bv/vlist.h provides BSG_FREE_VLIST used by bsg_node_free() */
 #include "bsg/vlist.h"
 
 #include <unordered_map>
@@ -160,14 +160,14 @@ bsg_fire_sensors(bsg_shape *s)
 /* ====================================================================== *
  * Phase 1 layout sanity checks                                           *
  *                                                                        *
- * bsg_shape and bv_scene_obj are independent structs with the same       *
+ * bsg_shape and bsg_shape are independent structs with the same       *
  * field layout; confirm their sizes agree.  The cast helpers             *
  * bso_to_bv/bv_to_bso have been removed since no direct cross-boundary  *
  * casts are needed in this file after the Scene/SHAPI cleanup.           *
  * ====================================================================== */
-static_assert(sizeof(bsg_material)  == sizeof(bv_obj_settings),  "bsg_material size mismatch");
-static_assert(sizeof(bsg_shape)     == sizeof(bv_scene_obj),     "bsg_shape / bv_scene_obj layout mismatch");
-static_assert(sizeof(bsg_lod)       == sizeof(bv_mesh_lod),      "bsg_lod size mismatch");
+static_assert(sizeof(bsg_material)  == sizeof(bsg_obj_settings),  "bsg_material size mismatch");
+static_assert(sizeof(bsg_shape)     == sizeof(bsg_shape),     "bsg_shape / bsg_shape layout mismatch");
+static_assert(sizeof(bsg_lod)       == sizeof(bsg_mesh_lod),      "bsg_lod size mismatch");
 static_assert(sizeof(bsg_view)      == sizeof(bview),            "bsg_view size mismatch");
 static_assert(sizeof(bsg_scene)     == sizeof(bview_set),        "bsg_scene size mismatch");
 
@@ -181,7 +181,7 @@ bsg_traversal_state_init(bsg_traversal_state *state)
     if (!state)
 	return;
     MAT_IDN(state->xform);
-    struct bv_obj_settings defaults = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings defaults = BSG_OBJ_SETTINGS_INIT;
     bsg_material_sync(&state->material, &defaults);
     state->depth         = 0;
     state->active_camera = NULL;
@@ -387,7 +387,7 @@ bsg_node_alloc(int type_flags)
     s->otbl = NULL;
     s->s_os = &s->s_local_os;
     s->s_inherit_settings = 0;
-    struct bv_obj_settings defaults = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings defaults = BSG_OBJ_SETTINGS_INIT;
     bsg_material_sync(&s->s_local_os, &defaults);
     MAT_IDN(s->s_mat);
     BU_VLS_INIT(&s->s_name);
@@ -451,7 +451,7 @@ bsg_node_free(bsg_shape *s, int recurse)
 	bu_ptbl_free(&s->children);
 
     if (BU_LIST_IS_INITIALIZED(&s->s_vlist))
-	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+	BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
 
     if (BU_VLS_IS_INITIALIZED(&s->s_name))
 	bu_vls_free(&s->s_name);

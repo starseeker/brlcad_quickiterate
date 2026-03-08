@@ -37,17 +37,17 @@
 #include "bsg/util.h"
 
 size_t
-bsg_vlist_cmd_cnt(struct bv_vlist *vlist)
+bsg_vlist_cmd_cnt(struct bsg_vlist *vlist)
 {
     size_t num_commands;
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
 
     if (UNLIKELY(vlist == NULL)) {
 	return 0;
     }
 
     num_commands = 0;
-    for (BU_LIST_FOR(vp, bv_vlist, &(vlist->l))) {
+    for (BU_LIST_FOR(vp, bsg_vlist, &(vlist->l))) {
 	num_commands += vp->nused;
     }
 
@@ -55,7 +55,7 @@ bsg_vlist_cmd_cnt(struct bv_vlist *vlist)
 }
 
 static int
-bv_vlist_bbox_internal(struct bv_vlist *vp, point_t *bmin, point_t *bmax, int *disp_mode, int *dispmode_used)
+bv_vlist_bbox_internal(struct bsg_vlist *vp, point_t *bmin, point_t *bmax, int *disp_mode, int *dispmode_used)
 {
     size_t i;
     size_t nused = vp->nused;
@@ -63,27 +63,27 @@ bv_vlist_bbox_internal(struct bv_vlist *vp, point_t *bmin, point_t *bmax, int *d
     point_t *pt = vp->pt;
 
     for (i = 0; i < nused; i++, cmd++, pt++) {
-	if(*disp_mode == 1 && *cmd != BV_VLIST_MODEL_MAT)
+	if(*disp_mode == 1 && *cmd != BSG_VLIST_MODEL_MAT)
 	    continue;
 	*disp_mode = 0;
 	switch (*cmd) {
-	    case BV_VLIST_POLY_START:
-	    case BV_VLIST_POLY_VERTNORM:
-	    case BV_VLIST_TRI_START:
-	    case BV_VLIST_TRI_VERTNORM:
-	    case BV_VLIST_POINT_SIZE:
-	    case BV_VLIST_LINE_WIDTH:
-	    case BV_VLIST_MODEL_MAT:
+	    case BSG_VLIST_POLY_START:
+	    case BSG_VLIST_POLY_VERTNORM:
+	    case BSG_VLIST_TRI_START:
+	    case BSG_VLIST_TRI_VERTNORM:
+	    case BSG_VLIST_POINT_SIZE:
+	    case BSG_VLIST_LINE_WIDTH:
+	    case BSG_VLIST_MODEL_MAT:
 		/* attribute, not location */
 		break;
-	    case BV_VLIST_LINE_MOVE:
-	    case BV_VLIST_LINE_DRAW:
-	    case BV_VLIST_POLY_MOVE:
-	    case BV_VLIST_POLY_DRAW:
-	    case BV_VLIST_POLY_END:
-	    case BV_VLIST_TRI_MOVE:
-	    case BV_VLIST_TRI_DRAW:
-	    case BV_VLIST_TRI_END:
+	    case BSG_VLIST_LINE_MOVE:
+	    case BSG_VLIST_LINE_DRAW:
+	    case BSG_VLIST_POLY_MOVE:
+	    case BSG_VLIST_POLY_DRAW:
+	    case BSG_VLIST_POLY_END:
+	    case BSG_VLIST_TRI_MOVE:
+	    case BSG_VLIST_TRI_DRAW:
+	    case BSG_VLIST_TRI_END:
 		V_MIN((*bmin)[X], (*pt)[X]);
 		V_MAX((*bmax)[X], (*pt)[X]);
 		V_MIN((*bmin)[Y], (*pt)[Y]);
@@ -91,11 +91,11 @@ bv_vlist_bbox_internal(struct bv_vlist *vp, point_t *bmin, point_t *bmax, int *d
 		V_MIN((*bmin)[Z], (*pt)[Z]);
 		V_MAX((*bmax)[Z], (*pt)[Z]);
 		break;
-	    case BV_VLIST_DISPLAY_MAT:
+	    case BSG_VLIST_DISPLAY_MAT:
 		*disp_mode = 1;
 		*dispmode_used = 1;
 		/* fall through */
-	    case BV_VLIST_POINT_DRAW:
+	    case BSG_VLIST_POINT_DRAW:
 		V_MIN((*bmin)[X], (*pt)[X]-1.0);
 		V_MAX((*bmax)[X], (*pt)[X]+1.0);
 		V_MIN((*bmin)[Y], (*pt)[Y]-1.0);
@@ -114,12 +114,12 @@ bv_vlist_bbox_internal(struct bv_vlist *vp, point_t *bmin, point_t *bmax, int *d
 int
 bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
 {
-    struct bv_vlist* vp;
+    struct bsg_vlist* vp;
     int cmd = 0;
     int disp_mode = 0;
     int dispmode_used = 0;
     size_t len = 0;
-    for (BU_LIST_FOR(vp, bv_vlist, vlistp)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, vlistp)) {
 	cmd = bv_vlist_bbox_internal(vp, bmin, bmax, &disp_mode, &dispmode_used);
 	if (cmd) {
 	    break;
@@ -169,16 +169,16 @@ bsg_vlist_get_cmd_description(int cmd)
 size_t
 bsg_ck_vlist(const struct bu_list *vhead)
 {
-    register struct bv_vlist *vp;
+    register struct bsg_vlist *vp;
     size_t npts = 0;
 
-    for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, vhead)) {
 	size_t i;
 	size_t nused = vp->nused;
 	register int *cmd = vp->cmd;
 	register point_t *pt = vp->pt;
 
-	BV_CK_VLIST(vp);
+	BSG_CK_VLIST(vp);
 	npts += nused;
 
 	for (i = 0; i < nused; i++, cmd++, pt++) {
@@ -200,7 +200,7 @@ bsg_ck_vlist(const struct bu_list *vhead)
 		    bu_bomb("bsg_ck_vlist() bad coordinate value\n");
 		}
 		/* XXX Need a define for largest command number */
-		if (*cmd < 0 || *cmd > BV_VLIST_CMD_MAX) {
+		if (*cmd < 0 || *cmd > BSG_VLIST_CMD_MAX) {
 		    bu_log("cmd = x%x (%d.)\n", *cmd, *cmd);
 		    bu_bomb("bsg_ck_vlist() bad vlist command\n");
 		}
@@ -213,15 +213,15 @@ bsg_ck_vlist(const struct bu_list *vhead)
 void
 bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
 {
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
 
-    for (BU_LIST_FOR(vp, bv_vlist, src)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, src)) {
 	size_t i;
 	size_t nused = vp->nused;
 	register int *cmd = vp->cmd;
 	register point_t *pt = vp->pt;
 	for (i = 0; i < nused; i++, cmd++, pt++) {
-	    BV_ADD_VLIST(vlists, dest, *pt, *cmd);
+	    BSG_ADD_VLIST(vlists, dest, *pt, *cmd);
 	}
     }
 }
@@ -229,24 +229,24 @@ bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_lis
 void
 bsg_vlist_cleanup(struct bu_list *hd)
 {
-    register struct bv_vlist *vp;
+    register struct bsg_vlist *vp;
 
     if (!BU_LIST_IS_INITIALIZED(hd)) {
 	BU_LIST_INIT(hd);
 	return;
     }
 
-    while (BU_LIST_WHILE(vp, bv_vlist, hd)) {
-	BV_CK_VLIST(vp);
+    while (BU_LIST_WHILE(vp, bsg_vlist, hd)) {
+	BSG_CK_VLIST(vp);
 	BU_LIST_DEQUEUE(&(vp->l));
-	bu_free((char *)vp, "bv_vlist");
+	bu_free((char *)vp, "bsg_vlist");
     }
 }
 
 void
 bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
 {
-    register struct bv_vlist *vp;
+    register struct bsg_vlist *vp;
     size_t nelem;
     size_t namelen;
     size_t nbytes;
@@ -257,7 +257,7 @@ bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
 
     /* Count number of element in the vlist */
     nelem = 0;
-    for (BU_LIST_FOR(vp, bv_vlist, hp)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, hp)) {
 	nelem += vp->nused;
     }
 
@@ -278,7 +278,7 @@ bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
     bp += namelen;
 
     /* Output cmds, as bytes */
-    for (BU_LIST_FOR(vp, bv_vlist, hp)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, hp)) {
 	size_t i;
 	size_t nused = vp->nused;
 	register int *cmd = vp->cmd;
@@ -288,7 +288,7 @@ bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
     }
 
     /* Output points, as three 8-byte doubles */
-    for (BU_LIST_FOR(vp, bv_vlist, hp)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, hp)) {
 	size_t i;
 	size_t nused = vp->nused;
 	register point_t *pt = vp->pt;
@@ -333,22 +333,22 @@ bsg_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *name
 	cmd = *bp++;
 	bu_cv_ntohd((unsigned char *)point, pp, ELEMENTS_PER_POINT);
 	pp += ELEMENTS_PER_POINT*SIZEOF_NETWORK_DOUBLE;
-	BV_ADD_VLIST(vlists, hp, point, cmd);
+	BSG_ADD_VLIST(vlists, hp, point, cmd);
     }
 }
 
-struct bv_vlblock *
+struct bsg_vlblock *
 bsg_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists */
 		int max_ent /**< maximum number of entities to get/put */)
 {
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     size_t i;
 
     if (!BU_LIST_IS_INITIALIZED(free_vlist_hd))
 	BU_LIST_INIT(free_vlist_hd);
 
-    BU_ALLOC(vbp, struct bv_vlblock);
-    vbp->magic = BV_VLBLOCK_MAGIC;
+    BU_ALLOC(vbp, struct bsg_vlblock);
+    vbp->magic = BSG_VLBLOCK_MAGIC;
     vbp->free_vlist_hd = free_vlist_hd;
     vbp->max = max_ent;
     vbp->head = (struct bu_list *)bu_calloc(vbp->max,
@@ -369,32 +369,32 @@ bsg_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlist
 }
 
 void
-bsg_vlblock_free(struct bv_vlblock *vbp)
+bsg_vlblock_free(struct bsg_vlblock *vbp)
 {
     size_t i;
 
-    BV_CK_VLBLOCK(vbp);
+    BSG_CK_VLBLOCK(vbp);
     for (i=0; i < vbp->nused; i++) {
 	/* Release any remaining vlist storage */
 	if (vbp->rgb[i] == 0) continue;
 	if (BU_LIST_IS_EMPTY(&(vbp->head[i]))) continue;
-	BV_FREE_VLIST(vbp->free_vlist_hd, &(vbp->head[i]));
+	BSG_FREE_VLIST(vbp->free_vlist_hd, &(vbp->head[i]));
     }
 
     bu_free((char *)(vbp->head), "head[]");
     bu_free((char *)(vbp->rgb), "rgb[]");
-    bu_free((char *)vbp, "bv_vlblock");
+    bu_free((char *)vbp, "bsg_vlblock");
 
 }
 
 struct bu_list *
-bsg_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b)
+bsg_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b)
 {
     long newrgb;
     size_t n;
     size_t omax;                /* old max */
 
-    BV_CK_VLBLOCK(vbp);
+    BSG_CK_VLBLOCK(vbp);
 
     newrgb = ((r&0xFF)<<16)|((g&0xFF)<<8)|(b&0xFF);
 
@@ -458,57 +458,57 @@ bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, co
     point_t p;
 
     VSET(p, minn[X], minn[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_MOVE);
 
     /* first side */
     VSET(p, minn[X], maxx[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
     VSET(p, minn[X], maxx[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
     VSET(p, minn[X], minn[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
     VSET(p, minn[X], minn[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
 
     /* across */
     VSET(p, maxx[X], minn[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
 
     /* second side */
     VSET(p, maxx[X], maxx[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
     VSET(p, maxx[X], maxx[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
     VSET(p, maxx[X], minn[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
     VSET(p, maxx[X], minn[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
 
     /* front edge */
     VSET(p, minn[X], maxx[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_MOVE);
     VSET(p, maxx[X], maxx[Y], minn[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
 
     /* bottom back */
     VSET(p, minn[X], minn[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_MOVE);
     VSET(p, maxx[X], minn[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
 
     /* top back */
     VSET(p, minn[X], maxx[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_MOVE);
     VSET(p, maxx[X], maxx[Y], maxx[Z]);
-    BV_ADD_VLIST(vlists, hd, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlists, hd, p, BSG_VLIST_LINE_DRAW);
 }
 
 void
-bsg_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
+bsg_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp)
 {
     size_t i;
 
-    BV_CK_VLBLOCK(vbp);
+    BSG_CK_VLBLOCK(vbp);
 
     for (i=0; i < vbp->nused; i++) {
 	if (vbp->rgb[i] == 0) continue;
@@ -523,9 +523,9 @@ bsg_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 
 #define GET_BV_SCENE_OBJ(p, fp) { \
     if (BU_LIST_IS_EMPTY(fp)) { \
-	BU_ALLOC((p), struct bv_scene_obj); \
+	BU_ALLOC((p), struct bsg_shape); \
     } else { \
-	p = BU_LIST_NEXT(bv_scene_obj, fp); \
+	p = BU_LIST_NEXT(bsg_shape, fp); \
 	BU_LIST_DEQUEUE(&((p)->l)); \
     } \
     bu_vls_init(&(p)->s_name); \
@@ -534,10 +534,10 @@ bsg_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
     BU_LIST_APPEND(fp, &((p)->l)); \
-    BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
+    BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 void
-bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree)
+bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bview *v, struct bsg_shape *f, struct bu_list *vlfree)
 {
     if (!out || !vbp || !f)
 	return;
@@ -550,7 +550,7 @@ bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlbloc
 	    struct bu_vls cname = BU_VLS_INIT_ZERO;
 	    bu_vls_sprintf(&cname, "%sobj%zd", name_root, i);
 	    for (size_t j = 0; j < BU_PTBL_LEN(out); j++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(out, j);
+		struct bsg_shape *s = (struct bsg_shape *)BU_PTBL_GET(out, j);
 		if (BU_STR_EQUAL(bu_vls_cstr(&cname), bu_vls_cstr(&s->s_name))) {
 		    bu_ptbl_ins_unique(&oobjs, (long *)s);
 		}
@@ -558,18 +558,18 @@ bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlbloc
 	}
     }
     for (size_t i = 0; i < BU_PTBL_LEN(&oobjs); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&oobjs, i);
+	struct bsg_shape *s = (struct bsg_shape *)BU_PTBL_GET(&oobjs, i);
 	bu_ptbl_rm(out, (long *)s);
 	FREE_BV_SCENE_OBJ(s, &f->l, vlfree);
     }
     for (size_t i = 0; i < vbp->nused; i++) {
 	if (!BU_LIST_IS_EMPTY(&(vbp->head[i]))) {
-	    struct bv_scene_obj *s;
+	    struct bsg_shape *s;
 	    GET_BV_SCENE_OBJ(s, &f->l);
-	    s->s_type_flags = BV_VIEWONLY;
+	    s->s_type_flags = BSG_NODE_VIEWONLY;
 	    s->s_v = v;
 	    bu_vls_sprintf(&s->s_name, "%sobj%zd", name_root, i);
-	    struct bv_vlist *bvl = (struct bv_vlist *)&vbp->head[i];
+	    struct bsg_vlist *bvl = (struct bsg_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
 	    s->s_vlen = bsg_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(s->s_vlist), &(bvl->l));
@@ -582,8 +582,8 @@ bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlbloc
     }
 }
 
-struct bv_scene_obj *
-bsg_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
+struct bsg_shape *
+bsg_vlblock_obj(struct bsg_vlblock *vbp, struct bview *v, const char *name)
 {
     if (!vbp || !v)
 	return NULL;
@@ -592,13 +592,13 @@ bsg_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
     if (s) {
 	bsg_shape_reset(s);
     } else {
-	s = bsg_shape_get(v, BV_VIEW_OBJS);
+	s = bsg_shape_get(v, BSG_VIEW_OBJS);
     }
 
     for (size_t i = 0; i < vbp->nused; i++) {
 	if (!BU_LIST_IS_EMPTY(&(vbp->head[i]))) {
 	    bsg_shape *sc = bsg_shape_get_child(s);
-	    struct bv_vlist *bvl = (struct bv_vlist *)&vbp->head[i];
+	    struct bsg_vlist *bvl = (struct bsg_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
 	    sc->s_vlen = bsg_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(sc->s_vlist), &(bvl->l));
@@ -610,15 +610,15 @@ bsg_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
 	}
     }
 
-    return (struct bv_scene_obj *)s;
+    return (struct bsg_shape *)s;
 }
 
 void
 bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
 {
-    register struct bv_vlist *vp;
+    register struct bsg_vlist *vp;
 
-    for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, vhead)) {
 	size_t i;
 	size_t nused = vp->nused;
 	register const int *cmd = vp->cmd;
@@ -626,19 +626,19 @@ bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
 
 	for (i = 0; i < nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
-		case BV_VLIST_POLY_START:
-		case BV_VLIST_TRI_START:
+		case BSG_VLIST_POLY_START:
+		case BSG_VLIST_TRI_START:
 		    break;
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_LINE_MOVE:
-		case BV_VLIST_TRI_MOVE:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_LINE_MOVE:
+		case BSG_VLIST_TRI_MOVE:
 		    pdv_3move(fp, *pt);
 		    break;
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_POLY_END:
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_TRI_DRAW:
-		case BV_VLIST_TRI_END:
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_POLY_END:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_TRI_DRAW:
+		case BSG_VLIST_TRI_END:
 		    pdv_3cont(fp, *pt);
 		    break;
 		default:

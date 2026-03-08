@@ -36,7 +36,7 @@
 #include "bsg/vlist.h"
 
 
-struct bv_vlblock *
+struct bsg_vlblock *
 rt_vlblock_init(void)
 {
     struct bu_list *vlfree = &rt_vlfree;
@@ -254,7 +254,7 @@ rt_uplot_get_text_args(FILE *fp, const struct uplot *up, char *carg, fastf_t *ar
 
 int
 rt_process_uplot_value(register struct bu_list **vhead,
-		       struct bv_vlblock *vbp,
+		       struct bsg_vlblock *vbp,
 		       FILE *fp,
 		       register int c,
 		       double char_size,
@@ -307,14 +307,14 @@ rt_process_uplot_value(register struct bu_list **vhead,
 	case 'o':
 	    /* 2-D move */
 	    arg[Z] = 0;
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_MOVE);
 	    VMOVE(lpnt, arg);
 	    moved = 1;
 	    break;
 	case 'M':
 	case 'O':
 	    /* 3-D move */
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_MOVE);
 	    VMOVE(lpnt, arg);
 	    moved = 1;
 	    break;
@@ -326,13 +326,13 @@ rt_process_uplot_value(register struct bu_list **vhead,
 	     * move/draw.
 	     */
 	    if (!moved) {
-		BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, lpnt, BV_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, lpnt, BSG_VLIST_LINE_MOVE);
 		moved = 1;
 	    }
 
 	    /* 2-D draw */
 	    arg[Z] = 0;
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_DRAW);
 	    VMOVE(lpnt, arg);
 	    break;
 	case 'N':
@@ -343,12 +343,12 @@ rt_process_uplot_value(register struct bu_list **vhead,
 	     * move/draw.
 	     */
 	    if (!moved) {
-		BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, lpnt, BV_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, lpnt, BSG_VLIST_LINE_MOVE);
 		moved = 1;
 	    }
 
 	    /* 3-D draw */
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_DRAW);
 	    VMOVE(lpnt, arg);
 	    break;
 	case 'l':
@@ -356,29 +356,29 @@ rt_process_uplot_value(register struct bu_list **vhead,
 	    /* 2-D line */
 	    VSET(a, arg[0], arg[1], 0.0);
 	    VSET(b, arg[2], arg[3], 0.0);
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, a, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, b, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, a, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, b, BSG_VLIST_LINE_DRAW);
 	    break;
 	case 'L':
 	case 'V':
 	    /* 3-D line */
 	    VSET(a, arg[0], arg[1], arg[2]);
 	    VSET(b, arg[3], arg[4], arg[5]);
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, a, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, b, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, a, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, b, BSG_VLIST_LINE_DRAW);
 	    break;
 	case 'p':
 	case 'x':
 	    /* 2-D point */
 	    arg[Z] = 0;
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_DRAW);
 	    break;
 	case 'P':
 	case 'X':
 	    /* 3-D point */
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vbp->free_vlist_hd, *vhead, arg, BSG_VLIST_LINE_DRAW);
 	    break;
 	case 'C':
 	    /* Color */
@@ -390,9 +390,9 @@ rt_process_uplot_value(register struct bu_list **vhead,
 	    /* Text string */
 	    MAT_IDN(mat);
 	    if (BU_LIST_NON_EMPTY(*vhead)) {
-		struct bv_vlist *vlp;
+		struct bsg_vlist *vlp;
 		/* Use coordinates of last op */
-		vlp = BU_LIST_LAST(bv_vlist, *vhead);
+		vlp = BU_LIST_LAST(bsg_vlist, *vhead);
 		VMOVE(last_pos, vlp->pt[vlp->nused-1]);
 	    } else {
 		VSETALL(last_pos, 0);
@@ -406,7 +406,7 @@ rt_process_uplot_value(register struct bu_list **vhead,
 
 
 int
-rt_uplot_to_vlist(struct bv_vlblock *vbp, register FILE *fp, double char_size, int mode)
+rt_uplot_to_vlist(struct bsg_vlblock *vbp, register FILE *fp, double char_size, int mode)
 {
     struct bu_list *vhead;
     register int c;
@@ -431,15 +431,15 @@ rt_uplot_to_vlist(struct bv_vlblock *vbp, register FILE *fp, double char_size, i
 }
 
 void
-rt_label_vlist_verts(struct bv_vlblock *vbp, struct bu_list *src, mat_t mat, double sz, double mm2local)
+rt_label_vlist_verts(struct bsg_vlblock *vbp, struct bu_list *src, mat_t mat, double sz, double mm2local)
 {
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
     struct bu_list *vhead;
     char label[256];
 
     vhead = bsg_vlblock_find(vbp, 255, 255, 255);	/* white */
 
-    for (BU_LIST_FOR(vp, bv_vlist, src)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, src)) {
 	register int i;
 	register int nused = vp->nused;
 	register int *cmd = vp->cmd;
@@ -454,7 +454,7 @@ rt_label_vlist_verts(struct bv_vlblock *vbp, struct bu_list *src, mat_t mat, dou
 }
 
 void
-rt_label_vlist_faces(struct bv_vlblock* vbp, struct bu_list* f_list,
+rt_label_vlist_faces(struct bsg_vlblock* vbp, struct bu_list* f_list,
 		     mat_t mat, double sz, double UNUSED(mm2local) )
 {
     struct bu_list* vhead;

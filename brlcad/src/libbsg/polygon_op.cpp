@@ -35,7 +35,7 @@
 #include "bsg/util.h"
 
 int
-bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_clip_t op)
+bv_polygon_csg(struct bsg_shape *target, struct bsg_shape *stencil, bg_clip_t op)
 {
     bsg_shape *tgt = (bsg_shape *)target;
     bsg_shape *sten = (bsg_shape *)stencil;
@@ -45,15 +45,15 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
 	return 0;
 
     // Need polygons
-    if (!(tgt->s_type_flags & BV_POLYGONS) || !(sten->s_type_flags & BV_POLYGONS))
+    if (!(tgt->s_type_flags & BSG_NODE_POLYGONS) || !(sten->s_type_flags & BSG_NODE_POLYGONS))
 	return 0;
 
     // None op == no change
     if (op == bg_None)
 	return 0;
 
-    struct bv_polygon *polyA = (struct bv_polygon *)tgt->s_i_data;
-    struct bv_polygon *polyB = (struct bv_polygon *)sten->s_i_data;
+    struct bsg_polygon *polyA = (struct bsg_polygon *)tgt->s_i_data;
+    struct bsg_polygon *polyB = (struct bsg_polygon *)sten->s_i_data;
     if (!polyA || !polyB)
 	return 0;
 
@@ -81,7 +81,7 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
 	polyA->curr_point_i = polyB->curr_point_i;
 	VMOVE(polyA->origin_point, polyB->origin_point);
 	HMOVE(polyA->vp, polyB->vp);
-	bsg_update_polygon(tgt, tgt->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(tgt, tgt->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 	return 1;
     }
 
@@ -91,8 +91,8 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
     polyA->polygon.hole = cp->hole;
     polyA->polygon.contour = cp->contour;
     BU_PUT(cp, struct bg_polygon);
-    polyA->type = BV_POLYGON_GENERAL;
-    bsg_update_polygon(tgt, tgt->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    polyA->type = BSG_POLYGON_GENERAL;
+    bsg_update_polygon(tgt, tgt->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 
     return 1;
 }

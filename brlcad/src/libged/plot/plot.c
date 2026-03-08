@@ -47,7 +47,7 @@ void
 dl_plot(bsg_view *v, FILE *fp, mat_t model2view, int floating, mat_t center, fastf_t scale, int Three_D, int Z_clip)
 {
     bsg_shape *sp;
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
     static vect_t clipmin, clipmax;
     static vect_t last;         /* last drawn point */
     static vect_t fin;
@@ -106,9 +106,9 @@ dl_plot(bsg_view *v, FILE *fp, mat_t model2view, int floating, mat_t center, fas
     }
 
     if (Three_D)
-        pl_3space(fp, (int)BV_MIN, (int)BV_MIN, (int)BV_MIN, (int)BV_MAX, (int)BV_MAX, (int)BV_MAX);
+        pl_3space(fp, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX);
     else
-        pl_space(fp, (int)BV_MIN, (int)BV_MIN, (int)BV_MAX, (int)BV_MAX);
+        pl_space(fp, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX);
     pl_erase(fp);
     Dashing = 0;
     pl_linmod(fp, "solid");
@@ -122,29 +122,29 @@ dl_plot(bsg_view *v, FILE *fp, mat_t model2view, int floating, mat_t center, fas
                 pl_linmod(fp, "solid");
             Dashing = sp->s_soldash;
         }
-        for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+        for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
             size_t i;
             size_t nused = vp->nused;
             int *cmd = vp->cmd;
             point_t *pt = vp->pt;
             for (i = 0; i < nused; i++, cmd++, pt++) {
                 switch (*cmd) {
-                    case BV_VLIST_POLY_START:
-                    case BV_VLIST_POLY_VERTNORM:
-                    case BV_VLIST_TRI_START:
-                    case BV_VLIST_TRI_VERTNORM:
+                    case BSG_VLIST_POLY_START:
+                    case BSG_VLIST_POLY_VERTNORM:
+                    case BSG_VLIST_TRI_START:
+                    case BSG_VLIST_TRI_VERTNORM:
                         continue;
-                    case BV_VLIST_POLY_MOVE:
-                    case BV_VLIST_LINE_MOVE:
-                    case BV_VLIST_TRI_MOVE:
+                    case BSG_VLIST_POLY_MOVE:
+                    case BSG_VLIST_LINE_MOVE:
+                    case BSG_VLIST_TRI_MOVE:
                         /* Move, not draw */
                         MAT4X3PNT(last, model2view, *pt);
                         continue;
-                    case BV_VLIST_LINE_DRAW:
-                    case BV_VLIST_POLY_DRAW:
-                    case BV_VLIST_POLY_END:
-                    case BV_VLIST_TRI_DRAW:
-                    case BV_VLIST_TRI_END:
+                    case BSG_VLIST_LINE_DRAW:
+                    case BSG_VLIST_POLY_DRAW:
+                    case BSG_VLIST_POLY_END:
+                    case BSG_VLIST_TRI_DRAW:
+                    case BSG_VLIST_TRI_END:
                         /* draw */
                         MAT4X3PNT(fin, model2view, *pt);
                         VMOVE(start, last);
@@ -161,18 +161,18 @@ dl_plot(bsg_view *v, FILE *fp, mat_t model2view, int floating, mat_t center, fas
                              sp->s_color[1],
                              sp->s_color[2]);
                     pl_3line(fp,
-                             (int)(start[X] * BV_MAX),
-                             (int)(start[Y] * BV_MAX),
-                             (int)(start[Z] * BV_MAX),
-                             (int)(fin[X] * BV_MAX),
-                             (int)(fin[Y] * BV_MAX),
-                             (int)(fin[Z] * BV_MAX));
+                             (int)(start[X] * BSG_VIEW_MAX),
+                             (int)(start[Y] * BSG_VIEW_MAX),
+                             (int)(start[Z] * BSG_VIEW_MAX),
+                             (int)(fin[X] * BSG_VIEW_MAX),
+                             (int)(fin[Y] * BSG_VIEW_MAX),
+                             (int)(fin[Z] * BSG_VIEW_MAX));
                 } else {
                     pl_line(fp,
-                            (int)(start[0] * BV_MAX),
-                            (int)(start[1] * BV_MAX),
-                            (int)(fin[0] * BV_MAX),
-                            (int)(fin[1] * BV_MAX));
+                            (int)(start[0] * BSG_VIEW_MAX),
+                            (int)(start[1] * BSG_VIEW_MAX),
+                            (int)(fin[0] * BSG_VIEW_MAX),
+                            (int)(fin[1] * BSG_VIEW_MAX));
                 }
             }
         }

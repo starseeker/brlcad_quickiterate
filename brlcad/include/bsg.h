@@ -22,7 +22,7 @@
  *
  * @brief Convenience header: includes all BRL-CAD Scene Graph (BSG) headers.
  *
- * The BSG API is a redesign of the libbv @c bview / @c bv_scene_obj
+ * The BSG API is a redesign of the libbv @c bview / @c bsg_shape
  * layer, structured to map more cleanly to the Open Inventor / Obol scene
  * graph conventions.  See @c bsg/defines.h for the type mapping table and
  * the phased migration plan.

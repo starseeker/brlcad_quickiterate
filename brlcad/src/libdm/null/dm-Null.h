@@ -107,11 +107,11 @@ null_drawPoints3D(struct dm *dmp, int npoints, point_t *points);
 
 
 DM_NULL_EXPORT extern int
-null_drawVList(struct dm *dmp, struct bv_vlist *vp);
+null_drawVList(struct dm *dmp, struct bsg_vlist *vp);
 
 
 DM_NULL_EXPORT extern int
-null_drawVListHiddenLine(struct dm *dmp, struct bv_vlist *vp);
+null_drawVListHiddenLine(struct dm *dmp, struct bsg_vlist *vp);
 
 
 DM_NULL_EXPORT extern int
@@ -119,7 +119,7 @@ null_draw_obj(struct dm *dmp, bsg_shape *s);
 
 
 DM_NULL_EXPORT extern int
-null_draw(struct dm *dmp, struct bv_vlist *(*callback_function)(void *), void **data);
+null_draw(struct dm *dmp, struct bsg_vlist *(*callback_function)(void *), void **data);
 
 
 DM_NULL_EXPORT extern int
@@ -223,7 +223,7 @@ null_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alpha)
 
 
 DM_NULL_EXPORT extern int
-null_draw(struct dm *dmp, struct bv_vlist *(*callback_function)(void *), void **data);
+null_draw(struct dm *dmp, struct bsg_vlist *(*callback_function)(void *), void **data);
 
 
 DM_NULL_EXPORT extern int

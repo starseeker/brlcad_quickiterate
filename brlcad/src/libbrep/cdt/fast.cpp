@@ -1820,14 +1820,14 @@ detria_CDT(struct bu_list *vhead,
                     }
                 }
                 //tri one
-                BV_ADD_VLIST(vlfree, vhead, nv[0], BV_VLIST_TRI_START);
-                BV_ADD_VLIST(vlfree, vhead, nv[0], BV_VLIST_TRI_VERTNORM);
-                BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_TRI_MOVE);
-                BV_ADD_VLIST(vlfree, vhead, nv[1], BV_VLIST_TRI_VERTNORM);
-                BV_ADD_VLIST(vlfree, vhead, pt[1], BV_VLIST_TRI_DRAW);
-                BV_ADD_VLIST(vlfree, vhead, nv[2], BV_VLIST_TRI_VERTNORM);
-                BV_ADD_VLIST(vlfree, vhead, pt[2], BV_VLIST_TRI_DRAW);
-                BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_TRI_END);
+                BSG_ADD_VLIST(vlfree, vhead, nv[0], BSG_VLIST_TRI_START);
+                BSG_ADD_VLIST(vlfree, vhead, nv[0], BSG_VLIST_TRI_VERTNORM);
+                BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_TRI_MOVE);
+                BSG_ADD_VLIST(vlfree, vhead, nv[1], BSG_VLIST_TRI_VERTNORM);
+                BSG_ADD_VLIST(vlfree, vhead, pt[1], BSG_VLIST_TRI_DRAW);
+                BSG_ADD_VLIST(vlfree, vhead, nv[2], BSG_VLIST_TRI_VERTNORM);
+                BSG_ADD_VLIST(vlfree, vhead, pt[2], BSG_VLIST_TRI_DRAW);
+                BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_TRI_END);
             }, true);
 	} else if (plottype == 1) { // tris 3d wire
 	    ON_3dPoint pnt[3] = {ON_3dPoint(), ON_3dPoint(), ON_3dPoint()};;
@@ -1852,10 +1852,10 @@ detria_CDT(struct bu_list *vhead,
                     }
                 }
 		//tri one
-		BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, pt[1], BV_VLIST_LINE_DRAW);
-		BV_ADD_VLIST(vlfree, vhead, pt[2], BV_VLIST_LINE_DRAW);
-		BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt[1], BSG_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt[2], BSG_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_LINE_DRAW);
 	    }, true);
 	} else if (plottype == 2) { // tris 2d
 	    point_t pt1 = VINIT_ZERO;
@@ -1879,8 +1879,8 @@ detria_CDT(struct bu_list *vhead,
 		    pt2[0] = tpnts[tris[j]].x;
 		    pt2[1] = tpnts[tris[j]].y;
 		    pt2[2] = 0.0;
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
    	    }, true);
 	}
@@ -1906,8 +1906,8 @@ detria_CDT(struct bu_list *vhead,
 	        pt2[0] = tpnts[tris[j]].x;
 	        pt2[1] = tpnts[tris[j]].y;
 	        pt2[2] = 0.0;
-	        BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	        BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	        BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	        BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	    }
    	}, true);
     } else if (plottype == 4) {
@@ -1916,7 +1916,7 @@ detria_CDT(struct bu_list *vhead,
 	    pt[0] = tpnts[i].x;
 	    pt[1] = tpnts[i].y;
 	    pt[2] = 0.0;
-	    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_POINT_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_POINT_DRAW);
 	}
     }
 
@@ -1963,7 +1963,7 @@ int
 brep_facecdt_plot(struct bu_vls *vls, const char *solid_name,
                       const struct bg_tess_tol *ttol, const struct bn_tol *tol,
                       const ON_Brep *brep, struct bu_list *p_vhead,
-                      struct bv_vlblock *vbp, struct bu_list *vlfree,
+                      struct bsg_vlblock *vbp, struct bu_list *vlfree,
 		      int index, int plottype, int num_points)
 {
     if (plottype == INT_MAX || num_points == INT_MAX)

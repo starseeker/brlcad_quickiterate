@@ -765,14 +765,14 @@ ON_Brep_CDT_VList_Face(
 		    VSET(nv[j], onorm.x, onorm.y, onorm.z);
 		}
 		//tri one
-		BV_ADD_VLIST(vlfree, vhead, nv[0], BV_VLIST_TRI_START);
-		BV_ADD_VLIST(vlfree, vhead, nv[0], BV_VLIST_TRI_VERTNORM);
-		BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_TRI_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, nv[1], BV_VLIST_TRI_VERTNORM);
-		BV_ADD_VLIST(vlfree, vhead, pt[1], BV_VLIST_TRI_DRAW);
-		BV_ADD_VLIST(vlfree, vhead, nv[2], BV_VLIST_TRI_VERTNORM);
-		BV_ADD_VLIST(vlfree, vhead, pt[2], BV_VLIST_TRI_DRAW);
-		BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_TRI_END);
+		BSG_ADD_VLIST(vlfree, vhead, nv[0], BSG_VLIST_TRI_START);
+		BSG_ADD_VLIST(vlfree, vhead, nv[0], BSG_VLIST_TRI_VERTNORM);
+		BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_TRI_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, nv[1], BSG_VLIST_TRI_VERTNORM);
+		BSG_ADD_VLIST(vlfree, vhead, pt[1], BSG_VLIST_TRI_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, nv[2], BSG_VLIST_TRI_VERTNORM);
+		BSG_ADD_VLIST(vlfree, vhead, pt[2], BSG_VLIST_TRI_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_TRI_END);
 		//bu_log("Face %d, Tri %zd: %f/%f/%f-%f/%f/%f -> %f/%f/%f-%f/%f/%f -> %f/%f/%f-%f/%f/%f\n", face_index, i, V3ARGS(pt[0]), V3ARGS(nv[0]), V3ARGS(pt[1]), V3ARGS(nv[1]), V3ARGS(pt[2]), V3ARGS(nv[2]));
 		++tree_it;
 	    }
@@ -787,10 +787,10 @@ ON_Brep_CDT_VList_Face(
 		    VSET(pt[j], p3d->x, p3d->y, p3d->z);
 		}
 		//tri one
-		BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, pt[1], BV_VLIST_LINE_DRAW);
-		BV_ADD_VLIST(vlfree, vhead, pt[2], BV_VLIST_LINE_DRAW);
-		BV_ADD_VLIST(vlfree, vhead, pt[0], BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt[1], BSG_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt[2], BSG_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt[0], BSG_VLIST_LINE_DRAW);
 		++tree_it;
 	    }
 	    break;
@@ -804,8 +804,8 @@ ON_Brep_CDT_VList_Face(
 	    pt2[0] = p->x;
 	    pt2[1] = p->y;
 	    pt2[2] = 0.0;
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 #endif
 	    break;
 	default:
@@ -816,7 +816,7 @@ ON_Brep_CDT_VList_Face(
 }
 
 int ON_Brep_CDT_VList(
-	struct bv_vlblock *vbp,
+	struct bsg_vlblock *vbp,
 	struct bu_list *vlfree,
 	struct bu_color *c,
 	int mode,

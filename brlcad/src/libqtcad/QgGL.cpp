@@ -41,7 +41,7 @@ extern "C" {
 #define YMIN            (-2048)
 #define YMAX            (2047)
 
-// from BV_MIN and BV_MAX
+// from BSG_VIEW_MIN and BSG_VIEW_MAX
 #define QTGL_ZMIN -2048
 #define QTGL_ZMAX 2047
 

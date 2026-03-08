@@ -83,8 +83,8 @@ dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t 
 void
 dm_add_arrows(struct dm *dmp, bsg_shape *s)
 {
-    struct bv_vlist *vp = (struct bv_vlist *)&s->s_vlist;
-    struct bv_vlist *tvp;
+    struct bsg_vlist *vp = (struct bsg_vlist *)&s->s_vlist;
+    struct bsg_vlist *tvp;
     point_t A = VINIT_ZERO;
     point_t B = VINIT_ZERO;
     int pcnt = 0;
@@ -92,14 +92,14 @@ dm_add_arrows(struct dm *dmp, bsg_shape *s)
 	return;
     if (NEAR_ZERO(s->s_os->s_arrow_tip_length, SMALL_FASTF) || NEAR_ZERO(s->s_os->s_arrow_tip_width, SMALL_FASTF))
        return;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;
 	for (int i = 0; i < nused; i++, cmd++, pt++) {
 	    pcnt++;
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    if (pcnt > 1) {
 			// We have a move and more than one point - add an arrow
 			// to the A -> B segment at B
@@ -107,7 +107,7 @@ dm_add_arrows(struct dm *dmp, bsg_shape *s)
 		    }
 		    VMOVE(B,*pt);
 		    break;
-		case BV_VLIST_LINE_DRAW:
+		case BSG_VLIST_LINE_DRAW:
 		    VMOVE(A,B);
 		    VMOVE(B,*pt);
 		    break;
@@ -124,7 +124,7 @@ dm_add_arrows(struct dm *dmp, bsg_shape *s)
 }
 
 void
-dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
+dm_draw_arrows(struct dm *dmp, struct bsg_data_arrow_state *gdasp, fastf_t sf)
 {
     register int i;
     int saveLineWidth;
@@ -234,7 +234,7 @@ dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
 				   (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].num_points, \
 				   (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].point, 1); \
 	    \
-	    if (_mode != BV_POLY_CONTOUR_MODE || _i != _last_poly || (_gdpsp)->gdps_cflag == 0) { \
+	    if (_mode != BSG_POLY_CONTOUR_MODE || _i != _last_poly || (_gdpsp)->gdps_cflag == 0) { \
 		(void)dm_draw_line_3d((_dmp),				\
 				      (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].point[_last], \
 				      (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].point[0]); \
@@ -243,7 +243,7 @@ dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
 
 
 void
-dm_draw_polys(struct dm *dmp, bv_data_polygon_state *gdpsp, int mode)
+dm_draw_polys(struct dm *dmp, bsg_data_polygon_state *gdpsp, int mode)
 {
     register size_t i, last_poly;
     int saveLineWidth;
@@ -271,7 +271,7 @@ dm_draw_polys(struct dm *dmp, bv_data_polygon_state *gdpsp, int mode)
 }
 
 void
-dm_draw_lines(struct dm *dmp, struct bv_data_line_state *gdlsp)
+dm_draw_lines(struct dm *dmp, struct bsg_data_line_state *gdlsp)
 {
     int saveLineWidth;
     int saveLineStyle;
@@ -400,7 +400,7 @@ dm_draw_faceplate(bsg_view *v)
 	    v->gv_s->gv_frametime = 0.9 * v->gv_s->gv_frametime + 0.1 * elapsed_time / 1000000LL;
 	}
 
-	struct bv_params_state *ps = &v->gv_s->gv_view_params;
+	struct bsg_params_state *ps = &v->gv_s->gv_view_params;
 	if (ps->draw_size) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
@@ -456,7 +456,7 @@ dm_draw_faceplate(bsg_view *v)
 void
 dm_draw_label(struct dm *dmp, bsg_shape *s)
 {
-    struct bv_label *l = (struct bv_label *)s->s_i_data;
+    struct bsg_label *l = (struct bsg_label *)s->s_i_data;
 
     /* set color */
     (void)dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 1, 1.0);
@@ -570,7 +570,7 @@ dm_draw_label(struct dm *dmp, bsg_shape *s)
 }
 
 void
-dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
+dm_draw_labels(struct dm *dmp, struct bsg_data_label_state *gdlsp, matp_t m2vmat)
 {
     /* set color */
     (void)dm_set_fg(dmp,

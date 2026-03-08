@@ -176,7 +176,7 @@ dozoom(struct mged_state *s, int which_eye)
 		       color_scheme->cs_predictor[0],
 		       color_scheme->cs_predictor[1],
 		       color_scheme->cs_predictor[2], 1, 1.0);
-	dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
+	dm_draw_vlist(DMP, (struct bsg_vlist *)&s->mged_curr_dm->dm_p_vlist);
     }
 
     /*
@@ -267,7 +267,7 @@ createDListSolid(void *vlist_ctx, bsg_shape *sp)
 			(unsigned char)sp->s_color[0],
 			(unsigned char)sp->s_color[1],
 			(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-	    (void)dm_draw_vlist(DMP, (struct bv_vlist *)&sp->s_vlist);
+	    (void)dm_draw_vlist(DMP, (struct bsg_vlist *)&sp->s_vlist);
 	    (void)dm_end_dlist(DMP);
 	}
 

@@ -67,8 +67,8 @@ ged_size_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	gedp->ged_gvp->gv_size = (gedp->dbip) ? gedp->dbip->dbi_local2base * size : size;
-	if (gedp->ged_gvp->gv_size < BV_MINVIEWSIZE)
-	    gedp->ged_gvp->gv_size = BV_MINVIEWSIZE;
+	if (gedp->ged_gvp->gv_size < BSG_MINVIEWSIZE)
+	    gedp->ged_gvp->gv_size = BSG_MINVIEWSIZE;
 	gedp->ged_gvp->gv_isize = 1.0 / gedp->ged_gvp->gv_size;
 	gedp->ged_gvp->gv_scale = 0.5 * gedp->ged_gvp->gv_size;
 	bsg_view_update(gedp->ged_gvp);

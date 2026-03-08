@@ -58,7 +58,7 @@ illuminate(struct mged_state *s, int y) {
      * zones, and use the zone number as a sequential position among
      * solids which are drawn.
      */
-    count = ((fastf_t)y + BV_MAX) * s->mged_curr_dm->dm_ndrawn / BV_RANGE;
+    count = ((fastf_t)y + BSG_VIEW_MAX) * s->mged_curr_dm->dm_ndrawn / BSG_VIEW_RANGE;
 
     {
 	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
@@ -467,7 +467,7 @@ f_mouse(
 	    isave = ipathpos;
 	    if (bdata)
 		ipathpos = bdata->s_fullpath.fp_len-1 - (
-			(ypos+(int)BV_MAX) * (bdata->s_fullpath.fp_len) / (int)BV_RANGE);
+			(ypos+(int)BSG_VIEW_MAX) * (bdata->s_fullpath.fp_len) / (int)BSG_VIEW_RANGE);
 	    if (ipathpos != isave)
 		view_state->vs_flag = 1;
 	    return TCL_OK;

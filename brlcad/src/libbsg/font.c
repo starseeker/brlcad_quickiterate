@@ -73,7 +73,7 @@ bsg_vlist_3string(struct bu_list *vhead,
 
 	VSET( temp, offset, 0, 0 );
 	MAT4X3PNT( loc, mat, temp );
-	BV_ADD_VLIST(free_hd, vhead, loc, BV_VLIST_LINE_MOVE );
+	BSG_ADD_VLIST(free_hd, vhead, loc, BSG_VLIST_LINE_MOVE );
 
 	for ( p = tp_getchar(cp); ((stroke= *p)) != VFONT_LAST; p++ )  {
 	    int	draw;
@@ -96,9 +96,9 @@ bsg_vlist_3string(struct bu_list *vhead,
 		  (ysign * (stroke%11)) * 0.1 * scale, 0 );
 	    MAT4X3PNT( loc, mat, temp );
 	    if ( draw )  {
-		BV_ADD_VLIST( free_hd, vhead, loc, BV_VLIST_LINE_DRAW );
+		BSG_ADD_VLIST( free_hd, vhead, loc, BSG_VLIST_LINE_DRAW );
 	    } else {
-		BV_ADD_VLIST( free_hd, vhead, loc, BV_VLIST_LINE_MOVE );
+		BSG_ADD_VLIST( free_hd, vhead, loc, BSG_VLIST_LINE_MOVE );
 	    }
 	}
     }

@@ -202,7 +202,7 @@ nmg_plot_eu(struct ged *gedp, struct edgeuse *es_eu, const struct bn_tol *tol, s
 
     /* get space for list of items processed */
     long *tab = (long *)bu_calloc(m->maxindex+1, sizeof(long), "nmg_ed tab[]");
-    struct bv_vlblock *vbp = rt_vlblock_init();
+    struct bsg_vlblock *vbp = rt_vlblock_init();
 
     nmg_vlblock_around_eu(vbp, es_eu, tab, 1, vlfree, tol);
     _ged_cvt_vlblock_to_solids(gedp, vbp, "_EU_", 0);      /* swipe vlist */

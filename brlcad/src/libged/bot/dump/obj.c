@@ -229,7 +229,7 @@ obj_write_bot(struct _ged_bot_dump_client_data *d, struct rt_bot_internal *bot, 
 
 
 static void
-write_data_arrows(struct _ged_bot_dump_client_data *d, struct bv_data_arrow_state *gdasp, FILE *fp, int sflag)
+write_data_arrows(struct _ged_bot_dump_client_data *d, struct bsg_data_arrow_state *gdasp, FILE *fp, int sflag)
 {
     register int i;
 
@@ -304,7 +304,7 @@ write_data_arrows(struct _ged_bot_dump_client_data *d, struct bv_data_arrow_stat
 
 
 static void
-write_data_axes(struct _ged_bot_dump_client_data *d, struct bv_data_axes_state *bndasp, FILE *fp, int sflag)
+write_data_axes(struct _ged_bot_dump_client_data *d, struct bsg_data_axes_state *bndasp, FILE *fp, int sflag)
 {
     register int i;
 
@@ -381,7 +381,7 @@ write_data_axes(struct _ged_bot_dump_client_data *d, struct bv_data_axes_state *
 
 
 static void
-write_data_lines(struct _ged_bot_dump_client_data *d, struct bv_data_line_state *gdlsp, FILE *fp, int sflag)
+write_data_lines(struct _ged_bot_dump_client_data *d, struct bsg_data_line_state *gdlsp, FILE *fp, int sflag)
 {
     register int i;
 

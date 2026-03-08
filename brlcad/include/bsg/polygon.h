@@ -28,10 +28,10 @@
  * declared in @c <bv/polygon.h>.  New code should use these interfaces.
  *
  * In Phase 1 each @c bsg_* function is a trivial wrapper around its
- * @c bv_* counterpart.  Because @c bsg_shape and @c bv_scene_obj share
+ * @c bv_* counterpart.  Because @c bsg_shape and @c bsg_shape share
  * identical memory layout in Phase 1 the wrappers incur no conversion cost,
  * but unlike the old API they accept @c bsg_shape * directly — eliminating
- * the explicit @c (struct bv_scene_obj *) casts that appeared at every
+ * the explicit @c (struct bsg_shape *) casts that appeared at every
  * call site.
  *
  * ### Function naming convention
@@ -100,13 +100,13 @@ __BEGIN_DECLS
  * ====================================================================== */
 
 /**
- * @brief Create a scene object that wraps an existing @c bv_polygon.
+ * @brief Create a scene object that wraps an existing @c bsg_polygon.
  *
  * The new @c bsg_shape takes ownership of @p p.  Returns NULL on error.
  * Replaces bv_create_polygon_obj().
  */
 BSG_EXPORT bsg_shape *
-bsg_create_polygon_obj(bsg_view *v, int flags, struct bv_polygon *p);
+bsg_create_polygon_obj(bsg_view *v, int flags, struct bsg_polygon *p);
 
 /**
  * @brief Create a scene object containing a new default polygon of @p type.
@@ -182,7 +182,7 @@ bsg_dup_view_polygon(const char *nname, bsg_shape *s);
  * Replaces bv_polygon_cpy().
  */
 BSG_EXPORT void
-bsg_polygon_cpy(struct bv_polygon *dest, struct bv_polygon *src);
+bsg_polygon_cpy(struct bsg_polygon *dest, struct bsg_polygon *src);
 
 /**
  * @brief Suggest a fill-line spacing for polygon @p p.
@@ -190,7 +190,7 @@ bsg_polygon_cpy(struct bv_polygon *dest, struct bv_polygon *src);
  * Returns a non-negative value.  Replaces bv_polygon_calc_fdelta().
  */
 BSG_EXPORT int
-bsg_polygon_calc_fdelta(struct bv_polygon *p);
+bsg_polygon_calc_fdelta(struct bsg_polygon *p);
 
 /**
  * @brief Compute fill line segments for @p poly projected onto @p vp.

@@ -519,9 +519,9 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
     }
 
     int first = 1;
-    struct bv_vlist *tvp;
+    struct bsg_vlist *tvp;
     GLfloat pointSize = 0.0;
-    for (BU_LIST_FOR(tvp, bv_vlist, &s->s_vlist)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &s->s_vlist)) {
 	int i;
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
@@ -529,7 +529,7 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
 	for (i = 0; i < nused; i++, cmd++, pt++) {
 	    VMOVE(dpt, *pt);
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    /* Move, start line */
 		    if (first == 0)
 			glEnd();
@@ -537,10 +537,10 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
 		    glBegin(GL_LINE_STRIP);
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_LINE_DRAW:
+		case BSG_VLIST_LINE_DRAW:
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_POINT_DRAW:
+		case BSG_VLIST_POINT_DRAW:
 		    if (first == 0)
 			glEnd();
 		    first = 0;
@@ -548,7 +548,7 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
 			glPointSize(pointSize);
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_POINT_SIZE:
+		case BSG_VLIST_POINT_SIZE:
 		    {
 			pointSize = (GLfloat)(*pt)[0];
 			if (pointSize > 0.0) {
@@ -578,8 +578,8 @@ gl_csg_lod(struct dm *dmp, bsg_shape *s)
 	    struct bu_list *p;
 	    while (BU_LIST_WHILE(p, bu_list, &s->s_vlist)) {
 		BU_LIST_DEQUEUE(p);
-		struct bv_vlist *pv = (struct bv_vlist *)p;
-		BU_FREE(pv, struct bv_vlist);
+		struct bsg_vlist *pv = (struct bsg_vlist *)p;
+		BU_FREE(pv, struct bsg_vlist);
 	    }
 	}
 
@@ -637,9 +637,9 @@ int gl_draw_obj(struct dm *dmp, bsg_shape *s)
     // "Standard" vlist object drawing
     if (bu_list_len(&s->s_vlist)) {
 	if (s->s_os->s_dmode == 4) {
-	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist_hidden_line(dmp, (struct bsg_vlist *)&s->s_vlist);
 	} else {
-	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist(dmp, (struct bsg_vlist *)&s->s_vlist);
 	}
 	return BRLCAD_OK;
     }

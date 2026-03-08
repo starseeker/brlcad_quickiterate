@@ -633,12 +633,12 @@ rt_metaball_plot_sph(struct bu_list *vlfree, struct bu_list *vhead, point_t *cen
     rt_ell_16pnts(bottom, *center, b, c);
     rt_ell_16pnts(middle, *center, a, c);
 
-    BV_ADD_VLIST(vlfree, vhead, &top[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
-    for (i = 0; i < 16; i++) BV_ADD_VLIST(vlfree, vhead, &top[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, &bottom[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
-    for (i = 0; i < 16; i++) BV_ADD_VLIST(vlfree, vhead, &bottom[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, &middle[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
-    for (i = 0; i < 16; i++) BV_ADD_VLIST(vlfree, vhead, &middle[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, &top[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
+    for (i = 0; i < 16; i++) BSG_ADD_VLIST(vlfree, vhead, &top[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, &bottom[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
+    for (i = 0; i < 16; i++) BSG_ADD_VLIST(vlfree, vhead, &bottom[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, &middle[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
+    for (i = 0; i < 16; i++) BSG_ADD_VLIST(vlfree, vhead, &middle[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
 }
 
 

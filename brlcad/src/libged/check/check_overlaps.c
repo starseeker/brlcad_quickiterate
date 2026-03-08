@@ -28,7 +28,7 @@
 #include "./check_private.h"
 
 struct ged_check_plot {
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
 };
 
@@ -257,8 +257,8 @@ overlap(const struct xray *ray,
 
     if (context->overlaps_overlay_flag) {
 	bu_semaphore_acquire(context->sem_stats);
-	BV_ADD_VLIST(context->overlaps_overlay_plot->vbp->free_vlist_hd, context->overlaps_overlay_plot->vhead, ihit, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(context->overlaps_overlay_plot->vbp->free_vlist_hd, context->overlaps_overlay_plot->vhead, ohit, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(context->overlaps_overlay_plot->vbp->free_vlist_hd, context->overlaps_overlay_plot->vhead, ihit, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(context->overlaps_overlay_plot->vbp->free_vlist_hd, context->overlaps_overlay_plot->vhead, ohit, BSG_VLIST_LINE_DRAW);
 	bu_semaphore_release(context->sem_stats);
     }
 

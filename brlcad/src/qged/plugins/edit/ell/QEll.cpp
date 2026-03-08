@@ -217,8 +217,8 @@ QEll::update_obj_wireframe()
 
     for (int i = 0; i < lcnt; i++) {
 	bsg_shape *s = bsg_shape_get_child(p);
-	struct bv_label *la;
-	BU_GET(la, struct bv_label);
+	struct bsg_label *la;
+	BU_GET(la, struct bsg_label);
 	s->s_i_data = (void *)la;
 
 	BU_LIST_INIT(&(s->s_vlist));

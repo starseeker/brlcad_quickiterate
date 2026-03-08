@@ -119,7 +119,7 @@ to_data_labels_func(Tcl_Interp *interp,
 		    int argc,
 		    const char *argv[])
 {
-    struct bv_data_label_state *gdlsp;
+    struct bsg_data_label_state *gdlsp;
 
     if (argv[0][0] == 's')
 	gdlsp = &gdvp->gv_tcl.gv_sdata_labels;

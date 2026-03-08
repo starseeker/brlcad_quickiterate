@@ -103,7 +103,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
 	sp->s_vlen = 0;
 
-    struct bv_vlist *bvv = (struct bv_vlist *)vhead;
+    struct bsg_vlist *bvv = (struct bsg_vlist *)vhead;
     sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
@@ -192,7 +192,7 @@ draw_solid_wireframe(bsg_shape *sp, bsg_view *gvp, struct db_i *dbip,
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
 	sp->s_vlen = 0;
 
-    struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
+    struct bsg_vlist *bvv = (struct bsg_vlist *)&vhead;
     sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
@@ -205,7 +205,7 @@ redraw_solid(bsg_shape *sp, struct db_i *dbip, struct db_tree_state *tsp, bsg_vi
     if (sp->s_os->s_dmode == _GED_WIREFRAME) {
 	/* replot wireframe */
 	if (BU_LIST_NON_EMPTY(&sp->s_vlist)) {
-	    BV_FREE_VLIST(vlfree, &sp->s_vlist);
+	    BSG_FREE_VLIST(vlfree, &sp->s_vlist);
 	}
 	return draw_solid_wireframe(sp, gvp, dbip, tsp->ts_tol, tsp->ts_ttol);
     }
@@ -320,7 +320,7 @@ append_solid_to_display_list(
          */
         int plot_status;
         struct bu_list vhead;
-        struct bv_vlist *vp;
+        struct bsg_vlist *vp;
 
         BU_LIST_INIT(&vhead);
 
@@ -340,13 +340,13 @@ append_solid_to_display_list(
 	if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
 	    sp->s_vlen = 0;
 
-	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
+	struct bsg_vlist *bvv = (struct bsg_vlist *)&vhead;
 	sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
 	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 
 	bsg_shape_bound(sp, bv_data->v);
 
-        while (BU_LIST_WHILE(vp, bv_vlist, &(sp->s_vlist))) {
+        while (BU_LIST_WHILE(vp, bsg_vlist, &(sp->s_vlist))) {
             BU_LIST_DEQUEUE(&vp->l);
             bu_free(vp, "solid vp");
         }
@@ -1364,7 +1364,7 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		if (dgcdp.draw_edge_uses) {
 		    _ged_cvt_vlblock_to_solids(gedp, dgcdp.draw_edge_uses_vbp, "_EDGEUSES_", 0);
 		    bsg_vlblock_free(dgcdp.draw_edge_uses_vbp);
-		    dgcdp.draw_edge_uses_vbp = (struct bv_vlblock *)NULL;
+		    dgcdp.draw_edge_uses_vbp = (struct bsg_vlblock *)NULL;
 		}
 
 		/* Destroy NMG */
