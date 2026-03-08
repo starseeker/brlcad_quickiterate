@@ -2298,10 +2298,11 @@ static void test_manpage_dlist_no_double_bold() {
     // As a C++ literal that is "\\fB\\-a value\\fP".
     EXPECT_CONTAINS(out, "\\fB\\-a value\\fP");
 
-    // Plain term must be auto-bolded.  escape_plain converts '-' to '\-', so
-    // the .TP term line is \fBplain\-term\fP.
-    // As a C++ literal: "\\fBplain\\-term\\fP".
-    EXPECT_CONTAINS(out, "\\fBplain\\-term\\fP");
+    // Plain terms are NOT auto-bolded (matching asciidoctor's man page backend).
+    // escape_plain converts '-' to '\-', so the term line is just plain\-term.
+    EXPECT_CONTAINS(out, "plain\\-term");
+    // Verify no auto-bold wrapping was added to the plain term.
+    EXPECT(out.find("\\fBplain\\-term\\fP") == std::string::npos);
 
     end_test();
 }
