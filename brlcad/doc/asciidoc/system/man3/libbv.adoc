@@ -10,24 +10,24 @@ libbv - BRL-CAD view graphics interface subroutines
 
 [source,c]
 ----
-voidpl_3box, FILE *fp, intx0, inty0, intz0, intx1, inty1, intz1);
-voidpl_3cont, FILE *fp, intx, inty, intz);
-voidpl_3line, FILE *fp, intx0, inty0, intz0, intx1, inty1, intz1);
-voidpl_3move, FILE *fp, intx, inty, intz);
-voidpl_3point, FILE *fp, intx, inty, intz);
-voidpl_3space, FILE *fp, intx0, inty0, intz0, intx1, inty1, intz1);
-voidpl_arc, FILE *fp, intxc, intyc, intx0, inty0, intx1, inty1);
-voidpl_box, FILE *fp, intx0, inty0, intx1, inty1);
-pl_circle, FILE *fp, intx, inty, intr);
-voidpl_color, FILE *fp, intr, intg, intb);
-voidpl_cont, FILE *fp, intx, inty);
-voidpl_erase, FILE *fp);
-voidpl_label, FILE *fp, const char *s);
-voidpl_line, FILE *fp, intx0, inty0, intx1, inty1);
-voidpl_linmod, FILE *fp, const char *s);
-voidpl_move, FILE *fp, intx, inty);
-voidpl_point, FILE *fp, intx, inty);
-voidpl_space, FILE *fp, intx0, inty0, intx1, inty1);
+void pl_3box(FILE *fp, int x0, int y0, int z0, int x1, int y1, int z1);
+void pl_3cont(FILE *fp, int x, int y, int z);
+void pl_3line(FILE *fp, int x0, int y0, int z0, int x1, int y1, int z1);
+void pl_3move(FILE *fp, int x, int y, int z);
+void pl_3point(FILE *fp, int x, int y, int z);
+void pl_3space(FILE *fp, int x0, int y0, int z0, int x1, int y1, int z1);
+void pl_arc(FILE *fp, int xc, int yc, int x0, int y0, int x1, int y1);
+void pl_box(FILE *fp, int x0, int y0, int x1, int y1);
+pl_circle(FILE *fp, int x, int y, int r);
+void pl_color(FILE *fp, int r, int g, int b);
+void pl_cont(FILE *fp, int x, int y);
+void pl_erase(FILE *fp);
+void pl_label(FILE *fp, const char *s);
+void pl_line(FILE *fp, int x0, int y0, int x1, int y1);
+void pl_linmod(FILE *fp, const char *s);
+void pl_move(FILE *fp, int x, int y);
+void pl_point(FILE *fp, int x, int y);
+void pl_space(FILE *fp, int x0, int y0, int x1, int y1);
 
 ----
 

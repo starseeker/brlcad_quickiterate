@@ -787,13 +787,13 @@ cwish> .d drawEnd
 
 [source,c]
 ----
-fb*fb_open, *fbfile, int fb_close ( fbp ) fb *fbp, int fb_read ( fbp , x , y , addr , count ) fb *fbp, RGBpixel*addr;, longcount;);
-intfb_write, *fbp, RGBpixel *addr, longcount, int fb_rmap ( fbp , cmap ) fb *fbp, ColorMap *cmap);
-intfb_wmap, *fbp, ColorMap *cmap);
-intfb_clear, *fbp, RGBpixel *colorp);
-char *fb_gettype, *fbp);
-intfb_getwidth, *fbp);
-intfb_getheight, *fbp);
+fb *fb_open(* fbfile, int fb_close ( fbp ) fb * fbp, int fb_read ( fbp , x , y , addr , count ) fb * fbp, RGBpixel *addr;, long count;);
+int fb_write(* fbp, RGBpixel * addr, long count, int fb_rmap ( fbp , cmap ) fb * fbp, ColorMap * cmap);
+int fb_wmap(* fbp, ColorMap * cmap);
+int fb_clear(* fbp, RGBpixel * colorp);
+char *fb_gettype(* fbp);
+int fb_getwidth(* fbp);
+int fb_getheight(* fbp);
 
 ----
 
@@ -804,13 +804,13 @@ intfb_getheight, *fbp);
 
 [source,c]
 ----
-intfb_cursor, *fbp, int fb_scursor ( fbp , mode , x , y ) fb *fbp, int fb_setcursor ( fbp , bits , xbits , ybits , xorig , yorig ) fb *fbp, unsigned charbits[], intxbits,ybits;, intxorig,yorig;);
-intfb_window, *fbp, int fb_zoom ( fbp , x , y ) fb *fbp, / *Buffered frame buffer I/O: */ int fb_ioinit ( fbp ) fb *fbp);
-intfb_seek, *fbp, void fb_tell ( fbp , xp , yp ) fb *fbp, int *xp , *yp);
-intfb_rpixel, *fbp, RGBpixel *pixelp);
-intfb_wpixel, *fbp, RGBpixel *pixelp);
-intfb_flush, *fbp);
-voidfb_log, format [, arg ] ...);
+int fb_cursor(* fbp, int fb_scursor ( fbp , mode , x , y ) fb * fbp, int fb_setcursor ( fbp , bits , xbits , ybits , xorig , yorig ) fb * fbp, unsigned char bits[], int xbits, ybits;, int xorig, yorig;);
+int fb_window(* fbp, int fb_zoom ( fbp , x , y ) fb * fbp, / *Buffered frame buffer I/O: */ int fb_ioinit ( fbp ) fb * fbp);
+int fb_seek(* fbp, void fb_tell ( fbp , xp , yp ) fb * fbp, int *xp , * yp);
+int fb_rpixel(* fbp, RGBpixel * pixelp);
+int fb_wpixel(* fbp, RGBpixel * pixelp);
+int fb_flush(* fbp);
+void fb_log(format [ , arg ] ... );
 
 ----
 

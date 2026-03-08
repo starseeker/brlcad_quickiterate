@@ -540,10 +540,10 @@
   </xsl:template>
 
   <xsl:template match="db:paramdef" mode="funcsynopsis">
-    <xsl:if test="position() = 1"><xsl:text>(</xsl:text></xsl:if>
-    <xsl:if test="position() > 1"><xsl:text>, </xsl:text></xsl:if>
+    <xsl:if test="not(preceding-sibling::db:paramdef)"><xsl:text>(</xsl:text></xsl:if>
+    <xsl:if test="preceding-sibling::db:paramdef"><xsl:text>, </xsl:text></xsl:if>
     <xsl:apply-templates mode="funcsynopsis"/>
-    <xsl:if test="position() = last()"><xsl:text>)</xsl:text></xsl:if>
+    <xsl:if test="not(following-sibling::db:paramdef)"><xsl:text>)</xsl:text></xsl:if>
   </xsl:template>
 
   <xsl:template match="db:void" mode="funcsynopsis">
@@ -555,7 +555,21 @@
   </xsl:template>
 
   <xsl:template match="text()" mode="funcsynopsis">
-    <xsl:value-of select="normalize-space(.)"/>
+    <!-- Preserve meaningful whitespace within funcdef/paramdef contexts.
+         normalize-space() would strip the spaces in e.g. "struct rt_i *func".
+         Instead: preserve text as-is within elements that need type/name spacing
+         (funcdef, paramdef), but collapse pure-whitespace text between sibling
+         elements at the funcprototype level to avoid extra blank lines. -->
+    <xsl:choose>
+      <xsl:when test="parent::db:funcdef or parent::db:paramdef">
+        <xsl:value-of select="."/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:if test="normalize-space(.) != ''">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:if>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- refsect1/refsection: top-level man page sections (NAME, SYNOPSIS, etc.) -->

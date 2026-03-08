@@ -19,18 +19,18 @@ This file seems to be out of date with the sources. Consult the headers for up-t
 extern struct rt_functab OBJ[];
 extern struct rt_g rt_g;
 
-structrt_i*rt_dirbuild, char *mged_file_name, char *buf, intlen);
-intrt_gettree, struct rt_i *rtip, char *object_name);
-voidrt_prep, struct rt_i *rtip);
-intrt_shootray, struct application *ap);
-voidrt_prep_timer(void);
-doublert_read_timer, char *buf, intlen);
-voidrt_pr_partitions, struct rt_i *rtip struct partition *phead, char *title);
-voidrt_pr_seg, struct seg *segp);
+struct rt_i *rt_dirbuild(char * mged_file_name, char * buf, int len);
+int rt_gettree(struct rt_i * rtip, char * object_name);
+void rt_prep(struct rt_i * rtip);
+int rt_shootray(struct application * ap);
+void rt_prep_timer(void);
+doublert_read_timer(char *buf, int len);
+void rt_pr_partitions(struct rt_i *rtip struct partition *phead, char *title);
+void rt_pr_seg(struct seg *segp);
 
 segp;
 
-structsoltab*rt_find_solid(void);
+struct soltab *rt_find_solid(void);
 
 ----
 
