@@ -55,7 +55,7 @@ Note that in the preceding Command Line expressions, btn is an abbreviation for 
 
 ====
 
-An image similar to the following should now appear in the Graphics Window. 
+An image similar to the following should now appear in the Graphics Window.
 
 image::../lessons/images/mged02_defaultradio.png[]
 

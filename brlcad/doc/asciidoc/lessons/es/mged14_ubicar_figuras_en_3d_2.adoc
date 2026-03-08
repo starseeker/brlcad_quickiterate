@@ -19,7 +19,7 @@ Abra la base de datos candle.g y dibuje candle1.c.
 [[candle_base_1st_sphere]]
 == Creando la primera esfera
 
-Use la GUI para crear una esfera llamada sph1.s. Vaya al menú View (Ver) y seleccione Top View (Vista superior). Del menú Edit (Edición), seleccione Scale (Escala) y modifique el tamaño de la esfera hasta que sea aproximadamente del mismo tamaño que el de la siguiente ilustración: 
+Use la GUI para crear una esfera llamada sph1.s. Vaya al menú View (Ver) y seleccione Top View (Vista superior). Del menú Edit (Edición), seleccione Scale (Escala) y modifique el tamaño de la esfera hasta que sea aproximadamente del mismo tamaño que el de la siguiente ilustración:
 
 image::../../lessons/es/images/mged14_candle_base_sphere_topview.png[]
 
@@ -35,7 +35,7 @@ Arrastre la esfera hacia el rcc como se muestra en la imagen anterior. Para hace
 [[multipane_feature]]
 == Utilizando la opción Multipane (Multi-panel)
 
-Como se señaló anteriormente, otra característica que está disponible para ayudarle a posicionar sus objetos es la opción Multipane del menú Modes (Modos), que le permitirá tener múltiples puntos de vista del diseño que está creando. 
+Como se señaló anteriormente, otra característica que está disponible para ayudarle a posicionar sus objetos es la opción Multipane del menú Modes (Modos), que le permitirá tener múltiples puntos de vista del diseño que está creando.
 
 image::../../lessons/es/images/mged14_candle_multipane.png[]
 
@@ -47,13 +47,13 @@ Al mover una forma, el cambio de posición se refleja en cada panel. Los paneles
 [[copies_of_shapes]]
 == Crear copias de una figura
 
-Para hacer más piedras para la base, puede utilizar el comando copy en la línea de comandos (cp sph1.s sph2.s), pero otra manera de hacer esto es ir al menú Edit (Editar) y seleccionar Primitive Editor (Editor de primitivos). Tipee sph1.s en el cuadro de texto a la derecha de "Nombre". Cliquee en Reset (Restablecer) y luego cambie el nombre a sph2.s. Cliquee en Apply (Aplicar). Siga haciendo esto hasta que haya hecho ocho piedras. Como cada una de las nuevas esferas es una copia exacta de la primera, no podrá visualizarlas hasta que las mueva de lugar. 
+Para hacer más piedras para la base, puede utilizar el comando copy en la línea de comandos (cp sph1.s sph2.s), pero otra manera de hacer esto es ir al menú Edit (Editar) y seleccionar Primitive Editor (Editor de primitivos). Tipee sph1.s en el cuadro de texto a la derecha de "Nombre". Cliquee en Reset (Restablecer) y luego cambie el nombre a sph2.s. Cliquee en Apply (Aplicar). Siga haciendo esto hasta que haya hecho ocho piedras. Como cada una de las nuevas esferas es una copia exacta de la primera, no podrá visualizarlas hasta que las mueva de lugar.
 
 image::../../lessons/es/images/mged14_primitive_editor.png[]
 
 
 
-Para posicionar sus nuevas esferas, diríjase a Primitive Selection (Selección de primitivos). Un submenú de la forma que ha creado se desplegará. Utilice la barra de desplazamiento a la derecha de la lista para acceder a las esferas que ha creado, como se muestra en la siguiente ilustración. 
+Para posicionar sus nuevas esferas, diríjase a Primitive Selection (Selección de primitivos). Un submenú de la forma que ha creado se desplegará. Utilice la barra de desplazamiento a la derecha de la lista para acceder a las esferas que ha creado, como se muestra en la siguiente ilustración.
 
 image::../../lessons/es/images/mged14_primitive_selection_dropdown.png[]
 
@@ -72,7 +72,7 @@ Cliquee en sph2.s y arrastrelo a su posición. Una vez que haya posicionado las 
 
 
 
-Note que en la vista frontal sólo se ven cinco esferas alrededor de la base de la vela, pero hay ocho esferas cuando ve el diseño desde arriba. Esto se debe a que está viendo el espacio 3-D en una pantalla de 2-D y el resto de las esferas están detrás de las que están en el frente. Si cambia la vista a un az35 el25 aparecerán todas las esferas como se muestra en la siguiente figura. Ésta es una de las razones por la que es importante comprobar continuamente su diseño en el modo Multipane. Un error en la colocación de una figura puede no notarse desde una vista en particular y detectarse desde otro punto de vista. 
+Note que en la vista frontal sólo se ven cinco esferas alrededor de la base de la vela, pero hay ocho esferas cuando ve el diseño desde arriba. Esto se debe a que está viendo el espacio 3-D en una pantalla de 2-D y el resto de las esferas están detrás de las que están en el frente. Si cambia la vista a un az35 el25 aparecerán todas las esferas como se muestra en la siguiente figura. Ésta es una de las razones por la que es importante comprobar continuamente su diseño en el modo Multipane. Un error en la colocación de una figura puede no notarse desde una vista en particular y detectarse desde otro punto de vista.
 
 image::../../lessons/es/images/mged14_candle_spheres_az35el25.png[]
 
@@ -286,7 +286,7 @@ Puede ser una buena práctica considerando los méritos de cada método disponib
 
 Ahora necesitará combinar las piedras con el candelabro candle1.c: *comb candle1.c u sph1.r u sph2.r u sph3.r u sph4.r u sph5.r u sph6.r u sph7.r u sph8.r[Enter]*
 
-Hay sólo un par de cosas por hacer antes de general el Raytrace del diseño. Si ha habilitado la opción Multipane o la cuadrícula, vuelva al menú Modes (Modos) y desactívelos. A continuación, limpie la pantalla y dibuje su nuevo diseño escribiendo en la ventana de comandos: *B candle1.c table1.r* Su nuevo diseño debería aparecer en la ventana de gráficos. Abra el Raytrace Control Panel (Panel de control de Raytrace) y seleccione un color azul claro (200 236 242) escribiendo los tres valores en el cuadro de entrada Background Color (Color de fondo). El trazado de rayos debe ser similar al siguiente: 
+Hay sólo un par de cosas por hacer antes de general el Raytrace del diseño. Si ha habilitado la opción Multipane o la cuadrícula, vuelva al menú Modes (Modos) y desactívelos. A continuación, limpie la pantalla y dibuje su nuevo diseño escribiendo en la ventana de comandos: *B candle1.c table1.r* Su nuevo diseño debería aparecer en la ventana de gráficos. Abra el Raytrace Control Panel (Panel de control de Raytrace) y seleccione un color azul claro (200 236 242) escribiendo los tres valores en el cuadro de entrada Background Color (Color de fondo). El trazado de rayos debe ser similar al siguiente:
 
 image::../../lessons/es/images/mged14_candle_spheres_raytraced.png[]
 

@@ -51,7 +51,7 @@ La figura de una esfera fue creada y en su ventana gráfica aparecerá un dibujo
 
 Para crear el rcc desde la ventana de comandos tipee en el prompt: *make rcc1.s rcc [Enter]*
 
-Su ventana gráfica deberá mostrar un rcc grande, con la vista por defecto de az35, el25, viéndose como si entersectara con la esfera previamente creada. 
+Su ventana gráfica deberá mostrar un rcc grande, con la vista por defecto de az35, el25, viéndose como si entersectara con la esfera previamente creada.
 
 image::../../lessons/es/images/mged03_wireframespherecylinder.png[]
 

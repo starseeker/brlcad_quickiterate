@@ -22,13 +22,13 @@ Begin by creating a new database. Name your new file cube.g.
 [[globe_create_display_box]]
 == Creating the Display Box
 
-Go to the Create menu, select the Arbs category, and then select an arb8 (arbitrary convex polyhedron with eight vertices). When asked to provide a name for the arb8, name it cube1.s. Click on Apply. Go to the Edit menu and select Accept. You now have a cube for the outside of the display box, as in the following: 
+Go to the Create menu, select the Arbs category, and then select an arb8 (arbitrary convex polyhedron with eight vertices). When asked to provide a name for the arb8, name it cube1.s. Click on Apply. Go to the Edit menu and select Accept. You now have a cube for the outside of the display box, as in the following:
 
 image::../lessons/images/mged09_globe_outside_display_box.png[]
 
 
 
-Repeat the first part of this process to produce another arb8, this time calling this shape cube2.s. Go to the Edit menu and select Scale. Place the mouse pointer in the lower half of the Graphics Window screen and click the middle mouse button until the second cube is slightly smaller than the first cube, as follows: 
+Repeat the first part of this process to produce another arb8, this time calling this shape cube2.s. Go to the Edit menu and select Scale. Place the mouse pointer in the lower half of the Graphics Window screen and click the middle mouse button until the second cube is slightly smaller than the first cube, as follows:
 
 image::../lessons/images/mged09_globe_inside_outside_box.png[]
 
@@ -44,7 +44,7 @@ Go to the Create menu and select sph from the list of Ellipsoids. Name the shape
 
 A sphere should appear inside the cube in the Graphics Window. Change View to Front.
 
-Go to the Edit menu and select Scale. Reduce the size of the sphere until it will fit inside of the cube and then drag it into the center of the cube. Go to Edit and Accept your changes. Your globe and box should appear similar to the following in the az35, el25 view: 
+Go to the Edit menu and select Scale. Reduce the size of the sphere until it will fit inside of the cube and then drag it into the center of the cube. Go to Edit and Accept your changes. Your globe and box should appear similar to the following in the az35, el25 view:
 
 image::../lessons/images/mged09_globe_wireframe.png[]
 
@@ -68,7 +68,7 @@ Before you can raytrace your design, you need to clear the Graphics Window by ty
 
 The display box and globe should reappear in the Graphics Window. Go to the File menu and select Raytrace. Next, select the white option for Background Color. Click on Raytrace.
 
-Your design should show a light cyan-colored glass cube with a blue globe inside. To eliminate the wireframing, go to Framebuffer (in the Raytrace Panel) and select Overlay. The display should appear similar to the following illustration: 
+Your design should show a light cyan-colored glass cube with a blue globe inside. To eliminate the wireframing, go to Framebuffer (in the Raytrace Panel) and select Overlay. The display should appear similar to the following illustration:
 
 image::../lessons/images/mged09_globe_raytraced.png[]
 
@@ -92,7 +92,7 @@ To do this, we could use the CTRL and ALT (constrained rotation) keys and left m
 
 Our shape should have flipped upside down and jumped to the bottom of the first trc. (The two zeros you input indicate no rotation along the y and z axes.) Now use the SHIFT key and the left mouse button to drag base2.s upward and sit it on top of base1.s. The two shapes should form a base in which to hold your globe. Check your alignment using multiple views and then Accept your changes.
 
-Go to Edit and Primitive Selection and select globe1.r/globe1.s. As you did with the trc shapes, use the Shift Grips to drag the globe down until it is in place on the base. Go back to the Edit menu and select Accept. Your design should look as follows: 
+Go to Edit and Primitive Selection and select globe1.r/globe1.s. As you did with the trc shapes, use the Shift Grips to drag the globe down until it is in place on the base. Go back to the Edit menu and select Accept. Your design should look as follows:
 
 image::../lessons/images/mged09_globe_base_box_wireframe.png[]
 
@@ -108,7 +108,7 @@ In the Combination Editor window, click the button to the right of the Name entr
 
 Apply your changes. Before you can raytrace your completed design, you must first clear the Graphics Window and rebuild your design by typing at the Command Window prompt: *Z[Enter]* *draw cube1.r globe1.r base1.r[Enter]*
 
-Change your view to az35, el25 and then raytrace your design, which should appear similar to the following: 
+Change your view to az35, el25 and then raytrace your design, which should appear similar to the following:
 
 image::../lessons/images/mged09_globe_base_box_raytraced.png[]
 

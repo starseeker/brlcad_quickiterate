@@ -19,11 +19,11 @@ The tire generated is always centered at the global origin.
 [[Specifying_a_Tire]]
 == Specifying a Tire with Standard Dimensional Conventions
 
-The default behavior for the tire procedure with no arguments given is to produce a tire of dimensions 215/55R17 without tread in a file named tire.g. 
+The default behavior for the tire procedure with no arguments given is to produce a tire of dimensions 215/55R17 without tread in a file named tire.g.
 
 image::../articles/images/tire_fig01.png[]
 
- Since this default is unlikely to meet the needs of most specific modeling tasks, almost all uses of *tire* will need the "-d" flag to customize the dimensions:
+Since this default is unlikely to meet the needs of most specific modeling tasks, almost all uses of *tire* will need the "-d" flag to customize the dimensions:
 
 
 ....
@@ -85,13 +85,13 @@ tire -d 255/40R18 -W 255.5
 
 
 
-There are limits to the dimensional configurations that can be modeled by *tire* (for example, hub width can not be wider than the maximum tire width), but it should cover most real-world dimensions. Some examples: 
+There are limits to the dimensional configurations that can be modeled by *tire* (for example, hub width can not be wider than the maximum tire width), but it should cover most real-world dimensions. Some examples:
 
 image::../articles/images/tire_fig02.png[]
 
 
 
-The model that is created by this routine results in a hollow tire with a thickness (by default) related to its radius - the greater the tire radius, the thicker the tire "walls". The structure created is a fairly good geometric tire shape, but does not contain any internal structure _within_ the tire material itself. Modern radial tires in reality are composed of several different layers of varying materials designed to enhance structural strength and performance, but (as of April 2008) the *tire* tool approximates tire surfaces and walls as being a single region. 
+The model that is created by this routine results in a hollow tire with a thickness (by default) related to its radius - the greater the tire radius, the thicker the tire "walls". The structure created is a fairly good geometric tire shape, but does not contain any internal structure _within_ the tire material itself. Modern radial tires in reality are composed of several different layers of varying materials designed to enhance structural strength and performance, but (as of April 2008) the *tire* tool approximates tire surfaces and walls as being a single region.
 
 image::../articles/images/tire_fig03.png[]
 
@@ -205,7 +205,7 @@ image::../articles/images/tire_fig09.png[]
 
 
 
-Now, examine the cross section in normal and surface normal views (the tread pattern and depth are added so the cross section WITH tread is shown - it will change with and without tread): 
+Now, examine the cross section in normal and surface normal views (the tread pattern and depth are added so the cross section WITH tread is shown - it will change with and without tread):
 
 image::../articles/images/tire_fig10.png[]
 
@@ -220,7 +220,7 @@ tire -d 395/85R20 -p 2 -g 30 -u 70
 
 
 
-Examining the cross sections again, the thickness increase is clearly seen: 
+Examining the cross sections again, the thickness increase is clearly seen:
 
 image::../articles/images/tire_fig11.png[]
 
@@ -230,7 +230,7 @@ image::../articles/images/tire_fig11.png[]
 [[Changing_the_Rim_width]]
 == Changing the Rim Width
 
-The default behavior of *tire* is to make the rim width (the width of the tire at the point where the outer wall connects with the steel wheel) equal to the width of the tread, which is in turn defined internally as a fraction of the total width. This normally produces reasonable tires, but *tire* does provide the _j_ flag to allow custom values for rim width. The input units are inches. 
+The default behavior of *tire* is to make the rim width (the width of the tire at the point where the outer wall connects with the steel wheel) equal to the width of the tread, which is in turn defined internally as a fraction of the total width. This normally produces reasonable tires, but *tire* does provide the _j_ flag to allow custom values for rim width. The input units are inches.
 
 image::../articles/images/tire_fig12.png[]
 
@@ -240,7 +240,7 @@ image::../articles/images/tire_fig12.png[]
 [[Changing_the_Redial]]
 == Changing the Radial Location of the Maximum Tire Width
 
-When *tire* accepts a maximum width specification, it internally decides on a default distance from the tire center where that maximum will occur. This parameter can be adjusted by the modeler with the _s_ flag. Some examples using the narrow rim width model settings from the previous section: 
+When *tire* accepts a maximum width specification, it internally decides on a default distance from the tire center where that maximum will occur. This parameter can be adjusted by the modeler with the _s_ flag. Some examples using the narrow rim width model settings from the previous section:
 
 image::../articles/images/tire_fig13.png[]
 
@@ -272,7 +272,7 @@ will create the "mytire.g" file and insert the default tire model.
 [[Structure_of_a_Tire]]
 == Structure of a Tire Model
 
-Although it is not visible to the eye in normal raytracing, the tire models do include knowledge in the model of the presence of air inside the tire as well as the tire and wheel structures themselves. For illustration purposes, the following image displays the air region inside the tire: 
+Although it is not visible to the eye in normal raytracing, the tire models do include knowledge in the model of the presence of air inside the tire as well as the tire and wheel structures themselves. For illustration purposes, the following image displays the air region inside the tire:
 
 image::../articles/images/tire_fig14.png[]
 

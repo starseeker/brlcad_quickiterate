@@ -56,11 +56,11 @@ Antes de crear un modelo, necesita abrir una base de datos, así sea por comando
 [[open_new_database]]
 == Abrir o crear una nueva base de datos con MGED
 
-Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _MGED_. En la línea de comando, tipee "mged" seguido por una nueva o por una ya existente base de datos sin olvidar ponerle la extensión .g, por ejemplo: *mged sphere.g [ENTER]*. 
+Usted puede abrir una base de datos o crear una nueva al mismo tiempo que abre _MGED_. En la línea de comando, tipee "mged" seguido por una nueva o por una ya existente base de datos sin olvidar ponerle la extensión .g, por ejemplo: *mged sphere.g [ENTER]*.
 
 image::../../lessons/es/images/mged01_terminal.png[]
 
- Si estuviera creando una nueva base de datos, un pequeño cuadro de diálogo le preguntará si desea crear la nueva base de datos llamada sphere.g. Seleccione Si, y entonces _MGED_ abrirá la nueva base de datos. En el caso de que sphere.g existiera, se abrirá la existente.
+Si estuviera creando una nueva base de datos, un pequeño cuadro de diálogo le preguntará si desea crear la nueva base de datos llamada sphere.g. Seleccione Si, y entonces _MGED_ abrirá la nueva base de datos. En el caso de que sphere.g existiera, se abrirá la existente.
 
 
 [[create_new_database]]
@@ -68,15 +68,15 @@ image::../../lessons/es/images/mged01_terminal.png[]
 
 Al iniciar _MGED_ usted puede crear o abrir una base de datos desde el menú superior Archivo (File), seleccionando luego la opción Nuevo (New) o Abrir (Open). Ambas opciones abren el mismo cuadro de diálogo preguntando por el nombre de la base de datos a crear o el de una ya existente, según corresponda. Para finalizar la selección, presione OK.
 
-Para esta prueba, cree una nueva base de datos llamada sphere.g. Para hacer eso tipee sphere.g al final de la ruta del nombre, tal como muestra la siguiente imagen. Presione OK para aceptar la selección. 
+Para esta prueba, cree una nueva base de datos llamada sphere.g. Para hacer eso tipee sphere.g al final de la ruta del nombre, tal como muestra la siguiente imagen. Presione OK para aceptar la selección.
 
 image::../../lessons/es/images/mged01_commandwindow.png[]
 
- 
+
 
 image::../../lessons/es/images/mged01_graphicswindow.png[]
 
- Una de las ventajas de usar el entorno gráfico, sobre todo si usted no está familiarizado con el administrador de archivos de UNIX, es que le mostrará su nombre de ruta de acceso actual, indicándole exactamente dónde va a ser localizada su base de datos. Será especialmente útil si tiene muchos directorios y archivos para manejar.
+Una de las ventajas de usar el entorno gráfico, sobre todo si usted no está familiarizado con el administrador de archivos de UNIX, es que le mostrará su nombre de ruta de acceso actual, indicándole exactamente dónde va a ser localizada su base de datos. Será especialmente útil si tiene muchos directorios y archivos para manejar.
 
 
 [[assign_title]]
