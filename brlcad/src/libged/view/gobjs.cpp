@@ -146,6 +146,11 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     dd.ttol = &wdbp->wdb_ttol;
     dd.mesh_c = gedp->ged_lod;
     dd.dbis = (struct DbiState *)gedp->dbi_state;
+    dd.bool_op = 0;
+    dd.skip_subtractions = 0;
+    dd.have_bbox = 0;
+    VSETALL(dd.min, 0.0);
+    VSETALL(dd.max, 0.0);
     dd.color_inherit = 0;
     dd.bound_only = 0;
     dd.s_size = &s_size;
