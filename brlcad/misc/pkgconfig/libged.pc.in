@@ -8,6 +8,6 @@ datadir=@datadir@
 Name: libged
 Description: BRL-CAD Geometry Editing Library
 Version: @BRLCAD_VERSION@
-Requires: libanalyze liboptical libicv libwdb librt libnmg libbrep libbv libbg libbn libbu
-Libs: -L${libdir} -lged -lanalyze -loptical -licv -lwdb -lrt -lnmg -lbrep -lbv -lbg -lbn -lbu @LIBM@
+Requires: libanalyze liboptical libicv libwdb librt libnmg libbrep libbsg libbg libbn libbu
+Libs: -L${libdir} -lged -lanalyze -loptical -licv -lwdb -lrt -lnmg -lbrep -lbsg -lbg -lbn -lbu @LIBM@
 Cflags: -I${includedir}/brlcad -I${includedir}
