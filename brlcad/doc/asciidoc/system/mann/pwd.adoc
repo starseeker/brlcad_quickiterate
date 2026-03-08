@@ -25,7 +25,7 @@ Prints the current working directoy. See also the *cd* command.
 
 Print the current working directory.
 
-.Type pwd to display the current working directory.
+.Type *pwd* to display the current working directory.
 [example]
 ====
 

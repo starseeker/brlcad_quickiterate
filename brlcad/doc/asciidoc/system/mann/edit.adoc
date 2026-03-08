@@ -114,7 +114,7 @@ Print extended usage of the translate subcommand. Each subcommand also accepts _
 
 ====
 
-.A fake subcommand is used to show how standard edit arguments and nonstandard edit arguments are used.
+.A fake subcommand is used to show how standard *edit* arguments and nonstandard *edit* arguments are used.
 [example]
 ====
 

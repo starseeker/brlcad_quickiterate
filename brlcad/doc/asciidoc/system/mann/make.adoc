@@ -65,7 +65,7 @@ Creates a sphere named _shapea_.
 
 ====
 
-.Generate a list of shape types handled by make.
+.Generate a list of shape types handled by *make*.
 [example]
 ====
 mged>*make -t*

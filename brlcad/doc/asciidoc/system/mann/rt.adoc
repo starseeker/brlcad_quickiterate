@@ -23,7 +23,7 @@ Executes the BRL-CAD _rt_ program with the default options of "-s512 -M." If per
 [[examples]]
 == EXAMPLES
 
-.Run the rt program to produce a color-shaded image of the current view in MGED.
+.Run the _rt_ program to produce a color-shaded image of the current view in MGED.
 [example]
 ====
 mged>*rt -s1024 -F/dev/Xl*
@@ -32,7 +32,7 @@ Runs the _rt_ program to produce a color-shaded image of the current view in the
 
 ====
 
-.Run the rt program to produce a color-shaded image of an object using MGED's current viewing parameters.
+.Run the _rt_ program to produce a color-shaded image of an object using MGED's current viewing parameters.
 [example]
 ====
 mged>*rt -C 234/245/255 -- roof*
@@ -41,7 +41,7 @@ Runs the _rt_ program to produce a color-shaded image of the object _roof_ using
 
 ====
 
-.Run rt to produce a color-shaded image with increased ambient lighting and ambient occlusion enabled.
+.Run _rt_ to produce a color-shaded image with increased ambient lighting and ambient occlusion enabled.
 [example]
 ====
 mged>*rt -A1.2 -c "set ambSamples=64"*

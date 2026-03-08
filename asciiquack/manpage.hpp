@@ -476,13 +476,16 @@ private:
             int n = ++counters_["example"];
             std::string header = "Example\\ \\&" + std::to_string(n) + ".";
             if (block.has_title()) {
-                header += "\\ \\&" + troff_escape(block.title());
+                // Apply inline substitutions so _italic_ / *bold* markup in
+                // example titles is rendered as troff font escapes, matching
+                // the DocBook man-page output which preserves <emphasis>.
+                header += "\\ \\&" + inline_subs(block.title(), doc);
             }
             out << ".PP\n"
                 << "\\fB" << header << "\\fR\n";
         } else if (block.has_title()) {
             out << ".PP\n"
-                << "\\fB" << troff_escape(block.title()) << "\\fR\n";
+                << "\\fB" << inline_subs(block.title(), doc) << "\\fR\n";
         }
         // Emit children without extra indentation (no .RS 4/.RE wrapper),
         // matching the flat layout DocBook uses for <example> content.

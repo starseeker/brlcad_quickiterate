@@ -25,7 +25,7 @@ Clear the _mged_ command window.
 
 Clear the _mged_ command window.
 
-.Enter clear to clear the mged command window.
+.Enter *clear* to clear the _mged_ command window.
 [example]
 ====
 

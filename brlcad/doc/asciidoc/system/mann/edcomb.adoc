@@ -36,7 +36,7 @@ Makes _comb1_ a _region_ and set its _ident_ to 1001, its _air code_ to 0, its _
 
 ====
 
-.Unset a region flag for a particular combination.
+.Unset a _region_ flag for a particular combination.
 [example]
 ====
 mged>*edcomb comb1 C 0 0 0 0*
