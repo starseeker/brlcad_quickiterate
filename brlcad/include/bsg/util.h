@@ -28,7 +28,7 @@
  *
  * In Phase 1 each @c bsg_* function is a trivial wrapper around its
  * @c bv_* counterpart.  Because @c bsg_view = @c bview and @c bsg_shape =
- * @c bsg_shape in Phase 1, the wrappers incur no conversion cost.
+ * @c bv_scene_obj in Phase 1, the wrappers incur no conversion cost.
  *
  * ### Function naming convention
  *
@@ -448,6 +448,34 @@ BSG_EXPORT void bsg_traverse(bsg_shape *root,
 					  const bsg_traversal_state *,
 					  void *),
 			     void *user_data);
+
+/* ====================================================================== *
+ * Phase 2: view-scale accessors                                         *
+ * ====================================================================== */
+
+/**
+ * @brief Return the current view scale (half the model diameter in view).
+ *
+ * These are thin accessor wrappers around the @c gv_scale / @c gv_local2base /
+ * @c gv_base2local fields that live inline in @c bsg_view (= @c bview).
+ * Prefer these over direct field access so that when Phase 2 moves the
+ * fields the call sites only need a header change.
+ */
+BSG_EXPORT fastf_t bsg_view_scale(const bsg_view *v);
+BSG_EXPORT fastf_t bsg_view_local2base(const bsg_view *v);
+BSG_EXPORT fastf_t bsg_view_base2local(const bsg_view *v);
+
+/**
+ * @brief Set the view scale.
+ *
+ * Updates @c gv_scale directly on @p v.  In Phase 2 this write will be
+ * routed through the camera node; until then it is a direct field write
+ * wrapped in an API call so that callers do not depend on the field layout.
+ *
+ * @param v      Target view (must not be NULL).
+ * @param scale  New scale value (half the model diameter visible in the view).
+ */
+BSG_EXPORT void bsg_view_set_scale(bsg_view *v, fastf_t scale);
 
 /* ====================================================================== *
  * Phase 2: camera accessor                                               *
