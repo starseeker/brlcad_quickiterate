@@ -82,6 +82,22 @@ if(BRLCAD_ENABLE_QT)
   # Make sure all dm and ged plugins are accounted for when we build qged
   add_dependencies(qged dm_plugins ged_plugins)
 
+  # Automated qged draw validation test (swrast, moss.g)
+  if(Qt6Widgets_FOUND)
+    qt6_wrap_cpp(qged_test_moc_srcs qged_test_runner.h OPTIONS --no-notes)
+  else()
+    qt5_wrap_cpp(qged_test_moc_srcs qged_test_runner.h OPTIONS --no-notes)
+  endif()
+  add_executable(qged_test qged_test.cpp ${qged_test_moc_srcs} ${qged_srcs} ${moc_srcs} ${theme_qrc})
+  target_compile_definitions(qged_test PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  if(Qt6Widgets_FOUND)
+    target_link_libraries(qged_test libqtcad libged librt libbu Qt6::Widgets Qt6::Network)
+  else()
+    target_link_libraries(qged_test libqtcad libged librt libbu Qt5::Widgets Qt5::Network)
+  endif()
+  add_dependencies(qged_test dm_plugins ged_plugins draw_test_moss_g)
+  set_target_properties(qged_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
   foreach(qh ${qth_names})
     distclean(moc_${qh}.cpp_parameters)
   endforeach(qh ${qth_names})
@@ -108,6 +124,8 @@ set(
   qged_signals.dia
   view_update_cycle.odg
   view_update_cycle.pdf
+  qged_test.cpp
+  qged_test_runner.h
 )
 
 cmakefiles(${qged_ignore_srcs})
