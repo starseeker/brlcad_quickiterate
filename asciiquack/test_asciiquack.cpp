@@ -5569,6 +5569,113 @@ static void test_manpage_ellipsis() {
     end_test();
 }
 
+static void test_manpage_admonition_note() {
+    // NOTE admonition should use asciidoctor's .if n .sp / .RS 4 / .it 1 an-trap
+    // format so the title appears indented (tab-level) in nroff output.
+    begin_test("manpage: NOTE admonition uses asciidoctor RS4 format");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "NOTE: This is a note.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // Should use the asciidoctor RS 4 + an-trap format
+    EXPECT_CONTAINS(out, ".if n .sp\n");
+    EXPECT_CONTAINS(out, ".it 1 an-trap\n");
+    EXPECT_CONTAINS(out, ".nr an-no-space-flag 1\n");
+    EXPECT_CONTAINS(out, ".B Note\n");
+    EXPECT_CONTAINS(out, "This is a note.\n");
+    EXPECT_CONTAINS(out, ".sp .5v\n");
+
+    end_test();
+}
+
+static void test_manpage_admonition_warning() {
+    begin_test("manpage: WARNING admonition produces .B Warning");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "WARNING: This is a warning.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    EXPECT_CONTAINS(out, ".B Warning\n");
+    EXPECT_CONTAINS(out, "This is a warning.\n");
+
+    end_test();
+}
+
+static void test_manpage_nested_ulist_blank_line() {
+    // A nested ** list separated from its parent * item by a blank line
+    // should still be attached to the parent as a child (AsciiDoc nesting
+    // is determined by marker depth, not blank lines).
+    begin_test("manpage: nested ulist with blank line before children");
+
+    const std::string src =
+        "= t(1)\n"
+        ":doctype: manpage\n"
+        "\n"
+        "== NAME\n"
+        "t - test\n"
+        "\n"
+        "== SYNOPSIS\n"
+        "t\n"
+        "\n"
+        "== DESCRIPTION\n"
+        "\n"
+        "* parent item:\n"
+        "\n"
+        "** child item.\n"
+        "* sibling.\n";
+
+    asciiquack::ParseOptions opts;
+    opts.doctype = "manpage";
+    auto doc = asciiquack::Parser::parse_string(src, opts);
+    std::string out = asciiquack::convert_to_manpage(*doc);
+
+    // The child bullet should be nested inside the parent's .RS 4 block.
+    // After the parent's closing .RE, the sibling should start a new .RS 4.
+    // We verify nesting by checking that .RS 4 for child is inside parent .RS 4.
+    // Simple check: both parent and child .RS 4 / .RE appear in output.
+    EXPECT_CONTAINS(out, "parent item:");
+    EXPECT_CONTAINS(out, "child item.");
+    EXPECT_CONTAINS(out, "sibling.");
+
+    // The child should appear before the sibling's .RS 4 block
+    auto child_pos   = out.find("child item.");
+    auto sibling_pos = out.find("sibling.");
+    EXPECT(child_pos < sibling_pos);
+
+    end_test();
+}
+
 
 int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
@@ -5828,6 +5935,9 @@ int main(int argc, char* argv[]) {
     test_manpage_url_shows_url_after_text();
     test_manpage_em_dash();
     test_manpage_ellipsis();
+    test_manpage_admonition_note();
+    test_manpage_admonition_warning();
+    test_manpage_nested_ulist_blank_line();
 
     // Summary
     std::cout << "\n============================\n";

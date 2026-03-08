@@ -565,9 +565,32 @@ private:
             label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
         }
 
-        out << ".sp\n"
-            << "\\fB" << label << "\\fP\n"
-            << ".RS 4\n";
+        // Match asciidoctor's man page backend format for admonition blocks:
+        //   .if n .sp
+        //   .RS 4
+        //   .it 1 an-trap
+        //   .nr an-no-space-flag 1
+        //   .nr an-break-flag 1
+        //   .br
+        //   .ps +1
+        //   .B Note
+        //   .ps -1
+        //   .br
+        //   .sp
+        //   content
+        //   .sp .5v
+        //   .RE
+        out << ".if n .sp\n"
+            << ".RS 4\n"
+            << ".it 1 an-trap\n"
+            << ".nr an-no-space-flag 1\n"
+            << ".nr an-break-flag 1\n"
+            << ".br\n"
+            << ".ps +1\n"
+            << ".B " << label << "\n"
+            << ".ps -1\n"
+            << ".br\n"
+            << ".sp\n";
 
         if (block.content_model() == ContentModel::Simple) {
             out << inline_subs(block.source(), doc) << '\n';
@@ -576,7 +599,8 @@ private:
                 convert_block(*child, doc, out);
             }
         }
-        out << ".RE\n";
+        out << ".sp .5v\n"
+            << ".RE\n";
     }
 
     // ── Compound block (example, quote, sidebar) ──────────────────────────────
@@ -740,10 +764,24 @@ private:
             if (!item->source().empty()) {
                 out << inline_subs(item->source(), doc) << '\n';
             }
+            // Render child blocks.  Tables must be rendered OUTSIDE the .RS 4
+            // indentation to appear at the standard paragraph level (matching
+            // asciidoctor's man page backend behavior).  For each table child,
+            // close the .RS 4, render the table, and reopen .RS 4 for subsequent
+            // non-table children.
+            bool in_rs4 = true;
             for (const auto& child : item->blocks()) {
-                convert_block(*child, doc, out);
+                if (child->context() == BlockContext::Table) {
+                    if (in_rs4) { out << ".RE\n"; in_rs4 = false; }
+                    convert_block(*child, doc, out);
+                } else {
+                    if (!in_rs4) { out << ".RS 4\n"; in_rs4 = true; }
+                    convert_block(*child, doc, out);
+                }
             }
-            out << ".RE\n";
+            if (in_rs4) {
+                out << ".RE\n";
+            }
         }
     }
 

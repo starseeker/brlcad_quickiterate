@@ -1360,6 +1360,89 @@ bool Parser::parse_next_block(Reader& reader, Block& parent) {
         return true;
     }
 
+    // ── Multi-term dlist: extra term lines before the actual term:: line ───────
+    // AsciiDoc allows multiple terms to share a single dlist body by listing
+    // extra term lines (without '::') immediately before the 'term::' line.
+    // e.g.:
+    //   *-0*
+    //   *-1*
+    //   *-6*::
+    //   Description body.
+    // The extra-term lines don't have '::' so match_list_item() misses them.
+    // Here we look ahead: if the current line looks like a potential extra term
+    // (non-blank, non-delimiter, not a section title, not a list item) and the
+    // NEXT non-blank line is a dlist item, treat the accumulated lines as extra
+    // terms and synthesize them onto the dlist item's term.
+    {
+        // Collect candidate extra-term lines from the reader (we'll push them
+        // back if this isn't actually a multi-term dlist situation).
+        std::vector<std::string> extra_terms;
+        bool is_multi_term = false;
+        std::string dlist_line;
+
+        // Consume the current line as a candidate extra term
+        if (!is_blank(line) && !classify_delimiter(line) && section_level(line) < 0 &&
+            line != "+" && !match_block_image(line)) {
+            reader.skip_line();  // consume 'line'
+            extra_terms.push_back(line);
+
+            // Peek ahead: collect more non-blank lines until we hit a blank,
+            // delimiter, section, or list item
+            while (reader.has_more_lines()) {
+                auto np = reader.peek_line();
+                if (!np) { break; }
+                std::string nl{*np};
+                if (is_blank(nl) || classify_delimiter(nl) || section_level(nl) >= 0 ||
+                    nl == "+" || match_block_image(nl)) { break; }
+                // If this line IS a dlist item, we found the real term::
+                if (auto nm = match_list_item(nl);
+                    nm && nm->type == ListType::Description) {
+                    dlist_line = nl;
+                    is_multi_term = true;
+                    // Don't consume the dlist line — parse_list() will skip it
+                    // internally (it expects the first_line to still be in the
+                    // reader so it can consume it via reader.skip_line()).
+                    break;
+                }
+                // If it's a non-dlist list item, stop - not a multi-term dlist
+                if (match_list_item(nl)) { break; }
+                reader.skip_line();
+                extra_terms.push_back(nl);
+            }
+
+            if (is_multi_term) {
+                // Parse the actual dlist item from the dlist_line as normal,
+                // then prepend the extra terms to the resulting item's term.
+                auto lst = parse_list(reader, parent, ListType::Description,
+                                      dlist_line, pending_attrs);
+                if (lst && !lst->items().empty()) {
+                    auto& first_item = lst->items().front();
+                    // Prepend extra terms (joined with spaces) to the existing term
+                    std::string extra_prefix;
+                    for (const auto& et : extra_terms) {
+                        if (!extra_prefix.empty()) { extra_prefix += ' '; }
+                        extra_prefix += et;
+                    }
+                    if (!extra_prefix.empty()) {
+                        std::string combined = extra_prefix;
+                        if (!first_item->term().empty()) {
+                            combined += ' ';
+                            combined += first_item->term();
+                        }
+                        first_item->set_term(combined);
+                    }
+                    apply_block_attributes(*lst, pending_attrs, pending_title, pending_id);
+                    parent.append(lst);
+                }
+                return true;
+            } else {
+                // Not a multi-term dlist – push the consumed lines back and fall
+                // through to paragraph parsing below.
+                reader.unshift_lines(extra_terms);
+            }
+        }
+    }
+
     // ── Paragraph (including admonition paragraph) ─────────────────────────────
     {
         auto block = parse_paragraph(reader, parent, pending_attrs);
@@ -1886,7 +1969,24 @@ std::shared_ptr<List> Parser::parse_list(
         auto lm = match_list_item(line);
         if (!lm) { break; }
         if (lm->type != list_type) { break; }
-        if (lm->marker != root_marker) { break; }
+
+        // Deeper marker: attach as a sub-list to the last item (handles the
+        // case where a blank line separates a parent item from its children --
+        // AsciiDoc nesting is determined by marker depth, not blank lines).
+        if (lm->marker != root_marker) {
+            int root_level = list_marker_level(list_type, root_marker);
+            int next_level = list_marker_level(list_type, lm->marker);
+            if (next_level > root_level && !list->items().empty()) {
+                // Attach sub-list to the last item in this list
+                auto& last_item = list->items().back();
+                std::unordered_map<std::string, std::string> sub_attrs;
+                auto sub_list = parse_list(reader, *last_item,
+                                           list_type, line, sub_attrs);
+                if (sub_list) { last_item->append(sub_list); }
+                continue;
+            }
+            break;
+        }
 
         reader.skip_line();
         auto item = collect_item(line);
