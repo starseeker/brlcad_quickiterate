@@ -1826,6 +1826,36 @@
     <xsl:apply-templates select="db:step"/>
   </xsl:template>
 
+  <!-- task: render the title as a bold paragraph, then the contents -->
+  <xsl:template match="db:task">
+    <xsl:call-template name="block-sep"/>
+    <xsl:if test="db:title">
+      <xsl:text>.</xsl:text>
+      <xsl:value-of select="normalize-space(db:title)"/>
+      <xsl:text>&#10;</xsl:text>
+    </xsl:if>
+    <xsl:apply-templates select="*[not(self::db:title)]"/>
+  </xsl:template>
+
+  <!-- tasksummary, taskprerequisites: render as a note-like block -->
+  <xsl:template match="db:tasksummary">
+    <xsl:call-template name="block-sep"/>
+    <xsl:text>&#10;.Summary&#10;</xsl:text>
+    <xsl:apply-templates/>
+  </xsl:template>
+
+  <xsl:template match="db:taskprerequisites">
+    <xsl:call-template name="block-sep"/>
+    <xsl:text>&#10;.Prerequisites&#10;</xsl:text>
+    <xsl:apply-templates/>
+  </xsl:template>
+
+  <!-- taskrelated: render children as a block -->
+  <xsl:template match="db:taskrelated">
+    <xsl:call-template name="block-sep"/>
+    <xsl:apply-templates/>
+  </xsl:template>
+
   <!-- ============================================================
        GLOSSARY
        ============================================================ -->
