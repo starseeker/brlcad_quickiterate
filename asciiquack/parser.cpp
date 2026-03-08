@@ -1707,7 +1707,7 @@ std::shared_ptr<List> Parser::parse_list(
 
             // Otherwise it's simple text continuation
             reader.skip_line();
-            src += ' ';
+            if (!src.empty()) { src += ' '; }
             src += nxt;
         }
 
