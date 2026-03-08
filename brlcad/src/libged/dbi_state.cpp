@@ -3742,7 +3742,7 @@ std::unordered_set<unsigned long long> SelectionSet::selected_hashes() const
 }
 
 /* Phase 7: Synchronize highlight markers to the given view state.
- * Uses the same bv_illum_obj() pattern as BSelectState::draw_sync(). */
+ * Uses the same bsg_shape_illum() pattern as BSelectState::draw_sync(). */
 void SelectionSet::sync_to_drawn(BViewState *vs)
 {
     if (!vs || !dbis_) return;
@@ -3751,7 +3751,7 @@ void SelectionSet::sync_to_drawn(BViewState *vs)
     for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
 	char illum_state = is_active(so_it->first) ? UP : DOWN;
 	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
-	    bv_illum_obj(m_it->second, illum_state);
+	    bsg_shape_illum(m_it->second, illum_state);
 	}
     }
 }
@@ -3877,7 +3877,7 @@ bool SelectionSet::sync_to_all_views()
 	for (auto &so_kv : vs->s_map) {
 	    char ill = is_active(so_kv.first) ? UP : DOWN;
 	    for (auto &m_kv : so_kv.second) {
-		if (bv_illum_obj(m_kv.second, ill))
+		if (bsg_shape_illum(m_kv.second, ill))
 		    changed = true;
 	    }
 	}

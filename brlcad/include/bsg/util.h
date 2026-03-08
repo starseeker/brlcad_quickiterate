@@ -133,7 +133,7 @@ BSG_EXPORT void bsg_view_mat_aet(bsg_view *v);
  * ====================================================================== */
 
 /** Use the default autoview scale (0.5 model scale ↔ 2.0 view factor). */
-#define BSG_AUTOVIEW_SCALE_DEFAULT BV_AUTOVIEW_SCALE_DEFAULT
+#define BSG_AUTOVIEW_SCALE_DEFAULT -1
 
 /** @brief Auto-fit the view.  Replaces bv_autoview(). */
 BSG_EXPORT void bsg_view_autoview(bsg_view *v, fastf_t scale,
