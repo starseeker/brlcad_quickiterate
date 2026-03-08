@@ -10,7 +10,7 @@ make_pnts - Creates a "pnts" (i.e. point cloud) primitive by importing coordinat
 
 [source]
 ----
-make_pnts {ObjectName} {FileName} {FileDataFormat} { [ Units| ConversionFactor]} {DefaultPointSize}
+make_pnts {ObjectName} {FileName} {FileDataFormat} {[Units | ConversionFactor]} {DefaultPointSize}
 ----
 
 
@@ -105,4 +105,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

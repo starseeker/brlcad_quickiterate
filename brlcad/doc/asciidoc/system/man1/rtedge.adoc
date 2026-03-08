@@ -50,15 +50,15 @@ sets the grid cell width, in millimeters. Ordinarily, the cell width is computed
 
 *-m density,r,g,b*::
 enables an exponential shading of the void between the eye and the first hit location. This allows a cheap simulation of atmospheric haze with lower performance impact than explicit modeling of the air volume. The haze is computed using the form:
-
++
 f = e^(-distance * density)
-
++
 g = 1.0 - f
-
++
 color = color * f + hazeRGB * g
-
++
 The color values are optional. If not specified, they will have the passable values 0.8 .9 .99 .
-
++
 Example usage: -m '2.5e-8,.75,.95,.99'
 
 
@@ -76,11 +76,11 @@ enables the use of a _cutting plane_. The xdir, ydir, zdir, and dist define a pl
 
 *-l #*::
 selects lighting model. Default is 0. Model 0 is a full lighting model with the ability to implement Phong shading, transparent and reflective objects, shadow penumbras, texture maps, etc. In addition to ambient light, a small amount of light is supplied from eye position. All objects in the active model space with a material property string of "light" represent additional light sources (up to 16 are presently permitted), and shadow computations will be initiated automatically. (This mechanism is subject to further change.) Model 1 is a diffuse-lighting model only, and is intended for debugging. Model 2 displays the surface normals as colors, and is useful for examining curvature and surface orientation. Model 3 is a three-light diffuse-lighting model, and is intended for debugging. Model 4 is a curvature debugging display, showing the inverse radius of curvature. Model 5 is a curvature debugging display, showing the principal direction vector. Model 6 is for debugging the UV parameterization used for surface texturing. It is exactly the same as applying the texture 'testmap' to every region. The U parameter is displayed in the red channel and the V parameter is displayed in the blue channel. Model 7 is for using photon mapping to simulate global illumination and caustics in a given scene. Options to photon mapping are passed through the -l parameter in the following format:
-
++
 -l7,Num_Photons,Caustics_Percent,Irradiance_Rays,Angular_Tolerance, Random_Seed,Importance_Mapping_Toggle,Irradiance_Hypersampling_Toggle, Visual_Irradiance_Toggle,Scale_Lumens,Load_Save_File
-
++
 Example: -l7,16384,0,10,60.0,0,0,0,0,1.0,scene.pm
-
++
 Note: If just -l7 is used, then the default values above will be applied. Light sources must also be explicitly defined with lumens defined for each source, i.e., default light sources will not work.
 
 
@@ -344,11 +344,11 @@ and
 
 *-c"set om=#*::
 determine how *rtedge* behaves when performing occlusion checking. There are three valid modes. Mode 2 is the default.
-
++
 *mode 1 - EDGES* Only edge pixels are drawn. Edges detected in the first set of geometry are written to the framebuffer if and only if they are NOT occluded by the second set of geometry. Edges are colored according to the foreground or region color options.
-
++
 *mode 2 - ALL HITS* Edge and non-edge pixels are drawn. All pixels that hit the first set of geometry and are NOT occluded by the second set are written to the framebuffer. Edges are rendered in the foreground or region color; non-edges are rendered in the background color.
-
++
 *mode 3 - DITHER* Edge and dithered non-edge pixels are drawn. This is like mode 2 except non-edge pixels are dithered to make the exterior geometry appear semi-transparent.
 
 
@@ -496,4 +496,4 @@ Most deficiencies observed while using the *rtedge* program are a consequence of
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

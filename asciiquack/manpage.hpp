@@ -195,6 +195,27 @@ private:
                     continue;
                 }
             }
+            // URL link macro: http://url[text] or https://url[text].
+            // For man pages, render as just the link text (matching DocBook's
+            // man-page rendering which shows text only, not the URL).
+            if ((text.substr(i, 7) == "http://" || text.substr(i, 8) == "https://") &&
+                text.find('[', i) != std::string::npos) {
+                auto bracket = text.find('[', i);
+                if (bracket != std::string::npos) {
+                    auto close = text.find(']', bracket + 1);
+                    if (close != std::string::npos) {
+                        std::string link_text = text.substr(bracket + 1, close - bracket - 1);
+                        if (!link_text.empty()) {
+                            out += troff_inline(link_text);
+                        } else {
+                            // No link text: output the URL
+                            out += troff_inline(text.substr(i, bracket - i));
+                        }
+                        i = close + 1;
+                        continue;
+                    }
+                }
+            }
             // Plain text: escape backslash and minus
             char c = text[i];
             if (c == '\\') { out += "\\\\"; }
@@ -426,15 +447,26 @@ private:
 
     void convert_compound(const Block& block, const Document& doc,
                           OutputBuffer& out) const {
-        if (block.has_title()) {
+        // For example blocks, always emit a numbered "Example N." header,
+        // matching DocBook's rendering of both titled and untitled <example>
+        // elements.  Titled examples: "Example N. Title"; untitled: "Example N."
+        if (block.context() == BlockContext::Example) {
+            int n = ++counters_["example"];
+            std::string header = "Example\\ \\&" + std::to_string(n) + ".";
+            if (block.has_title()) {
+                header += "\\ \\&" + troff_escape(block.title());
+            }
+            out << ".PP\n"
+                << "\\fB" << header << "\\fR\n";
+        } else if (block.has_title()) {
             out << ".PP\n"
                 << "\\fB" << troff_escape(block.title()) << "\\fR\n";
         }
-        out << ".RS 4\n";
+        // Emit children without extra indentation (no .RS 4/.RE wrapper),
+        // matching the flat layout DocBook uses for <example> content.
         for (const auto& child : block.blocks()) {
             convert_block(*child, doc, out);
         }
-        out << ".RE\n";
     }
 
     // ── Unordered list ────────────────────────────────────────────────────────
@@ -445,19 +477,26 @@ private:
             out << ".PP\n"
                 << "\\fB" << troff_escape(list.title()) << "\\fR\n";
         }
-        out << ".sp\n"
-            << ".RS 4\n";
+        // Each item gets its own .sp .RS 4 ... .RE block with proper
+        // .ie n (nroff bullet) / .el (troff IP bullet) conditional,
+        // matching DocBook XSL output for <itemizedlist> items.
         for (const auto& item : list.items()) {
-            out << ".ie n \\{\\[bu]\\ \n";
-            out << ".el \\{\\[bu]\\ \n";
-            out << ".\\}\n";
+            out << ".sp\n"
+                << ".RS 4\n"
+                << ".ie n \\{\\\n"
+                << "\\h'-04'\\(bu\\h'+03'\\c\n"
+                << ".\\}\n"
+                << ".el \\{\\\n"
+                << ".sp -1\n"
+                << ".IP \\(bu 2.3\n"
+                << ".\\}\n";
             out << inline_subs(item->source(), doc) << '\n';
             // Sub-blocks
             for (const auto& child : item->blocks()) {
                 convert_block(*child, doc, out);
             }
+            out << ".RE\n";
         }
-        out << ".RE\n";
     }
 
     // ── Ordered list ──────────────────────────────────────────────────────────
@@ -516,22 +555,25 @@ private:
             // marked *bold* in the source.
             std::string term_rendered = inline_subs(item->term(), doc);
             // If the term has no inline formatting (plain text), bold it with
-            // \fB...\fR so it stands out on the .TP line, matching Asciidoctor
-            // man page output conventions.
+            // \fB...\fR so it stands out, matching DocBook variablelist style.
             bool has_markup = (term_rendered.find("\\fB") != std::string::npos ||
                                term_rendered.find("\\fI") != std::string::npos);
-            out << ".TP\n";
+            // Use DocBook-style .PP term .RS 4 body .RE instead of .TP, so that
+            // the term appears on its own line with the body indented below it.
+            out << ".PP\n";
             if (has_markup) {
                 out << term_rendered << "\n";
             } else {
                 out << "\\fB" << term_rendered << "\\fR\n";
             }
+            out << ".RS 4\n";
             if (!item->source().empty()) {
                 out << inline_subs(item->source(), doc) << '\n';
             }
             for (const auto& child : item->blocks()) {
                 convert_block(*child, doc, out);
             }
+            out << ".RE\n";
         }
     }
 

@@ -10,7 +10,7 @@ bwrect - extract a rectangle from a black and white bw file
 
 [source]
 ----
-bwrect [-ssquaresize] [-wwidth] [-nheight] [-Sout_squaresize] [-Wout_width] [-Nout_height] [-xxorig] [-yyorig] [-oout_file.bw] file.bw > [out_file.bw]
+bwrect [-s squaresize] [-w width] [-n height] [-S out_squaresize] [-W out_width] [-N out_height] [-x xorig] [-y yorig] [-o out_file.bw] file.bw > [out_file.bw]
 ----
 
 
@@ -59,4 +59,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

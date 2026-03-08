@@ -10,7 +10,7 @@ put_comb - Insert combinations and regions - allows definition of both boolean e
 
 [source]
 ----
-put_comb {comb_name} [is_Region [ [id]| [air]| [material]| [los]]] {color} {shader} {inherit} {boolean_expr}
+put_comb {comb_name} [is_Region  [[id] | [air] | [material] | [los]]] {color} {shader} {inherit} {boolean_expr}
 ----
 
 
@@ -79,4 +79,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

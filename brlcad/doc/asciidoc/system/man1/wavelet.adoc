@@ -10,7 +10,7 @@ wavelet - perform a haar wavelet decomposition/reconstruction
 
 [source]
 ----
-wavelet [-1] [-2] [-d] [-r] [-#channels] [ -t [ c| d| f| i| l| s]] [-wwidth] [-nscanlines] [-ssquaresize] [-Ssquare_out_size] [-Wwidth_out] < file > wavelet
+wavelet [-1] [-2] [-d] [-r] [-# channels] [ -t [c | d | f | i | l | s]] [-w width] [-n scanlines] [-s squaresize] [-S square_out_size] [-W width_out] < file > wavelet
 ----
 
 
@@ -73,4 +73,4 @@ This software is Copyright (c) 1999-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

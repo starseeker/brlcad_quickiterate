@@ -10,7 +10,7 @@ putmat - Replaces the existing transformation matrix in the combination specifie
 
 [source]
 ----
-putmat {comb_name/member_name} { [I]| [m0 m1 m2 m3 ... m16]}
+putmat {comb_name/member_name} {[I] | [m0 m1 m2 m3 ... m16]}
 ----
 
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

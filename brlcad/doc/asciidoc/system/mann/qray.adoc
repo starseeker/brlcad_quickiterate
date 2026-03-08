@@ -29,11 +29,11 @@ If _str_ is specified, then set basename to _str_. Otherwise, return the basenam
 
 
 *effects*[_t|g|b_]::
-Set or get the type of _effects_ that will occur when firing a query ray. The effects of firing a ray can be either _t_ for textual output, _g_  for graphical output, or _b_ for both textual and graphical.
+Set or get the type of _effects_ that will occur when firing a query ray. The effects of firing a ray can be either _t_ for textual output, _g_ for graphical output, or _b_ for both textual and graphical.
 
 
 *echo* [_0|1_]::
-Sets or gets the value of _echo_. If set to 1, the actual *nirt*  command used will be echoed to the screen.
+Sets or gets the value of _echo_. If set to 1, the actual *nirt* command used will be echoed to the screen.
 
 
 *oddcolor* [_r g b_]::
@@ -117,4 +117,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

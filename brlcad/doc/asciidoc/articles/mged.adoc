@@ -1627,7 +1627,7 @@ C-w						backward delete word
 [[VI_Bindings]]
 === VI Bindings
 
- *Insert and Command Mode* 
+*Insert and Command Mode*
 
 
 
@@ -2313,7 +2313,7 @@ mged> arb new_arb 35 25
 
 – Create __new_arb__ with a rotation angle of 35˚ and a fallback angle of 25˚.
 
-`mged>`  <<ae,*ae*>>*35 25* – Rotate view to look straight on at square face of __new_arb__
+`mged>` <<ae,*ae*>>*35 25* – Rotate view to look straight on at square face of __new_arb__
 
 **
 
@@ -2350,9 +2350,9 @@ mged> <<z,*Z*>>
 
 – Clear the _mged_ display(s).
 
-`mged>`  <<E,*E*>>*region_1* – _E_ a single region.
+`mged>` <<E,*E*>>*region_1* – _E_ a single region.
 
-`mged>`  *area* – Calculate the presented area of the enclosing polygon of the region.
+`mged>` *area* – Calculate the presented area of the enclosing polygon of the region.
 
 **
 
@@ -2394,50 +2394,50 @@ mged> *attach -n myOgl -W 720 -N 486 ogl* – Open a 720x486 OpenGL display wind
 
 mged> *attach -n myX -d remote_host:0 -i myInit X* – Open an X display window named myX on remote_host that is initialized by myInit. – myInit might contain user specified bindings like those found in the default bindings.
 
-`mged>`  *toplevel .t* – Create a toplevel window named .t.
+`mged>` *toplevel .t* – Create a toplevel window named .t.
 
-`mged>`  *attach -t 0 -S 800 -n .t.ogl ogl* – Open a 800x800 OpenGL display window named .t.ogl that is not a top-level window.
+`mged>` *attach -t 0 -S 800 -n .t.ogl ogl* – Open a 800x800 OpenGL display window named .t.ogl that is not a top-level window.
 
-`mged>`  *button .t.dismiss -text Dismiss -command “release .t.ogl; destroy .t”* – Create a button to dismiss the display manager etc.
+`mged>` *button .t.dismiss -text Dismiss -command “release .t.ogl; destroy .t”* – Create a button to dismiss the display manager etc.
 
-`mged>`  *pack .t.ogl -expand 1 -fill both* – Pack the display manager inside .t.
+`mged>` *pack .t.ogl -expand 1 -fill both* – Pack the display manager inside .t.
 
-`mged>`  *pack .t.dismiss* – Pack the Dismiss button inside .t.
+`mged>` *pack .t.dismiss* – Pack the Dismiss button inside .t.
 
-`mged>`  *attach* – List the help message that includes the valid display types.
+`mged>` *attach* – List the help message that includes the valid display types.
 
 **
 
 
 attr get|set|rm|append|show object_name [arguments]::
 The “attr” command is used to create, change, retrieve, or view attributes of database
-
++
 objects. The arguments for “set” and “append” subcommands are attribute name/value pairs. The arguments for “get,” “rm,” and “show” subcommands are attribute names. The “set” subcommand sets the specified attributes for the object. The “append” subcommand appends the provided value to an existing attribute, or creates a new attribute if it does not already exist. The “get” subcommand retrieves and displays the specified attributes. The “rm” subcommand deletes the specified attributes. The “show” subcommand does a “get” and displays the results in a user readable format. Note that the attribute names may not contain embedded white space, and if attribute values contain embedded white space, they must be surrounded by “{}” or double quotes.
-
++
 Examples:
 
 
 region_1 comment::
 mged> attr set region_1 comment {This is a comment for region_1}
-
++
 – Assign an attribute named “comment” to __region_1__, its value is "This is a
-
++
 comment for region_1"
-
++
 mged> attr show region_1 comment
-
++
 – List all the attributes for region_1
 
 
 autoview::
 The “autoview” command resets the view_size and the view center such that all displayed objects are within the view.
-
++
 Examples:
 
 
 Autoview::
 mged> autoview
-
++
 – Adjust the view to see everything displayed.
 
 
@@ -2691,7 +2691,7 @@ mged> units mm
 
 check {_subcommand_} [_options_][_objects..._]::
 The _check_ command computes and reports a variety of characteristics of the objects specified from the opened database. The characteristics which can be computed include _mass, centroid, moments of inertia, volume, overlaps, surface area, exposed air, gaps/voids, adjacent air and unconfined air._ Only the objects from the database specified on the command line are analyzed.
-
++
 The following are the sub-commands offered:
 
 
@@ -2929,7 +2929,7 @@ mged *db form tgc* – Display the format used by the _get_ and _put_ commands f
 **
 
 
- *db_glob cmd_string* ::
+*db_glob cmd_string*::
 Globs __cmd_string__ against the MGED database resulting in an expanded command string.
 
 
@@ -2949,9 +2949,9 @@ The “dbconcat” command concatenates an existing _BRL-CAD_ database to the da
 
 Examples:::
 `mged>` *dbconcat model_two.g two_*
-
++
 `mged>` *dbconcat -s model_two.g*
-
++
 `mged>` *dbconcat -c -p model_two.g two_*
 
 
@@ -2968,7 +2968,7 @@ Examples:::
 
 
 
-`mged>`  *debugbu 2*
+`mged>` *debugbu 2*
 
 – Set __bu_debug__ to <MEM_CHECK>.
 
@@ -3008,7 +3008,7 @@ mged> debuglib
 
 – Get a list of available debug values for _librt_ and the current value.
 
-`mged>`  *debuglib 1* – Set the _librt_ debug flag to <DEBUG_ALLRAYS> (print info about rays).
+`mged>` *debuglib 1* – Set the _librt_ debug flag to <DEBUG_ALLRAYS> (print info about rays).
 
 **
 
@@ -3249,7 +3249,7 @@ mged> edcomb comb1 R 1001 0 50 8
 
 – Make _comb1_ a _region_ and set its _ident_ to 1001, its _air code_ to 0, its _LOS_ to 50, and its _material code_ to 8.
 
-`mged>`  *edcomb comb1 0 0 0 0* – Unset the _region_ flag for combination _comb1._
+`mged>` *edcomb comb1 0 0 0 0* – Unset the _region_ flag for combination _comb1._
 
 **
 
@@ -3487,7 +3487,7 @@ mged> facedef 1234 a 1 0 0 20
 
 – Move face 1234 such that it is in the _yz_ plane at _x_=20.
 
-`mged>`  *facedef 5678 b 0 0 10 10 0 10 10 10 10* – Move face 5678 such that it is in the plane formed by the three points (0 0 10), (10 0 10), and (10 10 10).
+`mged>` *facedef 5678 b 0 0 10 10 0 10 10 10 10* – Move face 5678 such that it is in the plane formed by the three points (0 0 10), (10 0 10), and (10 10 10).
 
 **
 
@@ -3778,7 +3778,7 @@ mged> inside out_arb in_arb 1 1 1 1 1 1
 
 – Create a shape named __in_arb__ such that each face is 1 <<units,unit>> from the corresponding face in __out_arb.__
 
-`mged>`  *inside in_arb 1 1 1 1 1 1* – Create a shape named __in_arb__ such that each face is 1 <<units,unit>> from the corresponding face in the current key shape or the shape currently being edited.
+`mged>` *inside in_arb 1 1 1 1 1 1* – Create a shape named __in_arb__ such that each face is 1 <<units,unit>> from the corresponding face in the current key shape or the shape currently being edited.
 
 **
 
@@ -4138,7 +4138,7 @@ mged> make shapea sph
 
 – Create a sphere named _shapea._
 
-`mged>`  *make -t* – Return a list of shape types handled by _make._
+`mged>` *make -t* – Return a list of shape types handled by _make._
 
 **
 
@@ -4339,7 +4339,7 @@ mged> opendb model.g
 
 – Close the current database file and open _model.g._
 
-`mged>`  *opendb* – Return the name of the current database file.
+`mged>` *opendb* – Return the name of the current database file.
 
 **
 
@@ -4555,7 +4555,7 @@ The “preview” command allows the user to _preview_ animation scripts in MGED
 
 Examples:::
 mged> preview -D 101 -K 237 script.rt
-
++
 – _Preview_ the animation script stored in the file named _script.rt_ from frame number 101 through frame number 237.
 
 
@@ -4572,7 +4572,7 @@ The “prj_add” command appends information to the specified _shaderfile_. The
 
 
 ps [_-f font_] [_-t title_] [_-c creator_] [__-s size_in_inches__] [__-l line_width__] output_file::
-The “ps” command temporarily attaches the _Postscript_ display manager and outputs the current MGED display to the specified __output_file__ in _PostScript_ format. The _-f_ option allows the _font_ to be user-specified. The _-t_ option allows the user to provide a title (the default is “No Title”). The _-c_ option allows the user to specify the creator of the file (the default is “LIBDM dm-ps”). The  _s_ specifies the size of the drawing in inches. The  _l_ specifies the width of the lines drawn.
+The “ps” command temporarily attaches the _Postscript_ display manager and outputs the current MGED display to the specified __output_file__ in _PostScript_ format. The _-f_ option allows the _font_ to be user-specified. The _-t_ option allows the user to provide a title (the default is “No Title”). The _-c_ option allows the user to specify the creator of the file (the default is “LIBDM dm-ps”). The _s_ specifies the size of the drawing in inches. The _l_ specifies the width of the lines drawn.
 
 
 Examples:::
@@ -4712,11 +4712,11 @@ mged> qray
 
 – Print usage message.
 
-`mged>`  *qray fmt o* – Returns the overlap format string.
+`mged>` *qray fmt o* – Returns the overlap format string.
 
-`mged>`  *qray oddcolor* – Returns the rgb color used to color odd partitions.
+`mged>` *qray oddcolor* – Returns the rgb color used to color odd partitions.
 
-`mged>`  *qray oddcolor 255 0 0* – Sets the odd partition color to red.
+`mged>` *qray oddcolor 255 0 0* – Sets the odd partition color to red.
 
 **
 
@@ -4958,7 +4958,7 @@ managerged> release
 
 – Close the current display manager.
 
-`mged>`  *release .dm_X0* – Close __.dm_X0.__
+`mged>` *release .dm_X0* – Close __.dm_X0.__
 
 **
 
@@ -5373,9 +5373,9 @@ mged> status
 
 – Get default information (i.e., state, view_size, local2base, toViewcenter, Viewrot, model2view and view2model).
 
-`mged>`  *status Viewrot* – Get the view rotation matrix.
+`mged>` *status Viewrot* – Get the view rotation matrix.
 
-`mged>`  *status state* – Get the edit state.
+`mged>` *status state* – Get the edit state.
 
 **
 
@@ -5605,9 +5605,9 @@ mged> tree group1
 
 – Show the structure of the tree rooted at _group1_ down to the primitive shape level.
 
-`mged>`  *tree -i 2 group1* – This time use two spaces for each level of indentation.
+`mged>` *tree -i 2 group1* – This time use two spaces for each level of indentation.
 
-`mged>`  *tree -c group1* – No shapes are printed.
+`mged>` *tree -c group1* – No shapes are printed.
 
 **
 
@@ -5833,19 +5833,19 @@ mged> vdraw open square
 
 – Open a list named _square._
 
-`mged>`  *vdraw params color ff00* – Set color to green.
+`mged>` *vdraw params color ff00* – Set color to green.
 
-`mged>`  *vdraw write next 0 0 0 0* – Start a line at the origin.
+`mged>` *vdraw write next 0 0 0 0* – Start a line at the origin.
 
-`mged>`  *vdraw write next 1 100 0 0* – Draw line to (100 0 0).
+`mged>` *vdraw write next 1 100 0 0* – Draw line to (100 0 0).
 
-`mged>`  *vdraw write next 1 100 100 0* – Draw line to (100 100 0).
+`mged>` *vdraw write next 1 100 100 0* – Draw line to (100 100 0).
 
-`mged>`  *vdraw write next 1 0 100 0* – Draw line to (0 100 0).
+`mged>` *vdraw write next 1 0 100 0* – Draw line to (0 100 0).
 
-`mged>`  *vdraw write next 1 0 0 0* – Draw line to (0 0 0).
+`mged>` *vdraw write next 1 0 0 0* – Draw line to (0 0 0).
 
-`mged>`  *vdraw send* – Draw the square in the MGED display.
+`mged>` *vdraw send* – Draw the square in the MGED display.
 
 **
 
@@ -5871,7 +5871,7 @@ mged> view center
 
 – Get the view center.
 
-`mged>`  *view center 0 0 0* – Set the view center at the origin of model space.
+`mged>` *view center 0 0 0* – Set the view center at the origin of model space.
 
 **
 
@@ -5921,7 +5921,7 @@ mged> vrot 90 0 0
 
 – Rotate 90 degrees about view _x_ axis.
 
-`mged>`  *vrot 0 180 0* – Rotate 180 degrees about view _y_ axis.
+`mged>` *vrot 0 180 0* – Rotate 180 degrees about view _y_ axis.
 
 **
 
@@ -6330,7 +6330,7 @@ mged *mmenu_get 2* – Return the internal menu number 2.
 
 mmenu_set id i::
 This Tcl proc is used to set/install MGED s _i_ ^th^ internal menu in the Tcl/Tk button menu owned by _id_.
-
++
 mged> mmenu_set bill 0
 
 
@@ -6441,7 +6441,7 @@ Set the current default input value.
 
 
 share [-u] resource dm1 [dm2]::
-The “share” command provides a mechanism to share (or unshare with the  *u* option) resources among display managers. When a resource is shared between two or more display managers, any change to that resource is seen only in the sharing display managers. The supported resource types are: ad (ADC), ax (Axes), c (Color Schemes), d (Display Lists), g (Grid), m (Menu), r (Rubber Band), vi (View), and var (MGED Variables).
+The “share” command provides a mechanism to share (or unshare with the *u* option) resources among display managers. When a resource is shared between two or more display managers, any change to that resource is seen only in the sharing display managers. The supported resource types are: ad (ADC), ax (Axes), c (Color Schemes), d (Display Lists), g (Grid), m (Menu), r (Rubber Band), vi (View), and var (MGED Variables).
 
 
 Examples:::
@@ -7055,55 +7055,55 @@ When an <<object,object>> is displayed in the <<mged,_mged_>> graphics window, i
 
 The ARB is a planar-faced convex solid with between four and eight unique vertices. The specific type of ARB is often referred to by adding the number of unique vertices to the word ARB. For example, an ARB8 is the usual solid block, an ARB4 is a tetrahedron, and an ARB6 may be a wedge shape.
 
-*arbitrary faceted solid* 
+*arbitrary faceted solid*
 
 The arbitrary faceted solid (Also referred to as ARS) is a planar-faced solid defined by any number of curves (more precisely closed polylines). These curves are typically planar waterline or station curves, but they are not restricted to being planar. Each curve in a particular ARS must have the same number of points. The first and last curves are normally degenerate, each consisting of repetitions of a single point to make up the correct number of points for a curve. Faces are built by connecting corresponding points on adjacent curves. Since the curves are assumed to be closed, the last point on any curve is implicitly connected to the first point on the same curve
 
-*ARBN* 
+*ARBN*
 
 The ARBN is a planar faced convex solid defined by any number of bounding planes.
 
-*BOT* 
+*BOT*
 
 The BOT solid is a collection of triangular facets. It may represent a zero thickness surface, a finite thickness plate, or a solid volume bounded by the triangles. The surface normal for each triangle may be unoriented, oriented according to the right-hand rule, or oriented according to the left-hand rule.
 
-*ellipsoid* 
+*ellipsoid*
 
 The ellipsoid is a solid defined by three mutually perpendicular semi­axes. When the axes are of unequal length, an ellipsoid is generated. When the axes are all the same length, a sphere is generated.
 
-*elliptical hyperboloid* 
+*elliptical hyperboloid*
 
 The elliptical hyperboloid (also referred to as EHY) is a solid with an elliptical base the remainder of the surface of which is defined by hyperbolas that run from any point on the ellipse through a common vertex at a specified distance from the ellipse and back to the ellipse at the point diametrically opposite the starting point. Further control of the surface may be obtained by specifying the distance from the hyperbolas to the vertex of the asymptotes.
 
-*elliptical paraboloid* 
+*elliptical paraboloid*
 
 The elliptical paraboloid (also referred to as EPA) is a solid with an elliptical base the remainder of the surface of which is defined by parabolas that run from any point on the ellipse through a common vertex at a specified distance from the ellipse and back to the ellipse at a point diametrically opposite the starting point.
 
-*elliptical torus* 
+*elliptical torus*
 
 The Elliptical Torus (Also referred to as ETO) is defined by sweeping an ellipse through a circular path. The plane of the ellipse and the plane of the circular path are mutually perpendicular.
 
-*extruded bitmap* 
+*extruded bitmap*
 
 The extruded bitmap (also referred to as EBM) is a solid based on a greyscale bitmap. The bitmap is an array of unsigned char values, see bw(5), and is extruded by some distance. The EBM solid requires the dimensions of the bitmap file (height and width in bytes), an extrusion length, and a transformation matrix to position the EBM. Each byte in the bitmap file is treated as the base of a cell that is extruded by the specified extrusion length. If the value of the byte is non­zero, then that cell is considered solid.
 
-*half space* 
+*half space*
 
 A half space is the portion of space on one side of a plane. It is represented by its boundary (the plane) and its outward-pointing normal vector.
 
-*height field* 
+*height field*
 
 The height field is a solid defined by a series of height measurements on a regular grid. In addition to a file of height measurements, this solid also requires a location vector, width and height direction vectors, and some scale factors.
 
-*n­manifold geometry* 
+*n­manifold geometry*
 
 (also referred to as NMG) The n­manifold geometry solid, sometimes known as a non­manifold geometry, is based on the description by Kevin Weiler in ``The Radial Edge Structure: A Topological Representation for Non­Manifold Geometric Modeling'' from Geometric Modeling for CAD Applications (Springer Verlag, 1987). A useful reference for the NMG solid is Combinatorial Solid Geometry, Boundary Representations, and Non_Manifold Geometry.
 
-*particle* 
+*particle*
 
 The particle solid is a lozenge-shaped object defined by a vertex, a height vector and radii at both ends. The body of the particle is either a cylinder or a truncated cone, depending on the values of the radii. Each end of the particle is a hemisphere of the specified radius.
 
-*pipe* 
+*pipe*
 
 The pipe solid is defined by a sequence of control points, each with values for inner radius, outer radius, and bend radius. The actual pipe starts at the first control point and ends at the last control point. The intervening control points are replaced by circular bends with the specified bend radius, so the pipe is not likely to actually pass through these points. An inner radius of zero indicates a solid pipe or wire.
 
@@ -7127,7 +7127,7 @@ The spline solid is defined by a set of non­uniform rational B­spline surfaces
 
 The torus is defined by sweeping one circle through a larger circular path. The planes of the circles are mutually perpendicular.
 
-*truncated general cone (also referred to as TGC)* 
+*truncated general cone (also referred to as TGC)*
 
 The TGC solid is a truncated cone with elliptical (or circular) base and top. The base and top must be parallel, but the height vector connecting the center of the base with the center of the top does not need to be perpendicular to them.
 

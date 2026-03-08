@@ -10,7 +10,7 @@ g-x3d - Perform Boolean evaluations to produce an X3D facetted model
 
 [source]
 ----
-g-x3d [-v] [-dcalc_dist_tol] [-aabs_tess_tol] [-nnorm_tess_tol] [-rrel_tess_tol] [-xlibrt_debug_flag] [-XNMG_debug_flag] [-uunits_name] [-P#_of_CPUs] [-ooutfile] infile.g object(s)
+g-x3d [-v] [-d calc_dist_tol] [-a abs_tess_tol] [-n norm_tess_tol] [-r rel_tess_tol] [-x librt_debug_flag] [-X NMG_debug_flag] [-u units_name] [-P #_of_CPUs] [-o outfile] infile.g object(s)
 ----
 
 
@@ -53,4 +53,4 @@ This software is Copyright (c) 2002-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

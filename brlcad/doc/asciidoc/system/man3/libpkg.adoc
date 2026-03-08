@@ -159,7 +159,7 @@ PKG_STREAM - Send a buffered data stream on the connection::
 ....
 
 Pkg_stream connections provide a low network overhead connection where interactive responsiveness is not required.
-
++
 Connections have a PKG_STREAMLEN (currently 4096) byte stream buffer. If the current message is less than MAXQLEN (currently 512) bytes in length, and space remains for it, it will be appended onto the end of this buffer. Otherwise the buffer is implicitly flushed by sending this message via PKG_SEND.
 
 
@@ -232,7 +232,7 @@ PKG_SWITCH - Table of User Message Handler Pointers::
 ....
 
 The user may specify handlers for one or more message types. When these routines are called they are passed a pointer to the connection and a pointer to a buffer that contains the message. The user message handler routine is responsible for freeing the message buffer after processing it. If there is no message handler for that message type the message is discarded and the buffered freed. The switch routine uses an external message handler array, created by the caller, that defines message types, handler entry points, and a message descriptor field.
-
++
 The pkg_switch list which is passed to some of the above functions is a NULL terminated array of structures containing the message type, a pointer to an function which handles messages of that type, and a descriptive string. A separate pkg_switch array is kept for each connection so that several entirely different PKG conversations can be carried out by a single application at the same time.
 
 
@@ -249,7 +249,7 @@ PKG_CONN - Connection block structure::
 ....
 
 Connection block structures are created by pkg_open or pkg_getclient when a connection is established, and are freed when a connection is closed. This connection block is used during all I/O requests and contains the pointer to the start of the current buffer and to the current position in the buffer for incomplete read or writes. The mess_len field specifies the number of bytes expected by get. The pkg_switch array, and a pointer to an error logging function for this connection is included. The stream buffer is also contained in the structure.
-
++
 See pkg.h for the actual names of the structure elements.
 
 
@@ -284,4 +284,4 @@ Peter B. Shames
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of inaccuracies should be submitted via electronic mail to <devs@brlcad.org>
+Reports of inaccuracies should be submitted via electronic mail to devs@brlcad.org

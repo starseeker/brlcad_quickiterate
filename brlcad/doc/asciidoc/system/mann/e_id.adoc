@@ -29,7 +29,7 @@ Draw all regions with a single region ID.
 [example]
 ====
 
-mged>*e_id 1000*::
+mged> *e_id 1000*::
 Draws all regions whose region ID is 1000.
 
 
@@ -55,4 +55,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

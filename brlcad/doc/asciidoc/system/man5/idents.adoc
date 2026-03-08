@@ -22,9 +22,9 @@ For output purposes only, each region is assigned a number based as it's encount
 
 column 2: region ID::
 Region identifiers for solid geometry are non-zero numbers representing a single homogeneous material object (i.e., a part). This value is encoded as the "region_id" attribute on region objects.
-
++
 Region IDs need not be unique, but may be reassigned uniquely using the *reid* command in MGED.
-
++
 Negative region IDs canonically indicate an air region.
 
 
@@ -38,7 +38,7 @@ All regions can have a material identifier set on them, encoded as a non-negativ
 
 column 5: line-of-sight thickness factor::
 All regions can have a light-of-sight thickness factor (a.k.a. "los") set to indicate its proportional representation of material homogeneity. That is, it indicates what percentage of a given object is the material specified.
-
++
 Line-of-sight factors are typically used in place of modeling detail. For example, one might model a radio that in reality has circuitry, wires, air voids, and more as a simple box with material_id set to a code representing aluminum and los set to 10. This would indicate, for analytic purposes, that the box is 10% aluminum by volume.
 
 
@@ -113,4 +113,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

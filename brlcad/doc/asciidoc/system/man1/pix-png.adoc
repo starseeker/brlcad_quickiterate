@@ -10,7 +10,7 @@ pix-png - convert a BRL-CAD PIX format image to a PNG (Portable Network Graphics
 
 [source]
 ----
-pix-png [-a] [-ggamma] [-nfile_height] [-wfile_width] [-ssquaresize] [-oPNG_file] [PIX_file] [>PNG_file]
+pix-png [-a] [-g gamma] [-n file_height] [-w file_width] [-s squaresize] [-o PNG_file] [PIX_file] [> PNG_file]
 ----
 
 
@@ -73,4 +73,4 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

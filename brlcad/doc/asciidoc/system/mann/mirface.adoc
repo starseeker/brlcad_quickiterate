@@ -10,7 +10,7 @@ mirface - Modifies an ARB shape by mirroring the indicated face along the select
 
 [source]
 ----
-mirface {####} { [x]| [y]| [z]}
+mirface {####} {[x] | [y] | [z]}
 ----
 
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

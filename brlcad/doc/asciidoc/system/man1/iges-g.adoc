@@ -10,7 +10,7 @@ iges-g - IGES Translator (IGES CSG to BRL-CAD)
 
 [source]
 ----
-iges-g [-XNMG_debug_flag] [-xrt_debug_flag] [-Nsolid_name] [-b] [ -n| d| 3| t] -odatabase.g file.iges
+iges-g [-X NMG_debug_flag] [-x rt_debug_flag] [-N solid_name] [-b] [-n | d | 3 | t] -o database.g file.iges
 ----
 
 
@@ -57,4 +57,4 @@ This software is Copyright (c) 1991-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

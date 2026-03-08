@@ -32,19 +32,19 @@ The following options are recognized in basic diffing mode:
 
 *-a*::
 (two-way diff) Report objects added in right_model.g
-
++
 (three-way diff) Report objects added in left_model.g and/or right_model.g
 
 
 *-d*::
 (two-way diff) Report objects deleted in right_model.g
-
++
 (three-way diff) Report objects deleted in left_model.g and/or right_model.g
 
 
 *-m*::
 (two-way diff) Report objects modified in right_model.g
-
++
 (three-way diff) Report objects that are different in left_model.g and/or right_model.g relative to ancestor.g
 
 
@@ -54,7 +54,7 @@ Decrease the verbosity of the output. Additional specifications will further dec
 
 *-u*::
 (two-way diff) Report objects that are identical in left_model.g and right_model.g
-
++
 (three-way diff) Report objects that are identical in ancestor_model.g, left_model.g and right_model.g
 
 
@@ -119,7 +119,7 @@ Enable an initial filename binning pass using Damerau-Levenshtein edit distance 
 
 *--threshold* _#_::
 Content similarity threshold for TLSH distances. An undirected similarity edge is added between two files when `diff < #`. Larger values yield looser clustering (more files per group). Default: 30.
-
++
 In normal usage this is the value users will most likely want to adjust. (For large input sets it is _highly_ recommended that hashes be stored and reused with the *--write-hashes* and *--read-hashes* options to save processing time.) Lower and higher values will result in more and less agressive bin creation - the user will need to develop an intuitive feel for what settings produce the most useful groups for their particular inputs.
 
 
@@ -850,4 +850,4 @@ This software is Copyright (c) 2014-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

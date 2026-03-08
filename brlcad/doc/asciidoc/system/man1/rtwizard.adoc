@@ -139,9 +139,9 @@ Specify the width and height of the generated image in pixels. Width can be over
 *-t* _image_type_
 *--type* _image_type_::
 Specify the type of image to be rendered. The images produced by *rtwizard* are categorized by _picture type_. There are six picture types built on full color raytracing, ghost, and edge line renderings.
-
++
 NOTE: If a type is specified and insufficient information is supplied to generate that particular image type, rtwizard will exit with an error.
-
++
 
 
 .RtWizard Image Types
@@ -263,4 +263,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

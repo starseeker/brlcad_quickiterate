@@ -10,7 +10,7 @@ fbgamma - load a gamma correcting colormap
 
 [source]
 ----
-fbgamma [-H] [-o] [-i] [-Fframebuffer] val [ gval bval]
+fbgamma [-H] [-o] [-i] [-F framebuffer] val [ gval bval]
 ----
 
 
@@ -69,4 +69,4 @@ This software is Copyright (c) 1987-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org> w
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org w

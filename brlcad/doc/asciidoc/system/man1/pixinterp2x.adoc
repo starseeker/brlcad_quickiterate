@@ -10,7 +10,7 @@ pixinterp2x - interpolate a color pix file twice as large as the original
 
 [source]
 ----
-pixinterp2x [-ssquarefilesize] [-wfile_width] [-nfile_height] [infile.pix] > outfile.pix
+pixinterp2x [-s squarefilesize] [-w file_width] [-n file_height] [infile.pix] > outfile.pix
 ----
 
 
@@ -65,4 +65,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -29,7 +29,7 @@ _chName option ?arg arg ...?_
 
 _Option_ and the _args_ determine the exact behavior of the command. The following commands are possible for command history objects:
 
-_chName_  *add command_string _chName_  *addM* command_string*
+_chName_ *add command_string _chName_ *addM* command_string*
 
 Add a command to the history and reset the current command pointer.
 

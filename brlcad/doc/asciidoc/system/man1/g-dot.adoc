@@ -10,7 +10,7 @@ g-dot - BRL-CAD to DOT language converter
 
 [source]
 ----
-g-dot [-ooutput.dot] database.g object(s)
+g-dot [-o output.dot] database.g object(s)
 ----
 
 
@@ -53,4 +53,4 @@ This software is Copyright (c) 1997-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

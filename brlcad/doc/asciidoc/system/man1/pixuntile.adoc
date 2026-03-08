@@ -10,13 +10,13 @@ pixuntile - break image up into separate files
 
 [source]
 ----
-pixuntile [-ssquareinsize] [-win_width] [-nin_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] [-ostartframe] basename < file.pix
+pixuntile [-s squareinsize] [-w in_width] [-n in_height] [-S squareoutsize] [-W out_width] [-N out_height] [-o startframe] basename < file.pix
 ----
 
 
 [source]
 ----
-pixuntile [-ssquareinsize] [-win_width] [-nin_height] [-Ssquareoutsize] [-Wout_width] [-Nout_height] file1 file2... fileN < file.pix
+pixuntile [-s squareinsize] [-w in_width] [-n in_height] [-S squareoutsize] [-W out_width] [-N out_height] file1 file2... fileN < file.pix
 ----
 
 
@@ -59,4 +59,4 @@ This software is Copyright (c) 1988-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -10,7 +10,7 @@ bwfilter - apply a 3x3 filter to a black and white bw file
 
 [source]
 ----
-bwfilter [-ftype] [-v] [-ddiv] [-Ooffset] [-ssquaresize] [-wwidth] [-nheight] [-oout_file] [file.bw] > newfile.bw
+bwfilter [-f type] [-v] [-d div] [-O offset] [-s squaresize] [-w width] [-n height] [-o out_file] [file.bw] > newfile.bw
 ----
 
 
@@ -79,4 +79,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

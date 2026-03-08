@@ -38,7 +38,7 @@ The following DM (display manager) types are supported:
 
 _struct dm *_ *DM_OPEN* _( int dtype, int argc, char *argv[] )_
 
- __DM_OPEN__ creates a display manager of type _dtype_ and returns a pointer to its  _dm_  structure.  _argc_  and  _argv_  are passed to <<dm_p,dm_processOptions>> for interpretation. __DM_NULL__  is returned if unable to acquire a display manager.
+__DM_OPEN__ creates a display manager of type _dtype_ and returns a pointer to its _dm_ structure. _argc_ and _argv_ are passed to <<dm_p,dm_processOptions>> for interpretation. __DM_NULL__ is returned if unable to acquire a display manager.
 
 
 
@@ -93,7 +93,7 @@ __DM_CLOSE__ closes the display manager indicated by _dmp_.
 
 _int_ *DM_DRAW_BEGIN*_( struct dm *dmp )_
 
- __DM_DRAW_BEGIN__  prepares the display manager indicated by  _dmp_  for a round of drawing.
+__DM_DRAW_BEGIN__ prepares the display manager indicated by _dmp_ for a round of drawing.
 
 
 
@@ -107,9 +107,9 @@ _int_ *DM_DRAW_BEGIN*_( struct dm *dmp )_
 
 
 
- _int_ *DM_DRAW_END* _( struct dm *dmp )_
+_int_ *DM_DRAW_END* _( struct dm *dmp )_
 
-__DM_DRAW_END__ ends the drawing sequence for the display manager indicated by _dmp_. This should be called before the next call to  __<<dm_draw_begin,DM_DRAW_BEGIN>>__  in order to see the results of the current drawing sequence.
+__DM_DRAW_END__ ends the drawing sequence for the display manager indicated by _dmp_. This should be called before the next call to __<<dm_draw_begin,DM_DRAW_BEGIN>>__ in order to see the results of the current drawing sequence.
 
 
 
@@ -123,9 +123,9 @@ __DM_DRAW_END__ ends the drawing sequence for the display manager indicated by _
 
 
 
- _int_ *DM_NORMAL* _( struct dm *dmp )_
+_int_ *DM_NORMAL* _( struct dm *dmp )_
 
- __DM_NORMAL__ restores the display manager indicated by  _dmp_  to a normal mode of operation (i.e. not scaled, rotated, displaced, etc.).
+__DM_NORMAL__ restores the display manager indicated by _dmp_ to a normal mode of operation (i.e. not scaled, rotated, displaced, etc.).
 
 
 
@@ -139,9 +139,9 @@ __DM_DRAW_END__ ends the drawing sequence for the display manager indicated by _
 
 
 
-_int_  *DM_LOADMATRIX* __( struct dm *dmp, mat_t mat, int which_eye )__
+_int_*DM_LOADMATRIX* __( struct dm *dmp, mat_t mat, int which_eye )__
 
- __DM_LOADMATRIX__  loads the display manager indicated by  _dmp_  with a new transformation matrix.  _mat_ indicates the matrix to be loaded. __which_eye__  denotes the eye the matrix applies to and can have a value of 0 to indicate non-stereo, a value of 1 to indicate the right eye, or a value of 2 to indicate the left eye.
+__DM_LOADMATRIX__ loads the display manager indicated by _dmp_ with a new transformation matrix. _mat_ indicates the matrix to be loaded. __which_eye__ denotes the eye the matrix applies to and can have a value of 0 to indicate non-stereo, a value of 1 to indicate the right eye, or a value of 2 to indicate the left eye.
 
 
 
@@ -156,7 +156,7 @@ _int_  *DM_LOADMATRIX* __( struct dm *dmp, mat_t mat, int which_eye )__
 
 _int_ *DM_DRAW_STRING_2D* __( struct dm *dmp, char *str, int x, int y, int size, int use_aspect )__
 
- __DM_DRAW_STRING_2D__ draws a string in the display manager window indicated by _dmp_. _str_ is a pointer to the string to be drawn. x and y indicate where to begin drawing the string and are expected to be in the range [-2048,2047]. The _size_ argument indicates the font size to use (currently used only by dm-ps). The expected values for  _size_  are 0 for small, 1 for medium, 2 for large, and 3 for huge. __use_aspect__  indicates whether to use the aspect ratio to modify the starting point where the string will be drawn.
+__DM_DRAW_STRING_2D__ draws a string in the display manager window indicated by _dmp_. _str_ is a pointer to the string to be drawn. x and y indicate where to begin drawing the string and are expected to be in the range [-2048,2047]. The _size_ argument indicates the font size to use (currently used only by dm-ps). The expected values for _size_ are 0 for small, 1 for medium, 2 for large, and 3 for huge. __use_aspect__ indicates whether to use the aspect ratio to modify the starting point where the string will be drawn.
 
 
 
@@ -176,7 +176,7 @@ _int_ *DM_DRAW_STRING_2D* __( struct dm *dmp, char *str, int x, int y, int size,
 
 _int_ *DM_DRAW_LINE_2D* _( struct dm *dmp, int x1, int y1, int x2, int y2 )_
 
- __DM_DRAW_LINE_2D__ is used to draw two-dimensional lines in the display manager window indicated by _dmp. x1, y1, x2,_ and  _y2_  indicate the coordinates for the line to be drawn.
+__DM_DRAW_LINE_2D__ is used to draw two-dimensional lines in the display manager window indicated by _dmp. x1, y1, x2,_ and _y2_ indicate the coordinates for the line to be drawn.
 
 
 
@@ -192,7 +192,7 @@ _int_ *DM_DRAW_LINE_2D* _( struct dm *dmp, int x1, int y1, int x2, int y2 )_
 
 _int_ *DM_DRAW_POINT_2D* _( struct dm *dmp, int x, int y )_
 
-__DM_DRAW_POINT_2D__ draws a point in the display manager window indicated by  _dmp_. _x_  and  _y_  indicate the coordinates for the point to be drawn.
+__DM_DRAW_POINT_2D__ draws a point in the display manager window indicated by _dmp_. _x_ and _y_ indicate the coordinates for the point to be drawn.
 
 
 
@@ -209,7 +209,7 @@ __DM_DRAW_POINT_2D__ draws a point in the display manager window indicated by  _
 
 _int_ *DM_DRAW_VLIST* __( struct dm *dmp, struct rt_vlist *vp )__
 
-__DM_DRAW_VLIST__ takes the vlist pointer  _vp_  and interprets it for drawing into the display manager window indicated by  _dmp_ .
+__DM_DRAW_VLIST__ takes the vlist pointer _vp_ and interprets it for drawing into the display manager window indicated by _dmp_ .
 
 
 
@@ -225,7 +225,7 @@ __DM_DRAW_VLIST__ takes the vlist pointer  _vp_  and interprets it for drawing i
 
 _int_ *DM_SET_FGCOLOR* _( struct dm *dmp, short r, short g, short b, int strict )_
 
- __DM_SET_FGCOLOR__  sets the color for drawing in the display manager indicated by  _dmp_. _r, g,_ and  _b_ denote the color and have values in the range [0,255]. _Strict_  specifies to really use this color (i.e. don't allow ogl to do fancy things with the color when depth cueing).
+__DM_SET_FGCOLOR__ sets the color for drawing in the display manager indicated by _dmp_. _r, g,_ and _b_ denote the color and have values in the range [0,255]. _Strict_ specifies to really use this color (i.e. don't allow ogl to do fancy things with the color when depth cueing).
 
 
 
@@ -241,7 +241,7 @@ _int_ *DM_SET_FGCOLOR* _( struct dm *dmp, short r, short g, short b, int strict 
 
 _int_ *DM_SET_BGCOLOR* _( struct dm *dmp, short r, short g, short b )_
 
- __DM_SET_BGCOLOR__ sets the background color for the display manager indicated by  _dmp. r, g,_  and  _b_  denote the color and have values in the range [0,255].
+__DM_SET_BGCOLOR__ sets the background color for the display manager indicated by _dmp. r, g,_ and _b_ denote the color and have values in the range [0,255].
 
 
 
@@ -257,7 +257,7 @@ _int_ *DM_SET_BGCOLOR* _( struct dm *dmp, short r, short g, short b )_
 
 _int_ *DM_GET_BGCOLOR* __( struct dm *dmp, Tcl_Interp *interp )__
 
- __DM_SET_BGCOLOR__  gets the background color for the display manager indicated by  _dmp_  and places the result in interp.
+__DM_SET_BGCOLOR__ gets the background color for the display manager indicated by _dmp_ and places the result in interp.
 
 
 
@@ -273,7 +273,7 @@ _int_ *DM_GET_BGCOLOR* __( struct dm *dmp, Tcl_Interp *interp )__
 
 _int_ *DM_SET_LINE_ATTR* _( struct dm *dmp, int width, int style )_
 
-__DM_SET_LINE_ATTR__ sets the display managers (i.e. dmp) line width to width and sets its line style to _style_ . Currently, there are only 2 valid values for  _style: 0_  for solid lines and 1 for dashed lines.
+__DM_SET_LINE_ATTR__ sets the display managers (i.e. dmp) line width to width and sets its line style to _style_ . Currently, there are only 2 valid values for _style: 0_ for solid lines and 1 for dashed lines.
 
 
 
@@ -308,7 +308,7 @@ __DM_SET_WIN_BOUNDS__ sets the view clipping planes for the display manager indi
 
 _int_ *DM_ENDDLIST* _( struct dm *dmp )_
 
-__DM_ENDDLIST__ ends the definition of the display list currently being defined for the display manager indicated by  _dmp_.
+__DM_ENDDLIST__ ends the definition of the display list currently being defined for the display manager indicated by _dmp_.
 
 
 
@@ -328,7 +328,7 @@ __DM_ENDDLIST__ ends the definition of the display list currently being defined 
 
 _int_ *DM_DRAWDLIST* _( struct dm *dmp, unsigned int list )_
 
-__DM_DRAWDLIST__ draws the previously defined display list list in the display manager indicated by  _dmp_.
+__DM_DRAWDLIST__ draws the previously defined display list list in the display manager indicated by _dmp_.
 
 
 
@@ -367,9 +367,9 @@ _int_ *dm_share_list* _( struct dm *dmp1, struct dm *dmp2 )_
 
 __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 are not NULL, dmp1 will share its display lists with dmp2. If dmp2 is NULL, dmp1 will no longer share its display lists.
 
- _void_ *dm_fogHint* _( struct dm *dmp, int fastfog )_
+_void_ *dm_fogHint* _( struct dm *dmp, int fastfog )_
 
- __dm_fogHint__ is used to give a hint to the display manager about whether to use an efficient fog calculation method or the most accurate. Note - this is currently only implemented by the ogl display manager.
+__dm_fogHint__ is used to give a hint to the display manager about whether to use an efficient fog calculation method or the most accurate. Note - this is currently only implemented by the ogl display manager.
 
 
 
@@ -387,9 +387,9 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- _int_ *dm_limit* _( val )_
+_int_ *dm_limit* _( val )_
 
- __dm_limit__  takes an integer argument and returns zero if (NOISE <= val < = NOISE) where NOISE is the size of the dead spot around zero. If ( val < -NOISE ), the return value is _( val + NOISE )_. If _( NOISE < val ),_ the return value is  _( val - NOISE )._
+__dm_limit__ takes an integer argument and returns zero if (NOISE <= val < = NOISE) where NOISE is the size of the dead spot around zero. If ( val < -NOISE ), the return value is _( val + NOISE )_. If _( NOISE < val ),_ the return value is _( val - NOISE )._
 
 
 
@@ -414,9 +414,9 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- _int_ *dm_unlimit* _( val )_
+_int_ *dm_unlimit* _( val )_
 
- __dm_unlimit__ takes an integer value and returns zero if  _( val == 0 )._ If  _( 0 < val ),_ the return value is  _( NOISE + val ). If ( val < 0 ),_ the return value is _( -NOISE + val )._ In short, dm_unlimit puts NOISE back into val.
+__dm_unlimit__ takes an integer value and returns zero if _( val == 0 )._ If _( 0 < val ),_ the return value is _( NOISE + val ). If ( val < 0 ),_ the return value is _( -NOISE + val )._ In short, dm_unlimit puts NOISE back into val.
 
 
 
@@ -436,9 +436,9 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- __fastf_t__ *dm_wrap* _( val )_
+__fastf_t__ *dm_wrap* _( val )_
 
- __dm_wrap__ wraps _val_  into the range [-1.0, 1.0].
+__dm_wrap__ wraps _val_ into the range [-1.0, 1.0].
 
 
 
@@ -468,9 +468,9 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- _int_ *dm_processOptions*__(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])__
+_int_ *dm_processOptions*__(struct dm *dmp, struct bu_vls *vls, int argc, char *argv[])__
 
- __dm_processOptions__  is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
+__dm_processOptions__ is used primarily by LIBDM's display manager open routines to process options. The table below lists the available options. Note - the application would not typically call processOptions. The application would instead build the desired options into the argv list that is supplied to the call to DM_OPEN.
 
 
 
@@ -500,13 +500,13 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- _void_ *dm_configureWindowShape* _( dmp )_
+_void_ *dm_configureWindowShape* _( dmp )_
 
- __dm_configureWindowShape__ is used to update the internal state of a display manager after its window has been newly created or resized. This routine is typically called by an event handler.
+__dm_configureWindowShape__ is used to update the internal state of a display manager after its window has been newly created or resized. This routine is typically called by an event handler.
 
- _void_ *dm_zbuffer* __( struct dm *dmp, zbuffer_on )__
+_void_ *dm_zbuffer* __( struct dm *dmp, zbuffer_on )__
 
- __dm_zbuffer__ is used to turn Z-buffering on/off. Note - zbuffering is only supported by the _ogl_ display manager.
+__dm_zbuffer__ is used to turn Z-buffering on/off. Note - zbuffering is only supported by the _ogl_ display manager.
 
 
 
@@ -520,9 +520,9 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- _void_ __dm_lighting__ __( struct dm *dmp, int lighting_on )__
+_void_ __dm_lighting__ __( struct dm *dmp, int lighting_on )__
 
- __dm_lighting__ is used to turn lighting on/off. Note - lighting is only supported by the ogl display manager.
+__dm_lighting__ is used to turn lighting on/off. Note - lighting is only supported by the ogl display manager.
 
 
 
@@ -536,36 +536,36 @@ __dm_share_dlist__ provides a way to (un)share display lists. If dmp1 and dmp2 a
 
 
 
- __fastf_t__ *dm_Xx2Normal* _( struct dm *dmp, int x )_
+__fastf_t__ *dm_Xx2Normal* _( struct dm *dmp, int x )_
 
- __dm_Xx2Normal__ takes x in X screen coordinates and returns a value in the range [-1.0, 1.0]. dmp indicates the display manager of interest.
+__dm_Xx2Normal__ takes x in X screen coordinates and returns a value in the range [-1.0, 1.0]. dmp indicates the display manager of interest.
 
- __fastf_t__ *dm_Xy2Normal* __( struct dm *dmp, int y, int use_aspect )__
+__fastf_t__ *dm_Xy2Normal* __( struct dm *dmp, int y, int use_aspect )__
 
- __dm_Xy2Normal__ takes y in X screen coordinates and returns a value in the range [-1.0, 1.0]. _dmp_ indicates the display manager of interest.  __use_aspect specifies__ whether to use the window's aspect ratio in the calculation.
+__dm_Xy2Normal__ takes y in X screen coordinates and returns a value in the range [-1.0, 1.0]. _dmp_ indicates the display manager of interest. __use_aspect specifies__ whether to use the window's aspect ratio in the calculation.
 
- _int_ *dm_Normal2Xx* __( struct dm *dmp, fastf_t x )__
+_int_ *dm_Normal2Xx* __( struct dm *dmp, fastf_t x )__
 
- __dm_Normal2Xx__ takes x in normalized coordinates and returns a value in X screen coordinates. _dmp_ indicates the display manager of interest
+__dm_Normal2Xx__ takes x in normalized coordinates and returns a value in X screen coordinates. _dmp_ indicates the display manager of interest
 
- _int_ *dm_Normal2Xy* __( struct dm *dmp, fastf_t y )__
+_int_ *dm_Normal2Xy* __( struct dm *dmp, fastf_t y )__
 
- __dm_Normal2Xy__ takes y in normalized coordinates and returns a value in X screen coordinates. _dmp_ indicates the display manager of interest.
+__dm_Normal2Xy__ takes y in normalized coordinates and returns a value in X screen coordinates. _dmp_ indicates the display manager of interest.
 
- _int_ *Dm_Init* __( Tcl_Interp *interp )__ 
+_int_ *Dm_Init* __( Tcl_Interp *interp )__
 
- __Dm_Init initializes__ LIBDM's tcl commands. _interp_ indicates the Tcl interpreter.
+__Dm_Init initializes__ LIBDM's tcl commands. _interp_ indicates the Tcl interpreter.
 
 
 === LIBDM's Tcl Interface
 
- *dm_bestXType* _display_
+*dm_bestXType* _display_
 
- __dm_bestXType__ returns the best available display manager type that can be used on the X server indicated by  _display_. _Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
+__dm_bestXType__ returns the best available display manager type that can be used on the X server indicated by _display_. _Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
 
- *dm_validXType* _display dtype_
+*dm_validXType* _display dtype_
 
- __dm_validXType__ returns 1 if dtype is a valid display manager type for the X server indicated by _display_. Otherwise, 0 is returned. _Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
+__dm_validXType__ returns 1 if dtype is a valid display manager type for the X server indicated by _display_. Otherwise, 0 is returned. _Display_ is specified the same and has the same meaning as the X DISPLAY environment variable.
 
 
 == Display Manager Objects
@@ -577,26 +577,26 @@ dm_open - create and manipulate a display manager object.
 
 === SYNOPSIS
 
- *dm_open* [ _pathName_ type [options]]
+*dm_open* [ _pathName_ type [options]]
 
 
 === COMMAND LINE OPTIONS
 
 Option:
 
- *-N* _height_
+*-N* _height_
 
 Specifies the window's height (i.e. number of raster lines).
 
 Option:
 
- *-W* _width_
+*-W* _width_
 
 Specifies the window's width.
 
 Option:
 
-*-S* _size_ 
+*-S* _size_
 
 Specifies the window's square size (i.e. width and height).
 
@@ -614,7 +614,7 @@ Specifies the toplevel flag. 0 indicates the display manager object is an intern
 
 Option:
 
-*-d*  _dpy_
+*-d* _dpy_
 
 Specifies the display string in a format understood by X windows.
 
@@ -626,139 +626,139 @@ The dm_open command creates a new window (given by the pathName argument) and ma
 
 === METHODS
 
-The  *dm_open* command creates a new Tcl command whose name is pathName. This command may be used to invoke various operations on the display manager object. It has the following general form:
+The *dm_open* command creates a new Tcl command whose name is pathName. This command may be used to invoke various operations on the display manager object. It has the following general form:
 
- _pathName option ?arg arg ...?_
+_pathName option ?arg arg ...?_
 
 Option and the args determine the exact behavior of the command. The following commands are possible for display manager objects:
 
- _pathName_ *bg ["r g b"]*
+_pathName_ *bg ["r g b"]*
 
 Set/get the background color. The rgb components are expected to be integers between 0 and 255. pathName bounds [xmin xmax ymin ymax zmin zmax]
 
 Set/get the window bounds. Some display managers use this to calculate clipping planes (i.e. X).
 
- _pathName_   *clear* 
+_pathName_ *clear*
 
 Clear the drawing area using the background color.
 
- _pathName_  *close* 
+_pathName_ *close*
 
 Close the display manager object.
 
- _pathName_ *configure* 
+_pathName_ *configure*
 
 Called to handle Configure events.
 
- _pathName_ *debug [0|1]* 
+_pathName_ *debug [0|1]*
 
 Set/get debug mode. 0 indicates debugging is off while 1 indicates debugging is on.
 
- _pathName_ *drawBegin* 
+_pathName_ *drawBegin*
 
 Begin the drawing sequence.
 
- _pathName_ *drawEnd* 
+_pathName_ *drawEnd*
 
 End the drawing sequence. This will cause the graphics pipe to be flushed.
 
- _pathName drawGeom_ *geo_obj(s)* 
+_pathName drawGeom_ *geo_obj(s)*
 
 Draw one or more drawable geometry objects.
 
- _pathName_  *drawLine x1 y1 x2 y2* 
+_pathName_ *drawLine x1 y1 x2 y2*
 
 Draw the 2D line indicated by endpoints (x1, y1) and (x2, y2). The given coordinates are expected to be in the range [-1, 1].
 
- _pathName_ *drawPoint x y* 
+_pathName_ *drawPoint x y*
 
 Draw the 2D point at position (x, y).
 
- _pathName_ *drawSList slp* 
+_pathName_ *drawSList slp*
 
 Draw the solid list specified by the solid list pointer (i.e.slp).
 
- _pathName_ *drawString str x y size use_aspect*
+_pathName_ *drawString str x y size use_aspect*
 
 Draw the 2D string starting at position (x, y). The x and y coordinates are expected to be in the range [-1, 1]. The size is currently ignored. The use_aspect flag indicates whether or not to use the aspect ratio to modify the starting position.
 
- _pathName_ *drawVList vlp*
+_pathName_ *drawVList vlp*
 
 Draw the vector list specified by the vector list pointer (i.e.vlp).
 
- _pathName_ *fg ["r g b"]* 
+_pathName_ *fg ["r g b"]*
 
 Set/get the foreground color. The rgb components are expected to be integers between 0 and 255.
 
- _pathName_ *flush* 
+_pathName_ *flush*
 
 Flushes the X server's request buffer.
 
- _pathName_ *get_aspect* 
+_pathName_ *get_aspect*
 
 Get the window's aspect ratio (i.e. width / height).
 
- _pathName_ *light [0|1]* 
+_pathName_ *light [0|1]*
 
 Set/get light mode. 0 indicates light is off while 1 indicates light is on.
 
- _pathName_ *linestyle [0|1]* 
+_pathName_ *linestyle [0|1]*
 
 Set/get linestyle. 0 indicates solid lines while 1 indicates dashed lines.
 
- _pathName_ *linewidth [width]* 
+_pathName_ *linewidth [width]*
 
 Set/get linewidth. This setting determines how fat to draw the wireframe lines.
 
- _pathName_ *listen [port]* 
+_pathName_ *listen [port]*
 
 Set/get the port used to listen for framebuffer clients. Port values less than zero turn off listening.
 
- _pathName_ *loadmat mat* 
+_pathName_ *loadmat mat*
 
 Load the matrix, mat, into the display manager. This is typically a model2view matrix.
 
- _pathName_ *normal* 
+_pathName_ *normal*
 
 Restore display manager to a normal mode of operation (i.e. not scaled, rotated, displaced, etc.).
 
- _pathName_ *observer [subcommand]* 
+_pathName_ *observer [subcommand]*
 
 This command is used to maintain a list of observers. Observers are objects who have registered an interest in when this display manager object receives pixels in its role as a framebuffer server. Whenever pixel data is received the observers on the list are notified.
 
- _pathName_ *observer attach obs [command]*
+_pathName_ *observer attach obs [command]*
 
 Add the specified observer, obs, to the list of observers. If command is specified then it is executed each time pixel data is received. Otherwise, the observer is expected to have an update method which is called with the name of this display manager object as an argument.
 
- _pathName observer detach obs_ 
+_pathName observer detach obs_
 
 Remove the specified observer, obs, from the list of observers.
 
- _pathName_ *observer show*
+_pathName_ *observer show*
 
 Return the list of observers for this display manager object.
 
- _pathName_ *perspective [0|1]* 
+_pathName_ *perspective [0|1]*
 
 Set/get perspective mode. 0 indicates perspective is off, while 1 indicates perspective is on.
 
- _pathName_ *refreshfb* 
+_pathName_ *refreshfb*
 
 Draws/displays the pixels stored in the widget's framebuffer.
 
- _pathName_ *size [width height]* 
+_pathName_ *size [width height]*
 
 Set/get the window size.
 
- _pathName_ *sync* 
+_pathName_ *sync*
 
 Flushes the X server's request buffer and waits until all events have been processed.
 
- _pathName_ *zbuffer [0|1]* 
+_pathName_ *zbuffer [0|1]*
 
 Set/get zbuffer mode. 0 indicates that zbuffer is off, while 1 indicates zbuffer is on.
 
- _pathName_ *zclip [0|1]* 
+_pathName_ *zclip [0|1]*
 
 Set/get zclipping mode. 0 indicates zclipping is off, while 1 indicates zclipping is on.
 

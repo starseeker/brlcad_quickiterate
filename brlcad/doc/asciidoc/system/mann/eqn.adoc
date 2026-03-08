@@ -33,7 +33,7 @@ The example shows the use of the *eqn* command to rotate the face of the ARB bei
 [example]
 ====
 
-mged>*eqn 0 0 1*::
+mged> *eqn 0 0 1*::
 The face of the _ARB_ is rotated to be parallel to the _xy_ plane.
 
 
@@ -50,4 +50,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

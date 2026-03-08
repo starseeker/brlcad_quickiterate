@@ -29,7 +29,7 @@ The example shows the use of the *edcodes* command for editing the region codes 
 [example]
 ====
 
-mged>*edcodes object1 object2*::
+mged> *edcodes object1 object2*::
 Enables the user to edit the region codes for all regions below _object1_ and _object2_.
 
 
@@ -46,4 +46,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

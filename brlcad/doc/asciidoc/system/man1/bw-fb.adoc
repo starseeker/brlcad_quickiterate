@@ -10,7 +10,7 @@ bw-fb - display a black and white bw image on a framebuffer
 
 [source]
 ----
-bw-fb [-ahiczRGB] [-Fframebuffer] [-ssquarefilesize] [-wfile_width] [-nfile_height] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height] [-xfile_xoff] [-yfile_yoff] [-Xscr_xoff] [-Ysrc_yoff] [infile.bw]
+bw-fb [-ahiczRGB] [-F framebuffer] [-s squarefilesize] [-w file_width] [-n file_height] [-S squarescrsize] [-W scr_width] [-N scr_height] [-x file_xoff] [-y file_yoff] [-X scr_xoff] [-Y src_yoff] [infile.bw]
 ----
 
 
@@ -61,4 +61,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

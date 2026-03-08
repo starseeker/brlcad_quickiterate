@@ -31,7 +31,7 @@ This example shows the use of the *killrefs* command to remove all references to
 [example]
 ====
 
-mged>*killref group1*::
+mged> *killref group1*::
 Removes all references to _group1_ from the database.
 
 
@@ -44,7 +44,7 @@ This example shows the use of the *killrefs* command to list all references to t
 [example]
 ====
 
-mged>*killref -n group1*::
+mged> *killref -n group1*::
 Lists all references to _group1_ in the database.
 
 
@@ -67,4 +67,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

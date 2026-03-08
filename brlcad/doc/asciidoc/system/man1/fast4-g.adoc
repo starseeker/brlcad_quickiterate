@@ -10,7 +10,7 @@ fast4-g - FASTGEN4 Translator (FASTGEN4 to BRL-CAD)
 
 [source]
 ----
-fast4-g [-dwq] [-oplot_file] [-mmuves_warnings] [-cid_list] [-xRT_DEBUG_FLAG] [-bBU_DEBUG_FLAG] file.fastgen4 file.g
+fast4-g [-dwq] [-o plot_file] [-m muves_warnings] [-c id_list] [-x RT_DEBUG_FLAG] [-b BU_DEBUG_FLAG] file.fastgen4 file.g
 ----
 
 
@@ -83,4 +83,4 @@ This software is Copyright (c) 1994-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

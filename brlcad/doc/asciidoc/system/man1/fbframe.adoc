@@ -10,7 +10,7 @@ fbframe - place a colored frame around a framebuffer
 
 [source]
 ----
-fbframe [-Fframebuffer] [-w|Wframe_width] [-n|Nframe_height] [-s|Ssquareframesize]
+fbframe [-F framebuffer] [-w|W frame_width] [-n|N frame_height] [-s|S squareframesize]
 ----
 
 
@@ -23,7 +23,7 @@ The frame starts in the lower left with a red line running to the right to the n
 
 By default, the dimensions of the frame will be taken from the framebuffer used. Alternatively, one or more of the options *-s*, *-w*, *-n* (or *-S*, *-W*, *-N*) may be used to set the dimensions of the frame drawn.
 
-The options *-w*  (or *-W*) _frame_width_ and *-n*  (or *-N*) _frame_height_ are used to specify the width (in pixels) and height (in scanlines) of the frame on the framebuffer respectively. The *-s*  (or *-S*) _squareframesize_ option specifies both the height and width of the frame to be drawn.
+The options *-w* (or *-W*) _frame_width_ and *-n* (or *-N*) _frame_height_ are used to specify the width (in pixels) and height (in scanlines) of the frame on the framebuffer respectively. The *-s* (or *-S*) _squareframesize_ option specifies both the height and width of the frame to be drawn.
 
 
 [[see_also]]
@@ -47,4 +47,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

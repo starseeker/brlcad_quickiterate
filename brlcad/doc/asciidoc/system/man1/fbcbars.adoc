@@ -10,7 +10,7 @@ fbcbars - display standard color bars on a framebuffer
 
 [source]
 ----
-fbcbars [-e] [-f] [-s] [-Fframebuffer] [-Ssquarescrsize] [-Wscr_width] [-Nscr_height]
+fbcbars [-e] [-f] [-s] [-F framebuffer] [-S squarescrsize] [-W scr_width] [-N scr_height]
 ----
 
 
@@ -59,4 +59,4 @@ This software is Copyright (c) 1988-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

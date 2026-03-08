@@ -10,7 +10,7 @@ terrain - Generate terrain field from mathematical noise
 
 [source]
 ----
-terrain [-wx_postings] [-ny_postings] [-sxy_postings] [-Lnoise_Lacunarity] [-Hnoise_H_value] [-Onoise_octaves] [-onoise_offset] [-Snoise_scale] [-Vnoise_Vector_scale] [-Dnoise_Delta] [-fnoise_function] [ -chost/net format conversion off] > file.dsp
+terrain [-w x_postings] [-n y_postings] [-s xy_postings] [-L noise_Lacunarity] [-H noise_H_value] [-O noise_octaves] [-o noise_offset] [-S noise_scale] [-V noise_Vector_scale] [-D noise_Delta] [-f noise_function] [ -c host/net format conversion off] > file.dsp
 ----
 
 
@@ -115,4 +115,4 @@ This software is Copyright (c) 2000-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

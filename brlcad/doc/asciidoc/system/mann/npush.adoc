@@ -10,7 +10,7 @@ npush - push matrices down a tree hierarchy
 
 [source]
 ----
-npush [-h] [-?] [-v] [-f] [-x] [-r] [-s] [-dmax_depth] {arg1 [arg2]...}
+npush [-h] [-?] [-v] [-f] [-x] [-r] [-s] [-d max_depth] {arg1 [arg2]...}
 ----
 
 

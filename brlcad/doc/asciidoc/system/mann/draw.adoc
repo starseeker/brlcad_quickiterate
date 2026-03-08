@@ -10,7 +10,7 @@ draw - Adds objects> to the display list so that they will appear on the MGED di
 
 [source]
 ----
-draw [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
+draw [-A attribute name/value pairs] [-s] [-A -o attribute name/value pairs] [-C#/#/#] [-L #] [-R] [-S] [-m1] {objects}
 ----
 
 
@@ -38,7 +38,7 @@ The following examples show the use of the *draw* command to draw particular obj
 [example]
 ====
 
-mged>*draw object1 object2*::
+mged> *draw object1 object2*::
 _Object1_ and _object2_ are drawn in the _MGED_ display.
 
 
@@ -73,4 +73,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

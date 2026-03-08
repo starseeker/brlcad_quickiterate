@@ -19,7 +19,7 @@ rtarea [options]...
 
 For displayed objects, the _rtarea_ command calculates the exposed, presented and centers of surface areas. The summary output includes details for individual regions, assemblies (combinations that contain regions), and summarized totals. By default current display azimuth and elevation are used for computations. Summary units are current MGED editing units.
 
-The *exposed*  area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page:
+The *exposed* area corresponds to what a human observer would see looking at the object(s) in question, if all the objects were non-transparent. For example, say rays were cast towards two cubes, each one of which is a region, one in front of the other, grouped into an assembly, with the ray direction pointed into the page:
 
 
 ....

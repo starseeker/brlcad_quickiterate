@@ -183,7 +183,7 @@ Este comando significa:
 [[command_combined_in]]
 == Desarrollar un formato de comando combinado para el comando in
 
-Cuando usted comienza a usar  _MGED_ , si desea utilizar la ventana de comandos en lugar de la interfaz gráfica de usuario, probablemente querrá hacer algunos formularios en blanco de comandos combinados para cada tipo de forma primitiva que usted esté creando. Esto puede acelerar el proceso de diseño y ayudar a recordar que los valores deben ser presentados para cada forma. Una forma de la esfera podría ser:
+Cuando usted comienza a usar _MGED_ , si desea utilizar la ventana de comandos en lugar de la interfaz gráfica de usuario, probablemente querrá hacer algunos formularios en blanco de comandos combinados para cada tipo de forma primitiva que usted esté creando. Esto puede acelerar el proceso de diseño y ayudar a recordar que los valores deben ser presentados para cada forma. Una forma de la esfera podría ser:
 
 [cols="10*"]
 [%noheader]
@@ -234,7 +234,7 @@ Un ejemplo para el RCC puede ser:
 [[mged_naming_conventions]]
 == Considerar los nombres convencionales para las figuras en MGED
 
-Usted puede haber notado que cada vez que se crea una esfera o CCR, se han asignado nombres diferentes. A  _MGED_  no le afecta en nada el nombre que le dé a una forma, pero puede ayudar el uso de convenciones sobre los nombres de las formas. Sólo tenga en cuenta también que cada nombre debe ser único en la base de datos, y para las versiones anteriores a  _BRL-CAD_  6.0, los nombres están limitados a 16 caracteres de longitud.
+Usted puede haber notado que cada vez que se crea una esfera o CCR, se han asignado nombres diferentes. A _MGED_ no le afecta en nada el nombre que le dé a una forma, pero puede ayudar el uso de convenciones sobre los nombres de las formas. Sólo tenga en cuenta también que cada nombre debe ser único en la base de datos, y para las versiones anteriores a _BRL-CAD_ 6.0, los nombres están limitados a 16 caracteres de longitud.
 
 En esta lección le asignamos nombres a las formas en función de su tipo de figura y el orden en el que los creó. Lo hicimos porque las formas no tenía ninguna función real, salvo servir de ejemplos.
 
@@ -252,7 +252,7 @@ Practique ver sus nuevas formas mediante el menú View (Vistas). Manipule la vis
 [[using_insert_command_quit]]
 == Salir de MGED
 
-Si desea salir de  _MGED_  tipee la letra q o la palabra quit luego del prompt de la ventana de comandos y luego presione ENTER. También puede cerrar el programa seleccionando Exit (Salir) en el menú File (Archivo).
+Si desea salir de _MGED_ tipee la letra q o la palabra quit luego del prompt de la ventana de comandos y luego presione ENTER. También puede cerrar el programa seleccionando Exit (Salir) en el menú File (Archivo).
 
 
 [[using_insert_command_review]]

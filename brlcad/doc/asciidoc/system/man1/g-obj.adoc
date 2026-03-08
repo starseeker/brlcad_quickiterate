@@ -10,7 +10,7 @@ g-obj - BRL-CAD to Wavefront Object File converter
 
 [source]
 ----
-g-obj [-mviu] [-xXlvl] [-eerror_file] [-Dcalculation_tolerance] [-aabs_tol] [-rrel_tol] [-nnorm_tol] [-Pnumber_of_CPUs] [-ooutput.obj] database.g object(s)
+g-obj [-mviu] [-xX lvl] [-e error_file] [-D calculation_tolerance] [-a abs_tol] [-r rel_tol] [-n norm_tol] [-P number_of_CPUs] [-o output.obj] database.g object(s)
 ----
 
 
@@ -51,4 +51,4 @@ This software is Copyright (c) 1997-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -10,7 +10,7 @@ build_region - Builds a region from existing solids that have specifically forma
 
 [source]
 ----
-build_region [-aregion_num] {tag start_num end_num}
+build_region [-a region_num] {tag start_num end_num}
 ----
 
 
@@ -29,7 +29,7 @@ The example demonstrates how to use the *build_region* command to build a region
 [example]
 ====
 
-mged>*build_region abc 1 2*::
+mged> *build_region abc 1 2*::
 Creates a region named "abc.r1" consisting of:
 
 
@@ -54,4 +54,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -30,7 +30,7 @@ The example shows the use of the *sph-part* command to create a PART shape that 
 ====
 mged>*sph-part sph1.s sph2.s part.s*
 
-Creates a PART shape named _part.s_ that surrounds the spheres _sph1.s_  and _sph2.s_.
+Creates a PART shape named _part.s_ that surrounds the spheres _sph1.s_ and _sph2.s_.
 
 ====
 
@@ -44,4 +44,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

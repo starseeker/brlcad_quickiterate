@@ -10,7 +10,7 @@ bwrot - rotate, invert, or reverse a black and white bw file
 
 [source]
 ----
-bwrot [ -rifb| -aangle] [-ssquaresize] [-win_width] [-nin_height] [-oout.bw] [file.bw] [ > out.bw]
+bwrot [-rifb | -a angle] [-s squaresize] [-w in_width] [-n in_height] [-o out.bw] [file.bw] [ > out.bw]
 ----
 
 
@@ -61,4 +61,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

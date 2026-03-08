@@ -10,7 +10,7 @@ plot3-ps - convert UnixPlot to PostScript file
 
 [source]
 ----
-plot3-ps [-ec] [-s|Ssquare_output_size] [-w|Woutput_width] [-n|Noutput_height] [<] unix_plot
+plot3-ps [-ec] [-s|S square_output_size] [-w|W output_width] [-n|N output_height] [<] unix_plot
 ----
 
 
@@ -57,4 +57,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

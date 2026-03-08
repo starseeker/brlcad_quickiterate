@@ -10,7 +10,7 @@ ply-g - Stanford PLY format Translator (PLY to BRL-CAD)
 
 [source]
 ----
-ply-g [-sscale_factor] [-v] [-d] file.ply file.g
+ply-g [-s scale_factor] [-v] [-d] file.ply file.g
 ----
 
 
@@ -51,4 +51,4 @@ This software is Copyright (c) 2003-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

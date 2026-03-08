@@ -56,7 +56,7 @@ Adds the attribute and value provied for the specified attribute to the object o
 
 *list* object_name_pattern [key_filter_pattern [value_filter_pattern]]::
 Lists the attributes assigned to the object or objects matched by the pattern. If multiple objects are matched, the list returned is a consolidated list of all attribute types present on one or more of the matched objects. This option is useful when investigating what attributes are present in objects in a database.
-
++
 Optionally, the *list* subcommand will accept filters that are used to match key or key/value combinations and report only those matches. If both key and value filters are supplied, the output of the list subcommand will be not just the unique matching attribute keys but the unique matching key/value pairs. The latter is particularly useful as a way to get an overview of all actively used values associated with a particular attribute key.
 
 
@@ -87,7 +87,7 @@ The examples demonstrate the use of the *attr* command and subcommands to assign
 [example]
 ====
 
-mged>*attr set region_1 material_id 10*::
+mged> *attr set region_1 material_id 10*::
 Assigns an attribute name "material_id" to __region_1__. Its value is 10.
 
 
@@ -98,7 +98,7 @@ Assigns an attribute name "material_id" to __region_1__. Its value is 10.
 [example]
 ====
 
-mged>*attr set region_1 comment {This is a comment for region_1}*::
+mged> *attr set region_1 comment {This is a comment for region_1}*::
 Assigns an attribute named "comment" to __region_1__. Its value is "This is a comment for region_1."
 
 
@@ -109,7 +109,7 @@ Assigns an attribute named "comment" to __region_1__. Its value is "This is a co
 [example]
 ====
 
-mged>*attr show region_1 comment*::
+mged> *attr show region_1 comment*::
 Lists all the attributes for __region_1__.
 
 
@@ -193,4 +193,4 @@ This software is Copyright (c) 2008-2025 United States Government as represented
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

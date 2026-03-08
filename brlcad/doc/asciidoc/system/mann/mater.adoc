@@ -10,7 +10,7 @@ mater - Assigns shader parameters, RGB color, and inheritance to an existing com
 
 [source]
 ----
-mater [-s] {combination} [shader_parameters [RGB [inheritance]]]
+mater [-s] {combination} [shader_parameters  [RGB  [inheritance]]]
 ----
 
 
@@ -46,7 +46,7 @@ mater {-d} {validate} {file.density}
 
 [source]
 ----
-mater {-d} {get} [--tol <tolerance>] [--id[[>|<][=]id]|[id pattern]] [--density[[>|<][=]val] [--namepattern] [pattern]
+mater {-d} {get} [--tol <tolerance>] [--id [[>|<][=]id]|[id pattern]] [--density [[>|<][=]val] [--name pattern] [pattern]
 ----
 
 
@@ -58,7 +58,7 @@ mater {-d} {set} {id,density,name}
 
 [source]
 ----
-mater {-d} {map} {--ids-from-names} {-ddensity_file} {-mmap_file} [density_file] [map_file]
+mater {-d} {map} {--ids-from-names} {-d density_file} {-m map_file} [density_file] [map_file]
 ----
 
 
@@ -130,7 +130,7 @@ The example shows the use of the *mater* command to assign shader parameters, co
 [example]
 ====
 
-mged>*mater region1 "plastic {tr 0.5 re 0.2}" 210 100 100 0*::
+mged> *mater region1 "plastic {tr 0.5 re 0.2}" 210 100 100 0*::
 Sets _region1_ to use the plastic shader with 50% transparency, 20% reflectivity, a base color of (210 100 100), and inheritance set to 0.
 
 
@@ -141,7 +141,7 @@ Sets _region1_ to use the plastic shader with 50% transparency, 20% reflectivity
 [example]
 ====
 
-mged>*mater -d import /home/user/.density*::
+mged> *mater -d import /home/user/.density*::
 After this operation, the density valued defined in /home/user/.density are now stored in the .g file.
 
 
@@ -152,7 +152,7 @@ After this operation, the density valued defined in /home/user/.density are now 
 [example]
 ====
 
-mged>*mater -d get \**::
+mged> *mater -d get \**::
 Lists all entries in the density table.
 
 
@@ -163,7 +163,7 @@ Lists all entries in the density table.
 [example]
 ====
 
-mged>*mater -d get --name \*Rubber\**::
+mged> *mater -d get --name \*Rubber\**::
 Lists all density entries with a material name containing "Rubber".
 
 
@@ -174,7 +174,7 @@ Lists all density entries with a material name containing "Rubber".
 [example]
 ====
 
-mged>*mater -d map --names-from-ids /home/user/.density*::
+mged> *mater -d map --names-from-ids /home/user/.density*::
 Assigns *material_name* names from a density file assuming existing *material_id* attributes.
 
 
@@ -185,7 +185,7 @@ Assigns *material_name* names from a density file assuming existing *material_id
 [example]
 ====
 
-mged>*mater -d map --ids-from-names /home/user/.density /home/user/mapping_file*::
+mged> *mater -d map --ids-from-names /home/user/.density /home/user/mapping_file*::
 Assigning or updating *material_id* attributes based on *material_name* attribute values, density file names, and mapping file associations.
 
 
@@ -202,4 +202,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

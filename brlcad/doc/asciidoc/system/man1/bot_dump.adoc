@@ -10,7 +10,7 @@ bot_dump - export polygonal BoT primitives without performing evaluation
 
 [source]
 ----
-bot_dump [-b] [-n] [-mdirectory] [-ofile] [ -tdxf| obj| sat| stl] [-uunits] [-v] geom.g [ bot1 bot2...]
+bot_dump [-b] [-n] [-m directory] [-o file] [-t dxf | obj | sat | stl] [-u units] [-v] geom.g [ bot1 bot2...]
 ----
 
 
@@ -63,4 +63,4 @@ This software is Copyright (c) 2008-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

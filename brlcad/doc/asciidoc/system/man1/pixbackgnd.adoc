@@ -10,13 +10,13 @@ pixbackgnd - generate a pix(5) shaded background
 
 [source]
 ----
-pixbackgnd [-H] [-i] [-ssquaresize] [-wwidth] [-nheight] [-ttitle_height] [-atop_inten] [-bbottom_inten] hue saturation > file.pix
+pixbackgnd [-H] [-i] [-s squaresize] [-w width] [-n height] [-t title_height] [-a top_inten] [-b bottom_inten] hue saturation > file.pix
 ----
 
 
 [source]
 ----
-pixbackgnd [-H] [-i] [-ssquaresize] [-wwidth] [-nheight] [-ttitle_height] red green blue > file.pix
+pixbackgnd [-H] [-i] [-s squaresize] [-w width] [-n height] [-t title_height] red green blue > file.pix
 ----
 
 
@@ -71,4 +71,4 @@ This software is Copyright (c) 1989-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

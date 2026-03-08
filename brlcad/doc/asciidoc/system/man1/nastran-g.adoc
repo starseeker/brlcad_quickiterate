@@ -10,7 +10,7 @@ nastran-g - NASTRAN Translator (NASTRAN to BRL-CAD)
 
 [source]
 ----
-nastran-g [-xXlvl] [-ttolerance_distance] [-n] [-m] -inastran_input_file -odatabase.g
+nastran-g [-xX lvl] [-t tolerance_distance] [-n] [-m] -i nastran_input_file -o database.g
 ----
 
 
@@ -53,4 +53,4 @@ This software is Copyright (c) 1998-2025 by the United States Government as repr
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

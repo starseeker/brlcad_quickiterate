@@ -10,7 +10,7 @@ e - Adds the objects in the argument list to the display list so that they will 
 
 [source]
 ----
-e [-Aattribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-m1] {objects}
+e [-A attribute name/value pairs] [-s] [-A -oattribute name/value pairs] [-C#/#/#] [-m1] {objects}
 ----
 
 
@@ -29,7 +29,7 @@ The following examples show the use of the *e* command to draw particular object
 [example]
 ====
 
-mged>*e object1 object2*::
+mged> *e object1 object2*::
 Draws _object1_ and _object2_ in the MGED display.
 
 
@@ -39,7 +39,7 @@ Draws _object1_ and _object2_ in the MGED display.
 .Limit the objects to be drawn to those having specific attribute names and value pairs.
 [example]
 ====
-mged>*e -A -o Comment {First comment} Comment {Second comment}* 
+mged>*e -A -o Comment {First comment} Comment {Second comment}*
 
 Draws objects that have a "Comment" attribute with a value of either "First comment" or "Second comment."
 
@@ -55,4 +55,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

@@ -58,15 +58,15 @@ Sets the Tcl variable $oldcent to the display center coordinates.
 [example]
 ====
 
-mged>*set glob_compat_mode 0*::
+mged> *set glob_compat_mode 0*::
 
 
 
-mged>*units mm*::
+mged> *units mm*::
 
 
 
-mged>*eval center [vadd2[center] {2 0 0}]*::
+mged> *eval center [vadd2[center] {2 0 0}]*::
 Moves the center point 2 mm in the model + x direction.
 
 
@@ -77,11 +77,11 @@ Moves the center point 2 mm in the model + x direction.
 [example]
 ====
 
-mged>*units mm*::
+mged> *units mm*::
 
 
 
-mged>*db adjust sphere.s V [center]*::
+mged> *db adjust sphere.s V [center]*::
 
 
 
@@ -98,4 +98,4 @@ BRL-CAD Team
 [[bug_reports]]
 == BUG REPORTS
 
-Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org
