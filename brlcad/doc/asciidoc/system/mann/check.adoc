@@ -17,7 +17,7 @@ check <sub-command> [<options>] [<objects>]...
 [[description]]
 == DESCRIPTION
 
-The *check* program computes and reports a variety of characteristics of the _objects_ specified from the opened database. The characteristics which can be computed include *mass, centroid, moments of inertia, volume, overlaps, surface area, exposed air, gaps/voids, unconfined air* and *adjacent air.* Only the _objects_ from the database specified on the command line are analyzed.
+The *check* program computes and reports a variety of characteristics of the _objects_ specified from the opened database. The characteristics which can be computed include *mass, centroid, moments of inertia, volume, overlaps, surface area, exposed air, gaps/voids, unconfined air* and *adjacent air.*  Only the _objects_ from the database specified on the command line are analyzed.
 
 It works by shooting grids of rays from the three axis-aligned directions (sometimes called _views_) or a single view when azimuth/elevation angles are mentioned.
 
@@ -237,7 +237,7 @@ Disables the reporting of overlaps. Used only for _overlaps_ sub-command.
 
 
 *-s* __surf_area_tolerance__::
-Specifies a _surface area tolerance_ value that the three view computations must be within for computation to complete. If surface area calculation is selected and this option is not set, then the tolerance is set to 1/1,000 of the estimated surface area of the model bounding box.
+Specifies a _surface area tolerance_  value that the three view computations must be within for computation to complete. If surface area calculation is selected and this option is not set, then the tolerance is set to 1/1,000 of the estimated surface area of the model bounding box.
 
 
 *-S* __samples_per_model_axis__::
@@ -437,5 +437,3 @@ BRL-CAD Team
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

@@ -30,7 +30,7 @@ The example shows the use of the *pathlist* command to list all paths that start
 ====
 mged>*pathlist group1 region2*
 
-Lists all existing paths that start from the _combinations group1_ and _region2_ and end at primitive shapes.
+Lists all existing paths that start from the _combinations group1_ and  _region2_ and end at primitive shapes.
 
 ====
 
