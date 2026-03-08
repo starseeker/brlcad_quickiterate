@@ -944,15 +944,33 @@
       <xsl:value-of select="@xml:id"/>
       <xsl:text>]]&#10;</xsl:text>
     </xsl:if>
-    <xsl:if test="db:title">
+    <xsl:if test="db:title or db:info/db:title">
       <xsl:text>.</xsl:text>
-      <xsl:value-of select="normalize-space(db:title)"/>
+      <xsl:value-of select="normalize-space(db:title | db:info/db:title)"/>
       <xsl:text>&#10;</xsl:text>
     </xsl:if>
+    <!-- Emit a [cols="N*"] attribute when the DocBook tgroup declares the
+         column count.  Using the repeat notation "N*" tells the AsciiDoc
+         parser how many columns to expect; this is critical for tables
+         where each entry is emitted on its own line (multi-line cells)
+         so the parser does not prematurely commit a one-cell row. -->
+    <xsl:if test=".//db:tgroup[1]/@cols">
+      <xsl:text>[cols="</xsl:text>
+      <xsl:value-of select=".//db:tgroup[1]/@cols"/>
+      <xsl:text>*"]&#10;</xsl:text>
+    </xsl:if>
+    <!-- Add %noheader option when there is no explicit thead block so
+         AsciiDoc does not promote the first body row to a header row. -->
+    <xsl:if test="not(.//db:thead)">
+      <xsl:text>[%noheader]&#10;</xsl:text>
+    </xsl:if>
     <xsl:text>|===&#10;</xsl:text>
-    <!-- Process thead rows first -->
-    <xsl:apply-templates select=".//db:thead/db:row"/>
-    <xsl:text>&#10;</xsl:text>
+    <!-- Process thead rows first, followed by a blank line to mark the
+         header/body boundary in AsciiDoc table syntax. -->
+    <xsl:if test=".//db:thead">
+      <xsl:apply-templates select=".//db:thead/db:row"/>
+      <xsl:text>&#10;</xsl:text>
+    </xsl:if>
     <!-- Process tbody rows -->
     <xsl:apply-templates select=".//db:tbody/db:row"/>
     <!-- Process tfoot rows -->
@@ -961,24 +979,248 @@
   </xsl:template>
 
   <xsl:template match="db:row">
+    <!-- Emit each entry on its own line so that multi-line cell content
+         (e.g. a paragraph followed by an image) is correctly accumulated
+         by the AsciiDoc parser into a single cell.  The first entry of
+         each row immediately follows the previous row's trailing newline
+         (no leading blank line) to avoid creating a spurious header/body
+         separator before the first row of a table. -->
     <xsl:for-each select="db:entry">
-      <!-- Emit column-span prefix N+| when entry spans multiple columns -->
-      <xsl:variable name="span">
+      <!-- Compute column-span and row-span prefixes. -->
+      <xsl:variable name="colspan">
         <xsl:call-template name="entry-colspan"/>
       </xsl:variable>
-      <xsl:choose>
-        <xsl:when test="$span > 1">
-          <xsl:value-of select="$span"/>
-          <xsl:text>+|</xsl:text>
-        </xsl:when>
-        <xsl:otherwise>
-          <xsl:text>|</xsl:text>
-        </xsl:otherwise>
-      </xsl:choose>
-      <xsl:apply-templates/>
-      <xsl:text> </xsl:text>
+      <xsl:variable name="rowspan">
+        <xsl:choose>
+          <xsl:when test="@morerows and @morerows > 0">
+            <xsl:value-of select="@morerows + 1"/>
+          </xsl:when>
+          <xsl:otherwise>0</xsl:otherwise>
+        </xsl:choose>
+      </xsl:variable>
+      <!-- Entries after the first within a row each start on their own line.
+           The first entry follows directly on the same line as the row
+           context (the trailing newline of the previous row or |===). -->
+      <xsl:if test="position() > 1">
+        <xsl:text>&#10;</xsl:text>
+      </xsl:if>
+      <!-- Emit row-span prefix .N+ when the cell spans multiple rows. -->
+      <xsl:if test="$rowspan > 1">
+        <xsl:text>.</xsl:text>
+        <xsl:value-of select="$rowspan"/>
+        <xsl:text>+</xsl:text>
+      </xsl:if>
+      <!-- Emit column-span prefix N+ when the cell spans multiple columns. -->
+      <xsl:if test="$colspan > 1">
+        <xsl:value-of select="$colspan"/>
+        <xsl:text>+</xsl:text>
+      </xsl:if>
+      <xsl:text>|</xsl:text>
+      <xsl:apply-templates mode="table-cell"/>
     </xsl:for-each>
     <xsl:text>&#10;</xsl:text>
+  </xsl:template>
+
+  <!-- ============================================================
+       TABLE CELL MODE
+       Inside a table cell we suppress block-level newlines so that
+       each entry's content stays on a single (possibly long) line.
+       Block elements are separated by a space instead.
+       ============================================================ -->
+
+  <!-- Paragraphs inside cells: inline, separated by a single space. -->
+  <xsl:template match="db:para | db:simpara" mode="table-cell">
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text> </xsl:text>
+  </xsl:template>
+
+  <!-- Emphasis/bold in cell mode -->
+  <xsl:template match="db:emphasis" mode="table-cell">
+    <xsl:choose>
+      <xsl:when test="@role = 'bold' or @role = 'strong'">
+        <xsl:text>*</xsl:text>
+        <xsl:apply-templates mode="table-cell"/>
+        <xsl:text>*</xsl:text>
+      </xsl:when>
+      <xsl:when test="@role = 'underline'">
+        <xsl:text>[.underline]#</xsl:text>
+        <xsl:apply-templates mode="table-cell"/>
+        <xsl:text>#</xsl:text>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:text>_</xsl:text>
+        <xsl:apply-templates mode="table-cell"/>
+        <xsl:text>_</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template match="db:command | db:option | db:userinput" mode="table-cell">
+    <xsl:text>*</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>*</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:literal | db:code | db:constant | db:type | db:markup
+                       | db:filename | db:varname | db:envar | db:systemitem
+                       | db:computeroutput" mode="table-cell">
+    <xsl:text>`</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>`</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:replaceable | db:parameter | db:application" mode="table-cell">
+    <xsl:text>_</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>_</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:function" mode="table-cell">
+    <xsl:text>`</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>()`</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:superscript" mode="table-cell">
+    <xsl:text>^</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>^</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:subscript" mode="table-cell">
+    <xsl:text>~</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>~</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:quote" mode="table-cell">
+    <xsl:text>&#8220;</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>&#8221;</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:link" mode="table-cell">
+    <xsl:choose>
+      <xsl:when test="@xl:href">
+        <xsl:value-of select="@xl:href"/>
+        <xsl:if test="normalize-space(.) != ''">
+          <xsl:text>[</xsl:text>
+          <xsl:apply-templates mode="table-cell"/>
+          <xsl:text>]</xsl:text>
+        </xsl:if>
+      </xsl:when>
+      <xsl:when test="@linkend">
+        <xsl:text>&lt;&lt;</xsl:text>
+        <xsl:value-of select="@linkend"/>
+        <xsl:if test="normalize-space(.) != ''">
+          <xsl:text>,</xsl:text>
+          <xsl:apply-templates mode="table-cell"/>
+        </xsl:if>
+        <xsl:text>&gt;&gt;</xsl:text>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:apply-templates mode="table-cell"/>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template match="db:xref" mode="table-cell">
+    <xsl:text>&lt;&lt;</xsl:text>
+    <xsl:value-of select="@linkend"/>
+    <xsl:text>&gt;&gt;</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="db:citerefentry" mode="table-cell">
+    <xsl:text>*</xsl:text>
+    <xsl:value-of select="normalize-space(db:refentrytitle)"/>
+    <xsl:text>*(</xsl:text>
+    <xsl:value-of select="normalize-space(db:manvolnum)"/>
+    <xsl:text>)</xsl:text>
+  </xsl:template>
+
+  <!-- Inline images inside cells use the inline image: macro. -->
+  <xsl:template match="db:inlinemediaobject" mode="table-cell">
+    <xsl:call-template name="preferred-imagedata-inline"/>
+  </xsl:template>
+
+  <!-- Block images inside cells are rendered inline (image: not image::). -->
+  <xsl:template match="db:mediaobject" mode="table-cell">
+    <xsl:call-template name="preferred-imagedata-inline"/>
+  </xsl:template>
+
+  <!-- Nested tables inside cells: render as a flat list of values
+       separated by commas, since AsciiDoc nested table syntax (!=== )
+       is not yet supported by asciiquack. -->
+  <xsl:template match="db:table | db:informaltable" mode="table-cell">
+    <xsl:for-each select=".//db:entry">
+      <xsl:if test="position() > 1">
+        <xsl:text>, </xsl:text>
+      </xsl:if>
+      <xsl:apply-templates mode="table-cell"/>
+    </xsl:for-each>
+  </xsl:template>
+
+  <!-- Programlisting / screen inside cells: inline monospace. -->
+  <xsl:template match="db:programlisting | db:screen | db:literallayout
+                       | db:synopsis" mode="table-cell">
+    <xsl:text>`</xsl:text>
+    <xsl:value-of select="normalize-space(.)"/>
+    <xsl:text>`</xsl:text>
+  </xsl:template>
+
+  <!-- Admonitions in cells: just render the body text. -->
+  <xsl:template match="db:note | db:warning | db:caution | db:tip
+                       | db:important" mode="table-cell">
+    <xsl:apply-templates mode="table-cell"/>
+  </xsl:template>
+
+  <!-- Lists inside cells: comma-separated inline form. -->
+  <xsl:template match="db:itemizedlist | db:orderedlist" mode="table-cell">
+    <xsl:for-each select="db:listitem">
+      <xsl:if test="position() > 1">
+        <xsl:text>; </xsl:text>
+      </xsl:if>
+      <xsl:apply-templates mode="table-cell"/>
+    </xsl:for-each>
+  </xsl:template>
+
+  <xsl:template match="db:listitem" mode="table-cell">
+    <xsl:apply-templates mode="table-cell"/>
+  </xsl:template>
+
+  <!-- footnotes inside cells -->
+  <xsl:template match="db:footnote" mode="table-cell">
+    <xsl:text>footnote:[</xsl:text>
+    <xsl:apply-templates mode="table-cell"/>
+    <xsl:text>]</xsl:text>
+  </xsl:template>
+
+  <!-- Generic inline passthrough for table-cell mode: delegate to
+       apply-templates so any unmatched element still processes children. -->
+  <xsl:template match="db:acronym | db:abbrev | db:prompt
+                       | db:uri | db:email" mode="table-cell">
+    <xsl:apply-templates mode="table-cell"/>
+  </xsl:template>
+
+  <!-- text() in table-cell mode: normalize whitespace (same as default). -->
+  <xsl:template match="text()" mode="table-cell">
+    <xsl:if test="preceding-sibling::node() and
+                  string-length(normalize-space(.)) > 0 and
+                  translate(substring(.,1,1),' &#9;&#10;&#13;','') = ''">
+      <xsl:text> </xsl:text>
+    </xsl:if>
+    <xsl:value-of select="normalize-space(.)"/>
+    <xsl:if test="following-sibling::node() and
+                  string-length(.) > 1 and
+                  string-length(normalize-space(.)) > 0 and
+                  translate(substring(.,string-length(.),1),' &#9;&#10;&#13;','') = ''">
+      <xsl:text> </xsl:text>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Default catchall in table-cell mode: process children. -->
+  <xsl:template match="*" mode="table-cell">
+    <xsl:apply-templates mode="table-cell"/>
   </xsl:template>
 
   <!-- ============================================================
@@ -1022,9 +1264,10 @@
       <xsl:value-of select="@xml:id"/>
       <xsl:text>]]&#10;</xsl:text>
     </xsl:if>
-    <xsl:if test="db:title">
+    <!-- DocBook 5 allows the title inside an <info> child; check both. -->
+    <xsl:if test="db:title or db:info/db:title">
       <xsl:text>.</xsl:text>
-      <xsl:value-of select="normalize-space(db:title)"/>
+      <xsl:value-of select="normalize-space(db:title | db:info/db:title)"/>
       <xsl:text>&#10;</xsl:text>
     </xsl:if>
     <xsl:for-each select=".//db:mediaobject[1]">
@@ -1033,24 +1276,52 @@
   </xsl:template>
 
   <xsl:template match="db:mediaobject">
-    <xsl:call-template name="preferred-imagedata"/>
+    <!-- In AsciiDoc the block title (caption) must appear BEFORE the image
+         macro.  Emit it first, then the image. -->
     <xsl:if test="db:caption">
       <xsl:text>.</xsl:text>
       <xsl:apply-templates select="db:caption/*"/>
       <xsl:text>&#10;</xsl:text>
     </xsl:if>
+    <xsl:call-template name="preferred-imagedata"/>
   </xsl:template>
 
   <xsl:template match="db:inlinemediaobject">
     <xsl:call-template name="preferred-imagedata-inline"/>
   </xsl:template>
 
+  <!-- Extract alt text: prefer @alt attribute, then textobject/phrase,
+       then textobject/para. -->
+  <xsl:template name="imagedata-alt">
+    <!-- Walk up to the containing mediaobject to find the textobject. -->
+    <xsl:variable name="mo" select="ancestor::db:mediaobject[1] |
+                                     ancestor::db:inlinemediaobject[1]"/>
+    <xsl:choose>
+      <xsl:when test="@alt">
+        <xsl:value-of select="@alt"/>
+      </xsl:when>
+      <xsl:when test="$mo/db:textobject/db:phrase">
+        <xsl:value-of select="normalize-space($mo/db:textobject/db:phrase)"/>
+      </xsl:when>
+      <xsl:when test="$mo/db:textobject/db:para">
+        <xsl:value-of select="normalize-space($mo/db:textobject/db:para)"/>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
   <!-- Block image macro (image::) -->
   <xsl:template match="db:imagedata">
+    <xsl:variable name="alt">
+      <xsl:call-template name="imagedata-alt"/>
+    </xsl:variable>
     <xsl:text>image::</xsl:text>
     <xsl:value-of select="@fileref"/>
     <xsl:text>[</xsl:text>
+    <xsl:value-of select="$alt"/>
     <xsl:if test="@width">
+      <xsl:if test="$alt != ''">
+        <xsl:text>,</xsl:text>
+      </xsl:if>
       <xsl:text>width=</xsl:text>
       <xsl:value-of select="@width"/>
     </xsl:if>
@@ -1059,16 +1330,27 @@
 
   <!-- Inline image macro (image:) - no trailing blank line -->
   <xsl:template match="db:imagedata" mode="inline">
+    <xsl:variable name="alt">
+      <xsl:call-template name="imagedata-alt"/>
+    </xsl:variable>
     <xsl:text>image:</xsl:text>
     <xsl:value-of select="@fileref"/>
     <xsl:text>[</xsl:text>
+    <xsl:value-of select="$alt"/>
     <xsl:if test="@width">
+      <xsl:if test="$alt != ''">
+        <xsl:text>,</xsl:text>
+      </xsl:if>
       <xsl:text>width=</xsl:text>
       <xsl:value-of select="@width"/>
     </xsl:if>
     <xsl:text>]</xsl:text>
   </xsl:template>
 
+  <!-- imageobject is handled via preferred-imagedata* named templates;
+       suppress default processing.  textobject is consumed via the
+       imagedata-alt named template above; suppress it here so it does not
+       produce stray text output. -->
   <xsl:template match="db:imageobject | db:textobject"/>
 
   <xsl:template match="db:screenshot">
@@ -1365,7 +1647,14 @@
   <xsl:template match="db:tfoot"/>  <!-- handled by table template -->
   <xsl:template match="db:tgroup"/>  <!-- handled by table template - but we need rows -->
   <xsl:template match="db:caption"/>  <!-- handled inline -->
-  <xsl:template match="db:abstract"/>
+
+  <!-- abstract: render as a NOTE admonition block so the content is
+       visible in the output rather than silently dropped. -->
+  <xsl:template match="db:abstract">
+    <xsl:text>&#10;[NOTE]&#10;====&#10;</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>====&#10;&#10;</xsl:text>
+  </xsl:template>
 
   <!-- address block: just emit text -->
   <xsl:template match="db:address">

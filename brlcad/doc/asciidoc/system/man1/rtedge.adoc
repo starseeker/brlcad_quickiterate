@@ -497,5 +497,3 @@ Most deficiencies observed while using the *rtedge* program are a consequence of
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-

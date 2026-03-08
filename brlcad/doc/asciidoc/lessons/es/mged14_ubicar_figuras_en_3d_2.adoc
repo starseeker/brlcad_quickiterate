@@ -49,10 +49,13 @@ Para posicionar sus nuevas esferas, diríjase a Primitive Selection (Selección 
 
 
 
-Cliquee en sph2.s y arrastrelo a su posición. Una vez que haya posicionado las ocho esferas alrededor de la rcc, su diseño debería ser similar al siguiente, desde las vistas superior y frontal. |===
-
-|image:../../lessons/es/images/mged14_candle_spheres_topview.png[] |image:../../lessons/es/images/mged14_candle_spheres_frontview.png[] 
-|Candelabro desde la vista superior |Candelabro desde la vista frontal 
+Cliquee en sph2.s y arrastrelo a su posición. Una vez que haya posicionado las ocho esferas alrededor de la rcc, su diseño debería ser similar al siguiente, desde las vistas superior y frontal. [cols="2*"]
+[%noheader]
+|===
+|image:../../lessons/es/images/mged14_candle_spheres_topview.png[]
+|image:../../lessons/es/images/mged14_candle_spheres_frontview.png[]
+|Candelabro desde la vista superior
+|Candelabro desde la vista frontal
 |===
 
 
@@ -272,7 +275,3 @@ En este tutorial usted aprendió a:
 * Dibujar una cuadrícula para facilitar el posicionamiento de los objetos.
 * Controlar el árbol de datos y hacer correcciones de ser necesario.
 * Asignar propiedades de los materiales utilizando el Combination Editor (Editor de combinaciones).
-
-
-
-

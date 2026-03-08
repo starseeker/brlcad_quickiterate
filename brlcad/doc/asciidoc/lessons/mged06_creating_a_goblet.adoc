@@ -105,10 +105,25 @@ To combine all the regions into one object, you will need to perform one last Bo
 
 This operation tells the _MGED_ program to:
 
+[cols="8*"]
+[%noheader]
 |===
-
-|comb |goblet1.c |u |basin1.r |u |stem1.r |u |base1.r 
-|Make a combination |Name it goblet1.c |The combination will be made of a union of |the region basin1.r |and |the region stem1.r |and |the region base1.r 
+|comb
+|goblet1.c
+|u
+|basin1.r
+|u
+|stem1.r
+|u
+|base1.r
+|Make a combination
+|Name it goblet1.c
+|The combination will be made of a union of
+|the region basin1.r
+|and
+|the region stem1.r
+|and
+|the region base1.r
 |===
 
 
@@ -181,7 +196,3 @@ In this lesson, you:
 * Made a combination of the regions.
 * Viewed a data tree.
 * Raytraced your completed goblet.
-
-
-
-

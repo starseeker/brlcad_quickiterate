@@ -150,10 +150,19 @@ As we look at our radio now, we can see that the antenna looks a little bit like
 
 Our radio is looking more and more realistic; however, it is still just a hollow shell. Let's further improve it by making a circuit board to go inside the case. To do this, type: *in board.s rpp 3 4 1 31 1 47[Enter]**r board.r u board.s[Enter]*
 
-Let's give the board a green semi-shiny color. The easiest way to do this is via the Combination Editor, but this time let's use the Command Line approach. Type: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Diagrammed, this command says to: |===
-
-|mater |board.r |"plastic sh=4" |0 198 0 |1 
-|Assign material properties to |the region called board.r. |Apply the plastic shader with a shininess of 4 |Give it a green color |Inherit color material type 
+Let's give the board a green semi-shiny color. The easiest way to do this is via the Combination Editor, but this time let's use the Command Line approach. Type: *mater board.r "plastic sh=4" 0 198 0 1[Enter]* Diagrammed, this command says to: [cols="5*"]
+[%noheader]
+|===
+|mater
+|board.r
+|"plastic sh=4"
+|0 198 0
+|1
+|Assign material properties to
+|the region called board.r.
+|Apply the plastic shader with a shininess of 4
+|Give it a green color
+|Inherit color material type
 |===
 
 
@@ -387,7 +396,3 @@ In this lesson, you:
 * Added internal components to the radio.
 * Created specialty models of the radio.
 * Redefined the structure of the radio.
-
-
-
-

@@ -84,10 +84,21 @@ image::../lessons/images/mged05_twoprimitivespheres.png[]
 
 In this lesson, we will create different shapes to demonstrate the function of Boolean operations. In the Command Window, type the following: *r part1.r u rcc2.s - sph2.s[Enter]* This command tells _MGED_ to:
 
+[cols="6*"]
+[%noheader]
 |===
-
-|r |part1.r |u |rcc2.s |- |sph2.s 
-|Make a region |Call it part1.r |Merge... |The shape named rcc2.s |Subtract... |The shape named sph2.s 
+|r
+|part1.r
+|u
+|rcc2.s
+|-
+|sph2.s
+|Make a region
+|Call it part1.r
+|Merge...
+|The shape named rcc2.s
+|Subtract...
+|The shape named sph2.s
 |===
 
 
@@ -109,10 +120,13 @@ At the moment, we have only the primitive shapes displayed, not the region. Befo
 
 We are now ready to raytrace this object. From the File menu, bring up the Raytrace Control Panel and click the Raytrace button. The image you get should look similar to the left-hand image that follows. Note that it may take several minutes to raytrace the window, depending on the speed of your particular system.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../lessons/images/mged05_raytracedpart1.png[] |image:../lessons/images/mged05_raytracedpart2.png[] 
-|Raytraced part1.r |Raytraced part2.r 
+|image:../lessons/images/mged05_raytracedpart1.png[]
+|image:../lessons/images/mged05_raytracedpart2.png[]
+|Raytraced part1.r
+|Raytraced part2.r
 |===
 
 You should see that a spherical "bite" has been taken out of the top of the cylinder.
@@ -177,7 +191,3 @@ In this lesson, you:
 * Learned about combinations and regions.
 * Learned about Boolean operations.
 * Made regions with Boolean operations.
-
-
-
-

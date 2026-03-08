@@ -10,5 +10,3 @@ Tcl (Tool Command Language) is an interpreted language that is embeddable and hi
 The most important benefit of using Tcl/Tk is Rapid Development of applications. Applications can be implemented 5-10 times faster with Tcl than any other languages. Application created with Tcl can be evolved rapidly to meet the changing requirements. Some of the other benefits that make it loved by people are portability, user convenience.
 
 Tcl/Tk runs on every unix platform. The deployment of applications developed using Tcl/Tk is made flexible, powerful and transparent by using technologies like Tcl virtual file system, starkits and starpacks.
-
-

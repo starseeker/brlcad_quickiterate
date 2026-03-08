@@ -34,5 +34,3 @@ print a text summary of the Alias pix file header on standard error output.
 == AUTHOR
 
 BRL-CAD Team
-
-

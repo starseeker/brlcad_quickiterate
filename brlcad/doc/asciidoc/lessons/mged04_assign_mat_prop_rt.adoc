@@ -35,10 +35,21 @@ Make sure you key in the information correctly before you press ENTER. Spaces, o
 
 ====
 
-This command tells _MGED_ to: |===
-
-|r |shapes2.r |u |sph2.s |u |rcc2.s 
-|Make a region |Name it shapes2.r |Add the volume of the shape |sph2.s |Add the volume of the shape |rcc2.s 
+This command tells _MGED_ to: [cols="6*"]
+[%noheader]
+|===
+|r
+|shapes2.r
+|u
+|sph2.s
+|u
+|rcc2.s
+|Make a region
+|Name it shapes2.r
+|Add the volume of the shape
+|sph2.s
+|Add the volume of the shape
+|rcc2.s
 |===
 
 
@@ -86,10 +97,19 @@ image::../lessons/images/mged04_commandwindow.png[]
 
 The one-line version of this set of commands would be: *mater shapes2.r plastic 0 255 0 0[Enter]* Diagrammed, this command says to:
 
+[cols="5*"]
+[%noheader]
 |===
-
-|mater |shapes2.r |plastic |0 255 0 |0 
-|Assign material properties to: |the region called shapes2.r |Make the region of plastic |Give it a color of light green |Do not inherit colors or material type 
+|mater
+|shapes2.r
+|plastic
+|0 255 0
+|0
+|Assign material properties to:
+|the region called shapes2.r
+|Make the region of plastic
+|Give it a color of light green
+|Do not inherit colors or material type
 |===
 
 
@@ -98,10 +118,13 @@ The one-line version of this set of commands would be: *mater shapes2.r plastic 
 
 An easy way to clear the Graphics Window of the old design and draw the new region is to type at the _MGED_ prompt: *B shapes2.r[Enter]* This command tells _MGED_ to:
 
+[cols="2*"]
+[%noheader]
 |===
-
-|B |shapes2.r 
-|Blast (clear) the Graphics Window and draw |The region named shapes2.r 
+|B
+|shapes2.r
+|Blast (clear) the Graphics Window and draw
+|The region named shapes2.r
 |===
 
 The Blast command is shorthand for the combination of the Z and draw commands.
@@ -137,10 +160,13 @@ The Graphics Window of _MGED_ is used to display different types of graphical in
 
 As mentioned previously, there is a Framebuffer menu within the Raytrace Control Panel. At the top of this menu is a toggle button labeled Active. This turns the display of the framebuffer layer on and off. Near the bottom of the same menu are three radio buttons: Overlay, Interlay, and Underlay. When the underlay mode is selected, the pixel data are displayed under or behind the vector data. Conversely, when the overlay mode is selected, the pixel data are in front of the vector data. The interlay option is similar to the overlay mode. The subtle difference is an advanced topic not covered here.
 
+[cols="2*"]
+[%noheader]
 |===
-
-|image:../lessons/images/mged04_raytracedshapes.png[] |image:../lessons/images/mged04_fb_overlay_mode.png[] 
-|Framebuffer in Underlay Mode |Framebuffer in Overlay Mode 
+|image:../lessons/images/mged04_raytracedshapes.png[]
+|image:../lessons/images/mged04_fb_overlay_mode.png[]
+|Framebuffer in Underlay Mode
+|Framebuffer in Overlay Mode
 |===
 
 To see how this works, go to the framebuffer menu and select Overlay. Notice that the wireframe representation disappears. Where does it go? If you answered "behind the framebuffer," you would be correct. To view the model's geometry, you would have to make the framebuffer inactive or select underlay mode.
@@ -176,7 +202,3 @@ In this lesson you:
 * Raytraced your design from the GUI.
 * Used the GUI to change layers of the Graphics Window.
 * Cleared the Graphics Window after raytracing a model.
-
-
-
-

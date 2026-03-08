@@ -110,7 +110,3 @@ En este tutorial aprendió a:
 * Utilizar el Combination Editor para asignar propiedades de los materiales que hacen a los objetos parecer más reales.
 * Rotar un objeto 180'0 usando la opción rotar del menú Edit.
 * Utilizar la opción de color del Combination Editor para producir colores personalizados.
-
-
-
-

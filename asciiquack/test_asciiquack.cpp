@@ -2594,6 +2594,173 @@ static void test_table_normal_pipe_not_spec() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Multi-line table cell tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void test_table_multiline_cell_continuation() {
+    begin_test("html5: table cell content spanning multiple lines");
+
+    // Each cell is on its own line; continuation lines (no leading '|')
+    // belong to the previous cell.  Row of 3 cells:
+    //   Cell1 (line 1) + "extra" (continuation)
+    //   Cell2
+    //   Cell3
+    // [cols="3*"] is required so the parser knows ncols=3 before it
+    // sees any rows (otherwise auto-detect finds 1 cell on the first line).
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "[cols=\"3*\"]\n"
+        "|===\n"
+        "|H1 |H2 |H3\n"
+        "\n"
+        "\n"
+        "|Cell1\n"
+        "extra\n"
+        "|Cell2\n"
+        "|Cell3\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // The table should have a header row with H1/H2/H3
+    EXPECT_CONTAINS(out, "<th");
+    EXPECT_CONTAINS(out, "H1");
+    EXPECT_CONTAINS(out, "H2");
+    EXPECT_CONTAINS(out, "H3");
+
+    // Cell1 and its continuation "extra" must both appear in the same cell
+    EXPECT_CONTAINS(out, "Cell1");
+    EXPECT_CONTAINS(out, "extra");
+
+    // Cell2 and Cell3 must each appear in their own cells
+    EXPECT_CONTAINS(out, "Cell2");
+    EXPECT_CONTAINS(out, "Cell3");
+
+    // Verify that exactly 3 body cells appear (one row of 3)
+    auto count_td = [&out]() {
+        std::size_t n = 0, pos = 0;
+        while ((pos = out.find("<td", pos)) != std::string::npos) { ++n; ++pos; }
+        return n;
+    };
+    EXPECT(count_td() == 3u);
+
+    end_test();
+}
+
+static void test_table_multiline_cell_inline_image() {
+    begin_test("html5: table cell with inline image on continuation line");
+
+    // Simulates the XSL output format where each entry starts with |
+    // on its own line and may be followed by an image: macro on the
+    // next line (which must be part of the same cell).
+    // The [cols="3*"] attribute tells the parser this is a 3-column table
+    // so cells on separate lines are correctly accumulated into rows.
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "[cols=\"3*\"]\n"
+        "[%noheader]\n"
+        "|===\n"
+        "\n"
+        "|Label text\n"
+        "image:img.png[alt,width=1in]\n"
+        "|Second cell\n"
+        "|Third cell\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // No header row
+    EXPECT(out.find("<thead") == std::string::npos);
+
+    // All three cells should be present
+    EXPECT_CONTAINS(out, "Label text");
+    EXPECT_CONTAINS(out, "<img");
+    EXPECT_CONTAINS(out, "img.png");
+    EXPECT_CONTAINS(out, "Second cell");
+    EXPECT_CONTAINS(out, "Third cell");
+
+    // The image must be inside the first cell (same <td>), not its own row.
+    // Verify: "Label text" and "<img" appear before the first </tr>
+    auto td_pos   = out.find("<td");
+    auto img_pos  = out.find("<img");
+    auto first_tr_end = out.find("</tr>");
+    EXPECT(td_pos   != std::string::npos);
+    EXPECT(img_pos  != std::string::npos);
+    EXPECT(first_tr_end != std::string::npos);
+    EXPECT(img_pos < first_tr_end);
+
+    // Exactly one body row (3 cells → 1 row of 3)
+    auto count_td = [&out]() {
+        std::size_t n = 0, pos = 0;
+        while ((pos = out.find("<td", pos)) != std::string::npos) { ++n; ++pos; }
+        return n;
+    };
+    EXPECT(count_td() == 3u);
+
+    end_test();
+}
+
+static void test_table_leading_blank_no_header() {
+    begin_test("html5: table leading blank line does not create spurious header");
+
+    // A blank line immediately after |=== should NOT signal a header row.
+    // The presence of a header is only signalled by a blank line AFTER
+    // at least one row of data (row group completed by reaching ncols).
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "|===\n"
+        "\n"
+        "|Row1Col1 |Row1Col2\n"
+        "|Row2Col1 |Row2Col2\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    // With a leading blank (no completed row before the blank), there is
+    // NO header.  All rows go into <tbody>.
+    EXPECT(out.find("<thead") == std::string::npos);
+    EXPECT_CONTAINS(out, "<tbody");
+    EXPECT_CONTAINS(out, "Row1Col1");
+    EXPECT_CONTAINS(out, "Row2Col1");
+
+    end_test();
+}
+
+static void test_table_explicit_header_after_blank() {
+    begin_test("html5: table blank line after complete first row creates header");
+
+    // A blank line after the FIRST complete row (all ncols gathered)
+    // signals that the first row is the header.
+    const std::string src =
+        "= Doc\n"
+        "\n"
+        "|===\n"
+        "|H1 |H2\n"
+        "\n"
+        "|D1 |D2\n"
+        "|===\n";
+
+    auto doc = asciiquack::Parser::parse_string(src);
+    std::string out = asciiquack::convert_to_html5(*doc);
+
+    EXPECT_CONTAINS(out, "<thead");
+    EXPECT_CONTAINS(out, "<th");
+    EXPECT_CONTAINS(out, "H1");
+    EXPECT_CONTAINS(out, "H2");
+    EXPECT_CONTAINS(out, "<tbody");
+    EXPECT_CONTAINS(out, "D1");
+    EXPECT_CONTAINS(out, "D2");
+
+    end_test();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DocBook 5 backend tests
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -4757,6 +4924,10 @@ int main(int argc, char* argv[]) {
     test_table_colspan_spec();
     test_table_colspan_rowspan_spec();
     test_table_normal_pipe_not_spec();
+    test_table_multiline_cell_continuation();
+    test_table_multiline_cell_inline_image();
+    test_table_leading_blank_no_header();
+    test_table_explicit_header_after_blank();
     test_section_nesting_warning();
     test_unclosed_block_warning();
 

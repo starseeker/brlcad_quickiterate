@@ -130,5 +130,3 @@ handle(1), window(1), window_frame(1), gastank(1)
 == BUG REPORTS
 
 Reports of bugs or problems should be submitted via electronic mail to <devs@brlcad.org>
-
-
