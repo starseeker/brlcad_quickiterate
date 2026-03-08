@@ -547,12 +547,34 @@ public:
 struct bu_cache;
 struct resource;
 
-// GeomLoader — background thread that pre-computes bounding boxes for
-// geometry objects so they are available quickly after a .g file is opened.
+// Per-solid drawing metadata populated by the background GeomLoader thread.
+// Captures the information needed for smarter initial draw decisions (e.g.,
+// choosing the right LOD level for a BoT, knowing face counts for complexity
+// decisions) without requiring a full geometry draw pass.
 //
-// The worker thread calls rt_bound_internal() with its own per-thread
-// struct resource.  Results are posted to an internal result queue.  The
-// main thread integrates results by calling DbiState::drain_geom_results().
+// minor_type  — DB5_MINORTYPE_BRLCAD_* value for the solid (-1 if unknown).
+// bot_face_count — number of triangular faces for BoT meshes; 0 for others.
+// lod_key     — BSG LoD cache key for BoT meshes (0 if not cached).
+//               Populated on the main thread in drain_geom_results() since
+//               bsg_mesh_lod_key_get() requires access to gedp->ged_lod.
+// has_lod     — true when a LoD cache entry exists for this solid.
+struct GED_EXPORT SolidMeta {
+    int                minor_type     = -1;
+    size_t             bot_face_count = 0;
+    unsigned long long lod_key        = 0;
+    bool               has_lod        = false;
+};
+
+// GeomLoader — background thread that pre-computes bounding boxes and
+// per-solid metadata (including OBBs for BoT meshes) so they are available
+// quickly after a .g file is opened.
+//
+// The worker thread loads each primitive with rt_db_get_internal() (using its
+// own per-thread struct resource so ft_import5 never touches rt_uniresource),
+// then calls ft_bbox for the AABB and, when available, ft_oriented_bbox for a
+// tighter oriented bounding box.  Results are posted to an internal result
+// queue.  The main thread integrates results by calling
+// DbiState::drain_geom_results().
 //
 // Thread safety: push() and drain() are the only two public methods; they
 // are protected by a mutex and safe to call from different threads.
@@ -560,11 +582,26 @@ struct resource;
 class GED_EXPORT GeomLoader {
 public:
     // A result posted by the background thread for each successfully
-    // computed bounding box.
+    // computed bounding box.  May also carry an oriented bounding box (OBB)
+    // expressed as 8 corner points (rt_arb_internal layout) and per-solid
+    // drawing metadata.
     struct Result {
         unsigned long long hash = 0;
         point_t bmin;
         point_t bmax;
+
+        // Per-solid oriented bounding box (8 corner points, rt_arb_internal
+        // layout: pt[0..3] = one face, pt[4..7] = opposite face).
+        // Only valid when has_obb == true.  Currently populated for BoT
+        // primitives via ft_oriented_bbox; all other solid types fall back
+        // to has_obb = false and the caller should use the AABB instead.
+        point_t obb_pts[8];
+        bool    has_obb = false;
+
+        // Per-solid drawing metadata (type, face count).  The lod_key /
+        // has_lod fields are filled in by drain_geom_results() on the main
+        // thread, not by the background worker.
+        SolidMeta meta;
     };
 
     // An item on the work queue.  The main thread resolves the directory
@@ -704,6 +741,25 @@ class GED_EXPORT DbiState {
 	// the disk beyond the initial per-solid calculations, which may be done
 	// once per load and/or dimensional change.
 	std::unordered_map<unsigned long long, std::vector<fastf_t>> bboxes;
+
+	// Per-solid oriented bounding boxes (OBBs), expressed as 8 corner
+	// points in rt_arb_internal layout (pt[0..3] = one face, pt[4..7] =
+	// the opposite face).  Populated asynchronously by GeomLoader for BoT
+	// primitives via ft_oriented_bbox (which uses the GTE library for an
+	// optimal minimum-volume OBB fit).  Other solid types do not yet have
+	// ft_oriented_bbox implementations; they remain absent from this map
+	// and callers should fall back to bboxes[] in that case.
+	// Entries are erased in clear_cache() alongside bboxes[].
+	// Key: same hash as bboxes (bu_data_hash of the object name).
+	// Value: 24 fastf_t values, 3 per corner point (8 corners × xyz).
+	std::unordered_map<unsigned long long, std::array<fastf_t, 24>> obbs;
+
+	// Per-solid drawing metadata (DB5 minor type, BoT face count, LoD
+	// availability).  Populated asynchronously by GeomLoader; the
+	// lod_key / has_lod sub-fields are filled in on the main thread by
+	// drain_geom_results() using gedp->ged_lod.
+	// Entries are erased in clear_cache() alongside bboxes[].
+	std::unordered_map<unsigned long long, SolidMeta> solid_metas;
 
 
 	// We also have a number of standard attributes that can impact drawing,

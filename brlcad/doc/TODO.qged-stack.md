@@ -261,6 +261,8 @@ This section records what ideas came from it and what was deliberately left out.
 | Background geometry loading intent | `GeomLoader` (session 29) |
 | Per-path draw settings overrides | `DrawList::DrawSettings`, `DrawList::Entry` |
 | `bu_cache` for on-disk bbox persistence | Replaced LMDB (which wasn't available when dbi2 was written) |
+| Per-solid OBB via `ft_oriented_bbox` | `GeomLoader::Result::obb_pts` + `DbiState::obbs` (this session) |
+| Per-solid drawing metadata | `SolidMeta` struct + `DbiState::solid_metas` (this session) |
 
 ### Not incorporated from dbi2 (deliberate omissions)
 
@@ -272,15 +274,41 @@ This section records what ideas came from it and what was deliberately left out.
 | `GObj::LoadSceneObj()` in dbi.h | Rendering knowledge does not belong in the object model; it lives in `BViewState`/`DrawList` |
 | Baked-in LoD coupling in `DbiPath_Settings::lod_v` | LoD is a view-level concern, not a path-level concern |
 
-### What dbi2 pointed at that we didn't do yet
+### What dbi2 pointed at that we have now completed
 
-The dbi2 prototype showed ambition around showing **AABB/OBB placeholder geometry**
-in the scene while full mesh data was loading.  The current `GeomLoader` populates
-the `bboxes` map asynchronously and notifies via `ISceneObserver`, giving the scene
-the data it needs.  The **placeholder rendering** step (drawing a wireframe box from
-`bboxes[hash]` until the real geometry arrives) is not yet implemented.  This would
-be a natural follow-on: `BViewState::redraw()` could emit a bbox wireframe for any
-solid whose full draw data is not yet in the scene but whose bbox is already cached.
+The dbi2 prototype showed ambition around three capabilities that are now fully
+implemented:
+
+1. **AABB placeholder rendering** (session 36): `BViewState::redraw()` emits a
+   dashed wireframe bounding box for every solid in `draw_list_` that has a
+   bbox in `dbis->bboxes` but no real geometry yet in `s_map`.
+
+2. **Per-solid OBB caching** (this session): `GeomLoader::worker()` calls
+   `ft_oriented_bbox` (GTE-backed, currently only for BoT meshes) and stores
+   the resulting 8 corner points in `DbiState::obbs`.  `BViewState::redraw()`
+   now draws the OBB wireframe (12 edges of an ARB8) when one is available,
+   falling back to the AABB box otherwise.  Only BoT primitives currently have
+   a `ft_oriented_bbox` implementation; other solid types retain AABB-only
+   placeholders.
+
+3. **Per-solid drawing metadata** (this session): `GeomLoader::Result` now
+   carries a `SolidMeta` struct (DB5 minor type, BoT face count).
+   `drain_geom_results()` on the main thread also fills in `lod_key` / `has_lod`
+   via `bsg_mesh_lod_key_get()` for BoT meshes.  All metadata is stored in
+   `DbiState::solid_metas` and cleared alongside `bboxes` and `obbs` in
+   `clear_cache()`.
+
+### Remaining dbi2 aspirations not yet done
+
+- **LoD-aware initial draw**: Use `solid_metas[h].has_lod` + `lod_key` to
+  draw a low-resolution LoD mesh immediately on `BViewState::redraw()` rather
+  than waiting for full geometry.  When full geometry arrives later the LoD
+  mesh would be replaced.  (Requires plumbing LoD mesh setup into the
+  placeholder / early-draw path, currently only the bbox/OBB wireframe is used.)
+- **OBB for non-BoT primitives**: `ft_oriented_bbox` is only implemented for
+  BoT.  Other solid types (ARB8, TGC, ELL, …) fall back to AABB placeholders.
+  Adding `ft_oriented_bbox` to more primitive types would improve placeholder
+  fidelity.
 
 ---
 
@@ -394,6 +422,29 @@ geometry automatically (`bbox_placeholders_` private map in `BViewState`).
   Exercises `link_to()`, `unlink()`, `is_linked()`, `linked_primary()`, and `add_hpath()`
   delegation.  All 8 new assertions pass.
 
+### Completed (session 38 — dbi2 OBB + SolidMeta)
+
+- ✅ **`SolidMeta` struct** (new in `dbi.h`): captures `minor_type` (DB5_MINORTYPE_* value),
+  `bot_face_count` (triangles for BoT meshes), `lod_key` and `has_lod` (LoD cache availability,
+  populated on main thread in `drain_geom_results()`).
+- ✅ **`GeomLoader::Result` extended**: new fields `obb_pts[8]` (8 corner points of the
+  oriented bounding box, `rt_arb_internal` layout) and `has_obb` flag, plus `SolidMeta meta`.
+  The background worker now calls `ft_oriented_bbox` (GTE-backed) for BoT meshes and captures
+  `minor_type` + `bot_face_count` before calling `rt_db_free_internal`.
+- ✅ **`DbiState::obbs`** (new): `std::unordered_map<unsigned long long, std::array<fastf_t, 24>>`
+  holding 8 OBB corner points (3 floats each) per BoT solid.  Populated by `drain_geom_results()`,
+  cleared by `clear_cache()` and the `close_db` path alongside `bboxes`.
+- ✅ **`DbiState::solid_metas`** (new): `std::unordered_map<unsigned long long, SolidMeta>`
+  holding per-solid drawing metadata.  Populated and cleaned up alongside `obbs`.
+- ✅ **`BViewState::redraw()` OBB placeholder**: When an OBB is pre-computed in `dbis->obbs`,
+  the placeholder wireframe now draws the 12 edges of the oriented ARB8 instead of the
+  axis-aligned bounding box, giving a better visual indication of the solid's true orientation
+  and extents.  AABB fallback retained for non-BoT solids.
+- ✅ **`test_solid_meta_and_obb()`** added to `test_dbi_cpp.cpp` (Section G): creates a BoT
+  tetrahedron via `mk_bot`, polls `drain_geom_results()`, verifies `SolidMeta.minor_type`,
+  `bot_face_count`, and OBB corner-point validity; confirms non-BoT sphere gets no OBB entry.
+  All 8 new assertions pass.
+
 ### Short-term (open)
 
 *(no Tier 2 or Tier 3 items remaining)*
@@ -420,11 +471,12 @@ geometry automatically (`bbox_placeholders_` private map in `BViewState`).
 | Suite | File | Checks | Notes |
 |-------|------|--------|-------|
 | DBI C surface | `src/libged/tests/test_dbi_c.c` | 35 | C API regression |
-| DBI C++ | `src/libged/tests/test_dbi_cpp.cpp` | 49+ | DbiState/DrawList/SelectionSet/IDbiObserver |
+| DBI C++ | `src/libged/tests/test_dbi_cpp.cpp` | 57+ | DbiState/DrawList/SelectionSet/IDbiObserver/OBB |
 | Qt model | `src/libqtcad/tests/qgmodel.cpp` | 15+ | QAbstractItemModelTester in Fatal mode |
 | Draw rendering | `src/libged/tests/draw/basic.cpp` | — | BViewState::redraw pipeline |
 
 Gaps:
-- No test for `GeomLoader` drain-pump behavior (would need mock `dbip`)
+- ~~No test for `GeomLoader` drain-pump behavior (would need mock `dbip`)~~ — ✅ Covered by `test_geomloader_bbox()` and `test_solid_meta_and_obb()` using real `dbip`
 - ~~No test for `BViewState::link_to()` draw sharing~~ — ✅ Added `test_view_state_linking()` to `test_dbi_cpp.cpp` (session 37): covers `link_to()`/`unlink()`/`is_linked()`/`linked_primary()`/delegation via `add_hpath()`
+- ~~No test for per-solid OBB and SolidMeta caching~~ — ✅ Added `test_solid_meta_and_obb()` (this session): creates a BoT tetrahedron, exercises `GeomLoader` OBB computation via `ft_oriented_bbox`, verifies `SolidMeta.minor_type`/`bot_face_count`, confirms non-BoT solids do not get OBB entries
 - No integration test for `IDbiObserver` → `QgModel` → repaint cycle

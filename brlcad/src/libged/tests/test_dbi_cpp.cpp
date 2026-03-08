@@ -44,6 +44,7 @@
 #include "bu.h"
 #include "bu/ptbl.h"
 #include "raytrace.h"
+#include "wdb.h"
 #include "ged.h"
 #include "ged/dbi.h"
 
@@ -518,6 +519,122 @@ test_view_state_linking(struct ged *gedp)
 }
 
 
+/* ------------------------------------------------------------------ */
+/* Section G: SolidMeta and OBB caching via GeomLoader                */
+/* ------------------------------------------------------------------ */
+static void
+test_solid_meta_and_obb(struct ged *gedp)
+{
+    printf("\n--- SolidMeta and OBB caching ---\n");
+
+    DbiState *dbis = (DbiState *)gedp->dbi_state;
+
+    /* Create a BoT mesh (a triangulated tetrahedron) directly via mk_bot so
+     * we exercise the ft_oriented_bbox / GTE code path.
+     *
+     * Tetrahedron vertices (roughly 10 mm scale):
+     *   0: (0, 0, 0)   1: (10, 0, 0)   2: (5, 10, 0)   3: (5, 5, 8)
+     * Four CCW-facing triangular faces:
+     *   0-2-1, 0-1-3, 1-2-3, 0-3-2
+     */
+    {
+	fastf_t verts[] = {
+	    0.0, 0.0, 0.0,
+	    10.0, 0.0, 0.0,
+	    5.0, 10.0, 0.0,
+	    5.0, 5.0, 8.0
+	};
+	int faces[] = {
+	    0, 2, 1,
+	    0, 1, 3,
+	    1, 2, 3,
+	    0, 3, 2
+	};
+	struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
+	mk_bot(wdbp, "obb_tet.bot",
+	       RT_BOT_SOLID, RT_BOT_UNORIENTED, 0,
+	       4, 4, verts, faces, NULL, NULL);
+    }
+
+    dbis->update();
+
+    unsigned long long h =
+	bu_data_hash("obb_tet.bot", strlen("obb_tet.bot")*sizeof(char));
+
+    /* Poll until bbox and metadata arrive or a 2-second timeout expires. */
+    bool bbox_arrived   = false;
+    bool meta_arrived   = false;
+    for (int i = 0; i < 200; ++i) {
+	dbis->drain_geom_results();
+	if (dbis->bboxes.find(h) != dbis->bboxes.end())
+	    bbox_arrived = true;
+	if (dbis->solid_metas.find(h) != dbis->solid_metas.end())
+	    meta_arrived = true;
+	if (bbox_arrived && meta_arrived)
+	    break;
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    CHECK(bbox_arrived,
+	  "drain_geom_results() delivers bbox for BoT primitive");
+    CHECK(meta_arrived,
+	  "drain_geom_results() delivers SolidMeta for BoT primitive");
+
+    if (meta_arrived) {
+	const SolidMeta &m = dbis->solid_metas.at(h);
+	CHECK(m.minor_type == DB5_MINORTYPE_BRLCAD_BOT,
+	      "SolidMeta.minor_type == DB5_MINORTYPE_BRLCAD_BOT for BoT");
+	CHECK(m.bot_face_count == 4,
+	      "SolidMeta.bot_face_count == 4 for tetrahedron BoT");
+    }
+
+    /* Check OBB: ft_oriented_bbox is implemented for BoT via GTE, so
+     * obbs[] should be populated.  Verify 8 corner points are finite
+     * and at least two are distinct (non-degenerate OBB).              */
+    bool obb_arrived = false;
+    for (int i = 0; i < 200 && !obb_arrived; ++i) {
+	dbis->drain_geom_results();
+	if (dbis->obbs.find(h) != dbis->obbs.end())
+	    obb_arrived = true;
+	else
+	    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    CHECK(obb_arrived,
+	  "drain_geom_results() populates obbs[] for BoT with ft_oriented_bbox");
+
+    if (obb_arrived) {
+	const auto &obb = dbis->obbs.at(h);
+	bool all_finite = true;
+	for (int i = 0; i < 24; i++) {
+	    if (obb[i] <= -1e100 || obb[i] >= 1e100)
+		{ all_finite = false; break; }
+	}
+	CHECK(all_finite, "OBB corner points are all finite");
+
+	bool has_distinct = false;
+	for (int i = 3; i < 24 && !has_distinct; i += 3) {
+	    /* Use DIST_PT_PT style check: sum of squared coordinate deltas */
+	    fastf_t dx = obb[0] - obb[i];
+	    fastf_t dy = obb[1] - obb[i+1];
+	    fastf_t dz = obb[2] - obb[i+2];
+	    if (dx*dx + dy*dy + dz*dz > SMALL_FASTF)
+		has_distinct = true;
+	}
+	CHECK(has_distinct, "OBB has at least two distinct corner points");
+    }
+
+    /* Confirm a non-BoT primitive (sphere) does NOT get an OBB entry.
+     * ft_oriented_bbox is NULL for sphere so has_obb == false in the
+     * worker and the hash should be absent from obbs[].                */
+    unsigned long long hsph =
+	bu_data_hash("bbox_sph.s", strlen("bbox_sph.s")*sizeof(char));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    dbis->drain_geom_results();
+    CHECK(dbis->obbs.find(hsph) == dbis->obbs.end(),
+	  "obbs[] has no entry for non-BoT sphere (ft_oriented_bbox == NULL)");
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -557,6 +674,7 @@ main(int argc, char *argv[])
     test_observer(gedp);
     test_geomloader_bbox(gedp);
     test_view_state_linking(gedp);
+    test_solid_meta_and_obb(gedp);
 
     ged_close(gedp);
     bu_file_delete(tmpfile);

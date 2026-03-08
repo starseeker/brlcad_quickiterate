@@ -245,6 +245,8 @@ DbiState::close_db()
     p_v.clear();
     d_map.clear();
     bboxes.clear();
+    obbs.clear();
+    solid_metas.clear();
     c_inherit.clear();
     rgb.clear();
     region_id.clear();
@@ -708,6 +710,8 @@ DbiState::clear_cache(struct directory *dp)
     }
 
     bboxes.erase(hash);
+    obbs.erase(hash);
+    solid_metas.erase(hash);
     region_id.erase(hash);
     c_inherit.erase(hash);
     rgb.erase(hash);
@@ -2902,11 +2906,14 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 	    bbox_placeholders_.erase(h);
     }
 
-    // Create new AABB placeholders for draw_list_ entries that still have
+    // Create new AABB/OBB placeholders for draw_list_ entries that still have
     // no real geometry in s_map but DO have a bbox in dbis->bboxes.  The
-    // placeholder is a dashed wireframe bounding box that is visible
+    // placeholder is a dashed wireframe bounding volume that is visible
     // immediately while geometry is being generated or loaded in the
-    // background.
+    // background.  When a pre-computed OBB is available in dbis->obbs (only
+    // for BoT primitives currently), its 12-edge wireframe is drawn instead of
+    // the axis-aligned bounding box, giving the user a better indication of
+    // the geometry's true orientation and extents.
     if (v) {
 	auto make_placeholders = [&](const std::vector<DrawList::Entry> &dl_entries) {
 	    for (const auto &dl_e : dl_entries) {
@@ -2932,11 +2939,51 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 		ph->s_color[0] = 160;
 		ph->s_color[1] = 160;
 		ph->s_color[2] = 160;
-		// Populate s_vlist with the wireframe box
-		point_t bmin, bmax;
-		VSET(bmin, bbox_it->second[0], bbox_it->second[1], bbox_it->second[2]);
-		VSET(bmax, bbox_it->second[3], bbox_it->second[4], bbox_it->second[5]);
-		bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &ph->s_vlist, bmin, bmax);
+
+		// Prefer a per-solid OBB wireframe (12 edges of an ARB8) when
+		// one has been pre-computed for this primitive.  The OBB is
+		// currently available only for BoT meshes (computed via
+		// ft_oriented_bbox / GTE in the background thread) but gives a
+		// more accurate visual indication of the object's actual shape
+		// and orientation.  Fall back to the AABB box otherwise.
+		auto obb_it = dbis->obbs.find(solid_hash);
+		if (obb_it != dbis->obbs.end()) {
+		    // Reconstruct 8 corner points from the stored 24 floats
+		    // and draw the 12 edges of the oriented bounding box.
+		    const std::array<fastf_t, 24> &obb = obb_it->second;
+		    point_t pts[8];
+		    for (int pi = 0; pi < 8; pi++) {
+			VSET(pts[pi], obb[pi*3+0], obb[pi*3+1], obb[pi*3+2]);
+		    }
+		    // 4 bottom-face edges (face 0: pts 0,1,5,4)
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[0], BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[1], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[5], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[4], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[0], BSG_VLIST_LINE_DRAW);
+		    // 4 top-face edges (face 1: pts 3,2,6,7)
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[3], BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[2], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[6], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[7], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[3], BSG_VLIST_LINE_DRAW);
+		    // 4 vertical edges connecting the two faces
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[0], BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[3], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[1], BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[2], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[5], BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[6], BSG_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[4], BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(&v->gv_objs.gv_vlfree, &ph->s_vlist, pts[7], BSG_VLIST_LINE_DRAW);
+		} else {
+		    // Fall back to axis-aligned bounding box
+		    point_t bmin, bmax;
+		    VSET(bmin, bbox_it->second[0], bbox_it->second[1], bbox_it->second[2]);
+		    VSET(bmax, bbox_it->second[3], bbox_it->second[4], bbox_it->second[5]);
+		    bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &ph->s_vlist, bmin, bmax);
+		}
+
 		ph->current = 1;  // vlist is ready; skip draw_scene() for this shape
 		bsg_shape_bound(ph, v);
 		bbox_placeholders_[dl_e.full_hash] = ph;
@@ -3784,12 +3831,47 @@ GeomLoader::worker()
 	    rt_db_free_internal(&intern);
 	    continue;
 	}
-	rt_db_free_internal(&intern);
 
 	Result r;
 	r.hash = item.hash;
 	VMOVE(r.bmin, bmin);
 	VMOVE(r.bmax, bmax);
+
+	// Capture solid drawing metadata: DB5 minor type and (for BoT)
+	// the face count.  The lod_key / has_lod fields are populated on
+	// the main thread in drain_geom_results() where gedp->ged_lod is
+	// accessible.
+	r.meta.minor_type = intern.idb_minor_type;
+
+	// For BoT primitives: record face count and attempt to compute a
+	// tight oriented bounding box via ft_oriented_bbox (uses GTE
+	// internally).  ft_oriented_bbox is currently only implemented for
+	// BoT — all other solid types leave has_obb == false.
+	if (intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
+	    struct rt_bot_internal *bot_ip =
+		(struct rt_bot_internal *)intern.idb_ptr;
+	    if (bot_ip)
+		r.meta.bot_face_count = bot_ip->num_faces;
+
+	    if (intern.idb_meth->ft_oriented_bbox) {
+		/* Zero-initialize so any unused pt[] slots are defined in case
+		 * ft_oriented_bbox only partially fills the structure on error
+		 * (defensive: the return code guards actual use of the data). */
+		struct rt_arb_internal obb_arb;
+		memset(&obb_arb, 0, sizeof(obb_arb));
+		/* SQRT_SMALL_FASTF is the standard BRL-CAD near-zero tolerance
+		 * used as the fitting precision threshold; rt_bot_oriented_bbox
+		 * passes it through to the GTE ContOrientedBox3 algorithm. */
+		if (intern.idb_meth->ft_oriented_bbox(&obb_arb, &intern,
+						       SQRT_SMALL_FASTF) == 0) {
+		    for (int pi = 0; pi < 8; pi++)
+			VMOVE(r.obb_pts[pi], obb_arb.pt[pi]);
+		    r.has_obb = true;
+		}
+	    }
+	}
+
+	rt_db_free_internal(&intern);
 
 	// Post result to the result queue
 	{
@@ -3844,6 +3926,33 @@ DbiState::drain_geom_results()
 	    std::string k = dbi_cache_key(r.hash, CACHE_OBJ_BOUNDS);
 	    bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
 	}
+
+	// Store OBB if the background thread computed one.
+	if (r.has_obb) {
+	    std::array<fastf_t, 24> &obb_entry = obbs[r.hash];
+	    for (int pi = 0; pi < 8; pi++) {
+		obb_entry[pi*3+0] = r.obb_pts[pi][0];
+		obb_entry[pi*3+1] = r.obb_pts[pi][1];
+		obb_entry[pi*3+2] = r.obb_pts[pi][2];
+	    }
+	}
+
+	// Store per-solid drawing metadata.  The minor_type and
+	// bot_face_count fields were populated by the background worker;
+	// lod_key / has_lod require main-thread access to gedp->ged_lod.
+	SolidMeta meta = r.meta;
+	if (meta.minor_type == DB5_MINORTYPE_BRLCAD_BOT && gedp && gedp->ged_lod) {
+	    auto dp_it = d_map.find(r.hash);
+	    if (dp_it != d_map.end() && dp_it->second && dp_it->second->d_namep) {
+		unsigned long long key =
+		    bsg_mesh_lod_key_get(gedp->ged_lod, dp_it->second->d_namep);
+		if (key) {
+		    meta.lod_key  = key;
+		    meta.has_lod  = true;
+		}
+	    }
+	}
+	solid_metas[r.hash] = meta;
     }
 
     // Fire a single batched scene-change notification so that observers
