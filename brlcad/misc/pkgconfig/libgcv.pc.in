@@ -8,6 +8,6 @@ datadir=@datadir@
 Name: libgcv
 Description: BRL-CAD Geometry Conversion Library
 Version: @BRLCAD_VERSION@
-Requires: librt libnmg libbrep libbv libbg libbn libbu
-Libs: -L${libdir} -lgcv -lrt -lnmg -lbrep -lbv -lbg -lbn -lbu @LIBM@
+Requires: librt libnmg libbrep libbsg libbg libbn libbu
+Libs: -L${libdir} -lgcv -lrt -lnmg -lbrep -lbsg -lbg -lbn -lbu @LIBM@
 Cflags: -I${includedir}/brlcad -I${includedir}

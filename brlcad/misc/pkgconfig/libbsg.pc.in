@@ -9,5 +9,5 @@ Name: libbsg
 Description: BRL-CAD Scene Graph Library
 Version: @BRLCAD_VERSION@
 Requires: libbg libbn libbu
-Libs: -L${libdir} -lbsg -lbg -lbn -lbu @LIBM@
+Libs: -L${libdir} -lbg -lbn -lbu @LIBM@
 Cflags: -I${includedir}/brlcad -I${includedir}

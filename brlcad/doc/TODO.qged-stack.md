@@ -161,9 +161,7 @@ secondary->unlink(); // detach
 ### What is complete
 
 The `libbsg` library is the sole owner of all scene-graph functionality.
-`libbv` is a deprecated shim stub (~31 KB) that links `libbsg` for backward
-compatibility.  `include/bv.h` is a compatibility header that includes
-`bsg.h + bsg/compat.h`.
+`libbv` has been removed.
 
 | Phase | Description | Status |
 |-------|-------------|--------|

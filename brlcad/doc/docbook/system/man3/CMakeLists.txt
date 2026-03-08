@@ -5,7 +5,6 @@ endif(BRLCAD_EXTRADOCS)
 
 set(
   man3_EN
-  libbv.xml
   libpkg.xml
   librt.xml
   libwdb.xml

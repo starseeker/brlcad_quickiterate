@@ -37,7 +37,6 @@ set(
   libbn.pc.in
   libbg.pc.in
   libbsg.pc.in
-  libbv.pc.in
   libnmg.pc.in
   libbrep.pc.in
   librt.pc.in
