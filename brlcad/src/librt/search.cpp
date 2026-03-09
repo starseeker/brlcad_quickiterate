@@ -428,6 +428,8 @@ evaluate_path(struct traversal_ctx_t *ctx, struct db_full_path *path)
     curr_node.below_passes = ctx->below_passes_cache;
     curr_node.below_path_hash = ctx->below_path_hash;
     curr_node.below_parent_hash = ctx->below_parent_hash;
+    curr_node.above_passes_map = NULL;
+    curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
 
     find_execute_plans(ctx->dbip, ctx->results, &curr_node, ctx->plan);
     ctx->result_cnt += curr_node.matched_filters;
@@ -863,6 +865,8 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 	    curr_node.below_passes = NULL;
 	    curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
 	    curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
+	    curr_node.above_passes_map = NULL;
+	    curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
 	    curr_node.matched_filters = 1;
 
 	    state = find_execute_nested_plans(dbip, results, &curr_node,
@@ -891,6 +895,8 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 	curr_node.below_passes = NULL;
 	curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
 	curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
+	curr_node.above_passes_map = NULL;
+	curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
 	curr_node.matched_filters = 1;
 
 	distance = (int)db_node->path->fp_len - (int)parent_path.fp_len;
@@ -923,43 +929,74 @@ c_below(char *UNUSED(ignore), char ***UNUSED(ignored), int UNUSED(unused), struc
 /*
  * -above expression functions --
  *
- * Find objects below objects matching an expression.  Look at all
- * objects below the current object in the tree.
+ * A path passes "-above expr" if any object in the subtree below the current
+ * path satisfies expr.  The current object is considered "above" the matching
+ * descendant.
+ *
+ * Fast path: when the caller has pre-built an above_passes_map (a per-plan-node
+ * hash set of path fingerprints, populated by a bottom-up reverse pass over all
+ * collected paths), this reduces to a single O(1) hash-set lookup.
+ *
+ * Slow path (fallback): used when the map is not available (e.g. when the plan
+ * node could not be included in the pre-pass).  Iterates over all collected full
+ * paths looking for descendants that satisfy the inner expression - O(N) per
+ * node, O(N²) total for the entire search.
  */
 static int
 f_above(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, struct bu_ptbl *UNUSED(results))
 {
-    int i = 0;
-    int state = 0;
-    struct db_node_t curr_node;
-    struct bu_ptbl *full_paths = db_node->full_paths;
-
-    unsigned int f_path_len = db_node->path->fp_len;
-
-    for (i = 0; i < (int)BU_PTBL_LEN(full_paths); i++) {
-	struct db_full_path *this_path = (struct db_full_path *)BU_PTBL_GET(full_paths, i);
-
-	/* Check depth criteria by comparing to db_node->path - if OK execute nested plans */
-	if (this_path->fp_len > f_path_len && db_full_path_match_top(db_node->path, this_path)) {
-	    int relative_depth = this_path->fp_len - f_path_len;
-
-	    if (relative_depth >= plan->min_depth && relative_depth <= plan->max_depth) {
-		curr_node.path = this_path;
-		curr_node.flags = db_node->flags;
-		curr_node.full_paths = full_paths;
-		curr_node.below_passes = NULL;
-		curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
-		curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
-
-		state = find_execute_nested_plans(dbip, NULL, &curr_node, plan->p_un._ab_data[0]);
-		if (state)
-		    return 1;
+    /* Fast path: use the pre-computed per-node reverse-BFS cache. */
+    if (db_node->above_passes_map) {
+	typedef std::unordered_map<struct db_plan_t *, std::unordered_set<bu_h128_t>> AboveCacheMap;
+	AboveCacheMap *cmap =
+	    static_cast<AboveCacheMap *>(db_node->above_passes_map);
+	auto it = cmap->find(plan);
+	if (it != cmap->end()) {
+	    if (it->second.count(db_node->above_path_hash)) {
+		return 1;
 	    }
+	    db_node->matched_filters = 0;
+	    return 0;
 	}
+	/* plan not in map - fall through to slow path */
     }
 
-    db_node->matched_filters = 0;
-    return 0;
+    /* Slow path: iterate over all collected full paths. */
+    {
+	int i = 0;
+	int state = 0;
+	struct db_node_t curr_node;
+	struct bu_ptbl *full_paths = db_node->full_paths;
+
+	unsigned int f_path_len = db_node->path->fp_len;
+
+	for (i = 0; i < (int)BU_PTBL_LEN(full_paths); i++) {
+	    struct db_full_path *this_path = (struct db_full_path *)BU_PTBL_GET(full_paths, i);
+
+	    /* Check depth criteria by comparing to db_node->path - if OK execute nested plans */
+	    if (this_path->fp_len > f_path_len && db_full_path_match_top(db_node->path, this_path)) {
+		int relative_depth = this_path->fp_len - f_path_len;
+
+		if (relative_depth >= plan->min_depth && relative_depth <= plan->max_depth) {
+		    curr_node.path = this_path;
+		    curr_node.flags = db_node->flags;
+		    curr_node.full_paths = full_paths;
+		    curr_node.below_passes = NULL;
+		    curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
+		    curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
+		    curr_node.above_passes_map = NULL;
+		    curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
+
+		    state = find_execute_nested_plans(dbip, NULL, &curr_node, plan->p_un._ab_data[0]);
+		    if (state)
+			return 1;
+		}
+	    }
+	}
+
+	db_node->matched_filters = 0;
+	return 0;
+    }
 }
 
 
@@ -3078,6 +3115,57 @@ db_search_free_plan(struct db_plan_t *splan)
     }
 }
 
+/*
+ * Collect all N_ABOVE plan nodes from a plan tree into a vector.
+ * Used by the -above pre-pass to build per-node reverse-BFS caches.
+ * Does not recurse into N_ABOVE inner plans (nested -above is uncommon
+ * and falls back to the O(N) slow path automatically).
+ */
+static void
+collect_above_nodes(struct db_plan_t *plan,
+		    std::vector<struct db_plan_t *> &above_nodes)
+{
+    for (struct db_plan_t *p = plan; p; p = p->next) {
+	switch (p->type) {
+	    case N_ABOVE:
+		above_nodes.push_back(p);
+		break;
+	    case N_EXPR:
+	    case N_NOT:
+		if (p->p_un._p_data[0])
+		    collect_above_nodes(p->p_un._p_data[0], above_nodes);
+		break;
+	    case N_OR:
+		if (p->p_un._p_data[0])
+		    collect_above_nodes(p->p_un._p_data[0], above_nodes);
+		if (p->p_un._p_data[1])
+		    collect_above_nodes(p->p_un._p_data[1], above_nodes);
+		break;
+	    default:
+		break;
+	}
+    }
+}
+
+
+/*
+ * Compute the 128-bit path fingerprint for a complete db_full_path by
+ * applying below_path_hash_extend incrementally over every directory entry.
+ * Also returns the parent hash (all but the last element) via *parent_hash_out
+ * when parent_hash_out is non-NULL.
+ */
+static bu_h128_t
+above_path_hash_compute(struct db_full_path *path, bu_h128_t *parent_hash_out)
+{
+    bu_h128_t h = BELOW_PATH_HASH_ROOT;
+    for (size_t k = 0; k < path->fp_len; k++) {
+	if (parent_hash_out && k + 1 == path->fp_len)
+	    *parent_hash_out = h;
+	h = below_path_hash_extend(h, path->fp_names[k]);
+    }
+    return h;
+}
+
 void
 db_search_free(struct bu_ptbl *search_results)
 {
@@ -3212,15 +3300,99 @@ db_search(struct bu_ptbl *search_results,
 		}
 	    }
 
+	    /*
+	     * Build a per-node reverse-BFS cache for -above queries.
+	     *
+	     * Process paths deepest-first (bottom-up).  For each path P:
+	     *   1. Evaluate the inner plan of every N_ABOVE node on P.
+	     *   2. If P matches any inner plan, mark P's parent hash in that
+	     *      node's cache so the parent is known to be "above" a match.
+	     *   3. If P's own hash is already in the cache (propagated from a
+	     *      deeper descendant), propagate further to P's parent.
+	     *
+	     * This converts f_above from O(N) per call to O(1) per call for
+	     * the common case, reducing the total cost from O(N²) to O(N·D)
+	     * where D is the average path depth.
+	     */
+	    typedef std::unordered_map<struct db_plan_t *, std::unordered_set<bu_h128_t>> AboveCacheMap;
+	    AboveCacheMap above_cache_map;
+	    {
+		std::vector<struct db_plan_t *> above_nodes;
+		collect_above_nodes(dbplan, above_nodes);
+
+		if (!above_nodes.empty()) {
+		    /* Sort paths deepest-first for bottom-up traversal. */
+		    size_t nfp = (size_t)BU_PTBL_LEN(full_paths);
+		    std::vector<struct db_full_path *> sorted_paths(nfp);
+		    for (size_t k = 0; k < nfp; k++)
+			sorted_paths[k] = (struct db_full_path *)BU_PTBL_GET(full_paths, (int)k);
+		    std::sort(sorted_paths.begin(), sorted_paths.end(),
+			      [](struct db_full_path *a, struct db_full_path *b) {
+				  return a->fp_len > b->fp_len;
+			      });
+
+		    /* Initialise per-node cache entries. */
+		    for (auto *an : above_nodes)
+			above_cache_map.emplace(an, std::unordered_set<bu_h128_t>{});
+
+		    /* Bottom-up pass. */
+		    for (struct db_full_path *fp : sorted_paths) {
+			if (fp->fp_len == 0) continue;
+
+			bu_h128_t parent_hash = BELOW_PATH_HASH_ROOT;
+			bu_h128_t path_hash = above_path_hash_compute(fp, &parent_hash);
+
+			struct db_node_t eval_node;
+			eval_node.path = fp;
+			eval_node.flags = search_flags;
+			eval_node.full_paths = NULL;
+			eval_node.below_passes = NULL;
+			eval_node.below_path_hash = BELOW_PATH_HASH_ROOT;
+			eval_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
+			eval_node.above_passes_map = NULL;
+			eval_node.above_path_hash = path_hash;
+			eval_node.matched_filters = 1;
+
+			for (auto *an : above_nodes) {
+			    auto &ncache = above_cache_map[an];
+
+			    /* Propagate upward if a deeper descendant already matched. */
+			    if (ncache.count(path_hash)) {
+				if (fp->fp_len > 1)
+				    ncache.insert(parent_hash);
+				continue;
+			    }
+
+			    /* Test whether this path satisfies the inner plan. */
+			    int state = find_execute_nested_plans(
+				dbip, NULL, &eval_node, an->p_un._ab_data[0]);
+			    if (state && fp->fp_len > 1)
+				ncache.insert(parent_hash);
+			}
+		    }
+		}
+	    }
+
 	    for (i = 0; i < (int)BU_PTBL_LEN(full_paths); i++) {
 		struct db_node_t curr_node;
-		curr_node.path = (struct db_full_path *)BU_PTBL_GET(full_paths, i);
+		struct db_full_path *curr_path =
+		    (struct db_full_path *)BU_PTBL_GET(full_paths, i);
+		curr_node.path = curr_path;
 		curr_node.full_paths = full_paths;
 		curr_node.below_passes = NULL;
 		curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
 		curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 		curr_node.flags = search_flags;
 		curr_node.matched_filters = 1;
+		/* Supply the pre-computed cache to f_above. */
+		if (!above_cache_map.empty()) {
+		    curr_node.above_passes_map = (void *)&above_cache_map;
+		    curr_node.above_path_hash =
+			above_path_hash_compute(curr_path, NULL);
+		} else {
+		    curr_node.above_passes_map = NULL;
+		    curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
+		}
 		find_execute_plans(dbip, search_results, &curr_node, dbplan);
 		result_cnt += curr_node.matched_filters;
 	    }

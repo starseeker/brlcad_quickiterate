@@ -77,6 +77,8 @@ struct db_node_t {
     void *below_passes;           /* C++ unordered_set<bu_h128_t>*, NULL outside BFS -below */
     bu_h128_t below_path_hash;    /* precomputed path hash (for cache insert)  */
     bu_h128_t below_parent_hash;  /* precomputed parent hash (for cache lookup) */
+    void *above_passes_map;       /* C++ map<db_plan_t*,unordered_set<bu_h128_t>>*, NULL without -above pre-pass */
+    bu_h128_t above_path_hash;    /* precomputed path hash for above_passes_map lookup */
     int flags;
     int matched_filters;
 };
