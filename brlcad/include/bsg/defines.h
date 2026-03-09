@@ -479,6 +479,15 @@ struct bview_settings {
     int            gv_cleared;
     int            gv_zclip;
     int            gv_autoview;
+    /**
+     * Progressive autoview: when non-zero, drain_background_geom() will
+     * automatically re-run bsg_view_autoview() each time new AABB data
+     * arrives from the async DrawPipeline, keeping the camera centered on
+     * the growing scene.  Cleared automatically once all drawn BoT shapes
+     * have bounding boxes, or immediately when the user performs any
+     * explicit view manipulation.
+     */
+    int            gv_progressive_autoview;
     int           adaptive_plot_mesh;
     int           adaptive_plot_csg;
     size_t        bot_threshold;

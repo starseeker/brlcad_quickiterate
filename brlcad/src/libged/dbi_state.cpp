@@ -2496,6 +2496,24 @@ BViewState::lod_shape_count(struct bview *v)
     return cnt;
 }
 
+size_t
+BViewState::mesh_shapes_without_bbox(struct bview *v)
+{
+    // Used by drain_background_geom() to determine when progressive autoview
+    // has stabilised (all drawn BoT shapes now have bounding boxes).  Iterates
+    // s_map; acceptable on the drain timer path (called at most every 100 ms).
+    if (!v) return 0;
+    size_t cnt = 0;
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp || !sp->mesh_obj) continue;
+	    if (!sp->have_bbox)
+		cnt++;
+	}
+    }
+    return cnt;
+}
+
 std::vector<std::string>
 BViewState::list_drawn_paths(int mode, bool list_collapsed)
 {

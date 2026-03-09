@@ -422,6 +422,39 @@ QgEdApp::drain_background_geom()
     if (cur_aabb > last_aabb_count_) {
 	last_aabb_count_ = cur_aabb;
 	do_view_changed(QG_VIEW_DRAWN);
+
+	// Progressive autoview: if any view has gv_progressive_autoview set,
+	// re-run bsg_view_autoview() now that more bboxes are available so the
+	// camera keeps tracking the growing scene.  When all BoT shapes have
+	// bbox data (mesh_shapes_without_bbox() == 0), the scene is stable and
+	// we clear the flag so autoview stops firing.
+	struct bu_ptbl *views = (mdl && mdl->gedp)
+	    ? bsg_scene_views(&mdl->gedp->ged_views) : nullptr;
+	if (views) {
+	    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+		if (!v || !v->gv_s || !v->gv_s->gv_progressive_autoview)
+		    continue;
+
+		// Re-run autoview with current (partial) bbox data.
+		// Do NOT re-set gv_progressive_autoview here — that would
+		// reset the flag before we check for stability below.
+		// Instead, call the underlying computation directly.
+		bsg_view_autoview(v, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
+
+		// Check if all drawn BoT shapes now have a bbox.
+		BViewState *bvs = dbis->get_view_state(v);
+		bool stable = (!bvs || bvs->mesh_shapes_without_bbox(v) == 0);
+		if (stable) {
+		    v->gv_s->gv_progressive_autoview = 0;
+		    bsg_log(1, "QgEdApp: progressive autoview stable "
+			   "(bboxes=%zu)\n", cur_aabb);
+		}
+	    }
+	    // Re-emit a camera-only refresh so widgets repaint with the
+	    // updated camera position without triggering another full redraw.
+	    emit view_update(QG_VIEW_REFRESH);
+	}
     }
 
     // Detect newly arrived OBBs (dbis->obbs.size() advanced) and schedule a
@@ -610,6 +643,37 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	return BRLCAD_ERROR;
 
     struct ged *gedp = mdl->gedp;
+
+    /* Progressive autoview: cancel if the user runs an explicit view-
+     * manipulating command.  We clear the flag on all views before executing
+     * the command so that any camera settings applied by the command become
+     * the final "accepted" camera state.
+     *
+     * Commands that PRESERVE progressive autoview (do NOT clear):
+     *   draw, erase (just modifies what is drawn; autoview should re-adapt)
+     *   autoview     (re-activates it)
+     *   Any read-only/diagnostic command
+     *
+     * Everything else that can change the camera position/orientation clears
+     * the flag: ae, arot, center, eye, eye_pt, vrot, zoom, tra, slew,
+     * lookat, view, rot, ort, perspective, and any future additions.
+     */
+    static const std::unordered_set<std::string> s_preserve_progressive = {
+	"draw", "erase", "autoview", "who", "ls", "l", "tops",
+	"tree", "search", "attr", "dbip", "title", "units", "stat"
+    };
+    if (argc > 0 && argv[0] &&
+	s_preserve_progressive.find(argv[0]) == s_preserve_progressive.end())
+    {
+	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+	if (views) {
+	    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+		if (v && v->gv_s)
+		    v->gv_s->gv_progressive_autoview = 0;
+	    }
+	}
+    }
 
     SelectionSet *ss = (gedp->dbi_state) ? ((DbiState *)gedp->dbi_state)->get_selection_set(nullptr) : nullptr;
     select_hash = (ss) ? ss->state_hash() : 0;
