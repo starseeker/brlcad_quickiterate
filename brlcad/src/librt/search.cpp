@@ -194,12 +194,6 @@ struct plan_analysis_t {
 };
 
 
-enum traversal_strategy {
-    TRAVERSE_DEPTH_FIRST = 0,
-    TRAVERSE_BREADTH_FIRST = 1
-};
-
-
 struct traversal_ctx_t {
     struct db_i *dbip;
     struct db_plan_t *plan;
@@ -208,17 +202,12 @@ struct traversal_ctx_t {
     int result_cnt;
     int has_maxdepth;
     int maxdepth;
-    std::unordered_set<bu_h128_t> *below_passes_cache; /* NULL outside BFS -below */
-    bu_h128_t below_path_hash;   /* hash of path currently being evaluated */
-    bu_h128_t below_parent_hash; /* hash of its parent ({0,0} = no parent / root) */
 };
 
 
 struct path_node_t {
     struct db_full_path *path;
     int depth;
-    bu_h128_t path_hash;   /* incremental hash for below_passes cache */
-    bu_h128_t parent_hash; /* hash of the parent path */
 };
 
 
@@ -363,15 +352,6 @@ plan_analysis_update(const struct db_plan_t *plan, struct plan_analysis_t *pa)
 }
 
 
-static enum traversal_strategy
-choose_traversal_strategy(const struct plan_analysis_t *pa)
-{
-    if (pa && pa->has_below && !pa->has_above)
-	return TRAVERSE_BREADTH_FIRST;
-    return TRAVERSE_DEPTH_FIRST;
-}
-
-
 static void
 collect_tree_leaves(union tree *tp, int curr_bool, std::vector<leaf_info_t> &leaves)
 {
@@ -425,9 +405,6 @@ evaluate_path(struct traversal_ctx_t *ctx, struct db_full_path *path)
     curr_node.flags = ctx->flags;
     curr_node.matched_filters = 1;
     curr_node.full_paths = NULL;
-    curr_node.below_passes = ctx->below_passes_cache;
-    curr_node.below_path_hash = ctx->below_path_hash;
-    curr_node.below_parent_hash = ctx->below_parent_hash;
     curr_node.above_passes_map = NULL;
     curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
 
@@ -437,18 +414,13 @@ evaluate_path(struct traversal_ctx_t *ctx, struct db_full_path *path)
 
 
 static void
-traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_cnt, enum traversal_strategy strategy)
+traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_cnt)
 {
     int i = 0;
     std::deque<path_node_t> work;
-    std::unordered_set<bu_h128_t> below_cache;
 
     if (!ctx || !paths || path_cnt <= 0)
 	return;
-
-    /* Enable the O(1)-per-node BFS propagation cache for -below queries. */
-    if (strategy == TRAVERSE_BREADTH_FIRST)
-	ctx->below_passes_cache = &below_cache;
 
     for (i = 0; i < path_cnt; i++) {
 	struct directory *curr_dp = paths[i];
@@ -465,16 +437,12 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 	    DB_FULL_PATH_SET_CUR_BOOL(start_path, 2);
 
 	    if (ctx->flags & DB_SEARCH_FLAT) {
-		ctx->below_path_hash = BELOW_PATH_HASH_ROOT;
-		ctx->below_parent_hash = BELOW_PATH_HASH_ROOT;
 		evaluate_path(ctx, start_path);
 		db_free_full_path(start_path);
 		BU_PUT(start_path, struct db_full_path);
 	    } else {
 		node.path = start_path;
 		node.depth = 0;
-		node.path_hash = below_path_hash_extend(BELOW_PATH_HASH_ROOT, curr_dp);
-		node.parent_hash = BELOW_PATH_HASH_ROOT; /* sentinel: root-level has no parent */
 		work.push_back(node);
 	    }
 	}
@@ -485,22 +453,13 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 	struct db_full_path *path = NULL;
 	struct directory *dp = NULL;
 
-	if (strategy == TRAVERSE_BREADTH_FIRST) {
-	    node = work.front();
-	    work.pop_front();
-	} else {
-	    node = work.back();
-	    work.pop_back();
-	}
+	node = work.back();
+	work.pop_back();
 
 	path = node.path;
 	if (!path) {
 	    continue;
 	}
-
-	/* Set per-path hash context for f_below's O(1) cache operations. */
-	ctx->below_path_hash = node.path_hash;
-	ctx->below_parent_hash = node.parent_hash;
 
 	evaluate_path(ctx, path);
 
@@ -568,10 +527,6 @@ traverse_paths(struct traversal_ctx_t *ctx, struct directory **paths, int path_c
 		    path_node_t child_node;
 		    child_node.path = child_path;
 		    child_node.depth = node.depth + 1;
-		    /* O(1) incremental hash: extend parent hash with child dp. */
-		    child_node.path_hash = below_path_hash_extend(node.path_hash,
-								  child_dp);
-		    child_node.parent_hash = node.path_hash;
 		    work.push_back(child_node);
 		}
 	    }
@@ -800,20 +755,9 @@ find_execute_nested_plans(struct db_i *dbip, struct bu_ptbl *results, struct db_
  *
  * A path passes "-below expr" if any ancestor of the path satisfies expr.
  *
- * Optimized for BFS traversal: since parents are processed before children,
- * we use a propagation cache so each call is O(1) instead of O(depth):
- *
- *   below_passes(C) = below_passes(parent(C))  [cache hit: same ancestor applies]
- *                   OR inner(parent(C))          [parent itself satisfies expr]
- *
- * Cache keys are 128-bit incremental path fingerprints (bu_h128_t, computed in
- * the BFS work queue via below_path_hash_extend).  Identity is determined by
- * all 128 bits (operator==), giving a correctness-collision probability of N^2
- * / 2^129; the std::hash bucket function folds to 64 bits for placement only.
- * No string allocation is needed.  This reduces the total cost for a linear
- * chain of depth D from O(D^2) inner-plan evaluations to O(D).  The cache is
- * only active during BFS traversal with an unbounded max_depth (the normal
- * case for -below); other modes fall back to the original ancestor-walk.
+ * Walks up the ancestor chain from the current path, evaluating the inner
+ * plan at each ancestor.  Cost is O(D) per path where D is the path depth.
+ * For typical BRL-CAD trees (depth 5-20) this is fast enough in practice.
  */
 static int
 f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, struct bu_ptbl *results)
@@ -821,8 +765,7 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
     int state = 0;
     struct db_node_t curr_node;
     struct db_full_path parent_path;
-    std::unordered_set<bu_h128_t> *cache =
-	static_cast<std::unordered_set<bu_h128_t> *>(db_node->below_passes);
+    int distance;
 
     /* A root-level node (no parent) never satisfies -below. */
     if (db_node->path->fp_len <= 1) {
@@ -830,99 +773,30 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 	return 0;
     }
 
-    if (cache && plan->max_depth == INT_MAX && plan->min_depth <= 2 && !(db_node->flags & DB_SEARCH_FLAT)) {
-	/*
-	 * BFS optimized path: O(1) per node, no memory allocation.
-	 *
-	 * This path is only active when max_depth is unbounded AND min_depth
-	 * is at most 2.  The "distance" convention in the ancestor-walk loop
-	 * starts at 1 (initial fp_len difference) then increments to 2
-	 * before the first evaluation, so "distance 2" corresponds to the
-	 * immediate parent (1 hop up).  The BFS fast path can only seed the
-	 * cache from the immediate parent (1 hop); when min_depth > 2 the
-	 * required ancestor is 2+ hops above and the BFS single-parent check
-	 * can never satisfy it, so the fallback ancestor-walk is used instead.
-	 *
-	 * Check 1: if the parent hash is in the cache, this node inherits
-	 * the result.  The same qualifying ancestor still applies to all
-	 * descendants, and with unbounded max_depth the distance constraint
-	 * remains satisfied for the propagated case too (the ancestor that
-	 * originally seeded the cache is one hop further from each descendant,
-	 * so distance only grows and min_depth <= 2 remains satisfied).
-	 */
-	if (cache->count(db_node->below_parent_hash)) {
-	    cache->insert(db_node->below_path_hash);
-	    return 1;
-	}
+    db_full_path_init(&parent_path);
+    db_dup_full_path(&parent_path, db_node->path);
+    DB_FULL_PATH_POP(&parent_path);
 
-	/*
-	 * Check 2: evaluate the inner plan against the immediate parent.
-	 * Build the parent path only when needed (once per "first match").
-	 * Subsequent descendants get a cache hit in Check 1 above without
-	 * any path allocation.
-	 *
-	 * distance = 2 matches the original loop's off-by-one convention
-	 * (distance starts at 1, then gets incremented to 2 before the
-	 * first evaluation).
-	 */
-	if (2 >= plan->min_depth) {
-	    db_full_path_init(&parent_path);
-	    db_dup_full_path(&parent_path, db_node->path);
-	    DB_FULL_PATH_POP(&parent_path);
+    curr_node.path = &parent_path;
+    curr_node.flags = db_node->flags;
+    curr_node.full_paths = NULL;
+    curr_node.above_passes_map = NULL;
+    curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
+    curr_node.matched_filters = 1;
 
-	    curr_node.path = &parent_path;
-	    curr_node.flags = db_node->flags;
-	    curr_node.full_paths = NULL;
-	    curr_node.below_passes = NULL;
-	    curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
-	    curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
-	    curr_node.above_passes_map = NULL;
-	    curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
-	    curr_node.matched_filters = 1;
-
-	    state = find_execute_nested_plans(dbip, results, &curr_node,
+    distance = (int)db_node->path->fp_len - (int)parent_path.fp_len;
+    while ((parent_path.fp_len > 0) && (state == 0) && !(db_node->flags & DB_SEARCH_FLAT)) {
+	distance++;
+	if ((distance <= plan->max_depth) && (distance >= plan->min_depth)) {
+	    state += find_execute_nested_plans(dbip, results, &curr_node,
 					     plan->p_un._bl_data[0]);
-	    db_free_full_path(&parent_path);
-
-	    if (state > 0) {
-		cache->insert(db_node->below_path_hash);
-		return 1;
-	    }
 	}
-    } else {
-	/*
-	 * Fallback: walk all ancestors.  Used for DB_SEARCH_FLAT mode or
-	 * when a bounded max_depth is in effect (rare non-default case).
-	 */
-	int distance;
-
-	db_full_path_init(&parent_path);
-	db_dup_full_path(&parent_path, db_node->path);
 	DB_FULL_PATH_POP(&parent_path);
-
-	curr_node.path = &parent_path;
-	curr_node.flags = db_node->flags;
-	curr_node.full_paths = NULL;
-	curr_node.below_passes = NULL;
-	curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
-	curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
-	curr_node.above_passes_map = NULL;
-	curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
-	curr_node.matched_filters = 1;
-
-	distance = (int)db_node->path->fp_len - (int)parent_path.fp_len;
-	while ((parent_path.fp_len > 0) && (state == 0) && !(db_node->flags & DB_SEARCH_FLAT)) {
-	    distance++;
-	    if ((distance <= plan->max_depth) && (distance >= plan->min_depth)) {
-		state += find_execute_nested_plans(dbip, results, &curr_node,
-						   plan->p_un._bl_data[0]);
-	    }
-	    DB_FULL_PATH_POP(&parent_path);
-	}
-	db_free_full_path(&parent_path);
-	if (state > 0)
-	    return 1;
     }
+    db_free_full_path(&parent_path);
+
+    if (state > 0)
+	return 1;
 
     db_node->matched_filters = 0;
     return 0;
@@ -992,9 +866,6 @@ f_above(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 		    curr_node.path = this_path;
 		    curr_node.flags = db_node->flags;
 		    curr_node.full_paths = full_paths;
-		    curr_node.below_passes = NULL;
-		    curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
-		    curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 		    curr_node.above_passes_map = NULL;
 		    curr_node.above_path_hash = BELOW_PATH_HASH_ROOT;
 
@@ -3291,7 +3162,6 @@ db_search(struct bu_ptbl *search_results,
 	struct bu_ptbl *full_paths = NULL;
 	struct list_client_data_t lcd;
 	struct traversal_ctx_t tctx;
-	enum traversal_strategy strategy = choose_traversal_strategy(&plan_analysis);
 
 	/* First, check if search_results is initialized - don't trust the caller to do it,
 	 * but it's fine if they did */
@@ -3386,9 +3256,6 @@ db_search(struct bu_ptbl *search_results,
 			 * to the slow path, which needs a valid full_paths ptr.
 			 */
 			eval_node.full_paths = full_paths;
-			eval_node.below_passes = NULL;
-			eval_node.below_path_hash = BELOW_PATH_HASH_ROOT;
-			eval_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 			eval_node.above_passes_map = NULL;
 			eval_node.above_path_hash = path_hash;
 			eval_node.matched_filters = 1;
@@ -3419,9 +3286,6 @@ db_search(struct bu_ptbl *search_results,
 		    (struct db_full_path *)BU_PTBL_GET(full_paths, i);
 		curr_node.path = curr_path;
 		curr_node.full_paths = full_paths;
-		curr_node.below_passes = NULL;
-		curr_node.below_path_hash = BELOW_PATH_HASH_ROOT;
-		curr_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
 		curr_node.flags = search_flags;
 		curr_node.matched_filters = 1;
 		/* Supply the pre-computed cache to f_above. */
@@ -3448,9 +3312,8 @@ db_search(struct bu_ptbl *search_results,
 	    tctx.result_cnt = 0;
 	    tctx.has_maxdepth = plan_analysis.has_maxdepth;
 	    tctx.maxdepth = plan_analysis.maxdepth;
-	    tctx.below_passes_cache = NULL;
 
-	    traverse_paths(&tctx, paths, path_cnt, strategy);
+	    traverse_paths(&tctx, paths, path_cnt);
 	    result_cnt = tctx.result_cnt;
 	}
     }

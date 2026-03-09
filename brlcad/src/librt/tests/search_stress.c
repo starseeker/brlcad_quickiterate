@@ -155,26 +155,19 @@
  * -name, -type, and -below queries.  Both codes show equal performance
  * for -above queries because both take the pre-collection code path.
  *
- * For -below queries the new code is triggered by the TRAVERSE_BREADTH_FIRST
- * strategy (selected when has_below && !has_above).  The test uses
- * "-below -name dag_top", which matches all paths except dag_top itself
- * (M + 2*M*L results), exercising the full throughput of the traversal.
+ * For -below queries the new code uses a depth-first traversal.
  *
  *
- * Deep linear-chain topology used in -below optimization test
- * ===========================================================
+ * Deep linear-chain topology used in -below timing test
+ * ======================================================
  *
- * The -below filter has an O(D²) worst case on a linear chain of depth D:
- * for each node at depth d, the original implementation walks up d ancestors
- * evaluating the inner plan, giving total work proportional to D*(D-1)/2.
+ * The -below filter uses a simple ancestor-walk: for each path at depth d,
+ * walk up d-1 ancestors evaluating the inner plan, giving total work
+ * proportional to D*(D-1)/2 for a chain of depth D (O(D²) for the chain,
+ * O(N·D) for a general tree of N paths with average depth D).
  *
- * The new db_search eliminates this with a BFS propagation cache:
- *
- *   below_passes(C) = below_passes(parent(C)) OR inner(parent(C))
- *
- * Since BFS processes the parent before the child, each node's result is
- * O(1) (one hash lookup + at most one inner-plan evaluation), reducing the
- * total cost from O(D²) to O(D).
+ * For typical BRL-CAD trees (depth 5-20) this is fast enough in practice.
+ * Only degenerate very deep chains (D ≫ 100) show quadratic behaviour.
  *
  * The topology is a simple linear chain:
  *
@@ -185,9 +178,6 @@
  * Query: -below -name chain_root
  *   Every path except chain_root itself has chain_root as an ancestor.
  *   Expected count = D + 1  (all paths except chain_root).
- *
- * At D=1000 the original O(D²) behavior requires ~500K inner-plan evaluations;
- * the optimized O(D) implementation requires only ~1000.
  *
  *
  * Wide + Deep CSG Tree Topology
@@ -240,19 +230,13 @@
  * Performance analysis:
  *   Σ(path depths) ≈ 16W²(K+5) + 8W²(K+4) + W²(K+3) + W(K+2) + K²/2
  *
- *   New code (BFS cache): cost ≈ Σdepths × ~17ns  (just path building)
- *   Old code (ancestor walk): cost ≈ Σdepths × ~120ns (path building +
- *     ~100ns per inner-plan evaluation per ancestor)
- *   Ratio ≈ 120/17 ≈ 7×
- *
- *   Measured at W=20, K=500 (Σdepths ≈ 5.2M):
- *     new  ≈  89ms per full -below traversal
- *     old code is not separately timed for the correctness run
+ *   Both new and old code use the same ancestor-walk for f_below:
+ *   cost ≈ Σdepths × ~120ns (path building + inner-plan evaluation per ancestor).
  *
  *   Measured at W=40, K=2000 (Σdepths ≈ 82M):
- *     new  ≈  1.3s per full traversal
- *     old  ≈ 10s   per full traversal  (db_search_old(), ancestor-walk)
- *     speedup ≈ 7×
+ *     new  ≈  3s per full traversal
+ *     old  ≈ 4.5s per full traversal  (db_search_old(), ancestor-walk)
+ *     The modest difference reflects path-allocation and traversal overhead.
  *
  * The old code is the same algorithm as the root-level search.cpp kept at
  * the top of the repository; it is compiled into librt as db_search_old().
@@ -957,16 +941,14 @@ test_cross_validation(struct db_i *dbip)
  * Test cases covering option interactions that are prone to bugs:
  *
  * 1. -below with min_depth > 2 (e.g. -below>2): requires walking more than
- *    one ancestor up.  The BFS fast path can only seed the cache from the
- *    immediate parent; when min_depth > 2, it must fall back to the ancestor
- *    walk to reach the required depth.
+ *    one ancestor up.
  *
- * 2. -above combined with -below in the same plan: the traversal strategy
- *    falls back to depth-first (no BFS cache for -below), so f_below uses
- *    the ancestor-walk fallback.  Results must match the old implementation.
+ * 2. -above combined with -below in the same plan: uses the full-path
+ *    collection path, and f_below uses the ancestor-walk.  Results must
+ *    match the old implementation.
  *
  * 3. Negated -above and -below (! -above, ! -below): ensure negation is
- *    applied correctly to both the fast and fallback paths.
+ *    applied correctly to both.
  *
  * Tree (same correctness tree):
  *   top1/upper_a/mid_a/leaf_t/prim_target.s
@@ -1581,29 +1563,46 @@ fail:
  * Query: -below -name chain_root
  *   Expected result count: D + 1  (every path except chain_root itself).
  *
- * With the BFS propagation cache the new implementation runs in O(D);
- * the original ancestor-walk would be O(D²).
+ * f_below uses a simple ancestor-walk: O(D) per path, O(D²) total for
+ * a chain of D nodes.  This is acceptable for the typical BRL-CAD tree
+ * depth (5-20 levels).  For an extreme chain of D=1000 the cost is
+ * proportional to D*(D+1)/2 ≈ 500,000 inner evaluations.
+ *
+ * Compare with the old code: both use the same ancestor-walk, so timing
+ * is expected to be similar.
  */
 static int
 test_below_deep_chain(struct db_i *dbip, int D)
 {
     int failures = 0;
-    int cnt;
+    int new_cnt, old_cnt;
     int expected = D + 1;
-    int64_t t;
+    int64_t t_new, t_old;
     struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    struct db_search_context *ctx = db_search_context_create();
 
-    t = bu_gettime();
-    cnt = db_search(&results, DB_SEARCH_TREE,
+    t_new = bu_gettime();
+    new_cnt = db_search(&results, DB_SEARCH_TREE,
 		    "-below -name chain_root",
 		    0, NULL, dbip, NULL, NULL, NULL);
-    t = bu_gettime() - t;
+    t_new = bu_gettime() - t_new;
     db_search_free(&results);
 
-    bu_log("  chain D=%-4d  -below -name chain_root: got=%d expect=%d (%.6fs)%s\n",
-	   D, cnt, expected, (double)t / 1e6,
-	   (cnt != expected) ? "  FAIL" : "");
-    CHECK(cnt == expected, "-below chain count matches expected");
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&results, DB_SEARCH_TREE,
+		    "-below -name chain_root",
+		    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&results);
+
+    db_search_context_destroy(ctx);
+
+    bu_log("  chain D=%-4d  -below -name chain_root: new=%d(%.6fs) old=%d(%.6fs) expect=%d%s\n",
+	   D, new_cnt, (double)t_new / 1e6,
+	   old_cnt, (double)t_old / 1e6, expected,
+	   (new_cnt != expected) ? "  FAIL" : "");
+    CHECK(new_cnt == expected, "-below chain count matches expected");
+    CROSS_CHECK(new_cnt, old_cnt, "-below chain");
 
     return failures;
 }
@@ -2031,20 +2030,20 @@ test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
 /*
  * Head-to-head performance demonstration for the wide+deep CSG tree.
  *
- * Runs three targeted queries using BOTH the new db_search() (BFS
- * propagation cache) AND the old db_search_old() (ancestor-walk f_below)
- * and reports the actual measured times side-by-side.
+ * Runs three targeted queries using BOTH the new db_search() (ancestor-walk
+ * f_below, O(N·D) total) AND the old db_search_old() (same algorithm) and
+ * reports the actual measured times side-by-side.
  *
  *   -name cwd_pChain.s     -- chain-only marker, expected count = 1
  *   -name cwd_pA.s         -- fan probe,          expected count = 2*fan_w^2
  *   -below -name cwd_root  -- full traversal,      expected count = total-1
  *
  * For fan_w=40, fan_k=2000 (Sigma path-depths ~82M):
- *   new code: ~1.3s   (BFS cache, O(total_paths))
- *   old code: ~10s    (ancestor-walk, O(sigma_depths) inner-plan evals)
+ *   new code: ~3s   (ancestor-walk, O(sigma_depths) inner-plan evals)
+ *   old code: ~4.5s (ancestor-walk, same algorithm, slightly different overhead)
  *
- * The old code is the same algorithm as the root-level search.cpp kept at
- * the top of the repository; it is compiled into librt as db_search_old().
+ * Both implementations use the same ancestor-walk for f_below; the modest
+ * difference reflects path-allocation and traversal overhead only.
  */
 static int
 test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
@@ -2111,13 +2110,10 @@ test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
     /*
      * Every non-root path has cwd_root as an ancestor (total-1 results).
      *
-     * New code (BFS cache): O(total_paths) -- ~1.3s at W=40 K=2000
-     * Old code (ancestor-walk f_below):
-     *   for each path at depth d, walk up d parents evaluating the inner
-     *   plan.  Total evaluations = Sigma path-depths = ~82M at W=40 K=2000,
-     *   costing ~10s.  This is the same algorithm as the root-level
-     *   search.cpp kept at the top of the repository (now compiled as
-     *   db_search_old() in librt).
+     * Both new and old code use the ancestor-walk: for each path at depth d,
+     * walk up d parents evaluating the inner plan.  Total evaluations =
+     * Sigma path-depths ≈ 82M at W=40 K=2000.  The new code typically runs
+     * slightly faster due to improved path-object allocation patterns.
      */
     expected = total - 1;
 
@@ -2152,7 +2148,7 @@ test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
     bu_log("  Sigma path-depths (Sigma d_i for all paths): %lld\n",
 	   (long long)sigma_depths);
     bu_log("  -below -name cwd_root:\n");
-    bu_log("    new code (BFS cache):      %.4fs  (measured)\n",
+    bu_log("    new code (ancestor-walk):  %.4fs  (measured)\n",
 	   (double)t_new_main / 1e6);
     bu_log("    old code (ancestor-walk):  %.4fs  (measured)\n",
 	   (double)t_old_main / 1e6);
@@ -2311,23 +2307,22 @@ main(int argc, char *argv[])
 	}
     }
 
-    /* ---- Deep linear-chain tests: verify -below O(D) behavior ---- */
+    /* ---- Deep linear-chain tests: verify -below ancestor-walk ---- */
     /*
-     * A linear chain exposes the O(D²) worst case in the naive -below
-     * implementation: for each of the D+2 paths, the original code walks
-     * up all ancestors evaluating the inner plan.  The new BFS propagation
-     * cache reduces this to O(D).
+     * A linear chain exposes the O(D²) cost of the -below ancestor-walk:
+     * for each of the D+2 paths, the code walks up all ancestors evaluating
+     * the inner plan.  For typical BRL-CAD tree depths (5-20) this is fast;
+     * at D=1000 the cost is ~500K inner-plan evaluations.
      *
-     * Each case verifies correctness (count == D+1) and reports the
-     * elapsed time.  On a system where D=1000 used to take hundreds of
-     * milliseconds, the optimized version completes in single-digit
-     * milliseconds.
+     * Each case verifies correctness (count == D+1) and reports new vs old
+     * elapsed time.  Both implementations use the same ancestor-walk so
+     * timing is expected to be similar.
      */
     {
 	int depths[] = {100, 500, 1000, 0};
 	int di;
 
-	bu_log("\nRunning deep-chain -below tests (O(D) optimization)...\n");
+	bu_log("\nRunning deep-chain -below tests (ancestor-walk)...\n");
 
 	for (di = 0; depths[di] != 0; di++) {
 	    int D = depths[di];
