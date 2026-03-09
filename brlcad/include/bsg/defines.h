@@ -434,6 +434,11 @@ struct bsg_shape  {
     struct bsg_shape *free_scene_obj;
     struct bu_ptbl *otbl;
     void *draw_data;
+    /* Placeholder type when draw_data is NULL and this is a per-view bbox
+     * wireframe: 0 = not a placeholder (or LoD view obj), 1 = AABB wireframe,
+     * 2 = OBB wireframe.  Set by bot_adaptive_plot(); used to detect when an
+     * upgrade to a tighter wireframe or real LoD is possible. */
+    int s_placeholder;
     void *s_u_data;
 };
 typedef struct bsg_shape bsg_shape;
