@@ -297,74 +297,94 @@ bot_adaptive_plot(bsg_shape *s, bsg_view *v)
 	    }
 	    // Keep the placeholder (upgraded or not).
 	    return;
-	} else {
-	    // OBB placeholder or no upgrade available - keep as-is.
+	} else if (vo->s_placeholder == 2) {
+	    // OBB placeholder - no upgrade available yet; keep as-is.
 	    return;
+	} else {
+	    // Unexpected state (s_placeholder=0 with no draw_data).
+	    // Clear and retry so this shape gets properly redrawn.
+	    bsg_shape_clear_view_obj(s, v);
+	    vo = NULL;
 	}
     }
 
     if (!vo) {
+	unsigned long long hash =
+	    bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+	// We need the LoD key to determine which path to take.
+	unsigned long long key = bsg_mesh_lod_key_get(d->mesh_c, dp->d_namep);
+
+	// If have_bbox is not yet set (deferred async AABB computation),
+	// attempt to late-populate it from dbis->bboxes.  Transform the
+	// object-space AABB through the path matrix (s->s_mat) to get the
+	// world-space bbox needed for the AABB wireframe placeholder.
+	if (!s->have_bbox && d->dbis) {
+	    auto bit = d->dbis->bboxes.find(hash);
+	    if (bit != d->dbis->bboxes.end() && bit->second.size() == 6) {
+		const auto &bb = bit->second;
+		fastf_t x0=bb[0], y0=bb[1], z0=bb[2];
+		fastf_t x1=bb[3], y1=bb[4], z1=bb[5];
+		// Transform the 8 AABB corners through the path matrix
+		// to obtain the world-space axis-aligned bounding box.
+		point_t corners[8] = {
+		    {x0,y0,z0}, {x1,y0,z0}, {x0,y1,z0}, {x1,y1,z0},
+		    {x0,y0,z1}, {x1,y0,z1}, {x0,y1,z1}, {x1,y1,z1}
+		};
+		point_t wbmin, wbmax;
+		VSETALL(wbmin, 1e300); VSETALL(wbmax, -1e300);
+		for (int k = 0; k < 8; k++) {
+		    point_t wc;
+		    MAT4X3PNT(wc, s->s_mat, corners[k]);
+		    VMIN(wbmin, wc); VMAX(wbmax, wc);
+		}
+		VMOVE(s->bmin, wbmin); VMOVE(s->bmax, wbmax);
+		s->s_center[X] = (s->bmin[X]+s->bmax[X]) * 0.5;
+		s->s_center[Y] = (s->bmin[Y]+s->bmax[Y]) * 0.5;
+		s->s_center[Z] = (s->bmin[Z]+s->bmax[Z]) * 0.5;
+		s->s_size = s->bmax[X]-s->bmin[X];
+		V_MAX(s->s_size, s->bmax[Y]-s->bmin[Y]);
+		V_MAX(s->s_size, s->bmax[Z]-s->bmin[Z]);
+		s->have_bbox = 1;
+	    }
+	}
+
+	// Priority: LoD > OBB > AABB > no-op.
+	// Check what we can draw BEFORE allocating the view object so that
+	// shapes without any data yet stay in no_view_obj state and are
+	// retried on the next redraw pass triggered by the drain pipeline.
+	bool have_obb = d->dbis && (d->dbis->obbs.count(hash) > 0);
+	if (!key && !have_obb && !s->have_bbox) {
+	    // Nothing available yet — return without creating a view object.
+	    // The missing-view-obj scan in BViewState::redraw() will include
+	    // this shape on the next redraw triggered by AABB/OBB/LoD arrival.
+	    return;
+	}
 
 	vo = bsg_shape_get_view_obj(s, v);
 
 	vo->csg_obj = 0;
 	vo->mesh_obj = 1;
 
-	// We need the key to look up the LoD data from the cache.
-	unsigned long long key = bsg_mesh_lod_key_get(d->mesh_c, dp->d_namep);
 	if (!key) {
-	    // The LoD cache is not yet available.  The DrawPipeline background
-	    // threads are generating it; when complete, stale_mesh_shapes_for_dp()
-	    // will clear this view object and the next redraw will produce
-	    // proper LoD geometry.  In the meantime draw the tightest
-	    // placeholder wireframe we have: OBB corners if available (tighter
-	    // than AABB), otherwise an AABB wireframe, so the user sees
-	    // something immediately.
-	    if (s->have_bbox) {
-		// Prefer OBB when DbiState has one for this primitive — it is a
-		// tighter fit than the AABB wireframe.
-		bool obb_available = false;
-		if (d->dbis) {
-		    unsigned long long hash = bu_data_hash(
-			dp->d_namep, strlen(dp->d_namep) * sizeof(char));
-		    auto oit = d->dbis->obbs.find(hash);
-		    if (oit != d->dbis->obbs.end()) {
-			// OBB corners are stored as 24 contiguous fastf_t values
-			// (8 pts × 3 coords), in the same arb8 corner order that
-			// ft_oriented_bbox returns.  Reinterpret as point_t[8] and
-			// draw the 12 wireframe edges.
-			const fastf_t *raw = oit->second.data();
-			point_t obb_pts[8];
-			for (int k = 0; k < 8; k++)
-			    VSET(obb_pts[k], raw[k*3+0], raw[k*3+1], raw[k*3+2]);
-			bsg_vlist_arb8(&v->gv_objs.gv_vlfree, &vo->s_vlist, obb_pts);
-			obb_available = true;
-			vo->s_placeholder = 2;  /* OBB wireframe placeholder */
-		    }
-		}
-		if (!obb_available) {
-		    bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &vo->s_vlist,
-				  s->bmin, s->bmax);
-		    vo->s_placeholder = 1;  /* AABB wireframe placeholder */
-		}
-		// vo->draw_data remains NULL to signal "placeholder".
-		return;
+	    // No LoD yet.  Draw the tightest placeholder wireframe available:
+	    // OBB (if pipeline has delivered one) or AABB bounding box.
+	    if (have_obb) {
+		auto oit = d->dbis->obbs.find(hash);
+		const fastf_t *raw = oit->second.data();
+		point_t obb_pts[8];
+		for (int k = 0; k < 8; k++)
+		    VSET(obb_pts[k], raw[k*3+0], raw[k*3+1], raw[k*3+2]);
+		bsg_vlist_arb8(&v->gv_objs.gv_vlfree, &vo->s_vlist, obb_pts);
+		vo->s_placeholder = 2;  /* OBB wireframe placeholder */
+	    } else {
+		bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &vo->s_vlist,
+			      s->bmin, s->bmax);
+		vo->s_placeholder = 1;  /* AABB wireframe placeholder */
 	    }
-	    // No bbox available — fall back to synchronous LoD generation.
-	    struct rt_db_internal dbintern;
-	    RT_DB_INTERNAL_INIT(&dbintern);
-	    struct rt_db_internal *ip = &dbintern;
-	    int ret = rt_db_get_internal(ip, dp, dbip, NULL, d->res);
-	    if (ret < 0)
-		return;
-	    struct rt_bot_internal *bot = (struct rt_bot_internal *)ip->idb_ptr;
-	    RT_BOT_CK_MAGIC(bot);
-	    key = bsg_mesh_lod_cache(d->mesh_c, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
-	    bsg_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
-	    rt_db_free_internal(&dbintern);
-	}
-	if (!key)
+	    // vo->draw_data remains NULL to signal "placeholder".
 	    return;
+	}
 
 	// Once we have a valid key, proceed to create the necessary
 	// data structures and objects.

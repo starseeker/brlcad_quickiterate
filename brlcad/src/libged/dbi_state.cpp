@@ -1224,21 +1224,33 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 
     // No LoD - ask librt
     if (!have_bbox) {
-	struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
-	struct bn_tol tol = BN_TOL_INIT_TOL;
-	mat_t m;
-	MAT_IDN(m);
-	int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
-	if (bret != -1) {
-	    have_bbox = true;
+	// When BRLCAD_CACHE_AABB_DELAY_MS is set, defer synchronous
+	// rt_bound_instance for BoT primitives so the async aabb_worker
+	// simulates geometry that is expensive to read/process.  Non-BoT
+	// (CSG) shapes still compute their bbox synchronously.
+	bool defer_bot = false;
+	if (dp && dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
+	    const char *delay_env = getenv("BRLCAD_CACHE_AABB_DELAY_MS");
+	    if (delay_env && atoi(delay_env) > 0)
+		defer_bot = true;
+	}
+	if (!defer_bot) {
+	    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+	    struct bn_tol tol = BN_TOL_INIT_TOL;
+	    mat_t m;
+	    MAT_IDN(m);
+	    int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
+	    if (bret != -1) {
+		have_bbox = true;
 
-	    if (dcache) {
-		size_t bsz = sizeof(bmin) + sizeof(bmax);
-		std::vector<char> buf(bsz);
-		memcpy(buf.data(), &bmin, sizeof(bmin));
-		memcpy(buf.data() + sizeof(bmin), &bmax, sizeof(bmax));
-		std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
-		bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+		if (dcache) {
+		    size_t bsz = sizeof(bmin) + sizeof(bmax);
+		    std::vector<char> buf(bsz);
+		    memcpy(buf.data(), &bmin, sizeof(bmin));
+		    memcpy(buf.data() + sizeof(bmin), &bmax, sizeof(bmax));
+		    std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+		    bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+		}
 	    }
 	}
     }
@@ -2289,17 +2301,22 @@ BViewState::scene_obj(
     }
 
     // Assign the bounding box (needed for pre-adaptive-plot
-    // autoview)
-    dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
+    // autoview).  When BRLCAD_CACHE_AABB_DELAY_MS is set and this is a
+    // BoT, get_path_bbox may return false because rt_bound_instance was
+    // deferred.  In that case have_bbox=0 signals bot_adaptive_plot to
+    // retry on the next redraw once the async AABB pipeline delivers it.
+    bool bbox_ok = dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
+    sp->have_bbox = bbox_ok ? 1 : 0;
 
-    // Adaptive also needs s_size and s_center to be set
-    sp->s_center[X] = (sp->bmin[X] + sp->bmax[X]) * 0.5;
-    sp->s_center[Y] = (sp->bmin[Y] + sp->bmax[Y]) * 0.5;
-    sp->s_center[Z] = (sp->bmin[Z] + sp->bmax[Z]) * 0.5;
-    sp->s_size = sp->bmax[X] - sp->bmin[X];
-    V_MAX(sp->s_size, sp->bmax[Y] - sp->bmin[Y]);
-    V_MAX(sp->s_size, sp->bmax[Z] - sp->bmin[Z]);
-    sp->have_bbox = 1;
+    if (bbox_ok) {
+	// Adaptive also needs s_size and s_center to be set
+	sp->s_center[X] = (sp->bmin[X] + sp->bmax[X]) * 0.5;
+	sp->s_center[Y] = (sp->bmin[Y] + sp->bmax[Y]) * 0.5;
+	sp->s_center[Z] = (sp->bmin[Z] + sp->bmax[Z]) * 0.5;
+	sp->s_size = sp->bmax[X] - sp->bmin[X];
+	V_MAX(sp->s_size, sp->bmax[Y] - sp->bmin[Y]);
+	V_MAX(sp->s_size, sp->bmax[Z] - sp->bmin[Z]);
+    }
 
     // If we're drawing a subtraction and we're not overridden, set the
     // appropriate flag for dashed line drawing

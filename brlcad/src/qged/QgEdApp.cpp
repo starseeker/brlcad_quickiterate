@@ -410,6 +410,20 @@ QgEdApp::drain_background_geom()
     // only code path that triggers bot_adaptive_plot() to switch from the
     // AABB wireframe placeholder to the tighter OBB wireframe placeholder.
     //
+    // Detect newly arrived AABB bboxes (dbis->bboxes.size() advanced) and
+    // schedule a scene redraw via do_view_changed(QG_VIEW_DRAWN).  This is
+    // needed when BRLCAD_CACHE_AABB_DELAY_MS is set: shapes start with
+    // have_bbox=0 and no view object; when bboxes grow, bot_adaptive_plot()
+    // can late-populate the bbox and draw the first AABB placeholder.
+    size_t cur_aabb = dbis->bboxes.size();
+    if (cur_aabb < last_aabb_count_) {
+	last_aabb_count_ = 0;
+    }
+    if (cur_aabb > last_aabb_count_) {
+	last_aabb_count_ = cur_aabb;
+	do_view_changed(QG_VIEW_DRAWN);
+    }
+
     // Detect newly arrived OBBs (dbis->obbs.size() advanced) and schedule a
     // scene redraw via do_view_changed(QG_VIEW_DRAWN).
     //
