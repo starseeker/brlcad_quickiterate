@@ -459,6 +459,21 @@ struct bsg_shape  {
     fastf_t s_obb_pts[24];
     int     s_have_obb; /* 1 when s_obb_pts holds valid OBB corner data */
 
+    /* Per-thread rt resource for use by ft_scene_obj callbacks.  Populated
+     * by the draw framework (draw_scene) from draw_update_data_t::res before
+     * ft_scene_obj is invoked.  Allows callbacks to call rt_db_get_internal()
+     * without accessing draw_update_data_t directly.
+     *
+     * Historically the only way to apply a matrix to a primitive was to pass
+     * the matrix to rt_db_get_internal(), which bakes the transform into the
+     * cracked internal.  The new ft_mat (rt_##name##_mat) path allows the
+     * matrix to be applied to an already-cracked internal, which opens the
+     * door to object-space vlist caching: crack once with NULL mat, cache the
+     * result, then apply s_mat at render time via ft_mat or by the renderer.
+     * s_res enables ft_scene_obj callbacks to do either correctly without
+     * reaching into higher-level state. */
+    struct resource *s_res;
+
     void *s_u_data;
 };
 typedef struct bsg_shape bsg_shape;

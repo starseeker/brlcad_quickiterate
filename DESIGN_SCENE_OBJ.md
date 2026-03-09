@@ -132,7 +132,7 @@ it) so re-renders do not repeat the raytrace.
 
 ### 2.2 Does `ft_scene_obj` have enough to support adaptive CSG wireframe updates?
 
-**Almost — one piece is missing.**
+**Yes — resolved with the addition of `s_res` (session 8).**
 
 Adaptive CSG wireframe (`adaptive_wireframe = 1`) updates when the view scale
 changes.  The per-frame update path currently goes through
@@ -144,16 +144,11 @@ changes.  The per-frame update path currently goes through
 | `tol` / `ttol` | ✓ parameters |
 | `v` (view, for scale/curve_scale) | ✓ parameter |
 | `s_mat` | ✓ on `bsg_shape` |
-| `struct resource *res` | ✗ **not on `bsg_shape`, not a parameter** |
+| `struct resource *res` | ✓ now on `bsg_shape` as `s_res` (session 8) |
 
-`struct resource *res` is needed for `rt_db_get_internal` (and would be needed
-for any raytracing-based evaluation).  It currently lives only in
-`draw_update_data_t::res`.
-
-**Required addition:** `struct resource *s_res` on `bsg_shape` (or as a
-parameter to `ft_scene_obj`, though that would be a signature change).  The
-libged setup phase would write `d->res` into `s->s_res` before dispatch, then
-`rt_generic_scene_obj` can call `rt_db_get_internal(dp, dbip, NULL, s->s_res)`.
+`s_res` is forwarded from `draw_update_data_t::res` by draw_scene's setup
+phase.  `ft_scene_obj` callbacks call `rt_db_get_internal(dp, dbip, NULL,
+s->s_res)` directly without seeing `draw_update_data_t`.
 
 ### 2.3 `!have_bbox` — what should `ft_scene_obj` do?
 
@@ -216,7 +211,7 @@ draw_scene(s, v)
  │
  ├─ setup phase (still in libged — only place dbis is touched)
  │   ├─ s->mesh_c  ← d->mesh_c
- │   ├─ s->s_res   ← d->res            [NOT YET DONE]
+ │   ├─ s->s_res   ← d->res            [DONE session 8]
  │   ├─ late-set s->have_bbox from d->dbis->bboxes
  │   └─ cache OBB into s->s_obb_pts / s->s_have_obb
  │
@@ -231,8 +226,9 @@ lives in the per-primitive `ft_scene_obj` implementation.
 
 ### 3.2 Required changes not yet made
 
-1. **Add `struct resource *s_res` to `bsg_shape`** — lets `ft_scene_obj`
-   call `rt_db_get_internal` without accessing `draw_update_data_t`.
+1. ~~**Add `struct resource *s_res` to `bsg_shape`**~~ — **DONE** (2026-03-09 session 8):
+   `s_res` added to `bsg_shape`; set from `d->res` in draw_scene's setup phase;
+   `rt_generic_scene_obj` uses `s->s_res` (or falls back to `&rt_uniresource`).
 
 2. **`rt_comb_scene_obj`** — new function in `src/librt/comb/comb.c`:
    - Mode 3: run the `build_etree`/`Eplot` pipeline (currently `draw_m3`).
@@ -253,8 +249,9 @@ lives in the per-primitive `ft_scene_obj` implementation.
 
 6. **Object-space vlists** — coordinate with `s_mat` usage: ensure all
    `ft_scene_obj` implementations call `rt_db_get_internal(…, NULL, …)` and
-   let the renderer apply `s->s_mat`.  Remove the `s->s_mat` argument to
-   `rt_db_get_internal` in the old `draw_scene` path.
+   let the renderer apply `s->s_mat`.  Already done for `rt_generic_scene_obj`.
+   The old `draw_scene` path still calls `rt_db_get_internal(…, s->s_mat, …)`;
+   this will be removed once the dispatch is fully delegated to `ft_scene_obj`.
 
 ### 3.3 Migration path
 
@@ -327,9 +324,45 @@ It is the most complex drawing mode and has several structural problems:
 
 | File | What changed |
 |---|---|
-| `include/bsg/defines.h` | Added `mesh_c`, `s_obb_pts[24]`, `s_have_obb` to `bsg_shape` |
-| `src/libged/draw.cpp` | Consolidated all dbis access into a single setup phase; simplified lazy guard; `bot_adaptive_plot` uses `s->mesh_c` and `s->s_obb_pts` |
-| `src/librt/primitives/generic.c` | `rt_generic_scene_obj` now handles `!have_bbox` with OBB placeholder; added `bsg/util.h` and `bsg/vlist.h` includes |
+| `include/bsg/defines.h` | Added `mesh_c`, `s_obb_pts[24]`, `s_have_obb` to `bsg_shape` (session 7); added `s_res` (session 8) |
+| `src/libged/draw.cpp` | Consolidated all dbis access into a single setup phase; simplified lazy guard; `bot_adaptive_plot` uses `s->mesh_c` and `s->s_obb_pts`; setup phase now also writes `d->res → s->s_res` |
+| `src/librt/primitives/generic.c` | `rt_generic_scene_obj` now handles `!have_bbox` with OBB placeholder; uses `s->s_res` for `rt_db_get_internal` (fallback to `&rt_uniresource`); calls `rt_db_get_internal(…, NULL, …)` for object-space vlists |
+
+### `s_res` rationale in detail
+
+The addition of `struct resource *s_res` to `bsg_shape` closes the last gap
+identified in §2.2 above.  Before this change, any `ft_scene_obj` callback
+that needed to call `rt_db_get_internal` had to either:
+
+- Use `&rt_uniresource` (global, serialised, not thread-safe for concurrent draws), or
+- Cast `s->s_i_data` back to `draw_update_data_t` (creates a libged dependency in librt).
+
+With `s_res` forwarded from `d->res` in the setup phase, all `ft_scene_obj`
+callbacks in librt can call `rt_db_get_internal(dp, dbip, NULL, s->s_res)` with
+a thread-appropriate resource block.
+
+### `ft_mat` / `rt_##name##_mat` usage with `s_res`
+
+The combination of `s_res` and `rt_db_get_internal(…, NULL, …)` is also the
+key to using `ft_mat` correctly for object-space vlist caching:
+
+```
+/* Object-space approach (new): */
+rt_db_get_internal(&intern, dp, dbip, NULL, s->s_res);   /* object-space */
+/* store intern or its vlists in cache keyed on dp->d_namep */
+/* at render time, renderer applies s->s_mat to the cached vlist */
+
+/* Alternative with ft_mat (if baking is needed): */
+rt_db_get_internal(&intern, dp, dbip, NULL, s->s_res);   /* object-space */
+OBJ[ip->idb_type].ft_mat(&intern, s->s_mat, NULL);       /* apply transform in-place */
+/* generate world-space vlists from transformed intern */
+```
+
+The `rt_db_get_internal(…, s_mat, …)` path (current `draw_scene`) bakes the
+matrix during cracking via export+import round-trip, which is equivalent to
+using `ft_mat` but forces the round-trip even when not needed.  Using `NULL`
+and then `ft_mat` when required is cheaper because it avoids the export step
+when the vlist is already cached.
 
 ### Invariants maintained
 

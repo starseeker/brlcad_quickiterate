@@ -347,8 +347,18 @@ rt_generic_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, cons
     // to the rt_db_internal.  In some cases (like BoTs) we DON'T want to do this in
     // all cases, since cracking the internal on large BoTs can be be relatively slow,
     // but in most cases it's what we need to do.
+    //
+    // We call rt_db_get_internal with NULL mat (identity), leaving the object in
+    // object-space coordinates.  This is consistent with the target architecture
+    // where the renderer applies s_mat at draw time rather than baking the transform
+    // into the cracked internal.  For in-place transform application to an already-
+    // cracked internal, ft_mat (rt_##name##_mat) would be used instead.
+    //
+    // Use s->s_res if available (set by draw_scene's setup phase); fall back to the
+    // global default resource if not (e.g. when called outside the DbiState context).
+    struct resource *res = s->s_res ? s->s_res : &rt_uniresource;
     struct rt_db_internal intern;
-    if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
 	return BRLCAD_ERROR;
     RT_CK_DB_INTERNAL(&intern);
 
