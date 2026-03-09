@@ -57,6 +57,7 @@
 
 #include "common.h"
 
+#include <sstream>
 #include <string>
 
 #include <QApplication>
@@ -215,26 +216,38 @@ bu_vls_trunc(&msg, 0);
 
     /* Draw all top-level objects.
      *
-     * In BRL-CAD V4 format files (moss.g, rook.g, etc.) the draw command
-     * recognises "all.g" (the file's basename with ".g" kept) as the virtual
-     * root comb.  In V5 files (GenericTwin.g etc.) the top-level comb is
-     * usually named "all".  We try "<basename>.g" first, then "all". */
+     * Use the GED "tops -n" command to discover the un-referenced (top-level)
+     * objects in the database.  The "-n" flag suppresses comb ("/") and
+     * region ("R") decorators, giving us plain names we can pass directly to
+     * "draw".  We draw them all in a single "draw" invocation. */
     {
-	/* Derive draw target from the file's basename (strip directory path) */
-	std::string gfile_str(m_gfile);
-	size_t slash = gfile_str.rfind('/');
-	std::string basename = (slash == std::string::npos) ?
-	    gfile_str : gfile_str.substr(slash + 1);
-	/* Ensure it ends with ".g" */
-	if (basename.size() < 2 ||
-	    basename.substr(basename.size() - 2) != ".g")
-	    basename += ".g";
-	std::string draw_target = basename;
-	bu_log("  draw target (basename): '%s'\n", draw_target.c_str());
-	const char *draw_av[3] = {"draw", draw_target.c_str(), nullptr};
-	int r = m_app->run_cmd(&msg, 2, draw_av);
-	bu_log("  draw %s -> ret=%d msg='%s'\n",
-	       draw_target.c_str(), r, bu_vls_cstr(&msg));
+	struct bu_vls tops_msg = BU_VLS_INIT_ZERO;
+	const char *tops_av[3] = {"tops", "-n", nullptr};
+	(void)m_app->run_cmd(&tops_msg, 2, tops_av);
+	std::string tops_str(bu_vls_cstr(&tops_msg));
+	bu_vls_free(&tops_msg);
+
+	/* Collect non-empty tokens (whitespace-separated) */
+	std::vector<std::string> top_names;
+	std::istringstream iss(tops_str);
+	std::string tok;
+	while (iss >> tok)
+	    top_names.push_back(tok);
+
+	if (top_names.empty())
+	    top_names.push_back("all");  /* fallback for GenericTwin.g */
+
+	bu_log("  tops: %zu top-level objects\n", top_names.size());
+
+	/* Build argv for "draw name1 name2 ..." */
+	std::vector<const char *> draw_av;
+	draw_av.push_back("draw");
+	for (const auto &n : top_names)
+	    draw_av.push_back(n.c_str());
+	draw_av.push_back(nullptr);
+
+	int r = m_app->run_cmd(&msg, (int)draw_av.size() - 1, draw_av.data());
+	bu_log("  draw -> ret=%d msg='%s'\n", r, bu_vls_cstr(&msg));
 	bu_vls_trunc(&msg, 0);
     }
 
