@@ -2930,6 +2930,26 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 	    bsg_view_autoview(vw, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
     }
 
+    // Scan for mesh shapes whose per-view objects were cleared by
+    // stale_mesh_shapes_for_dp() (e.g. when an OBB or LoD pipeline result
+    // arrived and the placeholder was invalidated).  Such shapes must be
+    // included in the draw_scene pass so bot_adaptive_plot() can rebuild
+    // them with the best currently available data (LoD > OBB > AABB).
+    // This handles the common case where redraw() is called with vs=nullptr
+    // (no new staged paths) but existing view objects need to be upgraded.
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp || !sp->mesh_obj)
+		continue;
+	    for (auto *vw : views) {
+		if (!bsg_shape_have_view_obj(sp, vw)) {
+		    objs.insert(sp);
+		    break;
+		}
+	    }
+	}
+    }
+
     // Update geometry.  draw_scene will avoid repeat creation of geometry
     // when s is not adaptive, but if s IS adaptive we need unique geometry
     // for each view even though the BViewState is shared - camera settings,
@@ -3767,6 +3787,24 @@ DbiState::drain_geom_results()
 		obb_data[k*3+2] = r.obb_pts[k][Z];
 	    }
 	    obbs[r.hash] = obb_data;
+	    // OBB has arrived — stale any AABB placeholder shapes so they get
+	    // redrawn with OBB wireframes on the next redraw() pass.
+	    if (!r.dp_name.empty()) {
+		struct directory *dp_obb =
+		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
+		if (dp_obb) {
+		    std::unordered_set<struct bview *> all_views;
+		    struct bu_ptbl *vlist = bsg_scene_views(&gedp->ged_views);
+		    for (size_t vi = 0; vi < BU_PTBL_LEN(vlist); vi++)
+			all_views.insert((bsg_view *)BU_PTBL_GET(vlist, vi));
+		    if (!all_views.empty()) {
+			for (auto &[bv, vs] : view_states)
+			    vs->stale_mesh_shapes_for_dp(dp_obb, all_views);
+			if (shared_vs)
+			    shared_vs->stale_mesh_shapes_for_dp(dp_obb, all_views);
+		    }
+		}
+	    }
 	} else if (r.type == DrawPipeline::Result::LOD && r.has_lod) {
 	    // LoD is now cached — stale any placeholder shapes so they get
 	    // redrawn with real LoD geometry on the next redraw() pass.
@@ -3776,11 +3814,14 @@ DbiState::drain_geom_results()
 		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
 		if (dp_lod) {
 		    std::unordered_set<struct bview *> all_views;
-		    for (auto &[bv, vs] : view_states)
-			all_views.insert(bv);
+		    struct bu_ptbl *vlist = bsg_scene_views(&gedp->ged_views);
+		    for (size_t vi = 0; vi < BU_PTBL_LEN(vlist); vi++)
+			all_views.insert((bsg_view *)BU_PTBL_GET(vlist, vi));
 		    if (!all_views.empty()) {
 			for (auto &[bv, vs] : view_states)
 			    vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
+			if (shared_vs)
+			    shared_vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
 		    }
 		}
 	    }
