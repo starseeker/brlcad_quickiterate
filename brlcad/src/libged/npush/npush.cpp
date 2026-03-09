@@ -106,7 +106,7 @@ public:
     struct directory *dp;              // Instance database object
     struct directory *parent_dp;       // Parent object
     mat_t mat;                         // Instance matrix (canonical value)
-    size_t mat_key = std::numeric_limits<size_t>::max(); // Canonical matrix key
+    size_t mat_key = (std::numeric_limits<size_t>::max)(); // Canonical matrix key
     bool mat_is_idn = false;           // Canonical identity flag
     bool apply_key = false;            // Effective apply-to-solid key
     int depth_key = 0;                 // Depth-context key (used for combs under depth-limited push)
