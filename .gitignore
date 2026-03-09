@@ -7,3 +7,5 @@ select_*.png
 v_*_diff.png
 dp_test_cache/
 *.mdb
+qged_test_cache/
+qged_pipeline_cache/

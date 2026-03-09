@@ -50,6 +50,7 @@ extern "C" {
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bsg/lod.h"
+#include "bsg/util.h"
 #include "bsg/vlist.h"
 #include "raytrace.h"
 #include "rt/cache_drawing.h"
@@ -284,6 +285,9 @@ DbiState::open_db()
     dbip = gedp ? gedp->dbip : nullptr;
     if (!dbip)
 	return;
+
+    /* Reset LoD drain counter for the new database */
+    lod_drain_count_ = 0;
 
     // Set up cache
     {
@@ -1220,21 +1224,33 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 
     // No LoD - ask librt
     if (!have_bbox) {
-	struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
-	struct bn_tol tol = BN_TOL_INIT_TOL;
-	mat_t m;
-	MAT_IDN(m);
-	int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
-	if (bret != -1) {
-	    have_bbox = true;
+	// When BRLCAD_CACHE_AABB_DELAY_MS is set, skip the synchronous
+	// rt_bound_instance call for ALL primitive types.  Every shape is
+	// treated equally: its AABB is computed lazily by the async
+	// aabb_worker in the DrawPipeline (which calls ft_bbox), and the
+	// result is delivered via drain_geom_results().  This allows even
+	// CSG/wireframe primitives to start with have_bbox=0 and receive a
+	// placeholder AABB wireframe on the next drain cycle, giving a
+	// uniform progressive-display experience across all solid types.
+	const char *delay_env = getenv("BRLCAD_CACHE_AABB_DELAY_MS");
+	bool defer_all = (delay_env && atoi(delay_env) > 0);
+	if (!defer_all) {
+	    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+	    struct bn_tol tol = BN_TOL_INIT_TOL;
+	    mat_t m;
+	    MAT_IDN(m);
+	    int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
+	    if (bret != -1) {
+		have_bbox = true;
 
-	    if (dcache) {
-		size_t bsz = sizeof(bmin) + sizeof(bmax);
-		std::vector<char> buf(bsz);
-		memcpy(buf.data(), &bmin, sizeof(bmin));
-		memcpy(buf.data() + sizeof(bmin), &bmax, sizeof(bmax));
-		std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
-		bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+		if (dcache) {
+		    size_t bsz = sizeof(bmin) + sizeof(bmax);
+		    std::vector<char> buf(bsz);
+		    memcpy(buf.data(), &bmin, sizeof(bmin));
+		    memcpy(buf.data() + sizeof(bmin), &bmax, sizeof(bmax));
+		    std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+		    bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+		}
 	    }
 	}
     }
@@ -1917,13 +1933,6 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	    // Keep draw_list_ in sync immediately so callers don't have to
 	    // wait for the next redraw() to see the removal reflected.
 	    draw_list_.remove(phash, mode);
-
-	    // Also clean up any AABB placeholder for this path
-	    auto ph_it = bbox_placeholders_.find(phash);
-	    if (ph_it != bbox_placeholders_.end()) {
-		bsg_shape_put(ph_it->second);
-		bbox_placeholders_.erase(ph_it);
-	    }
 	}
     }
 
@@ -2292,17 +2301,23 @@ BViewState::scene_obj(
     }
 
     // Assign the bounding box (needed for pre-adaptive-plot
-    // autoview)
-    dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
+    // autoview).  When BRLCAD_CACHE_AABB_DELAY_MS is set, ALL primitives
+    // (BoTs and CSG alike) defer rt_bound_instance to the async aabb_worker.
+    // get_path_bbox may return false for any shape type.  In that case
+    // have_bbox=0 signals draw_scene/bot_adaptive_plot to retry on the next
+    // redraw once the async AABB pipeline delivers the result.
+    bool bbox_ok = dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
+    sp->have_bbox = bbox_ok ? 1 : 0;
 
-    // Adaptive also needs s_size and s_center to be set
-    sp->s_center[X] = (sp->bmin[X] + sp->bmax[X]) * 0.5;
-    sp->s_center[Y] = (sp->bmin[Y] + sp->bmax[Y]) * 0.5;
-    sp->s_center[Z] = (sp->bmin[Z] + sp->bmax[Z]) * 0.5;
-    sp->s_size = sp->bmax[X] - sp->bmin[X];
-    V_MAX(sp->s_size, sp->bmax[Y] - sp->bmin[Y]);
-    V_MAX(sp->s_size, sp->bmax[Z] - sp->bmin[Z]);
-    sp->have_bbox = 1;
+    if (bbox_ok) {
+	// Adaptive also needs s_size and s_center to be set
+	sp->s_center[X] = (sp->bmin[X] + sp->bmax[X]) * 0.5;
+	sp->s_center[Y] = (sp->bmin[Y] + sp->bmax[Y]) * 0.5;
+	sp->s_center[Z] = (sp->bmin[Z] + sp->bmax[Z]) * 0.5;
+	sp->s_size = sp->bmax[X] - sp->bmin[X];
+	V_MAX(sp->s_size, sp->bmax[Y] - sp->bmin[Y]);
+	V_MAX(sp->s_size, sp->bmax[Z] - sp->bmin[Z]);
+    }
 
     // If we're drawing a subtraction and we're not overridden, set the
     // appropriate flag for dashed line drawing
@@ -2428,11 +2443,6 @@ BViewState::gather_paths(
 void
 BViewState::clear()
 {
-    // Release any bbox placeholder shapes before clearing state
-    for (auto &[hash, s] : bbox_placeholders_)
-	bsg_shape_put(s);
-    bbox_placeholders_.clear();
-
     s_map.clear();
     s_keys.clear();
     drawn_paths.clear();
@@ -2465,6 +2475,46 @@ BViewState::stale_mesh_shapes_for_dp(
 	    bsg_shape_stale(sp);
 	}
     }
+}
+
+size_t
+BViewState::lod_shape_count(struct bview *v)
+{
+    // Diagnostic/test use only.  Iterates all shapes in s_map; not suitable
+    // for hot paths on large scenes.  Returns the number of mesh shapes that
+    // have a per-view object with BSG_NODE_MESH_LOD set, confirming that
+    // bot_adaptive_plot() created real LoD geometry (not a bbox placeholder).
+    if (!v) return 0;
+    size_t cnt = 0;
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp || !sp->mesh_obj) continue;
+	    bsg_shape *vo = bsg_shape_for_view(sp, v);
+	    if (vo && (vo->s_type_flags & BSG_NODE_MESH_LOD))
+		cnt++;
+	}
+    }
+    return cnt;
+}
+
+size_t
+BViewState::shapes_without_bbox(struct bview *v)
+{
+    // Used by drain_background_geom() to determine when progressive autoview
+    // has stabilised (all drawn shapes now have bounding boxes).  Covers both
+    // mesh (BoT) and CSG shapes since ALL primitives are now lazy under the
+    // BRLCAD_CACHE_AABB_DELAY_MS policy.  Iterates s_map; acceptable on the
+    // drain timer path (called at most every 100 ms).
+    if (!v) return 0;
+    size_t cnt = 0;
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp) continue;
+	    if (!sp->have_bbox)
+		cnt++;
+	}
+    }
+    return cnt;
 }
 
 std::vector<std::string>
@@ -2911,83 +2961,46 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 	process_dl_entries(draw_list_.entries());
     }
 
-    // AABB placeholder rendering (Section 7.4 of TODO.qged-stack.md):
-    //
-    // Release placeholders for paths that now have real geometry in s_map
-    // (real geometry arrived via synchronous or background loading).
-    {
-	std::vector<unsigned long long> stale;
-	for (auto &[phash, s] : bbox_placeholders_) {
-	    if (s_map.find(phash) != s_map.end()) {
-		bsg_shape_put(s);
-		stale.push_back(phash);
-		ret |= GED_DBISTATE_VIEW_CHANGE;
-	    }
-	}
-	for (unsigned long long h : stale)
-	    bbox_placeholders_.erase(h);
-    }
-
-    // Create new AABB placeholders for draw_list_ entries that still have
-    // no real geometry in s_map but DO have a bbox in dbis->bboxes.  The
-    // placeholder is a dashed wireframe bounding box that is visible
-    // immediately while geometry is being generated or loaded in the
-    // background.
-    if (v) {
-	auto make_placeholders = [&](const std::vector<DrawList::Entry> &dl_entries) {
-	    for (const auto &dl_e : dl_entries) {
-		// Skip if already in s_map (real geometry present)
-		if (s_map.find(dl_e.full_hash) != s_map.end()) continue;
-		// Skip if already have a placeholder for this path
-		if (bbox_placeholders_.find(dl_e.full_hash) != bbox_placeholders_.end()) continue;
-		// Need the solid hash (last element in path) to look up bbox
-		if (dl_e.path.empty()) continue;
-		unsigned long long solid_hash = dl_e.path.back();
-		auto bbox_it = dbis->bboxes.find(solid_hash);
-		if (bbox_it == dbis->bboxes.end()) continue;
-		if (bbox_it->second.size() < 6) continue;
-		// Create a lightweight wireframe bbox scene object
-		bsg_shape *ph = bsg_shape_get(v, BSG_DB_OBJS);
-		if (!ph) continue;
-		// print_path takes a non-const ref; make a copy from the const entry
-		std::vector<unsigned long long> path_copy(dl_e.path);
-		dbis->print_path(&ph->s_name, path_copy);
-		ph->s_v = v;
-		ph->s_soldash = 1;  // dashed lines to signal placeholder status
-		// Set a neutral grey so it doesn't clash with actual geometry
-		ph->s_color[0] = 160;
-		ph->s_color[1] = 160;
-		ph->s_color[2] = 160;
-		// Populate s_vlist with the wireframe box.  Prefer OBB if
-		// available (tighter fit than AABB), fall back to AABB.
-		point_t bmin, bmax;
-		VSET(bmin, bbox_it->second[0], bbox_it->second[1], bbox_it->second[2]);
-		VSET(bmax, bbox_it->second[3], bbox_it->second[4], bbox_it->second[5]);
-		auto obb_it = dbis->obbs.find(solid_hash);
-		if (obb_it != dbis->obbs.end()) {
-		    const fastf_t *raw = obb_it->second.data();
-		    point_t obb_pts[8];
-		    for (int k = 0; k < 8; k++)
-			VSET(obb_pts[k], raw[k*3+0], raw[k*3+1], raw[k*3+2]);
-		    bsg_vlist_arb8(&v->gv_objs.gv_vlfree, &ph->s_vlist, obb_pts);
-		} else {
-		    bsg_vlist_rpp(&v->gv_objs.gv_vlfree, &ph->s_vlist, bmin, bmax);
-		}
-		ph->current = 1;  // vlist is ready; skip draw_scene() for this shape
-		bsg_shape_bound(ph, v);
-		bbox_placeholders_[dl_e.full_hash] = ph;
-		ret |= GED_DBISTATE_VIEW_CHANGE;
-	    }
-	};
-	if (linked_to_) make_placeholders(linked_to_->draw_list_.entries());
-	make_placeholders(draw_list_.entries());
-    }
-
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
     // routines have a rough idea of the correct dimensions to use
     if (!no_autoview) {
 	for (struct bview *vw : views)
 	    bsg_view_autoview(vw, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
+    }
+
+    // Scan for shapes whose per-view objects were cleared (stale pipeline
+    // results) or never created (have_bbox==0, still waiting for async AABB).
+    // This now covers BOTH mesh (BoT) and CSG shapes since all primitives are
+    // treated equally under the lazy AABB policy.
+    for (auto &[scan_phash, scan_mmap] : s_map) {
+	for (auto &[scan_mode, scan_sp] : scan_mmap) {
+	    if (!scan_sp)
+		continue;
+	    // mesh_obj: per-view object cleared by stale_mesh_shapes_for_dp
+	    // or never created (have_bbox==0 → bot_adaptive_plot no-op'd).
+	    if (scan_sp->mesh_obj) {
+		for (auto *vw : views) {
+		    if (!bsg_shape_have_view_obj(scan_sp, vw)) {
+			objs.insert(scan_sp);
+			break;
+		    }
+		}
+		continue;
+	    }
+	    // csg_obj: retry if shape has no bbox yet (async AABB pending),
+	    // so draw_scene gets called again when AABB arrives and can draw
+	    // the actual vlist (or at least an OBB/AABB placeholder).
+	    if (scan_sp->csg_obj && !scan_sp->have_bbox) {
+		objs.insert(scan_sp);
+	    }
+	    // Unclassified shape: draw_scene was never called (or returned
+	    // before setting csg_obj/mesh_obj), so have_bbox=0 AND both
+	    // flags are still 0.  Include it so draw_scene can classify it
+	    // and either draw a placeholder or record the shape type.
+	    if (!scan_sp->mesh_obj && !scan_sp->csg_obj && !scan_sp->have_bbox) {
+		objs.insert(scan_sp);
+	    }
+	}
     }
 
     // Update geometry.  draw_scene will avoid repeat creation of geometry
@@ -3827,19 +3840,41 @@ DbiState::drain_geom_results()
 		obb_data[k*3+2] = r.obb_pts[k][Z];
 	    }
 	    obbs[r.hash] = obb_data;
+	    // OBB has arrived — stale any AABB placeholder shapes so they get
+	    // redrawn with OBB wireframes on the next redraw() pass.
+	    if (!r.dp_name.empty()) {
+		struct directory *dp_obb =
+		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
+		if (dp_obb) {
+		    std::unordered_set<struct bview *> all_views;
+		    struct bu_ptbl *vlist = bsg_scene_views(&gedp->ged_views);
+		    for (size_t vi = 0; vi < BU_PTBL_LEN(vlist); vi++)
+			all_views.insert((bsg_view *)BU_PTBL_GET(vlist, vi));
+		    if (!all_views.empty()) {
+			for (auto &[bv, vs] : view_states)
+			    vs->stale_mesh_shapes_for_dp(dp_obb, all_views);
+			if (shared_vs)
+			    shared_vs->stale_mesh_shapes_for_dp(dp_obb, all_views);
+		    }
+		}
+	    }
 	} else if (r.type == DrawPipeline::Result::LOD && r.has_lod) {
 	    // LoD is now cached — stale any placeholder shapes so they get
 	    // redrawn with real LoD geometry on the next redraw() pass.
+	    ++lod_drain_count_;
 	    if (!r.dp_name.empty()) {
 		struct directory *dp_lod =
 		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
 		if (dp_lod) {
 		    std::unordered_set<struct bview *> all_views;
-		    for (auto &[bv, vs] : view_states)
-			all_views.insert(bv);
+		    struct bu_ptbl *vlist = bsg_scene_views(&gedp->ged_views);
+		    for (size_t vi = 0; vi < BU_PTBL_LEN(vlist); vi++)
+			all_views.insert((bsg_view *)BU_PTBL_GET(vlist, vi));
 		    if (!all_views.empty()) {
 			for (auto &[bv, vs] : view_states)
 			    vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
+			if (shared_vs)
+			    shared_vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
 		    }
 		}
 	    }

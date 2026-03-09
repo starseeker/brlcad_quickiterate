@@ -421,6 +421,19 @@ class GED_EXPORT BViewState {
 	void stale_mesh_shapes_for_dp(struct directory *dp,
 				      const std::unordered_set<struct bview *> &views);
 
+	// Count mesh shapes in this view state that have a live LoD view object
+	// for the given bsg_view (i.e. bot_adaptive_plot has run and created
+	// real geometry with BSG_NODE_MESH_LOD set, not a bbox placeholder).
+	// Returns 0 if v is NULL.  Diagnostic/test use only — iterates all
+	// shapes in s_map and is not suitable for hot paths on large scenes.
+	size_t lod_shape_count(struct bview *v);
+
+	// Count shapes (BoT or CSG) in this view state that do not yet have a
+	// bounding box (sp->have_bbox == 0).  Returns 0 when all AABBs have
+	// been populated by the async DrawPipeline (i.e. the scene is stable
+	// for progressive-autoview purposes).  Returns 0 if v is NULL.
+	size_t shapes_without_bbox(struct bview *v);
+
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
 	// s_keys holds the ordered individual keys of each drawn solid path - it
@@ -514,12 +527,6 @@ class GED_EXPORT BViewState {
 	DrawList draw_list_;
 	BViewState *linked_to_ = nullptr;
 
-	// Lightweight wireframe bounding-box placeholders, keyed by full_hash
-	// from draw_list_.  Shown while real geometry hasn't been generated yet
-	// (i.e., path is in draw_list_ but NOT in s_map) when a bbox is already
-	// available in dbis->bboxes.  Replaced automatically on the next
-	// redraw() pass once real geometry arrives.
-	std::unordered_map<unsigned long long, bsg_shape *> bbox_placeholders_;
 };
 
 #define GED_DBISTATE_DB_CHANGE   0x01
@@ -800,6 +807,14 @@ class GED_EXPORT DbiState {
 	void   start_geom_load(const std::vector<DrawPipeline::WorkItem> &items);
 	size_t drain_geom_results();
 
+	// Cumulative count of LoD results processed by drain_geom_results()
+	// since the last open_db() / update() call.  This counter is incremented
+	// by whoever calls drain_geom_results() — including the QgEdApp 100ms
+	// drain timer — so it reflects the true total even when the caller does
+	// not capture the per-call return value of drain_geom_results().
+	// Read from the main thread only.
+	size_t lod_results_processed() const { return lod_drain_count_; }
+
     private:
 	void gather_cyclic(
 		std::unordered_set<unsigned long long> &cyclic,
@@ -832,6 +847,10 @@ class GED_EXPORT DbiState {
 	// Background drawing-data pipeline — thin wrapper around the
 	// db_i-owned DrawPipelineState (started in db_cache_start).
 	std::unique_ptr<DrawPipeline> draw_pipeline_;
+
+	// Running count of LOD results integrated by drain_geom_results().
+	// Reset to 0 in open_db().  Accessible via lod_results_processed().
+	size_t lod_drain_count_ = 0;
 
 	// GObj and CombInst need access to private DbiState internals (res, dcache)
 	friend class GObj;
@@ -913,10 +932,10 @@ class GED_EXPORT GObj {
 #else
 
 /* Placeholders to allow for compilation when we're included in a C file */
-typedef struct _dbi_state {
+typedef struct DbiState {
     int dummy; /* MS Visual C hack which can be removed if the struct contains something meaningful */
 } DbiState;
-typedef struct _bview_state {
+typedef struct BViewState {
     int dummy; /* MS Visual C hack which can be removed if the struct contains something meaningful */
 } BViewState;
 

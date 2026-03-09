@@ -402,6 +402,102 @@ QgEdApp::drain_background_geom()
 	// bounded to BG_GEOM_DRAIN_INTERVAL_MS.
 	emit view_update(GED_DBISTATE_VIEW_CHANGE);
     }
+
+    // When OBB data for BoT primitives has been newly integrated, the AABB
+    // placeholder wireframes in the scene should be upgraded to OBB wireframes
+    // (which are a tighter fit).  A plain view_update() only schedules a
+    // viewport repaint; it does NOT call BViewState::redraw(), which is the
+    // only code path that triggers bot_adaptive_plot() to switch from the
+    // AABB wireframe placeholder to the tighter OBB wireframe placeholder.
+    //
+    // Detect newly arrived AABB bboxes (dbis->bboxes.size() advanced) and
+    // schedule a scene redraw via do_view_changed(QG_VIEW_DRAWN).  This is
+    // needed when BRLCAD_CACHE_AABB_DELAY_MS is set: shapes start with
+    // have_bbox=0 and no view object; when bboxes grow, bot_adaptive_plot()
+    // can late-populate the bbox and draw the first AABB placeholder.
+    size_t cur_aabb = dbis->bboxes.size();
+    if (cur_aabb < last_aabb_count_) {
+	last_aabb_count_ = 0;
+    }
+    if (cur_aabb > last_aabb_count_) {
+	last_aabb_count_ = cur_aabb;
+	do_view_changed(QG_VIEW_DRAWN);
+
+	// Progressive autoview: if any view has gv_progressive_autoview set,
+	// re-run bsg_view_autoview() now that more bboxes are available so the
+	// camera keeps tracking the growing scene.  When all BoT shapes have
+	// bbox data (shapes_without_bbox() == 0), the scene is stable and
+	// we clear the flag so autoview stops firing.
+	struct bu_ptbl *views = (mdl && mdl->gedp)
+	    ? bsg_scene_views(&mdl->gedp->ged_views) : nullptr;
+	if (views) {
+	    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+		if (!v || !v->gv_s || !v->gv_s->gv_progressive_autoview)
+		    continue;
+
+		// Re-run autoview with current (partial) bbox data.
+		// Do NOT re-set gv_progressive_autoview here — that would
+		// reset the flag before we check for stability below.
+		// Instead, call the underlying computation directly.
+		bsg_view_autoview(v, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
+
+		// Check if all drawn BoT shapes now have a bbox.
+		BViewState *bvs = dbis->get_view_state(v);
+		bool stable = (!bvs || bvs->shapes_without_bbox(v) == 0);
+		if (stable) {
+		    v->gv_s->gv_progressive_autoview = 0;
+		    bsg_log(1, "QgEdApp: progressive autoview stable "
+			   "(bboxes=%zu)\n", cur_aabb);
+		}
+	    }
+	    // Re-emit a camera-only refresh so widgets repaint with the
+	    // updated camera position without triggering another full redraw.
+	    emit view_update(QG_VIEW_REFRESH);
+	}
+    }
+
+    // Detect newly arrived OBBs (dbis->obbs.size() advanced) and schedule a
+    // scene redraw via do_view_changed(QG_VIEW_DRAWN).
+    //
+    // Handle file-open resets (cur < last) the same way as for LoD.
+    size_t cur_obb = dbis->obbs.size();
+    if (cur_obb < last_obb_count_) {
+	bsg_log(2, "QgEdApp: obb counter rolled back (%zu -> %zu) -- new file opened\n",
+		last_obb_count_, cur_obb);
+	last_obb_count_ = 0;
+    }
+    if (cur_obb > last_obb_count_) {
+	last_obb_count_ = cur_obb;
+	do_view_changed(QG_VIEW_DRAWN);
+    }
+
+    // When LoD data for BoT primitives has been newly cached, the placeholder
+    // OBB/AABB wireframes in the scene are stale: stale_mesh_shapes_for_dp()
+    // cleared their per-view objects during drain_geom_results().  A plain
+    // view_update() only schedules a viewport repaint; it does NOT call
+    // BViewState::redraw(), which is the only code path that replaces cleared
+    // placeholder view-objects with real LoD geometry via bot_adaptive_plot().
+    //
+    // Detect newly arrived LoD results (lod_results_processed() advanced) and
+    // schedule a scene redraw via do_view_changed(QG_VIEW_DRAWN).  The
+    // coalescing logic in do_view_changed() ensures that only one redraw is
+    // triggered even if multiple timer firings produce LoD batches.
+    //
+    // If a new file was opened, DbiState resets lod_results_processed() to 0
+    // (in open_db / DbiState constructor).  Detect that rollback (cur < last)
+    // and reset our local counter so the first LoD batch of the new file is
+    // correctly detected.
+    size_t cur_lod = dbis->lod_results_processed();
+    if (cur_lod < last_lod_count_) {
+	bsg_log(2, "QgEdApp: lod counter rolled back (%zu -> %zu) -- new file opened\n",
+		last_lod_count_, cur_lod);
+	last_lod_count_ = 0;
+    }
+    if (cur_lod > last_lod_count_) {
+	last_lod_count_ = cur_lod;
+	do_view_changed(QG_VIEW_DRAWN);
+    }
 }
 
 void
@@ -547,6 +643,37 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	return BRLCAD_ERROR;
 
     struct ged *gedp = mdl->gedp;
+
+    /* Progressive autoview: cancel if the user runs an explicit view-
+     * manipulating command.  We clear the flag on all views before executing
+     * the command so that any camera settings applied by the command become
+     * the final "accepted" camera state.
+     *
+     * Commands that PRESERVE progressive autoview (do NOT clear):
+     *   draw, erase (just modifies what is drawn; autoview should re-adapt)
+     *   autoview     (re-activates it)
+     *   Any read-only/diagnostic command
+     *
+     * Everything else that can change the camera position/orientation clears
+     * the flag: ae, arot, center, eye, eye_pt, vrot, zoom, tra, slew,
+     * lookat, view, rot, ort, perspective, and any future additions.
+     */
+    static const std::unordered_set<std::string> s_preserve_progressive = {
+	"draw", "erase", "autoview", "who", "ls", "l", "tops",
+	"tree", "search", "attr", "dbip", "title", "units", "stat"
+    };
+    if (argc > 0 && argv[0] &&
+	s_preserve_progressive.find(argv[0]) == s_preserve_progressive.end())
+    {
+	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+	if (views) {
+	    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+		if (v && v->gv_s)
+		    v->gv_s->gv_progressive_autoview = 0;
+	    }
+	}
+    }
 
     SelectionSet *ss = (gedp->dbi_state) ? ((DbiState *)gedp->dbi_state)->get_selection_set(nullptr) : nullptr;
     select_hash = (ss) ? ss->state_hash() : 0;

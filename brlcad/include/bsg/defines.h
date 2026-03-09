@@ -434,6 +434,46 @@ struct bsg_shape  {
     struct bsg_shape *free_scene_obj;
     struct bu_ptbl *otbl;
     void *draw_data;
+    /* Placeholder type when draw_data is NULL and this is a per-view bbox
+     * wireframe: 0 = not a placeholder (or LoD view obj), 1 = AABB wireframe,
+     * 2 = OBB wireframe.  Set by bot_adaptive_plot(); used to detect when an
+     * upgrade to a tighter wireframe or real LoD is possible. */
+    int s_placeholder;
+
+    /* LoD mesh context; populated by the draw framework (draw_scene) before
+     * ft_scene_obj is invoked, so that per-primitive callbacks can manage
+     * BoT/BREP LoD without reaching into higher-level (libged/DbiState) state.
+     * Architectural note: as we migrate toward all primitive-specific logic
+     * living in librt ft_scene_obj implementations, this and s_obb_pts below
+     * are the canonical way for the pipeline layer to communicate pipeline
+     * results down to primitive callbacks without exposing DbiState. */
+    struct bsg_mesh_lod_context *mesh_c;
+
+    /* OBB corner points cached from the async AABB/OBB pipeline.
+     * draw_scene() populates these from d->dbis->obbs when the pipeline
+     * delivers OBB data for this primitive.  ft_scene_obj implementations
+     * (including rt_generic_scene_obj) draw OBB placeholder wireframes from
+     * this data without needing any direct access to DbiState.
+     * Layout: 8 corner points × 3 coordinates interleaved (24 fastf_t total),
+     * matching the layout of DbiState::obbs entries. */
+    fastf_t s_obb_pts[24];
+    int     s_have_obb; /* 1 when s_obb_pts holds valid OBB corner data */
+
+    /* Per-thread rt resource for use by ft_scene_obj callbacks.  Populated
+     * by the draw framework (draw_scene) from draw_update_data_t::res before
+     * ft_scene_obj is invoked.  Allows callbacks to call rt_db_get_internal()
+     * without accessing draw_update_data_t directly.
+     *
+     * Historically the only way to apply a matrix to a primitive was to pass
+     * the matrix to rt_db_get_internal(), which bakes the transform into the
+     * cracked internal.  The new ft_mat (rt_##name##_mat) path allows the
+     * matrix to be applied to an already-cracked internal, which opens the
+     * door to object-space vlist caching: crack once with NULL mat, cache the
+     * result, then apply s_mat at render time via ft_mat or by the renderer.
+     * s_res enables ft_scene_obj callbacks to do either correctly without
+     * reaching into higher-level state. */
+    struct resource *s_res;
+
     void *s_u_data;
 };
 typedef struct bsg_shape bsg_shape;
@@ -474,6 +514,15 @@ struct bview_settings {
     int            gv_cleared;
     int            gv_zclip;
     int            gv_autoview;
+    /**
+     * Progressive autoview: when non-zero, drain_background_geom() will
+     * automatically re-run bsg_view_autoview() each time new AABB data
+     * arrives from the async DrawPipeline, keeping the camera centered on
+     * the growing scene.  Cleared automatically once all drawn BoT shapes
+     * have bounding boxes, or immediately when the user performs any
+     * explicit view manipulation.
+     */
+    int            gv_progressive_autoview;
     int           adaptive_plot_mesh;
     int           adaptive_plot_csg;
     size_t        bot_threshold;
