@@ -428,6 +428,12 @@ class GED_EXPORT BViewState {
 	// shapes in s_map and is not suitable for hot paths on large scenes.
 	size_t lod_shape_count(struct bview *v);
 
+	// Count mesh (BoT) shapes in this view state that do not yet have a
+	// bounding box (sp->have_bbox == 0).  Returns 0 when all AABBs have
+	// been populated by the async DrawPipeline (i.e. the scene is stable
+	// for progressive-autoview purposes).  Returns 0 if v is NULL.
+	size_t mesh_shapes_without_bbox(struct bview *v);
+
     private:
 	// Sets defining all drawn solid paths (including invalid paths).  The
 	// s_keys holds the ordered individual keys of each drawn solid path - it

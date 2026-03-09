@@ -524,6 +524,15 @@ bsg_view_autoview(bsg_view *v, double factor, int all_view_objs)
     v->gv_size = factor * v->gv_scale;
     v->gv_isize = 1.0 / v->gv_size;
     bsg_view_update(v);
+
+    /* Activate progressive autoview: drain_background_geom() will re-call
+     * this function every time new AABB bounding-box data arrives from the
+     * async DrawPipeline until all drawn shapes have stable bboxes.  The
+     * flag is cleared either when the scene stabilises or when the user
+     * performs any explicit view-manipulation action (pan/zoom/rotate/etc.).
+     * The flag is also set when the scene was empty (is_empty==1) because
+     * shapes may still be arriving via the async pipeline. */
+    v->gv_s->gv_progressive_autoview = 1;
 }
 
 /**
