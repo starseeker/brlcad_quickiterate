@@ -439,6 +439,26 @@ struct bsg_shape  {
      * 2 = OBB wireframe.  Set by bot_adaptive_plot(); used to detect when an
      * upgrade to a tighter wireframe or real LoD is possible. */
     int s_placeholder;
+
+    /* LoD mesh context; populated by the draw framework (draw_scene) before
+     * ft_scene_obj is invoked, so that per-primitive callbacks can manage
+     * BoT/BREP LoD without reaching into higher-level (libged/DbiState) state.
+     * Architectural note: as we migrate toward all primitive-specific logic
+     * living in librt ft_scene_obj implementations, this and s_obb_pts below
+     * are the canonical way for the pipeline layer to communicate pipeline
+     * results down to primitive callbacks without exposing DbiState. */
+    struct bsg_mesh_lod_context *mesh_c;
+
+    /* OBB corner points cached from the async AABB/OBB pipeline.
+     * draw_scene() populates these from d->dbis->obbs when the pipeline
+     * delivers OBB data for this primitive.  ft_scene_obj implementations
+     * (including rt_generic_scene_obj) draw OBB placeholder wireframes from
+     * this data without needing any direct access to DbiState.
+     * Layout: 8 corner points × 3 coordinates interleaved (24 fastf_t total),
+     * matching the layout of DbiState::obbs entries. */
+    fastf_t s_obb_pts[24];
+    int     s_have_obb; /* 1 when s_obb_pts holds valid OBB corner data */
+
     void *s_u_data;
 };
 typedef struct bsg_shape bsg_shape;
