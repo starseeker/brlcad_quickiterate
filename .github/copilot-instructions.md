@@ -72,11 +72,15 @@ cmake --build /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_b
 
 ## Architectural Direction: Async-First Draw Pipeline
 
-The current `gather_paths` → `scene_obj` path calls `rt_bound_instance` synchronously for every leaf solid when the LMDB bbox cache is cold.  For large hierarchies this is a blocking I/O bottleneck.  The planned re-engineering direction is:
+ALL scene objects (BoTs **and** CSG/wireframe primitives) are treated equally: their AABB is computed lazily by the async `DrawPipeline` rather than synchronously during `gather_paths`.  This is activated by `BRLCAD_CACHE_AABB_DELAY_MS > 0` (for testing) and will become the permanent path once the full re-engineering is complete.
 
-1. **`gather_paths` / `scene_obj`** — only walks comb tree structure.  Leaf solids get `sp->have_bbox = 0` and no view object initially.
-2. **All leaf data collection** (AABB, OBB, LoD for BoTs; CSG vlist generation) flows through the async `DrawPipeline` (5-stage: attr → AABB → OBB → LoD → write).
-3. **`bot_adaptive_plot` / CSG draw** — returns a no-op when nothing is available yet.  On the next `do_view_changed(QG_VIEW_DRAWN)` redraw (triggered when pipeline data arrives), the missing-view-obj scan in `BViewState::redraw` includes the shape and `bot_adaptive_plot` draws the best available placeholder (LoD > OBB > AABB) or no-ops again if still nothing.
+1. **`gather_paths` / `scene_obj`** — only walks the comb tree structure.  Every leaf solid (BoT or CSG) gets `sp->have_bbox = 0` and no view object initially when `BRLCAD_CACHE_AABB_DELAY_MS > 0`.
+2. **All leaf data collection** flows through the async `DrawPipeline` (5-stage: attr → AABB → OBB → LoD → write):
+   - AABB: `aabb_worker` calls `ft_bbox` on every primitive (BoT and CSG alike).
+   - OBB: `obb_worker` calls `ft_oriented_bbox` (BoTs and BREPs mainly).
+   - LoD: `lod_worker` caches mesh data for BoTs only.
+3. **`bot_adaptive_plot` / `draw_scene`** — both return a no-op when `have_bbox == 0` and nothing is available yet. On the next `do_view_changed(QG_VIEW_DRAWN)` redraw (triggered when pipeline data arrives), the missing-view-obj scan in `BViewState::redraw` retries the shape.  Drawing priority is: LoD > OBB placeholder > AABB placeholder > no-op.
 4. **`drain_background_geom`** — tracks AABB, OBB, and LoD counts; calls `do_view_changed(QG_VIEW_DRAWN)` whenever any counter advances.
+5. **Progressive autoview** — `bsg_view_autoview()` sets `gv_s->gv_progressive_autoview = 1`.  `drain_background_geom` re-calls `bsg_view_autoview` every time new AABBs arrive so the camera tracks the growing scene.  The flag is cleared when `BViewState::shapes_without_bbox()` returns 0 (all shapes have bboxes) or when any explicit user view command is run.
 
 The env vars `BRLCAD_CACHE_AABB_DELAY_MS`, `BRLCAD_CACHE_OBB_DELAY_MS`, `BRLCAD_CACHE_LOD_DELAY_MS` inject per-item delays to simulate expensive geometry in tests (see `qged_pipeline_test`).
