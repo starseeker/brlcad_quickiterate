@@ -772,6 +772,21 @@ draw_scene(bsg_shape *s, bsg_view *v)
 	return;
     }
 
+    /* For non-BoT, non-BREP shapes in the adaptive path, classify the shape
+     * as a CSG wireframe object NOW — before any early-return paths — so that
+     * BViewState::redraw()'s scan for "csg_obj && !have_bbox" can queue this
+     * shape for retry after the async AABB pipeline delivers the bbox.
+     *
+     * This mirrors bot_adaptive_plot()'s unconditional "s->mesh_obj = 1" at
+     * its start: the flag is set regardless of whether the shape ends up
+     * drawn this pass, ensuring the redraw scan always finds the shape.
+     * Without this, CSG shapes stay at the default csg_obj=0 after a lazy
+     * no-op and are never retried when their AABB arrives. */
+    if (v) {
+	s->csg_obj  = 1;
+	s->mesh_obj = 0;
+    }
+
     /* Lazy AABB placeholder upgrade for CSG/wireframe shapes:
      * When the shape carries an AABB or OBB wireframe placeholder
      * (s_placeholder > 0) from a previous draw_scene call where no AABB

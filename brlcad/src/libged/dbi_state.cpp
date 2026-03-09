@@ -2993,6 +2993,13 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 	    if (scan_sp->csg_obj && !scan_sp->have_bbox) {
 		objs.insert(scan_sp);
 	    }
+	    // Unclassified shape: draw_scene was never called (or returned
+	    // before setting csg_obj/mesh_obj), so have_bbox=0 AND both
+	    // flags are still 0.  Include it so draw_scene can classify it
+	    // and either draw a placeholder or record the shape type.
+	    if (!scan_sp->mesh_obj && !scan_sp->csg_obj && !scan_sp->have_bbox) {
+		objs.insert(scan_sp);
+	    }
 	}
     }
 
