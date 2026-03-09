@@ -82,9 +82,11 @@
 
 #include "common.h"
 
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 #include <vector>
 #include <deque>
 
@@ -103,7 +105,7 @@
 #include "vmath.h"
 
 #include "bu/cmd.h"
-#include "bu/hash_cxx.h"
+#include "bu/hash.h"
 #include "bu/opt.h"
 #include "bu/path.h"
 
@@ -226,6 +228,53 @@ struct leaf_info_t {
 };
 
 
+/**
+ * Identity equality for bu_h128_t.
+ *
+ * Compares all 128 bits.  This is the correctness gate used by
+ * std::unordered_map / std::unordered_set after a bucket lookup: two keys
+ * are the same if and only if both 64-bit words match.  The collision
+ * probability at this level is N^2 / 2^129 (see file-level comment).
+ */
+inline bool operator==(const bu_h128_t &a, const bu_h128_t &b)
+{
+    return a.w[0] == b.w[0] && a.w[1] == b.w[1];
+}
+
+/**
+ * Bucket-placement hasher for bu_h128_t (performance only, not identity).
+ *
+ * This function maps a 128-bit fingerprint to a single std::size_t bucket
+ * index.  It is used exclusively for bucket selection; the container
+ * resolves actual equality with operator== (above), which inspects all
+ * 128 bits.
+ *
+ * Folding to std::size_t increases *bucket* collision probability back to
+ * roughly N^2 / 2^65 on 64-bit platforms – that is intentional and
+ * harmless: a bucket collision only lengthens one chain by one node, it
+ * never causes a false identity match.  See the file-level comment for
+ * a full explanation of the two-level collision model.
+ *
+ * Implementation: XOR the two 64-bit halves (both have XXH3's excellent
+ * avalanche properties), then fold to size_t width for 32-bit platforms.
+ */
+namespace std {
+   template<>
+    struct hash<bu_h128_t> {
+        size_t operator()(const bu_h128_t &h) const noexcept {
+            /* XOR the two 64-bit halves, then fold to size_t width.
+             * On 64-bit platforms this is a no-op truncation.
+             * On 32-bit platforms the extra shift folds the upper 32
+             * bits of the XOR result into the lower 32 before the cast. */
+            uint64_t v = h.w[0] ^ h.w[1];
+            if (sizeof(size_t) < sizeof(uint64_t))
+                v ^= (v >> 32);
+            return (size_t)v;
+        }
+    };
+} /* namespace std */
+
+
 /*
  * Compute the 128-bit path fingerprint for a node reached by appending
  * child_dp to the path whose fingerprint is parent_hash.
@@ -241,7 +290,7 @@ struct leaf_info_t {
  * fingerprint to 64 bits for placement.  That increases *bucket* collision
  * probability to ~N^2 / 2^65, but bucket collisions only degrade performance
  * (an extra operator== comparison) – identity is always confirmed by checking
- * all 128 bits.  See bu/hash_cxx.h for the full two-level collision model.
+ * all 128 bits.
  *
  * parent_hash == BELOW_PATH_HASH_ROOT is the sentinel for a root-level node.
  */
@@ -755,16 +804,14 @@ find_execute_nested_plans(struct db_i *dbip, struct bu_ptbl *results, struct db_
  *   below_passes(C) = below_passes(parent(C))  [cache hit: same ancestor applies]
  *                   OR inner(parent(C))          [parent itself satisfies expr]
  *
- * Cache keys are 128-bit incremental path fingerprints (bu_h128_t, computed
- * in the BFS work queue via below_path_hash_extend).  Identity is determined
- * by all 128 bits (operator==), giving a correctness-collision probability of
- * N^2 / 2^129; the std::hash bucket function folds to 64 bits for placement
- * only (see bu/hash_cxx.h for the two-level collision model).  No string
- * allocation is needed.  This reduces the total cost for a linear chain of
- * depth D from O(D^2) inner-plan evaluations to O(D).
- * The cache is only active during BFS traversal with an unbounded max_depth
- * (the normal case for -below); other modes fall back to the original
- * ancestor-walk.
+ * Cache keys are 128-bit incremental path fingerprints (bu_h128_t, computed in
+ * the BFS work queue via below_path_hash_extend).  Identity is determined by
+ * all 128 bits (operator==), giving a correctness-collision probability of N^2
+ * / 2^129; the std::hash bucket function folds to 64 bits for placement only.
+ * No string allocation is needed.  This reduces the total cost for a linear
+ * chain of depth D from O(D^2) inner-plan evaluations to O(D).  The cache is
+ * only active during BFS traversal with an unbounded max_depth (the normal
+ * case for -below); other modes fall back to the original ancestor-walk.
  */
 static int
 f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, struct bu_ptbl *results)

@@ -212,26 +212,66 @@ bu_data_hash_val(struct bu_data_hash_state *s);
 
 
 /***************************************************************************
- * Strong 128-bit fingerprint API.
- *
- * Uses XXH3-128, whose birthday-bound identity-collision probability is
- * N^2 / 2^129 – effectively zero for any realistic number of distinct inputs.
- * Compared to bu_data_hash (64-bit), the output is twice as wide so that the
- * fingerprint itself can be stored and compared without folding.
+ * 128-bit fingerprint API - provides an extremely low probability for birthday
+ * collisions (effectively zero for any realistic number of distinct inputs),
+ * at the expense of API convenience.
  *
  * The result type bu_h128_t is a plain C struct (two uint64_t words) that is
  * ABI-stable and can be stored, compared, and copied with ordinary C code.
  *
  * C++ callers that need to use bu_h128_t as a key in std::unordered_map or
- * std::unordered_set should also include <bu/hash_cxx.h>, which provides
- * operator== (all 128 bits) and std::hash<bu_h128_t> (folds to size_t for
- * bucket placement only).  Those two roles are intentionally separate:
- * operator== provides correctness at N^2 / 2^129; std::hash's fold affects
- * bucket-placement performance only.  See bu/hash_cxx.h for the full
- * two-level collision model.
+ * std::unordered_set will need to provide operator== (all 128 bits) and
+ * std::hash<bu_h128_t> (folds to size_t for bucket placement only).  Those two
+ * roles are intentionally separate: operator== provides strong uniqueness, while
+ * std::hash's fold gives us a value suitable for the initial bucket key.  Below
+ * is an example implementation.
  *
- * The underlying algorithm is deliberately not part of the public contract –
- * callers must not assume the numeric values are stable across BRL-CAD versions.
+ * @code
+ * inline bool operator==(const bu_h128_t &a, const bu_h128_t &b)
+ * {
+ *     return a.w[0] == b.w[0] && a.w[1] == b.w[1];
+ * }
+ *
+ * // Bucket-placement hasher for bu_h128_t (performance only, not identity).
+ * //
+ * // This function maps a 128-bit fingerprint to a single std::size_t bucket
+ * // index.  It is used exclusively for bucket selection; the container
+ * // resolves actual equality with operator== (above), which inspects all
+ * // 128 bits.
+ * //
+ * // Folding to std::size_t increases *bucket* collision probability back to
+ * // roughly N^2 / 2^65 on 64-bit platforms – that is intentional and
+ * // harmless: a bucket collision only lengthens one chain by one node, it
+ * // never causes a false identity match.  See the file-level comment for
+ * // a full explanation of the two-level collision model.
+ * //
+ * // Implementation: XOR the two 64-bit halves (both have XXH3's excellent
+ * // avalanche properties), then fold to size_t width for 32-bit platforms.
+ * namespace std {
+ *   template<>
+ *   struct hash<bu_h128_t> {
+ *       std::size_t operator()(const bu_h128_t &h) const noexcept {
+ *           // XOR the two 64-bit halves, then fold to size_t width.
+ *           // On 64-bit platforms this is a no-op truncation.
+ *           // On 32-bit platforms the extra shift folds the upper 32
+ *           // bits of the XOR result into the lower 32 before the cast.
+ *           uint64_t v = h.w[0] ^ h.w[1];
+ *           if (sizeof(std::size_t) < sizeof(uint64_t))
+ *       	v ^= (v >> 32);
+ *           return (std::size_t)v;
+ *       }
+ *   };
+ * } // namespace std
+ * @endcode
+ *
+ * Note:  the implementation hash as of 2026/03/09 is XXH3-128, whose
+ * birthday-bound identity-collision probability is N^2 / 2^129. HOWEVER, while
+ * we are documenting this to illustrate why callers might want to use a 128
+ * bit hash instead of the 64 bit version, the specific underlying hash
+ * algorithm is deliberately and explicitly NOT part of the public contract.
+ * We may change the under-the-hood algorithm and implementation at any time,
+ * so no numerical stability of the hash values between releases can be
+ * assumed.
  **************************************************************************/
 
 /**
