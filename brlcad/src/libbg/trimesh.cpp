@@ -23,12 +23,14 @@
 
 #include <set>
 #include <map>
+#include <vector>
 
 #include "bu/bitv.h"
 #include "bu/log.h"
 #include "bu/list.h"
 #include "bu/malloc.h"
 #include "bu/sort.h"
+#include "bg/pnts.h"
 #include "bg/trimesh.h"
 #include "bg/plane.h"
 
@@ -831,8 +833,16 @@ bg_trimesh_aabb(point_t *min, point_t *max, const int *faces, size_t num_faces, 
     VSETALL((*min), INFINITY);
     VSETALL((*max), -INFINITY);
 
-    /* If inputs are insufficient, we can't produce a bbox */
-    if (!faces || num_faces == 0 || !p || num_pnts == 0)
+    /* If we have no face data, fall back to a simple point-set AABB when
+     * points are available; return an error if neither is supplied. */
+    if (!faces || num_faces == 0) {
+	if (!p || num_pnts == 0)
+	    return -1;
+	return bg_pnts_aabb(min, max, p, num_pnts);
+    }
+
+    /* Likewise, faces without points cannot produce a bbox */
+    if (!p || num_pnts == 0)
 	return -1;
 
     /* First Pass: coherently iterate through all faces of the BoT and
@@ -870,6 +880,56 @@ bg_trimesh_aabb(point_t *min, point_t *max, const int *faces, size_t num_faces, 
 
     /* Success */
     return 0;
+}
+
+
+int
+bg_trimesh_obb(point_t *c, vect_t *v1, vect_t *v2, vect_t *v3,
+	       const int *faces, size_t num_faces, const point_t *p, size_t num_pnts)
+{
+    if (!c || !v1 || !v2 || !v3)
+	return BRLCAD_ERROR;
+
+    /* Sentinel values */
+    VSETALL((*c), 0);
+    VSET((*v1), INFINITY, 0, 0);
+    VSET((*v2), 0, INFINITY, 0);
+    VSET((*v3), 0, 0, INFINITY);
+
+    /* If we have no face data but we do have points, compute OBB from
+     * all points */
+    if (!faces || num_faces == 0)
+	return bg_pnts_obb(c, v1, v2, v3, p, num_pnts);
+
+    if (!p || num_pnts == 0)
+	return BRLCAD_ERROR;
+
+    /* First Pass: mark face-active vertices via a bit-vector */
+    struct bu_bitv *visit_vert = bu_bitv_new(num_pnts);
+    for (size_t tri_index = 0; tri_index < num_faces; tri_index++) {
+	BU_BITSET(visit_vert, faces[tri_index*3 + X]);
+	BU_BITSET(visit_vert, faces[tri_index*3 + Y]);
+	BU_BITSET(visit_vert, faces[tri_index*3 + Z]);
+    }
+
+    /* Second Pass: collect only the active points as a flat array of fastf_t */
+    std::vector<fastf_t> apnts_flat;
+    apnts_flat.reserve(num_pnts * 3);
+    for (size_t vert_index = 0; vert_index < num_pnts; vert_index++) {
+	if (BU_BITTEST(visit_vert, vert_index)) {
+	    apnts_flat.push_back(p[vert_index][X]);
+	    apnts_flat.push_back(p[vert_index][Y]);
+	    apnts_flat.push_back(p[vert_index][Z]);
+	}
+    }
+    bu_bitv_free(visit_vert);
+
+    if (apnts_flat.empty())
+	return BRLCAD_ERROR;
+
+    size_t apnt_cnt = apnts_flat.size() / 3;
+    return bg_pnts_obb(c, v1, v2, v3,
+		       (const point_t *)apnts_flat.data(), apnt_cnt);
 }
 
 
