@@ -807,6 +807,10 @@ test_cross_validation(struct db_i *dbip)
         "-above -name prim_target.s",
         "-above -name prim_special.s",
         "-above -name prim_plain.s",
+        "-below -name mid_a",
+        "-below -name upper_a",
+        "-below>2 -name top1",
+        "-below=3 -name top1",
         "-type shape",
         "-type comb",
         "-type region",
@@ -835,6 +839,153 @@ test_cross_validation(struct db_i *dbip)
         CROSS_CHECK(new_cnt, old_cnt, *f);
     }
 
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  -below depth-constraint and -above/-below interaction tests       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Test cases covering option interactions that are prone to bugs:
+ *
+ * 1. -below with min_depth > 2 (e.g. -below>2): requires walking more than
+ *    one ancestor up.  The BFS fast path can only seed the cache from the
+ *    immediate parent; when min_depth > 2, it must fall back to the ancestor
+ *    walk to reach the required depth.
+ *
+ * 2. -above combined with -below in the same plan: the traversal strategy
+ *    falls back to depth-first (no BFS cache for -below), so f_below uses
+ *    the ancestor-walk fallback.  Results must match the old implementation.
+ *
+ * 3. Negated -above and -below (! -above, ! -below): ensure negation is
+ *    applied correctly to both the fast and fallback paths.
+ *
+ * Tree (same correctness tree):
+ *   top1/upper_a/mid_a/leaf_t/prim_target.s
+ *   top1/upper_a/mid_a/leaf_p/prim_plain.s
+ *   top1/upper_a/mid_b/leaf_s/prim_special.s
+ *   ...
+ *
+ * Ground truth for -below depth constraints (applying to top1 subtree):
+ *
+ *   -below>2 -name top1:
+ *     Nodes where an ancestor named top1 is at distance >= 3 (min_depth=3)
+ *     Using old-code distance convention: distance starts at 1, incremented
+ *     before first check, so distance 3 = 2 actual hops (grandparent).
+ *     Nodes at depth >= 2 from top1: mid_a, mid_b, mid_c, leaf_t, leaf_p,
+ *     leaf_s, leaf_ts (via upper_a/b), and all primitives = 17 paths
+ *     Actually: all paths at depth >= 3 from top1 (depth 0).
+ *     top1=depth0, upper_a/b=depth1, mid_*=depth2, leaf_*=depth3, prim.*=depth4
+ *     distance convention: depth1 nodes have distance 2 to top1 (1 hop)
+ *     depth2 nodes have distance 3 to top1 (2 hops) -> passes -below>2
+ *     depth3+ also pass.
+ *     Paths at depth >= 2: mid_a, mid_b (x2), mid_c, leaf_t, leaf_p (x4),
+ *     leaf_s (x2), leaf_ts, prim_target.s (x2), prim_plain.s (x4),
+ *     prim_special.s (x3) = 7 mid+leaf + 9 prim = varies...
+ *     Let's just cross-validate against old code for this.
+ *
+ * For simplicity, this test cross-validates all depth-constrained below
+ * variants against old code rather than hardcoding counts.
+ */
+static int
+test_interactions(struct db_i *dbip)
+{
+    int failures = 0;
+    int new_cnt, old_cnt;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+
+    /* ---- 1: -below with depth constraints ---- */
+
+    /* -below>2: min_depth=3, max_depth=INT_MAX
+     * Requires BFS fallback (min_depth > 2), ancestor-walk must reach depth 3 */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below>2 -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below>2 -name top1");
+
+    /* -below>3: min_depth=4, even deeper */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below>3 -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below>3 -name top1");
+
+    /* -below=3: exact distance */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below=3 -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below=3 -name top1");
+
+    /* -below>2 with a deeper named target */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below>2 -name mid_a", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below>2 -name mid_a");
+
+    /* ---- 2: -above and -below in same plan ---- */
+
+    /* Objects that are above a region AND below a comb */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -type shape -below -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -type shape -below -name top1");
+
+    /* Using -or to combine both */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "( -above -name prim_target.s ) -or ( -below -name mid_a )",
+                  &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "( -above -name prim_target.s ) -or ( -below -name mid_a )");
+
+    /* Both in the same expression */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -name prim_special.s -above -name prim_plain.s",
+                  &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -name prim_special.s -above -name prim_plain.s");
+
+    /* ---- 3: negated -above and -below ---- */
+
+    /* ! -above: objects NOT above any shape */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "! -above -type shape", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "! -above -type shape");
+
+    /* ! -below: objects NOT below any named node */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "! -below -name mid_a", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "! -below -name mid_a");
+
+    /* Combined: objects that are above a shape but not above prim_target.s */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -type shape ! -above -name prim_target.s",
+                  &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -type shape ! -above -name prim_target.s");
+
+    /* ---- 4: -above with -type (not just -name) ---- */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -type shape", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -type shape");
+
+    /* -below with -type */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below -type comb", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below -type comb");
+
+    /* ---- 5: ground-truth exact counts for a specific case ---- */
+    /* -above -type shape: every non-shape path that has a shape descendant
+     * = all 15 comb paths (every comb has at least one shape under it) */
+    {
+        int cnt;
+        cnt = db_search(&results, DB_SEARCH_TREE,
+                        "-above -type shape",
+                        0, NULL, dbip, NULL, NULL, NULL);
+        CHECK(cnt == 15, "-above -type shape count == 15 (all combs have shape descendants)");
+        db_search_free(&results);
+
+        /* ! -above -type shape: the 9 shape paths themselves, which have no shape BELOW them */
+        cnt = db_search(&results, DB_SEARCH_TREE,
+                        "! -above -type shape -type shape",
+                        0, NULL, dbip, NULL, NULL, NULL);
+        CHECK(cnt == 9, "shape paths that are not above another shape == 9");
+        db_search_free(&results);
+    }
+
+    (void)new_cnt; (void)old_cnt;
     return failures;
 }
 
@@ -1917,6 +2068,9 @@ main(int argc, char *argv[])
 
     bu_log("Running -above exact-path and depth-constraint tests...\n");
     failures += test_above_exact(dbip);
+
+    bu_log("Running -above/-below interaction and -below depth-constraint tests...\n");
+    failures += test_interactions(dbip);
 
     bu_log("Running cross-validation (new vs old)...\n");
     failures += test_cross_validation(dbip);

@@ -830,14 +830,25 @@ f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, st
 	return 0;
     }
 
-    if (cache && plan->max_depth == INT_MAX && !(db_node->flags & DB_SEARCH_FLAT)) {
+    if (cache && plan->max_depth == INT_MAX && plan->min_depth <= 2 && !(db_node->flags & DB_SEARCH_FLAT)) {
 	/*
 	 * BFS optimized path: O(1) per node, no memory allocation.
+	 *
+	 * This path is only active when max_depth is unbounded AND min_depth
+	 * is at most 2.  The "distance" convention in the ancestor-walk loop
+	 * starts at 1 (initial fp_len difference) then increments to 2
+	 * before the first evaluation, so "distance 2" corresponds to the
+	 * immediate parent (1 hop up).  The BFS fast path can only seed the
+	 * cache from the immediate parent (1 hop); when min_depth > 2 the
+	 * required ancestor is 2+ hops above and the BFS single-parent check
+	 * can never satisfy it, so the fallback ancestor-walk is used instead.
 	 *
 	 * Check 1: if the parent hash is in the cache, this node inherits
 	 * the result.  The same qualifying ancestor still applies to all
 	 * descendants, and with unbounded max_depth the distance constraint
-	 * remains satisfied.
+	 * remains satisfied for the propagated case too (the ancestor that
+	 * originally seeded the cache is one hop further from each descendant,
+	 * so distance only grows and min_depth <= 2 remains satisfied).
 	 */
 	if (cache->count(db_node->below_parent_hash)) {
 	    cache->insert(db_node->below_path_hash);

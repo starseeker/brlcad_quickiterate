@@ -684,6 +684,15 @@ d2.r
 	    depth can be appended to the operator to limit what
 	    relative depths are accepted as matches.
 	  </para>
+	  <para>
+	    Note: using <emphasis>-above</emphasis> as the expression
+	    within another <emphasis>-above</emphasis> (e.g.,
+	    <userinput>-above -above -name X</userinput>) is valid but
+	    will be slower than the normal case because the internal
+	    optimization for -above cannot be applied to the inner
+	    -above expression.  Such constructs are rare in practice
+	    and will still produce correct results.
+	  </para>
 	</listitem>
       </varlistentry>
       <varlistentry>
