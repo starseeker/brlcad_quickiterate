@@ -19,26 +19,29 @@
  */
 /** @file qged_pipeline_test.cpp
  *
- * Validates the AABB -> OBB -> LoD progressive BoT drawing pipeline inside
- * a running qged (QgEdApp) instance using software rendering (swrast).
+ * Validates the progressive drawing pipeline inside a running qged (QgEdApp)
+ * instance using software rendering (swrast).  ALL primitive types (BoT AND
+ * CSG/wireframe) are now lazy under the BRLCAD_CACHE_AABB_DELAY_MS policy:
+ * every shape starts with have_bbox=0 and no view object; geometry appears
+ * progressively as the async DrawPipeline delivers AABB, OBB, and LoD data.
  *
- * GenericTwin.g contains 706 BoT solids.  The DrawPipeline computes:
- *   - AABB (bounding box): populated SYNCHRONOUSLY during "draw" command
- *   - OBB  (oriented bounding box): populated ASYNCHRONOUSLY (drain required)
- *   - LoD  (level of detail):       populated ASYNCHRONOUSLY (drain required)
+ * GenericTwin.g contains 706 BoT solids and approximately 1536 CSG solids
+ * (confirmed by previous synchronous AABB counts showing 2242 total bboxes).
+ * The DrawPipeline processes all of them asynchronously:
+ *   - AABB (bounding box): deferred for ALL primitives (BRLCAD_CACHE_AABB_DELAY_MS)
+ *   - OBB  (oriented bbox): BoTs only — computed after AABB
+ *   - LoD  (level of detail): BoTs only — computed after OBB
  *
- * The test starts with a COLD LoD cache and injects per-item pipeline delays
- * (BRLCAD_CACHE_OBB_DELAY_MS=5, BRLCAD_CACHE_LOD_DELAY_MS=200) to simulate
- * geometry that is expensive to process.  This makes each stage linger:
- *   - OBBs arrive ~5ms each → first OBB in the drain at ~100ms
- *   - LoD arrives ~200ms after its OBB → Stage 3 fires at ~300ms
+ * The test starts with a COLD LoD cache and injects per-item delays to make
+ * each stage linger long enough to be captured.
  *
- * Pass/fail is determined by programmatic inspection of scene objects at each
- * stage (SceneStats from inspect_scene_objs()), NOT by pixel counting.
- * Screenshots are still saved for visual reference.
+ * BoT shape flow:     no_view_obj → AABB placeholder → OBB placeholder → LoD
+ * CSG shape flow:     no_view_obj (csg_no_view_obj) → csg_active (wireframe)
+ * (CSG shapes have no placeholder stage; they go directly to active once their
+ * AABB arrives because draw_scene calls wireframe_plot immediately.)
  *
- * Stage 1 (AABB): right after "draw all", before any drain events.
- *   Pass: placeholder_aabb > 0, placeholder_obb == 0, lod_active == 0
+ * Stage 1 (first geom): first poll where any placeholder OR csg_active > 0.
+ *   Pass: (placeholder_aabb OR placeholder_obb OR csg_active) > 0, lod == 0
  *
  * Stage 2 (OBB): first poll where some OBB placeholders exist, no LoD yet.
  *   Pass: placeholder_obb > 0, lod_active == 0
@@ -356,30 +359,34 @@ bu_log("  [poll %4d stage=%-12s] bboxes=%4zu  obbs=%4zu  lod=%4zu  "
     }
 
     /* ---------------------------------------------------------------
-     * STAGE_AABB_WAIT: wait for first AABB placeholder to appear while
-     * no OBBs or LoD have arrived yet.  Since ALL shapes are now lazy,
-     * this includes both BoT (placeholder_aabb) and CSG (csg_placeholder).
+     * STAGE_AABB_WAIT: wait for the first geometry to appear — either a
+     * BoT placeholder (AABB or OBB wireframe box) or an active CSG vlist
+     * — while no LoD has arrived yet.
      *
-     * Transition: (placeholder_aabb > 0 OR csg_placeholder > 0)
-     *             AND placeholder_obb == 0 AND lod == 0
+     * Background: AABB and OBB workers run sequentially per item with
+     * similar delays, so by the first 50ms poll we may already see OBB
+     * placeholders rather than AABB-only placeholders.  CSG shapes do not
+     * get a placeholder stage: once their async AABB arrives draw_scene
+     * calls wireframe_plot and they jump directly from no_view_obj to
+     * csg_active.
+     *
+     * Transition: (placeholder_aabb > 0 OR placeholder_obb > 0 OR
+     *              csg_active > 0) AND lod_active == 0
      * --------------------------------------------------------------- */
     if (m_stage == STAGE_AABB_WAIT) {
-	if ((stats.placeholder_aabb > 0 || stats.csg_placeholder > 0) &&
-	    stats.placeholder_obb == 0 &&
+	if ((stats.placeholder_aabb > 0 || stats.placeholder_obb > 0 ||
+	     stats.csg_active > 0) &&
 	    stats.lod_active == 0)
 	{
-	    bu_log("  First AABB placeholders detected "
-		   "(bot_aabb=%d, csg_ph=%d) after %d polls\n",
-		   stats.placeholder_aabb, stats.csg_placeholder, m_poll_count);
+	    bu_log("  First geometry detected "
+		   "(bot_aabb=%d obb=%d csg_active=%d) after %d polls\n",
+		   stats.placeholder_aabb, stats.placeholder_obb,
+		   stats.csg_active, m_poll_count);
 	    m_stats_1 = stats;
 	    log_stats("stage1", m_stats_1);
 	    m_stage1_pass = true;
-	    grab_screenshot("pipeline_01_first_aabb");
-	    /* If this file has no BoTs (CSG-only), skip OBB and LoD stages.
-	     * For CSG-only files (moss.g, rook.g, etc.) with the uniform lazy
-	     * policy, Stage 1 is the final meaningful stage: it demonstrates
-	     * that CSG shapes also start lazy and receive AABB placeholders
-	     * before their full vlist geometry is generated. */
+	    grab_screenshot("pipeline_01_first_geom");
+	    /* If this file has no BoTs (CSG-only), skip OBB and LoD stages. */
 	    if (stats.total_mesh == 0) {
 		bu_log("  No BoT shapes in scene -- skipping OBB/LoD stages "
 		       "(CSG-only file)\n");
@@ -393,12 +400,12 @@ bu_log("  [poll %4d stage=%-12s] bboxes=%4zu  obbs=%4zu  lod=%4zu  "
 
 	if (m_poll_count >= MAX_POLLS) {
 	    bu_log("WARNING: AABB stage timed out "
-		   "(bboxes=%zu, no_vo=%d, bot_aabb=%d, csg_ph=%d)\n",
+		   "(bboxes=%zu, no_vo=%d, bot_aabb=%d, obb=%d, csg_active=%d)\n",
 		   dbis->bboxes.size(),
 		   stats.no_view_obj, stats.placeholder_aabb,
-		   stats.csg_placeholder);
+		   stats.placeholder_obb, stats.csg_active);
 	    if (!m_stage1_pass)
-		grab_screenshot("pipeline_01_first_aabb");
+		grab_screenshot("pipeline_01_first_geom");
 	    m_stage = STAGE_DONE;
 	    evaluate();
 	}
@@ -532,18 +539,19 @@ return;
 
     bool pass = true;
 
-    /* --- Stage 1: AABB placeholders visible (BoT and/or CSG) --- */
+    /* --- Stage 1: first geometry visible (BoT placeholder OR CSG active) --- */
     if (!m_stage1_pass) {
-	bu_log("FAIL: Stage 1 -- expected AABB placeholders "
-	       "(bot_aabb=%d, csg_ph=%d, obb=%d, lod=%d)\n",
-	       m_stats_1.placeholder_aabb, m_stats_1.csg_placeholder,
-	       m_stats_1.placeholder_obb,
+	bu_log("FAIL: Stage 1 -- expected first geometry "
+	       "(bot_aabb=%d obb=%d csg_active=%d lod=%d)\n",
+	       m_stats_1.placeholder_aabb, m_stats_1.placeholder_obb,
+	       m_stats_1.csg_active,
 	       m_stats_1.lod_active);
 	pass = false;
     } else {
-	bu_log("PASS: Stage 1 -- AABB placeholders visible "
-	       "(bot_aabb=%d, csg_ph=%d)\n",
-	       m_stats_1.placeholder_aabb, m_stats_1.csg_placeholder);
+	bu_log("PASS: Stage 1 -- first geometry visible "
+	       "(bot_aabb=%d obb=%d csg_active=%d)\n",
+	       m_stats_1.placeholder_aabb, m_stats_1.placeholder_obb,
+	       m_stats_1.csg_active);
     }
 
     /* --- Stage 2: OBB placeholders visible before LoD --- */

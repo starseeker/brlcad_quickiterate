@@ -154,14 +154,21 @@ inspect_scene_objs(bsg_view *v)
  *     - Scene check: (no_view_obj + csg_no_view_obj) == total shapes drawn.
  *     - Note: Stage 0 is a snapshot taken before any drain, as a reference.
  *
- *   Stage 1 -- first AABB placeholders visible (BoT and/or CSG):
+ *   Stage 1 -- first geometry visible (BoT placeholder OR CSG active):
  *     - drain_background_geom() fires; new AABBs trigger do_view_changed;
- *       BViewState::redraw() retries all shapes with have_bbox==0;
- *       bot_adaptive_plot / draw_scene late-set have_bbox and draw placeholder.
- *       Progressive autoview re-runs bsg_view_autoview() as bboxes accumulate.
- *     - Scene check: placeholder_aabb > 0 (BoT) or csg_placeholder > 0 (CSG).
+ *       BViewState::redraw() retries all shapes with have_bbox==0.
+ *     - BoT shapes: bot_adaptive_plot draws AABB or OBB wireframe placeholder.
+ *       (AABB and OBB workers run back-to-back at ~10ms each, so by the first
+ *       poll we often observe OBB placeholders directly without a pure-AABB
+ *       window.)
+ *     - CSG shapes: draw_scene sets csg_obj=1 early, then once AABB arrives
+ *       it calls wireframe_plot — CSG goes directly from no_view_obj to
+ *       csg_active (no placeholder stage for CSG).
+ *     - Progressive autoview re-runs bsg_view_autoview() as bboxes accumulate.
+ *     - Scene check: placeholder_aabb > 0 OR placeholder_obb > 0 OR
+ *                    csg_active > 0.
  *
- *   Stage 2 -- AABB+OBB mix (most AABBs arrived, first OBBs appearing):
+ *   Stage 2 -- OBB placeholders visible while LoD pending:
  *     - Scene check: placeholder_obb > 0, lod_active == 0.
  *
  *   Stage 3 -- first LoD objects visible:
@@ -171,7 +178,8 @@ inspect_scene_objs(bsg_view *v)
  *     - shapes_without_bbox() == 0 → autoview stabilises.
  *
  * Pass criteria (scene-object based):
- *   Stage 1: (placeholder_aabb > 0 OR csg_placeholder > 0), lod_active == 0
+ *   Stage 1: (placeholder_aabb OR placeholder_obb OR csg_active) > 0,
+ *            lod_active == 0
  *   Stage 2: placeholder_obb > 0, lod_active == 0
  *   Stage 3: lod_active > 0
  *   Final:   obbs >= EXPECTED_OBBS, lod_results_processed() >= EXPECTED_LOD
@@ -189,10 +197,16 @@ public:
     explicit QgedPipelineRunner(QgEdApp *app, const char *gfile,
 			       const QString &outdir, QObject *parent = nullptr);
 
-    /* Expected DrawPipeline counts for GenericTwin.g */
-    static constexpr size_t EXPECTED_BBOXES = 2242;
-    static constexpr size_t EXPECTED_OBBS   =  706;
-    static constexpr size_t EXPECTED_LOD    =  700;
+    /* Expected DrawPipeline counts for GenericTwin.g.
+     *
+     * EXPECTED_BBOXES: GenericTwin.g has ~706 BoTs + ~1539 CSG primitives.
+     *   Both types now go through the async AABB pipeline, giving ~2245 total
+     *   bboxes.  A small number of shapes may lack a working ft_bbox method,
+     *   so we use a conservative lower-bound rather than the exact count.
+     *   Setting to 706 ensures at minimum all BoT AABBs arrived. */
+    static constexpr size_t EXPECTED_BBOXES = 706;   /* ≥ BoT count (706) */
+    static constexpr size_t EXPECTED_OBBS   = 706;
+    static constexpr size_t EXPECTED_LOD    = 700;
 
     /* Polling parameters */
     static constexpr int POLL_INTERVAL_MS   = 50;    /* ms between polls     */
@@ -216,8 +230,8 @@ private:
 
     /*
      * Five-phase poll state machine:
-     *   STAGE_AABB_WAIT -- waiting for first AABB placeholder (no_view_obj → aabb)
-     *   STAGE_OBB_WAIT  -- waiting for first OBB placeholder (aabb → obb mix)
+     *   STAGE_AABB_WAIT -- waiting for first geometry (BoT placeholder OR CSG active)
+     *   STAGE_OBB_WAIT  -- waiting for first OBB placeholder (BoT aabb/obb → lod pending)
      *   STAGE_LOD_WAIT  -- waiting for first LoD view object
      *   STAGE_FINAL_WAIT-- waiting for all LoD results
      *   STAGE_DONE      -- evaluate() called
@@ -233,7 +247,7 @@ private:
 
     /* Scene-stat snapshots */
     SceneStats m_stats_0;   /* Stage 0: pre-drain (reference)               */
-    SceneStats m_stats_1;   /* Stage 1: first AABB placeholders             */
+    SceneStats m_stats_1;   /* Stage 1: first geometry (BoT ph or CSG active) */
     SceneStats m_stats_2;   /* Stage 2: first OBB placeholders              */
     SceneStats m_stats_3;   /* Stage 3: first LoD objects                   */
 

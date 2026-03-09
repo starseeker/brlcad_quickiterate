@@ -77,10 +77,11 @@ ALL scene objects (BoTs **and** CSG/wireframe primitives) are treated equally: t
 1. **`gather_paths` / `scene_obj`** — only walks the comb tree structure.  Every leaf solid (BoT or CSG) gets `sp->have_bbox = 0` and no view object initially when `BRLCAD_CACHE_AABB_DELAY_MS > 0`.
 2. **All leaf data collection** flows through the async `DrawPipeline` (5-stage: attr → AABB → OBB → LoD → write):
    - AABB: `aabb_worker` calls `ft_bbox` on every primitive (BoT and CSG alike).
-   - OBB: `obb_worker` calls `ft_oriented_bbox` (BoTs and BREPs mainly).
+   - OBB: `obb_worker` calls `ft_oriented_bbox` (BoTs and BREPs mainly; CSG primitives typically don't have `ft_oriented_bbox`).
    - LoD: `lod_worker` caches mesh data for BoTs only.
-3. **`bot_adaptive_plot` / `draw_scene`** — both return a no-op when `have_bbox == 0` and nothing is available yet. On the next `do_view_changed(QG_VIEW_DRAWN)` redraw (triggered when pipeline data arrives), the missing-view-obj scan in `BViewState::redraw` retries the shape.  Drawing priority is: LoD > OBB placeholder > AABB placeholder > no-op.
-4. **`drain_background_geom`** — tracks AABB, OBB, and LoD counts; calls `do_view_changed(QG_VIEW_DRAWN)` whenever any counter advances.
-5. **Progressive autoview** — `bsg_view_autoview()` sets `gv_s->gv_progressive_autoview = 1`.  `drain_background_geom` re-calls `bsg_view_autoview` every time new AABBs arrive so the camera tracks the growing scene.  The flag is cleared when `BViewState::shapes_without_bbox()` returns 0 (all shapes have bboxes) or when any explicit user view command is run.
+3. **`bot_adaptive_plot` / `draw_scene`** — `draw_scene` sets `s->csg_obj = 1` early (before any lazy no-op return) so the redraw scan can retry the shape when its AABB arrives.  CSG shapes go directly from `csg_no_view_obj` to `csg_active` (no placeholder stage) once their AABB arrives and `wireframe_plot` draws the vlist.  BoTs use AABB→OBB→LoD placeholder progression.  Drawing priority for BoTs: LoD > OBB placeholder > AABB placeholder > no-op.
+4. **`BViewState::redraw` scan** — covers: (a) `mesh_obj` shapes with no per-view object; (b) `csg_obj` shapes with `have_bbox==0`; (c) shapes with both flags 0 and `have_bbox==0` (unclassified, retried until `draw_scene` classifies them).
+5. **`drain_background_geom`** — tracks AABB, OBB, and LoD counts; calls `do_view_changed(QG_VIEW_DRAWN)` whenever any counter advances.
+6. **Progressive autoview** — `bsg_view_autoview()` sets `gv_s->gv_progressive_autoview = 1`.  `drain_background_geom` re-calls `bsg_view_autoview` every time new AABBs arrive so the camera tracks the growing scene.  The flag is cleared when `BViewState::shapes_without_bbox()` returns 0 (all shapes have bboxes) or when any explicit user view command is run.
 
 The env vars `BRLCAD_CACHE_AABB_DELAY_MS`, `BRLCAD_CACHE_OBB_DELAY_MS`, `BRLCAD_CACHE_LOD_DELAY_MS` inject per-item delays to simulate expensive geometry in tests (see `qged_pipeline_test`).
