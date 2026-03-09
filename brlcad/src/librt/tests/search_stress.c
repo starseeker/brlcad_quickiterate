@@ -274,6 +274,9 @@
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
+/* Forward declaration - defined after test_below_search */
+static int ptbl_has_path(const struct bu_ptbl *ptbl, const char *expected);
+
 #define CHECK(cond, msg) \
     do { \
         if (!(cond)) { \
@@ -519,7 +522,267 @@ test_below_search(struct db_i *dbip)
                         "-below -name mid_a",
                         1, &top_dp, dbip, NULL, NULL, NULL);
         CHECK(cnt == 4, "-below -name mid_a count from top1 == 4");
+        /* Verify exact paths - catches "last path missing" class of bugs */
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+              "-below mid_a: leaf_t present");
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_p"),
+              "-below mid_a: leaf_p present");
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t/prim_target.s"),
+              "-below mid_a: leaf_t/prim_target.s present");
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_p/prim_plain.s"),
+              "-below mid_a: leaf_p/prim_plain.s present");
         db_search_free(&results);
+    }
+
+    (void)cnt;
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Path-level exact-match helper                                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Returns 1 if a path with the given string representation exists in ptbl
+ * (a table of db_full_path*), 0 otherwise.
+ */
+static int
+ptbl_has_path(const struct bu_ptbl *ptbl, const char *expected)
+{
+    int i;
+    for (i = 0; i < (int)BU_PTBL_LEN(ptbl); i++) {
+        struct db_full_path *fp =
+            (struct db_full_path *)BU_PTBL_GET(ptbl, i);
+        char *s = db_path_to_string(fp);
+        int match = (strcmp(s, expected) == 0);
+        bu_free(s, "path string");
+        if (match) return 1;
+    }
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Full tree-walk completeness test                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Verify that every expected path is present in the results and that no
+ * extra paths appear.  Covers the class of bugs where the last path (or
+ * any path) is silently dropped during traversal.
+ *
+ * Tree: top1 = { upper_a, upper_b }
+ *   upper_a = { mid_a, mid_b }   upper_b = { mid_b, mid_c }
+ *   mid_a   = { leaf_t, leaf_p } mid_b = { leaf_s, leaf_p }
+ *   mid_c   = { leaf_ts, leaf_p }
+ *   leaf_t  = { prim_target.s }  leaf_ts = { prim_target.s, prim_special.s }
+ *   leaf_s  = { prim_special.s } leaf_p  = { prim_plain.s }
+ */
+static int
+test_full_tree_walk(struct db_i *dbip)
+{
+    int failures = 0;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    int cnt;
+
+    /* --- All 15 comb paths ------------------------------------------ */
+    static const char * const comb_paths[] = {
+        "/top1",
+        "/top1/upper_a",
+        "/top1/upper_a/mid_a",
+        "/top1/upper_a/mid_a/leaf_t",
+        "/top1/upper_a/mid_a/leaf_p",
+        "/top1/upper_a/mid_b",
+        "/top1/upper_a/mid_b/leaf_s",
+        "/top1/upper_a/mid_b/leaf_p",
+        "/top1/upper_b",
+        "/top1/upper_b/mid_b",
+        "/top1/upper_b/mid_b/leaf_s",
+        "/top1/upper_b/mid_b/leaf_p",
+        "/top1/upper_b/mid_c",
+        "/top1/upper_b/mid_c/leaf_ts",
+        "/top1/upper_b/mid_c/leaf_p",
+        NULL
+    };
+    const char * const *p;
+
+    cnt = db_search(&results, DB_SEARCH_TREE, "-type comb",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 15, "-type comb total count == 15");
+    for (p = comb_paths; *p; p++)
+        CHECK(ptbl_has_path(&results, *p), *p);
+    db_search_free(&results);
+
+    /* --- All 9 shape paths ------------------------------------------ */
+    static const char * const shape_paths[] = {
+        "/top1/upper_a/mid_a/leaf_t/prim_target.s",
+        "/top1/upper_a/mid_a/leaf_p/prim_plain.s",
+        "/top1/upper_a/mid_b/leaf_s/prim_special.s",
+        "/top1/upper_a/mid_b/leaf_p/prim_plain.s",
+        "/top1/upper_b/mid_b/leaf_s/prim_special.s",
+        "/top1/upper_b/mid_b/leaf_p/prim_plain.s",
+        "/top1/upper_b/mid_c/leaf_ts/prim_target.s",
+        "/top1/upper_b/mid_c/leaf_ts/prim_special.s",
+        "/top1/upper_b/mid_c/leaf_p/prim_plain.s",
+        NULL
+    };
+
+    cnt = db_search(&results, DB_SEARCH_TREE, "-type shape",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 9, "-type shape total count == 9");
+    for (p = shape_paths; *p; p++)
+        CHECK(ptbl_has_path(&results, *p), *p);
+    db_search_free(&results);
+
+    /* --- 2 paths for prim_target.s ---------------------------------- */
+    cnt = db_search(&results, DB_SEARCH_TREE, "-name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 2, "-name prim_target.s count == 2");
+    CHECK(ptbl_has_path(&results,
+                        "/top1/upper_a/mid_a/leaf_t/prim_target.s"),
+          "-name prim_target.s: upper_a path present");
+    CHECK(ptbl_has_path(&results,
+                        "/top1/upper_b/mid_c/leaf_ts/prim_target.s"),
+          "-name prim_target.s: upper_b path present");
+    db_search_free(&results);
+
+    (void)cnt;
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Exact-path -above tests                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Verify the exact set of paths returned by plain and depth-constrained
+ * -above queries.
+ *
+ * Ground truth:
+ *
+ * -above -name prim_target.s  (7 paths):
+ *   /top1, /top1/upper_a, /top1/upper_b,
+ *   /top1/upper_a/mid_a, /top1/upper_b/mid_c,
+ *   /top1/upper_a/mid_a/leaf_t, /top1/upper_b/mid_c/leaf_ts
+ *
+ * -above=1 -name prim_target.s  (2 paths: direct parents only):
+ *   /top1/upper_a/mid_a/leaf_t, /top1/upper_b/mid_c/leaf_ts
+ *
+ * -above>1 -name prim_target.s  (5 paths: ancestors 2+ levels up):
+ *   /top1, /top1/upper_a, /top1/upper_b,
+ *   /top1/upper_a/mid_a, /top1/upper_b/mid_c
+ *
+ * -above<3 -name prim_target.s  (4 paths: ancestors 1 or 2 levels up):
+ *   /top1/upper_a/mid_a/leaf_t, /top1/upper_b/mid_c/leaf_ts,
+ *   /top1/upper_a/mid_a, /top1/upper_b/mid_c
+ */
+static int
+test_above_exact(struct db_i *dbip)
+{
+    int failures = 0;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    int cnt;
+
+    /* Plain -above: exact 7 paths */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 7, "-above -name prim_target.s exact count == 7");
+    CHECK(ptbl_has_path(&results, "/top1"),
+          "-above prim_target.s: /top1 present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a"),
+          "-above prim_target.s: /top1/upper_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b"),
+          "-above prim_target.s: /top1/upper_b present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above prim_target.s: /top1/upper_a/mid_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c"),
+          "-above prim_target.s: /top1/upper_b/mid_c present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above prim_target.s: leaf_t present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above prim_target.s: leaf_ts present");
+    /* Verify prim_target.s itself is NOT in results (it has no descendants) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t/prim_target.s"),
+          "-above prim_target.s: prim_target.s itself NOT in results");
+    db_search_free(&results);
+
+    /* -above=1: only direct parents of prim_target.s */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above=1 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 2, "-above=1 -name prim_target.s count == 2");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above=1 prim_target.s: leaf_t present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above=1 prim_target.s: leaf_ts present");
+    /* Grandparents must NOT appear (relative depth 2, not 1) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above=1 prim_target.s: mid_a NOT in results (depth 2)");
+    CHECK(!ptbl_has_path(&results, "/top1"),
+          "-above=1 prim_target.s: /top1 NOT in results (depth 4)");
+    db_search_free(&results);
+
+    /* -above>1: ancestors at relative depth >= 2 */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above>1 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 5, "-above>1 -name prim_target.s count == 5");
+    CHECK(ptbl_has_path(&results, "/top1"),
+          "-above>1 prim_target.s: /top1 present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a"),
+          "-above>1 prim_target.s: upper_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b"),
+          "-above>1 prim_target.s: upper_b present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above>1 prim_target.s: mid_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c"),
+          "-above>1 prim_target.s: mid_c present");
+    /* Direct parents must NOT appear (relative depth 1, not >= 2) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above>1 prim_target.s: leaf_t NOT in results (depth 1)");
+    CHECK(!ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above>1 prim_target.s: leaf_ts NOT in results (depth 1)");
+    db_search_free(&results);
+
+    /* -above<3: ancestors at relative depth 1 or 2 */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above<3 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 4, "-above<3 -name prim_target.s count == 4");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above<3 prim_target.s: leaf_t present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above<3 prim_target.s: leaf_ts present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above<3 prim_target.s: mid_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c"),
+          "-above<3 prim_target.s: mid_c present");
+    /* Deeper ancestors must NOT appear (relative depth 3+) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a"),
+          "-above<3 prim_target.s: upper_a NOT in results (depth 3)");
+    CHECK(!ptbl_has_path(&results, "/top1"),
+          "-above<3 prim_target.s: /top1 NOT in results (depth 4)");
+    db_search_free(&results);
+
+    /* Also cross-validate depth-constrained -above against old code */
+    {
+        int new_cnt, old_cnt;
+        static const char * const depth_filters[] = {
+            "-above=1 -name prim_target.s",
+            "-above>1 -name prim_target.s",
+            "-above<3 -name prim_target.s",
+            "-above=1 -name prim_special.s",
+            "-above>2 -name prim_plain.s",
+            NULL
+        };
+        const char * const *f;
+        for (f = depth_filters; *f; f++) {
+            if (!run_both(dbip, DB_SEARCH_TREE, *f, &new_cnt, &old_cnt))
+                CROSS_CHECK(new_cnt, old_cnt, *f);
+        }
     }
 
     (void)cnt;
@@ -1648,6 +1911,12 @@ main(int argc, char *argv[])
 
     bu_log("Running -below ground-truth tests...\n");
     failures += test_below_search(dbip);
+
+    bu_log("Running full tree-walk completeness tests...\n");
+    failures += test_full_tree_walk(dbip);
+
+    bu_log("Running -above exact-path and depth-constraint tests...\n");
+    failures += test_above_exact(dbip);
 
     bu_log("Running cross-validation (new vs old)...\n");
     failures += test_cross_validation(dbip);

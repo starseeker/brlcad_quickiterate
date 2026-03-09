@@ -3118,8 +3118,24 @@ db_search_free_plan(struct db_plan_t *splan)
 /*
  * Collect all N_ABOVE plan nodes from a plan tree into a vector.
  * Used by the -above pre-pass to build per-node reverse-BFS caches.
- * Does not recurse into N_ABOVE inner plans (nested -above is uncommon
- * and falls back to the O(N) slow path automatically).
+ *
+ * Only nodes with an unbounded depth range (min_depth == 0 and
+ * max_depth == INT_MAX) are included.  Depth-constrained nodes (e.g.
+ * -above=1, -above<3) are excluded: the upward propagation in the
+ * pre-pass would incorrectly mark ancestors at the wrong relative
+ * distance.  Those nodes are absent from the cache map and f_above
+ * falls back to the O(N) slow path automatically.
+ *
+ * Does NOT recurse into N_ABOVE inner plans.  If an N_ABOVE node
+ * appears as the inner plan of another N_ABOVE (e.g. "-above -above
+ * -name X"), the inner node is left out of the cache map.  During the
+ * pre-pass the outer node's inner-plan evaluation calls f_above on
+ * the inner node; since above_passes_map is NULL for that eval_node,
+ * the inner node falls back to the O(N) slow path (which requires a
+ * valid full_paths pointer - the pre-pass supplies one).  The outer
+ * node still benefits from the O(1) cache lookup; only the pre-pass
+ * cost for that outer node is O(N) rather than O(1).  Results are
+ * always correct.
  */
 static void
 collect_above_nodes(struct db_plan_t *plan,
@@ -3128,7 +3144,9 @@ collect_above_nodes(struct db_plan_t *plan,
     for (struct db_plan_t *p = plan; p; p = p->next) {
 	switch (p->type) {
 	    case N_ABOVE:
-		above_nodes.push_back(p);
+		/* Exclude depth-constrained variants; they need the slow path. */
+		if (p->min_depth == 0 && p->max_depth == INT_MAX)
+		    above_nodes.push_back(p);
 		break;
 	    case N_EXPR:
 	    case N_NOT:
@@ -3341,11 +3359,22 @@ db_search(struct bu_ptbl *search_results,
 
 			bu_h128_t parent_hash = BELOW_PATH_HASH_ROOT;
 			bu_h128_t path_hash = above_path_hash_compute(fp, &parent_hash);
+			/* fp->fp_len == fp_names array size by db_full_path invariant */
+			int has_parent = (fp->fp_len > 1);
 
 			struct db_node_t eval_node;
 			eval_node.path = fp;
 			eval_node.flags = search_flags;
-			eval_node.full_paths = NULL;
+			/*
+			 * Provide full_paths so that any N_ABOVE node that
+			 * appears inside the inner plan (e.g. -above -above
+			 * -name X) can safely use the O(N) slow path without
+			 * a NULL-dereference.  Such nested N_ABOVE nodes are
+			 * not in above_cache_map (collect_above_nodes does not
+			 * recurse into inner plans), so they always fall back
+			 * to the slow path, which needs a valid full_paths ptr.
+			 */
+			eval_node.full_paths = full_paths;
 			eval_node.below_passes = NULL;
 			eval_node.below_path_hash = BELOW_PATH_HASH_ROOT;
 			eval_node.below_parent_hash = BELOW_PATH_HASH_ROOT;
@@ -3358,7 +3387,7 @@ db_search(struct bu_ptbl *search_results,
 
 			    /* Propagate upward if a deeper descendant already matched. */
 			    if (ncache.count(path_hash)) {
-				if (fp->fp_len > 1)
+				if (has_parent)
 				    ncache.insert(parent_hash);
 				continue;
 			    }
@@ -3366,7 +3395,7 @@ db_search(struct bu_ptbl *search_results,
 			    /* Test whether this path satisfies the inner plan. */
 			    int state = find_execute_nested_plans(
 				dbip, NULL, &eval_node, an->p_un._ab_data[0]);
-			    if (state && fp->fp_len > 1)
+			    if (state && has_parent)
 				ncache.insert(parent_hash);
 			}
 		    }
