@@ -55,7 +55,7 @@ typedef struct DrawResult_s {
     point_t bmin;
     point_t bmax;
 
-    /* OBB (type == DRAWRESULT_OBB): 8 corner points from bg_3d_obb */
+    /* OBB (type == DRAWRESULT_OBB): 8 corner points from ft_oriented_bbox */
     int     obb_valid;
     point_t obb_pts[8];
 
