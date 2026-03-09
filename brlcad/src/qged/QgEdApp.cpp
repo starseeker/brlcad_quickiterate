@@ -426,7 +426,7 @@ QgEdApp::drain_background_geom()
 	// Progressive autoview: if any view has gv_progressive_autoview set,
 	// re-run bsg_view_autoview() now that more bboxes are available so the
 	// camera keeps tracking the growing scene.  When all BoT shapes have
-	// bbox data (mesh_shapes_without_bbox() == 0), the scene is stable and
+	// bbox data (shapes_without_bbox() == 0), the scene is stable and
 	// we clear the flag so autoview stops firing.
 	struct bu_ptbl *views = (mdl && mdl->gedp)
 	    ? bsg_scene_views(&mdl->gedp->ged_views) : nullptr;
@@ -444,7 +444,7 @@ QgEdApp::drain_background_geom()
 
 		// Check if all drawn BoT shapes now have a bbox.
 		BViewState *bvs = dbis->get_view_state(v);
-		bool stable = (!bvs || bvs->mesh_shapes_without_bbox(v) == 0);
+		bool stable = (!bvs || bvs->shapes_without_bbox(v) == 0);
 		if (stable) {
 		    v->gv_s->gv_progressive_autoview = 0;
 		    bsg_log(1, "QgEdApp: progressive autoview stable "

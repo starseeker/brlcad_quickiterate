@@ -772,10 +772,95 @@ draw_scene(bsg_shape *s, bsg_view *v)
 	return;
     }
 
+    /* Lazy AABB placeholder upgrade for CSG/wireframe shapes:
+     * When the shape carries an AABB or OBB wireframe placeholder
+     * (s_placeholder > 0) from a previous draw_scene call where no AABB
+     * was available yet, but now have_bbox == 1 (set by the guard below via
+     * the pipeline result), clear the per-view placeholder object so the
+     * code below generates the real vlist.  This is the CSG equivalent of
+     * bot_adaptive_plot's "vo && !vo->draw_data → clear and fall through"
+     * path. */
+    if (v && s->have_bbox) {
+	bsg_shape *vo = bsg_shape_for_view(s, v);
+	if (vo && !vo->draw_data && vo->s_placeholder > 0) {
+	    bsg_shape_clear_view_obj(s, v);
+	}
+    }
+
     /**************************************************************************
      * For the remainder of the options we're into more standard wireframe
      * callback modes - crack the internal and stage the tolerances
      **************************************************************************/
+
+    /* Lazy AABB guard: when BRLCAD_CACHE_AABB_DELAY_MS is set, ALL primitives
+     * (including CSG) start with have_bbox=0 and no drawing data.  Attempt to
+     * late-populate s->have_bbox from the async pipeline results in
+     * d->dbis->bboxes.  If the bbox has not yet arrived, draw an AABB
+     * wireframe placeholder (same policy as bot_adaptive_plot) and return;
+     * the next drain-triggered redraw will upgrade to the actual geometry.
+     * If the bbox HAS arrived, fall through to the normal drawing path below
+     * with have_bbox now set so s_size/s_center are valid.
+     *
+     * Skip this guard when there is no view (v==NULL) to avoid interfering
+     * with view-independent (non-adaptive) drawing callbacks. */
+    if (v && !s->have_bbox && d->dbis) {
+	unsigned long long sh =
+	    bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+	auto bit = d->dbis->bboxes.find(sh);
+	if (bit != d->dbis->bboxes.end() && bit->second.size() == 6) {
+	    /* Pipeline has delivered the AABB — late-set bbox on the shape. */
+	    const auto &bb = bit->second;
+	    fastf_t x0=bb[0], y0=bb[1], z0=bb[2];
+	    fastf_t x1=bb[3], y1=bb[4], z1=bb[5];
+	    point_t corners[8] = {
+		{x0,y0,z0}, {x1,y0,z0}, {x0,y1,z0}, {x1,y1,z0},
+		{x0,y0,z1}, {x1,y0,z1}, {x0,y1,z1}, {x1,y1,z1}
+	    };
+	    point_t wbmin, wbmax;
+	    VSETALL(wbmin,  1e300); VSETALL(wbmax, -1e300);
+	    for (int _k = 0; _k < 8; _k++) {
+		point_t wc; MAT4X3PNT(wc, s->s_mat, corners[_k]);
+		VMIN(wbmin, wc); VMAX(wbmax, wc);
+	    }
+	    VMOVE(s->bmin, wbmin); VMOVE(s->bmax, wbmax);
+	    s->s_center[X] = (s->bmin[X]+s->bmax[X]) * 0.5;
+	    s->s_center[Y] = (s->bmin[Y]+s->bmax[Y]) * 0.5;
+	    s->s_center[Z] = (s->bmin[Z]+s->bmax[Z]) * 0.5;
+	    s->s_size = s->bmax[X]-s->bmin[X];
+	    V_MAX(s->s_size, s->bmax[Y]-s->bmin[Y]);
+	    V_MAX(s->s_size, s->bmax[Z]-s->bmin[Z]);
+	    s->have_bbox = 1;
+	    /* Fall through: with have_bbox now set, draw real geometry. */
+	} else {
+	    /* AABB not yet available — draw placeholder or no-op.
+	     * Check for OBB first (tighter), then AABB, then nothing. */
+	    auto oit = d->dbis->obbs.find(sh);
+	    if (oit != d->dbis->obbs.end()) {
+		/* OBB placeholder */
+		bsg_shape *vo = bsg_shape_for_view(s, v);
+		if (!vo) {
+		    vo = bsg_shape_get_view_obj(s, v);
+		    vo->csg_obj = 1;
+		    vo->mesh_obj = 0;
+		}
+		if (!vo->draw_data) {
+		    if (BU_LIST_IS_EMPTY(&vo->s_vlist)) {
+			const fastf_t *raw = oit->second.data();
+			point_t obb_pts[8];
+			for (int _k = 0; _k < 8; _k++)
+			    VSET(obb_pts[_k], raw[_k*3+0], raw[_k*3+1], raw[_k*3+2]);
+			bsg_vlist_arb8(&v->gv_objs.gv_vlfree, &vo->s_vlist, obb_pts);
+			vo->s_placeholder = 2;
+		    }
+		}
+		return;
+	    } else {
+		/* No data at all yet — no-op; retried on next redraw. */
+		return;
+	    }
+	}
+    }
+
     const struct bn_tol *tol = d->tol;
     const struct bg_tess_tol *ttol = d->ttol;
     struct rt_db_internal dbintern;

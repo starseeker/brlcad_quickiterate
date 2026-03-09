@@ -1224,17 +1224,17 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 
     // No LoD - ask librt
     if (!have_bbox) {
-	// When BRLCAD_CACHE_AABB_DELAY_MS is set, defer synchronous
-	// rt_bound_instance for BoT primitives so the async aabb_worker
-	// simulates geometry that is expensive to read/process.  Non-BoT
-	// (CSG) shapes still compute their bbox synchronously.
-	bool defer_bot = false;
-	if (dp && dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
-	    const char *delay_env = getenv("BRLCAD_CACHE_AABB_DELAY_MS");
-	    if (delay_env && atoi(delay_env) > 0)
-		defer_bot = true;
-	}
-	if (!defer_bot) {
+	// When BRLCAD_CACHE_AABB_DELAY_MS is set, skip the synchronous
+	// rt_bound_instance call for ALL primitive types.  Every shape is
+	// treated equally: its AABB is computed lazily by the async
+	// aabb_worker in the DrawPipeline (which calls ft_bbox), and the
+	// result is delivered via drain_geom_results().  This allows even
+	// CSG/wireframe primitives to start with have_bbox=0 and receive a
+	// placeholder AABB wireframe on the next drain cycle, giving a
+	// uniform progressive-display experience across all solid types.
+	const char *delay_env = getenv("BRLCAD_CACHE_AABB_DELAY_MS");
+	bool defer_all = (delay_env && atoi(delay_env) > 0);
+	if (!defer_all) {
 	    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
 	    struct bn_tol tol = BN_TOL_INIT_TOL;
 	    mat_t m;
@@ -2301,10 +2301,11 @@ BViewState::scene_obj(
     }
 
     // Assign the bounding box (needed for pre-adaptive-plot
-    // autoview).  When BRLCAD_CACHE_AABB_DELAY_MS is set and this is a
-    // BoT, get_path_bbox may return false because rt_bound_instance was
-    // deferred.  In that case have_bbox=0 signals bot_adaptive_plot to
-    // retry on the next redraw once the async AABB pipeline delivers it.
+    // autoview).  When BRLCAD_CACHE_AABB_DELAY_MS is set, ALL primitives
+    // (BoTs and CSG alike) defer rt_bound_instance to the async aabb_worker.
+    // get_path_bbox may return false for any shape type.  In that case
+    // have_bbox=0 signals draw_scene/bot_adaptive_plot to retry on the next
+    // redraw once the async AABB pipeline delivers the result.
     bool bbox_ok = dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
     sp->have_bbox = bbox_ok ? 1 : 0;
 
@@ -2497,16 +2498,18 @@ BViewState::lod_shape_count(struct bview *v)
 }
 
 size_t
-BViewState::mesh_shapes_without_bbox(struct bview *v)
+BViewState::shapes_without_bbox(struct bview *v)
 {
     // Used by drain_background_geom() to determine when progressive autoview
-    // has stabilised (all drawn BoT shapes now have bounding boxes).  Iterates
-    // s_map; acceptable on the drain timer path (called at most every 100 ms).
+    // has stabilised (all drawn shapes now have bounding boxes).  Covers both
+    // mesh (BoT) and CSG shapes since ALL primitives are now lazy under the
+    // BRLCAD_CACHE_AABB_DELAY_MS policy.  Iterates s_map; acceptable on the
+    // drain timer path (called at most every 100 ms).
     if (!v) return 0;
     size_t cnt = 0;
     for (auto &[phash, mode_map] : s_map) {
 	for (auto &[mode, sp] : mode_map) {
-	    if (!sp || !sp->mesh_obj) continue;
+	    if (!sp) continue;
 	    if (!sp->have_bbox)
 		cnt++;
 	}
@@ -2965,22 +2968,30 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview 
 	    bsg_view_autoview(vw, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
     }
 
-    // Scan for mesh shapes whose per-view objects were cleared by
-    // stale_mesh_shapes_for_dp() (e.g. when an OBB or LoD pipeline result
-    // arrived and the placeholder was invalidated).  Such shapes must be
-    // included in the draw_scene pass so bot_adaptive_plot() can rebuild
-    // them with the best currently available data (LoD > OBB > AABB).
-    // This handles the common case where redraw() is called with vs=nullptr
-    // (no new staged paths) but existing view objects need to be upgraded.
-    for (auto &[phash, mode_map] : s_map) {
-	for (auto &[mode, sp] : mode_map) {
-	    if (!sp || !sp->mesh_obj)
+    // Scan for shapes whose per-view objects were cleared (stale pipeline
+    // results) or never created (have_bbox==0, still waiting for async AABB).
+    // This now covers BOTH mesh (BoT) and CSG shapes since all primitives are
+    // treated equally under the lazy AABB policy.
+    for (auto &[scan_phash, scan_mmap] : s_map) {
+	for (auto &[scan_mode, scan_sp] : scan_mmap) {
+	    if (!scan_sp)
 		continue;
-	    for (auto *vw : views) {
-		if (!bsg_shape_have_view_obj(sp, vw)) {
-		    objs.insert(sp);
-		    break;
+	    // mesh_obj: per-view object cleared by stale_mesh_shapes_for_dp
+	    // or never created (have_bbox==0 → bot_adaptive_plot no-op'd).
+	    if (scan_sp->mesh_obj) {
+		for (auto *vw : views) {
+		    if (!bsg_shape_have_view_obj(scan_sp, vw)) {
+			objs.insert(scan_sp);
+			break;
+		    }
 		}
+		continue;
+	    }
+	    // csg_obj: retry if shape has no bbox yet (async AABB pending),
+	    // so draw_scene gets called again when AABB arrives and can draw
+	    // the actual vlist (or at least an OBB/AABB placeholder).
+	    if (scan_sp->csg_obj && !scan_sp->have_bbox) {
+		objs.insert(scan_sp);
 	    }
 	}
     }
