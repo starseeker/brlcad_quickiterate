@@ -115,34 +115,36 @@ inspect_scene_objs(bsg_view *v)
  *
  * Pipeline progression for GenericTwin.g (706 BoTs, cold cache):
  *
- *   Stage 1 -- immediately after "draw all", before any drain events:
- *     - bot_adaptive_plot sees key==0 and obbs empty: draws AABB wireframes.
- *     - Scene check: placeholder_aabb > 0, placeholder_obb == 0, lod_active == 0.
+ *   Stage 0 -- immediately after "draw all", before any drain events:
+ *     - When BRLCAD_CACHE_AABB_DELAY_MS is set, BoT shapes start with
+ *       have_bbox=0 and no view object.  CSG shapes are visible.
+ *     - Scene check: no_view_obj > 0 (some BoTs waiting for AABB), lod_active == 0.
+ *     - Note: Stage 0 is a snapshot taken before any drain, as a reference.
  *
- *   Stage 2 -- first drain batch where some OBBs have arrived but no LoD yet:
- *     - drain_background_geom() detects new OBBs, calls stale_mesh_shapes_for_dp(),
- *       do_view_changed(QG_VIEW_DRAWN) triggers bvs->redraw().
- *     - The missing-view-obj scan in redraw() + bot_adaptive_plot() upgrades
- *       placeholders: OBB wireframes replace AABB boxes as OBBs arrive.
- *     - Bot_adaptive_plot AABB→OBB in-place upgrade fires for any shapes still
- *       holding an AABB placeholder when called during redraw.
- *     - LoD delay (200 ms/item) ensures LoD has not yet arrived.
+ *   Stage 1 -- first AABB placeholders visible:
+ *     - drain_background_geom() fires; new AABBs trigger do_view_changed;
+ *       BViewState::redraw() scans missing-view-obj shapes; bot_adaptive_plot
+ *       late-sets have_bbox from dbis->bboxes and draws AABB placeholder.
+ *     - Scene check: placeholder_aabb > 0, no_view_obj < initial, obb == 0, lod == 0.
+ *
+ *   Stage 2 -- AABB+OBB mix (most AABBs arrived, first OBBs appearing):
  *     - Scene check: placeholder_obb > 0, lod_active == 0.
+ *     - Periodic screenshots are also saved every ~5s during this stage.
  *
- *   Stage 3 -- first drain batch where some LoD has arrived:
- *     - stale_mesh_shapes_for_dp() clears OBB placeholders; redraw() scan +
- *       bot_adaptive_plot() creates BSG_NODE_MESH_LOD view objects.
+ *   Stage 3 -- first LoD objects visible:
  *     - Scene check: lod_active > 0.
  *
- * Pass criteria (scene-object based, not pixel-count based):
- *   Stage 1: placeholder_aabb > 0,  placeholder_obb == 0, lod_active == 0
- *   Stage 2: placeholder_obb  > 0,  lod_active == 0
+ * Pass criteria (scene-object based):
+ *   Stage 1: placeholder_aabb > 0, placeholder_obb == 0, lod_active == 0
+ *   Stage 2: placeholder_obb  > 0, lod_active == 0
  *   Stage 3: lod_active > 0
- *   Final:   obbs   >= EXPECTED_OBBS  (all OBBs processed by pipeline)
- *            lod_results_processed() >= EXPECTED_LOD (all LoD results processed)
+ *   Final:   obbs >= EXPECTED_OBBS, lod_results_processed() >= EXPECTED_LOD
  *
- * Screenshots are still saved for visual reference (pipeline_01_aabb.png, etc.)
- * but are not used for pass/fail.
+ * NOTE: The architectural direction for a future session is to remove
+ * rt_bound_instance from gather_paths entirely so that path-building ONLY
+ * walks the comb tree structure, and all leaf data (AABB, OBB, LoD, CSG
+ * vlists) flows exclusively through the async DrawPipeline cache mechanism.
+ * This will allow large hierarchies to open without any blocking I/O.
  */
 class QgedPipelineRunner : public QObject
 {
@@ -154,32 +156,22 @@ public:
     /* Expected DrawPipeline counts for GenericTwin.g */
     static constexpr size_t EXPECTED_BBOXES = 2242;
     static constexpr size_t EXPECTED_OBBS   =  706;
-    /* At least this many LoD results expected (703/706 warm; allow tolerance) */
     static constexpr size_t EXPECTED_LOD    =  700;
 
     /* Polling parameters */
-    static constexpr int POLL_INTERVAL_MS = 50;    /* ms between polls        */
-    static constexpr int MAX_POLLS        = 4800;  /* 4800 x 50 ms = 240 s   */
+    static constexpr int POLL_INTERVAL_MS   = 50;    /* ms between polls     */
+    static constexpr int MAX_POLLS          = 7200;  /* 7200 x 50ms = 360 s  */
+    /* Save a periodic mid-stage screenshot every N polls (N*50ms interval) */
+    static constexpr int PERIODIC_SNAP_POLLS = 100;  /* every 5 s            */
 
 public slots:
-    /** Called once by QTimer::singleShot after event loop startup. */
     void start();
-
-    /** Called every POLL_INTERVAL_MS by m_poll_timer. */
     void poll();
 
 private:
-    /** Evaluate final pass/fail criteria and call finish(). */
     void evaluate();
-
-    /** Count pixels where max(R,G,B) > threshold (default 150). */
     static int bright_pixels(const QImage &img, int threshold = 150);
-
-    /** Grab the main window and save to outdir/<name>.png.
-     *  Calls processEvents() once to flush the render chain. */
     QImage grab_screenshot(const QString &name);
-
-    /** Stop the poll timer and call QApplication::exit(). */
     void finish(bool pass);
 
     QgEdApp    *m_app;
@@ -187,156 +179,34 @@ private:
     QString     m_outdir;
 
     /*
-     * Four-phase poll state machine:
-     *   STAGE_OBB_WAIT  -- waiting for first OBB placeholder to appear in scene
-     *   STAGE_LOD_WAIT  -- waiting for first LoD view object to appear in scene
-     *   STAGE_FINAL_WAIT-- waiting for all LoD results to be processed
-     *   STAGE_DONE      -- evaluate() called, finishing
+     * Five-phase poll state machine:
+     *   STAGE_AABB_WAIT -- waiting for first AABB placeholder (no_view_obj → aabb)
+     *   STAGE_OBB_WAIT  -- waiting for first OBB placeholder (aabb → obb mix)
+     *   STAGE_LOD_WAIT  -- waiting for first LoD view object
+     *   STAGE_FINAL_WAIT-- waiting for all LoD results
+     *   STAGE_DONE      -- evaluate() called
      */
-    enum Stage { STAGE_OBB_WAIT, STAGE_LOD_WAIT, STAGE_FINAL_WAIT, STAGE_DONE };
-    Stage m_stage      = STAGE_OBB_WAIT;
-    int   m_poll_count = 0;
+    enum Stage {
+	STAGE_AABB_WAIT, STAGE_OBB_WAIT, STAGE_LOD_WAIT,
+	STAGE_FINAL_WAIT, STAGE_DONE
+    };
+    Stage m_stage           = STAGE_AABB_WAIT;
+    int   m_poll_count      = 0;
+    int   m_next_periodic   = PERIODIC_SNAP_POLLS; /* next periodic screenshot poll */
+    int   m_periodic_count  = 0;                   /* sequential number of periodic screenshots */
 
-    /* Scene-stat snapshots at each stage */
-    SceneStats m_stats_1;   /* Stage 1: AABB placeholders                   */
-    SceneStats m_stats_2;   /* Stage 2: OBB placeholders (no LoD yet)       */
-    SceneStats m_stats_3;   /* Stage 3: first LoD objects present           */
+    /* Scene-stat snapshots */
+    SceneStats m_stats_0;   /* Stage 0: pre-drain (reference)               */
+    SceneStats m_stats_1;   /* Stage 1: first AABB placeholders             */
+    SceneStats m_stats_2;   /* Stage 2: first OBB placeholders              */
+    SceneStats m_stats_3;   /* Stage 3: first LoD objects                   */
 
-    /* DbiState snapshots */
     size_t m_bboxes_at_draw = 0;
     size_t m_obbs_at_draw   = 0;
 
-    /* Per-stage pass flags */
     bool m_stage1_pass = false;
     bool m_stage2_pass = false;
     bool m_stage3_pass = false;
-
-    QTimer *m_poll_timer = nullptr;
-
-public:
-    bool m_pass = false;
-};
-
-#endif /* QGED_PIPELINE_RUNNER_H */
-
-// Local Variables:
-// tab-width: 8
-// mode: C++
-// c-basic-offset: 4
-// indent-tabs-mode: t
-// c-file-style: "stroustrup"
-// End:
-// ex: shiftwidth=4 tabstop=8
-
-
-/**
- * QgedPipelineRunner
- *
- * Drives a three-stage validation of the DrawPipeline in qged (swrast).
- * The test always starts with a cold LoD cache (the caller wipes BU_DIR_CACHE
- * before calling load_g_file), ensuring the AABB -> OBB -> LoD progression is
- * visible in screenshots rather than jumping straight to LoD.
- *
- * Pipeline overview for GenericTwin.g (706 BoTs):
- *
- *   Stage 1 -- immediately after "draw all", no events flushed:
- *     - Cold cache: bot_adaptive_plot sees bsg_mesh_lod_key_get()==0, draws
- *       AABB wireframe placeholder for every BoT.
- *     - Screenshot: AABB bounding boxes.
- *
- *   Stage 2 -- after all 706 OBBs arrive but before LoD data:
- *     - drain_background_geom() triggers do_view_changed(QG_VIEW_DRAWN) when
- *       dbis->obbs.size() advances (new OBB tracking added in this session).
- *     - bvs->redraw() -> bot_adaptive_plot sees OBBs in dbis->obbs, key==0
- *       (LoD not yet ready) -> draws OBB wireframe (tighter than AABB).
- *     - Screenshot: OBB wireframe placeholders.
- *     - BRLCAD_CACHE_LOD_DELAY_MS=5 ensures ~3.5s window (706x5ms) before LoD.
- *
- *   Stage 3 -- after all LoD data arrives and bvs->redraw() completes:
- *     - stale_mesh_shapes_for_dp() cleared stale OBB placeholders.
- *     - bvs->redraw() -> bot_adaptive_plot finds key!=0 -> creates real
- *       BSG_NODE_MESH_LOD view objects.
- *     - Screenshot: LoD triangle mesh geometry.
- *
- * Pass criteria:
- *   - bboxes >= EXPECTED_BBOXES (AABB stage populated synchronously)
- *   - obbs   >= EXPECTED_OBBS   (OBB stage populated, all 706 BoTs)
- *   - lod_results_processed() >= EXPECTED_LOD (LoD stage ran)
- *   - lod_shape_count() >= EXPECTED_LOD_SHAPES (LoD geometry rendered)
- *   - Stage 1 screenshot has bright pixels (AABB boxes visible)
- *   - Stage 3 screenshot has bright pixels (LoD geometry visible)
- */
-class QgedPipelineRunner : public QObject
-{
-    Q_OBJECT
-public:
-    explicit QgedPipelineRunner(QgEdApp *app, const char *gfile,
-			       const QString &outdir, QObject *parent = nullptr);
-
-    /* Expected DrawPipeline counts for GenericTwin.g */
-    static constexpr size_t EXPECTED_BBOXES     = 2242;
-    static constexpr size_t EXPECTED_OBBS       =  706;
-    /* At least this many LoD results expected (703/706 warm; allow tolerance) */
-    static constexpr size_t EXPECTED_LOD        =  700;
-    /* lod_shape_count() result is informational -- not a hard pass criterion
-     * (see evaluate() comment for why).  Kept for logging purposes. */
-
-    /* Polling parameters */
-    static constexpr int POLL_INTERVAL_MS  =   50;
-    static constexpr int MAX_LOD_POLLS     = 2400;  /* 2400 x 50 ms = 120 s */
-
-    /* Number of consecutive quiescent polls (n==0) required to declare
-     * each stage complete.  Using 3 gives 150ms of silence before advancing,
-     * long enough for any pending drain_background_geom batch to arrive. */
-    static constexpr int QUIESCENT_POLLS_REQUIRED = 3;
-
-public slots:
-    /** Called once by QTimer::singleShot after event loop startup. */
-    void start();
-
-    /** Called every POLL_INTERVAL_MS by m_poll_timer. */
-    void poll();
-
-private:
-    /** Evaluate final pass/fail criteria and call finish(). */
-    void evaluate();
-
-    /** Count pixels where max(R,G,B) > threshold (default 150). */
-    static int bright_pixels(const QImage &img, int threshold = 150);
-
-    /** Grab the main window and save to outdir/<name>.png.
-     *  If flush_events is true, calls processEvents() x4 to flush the
-     *  full render chain before grabbing (drain->redraw->repaint->paint). */
-    QImage grab_screenshot(const QString &name, bool flush_events = true);
-
-    /** Stop the poll timer and call QApplication::exit(). */
-    void finish(bool pass);
-
-    QgEdApp    *m_app;
-    const char *m_gfile;
-    QString     m_outdir;
-
-    /* Three-phase poll state machine:
-     *   STAGE_OBB_WAIT  -- waiting for all 706 OBBs to arrive (Stage 2 screenshot)
-     *   STAGE_LOD_WAIT  -- waiting for all LoD data (>= EXPECTED_LOD results)
-     *                       + quiescence (Stage 3 screenshot)
-     *   STAGE_DONE      -- evaluate() called, finishing
-     */
-    enum Stage { STAGE_OBB_WAIT, STAGE_LOD_WAIT, STAGE_DONE };
-    Stage  m_stage           = STAGE_OBB_WAIT;
-    int    m_poll_count      = 0;
-    int    m_quiescent_polls = 0;
-    size_t m_total_drain     = 0;
-
-    /* DbiState snapshots */
-    size_t m_bboxes_at_draw  = 0;  /* obbs/lod at Stage 1 (after draw, before drain) */
-    size_t m_obbs_at_draw    = 0;
-    size_t m_lod_shapes_3    = 0;  /* lod_shape_count() at Stage 3 final              */
-
-    /* Per-stage bright-pixel counts */
-    int m_bright_1 = -1;   /* Stage 1: AABB wireframes                 */
-    int m_bright_2 = -1;   /* Stage 2: OBB wireframes                  */
-    int m_bright_3 = -1;   /* Stage 3: LoD triangle mesh               */
 
     QTimer *m_poll_timer = nullptr;
 
