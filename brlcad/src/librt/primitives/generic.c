@@ -32,6 +32,8 @@
 
 
 #include "bn.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 #include "raytrace.h"
 
 /**
@@ -304,6 +306,42 @@ rt_generic_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, cons
 
     if (!s || !dp || !dbip)
 	return BRLCAD_ERROR;
+
+    /* Lazy AABB / placeholder handling: when the async AABB pipeline has not
+     * yet delivered results for this primitive, s->have_bbox == 0.  Rather
+     * than cracking the rt_db_internal (which may be expensive for large
+     * primitives), draw the tightest available placeholder wireframe.
+     *
+     * The OBB corner data in s->s_obb_pts and the flag s->s_have_obb are
+     * pre-populated by draw_scene()'s setup phase from the async pipeline
+     * results (DbiState::obbs).  This callback therefore does NOT need any
+     * access to DbiState — all state flows through bsg_shape fields.
+     *
+     * Architectural note: this is the per-primitive implementation of the
+     * placeholder behaviour that was previously scattered across draw_scene()
+     * in libged.  As the migration toward ft_scene_obj-as-primary-dispatch
+     * proceeds, more of the logic currently in draw_scene will move here. */
+    if (!s->have_bbox) {
+	s->csg_obj = 1;
+	s->mesh_obj = 0;
+	if (v && s->s_have_obb) {
+	    bsg_shape *vo = bsg_shape_for_view(s, (bsg_view *)v);
+	    if (!vo)
+		vo = bsg_shape_get_view_obj(s, (bsg_view *)v);
+	    vo->csg_obj = 1;
+	    vo->mesh_obj = 0;
+	    if (!vo->draw_data && BU_LIST_IS_EMPTY(&vo->s_vlist)) {
+		point_t obb_pts[8];
+		for (int k = 0; k < 8; k++)
+		    VSET(obb_pts[k], s->s_obb_pts[k*3+0],
+			 s->s_obb_pts[k*3+1], s->s_obb_pts[k*3+2]);
+		bsg_vlist_arb8(vo->vlfree, &vo->s_vlist, (const point_t *)obb_pts);
+		vo->s_placeholder = 2;
+	    }
+	}
+	/* No AABB and no OBB → no-op; will be retried on next redraw. */
+	return BRLCAD_OK;
+    }
 
     // In the generic case we don't have cached data, so we need to proceed straight
     // to the rt_db_internal.  In some cases (like BoTs) we DON'T want to do this in
