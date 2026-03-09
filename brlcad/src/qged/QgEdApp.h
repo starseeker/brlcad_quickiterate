@@ -130,6 +130,11 @@ class QgEdApp : public QApplication
 	// data has arrived and a full scene redraw is needed.
 	size_t last_lod_count_ = 0;
 
+	// Tracks how many OBBs have been integrated so far for the current file.
+	// Used to trigger a scene redraw (bvs->redraw()) when OBBs arrive so
+	// that the AABB -> OBB placeholder wireframe transition is rendered.
+	size_t last_obb_count_ = 0;
+
 	// Coalescing flags for do_view_changed.  When a do_view_changed call
 	// arrives while a queued invocation is already pending, the new flags
 	// are OR-ed in here so that the single queued call handles everything.

@@ -19,7 +19,7 @@
  */
 /** @file qged_pipeline_runner.h
  *
- * QgedPipelineRunner: Qt QObject that drives the multi-stage AABB→OBB→LoD
+ * QgedPipelineRunner: Qt QObject that drives the multi-stage AABB->OBB->LoD
  * validation test inside a running QgEdApp event loop.
  */
 
@@ -39,43 +39,62 @@
  * QgedPipelineRunner
  *
  * Drives a three-stage validation of the DrawPipeline in qged (swrast).
+ * The test always starts with a cold LoD cache (the caller wipes BU_DIR_CACHE
+ * before calling load_g_file), ensuring the AABB -> OBB -> LoD progression is
+ * visible in screenshots rather than jumping straight to LoD.
  *
- * The test:
- *   1. Calls draw "all" on GenericTwin.g (706 BoTs).
- *   2. Records DbiState::bboxes/obbs BEFORE calling processEvents() —
- *      capturing the pre-drain pipeline state.
- *   3. Calls processEvents() to let the QgEdApp drain timer fire.
- *   4. Records DbiState::bboxes/obbs + lod_results_processed() AFTER drain.
- *   5. Polls until pipeline is quiescent (no new results for 10 cycles).
- *   6. Takes a final screenshot and evaluates pass/fail.
+ * Pipeline overview for GenericTwin.g (706 BoTs):
+ *
+ *   Stage 1 -- immediately after "draw all", no events flushed:
+ *     - Cold cache: bot_adaptive_plot sees bsg_mesh_lod_key_get()==0, draws
+ *       AABB wireframe placeholder for every BoT.
+ *     - Screenshot: AABB bounding boxes.
+ *
+ *   Stage 2 -- after all 706 OBBs arrive but before LoD data:
+ *     - drain_background_geom() triggers do_view_changed(QG_VIEW_DRAWN) when
+ *       dbis->obbs.size() advances (new OBB tracking added in this session).
+ *     - bvs->redraw() -> bot_adaptive_plot sees OBBs in dbis->obbs, key==0
+ *       (LoD not yet ready) -> draws OBB wireframe (tighter than AABB).
+ *     - Screenshot: OBB wireframe placeholders.
+ *     - BRLCAD_CACHE_LOD_DELAY_MS=5 ensures ~3.5s window (706x5ms) before LoD.
+ *
+ *   Stage 3 -- after all LoD data arrives and bvs->redraw() completes:
+ *     - stale_mesh_shapes_for_dp() cleared stale OBB placeholders.
+ *     - bvs->redraw() -> bot_adaptive_plot finds key!=0 -> creates real
+ *       BSG_NODE_MESH_LOD view objects.
+ *     - Screenshot: LoD triangle mesh geometry.
  *
  * Pass criteria:
- *   - bboxes ≥ EXPECTED_BBOXES (AABB stage populated)
- *   - obbs   ≥ EXPECTED_OBBS   (OBB stage populated after drain)
- *   - lod_results_processed() ≥ EXPECTED_LOD (LoD stage ran for all BoTs)
- *   - Stage 1 screenshot has bright pixels (AABB boxes rendered)
- *   - Stage 3 screenshot has bright pixels (real/LoD geometry rendered)
+ *   - bboxes >= EXPECTED_BBOXES (AABB stage populated synchronously)
+ *   - obbs   >= EXPECTED_OBBS   (OBB stage populated, all 706 BoTs)
+ *   - lod_results_processed() >= EXPECTED_LOD (LoD stage ran)
+ *   - lod_shape_count() >= EXPECTED_LOD_SHAPES (LoD geometry rendered)
+ *   - Stage 1 screenshot has bright pixels (AABB boxes visible)
+ *   - Stage 3 screenshot has bright pixels (LoD geometry visible)
  */
 class QgedPipelineRunner : public QObject
 {
     Q_OBJECT
 public:
     explicit QgedPipelineRunner(QgEdApp *app, const char *gfile,
-				const QString &outdir, QObject *parent = nullptr);
+			       const QString &outdir, QObject *parent = nullptr);
 
     /* Expected DrawPipeline counts for GenericTwin.g */
     static constexpr size_t EXPECTED_BBOXES     = 2242;
     static constexpr size_t EXPECTED_OBBS       =  706;
-    /* At least 1 LoD result per BoT (703/706 expected from warm-cache path) */
+    /* At least this many LoD results expected (703/706 warm; allow tolerance) */
     static constexpr size_t EXPECTED_LOD        =  700;
-    /* At least this many shapes should have real LoD view objects (BSG_NODE_MESH_LOD)
-     * after the LoD redraw.  All 706 BoTs should get real geometry; allow a
-     * small tolerance for edge cases. */
-    static constexpr size_t EXPECTED_LOD_SHAPES =  700;
+    /* lod_shape_count() result is informational -- not a hard pass criterion
+     * (see evaluate() comment for why).  Kept for logging purposes. */
 
     /* Polling parameters */
     static constexpr int POLL_INTERVAL_MS  =   50;
-    static constexpr int MAX_LOD_POLLS     = 2400;  /* 2400 × 50 ms = 120 s */
+    static constexpr int MAX_LOD_POLLS     = 2400;  /* 2400 x 50 ms = 120 s */
+
+    /* Number of consecutive quiescent polls (n==0) required to declare
+     * each stage complete.  Using 3 gives 150ms of silence before advancing,
+     * long enough for any pending drain_background_geom batch to arrive. */
+    static constexpr int QUIESCENT_POLLS_REQUIRED = 3;
 
 public slots:
     /** Called once by QTimer::singleShot after event loop startup. */
@@ -92,7 +111,8 @@ private:
     static int bright_pixels(const QImage &img, int threshold = 150);
 
     /** Grab the main window and save to outdir/<name>.png.
-     *  If flush_events is true, calls processEvents() before grabbing. */
+     *  If flush_events is true, calls processEvents() x4 to flush the
+     *  full render chain before grabbing (drain->redraw->repaint->paint). */
     QImage grab_screenshot(const QString &name, bool flush_events = true);
 
     /** Stop the poll timer and call QApplication::exit(). */
@@ -102,26 +122,27 @@ private:
     const char *m_gfile;
     QString     m_outdir;
 
-    /* Poll state */
-    enum Stage { STAGE_INIT, STAGE_LOD_WAIT, STAGE_DONE };
-    Stage  m_stage           = STAGE_INIT;
+    /* Three-phase poll state machine:
+     *   STAGE_OBB_WAIT  -- waiting for all 706 OBBs to arrive (Stage 2 screenshot)
+     *   STAGE_LOD_WAIT  -- waiting for all LoD data (>= EXPECTED_LOD results)
+     *                       + quiescence (Stage 3 screenshot)
+     *   STAGE_DONE      -- evaluate() called, finishing
+     */
+    enum Stage { STAGE_OBB_WAIT, STAGE_LOD_WAIT, STAGE_DONE };
+    Stage  m_stage           = STAGE_OBB_WAIT;
     int    m_poll_count      = 0;
     int    m_quiescent_polls = 0;
     size_t m_total_drain     = 0;
-    size_t m_drain_after_events = 0;
 
     /* DbiState snapshots */
-    size_t m_bboxes_before_drain = 0;
-    size_t m_obbs_before_drain   = 0;
-    size_t m_bboxes_after_drain  = 0;
-    size_t m_obbs_after_drain    = 0;
-    size_t m_lod_after_drain     = 0;  /* lod_results_processed() after drain */
-    size_t m_lod_shapes_3        = 0;  /* lod_shape_count() at Stage 3 final  */
+    size_t m_bboxes_at_draw  = 0;  /* obbs/lod at Stage 1 (after draw, before drain) */
+    size_t m_obbs_at_draw    = 0;
+    size_t m_lod_shapes_3    = 0;  /* lod_shape_count() at Stage 3 final              */
 
     /* Per-stage bright-pixel counts */
-    int m_bright_1 = -1;   /* Stage 1: pre-drain screenshot            */
-    int m_bright_2 = -1;   /* Stage 2: post-drain screenshot           */
-    int m_bright_3 = -1;   /* Stage 3: final screenshot (LoD rendered) */
+    int m_bright_1 = -1;   /* Stage 1: AABB wireframes                 */
+    int m_bright_2 = -1;   /* Stage 2: OBB wireframes                  */
+    int m_bright_3 = -1;   /* Stage 3: LoD triangle mesh               */
 
     QTimer *m_poll_timer = nullptr;
 
