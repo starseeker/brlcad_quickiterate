@@ -469,3 +469,91 @@ Clean build (GCC 13, `-Werror`) on librt + libged targets.
 - [ ] Implement `rt_brep_scene_obj` (absorbs brep_adaptive_plot)
 - [ ] Simplify draw_scene to call ft_scene_obj as primary dispatch
 - [ ] Migrate to object-space vlists (renderer applies s_mat)
+
+---
+
+## Session 8 Results (2026-03-09) — s_res: forward resource pointer to ft_scene_obj
+
+### Goal
+
+Implement the last missing piece identified in DESIGN_SCENE_OBJ.md §2.2 and §3.1:
+`struct resource *s_res` on `bsg_shape`, which allows `ft_scene_obj` callbacks
+to call `rt_db_get_internal()` (and `ft_mat`) without accessing `draw_update_data_t`.
+
+### Changes Made
+
+#### `include/bsg/defines.h`
+
+Added `struct resource *s_res` field to `bsg_shape` after `s_have_obb`.
+
+The comment documents the rationale: historically only `rt_db_get_internal(…,mat,…)`
+could apply the path matrix.  The new `ft_mat` (`rt_##name##_mat`) allows in-place
+application to an already-cracked internal.  `s_res` enables both patterns:
+
+1. **Object-space caching**: crack with `NULL` mat, cache, apply `s_mat` at render
+   time (either via the renderer or via `ft_mat`).  This is the target architecture.
+2. **World-space baking**: pass `s_mat` directly to `rt_db_get_internal` (current
+   `draw_scene` fallback path, unchanged for now).
+
+#### `src/libged/draw.cpp`
+
+In the setup phase, immediately after forwarding `d->mesh_c`:
+
+```c
+if (d->res && !s->s_res)
+    s->s_res = d->res;
+```
+
+This keeps the pattern consistent: setup phase is the only place `draw_update_data_t`
+fields are pushed onto `bsg_shape`; everything downstream reads only from shape fields.
+
+#### `src/librt/primitives/generic.c` — `rt_generic_scene_obj`
+
+Updated the `rt_db_get_internal` call:
+
+```c
+struct resource *res = s->s_res ? s->s_res : &rt_uniresource;
+if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
+    return BRLCAD_ERROR;
+```
+
+Also added a detailed comment explaining the `NULL` mat choice (object-space vlists,
+consistent with the OI scene-graph target architecture).
+
+#### `DESIGN_SCENE_OBJ.md`
+
+- §2.2 updated: all inputs needed for adaptive CSG wireframe are now available
+  in `ft_scene_obj` (resolved).
+- §3.1 updated: `s_res` marked DONE.
+- §3.2: item 1 (`s_res`) crossed off as done; item 6 updated.
+- §6 (Summary): new `s_res` rationale subsection added; `ft_mat` usage with
+  `s_res` documented.
+
+### Build Status
+
+Clean build (GCC 13, `-Werror`) on librt + libged targets.
+
+### Summary of all bsg_shape fields added across sessions 7–8
+
+| Field | Type | Session | Purpose |
+|---|---|---|---|
+| `mesh_c` | `bsg_mesh_lod_context *` | 7 | LoD cache; forwarded from d->mesh_c |
+| `s_obb_pts[24]` | `fastf_t` | 7 | OBB corners; forwarded from d->dbis->obbs |
+| `s_have_obb` | `int` | 7 | Validity flag for s_obb_pts |
+| `s_res` | `struct resource *` | 8 | rt resource; forwarded from d->res |
+
+With these four fields in place, `ft_scene_obj` callbacks in librt can perform
+all primitive-specific drawing operations without any direct access to
+`draw_update_data_t` or `DbiState`.
+
+### Checklist
+
+- [x] Add `struct resource *s_res` to `bsg_shape`
+- [x] Set `s->s_res = d->res` in draw_scene setup phase
+- [x] Use `s->s_res` in `rt_generic_scene_obj` (fallback to `&rt_uniresource`)
+- [x] Document `ft_mat`/`rt_##name##_mat` usage with `s_res` in DESIGN_SCENE_OBJ.md
+- [x] Build clean
+- [ ] Implement `rt_comb_scene_obj` (absorbs draw_m3)
+- [ ] Implement `rt_bot_scene_obj` (absorbs bot_adaptive_plot)
+- [ ] Implement `rt_brep_scene_obj` (absorbs brep_adaptive_plot)
+- [ ] Simplify draw_scene to call ft_scene_obj as primary dispatch

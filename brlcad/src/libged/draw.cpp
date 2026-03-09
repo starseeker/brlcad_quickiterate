@@ -740,6 +740,11 @@ draw_scene(bsg_shape *s, bsg_view *v)
     if (d->mesh_c && !s->mesh_c)
 	s->mesh_c = d->mesh_c;
 
+    /* Forward the per-thread resource pointer so ft_scene_obj callbacks can
+     * call rt_db_get_internal() (and ft_mat) without accessing draw_update_data_t. */
+    if (d->res && !s->s_res)
+	s->s_res = d->res;
+
     if (v && d->dbis) {
 	unsigned long long sh =
 	    bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
