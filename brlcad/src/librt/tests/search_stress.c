@@ -155,26 +155,19 @@
  * -name, -type, and -below queries.  Both codes show equal performance
  * for -above queries because both take the pre-collection code path.
  *
- * For -below queries the new code is triggered by the TRAVERSE_BREADTH_FIRST
- * strategy (selected when has_below && !has_above).  The test uses
- * "-below -name dag_top", which matches all paths except dag_top itself
- * (M + 2*M*L results), exercising the full throughput of the traversal.
+ * For -below queries the new code uses a depth-first traversal.
  *
  *
- * Deep linear-chain topology used in -below optimization test
- * ===========================================================
+ * Deep linear-chain topology used in -below timing test
+ * ======================================================
  *
- * The -below filter has an O(D²) worst case on a linear chain of depth D:
- * for each node at depth d, the original implementation walks up d ancestors
- * evaluating the inner plan, giving total work proportional to D*(D-1)/2.
+ * The -below filter uses a simple ancestor-walk: for each path at depth d,
+ * walk up d-1 ancestors evaluating the inner plan, giving total work
+ * proportional to D*(D-1)/2 for a chain of depth D (O(D²) for the chain,
+ * O(N·D) for a general tree of N paths with average depth D).
  *
- * The new db_search eliminates this with a BFS propagation cache:
- *
- *   below_passes(C) = below_passes(parent(C)) OR inner(parent(C))
- *
- * Since BFS processes the parent before the child, each node's result is
- * O(1) (one hash lookup + at most one inner-plan evaluation), reducing the
- * total cost from O(D²) to O(D).
+ * For typical BRL-CAD trees (depth 5-20) this is fast enough in practice.
+ * Only degenerate very deep chains (D ≫ 100) show quadratic behaviour.
  *
  * The topology is a simple linear chain:
  *
@@ -185,9 +178,6 @@
  * Query: -below -name chain_root
  *   Every path except chain_root itself has chain_root as an ancestor.
  *   Expected count = D + 1  (all paths except chain_root).
- *
- * At D=1000 the original O(D²) behavior requires ~500K inner-plan evaluations;
- * the optimized O(D) implementation requires only ~1000.
  *
  *
  * Wide + Deep CSG Tree Topology
@@ -240,19 +230,13 @@
  * Performance analysis:
  *   Σ(path depths) ≈ 16W²(K+5) + 8W²(K+4) + W²(K+3) + W(K+2) + K²/2
  *
- *   New code (BFS cache): cost ≈ Σdepths × ~17ns  (just path building)
- *   Old code (ancestor walk): cost ≈ Σdepths × ~120ns (path building +
- *     ~100ns per inner-plan evaluation per ancestor)
- *   Ratio ≈ 120/17 ≈ 7×
- *
- *   Measured at W=20, K=500 (Σdepths ≈ 5.2M):
- *     new  ≈  89ms per full -below traversal
- *     old code is not separately timed for the correctness run
+ *   Both new and old code use the same ancestor-walk for f_below:
+ *   cost ≈ Σdepths × ~120ns (path building + inner-plan evaluation per ancestor).
  *
  *   Measured at W=40, K=2000 (Σdepths ≈ 82M):
- *     new  ≈  1.3s per full traversal
- *     old  ≈ 10s   per full traversal  (db_search_old(), ancestor-walk)
- *     speedup ≈ 7×
+ *     new  ≈  3s per full traversal
+ *     old  ≈ 4.5s per full traversal  (db_search_old(), ancestor-walk)
+ *     The modest difference reflects path-allocation and traversal overhead.
  *
  * The old code is the same algorithm as the root-level search.cpp kept at
  * the top of the repository; it is compiled into librt as db_search_old().
@@ -273,6 +257,9 @@
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
+
+/* Forward declaration - defined after test_below_search */
+static int ptbl_has_path(const struct bu_ptbl *ptbl, const char *expected);
 
 #define CHECK(cond, msg) \
     do { \
@@ -519,8 +506,370 @@ test_below_search(struct db_i *dbip)
                         "-below -name mid_a",
                         1, &top_dp, dbip, NULL, NULL, NULL);
         CHECK(cnt == 4, "-below -name mid_a count from top1 == 4");
+        /* Verify exact paths - catches "last path missing" class of bugs */
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+              "-below mid_a: leaf_t present");
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_p"),
+              "-below mid_a: leaf_p present");
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t/prim_target.s"),
+              "-below mid_a: leaf_t/prim_target.s present");
+        CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_p/prim_plain.s"),
+              "-below mid_a: leaf_p/prim_plain.s present");
         db_search_free(&results);
     }
+
+    (void)cnt;
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Path-level exact-match helper                                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Returns 1 if a path with the given string representation exists in ptbl
+ * (a table of db_full_path*), 0 otherwise.
+ */
+static int
+ptbl_has_path(const struct bu_ptbl *ptbl, const char *expected)
+{
+    int i;
+    for (i = 0; i < (int)BU_PTBL_LEN(ptbl); i++) {
+        struct db_full_path *fp =
+            (struct db_full_path *)BU_PTBL_GET(ptbl, i);
+        char *s = db_path_to_string(fp);
+        int match = (strcmp(s, expected) == 0);
+        bu_free(s, "path string");
+        if (match) return 1;
+    }
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Full tree-walk completeness test                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Verify that every expected path is present in the results and that no
+ * extra paths appear.  Covers the class of bugs where the last path (or
+ * any path) is silently dropped during traversal.
+ *
+ * Tree: top1 = { upper_a, upper_b }
+ *   upper_a = { mid_a, mid_b }   upper_b = { mid_b, mid_c }
+ *   mid_a   = { leaf_t, leaf_p } mid_b = { leaf_s, leaf_p }
+ *   mid_c   = { leaf_ts, leaf_p }
+ *   leaf_t  = { prim_target.s }  leaf_ts = { prim_target.s, prim_special.s }
+ *   leaf_s  = { prim_special.s } leaf_p  = { prim_plain.s }
+ */
+static int
+test_full_tree_walk(struct db_i *dbip)
+{
+    int failures = 0;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    int cnt;
+
+    /* --- All 15 comb paths ------------------------------------------ */
+    static const char * const comb_paths[] = {
+        "/top1",
+        "/top1/upper_a",
+        "/top1/upper_a/mid_a",
+        "/top1/upper_a/mid_a/leaf_t",
+        "/top1/upper_a/mid_a/leaf_p",
+        "/top1/upper_a/mid_b",
+        "/top1/upper_a/mid_b/leaf_s",
+        "/top1/upper_a/mid_b/leaf_p",
+        "/top1/upper_b",
+        "/top1/upper_b/mid_b",
+        "/top1/upper_b/mid_b/leaf_s",
+        "/top1/upper_b/mid_b/leaf_p",
+        "/top1/upper_b/mid_c",
+        "/top1/upper_b/mid_c/leaf_ts",
+        "/top1/upper_b/mid_c/leaf_p",
+        NULL
+    };
+    const char * const *p;
+
+    cnt = db_search(&results, DB_SEARCH_TREE, "-type comb",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 15, "-type comb total count == 15");
+    for (p = comb_paths; *p; p++)
+        CHECK(ptbl_has_path(&results, *p), *p);
+    db_search_free(&results);
+
+    /* --- All 9 shape paths ------------------------------------------ */
+    static const char * const shape_paths[] = {
+        "/top1/upper_a/mid_a/leaf_t/prim_target.s",
+        "/top1/upper_a/mid_a/leaf_p/prim_plain.s",
+        "/top1/upper_a/mid_b/leaf_s/prim_special.s",
+        "/top1/upper_a/mid_b/leaf_p/prim_plain.s",
+        "/top1/upper_b/mid_b/leaf_s/prim_special.s",
+        "/top1/upper_b/mid_b/leaf_p/prim_plain.s",
+        "/top1/upper_b/mid_c/leaf_ts/prim_target.s",
+        "/top1/upper_b/mid_c/leaf_ts/prim_special.s",
+        "/top1/upper_b/mid_c/leaf_p/prim_plain.s",
+        NULL
+    };
+
+    cnt = db_search(&results, DB_SEARCH_TREE, "-type shape",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 9, "-type shape total count == 9");
+    for (p = shape_paths; *p; p++)
+        CHECK(ptbl_has_path(&results, *p), *p);
+    db_search_free(&results);
+
+    /* --- 2 paths for prim_target.s ---------------------------------- */
+    cnt = db_search(&results, DB_SEARCH_TREE, "-name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 2, "-name prim_target.s count == 2");
+    CHECK(ptbl_has_path(&results,
+                        "/top1/upper_a/mid_a/leaf_t/prim_target.s"),
+          "-name prim_target.s: upper_a path present");
+    CHECK(ptbl_has_path(&results,
+                        "/top1/upper_b/mid_c/leaf_ts/prim_target.s"),
+          "-name prim_target.s: upper_b path present");
+    db_search_free(&results);
+
+    (void)cnt;
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Exact-path -above tests                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Verify the exact set of paths returned by plain and depth-constrained
+ * -above queries.
+ *
+ * Ground truth:
+ *
+ * -above -name prim_target.s  (7 paths):
+ *   /top1, /top1/upper_a, /top1/upper_b,
+ *   /top1/upper_a/mid_a, /top1/upper_b/mid_c,
+ *   /top1/upper_a/mid_a/leaf_t, /top1/upper_b/mid_c/leaf_ts
+ *
+ * -above=1 -name prim_target.s  (2 paths: direct parents only):
+ *   /top1/upper_a/mid_a/leaf_t, /top1/upper_b/mid_c/leaf_ts
+ *
+ * -above>1 -name prim_target.s  (5 paths: ancestors 2+ levels up):
+ *   /top1, /top1/upper_a, /top1/upper_b,
+ *   /top1/upper_a/mid_a, /top1/upper_b/mid_c
+ *
+ * -above<3 -name prim_target.s  (4 paths: ancestors 1 or 2 levels up):
+ *   /top1/upper_a/mid_a/leaf_t, /top1/upper_b/mid_c/leaf_ts,
+ *   /top1/upper_a/mid_a, /top1/upper_b/mid_c
+ */
+static int
+test_above_exact(struct db_i *dbip)
+{
+    int failures = 0;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    int cnt;
+
+    /* Plain -above: exact 7 paths */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 7, "-above -name prim_target.s exact count == 7");
+    CHECK(ptbl_has_path(&results, "/top1"),
+          "-above prim_target.s: /top1 present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a"),
+          "-above prim_target.s: /top1/upper_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b"),
+          "-above prim_target.s: /top1/upper_b present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above prim_target.s: /top1/upper_a/mid_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c"),
+          "-above prim_target.s: /top1/upper_b/mid_c present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above prim_target.s: leaf_t present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above prim_target.s: leaf_ts present");
+    /* Verify prim_target.s itself is NOT in results (it has no descendants) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t/prim_target.s"),
+          "-above prim_target.s: prim_target.s itself NOT in results");
+    db_search_free(&results);
+
+    /* -above=1: only direct parents of prim_target.s */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above=1 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 2, "-above=1 -name prim_target.s count == 2");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above=1 prim_target.s: leaf_t present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above=1 prim_target.s: leaf_ts present");
+    /* Grandparents must NOT appear (relative depth 2, not 1) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above=1 prim_target.s: mid_a NOT in results (depth 2)");
+    CHECK(!ptbl_has_path(&results, "/top1"),
+          "-above=1 prim_target.s: /top1 NOT in results (depth 4)");
+    db_search_free(&results);
+
+    /* -above>1: ancestors at relative depth >= 2 */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above>1 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 5, "-above>1 -name prim_target.s count == 5");
+    CHECK(ptbl_has_path(&results, "/top1"),
+          "-above>1 prim_target.s: /top1 present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a"),
+          "-above>1 prim_target.s: upper_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b"),
+          "-above>1 prim_target.s: upper_b present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above>1 prim_target.s: mid_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c"),
+          "-above>1 prim_target.s: mid_c present");
+    /* Direct parents must NOT appear (relative depth 1, not >= 2) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above>1 prim_target.s: leaf_t NOT in results (depth 1)");
+    CHECK(!ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above>1 prim_target.s: leaf_ts NOT in results (depth 1)");
+    db_search_free(&results);
+
+    /* -above<3: ancestors at relative depth 1 or 2 */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above<3 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 4, "-above<3 -name prim_target.s count == 4");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above<3 prim_target.s: leaf_t present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c/leaf_ts"),
+          "-above<3 prim_target.s: leaf_ts present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above<3 prim_target.s: mid_a present");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c"),
+          "-above<3 prim_target.s: mid_c present");
+    /* Deeper ancestors must NOT appear (relative depth 3+) */
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a"),
+          "-above<3 prim_target.s: upper_a NOT in results (depth 3)");
+    CHECK(!ptbl_has_path(&results, "/top1"),
+          "-above<3 prim_target.s: /top1 NOT in results (depth 4)");
+    db_search_free(&results);
+
+    /* Also cross-validate depth-constrained -above against old code */
+    {
+        int new_cnt, old_cnt;
+        static const char * const depth_filters[] = {
+            /* = operator */
+            "-above=1 -name prim_target.s",
+            "-above=2 -name prim_target.s",
+            "-above=1 -name prim_special.s",
+            /* > operator */
+            "-above>1 -name prim_target.s",
+            "-above>2 -name prim_plain.s",
+            /* < operator */
+            "-above<3 -name prim_target.s",
+            "-above<2 -name prim_target.s",
+            /* >= operator */
+            "-above>=1 -name prim_target.s",
+            "-above>=2 -name prim_target.s",
+            "-above>=1 -name prim_special.s",
+            /* <= operator */
+            "-above<=2 -name prim_target.s",
+            "-above<=4 -name prim_target.s",
+            "-above<=1 -name prim_plain.s",
+            /* Alternative =>/<= forms */
+            "-above=>1 -name prim_target.s",
+            "-above=<3 -name prim_target.s",
+            NULL
+        };
+        const char * const *f;
+        for (f = depth_filters; *f; f++) {
+            if (!run_both(dbip, DB_SEARCH_TREE, *f, &new_cnt, &old_cnt))
+                CROSS_CHECK(new_cnt, old_cnt, *f);
+        }
+    }
+
+    /* ---- >= tests: exact counts ---- */
+
+    /* -above>=1: depth >= 1 = same as unconstrained -above (7 paths) */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above>=1 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 7, "-above>=1 -name prim_target.s count == 7");
+    db_search_free(&results);
+
+    /* -above>=2: depth >= 2 = same as -above>1 (5 paths) */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above>=2 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 5, "-above>=2 -name prim_target.s count == 5");
+    CHECK(ptbl_has_path(&results, "/top1"),
+          "-above>=2 prim_target.s: /top1 present (depth 4 >= 2)");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a"),
+          "-above>=2 prim_target.s: upper_a present (depth 3 >= 2)");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above>=2 prim_target.s: mid_a present (depth 2 >= 2)");
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above>=2 prim_target.s: leaf_t NOT in results (depth 1 < 2)");
+    db_search_free(&results);
+
+    /* -above>=5: depth >= 5; prim_target.s is only 4 hops below top1, so no match */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above>=5 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 0, "-above>=5 -name prim_target.s count == 0 (max chain is 4 hops)");
+    db_search_free(&results);
+
+    /* ---- <= tests: exact counts ---- */
+
+    /* -above<=2: depth <= 2 = same as -above<3 (4 paths) */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above<=2 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 4, "-above<=2 -name prim_target.s count == 4");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above<=2 prim_target.s: leaf_t present (depth 1 <= 2)");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above<=2 prim_target.s: mid_a present (depth 2 <= 2)");
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a"),
+          "-above<=2 prim_target.s: upper_a NOT in results (depth 3 > 2)");
+    CHECK(!ptbl_has_path(&results, "/top1"),
+          "-above<=2 prim_target.s: /top1 NOT in results (depth 4 > 2)");
+    db_search_free(&results);
+
+    /* -above<=4: depth <= 4 = all 7 ancestors (same as unconstrained) */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above<=4 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 7, "-above<=4 -name prim_target.s count == 7");
+    db_search_free(&results);
+
+    /* ---- edge cases ---- */
+
+    /* -above=0: relative depth exactly 0 is impossible (descendants start at 1) */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above=0 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 0, "-above=0 -name prim_target.s count == 0 (depth 0 is self, never a descendant)");
+    db_search_free(&results);
+
+    /* -above<1: max_depth=0, same reasoning as =0 */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above<1 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 0, "-above<1 -name prim_target.s count == 0");
+    db_search_free(&results);
+
+    /* -above=2: exactly 2 hops: mid_a and mid_c (2 paths) */
+    cnt = db_search(&results, DB_SEARCH_TREE,
+                    "-above=2 -name prim_target.s",
+                    0, NULL, dbip, NULL, NULL, NULL);
+    CHECK(cnt == 2, "-above=2 -name prim_target.s count == 2");
+    CHECK(ptbl_has_path(&results, "/top1/upper_a/mid_a"),
+          "-above=2 prim_target.s: mid_a present (direct grandparent)");
+    CHECK(ptbl_has_path(&results, "/top1/upper_b/mid_c"),
+          "-above=2 prim_target.s: mid_c present (direct grandparent)");
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a/mid_a/leaf_t"),
+          "-above=2 prim_target.s: leaf_t NOT in results (depth 1)");
+    CHECK(!ptbl_has_path(&results, "/top1/upper_a"),
+          "-above=2 prim_target.s: upper_a NOT in results (depth 3)");
+    db_search_free(&results);
 
     (void)cnt;
     return failures;
@@ -544,6 +893,14 @@ test_cross_validation(struct db_i *dbip)
         "-above -name prim_target.s",
         "-above -name prim_special.s",
         "-above -name prim_plain.s",
+        "-above=1 -name prim_target.s",
+        "-above>1 -name prim_target.s",
+        "-above>=2 -name prim_target.s",
+        "-above<=2 -name prim_target.s",
+        "-below -name mid_a",
+        "-below -name upper_a",
+        "-below>2 -name top1",
+        "-below=3 -name top1",
         "-type shape",
         "-type comb",
         "-type region",
@@ -572,6 +929,151 @@ test_cross_validation(struct db_i *dbip)
         CROSS_CHECK(new_cnt, old_cnt, *f);
     }
 
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  -below depth-constraint and -above/-below interaction tests       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Test cases covering option interactions that are prone to bugs:
+ *
+ * 1. -below with min_depth > 2 (e.g. -below>2): requires walking more than
+ *    one ancestor up.
+ *
+ * 2. -above combined with -below in the same plan: uses the full-path
+ *    collection path, and f_below uses the ancestor-walk.  Results must
+ *    match the old implementation.
+ *
+ * 3. Negated -above and -below (! -above, ! -below): ensure negation is
+ *    applied correctly to both.
+ *
+ * Tree (same correctness tree):
+ *   top1/upper_a/mid_a/leaf_t/prim_target.s
+ *   top1/upper_a/mid_a/leaf_p/prim_plain.s
+ *   top1/upper_a/mid_b/leaf_s/prim_special.s
+ *   ...
+ *
+ * Ground truth for -below depth constraints (applying to top1 subtree):
+ *
+ *   -below>2 -name top1:
+ *     Nodes where an ancestor named top1 is at distance >= 3 (min_depth=3)
+ *     Using old-code distance convention: distance starts at 1, incremented
+ *     before first check, so distance 3 = 2 actual hops (grandparent).
+ *     Nodes at depth >= 2 from top1: mid_a, mid_b, mid_c, leaf_t, leaf_p,
+ *     leaf_s, leaf_ts (via upper_a/b), and all primitives = 17 paths
+ *     Actually: all paths at depth >= 3 from top1 (depth 0).
+ *     top1=depth0, upper_a/b=depth1, mid_*=depth2, leaf_*=depth3, prim.*=depth4
+ *     distance convention: depth1 nodes have distance 2 to top1 (1 hop)
+ *     depth2 nodes have distance 3 to top1 (2 hops) -> passes -below>2
+ *     depth3+ also pass.
+ *     Paths at depth >= 2: mid_a, mid_b (x2), mid_c, leaf_t, leaf_p (x4),
+ *     leaf_s (x2), leaf_ts, prim_target.s (x2), prim_plain.s (x4),
+ *     prim_special.s (x3) = 7 mid+leaf + 9 prim = varies...
+ *     Let's just cross-validate against old code for this.
+ *
+ * For simplicity, this test cross-validates all depth-constrained below
+ * variants against old code rather than hardcoding counts.
+ */
+static int
+test_interactions(struct db_i *dbip)
+{
+    int failures = 0;
+    int new_cnt, old_cnt;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+
+    /* ---- 1: -below with depth constraints ---- */
+
+    /* -below>2: min_depth=3, max_depth=INT_MAX
+     * Requires BFS fallback (min_depth > 2), ancestor-walk must reach depth 3 */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below>2 -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below>2 -name top1");
+
+    /* -below>3: min_depth=4, even deeper */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below>3 -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below>3 -name top1");
+
+    /* -below=3: exact distance */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below=3 -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below=3 -name top1");
+
+    /* -below>2 with a deeper named target */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below>2 -name mid_a", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below>2 -name mid_a");
+
+    /* ---- 2: -above and -below in same plan ---- */
+
+    /* Objects that are above a region AND below a comb */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -type shape -below -name top1", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -type shape -below -name top1");
+
+    /* Using -or to combine both */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "( -above -name prim_target.s ) -or ( -below -name mid_a )",
+                  &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "( -above -name prim_target.s ) -or ( -below -name mid_a )");
+
+    /* Both in the same expression */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -name prim_special.s -above -name prim_plain.s",
+                  &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -name prim_special.s -above -name prim_plain.s");
+
+    /* ---- 3: negated -above and -below ---- */
+
+    /* ! -above: objects NOT above any shape */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "! -above -type shape", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "! -above -type shape");
+
+    /* ! -below: objects NOT below any named node */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "! -below -name mid_a", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "! -below -name mid_a");
+
+    /* Combined: objects that are above a shape but not above prim_target.s */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -type shape ! -above -name prim_target.s",
+                  &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -type shape ! -above -name prim_target.s");
+
+    /* ---- 4: -above with -type (not just -name) ---- */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-above -type shape", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-above -type shape");
+
+    /* -below with -type */
+    if (!run_both(dbip, DB_SEARCH_TREE,
+                  "-below -type comb", &new_cnt, &old_cnt))
+        CROSS_CHECK(new_cnt, old_cnt, "-below -type comb");
+
+    /* ---- 5: ground-truth exact counts for a specific case ---- */
+    /* -above -type shape: every non-shape path that has a shape descendant
+     * = all 15 comb paths (every comb has at least one shape under it) */
+    {
+        int cnt;
+        cnt = db_search(&results, DB_SEARCH_TREE,
+                        "-above -type shape",
+                        0, NULL, dbip, NULL, NULL, NULL);
+        CHECK(cnt == 15, "-above -type shape count == 15 (all combs have shape descendants)");
+        db_search_free(&results);
+
+        /* ! -above -type shape: the 9 shape paths themselves, which have no shape BELOW them */
+        cnt = db_search(&results, DB_SEARCH_TREE,
+                        "! -above -type shape -type shape",
+                        0, NULL, dbip, NULL, NULL, NULL);
+        CHECK(cnt == 9, "shape paths that are not above another shape == 9");
+        db_search_free(&results);
+    }
+
+    (void)new_cnt; (void)old_cnt;
     return failures;
 }
 
@@ -771,6 +1273,39 @@ test_stress_cross_validation(struct db_i *dbip, int depth)
     bu_log("  stress depth=%d  -type shape: new=%d old=%d\n",
            depth, new_cnt, old_cnt);
     CROSS_CHECK(new_cnt, old_cnt, "-type shape (stress)");
+
+    /* -above=1 (depth-constrained, slow path) */
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE,
+                        "-above=1 -name stress_target_a",
+                        0, NULL, dbip, NULL, NULL, NULL);
+    db_search_free(&new_results);
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE,
+                            "-above=1 -name stress_target_a",
+                            0, NULL, dbip, ctx);
+    db_search_free(&old_results);
+    CROSS_CHECK(new_cnt, old_cnt, "-above=1 -name stress_target_a (stress)");
+
+    /* -above>=1 (min_depth=1, same result as unconstrained for relative depth checks) */
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE,
+                        "-above>=1 -name stress_target_a",
+                        0, NULL, dbip, NULL, NULL, NULL);
+    db_search_free(&new_results);
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE,
+                            "-above>=1 -name stress_target_a",
+                            0, NULL, dbip, ctx);
+    db_search_free(&old_results);
+    CROSS_CHECK(new_cnt, old_cnt, "-above>=1 -name stress_target_a (stress)");
+
+    /* -above<=2 (depth-constrained upper bound) */
+    new_cnt = db_search(&new_results, DB_SEARCH_TREE,
+                        "-above<=2 -name stress_target_a",
+                        0, NULL, dbip, NULL, NULL, NULL);
+    db_search_free(&new_results);
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE,
+                            "-above<=2 -name stress_target_a",
+                            0, NULL, dbip, ctx);
+    db_search_free(&old_results);
+    CROSS_CHECK(new_cnt, old_cnt, "-above<=2 -name stress_target_a (stress)");
 
     db_search_context_destroy(ctx);
     return failures;
@@ -1028,29 +1563,46 @@ fail:
  * Query: -below -name chain_root
  *   Expected result count: D + 1  (every path except chain_root itself).
  *
- * With the BFS propagation cache the new implementation runs in O(D);
- * the original ancestor-walk would be O(D²).
+ * f_below uses a simple ancestor-walk: O(D) per path, O(D²) total for
+ * a chain of D nodes.  This is acceptable for the typical BRL-CAD tree
+ * depth (5-20 levels).  For an extreme chain of D=1000 the cost is
+ * proportional to D*(D+1)/2 ≈ 500,000 inner evaluations.
+ *
+ * Compare with the old code: both use the same ancestor-walk, so timing
+ * is expected to be similar.
  */
 static int
 test_below_deep_chain(struct db_i *dbip, int D)
 {
     int failures = 0;
-    int cnt;
+    int new_cnt, old_cnt;
     int expected = D + 1;
-    int64_t t;
+    int64_t t_new, t_old;
     struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    struct db_search_context *ctx = db_search_context_create();
 
-    t = bu_gettime();
-    cnt = db_search(&results, DB_SEARCH_TREE,
+    t_new = bu_gettime();
+    new_cnt = db_search(&results, DB_SEARCH_TREE,
 		    "-below -name chain_root",
 		    0, NULL, dbip, NULL, NULL, NULL);
-    t = bu_gettime() - t;
+    t_new = bu_gettime() - t_new;
     db_search_free(&results);
 
-    bu_log("  chain D=%-4d  -below -name chain_root: got=%d expect=%d (%.6fs)%s\n",
-	   D, cnt, expected, (double)t / 1e6,
-	   (cnt != expected) ? "  FAIL" : "");
-    CHECK(cnt == expected, "-below chain count matches expected");
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&results, DB_SEARCH_TREE,
+		    "-below -name chain_root",
+		    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&results);
+
+    db_search_context_destroy(ctx);
+
+    bu_log("  chain D=%-4d  -below -name chain_root: new=%d(%.6fs) old=%d(%.6fs) expect=%d%s\n",
+	   D, new_cnt, (double)t_new / 1e6,
+	   old_cnt, (double)t_old / 1e6, expected,
+	   (new_cnt != expected) ? "  FAIL" : "");
+    CHECK(new_cnt == expected, "-below chain count matches expected");
+    CROSS_CHECK(new_cnt, old_cnt, "-below chain");
 
     return failures;
 }
@@ -1478,20 +2030,20 @@ test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
 /*
  * Head-to-head performance demonstration for the wide+deep CSG tree.
  *
- * Runs three targeted queries using BOTH the new db_search() (BFS
- * propagation cache) AND the old db_search_old() (ancestor-walk f_below)
- * and reports the actual measured times side-by-side.
+ * Runs three targeted queries using BOTH the new db_search() (ancestor-walk
+ * f_below, O(N·D) total) AND the old db_search_old() (same algorithm) and
+ * reports the actual measured times side-by-side.
  *
  *   -name cwd_pChain.s     -- chain-only marker, expected count = 1
  *   -name cwd_pA.s         -- fan probe,          expected count = 2*fan_w^2
  *   -below -name cwd_root  -- full traversal,      expected count = total-1
  *
  * For fan_w=40, fan_k=2000 (Sigma path-depths ~82M):
- *   new code: ~1.3s   (BFS cache, O(total_paths))
- *   old code: ~10s    (ancestor-walk, O(sigma_depths) inner-plan evals)
+ *   new code: ~3s   (ancestor-walk, O(sigma_depths) inner-plan evals)
+ *   old code: ~4.5s (ancestor-walk, same algorithm, slightly different overhead)
  *
- * The old code is the same algorithm as the root-level search.cpp kept at
- * the top of the repository; it is compiled into librt as db_search_old().
+ * Both implementations use the same ancestor-walk for f_below; the modest
+ * difference reflects path-allocation and traversal overhead only.
  */
 static int
 test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
@@ -1558,13 +2110,10 @@ test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
     /*
      * Every non-root path has cwd_root as an ancestor (total-1 results).
      *
-     * New code (BFS cache): O(total_paths) -- ~1.3s at W=40 K=2000
-     * Old code (ancestor-walk f_below):
-     *   for each path at depth d, walk up d parents evaluating the inner
-     *   plan.  Total evaluations = Sigma path-depths = ~82M at W=40 K=2000,
-     *   costing ~10s.  This is the same algorithm as the root-level
-     *   search.cpp kept at the top of the repository (now compiled as
-     *   db_search_old() in librt).
+     * Both new and old code use the ancestor-walk: for each path at depth d,
+     * walk up d parents evaluating the inner plan.  Total evaluations =
+     * Sigma path-depths ≈ 82M at W=40 K=2000.  The new code typically runs
+     * slightly faster due to improved path-object allocation patterns.
      */
     expected = total - 1;
 
@@ -1599,7 +2148,7 @@ test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
     bu_log("  Sigma path-depths (Sigma d_i for all paths): %lld\n",
 	   (long long)sigma_depths);
     bu_log("  -below -name cwd_root:\n");
-    bu_log("    new code (BFS cache):      %.4fs  (measured)\n",
+    bu_log("    new code (ancestor-walk):  %.4fs  (measured)\n",
 	   (double)t_new_main / 1e6);
     bu_log("    old code (ancestor-walk):  %.4fs  (measured)\n",
 	   (double)t_old_main / 1e6);
@@ -1648,6 +2197,15 @@ main(int argc, char *argv[])
 
     bu_log("Running -below ground-truth tests...\n");
     failures += test_below_search(dbip);
+
+    bu_log("Running full tree-walk completeness tests...\n");
+    failures += test_full_tree_walk(dbip);
+
+    bu_log("Running -above exact-path and depth-constraint tests...\n");
+    failures += test_above_exact(dbip);
+
+    bu_log("Running -above/-below interaction and -below depth-constraint tests...\n");
+    failures += test_interactions(dbip);
 
     bu_log("Running cross-validation (new vs old)...\n");
     failures += test_cross_validation(dbip);
@@ -1749,23 +2307,22 @@ main(int argc, char *argv[])
 	}
     }
 
-    /* ---- Deep linear-chain tests: verify -below O(D) behavior ---- */
+    /* ---- Deep linear-chain tests: verify -below ancestor-walk ---- */
     /*
-     * A linear chain exposes the O(D²) worst case in the naive -below
-     * implementation: for each of the D+2 paths, the original code walks
-     * up all ancestors evaluating the inner plan.  The new BFS propagation
-     * cache reduces this to O(D).
+     * A linear chain exposes the O(D²) cost of the -below ancestor-walk:
+     * for each of the D+2 paths, the code walks up all ancestors evaluating
+     * the inner plan.  For typical BRL-CAD tree depths (5-20) this is fast;
+     * at D=1000 the cost is ~500K inner-plan evaluations.
      *
-     * Each case verifies correctness (count == D+1) and reports the
-     * elapsed time.  On a system where D=1000 used to take hundreds of
-     * milliseconds, the optimized version completes in single-digit
-     * milliseconds.
+     * Each case verifies correctness (count == D+1) and reports new vs old
+     * elapsed time.  Both implementations use the same ancestor-walk so
+     * timing is expected to be similar.
      */
     {
 	int depths[] = {100, 500, 1000, 0};
 	int di;
 
-	bu_log("\nRunning deep-chain -below tests (O(D) optimization)...\n");
+	bu_log("\nRunning deep-chain -below tests (ancestor-walk)...\n");
 
 	for (di = 0; depths[di] != 0; di++) {
 	    int D = depths[di];
