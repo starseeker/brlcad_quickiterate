@@ -390,3 +390,82 @@ INFO: Stage 3 differs from Stage 1 (stage1=27690  stage3=28746) — progressive 
 - [x] qged_pipeline_test: progressive refinement confirmed (AABB→OBB visible)
 - [x] Test PASSED
 
+
+---
+
+## Session 7 Results (2026-03-09) — ft_scene_obj refactoring: setup phase + design document
+
+### Goal
+
+Begin migrating all primitive-specific drawing logic out of libged's
+`draw_scene` and into librt `ft_scene_obj` callbacks, so that `draw_scene`
+becomes a simple traversal driver with no per-primitive special cases.
+
+### Changes Made
+
+#### `include/bsg/defines.h`
+
+Three new fields added to `bsg_shape`:
+
+- `struct bsg_mesh_lod_context *mesh_c` — LoD cache context forwarded from
+  `draw_update_data_t` by the setup phase.  Primitive callbacks use this
+  without needing `draw_update_data_t`.
+- `fastf_t s_obb_pts[24]` — 8 OBB corner points (× 3 coords) cached from
+  the async pipeline.  Populated by the setup phase; read by callbacks.
+- `int s_have_obb` — validity flag for `s_obb_pts`.
+
+#### `src/libged/draw.cpp`
+
+**Single setup phase** — the only place `d->dbis` is now consulted:
+
+1. `s->mesh_c ← d->mesh_c`
+2. Late-set `s->have_bbox` from `d->dbis->bboxes` (world-space AABB)
+3. Cache OBB corners into `s->s_obb_pts` / `s->s_have_obb` from `d->dbis->obbs`
+
+Everything downstream (lazy AABB guard, `bot_adaptive_plot`, `brep_adaptive_plot`,
+`rt_generic_scene_obj`) reads only `bsg_shape` fields — zero further dbis access.
+
+`bot_adaptive_plot` updated to:
+- Use `s->mesh_c` instead of `d->mesh_c`
+- Use `s->s_have_obb` / `s->s_obb_pts` instead of `d->dbis->obbs`
+- Remove its own duplicate AABB late-set block (setup phase covers it)
+
+#### `src/librt/primitives/generic.c`
+
+`rt_generic_scene_obj` now handles `!have_bbox` itself:
+- If `s->s_have_obb`: draw OBB placeholder wireframe (per-view child node)
+- Otherwise: return `BRLCAD_OK` (no-op; shape will be retried on next redraw)
+- Only cracks `rt_db_internal` when `have_bbox == 1`
+- No DbiState access at all
+
+#### `DESIGN_SCENE_OBJ.md` (new)
+
+Comprehensive design document covering:
+- Current state of all drawing-related data structures
+- Analysis of whether `rt_comb_scene_obj` can absorb `draw_m3` (yes)
+- What `ft_scene_obj` needs for adaptive CSG wireframe (missing: `s_res`)
+- `!have_bbox` policy for `ft_scene_obj` callbacks
+- `ft_mat` and matrix handling analysis
+- Target architecture (draw_scene as thin driver)
+- OpenInventor scene graph opportunities
+- draw_m3 structural problems and migration path
+- Full list of remaining work
+
+### Build Status
+
+Clean build (GCC 13, `-Werror`) on librt + libged targets.
+
+### Checklist
+
+- [x] Consolidate all `d->dbis` access into draw_scene setup phase
+- [x] Add `mesh_c`, `s_obb_pts`, `s_have_obb` to `bsg_shape`
+- [x] `bot_adaptive_plot` uses shape fields only (no dbis)
+- [x] `rt_generic_scene_obj` handles `!have_bbox` with OBB placeholder
+- [x] Build clean
+- [x] Design document written (DESIGN_SCENE_OBJ.md)
+- [ ] Add `struct resource *s_res` to `bsg_shape`
+- [ ] Implement `rt_comb_scene_obj` (absorbs draw_m3)
+- [ ] Implement `rt_bot_scene_obj` (absorbs bot_adaptive_plot)
+- [ ] Implement `rt_brep_scene_obj` (absorbs brep_adaptive_plot)
+- [ ] Simplify draw_scene to call ft_scene_obj as primary dispatch
+- [ ] Migrate to object-space vlists (renderer applies s_mat)
