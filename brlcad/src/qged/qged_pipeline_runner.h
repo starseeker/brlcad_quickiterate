@@ -44,16 +44,24 @@
 /**
  * SceneStats
  *
- * Counts of mesh (BoT) view objects by placeholder type, gathered by
- * inspect_scene_objs().  Used for programmatic pass/fail criteria instead
- * of relying on image pixel counting.
+ * Counts of view objects by placeholder type, gathered by
+ * inspect_scene_objs().  Now covers BOTH mesh (BoT) and CSG shapes since all
+ * primitive types are treated equally under the lazy AABB policy.
+ * Used for programmatic pass/fail criteria instead of relying on pixel
+ * counting.
  */
 struct SceneStats {
+    /* mesh (BoT) shape counts */
     int placeholder_aabb = 0;  /**< mesh_obj, draw_data==NULL, s_placeholder==1 */
     int placeholder_obb  = 0;  /**< mesh_obj, draw_data==NULL, s_placeholder==2 */
     int lod_active       = 0;  /**< mesh_obj, draw_data!=NULL (BSG_NODE_MESH_LOD) */
     int no_view_obj      = 0;  /**< mesh_obj, no per-view sub-object yet          */
     int total_mesh       = 0;  /**< total mesh_obj shapes in scene                */
+    /* CSG shape counts (newly tracked; all are lazy now) */
+    int csg_no_view_obj  = 0;  /**< csg_obj, have_bbox==0, no view obj yet        */
+    int csg_placeholder  = 0;  /**< csg_obj, view obj exists but s_placeholder>0  */
+    int csg_active       = 0;  /**< csg_obj, view obj exists with real vlist       */
+    int total_csg        = 0;  /**< total csg_obj shapes in scene                 */
 };
 
 /* Visitor state for inspect_scene_objs(). */
@@ -66,28 +74,46 @@ static int
 _inspect_visitor(bsg_shape *s, const bsg_traversal_state * /*ts*/, void *ud)
 {
     _InspectVisitorData *d = (_InspectVisitorData *)ud;
-    if (!s || !s->mesh_obj)
+    if (!s)
 	return 0;
 
-    d->stats.total_mesh++;
+    if (s->mesh_obj) {
+	d->stats.total_mesh++;
 
-    bsg_shape *vo = bsg_shape_for_view(s, d->v);
-    if (!vo) {
-	d->stats.no_view_obj++;
-    } else if (vo->draw_data) {
-	d->stats.lod_active++;
-    } else if (vo->s_placeholder == 2) {
-	d->stats.placeholder_obb++;
-    } else {
-	/* s_placeholder == 1 (AABB) or 0 (untagged old placeholder) */
-	d->stats.placeholder_aabb++;
+	bsg_shape *vo = bsg_shape_for_view(s, d->v);
+	if (!vo) {
+	    d->stats.no_view_obj++;
+	} else if (vo->draw_data) {
+	    d->stats.lod_active++;
+	} else if (vo->s_placeholder == 2) {
+	    d->stats.placeholder_obb++;
+	} else {
+	    /* s_placeholder == 1 (AABB) or 0 (untagged old placeholder) */
+	    d->stats.placeholder_aabb++;
+	}
+    } else if (s->csg_obj) {
+	d->stats.total_csg++;
+
+	if (!s->have_bbox) {
+	    /* Async AABB not yet delivered — no usable view object */
+	    d->stats.csg_no_view_obj++;
+	} else {
+	    bsg_shape *vo = bsg_shape_for_view(s, d->v);
+	    if (!vo) {
+		d->stats.csg_no_view_obj++;
+	    } else if (vo->s_placeholder > 0) {
+		d->stats.csg_placeholder++;
+	    } else {
+		d->stats.csg_active++;
+	    }
+	}
     }
     return 0;
 }
 
 /**
- * inspect_scene_objs -- traverse the scene graph for @p v and count mesh
- * view objects by placeholder type (AABB / OBB / LoD / missing).
+ * inspect_scene_objs -- traverse the scene graph for @p v and count both
+ * mesh and CSG view objects by placeholder type (AABB / OBB / LoD / missing).
  */
 static inline SceneStats
 inspect_scene_objs(bsg_view *v)
@@ -101,7 +127,7 @@ inspect_scene_objs(bsg_view *v)
 /**
  * QgedPipelineRunner
  *
- * Drives a three-stage validation of the DrawPipeline in qged (swrast).
+ * Drives a multi-stage validation of the DrawPipeline in qged (swrast).
  * The test always starts with a cold LoD cache (the caller wipes BU_DIR_CACHE
  * before calling load_g_file), ensuring the AABB -> OBB -> LoD progression is
  * visible in screenshots rather than jumping straight to LoD.
@@ -113,30 +139,40 @@ inspect_scene_objs(bsg_view *v)
  *   BRLCAD_CACHE_OBB_DELAY_MS=5   -- each OBB sleeps 5 ms after computation
  *   BRLCAD_CACHE_LOD_DELAY_MS=200 -- each LoD sleeps 200 ms after computation
  *
- * Pipeline progression for GenericTwin.g (706 BoTs, cold cache):
+ * Pipeline progression for GenericTwin.g (706 BoTs + CSG, cold cache):
+ *
+ * ALL primitive types (BoT AND CSG) are now lazy: when
+ * BRLCAD_CACHE_AABB_DELAY_MS is set, rt_bound_instance is skipped for
+ * every leaf solid, and every shape starts with have_bbox=0.  The scene
+ * begins completely empty and populates progressively as the async
+ * DrawPipeline delivers AABB, OBB, and LoD data.
  *
  *   Stage 0 -- immediately after "draw all", before any drain events:
- *     - When BRLCAD_CACHE_AABB_DELAY_MS is set, BoT shapes start with
- *       have_bbox=0 and no view object.  CSG shapes are visible.
- *     - Scene check: no_view_obj > 0 (some BoTs waiting for AABB), lod_active == 0.
+ *     - ALL shapes (BoT and CSG alike) start with have_bbox=0 and no view
+ *       object.  The scene is effectively empty.
+ *     - gv_progressive_autoview is set (autoview fired but scene is empty).
+ *     - Scene check: (no_view_obj + csg_no_view_obj) == total shapes drawn.
  *     - Note: Stage 0 is a snapshot taken before any drain, as a reference.
  *
- *   Stage 1 -- first AABB placeholders visible:
+ *   Stage 1 -- first AABB placeholders visible (BoT and/or CSG):
  *     - drain_background_geom() fires; new AABBs trigger do_view_changed;
- *       BViewState::redraw() scans missing-view-obj shapes; bot_adaptive_plot
- *       late-sets have_bbox from dbis->bboxes and draws AABB placeholder.
- *     - Scene check: placeholder_aabb > 0, no_view_obj < initial, obb == 0, lod == 0.
+ *       BViewState::redraw() retries all shapes with have_bbox==0;
+ *       bot_adaptive_plot / draw_scene late-set have_bbox and draw placeholder.
+ *       Progressive autoview re-runs bsg_view_autoview() as bboxes accumulate.
+ *     - Scene check: placeholder_aabb > 0 (BoT) or csg_placeholder > 0 (CSG).
  *
  *   Stage 2 -- AABB+OBB mix (most AABBs arrived, first OBBs appearing):
  *     - Scene check: placeholder_obb > 0, lod_active == 0.
- *     - Periodic screenshots are also saved every ~5s during this stage.
  *
  *   Stage 3 -- first LoD objects visible:
  *     - Scene check: lod_active > 0.
  *
+ *   Final -- gv_progressive_autoview cleared:
+ *     - shapes_without_bbox() == 0 → autoview stabilises.
+ *
  * Pass criteria (scene-object based):
- *   Stage 1: placeholder_aabb > 0, placeholder_obb == 0, lod_active == 0
- *   Stage 2: placeholder_obb  > 0, lod_active == 0
+ *   Stage 1: (placeholder_aabb > 0 OR csg_placeholder > 0), lod_active == 0
+ *   Stage 2: placeholder_obb > 0, lod_active == 0
  *   Stage 3: lod_active > 0
  *   Final:   obbs >= EXPECTED_OBBS, lod_results_processed() >= EXPECTED_LOD
  *
