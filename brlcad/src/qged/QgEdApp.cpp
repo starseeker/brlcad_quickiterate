@@ -403,6 +403,28 @@ QgEdApp::drain_background_geom()
 	emit view_update(GED_DBISTATE_VIEW_CHANGE);
     }
 
+    // When OBB data for BoT primitives has been newly integrated, the AABB
+    // placeholder wireframes in the scene should be upgraded to OBB wireframes
+    // (which are a tighter fit).  A plain view_update() only schedules a
+    // viewport repaint; it does NOT call BViewState::redraw(), which is the
+    // only code path that triggers bot_adaptive_plot() to switch from the
+    // AABB wireframe placeholder to the tighter OBB wireframe placeholder.
+    //
+    // Detect newly arrived OBBs (dbis->obbs.size() advanced) and schedule a
+    // scene redraw via do_view_changed(QG_VIEW_DRAWN).
+    //
+    // Handle file-open resets (cur < last) the same way as for LoD.
+    size_t cur_obb = dbis->obbs.size();
+    if (cur_obb < last_obb_count_) {
+	bsg_log(2, "QgEdApp: obb counter rolled back (%zu -> %zu) -- new file opened\n",
+		last_obb_count_, cur_obb);
+	last_obb_count_ = 0;
+    }
+    if (cur_obb > last_obb_count_) {
+	last_obb_count_ = cur_obb;
+	do_view_changed(QG_VIEW_DRAWN);
+    }
+
     // When LoD data for BoT primitives has been newly cached, the placeholder
     // OBB/AABB wireframes in the scene are stale: stale_mesh_shapes_for_dp()
     // cleared their per-view objects during drain_geom_results().  A plain
@@ -421,7 +443,7 @@ QgEdApp::drain_background_geom()
     // correctly detected.
     size_t cur_lod = dbis->lod_results_processed();
     if (cur_lod < last_lod_count_) {
-	bsg_log(2, "QgEdApp: lod counter rolled back (%zu -> %zu) — new file opened\n",
+	bsg_log(2, "QgEdApp: lod counter rolled back (%zu -> %zu) -- new file opened\n",
 		last_lod_count_, cur_lod);
 	last_lod_count_ = 0;
     }
