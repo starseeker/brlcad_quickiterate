@@ -162,9 +162,7 @@ proc pattern_rect { args } {
     }
     foreach obj $objs { lappend clone_cmd $obj }
 
-    if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
     set result [eval _clone_invoke $clone_cmd]
-    if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
 
     if { $group_name ne "" } {
 	if { $::cadwidgets::mgedFlag } {
@@ -283,9 +281,7 @@ proc pattern_sph { args } {
     }
     foreach obj $objs { lappend clone_cmd $obj }
 
-    if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
     set result [eval _clone_invoke $clone_cmd]
-    if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
 
     if { $group_name ne "" } {
 	if { $::cadwidgets::mgedFlag } {
@@ -406,9 +402,7 @@ proc pattern_cyl { args } {
     }
     foreach obj $objs { lappend clone_cmd $obj }
 
-    if { $feed_name ne "" } { catch { $feed_name configure -steps 1 } }
     set result [eval _clone_invoke $clone_cmd]
-    if { $feed_name ne "" } { catch { $feed_name step }; update idletasks }
 
     if { $group_name ne "" } {
 	if { $::cadwidgets::mgedFlag } {
