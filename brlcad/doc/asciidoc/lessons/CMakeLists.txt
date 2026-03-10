@@ -18,9 +18,7 @@ set(
   mged16_mod_tech_struct.adoc
 )
 
-if(BRLCAD_EXTRADOCS)
-  ADD_ASCIIDOC("HTML" lessons_ADOC "" "")
-endif(BRLCAD_EXTRADOCS)
+ADD_ASCIIDOC("HTML" lessons_ADOC "" "")
 
 cmakefiles(
   CMakeLists.txt
