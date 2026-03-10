@@ -125,84 +125,89 @@ if(NOT COMMAND ADD_ASCIIDOC)
       set(_src "${CMAKE_CURRENT_SOURCE_DIR}/${adoc_file}")
 
       foreach(fmt ${fmts})
-        string(TOUPPER "${fmt}" _FMT)
-        set(_html_section_subdir "")  # companion HTML section dir; set by MAN* cases
+	string(TOUPPER "${fmt}" _FMT)
 
-        if(_FMT STREQUAL "HTML")
-          set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.html")
-          set(_backend "html5")
-          set(_doctype "article")
-          set(_install_dir "${DOC_DIR}/html/asciidoc")
+	if(_FMT STREQUAL "HTML")
 
-        elseif(_FMT STREQUAL "MAN1")
-          set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.1")
-          set(_backend "manpage")
-          set(_doctype "manpage")
-          set(_install_dir "${MAN_DIR}/man1")
-          set(_html_section_subdir "man1")
+	  set(_outfile "${PROJECT_BINARY_DIR}/${DOC_DIR}/html/${_d1}/${_stem}.html")
+	  set(_install_dir "${DOC_DIR}/html/${_d1}")
 
-        elseif(_FMT STREQUAL "MAN3")
-          set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.3")
-          set(_backend "manpage")
-          set(_doctype "manpage")
-          set(_install_dir "${MAN_DIR}/man3")
-          set(_html_section_subdir "man3")
+	  add_custom_command(
+	    OUTPUT "${_outfile}"
+	    COMMAND "${ASCIIQUACK_EXECUTABLE}"
+	    -b "html5"
+	    -d "article"
+	    -o "${_outfile}"
+	    "${_src}"
+	    DEPENDS "${_src}"
+	    COMMENT "asciiquack: ${_stem} (${_FMT})"
+	    VERBATIM
+	  )
+	  install(FILES "${_outfile}" DESTINATION "${_install_dir}")
+	  list(APPEND all_outfiles "${_outfile}")
 
-        elseif(_FMT STREQUAL "MAN5")
-          set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.5")
-          set(_backend "manpage")
-          set(_doctype "manpage")
-          set(_install_dir "${MAN_DIR}/man5")
-          set(_html_section_subdir "man5")
+	elseif(_FMT MATCHES "MAN*")
 
-        elseif(_FMT STREQUAL "MANN")
-          set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.nged")
-          set(_backend "manpage")
-          set(_doctype "manpage")
-          set(_install_dir "${MAN_DIR}/mann")
-          set(_html_section_subdir "mann")
+	  # Man (troff) format for traditional man command
+	  set(_outfile "${PROJECT_BINARY_DIR}/${MAN_DIR}/${_d1}/${_stem}")
+	  if(_FMT MATCHES "MAN1")
+	    set(_outfile "${_outfile}.1")
+	  elseif(_FMT STREQUAL "MAN3")
+	    set(_outfile "${_outfile}.3")
+	  elseif(_FMT STREQUAL "MAN5")
+	    set(_outfile "${_outfile}.5")
+	  elseif(_FMT STREQUAL "MANN")
+	    set(_outfile "${_outfile}.nged")
+	  else()
+	    message(WARNING "ADD_ASCIIDOC: unknown MAN format '${fmt}' – skipping")
+	    continue()
+	  endif()
+	  set(_install_dir "${MAN_DIR}/${_d1}")
+	  message("outfile: ${_outfile}")
+	  message("Install dir: ${_install_dir}")
 
-        else()
-          message(WARNING "ADD_ASCIIDOC: unknown format '${fmt}' – skipping")
-          continue()
-        endif()
+	  add_custom_command(
+	    OUTPUT "${_outfile}"
+	    COMMAND "${ASCIIQUACK_EXECUTABLE}"
+	    -b "manpage"
+	    -d "manpage"
+	    -o "${_outfile}"
+	    "${_src}"
+	    DEPENDS "${_src}"
+	    COMMENT "asciiquack: ${_stem} (${_FMT})"
+	    VERBATIM
+	  )
+	  install(FILES "${_outfile}" DESTINATION "${_install_dir}")
+	  list(APPEND all_outfiles "${_outfile}")
 
-        add_custom_command(
-          OUTPUT "${_outfile}"
-          COMMAND "${ASCIIQUACK_EXECUTABLE}"
-                  -b "${_backend}"
-                  -d "${_doctype}"
-                  -o "${_outfile}"
-                  "${_src}"
-          DEPENDS "${_src}"
-          COMMENT "asciiquack: ${_stem} (${_FMT})"
-          VERBATIM
-        )
+	  # HTML format for GUI viewers
+	  set(_outfile "${PROJECT_BINARY_DIR}/${DOC_DIR}/html/${_d1}/${_stem}.html")
+	  set(_install_dir "${DOC_DIR}/html/${_d1}")
+	  message("outfile: ${_outfile}")
+	  message("Install dir: ${_install_dir}")
 
-        install(FILES "${_outfile}" DESTINATION "${_install_dir}")
-        list(APPEND all_outfiles "${_outfile}")
+	  add_custom_command(
+	    OUTPUT "${_outfile}"
+	    COMMAND "${ASCIIQUACK_EXECUTABLE}"
+	    -b "html5"
+	    -d "manpage"
+	    -o "${_outfile}"
+	    "${_src}"
+	    DEPENDS "${_src}"
+	    COMMENT "asciiquack: ${_stem} (HTML ${_FMT})"
+	    VERBATIM
+	  )
+	  install(FILES "${_outfile}" DESTINATION "${_install_dir}")
+	  list(APPEND all_outfiles "${_outfile}")
 
-        # For man page formats, also generate HTML so the brlman GUI viewer,
-        # brlman.tcl, and Archer.tcl can find pages in html/man{section}/.
-        if(_html_section_subdir)
-          set(_html_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.html")
-          add_custom_command(
-            OUTPUT "${_html_outfile}"
-            COMMAND "${ASCIIQUACK_EXECUTABLE}"
-                    -b html5
-                    -d manpage
-                    -o "${_html_outfile}"
-                    "${_src}"
-            DEPENDS "${_src}"
-            COMMENT "asciiquack: ${_stem} (HTML)"
-            VERBATIM
-          )
-          install(FILES "${_html_outfile}" DESTINATION "${DOC_DIR}/html/${_html_section_subdir}")
-          list(APPEND all_outfiles "${_html_outfile}")
-        endif()
+	else()
+	  message(WARNING "ADD_ASCIIDOC: unknown format '${fmt}' – skipping")
+	  continue()
+	endif()
+
+	# Make sure CMake knows about the file
+	cmakefiles("${adoc_file}")
       endforeach()
-
-      cmakefiles("${adoc_file}")
     endforeach()
 
     if(all_outfiles)
