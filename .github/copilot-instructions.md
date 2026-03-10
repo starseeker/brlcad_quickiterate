@@ -30,22 +30,9 @@ cmake -S "$REPO_ROOT/brlcad" -B "$REPO_ROOT/brlcad_build" \
 
 Expected configure time: ~55 seconds on a fresh build directory (a few seconds on a re-configure).
 
-### Configuring with EXTRADOCS (for DocBook comparison work)
-
-When comparing DocBook-generated HTML/man outputs against asciiquack outputs, configure with `BRLCAD_EXTRADOCS=ON`:
-
-```bash
-REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
-mkdir -p brlcad_build
-cmake -S "$REPO_ROOT/brlcad" -B "$REPO_ROOT/brlcad_build" \
-  -DBRLCAD_EXT_DIR="$REPO_ROOT/bext_output" \
-  -DBRLCAD_EXTRADOCS=ON \
-  -DBRLCAD_ENABLE_STEP=OFF \
-  -DBRLCAD_ENABLE_GDAL=OFF \
-  -DBRLCAD_ENABLE_QT=OFF
-```
-
-This enables the `docbook-*` build targets which generate HTML and man pages from the DocBook XML sources.
+`BRLCAD_EXTRADOCS` controls whether the AsciiDoc documentation (man pages and HTML) is
+built via **asciiquack**.  It defaults to ON (when `BRLCAD_ENABLE_TARGETS > 2`).  Pass
+`-DBRLCAD_EXTRADOCS=OFF` to skip documentation building and save time.
 
 ## Building BRL-CAD
 
@@ -61,30 +48,27 @@ To build only a specific target (e.g. `libbu`):
 cmake --build /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build --target libbu -j$(nproc)
 ```
 
-### Building DocBook documentation targets
+### Building AsciiDoc documentation targets
 
-With `BRLCAD_EXTRADOCS=ON`, build individual doc targets or groups:
+Build individual asciidoc doc targets or groups:
 
 ```bash
 REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 
 # Build all mann pages (mged commands):
-cmake --build $REPO_ROOT/brlcad_build --target docbook-docbook-system-mann -j$(nproc)
+cmake --build $REPO_ROOT/brlcad_build --target asciidoc-asciidoc-system-mann -j$(nproc)
 
 # Build all man1 pages:
-cmake --build $REPO_ROOT/brlcad_build --target docbook-docbook-system-man1 -j$(nproc)
-
-# Build a single man page (e.g. nirt):
-cmake --build $REPO_ROOT/brlcad_build --target docbook-system-man1-nirt -j$(nproc)
+cmake --build $REPO_ROOT/brlcad_build --target asciidoc-asciidoc-system-man1 -j$(nproc)
 ```
 
 Generated outputs land in:
 - Man pages: `$REPO_ROOT/brlcad_build/share/man/man1/`, `.../mann/`, `.../man3/`, etc.
-- HTML pages: `$REPO_ROOT/brlcad_build/share/doc/html/man1/`, etc.
+- HTML pages: `$REPO_ROOT/brlcad_build/share/doc/html/asciidoc/`, etc.
 
 ## Building and Testing asciiquack
 
-The `asciiquack/` directory contains the AsciiDoc processor used to convert BRL-CAD DocBook sources.  Build it in a separate directory under `/tmp`:
+The `asciiquack/` directory contains the AsciiDoc processor used to build BRL-CAD documentation.  Build it in a separate directory under `/tmp`:
 
 ```bash
 REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
@@ -103,51 +87,9 @@ The test binary reports `All N tests passed.` on success.
 
 The asciiquack binary itself lives at `/tmp/aq_build/asciiquack`.  A pre-built copy is also committed at `bext_output/noinstall/bin/asciiquack` and is updated by the `report_progress` commits.
 
-## DocBook → AsciiDoc Conversion Workflow
-
-The XSL stylesheet that converts DocBook XML to AsciiDoc is at:
-`brlcad/misc/tools/db2adoc/db2adoc.xsl`
-
-The `xsltproc` binary is pre-built at:
-`bext_output/noinstall/bin/xsltproc`
-
-### Converting a single file
-
-```bash
-REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
-LD_LIBRARY_PATH=$REPO_ROOT/bext_output/noinstall/lib \
-  $REPO_ROOT/bext_output/noinstall/bin/xsltproc \
-  --novalid --xinclude \
-  $REPO_ROOT/brlcad/misc/tools/db2adoc/db2adoc.xsl \
-  $REPO_ROOT/brlcad/doc/docbook/system/man1/nirt.xml \
-  > /tmp/nirt.adoc
-```
-
-### Regenerating all committed AsciiDoc files after XSL changes
-
-```bash
-REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
-XSL="$REPO_ROOT/brlcad/misc/tools/db2adoc/db2adoc.xsl"
-XSLTPROC="LD_LIBRARY_PATH=$REPO_ROOT/bext_output/noinstall/lib $REPO_ROOT/bext_output/noinstall/bin/xsltproc --novalid --xinclude"
-for dir in articles books devguides lessons lessons/es presentations specifications system/man1 system/man3 system/man5 system/mann; do
-  srcdir="$REPO_ROOT/brlcad/doc/docbook/$dir"
-  for xml in "$srcdir"/*.xml; do
-    [ -f "$xml" ] || continue
-    relpath="${xml#$REPO_ROOT/brlcad/doc/docbook/}"
-    adoc="$REPO_ROOT/brlcad/doc/asciidoc/${relpath%.xml}.adoc"
-    [ -f "$adoc" ] || continue
-    new=$(eval $XSLTPROC "$XSL" "$xml" 2>/dev/null)
-    current=$(cat "$adoc")
-    if [ "$new" != "$current" ]; then
-      echo "$new" > "$adoc"
-    fi
-  done
-done
-```
-
 ## Comparing asciidoctor vs asciiquack Output
 
-The active comparison workflow uses **asciidoctor** as the reference renderer (not DocBook).
+The active comparison workflow uses **asciidoctor** as the reference renderer.
 Both `.adoc` files are rendered to man page troff via their respective tools, then rendered
 to plain text with `groff -Tascii | col -b`, normalized to strip terminal formatting codes,
 and diffed.
