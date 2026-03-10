@@ -118,6 +118,29 @@ struct pkg_conn {
     char *pkc_buf;				/**< @brief start of dynamic buf */
     char *pkc_curpos;				/**< @brief current position in pkg_buf */
     void *pkc_server_data;			/**< @brief used to hold server data for callbacks */
+
+    /**
+     * Pluggable I/O layer for TLS (or any other stream cipher / framing).
+     *
+     * When pkc_tls_read / pkc_tls_write are non-NULL they completely
+     * replace the raw fd reads/writes inside pkg_suckin(), pkg_send(),
+     * pkg_2send(), and pkg_flush().  pkc_tls_ctx is the opaque context
+     * pointer forwarded as the first argument to both callbacks.
+     *
+     * pkc_tls_free (if non-NULL) is called by pkg_close() before
+     * closing the socket, giving the TLS layer a chance to send a
+     * clean close_notify and free its own state.
+     *
+     * All four fields are zero-initialized by _pkg_makeconn().
+     *
+     * The callback signatures use ptrdiff_t (always defined via
+     * <stddef.h>) rather than ssize_t to avoid POSIX-only header
+     * dependencies in this public header.
+     */
+    void *pkc_tls_ctx;							/**< @brief opaque TLS state (e.g. SSL *) */
+    ptrdiff_t (*pkc_tls_read)(void *ctx, void *buf, size_t n);		/**< @brief TLS read callback; NULL = use raw fd */
+    ptrdiff_t (*pkc_tls_write)(void *ctx, const void *buf, size_t n);	/**< @brief TLS write callback; NULL = use raw fd */
+    void (*pkc_tls_free)(void *ctx);					/**< @brief called by pkg_close() to free TLS state */
 };
 #define PKC_NULL	((struct pkg_conn *)0)
 #define PKC_ERROR	((struct pkg_conn *)(-1L))

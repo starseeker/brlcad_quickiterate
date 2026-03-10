@@ -74,9 +74,27 @@
   </para>
 
   <para>
-    <command>remrt</command> depends on the Berkeley <emphasis remap='I'>rsh (1)</emphasis>
-    remote shell command and the user's corresponding ".rhosts" file to automatically
-    initiate remote computation.
+    <command>remrt</command> uses
+    <citerefentry><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    to automatically initiate remote computation.  The SSH client binary name defaults to
+    <emphasis remap='B'>ssh</emphasis> and can be overridden at compile time via the
+    <emphasis remap='B'>SSH</emphasis> preprocessor macro.  Public-key (or other
+    password-less) authentication must be configured between the controlling machine and
+    each worker host so that <command>remrt</command> can launch
+    <command>rtsrv</command> workers without interactive prompting.
+  </para>
+
+  <para>
+    At startup <command>remrt</command> generates a 256-bit random session authentication
+    token and prints it to standard error.  When <command>remrt</command> auto-launches an
+    <command>rtsrv</command> worker via SSH it appends <option>-S <replaceable>token</replaceable></option>
+    to the worker command line.  The worker includes the token in its version handshake;
+    <command>remrt</command> verifies the token before accepting the worker into the
+    session.  Workers that were started manually and do not carry the token are still
+    accepted by default (backward compatibility).  Operators who need to ensure that
+    <emphasis remap='I'>all</emphasis> connecting workers are authenticated can pass the
+    session token manually to each <command>rtsrv</command> invocation via its
+    <option>-S</option> flag.
   </para>
 
   <para>
@@ -103,10 +121,10 @@
 
   <para>
     The first argument to the "host" command is the name of the server machine.
-    It will be converted to a fully qualified name by calling
-    <citerefentry><refentrytitle>gethostbyname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    It will be resolved to a fully qualified name using
+    <citerefentry><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and
-    <citerefentry><refentrytitle>gethostbyaddr</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>getnameinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
   </para>
 
   <para>
@@ -164,6 +182,26 @@
       </listitem>
     </varlistentry>
     <varlistentry>
+      <term><emphasis remap='B'>rs</emphasis> [<replaceable>rays/sec</replaceable>]</term>
+      <listitem>
+	<para>
+	  behaves like <emphasis remap='B'>always</emphasis> but also records an optional
+	  performance hint (rays per second) for this host, which <command>remrt</command>
+	  uses to weight work allocation.  If the value is omitted, performance is measured
+	  dynamically.
+	</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis remap='B'>passrs</emphasis> [<replaceable>rays/sec</replaceable>]</term>
+      <listitem>
+	<para>
+	  behaves like <emphasis remap='B'>passive</emphasis> but records an optional
+	  performance hint (rays per second) for this host.
+	</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
       <term>If an unlisted machine should join the fray, it will be added</term>
       <listitem>
 	<para>
@@ -210,7 +248,7 @@
 	</para>
 
 	<literallayout remap='.nf'>
-	  asc2g &lt; file.g | rsh host 'cd directory; g2asc &gt; file.g'
+	  asc2g &lt; file.g | ssh host 'cd directory; g2asc &gt; file.g'
 	</literallayout> <!-- .fi -->
 
 	<para>
@@ -317,7 +355,7 @@
   <para>
     The following steps will set up a local (single machine) example remrt session.
     This does not utilize the full power of the remrt system, but will illustrate
-    how the individual pieces relate to each other.  Rather than use rsh, each
+    how the individual pieces relate to each other.  Rather than use ssh, each
     process will be launched manually.
   </para>
   <para>
@@ -458,10 +496,87 @@ host_lookup_by_hostent(localhost) got localhost?
 </refsection>
 
 
+<refsection xml:id='security'><title>SECURITY</title>
+
+  <refsection xml:id='session_token'><title>Session Authentication Token</title>
+  <para>
+    Each time <command>remrt</command> starts it generates a 256-bit random
+    session token and prints it to standard error, for example:
+  </para>
+  <literallayout remap='.nf'>
+    08/22 21:51:41 Session token: 3f8a1c...
+  </literallayout>
+  <para>
+    When <command>remrt</command> auto-launches an
+    <command>rtsrv</command> worker via SSH it appends
+    <option>-S <replaceable>token</replaceable></option> to the worker command line.
+    The worker sends the token as part of its protocol version handshake;
+    <command>remrt</command> verifies the token and rejects any worker that
+    presents a mismatched token.
+  </para>
+  <para>
+    Workers started manually (passive connections) that do not supply a token are
+    still accepted by default, preserving backward compatibility with older
+    <command>rtsrv</command> binaries.  To manually start a worker with
+    authentication, pass the printed token via:
+  </para>
+  <literallayout remap='.nf'>
+    rtsrv -S &lt;token&gt; server_host 4446
+  </literallayout>
+  </refsection>
+
+  <refsection xml:id='tls'><title>Transport Layer Security (TLS)</title>
+  <para>
+    When <command>remrt</command> and <command>rtsrv</command> are built with
+    OpenSSL support, all protocol traffic between the dispatcher and its workers
+    is automatically encrypted using TLS 1.2 or later.
+  </para>
+  <para>
+    <command>remrt</command> acts as the TLS server.  By default it generates an
+    RSA-2048 self-signed certificate in memory at startup — no external PKI
+    infrastructure is required.  Certificate verification is disabled on the
+    <command>rtsrv</command> client side because there is no shared certificate
+    authority; the session token (see above) provides application-level
+    authentication instead.
+  </para>
+  <para>
+    Sites that need to use pre-provisioned certificates can supply them via the
+    following environment variables before starting <command>remrt</command>:
+  </para>
+  <variablelist remap='TP'>
+    <varlistentry>
+      <term><envar>REMRT_TLS_CERT</envar></term>
+      <listitem>
+	<para>
+	  Path to a PEM-format certificate chain file (or a single certificate).
+	  Must be set together with <envar>REMRT_TLS_KEY</envar>.
+	</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><envar>REMRT_TLS_KEY</envar></term>
+      <listitem>
+	<para>
+	  Path to the PEM-format private key file corresponding to
+	  <envar>REMRT_TLS_CERT</envar>.
+	</para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>
+    If OpenSSL was not available at build time, all connections fall back to
+    unencrypted plain TCP, which is the same behavior as earlier releases.
+  </para>
+  </refsection>
+
+</refsection>
+
+
 <refsection xml:id='see_also'><title>SEE ALSO</title>
 <para>
   <citerefentry><refentrytitle>rtsrv</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
   <citerefentry><refentrytitle>rt</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+  <citerefentry><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
   <citerefentry><refentrytitle>scriptsort</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
   <citerefentry><refentrytitle>brlcad</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
   <citerefentry><refentrytitle>mged</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

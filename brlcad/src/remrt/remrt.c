@@ -40,8 +40,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#ifdef HAVE_SYS_SOCKET_H
+#  include <sys/socket.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#  include <netinet/in.h>
+#endif
 #include <time.h>
 #ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>		/* sometimes includes <time.h> */
@@ -86,6 +90,12 @@ extern int gettimeofday(struct timeval *, void *);
 #include "../rt/rtuif.h"
 #include "./protocol.h"
 #include "./ihost.h"
+/* Enable generate/verify functions — only the dispatcher (remrt) needs them */
+#define REMRT_AUTH_IMPL
+#include "./auth.h"
+/* Enable TLS server-side functions */
+#define REMRT_TLS_IMPL
+#include "./tls_wrap.h"
 #include "brlcad_ident.h"
 
 
@@ -103,9 +113,30 @@ extern int gettimeofday(struct timeval *, void *);
 #define N_SERVER_ASSIGNMENTS	1		/* desired # of assignments */
 #define MIN_ASSIGNMENT_TIME	5		/* desired seconds/result */
 #define SERVER_CHECK_INTERVAL	(10*60)		/* seconds */
-#ifndef RSH
-#  define RSH "/usr/ucb/rsh"
+#ifndef SSH
+#  define SSH "ssh"
 #endif
+
+/*
+ * Session authentication token.  Generated once at startup.
+ * Passed to auto-launched rtsrv workers via "-S <token>".
+ * An empty string means authentication is disabled.
+ */
+static char session_token[REMRT_AUTH_TOKEN_LEN + 1] = {0};
+
+/*
+ * When non-zero, ALL connecting workers must supply a valid token.
+ * When zero (the default), workers without a token are still accepted
+ * (backward compatibility for passive/manually-started servers).
+ */
+static int require_auth = 0;
+
+/* Pending helper processes launched to start remote rtsrv workers.
+ * Reaped lazily from check_input() to avoid blocking. */
+#define MAX_HELPER_PROCS 64
+#include "bu/process.h"
+static struct bu_process *helper_procs[MAX_HELPER_PROCS];
+static int helper_proc_count = 0;
 
 
 /*
@@ -368,14 +399,20 @@ char file_basename[128];	/* contains last component of file name */
 char file_fullname[128];	/* contains full file name */
 char object_list[512];	/* contains list of "MGED" objects */
 
-FILE *helper_fp;		/* pipe to rexec helper process */
-
 char *our_hostname;
 
 int tcp_listen_fd;
 extern int pkg_permport;	/* libpkg/pkg_permserver() listen port */
 
 int rem_debug;		/* dispatcher debugging flag */
+
+#ifdef HAVE_OPENSSL_SSL_H
+/*
+ * TLS server context.  Initialized at startup.  Shared by all worker
+ * connections accepted during this session.
+ */
+static SSL_CTX *remrt_ssl_ctx = NULL;
+#endif
 
 #define OPT_FRAME 0	/* Free for all */
 #define OPT_LOAD 1	/* 10% per server per frame */
@@ -406,6 +443,9 @@ stamp(void)
 
     return buf;
 }
+
+/* Forward declaration: defined later in this file */
+static void reap_helpers(void);
 
 
 /*
@@ -620,6 +660,22 @@ addclient(struct pkg_conn *pc)
     }
     if (rem_debug) bu_log("%s addclient(%s)\n", stamp(), ihp->ht_name);
 
+#ifdef HAVE_OPENSSL_SSL_H
+    /* Upgrade connection to TLS before any PKG messages are exchanged.
+     * If the handshake fails we still accept the connection as plaintext
+     * to remain compatible with rtsrv workers built without OpenSSL. */
+    if (remrt_ssl_ctx) {
+	if (remrt_tls_accept(remrt_ssl_ctx, pc) == REMRT_TLS_OK) {
+	    if (rem_debug)
+		bu_log("%s TLS established with %s\n", stamp(), ihp->ht_name);
+	} else {
+	    bu_log("%s WARNING: TLS handshake failed for %s; "
+		   "connection accepted as plaintext\n",
+		   stamp(), ihp->ht_name);
+	}
+    }
+#endif
+
     FD_SET(fd, &clients);
 
     sp = &servers[fd];
@@ -653,6 +709,9 @@ check_input(int waittime)
     struct pkg_conn *pc;
     static struct timeval tv;
     int val;
+
+    /* Clean up any helper processes that have finished */
+    reap_helpers();
 
     /* First, handle any packages waiting in internal buffers */
     for (i = 0; i <(int)MAXSERVERS; i++) {
@@ -1086,41 +1145,133 @@ create_outputfilename(struct frame *fr)
 
 
 /*
- * There are two message formats:
- * HT_CD host, port, rem_dir
- * HT_CONVERT host, port, rem_dir, loc_db, rem_db
+ * Reap any helper processes that have already finished, freeing their
+ * resources.  Called from check_input() to avoid zombie accumulation.
+ * Does not kill running processes.
+ */
+static void
+reap_helpers(void)
+{
+    int i, j;
+
+    for (i = 0, j = 0; i < helper_proc_count; i++) {
+	if (helper_procs[i] == NULL)
+	    continue;
+	if (!bu_process_alive(helper_procs[i])) {
+	    /* Process has already exited.  Wait with a 1 ms timeout —
+	     * since the process is already done, waitpid() returns
+	     * immediately, so the timeout is never reached. */
+	    bu_process_wait_n(&helper_procs[i], 1);
+	    /* bu_process_wait_n sets the pointer to NULL */
+	} else {
+	    /* Still running — keep it in the list */
+	    helper_procs[j++] = helper_procs[i];
+	}
+    }
+    helper_proc_count = j;
+}
+
+
+/*
+ * Launch rtsrv on a remote host so that it connects back to our TCP
+ * listen port.  Replaces the old pipe()+fork()+execl(rsh, ...) pattern
+ * with bu_process_create(), which is portable to Windows as well.
+ *
+ * HT_CD:      ssh -f -n <host> "cd <path> && rtsrv <ctrl> <port> [-S <tok>]"
+ * HT_CONVERT: /bin/sh -c "g2asc<db | ssh <host> 'cd <path>; asc2g><rem>; rtsrv ...'"
+ *
+ * For HT_CD, "ssh -f" returns as soon as it has forked the remote
+ * command to the background, so the helper process exits quickly.
+ *
+ * NOTE: auto-launching workers requires SSH to be installed and the
+ * controlling host to have key-based (passwordless) access to each
+ * worker host.  Passive workers (HT_PASSIVE / HT_PASSRS) connect in
+ * by themselves and do not require SSH.
  */
 static void
 add_host(struct ihost *ihp)
 {
-    if (ihp->ht_flags & HT_HOLD) return;	/* Not allowed to use */
-    /* Send message to helper process */
+    char cmd[1024];
+    char port_str[32];
+    const char *argv[8];
+    struct bu_process *p = NULL;
+
+    if (ihp->ht_flags & HT_HOLD) return;
+
+    if (helper_proc_count >= MAX_HELPER_PROCS) {
+	reap_helpers();
+	if (helper_proc_count >= MAX_HELPER_PROCS) {
+	    bu_log("add_host: too many pending helper processes\n");
+	    return;
+	}
+    }
+
+    snprintf(port_str, sizeof(port_str), "%d", pkg_permport);
+
     switch (ihp->ht_where) {
 	case HT_CD:
-	    fprintf(helper_fp,
-		    "%s %d %s\n",
-		    ihp->ht_name, pkg_permport, ihp->ht_path);
+	    /* Build the remote command string */
+	    if (session_token[0] != '\0') {
+		snprintf(cmd, sizeof(cmd),
+			 "cd %s && rtsrv %s %s -S %s",
+			 ihp->ht_path, our_hostname, port_str,
+			 session_token);
+	    } else {
+		snprintf(cmd, sizeof(cmd),
+			 "cd %s && rtsrv %s %s",
+			 ihp->ht_path, our_hostname, port_str);
+	    }
+	    argv[0] = SSH;
+	    argv[1] = "-f";  /* fork to background after auth */
+	    argv[2] = "-n";  /* redirect stdin from /dev/null  */
+	    argv[3] = ihp->ht_name;
+	    argv[4] = cmd;
+	    argv[5] = NULL;
+	    if (rem_debug)
+		bu_log("%s %s -f -n %s '%s'\n",
+		       stamp(), SSH, ihp->ht_name, cmd);
 	    break;
+
 	case HT_CONVERT:
+	    /* Transfer database via SSH, then start rtsrv */
 	    if (file_fullname[0] == '\0') {
 		bu_log("unable to add CONVERT host %s until database given\n",
 		       ihp->ht_name);
 		return;
 	    }
-	    fprintf(helper_fp,
-		    "%s %d %s %s %s\n",
-		    ihp->ht_name, pkg_permport, ihp->ht_path,
-		    file_fullname, file_basename);
+	    if (session_token[0] != '\0') {
+		snprintf(cmd, sizeof(cmd),
+			 "g2asc<%s | %s %s "
+			 "\"cd %s; asc2g>%s; rtsrv %s %s -S %s\"",
+			 file_fullname, SSH, ihp->ht_name,
+			 ihp->ht_path, file_basename,
+			 our_hostname, port_str, session_token);
+	    } else {
+		snprintf(cmd, sizeof(cmd),
+			 "g2asc<%s | %s %s "
+			 "\"cd %s; asc2g>%s; rtsrv %s %s\"",
+			 file_fullname, SSH, ihp->ht_name,
+			 ihp->ht_path, file_basename,
+			 our_hostname, port_str);
+	    }
+	    argv[0] = "/bin/sh";
+	    argv[1] = "-c";
+	    argv[2] = cmd;
+	    argv[3] = NULL;
+	    if (rem_debug)
+		bu_log("%s sh -c '%s'\n", stamp(), cmd);
 	    break;
-	default:
-	    bu_log("add_host:  ht_where=%d?\n", ihp->ht_where);
-	    break;
-    }
-    fflush(helper_fp);
 
-    /* Wait briefly to try and catch the incoming connection,
-     * in case there are several of these spawned in a row.
-     */
+	default:
+	    bu_log("add_host: ht_where=%d?\n", ihp->ht_where);
+	    return;
+    }
+
+    bu_process_create(&p, argv, BU_PROCESS_DEFAULT);
+    if (p != NULL)
+	helper_procs[helper_proc_count++] = p;
+
+    /* Give the new connection a moment to arrive */
     check_input(1);
 }
 
@@ -1537,8 +1688,8 @@ frame_is_done(struct frame *fr)
 	if ((fp = fopen(fr->fr_filename, "r")) == NULL) {
 	    perror(fr->fr_filename);
 	} else {
-	    /* Write-protect file, to prevent re-computation */
-	    if (fchmod(fileno(fp), 0444) < 0) {
+	    /* Write-protect the file to prevent re-computation */
+	    if (bu_fchmod(fileno(fp), 0444) < 0) {
 		perror(fr->fr_filename);
 	    }
 	    (void)fclose(fp);
@@ -3120,21 +3271,56 @@ static void
 ph_version(struct pkg_conn *pc, char *buf)
 {
     struct servers *sp;
+    const char *tok_prefix;
+    const char *recv_token = NULL;
 
     sp = &servers[pc->pkc_fd];
-    if (!BU_STR_EQUAL(PROTOCOL_VERSION, buf)) {
+
+    /* Check protocol version (must be exact prefix match) */
+    if (bu_strncmp(PROTOCOL_VERSION, buf, strlen(PROTOCOL_VERSION)) != 0) {
 	bu_log("ERROR %s: protocol version mismatch\n",
 	       sp->sr_host->ht_name);
 	bu_log("  local='%s'\n", PROTOCOL_VERSION);
 	bu_log(" remote='%s'\n", buf);
 	drop_server(sp, "version mismatch");
-    } else {
-	if (sp->sr_state != SRST_NEW) {
-	    bu_log("NOTE %s:  VERSION message unexpected\n",
-		   sp->sr_host->ht_name);
-	}
-	statechange(sp, SRST_VERSOK);
+	if (buf) (void)free(buf);
+	return;
     }
+
+    /* Extract optional session token from the version string */
+    tok_prefix = buf + strlen(PROTOCOL_VERSION);
+    if (bu_strncmp(tok_prefix, REMRT_AUTH_TOKEN_PREFIX,
+		   strlen(REMRT_AUTH_TOKEN_PREFIX)) == 0) {
+	recv_token = tok_prefix + strlen(REMRT_AUTH_TOKEN_PREFIX);
+    }
+
+    /* Authenticate if a session token was generated at startup */
+    if (session_token[0] != '\0') {
+	if (recv_token != NULL) {
+	    /* Worker sent a token — verify it */
+	    if (!remrt_verify_token(recv_token, session_token)) {
+		bu_log("ERROR %s: session token mismatch — rejecting\n",
+		       sp->sr_host->ht_name);
+		drop_server(sp, "session token mismatch");
+		if (buf) (void)free(buf);
+		return;
+	    }
+	} else if (require_auth) {
+	    /* Strict mode: reject workers that don't authenticate */
+	    bu_log("ERROR %s: no session token provided (strict auth)\n",
+		   sp->sr_host->ht_name);
+	    drop_server(sp, "no session token (strict auth)");
+	    if (buf) (void)free(buf);
+	    return;
+	}
+	/* else: passive/manual worker without token — accepted (compat) */
+    }
+
+    if (sp->sr_state != SRST_NEW) {
+	bu_log("NOTE %s: VERSION message unexpected\n",
+	       sp->sr_host->ht_name);
+    }
+    statechange(sp, SRST_VERSOK);
     if (buf) (void)free(buf);
 }
 
@@ -3372,149 +3558,6 @@ out:
 }
 
 
-/*
- * This loop runs in the child process of the real REMRT, and is directed
- * to initiate contact with new hosts via a one-way pipe from the parent.
- * In some cases, starting RTSRV on the indicated host is sufficient;
- * in other cases, the portable version of the database needs to be
- * sent first.
- *
- * For now, a limitation is that the local and remote databases are
- * given the same name.  If relative path names are used, this should
- * not be a problem, but this could be changed later.
- */
-static void
-host_helper(FILE *fp)
-{
-    char line[1024];
-    char cmd[553];
-    char host[128];
-    char loc_db[128];
-    char rem_db[128];
-    char rem_dir[128];
-    int port;
-    int cnt;
-    int i;
-    int pid;
-
-    while (1) {
-	line[0] = '\0';
-	(void)bu_fgets(line, sizeof(line), fp);
-	if (feof(fp)) break;
-
-	loc_db[0] = '\0';
-	rem_db[0] = '\0';
-	rem_dir[0] = '\0';
-	cnt = sscanf(line, "%127s %d %127s %127s %127s",
-		     host, &port, rem_dir, loc_db, rem_db);
-	if (cnt != 3 && cnt != 5) {
-	    bu_log("host_helper: cnt=%d, aborting\n", cnt);
-	    break;
-	}
-
-	if (cnt == 3) {
-	    snprintf(cmd, sizeof(cmd),
-		     "cd %s; rtsrv %s %d",
-		     rem_dir, our_hostname, port);
-	    if (rem_debug) {
-		bu_log("%s %s\n", stamp(), cmd);
-		fflush(stdout);
-	    }
-
-	    pid = fork();
-	    if (pid == 0) {
-		/* 1st level child */
-		(void)close(0);
-		for (i=3; i<40; i++)  (void)close(i);
-		if (vfork() == 0) {
-		    /* worker Child */
-
-		    /* First, try direct exec. */
-		    execl(RSH, "rsh", host, "-n", cmd, NULL);
-
-		    /* Second, try $PATH exec */
-		    execlp("rsh", "rsh", host, "-n", cmd, NULL);
-		    perror("rsh execl");
-		    bu_exit(0, NULL);
-		}
-		bu_exit(0, NULL);
-	    } else if (pid < 0) {
-		perror("fork");
-	    } else {
-		(void)wait(0);
-	    }
-	} else {
-	    snprintf(cmd, sizeof(cmd),
-		     "g2asc<%s|%s %s \"cd %s; asc2g>%s; rtsrv %s %d\"",
-		     loc_db,
-		     RSH, host,
-		     rem_dir, rem_db,
-		     our_hostname, port);
-	    if (rem_debug) {
-		bu_log("%s %s\n", stamp(), cmd);
-		fflush(stdout);
-	    }
-
-	    pid = fork();
-	    if (pid == 0) {
-		/* 1st level child */
-		(void)close(0);
-		for (i=3; i<40; i++)  (void)close(i);
-
-		if (vfork() == 0) {
-		    /* worker Child */
-		    execl("/bin/sh", "remrt_sh", "-c", cmd, NULL);
-		    perror("/bin/sh");
-		    bu_exit(0, NULL);
-		}
-		bu_exit(0, NULL);
-	    } else if (pid < 0) {
-		perror("fork");
-	    } else {
-		(void)wait(0);
-	    }
-	}
-    }
-}
-
-
-static void
-start_helper(void)
-{
-    int fds[2];
-    int pid;
-
-    if (pipe(fds) < 0) {
-	perror("pipe");
-	bu_exit(1, NULL);
-    }
-
-    pid = fork();
-    if (pid == 0) {
-	/* Child process */
-	FILE *fp;
-
-	(void)close(fds[1]);
-	if ((fp = fdopen(fds[0], "r")) == (FILE *)NULL) {
-	    perror("fdopen");
-	    bu_exit(3, NULL);
-	}
-	host_helper(fp);
-	/* No more commands from parent */
-	bu_exit(0, NULL);
-    } else if (pid < 0) {
-	perror("fork");
-	bu_exit(2, NULL);
-    }
-    /* Parent process */
-    if ((helper_fp = fdopen(fds[1], "w")) == (FILE *)NULL) {
-	perror("fdopen");
-	bu_exit(4, NULL);
-    }
-    (void)close(fds[0]);
-}
-
-
 static void
 do_work(int auto_start)
 {
@@ -3577,7 +3620,30 @@ main(int argc, char *argv[])
 
     width = height = 512;			/* same size as RT */
 
-    start_helper();
+    /* Generate a session authentication token so that auto-launched
+     * rtsrv workers can prove they belong to this session.
+     * Print it so operators can pass it manually to passive workers. */
+    remrt_generate_token(session_token);
+    fprintf(stderr, "%s Session token: %s\n", stamp(), session_token);
+    fflush(stderr);
+
+#ifdef HAVE_OPENSSL_SSL_H
+    /* Set up TLS server context.  Environment variables allow sites to
+     * supply their own certificate/key files; otherwise a self-signed
+     * cert is generated in memory. */
+    {
+	const char *certfile = getenv("REMRT_TLS_CERT");
+	const char *keyfile  = getenv("REMRT_TLS_KEY");
+	remrt_ssl_ctx = remrt_tls_server_ctx(certfile, keyfile);
+	if (remrt_ssl_ctx)
+	    fprintf(stderr, "%s TLS enabled (%s)\n", stamp(),
+		    (certfile && keyfile) ? certfile : "self-signed cert");
+	else
+	    fprintf(stderr, "%s WARNING: TLS context creation failed; "
+		    "connections will be unencrypted\n", stamp());
+	fflush(stderr);
+    }
+#endif
 
     BU_LIST_INIT(&FreeList);
     FrameHead.fr_forw = FrameHead.fr_back = &FrameHead;
@@ -3604,7 +3670,9 @@ main(int argc, char *argv[])
     }
     /* Now, pkg_permport has tcp port number */
 
+#ifdef SIGPIPE
     (void)signal(SIGPIPE, SIG_IGN);
+#endif
 
     if (argc <= 1) {
 	(void)signal(SIGINT, SIG_IGN);
@@ -3691,6 +3759,14 @@ main(int argc, char *argv[])
 	do_work(1);		/* auto start servers */
 	bu_log("%s Task accomplished\n", stamp());
     }
+
+#ifdef HAVE_OPENSSL_SSL_H
+    if (remrt_ssl_ctx) {
+	SSL_CTX_free(remrt_ssl_ctx);
+	remrt_ssl_ctx = NULL;
+    }
+#endif
+
     return 0;			/* bu_exit(0, NULL; */
 }
 
