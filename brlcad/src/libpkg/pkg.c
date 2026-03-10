@@ -1065,19 +1065,26 @@ pkg_send(int type, const char *buf, size_t len, struct pkg_conn *pc)
     if (pc->pkc_tls_write) {
 	/* TLS does not support scatter-gather I/O.  Build a linear
 	 * buffer containing [header][data] and pass it to the TLS
-	 * write callback in one shot. */
+	 * write callback in one shot.
+	 * For small payloads reuse pkc_stream to avoid a malloc. */
 	char *tbuf;
+	int need_free = 0;
 	size_t total = sizeof(hdr) + len;
-	tbuf = (char *)malloc(total);
-	if (!tbuf) {
-	    _pkg_perror(pc->pkc_errlog, "pkg_send: malloc for TLS buffer");
-	    return -1;
+	if (total <= PKG_STREAMLEN) {
+	    tbuf = pc->pkc_stream;
+	} else {
+	    tbuf = (char *)malloc(total);
+	    if (!tbuf) {
+		_pkg_perror(pc->pkc_errlog, "pkg_send: malloc for TLS buffer");
+		return -1;
+	    }
+	    need_free = 1;
 	}
 	memcpy(tbuf, (char *)&hdr, sizeof(hdr));
 	if (len > 0)
 	    memcpy(tbuf + sizeof(hdr), buf, len);
 	i = (ssize_t)pc->pkc_tls_write(pc->pkc_tls_ctx, tbuf, total);
-	free(tbuf);
+	if (need_free) free(tbuf);
 	if (i != (ssize_t)total) {
 	    if (i < 0) {
 		_pkg_perror(pc->pkc_errlog, "pkg_send: TLS write");
@@ -1213,13 +1220,20 @@ pkg_2send(int type, const char *buf1, size_t len1, const char *buf2, size_t len2
      */
     if (pc->pkc_tls_write) {
 	/* TLS does not support scatter-gather.  Build a single linear
-	 * buffer [header][buf1][buf2] and send it with one call. */
+	 * buffer [header][buf1][buf2] and send it with one call.
+	 * For small payloads reuse pkc_stream to avoid a malloc. */
 	char *tbuf;
+	int need_free = 0;
 	size_t total = sizeof(hdr) + len1 + len2;
-	tbuf = (char *)malloc(total);
-	if (!tbuf) {
-	    _pkg_perror(pc->pkc_errlog, "pkg_2send: malloc for TLS buffer");
-	    return -1;
+	if (total <= PKG_STREAMLEN) {
+	    tbuf = pc->pkc_stream;
+	} else {
+	    tbuf = (char *)malloc(total);
+	    if (!tbuf) {
+		_pkg_perror(pc->pkc_errlog, "pkg_2send: malloc for TLS buffer");
+		return -1;
+	    }
+	    need_free = 1;
 	}
 	memcpy(tbuf, (char *)&hdr, sizeof(hdr));
 	if (len1 > 0)
@@ -1227,7 +1241,7 @@ pkg_2send(int type, const char *buf1, size_t len1, const char *buf2, size_t len2
 	if (len2 > 0)
 	    memcpy(tbuf + sizeof(hdr) + len1, buf2, len2);
 	i = (ssize_t)pc->pkc_tls_write(pc->pkc_tls_ctx, tbuf, total);
-	free(tbuf);
+	if (need_free) free(tbuf);
 	if (i != (ssize_t)total) {
 	    if (i < 0) {
 		_pkg_perror(pc->pkc_errlog, "pkg_2send: TLS write");
