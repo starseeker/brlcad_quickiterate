@@ -62,6 +62,9 @@
 #include "../rt/ext.h"
 #include "./protocol.h"
 #include "./auth.h"
+/* Enable TLS client-side functions */
+#define REMRT_TLS_IMPL
+#include "./tls_wrap.h"
 
 
 struct bu_list WorkHead;
@@ -217,6 +220,27 @@ main(int argc, char **argv)
 		control_host, tcp_port);
 	return 1;
     }
+
+#ifdef HAVE_OPENSSL_SSL_H
+    /* Attempt TLS handshake with the remrt dispatcher.  If remrt was
+     * built with TLS support it will do SSL_accept() on its side;
+     * if not (or the handshake fails) we continue as plaintext for
+     * backward compatibility. */
+    {
+	SSL_CTX *tls_ctx = remrt_tls_client_ctx();
+	if (tls_ctx) {
+	    if (remrt_tls_connect(tls_ctx, pcsrv) == REMRT_TLS_OK) {
+		if (debug)
+		    fprintf(stderr, "rtsrv: TLS established with %s\n",
+			    control_host);
+	    } else {
+		fprintf(stderr, "rtsrv: TLS handshake failed; "
+			"continuing as plaintext\n");
+	    }
+	    SSL_CTX_free(tls_ctx);
+	}
+    }
+#endif
 
     if (argc == 4) {
 	/* Slip one command to dispatcher */
