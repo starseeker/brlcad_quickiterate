@@ -61,6 +61,7 @@
 #include "../rt/rtuif.h"
 #include "../rt/ext.h"
 #include "./protocol.h"
+#include "./auth.h"
 
 
 struct bu_list WorkHead;
@@ -149,7 +150,14 @@ char *control_host;	/* name of host running controller */
 char *tcp_port;		/* TCP port on control_host */
 int debug = 0;		/* 0=off, 1=debug, 2=verbose */
 
-char srv_usage[] = "Usage: rtsrv [-d] control-host tcp-port [cmd]\n";
+/*
+ * Session authentication token, supplied via "-S <token>" on the
+ * command line when remrt auto-launches this process via SSH.
+ * An empty string means no authentication (passive/manual start).
+ */
+static char srv_auth_token[REMRT_AUTH_TOKEN_LEN + 1] = {0};
+
+char srv_usage[] = "Usage: rtsrv [-d] [-S token] control-host tcp-port [cmd]\n";
 
 
 int
@@ -173,6 +181,15 @@ main(int argc, char **argv)
 	    argc--; argv++;
 	} else if (BU_STR_EQUAL(argv[1], "-X")) {
 	    sscanf(argv[2], "%x", (unsigned int *)&optical_debug);
+	    argc--; argv++;
+	} else if (BU_STR_EQUAL(argv[1], "-S")) {
+	    /* Session authentication token from remrt */
+	    if (argc < 3) {
+		fprintf(stderr, "%s", srv_usage);
+		return 3;
+	    }
+	    bu_strlcpy(srv_auth_token, argv[2],
+		       sizeof(srv_auth_token));
 	    argc--; argv++;
 	} else {
 	    fprintf(stderr, "%s", srv_usage);
@@ -225,35 +242,40 @@ main(int argc, char **argv)
 #endif
 
     if (!debug) {
-	int i;
 	FILE *fp;
 
 	/* DAEMONIZE */
 
-	/* Get a fresh process */
-	i = fork();
-	if (i < 0)
-	    perror("fork");
-	else if (i)
-	    return 0;
+#ifdef HAVE_FORK
+	{
+	    int i;
+
+	    /* Get a fresh process */
+	    i = fork();
+	    if (i < 0)
+		perror("fork");
+	    else if (i)
+		return 0;
+	}
 
 	/* Go into our own process group */
 	n = bu_pid();
-#ifdef HAVE_SETPGID
+#  ifdef HAVE_SETPGID
 	if (setpgid(n, n) < 0)
 	    perror("setpgid");
-#else
+#  else
 	/* SysV uses setpgrp with no args and it can't fail,
 	 * obsoleted by setpgid.
 	 */
 	setpgrp();
-#endif
+#  endif
 
 	/* Create our own session */
-#ifdef HAVE_SETSID
+#  ifdef HAVE_SETSID
 	if (setsid() < 0)
-	    perror("setpgid");
-#endif
+	    perror("setsid");
+#  endif
+#endif /* HAVE_FORK */
 
 	/* TODO: need to change directory (e.g., to TEMP) so we don't
 	 * make the initial working directory unlinkable on some OS.
@@ -294,13 +316,29 @@ main(int argc, char **argv)
 	    perror("freopen STDERR");
     }
 
-    /* Send our version string */
-    if (pkg_send(MSG_VERSION, PROTOCOL_VERSION, strlen(PROTOCOL_VERSION)+1, pcsrv) < 0) {
-	fprintf(stderr, "pkg_send MSG_VERSION error\n");
-	return 1;
+    /* Send our version string, optionally including the session token.
+     * Format: PROTOCOL_VERSION REMRT_AUTH_TOKEN_PREFIX <hex-token>
+     * The token is only appended when one was supplied on the command
+     * line (i.e., this process was auto-launched by remrt via SSH).
+     */
+    {
+	struct bu_vls ver = BU_VLS_INIT_ZERO;
+	bu_vls_strcat(&ver, PROTOCOL_VERSION);
+	if (srv_auth_token[0] != '\0') {
+	    bu_vls_strcat(&ver, REMRT_AUTH_TOKEN_PREFIX);
+	    bu_vls_strcat(&ver, srv_auth_token);
+	}
+	if (pkg_send(MSG_VERSION,
+		     bu_vls_addr(&ver), bu_vls_strlen(&ver) + 1,
+		     pcsrv) < 0) {
+	    fprintf(stderr, "pkg_send MSG_VERSION error\n");
+	    bu_vls_free(&ver);
+	    return 1;
+	}
+	if (debug)
+	    fprintf(stderr, "PROTOCOL_VERSION='%s'\n", bu_vls_addr(&ver));
+	bu_vls_free(&ver);
     }
-    if (debug)
-	fprintf(stderr, "PROTOCOL_VERSION='%s'\n", PROTOCOL_VERSION);
 
     /*
      * Now that the fork() has been done, it is safe to initialize

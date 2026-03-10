@@ -31,6 +31,7 @@
 #ifdef HAVE_NETDB_H
 #  include <netdb.h>
 #endif
+#include "bnetwork.h"
 
 
 /* Internal Host table */
@@ -64,10 +65,9 @@ extern struct bu_list	HostHead;
 
 #define IHOST_NULL	((struct ihost *)0)
 
-extern struct ihost	*host_lookup_by_name(const char* name, int enter);
-extern struct ihost	*host_lookup_by_addr(const struct sockaddr_in * from, int enter);
-extern struct ihost	*host_lookup_by_hostent(const struct hostent * addr, int enter);
-extern struct ihost	*make_default_host(const char* name);
+extern struct ihost	*host_lookup_by_name(const char *name, int enter);
+extern struct ihost	*host_lookup_by_addr(const struct sockaddr_in *from, int enter);
+extern struct ihost	*make_default_host(const char *name);
 extern char		*get_our_hostname(void);
 extern struct ihost	*host_lookup_of_fd(int fd);
 
