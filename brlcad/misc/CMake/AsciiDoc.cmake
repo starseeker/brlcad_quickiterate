@@ -48,8 +48,11 @@
 # deps_list    - CMake target name to add generated files to (may be "").
 #
 # The macro generates HTML5 output for HTML format and troff man pages for
-# MAN* formats.  Outputs are installed into the standard locations under
-# ${DOC_DIR} and ${MAN_DIR} respectively.
+# MAN* formats.  MAN* formats also generate companion HTML files (installed
+# to ${DOC_DIR}/html/man{section}/) so that the brlman GUI viewer and Tcl
+# scripts (brlman.tcl, Archer.tcl) can locate and display man pages.
+# Outputs are installed into the standard locations under ${DOC_DIR} and
+# ${MAN_DIR} respectively.
 #
 # Example:
 #   ADD_ASCIIDOC("HTML;MAN1" man1_ADOC "" "" REQUIRED brlman)
@@ -123,6 +126,7 @@ if(NOT COMMAND ADD_ASCIIDOC)
 
       foreach(fmt ${fmts})
         string(TOUPPER "${fmt}" _FMT)
+        set(_html_section_subdir "")  # companion HTML section dir; set by MAN* cases
 
         if(_FMT STREQUAL "HTML")
           set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.html")
@@ -135,24 +139,28 @@ if(NOT COMMAND ADD_ASCIIDOC)
           set(_backend "manpage")
           set(_doctype "manpage")
           set(_install_dir "${MAN_DIR}/man1")
+          set(_html_section_subdir "man1")
 
         elseif(_FMT STREQUAL "MAN3")
           set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.3")
           set(_backend "manpage")
           set(_doctype "manpage")
           set(_install_dir "${MAN_DIR}/man3")
+          set(_html_section_subdir "man3")
 
         elseif(_FMT STREQUAL "MAN5")
           set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.5")
           set(_backend "manpage")
           set(_doctype "manpage")
           set(_install_dir "${MAN_DIR}/man5")
+          set(_html_section_subdir "man5")
 
         elseif(_FMT STREQUAL "MANN")
           set(_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.nged")
           set(_backend "manpage")
           set(_doctype "manpage")
           set(_install_dir "${MAN_DIR}/mann")
+          set(_html_section_subdir "mann")
 
         else()
           message(WARNING "ADD_ASCIIDOC: unknown format '${fmt}' – skipping")
@@ -173,6 +181,25 @@ if(NOT COMMAND ADD_ASCIIDOC)
 
         install(FILES "${_outfile}" DESTINATION "${_install_dir}")
         list(APPEND all_outfiles "${_outfile}")
+
+        # For man page formats, also generate HTML so the brlman GUI viewer,
+        # brlman.tcl, and Archer.tcl can find pages in html/man{section}/.
+        if(_html_section_subdir)
+          set(_html_outfile "${CMAKE_CURRENT_BINARY_DIR}/${_stem}.html")
+          add_custom_command(
+            OUTPUT "${_html_outfile}"
+            COMMAND "${ASCIIQUACK_EXECUTABLE}"
+                    -b html5
+                    -d manpage
+                    -o "${_html_outfile}"
+                    "${_src}"
+            DEPENDS "${_src}"
+            COMMENT "asciiquack: ${_stem} (HTML)"
+            VERBATIM
+          )
+          install(FILES "${_html_outfile}" DESTINATION "${DOC_DIR}/html/${_html_section_subdir}")
+          list(APPEND all_outfiles "${_html_outfile}")
+        endif()
       endforeach()
 
       cmakefiles("${adoc_file}")
