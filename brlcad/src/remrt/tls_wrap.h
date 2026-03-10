@@ -185,7 +185,13 @@ _remrt_tls_gen_selfsigned(SSL_CTX *ctx)
 	    goto out;
 	}
 	BN_set_word(e, RSA_F4);          /* 65537 */
-	RSA_generate_key_ex(rsa, 2048, e, NULL);
+	if (RSA_generate_key_ex(rsa, 2048, e, NULL) != 1) {
+	    BN_free(e);
+	    RSA_free(rsa);
+	    EVP_PKEY_free(pkey);
+	    pkey = NULL;
+	    goto out;
+	}
 	BN_free(e);
 	EVP_PKEY_assign_RSA(pkey, rsa);  /* rsa now owned by pkey */
     }
@@ -199,7 +205,7 @@ _remrt_tls_gen_selfsigned(SSL_CTX *ctx)
 
     ASN1_INTEGER_set(X509_get_serialNumber(cert), 1);
     X509_gmtime_adj(X509_get_notBefore(cert), 0);
-    X509_gmtime_adj(X509_get_notAfter(cert), 3650 * 24 * 3600L); /* 10 years */
+    X509_gmtime_adj(X509_get_notAfter(cert), 365 * 24 * 3600L); /* 1 year */
 
     X509_set_pubkey(cert, pkey);
 
