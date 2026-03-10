@@ -74,6 +74,7 @@ mged_state_create(void)
     mged_state_clbk_set(s, 0, ECMD_VIEW_UPDATE, BU_CLBK_DURING, mged_view_update, s);
     mged_state_clbk_set(s, 0, ECMD_VIEW_SET_FLAG, BU_CLBK_DURING, mged_view_set_flag, s);
     mged_state_clbk_set(s, 0, ECMD_MENU_SET, BU_CLBK_DURING, mged_mmenu_set, s);
+    mged_state_clbk_set(s, 0, ECMD_MENU_REFRESH, BU_CLBK_DURING, mged_menu_refresh, s);
     mged_state_clbk_set(s, 0, ECMD_GET_FILENAME, BU_CLBK_DURING, mged_get_filename, s);
 
     // Register primitive/ecmd specific callbacks
@@ -130,6 +131,7 @@ mged_state_init_internals(struct mged_state *s)
     mged_state_clbk_set(s, 0, ECMD_VIEW_UPDATE,            BU_CLBK_DURING, mged_view_update,           s);
     mged_state_clbk_set(s, 0, ECMD_VIEW_SET_FLAG,          BU_CLBK_DURING, mged_view_set_flag,         s);
     mged_state_clbk_set(s, 0, ECMD_MENU_SET,               BU_CLBK_DURING, mged_mmenu_set,             s);
+    mged_state_clbk_set(s, 0, ECMD_MENU_REFRESH,           BU_CLBK_DURING, mged_menu_refresh,          s);
     mged_state_clbk_set(s, 0, ECMD_GET_FILENAME,           BU_CLBK_DURING, mged_get_filename,          s);
 
     /* Register primitive/ecmd specific callbacks */

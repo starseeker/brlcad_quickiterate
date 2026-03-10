@@ -1957,6 +1957,19 @@ f_extrude(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 	return TCL_ERROR;
     }
 
+    /* If the ARB type changed (e.g. ARB4 extruded to ARB6), the editing
+     * menu needs to be refreshed to show the new type's options.  Fire the
+     * ECMD_MENU_REFRESH callback so the application can reinstall the
+     * appropriate menu. */
+    int new_arb_type = rt_arb_std_type(&MEDIT(s)->es_int, MEDIT(s)->tol);
+    if (new_arb_type != arb_type) {
+	bu_clbk_t f = NULL;
+	void *d = NULL;
+	rt_edit_map_clbk_get(&f, &d, MEDIT(s)->m, ECMD_MENU_REFRESH, BU_CLBK_DURING);
+	if (f)
+	    (*f)(0, NULL, d, NULL);
+    }
+
     /* draw the updated solid */
     replot_editing_solid(0, NULL, s, NULL);
     s->update_views = 1;

@@ -1568,11 +1568,10 @@ arb_extrude(struct rt_arb_internal *arb,
     a4toa6:
 	    ext4to6(pt[0], pt[1], pt[2], &larb, peqn);
 	    type = ARB6;
-	    /* When ARB4→ARB6 extrusion changes the solid type, vanilla MGED called
-	     * sedit_menu() here to install the ARB6-specific editing menu.  In the
-	     * reworked architecture this would be done via an ECMD_MENU_REFRESH
-	     * callback (not yet implemented); for now, the menu will refresh on the
-	     * next accept/reselect cycle. */
+	    /* When ARB4→ARB6 extrusion changes the solid type the caller is
+	     * responsible for firing ECMD_MENU_REFRESH so the application can
+	     * reinstall the appropriate editing menu (e.g. via sedit_menu in
+	     * MGED).  The callback is registered and invoked in f_extrude. */
 	    break;
 
 	case 1680:   /* protrude face 5678 */
