@@ -194,6 +194,7 @@ extern int mged_edit_clbk_sync(struct rt_edit *se, struct mged_state *s);
 
 
 extern int mged_mmenu_set(int ac, const char **av, void *d, void *ms);
+extern int mged_menu_refresh(int ac, const char **av, void *d, void *ms);
 
 extern int arb_setup_rotface_clbk(int ac, const char **av, void *d, void *d2);
 extern int ecmd_bot_mode_clbk(int ac, const char **av, void *d, void *d2);
