@@ -162,7 +162,7 @@ def get_truck_bbox(mged_bin, frame_g, db_dir):
 
     r = subprocess.run(
         [mged_bin, '-c', frame_g, 'bb -e scene.c/truck.sim'],
-        capture_output=True, text=True, env=env, cwd=db_dir
+        capture_output=True, text=True, env=env, cwd=db_dir, timeout=30
     )
     for line in (r.stdout + r.stderr).splitlines():
         if 'min' in line and 'max' in line:
@@ -258,31 +258,40 @@ def main():
         print(f'Frame {i:2d}: truck_center=({cx:.0f},{cy:.0f},{cz:.0f}) '
               f'eye=({ex:.0f},{ey:.0f},{ez:.0f})')
 
-        # Build rt command using explicit eye_pt + orientation + viewsize
+        # Build rt command using explicit eye_pt + orientation + viewsize.
+        # '-c shader plastic' overrides the default terrain shader (turbump
+        # noise) which can hang on large-coordinate DSP geometry.
+        # '-P 1' uses a single thread to avoid a DSP BVH threading deadlock.
         rt_cmd = [
             rt_bin,
+            '-P', '1',
             '-w', str(W),
             '-n', str(H),
             '-c', f'viewsize {VIEWSIZE}',
             '-c', f'eye_pt {ex:.2f} {ey:.2f} {ez:.2f}',
             '-c', f'orientation {qx:.8f} {qy:.8f} {qz:.8f} {qw:.8f}',
+            '-c', 'shader plastic',
             '-o', frame_pix,
             frame_g,
             'scene.c/truck.sim',
             'terrain.sim',
         ]
 
-        r = subprocess.run(rt_cmd, capture_output=True, text=True, env=env, cwd=db_dir)
+        r = subprocess.run(rt_cmd, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, env=env,
+                           timeout=120, cwd=db_dir)
         if not os.path.exists(frame_pix) or os.path.getsize(frame_pix) == 0:
             # Fallback: auto-center with az/el (always produces visible output)
             print(f'  WARNING: explicit camera produced empty output, using fallback')
             rt_cmd_fallback = [
-                rt_bin, '-w', str(W), '-n', str(H),
+                rt_bin, '-P', '1', '-w', str(W), '-n', str(H),
                 '-a', str(AZ_DEG), '-e', str(EL_DEG),
                 '-o', frame_pix,
                 frame_g, 'scene.c/truck.sim',
             ]
-            subprocess.run(rt_cmd_fallback, capture_output=True, env=env, cwd=db_dir)
+            subprocess.run(rt_cmd_fallback, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, env=env,
+                           timeout=120, cwd=db_dir)
 
         # Convert .pix → .png
         if os.path.exists(frame_pix) and os.path.getsize(frame_pix) > 0:
