@@ -90,6 +90,7 @@ if(BRLCAD_ENABLE_MINIMAL)
   set(BRLCAD_ENABLE_TK "OFF")
   set(BRLCAD_ENABLE_QT "OFF")
   set(BRLCAD_ENABLE_AQUA "OFF")
+  set(BRLCAD_EXTRADOCS "OFF")
 endif(BRLCAD_ENABLE_MINIMAL)
 
 # Enable Aqua widgets on Mac OSX.  This impacts Tcl/Tk building and OpenGL
@@ -415,6 +416,18 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Doesn't impact the installation of the licenses
 option(BRLCAD_INSTALL_DOCS "Install core BRL-CAD documentation" ON)
 mark_as_advanced(BRLCAD_INSTALL_DOCS)
+
+# Toplevel variable that controls AsciiDoc-based documentation generation.
+# Key it off of what target level is enabled.
+if(NOT BRLCAD_ENABLE_TARGETS OR "${BRLCAD_ENABLE_TARGETS}" GREATER 2)
+  set(EXTRADOCS_DEFAULT "ON")
+else(NOT BRLCAD_ENABLE_TARGETS OR "${BRLCAD_ENABLE_TARGETS}" GREATER 2)
+  set(EXTRADOCS_DEFAULT "OFF")
+endif(NOT BRLCAD_ENABLE_TARGETS OR "${BRLCAD_ENABLE_TARGETS}" GREATER 2)
+brlcad_option(BRLCAD_EXTRADOCS ${EXTRADOCS_DEFAULT}
+  TYPE BOOL
+  ALIASES ENABLE_DOCS ENABLE_EXTRA_DOCS
+)
 
 # Local Variables:
 # tab-width: 8

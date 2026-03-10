@@ -10,7 +10,9 @@ set(
   redblack.adoc
 )
 
-ADD_ASCIIDOC("MAN3" system_man3_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("MAN3" system_man3_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt

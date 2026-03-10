@@ -11,7 +11,9 @@ set(
   plot3.adoc
 )
 
-ADD_ASCIIDOC("MAN5" system_man5_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("MAN5" system_man5_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt

@@ -4,7 +4,9 @@ set(
   BRL_CAD_g_format_V6.adoc
 )
 
-ADD_ASCIIDOC("HTML" specifications_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("HTML" specifications_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt

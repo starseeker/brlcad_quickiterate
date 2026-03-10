@@ -185,7 +185,9 @@ set(
   wire.adoc
 )
 
-ADD_ASCIIDOC("MAN1" system_man1_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("MAN1" system_man1_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt

@@ -374,6 +374,7 @@ function(BRLCAD_Summary)
   set(BRLCAD_WARNINGS_LABEL "Print verbose compilation warnings ")
   set(BRLCAD_VERBOSE_LABEL "Print verbose compilation progress ")
   set(BRLCAD_INSTALL_EXAMPLE_GEOMETRY_LABEL "Install example geometry models ")
+  set(BRLCAD_EXTRADOCS_BUILD_LABEL "Generate AsciiDoc docs ")
   set(ENABLE_STRICT_COMPILER_STANDARD_COMPLIANCE_LABEL "Build with strict ISO C compliance checking ")
   set(ENABLE_POSIX_COMPLIANCE_LABEL "Build with strict POSIX compliance checking ")
   set(ENABLE_ALL_CXX_COMPILE_LABEL "Build all C and C++ files with a C++ compiler ")
@@ -390,6 +391,7 @@ function(BRLCAD_Summary)
     BUILD_STATIC_LIBS
     BUILD_SHARED_LIBS
     BRLCAD_INSTALL_EXAMPLE_GEOMETRY
+    BRLCAD_EXTRADOCS_BUILD
   )
 
   if(BRLCAD_SUMMARIZE_DEV_SETTINGS)
@@ -464,6 +466,13 @@ function(BRLCAD_Summary)
   #            Other reportable items               #
   #                                                 #
   ###################################################
+
+  # Set the displayed value for BRLCAD_EXTRADOCS_BUILD
+  if(BRLCAD_EXTRADOCS)
+    set(BRLCAD_EXTRADOCS_BUILD "ON")
+  else(BRLCAD_EXTRADOCS)
+    set(BRLCAD_EXTRADOCS_BUILD "OFF")
+  endif(BRLCAD_EXTRADOCS)
 
   foreach(item ${OTHER_REPORT_ITEMS})
     message("${${item}_LABEL} ${${item}}")
