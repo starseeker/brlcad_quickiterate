@@ -62,6 +62,11 @@
 #include <string.h>
 #include <time.h>
 
+#include "bu/process.h"
+#ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+#endif
+
 #ifdef HAVE_OPENSSL_RAND_H
 #  include <openssl/rand.h>
 #endif
@@ -134,10 +139,23 @@ remrt_generate_token(char *buf)
     }
 #endif
 
-    /* Last-resort fallback */
+    /* Last-resort fallback: mix several cheap entropy sources.
+     * This is intentionally low-quality; prefer the platform random
+     * paths above.  Using just time() is vulnerable to replay attacks
+     * when ASLR is disabled, so we also fold in the PID and a
+     * gethrtime/clock_gettime value when available. */
     if (!ok) {
+#ifdef HAVE_SYS_TIME_H
+	struct timeval tv;
+	unsigned int seed;
+	gettimeofday(&tv, NULL);
+	seed = (unsigned int)tv.tv_sec
+	    ^ (unsigned int)tv.tv_usec
+	    ^ (unsigned int)bu_pid();
+#else
 	unsigned int seed = (unsigned int)time(NULL)
-	    ^ (unsigned int)(size_t)buf;
+	    ^ (unsigned int)bu_pid();
+#endif
 	srand(seed);
 	for (i = 0; i < 32; i++)
 	    raw[i] = (unsigned char)(rand() & 0xff);
