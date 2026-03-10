@@ -161,9 +161,13 @@ noise_worker(int cpu, void *UNUSED(data))
 	}
     }
 
-    /* cpu index is 1-based in bu_parallel */
-    if (cpu >= 1 && cpu <= NOISE_NTHREADS)
+    /* cpu index is 1-based in bu_parallel.  Guard against unexpected range. */
+    if (cpu >= 1 && cpu <= NOISE_NTHREADS) {
 	concurrent_results[cpu - 1].failed = local_fail;
+    } else {
+	bu_log("WARNING [noise_concurrent] worker cpu=%d out of range [1,%d]\n",
+	       cpu, NOISE_NTHREADS);
+    }
 }
 
 static int
@@ -257,7 +261,7 @@ noise_main(int argc, char *argv[])
 	    return test_noise_perlin_basic(argc, argv);
     }
 
-    bu_log("ERROR: function_num %d is not valid [%s]\n", function_num, argv[0]);
+    bu_log("ERROR: function_num %d is not valid (expected 1-3) [%s]\n", function_num, argv[0]);
     return 1;
 }
 

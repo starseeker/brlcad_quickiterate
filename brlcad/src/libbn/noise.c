@@ -55,6 +55,10 @@
  */
 #define SMOOTHSTEP(x) ((x) * (x) * (3 - 2*(x)))
 
+/* must not vary in size cross-platform for repeatability.
+ * Defined before filter_args so that function can reference it directly. */
+#define TABLE_SIZE 4096
+
 
 /**
  * @brief
@@ -91,8 +95,9 @@ filter_args(fastf_t *src, fastf_t *p, fastf_t *f, int *ip)
      * fmod(x, TABLE_SIZE) or the original folded value, because the hash
      * lookup is already modulo TABLE_SIZE. */
 
-    /* TABLE_SIZE is defined later in this file (4096 == 2^12). */
-    static const double FOLD_PERIOD = 4096.0;
+    /* FOLD_PERIOD must equal TABLE_SIZE (defined earlier in this file).
+     * Use TABLE_SIZE directly so they cannot drift apart. */
+    static const double FOLD_PERIOD = (double)TABLE_SIZE;
 
     int i;
     point_t dst = VINIT_ZERO;
@@ -155,9 +160,6 @@ struct str_ht {
 };
 
 static struct str_ht ht;
-
-/* must not vary in size cross-platform for repeatibility */
-#define TABLE_SIZE 4096
 
 #define MAGIC_STRHT1 1771561
 #define MAGIC_STRHT2 1651771
