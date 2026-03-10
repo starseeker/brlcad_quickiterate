@@ -44,7 +44,7 @@
 # formats      - Semicolon-separated list of output formats to generate.
 #                Supported: HTML MAN1 MAN3 MAN5 MANN
 # adoc_files   - Either a CMake list variable name OR a single .adoc file path.
-# outdir_var   - Ignored (kept for signature parity with ADD_DOCBOOK).
+# outdir_var   - Ignored (kept for API compatibility).
 # deps_list    - CMake target name to add generated files to (may be "").
 #
 # The macro generates HTML5 output for HTML format and troff man pages for

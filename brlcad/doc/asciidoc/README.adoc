@@ -4,15 +4,10 @@
 
 == Overview
 
-This directory contains BRL-CAD documentation in AsciiDoc format, converted
-from the original DocBook 5 XML sources in `../docbook/`.  The conversion was
-performed once using
-link:../../misc/tools/db2adoc/db2adoc.xsl[db2adoc.xsl] (an XSLT stylesheet)
-applied via `xsltproc`.
-
-The `.adoc` files here are committed to version control as authoritative
-sources.  They are built into HTML and man-page outputs at compile time using
-**asciiquack**, BRL-CAD's self-contained AsciiDoc processor.
+This directory contains BRL-CAD documentation in AsciiDoc format.  The `.adoc`
+files are committed to version control as authoritative sources.  They are
+built into HTML and man-page outputs at compile time using **asciiquack**,
+BRL-CAD's self-contained AsciiDoc processor.
 
 == Directory Structure
 
@@ -34,7 +29,8 @@ doc/asciidoc/
 
 == Build Outputs
 
-When `BRLCAD_EXTRADOCS=ON` is set at CMake configuration time:
+At CMake configuration time, the asciiquack processor is located automatically
+(from the `bext_output/` pre-built tree or the system PATH).  When found:
 
 * Man pages (`system/man*/`) are built by asciiquack with `-b manpage` and
   installed under `${MAN_DIR}/man*/`.
@@ -43,28 +39,19 @@ When `BRLCAD_EXTRADOCS=ON` is set at CMake configuration time:
 
 The build logic is in `brlcad/misc/CMake/AsciiDoc.cmake`.
 
-== Re-running the Conversion
+== asciiquack Processor
 
-If the upstream DocBook sources change and you need to re-generate the AsciiDoc
-files, run the XSLT stylesheet from the repository root:
+The asciiquack source lives in the top-level `asciiquack/` directory.  A
+pre-built binary is committed at `bext_output/noinstall/bin/asciiquack`.
 
-[source,bash]
-----
-BEXT=/path/to/bext_output
-
-for f in $(find doc/docbook -name "*.xml" -not -path "*/resources/*"); do
-  rel=${f#doc/docbook/}
-  out=doc/asciidoc/${rel%.xml}.adoc
-  mkdir -p "$(dirname "$out")"
-  $BEXT/noinstall/bin/xsltproc -xinclude \
-      misc/tools/db2adoc/db2adoc.xsl "$f" > "$out"
-done
-----
-
-Alternatively, use `db2adoc.py` (requires pandoc ≥ 2.0) for a Python-driven
-approach with better round-trip fidelity for complex markup:
+To rebuild asciiquack from source:
 
 [source,bash]
 ----
-python3 misc/tools/db2adoc/db2adoc.py
+REPO_ROOT=/path/to/repo
+mkdir -p /tmp/aq_build
+cmake -S $REPO_ROOT/asciiquack -B /tmp/aq_build
+cmake --build /tmp/aq_build -j$(nproc)
+# Run tests
+/tmp/aq_build/asciiquack_tests
 ----

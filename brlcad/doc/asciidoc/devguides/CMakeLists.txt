@@ -3,9 +3,7 @@ set(
   bool_eval_development.adoc
 )
 
-if(BRLCAD_EXTRADOCS)
-  ADD_ASCIIDOC("HTML" devguides_ADOC "" "")
-endif(BRLCAD_EXTRADOCS)
+ADD_ASCIIDOC("HTML" devguides_ADOC "" "")
 
 cmakefiles(
   CMakeLists.txt
