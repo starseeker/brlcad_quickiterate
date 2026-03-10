@@ -93,6 +93,9 @@ extern int gettimeofday(struct timeval *, void *);
 /* Enable generate/verify functions — only the dispatcher (remrt) needs them */
 #define REMRT_AUTH_IMPL
 #include "./auth.h"
+/* Enable TLS server-side functions */
+#define REMRT_TLS_IMPL
+#include "./tls_wrap.h"
 #include "brlcad_ident.h"
 
 
@@ -403,6 +406,14 @@ extern int pkg_permport;	/* libpkg/pkg_permserver() listen port */
 
 int rem_debug;		/* dispatcher debugging flag */
 
+#ifdef HAVE_OPENSSL_SSL_H
+/*
+ * TLS server context.  Initialized at startup.  Shared by all worker
+ * connections accepted during this session.
+ */
+static SSL_CTX *remrt_ssl_ctx = NULL;
+#endif
+
 #define OPT_FRAME 0	/* Free for all */
 #define OPT_LOAD 1	/* 10% per server per frame */
 #define OPT_MOVIE 2	/* one server per frame */
@@ -648,6 +659,22 @@ addclient(struct pkg_conn *pc)
 	return;
     }
     if (rem_debug) bu_log("%s addclient(%s)\n", stamp(), ihp->ht_name);
+
+#ifdef HAVE_OPENSSL_SSL_H
+    /* Upgrade connection to TLS before any PKG messages are exchanged.
+     * If the handshake fails we still accept the connection as plaintext
+     * to remain compatible with rtsrv workers built without OpenSSL. */
+    if (remrt_ssl_ctx) {
+	if (remrt_tls_accept(remrt_ssl_ctx, pc) == REMRT_TLS_OK) {
+	    if (rem_debug)
+		bu_log("%s TLS established with %s\n", stamp(), ihp->ht_name);
+	} else {
+	    bu_log("%s WARNING: TLS handshake failed for %s; "
+		   "connection accepted as plaintext\n",
+		   stamp(), ihp->ht_name);
+	}
+    }
+#endif
 
     FD_SET(fd, &clients);
 
@@ -3600,6 +3627,24 @@ main(int argc, char *argv[])
     fprintf(stderr, "%s Session token: %s\n", stamp(), session_token);
     fflush(stderr);
 
+#ifdef HAVE_OPENSSL_SSL_H
+    /* Set up TLS server context.  Environment variables allow sites to
+     * supply their own certificate/key files; otherwise a self-signed
+     * cert is generated in memory. */
+    {
+	const char *certfile = getenv("REMRT_TLS_CERT");
+	const char *keyfile  = getenv("REMRT_TLS_KEY");
+	remrt_ssl_ctx = remrt_tls_server_ctx(certfile, keyfile);
+	if (remrt_ssl_ctx)
+	    fprintf(stderr, "%s TLS enabled (%s)\n", stamp(),
+		    (certfile && keyfile) ? certfile : "self-signed cert");
+	else
+	    fprintf(stderr, "%s WARNING: TLS context creation failed; "
+		    "connections will be unencrypted\n", stamp());
+	fflush(stderr);
+    }
+#endif
+
     BU_LIST_INIT(&FreeList);
     FrameHead.fr_forw = FrameHead.fr_back = &FrameHead;
     for (sp = &servers[0]; sp < &servers[MAXSERVERS]; sp++) {
@@ -3714,6 +3759,14 @@ main(int argc, char *argv[])
 	do_work(1);		/* auto start servers */
 	bu_log("%s Task accomplished\n", stamp());
     }
+
+#ifdef HAVE_OPENSSL_SSL_H
+    if (remrt_ssl_ctx) {
+	SSL_CTX_free(remrt_ssl_ctx);
+	remrt_ssl_ctx = NULL;
+    }
+#endif
+
     return 0;			/* bu_exit(0, NULL; */
 }
 
