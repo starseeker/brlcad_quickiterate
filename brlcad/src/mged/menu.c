@@ -228,6 +228,15 @@ mmenu_init(struct mged_state *s)
 
 
 int
+mged_menu_refresh(int UNUSED(ac), const char **UNUSED(av), void *d, void *UNUSED(ms))
+{
+    struct mged_state *s = (struct mged_state *)d;
+    sedit_menu(s);
+    return BRLCAD_OK;
+}
+
+
+int
 mged_mmenu_set(int UNUSED(ac), const char **UNUSED(av), void *d, void *ms)
 {
     struct mged_state *s = (struct mged_state *)d;

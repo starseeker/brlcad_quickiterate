@@ -390,6 +390,7 @@ rt_edit_set_str(struct rt_edit *s, int index, const char *str);
 #define ECMD_VIEW_UPDATE          50
 #define ECMD_VIEW_SET_FLAG        60
 #define ECMD_MENU_SET             70
+#define ECMD_MENU_REFRESH         71
 #define ECMD_GET_FILENAME         80
 
 RT_EXPORT extern struct rt_edit_map *
