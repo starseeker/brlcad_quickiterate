@@ -23,7 +23,10 @@ OUTPUT_DIR=${2:-/tmp/sim_output}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export PATH="$BRLCAD_BUILD/bin:$PATH"
-export LD_LIBRARY_PATH="$BRLCAD_BUILD/lib:$LD_LIBRARY_PATH"
+# Include system library path for Bullet physics (used by the ged-simulate plugin)
+export LD_LIBRARY_PATH="$BRLCAD_BUILD/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+# Tell BRL-CAD where to find its plugin directory
+export BRLCAD_ROOT="$BRLCAD_BUILD"
 
 DB_DIR="$BRLCAD_BUILD/share/db"
 SIM_DB="$OUTPUT_DIR/truck_terrain_sim.g"
