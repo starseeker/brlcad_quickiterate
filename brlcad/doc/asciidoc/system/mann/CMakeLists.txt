@@ -268,7 +268,9 @@ set(
   zoom.adoc
 )
 
-ADD_ASCIIDOC("MANN" system_mann_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("MANN" system_mann_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt

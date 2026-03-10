@@ -6,7 +6,9 @@ set(
   intro-to-tcltk.adoc
 )
 
-ADD_ASCIIDOC("HTML" presentations_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("HTML" presentations_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt

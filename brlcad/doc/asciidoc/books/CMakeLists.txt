@@ -8,7 +8,9 @@ set(
   tutorial_series_authors.adoc
 )
 
-ADD_ASCIIDOC("HTML" books_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("HTML" books_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt

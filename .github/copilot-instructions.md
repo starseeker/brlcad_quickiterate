@@ -22,12 +22,17 @@ REPO_ROOT=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate
 mkdir -p brlcad_build
 cmake -S "$REPO_ROOT/brlcad" -B "$REPO_ROOT/brlcad_build" \
   -DBRLCAD_EXT_DIR="$REPO_ROOT/bext_output" \
+  -DBRLCAD_EXTRADOCS=OFF \
   -DBRLCAD_ENABLE_STEP=OFF \
   -DBRLCAD_ENABLE_GDAL=OFF \
   -DBRLCAD_ENABLE_QT=OFF
 ```
 
 Expected configure time: ~55 seconds on a fresh build directory (a few seconds on a re-configure).
+
+`BRLCAD_EXTRADOCS` controls whether the AsciiDoc documentation (man pages and HTML) is
+built via **asciiquack**.  It defaults to ON (when `BRLCAD_ENABLE_TARGETS > 2`).  Pass
+`-DBRLCAD_EXTRADOCS=OFF` to skip documentation building and save time.
 
 ## Building BRL-CAD
 

@@ -19,7 +19,9 @@ set(
   tire.adoc
 )
 
-ADD_ASCIIDOC("HTML" articles_ADOC "" "")
+if(BRLCAD_EXTRADOCS)
+  ADD_ASCIIDOC("HTML" articles_ADOC "" "")
+endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
   CMakeLists.txt
