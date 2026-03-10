@@ -34,7 +34,6 @@
 #include "wdb.h"
 
 #include "./edit_private.h"
-#include "bsg/util.h"
 
 void
 edit_abs_tra(struct rt_edit *s, vect_t view_pos)
@@ -44,14 +43,12 @@ edit_abs_tra(struct rt_edit *s, vect_t view_pos)
     vect_t diff;
     fastf_t inv_Viewscale = 1/s->vp->gv_scale;
 
-    struct bsg_camera _cam;
-    bsg_view_get_camera(s->vp, &_cam);
-    MAT4X3PNT(model_pos, _cam.view2model, view_pos);
+    MAT4X3PNT(model_pos, s->vp->gv_view2model, view_pos);
     VSUB2(diff, model_pos, s->e_axes_pos);
     VSCALE(s->k.tra_m_abs, diff, inv_Viewscale);
     VMOVE(s->k.tra_m_abs_last, s->k.tra_m_abs);
 
-    MAT4X3PNT(ea_view_pos, _cam.model2view, s->e_axes_pos);
+    MAT4X3PNT(ea_view_pos, s->vp->gv_model2view, s->e_axes_pos);
     VSUB2(s->k.tra_v_abs, view_pos, ea_view_pos);
     VMOVE(s->k.tra_v_abs_last, s->k.tra_v_abs);
 }
@@ -90,6 +87,10 @@ edit_sscale(struct rt_edit *s)
 	s->es_scale = s->e_para[0] / s->acc_sc_sol;
 	s->acc_sc_sol = s->e_para[0];
     }
+
+    /* No pending scale operation — nothing to apply. */
+    if (!s->e_inpara && s->es_scale < SMALL_FASTF)
+	return 0;
 
     bn_mat_scale_about_pnt(scalemat, s->e_keypoint, s->es_scale);
     bn_mat_mul(mat1, scalemat, s->e_mat);
@@ -150,8 +151,6 @@ edit_srot(struct rt_edit *s)
     mat_t mat, mat1, edit;
     struct rt_db_internal *ip = &s->es_int;
 
-    struct bsg_camera _cam;
-    bsg_view_get_camera(s->vp, &_cam);
     if (s->e_inpara) {
 	static mat_t invsolr;
 	/*
@@ -179,14 +178,14 @@ edit_srot(struct rt_edit *s)
     }
     /* Apply changes to solid */
     /* xlate keypoint to origin, rotate, then put back. */
-    switch (_cam.rotate_about) {
+    switch (s->vp->gv_rotate_about) {
 	case 'v':       /* View Center */
 	    VSET(work, 0.0, 0.0, 0.0);
-	    MAT4X3PNT(rot_point, _cam.view2model, work);
+	    MAT4X3PNT(rot_point, s->vp->gv_view2model, work);
 	    break;
 	case 'e':       /* Eye */
 	    VSET(work, 0.0, 0.0, 1.0);
-	    MAT4X3PNT(rot_point, _cam.view2model, work);
+	    MAT4X3PNT(rot_point, s->vp->gv_view2model, work);
 	    break;
 	case 'm':       /* Model Center */
 	    VSETALL(rot_point, 0.0);
@@ -302,13 +301,95 @@ edit_generic(
 	    edit_tra_xy(&pos_view, s, mousevec);
 	    edit_abs_tra(s, pos_view);
 	    return BRLCAD_OK;
-	case RT_MATRIX_EDIT_ROT:
-	    // TODO - I think this may need to define a knob call?  check with main MGED implementation
-	    bu_vls_printf(s->log_str, "XY rotation editing setup unimplemented\n");
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	case RT_MATRIX_EDIT_ROT: {
+	    /* Absolute matrix rotation from keyboard parameters.
+	     *
+	     * e_para[0..2] are Euler angles (X,Y,Z) in degrees.
+	     * The existing rotation stored in model_changes is replaced by the
+	     * new absolute rotation while the keypoint's world-space position
+	     * and the accumulated scale factor are preserved.
+	     *
+	     * Algorithm (mirrors MGED mged_rot_obj / "orot X Y Z"):
+	     *  1. Compute world position of keypoint under current model_changes.
+	     *  2. Strip all rotation from model_changes keeping translation and
+	     *     scale so that stripped * e_keypoint == the same world point.
+	     *  3. Build a fresh rotation matrix from the supplied angles.
+	     *  4. Apply the rotation about the keypoint world position.
+	     *
+	     * When e_inpara is 0 there are no pending keyboard parameters, so
+	     * this is a no-op (consistent with edit_stra / edit_sscale behaviour).
+	     * Callers set e_inpara before calling rt_edit_process when they want
+	     * to provide absolute angle values.
+	     */
+	    if (!s->e_inpara)
+		return BRLCAD_OK;
+
+	    point_t model_pt, world_pt, s_point;
+	    vect_t  v_work;
+
+	    VMOVE(model_pt, s->e_keypoint);
+	    MAT4X3PNT(world_pt, s->model_changes, model_pt);
+
+	    /* Compute the translation needed to keep the keypoint at
+	     * world_pt after rotations are stripped.
+	     * model_changes[15] is the homogeneous scale factor (1/global_scale)
+	     * stored in the [3][3] element of the BRL-CAD 4x4 matrix.  Multiplying
+	     * world_pt by this factor converts to the "pre-scale" coordinate frame
+	     * so that after stripping the rotation the translation delta v_work
+	     * satisfies:  stripped * e_keypoint == world_pt. */
+	    VSCALE(s_point, world_pt, s->model_changes[15]);
+	    VSUB2(v_work, s_point, model_pt);
+
+	    /* Rebuild model_changes: identity rotation, same translation
+	     * and scale factor so stripped * e_keypoint == world_pt. */
+	    mat_t stripped;
+	    MAT_IDN(stripped);
+	    MAT_DELTAS_VEC(stripped, v_work);
+	    stripped[15] = s->model_changes[15];
+	    MAT_COPY(s->model_changes, stripped);
+
+	    /* Build fresh rotation matrix from absolute angles. */
+	    mat_t newrot;
+	    MAT_IDN(newrot);
+	    bn_mat_angles(newrot, s->e_para[0], s->e_para[1], s->e_para[2]);
+	    MAT_COPY(s->acc_rot_sol, newrot);
+
+	    /* Apply rotation about the keypoint's world position. */
+	    mat_t t;
+	    bn_mat_xform_about_pnt(t, newrot, world_pt);
+	    bn_mat_mul2(t, s->model_changes);
+
+	    /* Update the model2objview matrix. */
+	    bn_mat_mul(s->model2objview, s->vp->gv_model2view, s->model_changes);
+
+	    return BRLCAD_OK;
+	}
+	case RT_MATRIX_EDIT_TRANS_MODEL_XYZ: {
+	    /* Absolute model-space translation from keyboard parameters.
+	     *
+	     * e_para[0..2] are the target model-space X,Y,Z coordinates
+	     * (in local/display units).  Moves model_changes so that
+	     * e_keypoint maps to the requested position.
+	     *
+	     * Mirrors MGED's "translate X Y Z" command when in object-edit
+	     * (oed) mode (f_tr_obj).  Unlike RT_MATRIX_EDIT_TRANS_VIEW_XY
+	     * this operation is view-independent.
+	     *
+	     * When e_inpara is 0 there are no pending keyboard parameters, so
+	     * this is a no-op (consistent with edit_stra behaviour).
+	     */
+	    if (!s->e_inpara)
+		return BRLCAD_OK;
+
+	    vect_t new_vertex;
+	    VSCALE(new_vertex, s->e_para, s->local2base);
+	    edit_mtra(s, new_vertex);
+
+	    /* Update the model2objview matrix. */
+	    bn_mat_mul(s->model2objview, s->vp->gv_model2view, s->model_changes);
+
+	    return BRLCAD_OK;
+	}
 	default:
 	    // Primitives should handle their specific editing cases before calling the generic function - if
 	    // we got here, something isn't right
@@ -362,12 +443,10 @@ edit_stra_xy(vect_t *pos_view,
     vect_t raw_mp = VINIT_ZERO;         /* raw model position */
     mat_t mat;
 
-    struct bsg_camera _cam;
-    bsg_view_get_camera(s->vp, &_cam);
-    MAT4X3PNT((*pos_view), _cam.model2view, s->curr_e_axes_pos);
+    MAT4X3PNT((*pos_view), s->vp->gv_model2view, s->curr_e_axes_pos);
     (*pos_view)[X] = mousevec[X];
     (*pos_view)[Y] = mousevec[Y];
-    MAT4X3PNT(pt, _cam.view2model, (*pos_view));
+    MAT4X3PNT(pt, s->vp->gv_view2model, (*pos_view));
 
     /* Need vector from current vertex/keypoint
      * to desired new location.
@@ -469,8 +548,6 @@ edit_tra_xy(vect_t *pos_view,
 	)
 {
     mat_t incr_mat;
-    struct bsg_camera _cam;
-    bsg_view_get_camera(s->vp, &_cam);
     MAT_IDN(incr_mat);
 
     vect_t temp, pos_model;
@@ -499,7 +576,7 @@ edit_tra_xy(vect_t *pos_view,
 	    (*pos_view)[Y] = mousevec[Y];
     }
 
-    MAT4X3PNT(pos_model, _cam.view2model, *pos_view);/* NOT objview */
+    MAT4X3PNT(pos_model, s->vp->gv_view2model, *pos_view);/* NOT objview */
 
     edit_mtra(s, pos_model);
 }
@@ -521,6 +598,51 @@ edit_mtra(
     MAT_DELTAS_VEC(incr_mat, tr_temp);
     MAT_COPY(oldchanges, s->model_changes);
     bn_mat_mul(s->model_changes, incr_mat, oldchanges);
+}
+
+/*
+ * Handle interactive rotation (solid or matrix) driven by an XY mouse
+ * position.  This is the librt equivalent of MGED's mouse-knob rotation
+ * path: a view-space XY displacement is converted to "ax" / "ay" knob
+ * increments, which are accumulated into the rotation via
+ * rt_edit_knob_cmd_process and rt_knob_edit_rot.
+ *
+ * In MGED (doevent.c / f_knob / mged_erot_xyz), interactive mouse
+ * rotation is processed through the knob accumulator with incr_flag=1.
+ * The X mousevec component drives the "ay" (azimuth about model Y) knob
+ * and the Y component drives the "ax" (elevation about model X) knob.
+ * Angles are in the range -512..+512 (BV units, scale factor INV_BV).
+ *
+ * matrix_edit=0 → solid rotation (RT_PARAMS_EDIT_ROT)
+ * matrix_edit=1 → matrix rotation (RT_MATRIX_EDIT_ROT)
+ */
+static void
+edit_mrot_xy(struct rt_edit *s, const vect_t mousevec, int matrix_edit)
+{
+    vect_t rvec = VINIT_ZERO;
+    vect_t tvec = VINIT_ZERO;
+    int do_rot = 0;
+    int do_tran = 0;
+    int do_sca = 0;
+
+    if (!NEAR_ZERO(mousevec[X], SMALL_FASTF)) {
+	fastf_t x = mousevec[X] / INV_BV;
+	rt_edit_knob_cmd_process(s, &rvec, &do_rot, &tvec, &do_tran, &do_sca,
+		s->vp, "ay", x, s->vp->gv_rotate_about, 1, NULL);
+    }
+    if (!NEAR_ZERO(mousevec[Y], SMALL_FASTF)) {
+	fastf_t y = mousevec[Y] / INV_BV;
+	rt_edit_knob_cmd_process(s, &rvec, &do_rot, &tvec, &do_tran, &do_sca,
+		s->vp, "ax", y, s->vp->gv_rotate_about, 1, NULL);
+    }
+
+    if (do_rot) {
+	mat_t newrot;
+	MAT_IDN(newrot);
+	bn_mat_angles(newrot, rvec[X], rvec[Y], rvec[Z]);
+	rt_knob_edit_rot(s, s->vp->gv_coord, s->vp->gv_rotate_about,
+			 matrix_edit, newrot);
+    }
 }
 
 int
@@ -546,12 +668,14 @@ edit_generic_xy(
 	    edit_abs_tra(s, pos_view);
 	    return BRLCAD_OK;
 	case RT_PARAMS_EDIT_ROT:
-	    // TODO - I think this may need to define a knob call?  check with main MGED implementation
-	    bu_vls_printf(s->log_str, "XY rotation editing setup unimplemented\n");
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    /* Solid rotation via XY mouse displacement: convert the view-space
+	     * cursor delta to "ax"/"ay" knob increments and accumulate via
+	     * rt_knob_edit_rot with matrix_edit=0.  This matches MGED's
+	     * interactive mouse-rotation path in doevent.c / f_knob. */
+	    if (!s->vp)
+		return BRLCAD_ERROR;
+	    edit_mrot_xy(s, mousevec, 0);
+	    return BRLCAD_OK;
 	case RT_MATRIX_EDIT_SCALE:
 	case RT_MATRIX_EDIT_SCALE_X:
 	case RT_MATRIX_EDIT_SCALE_Y:
@@ -565,12 +689,12 @@ edit_generic_xy(
 	    edit_abs_tra(s, pos_view);
 	    return BRLCAD_OK;
 	case RT_MATRIX_EDIT_ROT:
-	    // TODO - I think this may need to define a knob call?  check with main MGED implementation
-	    bu_vls_printf(s->log_str, "XY rotation editing setup unimplemented\n");
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    /* Matrix (object) rotation via XY mouse displacement: same knob
+	     * path as solid rotation but with matrix_edit=1. */
+	    if (!s->vp)
+		return BRLCAD_ERROR;
+	    edit_mrot_xy(s, mousevec, 1);
+	    return BRLCAD_OK;
 	default:
 	    // Primitives should handle their specific editing cases before calling the generic function - if
 	    // we got here, something isn't right
