@@ -1,0 +1,435 @@
+# Expanding open2open: Round-Trip Capabilities Beyond B-Rep
+
+## Executive Summary
+
+The open2open library now achieves reliable NURBS B-Rep round-trips between
+openNURBS (Rhino/BRL-CAD) and OpenCASCADE (OCCT/FreeCAD).  The next step is
+to identify and implement additional data types that can be faithfully
+translated, building toward a high-fidelity conversion pipeline between
+Rhino's `.3dm` format and FreeCAD's `.FCStd` format.
+
+This document catalogues:
+
+1. All data categories present in each system.
+2. Round-trip feasibility, data loss, and fidelity notes for each category.
+3. A ranked work-estimate table.
+4. A phased implementation roadmap with the B-Rep core as the foundation.
+
+---
+
+## 1. Data Inventory
+
+### 1.1 openNURBS / Rhino `.3dm`
+
+The openNURBS SDK exposes the following categories through the `ONX_Model`
+container:
+
+| Category | Key class(es) | Notes |
+|---|---|---|
+| **NURBS geometry** | `ON_NurbsCurve`, `ON_NurbsSurface` | Full rational B-spline support |
+| **B-Rep solids** | `ON_Brep` | Faces, edges, loops, trims, vertices |
+| **Polygon meshes** | `ON_Mesh` | Triangles & quads; optional normals, UV, vertex colors |
+| **Point clouds** | `ON_PointCloud` | Structured or unstructured; optional normals, colors |
+| **SubD surfaces** | `ON_SubD` | Catmull-Clark limit surfaces |
+| **Annotation** | `ON_Annotation`, `ON_Dimension`, `ON_Leader`, `ON_Text` | GD&T / drafting |
+| **Hatch fills** | `ON_Hatch` | 2-D hatch patterns |
+| **Lights** | `ON_Light` | Directional, point, spot, ambient |
+| **Instance defs** | `ON_InstanceDefinition` | Reusable block library |
+| **Instance refs** | `ON_InstanceRef` | Placed block with transform |
+| **Layers** | `ON_Layer` | Hierarchical; per-layer color, linetype, visibility |
+| **Materials** | `ON_Material` | Diffuse / specular / emissive; transparency; textures |
+| **Object attributes** | `ON_3dmObjectAttributes` | Per-object name, layer, material, display color, URL |
+| **Rendering info** | `ON_RenderContent` | Rendering-engine specific plug-in data |
+| **Embedded files** | `ON_EmbeddedFile` | Arbitrary blobs stored in the 3dm archive |
+| **Document settings** | `ON_3dmSettings` | Units, tolerance, active viewport |
+| **Views / cameras** | `ON_3dmView` | Named views with camera + projection |
+| **Groups** | `ON_Group` | Flat named grouping of objects |
+| **Text styles** | `ON_TextStyle` | Font / dimension formatting |
+| **Line patterns** | `ON_Linetype` | Dash patterns |
+
+### 1.2 OpenCASCADE / FreeCAD `.FCStd`
+
+OCCT's native data model and the XCAF document framework provide:
+
+| Category | Key class(es) / API | Notes |
+|---|---|---|
+| **NURBS geometry** | `Geom_BSplineCurve`, `Geom_BSplineSurface` | Full rational support |
+| **B-Rep topology** | `TopoDS_Shape`, `BRep_Builder` | Faces, edges, loops, wires, vertices, solids, compounds |
+| **Polygon meshes** | `Poly_Triangulation` | Triangles only; optional UV, normals |
+| **Point sets** | `TColgp_Array1OfPnt` + custom | No first-class point-cloud object |
+| **Visualization mesh** | `StdPrs_*`, `BRepMesh_*` | Display tessellations attached to B-Rep faces |
+| **Assemblies** | `XDE / TDocStd_Document`, `XCAFDoc_ShapeTool` | Assembly tree with product / part hierarchy |
+| **Colors** | `XCAFDoc_Color`, `XCAFDoc_ColorTool` | Per-shape/layer color with transparency |
+| **Names / labels** | `XCAFDoc_Name`, `TDF_Label` | Per-node string name |
+| **Locations** | `XCAFDoc_Location`, `TopLoc_Location` | Per-instance rigid-body placement |
+| **Layers** | `XCAFDoc_LayerTool` | Flat layer-to-shape mapping |
+| **Materials** | `XCAFDoc_MaterialTool` | Name, density; limited rendering properties |
+| **PMI / GD&T** | `XCAFDoc_DimTol`, `XCAFPrs_*` | Dimensioning, tolerances (GD&T) |
+| **STEP metadata** | `STEPCAFControl_Reader/Writer` | Authors, organisations, descriptions |
+| **Views** | `XCAFDoc_ViewTool` | Named camera definitions |
+| **Clipping planes** | `XCAFDoc_ClippingPlaneTool` | Named clipping planes |
+| **Notes / PMI** | `XCAFNoteObjects_*` | Textual and balloon annotations |
+| **Document settings** | `TPrsStd_*`, `BinXCAF_*` | Units and tolerances stored in TDF tree |
+
+**FreeCAD `.FCStd` specifics:**  A `.FCStd` file is a ZIP archive containing:
+
+| File | Content |
+|---|---|
+| `Document.xml` | Object tree (type, name, parent, properties) in XML |
+| `GuiDocument.xml` | Viewport state, display modes, per-object display color |
+| `PartShape.brp`, `PartShape1.brp`, … | OCCT B-Rep shapes (BRep text format) |
+| `DiffuseColor`, `DiffuseColor1`, … | Per-face diffuse color (binary float RGBA array) |
+| `*.mesh` | FEM mesh files (FreeCAD FemMesh format) |
+| Thumbnails, embedded images | PNG previews |
+
+---
+
+## 2. Round-Trip Analysis
+
+### Legend
+- ✅ Supported now (implemented in this library)
+- 🟨 Partial support / data loss
+- 🔲 Not yet implemented — feasible
+- ❌ Not feasible or not meaningful to convert
+
+---
+
+### 2.1 Geometry
+
+| Feature | ON→OCCT | OCCT→ON | Fidelity | Notes |
+|---|---|---|---|---|
+| NURBS curves (3-D) | ✅ | ✅ | Exact | Knot vectors, weights, periodic flag all preserved |
+| NURBS surfaces | ✅ | ✅ | Exact | Knot structure, rational weights preserved |
+| B-Rep topology | ✅ | ✅ | High | 99.6% pass on 1 200+ test models |
+| Polygon meshes | ✅ | ✅ | High | Implemented in `mesh_convert.h`; vertex colors dropped |
+| NURBS curves (2-D, trim) | ✅ | ✅ | Exact | Used internally for B-Rep |
+| Analytic surfaces (plane, cyl, cone, sphere, torus) | ✅ | ✅ | High | Converted to NURBS; sphere singularity handled |
+| Point clouds | ✅ | ✅ | Medium | `ON_PointCloud` ↔ `TopoDS_Compound` of vertices via `BRepBuilderAPI_MakeVertex` |
+| SubD surfaces | ✅ | ❌ | Low | `ON_SubD::GetControlNetMesh()` → vertex compound; no OCCT→SubD path |
+| Extrusions | 🟨 | 🟨 | Medium | openNURBS `ON_Extrusion` converted to B-Rep via `BrepForm()`; OCCT has no ON_Extrusion |
+
+### 2.2 Colour and Material
+
+| Feature | ON→OCCT | OCCT→ON | Fidelity | Notes |
+|---|---|---|---|---|
+| Object display colour | ✅ | ✅ | High | `ON_3dmObjectAttributes::m_color` ↔ `XCAFDoc_Color` RGBA |
+| Layer colour | ✅ | ✅ | High | `ON_Layer::Color()` ↔ `XCAFDoc_Color` on layer label |
+| Diffuse / specular material | ✅ | ✅ | Medium | `ON_Material` fields ↔ `XCAFDoc_MaterialTool`; OCCT loses shine/emissive |
+| Transparency | ✅ | ✅ | High | Both systems store alpha 0–1 |
+| Texture maps | ✅ | ✅ | Low | `ON_Texture::m_image_file_reference` ↔ `TDataStd_Comment` on material child label; path round-trips, image data not embedded |
+| Physically-based materials | ❌ | ❌ | None | Rhino PBR data is proprietary; FreeCAD uses Arch material properties |
+| Vertex colors (mesh) | 🟨 | ❌ | None | `ON_Mesh::m_C[]` has no `Poly_Triangulation` equivalent |
+| Per-face FreeCAD colours | ✅ | 🟨 | Medium | FreeCAD `DiffuseColor` binary files ↔ per-face XCAF colour |
+| Render content (Rhino plug-in) | ❌ | ❌ | None | Proprietary rendering engine data |
+
+### 2.3 Hierarchy and Organisation
+
+| Feature | ON→OCCT | OCCT→ON | Fidelity | Notes |
+|---|---|---|---|---|
+| Object name | ✅ | ✅ | Exact | `ON_3dmObjectAttributes::m_name` ↔ `XCAFDoc_Name` / TDF label |
+| Layer hierarchy | ✅ | ✅ | High | `ON_Layer` parent/child ↔ `XCAFDoc_LayerTool` `"Parent/Child"` encoded names; two-pass read restores parent links |
+| Block instances (xref) | ✅ | ✅ | High | `ON_InstanceDefinition` + `ON_InstanceRef` ↔ `XCAFDoc_ShapeTool` assembly + located component |
+| Assembly structure | ✅ | ✅ | High | Non-free XCAF assemblies → `ON_InstanceDefinition`; iterative bottom-up Phase A resolves arbitrary-depth nesting; free (scene-level) assemblies → scene-level `ON_InstanceRef` |
+| Groups | ✅ | ✅ | Medium | `ON_Group` ↔ `TDataStd_Comment` METADATA child; groups stored by name; membership restored on read-back |
+| FreeCAD part design tree | ❌ | ❌ | None | Sketch + feature ops have no openNURBS equivalent |
+| FreeCAD `App::Part` containers | ✅ | ✅ | Medium | `App::Part` label → `ON_Layer` name in `FCStdFileToONX_Model`; `ONX_ModelToFCStdFile` emits layer as `App::Part` |
+
+### 2.4 Metadata and Annotations
+
+| Feature | ON→OCCT | OCCT→ON | Fidelity | Notes |
+|---|---|---|---|---|
+| Document title / description | ✅ | ✅ | High | `ON_3dmProperties::m_Notes` ↔ STEP header or TDocStd document name |
+| Author / company | ✅ | ✅ | High | `ON_3dmProperties::m_RevisionHistory` ↔ STEP file description |
+| UUID | ✅ | ✅ | High | `ON_3dmObjectAttributes::m_uuid` ↔ `TDataStd_Comment` METADATA child on shape label |
+| URL references | ✅ | ✅ | Medium | `ON_3dmObjectAttributes::m_url` ↔ `TDataStd_Comment` METADATA child; no standard XCAF field |
+| GD&T / PMI | ✅ | ✅ | Medium | `ON_Dimension` ↔ `XCAFDoc_DimTol`; styling may differ |
+| Text annotations | ✅ | ✅ | Medium | `ON_Text` ↔ `XCAFDoc_NotesTool` comment note; font/style differences |
+| Dimension styles | ❌ | ❌ | None | Rhino `ON_DimStyle` has no OCCT counterpart |
+| Units / tolerances | ✅ | ✅ | High | `ON_3dmSettings` ↔ XCAF unit and tolerance attributes |
+
+### 2.5 Views and Rendering
+
+| Feature | ON→OCCT | OCCT→ON | Fidelity | Notes |
+|---|---|---|---|---|
+| Named views / cameras | ✅ | ✅ | Medium | `ON_3dmView` ↔ `XCAFDoc_ViewTool` + `XCAFView_Object`; perspective + parallel; projection type preserved |
+| Lights | ✅ | ✅ | Medium | `ON_Light` ↔ `TDataStd_Comment` "LIGHT:…" children of doc root; style, colour, position, direction, enabled flag all round-trip |
+| Clipping planes | ✅ | ✅ | High | `ON_ClippingPlaneSurface` ↔ `XCAFDoc_ClippingPlaneTool::AddClippingPlane`; plane normal/origin preserved |
+| Preview image | 🟨 | 🟨 | Low | Thumbnails embedded differently in each format |
+
+---
+
+## 3. What Cannot Be Preserved — and Why
+
+### 3.1 FreeCAD parametric feature tree
+
+FreeCAD's native files store the full parametric history: Sketch objects,
+Pad/Pocket/Fillet/Chamfer operations, Boolean features, FEM meshes, etc.
+openNURBS has no concept of parametric history — it only stores evaluated
+shapes.  The conversion must evaluate the FreeCAD feature tree to obtain a
+final B-Rep or mesh and discard the construction history.
+
+### 3.2 Rhino SubD surfaces
+
+openNURBS `ON_SubD` stores a Catmull-Clark control cage.  OCCT 7.9 has no
+SubD surface class.  Conversion must tessellate the SubD limit surface to a
+polygon mesh, losing the smooth limit-surface definition.
+
+### 3.3 Rhino Render Content (plug-in materials)
+
+Rhino embeds rendering-engine specific XML blobs in the 3dm file for each
+plug-in (V-Ray, Enscape, Cycles, etc.).  These are opaque to openNURBS and
+cannot be mapped to OCCT.
+
+### 3.4 Mesh vertex colors
+
+`ON_Mesh::m_C[]` stores per-vertex RGBA colors.  OCCT's `Poly_Triangulation`
+has no per-vertex color field.  Colors can only be preserved at the
+per-object level via XCAF, not per-vertex.
+
+### 3.5 Rhino text / dimension styles
+
+`ON_TextStyle` and `ON_DimStyle` define rich typographic and annotation
+formatting.  OCCT's annotation framework (`XCAFDoc_DimTol`) focuses on the
+geometric meaning of GD&T rather than visual formatting.
+
+### 3.6 FreeCAD FEM meshes
+
+FreeCAD FEM meshes (`*.mesh` files in `.FCStd`) use FreeCAD's internal FEM
+format, which can represent higher-order (quadratic) elements not present in
+openNURBS.
+
+---
+
+## 4. Work Estimates
+
+Estimated effort for each feature in engineering days, for a developer familiar
+with both APIs:
+
+| Priority | Feature | Effort | Dependencies |
+|---|---|---|---|
+| P0 | ~~B-Rep solids~~ | ~~Done~~ | — |
+| P0 | ~~Polygon mesh (tri/quad, normals, UV)~~ | ~~Done~~ | — |
+| P1 | ~~**Object name / label**~~ | ~~Done~~ | TDF label API |
+| P1 | ~~**Object display colour**~~ | ~~Done~~ | XCAF `XCAFDoc_Color` |
+| P1 | ~~**Layer name and colour**~~ | ~~Done~~ | `XCAFDoc_LayerTool`, `ON_Layer` |
+| P2 | ~~**Basic material (diffuse, transparency)**~~ | ~~Done~~ | `XCAFDoc_MaterialTool`, `ON_Material` |
+| P2 | ~~**FreeCAD per-face colours** (`DiffuseColor` binary)~~ | ~~Done~~ | Custom ZIP + binary parser |
+| P2 | ~~**Document metadata** (title, author, date)~~ | ~~Done~~ | `ON_3dmProperties`, TDocStd header |
+| P2 | ~~**Units and tolerance**~~ | ~~Done~~ | `ON_3dmSettings`, XCAF units |
+| P3 | ~~**Instance definitions / blocks**~~ | ~~Done~~ | `XCAFDoc_ShapeTool`, `ON_InstanceDefinition` |
+| P3 | ~~**Assembly tree / layer hierarchy**~~ | ~~Done~~ | XCAF product tree ↔ ON_Layer + block instances; iterative Phase A handles arbitrary depth |
+| P3 | ~~**GD&T / PMI annotations**~~ | ~~Done~~ | `XCAFDoc_DimTol`, `ON_Dimension` |
+| P3 | ~~**Named views / cameras**~~ | ~~Done~~ | `XCAFDoc_ViewTool`, `ON_3dmView` |
+| P4 | ~~**Point clouds**~~ | ~~Done~~ | `ON_PointCloud` ↔ TColgp arrays |
+| P4 | ~~**SubD → mesh fallback**~~ | ~~Done~~ | `ON_SubD::GetMesh()` tessellation |
+| P4 | ~~**Text annotations**~~ | ~~Done~~ | `XCAFNoteObjects`, `ON_Text` |
+| P4 | ~~**Texture maps**~~ | ~~Done~~ | `TDataStd_Comment` on material child label |
+| P6 | ~~**UUID per object**~~ | ~~Done~~ | `TDataStd_Comment` METADATA child |
+| P6 | ~~**URL references**~~ | ~~Done~~ | `TDataStd_Comment` METADATA child |
+| P6 | ~~**Group membership**~~ | ~~Done~~ | `TDataStd_Comment` METADATA child (name-keyed) |
+| P6 | ~~**Clipping planes**~~ | ~~Done~~ | `XCAFDoc_ClippingPlaneTool` |
+| P6 | ~~**Lights**~~ | ~~Done~~ | `TDataStd_Comment` "LIGHT:…" on doc root |
+
+---
+
+## 5. FreeCAD ↔ 3dm Conversion Architecture
+
+A complete FreeCAD ↔ Rhino 3dm pipeline requires three layers:
+
+```
+┌──────────────────────────────────────────────────────┐
+│              FreeCAD (.FCStd) file                   │
+│  Document.xml  GuiDocument.xml  PartShape*.brp       │
+│  DiffuseColor*  *.mesh  thumbnails                   │
+└──────────────────┬───────────────────────────────────┘
+                   │ ZIP extract + XML parse
+                   ▼
+┌──────────────────────────────────────────────────────┐
+│          open2open FreeCAD reader/writer             │
+│  • XML parse (Document.xml → object tree)            │
+│  • BRepTools::Read (*.brp → TopoDS_Shape)            │
+│  • DiffuseColor binary parser → face colour map      │
+│  • Metadata extraction (name, UUID, label)           │
+└──────────────────┬───────────────────────────────────┘
+                   │ TopoDS_Shape + metadata
+                   ▼
+┌──────────────────────────────────────────────────────┐
+│          open2open core library (existing)           │
+│  • OCCTToON_Brep  (TopoDS → ON_Brep)   ✅           │
+│  • ON_BrepToOCCT  (ON_Brep → TopoDS)   ✅           │
+│  • OCCTToON_Mesh  (Poly_Tri → ON_Mesh) ✅           │
+│  • ON_MeshToOCCT  (ON_Mesh → Poly_Tri) ✅           │
+└──────────────────┬───────────────────────────────────┘
+                   │ ON_Brep / ON_Mesh + ON_3dmObjectAttributes
+                   ▼
+┌──────────────────────────────────────────────────────┐
+│          open2open openNURBS writer/reader           │
+│  • Build ONX_Model (objects + layers + materials)    │
+│  • ONX_Model::Write → .3dm file                      │
+│  • ONX_Model::Read  → objects + attributes           │
+└──────────────────┬───────────────────────────────────┘
+                   │ ONX_Model
+                   ▼
+┌──────────────────────────────────────────────────────┐
+│              Rhino (.3dm) file                       │
+│  Objects  Layers  Materials  Named views  Groups     │
+└──────────────────────────────────────────────────────┘
+```
+
+### 5.1 FCStd → 3dm conversion steps
+
+1. **Unzip** `.FCStd` into a temporary directory.
+2. **Parse `Document.xml`** to build an object map:
+   - Object type, name, label, parent, UUID.
+   - Identify which `PartShape*.brp` file each object references.
+3. **Parse `GuiDocument.xml`** to extract per-object display colour.
+4. **Load DiffuseColor binary blobs** for per-face colour overrides.
+5. **Read each `.brp`** with `BRepTools::Read`.
+6. **Convert TopoDS → ON_Brep** with `OCCTToON_Brep` (existing).
+7. **Build `ON_3dmObjectAttributes`** from parsed metadata:
+   - Set `m_name` from Document.xml `Label`.
+   - Set `m_uuid` from Document.xml `Uid`.
+   - Assign layer index based on FreeCAD `App::Part` container.
+   - Assign display colour from GuiDocument.
+8. **Build `ONX_Model`**: add geometry objects with attributes, create layers.
+9. **Write `.3dm`** with `ONX_Model::Write`.
+
+### 5.2 3dm → FCStd conversion steps
+
+1. **Read `.3dm`** with `ONX_Model::Read`.
+2. **Iterate geometry objects** with `ONX_ModelComponentIterator`.
+3. For each `ON_Brep`:
+   - Convert to `TopoDS_Shape` with `ON_BrepToOCCT`.
+   - Write to `PartShape_N.brp` with `BRepTools::Write`.
+   - Emit `<Object type="Part::Feature" name="Shape_N"/>` in Document.xml.
+4. For each `ON_Mesh`:
+   - Convert to `Poly_Triangulation` with `ON_MeshToOCCT`.
+   - Encode as FreeCAD mesh format (or embed as OCCT brep if topological).
+5. **Build layer → FreeCAD `App::Part` mapping**.
+6. **Emit per-object DiffuseColor blobs** from `ON_3dmObjectAttributes`.
+7. **Write `Document.xml`** and `GuiDocument.xml`.
+8. **Zip all files** into `.FCStd`.
+
+---
+
+## 6. Priority Roadmap
+
+### Phase 1 — Geometry foundation (complete)
+- [x] NURBS curves (3-D and 2-D) round-trip
+- [x] NURBS surfaces round-trip
+- [x] B-Rep topology round-trip (faces, edges, loops, trims, vertices)
+- [x] Analytic surface conversion (plane, cylinder, cone, sphere, torus)
+- [x] Polygon mesh round-trip (triangles, quads, normals, UV)
+
+### Phase 2 — Basic attributes (P1/P2 items above)
+- [x] Object name in `ON_3dmObjectAttributes` ↔ TDF label / XCAF Name
+- [x] Object display colour ↔ `XCAFDoc_Color`
+- [x] Layer name and colour ↔ `XCAFDoc_LayerTool`
+- [x] Basic material (diffuse colour, transparency)
+- [x] FreeCAD per-face `DiffuseColor` binary parser (`fcstd_convert` module)
+- [x] Document title, author, creation date
+- [x] Unit system and linear tolerance
+
+### Phase 3 — Structure (P3 items)
+- [x] Block instances / assembly references (`ON_InstanceDefinition` + `ON_InstanceRef` ↔ XCAF assembly)
+- [x] Named views / cameras (`ON_3dmView` ↔ `XCAFDoc_ViewTool` + `XCAFView_Object`)
+- [x] Assembly hierarchy / layer nesting (`ON_Layer::ParentLayerId` ↔ XCAF `"Parent/Child"` encoded layer names)
+- [x] GD&T / PMI annotations (`ON_Dimension` ↔ `XCAFDoc_DimTolTool`; `ON_Text`/`ON_Leader` ↔ `XCAFDoc_NotesTool`)
+- [x] Multi-level assembly resolution: iterative bottom-up Phase A resolves non-free assemblies of arbitrary depth; non-free → `ON_InstanceDefinition`, free (scene containers) → scene-level `ON_InstanceRef`
+
+### Phase 4 — Extended types (P4 items)
+- [x] Point clouds (`ON_PointCloud` ↔ OCCT `TopoDS_Compound` of vertices)
+- [x] SubD → mesh fallback (`ON_SubD::GetControlNetMesh` → vertex compound)
+- [x] Text annotations (`ON_Text`/`ON_Leader` ↔ `XCAFDoc_NotesTool` comment notes)
+- [x] GD&T / PMI annotations (`ON_Dimension` ↔ `XCAFDoc_DimTolTool`)
+- [x] Embedded texture maps (`ON_Texture::m_image_file_reference` ↔ `TDataStd_Comment` on material child label)
+
+### Phase 5 — Full FreeCAD ↔ 3dm pipeline
+- [x] `fcstd_reader` module: `FCStdFileToONX_Model(path, model)` — reads BRep entries from ZIP → `ON_Brep` objects with name/colour/layer attributes
+- [x] `fcstd_writer` module: `ONX_ModelToFCStdFile(path, model)` — writes ON_Brep objects as BRep text files + `Document.xml` + `GuiDocument.xml` into a ZIP archive
+- [x] Per-face `DiffuseColor` round-trip — writer serialises `ON_BrepFace::PerFaceColor()` as binary `DiffuseColor` blobs; reader already parses them
+- [x] `ParseDiffuseColors` always compiled (no libzip dependency); `ReadFcstdDoc` and `FCStdFileToONX_Model`/`ONX_ModelToFCStdFile` guarded by `OPEN2OPEN_HAVE_LIBZIP`
+- [x] GuiDocument.xml color format uses FreeCAD's `0xRRGGBBAA` convention (alpha=0 = opaque); reader fixed to use `std::stoul(val, nullptr, 0)` for hex auto-detection
+- [x] `App::Part` container → ON_Layer hierarchy — `ParseDocumentXml` parses `App::Part::Group` property; children get `part_label` field → FCStdFileToONX_Model uses part label as layer name
+- [x] Integration test: `test_fcstd_attrs` Test 7 — `ONX_ModelToFCStdFile` + `FCStdFileToONX_Model` round-trip (box with per-face colors; skipped when libzip unavailable)
+
+### Phase 6 — Per-object identity and scene metadata (P6 items)
+- [x] UUID (`ON_3dmObjectAttributes::m_uuid`) — encoded in a METADATA `TDataStd_Comment` child label on every shape label; field: `UUID:<hex-uuid>`
+- [x] URL references (`ON_3dmObjectAttributes::m_url`) — same METADATA child label; field: `URL:<url>`
+- [x] Group membership (`ON_3dmObjectAttributes::m_group[]`) — same METADATA child label; one `GROUP:<name>` field per group; stored by name to survive model re-indexing; group is created in destination model manifest before `AddManagedModelGeometryComponent` to satisfy `UpdateReferencedComponents`
+- [x] Clipping planes (`ON_ClippingPlaneSurface`) — `XCAFDoc_ClippingPlaneTool::AddClippingPlane`; plane normal and origin preserved; read back via `GetClippingPlanes`
+- [x] Lights (`ON_Light`) — serialised as `TDataStd_Comment` children of `doc->Main()` in format `LIGHT:<name>|<style>|<r,g,b>|<px,py,pz>|<dx,dy,dz>|<enabled>`; iterated via `ON_ModelComponent::Type::RenderLight`
+- [x] Tests 11–15 in `test_attrs.cpp` cover all five P6 features; 74/74 pass
+
+---
+
+## 7. Key Technical Challenges
+
+### 7.1 Assembly semantics gap
+
+OCCT XCAF uses a strict product/part/instance tree modelled on STEP AP214.
+openNURBS uses flat layer lists with optional parent layers and block
+instances.  There is no one-to-one mapping: sub-assemblies with multiple
+instances of the same component must be either expanded (losing instance
+identity) or represented as block instances in 3dm.
+
+**Recommended approach:** Map XCAF product nodes to ON_Layer nodes; map XCAF
+shape instances to ON_InstanceRef with transforms.  On the reverse path, map
+top-level ON_Layers with children to XCAF product nodes.
+
+### 7.2 FreeCAD GuiDocument colour encoding
+
+FreeCAD's `DiffuseColor` files are raw binary arrays of `float[4]` (RGBA) per
+face, in document order.  Parsing these requires reading both `Document.xml`
+(to know which shapes exist and their face counts) and `GuiDocument.xml` (to
+know which colour file belongs to which shape).
+
+### 7.3 NURBS surface periodicity vs. FreeCAD seam handling
+
+FreeCAD uses OCCT's internal B-Rep, which may produce periodic surfaces with
+seam edges that are not present in the original 3dm model.  The current
+seam-trim repair code handles most cases but some complex seam
+crossings (e.g. speaker grille faces) remain problematic.
+
+### 7.4 ON_Mesh quad faces in OCCT
+
+`Poly_Triangulation` only supports triangles.  When an openNURBS quad mesh
+is converted to OCCT it is triangulated (split along the 0-2 diagonal).
+On the return path all faces come back as triangles.  If the original quad
+topology is needed, an ngon-aware mesh container should be used.
+
+---
+
+## 8. Currently Implemented (`open2open` library)
+
+| Module | Header | Functions |
+|---|---|---|
+| NURBS geometry | `open2open/geom_convert.h` | `ON_NurbsCurveToOCCT`, `ON_NurbsCurve2dToOCCT`, `ON_NurbsSurfaceToOCCT`, `OCCTCurveToON`, `OCCTSurfaceToON` |
+| B-Rep topology | `open2open/brep_convert.h` | `ON_BrepToOCCT`, `OCCTToON_Brep` |
+| Polygon mesh | `open2open/mesh_convert.h` | `ON_MeshToOCCT`, `OCCTToON_Mesh` |
+| Attributes & metadata | `open2open/attrs_convert.h` | `CreateXCAFDocument`, `ONX_ModelToXCAFDoc`, `XCAFDocToONX_Model` |
+| FreeCAD FCStd pipeline | `open2open/fcstd_convert.h` | `ParseDiffuseColors`, `ReadFcstdDoc`, `FCStdFileToONX_Model`, `ONX_ModelToFCStdFile` |
+
+### 8.1 Feature coverage of `ONX_ModelToXCAFDoc` / `XCAFDocToONX_Model`
+
+| openNURBS | XCAF/TDF storage |
+|---|---|
+| `ON_3dmObjectAttributes::m_name` | `TDataStd_Name` on shape label |
+| `m_color` | `XCAFDoc_ColorTool` (Gen) |
+| `m_layer_index` / `ON_Layer` (parent/child) | `XCAFDoc_LayerTool` with `"Parent/Child"` encoded names |
+| `m_material_index` / `ON_Material` | `XCAFDoc_MaterialTool` + diffuse colour on shape |
+| `ON_Texture::m_image_file_reference` | `TDataStd_Comment` child of material label |
+| `m_uuid` | `TDataStd_Comment` METADATA child — `UUID:<hex>` |
+| `m_url` | `TDataStd_Comment` METADATA child — `URL:<url>` |
+| `m_group[]` | `TDataStd_Comment` METADATA child — `GROUP:<name>` per group |
+| `ON_InstanceDefinition` + `ON_InstanceRef` | `XCAFDoc_ShapeTool` assembly + located component |
+| `ON_3dmView` | `XCAFDoc_ViewTool` + `XCAFView_Object` |
+| `ON_Dimension` | `XCAFDoc_DimTolTool::AddDimTol` |
+| `ON_Text` / `ON_Leader` | `XCAFDoc_NotesTool::CreateComment` |
+| `ON_PointCloud` | `TopoDS_Compound` of vertices |
+| `ON_SubD` (control net) | `TopoDS_Compound` of vertices via `GetControlNetMesh` |
+| `ON_ClippingPlaneSurface` | `XCAFDoc_ClippingPlaneTool::AddClippingPlane` |
+| `ON_Light` | `TDataStd_Comment` "LIGHT:…" child of `doc->Main()` |
+| `ON_3dmProperties` (author, company) | `TDataStd_Name` on doc root |
+| `ON_3dmUnitsAndTolerances` | `XCAFDoc_LengthUnit` on doc root |
+
