@@ -1,0 +1,35 @@
+# Compiled test binaries
+compare_with_geogram
+test_geogram_comparison
+test_mesh_repair
+test_full_algorithms
+test_rvd
+demo_rvd_cvt
+test_remesh_comparison
+test_newton_optimizer
+test_rvd_performance
+stress_test
+test_threadpool
+test_parallel_rvd
+test_anisotropic_remesh
+test_delaunay6
+test_cvt6d
+test_delaunay_n
+test_delaunay_nn
+test_rvd_n
+test_cvt_n
+test_anisotropic_end_to_end
+test_remesh
+test_phase4_integration
+test_boundary_polygon_rtree
+test_enhanced_manifold
+
+# Generated output OBJ files (test outputs and intermediate results)
+gte_output.obj
+geogram_output.obj
+remesh_gte_output.obj
+remesh_geogram_output.obj
+tests/data/*_repaired.obj
+tests/data/*_output.obj
+tests/data/gt_remeshed.obj
+tests/data/gt_repaired.obj
