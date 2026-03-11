@@ -8,7 +8,21 @@ PTHREAD = -pthread
 # Test source directory
 TEST_DIR = tests
 
-# Geogram submodule paths (used by test_geogram_comparison)
+# bext_output geogram paths (pre-built; auto-detected relative to repo root).
+# Override BRLCAD_EXT_DIR if bext_output is elsewhere.
+BRLCAD_EXT_DIR ?= $(realpath $(dir $(lastword $(MAKEFILE_LIST)))/../bext_output)
+BRLCAD_EXT_INSTALL_DIR  = $(BRLCAD_EXT_DIR)/install
+BRLCAD_EXT_NOINSTALL_DIR = $(BRLCAD_EXT_DIR)/noinstall
+
+# GTE headers bundled in bext_output (preferred over the local GTE/ copy)
+BEXT_GTE_INC = -I$(BRLCAD_EXT_NOINSTALL_DIR)/include -I$(BRLCAD_EXT_NOINSTALL_DIR)/include/GTE
+
+# Geogram library bundled in bext_output
+BEXT_GEO_INC = -I$(BRLCAD_EXT_INSTALL_DIR)/include/geogram1
+BEXT_GEO_LIB_DIR = $(BRLCAD_EXT_INSTALL_DIR)/lib
+BEXT_GEO_LIBS = -L$(BEXT_GEO_LIB_DIR) -lgeogram -Wl,-rpath,$(BEXT_GEO_LIB_DIR)
+
+# Geogram submodule paths (fallback when bext_output is not available)
 GEOGRAM_SRC = geogram/src/lib
 GEOGRAM_INC = -I$(GEOGRAM_SRC) -I$(GEOGRAM_SRC)/geogram/third_party/OpenNL
 GEOGRAM_BUILD_DIR = /tmp/geogram_build
@@ -72,8 +86,20 @@ build_geogram:
 	$(MAKE) -C $(GEOGRAM_BUILD_DIR) -j$$(nproc) geogram
 	@echo "geogram built successfully: $(GEOGRAM_LIB_DIR)/libgeogram.so"
 
-# Direct GTE vs Geogram comparison (requires geogram submodule to be built).
-# Run 'make build_geogram' first, or set GEOGRAM_LIB_DIR to an existing build.
+# Direct GTE vs Geogram comparison using pre-built bext_output geogram (preferred).
+# Falls back to the geogram submodule build if bext_output is absent.
+# Uses BEXT_* variables when bext_output/install/lib/libgeogram.so exists;
+# otherwise uses GEOGRAM_* submodule variables (run 'make build_geogram' first).
+ifeq ($(wildcard $(BEXT_GEO_LIB_DIR)/libgeogram.so),)
+# bext_output not present — use submodule
+_GEO_INC  = $(GEOGRAM_INC)
+_GEO_LIBS = $(GEOGRAM_LIBS)
+else
+# bext_output present — use pre-built library
+_GEO_INC  = $(BEXT_GEO_INC)
+_GEO_LIBS = $(BEXT_GEO_LIBS)
+endif
+
 test_geogram_comparison: $(TEST_DIR)/test_geogram_comparison.cpp \
                          GTE/Mathematics/MeshRepair.h \
                          GTE/Mathematics/MeshHoleFilling.h \
@@ -83,9 +109,9 @@ test_geogram_comparison: $(TEST_DIR)/test_geogram_comparison.cpp \
                          GTE/Mathematics/SurfaceRVDN.h \
                          GTE/Mathematics/CVTN.h \
                          GTE/Mathematics/DelaunayNN.h
-	$(CXX) $(CXXFLAGS) $(GEOGRAM_INC) -o test_geogram_comparison \
+	$(CXX) $(CXXFLAGS) $(_GEO_INC) -o test_geogram_comparison \
 	    $(TEST_DIR)/test_geogram_comparison.cpp \
-	    $(GEOGRAM_LIBS) $(LDFLAGS)
+	    $(_GEO_LIBS) $(LDFLAGS)
 
 # Performance and optimization
 test_newton_optimizer: $(TEST_DIR)/test_newton_optimizer.cpp
@@ -151,12 +177,56 @@ test: test_mesh_repair
 	@echo "Running basic mesh repair test..."
 	./test_mesh_repair $(TEST_DIR)/data/gt.obj $(TEST_DIR)/data/gt_repaired.obj
 
+# Run GTE vs Geogram comparison using bext_output geogram (no submodule required).
+# Runs both use cases: repair+hole-filling and anisotropic remeshing on GenericTwin (gt.obj).
+test_geogram_bext: test_geogram_comparison
+	@echo "Running GTE vs Geogram comparison on GenericTwin (gt.obj) using bext_output geogram..."
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$$LD_LIBRARY_PATH" \
+	    ./test_geogram_comparison $(TEST_DIR)/data/gt.obj
+
 # Run GTE vs Geogram comparison (requires test_geogram_comparison to be built first)
 # Runs both use cases: repair+hole-filling and anisotropic remeshing
 # To build geogram automatically: make build_geogram test_geogram_comparison
 test_geogram: test_geogram_comparison
 	@echo "Running GTE vs Geogram comparison (repair, remesh)..."
-	./test_geogram_comparison $(TEST_DIR)/data/gt.obj
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$$LD_LIBRARY_PATH" \
+	    ./test_geogram_comparison $(TEST_DIR)/data/gt.obj
+
+# GenericTwin BRL-CAD bot repair simulation: run GTE repair and Geogram repair on every
+# BoT mesh in gt.obj and compare success rates (mirrors BRL-CAD's `bot repair` command).
+# Requires bext_output geogram.
+test_bot_repair_comparison: $(TEST_DIR)/test_bot_repair_comparison.cpp \
+                             GTE/Mathematics/MeshRepair.h \
+                             GTE/Mathematics/MeshHoleFilling.h \
+                             GTE/Mathematics/MeshPreprocessing.h \
+                             GTE/Mathematics/MeshValidation.h
+	$(CXX) $(CXXFLAGS) $(_GEO_INC) -I$(BRLCAD_EXT_INSTALL_DIR)/include \
+	    -o test_bot_repair_comparison \
+	    $(TEST_DIR)/test_bot_repair_comparison.cpp \
+	    $(_GEO_LIBS) -L$(BRLCAD_EXT_INSTALL_DIR)/lib -lmanifold \
+	    -Wl,-rpath,$(BRLCAD_EXT_INSTALL_DIR)/lib
+
+# Run the BRL-CAD bot repair simulation on GenericTwin (gt.obj)
+test_bot_repair: test_bot_repair_comparison
+	@echo "=== BRL-CAD bot repair: GTE vs Geogram on GenericTwin ==="
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$(BRLCAD_EXT_INSTALL_DIR)/lib:$$LD_LIBRARY_PATH" \
+	    ./test_bot_repair_comparison $(TEST_DIR)/data/gt.obj
+
+# GenericTwin-specific comparison test: exercises both repair and remesh on the
+# gt.obj mesh (exported from the BRL-CAD GenericTwin.fg4 example model).
+# This is the canonical regression test for GTE vs Geogram parity.
+test_generic_twin: test_geogram_comparison compare_with_geogram test_bot_repair_comparison
+	@echo "=== GenericTwin GTE vs Geogram comparison ==="
+	@echo "Running full GTE vs Geogram comparison on GenericTwin (gt.obj)..."
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$(BRLCAD_EXT_INSTALL_DIR)/lib:$$LD_LIBRARY_PATH" \
+	    ./test_geogram_comparison $(TEST_DIR)/data/gt.obj
+	@echo ""
+	@echo "Running standalone GTE repair+fill on GenericTwin (gt.obj)..."
+	./compare_with_geogram $(TEST_DIR)/data/gt.obj
+	@echo ""
+	@echo "Running BRL-CAD bot repair simulation on GenericTwin (gt.obj)..."
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$(BRLCAD_EXT_INSTALL_DIR)/lib:$$LD_LIBRARY_PATH" \
+	    ./test_bot_repair_comparison $(TEST_DIR)/data/gt.obj
 
 stress: stress_test
 	@echo "Running comprehensive stress tests..."
@@ -167,7 +237,7 @@ clean:
 	rm -f $(TARGETS) test_geogram_comparison
 	rm -f $(TEST_DIR)/data/*_repaired.obj $(TEST_DIR)/data/*_output.obj
 
-.PHONY: all clean test test_geogram stress generate_test_data build_geogram
+.PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram
 
 # Phase 4 integration test
 test_phase4_integration: $(TEST_DIR)/test_phase4_integration.cpp GTE/Mathematics/CVTN.h GTE/Mathematics/MeshRemesh.h GTE/Mathematics/SurfaceRVDN.h

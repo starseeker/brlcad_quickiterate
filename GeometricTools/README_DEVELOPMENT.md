@@ -146,26 +146,21 @@ MeshRepair<double>::Repair(vertices, triangles, params);
 - `MeshHoleFilling<Real>` - Main hole filling class
 
 **Triangulation Methods:**
-1. **Ear Clipping (2D)** - `TriangulationMethod::EarClipping`
-   - Projects to 2D, uses GTE's exact arithmetic
-   - Fast, robust for planar holes
+1. **LSCM** - `TriangulationMethod::LSCM` ⭐ DEFAULT
+   - Least Squares Conformal Maps parameterization
+   - Handles any topology, including highly non-planar holes
 
-2. **Constrained Delaunay (2D)** - `TriangulationMethod::CDT` ⭐ RECOMMENDED
-   - Projects to 2D, optimizes triangle angles
-   - Best quality, slightly slower
-
-3. **Ear Clipping (3D)** - `TriangulationMethod::EarClipping3D`
+2. **Ear Clipping (3D)** - `TriangulationMethod::EarClipping3D`
    - Direct 3D computation, no projection
-   - Better for highly non-planar holes
+   - Alternative for highly non-planar holes
 
 **Usage Example:**
 ```cpp
 #include <GTE/Mathematics/MeshHoleFilling.h>
 
 MeshHoleFilling<double>::Parameters params;
-params.method = TriangulationMethod::CDT;  // Use CDT
-params.autoFallback = true;                 // Auto-switch for non-planar
-params.planarityThreshold = 0.2;           // Non-planarity threshold
+params.method = TriangulationMethod::LSCM;  // Default, handles any topology
+params.autoFallback = true;                 // Auto-switch on failure
 params.repair = true;                       // Clean up after
 params.maxArea = 1e30;                     // Fill all holes
 params.maxEdges = std::numeric_limits<size_t>::max();

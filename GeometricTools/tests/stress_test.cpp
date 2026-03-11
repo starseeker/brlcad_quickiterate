@@ -81,28 +81,16 @@ void TestNonPlanarHole() {
     
     std::cout << "\n  Testing each method:" << std::endl;
     
-    // EC 2D - expected to struggle
+    // LSCM - expected to struggle with highly non-planar
     triangles = dummyTris;
-    params.method = MeshHoleFilling<double>::TriangulationMethod::EarClipping;
+    params.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;
     try {
         MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
-        std::cout << "  EC (2D): " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
-        RecordResult("NonPlanar", "EC(2D)", true, triangles.size() - dummyTris.size());
+        std::cout << "  LSCM: " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
+        RecordResult("NonPlanar", "LSCM", true, triangles.size() - dummyTris.size());
     } catch (...) {
-        std::cout << "  EC (2D): FAILED (exception)" << std::endl;
-        RecordResult("NonPlanar", "EC(2D)", false, 0, "Exception");
-    }
-    
-    // CDT 2D - expected to struggle
-    triangles = dummyTris;
-    params.method = MeshHoleFilling<double>::TriangulationMethod::CDT;
-    try {
-        MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
-        std::cout << "  CDT (2D): " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
-        RecordResult("NonPlanar", "CDT(2D)", true, triangles.size() - dummyTris.size());
-    } catch (...) {
-        std::cout << "  CDT (2D): FAILED (exception)" << std::endl;
-        RecordResult("NonPlanar", "CDT(2D)", false, 0, "Exception");
+        std::cout << "  LSCM: FAILED (exception)" << std::endl;
+        RecordResult("NonPlanar", "LSCM", false, 0, "Exception");
     }
     
     // EC3D - expected to succeed
@@ -149,14 +137,12 @@ void TestDegenerateHole() {
     
     // Test each method
     for (auto method : {
-        MeshHoleFilling<double>::TriangulationMethod::EarClipping,
-        MeshHoleFilling<double>::TriangulationMethod::CDT,
+        MeshHoleFilling<double>::TriangulationMethod::LSCM,
         MeshHoleFilling<double>::TriangulationMethod::EarClipping3D
     }) {
         triangles = dummyTris;
         params.method = method;
-        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::EarClipping) ? "EC(2D)" :
-                                  (method == MeshHoleFilling<double>::TriangulationMethod::CDT) ? "CDT(2D)" : "EC3D";
+        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::LSCM) ? "LSCM" : "EC3D";
         try {
             MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
             std::cout << "  " << methodName << ": " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
@@ -200,14 +186,12 @@ void TestElongatedHole() {
     params.autoFallback = false;
     
     for (auto method : {
-        MeshHoleFilling<double>::TriangulationMethod::EarClipping,
-        MeshHoleFilling<double>::TriangulationMethod::CDT,
+        MeshHoleFilling<double>::TriangulationMethod::LSCM,
         MeshHoleFilling<double>::TriangulationMethod::EarClipping3D
     }) {
         triangles = dummyTris;
         params.method = method;
-        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::EarClipping) ? "EC(2D)" :
-                                  (method == MeshHoleFilling<double>::TriangulationMethod::CDT) ? "CDT(2D)" : "EC3D";
+        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::LSCM) ? "LSCM" : "EC3D";
         try {
             MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
             std::cout << "  " << methodName << ": " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
@@ -250,14 +234,12 @@ void TestLargeHole() {
     params.autoFallback = false;
     
     for (auto method : {
-        MeshHoleFilling<double>::TriangulationMethod::EarClipping,
-        MeshHoleFilling<double>::TriangulationMethod::CDT,
+        MeshHoleFilling<double>::TriangulationMethod::LSCM,
         MeshHoleFilling<double>::TriangulationMethod::EarClipping3D
     }) {
         triangles = dummyTris;
         params.method = method;
-        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::EarClipping) ? "EC(2D)" :
-                                  (method == MeshHoleFilling<double>::TriangulationMethod::CDT) ? "CDT(2D)" : "EC3D";
+        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::LSCM) ? "LSCM" : "EC3D";
         
         auto start = std::chrono::high_resolution_clock::now();
         try {
@@ -307,14 +289,12 @@ void TestConcaveHole() {
     params.autoFallback = false;
     
     for (auto method : {
-        MeshHoleFilling<double>::TriangulationMethod::EarClipping,
-        MeshHoleFilling<double>::TriangulationMethod::CDT,
+        MeshHoleFilling<double>::TriangulationMethod::LSCM,
         MeshHoleFilling<double>::TriangulationMethod::EarClipping3D
     }) {
         triangles = dummyTris;
         params.method = method;
-        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::EarClipping) ? "EC(2D)" :
-                                  (method == MeshHoleFilling<double>::TriangulationMethod::CDT) ? "CDT(2D)" : "EC3D";
+        std::string methodName = (method == MeshHoleFilling<double>::TriangulationMethod::LSCM) ? "LSCM" : "EC3D";
         try {
             MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
             std::cout << "  " << methodName << ": " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
@@ -351,30 +331,29 @@ void TestAutoFallback() {
     
     // Test with auto-fallback disabled
     MeshHoleFilling<double>::Parameters params;
-    params.method = MeshHoleFilling<double>::TriangulationMethod::CDT;
+    params.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;
     params.autoFallback = false;
     
     triangles = dummyTris;
     try {
         MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
-        std::cout << "  CDT without fallback: " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
+        std::cout << "  LSCM without fallback: " << (triangles.size() - dummyTris.size()) << " triangles" << std::endl;
     } catch (...) {
-        std::cout << "  CDT without fallback: FAILED (as expected for non-planar)" << std::endl;
+        std::cout << "  LSCM without fallback: FAILED (as expected for non-planar)" << std::endl;
     }
     
     // Test with auto-fallback enabled
     params.autoFallback = true;
-    params.planarityThreshold = 0.1;
     
     triangles = dummyTris;
     try {
         MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
-        std::cout << "  CDT with auto-fallback: " << (triangles.size() - dummyTris.size()) 
+        std::cout << "  LSCM with auto-fallback: " << (triangles.size() - dummyTris.size()) 
                   << " triangles (should use EC3D)" << std::endl;
-        RecordResult("AutoFallback", "CDT→EC3D", true, triangles.size() - dummyTris.size());
+        RecordResult("AutoFallback", "LSCM→EC3D", true, triangles.size() - dummyTris.size());
     } catch (...) {
-        std::cout << "  CDT with auto-fallback: FAILED" << std::endl;
-        RecordResult("AutoFallback", "CDT→EC3D", false, 0, "Exception");
+        std::cout << "  LSCM with auto-fallback: FAILED" << std::endl;
+        RecordResult("AutoFallback", "LSCM→EC3D", false, 0, "Exception");
     }
 }
 

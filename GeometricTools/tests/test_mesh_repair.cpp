@@ -135,9 +135,8 @@ int main(int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "Usage: " << argv[0] << " <input.obj> [output.obj] [ec|cdt|ec3d]" << std::endl;
-        std::cerr << "  ec   - Use Ear Clipping triangulation (2D projection, default)" << std::endl;
-        std::cerr << "  cdt  - Use Constrained Delaunay Triangulation (2D projection)" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <input.obj> [output.obj] [lscm|ec3d]" << std::endl;
+        std::cerr << "  lscm - Use LSCM triangulation (default)" << std::endl;
         std::cerr << "  ec3d - Use 3D Ear Clipping (no projection, handles non-planar holes)" << std::endl;
         return 1;
     }
@@ -147,16 +146,16 @@ int main(int argc, char* argv[])
     
     // Parse triangulation method
     gte::MeshHoleFilling<double>::TriangulationMethod method = 
-        gte::MeshHoleFilling<double>::TriangulationMethod::EarClipping;
-    std::string methodName = "Ear Clipping (2D)";
+        gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
+    std::string methodName = "LSCM";
     
     if (argc >= 4)
     {
         std::string methodArg = argv[3];
         if (methodArg == "cdt")
         {
-            method = gte::MeshHoleFilling<double>::TriangulationMethod::CDT;
-            methodName = "Constrained Delaunay Triangulation (2D)";
+            method = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
+            methodName = "LSCM";
         }
         else if (methodArg == "ec3d")
         {
