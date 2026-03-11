@@ -46,6 +46,7 @@ rt_arb_brep(ON_Brep **b, const struct rt_db_internal *ip, const struct bn_tol *t
     BU_ALLOC(tmp_internal, struct rt_db_internal);
     RT_DB_INTERNAL_INIT(tmp_internal);
 
+    ttmptol.magic = BG_TESS_TOL_MAGIC;
     ttmptol.abs = 0;
     ttmptol.rel = 0.01;
     ttmptol.norm = 0;
