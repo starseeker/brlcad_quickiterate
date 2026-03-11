@@ -134,7 +134,7 @@ _bot_cmd_smooth(void* bs, int argc, const char** argv)
     struct db_i *dbip = gedp->dbip;
 
     const char* usage_string = "bot [options] smooth [smooth_options] <objname> [output_name]";
-    const char* purpose_string = "Smooth the BoT using OpenMesh's Jacobi Laplace smoother";
+    const char* purpose_string = "Smooth the BoT using Jacobi Laplace smoothing";
     if (_bot_cmd_msgs(bs, argc, argv, usage_string, purpose_string)) {
 	return BRLCAD_OK;
     }
@@ -187,7 +187,7 @@ _bot_cmd_smooth(void* bs, int argc, const char** argv)
 
     bu_log("INPUT BoT has %zu vertices and %zu faces\n", input_bot->num_vertices, input_bot->num_faces);
 
-    struct rt_bot_internal *output_bot = bot_smooth(gedp, input_bot, continuity, direction, max_lerror, max_aerror, iterations);
+    struct rt_bot_internal *output_bot = bot_smooth(gedp, input_bot, direction, continuity, max_lerror, max_aerror, iterations);
     if (!output_bot) {
 	bu_vls_free(&output_bot_name);
 	return BRLCAD_ERROR;
