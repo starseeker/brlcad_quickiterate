@@ -104,6 +104,16 @@ struct FcstdObject {
     FcstdColor  shape_color  = 0xC8C8C800u; ///< Overall shape colour (packed RGBA, FreeCAD alpha=0 → opaque)
     bool        visible      = true;
     std::vector<FcstdColor> face_colors; ///< Per-face colours (may be empty)
+
+    // Boolean operation inputs — only set for boolean operation types.
+    // For Part::Cut, Part::Fuse, Part::Common:
+    //   base_name = the "Base" property (shape to operate on)
+    //   tool_name = the "Tool" property (the cutter/fuser/intersector)
+    // For Part::MultiFuse, Part::MultiCommon:
+    //   shapes = the "Shapes" link list (all input shapes)
+    std::string              base_name; ///< "Base" link (Part::Cut / Part::Fuse / Part::Common)
+    std::string              tool_name; ///< "Tool" link (Part::Cut / Part::Common)
+    std::vector<std::string> shapes;    ///< "Shapes" link list (Part::MultiFuse / Part::MultiCommon)
 };
 
 // ---------------------------------------------------------------------------
