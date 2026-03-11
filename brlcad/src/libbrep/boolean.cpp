@@ -420,10 +420,21 @@ build_loop_polygons(
      * the chord is close enough to the true arc for the outer polygon. */
     const double SAG_TOL = INTERSECTION_TOL * 2.0;
 
+    /* A curve whose chord length is below this threshold is considered
+     * closed (start ≈ end).  We use 2×SAG_TOL so that the closed-curve
+     * path also catches near-degenerate open curves whose endpoints are
+     * so close together that the chord polygon would be a near-point. */
+    const double CLOSED_CHORD_TOL = SAG_TOL * 2.0;
+
+    /* Number of evenly-spaced samples used to represent a closed curve
+     * (one whose start and end points coincide).  8 is sufficient for any
+     * convex closed shape and gives a reasonable fit for mild concavities. */
+    const int CLOSED_CURVE_NSAMP = 8;
+
     inner_poly.clear();
     outer_poly.clear();
-    inner_poly.reserve(N);
-    outer_poly.reserve(N * 2);
+    inner_poly.reserve(N * 4);
+    outer_poly.reserve(N * 4);
 
     for (int i = 0; i < N; i++) {
 	const ON_Curve *crv = loop[i];
@@ -432,10 +443,36 @@ build_loop_polygons(
 	ON_Interval dom = crv->Domain();
 	ON_3dPoint a3 = crv->PointAtStart();
 	ON_3dPoint b3 = crv->PointAtEnd();
-	ON_3dPoint m3 = crv->PointAt(dom.ParameterAt(0.5));
 
 	double ax = a3.x, ay = a3.y;
 	double bx = b3.x, by = b3.y;
+
+	/* Detect a closed curve: start and end are coincident.
+	 * A single closed curve (e.g. a planar ARB8 face boundary
+	 * parameterized as one closed spline, or a face that hasn't
+	 * been trimmed at all) needs to be sampled at multiple interior
+	 * points to produce a valid polygon — using only start/mid/end
+	 * yields a 1–2-point degenerate polygon on which _pnt_in_polygon
+	 * always returns false, causing every subsequent call to
+	 * is_point_inside_trimmed_face to fail. */
+	const double chord_sq = (bx-ax)*(bx-ax) + (by-ay)*(by-ay);
+	const bool is_closed_crv = (chord_sq < CLOSED_CHORD_TOL * CLOSED_CHORD_TOL);
+
+	if (is_closed_crv) {
+	    /* Sample the curve at CLOSED_CURVE_NSAMP evenly-spaced interior
+	     * parameters.  Use the same sample set for both inner and outer
+	     * polygons. */
+	    for (int k = 0; k < CLOSED_CURVE_NSAMP; k++) {
+		double t = dom.ParameterAt((double)k / CLOSED_CURVE_NSAMP);
+		ON_3dPoint p = crv->PointAt(t);
+		std::array<double, 2> pv = {{p.x, p.y}};
+		inner_poly.push_back(pv);
+		outer_poly.push_back(pv);
+	    }
+	    continue;
+	}
+
+	ON_3dPoint m3 = crv->PointAt(dom.ParameterAt(0.5));
 	double mx = m3.x, my = m3.y;
 
 	/* Inner polygon: always just the start-point (chord polygon). */
@@ -452,7 +489,7 @@ build_loop_polygons(
 	double cross = (bx - ax) * (my - ay) - (by - ay) * (mx - ax);
 
 	/* Perpendicular sagitta (signed distance from M to chord A→B). */
-	double chord_len = std::sqrt((bx-ax)*(bx-ax) + (by-ay)*(by-ay));
+	double chord_len = std::sqrt(chord_sq);
 	double sagitta = (chord_len > 0.0) ? std::fabs(cross) / chord_len : 0.0;
 
 	/* Determine if this is an "outward bulge" relative to the loop
@@ -3756,9 +3793,11 @@ get_point_inside_trimmed_face(const TrimmedFace *tface)
 				      NUDGE_SCALE * std::min(u_len, v_len));
 
 	/* Cap at this many curves to avoid O(N²) when there are many SSI
-	 * trim curves.  The first few curves are most likely to have a
-	 * nearby interior point.  If none of them work we fall through to
-	 * the inner-loop fallback and then give up. */
+	 * trim curves (each is_point_inside_trimmed_face() call is O(N) in
+	 * the number of loop curves).  12 was chosen empirically: it covers
+	 * typical heavily-trimmed NURBS faces while bounding the cost to
+	 * 12 × 16 × O(N) work.  Remaining curves are sampled at a coarser
+	 * stride below.  A single successful nudge terminates the search. */
 	const int MAX_NUDGE_CURVES = 12;
 	const int NOUTER = tface->m_outerloop.Count();
 	const int nlimit = std::min(NOUTER, MAX_NUDGE_CURVES);
@@ -3838,6 +3877,36 @@ get_point_inside_trimmed_face(const TrimmedFace *tface)
 		for (int k = 1; k <= 8 && !found; ++k) {
 		    test_pt2d = mid2 + inward * (NUDGE * k);
 		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+	    }
+	}
+    }
+
+    /* Last-resort fallback: the polygon pre-filter in
+     * is_point_inside_trimmed_face() may incorrectly reject valid interior
+     * points when the outer polygon is concave or the ray-cast happens to
+     * align with a vertex or edge.  Call is_point_inside_loop() directly
+     * (bypassing the pre-filter) for a coarser grid of bbox-sampled points.
+     * This path is rare — it only runs after all of the above have failed. */
+    if (!found) {
+	const int FALLBACK_STEPS = 4;
+	for (int steps = 1; steps <= FALLBACK_STEPS && !found; steps *= 2) {
+	    double u_halfstep = u_len / (steps * 2.0);
+	    double v_halfstep = v_len / (steps * 2.0);
+	    for (int fi = 0; fi < steps && !found; ++fi) {
+		test_pt2d.x = bbox.m_min.x + u_halfstep * (1 + 2 * fi);
+		for (int fj = 0; fj < steps && !found; ++fj) {
+		    test_pt2d.y = bbox.m_min.y + v_halfstep * (1 + 2 * fj);
+		    /* Bypass polygon pre-filter; use exact NURBS ray-cast. */
+		    bool inside_outer = is_point_inside_loop(test_pt2d, tface->m_outerloop);
+		    if (!inside_outer) continue;
+		    bool hole_excluded = false;
+		    for (size_t li = 0; li < tface->m_innerloop.size() && !hole_excluded; ++li) {
+			if (!is_point_outside_loop(test_pt2d, tface->m_innerloop[li]))
+			    hole_excluded = true;
+		    }
+		    if (!hole_excluded)
+			found = true;
 		}
 	    }
 	}
