@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "/home/cyapp/starseeker/GeometricTools/GTE/lib/Static/libgtmathematicsgpu.a"
+  "/home/cyapp/starseeker/GeometricTools/GTE/lib/Static/libgtmathematicsgpu.pdb"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2AdjustVelocity.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2AdjustVelocity.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2ComputeDivergence.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2ComputeDivergence.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2EnforceStateBoundary.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2EnforceStateBoundary.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeSource.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeSource.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeState.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeState.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2SolvePoisson.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2SolvePoisson.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2UpdateState.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid2UpdateState.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3AdjustVelocity.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3AdjustVelocity.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3ComputeDivergence.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3ComputeDivergence.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3EnforceStateBoundary.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3EnforceStateBoundary.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeSource.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeSource.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeState.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeState.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3SolvePoisson.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3SolvePoisson.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3UpdateState.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GPUFluid3UpdateState.cpp.o.d"
+  "CMakeFiles/gtmathematicsgpu.dir/GTMathematicsGPU.cpp.o"
+  "CMakeFiles/gtmathematicsgpu.dir/GTMathematicsGPU.cpp.o.d"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/gtmathematicsgpu.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

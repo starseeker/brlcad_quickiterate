@@ -1,0 +1,1070 @@
+[
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/Application.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/Application.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/Application.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/Application.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/CameraRig.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/CameraRig.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/CameraRig.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/CameraRig.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/Command.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/Command.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/Command.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/Command.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/ConsoleApplication.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/ConsoleApplication.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/ConsoleApplication.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/ConsoleApplication.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/Environment.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/Environment.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/Environment.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/Environment.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/GTApplications.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/GTApplications.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/GTApplications.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/GTApplications.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/OnIdleTimer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/OnIdleTimer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/OnIdleTimer.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/OnIdleTimer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/Timer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/Timer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/Timer.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/Timer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/TrackBall.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/TrackBall.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/TrackBall.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/TrackBall.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/TrackCylinder.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/TrackCylinder.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/TrackCylinder.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/TrackCylinder.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/TrackObject.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/TrackObject.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/TrackObject.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/TrackObject.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/Window2.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/Window2.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/Window2.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/Window2.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/Window3.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/Window3.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/Window3.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/Window3.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/WindowApplication.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/WindowApplication.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/WindowApplication.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/WindowApplication.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/GLX/Console.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/Console.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/Console.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/GLX/Console.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/GLX/ConsoleSystem.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/ConsoleSystem.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/ConsoleSystem.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/GLX/ConsoleSystem.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/GLX/WICFileIO.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/WICFileIO.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/WICFileIO.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/GLX/WICFileIO.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/GLX/Window.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/Window.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/Window.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/GLX/Window.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Applications",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Applications/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtapplications.dir/GLX/WindowSystem.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/WindowSystem.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Applications/GLX/WindowSystem.cpp",
+  "output": "Applications/CMakeFiles/gtapplications.dir/GLX/WindowSystem.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/AmbientLightEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/AmbientLightEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/AmbientLightEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/AmbientLightEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/AreaLightEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/AreaLightEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/AreaLightEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/AreaLightEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/BaseEngine.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/BaseEngine.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/BaseEngine.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/BaseEngine.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/BillboardNode.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/BillboardNode.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/BillboardNode.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/BillboardNode.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/BlendState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/BlendState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/BlendState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/BlendState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/BlendTransformController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/BlendTransformController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/BlendTransformController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/BlendTransformController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/BspNode.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/BspNode.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/BspNode.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/BspNode.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Buffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Buffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Buffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Buffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/BumpMapEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/BumpMapEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/BumpMapEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/BumpMapEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Camera.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Camera.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Camera.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Camera.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/CLODMesh.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/CLODMesh.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/CLODMesh.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/CLODMesh.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/CollisionMesh.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/CollisionMesh.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/CollisionMesh.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/CollisionMesh.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ConstantBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ConstantBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ConstantBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ConstantBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ConstantColorEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ConstantColorEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ConstantColorEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ConstantColorEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ControlledObject.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ControlledObject.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ControlledObject.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ControlledObject.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Controller.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Controller.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Controller.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Controller.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/CubeMapEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/CubeMapEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/CubeMapEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/CubeMapEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Culler.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Culler.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Culler.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Culler.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/DataFormat.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/DataFormat.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/DataFormat.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/DataFormat.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/DepthStencilState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/DepthStencilState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/DepthStencilState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/DepthStencilState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/DirectionalLightEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/DirectionalLightEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/DirectionalLightEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/DirectionalLightEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/DirectionalLightTextureEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/DirectionalLightTextureEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/DirectionalLightTextureEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/DirectionalLightTextureEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/DLODNode.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/DLODNode.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/DLODNode.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/DLODNode.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/DrawingState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/DrawingState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/DrawingState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/DrawingState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/DrawTarget.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/DrawTarget.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/DrawTarget.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/DrawTarget.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Font.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Font.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Font.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Font.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW400H12.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H12.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H12.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW400H12.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW400H14.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H14.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H14.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW400H14.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW400H16.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H16.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H16.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW400H16.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW400H18.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H18.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW400H18.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW400H18.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW700H12.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H12.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H12.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW700H12.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW700H14.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H14.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H14.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW700H14.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW700H16.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H16.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H16.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW700H16.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/FontArialW700H18.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H18.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/FontArialW700H18.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/FontArialW700H18.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GEDrawTarget.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GEDrawTarget.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GEDrawTarget.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GEDrawTarget.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GEObject.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GEObject.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GEObject.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GEObject.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GlossMapEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GlossMapEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GlossMapEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GlossMapEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GraphicsEngine.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GraphicsEngine.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GraphicsEngine.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GraphicsEngine.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GraphicsObject.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GraphicsObject.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GraphicsObject.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GraphicsObject.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GTGraphics.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GTGraphics.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GTGraphics.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GTGraphics.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/IKController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/IKController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/IKController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/IKController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/IndexBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/IndexBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/IndexBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/IndexBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/IndirectArgumentsBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/IndirectArgumentsBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/IndirectArgumentsBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/IndirectArgumentsBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/KeyframeController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/KeyframeController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/KeyframeController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/KeyframeController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Light.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Light.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Light.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Light.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/LightCameraGeometry.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/LightCameraGeometry.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/LightCameraGeometry.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/LightCameraGeometry.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/LightEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/LightEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/LightEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/LightEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Lighting.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Lighting.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Lighting.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Lighting.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Material.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Material.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Material.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Material.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/MeshFactory.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/MeshFactory.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/MeshFactory.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/MeshFactory.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/MorphController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/MorphController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/MorphController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/MorphController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Node.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Node.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Node.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Node.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/OverlayEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/OverlayEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/OverlayEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/OverlayEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ParticleController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ParticleController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ParticleController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ParticleController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Particles.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Particles.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Particles.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Particles.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Picker.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Picker.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Picker.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Picker.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/PickRecord.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/PickRecord.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/PickRecord.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/PickRecord.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/PlanarReflectionEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/PlanarReflectionEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/PlanarReflectionEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/PlanarReflectionEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/PlanarShadowEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/PlanarShadowEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/PlanarShadowEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/PlanarShadowEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/PointController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/PointController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/PointController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/PointController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/PointLightEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/PointLightEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/PointLightEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/PointLightEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/PointLightTextureEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/PointLightTextureEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/PointLightTextureEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/PointLightTextureEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ProgramDefines.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ProgramDefines.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ProgramDefines.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ProgramDefines.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ProgramFactory.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ProgramFactory.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ProgramFactory.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ProgramFactory.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ProjectedTextureEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ProjectedTextureEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ProjectedTextureEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ProjectedTextureEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/PVWUpdater.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/PVWUpdater.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/PVWUpdater.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/PVWUpdater.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/RasterizerState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/RasterizerState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/RasterizerState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/RasterizerState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/RawBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/RawBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/RawBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/RawBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Resource.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Resource.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Resource.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Resource.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/SamplerState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/SamplerState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/SamplerState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/SamplerState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Shader.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Shader.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Shader.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Shader.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/SkinController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/SkinController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/SkinController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/SkinController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Spatial.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Spatial.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Spatial.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Spatial.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/SphereMapEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/SphereMapEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/SphereMapEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/SphereMapEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/SpotLightEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/SpotLightEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/SpotLightEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/SpotLightEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/StructuredBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/StructuredBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/StructuredBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/StructuredBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/SwitchNode.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/SwitchNode.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/SwitchNode.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/SwitchNode.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Terrain.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Terrain.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Terrain.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Terrain.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture1.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture1.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture1.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture1.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture1Array.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture1Array.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture1Array.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture1Array.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture2.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture2.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture2.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture2.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture2Array.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture2Array.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture2Array.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture2Array.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture2Effect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture2Effect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture2Effect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture2Effect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture3.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture3.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture3.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture3.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Texture3Effect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture3Effect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Texture3Effect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Texture3Effect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextureArray.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureArray.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureArray.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextureArray.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextureBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextureBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextureCube.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureCube.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureCube.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextureCube.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextureCubeArray.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureCubeArray.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureCubeArray.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextureCubeArray.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextureDS.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureDS.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureDS.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextureDS.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextureRT.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureRT.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureRT.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextureRT.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TextureSingle.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureSingle.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TextureSingle.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TextureSingle.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TransformController.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TransformController.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TransformController.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TransformController.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/TypedBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/TypedBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/TypedBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/TypedBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/VertexBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/VertexBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/VertexBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/VertexBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/VertexColorEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/VertexColorEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/VertexColorEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/VertexColorEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/VertexFormat.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/VertexFormat.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/VertexFormat.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/VertexFormat.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ViewVolume.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ViewVolume.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ViewVolume.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ViewVolume.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/ViewVolumeNode.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/ViewVolumeNode.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/ViewVolumeNode.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/ViewVolumeNode.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/Visual.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/Visual.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/Visual.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/Visual.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/VisualEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/VisualEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/VisualEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/VisualEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/VolumeFogEffect.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/VolumeFogEffect.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/VolumeFogEffect.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/VolumeFogEffect.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45AtomicCounterBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45AtomicCounterBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45AtomicCounterBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45AtomicCounterBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45BlendState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45BlendState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45BlendState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45BlendState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Buffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Buffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Buffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Buffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45ConstantBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45ConstantBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45ConstantBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45ConstantBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45DepthStencilState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45DepthStencilState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45DepthStencilState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45DepthStencilState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45DrawingState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45DrawingState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45DrawingState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45DrawingState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45DrawTarget.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45DrawTarget.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45DrawTarget.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45DrawTarget.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Engine.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Engine.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Engine.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Engine.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45GraphicsObject.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45GraphicsObject.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45GraphicsObject.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45GraphicsObject.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45IndexBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45IndexBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45IndexBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45IndexBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45InputLayout.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45InputLayout.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45InputLayout.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45InputLayout.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45InputLayoutManager.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45InputLayoutManager.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45InputLayoutManager.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45InputLayoutManager.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45RasterizerState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45RasterizerState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45RasterizerState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45RasterizerState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Resource.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Resource.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Resource.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Resource.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45SamplerState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45SamplerState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45SamplerState.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45SamplerState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45StructuredBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45StructuredBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45StructuredBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45StructuredBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Texture.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Texture.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Texture1.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture1.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture1.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Texture1.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Texture1Array.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture1Array.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture1Array.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Texture1Array.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Texture2.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture2.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture2.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Texture2.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Texture2Array.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture2Array.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture2Array.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Texture2Array.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45Texture3.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture3.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45Texture3.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45Texture3.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45TextureArray.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureArray.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureArray.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45TextureArray.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45TextureCube.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureCube.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureCube.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45TextureCube.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45TextureCubeArray.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureCubeArray.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureCubeArray.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45TextureCubeArray.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45TextureDS.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureDS.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureDS.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45TextureDS.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45TextureRT.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureRT.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureRT.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45TextureRT.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45TextureSingle.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureSingle.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45TextureSingle.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45TextureSingle.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GL45VertexBuffer.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45VertexBuffer.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GL45VertexBuffer.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GL45VertexBuffer.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GLSLComputeProgram.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLComputeProgram.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLComputeProgram.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GLSLComputeProgram.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GLSLProgramFactory.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLProgramFactory.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLProgramFactory.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GLSLProgramFactory.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GLSLReflection.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLReflection.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLReflection.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GLSLReflection.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GLSLShader.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLShader.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLShader.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GLSLShader.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GLSLVisualProgram.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLVisualProgram.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLSLVisualProgram.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GLSLVisualProgram.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GTGraphicsGL45.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GTGraphicsGL45.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GTGraphicsGL45.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GTGraphicsGL45.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GLX/GLXEngine.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLX/GLXEngine.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLX/GLXEngine.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GLX/GLXEngine.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/Graphics",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/Graphics/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtgraphics.dir/GL45/GLX/GLXExtensions.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLX/GLXExtensions.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/Graphics/GL45/GLX/GLXExtensions.cpp",
+  "output": "Graphics/CMakeFiles/gtgraphics.dir/GL45/GLX/GLXExtensions.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2AdjustVelocity.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2AdjustVelocity.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2AdjustVelocity.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2AdjustVelocity.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2ComputeDivergence.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2ComputeDivergence.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2ComputeDivergence.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2ComputeDivergence.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2EnforceStateBoundary.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2EnforceStateBoundary.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2EnforceStateBoundary.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2EnforceStateBoundary.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeSource.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2InitializeSource.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2InitializeSource.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeSource.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2InitializeState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2InitializeState.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2InitializeState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2SolvePoisson.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2SolvePoisson.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2SolvePoisson.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2SolvePoisson.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid2UpdateState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2UpdateState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid2UpdateState.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid2UpdateState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3AdjustVelocity.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3AdjustVelocity.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3AdjustVelocity.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3AdjustVelocity.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3ComputeDivergence.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3ComputeDivergence.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3ComputeDivergence.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3ComputeDivergence.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3EnforceStateBoundary.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3EnforceStateBoundary.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3EnforceStateBoundary.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3EnforceStateBoundary.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeSource.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3InitializeSource.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3InitializeSource.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeSource.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3InitializeState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3InitializeState.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3InitializeState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3SolvePoisson.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3SolvePoisson.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3SolvePoisson.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3SolvePoisson.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GPUFluid3UpdateState.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3UpdateState.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GPUFluid3UpdateState.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GPUFluid3UpdateState.cpp.o"
+},
+{
+  "directory": "/home/cyapp/starseeker/GeometricTools/GTE/build/MathematicsGPU",
+  "command": "/usr/bin/c++ -DGTE_DISABLE_PCH -DGTE_USE_LINUX -DGTE_USE_MAT_VEC -DGTE_USE_OPENGL -DGTE_USE_ROW_MAJOR -D_DEBUG -I/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/.. -std=c++14 -c -Wall -Werror -g -o CMakeFiles/gtmathematicsgpu.dir/GTMathematicsGPU.cpp.o -c /home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GTMathematicsGPU.cpp",
+  "file": "/home/cyapp/starseeker/GeometricTools/GTE/MathematicsGPU/GTMathematicsGPU.cpp",
+  "output": "MathematicsGPU/CMakeFiles/gtmathematicsgpu.dir/GTMathematicsGPU.cpp.o"
+}
+]
