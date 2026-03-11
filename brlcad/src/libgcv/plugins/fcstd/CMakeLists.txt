@@ -75,18 +75,28 @@ set(_OCCT_LINK_LIBS
   ${OpenCASCADE_ModelingData_LIBRARIES}
   ${OpenCASCADE_ModelingAlgorithms_LIBRARIES}
 )
-# TKCDF provides the LDOM XML parser used by fcstd_convert.cpp to parse
-# Document.xml and GuiDocument.xml from FCStd archives.  It is part of
-# ApplicationFramework but is needed independently of full XCAF support.
-if(DEFINED OpenCASCADE_ApplicationFramework_LIBRARIES)
-  list(APPEND _OCCT_LINK_LIBS TKCDF)
-endif()
-# XCAF (ApplicationFramework + DataExchange) is intentionally disabled here.
-# attrs_convert.cpp uses XCAFDoc_MaterialTool::GetMaterial() as a static
-# method, which was changed to an instance method in OCCT 7.6.  Since the
-# fcstd_convert → OCCTToON_Brep path does not require XCAF we skip it to
-# keep the plugin compatible with the system-installed OCCT package.
+# XCAF (ApplicationFramework + DataExchange) enables attrs_convert.cpp.
+# The GetMaterial() API was guarded in attrs_convert.cpp with a version
+# check (OCC_VERSION_HEX >= 0x070600) so it now compiles against both
+# old-style static and new-style instance calling conventions.
 set(_OCCT_HAVE_XCAF FALSE)
+if(DEFINED OpenCASCADE_ApplicationFramework_LIBRARIES
+   AND DEFINED OpenCASCADE_DataExchange_LIBRARIES)
+  set(_OCCT_HAVE_XCAF TRUE)
+  list(APPEND _OCCT_LINK_LIBS
+    ${OpenCASCADE_ApplicationFramework_LIBRARIES}
+    ${OpenCASCADE_DataExchange_LIBRARIES}
+  )
+  message(STATUS "gcv-fcstd: XCAF support enabled")
+else()
+  # TKCDF provides the LDOM XML parser used by fcstd_convert.cpp to parse
+  # Document.xml and GuiDocument.xml.  It is part of ApplicationFramework
+  # but is needed independently of full XCAF support.
+  if(DEFINED OpenCASCADE_ApplicationFramework_LIBRARIES)
+    list(APPEND _OCCT_LINK_LIBS TKCDF)
+  endif()
+  message(STATUS "gcv-fcstd: XCAF not available (ApplicationFramework/DataExchange missing)")
+endif()
 
 # ---------------------------------------------------------------------------
 # Build open2open sources as an OBJECT library

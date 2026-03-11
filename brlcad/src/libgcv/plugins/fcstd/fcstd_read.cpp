@@ -45,6 +45,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -110,7 +111,11 @@ fcstd_read(gcv_context *context, const gcv_opts *gcv_options,
 
     struct rt_wdb *wdbp = wdb_dbopen(context->dbip, RT_WDB_TYPE_DB_INMEM);
 
-    /* convert FCStd → ONX_Model via open2open */
+    /* Read FcstdDoc for CSG structure (type, base/tool/shapes links). */
+    open2open::FcstdDoc doc;
+    bool has_csg_info = open2open::ReadFcstdDoc(source_path, doc);
+
+    /* Convert FCStd BRep geometry → ONX_Model via open2open */
     ONX_Model model;
     int n_converted = open2open::FCStdFileToONX_Model(source_path, model);
     if (n_converted <= 0) {
@@ -119,11 +124,16 @@ fcstd_read(gcv_context *context, const gcv_opts *gcv_options,
 	return 0;
     }
 
-    /* track solid names for the top-level comb and for uniqueness */
-    std::vector<std::string> solid_names;
+    /* ------------------------------------------------------------------ *
+     * Pass 1: write every converted BRep solid into the .g database and  *
+     * build a label → database-name map for later CSG tree construction. *
+     * ------------------------------------------------------------------ */
     std::map<std::string, int> used_names;
+    /* label_to_db: ON_3dmObjectAttributes name → solid db name */
+    std::map<std::string, std::string> label_to_db;
+    /* ordered list of every solid written */
+    std::vector<std::string> all_solid_names;
 
-    /* walk the model objects and write each brep into the database */
     ONX_ModelComponentIterator it(model,
 				  ON_ModelComponent::Type::ModelGeometry);
     int idx = 0;
@@ -139,8 +149,6 @@ fcstd_read(gcv_context *context, const gcv_opts *gcv_options,
 	if (!geom)
 	    continue;
 
-	/* Use unique_ptr to manage any temporary brep form so that cleanup
-	 * is automatic on all code paths through this loop iteration. */
 	std::unique_ptr<ON_Brep> temp_brep;
 	const ON_Brep *brep = nullptr;
 
@@ -155,18 +163,16 @@ fcstd_read(gcv_context *context, const gcv_opts *gcv_options,
 	    continue;
 
 	/* derive a candidate name from the model attributes */
-	std::string candidate;
+	std::string label;
 	const ON_3dmObjectAttributes *attrs = mgc->Attributes(nullptr);
 	if (attrs && attrs->m_name.IsNotEmpty()) {
 	    ON_String utf8;
 	    utf8 = attrs->m_name;
-	    candidate = sanitize_name(std::string(utf8.Array()), idx);
-	} else {
-	    candidate = sanitize_name(std::string(), idx);
+	    label = std::string(utf8.Array());
 	}
+	std::string candidate = sanitize_name(label, idx);
 	std::string solid_name = unique_name(candidate, used_names);
 
-	/* write the brep solid into the database */
 	ON_Brep *writable = const_cast<ON_Brep *>(brep);
 	if (mk_brep(wdbp, solid_name.c_str(), writable)) {
 	    bu_log("fcstd_read: mk_brep() failed for object '%s'\n",
@@ -174,27 +180,257 @@ fcstd_read(gcv_context *context, const gcv_opts *gcv_options,
 	    continue;
 	}
 
-	solid_names.push_back(solid_name);
+	all_solid_names.push_back(solid_name);
+	if (!label.empty())
+	    label_to_db[label] = solid_name;
     }
 
-    if (solid_names.empty()) {
+    if (all_solid_names.empty()) {
 	bu_log("fcstd_read: no BRep solids written for '%s'\n", source_path);
 	return 0;
     }
 
-    /* build a top-level combination that holds all solids */
-    struct wmember wm;
-    BU_LIST_INIT(&wm.l);
+    /* ------------------------------------------------------------------ *
+     * Pass 2 (CSG tree): if FcstdDoc was read successfully, create       *
+     * combination objects for boolean operation types (Part::Cut,        *
+     * Part::Fuse, Part::MultiFuse, Part::Common, Part::MultiCommon).     *
+     *                                                                    *
+     * Strategy:                                                          *
+     *  - Build fcstd_internal_name → solid_db_name from label_to_db     *
+     *  - Process doc.objects in order (FreeCAD writes topological order) *
+     *  - For each boolean op, look up inputs in csg_name map first,     *
+     *    falling back to solid name; create a "<label>_csg" combination  *
+     *  - Track which FCStd names are consumed as inputs                  *
+     *  - Top-level comb includes only non-consumed objects               *
+     * ------------------------------------------------------------------ */
 
-    for (const std::string &sn : solid_names)
-	mk_addmember(sn.c_str(), &wm.l, NULL, WMOP_UNION);
+    /* fcstd_internal_name → solid db name */
+    std::map<std::string, std::string> name_to_db;
+    /* fcstd_internal_name → CSG combination db name (filled below) */
+    std::map<std::string, std::string> name_to_csg;
+    /* fcstd_internal_names consumed as boolean-op inputs */
+    std::set<std::string> consumed;
 
-    if (mk_comb(wdbp, root_name.c_str(), &wm.l,
+    if (has_csg_info) {
+	/* Build name_to_db: map from FCStd internal name to solid db name */
+	for (const auto &obj : doc.objects) {
+	    const std::string &key =
+		obj.label.empty() ? obj.name : obj.label;
+	    auto it2 = label_to_db.find(key);
+	    if (it2 != label_to_db.end())
+		name_to_db[obj.name] = it2->second;
+	}
+
+	/* Collect the set of FCStd internal names that are boolean-op types.
+	 * These inputs must resolve to a CSG combo (not a brep solid) so that
+	 * the BRL-CAD tree references the parametric representation.  If the
+	 * combo isn't ready yet, lookup_input returns "" to defer processing. */
+	std::set<std::string> bool_op_names;
+	for (const auto &obj : doc.objects) {
+	    const std::string &t = obj.type;
+	    if (t == "Part::Cut"   || t == "Part::Fuse" ||
+		t == "Part::MultiFuse" || t == "Part::Common" ||
+		t == "Part::MultiCommon")
+		bool_op_names.insert(obj.name);
+	}
+
+	/* Helper: given an FCStd internal name, return the db name to use as
+	 * an input reference.
+	 * - Boolean-op inputs MUST resolve to their CSG combo; return "" to
+	 *   defer if the combo is not yet created (multi-pass will retry).
+	 * - Non-boolean-op inputs use the brep solid directly. */
+	auto lookup_input = [&](const std::string &fcstd_name) -> std::string {
+	    if (bool_op_names.count(fcstd_name)) {
+		auto ci = name_to_csg.find(fcstd_name);
+		return (ci != name_to_csg.end()) ? ci->second : std::string();
+	    }
+	    auto di = name_to_db.find(fcstd_name);
+	    return (di != name_to_db.end()) ? di->second : std::string();
+	};
+
+	/* Helper: attempt to create the CSG combo for one boolean-op object.
+	 * Returns true if a combo was successfully created, false if inputs
+	 * are not yet available (caller should retry later). */
+	auto try_create_csg = [&](const open2open::FcstdObject &obj) -> bool {
+	    if (name_to_csg.count(obj.name))
+		return true; /* already created */
+
+	    const std::string &type = obj.type;
+	    bool is_cut       = (type == "Part::Cut");
+	    bool is_fuse      = (type == "Part::Fuse");
+	    bool is_multifuse = (type == "Part::MultiFuse");
+	    bool is_common    = (type == "Part::Common");
+	    bool is_multicommon = (type == "Part::MultiCommon");
+
+	    if (!is_cut && !is_fuse && !is_multifuse &&
+		!is_common && !is_multicommon)
+		return true; /* not a boolean op; nothing to create */
+
+	    struct wmember wm;
+	    BU_LIST_INIT(&wm.l);
+	    bool ok = false;
+
+	    if (is_cut) {
+		std::string base = lookup_input(obj.base_name);
+		std::string tool = lookup_input(obj.tool_name);
+		if (!base.empty() && !tool.empty()) {
+		    mk_addmember(base.c_str(), &wm.l, NULL, WMOP_UNION);
+		    mk_addmember(tool.c_str(), &wm.l, NULL, WMOP_SUBTRACT);
+		    consumed.insert(obj.base_name);
+		    consumed.insert(obj.tool_name);
+		    ok = true;
+		}
+	    } else if (is_fuse) {
+		std::string base = lookup_input(obj.base_name);
+		std::string tool = lookup_input(obj.tool_name);
+		if (!base.empty() && !tool.empty()) {
+		    mk_addmember(base.c_str(), &wm.l, NULL, WMOP_UNION);
+		    mk_addmember(tool.c_str(), &wm.l, NULL, WMOP_UNION);
+		    consumed.insert(obj.base_name);
+		    consumed.insert(obj.tool_name);
+		    ok = true;
+		}
+	    } else if (is_multifuse) {
+		bool all_found = !obj.shapes.empty();
+		for (const auto &sn : obj.shapes) {
+		    std::string inp = lookup_input(sn);
+		    if (inp.empty()) { all_found = false; break; }
+		    mk_addmember(inp.c_str(), &wm.l, NULL, WMOP_UNION);
+		    consumed.insert(sn);
+		}
+		if (all_found && !BU_LIST_IS_EMPTY(&wm.l))
+		    ok = true;
+	    } else if (is_common) {
+		std::string base = lookup_input(obj.base_name);
+		std::string tool = lookup_input(obj.tool_name);
+		if (!base.empty() && !tool.empty()) {
+		    mk_addmember(base.c_str(), &wm.l, NULL, WMOP_UNION);
+		    mk_addmember(tool.c_str(), &wm.l, NULL, WMOP_INTERSECT);
+		    consumed.insert(obj.base_name);
+		    consumed.insert(obj.tool_name);
+		    ok = true;
+		}
+	    } else if (is_multicommon) {
+		bool all_found = !obj.shapes.empty();
+		bool first = true;
+		for (const auto &sn : obj.shapes) {
+		    std::string inp = lookup_input(sn);
+		    if (inp.empty()) { all_found = false; break; }
+		    mk_addmember(inp.c_str(), &wm.l, NULL,
+				 first ? WMOP_UNION : WMOP_INTERSECT);
+		    first = false;
+		    consumed.insert(sn);
+		}
+		if (all_found && !BU_LIST_IS_EMPTY(&wm.l))
+		    ok = true;
+	    }
+
+	    if (!ok) {
+		if (!BU_LIST_IS_EMPTY(&wm.l))
+		    mk_freemembers(&wm.l);
+		return false; /* inputs not yet available */
+	    }
+
+	    std::string csg_label = obj.label.empty() ? obj.name : obj.label;
+	    std::string csg_name = unique_name(
+		sanitize_name(csg_label, 0) + "_csg", used_names);
+
+	    if (!mk_comb(wdbp, csg_name.c_str(), &wm.l,
+			 0, NULL, NULL, NULL,
+			 0, 0, 0, 0, 0, 0, 0)) {
+		name_to_csg[obj.name] = csg_name;
+		/* NOTE: do NOT insert obj.name into consumed here.
+		 * Consumed tracks which objects are used as INPUTS to
+		 * other ops.  Whether this op is itself consumed is
+		 * determined when a higher-level op references it. */
+	    } else {
+		bu_log("fcstd_read: mk_comb() failed for '%s'\n",
+		       csg_name.c_str());
+		mk_freemembers(&wm.l);
+	    }
+	    return true; /* attempted (even if mk_comb failed) */
+	};
+
+	/* Multi-pass loop: doc.objects may come from a std::map and therefore
+	 * arrive in alphabetical order rather than topological order.  Keep
+	 * iterating until no new CSG combos were created in a full pass. */
+	bool any_progress = true;
+	while (any_progress) {
+	    any_progress = false;
+	    for (const auto &obj : doc.objects) {
+		if (name_to_csg.count(obj.name))
+		    continue; /* already done */
+		/* skip non-boolean-op objects */
+		const std::string &t = obj.type;
+		if (t != "Part::Cut" && t != "Part::Fuse" &&
+		    t != "Part::MultiFuse" && t != "Part::Common" &&
+		    t != "Part::MultiCommon")
+		    continue;
+		size_t before = name_to_csg.size();
+		try_create_csg(obj);
+		if (name_to_csg.size() > before)
+		    any_progress = true;
+	    }
+	}
+    }
+
+    /* ------------------------------------------------------------------ *
+     * Pass 3: build the top-level combination.                           *
+     *                                                                    *
+     * If CSG info is available, include:                                 *
+     *   - CSG combos for non-consumed boolean ops (the "roots")          *
+     *   - Brep solids for non-consumed non-boolean objects               *
+     * Otherwise, include all brep solids.                                *
+     * ------------------------------------------------------------------ */
+    struct wmember root_wm;
+    BU_LIST_INIT(&root_wm.l);
+
+    if (has_csg_info && !name_to_csg.empty()) {
+	/* Add CSG combos for root (non-consumed) boolean ops */
+	for (const auto &obj : doc.objects) {
+	    auto csg_it = name_to_csg.find(obj.name);
+	    if (csg_it == name_to_csg.end())
+		continue;	/* no CSG combo for this object */
+	    if (consumed.count(obj.name))
+		continue;	/* this op is an input to another op */
+	    mk_addmember(csg_it->second.c_str(), &root_wm.l, NULL, WMOP_UNION);
+	}
+
+	/* Add brep solids for non-consumed non-boolean objects.
+	 * We need a reverse map: db_name → fcstd_name to check consumed set. */
+	std::map<std::string, std::string> db_to_fcstd;
+	for (const auto &kv : name_to_db)
+	    db_to_fcstd[kv.second] = kv.first;
+
+	for (const auto &solid : all_solid_names) {
+	    auto ri = db_to_fcstd.find(solid);
+	    if (ri == db_to_fcstd.end()) {
+		/* solid not found in FCStd map — include it */
+		mk_addmember(solid.c_str(), &root_wm.l, NULL, WMOP_UNION);
+	    } else if (!consumed.count(ri->second)) {
+		/* FCStd object not consumed AND no CSG combo → include brep */
+		if (!name_to_csg.count(ri->second))
+		    mk_addmember(solid.c_str(), &root_wm.l, NULL, WMOP_UNION);
+	    }
+	}
+    } else {
+	/* Flat fallback: include all brep solids */
+	for (const auto &sn : all_solid_names)
+	    mk_addmember(sn.c_str(), &root_wm.l, NULL, WMOP_UNION);
+    }
+
+    if (BU_LIST_IS_EMPTY(&root_wm.l)) {
+	/* All objects were consumed — add them all as fallback */
+	for (const auto &sn : all_solid_names)
+	    mk_addmember(sn.c_str(), &root_wm.l, NULL, WMOP_UNION);
+    }
+
+    if (mk_comb(wdbp, root_name.c_str(), &root_wm.l,
 		0 /*region*/, NULL, NULL, NULL,
 		0, 0, 0, 0,
 		0 /*inherit*/, 0 /*append*/, 0 /*gift_semantics*/)) {
 	bu_log("fcstd_read: mk_comb() failed for '%s'\n", root_name.c_str());
-	/* non-fatal — the individual solids were written */
+	/* non-fatal — the individual solids and CSG combos were written */
     }
 
     return 1;
