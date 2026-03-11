@@ -414,7 +414,7 @@ bool ReadFcstdDoc(const std::string& path, FcstdDoc& doc)
 // FCStdFileToONX_Model — convert an FCStd file → ONX_Model.
 // ---------------------------------------------------------------------------
 int FCStdFileToONX_Model(const std::string& path,
-                         ONX_Model&         model,
+                         ::ONX_Model&       model,
                          double             tol)
 {
     FcstdDoc doc;
@@ -540,7 +540,7 @@ static bool ZipAddStringEntry(zip_t*             z,
 }
 
 int ONX_ModelToFCStdFile(const std::string& path,
-                         const ONX_Model&   model,
+                         const ::ONX_Model& model,
                          double             tol)
 {
     // Collect geometry objects
