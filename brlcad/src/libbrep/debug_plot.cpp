@@ -25,6 +25,8 @@
  */
 
 #include <iostream>
+#include <array>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include "bu/log.h"
@@ -690,12 +692,22 @@ struct TrimmedFace {
     } m_belong_to_final;
     bool m_rev;
 
+    /* Cached polygon approximations (used by boolean.cpp's fast path).
+     * Defined here to keep both TUs in sync for LTO; never used in
+     * debug_plot.cpp itself. */
+    mutable std::vector<std::array<double, 2> > m_inner_poly;
+    mutable std::vector<std::array<double, 2> > m_outer_poly;
+    mutable bool m_poly_valid;
+    mutable bool m_inner_poly_valid;
+
     // Default constructor
     TrimmedFace()
     {
 	m_face = NULL;
 	m_belong_to_final = UNKNOWN;
 	m_rev = false;
+	m_poly_valid = false;
+	m_inner_poly_valid = false;
     }
 
     // Destructor
