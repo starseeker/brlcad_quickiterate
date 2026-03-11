@@ -3657,19 +3657,15 @@ is_point_inside_trimmed_face(const ON_2dPoint &pt, const TrimmedFace *tface)
      * --------------------------------------------------------------- */
     tface->ensure_polygons();
 
-    bool outer_definite = false;  /* result known from outer polygon */
     bool inner_definite = false;  /* result known from inner polygon */
-    bool poly_inside_outer = false;
 
     if (!tface->m_outer_poly.empty()) {
 	const size_t n = tface->m_outer_poly.size();
 	const double (*pts)[2] =
 	    reinterpret_cast<const double (*)[2]>(tface->m_outer_poly.data());
-	poly_inside_outer = (_pnt_in_polygon(n, pts, pt.x, pt.y) != 0);
-	if (!poly_inside_outer) {
+	if (!_pnt_in_polygon(n, pts, pt.x, pt.y)) {
 	    return false;  /* definitely outside */
 	}
-	outer_definite = true;
     }
 
     if (tface->m_inner_poly_valid && !tface->m_inner_poly.empty()) {
@@ -3682,7 +3678,6 @@ is_point_inside_trimmed_face(const ON_2dPoint &pt, const TrimmedFace *tface)
 	     * (hole) loops below before returning true. */
 	}
     }
-    (void)outer_definite; /* suppress unused-variable warning */
 
     /* If the inner polygon hasn't resolved the outer-loop membership,
      * fall through to the full NURBS test. */
@@ -3794,8 +3789,11 @@ get_point_inside_trimmed_face(const TrimmedFace *tface)
 	 * entirely.  This matters when the first segment of the outer loop
 	 * happens to lie along a seam where both normals point outside. */
 	if (!found && NOUTER > MAX_NUDGE_CURVES) {
-	    /* stride so we sample ~MAX_NUDGE_CURVES more evenly-spaced curves */
-	    int stride = std::max(1, (NOUTER - MAX_NUDGE_CURVES) / MAX_NUDGE_CURVES);
+	    /* stride so we sample ~MAX_NUDGE_CURVES evenly-spaced curves
+	     * across the entire outer loop.  Using the total count (NOUTER)
+	     * distributes the samples uniformly rather than only in the
+	     * tail of the array. */
+	    int stride = std::max(1, NOUTER / MAX_NUDGE_CURVES);
 	    for (int ci = MAX_NUDGE_CURVES; ci < NOUTER && !found; ci += stride) {
 		const ON_Curve *crv = tface->m_outerloop[ci];
 		if (!crv) continue;

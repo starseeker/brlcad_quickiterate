@@ -4260,6 +4260,159 @@ ON_Intersect(const ON_Surface *surfA,
 	bu_log("max_dist_vB: %f\n", max_dist_vB);
     }
 
+    /* Analytic curve fast path — collinearity detection.
+     *
+     * When two BREP faces that are both planar (or nearly planar) intersect,
+     * the intersection curve is a straight line.  This is the dominant case
+     * for prismatic CSG models like m35.g and cube.g.  In that case every
+     * Newton-iteration sample point lies on the same line in 3D, so there is
+     * no need for the O(N²) pairwise distance computation that follows.
+     *
+     * Strategy — all O(N) except the final sort:
+     *   1. Find P_far: the point with the maximum distance from curvept[0].
+     *      This gives a reliable line direction even when the first few points
+     *      are nearly coincident.
+     *   2. Define line direction D = (P_far - P0) / |P_far - P0|.
+     *   3. Check every point: if its perpendicular distance to the line
+     *      exceeds COLLINEAR_TOL, the set is NOT collinear → fall through to
+     *      the existing O(N²) code.
+     *   4. Project all points onto D and sort by projection parameter
+     *      (O(N log N)).  Use the same ordering for curve_uvA and curve_uvB.
+     *   5. Walk the sorted list and split into separate polylines wherever
+     *      consecutive points are farther apart than max_dist (gap), so we
+     *      don't bridge holes in the intersection sampling.
+     *   6. Emit one SSX event per resulting polyline, bypassing:
+     *        – the O(N²) ptpairs loop,
+     *        – the polyline-merging machinery,
+     *        – the O(M²) seaming loop.
+     *
+     * Tolerance: we allow up to 10× isect_tol perpendicular deviation so
+     * that small numerical noise from Newton iteration doesn't force the
+     * slow path.  The subsequent curve_fitting() call will tighten the
+     * UV representation to an exact line when it calls IsLinear().
+     */
+    const double COLLINEAR_TOL = isect_tol * 10.0;
+    const int npts = curvept.Count();
+    bool use_collinear_path = false;
+
+    if (npts >= 2) {
+	/* Step 1: find P_far = point with greatest squared distance from P0. */
+	const ON_3dPoint &P0 = curvept[0];
+	double max_dist_sq = 0.0;
+	int far_idx = 1;
+	for (int i = 1; i < npts; i++) {
+	    double dsq = (curvept[i] - P0).LengthSquared();
+	    if (dsq > max_dist_sq) {
+		max_dist_sq = dsq;
+		far_idx = i;
+	    }
+	}
+
+	if (max_dist_sq > COLLINEAR_TOL * COLLINEAR_TOL) {
+	    /* Step 2: unit line direction. */
+	    ON_3dVector D = curvept[far_idx] - P0;
+	    D.Unitize();
+
+	    /* Step 3: check collinearity of all points. */
+	    use_collinear_path = true;
+	    for (int i = 1; i < npts && use_collinear_path; i++) {
+		ON_3dVector v = curvept[i] - P0;
+		/* Perpendicular component = v - (v·D)D */
+		ON_3dVector perp = v - ON_DotProduct(v, D) * D;
+		if (perp.Length() > COLLINEAR_TOL)
+		    use_collinear_path = false;
+	    }
+
+	    if (use_collinear_path) {
+		/* Step 4: project all points onto D, sort by parameter. */
+		std::vector<std::pair<double, int> > proj(npts);
+		for (int i = 0; i < npts; i++) {
+		    ON_3dVector v = curvept[i] - P0;
+		    proj[i] = std::make_pair(ON_DotProduct(v, D), i);
+		}
+		std::sort(proj.begin(), proj.end());
+
+		if (DEBUG_BREP_INTERSECT) {
+		    bu_log("ON_Intersect: collinear fast path (%d pts) — skipping O(N^2) step\n",
+			   npts);
+		}
+
+		/* Step 5: walk sorted list, splitting at gaps > max_dist. */
+		std::vector<ON_Curve *> intersect3d, intersect_uvA, intersect_uvB;
+
+		int seg_start = 0;
+		while (seg_start < npts) {
+		    /* Find the end of the current contiguous segment. */
+		    int seg_end = seg_start;
+		    while (seg_end + 1 < npts) {
+			int ia = proj[seg_end].second;
+			int ib = proj[seg_end + 1].second;
+			if (curvept[ia].DistanceTo(curvept[ib]) > max_dist)
+			    break;
+			++seg_end;
+		    }
+
+		    /* Build polyline arrays for this segment. */
+		    ON_3dPointArray ptarray3d, ptarrayA, ptarrayB;
+		    for (int k = seg_start; k <= seg_end; k++) {
+			int idx = proj[k].second;
+			ptarray3d.Append(curvept[idx]);
+			const ON_2dPoint &uvA = curve_uvA[idx];
+			ptarrayA.Append(ON_3dPoint(uvA.x, uvA.y, 0.0));
+			const ON_2dPoint &uvB = curve_uvB[idx];
+			ptarrayB.Append(ON_3dPoint(uvB.x, uvB.y, 0.0));
+		    }
+
+		    if (ptarray3d.Count() >= 2) {
+			/* 3D curve: keep as polyline (matches original code).
+			 * UV curves: apply curve_fitting() to collapse to line. */
+			ON_PolylineCurve *c3d = new ON_PolylineCurve(ptarray3d);
+			ON_PolylineCurve *cA  = new ON_PolylineCurve(ptarrayA);
+			cA->ChangeDimension(2);
+			ON_PolylineCurve *cB  = new ON_PolylineCurve(ptarrayB);
+			cB->ChangeDimension(2);
+			intersect3d.push_back(c3d);
+			intersect_uvA.push_back(curve_fitting(cA, fitting_tolA));
+			intersect_uvB.push_back(curve_fitting(cB, fitting_tolB));
+		    }
+		    /* Single-point segments are skipped (handled as
+		     * single_pts in the normal path — rare on this fast path
+		     * since all points are collinear and nearby gaps would
+		     * normally be caught by the collinearity check). */
+
+		    seg_start = seg_end + 1;
+		}
+
+		if (treeA == NULL) delete rootA;
+		if (treeB == NULL) delete rootB;
+
+		/* Step 6: emit SSX events. */
+		if (intersect3d.size() == intersect_uvA.size() &&
+		    intersect3d.size() == intersect_uvB.size())
+		{
+		    for (size_t i = 0; i < intersect3d.size(); i++) {
+			ON_SSX_EVENT event;
+			int ret = set_ssx_event_from_curves(event, intersect3d[i],
+				intersect_uvA[i], intersect_uvB[i], surfA, surfB);
+			if (ret != 0) {
+			    bu_log("warning: reverse failed on collinear-path curve %zu\n", i);
+			}
+			x.Append(event);
+			event.m_curve3d = event.m_curveA = event.m_curveB = NULL;
+		    }
+		}
+		for (size_t i = 0; i < intersect3d.size(); i++) {
+		    delete intersect3d[i];
+		    delete intersect_uvA[i];
+		    delete intersect_uvB[i];
+		}
+		return x.Count() - original_count;
+	    }
+	}
+	/* else: all points are nearly coincident — fall through to
+	 * the normal path which will emit them as single-point events. */
+    }
+
     // identify the neighbors of each point
     std::vector<PointPair> ptpairs;
     for (int i = 0; i < curvept.Count(); i++) {
