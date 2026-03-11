@@ -48,6 +48,12 @@
 #include <string>
 #include <vector>
 
+// Include opennurbs.h outside the open2open namespace so that ::ONX_Model is
+// visible in the global namespace for the function declarations below.
+#ifdef OPEN2OPEN_HAVE_LIBZIP
+#  include "opennurbs.h"
+#endif
+
 namespace open2open {
 
 // ---------------------------------------------------------------------------
@@ -138,10 +144,6 @@ struct FcstdDoc {
 bool ReadFcstdDoc(const std::string& path, FcstdDoc& doc);
 
 #ifdef OPEN2OPEN_HAVE_LIBZIP
-// Forward-declare ONX_Model to keep this header light.
-// Callers must include "opennurbs.h" themselves.
-class ONX_Model;
-
 // ---------------------------------------------------------------------------
 // Convert an FCStd file to an ONX_Model.
 //
@@ -157,7 +159,7 @@ class ONX_Model;
 // @return         Number of shapes successfully converted (0 on total failure).
 // ---------------------------------------------------------------------------
 int FCStdFileToONX_Model(const std::string& path,
-                         ONX_Model&         model,
+                         ::ONX_Model&       model,
                          double             tol = 1e-6);
 
 // ---------------------------------------------------------------------------
@@ -174,7 +176,7 @@ int FCStdFileToONX_Model(const std::string& path,
 // @return         Number of shapes successfully written (0 on total failure).
 // ---------------------------------------------------------------------------
 int ONX_ModelToFCStdFile(const std::string& path,
-                         const ONX_Model&   model,
+                         const ::ONX_Model& model,
                          double             tol = 1e-6);
 #endif // OPEN2OPEN_HAVE_LIBZIP
 
