@@ -663,7 +663,7 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	hole_size = area * (settings->max_hole_area_percent/100.0);
     }
 
-    // Do the hole filling using GTE MeshHoleFilling with LSCM triangulation.
+    // Hole-filling parameters shared by all passes below.
     //
     // LSCM (Least Squares Conformal Maps) is preferred over CDT here because:
     //   - CDT projects the hole boundary onto a best-fit plane, which fails for
@@ -684,25 +684,72 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     fillParams.maxArea = hole_size;
     fillParams.method = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
     fillParams.autoFallback = true;
-    gte::MeshHoleFilling<double>::FillHoles(vertices, triangles, fillParams);
 
-    // Sanity check: area should not decrease (that would mean fill removed geometry).
-    double new_area = gte_mesh_area(vertices, triangles);
-    if (new_area < area) {
-	bu_log("Mesh area decreased after hole filling - error\n");
-	return -1;
-    }
+    // Helper: attempt LSCM hole fill on (v, t) and check Manifold.
+    // Returns true and writes the result Manifold into gm_out on success.
+    // The area check (filled area >= original) guards against fill removing geometry.
+    auto try_fill = [&](std::vector<gte::Vector3<double>> v,
+			std::vector<std::array<int32_t, 3>> t,
+			double ref_area,
+			manifold::Manifold& gm_out) -> bool {
+	gte::MeshHoleFilling<double>::FillHoles(v, t, fillParams);
+	double new_a = gte_mesh_area(v, t);
+	if (new_a < ref_area)
+	    return false;
+	manifold::MeshGL gmm;
+	gte_to_manifold(&gmm, v, t);
+	manifold::Manifold gm(gmm);
+	if (gm.Status() != manifold::Manifold::Error::NoError)
+	    return false;
+	gm_out = gm;
+	return true;
+    };
 
-    // Once GTE is done with it, ask Manifold what it thinks
-    // of the result - if Manifold doesn't think we're there, then
-    // the results won't fly for boolean evaluation and we go ahead
-    // and reject.
-    manifold::MeshGL gmm;
-    gte_to_manifold(&gmm, vertices, triangles);
-    manifold::Manifold gmanifold(gmm);
-    if (gmanifold.Status() != manifold::Manifold::Error::NoError) {
-	// Repair failed
-	return -1;
+    // --- Pass 1: straightforward LSCM fill --------------------------------
+    //
+    // This handles the common case: holes with simple boundary loops.
+    manifold::Manifold gmanifold;
+    if (!try_fill(vertices, triangles, area, gmanifold)) {
+
+	// --- Pass 2: SplitNonManifoldVertices then LSCM fill -----------------
+	//
+	// Pass 1 can fail when the mesh has non-manifold vertices — points where
+	// multiple independent triangle fans share a single vertex index.
+	// bg_trimesh_solid2 (BRL-CAD's solid check) only verifies face-pair
+	// connectivity and consistent winding; it does NOT detect non-manifold
+	// vertices where three or more surface patches converge.
+	//
+	// Consequence: the hole-boundary detection in MeshHoleFilling walks
+	// boundary half-edges expecting a simple loop, but a non-manifold vertex
+	// on the boundary creates a branching point, so the loop is never
+	// completed and the hole is left unfilled.
+	//
+	// SplitNonManifoldVertices resolves this by duplicating the shared vertex
+	// into one copy per fan, converting the non-simple boundary into multiple
+	// simple loops that LSCM can then triangulate individually.
+	//
+	// ConnectFacets and ReorientFacetsAntiMoebius are run first because
+	// SplitNonManifoldVertices requires consistent per-facet adjacency and
+	// a coherent winding orientation to identify which triangles belong to
+	// each independent fan at a shared vertex.
+	//
+	// This pass is intentionally NOT run unconditionally (only on Pass 1
+	// failure) because SplitNonManifoldVertices can break intentional
+	// multi-body topology where two bodies legitimately share a boundary edge
+	// — duplicating that edge's vertices would tear the bodies apart.
+	//
+	// Move the preprocessed vectors into Pass 2 (they are not needed after
+	// this point, so we avoid an extra copy of the vertex/triangle arrays).
+	std::vector<gte::Vector3<double>> v2 = std::move(vertices);
+	std::vector<std::array<int32_t, 3>> t2 = std::move(triangles);
+	std::vector<int32_t> adj2;
+	gte::MeshRepair<double>::ConnectFacets(t2, adj2);
+	gte::MeshRepair<double>::ReorientFacetsAntiMoebius(v2, t2, adj2);
+	gte::MeshRepair<double>::SplitNonManifoldVertices(v2, t2, adj2);
+	if (!try_fill(v2, t2, area, gmanifold)) {
+	    // Both passes failed to produce a manifold mesh
+	    return -1;
+	}
     }
 
     // Output is manifold, make a new bot

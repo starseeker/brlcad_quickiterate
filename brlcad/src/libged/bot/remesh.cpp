@@ -240,7 +240,8 @@ bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_in
     remeshParams.useAnisotropic = true;
     remeshParams.anisotropyScale = 2*0.02;
     if (!gte::MeshRemesh<double>::Remesh(vertices, triangles, remeshParams)) {
-	bu_vls_printf(gedp->ged_result_str, "GTE remeshing failed\n");
+	bu_vls_printf(gedp->ged_result_str, "GTE remeshing failed: mesh may be non-manifold, "
+		      "contain degenerate triangles, or be too small for the requested vertex count\n");
 	return BRLCAD_ERROR;
     }
 

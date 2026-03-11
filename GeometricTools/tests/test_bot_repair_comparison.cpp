@@ -167,6 +167,40 @@ static void gte_preprocess(std::vector<Vector3<double>>& verts,
     }
 }
 
+// Shared hole-filling parameters (LSCM with 3D ear-clipping fallback)
+static MeshHoleFilling<double>::Parameters make_fill_params(double hole_size)
+{
+    MeshHoleFilling<double>::Parameters fp;
+    fp.maxArea = hole_size;
+    fp.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;
+    fp.autoFallback = true;
+    return fp;
+}
+
+// Try filling holes and checking Manifold.
+// Returns true if the filled mesh is accepted by Manifold and area did not decrease.
+static bool try_fill_and_check(std::vector<Vector3<double>> verts,
+                                std::vector<std::array<int32_t, 3>> tris,
+                                double area_before)
+{
+    MeshHoleFilling<double>::FillHoles(verts, tris, make_fill_params(1e30));
+    double area_after = gte_mesh_area(verts, tris);
+    if (area_after < area_before) return false;
+    manifold::MeshGL gmm;
+    for (auto const& v : verts) {
+        gmm.vertProperties.push_back((float)v[0]);
+        gmm.vertProperties.push_back((float)v[1]);
+        gmm.vertProperties.push_back((float)v[2]);
+    }
+    for (auto const& t : tris) {
+        gmm.triVerts.push_back((uint32_t)t[0]);
+        gmm.triVerts.push_back((uint32_t)t[1]);
+        gmm.triVerts.push_back((uint32_t)t[2]);
+    }
+    manifold::Manifold gman(gmm);
+    return (gman.Status() == manifold::Manifold::Error::NoError);
+}
+
 // Returns a failure-mode string instead of bool, for diagnosis
 enum GteFailMode { GTE_OK=0, GTE_FAIL_EMPTY, GTE_FAIL_AREA_DECREASED,
                    GTE_FAIL_MANIFOLD, GTE_FAIL_PREPROCESS };
@@ -200,37 +234,40 @@ static GteFailMode gte_repair_diag(std::vector<Vector3<double>> verts,
     gte_preprocess(verts, tris);
     if (tris.empty()) return GTE_FAIL_PREPROCESS;
 
-    // Step 3: Fill holes using LSCM (always succeeds for any simple boundary
-    // loop; CDT fails on non-planar holes which are common in aircraft-skin
-    // meshes).  Do NOT run MeshRepair after FillHoles — the repair pass removes
-    // newly-added fill triangles, re-opening the holes it just filled.
     double area_before = gte_mesh_area(verts, tris);
-    MeshHoleFilling<double>::Parameters fp;
-    fp.maxArea = 1e30;
-    fp.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;
-    fp.autoFallback = true;
-    MeshHoleFilling<double>::FillHoles(verts, tris, fp);
 
-    // Sanity check: area should not decrease
-    double area_after = gte_mesh_area(verts, tris);
-    if (area_after < area_before) return GTE_FAIL_AREA_DECREASED;
+    // Pass 1: LSCM hole fill (handles simple boundary loops)
+    if (try_fill_and_check(verts, tris, area_before))
+        return GTE_OK;
 
-    // Step 4: Check Manifold accepts the result
-    manifold::MeshGL gmm;
-    for (auto const& v : verts) {
-        gmm.vertProperties.push_back((float)v[0]);
-        gmm.vertProperties.push_back((float)v[1]);
-        gmm.vertProperties.push_back((float)v[2]);
+    // Pass 2: SplitNonManifoldVertices then LSCM
+    //
+    // Pass 1 fails when the mesh has non-manifold vertices — points where
+    // multiple independent triangle fans share a vertex index.
+    // bg_trimesh_solid2 only checks face-pair connectivity, missing these
+    // non-manifold vertices.  Boundary-loop detection in MeshHoleFilling
+    // gets confused at the branching point and skips the hole, leaving
+    // boundary edges that Manifold then rejects.
+    //
+    // SplitNonManifoldVertices duplicates the shared vertex into one copy
+    // per fan, turning the non-simple boundary into simple loops LSCM can
+    // triangulate.  ConnectFacets + ReorientFacetsAntiMoebius run first
+    // to give SplitNonManifoldVertices consistent adjacency and winding.
+    //
+    // Not run unconditionally: it can tear apart intentional multi-body
+    // topology where two solid bodies share a boundary edge.
+    {
+        auto v2 = verts;
+        auto t2 = tris;
+        std::vector<int32_t> adj2;
+        MeshRepair<double>::ConnectFacets(t2, adj2);
+        MeshRepair<double>::ReorientFacetsAntiMoebius(v2, t2, adj2);
+        MeshRepair<double>::SplitNonManifoldVertices(v2, t2, adj2);
+        if (try_fill_and_check(v2, t2, area_before))
+            return GTE_OK;
     }
-    for (auto const& t : tris) {
-        gmm.triVerts.push_back((uint32_t)t[0]);
-        gmm.triVerts.push_back((uint32_t)t[1]);
-        gmm.triVerts.push_back((uint32_t)t[2]);
-    }
-    manifold::Manifold gman(gmm);
-    if (gman.Status() != manifold::Manifold::Error::NoError)
-        return GTE_FAIL_MANIFOLD;
-    return GTE_OK;
+
+    return GTE_FAIL_MANIFOLD;
 }
 
 // Returns true if the GTE+Manifold repair pipeline succeeds (matching rt_bot_repair)
@@ -352,7 +389,7 @@ int main(int argc, char* argv[])
     int both_success = 0;
 
     // GTE failure mode counts
-    int fail_empty = 0, fail_area_dec = 0;
+    int fail_empty = 0;
     int fail_manifold = 0, fail_preproc = 0;
 
     // Track meshes where results differ
@@ -382,7 +419,6 @@ int main(int argc, char* argv[])
         if (!gte_ok) {
             switch (gfm) {
                 case GTE_FAIL_EMPTY:        fail_empty++;   break;
-                case GTE_FAIL_AREA_DECREASED: fail_area_dec++; break;
                 case GTE_FAIL_MANIFOLD:     fail_manifold++; break;
                 case GTE_FAIL_PREPROCESS:   fail_preproc++; break;
                 default: break;
@@ -458,8 +494,8 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "\n--- GTE failure mode breakdown (of " << gte_fail << " failures) ---\n";
-    std::cout << "  Manifold rejection:    " << fail_manifold   << " (GTE+LSCM+fill didn't satisfy Manifold)\n";
-    std::cout << "  Area decreased:        " << fail_area_dec   << " (fill removed geometry)\n";
+    std::cout << "  Manifold rejection:    " << fail_manifold
+              << " (both passes failed to produce Manifold-accepted result)\n";
     std::cout << "  Post-preprocess empty: " << fail_preproc    << " (small-comp removal left nothing)\n";
     std::cout << "  Too small (<4 tris):   " << fail_empty      << "\n";
 
