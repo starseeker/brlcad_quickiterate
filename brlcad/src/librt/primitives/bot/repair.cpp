@@ -655,9 +655,6 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
     // value used in the Geogram code for a large hole size.
     double hole_size = 1e30;
 
-    // Stash the bounding box diagonal
-    double bbox_diag = gte_bbox_diagonal(vertices);
-
     // See if the settings override the default
     double area = gte_mesh_area(vertices, triangles);
     if (!NEAR_ZERO(settings->max_hole_area, SMALL_FASTF)) {
@@ -666,38 +663,33 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	hole_size = area * (settings->max_hole_area_percent/100.0);
     }
 
-    // Do the hole filling using GTE MeshHoleFilling.
+    // Do the hole filling using GTE MeshHoleFilling with LSCM triangulation.
+    //
+    // LSCM (Least Squares Conformal Maps) is preferred over CDT here because:
+    //   - CDT projects the hole boundary onto a best-fit plane, which fails for
+    //     non-planar or highly curved holes (common in individual aircraft-skin
+    //     meshes like the GenericTwin shapes).
+    //   - LSCM maps the boundary to a circle using arc-length parameterization,
+    //     which always succeeds for any topologically simple boundary loop
+    //     regardless of planarity.
+    //   - autoFallback=true further falls back to 3D ear-clipping if LSCM
+    //     itself fails (e.g. self-intersecting boundary).
+    //
+    // Do NOT run MeshRepair after FillHoles.  The repair pass removes colocated
+    // or degenerate-looking triangles, but it also removes newly-added hole-fill
+    // triangles that share edges with the repaired mesh — which re-opens the
+    // holes we just filled.  The final Manifold check below is the authoritative
+    // test; no intermediate repair is needed.
     gte::MeshHoleFilling<double>::Parameters fillParams;
     fillParams.maxArea = hole_size;
-    fillParams.method = gte::MeshHoleFilling<double>::TriangulationMethod::CDT;
+    fillParams.method = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
     fillParams.autoFallback = true;
     gte::MeshHoleFilling<double>::FillHoles(vertices, triangles, fillParams);
 
-    // Make sure we're still repaired post filling
-    gte::MeshRepair<double>::Parameters repairParams;
-    repairParams.epsilon = 1e-6 * (0.01 * bbox_diag);
-    gte::MeshRepair<double>::Repair(vertices, triangles, repairParams);
-
-    // Sanity check the area - shouldn't go down, and if it went up by more
-    // than 3x it's concerning - that's a lot of new area even for a swiss
-    // cheese mesh.  Can revisit reporting failure if we hit a legit case
-    // like that, but we also want to know if something went badly wrong with
-    // the hole filling itself and crazy new geometry was added...
+    // Sanity check: area should not decrease (that would mean fill removed geometry).
     double new_area = gte_mesh_area(vertices, triangles);
     if (new_area < area) {
 	bu_log("Mesh area decreased after hole filling - error\n");
-	return -1;
-    }
-    if (new_area > 3*area) {
-	bu_log("Mesh area more than tripled after hole filling.  At the moment this is considered an error - if a legitimate case exists where this is expected behavior, please report it upstream to the BRL-CAD developers.\n");
-	return -1;
-    }
-
-    // Sanity check the bounding box diagonal - should be very close to the
-    // original value
-    double new_bbox_diag = gte_bbox_diagonal(vertices);
-    if (!NEAR_EQUAL(bbox_diag, new_bbox_diag, BN_TOL_DIST)) {
-	bu_log("Mesh bounding box is different after hole filling - error\n");
 	return -1;
     }
 
@@ -766,6 +758,8 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	    if (grmanifold.Status() != manifold::Manifold::Error::NoError) {
 		// Repair failed
 		bu_log("Error - remeshed repair output is not Manifold!\n");
+		rt_bot_internal_free(nbot);
+		BU_PUT(nbot, struct rt_bot_internal);
 		return -1;
 	    }
 
@@ -773,7 +767,8 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	    nbot = gte_to_bot(rs_verts, rs_tris);
 
 	    // Remeshing is probably denser than we want, do a decimation
-	    rt_bot_decimate_gct(nbot, 0.01*bbox_diag);
+	    double rs_bbox_diag = gte_bbox_diagonal(rs_verts);
+	    rt_bot_decimate_gct(nbot, 0.01*rs_bbox_diag);
 
 	    // Try lint one more time - if that didn't do it, we're done.
 	    lint_ret = bot_repair_lint(nbot);

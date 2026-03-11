@@ -192,17 +192,41 @@ test_geogram: test_geogram_comparison
 	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$$LD_LIBRARY_PATH" \
 	    ./test_geogram_comparison $(TEST_DIR)/data/gt.obj
 
+# GenericTwin BRL-CAD bot repair simulation: run GTE repair and Geogram repair on every
+# BoT mesh in gt.obj and compare success rates (mirrors BRL-CAD's `bot repair` command).
+# Requires bext_output geogram.
+test_bot_repair_comparison: $(TEST_DIR)/test_bot_repair_comparison.cpp \
+                             GTE/Mathematics/MeshRepair.h \
+                             GTE/Mathematics/MeshHoleFilling.h \
+                             GTE/Mathematics/MeshPreprocessing.h \
+                             GTE/Mathematics/MeshValidation.h
+	$(CXX) $(CXXFLAGS) $(_GEO_INC) -I$(BRLCAD_EXT_INSTALL_DIR)/include \
+	    -o test_bot_repair_comparison \
+	    $(TEST_DIR)/test_bot_repair_comparison.cpp \
+	    $(_GEO_LIBS) -L$(BRLCAD_EXT_INSTALL_DIR)/lib -lmanifold \
+	    -Wl,-rpath,$(BRLCAD_EXT_INSTALL_DIR)/lib
+
+# Run the BRL-CAD bot repair simulation on GenericTwin (gt.obj)
+test_bot_repair: test_bot_repair_comparison
+	@echo "=== BRL-CAD bot repair: GTE vs Geogram on GenericTwin ==="
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$(BRLCAD_EXT_INSTALL_DIR)/lib:$$LD_LIBRARY_PATH" \
+	    ./test_bot_repair_comparison $(TEST_DIR)/data/gt.obj
+
 # GenericTwin-specific comparison test: exercises both repair and remesh on the
 # gt.obj mesh (exported from the BRL-CAD GenericTwin.fg4 example model).
 # This is the canonical regression test for GTE vs Geogram parity.
-test_generic_twin: test_geogram_comparison compare_with_geogram
+test_generic_twin: test_geogram_comparison compare_with_geogram test_bot_repair_comparison
 	@echo "=== GenericTwin GTE vs Geogram comparison ==="
 	@echo "Running full GTE vs Geogram comparison on GenericTwin (gt.obj)..."
-	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$$LD_LIBRARY_PATH" \
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$(BRLCAD_EXT_INSTALL_DIR)/lib:$$LD_LIBRARY_PATH" \
 	    ./test_geogram_comparison $(TEST_DIR)/data/gt.obj
 	@echo ""
 	@echo "Running standalone GTE repair+fill on GenericTwin (gt.obj)..."
 	./compare_with_geogram $(TEST_DIR)/data/gt.obj
+	@echo ""
+	@echo "Running BRL-CAD bot repair simulation on GenericTwin (gt.obj)..."
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$(BRLCAD_EXT_INSTALL_DIR)/lib:$$LD_LIBRARY_PATH" \
+	    ./test_bot_repair_comparison $(TEST_DIR)/data/gt.obj
 
 stress: stress_test
 	@echo "Running comprehensive stress tests..."

@@ -1,6 +1,7 @@
 # Compiled test binaries
 compare_with_geogram
 test_geogram_comparison
+test_bot_repair_comparison
 test_mesh_repair
 test_full_algorithms
 test_rvd
