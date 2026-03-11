@@ -90,14 +90,29 @@ struct SSICurve {
 	m_curve = curve;
     }
 
+    SSICurve(const SSICurve &other)
+    {
+	m_curve = other.m_curve ? other.m_curve->Duplicate() : NULL;
+    }
+
+    SSICurve &operator=(const SSICurve &other)
+    {
+	if (this != &other) {
+	    delete m_curve;
+	    m_curve = other.m_curve ? other.m_curve->Duplicate() : NULL;
+	}
+	return *this;
+    }
+
+    ~SSICurve()
+    {
+	delete m_curve;
+	m_curve = NULL;
+    }
+
     SSICurve *Duplicate() const
     {
-	SSICurve *out = new SSICurve();
-	if (out != NULL) {
-	    *out = *this;
-	    out->m_curve = m_curve->Duplicate();
-	}
-	return out;
+	return new SSICurve(*this);
     }
 };
 
@@ -111,8 +126,11 @@ private:
     ON_Curve *m_curve;	// an explicit storage of the whole curve
 public:
     // The curves contained in this LinkedCurve, including
-    // the information needed by the connectivity graph
-    ON_SimpleArray<SSICurve> m_ssi_curves;
+    // the information needed by the connectivity graph.
+    // ON_ClassArray is used (not ON_SimpleArray) so that SSICurve
+    // copy constructors and destructors are invoked, ensuring proper
+    // ownership and cleanup of m_curve pointers.
+    ON_ClassArray<SSICurve> m_ssi_curves;
 
     // Default constructor
     LinkedCurve()
@@ -134,9 +152,11 @@ public:
 
     LinkedCurve &operator= (const LinkedCurve &_lc)
     {
-	Empty();
-	m_curve = _lc.m_curve ? _lc.m_curve->Duplicate() : NULL;
-	m_ssi_curves = _lc.m_ssi_curves;
+	if (this != &_lc) {
+	    Empty();
+	    m_curve = _lc.m_curve ? _lc.m_curve->Duplicate() : NULL;
+	    m_ssi_curves = _lc.m_ssi_curves;
+	}
 	return *this;
     }
 
@@ -180,14 +200,13 @@ public:
 
     bool Reverse()
     {
-	ON_SimpleArray<SSICurve> new_array;
-	for (int i = m_ssi_curves.Count() - 1; i >= 0; i--) {
+	int count = m_ssi_curves.Count();
+	for (int i = 0; i < count; i++) {
 	    if (!m_ssi_curves[i].m_curve->Reverse()) {
 		return false;
 	    }
-	    new_array.Append(m_ssi_curves[i]);
 	}
-	m_ssi_curves = new_array;
+	m_ssi_curves.Reverse();
 	return true;
     }
 
@@ -1415,7 +1434,6 @@ link_curves(const ON_SimpleArray<SSICurve> &in)
 		LinkedCurve new_curve;
 		new_curve.Append(*c1);
 		if (dist > ON_ZERO_TOLERANCE) {
-		    /* FIXME: memory leak, we never delete the ON_LineCurve */
 		    new_curve.Append(SSICurve(new ON_LineCurve(c1->PointAtEnd(), c2->PointAtStart())));
 		}
 		new_curve.Append(*c2);
@@ -1426,7 +1444,6 @@ link_curves(const ON_SimpleArray<SSICurve> &in)
 	    // Check whether tmp[i] is closed within a tolerance
 	    if (tmp[i].PointAtStart().DistanceTo(tmp[i].PointAtEnd()) < INTERSECTION_TOL && !tmp[i].IsClosed()) {
 		// make IsClosed() true
-		/* FIXME: memory leak, we never delete the ON_LineCurve */
 		tmp[i].Append(SSICurve(new ON_LineCurve(tmp[i].PointAtEnd(), tmp[i].PointAtStart())));
 	    }
 	}
