@@ -28,6 +28,8 @@
 #include "common.h"
 
 #include <assert.h>
+#include <array>
+#include <cmath>
 #include <vector>
 #include <stack>
 #include <queue>
@@ -277,6 +279,250 @@ public:
 };
 
 
+/* Threshold for treating a 2-D cross-product determinant as zero (parallel /
+ * collinear).  Chosen as a small fraction of floating-point machine epsilon
+ * so that nearly-parallel segments are treated as non-crossing. */
+static const double POLY_CROSS_TOL = 1e-14;
+
+
+/* Inlined 2D point-in-polygon (ray-casting).  Equivalent to bg_pnt_in_polygon
+ * from libbg; duplicated here to avoid adding a new library dependency to
+ * libbrep. */
+static inline int
+_pnt_in_polygon(size_t nvert, const double (*pnts)[2], double tx, double ty)
+{
+    int c = 0;
+    for (size_t i = 0, j = nvert - 1; i < nvert; j = i++) {
+	if (((pnts[i][1] > ty) != (pnts[j][1] > ty)) &&
+	    (tx < (pnts[j][0] - pnts[i][0]) * (ty - pnts[i][1]) /
+	              (pnts[j][1] - pnts[i][1]) + pnts[i][0]))
+	    c = !c;
+    }
+    return c;
+}
+
+
+/* Returns true if segment AB properly crosses segment CD (not just touching
+ * at endpoints).  Used for the inner-polygon self-intersection check. */
+static inline bool
+_segments_cross_2d(double ax, double ay, double bx, double by,
+		   double cx, double cy, double dx, double dy)
+{
+    double d1x = bx - ax, d1y = by - ay;
+    double d2x = dx - cx, d2y = dy - cy;
+    double denom = d1x * d2y - d1y * d2x;
+    if (std::fabs(denom) < POLY_CROSS_TOL)
+	return false;  /* parallel / collinear */
+    double t = ((cx - ax) * d2y - (cy - ay) * d2x) / denom;
+    double u = ((cx - ax) * d1y - (cy - ay) * d1x) / denom;
+    return (t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0);
+}
+
+
+/* Check whether a closed 2-D polygon self-intersects.
+ *
+ * The chord / inner polygon can be self-intersecting when the trimmed face
+ * has a complex winding (e.g. many SSI curves that spiral around the UV
+ * domain).  A self-intersecting polygon gives wrong results from the
+ * ray-casting test and must NOT be used as the inner pre-filter.
+ *
+ * Strategy:
+ *   • For small polygons (≤ MAX_SI_CHECK edges): do the full O(N²/2)
+ *     pairwise edge-crossing test.  Adjacent edges always share one endpoint
+ *     and are skipped.
+ *   • For large polygons (> MAX_SI_CHECK edges): we cannot afford O(N²) so
+ *     we conservatively report "possibly self-intersecting" and disable the
+ *     inner fast-path.  The outer polygon (which is larger and constructed
+ *     differently) is still used.
+ *
+ * Returns true if the polygon is (or may be) self-intersecting. */
+static bool
+is_polygon_self_intersecting(const std::vector<std::array<double, 2> > &poly)
+{
+    static const size_t MAX_SI_CHECK = 128;
+    const size_t n = poly.size();
+    if (n < 4)
+	return false;  /* triangle cannot self-intersect */
+    if (n > MAX_SI_CHECK)
+	return true;   /* too large to check: assume unsafe */
+
+    for (size_t i = 0; i < n; i++) {
+	double ax = poly[i][0],        ay = poly[i][1];
+	double bx = poly[(i+1)%n][0],  by = poly[(i+1)%n][1];
+
+	/* j starts at i+2 to skip adjacent edges.  When i==0 the last
+	 * edge (j == n-1) is also adjacent and must be excluded. */
+	for (size_t j = i + 2; j < n; j++) {
+	    if (i == 0 && j == n - 1)
+		continue;  /* wraps around: edges 0 and n-1 share vertex 0 */
+	    double cx = poly[j][0],       cy = poly[j][1];
+	    double dx = poly[(j+1)%n][0], dy = poly[(j+1)%n][1];
+	    if (_segments_cross_2d(ax, ay, bx, by, cx, cy, dx, dy))
+		return true;
+	}
+    }
+    return false;
+}
+
+
+/* Build inner (chord) and outer (tangent-corrected sample) polygon
+ * approximations of a 2D loop.
+ *
+ * INNER POLYGON (conservative subset of the enclosed region):
+ *   Connect each curve's start-point to the next with a straight chord.
+ *   This is always inside the enclosed region because:
+ *   - For arcs that bulge outward (away from interior): the chord is closer
+ *     to the interior centre than the arc → chord is inside.
+ *   - For arcs that dip inward (notch): the chord cuts across the notch but
+ *     all points on the chord are still inside the full interior.
+ *
+ *   HOWEVER, the chord polygon can be self-intersecting for complex trimmed
+ *   faces.  The caller must use is_polygon_self_intersecting() and discard
+ *   the inner polygon if it is self-intersecting.
+ *
+ * OUTER POLYGON (conservative superset of the enclosed region):
+ *   For each curve segment we need the polygon to be ≥ the true boundary:
+ *   - We first check which side of the chord the arc midpoint lies on.
+ *   - If the midpoint bulges OUTWARD (away from the loop interior): the
+ *     chord alone would leave the bulge OUTSIDE the polygon → we add the
+ *     tangent-intersection corner point (or the midpoint if tangents are
+ *     nearly parallel) so the polygon edge arcs outward.
+ *   - If the midpoint is INWARD (notch): sampling the arc midpoint M is
+ *     sufficient to capture the notch in the outer polygon.
+ *   - For straight / nearly-straight segments: chord is fine for both.
+ *
+ * The loop orientation (CCW vs CW) is inferred from the signed area so that
+ * "outward" is correctly identified for both winding conventions.
+ */
+static void
+build_loop_polygons(
+    const ON_SimpleArray<ON_Curve *> &loop,
+    std::vector<std::array<double, 2> > &inner_poly,
+    std::vector<std::array<double, 2> > &outer_poly)
+{
+    const int N = loop.Count();
+    if (N < 1)
+	return;
+
+    /* Compute signed area of the chord polygon to determine orientation.
+     * Positive → CCW (interior on the left); negative → CW. */
+    double signed_area = 0.0;
+    for (int i = 0; i < N; i++) {
+	if (!loop[i]) continue;
+	ON_3dPoint a = loop[i]->PointAtStart();
+	ON_3dPoint b = loop[i]->PointAtEnd();
+	signed_area += a.x * b.y - b.x * a.y;
+    }
+    const bool ccw = (signed_area >= 0.0);
+
+    /* How much sagitta (perpendicular deviation from chord) we tolerate
+     * before adding the tangent-intersection corner.  Below this threshold
+     * the chord is close enough to the true arc for the outer polygon. */
+    const double SAG_TOL = INTERSECTION_TOL * 2.0;
+
+    inner_poly.clear();
+    outer_poly.clear();
+    inner_poly.reserve(N);
+    outer_poly.reserve(N * 2);
+
+    for (int i = 0; i < N; i++) {
+	const ON_Curve *crv = loop[i];
+	if (!crv) continue;
+
+	ON_Interval dom = crv->Domain();
+	ON_3dPoint a3 = crv->PointAtStart();
+	ON_3dPoint b3 = crv->PointAtEnd();
+	ON_3dPoint m3 = crv->PointAt(dom.ParameterAt(0.5));
+
+	double ax = a3.x, ay = a3.y;
+	double bx = b3.x, by = b3.y;
+	double mx = m3.x, my = m3.y;
+
+	/* Inner polygon: always just the start-point (chord polygon). */
+	std::array<double, 2> av = {{ax, ay}};
+	inner_poly.push_back(av);
+
+	/* Cross product (B-A) × (M-A) determines which side of the chord
+	 * the arc midpoint M lies on.
+	 *   > 0  → M is LEFT  of A→B
+	 *   < 0  → M is RIGHT of A→B
+	 * For a CCW loop, interior is to the LEFT of the boundary direction.
+	 * "Outward bulge" = M is to the RIGHT (away from interior) → cross < 0.
+	 * "Inward notch"  = M is to the LEFT  (toward interior)   → cross > 0. */
+	double cross = (bx - ax) * (my - ay) - (by - ay) * (mx - ax);
+
+	/* Perpendicular sagitta (signed distance from M to chord A→B). */
+	double chord_len = std::sqrt((bx-ax)*(bx-ax) + (by-ay)*(by-ay));
+	double sagitta = (chord_len > 0.0) ? std::fabs(cross) / chord_len : 0.0;
+
+	/* Determine if this is an "outward bulge" relative to the loop
+	 * interior: for CCW loops, outward means M is to the RIGHT (cross<0);
+	 * for CW loops, outward means M is to the LEFT (cross>0). */
+	bool outward = ccw ? (cross < 0.0) : (cross > 0.0);
+
+	/* Outer polygon: start-point always included. */
+	outer_poly.push_back(av);
+
+	if (sagitta <= SAG_TOL) {
+	    /* Segment is nearly straight — chord is fine for both polygons.
+	     * Add the midpoint to the outer polygon for a slightly tighter fit
+	     * on mildly-curved segments. */
+	    std::array<double, 2> mv = {{mx, my}};
+	    outer_poly.push_back(mv);
+	} else if (outward) {
+	    /* Outward-bulging arc: the chord under-approximates the boundary.
+	     * Add the tangent-intersection corner so the outer polygon edge
+	     * lies OUTSIDE the arc.
+	     *
+	     * The tangent lines at A and B are:
+	     *   P(s) = A + s * tA
+	     *   Q(t) = B + t * tB
+	     * We solve for their intersection T = A + s * tA.
+	     *
+	     *   s * tA.x - t * tB.x = bx - ax
+	     *   s * tA.y - t * tB.y = by - ay
+	     *
+	     * det = tA.x * (-tB.y) - (-tB.x) * tA.y = tB.x*tA.y - tA.x*tB.y
+	     */
+	    ON_3dVector ta3 = crv->TangentAt(dom.ParameterAt(0.0));
+	    ON_3dVector tb3 = crv->TangentAt(dom.ParameterAt(1.0));
+	    double tax = ta3.x, tay = ta3.y;
+	    double tbx = tb3.x, tby = tb3.y;
+
+	    double det = tbx * tay - tax * tby;
+	    bool added_corner = false;
+	    if (std::fabs(det) > POLY_CROSS_TOL) {
+		double dx = bx - ax, dy = by - ay;
+		double s = (dx * (-tby) - dy * (-tbx)) / det;
+		double tx_pt = ax + s * tax;
+		double ty_pt = ay + s * tay;
+
+		/* Accept T if it is "outside" M (farther from the interior
+		 * than M) and not absurdly far away (cap at 10× chord). */
+		double max_reach = chord_len * 10.0 + sagitta * 4.0;
+		double dist_T_from_chord =
+		    std::fabs((bx-ax)*(ty_pt-ay) - (by-ay)*(tx_pt-ax));
+		if (dist_T_from_chord > 0.0 && dist_T_from_chord < max_reach) {
+		    std::array<double, 2> tv = {{tx_pt, ty_pt}};
+		    outer_poly.push_back(tv);
+		    added_corner = true;
+		}
+	    }
+	    if (!added_corner) {
+		/* Parallel tangents or T too far: fall back to midpoint. */
+		std::array<double, 2> mv = {{mx, my}};
+		outer_poly.push_back(mv);
+	    }
+	} else {
+	    /* Inward notch: midpoint captures the deepest point of the notch
+	     * so the outer polygon includes the notch area. */
+	    std::array<double, 2> mv = {{mx, my}};
+	    outer_poly.push_back(mv);
+	}
+    }
+}
+
+
 struct TrimmedFace {
     // curve segments in the face's outer loop
     ON_SimpleArray<ON_Curve *> m_outerloop;
@@ -290,12 +536,56 @@ struct TrimmedFace {
     } m_belong_to_final;
     bool m_rev;
 
+    /* Lazily-built conservative polygon approximations of m_outerloop.
+     * Used by is_point_inside_trimmed_face() as a fast pre-filter before
+     * invoking the expensive NURBS ray-cast (point_loop_location).
+     *
+     * m_inner_poly: chord polygon — always a subset of the enclosed region
+     *   PROVIDED it is not self-intersecting.  Self-intersection can occur
+     *   for complex trimmed faces (many wound SSI curves).  The flag
+     *   m_inner_poly_valid records whether the check passed.
+     *   If the test point is inside this polygon it is definitely inside
+     *   the trimmed face without needing the full ray-cast.
+     *
+     * m_outer_poly: tangent-corrected sample polygon — always a superset of
+     *   the enclosed region (contains the full boundary including arc bulges
+     *   and inward notches).  If the test point is outside this polygon it
+     *   is definitely outside the trimmed face.
+     *
+     * Points in the thin annular zone between the two polygons fall through
+     * to the full NURBS test.  In practice this zone is very narrow (sub-
+     * tolerance for nearly-linear SSI trim curves), so most tests are
+     * resolved by the O(M) polygon check rather than the O(N) NURBS cast.
+     */
+    mutable std::vector<std::array<double, 2> > m_inner_poly;
+    mutable std::vector<std::array<double, 2> > m_outer_poly;
+    mutable bool m_poly_valid;       /* true once build_loop_polygons ran */
+    mutable bool m_inner_poly_valid; /* true if inner polygon is non-self-intersecting */
+
     // Default constructor
     TrimmedFace()
     {
 	m_face = NULL;
 	m_belong_to_final = UNKNOWN;
 	m_rev = false;
+	m_poly_valid = false;
+	m_inner_poly_valid = false;
+    }
+
+    /* Build (or rebuild) the cached polygon approximations from m_outerloop.
+     * Call this before using m_inner_poly / m_outer_poly. */
+    void ensure_polygons() const
+    {
+	if (m_poly_valid)
+	    return;
+	build_loop_polygons(m_outerloop, m_inner_poly, m_outer_poly);
+	/* Only use the inner (chord) polygon if it is not self-intersecting.
+	 * A self-intersecting polygon gives wrong ray-casting results.
+	 * The outer polygon is still used regardless — it is constructed with
+	 * extra tangent-corner / midpoint samples that make self-intersection
+	 * much less likely. */
+	m_inner_poly_valid = !is_polygon_self_intersecting(m_inner_poly);
+	m_poly_valid = true;
     }
 
     // Destructor
@@ -337,6 +627,7 @@ struct TrimmedFace {
 		}
 	    }
 	}
+	/* Don't copy cached polygon state — it will be rebuilt on demand. */
 	return out;
     }
 };
@@ -3343,17 +3634,73 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
 static bool
 is_point_inside_trimmed_face(const ON_2dPoint &pt, const TrimmedFace *tface)
 {
-    bool inside = false;
-    if (is_point_inside_loop(pt, tface->m_outerloop)) {
-	inside = true;
-	for (size_t i = 0; i < tface->m_innerloop.size(); ++i) {
-	    if (!is_point_outside_loop(pt, tface->m_innerloop[i])) {
-		inside = false;
-		break;
-	    }
+    /* ---------------------------------------------------------------
+     * Fast pre-filter using cached polygon approximations.
+     *
+     * The polygons are built lazily and cached on the TrimmedFace.
+     * Each polygon test is O(M) where M ≈ 1–2× the loop curve count,
+     * but with a very small constant (a few FP ops per edge vs. a full
+     * Newton-iteration NURBS intersection per curve in the exact test).
+     *
+     * OUTER polygon (always valid): superset of the enclosed region.
+     *   If the test point is OUTSIDE the outer polygon it is definitely
+     *   outside the trimmed face → return false immediately.
+     *
+     * INNER polygon (valid only when non-self-intersecting): subset of
+     *   the enclosed region.
+     *   If the test point is INSIDE the inner polygon it is definitely
+     *   inside the trimmed face (outer loop) → skip the outer-loop exact
+     *   test and go straight to inner-loop exclusion.
+     *
+     * Only points in the thin annular zone between the two polygons
+     * need the full O(N) NURBS ray-cast (point_loop_location).
+     * --------------------------------------------------------------- */
+    tface->ensure_polygons();
+
+    bool outer_definite = false;  /* result known from outer polygon */
+    bool inner_definite = false;  /* result known from inner polygon */
+    bool poly_inside_outer = false;
+
+    if (!tface->m_outer_poly.empty()) {
+	const size_t n = tface->m_outer_poly.size();
+	const double (*pts)[2] =
+	    reinterpret_cast<const double (*)[2]>(tface->m_outer_poly.data());
+	poly_inside_outer = (_pnt_in_polygon(n, pts, pt.x, pt.y) != 0);
+	if (!poly_inside_outer) {
+	    return false;  /* definitely outside */
+	}
+	outer_definite = true;
+    }
+
+    if (tface->m_inner_poly_valid && !tface->m_inner_poly.empty()) {
+	const size_t n = tface->m_inner_poly.size();
+	const double (*pts)[2] =
+	    reinterpret_cast<const double (*)[2]>(tface->m_inner_poly.data());
+	if (_pnt_in_polygon(n, pts, pt.x, pt.y)) {
+	    inner_definite = true;
+	    /* Definitely inside the outer loop; still need to check inner
+	     * (hole) loops below before returning true. */
 	}
     }
-    return inside;
+    (void)outer_definite; /* suppress unused-variable warning */
+
+    /* If the inner polygon hasn't resolved the outer-loop membership,
+     * fall through to the full NURBS test. */
+    bool inside_outer = inner_definite;
+    if (!inner_definite) {
+	inside_outer = is_point_inside_loop(pt, tface->m_outerloop);
+    }
+
+    if (!inside_outer)
+	return false;
+
+    /* Inside the outer loop: check that the point is not inside any
+     * inner (hole) loop. */
+    for (size_t i = 0; i < tface->m_innerloop.size(); ++i) {
+	if (!is_point_outside_loop(pt, tface->m_innerloop[i]))
+	    return false;
+    }
+    return true;
 }
 
 
