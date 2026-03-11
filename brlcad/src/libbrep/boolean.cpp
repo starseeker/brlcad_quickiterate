@@ -3357,10 +3357,6 @@ is_point_inside_trimmed_face(const ON_2dPoint &pt, const TrimmedFace *tface)
 }
 
 
-// TODO: For faces that have most of their area trimmed away, this is
-// a very inefficient algorithm. If the grid approach doesn't work
-// after a small number of samples, we should switch to an alternative
-// algorithm, such as sampling around points on the inner loops.
 static ON_2dPoint
 get_point_inside_trimmed_face(const TrimmedFace *tface)
 {
@@ -3389,6 +3385,65 @@ get_point_inside_trimmed_face(const TrimmedFace *tface)
 	    }
 	}
     }
+
+    /* For heavily-trimmed faces the uniform grid rarely lands inside.
+     * Fall back to sampling at small offsets around points on the outer
+     * loop boundary: for each curve in the outer loop pick the midpoint
+     * and nudge it inward along the 2D normal into the face interior.
+     * Also try midpoints of any inner-loop curves (a point near an inner
+     * loop is likely inside the trimmed region). */
+    if (!found) {
+	const double NUDGE = ON_ZERO_TOLERANCE * 1e3;
+	const int NOUTER = tface->m_outerloop.Count();
+	for (int ci = 0; ci < NOUTER && !found; ++ci) {
+	    const ON_Curve *crv = tface->m_outerloop[ci];
+	    if (!crv) continue;
+	    ON_Interval dom = crv->Domain();
+	    ON_3dPoint mid3 = crv->PointAt(dom.Mid());
+	    ON_3dVector tan3 = crv->TangentAt(dom.Mid());
+	    /* Inward 2D normal: rotate tangent 90° CCW (into face interior) */
+	    ON_2dPoint mid2(mid3.x, mid3.y);
+	    ON_2dVector inward(-tan3.y, tan3.x);
+	    inward.Unitize();
+	    for (int k = 1; k <= 8 && !found; ++k) {
+		test_pt2d = mid2 + inward * (NUDGE * k);
+		found = is_point_inside_trimmed_face(test_pt2d, tface);
+	    }
+	    /* Also try outward (CW) normal */
+	    ON_2dVector outward(tan3.y, -tan3.x);
+	    outward.Unitize();
+	    for (int k = 1; k <= 8 && !found; ++k) {
+		test_pt2d = mid2 + outward * (NUDGE * k);
+		found = is_point_inside_trimmed_face(test_pt2d, tface);
+	    }
+	}
+	/* Try midpoints of inner-loop curves, nudging outward */
+	for (size_t li = 0; li < tface->m_innerloop.size() && !found; ++li) {
+	    const ON_SimpleArray<ON_Curve *> &iloop = tface->m_innerloop[li];
+	    for (int ci = 0; ci < iloop.Count() && !found; ++ci) {
+		const ON_Curve *crv = iloop[ci];
+		if (!crv) continue;
+		ON_Interval dom = crv->Domain();
+		ON_3dPoint mid3 = crv->PointAt(dom.Mid());
+		ON_3dVector tan3 = crv->TangentAt(dom.Mid());
+		ON_2dPoint mid2(mid3.x, mid3.y);
+		/* Outward normal from inner loop (CW) = inward for face */
+		ON_2dVector outward(tan3.y, -tan3.x);
+		outward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + outward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+		ON_2dVector inward(-tan3.y, tan3.x);
+		inward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + inward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+	    }
+	}
+    }
+
     if (!found) {
 	throw AlgorithmError("Cannot find a point inside this trimmed face. Aborted.\n");
     }
@@ -3817,14 +3872,18 @@ categorize_trimmed_faces(
 			    same_direction = true;
 			}
 
-			if ((operation == BOOLEAN_UNION && same_direction) ||
-			    (operation == BOOLEAN_INTERSECT && same_direction) ||
+			/* Only include one copy of a coplanar face: prefer brep1's
+			 * (i < face_count1) for union/intersect to avoid producing
+			 * coincident duplicate faces in the assembled output.
+			 * For diff, only brep1 faces with opposite-direction normals
+			 * (the "carved-out" boundary) belong in the result. */
+			if ((operation == BOOLEAN_UNION && same_direction && i < face_count1) ||
+			    (operation == BOOLEAN_INTERSECT && same_direction && i < face_count1) ||
 			    (operation == BOOLEAN_DIFF && !same_direction && i < face_count1))
 			{
 			    splitted[j]->m_belong_to_final = TrimmedFace::BELONG;
 			}
 		    }
-		    // TODO: Actually only one of them is needed in the final brep structure
 	    }
 	    if (DEBUG_BREP_BOOLEAN) {
 		bu_log("The trimmed face is %s the other brep.",
