@@ -4092,6 +4092,14 @@ ON_Intersect(const ON_Surface *surfA,
     NodePairs candidates, next_candidates;
     candidates.push_back(std::make_pair(rootA, rootB));
 
+    /* Safety limit: if the candidate count explodes (e.g. a very large surface
+     * intersecting another large surface produces thousands of leaf pairs), stop
+     * subdividing at the current depth.  This prevents multi-minute hangs on
+     * models like terra.g where a 153 km ELL intersects a 25 km DSP surface.
+     * The candidates remaining at the capped depth are still valid; Newton
+     * iteration will sample them and find the intersection curve points. */
+    static const size_t MAX_SSI_CANDIDATES = 8000;
+
     for (int h = 0; h <= MAX_SSI_DEPTH && !candidates.empty(); h++) {
 	next_candidates.clear();
 	for (NodePairs::iterator i = candidates.begin(); i != candidates.end(); i++) {
@@ -4118,6 +4126,14 @@ ON_Intersect(const ON_Surface *surfA,
  	    }
 	}
 	candidates = next_candidates;
+	if (candidates.size() > MAX_SSI_CANDIDATES) {
+	    if (DEBUG_BREP_INTERSECT) {
+		bu_log("ON_Intersect: candidate count %zu exceeds limit %zu at depth %d, "
+		       "stopping subdivision early\n",
+		       candidates.size(), MAX_SSI_CANDIDATES, h);
+	    }
+	    break;
+	}
     }
     if (DEBUG_BREP_INTERSECT) {
 	bu_log("We get %zu intersection bounding boxes.\n", candidates.size());
