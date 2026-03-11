@@ -255,20 +255,66 @@ ParseDocumentXml(const std::string& xml_content, FcstdDocMeta& meta)
             if (!brp.empty())
                 result[name].brp_file = brp;
 
+            // Boolean operation inputs:
+            // Base: <Property name="Base"><Link value="..."/></Property>
+            {
+                std::string base = FindPropertyValue(elem, "Base", "Link", "value");
+                if (!base.empty())
+                    result[name].base_name = base;
+            }
+
+            // Tool: <Property name="Tool"><Link value="..."/></Property>
+            {
+                std::string tool = FindPropertyValue(elem, "Tool", "Link", "value");
+                if (!tool.empty())
+                    result[name].tool_name = tool;
+            }
+
+            // Shapes: <Property name="Shapes"><LinkList count="N">
+            //           <Link value="..."/>...</LinkList></Property>
+            // Use getElementsByTagName (deep scan) so we find the <Property>
+            // element even though it is nested inside a <Properties> child.
+            {
+                LDOM_NodeList props =
+                    elem.getElementsByTagName(LDOMString("Property"));
+                int np = props.getLength();
+                for (int pi = 0; pi < np; ++pi) {
+                    LDOM_Node pnode = props.item(pi);
+                    if (pnode.getNodeType() != LDOM_Node::ELEMENT_NODE) continue;
+                    LDOM_Element pe = (const LDOM_Element&)pnode;
+                    if (LAttr(pe, "name") != "Shapes") continue;
+                    LDOM_NodeList links =
+                        pe.getElementsByTagName(LDOMString("Link"));
+                    for (int li = 0; li < links.getLength(); ++li) {
+                        LDOM_Node ln = links.item(li);
+                        if (ln.getNodeType() != LDOM_Node::ELEMENT_NODE) continue;
+                        LDOM_Element le = (const LDOM_Element&)ln;
+                        std::string sv = LAttr(le, "value");
+                        if (!sv.empty())
+                            result[name].shapes.push_back(sv);
+                    }
+                    break;
+                }
+            }
+
             // App::Part membership: look for <Property name="Group" type="...">
             // containing child <LinkList> or <LinkSub> elements with child names.
             // FreeCAD stores the group as: <Property name="Group"><LinkList>
             //   <Link value="Child1"/><Link value="Child2"/>...</LinkList></Property>
+            // Use getElementsByTagName (deep scan) so we find the nested
+            // <Property> element inside the <Properties> child.
             {
                 auto it = result.find(name);
                 if (it != result.end() && it->second.type == "App::Part") {
                     const std::string& partLabel =
                         it->second.label.empty() ? name : it->second.label;
-                    for (LDOM_Node n = elem.getFirstChild();
-                         !n.isNull(); n = n.getNextSibling())
-                    {
-                        if (n.getNodeType() != LDOM_Node::ELEMENT_NODE) continue;
-                        LDOM_Element propElem = (const LDOM_Element&)n;
+                    LDOM_NodeList props =
+                        elem.getElementsByTagName(LDOMString("Property"));
+                    int np = props.getLength();
+                    for (int pi = 0; pi < np; ++pi) {
+                        LDOM_Node pnode = props.item(pi);
+                        if (pnode.getNodeType() != LDOM_Node::ELEMENT_NODE) continue;
+                        LDOM_Element propElem = (const LDOM_Element&)pnode;
                         if (LAttr(propElem, "name") != "Group") continue;
                         LDOM_NodeList links =
                             propElem.getElementsByTagName(LDOMString("Link"));
@@ -414,7 +460,7 @@ bool ReadFcstdDoc(const std::string& path, FcstdDoc& doc)
 // FCStdFileToONX_Model — convert an FCStd file → ONX_Model.
 // ---------------------------------------------------------------------------
 int FCStdFileToONX_Model(const std::string& path,
-                         ONX_Model&         model,
+                         ::ONX_Model&       model,
                          double             tol)
 {
     FcstdDoc doc;
@@ -540,7 +586,7 @@ static bool ZipAddStringEntry(zip_t*             z,
 }
 
 int ONX_ModelToFCStdFile(const std::string& path,
-                         const ONX_Model&   model,
+                         const ::ONX_Model& model,
                          double             tol)
 {
     // Collect geometry objects

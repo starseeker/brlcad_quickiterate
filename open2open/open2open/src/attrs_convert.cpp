@@ -24,6 +24,9 @@
 
 #include "opennurbs.h"
 
+// OCCT version detection (for API compatibility guards)
+#include <Standard_Version.hxx>
+
 // OCCT — attribute framework
 #include <TDocStd_Document.hxx>
 #include <TDF_Label.hxx>
@@ -1073,8 +1076,16 @@ bool XCAFDocToONX_Model(const Handle(TDocStd_Document)& doc,
 
             Handle(TCollection_HAsciiString) hName, hDesc, hDensName, hDensType;
             Standard_Real density = 0.0;
+            // XCAFDoc_MaterialTool::GetMaterial() was changed from a static
+            // method to an instance method in OCCT 7.6.  Use the appropriate
+            // calling convention based on the detected version.
+#if OCC_VERSION_HEX >= 0x070600
+            if (!matTool->GetMaterial(
+                    ml, hName, hDesc, density, hDensName, hDensType))
+#else
             if (!XCAFDoc_MaterialTool::GetMaterial(
                     ml, hName, hDesc, density, hDensName, hDensType))
+#endif
                 continue;
 
             ON_Material mat;
