@@ -198,10 +198,30 @@ test_tor(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("tor DEGENERATE r_h=0 (expect fail)", &ip, &ttol, &tol, 1)) failures++;
 
-    /* Negative r_h - should fail gracefully */
+    /* Negative r_h: the surface is identical to |r_h|, so tessellation
+     * should succeed and produce the same face count as |r_h|. */
     tip.r_h = -1.0;
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
-    if (!run_tess("tor DEGENERATE r_h=-1 (expect fail)", &ip, &ttol, &tol, 1)) failures++;
+    if (!run_tess("tor negative r_h=-1 (same as r_h=1, expect success)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Spindle torus: r_h > r_a means tube passes through the axis.
+     * The outer surface is a valid closed manifold (sphere topology). */
+    tip.r_a = 5.0;
+    tip.r_b = 5.0;
+    VSET(tip.a, 5.0, 0, 0);
+    VSET(tip.b, 0, 5.0, 0);
+    tip.r_h = 8.0;   /* > r_a=5: spindle torus */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tor spindle torus (r_a=5 r_h=8 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Spindle torus with extreme self-intersection ratio */
+    tip.r_a = 2.0;
+    tip.r_b = 2.0;
+    VSET(tip.a, 2.0, 0, 0);
+    VSET(tip.b, 0, 2.0, 0);
+    tip.r_h = 10.0;  /* r_h/r_a = 5: strongly spindle */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tor strongly spindle (r_a=2 r_h=10)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Zero r_a - should fail gracefully */
     tip.r_a = 0.0;
@@ -285,12 +305,13 @@ test_eto(void)
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("eto DEGENERATE near-zero r (expect fail)", &ip, &ttol, &tol, 1)) failures++;
 
-    /* Degenerate: negative r (should fail gracefully, not crash) */
+    /* Negative r: the surface is identical to |r|, so tessellation
+     * should succeed and produce valid geometry. */
     tip.eto_r  = -5.0;
     tip.eto_rd = 1.0;
     VSET(tip.eto_C, 2.0, 0, 1.0);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
-    if (!run_tess("eto DEGENERATE negative r (expect fail)", &ip, &ttol, &tol, 1)) failures++;
+    if (!run_tess("eto negative r=-5 (same as r=5, expect success)", &ip, &ttol, &tol, 0)) failures++;
 
     /* Degenerate: near-zero rd (should fail gracefully) */
     tip.eto_r  = 5.0;
@@ -415,6 +436,18 @@ test_tgc(void)
     VSET(tip.d, -3, 0, 0);
     init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
     if (!run_tess("tgc twisted (A=(5,0,0) C=(0,3,0) h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* tgc.g long_thin.s: extreme aspect ratio cylinder (H/r ~ 94000).
+     * Previously triggered the 10000-iteration safeguard with a WARNING.
+     * Bulk-insertion for near-uniform profiles should handle it cleanly. */
+    VSET(tip.v, -23916.39, 16576.29, 6232.91);
+    VSET(tip.h, 4380.15, -8304.15, -842.34);
+    VSET(tip.a, 0.08845, 0.04665, 0.0);
+    VSET(tip.b, 0.004169, -0.007904, 0.09960);
+    VSET(tip.c, 0.08845, 0.04665, 0.0);
+    VSET(tip.d, 0.004169, -0.007904, 0.09960);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("tgc long_thin.s (H/r~94000, real geometry)", &ip, &ttol, &tol, 0)) failures++;
 
     return failures;
 }
