@@ -40,3 +40,4 @@ CMakeLists.txt.user
 .clang-format
 
 
+mged-*-bomb.log
