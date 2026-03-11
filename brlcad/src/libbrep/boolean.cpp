@@ -3391,11 +3391,36 @@ get_point_inside_trimmed_face(const TrimmedFace *tface)
      * loop boundary: for each curve in the outer loop pick the midpoint
      * and nudge it inward along the 2D normal into the face interior.
      * Also try midpoints of any inner-loop curves (a point near an inner
-     * loop is likely inside the trimmed region). */
+     * loop is likely inside the trimmed region).
+     *
+     * The nudge distance must be meaningful relative to the face's UV
+     * bounding box.  A fixed tiny constant (e.g. ON_ZERO_TOLERANCE * 1e3
+     * ≈ 1e-9) is effectively zero for surfaces with large UV domains
+     * (e.g. a DSP with domain [0, 2.55e7]) and causes every attempt to
+     * fail, forcing the O(N²) worst case.  Use a fraction of the bbox
+     * size instead.
+     *
+     * We also cap the number of outer-loop curves we try.  When there
+     * are N SSI-generated trim curves in the loop, iterating over all N
+     * of them costs O(N²) because each is_point_inside_trimmed_face()
+     * call is O(N).  Trying the first MAX_NUDGE_CURVES curves is almost
+     * always enough: a single successful nudge is all we need. */
     if (!found) {
-	const double NUDGE = ON_ZERO_TOLERANCE * 1e3;
+	/* Scale the nudge so it is 10 ppm of the smaller UV dimension.
+	 * This is large enough to be meaningful for any surface domain
+	 * while small enough to stay well inside the trimmed region. */
+	const double NUDGE_SCALE = 1.0e-5;
+	const double NUDGE = std::max(ON_ZERO_TOLERANCE * 1e3,
+				      NUDGE_SCALE * std::min(u_len, v_len));
+
+	/* Cap at this many curves to avoid O(N²) when there are many SSI
+	 * trim curves.  The first few curves are most likely to have a
+	 * nearby interior point.  If none of them work we fall through to
+	 * the inner-loop fallback and then give up. */
+	const int MAX_NUDGE_CURVES = 12;
 	const int NOUTER = tface->m_outerloop.Count();
-	for (int ci = 0; ci < NOUTER && !found; ++ci) {
+	const int nlimit = std::min(NOUTER, MAX_NUDGE_CURVES);
+	for (int ci = 0; ci < nlimit && !found; ++ci) {
 	    const ON_Curve *crv = tface->m_outerloop[ci];
 	    if (!crv) continue;
 	    ON_Interval dom = crv->Domain();
@@ -3417,10 +3442,39 @@ get_point_inside_trimmed_face(const TrimmedFace *tface)
 		found = is_point_inside_trimmed_face(test_pt2d, tface);
 	    }
 	}
+	/* If the first MAX_NUDGE_CURVES outer-loop curves didn't help, walk
+	 * the remaining ones at a coarser stride so we don't skip them
+	 * entirely.  This matters when the first segment of the outer loop
+	 * happens to lie along a seam where both normals point outside. */
+	if (!found && NOUTER > MAX_NUDGE_CURVES) {
+	    /* stride so we sample ~MAX_NUDGE_CURVES more evenly-spaced curves */
+	    int stride = std::max(1, (NOUTER - MAX_NUDGE_CURVES) / MAX_NUDGE_CURVES);
+	    for (int ci = MAX_NUDGE_CURVES; ci < NOUTER && !found; ci += stride) {
+		const ON_Curve *crv = tface->m_outerloop[ci];
+		if (!crv) continue;
+		ON_Interval dom = crv->Domain();
+		ON_3dPoint mid3 = crv->PointAt(dom.Mid());
+		ON_3dVector tan3 = crv->TangentAt(dom.Mid());
+		ON_2dPoint mid2(mid3.x, mid3.y);
+		ON_2dVector inward(-tan3.y, tan3.x);
+		inward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + inward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+		ON_2dVector outward(tan3.y, -tan3.x);
+		outward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + outward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+	    }
+	}
 	/* Try midpoints of inner-loop curves, nudging outward */
 	for (size_t li = 0; li < tface->m_innerloop.size() && !found; ++li) {
 	    const ON_SimpleArray<ON_Curve *> &iloop = tface->m_innerloop[li];
-	    for (int ci = 0; ci < iloop.Count() && !found; ++ci) {
+	    const int nilimit = std::min(iloop.Count(), MAX_NUDGE_CURVES);
+	    for (int ci = 0; ci < nilimit && !found; ++ci) {
 		const ON_Curve *crv = iloop[ci];
 		if (!crv) continue;
 		ON_Interval dom = crv->Domain();
