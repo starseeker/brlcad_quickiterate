@@ -132,7 +132,7 @@ static Vec3 clamp_error(Vec3 orig, Vec3 newp, Vec3 n, float tol) {
  * @param numF       Number of input faces
  * @param faces      Input faces (vertex indices)
  * @param component  0=Tangential, 1=Normal, 2=Both
- * @param continuity 0=C0, 1=C1, 2=C2 (currently C2 same as C1)
+ * @param continuity 0=C0, 1=C1, 2=C2 (C2 intentionally uses the same bi-Laplacian as C1, matching OpenMesh JacobiLaplaceSmootherT effective behavior)
  * @param max_lerr   Max relative local error (<=0: disabled)
  * @param max_aerr   Max absolute local error (<=0: disabled)
  * @param iterations Number of smoothing iterations
@@ -213,7 +213,11 @@ inline bool gte_bot_smooth(
                 for (int i=0;i<3;++i) new_pos[v][i] = pv[i] + 0.5f*u[i];
             }
         } else {
-            /* C1 (and C2): bi-Laplacian Jacobi, damping 0.25
+            /* C1 and C2: bi-Laplacian Jacobi with 0.25 damping.
+             * Matches OpenMesh JacobiLaplaceSmootherT::compute_new_positions_C1().
+             * OpenMesh JacobiLaplaceSmootherT has no distinct C2 position update
+             * (its SmootherT base class compute_new_positions() C2 case is a no-op),
+             * so C2 uses the same bi-Laplacian as C1.
              * Pass 1: compute umbrellas u[v] = p[v] - sum_nbr(w_e * p[nbr]) * w_v
              * Pass 2: uu[v] = u[v] - sum_nbr(w_e * u[nbr]) * w_v / diag
              * new_pos = p[v] - 0.25 * uu[v]

@@ -99,45 +99,6 @@ static std::vector<int> ordered_one_ring(const HalfedgeMap& hm,
     return ring;
 }
 
-/* Get the CCW-ordered one-ring for interior vertex v.
-   For boundary vertex, get the ordered neighbors from boundary to boundary. */
-static std::vector<int> get_one_ring(const HalfedgeMap& hm,
-                                      const int* faces,
-                                      int v, int numV) {
-    /* Find any neighbor */
-    std::vector<int> all_nbrs;
-    {
-        std::set<int> seen;
-        /* Scan faces: this is O(numF) but we call it per vertex so not great.
-           Better: pre-build per-vertex neighbor list. */
-        (void)numV;
-        for (auto& kv : hm) {
-            if (kv.first.first == v && !seen.count(kv.first.second)) {
-                all_nbrs.push_back(kv.first.second);
-                seen.insert(kv.first.second);
-            }
-        }
-    }
-    if (all_nbrs.empty()) return {};
-    bool is_bnd = false;
-    auto ring = ordered_one_ring(hm, faces, v, all_nbrs[0], is_bnd);
-    return ring;
-}
-
-/* Pre-build per-vertex neighbor lists (unordered) */
-static std::vector<std::vector<int>> build_adj_list(size_t numV, size_t numF, const int* faces) {
-    std::vector<std::vector<int>> adj(numV);
-    std::vector<std::set<int>> seen(numV);
-    for (size_t f = 0; f < numF; ++f) {
-        for (int j = 0; j < 3; ++j) {
-            int a = faces[3*f+j], b = faces[3*f+(j+1)%3];
-            if (!seen[(size_t)a].count(b)) { adj[(size_t)a].push_back(b); seen[(size_t)a].insert(b); }
-            if (!seen[(size_t)b].count(a)) { adj[(size_t)b].push_back(a); seen[(size_t)b].insert(a); }
-        }
-    }
-    return adj;
-}
-
 /* Detect boundary vertices */
 static std::vector<bool> find_boundary_verts(size_t numV, size_t numF, const int* faces,
                                               const HalfedgeMap& hm) {
@@ -158,7 +119,7 @@ static std::vector<bool> find_boundary_verts(size_t numV, size_t numF, const int
 /* For boundary vertex v, find the two boundary neighbors in order (prev, next) */
 static std::pair<int,int> boundary_neighbors(size_t numV, size_t numF, const int* faces,
                                                const HalfedgeMap& hm, int v) {
-    (void)numV; (void)numF;
+    (void)numV; (void)numF; (void)faces;
     int prev_v = -1, next_v = -1;
     for (auto& kv : hm) {
         int from = kv.first.first, to = kv.first.second;
@@ -200,52 +161,9 @@ static std::pair<float,float> sqrt3_weight(int n) {
     return {(float)(1.0-alpha), (float)(alpha/n)};
 }
 
-/* Modified Butterfly midpoint weights (regular case: both endpoints valence 6) */
-static Vec3 mb_regular_midpoint(const std::vector<Vec3>& pts,
-                                  int a0, int a1, int b0, int b1,
-                                  int c0, int c1, int c2, int c3) {
-    Vec3 r{};
-    /* 1/2*(a0+a1) + 1/8*(b0+b1) - 1/16*(c0+c1+c2+c3) */
-    for (int i=0;i<3;++i)
-        r[i] = 0.5f*(pts[a0][i]+pts[a1][i])
-             + 0.125f*(pts[b0][i]+pts[b1][i])
-             - 0.0625f*(pts[c0][i]+pts[c1][i]+pts[c2][i]+pts[c3][i]);
-    return r;
-}
-
-/* Modified Butterfly weights for extraordinary vertex (valence K) */
-static Vec3 mb_irregular_midpoint(const std::vector<Vec3>& pts,
-                                    int v_irregular, int K,
-                                    const std::vector<int>& ring) {
-    /* weights: s(j) = (1/4 + cos(2pi*j/K) + 1/2*cos(4pi*j/K)) / K */
-    Vec3 r{};
-    float w_center = 0.f;
-    for (int j = 0; j < K && j < (int)ring.size(); ++j) {
-        float sj = (float)((0.25 + std::cos(2.0*M_PI*j/K)
-                          + 0.5*std::cos(4.0*M_PI*j/K)) / K);
-        for (int i=0;i<3;++i) r[i] += sj * pts[ring[j]][i];
-        w_center += sj;
-    }
-    float wc = 1.f - w_center;
-    for (int i=0;i<3;++i) r[i] += wc * pts[v_irregular][i];
-    return r;
-}
-
 /* Precomputed MB weights for K=3 and K=4 */
 static std::vector<float> mb_weights_k3() { return {5.f/12, -1.f/12, -1.f/12, 3.f/4}; }
 static std::vector<float> mb_weights_k4() { return {3.f/8, 0.f, -1.f/8, 0.f, 3.f/4}; }
-
-static Vec3 mb_irregular_known(const std::vector<Vec3>& pts,
-                                 int v_center, int K,
-                                 const std::vector<float>& w,
-                                 const std::vector<int>& ring) {
-    Vec3 r{};
-    for (int j = 0; j < K && j < (int)ring.size() && j < (int)w.size(); ++j)
-        for (int i=0;i<3;++i) r[i] += w[j] * pts[ring[j]][i];
-    if ((int)w.size() > K)
-        for (int i=0;i<3;++i) r[i] += w[K] * pts[v_center][i];
-    return r;
-}
 
 /* ======================================================================== *
  *  1. Loop Subdivision                                                       *
@@ -730,9 +648,26 @@ static Vec3 mb_midpoint(const std::vector<float>& V,
     Vec3 pb{V[3*v1],V[3*v1+1],V[3*v1+2]};
 
     if (is_bnd) {
-        /* Boundary: 4-point scheme = (9*(a+b) - (a_prev+a_next)) / 16 */
-        /* Simplified: just use midpoint for now */
-        return {(pa[0]+pb[0])*0.5f, (pa[1]+pb[1])*0.5f, (pa[2]+pb[2])*0.5f};
+        /* Boundary edge: 4-point cubic B-spline interpolation.
+         * Stencil: (9*v0 + 9*v1 - v_prev - v_next) / 16
+         * where v_prev is the other boundary neighbor of v0 (not v1)
+         * and v_next is the other boundary neighbor of v1 (not v0).
+         * Matches OpenMesh ModifiedButterflyT::compute_midpoint for boundary edges. */
+        size_t numV_ = V.size() / 3;
+        auto [pv0a, pv0b] = boundary_neighbors(numV_, 0, faces, hm, v0);
+        auto [pv1a, pv1b] = boundary_neighbors(numV_, 0, faces, hm, v1);
+        /* pick the neighbor that is NOT the other endpoint */
+        int v_prev = (pv0a == v1) ? pv0b : pv0a;
+        int v_next = (pv1a == v0) ? pv1b : pv1a;
+        Vec3 r{};
+        for (int i=0;i<3;++i) {
+            r[i] = (9.f*(pa[i]+pb[i])) * (1.f/16.f);
+            if (v_prev >= 0) r[i] -= V[3*v_prev+i] * (1.f/16.f);
+            else             r[i] -= pa[i]           * (1.f/16.f); /* ghost: extrapolate */
+            if (v_next >= 0) r[i] -= V[3*v_next+i] * (1.f/16.f);
+            else             r[i] -= pb[i]           * (1.f/16.f); /* ghost: extrapolate */
+        }
+        return r;
     }
 
     Vec3 pc{V[3*c],V[3*c+1],V[3*c+2]};
@@ -753,11 +688,11 @@ static Vec3 mb_midpoint(const std::vector<float>& V,
     bool v1_reg = (val_v1==6 || bnd[v1]);
 
     if (v0_reg && v1_reg) {
-        /* 8-point regular scheme: a0/2 + a1/2 + b0/8 + b1/8 - c0/16 - c1/16 - c2/16 - c3/16 */
-        /* b0 = opp_vertex(v1→c), b1 = opp_vertex(v0→d) from OpenMesh code's perspective */
-        /* c0,c1,c2,c3 = further neighbors */
-        /* Simplified version using just the 8-point formula: */
-        /* b0 = next of opp(v0→v1) after v1, i.e., opp_vertex(v1, c) */
+        /* 8-point regular stencil (Zorin et al.):
+         *   1/2*(v0+v1) + 1/8*(c+d) - 1/16*(b0+b1+b2+b3)
+         * where c = opp vertex of face v0→v1, d = opp vertex of face v1→v0,
+         * b0..b3 = next-ring vertices traversed via halfedge fan.
+         * Matches OpenMesh ModifiedButterflyT compute_midpoint regular case. */
         int b0 = opp_vertex(hm, faces, v1, c);
         int b1 = opp_vertex(hm, faces, v0, d);
         /* c vertices (one more step out) */
@@ -768,7 +703,7 @@ static Vec3 mb_midpoint(const std::vector<float>& V,
 
         Vec3 r;
         for (int i=0;i<3;++i) r[i] = 0.5f*(pa[i]+pb[i]) + 0.125f*(pc[i]+pd[i]);
-        /* subtract outer vertices (use symmetry if missing) */
+        /* subtract outer vertices (use ghost symmetry if missing) */
         Vec3 pc0 = (c0>=0) ? Vec3{V[3*c0],V[3*c0+1],V[3*c0+2]} : vadd(pb, vsub(pc, pa));
         Vec3 pc1 = (c1>=0) ? Vec3{V[3*c1],V[3*c1+1],V[3*c1+2]} : vadd(pb, vsub(pd, pa));
         Vec3 pc2 = (c2>=0) ? Vec3{V[3*c2],V[3*c2+1],V[3*c2+2]} : vadd(pa, vsub(pd, pb));
