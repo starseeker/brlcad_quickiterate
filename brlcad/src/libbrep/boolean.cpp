@@ -4546,6 +4546,10 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 	    }
 	    evaluated_brep->ShrinkSurfaces();
 	    evaluated_brep->Compact();
+	    /* Recompute tolerances on the trivial-union path as well. */
+	    evaluated_brep->SetEdgeTolerances(false);
+	    evaluated_brep->SetTrimTolerances(false);
+	    evaluated_brep->SetVertexTolerances(false);
 	    //dplot->WriteLog();
 	    return 0;
 	}
@@ -4610,6 +4614,19 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     evaluated_brep->ShrinkSurfaces();
     evaluated_brep->Compact();
     standardize_loop_orientations(evaluated_brep);
+
+    /* Recompute all tolerances from geometry.  The boolean code deliberately
+     * sets edge and trim tolerances to MAX_FASTF (the OpenNURBS "unset"
+     * sentinel) so that the code doesn't need to recompute them during
+     * construction.  But the raytracer's rt_brep_prep() uses the tolerance
+     * values to build its BVH acceleration structure; with MAX_FASTF every
+     * face's bounding interval is essentially infinite, so no face is ever
+     * culled and no shot ever terminates correctly.  Calling these three
+     * methods forces a proper geometric recomputation from the UV curves and
+     * 3D edge curves so the brep can be raytraced and volume-measured. */
+    evaluated_brep->SetEdgeTolerances(false);
+    evaluated_brep->SetTrimTolerances(false);
+    evaluated_brep->SetVertexTolerances(false);
 
     // Check IsValid() and output the message.
     ON_wString ws;
