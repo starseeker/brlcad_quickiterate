@@ -4116,7 +4116,7 @@ get_face_intersection_curves(
 		    continue;
 		}
 
-		if (surf_tree2.Count() < brep2->m_F[j].m_si + 1)
+		if ((int)st2.size() < brep2->m_F[j].m_si + 1)
 		    continue;
 
 		// Possible enhancement: Some faces may share the same surface.
@@ -4136,8 +4136,6 @@ get_face_intersection_curves(
 		if (results <= 0) {
 		    continue;
 		}
-
-		//dplot->SSX(events, brep1, brep1->m_F[i].m_si, brep2, brep2->m_F[j].m_si);
 		//dplot->WriteLog();
 
 		ON_SimpleArray<ON_Curve *> face1_curves, face2_curves;
