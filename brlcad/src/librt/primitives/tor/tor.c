@@ -1303,6 +1303,16 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     tip = (struct rt_tor_internal *)ip->idb_ptr;
     RT_TOR_CK_MAGIC(tip);
 
+    /* validate radii are positive */
+    if (!(tip->r_a > 0.0)) {
+	bu_log("rt_tor_tess: r1 (r_a=%g) must be > 0\n", tip->r_a);
+	return -1;
+    }
+    if (!(tip->r_h > 0.0)) {
+	bu_log("rt_tor_tess: r2 (r_h=%g) must be > 0\n", tip->r_h);
+	return -1;
+    }
+
     if (ttol->rel <= 0.0 || ttol->rel >= 1.0) {
 	rel = 0.0;		/* none */
     } else {

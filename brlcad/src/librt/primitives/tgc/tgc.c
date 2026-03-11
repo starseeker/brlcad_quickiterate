@@ -2068,6 +2068,10 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	size_t bot_ell=0;
 	size_t top_ell=1;
 	int reversed=0;
+	int subdivision_count = 0;
+	/* Maximum intermediate ellipses: prevent infinite loop when geometry
+	 * prevents ratio convergence due to floating-point precision issues */
+	const int max_subdivisions = 10000;
 
 	nells = 2;
 
@@ -2106,6 +2110,13 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
 	while (max_ratio > MAX_RATIO) {
 	    fastf_t tri_width;
+
+	    if (++subdivision_count > max_subdivisions) {
+		bu_log("WARNING: rt_tgc_tess: exceeded %d subdivision iterations "
+		       "(max_ratio=%g), tessellation may be suboptimal\n",
+		       max_subdivisions, max_ratio);
+		break;
+	    }
 
 	    len_A = MAGNITUDE(A[bot_ell]);
 	    if (2.0*len_A <= tol->dist)

@@ -1189,6 +1189,14 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	goto failure;
     }
 
+    /* validate that eto_r is positive (NEAR_ZERO above only catches near-zero,
+     * not negative values) */
+    if (tip->eto_r < 0.0) {
+	bu_log("eto_tess: eto_r (%g) must be positive\n", tip->eto_r);
+	fail = (-2);
+	goto failure;
+    }
+
     if (tip->eto_r < b) {
 	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * tip->eto_r);
     } else {
