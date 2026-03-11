@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
     
     // Fill holes
     MeshHoleFilling<double>::Parameters fillParams;
-    fillParams.method = MeshHoleFilling<double>::TriangulationMethod::CDT;
+    fillParams.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;
     fillParams.autoFallback = true;
     fillParams.validateOutput = true;
     fillParams.requireManifold = true;

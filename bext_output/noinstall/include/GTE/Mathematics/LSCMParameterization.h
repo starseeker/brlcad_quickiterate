@@ -11,10 +11,10 @@
 //
 //  1. MapBoundaryToCircle (lightweight, no linear solve)
 //     Maps a closed 3D boundary loop to a 2D polygon inscribed on a unit
-//     circle using arc-length parameterization.  This is used as the
-//     second-to-last fallback in MeshHoleFilling (before 3D ear clipping):
+//     circle using arc-length parameterization.  This is the primary method
+//     in MeshHoleFilling (before the 3D ear-clipping last resort):
 //
-//       EC → CDT → LSCM (arc-length circle) → EarClipping3D
+//       LSCM (arc-length circle) → EarClipping3D
 //
 //     A circle-inscribed polygon is always convex, so EC always succeeds
 //     regardless of how non-planar the original 3D loop is.

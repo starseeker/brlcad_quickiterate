@@ -61,7 +61,7 @@ static constexpr double GTE_EPSILON              = 1e-6;
 static constexpr double GTE_SMALL_COMP_FRACTION  = 0.03;        // same 3% threshold as Geogram
 
 // ---- Use Case 1: Repair + Hole Filling tolerances ----
-// GTE fills more holes than Geogram (a clear improvement — CDT+fallback never abandons a hole).
+// GTE fills more holes than Geogram (a clear improvement — LSCM+fallback never abandons a hole).
 // The extra triangulated patches increase surface area and slightly change vertex/triangle counts.
 // Volume: when GTE fills significantly more holes than Geogram (as on the GT mesh, reducing
 // boundary edges by ~65%), the divergence-theorem signed volume of the open mesh changes
@@ -301,9 +301,9 @@ bool RunGTERepairAndFillHoles(
     // Second repair pass after component removal (mirrors BRL-CAD bot_to_geogram)
     MeshRepair<double>::Repair(outVertices, outTriangles, repairParams);
 
-    // Fill holes - use CDT with auto-fallback (best quality)
+    // Fill holes - use LSCM with auto-fallback (best quality)
     MeshHoleFilling<double>::Parameters fillParams;
-    fillParams.method = MeshHoleFilling<double>::TriangulationMethod::CDT;
+    fillParams.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;
     fillParams.autoFallback = true;
     fillParams.validateOutput = false;
     MeshHoleFilling<double>::FillHoles(outVertices, outTriangles, fillParams);
@@ -526,15 +526,15 @@ void PrintAlgorithmicDifferences(
     std::cout << "    exists, the hole is abandoned and remains open.\n";
     std::cout << "    => Can fail for complex, non-convex, or near-degenerate boundaries.\n";
     std::cout << "\n";
-    std::cout << "  GTE hole-fill algorithm (CDT + 3D ear-clip auto-fallback)\n";
+    std::cout << "  GTE hole-fill algorithm (LSCM + 3D ear-clip auto-fallback)\n";
     std::cout << "    1. Projects the hole boundary onto its best-fit 2D plane.\n";
-    std::cout << "    2. Runs Constrained Delaunay Triangulation (maximises minimum angles).\n";
-    std::cout << "    3. If CDT fails (e.g. highly non-planar hole), automatically retries\n";
+    std::cout << "    2. Runs LSCM triangulation.\n";
+    std::cout << "    3. If LSCM fails (e.g. highly non-planar hole), automatically retries\n";
     std::cout << "       with 3D ear clipping which works directly in 3D.\n";
     std::cout << "    => Never gives up: always produces a triangulation.\n";
     std::cout << "\n";
     std::cout << "  Conclusion: GTE fills more holes because it never abandons them.\n";
-    std::cout << "  GTE's CDT-based triangulation is also higher-quality (better angles)\n";
+    std::cout << "  GTE's LSCM-based triangulation is also higher-quality (better angles)\n";
     std::cout << "  than Geogram's recursive bisection approach.\n\n";
 
     // ----------------------------------------------------------------

@@ -72,12 +72,10 @@ int main(int argc, char* argv[])
     params.requireManifold = true;
     params.requireNoSelfIntersections = false;  // Too expensive for now
     
-    if (methodArg == "ec")
-        params.method = MeshHoleFilling<double>::TriangulationMethod::EarClipping;
-    else if (methodArg == "cdt")
-        params.method = MeshHoleFilling<double>::TriangulationMethod::CDT;
-    else
+    if (methodArg == "ec3d")
         params.method = MeshHoleFilling<double>::TriangulationMethod::EarClipping3D;
+    else
+        params.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;
     
     size_t trianglesBefore = triangles.size();
     
