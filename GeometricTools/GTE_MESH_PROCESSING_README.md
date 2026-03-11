@@ -40,8 +40,8 @@ Repairs mesh topology issues:
 Detects and fills holes in meshes using GTE's robust triangulation:
 - Finds boundary loops
 - Choice of triangulation method:
-  - **Ear Clipping (EC)**: Fast and simple
-  - **Constrained Delaunay (CDT)**: Higher quality triangles
+  - **LSCM**: Default, handles any topology
+  - **Ear Clipping 3D**: Direct 3D computation, no projection
 - Uses exact arithmetic (BSNumber) for robustness
 - Supports area and edge count limits
 
@@ -49,7 +49,7 @@ Detects and fills holes in meshes using GTE's robust triangulation:
 ```cpp
 gte::MeshHoleFilling<double>::Parameters fillParams;
 fillParams.maxArea = 1e30;
-fillParams.method = gte::MeshHoleFilling<double>::TriangulationMethod::CDT;
+fillParams.method = gte::MeshHoleFilling<double>::TriangulationMethod::LSCM;
 gte::MeshHoleFilling<double>::FillHoles(vertices, triangles, fillParams);
 ```
 
@@ -64,11 +64,11 @@ Mesh cleanup operations:
 
 ```bash
 make
-# Test with Ear Clipping
-./test_mesh_repair input.obj output_ec.obj ec
+# Test with LSCM (default)
+./test_mesh_repair input.obj output_lscm.obj lscm
 
-# Test with Constrained Delaunay Triangulation
-./test_mesh_repair input.obj output_cdt.obj cdt
+# Test with Ear Clipping 3D
+./test_mesh_repair input.obj output_ec3d.obj ec3d
 ```
 
 ## Documentation

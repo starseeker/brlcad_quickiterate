@@ -63,7 +63,7 @@ GEO::fill_holes(gm, hole_size);
 
 MeshHoleFilling<double>::Parameters params;
 params.maxHoleArea = hole_size;
-params.method = MeshHoleFilling<double>::TriangulationMethod::CDT;  // Better than geogram!
+params.method = MeshHoleFilling<double>::TriangulationMethod::LSCM;  // LSCM is the default and handles any topology
 MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
 ```
 
@@ -382,7 +382,7 @@ Benefits of migration:
 - ✅ No external dependencies
 - ✅ Better portability (pure C++17)
 - ✅ Smaller code footprint
-- ✅ Superior hole filling (CDT method)
+- ✅ Superior hole filling (LSCM, handles any topology)
 - ✅ Full anisotropic support
 - ✅ Complete manifold extraction
 

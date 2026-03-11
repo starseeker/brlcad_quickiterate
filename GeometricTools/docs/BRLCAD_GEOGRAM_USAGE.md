@@ -189,11 +189,11 @@ GTE equivalent:
 ```cpp
 MeshHoleFilling<double>::Parameters params;
 params.maxHoleArea = hole_size;
-params.method = TriangulationMethod::CDT;  // Better than geogram!
+params.method = TriangulationMethod::LSCM;  // LSCM is the default and handles any topology
 MeshHoleFilling<double>::FillHoles(vertices, triangles, params);
 ```
 
-**Status:** ✅ Superior implementation (CDT provides better quality)
+**Status:** ✅ Superior implementation (LSCM handles any topology)
 
 ### 3. Co3Ne Requirements
 
@@ -251,7 +251,7 @@ MeshPreprocessing<double>::RemoveSmallComponents(vertices, triangles, prepParams
 
 MeshHoleFilling<double>::Parameters fillParams;
 fillParams.maxHoleArea = hole_size;
-fillParams.method = TriangulationMethod::CDT;
+fillParams.method = TriangulationMethod::LSCM;
 MeshHoleFilling<double>::FillHoles(vertices, triangles, fillParams);
 ```
 
@@ -335,7 +335,7 @@ make test_co3ne
 
 **All three BRL-CAD use cases are fully supported:**
 
-1. ✅ **Mesh Repair** - Complete, with enhanced hole filling (CDT)
+1. ✅ **Mesh Repair** - Complete, with enhanced hole filling (LSCM)
 2. ✅ **Anisotropic Remeshing** - Complete, 6D CVT implementation
 3. ✅ **Co3Ne Reconstruction** - Complete, simplified manifold extraction
 
@@ -343,7 +343,7 @@ make test_co3ne
 
 | Aspect | Geogram | GTE | Advantage |
 |--------|---------|-----|-----------|
-| **Mesh Repair** | Good | **Better** | CDT hole filling |
+| **Mesh Repair** | Good | **Better** | LSCM hole filling |
 | **Anisotropic Remeshing** | Excellent | **Excellent** | Full 6D CVT |
 | **Co3Ne** | Excellent | Very Good | 95% coverage |
 | **Code Size** | ~9,321 LOC | ~5,665 LOC | 39% reduction |
@@ -371,7 +371,7 @@ The GTE implementation is **production-ready** for BRL-CAD's needs.
 ### Performance Considerations
 
 - GTE's RVD is ~80% of Geogram's speed (can be improved with more parallelization)
-- GTE's hole filling with CDT may be slightly slower but produces better quality
+- GTE's hole filling with LSCM handles any topology and produces good quality
 - GTE's anisotropic remeshing converges in 3-5 iterations (same as Geogram)
 
 ### Future Enhancements (Optional)
