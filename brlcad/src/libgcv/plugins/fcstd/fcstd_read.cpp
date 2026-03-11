@@ -44,6 +44,7 @@
 
 #include <cstring>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -138,21 +139,20 @@ fcstd_read(gcv_context *context, const gcv_opts *gcv_options,
 	if (!geom)
 	    continue;
 
+	/* Use unique_ptr to manage any temporary brep form so that cleanup
+	 * is automatic on all code paths through this loop iteration. */
+	std::unique_ptr<ON_Brep> temp_brep;
 	const ON_Brep *brep = nullptr;
-	ON_Brep *temp_brep = nullptr;
 
 	if (geom->ObjectType() == ON::brep_object) {
 	    brep = ON_Brep::Cast(geom);
 	} else if (geom->HasBrepForm()) {
-	    temp_brep = geom->BrepForm();
-	    brep = temp_brep;
+	    temp_brep.reset(geom->BrepForm());
+	    brep = temp_brep.get();
 	}
 
-	if (!brep) {
-	    if (temp_brep)
-		delete temp_brep;
+	if (!brep)
 	    continue;
-	}
 
 	/* derive a candidate name from the model attributes */
 	std::string candidate;
@@ -171,15 +171,10 @@ fcstd_read(gcv_context *context, const gcv_opts *gcv_options,
 	if (mk_brep(wdbp, solid_name.c_str(), writable)) {
 	    bu_log("fcstd_read: mk_brep() failed for object '%s'\n",
 		   solid_name.c_str());
-	    if (temp_brep)
-		delete temp_brep;
 	    continue;
 	}
 
 	solid_names.push_back(solid_name);
-
-	if (temp_brep)
-	    delete temp_brep;
     }
 
     if (solid_names.empty()) {
