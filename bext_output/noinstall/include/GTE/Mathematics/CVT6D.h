@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector.h>
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/MeshAnisotropy.h>
+#include <Mathematics/Vector.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/MeshAnisotropy.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

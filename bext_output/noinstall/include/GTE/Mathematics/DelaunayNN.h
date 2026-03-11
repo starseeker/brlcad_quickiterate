@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include <GTE/Mathematics/DelaunayN.h>
-#include <GTE/Mathematics/NearestNeighborSearchN.h>
-#include <GTE/Mathematics/Logger.h>
+#include <Mathematics/DelaunayN.h>
+#include <Mathematics/NearestNeighborSearchN.h>
+#include <Mathematics/Logger.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

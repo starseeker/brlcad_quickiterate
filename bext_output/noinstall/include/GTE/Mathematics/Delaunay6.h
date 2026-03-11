@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector.h>
-#include <GTE/Mathematics/ArbitraryPrecision.h>
-#include <GTE/Mathematics/Logger.h>
+#include <Mathematics/Vector.h>
+#include <Mathematics/ArbitraryPrecision.h>
+#include <Mathematics/Logger.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>

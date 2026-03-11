@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/Hyperplane.h>
-#include <GTE/Mathematics/Delaunay3.h>
-#include <GTE/Mathematics/IntrConvexPolygonHyperplane.h>
-#include <GTE/Mathematics/AlignedBox.h>
-#include <GTE/Mathematics/ThreadPool.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/Hyperplane.h>
+#include <Mathematics/Delaunay3.h>
+#include <Mathematics/IntrConvexPolygonHyperplane.h>
+#include <Mathematics/AlignedBox.h>
+#include <Mathematics/ThreadPool.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

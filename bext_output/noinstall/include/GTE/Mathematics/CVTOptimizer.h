@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/RestrictedVoronoiDiagram.h>
-#include <GTE/Mathematics/IntegrationSimplex.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/RestrictedVoronoiDiagram.h>
+#include <Mathematics/IntegrationSimplex.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

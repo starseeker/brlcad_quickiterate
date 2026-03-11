@@ -42,15 +42,10 @@
 
 #include "manifold/manifold.h"
 
-#include "geogram/basic/process.h"
-#include <geogram/basic/command_line.h>
-#include <geogram/basic/command_line_args.h>
-#include "geogram/mesh/mesh.h"
-#include "geogram/mesh/mesh_geometry.h"
-#include "geogram/mesh/mesh_preprocessing.h"
-#include "geogram/mesh/mesh_repair.h"
-#include "geogram/mesh/mesh_fill_holes.h"
-#include "geogram/mesh/mesh_remesh.h"
+#include <Mathematics/Vector3.h>
+#include <Mathematics/MeshRepair.h>
+#include <Mathematics/MeshHoleFilling.h>
+#include <Mathematics/MeshPreprocessing.h>
 
 #include "bu/parallel.h"
 #include "bg/trimesh.h"
@@ -450,52 +445,98 @@ bot_lint_cleanup:
     return ret;
 }
 
-static void
-bot_to_geogram(GEO::Mesh *gm, struct rt_bot_internal *bot)
+// Helper: compute bounding box diagonal of a GTE vertex set
+static double
+gte_bbox_diagonal(std::vector<gte::Vector3<double>> const& vertices)
 {
-    gm->vertices.assign_points((double *)bot->vertices, 3, bot->num_vertices);
+    if (vertices.empty())
+	return 0.0;
+    double minx = vertices[0][0], maxx = vertices[0][0];
+    double miny = vertices[0][1], maxy = vertices[0][1];
+    double minz = vertices[0][2], maxz = vertices[0][2];
+    for (auto const& v : vertices) {
+	if (v[0] < minx) minx = v[0];
+	if (v[0] > maxx) maxx = v[0];
+	if (v[1] < miny) miny = v[1];
+	if (v[1] > maxy) maxy = v[1];
+	if (v[2] < minz) minz = v[2];
+	if (v[2] > maxz) maxz = v[2];
+    }
+    double dx = maxx - minx, dy = maxy - miny, dz = maxz - minz;
+    return std::sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+// Helper: compute total mesh area from GTE vertex/triangle arrays
+static double
+gte_mesh_area(std::vector<gte::Vector3<double>> const& vertices,
+	      std::vector<std::array<int32_t, 3>> const& triangles)
+{
+    double area = 0.0;
+    for (auto const& tri : triangles) {
+	gte::Vector3<double> const& p0 = vertices[tri[0]];
+	gte::Vector3<double> const& p1 = vertices[tri[1]];
+	gte::Vector3<double> const& p2 = vertices[tri[2]];
+	gte::Vector3<double> e1 = p1 - p0;
+	gte::Vector3<double> e2 = p2 - p0;
+	gte::Vector3<double> cross = gte::Cross(e1, e2);
+	area += gte::Length(cross) * 0.5;
+    }
+    return area;
+}
+
+static void
+bot_to_gte(std::vector<gte::Vector3<double>>& vertices,
+	   std::vector<std::array<int32_t, 3>>& triangles,
+	   struct rt_bot_internal *bot)
+{
+    vertices.resize(bot->num_vertices);
+    for (size_t i = 0; i < bot->num_vertices; i++) {
+	vertices[i][0] = bot->vertices[3*i+0];
+	vertices[i][1] = bot->vertices[3*i+1];
+	vertices[i][2] = bot->vertices[3*i+2];
+    }
+    triangles.resize(bot->num_faces);
     for (size_t i = 0; i < bot->num_faces; i++) {
-	GEO::index_t f = gm->facets.create_polygon(3);
-	gm->facets.set_vertex(f, 0, bot->faces[3*i+0]);
-	gm->facets.set_vertex(f, 1, bot->faces[3*i+1]);
-	gm->facets.set_vertex(f, 2, bot->faces[3*i+2]);
+	triangles[i][0] = bot->faces[3*i+0];
+	triangles[i][1] = bot->faces[3*i+1];
+	triangles[i][2] = bot->faces[3*i+2];
     }
 
-    // After the initial raw load, do a repair pass to set up
-    // Geogram's internal mesh data
-    double epsilon = 1e-6 * (0.01 * GEO::bbox_diagonal(*gm));
-    GEO::mesh_repair(*gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon);
+    // After the initial raw load, do a repair pass to remove degenerate
+    // triangles, colocated vertices, and small connected components - matching
+    // the pre-processing that the previous Geogram-based path performed.
+    double bbox_diag = gte_bbox_diagonal(vertices);
+    double epsilon = 1e-6 * (0.01 * bbox_diag);
+    gte::MeshRepair<double>::Parameters repairParams;
+    repairParams.epsilon = epsilon;
+    gte::MeshRepair<double>::Repair(vertices, triangles, repairParams);
 
-    // Per the geobox "mesh repair" function, we need to do some
-    // small connected component removal ahead of the fill_holes
-    // call  - that was the behavior difference observed between
-    // the raw bot manifold run and exporting the mesh into geobox
-    // for processing
-    double area = GEO::Geom::mesh_area(*gm,3);
+    double area = gte_mesh_area(vertices, triangles);
     double min_comp_area = 0.03 * area;
     if (min_comp_area > 0.0) {
-	double nb_f_removed = gm->facets.nb();
-	GEO::remove_small_connected_components(*gm, min_comp_area);
-	nb_f_removed -= gm->facets.nb();
-	if(nb_f_removed > 0 || nb_f_removed < 0) {
-	    GEO::mesh_repair(*gm, GEO::MESH_REPAIR_DEFAULT, epsilon);
+	size_t nf_before = triangles.size();
+	gte::MeshPreprocessing<double>::RemoveSmallComponents(vertices, triangles, min_comp_area);
+	if (triangles.size() != nf_before) {
+	    gte::MeshRepair<double>::Repair(vertices, triangles, repairParams);
 	}
     }
 }
 
 static void
-geogram_to_manifold(manifold::MeshGL *gmm, GEO::Mesh &gm)
+gte_to_manifold(manifold::MeshGL *gmm,
+		std::vector<gte::Vector3<double>> const& vertices,
+		std::vector<std::array<int32_t, 3>> const& triangles)
 {
-    for (GEO::index_t v = 0; v < gm.vertices.nb(); v++) {
-	const double *p = gm.vertices.point_ptr(v);
-	for (int i = 0; i < 3; i++)
-	    gmm->vertProperties.insert(gmm->vertProperties.end(), p[i]);
+    for (auto const& v : vertices) {
+	gmm->vertProperties.push_back(v[0]);
+	gmm->vertProperties.push_back(v[1]);
+	gmm->vertProperties.push_back(v[2]);
     }
-    for (GEO::index_t f = 0; f < gm.facets.nb(); f++) {
-	for (int i = 0; i < 3; i++) {
-	    // TODO - CW vs CCW orientation handling?
-	    gmm->triVerts.insert(gmm->triVerts.end(), gm.facets.vertex(f, i));
-	}
+    for (auto const& tri : triangles) {
+	// TODO - CW vs CCW orientation handling?
+	gmm->triVerts.push_back(tri[0]);
+	gmm->triVerts.push_back(tri[1]);
+	gmm->triVerts.push_back(tri[2]);
     }
 }
 
@@ -523,7 +564,8 @@ manifold_to_bot(manifold::MeshGL *omesh)
 }
 
 struct rt_bot_internal *
-geogram_to_bot(GEO::Mesh *gm)
+gte_to_bot(std::vector<gte::Vector3<double>> const& vertices,
+	   std::vector<std::array<int32_t, 3>> const& triangles)
 {
     struct rt_bot_internal *nbot;
     BU_GET(nbot, struct rt_bot_internal);
@@ -533,33 +575,22 @@ geogram_to_bot(GEO::Mesh *gm)
     nbot->thickness = NULL;
     nbot->face_mode = (struct bu_bitv *)NULL;
     nbot->bot_flags = 0;
-    nbot->num_vertices = (int)gm->vertices.nb();
-    nbot->num_faces = (int)gm->facets.nb();
+    nbot->num_vertices = (int)vertices.size();
+    nbot->num_faces = (int)triangles.size();
     nbot->vertices = (double *)calloc(nbot->num_vertices*3, sizeof(double));
     nbot->faces = (int *)calloc(nbot->num_faces*3, sizeof(int));
 
-    int j = 0;
-    for(GEO::index_t v = 0; v < gm->vertices.nb(); v++) {
-	double gm_v[3];
-	const double *p = gm->vertices.point_ptr(v);
-	for (int i = 0; i < 3; i++)
-	    gm_v[i] = p[i];
-	nbot->vertices[3*j] = gm_v[0];
-	nbot->vertices[3*j+1] = gm_v[1];
-	nbot->vertices[3*j+2] = gm_v[2];
-	j++;
+    for (size_t j = 0; j < vertices.size(); j++) {
+	nbot->vertices[3*j+0] = vertices[j][0];
+	nbot->vertices[3*j+1] = vertices[j][1];
+	nbot->vertices[3*j+2] = vertices[j][2];
     }
 
-    j = 0;
-    for (GEO::index_t f = 0; f < gm->facets.nb(); f++) {
-	double tri_verts[3];
-	for (int i = 0; i < 3; i++)
-	    tri_verts[i] = gm->facets.vertex(f, i);
+    for (size_t j = 0; j < triangles.size(); j++) {
 	// TODO - CW vs CCW orientation handling?
-	nbot->faces[3*j] = tri_verts[0];
-	nbot->faces[3*j+1] = tri_verts[1];
-	nbot->faces[3*j+2] = tri_verts[2];
-	j++;
+	nbot->faces[3*j+0] = triangles[j][0];
+	nbot->faces[3*j+1] = triangles[j][1];
+	nbot->faces[3*j+2] = triangles[j][2];
     }
 
     return nbot;
@@ -614,81 +645,45 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	return 0;
     }
 
-    // Geogram libraries like to print a lot - shut down
-    // the I/O channels until we can clear the logger
-    int serr = -1;
-    int sout = -1;
-    int stderr_stashed = -1;
-    int stdout_stashed = -1;
-    int fnull = open("/dev/null", O_WRONLY);
-    if (fnull == -1) {
-	/* https://gcc.gnu.org/ml/gcc-patches/2005-05/msg01793.html */
-	fnull = open("nul", O_WRONLY);
-    }
-    if (fnull != -1) {
-	serr = fileno(stderr);
-	sout = fileno(stdout);
-	stderr_stashed = dup(serr);
-	stdout_stashed = dup(sout);
-	dup2(fnull, serr);
-	dup2(fnull, sout);
-	close(fnull);
-    }
+    // Set up GTE mesh from the BoT data, including initial repair and
+    // small connected component removal.
+    std::vector<gte::Vector3<double>> vertices;
+    std::vector<std::array<int32_t, 3>> triangles;
+    bot_to_gte(vertices, triangles, bot);
 
-    // Make sure geogram is initialized
-    GEO::initialize();
-
-     // Quell logging messages
-    GEO::Logger::instance()->unregister_all_clients();
-
-    // Put I/O channels back where they belong
-    if (fnull != -1) {
-	fflush(stderr);
-	dup2(stderr_stashed, serr);
-	close(stderr_stashed);
-	fflush(stdout);
-	dup2(stdout_stashed, sout);
-	close(stdout_stashed);
-    }
-
-    // Use the default hole filling algorithm
-    GEO::CmdLine::set_arg("algo:hole_filling", "loop_split");
-    GEO::CmdLine::set_arg("algo:nn_search", "BNN");
-
-    // Set up a Geogram mesh using the BoT data
-    GEO::Mesh gm;
-    bot_to_geogram(&gm, bot);
-
-    // To try to to fill in ALL holes we default to 1e30, which is a
+    // To try to fill in ALL holes we default to 1e30, which is a
     // value used in the Geogram code for a large hole size.
     double hole_size = 1e30;
 
     // Stash the bounding box diagonal
-    double bbox_diag = GEO::bbox_diagonal(gm);
+    double bbox_diag = gte_bbox_diagonal(vertices);
 
     // See if the settings override the default
-    double area = GEO::Geom::mesh_area(gm,3);
+    double area = gte_mesh_area(vertices, triangles);
     if (!NEAR_ZERO(settings->max_hole_area, SMALL_FASTF)) {
 	hole_size = settings->max_hole_area;
     } else if (!NEAR_ZERO(settings->max_hole_area_percent, SMALL_FASTF)) {
 	hole_size = area * (settings->max_hole_area_percent/100.0);
     }
 
-    // Do the hole filling.
-    GEO::fill_holes(gm, hole_size);
+    // Do the hole filling using GTE MeshHoleFilling.
+    gte::MeshHoleFilling<double>::Parameters fillParams;
+    fillParams.maxArea = hole_size;
+    fillParams.method = gte::MeshHoleFilling<double>::TriangulationMethod::CDT;
+    fillParams.autoFallback = true;
+    gte::MeshHoleFilling<double>::FillHoles(vertices, triangles, fillParams);
 
     // Make sure we're still repaired post filling
-    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT));
-
-    // Post repair, make sure mesh is still a triangle mesh
-    gm.facets.triangulate();
+    gte::MeshRepair<double>::Parameters repairParams;
+    repairParams.epsilon = 1e-6 * (0.01 * bbox_diag);
+    gte::MeshRepair<double>::Repair(vertices, triangles, repairParams);
 
     // Sanity check the area - shouldn't go down, and if it went up by more
     // than 3x it's concerning - that's a lot of new area even for a swiss
     // cheese mesh.  Can revisit reporting failure if we hit a legit case
     // like that, but we also want to know if something went badly wrong with
     // the hole filling itself and crazy new geometry was added...
-    double new_area = GEO::Geom::mesh_area(gm,3);
+    double new_area = gte_mesh_area(vertices, triangles);
     if (new_area < area) {
 	bu_log("Mesh area decreased after hole filling - error\n");
 	return -1;
@@ -700,18 +695,18 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 
     // Sanity check the bounding box diagonal - should be very close to the
     // original value
-    double new_bbox_diag = GEO::bbox_diagonal(gm);
+    double new_bbox_diag = gte_bbox_diagonal(vertices);
     if (!NEAR_EQUAL(bbox_diag, new_bbox_diag, BN_TOL_DIST)) {
 	bu_log("Mesh bounding box is different after hole filling - error\n");
 	return -1;
     }
 
-    // Once Geogram is done with it, ask Manifold what it thinks
+    // Once GTE is done with it, ask Manifold what it thinks
     // of the result - if Manifold doesn't think we're there, then
     // the results won't fly for boolean evaluation and we go ahead
     // and reject.
     manifold::MeshGL gmm;
-    geogram_to_manifold(&gmm, gm);
+    gte_to_manifold(&gmm, vertices, triangles);
     manifold::Manifold gmanifold(gmm);
     if (gmanifold.Status() != manifold::Manifold::Error::NoError) {
 	// Repair failed
@@ -746,44 +741,36 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 
 	    // Target 10 times the vertices of the original mesh to allow for
 	    // flexibility introducing new triangles
-	    fastf_t nb_pts = nbot->num_vertices * 10;
+	    size_t nb_pts = nbot->num_vertices * 10;
 
-	    // Original nbot is the data for new Geogram input
-	    GEO::Mesh remesh_src;
-	    bot_to_geogram(&remesh_src, nbot);
+	    // Original nbot is the data for new GTE input
+	    std::vector<gte::Vector3<double>> rs_verts;
+	    std::vector<std::array<int32_t, 3>> rs_tris;
+	    bot_to_gte(rs_verts, rs_tris, nbot);
 
 	    // Done with original nbot
 	    rt_bot_internal_free(nbot);
 	    BU_PUT(nbot, struct rt_bot_internal);
 
-	    // Set up for remeshing
-	    GEO::CmdLine::import_arg_group("standard");
-	    GEO::CmdLine::import_arg_group("algo");
-	    GEO::CmdLine::import_arg_group("remesh");
-	    std::string nbpts = std::to_string(nb_pts);
-	    GEO::CmdLine::set_arg("remesh:nb_pts", nbpts.c_str());
-
-	    // Execute remesh
-	    // https://github.com/BrunoLevy/geogram/wiki/Remeshing
-	    GEO::compute_normals(remesh_src);
-	    set_anisotropy(remesh_src, 2*0.02);
-	    GEO::Mesh remesh;
-	    GEO::remesh_smooth(remesh_src, remesh, nb_pts);
+	    // Set up for remeshing using GTE MeshRemesh
+	    gte::MeshRemesh<double>::Parameters remeshParams;
+	    remeshParams.targetVertexCount = nb_pts;
+	    remeshParams.useAnisotropic = true;
+	    remeshParams.anisotropyScale = 2*0.02;
+	    gte::MeshRemesh<double>::Remesh(rs_verts, rs_tris, remeshParams);
 
 	    // Make sure Manifold likes the remeshed result
-	    manifold::Mesh grmm;
-	    geogram_to_manifold(&grmm, remesh);
+	    manifold::MeshGL grmm;
+	    gte_to_manifold(&grmm, rs_verts, rs_tris);
 	    manifold::Manifold grmanifold(grmm);
 	    if (grmanifold.Status() != manifold::Manifold::Error::NoError) {
 		// Repair failed
 		bu_log("Error - remeshed repair output is not Manifold!\n");
-		rt_bot_internal_free(nbot);
-		BU_PUT(nbot, struct rt_bot_internal);
 		return -1;
 	    }
 
 	    // Output is manifold, make a new bot
-	    nbot = geogram_to_bot(&remesh);
+	    nbot = gte_to_bot(rs_verts, rs_tris);
 
 	    // Remeshing is probably denser than we want, do a decimation
 	    rt_bot_decimate_gct(nbot, 0.01*bbox_diag);

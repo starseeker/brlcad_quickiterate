@@ -43,10 +43,10 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/ETManifoldMesh.h>
-#include <GTE/Mathematics/MeshHoleFilling.h>
-#include <GTE/Mathematics/MeshPreprocessing.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/ETManifoldMesh.h>
+#include <Mathematics/MeshHoleFilling.h>
+#include <Mathematics/MeshPreprocessing.h>
 #include <algorithm>
 #include <array>
 #include <cstdint>

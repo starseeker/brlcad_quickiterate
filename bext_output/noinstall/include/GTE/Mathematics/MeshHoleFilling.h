@@ -22,16 +22,16 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/Vector2.h>
-#include <GTE/Mathematics/ETManifoldMesh.h>
-#include <GTE/Mathematics/MeshValidation.h>
-#include <GTE/Mathematics/Polygon2Validation.h>
-#include <GTE/Mathematics/TriangulateEC.h>
-#include <GTE/Mathematics/TriangulateCDT.h>
-#include <GTE/Mathematics/PolygonTree.h>
-#include <GTE/Mathematics/ArbitraryPrecision.h>
-#include <GTE/Mathematics/LSCMParameterization.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/Vector2.h>
+#include <Mathematics/ETManifoldMesh.h>
+#include <Mathematics/MeshValidation.h>
+#include <Mathematics/Polygon2Validation.h>
+#include <Mathematics/TriangulateEC.h>
+#include <Mathematics/TriangulateCDT.h>
+#include <Mathematics/PolygonTree.h>
+#include <Mathematics/ArbitraryPrecision.h>
+#include <Mathematics/LSCMParameterization.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

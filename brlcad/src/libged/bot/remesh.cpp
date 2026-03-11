@@ -25,6 +25,10 @@
 
 #include "common.h"
 
+#include <array>
+#include <cmath>
+#include <vector>
+
 #ifdef OPENVDB_ABI_VERSION_NUMBER
 #  include <openvdb/openvdb.h>
 #  include <openvdb/tools/VolumeToMesh.h>
@@ -33,13 +37,9 @@
 
 #include "manifold/manifold.h"
 
-#include "geogram/basic/process.h"
-#include <geogram/basic/command_line.h>
-#include <geogram/basic/command_line_args.h>
-#include "geogram/mesh/mesh.h"
-#include "geogram/mesh/mesh_geometry.h"
-#include "geogram/mesh/mesh_preprocessing.h"
-#include "geogram/mesh/mesh_remesh.h"
+#include <Mathematics/Vector3.h>
+#include <Mathematics/MeshRepair.h>
+#include <Mathematics/MeshRemesh.h>
 
 #include "vmath.h"
 #include "bu/str.h"
@@ -175,95 +175,78 @@ bot_remesh_vdb(struct ged *gedp, struct rt_bot_internal *UNUSED(bot), double UNU
 #endif /* OPENVDB_ABI_VERSION_NUMBER */
 
 static void
-geogram_to_manifold(manifold::MeshGL *gmm, GEO::Mesh &gm)
+gte_to_manifold(manifold::MeshGL *gmm,
+		std::vector<gte::Vector3<double>> const& vertices,
+		std::vector<std::array<int32_t, 3>> const& triangles)
 {
-    for (GEO::index_t v = 0; v < gm.vertices.nb(); v++) {
-	const double *p = gm.vertices.point_ptr(v);
-	for (int i = 0; i < 3; i++)
-	    gmm->vertProperties.insert(gmm->vertProperties.end(), p[i]);
+    for (auto const& v : vertices) {
+	gmm->vertProperties.push_back(v[0]);
+	gmm->vertProperties.push_back(v[1]);
+	gmm->vertProperties.push_back(v[2]);
     }
-    for (GEO::index_t f = 0; f < gm.facets.nb(); f++) {
-	for (int i = 0; i < 3; i++) {
-	    // TODO - CW vs CCW orientation handling?
-	    gmm->triVerts.insert(gmm->triVerts.end(), gm.facets.vertex(f, i));
-	}
+    for (auto const& tri : triangles) {
+	// TODO - CW vs CCW orientation handling?
+	gmm->triVerts.push_back(tri[0]);
+	gmm->triVerts.push_back(tri[1]);
+	gmm->triVerts.push_back(tri[2]);
     }
 }
 
 static int
-bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_internal *bot)
+bot_remesh_gte(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bot_internal *bot)
 {
-    // Geogram libraries like to print a lot - shut down
-    // the I/O channels until we can clear the logger
-    int serr = -1;
-    int sout = -1;
-    int stderr_stashed = -1;
-    int stdout_stashed = -1;
-    int fnull = open("/dev/null", O_WRONLY);
-    if (fnull == -1) {
-	/* https://gcc.gnu.org/ml/gcc-patches/2005-05/msg01793.html */
-	fnull = open("nul", O_WRONLY);
+    // Load the BoT vertices and faces into GTE data structures
+    std::vector<gte::Vector3<double>> vertices(bot->num_vertices);
+    for (size_t i = 0; i < bot->num_vertices; i++) {
+	vertices[i][0] = bot->vertices[3*i+0];
+	vertices[i][1] = bot->vertices[3*i+1];
+	vertices[i][2] = bot->vertices[3*i+2];
     }
-    if (fnull != -1) {
-	serr = fileno(stderr);
-	sout = fileno(stdout);
-	stderr_stashed = dup(serr);
-	stdout_stashed = dup(sout);
-	dup2(fnull, serr);
-	dup2(fnull, sout);
-	close(fnull);
+    std::vector<std::array<int32_t, 3>> triangles(bot->num_faces);
+    for (size_t i = 0; i < bot->num_faces; i++) {
+	triangles[i][0] = bot->faces[3*i+0];
+	triangles[i][1] = bot->faces[3*i+1];
+	triangles[i][2] = bot->faces[3*i+2];
     }
 
-    // Make sure geogram is initialized
-    GEO::initialize();
+    // Initial mesh repair using GTE
+    {
+	// Compute bbox diagonal for epsilon
+	double minx = vertices[0][0], maxx = vertices[0][0];
+	double miny = vertices[0][1], maxy = vertices[0][1];
+	double minz = vertices[0][2], maxz = vertices[0][2];
+	for (auto const& v : vertices) {
+	    if (v[0] < minx) minx = v[0];
+	    if (v[0] > maxx) maxx = v[0];
+	    if (v[1] < miny) miny = v[1];
+	    if (v[1] > maxy) maxy = v[1];
+	    if (v[2] < minz) minz = v[2];
+	    if (v[2] > maxz) maxz = v[2];
+	}
+	double dx = maxx - minx, dy = maxy - miny, dz = maxz - minz;
+	double bbox_diag = std::sqrt(dx*dx + dy*dy + dz*dz);
 
-    // Quell logging messages
-    GEO::Logger::instance()->unregister_all_clients();
-
-    // Put I/O channels back where they belong
-    if (fnull != -1) {
-	fflush(stderr);
-	dup2(stderr_stashed, serr);
-	close(stderr_stashed);
-	fflush(stdout);
-	dup2(stdout_stashed, sout);
-	close(stdout_stashed);
+	gte::MeshRepair<double>::Parameters repairParams;
+	repairParams.epsilon = 1e-6 * (0.01 * bbox_diag);
+	gte::MeshRepair<double>::Repair(vertices, triangles, repairParams);
     }
-
-    GEO::CmdLine::import_arg_group("standard");
-    GEO::CmdLine::import_arg_group("algo");
-    GEO::CmdLine::import_arg_group("remesh");
 
     // Target ten times the original vert count
-    fastf_t nb_pts = bot->num_vertices * 10;
-    std::string nbpts = std::to_string(nb_pts);
-    GEO::CmdLine::set_arg("remesh:nb_pts", nbpts.c_str());
+    size_t nb_pts = bot->num_vertices * 10;
 
-    // Initialize the Geogram mesh
-    GEO::Mesh gm;
-    gm.vertices.assign_points((double *)bot->vertices, 3, bot->num_vertices);
-    for (size_t i = 0; i < bot->num_faces; i++) {
-	GEO::index_t f = gm.facets.create_polygon(3);
-	gm.facets.set_vertex(f, 0, bot->faces[3*i+0]);
-	gm.facets.set_vertex(f, 1, bot->faces[3*i+1]);
-	gm.facets.set_vertex(f, 2, bot->faces[3*i+2]);
+    // Remesh using GTE MeshRemesh (CVT-based remeshing)
+    gte::MeshRemesh<double>::Parameters remeshParams;
+    remeshParams.targetVertexCount = nb_pts;
+    remeshParams.useAnisotropic = true;
+    remeshParams.anisotropyScale = 2*0.02;
+    if (!gte::MeshRemesh<double>::Remesh(vertices, triangles, remeshParams)) {
+	bu_vls_printf(gedp->ged_result_str, "GTE remeshing failed\n");
+	return BRLCAD_ERROR;
     }
-
-    // After the initial raw load, do a repair pass to set up
-    // Geogram's internal mesh data
-    double bbox_diag = GEO::bbox_diagonal(gm);
-    double epsilon = 1e-6 * (0.01 * bbox_diag);
-    GEO::mesh_repair(gm, GEO::MeshRepairMode(GEO::MESH_REPAIR_DEFAULT), epsilon);
-
-    // https://github.com/BrunoLevy/geogram/wiki/Remeshing
-    GEO::compute_normals(gm);
-    set_anisotropy(gm, 2*0.02);
-    GEO::Mesh remesh;
-    GEO::remesh_smooth(gm, remesh, nb_pts);
 
     // See if we have a solid
     manifold::MeshGL gmm;
-    geogram_to_manifold(&gmm, gm);
+    gte_to_manifold(&gmm, vertices, triangles);
     manifold::Manifold gmanifold(gmm);
     int bmode = RT_BOT_SURFACE;
     if (gmanifold.Status() == manifold::Manifold::Error::NoError)
@@ -277,33 +260,21 @@ bot_remesh_geogram(struct rt_bot_internal **obot, struct ged *gedp, struct rt_bo
     nbot->thickness = NULL;
     nbot->face_mode = (struct bu_bitv *)NULL;
     nbot->bot_flags = 0;
-    nbot->num_vertices = (int)remesh.vertices.nb();
-    nbot->num_faces = (int)remesh.facets.nb();
+    nbot->num_vertices = (int)vertices.size();
+    nbot->num_faces = (int)triangles.size();
     nbot->vertices = (double *)calloc(nbot->num_vertices*3, sizeof(double));
     nbot->faces = (int *)calloc(nbot->num_faces*3, sizeof(int));
 
-    int j = 0;
-    for(GEO::index_t v = 0; v < remesh.vertices.nb(); v++) {
-	double gm_v[3];
-	const double *p = remesh.vertices.point_ptr(v);
-	for (int i = 0; i < 3; i++)
-	    gm_v[i] = p[i];
-	nbot->vertices[3*j] = gm_v[0];
-	nbot->vertices[3*j+1] = gm_v[1];
-	nbot->vertices[3*j+2] = gm_v[2];
-	j++;
+    for (size_t j = 0; j < vertices.size(); j++) {
+	nbot->vertices[3*j+0] = vertices[j][0];
+	nbot->vertices[3*j+1] = vertices[j][1];
+	nbot->vertices[3*j+2] = vertices[j][2];
     }
-
-    j = 0;
-    for (GEO::index_t f = 0; f < remesh.facets.nb(); f++) {
-	double tri_verts[3];
-	for (int i = 0; i < 3; i++)
-	    tri_verts[i] = remesh.facets.vertex(f, i);
+    for (size_t j = 0; j < triangles.size(); j++) {
 	// TODO - CW vs CCW orientation handling?
-	nbot->faces[3*j] = tri_verts[0];
-	nbot->faces[3*j+1] = tri_verts[1];
-	nbot->faces[3*j+2] = tri_verts[2];
-	j++;
+	nbot->faces[3*j+0] = triangles[j][0];
+	nbot->faces[3*j+1] = triangles[j][1];
+	nbot->faces[3*j+2] = triangles[j][2];
     }
 
     *obot = nbot;
@@ -408,7 +379,7 @@ _bot_cmd_remesh(void *bs, int argc, const char **argv)
 	}
     } else {
 	struct rt_bot_internal *obot = NULL;
-	if (bot_remesh_geogram(&obot, gedp, input_bot) != BRLCAD_OK || !obot) {
+	if (bot_remesh_gte(&obot, gedp, input_bot) != BRLCAD_OK || !obot) {
 	    bu_vls_free(&output_bot_name);
 	    return BRLCAD_ERROR;
 	}

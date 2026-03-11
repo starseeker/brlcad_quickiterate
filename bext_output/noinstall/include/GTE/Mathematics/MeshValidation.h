@@ -9,10 +9,10 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/ETManifoldMesh.h>
-#include <GTE/Mathematics/ETNonmanifoldMesh.h>
-#include <GTE/Mathematics/IntrTriangle3Triangle3.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/ETManifoldMesh.h>
+#include <Mathematics/ETNonmanifoldMesh.h>
+#include <Mathematics/IntrTriangle3Triangle3.h>
 #include <algorithm>
 #include <array>
 #include <cstdint>

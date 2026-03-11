@@ -67,8 +67,8 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/MeshCurvature.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/MeshCurvature.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

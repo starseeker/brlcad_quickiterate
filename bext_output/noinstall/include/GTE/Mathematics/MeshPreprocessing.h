@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/ETManifoldMesh.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/ETManifoldMesh.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

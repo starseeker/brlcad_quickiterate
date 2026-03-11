@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector2.h>
+#include <Mathematics/Vector2.h>
 #include <algorithm>
 #include <cmath>
 #include <vector>

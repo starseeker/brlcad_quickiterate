@@ -41,10 +41,10 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector2.h>
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/LinearSystem.h>
-#include <GTE/Mathematics/Constants.h>
+#include <Mathematics/Vector2.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/LinearSystem.h>
+#include <Mathematics/Constants.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

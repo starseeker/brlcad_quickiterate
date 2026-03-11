@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/DelaunayNN.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/DelaunayNN.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

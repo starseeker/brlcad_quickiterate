@@ -42,17 +42,17 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/Delaunay3.h>
-#include <GTE/Mathematics/ETManifoldMesh.h>
-#include <GTE/Mathematics/NearestNeighborQuery.h>
-#include <GTE/Mathematics/RestrictedVoronoiDiagram.h>
-#include <GTE/Mathematics/CVTOptimizer.h>
-#include <GTE/Mathematics/MeshAnisotropy.h>
-#include <GTE/Mathematics/CVT6D.h>
-#include <GTE/Mathematics/CVTN.h>
-#include <GTE/Mathematics/DelaunayNN.h>
-#include <GTE/Mathematics/RestrictedVoronoiDiagramN.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/Delaunay3.h>
+#include <Mathematics/ETManifoldMesh.h>
+#include <Mathematics/NearestNeighborQuery.h>
+#include <Mathematics/RestrictedVoronoiDiagram.h>
+#include <Mathematics/CVTOptimizer.h>
+#include <Mathematics/MeshAnisotropy.h>
+#include <Mathematics/CVT6D.h>
+#include <Mathematics/CVTN.h>
+#include <Mathematics/DelaunayNN.h>
+#include <Mathematics/RestrictedVoronoiDiagramN.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

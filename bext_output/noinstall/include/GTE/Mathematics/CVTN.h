@@ -20,12 +20,12 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector.h>
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/DelaunayNN.h>
-#include <GTE/Mathematics/RestrictedVoronoiDiagramN.h>
-#include <GTE/Mathematics/SurfaceRVDN.h>
-#include <GTE/Mathematics/Logger.h>
+#include <Mathematics/Vector.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/DelaunayNN.h>
+#include <Mathematics/RestrictedVoronoiDiagramN.h>
+#include <Mathematics/SurfaceRVDN.h>
+#include <Mathematics/Logger.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
