@@ -12,6 +12,10 @@ for high-quality STEP AP203 export.
 
 Reference documentation: `brlcad/doc/docbook/devguides/bool_eval_development.xml`
 
+Experience with prior work indicates it is common to get into a situation where
+fixing one case breaks another - be sure to retain awareness of overall success
+rate as you make changes.
+
 ---
 
 ## 1. Current State Assessment
@@ -149,7 +153,7 @@ solid into an `ON_Brep`:
 ### Phase 0: Build Infrastructure & Baseline (1–2 days)
 
 - [ ] Build BRL-CAD with current code (cmake flags per instructions).
-- [ ] Identify which `share/db/*.g` models can currently be converted end-to-end
+- [ ] Identify which src/librt/tests/brep_boolean_tests.g tests and `share/db/*.g` models can currently be converted end-to-end
       using the `brep` command (manual or scripted test).
 - [ ] Document the pass/fail matrix (model × conversion step) in a file
       `brep_baseline.txt`.
@@ -224,7 +228,10 @@ Priority: work through primitives actually appearing in `share/db/*.g`.
 For each converted model from Phase 0:
 
 - [ ] Run `brep <combination>` and check for success.
-- [ ] Check `IsValid()` output; failures indicate topology errors.
+- [ ] Check `IsValid()` output; failures indicate topology errors.  Validate
+      the volume of the output brep against the CSG original via raytracing
+      to guard against topologically valid but incorrect conversions producing
+      false success results.
 - [ ] For complex failures, enable `DEBUG_BREP_BOOLEAN` and `dplot`
       visualization (DebugPlot) to identify the problematic face pair.
 - [ ] Fix any primitive-specific conversion issues found, then re-run.
