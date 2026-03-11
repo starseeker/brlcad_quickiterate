@@ -4116,6 +4116,33 @@ get_face_intersection_curves(
 		    continue;
 		}
 
+		/* Skip face pairs where both surfaces are planar with nearly-
+		 * parallel normals.  For co-axial TGC booleans the coplanar
+		 * cap-cap pair would otherwise generate a duplicate inner-circle
+		 * curve that is already provided by the cap-cylinder pair,
+		 * producing a spurious third loop on the annular end-cap face.
+		 * For nearly-identical nested ARB8 primitives the nearly-
+		 * coplanar pair triggers the overlap-boundary finder which
+		 * generates thousands of degenerate segments and crashes.  In
+		 * both cases the valid intersection curves are fully provided by
+		 * the perpendicular face pairs; there is nothing to lose by
+		 * skipping parallel-normal pairs.
+		 *
+		 * Use a loose flatness tolerance (100× INTERSECTION_TOL) so
+		 * that degree-1 ON_NurbsSurface patches (ARB8 faces) are also
+		 * recognised as planar.  Curved surfaces whose normals happen
+		 * to be parallel at their centres are not recognised here
+		 * because IsPlanar() checks ALL control points. */
+		{
+		    ON_Plane p1, p2;
+		    const double flat_tol = INTERSECTION_TOL * 100.0;
+		    if (surf1->IsPlanar(&p1, flat_tol) &&
+			surf2->IsPlanar(&p2, flat_tol) &&
+			p1.Normal().IsParallelTo(p2.Normal(), 0.01)) {
+			continue;
+		    }
+		}
+
 		if ((int)st2.size() < brep2->m_F[j].m_si + 1)
 		    continue;
 
@@ -4394,6 +4421,37 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
     ON_ClassArray<ON_SimpleArray<TrimmedFace *> > trimmed_faces;
     for (int i = 0; i < original_faces.Count(); i++) {
 	TrimmedFace *first = original_faces[i];
+
+	/* Deduplication: remove closed intersection curves that are
+	 * spurious seam artifacts.  When a planar face intersects a
+	 * closed (periodic) NURBS surface at or near its parameter-
+	 * space boundary, add_points_to_closed_seams() can insert a
+	 * duplicate point at the opposite seam edge, which the
+	 * polyline-merging step may then close into a tiny degenerate
+	 * loop.  Detect such artifacts by comparing every pair of
+	 * closed curves: if one has a bounding-box diagonal less than
+	 * 1% of another's, AND its centre lies inside the other's
+	 * bounding box, it is a seam duplicate — null it out so
+	 * link_curves() ignores it. */
+	ON_SimpleArray<SSICurve> &carray = curves_array[i];
+	for (int m = 0; m < carray.Count(); m++) {
+	    if (!carray[m].m_curve || !carray[m].m_curve->IsClosed()) continue;
+	    ON_BoundingBox bbm;
+	    carray[m].m_curve->GetBoundingBox(bbm);
+	    double dm = bbm.Diagonal().Length();
+	    for (int n = 0; n < carray.Count(); n++) {
+		if (n == m || !carray[n].m_curve || !carray[n].m_curve->IsClosed()) continue;
+		ON_BoundingBox bbn;
+		carray[n].m_curve->GetBoundingBox(bbn);
+		double dn = bbn.Diagonal().Length();
+		/* n is much smaller than m AND n's centre is inside m's bbox */
+		if (dm > 0.0 && dn / dm < 0.01 && bbm.IsPointIn(bbn.Center())) {
+		    delete carray[n].m_curve;
+		    carray[n].m_curve = NULL;
+		}
+	    }
+	}
+
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
 	//dplot->LinkedCurves(first->m_face->SurfaceOf(), linked_curves);
 	//dplot->WriteLog();
