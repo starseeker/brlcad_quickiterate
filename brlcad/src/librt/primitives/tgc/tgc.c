@@ -2058,7 +2058,6 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* get number and placement of intermediate ellipses */
     {
 	fastf_t ratios[4], max_ratio;
-	fastf_t new_ratio = 0;
 	int which_ratio;
 	fastf_t len_ha, len_hb;
 	vect_t ha, hb;
@@ -2186,44 +2185,109 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    if (max_ratio <= MAX_RATIO)
 		break;
 
-	    if (which_ratio == 0 || which_ratio == 1) {
-		new_ratio = MAX_RATIO/max_ratio;
-		if (bot_ell == 0 && new_ratio > 0.5)
-		    new_ratio = 0.5;
-	    } else if (which_ratio == 2 || which_ratio == 3) {
-		new_ratio = 1.0 - MAX_RATIO/max_ratio;
-		if (top_ell == nells - 1 && new_ratio < 0.5)
-		    new_ratio = 0.5;
+	    /* For case 0/1 (bottom critical) where the top cross-section is
+	     * also large (near-uniform profile / cylinder-like), the original
+	     * one-at-a-time insertion runs O(n) iterations.  Detect this and
+	     * instead insert all needed rings at once using uniform spacing.
+	     *
+	     * When the profile is tapered (top much wider than bottom for case
+	     * 0/1, or top narrower for case 2/3) the original algorithm
+	     * converges geometrically in O(log n) steps and is preferred. */
+	    if ((which_ratio == 0 || which_ratio == 1) &&
+		(ratios[2] > MAX_RATIO * 0.5 || ratios[3] > MAX_RATIO * 0.5)) {
+		/* Cylinder-like: top and bottom have comparable ratios.
+		 * Bulk insert n_rings-1 intermediate rings at uniform spacing. */
+		size_t n_insert, j, shift_i;
+		fastf_t f0, f1;
+		long n_rings_long;
+
+		/* Rounding offset: (max_ratio/MAX_RATIO + nearly-1) truncates
+		 * to the ceiling integer without using ceil() which produces a
+		 * bad-function-cast warning when cast to long. */
+		n_rings_long = (long)(max_ratio / MAX_RATIO + 0.9999999);
+		n_insert = (n_rings_long > 1) ? (size_t)(n_rings_long - 1) : 1;
+
+		nells += n_insert;
+		factors = (fastf_t *)bu_realloc(factors, nells*sizeof(fastf_t), "factors");
+		A = (vect_t *)bu_realloc(A, nells*sizeof(vect_t), "A vectors");
+		B = (vect_t *)bu_realloc(B, nells*sizeof(vect_t), "B vectors");
+
+		/* Shift elements above top_ell up to make room */
+		for (shift_i = nells; shift_i-- > top_ell + n_insert; ) {
+		    factors[shift_i] = factors[shift_i - n_insert];
+		    VMOVE(A[shift_i], A[shift_i - n_insert]);
+		    VMOVE(B[shift_i], B[shift_i - n_insert]);
+		}
+
+		/* Insert n_insert rings at uniform spacing */
+		f0 = factors[bot_ell];
+		f1 = factors[top_ell + n_insert]; /* original top_ell shifted */
+		for (j = 1; j <= n_insert; j++) {
+		    size_t idx = bot_ell + j;
+		    factors[idx] = f0 + (fastf_t)j / (fastf_t)(n_insert + 1) * (f1 - f0);
+		    if (reversed) {
+			VBLEND2(A[idx], (1.0 - factors[idx]), tip->b, factors[idx], tip->d);
+			VBLEND2(B[idx], (1.0 - factors[idx]), tip->a, factors[idx], tip->c);
+		    } else {
+			VBLEND2(A[idx], (1.0 - factors[idx]), tip->a, factors[idx], tip->c);
+			VBLEND2(B[idx], (1.0 - factors[idx]), tip->b, factors[idx], tip->d);
+		    }
+		}
+
+		/* Advance window (same as case 0/1 one-by-one) */
+		bot_ell += n_insert + 1;
+		top_ell  = bot_ell + 1;
+
+		if (top_ell >= nells)
+		    max_ratio = 0.0;          /* all done */
+		else
+		    max_ratio = MAX_RATIO + 1.0; /* re-check next segment */
+
 	    } else {
-		/* no MAX? */
-		bu_bomb("rt_tgc_tess: Should never get here!!\n");
-	    }
+		/* Tapered geometry or top-critical (case 2/3): original
+		 * one-by-one insertion converges geometrically. */
+		fastf_t new_ratio;
 
-	    nells++;
-	    factors = (fastf_t *)bu_realloc(factors, nells*sizeof(fastf_t), "factors");
-	    A = (vect_t *)bu_realloc(A, nells*sizeof(vect_t), "A vectors");
-	    B = (vect_t *)bu_realloc(B, nells*sizeof(vect_t), "B vectors");
+		if (which_ratio == 0 || which_ratio == 1) {
+		    new_ratio = MAX_RATIO/max_ratio;
+		    if (bot_ell == 0 && new_ratio > 0.5)
+			new_ratio = 0.5;
+		} else if (which_ratio == 2 || which_ratio == 3) {
+		    new_ratio = 1.0 - MAX_RATIO/max_ratio;
+		    if (top_ell == nells - 1 && new_ratio < 0.5)
+			new_ratio = 0.5;
+		} else {
+		    /* no MAX? */
+		    bu_bomb("rt_tgc_tess: Should never get here!!\n");
+		    new_ratio = 0.5; /* silence uninitialized-variable warning */
+		}
 
-	    for (i=nells-1; i>top_ell; i--) {
-		factors[i] = factors[i-1];
-		VMOVE(A[i], A[i-1]);
-		VMOVE(B[i], B[i-1]);
-	    }
+		nells++;
+		factors = (fastf_t *)bu_realloc(factors, nells*sizeof(fastf_t), "factors");
+		A = (vect_t *)bu_realloc(A, nells*sizeof(vect_t), "A vectors");
+		B = (vect_t *)bu_realloc(B, nells*sizeof(vect_t), "B vectors");
 
-	    factors[top_ell] = factors[bot_ell] +
-		new_ratio*(factors[top_ell+1] - factors[bot_ell]);
+		for (i=nells-1; i>top_ell; i--) {
+		    factors[i] = factors[i-1];
+		    VMOVE(A[i], A[i-1]);
+		    VMOVE(B[i], B[i-1]);
+		}
 
-	    if (reversed) {
-		VBLEND2(A[top_ell], (1.0-factors[top_ell]), tip->b, factors[top_ell], tip->d);
-		VBLEND2(B[top_ell], (1.0-factors[top_ell]), tip->a, factors[top_ell], tip->c);
-	    } else {
-		VBLEND2(A[top_ell], (1.0-factors[top_ell]), tip->a, factors[top_ell], tip->c);
-		VBLEND2(B[top_ell], (1.0-factors[top_ell]), tip->b, factors[top_ell], tip->d);
-	    }
+		factors[top_ell] = factors[bot_ell] +
+		    new_ratio*(factors[top_ell+1] - factors[bot_ell]);
 
-	    if (which_ratio == 0 || which_ratio == 1) {
-		top_ell++;
-		bot_ell++;
+		if (reversed) {
+		    VBLEND2(A[top_ell], (1.0-factors[top_ell]), tip->b, factors[top_ell], tip->d);
+		    VBLEND2(B[top_ell], (1.0-factors[top_ell]), tip->a, factors[top_ell], tip->c);
+		} else {
+		    VBLEND2(A[top_ell], (1.0-factors[top_ell]), tip->a, factors[top_ell], tip->c);
+		    VBLEND2(B[top_ell], (1.0-factors[top_ell]), tip->b, factors[top_ell], tip->d);
+		}
+
+		if (which_ratio == 0 || which_ratio == 1) {
+		    top_ell++;
+		    bot_ell++;
+		}
 	    }
 	}
     }

@@ -1161,6 +1161,7 @@ int
 rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     fastf_t a, b;	/* axis lengths of ellipse */
+    fastf_t eto_r_eff;	/* effective rotation radius (fabs of eto_r) */
     fastf_t ang, ch, cv, dh, dv, ntol, dtol, phi, theta;
     fastf_t *eto_ells = NULL;
     int i, j, nfaces, npts, nells;
@@ -1182,15 +1183,26 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     a = MAGNITUDE(tip->eto_C);
     b = tip->eto_rd;
 
-    if (NEAR_ZERO(tip->eto_r, 0.0001) || NEAR_ZERO(b, 0.0001)
+    /* Accept negative eto_r by using its absolute value: revolving the
+     * ellipse at radius |eto_r| vs -|eto_r| produces the same surface
+     * because the revolution covers a full 2*pi.                        */
+    if (tip->eto_r < 0.0) {
+	bu_log("rt_eto_tess: eto_r (%g) is negative; using |eto_r| = %g\n",
+	       tip->eto_r, -tip->eto_r);
+	eto_r_eff = -tip->eto_r;
+    } else {
+	eto_r_eff = tip->eto_r;
+    }
+
+    if (NEAR_ZERO(eto_r_eff, 0.0001) || NEAR_ZERO(b, 0.0001)
 	|| NEAR_ZERO(a, 0.0001)) {
 	bu_log("eto_tess: r, rd, or rc zero length\n");
 	fail = (-2);
 	goto failure;
     }
 
-    if (tip->eto_r < b) {
-	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * tip->eto_r);
+    if (eto_r_eff < b) {
+	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * eto_r_eff);
     } else {
 	dtol = primitive_get_absolute_tolerance(ttol, 2.0 * b);
     }
@@ -1212,7 +1224,7 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     VCROSS(Au, Nu, Bu);		/* y axis */
 
     /* number of segments required in eto circles */
-    nells = rt_num_circular_segments(dtol, tip->eto_r);
+    nells = rt_num_circular_segments(dtol, eto_r_eff);
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */
     cv = VDOT(tip->eto_C, Nu);
@@ -1223,7 +1235,7 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     dh = -tip->eto_rd * cos(phi);
 
     /* make sure ellipse doesn't overlap itself when revolved */
-    if (ch > tip->eto_r || dh > tip->eto_r) {
+    if (ch > eto_r_eff || dh > eto_r_eff) {
 	bu_log("eto_tess: revolved ellipse overlaps itself\n");
 	fail = (-3);
 	goto failure;
@@ -1239,7 +1251,7 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	VCOMB2(Xu, cos(ang), Bu, sin(ang), Au);
 	VUNITIZE(Xu);
 	/* vertex of ellipse */
-	VJOIN1(Ell_V, tip->eto_V, tip->eto_r, Xu);
+	VJOIN1(Ell_V, tip->eto_V, eto_r_eff, Xu);
 	/* coord system for ellipse: x, y directions are Dp, Cp */
 	VCOMB2(Cp, ch, Xu, cv, Nu);
 	VCOMB2(Dp, dh, Xu, dv, Nu);
