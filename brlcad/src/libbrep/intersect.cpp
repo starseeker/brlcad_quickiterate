@@ -2953,26 +2953,32 @@ isocurve_surface_overlap_location(
 {
     double test_distance = 2.0 * isect_tol1;
 
-    // TODO: more sample points
-    double midpt = (iso.overlap_t[0] + iso.overlap_t[1]) * 0.5;
+    /* Sample at multiple points along the isocurve overlap interval to get
+     * a more reliable classification.  A single midpoint can land on or very
+     * near the boundary and give an ambiguous result; additional samples at
+     * the quarter-points reduce the chance of a false ON_OVERLAP_BOUNDARY
+     * verdict when the overlap region is not perfectly symmetric about the
+     * midpoint. */
+    static const double SAMPLE_FRACS[] = { 0.5, 0.25, 0.75 };
+    const int NSAMPLES = (int)(sizeof(SAMPLE_FRACS) / sizeof(SAMPLE_FRACS[0]));
     double knot = iso.src.knot.c;
-
-    ON_2dPoint test_pt1, test_pt2;
     bool swap_xy = iso.src.knot.dir == 1;
 
-    test_pt1 = point_xy_or_yx(midpt, knot - test_distance, swap_xy);
-    test_pt2 = point_xy_or_yx(midpt, knot + test_distance, swap_xy);
+    int inside_count = 0, outside_count = 0;
+    for (int si = 0; si < NSAMPLES; ++si) {
+	double t = iso.overlap_t[0] + SAMPLE_FRACS[si] * (iso.overlap_t[1] - iso.overlap_t[0]);
+	ON_2dPoint pt1 = point_xy_or_yx(t, knot - test_distance, swap_xy);
+	ON_2dPoint pt2 = point_xy_or_yx(t, knot + test_distance, swap_xy);
+	bool in1 = is_pt_in_surf_overlap(pt1, surf1, surf2, surf2_tree, isect_tol);
+	bool in2 = is_pt_in_surf_overlap(pt2, surf1, surf2, surf2_tree, isect_tol);
+	if (in1) inside_count++;  else outside_count++;
+	if (in2) inside_count++;  else outside_count++;
+    }
 
-    bool in1, in2;
-    ON_ClassArray<ON_PX_EVENT> px_event1, px_event2;
-
-    in1 = is_pt_in_surf_overlap(test_pt1, surf1, surf2, surf2_tree, isect_tol);
-    in2 = is_pt_in_surf_overlap(test_pt2, surf1, surf2, surf2_tree, isect_tol);
-
-    if (in1 && in2) {
+    if (inside_count > 0 && outside_count == 0) {
 	return INSIDE_OVERLAP;
     }
-    if (!in1 && !in2) {
+    if (outside_count > 0 && inside_count == 0) {
 	return OUTSIDE_OVERLAP;
     }
     return ON_OVERLAP_BOUNDARY;
@@ -3167,22 +3173,29 @@ split_overlaps_at_intersections(
 	    }
 	    bool isvalid = false, isreversed = false;
 	    double test_distance = 2.0 * isect_tolA;
-	    // TODO: more sample points
-	    ON_2dPoint uv1, uv2;
-	    uv1 = uv2 = subcurveA->PointAt(subcurveA->Domain().Mid());
-	    ON_3dVector normal = ON_CrossProduct(subcurveA->TangentAt(subcurveA->Domain().Mid()), ON_3dVector::ZAxis);
-	    normal.Unitize();
-	    ON_3dVector nd = normal * test_distance;
-	    uv1.x -= nd.x;	// left
-	    uv1.y -= nd.y;	// left
-	    uv2.x += nd.x;	// right
-	    uv2.y += nd.y;	// right
-	    bool in1 = is_pt_in_surf_overlap(uv1, surfA, surfB, treeB, isect_tol);
-	    bool in2 = is_pt_in_surf_overlap(uv2, surfA, surfB, treeB, isect_tol);
-	    if (in1 && !in2) {
+	    /* Sample at multiple points along the subcurve (midpoint plus
+	     * quarter-points) to get a more reliable left/right overlap
+	     * classification.  A single midpoint sample can be near the
+	     * overlap boundary and give an ambiguous or incorrect result. */
+	    int vote_left = 0, vote_right = 0;
+	    static const double FRAC_SAMPLES[] = { 0.5, 0.25, 0.75 };
+	    const int NFRAC = (int)(sizeof(FRAC_SAMPLES) / sizeof(FRAC_SAMPLES[0]));
+	    for (int fk = 0; fk < NFRAC && vote_left + vote_right < NFRAC * 2; ++fk) {
+		double ft = FRAC_SAMPLES[fk];
+		double t_samp = subcurveA->Domain().ParameterAt(ft);
+		ON_2dPoint uv_c = subcurveA->PointAt(t_samp);
+		ON_3dVector tan3 = subcurveA->TangentAt(t_samp);
+		ON_3dVector norm3 = ON_CrossProduct(tan3, ON_3dVector::ZAxis);
+		norm3.Unitize();
+		ON_3dVector nd3 = norm3 * test_distance;
+		ON_2dPoint uv_left(uv_c.x - nd3.x, uv_c.y - nd3.y);
+		ON_2dPoint uv_right(uv_c.x + nd3.x, uv_c.y + nd3.y);
+		if (is_pt_in_surf_overlap(uv_left, surfA, surfB, treeB, isect_tol))  vote_left++;
+		if (is_pt_in_surf_overlap(uv_right, surfA, surfB, treeB, isect_tol)) vote_right++;
+	    }
+	    if (vote_left > vote_right) {
 		isvalid = true;
-	    } else if (!in1 && in2) {
-		// the right side is overlapped
+	    } else if (vote_right > vote_left) {
 		isvalid = true;
 		isreversed = true;
 	    }
