@@ -168,20 +168,43 @@ if {[info exists ::use_gui]} {
       }
    }
 
-   # If we didn't have a pre-specified port number and the default didn't work, start counting up
+   # If we didn't have a pre-specified port number and the default didn't work, start counting up.
+   # Wrapped in an outer retry loop to recover from the race condition where two parallel
+   # rtwizard instances both pass the TCP port probe before either fbserv actually binds.
+   # Since fbserv is launched with -A (strict auth), fblabel will fail with a token mismatch
+   # when it connects to another instance's fbserv.  That failure is our signal to advance
+   # to the next candidate port and try again — preventing a silent session failure.
    if { ! $port_number_specified && ! [info exists fbserv_pid] } {
        incr ::RtWizard::wizard_state(fbserv_port)
-       # Use a non-destructive TCP port probe to find a free port.  The old
-       # approach (fbclear -F $port) was destructive — it would clear another
-       # running rtwizard's framebuffer as a side effect of the probe.
-       while { [rtwiz_port_occupied $::RtWizard::wizard_state(fbserv_port)] } {
-	     if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $::RtWizard::wizard_state(fbserv_port) is already in use."}
-	     incr ::RtWizard::wizard_state(fbserv_port)
+       set fbserv_owned 0
+       while { !$fbserv_owned } {
+	   # Non-destructive TCP port probe to find a candidate free port.  The old
+	   # approach (fbclear -F $port) was destructive — it would clear another
+	   # running rtwizard's framebuffer as a side effect of the probe.
+	   while { [rtwiz_port_occupied $::RtWizard::wizard_state(fbserv_port)] } {
+		if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $::RtWizard::wizard_state(fbserv_port) is already in use."}
+		incr ::RtWizard::wizard_state(fbserv_port)
+	   }
+	   if {[catch {exec [file join [bu_dir bin] fbserv] -A -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(fbserv_device) &} pid] == 0} {
+	       set fbserv_pid $pid
+	   } else {
+	       if {$::RtWizard::wizard_state(verbose)} {puts "fbserv launch on port $::RtWizard::wizard_state(fbserv_port) failed: $pid"}
+	   }
+	   # Wait for fbserv to become ready; error 12 from fblabel means fb_open not yet available.
+	   while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12 } {after 300}
+	   # Verify that we actually own this fbserv: fblabel must succeed with our
+	   # FBSERV_TOKEN.  If it fails, another rtwizard won the race for this port
+	   # and our token was rejected — advance to the next candidate port and retry.
+	   if { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "}] == 0 } {
+	       set fbserv_owned 1
+	   } else {
+	       if {$::RtWizard::wizard_state(verbose)} {
+		   puts "fbserv port $::RtWizard::wizard_state(fbserv_port): port collision detected, retrying on next port."
+	       }
+	       unset -nocomplain fbserv_pid
+	       incr ::RtWizard::wizard_state(fbserv_port)
+	   }
        }
-      catch {exec [file join [bu_dir bin] fbserv] -A -w $::RtWizard::wizard_state(width) -n $::RtWizard::wizard_state(scanlines) $::RtWizard::wizard_state(fbserv_port) $::RtWizard::wizard_state(fbserv_device) &} pid
-      set fbserv_pid $pid
-      # Wait a few milliseconds to make sure fbserv has completed its work and is available
-      while { [catch {exec [file join [bu_dir bin] fblabel] -F $::RtWizard::wizard_state(fbserv_port) 1 1 " "} error] && $error == 12 } {after 300}
    }
 
    # Either we're using a specified view model, or we're deducing one based on user options
