@@ -992,6 +992,18 @@ degenerate:
 	// after all other csg logic has been built up.  Bad for locality
 	// but may serve as a fall-back if nucleus resolution doesn't resolve...
 	bu_log("\n\n\nshoals have different negative status - currently unhandled!\n\n\n");
+
+	// Fall back: use the positive shoal as nucleus so we at least get a valid bool_op.
+	// This is a best-effort approximation for unhandled type combinations.
+	for (size_t i = 0; i < BU_PTBL_LEN(data->island_children); i++) {
+	    struct subbrep_shoal_data *si = (struct subbrep_shoal_data *)BU_PTBL_GET(data->island_children, i);
+	    if (si->params->negative != -1) {
+		subbrep_shoal_free(data->nucleus);
+		data->nucleus = si;
+		bu_ptbl_rm(data->island_children, (long *)si);
+		break;
+	    }
+	}
     }
 
 
