@@ -1177,6 +1177,8 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     int fail = 0;
 
     RT_CK_DB_INTERNAL(ip);
+    BG_CK_TESS_TOL(ttol);
+    BN_CK_TOL(tol);
     tip = (struct rt_eto_internal *)ip->idb_ptr;
     RT_ETO_CK_MAGIC(tip);
 
@@ -1224,6 +1226,12 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     VCROSS(Au, Nu, Bu);		/* y axis */
 
     /* number of segments required in eto circles */
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t ntol_dummy = M_PI;
+	fastf_t bbox_diag = 2.0 * (eto_r_eff + MAGNITUDE(tip->eto_C));
+	primitive_clamp_tess_tol(&dtol, &ntol_dummy, bbox_diag);
+    }
     nells = rt_num_circular_segments(dtol, eto_r_eff);
     theta = M_2PI / nells;	/* put ellipse every theta rads */
     /* get horizontal and vertical components of C and Rd */

@@ -953,13 +953,10 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 {
     struct bu_list *vlfree = &rt_vlfree;
     fastf_t c, dtol, mag_h, ntol, r1, r2;
-    fastf_t **ellipses, theta_prev, theta_new;
+    fastf_t **ellipses;
     int *pts_dbl;
     size_t i, j, nseg, nell;
     int jj, na, nb, recalc_b;
-    mat_t R;
-    mat_t invR;
-    point_t p1;
     struct rt_pnt_node *pos_a, *pos_b, *pts_a, *pts_b;
     struct rt_ehy_internal *xip;
     vect_t A, Au, B, Bu, Hu, V, Work;
@@ -982,13 +979,6 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     VUNITIZE(Hu);
     VMOVE(Au, xip->ehy_Au);
     VCROSS(Bu, Au, Hu);
-
-    /* Compute R and Rinv matrices */
-    MAT_IDN(R);
-    VREVERSE(&R[0], Bu);
-    VMOVE(&R[4], Au);
-    VREVERSE(&R[8], Hu);
-    bn_mat_trn(invR, R);			/* inv of rot mat is trn */
 
     dtol = primitive_get_absolute_tolerance(ttol, 2.0 * xip->ehy_r2);
 
@@ -1094,10 +1084,20 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* keep track of whether pts in each ellipse are doubled or not */
     pts_dbl = (int *)bu_malloc(nell * sizeof(int), "dbl ints");
 
+    /* Compute circumferential segment count from the base ring (largest
+     * cross-section, radius r1) using the chord-error formula, same as
+     * TOR/ETO/ELL.  See rt_epa_plot() for the rationale (ell_angle + doubling
+     * causes infinite recursion and exponential nseg growth). */
+    nseg = (size_t)rt_num_circular_segments(dtol, r1);
+    if (ntol < M_PI) {
+	size_t nseg_ntol = (size_t)(M_2PI / ntol) + 1;
+	if (nseg_ntol > nseg)
+	    nseg = nseg_ntol;
+    }
+    if (nseg < 6) nseg = 6;
+
     /* make ellipses at each z level */
     i = 0;
-    nseg = 0;
-    theta_prev = M_2PI;
     pos_a = pts_a->next;	/* skip over apex of ehy */
     pos_b = pts_b->next;
     while (pos_a) {
@@ -1105,17 +1105,8 @@ rt_ehy_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
 	VJOIN1(V, xip->ehy_V, -pos_a->p[Z], Hu);
 
-	VSET(p1, 0., pos_b->p[Y], 0.);
-	theta_new = ell_angle(p1, pos_a->p[Y], pos_b->p[Y], dtol, ntol);
-	if (nseg == 0) {
-	    nseg = (int)(M_2PI / theta_new) + 1;
-	    pts_dbl[i] = 0;
-	} else if (theta_new < theta_prev) {
-	    nseg *= 2;
-	    pts_dbl[i] = 1;
-	} else
-	    pts_dbl[i] = 0;
-	theta_prev = theta_new;
+	/* All rings use the same segment count (no per-ring doubling) */
+	pts_dbl[i] = 0;
 
 	ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
 					   "pts ell");
@@ -1200,8 +1191,9 @@ int
 rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     fastf_t c, dtol, mag_h, ntol, r1, r2, cprime;
-    fastf_t **ellipses, theta_prev, theta_new;
+    fastf_t **ellipses;
     int *pts_dbl;
+    int *segs_per_ell;
     int idx;
     size_t face, i, j, nseg, nell;
     int jj, na, nb, recalc_b;
@@ -1211,7 +1203,6 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     mat_t S;
     mat_t SoR;
     struct rt_ehy_internal *xip;
-    point_t p1;
     struct rt_pnt_node *pos_a, *pos_b, *pts_a, *pts_b;
     struct shell *s;
     struct faceuse **outfaceuses = NULL;
@@ -1225,6 +1216,8 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     struct bu_list *vlfree = &rt_vlfree;
 
     RT_CK_DB_INTERNAL(ip);
+    BG_CK_TESS_TOL(ttol);
+    BN_CK_TOL(tol);
     xip = (struct rt_ehy_internal *)ip->idb_ptr;
 
     if (!ehy_is_valid(xip)) {
@@ -1266,6 +1259,12 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     ntol = M_PI;
     if (ttol->norm > 0.0) {
 	ntol = ttol->norm;
+    }
+
+    /* Clamp tolerances to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = sqrt(4.0*r1*r1 + mag_h*mag_h);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
 
     /*
@@ -1363,44 +1362,65 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* keep track of whether pts in each ellipse are doubled or not */
     pts_dbl = (int *)bu_malloc(nell * sizeof(int), "dbl ints");
+    segs_per_ell = (int *)bu_calloc(nell, sizeof(int), "rt_ehy_tess: segs_per_ell");
 
-    /* make ellipses at each z level */
-    i = 0;
-    nseg = 0;
-    theta_prev = M_2PI;
-    pos_a = pts_a->next;	/* skip over apex of ehy */
-    pos_b = pts_b->next;
-    while (pos_a) {
-	VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
-	VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
-	VJOIN1(V, xip->ehy_V, -pos_a->p[Z], Hu);
-
-	VSET(p1, 0., pos_b->p[Y], 0.);
-	theta_new = ell_angle(p1, pos_a->p[Y], pos_b->p[Y], dtol, ntol);
-	if (nseg == 0) {
-	    nseg = (size_t)(M_2PI / theta_new) + 1;
-	    pts_dbl[i] = 0;
-	    /* maximum number of faces needed for ehy */
-	    face = nseg*(1 + 3*((1 << (nell-1)) - 1));
-	    /* array for each triangular face */
-	    outfaceuses = (struct faceuse **)
-		bu_malloc((face+1) * sizeof(struct faceuse *), "ehy: *outfaceuses[]");
-	} else if (theta_new < theta_prev) {
-	    nseg *= 2;
-	    pts_dbl[i] = 1;
-	} else {
-	    pts_dbl[i] = 0;
+    /* Per-ring skip: rings whose radius is too small to support nseg distinct
+     * vertices (chord length < tol->dist) are skipped.  See rt_epa_tess()
+     * for the full rationale and algorithm. */
+    {
+	int nseg_base = (int)rt_num_circular_segments(dtol, r1);
+	fastf_t min_ring_r;
+	if (ntol < M_PI) {
+	    int nseg_ntol = (int)(M_2PI / ntol) + 1;
+	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
-	theta_prev = theta_new;
+	if (nseg_base < 6) nseg_base = 6;
+	/* No upper cap on nseg_base: see rt_epa_tess() for the rationale.
+	 * The rt_mk_hyperbola recursion guard prevents OOM for tight ntol. */
 
-	ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
-					   "pts ell");
-	rt_ell(ellipses[i], V, A, B, nseg);
+	min_ring_r = 3.0 * (double)nseg_base * tol->dist / M_2PI;
 
-	i++;
-	pos_a = pos_a->next;
-	pos_b = pos_b->next;
+	nseg = (size_t)nseg_base;
+	i = 0;
+	pos_a = pts_a->next;	/* skip over apex of ehy */
+	pos_b = pts_b->next;
+	while (pos_a) {
+	    /* Skip rings that are too small to support distinct vertices */
+	    if (pos_a->p[Y] < min_ring_r) {
+		pos_a = pos_a->next;
+		pos_b = pos_b->next;
+		continue;
+	    }
+
+	    VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
+	    VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
+	    VJOIN1(V, xip->ehy_V, -pos_a->p[Z], Hu);
+
+	    /* All rings use the same constant nseg_base (no per-ring doubling) */
+	    pts_dbl[i] = 0;
+	    segs_per_ell[i] = nseg;
+
+	    ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
+					       "pts ell");
+	    rt_ell(ellipses[i], V, A, B, nseg);
+
+	    i++;
+	    pos_a = pos_a->next;
+	    pos_b = pos_b->next;
+	}
+	/* i is the actual count of rings built */
+	nell = (size_t)i;
     }
+
+    if (nell < 1) {
+	bu_log("rt_ehy_tess: nell=%zu too small (all rings filtered)\n", nell);
+	goto fail;
+    }
+
+    /* Conservative face-count upper bound: 2 faces per segment per ring pair
+     * (all rings same nseg, no doubling) + top cap + apex fan. */
+    face = nseg * (2 * nell + 2) + 1;
+    if (face < 16) face = 16;
 
     /*
      * put ehy geometry into nmg data structures
@@ -1409,17 +1429,19 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     *r = nmg_mrsv(m);	/* Make region, empty shell, vertex */
     s = BU_LIST_FIRST(shell, &(*r)->s_hd);
 
-    /* vertices of ellipses of ehy */
+    /* array for each triangular face */
+    outfaceuses = (struct faceuse **)
+	bu_malloc((face+1) * sizeof(struct faceuse *), "ehy: *outfaceuses[]");
+
+    /* vertices of ellipses of ehy: per-ring allocation */
     vells = (struct vertex ***)
 	bu_malloc(nell*sizeof(struct vertex **), "vertex [][]");
-    j = nseg;
     for (i = 0; i < nell; i++) {
-	vells[i] = (struct vertex **)bu_malloc(j*sizeof(struct vertex *), "vertex []");
-	if (i && pts_dbl[i])
-	    j /=2;
+	vells[i] = (struct vertex **)bu_malloc((size_t)segs_per_ell[i]*sizeof(struct vertex *), "vertex []");
     }
 
-    /* top face of ehy */
+    /* top face of ehy (base ring, largest) */
+    nseg = (size_t)segs_per_ell[nell-1];
     for (i = 0; i < nseg; i++)
 	vells[nell-1][i] = (struct vertex *)NULL;
     face = 0;
@@ -1452,6 +1474,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     }
 
     /* connect ellipses with triangles */
+    nseg = (size_t)segs_per_ell[nell-1];	/* start with base ring count */
     for (idx = nell-2; idx >= 0; idx--) {
 	/* skip top ellipse */
 	int bottom, top;
@@ -1539,6 +1562,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* connect bottom of ellipse to apex of ehy */
     VADD2(V, xip->ehy_V, xip->ehy_H);
+    nseg = (size_t)segs_per_ell[0];		/* apex fan uses ring-0 count */
     vertp[0] = (struct vertex *)0;
     vertp[1] = vells[0][1];
     vertp[2] = vells[0][0];
@@ -1573,9 +1597,6 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* Compute "geometry" for region and shell */
     nmg_region_a(*r, tol);
-
-    /* XXX just for testing, to make up for loads of triangles ... */
-    nmg_shell_coplanar_face_merge(s, tol, 1, vlfree);
 
     /* free mem */
     bu_free((char *)outfaceuses, "faceuse []");
@@ -1626,6 +1647,7 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     }
 
     bu_ptbl_free(&vert_tab);
+    bu_free((char *)segs_per_ell, "segs_per_ell");
     return 0;
 
 fail:
@@ -1636,6 +1658,8 @@ fail:
 	bu_free((char *)vells[i], "vertex []");
     }
     bu_free((char *)ellipses, "fastf_t ell[]");
+    bu_free((char *)pts_dbl, "dbl ints");
+    bu_free((char *)segs_per_ell, "segs_per_ell");
     bu_free((char *)vells, "vertex [][]");
 
     return -1;
