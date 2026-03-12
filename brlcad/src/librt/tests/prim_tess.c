@@ -19,7 +19,7 @@
  */
 /** @file prim_tess.c
  *
- * Tests for NMG tessellation of BRL-CAD primitives (TOR, ETO, TGC).
+ * Tests for NMG tessellation of BRL-CAD primitives.
  *
  * Exercises:
  *  - Normal tessellation at various tolerance settings
@@ -30,6 +30,59 @@
  *  - Whether the function returns without hanging
  *  - The return code (0 = success, negative = failure)
  *  - Optionally prints face/vertex counts
+ *
+ * -----------------------------------------------------------------------
+ * Primitive tessellation status summary (as of 2025-03)
+ * -----------------------------------------------------------------------
+ *
+ * Primitive   | tess fn              | Status / notes
+ * ------------|----------------------|------------------------------------
+ * TOR         | rt_tor_tess          | OK - tested here
+ * TGC / REC   | rt_tgc_tess          | OK - tested here
+ * ELL / SPH   | rt_ell_tess          | OK - tested here
+ * ARB8        | rt_arb_tess          | OK - produces NMG polyhedron
+ * ARS         | rt_ars_tess          | OK - arbitrary faceted surface
+ * HALF        | rt_hlf_tess          | OK - infinite half-space stub (returns -1)
+ * POLY / PG   | rt_pg_tess           | OK - polygon mesh passthrough
+ * BSPLINE     | rt_nurb_tess         | OK - NURBS surface
+ * NMG         | rt_nmg_tess          | OK - already NMG, passthrough
+ * EBM         | rt_ebm_tess          | OK - tested here; outline-tracing approach
+ *             |                      |   avoids per-pixel faces; NOT the DSP
+ *             |                      |   coplanar-density problem
+ * VOL         | rt_vol_tess          | OK - tested here; per-voxel face creation
+ *             |                      |   + nmg_shell_coplanar_face_merge; works
+ *             |                      |   for small grids; large flat VOLs could
+ *             |                      |   be slow (similar issue to pre-fix DSP)
+ * ARBN        | rt_arbn_tess         | OK - arbitrary convex polyhedron
+ * PIPE        | rt_pipe_tess         | OK - swept pipe solid
+ * PART        | rt_part_tess         | OK - tested here
+ * RPC         | rt_rpc_tess          | OK - tested here
+ * RHC         | rt_rhc_tess          | OK - tested here
+ * EPA         | rt_epa_tess          | OK - tested here (nseg cap removed)
+ * EHY         | rt_ehy_tess          | OK - tested here (nseg cap removed)
+ * ETO         | rt_eto_tess          | OK - tested here
+ * GRIP        | rt_grp_tess          | STUB - always returns -1
+ * JOINT       | rt_joint_tess        | STUB - always returns -1
+ * HF          | rt_hf_tess           | STUB - always returns -1 (use DSP instead)
+ * DSP         | rt_dsp_tess          | OK - TerraScape-based, avoids dense mesh
+ * SKETCH      | NULL                 | no tess (2-D only)
+ * EXTRUDE     | rt_extrude_tess      | OK - extrusion of sketch
+ * SUBMODEL    | rt_submodel_tess     | STUB - not implemented
+ * CLINE       | rt_cline_tess        | OK - MUVES cline element
+ * BOT         | rt_bot_tess          | OK - already triangulated mesh
+ * COMB        | rt_comb_tess         | OK - booleans via NMG
+ * SUPERELL    | rt_superell_tess     | STUB - logs warning, returns -1
+ * METABALL    | rt_metaball_tess     | OK - marching-cubes iso-surface
+ * BREP        | rt_brep_tess         | OK - OpenNURBS B-rep
+ * HYP         | rt_hyp_tess          | OK - tested here (nseg cap removed)
+ * REVOLVE     | rt_revolve_tess      | OK - revolve of sketch
+ * PNTS        | NULL                 | no tess (point cloud)
+ * ANNOT       | NULL                 | no tess (annotation)
+ * HRT         | NULL                 | no tess (heart - no NMG impl yet)
+ * DATUM       | rt_datum_tess        | STUB - always returns -1
+ * SCRIPT      | NULL                 | no tess
+ * MATERIAL    | NULL                 | no tess
+ * -----------------------------------------------------------------------
  */
 
 #include "common.h"
@@ -879,6 +932,221 @@ test_part(void)
 
 
 
+/* ------------------------------------------------------------------ */
+/* EBM (Extruded Bit Map) tests                                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * EBM tess uses outline-tracing (not per-pixel faces), so it does NOT
+ * have the dense-coplanar-mesh problem seen in pre-fix DSP.  The tess
+ * function ignores ttol entirely (UNUSED(ttol)).  The datasrc=RT_EBM_SRC_OBJ
+ * path reads the bitmap from eip->buf, which must be padded by BIT_XWIDEN=2
+ * and BIT_YWIDEN=2 cells of zeros on all sides, i.e.
+ *   buf size = (xdim+4) * (ydim+4) bytes.
+ */
+static int
+test_ebm(void)
+{
+    int failures = 0;
+
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_ebm_internal eip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_EBM;
+    ip.idb_ptr = &eip;
+
+    memset(&eip, 0, sizeof(eip));
+    eip.magic = RT_EBM_INTERNAL_MAGIC;
+    eip.tallness = 10.0;
+    MAT_IDN(eip.mat);
+    eip.datasrc = RT_EBM_SRC_OBJ;
+
+    printf("\n--- EBM tests ---\n");
+
+    /* 4x4 solid square bitmap: all cells set.
+     * buf size = (4+4) * (4+4) = 64 bytes, all zeros initially (padding).
+     * Set cells [0..3][0..3] (stored with +2 offset in each axis). */
+    {
+	const size_t xd = 4, yd = 4;
+	const size_t stride = xd + 4;	/* BIT_XWIDEN*2 = 4 */
+	const size_t bufsize = stride * (yd + 4);
+	unsigned char *buf = (unsigned char *)bu_calloc(bufsize, 1, "ebm buf");
+
+	for (size_t y = 0; y < yd; y++)
+	    for (size_t x = 0; x < xd; x++)
+		buf[(y + 2) * stride + (x + 2)] = 1;
+
+	eip.xdim = (uint32_t)xd;
+	eip.ydim = (uint32_t)yd;
+	eip.buf = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("ebm 4x4 solid square", &ip, &ttol, &tol, 0)) failures++;
+
+	bu_free(buf, "ebm buf");
+    }
+
+    /* 8x8 bitmap with a 4x4 hole in the center (frame pattern). */
+    {
+	const size_t xd = 8, yd = 8;
+	const size_t stride = xd + 4;
+	const size_t bufsize = stride * (yd + 4);
+	unsigned char *buf = (unsigned char *)bu_calloc(bufsize, 1, "ebm buf");
+
+	for (size_t y = 0; y < yd; y++) {
+	    for (size_t x = 0; x < xd; x++) {
+		/* set outer frame (border cells), leave interior empty */
+		int is_interior = (x >= 2 && x <= 5 && y >= 2 && y <= 5);
+		if (!is_interior)
+		    buf[(y + 2) * stride + (x + 2)] = 1;
+	    }
+	}
+
+	eip.xdim = (uint32_t)xd;
+	eip.ydim = (uint32_t)yd;
+	eip.buf = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("ebm 8x8 frame with 4x4 hole", &ip, &ttol, &tol, 0)) failures++;
+
+	bu_free(buf, "ebm buf");
+    }
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* VOL (Voxel volume) tests                                             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * VOL tess creates individual quad faces per exposed voxel boundary, then
+ * calls nmg_model_fuse() and nmg_shell_coplanar_face_merge() to collapse
+ * adjacent coplanar faces.  For small grids this is fast.  Large flat
+ * surfaces (e.g. a 256x256 voxel layer) could be slow for the same reason
+ * that pre-TerraScape DSP was slow.
+ *
+ * The voxel map must be padded by VOL_[XYZ]WIDEN=2 on all sides:
+ *   map size = (xdim+4) * (ydim+4) * (zdim+4) bytes.
+ * VOL value must satisfy: lo <= value <= hi to be "on".
+ */
+static int
+test_vol(void)
+{
+    int failures = 0;
+
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_vol_internal vip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_VOL;
+    ip.idb_ptr = &vip;
+
+    memset(&vip, 0, sizeof(vip));
+    vip.magic = RT_VOL_INTERNAL_MAGIC;
+    vip.lo = 1;
+    vip.hi = 255;
+    VSET(vip.cellsize, 1.0, 1.0, 1.0);
+    MAT_IDN(vip.mat);
+    vip.datasrc = RT_VOL_SRC_OBJ;
+
+    printf("\n--- VOL tests ---\n");
+
+    /* 4x4x4 solid cube: all voxels set. */
+    {
+	const size_t xd = 4, yd = 4, zd = 4;
+	/* stride with padding: (xdim+4), (ydim+4) */
+	const size_t xs = xd + 4, ys = yd + 4, zs = zd + 4;
+	const size_t bufsize = xs * ys * zs;
+	unsigned char *buf = (unsigned char *)bu_calloc(bufsize, 1, "vol map");
+
+	for (size_t z = 0; z < zd; z++)
+	    for (size_t y = 0; y < yd; y++)
+		for (size_t x = 0; x < xd; x++)
+		    buf[((z+2)*ys + (y+2))*xs + (x+2)] = 200; /* in [lo,hi] */
+
+	vip.xdim = (uint32_t)xd;
+	vip.ydim = (uint32_t)yd;
+	vip.zdim = (uint32_t)zd;
+	vip.map = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("vol 4x4x4 solid cube", &ip, &ttol, &tol, 0)) failures++;
+
+	bu_free(buf, "vol map");
+    }
+
+    /* 6x6x3 slab: flat top/bottom surfaces (tests coplanar-face merging). */
+    {
+	const size_t xd = 6, yd = 6, zd = 3;
+	const size_t xs = xd + 4, ys = yd + 4, zs = zd + 4;
+	const size_t bufsize = xs * ys * zs;
+	unsigned char *buf = (unsigned char *)bu_calloc(bufsize, 1, "vol map");
+
+	for (size_t z = 0; z < zd; z++)
+	    for (size_t y = 0; y < yd; y++)
+		for (size_t x = 0; x < xd; x++)
+		    buf[((z+2)*ys + (y+2))*xs + (x+2)] = 200;
+
+	vip.xdim = (uint32_t)xd;
+	vip.ydim = (uint32_t)yd;
+	vip.zdim = (uint32_t)zd;
+	vip.map = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("vol 6x6x3 flat slab", &ip, &ttol, &tol, 0)) failures++;
+
+	bu_free(buf, "vol map");
+    }
+
+    /* 4x4x4 hollow cube: only outer shell voxels set. */
+    {
+	const size_t xd = 4, yd = 4, zd = 4;
+	const size_t xs = xd + 4, ys = yd + 4, zs = zd + 4;
+	const size_t bufsize = xs * ys * zs;
+	unsigned char *buf = (unsigned char *)bu_calloc(bufsize, 1, "vol map");
+
+	for (size_t z = 0; z < zd; z++) {
+	    for (size_t y = 0; y < yd; y++) {
+		for (size_t x = 0; x < xd; x++) {
+		    /* only set voxels on the outer shell */
+		    if (x == 0 || x == xd-1 ||
+			y == 0 || y == yd-1 ||
+			z == 0 || z == zd-1)
+			buf[((z+2)*ys + (y+2))*xs + (x+2)] = 200;
+		}
+	    }
+	}
+
+	vip.xdim = (uint32_t)xd;
+	vip.ydim = (uint32_t)yd;
+	vip.zdim = (uint32_t)zd;
+	vip.map = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("vol 4x4x4 hollow shell", &ip, &ttol, &tol, 0)) failures++;
+
+	bu_free(buf, "vol map");
+    }
+
+    return failures;
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -887,7 +1155,7 @@ main(int argc, char *argv[])
     if (argc > 1 && BU_STR_EQUAL(argv[1], "-h")) {
 	printf("Usage: %s\n", argv[0]);
 	printf("  Runs NMG tessellation tests for TOR, ETO, TGC, ELL,\n");
-	printf("  EPA, EHY, RPC, RHC, HYP, and PART primitives.\n");
+	printf("  EPA, EHY, RPC, RHC, HYP, PART, EBM, and VOL primitives.\n");
 	printf("  Tests normal cases and degenerate/edge cases.\n");
 	printf("  Returns 0 on all-pass, 1 on any failure.\n");
 	return 0;
@@ -905,6 +1173,8 @@ main(int argc, char *argv[])
     total_failures += test_rhc();
     total_failures += test_hyp();
     total_failures += test_part();
+    total_failures += test_ebm();
+    total_failures += test_vol();
 
     printf("\n=== Summary: %d failure(s) ===\n", total_failures);
 
