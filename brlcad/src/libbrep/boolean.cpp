@@ -4146,6 +4146,41 @@ get_face_intersection_curves(
 		if ((int)st2.size() < brep2->m_F[j].m_si + 1)
 		    continue;
 
+		/* Skip face pairs whose underlying surfaces are geometrically
+		 * coincident even if their NURBS representations differ (e.g.
+		 * after ShrinkSurfaces re-parameterises a previously-subtracted
+		 * sphere patch).  When a sphere s1 is subtracted from a solid,
+		 * the resulting brep inherits the sphere patch as a trimmed face.
+		 * ShrinkSurfaces then changes the knot vectors so is_same_surface()
+		 * no longer detects the coincidence.  Running SSI on a coincident
+		 * pair generates a huge number of overlap segments (one per
+		 * isocurve knot) and is extremely slow even after the dangling-
+		 * pointer crash fix.  Detect this case by sampling surf1 at its
+		 * UV midpoint, projecting onto surf2, and verifying that the
+		 * normals are parallel.  Skipping is safe: the geometry boundary
+		 * is already captured by the trimming loops. */
+		{
+		    ON_Interval du1 = surf1->Domain(0);
+		    ON_Interval dv1 = surf1->Domain(1);
+		    double u1_mid = du1.ParameterAt(0.5);
+		    double v1_mid = dv1.ParameterAt(0.5);
+		    ON_3dVector nrm1;
+		    if (surf1->EvNormal(u1_mid, v1_mid, nrm1) && nrm1.Length() > ON_ZERO_TOLERANCE) {
+			ON_3dPoint pt1 = surf1->PointAt(u1_mid, v1_mid);
+			ON_ClassArray<ON_PX_EVENT> px;
+			if (ON_Intersect(pt1, *surf2, px, INTERSECTION_TOL * 10.0) &&
+			    px.Count() > 0)
+			{
+			    ON_3dVector nrm2;
+			    double u2 = px[0].m_b[0], v2 = px[0].m_b[1];
+			    if (surf2->EvNormal(u2, v2, nrm2) &&
+				nrm1.IsParallelTo(nrm2, 0.01)) {
+				continue;
+			    }
+			}
+		    }
+		}
+
 		// Possible enhancement: Some faces may share the same surface.
 		// We can store the result of SSI to avoid re-computation.
 		results = ON_Intersect(surf1,
