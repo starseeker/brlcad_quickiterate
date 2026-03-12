@@ -65,6 +65,9 @@ run_tess(const char *label,
     struct model *m = nmg_mm();
     struct nmgregion *r = NULL;
 
+    fprintf(stderr, "STARTING: %s\n", label);
+    fflush(stderr);
+
     int ret = rt_obj_tess(&r, m, ip, ttol, tol);
 
     int passed;
@@ -85,12 +88,13 @@ run_tess(const char *label,
 		    nfaces++;
 	    }
 	}
-	printf("  %-48s ret=%-3d faces=%-6d [%s]\n",
+	fprintf(stderr, "  %-48s ret=%-3d faces=%-6d [%s]\n",
 	       label, ret, nfaces, passed ? "PASS" : "FAIL");
     } else {
-	printf("  %-48s ret=%-3d             [%s]\n",
+	fprintf(stderr, "  %-48s ret=%-3d             [%s]\n",
 	       label, ret, passed ? "PASS" : "FAIL");
     }
+    fflush(stderr);
 
     nmg_km(m);
     return passed;
