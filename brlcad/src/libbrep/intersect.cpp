@@ -1747,6 +1747,13 @@ ON_Intersect(const ON_Curve *curveA,
     }
 
     // use sub-division and bounding box intersections first
+    /* Same candidate-count safety limit as in SSI: if the candidate list
+     * grows too large (e.g. a curve running along a cylinder seam produces
+     * thousands of sub-patch pairs), stop subdividing early and process
+     * what we have.  Without this limit a single isocurve lying on the
+     * boundary of a TGC lateral surface can produce ~65k candidate pairs
+     * and loop for many minutes. */
+    static const size_t MAX_CSI_CANDIDATES = 8000;
     for (int h = 0; h <= MAX_CSI_DEPTH; h++) {
 	if (candidates.empty()) {
 	    break;
@@ -1780,6 +1787,9 @@ ON_Intersect(const ON_Curve *curveA,
 		    }
 	}
 	candidates = next_candidates;
+	if (candidates.size() > MAX_CSI_CANDIDATES) {
+	    break;
+	}
     }
 
     ON_SimpleArray<ON_X_EVENT> tmp_x;
