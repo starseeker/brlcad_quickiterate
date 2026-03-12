@@ -108,6 +108,7 @@ struct client {
     Tcl_FileProc        *c_handler;
 #endif
     struct pkg_conn	*c_pkg;
+    int			c_auth_ok;  /**< @brief !0 if client sent a valid MSG_FBAUTH */
 };
 
 
@@ -353,6 +354,8 @@ struct mged_dm {
     Tcl_Channel		dm_netchan;
 #endif
     struct client	dm_clients[MAX_CLIENTS];
+    char		dm_session_token[65];		/* fbserv auth token (64 hex + NUL); empty = no auth */
+    int			dm_require_auth;		/* !0 = reject unauthenticated fb clients */
     int			dm_dirty;			/* true if received an expose or configuration event */
     int			dm_mapped;
     int			dm_owner;			/* true if owner of the view info */

@@ -105,6 +105,22 @@ DM_EXPORT extern void fbs_setup_socket(int fd);
 DM_EXPORT extern int fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data);
 DM_EXPORT extern void fbs_existing_client_handler(void *clientData, int mask);
 
+/**
+ * Generate a fresh 256-bit (64-character hex) session token and store
+ * it in @p fbsp->fbs_auth_token.
+ *
+ * Call this before fbs_open() so that the token is ready when the
+ * first client connects.  The hosting application should then export
+ * the token to child processes (e.g. via the FBSERV_TOKEN environment
+ * variable) before launching them.
+ *
+ * If the build was made without OpenSSL, falls back to /dev/urandom or
+ * a time+PID seeded PRNG.
+ *
+ * Returns a pointer to fbsp->fbs_auth_token (for convenience).
+ */
+DM_EXPORT extern const char *fbs_generate_token(struct fbserv_obj *fbsp);
+
 
 __END_DECLS
 
