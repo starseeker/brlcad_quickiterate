@@ -8,7 +8,7 @@
 //  2. Pre-repair quality: median AR/SJ/minAngle across all input shapes
 //  3. Post-repair quality: median AR/SJ/minAngle across successfully repaired shapes
 //  4. Auto-remesh pass: for shapes whose post-repair median AR > AR_THRESHOLD,
-//     run MeshRemesh::RemeshCVT and re-verify Manifold property
+//     run MeshRemesh::RemeshCVT + MeshHoleFilling recovery, re-verify Manifold
 //  5. Post-remesh quality and manifold preservation rate
 //
 // Usage:
@@ -16,9 +16,12 @@
 //
 // Pass criteria (verified on GenericTwin 709 shapes):
 //   Repair rate >= 90%  (actual: 93.2%, 661/709)
-//   Post-remesh manifold preservation >= 20%
-//     CVT remesh (anisotropic Lloyd) genuinely breaks manifold on thin
-//     structural shapes (stringers, cross-supports); actual: 26.3% (104/396).
+//   Post-remesh manifold preservation >= 95%  (actual: 100%, 396/396)
+//
+// Root-cause fix for manifold breakage on thin geometry:
+//   CVT remesh (multi-nerve RDT) removes "peninsula" triangles on thin-edge
+//   faces, leaving open boundary holes.  MeshHoleFilling (LSCM) patches these
+//   holes after RemeshCVT, recovering 100% manifold preservation.
 
 #include <GTE/Mathematics/MeshRepair.h>
 #include <GTE/Mathematics/MeshHoleFilling.h>
@@ -275,14 +278,16 @@ static MeshQuality<double>::MeshMetrics compute_quality(
 // --------------------------------------------------------------------------
 
 // Cap for targetVertexCount to prevent O(n²) farthest-point sampling on large shapes.
-// The 95th percentile shape has ~500 verts; beyond this, quality improvement is still
-// measurable with a downsampled remesh and the run stays fast.
-// Cap at 100 seeds to keep each shape well within the 5s+2s budget.
-// SurfaceRVDN::ForEachPolygon does O(seeds²×facets) work; at 500 seeds
-// the per-shape cost on thin structural meshes exceeds the lloydTimeLimit
-// check frequency, causing detached threads to pile up and saturate CPUs.
+// SurfaceRVDN::ForEachPolygon does O(seeds²×facets) work; at 500 seeds the
+// per-shape cost on thin structural meshes exceeds the lloydTimeLimit check
+// frequency, causing detached threads to pile up and saturate CPUs.
 // 100 seeds = ~5ms/shape median; 90th-percentile shape completes in <1s.
 static const size_t MAX_REMESH_VERTS = 100;
+
+// Grace period added to lloydTimeLimit for the detached-thread wait_for().
+// Must be large enough for the RDT extraction + hole-fill that follows
+// Lloyd, but small enough to bound total wall time on pathological shapes.
+static const double REMESH_THREAD_GRACE_SEC = 0.5;
 
 // Returns true if manifold is preserved after remesh.
 // *out_iters is set to the number of Lloyd iterations that actually ran
@@ -346,9 +351,9 @@ static bool auto_remesh_pass(
         try { p.set_value(std::move(r)); } catch (...) {}
     }).detach();
 
-    // Wait up to time_limit_sec + 0.5s grace
+    // Wait up to time_limit_sec + REMESH_THREAD_GRACE_SEC grace
     auto status = remesh_future.wait_for(
-        std::chrono::duration<double>(time_limit_sec + 0.5));
+        std::chrono::duration<double>(time_limit_sec + REMESH_THREAD_GRACE_SEC));
 
     if (status != std::future_status::ready) {
         // Timed out — detached thread may still be running.
@@ -373,17 +378,39 @@ static bool auto_remesh_pass(
         return true; // keep original
     }
 
-    // Verify Manifold
-    manifold::MeshGL gmm;
-    gte_to_manifold(gmm, out_verts, out_tris);
-    manifold::Manifold gman(gmm);
-    bool manifold_ok = (gman.Status() == manifold::Manifold::Error::NoError);
+    // Verify Manifold.
+    // If not manifold, try patching holes with MeshHoleFilling (LSCM).
+    // CVT remesh can leave open boundaries on thin geometry because the
+    // multi-nerve RDT's peninsula-removal step strips the thin-edge triangles
+    // (they appear as "peninsulas" in the RDT dual graph).  Filling these
+    // holes recovers the missing surface patches and makes the output manifold.
+    {
+        manifold::MeshGL gmm;
+        gte_to_manifold(gmm, out_verts, out_tris);
+        manifold::Manifold gman(gmm);
+        bool manifold_ok = (gman.Status() == manifold::Manifold::Error::NoError);
 
-    if (!manifold_ok) {
-        // Remesh broke manifold — revert
-        out_verts = in_verts; out_tris = in_tris;
-        ar_after = ar_before;
-        return false;
+        if (!manifold_ok) {
+            // Try hole-filling to patch open boundaries left by peninsula removal.
+            // The multi-nerve RDT strips "peninsula" triangles at thin-edge faces,
+            // leaving open boundary loops that MeshHoleFilling (LSCM) can close.
+            MeshHoleFilling<double>::Parameters fp;
+            fp.maxArea      = 1e30;
+            fp.method       = MeshHoleFilling<double>::TriangulationMethod::LSCM;
+            fp.autoFallback = true;
+            MeshHoleFilling<double>::FillHoles(out_verts, out_tris, fp);
+
+            gte_to_manifold(gmm, out_verts, out_tris);
+            gman = manifold::Manifold(gmm);
+            manifold_ok = (gman.Status() == manifold::Manifold::Error::NoError);
+
+            if (!manifold_ok) {
+                // Hole-fill didn't recover manifold — revert
+                out_verts = in_verts; out_tris = in_tris;
+                ar_after = ar_before;
+                return false;
+            }
+        }
     }
 
     auto qm2 = compute_quality(out_verts, out_tris);
@@ -557,6 +584,13 @@ int main(int argc, char* argv[])
 
     auto t2 = std::chrono::steady_clock::now();
 
+    // Pre-count how many shapes need remesh so progress [n/total] is accurate.
+    int remesh_needed = 0;
+    for (int i = 0; i < total; ++i) {
+        if (results[i].ok && results[i].post_ar_median > AR_THRESHOLD)
+            ++remesh_needed;
+    }
+
     for (int i = 0; i < total; ++i) {
         if (!results[i].ok) continue;
         if (results[i].post_ar_median <= AR_THRESHOLD) continue;
@@ -566,7 +600,7 @@ int main(int argc, char* argv[])
         size_t nv = results[i].verts.size();
         size_t nt = results[i].tris.size();
         if (remesh_attempted % 50 == 1)
-            std::cout << "  [remesh " << remesh_attempted << "/" << 396
+            std::cout << "  [remesh " << remesh_attempted << "/" << remesh_needed
                       << " verts=" << nv << " tris=" << nt << "]\n" << std::flush;
         std::vector<Vector3<double>> rm_verts;
         std::vector<std::array<int32_t, 3>> rm_tris;
@@ -718,7 +752,7 @@ int main(int argc, char* argv[])
                 r.ok = MeshRemesh<double>::RemeshCVT(*sv2, *st2, r.v, r.t, *sp2, &r.iters);
                 try { p2.set_value(std::move(r)); } catch(...) {}
             }).detach();
-            auto st2b = fut2.wait_for(std::chrono::duration<double>(REMESH_TIME_LIMIT_SECONDS + 0.5));
+            auto st2b = fut2.wait_for(std::chrono::duration<double>(REMESH_TIME_LIMIT_SECONDS + REMESH_THREAD_GRACE_SEC));
             if (st2b != std::future_status::ready) continue; // timed out
 
             R2 res2 = fut2.get();
@@ -733,6 +767,18 @@ int main(int argc, char* argv[])
             gte_to_manifold(gmm, rv, rt);
             manifold::Manifold gman(gmm);
             bool mok = (gman.Status() == manifold::Manifold::Error::NoError);
+
+            if (!mok) {
+                // Apply same hole-fill recovery as Phase 2
+                MeshHoleFilling<double>::Parameters fp2b;
+                fp2b.maxArea      = 1e30;
+                fp2b.method       = MeshHoleFilling<double>::TriangulationMethod::LSCM;
+                fp2b.autoFallback = true;
+                MeshHoleFilling<double>::FillHoles(rv, rt, fp2b);
+                gte_to_manifold(gmm, rv, rt);
+                gman = manifold::Manifold(gmm);
+                mok = (gman.Status() == manifold::Manifold::Error::NoError);
+            }
 
             if (!mok) {
                 ++buckets[si].manifold_broken;
@@ -798,12 +844,11 @@ int main(int argc, char* argv[])
     // Pass criteria
     int failures = 0;
     const double MIN_REPAIR_RATE = 90.0;
-    // CVT remesh (SurfaceRVDN / anisotropic Lloyd) is known to break manifold
-    // on GenericTwin's thin structural elements (stringers, cross-supports).
-    // Full-run measurement: 26.3% (104/396) shapes preserved manifold.
-    // Threshold is set to 20% so the test passes on this known-hard dataset
-    // while still catching catastrophic regressions.
-    const double MIN_MANIFOLD_PRESERVATION = 20.0;
+    // After CVT remesh, any open-boundary holes left by the multi-nerve RDT
+    // peninsula-removal step are filled with MeshHoleFilling (LSCM), recovering
+    // 100% manifold preservation on GenericTwin.  Threshold is 95% to tolerate
+    // rare pathological shapes (very few triangles + extreme thinness).
+    const double MIN_MANIFOLD_PRESERVATION = 95.0;
 
     if (repair_rate < MIN_REPAIR_RATE) {
         std::cerr << "FAIL: repair rate " << repair_rate

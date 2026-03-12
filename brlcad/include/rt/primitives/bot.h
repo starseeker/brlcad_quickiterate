@@ -209,12 +209,18 @@ struct rt_bot_repair_info {
  * quality.  The manifold property is re-verified after remesh; if it is
  * lost the pre-remesh output is returned unchanged.
  *
- * NOTE: On models containing thin/elongated structural elements (stringers,
- * cross-supports), RemeshCVT frequently breaks the manifold property even
- * when applied within this fallback framework.  Testing on GenericTwin
- * shows >80% of such shapes lose manifold after RemeshCVT.  For these
- * shapes the high AR reflects physical geometry, not a repair defect.
- * Callers should NOT enable auto_remesh by default on production geometry.
+ * Manifold preservation in RemeshCVT:
+ *   The multi-nerve RDT inside RemeshCVT removes "peninsula" triangles from
+ *   thin-edge faces, leaving open boundary holes in the output.  The
+ *   auto_remesh path patches these holes with MeshHoleFilling (LSCM) before
+ *   checking manifold, so the result is always manifold on well-formed inputs.
+ *   On pathological inputs (near-degenerate geometry after repair) the
+ *   isotropic CVT fallback is tried before reverting to the pre-remesh mesh.
+ *
+ * NOTE: When the high AR reflects physical geometry (stringers, cross-
+ * supports), RemeshCVT improves triangle quality but the shape stays high-AR
+ * by necessity.  auto_remesh is opt-in (default off) because callers should
+ * decide whether to remesh vs. accept the physically correct AR.
  * remesh_time_limit sets a wall-clock time budget (seconds) for the Lloyd
  * relaxation loop inside RemeshCVT.  When the budget is exhausted after the
  * current iteration completes, the loop stops early and the RDT is extracted

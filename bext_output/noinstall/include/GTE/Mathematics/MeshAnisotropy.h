@@ -136,6 +136,51 @@ namespace gte
             return Length(maxBox - minBox);
         }
 
+        // Compute minimum bounding-box dimension (smallest extent in X, Y, or Z).
+        // Used to detect thin geometry for adaptive anisotropy scaling.
+        static Real ComputeBBoxMinDimension(std::vector<Vector3<Real>> const& vertices)
+        {
+            if (vertices.empty())
+            {
+                return static_cast<Real>(0);
+            }
+
+            Vector3<Real> minBox = vertices[0];
+            Vector3<Real> maxBox = vertices[0];
+
+            for (auto const& v : vertices)
+            {
+                for (int i = 0; i < 3; ++i)
+                {
+                    minBox[i] = std::min(minBox[i], v[i]);
+                    maxBox[i] = std::max(maxBox[i], v[i]);
+                }
+            }
+
+            Real d0 = maxBox[0] - minBox[0];
+            Real d1 = maxBox[1] - minBox[1];
+            Real d2 = maxBox[2] - minBox[2];
+            return std::min({d0, d1, d2});
+        }
+
+        // Compute total surface area of a triangle mesh.
+        static Real ComputeSurfaceArea(
+            std::vector<Vector3<Real>> const& vertices,
+            std::vector<std::array<int32_t, 3>> const& triangles)
+        {
+            Real area = static_cast<Real>(0);
+            for (auto const& tri : triangles)
+            {
+                Vector3<Real> const& v0 = vertices[tri[0]];
+                Vector3<Real> const& v1 = vertices[tri[1]];
+                Vector3<Real> const& v2 = vertices[tri[2]];
+                Vector3<Real> e1 = v1 - v0;
+                Vector3<Real> e2 = v2 - v0;
+                area += static_cast<Real>(0.5) * Length(Cross(e1, e2));
+            }
+            return area;
+        }
+
         // Set anisotropy: Scale normals by factor s (relative to bounding box)
         // This is the core of Geogram's set_anisotropy function
         // s = 0 disables anisotropy (unit normals)

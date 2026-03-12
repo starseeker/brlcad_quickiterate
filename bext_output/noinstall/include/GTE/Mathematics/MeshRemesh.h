@@ -343,11 +343,46 @@ namespace gte
                 verts3.push_back(v);
             }
 
-            // Compute vertex normals and apply anisotropy scale
+            // Compute vertex normals and apply anisotropy scale.
+            // Adaptive: increase normalScale so that seeds on OPPOSITE faces of thin
+            // geometry are always farther apart in 6D than same-face neighbors.
+            //
+            // Derivation:
+            //   Opposite-face seed pair: 3D dist = thin_dim, normal diff ≈ 2 (antiparallel)
+            //     → 6D dist = sqrt(thin_dim² + (2*normalScale)²)
+            //   Same-face neighbor: 3D dist ≈ cell_spacing, normal diff ≈ 0
+            //     → 6D dist ≈ cell_spacing
+            //
+            //   Require opposite > same:
+            //     sqrt(thin_dim² + (2*normalScale)²) > cell_spacing
+            //     normalScale > sqrt(max(0, cell_spacing² - thin_dim²)) / 2
+            //
+            // The 2× safety margin (dropping the "/2") is analytical:
+            //   With normalScale = sqrt(cs² - td²), the 6D opposite-face distance
+            //   becomes sqrt(td² + 4*(cs² - td²)) = sqrt(4*cs² - 3*td²).
+            //   When td → 0 this is 2*cs, twice the same-face spacing — a
+            //   comfortable margin for noisy seed distributions.
+            //   When td = cs (not thin) the margin is cs, which satisfies the
+            //   inequality; the default (params.anisotropyScale * bboxDiag) is
+            //   used in that regime since min_normal_scale = 0.
             std::vector<Vec3> normals;
             MeshAnisotropy<Real>::ComputeVertexNormals(inVertices, inTriangles, normals);
             Real bboxDiag = MeshAnisotropy<Real>::ComputeBBoxDiagonal(inVertices);
-            Real normalScale = params.anisotropyScale * bboxDiag;
+
+            Real defaultScale = params.anisotropyScale * bboxDiag;
+
+            // Compute cell spacing and thin dimension for adaptive scaling.
+            // targetVertexCount is guaranteed > 0 by the early-return at line ~238.
+            size_t nb_seeds = params.targetVertexCount;
+            Real surface_area = MeshAnisotropy<Real>::ComputeSurfaceArea(inVertices, inTriangles);
+            Real cell_spacing = std::sqrt(surface_area / static_cast<Real>(nb_seeds));
+            Real thin_dim     = MeshAnisotropy<Real>::ComputeBBoxMinDimension(inVertices);
+            Real cs2 = cell_spacing * cell_spacing;
+            Real td2 = thin_dim * thin_dim;
+            Real min_normal_scale = (cs2 > td2)
+                ? std::sqrt(cs2 - td2)   // 2× safety margin baked in (see derivation above)
+                : static_cast<Real>(0);
+            Real normalScale = std::max(defaultScale, min_normal_scale);
             for (auto& n : normals)
             {
                 Normalize(n);
