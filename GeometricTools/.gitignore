@@ -34,3 +34,5 @@ tests/data/*_repaired.obj
 tests/data/*_output.obj
 tests/data/gt_remeshed.obj
 tests/data/gt_repaired.obj
+test_mesh_quality
+test_remesh_verdict
