@@ -3893,6 +3893,14 @@ ON_Intersect(const ON_Surface *surfA,
     }
 
     // create overlap events
+    // IMPORTANT: Reserve enough capacity in x before the loop so that
+    // x.Append() never reallocates the array.  Overlapevent stores a raw
+    // pointer (m_event) directly into x[i]; any reallocation would make all
+    // previously stored pointers dangling, causing a crash when the loop
+    // accesses them (e.g. overlap_events[j].m_event->m_curveA at line ~4031).
+    // At most one event is appended per valid overlap segment, so reserving
+    // x.Count() + overlaps.Count() extra slots is sufficient.
+    x.Reserve(x.Count() + overlaps.Count());
     ON_SimpleArray<Overlapevent> overlap_events;
     for (int i = 0; i < overlaps.Count(); i++) {
 	if (!is_valid_overlap(overlaps[i])) {
@@ -4019,7 +4027,11 @@ ON_Intersect(const ON_Surface *surfA,
 
 	// need to reverse inner loops to indicate overlap is outside
 	// the closed region
-	for (int j = original_count; j < x.Count(); j++) {
+	// Iterate over overlap_events indices directly (not x indices) to
+	// avoid an out-of-bounds crash when csx_events were prepended to x
+	// before the overlap events.  The loop only needs to check other
+	// overlap event curves, not every event in x.
+	for (int j = 0; j < overlap_events.Count(); j++) {
 	    // any curves that intersect the line crossing through the
 	    // loop may be inside the loop
 	    // FIXME: What about curves inside the loop that the line
