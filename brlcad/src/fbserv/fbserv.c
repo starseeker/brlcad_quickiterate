@@ -83,6 +83,7 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/snooze.h"
+#include "bu/str.h"
 #include "vmath.h"
 #include "dm.h"
 #include "pkg.h"
@@ -192,6 +193,14 @@ Usage: fbserv port_num\n\
            must appear in that order)\n\
   -T  enable TLS encryption (requires OpenSSL build)\n\
   -A  strict auth: reject clients that do not send MSG_FBAUTH\n\
+\n\
+Token authentication (works with or without TLS):\n\
+  Set FBSERV_TOKEN=<64-hex-chars> before starting fbserv to use a\n\
+  pre-known token instead of having one auto-generated.  The same\n\
+  token must be set in FBSERV_TOKEN for every client (e.g. rt, pix-fb)\n\
+  that connects to this server.\n\
+  If FBSERV_TOKEN is NOT set, fbserv generates a fresh token at\n\
+  startup and prints it to stderr.\n\
 ";
 
 int
@@ -527,13 +536,25 @@ main(int argc, char **argv)
 	return 1;
     }
 
-    /* Generate a session authentication token so that auto-launched
-     * or scripted clients can verify they are talking to the right
-     * fbserv instance. */
-    fbserv_generate_token(session_token);
-    fprintf(stderr, "fbserv: Session token: %s\n", session_token);
-    fprintf(stderr, "fbserv: Set FBSERV_TOKEN=%s in client environment\n",
-	    session_token);
+    /* Session authentication token.
+     * If FBSERV_TOKEN is already set in the environment, use that value
+     * so that the invoking script/app can pre-supply a known token and
+     * give the same value to client programs (e.g. rt, pix-fb).  This
+     * works regardless of whether TLS is enabled — the token provides
+     * session isolation even on plain TCP connections.
+     * If FBSERV_TOKEN is not set, generate a fresh random token. */
+    {
+	const char *env_token = getenv("FBSERV_TOKEN");
+	if (env_token && strlen(env_token) == FBSERV_AUTH_TOKEN_LEN) {
+	    bu_strlcpy(session_token, env_token, sizeof(session_token));
+	    fprintf(stderr, "fbserv: Using pre-supplied session token from FBSERV_TOKEN\n");
+	} else {
+	    fbserv_generate_token(session_token);
+	    fprintf(stderr, "fbserv: Session token: %s\n", session_token);
+	    fprintf(stderr, "fbserv: Set FBSERV_TOKEN=%s in client environment\n",
+		    session_token);
+	}
+    }
 
 #ifdef HAVE_OPENSSL_SSL_H
     /* Optional TLS.  Check -T flag or FBSERV_TLS environment variable. */
