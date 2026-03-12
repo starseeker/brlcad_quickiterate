@@ -87,6 +87,11 @@ namespace gte
             bool useAnisotropic;            // Use anisotropic remeshing (6D metric with normals)
             Real anisotropyScale;           // Anisotropy scale factor (0.02-0.1 typical, 0 = isotropic)
             bool curvatureAdaptive;         // Use curvature-adaptive anisotropy scaling
+            // Post-CVT edge-flip pass.  When true, FlipEdges() is applied to the
+            // raw RDT output to improve triangle quality by flipping edges where
+            // both resulting triangles would be more equilateral.  This is an
+            // optional enhancement — it does not affect the repair pipeline.
+            bool postFlipEdges;             // Apply edge-flip quality pass after RDT (default: false)
             
             Parameters()
                 : targetEdgeLength(static_cast<Real>(0))
@@ -106,6 +111,7 @@ namespace gte
                 , useAnisotropic(false)     // Anisotropic mode disabled by default
                 , anisotropyScale(static_cast<Real>(0.04)) // Typical value for anisotropy
                 , curvatureAdaptive(false)  // Simple uniform anisotropy by default
+                , postFlipEdges(false)      // Edge-flip pass disabled by default
             {
             }
         };
@@ -288,6 +294,18 @@ namespace gte
                 outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
             }
 
+            // Optional post-CVT edge-flip quality pass.
+            // Flips edges where the two resulting triangles would both be more
+            // equilateral than before.  Does not affect the repair pipeline.
+            if (params.postFlipEdges)
+            {
+                bool flipped = true;
+                while (flipped)
+                {
+                    flipped = FlipEdges(outVertices, outTriangles);
+                }
+            }
+
             return !outTriangles.empty();
         }
 
@@ -385,6 +403,16 @@ namespace gte
             for (auto const& s : seeds3)
             {
                 outVertices.push_back(Vector3<Real>{s[0], s[1], s[2]});
+            }
+
+            // Optional post-CVT edge-flip quality pass (same as isotropic path).
+            if (params.postFlipEdges)
+            {
+                bool flipped = true;
+                while (flipped)
+                {
+                    flipped = FlipEdges(outVertices, outTriangles);
+                }
             }
 
             return !outTriangles.empty();
