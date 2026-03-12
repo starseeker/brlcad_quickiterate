@@ -92,7 +92,12 @@ namespace gte
             // both resulting triangles would be more equilateral.  This is an
             // optional enhancement — it does not affect the repair pipeline.
             bool postFlipEdges;             // Apply edge-flip quality pass after RDT (default: false)
-            
+            // Wall-clock time limit (seconds) for the Lloyd relaxation loop.
+            // When the limit is reached after completing an iteration the loop
+            // stops early and returns the current (partially converged) sites.
+            // 0.0 (default) means no limit.
+            double lloydTimeLimit;          // 0.0 = no limit
+
             Parameters()
                 : targetEdgeLength(static_cast<Real>(0))
                 , targetVertexCount(0)
@@ -112,6 +117,7 @@ namespace gte
                 , anisotropyScale(static_cast<Real>(0.04)) // Typical value for anisotropy
                 , curvatureAdaptive(false)  // Simple uniform anisotropy by default
                 , postFlipEdges(false)      // Edge-flip pass disabled by default
+                , lloydTimeLimit(0.0)       // No time limit by default
             {
             }
         };
@@ -224,7 +230,8 @@ namespace gte
             std::vector<std::array<int32_t, 3>> const& inTriangles,
             std::vector<Vector3<Real>>& outVertices,
             std::vector<std::array<int32_t, 3>>& outTriangles,
-            Parameters const& params = Parameters())
+            Parameters const& params = Parameters(),
+            size_t* outIterations = nullptr)
         {
             size_t targetCount = params.targetVertexCount;
             if (targetCount == 0 || inVertices.empty() || inTriangles.empty())
@@ -237,12 +244,12 @@ namespace gte
             if (params.useAnisotropic)
             {
                 return RemeshCVTAnisotropic(inVertices, inTriangles,
-                                            outVertices, outTriangles, params);
+                                            outVertices, outTriangles, params, outIterations);
             }
             else
             {
                 return RemeshCVTIsotropic(inVertices, inTriangles,
-                                          outVertices, outTriangles, params);
+                                          outVertices, outTriangles, params, outIterations);
             }
         }
 
@@ -253,7 +260,8 @@ namespace gte
             std::vector<std::array<int32_t, 3>> const& inTriangles,
             std::vector<Vector3<Real>>& outVertices,
             std::vector<std::array<int32_t, 3>>& outTriangles,
-            Parameters const& params)
+            Parameters const& params,
+            size_t* outIterations = nullptr)
         {
             // Use Vector<3, Real> (CVTN requires Vector<N, Real> type)
             using Vec3 = Vector<3, Real>;
@@ -276,9 +284,17 @@ namespace gte
             {
                 return false;
             }
+            if (params.lloydTimeLimit > 0.0)
+            {
+                cvt.SetTimeLimit(params.lloydTimeLimit);
+            }
             if (params.lloydIterations > 0 && !cvt.LloydIterations(params.lloydIterations))
             {
                 return false;
+            }
+            if (outIterations != nullptr)
+            {
+                *outIterations = cvt.GetIterationsCompleted();
             }
 
             std::vector<Vec3> seeds3;
@@ -316,7 +332,8 @@ namespace gte
             std::vector<std::array<int32_t, 3>> const& inTriangles,
             std::vector<Vector3<Real>>& outVertices,
             std::vector<std::array<int32_t, 3>>& outTriangles,
-            Parameters const& params)
+            Parameters const& params,
+            size_t* outIterations = nullptr)
         {
             using Vec3 = Vector<3, Real>;
             using Vec6 = Vector<6, Real>;
@@ -387,9 +404,17 @@ namespace gte
             }
             cvt.SetSites(sites6D);
 
+            if (params.lloydTimeLimit > 0.0)
+            {
+                cvt.SetTimeLimit(params.lloydTimeLimit);
+            }
             if (params.lloydIterations > 0 && !cvt.LloydIterations(params.lloydIterations))
             {
                 return false;
+            }
+            if (outIterations != nullptr)
+            {
+                *outIterations = cvt.GetIterationsCompleted();
             }
 
             std::vector<Vec3> seeds3;
