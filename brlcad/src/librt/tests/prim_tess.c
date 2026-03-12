@@ -454,8 +454,426 @@ test_tgc(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Main                                                                  */
+/* ELL (Ellipsoid) tests                                                */
 /* ------------------------------------------------------------------ */
+
+static int
+test_ell(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_ell_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_ELL;
+    ip.idb_ptr = &tip;
+
+    tip.magic = RT_ELL_INTERNAL_MAGIC;
+    VSET(tip.v, 0, 0, 0);
+    VSET(tip.a, 10, 0, 0);
+    VSET(tip.b, 0, 10, 0);
+    VSET(tip.c, 0, 0, 10);
+
+    printf("\n--- ELL tests ---\n");
+
+    /* Sphere (equal axes) with relative tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ell sphere (r=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Sphere with absolute tolerance */
+    init_tols(&ttol, &tol, 0.5, 0.0, 0.0);
+    if (!run_tess("ell sphere (r=10 abs=0.5)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Sphere with normal tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+    if (!run_tess("ell sphere (r=10 norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Sphere with no tolerance (default 10% fallback) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("ell sphere no-tol (r=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Sphere with both abs and rel (abs is tighter) */
+    init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
+    if (!run_tess("ell sphere (r=10 abs=0.2 rel=0.05 abs tighter)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Sphere with both abs and rel (rel is tighter) */
+    init_tols(&ttol, &tol, 2.0, 0.01, 0.0);
+    if (!run_tess("ell sphere (r=10 abs=2.0 rel=0.01 rel tighter)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* General ellipsoid (unequal axes) */
+    VSET(tip.a, 20, 0, 0);
+    VSET(tip.b, 0, 5, 0);
+    VSET(tip.c, 0, 0, 10);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ell general (A=20 B=5 C=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Degenerate: zero-length A axis (expect fail) */
+    VSET(tip.a, 0, 0, 0);
+    VSET(tip.b, 0, 5, 0);
+    VSET(tip.c, 0, 0, 5);
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ell DEGENERATE zero-A (expect fail)", &ip, &ttol, &tol, 1)) failures++;
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* EPA (Elliptical Paraboloid) tests                                    */
+/* ------------------------------------------------------------------ */
+
+static int
+test_epa(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_epa_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_EPA;
+    ip.idb_ptr = &tip;
+
+    tip.epa_magic = RT_EPA_INTERNAL_MAGIC;
+    VSET(tip.epa_V, 0, 0, 0);
+    VSET(tip.epa_H, 0, 0, 10);
+    VSET(tip.epa_Au, 1, 0, 0);
+    tip.epa_r1 = 5.0;
+    tip.epa_r2 = 3.0;
+
+    printf("\n--- EPA tests ---\n");
+
+    /* Normal EPA with relative tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("epa normal (r1=5 r2=3 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal EPA with absolute tolerance */
+    init_tols(&ttol, &tol, 0.3, 0.0, 0.0);
+    if (!run_tess("epa normal (r1=5 r2=3 h=10 abs=0.3)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal EPA with normal tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+    if (!run_tess("epa normal (r1=5 r2=3 h=10 norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* EPA with no tolerance (default 10% fallback) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("epa no-tol (r1=5 r2=3 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* EPA with both abs and rel */
+    init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
+    if (!run_tess("epa (r1=5 r2=3 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Circular paraboloid (r1==r2) */
+    tip.epa_r1 = 5.0;
+    tip.epa_r2 = 5.0;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("epa circular (r1=r2=5 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* EHY (Elliptical Hyperboloid) tests                                   */
+/* ------------------------------------------------------------------ */
+
+static int
+test_ehy(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_ehy_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_EHY;
+    ip.idb_ptr = &tip;
+
+    tip.ehy_magic = RT_EHY_INTERNAL_MAGIC;
+    VSET(tip.ehy_V, 0, 0, 0);
+    VSET(tip.ehy_H, 0, 0, 10);
+    VSET(tip.ehy_Au, 1, 0, 0);
+    tip.ehy_r1 = 5.0;
+    tip.ehy_r2 = 3.0;
+    tip.ehy_c  = 2.0;
+
+    printf("\n--- EHY tests ---\n");
+
+    /* Normal EHY with relative tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("ehy normal (r1=5 r2=3 c=2 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal EHY with absolute tolerance */
+    init_tols(&ttol, &tol, 0.3, 0.0, 0.0);
+    if (!run_tess("ehy normal (r1=5 r2=3 c=2 h=10 abs=0.3)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal EHY with normal tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+    if (!run_tess("ehy normal (r1=5 r2=3 c=2 h=10 norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* EHY with no tolerance (default 10% fallback) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("ehy no-tol (r1=5 r2=3 c=2 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* EHY with both abs and rel */
+    init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
+    if (!run_tess("ehy (r1=5 r2=3 c=2 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* RPC (Right Parabolic Cylinder) tests                                 */
+/* ------------------------------------------------------------------ */
+
+static int
+test_rpc(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_rpc_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_RPC;
+    ip.idb_ptr = &tip;
+
+    tip.rpc_magic = RT_RPC_INTERNAL_MAGIC;
+    VSET(tip.rpc_V, 0, 0, 0);
+    VSET(tip.rpc_H, 0, 0, 10);
+    VSET(tip.rpc_B, 0, 5, 0);
+    tip.rpc_r = 3.0;
+
+    printf("\n--- RPC tests ---\n");
+
+    /* Normal RPC with relative tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("rpc normal (B=5 r=3 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal RPC with absolute tolerance */
+    init_tols(&ttol, &tol, 0.3, 0.0, 0.0);
+    if (!run_tess("rpc normal (B=5 r=3 h=10 abs=0.3)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal RPC with normal tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+    if (!run_tess("rpc normal (B=5 r=3 h=10 norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* RPC with no tolerance (default 10% fallback) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("rpc no-tol (B=5 r=3 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* RPC with both abs and rel */
+    init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
+    if (!run_tess("rpc (B=5 r=3 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* RHC (Right Hyperbolic Cylinder) tests                                */
+/* ------------------------------------------------------------------ */
+
+static int
+test_rhc(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_rhc_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_RHC;
+    ip.idb_ptr = &tip;
+
+    tip.rhc_magic = RT_RHC_INTERNAL_MAGIC;
+    VSET(tip.rhc_V, 0, 0, 0);
+    VSET(tip.rhc_H, 0, 0, 10);
+    VSET(tip.rhc_B, 0, 5, 0);
+    tip.rhc_r = 3.0;
+    tip.rhc_c = 1.0;
+
+    printf("\n--- RHC tests ---\n");
+
+    /* Normal RHC with relative tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("rhc normal (B=5 r=3 c=1 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal RHC with absolute tolerance */
+    init_tols(&ttol, &tol, 0.3, 0.0, 0.0);
+    if (!run_tess("rhc normal (B=5 r=3 c=1 h=10 abs=0.3)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal RHC with normal tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+    if (!run_tess("rhc normal (B=5 r=3 c=1 h=10 norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* RHC with no tolerance (default 10% fallback) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("rhc no-tol (B=5 r=3 c=1 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* RHC with both abs and rel */
+    init_tols(&ttol, &tol, 0.2, 0.05, 0.0);
+    if (!run_tess("rhc (B=5 r=3 c=1 abs=0.2 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* HYP (Hyperboloid of one sheet) tests                                 */
+/* ------------------------------------------------------------------ */
+
+static int
+test_hyp(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_hyp_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_HYP;
+    ip.idb_ptr = &tip;
+
+    tip.hyp_magic = RT_HYP_INTERNAL_MAGIC;
+    VSET(tip.hyp_Vi, 0, 0, 0);
+    VSET(tip.hyp_Hi, 0, 0, 20);
+    VSET(tip.hyp_A,  8, 0, 0);
+    tip.hyp_b   = 6.0;
+    tip.hyp_bnr = 0.5;  /* neck/base ratio in (0,1) */
+
+    printf("\n--- HYP tests ---\n");
+
+    /* Normal HYP with relative tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("hyp normal (A=8 b=6 bnr=0.5 h=20 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal HYP with absolute tolerance */
+    init_tols(&ttol, &tol, 0.4, 0.0, 0.0);
+    if (!run_tess("hyp normal (A=8 b=6 h=20 abs=0.4)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Normal HYP with normal tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+    if (!run_tess("hyp normal (A=8 b=6 h=20 norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* HYP with no tolerance (default 10% fallback) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("hyp no-tol (A=8 b=6 h=20)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* HYP with both abs and rel */
+    init_tols(&ttol, &tol, 0.3, 0.05, 0.0);
+    if (!run_tess("hyp (A=8 b=6 abs=0.3 rel=0.05)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Very thin neck (bnr close to 0) */
+    tip.hyp_bnr = 0.05;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("hyp thin-neck (bnr=0.05 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* PART (Particle) tests                                                 */
+/* ------------------------------------------------------------------ */
+
+static int
+test_part(void)
+{
+    int failures = 0;
+    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+    struct bn_tol tol = BN_TOL_INIT_ZERO;
+    ttol.magic = BG_TESS_TOL_MAGIC;
+    tol.magic = BN_TOL_MAGIC;
+
+    struct rt_db_internal ip;
+    struct rt_part_internal tip;
+
+    ip.idb_magic = RT_DB_INTERNAL_MAGIC;
+    ip.idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    ip.idb_minor_type = ID_PARTICLE;
+    ip.idb_ptr = &tip;
+
+    tip.part_magic = RT_PART_INTERNAL_MAGIC;
+    VSET(tip.part_V, 0, 0, 0);
+    VSET(tip.part_H, 0, 0, 10);
+    tip.part_vrad = 3.0;
+    tip.part_hrad = 3.0;
+    tip.part_type = RT_PARTICLE_TYPE_CYLINDER;
+
+    printf("\n--- PART (particle) tests ---\n");
+
+    /* Cylinder (equal radii) with relative tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("part cylinder (vr=hr=3 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Cylinder with absolute tolerance */
+    init_tols(&ttol, &tol, 0.2, 0.0, 0.0);
+    if (!run_tess("part cylinder (vr=hr=3 h=10 abs=0.2)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Cylinder with normal tolerance */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.1);
+    if (!run_tess("part cylinder (vr=hr=3 h=10 norm=0.1)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Cylinder with no tolerance (default 10% fallback) */
+    init_tols(&ttol, &tol, 0.0, 0.0, 0.0);
+    if (!run_tess("part cylinder no-tol (vr=hr=3 h=10)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Cone (unequal radii) */
+    tip.part_vrad = 5.0;
+    tip.part_hrad = 2.0;
+    tip.part_type = RT_PARTICLE_TYPE_CONE;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("part cone (vr=5 hr=2 h=10 rel=0.01)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Cone with both abs and rel */
+    init_tols(&ttol, &tol, 0.15, 0.02, 0.0);
+    if (!run_tess("part cone (vr=5 hr=2 abs=0.15 rel=0.02)", &ip, &ttol, &tol, 0)) failures++;
+
+    /* Sphere (degenerate particle) - rt_part_tess returns -1 for spheres */
+    tip.part_vrad = 5.0;
+    tip.part_hrad = 5.0;
+    tip.part_type = RT_PARTICLE_TYPE_SPHERE;
+    init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+    if (!run_tess("part sphere (expect fail - handled by ell)", &ip, &ttol, &tol, 1)) failures++;
+
+    return failures;
+}
+
+
+
 
 int
 main(int argc, char *argv[])
@@ -464,7 +882,8 @@ main(int argc, char *argv[])
 
     if (argc > 1 && BU_STR_EQUAL(argv[1], "-h")) {
 	printf("Usage: %s\n", argv[0]);
-	printf("  Runs NMG tessellation tests for TOR, ETO, and TGC primitives.\n");
+	printf("  Runs NMG tessellation tests for TOR, ETO, TGC, ELL,\n");
+	printf("  EPA, EHY, RPC, RHC, HYP, and PART primitives.\n");
 	printf("  Tests normal cases and degenerate/edge cases.\n");
 	printf("  Returns 0 on all-pass, 1 on any failure.\n");
 	return 0;
@@ -475,6 +894,13 @@ main(int argc, char *argv[])
     total_failures += test_tor();
     total_failures += test_eto();
     total_failures += test_tgc();
+    total_failures += test_ell();
+    total_failures += test_epa();
+    total_failures += test_ehy();
+    total_failures += test_rpc();
+    total_failures += test_rhc();
+    total_failures += test_hyp();
+    total_failures += test_part();
 
     printf("\n=== Summary: %d failure(s) ===\n", total_failures);
 
