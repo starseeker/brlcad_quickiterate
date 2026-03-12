@@ -1248,6 +1248,12 @@ ON_Intersect(const ON_Curve *curveA,
     }
 
     // use sub-division and bounding box intersections first
+    /* Safety limit: two nearly-identical or heavily-overlapping curves (e.g.
+     * two copies of the same 761-segment seam polyline) can produce 4^depth
+     * candidate pairs that make the Newton phase take many seconds.  When the
+     * count explodes we know the curves are co-incident / overlapping over a
+     * large region and no discrete intersection points will be found anyway. */
+    static const size_t MAX_CCI_CANDIDATES = 8000;
     for (int h = 0; h <= MAX_CCI_DEPTH; h++) {
 	if (candidates.empty()) {
 	    break;
@@ -1275,6 +1281,13 @@ ON_Intersect(const ON_Curve *curveA,
 		    }
 	}
 	candidates = next_candidates;
+	if (candidates.size() > MAX_CCI_CANDIDATES) {
+	    /* Candidate explosion — the curves overlap over a large region.
+	     * No discrete intersection points exist; return 0 events. */
+	    if (treeA == NULL) { delete rootA; }
+	    if (treeB == NULL) { delete rootB; }
+	    return x.Count() - original_count;
+	}
     }
 
     ON_SimpleArray<ON_X_EVENT> tmp_x;
@@ -1747,6 +1760,13 @@ ON_Intersect(const ON_Curve *curveA,
     }
 
     // use sub-division and bounding box intersections first
+    /* Same candidate-count safety limit as in SSI: if the candidate list
+     * grows too large (e.g. a curve running along a cylinder seam produces
+     * thousands of sub-patch pairs), stop subdividing early and process
+     * what we have.  Without this limit a single isocurve lying on the
+     * boundary of a TGC lateral surface can produce ~65k candidate pairs
+     * and loop for many minutes. */
+    static const size_t MAX_CSI_CANDIDATES = 8000;
     for (int h = 0; h <= MAX_CSI_DEPTH; h++) {
 	if (candidates.empty()) {
 	    break;
@@ -1780,6 +1800,16 @@ ON_Intersect(const ON_Curve *curveA,
 		    }
 	}
 	candidates = next_candidates;
+	if (candidates.size() > MAX_CSI_CANDIDATES) {
+	    /* Candidate count exploded — this curve and surface are very
+	     * nearly coincident/tangent over a large region, or the geometry
+	     * is degenerate.  Running newton_csi on thousands of candidate
+	     * pairs is extremely expensive and unlikely to yield useful
+	     * point-intersection results.  Skip the Newton phase entirely. */
+	    if (treeA == NULL) { delete rootA; }
+	    if (treeB == NULL) { delete rootB; }
+	    return x.Count() - original_count;
+	}
     }
 
     ON_SimpleArray<ON_X_EVENT> tmp_x;
@@ -1997,10 +2027,10 @@ ON_Intersect(const ON_Curve *curveA,
 
 	double u1 = i->second->m_u.Mid(), v1 = i->second->m_v.Mid();
 	double t1 = i->first->m_t.Min();
-	newton_csi(t1, u1, v1, curveA, surfaceB, isect_tol, treeB);
+	newton_csi(t1, u1, v1, curveA, surfaceB, isect_tol, rootB);
 	double u2 = i->second->m_u.Mid(), v2 = i->second->m_v.Mid();
 	double t2 = i->first->m_t.Max();
-	newton_csi(t2, u2, v2, curveA, surfaceB, isect_tol, treeB);
+	newton_csi(t2, u2, v2, curveA, surfaceB, isect_tol, rootB);
 
 	if (std::isnan(u1) || std::isnan(v1) || std::isnan(t1)) {
 	    u1 = u2;
@@ -2953,26 +2983,32 @@ isocurve_surface_overlap_location(
 {
     double test_distance = 2.0 * isect_tol1;
 
-    // TODO: more sample points
-    double midpt = (iso.overlap_t[0] + iso.overlap_t[1]) * 0.5;
+    /* Sample at multiple points along the isocurve overlap interval to get
+     * a more reliable classification.  A single midpoint can land on or very
+     * near the boundary and give an ambiguous result; additional samples at
+     * the quarter-points reduce the chance of a false ON_OVERLAP_BOUNDARY
+     * verdict when the overlap region is not perfectly symmetric about the
+     * midpoint. */
+    static const double SAMPLE_FRACS[] = { 0.5, 0.25, 0.75 };
+    const int NSAMPLES = (int)(sizeof(SAMPLE_FRACS) / sizeof(SAMPLE_FRACS[0]));
     double knot = iso.src.knot.c;
-
-    ON_2dPoint test_pt1, test_pt2;
     bool swap_xy = iso.src.knot.dir == 1;
 
-    test_pt1 = point_xy_or_yx(midpt, knot - test_distance, swap_xy);
-    test_pt2 = point_xy_or_yx(midpt, knot + test_distance, swap_xy);
+    int inside_count = 0, outside_count = 0;
+    for (int si = 0; si < NSAMPLES; ++si) {
+	double t = iso.overlap_t[0] + SAMPLE_FRACS[si] * (iso.overlap_t[1] - iso.overlap_t[0]);
+	ON_2dPoint pt1 = point_xy_or_yx(t, knot - test_distance, swap_xy);
+	ON_2dPoint pt2 = point_xy_or_yx(t, knot + test_distance, swap_xy);
+	bool in1 = is_pt_in_surf_overlap(pt1, surf1, surf2, surf2_tree, isect_tol);
+	bool in2 = is_pt_in_surf_overlap(pt2, surf1, surf2, surf2_tree, isect_tol);
+	if (in1) inside_count++;  else outside_count++;
+	if (in2) inside_count++;  else outside_count++;
+    }
 
-    bool in1, in2;
-    ON_ClassArray<ON_PX_EVENT> px_event1, px_event2;
-
-    in1 = is_pt_in_surf_overlap(test_pt1, surf1, surf2, surf2_tree, isect_tol);
-    in2 = is_pt_in_surf_overlap(test_pt2, surf1, surf2, surf2_tree, isect_tol);
-
-    if (in1 && in2) {
+    if (inside_count > 0 && outside_count == 0) {
 	return INSIDE_OVERLAP;
     }
-    if (!in1 && !in2) {
+    if (outside_count > 0 && inside_count == 0) {
 	return OUTSIDE_OVERLAP;
     }
     return ON_OVERLAP_BOUNDARY;
@@ -3167,22 +3203,29 @@ split_overlaps_at_intersections(
 	    }
 	    bool isvalid = false, isreversed = false;
 	    double test_distance = 2.0 * isect_tolA;
-	    // TODO: more sample points
-	    ON_2dPoint uv1, uv2;
-	    uv1 = uv2 = subcurveA->PointAt(subcurveA->Domain().Mid());
-	    ON_3dVector normal = ON_CrossProduct(subcurveA->TangentAt(subcurveA->Domain().Mid()), ON_3dVector::ZAxis);
-	    normal.Unitize();
-	    ON_3dVector nd = normal * test_distance;
-	    uv1.x -= nd.x;	// left
-	    uv1.y -= nd.y;	// left
-	    uv2.x += nd.x;	// right
-	    uv2.y += nd.y;	// right
-	    bool in1 = is_pt_in_surf_overlap(uv1, surfA, surfB, treeB, isect_tol);
-	    bool in2 = is_pt_in_surf_overlap(uv2, surfA, surfB, treeB, isect_tol);
-	    if (in1 && !in2) {
+	    /* Sample at multiple points along the subcurve (midpoint plus
+	     * quarter-points) to get a more reliable left/right overlap
+	     * classification.  A single midpoint sample can be near the
+	     * overlap boundary and give an ambiguous or incorrect result. */
+	    int vote_left = 0, vote_right = 0;
+	    static const double FRAC_SAMPLES[] = { 0.5, 0.25, 0.75 };
+	    const int NFRAC = (int)(sizeof(FRAC_SAMPLES) / sizeof(FRAC_SAMPLES[0]));
+	    for (int fk = 0; fk < NFRAC && vote_left + vote_right < NFRAC * 2; ++fk) {
+		double ft = FRAC_SAMPLES[fk];
+		double t_samp = subcurveA->Domain().ParameterAt(ft);
+		ON_2dPoint uv_c = subcurveA->PointAt(t_samp);
+		ON_3dVector tan3 = subcurveA->TangentAt(t_samp);
+		ON_3dVector norm3 = ON_CrossProduct(tan3, ON_3dVector::ZAxis);
+		norm3.Unitize();
+		ON_3dVector nd3 = norm3 * test_distance;
+		ON_2dPoint uv_left(uv_c.x - nd3.x, uv_c.y - nd3.y);
+		ON_2dPoint uv_right(uv_c.x + nd3.x, uv_c.y + nd3.y);
+		if (is_pt_in_surf_overlap(uv_left, surfA, surfB, treeB, isect_tol))  vote_left++;
+		if (is_pt_in_surf_overlap(uv_right, surfA, surfB, treeB, isect_tol)) vote_right++;
+	    }
+	    if (vote_left > vote_right) {
 		isvalid = true;
-	    } else if (!in1 && in2) {
-		// the right side is overlapped
+	    } else if (vote_right > vote_left) {
 		isvalid = true;
 		isreversed = true;
 	    }
@@ -3576,8 +3619,10 @@ find_overlap_boundary_curves(
 
 	    ON_SimpleArray<ON_X_EVENT> events;
 	    ON_CurveArray overlap2d;
+	    bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu knot=%.6f\n", i, j, surf1_knot.c);
 	    ON_Intersect(surf1_isocurve, surf2, events, isect_tol,
 			 overlap_tol, 0, 0, 0, &overlap2d);
+	    bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu done events=%d\n", i, j, events.Count());
 
 	    //dplot->IsoCSX(events, surf1_isocurve, is_surfA_iso);
 	    //dplot->WriteLog();
@@ -3880,6 +3925,14 @@ ON_Intersect(const ON_Surface *surfA,
     }
 
     // create overlap events
+    // IMPORTANT: Reserve enough capacity in x before the loop so that
+    // x.Append() never reallocates the array.  Overlapevent stores a raw
+    // pointer (m_event) directly into x[i]; any reallocation would make all
+    // previously stored pointers dangling, causing a crash when the loop
+    // accesses them (e.g. overlap_events[j].m_event->m_curveA at line ~4031).
+    // At most one event is appended per valid overlap segment, so reserving
+    // x.Count() + overlaps.Count() extra slots is sufficient.
+    x.Reserve(x.Count() + overlaps.Count());
     ON_SimpleArray<Overlapevent> overlap_events;
     for (int i = 0; i < overlaps.Count(); i++) {
 	if (!is_valid_overlap(overlaps[i])) {
@@ -4006,7 +4059,11 @@ ON_Intersect(const ON_Surface *surfA,
 
 	// need to reverse inner loops to indicate overlap is outside
 	// the closed region
-	for (int j = original_count; j < x.Count(); j++) {
+	// Iterate over overlap_events indices directly (not x indices) to
+	// avoid an out-of-bounds crash when csx_events were prepended to x
+	// before the overlap events.  The loop only needs to check other
+	// overlap event curves, not every event in x.
+	for (int j = 0; j < overlap_events.Count(); j++) {
 	    // any curves that intersect the line crossing through the
 	    // loop may be inside the loop
 	    // FIXME: What about curves inside the loop that the line
@@ -4079,6 +4136,14 @@ ON_Intersect(const ON_Surface *surfA,
     NodePairs candidates, next_candidates;
     candidates.push_back(std::make_pair(rootA, rootB));
 
+    /* Safety limit: if the candidate count explodes (e.g. a very large surface
+     * intersecting another large surface produces thousands of leaf pairs), stop
+     * subdividing at the current depth.  This prevents multi-minute hangs on
+     * models like terra.g where a 153 km ELL intersects a 25 km DSP surface.
+     * The candidates remaining at the capped depth are still valid; Newton
+     * iteration will sample them and find the intersection curve points. */
+    static const size_t MAX_SSI_CANDIDATES = 8000;
+
     for (int h = 0; h <= MAX_SSI_DEPTH && !candidates.empty(); h++) {
 	next_candidates.clear();
 	for (NodePairs::iterator i = candidates.begin(); i != candidates.end(); i++) {
@@ -4105,6 +4170,14 @@ ON_Intersect(const ON_Surface *surfA,
  	    }
 	}
 	candidates = next_candidates;
+	if (candidates.size() > MAX_SSI_CANDIDATES) {
+	    if (DEBUG_BREP_INTERSECT) {
+		bu_log("ON_Intersect: candidate count %zu exceeds limit %zu at depth %d, "
+		       "stopping subdivision early\n",
+		       candidates.size(), MAX_SSI_CANDIDATES, h);
+	    }
+	    break;
+	}
     }
     if (DEBUG_BREP_INTERSECT) {
 	bu_log("We get %zu intersection bounding boxes.\n", candidates.size());
@@ -4193,9 +4266,6 @@ ON_Intersect(const ON_Surface *surfA,
 	    }
 	}
     }
-    if (DEBUG_BREP_INTERSECT) {
-	bu_log("%d points on the intersection curves.\n", curvept.Count());
-    }
 
     if (!curvept.Count()) {
 	if (treeA == NULL) {
@@ -4229,6 +4299,165 @@ ON_Intersect(const ON_Surface *surfA,
 	bu_log("max_dist_vA: %f\n", max_dist_vA);
 	bu_log("max_dist_uB: %f\n", max_dist_uB);
 	bu_log("max_dist_vB: %f\n", max_dist_vB);
+    }
+
+    /* Analytic curve fast path — collinearity detection.
+     *
+     * When two BREP faces that are both planar (or nearly planar) intersect,
+     * the intersection curve is a straight line.  This is the dominant case
+     * for prismatic CSG models like m35.g and cube.g.  In that case every
+     * Newton-iteration sample point lies on the same line in 3D, so there is
+     * no need for the O(N²) pairwise distance computation that follows.
+     *
+     * Strategy — all O(N) except the final sort:
+     *   1. Find P_far: the point with the maximum distance from curvept[0].
+     *      This gives a reliable line direction even when the first few points
+     *      are nearly coincident.
+     *   2. Define line direction D = (P_far - P0) / |P_far - P0|.
+     *   3. Check every point: if its perpendicular distance to the line
+     *      exceeds COLLINEAR_TOL, the set is NOT collinear → fall through to
+     *      the existing O(N²) code.
+     *   4. Project all points onto D and sort by projection parameter
+     *      (O(N log N)).  Use the same ordering for curve_uvA and curve_uvB.
+     *   5. Walk the sorted list and split into separate polylines wherever
+     *      consecutive points are farther apart than max_dist (gap), so we
+     *      don't bridge holes in the intersection sampling.
+     *   6. Emit one SSX event per resulting polyline, bypassing:
+     *        – the O(N²) ptpairs loop,
+     *        – the polyline-merging machinery,
+     *        – the O(M²) seaming loop.
+     *
+     * Tolerance: we allow up to 10× isect_tol perpendicular deviation so
+     * that small numerical noise from Newton iteration doesn't force the
+     * slow path.  The subsequent curve_fitting() call will tighten the
+     * UV representation to an exact line when it calls IsLinear().
+     */
+    const double COLLINEAR_TOL = isect_tol * 10.0;
+    const int npts = curvept.Count();
+    bool use_collinear_path = false;
+
+    if (npts >= 2) {
+	/* Step 1: find P_far = point with greatest squared distance from P0. */
+	const ON_3dPoint &P0 = curvept[0];
+	double max_dist_sq = 0.0;
+	int far_idx = 1;
+	for (int i = 1; i < npts; i++) {
+	    double dsq = (curvept[i] - P0).LengthSquared();
+	    if (dsq > max_dist_sq) {
+		max_dist_sq = dsq;
+		far_idx = i;
+	    }
+	}
+
+	if (max_dist_sq > COLLINEAR_TOL * COLLINEAR_TOL) {
+	    /* Step 2: unit line direction. */
+	    ON_3dVector D = curvept[far_idx] - P0;
+	    D.Unitize();
+
+	    /* Step 3: check collinearity of all points. */
+	    use_collinear_path = true;
+	    for (int i = 1; i < npts && use_collinear_path; i++) {
+		ON_3dVector v = curvept[i] - P0;
+		/* Perpendicular component = v - (v·D)D */
+		ON_3dVector perp = v - ON_DotProduct(v, D) * D;
+		if (perp.Length() > COLLINEAR_TOL)
+		    use_collinear_path = false;
+	    }
+
+	    if (use_collinear_path) {
+		/* Step 4: project all points onto D, sort by parameter. */
+		std::vector<std::pair<double, int> > proj(npts);
+		for (int i = 0; i < npts; i++) {
+		    ON_3dVector v = curvept[i] - P0;
+		    proj[i] = std::make_pair(ON_DotProduct(v, D), i);
+		}
+		std::sort(proj.begin(), proj.end());
+
+		if (DEBUG_BREP_INTERSECT) {
+		    bu_log("ON_Intersect: collinear fast path (%d pts) — skipping O(N^2) step\n",
+			   npts);
+		}
+
+		/* Step 5: walk sorted list, splitting at gaps > max_dist. */
+		std::vector<ON_Curve *> intersect3d, intersect_uvA, intersect_uvB;
+
+		int seg_start = 0;
+		while (seg_start < npts) {
+		    /* Find the end of the current contiguous segment. */
+		    int seg_end = seg_start;
+		    while (seg_end + 1 < npts) {
+			int ia = proj[seg_end].second;
+			int ib = proj[seg_end + 1].second;
+			if (curvept[ia].DistanceTo(curvept[ib]) > max_dist)
+			    break;
+			++seg_end;
+		    }
+
+		    /* Build polyline arrays for this segment. */
+		    ON_3dPointArray ptarray3d, ptarrayA, ptarrayB;
+		    for (int k = seg_start; k <= seg_end; k++) {
+			int idx = proj[k].second;
+			ptarray3d.Append(curvept[idx]);
+			const ON_2dPoint &uvA = curve_uvA[idx];
+			ptarrayA.Append(ON_3dPoint(uvA.x, uvA.y, 0.0));
+			const ON_2dPoint &uvB = curve_uvB[idx];
+			ptarrayB.Append(ON_3dPoint(uvB.x, uvB.y, 0.0));
+		    }
+
+		    if (ptarray3d.Count() >= 2) {
+			/* 3D curve: keep as polyline (matches original code).
+			 * UV curves: apply curve_fitting() to collapse to line. */
+			ON_PolylineCurve *c3d = new ON_PolylineCurve(ptarray3d);
+			ON_PolylineCurve *cA  = new ON_PolylineCurve(ptarrayA);
+			cA->ChangeDimension(2);
+			ON_PolylineCurve *cB  = new ON_PolylineCurve(ptarrayB);
+			cB->ChangeDimension(2);
+			intersect3d.push_back(c3d);
+			intersect_uvA.push_back(curve_fitting(cA, fitting_tolA));
+			intersect_uvB.push_back(curve_fitting(cB, fitting_tolB));
+		    }
+		    /* Single-point segments are skipped (handled as
+		     * single_pts in the normal path — rare on this fast path
+		     * since all points are collinear and nearby gaps would
+		     * normally be caught by the collinearity check). */
+
+		    seg_start = seg_end + 1;
+		}
+
+		if (treeA == NULL) delete rootA;
+		if (treeB == NULL) delete rootB;
+
+		/* Step 6: emit SSX events. */
+		if (intersect3d.size() == intersect_uvA.size() &&
+		    intersect3d.size() == intersect_uvB.size())
+		{
+		    for (size_t i = 0; i < intersect3d.size(); i++) {
+			ON_SSX_EVENT event;
+			int ret = set_ssx_event_from_curves(event, intersect3d[i],
+				intersect_uvA[i], intersect_uvB[i], surfA, surfB);
+			if (ret != 0) {
+			    bu_log("warning: reverse failed on collinear-path curve %zu\n", i);
+			}
+			x.Append(event);
+			/* Null the local copy so ~ON_SSX_EVENT() doesn't free the
+			 * curves; ownership has been transferred to the event in x. */
+			event.m_curve3d = event.m_curveA = event.m_curveB = NULL;
+		    }
+		    /* Curves are now owned by the events appended to x — do NOT
+		     * delete them here or we create dangling pointers. */
+		} else {
+		    /* Size mismatch (shouldn't happen): free to avoid leaks. */
+		    for (size_t i = 0; i < intersect3d.size(); i++) {
+			delete intersect3d[i];
+			delete intersect_uvA[i];
+			delete intersect_uvB[i];
+		    }
+		}
+		return x.Count() - original_count;
+	    }
+	}
+	/* else: all points are nearly coincident — fall through to
+	 * the normal path which will emit them as single-point events. */
     }
 
     // identify the neighbors of each point

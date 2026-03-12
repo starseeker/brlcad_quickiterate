@@ -28,6 +28,8 @@
 #include "common.h"
 
 #include <assert.h>
+#include <array>
+#include <cmath>
 #include <vector>
 #include <stack>
 #include <queue>
@@ -277,6 +279,287 @@ public:
 };
 
 
+/* Threshold for treating a 2-D cross-product determinant as zero (parallel /
+ * collinear).  Chosen as a small fraction of floating-point machine epsilon
+ * so that nearly-parallel segments are treated as non-crossing. */
+static const double POLY_CROSS_TOL = 1e-14;
+
+
+/* Inlined 2D point-in-polygon (ray-casting).  Equivalent to bg_pnt_in_polygon
+ * from libbg; duplicated here to avoid adding a new library dependency to
+ * libbrep. */
+static inline int
+_pnt_in_polygon(size_t nvert, const double (*pnts)[2], double tx, double ty)
+{
+    int c = 0;
+    for (size_t i = 0, j = nvert - 1; i < nvert; j = i++) {
+	if (((pnts[i][1] > ty) != (pnts[j][1] > ty)) &&
+	    (tx < (pnts[j][0] - pnts[i][0]) * (ty - pnts[i][1]) /
+	              (pnts[j][1] - pnts[i][1]) + pnts[i][0]))
+	    c = !c;
+    }
+    return c;
+}
+
+
+/* Returns true if segment AB properly crosses segment CD (not just touching
+ * at endpoints).  Used for the inner-polygon self-intersection check. */
+static inline bool
+_segments_cross_2d(double ax, double ay, double bx, double by,
+		   double cx, double cy, double dx, double dy)
+{
+    double d1x = bx - ax, d1y = by - ay;
+    double d2x = dx - cx, d2y = dy - cy;
+    double denom = d1x * d2y - d1y * d2x;
+    if (std::fabs(denom) < POLY_CROSS_TOL)
+	return false;  /* parallel / collinear */
+    double t = ((cx - ax) * d2y - (cy - ay) * d2x) / denom;
+    double u = ((cx - ax) * d1y - (cy - ay) * d1x) / denom;
+    return (t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0);
+}
+
+
+/* Check whether a closed 2-D polygon self-intersects.
+ *
+ * The chord / inner polygon can be self-intersecting when the trimmed face
+ * has a complex winding (e.g. many SSI curves that spiral around the UV
+ * domain).  A self-intersecting polygon gives wrong results from the
+ * ray-casting test and must NOT be used as the inner pre-filter.
+ *
+ * Strategy:
+ *   • For small polygons (≤ MAX_SI_CHECK edges): do the full O(N²/2)
+ *     pairwise edge-crossing test.  Adjacent edges always share one endpoint
+ *     and are skipped.
+ *   • For large polygons (> MAX_SI_CHECK edges): we cannot afford O(N²) so
+ *     we conservatively report "possibly self-intersecting" and disable the
+ *     inner fast-path.  The outer polygon (which is larger and constructed
+ *     differently) is still used.
+ *
+ * Returns true if the polygon is (or may be) self-intersecting. */
+static bool
+is_polygon_self_intersecting(const std::vector<std::array<double, 2> > &poly)
+{
+    static const size_t MAX_SI_CHECK = 128;
+    const size_t n = poly.size();
+    if (n < 4)
+	return false;  /* triangle cannot self-intersect */
+    if (n > MAX_SI_CHECK)
+	return true;   /* too large to check: assume unsafe */
+
+    for (size_t i = 0; i < n; i++) {
+	double ax = poly[i][0],        ay = poly[i][1];
+	double bx = poly[(i+1)%n][0],  by = poly[(i+1)%n][1];
+
+	/* j starts at i+2 to skip adjacent edges.  When i==0 the last
+	 * edge (j == n-1) is also adjacent and must be excluded. */
+	for (size_t j = i + 2; j < n; j++) {
+	    if (i == 0 && j == n - 1)
+		continue;  /* wraps around: edges 0 and n-1 share vertex 0 */
+	    double cx = poly[j][0],       cy = poly[j][1];
+	    double dx = poly[(j+1)%n][0], dy = poly[(j+1)%n][1];
+	    if (_segments_cross_2d(ax, ay, bx, by, cx, cy, dx, dy))
+		return true;
+	}
+    }
+    return false;
+}
+
+
+/* Build inner (chord) and outer (tangent-corrected sample) polygon
+ * approximations of a 2D loop.
+ *
+ * INNER POLYGON (conservative subset of the enclosed region):
+ *   Connect each curve's start-point to the next with a straight chord.
+ *   This is always inside the enclosed region because:
+ *   - For arcs that bulge outward (away from interior): the chord is closer
+ *     to the interior centre than the arc → chord is inside.
+ *   - For arcs that dip inward (notch): the chord cuts across the notch but
+ *     all points on the chord are still inside the full interior.
+ *
+ *   HOWEVER, the chord polygon can be self-intersecting for complex trimmed
+ *   faces.  The caller must use is_polygon_self_intersecting() and discard
+ *   the inner polygon if it is self-intersecting.
+ *
+ * OUTER POLYGON (conservative superset of the enclosed region):
+ *   For each curve segment we need the polygon to be ≥ the true boundary:
+ *   - We first check which side of the chord the arc midpoint lies on.
+ *   - If the midpoint bulges OUTWARD (away from the loop interior): the
+ *     chord alone would leave the bulge OUTSIDE the polygon → we add the
+ *     tangent-intersection corner point (or the midpoint if tangents are
+ *     nearly parallel) so the polygon edge arcs outward.
+ *   - If the midpoint is INWARD (notch): sampling the arc midpoint M is
+ *     sufficient to capture the notch in the outer polygon.
+ *   - For straight / nearly-straight segments: chord is fine for both.
+ *
+ * The loop orientation (CCW vs CW) is inferred from the signed area so that
+ * "outward" is correctly identified for both winding conventions.
+ */
+static void
+build_loop_polygons(
+    const ON_SimpleArray<ON_Curve *> &loop,
+    std::vector<std::array<double, 2> > &inner_poly,
+    std::vector<std::array<double, 2> > &outer_poly)
+{
+    const int N = loop.Count();
+    if (N < 1)
+	return;
+
+    /* Compute signed area of the chord polygon to determine orientation.
+     * Positive → CCW (interior on the left); negative → CW. */
+    double signed_area = 0.0;
+    for (int i = 0; i < N; i++) {
+	if (!loop[i]) continue;
+	ON_3dPoint a = loop[i]->PointAtStart();
+	ON_3dPoint b = loop[i]->PointAtEnd();
+	signed_area += a.x * b.y - b.x * a.y;
+    }
+    const bool ccw = (signed_area >= 0.0);
+
+    /* How much sagitta (perpendicular deviation from chord) we tolerate
+     * before adding the tangent-intersection corner.  Below this threshold
+     * the chord is close enough to the true arc for the outer polygon. */
+    const double SAG_TOL = INTERSECTION_TOL * 2.0;
+
+    /* A curve whose chord length is below this threshold is considered
+     * closed (start ≈ end).  We use 2×SAG_TOL so that the closed-curve
+     * path also catches near-degenerate open curves whose endpoints are
+     * so close together that the chord polygon would be a near-point. */
+    const double CLOSED_CHORD_TOL = SAG_TOL * 2.0;
+
+    /* Number of evenly-spaced samples used to represent a closed curve
+     * (one whose start and end points coincide).  8 is sufficient for any
+     * convex closed shape and gives a reasonable fit for mild concavities. */
+    const int CLOSED_CURVE_NSAMP = 8;
+
+    inner_poly.clear();
+    outer_poly.clear();
+    inner_poly.reserve(N * 4);
+    outer_poly.reserve(N * 4);
+
+    for (int i = 0; i < N; i++) {
+	const ON_Curve *crv = loop[i];
+	if (!crv) continue;
+
+	ON_Interval dom = crv->Domain();
+	ON_3dPoint a3 = crv->PointAtStart();
+	ON_3dPoint b3 = crv->PointAtEnd();
+
+	double ax = a3.x, ay = a3.y;
+	double bx = b3.x, by = b3.y;
+
+	/* Detect a closed curve: start and end are coincident.
+	 * A single closed curve (e.g. a planar ARB8 face boundary
+	 * parameterized as one closed spline, or a face that hasn't
+	 * been trimmed at all) needs to be sampled at multiple interior
+	 * points to produce a valid polygon — using only start/mid/end
+	 * yields a 1–2-point degenerate polygon on which _pnt_in_polygon
+	 * always returns false, causing every subsequent call to
+	 * is_point_inside_trimmed_face to fail. */
+	const double chord_sq = (bx-ax)*(bx-ax) + (by-ay)*(by-ay);
+	const bool is_closed_crv = (chord_sq < CLOSED_CHORD_TOL * CLOSED_CHORD_TOL);
+
+	if (is_closed_crv) {
+	    /* Sample the curve at CLOSED_CURVE_NSAMP evenly-spaced interior
+	     * parameters.  Use the same sample set for both inner and outer
+	     * polygons. */
+	    for (int k = 0; k < CLOSED_CURVE_NSAMP; k++) {
+		double t = dom.ParameterAt((double)k / CLOSED_CURVE_NSAMP);
+		ON_3dPoint p = crv->PointAt(t);
+		std::array<double, 2> pv = {{p.x, p.y}};
+		inner_poly.push_back(pv);
+		outer_poly.push_back(pv);
+	    }
+	    continue;
+	}
+
+	ON_3dPoint m3 = crv->PointAt(dom.ParameterAt(0.5));
+	double mx = m3.x, my = m3.y;
+
+	/* Inner polygon: always just the start-point (chord polygon). */
+	std::array<double, 2> av = {{ax, ay}};
+	inner_poly.push_back(av);
+
+	/* Cross product (B-A) × (M-A) determines which side of the chord
+	 * the arc midpoint M lies on.
+	 *   > 0  → M is LEFT  of A→B
+	 *   < 0  → M is RIGHT of A→B
+	 * For a CCW loop, interior is to the LEFT of the boundary direction.
+	 * "Outward bulge" = M is to the RIGHT (away from interior) → cross < 0.
+	 * "Inward notch"  = M is to the LEFT  (toward interior)   → cross > 0. */
+	double cross = (bx - ax) * (my - ay) - (by - ay) * (mx - ax);
+
+	/* Perpendicular sagitta (signed distance from M to chord A→B). */
+	double chord_len = std::sqrt(chord_sq);
+	double sagitta = (chord_len > 0.0) ? std::fabs(cross) / chord_len : 0.0;
+
+	/* Determine if this is an "outward bulge" relative to the loop
+	 * interior: for CCW loops, outward means M is to the RIGHT (cross<0);
+	 * for CW loops, outward means M is to the LEFT (cross>0). */
+	bool outward = ccw ? (cross < 0.0) : (cross > 0.0);
+
+	/* Outer polygon: start-point always included. */
+	outer_poly.push_back(av);
+
+	if (sagitta <= SAG_TOL) {
+	    /* Segment is nearly straight — chord is fine for both polygons.
+	     * Add the midpoint to the outer polygon for a slightly tighter fit
+	     * on mildly-curved segments. */
+	    std::array<double, 2> mv = {{mx, my}};
+	    outer_poly.push_back(mv);
+	} else if (outward) {
+	    /* Outward-bulging arc: the chord under-approximates the boundary.
+	     * Add the tangent-intersection corner so the outer polygon edge
+	     * lies OUTSIDE the arc.
+	     *
+	     * The tangent lines at A and B are:
+	     *   P(s) = A + s * tA
+	     *   Q(t) = B + t * tB
+	     * We solve for their intersection T = A + s * tA.
+	     *
+	     *   s * tA.x - t * tB.x = bx - ax
+	     *   s * tA.y - t * tB.y = by - ay
+	     *
+	     * det = tA.x * (-tB.y) - (-tB.x) * tA.y = tB.x*tA.y - tA.x*tB.y
+	     */
+	    ON_3dVector ta3 = crv->TangentAt(dom.ParameterAt(0.0));
+	    ON_3dVector tb3 = crv->TangentAt(dom.ParameterAt(1.0));
+	    double tax = ta3.x, tay = ta3.y;
+	    double tbx = tb3.x, tby = tb3.y;
+
+	    double det = tbx * tay - tax * tby;
+	    bool added_corner = false;
+	    if (std::fabs(det) > POLY_CROSS_TOL) {
+		double dx = bx - ax, dy = by - ay;
+		double s = (dx * (-tby) - dy * (-tbx)) / det;
+		double tx_pt = ax + s * tax;
+		double ty_pt = ay + s * tay;
+
+		/* Accept T if it is "outside" M (farther from the interior
+		 * than M) and not absurdly far away (cap at 10× chord). */
+		double max_reach = chord_len * 10.0 + sagitta * 4.0;
+		double dist_T_from_chord =
+		    std::fabs((bx-ax)*(ty_pt-ay) - (by-ay)*(tx_pt-ax));
+		if (dist_T_from_chord > 0.0 && dist_T_from_chord < max_reach) {
+		    std::array<double, 2> tv = {{tx_pt, ty_pt}};
+		    outer_poly.push_back(tv);
+		    added_corner = true;
+		}
+	    }
+	    if (!added_corner) {
+		/* Parallel tangents or T too far: fall back to midpoint. */
+		std::array<double, 2> mv = {{mx, my}};
+		outer_poly.push_back(mv);
+	    }
+	} else {
+	    /* Inward notch: midpoint captures the deepest point of the notch
+	     * so the outer polygon includes the notch area. */
+	    std::array<double, 2> mv = {{mx, my}};
+	    outer_poly.push_back(mv);
+	}
+    }
+}
+
+
 struct TrimmedFace {
     // curve segments in the face's outer loop
     ON_SimpleArray<ON_Curve *> m_outerloop;
@@ -290,12 +573,56 @@ struct TrimmedFace {
     } m_belong_to_final;
     bool m_rev;
 
+    /* Lazily-built conservative polygon approximations of m_outerloop.
+     * Used by is_point_inside_trimmed_face() as a fast pre-filter before
+     * invoking the expensive NURBS ray-cast (point_loop_location).
+     *
+     * m_inner_poly: chord polygon — always a subset of the enclosed region
+     *   PROVIDED it is not self-intersecting.  Self-intersection can occur
+     *   for complex trimmed faces (many wound SSI curves).  The flag
+     *   m_inner_poly_valid records whether the check passed.
+     *   If the test point is inside this polygon it is definitely inside
+     *   the trimmed face without needing the full ray-cast.
+     *
+     * m_outer_poly: tangent-corrected sample polygon — always a superset of
+     *   the enclosed region (contains the full boundary including arc bulges
+     *   and inward notches).  If the test point is outside this polygon it
+     *   is definitely outside the trimmed face.
+     *
+     * Points in the thin annular zone between the two polygons fall through
+     * to the full NURBS test.  In practice this zone is very narrow (sub-
+     * tolerance for nearly-linear SSI trim curves), so most tests are
+     * resolved by the O(M) polygon check rather than the O(N) NURBS cast.
+     */
+    mutable std::vector<std::array<double, 2> > m_inner_poly;
+    mutable std::vector<std::array<double, 2> > m_outer_poly;
+    mutable bool m_poly_valid;       /* true once build_loop_polygons ran */
+    mutable bool m_inner_poly_valid; /* true if inner polygon is non-self-intersecting */
+
     // Default constructor
     TrimmedFace()
     {
 	m_face = NULL;
 	m_belong_to_final = UNKNOWN;
 	m_rev = false;
+	m_poly_valid = false;
+	m_inner_poly_valid = false;
+    }
+
+    /* Build (or rebuild) the cached polygon approximations from m_outerloop.
+     * Call this before using m_inner_poly / m_outer_poly. */
+    void ensure_polygons() const
+    {
+	if (m_poly_valid)
+	    return;
+	build_loop_polygons(m_outerloop, m_inner_poly, m_outer_poly);
+	/* Only use the inner (chord) polygon if it is not self-intersecting.
+	 * A self-intersecting polygon gives wrong ray-casting results.
+	 * The outer polygon is still used regardless — it is constructed with
+	 * extra tangent-corner / midpoint samples that make self-intersection
+	 * much less likely. */
+	m_inner_poly_valid = !is_polygon_self_intersecting(m_inner_poly);
+	m_poly_valid = true;
     }
 
     // Destructor
@@ -337,6 +664,7 @@ struct TrimmedFace {
 		}
 	    }
 	}
+	/* Don't copy cached polygon state — it will be rebuilt on demand. */
 	return out;
     }
 };
@@ -860,8 +1188,88 @@ points_3d_to_params_3d(
     ON_Intersect(pts_3d.mid, *curve3d, events, INTERSECTION_TOL);
     ON_Intersect(pts_3d.max, *curve3d, events, INTERSECTION_TOL);
 
+    /* When ON_Intersect misses one or more of the three sample points (e.g.
+     * because the SSI surface-projection puts a sample slightly outside
+     * INTERSECTION_TOL of the 3D curve), retry each missing point with a
+     * progressively wider tolerance.  A slightly-off projection is common for
+     * flat-faced primitives (ARB8) where floating-point rounding can move a
+     * sample a fraction of a ULP away from the intersection line. */
     if (events.Count() != 3) {
-	throw AlgorithmError("points_3d_to_params_3d: conversion failed\n");
+	static const double SCALES[] = { 10.0, 100.0, 1000.0 };
+	const ON_3dPoint pts[3] = { pts_3d.min, pts_3d.mid, pts_3d.max };
+	double found_t[3];
+	bool have_t[3] = { false, false, false };
+	/* Record the parameters already found */
+	for (int k = 0; k < events.Count() && k < 3; ++k) {
+	    found_t[k] = events[k].m_b[0];
+	    have_t[k] = true;
+	}
+
+	for (int i = 0; i < 3; ++i) {
+	    if (have_t[i]) continue;
+	    for (size_t si = 0; si < sizeof(SCALES)/sizeof(SCALES[0]); ++si) {
+		ON_ClassArray<ON_PX_EVENT> ev2;
+		ON_Intersect(pts[i], *curve3d, ev2, INTERSECTION_TOL * SCALES[si]);
+		if (ev2.Count() > 0) {
+		    found_t[i] = ev2[0].m_b[0];
+		    have_t[i] = true;
+		    break;
+		}
+	    }
+	    /* Last resort: closest-point projection onto the curve.  This is
+	     * unconditional (no tolerance limit) so it always succeeds when
+	     * the sample point is merely near the curve rather than exactly
+	     * on it (e.g. due to surface approximation error).  Used when
+	     * ON_Intersect fails at all tolerance scales.
+	     * Only accepted if the closest point is within a generous
+	     * tolerance — if it is farther the 3-D point is simply not on
+	     * the curve at all and we should leave have_t[i] false so the
+	     * caller can handle the missing endpoint gracefully.
+	     * Simple ternary-search on the curve domain. */
+	    if (!have_t[i]) {
+		ON_Interval dom = curve3d->Domain();
+		/* coarse sample to bracket */
+		double best_t = dom.Min();
+		double best_d = curve3d->PointAt(dom.Min()).DistanceTo(pts[i]);
+		const int NSAMP = 64;
+		for (int k = 1; k <= NSAMP; ++k) {
+		    double tt = dom.ParameterAt(k / (double)NSAMP);
+		    double dd = curve3d->PointAt(tt).DistanceTo(pts[i]);
+		    if (dd < best_d) { best_d = dd; best_t = tt; }
+		}
+		/* refine with ternary search over ±1 interval step */
+		double lo = best_t - dom.Length() / NSAMP;
+		double hi = best_t + dom.Length() / NSAMP;
+		if (lo < dom.Min()) lo = dom.Min();
+		if (hi > dom.Max()) hi = dom.Max();
+		for (int iter = 0; iter < 50; ++iter) {
+		    double m1 = lo + (hi - lo) / 3.0;
+		    double m2 = hi - (hi - lo) / 3.0;
+		    if (curve3d->PointAt(m1).DistanceTo(pts[i]) <
+			curve3d->PointAt(m2).DistanceTo(pts[i]))
+			hi = m2;
+		    else
+			lo = m1;
+		}
+		double t_close = (lo + hi) * 0.5;
+		double d_close = curve3d->PointAt(t_close).DistanceTo(pts[i]);
+		/* Accept if the residual is within 1000× the base tolerance.
+		 * Larger residuals mean the sample point is not on the curve. */
+		if (d_close <= INTERSECTION_TOL * 1000.0) {
+		    found_t[i] = t_close;
+		    have_t[i] = true;
+		}
+	    }
+	}
+
+	if (!have_t[0] || !have_t[1] || !have_t[2])
+	    throw AlgorithmError("points_3d_to_params_3d: conversion failed\n");
+
+	IntervalParams params_3d;
+	params_3d.min = found_t[0];
+	params_3d.mid = found_t[1];
+	params_3d.max = found_t[2];
+	return params_3d;
     }
 
     IntervalParams params_3d;
@@ -1556,10 +1964,23 @@ CurvePoint::PointLoopLocation(
     ON_2dPoint point,
     const ON_SimpleArray<ON_Curve *> &loop)
 {
-    if (is_point_on_loop(point, loop)) {
-	return CurvePoint::BOUNDARY;
+    /* is_point_on_loop() and point_loop_location() both call is_loop_valid()
+     * which throws InvalidGeometry when the loop is discontinuous or otherwise
+     * malformed.  Catch those exceptions so that a single bad face-split does
+     * not abort the entire boolean operation; treat the point as OUTSIDE so
+     * the affected curve segment is omitted rather than causing a crash. */
+    try {
+	if (is_point_on_loop(point, loop)) {
+	    return CurvePoint::BOUNDARY;
+	}
+    } catch (const InvalidGeometry &) {
+	return CurvePoint::OUTSIDE;
     }
-    if (point_loop_location(point, loop) == OUTSIDE_OR_ON_LOOP) {
+    try {
+	if (point_loop_location(point, loop) == OUTSIDE_OR_ON_LOOP) {
+	    return CurvePoint::OUTSIDE;
+	}
+    } catch (const InvalidGeometry &) {
 	return CurvePoint::OUTSIDE;
     }
     return CurvePoint::INSIDE;
@@ -1693,6 +2114,13 @@ public:
 static bool
 close_small_gap(ON_SimpleArray<ON_Curve *> &loop, int curr, int next)
 {
+    /* Guard against NULL entries that can appear when segments are compacted
+     * out of outerloop_segs (e.g. at boolean.cpp line 3042 the last slot is
+     * set to NULL before Remove()).  Dereferencing a NULL pointer here was
+     * the root cause of a SIGSEGV when converting complex m35 bed regions. */
+    if (!loop[curr] || !loop[next]) {
+	return false;
+    }
     ON_3dPoint end_curr = loop[curr]->PointAtEnd();
     ON_3dPoint start_next = loop[next]->PointAtStart();
 
@@ -1847,16 +2275,14 @@ set_append_segment(
     std::multiset<CurveSegment>::iterator i;
     for (i = out.begin(); i != out.end(); ++i) {
 	if ((i->from == seg.to) && (i->to == seg.from)) {
-	    // if this segment is a reversed version of an existing
-	    // segment, it cancels the existing segment out
-	    ON_Curve *prev_curve = i->Curve();
-	    ON_Curve *seg_curve = seg.Curve();
-	    ON_SimpleArray<ON_X_EVENT> events;
-	    ON_Intersect(prev_curve, seg_curve, events, INTERSECTION_TOL);
-	    if (events.Count() == 1 && events[0].m_type == ON_X_EVENT::ccx_overlap) {
-		out.erase(i);
-		return;
-	    }
+	    /* This segment is a reversed version of an existing segment —
+	     * they cancel each other out.  The endpoint geometric equality
+	     * check (CurvePoint::operator==, tolerance INTERSECTION_TOL) is
+	     * sufficient to establish cancellation; the previous CCI overlap
+	     * confirmation was O(N) per call and made get_op_segments O(N²)
+	     * when boundary segment counts are large. */
+	    out.erase(i);
+	    return;
 	}
     }
     out.insert(seg);
@@ -2186,6 +2612,79 @@ loop_boolean(
 	return out;
     }
 
+    /* Coextension short-circuit:
+     *
+     * When two loops are nearly identical (e.g. two representations of the
+     * same intersection circle from either side of a closed surface seam),
+     * the CCI can produce hundreds of overlap events.  Processing all those
+     * events with make_segments() and then get_op_segments() — which uses an
+     * O(N²) reversed-segment cancellation loop with CCI calls — can take
+     * many seconds even though the result is trivially determined:
+     *   DIFF of A with coextensive B   → empty
+     *   INTERSECT of A with coextensive B → A
+     *   UNION of A with coextensive B    → A
+     *
+     * Detection: collect the CCI result for every loop1×loop2 pair once.
+     * If any single pair produces more than MAX_COEXT_EVENTS events and the
+     * overlap covers ≥ 90 % of loop1's parameter domain, they are coextensive.
+     */
+    static const int MAX_COEXT_EVENTS = 100;
+
+    // Collect CCI events for all pairs (needed both for coextension check and
+    // for the normal segment-building path below).
+    typedef std::vector<ON_SimpleArray<ON_X_EVENT> > EventTable;
+    EventTable all_x_events(loop1.Count() * loop2.Count());
+    for (int i = 0; i < loop1.Count(); ++i) {
+	for (int j = 0; j < loop2.Count(); ++j) {
+	    ON_Intersect(loop1[i], loop2[j], all_x_events[i * loop2.Count() + j],
+			INTERSECTION_TOL);
+	}
+    }
+
+    // Coextension check: any pair with many overlap events covering the loop?
+    bool coextensive = false;
+    for (int i = 0; i < loop1.Count() && !coextensive; ++i) {
+	const ON_SimpleArray<ON_X_EVENT> &evs =
+	    all_x_events[i * loop2.Count()]; /* j=0 representative pair */
+	if (evs.Count() <= MAX_COEXT_EVENTS) continue;
+
+	double domain_len = loop1[i]->Domain().Length();
+	if (domain_len <= 0.0) continue;
+	double overlap_len = 0.0;
+	for (int k = 0; k < evs.Count(); ++k) {
+	    if (evs[k].m_type == ON_X_EVENT::ccx_overlap) {
+		overlap_len += fabs(evs[k].m_a[1] - evs[k].m_a[0]);
+	    }
+	}
+	if (overlap_len / domain_len >= 0.90) {
+	    coextensive = true;
+	    bu_log("loop_boolean: coextension detected (overlap=%.1f%%)\n",
+		   100.0 * overlap_len / domain_len);
+	}
+    }
+
+    if (coextensive) {
+	/* The two loops are coextensive.  Handle each operation analytically. */
+	if (op == BOOLEAN_DIFF) {
+	    /* A \ A = ∅ — return empty result. */
+	    for (int i = 0; i < l1.Count(); ++i) { delete loop1[i]; }
+	    for (int i = 0; i < l2.Count(); ++i) { delete loop2[i]; }
+	    return out;  /* out is already empty */
+	}
+	/* INTERSECT and UNION: return loop1 as the result. */
+	ON_SimpleArray<ON_Curve *> result_loop;
+	for (int i = 0; i < loop1.Count(); ++i) {
+	    result_loop.Append(loop1[i]);
+	    loop1[i] = NULL; /* transferred ownership */
+	}
+	/* Re-orient for CCW outerloop. */
+	set_loop_direction(result_loop, LOOP_DIRECTION_CCW);
+	out.outerloops.push_back(result_loop);
+	for (int i = 0; i < l1.Count(); ++i) { if (loop1[i]) delete loop1[i]; }
+	for (int i = 0; i < l2.Count(); ++i) { delete loop2[i]; }
+	return out;
+    }
+
     // get curve endpoints and intersection points for each loop
     std::multiset<CurvePoint> loop1_points, loop2_points;
 
@@ -2194,8 +2693,8 @@ loop_boolean(
 
     for (int i = 0; i < loop1.Count(); ++i) {
 	for (int j = 0; j < loop2.Count(); ++j) {
-	    ON_SimpleArray<ON_X_EVENT> x_events;
-	    ON_Intersect(loop1[i], loop2[j], x_events, INTERSECTION_TOL);
+	    const ON_SimpleArray<ON_X_EVENT> &x_events =
+		all_x_events[i * loop2.Count() + j];
 
 	    for (int k = 0; k < x_events.Count(); ++k) {
 		add_point_to_set(loop1_points, CurvePoint(1, i,
@@ -2886,7 +3385,6 @@ split_trimmed_face(
 		    // the portion outside the loop
 		    diff_loops = loop_boolean(out[k]->m_outerloop, ssx_loops[j],
 					      BOOLEAN_DIFF);
-
 		    append_faces_from_loops(next_out, out[k], diff_loops);
 		    diff_loops.ClearInnerloops();
 		}
@@ -3230,6 +3728,17 @@ is_point_on_brep_surface(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArr
 
     for (int i = 0; i < brep->m_F.Count(); i++) {
 	const ON_BrepFace &face = brep->m_F[i];
+	/* Fast bbox prefilter: if the test point is farther than
+	 * INTERSECTION_TOL from the surface's 3D bounding box, the
+	 * point cannot lie on this surface at all — skip the expensive
+	 * NURBS point-surface intersection. */
+	{
+	    ON_3dPoint fb_min, fb_max;
+	    surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
+	    if (ON_BoundingBox(fb_min, fb_max).MinimumDistanceTo(pt) > INTERSECTION_TOL) {
+		continue;
+	    }
+	}
 	const ON_Surface *surf = face.SurfaceOf();
 	ON_ClassArray<ON_PX_EVENT> px_event;
 	if (!ON_Intersect(pt, *surf, px_event, INTERSECTION_TOL, 0, 0, surf_tree[face.m_si])) {
@@ -3287,9 +3796,34 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
     ON_LineCurve line(pt, pt + diag);	// pt + diag should be outside, if pt
     // is inside the bbox
 
+    /* Pre-extract line endpoints for the slab prefilter below. */
+    const ON_3dPoint &ray_start = line.m_line.from;
+    const ON_3dPoint  ray_end   = line.m_line.to;
+
     ON_3dPointArray isect_pt;
     for (int i = 0; i < brep->m_F.Count(); i++) {
 	const ON_BrepFace &face = brep->m_F[i];
+	/* Directional slab prefilter: the ray goes from ray_start to
+	 * ray_end with all-positive direction components (diag =
+	 * bbox.Diagonal()*1.5).  A surface whose 3D bbox is entirely
+	 * "behind" the ray start in any axis can never be intersected
+	 * by the forward ray — skip it.  Similarly, a surface that is
+	 * entirely beyond the ray endpoint in any axis is out of
+	 * reach. */
+	{
+	    ON_3dPoint fb_min, fb_max;
+	    surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
+	    if (fb_max.x < ray_start.x - INTERSECTION_TOL ||
+		fb_max.y < ray_start.y - INTERSECTION_TOL ||
+		fb_max.z < ray_start.z - INTERSECTION_TOL) {
+		continue;
+	    }
+	    if (fb_min.x > ray_end.x + INTERSECTION_TOL ||
+		fb_min.y > ray_end.y + INTERSECTION_TOL ||
+		fb_min.z > ray_end.z + INTERSECTION_TOL) {
+		continue;
+	    }
+	}
 	const ON_Surface *surf = face.SurfaceOf();
 	ON_SimpleArray<ON_X_EVENT> x_event;
 	if (!ON_Intersect(&line, surf, x_event, INTERSECTION_TOL, 0.0, 0, 0, 0, 0, 0, surf_tree[face.m_si])) {
@@ -3343,24 +3877,71 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
 static bool
 is_point_inside_trimmed_face(const ON_2dPoint &pt, const TrimmedFace *tface)
 {
-    bool inside = false;
-    if (is_point_inside_loop(pt, tface->m_outerloop)) {
-	inside = true;
-	for (size_t i = 0; i < tface->m_innerloop.size(); ++i) {
-	    if (!is_point_outside_loop(pt, tface->m_innerloop[i])) {
-		inside = false;
-		break;
-	    }
+    /* ---------------------------------------------------------------
+     * Fast pre-filter using cached polygon approximations.
+     *
+     * The polygons are built lazily and cached on the TrimmedFace.
+     * Each polygon test is O(M) where M ≈ 1–2× the loop curve count,
+     * but with a very small constant (a few FP ops per edge vs. a full
+     * Newton-iteration NURBS intersection per curve in the exact test).
+     *
+     * OUTER polygon (always valid): superset of the enclosed region.
+     *   If the test point is OUTSIDE the outer polygon it is definitely
+     *   outside the trimmed face → return false immediately.
+     *
+     * INNER polygon (valid only when non-self-intersecting): subset of
+     *   the enclosed region.
+     *   If the test point is INSIDE the inner polygon it is definitely
+     *   inside the trimmed face (outer loop) → skip the outer-loop exact
+     *   test and go straight to inner-loop exclusion.
+     *
+     * Only points in the thin annular zone between the two polygons
+     * need the full O(N) NURBS ray-cast (point_loop_location).
+     * --------------------------------------------------------------- */
+    tface->ensure_polygons();
+
+    bool inner_definite = false;  /* result known from inner polygon */
+
+    if (!tface->m_outer_poly.empty()) {
+	const size_t n = tface->m_outer_poly.size();
+	const double (*pts)[2] =
+	    reinterpret_cast<const double (*)[2]>(tface->m_outer_poly.data());
+	if (!_pnt_in_polygon(n, pts, pt.x, pt.y)) {
+	    return false;  /* definitely outside */
 	}
     }
-    return inside;
+
+    if (tface->m_inner_poly_valid && !tface->m_inner_poly.empty()) {
+	const size_t n = tface->m_inner_poly.size();
+	const double (*pts)[2] =
+	    reinterpret_cast<const double (*)[2]>(tface->m_inner_poly.data());
+	if (_pnt_in_polygon(n, pts, pt.x, pt.y)) {
+	    inner_definite = true;
+	    /* Definitely inside the outer loop; still need to check inner
+	     * (hole) loops below before returning true. */
+	}
+    }
+
+    /* If the inner polygon hasn't resolved the outer-loop membership,
+     * fall through to the full NURBS test. */
+    bool inside_outer = inner_definite;
+    if (!inner_definite) {
+	inside_outer = is_point_inside_loop(pt, tface->m_outerloop);
+    }
+
+    if (!inside_outer)
+	return false;
+
+    /* Inside the outer loop: check that the point is not inside any
+     * inner (hole) loop. */
+    for (size_t i = 0; i < tface->m_innerloop.size(); ++i) {
+	if (!is_point_outside_loop(pt, tface->m_innerloop[i]))
+	    return false;
+    }
+    return true;
 }
 
 
-// TODO: For faces that have most of their area trimmed away, this is
-// a very inefficient algorithm. If the grid approach doesn't work
-// after a small number of samples, we should switch to an alternative
-// algorithm, such as sampling around points on the inner loops.
 static ON_2dPoint
 get_point_inside_trimmed_face(const TrimmedFace *tface)
 {
@@ -3389,6 +3970,154 @@ get_point_inside_trimmed_face(const TrimmedFace *tface)
 	    }
 	}
     }
+
+    /* For heavily-trimmed faces the uniform grid rarely lands inside.
+     * Fall back to sampling at small offsets around points on the outer
+     * loop boundary: for each curve in the outer loop pick the midpoint
+     * and nudge it inward along the 2D normal into the face interior.
+     * Also try midpoints of any inner-loop curves (a point near an inner
+     * loop is likely inside the trimmed region).
+     *
+     * The nudge distance must be meaningful relative to the face's UV
+     * bounding box.  A fixed tiny constant (e.g. ON_ZERO_TOLERANCE * 1e3
+     * ≈ 1e-9) is effectively zero for surfaces with large UV domains
+     * (e.g. a DSP with domain [0, 2.55e7]) and causes every attempt to
+     * fail, forcing the O(N²) worst case.  Use a fraction of the bbox
+     * size instead.
+     *
+     * We also cap the number of outer-loop curves we try.  When there
+     * are N SSI-generated trim curves in the loop, iterating over all N
+     * of them costs O(N²) because each is_point_inside_trimmed_face()
+     * call is O(N).  Trying the first MAX_NUDGE_CURVES curves is almost
+     * always enough: a single successful nudge is all we need. */
+    if (!found) {
+	/* Scale the nudge so it is 10 ppm of the smaller UV dimension.
+	 * This is large enough to be meaningful for any surface domain
+	 * while small enough to stay well inside the trimmed region. */
+	const double NUDGE_SCALE = 1.0e-5;
+	const double NUDGE = std::max(ON_ZERO_TOLERANCE * 1e3,
+				      NUDGE_SCALE * std::min(u_len, v_len));
+
+	/* Cap at this many curves to avoid O(N²) when there are many SSI
+	 * trim curves (each is_point_inside_trimmed_face() call is O(N) in
+	 * the number of loop curves).  12 was chosen empirically: it covers
+	 * typical heavily-trimmed NURBS faces while bounding the cost to
+	 * 12 × 16 × O(N) work.  Remaining curves are sampled at a coarser
+	 * stride below.  A single successful nudge terminates the search. */
+	const int MAX_NUDGE_CURVES = 12;
+	const int NOUTER = tface->m_outerloop.Count();
+	const int nlimit = std::min(NOUTER, MAX_NUDGE_CURVES);
+	for (int ci = 0; ci < nlimit && !found; ++ci) {
+	    const ON_Curve *crv = tface->m_outerloop[ci];
+	    if (!crv) continue;
+	    ON_Interval dom = crv->Domain();
+	    ON_3dPoint mid3 = crv->PointAt(dom.Mid());
+	    ON_3dVector tan3 = crv->TangentAt(dom.Mid());
+	    /* Inward 2D normal: rotate tangent 90° CCW (into face interior) */
+	    ON_2dPoint mid2(mid3.x, mid3.y);
+	    ON_2dVector inward(-tan3.y, tan3.x);
+	    inward.Unitize();
+	    for (int k = 1; k <= 8 && !found; ++k) {
+		test_pt2d = mid2 + inward * (NUDGE * k);
+		found = is_point_inside_trimmed_face(test_pt2d, tface);
+	    }
+	    /* Also try outward (CW) normal */
+	    ON_2dVector outward(tan3.y, -tan3.x);
+	    outward.Unitize();
+	    for (int k = 1; k <= 8 && !found; ++k) {
+		test_pt2d = mid2 + outward * (NUDGE * k);
+		found = is_point_inside_trimmed_face(test_pt2d, tface);
+	    }
+	}
+	/* If the first MAX_NUDGE_CURVES outer-loop curves didn't help, walk
+	 * the remaining ones at a coarser stride so we don't skip them
+	 * entirely.  This matters when the first segment of the outer loop
+	 * happens to lie along a seam where both normals point outside. */
+	if (!found && NOUTER > MAX_NUDGE_CURVES) {
+	    /* stride so we sample ~MAX_NUDGE_CURVES evenly-spaced curves
+	     * across the entire outer loop.  Using the total count (NOUTER)
+	     * distributes the samples uniformly rather than only in the
+	     * tail of the array. */
+	    int stride = std::max(1, NOUTER / MAX_NUDGE_CURVES);
+	    for (int ci = MAX_NUDGE_CURVES; ci < NOUTER && !found; ci += stride) {
+		const ON_Curve *crv = tface->m_outerloop[ci];
+		if (!crv) continue;
+		ON_Interval dom = crv->Domain();
+		ON_3dPoint mid3 = crv->PointAt(dom.Mid());
+		ON_3dVector tan3 = crv->TangentAt(dom.Mid());
+		ON_2dPoint mid2(mid3.x, mid3.y);
+		ON_2dVector inward(-tan3.y, tan3.x);
+		inward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + inward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+		ON_2dVector outward(tan3.y, -tan3.x);
+		outward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + outward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+	    }
+	}
+	/* Try midpoints of inner-loop curves, nudging outward */
+	for (size_t li = 0; li < tface->m_innerloop.size() && !found; ++li) {
+	    const ON_SimpleArray<ON_Curve *> &iloop = tface->m_innerloop[li];
+	    const int nilimit = std::min(iloop.Count(), MAX_NUDGE_CURVES);
+	    for (int ci = 0; ci < nilimit && !found; ++ci) {
+		const ON_Curve *crv = iloop[ci];
+		if (!crv) continue;
+		ON_Interval dom = crv->Domain();
+		ON_3dPoint mid3 = crv->PointAt(dom.Mid());
+		ON_3dVector tan3 = crv->TangentAt(dom.Mid());
+		ON_2dPoint mid2(mid3.x, mid3.y);
+		/* Outward normal from inner loop (CW) = inward for face */
+		ON_2dVector outward(tan3.y, -tan3.x);
+		outward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + outward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+		ON_2dVector inward(-tan3.y, tan3.x);
+		inward.Unitize();
+		for (int k = 1; k <= 8 && !found; ++k) {
+		    test_pt2d = mid2 + inward * (NUDGE * k);
+		    found = is_point_inside_trimmed_face(test_pt2d, tface);
+		}
+	    }
+	}
+    }
+
+    /* Last-resort fallback: the polygon pre-filter in
+     * is_point_inside_trimmed_face() may incorrectly reject valid interior
+     * points when the outer polygon is concave or the ray-cast happens to
+     * align with a vertex or edge.  Call is_point_inside_loop() directly
+     * (bypassing the pre-filter) for a coarser grid of bbox-sampled points.
+     * This path is rare — it only runs after all of the above have failed. */
+    if (!found) {
+	const int FALLBACK_STEPS = 4;
+	for (int steps = 1; steps <= FALLBACK_STEPS && !found; steps *= 2) {
+	    double u_halfstep = u_len / (steps * 2.0);
+	    double v_halfstep = v_len / (steps * 2.0);
+	    for (int fi = 0; fi < steps && !found; ++fi) {
+		test_pt2d.x = bbox.m_min.x + u_halfstep * (1 + 2 * fi);
+		for (int fj = 0; fj < steps && !found; ++fj) {
+		    test_pt2d.y = bbox.m_min.y + v_halfstep * (1 + 2 * fj);
+		    /* Bypass polygon pre-filter; use exact NURBS ray-cast. */
+		    bool inside_outer = is_point_inside_loop(test_pt2d, tface->m_outerloop);
+		    if (!inside_outer) continue;
+		    bool hole_excluded = false;
+		    for (size_t li = 0; li < tface->m_innerloop.size() && !hole_excluded; ++li) {
+			if (!is_point_outside_loop(test_pt2d, tface->m_innerloop[li]))
+			    hole_excluded = true;
+		    }
+		    if (!hole_excluded)
+			found = true;
+		}
+	    }
+	}
+    }
+
     if (!found) {
 	throw AlgorithmError("Cannot find a point inside this trimmed face. Aborted.\n");
     }
@@ -3593,8 +4322,70 @@ get_face_intersection_curves(
 		    continue;
 		}
 
-		if (surf_tree2.Count() < brep2->m_F[j].m_si + 1)
+		/* Skip face pairs where both surfaces are planar with nearly-
+		 * parallel normals.  For co-axial TGC booleans the coplanar
+		 * cap-cap pair would otherwise generate a duplicate inner-circle
+		 * curve that is already provided by the cap-cylinder pair,
+		 * producing a spurious third loop on the annular end-cap face.
+		 * For nearly-identical nested ARB8 primitives the nearly-
+		 * coplanar pair triggers the overlap-boundary finder which
+		 * generates thousands of degenerate segments and crashes.  In
+		 * both cases the valid intersection curves are fully provided by
+		 * the perpendicular face pairs; there is nothing to lose by
+		 * skipping parallel-normal pairs.
+		 *
+		 * Use a loose flatness tolerance (100× INTERSECTION_TOL) so
+		 * that degree-1 ON_NurbsSurface patches (ARB8 faces) are also
+		 * recognised as planar.  Curved surfaces whose normals happen
+		 * to be parallel at their centres are not recognised here
+		 * because IsPlanar() checks ALL control points. */
+		{
+		    ON_Plane p1, p2;
+		    const double flat_tol = INTERSECTION_TOL * 100.0;
+		    if (surf1->IsPlanar(&p1, flat_tol) &&
+			surf2->IsPlanar(&p2, flat_tol) &&
+			p1.Normal().IsParallelTo(p2.Normal(), 0.01)) {
+			continue;
+		    }
+		}
+
+		if ((int)st2.size() < brep2->m_F[j].m_si + 1)
 		    continue;
+
+		/* Skip face pairs whose underlying surfaces are geometrically
+		 * coincident even if their NURBS representations differ (e.g.
+		 * after ShrinkSurfaces re-parameterises a previously-subtracted
+		 * sphere patch).  When a sphere s1 is subtracted from a solid,
+		 * the resulting brep inherits the sphere patch as a trimmed face.
+		 * ShrinkSurfaces then changes the knot vectors so is_same_surface()
+		 * no longer detects the coincidence.  Running SSI on a coincident
+		 * pair generates a huge number of overlap segments (one per
+		 * isocurve knot) and is extremely slow even after the dangling-
+		 * pointer crash fix.  Detect this case by sampling surf1 at its
+		 * UV midpoint, projecting onto surf2, and verifying that the
+		 * normals are parallel.  Skipping is safe: the geometry boundary
+		 * is already captured by the trimming loops. */
+		{
+		    ON_Interval du1 = surf1->Domain(0);
+		    ON_Interval dv1 = surf1->Domain(1);
+		    double u1_mid = du1.ParameterAt(0.5);
+		    double v1_mid = dv1.ParameterAt(0.5);
+		    ON_3dVector nrm1;
+		    if (surf1->EvNormal(u1_mid, v1_mid, nrm1) && nrm1.Length() > ON_ZERO_TOLERANCE) {
+			ON_3dPoint pt1 = surf1->PointAt(u1_mid, v1_mid);
+			ON_ClassArray<ON_PX_EVENT> px;
+			if (ON_Intersect(pt1, *surf2, px, INTERSECTION_TOL * 10.0) &&
+			    px.Count() > 0)
+			{
+			    ON_3dVector nrm2;
+			    double u2 = px[0].m_b[0], v2 = px[0].m_b[1];
+			    if (surf2->EvNormal(u2, v2, nrm2) &&
+				nrm1.IsParallelTo(nrm2, 0.01)) {
+				continue;
+			    }
+			}
+		    }
+		}
 
 		// Possible enhancement: Some faces may share the same surface.
 		// We can store the result of SSI to avoid re-computation.
@@ -3613,8 +4404,6 @@ get_face_intersection_curves(
 		if (results <= 0) {
 		    continue;
 		}
-
-		//dplot->SSX(events, brep1, brep1->m_F[i].m_si, brep2, brep2->m_F[j].m_si);
 		//dplot->WriteLog();
 
 		ON_SimpleArray<ON_Curve *> face1_curves, face2_curves;
@@ -3793,6 +4582,11 @@ categorize_trimmed_faces(
 		    bool found = false;
 		    for (int fi = 0; fi < another_brep->m_F.Count(); ++fi) {
 			const ON_BrepFace &face = another_brep->m_F[fi];
+			/* Fast bbox prefilter: skip surfaces far from the
+			 * test point — they cannot contain a matching point. */
+			if (surf_tree[face.m_si]->m_node.MinimumDistanceTo(face_pt3d) > INTERSECTION_TOL) {
+			    continue;
+			}
 			brep_surf = face.SurfaceOf();
 			ON_ClassArray<ON_PX_EVENT> px_event;
 
@@ -3817,14 +4611,18 @@ categorize_trimmed_faces(
 			    same_direction = true;
 			}
 
-			if ((operation == BOOLEAN_UNION && same_direction) ||
-			    (operation == BOOLEAN_INTERSECT && same_direction) ||
+			/* Only include one copy of a coplanar face: prefer brep1's
+			 * (i < face_count1) for union/intersect to avoid producing
+			 * coincident duplicate faces in the assembled output.
+			 * For diff, only brep1 faces with opposite-direction normals
+			 * (the "carved-out" boundary) belong in the result. */
+			if ((operation == BOOLEAN_UNION && same_direction && i < face_count1) ||
+			    (operation == BOOLEAN_INTERSECT && same_direction && i < face_count1) ||
 			    (operation == BOOLEAN_DIFF && !same_direction && i < face_count1))
 			{
 			    splitted[j]->m_belong_to_final = TrimmedFace::BELONG;
 			}
 		    }
-		    // TODO: Actually only one of them is needed in the final brep structure
 	    }
 	    if (DEBUG_BREP_BOOLEAN) {
 		bu_log("The trimmed face is %s the other brep.",
@@ -3869,9 +4667,38 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
     ON_ClassArray<ON_SimpleArray<TrimmedFace *> > trimmed_faces;
     for (int i = 0; i < original_faces.Count(); i++) {
 	TrimmedFace *first = original_faces[i];
+
+	/* Deduplication: remove closed intersection curves that are
+	 * spurious seam artifacts.  When a planar face intersects a
+	 * closed (periodic) NURBS surface at or near its parameter-
+	 * space boundary, add_points_to_closed_seams() can insert a
+	 * duplicate point at the opposite seam edge, which the
+	 * polyline-merging step may then close into a tiny degenerate
+	 * loop.  Detect such artifacts by comparing every pair of
+	 * closed curves: if one has a bounding-box diagonal less than
+	 * 1% of another's, AND its centre lies inside the other's
+	 * bounding box, it is a seam duplicate — null it out so
+	 * link_curves() ignores it. */
+	ON_SimpleArray<SSICurve> &carray = curves_array[i];
+	for (int m = 0; m < carray.Count(); m++) {
+	    if (!carray[m].m_curve || !carray[m].m_curve->IsClosed()) continue;
+	    ON_BoundingBox bbm;
+	    carray[m].m_curve->GetBoundingBox(bbm);
+	    double dm = bbm.Diagonal().Length();
+	    for (int n = 0; n < carray.Count(); n++) {
+		if (n == m || !carray[n].m_curve || !carray[n].m_curve->IsClosed()) continue;
+		ON_BoundingBox bbn;
+		carray[n].m_curve->GetBoundingBox(bbn);
+		double dn = bbn.Diagonal().Length();
+		/* n is much smaller than m AND n's centre is inside m's bbox */
+		if (dm > 0.0 && dn / dm < 0.01 && bbm.IsPointIn(bbn.Center())) {
+		    delete carray[n].m_curve;
+		    carray[n].m_curve = NULL;
+		}
+	    }
+	}
+
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
-	//dplot->LinkedCurves(first->m_face->SurfaceOf(), linked_curves);
-	//dplot->WriteLog();
 
 	ON_SimpleArray<TrimmedFace *> splitted = split_trimmed_face(first, linked_curves);
 	trimmed_faces.Append(splitted);
@@ -4019,6 +4846,20 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 	    }
 	    evaluated_brep->ShrinkSurfaces();
 	    evaluated_brep->Compact();
+	    /* Recompute tolerances on the trivial-union path as well. */
+	    evaluated_brep->SetEdgeTolerances(false);
+	    evaluated_brep->SetTrimTolerances(false);
+	    evaluated_brep->SetVertexTolerances(false);
+	    for (int ei = 0; ei < evaluated_brep->m_E.Count(); ++ei) {
+		if (evaluated_brep->m_E[ei].m_tolerance < 0.0)
+		    evaluated_brep->m_E[ei].m_tolerance = 0.0;
+	    }
+	    for (int ti = 0; ti < evaluated_brep->m_T.Count(); ++ti) {
+		if (evaluated_brep->m_T[ti].m_tolerance[0] < 0.0)
+		    evaluated_brep->m_T[ti].m_tolerance[0] = 0.0;
+		if (evaluated_brep->m_T[ti].m_tolerance[1] < 0.0)
+		    evaluated_brep->m_T[ti].m_tolerance[1] = 0.0;
+	    }
 	    //dplot->WriteLog();
 	    return 0;
 	}
@@ -4083,6 +4924,36 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     evaluated_brep->ShrinkSurfaces();
     evaluated_brep->Compact();
     standardize_loop_orientations(evaluated_brep);
+
+    /* Recompute all tolerances from geometry.  The boolean code deliberately
+     * sets edge and trim tolerances to MAX_FASTF (the OpenNURBS "unset"
+     * sentinel) so that the code doesn't need to recompute them during
+     * construction.  But the raytracer's rt_brep_prep() uses the tolerance
+     * values to build its BVH acceleration structure; with MAX_FASTF every
+     * face's bounding interval is essentially infinite, so no face is ever
+     * culled and no shot ever terminates correctly.  Calling these three
+     * methods forces a proper geometric recomputation from the UV curves and
+     * 3D edge curves so the brep can be raytraced and volume-measured. */
+    evaluated_brep->SetEdgeTolerances(false);
+    evaluated_brep->SetTrimTolerances(false);
+    evaluated_brep->SetVertexTolerances(false);
+
+    /* After SetEdge/TrimTolerances(), any edge that still has ON_UNSET_VALUE
+     * (negative) as its tolerance indicates that the recomputation failed
+     * (e.g. an edge whose 3D curve was degenerate or whose trims do not reach
+     * it).  IsValid() rejects these as invalid.  Set them to 0.0 (exact)
+     * so that the BREP at least passes validity and can be raytraced, even
+     * though those edges may have sub-optimal bounding boxes. */
+    for (int ei = 0; ei < evaluated_brep->m_E.Count(); ++ei) {
+	if (evaluated_brep->m_E[ei].m_tolerance < 0.0)
+	    evaluated_brep->m_E[ei].m_tolerance = 0.0;
+    }
+    for (int ti = 0; ti < evaluated_brep->m_T.Count(); ++ti) {
+	if (evaluated_brep->m_T[ti].m_tolerance[0] < 0.0)
+	    evaluated_brep->m_T[ti].m_tolerance[0] = 0.0;
+	if (evaluated_brep->m_T[ti].m_tolerance[1] < 0.0)
+	    evaluated_brep->m_T[ti].m_tolerance[1] = 0.0;
+    }
 
     // Check IsValid() and output the message.
     ON_wString ws;
