@@ -1884,10 +1884,23 @@ CurvePoint::PointLoopLocation(
     ON_2dPoint point,
     const ON_SimpleArray<ON_Curve *> &loop)
 {
-    if (is_point_on_loop(point, loop)) {
-	return CurvePoint::BOUNDARY;
+    /* is_point_on_loop() and point_loop_location() both call is_loop_valid()
+     * which throws InvalidGeometry when the loop is discontinuous or otherwise
+     * malformed.  Catch those exceptions so that a single bad face-split does
+     * not abort the entire boolean operation; treat the point as OUTSIDE so
+     * the affected curve segment is omitted rather than causing a crash. */
+    try {
+	if (is_point_on_loop(point, loop)) {
+	    return CurvePoint::BOUNDARY;
+	}
+    } catch (const InvalidGeometry &) {
+	return CurvePoint::OUTSIDE;
     }
-    if (point_loop_location(point, loop) == OUTSIDE_OR_ON_LOOP) {
+    try {
+	if (point_loop_location(point, loop) == OUTSIDE_OR_ON_LOOP) {
+	    return CurvePoint::OUTSIDE;
+	}
+    } catch (const InvalidGeometry &) {
 	return CurvePoint::OUTSIDE;
     }
     return CurvePoint::INSIDE;
@@ -2021,6 +2034,13 @@ public:
 static bool
 close_small_gap(ON_SimpleArray<ON_Curve *> &loop, int curr, int next)
 {
+    /* Guard against NULL entries that can appear when segments are compacted
+     * out of outerloop_segs (e.g. at boolean.cpp line 3042 the last slot is
+     * set to NULL before Remove()).  Dereferencing a NULL pointer here was
+     * the root cause of a SIGSEGV when converting complex m35 bed regions. */
+    if (!loop[curr] || !loop[next]) {
+	return false;
+    }
     ON_3dPoint end_curr = loop[curr]->PointAtEnd();
     ON_3dPoint start_next = loop[next]->PointAtStart();
 
