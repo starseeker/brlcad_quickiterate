@@ -785,16 +785,31 @@ fbs_rfbhelp(struct pkg_conn *pcp, char *buf)
 
 
 /**
- * Generate a fresh session authentication token and store it in
- * fbsp->fbs_auth_token.  Should be called before fbs_open() so the
- * token is ready for the first connecting client.
+ * Initialise fbsp->fbs_auth_token for session authentication.
  *
- * Returns a pointer to fbsp->fbs_auth_token (for convenience).
+ * If the FBSERV_TOKEN environment variable is already set to a valid
+ * 64-hex-char token, that value is used directly.  This lets the
+ * hosting application (MGED, qged, etc.) pre-supply a known token and
+ * pass the same value to child processes (e.g. via setenv() before
+ * fork/exec of rt).  Token authentication works regardless of whether
+ * TLS is enabled — it provides session isolation even on plain TCP.
+ *
+ * If FBSERV_TOKEN is not set or is the wrong length, a fresh random
+ * token is generated.
+ *
+ * Should be called before fbs_open() so the token is ready for the
+ * first connecting client.  Returns a pointer to fbsp->fbs_auth_token.
  */
 const char *
 fbs_generate_token(struct fbserv_obj *fbsp)
 {
-    fbserv_generate_token(fbsp->fbs_auth_token);
+    const char *env_token = getenv("FBSERV_TOKEN");
+    if (env_token && strlen(env_token) == FBSERV_AUTH_TOKEN_LEN) {
+	bu_strlcpy(fbsp->fbs_auth_token, env_token,
+		   sizeof(fbsp->fbs_auth_token));
+    } else {
+	fbserv_generate_token(fbsp->fbs_auth_token);
+    }
     return fbsp->fbs_auth_token;
 }
 
