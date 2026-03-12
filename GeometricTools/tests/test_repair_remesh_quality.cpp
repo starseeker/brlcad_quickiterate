@@ -18,7 +18,7 @@
 //   Repair rate >= 90%
 //   Post-repair median AR <= 5.0 (the mesh is reasonable)
 //   Post-repair median SJ >= 0.4 (not mostly inverted)
-//   Post-remesh manifold preservation >= 95% (remesh rarely breaks manifold)
+//   Post-remesh manifold preservation >= 95% (Step 5f fix in SurfaceRVDN ensures this)
 
 #include <GTE/Mathematics/MeshRepair.h>
 #include <GTE/Mathematics/MeshHoleFilling.h>
@@ -545,17 +545,11 @@ int main(int argc, char* argv[])
     std::cout << "\n  [NOTE] GenericTwin contains many thin/elongated structural elements\n";
     std::cout << "         (stringers, cross-supports) that inherently have high AR (>>3).\n";
     std::cout << "         The post-repair quality reflects input geometry, not repair failure.\n";
-    if (remesh_attempted > 0 && manifold_preservation < 90.0) {
-        std::cout << "  [NOTE] RemeshCVT does NOT reliably maintain manifold on these shapes.\n";
-        std::cout << "         auto_remesh=1 should NOT be enabled by default in rt_bot_repair\n";
-        std::cout << "         for this geometry type. More robust remeshing is needed.\n";
-    }
 
-    // Pass criteria — only firm criterion is repair rate.
-    // Quality metrics are informational (GenericTwin AR is inherently high).
-    // Manifold preservation is also informational (documents RemeshCVT limitation).
+    // Pass criteria
     int failures = 0;
     const double MIN_REPAIR_RATE = 90.0;
+    const double MIN_MANIFOLD_PRESERVATION = 95.0;
 
     if (repair_rate < MIN_REPAIR_RATE) {
         std::cerr << "FAIL: repair rate " << repair_rate
@@ -565,15 +559,18 @@ int main(int argc, char* argv[])
         std::cout << "PASS: repair rate " << repair_rate << "%\n";
     }
 
+    if (remesh_attempted > 0 && manifold_preservation < MIN_MANIFOLD_PRESERVATION) {
+        std::cerr << "FAIL: RemeshCVT manifold preservation " << manifold_preservation
+                  << "% < " << MIN_MANIFOLD_PRESERVATION << "% threshold\n";
+        ++failures;
+    } else {
+        std::cout << "PASS: RemeshCVT manifold preservation " << manifold_preservation << "%\n";
+    }
+
     // Informational: document quality
     std::cout << "INFO: post-repair mean AR = " << post_ar_mean_median
               << " (high due to thin structural elements, not a repair defect)\n";
     std::cout << "INFO: post-repair mean SJ = " << post_sj_mean_median << "\n";
-    std::cout << "INFO: RemeshCVT manifold preservation = " << manifold_preservation
-              << "% on GenericTwin (thin elements break RemeshCVT)\n";
-    if (manifold_preservation < 90.0) {
-        std::cout << "INFO: auto_remesh is NOT suitable as a default for this geometry type\n";
-    }
 
     std::cout << "\n=== OVERALL: " << (failures == 0 ? "PASS" : "FAIL") << " ===\n";
     return failures ? 1 : 0;

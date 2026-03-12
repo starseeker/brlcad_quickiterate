@@ -824,14 +824,37 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	    if (!remesh_ok) {
 		bu_log("rt_bot_repair: auto-remesh failed, keeping repaired mesh as-is\n");
 	    } else {
-		// Verify the remeshed result is still manifold
+		// Verify the remeshed result is still manifold.
+		// If anisotropic remesh breaks manifold, retry with isotropic CVT.
 		manifold::MeshGL grmm;
 		gte_to_manifold(&grmm, rm_verts, rm_tris);
 		manifold::Manifold grmanifold(grmm);
+		bool remesh_manifold = (grmanifold.Status() == manifold::Manifold::Error::NoError);
 
-		if (grmanifold.Status() != manifold::Manifold::Error::NoError) {
-		    bu_log("rt_bot_repair: remeshed result is not manifold — keeping repaired mesh\n");
-		} else {
+		if (!remesh_manifold) {
+		    // Anisotropic remesh broke manifold — retry with isotropic (3D CVT)
+		    bu_log("rt_bot_repair: anisotropic remesh not manifold — retrying isotropic\n");
+		    gte::MeshRemesh<double>::Parameters isoParams;
+		    isoParams.targetVertexCount = nb_pts;
+		    isoParams.useAnisotropic    = false;
+		    std::vector<gte::Vector3<double>> iso_verts;
+		    std::vector<std::array<int32_t, 3>> iso_tris;
+		    bool iso_ok = gte::MeshRemesh<double>::RemeshCVT(q_verts, q_tris, iso_verts, iso_tris, isoParams);
+		    if (iso_ok) {
+			gte_to_manifold(&grmm, iso_verts, iso_tris);
+			grmanifold = manifold::Manifold(grmm);
+			if (grmanifold.Status() == manifold::Manifold::Error::NoError) {
+			    rm_verts = std::move(iso_verts);
+			    rm_tris  = std::move(iso_tris);
+			    remesh_manifold = true;
+			}
+		    }
+		    if (!remesh_manifold) {
+			bu_log("rt_bot_repair: remeshed result is not manifold — keeping repaired mesh\n");
+		    }
+		}
+
+		if (remesh_manifold) {
 		    // Replace nbot with the remeshed version
 		    manifold::MeshGL remeshed_mesh = grmanifold.GetMeshGL();
 		    struct rt_bot_internal *remeshed_bot = manifold_to_bot(&remeshed_mesh);

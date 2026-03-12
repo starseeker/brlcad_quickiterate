@@ -1563,6 +1563,52 @@ namespace gte
             }
         }
 
+        // ── 5f. Re-run topology repair after merge. ──────────────────────────
+        //
+        // The vertex merge in Step 5e can re-introduce non-manifold vertices.
+        // SplitNonManifoldVertices (Step 5c) deliberately creates new vertex
+        // copies at the exact same 3D position to separate disconnected triangle
+        // fans around a non-manifold vertex.  The merge threshold (1e-3 *
+        // bbox_diagonal) is large enough to recombine these coincident copies,
+        // undoing the manifold repair.
+        //
+        // Fix: re-run ConnectFacets + SplitNonManifoldVertices after the merge
+        // so that any non-manifold vertices re-introduced by merging are split
+        // apart again.  A follow-up peninsula-removal pass cleans up any
+        // degree-1 vertices created by the split.
+        if (!rawTris.empty())
+        {
+            std::vector<int32_t> adj2;
+            RDTRepair::ConnectFacets(rawTris, adj2);
+            RDTRepair::SplitNonManifoldVertices(rawVerts, rawTris, adj2);
+            nRaw = static_cast<int32_t>(rawVerts.size());
+
+            bool changed5f = true;
+            while (changed5f)
+            {
+                changed5f = false;
+                std::vector<int32_t> inc5f(nRaw, 0);
+                for (auto const& tri : rawTris)
+                {
+                    ++inc5f[tri[0]];
+                    ++inc5f[tri[1]];
+                    ++inc5f[tri[2]];
+                }
+                auto end5f = std::remove_if(rawTris.begin(), rawTris.end(),
+                    [&](std::array<int32_t,3> const& tri) -> bool
+                    {
+                        if (inc5f[tri[0]] == 1 || inc5f[tri[1]] == 1 ||
+                            inc5f[tri[2]] == 1)
+                        {
+                            changed5f = true;
+                            return true;
+                        }
+                        return false;
+                    });
+                rawTris.erase(end5f, rawTris.end());
+            }
+        }
+
         if (rawTris.empty())
         {
             return false;
