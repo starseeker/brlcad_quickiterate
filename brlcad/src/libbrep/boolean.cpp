@@ -1188,8 +1188,44 @@ points_3d_to_params_3d(
     ON_Intersect(pts_3d.mid, *curve3d, events, INTERSECTION_TOL);
     ON_Intersect(pts_3d.max, *curve3d, events, INTERSECTION_TOL);
 
+    /* When ON_Intersect misses one or more of the three sample points (e.g.
+     * because the SSI surface-projection puts a sample slightly outside
+     * INTERSECTION_TOL of the 3D curve), retry each missing point with a
+     * progressively wider tolerance.  A slightly-off projection is common for
+     * flat-faced primitives (ARB8) where floating-point rounding can move a
+     * sample a fraction of a ULP away from the intersection line. */
     if (events.Count() != 3) {
-	throw AlgorithmError("points_3d_to_params_3d: conversion failed\n");
+	static const double SCALES[] = { 10.0, 100.0, 1000.0 };
+	const ON_3dPoint pts[3] = { pts_3d.min, pts_3d.mid, pts_3d.max };
+	double found_t[3];
+	bool have_t[3] = { false, false, false };
+	/* Record the parameters already found */
+	for (int k = 0; k < events.Count() && k < 3; ++k) {
+	    found_t[k] = events[k].m_b[0];
+	    have_t[k] = true;
+	}
+
+	for (int i = 0; i < 3; ++i) {
+	    if (have_t[i]) continue;
+	    for (size_t si = 0; si < sizeof(SCALES)/sizeof(SCALES[0]); ++si) {
+		ON_ClassArray<ON_PX_EVENT> ev2;
+		ON_Intersect(pts[i], *curve3d, ev2, INTERSECTION_TOL * SCALES[si]);
+		if (ev2.Count() > 0) {
+		    found_t[i] = ev2[0].m_b[0];
+		    have_t[i] = true;
+		    break;
+		}
+	    }
+	}
+
+	if (!have_t[0] || !have_t[1] || !have_t[2])
+	    throw AlgorithmError("points_3d_to_params_3d: conversion failed\n");
+
+	IntervalParams params_3d;
+	params_3d.min = found_t[0];
+	params_3d.mid = found_t[1];
+	params_3d.max = found_t[2];
+	return params_3d;
     }
 
     IntervalParams params_3d;
@@ -4729,6 +4765,16 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 	    evaluated_brep->SetEdgeTolerances(false);
 	    evaluated_brep->SetTrimTolerances(false);
 	    evaluated_brep->SetVertexTolerances(false);
+	    for (int ei = 0; ei < evaluated_brep->m_E.Count(); ++ei) {
+		if (evaluated_brep->m_E[ei].m_tolerance < 0.0)
+		    evaluated_brep->m_E[ei].m_tolerance = 0.0;
+	    }
+	    for (int ti = 0; ti < evaluated_brep->m_T.Count(); ++ti) {
+		if (evaluated_brep->m_T[ti].m_tolerance[0] < 0.0)
+		    evaluated_brep->m_T[ti].m_tolerance[0] = 0.0;
+		if (evaluated_brep->m_T[ti].m_tolerance[1] < 0.0)
+		    evaluated_brep->m_T[ti].m_tolerance[1] = 0.0;
+	    }
 	    //dplot->WriteLog();
 	    return 0;
 	}
@@ -4806,6 +4852,23 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     evaluated_brep->SetEdgeTolerances(false);
     evaluated_brep->SetTrimTolerances(false);
     evaluated_brep->SetVertexTolerances(false);
+
+    /* After SetEdge/TrimTolerances(), any edge that still has ON_UNSET_VALUE
+     * (negative) as its tolerance indicates that the recomputation failed
+     * (e.g. an edge whose 3D curve was degenerate or whose trims do not reach
+     * it).  IsValid() rejects these as invalid.  Set them to 0.0 (exact)
+     * so that the BREP at least passes validity and can be raytraced, even
+     * though those edges may have sub-optimal bounding boxes. */
+    for (int ei = 0; ei < evaluated_brep->m_E.Count(); ++ei) {
+	if (evaluated_brep->m_E[ei].m_tolerance < 0.0)
+	    evaluated_brep->m_E[ei].m_tolerance = 0.0;
+    }
+    for (int ti = 0; ti < evaluated_brep->m_T.Count(); ++ti) {
+	if (evaluated_brep->m_T[ti].m_tolerance[0] < 0.0)
+	    evaluated_brep->m_T[ti].m_tolerance[0] = 0.0;
+	if (evaluated_brep->m_T[ti].m_tolerance[1] < 0.0)
+	    evaluated_brep->m_T[ti].m_tolerance[1] = 0.0;
+    }
 
     // Check IsValid() and output the message.
     ON_wString ws;
