@@ -1946,6 +1946,9 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     } else {
 	abs_tol = ttol->abs;
     }
+    /* Enforce minimum abs tolerance to prevent excessively dense meshes. */
+    if (abs_tol > 0.0 && abs_tol < PRIM_MIN_ABS_TOL)
+	abs_tol = PRIM_MIN_ABS_TOL;
 
     h = MAGNITUDE(tip->h);
     a_axis_len = MAGNITUDE(tip->a);
@@ -2023,16 +2026,17 @@ rt_tgc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
 	if (ttol->norm > 0.0) {
 	    fastf_t norm_top, norm_bot;
+	    fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
 
 	    if (a_axis_len < b_axis_len)
-		norm_bot = 2.0 * atan(tan(ttol->norm) * (a_axis_len / b_axis_len));
+		norm_bot = 2.0 * atan(tan(ntol_eff) * (a_axis_len / b_axis_len));
 	    else
-		norm_bot = 2.0 * atan(tan(ttol->norm) * (b_axis_len / a_axis_len));
+		norm_bot = 2.0 * atan(tan(ntol_eff) * (b_axis_len / a_axis_len));
 
 	    if (c_axis_len < d_axis_len)
-		norm_top = 2.0 * atan(tan(ttol->norm) * (c_axis_len / d_axis_len));
+		norm_top = 2.0 * atan(tan(ntol_eff) * (c_axis_len / d_axis_len));
 	    else
-		norm_top = 2.0 * atan(tan(ttol->norm) * (d_axis_len / c_axis_len));
+		norm_top = 2.0 * atan(tan(ntol_eff) * (d_axis_len / c_axis_len));
 
 	    if (norm_bot < norm_top)
 		norm = norm_bot;

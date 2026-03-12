@@ -212,11 +212,30 @@ extern const char *rt_binunif_type_to_string(int type);
 
 /* primitive_util.c */
 
+/**
+ * Minimum absolute tessellation tolerance (mm).  Tessellations finer than
+ * this provide no practical benefit: BRL-CAD's own intersection/collision
+ * tolerance floor is ~0.005 mm and display fidelity tops out at ~0.05 mm.
+ */
+#define PRIM_MIN_ABS_TOL 0.05
+
+/**
+ * Minimum normal (angle) tessellation tolerance (radians).  π/360 ≈ 0.00873 rad
+ * (0.5°).  At this angle a full circle requires 720 segments — already very
+ * dense.  Setting a tighter norm tolerance produces no visible improvement.
+ */
+#define PRIM_MIN_NORM_TOL (M_PI / 360.0)
+
 extern void primitive_hitsort(struct hit h[], int nh);
 
 extern fastf_t primitive_get_absolute_tolerance(
 	const struct bg_tess_tol *ttol,
 	fastf_t rel_to_abs);
+
+extern void primitive_clamp_tess_tol(
+	fastf_t *dtol,
+	fastf_t *ntol,
+	fastf_t bbox_diag);
 
 extern fastf_t primitive_diagonal_samples(
 	struct rt_db_internal *ip,

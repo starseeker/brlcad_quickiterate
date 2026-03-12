@@ -1180,6 +1180,12 @@ rt_part_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
 
     dtol = primitive_get_absolute_tolerance(ttol, radius);
 
+    /* Clamp to prevent excessively dense meshes; bbox diagonal ≈ 2*radius. */
+    {
+	fastf_t ntol_dummy = M_PI;
+	primitive_clamp_tess_tol(&dtol, &ntol_dummy, 2.0 * radius);
+    }
+
     if (dtol > radius) {
 	dtol = radius;
     }
@@ -1191,8 +1197,10 @@ rt_part_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
     state.theta_tol = 2.0 * acos(1.0 - dtol / radius);
 
     /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0 && ttol->norm < state.theta_tol) {
-	state.theta_tol = ttol->norm;
+    if (ttol->norm > 0.0) {
+	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	if (ntol_eff < state.theta_tol)
+	    state.theta_tol = ntol_eff;
     }
 
     *r = nmg_mrsv(m);	/* Make region, empty shell, vertex */

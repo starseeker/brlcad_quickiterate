@@ -975,6 +975,12 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	/* tolerate everything */
 	ntol = M_PI;
 
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
+
     /* initial parabola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
     BU_ALLOC(pts->next, struct rt_pnt_node);
@@ -1172,6 +1178,12 @@ rt_rpc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     else
 	/* tolerate everything */
 	ntol = M_PI;
+
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
 
     /* initial parabola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);

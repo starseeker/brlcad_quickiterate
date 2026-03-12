@@ -1035,6 +1035,12 @@ rt_ell_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     dtol = primitive_get_absolute_tolerance(ttol, radius);
 
+    /* Clamp to prevent excessively dense meshes; bbox diagonal ≈ 2*radius. */
+    {
+	fastf_t ntol_dummy = M_PI;
+	primitive_clamp_tess_tol(&dtol, &ntol_dummy, 2.0 * radius);
+    }
+
     if (dtol > radius) {
 	dtol = radius;
     }
@@ -1045,8 +1051,10 @@ rt_ell_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     state.theta_tol = 2 * acos(1.0 - dtol / radius);
 
     /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0 && ttol->norm < state.theta_tol) {
-	state.theta_tol = ttol->norm;
+    if (ttol->norm > 0.0) {
+	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	if (ntol_eff < state.theta_tol)
+	    state.theta_tol = ntol_eff;
     }
 
     *r = nmg_mrsv(m);	/* Make region, empty shell, vertex */
@@ -1848,6 +1856,21 @@ ell_angle(fastf_t *p1, fastf_t a, fastf_t b, fastf_t dtol, fastf_t ntol)
     vect_t norm_line, norm_ell;
 
     VSET(p0, a, 0., 0.);
+
+    /* Guard against infinite recursion.  When p0 is the major-axis endpoint
+     * (a, 0) the ellipse normal there points in +X.  As the arc from p0 to p1
+     * shrinks, the chord direction rotates to become nearly perpendicular to
+     * the normal, so the chord-normal angle at p0 converges toward π – not 0.
+     * This means the condition theta0 > ntol can be permanently true no matter
+     * how short the arc is.  Stop once the chord is negligibly small relative
+     * to the ellipse, and return the arc angle directly. */
+    {
+	fastf_t scale2 = a * a + b * b;
+	fastf_t dx = p1[X] - p0[X], dy = p1[Y] - p0[Y];
+	if (dx * dx + dy * dy < scale2 * 1.0e-10)
+	    return acos(VDOT(p0, p1) / (MAGNITUDE(p0) * MAGNITUDE(p1)));
+    }
+
     /* slope and intercept of segment */
     m = (p1[Y] - p0[Y]) / (p1[X] - p0[X]);
     intr = p0[Y] - m * p0[X];

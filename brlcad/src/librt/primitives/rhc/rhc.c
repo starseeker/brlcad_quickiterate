@@ -1067,6 +1067,12 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     } else {
 	/* tolerate everything */
 	ntol = M_PI;
+
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
     }
 
     /* initial hyperbola approximation is a single segment */
@@ -1292,6 +1298,12 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     } else {
 	/* tolerate everything */
 	ntol = M_PI;
+
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
     }
 
     /* initial hyperbola approximation is a single segment */
