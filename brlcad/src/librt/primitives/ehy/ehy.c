@@ -1375,8 +1375,8 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
 	if (nseg_base < 6) nseg_base = 6;
-	/* Cap segment count for tess: see rt_epa_tess() for the rationale. */
-	if (nseg_base > 24) nseg_base = 24;
+	/* No upper cap on nseg_base: see rt_epa_tess() for the rationale.
+	 * The rt_mk_hyperbola recursion guard prevents OOM for tight ntol. */
 
 	min_ring_r = 3.0 * (double)nseg_base * tol->dist / M_2PI;
 
