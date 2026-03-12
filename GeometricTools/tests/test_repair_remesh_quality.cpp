@@ -45,6 +45,9 @@
 #include <chrono>
 #include <map>
 
+#include <future>
+#include <thread>
+
 using namespace gte;
 
 // --------------------------------------------------------------------------
@@ -311,11 +314,56 @@ static bool auto_remesh_pass(
     params.anisotropyScale   = 0.04;
     params.lloydTimeLimit    = time_limit_sec;
 
-    out_verts = in_verts; out_tris = in_tris;
-    size_t iters_done = 0;
-    bool remesh_ok = MeshRemesh<double>::RemeshCVT(
-        in_verts, in_tris, out_verts, out_tris, params, &iters_done);
+    // Run RemeshCVT in a detached thread so we can enforce a hard wall-clock
+    // timeout. ForEachPolygon inside ComputeRDT can loop indefinitely on
+    // degenerate repaired meshes; the lloydTimeLimit only fires between
+    // iterations, not inside them.
+    // NOTE: std::async futures block in their destructor, so we use a
+    // std::promise/std::thread pair with a detached thread to avoid the hang.
+    struct RemeshResult {
+        std::vector<Vector3<double>> verts;
+        std::vector<std::array<int32_t,3>> tris;
+        size_t iters = 0;
+        bool ok = false;
+    };
+
+    // Copy inputs into shared_ptrs so the detached thread can safely outlive
+    // auto_remesh_pass's stack frame when a timeout occurs.
+    auto sp_verts  = std::make_shared<std::vector<Vector3<double>>>(in_verts);
+    auto sp_tris   = std::make_shared<std::vector<std::array<int32_t,3>>>(in_tris);
+    auto sp_params = std::make_shared<MeshRemesh<double>::Parameters>(params);
+
+    std::promise<RemeshResult> prom;
+    auto remesh_future = prom.get_future();
+
+    std::thread([sv=sp_verts, st=sp_tris, sp=sp_params,
+                 p=std::move(prom)]() mutable {
+        RemeshResult r;
+        r.ok = MeshRemesh<double>::RemeshCVT(*sv, *st, r.verts, r.tris, *sp, &r.iters);
+        try { p.set_value(std::move(r)); } catch (...) {}
+    }).detach();
+
+    // Wait up to time_limit_sec + 2s grace
+    auto status = remesh_future.wait_for(
+        std::chrono::duration<double>(time_limit_sec + 2.0));
+
+    if (status != std::future_status::ready) {
+        // Timed out — detached thread may still be running.
+        // Keep original mesh; do not count as manifold-broken.
+        out_verts = in_verts; out_tris = in_tris;
+        ar_after  = ar_before;
+        if (out_iters) *out_iters = 0;
+        return true;
+    }
+
+    RemeshResult res = remesh_future.get();
+    size_t iters_done = res.iters;
+    bool remesh_ok = res.ok;
     if (out_iters) *out_iters = iters_done;
+    if (remesh_ok) {
+        out_verts = std::move(res.verts);
+        out_tris  = std::move(res.tris);
+    }
     if (!remesh_ok) {
         out_verts = in_verts; out_tris = in_tris;
         ar_after = ar_before;
