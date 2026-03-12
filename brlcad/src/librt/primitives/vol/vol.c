@@ -1274,17 +1274,11 @@ rt_vol_plate(point_t a, point_t b, point_t c, point_t d, register mat_t mat, str
 
 
 /*
- * vol_span_face - emit one NMG boundary face for a span of voxels.
+ * vol_span_face - emit one NMG boundary face for a rectangular patch.
  *
- * This helper is the core of the row-span merging strategy (see
- * rt_vol_tess below).  Instead of one unit quad per voxel boundary,
- * callers find the start and end of a contiguous run of exposed cells
- * and call this once per run, producing a single rectangular face
- * that covers the whole run.
- *
- * The four corner coordinates (v[0..3]) are passed in ideal voxel
- * space; they are scaled by cellsize and transformed by mat before
- * being assigned to the NMG vertex geometry.
+ * The four corner coordinates (v[0..3]) are passed in ideal voxel space;
+ * they are scaled by cellsize and transformed by mat before being assigned
+ * to NMG vertex geometry.
  *
  * Returns 0 on success, non-zero on nmg_fu_planeeqn failure.
  */
@@ -1314,13 +1308,27 @@ vol_span_face(struct shell *s, const struct rt_vol_internal *vip,
 }
 
 
+/*
+ * vol_patch_rect - active rectangle for 2D coherent-patch merging.
+ *
+ * Tracks one contiguous rectangular region: spans [a0..b0] along the
+ * "inner span" axis, starting at row_start along the "row" axis.
+ * The rectangle is extended to each new row as long as the identical
+ * [a0, b0] boundaries reappear in consecutive rows.
+ */
+struct vol_patch_rect {
+    size_t a0;        /* span start (inclusive) */
+    size_t b0;        /* span end   (inclusive) */
+    size_t row_start; /* first row included in this rectangle */
+};
+
+
 int
 rt_vol_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     struct rt_vol_internal *vip;
     size_t x, y, z;
-    size_t xa;		/* x-run start index */
-    int in_run;
+    int failed = 0;
     struct shell *s;
     struct faceuse *fu;
     struct model *m_tmp;
@@ -1341,195 +1349,223 @@ rt_vol_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     s = BU_LIST_FIRST(shell, &r_tmp->s_hd);
 
     /*
-     * Build boundary faces using row-span merging, inspired by the
-     * DSP/TerraScape technique of constructing the mesh directly in
-     * merged form rather than creating per-cell unit quads and relying
-     * on nmg_shell_coplanar_face_merge to reduce them.
+     * Build boundary faces using 2D coherent-patch merging, extending the
+     * DSP/TerraScape technique from 1D row-spans to full 2D rectangles.
      *
-     * For each face direction we iterate over (slice, row) pairs and
-     * sweep a third axis to find contiguous runs of exposed voxel faces.
-     * One rectangular NMG face is emitted per run instead of one unit
-     * quad per voxel.  For a flat N×M surface this reduces the initial
-     * face count from N×M unit quads to M row-span quads, making
-     * nmg_shell_coplanar_face_merge O(M²) instead of O((N·M)²).
+     * For each face direction we iterate over outer slices.  Within each
+     * slice, a set of "active rectangles" is maintained across consecutive
+     * rows.  A 1D span [a0,b0] in the current row is matched against the
+     * active list:
      *
-     * Boundary compatibility (no T-junctions):
-     *   z± faces span X for each Y-row.  Their left/right edges are
-     *   1-unit-Y tall (at x=xa-0.5 and x=xb+0.5 for y in [y-0.5,y+0.5]).
-     *   y± faces also span X for each Z-level — compatible with z± top/
-     *   bottom edges and with x± left/right edges.
-     *   x± faces span Z for each Y-row (same 1-unit-Y granularity as
-     *   z± and y±), so all shared edge vertices coincide exactly.
+     *   - Exact match (same a0 AND b0): the rectangle is extended by one
+     *     row — no face is emitted yet.
+     *   - No match: the unmatched active rectangle is emitted as a single
+     *     NMG face covering its full [a0..b0] × [row_start..row-1] extent,
+     *     and the new span starts a fresh rectangle.
+     *
+     * A span from row r is extended to row r+1 ONLY when the exact same
+     * boundaries appear again: this is the "coherent flat patch" condition.
+     * Any boundary change (wider, narrower, shifted, or absent) breaks the
+     * rectangle, ensuring each emitted face is a maximal grid-aligned rect
+     * within a single connected flat region.
+     *
+     * For an N×M flat surface this reduces the initial face count from
+     * N×M unit quads (original) → M row-span quads (previous 1D approach)
+     * → 1 patch rectangle (2D approach), making nmg_shell_coplanar_face_merge
+     * trivial for that surface.
+     *
+     * After all faces are created, nmg_model_fuse calls nmg_break_all_es_on_v
+     * to resolve any T-junctions that can arise at patch boundaries for
+     * non-rectangular exposed regions, before the coplanar merge step.
+     *
+     * Boundary layout (max active rectangles per outer-slice pass):
+     *   z±, y± faces: span axis = X → at most xdim/2+1 active per row
+     *   x±     faces: span axis = Z → at most zdim/2+1 active per row
      */
 
-    /* z+ faces (normal +z): for each z-slice, scan y rows, span x */
-    for (z = 0; z < vip->zdim; z++) {
-	for (y = 0; y < vip->ydim; y++) {
-	    xa = 0; in_run = 0;
-	    for (x = 0; x <= vip->xdim; x++) {
-		int exposed = (x < vip->xdim)
-		    && OK(vip, VOL(vip, x, y, z))
-		    && !OK(vip, VOL(vip, x, y, z+1));
-		if (exposed && !in_run) {
-		    xa = x; in_run = 1;
-		} else if (!exposed && in_run) {
-		    size_t xb = x - 1;
-		    in_run = 0;
-		    /* CCW from above (+z normal) */
-		    if (vol_span_face(s, vip, tol,
-				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z+.5,
-				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z+.5,
-				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z+.5,
-				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z+.5))
-			goto fail;
-		}
-	    }
-	}
+/* -----------------------------------------------------------------------
+ * VOL_PATCH_LOOP: 2D coherent-patch face-emission macro.
+ *
+ * Parameters (must be #defined before invoking):
+ *   OUTER_VAR / OUTER_LIM       outer loop variable and limit
+ *   ROW_VAR   / ROW_LIM         row variable and limit (inclusive sentinel)
+ *   SPAN_VAR  / SPAN_LIM        span variable and limit
+ *   EXPOSED_COND                boolean expression: is cell exposed?
+ *   EMIT_FACE(a0,b0,rs,re)      emit one face for span [a0..b0], rows [rs..re]
+ *   MAX_PR_EXPR                 upper bound on concurrent active rects
+ *
+ * The macro manages heap-allocated active-rectangle arrays and sets
+ * `failed` on any nmg_fu_planeeqn error.
+ * ----------------------------------------------------------------------- */
+#define VOL_PATCH_LOOP(OUTER_VAR, OUTER_LIM,				\
+		       ROW_VAR, ROW_LIM,				\
+		       SPAN_VAR, SPAN_LIM,				\
+		       EXPOSED_COND,					\
+		       EMIT_FACE,					\
+		       MAX_PR_EXPR)					\
+    for (OUTER_VAR = 0; OUTER_VAR < (OUTER_LIM) && !failed; OUTER_VAR++) { \
+	size_t _max_pr = (MAX_PR_EXPR);					\
+	struct vol_patch_rect *_pr =					\
+	    (struct vol_patch_rect *)bu_calloc(_max_pr,			\
+		sizeof(struct vol_patch_rect), "vol_pr");		\
+	int *_pr_live = (int *)bu_calloc(_max_pr, sizeof(int), "vol_pr_live"); \
+	size_t _n_pr = 0;						\
+	for (ROW_VAR = 0; ROW_VAR <= (ROW_LIM) && !failed; ROW_VAR++) { \
+	    size_t _i;							\
+	    for (_i = 0; _i < _n_pr; _i++) _pr_live[_i] = 0;		\
+	    if (ROW_VAR < (ROW_LIM)) {					\
+		size_t _a0 = 0;						\
+		int _in = 0;						\
+		for (SPAN_VAR = 0; SPAN_VAR <= (SPAN_LIM); SPAN_VAR++) { \
+		    int _exp = (SPAN_VAR < (SPAN_LIM)) && (EXPOSED_COND); \
+		    if (_exp && !_in) { _a0 = SPAN_VAR; _in = 1; }	\
+		    else if (!_exp && _in) {				\
+			size_t _b0 = SPAN_VAR - 1; _in = 0;		\
+			int _matched = 0;				\
+			for (_i = 0; _i < _n_pr; _i++) {		\
+			    if (!_pr_live[_i]				\
+				&& _pr[_i].a0 == _a0			\
+				&& _pr[_i].b0 == _b0) {			\
+				_pr_live[_i] = 1; _matched = 1; break;	\
+			    }						\
+			}						\
+			if (!_matched && _n_pr < _max_pr) {		\
+			    _pr[_n_pr].a0 = _a0;			\
+			    _pr[_n_pr].b0 = _b0;			\
+			    _pr[_n_pr].row_start = ROW_VAR;		\
+			    _pr_live[_n_pr] = 1;			\
+			    _n_pr++;					\
+			}						\
+		    }							\
+		}							\
+	    }								\
+	    /* emit rects that did not continue and compact */		\
+	    size_t _j = 0;						\
+	    for (_i = 0; _i < _n_pr; _i++) {				\
+		if (!_pr_live[_i]) {					\
+		    size_t _a0e = _pr[_i].a0, _b0e = _pr[_i].b0;	\
+		    size_t _rse = _pr[_i].row_start;			\
+		    size_t _ree = ROW_VAR - 1;				\
+		    if (EMIT_FACE(_a0e, _b0e, _rse, _ree)) {		\
+			failed = 1; break;				\
+		    }							\
+		} else {						\
+		    _pr[_j] = _pr[_i];					\
+		    _pr_live[_j] = 1;					\
+		    _j++;						\
+		}							\
+	    }								\
+	    _n_pr = _j;							\
+	}								\
+	bu_free(_pr,      "vol_pr");					\
+	bu_free(_pr_live, "vol_pr_live");				\
     }
 
-    /* z- faces (normal -z): for each z-slice, scan y rows, span x */
-    for (z = 0; z < vip->zdim; z++) {
-	for (y = 0; y < vip->ydim; y++) {
-	    xa = 0; in_run = 0;
-	    for (x = 0; x <= vip->xdim; x++) {
-		int exposed = (x < vip->xdim)
-		    && OK(vip, VOL(vip, x, y, z))
-		    && !OK(vip, VOL(vip, x, y, z-1));
-		if (exposed && !in_run) {
-		    xa = x; in_run = 1;
-		} else if (!exposed && in_run) {
-		    size_t xb = x - 1;
-		    in_run = 0;
-		    /* CCW from below (-z normal) */
-		    if (vol_span_face(s, vip, tol,
-				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z-.5,
-				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z-.5,
-				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z-.5,
-				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z-.5))
-			goto fail;
-		}
-	    }
-	}
-    }
+    /* z+ faces (CCW from above, +z normal).
+     * outer=z, row=y, span=x.
+     * 2D rect: x=[a0..b0], y=[row_start..row_end] at z+0.5 */
+#define VOL_EMIT_ZP(a0, b0, rs, re)					\
+    vol_span_face(s, vip, tol,						\
+		  (fastf_t)(b0)+.5, (fastf_t)(rs)-.5, (fastf_t)z+.5,	\
+		  (fastf_t)(b0)+.5, (fastf_t)(re)+.5, (fastf_t)z+.5,	\
+		  (fastf_t)(a0)-.5, (fastf_t)(re)+.5, (fastf_t)z+.5,	\
+		  (fastf_t)(a0)-.5, (fastf_t)(rs)-.5, (fastf_t)z+.5)
+    VOL_PATCH_LOOP(z, vip->zdim, y, vip->ydim, x, vip->xdim,
+		   OK(vip, VOL(vip, x, y, z)) && !OK(vip, VOL(vip, x, y, z+1)),
+		   VOL_EMIT_ZP,
+		   vip->xdim / 2 + 2)
+#undef VOL_EMIT_ZP
 
-    /* y+ faces (normal +y): for each y-slice, scan z rows, span x */
-    for (y = 0; y < vip->ydim; y++) {
-	for (z = 0; z < vip->zdim; z++) {
-	    xa = 0; in_run = 0;
-	    for (x = 0; x <= vip->xdim; x++) {
-		int exposed = (x < vip->xdim)
-		    && OK(vip, VOL(vip, x, y, z))
-		    && !OK(vip, VOL(vip, x, y+1, z));
-		if (exposed && !in_run) {
-		    xa = x; in_run = 1;
-		} else if (!exposed && in_run) {
-		    size_t xb = x - 1;
-		    in_run = 0;
-		    /* CCW from outside (+y normal) */
-		    if (vol_span_face(s, vip, tol,
-				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z+.5,
-				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z-.5,
-				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z-.5,
-				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z+.5))
-			goto fail;
-		}
-	    }
-	}
-    }
+    /* z- faces (CCW from below, -z normal).
+     * outer=z, row=y, span=x.
+     * 2D rect: x=[a0..b0], y=[row_start..row_end] at z-0.5 */
+#define VOL_EMIT_ZM(a0, b0, rs, re)					\
+    vol_span_face(s, vip, tol,						\
+		  (fastf_t)(a0)-.5, (fastf_t)(rs)-.5, (fastf_t)z-.5,	\
+		  (fastf_t)(a0)-.5, (fastf_t)(re)+.5, (fastf_t)z-.5,	\
+		  (fastf_t)(b0)+.5, (fastf_t)(re)+.5, (fastf_t)z-.5,	\
+		  (fastf_t)(b0)+.5, (fastf_t)(rs)-.5, (fastf_t)z-.5)
+    VOL_PATCH_LOOP(z, vip->zdim, y, vip->ydim, x, vip->xdim,
+		   OK(vip, VOL(vip, x, y, z)) && !OK(vip, VOL(vip, x, y, z-1)),
+		   VOL_EMIT_ZM,
+		   vip->xdim / 2 + 2)
+#undef VOL_EMIT_ZM
 
-    /* y- faces (normal -y): for each y-slice, scan z rows, span x */
-    for (y = 0; y < vip->ydim; y++) {
-	for (z = 0; z < vip->zdim; z++) {
-	    xa = 0; in_run = 0;
-	    for (x = 0; x <= vip->xdim; x++) {
-		int exposed = (x < vip->xdim)
-		    && OK(vip, VOL(vip, x, y, z))
-		    && !OK(vip, VOL(vip, x, y-1, z));
-		if (exposed && !in_run) {
-		    xa = x; in_run = 1;
-		} else if (!exposed && in_run) {
-		    size_t xb = x - 1;
-		    in_run = 0;
-		    /* CCW from outside (-y normal) */
-		    if (vol_span_face(s, vip, tol,
-				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z+.5,
-				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z-.5,
-				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z-.5,
-				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z+.5))
-			goto fail;
-		}
-	    }
-	}
-    }
+    /* y+ faces (CCW from outside, +y normal).
+     * outer=y, row=z, span=x.
+     * 2D rect: x=[a0..b0], z=[row_start..row_end] at y+0.5 */
+#define VOL_EMIT_YP(a0, b0, rs, re)					\
+    vol_span_face(s, vip, tol,						\
+		  (fastf_t)(b0)+.5, (fastf_t)y+.5, (fastf_t)(re)+.5,	\
+		  (fastf_t)(b0)+.5, (fastf_t)y+.5, (fastf_t)(rs)-.5,	\
+		  (fastf_t)(a0)-.5, (fastf_t)y+.5, (fastf_t)(rs)-.5,	\
+		  (fastf_t)(a0)-.5, (fastf_t)y+.5, (fastf_t)(re)+.5)
+    VOL_PATCH_LOOP(y, vip->ydim, z, vip->zdim, x, vip->xdim,
+		   OK(vip, VOL(vip, x, y, z)) && !OK(vip, VOL(vip, x, y+1, z)),
+		   VOL_EMIT_YP,
+		   vip->xdim / 2 + 2)
+#undef VOL_EMIT_YP
 
-    /* x+ faces (normal +x): for each x-slice, for each y-row, span z.
-     *
-     * Scanning z for each (x,y) pair keeps the face height at 1 voxel unit
-     * in the Y direction, matching the y-extent of z± and y± faces.  This
-     * eliminates T-junctions at the shared boundary where x+ faces meet z±
-     * and y± faces (they end up sharing the same edge vertices).
-     */
-    for (x = 0; x < vip->xdim; x++) {
-	for (y = 0; y < vip->ydim; y++) {
-	    size_t za = 0; in_run = 0;
-	    for (z = 0; z <= vip->zdim; z++) {
-		int exposed = (z < vip->zdim)
-		    && OK(vip, VOL(vip, x, y, z))
-		    && !OK(vip, VOL(vip, x+1, y, z));
-		if (exposed && !in_run) {
-		    za = z; in_run = 1;
-		} else if (!exposed && in_run) {
-		    size_t zb = z - 1;
-		    in_run = 0;
-		    /* CCW from outside (+x normal) */
-		    if (vol_span_face(s, vip, tol,
-				      (fastf_t)x+.5, (fastf_t)y-.5, (fastf_t)za-.5,
-				      (fastf_t)x+.5, (fastf_t)y+.5, (fastf_t)za-.5,
-				      (fastf_t)x+.5, (fastf_t)y+.5, (fastf_t)zb+.5,
-				      (fastf_t)x+.5, (fastf_t)y-.5, (fastf_t)zb+.5))
-			goto fail;
-		}
-	    }
-	}
-    }
+    /* y- faces (CCW from outside, -y normal).
+     * outer=y, row=z, span=x.
+     * 2D rect: x=[a0..b0], z=[row_start..row_end] at y-0.5 */
+#define VOL_EMIT_YM(a0, b0, rs, re)					\
+    vol_span_face(s, vip, tol,						\
+		  (fastf_t)(a0)-.5, (fastf_t)y-.5, (fastf_t)(re)+.5,	\
+		  (fastf_t)(a0)-.5, (fastf_t)y-.5, (fastf_t)(rs)-.5,	\
+		  (fastf_t)(b0)+.5, (fastf_t)y-.5, (fastf_t)(rs)-.5,	\
+		  (fastf_t)(b0)+.5, (fastf_t)y-.5, (fastf_t)(re)+.5)
+    VOL_PATCH_LOOP(y, vip->ydim, z, vip->zdim, x, vip->xdim,
+		   OK(vip, VOL(vip, x, y, z)) && !OK(vip, VOL(vip, x, y-1, z)),
+		   VOL_EMIT_YM,
+		   vip->xdim / 2 + 2)
+#undef VOL_EMIT_YM
 
-    /* x- faces (normal -x): for each x-slice, for each y-row, span z.
-     *
-     * Same reasoning as x+ above — z-spans keep Y extent at 1 unit.
-     */
-    for (x = 0; x < vip->xdim; x++) {
-	for (y = 0; y < vip->ydim; y++) {
-	    size_t za = 0; in_run = 0;
-	    for (z = 0; z <= vip->zdim; z++) {
-		int exposed = (z < vip->zdim)
-		    && OK(vip, VOL(vip, x, y, z))
-		    && !OK(vip, VOL(vip, x-1, y, z));
-		if (exposed && !in_run) {
-		    za = z; in_run = 1;
-		} else if (!exposed && in_run) {
-		    size_t zb = z - 1;
-		    in_run = 0;
-		    /* CCW from outside (-x normal) */
-		    if (vol_span_face(s, vip, tol,
-				      (fastf_t)x-.5, (fastf_t)y-.5, (fastf_t)zb+.5,
-				      (fastf_t)x-.5, (fastf_t)y+.5, (fastf_t)zb+.5,
-				      (fastf_t)x-.5, (fastf_t)y+.5, (fastf_t)za-.5,
-				      (fastf_t)x-.5, (fastf_t)y-.5, (fastf_t)za-.5))
-			goto fail;
-		}
-	    }
-	}
-    }
+    /* x+ faces (CCW from outside, +x normal).
+     * outer=x, row=y, span=z.
+     * 2D rect: z=[a0..b0], y=[row_start..row_end] at x+0.5 */
+#define VOL_EMIT_XP(a0, b0, rs, re)					\
+    vol_span_face(s, vip, tol,						\
+		  (fastf_t)x+.5, (fastf_t)(rs)-.5, (fastf_t)(a0)-.5,	\
+		  (fastf_t)x+.5, (fastf_t)(re)+.5, (fastf_t)(a0)-.5,	\
+		  (fastf_t)x+.5, (fastf_t)(re)+.5, (fastf_t)(b0)+.5,	\
+		  (fastf_t)x+.5, (fastf_t)(rs)-.5, (fastf_t)(b0)+.5)
+    VOL_PATCH_LOOP(x, vip->xdim, y, vip->ydim, z, vip->zdim,
+		   OK(vip, VOL(vip, x, y, z)) && !OK(vip, VOL(vip, x+1, y, z)),
+		   VOL_EMIT_XP,
+		   vip->zdim / 2 + 2)
+#undef VOL_EMIT_XP
+
+    /* x- faces (CCW from outside, -x normal).
+     * outer=x, row=y, span=z.
+     * 2D rect: z=[a0..b0], y=[row_start..row_end] at x-0.5 */
+#define VOL_EMIT_XM(a0, b0, rs, re)					\
+    vol_span_face(s, vip, tol,						\
+		  (fastf_t)x-.5, (fastf_t)(rs)-.5, (fastf_t)(b0)+.5,	\
+		  (fastf_t)x-.5, (fastf_t)(re)+.5, (fastf_t)(b0)+.5,	\
+		  (fastf_t)x-.5, (fastf_t)(re)+.5, (fastf_t)(a0)-.5,	\
+		  (fastf_t)x-.5, (fastf_t)(rs)-.5, (fastf_t)(a0)-.5)
+    VOL_PATCH_LOOP(x, vip->xdim, y, vip->ydim, z, vip->zdim,
+		   OK(vip, VOL(vip, x, y, z)) && !OK(vip, VOL(vip, x-1, y, z)),
+		   VOL_EMIT_XM,
+		   vip->zdim / 2 + 2)
+#undef VOL_EMIT_XM
+
+#undef VOL_PATCH_LOOP
+
+    if (failed)
+	goto fail;
 
     nmg_region_a(r_tmp, tol);
 
-    /* fuse model */
+    /* fuse model: nmg_model_fuse calls nmg_break_all_es_on_v which resolves
+     * any T-junctions that arise when patch boundaries from different face
+     * directions do not align (e.g. non-rectangular exposed regions). */
     nmg_model_fuse(m_tmp, vlfree, tol);
 
-    /* simplify shell: merge the remaining coplanar row-span quads into
-     * single faces per surface.  With row-span merging the input to this
-     * step is M quads instead of N*M, so the merge cost is O(M^2) vs
-     * the original O((N*M)^2). */
+    /* simplify shell: merge any remaining coplanar patch quads that share
+     * boundaries (e.g. when a non-rectangular exposed region was split into
+     * two or more rectangles). */
     nmg_shell_coplanar_face_merge(s, tol, 1, vlfree);
 
     /* kill snakes */
