@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <numeric>
 #include <chrono>
+#include <map>
 
 using namespace gte;
 
@@ -273,6 +274,8 @@ static MeshQuality<double>::MeshMetrics compute_quality(
 // --------------------------------------------------------------------------
 
 // Returns true if manifold is preserved after remesh.
+// *out_iters is set to the number of Lloyd iterations that actually ran
+// (0 if remesh was not needed or failed).
 static bool auto_remesh_pass(
     std::vector<Vector3<double>> const& in_verts,
     std::vector<std::array<int32_t, 3>> const& in_tris,
@@ -280,10 +283,13 @@ static bool auto_remesh_pass(
     std::vector<Vector3<double>>& out_verts,
     std::vector<std::array<int32_t, 3>>& out_tris,
     double& ar_before, double& ar_after,
-    double time_limit_sec = 5.0)
+    double time_limit_sec = 5.0,
+    size_t* out_iters = nullptr)
 {
     auto qm = compute_quality(in_verts, in_tris);
     ar_before = qm.aspectRatio.median;
+
+    if (out_iters) *out_iters = 0;
 
     if (ar_before <= ar_threshold) {
         // Already good — no remesh needed
@@ -300,8 +306,10 @@ static bool auto_remesh_pass(
     params.lloydTimeLimit    = time_limit_sec;
 
     out_verts = in_verts; out_tris = in_tris;
+    size_t iters_done = 0;
     bool remesh_ok = MeshRemesh<double>::RemeshCVT(
-        in_verts, in_tris, out_verts, out_tris, params);
+        in_verts, in_tris, out_verts, out_tris, params, &iters_done);
+    if (out_iters) *out_iters = iters_done;
     if (!remesh_ok) {
         out_verts = in_verts; out_tris = in_tris;
         ar_after = ar_before;
@@ -467,6 +475,8 @@ int main(int argc, char* argv[])
     // Use a per-shape Lloyd time limit so the full pass completes in
     // bounded time even when 300+ shapes need remeshing.
     static const double REMESH_TIME_LIMIT_SECONDS = 5.0; // seconds per shape
+    // lloydIterations default in MeshRemesh::Parameters is 5
+    static const size_t DEFAULT_LLOYD_ITERATIONS = 5;
 
     std::cout << "\n=== Phase 2: Auto-remesh quality pass (threshold AR > "
               << AR_THRESHOLD << ", time limit " << REMESH_TIME_LIMIT_SECONDS << "s/shape) ===\n";
@@ -477,6 +487,12 @@ int main(int argc, char* argv[])
     int manifold_kept    = 0;
 
     std::vector<double> remesh_ar_before, remesh_ar_after;
+
+    // Collect per-shape data keyed by actual iteration count (1-5)
+    // iters_hist[n] = shapes where exactly n Lloyd iterations ran
+    // iters_ar_delta[n] = AR_before - AR_after for those shapes (positive = improvement)
+    std::map<size_t, int>    iters_hist;
+    std::map<size_t, std::vector<double>> iters_ar_delta; // positive = AR decreased (improved)
 
     auto t2 = std::chrono::steady_clock::now();
 
@@ -489,16 +505,21 @@ int main(int argc, char* argv[])
         std::vector<Vector3<double>> rm_verts;
         std::vector<std::array<int32_t, 3>> rm_tris;
         double ar_before, ar_after;
+        size_t iters_done = 0;
 
         bool manifold_ok = auto_remesh_pass(
             results[i].verts, results[i].tris,
             AR_THRESHOLD,
             rm_verts, rm_tris,
             ar_before, ar_after,
-            REMESH_TIME_LIMIT_SECONDS);
+            REMESH_TIME_LIMIT_SECONDS,
+            &iters_done);
 
         remesh_ar_before.push_back(ar_before);
         remesh_ar_after.push_back(ar_after);
+        iters_hist[iters_done]++;
+        if (manifold_ok)
+            iters_ar_delta[iters_done].push_back(ar_before - ar_after);
 
         if (!manifold_ok) {
             ++manifold_broken;
@@ -530,7 +551,132 @@ int main(int argc, char* argv[])
             std::cout << "  AR after  auto-remesh: mean_of_medians=" << aft.mean_median
                       << "  max=" << aft.max_of_medians << "\n";
         }
+
+        // Lloyd iteration count histogram
+        std::cout << "\n  Lloyd iteration distribution (how many shapes completed N iters):\n";
+        int full_iters = 0; // shapes that ran all DEFAULT_LLOYD_ITERATIONS
+        for (auto const& kv : iters_hist) {
+            size_t n = kv.first;
+            int cnt  = kv.second;
+            if (n == DEFAULT_LLOYD_ITERATIONS) full_iters = cnt;
+            // Compute mean AR delta for this bucket
+            double mean_delta = 0.0;
+            int improved_cnt  = 0;
+            auto it = iters_ar_delta.find(n);
+            if (it != iters_ar_delta.end() && !it->second.empty()) {
+                for (double d : it->second) {
+                    mean_delta += d;
+                    if (d > 0.0) ++improved_cnt;
+                }
+                mean_delta /= static_cast<double>(it->second.size());
+            }
+            std::cout << "    " << n << " iter" << (n != 1 ? "s" : " ")
+                      << ": " << cnt << " shapes";
+            if (it != iters_ar_delta.end() && !it->second.empty()) {
+                std::cout << "  (manifold-preserved: " << it->second.size()
+                          << "  improved: " << improved_cnt
+                          << "  mean_AR_delta=" << mean_delta << ")";
+            }
+            std::cout << "\n";
+        }
+        int early_stop = remesh_attempted - full_iters;
+        if (early_stop > 0)
+            std::cout << "  => " << early_stop << "/" << remesh_attempted
+                      << " shapes had Lloyd stopped early by time limit.\n";
+        else
+            std::cout << "  => All shapes ran full " << DEFAULT_LLOYD_ITERATIONS
+                      << " Lloyd iterations (time limit not reached).\n";
     }
+
+    // -----------------------------------------------------------------------
+    // Phase 2b: Partial relaxation quality analysis
+    // Run each poor-quality shape with exactly N=1, 3, 5 Lloyd iterations
+    // (no time limit) to show the quality improvement curve.
+    // -----------------------------------------------------------------------
+    std::cout << "\n=== Phase 2b: Quality improvement vs Lloyd iteration count ===\n";
+    std::cout << "  (Each shape run with fixed N iters, no time limit; anisotropic CVT)\n";
+
+    struct IterBucket {
+        int improved = 0;
+        int total_manifold = 0;
+        int manifold_broken = 0;
+        double sum_ar_delta = 0.0;
+        double sum_ar_before = 0.0;
+    };
+
+    int n_poor_shapes = 0;
+    for (int i = 0; i < total; ++i) {
+        if (!results[i].ok) continue;
+        if (results[i].post_ar_median <= AR_THRESHOLD) continue;
+        ++n_poor_shapes;
+    }
+
+    static const size_t SWEEP_ITERS[] = {1, 3, 5};
+    static const size_t N_SWEEP = sizeof(SWEEP_ITERS)/sizeof(SWEEP_ITERS[0]);
+
+    IterBucket buckets[N_SWEEP];
+
+    for (size_t si = 0; si < N_SWEEP; ++si) {
+        size_t n_iters = SWEEP_ITERS[si];
+        for (int i = 0; i < total; ++i) {
+            if (!results[i].ok) continue;
+            if (results[i].post_ar_median <= AR_THRESHOLD) continue;
+
+            size_t nb_pts = results[i].verts.size();
+            MeshRemesh<double>::Parameters params;
+            params.targetVertexCount = nb_pts;
+            params.useAnisotropic    = true;
+            params.anisotropyScale   = 0.04;
+            params.lloydIterations   = n_iters;
+            params.lloydTimeLimit    = 0.0; // no time limit — fixed count
+
+            std::vector<Vector3<double>> rv;
+            std::vector<std::array<int32_t, 3>> rt;
+            bool ok = MeshRemesh<double>::RemeshCVT(results[i].verts, results[i].tris, rv, rt, params);
+            if (!ok) continue;
+
+            manifold::MeshGL gmm;
+            gte_to_manifold(gmm, rv, rt);
+            manifold::Manifold gman(gmm);
+            bool mok = (gman.Status() == manifold::Manifold::Error::NoError);
+
+            if (!mok) {
+                ++buckets[si].manifold_broken;
+                continue;
+            }
+            ++buckets[si].total_manifold;
+
+            auto qbef = compute_quality(results[i].verts, results[i].tris);
+            auto qaft = compute_quality(rv, rt);
+            double delta = qbef.aspectRatio.median - qaft.aspectRatio.median; // positive = improved
+            buckets[si].sum_ar_delta  += delta;
+            buckets[si].sum_ar_before += qbef.aspectRatio.median;
+            if (delta > 0.0) ++buckets[si].improved;
+        }
+    }
+
+    std::cout << "  Shapes evaluated: " << n_poor_shapes << "\n\n";
+    std::cout << "  N_iters | Manifold-OK | AR-improved | Manifold-broken"
+              << " | mean_AR_before | mean_AR_delta\n";
+    std::cout << "  --------|-------------|-------------|----------------"
+              << "|-----------------|--------------\n";
+    for (size_t si = 0; si < N_SWEEP; ++si) {
+        size_t n_iters = SWEEP_ITERS[si];
+        IterBucket const& b = buckets[si];
+        double mean_bef   = (b.total_manifold > 0) ? b.sum_ar_before / b.total_manifold : 0.0;
+        double mean_delta = (b.total_manifold > 0) ? b.sum_ar_delta  / b.total_manifold : 0.0;
+        double pct_imp    = (b.total_manifold > 0) ? 100.0 * b.improved / b.total_manifold : 0.0;
+        std::cout << "  " << std::setw(7) << n_iters
+                  << " | " << std::setw(11) << b.total_manifold
+                  << " | " << std::setw(8) << b.improved << " (" << std::fixed << std::setprecision(1)
+                  << pct_imp << "%)"
+                  << " | " << std::setw(14) << b.manifold_broken
+                  << " | " << std::setw(15) << std::setprecision(2) << mean_bef
+                  << " | " << std::setprecision(3) << mean_delta
+                  << "\n";
+    }
+    std::cout << "  (mean_AR_delta: positive = AR decreased = quality improved)\n";
+
 
     // -----------------------------------------------------------------------
     // Summary and pass/fail

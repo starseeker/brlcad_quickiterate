@@ -69,6 +69,7 @@ namespace gte
             : mConvergenceThreshold(static_cast<Real>(1e-6))
             , mVerbose(false)
             , mTimeLimitSeconds(0.0)
+            , mIterationsCompleted(0)
         {
         }
         
@@ -330,12 +331,16 @@ namespace gte
         // If a time limit has been set via SetTimeLimit(), the loop stops
         // after the current iteration completes once the wall-clock deadline
         // is reached, and returns true (partial convergence is acceptable).
+        // The number of iterations actually completed is stored in
+        // mIterationsCompleted and can be queried via GetIterationsCompleted().
         bool LloydIterations(size_t numIterations)
         {
             if (mSites.empty())
             {
                 return false;
             }
+
+            mIterationsCompleted = 0;
 
             using Clock = std::chrono::steady_clock;
             Clock::time_point deadline{};
@@ -374,6 +379,7 @@ namespace gte
                 
                 // Update sites
                 mSites = centroids;
+                ++mIterationsCompleted;
                 
                 if (mVerbose)
                 {
@@ -449,6 +455,14 @@ namespace gte
         void SetTimeLimit(double seconds)
         {
             mTimeLimitSeconds = seconds;
+        }
+
+        // Returns the number of Lloyd iterations that actually completed in the
+        // most recent LloydIterations() call.  Useful for diagnosing whether the
+        // time limit caused early exit.
+        size_t GetIterationsCompleted() const
+        {
+            return mIterationsCompleted;
         }
 
         // Enable/disable verbose output
@@ -811,5 +825,6 @@ namespace gte
         Real mConvergenceThreshold;                               // Convergence criterion
         bool mVerbose;                                            // Output progress
         double mTimeLimitSeconds;                                 // 0 = no limit
+        size_t mIterationsCompleted;                              // Iters completed in last LloydIterations() call
     };
 }

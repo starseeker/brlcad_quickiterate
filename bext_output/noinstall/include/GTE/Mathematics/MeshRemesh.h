@@ -230,7 +230,8 @@ namespace gte
             std::vector<std::array<int32_t, 3>> const& inTriangles,
             std::vector<Vector3<Real>>& outVertices,
             std::vector<std::array<int32_t, 3>>& outTriangles,
-            Parameters const& params = Parameters())
+            Parameters const& params = Parameters(),
+            size_t* outIterations = nullptr)
         {
             size_t targetCount = params.targetVertexCount;
             if (targetCount == 0 || inVertices.empty() || inTriangles.empty())
@@ -243,12 +244,12 @@ namespace gte
             if (params.useAnisotropic)
             {
                 return RemeshCVTAnisotropic(inVertices, inTriangles,
-                                            outVertices, outTriangles, params);
+                                            outVertices, outTriangles, params, outIterations);
             }
             else
             {
                 return RemeshCVTIsotropic(inVertices, inTriangles,
-                                          outVertices, outTriangles, params);
+                                          outVertices, outTriangles, params, outIterations);
             }
         }
 
@@ -259,7 +260,8 @@ namespace gte
             std::vector<std::array<int32_t, 3>> const& inTriangles,
             std::vector<Vector3<Real>>& outVertices,
             std::vector<std::array<int32_t, 3>>& outTriangles,
-            Parameters const& params)
+            Parameters const& params,
+            size_t* outIterations = nullptr)
         {
             // Use Vector<3, Real> (CVTN requires Vector<N, Real> type)
             using Vec3 = Vector<3, Real>;
@@ -289,6 +291,10 @@ namespace gte
             if (params.lloydIterations > 0 && !cvt.LloydIterations(params.lloydIterations))
             {
                 return false;
+            }
+            if (outIterations != nullptr)
+            {
+                *outIterations = cvt.GetIterationsCompleted();
             }
 
             std::vector<Vec3> seeds3;
@@ -324,7 +330,8 @@ namespace gte
             std::vector<std::array<int32_t, 3>> const& inTriangles,
             std::vector<Vector3<Real>>& outVertices,
             std::vector<std::array<int32_t, 3>>& outTriangles,
-            Parameters const& params)
+            Parameters const& params,
+            size_t* outIterations = nullptr)
         {
             using Vec3 = Vector<3, Real>;
             using Vec6 = Vector<6, Real>;
@@ -402,6 +409,10 @@ namespace gte
             if (params.lloydIterations > 0 && !cvt.LloydIterations(params.lloydIterations))
             {
                 return false;
+            }
+            if (outIterations != nullptr)
+            {
+                *outIterations = cvt.GetIterationsCompleted();
             }
 
             std::vector<Vec3> seeds3;
