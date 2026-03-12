@@ -964,8 +964,8 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    nseg = nseg_ntol;
     }
     if (nseg < 6) nseg = 6;
-    /* Cap segment count for tess: see rt_epa_tess() for the rationale. */
-    if (nseg > 24) nseg = 24;
+    /* No upper cap on nseg: see rt_epa_tess() for the rationale.
+     * The rt_mk_hyperbola recursion guard prevents OOM for tight ntol. */
 
     /* Face count: all rings use same nseg, no doubling */
     face = nseg * (2*nell + 2) + 1;
