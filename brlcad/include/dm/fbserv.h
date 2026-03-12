@@ -71,6 +71,7 @@ struct fbserv_client {
     void *fbsc_handler;                 /**< @brief platform/toolkit specific handler */
     struct pkg_conn *fbsc_pkg;
     struct fbserv_obj *fbsc_fbsp;       /**< @brief points to its fbserv object */
+    int fbsc_auth_ok;                   /**< @brief !0 = client has sent a valid MSG_FBAUTH */
 };
 
 
@@ -91,6 +92,10 @@ struct fbserv_obj {
     void *fbs_clientData;
     struct bu_vls *msgs;
     int fbs_mode;                                  /**< @brief 0-off, 1-underlay, 2-interlay, 3-overlay */
+
+    char fbs_auth_token[65];  /**< @brief session token (64 hex chars + NUL); empty = no auth required */
+    int fbs_require_auth;     /**< @brief !0 = reject clients that don't send MSG_FBAUTH */
+    void *fbs_tls_ctx;        /**< @brief opaque SSL_CTX* for TLS; NULL = no TLS */
 };
 
 DM_EXPORT extern int fbs_open(struct fbserv_obj *fbsp, int port);
