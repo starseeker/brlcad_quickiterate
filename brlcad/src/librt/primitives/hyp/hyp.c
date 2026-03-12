@@ -743,7 +743,6 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 {
     fastf_t c, dtol, f, mag_a, mag_h, ntol, r1, r2, r3, cprime;
     fastf_t **ellipses = NULL;
-    fastf_t theta_new;
     int *pts_dbl;
     int idx;
     size_t face, i, j, nseg;
@@ -811,6 +810,12 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     else
 	/* tolerate everything */
 	ntol = M_PI;
+
+    /* Clamp tolerances to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = sqrt(4.0*r1*r1 + mag_h*mag_h);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
 
     /*
      * build hyp from 2 hyperbolas
@@ -918,31 +923,38 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* keep track of whether pts in each ellipse are doubled or not */
     pts_dbl = (int *)bu_malloc(nell * sizeof(int), "dbl ints");
 
+    /* Compute circumferential segment count from the waist ring
+     * (minimum cross-section, radius r1; as the hyperboloid flares outward
+     * toward both ends, r1 is the tightest curvature and thus the binding
+     * constraint for the chord-error formula).
+     * Using ell_angle() was incorrect here: see rt_epa_plot() for the
+     * rationale. */
+    nseg = rt_num_circular_segments(dtol, r1);
+    if (ntol < M_PI) {
+	size_t nseg_ntol = (size_t)(M_2PI / ntol) + 1;
+	if (nseg_ntol > nseg)
+	    nseg = nseg_ntol;
+    }
+    if (nseg < 6) nseg = 6;
+
+    /* Face count: all rings use same nseg, no doubling */
+    face = nseg * (2*nell + 2) + 1;
+    if (face < 16) face = 16;
+    /* array for each triangular face */
+    outfaceuses = (struct faceuse **)
+	bu_malloc((face+1) * sizeof(struct faceuse *), "hyp: *outfaceuses[]");
+
     /* make ellipses at each z level */
     i = 0;
-    nseg = 0;
-    pos_a = pts_a;	/*->next; */	/* skip over apex of hyp */
-    pos_b = pts_b;	/*->next; */
+    pos_a = pts_a;	/* HYP includes the top and bottom caps */
+    pos_b = pts_b;
     while (pos_a) {
-	point_t p1;
-
 	VSCALE(A, Au, pos_a->p[X]);	/* semimajor axis */
 	VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
 	VJOIN1(V, xip->hyp_V, -pos_a->p[Z], Hu);
 
-	VSET(p1, 0., pos_b->p[Y], 0.);
-	theta_new = ell_angle(p1, pos_a->p[X], pos_b->p[Y], dtol, ntol);
-	if (nseg == 0) {
-	    nseg = (int)(M_2PI / theta_new) + 1;
-	    pts_dbl[i] = 0;
-	    /* maximum number of faces needed for hyp */
-	    face = 2*nseg*nell - 4;	/*nseg*(1 + 3*((1 << (nell-1)) - 1));*/
-	    /* array for each triangular face */
-	    outfaceuses = (struct faceuse **)
-		bu_malloc((face+1) * sizeof(struct faceuse *), "hyp: *outfaceuses[]");
-	} else {
-	    pts_dbl[i] = 0;
-	}
+	/* All rings use the same segment count (no per-ring doubling) */
+	pts_dbl[i] = 0;
 
 	ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t), "pts ell");
 	rt_ell(ellipses[i], V, A, B, nseg);
