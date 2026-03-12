@@ -1199,6 +1199,14 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 
     /* split segment at widest point if not within error tolerances */
     if (dist > dtol || theta0 > ntol || theta1 > ntol) {
+	/* Stop subdividing when the segment Y-span falls below 10% of the
+	 * distance tolerance.  This bounds subdivision depth for tight normal
+	 * tolerances: no further subdivision can improve the chord error once
+	 * the segment is already much smaller than dtol. */
+	fastf_t span = fabs(p1[Y] - p0[Y]);
+	if (span < dtol * 0.1)
+	    return 0;
+
 	/* split segment */
 	BU_ALLOC(newpt, struct rt_pnt_node);
 	VMOVE(newpt->p, mpt);
