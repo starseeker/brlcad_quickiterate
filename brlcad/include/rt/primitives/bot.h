@@ -204,8 +204,16 @@ struct rt_bot_repair_info {
  *
  * auto_remesh defaults to 0 (off).  When enabled it runs a Verdict-style
  * quality evaluation after repair and, if the median aspect ratio exceeds
- * remesh_quality_ar (default 3.0), automatically remeshes the output to
- * improve triangle quality.
+ * remesh_quality_ar (default 3.0), attempts RemeshCVT to improve triangle
+ * quality.  The manifold property is re-verified after remesh; if it is
+ * lost the pre-remesh output is returned unchanged.
+ *
+ * NOTE: On models containing thin/elongated structural elements (stringers,
+ * cross-supports), RemeshCVT frequently breaks the manifold property even
+ * when applied within this fallback framework.  Testing on GenericTwin
+ * shows >80% of such shapes lose manifold after RemeshCVT.  For these
+ * shapes the high AR reflects physical geometry, not a repair defect.
+ * Callers should NOT enable auto_remesh by default on production geometry.
  */
 #define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1, 0, 0.0};
 

@@ -8,23 +8,33 @@
 // provides a self-contained, VTK-free implementation so that repair and
 // remesh pipelines can evaluate mesh quality without taking a VTK dependency.
 //
+// All metrics are normalized to match VTK's vtkMeshQuality output exactly:
+// an equilateral triangle gives 1.0 for all metrics (except MinAngle=60 and
+// MaxAngle=60 which are in degrees).  Validated against vtkMeshQuality 9.1.
+//
 // For a triangle with vertices v0, v1, v2 and edge lengths l0, l1, l2 where
 //   l0 = |v1-v0|,  l1 = |v2-v1|,  l2 = |v0-v2|
 // and area A = 0.5 * |cross(v1-v0, v2-v0)|, the metrics are:
 //
-//   AspectRatio    = max(l0,l1,l2) * (l0+l1+l2) / (4*sqrt(3)*A)     [ideal: 1.0]
-//   ScaledJacobian = 2*A / max(l0*l1, l1*l2, l0*l2)                  [ideal: sqrt(3)/2 ≈ 0.866]
-//   MinAngle (deg) = smallest interior angle                          [ideal: 60]
-//   MaxAngle (deg) = largest  interior angle                          [ideal: 60]
-//   Shape          = 2*sqrt(3)*A / (l0^2 + l1^2 + l2^2)              [ideal: 0.5]
-//   Condition      = (l0^2 + l1^2 + l2^2) / (2*sqrt(3)*A)            [ideal: 2.0]
-//   EdgeRatio      = max(l0,l1,l2) / min(l0,l1,l2)                   [ideal: 1.0]
+//   AspectRatio    = max(l0,l1,l2) * (l0+l1+l2) / (4*sqrt(3)*A)
+//                    [ideal: 1.0; matches VTK TriangleAspectRatio]
+//   ScaledJacobian = min(sin(A), sin(B), sin(C)) / sin(60°)
+//                  = 2*A / (max(l0*l1, l1*l2, l0*l2) * sin(60°))
+//                    [ideal: 1.0; matches VTK TriangleScaledJacobian]
+//   MinAngle (deg) = smallest interior angle
+//                    [ideal: 60; matches VTK TriangleMinAngle]
+//   MaxAngle (deg) = largest  interior angle
+//                    [ideal: 60; matches VTK TriangleMaxAngle]
+//   Shape          = 4*sqrt(3)*A / (l0^2 + l1^2 + l2^2)
+//                    [ideal: 1.0; matches VTK TriangleShape]
+//   Condition      = (l0^2 + l1^2 + l2^2) / (4*sqrt(3)*A)
+//                    [ideal: 1.0; matches VTK TriangleCondition]
+//   EdgeRatio      = max(l0,l1,l2) / min(l0,l1,l2)
+//                    [ideal: 1.0; matches VTK TriangleEdgeRatio]
 //
-// The AspectRatio formula equals 1.0 for an equilateral triangle and grows
-// without bound as the triangle degenerates.  ScaledJacobian ranges from -1
-// (fully inverted) through 0 (degenerate) to sqrt(3)/2 (equilateral).
-// Shape and Condition are reciprocals; Shape=0.5 and Condition=2.0 for
-// equilateral (matching VTK's vtkMeshQuality output).
+// The ScaledJacobian equals min(sin(angle)) / sin(60°), so it is 1.0 for
+// equilateral, positive for well-shaped, and negative for inverted triangles.
+// Shape and Condition are reciprocals (Shape = 1/Condition).
 //
 // Usage:
 //   #include <Mathematics/MeshQuality.h>
@@ -33,6 +43,8 @@
 //   auto tm = MeshQuality<double>::ComputeTriangle(v0, v1, v2);
 //   auto mm = MeshQuality<double>::ComputeMeshMetrics(vertices, triangles);
 //   std::cout << "median aspect ratio: " << mm.aspectRatio.median << "\n";
+//   // All metrics normalized to equilateral=1.0 (except min/max angle in degrees).
+//   // Matches VTK vtkMeshQuality output exactly.
 
 #pragma once
 
@@ -53,13 +65,13 @@ public:
     // Quality metrics for a single triangle.
     struct TriangleMetrics
     {
-        Real aspectRatio;    // [1, ∞)  — 1.0 = equilateral
-        Real scaledJacobian; // (-1, ~0.866] — 0.866 = equilateral, < 0 = inverted
-        Real minAngle;       // degrees  (0, 60] — 60 = equilateral
-        Real maxAngle;       // degrees  [60, 180) — 60 = equilateral
-        Real shape;          // (0, 0.5] — 0.5 = equilateral, matches VTK
-        Real condition;      // [2, ∞)   — 2.0 = equilateral (= 1/shape * A_eq_norm)
-        Real edgeRatio;      // [1, ∞)   — 1.0 = equilateral
+        Real aspectRatio;    // [1, ∞)  — 1.0 = equilateral, matches VTK TriangleAspectRatio
+        Real scaledJacobian; // (-∞, 1] — 1.0 = equilateral, < 0 = inverted, matches VTK
+        Real minAngle;       // degrees (0, 60] — 60 = equilateral, matches VTK TriangleMinAngle
+        Real maxAngle;       // degrees [60, 180) — 60 = equilateral, matches VTK TriangleMaxAngle
+        Real shape;          // (0, 1]  — 1.0 = equilateral, matches VTK TriangleShape
+        Real condition;      // [1, ∞)  — 1.0 = equilateral, matches VTK TriangleCondition
+        Real edgeRatio;      // [1, ∞)  — 1.0 = equilateral, matches VTK TriangleEdgeRatio
     };
 
     // Per-metric aggregate statistics over an entire mesh.
@@ -130,16 +142,26 @@ public:
             Real perimeter = l0 + l1 + l2;
 
             // Aspect ratio: max_edge * perimeter / (4 * sqrt(3) * area)
+            // Matches VTK TriangleAspectRatio; equilateral = 1.0
             m.aspectRatio = max_edge * perimeter / ((Real)4 * SQRT3 * area);
 
-            // Scaled Jacobian: 2*area / max(l0*l1, l1*l2, l0*l2)
+            // Scaled Jacobian: min(sin(A), sin(B), sin(C)) / sin(60°)
+            //   = (2*area / max_edge_product) / (sqrt(3)/2)
+            //   = 4*area / (sqrt(3) * max_edge_product)
+            // Matches VTK TriangleScaledJacobian; equilateral = 1.0
             Real max_prod = std::max({l0 * l1, l1 * l2, l0 * l2});
-            m.scaledJacobian = (max_prod > (Real)0) ? two_area / max_prod : (Real)0;
+            m.scaledJacobian = (max_prod > (Real)0)
+                ? (Real)4 * area / (SQRT3 * max_prod)
+                : (Real)0;
 
-            // Shape: 2*sqrt(3)*area / (l0^2 + l1^2 + l2^2)
+            // Shape: 4*sqrt(3)*area / (l0^2 + l1^2 + l2^2)
+            // Matches VTK TriangleShape; equilateral = 1.0
             Real sumsq = l0*l0 + l1*l1 + l2*l2;
-            m.shape     = (Real)2 * SQRT3 * area / sumsq;
-            m.condition = sumsq / ((Real)2 * SQRT3 * area);
+            m.shape     = (Real)4 * SQRT3 * area / sumsq;
+
+            // Condition: (l0^2 + l1^2 + l2^2) / (4*sqrt(3)*area)
+            // Matches VTK TriangleCondition; equilateral = 1.0
+            m.condition = sumsq / ((Real)4 * SQRT3 * area);
         } else {
             // Degenerate / zero-area triangle — use sentinel values matching VTK Verdict
             const Real SENTINEL = (Real)1e15;
@@ -150,7 +172,7 @@ public:
         }
 
         // Angles (degrees) using the dot-product formula
-        const Real RAD2DEG = (Real)180 / ((Real)3.14159265358979323846);
+        const Real RAD2DEG = (Real)180 / std::acos((Real)-1);
 
         // Angle at v0: between (v1-v0) and (v2-v0) = L0 and -L2
         // Angle at v1: between (v0-v1) and (v2-v1) = -L0 and L1
@@ -158,19 +180,23 @@ public:
         Real negL0[3] = { -L0[0], -L0[1], -L0[2] };
         Real negL1[3] = { -L1[0], -L1[1], -L1[2] };
 
-        Real cosA = (l0 > (Real)0 && l2 > (Real)0)
-            ? Clamp(Dot3(L0, negL2) / (l0 * l2), (Real)-1, (Real)1) : (Real)0;
-        Real cosB = (l0 > (Real)0 && l1 > (Real)0)
-            ? Clamp(Dot3(negL0, L1) / (l0 * l1), (Real)-1, (Real)1) : (Real)0;
-        Real cosC = (l1 > (Real)0 && l2 > (Real)0)
-            ? Clamp(Dot3(negL1, L2) / (l1 * l2), (Real)-1, (Real)1) : (Real)0;
+        // For degenerate triangles (area==0 or any edge zero), clamp both angles
+        // to 0 — matches VTK vtkMeshQuality behavior on degenerate cells.
+        if (area <= (Real)0 || l0 <= (Real)0 || l1 <= (Real)0 || l2 <= (Real)0) {
+            m.minAngle = (Real)0;
+            m.maxAngle = (Real)0;
+        } else {
+            Real cosA = Clamp(Dot3(L0, negL2) / (l0 * l2), (Real)-1, (Real)1);
+            Real cosB = Clamp(Dot3(negL0, L1) / (l0 * l1), (Real)-1, (Real)1);
+            Real cosC = Clamp(Dot3(negL1, L2) / (l1 * l2), (Real)-1, (Real)1);
 
-        Real angA = std::acos(cosA) * RAD2DEG;
-        Real angB = std::acos(cosB) * RAD2DEG;
-        Real angC = std::acos(cosC) * RAD2DEG;
+            Real angA = std::acos(cosA) * RAD2DEG;
+            Real angB = std::acos(cosB) * RAD2DEG;
+            Real angC = std::acos(cosC) * RAD2DEG;
 
-        m.minAngle = std::min({angA, angB, angC});
-        m.maxAngle = std::max({angA, angB, angC});
+            m.minAngle = std::min({angA, angB, angC});
+            m.maxAngle = std::max({angA, angB, angC});
+        }
 
         return m;
     }

@@ -9,7 +9,7 @@
 //   ./test_mesh_quality [input.obj]
 //
 // Pass criteria:
-//   - Equilateral triangle: AR=1, SJ≈0.866, MinAngle=60, Shape=0.5, Condition=2
+//   - Equilateral triangle: AR=1, SJ=1, MinAngle=60, Shape=1, Condition=1 (VTK-normalized)
 //   - Degenerate triangle correctly detected (AR very large, SJ=0, Shape=0)
 //   - Simple solid cube mesh metrics are within expected ranges
 
@@ -81,17 +81,16 @@ static int test_equilateral_triangle()
         }
     };
     chk("AspectRatio",    m.aspectRatio,    1.0);
-    chk("ScaledJacobian", m.scaledJacobian, std::sqrt(3.0)/2.0);
+    chk("ScaledJacobian", m.scaledJacobian, 1.0);  // VTK-normalized: equilateral=1.0
     chk("MinAngle",       m.minAngle,       60.0);
     chk("MaxAngle",       m.maxAngle,       60.0);
-    chk("Shape",          m.shape,          0.5);
-    chk("Condition",      m.condition,      2.0);
+    chk("Shape",          m.shape,          1.0);   // VTK-normalized: equilateral=1.0
+    chk("Condition",      m.condition,      1.0);   // VTK-normalized: equilateral=1.0
     chk("EdgeRatio",      m.edgeRatio,      1.0);
 
     if (failures == 0)
         std::cout << "PASS: equilateral triangle metrics correct"
-                  << " (AR=1, SJ=" << std::fixed << std::setprecision(4)
-                  << m.scaledJacobian << ", MinAngle=60, Shape=0.5, Cond=2)\n";
+                  << " (AR=1, SJ=1, MinAngle=60, Shape=1, Cond=1) [VTK-normalized]\n";
     return failures;
 }
 
@@ -116,12 +115,26 @@ static int test_right_triangle()
         std::cerr << "FAIL right-iso AR should be > 1, got " << m.aspectRatio
                   << "\n"; ++failures;
     }
-    if (m.scaledJacobian <= 0.0 || m.scaledJacobian >= std::sqrt(3.0)/2.0 + 0.01) {
-        std::cerr << "FAIL right-iso SJ out of range: " << m.scaledJacobian
+    if (m.scaledJacobian <= 0.0 || m.scaledJacobian > 1.001) {
+        std::cerr << "FAIL right-iso SJ out of range (expected ~0.8165): " << m.scaledJacobian
                   << "\n"; ++failures;
     }
+    // VTK gives 0.81650 for right-isoceles — check it's close
+    if (!approx_eq(m.scaledJacobian, 0.81649658, 1e-4)) {
+        std::cerr << "FAIL right-iso SJ VTK mismatch: got " << m.scaledJacobian
+                  << " expected ~0.8165\n"; ++failures;
+    }
+    // VTK gives Shape=0.86603, Condition=1.15470 for right-isoceles
+    if (!approx_eq(m.shape, 0.86602540, 1e-4)) {
+        std::cerr << "FAIL right-iso Shape VTK mismatch: got " << m.shape
+                  << " expected ~0.8660\n"; ++failures;
+    }
+    if (!approx_eq(m.condition, 1.15470054, 1e-4)) {
+        std::cerr << "FAIL right-iso Condition VTK mismatch: got " << m.condition
+                  << " expected ~1.1547\n"; ++failures;
+    }
     if (failures == 0)
-        std::cout << "PASS: right-isoceles triangle: MinAngle~45, MaxAngle~90, AR>1\n";
+        std::cout << "PASS: right-isoceles: MinAngle~45, MaxAngle~90, AR>1, SJ~0.8165 (VTK match)\n";
     return failures;
 }
 
@@ -181,9 +194,9 @@ static int test_mesh_metrics_cube()
         std::cerr << "FAIL cube has " << mm.invertedTriangles
                   << " inverted triangles\n"; ++failures;
     }
-    if (mm.aspectRatio.median < 1.3 || mm.aspectRatio.median > 2.6) {
+    if (mm.aspectRatio.median < 1.3 || mm.aspectRatio.median > 1.5) {
         std::cerr << "FAIL cube AR median " << mm.aspectRatio.median
-                  << " out of range [1.4, 2.6]\n"; ++failures;
+                  << " out of range [1.3, 1.5]\n"; ++failures;
     }
     if (mm.minAngle.median < 40.0 || mm.minAngle.median > 50.0) {
         std::cerr << "FAIL cube MinAngle median " << mm.minAngle.median
@@ -240,8 +253,8 @@ static void print_metrics(std::string const& label,
               << " (" << pct(mm.smallAngle) << "%)\n";
     std::cout << "    Max angle > 120 deg : " << mm.largeAngle
               << " (" << pct(mm.largeAngle) << "%)\n";
-    std::cout << "\n  Verdict ideal values: AR=1, SJ=0.866, MinAngle=60, MaxAngle=60\n"
-              << "                        Shape=0.5, Condition=2.0, EdgeRatio=1\n";
+    std::cout << "\n  Verdict ideal values (VTK-normalized): AR=1, SJ=1, MinAngle=60, MaxAngle=60\n"
+              << "                                          Shape=1, Condition=1, EdgeRatio=1\n";
 }
 
 // ---- main --------------------------------------------------------------
@@ -249,11 +262,11 @@ static void print_metrics(std::string const& label,
 int main(int argc, char* argv[])
 {
     std::cout << "=== GTE MeshQuality (Verdict-equivalent) Tests ===\n\n";
-    std::cout << "  Metrics match Verdict/VTK vtkMeshQuality formulas:\n"
+    std::cout << "  Metrics match Verdict/VTK vtkMeshQuality formulas (equilateral=1.0 for all):\n"
               << "    Aspect Ratio    = max_edge * perimeter / (4*sqrt(3)*area)\n"
-              << "    Scaled Jacobian = 2*area / max(l0*l1, l1*l2, l0*l2)\n"
-              << "    Shape           = 2*sqrt(3)*area / (l0^2+l1^2+l2^2)\n"
-              << "    Condition       = (l0^2+l1^2+l2^2) / (2*sqrt(3)*area)\n\n";
+              << "    Scaled Jacobian = min(sin(A),sin(B),sin(C)) / sin(60) = 4*area/(sqrt(3)*max_edge_prod)\n"
+              << "    Shape           = 4*sqrt(3)*area / (l0^2+l1^2+l2^2)\n"
+              << "    Condition       = (l0^2+l1^2+l2^2) / (4*sqrt(3)*area) = 1/Shape\n\n";
 
     int failures = 0;
     failures += test_equilateral_triangle();

@@ -36,3 +36,5 @@ tests/data/gt_remeshed.obj
 tests/data/gt_repaired.obj
 test_mesh_quality
 test_remesh_verdict
+test_gtevtk_compare
+test_repair_remesh_quality

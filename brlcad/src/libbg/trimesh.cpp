@@ -540,21 +540,25 @@ bg_trimesh_solid(int vcnt, int fcnt, fastf_t *v, int *f, int **bedges)
 	/* Pack boundary edge pairs (vertex index pairs) into *bedges.
 	 * Non-manifold vertices are counted in bedge_cnt but are single
 	 * indices, not pairs, so they are not included in *bedges.
-	 * Allocate edge_cnt*2+1 so that bu_calloc is never called with
-	 * count=0 (which would trigger bu_bomb) when only NMV errors exist. */
+	 * When edge_cnt is zero (only NMV errors exist) bu_calloc would
+	 * bomb with count=0, so skip allocation in that case. */
 	edge_cnt = errors.unmatched.count + errors.misoriented.count + errors.excess.count;
 	copy_cnt = 0;
-	*bedges = (int *)bu_calloc(edge_cnt * 2 + 1, sizeof(int), "bad edges");
-	if (errors.unmatched.count && errors.unmatched.edges) {
-	    memcpy(*bedges + copy_cnt, errors.unmatched.edges, errors.unmatched.count * 2 * sizeof(int));
-	    copy_cnt += errors.unmatched.count * 2;
-	}
-	if (errors.misoriented.count && errors.misoriented.edges) {
-	    memcpy(*bedges + copy_cnt, errors.misoriented.edges, errors.misoriented.count * 2 * sizeof(int));
-	    copy_cnt += errors.misoriented.count * 2;
-	}
-	if (errors.excess.count && errors.excess.edges) {
-	    memcpy(*bedges + copy_cnt, errors.excess.edges, errors.excess.count * 2 * sizeof(int));
+	if (edge_cnt > 0) {
+	    *bedges = (int *)bu_calloc(edge_cnt * 2, sizeof(int), "bad edges");
+	    if (errors.unmatched.count && errors.unmatched.edges) {
+		memcpy(*bedges + copy_cnt, errors.unmatched.edges, errors.unmatched.count * 2 * sizeof(int));
+		copy_cnt += errors.unmatched.count * 2;
+	    }
+	    if (errors.misoriented.count && errors.misoriented.edges) {
+		memcpy(*bedges + copy_cnt, errors.misoriented.edges, errors.misoriented.count * 2 * sizeof(int));
+		copy_cnt += errors.misoriented.count * 2;
+	    }
+	    if (errors.excess.count && errors.excess.edges) {
+		memcpy(*bedges + copy_cnt, errors.excess.edges, errors.excess.count * 2 * sizeof(int));
+	    }
+	} else {
+	    *bedges = NULL; /* NMV-only errors: no edge pairs to report */
 	}
 
 	bg_free_trimesh_solid_errors(&errors);
