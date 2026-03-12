@@ -25,8 +25,10 @@
 #include <cmath>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <queue>
 #include <stack>
 #include <unordered_map>
@@ -729,13 +731,22 @@ namespace gte
                         // If this (facet,seed) pair was already recorded from a previous
                         // connected component of the same seed, we must still propagate
                         // adjacency through f so the BFS covers the full Voronoi cell
-                        // region on each mesh connected component (matching Geogram's
-                        // behaviour of no inner-BFS early-exit).  We skip the polygon
+                        // region on each mesh connected component.  We skip the polygon
                         // action and adjSeed re-pushes to avoid double-counting, but we
                         // DO traverse the mesh edges so adjacent facets are not missed.
+                        //
+                        // Critically, we must NOT overwrite the existing component
+                        // mapping.  The first-recorded component correctly places its
+                        // centroid near facet f.  A later component of the same seed
+                        // may have its centroid at a completely different physical
+                        // location on the mesh (e.g., on a separate disconnected piece).
+                        // Overwriting with the later component's ID causes RDT triangle
+                        // candidates to reference that far-away centroid, producing
+                        // extreme aspect-ratio triangles (AR > 10,000) as observed on
+                        // fragmented meshes such as GenericTwin (1109 components).
                         if (mFacetSeedComp.count(FacetSeedKey(f, curS)))
                         {
-                            // Propagate adjacency only (no action, no adjSeed pushes)
+                            // Propagate adjacency only — preserve first-recorded component
                             for (auto const& v : poly->V)
                             {
                                 if (v.adjFacet >= 0
@@ -745,9 +756,6 @@ namespace gte
                                     adjacentFacets.push(v.adjFacet);
                                 }
                             }
-                            // Update component mapping so triangles use the current
-                            // component (same overwrite-last behaviour as Geogram)
-                            mFacetSeedComp[FacetSeedKey(f, curS)] = mCurrentComp;
                             continue;
                         }
 
@@ -1379,6 +1387,179 @@ namespace gte
                         return false;
                     });
                 rawTris.erase(end2, rawTris.end());
+            }
+        }
+
+        if (rawTris.empty())
+        {
+            return false;
+        }
+
+        // ── 5e. Merge near-duplicate vertices. ───────────────────────────────
+        //
+        // The multi-nerve RDT produces one output vertex per connected component
+        // of each seed's Restricted Voronoi Cell (RVC).  On highly fragmented
+        // input meshes, two tiny RVC components of the same seed can have their
+        // area-weighted centroids almost coincident in 3D (differing by <0.1%
+        // of the bounding-box diagonal).  When both components are connected by
+        // RDT edges to a distant third seed, the resulting triangles are extreme
+        // slivers (AR > 10,000) that pass through all the peninsula/manifold
+        // filters above.
+        //
+        // Fix: merge any two rawVerts whose 3D distance is below a threshold
+        // derived from the mesh bounding box.  This mirrors Geogram's behaviour
+        // in mesh_repair() which is called implicitly by remesh_smooth() before
+        // returning the output mesh.
+        //
+        // The merge threshold is chosen as 1e-3 * bbox_diagonal, which is large
+        // enough to collapse near-duplicate centroids (separation < 0.1% of bbox)
+        // yet small enough to preserve legitimately distinct vertices (typical
+        // edge lengths on a well-remeshed surface are 10-100x larger than the
+        // threshold, so no legitimate vertices are erroneously merged).
+        {
+            // Compute bounding box of rawVerts that appear in at least one triangle
+            Real bbMin[3] = { std::numeric_limits<Real>::max(),
+                              std::numeric_limits<Real>::max(),
+                              std::numeric_limits<Real>::max() };
+            Real bbMax[3] = { std::numeric_limits<Real>::lowest(),
+                              std::numeric_limits<Real>::lowest(),
+                              std::numeric_limits<Real>::lowest() };
+            for (auto const& tri : rawTris)
+            {
+                for (int k = 0; k < 3; ++k)
+                {
+                    auto const& v = rawVerts[tri[k]];
+                    for (int d = 0; d < 3; ++d)
+                    {
+                        bbMin[d] = std::min(bbMin[d], v[d]);
+                        bbMax[d] = std::max(bbMax[d], v[d]);
+                    }
+                }
+            }
+            Real bbDiag = std::sqrt(
+                (bbMax[0]-bbMin[0])*(bbMax[0]-bbMin[0]) +
+                (bbMax[1]-bbMin[1])*(bbMax[1]-bbMin[1]) +
+                (bbMax[2]-bbMin[2])*(bbMax[2]-bbMin[2]));
+            Real mergeThresh = bbDiag * static_cast<Real>(1e-3);
+            Real mergeThresh2 = mergeThresh * mergeThresh;
+
+            // Union-Find for vertex merging.
+            std::vector<int32_t> parent(nRaw);
+            std::iota(parent.begin(), parent.end(), 0);
+            std::function<int32_t(int32_t)> find = [&](int32_t x) -> int32_t {
+                while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+                return x;
+            };
+            auto unite = [&](int32_t a, int32_t b) {
+                a = find(a); b = find(b);
+                if (a != b) { parent[b] = a; }
+            };
+
+            // Collect active vertices for sorting
+            std::vector<int32_t> active;
+            {
+                std::vector<bool> used(nRaw, false);
+                for (auto const& tri : rawTris)
+                    for (int k = 0; k < 3; ++k)
+                        used[tri[k]] = true;
+                for (int32_t i = 0; i < nRaw; ++i)
+                    if (used[i]) active.push_back(i);
+            }
+
+            // Sort active vertices by X to enable an O(n log n) sweep.
+            std::sort(active.begin(), active.end(),
+                [&](int32_t a, int32_t b){ return rawVerts[a][0] < rawVerts[b][0]; });
+
+            // Sweep: for each vertex, check all subsequent vertices within mergeThresh in X.
+            for (size_t i = 0; i < active.size(); ++i)
+            {
+                int32_t ai = active[i];
+                Real xi = rawVerts[ai][0];
+                for (size_t j = i + 1; j < active.size(); ++j)
+                {
+                    int32_t aj = active[j];
+                    Real xj = rawVerts[aj][0];
+                    if (xj - xi > mergeThresh) break;  // sorted, so no more candidates
+                    Real dx = rawVerts[aj][0] - xi;
+                    Real dy = rawVerts[aj][1] - rawVerts[ai][1];
+                    Real dz = rawVerts[aj][2] - rawVerts[ai][2];
+                    if (dx*dx + dy*dy + dz*dz <= mergeThresh2)
+                    {
+                        unite(ai, aj);
+                    }
+                }
+            }
+
+            // Build canonical index map: rawVerts index → representative
+            // Representative vertex position = rawVerts[find(i)]
+            std::vector<int32_t> canonMap(nRaw, -1);
+            int32_t nextCanon = 0;
+            for (int32_t i = 0; i < nRaw; ++i)
+            {
+                int32_t root = find(i);
+                if (canonMap[root] < 0)
+                {
+                    canonMap[root] = nextCanon++;
+                }
+                canonMap[i] = canonMap[find(i)];
+            }
+            nRaw = nextCanon;
+
+            // Apply remapping to rawVerts and rawTris
+            std::vector<Vector3<Real>> mergedVerts(nextCanon);
+            std::vector<bool> mergedSet(nextCanon, false);
+            for (int32_t i = 0; i < static_cast<int32_t>(rawVerts.size()); ++i)
+            {
+                int32_t c = canonMap[i];
+                if (c >= 0 && !mergedSet[c])
+                {
+                    mergedVerts[c] = rawVerts[i];
+                    mergedSet[c] = true;
+                }
+            }
+            rawVerts = std::move(mergedVerts);
+
+            for (auto& tri : rawTris)
+            {
+                tri[0] = canonMap[tri[0]];
+                tri[1] = canonMap[tri[1]];
+                tri[2] = canonMap[tri[2]];
+            }
+
+            // Remove degenerate triangles introduced by merging (two equal vertices)
+            {
+                auto end5e = std::remove_if(rawTris.begin(), rawTris.end(),
+                    [](std::array<int32_t,3> const& tri) {
+                        return tri[0] == tri[1] || tri[1] == tri[2] || tri[0] == tri[2];
+                    });
+                rawTris.erase(end5e, rawTris.end());
+            }
+
+            // One more peninsula-removal pass after the merge
+            if (!rawTris.empty())
+            {
+                bool changed5e = true;
+                while (changed5e)
+                {
+                    changed5e = false;
+                    std::vector<int32_t> inc5e(nRaw, 0);
+                    for (auto const& tri : rawTris)
+                    {
+                        ++inc5e[tri[0]];
+                        ++inc5e[tri[1]];
+                        ++inc5e[tri[2]];
+                    }
+                    auto end5e = std::remove_if(rawTris.begin(), rawTris.end(),
+                        [&](std::array<int32_t,3> const& tri) -> bool {
+                            if (inc5e[tri[0]] == 1 || inc5e[tri[1]] == 1 || inc5e[tri[2]] == 1)
+                            {
+                                changed5e = true;
+                                return true;
+                            }
+                            return false;
+                        });
+                    rawTris.erase(end5e, rawTris.end());
+                }
             }
         }
 
