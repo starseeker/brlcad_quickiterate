@@ -4819,6 +4819,152 @@ standardize_loop_orientations(ON_Brep *brep)
 }
 
 
+/* Join coincident boundary edges so the evaluated brep is a closed solid.
+ *
+ * After add_elements() builds each face independently every trim gets its own
+ * fresh edge object, so all edges start as "boundary" (one trim each) and
+ * ON_Brep::IsSolid() returns false.  The raytracer then treats the brep as a
+ * zero-thickness plate and reports 0 volume.
+ *
+ * This function finds pairs of boundary edges that represent the same 3-D
+ * curve and merges them.  Open edges (line segments) share their endpoint
+ * vertices, so CombineCoincidentEdges() can be called directly after merging
+ * the shared vertices.  Closed edges (e.g. hole circles) require a low-level
+ * trim-transfer because their single "start/end" vertex can differ.
+ */
+static void
+join_boundary_edges(ON_Brep *brep)
+{
+    const double tol = INTERSECTION_TOL;
+
+    /* ---------------------------------------------------------------
+     * Pass 1: open boundary edges.
+     * Two open boundary edges are coincident when they share the same
+     * pair of endpoint vertices (possibly in opposite order).
+     * --------------------------------------------------------------- */
+    bool merged = true;
+    while (merged) {
+	merged = false;
+	for (int i = 0; i < brep->m_E.Count() && !merged; i++) {
+	    ON_BrepEdge &ei = brep->m_E[i];
+	    if (ei.m_ti.Count() != 1) continue;
+	    if (ei.m_vi[0] == ei.m_vi[1]) continue; /* skip closed */
+
+	    for (int j = i + 1; j < brep->m_E.Count() && !merged; j++) {
+		ON_BrepEdge &ej = brep->m_E[j];
+		if (ej.m_ti.Count() != 1) continue;
+		if (ej.m_vi[0] == ej.m_vi[1]) continue;
+
+		bool forward = (ei.m_vi[0] == ej.m_vi[0] && ei.m_vi[1] == ej.m_vi[1]);
+		bool reverse = (ei.m_vi[0] == ej.m_vi[1] && ei.m_vi[1] == ej.m_vi[0]);
+		if (!forward && !reverse) continue;
+
+		/* Verify interior geometry matches */
+		bool ok = true;
+		const ON_Curve *ci3 = brep->m_C3[ei.m_c3i];
+		const ON_Curve *cj3 = brep->m_C3[ej.m_c3i];
+		if (ci3 && cj3) {
+		    for (int s = 1; s <= 3; s++) {
+			double t = ci3->Domain().ParameterAt(s * 0.25);
+			ON_3dPoint p = ci3->PointAt(t);
+			double tcj;
+			if (!cj3->GetClosestPoint(p, &tcj, tol * 20.0) ||
+			    cj3->PointAt(tcj).DistanceTo(p) > tol * 10.0) {
+			    ok = false;
+			    break;
+			}
+		    }
+		}
+		if (!ok) continue;
+
+		/* Set m_bRev3d on ej's trim so it shares ei's orientation */
+		if (reverse) {
+		    int tj = ej.m_ti[0];
+		    brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
+		    std::swap(ej.m_vi[0], ej.m_vi[1]);
+		}
+
+		brep->CombineCoincidentEdges(ei, ej);
+		merged = true;
+	    }
+	}
+    }
+
+    /* ---------------------------------------------------------------
+     * Pass 2: closed boundary edges (e.g. hole circles).
+     * Two closed boundary edges are coincident when every sample point
+     * on one lies on the other.  Because the edges may start at
+     * different angles we cannot use CombineCoincidentEdges() (it
+     * requires identical vertices).  Instead we directly transfer the
+     * trim from the "delete" edge to the "keep" edge.
+     * --------------------------------------------------------------- */
+    for (int i = 0; i < brep->m_E.Count(); i++) {
+	ON_BrepEdge &ei = brep->m_E[i];
+	if (ei.m_ti.Count() != 1) continue;
+	if (ei.m_vi[0] != ei.m_vi[1]) continue; /* only closed */
+	if (ei.m_c3i < 0) continue;
+
+	for (int j = i + 1; j < brep->m_E.Count(); j++) {
+	    ON_BrepEdge &ej = brep->m_E[j];
+	    if (ej.m_ti.Count() != 1) continue;
+	    if (ej.m_vi[0] != ej.m_vi[1]) continue;
+	    if (ej.m_c3i < 0) continue;
+
+	    /* Sample ei's curve; every point must lie on ej's curve */
+	    const ON_Curve *ci3 = brep->m_C3[ei.m_c3i];
+	    const ON_Curve *cj3 = brep->m_C3[ej.m_c3i];
+	    if (!ci3 || !cj3) continue;
+
+	    bool coincident = true;
+	    for (int s = 0; s < 6 && coincident; s++) {
+		double t = ci3->Domain().ParameterAt(s / 6.0);
+		ON_3dPoint p = ci3->PointAt(t);
+		double tcj;
+		if (!cj3->GetClosestPoint(p, &tcj, tol * 20.0) ||
+		    cj3->PointAt(tcj).DistanceTo(p) > tol * 10.0) {
+		    coincident = false;
+		}
+	    }
+	    if (!coincident) continue;
+
+	    /* Determine orientation via tangent at midpoint */
+	    ON_3dVector tan_i = ci3->TangentAt(ci3->Domain().Mid());
+	    double tmid_j;
+	    bool rev = false;
+	    if (cj3->GetClosestPoint(ci3->PointAt(ci3->Domain().Mid()),
+				     &tmid_j, tol * 20.0)) {
+		ON_3dVector tan_j = cj3->TangentAt(tmid_j);
+		rev = (ON_DotProduct(tan_i, tan_j) < 0.0);
+	    }
+
+	    /* Transfer ej's trim to ei */
+	    int tj = ej.m_ti[0];
+	    brep->m_T[tj].m_ei = i;
+	    if (rev)
+		brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
+	    ei.m_ti.Append(tj);
+
+	    /* Clear ej so Compact() removes it */
+	    ej.m_ti.Empty();
+	    /* Mark ej's vertex (if unique) for removal: set m_ei count to 0 */
+	    int vj = ej.m_vi[0];
+	    ej.m_vi[0] = ej.m_vi[1] = -1;
+	    /* Remove ej from the vertex's edge list */
+	    ON_BrepVertex &vj_vtx = brep->m_V[vj];
+	    for (int k = vj_vtx.m_ei.Count() - 1; k >= 0; k--) {
+		if (vj_vtx.m_ei[k] == j)
+		    vj_vtx.m_ei.Remove(k);
+	    }
+
+	    break; /* one match per closed edge is sufficient */
+	}
+    }
+
+    brep->Compact();
+    brep->SetTrimTypeFlags(false);
+}
+
+
 int
 ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, op_type operation)
 {
@@ -4926,7 +5072,12 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     }
 
     evaluated_brep->ShrinkSurfaces();
-    evaluated_brep->Compact();
+
+    /* Join coincident boundary edges so the result is a closed solid that
+     * the raytracer treats as a solid volume rather than a zero-thickness
+     * plate.  Must be called before Compact() so edge indices are stable. */
+    join_boundary_edges(evaluated_brep);
+
     standardize_loop_orientations(evaluated_brep);
 
     /* Recompute all tolerances from geometry.  The boolean code deliberately
