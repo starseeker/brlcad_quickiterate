@@ -3728,6 +3728,13 @@ is_point_on_brep_surface(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArr
 
     for (int i = 0; i < brep->m_F.Count(); i++) {
 	const ON_BrepFace &face = brep->m_F[i];
+	/* Fast bbox prefilter: if the test point is farther than
+	 * INTERSECTION_TOL from the surface's 3D bounding box, the
+	 * point cannot lie on this surface at all — skip the expensive
+	 * NURBS point-surface intersection. */
+	if (surf_tree[face.m_si]->m_node.MinimumDistanceTo(pt) > INTERSECTION_TOL) {
+	    continue;
+	}
 	const ON_Surface *surf = face.SurfaceOf();
 	ON_ClassArray<ON_PX_EVENT> px_event;
 	if (!ON_Intersect(pt, *surf, px_event, INTERSECTION_TOL, 0, 0, surf_tree[face.m_si])) {
