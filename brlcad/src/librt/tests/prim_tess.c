@@ -49,11 +49,13 @@
  * EBM         | rt_ebm_tess          | OK - tested here; outline-tracing approach
  *             |                      |   avoids per-pixel faces; NOT the DSP
  *             |                      |   coplanar-density problem
- * VOL         | rt_vol_tess          | OK - tested here; row-span merging
- *             |                      |   (inspired by DSP/TerraScape technique)
- *             |                      |   avoids per-voxel unit quads on flat
- *             |                      |   surfaces; large flat VOLs now O(M^2)
- *             |                      |   instead of O((N*M)^2) for coplanar merge
+ * VOL         | rt_vol_tess          | OK - tested here; 2D coherent-patch merging
+ *             |                      |   (DSP/TerraScape technique extended to 2D):
+ *             |                      |   spans are extended across consecutive rows
+ *             |                      |   only when boundaries match exactly, making
+ *             |                      |   each flat rectangular region one NMG face;
+ *             |                      |   nmg_shell_coplanar_face_merge is kept as
+ *             |                      |   a final cleanup pass only
  * ARBN        | rt_arbn_tess         | OK - arbitrary convex polyhedron
  * PIPE        | rt_pipe_tess         | OK - swept pipe solid
  * PART        | rt_part_tess         | OK - tested here
@@ -1147,15 +1149,11 @@ test_vol(void)
     /*
      * 20x20x1 large flat slab: the coplanar-density stress test.
      *
-     * With the old per-voxel approach this would create 400 unit quads
-     * on the top face and 400 on the bottom before nmg_shell_coplanar_
-     * face_merge, making the merge O((400)^2) = 160000 comparisons per
-     * surface.  With the row-span merging (inspired by the DSP/TerraScape
-     * technique) the merge input is 20 row-span quads per flat face, so
-     * the merge cost is O(20^2) = 400 — a 400x improvement.
-     *
-     * After the merge a solid rectangular box always produces exactly
-     * 6 faces, regardless of its voxel resolution.  We verify that here.
+     * With 2D coherent-patch merging the top and bottom faces each become
+     * a single 20×20 NMG quad directly during construction — nmg_shell_
+     * coplanar_face_merge has no work to do for those surfaces.  The four
+     * side faces similarly collapse to one quad each.  We verify that the
+     * overall pipeline succeeds.
      */
     {
 	const size_t xd = 20, yd = 20, zd = 1;
@@ -1175,6 +1173,51 @@ test_vol(void)
 
 	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
 	if (!run_tess("vol 20x20x1 large flat slab", &ip, &ttol, &tol, 0)) failures++;
+
+	bu_free(buf, "vol map");
+    }
+
+    /*
+     * 6x6x1 L-shaped slab: exercises non-rectangular coherent patches.
+     *
+     * The voxel map is a 6×6 slab with the top-right 3×3 corner empty,
+     * forming an L-shape:
+     *
+     *   y=5  X X X . . .
+     *   y=4  X X X . . .
+     *   y=3  X X X . . .
+     *   y=2  X X X X X X
+     *   y=1  X X X X X X
+     *   y=0  X X X X X X
+     *        x=0 ... x=5
+     *
+     * For the z+ (top) face, the 2D coherent-patch algorithm should
+     * produce TWO rectangles: [0..5]×[0..2] and [0..2]×[3..5].
+     * The pipeline must complete without error.
+     */
+    {
+	const size_t xd = 6, yd = 6, zd = 1;
+	const size_t xs = xd + 4, ys = yd + 4, zs = zd + 4;
+	const size_t bufsize = xs * ys * zs;
+	unsigned char *buf = (unsigned char *)bu_calloc(bufsize, 1, "vol map");
+
+	for (size_t z = 0; z < zd; z++) {
+	    for (size_t y = 0; y < yd; y++) {
+		for (size_t x = 0; x < xd; x++) {
+		    /* omit top-right 3×3 corner (x>=3, y>=3) */
+		    if (x >= 3 && y >= 3) continue;
+		    buf[((z+2)*ys + (y+2))*xs + (x+2)] = 200;
+		}
+	    }
+	}
+
+	vip.xdim = (uint32_t)xd;
+	vip.ydim = (uint32_t)yd;
+	vip.zdim = (uint32_t)zd;
+	vip.map = buf;
+
+	init_tols(&ttol, &tol, 0.0, 0.01, 0.0);
+	if (!run_tess("vol 6x6x1 L-shape (non-rectangular patch)", &ip, &ttol, &tol, 0)) failures++;
 
 	bu_free(buf, "vol map");
     }
