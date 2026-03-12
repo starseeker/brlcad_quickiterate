@@ -4584,8 +4584,12 @@ categorize_trimmed_faces(
 			const ON_BrepFace &face = another_brep->m_F[fi];
 			/* Fast bbox prefilter: skip surfaces far from the
 			 * test point — they cannot contain a matching point. */
-			if (surf_tree[face.m_si]->m_node.MinimumDistanceTo(face_pt3d) > INTERSECTION_TOL) {
-			    continue;
+			{
+			    ON_3dPoint fb_min, fb_max;
+			    surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
+			    if (ON_BoundingBox(fb_min, fb_max).MinimumDistanceTo(face_pt3d) > INTERSECTION_TOL) {
+				continue;
+			    }
 			}
 			brep_surf = face.SurfaceOf();
 			ON_ClassArray<ON_PX_EVENT> px_event;
