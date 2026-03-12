@@ -352,6 +352,12 @@ brlcad_addexec(bg_trimesh_sync trimesh_sync.c "libbg;libbn;libbu" TEST)
 
 brlcad_add_test(NAME bg_trimesh_sync  COMMAND bg_trimesh_sync)
 
+#  ************ trimesh solid / NMV tests ***********
+
+brlcad_addexec(bg_trimesh_solid trimesh_solid.c "libbg;libbn;libbu" TEST)
+
+brlcad_add_test(NAME bg_trimesh_solid  COMMAND bg_trimesh_solid)
+
 #  ************ triangle area tests ***********
 
 brlcad_addexec(bg_tri_area tri_area.c "libbg;libbn;libbu" TEST)

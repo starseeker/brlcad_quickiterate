@@ -46,6 +46,8 @@
 #include <Mathematics/MeshRepair.h>
 #include <Mathematics/MeshHoleFilling.h>
 #include <Mathematics/MeshPreprocessing.h>
+#include <Mathematics/MeshQuality.h>
+#include <Mathematics/MeshRemesh.h>
 
 #include "bu/parallel.h"
 #include "bg/trimesh.h"
@@ -769,64 +771,85 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	    BU_PUT(nbot, struct rt_bot_internal);
 	    return -1;
 	}
+    }
 
-	// Note - the below attempt doesn't seem to be able to successfully
-	// repair the Generic Twin failing inputs.  Not clear if it's worth
-	// trying this or not...
-#if 0
-	// If we got an unexpected miss, try a remesh to see if it can produce more
-	// acceptable triangles (at the expense of increasing mesh size.).
-	if (lint_ret == 1) {
+    // Post-repair quality check and optional auto-remesh.
+    //
+    // When settings->auto_remesh is enabled, compute Verdict-style mesh quality
+    // metrics (aspect ratio, scaled Jacobian, min angle) on the repaired mesh.
+    // If the median aspect ratio exceeds the threshold, automatically remesh to
+    // improve triangle quality.  The manifold property is re-verified after
+    // remeshing; if it is lost the original repaired mesh is returned.
+    //
+    // CAUTION: On models with thin/elongated structural elements (stringers,
+    // cross-supports) — such as GenericTwin — RemeshCVT frequently breaks the
+    // manifold property (>80% of poor-quality shapes on GenericTwin fail the
+    // manifold check after remesh).  For these shapes the high aspect ratio
+    // reflects the physical geometry, not a repair defect; remeshing rarely
+    // helps.  Therefore auto_remesh is intentionally opt-in (default off).
+    if (settings->auto_remesh) {
+	// Collect vertices and triangles from nbot for quality evaluation
+	std::vector<gte::Vector3<double>> q_verts;
+	std::vector<std::array<int32_t, 3>> q_tris;
+	bot_to_gte(q_verts, q_tris, nbot);
 
-	    // Target 10 times the vertices of the original mesh to allow for
-	    // flexibility introducing new triangles
-	    size_t nb_pts = nbot->num_vertices * 10;
+	// Compute aggregate quality (using GTE-native Verdict-equivalent metrics)
+	gte::MeshQuality<double>::MeshMetrics qm =
+	    gte::MeshQuality<double>::ComputeMeshMetricsVec3(q_verts, q_tris);
 
-	    // Original nbot is the data for new GTE input
-	    std::vector<gte::Vector3<double>> rs_verts;
-	    std::vector<std::array<int32_t, 3>> rs_tris;
-	    bot_to_gte(rs_verts, rs_tris, nbot);
+	double ar_threshold = (settings->remesh_quality_ar > 0.0)
+	    ? (double)settings->remesh_quality_ar
+	    : 3.0;
 
-	    // Done with original nbot
-	    rt_bot_internal_free(nbot);
-	    BU_PUT(nbot, struct rt_bot_internal);
+	bool poor_quality = (qm.totalTriangles > 0 &&
+			     qm.aspectRatio.median > ar_threshold);
 
-	    // Set up for remeshing using GTE MeshRemesh
+	if (poor_quality) {
+	    bu_log("rt_bot_repair: median aspect ratio %.2f exceeds %.2f — auto-remeshing\n",
+		   qm.aspectRatio.median, ar_threshold);
+
+	    // Target the same vertex count as the repaired mesh
+	    size_t nb_pts = nbot->num_vertices;
+
 	    gte::MeshRemesh<double>::Parameters remeshParams;
 	    remeshParams.targetVertexCount = nb_pts;
-	    remeshParams.useAnisotropic = true;
-	    remeshParams.anisotropyScale = 2*0.02;
-	    gte::MeshRemesh<double>::Remesh(rs_verts, rs_tris, remeshParams);
+	    remeshParams.useAnisotropic    = true;
+	    remeshParams.anisotropyScale   = 0.04; // same as BRL-CAD remesh default
 
-	    // Make sure Manifold likes the remeshed result
-	    manifold::MeshGL grmm;
-	    gte_to_manifold(&grmm, rs_verts, rs_tris);
-	    manifold::Manifold grmanifold(grmm);
-	    if (grmanifold.Status() != manifold::Manifold::Error::NoError) {
-		// Repair failed
-		bu_log("Error - remeshed repair output is not Manifold!\n");
-		rt_bot_internal_free(nbot);
-		BU_PUT(nbot, struct rt_bot_internal);
-		return -1;
-	    }
+	    // Remesh into separate output containers to avoid aliasing
+	    std::vector<gte::Vector3<double>> rm_verts;
+	    std::vector<std::array<int32_t, 3>> rm_tris;
+	    bool remesh_ok = gte::MeshRemesh<double>::RemeshCVT(q_verts, q_tris, rm_verts, rm_tris, remeshParams);
 
-	    // Output is manifold, make a new bot
-	    nbot = gte_to_bot(rs_verts, rs_tris);
+	    if (!remesh_ok) {
+		bu_log("rt_bot_repair: auto-remesh failed, keeping repaired mesh as-is\n");
+	    } else {
+		// Verify the remeshed result is still manifold
+		manifold::MeshGL grmm;
+		gte_to_manifold(&grmm, rm_verts, rm_tris);
+		manifold::Manifold grmanifold(grmm);
 
-	    // Remeshing is probably denser than we want, do a decimation
-	    double rs_bbox_diag = gte_bbox_diagonal(rs_verts);
-	    rt_bot_decimate_gct(nbot, 0.01*rs_bbox_diag);
+		if (grmanifold.Status() != manifold::Manifold::Error::NoError) {
+		    bu_log("rt_bot_repair: remeshed result is not manifold — keeping repaired mesh\n");
+		} else {
+		    // Replace nbot with the remeshed version
+		    manifold::MeshGL remeshed_mesh = grmanifold.GetMeshGL();
+		    struct rt_bot_internal *remeshed_bot = manifold_to_bot(&remeshed_mesh);
 
-	    // Try lint one more time - if that didn't do it, we're done.
-	    lint_ret = bot_repair_lint(nbot);
-	    if (lint_ret) {
-		bu_log("Error - new BoT does not pass lint test! (remeshing attempted)\n");
-		rt_bot_internal_free(nbot);
-		BU_PUT(nbot, struct rt_bot_internal);
-		return -1;
+		    // Run quality check on remeshed result for logging
+		    std::vector<gte::Vector3<double>> r_verts;
+		    std::vector<std::array<int32_t, 3>> r_tris;
+		    bot_to_gte(r_verts, r_tris, remeshed_bot);		    gte::MeshQuality<double>::MeshMetrics qm2 =
+			gte::MeshQuality<double>::ComputeMeshMetricsVec3(r_verts, r_tris);
+		    bu_log("rt_bot_repair: remesh complete — median AR before: %.2f  after: %.2f\n",
+			   qm.aspectRatio.median, qm2.aspectRatio.median);
+
+		    rt_bot_internal_free(nbot);
+		    BU_PUT(nbot, struct rt_bot_internal);
+		    nbot = remeshed_bot;
+		}
 	    }
 	}
-#endif
     }
 
     *obot = nbot;

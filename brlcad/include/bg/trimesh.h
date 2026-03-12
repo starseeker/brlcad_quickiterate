@@ -54,19 +54,28 @@ struct bg_trimesh_faces {
     int *faces;
 };
 
+/* array of vertex indices (one per non-manifold vertex) */
+struct bg_trimesh_verts {
+    int count;
+    int *verts;
+};
+
 struct bg_trimesh_solid_errors {
     struct bg_trimesh_faces degenerate;
     struct bg_trimesh_edges unmatched;
     struct bg_trimesh_edges excess;
     struct bg_trimesh_edges misoriented;
+    struct bg_trimesh_verts non_manifold_verts; /**< vertices where multiple disconnected triangle fans share one index */
 };
 
 #define BG_TRIMESH_EDGES_INIT_NULL {0, NULL}
 #define BG_TRIMESH_FACES_INIT_NULL {0, NULL}
-#define BG_TRIMESH_SOLID_ERRORS_INIT_NULL {BG_TRIMESH_FACES_INIT_NULL, BG_TRIMESH_EDGES_INIT_NULL, BG_TRIMESH_EDGES_INIT_NULL, BG_TRIMESH_EDGES_INIT_NULL}
+#define BG_TRIMESH_VERTS_INIT_NULL {0, NULL}
+#define BG_TRIMESH_SOLID_ERRORS_INIT_NULL {BG_TRIMESH_FACES_INIT_NULL, BG_TRIMESH_EDGES_INIT_NULL, BG_TRIMESH_EDGES_INIT_NULL, BG_TRIMESH_EDGES_INIT_NULL, BG_TRIMESH_VERTS_INIT_NULL}
 
 BG_EXPORT extern void bg_free_trimesh_edges(struct bg_trimesh_edges *edges);
 BG_EXPORT extern void bg_free_trimesh_faces(struct bg_trimesh_faces *faces);
+BG_EXPORT extern void bg_free_trimesh_verts(struct bg_trimesh_verts *verts);
 BG_EXPORT extern void bg_free_trimesh_solid_errors(struct bg_trimesh_solid_errors *errors);
 
 /**
@@ -103,6 +112,7 @@ BG_EXPORT extern int bg_trimesh_solid(int vcnt, int fcnt, fastf_t *v, int *f, in
  */
 typedef int (*bg_face_error_func_t)(int face_idx, void *data);
 typedef int (*bg_edge_error_funct_t)(struct bg_trimesh_halfedge *edge, void *data);
+typedef int (*bg_vert_error_funct_t)(int vert_idx, void *data);
 
 BG_EXPORT extern int bg_trimesh_face_exit(int face_idx, void *data);
 BG_EXPORT extern int bg_trimesh_face_continue(int face_idx, void *data);
@@ -110,6 +120,9 @@ BG_EXPORT extern int bg_trimesh_face_gather(int face_idx, void *data);
 BG_EXPORT extern int bg_trimesh_edge_exit(struct bg_trimesh_halfedge *edge, void *data);
 BG_EXPORT extern int bg_trimesh_edge_continue(struct bg_trimesh_halfedge *edge, void *data);
 BG_EXPORT extern int bg_trimesh_edge_gather(struct bg_trimesh_halfedge *edge, void *data);
+BG_EXPORT extern int bg_trimesh_vert_exit(int vert_idx, void *data);
+BG_EXPORT extern int bg_trimesh_vert_continue(int vert_idx, void *data);
+BG_EXPORT extern int bg_trimesh_vert_gather(int vert_idx, void *data);
 
 /* These functions return 0 if no instances of the error are found.
  * Otherwise, they return the number of instances of the error found
@@ -119,6 +132,19 @@ BG_EXPORT extern int bg_trimesh_degenerate_faces(int num_faces, int *fpoints, bg
 BG_EXPORT extern int bg_trimesh_unmatched_edges(int num_edges, struct bg_trimesh_halfedge *edge_list, bg_edge_error_funct_t error_edge_func, void *data);
 BG_EXPORT extern int bg_trimesh_misoriented_edges(int num_edges, struct bg_trimesh_halfedge *edge_list, bg_edge_error_funct_t error_edge_func, void *data);
 BG_EXPORT extern int bg_trimesh_excess_edges(int num_edges, struct bg_trimesh_halfedge *edge_list, bg_edge_error_funct_t error_edge_func, void *data);
+/**
+ * Detect non-manifold vertices: vertices where multiple disconnected triangle
+ * fans share a single vertex index.  Such vertices cause MeshHoleFilling's
+ * boundary-loop walker to branch and abandon holes, leaving unmatched boundary
+ * edges that Manifold rejects.
+ *
+ * Returns 0 if no non-manifold vertices are found, or the count of non-manifold
+ * vertices found before func first returned false.  func is called once per
+ * non-manifold vertex; pass bg_trimesh_vert_exit for fast-exit (first NMV only),
+ * bg_trimesh_vert_continue to count all, or bg_trimesh_vert_gather to collect
+ * into a pre-allocated bg_trimesh_verts.
+ */
+BG_EXPORT extern int bg_trimesh_non_manifold_vertices(int vcnt, int fcnt, int *f, bg_vert_error_funct_t func, void *data);
 BG_EXPORT extern int bg_trimesh_solid2(int vcnt, int fcnt, fastf_t *v, int *f, struct bg_trimesh_solid_errors *errors);
 BG_EXPORT extern int bg_trimesh_hanging_nodes(int num_vertices, int num_faces, fastf_t *vertices, int *faces, struct bg_trimesh_solid_errors *errors);
 

@@ -256,12 +256,71 @@ test_verdict: test_remesh_verdict
 	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$$LD_LIBRARY_PATH" \
 	    ./test_remesh_verdict $(TEST_DIR)/data/gt.obj
 
+# GTE-native mesh quality unit test — no VTK dependency.
+# Tests MeshQuality<double> (Verdict-equivalent algorithms implemented in GTE)
+# on known analytical cases and an optional OBJ file.
+test_mesh_quality: $(TEST_DIR)/test_mesh_quality.cpp \
+                   GTE/Mathematics/MeshQuality.h
+	$(CXX) $(CXXFLAGS) -o test_mesh_quality \
+	    $(TEST_DIR)/test_mesh_quality.cpp $(LDFLAGS)
+
+# Run GTE-native mesh quality unit tests (no external libs needed)
+test_quality: test_mesh_quality
+	@echo "=== GTE MeshQuality unit tests (no VTK) ==="
+	./test_mesh_quality
+	@echo ""
+	@echo "=== GTE MeshQuality on GenericTwin (if available) ==="
+	@test -f $(TEST_DIR)/data/gt.obj && ./test_mesh_quality $(TEST_DIR)/data/gt.obj || \
+	    echo "(gt.obj not found, skipping OBJ quality evaluation)"
+
+# GTE MeshQuality vs VTK Verdict per-triangle validation.
+# Requires libvtk9-dev (sudo apt install libvtk9-dev).
+# Compares every metric for every triangle in the test set and on gt.obj.
+test_gtevtk_compare: $(TEST_DIR)/test_gtevtk_compare.cpp \
+                     GTE/Mathematics/MeshQuality.h
+	$(CXX) $(CXXFLAGS) $(BEXT_GTE_INC) $(VTK_INC) \
+	    -o test_gtevtk_compare \
+	    $(TEST_DIR)/test_gtevtk_compare.cpp \
+	    $(VTK_LIBS) $(LDFLAGS)
+
+# Run the GTE vs VTK Verdict per-triangle comparison (analytical + GenericTwin)
+test_gte_vtk: test_gtevtk_compare
+	@echo "=== GTE MeshQuality vs VTK Verdict per-triangle comparison ==="
+	./test_gtevtk_compare
+	@echo ""
+	@echo "=== GTE vs VTK on GenericTwin (if available) ==="
+	@test -f $(TEST_DIR)/data/gt.obj && ./test_gtevtk_compare $(TEST_DIR)/data/gt.obj || \
+	    echo "(gt.obj not found, skipping GenericTwin comparison)"
+
+# Repair + auto-remesh quality validation on GenericTwin.
+# Requires bext_output Manifold and geogram.
+test_repair_remesh_quality: $(TEST_DIR)/test_repair_remesh_quality.cpp \
+                             GTE/Mathematics/MeshRepair.h \
+                             GTE/Mathematics/MeshHoleFilling.h \
+                             GTE/Mathematics/MeshPreprocessing.h \
+                             GTE/Mathematics/MeshRemesh.h \
+                             GTE/Mathematics/MeshQuality.h
+	$(CXX) $(CXXFLAGS) $(_GEO_INC) $(BEXT_GTE_INC) \
+	    -I$(BRLCAD_EXT_INSTALL_DIR)/include \
+	    -o test_repair_remesh_quality \
+	    $(TEST_DIR)/test_repair_remesh_quality.cpp \
+	    $(_GEO_LIBS) -L$(BRLCAD_EXT_INSTALL_DIR)/lib -lmanifold \
+	    -Wl,-rpath,$(BRLCAD_EXT_INSTALL_DIR)/lib \
+	    -Wl,-rpath,$(BRLCAD_EXT_NOINSTALL_DIR)/lib $(LDFLAGS)
+
+# Run repair + auto-remesh quality pass on GenericTwin shapes
+test_repair_quality: test_repair_remesh_quality
+	@echo "=== Repair + auto-remesh quality pass on GenericTwin ==="
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$(BRLCAD_EXT_INSTALL_DIR)/lib:$(BRLCAD_EXT_NOINSTALL_DIR)/lib:$$LD_LIBRARY_PATH" \
+	    ./test_repair_remesh_quality $(TEST_DIR)/data/gt.obj
+
 # Clean up
 clean:
-	rm -f $(TARGETS) test_geogram_comparison test_remesh_verdict
+	rm -f $(TARGETS) test_geogram_comparison test_remesh_verdict test_mesh_quality \
+	    test_gtevtk_compare test_repair_remesh_quality
 	rm -f $(TEST_DIR)/data/*_repaired.obj $(TEST_DIR)/data/*_output.obj
 
-.PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram test_verdict
+.PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram test_verdict test_quality test_gte_vtk test_repair_quality
 
 # Phase 4 integration test
 test_phase4_integration: $(TEST_DIR)/test_phase4_integration.cpp GTE/Mathematics/CVTN.h GTE/Mathematics/MeshRemesh.h GTE/Mathematics/SurfaceRVDN.h

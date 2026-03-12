@@ -132,6 +132,30 @@ bg_trimesh_edge_gather(struct bg_trimesh_halfedge *edge, void *data)
 }
 
 int
+bg_trimesh_vert_exit(int UNUSED(vert_idx), void *UNUSED(data))
+{
+    return 0;
+}
+
+int
+bg_trimesh_vert_continue(int UNUSED(vert_idx), void *UNUSED(data))
+{
+    return 1;
+}
+
+int
+bg_trimesh_vert_gather(int vert_idx, void *data)
+{
+    struct bg_trimesh_verts *verts = (struct bg_trimesh_verts *)data;
+
+    if (verts) {
+	verts->verts[verts->count++] = vert_idx;
+    }
+
+    return 1;
+}
+
+int
 bg_trimesh_degenerate_faces(int num_faces, int *fpoints, bg_face_error_func_t degenerate_func, void *data)
 {
     int face_index;
@@ -249,6 +273,126 @@ bg_trimesh_excess_edges(int num_edges, struct bg_trimesh_halfedge *edge_list, bg
     return trimesh_count_error_edges(num_edges, edge_list, edge_overmatched, error_edge_func, data);
 }
 
+/* Union-find root lookup with path-halving compression. */
+static int
+_uf_find(int *parent, int x)
+{
+    while (parent[x] != x) {
+	parent[x] = parent[parent[x]]; /* path halving */
+	x = parent[x];
+    }
+    return x;
+}
+
+int
+bg_trimesh_non_manifold_vertices(int vcnt, int fcnt, int *f,
+    bg_vert_error_funct_t func, void *data)
+{
+    int vi, fi, j;
+    int non_manifold_count = 0;
+    int *face_cnt;
+    int **vert_faces;
+    int *fill_pos;
+    int done = 0;
+
+    if (!f || vcnt < 1 || fcnt < 1) return 0;
+
+    /* Build per-vertex face count */
+    face_cnt = (int *)bu_calloc(vcnt, sizeof(int), "face_cnt");
+    for (fi = 0; fi < fcnt; fi++) {
+	for (j = 0; j < 3; j++) {
+	    int fv = f[fi*3+j];
+	    if (fv >= 0 && fv < vcnt)
+		face_cnt[fv]++;
+	}
+    }
+
+    /* Allocate per-vertex face index arrays */
+    vert_faces = (int **)bu_calloc(vcnt, sizeof(int *), "vert_faces");
+    fill_pos   = (int *)bu_calloc(vcnt, sizeof(int), "fill_pos");
+    for (vi = 0; vi < vcnt; vi++) {
+	if (face_cnt[vi] > 0)
+	    vert_faces[vi] = (int *)bu_malloc(face_cnt[vi] * sizeof(int), "vf");
+    }
+    for (fi = 0; fi < fcnt; fi++) {
+	for (j = 0; j < 3; j++) {
+	    int fv = f[fi*3+j];
+	    if (fv >= 0 && fv < vcnt)
+		vert_faces[fv][fill_pos[fv]++] = fi;
+	}
+    }
+    bu_free(fill_pos, "fill_pos");
+
+    /* For each vertex, check if incident faces form a single connected component.
+     * Two faces sharing vertex vi are adjacent if they also share a second vertex
+     * (i.e., they share an edge incident at vi).  A non-manifold vertex is one
+     * whose incident faces split into 2+ disconnected components under this
+     * relation — the classic "multiple triangle fans sharing one vertex index". */
+    for (vi = 0; vi < vcnt && !done; vi++) {
+	int nf = face_cnt[vi];
+	int ncomp, i, k;
+	int *parent;
+
+	if (nf < 2) continue;
+
+	/* Union-find: index i represents vert_faces[vi][i] */
+	parent = (int *)bu_malloc(nf * sizeof(int), "parent");
+	for (i = 0; i < nf; i++) parent[i] = i;
+
+	/* Union faces that share an edge at vi */
+	for (i = 0; i < nf; i++) {
+	    int fa = vert_faces[vi][i];
+	    int nbrs[2], nc = 0;
+	    /* Collect the (up to 2) other vertices of face fa */
+	    for (k = 0; k < 3; k++) {
+		if (f[fa*3+k] != vi && nc < 2)
+		    nbrs[nc++] = f[fa*3+k];
+	    }
+	    /* Find other faces at vi sharing one of these neighbours */
+	    for (j = i+1; j < nf; j++) {
+		int fb = vert_faces[vi][j];
+		int adjacent = 0, l;
+		for (k = 0; k < nc && !adjacent; k++) {
+		    for (l = 0; l < 3 && !adjacent; l++) {
+			if (f[fb*3+l] == nbrs[k])
+			    adjacent = 1;
+		    }
+		}
+		if (adjacent) {
+		    int ra = _uf_find(parent, i);
+		    int rb = _uf_find(parent, j);
+		    if (ra != rb) parent[rb] = ra;
+		}
+	    }
+	}
+
+	/* Count distinct roots */
+	ncomp = 0;
+	for (i = 0; i < nf; i++) {
+	    if (_uf_find(parent, i) == i)
+		ncomp++;
+	}
+
+	bu_free(parent, "parent");
+
+	if (ncomp > 1) {
+	    non_manifold_count++;
+	    if (func && !func(vi, data))
+		done = 1;
+	}
+    }
+
+    /* Clean up */
+    for (vi = 0; vi < vcnt; vi++) {
+	if (vert_faces[vi])
+	    bu_free(vert_faces[vi], "vf");
+    }
+    bu_free(vert_faces, "vert_faces");
+    bu_free(face_cnt, "face_cnt");
+
+    return non_manifold_count;
+}
+
 int
 bg_trimesh_solid2(int vcnt, int fcnt, fastf_t *v, int *f, struct bg_trimesh_solid_errors *errors)
 {
@@ -259,6 +403,7 @@ bg_trimesh_solid2(int vcnt, int fcnt, fastf_t *v, int *f, struct bg_trimesh_soli
     int unmatched_edges = 0;
     int excess_edges = 0;
     int misoriented_edges = 0;
+    int non_manifold_verts = 0;
     bg_edge_error_funct_t bad_edge_func;
 
     if (vcnt < 4 || fcnt < 4 || !v || !f) return 1;
@@ -295,14 +440,27 @@ bg_trimesh_solid2(int vcnt, int fcnt, fastf_t *v, int *f, struct bg_trimesh_soli
 	}
     }
 
-    /* If we either aren't tracking edges or we didn't have any problems, we're done */
-    not_solid = unmatched_edges + excess_edges + misoriented_edges;
+    /* Non-manifold vertex check: detect vertices where multiple disconnected
+     * triangle fans share a single vertex index.  Edge checks above only verify
+     * face-pair connectivity and winding; they cannot see this class of defect.
+     * Such vertices cause MeshHoleFilling's boundary-loop walker to branch and
+     * abandon holes, leaving unmatched boundary edges that Manifold rejects. */
+    non_manifold_verts = bg_trimesh_non_manifold_vertices(vcnt, fcnt, f,
+	errors ? bg_trimesh_vert_continue : bg_trimesh_vert_exit, NULL);
+    if (non_manifold_verts && !errors) {
+	bu_free(edge_list, "edge_list");
+	return 1;
+    }
+
+    not_solid = unmatched_edges + excess_edges + misoriented_edges + non_manifold_verts;
+
+    /* If there are no problems (or no error-tracking), we're done */
     if (!errors || !not_solid) {
 	bu_free(edge_list, "edge_list");
 	return 0;
     }
 
-    /* If we got here, we're interesting in knowing what the problems are */
+    /* Gather detailed errors */
     if (unmatched_edges) {
 	errors->unmatched.count = 0;
 	errors->unmatched.edges = (int *)bu_calloc(unmatched_edges * 2, sizeof(int), "unmatched edge indices");
@@ -317,6 +475,11 @@ bg_trimesh_solid2(int vcnt, int fcnt, fastf_t *v, int *f, struct bg_trimesh_soli
 	errors->misoriented.count = 0;
 	errors->misoriented.edges = (int *)bu_calloc(misoriented_edges * 2, sizeof(int), "misoriented edge indices");
 	bg_trimesh_misoriented_edges(num_edges, edge_list, bg_trimesh_edge_gather, &(errors->misoriented));
+    }
+    if (non_manifold_verts) {
+	errors->non_manifold_verts.count = 0;
+	errors->non_manifold_verts.verts = (int *)bu_calloc(non_manifold_verts, sizeof(int), "non-manifold verts");
+	bg_trimesh_non_manifold_vertices(vcnt, fcnt, f, bg_trimesh_vert_gather, &(errors->non_manifold_verts));
     }
 
     bu_free(edge_list, "edge_list");
@@ -342,6 +505,16 @@ bg_free_trimesh_faces(struct bg_trimesh_faces *faces)
 }
 
 void
+bg_free_trimesh_verts(struct bg_trimesh_verts *verts)
+{
+    if (!verts) return;
+
+    if (verts->verts)
+	bu_free(verts->verts, "bg trimesh verts");
+    verts->count = 0;
+}
+
+void
 bg_free_trimesh_solid_errors(struct bg_trimesh_solid_errors *errors)
 {
     if (!errors) return;
@@ -350,6 +523,7 @@ bg_free_trimesh_solid_errors(struct bg_trimesh_solid_errors *errors)
     bg_free_trimesh_edges(&(errors->misoriented));
     bg_free_trimesh_edges(&(errors->excess));
     bg_free_trimesh_faces(&(errors->degenerate));
+    bg_free_trimesh_verts(&(errors->non_manifold_verts));
 }
 
 int
@@ -358,23 +532,34 @@ bg_trimesh_solid(int vcnt, int fcnt, fastf_t *v, int *f, int **bedges)
     int bedge_cnt = 0;
 
     if (bedges) {
-	int copy_cnt = 0;
+	int edge_cnt, copy_cnt;
 	struct bg_trimesh_solid_errors errors = BG_TRIMESH_SOLID_ERRORS_INIT_NULL;
 
 	bedge_cnt = bg_trimesh_solid2(vcnt, fcnt, v, f, &errors);
 
-	*bedges = (int *)bu_calloc(bedge_cnt * 2, sizeof(int), "bad edges");
-
-	if (!errors.unmatched.edges || !errors.unmatched.count)
-	    return 0;
-
-	memcpy(*bedges, errors.unmatched.edges, errors.unmatched.count * 2 * sizeof(int));
-	copy_cnt += errors.unmatched.count * 2;
-
-	memcpy(*bedges + copy_cnt, errors.misoriented.edges, errors.misoriented.count * 2 * sizeof(int));
-	copy_cnt += errors.misoriented.count * 2;
-
-	memcpy(*bedges + copy_cnt, errors.excess.edges, errors.excess.count * 2 * sizeof(int));
+	/* Pack boundary edge pairs (vertex index pairs) into *bedges.
+	 * Non-manifold vertices are counted in bedge_cnt but are single
+	 * indices, not pairs, so they are not included in *bedges.
+	 * When edge_cnt is zero (only NMV errors exist) bu_calloc would
+	 * bomb with count=0, so skip allocation in that case. */
+	edge_cnt = errors.unmatched.count + errors.misoriented.count + errors.excess.count;
+	copy_cnt = 0;
+	if (edge_cnt > 0) {
+	    *bedges = (int *)bu_calloc(edge_cnt * 2, sizeof(int), "bad edges");
+	    if (errors.unmatched.count && errors.unmatched.edges) {
+		memcpy(*bedges + copy_cnt, errors.unmatched.edges, errors.unmatched.count * 2 * sizeof(int));
+		copy_cnt += errors.unmatched.count * 2;
+	    }
+	    if (errors.misoriented.count && errors.misoriented.edges) {
+		memcpy(*bedges + copy_cnt, errors.misoriented.edges, errors.misoriented.count * 2 * sizeof(int));
+		copy_cnt += errors.misoriented.count * 2;
+	    }
+	    if (errors.excess.count && errors.excess.edges) {
+		memcpy(*bedges + copy_cnt, errors.excess.edges, errors.excess.count * 2 * sizeof(int));
+	    }
+	} else {
+	    *bedges = NULL; /* NMV-only errors: no edge pairs to report */
+	}
 
 	bg_free_trimesh_solid_errors(&errors);
     } else {
