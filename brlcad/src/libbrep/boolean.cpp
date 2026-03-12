@@ -1216,6 +1216,50 @@ points_3d_to_params_3d(
 		    break;
 		}
 	    }
+	    /* Last resort: closest-point projection onto the curve.  This is
+	     * unconditional (no tolerance limit) so it always succeeds when
+	     * the sample point is merely near the curve rather than exactly
+	     * on it (e.g. due to surface approximation error).  Used when
+	     * ON_Intersect fails at all tolerance scales.
+	     * Only accepted if the closest point is within a generous
+	     * tolerance — if it is farther the 3-D point is simply not on
+	     * the curve at all and we should leave have_t[i] false so the
+	     * caller can handle the missing endpoint gracefully.
+	     * Simple ternary-search on the curve domain. */
+	    if (!have_t[i]) {
+		ON_Interval dom = curve3d->Domain();
+		/* coarse sample to bracket */
+		double best_t = dom.Min();
+		double best_d = curve3d->PointAt(dom.Min()).DistanceTo(pts[i]);
+		const int NSAMP = 64;
+		for (int k = 1; k <= NSAMP; ++k) {
+		    double tt = dom.ParameterAt(k / (double)NSAMP);
+		    double dd = curve3d->PointAt(tt).DistanceTo(pts[i]);
+		    if (dd < best_d) { best_d = dd; best_t = tt; }
+		}
+		/* refine with ternary search over ±1 interval step */
+		double lo = best_t - dom.Length() / NSAMP;
+		double hi = best_t + dom.Length() / NSAMP;
+		if (lo < dom.Min()) lo = dom.Min();
+		if (hi > dom.Max()) hi = dom.Max();
+		for (int iter = 0; iter < 50; ++iter) {
+		    double m1 = lo + (hi - lo) / 3.0;
+		    double m2 = hi - (hi - lo) / 3.0;
+		    if (curve3d->PointAt(m1).DistanceTo(pts[i]) <
+			curve3d->PointAt(m2).DistanceTo(pts[i]))
+			hi = m2;
+		    else
+			lo = m1;
+		}
+		double t_close = (lo + hi) * 0.5;
+		double d_close = curve3d->PointAt(t_close).DistanceTo(pts[i]);
+		/* Accept if the residual is within 1000× the base tolerance.
+		 * Larger residuals mean the sample point is not on the curve. */
+		if (d_close <= INTERSECTION_TOL * 1000.0) {
+		    found_t[i] = t_close;
+		    have_t[i] = true;
+		}
+	    }
 	}
 
 	if (!have_t[0] || !have_t[1] || !have_t[2])
