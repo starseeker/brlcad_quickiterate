@@ -1225,6 +1225,8 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     struct bu_list *vlfree = &rt_vlfree;
 
     RT_CK_DB_INTERNAL(ip);
+    BG_CK_TESS_TOL(ttol);
+    BN_CK_TOL(tol);
 
     xip = (struct rt_epa_internal *)ip->idb_ptr;
     if (!epa_is_valid(xip)) {
@@ -1373,11 +1375,6 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	if (nseg == 0) {
 	    nseg = (int)(M_2PI / theta_new) + 1;
 	    pts_dbl[i] = 0;
-	    /* maximum number of faces needed for epa */
-	    face = nseg*(1 + 3*((1 << (nell-1)) - 1));
-	    /* array for each triangular face */
-	    outfaceuses = (struct faceuse **)
-		bu_malloc((face+1) * sizeof(struct faceuse *), "faceuse []");
 	} else if (theta_new < theta_prev) {
 	    nseg *= 2;
 	    pts_dbl[i] = 1;
@@ -1398,12 +1395,28 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	pos_b = pos_b->next;
     }
 
+    /* Compute the face count upper bound after the building loop, when
+     * nseg holds the final (maximum) ring size.  The legacy formula
+     * nseg*(1+3*((1<<(nell-1))-1)) overflows for large nell (tight ntol).
+     * Instead use: nseg_top * nell * 8, which conservatively covers both
+     * doubling and non-doubling level contributions. */
+    if (nell < 1) {
+	bu_log("rt_epa_tess: nell=%d too small\n", nell);
+	goto fail;
+    }
+    face = nseg * nell * 8;
+    if (face < 16) face = 16;
+
     /*
      * put epa geometry into nmg data structures
      */
 
     *r = nmg_mrsv(m);	/* Make region, empty shell, vertex */
     s = BU_LIST_FIRST(shell, &(*r)->s_hd);
+
+    /* array for each triangular face */
+    outfaceuses = (struct faceuse **)
+	bu_malloc((face+1) * sizeof(struct faceuse *), "faceuse []");
 
     /* vertices of ellipses of epa */
     vells = (struct vertex ***)
