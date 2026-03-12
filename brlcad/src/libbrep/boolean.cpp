@@ -4828,7 +4828,12 @@ standardize_loop_orientations(ON_Brep *brep)
  */
 
 /* Forward declaration matching the ACTUAL implementation signature in
- * opennurbs_ext.cpp (header has a different, non-matching signature). */
+ * opennurbs_ext.cpp.  The header brep/pullback.h declares a different
+ * overload with an extra ON_3dPoint* cp parameter, so we cannot use the
+ * header declaration here.  This declaration matches the compiled symbol
+ * exactly (verified via nm) and resolves within the same shared library.
+ * If the implementations are ever reconciled, remove this declaration and
+ * include pullback.h's version directly. */
 bool ON_NurbsCurve_GetClosestPoint(double *t, const ON_NurbsCurve *nc,
 				   const ON_3dPoint &p,
 				   double maximum_distance = 0.0,
@@ -4850,7 +4855,8 @@ curve_min_dist_to_point(const ON_Curve *c, const ON_3dPoint &p,
     /* Fallback: dense uniform sampling */
     double best = DBL_MAX;
     double best_t = c->Domain().Mid();
-    int n = (fallback_samp > 1) ? fallback_samp : 256;
+    static const int DEFAULT_CURVE_SAMPLES = 256; /* min points for closed-curve proximity */
+    int n = (fallback_samp > 1) ? fallback_samp : DEFAULT_CURVE_SAMPLES;
     for (int s = 0; s < n; s++) {
 	double t = c->Domain().ParameterAt((double)s / (n - 1));
 	double d = c->PointAt(t).DistanceTo(p);
@@ -4948,7 +4954,8 @@ join_boundary_edges(ON_Brep *brep)
 	    cj3->GetBoundingBox(bb_j);
 	    double scale = bb_i.Diagonal().Length();
 	    if (scale < ON_ZERO_TOLERANCE) scale = 1.0;
-	    const double bb_tol = scale * 0.01; /* 1% of diagonal */
+	    static const double BBOX_REL_TOL = 0.01; /* 1% of bbox diagonal */
+	    const double bb_tol = scale * BBOX_REL_TOL;
 
 	    if (bb_i.m_min.DistanceTo(bb_j.m_min) > bb_tol) continue;
 	    if (bb_i.m_max.DistanceTo(bb_j.m_max) > bb_tol) continue;
