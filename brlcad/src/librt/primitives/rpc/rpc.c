@@ -1087,22 +1087,13 @@ _rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fas
     theta1 = fabs(acos(VDOT(norm_line, norm_parab)));
     /* split segment at widest point if not within error tolerances */
     if (dist > dtol || theta0 > ntol || theta1 > ntol) {
-	/* Stop subdividing when the segment Y-span is much smaller than both
-	 * the dtol floor and the ntol-equivalent floor.  For a parabola the
-	 * normal angle change over a span s is approximately s*(2b/r^2) (the
-	 * maximum curvature at the apex), so the ntol-equivalent minimum span
-	 * is ntol*r^2/(2b).  Clamp that to min_abs so the floor stays
-	 * consistent with the dtol floor used by primitive_clamp_tess_tol.
-	 * Use min(dtol, ntol_equiv)*0.1 so we stop only when the segment is
-	 * already much smaller than the tightest applicable tolerance. */
+	/* Stop subdividing when the segment Y-span falls below 10% of the
+	 * distance tolerance.  This bounds subdivision depth for tight normal
+	 * tolerances: no further subdivision can improve the chord error once
+	 * the segment is already much smaller than dtol. */
 	fastf_t span = fabs(p1[Y] - p0[Y]);
-	{
-	    fastf_t ntol_equiv = (ntol < M_PI) ? ntol * r * r / (2.0 * b) : dtol;
-	    if (ntol_equiv < min_abs) ntol_equiv = min_abs;
-	    fastf_t span_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
-	    if (span < span_floor)
-		return 0;
-	}
+	if (span < dtol * 0.1)
+	    return 0;
 
 	/* split segment */
 	BU_ALLOC(newpt, struct rt_pnt_node);
