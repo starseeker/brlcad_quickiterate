@@ -4398,13 +4398,19 @@ ON_Intersect(const ON_Surface *surfA,
 			    bu_log("warning: reverse failed on collinear-path curve %zu\n", i);
 			}
 			x.Append(event);
+			/* Null the local copy so ~ON_SSX_EVENT() doesn't free the
+			 * curves; ownership has been transferred to the event in x. */
 			event.m_curve3d = event.m_curveA = event.m_curveB = NULL;
 		    }
-		}
-		for (size_t i = 0; i < intersect3d.size(); i++) {
-		    delete intersect3d[i];
-		    delete intersect_uvA[i];
-		    delete intersect_uvB[i];
+		    /* Curves are now owned by the events appended to x — do NOT
+		     * delete them here or we create dangling pointers. */
+		} else {
+		    /* Size mismatch (shouldn't happen): free to avoid leaks. */
+		    for (size_t i = 0; i < intersect3d.size(); i++) {
+			delete intersect3d[i];
+			delete intersect_uvA[i];
+			delete intersect_uvB[i];
+		    }
 		}
 		return x.Count() - original_count;
 	    }
