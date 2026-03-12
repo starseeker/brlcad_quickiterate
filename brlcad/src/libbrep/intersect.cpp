@@ -2474,8 +2474,7 @@ add_points_to_closed_seams(
     ON_2dPointArray &curve_uvB)
 {
 
-    if (!curve_uvA.Capacity() || !curve_uvB.Capacity()) {
-	bu_log("add_points_to_closed_seams called with unpopulated curve_uvA and/or curve_uvB arrays, line %d\n", __LINE__);
+    if (!curve_uvA.Count() || !curve_uvB.Count()) {
 	return;
     }
 
@@ -4244,7 +4243,8 @@ ON_Intersect(const ON_Surface *surfA,
 	}
     }
 
-    add_points_to_closed_seams(surfA, surfB, tmp_curvept, tmp_curve_uvA, tmp_curve_uvB);
+    if (tmp_curvept.Count() > 0)
+	add_points_to_closed_seams(surfA, surfB, tmp_curvept, tmp_curve_uvA, tmp_curve_uvB);
 
     // get just the unique, non-overlap intersection points
     for (int i = 0; i < tmp_curvept.Count(); i++) {

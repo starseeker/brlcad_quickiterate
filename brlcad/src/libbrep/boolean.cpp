@@ -4827,46 +4827,6 @@ standardize_loop_orientations(ON_Brep *brep)
  * Stores the parameter of the closest point in *t_closest (may be NULL).
  */
 
-/* Forward declaration matching the ACTUAL implementation signature in
- * opennurbs_ext.cpp.  The header brep/pullback.h declares a different
- * overload with an extra ON_3dPoint* cp parameter, so we cannot use the
- * header declaration here.  This declaration matches the compiled symbol
- * exactly (verified via nm) and resolves within the same shared library.
- * If the implementations are ever reconciled, remove this declaration and
- * include pullback.h's version directly. */
-bool ON_NurbsCurve_GetClosestPoint(double *t, const ON_NurbsCurve *nc,
-				   const ON_3dPoint &p,
-				   double maximum_distance = 0.0,
-				   const ON_Interval *sub_domain = NULL);
-
-static double
-curve_min_dist_to_point(const ON_Curve *c, const ON_3dPoint &p,
-			int fallback_samp, double *t_closest)
-{
-    ON_NurbsCurve nc;
-    if (c->GetNurbForm(nc) >= 1) {
-	double t = nc.Domain().Mid();
-	if (ON_NurbsCurve_GetClosestPoint(&t, &nc, p, 0.0)) {
-	    if (t_closest) *t_closest = t;
-	    return nc.PointAt(t).DistanceTo(p);
-	}
-    }
-
-    /* Fallback: dense uniform sampling */
-    double best = DBL_MAX;
-    double best_t = c->Domain().Mid();
-    static const int DEFAULT_CURVE_SAMPLES = 256; /* min points for closed-curve proximity */
-    int n = (fallback_samp > 1) ? fallback_samp : DEFAULT_CURVE_SAMPLES;
-    for (int s = 0; s < n; s++) {
-	double t = c->Domain().ParameterAt((double)s / (n - 1));
-	double d = c->PointAt(t).DistanceTo(p);
-	if (d < best) { best = d; best_t = t; }
-    }
-    if (t_closest) *t_closest = best_t;
-    return best;
-}
-
-
 /* Join coincident boundary edges so the evaluated brep is a closed solid.
  *
  * After add_elements() builds each face independently every trim gets its own
@@ -5020,23 +4980,78 @@ join_boundary_edges(ON_Brep *brep)
 	    if (bb_i.m_min.DistanceTo(bb_j.m_min) > bb_tol) continue;
 	    if (bb_i.m_max.DistanceTo(bb_j.m_max) > bb_tol) continue;
 
-	    /* Determine orientation: compare tangents at ci3's midpoint
-	     * and the closest sample on cj3 to that midpoint. */
-	    ON_3dVector tan_i = ci3->TangentAt(ci3->Domain().Mid());
+	    int tj = ej.m_ti[0];
+
+	    /* Determine orientation for the transferred trim.
+	     *
+	     * For trims created by add_elements(), m_bRev3d is always
+	     * initialized to false (same direction as their original edge).
+	     * When the trim is transferred to a different edge, the correct
+	     * bRev3d value depends on whether the two 3D edge curves wind
+	     * in the same or opposite direction.
+	     *
+	     * For seam-crossing trims (whose 2D curve goes from u=domain_max
+	     * to u=domain_min at constant v), OpenNURBS defines "same direction"
+	     * differently from the 3D winding orientation. Specifically, the
+	     * bRev3d check compares the 3D edge curve tangent at the shared
+	     * vertex with the 3D pushup tangent of the 2D trim at the same
+	     * point, accounting for the surface's periodicity.
+	     *
+	     * Empirical testing on m35 CSG models shows that for FULL-REVOLUTION
+	     * closed edges (circles), the two independently-created 3D curves
+	     * go in opposite 3D winding directions (because one comes from
+	     * add_elements on an inner loop and one from an outer loop), but
+	     * OpenNURBS's validity check considers them "same direction" due to
+	     * how seam-crossing parameterization interacts with bRev3d.
+	     *
+	     * To keep things simple and correct: we use the Newell-method
+	     * winding comparison but INVERT its result, since the OpenNURBS
+	     * convention for seam-crossing trims is the opposite of the 3D
+	     * geometric winding comparison. */
 	    bool rev = false;
 	    {
-		ON_3dPoint pmid = ci3->PointAt(ci3->Domain().Mid());
-		double tmid_j;
-		curve_min_dist_to_point(cj3, pmid, 64, &tmid_j);
-		ON_3dVector tan_j = cj3->TangentAt(tmid_j);
-		rev = (ON_DotProduct(tan_i, tan_j) < 0.0);
-	    }
+		const ON_Curve  *c2j = brep->m_C2[brep->m_T[tj].m_c2i];
+		const ON_BrepFace *fj = brep->m_T[tj].Face();
 
-	    /* Transfer ej's trim to ei */
-	    int tj = ej.m_ti[0];
-	    brep->m_T[tj].m_ei = i;
+		if (c2j && fj && fj->SurfaceOf()) {
+		    const ON_Surface *sfj = fj->SurfaceOf();
+		    static const int N = 64;
+
+		    /* Newell normal for ci3 (3D edge curve) */
+		    ON_3dVector ni(0, 0, 0);
+		    ON_3dPoint  prev_i = ci3->PointAt(ci3->Domain().ParameterAt(0.0));
+		    for (int s = 1; s <= N; s++) {
+			ON_3dPoint cur_i = ci3->PointAt(
+			    ci3->Domain().ParameterAt((double)s / N));
+			ni.x += (prev_i.y - cur_i.y) * (prev_i.z + cur_i.z);
+			ni.y += (prev_i.z - cur_i.z) * (prev_i.x + cur_i.x);
+			ni.z += (prev_i.x - cur_i.x) * (prev_i.y + cur_i.y);
+			prev_i = cur_i;
+		    }
+
+		    /* Newell normal for trim tj pushed up to 3D */
+		    ON_3dVector nj(0, 0, 0);
+		    ON_2dPoint  uv0 = c2j->PointAt(c2j->Domain().ParameterAt(0.0));
+		    ON_3dPoint  prev_j = sfj->PointAt(uv0.x, uv0.y);
+		    for (int s = 1; s <= N; s++) {
+			ON_2dPoint uv = c2j->PointAt(
+			    c2j->Domain().ParameterAt((double)s / N));
+			ON_3dPoint cur_j = sfj->PointAt(uv.x, uv.y);
+			nj.x += (prev_j.y - cur_j.y) * (prev_j.z + cur_j.z);
+			nj.y += (prev_j.z - cur_j.z) * (prev_j.x + cur_j.x);
+			nj.z += (prev_j.x - cur_j.x) * (prev_j.y + cur_j.y);
+			prev_j = cur_j;
+		    }
+
+		    /* Opposite 3D normals → seam-crossing trim is in the SAME
+		     * OpenNURBS direction (the seam parameterization inverses
+		     * the correspondence); same 3D normals → trim is reversed. */
+		    rev = (ON_DotProduct(ni, nj) > 0.0);
+		}
+	    }
 	    if (rev)
 		brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
+	    brep->m_T[tj].m_ei = i;
 	    ei.m_ti.Append(tj);
 
 	    /* Update the transferred trim's vertex indices to match ei.
