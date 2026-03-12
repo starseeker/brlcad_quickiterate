@@ -29,6 +29,38 @@ package require Itcl
 package require Itk
 package require Iwidgets
 
+# Generate a unique 64-hex-character session token for this rtwizard
+# instance so that parallel GUI invocations (or GUI + CLI) do not
+# accidentally connect to each other's fbserv.
+# Falls back gracefully if rtwiz_gen_token (defined in the CLI rtwizard
+# startup script) is already available — avoids duplicate definitions.
+if {[llength [info procs rtwiz_gen_token]] == 0} {
+    proc rtwiz_gen_token {} {
+	expr {srand([pid] ^ [clock clicks])}
+	set tok ""
+	for {set i 0} {$i < 16} {incr i} {
+	    append tok [format "%04x" [expr {int(rand() * 65536)}]]
+	}
+	return $tok
+    }
+}
+
+# Non-destructive TCP probe: returns 1 if logical fbserv port is occupied.
+# fbserv maps logical ports < 1024 to (5559 + port).
+if {[llength [info procs rtwiz_port_occupied]] == 0} {
+    proc rtwiz_port_occupied {logical_port} {
+	set tcp_port $logical_port
+	if {$tcp_port < 1024} {
+	    set tcp_port [expr {$tcp_port + 5559}]
+	}
+	if {[catch {socket 127.0.0.1 $tcp_port} s]} {
+	    return 0
+	}
+	catch {close $s}
+	return 1
+    }
+}
+
 namespace eval RtWizard {
 
     package provide FbPage 1.0
@@ -442,13 +474,18 @@ namespace eval RtWizard {
 	if { [string match $mode "toFile"] && \
 		 [string length $::RtWizard::wizard_state(output_filename)] > 0 && \
 		 [string match $screenOnly "false"] } {
-	    # Will be generating a file - need in-memory fb
+	    # Will be generating a file - need in-memory fb.
+	    # Generate a session token so child tools (rt, fb-pix, etc.)
+	    # only connect to OUR fbserv, not a parallel instance's.
+	    set ::env(FBSERV_TOKEN) [rtwiz_gen_token]
 	    set port 0
-	    while { ! [catch {exec [file join [bu_dir bin] fbclear] -F $port } error ] } {
-		if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $fbserv_port is already in use."}
+	    # Non-destructive TCP probe — fbclear would clear another
+	    # running instance's framebuffer as a side effect.
+	    while { [rtwiz_port_occupied $port] } {
+		if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $port is already in use."}
 		incr port
 	    }
-	    catch {exec [file join [bu_dir bin] fbserv] -w $width -n $height $port /dev/mem &} pid
+	    catch {exec [file join [bu_dir bin] fbserv] -A -w $width -n $height $port /dev/mem &} pid
 	    # Give the fbserv time to fire up
 	    after 1000
 	    exec [file join [bu_dir bin] fbclear] -F $port 0 0 0
@@ -461,6 +498,9 @@ namespace eval RtWizard {
 	#
 	# Create an on-screen buffer
 	#
+	# Generate a unique session token; set it before any fbserv launch
+	# so the env var propagates to all child processes automatically.
+	set ::env(FBSERV_TOKEN) [rtwiz_gen_token]
 	set port [incr lastPort]
 	set ok false
 	#
@@ -475,10 +515,13 @@ namespace eval RtWizard {
 	    set fbType "/dev/oglsp"
 	}
 	#
+	# Skip ports that are already occupied (non-destructive probe).
 	#
-	#
+	while { [rtwiz_port_occupied $port] } {
+	    incr port
+	}
 	while {[catch \
-		    {exec "$binpath/fbserv" -w $width -n $height -F $fbType -p $port &} \
+		    {exec "$binpath/fbserv" -A -w $width -n $height -F $fbType -p $port &} \
 		    catchResult]} {
 	    puts $catchResult
 	    incr port
