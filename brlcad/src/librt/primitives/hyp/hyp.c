@@ -1151,9 +1151,6 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* Compute "geometry" for region and shell */
     nmg_region_a(*r, tol);
 
-    /* XXX just for testing, to make up for loads of triangles ... */
-    nmg_shell_coplanar_face_merge(s, tol, 1, vlfree);
-
     /* free mem */
     if (outfaceuses)
 	bu_free((char *)outfaceuses, "faceuse []");
