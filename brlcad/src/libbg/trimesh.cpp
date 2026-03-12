@@ -301,9 +301,9 @@ bg_trimesh_non_manifold_vertices(int vcnt, int fcnt, int *f,
     face_cnt = (int *)bu_calloc(vcnt, sizeof(int), "face_cnt");
     for (fi = 0; fi < fcnt; fi++) {
 	for (j = 0; j < 3; j++) {
-	    int vi2 = f[fi*3+j];
-	    if (vi2 >= 0 && vi2 < vcnt)
-		face_cnt[vi2]++;
+	    int fv = f[fi*3+j];
+	    if (fv >= 0 && fv < vcnt)
+		face_cnt[fv]++;
 	}
     }
 
@@ -316,9 +316,9 @@ bg_trimesh_non_manifold_vertices(int vcnt, int fcnt, int *f,
     }
     for (fi = 0; fi < fcnt; fi++) {
 	for (j = 0; j < 3; j++) {
-	    int vi2 = f[fi*3+j];
-	    if (vi2 >= 0 && vi2 < vcnt)
-		vert_faces[vi2][fill_pos[vi2]++] = fi;
+	    int fv = f[fi*3+j];
+	    if (fv >= 0 && fv < vcnt)
+		vert_faces[fv][fill_pos[fv]++] = fi;
 	}
     }
     bu_free(fill_pos, "fill_pos");
@@ -539,7 +539,9 @@ bg_trimesh_solid(int vcnt, int fcnt, fastf_t *v, int *f, int **bedges)
 
 	/* Pack boundary edge pairs (vertex index pairs) into *bedges.
 	 * Non-manifold vertices are counted in bedge_cnt but are single
-	 * indices, not pairs, so they are not included in *bedges. */
+	 * indices, not pairs, so they are not included in *bedges.
+	 * Allocate edge_cnt*2+1 so that bu_calloc is never called with
+	 * count=0 (which would trigger bu_bomb) when only NMV errors exist. */
 	edge_cnt = errors.unmatched.count + errors.misoriented.count + errors.excess.count;
 	copy_cnt = 0;
 	*bedges = (int *)bu_calloc(edge_cnt * 2 + 1, sizeof(int), "bad edges");

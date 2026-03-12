@@ -256,12 +256,29 @@ test_verdict: test_remesh_verdict
 	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$$LD_LIBRARY_PATH" \
 	    ./test_remesh_verdict $(TEST_DIR)/data/gt.obj
 
+# GTE-native mesh quality unit test — no VTK dependency.
+# Tests MeshQuality<double> (Verdict-equivalent algorithms implemented in GTE)
+# on known analytical cases and an optional OBJ file.
+test_mesh_quality: $(TEST_DIR)/test_mesh_quality.cpp \
+                   GTE/Mathematics/MeshQuality.h
+	$(CXX) $(CXXFLAGS) -o test_mesh_quality \
+	    $(TEST_DIR)/test_mesh_quality.cpp $(LDFLAGS)
+
+# Run GTE-native mesh quality unit tests (no external libs needed)
+test_quality: test_mesh_quality
+	@echo "=== GTE MeshQuality unit tests (no VTK) ==="
+	./test_mesh_quality
+	@echo ""
+	@echo "=== GTE MeshQuality on GenericTwin (if available) ==="
+	@test -f $(TEST_DIR)/data/gt.obj && ./test_mesh_quality $(TEST_DIR)/data/gt.obj || \
+	    echo "(gt.obj not found, skipping OBJ quality evaluation)"
+
 # Clean up
 clean:
-	rm -f $(TARGETS) test_geogram_comparison test_remesh_verdict
+	rm -f $(TARGETS) test_geogram_comparison test_remesh_verdict test_mesh_quality
 	rm -f $(TEST_DIR)/data/*_repaired.obj $(TEST_DIR)/data/*_output.obj
 
-.PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram test_verdict
+.PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram test_verdict test_quality
 
 # Phase 4 integration test
 test_phase4_integration: $(TEST_DIR)/test_phase4_integration.cpp GTE/Mathematics/CVTN.h GTE/Mathematics/MeshRemesh.h GTE/Mathematics/SurfaceRVDN.h

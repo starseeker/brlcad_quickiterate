@@ -190,6 +190,8 @@ struct rt_bot_repair_info {
     fastf_t max_hole_area;
     fastf_t max_hole_area_percent;
     int strict;
+    int auto_remesh;             /**< Post-repair quality check + auto-remesh if quality is poor (default 0 = off) */
+    fastf_t remesh_quality_ar;   /**< Aspect ratio threshold for auto-remesh; 0 = use default (3.0) */
 };
 
 /* For now the default upper hole size limit will be 5 percent of the mesh
@@ -199,8 +201,13 @@ struct rt_bot_repair_info {
  * By default, don't return a mesh that can't pass the lint solid raytracing
  * tests.  This isn't always desirable - sometimes manifold is enough even if
  * the mesh is not otherwise well behaved - so it is an user settable param.
+ *
+ * auto_remesh defaults to 0 (off).  When enabled it runs a Verdict-style
+ * quality evaluation after repair and, if the median aspect ratio exceeds
+ * remesh_quality_ar (default 3.0), automatically remeshes the output to
+ * improve triangle quality.
  */
-#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1};
+#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1, 0, 0.0};
 
 /* Function to attempt repairing a non-manifold BoT.  Returns 1 if ibot was
  * already manifold (obot will contain NULL), 0 if a manifold BoT was created
