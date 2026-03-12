@@ -37,9 +37,14 @@
 
 #include "bu/color.h"
 #include "bu/log.h"
+#include "bu/str.h"
 #include "dm.h"
 #include "vmath.h"
 #include "pkg.h"
+
+/* Enable token verification for the standalone fbserv */
+#define FBSERV_AUTH_IMPL
+#include "./auth.h"
 
 
 #define NET_LONG_LEN 4 /* # bytes to network long */
@@ -55,6 +60,13 @@ int fb_server_got_fb_free = 0;	/* !0 => we have received an fb_free */
 int fb_server_refuse_fb_free = 0;	/* !0 => don't accept fb_free() */
 int fb_server_retain_on_close = 0;	/* !0 => we are holding a reusable FB open */
 
+/* Auth helpers provided by fbserv.c */
+extern int fbserv_require_auth(void);
+extern const char *fbserv_session_token(void);
+extern int fbserv_conn_idx(struct pkg_conn *pcp);
+extern int fbserv_client_auth_ok(int idx);
+extern void fbserv_set_client_auth(int idx, int val);
+
 
 /*
  * This is where we go for message types we don't understand.
@@ -69,6 +81,55 @@ fb_server_fb_unknown(struct pkg_conn *pcp, char *buf)
     fb_log("fb_server_fb_unknown: message type %d not part of remote LIBFB protocol, ignored.\n",
 	   pcp->pkc_type);
     (void)free(buf);
+}
+
+
+/**
+ * MSG_FBAUTH handler — session token authentication.
+ *
+ * Client sends a FBSERV_AUTH_TOKEN_LEN-byte hex token string.
+ * If it matches the server's session token the connection is marked
+ * authenticated.  If the token is wrong the connection is closed.
+ *
+ * Old clients that do not send MSG_FBAUTH are still accepted unless
+ * the server was started with -A (strict mode).
+ */
+static void
+fb_server_fb_auth(struct pkg_conn *pcp, char *buf)
+{
+    int idx;
+    char provided[FBSERV_AUTH_TOKEN_LEN + 1] = {0};
+    const char *expected = fbserv_session_token();
+
+    if (pcp == PKC_NULL) {
+	if (buf) (void)free(buf);
+	return;
+    }
+
+    idx = fbserv_conn_idx(pcp);
+    if (idx < 0) {
+	if (buf) (void)free(buf);
+	return;
+    }
+
+    if (!expected || expected[0] == '\0') {
+	/* No token configured; mark as authenticated */
+	fbserv_set_client_auth(idx, 1);
+	if (buf) (void)free(buf);
+	return;
+    }
+
+    if (buf && pcp->pkc_len >= FBSERV_AUTH_TOKEN_LEN)
+	bu_strlcpy(provided, buf, sizeof(provided));
+
+    if (fbserv_verify_token(provided, expected)) {
+	fbserv_set_client_auth(idx, 1);
+    } else {
+	fb_log("fbserv: MSG_FBAUTH token mismatch from client — dropping\n");
+	pkg_close(pcp);
+    }
+
+    if (buf) (void)free(buf);
 }
 
 
@@ -89,6 +150,23 @@ fb_server_fb_open(struct pkg_conn *pcp, char *buf)
        	return;
     if (pcp == PKC_NULL)
        	return;
+
+    /* Auth check: if strict mode, reject unauthenticated clients. */
+    if (fbserv_require_auth()) {
+	int idx = fbserv_conn_idx(pcp);
+	if (idx < 0 || !fbserv_client_auth_ok(idx)) {
+	    fb_log("fbserv: unauthenticated MSG_FBOPEN rejected (strict mode)\n");
+	    (void)pkg_plong(&rbuf[0*NET_LONG_LEN], -1);
+	    (void)pkg_plong(&rbuf[1*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[2*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[3*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[4*NET_LONG_LEN], 0);
+	    pkg_send(MSG_RETURN, rbuf, 5*NET_LONG_LEN, pcp);
+	    pkg_close(pcp);
+	    (void)free(buf);
+	    return;
+	}
+    }
 
     width = pkg_glong(&buf[0*NET_LONG_LEN]);
     height = pkg_glong(&buf[1*NET_LONG_LEN]);
@@ -755,7 +833,8 @@ fb_server_fb_help(struct pkg_conn *pcp, char *buf)
 	(void)free(buf);
 }
 
-const struct pkg_switch pkg_switch[] = {
+struct pkg_switch pkg_switch[] = {
+    { MSG_FBAUTH,                       fb_server_fb_auth,        "Session Authentication", NULL },
     { MSG_FBOPEN,                       fb_server_fb_open,        "Open Framebuffer", NULL },
     { MSG_FBCLOSE,                      fb_server_fb_close,       "Close Framebuffer", NULL },
     { MSG_FBCLEAR,                      fb_server_fb_clear,       "Clear Framebuffer", NULL },

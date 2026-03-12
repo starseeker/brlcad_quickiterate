@@ -87,6 +87,15 @@
 #include "dm.h"
 #include "pkg.h"
 
+/* Enable token generation for the server (fbserv.c generates and forwards
+ * the token; server.c does the per-connection verification). */
+#define FBSERV_AUTH_SERVER
+#include "./auth.h"
+
+/* Enable TLS server-side functions */
+#define FBSERV_TLS_IMPL
+#include "./tls_wrap.h"
+
 
 fd_set select_list;			/* master copy */
 int max_fd;
@@ -102,6 +111,40 @@ static int port_set = 0;		/* !0 if user supplied port num */
 static int once_only = 0;
 static int netfd;
 
+/*
+ * Session authentication token.  Generated once at startup.
+ * Printed to stderr so that the invoking script/user can pass it to
+ * clients via the FBSERV_TOKEN environment variable.
+ * An empty string means no authentication is required.
+ */
+static char session_token[FBSERV_AUTH_TOKEN_LEN + 1] = {0};
+
+/*
+ * When non-zero, ALL connecting clients must supply a valid token via
+ * MSG_FBAUTH before sending MSG_FBOPEN.  When zero (the default),
+ * clients without a token are still accepted.
+ */
+static int require_auth = 0;
+
+/*
+ * When non-zero, attempt to set up TLS after accepting each TCP connection.
+ */
+static int use_tls = 0;
+
+/*
+ * Per-client authentication state (parallel to clients[]).
+ * 1 = client has sent a valid MSG_FBAUTH, 0 = not yet authenticated.
+ */
+static int clients_auth[MAX_CLIENTS];
+
+/*
+ * TLS server context.  Initialized at startup when HAVE_OPENSSL_SSL_H
+ * is defined and -T flag is given (or FBSERV_TLS env var is set).
+ */
+#ifdef HAVE_OPENSSL_SSL_H
+static SSL_CTX *fbserv_ssl_ctx = NULL;
+#endif
+
 
 #define MAX_CLIENTS 32
 struct pkg_conn *clients[MAX_CLIENTS];
@@ -109,7 +152,7 @@ struct pkg_conn *clients[MAX_CLIENTS];
 int verbose = 0;
 
 /* from server.c */
-extern const struct pkg_switch pkg_switch[];
+extern struct pkg_switch pkg_switch[];
 extern struct fb *fb_server_fbp;
 extern fd_set *fb_server_select_list;
 extern int *fb_server_max_fd;
@@ -117,27 +160,56 @@ extern int fb_server_got_fb_free;       /* !0 => we have received an fb_free */
 extern int fb_server_refuse_fb_free;    /* !0 => don't accept fb_free() */
 extern int fb_server_retain_on_close;   /* !0 => we are holding a reusable FB open */
 
+/* auth state accessors for server.c handlers */
+int fbserv_client_auth_ok(int idx)   { return clients_auth[idx]; }
+int fbserv_require_auth(void)        { return require_auth; }
+const char *fbserv_session_token(void) { return session_token; }
+void fbserv_set_client_auth(int idx, int val) { clients_auth[idx] = val; }
+
+/**
+ * Find the clients[] slot index for the given connection.
+ * Returns -1 if not found.
+ */
+int
+fbserv_conn_idx(struct pkg_conn *pcp)
+{
+    int i;
+    for (i = 0; i < MAX_CLIENTS; i++) {
+	if (clients[i] == pcp)
+	    return i;
+    }
+    return -1;
+}
 
 /* Hidden args: -p<port_num> -F<frame_buffer> */
 static char usage[] = "\
 Usage: fbserv port_num\n\
 	  (for a stand-alone daemon)\n\
-   or  fbserv [-v] [-{sS} squaresize]\n\
+   or  fbserv [-v] [-T] [-A] [-{sS} squaresize]\n\
 	  [-{wW} width] [-{nN} height] -p port_num -F frame_buffer\n\
 	  (for a single-frame-buffer server)\n\
           (if '-p' and '-F' are both omitted, port_num and frame_buffer\n\
            must appear in that order)\n\
+  -T  enable TLS encryption (requires OpenSSL build)\n\
+  -A  strict auth: reject clients that do not send MSG_FBAUTH\n\
 ";
 
 int
 get_args(int argc, char **argv)
 {
     int c;
+    int enable_tls = 0;
 
-    while ((c = bu_getopt(argc, argv, "vF:s:w:n:S:W:N:p:h?")) != -1) {
+    while ((c = bu_getopt(argc, argv, "vTAF:s:w:n:S:W:N:p:h?")) != -1) {
 	switch (c) {
 	    case 'v':
 		verbose = 1;
+		break;
+	    case 'T':
+		enable_tls = 1;
+		break;
+	    case 'A':
+		require_auth = 1;
 		break;
 	    case 'F':
 		framebuffer = bu_optarg;
@@ -175,6 +247,8 @@ get_args(int argc, char **argv)
     if (argc > bu_optind)
 	return 0;	/* print usage */
 
+    (void)enable_tls; /* suppress unused-variable warning when no OpenSSL */
+    use_tls = enable_tls;
     return 1;		/* OK */
 }
 
@@ -268,6 +342,7 @@ fbserv_drop_client(int sub)
     FD_CLR(fd, &select_list);
     pkg_close(clients[sub]);
     clients[sub] = PKC_NULL;
+    clients_auth[sub] = 0;
 }
 
 static void
@@ -282,9 +357,30 @@ fbserv_new_client(struct pkg_conn *pcp)
 	if (clients[i] != NULL) continue;
 	/* Found an available slot */
 	clients[i] = pcp;
+	clients_auth[i] = 0;  /* not yet authenticated */
 	FD_SET(pcp->pkc_fd, &select_list);
 	V_MAX(max_fd, pcp->pkc_fd);
 	fbserv_setup_socket(pcp->pkc_fd);
+
+#ifdef HAVE_OPENSSL_SSL_H
+	/* Optional TLS: perform server-side handshake before any PKG
+	 * messages are exchanged. */
+	if (use_tls && fbserv_ssl_ctx) {
+	    if (fbserv_tls_accept(fbserv_ssl_ctx, pcp) == FBSERV_TLS_OK) {
+		if (verbose)
+		    fprintf(stderr, "fbserv: TLS established with client %d\n", i);
+	    } else {
+		fprintf(stderr, "fbserv: TLS handshake failed for client %d; "
+			"dropping connection\n", i);
+		FD_CLR(pcp->pkc_fd, &select_list);
+		pkg_close(pcp);
+		clients[i] = PKC_NULL;
+		clients_auth[i] = 0;
+		return;
+	    }
+	}
+#endif
+
 	return;
     }
     fprintf(stderr, "fbserv: too many clients\n");
@@ -397,6 +493,7 @@ main(int argc, char **argv)
     /* No disk files on remote machine */
     _fb_disk_enable = 0;
     memset((void *)clients, 0, sizeof(struct pkg_conn *) * MAX_CLIENTS);
+    memset(clients_auth, 0, sizeof(clients_auth));
 
 #ifdef SIGPIPE
     (void)signal(SIGPIPE, SIG_IGN);
@@ -429,6 +526,34 @@ main(int argc, char **argv)
 	(void)fputs(usage, stderr);
 	return 1;
     }
+
+    /* Generate a session authentication token so that auto-launched
+     * or scripted clients can verify they are talking to the right
+     * fbserv instance. */
+    fbserv_generate_token(session_token);
+    fprintf(stderr, "fbserv: Session token: %s\n", session_token);
+    fprintf(stderr, "fbserv: Set FBSERV_TOKEN=%s in client environment\n",
+	    session_token);
+
+#ifdef HAVE_OPENSSL_SSL_H
+    /* Optional TLS.  Check -T flag or FBSERV_TLS environment variable. */
+    if (use_tls || getenv("FBSERV_TLS")) {
+	const char *certfile = getenv("FBSERV_TLS_CERT");
+	const char *keyfile  = getenv("FBSERV_TLS_KEY");
+	fbserv_ssl_ctx = fbserv_tls_server_ctx(certfile, keyfile);
+	if (fbserv_ssl_ctx) {
+	    fprintf(stderr, "fbserv: TLS enabled (%s)\n",
+		    (certfile && keyfile) ? "custom cert" : "self-signed cert");
+	} else {
+	    fprintf(stderr, "fbserv: WARNING: TLS context creation failed; "
+		    "continuing without TLS\n");
+	}
+    }
+#else
+    if (use_tls)
+	fprintf(stderr, "fbserv: WARNING: -T flag given but TLS support was "
+		"not compiled in (no OpenSSL)\n");
+#endif
 
     /* Single-Frame-Buffer Server */
     if (framebuffer != NULL) {
