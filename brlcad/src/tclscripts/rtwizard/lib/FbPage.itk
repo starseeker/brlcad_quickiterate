@@ -479,16 +479,31 @@ namespace eval RtWizard {
 	    # only connect to OUR fbserv, not a parallel instance's.
 	    set ::env(FBSERV_TOKEN) [rtwiz_gen_token]
 	    set port 0
-	    # Non-destructive TCP probe — fbclear would clear another
-	    # running instance's framebuffer as a side effect.
-	    while { [rtwiz_port_occupied $port] } {
-		if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $port is already in use."}
-		incr port
+	    set fbserv_owned 0
+	    # Outer retry loop: recover from the race where two parallel rtwizard
+	    # instances both pass the TCP port probe before either fbserv binds.
+	    # fbclear authenticates with FBSERV_TOKEN, so a mismatch signals a
+	    # collision — advance to the next port and try again.
+	    while { !$fbserv_owned } {
+		# Non-destructive TCP probe — fbclear would clear another
+		# running instance's framebuffer as a side effect.
+		while { [rtwiz_port_occupied $port] } {
+		    if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $port is already in use."}
+		    incr port
+		}
+		catch {exec [file join [bu_dir bin] fbserv] -A -w $width -n $height $port /dev/mem &} pid
+		# Give the fbserv time to fire up
+		after 1000
+		# Verify ownership: fbclear must succeed with our token.
+		# Failure here means another rtwizard owns this port — try the next one.
+		if { [catch {exec [file join [bu_dir bin] fbclear] -F $port 0 0 0}] == 0 } {
+		    set fbserv_owned 1
+		} else {
+		    if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $port: collision detected, retrying on next port."}
+		    catch {unset pid}
+		    incr port
+		}
 	    }
-	    catch {exec [file join [bu_dir bin] fbserv] -A -w $width -n $height $port /dev/mem &} pid
-	    # Give the fbserv time to fire up
-	    after 1000
-	    exec [file join [bu_dir bin] fbclear] -F $port 0 0 0
 
 	    set ::RtWizard::wizard_state(fbserv_port) $port
 	    set ::RtWizard::wizard_state(pid) $pid
@@ -520,17 +535,31 @@ namespace eval RtWizard {
 	while { [rtwiz_port_occupied $port] } {
 	    incr port
 	}
-	while {[catch \
-		    {exec "$binpath/fbserv" -A -w $width -n $height -F $fbType -p $port &} \
-		    catchResult]} {
-	    puts $catchResult
-	    incr port
+	# Outer retry loop: recover from the race where two parallel rtwizard
+	# instances both pass the TCP probe before either fbserv binds.
+	# fbclear authenticates with FBSERV_TOKEN; a failure signals a collision.
+	set fbserv_owned 0
+	while { !$fbserv_owned } {
+	    # Skip any ports that have become occupied since we started.
+	    while { [rtwiz_port_occupied $port] } {
+		incr port
+	    }
+	    if {[catch {exec "$binpath/fbserv" -A -w $width -n $height -F $fbType -p $port &} catchResult] != 0} {
+		if {$::RtWizard::wizard_state(verbose)} {puts "fbserv launch on port $port failed: $catchResult"}
+	    }
+	    #
+	    # Give the fbserv a bit o' time to fire up
+	    #
+	    after 1000
+	    # Verify ownership: fbclear must succeed with our FBSERV_TOKEN.
+	    # Failure means a port collision — advance and retry.
+	    if { [catch {exec "$binpath/fbclear" -F $port 0 0 0}] == 0 } {
+		set fbserv_owned 1
+	    } else {
+		if {$::RtWizard::wizard_state(verbose)} {puts "fbserv port $port: collision detected, retrying."}
+		incr port
+	    }
 	}
-	#
-	# Damn important, give the fbserv a bit o' time to fire up
-	#
-	after 1000
-	exec "$binpath/fbclear" -F $port 0 0 0
 	set lastPort $port
 
 	set ::RtWizard::wizard_state(fbserv_port) $port
