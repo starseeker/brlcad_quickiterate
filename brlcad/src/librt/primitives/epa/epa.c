@@ -1390,12 +1390,12 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
 	if (nseg_base < 6) nseg_base = 6;
-	/* Cap segment count for tess: NMG operations scale poorly beyond ~24
-	 * circumferential segments × many rings (OOM/timeout in nmg_fu_planeeqn
-	 * and nmg_gluefaces).  24 segs gives ~15° per step which is sufficient
-	 * for most uses; ntol-driven fine accuracy is better served by the
-	 * longitudinal refinement from rt_mk_parabola(). */
-	if (nseg_base > 24) nseg_base = 24;
+	/* No upper cap on nseg_base: the OOM/SIGKILL that was observed with
+	 * tight normal tolerances (ntol≈0.1 → nseg≈64) was caused by infinite
+	 * recursion inside rt_mk_hyperbola, not by NMG data-structure size.
+	 * That recursion is now guarded; 64 segs × 69 rings ≈ 8700 NMG faces
+	 * consumes only ~19 MB and completes in well under a second.  Honour
+	 * the caller's tolerance rather than silently degrading quality. */
 
 	/* Minimum ring radius: with nseg_base segments, adjacent vertices must
 	 * be well clear of tol->dist or nmg_fu_planeeqn fails to find three
