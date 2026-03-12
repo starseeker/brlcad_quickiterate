@@ -916,14 +916,13 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 {
     struct bu_list *vlfree = &rt_vlfree;
     fastf_t dtol, mag_h, ntol, r1, r2;
-    fastf_t **ellipses, theta_new, theta_prev;
+    fastf_t **ellipses;
     int *pts_dbl, i, j, nseg;
     int na = 0;
     int jj, nb, nell, recalc_b;
     mat_t R;
     mat_t invR;
     struct rt_epa_internal *xip;
-    point_t p1;
     struct rt_pnt_node *pos_a, *pos_b, *pts_a, *pts_b;
     vect_t A, Au, B, Bu, Hu, V, Work;
 
@@ -1049,10 +1048,28 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* keep track of whether pts in each ellipse are doubled or not */
     pts_dbl = (int *)bu_malloc(nell * sizeof(int), "dbl ints");
 
+    /* Compute the circumferential segment count for the largest cross-section
+     * (the base ring, radius r1).  The old approach used ell_angle() which
+     * starts from the major-axis endpoint (a, 0); as the tested arc shrinks
+     * the angle at that endpoint converges to π rather than 0, causing the
+     * recursion to never terminate.  We now use the same chord-error formula
+     * that rt_num_circular_segments() implements (also used by TOR, ETO):
+     *   theta = 2*acos(1 - dtol/r),  nseg = ceil(2π/theta)
+     * The normal tolerance is applied by additionally capping nseg at
+     * ceil(2π/ntol) and using the larger of the two.
+     * All rings use the same nseg (no per-ring doubling); extra coplanar
+     * triangles near the apex are small and handled gracefully by the renderer.
+     */
+    nseg = rt_num_circular_segments(dtol, r1);
+    if (ntol < M_PI) {
+	int nseg_ntol = (int)(M_2PI / ntol) + 1;
+	if (nseg_ntol > nseg)
+	    nseg = nseg_ntol;
+    }
+    if (nseg < 6) nseg = 6;
+
     /* make ellipses at each z level */
     i = 0;
-    nseg = 0;
-    theta_prev = M_2PI;
     pos_a = pts_a->next;	/* skip over apex of epa */
     pos_b = pts_b->next;
     while (pos_a) {
@@ -1060,17 +1077,8 @@ rt_epa_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
 	VJOIN1(V, xip->epa_V, -pos_a->p[Z], Hu);
 
-	VSET(p1, 0., pos_b->p[Y], 0.);
-	theta_new = ell_angle(p1, pos_a->p[Y], pos_b->p[Y], dtol, ntol);
-	if (nseg == 0) {
-	    nseg = (int)(M_2PI / theta_new) + 1;
-	    pts_dbl[i] = 0;
-	} else if (theta_new < theta_prev) {
-	    nseg *= 2;
-	    pts_dbl[i] = 1;
-	} else
-	    pts_dbl[i] = 0;
-	theta_prev = theta_new;
+	/* All rings use the same segment count (no doubling) */
+	pts_dbl[i] = 0;
 
 	ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
 					   "pts ell");
@@ -1202,7 +1210,7 @@ int
 rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     fastf_t dtol, mag_h, ntol, r1, r2;
-    fastf_t **ellipses, **normals, theta_new, theta_prev;
+    fastf_t **ellipses, **normals;
     int *pts_dbl, face, i, j, nseg;
     int *segs_per_ell;
     int na = 0;
@@ -1210,7 +1218,6 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     mat_t R;
     mat_t invR;
     struct rt_epa_internal *xip;
-    point_t p1;
     struct rt_pnt_node *pos_a, *pos_b, *pts_a, *pts_b;
     struct shell *s;
     struct faceuse **outfaceuses = NULL;
@@ -1263,6 +1270,14 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     else
 	/* tolerate everything */
 	ntol = M_PI;
+
+    /* Clamp tolerances to prevent excessively dense ("triangle-bombed") meshes.
+     * bbox diagonal ~sqrt(4*r1^2+mag_h^2) approximates EPA bbox diagonal for
+     * the small-shape floor scaling. */
+    {
+	fastf_t bbox_diag = sqrt(4.0*r1*r1 + mag_h*mag_h);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
 
     /*
      * build epa from 2 parabolas
@@ -1348,63 +1363,94 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     ellipses = (fastf_t **)bu_malloc(nell * sizeof(fastf_t *), "fastf_t ell[]");
     /* keep track of whether pts in each ellipse are doubled or not */
     pts_dbl = (int *)bu_malloc(nell * sizeof(int), "dbl ints");
-    /* I don't understand this pts_dbl, so here is an array containing
-     * the length of each ellipses array
-     */
     segs_per_ell = (int *)bu_calloc(nell, sizeof(int), "rt_epa_tess: segs_per_ell");
 
     /* and an array of normals */
     normals = (fastf_t **)bu_malloc(nell * sizeof(fastf_t *), "fastf_t normals[]");
 
-    /* make ellipses at each z level */
-    i = 0;
-    nseg = 0;
-    theta_prev = M_2PI;
-    pos_a = pts_a->next;	/* skip over apex of epa */
-    pos_b = pts_b->next;
-    while (pos_a) {
-	fastf_t t;
-
-	t = (-pos_a->p[Z] / mag_h);
-	VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
-	VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
-	VJOIN1(V, xip->epa_V, -pos_a->p[Z], Hu);
-
-	VSET(p1, 0., pos_b->p[Y], 0.);
-	theta_new = ell_angle(p1, pos_a->p[Y], pos_b->p[Y], dtol, ntol);
-	if (nseg == 0) {
-	    nseg = (int)(M_2PI / theta_new) + 1;
-	    pts_dbl[i] = 0;
-	} else if (theta_new < theta_prev) {
-	    nseg *= 2;
-	    pts_dbl[i] = 1;
-	} else {
-	    pts_dbl[i] = 0;
+    /* Compute the BASE ring segment count (largest cross-section, radius r1).
+     * The legacy approach called ell_angle() per ring and doubled nseg each
+     * time theta decreased; ell_angle() has an inherent infinite-recursion at
+     * the major-axis endpoint (the chord-normal angle there converges to π
+     * rather than 0), and the doubling caused nseg to grow exponentially.
+     *
+     * We now use rt_num_circular_segments() (the same formula used by
+     * TOR/ETO/ELL):   theta = 2*acos(1 - dtol/r),  nseg = ceil(2π/theta).
+     * The normal tolerance also caps nseg at ceil(2π/ntol).
+     *
+     * Per-ring nseg is computed so that rings near the apex (very small radius)
+     * use fewer segments to avoid degenerate NMG faces.  A ring can have at
+     * most floor(π * ring_r / tol->dist) segments before adjacent vertices
+     * become closer than tol->dist.  We also use doubling (pts_dbl) so the
+     * ring-pair connectivity code handles transitions cleanly. */
+    {
+	int nseg_base = rt_num_circular_segments(dtol, r1);
+	if (ntol < M_PI) {
+	    int nseg_ntol = (int)(M_2PI / ntol) + 1;
+	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
-	theta_prev = theta_new;
+	if (nseg_base < 6) nseg_base = 6;
 
-	ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
-					   "pts ell");
-	segs_per_ell[i] = nseg;
-	normals[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t), "rt_epa_tess_ normals");
-	rt_ell(ellipses[i], V, A, B, nseg);
-	rt_ell_norms(normals[i], A_orig, B_orig, xip->epa_H, t, nseg);
+	/* Build per-ring nseg from apex to base, doubling whenever the ring
+	 * is large enough to justify it. */
+	nseg = 6;
+	i = 0;
+	pos_a = pts_a->next;
+	pos_b = pts_b->next;
+	while (pos_a) {
+	    fastf_t t;
+	    int nseg_needed, nseg_max_geom;
 
-	i++;
-	pos_a = pos_a->next;
-	pos_b = pos_b->next;
+	    t = (-pos_a->p[Z] / mag_h);
+
+	    /* How many segments would this ring need on its own? */
+	    nseg_needed = rt_num_circular_segments(dtol, pos_a->p[Y]);
+	    if (ntol < M_PI) {
+		int nseg_ntol = (int)(M_2PI / ntol) + 1;
+		if (nseg_ntol > nseg_needed) nseg_needed = nseg_ntol;
+	    }
+	    if (nseg_needed < 6) nseg_needed = 6;
+	    if (nseg_needed > nseg_base) nseg_needed = nseg_base;
+
+	    /* Cap so adjacent ring vertices stay farther apart than tol->dist. */
+	    nseg_max_geom = (pos_a->p[Y] > SMALL_FASTF) ?
+		(int)(M_PI * pos_a->p[Y] / tol->dist) : 3;
+	    if (nseg_max_geom < 3) nseg_max_geom = 3;
+	    if (nseg_needed > nseg_max_geom) nseg_needed = nseg_max_geom;
+
+	    /* Allow nseg to double (not arbitrary increase) toward nseg_needed. */
+	    while (nseg * 2 <= nseg_needed && nseg * 2 <= nseg_base)
+		nseg *= 2;
+
+	    /* Record whether this ring has more segs than the previous one. */
+	    pts_dbl[i] = (i > 0 && nseg > segs_per_ell[i-1]) ? 1 : 0;
+	    segs_per_ell[i] = nseg;
+
+	    VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
+	    VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
+	    VJOIN1(V, xip->epa_V, -pos_a->p[Z], Hu);
+
+	    ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
+					       "pts ell");
+	    normals[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
+					      "rt_epa_tess_ normals");
+	    rt_ell(ellipses[i], V, A, B, nseg);
+	    rt_ell_norms(normals[i], A_orig, B_orig, xip->epa_H, t, nseg);
+
+	    i++;
+	    pos_a = pos_a->next;
+	    pos_b = pos_b->next;
+	}
+	/* nseg now holds the final (base) ring count = segs_per_ell[nell-1]. */
     }
 
-    /* Compute the face count upper bound after the building loop, when
-     * nseg holds the final (maximum) ring size.  The legacy formula
-     * nseg*(1+3*((1<<(nell-1))-1)) overflows for large nell (tight ntol).
-     * Instead use: nseg_top * nell * 8, which conservatively covers both
-     * doubling and non-doubling level contributions. */
+    /* Conservative face-count upper bound: 3 triangles per segment per ring
+     * (covers doubling transitions) plus top cap and apex fan. */
     if (nell < 1) {
 	bu_log("rt_epa_tess: nell=%d too small\n", nell);
 	goto fail;
     }
-    face = nseg * nell * 8;
+    face = segs_per_ell[nell-1] * (3 * nell + 4) + 1;
     if (face < 16) face = 16;
 
     /*
@@ -1418,18 +1464,16 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     outfaceuses = (struct faceuse **)
 	bu_malloc((face+1) * sizeof(struct faceuse *), "faceuse []");
 
-    /* vertices of ellipses of epa */
+    /* vertices of ellipses of epa: allocate per-ring using segs_per_ell */
     vells = (struct vertex ***)
 	bu_malloc(nell*sizeof(struct vertex **), "vertex [][]");
-    j = nseg;
-    for (i = nell-1; i >= 0; i--) {
+    for (i = 0; i < nell; i++) {
 	vells[i] = (struct vertex **)
-	    bu_malloc(j*sizeof(struct vertex *), "vertex []");
-	if (i && pts_dbl[i])
-	    j /= 2;
+	    bu_malloc(segs_per_ell[i]*sizeof(struct vertex *), "vertex []");
     }
 
-    /* top face of epa */
+    /* top face of epa (base ellipse, largest ring) */
+    nseg = segs_per_ell[nell-1];
     for (i = 0; i < nseg; i++)
 	vells[nell-1][i] = (struct vertex *)0;
     face = 0;
@@ -1446,6 +1490,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     (void)nmg_mark_edges_real(&outfaceuses[0]->l.magic, vlfree);
 
     /* connect ellipses with triangles */
+    nseg = segs_per_ell[nell-1];	/* start with base ring count */
     for (i = nell-2; i >= 0; i--) {
 	/* skip top ellipse */
 	int bottom, top;
@@ -1533,6 +1578,7 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* connect bottom of ellipse to apex of epa */
     VADD2(V, xip->epa_V, xip->epa_H);
+    nseg = segs_per_ell[0];		/* apex fan uses ring-0 count */
     vertp[0] = (struct vertex *)0;
     vertp[1] = vells[0][1];
     vertp[2] = vells[0][0];
@@ -1609,9 +1655,12 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     bu_free((char *)outfaceuses, "faceuse []");
     for (i = 0; i < nell; i++) {
 	bu_free((char *)ellipses[i], "pts ell");
+	bu_free((char *)normals[i], "normals");
 	bu_free((char *)vells[i], "vertex []");
     }
     bu_free((char *)ellipses, "fastf_t ell[]");
+    bu_free((char *)normals, "fastf_t normals[]");
+    bu_free((char *)segs_per_ell, "segs_per_ell");
     bu_free((char *)pts_dbl, "dbl ints");
     bu_free((char *)vells, "vertex [][]");
 
@@ -1622,9 +1671,12 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     bu_free((char *)outfaceuses, "faceuse []");
     for (i = 0; i < nell; i++) {
 	bu_free((char *)ellipses[i], "pts ell");
+	bu_free((char *)normals[i], "normals");
 	bu_free((char *)vells[i], "vertex []");
     }
     bu_free((char *)ellipses, "fastf_t ell[]");
+    bu_free((char *)normals, "fastf_t normals[]");
+    bu_free((char *)segs_per_ell, "segs_per_ell");
     bu_free((char *)pts_dbl, "dbl ints");
     bu_free((char *)vells, "vertex [][]");
 

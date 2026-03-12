@@ -24,10 +24,76 @@
  * librt_private.h.
  */
 
+#include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/opt.h"
 #include "bu/app.h"
+#include "vmath.h"
 #include "../librt_private.h"
+
+/* -----------------------------------------------------------------------
+ * Tessellation tolerance clamping
+ * -----------------------------------------------------------------------
+ *
+ * BRL-CAD's internal intersection/tolerance floor is ~0.005 mm and practical
+ * display fidelity tops out at roughly 0.05 mm on typical hardware.  Allowing
+ * the tessellation tolerance to be set below this threshold produces meshes
+ * that are orders-of-magnitude denser than the geometry can justify, and can
+ * cause memory exhaustion ("triangle bombing").
+ *
+ * Rules applied by primitive_clamp_tess_tol():
+ *   abs / dtol:  must be >= 0.05 mm.
+ *                For shapes whose bounding-box diagonal is < 1 mm the floor
+ *                is scaled to 1 % of the diagonal so that very small shapes
+ *                can still produce useful detail.
+ *   norm / ntol: must be >= π/360 (0.5°).  At this angle a full circle
+ *                requires 720 segments — already very dense.
+ *
+ * A bu_log warning is emitted the first time each tolerance is clamped so
+ * that interactive users are informed rather than silently surprised.
+ */
+
+/** Minimum normal (angle) tessellation tolerance (radians). π/360 ≈ 0.00873. */
+/* PRIM_MIN_ABS_TOL and PRIM_MIN_NORM_TOL are defined in librt_private.h */
+
+/**
+ * Clamp dtol and ntol to the minimum values that prevent excessively dense
+ * ("triangle-bombed") tessellations.
+ *
+ * @param dtol       [in/out] absolute distance tolerance (mm)
+ * @param ntol       [in/out] normal-deviation tolerance (radians); pass 0 or
+ *                            M_PI if no normal tolerance was requested
+ * @param bbox_diag  length of the primitive bounding-box diagonal (mm); used
+ *                   to scale the floor for very small shapes
+ */
+void
+primitive_clamp_tess_tol(fastf_t *dtol, fastf_t *ntol, fastf_t bbox_diag)
+{
+    fastf_t min_dtol;
+
+    /* Scale the absolute-tolerance floor for very small shapes so that a
+     * bounding box whose diagonal is < 1 mm can still be tessellated with
+     * useful geometric detail. */
+    if (bbox_diag > SMALL_FASTF && bbox_diag < 1.0)
+	min_dtol = bbox_diag * 0.01;
+    else
+	min_dtol = PRIM_MIN_ABS_TOL;
+
+    if (*dtol < min_dtol) {
+	bu_log("Warning: tessellation abs tolerance clamped from %g mm to %g mm "
+	       "to prevent excessively dense mesh\n", *dtol, min_dtol);
+	*dtol = min_dtol;
+    }
+
+    /* Clamp the normal-deviation tolerance only when one was actually
+     * requested (ntol == M_PI means "ignore normal tolerance"). */
+    if (*ntol > 0.0 && *ntol < M_PI_2 && *ntol < PRIM_MIN_NORM_TOL) {
+	bu_log("Warning: tessellation norm tolerance clamped from %g rad to "
+	       "%g rad to prevent excessively dense mesh\n",
+	       *ntol, PRIM_MIN_NORM_TOL);
+	*ntol = PRIM_MIN_NORM_TOL;
+    }
+}
 
 
 /**

@@ -1475,6 +1475,12 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * 10 % of the outer torus diameter when neither is specified.
      * This matches the behaviour of all other curved primitives. */
     rel = primitive_get_absolute_tolerance(ttol, 2.0 * (tip->r_a + r_h_eff));
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t ntol_dummy = M_PI;  /* clamp only dtol here */
+	fastf_t bbox_diag = 2.0 * (tip->r_a + r_h_eff);
+	primitive_clamp_tess_tol(&rel, &ntol_dummy, bbox_diag);
+    }
     nlen = rt_num_circular_segments(rel, tip->r_a);
     nw   = rt_num_circular_segments(rel, r_h_eff);
 
@@ -1483,7 +1489,8 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * at the edges; note 1-degree tolerance requires ~180 segs/circle. */
     if (ttol->norm > 0.0) {
 	register int nseg;
-	nseg = (M_PI / ttol->norm) + 0.99;
+	fastf_t ntol_eff = (ttol->norm < PRIM_MIN_NORM_TOL) ? PRIM_MIN_NORM_TOL : ttol->norm;
+	nseg = (int)(M_PI / ntol_eff) + 1;
 	if (nseg > nlen) nlen = nseg;
 	if (nseg > nw)   nw   = nseg;
     }
