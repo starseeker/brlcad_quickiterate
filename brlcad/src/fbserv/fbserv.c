@@ -256,7 +256,6 @@ get_args(int argc, char **argv)
     if (argc > bu_optind)
 	return 0;	/* print usage */
 
-    (void)enable_tls; /* suppress unused-variable warning when no OpenSSL */
     use_tls = enable_tls;
     return 1;		/* OK */
 }
