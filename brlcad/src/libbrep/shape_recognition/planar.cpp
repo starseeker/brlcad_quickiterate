@@ -995,14 +995,18 @@ degenerate:
 
 	// Fall back: use the positive shoal as nucleus so we at least get a valid bool_op.
 	// This is a best-effort approximation for unhandled type combinations.
+	struct subbrep_shoal_data *fallback_nucleus = NULL;
 	for (size_t i = 0; i < BU_PTBL_LEN(data->island_children); i++) {
 	    struct subbrep_shoal_data *si = (struct subbrep_shoal_data *)BU_PTBL_GET(data->island_children, i);
 	    if (si->params->negative != -1) {
-		subbrep_shoal_free(data->nucleus);
-		data->nucleus = si;
-		bu_ptbl_rm(data->island_children, (long *)si);
+		fallback_nucleus = si;
 		break;
 	    }
+	}
+	if (fallback_nucleus) {
+	    subbrep_shoal_free(data->nucleus);
+	    data->nucleus = fallback_nucleus;
+	    bu_ptbl_rm(data->island_children, (long *)fallback_nucleus);
 	}
     }
 

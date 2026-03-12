@@ -92,6 +92,8 @@ sph_implicit_plane(const ON_Brep *brep, int ec, int *edges, ON_SimpleArray<ON_Pl
     // the same circle.
 
     // If no edges provided, we can't find an implicit plane.
+    // (The previous check `(*sph_planes).Count() != 3` was incorrect because
+    // shoal_planes starts empty when this function is first called.)
     if (ec == 0) return -1;
 
 
