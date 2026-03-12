@@ -71,6 +71,7 @@ struct fbserv_client {
     void *fbsc_handler;                 /**< @brief platform/toolkit specific handler */
     struct pkg_conn *fbsc_pkg;
     struct fbserv_obj *fbsc_fbsp;       /**< @brief points to its fbserv object */
+    int fbsc_auth_ok;                   /**< @brief !0 = client has sent a valid MSG_FBAUTH */
 };
 
 
@@ -91,6 +92,10 @@ struct fbserv_obj {
     void *fbs_clientData;
     struct bu_vls *msgs;
     int fbs_mode;                                  /**< @brief 0-off, 1-underlay, 2-interlay, 3-overlay */
+
+    char fbs_auth_token[65];  /**< @brief session token (64 hex chars + NUL); empty = no auth required */
+    int fbs_require_auth;     /**< @brief !0 = reject clients that don't send MSG_FBAUTH */
+    void *fbs_tls_ctx;        /**< @brief opaque SSL_CTX* for TLS; NULL = no TLS */
 };
 
 DM_EXPORT extern int fbs_open(struct fbserv_obj *fbsp, int port);
@@ -99,6 +104,24 @@ DM_EXPORT extern struct pkg_switch *fbs_pkg_switch(void);
 DM_EXPORT extern void fbs_setup_socket(int fd);
 DM_EXPORT extern int fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data);
 DM_EXPORT extern void fbs_existing_client_handler(void *clientData, int mask);
+
+/**
+ * Initialise @p fbsp->fbs_auth_token for session authentication.
+ *
+ * If the FBSERV_TOKEN environment variable is already set to a valid
+ * 64-hex-char token, that value is used directly so that the hosting
+ * application can pre-supply a known token and pass the same value to
+ * child processes (e.g. set FBSERV_TOKEN before execing rt/pix-fb).
+ * Token authentication works regardless of whether TLS is enabled.
+ *
+ * If FBSERV_TOKEN is not set or is the wrong length, a fresh random
+ * 256-bit token is generated.  Falls back to /dev/urandom or a
+ * time+PID PRNG when OpenSSL is not available.
+ *
+ * Call this before fbs_open() so the token is ready for the first
+ * connecting client.  Returns a pointer to fbsp->fbs_auth_token.
+ */
+DM_EXPORT extern const char *fbs_generate_token(struct fbserv_obj *fbsp);
 
 
 __END_DECLS

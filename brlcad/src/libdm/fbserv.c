@@ -35,9 +35,37 @@
 #include "bio.h"
 #include "bnetwork.h"
 
+#include "bu/str.h"
 #include "raytrace.h"
 #include "dm.h"
 #include "./include/private.h"
+
+/* Enable token generation AND verification for the embedded fbserv.
+ * Hosting apps call fbs_generate_token() to create a session token;
+ * the MSG_FBAUTH handler verifies incoming client tokens. */
+#define FBSERV_AUTH_IMPL
+#define FBSERV_AUTH_SERVER
+#include "../fbserv/auth.h"
+
+/* Enable TLS server-side functions */
+#define FBSERV_TLS_IMPL
+#include "../fbserv/tls_wrap.h"
+
+/**
+ * Helper: extract the current framebuffer pointer from a pkg_conn
+ * whose pkc_server_data points to the owning fbserv_client.
+ */
+static struct fb *
+_fbs_conn_fb(struct pkg_conn *pcp)
+{
+    struct fbserv_client *fbscp;
+    if (!pcp || !pcp->pkc_server_data)
+	return NULL;
+    fbscp = (struct fbserv_client *)pcp->pkc_server_data;
+    if (!fbscp->fbsc_fbsp)
+	return NULL;
+    return fbscp->fbsc_fbsp->fbs_fbp;
+}
 
 static void
 drop_client(struct fbserv_obj *fbsp, int sub)
@@ -69,12 +97,83 @@ fbs_rfbunknown(struct pkg_conn *pcp, char *buf)
 
 /******** Here's where the hooks lead *********/
 
+/**
+ * MSG_FBAUTH — session token authentication.
+ *
+ * The client sends a FBSERV_AUTH_TOKEN_LEN-byte hex token string.
+ * If it matches the server's session token the connection is marked
+ * authenticated and all subsequent requests are allowed.  If the token
+ * is wrong the connection is closed immediately.
+ *
+ * Old clients that do not send MSG_FBAUTH are still accepted unless
+ * the server is running in strict mode (fbs_require_auth != 0).
+ */
+static void
+fbs_rfbauth(struct pkg_conn *pcp, char *buf)
+{
+    struct fbserv_client *fbscp;
+    struct fbserv_obj *fbsp;
+    char provided[FBSERV_AUTH_TOKEN_LEN + 1] = {0};
+
+    if (!pcp || !pcp->pkc_server_data) {
+	if (buf) (void)free(buf);
+	return;
+    }
+
+    fbscp = (struct fbserv_client *)pcp->pkc_server_data;
+    fbsp = fbscp->fbsc_fbsp;
+
+    if (!fbsp || fbsp->fbs_auth_token[0] == '\0') {
+	/* No token configured — mark auth as satisfied */
+	fbscp->fbsc_auth_ok = 1;
+	if (buf) (void)free(buf);
+	return;
+    }
+
+    if (buf && pcp->pkc_len >= FBSERV_AUTH_TOKEN_LEN) {
+	bu_strlcpy(provided, buf, sizeof(provided));
+    }
+
+    if (fbserv_verify_token(provided, fbsp->fbs_auth_token)) {
+	fbscp->fbsc_auth_ok = 1;
+    } else {
+	bu_log("fbserv: MSG_FBAUTH token mismatch from client — dropping\n");
+	pkg_close(pcp);
+	/* pkg_conn is now closed; caller will see an error and drop slot */
+    }
+
+    if (buf) (void)free(buf);
+}
+
+
 static void
 fbs_rfbopen(struct pkg_conn *pcp, char *buf)
 {
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fbserv_client *fbscp;
+    struct fbserv_obj *fbsp;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
     char rbuf[5*NET_LONG_LEN+1] = {0};
     int want;
+
+    /* Auth check: if the server requires authentication and this
+     * connection has not sent a valid MSG_FBAUTH, reject with an
+     * error return code and close the connection. */
+    if (pcp && pcp->pkc_server_data) {
+	fbscp = (struct fbserv_client *)pcp->pkc_server_data;
+	fbsp  = fbscp->fbsc_fbsp;
+	if (fbsp && fbsp->fbs_require_auth && !fbscp->fbsc_auth_ok) {
+	    bu_log("fbserv: unauthenticated MSG_FBOPEN rejected (strict mode)\n");
+	    (void)pkg_plong(&rbuf[0*NET_LONG_LEN], -1);	/* failure */
+	    (void)pkg_plong(&rbuf[1*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[2*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[3*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[4*NET_LONG_LEN], 0);
+	    pkg_send(MSG_RETURN, rbuf, 5*NET_LONG_LEN, pcp);
+	    pkg_close(pcp);
+	    if (buf) (void)free(buf);
+	    return;
+	}
+    }
 
     /* Don't really open a new framebuffer --- use existing one */
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], 0);	/* ret */
@@ -96,7 +195,7 @@ fbs_rfbopen(struct pkg_conn *pcp, char *buf)
 void
 fbs_rfbclose(struct pkg_conn *pcp, char *buf)
 {
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
     char rbuf[NET_LONG_LEN+1] = {0};
 
     /*
@@ -136,7 +235,7 @@ fbs_rfbfree(struct pkg_conn *pcp, char *buf)
 void
 fbs_rfbclear(struct pkg_conn *pcp, char *buf)
 {
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
     RGBpixel bg;
     char rbuf[NET_LONG_LEN+1] = {0};
 
@@ -164,7 +263,7 @@ fbs_rfbread(struct pkg_conn *pcp, char *buf)
     int ret;
     static unsigned char *scanbuf = NULL;
     static size_t buflen = 0;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbread: null buffer\n");
@@ -204,7 +303,7 @@ fbs_rfbwrite(struct pkg_conn *pcp, char *buf)
     char rbuf[NET_LONG_LEN+1] = {0};
     int ret;
     int type;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbwrite: null buffer\n");
@@ -234,7 +333,7 @@ fbs_rfbreadrect(struct pkg_conn *pcp, char *buf)
     int ret;
     static unsigned char *scanbuf = NULL;
     static size_t buflen = 0;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbreadrect: null buffer\n");
@@ -277,7 +376,7 @@ fbs_rfbwriterect(struct pkg_conn *pcp, char *buf)
     char rbuf[NET_LONG_LEN+1] = {0};
     int ret;
     int type;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbwriterect: null buffer\n");
@@ -310,7 +409,7 @@ fbs_rfbbwreadrect(struct pkg_conn *pcp, char *buf)
     int ret;
     static unsigned char *scanbuf = NULL;
     static int buflen = 0;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbbwreadrect: null buffer\n");
@@ -353,7 +452,7 @@ fbs_rfbbwwriterect(struct pkg_conn *pcp, char *buf)
     char rbuf[NET_LONG_LEN+1] = {0};
     int ret;
     int type;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbbwwriterect: null buffer\n");
@@ -382,7 +481,7 @@ fbs_rfbcursor(struct pkg_conn *pcp, char *buf)
 {
     int mode, x, y;
     char rbuf[NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbcursor: null buffer\n");
@@ -405,7 +504,7 @@ fbs_rfbgetcursor(struct pkg_conn *pcp, char *buf)
     int ret;
     int mode, x, y;
     char rbuf[4*NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     ret = fb_getcursor(curr_fbp, &mode, &x, &y);
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], ret);
@@ -427,7 +526,7 @@ fbs_rfbsetcursor(struct pkg_conn *pcp, char *buf)
     int ret;
     int xbits, ybits;
     int xorig, yorig;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfsetcursor: null buffer\n");
@@ -456,7 +555,7 @@ fbs_rfbscursor(struct pkg_conn *pcp, char *buf)
 {
     int mode, x, y;
     char rbuf[NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbscursor: null buffer\n");
@@ -479,7 +578,7 @@ fbs_rfbwindow(struct pkg_conn *pcp, char *buf)
 {
     int x, y;
     char rbuf[NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbwindow: null buffer\n");
@@ -502,7 +601,7 @@ fbs_rfbzoom(struct pkg_conn *pcp, char *buf)
 {
     int x, y;
     char rbuf[NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbzoom: null buffer\n");
@@ -524,7 +623,7 @@ fbs_rfbview(struct pkg_conn *pcp, char *buf)
     int ret;
     int xcenter, ycenter, xzoom, yzoom;
     char rbuf[NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbv: null buffer\n");
@@ -549,7 +648,7 @@ fbs_rfbgetview(struct pkg_conn *pcp, char *buf)
     int ret;
     int xcenter, ycenter, xzoom, yzoom;
     char rbuf[5*NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     ret = fb_getview(curr_fbp, &xcenter, &ycenter, &xzoom, &yzoom);
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], ret);
@@ -572,7 +671,7 @@ fbs_rfbrmap(struct pkg_conn *pcp, char *buf)
     char rbuf[NET_LONG_LEN+1] = {0};
     ColorMap map;
     unsigned char cm[256*2*3];
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     (void)pkg_plong(&rbuf[0*NET_LONG_LEN], fb_rmap(curr_fbp, &map));
     for (i = 0; i < 256; i++) {
@@ -602,7 +701,7 @@ fbs_rfbwmap(struct pkg_conn *pcp, char *buf)
     char rbuf[NET_LONG_LEN+1] = {0};
     long ret;
     ColorMap map;
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbwmap: null buffer\n");
@@ -630,7 +729,7 @@ fbs_rfbflush(struct pkg_conn *pcp, char *buf)
 {
     int ret;
     char rbuf[NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     ret = fb_flush(curr_fbp);
 
@@ -651,7 +750,7 @@ fbs_rfbpoll(struct pkg_conn *pcp, char *buf)
     if (pcp == PKC_ERROR) {
 	return;
     }
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     (void)fb_poll(curr_fbp);
     if (buf) {
@@ -669,7 +768,7 @@ fbs_rfbhelp(struct pkg_conn *pcp, char *buf)
 {
     long ret;
     char rbuf[NET_LONG_LEN+1] = {0};
-    struct fb *curr_fbp = (struct fb *)pcp->pkc_server_data;
+    struct fb *curr_fbp = _fbs_conn_fb(pcp);
 
     if (!buf) {
 	bu_log("fbs_rfbhelp: null buffer\n");
@@ -682,6 +781,36 @@ fbs_rfbhelp(struct pkg_conn *pcp, char *buf)
     (void)pkg_plong(&rbuf[0], ret);
     pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
     (void)free(buf);
+}
+
+
+/**
+ * Initialise fbsp->fbs_auth_token for session authentication.
+ *
+ * If the FBSERV_TOKEN environment variable is already set to a valid
+ * 64-hex-char token, that value is used directly.  This lets the
+ * hosting application (MGED, qged, etc.) pre-supply a known token and
+ * pass the same value to child processes (e.g. via setenv() before
+ * fork/exec of rt).  Token authentication works regardless of whether
+ * TLS is enabled — it provides session isolation even on plain TCP.
+ *
+ * If FBSERV_TOKEN is not set or is the wrong length, a fresh random
+ * token is generated.
+ *
+ * Should be called before fbs_open() so the token is ready for the
+ * first connecting client.  Returns a pointer to fbsp->fbs_auth_token.
+ */
+const char *
+fbs_generate_token(struct fbserv_obj *fbsp)
+{
+    const char *env_token = getenv("FBSERV_TOKEN");
+    if (env_token && strlen(env_token) == FBSERV_AUTH_TOKEN_LEN) {
+	bu_strlcpy(fbsp->fbs_auth_token, env_token,
+		   sizeof(fbsp->fbs_auth_token));
+    } else {
+	fbserv_generate_token(fbsp->fbs_auth_token);
+    }
+    return fbsp->fbs_auth_token;
 }
 
 
@@ -754,6 +883,7 @@ struct pkg_switch *
 fbs_pkg_switch(void)
 {
     static struct pkg_switch pswitch[] = {
+	{ MSG_FBAUTH,                        fbs_rfbauth,          "Session Authentication", NULL },
 	{ MSG_FBOPEN, fbs_rfbopen, "Open Framebuffer", NULL },
 	{ MSG_FBCLOSE, fbs_rfbclose, "Close Framebuffer", NULL },
 	{ MSG_FBCLEAR, fbs_rfbclear, "Clear Framebuffer", NULL },
@@ -836,13 +966,12 @@ fbs_existing_client_handler(void *clientData, int UNUSED(mask))
     struct fbserv_client *fbscp = (struct fbserv_client *)clientData;
     struct fbserv_obj *fbsp = fbscp->fbsc_fbsp;
     int fd = fbscp->fbsc_fd;
-    struct fb *curr_fbp = fbsp->fbs_fbp;
 
     for (i = MAX_CLIENTS - 1; i >= 0; i--) {
 	if (fbsp->fbs_clients[i].fbsc_fd == 0)
 	    continue;
 
-	fbsp->fbs_clients[i].fbsc_pkg->pkc_server_data = (void *)curr_fbp;
+	fbsp->fbs_clients[i].fbsc_pkg->pkc_server_data = (void *)&fbsp->fbs_clients[i];
 
 	if ((pkg_process(fbsp->fbs_clients[i].fbsc_pkg)) < 0)
 	    bu_log("pkg_process error encountered (1)\n");
@@ -885,7 +1014,26 @@ fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
 	fbsp->fbs_clients[i].fbsc_fd = pcp->pkc_fd;
 	fbsp->fbs_clients[i].fbsc_pkg = pcp;
 	fbsp->fbs_clients[i].fbsc_fbsp = fbsp;
+	fbsp->fbs_clients[i].fbsc_auth_ok = 0;
 	fbs_setup_socket(pcp->pkc_fd);
+
+	/* Point pkc_server_data at the fbserv_client so handlers can
+	 * reach back to the fbserv_obj (needed for auth checks). */
+	pcp->pkc_server_data = (void *)&fbsp->fbs_clients[i];
+
+#ifdef HAVE_OPENSSL_SSL_H
+	/* Optional TLS: if the server has a TLS context, perform the
+	 * server-side handshake before the first PKG message is read. */
+	if (fbsp->fbs_tls_ctx) {
+	    if (fbserv_tls_accept((SSL_CTX *)fbsp->fbs_tls_ctx, pcp) != FBSERV_TLS_OK) {
+		bu_log("fbs_new_client: TLS handshake failed — dropping client\n");
+		pkg_close(pcp);
+		fbsp->fbs_clients[i].fbsc_pkg = PKC_NULL;
+		fbsp->fbs_clients[i].fbsc_fd = 0;
+		return -1;
+	    }
+	}
+#endif
 
 	(*fbsp->fbs_open_client_handler)(fbsp, i, data);
 

@@ -47,6 +47,12 @@ set(DM_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${PNG_INCLUDE_DIRS} ${BRLC
 # Note - libdm_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
 brlcad_addlib(libdm "${LIBDM_SRCS}" "${libdm_deps};${PNG_LIBRARIES}" "${DM_INCLUDE_DIRS}" "${DM_LOCAL_INCLUDE_DIRS}")
 set_target_properties(libdm PROPERTIES VERSION 20.0.1 SOVERSION 20)
+# Optional: TLS support for if_remote.c (remote framebuffer client)
+find_package(OpenSSL QUIET)
+if(OpenSSL_FOUND OR OPENSSL_FOUND)
+  target_link_libraries(libdm PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+  target_compile_definitions(libdm PRIVATE HAVE_OPENSSL_SSL_H=1)
+endif()
 if(TARGET profont_ProFont_ttf_cp)
   add_dependencies(libdm profont_ProFont_ttf_cp)
 endif(TARGET profont_ProFont_ttf_cp)
