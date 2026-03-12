@@ -3732,8 +3732,12 @@ is_point_on_brep_surface(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArr
 	 * INTERSECTION_TOL from the surface's 3D bounding box, the
 	 * point cannot lie on this surface at all — skip the expensive
 	 * NURBS point-surface intersection. */
-	if (surf_tree[face.m_si]->m_node.MinimumDistanceTo(pt) > INTERSECTION_TOL) {
-	    continue;
+	{
+	    ON_3dPoint fb_min, fb_max;
+	    surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
+	    if (ON_BoundingBox(fb_min, fb_max).MinimumDistanceTo(pt) > INTERSECTION_TOL) {
+		continue;
+	    }
 	}
 	const ON_Surface *surf = face.SurfaceOf();
 	ON_ClassArray<ON_PX_EVENT> px_event;
@@ -3792,9 +3796,34 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
     ON_LineCurve line(pt, pt + diag);	// pt + diag should be outside, if pt
     // is inside the bbox
 
+    /* Pre-extract line endpoints for the slab prefilter below. */
+    const ON_3dPoint &ray_start = line.m_line.from;
+    const ON_3dPoint  ray_end   = line.m_line.to;
+
     ON_3dPointArray isect_pt;
     for (int i = 0; i < brep->m_F.Count(); i++) {
 	const ON_BrepFace &face = brep->m_F[i];
+	/* Directional slab prefilter: the ray goes from ray_start to
+	 * ray_end with all-positive direction components (diag =
+	 * bbox.Diagonal()*1.5).  A surface whose 3D bbox is entirely
+	 * "behind" the ray start in any axis can never be intersected
+	 * by the forward ray — skip it.  Similarly, a surface that is
+	 * entirely beyond the ray endpoint in any axis is out of
+	 * reach. */
+	{
+	    ON_3dPoint fb_min, fb_max;
+	    surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
+	    if (fb_max.x < ray_start.x - INTERSECTION_TOL ||
+		fb_max.y < ray_start.y - INTERSECTION_TOL ||
+		fb_max.z < ray_start.z - INTERSECTION_TOL) {
+		continue;
+	    }
+	    if (fb_min.x > ray_end.x + INTERSECTION_TOL ||
+		fb_min.y > ray_end.y + INTERSECTION_TOL ||
+		fb_min.z > ray_end.z + INTERSECTION_TOL) {
+		continue;
+	    }
+	}
 	const ON_Surface *surf = face.SurfaceOf();
 	ON_SimpleArray<ON_X_EVENT> x_event;
 	if (!ON_Intersect(&line, surf, x_event, INTERSECTION_TOL, 0.0, 0, 0, 0, 0, 0, surf_tree[face.m_si])) {
@@ -4553,6 +4582,11 @@ categorize_trimmed_faces(
 		    bool found = false;
 		    for (int fi = 0; fi < another_brep->m_F.Count(); ++fi) {
 			const ON_BrepFace &face = another_brep->m_F[fi];
+			/* Fast bbox prefilter: skip surfaces far from the
+			 * test point — they cannot contain a matching point. */
+			if (surf_tree[face.m_si]->m_node.MinimumDistanceTo(face_pt3d) > INTERSECTION_TOL) {
+			    continue;
+			}
 			brep_surf = face.SurfaceOf();
 			ON_ClassArray<ON_PX_EVENT> px_event;
 
