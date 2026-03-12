@@ -1248,6 +1248,12 @@ ON_Intersect(const ON_Curve *curveA,
     }
 
     // use sub-division and bounding box intersections first
+    /* Safety limit: two nearly-identical or heavily-overlapping curves (e.g.
+     * two copies of the same 761-segment seam polyline) can produce 4^depth
+     * candidate pairs that make the Newton phase take many seconds.  When the
+     * count explodes we know the curves are co-incident / overlapping over a
+     * large region and no discrete intersection points will be found anyway. */
+    static const size_t MAX_CCI_CANDIDATES = 8000;
     for (int h = 0; h <= MAX_CCI_DEPTH; h++) {
 	if (candidates.empty()) {
 	    break;
@@ -1275,6 +1281,13 @@ ON_Intersect(const ON_Curve *curveA,
 		    }
 	}
 	candidates = next_candidates;
+	if (candidates.size() > MAX_CCI_CANDIDATES) {
+	    /* Candidate explosion — the curves overlap over a large region.
+	     * No discrete intersection points exist; return 0 events. */
+	    if (treeA == NULL) { delete rootA; }
+	    if (treeB == NULL) { delete rootB; }
+	    return x.Count() - original_count;
+	}
     }
 
     ON_SimpleArray<ON_X_EVENT> tmp_x;
@@ -1788,7 +1801,14 @@ ON_Intersect(const ON_Curve *curveA,
 	}
 	candidates = next_candidates;
 	if (candidates.size() > MAX_CSI_CANDIDATES) {
-	    break;
+	    /* Candidate count exploded — this curve and surface are very
+	     * nearly coincident/tangent over a large region, or the geometry
+	     * is degenerate.  Running newton_csi on thousands of candidate
+	     * pairs is extremely expensive and unlikely to yield useful
+	     * point-intersection results.  Skip the Newton phase entirely. */
+	    if (treeA == NULL) { delete rootA; }
+	    if (treeB == NULL) { delete rootB; }
+	    return x.Count() - original_count;
 	}
     }
 
@@ -2007,10 +2027,10 @@ ON_Intersect(const ON_Curve *curveA,
 
 	double u1 = i->second->m_u.Mid(), v1 = i->second->m_v.Mid();
 	double t1 = i->first->m_t.Min();
-	newton_csi(t1, u1, v1, curveA, surfaceB, isect_tol, treeB);
+	newton_csi(t1, u1, v1, curveA, surfaceB, isect_tol, rootB);
 	double u2 = i->second->m_u.Mid(), v2 = i->second->m_v.Mid();
 	double t2 = i->first->m_t.Max();
-	newton_csi(t2, u2, v2, curveA, surfaceB, isect_tol, treeB);
+	newton_csi(t2, u2, v2, curveA, surfaceB, isect_tol, rootB);
 
 	if (std::isnan(u1) || std::isnan(v1) || std::isnan(t1)) {
 	    u1 = u2;
@@ -3599,8 +3619,10 @@ find_overlap_boundary_curves(
 
 	    ON_SimpleArray<ON_X_EVENT> events;
 	    ON_CurveArray overlap2d;
+	    bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu knot=%.6f\n", i, j, surf1_knot.c);
 	    ON_Intersect(surf1_isocurve, surf2, events, isect_tol,
 			 overlap_tol, 0, 0, 0, &overlap2d);
+	    bu_log("find_overlap_boundary_curves: CSX i=%d j=%zu done events=%d\n", i, j, events.Count());
 
 	    //dplot->IsoCSX(events, surf1_isocurve, is_surfA_iso);
 	    //dplot->WriteLog();
@@ -4243,9 +4265,6 @@ ON_Intersect(const ON_Surface *surfA,
 		curve_uvB.Append(tmp_curve_uvB[i]);
 	    }
 	}
-    }
-    if (DEBUG_BREP_INTERSECT) {
-	bu_log("%d points on the intersection curves.\n", curvept.Count());
     }
 
     if (!curvept.Count()) {

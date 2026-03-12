@@ -2534,6 +2534,79 @@ loop_boolean(
 	return out;
     }
 
+    /* Coextension short-circuit:
+     *
+     * When two loops are nearly identical (e.g. two representations of the
+     * same intersection circle from either side of a closed surface seam),
+     * the CCI can produce hundreds of overlap events.  Processing all those
+     * events with make_segments() and then get_op_segments() — which uses an
+     * O(N²) reversed-segment cancellation loop with CCI calls — can take
+     * many seconds even though the result is trivially determined:
+     *   DIFF of A with coextensive B   → empty
+     *   INTERSECT of A with coextensive B → A
+     *   UNION of A with coextensive B    → A
+     *
+     * Detection: collect the CCI result for every loop1×loop2 pair once.
+     * If any single pair produces more than MAX_COEXT_EVENTS events and the
+     * overlap covers ≥ 90 % of loop1's parameter domain, they are coextensive.
+     */
+    static const int MAX_COEXT_EVENTS = 100;
+
+    // Collect CCI events for all pairs (needed both for coextension check and
+    // for the normal segment-building path below).
+    typedef std::vector<ON_SimpleArray<ON_X_EVENT> > EventTable;
+    EventTable all_x_events(loop1.Count() * loop2.Count());
+    for (int i = 0; i < loop1.Count(); ++i) {
+	for (int j = 0; j < loop2.Count(); ++j) {
+	    ON_Intersect(loop1[i], loop2[j], all_x_events[i * loop2.Count() + j],
+			INTERSECTION_TOL);
+	}
+    }
+
+    // Coextension check: any pair with many overlap events covering the loop?
+    bool coextensive = false;
+    for (int i = 0; i < loop1.Count() && !coextensive; ++i) {
+	const ON_SimpleArray<ON_X_EVENT> &evs =
+	    all_x_events[i * loop2.Count()]; /* j=0 representative pair */
+	if (evs.Count() <= MAX_COEXT_EVENTS) continue;
+
+	double domain_len = loop1[i]->Domain().Length();
+	if (domain_len <= 0.0) continue;
+	double overlap_len = 0.0;
+	for (int k = 0; k < evs.Count(); ++k) {
+	    if (evs[k].m_type == ON_X_EVENT::ccx_overlap) {
+		overlap_len += fabs(evs[k].m_a[1] - evs[k].m_a[0]);
+	    }
+	}
+	if (overlap_len / domain_len >= 0.90) {
+	    coextensive = true;
+	    bu_log("loop_boolean: coextension detected (overlap=%.1f%%)\n",
+		   100.0 * overlap_len / domain_len);
+	}
+    }
+
+    if (coextensive) {
+	/* The two loops are coextensive.  Handle each operation analytically. */
+	if (op == BOOLEAN_DIFF) {
+	    /* A \ A = ∅ — return empty result. */
+	    for (int i = 0; i < l1.Count(); ++i) { delete loop1[i]; }
+	    for (int i = 0; i < l2.Count(); ++i) { delete loop2[i]; }
+	    return out;  /* out is already empty */
+	}
+	/* INTERSECT and UNION: return loop1 as the result. */
+	ON_SimpleArray<ON_Curve *> result_loop;
+	for (int i = 0; i < loop1.Count(); ++i) {
+	    result_loop.Append(loop1[i]);
+	    loop1[i] = NULL; /* transferred ownership */
+	}
+	/* Re-orient for CCW outerloop. */
+	set_loop_direction(result_loop, LOOP_DIRECTION_CCW);
+	out.outerloops.push_back(result_loop);
+	for (int i = 0; i < l1.Count(); ++i) { if (loop1[i]) delete loop1[i]; }
+	for (int i = 0; i < l2.Count(); ++i) { delete loop2[i]; }
+	return out;
+    }
+
     // get curve endpoints and intersection points for each loop
     std::multiset<CurvePoint> loop1_points, loop2_points;
 
@@ -2542,8 +2615,8 @@ loop_boolean(
 
     for (int i = 0; i < loop1.Count(); ++i) {
 	for (int j = 0; j < loop2.Count(); ++j) {
-	    ON_SimpleArray<ON_X_EVENT> x_events;
-	    ON_Intersect(loop1[i], loop2[j], x_events, INTERSECTION_TOL);
+	    const ON_SimpleArray<ON_X_EVENT> &x_events =
+		all_x_events[i * loop2.Count() + j];
 
 	    for (int k = 0; k < x_events.Count(); ++k) {
 		add_point_to_set(loop1_points, CurvePoint(1, i,
@@ -3234,7 +3307,6 @@ split_trimmed_face(
 		    // the portion outside the loop
 		    diff_loops = loop_boolean(out[k]->m_outerloop, ssx_loops[j],
 					      BOOLEAN_DIFF);
-
 		    append_faces_from_loops(next_out, out[k], diff_loops);
 		    diff_loops.ClearInnerloops();
 		}
@@ -4508,8 +4580,6 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	}
 
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
-	//dplot->LinkedCurves(first->m_face->SurfaceOf(), linked_curves);
-	//dplot->WriteLog();
 
 	ON_SimpleArray<TrimmedFace *> splitted = split_trimmed_face(first, linked_curves);
 	trimmed_faces.Append(splitted);
