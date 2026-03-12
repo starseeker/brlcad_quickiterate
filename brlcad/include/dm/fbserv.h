@@ -106,18 +106,20 @@ DM_EXPORT extern int fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pc
 DM_EXPORT extern void fbs_existing_client_handler(void *clientData, int mask);
 
 /**
- * Generate a fresh 256-bit (64-character hex) session token and store
- * it in @p fbsp->fbs_auth_token.
+ * Initialise @p fbsp->fbs_auth_token for session authentication.
  *
- * Call this before fbs_open() so that the token is ready when the
- * first client connects.  The hosting application should then export
- * the token to child processes (e.g. via the FBSERV_TOKEN environment
- * variable) before launching them.
+ * If the FBSERV_TOKEN environment variable is already set to a valid
+ * 64-hex-char token, that value is used directly so that the hosting
+ * application can pre-supply a known token and pass the same value to
+ * child processes (e.g. set FBSERV_TOKEN before execing rt/pix-fb).
+ * Token authentication works regardless of whether TLS is enabled.
  *
- * If the build was made without OpenSSL, falls back to /dev/urandom or
- * a time+PID seeded PRNG.
+ * If FBSERV_TOKEN is not set or is the wrong length, a fresh random
+ * 256-bit token is generated.  Falls back to /dev/urandom or a
+ * time+PID PRNG when OpenSSL is not available.
  *
- * Returns a pointer to fbsp->fbs_auth_token (for convenience).
+ * Call this before fbs_open() so the token is ready for the first
+ * connecting client.  Returns a pointer to fbsp->fbs_auth_token.
  */
 DM_EXPORT extern const char *fbs_generate_token(struct fbserv_obj *fbsp);
 
