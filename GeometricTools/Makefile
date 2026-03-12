@@ -29,6 +29,12 @@ GEOGRAM_BUILD_DIR = /tmp/geogram_build
 GEOGRAM_LIB_DIR = $(GEOGRAM_BUILD_DIR)/lib
 GEOGRAM_LIBS = -L$(GEOGRAM_LIB_DIR) -lgeogram -Wl,-rpath,$(GEOGRAM_LIB_DIR)
 
+# VTK Verdict paths (libvtk9-dev)
+VTK_VERSION ?= 9.1
+VTK_INC  = -I/usr/include/vtk-$(VTK_VERSION)
+VTK_LIBS = -lvtkCommonCore-$(VTK_VERSION) -lvtkCommonDataModel-$(VTK_VERSION) \
+           -lvtkFiltersVerdict-$(VTK_VERSION) -lvtkverdict-$(VTK_VERSION)
+
 # Primary test targets
 TARGETS = test_mesh_repair test_full_algorithms test_rvd \
           demo_rvd_cvt test_remesh_comparison test_newton_optimizer \
@@ -232,12 +238,30 @@ stress: stress_test
 	@echo "Running comprehensive stress tests..."
 	./stress_test
 
+# Remesh quality evaluation using VTK Verdict metrics.
+# Compares GTE MeshRemesh vs Geogram remesh_smooth using standardized FEA mesh quality
+# metrics: aspect ratio, scaled Jacobian, min/max angle, shape, condition number, edge ratio.
+# Requires libvtk9-dev (sudo apt install libvtk9-dev) and bext_output geogram.
+test_remesh_verdict: $(TEST_DIR)/test_remesh_verdict.cpp \
+                     GTE/Mathematics/MeshRepair.h \
+                     GTE/Mathematics/MeshRemesh.h
+	$(CXX) $(CXXFLAGS) $(_GEO_INC) $(BEXT_GTE_INC) $(VTK_INC) \
+	    -o test_remesh_verdict \
+	    $(TEST_DIR)/test_remesh_verdict.cpp \
+	    $(_GEO_LIBS) $(VTK_LIBS) $(LDFLAGS)
+
+# Run the Verdict quality evaluation on GenericTwin (gt.obj)
+test_verdict: test_remesh_verdict
+	@echo "=== Remesh Quality Evaluation: GTE vs Geogram (VTK Verdict) ==="
+	LD_LIBRARY_PATH="$(BEXT_GEO_LIB_DIR):$$LD_LIBRARY_PATH" \
+	    ./test_remesh_verdict $(TEST_DIR)/data/gt.obj
+
 # Clean up
 clean:
-	rm -f $(TARGETS) test_geogram_comparison
+	rm -f $(TARGETS) test_geogram_comparison test_remesh_verdict
 	rm -f $(TEST_DIR)/data/*_repaired.obj $(TEST_DIR)/data/*_output.obj
 
-.PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram
+.PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram test_verdict
 
 # Phase 4 integration test
 test_phase4_integration: $(TEST_DIR)/test_phase4_integration.cpp GTE/Mathematics/CVTN.h GTE/Mathematics/MeshRemesh.h GTE/Mathematics/SurfaceRVDN.h
