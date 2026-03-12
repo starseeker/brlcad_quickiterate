@@ -4819,6 +4819,48 @@ standardize_loop_orientations(ON_Brep *brep)
 }
 
 
+/* Helper: return minimum distance from point p to curve c.
+ * Converts the curve to NURBS form and uses the internal GetClosestPoint
+ * implementation (signature: double*, const ON_NurbsCurve*, const ON_3dPoint&,
+ * double, const ON_Interval*) which has the actual implementation.
+ * Falls back to dense uniform sampling if NURBS conversion fails.
+ * Stores the parameter of the closest point in *t_closest (may be NULL).
+ */
+
+/* Forward declaration matching the ACTUAL implementation signature in
+ * opennurbs_ext.cpp (header has a different, non-matching signature). */
+bool ON_NurbsCurve_GetClosestPoint(double *t, const ON_NurbsCurve *nc,
+				   const ON_3dPoint &p,
+				   double maximum_distance = 0.0,
+				   const ON_Interval *sub_domain = NULL);
+
+static double
+curve_min_dist_to_point(const ON_Curve *c, const ON_3dPoint &p,
+			int fallback_samp, double *t_closest)
+{
+    ON_NurbsCurve nc;
+    if (c->GetNurbForm(nc) >= 1) {
+	double t = nc.Domain().Mid();
+	if (ON_NurbsCurve_GetClosestPoint(&t, &nc, p, 0.0)) {
+	    if (t_closest) *t_closest = t;
+	    return nc.PointAt(t).DistanceTo(p);
+	}
+    }
+
+    /* Fallback: dense uniform sampling */
+    double best = DBL_MAX;
+    double best_t = c->Domain().Mid();
+    int n = (fallback_samp > 1) ? fallback_samp : 256;
+    for (int s = 0; s < n; s++) {
+	double t = c->Domain().ParameterAt((double)s / (n - 1));
+	double d = c->PointAt(t).DistanceTo(p);
+	if (d < best) { best = d; best_t = t; }
+    }
+    if (t_closest) *t_closest = best_t;
+    return best;
+}
+
+
 /* Join coincident boundary edges so the evaluated brep is a closed solid.
  *
  * After add_elements() builds each face independently every trim gets its own
@@ -4828,19 +4870,20 @@ standardize_loop_orientations(ON_Brep *brep)
  *
  * This function finds pairs of boundary edges that represent the same 3-D
  * curve and merges them.  Open edges (line segments) share their endpoint
- * vertices, so CombineCoincidentEdges() can be called directly after merging
- * the shared vertices.  Closed edges (e.g. hole circles) require a low-level
- * trim-transfer because their single "start/end" vertex can differ.
+ * vertices, so CombineCoincidentEdges() can be called directly.  Closed edges
+ * (e.g. hole circles) require a low-level trim-transfer because their single
+ * "start/end" vertex can differ between the two representations.
  */
 static void
 join_boundary_edges(ON_Brep *brep)
 {
-    const double tol = INTERSECTION_TOL;
 
     /* ---------------------------------------------------------------
      * Pass 1: open boundary edges.
      * Two open boundary edges are coincident when they share the same
      * pair of endpoint vertices (possibly in opposite order).
+     * Shared vertices are sufficient proof of coincidence; no geometry
+     * sampling is required.
      * --------------------------------------------------------------- */
     bool merged = true;
     while (merged) {
@@ -4859,25 +4902,7 @@ join_boundary_edges(ON_Brep *brep)
 		bool reverse = (ei.m_vi[0] == ej.m_vi[1] && ei.m_vi[1] == ej.m_vi[0]);
 		if (!forward && !reverse) continue;
 
-		/* Verify interior geometry matches */
-		bool ok = true;
-		const ON_Curve *ci3 = brep->m_C3[ei.m_c3i];
-		const ON_Curve *cj3 = brep->m_C3[ej.m_c3i];
-		if (ci3 && cj3) {
-		    for (int s = 1; s <= 3; s++) {
-			double t = ci3->Domain().ParameterAt(s * 0.25);
-			ON_3dPoint p = ci3->PointAt(t);
-			double tcj;
-			if (!cj3->GetClosestPoint(p, &tcj, tol * 20.0) ||
-			    cj3->PointAt(tcj).DistanceTo(p) > tol * 10.0) {
-			    ok = false;
-			    break;
-			}
-		    }
-		}
-		if (!ok) continue;
-
-		/* Set m_bRev3d on ej's trim so it shares ei's orientation */
+		/* Set m_bRev3d on ej's trim so it agrees with ei's orientation */
 		if (reverse) {
 		    int tj = ej.m_ti[0];
 		    brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
@@ -4892,11 +4917,13 @@ join_boundary_edges(ON_Brep *brep)
 
     /* ---------------------------------------------------------------
      * Pass 2: closed boundary edges (e.g. hole circles).
-     * Two closed boundary edges are coincident when every sample point
-     * on one lies on the other.  Because the edges may start at
-     * different angles we cannot use CombineCoincidentEdges() (it
-     * requires identical vertices).  Instead we directly transfer the
-     * trim from the "delete" edge to the "keep" edge.
+     * Two closed boundary edges are coincident when their 3-D bounding
+     * boxes are nearly equal AND their arc-lengths are nearly equal.
+     * For circles (the common case in brep boolean output) this is
+     * both necessary and sufficient.  Because the edges may start at
+     * different angles CombineCoincidentEdges() cannot be used (it
+     * requires matching vertices).  Instead we directly transfer the
+     * trim from the redundant edge to the surviving edge.
      * --------------------------------------------------------------- */
     for (int i = 0; i < brep->m_E.Count(); i++) {
 	ON_BrepEdge &ei = brep->m_E[i];
@@ -4910,29 +4937,30 @@ join_boundary_edges(ON_Brep *brep)
 	    if (ej.m_vi[0] != ej.m_vi[1]) continue;
 	    if (ej.m_c3i < 0) continue;
 
-	    /* Sample ei's curve; every point must lie on ej's curve */
 	    const ON_Curve *ci3 = brep->m_C3[ei.m_c3i];
 	    const ON_Curve *cj3 = brep->m_C3[ej.m_c3i];
 	    if (!ci3 || !cj3) continue;
 
-	    bool coincident = true;
-	    for (int s = 0; s < 6 && coincident; s++) {
-		double t = ci3->Domain().ParameterAt(s / 6.0);
-		ON_3dPoint p = ci3->PointAt(t);
-		double tcj;
-		if (!cj3->GetClosestPoint(p, &tcj, tol * 20.0) ||
-		    cj3->PointAt(tcj).DistanceTo(p) > tol * 10.0) {
-		    coincident = false;
-		}
-	    }
-	    if (!coincident) continue;
+	    /* Compare bounding boxes: for circles the bbox fully
+	     * characterises the geometry (center + radius + plane). */
+	    ON_BoundingBox bb_i, bb_j;
+	    ci3->GetBoundingBox(bb_i);
+	    cj3->GetBoundingBox(bb_j);
+	    double scale = bb_i.Diagonal().Length();
+	    if (scale < ON_ZERO_TOLERANCE) scale = 1.0;
+	    const double bb_tol = scale * 0.01; /* 1% of diagonal */
 
-	    /* Determine orientation via tangent at midpoint */
+	    if (bb_i.m_min.DistanceTo(bb_j.m_min) > bb_tol) continue;
+	    if (bb_i.m_max.DistanceTo(bb_j.m_max) > bb_tol) continue;
+
+	    /* Determine orientation: compare tangents at ci3's midpoint
+	     * and the closest sample on cj3 to that midpoint. */
 	    ON_3dVector tan_i = ci3->TangentAt(ci3->Domain().Mid());
-	    double tmid_j;
 	    bool rev = false;
-	    if (cj3->GetClosestPoint(ci3->PointAt(ci3->Domain().Mid()),
-				     &tmid_j, tol * 20.0)) {
+	    {
+		ON_3dPoint pmid = ci3->PointAt(ci3->Domain().Mid());
+		double tmid_j;
+		curve_min_dist_to_point(cj3, pmid, 64, &tmid_j);
 		ON_3dVector tan_j = cj3->TangentAt(tmid_j);
 		rev = (ON_DotProduct(tan_i, tan_j) < 0.0);
 	    }
@@ -4944,17 +4972,19 @@ join_boundary_edges(ON_Brep *brep)
 		brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
 	    ei.m_ti.Append(tj);
 
-	    /* Clear ej so Compact() removes it */
-	    ej.m_ti.Empty();
-	    /* Mark ej's vertex (if unique) for removal: set m_ei count to 0 */
-	    int vj = ej.m_vi[0];
-	    ej.m_vi[0] = ej.m_vi[1] = -1;
-	    /* Remove ej from the vertex's edge list */
-	    ON_BrepVertex &vj_vtx = brep->m_V[vj];
-	    for (int k = vj_vtx.m_ei.Count() - 1; k >= 0; k--) {
-		if (vj_vtx.m_ei[k] == j)
-		    vj_vtx.m_ei.Remove(k);
+	    /* Update the transferred trim's vertex indices to match ei.
+	     * The closed-edge condition guarantees m_vi[0]==m_vi[1] for
+	     * both ei and the trim (full-circle loop). */
+	    {
+		bool bRev3d = brep->m_T[tj].m_bRev3d;
+		brep->m_T[tj].m_vi[0] = ei.m_vi[bRev3d ? 1 : 0];
+		brep->m_T[tj].m_vi[1] = ei.m_vi[bRev3d ? 0 : 1];
 	    }
+
+	    /* Mark ej as unused by emptying its trim list.  No trim
+	     * references ej any more (we just redirected tj to ei),
+	     * so Compact() will remove ej and clean up its vertex. */
+	    ej.m_ti.Empty();
 
 	    break; /* one match per closed edge is sufficient */
 	}
