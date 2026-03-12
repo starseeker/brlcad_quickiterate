@@ -1179,50 +1179,27 @@ rt_tor_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     tip = (struct rt_tor_internal *)ip->idb_ptr;
     RT_TOR_CK_MAGIC(tip);
 
-    if (ttol->rel <= 0.0 || ttol->rel >= 1.0) {
-	rel = 0.0;		/* none */
-    } else {
-	/* Convert relative tolerance to absolute tolerance
-	 * by scaling w.r.t. the torus diameter.
-	 */
-	rel = ttol->rel * 2 * (tip->r_a+tip->r_h);
+    /* Use abs(r_h) so negative r_h (same surface, opposite orientation)
+     * yields the correct segment count. */
+    {
+	fastf_t r_h_abs = fabs(tip->r_h);
 
-	// TODO - should we be using this instead of the above?
-	// rel = primitive_get_absolute_tolerance(ttol, 2.0 * (tip->r_a + tip->r_h));
-    }
-    /* Take tighter of two (absolute) tolerances */
-    if (ttol->abs <= 0.0) {
-	/* No absolute tolerance given */
-	if (rel <= 0.0) {
-	    /* User has no tolerance for this kind of drink */
-	    nw = 8;
-	    nlen = 16;
-	} else {
-	    /* Use the absolute-ized relative tolerance */
-	    nlen = rt_num_circular_segments(rel, tip->r_a);
-	    nw = rt_num_circular_segments(rel, tip->r_h);
-	}
-    } else {
-	/* Absolute tolerance was given */
-	if (rel <= 0.0 || rel > ttol->abs)
-	    rel = ttol->abs;
+	/* Uniformly select the tighter of abs/rel tolerance, falling back to
+	 * 10 % of the outer torus diameter when neither is specified.
+	 * This matches the behaviour of all other curved primitives. */
+	rel = primitive_get_absolute_tolerance(ttol, 2.0 * (tip->r_a + r_h_abs));
 	nlen = rt_num_circular_segments(rel, tip->r_a);
-	nw = rt_num_circular_segments(rel, tip->r_h);
-    }
+	nw   = rt_num_circular_segments(rel, r_h_abs);
 
-    /* Implement surface-normal tolerance, if given:
-     *
-     * nseg = (2 * pi) / (2 * tol)
-     *
-     * For a facet which subtends angle theta, surface normal is exact
-     * in the center, and off by theta/2 at the edges.  Note: 1 degree
-     * tolerance requires 180*180 tessellation!
-     */
-    if (ttol->norm > 0.0) {
-	register int nseg;
-	nseg = (M_PI / ttol->norm) + 0.99;
-	if (nseg > nlen) nlen = nseg;
-	if (nseg > nw) nw = nseg;
+	/* Apply surface-normal tolerance if it demands more segments.
+	 * For a facet subtending angle theta the normal deviates by theta/2
+	 * at the edges; note 1-degree tolerance requires ~180 segs/circle. */
+	if (ttol->norm > 0.0) {
+	    register int nseg;
+	    nseg = (M_PI / ttol->norm) + 0.99;
+	    if (nseg > nlen) nlen = nseg;
+	    if (nseg > nw)   nw   = nseg;
+	}
     }
 
     /* Compute the points on the surface of the torus */
@@ -1469,6 +1446,8 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     fastf_t rel;
 
     RT_CK_DB_INTERNAL(ip);
+    BG_CK_TESS_TOL(ttol);
+    BN_CK_TOL(tol);
     tip = (struct rt_tor_internal *)ip->idb_ptr;
     RT_TOR_CK_MAGIC(tip);
 
@@ -1492,47 +1471,21 @@ rt_tor_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	return -1;
     }
 
-    if (ttol->rel <= 0.0 || ttol->rel >= 1.0) {
-	rel = 0.0;		/* none */
-    } else {
-	/* Convert relative tolerance to absolute tolerance by scaling
-	 * w.r.t. the torus diameter.
-	 */
-	rel = ttol->rel * 2 * (tip->r_a + r_h_eff);
-    }
-    /* Take tighter of two (absolute) tolerances */
-    if (ttol->abs <= 0.0) {
-	/* No absolute tolerance given */
-	if (rel <= 0.0) {
-	    /* User has no tolerance for this kind of drink */
-	    nw = 8;
-	    nlen = 16;
-	} else {
-	    /* Use the absolute-ized relative tolerance */
-	    nlen = rt_num_circular_segments(rel, tip->r_a);
-	    nw = rt_num_circular_segments(rel, r_h_eff);
-	}
-    } else {
-	/* Absolute tolerance was given */
-	if (rel <= 0.0 || rel > ttol->abs)
-	    rel = ttol->abs;
-	nlen = rt_num_circular_segments(rel, tip->r_a);
-	nw = rt_num_circular_segments(rel, r_h_eff);
-    }
+    /* Uniformly select the tighter of abs/rel tolerance, falling back to
+     * 10 % of the outer torus diameter when neither is specified.
+     * This matches the behaviour of all other curved primitives. */
+    rel = primitive_get_absolute_tolerance(ttol, 2.0 * (tip->r_a + r_h_eff));
+    nlen = rt_num_circular_segments(rel, tip->r_a);
+    nw   = rt_num_circular_segments(rel, r_h_eff);
 
-    /* Implement surface-normal tolerance, if given
-     *
-     * nseg = (2 * pi) / (2 * tol)
-     *
-     * For a facet which subtends angle theta, surface normal is exact
-     * in the center, and off by theta/2 at the edges.  Note: 1 degree
-     * tolerance requires 180*180 tessellation!
-     */
+    /* Apply surface-normal tolerance if it demands more segments.
+     * For a facet subtending angle theta the normal deviates by theta/2
+     * at the edges; note 1-degree tolerance requires ~180 segs/circle. */
     if (ttol->norm > 0.0) {
 	register int nseg;
 	nseg = (M_PI / ttol->norm) + 0.99;
 	if (nseg > nlen) nlen = nseg;
-	if (nseg > nw) nw = nseg;
+	if (nseg > nw)   nw   = nseg;
     }
 
     /* Spindle torus: r_h > r_a means the tube passes through the symmetry

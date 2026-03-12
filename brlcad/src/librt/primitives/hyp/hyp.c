@@ -765,6 +765,8 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     struct bu_list *vlfree = &rt_vlfree;
 
     RT_CK_DB_INTERNAL(ip);
+    BG_CK_TESS_TOL(ttol);
+    BN_CK_TOL(tol);
     iip = (struct rt_hyp_internal *)ip->idb_ptr;
     RT_HYP_CK_MAGIC(iip);
 

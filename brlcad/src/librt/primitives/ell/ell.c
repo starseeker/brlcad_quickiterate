@@ -953,6 +953,8 @@ rt_ell_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     fastf_t dtol;	/* Absolutized relative tolerance */
 
     RT_CK_DB_INTERNAL(ip);
+    BG_CK_TESS_TOL(ttol);
+    BN_CK_TOL(tol);
     state.eip = (struct rt_ell_internal *)ip->idb_ptr;
     RT_ELL_CK_MAGIC(state.eip);
 

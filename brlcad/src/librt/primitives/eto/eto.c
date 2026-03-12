@@ -1177,6 +1177,8 @@ rt_eto_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     int fail = 0;
 
     RT_CK_DB_INTERNAL(ip);
+    BG_CK_TESS_TOL(ttol);
+    BN_CK_TOL(tol);
     tip = (struct rt_eto_internal *)ip->idb_ptr;
     RT_ETO_CK_MAGIC(tip);
 
