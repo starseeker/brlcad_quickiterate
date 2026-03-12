@@ -55,6 +55,11 @@
 #include "./include/private.h"
 #include "dm.h"
 
+/* Enable TLS client-side functions */
+#define FBSERV_TLS_IMPL
+#define FBSERV_TLS_CLIENT
+#include "../fbserv/tls_wrap.h"
+
 
 #define NET_LONG_LEN 4	/* # bytes to network long */
 
@@ -204,6 +209,13 @@ rem_log(const char *msg)
  *
  * We send NET_LONG_LEN bytes of mode, NET_LONG_LEN bytes of size,
  * then the devname (or NULL if default).
+ *
+ * If the environment variable FBSERV_TOKEN is set, we first send a
+ * MSG_FBAUTH message with the token before the MSG_FBOPEN request.
+ * This allows the fbserv to verify we are an authorized client.
+ *
+ * If FBSERV_TLS=1 is set (and OpenSSL is available), we attempt a
+ * TLS handshake immediately after the TCP connection is established.
  */
 static int
 rem_open(register struct fb *ifp, const char *file, int width, int height)
@@ -215,6 +227,7 @@ rem_open(register struct fb *ifp, const char *file, int width, int height)
     char portname[MAX_HOSTNAME] = {0};
     char device[MAX_HOSTNAME] = {0};
     int port = 0;
+    const char *auth_token;
 
     FB_CK_FB(ifp->i);
 
@@ -243,6 +256,34 @@ rem_open(register struct fb *ifp, const char *file, int width, int height)
     }
     PCPL(ifp) = (char *)pc;		/* stash in u1 */
     ifp->i->if_fd = pc->pkc_fd;		/* unused */
+
+#ifdef HAVE_OPENSSL_SSL_H
+    /* Optional TLS: attempt client-side handshake if requested.
+     * The server must also be running with TLS enabled. */
+    if (getenv("FBSERV_TLS")) {
+	SSL_CTX *tls_ctx = fbserv_tls_client_ctx();
+	if (tls_ctx) {
+	    if (fbserv_tls_connect(tls_ctx, pc) == FBSERV_TLS_OK) {
+		fb_log("rem_open: TLS established with %s\n", hostname);
+	    } else {
+		fb_log("rem_open: TLS handshake failed; continuing without TLS\n");
+	    }
+	    SSL_CTX_free(tls_ctx);
+	}
+    }
+#endif
+
+    /* Optional authentication: if FBSERV_TOKEN is set in the
+     * environment, send MSG_FBAUTH with the token before MSG_FBOPEN.
+     * This lets the server verify this is an authorized client. */
+    auth_token = getenv("FBSERV_TOKEN");
+    if (auth_token && auth_token[0] != '\0') {
+	size_t tlen = strlen(auth_token);
+	if (pkg_send(MSG_FBAUTH, auth_token, tlen, pc) != (int)tlen) {
+	    fb_log("rem_open: failed to send MSG_FBAUTH\n");
+	    /* non-fatal — server may not require auth */
+	}
+    }
 
 #ifdef HAVE_SYS_SOCKET_H
     {
