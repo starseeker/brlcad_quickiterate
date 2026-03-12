@@ -4875,21 +4875,44 @@ curve_min_dist_to_point(const ON_Curve *c, const ON_3dPoint &p,
  * zero-thickness plate and reports 0 volume.
  *
  * This function finds pairs of boundary edges that represent the same 3-D
- * curve and merges them.  Open edges (line segments) share their endpoint
- * vertices, so CombineCoincidentEdges() can be called directly.  Closed edges
- * (e.g. hole circles) require a low-level trim-transfer because their single
- * "start/end" vertex can differ between the two representations.
+ * curve and merges them.  Open edges are matched first by vertex index (fast
+ * path), then by 3-D endpoint position (needed when the boolean evaluator
+ * creates independent vertex sets per face so coincident intersection points
+ * land at different indices).  Closed edges (e.g. hole circles) are matched
+ * by bounding-box because their single start/end vertex can differ.
  */
 static void
 join_boundary_edges(ON_Brep *brep)
 {
+    /* Vertex-position tolerance: use a fraction of the brep's bounding box
+     * diagonal so it scales with model size.  A relative tolerance of 1e-8
+     * is tight enough to avoid false positives while handling the small
+     * floating-point discrepancies that can arise at intersection points. */
+    ON_BoundingBox bbox;
+    brep->GetBoundingBox(bbox);
+    double bbox_diag = bbox.Diagonal().Length();
+    static const double VTOL_REL = 1.0e-8;
+    double vtol = (bbox_diag > ON_ZERO_TOLERANCE) ? bbox_diag * VTOL_REL : ON_ZERO_TOLERANCE;
 
     /* ---------------------------------------------------------------
      * Pass 1: open boundary edges.
-     * Two open boundary edges are coincident when they share the same
-     * pair of endpoint vertices (possibly in opposite order).
-     * Shared vertices are sufficient proof of coincidence; no geometry
-     * sampling is required.
+     *
+     * Primary match: identical vertex indices (fast, exact).
+     * Fallback match: coincident 3-D endpoint positions within vtol,
+     * followed by a curve-midpoint sanity check to rule out false
+     * positives from short edges that happen to share an endpoint.
+     *
+     * The boolean evaluator builds each face independently, so the
+     * same geometric intersection point may be assigned different
+     * vertex indices on different faces.  The position-based fallback
+     * handles this case without needing to pre-merge vertices (vertex
+     * merging can create degenerate self-loop edges that fail OpenNURBS
+     * validity checks).
+     *
+     * On a match we transfer ej's trim directly to ei (same low-level
+     * approach used for closed edges in Pass 2) rather than calling
+     * CombineCoincidentEdges(), so we never rely on vertex indices
+     * agreeing across the two edges.
      * --------------------------------------------------------------- */
     bool merged = true;
     while (merged) {
@@ -4899,23 +4922,60 @@ join_boundary_edges(ON_Brep *brep)
 	    if (ei.m_ti.Count() != 1) continue;
 	    if (ei.m_vi[0] == ei.m_vi[1]) continue; /* skip closed */
 
+	    ON_3dPoint pi0 = brep->m_V[ei.m_vi[0]].Point();
+	    ON_3dPoint pi1 = brep->m_V[ei.m_vi[1]].Point();
+
 	    for (int j = i + 1; j < brep->m_E.Count() && !merged; j++) {
 		ON_BrepEdge &ej = brep->m_E[j];
 		if (ej.m_ti.Count() != 1) continue;
 		if (ej.m_vi[0] == ej.m_vi[1]) continue;
 
-		bool forward = (ei.m_vi[0] == ej.m_vi[0] && ei.m_vi[1] == ej.m_vi[1]);
-		bool reverse = (ei.m_vi[0] == ej.m_vi[1] && ei.m_vi[1] == ej.m_vi[0]);
+		/* ---- primary match: vertex indices agree ---- */
+		bool forward_idx = (ei.m_vi[0] == ej.m_vi[0] && ei.m_vi[1] == ej.m_vi[1]);
+		bool reverse_idx = (ei.m_vi[0] == ej.m_vi[1] && ei.m_vi[1] == ej.m_vi[0]);
+
+		/* ---- fallback match: compare 3-D endpoint positions ---- */
+		bool forward = forward_idx;
+		bool reverse = reverse_idx;
+		if (!forward && !reverse) {
+		    ON_3dPoint pj0 = brep->m_V[ej.m_vi[0]].Point();
+		    ON_3dPoint pj1 = brep->m_V[ej.m_vi[1]].Point();
+		    forward = (pi0.DistanceTo(pj0) <= vtol && pi1.DistanceTo(pj1) <= vtol);
+		    reverse = (pi0.DistanceTo(pj1) <= vtol && pi1.DistanceTo(pj0) <= vtol);
+
+		    /* Sanity check: midpoint of both curves must also be close */
+		    if (forward || reverse) {
+			ON_3dPoint pmid_i = ei.PointAt(ei.Domain().Mid());
+			ON_3dPoint pmid_j = ej.PointAt(ej.Domain().Mid());
+			if (pmid_i.DistanceTo(pmid_j) > vtol * 100.0) {
+			    forward = false;
+			    reverse = false;
+			}
+		    }
+		}
 		if (!forward && !reverse) continue;
 
-		/* Set m_bRev3d on ej's trim so it agrees with ei's orientation */
-		if (reverse) {
-		    int tj = ej.m_ti[0];
+		/* Transfer ej's trim to ei.  This is the same direct approach
+		 * used in Pass 2 for closed edges; it does not require that
+		 * the vertex indices already match. */
+		int tj = ej.m_ti[0];
+		if (reverse)
 		    brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
-		    std::swap(ej.m_vi[0], ej.m_vi[1]);
+		brep->m_T[tj].m_ei = i;
+		ei.m_ti.Append(tj);
+
+		/* Update the transferred trim's vertex references so they
+		 * point to ei's vertices.  For an open edge bRev3d=false means
+		 * the trim runs start→end in the same direction as the edge, so
+		 * trim.m_vi[0] = edge.m_vi[0] and trim.m_vi[1] = edge.m_vi[1].
+		 * When bRev3d=true the trim runs opposite, so the indices swap. */
+		{
+		    bool bRev3d = brep->m_T[tj].m_bRev3d;
+		    brep->m_T[tj].m_vi[0] = ei.m_vi[bRev3d ? 1 : 0];
+		    brep->m_T[tj].m_vi[1] = ei.m_vi[bRev3d ? 0 : 1];
 		}
 
-		brep->CombineCoincidentEdges(ei, ej);
+		ej.m_ti.Empty();
 		merged = true;
 	    }
 	}
