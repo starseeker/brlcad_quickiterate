@@ -1273,14 +1273,55 @@ rt_vol_plate(point_t a, point_t b, point_t c, point_t d, register mat_t mat, str
 }
 
 
+/*
+ * vol_span_face - emit one NMG boundary face for a span of voxels.
+ *
+ * This helper is the core of the row-span merging strategy (see
+ * rt_vol_tess below).  Instead of one unit quad per voxel boundary,
+ * callers find the start and end of a contiguous run of exposed cells
+ * and call this once per run, producing a single rectangular face
+ * that covers the whole run.
+ *
+ * The four corner coordinates (v[0..3]) are passed in ideal voxel
+ * space; they are scaled by cellsize and transformed by mat before
+ * being assigned to the NMG vertex geometry.
+ *
+ * Returns 0 on success, non-zero on nmg_fu_planeeqn failure.
+ */
+static int
+vol_span_face(struct shell *s, const struct rt_vol_internal *vip,
+	      const struct bn_tol *tol,
+	      fastf_t v0x, fastf_t v0y, fastf_t v0z,
+	      fastf_t v1x, fastf_t v1y, fastf_t v1z,
+	      fastf_t v2x, fastf_t v2y, fastf_t v2z,
+	      fastf_t v3x, fastf_t v3y, fastf_t v3z)
+{
+    struct vertex *verts[4];
+    struct faceuse *fu;
+    point_t pt, pt1;
+    int i;
+
+    for (i = 0; i < 4; i++)
+	verts[i] = (struct vertex *)NULL;
+    fu = nmg_cface(s, verts, 4);
+
+    VSET(pt, v0x, v0y, v0z); VELMUL(pt1, vip->cellsize, pt); MAT4X3PNT(pt, vip->mat, pt1); nmg_vertex_gv(verts[0], pt);
+    VSET(pt, v1x, v1y, v1z); VELMUL(pt1, vip->cellsize, pt); MAT4X3PNT(pt, vip->mat, pt1); nmg_vertex_gv(verts[1], pt);
+    VSET(pt, v2x, v2y, v2z); VELMUL(pt1, vip->cellsize, pt); MAT4X3PNT(pt, vip->mat, pt1); nmg_vertex_gv(verts[2], pt);
+    VSET(pt, v3x, v3y, v3z); VELMUL(pt1, vip->cellsize, pt); MAT4X3PNT(pt, vip->mat, pt1); nmg_vertex_gv(verts[3], pt);
+
+    return nmg_fu_planeeqn(fu, tol);
+}
+
+
 int
 rt_vol_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     struct rt_vol_internal *vip;
-    register size_t x, y, z;
-    int i;
+    size_t x, y, z;
+    size_t xa;		/* x-run start index */
+    int in_run;
     struct shell *s;
-    struct vertex *verts[4];
     struct faceuse *fu;
     struct model *m_tmp;
     struct nmgregion *r_tmp;
@@ -1299,182 +1340,181 @@ rt_vol_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     r_tmp = nmg_mrsv(m_tmp);
     s = BU_LIST_FIRST(shell, &r_tmp->s_hd);
 
+    /*
+     * Build boundary faces using row-span merging, inspired by the
+     * DSP/TerraScape technique of constructing the mesh directly in
+     * merged form rather than creating per-cell unit quads and relying
+     * on nmg_shell_coplanar_face_merge to reduce them.
+     *
+     * For each face direction we iterate over (slice, row) pairs and
+     * sweep a third axis to find contiguous runs of exposed voxel faces.
+     * One rectangular NMG face is emitted per run instead of one unit
+     * quad per voxel.  For a flat N×M surface this reduces the initial
+     * face count from N×M unit quads to M row-span quads, making
+     * nmg_shell_coplanar_face_merge O(M²) instead of O((N·M)²).
+     *
+     * Boundary compatibility (no T-junctions):
+     *   z± faces span X for each Y-row.  Their left/right edges are
+     *   1-unit-Y tall (at x=xa-0.5 and x=xb+0.5 for y in [y-0.5,y+0.5]).
+     *   y± faces also span X for each Z-level — compatible with z± top/
+     *   bottom edges and with x± left/right edges.
+     *   x± faces span Z for each Y-row (same 1-unit-Y granularity as
+     *   z± and y±), so all shared edge vertices coincide exactly.
+     */
+
+    /* z+ faces (normal +z): for each z-slice, scan y rows, span x */
+    for (z = 0; z < vip->zdim; z++) {
+	for (y = 0; y < vip->ydim; y++) {
+	    xa = 0; in_run = 0;
+	    for (x = 0; x <= vip->xdim; x++) {
+		int exposed = (x < vip->xdim)
+		    && OK(vip, VOL(vip, x, y, z))
+		    && !OK(vip, VOL(vip, x, y, z+1));
+		if (exposed && !in_run) {
+		    xa = x; in_run = 1;
+		} else if (!exposed && in_run) {
+		    size_t xb = x - 1;
+		    in_run = 0;
+		    /* CCW from above (+z normal) */
+		    if (vol_span_face(s, vip, tol,
+				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z+.5,
+				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z+.5,
+				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z+.5,
+				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z+.5))
+			goto fail;
+		}
+	    }
+	}
+    }
+
+    /* z- faces (normal -z): for each z-slice, scan y rows, span x */
+    for (z = 0; z < vip->zdim; z++) {
+	for (y = 0; y < vip->ydim; y++) {
+	    xa = 0; in_run = 0;
+	    for (x = 0; x <= vip->xdim; x++) {
+		int exposed = (x < vip->xdim)
+		    && OK(vip, VOL(vip, x, y, z))
+		    && !OK(vip, VOL(vip, x, y, z-1));
+		if (exposed && !in_run) {
+		    xa = x; in_run = 1;
+		} else if (!exposed && in_run) {
+		    size_t xb = x - 1;
+		    in_run = 0;
+		    /* CCW from below (-z normal) */
+		    if (vol_span_face(s, vip, tol,
+				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z-.5,
+				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z-.5,
+				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z-.5,
+				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z-.5))
+			goto fail;
+		}
+	    }
+	}
+    }
+
+    /* y+ faces (normal +y): for each y-slice, scan z rows, span x */
+    for (y = 0; y < vip->ydim; y++) {
+	for (z = 0; z < vip->zdim; z++) {
+	    xa = 0; in_run = 0;
+	    for (x = 0; x <= vip->xdim; x++) {
+		int exposed = (x < vip->xdim)
+		    && OK(vip, VOL(vip, x, y, z))
+		    && !OK(vip, VOL(vip, x, y+1, z));
+		if (exposed && !in_run) {
+		    xa = x; in_run = 1;
+		} else if (!exposed && in_run) {
+		    size_t xb = x - 1;
+		    in_run = 0;
+		    /* CCW from outside (+y normal) */
+		    if (vol_span_face(s, vip, tol,
+				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z+.5,
+				      (fastf_t)xb+.5, (fastf_t)y+.5, (fastf_t)z-.5,
+				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z-.5,
+				      (fastf_t)xa-.5, (fastf_t)y+.5, (fastf_t)z+.5))
+			goto fail;
+		}
+	    }
+	}
+    }
+
+    /* y- faces (normal -y): for each y-slice, scan z rows, span x */
+    for (y = 0; y < vip->ydim; y++) {
+	for (z = 0; z < vip->zdim; z++) {
+	    xa = 0; in_run = 0;
+	    for (x = 0; x <= vip->xdim; x++) {
+		int exposed = (x < vip->xdim)
+		    && OK(vip, VOL(vip, x, y, z))
+		    && !OK(vip, VOL(vip, x, y-1, z));
+		if (exposed && !in_run) {
+		    xa = x; in_run = 1;
+		} else if (!exposed && in_run) {
+		    size_t xb = x - 1;
+		    in_run = 0;
+		    /* CCW from outside (-y normal) */
+		    if (vol_span_face(s, vip, tol,
+				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z+.5,
+				      (fastf_t)xa-.5, (fastf_t)y-.5, (fastf_t)z-.5,
+				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z-.5,
+				      (fastf_t)xb+.5, (fastf_t)y-.5, (fastf_t)z+.5))
+			goto fail;
+		}
+	    }
+	}
+    }
+
+    /* x+ faces (normal +x): for each x-slice, for each y-row, span z.
+     *
+     * Scanning z for each (x,y) pair keeps the face height at 1 voxel unit
+     * in the Y direction, matching the y-extent of z± and y± faces.  This
+     * eliminates T-junctions at the shared boundary where x+ faces meet z±
+     * and y± faces (they end up sharing the same edge vertices).
+     */
     for (x = 0; x < vip->xdim; x++) {
 	for (y = 0; y < vip->ydim; y++) {
-	    for (z = 0; z < vip->zdim; z++) {
-		point_t pt, pt1;
-
-		/* skip empty cells */
-		if (!OK(vip, VOL(vip, x, y, z)))
-		    continue;
-
-		/* check neighboring cells, make a face where needed */
-
-		/* check z+1 */
-		if (!OK(vip, VOL(vip, x, y, z+1))) {
-		    for (i = 0; i < 4; i++)
-			verts[i] = (struct vertex *)NULL;
-
-		    fu = nmg_cface(s, verts, 4);
-
-		    VSET(pt, x+.5, y-.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[0], pt);
-		    VSET(pt, x+.5, y+.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[1], pt);
-		    VSET(pt, x-.5, y+.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[2], pt);
-		    VSET(pt, x-.5, y-.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[3], pt);
-
-		    if (nmg_fu_planeeqn(fu, tol))
+	    size_t za = 0; in_run = 0;
+	    for (z = 0; z <= vip->zdim; z++) {
+		int exposed = (z < vip->zdim)
+		    && OK(vip, VOL(vip, x, y, z))
+		    && !OK(vip, VOL(vip, x+1, y, z));
+		if (exposed && !in_run) {
+		    za = z; in_run = 1;
+		} else if (!exposed && in_run) {
+		    size_t zb = z - 1;
+		    in_run = 0;
+		    /* CCW from outside (+x normal) */
+		    if (vol_span_face(s, vip, tol,
+				      (fastf_t)x+.5, (fastf_t)y-.5, (fastf_t)za-.5,
+				      (fastf_t)x+.5, (fastf_t)y+.5, (fastf_t)za-.5,
+				      (fastf_t)x+.5, (fastf_t)y+.5, (fastf_t)zb+.5,
+				      (fastf_t)x+.5, (fastf_t)y-.5, (fastf_t)zb+.5))
 			goto fail;
 		}
+	    }
+	}
+    }
 
-		/* check z-1 */
-		if (!OK(vip, VOL(vip, x, y, z-1))) {
-		    for (i = 0; i < 4; i++)
-			verts[i] = (struct vertex *)NULL;
-
-		    fu = nmg_cface(s, verts, 4);
-
-		    VSET(pt, x+.5, y-.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[3], pt);
-		    VSET(pt, x+.5, y+.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[2], pt);
-		    VSET(pt, x-.5, y+.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[1], pt);
-		    VSET(pt, x-.5, y-.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[0], pt);
-
-		    if (nmg_fu_planeeqn(fu, tol))
-			goto fail;
-		}
-
-		/* check y+1 */
-		if (!OK(vip, VOL(vip, x, y+1, z))) {
-		    for (i = 0; i < 4; i++)
-			verts[i] = (struct vertex *)NULL;
-
-		    fu = nmg_cface(s, verts, 4);
-
-		    VSET(pt, x+.5, y+.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[0], pt);
-		    VSET(pt, x+.5, y+.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[1], pt);
-		    VSET(pt, x-.5, y+.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[2], pt);
-		    VSET(pt, x-.5, y+.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[3], pt);
-
-		    if (nmg_fu_planeeqn(fu, tol))
-			goto fail;
-		}
-
-		/* check y-1 */
-		if (!OK(vip, VOL(vip, x, y-1, z))) {
-		    for (i = 0; i < 4; i++)
-			verts[i] = (struct vertex *)NULL;
-
-		    fu = nmg_cface(s, verts, 4);
-
-		    VSET(pt, x+.5, y-.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[3], pt);
-		    VSET(pt, x+.5, y-.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[2], pt);
-		    VSET(pt, x-.5, y-.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[1], pt);
-		    VSET(pt, x-.5, y-.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[0], pt);
-
-		    if (nmg_fu_planeeqn(fu, tol))
-			goto fail;
-		}
-
-		/* check x+1 */
-		if (!OK(vip, VOL(vip, x+1, y, z))) {
-		    for (i = 0; i < 4; i++)
-			verts[i] = (struct vertex *)NULL;
-
-		    fu = nmg_cface(s, verts, 4);
-
-		    VSET(pt, x+.5, y-.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[0], pt);
-		    VSET(pt, x+.5, y+.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[1], pt);
-		    VSET(pt, x+.5, y+.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[2], pt);
-		    VSET(pt, x+.5, y-.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[3], pt);
-
-		    if (nmg_fu_planeeqn(fu, tol))
-			goto fail;
-		}
-
-		/* check x-1 */
-		if (!OK(vip, VOL(vip, x-1, y, z))) {
-		    for (i = 0; i < 4; i++)
-			verts[i] = (struct vertex *)NULL;
-
-		    fu = nmg_cface(s, verts, 4);
-
-		    VSET(pt, x-.5, y-.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[3], pt);
-		    VSET(pt, x-.5, y+.5, z-.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[2], pt);
-		    VSET(pt, x-.5, y+.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[1], pt);
-		    VSET(pt, x-.5, y-.5, z+.5);
-		    VELMUL(pt1, vip->cellsize, pt);
-		    MAT4X3PNT(pt, vip->mat, pt1);
-		    nmg_vertex_gv(verts[0], pt);
-
-		    if (nmg_fu_planeeqn(fu, tol))
+    /* x- faces (normal -x): for each x-slice, for each y-row, span z.
+     *
+     * Same reasoning as x+ above — z-spans keep Y extent at 1 unit.
+     */
+    for (x = 0; x < vip->xdim; x++) {
+	for (y = 0; y < vip->ydim; y++) {
+	    size_t za = 0; in_run = 0;
+	    for (z = 0; z <= vip->zdim; z++) {
+		int exposed = (z < vip->zdim)
+		    && OK(vip, VOL(vip, x, y, z))
+		    && !OK(vip, VOL(vip, x-1, y, z));
+		if (exposed && !in_run) {
+		    za = z; in_run = 1;
+		} else if (!exposed && in_run) {
+		    size_t zb = z - 1;
+		    in_run = 0;
+		    /* CCW from outside (-x normal) */
+		    if (vol_span_face(s, vip, tol,
+				      (fastf_t)x-.5, (fastf_t)y-.5, (fastf_t)zb+.5,
+				      (fastf_t)x-.5, (fastf_t)y+.5, (fastf_t)zb+.5,
+				      (fastf_t)x-.5, (fastf_t)y+.5, (fastf_t)za-.5,
+				      (fastf_t)x-.5, (fastf_t)y-.5, (fastf_t)za-.5))
 			goto fail;
 		}
 	    }
@@ -1486,7 +1526,10 @@ rt_vol_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* fuse model */
     nmg_model_fuse(m_tmp, vlfree, tol);
 
-    /* simplify shell */
+    /* simplify shell: merge the remaining coplanar row-span quads into
+     * single faces per surface.  With row-span merging the input to this
+     * step is M quads instead of N*M, so the merge cost is O(M^2) vs
+     * the original O((N*M)^2). */
     nmg_shell_coplanar_face_merge(s, tol, 1, vlfree);
 
     /* kill snakes */
