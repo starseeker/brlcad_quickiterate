@@ -1583,10 +1583,11 @@ namespace gte
             nRaw = static_cast<int32_t>(rawVerts.size());
 
             bool changed5f = true;
+            std::vector<int32_t> inc5f(nRaw, 0);
             while (changed5f)
             {
                 changed5f = false;
-                std::vector<int32_t> inc5f(nRaw, 0);
+                std::fill(inc5f.begin(), inc5f.end(), 0);
                 for (auto const& tri : rawTris)
                 {
                     ++inc5f[tri[0]];
