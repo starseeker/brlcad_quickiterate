@@ -33,6 +33,7 @@
 #include "bnetwork.h"
 #include "bsocket.h"
 
+#include "bu/str.h"
 #include "tcl.h"
 #include "vmath.h"
 #include "raytrace.h"
@@ -40,10 +41,14 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 
+/* Enable token verification for MGED's embedded fbserv */
+#define FBSERV_AUTH_IMPL
+#include "../fbserv/auth.h"
+
 #define NET_LONG_LEN 4 /* # bytes to network long */
 
 // FIXME: Global
-extern const struct pkg_switch pkg_switch[];
+extern struct pkg_switch pkg_switch[];
 
 /*
  * Communication error.  An error occurred on the PKG link.
@@ -109,6 +114,7 @@ fbserv_drop_client(int sub)
 #endif
 	clients[sub].c_pkg = PKC_NULL;
 	clients[sub].c_fd = 0;
+	clients[sub].c_auth_ok = 0;
     }
 }
 
@@ -239,6 +245,7 @@ fbserv_new_client(struct pkg_conn *pcp)
 	/* Found an available slot */
 	clients[i].c_pkg = pcp;
 	clients[i].c_fd = pcp->pkc_fd;
+	clients[i].c_auth_ok = 0;
 	fbserv_setup_socket(pcp->pkc_fd);
 
 #ifdef USE_TCL_CHAN
@@ -448,6 +455,68 @@ fb_server_fb_unknown(struct pkg_conn *pcp, char *buf)
 
 /******** Here's where the hooks lead *********/
 
+/**
+ * Find the dm_clients[] slot index for the given pkg_conn.
+ * Returns -1 if not found.
+ */
+static int
+mged_conn_idx(struct pkg_conn *pcp)
+{
+    struct mged_state *s = MGED_STATE;
+    int i;
+    for (i = MAX_CLIENTS - 1; i >= 0; i--) {
+	if (clients[i].c_pkg == pcp)
+	    return i;
+    }
+    return -1;
+}
+
+
+/**
+ * MSG_FBAUTH — session token authentication for MGED's embedded fbserv.
+ *
+ * Client sends a FBSERV_AUTH_TOKEN_LEN-byte hex string.  If it matches
+ * dm_session_token the connection is marked authenticated.
+ */
+static void
+fb_server_fb_auth(struct pkg_conn *pcp, char *buf)
+{
+    struct mged_state *s = MGED_STATE;
+    char provided[FBSERV_AUTH_TOKEN_LEN + 1] = {0};
+    int idx;
+    const char *expected;
+
+    if (pcp == PKC_NULL) {
+	if (buf) (void)free(buf);
+	return;
+    }
+
+    idx = mged_conn_idx(pcp);
+    expected = s->mged_curr_dm->dm_session_token;
+
+    if (!expected || expected[0] == '\0') {
+	/* No token configured; mark connection as authenticated */
+	if (idx >= 0)
+	    clients[idx].c_auth_ok = 1;
+	if (buf) (void)free(buf);
+	return;
+    }
+
+    if (buf && pcp->pkc_len >= FBSERV_AUTH_TOKEN_LEN)
+	bu_strlcpy(provided, buf, sizeof(provided));
+
+    if (fbserv_verify_token(provided, expected)) {
+	if (idx >= 0)
+	    clients[idx].c_auth_ok = 1;
+    } else {
+	bu_log("mged fbserv: MSG_FBAUTH token mismatch — dropping client\n");
+	pkg_close(pcp);
+    }
+
+    if (buf) (void)free(buf);
+}
+
+
 static void
 fb_server_fb_open(struct pkg_conn *pcp, char *buf)
 {
@@ -458,6 +527,23 @@ fb_server_fb_open(struct pkg_conn *pcp, char *buf)
     if (buf == NULL) {
 	bu_log("fb_server_fb_open: null buffer\n");
 	return;
+    }
+
+    /* Auth check: if dm_require_auth is set, reject unauthenticated clients */
+    if (s->mged_curr_dm->dm_require_auth) {
+	int idx = mged_conn_idx(pcp);
+	if (idx < 0 || !clients[idx].c_auth_ok) {
+	    bu_log("mged fbserv: unauthenticated MSG_FBOPEN rejected (strict mode)\n");
+	    (void)pkg_plong(&rbuf[0*NET_LONG_LEN], -1);
+	    (void)pkg_plong(&rbuf[1*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[2*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[3*NET_LONG_LEN], 0);
+	    (void)pkg_plong(&rbuf[4*NET_LONG_LEN], 0);
+	    pkg_send(MSG_RETURN, rbuf, 5*NET_LONG_LEN, pcp);
+	    pkg_close(pcp);
+	    (void)free(buf);
+	    return;
+	}
     }
 
     /* Don't really open a new framebuffer --- use existing one */
@@ -1074,7 +1160,8 @@ fb_server_fb_help(struct pkg_conn *pcp, char *buf)
 	(void)free(buf);
 }
 
-const struct pkg_switch pkg_switch[] = {
+struct pkg_switch pkg_switch[] = {
+    { MSG_FBAUTH,                       fb_server_fb_auth,        "Session Authentication", NULL },
     { MSG_FBOPEN,                       fb_server_fb_open,        "Open Framebuffer", NULL },
     { MSG_FBCLOSE,                      fb_server_fb_close,       "Close Framebuffer", NULL },
     { MSG_FBCLEAR,                      fb_server_fb_clear,       "Clear Framebuffer", NULL },

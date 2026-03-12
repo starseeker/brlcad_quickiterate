@@ -40,8 +40,11 @@
 #include "dm.h"
 #include "./include/private.h"
 
-/* Enable token generation and verification */
+/* Enable token generation AND verification for the embedded fbserv.
+ * Hosting apps call fbs_generate_token() to create a session token;
+ * the MSG_FBAUTH handler verifies incoming client tokens. */
 #define FBSERV_AUTH_IMPL
+#define FBSERV_AUTH_SERVER
 #include "../fbserv/auth.h"
 
 /* Enable TLS server-side functions */
@@ -778,6 +781,21 @@ fbs_rfbhelp(struct pkg_conn *pcp, char *buf)
     (void)pkg_plong(&rbuf[0], ret);
     pkg_send(MSG_RETURN, rbuf, NET_LONG_LEN, pcp);
     (void)free(buf);
+}
+
+
+/**
+ * Generate a fresh session authentication token and store it in
+ * fbsp->fbs_auth_token.  Should be called before fbs_open() so the
+ * token is ready for the first connecting client.
+ *
+ * Returns a pointer to fbsp->fbs_auth_token (for convenience).
+ */
+const char *
+fbs_generate_token(struct fbserv_obj *fbsp)
+{
+    fbserv_generate_token(fbsp->fbs_auth_token);
+    return fbsp->fbs_auth_token;
 }
 
 
