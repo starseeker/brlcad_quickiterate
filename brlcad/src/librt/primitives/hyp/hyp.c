@@ -881,6 +881,34 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		ang2 = fabs(acos(VDOT(nLine, nHyp)));
 
 		if (dist > dtol || ang0 > ntol || ang2 > ntol) {
+		    /* Guard: if p1 is not finite (NaN from sqrt of negative
+		     * when the slope is too shallow) or falls outside the
+		     * Z range of the segment, the midpoint formula failed.
+		     * Skip the split to prevent infinite looping. */
+		    if (!isfinite(p1[X]) || !isfinite(p1[Y]) || !isfinite(p1[Z])) {
+			pos_a = pos_a->next;
+			continue;
+		    }
+		    {
+			fastf_t zlo = p0[Z] < p2[Z] ? p0[Z] : p2[Z];
+			fastf_t zhi = p0[Z] < p2[Z] ? p2[Z] : p0[Z];
+			if (p1[Z] <= zlo || p1[Z] >= zhi) {
+			    pos_a = pos_a->next;
+			    continue;
+			}
+		    }
+		    /* Span guard: stop subdividing when segment is already
+		     * much smaller than dtol (prevents infinite subdivision
+		     * near areas where the normal formula never converges
+		     * below ntol). */
+		    {
+			vect_t seg;
+			VSUB2(seg, p2, p0);
+			if (MAGNITUDE(seg) < dtol * 0.1) {
+			    pos_a = pos_a->next;
+			    continue;
+			}
+		    }
 		    /* split segment */
 		    BU_ALLOC(add, struct rt_pnt_node);
 		    VMOVE(add->p, p1);
@@ -936,6 +964,8 @@ rt_hyp_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    nseg = nseg_ntol;
     }
     if (nseg < 6) nseg = 6;
+    /* Cap segment count for tess: see rt_epa_tess() for the rationale. */
+    if (nseg > 24) nseg = 24;
 
     /* Face count: all rings use same nseg, no doubling */
     face = nseg * (2*nell + 2) + 1;

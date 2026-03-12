@@ -1191,6 +1191,19 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 	mpt[Y] = -mpt[Y];
     }
 
+    /* Guard: if mpt[Y] is not-finite (NaN/Inf from sqrt of negative when the
+     * RHC formula places z0 outside the valid hyperbola range) or if mpt[Y]
+     * falls outside the interval [min(p0Y,p1Y), max(p0Y,p1Y)] (formula gives
+     * a "midpoint" coincident with an endpoint → infinite recursion), stop
+     * subdividing.  The chord approximation is already as tight as this
+     * formula can achieve. */
+    {
+	fastf_t ylo = p0[Y] < p1[Y] ? p0[Y] : p1[Y];
+	fastf_t yhi = p0[Y] < p1[Y] ? p1[Y] : p0[Y];
+	if (!isfinite(mpt[Y]) || mpt[Y] <= ylo || mpt[Y] >= yhi)
+	    return 0;
+    }
+
     /* max distance between that point and line */
     dist = fabs(m * mpt[Y] - mpt[Z] + intr) / sqrt(m * m + 1);
     /* angles between normal of line and of hyperbola at line endpoints */
