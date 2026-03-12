@@ -1378,52 +1378,43 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
      * TOR/ETO/ELL):   theta = 2*acos(1 - dtol/r),  nseg = ceil(2π/theta).
      * The normal tolerance also caps nseg at ceil(2π/ntol).
      *
-     * Per-ring nseg is computed so that rings near the apex (very small radius)
-     * use fewer segments to avoid degenerate NMG faces.  A ring can have at
-     * most floor(π * ring_r / tol->dist) segments before adjacent vertices
-     * become closer than tol->dist.  We also use doubling (pts_dbl) so the
-     * ring-pair connectivity code handles transitions cleanly. */
+     * Near-apex rings with radius < nseg*tol->dist/(2π) would have adjacent
+     * vertices closer than tol->dist, causing nmg_fu_planeeqn() to fail.
+     * Those rings are skipped; the apex fan connects directly to the first
+     * ring whose radius is large enough for distinct vertices. */
     {
 	int nseg_base = rt_num_circular_segments(dtol, r1);
+	fastf_t min_ring_r;
 	if (ntol < M_PI) {
 	    int nseg_ntol = (int)(M_2PI / ntol) + 1;
 	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
 	if (nseg_base < 6) nseg_base = 6;
 
-	/* Build per-ring nseg from apex to base, doubling whenever the ring
-	 * is large enough to justify it. */
-	nseg = 6;
+	/* Minimum ring radius: with nseg_base segments, adjacent vertices must
+	 * be at least tol->dist apart → ring_r >= nseg_base * tol->dist / (2π). */
+	min_ring_r = (double)nseg_base * tol->dist / M_2PI;
+
+	nseg = nseg_base;
 	i = 0;
 	pos_a = pts_a->next;
 	pos_b = pts_b->next;
 	while (pos_a) {
 	    fastf_t t;
-	    int nseg_needed, nseg_max_geom;
+
+	    /* Skip rings that are too small to support distinct vertices */
+	    if (pos_a->p[Y] < min_ring_r) {
+		pos_a = pos_a->next;
+		pos_b = pos_b->next;
+		continue;
+	    }
 
 	    t = (-pos_a->p[Z] / mag_h);
 
-	    /* How many segments would this ring need on its own? */
-	    nseg_needed = rt_num_circular_segments(dtol, pos_a->p[Y]);
-	    if (ntol < M_PI) {
-		int nseg_ntol = (int)(M_2PI / ntol) + 1;
-		if (nseg_ntol > nseg_needed) nseg_needed = nseg_ntol;
-	    }
-	    if (nseg_needed < 6) nseg_needed = 6;
-	    if (nseg_needed > nseg_base) nseg_needed = nseg_base;
-
-	    /* Cap so adjacent ring vertices stay farther apart than tol->dist. */
-	    nseg_max_geom = (pos_a->p[Y] > SMALL_FASTF) ?
-		(int)(M_PI * pos_a->p[Y] / tol->dist) : 3;
-	    if (nseg_max_geom < 3) nseg_max_geom = 3;
-	    if (nseg_needed > nseg_max_geom) nseg_needed = nseg_max_geom;
-
-	    /* Allow nseg to double (not arbitrary increase) toward nseg_needed. */
-	    while (nseg * 2 <= nseg_needed && nseg * 2 <= nseg_base)
-		nseg *= 2;
-
-	    /* Record whether this ring has more segs than the previous one. */
-	    pts_dbl[i] = (i > 0 && nseg > segs_per_ell[i-1]) ? 1 : 0;
+	    /* All rings use the same constant nseg_base.  Near-apex rings with
+	     * more curvature will produce slightly coarser-looking triangles,
+	     * but this is geometrically fine for those tiny cross-sections. */
+	    pts_dbl[i] = 0;
 	    segs_per_ell[i] = nseg;
 
 	    VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
@@ -1441,16 +1432,17 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    pos_a = pos_a->next;
 	    pos_b = pos_b->next;
 	}
-	/* nseg now holds the final (base) ring count = segs_per_ell[nell-1]. */
+	/* i now holds the actual number of rings built (may be < nell). */
+	nell = i;
     }
 
-    /* Conservative face-count upper bound: 3 triangles per segment per ring
-     * (covers doubling transitions) plus top cap and apex fan. */
+    /* Conservative face-count upper bound: 2 triangles per segment per ring
+     * pair + top cap (1 face) + apex fan (nseg faces).  No doubling now. */
     if (nell < 1) {
 	bu_log("rt_epa_tess: nell=%d too small\n", nell);
 	goto fail;
     }
-    face = segs_per_ell[nell-1] * (3 * nell + 4) + 1;
+    face = nseg * (2 * nell + 2) + 1;
     if (face < 16) face = 16;
 
     /*
@@ -1647,9 +1639,6 @@ rt_epa_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* Compute "geometry" for region and shell */
     nmg_region_a(*r, tol);
-
-    /* XXX just for testing, to make up for loads of triangles ... */
-    nmg_shell_coplanar_face_merge(s, tol, 1, vlfree);
 
     /* free mem */
     bu_free((char *)outfaceuses, "faceuse []");

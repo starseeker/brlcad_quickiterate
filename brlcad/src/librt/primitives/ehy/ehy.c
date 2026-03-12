@@ -1364,46 +1364,39 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     pts_dbl = (int *)bu_malloc(nell * sizeof(int), "dbl ints");
     segs_per_ell = (int *)bu_calloc(nell, sizeof(int), "rt_ehy_tess: segs_per_ell");
 
-    /* Per-ring nseg with doubling toward base.  See rt_epa_tess() for full
-     * rationale.  The approach prevents degenerate NMG faces near the apex
-     * (where a ring with tiny radius cannot support many distinct vertices). */
+    /* Per-ring skip: rings whose radius is too small to support nseg distinct
+     * vertices (chord length < tol->dist) are skipped.  See rt_epa_tess()
+     * for the full rationale and algorithm. */
     {
 	int nseg_base = (int)rt_num_circular_segments(dtol, r1);
+	fastf_t min_ring_r;
 	if (ntol < M_PI) {
 	    int nseg_ntol = (int)(M_2PI / ntol) + 1;
 	    if (nseg_ntol > nseg_base) nseg_base = nseg_ntol;
 	}
 	if (nseg_base < 6) nseg_base = 6;
 
-	nseg = 6;
+	min_ring_r = (double)nseg_base * tol->dist / M_2PI;
+
+	nseg = (size_t)nseg_base;
 	i = 0;
 	pos_a = pts_a->next;	/* skip over apex of ehy */
 	pos_b = pts_b->next;
 	while (pos_a) {
-	    int nseg_needed, nseg_max_geom;
-
-	    nseg_needed = (int)rt_num_circular_segments(dtol, pos_a->p[Y]);
-	    if (ntol < M_PI) {
-		int nseg_ntol = (int)(M_2PI / ntol) + 1;
-		if (nseg_ntol > nseg_needed) nseg_needed = nseg_ntol;
+	    /* Skip rings that are too small to support distinct vertices */
+	    if (pos_a->p[Y] < min_ring_r) {
+		pos_a = pos_a->next;
+		pos_b = pos_b->next;
+		continue;
 	    }
-	    if (nseg_needed < 6) nseg_needed = 6;
-	    if (nseg_needed > nseg_base) nseg_needed = nseg_base;
-
-	    nseg_max_geom = (pos_a->p[Y] > SMALL_FASTF) ?
-		(int)(M_PI * pos_a->p[Y] / tol->dist) : 3;
-	    if (nseg_max_geom < 3) nseg_max_geom = 3;
-	    if (nseg_needed > nseg_max_geom) nseg_needed = nseg_max_geom;
-
-	    while ((int)nseg * 2 <= nseg_needed && (int)nseg * 2 <= nseg_base)
-		nseg *= 2;
-
-	    pts_dbl[i] = (i > 0 && (int)nseg > (int)segs_per_ell[i-1]) ? 1 : 0;
-	    segs_per_ell[i] = nseg;
 
 	    VSCALE(A, Au, pos_a->p[Y]);	/* semimajor axis */
 	    VSCALE(B, Bu, pos_b->p[Y]);	/* semiminor axis */
 	    VJOIN1(V, xip->ehy_V, -pos_a->p[Z], Hu);
+
+	    /* All rings use the same constant nseg_base (no per-ring doubling) */
+	    pts_dbl[i] = 0;
+	    segs_per_ell[i] = nseg;
 
 	    ellipses[i] = (fastf_t *)bu_malloc(3*(nseg+1)*sizeof(fastf_t),
 					       "pts ell");
@@ -1413,10 +1406,18 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    pos_a = pos_a->next;
 	    pos_b = pos_b->next;
 	}
+	/* i is the actual count of rings built */
+	nell = (size_t)i;
     }
 
-    /* Conservative face-count upper bound. */
-    face = (size_t)segs_per_ell[nell-1] * (3 * nell + 4) + 1;
+    if (nell < 1) {
+	bu_log("rt_ehy_tess: nell=%zu too small (all rings filtered)\n", nell);
+	goto fail;
+    }
+
+    /* Conservative face-count upper bound: 2 faces per segment per ring pair
+     * (all rings same nseg, no doubling) + top cap + apex fan. */
+    face = nseg * (2 * nell + 2) + 1;
     if (face < 16) face = 16;
 
     /*
@@ -1594,9 +1595,6 @@ rt_ehy_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 
     /* Compute "geometry" for region and shell */
     nmg_region_a(*r, tol);
-
-    /* XXX just for testing, to make up for loads of triangles ... */
-    nmg_shell_coplanar_face_merge(s, tol, 1, vlfree);
 
     /* free mem */
     bu_free((char *)outfaceuses, "faceuse []");
