@@ -28,6 +28,7 @@
 #include <GTE/Mathematics/Logger.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -67,6 +68,7 @@ namespace gte
         CVTN()
             : mConvergenceThreshold(static_cast<Real>(1e-6))
             , mVerbose(false)
+            , mTimeLimitSeconds(0.0)
         {
         }
         
@@ -324,14 +326,27 @@ namespace gte
             return mSites.size();
         }
         
-        // Lloyd iterations - move sites to centroids of Voronoi cells
+        // Lloyd iterations - move sites to centroids of Voronoi cells.
+        // If a time limit has been set via SetTimeLimit(), the loop stops
+        // after the current iteration completes once the wall-clock deadline
+        // is reached, and returns true (partial convergence is acceptable).
         bool LloydIterations(size_t numIterations)
         {
             if (mSites.empty())
             {
                 return false;
             }
-            
+
+            using Clock = std::chrono::steady_clock;
+            Clock::time_point deadline{};
+            bool hasDeadline = (mTimeLimitSeconds > 0.0);
+            if (hasDeadline)
+            {
+                deadline = Clock::now() +
+                    std::chrono::duration_cast<Clock::duration>(
+                        std::chrono::duration<double>(mTimeLimitSeconds));
+            }
+
             for (size_t iter = 0; iter < numIterations; ++iter)
             {
                 // Create Delaunay for current sites
@@ -376,6 +391,17 @@ namespace gte
                     }
                     break;
                 }
+
+                // Check time limit after completing the iteration
+                if (hasDeadline && Clock::now() >= deadline)
+                {
+                    if (mVerbose)
+                    {
+                        std::cout << "Lloyd time limit reached after " << (iter + 1)
+                                  << " iterations\n";
+                    }
+                    break;
+                }
             }
             
             return true;
@@ -415,7 +441,16 @@ namespace gte
         {
             return mConvergenceThreshold;
         }
-        
+
+        // Set an optional wall-clock time limit (in seconds) for LloydIterations.
+        // When the limit is reached after completing an iteration, the loop stops
+        // early and the current (partially converged) sites are kept.
+        // A value of 0.0 or less disables the limit (default).
+        void SetTimeLimit(double seconds)
+        {
+            mTimeLimitSeconds = seconds;
+        }
+
         // Enable/disable verbose output
         void SetVerbose(bool verbose)
         {
@@ -775,5 +810,6 @@ namespace gte
         std::vector<PointN> mSites;                              // N-dimensional sites
         Real mConvergenceThreshold;                               // Convergence criterion
         bool mVerbose;                                            // Output progress
+        double mTimeLimitSeconds;                                 // 0 = no limit
     };
 }

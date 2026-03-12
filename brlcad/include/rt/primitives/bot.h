@@ -192,6 +192,7 @@ struct rt_bot_repair_info {
     int strict;
     int auto_remesh;             /**< Post-repair quality check + auto-remesh if quality is poor (default 0 = off) */
     fastf_t remesh_quality_ar;   /**< Aspect ratio threshold for auto-remesh; 0 = use default (3.0) */
+    fastf_t remesh_time_limit;   /**< Wall-clock time limit (seconds) for RemeshCVT Lloyd iterations; 0 = no limit */
 };
 
 /* For now the default upper hole size limit will be 5 percent of the mesh
@@ -214,8 +215,16 @@ struct rt_bot_repair_info {
  * shows >80% of such shapes lose manifold after RemeshCVT.  For these
  * shapes the high AR reflects physical geometry, not a repair defect.
  * Callers should NOT enable auto_remesh by default on production geometry.
+ * remesh_time_limit sets a wall-clock time budget (seconds) for the Lloyd
+ * relaxation loop inside RemeshCVT.  When the budget is exhausted after the
+ * current iteration completes, the loop stops early and the RDT is extracted
+ * from the partially-converged sites.  The result is still a valid remesh —
+ * just with fewer quality improvement iterations.  Set to 0 (default) for no
+ * limit.  A value of 5.0 seconds is a reasonable budget for interactive use.
  */
-#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1, 0, 0.0};
+/* Field order: max_hole_area, max_hole_area_percent, strict,
+ *              auto_remesh, remesh_quality_ar, remesh_time_limit */
+#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1, 0, 0.0, 0.0}
 
 /* Function to attempt repairing a non-manifold BoT.  Returns 1 if ibot was
  * already manifold (obot will contain NULL), 0 if a manifold BoT was created

@@ -815,6 +815,8 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 	    remeshParams.targetVertexCount = nb_pts;
 	    remeshParams.useAnisotropic    = true;
 	    remeshParams.anisotropyScale   = 0.04; // same as BRL-CAD remesh default
+	    if (settings->remesh_time_limit > 0.0)
+		remeshParams.lloydTimeLimit = (double)settings->remesh_time_limit;
 
 	    // Remesh into separate output containers to avoid aliasing
 	    std::vector<gte::Vector3<double>> rm_verts;
@@ -837,6 +839,8 @@ rt_bot_repair(struct rt_bot_internal **obot, struct rt_bot_internal *bot, struct
 		    gte::MeshRemesh<double>::Parameters isoParams;
 		    isoParams.targetVertexCount = nb_pts;
 		    isoParams.useAnisotropic    = false;
+		    if (settings->remesh_time_limit > 0.0)
+			isoParams.lloydTimeLimit = (double)settings->remesh_time_limit;
 		    std::vector<gte::Vector3<double>> iso_verts;
 		    std::vector<std::array<int32_t, 3>> iso_tris;
 		    bool iso_ok = gte::MeshRemesh<double>::RemeshCVT(q_verts, q_tris, iso_verts, iso_tris, isoParams);

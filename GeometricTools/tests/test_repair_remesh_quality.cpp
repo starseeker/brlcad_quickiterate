@@ -18,7 +18,9 @@
 //   Repair rate >= 90%
 //   Post-repair median AR <= 5.0 (the mesh is reasonable)
 //   Post-repair median SJ >= 0.4 (not mostly inverted)
-//   Post-remesh manifold preservation >= 95% (Step 5f fix in SurfaceRVDN ensures this)
+//   Post-remesh manifold preservation >= 95% (SurfaceRVDN Step 5f re-runs
+//     SplitNonManifoldVertices after vertex merge, preventing the merge from
+//     undoing the topology repair that Step 5c performed)
 
 #include <GTE/Mathematics/MeshRepair.h>
 #include <GTE/Mathematics/MeshHoleFilling.h>
@@ -277,7 +279,8 @@ static bool auto_remesh_pass(
     double ar_threshold,
     std::vector<Vector3<double>>& out_verts,
     std::vector<std::array<int32_t, 3>>& out_tris,
-    double& ar_before, double& ar_after)
+    double& ar_before, double& ar_after,
+    double time_limit_sec = 5.0)
 {
     auto qm = compute_quality(in_verts, in_tris);
     ar_before = qm.aspectRatio.median;
@@ -294,6 +297,7 @@ static bool auto_remesh_pass(
     params.targetVertexCount = nb_pts;
     params.useAnisotropic    = true;
     params.anisotropyScale   = 0.04;
+    params.lloydTimeLimit    = time_limit_sec;
 
     out_verts = in_verts; out_tris = in_tris;
     bool remesh_ok = MeshRemesh<double>::RemeshCVT(
@@ -460,8 +464,12 @@ int main(int argc, char* argv[])
     // -----------------------------------------------------------------------
     // Phase 2: Auto-remesh quality pass on shapes with poor AR
     // -----------------------------------------------------------------------
+    // Use a per-shape Lloyd time limit so the full pass completes in
+    // bounded time even when 300+ shapes need remeshing.
+    static const double REMESH_TIME_LIMIT_SECONDS = 5.0; // seconds per shape
+
     std::cout << "\n=== Phase 2: Auto-remesh quality pass (threshold AR > "
-              << AR_THRESHOLD << ") ===\n";
+              << AR_THRESHOLD << ", time limit " << REMESH_TIME_LIMIT_SECONDS << "s/shape) ===\n";
 
     int remesh_attempted = 0;
     int remesh_improved  = 0;
@@ -486,7 +494,8 @@ int main(int argc, char* argv[])
             results[i].verts, results[i].tris,
             AR_THRESHOLD,
             rm_verts, rm_tris,
-            ar_before, ar_after);
+            ar_before, ar_after,
+            REMESH_TIME_LIMIT_SECONDS);
 
         remesh_ar_before.push_back(ar_before);
         remesh_ar_after.push_back(ar_after);
