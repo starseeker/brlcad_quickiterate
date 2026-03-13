@@ -800,6 +800,20 @@ BSG_EXPORT int bsg_snap_grid_2d(bsg_view *v, fastf_t *fx, fastf_t *fy);
 /** @brief Snap a 3D point to the nearest snap line. */
 BSG_EXPORT int bsg_snap_lines_3d(point_t *out_pt, bsg_view *v, point_t *p);
 
+/**
+ * @brief Register a callback for releasing Obol SoNode references.
+ *
+ * libbsg must not link directly against libObol.  Call this once at
+ * application start-up (after SoDB::init) to register a shim that calls
+ * SoNode::unref() so that bsg_node_free() can release scene-graph nodes
+ * stored in bsg_shape::s_obol_node.
+ *
+ * Pass NULL to clear the callback (e.g. before SoDB::finish()).
+ *
+ * @see RADICAL_MIGRATION.md Stage 0
+ */
+BSG_EXPORT void bsg_obol_set_unref(void (*fn)(void *));
+
 __END_DECLS
 
 /** @} */

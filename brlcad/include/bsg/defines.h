@@ -474,6 +474,27 @@ struct bsg_shape  {
      * reaching into higher-level state. */
     struct resource *s_res;
 
+    /* Obol scene-graph node produced by ft_scene_obj callbacks.
+     *
+     * This is the primary bridge to the Obol rendering layer.  When non-NULL
+     * it points to a ref()-counted SoNode* (cast to void* for C compatibility).
+     * C++ code should use bsg_shape_set_obol_node() / bsg_shape_get_obol_node()
+     * from <bsg/obol_node.h> to access this field safely.
+     *
+     * Ownership model:
+     *  - The field holds one reference (ref() called on set, unref() on replace
+     *    or free via s_free_callback).
+     *  - The obol_scene_assemble() call in libged adds a second reference when
+     *    inserting the node into the live scene graph; that reference is managed
+     *    by the SoSeparator parent.
+     *  - NULL means ft_scene_obj has not yet produced an Obol node for this
+     *    shape (vlist fallback or not yet drawn).
+     *
+     * Migration note: this field is populated by ft_scene_obj callbacks in
+     * librt as they migrate from vlist to Obol node output.  See
+     * RADICAL_MIGRATION.md Stage 1 for details. */
+    void *s_obol_node;
+
     void *s_u_data;
 };
 typedef struct bsg_shape bsg_shape;
