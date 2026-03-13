@@ -1559,7 +1559,23 @@ get_subcurves_inside_faces(
 		    ON_Curve *subcurve_on2 = sub_curve(event->m_curveB,
 						       interval_on2.Min(), interval_on2.Max());
 
-		    subcurves_on2.Append(subcurve_on2);
+		    /* Skip curves whose UV midpoint is not strictly inside
+		     * face2's outer loop.  Such curves lie entirely on (or
+		     * outside) the face boundary — they are boundary artefacts
+		     * produced when two planar faces intersect along a shared
+		     * edge.  Including them causes link_curves to chain the
+		     * boundary segment with the true interior cut, which
+		     * produces a combined path that touches the outer loop at
+		     * intermediate points and confuses the IN/OUT classifier
+		     * in split_face_into_loops, ultimately creating a degenerate
+		     * there-and-back ssx_loop that collapses via the coextension
+		     * guard rather than splitting the face correctly. */
+		    ON_2dPoint mid2 = subcurve_on2->PointAt(subcurve_on2->Domain().Mid());
+		    if (!is_point_inside_loop(mid2, face2_loops[0])) {
+			delete subcurve_on2;
+		    } else {
+			subcurves_on2.Append(subcurve_on2);
+		    }
 		} catch (InvalidInterval &e) {
 		    bu_log("%s", e.what());
 		}
@@ -1582,7 +1598,15 @@ get_subcurves_inside_faces(
 		    ON_Curve *subcurve_on1 = sub_curve(event->m_curveA,
 						       interval_on1.Min(), interval_on1.Max());
 
-		    subcurves_on1.Append(subcurve_on1);
+		    /* Same boundary-artefact filter as above, applied to
+		     * face1: skip if the UV midpoint is not strictly inside
+		     * face1's outer loop. */
+		    ON_2dPoint mid1 = subcurve_on1->PointAt(subcurve_on1->Domain().Mid());
+		    if (!is_point_inside_loop(mid1, face1_loops[0])) {
+			delete subcurve_on1;
+		    } else {
+			subcurves_on1.Append(subcurve_on1);
+		    }
 		} catch (InvalidInterval &e) {
 		    bu_log("%s", e.what());
 		}
@@ -3348,6 +3372,30 @@ free_loops(std::vector<ON_SimpleArray<ON_Curve *> > &loops)
 }
 
 
+/* Compute the absolute shoelace area of a closed loop using the segment
+ * endpoints as polygon vertices.  This is O(N), exact for piecewise-linear
+ * loops, and correctly gives zero for "there-and-back" degenerate paths
+ * regardless of domain parameterisation.
+ *
+ * The loop curves live in the face's 2D UV parameter space, so x and y
+ * are the u and v coordinates respectively. */
+static double
+loop_shoelace_area(const ON_SimpleArray<ON_Curve *> &loop)
+{
+    if (loop.Count() < 1)
+	return 0.0;
+    double shoelace = 0.0;
+    ON_3dPoint prev = loop[0]->PointAtStart();
+    for (int si = 0; si < loop.Count(); ++si) {
+	if (!loop[si]) continue;
+	ON_3dPoint curr = loop[si]->PointAtEnd();
+	shoelace += prev.x * curr.y - curr.x * prev.y;
+	prev = curr;
+    }
+    return fabs(shoelace * 0.5);
+}
+
+
 bool
 loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
 {
@@ -3372,20 +3420,7 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
      * ENDPOINTS (start/end of each sub-curve) as polygon vertices.
      * This is exact for piecewise-linear loops and correctly gives zero
      * for there-and-back paths regardless of domain parameterization. */
-    double shoelace = 0.0;
-    {
-	/* Use the start/end points of each curve in the original loop array
-	 * as polygon vertices.  This avoids the parameter-space asymmetry
-	 * problem and is exact for piecewise-linear curves. */
-	ON_3dPoint prev = loop[0]->PointAtStart();
-	for (int si = 0; si < loop.Count(); ++si) {
-	    if (!loop[si]) continue;
-	    ON_3dPoint curr = loop[si]->PointAtEnd();
-	    shoelace += prev.x * curr.y - curr.x * prev.y;
-	    prev = curr;
-	}
-    }
-    double area = fabs(shoelace * 0.5);
+    double area = loop_shoelace_area(loop);
 
     ON_BoundingBox bbox = loop_curve->BoundingBox();
     double bbox_diag = bbox.Diagonal().Length();
@@ -3483,6 +3518,35 @@ split_trimmed_face(
 
 	    for (int k = 0; k < out.Count(); ++k) {
 		LoopBooleanResult intersect_loops, diff_loops;
+
+		/* Coextension guard: when ssx_loops[j] is the complement of a
+		 * there-and-back degenerate loop (ssx_loop[0] had zero area),
+		 * it is geometrically identical to out[k]->m_outerloop.  The
+		 * coextension check inside loop_boolean can fail in this case
+		 * because the SSI sub-curve in ssx_loops[j] is a NURBS curve
+		 * while the matching outer-loop segment is linear;
+		 * ON_Intersect(linear, NURBS) does not produce a ccx_overlap
+		 * event, so the 90%-coverage threshold is not reached.
+		 *
+		 * Detection: if the shoelace area of ssx_loops[j] matches the
+		 * shoelace area of the face outer loop to within 1%, the two
+		 * loops enclose the same region.  For a non-closed SSX curve
+		 * split, ssx_loops arise from the original face, so this
+		 * equality can only occur when ssx_loops[j] is the whole face
+		 * (complement of a zero-area loop).  INTERSECT(face, face) =
+		 * face, so we keep out[k] unchanged. */
+		if (!ssx_curves[i].IsClosed()) {
+		    /* 1% relative tolerance for area matching */
+		    static const double COEXT_AREA_TOL = 0.01;
+		    double face_area = loop_shoelace_area(out[k]->m_outerloop);
+		    double ssx_area  = loop_shoelace_area(ssx_loops[j]);
+		    if (face_area > INTERSECTION_TOL * INTERSECTION_TOL &&
+			fabs(ssx_area - face_area) < face_area * COEXT_AREA_TOL)
+		    {
+			next_out.Append(out[k]->Duplicate());
+			continue;
+		    }
+		}
 
 		// get the portion of the face outerloop inside the
 		// ssx loop
@@ -4695,6 +4759,7 @@ categorize_trimmed_faces(
 	    } catch (AlgorithmError &e) {
 		bu_log("%s", e.what());
 	    }
+
 	    if (face_location < 0) {
 		if (DEBUG_BREP_BOOLEAN) {
 		    bu_log("Whether the trimmed face is inside/outside is unknown.\n");
