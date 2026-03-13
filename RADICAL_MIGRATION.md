@@ -398,6 +398,7 @@ tools (ae, center, zoom, rot commands continue to work via `syncCameraFromBsgVie
 
 **Status (qged):** Complete
 **Status (mged):** Integration in progress — obol_view Tk widget renders BRL-CAD geometry via Obol when BRLCAD_ENABLE_OBOL is set.
+**Status (archer):** Integration in progress — `cadwidgets::Ged` uses `obol_view` widgets when `obol_view` command is available.
 
 **Goal:** Update frontends to use Obol rendering.
 
@@ -446,14 +447,30 @@ mged uses a platform-neutral Tk Obol widget (`obol_view`, implemented in
 `bsg_view` pointer (all panes show the same camera view). Multi-pane independent
 cameras require per-pane `bsg_view` objects — planned for a future PR.
 
-### archer
+### archer — **In Progress**
 
-- archer is a Tcl/Tk application using libtclcad (not Qt-based).
-- `to_refresh_all_views()` in libtclcad now also calls `obol_notify_views`
-  after the dm refresh loop, so once archer creates `obol_view` widgets
-  (analogous to mged's mview.tcl), they will receive redraw notifications.
-- archer `obol_view` integration (ArcherCore.initGed equivalent with
-  `cadwidgets::Ged` display type selection) is planned as a follow-up.
+archer is a Tcl/Tk application using libtclcad.  Obol integration is done via
+the `cadwidgets::Ged` widget, which uses `to_new_view` in libtclcad:
+
+- `archer.c` already calls `obol_init` at startup (before any Tk widgets are
+  created), so SoDB is initialized by the time `cadwidgets::Ged` is constructed.
+- **`to_new_view` in `commands.c`** now recognizes `"obol"` as a virtual display
+  type:
+  - Skips `dm_open` entirely (leaves `new_gdvp->dmp = NULL`).
+  - Registers the `bsg_view` in `ged_views` as usual.
+  - Creates an `obol_view` Tk widget at the view name path via Tcl.
+  - Calls `$path attach $gvp_ptr` to bind the `bsg_view` to the widget.
+- **`to_open_fbs` in `fb.c`** now has a null-DMP guard so it returns `TCL_OK`
+  silently for Obol views (no framebuffer yet — planned as follow-up).
+- **`Ged.tcl` constructor** detects `obol_view` availability and sets
+  `dmType obol` before the four `new_view` calls.  When Obol is not available,
+  the original `dm_list`-based selection is used unchanged.
+- **`ArcherCore.tcl`** transparency-menu guard updated: `mDisplayType == "obol"`
+  is treated equivalently to `"ogl"`/`"wgl"` (allows transparency menu).
+
+The 4-pane layout (ul, ur, ll, lr) now creates independent `bsg_view` objects
+(one per pane) with separate `obol_view` render widgets — multi-pane independent
+cameras are therefore supported in archer.
 
 ### rtwizard
 

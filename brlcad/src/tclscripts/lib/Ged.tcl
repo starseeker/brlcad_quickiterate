@@ -980,6 +980,15 @@ package provide cadwidgets::Ged 1.0
     set dm_list [split [dm_list] ',']
     set dmType [lindex $dm_list 0]
 
+    # Obol path (Stage 6 migration): when obol_view is available (compiled with
+    # BRLCAD_ENABLE_OBOL), use it for all four panes.  obol_init must have been
+    # called before we get here (archer.c calls it from main).  The "obol" type
+    # is handled by to_new_view which creates the bsg_view and the obol_view Tk
+    # widget in one step, bypassing dm_open entirely.
+    if {[info commands obol_view] ne ""} {
+	set dmType obol
+    }
+
     # create four views
     itk_component add ul {
 	new_view [$itk_component(upw) childsite ulp].view $dmType -t 0

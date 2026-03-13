@@ -4457,6 +4457,13 @@ to_new_view(struct ged *gedp,
     if (BU_STR_EQUAL(argv[2], "qt"))
 	type = argv[2];
 
+    /* Obol scene-graph path (Stage 6 migration): "obol" is a virtual
+     * display type handled by the libtclcad obol_view Tk widget rather than
+     * a libdm plugin.  No dm_open is performed; the bsg_view is created with
+     * a NULL dmp and an obol_view Tk widget renders it via obol_scene_assemble. */
+    if (BU_STR_EQUAL(argv[2], "obol"))
+	type = argv[2];
+
     if (!type) {
 	bu_vls_printf(gedp->ged_result_str, "ERROR:  Requisite display manager is not available.\nBRL-CAD may need to be recompiled with support for:  %s\nRun 'fbhelp' for a list of available display managers.\n", argv[2]);
 	return BRLCAD_ERROR;
@@ -4472,7 +4479,9 @@ to_new_view(struct ged *gedp,
     BU_GET(callbacks, struct bu_ptbl);
     bu_ptbl_init(callbacks, 8, "bv callbacks");
 
-    {
+    /* Obol path: skip dm_open — leave dmp=NULL; the obol_view Tk widget
+     * is created below (after the bsg_view is registered in ged_views). */
+    if (!BU_STR_EQUAL(type, "obol")) {
 	int i;
 	int arg_start = 3;
 	int newargs = 0;
@@ -4507,7 +4516,6 @@ to_new_view(struct ged *gedp,
 	}
 
 	bu_free((void *)av, "to_new_view: av");
-
     }
 
     if (new_gdvp != gedp->ged_gvp)
@@ -4541,11 +4549,36 @@ to_new_view(struct ged *gedp,
     tvd->gdv_fbs.fbs_clientData = new_gdvp;
     tvd->gdv_fbs.fbs_interp = current_top->to_interp;
 
-    /* open the framebuffer */
+    /* open the framebuffer (guarded against null dmp for Obol views) */
     to_open_fbs(new_gdvp, current_top->to_interp);
 
-    /* Set default bindings */
+    /* Set default bindings (already guarded against null dmp internally) */
     to_init_default_bindings(new_gdvp);
+
+    /* Obol path: create the obol_view Tk widget at the view name path and
+     * attach the newly-registered bsg_view to it.  The widget handles all
+     * GL rendering; the bsg_view is the authoritative camera/scene state.
+     * obol_init must have been called before new_view is used with type "obol".
+     * The widget auto-detects HW GL (GLX/WGL/NSGL) and falls back to SW
+     * (SoOffscreenRenderer + OSMesa) if no hardware GL context is available. */
+    if (BU_STR_EQUAL(type, "obol")) {
+	bu_vls_printf(&event_vls,
+		"obol_view %s; "
+		"%s attach %p; "
+		"%s size %d %d",
+		argv[name_index],
+		argv[name_index], (void *)new_gdvp,
+		argv[name_index],
+		new_gdvp->gv_width  ? new_gdvp->gv_width  : 512,
+		new_gdvp->gv_height ? new_gdvp->gv_height : 512);
+	if (Tcl_Eval(current_top->to_interp, bu_vls_cstr(&event_vls)) != TCL_OK) {
+	    bu_log("to_new_view: obol_view creation failed: %s\n",
+		   Tcl_GetStringResult(current_top->to_interp));
+	    /* Not a fatal error — the view is still registered; it just won't
+	     * have a render widget.  Callers can detect this via null dmp. */
+	}
+	bu_vls_trunc(&event_vls, 0);
+    }
 
     struct bu_vls *pathname = dm_get_pathname((struct dm *)new_gdvp->dmp);
     if (pathname && bu_vls_strlen(pathname)) {
