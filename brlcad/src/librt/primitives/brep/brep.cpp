@@ -89,6 +89,7 @@ extern "C" {
     int rt_brep_plate_mode(const struct rt_db_internal *ip);
     void rt_brep_plate_mode_getvals(double *pthickness, int *nocos, const struct rt_db_internal *ip);
     int rt_brep_prep_serialize(struct soltab *stp, const struct rt_db_internal *ip, struct bu_external *external, size_t *version);
+    int rt_brep_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *v);
 #ifdef __cplusplus
 }
 #endif
@@ -3062,6 +3063,89 @@ int rt_brep_plot_poly(struct bu_list *vhead, const struct directory *dp, struct 
 	return -1;
     }
     return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* rt_brep_scene_obj — Obol scene object for BREP primitives           */
+/*                                                                      */
+/* Tessellates the BREP via rt_brep_adaptive_plot (or rt_brep_plot for  */
+/* non-adaptive modes) and converts the resulting vlist to an Obol      */
+/* SoNode subtree via the generic vlist-to-Obol shim.                   */
+/*                                                                      */
+/* When Obol is not available, falls back to rt_generic_scene_obj so   */
+/* that the functab entry is always a valid function pointer.           */
+/*                                                                      */
+/* @see RADICAL_MIGRATION.md Stage 1                                    */
+/* ------------------------------------------------------------------ */
+
+#ifdef BRLCAD_ENABLE_OBOL
+/* Bridge to generic_obol.cpp's vlist→SoNode converter */
+extern "C" void rt_generic_vlist_to_obol(bsg_shape *s);
+#endif
+
+extern "C" int rt_generic_scene_obj(bsg_shape *s,
+				struct directory *dp,
+				struct db_i *dbip,
+				const struct bg_tess_tol *ttol,
+				const struct bn_tol *tol,
+				const bsg_view *v);
+
+int
+rt_brep_scene_obj(bsg_shape *s,
+		  struct directory *dp,
+		  struct db_i *dbip,
+		  const struct bg_tess_tol *ttol,
+		  const struct bn_tol *tol,
+		  const bsg_view *v)
+{
+    /* Placeholder path: AABB / OBB handling is the same as generic */
+    if (!s->have_bbox)
+	return rt_generic_scene_obj(s, dp, dbip, ttol, tol, v);
+
+    /* Crack the BREP internal */
+    struct resource *res = s->s_res ? s->s_res : &rt_uniresource;
+    struct rt_db_internal intern;
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
+	return BRLCAD_ERROR;
+    RT_CK_DB_INTERNAL(&intern);
+
+    /* Clear any stale vlist data */
+    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
+
+    int dmode = s->s_os ? s->s_os->s_dmode : 0;
+    int ret = BRLCAD_ERROR;
+
+    switch (dmode) {
+	case 2:
+	case 4:
+	    /* Shaded: tessellate via adaptive plot */
+	    ret = rt_brep_adaptive_plot(&s->s_vlist, &intern, tol, v, s->view_scale);
+	    if (ret != BRLCAD_OK) {
+		s->s_os->s_dmode = 0;
+		ret = rt_brep_plot(&s->s_vlist, &intern, ttol, tol, v);
+	    }
+	    break;
+	case 3:
+	    /* Evaluated wireframe: use adaptive plot (evaluated CSG not
+	     * meaningful for leaf BREPs; wireframe is the best we can do) */
+	    ret = rt_brep_adaptive_plot(&s->s_vlist, &intern, tol, v, s->view_scale);
+	    break;
+	default:
+	    /* Wireframe (dmode 0, 1, 5, ...) */
+	    ret = rt_brep_adaptive_plot(&s->s_vlist, &intern, tol, v, s->view_scale);
+	    break;
+    }
+
+    s->current = 1;
+    rt_db_free_internal(&intern);
+
+    /* Convert the generated vlist to an Obol SoNode */
+#ifdef BRLCAD_ENABLE_OBOL
+    rt_generic_vlist_to_obol(s);
+#endif
+
+    return BRLCAD_OK;
 }
 
 

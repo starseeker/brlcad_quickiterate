@@ -38,7 +38,12 @@
 #include "bu/ptbl.h"
 #include "bu/vls.h"
 
-/* Obol scene-graph nodes */
+/* Obol (Open Inventor) scene-graph nodes.
+ * Suppress -Wfloat-equal from third-party Obol headers (SbVec*, SbBasic) */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/nodes/SoGroup.h>
 #include <Inventor/nodes/SoTransform.h>
@@ -50,6 +55,9 @@
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbVec3f.h>
 #include <Inventor/SbRotation.h>
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 
 #include <unordered_map>
 

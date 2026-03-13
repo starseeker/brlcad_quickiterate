@@ -1748,7 +1748,7 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_KEYPOINT_CAST(rt_bot_keypoint), /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_bot_mat),
 	NULL, /* perturb */
-	NULL   /* scene_obj */
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_bot_scene_obj)
     },
 
     {
@@ -2109,7 +2109,7 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_brep_mat),
 	NULL, /* perturb */
-	NULL   /* scene_obj */
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_brep_scene_obj)
     },
 
     {
