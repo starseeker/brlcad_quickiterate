@@ -2494,15 +2494,8 @@ construct_loops_from_segments(
 	    out.push_back(loop);
 	} else {
 	    // couldn't join to the last segment, discard it
-	    const CurveSegment &unconn = *loop_segs.back();
-	    bu_log("construct_loops_from_segments: found unconnected segment"
-		   " from (%.6g,%.6g) to (%.6g,%.6g) loc=%d"
-		   " (chain len=%zu, remaining=%zu)\n",
-		   unconn.from.pt.x, unconn.from.pt.y,
-		   unconn.to.pt.x,   unconn.to.pt.y,
-		   (int)unconn.location,
-		   loop_segs.size(), segments.size());
 	    segments.erase(loop_segs.back());
+	    bu_log("construct_loops_from_segments: found unconnected segment\n");
 	}
 	loop_segs.clear();
 	visited_points.clear();
@@ -3355,6 +3348,30 @@ free_loops(std::vector<ON_SimpleArray<ON_Curve *> > &loops)
 }
 
 
+/* Compute the absolute shoelace area of a closed loop using the segment
+ * endpoints as polygon vertices.  This is O(N), exact for piecewise-linear
+ * loops, and correctly gives zero for "there-and-back" degenerate paths
+ * regardless of domain parameterisation.
+ *
+ * The loop curves live in the face's 2D UV parameter space, so x and y
+ * are the u and v coordinates respectively. */
+static double
+loop_shoelace_area(const ON_SimpleArray<ON_Curve *> &loop)
+{
+    if (loop.Count() < 1)
+	return 0.0;
+    double shoelace = 0.0;
+    ON_3dPoint prev = loop[0]->PointAtStart();
+    for (int si = 0; si < loop.Count(); ++si) {
+	if (!loop[si]) continue;
+	ON_3dPoint curr = loop[si]->PointAtEnd();
+	shoelace += prev.x * curr.y - curr.x * prev.y;
+	prev = curr;
+    }
+    return fabs(shoelace * 0.5);
+}
+
+
 bool
 loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
 {
@@ -3379,20 +3396,7 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
      * ENDPOINTS (start/end of each sub-curve) as polygon vertices.
      * This is exact for piecewise-linear loops and correctly gives zero
      * for there-and-back paths regardless of domain parameterization. */
-    double shoelace = 0.0;
-    {
-	/* Use the start/end points of each curve in the original loop array
-	 * as polygon vertices.  This avoids the parameter-space asymmetry
-	 * problem and is exact for piecewise-linear curves. */
-	ON_3dPoint prev = loop[0]->PointAtStart();
-	for (int si = 0; si < loop.Count(); ++si) {
-	    if (!loop[si]) continue;
-	    ON_3dPoint curr = loop[si]->PointAtEnd();
-	    shoelace += prev.x * curr.y - curr.x * prev.y;
-	    prev = curr;
-	}
-    }
-    double area = fabs(shoelace * 0.5);
+    double area = loop_shoelace_area(loop);
 
     ON_BoundingBox bbox = loop_curve->BoundingBox();
     double bbox_diag = bbox.Diagonal().Length();
@@ -3466,14 +3470,6 @@ split_trimmed_face(
 	return out;
     }
     delete face_outerloop;
-    bu_log("split_trimmed_face: face outer loop (%d segs):\n",
-	   orig_face->m_outerloop.Count());
-    for (int si = 0; si < orig_face->m_outerloop.Count(); ++si) {
-	if (!orig_face->m_outerloop[si]) continue;
-	ON_2dPoint s = orig_face->m_outerloop[si]->PointAtStart();
-	ON_2dPoint e = orig_face->m_outerloop[si]->PointAtEnd();
-	bu_log("  ol_seg[%d]: (%.4g,%.4g)->(%.4g,%.4g)\n", si, s.x, s.y, e.x, e.y);
-    }
 
     for (int i = 0; i < ssx_curves.Count(); ++i) {
 	std::vector<ON_SimpleArray<ON_Curve *> > ssx_loops;
@@ -3493,21 +3489,40 @@ split_trimmed_face(
 	ON_SimpleArray<TrimmedFace *> next_out;
 	for (size_t j = 0; j < ssx_loops.size(); ++j) {
 	    if (loop_is_degenerate(ssx_loops[j])) {
-		bu_log("split_trimmed_face: ssx_loop[%zu] is degenerate, skipping\n", j);
 		continue;
-	    }
-	    bu_log("split_trimmed_face: processing ssx_loop[%zu] (%d segs)\n",
-		   j, ssx_loops[j].Count());
-	    for (int si = 0; si < ssx_loops[j].Count(); ++si) {
-		if (!ssx_loops[j][si]) { bu_log("  seg[%d]: NULL\n", si); continue; }
-		ON_2dPoint s = ssx_loops[j][si]->PointAtStart();
-		ON_2dPoint e = ssx_loops[j][si]->PointAtEnd();
-		bu_log("  seg[%d]: (%.4g,%.4g)->(%.4g,%.4g)\n", si,
-		       s.x, s.y, e.x, e.y);
 	    }
 
 	    for (int k = 0; k < out.Count(); ++k) {
 		LoopBooleanResult intersect_loops, diff_loops;
+
+		/* Coextension guard: when ssx_loops[j] is the complement of a
+		 * there-and-back degenerate loop (ssx_loop[0] had zero area),
+		 * it is geometrically identical to out[k]->m_outerloop.  The
+		 * coextension check inside loop_boolean can fail in this case
+		 * because the SSI sub-curve in ssx_loops[j] is a NURBS curve
+		 * while the matching outer-loop segment is linear;
+		 * ON_Intersect(linear, NURBS) does not produce a ccx_overlap
+		 * event, so the 90%-coverage threshold is not reached.
+		 *
+		 * Detection: if the shoelace area of ssx_loops[j] matches the
+		 * shoelace area of the face outer loop to within 1%, the two
+		 * loops enclose the same region.  For a non-closed SSX curve
+		 * split, ssx_loops arise from the original face, so this
+		 * equality can only occur when ssx_loops[j] is the whole face
+		 * (complement of a zero-area loop).  INTERSECT(face, face) =
+		 * face, so we keep out[k] unchanged. */
+		if (!ssx_curves[i].IsClosed()) {
+		    /* 1% relative tolerance for area matching */
+		    static const double COEXT_AREA_TOL = 0.01;
+		    double face_area = loop_shoelace_area(out[k]->m_outerloop);
+		    double ssx_area  = loop_shoelace_area(ssx_loops[j]);
+		    if (face_area > INTERSECTION_TOL * INTERSECTION_TOL &&
+			fabs(ssx_area - face_area) < face_area * COEXT_AREA_TOL)
+		    {
+			next_out.Append(out[k]->Duplicate());
+			continue;
+		    }
+		}
 
 		// get the portion of the face outerloop inside the
 		// ssx loop
