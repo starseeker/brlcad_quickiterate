@@ -31,6 +31,7 @@
 #include "QgEdApp.h"
 #ifdef BRLCAD_ENABLE_OBOL
 #  include "QgObolView.h"
+#  include "fbserv.h"
 #endif
 
 QgEdMainWindow::QgEdMainWindow(int canvas_type, int quad_view)
@@ -496,6 +497,22 @@ QgEdMainWindow::do_obol_init()
     av[2] = "mesh";
     av[3] = "1";
     ged_exec_view(gedp, 4, (const char **)av);
+
+    // Stage 7: wire up the embedded-raytracing framebuffer so that ert output
+    // triggers a repaint of the Obol view and the pixels are shown as an
+    // overlay on the 3D scene.
+    if (obol_view_) {
+	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_obol_client_handler;
+	gedp->ged_fbs->fbs_clientData = (void *)obol_view_;
+	obol_view_->setFbServ(gedp->ged_fbs);
+    }
+#  ifdef OBOL_BUILD_DUAL_GL
+    else if (obol_swrast_view_) {
+	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_obol_sw_client_handler;
+	gedp->ged_fbs->fbs_clientData = (void *)obol_swrast_view_;
+	obol_swrast_view_->setFbServ(gedp->ged_fbs);
+    }
+#  endif /* OBOL_BUILD_DUAL_GL */
 
     emit ap->view_update(QG_VIEW_REFRESH);
 }
