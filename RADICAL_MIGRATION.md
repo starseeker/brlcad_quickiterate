@@ -310,48 +310,42 @@ bleed into sibling shapes.  When the global `SoRenderManager` mode is `AS_IS`
 
 ## Stage 4: Camera and View
 
+**Status:** Complete
+
 **Goal:** Replace `bsg_view`'s manual matrix math with Obol's camera system.
 
-### Current camera state (in bsg_view / bview)
+### Implementation
 
-```c
-fastf_t gv_size;         // view volume half-size
-fastf_t gv_scale;        // pixels-per-unit
-point_t gv_center;       // look-at point
-mat_t   gv_rotation;     // eye rotation matrix
-mat_t   gv_model2view;
-mat_t   gv_view2model;
-```
+`QgObolView` provides a bidirectional camera synchronisation bridge:
 
-### Target: SoPerspectiveCamera / SoOrthographicCamera
+**`syncCameraFromBsgView()`** (already in Stage 0) — reads `bsg_view` fields and
+writes them to the Obol `SoPerspectiveCamera`:
+- Eye position: `gv_view2model * {0,0,0}` → `cam->position`
+- Orientation: rows of `gv_rotation` → `cam->orientation` (via `SbRotation`)
+- Focal distance: `gv_size` → `cam->focalDistance`
+- Perspective: `gv_perspective` → `cam->heightAngle`
 
-```cpp
-SoPerspectiveCamera *cam = new SoPerspectiveCamera;
-cam->position.setValue(eye[0], eye[1], eye[2]);
-cam->orientation.setValue(SbRotation(rot4x4));
-cam->focalDistance = gv_size;
-cam->heightAngle = fov_radians;
-```
+**`syncBsgViewFromCamera()`** (Stage 4) — reads the Obol camera and writes back
+to `bsg_view` so all command-line tools stay consistent after interactive navigation:
+- Extracts right/up/look world vectors from `cam->orientation`
+- Rebuilds `gv_rotation` (4×4 with rows = right, up, −look)
+- Computes scene center = `cam->position + look * cam->focalDistance`
+- Rebuilds `gv_center` as `translate(−scene_center)`
+- Sets `gv_size = focalDistance`, `gv_scale = focalDistance / 2`
+- Calls `bsg_view_update()` to recompute derived matrices (model2view, view2model, aet)
+- Clears `gv_progressive_autoview` so drain_background_geom doesn't override the user's navigation
 
-Camera navigation commands (`ae`, `center`, `zoom`, `rot`) update the Obol
-camera directly via `SbRotation`, `SbVec3f`.  The view matrix is then derived
-by `SoGLRenderAction` automatically during the render traversal.
+**Mouse navigation** calls `syncBsgViewFromCamera()` after:
+- `mouseMoveEvent` (orbit / pan) — when any camera-changing button is held
+- `wheelEvent` (zoom) — always
 
-`bsg_view` will keep its numeric fields for backward-compatible command-line
-tools; `QgObolView` syncs from `bsg_view` → Obol camera on each redraw.
+**`viewAll()`** (Stage 4 upgrade):
+- Uses `SoGetBoundingBoxAction` to compute the actual scene bbox
+- Calls `cam->viewAll(scene, vpregion)` for tight fitting
+- Then calls `syncBsgViewFromCamera()` to propagate the fitted view back to `bsg_view`
 
-### viewAll
-
-```cpp
-void QgObolView::viewAll() {
-    viewport_.viewAll();
-    SbBox3f bbox;
-    SoGetBoundingBoxAction ba(SbViewportRegion(width(), height()));
-    ba.apply(viewport_.getSceneGraph());
-    bbox = ba.getBoundingBox();
-    viewport_.getCamera()->viewAll(bbox, SbViewportRegion(width(), height()));
-}
-```
+`bsg_view` retains all its legacy fields for backward-compatible command-line
+tools (ae, center, zoom, rot commands continue to work via `syncCameraFromBsgView()`).
 
 ---
 
