@@ -53,7 +53,19 @@
 #ifdef __cplusplus
 
 #include "bsg/defines.h"
+
+/* Obol (Open Inventor) headers contain float == 0 comparisons in inline
+ * helper functions (SbVec3f, SbVec2f, SbVec4f, SbBasic) that trigger
+ * -Wfloat-equal, which BRL-CAD promotes to -Werror.  Suppress that warning
+ * for the Obol include block only. */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
 #include <Inventor/nodes/SoNode.h>
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 
 /**
  * Attach an Obol SoNode to a bsg_shape, managing reference counts.
