@@ -3043,6 +3043,66 @@ split_face_into_loops(
 	}
     }
 
+    /* Endpoint-pinch fix: if the linked curve's start or end point lies
+     * within INTERSECTION_TOL of an outer-loop segment but was not detected
+     * by ON_Intersect above (e.g. the endpoint is fractionally inside the
+     * face rather than exactly on the boundary), add a synthetic
+     * IntersectPoint so the BOOLE algorithm can use it to partition the face.
+     *
+     * This case arises when a collinear boundary SSI segment is removed by
+     * the midpoint filter in get_subcurves_inside_faces, leaving the
+     * remaining non-boundary segments with endpoints that are approximately
+     * (but not exactly) on the outer loop.  Without this fix,
+     * clx_points.Count() < 2 and the function returns the unmodified original
+     * face (no split). */
+    {
+	const double curve_t_min = linked_curve.Domain().Min();
+	const double curve_t_max = linked_curve.Domain().Max();
+	const ON_3dPoint ep[2] = {
+	    linked_curve.Curve()->PointAtStart(),
+	    linked_curve.Curve()->PointAtEnd()
+	};
+	const double ep_t[2] = { curve_t_min, curve_t_max };
+
+	for (int ep_idx = 0; ep_idx < 2; ep_idx++) {
+	    /* Find the outer-loop segment nearest to this endpoint */
+	    double best_dist = INTERSECTION_TOL;
+	    int best_seg = -1;
+	    double best_seg_t = 0.0;
+	    ON_3dPoint best_pt;
+
+	    for (int i = 0; i < orig_face->m_outerloop.Count(); i++) {
+		ON_ClassArray<ON_PX_EVENT> px;
+		if (!ON_Intersect(ep[ep_idx], *orig_face->m_outerloop[i], px, INTERSECTION_TOL))
+		    continue;
+		for (int k = 0; k < px.Count(); k++) {
+		    double dist = ep[ep_idx].DistanceTo(px[k].m_B);
+		    if (dist < best_dist) {
+			best_dist = dist;
+			best_seg = i;
+			best_seg_t = px[k].m_b.x;
+			best_pt = px[k].m_B;
+		    }
+		}
+	    }
+
+	    if (best_seg >= 0) {
+		if (DEBUG_BREP_BOOLEAN) {
+		    bu_log("endpoint-pinch: ep[%d] at (%g,%g,%g) snapped to outer_loop[%d] at (%g,%g,%g) dist=%g\n",
+			   ep_idx, ep[ep_idx].x, ep[ep_idx].y, ep[ep_idx].z,
+			   best_seg, best_pt.x, best_pt.y, best_pt.z, best_dist);
+		}
+		IntersectPoint tmp_pt;
+		tmp_pt.m_pt = best_pt;
+		tmp_pt.m_seg_t = best_seg_t;
+		tmp_pt.m_curve_t = ep_t[ep_idx];
+		tmp_pt.m_loop_seg = best_seg;
+		clx_points.Append(tmp_pt);
+		intersects_outerloop = true;
+	    }
+	}
+    }
+
     // can't close curves that don't partition the face
     if (!intersects_outerloop || clx_points.Count() < 2) {
 	ON_SimpleArray<ON_Curve *> loop;
