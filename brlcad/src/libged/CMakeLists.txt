@@ -387,7 +387,12 @@ brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_D
 )
 set_target_properties(libged PROPERTIES VERSION 20.0.1 SOVERSION 20)
 if(TARGET Obol::Obol)
+  # Apply BRLCAD_ENABLE_OBOL to both the shared library and the OBJECT library
+  # (if USE_OBJECT_LIBS is on, sources are compiled via libged-obj, not libged).
   target_compile_definitions(libged PRIVATE BRLCAD_ENABLE_OBOL)
+  if(USE_OBJECT_LIBS AND TARGET libged-obj)
+    target_compile_definitions(libged-obj PRIVATE BRLCAD_ENABLE_OBOL)
+  endif()
 endif(TARGET Obol::Obol)
 if (LIBGED_STATIC_CORE)
   target_link_libraries(libged PRIVATE libged_plugin_deps)

@@ -58,6 +58,11 @@
 #include <QActionGroup>
 #include <QCoreApplication>
 
+/* Suppress -Wfloat-equal from third-party Obol/Inventor headers */
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
 #include <Inventor/SoDB.h>
 #include <Inventor/SoViewport.h>
 #include <Inventor/SoRenderManager.h>
@@ -79,6 +84,9 @@
 #include <Inventor/events/SoKeyboardEvent.h>
 #include <Inventor/SoPickedPoint.h>
 #include <Inventor/SoPath.h>
+#if defined(__GNUC__) || defined(__clang__)
+#  pragma GCC diagnostic pop
+#endif
 
 #include <GL/gl.h>
 #include <cmath>
@@ -89,6 +97,17 @@
 #include "obol_scene.h"
 #include "vmath.h"
 #include "bn/mat.h"
+#include "qtcad/QgSignalFlags.h"
+
+/* bsg/defines.h defines UP=0 and DOWN=1 as plain macros which conflict with
+ * SoButtonEvent::UP / SoButtonEvent::DOWN enum values used below.  Undefine
+ * them now that we have finished including BRL-CAD headers. */
+#ifdef UP
+#  undef UP
+#endif
+#ifdef DOWN
+#  undef DOWN
+#endif
 
 // ============================================================================
 // QgObolContextManager
@@ -489,6 +508,18 @@ public:
 
 public slots:
     /**
+     * Called by QgEdApp::view_update signal.  When QG_VIEW_DRAWN is set the
+     * Obol scene is reassembled from the current bsg_shape tree; then the
+     * camera is synced from bsg_view and a repaint is scheduled.
+     */
+    void need_update(unsigned long long flags) {
+	if ((flags & QG_VIEW_DRAWN) && obol_root_ && bsg_v_)
+	    obol_scene_assemble(obol_root_, bsg_v_);
+	syncCameraFromBsgView();
+	update();
+    }
+
+    /**
      * Fit the scene into the view using Obol's bounding-box camera fitting.
      *
      * Stage 4: After fitting, syncBsgViewFromCamera() writes the new camera
@@ -524,6 +555,13 @@ public slots:
 
 signals:
     /**
+     * Emitted once after the first successful initializeGL().  QgEdMainWindow
+     * connects this to do_obol_init() for any post-initialisation setup that
+     * requires a live GL context.
+     */
+    void init_done();
+
+    /**
      * Stage 5: Emitted when the user picks an object in the scene.
      *
      * @p s  The leaf bsg_shape that was hit.  The shape's @c s_path contains
@@ -538,6 +576,10 @@ protected:
     void initializeGL() override {
 	glEnable(GL_DEPTH_TEST);
 	renderMgr_.getGLRenderAction()->setCacheContext(cacheContext_);
+	if (!init_done_emitted_) {
+	    init_done_emitted_ = true;
+	    emit init_done();
+	}
     }
 
 
@@ -701,8 +743,8 @@ private:
 		     scheduleTimerUpdate(); }
 
     void scheduleTimerUpdate() {
-	SbTime t = SoDB::getSensorManager()->getNextTimerInterval();
-	if (t != SbTime::max())
+	SbTime t;
+	if (SoDB::getSensorManager()->isTimerSensorPending(t))
 	    timerTimer_.start((int)(t.getValue() * 1000));
     }
 
@@ -778,6 +820,7 @@ private:
     QPointF          lastMousePos_;
     uint32_t         cacheContext_ = allocCacheContext();
     bsg_shape       *selectedShape_ = nullptr;  /* Stage 5: current selection */
+    bool             init_done_emitted_ = false; /* guard: emit init_done() only once */
 };
 
 #endif /* BRLCAD_ENABLE_OBOL */
