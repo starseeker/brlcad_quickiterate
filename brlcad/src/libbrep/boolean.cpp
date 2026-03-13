@@ -2154,6 +2154,7 @@ get_loop_curve(const ON_SimpleArray<ON_Curve *> &loop)
 {
     ON_PolyCurve *pcurve = new ON_PolyCurve();
     for (int i = 0; i < loop.Count(); ++i) {
+	if (!loop[i]) continue; /* skip NULL placeholders from vertex-endpoint splits */
 	append_to_polycurve(loop[i]->Duplicate(), *pcurve);
     }
     return pcurve;
@@ -3006,6 +3007,31 @@ split_face_into_loops(
 	clx_points[i].m_curve_pos = i;
     }
 
+    /* Deduplicate intersection events that arise when the SSI curve endpoint
+     * coincides with an outer-loop vertex.  ON_Intersect() reports such a
+     * vertex once as end-of-segment[k] and once as start-of-segment[k+1];
+     * both carry the same curve parameter and the same 3-D point.  The
+     * duplicate causes two consecutive same-direction events in the IN/OUT
+     * classifier (the "next" midpoint between them collapses to the vertex
+     * itself, which lies on the boundary, so inside-test returns false for
+     * both) and leads to a zero-length SubCurve call in the loop-pairing
+     * step (which throws "degenerate interval").  Remove the second of each
+     * such pair so that only one event survives per vertex. */
+    {
+	for (int i = clx_points.Count() - 1; i >= 1; i--) {
+	    const IntersectPoint &prev = clx_points[i - 1];
+	    const IntersectPoint &curr = clx_points[i];
+	    if (ON_NearZero(curr.m_curve_t - prev.m_curve_t) &&
+		curr.m_pt.DistanceTo(prev.m_pt) <= INTERSECTION_TOL) {
+		clx_points.Remove(i);
+	    }
+	}
+	/* Re-assign curve_pos after deduplication. */
+	for (int i = 0; i < clx_points.Count(); i++) {
+	    clx_points[i].m_curve_pos = i;
+	}
+    }
+
     // classify intersection points
     ON_SimpleArray<IntersectPoint> new_pts;
     double curve_min_t = linked_curve.Domain().Min();
@@ -3107,7 +3133,15 @@ split_face_into_loops(
 	    }
 	    ipt.m_split_li = outerloop_segs.Count() - 1;
 	}
-	outerloop_segs.Append(remainder);
+	/* Only append remainder if it is non-NULL: a NULL remainder means the
+	 * last intersection point on this segment was exactly at the segment's
+	 * end (a vertex boundary).  Appending NULL would cause a crash at the
+	 * circular-wrap duplication step below, and would corrupt m_split_li
+	 * for any intersection point on the following segment that starts at
+	 * the same vertex. */
+	if (remainder) {
+	    outerloop_segs.Append(remainder);
+	}
     }
 
     // Append the first element at the last to handle some special cases.
@@ -3115,9 +3149,14 @@ split_face_into_loops(
 	clx_points.Append(clx_points[0]);
 	clx_points.Last()->m_loop_seg += orig_face->m_outerloop.Count();
 	for (int i = 0; i <= clx_points[0].m_split_li; i++) {
+	    if (!outerloop_segs[i]) {
+		/* NULL slot left by a segment fully consumed at a vertex; skip. */
+		continue;
+	    }
 	    ON_Curve *dup = outerloop_segs[i]->Duplicate();
 	    if (dup == NULL) {
 		bu_log("ON_Curve::Duplicate() failed.\n");
+		continue;
 	    }
 	    outerloop_segs.Append(dup);
 	}
@@ -3187,6 +3226,14 @@ split_face_into_loops(
 	ON_Curve *seg_on_SSI = linked_curve.SubCurve(t1, t2);
 	if (seg_on_SSI == NULL) {
 	    bu_log("sub_curve() failed.\n");
+	    /* The newloop outer-loop segments were transferred out of
+	     * outerloop_segs (ownership moved to newloop) but we cannot
+	     * form the loop.  Ownership must be returned so the caller can
+	     * still build the remaining outer loop.  The simplest recovery
+	     * is to put them back and skip this pairing. */
+	    for (int j = p.m_split_li + 1; j <= q.m_split_li; j++) {
+		outerloop_segs[j] = newloop[j - (p.m_split_li + 1)];
+	    }
 	    continue;
 	}
 	if (need_reverse) {
