@@ -307,7 +307,7 @@ rt_shaded_plot(bsg_shape *s, struct rt_db_internal *ip, const struct bg_tess_tol
  * Used for solid types that don't have any special modes beyond basic and adaptive
  * plotting
  */
-int
+RT_EXPORT int
 rt_generic_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *v)
 {
     int ret = BRLCAD_ERROR;
@@ -329,10 +329,14 @@ rt_generic_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, cons
      * placeholder behaviour that was previously scattered across draw_scene()
      * in libged.  As the migration toward ft_scene_obj-as-primary-dispatch
      * proceeds, more of the logic currently in draw_scene will move here. */
-    if (!s->have_bbox) {
+    /* Lazy AABB / placeholder handling: only applies in adaptive (v != NULL)
+     * mode where the async pipeline delivers bboxes progressively.  In
+     * non-adaptive mode (v == NULL) we always proceed to crack the internal
+     * and draw immediately, just as the old draw_scene fallback did. */
+    if (v && !s->have_bbox) {
 	s->csg_obj = 1;
 	s->mesh_obj = 0;
-	if (v && s->s_have_obb) {
+	if (s->s_have_obb) {
 	    bsg_shape *vo = bsg_shape_for_view(s, (bsg_view *)v);
 	    if (!vo)
 		vo = bsg_shape_get_view_obj(s, (bsg_view *)v);
