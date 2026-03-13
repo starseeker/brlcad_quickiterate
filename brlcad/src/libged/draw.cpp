@@ -493,18 +493,17 @@ extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
 /* This function is the master controller that decides, based on available settings
  * and data, which specific drawing routines need to be triggered.
  *
- * Session 9 simplification: after the setup phase, dispatch to
- * OBJ[dp->d_minor_type].ft_scene_obj() for all primitive types.  The
- * per-primitive ft_scene_obj implementations (rt_bot_scene_obj,
- * rt_brep_scene_obj, rt_comb_scene_obj, rt_generic_scene_obj) contain all
- * the per-type drawing logic.  One special case remains in draw_scene:
+ * After the setup phase, dispatch to OBJ[dp->d_minor_type].ft_scene_obj() for
+ * all primitive types.  The per-primitive ft_scene_obj implementations
+ * (rt_bot_scene_obj, rt_brep_scene_obj, rt_comb_scene_obj,
+ * rt_generic_scene_obj) contain all the per-type drawing logic — there are
+ * no remaining special cases in draw_scene.
  *
- *   BREP mode 1 + adaptive_plot_mesh: handled by brep_adaptive_plot() for
- *   LoD-managed hidden-line BREP display.  Migration to rt_brep_scene_obj
- *   is deferred to a future session.
- *
- * Mode 3 (evaluated wireframe for combs) is now handled by rt_comb_scene_obj
+ * Mode 3 (evaluated wireframe for combs) is handled by rt_comb_scene_obj
  * → rt_comb_eval_m3() in librt/comb/comb_scene_obj.c.
+ *
+ * BREP mode 1 + adaptive_plot_mesh (LoD-managed hidden-line) is handled by
+ * rt_brep_scene_obj() in librt/primitives/brep/brep.cpp.
  */
 extern "C" void
 draw_scene(bsg_shape *s, bsg_view *v)
@@ -606,20 +605,11 @@ draw_scene(bsg_shape *s, bsg_view *v)
 	}
     }
 
-    /**************************************************************************
-     * Adaptive BREP hidden-line (mode 1) — LoD management not yet migrated
-     * to rt_brep_scene_obj.  Keep as a special case until that migration
-     * is complete.
-     **************************************************************************/
-    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP && v && v->gv_s->adaptive_plot_mesh && s->s_os->s_dmode == 1) {
-	brep_adaptive_plot(s, v);
-	return;
-    }
-
-    /* For non-BREP shapes in the adaptive path, classify as CSG wireframe
+    /* For non-BoT shapes in the adaptive path, pre-classify as CSG wireframe
      * so BViewState::redraw() can queue this shape for retry after the
-     * async AABB pipeline delivers the bbox.  BoT shapes are classified
-     * by rt_bot_scene_obj (mesh_obj=1); everything else is CSG. */
+     * async AABB pipeline delivers the bbox.  BoT and BREP shapes are
+     * reclassified to mesh_obj=1 by their ft_scene_obj implementations
+     * (rt_bot_scene_obj and rt_brep_scene_obj respectively). */
     if (v && dp->d_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
 	s->csg_obj  = 1;
 	s->mesh_obj = 0;
