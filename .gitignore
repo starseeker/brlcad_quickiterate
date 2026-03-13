@@ -41,3 +41,5 @@ CMakeLists.txt.user
 
 
 mged-*-bomb.log
+# gqa volume plot output files
+*.plot3

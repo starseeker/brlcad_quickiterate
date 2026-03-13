@@ -953,48 +953,44 @@ degenerate:
 	data->nucleus = cn;
 	bu_ptbl_rm(data->island_children, (long *)cn);
     } else {
-	// If we get here and we've got more than two shoals, we don't currently
-	// handle it
-	if (BU_PTBL_LEN(data->island_children) != 2) return 0;
-	struct subbrep_shoal_data *s1 = (struct subbrep_shoal_data *)BU_PTBL_GET(data->island_children, 0);
-	struct subbrep_shoal_data *s2 = (struct subbrep_shoal_data *)BU_PTBL_GET(data->island_children, 1);
-	volume_t s1t = (volume_t)s1->params->csg_type;
-	volume_t s2t = (volume_t)s2->params->csg_type;
+	// Shoals have mixed positive/negative status.
+	// For exactly two shoals, try type-specific nucleus selection rules first.
+	if (BU_PTBL_LEN(data->island_children) == 2) {
+	    struct subbrep_shoal_data *s1 = (struct subbrep_shoal_data *)BU_PTBL_GET(data->island_children, 0);
+	    struct subbrep_shoal_data *s2 = (struct subbrep_shoal_data *)BU_PTBL_GET(data->island_children, 1);
+	    volume_t s1t = (volume_t)s1->params->csg_type;
+	    volume_t s2t = (volume_t)s2->params->csg_type;
 
-	// If we've got shoals with different boolean status, then we have
-	// to decide which shape is "inside" the other to make a call.  If
-	// two cylinders the smaller radius is the new nucleus, for
-	// example. cyl/cone is also possible - any others? sph/cyl with
-	// sph as end cap will be degenerate...  Need to give this some
-	// thought, but suspect a general solution isn't possible unless
-	// based on raytracing.  For the time being, use type
-	// specific rules.  Probably need to break this bit out into
-	// separate functions/routines.
+	    // If we've got shoals with different boolean status, then we have
+	    // to decide which shape is "inside" the other to make a call.  If
+	    // two cylinders the smaller radius is the new nucleus, for
+	    // example. cyl/cone is also possible - any others? sph/cyl with
+	    // sph as end cap will be degenerate...  Need to give this some
+	    // thought, but suspect a general solution isn't possible unless
+	    // based on raytracing.  For the time being, use type
+	    // specific rules.  Probably need to break this bit out into
+	    // separate functions/routines.
 
-	if ((s1t == CYLINDER && s2t == CYLINDER)) {
-	    double r1 = s1->params->radius;
-	    double r2 = s2->params->radius;
-	    struct subbrep_shoal_data *smaller = (r1 < r2) ? s1 : s2;
-	    struct subbrep_shoal_data *larger = (r1 > r2) ? s1 : s2;
-	    cn = (larger->params->half_cyl != 1) ? larger : smaller;
-	    subbrep_shoal_free(data->nucleus);
-	    data->nucleus = cn;
-	    bu_ptbl_rm(data->island_children, (long *)cn);
-	    return 1;
+	    if ((s1t == CYLINDER && s2t == CYLINDER)) {
+		double r1 = s1->params->radius;
+		double r2 = s2->params->radius;
+		struct subbrep_shoal_data *smaller = (r1 < r2) ? s1 : s2;
+		struct subbrep_shoal_data *larger = (r1 > r2) ? s1 : s2;
+		cn = (larger->params->half_cyl != 1) ? larger : smaller;
+		subbrep_shoal_free(data->nucleus);
+		data->nucleus = cn;
+		bu_ptbl_rm(data->island_children, (long *)cn);
+		return 1;
+	    }
+
+	    //TODO with sphere and cylinder/cone, might be able to check the normal of the
+	    //implicit face of the sphere against the normal of the cylinder's face that's
+	    //connected with the sphere...
 	}
 
-	//TODO with sphere and cylinder/cone, might be able to check the normal of the
-	//implicit face of the sphere against the normal of the cylinder's face that's
-	//connected with the sphere...
-
-	// Other option is to flag this island's shoals as all top-level
-	// objects.  The subtractions and then the unions will be made
-	// after all other csg logic has been built up.  Bad for locality
-	// but may serve as a fall-back if nucleus resolution doesn't resolve...
-	bu_log("\n\n\nshoals have different negative status - currently unhandled!\n\n\n");
-
-	// Fall back: use the positive shoal as nucleus so we at least get a valid bool_op.
-	// This is a best-effort approximation for unhandled type combinations.
+	// General fallback for any number of mixed-polarity shoals: pick the
+	// positive (union) shoal as the nucleus.  The remaining shoals stay as
+	// island_children and will be combined accordingly.
 	struct subbrep_shoal_data *fallback_nucleus = NULL;
 	for (size_t i = 0; i < BU_PTBL_LEN(data->island_children); i++) {
 	    struct subbrep_shoal_data *si = (struct subbrep_shoal_data *)BU_PTBL_GET(data->island_children, i);
