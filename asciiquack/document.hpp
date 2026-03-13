@@ -155,6 +155,8 @@ public:
     [[nodiscard]] Block*        parent()       const noexcept { return parent_; }
 
     void set_parent(Block* p) noexcept { parent_ = p; }
+    void set_context(BlockContext ctx) noexcept { context_ = ctx; }
+    void set_content_model(ContentModel cm) noexcept { content_model_ = cm; }
 
     /// Node name used by the converter dispatch (e.g. "paragraph", "section").
     [[nodiscard]] virtual std::string node_name() const { return "block"; }

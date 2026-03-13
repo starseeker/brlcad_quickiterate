@@ -11,6 +11,31 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# ── Optimisation: promote Release builds to -O3 when the compiler supports it ─
+#
+# CMake's default CMAKE_CXX_FLAGS_RELEASE is already "-O3 -DNDEBUG" with GCC
+# and Clang, so for those compilers this block is a documented no-op that makes
+# the intent explicit and visible in the build log.  On compilers where Release
+# defaults to a lower level (e.g. MSVC uses /O2) the check silently skips the
+# flag so the build stays valid everywhere.
+#
+# check_cxx_compiler_flag() compiles a small test TU with the candidate flag and
+# sets the result variable to TRUE only when the compilation succeeds without
+# error.  This is the CMake-recommended way to probe optional compiler flags.
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-O3 COMPILER_SUPPORTS_O3)
+if(COMPILER_SUPPORTS_O3)
+    # Apply only to optimised build types to avoid slowing down Debug builds.
+    add_compile_options(
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:RelWithDebInfo>:-O3>
+        $<$<CONFIG:MinSizeRel>:-O3>
+    )
+    message(STATUS "  Optimisation : -O3 supported and enabled for Release builds")
+else()
+    message(STATUS "  Optimisation : -O3 not supported by this compiler; using defaults")
+endif()
+
 # ── Compiler warnings ─────────────────────────────────────────────────────────
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(
@@ -18,10 +43,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
         -Wextra
         -Wpedantic
         -Wshadow
-        -Wnon-virtual-dtor
-        -Wold-style-cast
+        $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
         -Wcast-align
-        -Woverloaded-virtual
+        $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
         -Wconversion
         -Wsign-conversion
         -Wdouble-promotion
@@ -33,94 +58,29 @@ elseif(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
-# ── Regex backend ─────────────────────────────────────────────────────────────
-# Three choices (controlled by CMake options):
+# ── Hand-written parser stack ─────────────────────────────────────────────────
+# block_scanner_hand.c  — single-pass block-line classifier (memchr hot path).
+# attr_list.h / block_scanner_hand.c also provides aq_parse_attr_list().
+# inline_scanner.hpp    — single-pass inline-quote scanner (included directly).
 #
-#   USE_PCRE2=ON  + USE_SYSTEM_PCRE2=ON  (default)
-#       → Use system libpcre2-8 when found   (JIT enabled, fastest ~5×)
-#       → Fall back to embedded vendor subset when not found (~3× faster)
-#
-#   USE_PCRE2=ON  + USE_SYSTEM_PCRE2=OFF
-#       → Force embedded PCRE2 subset (no JIT, no external dep)
-#
-#   USE_PCRE2=OFF
-#       → std::regex (no PCRE2 at all, slowest)
-#
-# RE2 is not provided as a backend; existing patterns use backreferences and
-# lookaheads that RE2 intentionally omits.
+# No external tools (re2c, lemon) or libraries (PCRE2, std::regex) are needed.
+# The only runtime dependency is the C standard library (memchr, memcmp, etc.).
 
-option(USE_PCRE2        "Use PCRE2 regex backend (faster than std::regex)"   ON)
-option(USE_SYSTEM_PCRE2 "Prefer system libpcre2-8 over embedded vendor copy" ON)
-
-set(AQREGEX_DEFS "")
-set(AQREGEX_LIBS "")
-set(AQREGEX_INCS "")
-set(AQREGEX_SRCS "")
-
-if(USE_PCRE2)
-    set(_pcre2_system_found FALSE)
-
-    if(USE_SYSTEM_PCRE2)
-        find_package(PkgConfig QUIET)
-        if(PKG_CONFIG_FOUND)
-            pkg_check_modules(PCRE2 QUIET libpcre2-8)
-        endif()
-        if(NOT PCRE2_FOUND)
-            find_library(PCRE2_LIBRARIES NAMES pcre2-8)
-            find_path(PCRE2_INCLUDE_DIRS NAMES pcre2.h)
-            if(PCRE2_LIBRARIES AND PCRE2_INCLUDE_DIRS)
-                set(PCRE2_FOUND TRUE)
-            endif()
-        endif()
-        if(PCRE2_FOUND)
-            set(_pcre2_system_found TRUE)
-        endif()
-    endif()
-
-    if(_pcre2_system_found)
-        # ── System PCRE2: JIT-enabled, fastest ───────────────────────────────
-        list(APPEND AQREGEX_DEFS AQREGEX_USE_PCRE2 AQREGEX_PCRE2_SYSTEM)
-        list(APPEND AQREGEX_LIBS ${PCRE2_LIBRARIES})
-        list(APPEND AQREGEX_INCS ${PCRE2_INCLUDE_DIRS})
-        message(STATUS "  Regex backend: system PCRE2 ${PCRE2_VERSION} (JIT enabled, ~5× vs std::regex)")
-    else()
-        # ── Embedded PCRE2 amalgamation: no JIT, no external dependency ───────
-        # A single translation unit instantiates all of the PCRE2 implementation.
-        # The header vendor/pcre2_embed.h provides the public API to every TU;
-        # vendor/pcre2_impl.c defines PCRE2_EMBED_IMPLEMENTATION and includes it.
-        list(APPEND AQREGEX_DEFS AQREGEX_USE_PCRE2)
-        list(APPEND AQREGEX_SRCS "${CMAKE_SOURCE_DIR}/vendor/pcre2_impl.c")
-        list(APPEND AQREGEX_INCS "${CMAKE_SOURCE_DIR}/vendor")
-        if(USE_SYSTEM_PCRE2)
-            message(STATUS "  Regex backend: embedded PCRE2 10.42 (system library not found; no JIT, ~3× vs std::regex)")
-        else()
-            message(STATUS "  Regex backend: embedded PCRE2 10.42 (USE_SYSTEM_PCRE2=OFF; no JIT, ~3× vs std::regex)")
-        endif()
-    endif()
-else()
-    message(STATUS "  Regex backend: std::regex (USE_PCRE2=OFF)")
-endif()
-
-# ── Helper: apply regex settings to a target ─────────────────────────────────
-function(aqregex_configure target)
-    if(AQREGEX_DEFS)
-        target_compile_definitions(${target} PRIVATE ${AQREGEX_DEFS})
-    endif()
-    if(AQREGEX_LIBS)
-        target_link_libraries(${target} PRIVATE ${AQREGEX_LIBS})
-    endif()
-    if(AQREGEX_INCS)
-        target_include_directories(${target} PRIVATE ${AQREGEX_INCS})
-    endif()
-    if(AQREGEX_SRCS)
-        target_sources(${target} PRIVATE ${AQREGEX_SRCS})
-        # Suppress warnings from vendored C code; the amalgamation header
-        # handles PCRE2_CODE_UNIT_WIDTH and PCRE2_STATIC internally.
-        set_source_files_properties(${AQREGEX_SRCS}
-            TARGET_DIRECTORY ${target}
-            PROPERTIES COMPILE_FLAGS "-w")
-    endif()
+set(AQSCANNER_SRCS
+    "${CMAKE_SOURCE_DIR}/block_scanner_hand.c"
+)
+function(aqscanner_configure target)
+    target_sources(${target} PRIVATE ${AQSCANNER_SRCS})
+    target_compile_definitions(${target} PRIVATE
+        ASCIIQUACK_USE_SCANNER
+        ASCIIQUACK_SCANNER_PARSER
+        ASCIIQUACK_USE_INLINE_SCANNER
+        ASCIIQUACK_HAND_BLOCK_SCANNER
+    )
 endfunction()
+
+message(STATUS "  Parser stack: hand-written (block_scanner_hand.c + inline_scanner.hpp)")
+message(STATUS "                no PCRE2, re2c, or lemon required")
 
 # ── Syntax highlighting via µlight ────────────────────────────────────────────
 # µlight (vendor/ulight/) requires C++23 to build; the project itself stays at
@@ -237,7 +197,7 @@ target_include_directories(asciiquack PRIVATE ${CMAKE_SOURCE_DIR}/vendor)
 target_compile_definitions(asciiquack PRIVATE
     ASCIIQUACK_NOTO_FONTS_DIR="${CMAKE_SOURCE_DIR}/fonts"
 )
-aqregex_configure(asciiquack)
+aqscanner_configure(asciiquack)
 ulight_configure(asciiquack)
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
@@ -258,7 +218,7 @@ if(BUILD_TESTS)
         ASCIIQUACK_NOTO_FONTS_DIR="${CMAKE_SOURCE_DIR}/fonts"
         CMAKE_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     )
-    aqregex_configure(asciiquack_tests)
+    aqscanner_configure(asciiquack_tests)
     ulight_configure(asciiquack_tests)
 
     add_test(NAME asciiquack_tests COMMAND asciiquack_tests)
@@ -276,7 +236,7 @@ if(BUILD_BENCHMARK)
     )
     target_include_directories(bench_asciiquack PRIVATE ${CMAKE_SOURCE_DIR})
 	 target_include_directories(bench_asciiquack PRIVATE ${CMAKE_SOURCE_DIR}/vendor)
-    aqregex_configure(bench_asciiquack)
+    aqscanner_configure(bench_asciiquack)
     ulight_configure(bench_asciiquack)
 endif()
 
@@ -290,6 +250,7 @@ message(STATUS "asciiquack ${PROJECT_VERSION}")
 message(STATUS "  Build type   : ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ standard : C++${CMAKE_CXX_STANDARD}")
 message(STATUS "  Compiler     : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "  -O3 enabled  : ${COMPILER_SUPPORTS_O3}")
 message(STATUS "  Tests        : ${BUILD_TESTS}")
 message(STATUS "  Benchmark    : ${BUILD_BENCHMARK}")
 message(STATUS "")
