@@ -103,7 +103,7 @@ QgEdApp ─── QgEdMainWindow ─── QgObolView (QOpenGLWidget)
 
 ## Stage 0: Foundation — Obol in the Build System
 
-**Status:** In progress (current stage)
+**Status:** Complete
 
 **Goal:** Get Obol linked into BRL-CAD and establish the bridging points.
 
@@ -148,6 +148,8 @@ QgEdApp ─── QgEdMainWindow ─── QgObolView (QOpenGLWidget)
 ---
 
 ## Stage 1: Primitive Nodes — `ft_scene_obj` → SoNode
+
+**Status:** Complete
 
 **Goal:** Migrate each primitive's `ft_scene_obj` to build and cache an Obol
 `SoNode` subtree instead of (or alongside) a vlist.
@@ -215,6 +217,8 @@ falling back to an AABB wireframe if neither is available.
 ---
 
 ## Stage 2: Scene Hierarchy
+
+**Status:** Complete
 
 **Goal:** Express BRL-CAD's comb-tree hierarchy directly as an Obol scene.
 

@@ -62,16 +62,14 @@
 #include <unordered_map>
 
 /* --------------------------------------------------------------------------
- * Module-level shape → Obol subtree cache
- *
- * Maps each bsg_shape pointer to the SoSeparator that wraps its geometry
- * child in the Obol scene.  When obol_scene_assemble() runs again after an
- * update, it can find the existing subtree and update its children in-place
- * rather than recreating the whole tree.
- *
- * Note: bsg_shape pointers are only used as keys here; we never dereference
- * a stale key.  The cache is invalidated (entry removed) when a shape's
- * s_changed flag is set or when the shape is explicitly erased.
+ * Module-level shape → Obol subtree caches                               *
+ *                                                                          *
+ * shape_sep_map:  bsg_shape (leaf)  → SoSeparator wrapping its geometry  *
+ * group_sep_map:  bsg_shape (group) → SoSeparator wrapping its children  *
+ *                                                                          *
+ * Both caches are keyed by pointer value only; we never dereference a     *
+ * stale entry.  Entries are invalidated (removed) when s_changed is set   *
+ * or when a shape is explicitly erased (obol_scene_clear clears both).    *
  * -------------------------------------------------------------------------- */
 static std::unordered_map<bsg_shape *, SoSeparator *> &
 shape_sep_map()
@@ -79,6 +77,19 @@ shape_sep_map()
     static std::unordered_map<bsg_shape *, SoSeparator *> m;
     return m;
 }
+
+static std::unordered_map<bsg_shape *, SoSeparator *> &
+group_sep_map()
+{
+    static std::unordered_map<bsg_shape *, SoSeparator *> m;
+    return m;
+}
+
+/* Phong material defaults for leaf shapes.
+ * Ambient is derived from the diffuse color (ambient = diffuse * factor). */
+static constexpr float OBOL_MAT_AMBIENT_FACTOR = 0.3f;
+static constexpr float OBOL_MAT_SPECULAR_VALUE  = 0.4f;
+static constexpr float OBOL_MAT_SHININESS       = 0.5f;
 
 
 /* --------------------------------------------------------------------------
@@ -157,18 +168,23 @@ obol_scene_clear(SoSeparator *scene_root)
 	scene_root->removeChild(scene_root->getNumChildren() - 1);
 
     shape_sep_map().clear();
+    group_sep_map().clear();
 }
 
 
 /* --------------------------------------------------------------------------
  * obol_scene_update_shape
  *
- * Ensure the Obol subtree for a single bsg_shape is current.  Called from
- * obol_scene_assemble() for each leaf shape.
+ * Ensure the Obol subtree for a single bsg_shape leaf is current.  The leaf
+ * separator is added as a child of @p parent_sep rather than the scene root,
+ * so it appears nested under its group's SoSeparator.
+ *
+ * Visibility: each leaf is wrapped in a SoSwitch so that objects with
+ * s_flag == DOWN are hidden without removing them from the cache.
  * -------------------------------------------------------------------------- */
 
 static void
-obol_scene_update_shape(SoSeparator *scene_root, bsg_shape *s)
+obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
 {
     if (!s || !s->s_obol_node)
 	return;   /* no Obol node yet — vlist fallback or not drawn */
@@ -181,70 +197,174 @@ obol_scene_update_shape(SoSeparator *scene_root, bsg_shape *s)
     auto it = m.find(s);
     if (it != m.end()) {
 	shape_sep = it->second;
-	/* Check if a full rebuild is needed (s_changed) */
 	if (!s->s_changed) {
-	    /* The geometry node is always the last child; update it if changed. */
+	    /* Incremental update: just swap geometry node if it changed. */
+	    /* The geometry node is always the last child of shape_sep (layout:
+	     * SoTransform, SoMaterial, geometry).  The shape_sep itself is the
+	     * single child of a SoSwitch that is a child of parent_sep. */
 	    int nc = shape_sep->getNumChildren();
 	    if (nc > 0) {
 		SoNode *old_geom = shape_sep->getChild(nc - 1);
-		if (old_geom != geom_node) {
+		if (old_geom != geom_node)
 		    shape_sep->replaceChild(old_geom, geom_node);
-		}
 	    }
 	    return;
 	}
-	/* Full rebuild: remove old and recreate */
-	scene_root->removeChild(shape_sep);
+	/* Full rebuild needed: remove old separator from parent */
+	/* The separator's parent is the SoSwitch; remove the whole switch */
+	for (int ci = parent_sep->getNumChildren() - 1; ci >= 0; ci--) {
+	    SoNode *cn = parent_sep->getChild(ci);
+	    if (cn->isOfType(SoSwitch::getClassTypeId())) {
+		SoSwitch *sw = static_cast<SoSwitch *>(cn);
+		if (sw->getNumChildren() > 0 && sw->getChild(0) == shape_sep) {
+		    parent_sep->removeChild(ci);
+		    break;
+		}
+	    }
+	}
 	shape_sep->unref();
 	m.erase(it);
 	shape_sep = nullptr;
     }
 
-    /* Build a new SoSeparator for this shape:
-     *   SoSeparator (shape_sep)
-     *     SoTransform     — from s->s_mat
-     *     SoBaseColor     — from s->s_os->s_color (always added)
-     *     <s_obol_node>   — geometry from ft_scene_obj (always last child)
-     *
-     * SoBaseColor is always added (even if s_os is NULL) to maintain a
-     * consistent child layout where the geometry node is always the last
-     * child regardless of material availability.
-     */
+    /* ------------------------------------------------------------------ *
+     * Build a new SoSwitch + SoSeparator pair for this leaf:             *
+     *                                                                      *
+     *   SoSwitch  (whichChild = SO_SWITCH_ALL or SO_SWITCH_NONE)         *
+     *     SoSeparator (shape_sep)                                         *
+     *       SoTransform   — from s->s_mat                                *
+     *       SoMaterial    — from s->s_os->s_color (Phong diffuse)        *
+     *       <s_obol_node> — geometry from ft_scene_obj (always last)     *
+     * ------------------------------------------------------------------ */
+    SoSwitch *sw = new SoSwitch;
+    sw->whichChild = (s->s_flag == DOWN) ? SO_SWITCH_NONE : SO_SWITCH_ALL;
+
     shape_sep = new SoSeparator;
     shape_sep->ref();
 
-    /* 1. Transform from cumulative matrix */
+    /* 1. Transform */
     SoTransform *xf = obol_mat_to_transform(s->s_mat);
     shape_sep->addChild(xf);
-    xf->unref();  /* shape_sep now owns the reference */
+    xf->unref();
 
-    /* 2. Color from s_os->s_color (RGB 0-255) — always added */
+    /* 2. Material (Phong diffuse from s_os color; SoBaseColor is flat-shaded,
+     *    SoMaterial supports full lighting model including specular). */
     {
-	SoBaseColor *col = new SoBaseColor;
+	SoMaterial *mat = new SoMaterial;
 	if (s->s_os) {
-	    col->rgb.setValue(s->s_os->color[0] / 255.0f,
-			     s->s_os->color[1] / 255.0f,
-			     s->s_os->color[2] / 255.0f);
+	    float r = s->s_os->color[0] / 255.0f;
+	    float g = s->s_os->color[1] / 255.0f;
+	    float b = s->s_os->color[2] / 255.0f;
+	    mat->diffuseColor.setValue(r, g, b);
+	    mat->ambientColor.setValue(r * OBOL_MAT_AMBIENT_FACTOR,
+				       g * OBOL_MAT_AMBIENT_FACTOR,
+				       b * OBOL_MAT_AMBIENT_FACTOR);
+	    mat->specularColor.setValue(OBOL_MAT_SPECULAR_VALUE,
+					OBOL_MAT_SPECULAR_VALUE,
+					OBOL_MAT_SPECULAR_VALUE);
+	    mat->shininess = OBOL_MAT_SHININESS;
 	} else {
-	    col->rgb.setValue(1.0f, 0.0f, 0.0f);   /* fallback: red */
+	    mat->diffuseColor.setValue(1.0f, 0.0f, 0.0f);  /* fallback: red */
+	    mat->ambientColor.setValue(OBOL_MAT_AMBIENT_FACTOR, 0.0f, 0.0f);
 	}
-	shape_sep->addChild(col);
+	shape_sep->addChild(mat);
     }
 
-    /* 3. Geometry node from ft_scene_obj (last child) */
+    /* 3. Geometry node (last child) */
     shape_sep->addChild(geom_node);
 
-    /* Register and attach */
-    m[s] = shape_sep;
-    scene_root->addChild(shape_sep);
+    sw->addChild(shape_sep);
+    parent_sep->addChild(sw);
 
-    /* Clear the changed flag */
+    m[s] = shape_sep;
     s->s_changed = 0;
 }
 
 
 /* --------------------------------------------------------------------------
+ * obol_scene_update_group
+ *
+ * Ensure an Obol SoSeparator exists for a group bsg_shape (a top-level draw-
+ * call container with children).  Returns the group's SoSeparator so that
+ * callers can add leaf children under it.
+ *
+ * Structure:
+ *   SoSwitch  (whichChild = SO_SWITCH_ALL or SO_SWITCH_NONE per s_flag)
+ *     SoSeparator (group_sep)
+ *       SoBaseColor  — group-level inherited color from s_os
+ *       [leaf SoSwitch / SoSeparator children added by caller]
+ *
+ * Visibility: the SoSwitch honours s_flag == DOWN to hide the whole group.
+ *
+ * Material inheritance: SoBaseColor is used at the group level so that leaves
+ * which do not override color inherit it via the Open Inventor state stack
+ * (SoSeparator saves/restores state, so per-leaf SoMaterial overrides do not
+ * bleed into siblings).
+ * -------------------------------------------------------------------------- */
+
+static SoSeparator *
+obol_scene_update_group(SoSeparator *scene_root, bsg_shape *g)
+{
+    auto &gm = group_sep_map();
+    auto git = gm.find(g);
+    if (git != gm.end()) {
+	/* Group separator already exists; return it for incremental updates.
+	 * Per-child updates are handled by obol_scene_update_shape above. */
+	return git->second;
+    }
+
+    /* New group: build SoSwitch + SoSeparator */
+    SoSwitch *sw = new SoSwitch;
+    sw->whichChild = (g->s_flag == DOWN) ? SO_SWITCH_NONE : SO_SWITCH_ALL;
+
+    SoSeparator *group_sep = new SoSeparator;
+    group_sep->ref();
+
+    /* Group-level color for material inheritance */
+    if (g->s_os) {
+	SoBaseColor *col = new SoBaseColor;
+	col->rgb.setValue(g->s_os->color[0] / 255.0f,
+			  g->s_os->color[1] / 255.0f,
+			  g->s_os->color[2] / 255.0f);
+	group_sep->addChild(col);
+    }
+
+    sw->addChild(group_sep);
+    scene_root->addChild(sw);
+
+    gm[g] = group_sep;
+    return group_sep;
+}
+
+
+/* --------------------------------------------------------------------------
  * obol_scene_assemble
+ *
+ * Stage 2: build a hierarchical Obol scene from the bsg_shape tree.
+ *
+ * Hierarchy mapping (per RADICAL_MIGRATION.md Stage 2):
+ *
+ *   scene_root SoSeparator          ← created by obol_scene_create()
+ *     SoDirectionalLight            ← added by obol_scene_create()
+ *     SoSwitch (group visibility)
+ *       SoSeparator (group)         ← one per top-level draw-call container
+ *         SoBaseColor               ← group-level inherited color
+ *         SoSwitch (leaf vis)
+ *           SoSeparator (leaf)      ← one per leaf solid
+ *             SoTransform           ← from s->s_mat
+ *             SoMaterial            ← per-leaf Phong material
+ *             <s_obol_node>         ← geometry from ft_scene_obj
+ *         SoSwitch (leaf vis)
+ *           ...
+ *     SoSwitch (group visibility)
+ *       SoSeparator (group)
+ *         ...
+ *
+ * Shapes that have no children are treated as standalone leaves and added
+ * directly under the scene root (not under a group SoSeparator).
+ *
+ * The function is incremental: shapes that have not changed (s_changed == 0
+ * and already in the cache) are skipped.
  * -------------------------------------------------------------------------- */
 
 void
@@ -257,27 +377,27 @@ obol_scene_assemble(SoSeparator *scene_root, bsg_view *v)
     if (!view_root)
 	return;
 
-    /* Walk the flat list of shapes in the view root's children table. */
     for (size_t i = 0; i < BU_PTBL_LEN(&view_root->children); i++) {
 	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&view_root->children, i);
 	if (!s)
 	    continue;
 
-	/* Container nodes (combs with children): iterate into their leaf
-	 * shapes.  Containers do not carry their own s_obol_node in the
-	 * current flat-list architecture (Stage 1 of RADICAL_MIGRATION.md).
-	 * In Stage 2 these will become proper SoSeparator hierarchy nodes,
-	 * but for now we skip the container itself and process only its
-	 * leaf descendants directly into the flat scene root. */
 	if (BU_PTBL_LEN(&s->children) > 0) {
+	    /* ------------------------------------------------------------ *
+	     * Container node: one SoSeparator (via SoSwitch) per group,    *
+	     * with each leaf child nested inside it.                        *
+	     * ------------------------------------------------------------ */
+	    SoSeparator *group_sep = obol_scene_update_group(scene_root, s);
 	    for (size_t ci = 0; ci < BU_PTBL_LEN(&s->children); ci++) {
 		bsg_shape *child = (bsg_shape *)BU_PTBL_GET(&s->children, ci);
-		obol_scene_update_shape(scene_root, child);
+		obol_scene_update_shape(group_sep, child);
 	    }
-	    continue;
+	} else {
+	    /* ------------------------------------------------------------ *
+	     * Standalone leaf (no parent container): add directly to root. *
+	     * ------------------------------------------------------------ */
+	    obol_scene_update_shape(scene_root, s);
 	}
-
-	obol_scene_update_shape(scene_root, s);
     }
 }
 

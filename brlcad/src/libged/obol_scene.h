@@ -32,18 +32,26 @@
  *   1. libged draw command → draw_gather_paths() + draw_scene()
  *      → ft_scene_obj() populates bsg_shape::s_obol_node (SoNode*)
  *
- *   2. obol_scene_assemble() walks the bsg_shape tree and builds:
+ *   2. obol_scene_assemble() walks the bsg_shape tree and builds a hierarchy:
+ *
  *        root SoSeparator
  *          SoDirectionalLight
- *          SoPerspectiveCamera (if not already present)
- *          per-shape SoSeparator
- *            SoTransform    (from bsg_shape::s_mat)
- *            SoMaterial     (from bsg_shape::s_os->s_color)
- *            <s_obol_node>  (geometry node from ft_scene_obj)
+ *          SoSwitch (group visibility, per s_flag)
+ *            SoSeparator (group — one per top-level draw-call container)
+ *              SoBaseColor       (group-level inherited color)
+ *              SoSwitch (leaf visibility)
+ *                SoSeparator (leaf)
+ *                  SoTransform   (from bsg_shape::s_mat)
+ *                  SoMaterial    (per-leaf Phong material)
+ *                  <s_obol_node> (geometry node from ft_scene_obj)
+ *              ...
+ *          SoSwitch (standalone leaf visibility)
+ *            SoSeparator (standalone leaf)
+ *              ...
  *
  *   3. QgObolView::setSceneGraph(root) → SoViewport/SoRenderManager renders
  *
- * @see RADICAL_MIGRATION.md Stage 0 and Stage 2
+ * @see RADICAL_MIGRATION.md Stage 2
  */
 
 #pragma once
@@ -70,18 +78,30 @@ SoSeparator *obol_scene_create(void);
 /**
  * Assemble / update the Obol scene from the bsg_shape tree for @p v.
  *
- * Walks bsg_shape objects in @p v's scene root and for each shape with a
- * non-NULL s_obol_node, ensures a corresponding child SoSeparator exists in
- * @p scene_root with the correct SoTransform (from s->s_mat) and the shape's
- * node as the geometry child.
+ * Stage 2 hierarchical scene assembly (RADICAL_MIGRATION.md §Stage 2):
  *
- * Shapes whose s_obol_node is NULL (ft_scene_obj has not yet run, or the
- * shape has a vlist-only fallback) are skipped; they will be picked up on
- * the next call once the draw pipeline delivers their node.
+ * Walks the bsg_shape tree under @p v's scene root.  For each top-level
+ * container shape (a draw-call group with children) a dedicated SoSeparator
+ * group node is created or reused.  Each leaf solid inside the group is
+ * nested under the group's SoSeparator with its own SoTransform and
+ * SoMaterial, reflecting the hierarchy:
  *
- * This function is safe to call on every view_changed event; it is designed
- * to be incremental — only shapes whose s_changed flag is set (or whose
- * corresponding SoSeparator child does not yet exist) are updated.
+ *   scene_root → [SoSwitch → SoSeparator(group) → [SoSwitch → SoSeparator(leaf)]]
+ *
+ * Visibility: each group and each leaf is wrapped in a SoSwitch node whose
+ * @c whichChild is set to SO_SWITCH_ALL (visible) or SO_SWITCH_NONE (hidden)
+ * based on the shape's @c s_flag field (UP = visible, DOWN = hidden).
+ *
+ * Material inheritance: a SoBaseColor is emitted at the group level so that
+ * descendant leaves that do not override color inherit it through the Obol
+ * traversal state stack.
+ *
+ * Shapes whose @c s_obol_node is NULL (ft_scene_obj has not yet run, or the
+ * shape has a vlist-only fallback) are silently skipped.  They will be
+ * included on the next call once the draw pipeline delivers their node.
+ *
+ * Incremental: only shapes whose @c s_changed flag is set (or which have no
+ * corresponding SoSeparator in the cache yet) are rebuilt.
  *
  * @param scene_root  Root SoSeparator returned by obol_scene_create().
  * @param v           View whose scene root (bsg_scene_root_get()) is walked.
