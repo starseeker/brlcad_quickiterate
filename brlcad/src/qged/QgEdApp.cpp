@@ -276,7 +276,7 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
      * those assignment */
     struct ged *gedp = mdl->gedp;
 
-    // Let GED know to use the QgQuadView view as its current view
+    // Let GED know to use the primary view as its current view
     gedp->ged_gvp = w->CurrentView();
 
     // Set up the connections needed for embedded raytracing
@@ -287,15 +287,20 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 
     // Unfortunately, there are technical differences involved with
     // the embedded fb mechanisms depending on whether we are using
-    // the system native OpenGL or our fallback software rasterizer
-    int type = w->CurrentDisplay()->view_type();
+    // the system native OpenGL or our fallback software rasterizer.
+    // When using the Obol path, CurrentDisplay() returns nullptr; skip
+    // libdm-specific fb setup in that case.
+    {
+	QgView *disp = w->CurrentDisplay();
+	int type = disp ? disp->view_type() : 0;
 #ifdef BRLCAD_OPENGL
-    if (type == QgView_GL) {
-	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_client_handler;
-    }
+	if (type == QgView_GL) {
+	    gedp->ged_fbs->fbs_open_client_handler = &qdm_open_client_handler;
+	}
 #endif
-    if (type == QgView_SW) {
-	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_sw_client_handler;
+	if (type == QgView_SW) {
+	    gedp->ged_fbs->fbs_open_client_handler = &qdm_open_sw_client_handler;
+	}
     }
     gedp->ged_fbs->fbs_close_client_handler = &qdm_close_client_handler;
 
@@ -897,6 +902,9 @@ QgEdApp::element_selected(QgToolPaletteElement *el)
     }
 
     QgView *curr_view = w->CurrentDisplay();
+
+    if (!curr_view)
+	return;   /* Obol path: no QgView event-filter management */
 
     if (curr_view->curr_event_filter) {
 	curr_view->clear_event_filter(curr_view->curr_event_filter);
