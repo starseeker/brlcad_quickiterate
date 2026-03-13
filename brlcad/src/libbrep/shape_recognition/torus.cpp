@@ -19,7 +19,7 @@
  */
 /** @file torus.cpp
  *
- * Brief description
+ * Torus shape recognition and CSG conversion routines.
  *
  */
 
@@ -33,169 +33,102 @@
 #include "bu/malloc.h"
 #include "shape_recognition.h"
 
+
 int
-subbrep_is_torus(struct subbrep_object_data *data, fastf_t torus_tol)
+tor_validate_face(const ON_BrepFace *forig, const ON_BrepFace *fcand)
 {
-    std::set<int>::iterator f_it;
-    std::set<int> toridal_surfaces;
-    // First, check surfaces.  If a surface is anything other than a sphere,
-    // the verdict is no.
-    for (int i = 0; i < data->faces_cnt; i++) {
-	int f_ind = data->faces[i];
-        int surface_type = (int)GetSurfaceType(data->brep->m_F[f_ind].SurfaceOf(), NULL);
-        switch (surface_type) {
-            case SURFACE_TORUS:
-                toridal_surfaces.insert(f_ind);
-                break;
-            default:
-                return 0;
-                break;
-        }
-    }
+    ON_Torus torig, tcand;
+    ON_Surface *ssorig = forig->SurfaceOf()->Duplicate();
+    ssorig->IsTorus(&torig, BREP_TOROIDAL_TOL);
+    delete ssorig;
+    ON_Surface *sscand = fcand->SurfaceOf()->Duplicate();
+    sscand->IsTorus(&tcand, BREP_TOROIDAL_TOL);
+    delete sscand;
 
-    // Second, check if all toridal surfaces share the same parameters.
-    ON_Torus torus;
-    ON_Surface *cs = data->brep->m_F[*toridal_surfaces.begin()].SurfaceOf()->Duplicate();
-    cs->IsTorus(&torus, torus_tol);
-    ON_3dPoint n_pt = torus.Center() + torus.plane.Normal();
-    delete cs;
-    for (f_it = toridal_surfaces.begin(); f_it != toridal_surfaces.end(); f_it++) {
-	ON_Torus f_torus;
-	ON_Surface *fcs = data->brep->m_F[(*f_it)].SurfaceOf()->Duplicate();
-	fcs->IsTorus(&f_torus, torus_tol);
-	delete fcs;
-	if (f_torus.Center().DistanceTo(torus.Center()) > torus_tol) return 0;
-	ON_3dPoint fn_pt = f_torus.Center() + f_torus.plane.Normal();
-	if (fn_pt.DistanceTo(n_pt) > torus_tol) return 0;
-	if (!NEAR_ZERO(f_torus.major_radius - torus.major_radius, torus_tol)) return 0;
-	if (!NEAR_ZERO(f_torus.minor_radius - torus.minor_radius, torus_tol)) return 0;
-    }
+    // Same center?
+    if (torig.Center().DistanceTo(tcand.Center()) > BREP_TOROIDAL_TOL) return 0;
 
-    data->type = TORUS;
+    // Same axis direction?
+    if (torig.plane.Normal().IsParallelTo(tcand.plane.Normal(), VUNITIZE_TOL) == 0) return 0;
+
+    // Same major and minor radii?
+    if (!NEAR_ZERO(torig.major_radius - tcand.major_radius, BREP_TOROIDAL_TOL)) return 0;
+    if (!NEAR_ZERO(torig.minor_radius - tcand.minor_radius, BREP_TOROIDAL_TOL)) return 0;
 
     return 1;
 }
 
 
-/* Return -1 if the torus normals are defining a negative volume,
- * 1 if it is positive, and 0 if there is some other problem */
+/* Return -1 if the torus tube surface normals are pointing toward the tube
+ * center (negative/inner surface), 1 if they are pointing outward (positive/
+ * outer surface), and 0 if there is some other problem. */
 int
-negative_torus(struct subbrep_object_data *data, int face_index, double torus_tol) {
-    const ON_Surface *surf = data->brep->m_F[face_index].SurfaceOf();
+negative_torus(const ON_Brep *brep, int face_index, double torus_tol)
+{
+    const ON_Surface *surf = brep->m_F[face_index].SurfaceOf();
     ON_Torus torus;
     ON_Surface *cs = surf->Duplicate();
     cs->IsTorus(&torus, torus_tol);
     delete cs;
-    return -1;
+
+    ON_3dPoint pnt;
+    ON_3dVector normal;
+    double u = surf->Domain(0).Mid();
+    double v = surf->Domain(1).Mid();
+    if (!surf->EvNormal(u, v, pnt, normal)) return 0;
+
+    /* Find the nearest point on the torus major circle (ring centerline).
+     * Project pnt onto the torus plane, normalize, then scale by major radius. */
+    ON_3dVector radial = pnt - torus.Center();
+    ON_3dVector axis = torus.plane.Normal();
+    radial = radial - ON_DotProduct(radial, axis) * axis;
+    if (radial.Length() < ON_ZERO_TOLERANCE) return 0;
+    radial.Unitize();
+    ON_3dPoint ring_pt = torus.Center() + torus.major_radius * radial;
+
+    /* Vector from the ring centerline point to the surface point is the
+     * "outward" direction for the tube cross-section. */
+    ON_3dVector outward = pnt - ring_pt;
+    double dotp = ON_DotProduct(outward, normal);
+
+    if (NEAR_ZERO(dotp, VUNITIZE_TOL)) return 0;
+    int ret = (dotp < 0) ? -1 : 1;
+    if (brep->m_F[face_index].m_bRev) ret = -1 * ret;
+    return ret;
 }
 
 
+/* Populate CSG primitive data for a torus shoal.
+ *
+ * For a full torus (no bounding planes), returns 0 (no arbn needed).
+ * For a partial torus section bounded by edge planes, returns 1 (arbn needed).
+ * The bounding arbn planes are already collected in tor_planes by shoal_csg()
+ * from the edge geometry. */
 int
-torus_csg(struct subbrep_object_data *data, fastf_t torus_tol)
+torus_implicit_params(struct subbrep_shoal_data *data, ON_SimpleArray<ON_Plane> *tor_planes, int shoal_nonplanar_face)
 {
-    std::set<int> planar_surfaces;
-    std::set<int> toridal_surfaces;
-    std::set<int>::iterator f_it;
-    //std::cout << "processing toridal surface: \n";
-    for (int i = 0; i < data->faces_cnt; i++) {
-	int f_ind = data->faces[i];
-        int surface_type = (int)GetSurfaceType(data->brep->m_F[f_ind].SurfaceOf(), NULL);
-        switch (surface_type) {
-            case SURFACE_PLANE:
-		//std::cout << "planar face " << f_ind << "\n";
-                planar_surfaces.insert(f_ind);
-                break;
-            case SURFACE_TORUS:
-		//std::cout << "torus face " << f_ind << "\n";
-                toridal_surfaces.insert(f_ind);
-		break;
-            default:
-		bu_log("what???\n");
-                return 0;
-                break;
-        }
-    }
-    data->params->bool_op = 'u'; // Initialize to union
-
-    // Check for multiple tori.
     ON_Torus torus;
-    ON_Surface *cs = data->brep->m_F[*toridal_surfaces.begin()].SurfaceOf()->Duplicate();
-    cs->IsTorus(&torus, torus_tol);
-    ON_3dPoint n_pt = torus.Center() + torus.plane.Normal();
+    ON_Surface *cs = data->i->brep->m_L[data->shoal_loops[0]].Face()->SurfaceOf()->Duplicate();
+    cs->IsTorus(&torus, BREP_TOROIDAL_TOL);
     delete cs;
-    for (f_it = toridal_surfaces.begin(); f_it != toridal_surfaces.end(); f_it++) {
-	ON_Torus f_torus;
-	ON_Surface *fcs = data->brep->m_F[(*f_it)].SurfaceOf()->Duplicate();
-	fcs->IsTorus(&f_torus, torus_tol);
-	delete fcs;
-	if (f_torus.Center().DistanceTo(torus.Center()) > torus_tol) return 0;
-	ON_3dPoint fn_pt = f_torus.Center() + f_torus.plane.Normal();
-	if (fn_pt.DistanceTo(n_pt) > torus_tol) return 0;
-	if (!NEAR_ZERO(f_torus.major_radius - torus.major_radius, torus_tol)) return 0;
-	if (!NEAR_ZERO(f_torus.minor_radius - torus.minor_radius, torus_tol)) return 0;
-    }
 
-    // Categorize edges by whether their planes are parallel to the major
-    // circle plane, perpendicular to it, or neither.  If we have the latter
-    // situation, right now it's too complicated to handle.
-    std::set<int> major_circle_edges;
-    std::set<int> minor_circle_edges;
-    ON_3dVector torus_normal = torus.plane.Normal();
-    for (int i = 0; i < data->edges_cnt; i++) {
-	int ei = data->edges[i];
-	const ON_BrepEdge *edge = &(data->brep->m_E[ei]);
-	ON_Curve *ecv = edge->EdgeCurveOf()->Duplicate();
-	ON_Arc arc;
-	if (ecv->IsArc(NULL, &arc, torus_tol)) {
-	    int categorized = 0;
-	    ON_Plane edge_plane(arc.StartPoint(), arc.MidPoint(), arc.EndPoint());
-	    ON_3dVector ep_normal = torus.plane.Normal();
-	    // TODO - define a sensible constant for this...
-	    if (ep_normal.IsParallelTo(torus_normal, 0.01)) {
-		//std::cout << "major edge: " << ei << "\n";
-		major_circle_edges.insert(ei);
-		categorized = 1;
-	    }
-	    // TODO - define a sensible constant for this...
-	    if (ep_normal.IsPerpendicularTo(torus_normal, 0.01)) {
-		//std::cout << "minor edge: " << ei << "\n";
-		minor_circle_edges.insert(ei);
-		categorized = 1;
-	    }
-	    if (!categorized) {
-		//std::cout << "Edge " << ei << " is neither parallel nor perpendicular to torus - can't handle yet\n";
-		return 0;
-	    }
+    int need_arbn = (tor_planes->Count() == 0) ? 0 : 1;
 
-	} else {
-	    // We've got non-arc edges in a toridal situation - not ready
-	    // to handle this case yet.
-	    //std::cout << "Edge " << ei << " is not an arc - can't handle yet\n";
-	    delete ecv;
-	    return 0;
-	}
-    }
+    data->params->csg_type = TORUS;
+    data->params->csg_id = (*(data->i->obj_cnt))++;
+    data->params->negative = negative_torus(data->i->brep, shoal_nonplanar_face, BREP_TOROIDAL_TOL);
+    data->params->bool_op = (data->params->negative == -1) ? '-' : 'u';
 
-    // TODO - we need to determine if the portion of the torus we are working with is using the
-    // inner or outer portion of the torus.  If the surface is facing in towards the center point,
-    // it will be necessary to subtract a tgc sliver from the parent arbn (if there is a parent)
-    // in order to clear the way for the insertion of the toridal volume.  Conversely, if the
-    // surface is facing away from the center, we may need to add a tgc sliver to make up the
-    // difference for a planar insertion.  If there is no planar parent this is not a concern,
-    // but in situations where there is one the preparatory subtraction in particular needs
-    // some thought since it cannot be added to the subcomb dedicated to the torus shape - it
-    // must be subtracted from the arb parent before the subcomb is added.
-    //
-    // NOTE! it will also be important to process all cylindrical and spherical surfaces before
-    // we do the toroidal cases, since the insertion answers are different for toridal volumes
-    // depending on whether or not there is a parent brep
+    ON_3dPoint origin = torus.Center();
+    BN_VMOVE(data->params->origin, origin);
 
-    // If all edge planes are either parallel t  the torus plane or on the same
-    // vertical plane, we have either a full torus or a portion of a torus that
-    // involves the full 360 degree revolution.  If not, we have an arc of the
-    // torus, which may be further trimmed down by torus-plane parallel edges.
+    ON_3dVector norm = torus.plane.Normal();
+    BN_VMOVE(data->params->hv, norm);
 
-    return -1;
+    data->params->radius = torus.major_radius;
+    data->params->r2 = torus.minor_radius;
+
+    return need_arbn;
 }
 
 

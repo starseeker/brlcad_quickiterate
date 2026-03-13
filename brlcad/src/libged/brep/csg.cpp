@@ -221,6 +221,24 @@ subbrep_to_csg_sph(struct bu_vls *msgs, struct csg_object_params *data, struct r
     return 0;
 }
 
+static int
+subbrep_to_csg_tor(struct bu_vls *msgs, struct csg_object_params *data, struct rt_wdb *wdbp, const char *pname)
+{
+    if (!msgs || !data || !wdbp || !pname) return 0;
+    if (data->csg_type == TORUS) {
+	struct bu_vls prim_name = BU_VLS_INIT_ZERO;
+	subbrep_obj_name(data->csg_type, data->csg_id, pname, &prim_name);
+	if (mk_tor(wdbp, bu_vls_addr(&prim_name), data->origin, data->hv, data->radius, data->r2)) {
+	    if (msgs) bu_vls_printf(msgs, "mk_tor failed for %s\n", bu_vls_addr(&prim_name));
+	} else {
+	    set_attr_key(wdbp, bu_vls_addr(&prim_name), "loops", data->s->shoal_loops_cnt, data->s->shoal_loops);
+	}
+	bu_vls_free(&prim_name);
+	return 1;
+    }
+    return 0;
+}
+
 static void
 csg_obj_process(struct bu_vls *msgs, struct csg_object_params *data, struct rt_wdb *wdbp, const char *pname)
 {
@@ -260,6 +278,7 @@ csg_obj_process(struct bu_vls *msgs, struct csg_object_params *data, struct rt_w
 	case ELLIPSOID:
 	    break;
 	case TORUS:
+	    subbrep_to_csg_tor(msgs, data, wdbp, pname);
 	    break;
 	default:
 	    break;
