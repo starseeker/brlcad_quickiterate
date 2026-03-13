@@ -3785,7 +3785,29 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
 	return false;
     }
 
-    ON_BoundingBox bbox = brep->BoundingBox();
+    /* Build a tight bounding box from vertices and edge curve extents.
+     * ON_Brep::BoundingBox() uses the full NURBS surface parametric domain
+     * which can be 2× larger than the trimmed face extent (e.g. BRL-CAD
+     * ARB8 breps use diamond-trimmed planar surfaces whose full domain
+     * corners land outside the box vertices).  Any interior point of a
+     * closed solid lies within the bbox of its boundary edges, so this
+     * is both correct and tight. */
+    ON_BoundingBox bbox;
+    {
+	bool first = true;
+	for (int vi = 0; vi < brep->m_V.Count(); vi++) {
+	    bbox.Set(brep->m_V[vi].point, !first);
+	    first = false;
+	}
+	for (int ei = 0; ei < brep->m_E.Count(); ei++) {
+	    ON_3dPoint emin, emax;
+	    if (brep->m_E[ei].GetBoundingBox(emin, emax, false)) {
+		bbox.Union(ON_BoundingBox(emin, emax));
+	    }
+	}
+	if (first)
+	    return false; /* no vertices — degenerate brep */
+    }
     bbox.m_min -= ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     bbox.m_max += ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     if (!bbox.IsPointIn(pt)) {
@@ -4149,7 +4171,24 @@ face_brep_location(const TrimmedFace *tface, const ON_Brep *brep, ON_SimpleArray
 	throw InvalidGeometry("face_brep_location(): TrimmedFace has NULL face.\n");
     }
 
-    ON_BoundingBox brep2box = brep->BoundingBox();
+    /* Build a tight bounding box from the other brep's vertices and edges
+     * (same approach as is_point_inside_brep) to detect faces that are
+     * clearly outside the other brep's extents and can be skipped. */
+    ON_BoundingBox brep2box;
+    {
+	bool first = true;
+	for (int vi = 0; vi < brep->m_V.Count(); vi++) {
+	    brep2box.Set(brep->m_V[vi].point, !first);
+	    first = false;
+	}
+	for (int ei = 0; ei < brep->m_E.Count(); ei++) {
+	    ON_3dPoint emin, emax;
+	    if (brep->m_E[ei].GetBoundingBox(emin, emax, false)) {
+		brep2box.Union(ON_BoundingBox(emin, emax));
+	    }
+	}
+	if (first) return OUTSIDE_BREP;
+    }
     brep2box.m_min -= ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     brep2box.m_max += ON_3dVector(INTERSECTION_TOL, INTERSECTION_TOL, INTERSECTION_TOL);
     if (!bface->BoundingBox().Intersection(brep2box)) {
