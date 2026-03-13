@@ -60,7 +60,7 @@ QgEdMainWindow::QgEdMainWindow(int canvas_type, int quad_view)
     SetupMenu();
 
     // Create Widgets
-    CreateWidgets(canvas_type);
+    CreateWidgets(canvas_type, quad_view);
 
     // Lay out widgets
     LocateWidgets();
@@ -68,10 +68,14 @@ QgEdMainWindow::QgEdMainWindow(int canvas_type, int quad_view)
     // Connect Widgets
     ConnectWidgets();
 
-    // See if the user has requested a particular mode
-    // (Obol path: quad view is not supported yet — use single view always)
+    /* When the libdm quad view is active (no Obol), honour the quad_view flag. */
 #ifdef BRLCAD_ENABLE_OBOL
-    if (!obol_view_) {
+    bool obol_active = obol_view_
+#  ifdef OBOL_BUILD_DUAL_GL
+		       || obol_swrast_view_
+#  endif
+		       ;
+    if (!obol_active) {
 #endif
 	if (quad_view) {
 	    c4->changeToQuadFrame();
@@ -84,7 +88,7 @@ QgEdMainWindow::QgEdMainWindow(int canvas_type, int quad_view)
 }
 
 void
-QgEdMainWindow::CreateWidgets(int canvas_type)
+QgEdMainWindow::CreateWidgets(int canvas_type, int quad_view)
 {
     QgEdApp *ap = (QgEdApp *)qApp;
     QgModel *m = ap->mdl;
@@ -94,28 +98,54 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
     // view control toolbar
     cw = new QWidget(this);
 
-    // The core of the interface is the CAD view widget.  When the Obol
-    // scene-graph renderer is available and hardware OpenGL rendering is
-    // requested, we use a QgObolView directly.  When the software rasterizer
-    // (swrast) is explicitly requested (canvas_type == QgView_SW) we fall
-    // back to the libdm QgQuadView so that headless/test modes still work.
+    // The core of the interface is the CAD view widget.
+    //
+    //   • Hardware GL (canvas_type != QgView_SW) + BRLCAD_ENABLE_OBOL:
+    //       → QgObolView  (QOpenGLWidget, best performance)
+    //
+    //   • Software rasterizer (canvas_type == QgView_SW) + OBOL_BUILD_DUAL_GL:
+    //       → QgObolSwrastView  (QWidget + OSMesa SoOffscreenRenderer)
+    //
+    //   • No Obol, or swrast requested without dual-GL build:
+    //       → QgQuadView  (libdm path, original behaviour)
+    //
+    // The swrast decision is made here; higher-level code does not need to
+    // know which widget type is in use.
 #ifdef BRLCAD_ENABLE_OBOL
     if (canvas_type != QgView_SW) {
-	obol_view_ = new QgObolView(cw);
+	obol_view_ = new QgObolView(cw, quad_view != 0);
 	if (!obol_view_) {
 	    QMessageBox::critical(nullptr, "Fatal Error",
 		"Unable to create QgObolView widget");
 	    bu_exit(EXIT_FAILURE, "Unable to create QgObolView widget\n");
 	}
 	obol_view_->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-	/* Attach the primary bsg_view (ged_gvp will be set after this call) */
 	obol_view_->setBsgView(gedp->ged_gvp);
-	/* Register the Obol view's bsg_view with the scene view set */
 	bsg_scene_add_view(&gedp->ged_views, obol_view_->getBsgView());
 	gedp->ged_gvp = obol_view_->getBsgView();
     }
-    if (!obol_view_) {
-#endif
+#  ifdef OBOL_BUILD_DUAL_GL
+    else {
+	/* swrast: use the OSMesa-backed widget.  The CoinOSMesaContextManager
+	 * has already been registered with SoDB::init() by QgEdApp. */
+	obol_swrast_view_ = new QgObolSwrastView(cw, quad_view != 0);
+	if (!obol_swrast_view_) {
+	    QMessageBox::critical(nullptr, "Fatal Error",
+		"Unable to create QgObolSwrastView widget");
+	    bu_exit(EXIT_FAILURE, "Unable to create QgObolSwrastView widget\n");
+	}
+	obol_swrast_view_->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+	obol_swrast_view_->setBsgView(gedp->ged_gvp);
+	bsg_scene_add_view(&gedp->ged_views, obol_swrast_view_->getBsgView());
+	gedp->ged_gvp = obol_swrast_view_->getBsgView();
+    }
+#  endif /* OBOL_BUILD_DUAL_GL */
+    if (!obol_view_
+#  ifdef OBOL_BUILD_DUAL_GL
+        && !obol_swrast_view_
+#  endif
+        ) {
+#endif /* BRLCAD_ENABLE_OBOL */
     c4 = new QgQuadView(cw, gedp, canvas_type);
     if (!c4) {
 	QMessageBox::critical(nullptr, "Fatal Error",
@@ -195,6 +225,10 @@ QgEdMainWindow::LocateWidgets()
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
 	cwl->addWidget(obol_view_);
+#  ifdef OBOL_BUILD_DUAL_GL
+    else if (obol_swrast_view_)
+	cwl->addWidget(obol_swrast_view_);
+#  endif
     else
 #endif
 	cwl->addWidget(c4);
@@ -257,12 +291,18 @@ QgEdMainWindow::ConnectWidgets()
     // view widget.
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_) {
-	/* Obol path: view_update drives QgObolView::need_update which calls
-	 * obol_scene_assemble (when QG_VIEW_DRAWN), syncs camera, and repaints. */
+	/* Hardware GL Obol path */
 	QObject::connect(ap, &QgEdApp::view_update, obol_view_, &QgObolView::need_update);
-	/* After first initializeGL() do Obol-specific post-init work. */
 	QObject::connect(obol_view_, &QgObolView::init_done, this, &QgEdMainWindow::do_obol_init);
-    } else {
+    }
+#  ifdef OBOL_BUILD_DUAL_GL
+    else if (obol_swrast_view_) {
+	/* Swrast Obol path: same signal/slot wiring; init_done fires on showEvent */
+	QObject::connect(ap, &QgEdApp::view_update, obol_swrast_view_, &QgObolSwrastView::need_update);
+	QObject::connect(obol_swrast_view_, &QgObolSwrastView::init_done, this, &QgEdMainWindow::do_obol_init);
+    }
+#  endif
+    else {
 #endif
 	QObject::connect(ap, &QgEdApp::view_update, c4, &QgQuadView::do_view_update);
 #ifdef BRLCAD_ENABLE_OBOL
@@ -271,7 +311,12 @@ QgEdMainWindow::ConnectWidgets()
 
     // 3D graphical widget (libdm path only — Obol path uses picked() signal)
 #ifdef BRLCAD_ENABLE_OBOL
-    if (!obol_view_) {
+    bool obol_path_ = obol_view_
+#  ifdef OBOL_BUILD_DUAL_GL
+		      || obol_swrast_view_
+#  endif
+		      ;
+    if (!obol_path_) {
 #endif
 	QObject::connect(c4, &QgQuadView::selected, ap, &QgEdApp::do_quad_view_change);
 	QObject::connect(c4, &QgQuadView::changed, ap, &QgEdApp::do_quad_view_change);
@@ -289,7 +334,11 @@ QgEdMainWindow::ConnectWidgets()
     // Make the connection so the view control can change the mouse mode of the Quad View
     // (libdm path only — Obol path handles mouse mode internally)
 #ifdef BRLCAD_ENABLE_OBOL
-    if (!obol_view_)
+    if (!obol_view_
+#  ifdef OBOL_BUILD_DUAL_GL
+        && !obol_swrast_view_
+#  endif
+       )
 #endif
 	QObject::connect(vcw, &QgViewCtrl::lmouse_mode, c4, &QgQuadView::set_lmouse_move_default);
 
@@ -459,6 +508,10 @@ QgEdMainWindow::isValid3D()
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
 	return obol_view_->isValid();
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return obol_swrast_view_->isValid();
+#  endif
 #endif
     return c4->isValid();
 }
@@ -506,6 +559,10 @@ QgEdMainWindow::isDisplayActive()
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
 	return widget_active(obol_view_);
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return widget_active(obol_swrast_view_);
+#  endif
 #endif
     return widget_active(c4);
 }
@@ -516,6 +573,10 @@ QgEdMainWindow::CurrentDisplay()
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
 	return nullptr;   /* Obol path: no QgView (libdm) handle */
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return nullptr;
+#  endif
 #endif
     return c4->get();
 }
@@ -526,6 +587,10 @@ QgEdMainWindow::CurrentView()
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
 	return obol_view_->getBsgView();
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return obol_swrast_view_->getBsgView();
+#  endif
 #endif
     return c4->view();
 }
@@ -536,6 +601,10 @@ QgEdMainWindow::DisplayCheckpoint()
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
 	return;   /* Obol path: no libdm hash tracking */
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return;
+#  endif
 #endif
     c4->stash_hashes();
 }
@@ -546,6 +615,10 @@ QgEdMainWindow::DisplayDiff()
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
 	return false;   /* Obol path: no libdm hash tracking */
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return false;
+#  endif
 #endif
     return c4->diff_hashes();
 }
@@ -553,9 +626,16 @@ QgEdMainWindow::DisplayDiff()
 void
 QgEdMainWindow::QuadDisplay()
 {
+    /* Obol path: quad mode is configured at construction time via the
+     * quad_view flag in CreateWidgets; runtime switching is not yet
+     * supported.  The menu action is a no-op when an Obol view is active. */
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
-	return;   /* Obol path: quad mode not yet supported */
+	return;
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return;
+#  endif
 #endif
     c4->changeToQuadFrame();
 }
@@ -565,7 +645,11 @@ QgEdMainWindow::SingleDisplay()
 {
 #ifdef BRLCAD_ENABLE_OBOL
     if (obol_view_)
-	return;   /* Obol path: always single view */
+	return;
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (obol_swrast_view_)
+	return;
+#  endif
 #endif
     c4->changeToSingleFrame();
 }

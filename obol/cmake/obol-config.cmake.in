@@ -55,6 +55,7 @@ endif()
 # Feature flags recorded at build time
 set(Obol_HAVE_THREADS @FEAT_HAVE_THREADS@)
 set(Obol_HAVE_SAFETHREAD @FEAT_HAVE_SAFETHREAD@)
+set(Obol_BUILD_DUAL_GL @OBOL_BUILD_DUAL_GL@)
 
 set(Obol_FOUND TRUE)
 check_required_components(Obol)
