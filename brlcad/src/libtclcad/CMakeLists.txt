@@ -70,6 +70,11 @@ endif()
 
 if(BRLCAD_ENABLE_OBOL AND TK_LIBRARY)
   list(APPEND LIBTCLCAD_SRCS obol_view.cpp)
+  # macOS Aqua NSOpenGL backend: compiled as Objective-C++ (.mm).
+  # Only added when BRLCAD_ENABLE_AQUA is ON; GLX is used on X11 macOS builds.
+  if(APPLE AND BRLCAD_ENABLE_AQUA AND BRLCAD_ENABLE_OPENGL)
+    list(APPEND LIBTCLCAD_SRCS obol_view_macos.mm)
+  endif(APPLE AND BRLCAD_ENABLE_AQUA AND BRLCAD_ENABLE_OPENGL)
 endif(BRLCAD_ENABLE_OBOL AND TK_LIBRARY)
 
 if(BRLCAD_ENABLE_TCL)
@@ -94,12 +99,25 @@ if(BRLCAD_ENABLE_TCL)
     set(TCLCAD_LIBS ${TCLCAD_LIBS} Obol::Obol)
     set(TCLCAD_LOCAL_INCLUDE_DIRS ${TCLCAD_LOCAL_INCLUDE_DIRS}
       ${CMAKE_SOURCE_DIR}/src/libged)
-    # HW GL path: link against OpenGL and X11 when available so that
-    # obol_view can create a GLX context directly on the Tk window.
+    # HW GL path: link appropriate GL library per platform.
+    # X11/GLX (Linux/UNIX) — link against OpenGL::GL or fallback gl lib.
     if(BRLCAD_ENABLE_X11 AND OpenGL_FOUND AND TARGET OpenGL::GL)
       set(TCLCAD_LIBS ${TCLCAD_LIBS} OpenGL::GL)
-    elseif(OPENGL_gl_LIBRARY)
+    elseif(BRLCAD_ENABLE_X11 AND OPENGL_gl_LIBRARY)
       set(TCLCAD_LIBS ${TCLCAD_LIBS} ${OPENGL_gl_LIBRARY})
+    endif()
+    # macOS Aqua/NSOpenGL — link the OpenGL and Cocoa frameworks.
+    if(APPLE AND BRLCAD_ENABLE_AQUA AND BRLCAD_ENABLE_OPENGL)
+      set(TCLCAD_LIBS ${TCLCAD_LIBS}
+	"-framework OpenGL" "-framework Cocoa")
+    endif()
+    # Windows WGL — link opengl32.
+    if(WIN32 AND BRLCAD_ENABLE_OPENGL)
+      if(OPENGL32_LIBRARY)
+	set(TCLCAD_LIBS ${TCLCAD_LIBS} ${OPENGL32_LIBRARY})
+      else()
+	set(TCLCAD_LIBS ${TCLCAD_LIBS} opengl32)
+      endif()
     endif()
   endif(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol AND TK_LIBRARY)
 
@@ -126,12 +144,22 @@ if(BRLCAD_ENABLE_TCL)
       if(BRLCAD_OBOL_DUAL_GL)
         target_compile_definitions(${pt} PRIVATE OBOL_BUILD_DUAL_GL)
       endif()
-      # Enable the HW GL (GLX) path when X11 and OpenGL headers are present.
-      # The HAVE_X11_XLIB_H and HAVE_GL_GL_H feature-test macros are defined
-      # by BRL-CAD's feature-check system; obol_view.cpp uses them to gate
-      # the OBOL_HW_GLX code block.
+      # GLX path: HAVE_X11_XLIB_H + HAVE_GL_GL_H gate the OBOL_HW_GLX block.
       if(BRLCAD_ENABLE_X11 AND HAVE_GL_GL_H)
         target_compile_definitions(${pt} PRIVATE HAVE_X11_XLIB_H HAVE_GL_GL_H)
+      endif()
+      # WGL path: HAVE_GL_GL_H on Windows gates OBOL_HW_WGL.
+      if(WIN32 AND BRLCAD_ENABLE_OPENGL)
+        target_compile_definitions(${pt} PRIVATE HAVE_GL_GL_H)
+      endif()
+      # NSOpenGL path (macOS Aqua): BRLCAD_ENABLE_AQUA + HAVE_OPENGL_GL_H
+      # gate the OBOL_HW_NSGL block in obol_view.cpp and provide the guard
+      # for obol_view_macos.mm.  HAVE_OPENGL_GL_H is set in config.h when
+      # the Apple OpenGL framework is found; we also propagate it explicitly
+      # so the target definition is unconditionally set when Aqua is enabled.
+      if(APPLE AND BRLCAD_ENABLE_AQUA AND BRLCAD_ENABLE_OPENGL)
+        target_compile_definitions(${pt} PRIVATE
+          BRLCAD_ENABLE_AQUA HAVE_OPENGL_GL_H)
       endif()
     endif(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol AND TK_LIBRARY)
   endforeach(pt ${ptargets})
@@ -153,6 +181,7 @@ add_subdirectory(tests)
 cmakefiles(
   ${LIBTCLCAD_SRCS}
   obol_view.cpp
+  obol_view_macos.mm
   tclcad_private.h
   view/view.h
   CMakeLists.txt
