@@ -4985,69 +4985,54 @@ join_boundary_edges(ON_Brep *brep)
 	    /* Determine orientation for the transferred trim.
 	     *
 	     * For trims created by add_elements(), m_bRev3d is always
-	     * initialized to false (same direction as their original edge).
-	     * When the trim is transferred to a different edge, the correct
-	     * bRev3d value depends on whether the two 3D edge curves wind
-	     * in the same or opposite direction.
+	     * initialized to false (same direction as their original edge
+	     * curve cj3).  When the trim is transferred to ei whose 3D curve
+	     * is ci3, the correct bRev3d value is:
+	     *   false  if ci3 and cj3 wind in the SAME direction  (no flip)
+	     *   true   if ci3 and cj3 wind in OPPOSITE directions (flip)
 	     *
-	     * For seam-crossing trims (whose 2D curve goes from u=domain_max
-	     * to u=domain_min at constant v), OpenNURBS defines "same direction"
-	     * differently from the 3D winding orientation. Specifically, the
-	     * bRev3d check compares the 3D edge curve tangent at the shared
-	     * vertex with the 3D pushup tangent of the 2D trim at the same
-	     * point, accounting for the surface's periodicity.
+	     * OpenNURBS defines m_bRev3d=true as "the edge and trim have
+	     * opposite directions."  We compare the Newell winding normals
+	     * of ci3 and cj3 directly — this is more reliable than pushing
+	     * up the 2D trim curve (which degenerates to a point for
+	     * seam-crossing trims on periodic surfaces).
 	     *
-	     * Empirical testing on m35 CSG models shows that for FULL-REVOLUTION
-	     * closed edges (circles), the two independently-created 3D curves
-	     * go in opposite 3D winding directions (because one comes from
-	     * add_elements on an inner loop and one from an outer loop), but
-	     * OpenNURBS's validity check considers them "same direction" due to
-	     * how seam-crossing parameterization interacts with bRev3d.
-	     *
-	     * To keep things simple and correct: we use the Newell-method
-	     * winding comparison but INVERT its result, since the OpenNURBS
-	     * convention for seam-crossing trims is the opposite of the 3D
-	     * geometric winding comparison. */
+	     * dot(Newell(ci3), Newell(cj3)) < 0  →  opposite winding
+	     *   →  m_bRev3d should be true  →  rev = true
+	     * dot(Newell(ci3), Newell(cj3)) > 0  →  same winding
+	     *   →  m_bRev3d should stay false  →  rev = false  */
 	    bool rev = false;
 	    {
-		const ON_Curve  *c2j = brep->m_C2[brep->m_T[tj].m_c2i];
-		const ON_BrepFace *fj = brep->m_T[tj].Face();
+		static const int N = 64;
 
-		if (c2j && fj && fj->SurfaceOf()) {
-		    const ON_Surface *sfj = fj->SurfaceOf();
-		    static const int N = 64;
-
-		    /* Newell normal for ci3 (3D edge curve) */
-		    ON_3dVector ni(0, 0, 0);
-		    ON_3dPoint  prev_i = ci3->PointAt(ci3->Domain().ParameterAt(0.0));
-		    for (int s = 1; s <= N; s++) {
-			ON_3dPoint cur_i = ci3->PointAt(
-			    ci3->Domain().ParameterAt((double)s / N));
-			ni.x += (prev_i.y - cur_i.y) * (prev_i.z + cur_i.z);
-			ni.y += (prev_i.z - cur_i.z) * (prev_i.x + cur_i.x);
-			ni.z += (prev_i.x - cur_i.x) * (prev_i.y + cur_i.y);
-			prev_i = cur_i;
-		    }
-
-		    /* Newell normal for trim tj pushed up to 3D */
-		    ON_3dVector nj(0, 0, 0);
-		    ON_2dPoint  uv0 = c2j->PointAt(c2j->Domain().ParameterAt(0.0));
-		    ON_3dPoint  prev_j = sfj->PointAt(uv0.x, uv0.y);
-		    for (int s = 1; s <= N; s++) {
-			ON_2dPoint uv = c2j->PointAt(
-			    c2j->Domain().ParameterAt((double)s / N));
-			ON_3dPoint cur_j = sfj->PointAt(uv.x, uv.y);
-			nj.x += (prev_j.y - cur_j.y) * (prev_j.z + cur_j.z);
-			nj.y += (prev_j.z - cur_j.z) * (prev_j.x + cur_j.x);
-			nj.z += (prev_j.x - cur_j.x) * (prev_j.y + cur_j.y);
-			prev_j = cur_j;
-		    }
-
-		    /* Opposite 3D normals → seam-crossing trim is in the SAME
-		     * OpenNURBS direction (the seam parameterization inverses
-		     * the correspondence); same 3D normals → trim is reversed. */
-		    rev = (ON_DotProduct(ni, nj) > 0.0);
+		/* Newell normal for ci3 (3D edge curve of ei) */
+		ON_3dVector ni(0, 0, 0);
+		ON_3dPoint  prev_i = ci3->PointAt(ci3->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N; s++) {
+		    ON_3dPoint cur_i = ci3->PointAt(
+			ci3->Domain().ParameterAt((double)s / N));
+		    ni.x += (prev_i.y - cur_i.y) * (prev_i.z + cur_i.z);
+		    ni.y += (prev_i.z - cur_i.z) * (prev_i.x + cur_i.x);
+		    ni.z += (prev_i.x - cur_i.x) * (prev_i.y + cur_i.y);
+		    prev_i = cur_i;
 		}
+
+		/* Newell normal for cj3 (3D edge curve of ej) */
+		ON_3dVector nj(0, 0, 0);
+		ON_3dPoint  prev_j = cj3->PointAt(cj3->Domain().ParameterAt(0.0));
+		for (int s = 1; s <= N; s++) {
+		    ON_3dPoint cur_j = cj3->PointAt(
+			cj3->Domain().ParameterAt((double)s / N));
+		    nj.x += (prev_j.y - cur_j.y) * (prev_j.z + cur_j.z);
+		    nj.y += (prev_j.z - cur_j.z) * (prev_j.x + cur_j.x);
+		    nj.z += (prev_j.x - cur_j.x) * (prev_j.y + cur_j.y);
+		    prev_j = cur_j;
+		}
+
+		/* Opposite winding (dot < 0) means the transferred trim's
+		 * existing bRev3d=false would give "same direction", but we
+		 * need "opposite direction" — so flip it. */
+		rev = (ON_DotProduct(ni, nj) < 0.0);
 	    }
 	    if (rev)
 		brep->m_T[tj].m_bRev3d = !brep->m_T[tj].m_bRev3d;
@@ -5090,6 +5075,38 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
 
     ON_ClassArray<ON_SimpleArray<TrimmedFace *> > trimmed_faces;
     try {
+	/* Handle empty-brep operands before any other processing.
+	 * An empty brep (0 faces) is the identity element for union and
+	 * the absorbing element for intersection; for subtraction,
+	 * empty - anything = empty and anything - empty = anything.
+	 * Handling this here also prevents get_face_intersection_curves()
+	 * from returning a zero-length curve array that would be indexed
+	 * out-of-bounds by get_evaluated_faces(). */
+	if (brep1->m_F.Count() == 0 || brep2->m_F.Count() == 0) {
+	    switch (operation) {
+		case BOOLEAN_UNION:
+		    if (brep1->m_F.Count() > 0)
+			evaluated_brep->Append(*brep1);
+		    else
+			evaluated_brep->Append(*brep2);
+		    break;
+		case BOOLEAN_DIFF:
+		    if (brep1->m_F.Count() > 0)
+			evaluated_brep->Append(*brep1);
+		    /* brep2 is empty or brep1 is empty: either way result
+		     * is brep1 (possibly empty). */
+		    break;
+		case BOOLEAN_INTERSECT:
+		    /* anything ∩ empty = empty */
+		    break;
+		default:
+		    throw InvalidBooleanOperation("Error - unknown boolean operation\n");
+	    }
+	    evaluated_brep->ShrinkSurfaces();
+	    evaluated_brep->Compact();
+	    return 0;
+	}
+
 	/* Deal with the trivial cases up front */
 	if (brep1->BoundingBox().MinimumDistanceTo(brep2->BoundingBox()) > ON_ZERO_TOLERANCE) {
 	    switch (operation) {
@@ -5184,6 +5201,16 @@ ON_Boolean(ON_Brep *evaluated_brep, const ON_Brep *brep1, const ON_Brep *brep2, 
     }
 
     evaluated_brep->ShrinkSurfaces();
+
+    /* If the boolean evaluation produced no faces the result is
+     * geometrically empty (e.g. a solid subtracted from itself).
+     * Skip the edge-join and tolerance steps which are no-ops on an
+     * empty brep, and return a dedicated code so callers can recognise
+     * and handle the zero-volume result. */
+    if (evaluated_brep->m_F.Count() == 0) {
+	evaluated_brep->Compact();
+	return 1; /* valid but empty result */
+    }
 
     /* Join coincident boundary edges so the result is a closed solid that
      * the raytracer treats as a solid volume rather than a zero-thickness

@@ -204,8 +204,21 @@ _brep_cmd_boolean(void *bs, int argc, const char **argv)
     }
 
     struct rt_db_internal intern_res;
-    rt_brep_boolean(&intern_res, &gb->intern, &intern2, op);
+    int bool_ret = rt_brep_boolean(&intern_res, &gb->intern, &intern2, op);
+    if (bool_ret < 0) {
+	bu_vls_printf(gedp->ged_result_str, ": boolean evaluation failed");
+	rt_db_free_internal(&intern2);
+	return BRLCAD_ERROR;
+    }
     struct rt_brep_internal *bip = (struct rt_brep_internal *)intern_res.idb_ptr;
+    if (!bip || !bip->brep || bip->brep->m_F.Count() == 0) {
+	bu_vls_printf(gedp->ged_result_str,
+		      ": boolean evaluation produced an empty (zero-volume) result"
+		      " — not storing %s", argv[3]);
+	rt_db_free_internal(&intern2);
+	if (bip) rt_db_free_internal(&intern_res);
+	return BRLCAD_OK;
+    }
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     mk_brep(wdbp, argv[3], (void *)(bip->brep));
     rt_db_free_internal(&intern2);
