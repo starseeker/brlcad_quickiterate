@@ -203,6 +203,7 @@ bot_shaded_node(const struct rt_bot_internal *bot)
 	for (int fi = 0; fi < nfaces; fi++) {
 	    int ni = bot->face_normals[fi*3 + 0]; /* first vertex's normal */
 	    if (ni < 0 || (size_t)ni >= bot->num_normals) {
+		/* Out-of-bounds index; use Z-up as a safe fallback normal */
 		norm->vector.set1Value(fi, 0.0f, 0.0f, 1.0f);
 	    } else {
 		norm->vector.set1Value(fi,
@@ -229,6 +230,7 @@ bot_shaded_node(const struct rt_bot_internal *bot)
 	    float ny = az*bx - ax*bz;
 	    float nz = ax*by - ay*bx;
 	    float len = sqrtf(nx*nx + ny*ny + nz*nz);
+	    /* Threshold: skip normalization for degenerate (zero-area) faces */
 	    if (len > 1e-10f) { nx /= len; ny /= len; nz /= len; }
 
 	    norm->vector.set1Value(fi, nx, ny, nz);
