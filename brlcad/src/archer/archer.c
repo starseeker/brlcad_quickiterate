@@ -122,6 +122,12 @@ main(int argc, const char **argv)
     }
     bu_vls_free(&tlog);
 
+    /* Initialize Obol scene-graph renderer when compiled with BRLCAD_ENABLE_OBOL */
+    if (Tcl_GetCommandInfo(interp, "obol_init", NULL)) {
+	if (Tcl_Eval(interp, "obol_init") != TCL_OK)
+	    bu_log("archer: Obol init warning: %s\n", Tcl_GetStringResult(interp));
+    }
+
     archer_tcl = bu_dir(NULL, 0, BU_DIR_DATA, "tclscripts", "archer", "init", "archer_launch.tcl", NULL);
     Tcl_DStringInit(&temp);
     fullname = Tcl_TranslateFileName(interp, archer_tcl, &temp);

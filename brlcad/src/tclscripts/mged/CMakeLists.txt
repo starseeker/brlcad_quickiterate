@@ -52,6 +52,7 @@ set(
   mike.tcl
   mouse.tcl
   mview.tcl
+  obol_view_bindings.tcl
   openw.tcl
   plot.tcl
   points.tcl
