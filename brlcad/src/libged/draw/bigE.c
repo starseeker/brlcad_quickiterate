@@ -1283,14 +1283,14 @@ shoot_and_plot(point_t start_pt,
 	    bu_log("\t\tDRAW (%g %g %g)", V3ARGS(pt));
 #endif
 
-	    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_MOVE);
 	    VJOIN1(pt, rp.r_pt, seg->seg_out.hit_dist, rp.r_dir);
 
 #ifdef debug
 	    bu_log("<->(%g %g %g)\n", V3ARGS(pt));
 #endif
 
-	    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);
 	}
 
     }
@@ -2055,7 +2055,15 @@ ged_E_core(struct ged *gedp, int argc, const char *argv[])
     av[1] = (char *)0;
     for (i = 0; i < argc; ++i) {
 	dl_erasePathFromDisplay(gedp, argv[i], 0);
-	dgcdp->gdlp = dl_addToDisplay(gedp->i->ged_gdp->gd_headDisplay, gedp->dbip, argv[i]);
+	/* Phase 2e: replace dl_addToDisplay with a plain db_lookup existence
+	 * check; shapes go into scene-root via the draw walk callbacks. */
+	{
+	    const char *_cp = strrchr(argv[i], '/');
+	    const char *_leaf = _cp ? _cp + 1 : argv[i];
+	    if (db_lookup(gedp->dbip, _leaf, LOOKUP_NOISY) == RT_DIR_NULL)
+		continue;
+	}
+	dgcdp->gdlp = NULL; /* no longer backed by gd_headDisplay */
 
 	BU_ALLOC(dgcdp->ap, struct application);
 	RT_APPLICATION_INIT(dgcdp->ap);

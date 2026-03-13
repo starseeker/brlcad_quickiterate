@@ -29,7 +29,7 @@
 extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
 #include "dm.h"
 }
 
@@ -54,7 +54,7 @@ class QTCAD_EXPORT QgView : public QWidget
     Q_OBJECT
 
     public:
-	explicit QgView(QWidget *parent = nullptr, int type = 0, struct fb *fbp = NULL);
+	explicit QgView(QWidget *parent = nullptr, int type = 0, struct fb *fbp = nullptr);
 	~QgView();
 
 	int view_type();
@@ -68,16 +68,16 @@ class QTCAD_EXPORT QgView : public QWidget
 
 	bool isValid();
 
-	struct bview * view();
+	bsg_view * view();
 	struct dm * dmp();
 	struct fb * ifp();
 
-	void set_view(struct bview *);
+	void set_view(bsg_view *);
 
 	void aet(double a, double e, double t);
 
-	QObject *curr_event_filter = NULL;
-	void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
+	QObject *curr_event_filter = nullptr;
+	void set_draw_custom(void (*draw_custom)(bsg_view *, void *), void *draw_udata);
 
 	// Wrappers around Qt's facility for adding eventFilter objects to
 	// widgets.  This is how custom key binding modes are enabled and
@@ -107,10 +107,10 @@ class QTCAD_EXPORT QgView : public QWidget
 	void set_lmouse_move_default(int);
 
     private:
-        QBoxLayout *l = NULL;
-	QgSW *canvas_sw = NULL;
+        QBoxLayout *l = nullptr;
+	QgSW *canvas_sw = nullptr;
 #ifdef BRLCAD_OPENGL
-        QgGL *canvas_gl = NULL;
+        QgGL *canvas_gl = nullptr;
 #endif
 	std::vector<QObject *> filters;
 };

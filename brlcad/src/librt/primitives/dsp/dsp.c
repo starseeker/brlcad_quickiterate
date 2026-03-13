@@ -61,7 +61,7 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "rt/db4.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 
 /* private header */
 #include "./dsp.h"
@@ -3093,7 +3093,7 @@ rt_dsp_free(register struct soltab *stp)
 
 
 int
-rt_dsp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_dsp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     struct bu_list *vlfree = &rt_vlfree;
     struct rt_dsp_internal *dsp_ip =
@@ -3146,11 +3146,11 @@ rt_dsp_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 
 #define MOVE(_pt) \
 	MAT4X3PNT(m_pt, dsp_ip->dsp_stom, _pt); \
-	BV_ADD_VLIST(vlfree, vhead, m_pt, BV_VLIST_LINE_MOVE)
+	BSG_ADD_VLIST(vlfree, vhead, m_pt, BSG_VLIST_LINE_MOVE)
 
 #define DRAW(_pt) \
 	MAT4X3PNT(m_pt, dsp_ip->dsp_stom, _pt); \
-	BV_ADD_VLIST(vlfree, vhead, m_pt, BV_VLIST_LINE_DRAW)
+	BSG_ADD_VLIST(vlfree, vhead, m_pt, BSG_VLIST_LINE_DRAW)
 
 
     /* Draw the Bottom */

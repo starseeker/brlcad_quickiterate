@@ -36,7 +36,7 @@
 #include "bg/aabb_ray.h"
 #include "bg/plane.h"
 
-#include "../../../../libged/dbi.h"
+#include "ged/dbi.h"
 
 #include "qtcad/QgSelectFilter.h"
 #include "./CADViewSelector.h"
@@ -198,7 +198,7 @@ CADViewSelector::do_view_update(unsigned long long flags)
 	return;
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
     if (!ss)
 	return;
 
@@ -208,15 +208,13 @@ CADViewSelector::do_view_update(unsigned long long flags)
 	ohash = chash;
 
 	std::set<std::string> ordered_paths;
-	std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-	for (s_it = ss->selected.begin(); s_it != ss->selected.end(); s_it++) {
-	    std::string spath = std::string(dbis->pathstr(s_it->second));
+	const auto &sel = ss->selected();
+	for (const auto &[hash, path] : sel) {
+	    std::string spath = std::string(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(path)));
 	    ordered_paths.insert(spath);
 	}
-	std::set<std::string>::iterator o_it;
-	for (o_it = ordered_paths.begin(); o_it != ordered_paths.end(); o_it++) {
-	    group_contents->addItem(QString(o_it->c_str()));
-	}
+	for (const std::string &opath : ordered_paths)
+	    group_contents->addItem(QString(opath.c_str()));
     }
 }
 
@@ -224,50 +222,50 @@ void
 CADViewSelector::select_objs()
 {
     DbiState *dbis = (DbiState *)gedp->dbi_state;
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
     if (!ss)
 	return;
 
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&cf->selected_set, i);
 	bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
-	if (!ss->select_path(bu_vls_cstr(&dpath), false)) {
+	if (!ss->select(bu_vls_cstr(&dpath), false)) {
 	    bu_vls_free(&dpath);
 	    return;
 	}
     }
 
     bu_vls_free(&dpath);
-    ss->characterize();
-    ss->draw_sync();
+    ss->recompute_hierarchy();
+    ss->sync_to_all_views();
 }
 
 void
 CADViewSelector::deselect_objs()
 {
     DbiState *dbis = (DbiState *)gedp->dbi_state;
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
     if (!ss)
 	return;
 
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&cf->selected_set, i);
 	bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
-	if (!ss->deselect_path(bu_vls_cstr(&dpath), false)) {
+	if (!ss->deselect(bu_vls_cstr(&dpath), false)) {
 	    bu_vls_free(&dpath);
 	    return;
 	}
     }
 
     bu_vls_free(&dpath);
-    ss->characterize();
-    ss->draw_sync();
+    ss->recompute_hierarchy();
+    ss->sync_to_all_views();
 }
 
 
@@ -279,7 +277,7 @@ CADViewSelector::erase_objs()
     av[0] = "erase";
     int scnt = 1;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&cf->selected_set, i);
 	if (!s)
 	    continue;
 	av[i+1] = bu_vls_cstr(&s->s_name);
@@ -296,22 +294,22 @@ CADViewSelector::do_draw_selections()
 	return;
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
-    BSelectState *ss = dbis->find_selected_state(NULL);
-    if (!ss || !ss->selected.size())
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
+    const auto &sel = ss->selected();
+    if (!ss || !sel.size())
 	return;
 
-    const char **av = (const char **)bu_calloc(ss->selected.size()+2, sizeof(char *), "av");
+    const char **av = (const char **)bu_calloc(sel.size()+2, sizeof(char *), "av");
     av[0] = bu_strdup("draw");
 
     int i = 0;
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    for (s_it = ss->selected.begin(); s_it != ss->selected.end(); s_it++) {
-	av[i+1] = bu_strdup(dbis->pathstr(s_it->second));
+    for (const auto &[hash, path] : sel) {
+	av[i+1] = bu_strdup(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(path)));
 	i++;
     }
 
-    ged_exec_draw(gedp, (int)(ss->selected.size()+1), av);
-    for (size_t j = 0; j < ss->selected.size()+1; j++) {
+    ged_exec_draw(gedp, (int)(sel.size()+1), av);
+    for (size_t j = 0; j < sel.size()+1; j++) {
 	bu_free((void *)av[j], "path");
     }
     bu_free(av, "av");
@@ -326,22 +324,22 @@ CADViewSelector::do_erase_selections()
 	return;
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
-    BSelectState *ss = dbis->find_selected_state(NULL);
-    if (!ss || !ss->selected.size())
+    SelectionSet *ss = dbis->get_selection_set(nullptr);
+    const auto &sel = ss->selected();
+    if (!ss || !sel.size())
 	return;
 
-    const char **av = (const char **)bu_calloc(ss->selected.size()+2, sizeof(char *), "av");
+    const char **av = (const char **)bu_calloc(sel.size()+2, sizeof(char *), "av");
     av[0] = bu_strdup("erase");
 
     int i = 0;
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    for (s_it = ss->selected.begin(); s_it != ss->selected.end(); s_it++) {
-	av[i+1] = bu_strdup(dbis->pathstr(s_it->second));
+    for (const auto &[hash, path] : sel) {
+	av[i+1] = bu_strdup(dbis->pathstr(const_cast<std::vector<unsigned long long> &>(path)));
 	i++;
     }
 
-    ged_exec_erase(gedp, (int)(ss->selected.size()+1), av);
-    for (size_t j = 0; j < ss->selected.size()+1; j++) {
+    ged_exec_erase(gedp, (int)(sel.size()+1), av);
+    for (size_t j = 0; j < sel.size()+1; j++) {
 	bu_free((void *)av[j], "path");
     }
     bu_free(av, "av");
@@ -361,7 +359,7 @@ CADViewSelector::eventFilter(QObject *o, QEvent *e)
     gedp = m->gedp;
     if (!gedp || !gedp->ged_gvp)
 	return false;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
 
     // Set the libqtcad filter based on current options
     cf = pf;

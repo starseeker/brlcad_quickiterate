@@ -32,6 +32,7 @@
 #include "ged.h"
 
 #include "./mged.h"
+#include "bsg/util.h"
 #include "./sedit.h"
 #include "./mged_dm.h"
 #include "./menu.h"
@@ -285,19 +286,21 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
     }
 
     /* take some care here to avoid buffer overrun */
-    tmp_val = -view_state->vs_gvp->gv_center[MDX]*s->dbip->dbi_base2local;
+    struct bsg_camera _tc;
+    bsg_view_get_camera(view_state->vs_gvp, &_tc);
+    tmp_val = -_tc.center[MDX]*s->dbip->dbi_base2local;
     if (fabs(tmp_val) < 10e70) {
 	sprintf(cent_x, "%.3f", tmp_val);
     } else {
 	sprintf(cent_x, "%.3g", tmp_val);
     }
-    tmp_val = -view_state->vs_gvp->gv_center[MDY]*s->dbip->dbi_base2local;
+    tmp_val = -_tc.center[MDY]*s->dbip->dbi_base2local;
     if (fabs(tmp_val) < 10e70) {
 	sprintf(cent_y, "%.3f", tmp_val);
     } else {
 	sprintf(cent_y, "%.3g", tmp_val);
     }
-    tmp_val = -view_state->vs_gvp->gv_center[MDZ]*s->dbip->dbi_base2local;
+    tmp_val = -_tc.center[MDZ]*s->dbip->dbi_base2local;
     if (fabs(tmp_val) < 10e70) {
 	sprintf(cent_z, "%.3f", tmp_val);
     } else {
@@ -323,7 +326,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	       (char *)bu_units_string(s->dbip->dbi_local2base), TCL_GLOBAL_ONLY);
 
     bu_vls_trunc(&vls, 0);
-    bu_vls_printf(&vls, "az=%3.2f  el=%3.2f  tw=%3.2f", V3ARGS(view_state->vs_gvp->gv_aet));
+    bu_vls_printf(&vls, "az=%3.2f  el=%3.2f  tw=%3.2f", V3ARGS(_tc.aet));
     Tcl_SetVar(s->interp, bu_vls_addr(&s->mged_curr_dm->dm_aet_name),
 	       bu_vls_addr(&vls), TCL_GLOBAL_ONLY);
 
@@ -345,7 +348,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	point_t lines[2*4];	/* up to 4 lines to draw */
 	int num_lines=0;
 
-	if (view_state->vs_gvp->gv_perspective <= 0)
+	if (_tc.perspective <= 0)
 	    bn_mat_mul(xform, view_state->vs_model2objview, MEDIT(s)->e_mat);
 	else {
 	    mat_t tmat;
@@ -362,15 +365,15 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 		       color_scheme->cs_geo_label[2], 1, 1.0);
 	for (i=0; i<(size_t)num_lines; i++)
 	    dm_draw_line_2d(DMP,
-			    GED2PM1(((int)(lines[i*2][X]*BV_MAX))),
-			    GED2PM1(((int)(lines[i*2][Y]*BV_MAX)) * dm_get_aspect(DMP)),
-			    GED2PM1(((int)(lines[i*2+1][X]*BV_MAX))),
-			    GED2PM1(((int)(lines[i*2+1][Y]*BV_MAX)) * dm_get_aspect(DMP)));
+			    GED2PM1(((int)(lines[i*2][X]*BSG_VIEW_MAX))),
+			    GED2PM1(((int)(lines[i*2][Y]*BSG_VIEW_MAX)) * dm_get_aspect(DMP)),
+			    GED2PM1(((int)(lines[i*2+1][X]*BSG_VIEW_MAX))),
+			    GED2PM1(((int)(lines[i*2+1][Y]*BSG_VIEW_MAX)) * dm_get_aspect(DMP)));
 	for (i=0; i<8+1; i++) {
 	    if (pl[i].str[0] == '\0') break;
 	    dm_draw_string_2d(DMP, pl[i].str,
-			      GED2PM1(((int)(pl[i].pt[X]*BV_MAX))+15),
-			      GED2PM1(((int)(pl[i].pt[Y]*BV_MAX))+15), 0, 1);
+			      GED2PM1(((int)(pl[i].pt[X]*BSG_VIEW_MAX))+15),
+			      GED2PM1(((int)(pl[i].pt[Y]*BSG_VIEW_MAX))+15), 0, 1);
 	}
     }
 
@@ -381,23 +384,23 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 		       color_scheme->cs_other_line[1],
 		       color_scheme->cs_other_line[2], 1, 1.0);
 	dm_draw_line_2d(DMP,
-			GED2PM1((int)BV_MIN), GED2PM1(TITLE_YBASE-TEXT1_DY),
-			GED2PM1((int)BV_MAX), GED2PM1(TITLE_YBASE-TEXT1_DY));
+			GED2PM1((int)BSG_VIEW_MIN), GED2PM1(TITLE_YBASE-TEXT1_DY),
+			GED2PM1((int)BSG_VIEW_MAX), GED2PM1(TITLE_YBASE-TEXT1_DY));
 
 	if (mged_variables->mv_orig_gui) {
 	    /* Enclose window in decorative box.  Mostly for alignment. */
 	    dm_draw_line_2d(DMP,
-			    GED2PM1((int)BV_MIN), GED2PM1((int)BV_MIN),
-			    GED2PM1((int)BV_MAX), GED2PM1((int)BV_MIN));
+			    GED2PM1((int)BSG_VIEW_MIN), GED2PM1((int)BSG_VIEW_MIN),
+			    GED2PM1((int)BSG_VIEW_MAX), GED2PM1((int)BSG_VIEW_MIN));
 	    dm_draw_line_2d(DMP,
-			    GED2PM1((int)BV_MAX), GED2PM1((int)BV_MIN),
-			    GED2PM1((int)BV_MAX), GED2PM1((int)BV_MAX));
+			    GED2PM1((int)BSG_VIEW_MAX), GED2PM1((int)BSG_VIEW_MIN),
+			    GED2PM1((int)BSG_VIEW_MAX), GED2PM1((int)BSG_VIEW_MAX));
 	    dm_draw_line_2d(DMP,
-			    GED2PM1((int)BV_MAX), GED2PM1((int)BV_MAX),
-			    GED2PM1((int)BV_MIN), GED2PM1((int)BV_MAX));
+			    GED2PM1((int)BSG_VIEW_MAX), GED2PM1((int)BSG_VIEW_MAX),
+			    GED2PM1((int)BSG_VIEW_MIN), GED2PM1((int)BSG_VIEW_MAX));
 	    dm_draw_line_2d(DMP,
-			    GED2PM1((int)BV_MIN), GED2PM1((int)BV_MAX),
-			    GED2PM1((int)BV_MIN), GED2PM1((int)BV_MIN));
+			    GED2PM1((int)BSG_VIEW_MIN), GED2PM1((int)BSG_VIEW_MAX),
+			    GED2PM1((int)BSG_VIEW_MIN), GED2PM1((int)BSG_VIEW_MIN));
 
 	    /* Display scroll bars */
 	    scroll_ybot = scroll_display(s, SCROLLY);
@@ -413,8 +416,8 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 			      GED2PM1(MENUX), GED2PM1(MENUY - MENU_DY), 1, 0);
 	} else {
 	    scroll_ybot = SCROLLY;
-	    x = (int)BV_MIN + 20;
-	    y = (int)BV_MAX+TEXT0_DY;
+	    x = (int)BSG_VIEW_MIN + 20;
+	    y = (int)BSG_VIEW_MAX+TEXT0_DY;
 	}
 
 	/*
@@ -453,7 +456,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 			   color_scheme->cs_other_line[2], 1, 1.0);
 	    dm_draw_line_2d(DMP,
 			    GED2PM1(MENUXLIM), GED2PM1(y),
-			    GED2PM1(MENUXLIM), GED2PM1((int)BV_MAX));	/* vert. */
+			    GED2PM1(MENUXLIM), GED2PM1((int)BSG_VIEW_MAX));	/* vert. */
 	    /*
 	     * The top of the menu (if any) begins at the Y value specified.
 	     */
@@ -463,8 +466,8 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	    if (s->global_editing_state == ST_O_EDIT && illump->s_old.s_Eflag) {
 		/* region is a processed region */
 		MAT4X3PNT(temp, view_state->vs_model2objview, MEDIT(s)->e_keypoint);
-		xloc = (int)(temp[X]*BV_MAX);
-		yloc = (int)(temp[Y]*BV_MAX);
+		xloc = (int)(temp[X]*BSG_VIEW_MAX);
+		yloc = (int)(temp[Y]*BSG_VIEW_MAX);
 		dm_set_fg(DMP,
 			       color_scheme->cs_edit_info[0],
 			       color_scheme->cs_edit_info[1],
@@ -507,7 +510,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	bu_vls_printf(&vls,
 		      " cent=(%s, %s, %s), %s %s, ", cent_x, cent_y, cent_z,
 		      size, bu_units_string(s->dbip->dbi_local2base));
-	bu_vls_printf(&vls, "az=%3.2f el=%3.2f tw=%3.2f ang=(%s, %s, %s)", V3ARGS(view_state->vs_gvp->gv_aet),
+	bu_vls_printf(&vls, "az=%3.2f el=%3.2f tw=%3.2f ang=(%s, %s, %s)", V3ARGS(_tc.aet),
 		      ang_x, ang_y, ang_z);
 	dm_set_fg(DMP,
 		       color_scheme->cs_status_text1[0],

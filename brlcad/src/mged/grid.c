@@ -32,6 +32,7 @@
 
 #include "./mged.h"
 #include "./mged_dm.h"
+#include "bsg/util.h"
 
 
 static void grid_set_dirty_flag(const struct bu_structparse *, const char *, void *, const char *, void *);
@@ -39,7 +40,7 @@ static void set_grid_draw(const struct bu_structparse *, const char *, void *, c
 static void set_grid_res(const struct bu_structparse *, const char *, void *, const char *, void *);
 
 
-struct bv_grid_state default_grid_state = {
+struct bsg_grid_state default_grid_state = {
     /* rc */		1,
     /* draw */		0,
     /* non-adaptive*/   0,
@@ -53,7 +54,7 @@ struct bv_grid_state default_grid_state = {
 };
 
 
-#define GRID_O(_m) bu_offsetof(struct bv_grid_state, _m)
+#define GRID_O(_m) bu_offsetof(struct bsg_grid_state, _m)
 struct bu_structparse grid_vparse[] = {
     {"%d", 1, "draw",	GRID_O(draw),        set_grid_draw, NULL, NULL },
     {"%d", 1, "snap",	GRID_O(snap),        grid_set_dirty_flag, NULL, NULL },
@@ -185,7 +186,7 @@ draw_grid(struct mged_state *s)
     nh_dots = 2.0 * sf * inv_grid_res_h + (2 * grid_state->res_major_h);
 
     VSCALE(model_grid_anchor, grid_state->anchor, s->dbip->dbi_local2base);
-    MAT4X3PNT(view_grid_anchor, view_state->vs_gvp->gv_model2view, model_grid_anchor);
+    { struct bsg_camera _gca; bsg_view_get_camera(view_state->vs_gvp, &_gca); MAT4X3PNT(view_grid_anchor, _gca.model2view, model_grid_anchor); }
     VSCALE(view_grid_anchor_local, view_grid_anchor, sf);
 
     VSET(view_lleft_corner, -1.0, -inv_aspect, 0.0);
@@ -261,7 +262,7 @@ snap_to_grid(
     VSCALE(view_pt, view_pt, sf);  /* view_pt now in local units */
 
     VSCALE(model_grid_anchor, grid_state->anchor, s->dbip->dbi_local2base);
-    MAT4X3PNT(view_grid_anchor, view_state->vs_gvp->gv_model2view, model_grid_anchor);
+    { struct bsg_camera _gca; bsg_view_get_camera(view_state->vs_gvp, &_gca); MAT4X3PNT(view_grid_anchor, _gca.model2view, model_grid_anchor); }
     VSCALE(view_grid_anchor, view_grid_anchor, sf);  /* view_grid_anchor now in local units */
 
     grid_units_h = (view_grid_anchor[X] - view_pt[X]) / grid_state->res_h;
@@ -307,13 +308,13 @@ snap_keypoint_to_grid(struct mged_state *s)
     }
 
     if (s->global_editing_state == ST_S_EDIT) {
-	MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, MEDIT(s)->curr_e_axes_pos);
+	{ struct bsg_camera _gc1; bsg_view_get_camera(view_state->vs_gvp, &_gc1); MAT4X3PNT(view_pt, _gc1.model2view, MEDIT(s)->curr_e_axes_pos); }
     } else {
 	MAT4X3PNT(model_pt, MEDIT(s)->model_changes, MEDIT(s)->e_axes_pos);
-	MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, model_pt);
+	{ struct bsg_camera _gc2; bsg_view_get_camera(view_state->vs_gvp, &_gc2); MAT4X3PNT(view_pt, _gc2.model2view, model_pt); }
     }
     snap_to_grid(s, &view_pt[X], &view_pt[Y]);
-    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+    { struct bsg_camera _gc3; bsg_view_get_camera(view_state->vs_gvp, &_gc3); MAT4X3PNT(model_pt, _gc3.view2model, view_pt); }
     VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 
     if (s->global_editing_state == ST_S_EDIT)
@@ -337,12 +338,12 @@ snap_view_center_to_grid(struct mged_state *s)
     if (s->dbip == DBI_NULL)
 	return;
 
-    MAT_DELTAS_GET_NEG(model_pt, view_state->vs_gvp->gv_center);
-    MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, model_pt);
+    { struct bsg_camera _gc4; bsg_view_get_camera(view_state->vs_gvp, &_gc4); MAT_DELTAS_GET_NEG(model_pt, _gc4.center); }
+    { struct bsg_camera _gc2; bsg_view_get_camera(view_state->vs_gvp, &_gc2); MAT4X3PNT(view_pt, _gc2.model2view, model_pt); }
     snap_to_grid(s, &view_pt[X], &view_pt[Y]);
-    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+    { struct bsg_camera _gc3; bsg_view_get_camera(view_state->vs_gvp, &_gc3); MAT4X3PNT(model_pt, _gc3.view2model, view_pt); }
 
-    MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, model_pt);
+    { struct bsg_camera _gc6; bsg_view_get_camera(view_state->vs_gvp, &_gc6); MAT_DELTAS_VEC_NEG(_gc6.center, model_pt); bsg_view_set_camera(view_state->vs_gvp, &_gc6); }
     new_mats(s);
 
     VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
@@ -414,14 +415,14 @@ snap_view_to_grid(struct mged_state *s, fastf_t view_dx, fastf_t view_dy)
 
     VSET(view_pt, view_dx, view_dy, 0.0);
 
-    MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
-    MAT_DELTAS_GET_NEG(vcenter, view_state->vs_gvp->gv_center);
+    { struct bsg_camera _gc3; bsg_view_get_camera(view_state->vs_gvp, &_gc3); MAT4X3PNT(model_pt, _gc3.view2model, view_pt); }
+    { struct bsg_camera _gc5; bsg_view_get_camera(view_state->vs_gvp, &_gc5); MAT_DELTAS_GET_NEG(vcenter, _gc5.center); }
     VSUB2(diff, model_pt, vcenter);
     VSCALE(diff, diff, s->dbip->dbi_base2local);
     VSUB2(model_pt, dm_work_pt, diff);
 
     VSCALE(model_pt, model_pt, s->dbip->dbi_local2base);
-    MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, model_pt);
+    { struct bsg_camera _gc7; bsg_view_get_camera(view_state->vs_gvp, &_gc7); MAT_DELTAS_VEC_NEG(_gc7.center, model_pt); bsg_view_set_camera(view_state->vs_gvp, &_gc7); }
     new_mats(s);
 }
 

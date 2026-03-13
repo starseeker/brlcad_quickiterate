@@ -216,7 +216,7 @@ struct _view_state {
     int		vs_rc;
     int		vs_flag;
 
-    struct bview *vs_gvp;
+    bsg_view *vs_gvp;
     mat_t	vs_model2objview;
     mat_t	vs_objview2model;
     mat_t	vs_ModelDelta;		/* changes to Viewrot this frame */
@@ -226,7 +226,7 @@ struct _view_state {
     struct view_ring	*vs_last_view;
 
     /* Rate stuff */
-    struct bview_knobs k;
+    bsg_knobs k;
 
     /* Virtual trackball stuff */
     point_t	vs_orig_pos;
@@ -394,7 +394,7 @@ struct mged_dm {
     struct _rubber_band	*dm_rubber_band;
     struct _mged_variables *dm_mged_variables;
     struct _color_scheme	*dm_color_scheme;
-    struct bv_grid_state *dm_grid_state;
+    struct bsg_grid_state *dm_grid_state;
     struct _axes_state	*dm_axes_state;
     struct _dlist_state	*dm_dlist_state;
 

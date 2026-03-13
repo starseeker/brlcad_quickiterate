@@ -44,13 +44,14 @@
 #include "bn.h"
 #include "rt/geom.h"
 #include "raytrace.h"
-#include "bv/lod.h"
-#include "bv/plot3.h"
+#include "bsg/lod.h"
+#include "bsg/plot3.h"
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 #include "./ged_private.h"
 #include "./include/plugin.h"
+#include "ged/dbi.h"
 
 extern "C" void libged_init(void);
 
@@ -65,13 +66,22 @@ ged_close(struct ged *gedp)
     if (gedp == GED_NULL)
 	return;
 
+    /* Stop the GeomLoader background thread BEFORE freeing the database.
+     * DbiState holds a non-owning pointer to dbip; destroying it first ensures
+     * ~GeomLoader() joins the worker thread while dbip is still valid, preventing
+     * a use-after-free that would trigger RT_CK_DBI from the worker. */
+    if (gedp->dbi_state) {
+	delete (DbiState *)gedp->dbi_state;
+	gedp->dbi_state = NULL;
+    }
+
     if (gedp->dbip) {
 	db_close(gedp->dbip);
 	gedp->dbip = NULL;
     }
 
     if (gedp->ged_lod)
-	bv_mesh_lod_context_destroy(gedp->ged_lod);
+	bsg_mesh_lod_context_destroy(gedp->ged_lod);
 
     /* Terminate any ged subprocesses */
     if (gedp != GED_NULL) {
@@ -109,7 +119,7 @@ ged_init(struct ged *gedp)
     bu_vls_init(&gedp->go_name);
 
     // View related containers
-    bv_set_init(&gedp->ged_views);
+    bsg_scene_init(&gedp->ged_views);
     BU_PTBL_INIT(&gedp->ged_free_views);
 
     /* TODO: If we're init-ing the list here, does that mean the gedp has
@@ -119,10 +129,11 @@ ged_init(struct ged *gedp)
     BU_PTBL_INIT(&gedp->free_solids);
 
     // Establish an initial view
-    BU_ALLOC(gedp->ged_gvp, struct bview);
-    bv_init(gedp->ged_gvp, &gedp->ged_views);
+    BU_ALLOC(gedp->ged_gvp, bsg_view);
+    bsg_view_init(gedp->ged_gvp, &gedp->ged_views);
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
-    bv_set_add_view(&gedp->ged_views, gedp->ged_gvp);
+    bsg_scene_root_create(gedp->ged_gvp);
+    bsg_scene_add_view(&gedp->ged_views, gedp->ged_gvp);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)gedp->ged_gvp);
 
     /* Create a non-opened fbserv */
@@ -130,8 +141,6 @@ ged_init(struct ged *gedp)
     gedp->ged_fbs->fbs_listener.fbsl_fd = -1;
 
     BU_GET(gedp->i->ged_gdp, struct ged_drawable);
-    BU_GET(gedp->i->ged_gdp->gd_headDisplay, struct bu_list);
-    BU_LIST_INIT(gedp->i->ged_gdp->gd_headDisplay);
     BU_GET(gedp->i->ged_gdp->gd_headVDraw, struct bu_list);
     BU_LIST_INIT(gedp->i->ged_gdp->gd_headVDraw);
 
@@ -204,12 +213,12 @@ ged_free(struct ged *gedp)
     gedp->ged_gvp = NULL;
 
     for (size_t i = 0; i < BU_PTBL_LEN(&gedp->ged_free_views); i++) {
-	struct bview *gdvp = (struct bview *)BU_PTBL_GET(&gedp->ged_free_views, i);
-	bv_free(gdvp);
+	bsg_view *gdvp = (bsg_view *)BU_PTBL_GET(&gedp->ged_free_views, i);
+	bsg_view_free(gdvp);
 	bu_free((void *)gdvp, "bv");
     }
     bu_ptbl_free(&gedp->ged_free_views);
-    bv_set_free(&gedp->ged_views);
+    bsg_scene_free(&gedp->ged_views);
 
     if (gedp->i->ged_gdp != GED_DRAWABLE_NULL) {
 
@@ -220,16 +229,14 @@ ged_free(struct ged *gedp)
 	    // with the struct ged or with the application as a whole?  We're
 	    // BU_PUT-ing gedp->ged_views.free_scene_obj - above why just that one?
 #if 0
-	    struct bv_scene_obj *sp = (struct bv_scene_obj *)BU_PTBL_GET(&gedp->free_solids, i);
-	    BV_FREE_VLIST(vlfree, &(sp->s_vlist));
+	    bsg_shape *sp = (bsg_shape *)BU_PTBL_GET(&gedp->free_solids, i);
+	    BSG_FREE_VLIST(vlfree, &(sp->s_vlist));
 #endif
 	}
 	bu_ptbl_free(&gedp->free_solids);
 
-	if (gedp->i->ged_gdp->gd_headDisplay)
-	    BU_PUT(gedp->i->ged_gdp->gd_headDisplay, struct bu_vls);
 	if (gedp->i->ged_gdp->gd_headVDraw)
-	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_vls);
+	    BU_PUT(gedp->i->ged_gdp->gd_headVDraw, struct bu_list);
 	qray_free(gedp->i->ged_gdp);
 	BU_PUT(gedp->i->ged_gdp, struct ged_drawable);
     }
@@ -492,7 +499,7 @@ ged_output_handler_cb(struct ged *gedp, char *str)
 }
 
 void
-ged_create_vlist_solid_cb(struct ged *gedp, struct bv_scene_obj *s)
+ged_create_vlist_solid_cb(struct ged *gedp, bsg_shape *s)
 {
     if (gedp->ged_create_vlist_scene_obj_callback != GED_CREATE_VLIST_SOLID_FUNC_NULL) {
 	gedp->ged_cbs->ged_create_vlist_scene_obj_callback_cnt++;

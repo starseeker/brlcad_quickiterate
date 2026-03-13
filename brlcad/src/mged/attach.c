@@ -44,6 +44,7 @@
 #include "vmath.h"
 #include "bu/env.h"
 #include "bu/ptbl.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -61,7 +62,7 @@ extern struct _color_scheme default_color_scheme;
 extern void share_dlist(struct mged_dm *dlp2);	/* defined in share.c */
 int mged_default_dlist = 0;   /* This variable is available via Tcl for controlling use of display lists */
 
-static fastf_t windowbounds[6] = { (int)BV_MIN, (int)BV_MAX, (int)BV_MIN, (int)BV_MAX, (int)BV_MIN, (int)BV_MAX };
+static fastf_t windowbounds[6] = { (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX };
 
 /* If we changed the active dm, need to update GEDP as well.. */
 void set_curr_dm(struct mged_state *s, struct mged_dm *nc)
@@ -111,7 +112,7 @@ mged_dm_init(
 
     /* In case the user wants swrast in headless mode, pass the view in the
      * context slot.  Other dms will either not use the ctx argument or will
-     * catch the BV_MAGIC value and not initialize (such as qtgl, which needs a
+     * catch the BSG_VIEW_MAGIC value and not initialize (such as qtgl, which needs a
      * context from a parent Qt widget and won't work in MGED.) */
     void *ctx = view_state->vs_gvp;
     if ((DMP = dm_open(ctx, (void *)s->interp, dm_type, argc-1, argv)) == DM_NULL)
@@ -240,7 +241,7 @@ release(struct mged_state *s, char *name, int need_close)
     if (need_close)
 	dm_close(DMP);
 
-    BV_FREE_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist);
+    BSG_FREE_VLIST(s->vlfree, &s->mged_curr_dm->dm_p_vlist);
     bu_ptbl_rm(&active_dm_set, (long *)s->mged_curr_dm);
     mged_slider_free_vls(s->mged_curr_dm);
     bu_free((void *)s->mged_curr_dm, "release: s->mged_curr_dm");
@@ -505,7 +506,7 @@ mged_attach(struct mged_state *s, const char *wp_name, int argc, const char *arg
     share_dlist(s->mged_curr_dm);
 
     if (dm_get_displaylist(DMP) && mged_variables->mv_dlist && !dlist_state->dl_active) {
-	createDLists(s, (struct bu_list *)ged_dl(s->gedp));
+	createDListAll(s, NULL);
 	dlist_state->dl_active = 1;
     }
 
@@ -698,7 +699,7 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 
     color_scheme->cs_rc = 1;
 
-    BU_ALLOC(grid_state, struct bv_grid_state);
+    BU_ALLOC(grid_state, struct bsg_grid_state);
     *grid_state = *target_dm->dm_grid_state;		/* struct copy */
     grid_state->rc = 1;
 
@@ -711,7 +712,7 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 
     BU_ALLOC(view_state, struct _view_state);
     *view_state = *target_dm->dm_view_state;			/* struct copy */
-    BU_ALLOC(view_state->vs_gvp, struct bview);
+    BU_ALLOC(view_state->vs_gvp, bsg_view);
     BU_GET(view_state->vs_gvp->callbacks, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->callbacks, 8, "bv callbacks");
 
@@ -722,6 +723,8 @@ dm_var_init(struct mged_state *s, struct mged_dm *target_dm)
 
     BU_GET(view_state->vs_gvp->gv_objs.view_objs, struct bu_ptbl);
     bu_ptbl_init(view_state->vs_gvp->gv_objs.view_objs, 8, "view_objs init");
+
+    bsg_scene_root_create(view_state->vs_gvp);
 
     view_state->vs_gvp->vset = &s->gedp->ged_views;
     view_state->vs_gvp->independent = 0;

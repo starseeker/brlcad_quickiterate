@@ -1,0 +1,835 @@
+/**************************************************************************\
+ * Copyright (c) Kongsberg Oil & Gas Technologies AS
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * 
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * 
+ * Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ * 
+ * Neither the name of the copyright holder nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+\**************************************************************************/
+
+#include "CoinOffscreenGLCanvas.h"
+
+#include <climits>
+#include <cstring>
+
+#include "glue/glp.h"
+#include <Inventor/errors/SoDebugError.h>
+#include <Inventor/misc/SoContextHandler.h>
+#include <Inventor/elements/SoGLCacheContextElement.h>
+#include <Inventor/SoDB.h>
+
+#include "CoinTidbits.h"
+#include "misc/SoEnvironment.h"
+
+#include "config.h"
+
+// *************************************************************************
+
+unsigned int CoinOffscreenGLCanvas::tilesizeroof = UINT_MAX;
+
+// *************************************************************************
+
+CoinOffscreenGLCanvas::CoinOffscreenGLCanvas(void)
+{
+  this->size = SbVec2s(0, 0);
+  this->context = NULL;
+  this->current_hdc = NULL;
+  this->fbo = 0;
+  this->color_rb = 0;
+  this->depth_rb = 0;
+  this->fbo_initialized = FALSE;
+  this->instance_mgr = NULL;
+}
+
+CoinOffscreenGLCanvas::~CoinOffscreenGLCanvas()
+{
+  if (this->context) { this->destructContext(); }
+}
+
+// *************************************************************************
+
+// Set a per-instance context manager.  When non-NULL this manager is used
+// for all context lifecycle calls, overriding the global singleton.
+void
+CoinOffscreenGLCanvas::setContextManager(SoDB::ContextManager * mgr)
+{
+  // If there's already an active context that was created with a different
+  // manager, destroy it first so the new manager starts fresh.
+  if (this->context && this->instance_mgr != mgr) {
+    this->destructContext();
+  }
+  this->instance_mgr = mgr;
+}
+
+// Returns the per-instance context manager.  SoOffscreenRenderer always calls
+// setContextManager() before using the canvas, so this is never NULL in normal
+// operation (the renderer captures the global at construction time).
+SoDB::ContextManager *
+CoinOffscreenGLCanvas::effectiveMgr(void) const
+{
+  return this->instance_mgr;
+}
+
+// *************************************************************************
+
+SbBool
+CoinOffscreenGLCanvas::clampSize(SbVec2s & reqsize) const
+{
+  // getMaxTileSize() returns the theoretical maximum gathered from
+  // various GL driver information. We're not guaranteed that we'll be
+  // able to allocate a buffer of this size -- e.g. due to memory
+  // constraints on the gfx card.
+
+  SbVec2s maxsize = CoinOffscreenGLCanvas::getMaxTileSize(this->effectiveMgr());
+  if (maxsize == SbVec2s(0, 0)) {
+    // The global GL probe returned nothing usable (e.g. no system-GL context
+    // could be created because we are headless or there is no display).
+    // Ask the per-instance manager for its own limits -- this allows an
+    // OSMesa-backed renderer to report its RAM-only limits independently of
+    // the system-GL state.
+    SoDB::ContextManager * mgr = this->effectiveMgr();
+    if (mgr) {
+      unsigned int mw = 0, mh = 0;
+      mgr->maxOffscreenDimensions(mw, mh);
+      if (mw > 0 && mh > 0) {
+        maxsize[0] = (short)SbMin(mw, (unsigned int)SHRT_MAX);
+        maxsize[1] = (short)SbMin(mh, (unsigned int)SHRT_MAX);
+      }
+    }
+    if (maxsize == SbVec2s(0, 0)) { return FALSE; }
+  }
+
+  reqsize[0] = SbMin(reqsize[0], maxsize[0]);
+  reqsize[1] = SbMin(reqsize[1], maxsize[1]);
+
+  // Fit the attempted allocation size to be less than the largest
+  // tile size we know have failed allocation. We do this to avoid
+  // trying to set the tilesize to dimensions which will very likely
+  // fail -- as attempting to find a workable tilesize is an expensive
+  // operation when the SoOffscreenRenderer instance already has a GL
+  // context set up (destruction and creation of a new one will take
+  // time, and it will also kill all GL resources tied to the
+  // context).
+  while ((((unsigned int)reqsize[0]) * ((unsigned int)reqsize[1])) >
+         CoinOffscreenGLCanvas::tilesizeroof) {
+    // shrink by halving the largest dimension:
+    if (reqsize[0] > reqsize[1]) { reqsize[0] /= 2; }
+    else { reqsize[1] /= 2; }
+  }
+
+  if ((reqsize[0] == 0) || (reqsize[1] == 0)) { return FALSE; }
+  return TRUE;
+}
+
+void
+CoinOffscreenGLCanvas::setWantedSize(SbVec2s reqsize)
+{
+  assert((reqsize[0] > 0) && (reqsize[1] > 0) && "invalid dimensions attempted set");
+
+  const SbBool ok = this->clampSize(reqsize);
+  if (!ok) {
+    if (this->context) { this->destructContext(); }
+    this->size = SbVec2s(0, 0);
+    return;
+  }
+
+  // We check if the current GL canvas is much larger than what is
+  // requested, as to then free up potentially large memory resources,
+  // even if we already have a large enough canvas.
+  size_t oldres = (size_t)this->size[0] * (size_t)this->size[1];
+  size_t newres = (size_t)reqsize[0] * (size_t)reqsize[1];
+  const SbBool resourcehog = (oldres > (newres * 16)) && !CoinOffscreenGLCanvas::allowResourcehog();
+
+  // Since the operation of context destruction and reconstruction has
+  // the potential to be such a costly operation (because GL caches
+  // are smashed, among other things), we try hard to avoid it.
+  //
+  // So avoid it if not really necessary, by checking that if we
+  // already have a working GL context with size equal or larger to
+  // the requested, don't destruct (and reconstruct).
+  //
+  // We can have a different sized internal GL canvas as to what
+  // SoOffscreenRenderer wants, because SoGLContext_glViewport() is called from
+  // SoOffscreenRenderer to render to the correct viewport dimensions.
+  if (this->context &&
+      (this->size[0] >= reqsize[0]) &&
+      (this->size[1] >= reqsize[1]) &&
+      !resourcehog) {
+    return;
+  }
+
+  // Ok, there's no way around it, we need to destruct the GL context:
+
+  if (CoinOffscreenGLCanvas::debug()) {
+    SoDebugError::postInfo("CoinOffscreenGLCanvas::setWantedSize",
+                           "killing current context, (clamped) reqsize==[%d, %d],"
+                           " previous size==[%d, %d], resourcehog==%s",
+                           reqsize[0], reqsize[1],
+                           this->size[0], this->size[1],
+                           resourcehog ? "TRUE" : "FALSE");
+  }
+
+  if (resourcehog) {
+    // If we were hogging too much memory for the offscreen context,
+    // simply go back to the requested size, to free up all that we
+    // can.
+    this->size = reqsize;
+  }
+  else {
+    // To avoid costly reconstruction on "flutter", by one or two
+    // dimensions going a little bit up and down from frame to frame,
+    // we try to expand the GL canvas up-front to what perhaps would
+    // be sufficient to avoid further GL canvas destruct- /
+    // reconstruct-operations.
+    this->size[0] = SbMax(reqsize[0], this->size[0]);
+    this->size[1] = SbMax(reqsize[1], this->size[1]);
+  }
+
+  // Clean up FBO if size is changing - it will be recreated with new size
+  if (this->context && this->fbo_initialized) {
+    SoDB::ContextManager * mgr = this->effectiveMgr();
+    if (mgr && mgr->makeContextCurrent(this->context)) {
+      this->cleanupFBO();
+      mgr->restorePreviousContext(this->context);
+    }
+  }
+
+  if (this->context) { this->destructContext(); }
+}
+
+const SbVec2s &
+CoinOffscreenGLCanvas::getActualSize(void) const
+{
+  return this->size;
+}
+
+// *************************************************************************
+
+uint32_t
+CoinOffscreenGLCanvas::tryActivateGLContext(void)
+{
+  if (this->size == SbVec2s(0, 0)) { return 0; }
+
+  SoDB::ContextManager * mgr = this->effectiveMgr();
+
+  if (this->context == NULL) {
+    if (!mgr) {
+      SoDebugError::post("CoinOffscreenGLCanvas::tryActivateGLContext",
+                         "No context manager available. Applications must provide "
+                         "a context manager via SoDB::init() before rendering.");
+      return 0;
+    }
+    this->context = mgr->createOffscreenContext(this->size[0], this->size[1]);
+    
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::postInfo("CoinOffscreenGLCanvas::tryActivateGLContext",
+                             "Tried to create offscreen context of dimensions "
+                             "<%d, %d> via callback system -- %s",
+                             this->size[0], this->size[1],
+                             this->context == NULL ? "failed" : "succeeded");
+    }
+
+    if (this->context == NULL) { 
+      SoDebugError::post("CoinOffscreenGLCanvas::tryActivateGLContext",
+                         "No context created. Applications must provide a context manager "
+                         "via SoDB::setContextManager() before SoDB::init()");
+      return 0; 
+    }
+
+    // Set up mapping from GL context to SoGLRenderAction context id.
+    this->renderid = SoGLCacheContextElement::getUniqueCacheContext();
+
+    /* Register the context manager for this context ID so that
+       SoGLContext_getprocaddress() uses the correct backend resolver
+       without consulting the global singleton. */
+    coingl_register_context_manager(static_cast<int>(this->renderid), mgr);
+
+#ifdef OBOL_BUILD_DUAL_GL
+    /* In dual-GL builds, tell the GL dispatch layer which backend this
+       context was created with so SoGLContext_instance() can route to
+       the correct (osmesa_ or sysgl) implementation. */
+    if (mgr->isOSMesaContext(this->context)) {
+      coingl_register_osmesa_context(static_cast<int>(this->renderid));
+    }
+#endif
+
+    // Note: HDC handling is Windows-specific and should be handled by 
+    // the callback implementation if needed
+    this->current_hdc = NULL;
+  }
+
+  if (!mgr || mgr->makeContextCurrent(this->context) == FALSE) {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::tryActivateGLContext",
+                         "Couldn't make context current.");
+    }
+    return 0;
+  }
+  
+  // Bind FBO for offscreen rendering
+  if (!this->bindFBO()) {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::tryActivateGLContext",
+                         "Failed to bind framebuffer object for offscreen rendering");
+    }
+    return 0;
+  }
+  
+  return this->renderid;
+}
+
+void
+CoinOffscreenGLCanvas::clampToPixelSizeRoof(SbVec2s & s)
+{
+  unsigned int pixelsize;
+  do {
+    pixelsize = (unsigned int)s[0] * (unsigned int)s[1];
+    if (pixelsize == 0) { return; } // avoid never-ending loop
+
+    if (pixelsize >= CoinOffscreenGLCanvas::tilesizeroof) {
+      // halve the largest dimension, and try again:
+      if (s[0] > s[1]) { s[0] /= 2; }
+      else { s[1] /= 2; }
+    }
+  } while (pixelsize >= CoinOffscreenGLCanvas::tilesizeroof);
+}
+
+// Activates an offscreen GL context, and returns a guaranteed unique
+// id to use with SoGLRenderAction::setCacheContext().
+//
+// If the given context cannot be made current (due to e.g. any error
+// condition resulting from the attempt at setting up the offscreen GL
+// context), 0 is returned.
+uint32_t
+CoinOffscreenGLCanvas::activateGLContext(void)
+{
+  // We try to allocate the wanted size, and then if we fail,
+  // successively try with smaller sizes (alternating between halving
+  // width and height) until either a workable offscreen buffer was
+  // found, or no buffer could be made.
+  uint32_t ctx;
+  do {
+    CoinOffscreenGLCanvas::clampToPixelSizeRoof(this->size);
+
+    ctx = this->tryActivateGLContext();
+    if (ctx != 0) { break; }
+
+    // if we've allocated a context, but couldn't make it current
+    if (this->context) { this->destructContext(); }
+
+    // we failed with this size, so make sure we only try with smaller
+    // tile sizes later
+    const unsigned int failedsize =
+      (unsigned int)this->size[0] * (unsigned int)this->size[1];
+    assert(failedsize <= CoinOffscreenGLCanvas::tilesizeroof);
+    CoinOffscreenGLCanvas::tilesizeroof = failedsize;
+
+    // keep trying until 32x32 -- if even those dimensions doesn't
+    // work, give up, as too small tiles will cause the processing
+    // time to go through the roof due to the huge number of passes:
+    if ((this->size[0] <= 32) && (this->size[1] <= 32)) { break; }
+  } while (TRUE);
+
+  return ctx;
+}
+
+void
+CoinOffscreenGLCanvas::deactivateGLContext(void)
+{
+  assert(this->context);
+  
+  // Unbind FBO before deactivating context
+  this->unbindFBO();
+  
+  SoDB::ContextManager * mgr = this->effectiveMgr();
+  if (mgr) mgr->restorePreviousContext(this->context);
+}
+
+// *************************************************************************
+
+void
+CoinOffscreenGLCanvas::destructContext(void)
+{
+  assert(this->context);
+
+  SoDB::ContextManager * mgr = this->effectiveMgr();
+  if (mgr && mgr->makeContextCurrent(this->context)) {
+    // Clean up FBO resources before destroying context
+    this->cleanupFBO();
+    
+    SoContextHandler::destructingContext(this->renderid);
+    this->deactivateGLContext();
+  }
+  else {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::destructContext",
+                         "Couldn't activate context -- resource cleanup "
+                         "not complete.");
+    }
+  }
+
+  if (mgr) mgr->destroyContext(this->context);
+
+  this->context = NULL;
+  this->renderid = 0;
+  this->current_hdc = NULL;
+}
+
+// *************************************************************************
+
+/* This method supports SoOffscreenRenderer::getDC(). Note that HDC 
+   support depends on the context implementation provided by callbacks. */
+const void * const &
+CoinOffscreenGLCanvas::getHDC(void) const
+{
+  // HDC is platform-specific (Windows) and should be managed by the callback implementation
+  // Return null if not available - applications using callbacks should handle this
+  return this->current_hdc;
+}
+
+void CoinOffscreenGLCanvas::updateDCBitmap()
+{
+  // HDC bitmap updates are platform-specific and should be handled by callback implementations
+  // This method is now a no-op - applications using callbacks should handle DC updates
+  if (CoinOffscreenGLCanvas::debug()) {
+    SoDebugError::postInfo("CoinOffscreenGLCanvas::updateDCBitmap",
+                           "HDC operations should be handled by context callbacks");
+  }
+}
+// *************************************************************************
+
+// Pushes the rendered pixels into the internal memory array.
+void
+CoinOffscreenGLCanvas::readPixels(uint8_t * dst,
+                                  const SbVec2s & vpdims,
+                                  unsigned int dstrowsize,
+                                  unsigned int nrcomponents) const
+{
+  // Obtain the glue for this canvas's GL context.
+  // may be NULL here (e.g. when getBuffer() is called lazily after
+  // renderaction->apply() has already cleared the TLS render glue), so we
+  // always resolve via the render context ID rather than relying on the TLS.
+  const SoGLContext * glue = SoGLContext_instance(static_cast<int>(this->renderid));
+  if (!glue) {
+    SoDebugError::postWarning("CoinOffscreenGLCanvas::readPixels",
+                              "Unable to read pixels: no GL context (renderid=%u).",
+                              this->renderid);
+    return;
+  }
+
+  // For OSMesa contexts, glReadPixels reads directly from the OSMesa buffer
+  // (no FBO involved).  For system-GL contexts, ensure the FBO is bound.
+  SoDB::ContextManager * mgr = this->effectiveMgr();
+  const bool isOSMesa = mgr && this->context && mgr->isOSMesaContext(this->context);
+  if (!isOSMesa) {
+    if (this->fbo_initialized && this->fbo != 0) {
+      SoGLContext_glBindFramebuffer(glue, GL_FRAMEBUFFER_EXT, this->fbo);
+    }
+  }
+
+  SoGLContext_glPushAttrib(glue, GL_ALL_ATTRIB_BITS);
+
+  // First reset all settings that can influence the result of a
+  // glReadPixels() call, to make sure we get the actual contents of
+  // the buffer, unmodified.
+  //
+  // The values set up below matches the default settings of an
+  // OpenGL driver.
+
+  SoGLContext_glPixelStorei(glue, GL_PACK_SWAP_BYTES, 0);
+  SoGLContext_glPixelStorei(glue, GL_PACK_LSB_FIRST, 0);
+  SoGLContext_glPixelStorei(glue, GL_PACK_ROW_LENGTH, (GLint)dstrowsize);
+  SoGLContext_glPixelStorei(glue, GL_PACK_SKIP_ROWS, 0);
+  SoGLContext_glPixelStorei(glue, GL_PACK_SKIP_PIXELS, 0);
+
+  // FIXME: should use best possible alignment, for speediest
+  // operation. 20050617 mortene.
+//   SoGLContext_glPixelStorei(glue, GL_PACK_ALIGNMENT, 4);
+  SoGLContext_glPixelStorei(glue, GL_PACK_ALIGNMENT, 1);
+
+  SoGLContext_glPixelTransferi(glue, GL_MAP_COLOR, 0);
+  SoGLContext_glPixelTransferi(glue, GL_MAP_STENCIL, 0);
+  SoGLContext_glPixelTransferi(glue, GL_INDEX_SHIFT, 0);
+  SoGLContext_glPixelTransferi(glue, GL_INDEX_OFFSET, 0);
+  SoGLContext_glPixelTransferf(glue, GL_RED_SCALE, 1);
+  SoGLContext_glPixelTransferf(glue, GL_RED_BIAS, 0);
+  SoGLContext_glPixelTransferf(glue, GL_GREEN_SCALE, 1);
+  SoGLContext_glPixelTransferf(glue, GL_GREEN_BIAS, 0);
+  SoGLContext_glPixelTransferf(glue, GL_BLUE_SCALE, 1);
+  SoGLContext_glPixelTransferf(glue, GL_BLUE_BIAS, 0);
+  SoGLContext_glPixelTransferf(glue, GL_ALPHA_SCALE, 1);
+  SoGLContext_glPixelTransferf(glue, GL_ALPHA_BIAS, 0);
+  SoGLContext_glPixelTransferf(glue, GL_DEPTH_SCALE, 1);
+  SoGLContext_glPixelTransferf(glue, GL_DEPTH_BIAS, 0);
+
+  GLuint i = 0;
+  GLfloat f = 0.0f;
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_I_TO_I, 1, &f);
+  SoGLContext_glPixelMapuiv(glue, GL_PIXEL_MAP_S_TO_S, 1, &i);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_I_TO_R, 1, &f);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_I_TO_G, 1, &f);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_I_TO_B, 1, &f);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_I_TO_A, 1, &f);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_R_TO_R, 1, &f);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_G_TO_G, 1, &f);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_B_TO_B, 1, &f);
+  SoGLContext_glPixelMapfv(glue, GL_PIXEL_MAP_A_TO_A, 1, &f);
+
+  // The flushing of the OpenGL pipeline before and after the
+  // glReadPixels() call is done as a work-around for a reported
+  // OpenGL driver bug: on a Win2000 system with ATI Radeon graphics
+  // card, the system would hang hard if the flushing was not done.
+  //
+  // This is obviously an OpenGL driver bug, but the workaround of
+  // doing excessive flushing has no real ill effects, so we just do
+  // it unconditionally for all drivers. Note that it might not be
+  // necessary to flush both before and after glReadPixels() to work
+  // around the bug (this was not established with the external
+  // reporter), but again it shouldn't matter if we do.
+  //
+  // For reference, the specific driver which was reported to fail has
+  // the following characteristics:
+  //
+  // GL_VENDOR="ATI Technologies Inc."
+  // GL_RENDERER="Radeon 9000 DDR x86/SSE2"
+  // GL_VERSION="1.3.3446 Win2000 Release"
+  //
+  // mortene.
+
+  SoGLContext_glFlush(glue); glFinish();
+
+  assert((nrcomponents >= 1) && (nrcomponents <= 4));
+
+  unsigned char * readbuffer;
+
+  if (nrcomponents < 3) {
+    readbuffer = new unsigned char[vpdims[0]*vpdims[1]*4];
+    SoGLContext_glReadPixels(glue, 0, 0, vpdims[0], vpdims[1],
+                 nrcomponents == 1 ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, readbuffer);
+  }
+  else {
+    SoGLContext_glReadPixels(glue, 0, 0, vpdims[0], vpdims[1],
+                 nrcomponents == 3 ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, dst);
+  }
+
+  if (nrcomponents < 3) {
+    const unsigned char * src = readbuffer;
+    // manually convert to grayscale without Y-flipping
+    for (short y = 0; y < vpdims[1]; y++) {
+      for (short x = 0; x < vpdims[0]; x++) {
+        double v = src[0] * 0.3 + src[1] * 0.59 + src[2] * 0.11;
+        *dst++ = (unsigned char) v;
+        if (nrcomponents == 2) {
+          *dst++ = src[3];
+        }
+        src += nrcomponents == 1 ? 3 : 4;
+      }
+    }
+    delete[] readbuffer;
+  }
+  SoGLContext_glFlush(glue); glFinish();
+
+  SoGLContext_glPopAttrib(glue);
+}
+
+// *************************************************************************
+
+static SbBool tilesize_cached = FALSE;
+static unsigned int maxtile[2] = { 0, 0 };
+
+static void tilesize_cleanup(void)
+{
+  tilesize_cached = FALSE;
+  maxtile[0] = maxtile[1] = 0;
+}
+
+// Return largest size of offscreen canvas system can handle. Will
+// cache result, so only the first look-up is expensive.
+SbVec2s
+CoinOffscreenGLCanvas::getMaxTileSize(SoDB::ContextManager * mgr)
+{
+  // cache the values in static variables so that a new context is not
+  // created every time render() is called in SoOffscreenRenderer
+  if (tilesize_cached) return SbVec2s((short)maxtile[0], (short)maxtile[1]);
+
+  tilesize_cached = TRUE; // Flip on first run.
+
+  coin_atexit((coin_atexit_f*) tilesize_cleanup, CC_ATEXIT_NORMAL);
+
+  unsigned int width, height;
+  SoGLContext_context_max_dimensions(mgr, &width, &height);
+
+  if (CoinOffscreenGLCanvas::debug()) {
+    SoDebugError::postInfo("CoinOffscreenGLCanvas::getMaxTileSize",
+                           "SoGLContext_context_max_dimensions()==[%u, %u]",
+                           width, height);
+  }
+
+  // Makes it possible to override the default tilesizes. Should prove
+  // useful for debugging problems on remote sites.
+  const char * env = CoinInternal::getEnvironmentVariableRaw("OBOL_OFFSCREENRENDERER_TILEWIDTH");
+  const unsigned int forcedtilewidth = env ? atoi(env) : 0;
+  env = CoinInternal::getEnvironmentVariableRaw("OBOL_OFFSCREENRENDERER_TILEHEIGHT");
+  const unsigned int forcedtileheight = env ? atoi(env) : 0;
+
+  if (forcedtilewidth != 0) { width = forcedtilewidth; }
+  if (forcedtileheight != 0) { height = forcedtileheight; }
+
+  // Also make it possible to force a maximum tilesize.
+  env = CoinInternal::getEnvironmentVariableRaw("OBOL_OFFSCREENRENDERER_MAX_TILESIZE");
+  const unsigned int maxtilesize = env ? atoi(env) : 0;
+  if (maxtilesize != 0) {
+    width = SbMin(width, maxtilesize);
+    height = SbMin(height, maxtilesize);
+  }
+
+  // cache result for later calls, and clamp to fit within a short
+  // integer type
+  maxtile[0] = SbMin(width, (unsigned int)SHRT_MAX);
+  maxtile[1] = SbMin(height, (unsigned int)SHRT_MAX);
+
+  return SbVec2s((short)maxtile[0], (short)maxtile[1]);
+}
+
+// *************************************************************************
+
+SbBool
+CoinOffscreenGLCanvas::debug(void)
+{
+  static int flag = -1; // -1 means "not initialized" in this context
+  if (flag == -1) {
+    const char * env = CoinInternal::getEnvironmentVariableRaw("OBOL_DEBUG_SOOFFSCREENRENDERER");
+    flag = env && (atoi(env) > 0);
+  }
+  return flag;
+}
+
+SbBool
+CoinOffscreenGLCanvas::allowResourcehog(void)
+{
+  static int resourcehog_flag = -1; // -1 means "not initialized" in this context
+  if (resourcehog_flag == -1) {
+    const char * env = CoinInternal::getEnvironmentVariableRaw("OBOL_SOOFFSCREENRENDERER_ALLOW_RESOURCEHOG");
+    resourcehog_flag = env && (atoi(env) > 0);
+    SoDebugError::postInfo("CoinOffscreenGLCanvas",
+                           "Ignoring resource hogging due to set OBOL_SOOFFSCREENRENDERER_ALLOW_RESOURCEHOG environment variable.");
+  }
+  return resourcehog_flag;
+}
+
+// *************************************************************************
+
+// Initialize FBO for offscreen rendering using GL_EXT_framebuffer_object
+SbBool
+CoinOffscreenGLCanvas::initializeFBO(void)
+{
+  if (this->fbo_initialized) { return TRUE; }
+  
+  // Ensure the context is current before calling SoGLContext_instance
+  SoDB::ContextManager * mgr = this->effectiveMgr();
+  if (this->context && (!mgr || mgr->makeContextCurrent(this->context) == FALSE)) {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::initializeFBO",
+                         "Failed to make context current before FBO initialization");
+    }
+    return FALSE;
+  }
+  
+  // Get the current glglue instance to access FBO functions
+  const SoGLContext * glue = SoGLContext_instance(static_cast<int>(this->renderid));
+  if (!glue) {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::initializeFBO",
+                         "No current OpenGL context");
+    }
+    return FALSE;
+  }
+  
+  // Check if FBO extension is supported
+  if (!SoGLContext_has_framebuffer_objects(glue)) {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::initializeFBO",
+                         "GL_EXT_framebuffer_object extension not supported");
+    }
+    return FALSE;
+  }
+  
+  // Generate framebuffer object
+  SoGLContext_glGenFramebuffers(glue, 1, &this->fbo);
+  if (this->fbo == 0) {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::initializeFBO",
+                         "Failed to generate framebuffer object");
+    }
+    return FALSE;
+  }
+  
+  // Generate color renderbuffer
+  SoGLContext_glGenRenderbuffers(glue, 1, &this->color_rb);
+  if (this->color_rb == 0) {
+    SoGLContext_glDeleteFramebuffers(glue, 1, &this->fbo);
+    this->fbo = 0;
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::initializeFBO",
+                         "Failed to generate color renderbuffer");
+    }
+    return FALSE;
+  }
+  
+  // Generate depth renderbuffer
+  SoGLContext_glGenRenderbuffers(glue, 1, &this->depth_rb);
+  if (this->depth_rb == 0) {
+    SoGLContext_glDeleteRenderbuffers(glue, 1, &this->color_rb);
+    SoGLContext_glDeleteFramebuffers(glue, 1, &this->fbo);
+    this->fbo = 0;
+    this->color_rb = 0;
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::initializeFBO",
+                         "Failed to generate depth renderbuffer");
+    }
+    return FALSE;
+  }
+  
+  // Bind and setup color renderbuffer
+  SoGLContext_glBindRenderbuffer(glue, GL_RENDERBUFFER_EXT, this->color_rb);
+  SoGLContext_glRenderbufferStorage(glue, GL_RENDERBUFFER_EXT, GL_RGBA8, 
+                                  this->size[0], this->size[1]);
+  
+  // Bind and setup depth renderbuffer
+  SoGLContext_glBindRenderbuffer(glue, GL_RENDERBUFFER_EXT, this->depth_rb);
+  SoGLContext_glRenderbufferStorage(glue, GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT24,
+                                  this->size[0], this->size[1]);
+  
+  // Bind framebuffer and attach renderbuffers
+  SoGLContext_glBindFramebuffer(glue, GL_FRAMEBUFFER_EXT, this->fbo);
+  SoGLContext_glFramebufferRenderbuffer(glue, GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+                                      GL_RENDERBUFFER_EXT, this->color_rb);
+  SoGLContext_glFramebufferRenderbuffer(glue, GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT,
+                                      GL_RENDERBUFFER_EXT, this->depth_rb);
+  
+  // Check framebuffer completeness
+  GLenum status = SoGLContext_glCheckFramebufferStatus(glue, GL_FRAMEBUFFER_EXT);
+  if (status != GL_FRAMEBUFFER_COMPLETE_EXT) {
+    if (CoinOffscreenGLCanvas::debug()) {
+      SoDebugError::post("CoinOffscreenGLCanvas::initializeFBO",
+                         "Framebuffer not complete, status: 0x%x", status);
+    }
+    this->cleanupFBO();
+    return FALSE;
+  }
+  
+  // Unbind framebuffer
+  SoGLContext_glBindFramebuffer(glue, GL_FRAMEBUFFER_EXT, 0);
+  
+  this->fbo_initialized = TRUE;
+  
+  if (CoinOffscreenGLCanvas::debug()) {
+    SoDebugError::postInfo("CoinOffscreenGLCanvas::initializeFBO",
+                           "Successfully initialized FBO (%dx%d)",
+                           this->size[0], this->size[1]);
+  }
+  
+  return TRUE;
+}
+
+void
+CoinOffscreenGLCanvas::cleanupFBO(void)
+{
+  if (!this->fbo_initialized) { return; }
+  
+  const SoGLContext * glue = SoGLContext_instance(static_cast<int>(this->renderid));
+  if (!glue) { return; }
+  
+  if (this->depth_rb != 0) {
+    SoGLContext_glDeleteRenderbuffers(glue, 1, &this->depth_rb);
+    this->depth_rb = 0;
+  }
+  
+  if (this->color_rb != 0) {
+    SoGLContext_glDeleteRenderbuffers(glue, 1, &this->color_rb);
+    this->color_rb = 0;
+  }
+  
+  if (this->fbo != 0) {
+    SoGLContext_glDeleteFramebuffers(glue, 1, &this->fbo);
+    this->fbo = 0;
+  }
+  
+  this->fbo_initialized = FALSE;
+  
+  if (CoinOffscreenGLCanvas::debug()) {
+    SoDebugError::postInfo("CoinOffscreenGLCanvas::cleanupFBO",
+                           "FBO resources cleaned up");
+  }
+}
+
+SbBool
+CoinOffscreenGLCanvas::bindFBO(void)
+{
+  // OSMesa renders directly to the buffer supplied at context creation time
+  // (via OSMesaMakeCurrent) – there is no separate framebuffer object needed.
+  // Attempting to create one would require GL_EXT_framebuffer_object support
+  // from the OSMesa implementation, which the bundled OSMesa may not provide.
+  // SoGLContext_glReadPixels() will read from the OSMesa buffer directly when an OSMesa
+  // context is current, so we can skip FBO entirely for these contexts.
+  SoDB::ContextManager * mgr = this->effectiveMgr();
+  if (mgr && this->context && mgr->isOSMesaContext(this->context)) {
+    return TRUE;  // use OSMesa's own buffer – no FBO needed
+  }
+
+  if (!this->fbo_initialized) {
+    if (!this->initializeFBO()) {
+      return FALSE;
+    }
+  }
+  
+  const SoGLContext * glue = SoGLContext_instance(static_cast<int>(this->renderid));
+  if (!glue) { return FALSE; }
+  
+  SoGLContext_glBindFramebuffer(glue, GL_FRAMEBUFFER_EXT, this->fbo);
+  
+  // Set viewport to match FBO size
+  SoGLContext_glViewport(glue, 0, 0, this->size[0], this->size[1]);
+  
+  return TRUE;
+}
+
+void
+CoinOffscreenGLCanvas::unbindFBO(void)
+{
+  // No FBO to unbind for OSMesa contexts (see bindFBO comment).
+  SoDB::ContextManager * mgr = this->effectiveMgr();
+  if (mgr && this->context && mgr->isOSMesaContext(this->context)) {
+    return;
+  }
+
+  const SoGLContext * glue = SoGLContext_instance(static_cast<int>(this->renderid));
+  if (!glue) { return; }
+  
+  SoGLContext_glBindFramebuffer(glue, GL_FRAMEBUFFER_EXT, 0);
+}
+
+// *************************************************************************

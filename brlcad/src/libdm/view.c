@@ -23,9 +23,9 @@
 #include "bu/time.h"
 #include "bu/units.h"
 #include "bu/vls.h"
-#include "bv/defines.h"
-#include "bv/lod.h"
-#include "bv/util.h"
+#include "bsg/defines.h"
+#include "bsg/lod.h"
+#include "bsg/util.h"
 #define DM_WITH_RT
 #include "dm.h"
 
@@ -81,10 +81,10 @@ dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t 
 
 // Draw an arrow head for each MOVE+LAST_DRAW paring
 void
-dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
+dm_add_arrows(struct dm *dmp, bsg_shape *s)
 {
-    struct bv_vlist *vp = (struct bv_vlist *)&s->s_vlist;
-    struct bv_vlist *tvp;
+    struct bsg_vlist *vp = (struct bsg_vlist *)&s->s_vlist;
+    struct bsg_vlist *tvp;
     point_t A = VINIT_ZERO;
     point_t B = VINIT_ZERO;
     int pcnt = 0;
@@ -92,14 +92,14 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 	return;
     if (NEAR_ZERO(s->s_os->s_arrow_tip_length, SMALL_FASTF) || NEAR_ZERO(s->s_os->s_arrow_tip_width, SMALL_FASTF))
        return;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;
 	for (int i = 0; i < nused; i++, cmd++, pt++) {
 	    pcnt++;
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    if (pcnt > 1) {
 			// We have a move and more than one point - add an arrow
 			// to the A -> B segment at B
@@ -107,7 +107,7 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 		    }
 		    VMOVE(B,*pt);
 		    break;
-		case BV_VLIST_LINE_DRAW:
+		case BSG_VLIST_LINE_DRAW:
 		    VMOVE(A,B);
 		    VMOVE(B,*pt);
 		    break;
@@ -124,7 +124,7 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 void
-dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
+dm_draw_arrows(struct dm *dmp, struct bsg_data_arrow_state *gdasp, fastf_t sf)
 {
     register int i;
     int saveLineWidth;
@@ -234,7 +234,7 @@ dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
 				   (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].num_points, \
 				   (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].point, 1); \
 	    \
-	    if (_mode != BV_POLY_CONTOUR_MODE || _i != _last_poly || (_gdpsp)->gdps_cflag == 0) { \
+	    if (_mode != BSG_POLY_CONTOUR_MODE || _i != _last_poly || (_gdpsp)->gdps_cflag == 0) { \
 		(void)dm_draw_line_3d((_dmp),				\
 				      (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].point[_last], \
 				      (_gdpsp)->gdps_polygons.polygon[_i].contour[_j].point[0]); \
@@ -243,7 +243,7 @@ dm_draw_arrows(struct dm *dmp, struct bv_data_arrow_state *gdasp, fastf_t sf)
 
 
 void
-dm_draw_polys(struct dm *dmp, bv_data_polygon_state *gdpsp, int mode)
+dm_draw_polys(struct dm *dmp, bsg_data_polygon_state *gdpsp, int mode)
 {
     register size_t i, last_poly;
     int saveLineWidth;
@@ -271,7 +271,7 @@ dm_draw_polys(struct dm *dmp, bv_data_polygon_state *gdpsp, int mode)
 }
 
 void
-dm_draw_lines(struct dm *dmp, struct bv_data_line_state *gdlsp)
+dm_draw_lines(struct dm *dmp, struct bsg_data_line_state *gdlsp)
 {
     int saveLineWidth;
     int saveLineStyle;
@@ -302,7 +302,7 @@ dm_draw_lines(struct dm *dmp, struct bv_data_line_state *gdlsp)
 
 
 void
-dm_draw_faceplate(struct bview *v)
+dm_draw_faceplate(bsg_view *v)
 {
     struct dm *dmp = (struct dm *)v->dmp;
 
@@ -323,12 +323,12 @@ dm_draw_faceplate(struct bview *v)
 
 	VMOVE(save_map, v->gv_s->gv_model_axes.axes_pos);
 	VSCALE(map, v->gv_s->gv_model_axes.axes_pos, v->gv_local2base);
-	MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, v->gv_model2view, map);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	  MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, _cm.model2view, map);
+	}
 
-	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     v->gv_rotation,
-		     &v->gv_s->gv_model_axes);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); \
+	dm_draw_hud_axes(dmp, v->gv_size, _cm.rotation, &v->gv_s->gv_model_axes); }
 
 	VMOVE(v->gv_s->gv_model_axes.axes_pos, save_map);
     }
@@ -344,10 +344,8 @@ dm_draw_faceplate(struct bview *v)
 	height = dm_get_height(dmp);
 	inv_aspect = (fastf_t)height / (fastf_t)width;
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos * inv_aspect;
-	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     v->gv_rotation,
-		     &v->gv_s->gv_view_axes);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm); \
+	dm_draw_hud_axes(dmp, v->gv_size, _cm.rotation, &v->gv_s->gv_view_axes); }
 
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos;
     }
@@ -364,11 +362,15 @@ dm_draw_faceplate(struct bview *v)
 
     /* Draw the angle distance cursor */
     if (v->gv_s->gv_adc.draw)
-	dm_draw_adc(dmp, &(v->gv_s->gv_adc), v->gv_view2model, v->gv_model2view);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	  dm_draw_adc(dmp, &(v->gv_s->gv_adc), _cm.view2model, _cm.model2view);
+	}
 
     /* Draw grid */
     if (v->gv_s->gv_grid.draw) {
-	dm_draw_grid(dmp, &v->gv_s->gv_grid, v->gv_scale, v->gv_model2view, v->gv_base2local);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	  dm_draw_grid(dmp, &v->gv_s->gv_grid, v->gv_scale, _cm.model2view, v->gv_base2local);
+	}
     }
 
     /* Draw rect */
@@ -387,7 +389,9 @@ dm_draw_faceplate(struct bview *v)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	point_t center;
 	char *ustr = (char *)bu_units_string(v->gv_local2base);
-	MAT_DELTAS_GET_NEG(center, v->gv_center);
+	{ struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	  MAT_DELTAS_GET_NEG(center, _cm.center);
+	}
 	VSCALE(center, center, v->gv_base2local);
 	int64_t elapsed_time = bu_gettime() - (dmp)->start_time;
 	/* Only use reasonable measurements */
@@ -396,7 +400,7 @@ dm_draw_faceplate(struct bview *v)
 	    v->gv_s->gv_frametime = 0.9 * v->gv_s->gv_frametime + 0.1 * elapsed_time / 1000000LL;
 	}
 
-	struct bv_params_state *ps = &v->gv_s->gv_view_params;
+	struct bsg_params_state *ps = &v->gv_s->gv_view_params;
 	if (ps->draw_size) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
@@ -410,17 +414,23 @@ dm_draw_faceplate(struct bview *v)
 	if (ps->draw_az) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "az:%.2f", v->gv_aet[0]);
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	      bu_vls_printf(&vls, "az:%.2f", _cm.aet[0]);
+	    }
 	}
 	if (ps->draw_el) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "el:%.2f", v->gv_aet[1]);
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	      bu_vls_printf(&vls, "el:%.2f", _cm.aet[1]);
+	    }
 	}
 	if (ps->draw_tw) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "tw:%.2f", v->gv_aet[2]);
+	    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
+	      bu_vls_printf(&vls, "tw:%.2f", _cm.aet[2]);
+	    }
 	}
 	if (ps->draw_fps) {
 	    if (bu_vls_strlen(&vls) > 0)
@@ -444,15 +454,17 @@ dm_draw_faceplate(struct bview *v)
 }
 
 void
-dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
+dm_draw_label(struct dm *dmp, bsg_shape *s)
 {
-    struct bv_label *l = (struct bv_label *)s->s_i_data;
+    struct bsg_label *l = (struct bsg_label *)s->s_i_data;
 
     /* set color */
     (void)dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 1, 1.0);
 
     point_t vpoint;
-    MAT4X3PNT(vpoint, s->s_v->gv_model2view, l->p);
+    { struct bsg_camera _cm; bsg_view_get_camera(s->s_v, &_cm);
+      MAT4X3PNT(vpoint, _cm.model2view, l->p);
+    }
 
     // Check that we can calculate the bbox before drawing text
     vect2d_t bmin = V2INIT_ZERO;
@@ -481,7 +493,7 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 	bu_log("bmid: %f,%f\n", bmid[0], bmid[1]);
 
 	vect2d_t anchor = V2INIT_ZERO;
-	if (l->anchor == BV_ANCHOR_AUTO) {
+	if (l->anchor == BSG_ANCHOR_AUTO) {
 	    fastf_t xvals[3];
 	    fastf_t yvals[3];
 	    xvals[0] = bmin[0];
@@ -494,11 +506,13 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 	    for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 		    point_t t3d, tpt;
-		    if (bv_screen_to_view(s->s_v, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
+		    if (bsg_screen_to_view(s->s_v, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
 			return;
 		    }
 		    t3d[2] = 0;
-		    MAT4X3PNT(tpt, s->s_v->gv_view2model, t3d);
+		    { struct bsg_camera _cm; bsg_view_get_camera(s->s_v, &_cm);
+		      MAT4X3PNT(tpt, _cm.view2model, t3d);
+		    }
 		    double dsq = DIST_PNT_PNT_SQ(tpt, l->target);
 		    if (dsq < closest_dist) {
 			V2SET(anchor, xvals[i], yvals[j]);
@@ -508,31 +522,31 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 	    }
 	} else {
 	    switch (l->anchor) {
-		case BV_ANCHOR_BOTTOM_LEFT:
+		case BSG_ANCHOR_BOTTOM_LEFT:
 		    V2SET(anchor, bmin[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_BOTTOM_CENTER:
+		case BSG_ANCHOR_BOTTOM_CENTER:
 		    V2SET(anchor, bmid[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_BOTTOM_RIGHT:
+		case BSG_ANCHOR_BOTTOM_RIGHT:
 		    V2SET(anchor, bmax[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_LEFT:
+		case BSG_ANCHOR_MIDDLE_LEFT:
 		    V2SET(anchor, bmin[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_CENTER:
+		case BSG_ANCHOR_MIDDLE_CENTER:
 		    V2SET(anchor, bmid[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_RIGHT:
+		case BSG_ANCHOR_MIDDLE_RIGHT:
 		    V2SET(anchor, bmax[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_TOP_LEFT:
+		case BSG_ANCHOR_TOP_LEFT:
 		    V2SET(anchor, bmin[0], bmax[1]);
 		    break;
-		case BV_ANCHOR_TOP_CENTER:
+		case BSG_ANCHOR_TOP_CENTER:
 		    V2SET(anchor, bmid[0], bmax[1]);
 		    break;
-		case BV_ANCHOR_TOP_RIGHT:
+		case BSG_ANCHOR_TOP_RIGHT:
 		    V2SET(anchor, bmax[0], bmax[1]);
 		    break;
 		default:
@@ -540,8 +554,10 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 		    return;
 	    }
 	}
-	bv_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
-	MAT4X3PNT(mpt, s->s_v->gv_view2model, l3d);
+	bsg_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
+	{ struct bsg_camera _cm; bsg_view_get_camera(s->s_v, &_cm);
+	  MAT4X3PNT(mpt, _cm.view2model, l3d);
+	}
     } else {
 	VMOVE(mpt, l->p);
     }
@@ -554,7 +570,7 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 void
-dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
+dm_draw_labels(struct dm *dmp, struct bsg_data_label_state *gdlsp, matp_t m2vmat)
 {
     /* set color */
     (void)dm_set_fg(dmp,
@@ -572,76 +588,100 @@ dm_draw_labels(struct dm *dmp, struct bv_data_label_state *gdlsp, matp_t m2vmat)
     }
 }
 
-static void
-draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+/* ====================================================================== *
+ * dm_draw_visitor — BSG traversal visitor for the render loop            *
+ *                                                                         *
+ * Used by bsg_view_traverse() to draw scene-graph nodes.  Structural    *
+ * nodes (SEPARATOR, CAMERA, TRANSFORM, LOD_GROUP) are skipped; geometry  *
+ * nodes are rendered using the accumulated traversal state.              *
+ * ====================================================================== */
+
+struct dm_draw_visitor_data {
+    struct dm  *dmp;
+    bsg_view   *v;
+};
+
+static int
+dm_draw_visitor(bsg_shape *s, const bsg_traversal_state *state, void *user_data)
 {
-    if (!s || !v || (s->s_flag == DOWN && !force_draw))
-	return;
+    struct dm_draw_visitor_data *d = (struct dm_draw_visitor_data *)user_data;
+    struct dm  *dmp = d->dmp;
+    bsg_view   *v   = d->v;
 
-    int do_force_draw = (force_draw || s->s_force_draw) ? 1 : 0;
+    /* Skip structural nodes — traversal handles them. */
+    unsigned long long structural =
+	(unsigned long long)(BSG_NODE_SEPARATOR | BSG_NODE_TRANSFORM |
+			     BSG_NODE_CAMERA    | BSG_NODE_LOD_GROUP);
+    if (s->s_type_flags & structural)
+	return 0; /* recurse into children */
 
-    // Draw children. TODO - drawing children first may not
-    // always be the desired behavior - might need interior and exterior
-    // children tables to provide some control
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
-	draw_scene_obj(dmp, s_c, v, do_force_draw, obj_settings);
+    /* s_flag == DOWN means the shape has been explicitly hidden (e.g. via
+     * "view obj NAME draw DOWN" or by draw-mode filtering in dbi_state).
+     * Skip it entirely — it is still in the scene graph but not visible. */
+    if (s->s_flag == DOWN)
+	return 0;
+
+    /* In the normal (non-edit) pass skip illuminated/highlighted shapes;
+     * they are drawn by a dedicated edit-mode traversal.
+     * s_iflag == UP means "this solid is the one being edited/illuminated". */
+    if (s->s_iflag == UP && !s->s_force_draw)
+	return 0;
+
+    /* If a camera node has been encountered in the graph, use its matrices.
+     * Otherwise fall back to the legacy bsg_view camera fields. */
+    if (state->active_camera) {
+	dm_loadmatrix(dmp, (matp_t)state->active_camera->model2view, 0);
+	if (SMALL_FASTF < state->active_camera->perspective)
+	    (void)dm_loadpmatrix(dmp, (matp_t)state->active_camera->pmat);
+	else
+	    (void)dm_loadpmatrix(dmp, NULL);
     }
 
-    // Assign color attributes
-    if (obj_settings) {
-	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
+    /* Use accumulated material from the traversal state (for material
+     * inheritance / separator isolation) or fall back to per-node settings. */
+    const bsg_material *mat =
+	(s->s_os && !s->s_inherit_settings) ? s->s_os : &state->material;
+
+    if (mat->color_override) {
+	dm_set_fg(dmp, mat->color[0], mat->color[1], mat->color[2], 0, mat->transparency);
     } else {
-	if (s->s_iflag == UP) {
-	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
-	} else {
-	    if (s->s_os->color_override) {
-		dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1], s->s_os->color[2], 0, s->s_os->transparency);
-	    } else {
-		dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, s->s_os->transparency);
-	    }
-	}
+	dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, mat->transparency);
     }
-    dm_set_line_attr(dmp, s->s_os->s_line_width, s->s_soldash);
+    dm_set_line_attr(dmp, mat->s_line_width, s->s_soldash);
 
-    // Primary object drawing.  See if we have an active view-specific object - if so,
-    // use that, otherwise use the original object
-    if (s->s_type_flags & BV_DB_OBJS) {
-	struct bv_scene_obj *vo = bv_obj_for_view(s, v);
+    /* Draw geometry. */
+    if (s->s_type_flags & BSG_DB_OBJS) {
+	bsg_shape *vo = bsg_shape_for_view(s, v);
 	if (!vo) {
 	    vo = s;
-	    bv_log(1, "draw_scene_obj - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
+	    bsg_log(1, "dm_draw_visitor - no view obj, drawing %s", bu_vls_cstr(&s->s_name));
 	} else {
-	    bv_log(1, "draw_scene_obj - drawing view obj %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+	    bsg_log(1, "dm_draw_visitor - drawing view obj %s[%s]",
+		   bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 	}
-
-	// If this is a database object, it may have a view dependent
-	// update to do.
 	if (vo->s_update_callback)
 	    (*vo->s_update_callback)(vo, v, 0);
-
 	dm_draw_obj(dmp, vo);
     } else {
 	dm_draw_obj(dmp, s);
     }
 
-    if (!(s->s_type_flags & BV_MESH_LOD)) {
+    if (!(s->s_type_flags & BSG_NODE_MESH_LOD))
 	dm_add_arrows(dmp, s);
-    }
 
-    if (s->s_type_flags & BV_AXES) {
+    if (s->s_type_flags & BSG_NODE_AXES)
 	dm_draw_scene_axes(dmp, s);
-    }
 
-    if (s->s_type_flags & BV_LABELS) {
+    if (s->s_type_flags & BSG_NODE_LABELS)
 	dm_draw_label(dmp, s);
-    }
+
+    return 0; /* always recurse — bsg_view_traverse handles children */
 }
 
 void
-dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
+dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *vd)
 {
-    bv_log(3, "libdm:dm_draw_viewobjs");
+    bsg_log(3, "libdm:dm_draw_viewobjs");
     struct dm *dmp = (struct dm *)v->dmp;
     int width = dm_get_width(dmp);
     fastf_t sf = (fastf_t)(v->gv_size) / (fastf_t)width;
@@ -673,61 +713,45 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 #if 0
     // Update selections (if any)
     for (size_t i = 0; i < BU_PTBL_LEN(v->gv_selected); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(v->gv_selected, i);
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(v->gv_selected, i);
 	// TODO - set illum flag or otherwise visually indicate what is selected
     }
 #endif
 
     // Draw geometry view objects
-    struct bu_ptbl *db_objs = bv_view_objs(v, BV_DB_OBJS);
-    if (db_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(db_objs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(db_objs, i);
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *local_db_objs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (local_db_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(local_db_objs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(local_db_objs, i);
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
+    struct dm_draw_visitor_data visitor_data;
+    visitor_data.dmp = dmp;
+    visitor_data.v   = v;
 
-    // Draw view-only objects
-    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *local_view_objs = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (view_objs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(local_view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(local_view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	}
-    }
+    /* BSG-only rendering: all shapes are in root->children via bsg_shape_get. */
+    bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
 
     /* Set up matrices for HUD drawing, rather than 3D scene drawing. */
     (void)dm_hud_begin(dmp);
 
     dm_draw_faceplate(v);
 
-    if (v->gv_tcl.gv_data_labels.gdls_draw)
-	dm_draw_labels(dmp, &v->gv_tcl.gv_data_labels, v->gv_model2view);
+    if (v->gv_tcl.gv_data_labels.gdls_draw) {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(v, &_cam);
+	dm_draw_labels(dmp, &v->gv_tcl.gv_data_labels, _cam.model2view);
+    }
 
-    if (v->gv_tcl.gv_sdata_labels.gdls_draw)
-	dm_draw_labels(dmp, &v->gv_tcl.gv_sdata_labels, v->gv_model2view);
+    if (v->gv_tcl.gv_sdata_labels.gdls_draw) {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(v, &_cam);
+	dm_draw_labels(dmp, &v->gv_tcl.gv_sdata_labels, _cam.model2view);
+    }
 
     /* Draw labels */
     if (wdbp && vd && v->gv_tcl.gv_prim_labels.gos_draw) {
+	struct bsg_camera _cm;
+	bsg_view_get_camera(v, &_cm);
 	for (int i = 0; i < vd->prim_label_list_size; ++i) {
 	    dm_draw_prim_labels(dmp,
 			   wdbp,
 			   bu_vls_cstr(&vd->prim_label_list[i]),
-			   v->gv_model2view,
+			   _cm.model2view,
 			   v->gv_tcl.gv_prim_labels.gos_text_color,
 			   NULL, NULL);
 	}
@@ -750,9 +774,9 @@ dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *vd)
 // doesn't guarantee raw OpenGL drawing is supported, but the dmp should
 // provide enough information for the calling app to know if that is possible.)
 void
-dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), void *u_data)
+dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_data)
 {
-    bv_log(3, "libdm:dm_draw_objs");
+    bsg_log(3, "libdm:dm_draw_objs");
     if (dm_draw_custom) {
 	(*dm_draw_custom)(v, u_data);
 	return;
@@ -785,52 +809,30 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	}
     }
 
-    // On to the scene objects - for drawing those we need the view matrix
-    matp_t mat = v->gv_model2view;
-    dm_loadmatrix(dmp, mat, 0);
+    // On to the scene objects - for drawing those we need the view matrix.
+    // Use the camera accessor for forward-compatibility with scene-graph camera nodes.
+    {
+	struct bsg_camera cam;
+	bsg_view_get_camera(v, &cam);
+	dm_loadmatrix(dmp, cam.model2view, 0);
 
-
-    // Set up to render using current perspective settings
-    if (SMALL_FASTF < v->gv_perspective)
-	(void)dm_loadpmatrix(dmp, v->gv_pmat);
-    else {
-	(void)dm_loadpmatrix(dmp, NULL);
+	// Set up to render using current perspective settings
+	if (SMALL_FASTF < cam.perspective)
+	    (void)dm_loadpmatrix(dmp, cam.pmat);
+	else
+	    (void)dm_loadpmatrix(dmp, NULL);
     }
 
 
     // Draw geometry view objects
     // TODO - draw opaque, then transparent
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-    if (!v->independent && sobjs) {
-	for (size_t i = 0; i < BU_PTBL_LEN(sobjs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(sobjs, i);
-	    //bu_log("dm_draw_objs %s\n", bu_vls_cstr(&g->s_name));
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *iobjs = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
-    if (iobjs && (iobjs != sobjs || v->independent)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(iobjs); i++) {
-	    struct bv_scene_group *g = (struct bv_scene_group *)BU_PTBL_GET(iobjs, i);
-	    //bu_log("dm_draw_objs(i) %s\n", bu_vls_cstr(&g->s_name));
-	    draw_scene_obj(dmp, g, v, g->s_force_draw, (g->s_inherit_settings) ? g->s_os : NULL);
-	}
-    }
+    {
+	struct dm_draw_visitor_data visitor_data;
+	visitor_data.dmp = dmp;
+	visitor_data.v   = v;
 
-    // Draw view-only objects
-    struct bu_ptbl *view_objs = bv_view_objs(v, BV_VIEW_OBJS);
-    if (view_objs && !v->independent) {
-	for (size_t i = 0; i < BU_PTBL_LEN(view_objs); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(view_objs, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	}
-    }
-    struct bu_ptbl *vo = bv_view_objs(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (vo && (vo != view_objs || v->independent)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(vo); i++) {
-	    struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(vo, i);
-	    draw_scene_obj(dmp, s, v, s->s_force_draw, (s->s_inherit_settings) ? s->s_os : NULL);
-	}
+	/* BSG-only rendering: all shapes are in root->children via bsg_shape_get. */
+	bsg_view_traverse(v, dm_draw_visitor, &visitor_data);
     }
 
     // Done with perspective/orthogonal drawing

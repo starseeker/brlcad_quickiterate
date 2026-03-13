@@ -36,7 +36,8 @@
 #include "bu/units.h"
 #include "vmath.h"
 #include "raytrace.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -59,10 +60,8 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     int is_empty = 1;
 
 #ifndef _WIN32
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-    struct bv_vlist *vp;
+    bsg_shape *sp;
+    struct bsg_vlist *vp;
     FILE *fp_r;
     FILE *fp_w;
     int rpid;
@@ -90,16 +89,10 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     if (not_state(s, ST_VIEW, "Presented Area Calculation") == TCL_ERROR)
 	return TCL_ERROR;
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	if (root && BU_PTBL_LEN(&root->children) > 0)
 	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
     }
 
     if (is_empty) {
@@ -107,11 +100,11 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	return TCL_ERROR;
     }
 
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+    {
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 	    if (!sp->s_old.s_Eflag && sp->s_soldash != 0) {
 		struct bu_vls vls = BU_VLS_INIT_ZERO;
 
@@ -121,8 +114,6 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		return TCL_ERROR;
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 
     if (argc == 2) {
@@ -198,36 +189,38 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
      * Write out rotated but unclipped, untranslated,
      * and unscaled vectors
      */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+    {
+	struct bsg_camera _pc;
+	bsg_view_get_camera(view_state->vs_gvp, &_pc);
+	bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+	size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+	for (size_t si = 0; si < nshapes; si++) {
+	    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+	    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		int i;
 		int nused = vp->nused;
 		int *cmd = vp->cmd;
 		point_t *pt = vp->pt;
 		for (i = 0; i < nused; i++, cmd++, pt++) {
 		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
+			case BSG_VLIST_POLY_START:
+			case BSG_VLIST_POLY_VERTNORM:
+			case BSG_VLIST_TRI_START:
+			case BSG_VLIST_TRI_VERTNORM:
 			    continue;
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_TRI_MOVE:
+			case BSG_VLIST_POLY_MOVE:
+			case BSG_VLIST_LINE_MOVE:
+			case BSG_VLIST_TRI_MOVE:
 			    /* Move, not draw */
-			    MAT4X3VEC(last, view_state->vs_gvp->gv_rotation, *pt);
+			    MAT4X3VEC(last, _pc.rotation, *pt);
 			    continue;
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
+			case BSG_VLIST_POLY_DRAW:
+			case BSG_VLIST_POLY_END:
+			case BSG_VLIST_LINE_DRAW:
+			case BSG_VLIST_TRI_DRAW:
+			case BSG_VLIST_TRI_END:
 			    /* draw.  */
-			    MAT4X3VEC(fin, view_state->vs_gvp->gv_rotation, *pt);
+			    MAT4X3VEC(fin, _pc.rotation, *pt);
 			    break;
 		    }
 
@@ -241,8 +234,6 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		}
 	    }
 	}
-
-	gdlp = next_gdlp;
     }
 
     fclose(fp_w);

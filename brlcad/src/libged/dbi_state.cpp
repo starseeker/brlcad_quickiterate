@@ -30,13 +30,14 @@
 #include "common.h"
 
 #include <algorithm>
+#include <condition_variable>
+#include <deque>
 #include <map>
+#include <mutex>
 #include <thread>
-#include <fstream>
-#include <sstream>
 
 extern "C" {
-#include "lmdb.h"
+#include "bu/cache.h"
 }
 
 #include "./alphanum.h"
@@ -48,8 +49,11 @@ extern "C" {
 #include "bu/path.h"
 #include "bu/opt.h"
 #include "bu/sort.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 #include "raytrace.h"
+#include "rt/cache_drawing.h"
 #include "ged/defines.h"
 #include "ged/view.h"
 #include "./ged_private.h"
@@ -59,246 +63,22 @@ extern "C" {
 // Subdirectory in BRL-CAD cache to Dbi state data
 #define DBI_CACHEDIR ".Dbi"
 
-// Maximum database size.
-#define CACHE_MAX_DB_SIZE 4294967296
-
-// Define what format of the cache is current - if it doesn't match, we need
-// to wipe and redo.
-#define CACHE_CURRENT_FORMAT 1
-
 /* There are various individual pieces of data in the cache associated with
  * each object key.  For lookup they use short suffix strings to distinguish
  * them - we define those strings here to have consistent definitions for use
- * in multiple functions.
- *
- * Changing any of these requires incrementing CACHE_CURRENT_FORMAT. */
+ * in multiple functions. */
 #define CACHE_OBJ_BOUNDS "bb"
 #define CACHE_REGION_ID "rid"
 #define CACHE_REGION_FLAG "rf"
 #define CACHE_INHERIT_FLAG "if"
 #define CACHE_COLOR "c"
 
-struct ged_draw_cache {
-    MDB_env *env;
-    MDB_txn *txn;
-    MDB_dbi dbi;
-    struct bu_vls *fname;
-};
-
-void
-dbi_cache_clear(struct ged_draw_cache *c)
+// Build a cache lookup key from a hash and component name
+static inline std::string
+dbi_cache_key(unsigned long long hash, const char *component)
 {
-    if (!c)
-	return;
-    char dir[MAXPATHLEN];
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, bu_vls_cstr(c->fname));
-    bu_dirclear((const char *)dir);
+    return std::to_string(hash) + ":" + std::string(component);
 }
-
-struct ged_draw_cache *
-dbi_cache_open(const char *name)
-{
-    // Hash the input filename to generate a key for uniqueness
-    struct bu_vls fname = BU_VLS_INIT_ZERO;
-    bu_vls_sprintf(&fname, "%s", bu_path_normalize(name));
-
-    unsigned long long hash = bu_data_hash(bu_vls_cstr(&fname), bu_vls_strlen(&fname)*sizeof(char));
-    bu_path_component(&fname, bu_path_normalize(name), BU_PATH_BASENAME_EXTLESS);
-    bu_vls_printf(&fname, "_%llu", hash);
-
-    // Set up the container
-    struct ged_draw_cache *c;
-    BU_GET(c, struct ged_draw_cache);
-    BU_GET(c->fname, struct bu_vls);
-    bu_vls_init(c->fname);
-    bu_vls_sprintf(c->fname, "%s", bu_vls_cstr(&fname));
-
-    // Base maximum readers on an estimate of how many threads
-    // we might want to fire off
-    size_t mreaders = std::thread::hardware_concurrency();
-    if (!mreaders)
-	mreaders = 1;
-    int ncpus = bu_avail_cpus();
-    if (ncpus > 0 && (size_t)ncpus > mreaders)
-	mreaders = (size_t)ncpus + 2;
-
-    // Set up LMDB environments
-    if (mdb_env_create(&c->env))
-	goto ged_context_fail;
-    if (mdb_env_set_maxreaders(c->env, mreaders))
-	goto ged_context_close_fail;
-    if (mdb_env_set_mapsize(c->env, CACHE_MAX_DB_SIZE))
-	goto ged_context_close_fail;
-
-    // Ensure the necessary top level dirs are present
-    char dir[MAXPATHLEN];
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, NULL);
-    if (!bu_file_exists(dir, NULL))
-	bu_mkdir(dir);
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, NULL);
-    if (!bu_file_exists(dir, NULL)) {
-	bu_mkdir(dir);
-    }
-    bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, "format", NULL);
-    if (!bu_file_exists(dir, NULL)) {
-	// Note a format, so we can detect if what's there isn't compatible
-	// with what this logic expects (in anticipation of future changes
-	// to the on-disk format).
-	FILE *fp = fopen(dir, "w");
-	if (!fp)
-	    goto ged_context_close_fail;
-	fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
-	fclose(fp);
-    } else {
-	std::ifstream format_file(dir);
-	size_t disk_format_version = 0;
-	format_file >> disk_format_version;
-	format_file.close();
-	if (disk_format_version != CACHE_CURRENT_FORMAT) {
-	    bu_log("Old GED drawing info cache (%zd) found - clearing\n", disk_format_version);
-	    dbi_cache_clear(c);
-	    mdb_env_close(c->env);
-	    bu_vls_free(&fname);
-	    bu_vls_free(c->fname);
-	    BU_PUT(c->fname, struct bu_vls);
-	    BU_PUT(c, struct ged_draw_cache);
-	    return dbi_cache_open(name);
-	}
-	FILE *fp = fopen(dir, "w");
-	if (!fp)
-	    goto ged_context_close_fail;
-	fprintf(fp, "%d\n", CACHE_CURRENT_FORMAT);
-	fclose(fp);
-    }
-
-      // Create the specific LMDB cache dir, if not already present
-      bu_dir(dir, MAXPATHLEN, BU_DIR_CACHE, DBI_CACHEDIR, bu_vls_cstr(&fname), NULL);
-      if (!bu_file_exists(dir, NULL))
-          bu_mkdir(dir);
-
-      // Need to call mdb_env_sync() at appropriate points.
-      if (mdb_env_open(c->env, dir, MDB_NOSYNC, 0664))
-	  goto ged_context_close_fail;
-
-      // Success - return the context
-      return c;
-
-      // If something went wrong, clean up and return NULL
-  ged_context_close_fail:
-      mdb_env_close(c->env);
-  ged_context_fail:
-      bu_vls_free(&fname);
-      bu_vls_free(c->fname);
-      BU_PUT(c->fname, struct bu_vls);
-      BU_PUT(c, struct ged_draw_cache);
-      return NULL;
-}
-
-void
-dbi_cache_close(struct ged_draw_cache *c)
-{
-    if (!c)
-	return;
-    mdb_env_close(c->env);
-    bu_vls_free(c->fname);
-    BU_PUT(c->fname, struct bu_vls);
-    BU_PUT(c, struct ged_draw_cache);
-}
-
-static void
-cache_write(struct ged_draw_cache *c, unsigned long long hash, const char *component, std::stringstream &s)
-{
-    if (!c || hash == 0 || !component)
-	return;
-
-    // Prepare inputs for writing
-    MDB_val mdb_key;
-    MDB_val mdb_data[2];
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-    std::string buffer = s.str();
-
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->i->lod_env))
-    //  return false;
-
-    // Write out key/value to LMDB database, where the key is the hash
-    // and the value is the serialized LoD data
-    char *keycstr = bu_strdup(keystr.c_str());
-    void *bdata = bu_calloc(buffer.length()+1, sizeof(char), "bdata");
-    memcpy(bdata, buffer.data(), buffer.length()*sizeof(char));
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    mdb_data[0].mv_size = buffer.length()*sizeof(char);
-    mdb_data[0].mv_data = bdata;
-    mdb_data[1].mv_size = 0;
-    mdb_data[1].mv_data = NULL;
-    mdb_put(c->txn, c->dbi, &mdb_key, mdb_data, 0);
-    mdb_txn_commit(c->txn);
-    bu_free(keycstr, "keycstr");
-    bu_free(bdata, "buffer data");
-}
-
-static size_t
-cache_get(struct ged_draw_cache *c, void **data, unsigned long long hash, const char *component)
-{
-    if (!c || !data || hash == 0 || !component)
-	return 0;
-
-    // Construct lookup key
-    MDB_val mdb_key;
-    MDB_val mdb_data[2];
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-
-    // As implemented this shouldn't be necessary, since all our keys are below
-    // the default size limit (511)
-    //if (keystr.length()*sizeof(char) > mdb_env_get_maxkeysize(c->env))
-    //  return 0;
-    char *keycstr = bu_strdup(keystr.c_str());
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keycstr;
-    int rc = mdb_get(c->txn, c->dbi, &mdb_key, &mdb_data[0]);
-    if (rc) {
-	bu_free(keycstr, "keycstr");
-	(*data) = NULL;
-	return 0;
-    }
-    bu_free(keycstr, "keycstr");
-    (*data) = mdb_data[0].mv_data;
-
-    return mdb_data[0].mv_size;
-}
-
-static void
-cache_del(struct ged_draw_cache *c, unsigned long long hash, const char *component)
-{
-    if (!c || hash == 0 || !component)
-	return;
-
-    // Construct lookup key
-    MDB_val mdb_key;
-    std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
-
-    mdb_txn_begin(c->env, NULL, 0, &c->txn);
-    mdb_dbi_open(c->txn, NULL, 0, &c->dbi);
-    mdb_key.mv_size = keystr.length()*sizeof(char);
-    mdb_key.mv_data = (void *)keystr.c_str();
-    mdb_del(c->txn, c->dbi, &mdb_key, NULL);
-    mdb_txn_commit(c->txn);
-}
-
-static void
-cache_done(struct ged_draw_cache *c)
-{
-    if (!c)
-	return;
-    mdb_txn_commit(c->txn);
-}
-
 
 // alphanum sort
 bool alphanum_cmp(const std::string &a, const std::string &b)
@@ -424,17 +204,104 @@ DbiState::DbiState(struct ged *ged_p)
     BU_GET(res, struct resource);
     rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
-    default_selected = new BSelectState(this);
-    selected_sets[std::string("default")] = default_selected;
     gedp = ged_p;
-    if (!gedp)
-	return;
-    dbip = gedp->dbip;
+    open_db();
+}
+
+
+DbiState::~DbiState()
+{
+    // Stop loader and release all per-database state.
+    close_db();
+
+    // Release persistent resources that live for the DbiState lifetime.
+    bu_vls_free(&path_string);
+    bu_vls_free(&hash_string);
+    delete shared_vs;
+    shared_vs = nullptr;
+
+    // Delete per-view BViewState objects (heap-allocated by get_view_state()
+    // and owned by DbiState).
+    for (auto &[v, bvs] : view_states)
+	delete bvs;
+    view_states.clear();
+
+    rt_clean_resource_basic(NULL, res);
+    BU_PUT(res, struct resource);
+}
+
+
+void
+DbiState::close_db()
+{
+    // Stop the background pipeline while dbip is still valid.
+    draw_pipeline_.reset();
+
+    // Clear GObj instances.  Each GObj dtor removes itself from the gobjs
+    // map, so we must check the container on every iteration.
+    while (!gobjs.empty())
+	delete gobjs.begin()->second;
+
+    // Clear all per-database maps.
+    p_c.clear();
+    p_v.clear();
+    d_map.clear();
+    bboxes.clear();
+    c_inherit.clear();
+    rgb.clear();
+    region_id.clear();
+    matrices.clear();
+    i_bool.clear();
+    i_map.clear();
+    i_str.clear();
+
+    // Clear transient state.
+    invalid_entry_map.clear();
+    old_names.clear();
+    changed_hashes.clear();
+    added.clear();
+    changed.clear();
+    removed.clear();
+
+    // Clear BViewState geometry (keep the BViewState objects themselves).
+    if (shared_vs)
+	shared_vs->clear();
+    for (auto &[v, bvs] : view_states)
+	bvs->clear();
+
+    // Close disk cache.
+    if (dcache) {
+	bu_cache_close(dcache);
+	dcache = nullptr;
+    }
+
+    dbip = nullptr;
+}
+
+
+void
+DbiState::open_db()
+{
+    dbip = gedp ? gedp->dbip : nullptr;
     if (!dbip)
 	return;
 
+    /* Reset LoD drain counter for the new database */
+    lod_drain_count_ = 0;
+
     // Set up cache
-    dcache = dbi_cache_open(dbip->dbi_filename);
+    {
+	struct bu_vls fname = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&fname, "%s", bu_path_normalize(dbip->dbi_filename));
+	unsigned long long fhash = bu_data_hash(bu_vls_cstr(&fname), bu_vls_strlen(&fname)*sizeof(char));
+	bu_path_component(&fname, bu_path_normalize(dbip->dbi_filename), BU_PATH_BASENAME_EXTLESS);
+	bu_vls_printf(&fname, "_%llu", fhash);
+	struct bu_vls cpath = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&cpath, "%s/%s", DBI_CACHEDIR, bu_vls_cstr(&fname));
+	dcache = bu_cache_open(bu_vls_cstr(&cpath), 1, 0);
+	bu_vls_free(&fname);
+	bu_vls_free(&cpath);
+    }
 
     for (int i = 0; i < RT_DBNHASH; i++) {
 	struct directory *dp;
@@ -442,23 +309,24 @@ DbiState::DbiState(struct ged *ged_p)
 	    update_dp(dp, 0);
 	}
     }
-}
 
-
-DbiState::~DbiState()
-{
-    bu_vls_free(&path_string);
-    bu_vls_free(&hash_string);
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	delete ss_it->second;
+    // Kick off background bbox computation for all solid objects that do not
+    // yet have a cached bbox.
+    {
+	std::vector<DrawPipeline::WorkItem> items;
+	for (int i = 0; i < RT_DBNHASH; i++) {
+	    for (struct directory *dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+		if (dp->d_flags & RT_DIR_COMB)
+		    continue;  // combs require recursive DbiState access; skip
+		unsigned long long hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
+		if (bboxes.find(hash) != bboxes.end())
+		    continue;  // already have a cached bbox
+		items.push_back({hash, dp});
+	    }
+	}
+	if (!items.empty())
+	    start_geom_load(items);
     }
-    delete shared_vs;
-    rt_clean_resource_basic(NULL, res);
-    BU_PUT(res, struct resource);
-
-    if (dcache)
-	dbi_cache_close(dcache);
 }
 
 
@@ -495,7 +363,7 @@ DbiState::populate_maps(struct directory *dp, unsigned long long phash, int rese
 }
 
 unsigned long long
-DbiState::path_hash(std::vector<unsigned long long> &path, size_t max_len)
+DbiState::path_hash(const std::vector<unsigned long long> &path, size_t max_len)
 {
     size_t mlen = (max_len) ? max_len : path.size();
     return bu_data_hash(path.data(), mlen * sizeof(unsigned long long));
@@ -630,6 +498,18 @@ DbiState::digest_path(const char *path)
     std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
     std::unordered_map<unsigned long long, unsigned long long>::iterator i_it;
     unsigned long long phash = phe[0];
+
+    // Single-element path: verify the name resolves to a known object
+    if (phe.size() == 1) {
+	if (d_map.find(phash) == d_map.end() &&
+	    i_str.find(phash) == i_str.end() &&
+	    invalid_entry_map.find(phash) == invalid_entry_map.end()) {
+	    bu_log("Invalid path element: %s\n", elements[0].c_str());
+	    return std::vector<unsigned long long>();
+	}
+	return phe;
+    }
+
     for (size_t i = 1; i < phe.size(); i++) {
 	pc_it = p_c.find(phash);
 	// The parent comb structure is stored only under its original name's hash - if
@@ -722,8 +602,7 @@ DbiState::print_hash(struct bu_vls *opath, unsigned long long phash)
 	return true;
     }
 
-    bu_exit(EXIT_FAILURE, "DbiState::print_hash failure, dbi_state.cpp::%d - a hash not known to the database's DbiState was passed in.  This can happen when the dbip contents change and dbi_state->update() isn't called in the parent application after doing so.\n", __LINE__);
-    bu_vls_printf(opath, "\nERROR!!!\n");
+    bu_log("DbiState::print_hash: hash %llu not found in database (dbip contents may have changed without calling dbi_state->update())\n", phash);
     return false;
 }
 
@@ -748,8 +627,10 @@ DbiState::print_path(struct bu_vls *opath, std::vector<unsigned long long> &path
 		}
 	    }
 	}
-	if (!print_hash(opath, path[i]))
-	    continue;
+	if (!print_hash(opath, path[i])) {
+	    bu_vls_trunc(opath, 0);
+	    return;
+	}
 	if (i < path.size() - 1 && (!pmax || i < pmax - 1))
 	    bu_vls_printf(opath, "/");
     }
@@ -810,11 +691,26 @@ DbiState::clear_cache(struct directory *dp)
 
     unsigned long long hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
 
-    cache_del(dcache, hash, CACHE_OBJ_BOUNDS);
-    cache_del(dcache, hash, CACHE_REGION_ID);
-    cache_del(dcache, hash, CACHE_REGION_FLAG);
-    cache_del(dcache, hash, CACHE_INHERIT_FLAG);
-    cache_del(dcache, hash, CACHE_COLOR);
+    {
+	std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+	bu_cache_clear(k.c_str(), dcache, NULL);
+    }
+    {
+	std::string k = dbi_cache_key(hash, CACHE_REGION_ID);
+	bu_cache_clear(k.c_str(), dcache, NULL);
+    }
+    {
+	std::string k = dbi_cache_key(hash, CACHE_REGION_FLAG);
+	bu_cache_clear(k.c_str(), dcache, NULL);
+    }
+    {
+	std::string k = dbi_cache_key(hash, CACHE_INHERIT_FLAG);
+	bu_cache_clear(k.c_str(), dcache, NULL);
+    }
+    {
+	std::string k = dbi_cache_key(hash, CACHE_COLOR);
+	bu_cache_clear(k.c_str(), dcache, NULL);
+    }
 
     bboxes.erase(hash);
     region_id.erase(hash);
@@ -850,9 +746,6 @@ DbiState::update_dp(struct directory *dp, int reset)
     rgb.erase(hash);
 
     // First, check the dcache for all remaining needed values
-    const char *b = NULL;
-    size_t bsize = 0;
-
     bool need_region_id_avs = true;
     bool need_region_flag_avs = true;
     bool need_color_inherit_avs = true;
@@ -863,33 +756,48 @@ DbiState::update_dp(struct directory *dp, int reset)
     int color_inherit = 0;
     unsigned int cval = INT_MAX;
 
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_REGION_ID);
-    if (bsize == sizeof(attr_region_id)) {
-	memcpy(&attr_region_id, b, sizeof(attr_region_id));
-	need_region_id_avs = false;
+    if (dcache) {
+	{
+	    void *bdata = NULL;
+	    struct bu_cache_txn *t = NULL;
+	    size_t bsize = bu_cache_get(&bdata, dbi_cache_key(hash, CACHE_REGION_ID).c_str(), dcache, &t);
+	    if (bsize == sizeof(attr_region_id)) {
+		memcpy(&attr_region_id, bdata, sizeof(attr_region_id));
+		need_region_id_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    void *bdata = NULL;
+	    struct bu_cache_txn *t = NULL;
+	    size_t bsize = bu_cache_get(&bdata, dbi_cache_key(hash, CACHE_REGION_FLAG).c_str(), dcache, &t);
+	    if (bsize == sizeof(region_flag)) {
+		memcpy(&region_flag, bdata, sizeof(region_flag));
+		need_region_flag_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    void *bdata = NULL;
+	    struct bu_cache_txn *t = NULL;
+	    size_t bsize = bu_cache_get(&bdata, dbi_cache_key(hash, CACHE_INHERIT_FLAG).c_str(), dcache, &t);
+	    if (bsize == sizeof(color_inherit)) {
+		memcpy(&color_inherit, bdata, sizeof(color_inherit));
+		need_color_inherit_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
+	{
+	    void *bdata = NULL;
+	    struct bu_cache_txn *t = NULL;
+	    size_t bsize = bu_cache_get(&bdata, dbi_cache_key(hash, CACHE_COLOR).c_str(), dcache, &t);
+	    if (bsize == sizeof(cval)) {
+		memcpy(&cval, bdata, sizeof(cval));
+		need_cval_avs = false;
+	    }
+	    bu_cache_get_done(&t);
+	}
     }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_REGION_FLAG);
-    if (bsize == sizeof(region_flag)) {
-	memcpy(&region_flag, b, sizeof(region_flag));
-	need_region_flag_avs = false;
-    }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_INHERIT_FLAG);
-    if (bsize == sizeof(color_inherit)) {
-	memcpy(&color_inherit, b, sizeof(color_inherit));
-	need_color_inherit_avs = false;
-    }
-    cache_done(dcache);
-
-    bsize = cache_get(dcache, (void **)&b, hash, CACHE_COLOR);
-    if (bsize == sizeof(cval)) {
-	memcpy(&cval, b, sizeof(cval));
-	need_cval_avs = false;
-    }
-    cache_done(dcache);
 
 
     if (need_region_flag_avs) {
@@ -903,9 +811,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	    region_flag = 1;
 	}
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&region_flag), sizeof(region_flag));
-	cache_write(dcache, hash, CACHE_REGION_FLAG, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_FLAG);
+	    bu_cache_write(&region_flag, sizeof(region_flag), k.c_str(), dcache, NULL);
+	}
     }
 
 
@@ -919,9 +828,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	if (region_id_val)
 	    bu_opt_int(NULL, 1, &region_id_val, (void *)&attr_region_id);
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&attr_region_id), sizeof(attr_region_id));
-	cache_write(dcache, hash, CACHE_REGION_ID, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_REGION_ID);
+	    bu_cache_write(&attr_region_id, sizeof(attr_region_id), k.c_str(), dcache, NULL);
+	}
     }
 
     if (need_color_inherit_avs) {
@@ -931,9 +841,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	}
 	color_inherit = (BU_STR_EQUAL(bu_avs_get(&c_avs, "inherit"), "1")) ? 1 : 0;
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&color_inherit), sizeof(color_inherit));
-	cache_write(dcache, hash, CACHE_INHERIT_FLAG, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_INHERIT_FLAG);
+	    bu_cache_write(&color_inherit, sizeof(color_inherit), k.c_str(), dcache, NULL);
+	}
     }
 
     if (need_cval_avs) {
@@ -955,9 +866,10 @@ DbiState::update_dp(struct directory *dp, int reset)
 	    bu_log("have color: %u\n", cval);
 	}
 
-	std::stringstream s;
-	s.write(reinterpret_cast<const char *>(&cval), sizeof(cval));
-	cache_write(dcache, hash, CACHE_COLOR, s);
+	if (dcache) {
+	    std::string k = dbi_cache_key(hash, CACHE_COLOR);
+	    bu_cache_write(&cval, sizeof(cval), k.c_str(), dcache, NULL);
+	}
     }
 
     // If a region flag is set but a region_id is not, there is an implicit
@@ -981,6 +893,17 @@ DbiState::update_dp(struct directory *dp, int reset)
 	bu_log("Had to load avs\n");
 	bu_avs_free(&c_avs);
     }
+
+    // Phase 3: create (or recreate) the GObj for this directory pointer.
+    // GObj ctor reads from the flat maps we just populated and, for combs,
+    // calls GenCombInstances() to build the CombInst child list.
+    {
+	auto g_it = gobjs.find(hash);
+	if (g_it != gobjs.end())
+	    delete g_it->second; // dtor deregisters the old GObj from gobjs
+	new GObj(this, dp);      // ctor registers the new GObj in gobjs
+    }
+
     return hash;
 }
 
@@ -1248,26 +1171,26 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	}
     }
 
-    // When we have an object that is not a comb, look up its pre-calculated
-    // box and incorporate it into bmin/bmax.
+    // First, check the dcache
     point_t bmin, bmax;
     bool have_bbox = false;
 
-    // First, check the dcache
-    const char *b = NULL;
-    size_t bsize = cache_get(dcache, (void **)&b, hash, CACHE_OBJ_BOUNDS);
-    if (bsize) {
-	if (bsize != (sizeof(bmin) + sizeof(bmax))) {
-	    bu_log("Incorrect data size found loading cached bounds data\n");
-	} else {
-	    memcpy(&bmin, b, sizeof(bmin));
-	    b += sizeof(bmin);
-	    memcpy(&bmax, b, sizeof(bmax));
-	    //bu_log("cached: bmin: %f %f %f bbmax: %f %f %f\n", V3ARGS(bmin), V3ARGS(bmax));
-	    have_bbox = true;
+    if (dcache) {
+	void *bdata = NULL;
+	struct bu_cache_txn *t = NULL;
+	size_t bsize = bu_cache_get(&bdata, dbi_cache_key(hash, CACHE_OBJ_BOUNDS).c_str(), dcache, &t);
+	if (bsize) {
+	    if (bsize != (sizeof(bmin) + sizeof(bmax))) {
+		bu_log("Incorrect data size found loading cached bounds data\n");
+	    } else {
+		const char *bptr = (const char *)bdata;
+		memcpy(&bmin, bptr, sizeof(bmin));
+		memcpy(&bmax, bptr + sizeof(bmin), sizeof(bmax));
+		have_bbox = true;
+	    }
 	}
+	bu_cache_get_done(&t);
     }
-    cache_done(dcache);
 
 
     // This calculation can be expensive.  If we've already
@@ -1278,18 +1201,22 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	return false;
     if (!have_bbox) {
 	if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && gedp->ged_lod) {
-	    key = bv_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
+	    key = bsg_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
 	    if (key) {
-		struct bv_mesh_lod *lod = bv_mesh_lod_create(gedp->ged_lod, key);
+		bsg_lod *lod = bsg_mesh_lod_create(gedp->ged_lod, key);
 		if (lod) {
 		    VMOVE(bmin, lod->bmin);
 		    VMOVE(bmax, lod->bmax);
 		    have_bbox = true;
 
-		    std::stringstream s;
-		    s.write(reinterpret_cast<const char *>(&bmin), sizeof(bmin));
-		    s.write(reinterpret_cast<const char *>(&bmax), sizeof(bmax));
-		    cache_write(dcache, hash, CACHE_OBJ_BOUNDS, s);
+		    if (dcache) {
+			size_t bsz = sizeof(bmin) + sizeof(bmax);
+			std::vector<char> buf(bsz);
+			memcpy(buf.data(), &bmin, sizeof(bmin));
+			memcpy(buf.data() + sizeof(bmin), &bmax, sizeof(bmax));
+			std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+			bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+		    }
 		}
 	    }
 	}
@@ -1297,18 +1224,34 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 
     // No LoD - ask librt
     if (!have_bbox) {
-	struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
-	struct bn_tol tol = BN_TOL_INIT_TOL;
-	mat_t m;
-	MAT_IDN(m);
-	int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
-	if (bret != -1) {
-	    have_bbox = true;
+	// When BRLCAD_CACHE_AABB_DELAY_MS is set, skip the synchronous
+	// rt_bound_instance call for ALL primitive types.  Every shape is
+	// treated equally: its AABB is computed lazily by the async
+	// aabb_worker in the DrawPipeline (which calls ft_bbox), and the
+	// result is delivered via drain_geom_results().  This allows even
+	// CSG/wireframe primitives to start with have_bbox=0 and receive a
+	// placeholder AABB wireframe on the next drain cycle, giving a
+	// uniform progressive-display experience across all solid types.
+	const char *delay_env = getenv("BRLCAD_CACHE_AABB_DELAY_MS");
+	bool defer_all = (delay_env && atoi(delay_env) > 0);
+	if (!defer_all) {
+	    struct bg_tess_tol ttol = BG_TESS_TOL_INIT_ZERO;
+	    struct bn_tol tol = BN_TOL_INIT_TOL;
+	    mat_t m;
+	    MAT_IDN(m);
+	    int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
+	    if (bret != -1) {
+		have_bbox = true;
 
-	    std::stringstream s;
-	    s.write(reinterpret_cast<const char *>(&bmin), sizeof(bmin));
-	    s.write(reinterpret_cast<const char *>(&bmax), sizeof(bmax));
-	    cache_write(dcache, hash, CACHE_OBJ_BOUNDS, s);
+		if (dcache) {
+		    size_t bsz = sizeof(bmin) + sizeof(bmax);
+		    std::vector<char> buf(bsz);
+		    memcpy(buf.data(), &bmin, sizeof(bmin));
+		    memcpy(buf.data() + sizeof(bmin), &bmax, sizeof(bmax));
+		    std::string k = dbi_cache_key(hash, CACHE_OBJ_BOUNDS);
+		    bu_cache_write(buf.data(), bsz, k.c_str(), dcache, NULL);
+		}
+	    }
 	}
     }
 
@@ -1367,88 +1310,6 @@ DbiState::get_view_state(struct bview *v)
     BViewState *nv = new BViewState(this);
     view_states[v] = nv;
     return nv;
-}
-
-std::vector<BSelectState *>
-DbiState::get_selected_states(const char *sname)
-{
-    std::vector<BSelectState *> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-
-    if (!sname || BU_STR_EQUIV(sname, "default")) {
-	ret.push_back(default_selected);
-	return ret;
-    }
-
-    std::string sn(sname);
-    if (sn.find('*') != std::string::npos) {
-	for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	    if (bu_path_match(sname, ss_it->first.c_str(), 0)) {
-		ret.push_back(ss_it->second);
-	    }
-	}
-	return ret;
-    }
-
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
-	    ret.push_back(ss_it->second);
-	}
-    }
-    if (ret.size())
-	return ret;
-
-    BSelectState *ns = new BSelectState(this);
-    selected_sets[sn] = ns;
-    ret.push_back(ns);
-    return ret;
-}
-
-BSelectState *
-DbiState::find_selected_state(const char *sname)
-{
-    if (!sname || BU_STR_EQUIV(sname, "default")) {
-	return default_selected;
-    }
-
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
-	    return ss_it->second;
-	}
-    }
-
-    return NULL;
-}
-
-void
-DbiState::put_selected_state(const char *sname)
-{
-    if (!sname || BU_STR_EQUIV(sname, "default")) {
-	default_selected->clear();
-	return;
-    }
-
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
-	    delete ss_it->second;
-	    selected_sets.erase(ss_it);
-	    return;
-	}
-    }
-}
-
-std::vector<std::string>
-DbiState::list_selection_sets()
-{
-    std::vector<std::string> ret;
-    std::unordered_map<std::string, BSelectState *>::iterator ss_it;
-    for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
-	ret.push_back(ss_it->first);
-    }
-    std::sort(ret.begin(), ret.end(), &alphanum_cmp);
-    return ret;
 }
 
 void
@@ -1555,7 +1416,6 @@ DbiState::update()
 
     // Update the primary data structures
     for(s_it = removed.begin(); s_it != removed.end(); s_it++) {
-	bu_log("removed: %llu\n", *s_it);
 
 	// Combs with this key in their child set need to be updated to refer
 	// to it as an invalid entry.
@@ -1578,6 +1438,13 @@ DbiState::update()
 	matrices.erase(*s_it);
 	i_bool.erase(*s_it);
 
+	// Phase 3: remove the corresponding GObj (and its owned CombInst children)
+	{
+	    auto g_it2 = gobjs.find(*s_it);
+	    if (g_it2 != gobjs.end())
+		delete g_it2->second; // dtor deregisters from gobjs
+	}
+
 	// We do not clear the instance maps (i_map and i_str) since those containers do not
 	// guarantee uniqueness to one child object.  To remove entries no longer
 	// used anywhere in the database, we have to confirm they are no longer needed on a global
@@ -1590,7 +1457,6 @@ DbiState::update()
 
     for(g_it = added.begin(); g_it != added.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("added: %s\n", dp->d_namep);
 	unsigned long long hash = update_dp(dp, 0);
 
 	// If this name was previously the source of an invalid reference,
@@ -1600,7 +1466,6 @@ DbiState::update()
 
     for(g_it = changed.begin(); g_it != changed.end(); g_it++) {
 	struct directory *dp = *g_it;
-	bu_log("changed: %s\n", dp->d_namep);
 	// Properties need to be updated - comb children, colors, matrices,
 	// bounding box for solids, etc.
 	update_dp(dp, 1);
@@ -1626,7 +1491,7 @@ DbiState::update()
     // For all associated view states, execute any necessary changes to
     // view objects and lists
     std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
@@ -1635,9 +1500,59 @@ DbiState::update()
 	    continue;
 	vmap[bvs].insert(v);
     }
-    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
-    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-	bv_it->first->redraw(NULL, bv_it->second, 1);
+    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator view_it;
+    for (view_it = vmap.begin(); view_it != vmap.end(); view_it++) {
+	view_it->first->redraw(NULL, view_it->second, 1);
+    }
+
+    // Build and dispatch change events to observers
+    {
+	std::vector<DbiChangeEvent> events;
+	for (auto *dp : added) {
+	    DbiChangeEvent ev;
+	    ev.kind = DbiChangeKind::ObjectAdded;
+	    ev.object = GHash{bu_data_hash(dp->d_namep, strlen(dp->d_namep))};
+	    ev.batch = false;
+	    events.push_back(ev);
+	}
+	for (auto *dp : changed) {
+	    DbiChangeEvent ev;
+	    ev.kind = DbiChangeKind::ObjectModified;
+	    ev.object = GHash{bu_data_hash(dp->d_namep, strlen(dp->d_namep))};
+	    ev.batch = false;
+	    events.push_back(ev);
+	}
+	for (auto h : removed) {
+	    DbiChangeEvent ev;
+	    ev.kind = DbiChangeKind::ObjectRemoved;
+	    ev.object = GHash{h};
+	    ev.batch = false;
+	    events.push_back(ev);
+	}
+	if (!events.empty())
+	    notify_dbi_observers(events);
+    }
+
+    // Queue background bbox computation for added and changed solid objects
+    // whose bboxes were cleared by update_dp().  The pipeline will populate
+    // bboxes[] asynchronously; callers should periodically call
+    // drain_geom_results() and repaint when it returns non-zero.
+    {
+	std::vector<DrawPipeline::WorkItem> load_items;
+	for (auto *dp : added) {
+	    if (dp->d_flags & RT_DIR_COMB) continue;
+	    unsigned long long h = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
+	    if (bboxes.find(h) == bboxes.end())
+		load_items.push_back({h, dp});
+	}
+	for (auto *dp : changed) {
+	    if (dp->d_flags & RT_DIR_COMB) continue;
+	    unsigned long long h = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
+	    // Changed objects had their bboxes cleared by update_dp(); always re-queue.
+	    load_items.push_back({h, dp});
+	}
+	if (!load_items.empty())
+	    start_geom_load(load_items);
     }
 
     // Updates done, clear items stored by callbacks
@@ -1755,6 +1670,18 @@ DbiState::print_dbi_state(struct bu_vls *outvls, bool report_view_states)
 BViewState::BViewState(DbiState *s)
 {
     dbis = s;
+}
+
+void
+BViewState::link_to(BViewState *primary)
+{
+    linked_to_ = primary;
+}
+
+void
+BViewState::unlink()
+{
+    linked_to_ = nullptr;
 }
 
 // 0 = valid, 3 = need re-eval
@@ -1914,7 +1841,19 @@ BViewState::add_hpath(std::vector<unsigned long long> &path_hashes)
 {
     if (!path_hashes.size())
 	return;
-    staged.push_back(path_hashes);
+    // Add to draw_list_ (mode 0 means "use redraw's mode").  The mode will be
+    // corrected by the end-of-redraw draw_list_ sync to reflect what was actually
+    // drawn.  This replaces the old `staged` temporary queue (A3: DrawList as
+    // the canonical draw-intent source).
+    //
+    // View-sets-as-higher-level-responsibility (from dbi2 design): when this
+    // view is linked to a primary, draw intent is managed at the primary level.
+    // Delegate the add to the primary so all linked views share one draw list.
+    if (linked_to_) {
+	linked_to_->add_hpath(path_hashes);
+	return;
+    }
+    draw_list_.add(path_hashes, 0);
 }
 
 void
@@ -1923,7 +1862,7 @@ BViewState::erase_path(int mode, int argc, const char **argv)
     if (!argc || !argv)
 	return;
 
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
     for (int i = 0; i < argc; i++) {
 	std::vector<unsigned long long> path_hashes = dbis->digest_path(argv[i]);
 	if (!path_hashes.size())
@@ -1940,7 +1879,14 @@ BViewState::erase_path(int mode, int argc, const char **argv)
 void
 BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigned long long> &path_hashes, bool cache_collapse)
 {
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+    // View-sets-as-higher-level-responsibility: when linked, draw intent is
+    // owned by the primary.  Delegate the erase to keep draw lists consistent.
+    if (linked_to_) {
+	linked_to_->erase_hpath(mode, c_hash, path_hashes, cache_collapse);
+	return;
+    }
+
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
     std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
     std::unordered_map<int, std::unordered_set<unsigned long long>>::iterator m_it;
     pc_it = dbis->p_c.find(c_hash);
@@ -1957,17 +1903,17 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	unsigned long long phash = dbis->path_hash(path_hashes, 0);
 	sm_it = s_map.find(phash);
 	if (sm_it != s_map.end()) {
-	    std::unordered_map<int, struct bv_scene_obj *>::iterator s_it;
+	    std::unordered_map<int, bsg_shape *>::iterator s_it;
 	    if (mode < 0) {
 		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++)
-		    bv_obj_put(s_it->second);
+		    bsg_shape_put(s_it->second);
 		for (m_it = drawn_paths.begin(); m_it != drawn_paths.end(); m_it++)
 		    m_it->second.erase(phash);
 		s_map.erase(phash);
 	    } else {
 		s_it = sm_it->second.find(mode);
 		if (s_it != sm_it->second.end()) {
-		    bv_obj_put(s_it->second);
+		    bsg_shape_put(s_it->second);
 		    sm_it->second.erase(s_it);
 		    drawn_paths[mode].erase(phash);
 		    s_map[phash].erase(mode);
@@ -1983,6 +1929,10 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 		s_keys.erase(phash);
 		all_drawn_paths.erase(phash);
 	    }
+
+	    // Keep draw_list_ in sync immediately so callers don't have to
+	    // wait for the next redraw() to see the removal reflected.
+	    draw_list_.remove(phash, mode);
 	}
     }
 
@@ -2135,11 +2085,11 @@ BViewState::cache_collapsed()
     std::unordered_map<int, std::unordered_set<unsigned long long>> mode_map;
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator sk_it;
     for (sk_it = s_keys.begin(); sk_it != s_keys.end(); sk_it++) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator s_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator s_it;
 	s_it = s_map.find(sk_it->first);
 	if (s_it == s_map.end())
 	    continue;
-	std::unordered_map<int, struct bv_scene_obj *>::iterator sm_it;
+	std::unordered_map<int, bsg_shape *>::iterator sm_it;
 	for (sm_it = s_it->second.begin(); sm_it != s_it->second.end(); sm_it++)
 	    mode_map[sm_it->first].insert(sk_it->first);
     }
@@ -2209,11 +2159,11 @@ BViewState::cache_collapsed()
     depth_group_collapse(all_collapsed, all_drawn_paths, all_partially_drawn_paths, all_depth_groups);
 }
 
-struct bv_scene_obj *
+bsg_shape *
 BViewState::scene_obj(
-	std::unordered_set<struct bv_scene_obj *> &objs,
+	std::unordered_set<bsg_shape *> &objs,
 	int curr_mode,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -2222,9 +2172,9 @@ BViewState::scene_obj(
 {
     // Solid - scene object time
     unsigned long long phash = dbis->path_hash(path_hashes, 0);
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
     sm_it = s_map.find(phash);
-    struct bv_scene_obj *sp = NULL;
+    bsg_shape *sp = NULL;
     if (sm_it != s_map.end()) {
 
 	// If we have user supplied settings, we need to do some checking
@@ -2236,7 +2186,7 @@ BViewState::scene_obj(
 		unsigned long long c_hash = phashes[phashes.size() - 1];
 		phashes.pop_back();
 		std::unordered_set<int> erase_modes;
-		std::unordered_map<int, struct bv_scene_obj *>::iterator s_it;
+		std::unordered_map<int, bsg_shape *>::iterator s_it;
 		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++) {
 		    if (s_it->first == curr_mode)
 			continue;
@@ -2261,7 +2211,7 @@ BViewState::scene_obj(
 		    if (sp->s_flag != UP)
 			sp->s_flag = UP;
 		}
-		if (bv_obj_settings_sync(sp->s_os, vs))
+		if (bsg_material_sync(sp->s_os, vs))
 		    objs.insert(sp);
 	    }
 
@@ -2272,27 +2222,27 @@ BViewState::scene_obj(
 	    std::unordered_set<struct bview *>::iterator v_it;
 	    if (sp->csg_obj) {
 		for (v_it = views.begin(); v_it != views.end(); v_it++) {
-		    int have_adaptive = bv_obj_have_vo(sp, *v_it);
+		    int have_adaptive = bsg_shape_have_view_obj(sp, *v_it);
 		    if ((*v_it)->gv_s->adaptive_plot_csg && !have_adaptive) {
-			bv_obj_stale(sp);
+			bsg_shape_stale(sp);
 			sp->curve_scale = -1; // Make sure a rework is triggered
 			objs.insert(sp);
 		    }
-		    if (!(*v_it)->gv_s->adaptive_plot_csg && have_adaptive && bv_clear_view_obj(sp, *v_it)) {
-			bv_obj_stale(sp);
+		    if (!(*v_it)->gv_s->adaptive_plot_csg && have_adaptive && bsg_shape_clear_view_obj(sp, *v_it)) {
+			bsg_shape_stale(sp);
 			objs.insert(sp);
 		    }
 		}
 	    }
 	    if (sp->mesh_obj) {
 		for (v_it = views.begin(); v_it != views.end(); v_it++) {
-		    int have_adaptive = bv_obj_have_vo(sp, *v_it);
+		    int have_adaptive = bsg_shape_have_view_obj(sp, *v_it);
 		    if ((*v_it)->gv_s->adaptive_plot_mesh && !have_adaptive) {
-			bv_obj_stale(sp);
+			bsg_shape_stale(sp);
 			objs.insert(sp);
 		    }
-		    if (!(*v_it)->gv_s->adaptive_plot_mesh && have_adaptive && bv_clear_view_obj(sp, *v_it)) {
-			bv_obj_stale(sp);
+		    if (!(*v_it)->gv_s->adaptive_plot_mesh && have_adaptive && bsg_shape_clear_view_obj(sp, *v_it)) {
+			bsg_shape_stale(sp);
 			objs.insert(sp);
 		    }
 		}
@@ -2303,7 +2253,7 @@ BViewState::scene_obj(
     }
 
     // No pre-existing object - make a new one
-    sp = bv_obj_get(v, BV_DB_OBJS);
+    sp = bsg_shape_get(v, BSG_DB_OBJS);
 
     // Find the leaf directory pointer
     struct directory *dp = dbis->get_hdp(path_hashes[path_hashes.size()-1]);
@@ -2319,20 +2269,25 @@ BViewState::scene_obj(
     ud->dbip = dbis->gedp->dbip;
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
-    ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view... local_res is temporary, don't use it here
+    ud->res = dbis->res;
     ud->mesh_c = dbis->gedp->ged_lod;
+    ud->dbis = dbis;
     sp->dp = dp;
     sp->s_i_data = (void *)ud;
 
-    // Get color from path, unless we're overridden
+    // Get color from path, store as the database-derived color.  If the
+    // view state carries a color override, record it in s_os->color so the
+    // original s_color is preserved and can be restored when the override
+    // is lifted.  The draw_scene_obj() path in view.c already checks
+    // s_os->color_override and uses s_os->color when it is set.
     struct bu_color c;
     dbis->path_color(&c, path_hashes);
     bu_color_to_rgb_chars(&c, sp->s_color);
     if (vs && vs->color_override) {
-	// TODO - shouldn't be using s_color for the override...
-	sp->s_color[0] = vs->color[0];
-	sp->s_color[1] = vs->color[1];
-	sp->s_color[2] = vs->color[2];
+	sp->s_os->color_override = 1;
+	sp->s_os->color[0] = vs->color[0];
+	sp->s_os->color[1] = vs->color[1];
+	sp->s_os->color[2] = vs->color[2];
     }
 
     // Set drawing mode
@@ -2346,17 +2301,23 @@ BViewState::scene_obj(
     }
 
     // Assign the bounding box (needed for pre-adaptive-plot
-    // autoview)
-    dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
+    // autoview).  When BRLCAD_CACHE_AABB_DELAY_MS is set, ALL primitives
+    // (BoTs and CSG alike) defer rt_bound_instance to the async aabb_worker.
+    // get_path_bbox may return false for any shape type.  In that case
+    // have_bbox=0 signals draw_scene/bot_adaptive_plot to retry on the next
+    // redraw once the async AABB pipeline delivers the result.
+    bool bbox_ok = dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
+    sp->have_bbox = bbox_ok ? 1 : 0;
 
-    // Adaptive also needs s_size and s_center to be set
-    sp->s_center[X] = (sp->bmin[X] + sp->bmax[X]) * 0.5;
-    sp->s_center[Y] = (sp->bmin[Y] + sp->bmax[Y]) * 0.5;
-    sp->s_center[Z] = (sp->bmin[Z] + sp->bmax[Z]) * 0.5;
-    sp->s_size = sp->bmax[X] - sp->bmin[X];
-    V_MAX(sp->s_size, sp->bmax[Y] - sp->bmin[Y]);
-    V_MAX(sp->s_size, sp->bmax[Z] - sp->bmin[Z]);
-    sp->have_bbox = 1;
+    if (bbox_ok) {
+	// Adaptive also needs s_size and s_center to be set
+	sp->s_center[X] = (sp->bmin[X] + sp->bmax[X]) * 0.5;
+	sp->s_center[Y] = (sp->bmin[Y] + sp->bmax[Y]) * 0.5;
+	sp->s_center[Z] = (sp->bmin[Z] + sp->bmax[Z]) * 0.5;
+	sp->s_size = sp->bmax[X] - sp->bmin[X];
+	V_MAX(sp->s_size, sp->bmax[Y] - sp->bmin[Y]);
+	V_MAX(sp->s_size, sp->bmax[Z] - sp->bmin[Z]);
+    }
 
     // If we're drawing a subtraction and we're not overridden, set the
     // appropriate flag for dashed line drawing
@@ -2386,11 +2347,11 @@ BViewState::scene_obj(
 
 void
 BViewState::walk_tree(
-	std::unordered_set<struct bv_scene_obj *> &objs,
+	std::unordered_set<bsg_shape *> &objs,
 	unsigned long long chash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -2424,11 +2385,11 @@ BViewState::walk_tree(
 // missing objects.
 void
 BViewState::gather_paths(
-	std::unordered_set<struct bv_scene_obj *> &objs,
+	std::unordered_set<bsg_shape *> &objs,
 	unsigned long long c_hash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	struct bsg_obj_settings *vs,
 	matp_t m,
        	matp_t lm,
 	std::vector<unsigned long long> &path_hashes,
@@ -2469,7 +2430,7 @@ BViewState::gather_paths(
 	}
     } else {
 	// Solid - scene object time
-	struct bv_scene_obj *nobj = scene_obj(objs, curr_mode, vs, m, path_hashes, views, v);
+	bsg_shape *nobj = scene_obj(objs, curr_mode, vs, m, path_hashes, views, v);
 	if (nobj && ret)
 	    (*ret) |= GED_DBISTATE_VIEW_CHANGE;
     }
@@ -2484,12 +2445,76 @@ BViewState::clear()
 {
     s_map.clear();
     s_keys.clear();
-    staged.clear();
     drawn_paths.clear();
     all_drawn_paths.clear();
     partially_drawn_paths.clear();
     mode_collapsed.clear();
     all_collapsed.clear();
+    draw_list_.clear();
+}
+
+void
+BViewState::stale_mesh_shapes_for_dp(
+	struct directory *dp,
+	const std::unordered_set<struct bview *> &views)
+{
+    // Called by DbiState::drain_geom_results() on the main thread when the
+    // background GeomLoader has finished generating LoD cache data for a BoT
+    // primitive.  For each shape in s_map that references this directory
+    // pointer, we clear the per-view child shapes (which may currently hold
+    // only a temporary bounding-box wireframe) and mark the parent shape stale
+    // so the next redraw() call will regenerate them with proper LoD geometry.
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp || sp->dp != dp || !sp->mesh_obj)
+		continue;
+	    // Clear the per-view object (bbox wireframe placeholder, if any)
+	    // for every view that was active at drain time.
+	    for (auto *v : views)
+		bsg_shape_clear_view_obj(sp, v);
+	    bsg_shape_stale(sp);
+	}
+    }
+}
+
+size_t
+BViewState::lod_shape_count(struct bview *v)
+{
+    // Diagnostic/test use only.  Iterates all shapes in s_map; not suitable
+    // for hot paths on large scenes.  Returns the number of mesh shapes that
+    // have a per-view object with BSG_NODE_MESH_LOD set, confirming that
+    // bot_adaptive_plot() created real LoD geometry (not a bbox placeholder).
+    if (!v) return 0;
+    size_t cnt = 0;
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp || !sp->mesh_obj) continue;
+	    bsg_shape *vo = bsg_shape_for_view(sp, v);
+	    if (vo && (vo->s_type_flags & BSG_NODE_MESH_LOD))
+		cnt++;
+	}
+    }
+    return cnt;
+}
+
+size_t
+BViewState::shapes_without_bbox(struct bview *v)
+{
+    // Used by drain_background_geom() to determine when progressive autoview
+    // has stabilised (all drawn shapes now have bounding boxes).  Covers both
+    // mesh (BoT) and CSG shapes since ALL primitives are now lazy under the
+    // BRLCAD_CACHE_AABB_DELAY_MS policy.  Iterates s_map; acceptable on the
+    // drain timer path (called at most every 100 ms).
+    if (!v) return 0;
+    size_t cnt = 0;
+    for (auto &[phash, mode_map] : s_map) {
+	for (auto &[mode, sp] : mode_map) {
+	    if (!sp) continue;
+	    if (!sp->have_bbox)
+		cnt++;
+	}
+    }
+    return cnt;
 }
 
 std::vector<std::string>
@@ -2524,7 +2549,7 @@ BViewState::list_drawn_paths(int mode, bool list_collapsed)
     }
     if (mode != -1 && !list_collapsed) {
 	struct bu_vls vpath = BU_VLS_INIT_ZERO;
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
 	for (sm_it = s_map.begin(); sm_it != s_map.end(); sm_it++) {
 	    if (sm_it->second.find(mode) == sm_it->second.end())
 		continue;
@@ -2557,7 +2582,7 @@ BViewState::count_drawn_paths(int mode, bool list_collapsed)
 	return s_keys.size();
 
     if (mode != -1 && !list_collapsed) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator sm_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator sm_it;
 	sm_it = s_map.find(mode);
 	if (sm_it != s_map.end())
 	    return sm_it->second.size();
@@ -2594,13 +2619,13 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
     if (!v)
 	return 0;
 
-    bv_log(1, "BViewState::refresh");
+    bsg_log(1, "BViewState::refresh");
     // We (well, callers) need to be able to tell if the redraw pass actually
     // changed anything.
     unsigned long long ret = 0;
 
     // Make sure the view knows how to update the oriented bounding box
-    v->gv_bounds_update = &bv_view_bounds;
+    v->gv_bounds_update = &bsg_view_bounds;
 
     // If we have specific paths specified, the leaves of those paths
     // denote which paths need refreshing.  We need to process them
@@ -2623,7 +2648,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
     std::unordered_map<int, std::unordered_set<unsigned long long>> mode_map;
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator sk_it;
     for (sk_it = s_keys.begin(); sk_it != s_keys.end(); sk_it++) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator s_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator s_it;
 	s_it = s_map.find(sk_it->first);
 	if (s_it == s_map.end())
 	    continue;
@@ -2642,7 +2667,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 		continue;
 	}
 
-	std::unordered_map<int, struct bv_scene_obj *>::iterator sm_it;
+	std::unordered_map<int, bsg_shape *>::iterator sm_it;
 	for (sm_it = s_it->second.begin(); sm_it != s_it->second.end(); sm_it++) {
 	    mode_map[sm_it->first].insert(sk_it->first);
 	}
@@ -2655,15 +2680,15 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	std::unordered_set<unsigned long long>::iterator k_it;
 	for (k_it = mkeys.begin(); k_it != mkeys.end(); k_it++) {
 	    std::vector<unsigned long long> &cp = s_keys[*k_it];
-	    struct bv_scene_obj *s = NULL;
+	    bsg_shape *s = NULL;
 	    if (s_map.find(*k_it) != s_map.end()) {
 		if (s_map[*k_it].find(mm_it->first) != s_map[*k_it].end())
 		    s = s_map[*k_it][mm_it->first];
 	    }
 	    if (!s)
 		continue;
-	    struct bv_scene_obj *nso = bv_obj_get(v, BV_DB_OBJS);
-	    bv_obj_sync(nso, s);
+	    bsg_shape *nso = bsg_shape_get(v, BSG_DB_OBJS);
+	    bsg_shape_sync(nso, s);
 	    nso->s_i_data = s->s_i_data;
 	    s->s_i_data = NULL;
 	    s_map[*k_it].erase(mm_it->first);
@@ -2675,27 +2700,29 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    nso->dp = s->dp;
 	    s_map[*k_it][mm_it->first] = nso;
 
-	    //bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
+	    //bsg_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    bu_log("refresh %s[%s]\n", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    draw_scene(nso, v);
-	    bv_obj_put(s);
+	    bsg_shape_put(s);
 	}
     }
 
     // Do selection sync
-    BSelectState *ss = dbis->find_selected_state(NULL);
-    if (ss) {
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
+    {
+	SelectionSet *ss = dbis->get_selection_set(nullptr);
+	if (ss && !ss->selected().empty()) {
+	    ss->sync_to_all_views();
+	    ret = GED_DBISTATE_VIEW_CHANGE;
+	}
     }
 
     return ret;
 }
 
 unsigned long long
-BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
+BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
 {
-    bv_log(1, "BViewState::redraw");
+    bsg_log(1, "BViewState::redraw");
     // We (well, callers) need to be able to tell if the redraw pass actually
     // changed anything.
     unsigned long long ret = 0;
@@ -2704,22 +2731,19 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	return 0;
 
     // Make sure the views know how to update the oriented bounding box
-    std::unordered_set<struct bview *>::iterator v_it;
-    for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	struct bview *v = *v_it;
-	v->gv_bounds_update = &bv_view_bounds;
+    for (struct bview *v : views) {
+	v->gv_bounds_update = &bsg_view_bounds;
     }
 
     // For most operations on objects, we need only the current view (for
     // independent views) or a single instance of any representative view (for
     // shared state views).
-    struct bview *v = NULL;
+    struct bview *v = nullptr;
     if (views.size() == 1)
 	v = (*(views.begin()));
     if (!v && views.size() > 1) {
 	// If we have multiple views, we want a non-independent view
-	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    struct bview *nv = *v_it;
+	for (struct bview *nv : views) {
 	    if (nv->independent)
 		continue;
 	    v = nv;
@@ -2735,7 +2759,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // drawing has to be delayed until after the initial scene objects are
     // created.  Make a set to track which objects we need to draw in the
     // finalization stage.
-    std::unordered_set<struct bv_scene_obj *> objs;
+    std::unordered_set<bsg_shape *> objs;
 
 
     // First order of business is to go through already drawn solids, if any,
@@ -2768,11 +2792,11 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // which modes they are being visualized with.
     std::unordered_map<int, std::unordered_set<unsigned long long>> mode_map;
     for (sk_it = s_keys.begin(); sk_it != s_keys.end(); sk_it++) {
-	std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator s_it;
+	std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator s_it;
 	s_it = s_map.find(sk_it->first);
 	if (s_it == s_map.end())
 	    continue;
-	std::unordered_map<int, struct bv_scene_obj *>::iterator sm_it;
+	std::unordered_map<int, bsg_shape *>::iterator sm_it;
 	for (sm_it = s_it->second.begin(); sm_it != s_it->second.end(); sm_it++) {
 	    mode_map[sm_it->first].insert(sk_it->first);
 	}
@@ -2788,7 +2812,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    if (mm_it->second.find(*iv_it) == mm_it->second.end())
 		continue;
 	    std::vector<unsigned long long> &cp = s_keys[*iv_it];
-	    struct bv_scene_obj *s = NULL;
+	    bsg_shape *s = NULL;
 	    if (s_map.find(*iv_it) != s_map.end()) {
 		if (s_map[*iv_it].find(mm_it->first) != s_map[*iv_it].end()) {
 		    ret = GED_DBISTATE_VIEW_CHANGE;
@@ -2799,10 +2823,10 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 		if (s) {
 		    // Invalid - remove any scene object geometry
 		    ret = GED_DBISTATE_VIEW_CHANGE;
-		    bv_obj_reset(s);
+		    bsg_shape_reset(s);
 		    s->s_v = v;
 		} else {
-		    s = bv_obj_get(v, BV_DB_OBJS);
+		    s = bsg_shape_get(v, BSG_DB_OBJS);
 		    // print path name, set view - otherwise empty
 		    dbis->print_path(&s->s_name, cp);
 		    s->s_v = v;
@@ -2812,7 +2836,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    }
 	    if (s) {
 		// Geometry is suspect - clear to prepare for regeneration
-		bv_obj_put(s);
+		bsg_shape_put(s);
 		s_map[*iv_it].erase(mm_it->first);
 		ret = GED_DBISTATE_VIEW_CHANGE;
 	    }
@@ -2857,7 +2881,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
 	for (sz_it = draw_invalid_collapsed.begin(); sz_it != draw_invalid_collapsed.end(); sz_it++) {
 	    std::vector<unsigned long long> cpath = ms_it->second[*sz_it];
-	    struct bv_scene_obj *s = bv_obj_get(v, BV_DB_OBJS);
+	    bsg_shape *s = bsg_shape_get(v, BSG_DB_OBJS);
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&s->s_name, cpath);
 	    s->s_v = v;
@@ -2869,38 +2893,113 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	}
     }
 
-    // Expand (or queue, depending on settings) any staged paths.
+    // Process pending draw_list_ entries: those not yet in s_map (newly added
+    // via add_path()/add_hpath() since the last redraw).  This replaces the old
+    // `staged` temporary queue — draw_list_ is now the canonical draw-intent
+    // source (A3 full implementation).
+    //
+    // View-sets-as-higher-level-responsibility (from dbi2 design):
+    // If this view is linked to a primary, also process the primary's
+    // draw_list_ entries.  This is the mechanism by which quad-view panels
+    // share geometry without requiring each view to independently manage its
+    // draw commands.  The primary's entries are processed FIRST so that this
+    // view's own overrides can take precedence.
     if (vs) {
-	for (size_t i = 0; i < staged.size(); i++) {
-	    std::vector<unsigned long long> cpath = staged[i];
-	    // Validate this path - if the user has specified an invalid
-	    // path, there's nothing else to do
-	    if (!dbis->valid_hash_path(cpath))
-		continue;
-	    unsigned long long phash = dbis->path_hash(cpath, 0);
-	    if (check_status(NULL, NULL, phash, cpath, false))
-		continue;
-	    mat_t m;
-	    MAT_IDN(m);
-	    dbis->get_path_matrix(m, cpath);
-	    if ((vs->s_dmode == 3 || vs->s_dmode == 5)) {
+	// Helper lambda that processes one draw_list_ entry set.
+	// entry_vs is declared outside both loops to avoid repeated stack allocs
+	// and to remain valid for draw_vs references within each iteration.
+	struct bsg_obj_settings entry_vs;
+	auto process_dl_entries = [&](const std::vector<DrawList::Entry> &dl_entries) {
+	    for (size_t i = 0; i < dl_entries.size(); i++) {
+		const DrawList::Entry &dl_e = dl_entries[i];
+		// Skip entries that are already drawn (in s_map)
+		if (s_map.find(dl_e.full_hash) != s_map.end())
+		    continue;
+		std::vector<unsigned long long> cpath = dl_e.path;
+		// Validate this path - if the user has specified an invalid
+		// path, there's nothing else to do
+		if (!dbis->valid_hash_path(cpath))
+		    continue;
+		if (check_status(NULL, NULL, dl_e.full_hash, cpath, false))
+		    continue;
+		// Use entry mode if non-zero, otherwise fall back to vs->s_dmode
+		int draw_mode = (dl_e.mode != 0) ? dl_e.mode : vs->s_dmode;
+		// Use entry's settings override if present, otherwise use vs
+		struct bsg_obj_settings *draw_vs = vs;
+		if (dl_e.has_settings) {
+		    // Copy vs first, then apply the per-entry overrides
+		    entry_vs = *vs;
+		    entry_vs.s_dmode = draw_mode;
+		    if (dl_e.settings.has_color) {
+			entry_vs.color_override = 1;
+			entry_vs.color[0] = dl_e.settings.color.buc_rgb[0];
+			entry_vs.color[1] = dl_e.settings.color.buc_rgb[1];
+			entry_vs.color[2] = dl_e.settings.color.buc_rgb[2];
+		    }
+		    draw_vs = &entry_vs;
+		}
+		mat_t m;
+		MAT_IDN(m);
 		dbis->get_path_matrix(m, cpath);
-		scene_obj(objs, vs->s_dmode, vs, m, cpath, views, v);
-		continue;
+		if ((draw_mode == 3 || draw_mode == 5)) {
+		    dbis->get_path_matrix(m, cpath);
+		    scene_obj(objs, draw_mode, draw_vs, m, cpath, views, v);
+		    continue;
+		}
+		unsigned long long ihash = cpath[cpath.size() - 1];
+		cpath.pop_back();
+		gather_paths(objs, ihash, draw_mode, v, draw_vs, m, NULL, cpath, views, &ret);
 	    }
-	    unsigned long long ihash = cpath[cpath.size() - 1];
-	    cpath.pop_back();
-	    gather_paths(objs, ihash, vs->s_dmode, v, vs, m, NULL, cpath, views, &ret);
-	}
+	};
+
+	// When linked, process the primary's draw list first so its content
+	// is visible in this (secondary) view without additional draw commands.
+	if (linked_to_)
+	    process_dl_entries(linked_to_->draw_list_.entries());
+
+	// Always process this view's own draw list (may have per-view overrides).
+	process_dl_entries(draw_list_.entries());
     }
-    // Staged paths are now added (as long as settings were supplied) - clear the queue
-    staged.clear();
 
     // Do a preliminary autoview, unless suppressed, so any adaptive plotting
     // routines have a rough idea of the correct dimensions to use
     if (!no_autoview) {
-	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bv_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	for (struct bview *vw : views)
+	    bsg_view_autoview(vw, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
+    }
+
+    // Scan for shapes whose per-view objects were cleared (stale pipeline
+    // results) or never created (have_bbox==0, still waiting for async AABB).
+    // This now covers BOTH mesh (BoT) and CSG shapes since all primitives are
+    // treated equally under the lazy AABB policy.
+    for (auto &[scan_phash, scan_mmap] : s_map) {
+	for (auto &[scan_mode, scan_sp] : scan_mmap) {
+	    if (!scan_sp)
+		continue;
+	    // mesh_obj: per-view object cleared by stale_mesh_shapes_for_dp
+	    // or never created (have_bbox==0 → bot_adaptive_plot no-op'd).
+	    if (scan_sp->mesh_obj) {
+		for (auto *vw : views) {
+		    if (!bsg_shape_have_view_obj(scan_sp, vw)) {
+			objs.insert(scan_sp);
+			break;
+		    }
+		}
+		continue;
+	    }
+	    // csg_obj: retry if shape has no bbox yet (async AABB pending),
+	    // so draw_scene gets called again when AABB arrives and can draw
+	    // the actual vlist (or at least an OBB/AABB placeholder).
+	    if (scan_sp->csg_obj && !scan_sp->have_bbox) {
+		objs.insert(scan_sp);
+	    }
+	    // Unclassified shape: draw_scene was never called (or returned
+	    // before setting csg_obj/mesh_obj), so have_bbox=0 AND both
+	    // flags are still 0.  Include it so draw_scene can classify it
+	    // and either draw a placeholder or record the shape type.
+	    if (!scan_sp->mesh_obj && !scan_sp->csg_obj && !scan_sp->have_bbox) {
+		objs.insert(scan_sp);
+	    }
 	}
     }
 
@@ -2915,37 +3014,52 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     // work for the "top level" object used for adaptive cases, since shared
     // views will be using a shared object pool for anything other than their
     // view specific geometry sub-objects.
-    for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	std::unordered_set<struct bv_scene_obj *>::iterator o_it;
-	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
-	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
-	    draw_scene(*o_it, *v_it);
+    for (struct bview *vw : views) {
+	for (bsg_shape *obj : objs) {
+	    bsg_log(3, "redraw %s[%s]", bu_vls_cstr(&obj->s_name), bu_vls_cstr(&vw->gv_name));
+	    draw_scene(obj, vw);
 	}
     }
 
     // We need to check if any drawn solids are selected.  If so, we need
     // to illuminate them.  This is what ensures that newly drawn solids
     // respect a previously selected set from the command line
-    BSelectState *ss = dbis->find_selected_state(NULL);
-    if (ss) {
-	if (invalid_paths.size() || changed_paths.size()) {
-	    ss->refresh();
-	    ss->collapse();
+    {
+	SelectionSet *ss = dbis->get_selection_set(nullptr);
+	if (ss && !ss->selected().empty()) {
+	    if (invalid_paths.size() || changed_paths.size()) {
+		ss->refresh();
+		ss->collapse();
+	    }
+	    ss->sync_to_all_views();
+	    ret = GED_DBISTATE_VIEW_CHANGE;
 	}
-	ss->draw_sync();
-	ret = GED_DBISTATE_VIEW_CHANGE;
     }
     // Now that we have the finalized geometry, do a finishing autoview,
     // unless suppressed
     if (!no_autoview) {
-	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bv_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
-	}
+	for (struct bview *vw : views)
+	    bsg_view_autoview(vw, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
     }
 
     // Now that all path manipulations are finalized, update the
     // sets of drawn paths
     cache_collapsed();
+
+    // Sync DrawList to reflect the current drawn state (s_map + s_keys).
+    // This makes draw_list_.query() and drawn_path_hashes() accurate after
+    // every redraw cycle without requiring callers to maintain the list
+    // manually.  (A3: full DrawList-driven redraw pipeline is the next step.)
+    {
+	draw_list_.clear();
+	for (auto &[phash, path_vec] : s_keys) {
+	    auto sm_it = s_map.find(phash);
+	    if (sm_it == s_map.end()) continue;
+	    for (auto &[draw_mode, shape] : sm_it->second) {
+		draw_list_.add(path_vec, draw_mode);
+	    }
+	}
+    }
 
     return ret;
 }
@@ -2991,608 +3105,1289 @@ BViewState::print_view_state(struct bu_vls *outvls)
 // a tops object) - draw
 
 
+/** @} */
 
 
-/* Handle selection status for various instances in the database */
+/* ---- Phase 4: DrawList implementation ---- */
 
-BSelectState::BSelectState(DbiState *s)
+void DrawList::add(const std::vector<unsigned long long> &path_hashes, int mode,
+                   const DrawSettings *overrides)
 {
-    dbis = s;
+    if (path_hashes.empty()) return;
+    Entry e;
+    e.path = path_hashes;
+    e.full_hash = bu_data_hash(path_hashes.data(),
+                               path_hashes.size() * sizeof(unsigned long long));
+    e.mode = mode;
+    if (overrides) {
+        e.has_settings = true;
+        e.settings = *overrides;
+    }
+    entries_.push_back(std::move(e));
+    dirty_ = true;
 }
 
-bool
-BSelectState::select_path(const char *path, bool update)
+void DrawList::add(const DbiPath &path, int mode, const DrawSettings *overrides)
 {
-    if (!path)
-	return false;
-
-    std::vector<unsigned long long> path_hashes = dbis->digest_path(path);
-    if (!path_hashes.size())
-	return false;
-
-    bool ret = select_hpath(path_hashes);
-    if (update)
-	characterize();
-    return ret;
+    add(path.hashes, mode, overrides);
 }
 
-bool
-BSelectState::select_hpath(std::vector<unsigned long long> &hpath)
+void DrawList::remove(unsigned long long path_hash, int mode)
 {
-    if (!hpath.size())
-	return false;
+    auto it = entries_.begin();
+    while (it != entries_.end()) {
+        if (it->full_hash == path_hash && (mode < 0 || it->mode == mode)) {
+            it = entries_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    dirty_ = true;
+}
 
-    // If we're already selected, nothing to do
-    unsigned long long shash = dbis->path_hash(hpath, 0);
-    if (selected.find(shash) != selected.end())
-	return true;
+void DrawList::clear()
+{
+    entries_.clear();
+    drawn_hash_modes_.clear();
+    dirty_ = false;
+}
 
-    // Validate that the specified path is current in the database.
-    for (size_t i = 1; i < hpath.size(); i++) {
-	unsigned long long phash = hpath[i-1];
-	unsigned long long chash = hpath[i];
-	if (dbis->p_c.find(phash) == dbis->p_c.end())
-	    return false;
-	if (dbis->p_c[phash].find(chash) == dbis->p_c[phash].end())
-	    return false;
+void DrawList::clear(int mode)
+{
+    entries_.erase(
+        std::remove_if(entries_.begin(), entries_.end(),
+                       [mode](const Entry &e) { return e.mode == mode; }),
+        entries_.end());
+    dirty_ = true;
+}
+
+void DrawList::rebuild_index() const
+{
+    drawn_hash_modes_.clear();
+    for (const auto &e : entries_) {
+        for (const auto &h : e.path) {
+            drawn_hash_modes_[h].insert(e.mode);
+        }
+    }
+    dirty_ = false;
+}
+
+DrawState DrawList::query(unsigned long long path_hash, int mode) const
+{
+    if (dirty_) rebuild_index();
+    auto it = drawn_hash_modes_.find(path_hash);
+    if (it == drawn_hash_modes_.end()) return DrawState::NOT_DRAWN;
+    if (mode < 0) return DrawState::FULLY_DRAWN;
+    if (it->second.find(mode) != it->second.end()) return DrawState::FULLY_DRAWN;
+    return DrawState::NOT_DRAWN;
+}
+
+std::vector<std::vector<unsigned long long>> DrawList::drawn_path_hashes(int mode) const
+{
+    std::vector<std::vector<unsigned long long>> result;
+    for (const auto &e : entries_) {
+        if (mode < 0 || e.mode == mode)
+            result.push_back(e.path);
+    }
+    return result;
+}
+
+size_t DrawList::count(int mode) const
+{
+    if (mode < 0) return entries_.size();
+    size_t n = 0;
+    for (const auto &e : entries_)
+        if (e.mode == mode) ++n;
+    return n;
+}
+
+bool DrawList::empty() const { return entries_.empty(); }
+
+/* ---- Phase 5 / Phase 7: SelectionSet implementation ---- */
+
+SelectionSet::SelectionSet(DbiState *d) : dbis_(d) {}
+
+/* Select by path hash with path vector (preferred: enables hierarchy). */
+bool SelectionSet::select(unsigned long long path_hash,
+                          const std::vector<unsigned long long> &path_vec,
+                          bool update_hierarchy)
+{
+    if (!path_hash) return false;
+    auto it = selected_.find(path_hash);
+    if (it != selected_.end() && it->second == path_vec) return false; // already selected, no change
+    selected_[path_hash] = path_vec;
+    if (update_hierarchy) recompute_hierarchy();
+    return true;
+}
+
+bool SelectionSet::deselect(unsigned long long path_hash, bool update_hierarchy)
+{
+    auto it = selected_.find(path_hash);
+    if (it == selected_.end()) return false;
+    selected_.erase(it);
+    if (update_hierarchy) recompute_hierarchy();
+    return true;
+}
+
+void SelectionSet::clear()
+{
+    selected_.clear();
+    active_.clear();
+    parents_.clear();
+    ancestors_.clear();
+    obj_immediate_parents_.clear();
+    obj_ancestors_.clear();
+}
+
+bool SelectionSet::is_selected(unsigned long long path_hash) const
+{ return selected_.count(path_hash) > 0; }
+
+bool SelectionSet::is_active(unsigned long long path_hash) const
+{ return active_.count(path_hash) > 0; }
+
+bool SelectionSet::is_parent(unsigned long long path_hash) const
+{ return parents_.count(path_hash) > 0; }
+
+bool SelectionSet::is_ancestor(unsigned long long path_hash) const
+{ return ancestors_.count(path_hash) > 0; }
+
+bool SelectionSet::is_obj_immediate_parent(unsigned long long obj_hash) const
+{ return obj_immediate_parents_.count(obj_hash) > 0; }
+
+bool SelectionSet::is_obj_ancestor(unsigned long long obj_hash) const
+{ return obj_ancestors_.count(obj_hash) > 0; }
+
+bool SelectionSet::select(const char *path_str, bool update_hierarchy)
+{
+    if (!path_str || !dbis_) return false;
+    std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
+    if (hpath.empty()) return false;
+    unsigned long long ph = dbis_->path_hash(hpath, 0);
+    return select(ph, hpath, update_hierarchy);
+}
+
+bool SelectionSet::deselect(const char *path_str, bool update_hierarchy)
+{
+    if (!path_str || !dbis_) return false;
+    std::vector<unsigned long long> hpath = dbis_->digest_path(path_str);
+    if (hpath.empty()) return false;
+    unsigned long long ph = dbis_->path_hash(hpath, 0);
+    return deselect(ph, update_hierarchy);
+}
+
+bool SelectionSet::select(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty() || !dbis_) return false;
+    unsigned long long ph = dbis_->path_hash(path.hashes, 0);
+    return select(ph, path.hashes, update_hierarchy);
+}
+
+bool SelectionSet::deselect(const DbiPath &path, bool update_hierarchy)
+{
+    if (path.empty() || !dbis_) return false;
+    unsigned long long ph = dbis_->path_hash(path.hashes, 0);
+    return deselect(ph, update_hierarchy);
+}
+
+/* Phase 7: Return sorted list of selected path strings. */
+std::vector<std::string> SelectionSet::selected_paths() const
+{
+    std::vector<std::string> result;
+    if (!dbis_) return result;
+    for (const auto &kv : selected_) {
+	if (kv.second.empty()) continue;
+	struct bu_vls pstr = BU_VLS_INIT_ZERO;
+	/* Use a mutable copy since print_path takes non-const ref. */
+	std::vector<unsigned long long> pv = kv.second;
+	dbis_->print_path(&pstr, pv, 0, 0);
+	if (bu_vls_strlen(&pstr))
+	    result.push_back(std::string(bu_vls_cstr(&pstr)));
+	bu_vls_free(&pstr);
+    }
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+unsigned long long SelectionSet::state_hash() const
+{
+    /* Golden-ratio mixing constant (2^32 / phi), reduces collisions. */
+    static const unsigned long long HASH_GOLDEN = 0x9e3779b9ULL;
+    unsigned long long h = 0;
+    for (const auto &kv : selected_) {
+	unsigned long long ph = kv.first;
+	h ^= ph + HASH_GOLDEN + (h << 6) + (h >> 2);
+    }
+    return h;
+}
+
+/* Phase 7: Return snapshot set of all selected path hashes. */
+std::unordered_set<unsigned long long> SelectionSet::selected_hashes() const
+{
+    std::unordered_set<unsigned long long> result;
+    for (const auto &kv : selected_) result.insert(kv.first);
+    return result;
+}
+
+/* Phase 7: Synchronize highlight markers to the given view state.
+ * Uses the same bsg_shape_illum() pattern as BSelectState::draw_sync(). */
+void SelectionSet::sync_to_drawn(BViewState *vs)
+{
+    if (!vs || !dbis_) return;
+    std::unordered_map<unsigned long long, std::unordered_map<int, bsg_shape *>>::iterator so_it;
+    std::unordered_map<int, bsg_shape *>::iterator m_it;
+    for (so_it = vs->s_map.begin(); so_it != vs->s_map.end(); so_it++) {
+	char illum_state = is_active(so_it->first) ? UP : DOWN;
+	for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
+	    bsg_shape_illum(m_it->second, illum_state);
+	}
+    }
+}
+
+/* Phase 7: Compute active_, parents_, ancestors_, obj_immediate_parents_,
+ * and obj_ancestors_ from selected_ using the p_v / p_c maps. */
+void SelectionSet::recompute_hierarchy()
+{
+    active_.clear();
+    parents_.clear();
+    ancestors_.clear();
+    obj_immediate_parents_.clear();
+    obj_ancestors_.clear();
+
+    if (!dbis_) {
+	/* Fallback: active = selected */
+	for (const auto &kv : selected_) active_.insert(kv.first);
+	return;
     }
 
-    // If we're going to select this path, we need to clear out conflicting
-    // paths.  We deliberately don't allow selection of multiple levels of
-    // a single path, to avoid unexpected and unintuitive behaviors.  This
-    // means we have to clear any selection that is either a superset of this
-    // path or a child of it.
-    std::vector<unsigned long long> pitems = hpath;
-    pitems.pop_back();
-    while (pitems.size()) {
-	unsigned long long phash = dbis->path_hash(pitems, 0);
-	selected.erase(phash);
-	active_paths.erase(phash);
-	pitems.pop_back();
-    }
-    // Clear any active children of the selected path
-    pitems = hpath;
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
-    pc_it = dbis->p_c.find(pitems[pitems.size() -1]);
-    if (pc_it != dbis->p_c.end()) {
-	std::unordered_set<unsigned long long>::iterator c_it;
-	for (c_it = pc_it->second.begin(); c_it != pc_it->second.end(); c_it++)
-	    clear_paths(*c_it, pitems);
+    /* Add all directly-selected path hashes to active. */
+    for (const auto &kv : selected_) active_.insert(kv.first);
+
+    /* Build a reverse map (child object hash → parent object hashes) once,
+     * used for computing obj_immediate_parents_ and obj_ancestors_. */
+    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> reverse_map;
+    for (const auto &pc : dbis_->p_c) {
+	for (unsigned long long child : pc.second)
+	    reverse_map[child].insert(pc.first);
     }
 
-    // Add to selected set
-    selected[shash] = hpath;
-
-    // Note - with this lower level function, it is the caller's responsibility
-    // to call characterize to populate the path relationships - we deliberately
-    // do not do it here, so an application can do the work once per cycle
-    // rather than being forced to do it per path.
-
-    return true;
-}
-
-bool
-BSelectState::deselect_path(const char *path, bool update)
-{
-    if (!path)
-	return false;
-
-    std::vector<unsigned long long> path_hashes = dbis->digest_path(path);
-    if (!path_hashes.size())
-	return false;
-
-    bool ret = deselect_hpath(path_hashes);
-    if (update)
-	characterize();
-    return ret;
-}
-
-bool
-BSelectState::deselect_hpath(std::vector<unsigned long long> &hpath)
-{
-    if (!hpath.size())
-	return false;
-
-    // For higher level paths, need to clear the illuminated solids
-    // below this path (if any)
-    std::vector<unsigned long long> pitems = hpath;
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
-    pc_it = dbis->p_c.find(pitems[pitems.size() -1]);
-    if (pc_it != dbis->p_c.end()) {
-	std::unordered_set<unsigned long long>::iterator c_it;
-	for (c_it = pc_it->second.begin(); c_it != pc_it->second.end(); c_it++)
-	    clear_paths(*c_it, pitems);
+    /* Collect leaf object hashes of all selected paths. */
+    std::unordered_set<unsigned long long> leaf_objs;
+    for (const auto &kv : selected_) {
+	if (!kv.second.empty())
+	    leaf_objs.insert(kv.second.back());
     }
 
-    // Clear the selection itself
-    unsigned long long phash = dbis->path_hash(hpath, 0);
-    selected.erase(phash);
-    active_paths.erase(phash);
-    return true;
-
-    // Note - with this lower level function, it is the caller's responsibility
-    // to call characterize to populate the path relationships - we deliberately
-    // do not do it here, so an application can do the work once per cycle
-    // rather than being forced to do it per path.
-}
-
-bool
-BSelectState::is_selected(unsigned long long hpath)
-{
-    if (!hpath)
-	return false;
-
-    if (selected.find(hpath) == selected.end())
-	return false;
-
-    return true;
-}
-
-bool
-BSelectState::is_active(unsigned long long phash)
-{
-    if (!phash)
-	return false;
-
-    if (active_paths.find(phash) == active_paths.end())
-	return false;
-
-    return true;
-}
-
-bool
-BSelectState::is_active_parent(unsigned long long phash)
-{
-    if (!phash)
-	return false;
-
-    if (active_parents.find(phash) == active_parents.end())
-	return false;
-
-    return true;
-}
-
-bool
-BSelectState::is_parent_obj(unsigned long long hash)
-{
-    if (is_immediate_parent_obj(hash) || is_grand_parent_obj(hash))
-	return true;
-
-    return false;
-}
-
-bool
-BSelectState::is_immediate_parent_obj(unsigned long long hash)
-{
-    if (!hash)
-	return false;
-
-    if (immediate_parents.find(hash) == immediate_parents.end())
-	return false;
-
-    return true;
-}
-
-bool
-BSelectState::is_grand_parent_obj(unsigned long long hash)
-{
-
-    if (!hash)
-	return false;
-
-    if (grand_parents.find(hash) == grand_parents.end())
-	return false;
-
-    return true;
-}
-
-void
-BSelectState::clear()
-{
-    selected.clear();
-    active_paths.clear();
-    characterize();
-}
-
-std::vector<std::string>
-BSelectState::list_selected_paths()
-{
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    std::vector<std::string> ret;
-    struct bu_vls vpath = BU_VLS_INIT_ZERO;
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	dbis->print_path(&vpath, s_it->second);
-	ret.push_back(std::string(bu_vls_cstr(&vpath)));
+    /* obj_immediate_parents_: all db objects that are direct parents of any
+     * selected leaf object anywhere in the database topology. */
+    for (unsigned long long leaf : leaf_objs) {
+	auto r_it = reverse_map.find(leaf);
+	if (r_it == reverse_map.end()) continue;
+	for (unsigned long long p : r_it->second)
+	    obj_immediate_parents_.insert(p);
     }
-    bu_vls_free(&vpath);
-    std::sort(ret.begin(), ret.end(), &alphanum_cmp);
-    return ret;
-}
 
-void
-BSelectState::add_paths(
-	unsigned long long c_hash,
-	std::vector<unsigned long long> &path_hashes
-	)
-{
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
-    pc_it = dbis->p_c.find(c_hash);
-
-    path_hashes.push_back(c_hash);
-    unsigned long long phash = dbis->path_hash(path_hashes, 0);
-    active_paths.insert(phash);
-
-    if (!path_addition_cyclic(path_hashes)) {
-	/* Not cyclic - keep going */
-	if (pc_it != dbis->p_c.end()) {
-	    std::unordered_set<unsigned long long>::iterator c_it;
-	    for (c_it = pc_it->second.begin(); c_it != pc_it->second.end(); c_it++)
-		add_paths(*c_it, path_hashes);
+    /* obj_ancestors_: all db objects reachable by walking up from the
+     * immediate parents — these are the "grand parents" and above. */
+    std::queue<unsigned long long> gqueue;
+    for (unsigned long long p : obj_immediate_parents_) gqueue.push(p);
+    while (!gqueue.empty()) {
+	unsigned long long obj = gqueue.front();
+	gqueue.pop();
+	auto r_it = reverse_map.find(obj);
+	if (r_it == reverse_map.end()) continue;
+	for (unsigned long long gp : r_it->second) {
+	    if (obj_ancestors_.insert(gp).second)
+		gqueue.push(gp);
 	}
     }
 
-    /* Done with branch - restore path */
-    path_hashes.pop_back();
-}
+    /* For each selected path, walk toward root to find parents/ancestors,
+     * and walk away from root to find all descendant paths (active). */
+    for (const auto &kv : selected_) {
+	const std::vector<unsigned long long> &path = kv.second;
+	if (path.empty()) continue;
 
-void
-BSelectState::clear_paths(
-	unsigned long long c_hash,
-	std::vector<unsigned long long> &path_hashes
-	)
-{
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
-    pc_it = dbis->p_c.find(c_hash);
-    path_hashes.push_back(c_hash);
+	/* Walk toward root: collect parent and ancestor path hashes. */
+	for (size_t depth = path.size(); depth > 1; depth--) {
+	    std::vector<unsigned long long> pp(path.begin(), path.begin() + depth - 1);
+	    unsigned long long phash = dbis_->path_hash(pp, 0);
+	    ancestors_.insert(phash);
+	    if (depth == path.size())
+		parents_.insert(phash);
+	}
 
-    unsigned long long phash = dbis->path_hash(path_hashes, 0);
-    selected.erase(phash);
-    active_paths.erase(phash);
-
-    if (!path_addition_cyclic(path_hashes)) {
-	/* Not cyclic - keep going */
-	if (pc_it != dbis->p_c.end()) {
-	    std::unordered_set<unsigned long long>::iterator c_it;
-	    for (c_it = pc_it->second.begin(); c_it != pc_it->second.end(); c_it++)
-		clear_paths(*c_it, path_hashes);
+	/* Walk away from root: expand the leaf element's subtree via p_v. */
+	unsigned long long leaf = path.back();
+	/* BFS over comb children: each entry holds the full path to that node. */
+	struct pathwalk_entry { std::vector<unsigned long long> path; };
+	std::queue<pathwalk_entry> frontier;
+	auto p_it = dbis_->p_v.find(leaf);
+	if (p_it != dbis_->p_v.end()) {
+	    for (unsigned long long ch : p_it->second) {
+		std::vector<unsigned long long> cp = path;
+		cp.push_back(ch);
+		frontier.push({cp});
+	    }
+	}
+	while (!frontier.empty()) {
+	    pathwalk_entry e = frontier.front();
+	    frontier.pop();
+	    unsigned long long ehash = dbis_->path_hash(e.path, 0);
+	    active_.insert(ehash);
+	    unsigned long long eback = e.path.back();
+	    auto c_it = dbis_->p_v.find(eback);
+	    if (c_it != dbis_->p_v.end()) {
+		for (unsigned long long ch : c_it->second) {
+		    std::vector<unsigned long long> cp = e.path;
+		    cp.push_back(ch);
+		    frontier.push({cp});
+		}
+	    }
 	}
     }
-
-    /* Done with branch - restore path */
-    path_hashes.pop_back();
 }
 
-void
-BSelectState::expand_paths(
-	std::vector<std::vector<unsigned long long>> &out_paths,
-	unsigned long long c_hash,
-	std::vector<unsigned long long> &path_hashes
-	)
+/* Synchronize highlight markers to all views registered in the associated
+ * ged context.  Returns true if any scene object's illumination changed. */
+bool SelectionSet::sync_to_all_views()
 {
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
-    pc_it = dbis->p_c.find(c_hash);
+    if (!dbis_ || !dbis_->gedp) return false;
+    bool changed = false;
+    std::unordered_set<BViewState *> vstates;
+    struct bu_ptbl *views = bsg_scene_views(&dbis_->gedp->ged_views);
+    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	BViewState *vs = dbis_->get_view_state(v);
+	vstates.insert(vs);
+    }
+    for (BViewState *vs : vstates) {
+	for (auto &so_kv : vs->s_map) {
+	    char ill = is_active(so_kv.first) ? UP : DOWN;
+	    for (auto &m_kv : so_kv.second) {
+		if (bsg_shape_illum(m_kv.second, ill))
+		    changed = true;
+	    }
+	}
+    }
+    return changed;
+}
 
+/* Internal: recursively expand c_hash into leaf-solid paths.
+ * Mirrors BSelectState::expand_paths(). */
+void SelectionSet::expand_path(std::vector<std::vector<unsigned long long>> &out_paths,
+                               unsigned long long c_hash,
+                               std::vector<unsigned long long> &path_hashes)
+{
+    if (!dbis_) return;
+    auto pc_it = dbis_->p_c.find(c_hash);
     path_hashes.push_back(c_hash);
-
     if (!path_addition_cyclic(path_hashes)) {
-	/* Not cyclic - keep going */
-	if (pc_it != dbis->p_c.end()) {
-	    std::unordered_set<unsigned long long>::iterator c_it;
-	    for (c_it = pc_it->second.begin(); c_it != pc_it->second.end(); c_it++)
-		expand_paths(out_paths, *c_it, path_hashes);
+	if (pc_it != dbis_->p_c.end()) {
+	    for (unsigned long long child : pc_it->second)
+		expand_path(out_paths, child, path_hashes);
 	} else {
 	    out_paths.push_back(path_hashes);
 	}
     } else {
 	out_paths.push_back(path_hashes);
     }
-
-    /* Done with branch - restore path */
     path_hashes.pop_back();
 }
 
-void
-BSelectState::expand()
+/* Expand all selected paths to their leaf-solid paths. */
+void SelectionSet::expand()
 {
-    // Given the current selection set, expand all the paths to
-    // their leaf solids and report those paths
+    if (!dbis_) return;
     std::vector<std::vector<unsigned long long>> out_paths;
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	std::vector<unsigned long long> seed_hashes = s_it->second;
-	unsigned long long shash = seed_hashes[seed_hashes.size() - 1];
-	seed_hashes.pop_back();
-	expand_paths(out_paths, shash, seed_hashes);
+    for (const auto &kv : selected_) {
+	std::vector<unsigned long long> seed = kv.second;
+	if (seed.empty()) continue;
+	unsigned long long shash = seed.back();
+	seed.pop_back();
+	expand_path(out_paths, shash, seed);
     }
-
-    // Update selected.
-    selected.clear();
-    for (size_t i = 0; i < out_paths.size(); i++) {
-	unsigned long long phash = dbis->path_hash(out_paths[i], 0);
-	selected[phash] = out_paths[i];
+    selected_.clear();
+    for (const auto &p : out_paths) {
+	unsigned long long ph = dbis_->path_hash(p, 0);
+	selected_[ph] = p;
     }
-
-    characterize();
+    recompute_hierarchy();
 }
 
-void
-BSelectState::collapse()
+/* Collapse selected paths toward the root by replacing sibling groups that
+ * together cover all children of their parent with the parent path.
+ * Mirrors BSelectState::collapse(). */
+void SelectionSet::collapse()
 {
+    if (!dbis_) return;
+
     std::vector<std::vector<unsigned long long>> collapsed;
     std::map<size_t, std::unordered_set<unsigned long long>> depth_groups;
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    std::unordered_set<unsigned long long>::iterator u_it;
 
-    // Group paths of the same depth.  Depth == 1 paths are already
-    // top level objects and need no further processing.
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	if (s_it->second.size() == 1) {
-	    collapsed.push_back(s_it->second);
+    for (const auto &kv : selected_) {
+	if (kv.second.size() == 1) {
+	    collapsed.push_back(kv.second);
 	} else {
-	    depth_groups[s_it->second.size()].insert(s_it->first);
+	    depth_groups[kv.second.size()].insert(kv.first);
 	}
     }
 
-    // Whittle down the mode depth groups until we find not-fully-drawn
-    // parents - when we find that, the children constitute non-collapsible
-    // paths based on what's drawn in this mode
     while (depth_groups.size()) {
 	size_t plen = depth_groups.rbegin()->first;
-	if (plen == 1)
-	    break;
+	if (plen == 1) break;
 	std::unordered_set<unsigned long long> &pckeys = depth_groups.rbegin()->second;
 
-	// For a given depth, group the paths by parent path.  This results
-	// in path sub-groups which will define for us how "fully drawn"
-	// that particular parent comb instance is.
+	/* Group paths at this depth by their parent path hash. */
 	std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> grouped_pckeys;
 	std::unordered_map<unsigned long long, unsigned long long> pcomb;
-	for (u_it = pckeys.begin(); u_it != pckeys.end(); u_it++) {
-	    std::vector<unsigned long long> &pc_path = selected[*u_it];
-	    unsigned long long ppathhash = dbis->path_hash(pc_path, plen - 1);
-	    grouped_pckeys[ppathhash].insert(*u_it);
-	    pcomb[ppathhash] = pc_path[plen-2];
+	for (unsigned long long k : pckeys) {
+	    const std::vector<unsigned long long> &pc_path = selected_[k];
+	    unsigned long long ppathhash = dbis_->path_hash(pc_path, plen - 1);
+	    grouped_pckeys[ppathhash].insert(k);
+	    pcomb[ppathhash] = pc_path[plen - 2];
 	}
 
-	// For each parent/child grouping, compare it against the .g ground
-	// truth set.  If they match, fully drawn and we promote the path to
-	// the parent depth.  If not, the paths do not collapse further and are
-	// added to drawn paths.
-	std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pg_it;
-	for (pg_it = grouped_pckeys.begin(); pg_it != grouped_pckeys.end(); pg_it++) {
-
-	    // As above, use the full path from selected, but this time
-	    // we're collecting the children.  This is the set we need to compare
-	    // against the .g ground truth to determine fully or partially drawn.
+	for (const auto &pg : grouped_pckeys) {
+	    /* Collect children present in our selected set. */
 	    std::unordered_set<unsigned long long> g_children;
-	    std::unordered_set<unsigned long long> &g_pckeys = pg_it->second;
-	    for (u_it = g_pckeys.begin(); u_it != g_pckeys.end(); u_it++) {
-		std::vector<unsigned long long> &pc_path = selected[*u_it];
-		g_children.insert(pc_path[plen-1]);
+	    for (unsigned long long k : pg.second) {
+		const std::vector<unsigned long long> &pc_path = selected_[k];
+		g_children.insert(pc_path[plen - 1]);
 	    }
 
-	    // Do the check against the .g comb children info - the "ground truth"
-	    // that defines what must be present for a fully drawn comb
-	    bool is_fully_selected = true;
-	    std::unordered_set<unsigned long long> &ground_truth = dbis->p_c[pcomb[pg_it->first]];
-	    for (u_it = ground_truth.begin(); u_it != ground_truth.end(); u_it++) {
-		if (g_children.find(*u_it) == g_children.end()) {
-		    is_fully_selected = false;
-		    break;
+	    /* Compare against .g ground truth for the parent comb. */
+	    bool fully_selected = true;
+	    auto gt_it = dbis_->p_c.find(pcomb.at(pg.first));
+	    if (gt_it == dbis_->p_c.end()) {
+		fully_selected = false;
+	    } else {
+		for (unsigned long long child : gt_it->second) {
+		    if (!g_children.count(child)) {
+			fully_selected = false;
+			break;
+		    }
 		}
 	    }
 
-	    if (is_fully_selected) {
-		// If fully selected, depth_groups[plen-1] gets the first path in
-		// g_pckeys.  The path is longer than that depth, but contains
-		// all the necessary information and using that approach avoids
-		// the need to duplicate paths.
-		depth_groups[plen - 1].insert(*g_pckeys.begin());
+	    if (fully_selected) {
+		depth_groups[plen - 1].insert(*pg.second.begin());
 	    } else {
-		// No further collapsing - add to final.  We must make trimmed
-		// versions of the paths in case this depth holds promoted
-		// paths from deeper levels, since we are duplicating the full
-		// path contents.
-		for (u_it = g_pckeys.begin(); u_it != g_pckeys.end(); u_it++) {
-		    std::vector<unsigned long long> trimmed = selected[*u_it];
+		for (unsigned long long k : pg.second) {
+		    std::vector<unsigned long long> trimmed = selected_[k];
 		    trimmed.resize(plen);
 		    collapsed.push_back(trimmed);
 		}
 	    }
 	}
-
-	// Done with this depth
 	depth_groups.erase(plen);
     }
 
-    // If we collapsed all the way to top level objects, make sure to add them
-    // if they are still valid entries.  If a toplevel entry is invalid, there
-    // is no parent comb to refer to it as an "invalid" object and it can no
-    // longer be drawn.
-    if (depth_groups.find(1) != depth_groups.end()) {
-	std::unordered_set<unsigned long long> &pckeys = depth_groups.rbegin()->second;
-	for (u_it = pckeys.begin(); u_it != pckeys.end(); u_it++) {
-	    std::vector<unsigned long long> trimmed = selected[*u_it];
-	    trimmed.resize(1);
+    /* Handle anything that collapsed all the way to depth 1. */
+    if (!depth_groups.empty()) {
+	size_t plen = depth_groups.rbegin()->first;
+	for (unsigned long long k : depth_groups.rbegin()->second) {
+	    std::vector<unsigned long long> trimmed = selected_[k];
+	    trimmed.resize(plen);
 	    collapsed.push_back(trimmed);
 	}
     }
 
-    selected.clear();
-    for (size_t i = 0; i < collapsed.size(); i++) {
-	unsigned long long phash = dbis->path_hash(collapsed[i], 0);
-	selected[phash] = collapsed[i];
+    selected_.clear();
+    for (const auto &p : collapsed) {
+	unsigned long long ph = dbis_->path_hash(p, 0);
+	selected_[ph] = p;
     }
-
-    characterize();
+    recompute_hierarchy();
 }
 
-void
-BSelectState::characterize()
+/* Revalidate selected paths against the current database, removing any paths
+ * whose parent-child relationships are no longer valid.
+ * Mirrors BSelectState::refresh(). */
+void SelectionSet::refresh()
 {
-    //bu_log("BSelectState::characterize\n");
-    active_parents.clear();
-    immediate_parents.clear();
-    grand_parents.clear();
-
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	std::vector<unsigned long long> seed_hashes = s_it->second;
-	unsigned long long shash = seed_hashes[seed_hashes.size() - 1];
-	seed_hashes.pop_back();
-	add_paths(shash, seed_hashes);
-
-	// Stash the parent paths above this specific selection
-	std::vector<unsigned long long> pitems = s_it->second;
-	size_t c = s_it->second.size() - 1;
-	while (c > 0) {
-	    pitems.pop_back();
-	    unsigned long long pphash = dbis->path_hash(s_it->second, c);
-	    active_parents.insert(pphash);
-	    c--;
-	}
-    }
-
-    // Now, characterizing related objects.  This is not just the immediate
-    // path parents - anything above the selected object is impacted.
-
-    // Because we don't want to keep iterating over p_c, make a reverse map of children
-    // to parents
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>> reverse_map;
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator pc_it;
-    for (pc_it = dbis->p_c.begin(); pc_it != dbis->p_c.end(); pc_it++) {
-	std::unordered_set<unsigned long long>::iterator sc_it;
-	for (sc_it = pc_it->second.begin(); sc_it != pc_it->second.end(); sc_it++) {
-	    reverse_map[*sc_it].insert(pc_it->first);
-	}
-    }
-
-    // Find the leaf children - they're the seeds
-    std::unordered_set<unsigned long long> active_children;
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	active_children.insert(s_it->second[s_it->second.size()-1]);
-    }
-
-    // Find the immediate parents - they can be highlighted differently
-    std::unordered_set<unsigned long long>::iterator c_it, p_it;
-    std::unordered_map<unsigned long long, std::unordered_set<unsigned long long>>::iterator r_it;
-    for (c_it = active_children.begin(); c_it != active_children.end(); c_it++) {
-	r_it = reverse_map.find(*c_it);
-	if (r_it == reverse_map.end())
-	    continue;
-	for (p_it = r_it->second.begin(); p_it != r_it->second.end(); p_it++)
-	    immediate_parents.insert(*p_it);
-    }
-
-    // Work our way up from the immediate parents - we want the higher levels to
-    // be known as active so they may indicate that active selections can be found
-    // below
-    std::queue<unsigned long long> gqueue;
-    for (p_it = immediate_parents.begin(); p_it != immediate_parents.end(); p_it++) {
-	gqueue.push(*p_it);
-    }
-    while (!gqueue.empty()) {
-	unsigned long long obj = gqueue.front();
-	gqueue.pop();
-	r_it = reverse_map.find(obj);
-	if (r_it == reverse_map.end())
-	    continue;
-	for (p_it = r_it->second.begin(); p_it != r_it->second.end(); p_it++) {
-	    gqueue.push(*p_it);
-	    grand_parents.insert(*p_it);
-	}
-    }
-}
-
-void
-BSelectState::refresh()
-{
-    // If the database may have changed, we need to revalidate selected
-    // paths are still current, and regenerate the active_paths set.
-    active_paths.clear();
-
-    // Unlike drawing, nothing fancy here - if a selected path is invalid,
-    // it's gone.
-    std::vector<unsigned long long> to_clear;
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	std::vector<unsigned long long> &cpath = s_it->second;
+    if (!dbis_) return;
+    std::vector<unsigned long long> to_remove;
+    for (const auto &kv : selected_) {
+	const std::vector<unsigned long long> &cpath = kv.second;
 	for (size_t i = 1; i < cpath.size(); i++) {
-	    unsigned long long phash = cpath[i-1];
-	    unsigned long long chash = cpath[i];
-	    if (dbis->p_c.find(phash) == dbis->p_c.end()) {
-		to_clear.push_back(s_it->first);
-		continue;
-	    }
-	    if (dbis->p_c[phash].find(chash) == dbis->p_c[phash].end()) {
-		to_clear.push_back(s_it->first);
-		continue;
+	    auto pc_it = dbis_->p_c.find(cpath[i - 1]);
+	    if (pc_it == dbis_->p_c.end() ||
+		pc_it->second.find(cpath[i]) == pc_it->second.end()) {
+		to_remove.push_back(kv.first);
+		break;
 	    }
 	}
     }
+    for (unsigned long long k : to_remove)
+	selected_.erase(k);
+    /* active_ will be regenerated by the caller via recompute_hierarchy(),
+     * but update it here too so the set is consistent if callers check it. */
+    active_.clear();
+    for (const auto &kv : selected_) active_.insert(kv.first);
+}
 
-    // Erase invalid paths
-    for (size_t i = 0; i < to_clear.size(); i++) {
-	selected.erase(to_clear[i]);
+/* ---- Phase 5: DbiState SelectionSet management ---- */
+
+SelectionSet *DbiState::get_selection_set(const char *name)
+{
+    if (!name || !strlen(name)) {
+        if (!default_selection_set_)
+            default_selection_set_ = std::make_unique<SelectionSet>(this);
+        return default_selection_set_.get();
+    }
+    auto it = selection_sets_.find(name);
+    if (it != selection_sets_.end()) return it->second.get();
+    selection_sets_[name] = std::make_unique<SelectionSet>(this);
+    return selection_sets_[name].get();
+}
+
+std::vector<SelectionSet *> DbiState::get_selection_sets(const char *pattern)
+{
+    std::vector<SelectionSet *> ret;
+
+    /* Null/empty pattern → return the default set. */
+    if (!pattern || !strlen(pattern)) {
+        ret.push_back(get_selection_set(nullptr));
+        return ret;
     }
 
-    // For all surviving selections, generate paths
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	std::vector<unsigned long long> seed_hashes = s_it->second;
-	unsigned long long shash = seed_hashes[seed_hashes.size() - 1];
-	seed_hashes.pop_back();
-	add_paths(shash, seed_hashes);
+    /* Wildcard pattern → return all matching named sets. */
+    if (strchr(pattern, '*') || strchr(pattern, '?') || strchr(pattern, '[')) {
+        for (auto &kv : selection_sets_) {
+            if (bu_path_match(pattern, kv.first.c_str(), 0))
+                ret.push_back(kv.second.get());
+        }
+        return ret;
     }
+
+    /* "default" → return the default set. */
+    if (BU_STR_EQUIV(pattern, "default")) {
+        ret.push_back(get_selection_set(nullptr));
+        return ret;
+    }
+
+    /* Exact name match → return that set (creating it if needed). */
+    ret.push_back(get_selection_set(pattern));
+    return ret;
+}
+
+void DbiState::add_selection_set(const char *name)
+{
+    if (!name || !strlen(name)) return;
+    if (selection_sets_.find(name) == selection_sets_.end())
+        selection_sets_[name] = std::make_unique<SelectionSet>(this);
+}
+
+void DbiState::remove_selection_set(const char *name)
+{
+    if (!name || !strlen(name)) {
+        if (default_selection_set_) default_selection_set_->clear();
+        return;
+    }
+    selection_sets_.erase(name);
+}
+
+std::vector<std::string> DbiState::list_selection_sets() const
+{
+    std::vector<std::string> result;
+    result.push_back("default");
+    for (const auto &kv : selection_sets_) result.push_back(kv.first);
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+void DbiState::add_observer(IDbiObserver *obs) {
+    if (obs && std::find(dbi_observers_.begin(), dbi_observers_.end(), obs) == dbi_observers_.end())
+	dbi_observers_.push_back(obs);
+}
+void DbiState::remove_observer(IDbiObserver *obs) {
+    auto it = std::find(dbi_observers_.begin(), dbi_observers_.end(), obs);
+    if (it != dbi_observers_.end()) dbi_observers_.erase(it);
+}
+void DbiState::add_scene_observer(ISceneObserver *obs) {
+    if (obs && std::find(scene_observers_.begin(), scene_observers_.end(), obs) == scene_observers_.end())
+	scene_observers_.push_back(obs);
+}
+void DbiState::remove_scene_observer(ISceneObserver *obs) {
+    auto it = std::find(scene_observers_.begin(), scene_observers_.end(), obs);
+    if (it != scene_observers_.end()) scene_observers_.erase(it);
+}
+void DbiState::notify_dbi_observers(const std::vector<DbiChangeEvent> &events) {
+    for (auto *obs : dbi_observers_)
+	obs->on_dbi_changed(events);
+}
+void DbiState::notify_scene_observers(const std::vector<SceneChangeEvent> &events) {
+    for (auto *obs : scene_observers_)
+	obs->on_scene_changed(events);
+}
+
+/* ---- DrawPipeline — thin wrapper around the db_i concurrent pipeline ---- */
+
+DrawPipeline::DrawPipeline(DbiState *dbis)
+    : dbis_(dbis)
+{}
+
+void
+DrawPipeline::push(const std::vector<WorkItem> &items)
+{
+    if (items.empty() || !dbis_->gedp || !dbis_->gedp->dbip)
+	return;
+    struct db_i *dbip = dbis_->gedp->dbip;
+    for (const auto &item : items) {
+	if (!item.dp || !item.hash)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_COMB)
+	    continue;
+	if (item.dp->d_flags & RT_DIR_HIDDEN)
+	    continue;
+	db_cache_queue_obj(dbip, item.dp->d_namep);
+    }
+    /* Inform the pipeline of the LoD context if it changed */
+    if (dbis_->gedp->ged_lod)
+	db_cache_set_lod_ctx(dbip, dbis_->gedp->ged_lod);
+}
+
+size_t
+DrawPipeline::drain(std::vector<Result> &out)
+{
+    if (!dbis_->gedp || !dbis_->gedp->dbip)
+	return 0;
+    std::vector<DrawResult> raw;
+    size_t n = db_cache_drain_results(dbis_->gedp->dbip, &raw);
+    for (const auto &dr : raw) {
+	Result r;
+	r.hash    = dr.hash;
+	r.dp_name = dr.dp_name;
+	if (dr.type == DRAWRESULT_AABB) {
+	    r.type = Result::AABB;
+	    VMOVE(r.bmin, dr.bmin);
+	    VMOVE(r.bmax, dr.bmax);
+	} else if (dr.type == DRAWRESULT_OBB) {
+	    r.type      = Result::OBB;
+	    r.obb_valid = (dr.obb_valid != 0);
+	    for (int k = 0; k < 8; k++)
+		VMOVE(r.obb_pts[k], dr.obb_pts[k]);
+	} else {
+	    r.type    = Result::LOD;
+	    r.has_lod = (dr.lod_key != 0);
+	    r.lod_key = dr.lod_key;
+	}
+	out.push_back(r);
+    }
+    return n;
 }
 
 bool
-BSelectState::draw_sync()
+DrawPipeline::settled() const
 {
-    bool changed = false;
-    std::unordered_set<BViewState *> vstates;
+    if (!dbis_->gedp || !dbis_->gedp->dbip)
+	return true;
+    return db_cache_settled(dbis_->gedp->dbip) != 0;
+}
 
-    struct bu_ptbl *views = bv_set_views(&dbis->gedp->ged_views);
-    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
-	BViewState *vs = dbis->get_view_state(v);
-	vstates.insert(vs);
-    }
+void
+DrawPipeline::set_lod_ctx(bsg_mesh_lod_context *lod_ctx)
+{
+    if (!dbis_->gedp || !dbis_->gedp->dbip)
+	return;
+    db_cache_set_lod_ctx(dbis_->gedp->dbip, lod_ctx);
+}
 
-    std::unordered_map<unsigned long long, std::unordered_map<int, struct bv_scene_obj *>>::iterator so_it;
-    std::unordered_map<int, struct bv_scene_obj *>::iterator m_it;
-    std::unordered_set<BViewState *>::iterator vs_it;
-    for (vs_it = vstates.begin(); vs_it != vstates.end(); vs_it++) {
-	for (so_it = (*vs_it)->s_map.begin(); so_it != (*vs_it)->s_map.end(); so_it++) {
-	    char ill_state = is_active(so_it->first) ? UP : DOWN;
-	    //bu_log("select ill_state: %s\n", (ill_state == UP) ? "up" : "down");
-	    for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
-		struct bv_scene_obj *so = m_it->second;
-		int ill_changed = bv_illum_obj(so, ill_state);
-		if (ill_changed)
-		    changed = true;
+void
+DbiState::start_geom_load(const std::vector<DrawPipeline::WorkItem> &items)
+{
+    if (items.empty())
+	return;
+    if (!draw_pipeline_)
+	draw_pipeline_ = std::make_unique<DrawPipeline>(this);
+    // Notify the pipeline if a LoD context is now available
+    if (gedp->ged_lod)
+	draw_pipeline_->set_lod_ctx(gedp->ged_lod);
+    draw_pipeline_->push(items);
+}
+
+size_t
+DbiState::drain_geom_results()
+{
+    if (!draw_pipeline_)
+	return 0;
+
+    std::vector<DrawPipeline::Result> results;
+    size_t n = draw_pipeline_->drain(results);
+    if (n == 0)
+	return 0;
+
+    // Process results by type
+    for (const auto &r : results) {
+	if (r.type == DrawPipeline::Result::AABB) {
+	    // Only update if we don't already have a bbox (the synchronous path
+	    // may have beaten us to it; in that case the synchronous version wins).
+	    if (bboxes.find(r.hash) != bboxes.end())
+		continue;
+	    bboxes[r.hash].clear();
+	    bboxes[r.hash].reserve(6);
+	    for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmin[i]);
+	    for (int i = 0; i < 3; i++) bboxes[r.hash].push_back(r.bmax[i]);
+	    /* NOTE: LMDB persistence is handled by write_worker in
+	     * cache_drawing.cpp (aabb_worker enqueues to q_write); no
+	     * duplicate write needed here. */
+	} else if (r.type == DrawPipeline::Result::OBB && r.obb_valid) {
+	    /* Store the 8 OBB corner points */
+	    std::array<fastf_t, 24> obb_data;
+	    for (int k = 0; k < 8; k++) {
+		obb_data[k*3+0] = r.obb_pts[k][X];
+		obb_data[k*3+1] = r.obb_pts[k][Y];
+		obb_data[k*3+2] = r.obb_pts[k][Z];
+	    }
+	    obbs[r.hash] = obb_data;
+	    // OBB has arrived — stale any AABB placeholder shapes so they get
+	    // redrawn with OBB wireframes on the next redraw() pass.
+	    if (!r.dp_name.empty()) {
+		struct directory *dp_obb =
+		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
+		if (dp_obb) {
+		    std::unordered_set<struct bview *> all_views;
+		    struct bu_ptbl *vlist = bsg_scene_views(&gedp->ged_views);
+		    for (size_t vi = 0; vi < BU_PTBL_LEN(vlist); vi++)
+			all_views.insert((bsg_view *)BU_PTBL_GET(vlist, vi));
+		    if (!all_views.empty()) {
+			for (auto &[bv, vs] : view_states)
+			    vs->stale_mesh_shapes_for_dp(dp_obb, all_views);
+			if (shared_vs)
+			    shared_vs->stale_mesh_shapes_for_dp(dp_obb, all_views);
+		    }
+		}
+	    }
+	} else if (r.type == DrawPipeline::Result::LOD && r.has_lod) {
+	    // LoD is now cached — stale any placeholder shapes so they get
+	    // redrawn with real LoD geometry on the next redraw() pass.
+	    ++lod_drain_count_;
+	    if (!r.dp_name.empty()) {
+		struct directory *dp_lod =
+		    db_lookup(gedp->dbip, r.dp_name.c_str(), LOOKUP_QUIET);
+		if (dp_lod) {
+		    std::unordered_set<struct bview *> all_views;
+		    struct bu_ptbl *vlist = bsg_scene_views(&gedp->ged_views);
+		    for (size_t vi = 0; vi < BU_PTBL_LEN(vlist); vi++)
+			all_views.insert((bsg_view *)BU_PTBL_GET(vlist, vi));
+		    if (!all_views.empty()) {
+			for (auto &[bv, vs] : view_states)
+			    vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
+			if (shared_vs)
+			    shared_vs->stale_mesh_shapes_for_dp(dp_lod, all_views);
+		    }
+		}
 	    }
 	}
     }
 
-    return changed;
+    // Fire a single batched scene-change notification so that observers
+    // (e.g., QgViewport) know to request a repaint.
+    {
+	std::vector<SceneChangeEvent> events;
+	for (const auto &r : results) {
+	    SceneChangeEvent ev;
+	    ev.path  = PathHash{r.hash};
+	    ev.batch = false;
+	    events.push_back(ev);
+	}
+	notify_scene_observers(events);
+    }
+
+    return n;
+}
+
+/* ---- Phase 3: GObj and CombInst implementations ---- */
+
+/* Walk callback data used by GObj::GenCombInstances */
+struct gobj_walk_data {
+    GObj *gobj = NULL;
+    std::unordered_map<unsigned long long, unsigned long long> i_count;
+};
+
+/* Leaf callback for comb tree walk during GenCombInstances */
+static void
+populate_gobj_leaf(void *cd, const char *name, matp_t c_m, int op)
+{
+    struct gobj_walk_data *d = (struct gobj_walk_data *)cd;
+    unsigned long long chash = bu_data_hash(name, strlen(name) * sizeof(char));
+    d->i_count[chash] += 1;
+    CombInst *ci = new CombInst(d->gobj->d, d->gobj->dp->d_namep, name,
+				d->i_count[chash], op, c_m);
+    d->gobj->cv.push_back(ci);
+}
+
+/* CombInst constructor: adapted from dbi2 prototype.
+ * icnt  = 1 for first instance of oname, 2+ for duplicates.
+ * ihash is computed here using the same formula as the flat maps so that
+ * d_map / i_map lookups stay consistent.  CombInst registers itself in
+ * d->gobjs is NOT done — CombInst instances are owned by GObj::cv. */
+CombInst::CombInst(DbiState *dbis, const char *p_name, const char *o_name,
+                   unsigned long long icnt, int i_op, matp_t i_mat)
+{
+    d = dbis;
+    cname = std::string(p_name);
+    oname = std::string(o_name);
+    iname = std::string("");
+    id    = icnt;
+    boolean_op = i_op;
+
+    if (i_mat) {
+	MAT_COPY(m, i_mat);
+	non_default_matrix = true;
+    } else {
+	MAT_IDN(m);
+    }
+
+    /* Build iname for duplicate instances (same algorithm as populate_leaf) */
+    if (icnt > 1) {
+	struct bu_vls iname_c = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&iname_c, "%s@%llu", o_name, icnt - 1);
+	iname = std::string(bu_vls_cstr(&iname_c));
+	bu_vls_free(&iname_c);
+    }
+
+    /* Compute ohash = hash(oname), matching the key space used by d_map/gobjs */
+    ohash = bu_data_hash(oname.c_str(), oname.size() * sizeof(char));
+
+    /* Compute chash = hash(parent comb name) */
+    chash = bu_data_hash(cname.c_str(), cname.size() * sizeof(char));
+
+    /* Compute ihash: if duplicated use hash(iname), else use ohash.
+     * This mirrors the logic in populate_leaf so that the ihash value is
+     * consistent with what is stored in p_v. */
+    if (!iname.empty())
+	ihash = bu_data_hash(iname.c_str(), iname.size() * sizeof(char));
+    else
+	ihash = ohash;
+}
+
+CombInst::~CombInst()
+{
+    /* CombInst is owned by GObj::cv; no global registry to deregister from. */
+}
+
+db_op_t
+CombInst::bool_op()
+{
+    if (boolean_op == OP_SUBTRACT)
+	return DB_OP_SUBTRACT;
+    if (boolean_op == OP_INTERSECT)
+	return DB_OP_INTERSECT;
+    return DB_OP_UNION;
+}
+
+void
+CombInst::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    /* Look up the child GObj by ohash (= hash of the instanced object's name) */
+    auto g_it = d->gobjs.find(ohash);
+    if (g_it == d->gobjs.end())
+	return;
+
+    point_t lbmin, lbmax;
+    VSETALL(lbmin,  INFINITY);
+    VSETALL(lbmax, -INFINITY);
+    g_it->second->bbox(&lbmin, &lbmax);
+
+    /* Apply the instance placement matrix if it is non-identity.
+     * Note: transforming only the stored min/max corners is an approximation
+     * that is valid for pure translation and axis-aligned scaling.  For
+     * rotations or shear, all 8 corners of the AABB should be transformed and
+     * the new min/max recomputed.  This simplified form is consistent with the
+     * rest of the BRL-CAD bbox pipeline and is sufficient for the Phase 3
+     * object-model layer; the production drawing path uses DbiState::get_bbox()
+     * which handles the full hierarchy correctly. */
+    if (non_default_matrix) {
+	point_t tbmin, tbmax;
+	MAT4X3PNT(tbmin, m, lbmin);
+	VMOVE(lbmin, tbmin);
+	MAT4X3PNT(tbmax, m, lbmax);
+	VMOVE(lbmax, tbmax);
+    }
+
+    VMINMAX(*min, *max, lbmin);
+    VMINMAX(*min, *max, lbmax);
+}
+
+/* GObj constructor: reads attributes from the already-populated flat maps
+ * (avoids a second disk read since update_dp() has already loaded them). */
+GObj::GObj(DbiState *dbis, struct directory *dp_i)
+{
+    if (!dbis || !dp_i)
+	return;
+
+    d  = dbis;
+    dp = dp_i;
+    name = std::string(dp->d_namep);
+    hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep) * sizeof(char));
+
+    /* Initialise bbox to invalid */
+    VSETALL(bb_min,  INFINITY);
+    VSETALL(bb_max, -INFINITY);
+    bb_valid = false;
+
+    /* Pull standard drawing attributes from the flat maps */
+    {
+	auto it = dbis->c_inherit.find(hash);
+	if (it != dbis->c_inherit.end())
+	    c_inherit = it->second;
+    }
+    {
+	auto it = dbis->region_id.find(hash);
+	if (it != dbis->region_id.end()) {
+	    region_id   = it->second;
+	    region_flag = 1;
+	}
+    }
+    {
+	auto it = dbis->rgb.find(hash);
+	if (it != dbis->rgb.end()) {
+	    unsigned int cval = it->second;
+	    unsigned char lrgb[3];
+	    lrgb[0] = static_cast<unsigned char>( cval        & 0xFF);
+	    lrgb[1] = static_cast<unsigned char>((cval >>  8) & 0xFF);
+	    lrgb[2] = static_cast<unsigned char>((cval >> 16) & 0xFF);
+	    bu_color_from_rgb_chars(&color, lrgb);
+	    color_set = true;
+	}
+    }
+
+    /* Populate CombInst children for comb objects */
+    if (dp->d_flags & RT_DIR_COMB)
+	GenCombInstances();
+
+    /* Register with DbiState */
+    dbis->gobjs[hash] = this;
+}
+
+GObj::~GObj()
+{
+    /* Delete all CombInst children */
+    for (CombInst *ci : cv)
+	delete ci;
+    cv.clear();
+
+    /* Deregister from DbiState */
+    if (d)
+	d->gobjs.erase(hash);
+}
+
+void
+GObj::GenCombInstances()
+{
+    if (!dp || !(dp->d_flags & RT_DIR_COMB) || !d)
+	return;
+
+    struct rt_db_internal in;
+    if (rt_db_get_internal(&in, dp, d->gedp->dbip, NULL, d->res) < 0)
+	return;
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
+    if (!comb->tree) {
+	rt_db_free_internal(&in);
+	return;
+    }
+
+    struct gobj_walk_data dw;
+    dw.gobj = this;
+    /* subtract_skip=0: include all children regardless of boolean op */
+    populate_walk_tree(comb->tree, (void *)&dw, 0, OP_UNION, populate_gobj_leaf);
+
+    rt_db_free_internal(&in);
+}
+
+void
+GObj::bbox(point_t *min, point_t *max)
+{
+    if (!min || !max || !d)
+	return;
+
+    if (!cv.empty()) {
+	/* Comb: accumulate bboxes of all child instances */
+	for (CombInst *ci : cv) {
+	    point_t lbmin, lbmax;
+	    VSETALL(lbmin,  INFINITY);
+	    VSETALL(lbmax, -INFINITY);
+	    ci->bbox(&lbmin, &lbmax);
+	    VMINMAX(*min, *max, lbmin);
+	    VMINMAX(*min, *max, lbmax);
+	}
+	return;
+    }
+
+    /* Solid: use cached value if available */
+    if (bb_valid) {
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+	return;
+    }
+
+    /* Compute via DbiState (handles dcache, LoD, and librt fallback) */
+    point_t bmin, bmax;
+    VSETALL(bmin,  INFINITY);
+    VSETALL(bmax, -INFINITY);
+    if (d->get_bbox(&bmin, &bmax, NULL, hash)) {
+	VMOVE(bb_min, bmin);
+	VMOVE(bb_max, bmax);
+	bb_valid = true;
+	VMINMAX(*min, *max, bb_min);
+	VMINMAX(*min, *max, bb_max);
+    }
+}
+
+/* ============================================================
+ * C surface — implementations of the extern "C" declarations
+ * in include/ged/dbi.h.
+ * ============================================================ */
+
+/* Auto-bootstrap helper: create DbiState for gedp if it doesn't exist
+ * yet (it is only created automatically when new_cmd_forms is set),
+ * then call update() to populate the maps from the current database.
+ * Returns the (possibly newly created) DbiState, or NULL on error. */
+static DbiState *
+_dbi_get_or_init(struct ged *gedp)
+{
+    if (!gedp || !gedp->dbip)
+	return NULL;
+    if (!gedp->dbi_state) {
+	gedp->dbi_state = new DbiState(gedp);
+	static_cast<DbiState *>(gedp->dbi_state)->update();
+    }
+    return static_cast<DbiState *>(gedp->dbi_state);
+}
+
+extern "C" {
+
+/* ------------------------------------------------------------------ */
+/* Database-state helpers                                              */
+/* ------------------------------------------------------------------ */
+
+unsigned long long
+ged_dbi_update(struct ged *gedp)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    return dbis->update();
+}
+
+int
+ged_dbi_valid_hash(struct ged *gedp, unsigned long long hash)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    return dbis->valid_hash(hash) ? 1 : 0;
 }
 
 unsigned long long
-BSelectState::state_hash()
+ged_dbi_hash_of(struct ged *gedp, const char *name)
 {
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    struct bu_data_hash_state *s = bu_data_hash_create();
-    if (!s)
+    if (!name)
 	return 0;
-    for (s_it = selected.begin(); s_it != selected.end(); s_it++) {
-	bu_data_hash_update(s, &s_it->first, sizeof(unsigned long long));
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return 0;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return 0;
+    /* For a single name, validate it exists in the DB before returning.
+     * For a multi-element path, digest_path already validates the tree
+     * relationships, so we return the full-path hash directly. */
+    if (parts.size() == 1) {
+	if (!dbis->valid_hash(parts[0]))
+	    return 0;
+	return parts[0];
     }
-    unsigned long long hval = bu_data_hash_val(s);
-    bu_data_hash_destroy(s);
-    return hval;
+    return dbis->path_hash(parts, 0);
 }
 
-/** @} */
+int
+ged_dbi_tops(struct ged *gedp, struct bu_ptbl *out)
+{
+    if (!out)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> tv = dbis->tops(false);
+    for (auto h : tv)
+	bu_ptbl_ins(out, (long *)(uintptr_t)h);
+    return (int)tv.size();
+}
+
+/* ------------------------------------------------------------------ */
+/* GObj helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+int
+ged_dbi_gobj_is_comb(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    unsigned long long h = parts[0];
+    const GObj *gobj = dbis->get_gobj(h);
+    if (!gobj)
+	return -1;
+    return gobj->dp && (gobj->dp->d_flags & RT_DIR_COMB) ? 1 : 0;
+}
+
+int
+ged_dbi_gobj_region_id(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    return gobj->region_id;
+}
+
+int
+ged_dbi_gobj_color(struct ged *gedp, const char *name,
+		   unsigned char *r, unsigned char *g_out, unsigned char *b)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    if (!gobj->color_set)
+	return 0;
+    if (r && g_out && b) {
+	unsigned char rgb[3];
+	bu_color_to_rgb_chars(&gobj->color, rgb);
+	*r = rgb[0]; *g_out = rgb[1]; *b = rgb[2];
+    }
+    return 1;
+}
+
+int
+ged_dbi_gobj_child_count(struct ged *gedp, const char *name)
+{
+    if (!name)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return -1;
+    std::vector<unsigned long long> parts = dbis->digest_path(name);
+    if (parts.empty())
+	return -1;
+    const GObj *gobj = dbis->get_gobj(parts[0]);
+    if (!gobj)
+	return -1;
+    if (!gobj->dp || !(gobj->dp->d_flags & RT_DIR_COMB))
+	return -1;
+    return (int)gobj->cv.size();
+}
+
+/* ------------------------------------------------------------------ */
+/* SelectionSet helpers                                                */
+/* ------------------------------------------------------------------ */
+
+/* Return the named selection set, or the default set if sname is NULL.
+ * Creates the set if it does not yet exist.  Returns NULL on error. */
+static SelectionSet *
+_get_or_make_set(struct ged *gedp, const char *sname)
+{
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    if (!dbis)
+	return NULL;
+    if (!sname || sname[0] == '\0')
+	return dbis->get_selection_set(nullptr);
+    /* Ensure the named set exists */
+    dbis->add_selection_set(sname);
+    return dbis->get_selection_set(sname);
+}
+
+int
+ged_selection_select(struct ged *gedp, const char *sname, const char *path_str)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !path_str)
+	return -1;
+    bool changed = ss->select(path_str, true);
+    return changed ? 1 : 0;
+}
+
+int
+ged_selection_deselect(struct ged *gedp, const char *sname, const char *path_str)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !path_str)
+	return -1;
+    bool changed = ss->deselect(path_str, true);
+    return changed ? 1 : 0;
+}
+
+int
+ged_selection_is_selected(struct ged *gedp, const char *sname, const char *path_str)
+{
+    if (!path_str)
+	return -1;
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss)
+	return -1;
+    DbiState *dbis = _dbi_get_or_init(gedp);
+    std::vector<unsigned long long> parts = dbis->digest_path(path_str);
+    if (parts.empty())
+	return 0;
+    unsigned long long ph = dbis->path_hash(parts, 0);
+    return ss->is_selected(ph) ? 1 : 0;
+}
+
+void
+ged_selection_clear(struct ged *gedp, const char *sname)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (ss)
+	ss->clear();
+}
+
+int
+ged_selection_count(struct ged *gedp, const char *sname)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss)
+	return -1;
+    return (int)ss->selected().size();
+}
+
+int
+ged_selection_list_paths(struct ged *gedp, const char *sname, struct bu_ptbl *out)
+{
+    SelectionSet *ss = _get_or_make_set(gedp, sname);
+    if (!ss || !out)
+	return -1;
+    std::vector<std::string> paths = ss->selected_paths();
+    for (const auto &p : paths)
+	bu_ptbl_ins(out, (long *)bu_strdup(p.c_str()));
+    return (int)paths.size();
+}
+
+} /* extern "C" */
+
 // Local Variables:
 // tab-width: 8
 // mode: C++

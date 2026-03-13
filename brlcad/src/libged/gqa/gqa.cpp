@@ -45,7 +45,7 @@
 #include "bu/getopt.h"
 #include "vmath.h"
 #include "raytrace.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "analyze.h"
 
 #include "../ged_private.h"
@@ -169,7 +169,7 @@ struct cstate {
 
 
 struct ged_gqa_plot {
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
 } ged_gqa_plot;
 
@@ -805,8 +805,8 @@ _gqa_overlap(struct application *ap,
 
     if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
 	bu_semaphore_acquire(state->sem_worker);
-	BV_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ihit, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ohit, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ihit, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(ged_gqa_plot.vbp->free_vlist_hd, ged_gqa_plot.vhead, ohit, BSG_VLIST_LINE_DRAW);
 	bu_semaphore_release(state->sem_worker);
     }
 
@@ -2562,8 +2562,8 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
-	ged_gqa_plot.vbp = bv_vlblock_init(vlfree, 32);
-	ged_gqa_plot.vhead = bv_vlblock_find(ged_gqa_plot.vbp, 0xFF, 0xFF, 0x00);
+	ged_gqa_plot.vbp = bsg_vlblock_init(vlfree, 32);
+	ged_gqa_plot.vhead = bsg_vlblock_find(ged_gqa_plot.vbp, 0xFF, 0xFF, 0x00);
     }
 
     rtip = rt_new_rti(gedp->dbip);
@@ -2723,8 +2723,8 @@ aborted:
 
 	if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
 	    if (gedp->new_cmd_forms) {
-		struct bview *view = gedp->ged_gvp;
-		bv_vlblock_obj(ged_gqa_plot.vbp, view, "gqa::overlaps");
+		bsg_view *view = gedp->ged_gvp;
+		bsg_vlblock_obj(ged_gqa_plot.vbp, view, "gqa::overlaps");
 	    } else {
 		_ged_cvt_vlblock_to_solids(gedp, ged_gqa_plot.vbp, "OVERLAPS", 0);
 	    }
@@ -2733,7 +2733,7 @@ aborted:
 	aborted = 0; /* reset flag */
 
     if (analysis_flags & ANALYSIS_PLOT_OVERLAPS)
-	bv_vlblock_free(ged_gqa_plot.vbp);
+	bsg_vlblock_free(ged_gqa_plot.vbp);
 
     /* Clear out the lists */
     while (BU_LIST_WHILE (rp, region_pair, &overlapList.l)) {

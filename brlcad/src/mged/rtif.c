@@ -47,6 +47,7 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/util.h"
 
 
 /**
@@ -170,10 +171,8 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     FILE *fp = NULL;
     fastf_t scale = 0.0;
     mat_t rot;
-    struct bv_vlist *vp = NULL;
+    struct bsg_vlist *vp = NULL;
     struct directory *dp = NULL;
-    struct display_list *gdlp = NULL;
-    struct display_list *next_gdlp = NULL;
     vect_t eye_model = VINIT_ZERO;
     vect_t sav_center = VINIT_ZERO;
     vect_t sav_start = VINIT_ZERO;
@@ -181,7 +180,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* static due to setjmp */
     static int mode = 0;
-    static struct bv_scene_obj *sp;
+    static bsg_shape *sp;
 
     CHECK_DBI_NULL;
 
@@ -214,24 +213,22 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		break;
 	    }
 
-	    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-	    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-		next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-		for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
+	    {
+		bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
+		size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
+		for (size_t si = 0; si < nshapes; si++) {
+		    sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
 		    if (!sp->s_u_data)
 			continue;
 		    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 		    if (LAST_SOLID(bdata) != dp) continue;
 		    if (BU_LIST_IS_EMPTY(&(sp->s_vlist))) continue;
-		    vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
+		    vp = BU_LIST_LAST(bsg_vlist, &(sp->s_vlist));
 		    VMOVE(sav_start, vp->pt[vp->nused-1]);
 		    VMOVE(sav_center, sp->s_center);
 		    Tcl_AppendResult(interp, "animating EYE solid\n", (char *)NULL);
 		    goto work;
 		}
-
-		gdlp = next_gdlp;
 	    }
 	    /* Fall through */
 	default:
@@ -255,20 +252,32 @@ work:
 	switch (mode) {
 	    case -1:
 		/* First step:  put eye in center */
-		view_state->vs_gvp->gv_scale = scale;
-		MAT_COPY(view_state->vs_gvp->gv_rotation, rot);
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
-		new_mats(s);
-		/* Second step:  put eye in front */
-		VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
-		MAT4X3PNT(eye_model, view_state->vs_gvp->gv_view2model, xlate);
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
+		{
+		    struct bsg_camera _rc;
+		    bsg_view_get_camera(view_state->vs_gvp, &_rc);
+		    view_state->vs_gvp->gv_scale = scale;
+		    MAT_COPY(_rc.rotation, rot);
+		    MAT_DELTAS_VEC_NEG(_rc.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_rc);
+		    new_mats(s);
+		    /* Second step:  put eye in front */
+		    VSET(xlate, 0.0, 0.0, -1.0);	/* correction factor */
+		    bsg_view_get_camera(view_state->vs_gvp, &_rc);
+		    MAT4X3PNT(eye_model, _rc.view2model, xlate);
+		    MAT_DELTAS_VEC_NEG(_rc.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_rc);
+		}
 		new_mats(s);
 		break;
 	    case 0:
-		view_state->vs_gvp->gv_scale = scale;
-		MAT_IDN(view_state->vs_gvp->gv_rotation);	/* top view */
-		MAT_DELTAS_VEC_NEG(view_state->vs_gvp->gv_center, eye_model);
+		{
+		    struct bsg_camera _r0;
+		    bsg_view_get_camera(view_state->vs_gvp, &_r0);
+		    view_state->vs_gvp->gv_scale = scale;
+		    MAT_IDN(_r0.rotation);	/* top view */
+		    MAT_DELTAS_VEC_NEG(_r0.center, eye_model);
+		    bsg_view_set_camera(view_state->vs_gvp, &_r0);
+		}
 		new_mats(s);
 		break;
 	    case 1:
@@ -277,28 +286,28 @@ work:
 
 		/* Adjust vector list for non-dl devices */
 		if (BU_LIST_IS_EMPTY(&(sp->s_vlist))) break;
-		vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
+		vp = BU_LIST_LAST(bsg_vlist, &(sp->s_vlist));
 		VSUB2(xlate, eye_model, vp->pt[vp->nused-1]);
-		for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+		for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		    int i;
 		    int nused = vp->nused;
 		    int *cmd = vp->cmd;
 		    point_t *pt = vp->pt;
 		    for (i = 0; i < nused; i++, cmd++, pt++) {
 			switch (*cmd) {
-			    case BV_VLIST_POLY_START:
-			    case BV_VLIST_POLY_VERTNORM:
-			    case BV_VLIST_TRI_START:
-			    case BV_VLIST_TRI_VERTNORM:
+			    case BSG_VLIST_POLY_START:
+			    case BSG_VLIST_POLY_VERTNORM:
+			    case BSG_VLIST_TRI_START:
+			    case BSG_VLIST_TRI_VERTNORM:
 				break;
-			    case BV_VLIST_LINE_MOVE:
-			    case BV_VLIST_LINE_DRAW:
-			    case BV_VLIST_POLY_MOVE:
-			    case BV_VLIST_POLY_DRAW:
-			    case BV_VLIST_POLY_END:
-			    case BV_VLIST_TRI_MOVE:
-			    case BV_VLIST_TRI_DRAW:
-			    case BV_VLIST_TRI_END:
+			    case BSG_VLIST_LINE_MOVE:
+			    case BSG_VLIST_LINE_DRAW:
+			    case BSG_VLIST_POLY_MOVE:
+			    case BSG_VLIST_POLY_DRAW:
+			    case BSG_VLIST_POLY_END:
+			    case BSG_VLIST_TRI_MOVE:
+			    case BSG_VLIST_TRI_DRAW:
+			    case BSG_VLIST_TRI_END:
 				VADD2(*pt, *pt, xlate);
 				break;
 			}
@@ -313,28 +322,28 @@ work:
     if (mode == 1) {
 	VMOVE(sp->s_center, sav_center);
 	if (BU_LIST_NON_EMPTY(&(sp->s_vlist))) {
-	    vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
+	    vp = BU_LIST_LAST(bsg_vlist, &(sp->s_vlist));
 	    VSUB2(xlate, sav_start, vp->pt[vp->nused-1]);
-	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		int i;
 		int nused = vp->nused;
 		int *cmd = vp->cmd;
 		point_t *pt = vp->pt;
 		for (i = 0; i < nused; i++, cmd++, pt++) {
 		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
+			case BSG_VLIST_POLY_START:
+			case BSG_VLIST_POLY_VERTNORM:
+			case BSG_VLIST_TRI_START:
+			case BSG_VLIST_TRI_VERTNORM:
 			    break;
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_TRI_MOVE:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
+			case BSG_VLIST_LINE_MOVE:
+			case BSG_VLIST_LINE_DRAW:
+			case BSG_VLIST_POLY_MOVE:
+			case BSG_VLIST_POLY_DRAW:
+			case BSG_VLIST_POLY_END:
+			case BSG_VLIST_TRI_MOVE:
+			case BSG_VLIST_TRI_DRAW:
+			case BSG_VLIST_TRI_END:
 			    VADD2(*pt, *pt, xlate);
 			    break;
 		    }

@@ -779,8 +779,8 @@ _brep_cmd_intersect(void *bs, int argc, const char **argv)
     }
 
     if (gedp->new_cmd_forms) {
-	struct bview *view = gedp->ged_gvp;
-	bv_vlblock_obj(gb->vbp, view, "brep_intersect");
+	bsg_view *view = gedp->ged_gvp;
+	bsg_vlblock_obj(gb->vbp, view, "brep_intersect");
     } else {
 	char namebuf[65];
 	_ged_cvt_vlblock_to_solids(gedp, gb->vbp, namebuf, 0);
@@ -1561,7 +1561,7 @@ ged_brep_core(struct ged *gedp, int argc, const char *argv[])
     GED_DB_GET_INTERNAL(gedp, &gb.intern, gb.dp, bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
     RT_CK_DB_INTERNAL(&gb.intern);
 
-    gb.vbp = bv_vlblock_init(vlfree, 32);
+    gb.vbp = bsg_vlblock_init(vlfree, 32);
     gb.color = color;
     gb.plotres = plotres;
 
@@ -1577,8 +1577,8 @@ ged_brep_core(struct ged *gedp, int argc, const char *argv[])
 	bu_vls_printf(gedp->ged_result_str, "subcommand %s not defined", argv[0]);
     }
 
-    bv_vlblock_free(gb.vbp);
-    gb.vbp = (struct bv_vlblock *)NULL;
+    bsg_vlblock_free(gb.vbp);
+    gb.vbp = (struct bsg_vlblock *)NULL;
     rt_db_free_internal(&gb.intern);
     return BRLCAD_ERROR;
 }

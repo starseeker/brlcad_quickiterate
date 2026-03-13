@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "vmath.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -461,9 +462,12 @@ bv_vrestore(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc),
     struct mged_state *s = ctp->s;
      /* restore to saved view */
     if (vsaved) {
+	struct bsg_camera _rc;
+	bsg_view_get_camera(view_state->vs_gvp, &_rc);
 	view_state->vs_gvp->gv_scale = sav_vscale;
-	MAT_COPY(view_state->vs_gvp->gv_rotation, sav_viewrot);
-	MAT_COPY(view_state->vs_gvp->gv_center, sav_toviewcenter);
+	MAT_COPY(_rc.rotation, sav_viewrot);
+	MAT_COPY(_rc.center, sav_toviewcenter);
+	bsg_view_set_camera(view_state->vs_gvp, &_rc);
 	new_mats(s);
 
 	(void)mged_svbase(s);
@@ -480,9 +484,13 @@ bv_vsave(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
      /* save current view */
-    sav_vscale = view_state->vs_gvp->gv_scale;
-    MAT_COPY(sav_viewrot, view_state->vs_gvp->gv_rotation);
-    MAT_COPY(sav_toviewcenter, view_state->vs_gvp->gv_center);
+    {
+	struct bsg_camera _sc;
+	bsg_view_get_camera(view_state->vs_gvp, &_sc);
+	sav_vscale = view_state->vs_gvp->gv_scale;
+	MAT_COPY(sav_viewrot, _sc.rotation);
+	MAT_COPY(sav_toviewcenter, _sc.center);
+    }
     vsaved = 1;
     return TCL_OK;
 }
@@ -551,30 +559,15 @@ bv_35_25(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), ch
 /* returns 0 if error, !0 if success */
 static int
 ill_common(struct mged_state *s) {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    int is_empty = 1;
+    bsg_shape *root = bsg_scene_root_get(view_state->vs_gvp);
 
-    /* Common part of illumination */
-    gdlp = BU_LIST_NEXT(display_list, (struct bu_list *)ged_dl(s->gedp));
-    while (BU_LIST_NOT_HEAD(gdlp, (struct bu_list *)ged_dl(s->gedp))) {
-	next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-	if (BU_LIST_NON_EMPTY(&gdlp->dl_head_scene_obj)) {
-	    is_empty = 0;
-	    break;
-	}
-
-	gdlp = next_gdlp;
-    }
-
-    if (is_empty) {
+    if (!root || BU_PTBL_LEN(&root->children) == 0) {
 	Tcl_AppendResult(s->interp, "no solids in view\n", (char *)NULL);
 	return 0;	/* BAD */
     }
 
-    illum_gdlp = gdlp;
-    illump = BU_LIST_NEXT(bv_scene_obj, &gdlp->dl_head_scene_obj);/* any valid solid would do */
+    illum_gdlp = GED_DISPLAY_LIST_NULL;
+    illump = (bsg_shape *)BU_PTBL_GET(&root->children, 0); /* any valid solid would do */
     illump->s_iflag = UP;
     edobj = 0;		/* sanity */
     edsol = 0;		/* sanity */
@@ -808,7 +801,7 @@ be_accept(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
 	mmenu_set_all(s, MENU_L1, NULL);
 	mmenu_set_all(s, MENU_L2, NULL);
 
-	dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
+	bsg_set_iflag(s->gedp->ged_gvp, DOWN);
 
 	illum_gdlp = GED_DISPLAY_LIST_NULL;
 	illump = NULL;
@@ -897,7 +890,7 @@ be_reject(ClientData clientData, Tcl_Interp *UNUSED(interp), int UNUSED(argc), c
     illump = NULL;		/* None selected */
 
     /* Clear illumination flags */
-    dl_set_iflag((struct bu_list *)ged_dl(s->gedp), DOWN);
+    bsg_set_iflag(s->gedp->ged_gvp, DOWN);
 
     mged_color_soltab(s);
     (void)chg_state(s, s->global_editing_state, ST_VIEW, "Edit Reject");

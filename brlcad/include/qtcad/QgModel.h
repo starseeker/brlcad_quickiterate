@@ -67,6 +67,7 @@
 #ifndef QGMODEL_H
 #define QGMODEL_H
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -74,12 +75,14 @@
 #include <QAbstractItemModel>
 #include <QImage>
 #include <QModelIndex>
+#include <QStringList>
 
 #include "qtcad/defines.h"
 
 #ifndef Q_MOC_RUN
 #include "raytrace.h"
 #include "ged.h"
+#include "ged/dbi.h"
 #endif
 
 // QgItems correspond to the actual Qt entries displayed in the view.  If a
@@ -124,9 +127,9 @@ class QTCAD_EXPORT QgItem
 	 * for this instance.
 	 */
 	unsigned long long ihash = 0;
-	QgModel *mdl = NULL;
+	QgModel *mdl = nullptr;
 
-	QgItem *parentItem = NULL;
+	QgItem *parentItem = nullptr;
 	std::vector<unsigned long long> path_items();
 	unsigned long long path_hash();
 
@@ -162,7 +165,7 @@ class QTCAD_EXPORT QgItem
 	// displaying while librt does work on the instances.
 	struct bu_vls name = BU_VLS_INIT_ZERO;
 	db_op_t op = DB_OP_UNION;
-	struct directory *dp = NULL;
+	struct directory *dp = nullptr;
 	QImage icon;
 	//int draw_state = 0;
 	//bool select_state = false;
@@ -206,17 +209,20 @@ class QTCAD_EXPORT QgItem
  * created lazily in response to view requests, working from a seed set created
  * from the top level objects in a database.
  */
-class QTCAD_EXPORT QgModel : public QAbstractItemModel
+class QTCAD_EXPORT QgModel : public QAbstractItemModel, public IDbiObserver
 {
     Q_OBJECT
 
     public:
-	explicit QgModel(QObject *p = NULL, const char *npath = NULL);
+	explicit QgModel(QObject *p = nullptr, const char *npath = nullptr);
 	~QgModel();
 
 	// .g Db interface and containers
-	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	struct ged *gedp = NULL;
+	[[nodiscard]] int run_cmd(struct bu_vls *msg, int argc, const char **argv);
+	struct ged *gedp = nullptr;
+
+	// IDbiObserver implementation - called after DbiState::update() completes
+	void on_dbi_changed(const std::vector<DbiChangeEvent> &events) override;
 
 	// Updates to .g models are potentially far-reaching - in principle, a
 	// single GED command execution can change every item in the database.
@@ -263,6 +269,18 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	// This is 1 until we add support for attribute reporting
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
+	// Configure which BRL-CAD attribute keys are shown as extra columns to
+	// the right of the object-name column.  The keys are standard BRL-CAD
+	// attribute names.  Two built-in keys receive special treatment:
+	//   "region"    — displays "R" when the object has the region flag set
+	//   "region_id" — displays the numeric region_id (blank when absent)
+	//   "color"/"rgb" — displays the object color as "R/G/B"
+	// All other keys trigger a live db5 AVS lookup per cell render.
+	// Pass an empty list to revert to the single object-name column.
+	// Emits beginResetModel() / endResetModel() so connected views refresh.
+	void set_attribute_columns(const QStringList &keys);
+	const QStringList &attribute_columns() const { return attribute_columns_; }
+
 	// The number of available children.  This will correspond to the
 	// number of lines printed by the "l" command to show the immediate
 	// children of a comb (indeed, the tree view of the model can be
@@ -292,7 +310,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	std::unordered_set<struct directory *> changed_dp;
 
 	// Convenience container holding all active QgItems
-	std::unordered_set<QgItem *> *items = NULL;
+	std::unordered_set<QgItem *> items;
 
 	// Sorted QgItem pointers corresponding to the tops instances
 	std::vector<QgItem *> tops_items;
@@ -343,9 +361,44 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 
 	void item_rebuild(QgItem *item);
 
-	QgItem *rootItem;
-	struct bview *empty_gvp = NULL;
-	struct db_i *model_dbip = NULL;
+	// Phase 6: incremental update helpers
+	// Re-entrancy guard: dbis->update() is called inside g_update(), and the
+	// observer callback on_dbi_changed() would otherwise recursively call g_update()
+	// from within a beginResetModel() block.
+	bool in_g_update_ = false;
+
+	// Events collected by on_dbi_changed() while g_update() is running.
+	// g_update() reads these after dbis->update() returns to decide between
+	// a full model reset and targeted row-level operations.
+	std::vector<DbiChangeEvent> pending_dbi_events_;
+
+	// Extract the full-reset logic so g_update() can call it from either path.
+	// Assumes dbis->update() has already been called.
+	void full_model_reset(DbiState *dbis);
+
+	// Apply targeted row-level Qt model updates for a set of DBI events.
+	// Handles ObjectModified on expanded combs via per-row child rebuild
+	// rather than falling back to a full model reset.
+	void apply_incremental_updates(DbiState *dbis, const std::vector<DbiChangeEvent> &events);
+
+	// Reconcile tops_items against the current dbis->tops() list by emitting
+	// per-row begin/endInsertRows / begin/endRemoveRows signals.
+	void reconcile_tops(DbiState *dbis);
+
+	// Rebuild an expanded QgItem's children with per-row insert/remove
+	// signals rather than a full model reset.
+	void rebuild_item_children(QgItem *item, DbiState *dbis);
+
+	// Track the DbiState we are currently registered as an observer of.
+	// When open/close replaces gedp->dbi_state, g_update() re-registers.
+	DbiState *observed_dbi_state_ = nullptr;
+
+	// Runtime-configurable attribute columns (empty = name column only)
+	QStringList attribute_columns_;
+
+	std::unique_ptr<QgItem> rootItem_;
+	bsg_view *empty_gvp = nullptr;
+	struct db_i *model_dbip = nullptr;
 };
 
 #endif //QGMODEL_H

@@ -73,7 +73,7 @@ rt_edit_map_destroy(struct rt_edit_map *o)
 }
 
 struct rt_edit *
-rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, struct bview *v)
+rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, bsg_view *v)
 {
     struct rt_edit *s;
     BU_GET(s, struct rt_edit);
@@ -96,7 +96,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     VSETALL(s->e_mparam, 0);
     VSETALL(s->e_para, 0);
 
-    bv_knobs_reset(&s->k, 0);
+    bsg_knobs_reset(&s->k, 0);
     s->k.origin_m = '\0';
     s->k.origin_o = '\0';
     s->k.origin_v = '\0';
@@ -403,10 +403,12 @@ int
 rt_edit_knob_cmd_process(
 	struct rt_edit *s,
 	vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, int *do_sca,
-	struct bview *v, const char *cmd, fastf_t f,
+	bsg_view *v, const char *cmd, fastf_t f,
 	char origin, int incr_flag, void *u_data)
 {
     char c = (cmd[1] == '\0') ? cmd[0] : cmd[1];
+    struct bsg_camera _v_cam;
+    bsg_view_get_camera(v, &_v_cam);
 
     int ind = -1;
     switch (c) {
@@ -438,7 +440,7 @@ rt_edit_knob_cmd_process(
 	    char *orig;
 	    void **edm;
 
-	    switch (v->gv_coord) {
+	    switch (_v_cam.coord) {
 		case 'm':
 		    rot = &s->k.rot_m[ind];
 		    orig = &s->k.origin_m;
@@ -473,7 +475,7 @@ rt_edit_knob_cmd_process(
 	    fastf_t *tra;
 	    void **edm;
 
-	    switch (v->gv_coord) {
+	    switch (_v_cam.coord) {
 		case 'm':
 		case 'o':
 		    tra = &s->k.tra_m[ind];
@@ -520,7 +522,7 @@ rt_edit_knob_cmd_process(
 
 	    rvec_c = &(*rvec)[ind];
 
-	    switch (v->gv_coord) {
+	    switch (_v_cam.coord) {
 		case 'm':
 		    rot_c = &s->k.rot_m_abs[ind];
 		    rot_lc = &s->k.rot_m_abs_last[ind];
@@ -549,7 +551,7 @@ rt_edit_knob_cmd_process(
 	    fastf_t *arp;
 	    fastf_t *larp;
 
-	    switch (v->gv_coord) {
+	    switch (_v_cam.coord) {
 		case 'm':
 		    arp = s->k.rot_m_abs;
 		    larp = s->k.rot_m_abs_last;
@@ -589,7 +591,7 @@ rt_edit_knob_cmd_process(
 
 	    tvec_c = &(*tvec)[ind];
 
-	    switch (v->gv_coord) {
+	    switch (_v_cam.coord) {
 		case 'm':
 		case 'o':
 		    eamt = &s->k.tra_m_abs[ind];
@@ -642,6 +644,8 @@ rt_knob_edit_rot(struct rt_edit *s,
 	mat_t newrot)
 {
     mat_t temp1, temp2;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
 
     s->update_views = 1;
 
@@ -656,11 +660,11 @@ rt_knob_edit_rot(struct rt_edit *s,
 	    bn_mat_mul(newrot, temp2, temp1);
 	    break;
 	case 'v':
-	    bn_mat_inv(temp1, s->vp->gv_rotation);
+	    bn_mat_inv(temp1, _cam.rotation);
 
 	    /* transform into model rotations */
 	    bn_mat_mul(temp2, temp1, newrot);
-	    bn_mat_mul(newrot, temp2, s->vp->gv_rotation);
+	    bn_mat_mul(newrot, temp2, _cam.rotation);
 	    break;
     }
 
@@ -673,8 +677,9 @@ rt_knob_edit_rot(struct rt_edit *s,
 	// Stash state to temporarily put things in the
 	// solid edit rotate state (it may already have
 	// been there but we're not counting on it)
-	char save_rotate_about = s->vp->gv_rotate_about;
-	s->vp->gv_rotate_about = rotate_about;
+	char save_rotate_about = _cam.rotate_about;
+	_cam.rotate_about = rotate_about;
+	bsg_view_set_camera(s->vp, &_cam);
 
 	int save_edflag = s->edit_flag;
 	int save_mode = s->edit_mode;
@@ -684,7 +689,8 @@ rt_knob_edit_rot(struct rt_edit *s,
 	rt_edit_process(s);
 
 	// Restore previous state
-	s->vp->gv_rotate_about = save_rotate_about;
+	_cam.rotate_about = save_rotate_about;
+	bsg_view_set_camera(s->vp, &_cam);
 	s->edit_flag = save_edflag;
 	s->edit_mode = save_mode;
 
@@ -699,11 +705,11 @@ rt_knob_edit_rot(struct rt_edit *s,
 	switch (rotate_about) {
 	    case 'v':       /* View Center */
 		VSET(work, 0.0, 0.0, 0.0);
-		MAT4X3PNT(point, s->vp->gv_view2model, work);
+		MAT4X3PNT(point, _cam.view2model, work);
 		break;
 	    case 'e':       /* Eye */
 		VSET(work, 0.0, 0.0, 1.0);
-		MAT4X3PNT(point, s->vp->gv_view2model, work);
+		MAT4X3PNT(point, _cam.view2model, work);
 		break;
 	    case 'm':       /* Model Center */
 		VSETALL(point, 0.0);
@@ -720,7 +726,7 @@ rt_knob_edit_rot(struct rt_edit *s,
 	MAT_COPY(s->model_changes, out);
 
 	/* Update the model2objview matrix */
-	bn_mat_mul(s->model2objview, s->vp->gv_model2view, s->model_changes);
+	bn_mat_mul(s->model2objview, _cam.model2view, s->model_changes);
     }
 }
 
@@ -734,6 +740,8 @@ rt_knob_edit_tran(struct rt_edit *s,
     point_t delta;
     point_t vcenter;
     point_t work;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(s->vp, &_cam);
 
     /* compute delta */
     switch (coords) {
@@ -747,8 +755,8 @@ rt_knob_edit_tran(struct rt_edit *s,
 	case 'v':
 	default:
 	    VSCALE(p2, tvec, s->local2base / s->vp->gv_scale);
-	    MAT4X3PNT(work, s->vp->gv_view2model, p2);
-	    MAT_DELTAS_GET_NEG(vcenter, s->vp->gv_center);
+	    MAT4X3PNT(work, _cam.view2model, p2);
+	    MAT_DELTAS_GET_NEG(vcenter, _cam.center);
 	    VSUB2(delta, work, vcenter);
 
 	    break;
@@ -787,12 +795,14 @@ rt_knob_edit_tran(struct rt_edit *s,
 	s->edit_mode = save_mode;
     } else {
 	mat_t xlatemat;
+	struct bsg_camera _tcam;
+	bsg_view_get_camera(s->vp, &_tcam);
 	MAT_IDN(xlatemat);
 	MAT_DELTAS_VEC(xlatemat, delta);
 	bn_mat_mul2(xlatemat, s->model_changes);
 
 	/* Update the model2objview matrix */
-	bn_mat_mul(s->model2objview, s->vp->gv_model2view, s->model_changes);
+	bn_mat_mul(s->model2objview, _tcam.model2view, s->model_changes);
     }
 }
 
@@ -896,7 +906,8 @@ rt_knob_edit_sca(struct rt_edit *s, int matrix_edit)
        MAT_COPY(s->model_changes, out);
 
        /* Update the model2objview matrix */
-       bn_mat_mul(s->model2objview, s->vp->gv_model2view, s->model_changes);
+       { struct bsg_camera _scam; bsg_view_get_camera(s->vp, &_scam);
+       bn_mat_mul(s->model2objview, _scam.model2view, s->model_changes); }
    }
 }
 

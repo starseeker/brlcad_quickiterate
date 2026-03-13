@@ -43,12 +43,14 @@ static void
 savekey_rt_oldwrite(struct ged *gedp, FILE *fp, fastf_t *eye_model)
 {
     int i;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(gedp->ged_gvp, &_cam);
 
     fprintf(fp, "%.9e\n", gedp->ged_gvp->gv_size);
     fprintf(fp, "%.9e %.9e %.9e\n",
 		  eye_model[X], eye_model[Y], eye_model[Z]);
     for (i = 0; i < 16; i++) {
-	fprintf(fp, "%.9e ", gedp->ged_gvp->gv_rotation[i]);
+	fprintf(fp, "%.9e ", _cam.rotation[i]);
 	if ((i%4) == 3)
 	    fprintf(fp, "\n");
     }
@@ -96,7 +98,11 @@ ged_savekey_core(struct ged *gedp, int argc, const char *argv[])
      * Eye is in conventional place.
      */
     VSET(temp, 0.0, 0.0, 1.0);
-    MAT4X3PNT(eye_model, gedp->ged_gvp->gv_view2model, temp);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(gedp->ged_gvp, &_cam);
+	MAT4X3PNT(eye_model, _cam.view2model, temp);
+    }
     savekey_rt_oldwrite(gedp, fp, eye_model);
     (void)fclose(fp);
 

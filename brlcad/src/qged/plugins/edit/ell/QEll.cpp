@@ -86,7 +86,7 @@ QEll::QEll()
 QEll::~QEll()
 {
     if (p)
-	bv_obj_put(p);
+	bsg_shape_put(p);
     bu_vls_free(&oname);
 }
 
@@ -108,7 +108,7 @@ QEll::read_from_db()
     }
 
     struct rt_db_internal intern = RT_DB_INTERNAL_INIT_ZERO;
-    if (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&intern, dp, dbip, nullptr, &rt_uniresource) < 0)
 	return;
     struct rt_ell_internal *ellp = (struct rt_ell_internal *)intern.idb_ptr;
     RT_ELL_CK_MAGIC(ellp);
@@ -172,16 +172,16 @@ QEll::update_obj_wireframe()
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 
     // Make the object, if we've not already done so
     if (!p)
-	p = bv_obj_get(v, BV_VIEW_OBJS);
+	p = bsg_shape_get(v, BSG_VIEW_OBJS);
 
     // Clear any old wireframes, labels, etc.
-    bv_obj_reset(p);
+    bsg_shape_reset(p);
 
     // Use whatever view is current to drive the update
     p->s_v = v;
@@ -202,9 +202,9 @@ QEll::update_obj_wireframe()
 
     // At least for now, mimic the MGED behavior and make editing wireframes white
     const char *wcolor = "255/255/255";
-    const char *av[2] = {wcolor, NULL};
+    const char *av[2] = {wcolor, nullptr};
     struct bu_color cval;
-    bu_opt_color(NULL, 1, (const char **)&av[0], (void *)&cval);
+    bu_opt_color(nullptr, 1, (const char **)&av[0], (void *)&cval);
     bu_color_to_rgb_chars(&cval, p->s_color);
 
     // When editing, we show the labels (if any)
@@ -216,15 +216,15 @@ QEll::update_obj_wireframe()
 	lcnt = intern.idb_meth->ft_labels(pl, 8, idn_mat, &intern, tol);
 
     for (int i = 0; i < lcnt; i++) {
-	struct bv_scene_obj *s = bv_obj_get_child(p);
-	struct bv_label *la;
-	BU_GET(la, struct bv_label);
+	bsg_shape *s = bsg_shape_get_child(p);
+	struct bsg_label *la;
+	BU_GET(la, struct bsg_label);
 	s->s_i_data = (void *)la;
 
 	BU_LIST_INIT(&(s->s_vlist));
 	VSET(s->s_color, 255, 255, 0);
-	s->s_type_flags |= BV_DBOBJ_BASED;
-	s->s_type_flags |= BV_LABELS;
+	s->s_type_flags |= BSG_NODE_DBOBJ_BASED;
+	s->s_type_flags |= BSG_NODE_LABELS;
 	BU_VLS_INIT(&la->label);
 
 	bu_vls_sprintf(&la->label, "%s", pl[i].str);
@@ -247,13 +247,13 @@ QEll::update_viewobj_name(const QString &)
     struct ged *gedp = m->gedp;
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    bsg_view *v = gedp->ged_gvp;
     if (!v)
 	return;
 
     // Make the view object, if we've not already done so
     if (!p)
-	p = bv_obj_get(v, BV_VIEW_OBJS);
+	p = bsg_shape_get(v, BSG_VIEW_OBJS);
 
     // Make sure the view object names match whatever the dialog says
     // is the current (proposed) name for the written object

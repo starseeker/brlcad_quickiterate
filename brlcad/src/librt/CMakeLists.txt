@@ -96,6 +96,7 @@ set(
   bool_tess.c
   bundle.c
   cache.c
+  cache_drawing.cpp
   cache_lod.c
   cache_lz4.c
   cmd.c
@@ -103,6 +104,7 @@ set(
   comb/comb.c
   comb/comb_brep.cpp
   comb/comb_mirror.c
+  comb/comb_scene_obj.c
   comb/db_comb.c
   material/material.c
   constraint.c
@@ -160,6 +162,7 @@ set(
   primitives/bot/bot_mirror.c
   primitives/bot/bot_oriented_bbox.cpp
   primitives/bot/bot_plot.cpp
+  primitives/bot/bot_scene_obj.cpp
   primitives/bot/btg.c
   primitives/bot/btgf.c
   primitives/bot/decimate.c
@@ -196,6 +199,7 @@ set(
   primitives/extrude/extrude.c
   primitives/extrude/extrude_brep.cpp
   primitives/generic.c
+  primitives/generic_obol.cpp
   primitives/grip/grip.c
   primitives/grip/grip_brep.cpp
   primitives/grip/grip_mirror.c
@@ -403,6 +407,16 @@ if(BRLCAD_ENABLE_SPR)
   set(SPR_LIB libSPR)
 endif(BRLCAD_ENABLE_SPR)
 
+# Conditionally link Obol when the library is available.  The same
+# brlcad_find_package() call that libged and qged use — all three share the
+# result from the CMake cache.  When Obol is found, librt compiles the
+# Obol-specific scene-object sources (generic_obol.cpp, bot_scene_obj.cpp,
+# plus the Obol block in brep.cpp and generic.c) and links the library.
+brlcad_find_package(Obol)
+if(TARGET Obol::Obol)
+  message(STATUS "librt: Obol found — enabling native Obol scene-object support")
+endif(TARGET Obol::Obol)
+
 # Note - librt_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
 set(
   LIBRT_LIBS
@@ -417,6 +431,9 @@ set(
   ${STDCXX_LIBRARIES}
   manifold::manifold
 )
+if(TARGET Obol::Obol)
+  list(APPEND LIBRT_LIBS Obol::Obol)
+endif(TARGET Obol::Obol)
 
 # Include directories needed by librt users
 set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${GTE_INCLUDE_DIR})
@@ -429,6 +446,9 @@ set(
   ${REGEX_INCLUDE_DIRS}
   ${Geogram_INCLUDE_DIR}
 )
+if(TARGET Obol::Obol)
+  list(APPEND RT_LOCAL_INCLUDE_DIRS ${Obol_INCLUDE_DIR})
+endif(TARGET Obol::Obol)
 # FIXME: needs materialX
 #  ${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/source
 
@@ -469,15 +489,23 @@ brlcad_addlib(librt "${LIBRT_SOURCES}" "${LIBRT_LIBS}" "${RT_INCLUDE_DIRS}" "${R
     primitives/bot/plate.cpp
     primitives/bot/repair.cpp
     primitives/bot/sampling_checks.cpp
+    primitives/bot/bot_scene_obj.cpp
     primitives/bot/bot_wireframe.cpp
     primitives/bot/tie.c
     primitives/bot/tie_kdtree.c
+    primitives/generic_obol.cpp
 )
 
 # set(MATERIALX_LIBS ${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXCore.lib;${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXFormat.lib;${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXGenOsl.lib;${CMAKE_CURRENT_SOURCE_DIR}/../../../MaterialXSource/lib/MaterialXGenShader.lib)
-# BRLCAD_ADDLIB(librt "${LIBRT_SOURCES}" "${MATERIALX_LIBS};${OPENCL_LIBS};libbrep;libnmg;libbg;libbv;libbn;libbu;${OPENNURBS_LIBRARIES};${REGEX_LIBRARIES};${WINSOCK_LIB};${RPCRT_LIB};${STDCXX_LIBRARIES}")
+# BRLCAD_ADDLIB(librt "${LIBRT_SOURCES}" "${MATERIALX_LIBS};${OPENCL_LIBS};libbrep;libnmg;libbg;libbsg;libbn;libbu;${OPENNURBS_LIBRARIES};${REGEX_LIBRARIES};${WINSOCK_LIB};${RPCRT_LIB};${STDCXX_LIBRARIES}")
 
 set_target_properties(librt PROPERTIES VERSION 20.0.1 SOVERSION 20)
+if(TARGET Obol::Obol)
+  target_compile_definitions(librt PRIVATE BRLCAD_ENABLE_OBOL)
+  if(TARGET librt-obj)
+    target_compile_definitions(librt-obj PRIVATE BRLCAD_ENABLE_OBOL)
+  endif(TARGET librt-obj)
+endif(TARGET Obol::Obol)
 if(HIDE_INTERNAL_SYMBOLS)
   set_property(TARGET librt APPEND PROPERTY COMPILE_DEFINITIONS "TIE_DLL_EXPORTS")
   set_property(TARGET librt APPEND PROPERTY COMPILE_DEFINITIONS "DB5_DLL_EXPORTS")

@@ -368,7 +368,7 @@ dmo_drawViewAxes_tcl(void *clientData, int argc, const char **argv)
     int lineWidth;
     int posOnly;
     int tripleColor;
-    struct bv_axes bnas;
+    struct bsg_axes bnas;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
     struct dm_obj *dmop = (struct dm_obj *)clientData;
 
@@ -383,7 +383,7 @@ dmo_drawViewAxes_tcl(void *clientData, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    memset(&bnas, 0, sizeof(struct bv_axes));
+    memset(&bnas, 0, sizeof(struct bsg_axes));
 
     if (dmo_parseAxesArgs(argc, argv, &viewSize, rmat, axesPos, &axesSize,
 			  axesColor, labelColor, &lineWidth,
@@ -584,7 +584,7 @@ dmo_drawDataAxes_tcl(void *clientData, int argc, const char **argv)
     fastf_t axesSize;
     int axesColor[3];
     int lineWidth;
-    struct bv_data_axes_state bndas;
+    struct bsg_data_axes_state bndas;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
     struct dm_obj *dmop = (struct dm_obj *)clientData;
 
@@ -615,7 +615,7 @@ dmo_drawDataAxes_tcl(void *clientData, int argc, const char **argv)
     }
 
     point_t mapos = VINIT_ZERO;
-    memset(&bndas, 0, sizeof(struct bv_data_axes_state));
+    memset(&bndas, 0, sizeof(struct bsg_data_axes_state));
     bndas.points = &mapos;
     VMOVE(bndas.points[0], modelAxesPos);
     bndas.size = axesSize;
@@ -810,7 +810,7 @@ dmo_drawModelAxes_tcl(void *clientData, int argc, const char **argv)
     int tickColor[3];
     int majorTickColor[3];
     int tickThreshold;
-    struct bv_axes bnas;
+    struct bsg_axes bnas;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
     struct dm_obj *dmop = (struct dm_obj *)clientData;
 
@@ -842,7 +842,7 @@ dmo_drawModelAxes_tcl(void *clientData, int argc, const char **argv)
 
     MAT4X3PNT(viewAxesPos, model2view, modelAxesPos);
 
-    memset(&bnas, 0, sizeof(struct bv_axes));
+    memset(&bnas, 0, sizeof(struct bsg_axes));
     VMOVE(bnas.axes_pos, viewAxesPos);
     bnas.axes_size = axesSize;
     VMOVE(bnas.axes_color, axesColor);
@@ -1095,7 +1095,7 @@ static int
 dmo_drawVList_tcl(void *clientData, int argc, const char **argv)
 {
     struct dm_obj *dmop = (struct dm_obj *)clientData;
-    struct bv_vlist *vp;
+    struct bsg_vlist *vp;
 
     if (!dmop || !dmop->interp)
 	return BRLCAD_ERROR;
@@ -1121,7 +1121,7 @@ dmo_drawVList_tcl(void *clientData, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    BV_CK_VLIST(vp);
+    BSG_CK_VLIST(vp);
 
     return dm_draw_vlist(dmop->dmo_dmp, vp);
 }
@@ -1129,7 +1129,7 @@ dmo_drawVList_tcl(void *clientData, int argc, const char **argv)
 
 static void
 dmo_drawSolid(struct dm_obj *dmop,
-	      struct bv_scene_obj *sp)
+	      bsg_shape *sp)
 {
     if (sp->s_iflag == UP)
 	dm_set_fg(dmop->dmo_dmp, 255, 255, 255, 0, sp->s_os->transparency);
@@ -1138,7 +1138,7 @@ dmo_drawSolid(struct dm_obj *dmop,
 		       (unsigned char)sp->s_color[0],
 		       (unsigned char)sp->s_color[1],
 		       (unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
-    dm_draw_vlist(dmop->dmo_dmp, (struct bv_vlist *)&sp->s_vlist);
+    dm_draw_vlist(dmop->dmo_dmp, (struct bsg_vlist *)&sp->s_vlist);
 }
 
 
@@ -1234,7 +1234,7 @@ static int
 dmo_drawSList(struct dm_obj *dmop,
 	      struct bu_list *hsp)
 {
-    struct bv_scene_obj *sp;
+    bsg_shape *sp;
     int linestyle = -1;
 
     if (!dmop)
@@ -1243,7 +1243,7 @@ dmo_drawSList(struct dm_obj *dmop,
     int dm_transparency = dm_get_transparency(dmop->dmo_dmp);
     if (dm_transparency) {
 	/* First, draw opaque stuff */
-	for (BU_LIST_FOR(sp, bv_scene_obj, hsp)) {
+	for (BU_LIST_FOR(sp, bsg_shape, hsp)) {
 	    if (sp->s_os->transparency < 1.0)
 		continue;
 
@@ -1259,7 +1259,7 @@ dmo_drawSList(struct dm_obj *dmop,
 	dm_set_depth_mask(dmop->dmo_dmp, 0);
 
 	/* Second, draw transparent stuff */
-	for (BU_LIST_FOR(sp, bv_scene_obj, hsp)) {
+	for (BU_LIST_FOR(sp, bsg_shape, hsp)) {
 	    /* already drawn above */
 	    if (ZERO(sp->s_os->transparency - 1.0))
 		continue;
@@ -1276,7 +1276,7 @@ dmo_drawSList(struct dm_obj *dmop,
 	dm_set_depth_mask(dmop->dmo_dmp, 1);
     } else {
 
-	for (BU_LIST_FOR(sp, bv_scene_obj, hsp)) {
+	for (BU_LIST_FOR(sp, bsg_shape, hsp)) {
 	    if (linestyle != sp->s_soldash) {
 		linestyle = sp->s_soldash;
 		dm_set_line_attr(dmop->dmo_dmp, dmop->dmo_dmp->i->dm_lineWidth, linestyle);
@@ -1946,10 +1946,10 @@ dmo_bounds_tcl(void *clientData, int argc, const char **argv)
 	 * of the zclipping plane in dm-ogl.c. dm-X.c uses
 	 * dm_clipmin and dm_clipmax.
 	 */
-	if (dmop->dmo_dmp->i->dm_clipmax[2] <= BV_MAX)
+	if (dmop->dmo_dmp->i->dm_clipmax[2] <= BSG_VIEW_MAX)
 	    dm_set_bound(dmop->dmo_dmp, 1.0);
 	else
-	    dm_set_bound(dmop->dmo_dmp, BV_MAX / dmop->dmo_dmp->i->dm_clipmax[2]);
+	    dm_set_bound(dmop->dmo_dmp, BSG_VIEW_MAX / dmop->dmo_dmp->i->dm_clipmax[2]);
 
 	return BRLCAD_OK;
     }

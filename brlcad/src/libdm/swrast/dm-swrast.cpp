@@ -39,7 +39,7 @@ extern "C" {
 #include "vmath.h"
 #include "bu.h"
 #include "bn.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "dm.h"
 #include "dm/util.h"
 #include "../null/dm-Null.h"
@@ -210,7 +210,7 @@ swrast_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
 
     BU_ALLOC(dmp->i->dm_vars.priv_vars, struct swrast_vars);
     privars = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
-    privars->v = (struct bview *)ctx;
+    privars->v = (bsg_view *)ctx;
     // Note - for Qt, dealing with GL_RGB data display was something of a pain.  This backend
     // was switched to RGBA to make it easier to display the output
     privars->ctx = OSMesaCreateContextExt(OSMESA_RGBA, 16, 0, 0, NULL);
@@ -726,8 +726,8 @@ struct dm_impl dm_swrast_impl = {
     {0, 0, 0},			/* bg1 color */
     {0, 0, 0},			/* bg2 color */
     {0, 0, 0},			/* fg color */
-    {BV_MIN, BV_MIN, BV_MIN},	/* clipmin */
-    {BV_MAX, BV_MAX, BV_MAX},	/* clipmax */
+    {BSG_VIEW_MIN, BSG_VIEW_MIN, BSG_VIEW_MIN},	/* clipmin */
+    {BSG_VIEW_MAX, BSG_VIEW_MAX, BSG_VIEW_MAX},	/* clipmax */
     0,				/* no debugging */
     0,				/* no perspective */
     1,				/* depth buffer is writable */

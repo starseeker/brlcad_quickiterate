@@ -70,8 +70,8 @@ extern "C" {
     void rt_brep_curve(struct curvature *cvp, struct hit *hitp, struct soltab *stp);
     void rt_brep_uv(struct application *ap, struct soltab *stp, struct hit *hitp, struct uvcoord *uvp);
     void rt_brep_free(struct soltab *stp);
-    int rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const struct bview *v, fastf_t s_size);
-    int rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *UNUSED(info));
+    int rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const bsg_view *v, fastf_t s_size);
+    int rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *UNUSED(info));
     int rt_brep_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol);
     int rt_brep_get(struct bu_vls *logstr, const struct rt_db_internal *intern, const char *attr);
     int rt_brep_adjust(struct bu_vls *logstr, struct rt_db_internal *intern, int argc, const char **argv);
@@ -89,6 +89,7 @@ extern "C" {
     int rt_brep_plate_mode(const struct rt_db_internal *ip);
     void rt_brep_plate_mode_getvals(double *pthickness, int *nocos, const struct rt_db_internal *ip);
     int rt_brep_prep_serialize(struct soltab *stp, const struct rt_db_internal *ip, struct bu_external *external, size_t *version);
+    int rt_brep_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *v);
 #ifdef __cplusplus
 }
 #endif
@@ -1649,8 +1650,8 @@ plotisoUCheckForTrim(struct bu_list *vlfree, struct bu_list *vhead, const Surfac
 		    //						"\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 		    //						cnt++, x, v, x + deltax, v);
 
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -1739,8 +1740,8 @@ plotisoVCheckForTrim(struct bu_list *vlfree, struct bu_list *vhead, const Surfac
 		    //bu_log("\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 		    //		cnt++, u, y, u, y + deltay);
 
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -1768,8 +1769,8 @@ plotisoU(struct bu_list *vlfree, struct bu_list *vhead, SurfaceTree* st, fastf_t
 	}
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 	VMOVE(pt2, p);
-	BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -1793,8 +1794,8 @@ plotisoV(struct bu_list *vlfree, struct bu_list *vhead, SurfaceTree* st, fastf_t
 	}
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 	VMOVE(pt2, p);
-	BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -1884,7 +1885,7 @@ brep_est_avg_curve_len(struct rt_brep_internal *bi)
 }
 
 int
-rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const struct bview *v, fastf_t UNUSED(s_size))
+rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const bsg_view *v, fastf_t UNUSED(s_size))
 {
     TRACE1("rt_brep_adaptive_plot");
     struct rt_brep_internal* bi;
@@ -1932,8 +1933,8 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 	    const ON_BrepVertex& v2 = brep->m_V[e.m_vi[1]];
 	    VMOVE(pt1, v1.Point());
 	    VMOVE(pt2, v2.Point());
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	} else {
 	    point_t endpt;
 	    ON_Interval dom = crv->Domain();
@@ -1949,7 +1950,7 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 	    double t1 = 0.0;
 	    p = crv->PointAt(dom.ParameterAt(t1));
 	    VMOVE(pt1, p);
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
 
 	    // add segments until the minimum segment count is
 	    // achieved and the distance between the end of the last
@@ -1968,7 +1969,7 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 		    p = crv->PointAt(dom.ParameterAt(t2));
 		    VMOVE(pt2, p);
 		}
-		BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 
 		// advance to next segment
 		t1 = t2;
@@ -1979,7 +1980,7 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
 		    t2 = 1.0;
 		}
 	    }
-	    BV_ADD_VLIST(vlfree, vhead, endpt, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, endpt, BSG_VLIST_LINE_DRAW);
 	}
     }
 
@@ -2003,7 +2004,7 @@ rt_brep_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const st
  *
  */
 int
-rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *tol, const struct bview *UNUSED(info))
+rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *tol, const bsg_view *UNUSED(info))
 {
     TRACE1("rt_brep_plot");
     struct rt_brep_internal* bi;
@@ -2056,11 +2057,11 @@ rt_brep_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_t
 	    if (pnt_cnt > 1) {
 		p = poly[0];
 		VMOVE(pt1, p);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
 		for (j = 1; j < pnt_cnt; j++) {
 		    p = poly[j];
 		    VMOVE(pt1, p);
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -3038,7 +3039,7 @@ rt_brep_prep_serialize(struct soltab *stp, const struct rt_db_internal *ip, stru
 
 int rt_brep_plot_poly(struct bu_list *vhead, const struct directory *dp, struct rt_db_internal *ip,
 		      const struct bg_tess_tol *ttol, const struct bn_tol *tol,
-		      const struct bview *UNUSED(info))
+		      const bsg_view *UNUSED(info))
 {
     TRACE1("rt_brep_plot");
 
@@ -3062,6 +3063,315 @@ int rt_brep_plot_poly(struct bu_list *vhead, const struct directory *dp, struct 
 	return -1;
     }
     return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* rt_brep_scene_obj — ft_scene_obj for BREP primitives                */
+/*                                                                      */
+/* Two rendering paths:                                                 */
+/*                                                                      */
+/* LoD-managed hidden-line (dmode 1 + adaptive_plot_mesh):             */
+/*   Absorbed from brep_adaptive_plot() in libged/draw.cpp.  Manages   */
+/*   bsg_lod objects from a brep_cdt_fast()-generated mesh for         */
+/*   progressive refinement: no LoD yet → OBB/AABB placeholder;       */
+/*   LoD cached → bsg_lod mesh.  Uses s->mesh_c forwarded by the       */
+/*   draw_scene setup phase.                                            */
+/*                                                                      */
+/* All other modes (vlist path):                                        */
+/*   Tessellates via rt_brep_adaptive_plot/rt_brep_plot and optionally  */
+/*   converts to an Obol SoNode via rt_generic_vlist_to_obol.          */
+/*                                                                      */
+/* @see RADICAL_MIGRATION.md Stage 2                                    */
+/* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Detail-load callbacks for bsg_lod (BREP variant)                    */
+/* ------------------------------------------------------------------ */
+
+/* Per-shape context for BREP LoD detail callbacks */
+struct rt_brep_detail_clbk_data {
+    struct db_i              *dbip;
+    struct directory         *dp;
+    struct resource          *res;
+    const struct bg_tess_tol *ttol;
+    const struct bn_tol      *tol;
+    /* Generated mesh data (owned by this struct when non-NULL) */
+    int     *faces;
+    int      fcnt;
+    point_t *pnts;
+    int      pntcnt;
+    vect_t  *normals;
+};
+
+/* Called by bsg_lod when full-detail mesh data is needed */
+static int
+rt_brep_detail_setup_clbk(bsg_lod *lod, void *cb_data)
+{
+    if (!lod || !cb_data)
+	return -1;
+
+    struct rt_brep_detail_clbk_data *cd =
+	(struct rt_brep_detail_clbk_data *)cb_data;
+
+    struct rt_db_internal intern;
+    RT_DB_INTERNAL_INIT(&intern);
+    if (rt_db_get_internal(&intern, cd->dp, cd->dbip, NULL, cd->res) < 0)
+	return -1;
+
+    struct rt_brep_internal *bi = (struct rt_brep_internal *)intern.idb_ptr;
+    RT_BREP_CK_MAGIC(bi);
+
+    int ret = brep_cdt_fast(&cd->faces, &cd->fcnt, &cd->normals,
+			    &cd->pnts, &cd->pntcnt,
+			    bi->brep, -1, cd->ttol, cd->tol);
+    rt_db_free_internal(&intern);
+
+    if (ret != BRLCAD_OK) {
+	if (cd->faces)   { bu_free(cd->faces,   "faces");   cd->faces   = NULL; }
+	if (cd->normals) { bu_free(cd->normals, "normals"); cd->normals = NULL; }
+	if (cd->pnts)    { bu_free(cd->pnts,    "pnts");    cd->pnts    = NULL; }
+	return -1;
+    }
+
+    lod->faces       = cd->faces;
+    lod->fcnt        = cd->fcnt;
+    lod->pcnt        = cd->pntcnt;
+    lod->points      = (const point_t *)cd->pnts;
+    lod->points_orig = (const point_t *)cd->pnts;
+
+    return 0;
+}
+
+/* Called by bsg_lod when full-detail mesh data is no longer needed */
+static int
+rt_brep_detail_clear_clbk(bsg_lod *lod, void *cb_data)
+{
+    struct rt_brep_detail_clbk_data *cd =
+	(struct rt_brep_detail_clbk_data *)cb_data;
+
+    if (cd->faces)   { bu_free(cd->faces,   "faces");   cd->faces   = NULL; }
+    if (cd->normals) { bu_free(cd->normals, "normals"); cd->normals = NULL; }
+    if (cd->pnts)    { bu_free(cd->pnts,    "pnts");    cd->pnts    = NULL; }
+
+    lod->faces       = NULL;
+    lod->fcnt        = 0;
+    lod->pcnt        = 0;
+    lod->points      = NULL;
+    lod->points_orig = NULL;
+
+    return 0;
+}
+
+/* Called by bsg_lod when the context itself is being destroyed */
+static int
+rt_brep_detail_free_clbk(bsg_lod *lod, void *cb_data)
+{
+    rt_brep_detail_clear_clbk(lod, cb_data);
+    struct rt_brep_detail_clbk_data *cd =
+	(struct rt_brep_detail_clbk_data *)cb_data;
+    BU_PUT(cd, struct rt_brep_detail_clbk_data);
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
+
+#ifdef BRLCAD_ENABLE_OBOL
+/* Bridge to generic_obol.cpp's vlist→SoNode converter */
+extern "C" void rt_generic_vlist_to_obol(bsg_shape *s);
+#endif
+
+extern "C" int rt_generic_scene_obj(bsg_shape *s,
+				struct directory *dp,
+				struct db_i *dbip,
+				const struct bg_tess_tol *ttol,
+				const struct bn_tol *tol,
+				const bsg_view *v);
+
+int
+rt_brep_scene_obj(bsg_shape *s,
+		  struct directory *dp,
+		  struct db_i *dbip,
+		  const struct bg_tess_tol *ttol,
+		  const struct bn_tol *tol,
+		  const bsg_view *v)
+{
+    int dmode = s->s_os ? s->s_os->s_dmode : 0;
+    int adaptive_mesh = v && v->gv_s && v->gv_s->adaptive_plot_mesh;
+
+    /* ----------------------------------------------------------------
+     * LoD-managed hidden-line path: dmode 1 + adaptive_plot_mesh.
+     *
+     * Absorbed from brep_adaptive_plot() in libged/draw.cpp.  Uses the
+     * bsg_lod cache (keyed by the BREP external-data hash) for
+     * progressive rendering.  s->mesh_c must be forwarded by the
+     * draw_scene setup phase before ft_scene_obj dispatch.
+     * ---------------------------------------------------------------- */
+    if (dmode == 1 && adaptive_mesh && s->mesh_c) {
+	s->csg_obj  = 0;
+	s->mesh_obj = 1;
+
+	bsg_shape *vo = bsg_shape_for_view(s, (bsg_view *)v);
+
+	if (!vo) {
+	    struct resource *res = s->s_res ? s->s_res : &rt_uniresource;
+
+	    /* Look up (or compute) the LoD cache key for this BREP. */
+	    unsigned long long key = bsg_mesh_lod_key_get(s->mesh_c, dp->d_namep);
+
+	    if (!key) {
+		/* No key yet — derive one from the serialized BREP data. */
+		struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
+		if (db_get_external(&ext, dp, dbip))
+		    return BRLCAD_ERROR;
+		key = bu_data_hash((void *)ext.ext_buf, ext.ext_nbytes);
+		bu_free_external(&ext);
+		if (!key)
+		    return BRLCAD_ERROR;
+	    }
+
+	    /* Try to open an existing cache entry for this key. */
+	    bsg_lod *lod = bsg_mesh_lod_create(s->mesh_c, key);
+
+	    if (!lod) {
+		/* No cached entry — or stale key — generate the mesh. */
+		bsg_mesh_lod_clear_cache(s->mesh_c, key);
+
+		struct rt_db_internal intern;
+		RT_DB_INTERNAL_INIT(&intern);
+		if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
+		    return BRLCAD_ERROR;
+
+		struct rt_brep_internal *bi = (struct rt_brep_internal *)intern.idb_ptr;
+		RT_BREP_CK_MAGIC(bi);
+
+		int *faces = NULL;  int face_cnt = 0;
+		vect_t *normals = NULL;
+		point_t *pnts   = NULL; int pnt_cnt  = 0;
+
+		int cdt_ret = brep_cdt_fast(&faces, &face_cnt, &normals,
+					    &pnts, &pnt_cnt,
+					    bi->brep, -1, ttol, tol);
+		rt_db_free_internal(&intern);
+
+		if (cdt_ret != BRLCAD_OK) {
+		    bu_free(faces,   "faces");
+		    bu_free(normals, "normals");
+		    bu_free(pnts,    "pnts");
+		    return BRLCAD_ERROR;
+		}
+
+		/* Cache at ratio=1 (full quality — BREP mesh is pre-generated). */
+		key = bsg_mesh_lod_cache(s->mesh_c,
+					 (const point_t *)pnts, pnt_cnt,
+					 normals, faces, face_cnt, key, 1);
+		if (key)
+		    bsg_mesh_lod_key_put(s->mesh_c, dp->d_namep, key);
+
+		bu_free(faces,   "faces");
+		bu_free(normals, "normals");
+		bu_free(pnts,    "pnts");
+
+		if (!key)
+		    return BRLCAD_ERROR;
+
+		lod = bsg_mesh_lod_create(s->mesh_c, key);
+		if (!lod)
+		    return BRLCAD_ERROR;
+	    }
+
+	    /* Build the per-view object. */
+	    vo = bsg_shape_get_view_obj(s, (bsg_view *)v);
+	    vo->csg_obj  = 0;
+	    vo->mesh_obj = 1;
+
+	    /* Attach LoD; apply s_mat to bbox. */
+	    vo->draw_data = (void *)lod;
+	    lod->s = vo;
+	    MAT4X3PNT(vo->bmin, s->s_mat, lod->bmin);
+	    MAT4X3PNT(vo->bmax, s->s_mat, lod->bmax);
+	    VMOVE(s->bmin, vo->bmin);
+	    VMOVE(s->bmax, vo->bmax);
+
+	    /* Register full-detail callbacks. */
+	    struct rt_brep_detail_clbk_data *cbd;
+	    BU_GET(cbd, struct rt_brep_detail_clbk_data);
+	    cbd->dbip    = dbip;
+	    cbd->dp      = dp;
+	    cbd->res     = res;
+	    cbd->ttol    = ttol;
+	    cbd->tol     = tol;
+	    cbd->faces   = NULL;
+	    cbd->pnts    = NULL;
+	    cbd->normals = NULL;
+	    bsg_mesh_lod_detail_setup_clbk(lod, &rt_brep_detail_setup_clbk,
+					   (void *)cbd);
+	    bsg_mesh_lod_detail_clear_clbk(lod, &rt_brep_detail_clear_clbk);
+	    bsg_mesh_lod_detail_free_clbk(lod,  &rt_brep_detail_free_clbk);
+
+	    /* Hook view-change and free callbacks. */
+	    vo->s_update_callback = &bsg_mesh_lod_view;
+	    vo->s_free_callback   = &bsg_mesh_lod_free;
+
+	    /* Initialise the LoD for the current view. */
+	    if (bsg_mesh_lod_view(vo, (bsg_view *)v, 0) < 0)
+		bu_log("%s: error initialising LoD view\n", dp->d_namep);
+
+	    /* Mark as Mesh LoD. */
+	    vo->s_type_flags |= BSG_NODE_MESH_LOD;
+	}
+
+	bsg_mesh_lod_view(vo, (bsg_view *)v, 0);
+	bsg_shape_stale(vo);
+	return BRLCAD_OK;
+    }
+
+    /* Placeholder path: AABB / OBB handling is the same as generic */
+    if (!s->have_bbox)
+	return rt_generic_scene_obj(s, dp, dbip, ttol, tol, v);
+
+    /* Crack the BREP internal */
+    struct resource *res = s->s_res ? s->s_res : &rt_uniresource;
+    struct rt_db_internal intern;
+    if (rt_db_get_internal(&intern, dp, dbip, NULL, res) < 0)
+	return BRLCAD_ERROR;
+    RT_CK_DB_INTERNAL(&intern);
+
+    /* Clear any stale vlist data */
+    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
+
+    int ret = BRLCAD_ERROR;
+
+    switch (dmode) {
+	case 2:
+	case 4:
+	    /* Shaded: tessellate via adaptive plot */
+	    ret = rt_brep_adaptive_plot(&s->s_vlist, &intern, tol, v, s->view_scale);
+	    if (ret != BRLCAD_OK) {
+		s->s_os->s_dmode = 0;
+		ret = rt_brep_plot(&s->s_vlist, &intern, ttol, tol, v);
+	    }
+	    break;
+	case 3:
+	    /* Evaluated wireframe: use adaptive plot (evaluated CSG not
+	     * meaningful for leaf BREPs; wireframe is the best we can do) */
+	    ret = rt_brep_adaptive_plot(&s->s_vlist, &intern, tol, v, s->view_scale);
+	    break;
+	default:
+	    /* Wireframe (dmode 0, 5, ...) */
+	    ret = rt_brep_adaptive_plot(&s->s_vlist, &intern, tol, v, s->view_scale);
+	    break;
+    }
+
+    s->current = 1;
+    rt_db_free_internal(&intern);
+
+    /* Convert the generated vlist to an Obol SoNode */
+#ifdef BRLCAD_ENABLE_OBOL
+    rt_generic_vlist_to_obol(s);
+#endif
+
+    return BRLCAD_OK;
 }
 
 

@@ -1146,7 +1146,7 @@ rt_vol_free(struct soltab *stp)
 
 
 int
-rt_vol_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_vol_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *UNUSED(ttol), const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     register struct rt_vol_internal *vip;
     int x, y, z;
@@ -1255,21 +1255,21 @@ rt_vol_plate(point_t a, point_t b, point_t c, point_t d, register mat_t mat, str
 
     VELMUL(s, vip->cellsize, a);
     MAT4X3PNT(arot, mat, s);
-    BV_ADD_VLIST(vlfree, vhead, arot, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, arot, BSG_VLIST_LINE_MOVE);
 
     VELMUL(s, vip->cellsize, b);
     MAT4X3PNT(prot, mat, s);
-    BV_ADD_VLIST(vlfree, vhead, prot, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, prot, BSG_VLIST_LINE_DRAW);
 
     VELMUL(s, vip->cellsize, c);
     MAT4X3PNT(prot, mat, s);
-    BV_ADD_VLIST(vlfree, vhead, prot, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, prot, BSG_VLIST_LINE_DRAW);
 
     VELMUL(s, vip->cellsize, d);
     MAT4X3PNT(prot, mat, s);
-    BV_ADD_VLIST(vlfree, vhead, prot, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, prot, BSG_VLIST_LINE_DRAW);
 
-    BV_ADD_VLIST(vlfree, vhead, arot, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, arot, BSG_VLIST_LINE_DRAW);
 }
 
 

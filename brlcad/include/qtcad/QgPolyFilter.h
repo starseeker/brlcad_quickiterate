@@ -30,7 +30,7 @@
 extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
 }
 
 #include <QBoxLayout>
@@ -52,7 +52,7 @@ class QTCAD_EXPORT QgPolyFilter : public QObject
 	// We want to be able to swap derived QgPolyFilter classes in
 	// parent calling code - make eventFilter virtual to help
 	// simplify doing so.
-	virtual bool eventFilter(QObject *, QEvent *) { return false; };
+	virtual bool eventFilter(QObject *, QEvent *) override { return false; };
 
     signals:
         void view_updated(int);
@@ -61,10 +61,10 @@ class QTCAD_EXPORT QgPolyFilter : public QObject
     public:
 	bool close_polygon();
 
-	struct bview *v = NULL;
+	bsg_view *v = nullptr;
 	bg_clip_t op = bg_None;
-	struct bv_scene_obj *wp = NULL;
-	int ptype = BV_POLYGON_CIRCLE;
+	bsg_shape *wp = nullptr;
+	int ptype = BSG_POLYGON_CIRCLE;
 	bool close_general_poly = true; // set to false if application wants to allow non-closed polygons
 	struct bu_color fill_color = BU_COLOR_BLUE;
 	struct bu_color edge_color = BU_COLOR_YELLOW;
@@ -81,7 +81,7 @@ class QTCAD_EXPORT QPolyCreateFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 	void finalize(bool);
 
 	struct bu_ptbl bool_objs = BU_PTBL_INIT_ZERO;
@@ -92,7 +92,7 @@ class QTCAD_EXPORT QPolyUpdateFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 
 	struct bu_ptbl bool_objs = BU_PTBL_INIT_ZERO;
 };
@@ -102,7 +102,7 @@ class QTCAD_EXPORT QPolySelectFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
 class QTCAD_EXPORT QPolyPointFilter : public QgPolyFilter
@@ -110,7 +110,7 @@ class QTCAD_EXPORT QPolyPointFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
 class QTCAD_EXPORT QPolyMoveFilter : public QgPolyFilter
@@ -118,7 +118,7 @@ class QTCAD_EXPORT QPolyMoveFilter : public QgPolyFilter
     Q_OBJECT
 
     public:
-	bool eventFilter(QObject *, QEvent *e);
+	bool eventFilter(QObject *, QEvent *e) override;
 	struct bu_ptbl move_objs = BU_PTBL_INIT_ZERO;
 };
 

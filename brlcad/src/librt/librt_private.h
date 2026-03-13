@@ -34,9 +34,10 @@
 #include "common.h"
 
 #include "vmath.h"
-#include "bv.h"
+#include "bsg.h"
 #include "rt/db4.h"
 #include "raytrace.h"
+#include "rt/cache_drawing.h"
 
 /* approximation formula for the circumference of an ellipse */
 #define ELL_CIRCUMFERENCE(a, b) M_PI * ((a) + (b)) * \
@@ -60,27 +61,117 @@
     } \
 } while (0)
 
+/* -----------------------------------------------------------------------
+ * Drawing cache infrastructure
+ * -----------------------------------------------------------------------
+ * cache_drawing.cpp implements a 5-stage concurrent pipeline that
+ * computes drawing data (attrs → AABB → OBB → LoD → write) in background
+ * threads, storing results in an LMDB-backed bu_cache and posting
+ * DrawResult notifications to a lock-free queue readable by the main thread.
+ *
+ * The concurrentqueue.h header (moodycamel, MIT license) provides the
+ * lock-free multi-producer/multi-consumer queue used between stages.
+ * ----------------------------------------------------------------------- */
+
+#ifdef __cplusplus
+#  include "concurrentqueue.h"
+
+#  include <atomic>
+#  include <mutex>
+#  include <string>
+#  include <thread>
+#  include <unordered_map>
+#  include <vector>
+
+#  include "bu/cache.h"
+
+/* Single item queued for writing to the LMDB drawing cache. */
+class CacheWriteItem {
+public:
+    CacheWriteItem();
+    CacheWriteItem(const char *key, const void *data, size_t len);
+    CacheWriteItem(const CacheWriteItem &o);
+    CacheWriteItem& operator=(const CacheWriteItem &o);
+    ~CacheWriteItem();
+
+    char   key[BU_CACHE_KEY_MAXLEN] = {0};
+    bool   erase_op  = false;
+    size_t data_len  = 0;
+    void  *data      = nullptr;
+};
+
+/* The per-database 5-stage pipeline state.  Lives in db_i_internal::draw_pipeline
+ * as an opaque void* so that C translation units (db_open.c) don't need to
+ * include C++ headers. */
+class DrawPipelineState {
+public:
+    std::atomic<bool> shutdown{false};
+    std::atomic<int>  thread_cnt{0};
+
+    /* Inter-stage queues (lock-free, moodycamel). */
+    moodycamel::ConcurrentQueue<std::string>             q_init;   /* object names → attr stage */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *> q_aabb;   /* cracked internal → AABB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *> q_obb;    /* post-AABB → OBB */
+    moodycamel::ConcurrentQueue<struct rt_db_internal *> q_lod;    /* post-OBB  → LoD */
+    moodycamel::ConcurrentQueue<CacheWriteItem>          q_write;  /* pending LMDB writes */
+
+    /* Result queue read by the main thread (drain → scene change). */
+    moodycamel::ConcurrentQueue<DrawResult> results_q;
+
+    /* Name map: associates each in-flight rt_db_internal* with its object
+     * name.  Written by attr_worker (producer) before enqueue, read by
+     * aabb/obb workers (consumers) after dequeue.  Protected by name_mu.
+     *
+     * Cleanup contract: lod_worker is the LAST consumer; it must call
+     *   p->ip_names.erase(ip);
+     * before freeing the rt_db_internal* so the map never grows unboundedly.
+     * aabb/obb workers MUST NOT erase — they only read. */
+    std::mutex name_mu;
+    std::unordered_map<struct rt_db_internal *, std::string> ip_names;
+
+    struct db_i           *dbip    = nullptr;
+    bsg_mesh_lod_context  *lod_ctx = nullptr; /* set from gedp->ged_lod when available */
+    struct bu_cache       *dcache  = nullptr; /* same pointer as dbip->i->dcache */
+
+    /* Worker thread handles. */
+    std::vector<std::thread> threads;
+};
+
+#endif  /* __cplusplus */
 
 __BEGIN_DECLS
 
-// TODO - eventually, all the "LIBRT ONLY" elements in db_i should move here.
-// The librt prep caching container should also go here.
-//
-// At the moment, it is just an experiment to put drawing related object data
-// caches in the db_i.
+/* C-visible struct – C++ members are hidden behind the opaque void* fields. */
 struct db_i_internal {
     uint32_t dbi_magic;
 
-    /* BoT level of detail cached data for drawing */
-    struct bv_mesh_lod_context *mesh_c;
+    /* BoT level of detail cached data for drawing (legacy – kept for bsg API) */
+    bsg_mesh_lod_context *mesh_c;
     int mesh_c_completed;
     int mesh_c_target;
+
+    /* General drawing data cache (AABB, OBB, attrs).  Opened/closed by
+     * db_cache_start/stop in cache_drawing.cpp. */
+    struct bu_cache *dcache;
+
+    /* Opaque pointer to DrawPipelineState (C++ type).  Managed entirely by
+     * db_cache_start / db_cache_stop. */
+    void *draw_pipeline;
 
     // TODO - really need to get the rt prep cache container
     // in here and add a pointer slot to it for rt_db_internal
     // so the librt point generation routines can take advantage
     // of cached prep even if they're using an inmem db...
 };
+
+/* Drawing-cache lifecycle – implemented in cache_drawing.cpp, called from
+ * db_open.c as extern "C". */
+extern int    db_cache_start(struct db_i *dbip);
+extern void   db_cache_stop(struct db_i *dbip);
+extern void   db_cache_queue_obj(struct db_i *dbip, const char *name);
+extern int    db_cache_settled(struct db_i *dbip);
+extern void   db_cache_set_lod_ctx(struct db_i *dbip, bsg_mesh_lod_context *lod_ctx);
+extern size_t db_cache_drain_results(struct db_i *dbip, void *out_vec);
 
 struct db_i_internal * db_i_internal_create(void);
 void db_i_internal_destroy(struct db_i_internal *i);
@@ -220,7 +311,7 @@ extern fastf_t primitive_get_absolute_tolerance(
 
 extern fastf_t primitive_diagonal_samples(
 	struct rt_db_internal *ip,
-	const struct bview *v,
+	const bsg_view *v,
 	const struct bn_tol *tol,
 	fastf_t s_size);
 
@@ -261,8 +352,8 @@ extern int _rt_tcl_list_to_int_array(const char *list, int **array, int *array_l
 extern int _rt_tcl_list_to_fastf_array(const char *list, fastf_t **array, int *array_len);
 
 /* view.c */
-extern fastf_t solid_point_spacing(const struct bview *gvp, fastf_t solid_width);
-extern fastf_t view_avg_sample_spacing(const struct bview *gvp);
+extern fastf_t solid_point_spacing(const bsg_view *gvp, fastf_t solid_width);
+extern fastf_t view_avg_sample_spacing(const bsg_view *gvp);
 
 
 #ifdef USE_OPENCL

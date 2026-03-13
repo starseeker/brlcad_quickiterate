@@ -50,13 +50,13 @@ class QTCAD_EXPORT QConsoleListener : public QObject
     Q_OBJECT
 
     public:
-	QConsoleListener(int fd = -1, struct ged_subprocess *p = NULL, bu_process_io_t t = BU_PROCESS_STDIN, ged_io_func_t c = NULL, void *d = NULL);
+	QConsoleListener(int fd = -1, struct ged_subprocess *p = nullptr, bu_process_io_t t = BU_PROCESS_STDIN, ged_io_func_t c = nullptr, void *d = nullptr);
 	~QConsoleListener();
 
 	// Called by client code when it is done with the process
 	void on_finished();
 
-	struct ged_subprocess *process = NULL;
+	struct ged_subprocess *process = nullptr;
 	ged_io_func_t callback;
 	bu_process_io_t type;
 	void *data;
@@ -71,8 +71,15 @@ class QTCAD_EXPORT QConsoleListener : public QObject
 	// finishedGetLine is for internal use
 	void finishedGetLine(const QString &strNewLine);
 
+	// Emitted from the background thread when the notifier fires.
+	// Connected (QueuedConnection) to on_callbackReady() so that the
+	// actual callback and ged_result_str access happen only on the main
+	// thread, eliminating the data race entirely.
+	void callbackReady();
+
     private Q_SLOTS:
 	void on_finishedGetLine(const QString &strNewLine);
+	void on_callbackReady();
 
     public:
 #ifdef Q_OS_WIN

@@ -1955,10 +1955,10 @@ draw_pipe_parallel_circle_connections(
     radian = 0.0;
     for (i = 0; i < num_lines; ++i) {
 	ellipse_point_at_radian(pt, start->center, start_a, start_b, radian);
-	BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_MOVE);
 
 	ellipse_point_at_radian(pt, end->center, end_a, end_b, radian);
-	BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);
 
 	radian += radian_step;
     }
@@ -2045,12 +2045,12 @@ draw_pipe_arc(
     radian_step = radians_from_start_to_end / num_segments;
 
     ellipse_point_at_radian(pt, arc_circle.center, axis_a, axis_b, 0.0);
-    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_MOVE);
 
     radian = radian_step;
     for (i = 0; i < num_segments; ++i) {
 	ellipse_point_at_radian(pt, arc_circle.center, axis_a, axis_b, radian);
-	BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);
 
 	radian += radian_step;
     }
@@ -2308,7 +2308,7 @@ draw_pipe_end_adaptive(
 
 
 int
-rt_pipe_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const struct bview *v, fastf_t s_size)
+rt_pipe_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol), const bsg_view *v, fastf_t s_size)
 {
     struct rt_pipe_internal *pipeobj;
     struct pipe_segment *cur_seg;
@@ -2356,7 +2356,7 @@ rt_pipe_plot(
     struct rt_db_internal *ip,
     const struct bg_tess_tol *UNUSED(ttol),
     const struct bn_tol *UNUSED(tol),
-    const struct bview *UNUSED(info))
+    const bsg_view *UNUSED(info))
 {
     struct rt_pipe_internal *pip;
     struct pipe_segment *cur_seg;

@@ -55,6 +55,17 @@
 #include "plugins/plugin.h"
 #include "QgEdPalette.h"
 
+#ifdef BRLCAD_ENABLE_OBOL
+/* Forward-declare QgObolView and QgObolSwrastView so callers of
+ * QgEdMainWindow.h do not need to include QgObolView.h (which pulls in
+ * QOpenGLWidget / Obol headers).  The full definitions are included only in
+ * QgEdMainWindow.cpp where the pointer members are actually used. */
+class QgObolView;
+#  ifdef OBOL_BUILD_DUAL_GL
+class QgObolSwrastView;
+#  endif
+#endif
+
 class QgEdMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -71,7 +82,7 @@ class QgEdMainWindow : public QMainWindow
 
 	// Get the currently active view of the quad/central display widget
 	QgView * CurrentDisplay();
-	struct bview * CurrentView();
+	bsg_view * CurrentView();
 
 	// Checkpoint display state (used for subsequent diff)
 	void DisplayCheckpoint();
@@ -89,11 +100,14 @@ class QgEdMainWindow : public QMainWindow
 	int InteractionMode(QPoint &gpos);
 
 	// Utility wrapper for the closeEvent to save windowing dimensions
-	void closeEvent(QCloseEvent* e);
+	void closeEvent(QCloseEvent* e) override;
 
     public slots:
 	//void save_image();
 	void do_dm_init();
+#ifdef BRLCAD_ENABLE_OBOL
+	void do_obol_init();
+#endif
         void close();
 	// Put central display into Quad mode
 	void QuadDisplay();
@@ -102,7 +116,7 @@ class QgEdMainWindow : public QMainWindow
 
     private:
 
-	void CreateWidgets(int canvas_type);
+	void CreateWidgets(int canvas_type, int quad_view = 0);
 	void LocateWidgets();
 	void ConnectWidgets();
 	void SetupMenu();
@@ -114,32 +128,38 @@ class QgEdMainWindow : public QMainWindow
 	QAction *cad_exit;
 
 	// Organizational widget
-	QWidget *cw = NULL;
+	QWidget *cw = nullptr;
 
 	// Central widgets
-	QgViewCtrl *vcw = NULL;
-	QgQuadView *c4 = NULL;
-	QAction *cad_single_view = NULL;
-	QAction *cad_quad_view = NULL;
+	QgViewCtrl *vcw = nullptr;
+	QgQuadView *c4 = nullptr;
+	QAction *cad_single_view = nullptr;
+	QAction *cad_quad_view = nullptr;
+#ifdef BRLCAD_ENABLE_OBOL
+	QgObolView *obol_view_ = nullptr;
+#  ifdef OBOL_BUILD_DUAL_GL
+	QgObolSwrastView *obol_swrast_view_ = nullptr;
+#  endif
+#endif
 
 	// Docked widgets
-	QgAttributesModel *stdpropmodel = NULL;
-	QgAttributesModel *userpropmodel = NULL;
-	QgEdPalette *oc = NULL;
-	QgEdPalette *vc = NULL;
-	QgTreeView *treeview = NULL;
+	QgAttributesModel *stdpropmodel = nullptr;
+	QgAttributesModel *userpropmodel = nullptr;
+	QgEdPalette *oc = nullptr;
+	QgEdPalette *vc = nullptr;
+	QgTreeView *treeview = nullptr;
 
 	// Action for toggling treeview's ls or tree view
-	QAction *vm_treeview_mode_toggle = NULL;
+	QAction *vm_treeview_mode_toggle = nullptr;
 
 	// Docking containers
-	QDockWidget *ocd = NULL;
-	QDockWidget *sattrd = NULL;
-	QDockWidget *uattrd = NULL;
-	QDockWidget *vcd = NULL;
-	QMenu *vm_panels = NULL;
-	QgDockWidget *console_dock = NULL;
-	QgDockWidget *tree_dock = NULL;
+	QDockWidget *ocd = nullptr;
+	QDockWidget *sattrd = nullptr;
+	QDockWidget *uattrd = nullptr;
+	QDockWidget *vcd = nullptr;
+	QMenu *vm_panels = nullptr;
+	QgDockWidget *console_dock = nullptr;
+	QgDockWidget *tree_dock = nullptr;
 };
 
 #endif /* QGEDMAINWINDOW_H */

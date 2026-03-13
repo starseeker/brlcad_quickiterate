@@ -71,7 +71,7 @@
 #  define LIBTERMIO_IMPLEMENTATION
 #  include "libtermio.h"
 #endif
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -115,7 +115,7 @@ extern struct _mged_variables default_mged_variables;
 extern struct _color_scheme default_color_scheme;
 
 /* defined in grid.c */
-extern struct bv_grid_state default_grid_state;
+extern struct bsg_grid_state default_grid_state;
 
 /* defined in axes.c */
 extern struct _axes_state default_axes_state;
@@ -311,7 +311,11 @@ new_edit_mats(struct mged_state *s)
 	    continue;
 
 	set_curr_dm(s, p);
-	bn_mat_mul(view_state->vs_model2objview, view_state->vs_gvp->gv_model2view, MEDIT(s)->model_changes);
+	{
+	    struct bsg_camera _mc;
+	    bsg_view_get_camera(view_state->vs_gvp, &_mc);
+	    bn_mat_mul(view_state->vs_model2objview, _mc.model2view, MEDIT(s)->model_changes);
+	}
 	bn_mat_inv(view_state->vs_objview2model, view_state->vs_model2objview);
 
 	/* Keep rt_edit’s own cached matrix in sync for external users */
@@ -325,7 +329,7 @@ new_edit_mats(struct mged_state *s)
 
 
 void
-mged_view_callback(struct bview *gvp,
+mged_view_callback(bsg_view *gvp,
 		   void *clientData)
 {
     struct mged_state *s = MGED_STATE;
@@ -335,7 +339,9 @@ mged_view_callback(struct bview *gvp,
 	return;
 
     if (s->global_editing_state != ST_VIEW) {
-	bn_mat_mul(vsp->vs_model2objview, gvp->gv_model2view, MEDIT(s)->model_changes);
+	struct bsg_camera _mvc;
+	bsg_view_get_camera(gvp, &_mvc);
+	bn_mat_mul(vsp->vs_model2objview, _mvc.model2view, MEDIT(s)->model_changes);
 	bn_mat_inv(vsp->vs_objview2model, vsp->vs_model2objview);
     }
     vsp->vs_flag = 1;
@@ -350,7 +356,7 @@ mged_view_callback(struct bview *gvp,
 void
 new_mats(struct mged_state *s)
 {
-    bv_update(view_state->vs_gvp);
+    bsg_view_update(view_state->vs_gvp);
 }
 
 
@@ -1728,7 +1734,7 @@ mged_finish(struct mged_state *s, int exitcode)
 
 	if (p && p->dm_dmp) {
 	    dm_close(p->dm_dmp);
-	    BV_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
+	    BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
 	    mged_slider_free_vls(p);
 	    bu_free(p, "release: mged_curr_dm");
 	}
@@ -2059,7 +2065,7 @@ main(int argc, char *argv[])
     BU_ALLOC(color_scheme, struct _color_scheme);
     *color_scheme = default_color_scheme;	/* struct copy */
 
-    BU_ALLOC(grid_state, struct bv_grid_state);
+    BU_ALLOC(grid_state, struct bsg_grid_state);
     *grid_state = default_grid_state;		/* struct copy */
 
     BU_ALLOC(axes_state, struct _axes_state);

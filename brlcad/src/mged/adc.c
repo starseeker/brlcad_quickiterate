@@ -29,6 +29,7 @@
 
 #include "bu/vls.h"
 #include "vmath.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -109,32 +110,38 @@ adc_set_scroll(struct mged_state *s)
 static void
 adc_model_To_adc_view(struct mged_state *s)
 {
-    MAT4X3PNT(adc_state->adc_pos_view, view_state->vs_gvp->gv_model2view, adc_state->adc_pos_model);
-    adc_state->adc_dv_x = adc_state->adc_pos_view[X] * BV_MAX;
-    adc_state->adc_dv_y = adc_state->adc_pos_view[Y] * BV_MAX;
+    struct bsg_camera _cam;
+    bsg_view_get_camera(view_state->vs_gvp, &_cam);
+    MAT4X3PNT(adc_state->adc_pos_view, _cam.model2view, adc_state->adc_pos_model);
+    adc_state->adc_dv_x = adc_state->adc_pos_view[X] * BSG_VIEW_MAX;
+    adc_state->adc_dv_y = adc_state->adc_pos_view[Y] * BSG_VIEW_MAX;
 }
 
 
 static void
 adc_grid_To_adc_view(struct mged_state *s)
 {
+    struct bsg_camera _cam;
     point_t model_pt = VINIT_ZERO;
     point_t view_pt;
 
-    MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, model_pt);
+    bsg_view_get_camera(view_state->vs_gvp, &_cam);
+    MAT4X3PNT(view_pt, _cam.model2view, model_pt);
     VADD2(adc_state->adc_pos_view, view_pt, adc_state->adc_pos_grid);
-    adc_state->adc_dv_x = adc_state->adc_pos_view[X] * BV_MAX;
-    adc_state->adc_dv_y = adc_state->adc_pos_view[Y] * BV_MAX;
+    adc_state->adc_dv_x = adc_state->adc_pos_view[X] * BSG_VIEW_MAX;
+    adc_state->adc_dv_y = adc_state->adc_pos_view[Y] * BSG_VIEW_MAX;
 }
 
 
 static void
 adc_view_To_adc_grid(struct mged_state *s)
 {
+    struct bsg_camera _cam;
     point_t model_pt = VINIT_ZERO;
     point_t view_pt;
 
-    MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, model_pt);
+    bsg_view_get_camera(view_state->vs_gvp, &_cam);
+    MAT4X3PNT(view_pt, _cam.model2view, model_pt);
     VSUB2(adc_state->adc_pos_grid, adc_state->adc_pos_view, view_pt);
 }
 
@@ -146,11 +153,15 @@ calc_adc_pos(struct mged_state *s)
 	adc_model_To_adc_view(s);
 	adc_view_To_adc_grid(s);
     } else if (adc_state->adc_anchor_pos == 2) {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
 	adc_grid_To_adc_view(s);
-	MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_view);
+	MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_view);
     } else {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
 	adc_view_To_adc_grid(s);
-	MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_view);
+	MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_view);
     }
 }
 
@@ -159,16 +170,18 @@ static void
 calc_adc_a1(struct mged_state *s)
 {
     if (adc_state->adc_anchor_a1) {
+	struct bsg_camera _cam;
 	fastf_t dx, dy;
 	point_t view_pt;
 
-	MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, adc_state->adc_anchor_pt_a1);
-	dx = view_pt[X] * BV_MAX - adc_state->adc_dv_x;
-	dy = view_pt[Y] * BV_MAX - adc_state->adc_dv_y;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT4X3PNT(view_pt, _cam.model2view, adc_state->adc_anchor_pt_a1);
+	dx = view_pt[X] * BSG_VIEW_MAX - adc_state->adc_dv_x;
+	dy = view_pt[Y] * BSG_VIEW_MAX - adc_state->adc_dv_y;
 
 	if (!ZERO(dx) || !ZERO(dy)) {
 	    adc_state->adc_a1 = RAD2DEG*atan2(dy, dx);
-	    adc_state->adc_dv_a1 = (1.0 - (adc_state->adc_a1 / 45.0)) * BV_MAX;
+	    adc_state->adc_dv_a1 = (1.0 - (adc_state->adc_a1 / 45.0)) * BSG_VIEW_MAX;
 	}
     }
 }
@@ -178,16 +191,18 @@ static void
 calc_adc_a2(struct mged_state *s)
 {
     if (adc_state->adc_anchor_a2) {
+	struct bsg_camera _cam;
 	fastf_t dx, dy;
 	point_t view_pt;
 
-	MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, adc_state->adc_anchor_pt_a2);
-	dx = view_pt[X] * BV_MAX - adc_state->adc_dv_x;
-	dy = view_pt[Y] * BV_MAX - adc_state->adc_dv_y;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT4X3PNT(view_pt, _cam.model2view, adc_state->adc_anchor_pt_a2);
+	dx = view_pt[X] * BSG_VIEW_MAX - adc_state->adc_dv_x;
+	dy = view_pt[Y] * BSG_VIEW_MAX - adc_state->adc_dv_y;
 
 	if (!ZERO(dx) || !ZERO(dy)) {
 	    adc_state->adc_a2 = RAD2DEG*atan2(dy, dx);
-	    adc_state->adc_dv_a2 = (1.0 - (adc_state->adc_a2 / 45.0)) * BV_MAX;
+	    adc_state->adc_dv_a2 = (1.0 - (adc_state->adc_a2 / 45.0)) * BSG_VIEW_MAX;
 	}
     }
 }
@@ -197,17 +212,19 @@ static void
 calc_adc_dst(struct mged_state *s)
 {
     if (adc_state->adc_anchor_dst) {
+	struct bsg_camera _cam;
 	fastf_t dist;
 	fastf_t dx, dy;
 	point_t view_pt;
 
-	MAT4X3PNT(view_pt, view_state->vs_gvp->gv_model2view, adc_state->adc_anchor_pt_dst);
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT4X3PNT(view_pt, _cam.model2view, adc_state->adc_anchor_pt_dst);
 
-	dx = view_pt[X] * BV_MAX - adc_state->adc_dv_x;
-	dy = view_pt[Y] * BV_MAX - adc_state->adc_dv_y;
+	dx = view_pt[X] * BSG_VIEW_MAX - adc_state->adc_dv_x;
+	dy = view_pt[Y] * BSG_VIEW_MAX - adc_state->adc_dv_y;
 	dist = sqrt(dx * dx + dy * dy);
 	adc_state->adc_dst = dist * INV_BV;
-	adc_state->adc_dv_dist = (dist / M_SQRT1_2) - BV_MAX;
+	adc_state->adc_dv_dist = (dist / M_SQRT1_2) - BSG_VIEW_MAX;
     } else
 	adc_state->adc_dst = (adc_state->adc_dv_dist * INV_BV + 1.0) * M_SQRT1_2;
 }
@@ -227,7 +244,7 @@ draw_ticks(struct mged_state *s, fastf_t angle)
      */
     /* map -2048 - 2047 into 0 - 2048 * sqrt (2) */
     /* Tick distance */
-    c_tdist = ((fastf_t)(adc_state->adc_dv_dist) + BV_MAX) * M_SQRT1_2;
+    c_tdist = ((fastf_t)(adc_state->adc_dv_dist) + BSG_VIEW_MAX) * M_SQRT1_2;
 
     d1 = c_tdist * cos (angle);
     d2 = c_tdist * sin (angle);
@@ -306,13 +323,13 @@ adcursor(struct mged_state *s)
 
     /* Horizontal */
     dm_draw_line_2d(DMP,
-		    GED2PM1(BV_MIN), GED2PM1(adc_state->adc_dv_y) * dm_get_aspect(DMP),
-		    GED2PM1(BV_MAX), GED2PM1(adc_state->adc_dv_y) * dm_get_aspect(DMP));
+		    GED2PM1(BSG_VIEW_MIN), GED2PM1(adc_state->adc_dv_y) * dm_get_aspect(DMP),
+		    GED2PM1(BSG_VIEW_MAX), GED2PM1(adc_state->adc_dv_y) * dm_get_aspect(DMP));
 
     /* Vertical */
     dm_draw_line_2d(DMP,
-		    GED2PM1(adc_state->adc_dv_x), GED2PM1(BV_MAX),
-		    GED2PM1(adc_state->adc_dv_x), GED2PM1(BV_MIN));
+		    GED2PM1(adc_state->adc_dv_x), GED2PM1(BSG_VIEW_MAX),
+		    GED2PM1(adc_state->adc_dv_x), GED2PM1(BSG_VIEW_MIN));
 
     angle1 = adc_state->adc_a1 * DEG2RAD;
     angle2 = adc_state->adc_a2 * DEG2RAD;
@@ -369,14 +386,18 @@ adcursor(struct mged_state *s)
 
 
 static void
-mged_adc_reset(struct mged_state *s)
+mged_bsg_adc_reset(struct mged_state *s)
 {
     adc_state->adc_dv_x = adc_state->adc_dv_y = 0;
     adc_state->adc_dv_a1 = adc_state->adc_dv_a2 = 0;
     adc_state->adc_dv_dist = 0;
 
     VSETALL(adc_state->adc_pos_view, 0.0);
-    MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_view);
+    {
+	struct bsg_camera _cam;
+	bsg_view_get_camera(view_state->vs_gvp, &_cam);
+	MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_view);
+    }
     adc_state->adc_dst = (adc_state->adc_dv_dist * INV_BV + 1.0) * M_SQRT1_2;
     adc_state->adc_a1 = adc_state->adc_a2 = 45.0;
     adc_view_To_adc_grid(s);
@@ -468,7 +489,7 @@ f_adc (
 	    adc_state->adc_draw = 1;
 
 	if (adc_auto) {
-	    mged_adc_reset(s);
+	    mged_bsg_adc_reset(s);
 	    adc_auto = 0;
 	}
 
@@ -538,7 +559,7 @@ f_adc (
 		else
 		    adc_state->adc_a1 = user_pt[0];
 
-		adc_state->adc_dv_a1 = (1.0 - (adc_state->adc_a1 / 45.0)) * BV_MAX;
+		adc_state->adc_dv_a1 = (1.0 - (adc_state->adc_a1 / 45.0)) * BSG_VIEW_MAX;
 		adc_set_dirty_flag(s);
 	    }
 
@@ -563,7 +584,7 @@ f_adc (
 		else
 		    adc_state->adc_a2 = user_pt[0];
 
-		adc_state->adc_dv_a2 = (1.0 - (adc_state->adc_a2 / 45.0)) * BV_MAX;
+		adc_state->adc_dv_a2 = (1.0 - (adc_state->adc_a2 / 45.0)) * BSG_VIEW_MAX;
 		adc_set_dirty_flag(s);
 	    }
 
@@ -588,7 +609,7 @@ f_adc (
 		else
 		    adc_state->adc_dst = user_pt[0] / (view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
 
-		adc_state->adc_dv_dist = (adc_state->adc_dst / M_SQRT1_2 - 1.0) * BV_MAX;
+		adc_state->adc_dv_dist = (adc_state->adc_dst / M_SQRT1_2 - 1.0) * BSG_VIEW_MAX;
 
 		adc_set_dirty_flag(s);
 	    }
@@ -628,9 +649,11 @@ f_adc (
     if (BU_STR_EQUAL(parameter, "dh")) {
 	if (argc == 1) {
 	    if (!adc_state->adc_anchor_pos) {
+		struct bsg_camera _cam;
+		bsg_view_get_camera(view_state->vs_gvp, &_cam);
 		adc_state->adc_pos_grid[X] += user_pt[0] / (view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
 		adc_grid_To_adc_view(s);
-		MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_view);
+		MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_view);
 
 		adc_set_dirty_flag(s);
 	    }
@@ -645,9 +668,11 @@ f_adc (
     if (BU_STR_EQUAL(parameter, "dv")) {
 	if (argc == 1) {
 	    if (!adc_state->adc_anchor_pos) {
+		struct bsg_camera _cam;
+		bsg_view_get_camera(view_state->vs_gvp, &_cam);
 		adc_state->adc_pos_grid[Y] += user_pt[0] / (view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local);
 		adc_grid_To_adc_view(s);
-		MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_view);
+		MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_view);
 
 		adc_set_dirty_flag(s);
 	    }
@@ -680,7 +705,11 @@ f_adc (
 
 		adc_state->adc_pos_grid[Z] = 0.0;
 		adc_grid_To_adc_view(s);
-		MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_model);
+		{
+		    struct bsg_camera _cam;
+		    bsg_view_get_camera(view_state->vs_gvp, &_cam);
+		    MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_model);
+		}
 
 		adc_set_dirty_flag(s);
 	    }
@@ -791,7 +820,11 @@ f_adc (
 		adc_state->adc_pos_view[X] = adc_state->adc_dv_x * INV_BV;
 		adc_state->adc_pos_view[Y] = adc_state->adc_dv_y * INV_BV;
 		adc_view_To_adc_grid(s);
-		MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_view);
+		{
+		    struct bsg_camera _cam;
+		    bsg_view_get_camera(view_state->vs_gvp, &_cam);
+		    MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_view);
+		}
 
 		adc_set_dirty_flag(s);
 	    }
@@ -821,7 +854,11 @@ f_adc (
 		adc_state->adc_pos_view[X] = adc_state->adc_dv_x * INV_BV;
 		adc_state->adc_pos_view[Y] = adc_state->adc_dv_y * INV_BV;
 		adc_view_To_adc_grid(s);
-		MAT4X3PNT(adc_state->adc_pos_model, view_state->vs_gvp->gv_view2model, adc_state->adc_pos_view);
+		{
+		    struct bsg_camera _cam;
+		    bsg_view_get_camera(view_state->vs_gvp, &_cam);
+		    MAT4X3PNT(adc_state->adc_pos_model, _cam.view2model, adc_state->adc_pos_view);
+		}
 
 		adc_set_dirty_flag(s);
 	    }
@@ -1022,7 +1059,7 @@ f_adc (
 
     if (BU_STR_EQUAL(parameter, "reset")) {
 	if (argc == 0) {
-	    mged_adc_reset(s);
+	    mged_bsg_adc_reset(s);
 
 	    adc_set_dirty_flag(s);
 	    return TCL_OK;

@@ -757,12 +757,12 @@ rpc_plot_parabolic_curve(
     VMOVE(Bu, rpc->rpc_Bunit);
 
     VJOIN2(p, t, rscale * pts->p[Y], Ru, -pts->p[Z], Bu);
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_MOVE);
 
     node = pts->next;
     while (node != NULL) {
 	VJOIN2(p, t, rscale * node->p[Y], Ru, -node->p[Z], Bu);
-	BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_DRAW);
 
 	node = node->next;
     }
@@ -831,17 +831,17 @@ rpc_plot_curve_connections(
 
 	/* connect faces on one side of the curve */
 	VJOIN2(pt, rpc->rpc_V, z, Zu, -y, Yu);
-	BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_MOVE);
 
 	VADD2(pt, pt, rpc->rpc_H);
-	BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);
 
 	/* connect the faces on the other side */
 	VJOIN2(pt, rpc->rpc_V, z, Zu, y, Yu);
-	BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_MOVE);
 
 	VADD2(pt, pt, rpc->rpc_H);
-	BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -865,7 +865,7 @@ rpc_curve_points(
 }
 
 int
-rt_rpc_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const struct bview *v, fastf_t s_size)
+rt_rpc_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const bsg_view *v, fastf_t s_size)
 {
     point_t p;
     vect_t rpc_R;
@@ -914,25 +914,25 @@ rt_rpc_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const str
 
     /* plot rectangular face */
     VADD2(p, rpc->rpc_V, rpc_R);
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_MOVE);
 
     VADD2(p, p, rpc->rpc_H);
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_DRAW);
 
     VJOIN1(p, p, -2.0, rpc_R);
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_DRAW);
 
     VJOIN1(p, p, -1.0, rpc->rpc_H);
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_DRAW);
 
     VJOIN1(p, p, 2.0, rpc_R);
-    BV_ADD_VLIST(vlfree, vhead, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, p, BSG_VLIST_LINE_DRAW);
 
     return 0;
 }
 
 int
-rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const bsg_view *UNUSED(info))
 {
     struct rt_rpc_internal *xip;
     fastf_t *front;
@@ -1015,21 +1015,21 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     }
 
     /* Draw the front */
-    BV_ADD_VLIST(vlfree, vhead, &front[(n-1)*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &front[(n-1)*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i = 0; i < n; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &front[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &front[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
     /* Draw the back */
-    BV_ADD_VLIST(vlfree, vhead, &back[(n-1)*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &back[(n-1)*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i = 0; i < n; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &back[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &back[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
     /* Draw connections */
     for (i = 0; i < n; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &front[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, &back[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &front[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, &back[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
     bu_free((char *)front, "fastf_t");

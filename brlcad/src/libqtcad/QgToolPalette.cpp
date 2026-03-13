@@ -138,7 +138,7 @@ QgToolPalette::QgToolPalette(QWidget *pparent) : QWidget(pparent)
     mlayout->addWidget(button_container);
     mlayout->addWidget(control_container);
 
-    selected = NULL;
+    selected = nullptr;
 
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     setLayout(mlayout);
@@ -176,7 +176,7 @@ void
 QgToolPalette::setIconWidth(int iwidth)
 {
     icon_width = iwidth;
-    foreach(QgToolPaletteElement *el, elements) {
+    for (QgToolPaletteElement *el : elements) {
 	el->button->setMinimumWidth(icon_height);
 	el->button->setMaximumWidth(icon_height);
     }
@@ -187,7 +187,7 @@ void
 QgToolPalette::setIconHeight(int iheight)
 {
     icon_height = iheight;
-    foreach(QgToolPaletteElement *el, elements) {
+    for (QgToolPaletteElement *el : elements) {
 	el->button->setMinimumHeight(icon_height);
 	el->button->setMaximumHeight(icon_height);
     }
@@ -199,7 +199,7 @@ void
 QgToolPalette::setAlwaysSelected(int toggle)
 {
     always_selected = toggle;
-    if (always_selected && selected == NULL) {
+    if (always_selected && selected == nullptr) {
 	palette_displayElement(*(elements.begin()));
     }
 }
@@ -263,7 +263,7 @@ QgToolPalette::palette_displayElement(QgToolPaletteElement *element)
 	    if (!always_selected) {
 		if (element->button->isChecked()) element->button->setChecked(false);
 		element->controls->hide();
-		selected = NULL;
+		selected = nullptr;
 	    } else {
 		element->button->setStyleSheet(selected_style);
 	    }
@@ -278,10 +278,10 @@ QgToolPalette::palette_displayElement(QgToolPaletteElement *element)
 	    control_container->setWidget(element->controls);
 	    element->controls->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 	    element->controls->show();
-	    element->do_element_unhide(NULL);
+	    element->do_element_unhide(nullptr);
 	    control_container->verticalScrollBar()->setSliderPosition(element->scroll_pos);
 	    selected = element;
-	    foreach(QgToolPaletteElement *el, elements) {
+	    for (QgToolPaletteElement *el : elements) {
 		if (el != selected) {
 		    el->button->setDown(false);
 		    el->button->setStyleSheet("");

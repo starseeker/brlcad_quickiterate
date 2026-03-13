@@ -77,19 +77,19 @@ signals:
 	void do_erase_selections();
 
     protected:
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
     private:
 	void select_objs();
 	void deselect_objs();
 	void erase_objs();
 
-	QgSelectFilter *cf = NULL;
+	QgSelectFilter *cf = nullptr;
 	QgSelectPntFilter *pf;
 	QgSelectBoxFilter *bf;
 	QgSelectRayFilter *rf;
 
-	struct ged *gedp = NULL;
+	struct ged *gedp = nullptr;
 	unsigned long long ohash = 0;
 	unsigned long long omhash = 0;
 };

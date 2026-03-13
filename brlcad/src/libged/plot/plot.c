@@ -31,7 +31,7 @@
 #include <string.h>
 
 #include "bn.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "bg/clip.h"
 
 #include "../ged_private.h"
@@ -44,17 +44,18 @@ extern int pclose(FILE *stream);
 #endif
 
 void
-dl_plot(struct bu_list *hdlp, FILE *fp, mat_t model2view, int floating, mat_t center, fastf_t scale, int Three_D, int Z_clip)
+dl_plot(bsg_view *v, FILE *fp, mat_t model2view, int floating, mat_t center, fastf_t scale, int Three_D, int Z_clip)
 {
-    struct display_list *gdlp;
-    struct display_list *next_gdlp;
-    struct bv_scene_obj *sp;
-    struct bv_vlist *vp;
+    bsg_shape *sp;
+    struct bsg_vlist *vp;
     static vect_t clipmin, clipmax;
     static vect_t last;         /* last drawn point */
     static vect_t fin;
     static vect_t start;
     int Dashing;                        /* linetype is dashed */
+
+    bsg_shape *root = bsg_scene_root_get(v);
+    size_t nshapes = root ? BU_PTBL_LEN(&root->children) : 0;
 
     if (floating) {
         pd_3space(fp,
@@ -67,27 +68,21 @@ dl_plot(struct bu_list *hdlp, FILE *fp, mat_t model2view, int floating, mat_t ce
         Dashing = 0;
         pl_linmod(fp, "solid");
 
-        gdlp = BU_LIST_NEXT(display_list, hdlp);
-        while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-            next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-            for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-                /* Could check for differences from last color */
-                pl_color(fp,
-                         sp->s_color[0],
-                         sp->s_color[1],
-                         sp->s_color[2]);
-                if (Dashing != sp->s_soldash) {
-                    if (sp->s_soldash)
-                        pl_linmod(fp, "dotdashed");
-                    else
-                        pl_linmod(fp, "solid");
-                    Dashing = sp->s_soldash;
-                }
-                bv_vlist_to_uplot(fp, &(sp->s_vlist));
+        for (size_t si = 0; si < nshapes; si++) {
+            sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+            /* Could check for differences from last color */
+            pl_color(fp,
+                     sp->s_color[0],
+                     sp->s_color[1],
+                     sp->s_color[2]);
+            if (Dashing != sp->s_soldash) {
+                if (sp->s_soldash)
+                    pl_linmod(fp, "dotdashed");
+                else
+                    pl_linmod(fp, "solid");
+                Dashing = sp->s_soldash;
             }
-
-            gdlp = next_gdlp;
+            bsg_vlist_to_uplot(fp, &(sp->s_vlist));
         }
 
         return;
@@ -111,82 +106,76 @@ dl_plot(struct bu_list *hdlp, FILE *fp, mat_t model2view, int floating, mat_t ce
     }
 
     if (Three_D)
-        pl_3space(fp, (int)BV_MIN, (int)BV_MIN, (int)BV_MIN, (int)BV_MAX, (int)BV_MAX, (int)BV_MAX);
+        pl_3space(fp, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX);
     else
-        pl_space(fp, (int)BV_MIN, (int)BV_MIN, (int)BV_MAX, (int)BV_MAX);
+        pl_space(fp, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX);
     pl_erase(fp);
     Dashing = 0;
     pl_linmod(fp, "solid");
 
-    gdlp = BU_LIST_NEXT(display_list, hdlp);
-    while (BU_LIST_NOT_HEAD(gdlp, hdlp)) {
-        next_gdlp = BU_LIST_PNEXT(display_list, gdlp);
-
-        for (BU_LIST_FOR(sp, bv_scene_obj, &gdlp->dl_head_scene_obj)) {
-            if (Dashing != sp->s_soldash) {
-                if (sp->s_soldash)
-                    pl_linmod(fp, "dotdashed");
-                else
-                    pl_linmod(fp, "solid");
-                Dashing = sp->s_soldash;
-            }
-            for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
-                size_t i;
-                size_t nused = vp->nused;
-                int *cmd = vp->cmd;
-                point_t *pt = vp->pt;
-                for (i = 0; i < nused; i++, cmd++, pt++) {
-                    switch (*cmd) {
-                        case BV_VLIST_POLY_START:
-                        case BV_VLIST_POLY_VERTNORM:
-                        case BV_VLIST_TRI_START:
-                        case BV_VLIST_TRI_VERTNORM:
-                            continue;
-                        case BV_VLIST_POLY_MOVE:
-                        case BV_VLIST_LINE_MOVE:
-                        case BV_VLIST_TRI_MOVE:
-                            /* Move, not draw */
-                            MAT4X3PNT(last, model2view, *pt);
-                            continue;
-                        case BV_VLIST_LINE_DRAW:
-                        case BV_VLIST_POLY_DRAW:
-                        case BV_VLIST_POLY_END:
-                        case BV_VLIST_TRI_DRAW:
-                        case BV_VLIST_TRI_END:
-                            /* draw */
-                            MAT4X3PNT(fin, model2view, *pt);
-                            VMOVE(start, last);
-                            VMOVE(last, fin);
-                            break;
-                    }
-                    if (bg_ray_vclip(start, fin, clipmin, clipmax) == 0)
+    for (size_t si = 0; si < nshapes; si++) {
+        sp = (bsg_shape *)BU_PTBL_GET(&root->children, si);
+        if (Dashing != sp->s_soldash) {
+            if (sp->s_soldash)
+                pl_linmod(fp, "dotdashed");
+            else
+                pl_linmod(fp, "solid");
+            Dashing = sp->s_soldash;
+        }
+        for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
+            size_t i;
+            size_t nused = vp->nused;
+            int *cmd = vp->cmd;
+            point_t *pt = vp->pt;
+            for (i = 0; i < nused; i++, cmd++, pt++) {
+                switch (*cmd) {
+                    case BSG_VLIST_POLY_START:
+                    case BSG_VLIST_POLY_VERTNORM:
+                    case BSG_VLIST_TRI_START:
+                    case BSG_VLIST_TRI_VERTNORM:
                         continue;
+                    case BSG_VLIST_POLY_MOVE:
+                    case BSG_VLIST_LINE_MOVE:
+                    case BSG_VLIST_TRI_MOVE:
+                        /* Move, not draw */
+                        MAT4X3PNT(last, model2view, *pt);
+                        continue;
+                    case BSG_VLIST_LINE_DRAW:
+                    case BSG_VLIST_POLY_DRAW:
+                    case BSG_VLIST_POLY_END:
+                    case BSG_VLIST_TRI_DRAW:
+                    case BSG_VLIST_TRI_END:
+                        /* draw */
+                        MAT4X3PNT(fin, model2view, *pt);
+                        VMOVE(start, last);
+                        VMOVE(last, fin);
+                        break;
+                }
+                if (bg_ray_vclip(start, fin, clipmin, clipmax) == 0)
+                    continue;
 
-                    if (Three_D) {
-                        /* Could check for differences from last color */
-                        pl_color(fp,
-                                 sp->s_color[0],
-                                 sp->s_color[1],
-                                 sp->s_color[2]);
-                        pl_3line(fp,
-                                 (int)(start[X] * BV_MAX),
-                                 (int)(start[Y] * BV_MAX),
-                                 (int)(start[Z] * BV_MAX),
-                                 (int)(fin[X] * BV_MAX),
-                                 (int)(fin[Y] * BV_MAX),
-                                 (int)(fin[Z] * BV_MAX));
-                    } else {
-                        pl_line(fp,
-                                (int)(start[0] * BV_MAX),
-                                (int)(start[1] * BV_MAX),
-                                (int)(fin[0] * BV_MAX),
-                                (int)(fin[1] * BV_MAX));
-                    }
+                if (Three_D) {
+                    /* Could check for differences from last color */
+                    pl_color(fp,
+                             sp->s_color[0],
+                             sp->s_color[1],
+                             sp->s_color[2]);
+                    pl_3line(fp,
+                             (int)(start[X] * BSG_VIEW_MAX),
+                             (int)(start[Y] * BSG_VIEW_MAX),
+                             (int)(start[Z] * BSG_VIEW_MAX),
+                             (int)(fin[X] * BSG_VIEW_MAX),
+                             (int)(fin[Y] * BSG_VIEW_MAX),
+                             (int)(fin[Z] * BSG_VIEW_MAX));
+                } else {
+                    pl_line(fp,
+                            (int)(start[0] * BSG_VIEW_MAX),
+                            (int)(start[1] * BSG_VIEW_MAX),
+                            (int)(fin[0] * BSG_VIEW_MAX),
+                            (int)(fin[1] * BSG_VIEW_MAX));
                 }
             }
         }
-
-        gdlp = next_gdlp;
     }
 }
 
@@ -281,7 +270,8 @@ ged_plot_core(struct ged *gedp, int argc, const char *argv[])
 	is_pipe = 0;
     }
 
-    dl_plot(gedp->i->ged_gdp->gd_headDisplay, fp, gedp->ged_gvp->gv_model2view, floating, gedp->ged_gvp->gv_center, gedp->ged_gvp->gv_scale, Three_D, Z_clip);
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm);
+      dl_plot(gedp->ged_gvp, fp, _cm.model2view, floating, _cm.center, gedp->ged_gvp->gv_scale, Three_D, Z_clip); }
 
     if (is_pipe)
 	(void)pclose(fp);

@@ -49,6 +49,7 @@
 #include "vmath.h"
 #include "raytrace.h"
 #include "ged.h"
+#include "bsg/util.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -171,8 +172,8 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 	case AMM_IDLE:
 	    if (scroll_active)
 		bu_vls_printf(&cmd, "M 1 %d %d\n",
-			      (int)(dm_Xx2Normal(DMP, mx) * BV_MAX),
-			      (int)(dm_Xy2Normal(DMP, my, 0) * BV_MAX));
+			      (int)(dm_Xx2Normal(DMP, mx) * BSG_VIEW_MAX),
+			      (int)(dm_Xy2Normal(DMP, my, 0) * BSG_VIEW_MAX));
 	    else if (rubber_band->rb_active) {
 		fastf_t x = dm_Xx2Normal(DMP, mx);
 		fastf_t y = dm_Xy2Normal(DMP, my, 1);
@@ -204,8 +205,8 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 		/* do the regular thing */
 		/* Constant tracking (e.g. illuminate mode) bound to M mouse */
 		bu_vls_printf(&cmd, "M 0 %d %d\n",
-			      (int)(dm_Xx2Normal(DMP, mx) * BV_MAX),
-			      (int)(dm_Xy2Normal(DMP, my, 0) * BV_MAX));
+			      (int)(dm_Xx2Normal(DMP, mx) * BSG_VIEW_MAX),
+			      (int)(dm_Xy2Normal(DMP, my, 0) * BSG_VIEW_MAX));
 	    else /* not doing motion */
 		goto handled;
 
@@ -287,8 +288,12 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 			view_pt[Z] = 0.0;
 			round_to_grid(s, &view_pt[X], &view_pt[Y]);
 
-			MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
-			MAT_DELTAS_GET_NEG(vcenter, view_state->vs_gvp->gv_center);
+			{
+			    struct bsg_camera _dc;
+			    bsg_view_get_camera(view_state->vs_gvp, &_dc);
+			    MAT4X3PNT(model_pt, _dc.view2model, view_pt);
+			    MAT_DELTAS_GET_NEG(vcenter, _dc.center);
+			}
 			VSUB2(diff, model_pt, vcenter);
 			VSCALE(diff, diff, s->dbip->dbi_base2local);
 			VADD2(model_pt, dm_work_pt, diff);
@@ -347,14 +352,14 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 
 	    break;
 	case AMM_ADC_ANG1:
-	    fx = dm_Xx2Normal(DMP, mx) * BV_MAX - adc_state->adc_dv_x;
-	    fy = dm_Xy2Normal(DMP, my, 1) * BV_MAX - adc_state->adc_dv_y;
+	    fx = dm_Xx2Normal(DMP, mx) * BSG_VIEW_MAX - adc_state->adc_dv_x;
+	    fy = dm_Xy2Normal(DMP, my, 1) * BSG_VIEW_MAX - adc_state->adc_dv_y;
 	    bu_vls_printf(&cmd, "adc a1 %lf\n", RAD2DEG*atan2(fy, fx));
 
 	    break;
 	case AMM_ADC_ANG2:
-	    fx = dm_Xx2Normal(DMP, mx) * BV_MAX - adc_state->adc_dv_x;
-	    fy = dm_Xy2Normal(DMP, my, 1) * BV_MAX - adc_state->adc_dv_y;
+	    fx = dm_Xx2Normal(DMP, mx) * BSG_VIEW_MAX - adc_state->adc_dv_x;
+	    fy = dm_Xy2Normal(DMP, my, 1) * BSG_VIEW_MAX - adc_state->adc_dv_y;
 	    bu_vls_printf(&cmd, "adc a2 %lf\n", RAD2DEG*atan2(fy, fx));
 
 	    break;
@@ -368,15 +373,19 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 		if (grid_state->snap)
 		    snap_to_grid(s, &view_pt[X], &view_pt[Y]);
 
-		MAT4X3PNT(model_pt, view_state->vs_gvp->gv_view2model, view_pt);
+		{
+		    struct bsg_camera _dc2;
+		    bsg_view_get_camera(view_state->vs_gvp, &_dc2);
+		    MAT4X3PNT(model_pt, _dc2.view2model, view_pt);
+		}
 		VSCALE(model_pt, model_pt, s->dbip->dbi_base2local);
 		bu_vls_printf(&cmd, "adc xyz %lf %lf %lf\n", model_pt[X], model_pt[Y], model_pt[Z]);
 	    }
 
 	    break;
 	case AMM_ADC_DIST:
-	    fx = (dm_Xx2Normal(DMP, mx) * BV_MAX - adc_state->adc_dv_x) * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local * INV_BV;
-	    fy = (dm_Xy2Normal(DMP, my, 1) * BV_MAX - adc_state->adc_dv_y) * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local * INV_BV;
+	    fx = (dm_Xx2Normal(DMP, mx) * BSG_VIEW_MAX - adc_state->adc_dv_x) * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local * INV_BV;
+	    fy = (dm_Xy2Normal(DMP, my, 1) * BSG_VIEW_MAX - adc_state->adc_dv_y) * view_state->vs_gvp->gv_scale * s->dbip->dbi_base2local * INV_BV;
 	    td = sqrt(fx * fx + fy * fy);
 	    bu_vls_printf(&cmd, "adc dst %lf\n", td);
 
@@ -598,7 +607,7 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 		f = -dy;
 
 	    bu_vls_printf(&cmd, "knob -i xadc %f\n",
-			  f / (fastf_t)width * BV_RANGE);
+			  f / (fastf_t)width * BSG_VIEW_RANGE);
 	    break;
 	case AMM_CON_YADC:
 	    if (abs(dx) >= abs(dy))
@@ -607,7 +616,7 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 		f = -dy;
 
 	    bu_vls_printf(&cmd, "knob -i yadc %f\n",
-			  f / (fastf_t)height * BV_RANGE);
+			  f / (fastf_t)height * BSG_VIEW_RANGE);
 	    break;
 	case AMM_CON_ANG1:
 	    if (abs(dx) >= abs(dy))
@@ -634,7 +643,7 @@ motion_event_handler(struct mged_state *s, XMotionEvent *xmotion)
 		f = -dy;
 
 	    bu_vls_printf(&cmd, "knob -i distadc %f\n",
-			  f / (fastf_t)width * BV_RANGE);
+			  f / (fastf_t)width * BSG_VIEW_RANGE);
 	    break;
     }
 

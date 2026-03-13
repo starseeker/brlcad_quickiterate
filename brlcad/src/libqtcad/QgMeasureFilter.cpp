@@ -27,7 +27,8 @@
 
 extern "C" {
 #include "bu/malloc.h"
-#include "bv.h"
+#include "bsg.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 }
 
@@ -38,14 +39,14 @@ QMouseEvent *
 QgMeasureFilter::view_sync(QEvent *e)
 {
     if (!v)
-	return NULL;
+	return nullptr;
 
     // If we don't have one of the relevant mouse operations, there's nothing to do
-    QMouseEvent *m_e = NULL;
+    QMouseEvent *m_e = nullptr;
     if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonRelease || e->type() == QEvent::MouseButtonDblClick || e->type() == QEvent::MouseMove)
 	m_e = (QMouseEvent *)e;
     if (!m_e)
-	return NULL;
+	return nullptr;
 
     // We're going to need the mouse position
     int e_x, e_y;
@@ -57,16 +58,16 @@ QgMeasureFilter::view_sync(QEvent *e)
     e_y = m_e->position().y();
 #endif
 
-    // Update relevant bview variables
+    // Update relevant bsg_view variables
     v->gv_prevMouseX = v->gv_mouse_x;
     v->gv_prevMouseY = v->gv_mouse_y;
     v->gv_mouse_x = e_x;
     v->gv_mouse_y = e_y;
-    bv_screen_pt(&v->gv_point, e_x, e_y, v);
+    bsg_screen_pt(&v->gv_point, e_x, e_y, v);
 
     // If we have modifiers, we're most likely doing shift grips
     if (m_e->modifiers() != Qt::NoModifier)
-	return NULL;
+	return nullptr;
 
     return m_e;
 }
@@ -121,7 +122,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
     if (e->type() == QEvent::MouseButtonPress) {
 	if (m_e->button() == Qt::RightButton) {
 	    if (s)
-		bv_obj_put(s);
+		bsg_shape_put(s);
 	    mode = 0;
 	    VSETALL(p1, 0.0);
 	    VSETALL(p2, 0.0);
@@ -131,7 +132,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	}
 	if (mode == 4) {
 	    if (s)
-		bv_obj_put(s);
+		bsg_shape_put(s);
 	    mode = 0;
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
@@ -145,13 +146,13 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    VSETALL(p3, 0.0);
 
 	    if (s)
-		bv_obj_put(s);
-	    s = bv_obj_get(v, BV_VIEW_OBJS);
+		bsg_shape_put(s);
+	    s = bsg_shape_get(v, BSG_VIEW_OBJS);
 
 	    mode = 1;
 	    VMOVE(p1, mpnt);
 	    VMOVE(p2, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
 	    bu_vls_init(&s->s_name);
 	    bu_vls_printf(&s->s_name, "%s", oname.c_str());
 	    emit view_updated(QG_VIEW_REFRESH);
@@ -168,11 +169,11 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    if (!get_point())
 		return true;
 	    mode = 3;
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
+	    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
 	    VMOVE(p3, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BSG_VLIST_LINE_DRAW);
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
 	return true;
@@ -185,21 +186,21 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    if (!get_point())
 		return true;
 
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
+	    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
 	    VMOVE(p2, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
 	if (mode == 3) {
 	    if (!get_point())
 		return true;
 
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
+	    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
 	    VMOVE(p3, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BSG_VLIST_LINE_DRAW);
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
 	return true;
@@ -209,10 +210,10 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	if (m_e->button() == Qt::RightButton) {
 	    mode = 0;
 	    if (s) {
-		bv_obj_put(s);
+		bsg_shape_put(s);
 		emit view_updated(QG_VIEW_REFRESH);
 	    }
-	    s = NULL;
+	    s = nullptr;
 	    return true;
 	}
 	if (!mode)
@@ -232,10 +233,10 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    }
 
 	    mode = 2;
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
+	    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
 	    VMOVE(p2, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -243,11 +244,11 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    if (!get_point())
 		return true;
 	    mode = 4;
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
+	    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
 	    VMOVE(p3, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BSG_VLIST_LINE_DRAW);
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -263,10 +264,12 @@ bool
 QMeasure2DFilter::get_point()
 {
     fastf_t vx, vy;
-    bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
+    bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+    struct bsg_camera measure_camera;
+    bsg_view_get_camera(v, &measure_camera);
+    MAT4X3PNT(mpnt, measure_camera.view2model, vpnt);
     return true;
 }
 
@@ -321,10 +324,12 @@ QMeasure3DFilter::get_point()
 	return false;
 
     fastf_t vx, vy;
-    bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
+    bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+    struct bsg_camera measure_camera;
+    bsg_view_get_camera(v, &measure_camera);
+    MAT4X3PNT(mpnt, measure_camera.view2model, vpnt);
 
     // With this filter we want a 3D point based on scene geometry (hard case)
     // - need to interrogate the scene with the raytracer.
@@ -334,7 +339,7 @@ QMeasure3DFilter::get_point()
     // Under most circumstances that should substantially cut down the
     // interrogation time for large models.
     struct bu_ptbl sset = BU_PTBL_INIT_ZERO;
-    int scnt = bv_view_objs_select(&sset, v, v->gv_mouse_x, v->gv_mouse_y);
+    int scnt = bsg_view_shapes_select(&sset, v, v->gv_mouse_x, v->gv_mouse_y);
 
     // If we didn't see anything, we have a no-op
     if (!scnt) {
@@ -371,13 +376,13 @@ QMeasure3DFilter::get_point()
 	    RT_APPLICATION_INIT(ap);
 	    ap->a_onehit = 1;
 	    ap->a_hit = _cpnt_hit;
-	    ap->a_miss = NULL;
+	    ap->a_miss = nullptr;
 	    ap->a_overlap = _cpnt_ovlp;
-	    ap->a_logoverlap = NULL;
+	    ap->a_logoverlap = nullptr;
 	}
 	if (rtip) {
 	    rt_free_rti(rtip);
-	    rtip = NULL;
+	    rtip = nullptr;
 	}
 	rtip = rt_new_rti(dbip);
 	if (resp) {
@@ -391,15 +396,15 @@ QMeasure3DFilter::get_point()
 
 	const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&scene_obj_set) + 1, sizeof(char *), "objs");
 	for (size_t i = 0; i < BU_PTBL_LEN(&scene_obj_set); i++) {
-	    struct bv_scene_obj *l_s = (struct bv_scene_obj *)BU_PTBL_GET(&scene_obj_set, i);
+	    bsg_shape *l_s = (bsg_shape *)BU_PTBL_GET(&scene_obj_set, i);
 	    objs[i] = bu_vls_cstr(&l_s->s_name);
 	}
-	if (rt_gettrees_and_attrs(rtip, NULL, scnt, objs, 1)) {
+	if (rt_gettrees_and_attrs(rtip, nullptr, scnt, objs, 1)) {
 	    bu_free(objs, "objs");
 	    rt_free_rti(rtip);
-	    rtip = NULL;
+	    rtip = nullptr;
 	    BU_PUT(resp, struct resource);
-	    resp = NULL;
+	    resp = nullptr;
 	    bu_ptbl_free(&sset);
 	    return false;
 	}
@@ -417,7 +422,9 @@ QMeasure3DFilter::get_point()
 
     // Set up the ray itself
     vect_t dir;
-    VMOVEN(dir, v->gv_rotation + 8, 3);
+    struct bsg_camera ray_camera;
+    bsg_view_get_camera(v, &ray_camera);
+    VMOVEN(dir, ray_camera.rotation + 8, 3);
     VUNITIZE(dir);
     VSCALE(dir, dir, v->radius);
     VADD2(ap->a_ray.r_pt, mpnt, dir);

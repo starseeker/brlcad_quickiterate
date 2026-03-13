@@ -448,7 +448,7 @@ rt_bound_instance(point_t *bmin, point_t *bmax,
 	struct bu_list vhead;
 	BU_LIST_INIT(&(vhead));
 	if (ip->idb_meth->ft_plot(&vhead, ip, ttol, tol, NULL) >= 0) {
-	    if (bv_vlist_bbox(&vhead, bmin, bmax, NULL, NULL)) {
+	    if (bsg_vlist_bbox(&vhead, bmin, bmax, NULL, NULL)) {
 		rt_db_free_internal(&dbintern);
 		return -1;
 	    }

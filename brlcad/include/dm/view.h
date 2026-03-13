@@ -33,7 +33,7 @@
 
 #include "bu/hash.h"
 #include "bu/vls.h"
-#include "bv/defines.h"
+#include "bsg.h"
 #include "dm/defines.h"
 
 #ifndef DM_VIEW_H
@@ -56,7 +56,7 @@ struct dm_view_data {
     int                 refresh_on;
 };
 
-DM_EXPORT extern void dm_draw_faceplate(struct bview *v);
+DM_EXPORT extern void dm_draw_faceplate(bsg_view *v);
 
 /* As a temporary measure, require client codes to specifically ask to enable
  * the bits that require librt in the headers if they're not going to be
@@ -69,11 +69,11 @@ DM_EXPORT extern void dm_draw_faceplate(struct bview *v);
  * sort on a bv scene object... */
 #include "rt/wdb.h"
 
-DM_EXPORT extern void dm_draw_viewobjs(struct rt_wdb *wdbp, struct bview *v, struct dm_view_data *d);
-#endif /* DM_NO_RT */
+DM_EXPORT extern void dm_draw_viewobjs(struct rt_wdb *wdbp, bsg_view *v, struct dm_view_data *d);
 
 /* Stripped down form of dm_draw_viewobjs that does just what's needed for the new setup */
-DM_EXPORT extern void dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), void *u_data);
+DM_EXPORT extern void dm_draw_objs(bsg_view *v, void (*dm_draw_custom)(bsg_view *, void *), void *u_data);
+#endif /* DM_NO_RT */
 
 __END_DECLS
 

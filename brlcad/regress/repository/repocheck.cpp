@@ -494,6 +494,9 @@ init_repo_config(RepoConfig &cfg)
 	add_func_ex(".*/tests/dirname[.]c$", "dirname");
 	add_func_ex(".*/file[.]c$", "remove");
 	add_func_ex(".*/libtermio[.]h$", "strncmp");
+	// DrawList::remove() is a C++ method, not the POSIX remove() file API
+	add_func_ex(".*/include/ged/dbi[.]h$", "remove");
+	add_func_ex(".*/libged/dbi_state[.]cpp$", "remove");
 
 	const char *str_related[] = {
 	    "strcasecmp",

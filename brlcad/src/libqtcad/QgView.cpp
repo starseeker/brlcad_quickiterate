@@ -27,8 +27,7 @@
 #include "common.h"
 
 #include "bg/polygon.h"
-#include "bv.h"
-#include "raytrace.h" // For finalize polygon sketch export functionality (TODO - need to move...)
+#include "bsg.h"
 #include "qtcad/QgView.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -123,7 +122,7 @@ QgView::view_type()
 
 
 void
-QgView::save_image(int UNUSED(quad))
+QgView::save_image([[maybe_unused]] int quad)
 {
 }
 
@@ -137,7 +136,7 @@ QgView::do_view_changed()
 void
 QgView::need_update(unsigned long long)
 {
-    bv_log(4, "QgView::need_update");
+    bsg_log(4, "QgView::need_update");
     QTCAD_SLOT("QgView::need_update", 1);
 #ifdef BRLCAD_OPENGL
     if (canvas_gl) {
@@ -151,7 +150,7 @@ QgView::need_update(unsigned long long)
     }
 }
 
-struct bview *
+bsg_view *
 QgView::view()
 {
 #ifdef BRLCAD_OPENGL
@@ -161,7 +160,7 @@ QgView::view()
     if (canvas_sw)
 	return canvas_sw->v;
 
-    return NULL;
+    return nullptr;
 }
 
 struct dm *
@@ -174,7 +173,7 @@ QgView::dmp()
     if (canvas_sw)
 	return canvas_sw->dmp;
 
-    return NULL;
+    return nullptr;
 }
 
 struct fb *
@@ -187,11 +186,11 @@ QgView::ifp()
     if (canvas_sw)
 	return canvas_sw->ifp;
 
-    return NULL;
+    return nullptr;
 }
 
 void
-QgView::set_view(struct bview *nv)
+QgView::set_view(bsg_view *nv)
 {
 #ifdef BRLCAD_OPENGL
     if (canvas_gl) {
@@ -311,9 +310,8 @@ QgView::clear_event_filter(QObject *o)
 	if (o) {
 	    canvas_gl->removeEventFilter(o);
 	} else {
-	    for (size_t i = 0; i < filters.size(); i++) {
-		canvas_gl->removeEventFilter(filters[i]);
-	    }
+	    for (QObject *f : filters)
+		canvas_gl->removeEventFilter(f);
 	    filters.clear();
 	}
     }
@@ -322,17 +320,16 @@ QgView::clear_event_filter(QObject *o)
 	if (o) {
 	    canvas_sw->removeEventFilter(o);
 	} else {
-	    for (size_t i = 0; i < filters.size(); i++) {
-		canvas_sw->removeEventFilter(filters[i]);
-	    }
+	    for (QObject *f : filters)
+		canvas_sw->removeEventFilter(f);
 	    filters.clear();
 	}
     }
-    curr_event_filter = NULL;
+    curr_event_filter = nullptr;
 }
 
 void
-QgView::set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata)
+QgView::set_draw_custom(void (*draw_custom)(bsg_view *, void *), void *draw_udata)
 {
 
 #ifdef BRLCAD_OPENGL

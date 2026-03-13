@@ -32,6 +32,7 @@
 #include "../ged_private.h"
 extern "C" {
 #include "./ged_draw.h"
+#include "bsg/util.h"
 }
 
 /**
@@ -46,9 +47,7 @@ _ged_cm_vsize(struct ged *gedp, vect_t *UNUSED(v), mat_t *UNUSED(m), const int a
     if (argc < 2)
 	return -1;
     /* for some reason, scale is supposed to be half of size... */
-    gedp->ged_gvp->gv_size = atof(argv[1]);
-    gedp->ged_gvp->gv_scale = gedp->ged_gvp->gv_size * 0.5;
-    gedp->ged_gvp->gv_isize = 1.0 / gedp->ged_gvp->gv_size;
+    bsg_view_set_size(gedp->ged_gvp, atof(argv[1]));
     return 0;
 }
 
@@ -167,9 +166,18 @@ _ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int argc, const char **
     /* now we have to finish view calculations that are deferred until
      * the end command runs.
      */
-    MAT_COPY(gedp->ged_gvp->gv_rotation, (*m));
-    MAT_DELTAS_VEC_NEG(gedp->ged_gvp->gv_center, (*v));
-    bv_update(gedp->ged_gvp);
+    {
+	struct bsg_camera cam;
+	bsg_view_get_camera(gedp->ged_gvp, &cam);
+	MAT_COPY(cam.rotation, (*m));
+	MAT_DELTAS_VEC_NEG(cam.center, (*v));
+	bsg_view_set_camera(gedp->ged_gvp, &cam);
+	/* Propagate to the camera node in the scene root, if present. */
+	bsg_shape *cam_node = bsg_scene_root_camera(gedp->ged_gvp);
+	if (cam_node)
+	    bsg_camera_node_set(cam_node, &cam);
+    }
+    bsg_view_update(gedp->ged_gvp);
 
     struct bu_vls eye = BU_VLS_INIT_ZERO;
     bu_vls_printf(&eye, "%lf %lf %lf", V3ARGS((*v)));
@@ -335,7 +343,7 @@ ged_loadview_core(struct ged *gedp, int argc, const char *argv[])
     /* turn perspective mode off, by default.  A "-p" option in the
      * view script will turn it back on.
      */
-    gedp->ged_gvp->gv_perspective = 0;
+    { struct bsg_camera _cm; bsg_view_get_camera(gedp->ged_gvp, &_cm); _cm.perspective = 0; bsg_view_set_camera(gedp->ged_gvp, &_cm); }
 
     /* iterate over the contents of the raytrace script */
     /* TODO: change to bu_fgets or bu_vls_fgets */

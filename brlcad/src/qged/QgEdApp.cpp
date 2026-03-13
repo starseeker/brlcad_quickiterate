@@ -24,20 +24,97 @@
  */
 
 #include <set>
+#include <unordered_map>
 #include <unordered_set>
+#include <QApplication>
 #include <QFileInfo>
 #include <QFile>
+#include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include <QThread>
+#include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
+#include "bu/ptbl.h"
+#include "bsg/util.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdApp.h"
 #include "fbserv.h"
 #include "QgEdFilter.h"
 
+#ifdef BRLCAD_ENABLE_OBOL
+#  include <Inventor/SoDB.h>
+#  include <Inventor/nodekits/SoNodeKit.h>
+#  include <Inventor/SoInteraction.h>
+#  include <Inventor/nodes/SoNode.h>
+#  include "QgObolView.h"
+/* Application-wide context managers (created before any GL widget). */
+static QgObolContextManager *s_obol_ctx_mgr = nullptr;
+#  ifdef OBOL_BUILD_DUAL_GL
+static CoinOSMesaContextManager *s_osmesa_ctx_mgr = nullptr;
+#  endif
+/* Shim for bsg_obol_set_unref: calls SoNode::unref() on the void* pointer. */
+static void obol_unref_shim(void *p) {
+    if (p) static_cast<SoNode *>(p)->unref();
+}
+#endif /* BRLCAD_ENABLE_OBOL */
+
 #include "../libged/dbi.h"
+
+/* --------------------------------------------------------------------------
+ * P2: Sensor-driven redraws.
+ *
+ * We register a bsg_sensor on every shape in each view's scene root.  When
+ * bsg_shape_stale() fires on any shape (e.g. after a LOD switch or a
+ * display-list invalidation) the callback schedules a Qt repaint by invoking
+ * do_view_changed(QG_VIEW_REFRESH) via a queued meta-call so the signal is
+ * safely emitted from whatever thread fired the sensor.
+ * -------------------------------------------------------------------------- */
+
+static std::unordered_map<bsg_shape *, unsigned long long> &qged_sensor_map()
+{
+    static std::unordered_map<bsg_shape *, unsigned long long> m;
+    return m;
+}
+
+static void
+qged_shape_stale_cb(bsg_shape *s, void *ctx)
+{
+    (void)s;
+    if (!ctx) return;
+    QgEdApp *app = static_cast<QgEdApp *>(ctx);
+    QMetaObject::invokeMethod(app, "do_view_changed",
+	Qt::QueuedConnection,
+	Q_ARG(unsigned long long, (unsigned long long)QG_VIEW_REFRESH));
+}
+
+static void
+qged_register_view_sensors(QgEdApp *app, bsg_view *v)
+{
+    if (!app || !v) return;
+    bsg_shape *root = bsg_scene_root_get(v);
+    if (!root) return;
+    auto &m = qged_sensor_map();
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+	bsg_shape *s = (bsg_shape *)BU_PTBL_GET(&root->children, i);
+	if (!s) continue;
+	if (m.find(s) != m.end()) continue;
+	unsigned long long h = bsg_shape_add_sensor(s, qged_shape_stale_cb, app);
+	if (h) m[s] = h;
+    }
+}
+
+static void
+qged_deregister_all_sensors()
+{
+    auto &m = qged_sensor_map();
+    for (auto &kv : m) {
+	bsg_shape_rm_sensor(kv.first, kv.second);
+    }
+    m.clear();
+}
 
 int
 qged_pre_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
@@ -64,6 +141,7 @@ qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp
 int
 qged_pre_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
 {
+    qged_deregister_all_sensors();
     return BRLCAD_OK;
 }
 
@@ -143,7 +221,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     // time to call the end callback (if any)
     if (!p->stdin_active && !p->stdout_active && !p->stderr_active) {
 	if (p->end_clbk)
-	    p->end_clbk(0, NULL, NULL, p->end_clbk_data);
+	    p->end_clbk(0, nullptr, nullptr, p->end_clbk_data);
     }
 
     emit ca->view_update(QG_VIEW_REFRESH);
@@ -156,6 +234,33 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     setOrganizationDomain("brlcad.org");
     setApplicationName("QGED");
     setApplicationVersion(brlcad_version());
+
+    // ── Obol scene-graph initialization ─────────────────────────────────
+    // Obol must be initialized before any QOpenGLWidget-derived view is
+    // created.  We create the context manager here (before the main window)
+    // and pass it to SoDB::init().
+    //
+    //   Hardware GL: QgObolContextManager (Qt QOpenGLContext/QOffscreenSurface)
+    //   Swrast mode: CoinOSMesaContextManager (OSMesa, OBOL_BUILD_DUAL_GL only)
+#ifdef BRLCAD_ENABLE_OBOL
+#  ifdef OBOL_BUILD_DUAL_GL
+    if (swrast_mode) {
+	s_osmesa_ctx_mgr = new CoinOSMesaContextManager();
+	SoDB::init(s_osmesa_ctx_mgr);
+    } else {
+#  endif
+	s_obol_ctx_mgr = new QgObolContextManager(nullptr /* share ctx set later */);
+	SoDB::init(s_obol_ctx_mgr);
+#  ifdef OBOL_BUILD_DUAL_GL
+    }
+#  endif
+    SoNodeKit::init();
+    SoInteraction::init();
+    /* Disable Obol's own auto-redraw loop — Qt's event loop drives repaints. */
+    SoRenderManager::enableRealTimeUpdate(FALSE);
+    /* Register unref hook so libbsg can release Obol nodes on shape free. */
+    bsg_obol_set_unref(obol_unref_shim);
+#endif /* BRLCAD_ENABLE_OBOL */
 
     // NOTE - these env variables should ultimately be temporary - we are using
     // them to enable behavior in LIBRT/LIBGED we don't yet want on by default
@@ -185,7 +290,7 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
      * those assignment */
     struct ged *gedp = mdl->gedp;
 
-    // Let GED know to use the QgQuadView view as its current view
+    // Let GED know to use the primary view as its current view
     gedp->ged_gvp = w->CurrentView();
 
     // Set up the connections needed for embedded raytracing
@@ -196,15 +301,20 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 
     // Unfortunately, there are technical differences involved with
     // the embedded fb mechanisms depending on whether we are using
-    // the system native OpenGL or our fallback software rasterizer
-    int type = w->CurrentDisplay()->view_type();
+    // the system native OpenGL or our fallback software rasterizer.
+    // When using the Obol path, CurrentDisplay() returns nullptr; skip
+    // libdm-specific fb setup in that case.
+    {
+	QgView *disp = w->CurrentDisplay();
+	int type = disp ? disp->view_type() : 0;
 #ifdef BRLCAD_OPENGL
-    if (type == QgView_GL) {
-	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_client_handler;
-    }
+	if (type == QgView_GL) {
+	    gedp->ged_fbs->fbs_open_client_handler = &qdm_open_client_handler;
+	}
 #endif
-    if (type == QgView_SW) {
-	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_sw_client_handler;
+	if (type == QgView_SW) {
+	    gedp->ged_fbs->fbs_open_client_handler = &qdm_open_sw_client_handler;
+	}
     }
     gedp->ged_fbs->fbs_close_client_handler = &qdm_close_client_handler;
 
@@ -262,8 +372,8 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     // about some of them to have drawing commands connect properly to the 3D
     // displays.
     if (argc) {
-	char *fname = bu_strdup(bu_dir(NULL, 0, BU_DIR_CURR, argv[0], NULL));
-	if (!bu_file_exists(fname, NULL)) {
+	char *fname = bu_strdup(bu_dir(nullptr, 0, BU_DIR_CURR, argv[0], nullptr));
+	if (!bu_file_exists(fname, nullptr)) {
 	    // Current dir prefix didn't work - were we given a full path rather
 	    // than a relative path?
 	    bu_free(fname, "path");
@@ -305,11 +415,149 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     if (have_msg) {
 	w->console->prompt("$ ");
     }
+
+    // Start the background geometry drain timer.  Every BG_GEOM_DRAIN_INTERVAL_MS
+    // milliseconds the timer fires drain_background_geom(), which integrates any
+    // bounding-box results posted by the GeomLoader worker thread and emits a
+    // single view_update signal if new data arrived.  This is the notification-
+    // bundling mechanism: many bbox results that complete within one interval are
+    // coalesced into one repaint instead of thrashing the event loop.
+    geom_drain_timer_ = new QTimer(this);
+    geom_drain_timer_->setInterval(BG_GEOM_DRAIN_INTERVAL_MS);
+    connect(geom_drain_timer_, &QTimer::timeout, this, &QgEdApp::drain_background_geom);
+    geom_drain_timer_->start();
 }
 
 QgEdApp::~QgEdApp() {
     delete mdl;
     // TODO - free rt_vlfree?
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Deregister the Obol unref hook before Obol shuts down. */
+    bsg_obol_set_unref(nullptr);
+    SoDB::finish();
+    delete s_obol_ctx_mgr;
+    s_obol_ctx_mgr = nullptr;
+#  ifdef OBOL_BUILD_DUAL_GL
+    delete s_osmesa_ctx_mgr;
+    s_osmesa_ctx_mgr = nullptr;
+#  endif
+#endif /* BRLCAD_ENABLE_OBOL */
+}
+
+void
+QgEdApp::drain_background_geom()
+{
+    QTCAD_SLOT("QgEdApp::drain_background_geom", 1);
+
+    if (!mdl || !mdl->gedp || !mdl->gedp->dbi_state)
+	return;
+
+    DbiState *dbis = static_cast<DbiState *>(mdl->gedp->dbi_state);
+    size_t n = dbis->drain_geom_results();
+    if (n > 0) {
+	// New bounding-box data has arrived from the background loader.
+	// Emit a view_update so that all subscribed views repaint.  Any
+	// additional drain results that complete before the next timer firing
+	// will be bundled into the next emission, keeping the repaint rate
+	// bounded to BG_GEOM_DRAIN_INTERVAL_MS.
+	emit view_update(GED_DBISTATE_VIEW_CHANGE);
+    }
+
+    // When OBB data for BoT primitives has been newly integrated, the AABB
+    // placeholder wireframes in the scene should be upgraded to OBB wireframes
+    // (which are a tighter fit).  A plain view_update() only schedules a
+    // viewport repaint; it does NOT call BViewState::redraw(), which is the
+    // only code path that triggers bot_adaptive_plot() to switch from the
+    // AABB wireframe placeholder to the tighter OBB wireframe placeholder.
+    //
+    // Detect newly arrived AABB bboxes (dbis->bboxes.size() advanced) and
+    // schedule a scene redraw via do_view_changed(QG_VIEW_DRAWN).  This is
+    // needed when BRLCAD_CACHE_AABB_DELAY_MS is set: shapes start with
+    // have_bbox=0 and no view object; when bboxes grow, bot_adaptive_plot()
+    // can late-populate the bbox and draw the first AABB placeholder.
+    size_t cur_aabb = dbis->bboxes.size();
+    if (cur_aabb < last_aabb_count_) {
+	last_aabb_count_ = 0;
+    }
+    if (cur_aabb > last_aabb_count_) {
+	last_aabb_count_ = cur_aabb;
+	do_view_changed(QG_VIEW_DRAWN);
+
+	// Progressive autoview: if any view has gv_progressive_autoview set,
+	// re-run bsg_view_autoview() now that more bboxes are available so the
+	// camera keeps tracking the growing scene.  When all BoT shapes have
+	// bbox data (shapes_without_bbox() == 0), the scene is stable and
+	// we clear the flag so autoview stops firing.
+	struct bu_ptbl *views = (mdl && mdl->gedp)
+	    ? bsg_scene_views(&mdl->gedp->ged_views) : nullptr;
+	if (views) {
+	    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+		if (!v || !v->gv_s || !v->gv_s->gv_progressive_autoview)
+		    continue;
+
+		// Re-run autoview with current (partial) bbox data.
+		// Do NOT re-set gv_progressive_autoview here — that would
+		// reset the flag before we check for stability below.
+		// Instead, call the underlying computation directly.
+		bsg_view_autoview(v, BSG_AUTOVIEW_SCALE_DEFAULT, 0);
+
+		// Check if all drawn BoT shapes now have a bbox.
+		BViewState *bvs = dbis->get_view_state(v);
+		bool stable = (!bvs || bvs->shapes_without_bbox(v) == 0);
+		if (stable) {
+		    v->gv_s->gv_progressive_autoview = 0;
+		    bsg_log(1, "QgEdApp: progressive autoview stable "
+			   "(bboxes=%zu)\n", cur_aabb);
+		}
+	    }
+	    // Re-emit a camera-only refresh so widgets repaint with the
+	    // updated camera position without triggering another full redraw.
+	    emit view_update(QG_VIEW_REFRESH);
+	}
+    }
+
+    // Detect newly arrived OBBs (dbis->obbs.size() advanced) and schedule a
+    // scene redraw via do_view_changed(QG_VIEW_DRAWN).
+    //
+    // Handle file-open resets (cur < last) the same way as for LoD.
+    size_t cur_obb = dbis->obbs.size();
+    if (cur_obb < last_obb_count_) {
+	bsg_log(2, "QgEdApp: obb counter rolled back (%zu -> %zu) -- new file opened\n",
+		last_obb_count_, cur_obb);
+	last_obb_count_ = 0;
+    }
+    if (cur_obb > last_obb_count_) {
+	last_obb_count_ = cur_obb;
+	do_view_changed(QG_VIEW_DRAWN);
+    }
+
+    // When LoD data for BoT primitives has been newly cached, the placeholder
+    // OBB/AABB wireframes in the scene are stale: stale_mesh_shapes_for_dp()
+    // cleared their per-view objects during drain_geom_results().  A plain
+    // view_update() only schedules a viewport repaint; it does NOT call
+    // BViewState::redraw(), which is the only code path that replaces cleared
+    // placeholder view-objects with real LoD geometry via bot_adaptive_plot().
+    //
+    // Detect newly arrived LoD results (lod_results_processed() advanced) and
+    // schedule a scene redraw via do_view_changed(QG_VIEW_DRAWN).  The
+    // coalescing logic in do_view_changed() ensures that only one redraw is
+    // triggered even if multiple timer firings produce LoD batches.
+    //
+    // If a new file was opened, DbiState resets lod_results_processed() to 0
+    // (in open_db / DbiState constructor).  Detect that rollback (cur < last)
+    // and reset our local counter so the first LoD batch of the new file is
+    // correctly detected.
+    size_t cur_lod = dbis->lod_results_processed();
+    if (cur_lod < last_lod_count_) {
+	bsg_log(2, "QgEdApp: lod counter rolled back (%zu -> %zu) -- new file opened\n",
+		last_lod_count_, cur_lod);
+	last_lod_count_ = 0;
+    }
+    if (cur_lod > last_lod_count_) {
+	last_lod_count_ = cur_lod;
+	do_view_changed(QG_VIEW_DRAWN);
+    }
 }
 
 void
@@ -323,26 +571,54 @@ QgEdApp::do_quad_view_change(QgView *cv)
 void
 QgEdApp::do_view_changed(unsigned long long flags)
 {
-    bv_log(1, "QgEdApp::do_view_changed");
+    bsg_log(1, "QgEdApp::do_view_changed");
     QTCAD_SLOT("QgEdApp::do_view_changed", 1);
+    // Must run on the main thread: all view-state mutations are main-thread-only.
+    Q_ASSERT(QThread::currentThread() == qApp->thread());
+
+    // Coalesce: accumulate flags and schedule a single deferred flush so that
+    // re-entrant or rapid-fire calls from multiple signals do not recursively
+    // re-enter this slot before the event loop has had a chance to drain.
+    pending_view_flags_ |= flags;
+    if (!view_change_pending_) {
+	view_change_pending_ = true;
+	QMetaObject::invokeMethod(this, "flush_view_changed_",
+	    Qt::QueuedConnection);
+    }
+}
+
+void
+QgEdApp::flush_view_changed_()
+{
+    // Snapshot and clear the pending state before doing any work, so that
+    // signals emitted during the work (e.g. view_update → widget → view_changed)
+    // can schedule a fresh batch rather than being lost.
+    unsigned long long flags = pending_view_flags_;
+    pending_view_flags_ = 0;
+    view_change_pending_ = false;
 
     if (flags & QG_VIEW_DRAWN) {
 	// For all associated view states, execute any necessary changes to
 	// view objects and lists
-	std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
-	struct bu_ptbl *views = bv_set_views(&mdl->gedp->ged_views);
+	std::unordered_map<BViewState *, std::unordered_set<bsg_view *>> vmap;
+	struct bu_ptbl *views = bsg_scene_views(&mdl->gedp->ged_views);
 	if (mdl->gedp->dbi_state) {
 	    DbiState *dbis = (DbiState *)mdl->gedp->dbi_state;
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-		struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
 		BViewState *bvs = dbis->get_view_state(v);
 		if (!bvs)
 		    continue;
 		vmap[bvs].insert(v);
 	    }
-	    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
-	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-		bv_it->first->redraw(NULL, bv_it->second, 1);
+	    for (auto &[bvs, vset] : vmap)
+		bvs->redraw(nullptr, vset, 1);	}
+	/* P2: After (re)drawing, register stale-notification sensors on all
+	 * shapes now present in every view's scene root. */
+	if (views) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, i);
+		qged_register_view_sensors(this, v);
 	    }
 	}
     }
@@ -355,7 +631,7 @@ QgEdApp::open_file()
 {
     QTCAD_SLOT("QgEdApp::open_file", 1);
 
-    load_g_file();
+    (void)load_g_file();
 }
 
 int
@@ -376,7 +652,7 @@ QgEdApp::load_g_file(const char *gfile, bool do_conversion)
     const char *av[3];
     av[0] = "opendb";
     av[1] = bu_strdup(fileName.toLocal8Bit().data());
-    av[2] = NULL;
+    av[2] = nullptr;
     int ret = mdl->run_cmd(mdl->gedp->ged_result_str, ac, (const char **)av);
     bu_free((void *)av[1], "filename cpy");
     return ret;
@@ -428,12 +704,43 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 
     struct ged *gedp = mdl->gedp;
 
-    BSelectState *ss = (gedp->dbi_state) ? ((DbiState *)gedp->dbi_state)->find_selected_state(NULL) : NULL;
+    /* Progressive autoview: cancel if the user runs an explicit view-
+     * manipulating command.  We clear the flag on all views before executing
+     * the command so that any camera settings applied by the command become
+     * the final "accepted" camera state.
+     *
+     * Commands that PRESERVE progressive autoview (do NOT clear):
+     *   draw, erase (just modifies what is drawn; autoview should re-adapt)
+     *   autoview     (re-activates it)
+     *   Any read-only/diagnostic command
+     *
+     * Everything else that can change the camera position/orientation clears
+     * the flag: ae, arot, center, eye, eye_pt, vrot, zoom, tra, slew,
+     * lookat, view, rot, ort, perspective, and any future additions.
+     */
+    static const std::unordered_set<std::string> s_preserve_progressive = {
+	"draw", "erase", "autoview", "who", "ls", "l", "tops",
+	"tree", "search", "attr", "dbip", "title", "units", "stat"
+    };
+    if (argc > 0 && argv[0] &&
+	s_preserve_progressive.find(argv[0]) == s_preserve_progressive.end())
+    {
+	struct bu_ptbl *views = bsg_scene_views(&gedp->ged_views);
+	if (views) {
+	    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+		bsg_view *v = (bsg_view *)BU_PTBL_GET(views, vi);
+		if (v && v->gv_s)
+		    v->gv_s->gv_progressive_autoview = 0;
+	    }
+	}
+    }
+
+    SelectionSet *ss = (gedp->dbi_state) ? ((DbiState *)gedp->dbi_state)->get_selection_set(nullptr) : nullptr;
     select_hash = (ss) ? ss->state_hash() : 0;
 
     /* Set the local unit conversions */
     if (gedp->dbip) {
-	struct bview *v = w->CurrentView();
+	bsg_view *v = w->CurrentView();
 	v->gv_base2local = gedp->dbip->dbi_base2local;
 	v->gv_local2base = gedp->dbip->dbi_local2base;
     }
@@ -457,8 +764,8 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	ret = mdl->run_cmd(msg, argc, argv);
 
 	if (BU_STR_EQUAL(argv[0], "ert")) {
-	    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, NULL, NULL);
-	    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, NULL, NULL);
+	    ged_clbk_set(gedp, "ert", BU_CLBK_DURING, nullptr, nullptr);
+	    ged_clbk_set(gedp, "ert", BU_CLBK_LINGER, nullptr, nullptr);
 	}
     } else {
 	for (int i = 0; i < argc; i++) {
@@ -466,10 +773,9 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	    tmp_av.push_back(tstr);
 	}
 	char **av = (char **)bu_calloc(tmp_av.size() + 1, sizeof(char *), "argv array");
-	// Assemble the full command we have thus var
-	for (size_t i = 0; i < tmp_av.size(); i++) {
+	// Assemble the full command we have thus far
+	for (size_t i = 0; i < tmp_av.size(); i++)
 	    av[i] = tmp_av[i];
-	}
 	int ac = (int)tmp_av.size();
 	ret = mdl->run_cmd(msg, ac, (const char **)av);
     }
@@ -492,7 +798,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	    view_flags |= QG_VIEW_SELECT;
 	    // This is what notifies currently drawn solids to update
 	    // in response to a command line selection change
-	    if (ss && ss->draw_sync())
+	    if (ss && ss->sync_to_all_views())
 		view_flags |= QG_VIEW_DRAWN;
 	}
     }
@@ -513,9 +819,8 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 	// If we were in an incremental command, we're done now -
 	if (tmp_av.size()) {
 	    // clear tmp_av
-	    for (size_t i = 0; i < tmp_av.size(); i++) {
-		delete tmp_av[i];
-	    }
+	    for (char *s : tmp_av)
+		bu_free(s, "tmp_av entry");
 	    tmp_av.clear();
 	    // let the console know that we're done with MORE
 	    QgConsole *console = w->console;
@@ -544,7 +849,7 @@ QgEdApp::run_qcmd(const QString &command)
 
     // TODO - replace with "quit" cmd libged callback
     if (BU_STR_EQUAL(cmd, "q")) {
-	w->closeEvent(NULL);
+	w->closeEvent(nullptr);
 	bu_exit(0, "exit");
     }
 
@@ -616,9 +921,12 @@ QgEdApp::element_selected(QgToolPaletteElement *el)
 
     QgView *curr_view = w->CurrentDisplay();
 
+    if (!curr_view)
+	return;   /* Obol path: no QgView event-filter management */
+
     if (curr_view->curr_event_filter) {
 	curr_view->clear_event_filter(curr_view->curr_event_filter);
-	curr_view->curr_event_filter = NULL;
+	curr_view->curr_event_filter = nullptr;
     }
 
     if (el->use_event_filter) {

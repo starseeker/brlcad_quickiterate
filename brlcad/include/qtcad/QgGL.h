@@ -28,7 +28,6 @@
 
 #include <QKeyEvent>
 #include <QImage>
-#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QObject>
 #include <QOpenGLFunctions>
@@ -39,7 +38,7 @@
 
 extern "C" {
 #include "bu/ptbl.h"
-#include "bv.h"
+#include "bsg.h"
 #define DM_WITH_RT
 #include "dm.h"
 }
@@ -52,7 +51,7 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
     Q_OBJECT
 
     public:
-	explicit QgGL(QWidget *parent = nullptr, struct fb *fbp = NULL);
+	explicit QgGL(QWidget *parent = nullptr, struct fb *fbp = nullptr);
 	~QgGL();
 
 	void stash_hashes(); // Store current dmp and v hash values
@@ -62,13 +61,13 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 	void save_image();
 
 	int current = 1;
-	struct bview *v = NULL;
-	struct dm *dmp = NULL;
-	struct fb *ifp = NULL;
-	struct bu_ptbl *dm_set = NULL;
+	bsg_view *v = nullptr;
+	struct dm *dmp = nullptr;
+	struct fb *ifp = nullptr;
+	struct bu_ptbl *dm_set = nullptr;
 
-	void (*draw_custom)(struct bview *, void *) = NULL;
-	void *draw_udata = NULL;
+	void (*draw_custom)(bsg_view *, void *) = nullptr;
+	void *draw_udata = nullptr;
 
 	void enableDefaultKeyBindings();
 	void disableDefaultKeyBindings();
@@ -101,7 +100,7 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 
 	bool use_default_keybindings = true;
 	bool use_default_mousebindings = true;
-	int lmouse_mode = BV_SCALE;
+	int lmouse_mode = BSG_SCALE;
 
 	bool m_init = false;
 	int x_prev = -INT_MAX;
@@ -109,7 +108,7 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 	double x_press_pos = -INT_MAX;
 	double y_press_pos = -INT_MAX;
 
-	struct bview *local_v = NULL;
+	bsg_view *local_v = nullptr;
 };
 
 #endif /* QGGL_H */

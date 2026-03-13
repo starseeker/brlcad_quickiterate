@@ -1,0 +1,62 @@
+# Obol CMake package configuration file.
+# Provides the Obol::Obol imported target and convenience variables
+# for consumers that use find_package(Obol).
+
+set(OBOL_VERSION @OBOL_MAJOR_VERSION@.@OBOL_MINOR_VERSION@.@OBOL_MICRO_VERSION@)
+@PACKAGE_INIT@
+
+set(OBOL_BUILD_SHARED_LIBS @OBOL_BUILD_SHARED_LIBS@)
+set(OBOL_BUILD_MAC_FRAMEWORK @OBOL_BUILD_MAC_FRAMEWORK@)
+
+if(NOT OBOL_BUILD_MAC_FRAMEWORK)
+  set_and_check(OBOLDIR "@PACKAGE_OBOLDIR@")
+  set_and_check(Obol_INCLUDE_DIR "@PACKAGE_OBOL_INCLUDE_DIR@")
+  set_and_check(Obol_LIB_DIR "@PACKAGE_OBOL_LIB_DIR@")
+
+  # optional documentation directory
+  if(EXISTS "@PACKAGE_OBOL_DOC_DIR@")
+    set(Obol_DOC_DIR "@PACKAGE_OBOL_DOC_DIR@")
+  endif()
+
+  # Windows DLL visibility flag for consumers that link manually
+  if(WIN32)
+    if(OBOL_BUILD_SHARED_LIBS)
+      set(Obol_DEFINES -DOBOL_DLL)
+    else()
+      set(Obol_DEFINES -DOBOL_NOT_DLL)
+    endif()
+  endif()
+endif()
+
+include(CMakeFindDependencyMacro)
+
+# For static builds, pull in the same dependencies that were used at build time
+if(NOT OBOL_BUILD_SHARED_LIBS)
+  set(_OPENGL_FOUND @OPENGL_FOUND@)
+  if(_OPENGL_FOUND)
+    find_dependency(OpenGL)
+  endif()
+  set(_Threads_FOUND @Threads_FOUND@)
+  if(_Threads_FOUND)
+    find_dependency(Threads)
+  endif()
+endif()
+
+# Import the Obol::Obol target (and any per-configuration variants)
+include("${CMAKE_CURRENT_LIST_DIR}/@OBOL_CONFIG_PACKAGE_BASENAME@-export.cmake")
+
+# Modern imported-target alias and convenience variables
+set(Obol_LIBRARIES Obol::Obol)
+set(Obol_LIBRARY   Obol::Obol)
+if(NOT OBOL_BUILD_MAC_FRAMEWORK)
+  set(Obol_INCLUDE_DIRS ${Obol_INCLUDE_DIR})
+endif()
+
+# Feature flags recorded at build time
+set(Obol_HAVE_THREADS @FEAT_HAVE_THREADS@)
+set(Obol_HAVE_SAFETHREAD @FEAT_HAVE_SAFETHREAD@)
+set(Obol_BUILD_DUAL_GL @OBOL_BUILD_DUAL_GL@)
+
+set(Obol_FOUND TRUE)
+check_required_components(Obol)
+
