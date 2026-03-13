@@ -101,9 +101,8 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
     (void)canvas_type;  /* Obol path: canvas_type (libdm backend) is unused */
     obol_view_ = new QgObolView(cw);
     if (!obol_view_) {
-	QMessageBox *msgbox = new QMessageBox();
-	msgbox->setText("Fatal error: unable to create QgObolView widget");
-	msgbox->exec();
+	QMessageBox::critical(nullptr, "Fatal Error",
+	    "Unable to create QgObolView widget");
 	bu_exit(EXIT_FAILURE, "Unable to create QgObolView widget\n");
     }
     obol_view_->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
@@ -115,9 +114,8 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
 #else
     c4 = new QgQuadView(cw, gedp, canvas_type);
     if (!c4) {
-	QMessageBox *msgbox = new QMessageBox();
-	msgbox->setText("Fatal error: unable to create QgQuadView widget");
-	msgbox->exec();
+	QMessageBox::critical(nullptr, "Fatal Error",
+	    "Unable to create QgQuadView widget");
 	bu_exit(EXIT_FAILURE, "Unable to create QgQuadView widget\n");
     }
     c4->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
