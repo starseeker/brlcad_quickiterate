@@ -1565,10 +1565,9 @@ get_subcurves_inside_faces(
 		     * edge.  Including them causes link_curves to chain the
 		     * boundary segment with the true interior cut, which
 		     * produces a combined path that touches the outer loop at
-		     * intermediate points and confuses the IN/OUT classifier
-		     * in split_face_into_loops, ultimately creating a degenerate
-		     * there-and-back ssx_loop that collapses via the coextension
-		     * guard rather than splitting the face correctly. */
+		     * intermediate points.  Curves missing from the closed loop
+		     * (because they run along the face boundary) are recovered
+		     * by the "corner-bite" fallback in split_trimmed_face. */
 		    ON_2dPoint mid2 = subcurve_on2->PointAt(subcurve_on2->Domain().Mid());
 		    if (!is_point_inside_loop(mid2, face2_loops[0])) {
 			delete subcurve_on2;
@@ -3645,6 +3644,27 @@ split_trimmed_face(
 					      BOOLEAN_DIFF);
 		    append_faces_from_loops(next_out, out[k], diff_loops);
 		    diff_loops.ClearInnerloops();
+		} else if (intersect_loops.outerloops.empty()) {
+		    /* loop_boolean returns nothing when ssx_loops[j] was built
+		     * using a sub-arc of out[k]'s own outer loop (the
+		     * "corner-bite" case: the open SSI curve enters and exits
+		     * through the same outer-loop segment, so the resulting
+		     * ssx_loop already contains an outer-loop arc as one of its
+		     * boundary segments).  In this situation the ssx_loop IS the
+		     * sub-face — add it directly. */
+		    double ssx_area = loop_shoelace_area(ssx_loops[j]);
+		    if (fabs(ssx_area) > INTERSECTION_TOL * INTERSECTION_TOL) {
+			TrimmedFace *new_face = out[k]->Duplicate();
+			for (int fi = 0; fi < new_face->m_outerloop.Count(); fi++) {
+			    delete new_face->m_outerloop[fi];
+			}
+			new_face->m_outerloop.Empty();
+			for (int fi = 0; fi < ssx_loops[j].Count(); fi++) {
+			    new_face->m_outerloop.Append(ssx_loops[j][fi]->Duplicate());
+			}
+			next_out.Append(new_face);
+		    }
+		    continue;
 		}
 		append_faces_from_loops(next_out, out[k], intersect_loops);
 		intersect_loops.ClearInnerloops();
@@ -4088,16 +4108,14 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
     }
 
     /* Fire three axis-aligned rays (+x, +y, +z) and use a majority vote.
-     *
-     * A single diagonal ray (bbox.Diagonal()) was used previously, but for
-     * ARB8-derived planar NURBS breps the ray can be nearly parallel (~89°)
-     * to the face planes (e.g. the tiny z-extent of a long flat slot means
-     * the diagonal direction has an almost-zero z component), causing
-     * ON_Intersect to miss intersections and misclassify interior points as
-     * exterior.  Axis-aligned rays are perpendicular to the principal faces
-     * of box-like breps and guarantee reliable intersection detection.  The
-     * majority vote handles edge/vertex degeneracies where one ray might
-     * graze a face boundary. */
+     * A single diagonal ray was used previously but could be nearly parallel
+     * to flat-slot face planes, causing missed intersections. */
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("is_point_inside_brep pt(%g,%g,%g) bbox[%g,%g,%g]-[%g,%g,%g]\n",
+	       pt.x, pt.y, pt.z,
+	       bbox.m_min.x, bbox.m_min.y, bbox.m_min.z,
+	       bbox.m_max.x, bbox.m_max.y, bbox.m_max.z);
+    }
     int inside_votes = 0;
 
     static const ON_3dVector ray_dirs[3] = {
@@ -4187,11 +4205,18 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
 	    }
 	}
 
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("  ray[%d] hits=%d (%s)\n", ray_idx, pt_no_dup.Count(),
+		   pt_no_dup.Count() % 2 != 0 ? "inside" : "outside");
+	}
 	if (pt_no_dup.Count() % 2 != 0)
 	    inside_votes++;
     }
 
     /* Majority vote: inside if 2 or 3 rays agree. */
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("  inside_votes=%d → %s\n", inside_votes, inside_votes >= 2 ? "INSIDE" : "OUTSIDE");
+    }
     return inside_votes >= 2;
 }
 
