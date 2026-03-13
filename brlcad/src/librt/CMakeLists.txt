@@ -104,6 +104,7 @@ set(
   comb/comb.c
   comb/comb_brep.cpp
   comb/comb_mirror.c
+  comb/comb_scene_obj.c
   comb/db_comb.c
   material/material.c
   constraint.c

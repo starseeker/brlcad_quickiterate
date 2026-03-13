@@ -1310,45 +1310,43 @@ rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
 }
 
 
+/* forward declaration of the evaluated-wireframe engine (comb_scene_obj.c) */
+extern int rt_comb_eval_m3(bsg_shape *s,
+			   struct db_i *dbip,
+			   const struct bg_tess_tol *ttol,
+			   const struct bn_tol *tol);
+
 /* rt_comb_scene_obj                                                        */
 /*                                                                           */
 /* ft_scene_obj implementation for combination (comb) objects.               */
 /*                                                                           */
-/* Combs are container objects — their geometry comes from the leaf          */
-/* primitives beneath them, each of which is drawn via its own ft_scene_obj  */
-/* callback.  This function handles the container-level dispatch:            */
+/* Mode 3 (evaluated wireframe): delegates to rt_comb_eval_m3() which       */
+/* was migrated from libged/wireframe_eval.c.  The Boolean evaluation engine */
+/* lives entirely in librt: no draw_update_data_t access.                    */
 /*                                                                           */
-/* Mode 3 (evaluated wireframe): the Boolean evaluation engine lives in      */
-/* libged (wireframe_eval.c / draw_m3).  Until that machinery is migrated    */
-/* to librt, mode-3 comb drawing is handled by the draw_scene special case   */
-/* in libged which calls draw_m3 before reaching ft_scene_obj.  This         */
-/* function returns BRLCAD_OK immediately so draw_scene can detect the       */
-/* no-op and proceed normally.                                               */
-/*                                                                           */
-/* All other modes: combs have no intrinsic geometry to render at the        */
-/* container level.  Return BRLCAD_OK; the leaf ft_scene_obj calls produce   */
-/* the actual geometry.                                                      */
-/*                                                                           */
-/* @see RADICAL_MIGRATION.md Stage 1 (rt_comb_scene_obj)                    */
-/* @see DESIGN_SCENE_OBJ.md §3.2 item 2 and §5 (draw_m3 structural issues)  */
+/* All other modes: combs are containers — their geometry comes from the     */
+/* leaf primitives beneath them, each drawn via its own ft_scene_obj         */
+/* callback.  Return BRLCAD_OK immediately; draw_scene iterates children.   */
 int
-rt_comb_scene_obj(bsg_shape *UNUSED(s),
+rt_comb_scene_obj(bsg_shape *s,
 		  struct directory *UNUSED(dp),
-		  struct db_i *UNUSED(dbip),
-		  const struct bg_tess_tol *UNUSED(ttol),
-		  const struct bn_tol *UNUSED(tol),
+		  struct db_i *dbip,
+		  const struct bg_tess_tol *ttol,
+		  const struct bn_tol *tol,
 		  const bsg_view *UNUSED(v))
 {
-    /* Combs are containers.  The leaf primitives beneath a comb are each
-     * drawn via their own ft_scene_obj callbacks — this function is a no-op.
-     *
-     * Mode 3 (evaluated wireframe) continues to be handled by the draw_scene
-     * special case in libged which calls draw_m3().  That special case fires
-     * BEFORE ft_scene_obj is invoked, so this function is not reached for
-     * mode-3 draws.  See draw_scene() in src/libged/draw.cpp.
-     *
-     * Once wireframe_eval.c is migrated from libged to librt, this function
-     * will implement the evaluated wireframe directly. */
+    if (!s)
+	return BRLCAD_ERROR;
+
+    /* Mode 3: evaluated wireframe using the BigE engine */
+    if (s->s_os && s->s_os->s_dmode == 3) {
+	int ret = rt_comb_eval_m3(s, dbip, ttol, tol);
+	s->current = (ret == BRLCAD_OK) ? 1 : 0;
+	return ret;
+    }
+
+    /* All other modes: container no-op.  Leaf ft_scene_obj callbacks
+     * (rt_bot_scene_obj, rt_generic_scene_obj, etc.) produce the geometry. */
     return BRLCAD_OK;
 }
 

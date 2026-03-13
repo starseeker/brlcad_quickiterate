@@ -291,7 +291,6 @@ brep_adaptive_plot(bsg_shape *s, bsg_view *v)
 }
 
 
-extern "C" int draw_m3(bsg_shape *s);
 extern "C" int draw_points(bsg_shape *s);
 extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
 				    struct db_i *dbip,
@@ -306,15 +305,14 @@ extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
  * OBJ[dp->d_minor_type].ft_scene_obj() for all primitive types.  The
  * per-primitive ft_scene_obj implementations (rt_bot_scene_obj,
  * rt_brep_scene_obj, rt_comb_scene_obj, rt_generic_scene_obj) contain all
- * the per-type drawing logic.  Two special cases remain in draw_scene:
- *
- *   Mode 3 (evaluated wireframe for combs): handled by draw_m3() which lives
- *   in wireframe_eval.c.  Migration to rt_comb_scene_obj is deferred until
- *   the evaluated-wireframe machinery moves from libged to librt.
+ * the per-type drawing logic.  One special case remains in draw_scene:
  *
  *   BREP mode 1 + adaptive_plot_mesh: handled by brep_adaptive_plot() for
  *   LoD-managed hidden-line BREP display.  Migration to rt_brep_scene_obj
  *   is deferred to a future session.
+ *
+ * Mode 3 (evaluated wireframe for combs) is now handled by rt_comb_scene_obj
+ * → rt_comb_eval_m3() in librt/comb/comb_scene_obj.c.
  */
 extern "C" void
 draw_scene(bsg_shape *s, bsg_view *v)
@@ -339,21 +337,6 @@ draw_scene(bsg_shape *s, bsg_view *v)
 	    bsg_shape *c = (bsg_shape *)BU_PTBL_GET(&s->children, i);
 	    draw_scene(c, v);
 	}
-	return;
-    }
-
-    /**************************************************************************
-     * Mode 3 (evaluated wireframe) — special case handled by draw_m3() which
-     * lives in wireframe_eval.c (libged).  This fires BEFORE the setup phase
-     * so that draw_m3 can access d->dbip/tol/ttol directly from s->s_i_data.
-     * rt_comb_scene_obj() returns BRLCAD_OK immediately when dmode==3, so
-     * this guard must remain in draw_scene until the evaluated-wireframe
-     * machinery is migrated from libged to librt.
-     **************************************************************************/
-    if (s->s_os->s_dmode == 3) {
-	draw_m3(s);
-	bsg_shape_bound(s, v);
-	s->current = 1;
 	return;
     }
 
