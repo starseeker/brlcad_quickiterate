@@ -411,6 +411,15 @@ gui_setup(struct mged_state *s, const char *dstr)
 	return TCL_ERROR;
     }
 
+    /* Initialize Obol scene-graph renderer if the libtclcad obol_view
+     * command was registered.  This is a no-op when BRLCAD_ENABLE_OBOL
+     * was not set at compile time (obol_init won't exist as a command). */
+    if (Tcl_GetCommandInfo(s->interp, "obol_init", NULL)) {
+	if (Tcl_Eval(s->interp, "obol_init") != TCL_OK)
+	    bu_log("mged: Obol init warning: %s\n",
+		   Tcl_GetStringResult(s->interp));
+    }
+
     /* create the event handler */
     Tk_CreateGenericHandler(handler, (ClientData)s);
 
@@ -785,6 +794,37 @@ f_get_dm_list(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int argc, 
 	if (pn && bu_vls_strlen(pn))
 	    Tcl_AppendElement(interpreter, bu_vls_cstr(pn));
     }
+    return TCL_OK;
+}
+
+
+/**
+ * f_gvp_ptr — return the current bsg_view pointer as a hex string.
+ *
+ * This exposes the live view-state pointer to Tcl so that the obol_view
+ * widget can be attached to it:
+ *
+ *   .v attach [mged_gvp_ptr]
+ *
+ * The returned string is a C pointer formatted as "%p" (e.g. "0x7f3a1c00").
+ * It is valid for the lifetime of the mged session.
+ */
+int
+f_gvp_ptr(ClientData clientData, Tcl_Interp *interpreter,
+	  int UNUSED(argc), const char **UNUSED(argv))
+{
+    struct cmdtab *ctp = (struct cmdtab *)clientData;
+    MGED_CK_CMD(ctp);
+    struct mged_state *s = ctp->s;
+
+    if (!s || !s->gedp || !s->gedp->ged_gvp) {
+	Tcl_SetResult(interpreter, (char *)"0", TCL_STATIC);
+	return TCL_OK;
+    }
+
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%p", (void *)s->gedp->ged_gvp);
+    Tcl_SetResult(interpreter, buf, TCL_VOLATILE);
     return TCL_OK;
 }
 

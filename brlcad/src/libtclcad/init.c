@@ -47,6 +47,12 @@
 #include "brlcad_version.h"
 #include "./tclcad_private.h"
 
+/* Obol Tcl/Tk widget — only compiled when BRLCAD_ENABLE_OBOL is set */
+#ifdef BRLCAD_ENABLE_OBOL
+extern int Obol_View_Cmd(ClientData, Tcl_Interp *, int, const char **);
+extern int Obol_Init_Cmd(ClientData, Tcl_Interp *, int, const char **);
+#endif
+
 
 int
 library_initialized(int setit)
@@ -253,6 +259,21 @@ tclcad_init(Tcl_Interp *interp, int init_gui, struct bu_vls *tlog)
 	if (!tkwin) return TCL_ERROR;
     }
 #endif
+
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Register Obol Tcl commands when the library was compiled with Obol.
+     * "obol_init" initialises SoDB/SoNodeKit/SoInteraction once per process.
+     * "obol_view" creates a platform-neutral Tk 3D view widget.
+     * Registered unconditionally (regardless of init_gui) so that apps such
+     * as rtwizard that call tclcad_init with init_gui=0 and later bring up
+     * Tk themselves can still detect and use obol_view. */
+#ifdef HAVE_TK
+    Tcl_CreateCommand(interp, "obol_init", Obol_Init_Cmd,
+		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+    Tcl_CreateCommand(interp, "obol_view", Obol_View_Cmd,
+		      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL);
+#endif
+#endif /* BRLCAD_ENABLE_OBOL */
 
     return TCL_OK;
 }
