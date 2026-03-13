@@ -762,7 +762,37 @@ find_execute_nested_plans(struct db_i *dbip, struct bu_ptbl *results, struct db_
  * with hundreds of children per combination and depths up to 100, Σdepths
  * can reach tens of millions, taking roughly 1-3 seconds per -below query.
  * Only extreme deep chains (D ≫ 100) show quadratic behaviour (O(D²) for
- * a pure chain, because both N and average-depth grow with D). */
+ * a pure chain, because both N and average-depth grow with D).
+ *
+ * Theoretical BFS forward-pass cache (symmetric to the above_cache_map):
+ *   A top-down single pass through all paths (shallowest-first) could reduce
+ *   f_below to O(1) per path after O(N) pre-computation.  The pass would:
+ *     1. Evaluate the inner plan on every path P → O(N) inner-plan calls.
+ *     2. For each P that satisfies the inner plan: mark P in an "anc_matches"
+ *        hash set.
+ *     3. For each P (top-down): if parent(P) is in anc_matches, add P to
+ *        anc_matches (propagate "has ancestor match" downward).
+ *     4. f_below query: O(1) hash-set lookup.
+ *   Total cost: O(N) evaluations + O(N) propagation ≈ 3×N operations, vs
+ *   the current O(Σdepths) = O(N × avg_depth) evaluations.
+ *
+ * When the cache would be beneficial (using the recursive sphflake B=9 as
+ * the canonical deep-recursive example):
+ *   avg_depth ≈ K + 0.4 for iteration depth K.  Break-even at K≈3 (avg_depth
+ *   ≈ 3); significant gain (≥2×) at K≈6 (N_total ≈ 1.2M paths).  BRL-CAD's
+ *   actual sphflake geometry becomes unworkable at K≈5-6, so the BFS cache
+ *   would matter right at the practical boundary.
+ *
+ * Architecture constraint:
+ *   - In the deque-based traversal (has_above=0): paths are generated
+ *     on-the-fly; the BFS pre-pass cannot run without first pre-collecting
+ *     ALL N paths (O(N × depth) memory).  This is the code path used for
+ *     -below-only queries and is NOT a good candidate for a BFS cache.
+ *   - In the full-path pre-collection path (has_above=1): all paths are
+ *     already in a bu_ptbl; adding a symmetric top-down pass alongside the
+ *     existing bottom-up above_cache_map pre-pass would directly benefit
+ *     combined "-above X -below Y" queries on trees with K≥3.
+ */
 static int
 f_below(struct db_plan_t *plan, struct db_node_t *db_node, struct db_i *dbip, struct bu_ptbl *results)
 {

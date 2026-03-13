@@ -244,6 +244,81 @@
  *
  * The old code is the same algorithm as the root-level search.cpp kept at
  * the top of the repository; it is compiled into librt as db_search_old().
+ *
+ *
+ * Recursive Sphflake Topology and f_below BFS-cache analysis
+ * ===========================================================
+ *
+ * Background - the actual BRL-CAD sphflake.c (proc-db/sphflake.c) builds a
+ * FLAT tree: all spheres at recursion depth d are collected into one
+ * combination depth{d}.r, and scene.r references all depth combos.  Every
+ * full path from scene.r to any sphere has length exactly 2, regardless of
+ * the iteration count K.  That structure is trivially fast for db_search.
+ *
+ * The relevant stress structure is the RECURSIVE sphflake topology, where
+ * each node is an individual combination that references one shared primitive
+ * and B child combinations (B=9 for the standard 9-direction sphflake):
+ *
+ *   sflake_0     = { sflake_prim.s, sflake_1, ..., sflake_9 }
+ *   sflake_{1,i} = { sflake_prim.s, sflake_{2,9i}, ..., sflake_{2,9i+8} }
+ *   ...
+ *   sflake_{K,j} = { sflake_prim.s }   (leaf)
+ *
+ * Using B-ary tree indexing: children of node n are B*n+1 .. B*n+B.
+ * Leaves are the (B^K) nodes at depth K; the total number of combos is
+ * N_combos = (B^(K+1) - 1) / (B - 1).  Each combo also has one primitive
+ * instance (sflake_prim.s), so the total full-path count from the root is:
+ *
+ *   N_total = 2 × N_combos = 2 × (B^(K+1) - 1) / (B - 1)
+ *
+ * Σ(path depths) for f_below cost analysis:
+ *   Combos at depth d (count B^d) contribute d each.
+ *   Prims under depth-d combos (count B^d) contribute d+1 each.
+ *   Σdepths = Σ(d=0..K) (2d+1) × B^d
+ *
+ * For B=9:
+ *
+ *   K │ N_combos │ N_total  │  Σdepths  │ avg_depth │ proj. BFS speedup
+ *   ──┼──────────┼──────────┼───────────┼───────────┼──────────────────
+ *   1 │       10 │       20 │        28 │    1.40   │    0.5× (SLOWER)
+ *   2 │       91 │      182 │       433 │    2.38   │    0.8×
+ *   3 │      820 │     1640 │      5536 │    3.38   │    1.1× (break-even)
+ *   4 │     7381 │    14762 │     64585 │    4.37   │    1.5×
+ *   5 │    66430 │   132860 │    714124 │    5.38   │    1.8×
+ *   6 │   597871 │  1195742 │  7622857  │    6.38   │    2.1× (SIGNIFICANT)
+ *   7 │  5380840 │ 10761680 │  79367392 │    7.38   │    2.5×
+ *   8 │ 48427561 │ 96855122 │ 811358857 │    8.38   │    2.8×
+ *
+ * ("proj. BFS speedup" = avg_depth / 3.0; the BFS forward-pass cache costs
+ *  approximately 3×N operations: N inner-plan evals + N propagation + N lookups.)
+ *
+ * Interpretation:
+ *   - BFS break-even (speedup ≈ 1×) is reached at K≈3 (avg_depth ≈ 3).
+ *   - "Significant" speedup (≥2×) requires K≈6 (N_total ≈ 1.2M paths).
+ *   - BRL-CAD's sphflake.c already warns that depths >5 are extremely large
+ *     (9^6 = 531,441 spheres at the leaf level alone, plus all intermediate
+ *     nodes ≈ 600K total objects).  The geometry becomes unrepresentable well
+ *     before K=7.
+ *
+ * Architecture note on restoring a BFS cache for f_below:
+ *   The current f_below ancestor-walk runs in BOTH code paths:
+ *     1. Deque-based traversal (has_above=0): paths are generated on-the-fly
+ *        with O(depth) memory; a BFS forward-pass cannot be applied here
+ *        without first pre-collecting ALL paths (O(N×depth) memory).
+ *     2. Full-path pre-collection (has_above=1): all paths already sit in a
+ *        bu_ptbl; a symmetric top-down forward-pass (analogous to the existing
+ *        bottom-up above_cache_map) could reduce f_below from O(Σdepths) to
+ *        O(N) at the cost of an additional O(N log N) sort and O(N) hash ops.
+ *        This is the ONLY code path where restoring a BFS-style f_below cache
+ *        provides a net benefit without sacrificing memory efficiency.
+ *   Concrete implication: a BFS f_below cache would speed up combined
+ *   "-above X -below Y" queries on trees with K≥3 (sphflake iterations
+ *   3+), but would not help -below-only queries without also changing those
+ *   queries to pre-collect all paths — a significant memory trade-off that
+ *   is not worthwhile for K<6.
+ *
+ * The sphflake stress tests below build trees at K=1,2,3 for quick
+ * correctness verification and timing baseline at K=4.
  */
 
 #include "common.h"
@@ -2424,6 +2499,213 @@ test_cyclic_tree(struct db_i *dbip)
 }
 
 
+/* ------------------------------------------------------------------ */
+/*  Recursive sphflake topology: builder and timing test              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Compute the total number of combination nodes in a complete B-ary
+ * recursive sphflake tree of depth K:
+ *   N_combos = (B^(K+1) - 1) / (B - 1)
+ */
+static int64_t
+sflake_node_count(int K, int B)
+{
+    int64_t Bpow = 1;  /* B^(K+1) */
+    int d;
+    for (d = 0; d <= K; d++)
+	Bpow *= B;
+    return (Bpow - 1) / (B - 1);
+}
+
+/*
+ * Compute Σ(path depths) for a recursive sphflake tree with branching B
+ * and depth K.
+ *
+ * Each combo at depth d contributes d to the sum (B^d combos).
+ * Each primitive under a depth-d combo contributes d+1 (one prim per combo).
+ *
+ *   Σdepths = Σ(d=0..K) (2d+1) × B^d
+ */
+static int64_t
+sflake_sigma_depths(int K, int B)
+{
+    int64_t sigma = 0;
+    int64_t Bd = 1;  /* B^d */
+    int d;
+    for (d = 0; d <= K; d++) {
+	sigma += (int64_t)(2*d + 1) * Bd;
+	Bd *= B;
+    }
+    return sigma;
+}
+
+/*
+ * Build a recursive sphflake-topology tree.
+ *
+ * Uses a complete B-ary tree layout: children of node n are nodes
+ * B*n+1 through B*n+B.  Node 0 is the root ("sflake_0").
+ * Each node is a combination containing:
+ *   - the shared primitive sflake_prim.s
+ *   - B child combos (for non-leaf nodes; leaf nodes have only the prim)
+ *
+ * Leaf nodes are those at depth K (nodes from start(K) through start(K+1)-1).
+ * The tree is built bottom-up (leaves first) so that when a parent is
+ * written its children already exist in the database.
+ *
+ * Returns 0 on success.
+ */
+static int
+build_sphflake_tree(struct rt_wdb *wdbp, int K, int B)
+{
+    int64_t level_start; /* first node ID at current depth level */
+    int64_t level_width; /* number of nodes at current depth level = B^d */
+    int j;
+    int64_t i;
+    struct bu_vls name = BU_VLS_INIT_ZERO;
+    struct bu_vls child_name = BU_VLS_INIT_ZERO;
+    struct wmember wm;
+    point_t center = VINIT_ZERO;
+    fastf_t radius = 1.0;
+
+    if (K < 0 || B < 2)
+	return 1;
+
+    /* Shared primitive - all combos reference this single object. */
+    if (mk_sph(wdbp, "sflake_prim.s", center, radius) != 0)
+	return 1;
+
+    /* Build levels from K (leaves) down to 0 (root) so parents find
+     * their children already present in the database.
+     * Level-d start index:  (B^d - 1)/(B-1)
+     * Level-d width:        B^d
+     * Children of node n:   B*n+1 .. B*n+B  */
+    {
+	int dd;
+	int64_t Bpow = 1;
+	for (dd = 0; dd <= K; dd++) Bpow *= B;  /* Bpow = B^(K+1) */
+
+	for (dd = K; dd >= 0; dd--) {
+	    Bpow /= B;  /* Bpow = B^dd */
+	    level_start = (Bpow - 1) / (B - 1);
+	    level_width = Bpow;
+
+	    for (i = 0; i < level_width; i++) {
+		int64_t node_id = level_start + i;
+
+		BU_LIST_INIT(&wm.l);
+		mk_addmember("sflake_prim.s", &wm.l, NULL, WMOP_UNION);
+
+		/* Add B children (unless this is a leaf at depth K). */
+		if (dd < K) {
+		    int64_t child_base = (int64_t)B * node_id + 1;
+		    for (j = 0; j < B; j++) {
+			bu_vls_sprintf(&child_name, "sflake_%lld", (long long)(child_base + j));
+			mk_addmember(bu_vls_cstr(&child_name), &wm.l, NULL, WMOP_UNION);
+		    }
+		}
+
+		bu_vls_sprintf(&name, "sflake_%lld", (long long)node_id);
+		if (mk_lcomb(wdbp, bu_vls_cstr(&name), &wm,
+			     0, NULL, NULL, NULL, 0) != 0) {
+		    bu_vls_free(&name);
+		    bu_vls_free(&child_name);
+		    return 1;
+		}
+	    }
+	}
+    }
+
+    bu_vls_free(&name);
+    bu_vls_free(&child_name);
+    return 0;
+}
+
+
+/*
+ * Verify -below correctness and measure timing on the recursive sphflake
+ * tree.  Reports Σdepths and the projected speedup from a hypothetical
+ * BFS forward-pass cache for f_below.
+ *
+ * Searches from sflake_0 (the root); expected count for:
+ *   "-below -name sflake_0"  = N_total - 1  (every non-root path)
+ *
+ * BFS cache analysis:
+ *   A symmetric top-down forward-pass (analogous to the existing bottom-up
+ *   above_cache_map) would cost ~3×N_total operations and reduce f_below from
+ *   O(Σdepths) to O(N_total).  The projected speedup is Σdepths / (3×N_total)
+ *   = avg_depth / 3.  For the standard sphflake (B=9):
+ *     K=3 → avg_depth ≈ 3.4 → speedup ≈ 1.1×  (barely worth it)
+ *     K=6 → avg_depth ≈ 6.4 → speedup ≈ 2.1×  (significant)
+ *   The cache only helps in the full-path pre-collection code path
+ *   (i.e. when the query ALSO contains -above); for -below-only queries
+ *   the deque traversal avoids pre-collecting all N paths (memory saving).
+ */
+static int
+test_sphflake_below(struct db_i *dbip, int K, int B)
+{
+    int failures = 0;
+    int cnt, old_cnt, expected;
+    int64_t t, t_new, t_old;
+    int64_t N_combos, N_total, sigma;
+    double avg_depth, proj_speedup;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    struct bu_ptbl old_results = BU_PTBL_INIT_ZERO;
+    struct db_search_context *ctx = db_search_context_create();
+
+    N_combos = sflake_node_count(K, B);
+    N_total  = 2 * N_combos;  /* one prim path per combo */
+    sigma    = sflake_sigma_depths(K, B);
+    avg_depth   = (N_total > 0) ? (double)sigma / (double)N_total : 0.0;
+    proj_speedup = avg_depth / 3.0;
+
+    expected = (int)(N_total - 1);
+
+    /* New code timing */
+    t_new = bu_gettime();
+    cnt = db_search(&results, DB_SEARCH_TREE, "-below -name sflake_0",
+		    0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&results);
+
+    /* Old code timing (cross-validate) */
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE, "-below -name sflake_0",
+			    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    db_search_context_destroy(ctx);
+
+    bu_log("  sphflake B=%d K=%d  N=%lld  Sdepths=%lld"
+	   "  avg_d=%.2f  proj_bfs_speedup=%.1fx\n",
+	   B, K, (long long)N_total, (long long)sigma, avg_depth, proj_speedup);
+    bu_log("  sphflake B=%d K=%d  -below -name sflake_0:"
+	   " new=%d(%.4fs)  old=%d(%.4fs)  exp=%d%s\n",
+	   B, K, cnt, (double)t_new/1e6,
+	   old_cnt, (double)t_old/1e6,
+	   expected, (cnt != expected) ? "  FAIL" : "");
+
+    CHECK(cnt == expected, "-below sflake root: count matches");
+
+    /* Run -above -name sflake_0 to show how the same tree behaves under
+     * the existing reverse-BFS cache.  Expected: 0 paths (root has no
+     * descendants whose ancestor is the root itself — i.e. root passes
+     * -below for all descendants, but -above -name root would return 0
+     * because root has no ancestor in the path table). */
+    t = bu_gettime();
+    cnt = db_search(&results, DB_SEARCH_TREE, "-above -name sflake_0",
+		    0, NULL, dbip, NULL, NULL, NULL);
+    t = bu_gettime() - t;
+    db_search_free(&results);
+    bu_log("  sphflake B=%d K=%d  -above -name sflake_0:"
+	   " %d paths (%.4fs) [root is never above itself]\n",
+	   B, K, cnt, (double)t/1e6);
+
+    return failures;
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -2759,6 +3041,85 @@ main(int argc, char *argv[])
 		    failures += test_cyclic_tree(dbip);
 		    wdb_close(wdbp);
 		}
+	    }
+	}
+    }
+
+    /* ---- Recursive sphflake topology: f_below performance analysis ---- */
+    /*
+     * This section answers the theoretical question: "if we restore the BFS
+     * forward-pass cache for f_below, at what sphflake iteration count would
+     * we expect significant gains?"
+     *
+     * The recursive sphflake topology (B=9 branches per node, depth K) is
+     * built and searched to measure the O(Σdepths) cost of the current
+     * ancestor-walk f_below.  The "proj_bfs_speedup" column in the output
+     * shows what a BFS forward-pass cache would achieve: Σdepths/(3×N).
+     *
+     * For the standard sphflake (B=9):
+     *   K=3 → break-even (proj ≈ 1.1×), N=1640 paths
+     *   K=4 → proj ≈ 1.5×,  N=14762 paths
+     *   K=5 → proj ≈ 1.8×,  N=132860 paths  (geometry limit approaching)
+     *   K=6 → proj ≈ 2.1×,  N=1.2M paths    (geometry unworkable)
+     *
+     * IMPORTANT: The BFS cache only helps in the full-path pre-collection
+     * code path (queries that also include -above).  For -below-only queries,
+     * the current deque traversal is memory-efficient (O(depth) live paths);
+     * switching to pre-collection would cost O(N×depth) memory.
+     */
+    {
+	int sflake_cases[] = {1, 2, 3, 4, 0};
+	int sci;
+	const int B = 9;
+
+	bu_log("\nRunning recursive sphflake topology tests (B=%d)...\n", B);
+	bu_log("  (theoretical note: BRL-CAD sphflake.c builds a FLAT tree;\n"
+	       "   these tests use the recursive conceptual sphflake topology.)\n");
+
+	for (sci = 0; sflake_cases[sci] != 0; sci++) {
+	    int K = sflake_cases[sci];
+
+	    dbip = db_open_inmem();
+	    if (dbip == DBI_NULL) {
+		bu_log("ERROR: Cannot create sphflake db (K=%d)\n", K);
+		failures++;
+		continue;
+	    }
+	    wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_INMEM);
+	    if (!wdbp) {
+		db_close(dbip);
+		failures++;
+		continue;
+	    }
+
+	    if (build_sphflake_tree(wdbp, K, B) != 0) {
+		bu_log("ERROR: Cannot build sphflake tree K=%d B=%d\n", K, B);
+		wdb_close(wdbp);
+		failures++;
+		continue;
+	    }
+
+	    db_update_nref(dbip, &rt_uniresource);
+	    failures += test_sphflake_below(dbip, K, B);
+
+	    wdb_close(wdbp);
+	}
+
+	/* Print a theoretical summary for K=5..7 (not built, just computed). */
+	bu_log("\n  Theoretical projection (B=%d, not built):\n", B);
+	{
+	    int K;
+	    for (K = 5; K <= 7; K++) {
+		int64_t N_total  = 2 * sflake_node_count(K, B);
+		int64_t sigma    = sflake_sigma_depths(K, B);
+		double avg_depth = (double)sigma / (double)N_total;
+		double proj_spd  = avg_depth / 3.0;
+		bu_log("  sphflake B=%d K=%d  N=%lld"
+		       "  Sdepths=%lld  avg_d=%.2f  proj_bfs_speedup=%.1fx"
+		       "  (geometry limit: %s)\n",
+		       B, K, (long long)N_total, (long long)sigma,
+		       avg_depth, proj_spd,
+		       (K >= 6) ? "exceeded" : "approaching");
 	    }
 	}
     }
