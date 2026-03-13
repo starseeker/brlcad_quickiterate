@@ -30,6 +30,7 @@ set(
   shape_recognition/planar.cpp
   shape_recognition/sphere.cpp
   shape_recognition/sr_util.cpp
+  shape_recognition/torus.cpp
   ssx_event.cpp
   tools/tools_util.cpp
 )
@@ -80,7 +81,6 @@ cmakefiles(
   cdt/mesh.h
   debug_plot.h
   shape_recognition/shape_recognition.h
-  shape_recognition/torus.cpp
   tools/tools.h
 )
 
