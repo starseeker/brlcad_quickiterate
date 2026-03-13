@@ -40,7 +40,7 @@
  *   Mouse navigation in QgObolView does the reverse: camera changes made by
  *   Obol dragging are reflected back to bsg_view via syncBsgViewFromCamera().
  *
- * See RADICAL_MIGRATION.md Stage 0 for context.
+ * See RADICAL_MIGRATION.md Stage 0-5 for context.
  */
 
 #pragma once
@@ -71,10 +71,14 @@
 #include <Inventor/nodes/SoCamera.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/actions/SoGLRenderAction.h>
+#include <Inventor/actions/SoGetBoundingBoxAction.h>
+#include <Inventor/actions/SoRayPickAction.h>
 #include <Inventor/actions/SoSearchAction.h>
 #include <Inventor/events/SoLocation2Event.h>
 #include <Inventor/events/SoMouseButtonEvent.h>
 #include <Inventor/events/SoKeyboardEvent.h>
+#include <Inventor/SoPickedPoint.h>
+#include <Inventor/SoPath.h>
 
 #include <GL/gl.h>
 #include <cmath>
@@ -84,6 +88,7 @@
 #include "bsg/util.h"
 #include "obol_scene.h"
 #include "vmath.h"
+#include "bn/mat.h"
 
 // ============================================================================
 // QgObolContextManager
@@ -173,6 +178,7 @@ public:
 	: QOpenGLWidget(parent)
 	, bsg_v_(nullptr)
 	, obol_root_(nullptr)
+	, selectedShape_(nullptr)
     {
 	setMouseTracking(true);
 	setFocusPolicy(Qt::StrongFocus);
@@ -202,6 +208,7 @@ public:
     /** Attach a BRL-CAD bsg_view.  Call after SoDB::init(). */
     void setBsgView(bsg_view *v) {
 	bsg_v_ = v;
+	selectedShape_ = nullptr;    /* Clear any dangling selection on view switch */
 	if (!obol_root_) {
 	    obol_root_ = obol_scene_create();
 	    setObolSceneGraph(obol_root_);
@@ -298,6 +305,83 @@ public:
 	}
     }
 
+    /**
+     * Sync the bsg_view camera state FROM the current Obol camera.
+     *
+     * This is the inverse of syncCameraFromBsgView().  It is called after
+     * every interactive mouse navigation (orbit, pan, zoom) and after
+     * viewAll() so that BRL-CAD command-line tools and the rest of the
+     * application see an up-to-date view state.
+     *
+     * The following bsg_view fields are updated:
+     *   gv_rotation  — 4×4 pure-rotation matrix (rows: right, up, -look)
+     *   gv_center    — 4×4 translation matrix (translate to -scene_center)
+     *   gv_scale     — half the scene extent (focalDistance / 2)
+     *   gv_size      — full scene extent (= focalDistance)
+     *
+     * After setting those fields, bsg_view_update() is called to recompute
+     * the derived matrices (gv_model2view, gv_view2model, gv_aet, etc.).
+     * The gv_progressive_autoview flag is cleared so that drain_background_geom
+     * does not override the user's explicit navigation.
+     */
+    void syncBsgViewFromCamera() {
+	if (!bsg_v_)
+	    return;
+
+	SoCamera *cam = viewport_.getCamera();
+	if (!cam)
+	    return;
+
+	const SbRotation &orient = cam->orientation.getValue();
+
+	/* Extract world-space right / up / look vectors from the orientation.
+	 * Camera canonical frame: right=+X, up=+Y, look=-Z. */
+	SbVec3f right_sb, up_sb, look_sb;
+	orient.multVec(SbVec3f(1.0f, 0.0f,  0.0f), right_sb);
+	orient.multVec(SbVec3f(0.0f, 1.0f,  0.0f), up_sb);
+	orient.multVec(SbVec3f(0.0f, 0.0f, -1.0f), look_sb);
+	right_sb.normalize();
+	up_sb.normalize();
+	look_sb.normalize();
+
+	/* Build gv_rotation: rows are [right | 0, up | 0, -look | 0, 0 0 0 1].
+	 * This matches the construction in syncCameraFromBsgView() where the
+	 * rot_mat columns are [right, up, -look].  BRL-CAD mat_t is row-major. */
+	mat_t rot;
+	MAT_ZERO(rot);
+	rot[0]  = right_sb[0]; rot[1]  = right_sb[1]; rot[2]  = right_sb[2];
+	rot[4]  = up_sb[0];    rot[5]  = up_sb[1];    rot[6]  = up_sb[2];
+	rot[8]  = -look_sb[0]; rot[9]  = -look_sb[1]; rot[10] = -look_sb[2];
+	rot[15] = 1.0;
+	MAT_COPY(bsg_v_->gv_rotation, rot);
+
+	/* The scene center is at eye_pos + look * focalDistance.
+	 * gv_center is the translation that maps scene_center → view origin:
+	 *   gv_center = translate(-scene_center). */
+	const SbVec3f &pos_sb = cam->position.getValue();
+	float fd = cam->focalDistance.getValue();
+	point_t scene_center;
+	scene_center[X] = (double)pos_sb[0] + (double)look_sb[0] * (double)fd;
+	scene_center[Y] = (double)pos_sb[1] + (double)look_sb[1] * (double)fd;
+	scene_center[Z] = (double)pos_sb[2] + (double)look_sb[2] * (double)fd;
+
+	MAT_IDN(bsg_v_->gv_center);
+	MAT_DELTAS_VEC_NEG(bsg_v_->gv_center, scene_center);
+
+	/* gv_size = focalDistance, gv_scale = gv_size / 2 (matches autoview). */
+	bsg_v_->gv_size  = (double)fd;
+	bsg_v_->gv_scale = (double)fd * 0.5;
+	bsg_v_->gv_isize = (bsg_v_->gv_size > SMALL_FASTF)
+			   ? 1.0 / bsg_v_->gv_size : 1.0;
+
+	/* Recompute derived matrices (model2view, view2model, aet, …). */
+	bsg_view_update(bsg_v_);
+
+	/* User explicitly navigated: stop progressive autoview. */
+	if (bsg_v_->gv_s)
+	    bsg_v_->gv_s->gv_progressive_autoview = 0;
+    }
+
     // ── Scene graph ──────────────────────────────────────────────────────
 
     /** Attach an Obol scene root directly (advanced). */
@@ -349,6 +433,49 @@ public:
 	return renderMgr_.getRenderMode();
     }
 
+    /**
+     * Map a BRL-CAD global draw mode integer to an Obol SoRenderManager
+     * render mode and apply it.
+     *
+     * This is useful when BRL-CAD commands change the global view drawing
+     * mode and the Obol renderer needs to follow:
+     *
+     *   0 — wireframe             → AS_IS  (per-shape SoDrawStyle::LINES)
+     *   1 — hidden-line           → HIDDEN_LINE
+     *   2 — shaded (Phong)        → AS_IS  (per-shape SoDrawStyle::FILLED)
+     *   3 — evaluated wireframe   → AS_IS  (vlist path, SoDrawStyle::LINES)
+     *   4 — shaded + hidden-line  → SHADED_HIDDEN_LINES
+     *   5 — point cloud           → POINTS
+     *
+     * The default global mode is AS_IS so that per-object SoDrawStyle nodes
+     * (set by obol_scene_assemble from each shape's s_dmode) take effect.
+     * Mixed-mode scenes (some wireframe, some shaded) require AS_IS so that
+     * each object's own SoDrawStyle is respected.
+     */
+    void syncRenderModeFromDmode(int dmode) {
+	SoRenderManager::RenderMode mode;
+	switch (dmode) {
+	    case 1:
+		mode = SoRenderManager::HIDDEN_LINE;
+		break;
+	    case 4:
+		mode = SoRenderManager::SHADED_HIDDEN_LINES;
+		break;
+	    case 5:
+		mode = SoRenderManager::POINTS;
+		break;
+	    case 0:
+	    case 2:
+	    case 3:
+	    default:
+		/* AS_IS: each shape renders according to its own SoDrawStyle
+		 * (set by obol_scene_assemble based on s->s_os->s_dmode). */
+		mode = SoRenderManager::AS_IS;
+		break;
+	}
+	setRenderMode(mode);
+    }
+
     void setStereoMode(SoRenderManager::StereoMode mode) {
 	renderMgr_.setStereoMode(mode);
 	update();
@@ -361,10 +488,49 @@ public:
     }
 
 public slots:
+    /**
+     * Fit the scene into the view using Obol's bounding-box camera fitting.
+     *
+     * Stage 4: After fitting, syncBsgViewFromCamera() writes the new camera
+     * state back to bsg_view so command-line tools and the rest of BRL-CAD
+     * remain consistent with the Obol camera.
+     */
     void viewAll() {
-	viewport_.viewAll();
+	SoCamera *cam = viewport_.getCamera();
+	SoNode *scene = viewport_.getSceneGraph();
+	if (cam && scene) {
+	    /* Use SoGetBoundingBoxAction for the scene bbox, then let the
+	     * camera do the fitting.  This avoids using the SoViewport's
+	     * internal helper so we can feed the result to syncBsgViewFromCamera(). */
+	    SbViewportRegion vpr = viewport_.getViewportRegion();
+	    SoGetBoundingBoxAction bba(vpr);
+	    bba.apply(scene);
+	    SbBox3f bbox = bba.getBoundingBox();
+	    if (!bbox.isEmpty())
+		cam->viewAll(scene, vpr);
+	    else
+		viewport_.viewAll();    /* fallback: no geometry yet */
+	} else {
+	    viewport_.viewAll();
+	}
+
+	/* Stage 4: propagate the new camera state back to bsg_view regardless
+	 * of which viewAll path was taken (both modify the Obol camera).  This
+	 * is intentional even for the empty-scene fallback so that bsg_view
+	 * always mirrors the Obol camera after viewAll(). */
+	syncBsgViewFromCamera();
 	update();
     }
+
+signals:
+    /**
+     * Stage 5: Emitted when the user picks an object in the scene.
+     *
+     * @p s  The leaf bsg_shape that was hit.  The shape's @c s_path contains
+     *       the db_full_path to the BRL-CAD object.  May be @c nullptr if
+     *       the background was clicked (deselect).
+     */
+    void picked(bsg_shape *s);
 
 protected:
     // ── QOpenGLWidget overrides ──────────────────────────────────────────
@@ -373,6 +539,7 @@ protected:
 	glEnable(GL_DEPTH_TEST);
 	renderMgr_.getGLRenderAction()->setCacheContext(cacheContext_);
     }
+
 
     void resizeGL(int w, int h) override {
 	const qreal dpr = devicePixelRatioF();
@@ -394,6 +561,14 @@ protected:
 
     void mousePressEvent(QMouseEvent *e) override {
 	lastMousePos_ = e->position();
+
+	/* Stage 5: Ctrl+left-click triggers object picking instead of orbit.
+	 * Right-click is handled by contextMenuEvent (no picking there). */
+	if (e->button() == Qt::LeftButton &&
+	    (e->modifiers() & Qt::ControlModifier)) {
+	    pickAt((int)e->position().x(), (int)e->position().y());
+	    return;
+	}
 
 	SoMouseButtonEvent ev;
 	ev.setPosition(SbVec2s((short)e->position().x(), (short)e->position().y()));
@@ -429,6 +604,8 @@ protected:
 	SoCamera *cam = viewport_.getCamera();
 	if (!cam) return;
 
+	bool navigated = false;
+
 	if (e->buttons() & Qt::LeftButton) {
 	    /* Orbit: rotate camera around focal point */
 	    float dx = (float)delta.x() * 0.005f;
@@ -439,21 +616,27 @@ protected:
 	    SbRotation ry(axis_h, -dx);
 	    SbRotation rx(axis_v, -dy);
 	    cam->orientation.setValue(ry * rx * r);
+	    navigated = true;
 	} else if (e->buttons() & Qt::MiddleButton) {
 	    /* Pan: translate camera in view plane */
 	    float scale = cam->focalDistance.getValue() * 0.001f;
-	    SbVec3f right, up, look;
+	    SbVec3f right, up;
 	    cam->orientation.getValue().multVec(SbVec3f(1, 0, 0), right);
 	    cam->orientation.getValue().multVec(SbVec3f(0, 1, 0), up);
 	    SbVec3f pan = right * (-(float)delta.x() * scale)
 		       + up   *  ((float)delta.y() * scale);
 	    cam->position = cam->position.getValue() + pan;
+	    navigated = true;
 	}
 
 	/* Route hover location to scene for dragger/selection highlight */
 	SoLocation2Event le;
 	le.setPosition(SbVec2s((short)e->position().x(), (short)e->position().y()));
 	viewport_.processEvent(&le);
+
+	/* Stage 4: sync back to bsg_view after any camera-changing navigation */
+	if (navigated)
+	    syncBsgViewFromCamera();
 
 	update();
     }
@@ -470,6 +653,11 @@ protected:
 	cam->focalDistance = cam->focalDistance.getValue() - step;
 	if (cam->focalDistance.getValue() < 0.001f)
 	    cam->focalDistance = 0.001f;
+
+	/* Stage 4: wheelEvent always modifies the camera (zoom always applies),
+	 * so syncBsgViewFromCamera() is called unconditionally here rather than
+	 * using a navigated flag — every wheel tick is a camera change. */
+	syncBsgViewFromCamera();
 	update();
     }
 
@@ -484,11 +672,13 @@ protected:
 	    connect(a, &QAction::triggered, [this, m]{ setRenderMode(m); });
 	    renderMenu->addAction(a);
 	};
-	addRM("Shaded",       SoRenderManager::AS_IS);
-	addRM("Wireframe",    SoRenderManager::WIREFRAME);
-	addRM("Hidden Line",  SoRenderManager::HIDDEN_LINE);
-	addRM("Points",       SoRenderManager::POINTS);
-	addRM("Bounding Box", SoRenderManager::BOUNDING_BOX);
+	addRM("As-Is (per-object mode)",    SoRenderManager::AS_IS);
+	addRM("Wireframe (all)",             SoRenderManager::WIREFRAME);
+	addRM("Wireframe Overlay",           SoRenderManager::WIREFRAME_OVERLAY);
+	addRM("Hidden Line",                 SoRenderManager::HIDDEN_LINE);
+	addRM("Shaded + Hidden Line",        SoRenderManager::SHADED_HIDDEN_LINES);
+	addRM("Points",                      SoRenderManager::POINTS);
+	addRM("Bounding Box",                SoRenderManager::BOUNDING_BOX);
 	menu.addAction("View All", this, &QgObolView::viewAll);
 	menu.exec(e->globalPos());
     }
@@ -523,6 +713,61 @@ private:
 	return ctx.fetch_add(1, std::memory_order_relaxed);
     }
 
+    // ── Stage 5: picking helper ───────────────────────────────────────────
+
+    /**
+     * Cast a pick ray at viewport coordinate (@p x, @p y) and emit the
+     * `picked(bsg_shape*)` signal with the closest hit.
+     *
+     * Uses `SoRayPickAction` against the current scene graph.  The hit path
+     * is resolved to a `bsg_shape` via `obol_find_shape_for_path()`.  If the
+     * hit resolves to a shape that is already selected it is deselected;
+     * otherwise the previous selection is cleared and the new shape is
+     * selected.  After modifying the selection state, `obol_scene_assemble()`
+     * is called to rebuild the affected separators (highlight on/off) and a
+     * repaint is requested.
+     *
+     * Emits `picked(nullptr)` when the background is clicked (deselect all).
+     */
+    void pickAt(int x, int y) {
+	SoNode *scene = viewport_.getSceneGraph();
+	if (!scene)
+	    return;
+
+	SbViewportRegion vpr = viewport_.getViewportRegion();
+	SoRayPickAction rpa(vpr);
+	rpa.setPoint(SbVec2s((short)x, (short)y));
+	rpa.setPickAll(false);   /* closest hit only */
+	rpa.apply(scene);
+
+	const SoPickedPoint *pp = rpa.getPickedPoint(0);
+	bsg_shape *hit = pp ? obol_find_shape_for_path(pp->getPath()) : nullptr;
+
+	/* Toggle selection: clicking the already-selected shape deselects it;
+	 * clicking a new shape first clears the previous selection. */
+	bsg_shape *prev = selectedShape_;
+	if (selectedShape_) {
+	    obol_shape_set_selected(selectedShape_, false);
+	    selectedShape_ = nullptr;
+	}
+
+	if (hit && hit != prev) {
+	    /* New shape: select it. */
+	    obol_shape_set_selected(hit, true);
+	    selectedShape_ = hit;
+	} else {
+	    /* Background click, or re-click on already-selected shape: deselect. */
+	    hit = nullptr;
+	}
+
+	/* Rebuild affected shapes and repaint. */
+	if (obol_root_ && bsg_v_)
+	    obol_scene_assemble(obol_root_, bsg_v_);
+
+	emit picked(hit);
+	update();
+    }
+
     // ── Members ───────────────────────────────────────────────────────────
 
     bsg_view        *bsg_v_;       /* BRL-CAD view (not owned) */
@@ -532,6 +777,7 @@ private:
     QTimer           idleTimer_, delayTimer_, timerTimer_;
     QPointF          lastMousePos_;
     uint32_t         cacheContext_ = allocCacheContext();
+    bsg_shape       *selectedShape_ = nullptr;  /* Stage 5: current selection */
 };
 
 #endif /* BRLCAD_ENABLE_OBOL */

@@ -259,113 +259,138 @@ Instancing — multiple paths referencing the same primitive:
 
 ## Stage 3: Drawing Modes
 
+**Status:** Complete
+
 **Goal:** Map BRL-CAD's drawing modes to `SoRenderManager` modes.
 
-| BRL-CAD s_dmode | Description           | Obol mapping                              |
-|-----------------|-----------------------|-------------------------------------------|
-| 0               | Wireframe             | `SoRenderManager::WIREFRAME`              |
-| 1               | Hidden-line           | `SoRenderManager::HIDDEN_LINE`            |
-| 2               | Shaded (Phong)        | `SoRenderManager::AS_IS` + normals        |
-| 3               | Evaluated wireframe   | `SoProceduralShape` (CSG eplot callback)  |
-| 4               | Shaded + hidden-line  | `SoRenderManager::SHADED_HIDDEN_LINES`    |
-| 5               | Point cloud           | `SoRenderManager::POINTS`                 |
+The approach uses a two-level system:
+1. **Per-object `SoDrawStyle`** (in `obol_scene.cpp`): each leaf shape separator
+   carries a `SoDrawStyle` node whose `style` field is set from `s->s_os->s_dmode`.
+   This ensures correct rendering when the global `SoRenderManager` mode is `AS_IS`.
+2. **Global render mode** (`QgObolView::setRenderMode` / `syncRenderModeFromDmode`):
+   a global override that forces all objects to render the same way (wireframe, hidden
+   line, points, etc.).  The context menu in `QgObolView` exposes all available modes.
+
+| BRL-CAD s_dmode | Description           | SoDrawStyle::style | SoRenderManager override    |
+|-----------------|-----------------------|--------------------|-----------------------------|
+| 0               | Wireframe             | `LINES`            | `AS_IS`                     |
+| 1               | Hidden-line           | `LINES`            | `HIDDEN_LINE`               |
+| 2               | Shaded (Phong)        | `FILLED`           | `AS_IS`                     |
+| 3               | Evaluated wireframe   | `LINES`            | `AS_IS` (vlist path)        |
+| 4               | Shaded + hidden-line  | `FILLED`           | `SHADED_HIDDEN_LINES`       |
+| 5               | Point cloud           | `POINTS`           | `POINTS`                    |
 
 ### Per-object draw mode
 
-Objects can have different draw modes.  Use per-subtree `SoDrawStyle` nodes:
+Objects can have different draw modes.  Each leaf shape separator produced by
+`obol_scene_assemble()` carries a `SoDrawStyle` node as its first child:
 
 ```
 SoSeparator (object root)
-  SoDrawStyle  ← lineWidth, pointSize, style (FILLED/LINES/POINTS)
-  SoMaterial
-  SoIndexedFaceSet or SoIndexedLineSet
+  SoDrawStyle  ← lineWidth/pointSize/style (FILLED/LINES/POINTS) from s_dmode
+  SoTransform  ← from s->s_mat
+  SoMaterial   ← Phong diffuse from s->s_os->s_color
+  SoIndexedFaceSet or SoIndexedLineSet  ← from ft_scene_obj
 ```
 
-For wireframe-only objects inside a shaded scene: wrap the subtree in an
-`SoGroup` with `SoDrawStyle::style = LINES` so the render manager's global
-render mode doesn't override it.
+The `SoSeparator` acts as a state barrier so per-object draw styles do not
+bleed into sibling shapes.  When the global `SoRenderManager` mode is `AS_IS`
+(the default), each object renders according to its own `SoDrawStyle`.
+
+### Global render mode (`QgObolView`)
+
+`QgObolView` provides:
+- `setRenderMode(SoRenderManager::RenderMode)` — directly set the global mode.
+- `syncRenderModeFromDmode(int dmode)` — maps a BRL-CAD draw mode integer to
+  the appropriate `SoRenderManager` mode and applies it.  Useful when a
+  command changes the global view draw mode.
+- Right-click context menu listing all seven `SoRenderManager` modes.
 
 ---
 
 ## Stage 4: Camera and View
 
+**Status:** Complete
+
 **Goal:** Replace `bsg_view`'s manual matrix math with Obol's camera system.
 
-### Current camera state (in bsg_view / bview)
+### Implementation
 
-```c
-fastf_t gv_size;         // view volume half-size
-fastf_t gv_scale;        // pixels-per-unit
-point_t gv_center;       // look-at point
-mat_t   gv_rotation;     // eye rotation matrix
-mat_t   gv_model2view;
-mat_t   gv_view2model;
-```
+`QgObolView` provides a bidirectional camera synchronisation bridge:
 
-### Target: SoPerspectiveCamera / SoOrthographicCamera
+**`syncCameraFromBsgView()`** (already in Stage 0) — reads `bsg_view` fields and
+writes them to the Obol `SoPerspectiveCamera`:
+- Eye position: `gv_view2model * {0,0,0}` → `cam->position`
+- Orientation: rows of `gv_rotation` → `cam->orientation` (via `SbRotation`)
+- Focal distance: `gv_size` → `cam->focalDistance`
+- Perspective: `gv_perspective` → `cam->heightAngle`
 
-```cpp
-SoPerspectiveCamera *cam = new SoPerspectiveCamera;
-cam->position.setValue(eye[0], eye[1], eye[2]);
-cam->orientation.setValue(SbRotation(rot4x4));
-cam->focalDistance = gv_size;
-cam->heightAngle = fov_radians;
-```
+**`syncBsgViewFromCamera()`** (Stage 4) — reads the Obol camera and writes back
+to `bsg_view` so all command-line tools stay consistent after interactive navigation:
+- Extracts right/up/look world vectors from `cam->orientation`
+- Rebuilds `gv_rotation` (4×4 with rows = right, up, −look)
+- Computes scene center = `cam->position + look * cam->focalDistance`
+- Rebuilds `gv_center` as `translate(−scene_center)`
+- Sets `gv_size = focalDistance`, `gv_scale = focalDistance / 2`
+- Calls `bsg_view_update()` to recompute derived matrices (model2view, view2model, aet)
+- Clears `gv_progressive_autoview` so drain_background_geom doesn't override the user's navigation
 
-Camera navigation commands (`ae`, `center`, `zoom`, `rot`) update the Obol
-camera directly via `SbRotation`, `SbVec3f`.  The view matrix is then derived
-by `SoGLRenderAction` automatically during the render traversal.
+**Mouse navigation** calls `syncBsgViewFromCamera()` after:
+- `mouseMoveEvent` (orbit / pan) — when any camera-changing button is held
+- `wheelEvent` (zoom) — always
 
-`bsg_view` will keep its numeric fields for backward-compatible command-line
-tools; `QgObolView` syncs from `bsg_view` → Obol camera on each redraw.
+**`viewAll()`** (Stage 4 upgrade):
+- Uses `SoGetBoundingBoxAction` to compute the actual scene bbox
+- Calls `cam->viewAll(scene, vpregion)` for tight fitting
+- Then calls `syncBsgViewFromCamera()` to propagate the fitted view back to `bsg_view`
 
-### viewAll
-
-```cpp
-void QgObolView::viewAll() {
-    viewport_.viewAll();
-    SbBox3f bbox;
-    SoGetBoundingBoxAction ba(SbViewportRegion(width(), height()));
-    ba.apply(viewport_.getSceneGraph());
-    bbox = ba.getBoundingBox();
-    viewport_.getCamera()->viewAll(bbox, SbViewportRegion(width(), height()));
-}
-```
+`bsg_view` retains all its legacy fields for backward-compatible command-line
+tools (ae, center, zoom, rot commands continue to work via `syncCameraFromBsgView()`).
 
 ---
 
 ## Stage 5: Selection and Picking
 
+**Status:** Complete
+
 **Goal:** Replace librt-based screen-ray picking with `SoRayPickAction`.
 
-### Current picking
+### Implementation
 
-```c
-// In libged pick:
-rt_shootray(...);
-// returns hit list from librt
-```
+**`obol_scene.cpp`** — Selection API
 
-### Target: SoRayPickAction
+- **Reverse map** (`sep_shape_map`): `SoSeparator* → bsg_shape*`, maintained
+  alongside the forward `shape_sep_map`.  Entries are added in
+  `obol_scene_update_shape()` and removed on rebuild or `obol_scene_clear()`.
 
-```cpp
-SoRayPickAction rpa(SbViewportRegion(w, h));
-rpa.setPoint(SbVec2s(x, y));
-rpa.apply(viewport_.getSceneGraph());
-const SoPickedPointList &picks = rpa.getPickedPointList();
-// For each pick, SoPath leads back to the SoSeparator for the BRL-CAD object
-```
+- **`obol_find_shape_for_path(const SoPath*)`** — walks the pick path from the
+  deepest node toward the root, returning the first `bsg_shape` whose
+  `SoSeparator` appears in the reverse map.
 
-### Highlight on hover
+- **`obol_shape_set_selected(bsg_shape*, bool)`** — marks a shape as
+  selected/deselected, sets `s_changed = 1` to force a material rebuild.
 
-```cpp
-// Use SoSelection node in the scene
-SoSelection *sel = new SoSelection;
-sel->policy = SoSelection::SINGLE;
-sel->addSelectionCallback(onSelectionChanged, this);
-root->addChild(sel);
-// SoLocateHighlight or SoBoxHighlightRenderAction for visual feedback
-```
+- **`obol_shape_is_selected(bsg_shape*)`** — returns the current selection state.
+
+- **Selection highlight** — in `obol_scene_update_shape()`, if a shape is
+  selected, its `SoMaterial` gets an emissive orange glow
+  (`emissiveColor = {0.8, 0.4, 0.0}`).
+
+**`QgObolView.h`** — Picking
+
+- **Ctrl+left-click** triggers `pickAt(x, y)` instead of orbit.
+
+- **`pickAt(int x, int y)`** — fires `SoRayPickAction` against the scene,
+  resolves the closest hit to a `bsg_shape`, handles toggle (re-click
+  deselects, new click replaces selection), calls `obol_scene_assemble()` to
+  apply highlight, emits `picked(bsg_shape*)`.
+
+- **`picked(bsg_shape*)` signal** — consumers connect to this to act on
+  selection changes (e.g. update the tree view, show properties panel).
+
+- **`selectedShape_` member** — tracks the currently selected shape so that
+  `pickAt()` can clear the previous selection without iterating the entire
+  scene.
 
 ---
 

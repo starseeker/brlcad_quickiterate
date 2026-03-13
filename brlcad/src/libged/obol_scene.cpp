@@ -50,21 +50,25 @@
 #include <Inventor/nodes/SoMaterial.h>
 #include <Inventor/nodes/SoBaseColor.h>
 #include <Inventor/nodes/SoDirectionalLight.h>
+#include <Inventor/nodes/SoDrawStyle.h>
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoNode.h>
 #include <Inventor/SbMatrix.h>
 #include <Inventor/SbVec3f.h>
 #include <Inventor/SbRotation.h>
+#include <Inventor/SoPath.h>
 #if defined(__GNUC__) || defined(__clang__)
 #  pragma GCC diagnostic pop
 #endif
 
 #include <unordered_map>
+#include <unordered_set>
 
 /* --------------------------------------------------------------------------
  * Module-level shape → Obol subtree caches                               *
  *                                                                          *
  * shape_sep_map:  bsg_shape (leaf)  → SoSeparator wrapping its geometry  *
+ * sep_shape_map:  SoSeparator (leaf)→ bsg_shape (reverse of shape_sep)  *
  * group_sep_map:  bsg_shape (group) → SoSeparator wrapping its children  *
  *                                                                          *
  * Both caches are keyed by pointer value only; we never dereference a     *
@@ -78,6 +82,14 @@ shape_sep_map()
     return m;
 }
 
+/* Reverse map: SoSeparator* → bsg_shape* (Stage 5 picking support). */
+static std::unordered_map<SoSeparator *, bsg_shape *> &
+sep_shape_map()
+{
+    static std::unordered_map<SoSeparator *, bsg_shape *> m;
+    return m;
+}
+
 static std::unordered_map<bsg_shape *, SoSeparator *> &
 group_sep_map()
 {
@@ -85,11 +97,24 @@ group_sep_map()
     return m;
 }
 
+/* Stage 5: set of currently-selected leaf separators for highlight. */
+static std::unordered_set<bsg_shape *> &
+selected_shapes()
+{
+    static std::unordered_set<bsg_shape *> s;
+    return s;
+}
+
 /* Phong material defaults for leaf shapes.
  * Ambient is derived from the diffuse color (ambient = diffuse * factor). */
 static constexpr float OBOL_MAT_AMBIENT_FACTOR = 0.3f;
 static constexpr float OBOL_MAT_SPECULAR_VALUE  = 0.4f;
 static constexpr float OBOL_MAT_SHININESS       = 0.5f;
+
+/* Stage 5: selection highlight material constants. */
+static constexpr float OBOL_SELECT_EMISSIVE_R   = 0.8f;
+static constexpr float OBOL_SELECT_EMISSIVE_G   = 0.4f;
+static constexpr float OBOL_SELECT_EMISSIVE_B   = 0.0f;
 
 
 /* --------------------------------------------------------------------------
@@ -168,7 +193,9 @@ obol_scene_clear(SoSeparator *scene_root)
 	scene_root->removeChild(scene_root->getNumChildren() - 1);
 
     shape_sep_map().clear();
+    sep_shape_map().clear();
     group_sep_map().clear();
+    selected_shapes().clear();
 }
 
 
@@ -223,6 +250,7 @@ obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
 	    }
 	}
 	shape_sep->unref();
+	sep_shape_map().erase(shape_sep);  /* Stage 5: remove from reverse map */
 	m.erase(it);
 	shape_sep = nullptr;
     }
@@ -232,6 +260,7 @@ obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
      *                                                                      *
      *   SoSwitch  (whichChild = SO_SWITCH_ALL or SO_SWITCH_NONE)         *
      *     SoSeparator (shape_sep)                                         *
+     *       SoDrawStyle   — per-object draw style from s->s_os->s_dmode  *
      *       SoTransform   — from s->s_mat                                *
      *       SoMaterial    — from s->s_os->s_color (Phong diffuse)        *
      *       <s_obol_node> — geometry from ft_scene_obj (always last)     *
@@ -242,15 +271,56 @@ obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
     shape_sep = new SoSeparator;
     shape_sep->ref();
 
-    /* 1. Transform */
+    /* 1. Per-object draw style (Stage 3: Drawing Modes).
+     *
+     * Each shape carries its own SoDrawStyle so that mixed-mode scenes
+     * (wireframe + shaded objects in the same view) render correctly when the
+     * global SoRenderManager mode is AS_IS.
+     *
+     * Mapping from BRL-CAD s_dmode:
+     *   0 — wireframe             → SoDrawStyle::LINES
+     *   1 — hidden-line           → SoDrawStyle::LINES  (render manager
+     *                                handles the hidden-line pass globally)
+     *   2 — shaded (Phong)        → SoDrawStyle::FILLED
+     *   3 — evaluated wireframe   → SoDrawStyle::LINES  (draw_m3 vlist path)
+     *   4 — shaded + hidden-line  → SoDrawStyle::FILLED (render manager pass)
+     *   5 — point cloud           → SoDrawStyle::POINTS
+     */
+    {
+	SoDrawStyle *ds = new SoDrawStyle;
+	int dmode = s->s_os ? s->s_os->s_dmode : 0;
+	switch (dmode) {
+	    case 2:
+	    case 4:
+		ds->style = SoDrawStyle::FILLED;
+		break;
+	    case 5:
+		ds->style = SoDrawStyle::POINTS;
+		ds->pointSize = 3.0f;
+		break;
+	    case 0:
+	    case 1:
+	    case 3:
+	    default:
+		ds->style = SoDrawStyle::LINES;
+		ds->lineWidth = 1.0f;
+		break;
+	}
+	shape_sep->addChild(ds);
+    }
+
+    /* 2. Transform */
     SoTransform *xf = obol_mat_to_transform(s->s_mat);
     shape_sep->addChild(xf);
     xf->unref();
 
-    /* 2. Material (Phong diffuse from s_os color; SoBaseColor is flat-shaded,
-     *    SoMaterial supports full lighting model including specular). */
+    /* 3. Material (Phong diffuse from s_os color; SoBaseColor is flat-shaded,
+     *    SoMaterial supports full lighting model including specular).
+     *    Stage 5: if the shape is selected, apply emissive highlight. */
     {
 	SoMaterial *mat = new SoMaterial;
+	const bool is_selected = selected_shapes().count(s) > 0;
+
 	if (s->s_os) {
 	    float r = s->s_os->color[0] / 255.0f;
 	    float g = s->s_os->color[1] / 255.0f;
@@ -267,16 +337,24 @@ obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
 	    mat->diffuseColor.setValue(1.0f, 0.0f, 0.0f);  /* fallback: red */
 	    mat->ambientColor.setValue(OBOL_MAT_AMBIENT_FACTOR, 0.0f, 0.0f);
 	}
+
+	/* Selection highlight: add an emissive orange glow. */
+	if (is_selected)
+	    mat->emissiveColor.setValue(OBOL_SELECT_EMISSIVE_R,
+					OBOL_SELECT_EMISSIVE_G,
+					OBOL_SELECT_EMISSIVE_B);
+
 	shape_sep->addChild(mat);
     }
 
-    /* 3. Geometry node (last child) */
+    /* 4. Geometry node (last child) */
     shape_sep->addChild(geom_node);
 
     sw->addChild(shape_sep);
     parent_sep->addChild(sw);
 
     m[s] = shape_sep;
+    sep_shape_map()[shape_sep] = s;   /* Stage 5: reverse mapping */
     s->s_changed = 0;
 }
 
@@ -399,6 +477,62 @@ obol_scene_assemble(SoSeparator *scene_root, bsg_view *v)
 	    obol_scene_update_shape(scene_root, s);
 	}
     }
+}
+
+
+/* --------------------------------------------------------------------------
+ * Stage 5: Selection and Picking API
+ * -------------------------------------------------------------------------- */
+
+bsg_shape *
+obol_find_shape_for_path(const SoPath *pick_path)
+{
+    if (!pick_path)
+	return nullptr;
+
+    const auto &rsm = sep_shape_map();
+
+    /* Walk from the deepest node toward the root, looking for the first
+     * SoSeparator that appears in the reverse shape map. */
+    int plen = pick_path->getLength();
+    for (int i = plen - 1; i >= 0; i--) {
+	SoNode *node = pick_path->getNode(i);
+	if (!node || !node->isOfType(SoSeparator::getClassTypeId()))
+	    continue;
+	SoSeparator *sep = static_cast<SoSeparator *>(node);
+	auto it = rsm.find(sep);
+	if (it != rsm.end())
+	    return it->second;
+    }
+    return nullptr;
+}
+
+void
+obol_shape_set_selected(bsg_shape *s, bool selected)
+{
+    if (!s)
+	return;
+
+    auto &ss = selected_shapes();
+    bool was_selected = ss.count(s) > 0;
+
+    if (selected)
+	ss.insert(s);
+    else
+	ss.erase(s);
+
+    /* Force a material rebuild on the next obol_scene_assemble() call if the
+     * selection state changed. */
+    if (was_selected != selected)
+	s->s_changed = 1;
+}
+
+bool
+obol_shape_is_selected(bsg_shape *s)
+{
+    if (!s)
+	return false;
+    return selected_shapes().count(s) > 0;
 }
 
 #endif /* BRLCAD_ENABLE_OBOL */
