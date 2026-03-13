@@ -55,7 +55,7 @@
 //DebugPlot *dplot = NULL;
 
 // Whether to output the debug messages about b-rep booleans.
-#define DEBUG_BREP_BOOLEAN 0
+#define DEBUG_BREP_BOOLEAN 1
 
 
 struct IntersectPoint {
@@ -738,25 +738,34 @@ is_loop_valid(const ON_SimpleArray<ON_Curve *> &loop, double tolerance, ON_PolyC
 	    append_to_polycurve(loop[0]->Duplicate(), *polycurve);
 	}
 	for (int i = 1 ; i < loop.Count(); i++) {
-	    if (loop[i] && loop[i - 1] && loop[i]->PointAtStart().DistanceTo(loop[i - 1]->PointAtEnd()) < ON_ZERO_TOLERANCE) {
+	    double gap_i = (loop[i] && loop[i-1]) ?
+		loop[i]->PointAtStart().DistanceTo(loop[i-1]->PointAtEnd()) : 1e99;
+	    if (loop[i] && loop[i - 1] && gap_i < ON_ZERO_TOLERANCE) {
 		append_to_polycurve(loop[i]->Duplicate(), *polycurve);
 	    } else {
-		bu_log("The input loop is not continuous.\n");
+		bu_log("The input loop is not continuous (seg %d gap=%g ON_ZERO_TOL=%g).\n",
+		       i, gap_i, ON_ZERO_TOLERANCE);
 		ret = false;
 	    }
 	}
     }
-    if (ret && polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd()) >= ON_ZERO_TOLERANCE)
-    {
-	bu_log("The input loop is not closed.\n");
-	ret = false;
+    if (ret) {
+	double close_gap = polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd());
+	if (close_gap >= ON_ZERO_TOLERANCE) {
+	    bu_log("The input loop is not closed (close_gap=%g).\n", close_gap);
+	    ret = false;
+	}
     }
 
     if (ret) {
 	// Check whether the loop is degenerated.
 	ON_BoundingBox bbox = polycurve->BoundingBox();
-	ret = !ON_NearZero(bbox.Diagonal().Length(), tolerance)
-	    && !polycurve->IsLinear(tolerance);
+	double diag = bbox.Diagonal().Length();
+	bool islin = polycurve->IsLinear(tolerance);
+	if (DEBUG_BREP_BOOLEAN && (ON_NearZero(diag, tolerance) || islin)) {
+	    bu_log("is_loop_valid: DEGENERATE diag=%g islinear=%d tol=%g\n", diag, (int)islin, tolerance);
+	}
+	ret = !ON_NearZero(diag, tolerance) && !islin;
     }
 
     if (delete_curve) {
@@ -3231,6 +3240,16 @@ split_face_into_loops(
     }
 
     clx_points.Append(new_pts.Count(), new_pts.Array());
+    if (DEBUG_BREP_BOOLEAN) {
+	bu_log("  before loop_t_compare sort:\n");
+	for (int i = 0; i < clx_points.Count(); i++) {
+	    bu_log("    clx[%d]: seg=%d seg_t=%g curve_t=%g dir=%d curve_pos=%d pt=(%g,%g)\n",
+		   i, clx_points[i].m_loop_seg, clx_points[i].m_seg_t,
+		   clx_points[i].m_curve_t, (int)clx_points[i].m_dir,
+		   clx_points[i].m_curve_pos,
+		   clx_points[i].m_pt.x, clx_points[i].m_pt.y);
+	}
+    }
     clx_points.QuickSort(loop_t_compare);
 
     // Split the outer loop.
@@ -3414,6 +3433,13 @@ split_face_into_loops(
 		}
 	    }
 	    bu_log("\n");
+	    for (int gi = 0; gi < newloop.Count(); gi++) {
+		if (newloop[gi]) {
+		    ON_3dPoint spt = newloop[gi]->PointAtStart();
+		    ON_3dPoint ept = newloop[gi]->PointAtEnd();
+		    bu_log("    seg[%d]: (%g,%g)->(%g,%g)\n", gi, spt.x, spt.y, ept.x, ept.y);
+		}
+	    }
 	}
 	if (is_loop_valid(newloop, ON_ZERO_TOLERANCE)) {
 	    ON_SimpleArray<ON_Curve *> loop;
