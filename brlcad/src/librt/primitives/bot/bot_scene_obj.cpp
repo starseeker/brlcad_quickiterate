@@ -21,19 +21,21 @@
  *
  * ft_scene_obj implementation for Bag-of-Triangles (BoT) primitives.
  *
- * Builds a native Obol SoNode subtree directly from rt_bot_internal without
- * going through the vlist intermediate representation.  This is the first
- * "native Obol" ft_scene_obj implementation per RADICAL_MIGRATION.md Stage 1.
+ * Two paths:
  *
- * Drawing modes supported:
- *   dmode 0 (wireframe)    → SoCoordinate3 + SoIndexedLineSet (unique edges)
- *   dmode 2 (shaded)       → SoCoordinate3 + SoNormal + SoIndexedFaceSet
- *   dmode 4 (shaded+HL)    → same as dmode 2 (highlight pass by renderer)
- *   other                  → falls back to wireframe
+ * BRLCAD_ENABLE_OBOL path:
+ *   Builds a native Obol SoNode subtree directly from rt_bot_internal without
+ *   going through the vlist intermediate representation.  This is the first
+ *   "native Obol" ft_scene_obj implementation per RADICAL_MIGRATION.md Stage 1.
+ *   Drawing modes: wireframe (SoIndexedLineSet), shaded (SoIndexedFaceSet).
  *
- * When Obol is NOT available (#ifndef BRLCAD_ENABLE_OBOL), rt_bot_scene_obj
- * falls back to rt_generic_scene_obj so that the functab entry always has a
- * valid function pointer.
+ * Non-Obol path:
+ *   Full LoD management absorbed from bot_adaptive_plot() (previously in
+ *   libged/draw.cpp).  Manages bsg_lod objects for progressive refinement:
+ *   no-LoD → OBB placeholder → LoD mesh.  Uses s->mesh_c, s->s_obb_pts,
+ *   s->s_have_obb, and s->s_res which are all forwarded by draw_scene's
+ *   setup phase.  The ft_scene_obj dbip/ttol/tol/v parameters replace the
+ *   former draw_update_data_t accessors.
  *
  * Progressive refinement (placeholder path):
  *   When s->have_bbox == 0, no geometry is available yet.  We draw an OBB
@@ -42,6 +44,7 @@
  *   results.
  *
  * @see RADICAL_MIGRATION.md Stage 1
+ * @see DESIGN_SCENE_OBJ.md §3.2 item 3
  */
 
 #include "common.h"
@@ -49,6 +52,8 @@
 extern "C" {
 #include "bsg/defines.h"
 #include "bsg/vlist.h"
+#include "bsg/lod.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 #include "rt/primitives/bot.h"
 #include "rt/geom.h"
@@ -359,8 +364,100 @@ rt_bot_scene_obj(bsg_shape *s,
 
 #else /* !BRLCAD_ENABLE_OBOL */
 
-/* When Obol is not available, fall back to rt_generic_scene_obj so the
- * functab entry is always a valid function pointer. */
+/* ================================================================== */
+/* Non-Obol path: full LoD management absorbed from bot_adaptive_plot  */
+/* (previously in libged/draw.cpp).                                    */
+/*                                                                     */
+/* Uses s->mesh_c, s->s_obb_pts, s->s_have_obb, s->s_res — all        */
+/* forwarded by draw_scene's setup phase.  The ft_scene_obj dbip/v     */
+/* parameters replace former draw_update_data_t field accesses.        */
+/* ================================================================== */
+
+/* ------------------------------------------------------------------ */
+/* Detail-load callbacks for bsg_lod (moved from libged/draw.cpp)      */
+/* ------------------------------------------------------------------ */
+
+/* Per-shape context passed to the LoD detail callbacks */
+struct rt_bot_detail_clbk_data {
+    struct db_i          *dbip;
+    struct directory     *dp;
+    struct resource      *res;
+    struct rt_db_internal *intern; /* NULL when not loaded */
+};
+
+/* Called by bsg_lod when full-detail mesh data is needed */
+static int
+rt_bot_detail_setup_clbk(bsg_lod *lod, void *cb_data)
+{
+    if (!lod || !cb_data)
+	return -1;
+
+    struct rt_bot_detail_clbk_data *cd =
+	(struct rt_bot_detail_clbk_data *)cb_data;
+
+    BU_GET(cd->intern, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(cd->intern);
+
+    if (rt_db_get_internal(cd->intern, cd->dp, cd->dbip, NULL, cd->res) < 0) {
+	BU_PUT(cd->intern, struct rt_db_internal);
+	cd->intern = NULL;
+	return -1;
+    }
+
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)cd->intern->idb_ptr;
+    RT_BOT_CK_MAGIC(bot);
+
+    lod->faces        = bot->faces;
+    lod->fcnt         = (int)bot->num_faces;
+    lod->pcnt         = (int)bot->num_vertices;
+    lod->points       = (const point_t *)bot->vertices;
+    lod->points_orig  = (const point_t *)bot->vertices;
+
+    return 0;
+}
+
+/* Called by bsg_lod when full-detail mesh data is no longer needed */
+static int
+rt_bot_detail_clear_clbk(bsg_lod *lod, void *cb_data)
+{
+    struct rt_bot_detail_clbk_data *cd =
+	(struct rt_bot_detail_clbk_data *)cb_data;
+
+    if (cd->intern) {
+	rt_db_free_internal(cd->intern);
+	BU_PUT(cd->intern, struct rt_db_internal);
+	cd->intern = NULL;
+    }
+
+    lod->faces       = NULL;
+    lod->fcnt        = 0;
+    lod->pcnt        = 0;
+    lod->points      = NULL;
+    lod->points_orig = NULL;
+
+    return 0;
+}
+
+/* Called by bsg_lod when the context itself is being destroyed */
+static int
+rt_bot_detail_free_clbk(bsg_lod *lod, void *cb_data)
+{
+    rt_bot_detail_clear_clbk(lod, cb_data);
+    BU_PUT((struct rt_bot_detail_clbk_data *)cb_data,
+	   struct rt_bot_detail_clbk_data);
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* rt_bot_scene_obj (non-Obol)                                         */
+/*                                                                     */
+/* Absorbs bot_adaptive_plot() from libged/draw.cpp.  Manages bsg_lod  */
+/* objects for progressive BoT rendering:                              */
+/*   no data yet → OBB/AABB placeholder wireframe                     */
+/*   LoD key available → bsg_lod mesh (progressive detail)            */
+/* ------------------------------------------------------------------ */
+
+/* Forward declaration of the generic fallback (defined in generic.c) */
 extern int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
 				struct db_i *dbip,
 				const struct bg_tess_tol *ttol,
@@ -371,11 +468,163 @@ extern "C" int
 rt_bot_scene_obj(bsg_shape *s,
 		 struct directory *dp,
 		 struct db_i *dbip,
-		 const struct bg_tess_tol *ttol,
-		 const struct bn_tol *tol,
+		 const struct bg_tess_tol *UNUSED(ttol),
+		 const struct bn_tol *UNUSED(tol),
 		 const bsg_view *v)
 {
-    return rt_generic_scene_obj(s, dp, dbip, ttol, tol, v);
+    if (!s || !dp || !dbip)
+	return BRLCAD_ERROR;
+
+    s->csg_obj  = 0;
+    s->mesh_obj = 1;
+
+    /* Without a view or LoD context we can't manage progressive rendering.
+     * Fall back to generic (direct wireframe / shaded from rt_db_internal). */
+    if (!v || !s->mesh_c)
+	return rt_generic_scene_obj(s, dp, dbip, nullptr, nullptr, v);
+
+    bsg_shape *vo = bsg_shape_for_view(s, (bsg_view *)v);
+
+    /* ----------------------------------------------------------------
+     * If a view object already exists but was created as a placeholder
+     * (draw_data == NULL), decide whether to upgrade or keep it.
+     * ---------------------------------------------------------------- */
+    if (vo && !vo->draw_data) {
+	unsigned long long key = bsg_mesh_lod_key_get(s->mesh_c, dp->d_namep);
+	if (key) {
+	    /* LoD is now available — clear the placeholder and fall through
+	     * to build a proper LoD view object below. */
+	    bsg_shape_clear_view_obj(s, (bsg_view *)v);
+	    vo = nullptr;
+	} else if (s->s_have_obb && vo->s_placeholder == 1) {
+	    /* Currently AABB placeholder — upgrade to OBB in-place. */
+	    BSG_FREE_VLIST(vo->vlfree, &vo->s_vlist);
+	    BU_LIST_INIT(&vo->s_vlist);
+	    point_t obb_pts[8];
+	    for (int k = 0; k < 8; k++)
+		VSET(obb_pts[k], s->s_obb_pts[k*3+0],
+		     s->s_obb_pts[k*3+1], s->s_obb_pts[k*3+2]);
+	    bsg_vlist_arb8(vo->vlfree, &vo->s_vlist, (const point_t *)obb_pts);
+	    vo->s_placeholder = 2;
+	    return BRLCAD_OK;
+	} else if (vo->s_placeholder == 2) {
+	    /* OBB placeholder — no upgrade available yet; keep as-is. */
+	    return BRLCAD_OK;
+	} else {
+	    /* Unexpected state — clear and retry. */
+	    bsg_shape_clear_view_obj(s, (bsg_view *)v);
+	    vo = nullptr;
+	}
+    }
+
+    if (!vo) {
+	unsigned long long key = bsg_mesh_lod_key_get(s->mesh_c, dp->d_namep);
+
+	/* Priority: LoD > OBB > AABB > no-op. */
+	if (!key && !s->s_have_obb && !s->have_bbox)
+	    return BRLCAD_OK; /* nothing yet; retry after pipeline delivers */
+
+	vo = bsg_shape_get_view_obj(s, (bsg_view *)v);
+	vo->csg_obj  = 0;
+	vo->mesh_obj = 1;
+
+	if (!key) {
+	    /* No LoD yet — draw the tightest available placeholder. */
+	    if (s->s_have_obb) {
+		point_t obb_pts[8];
+		for (int k = 0; k < 8; k++)
+		    VSET(obb_pts[k], s->s_obb_pts[k*3+0],
+			 s->s_obb_pts[k*3+1], s->s_obb_pts[k*3+2]);
+		bsg_vlist_arb8(vo->vlfree, &vo->s_vlist, (const point_t *)obb_pts);
+		vo->s_placeholder = 2; /* OBB wireframe placeholder */
+	    } else {
+		bsg_vlist_rpp(vo->vlfree, &vo->s_vlist, s->bmin, s->bmax);
+		vo->s_placeholder = 1; /* AABB wireframe placeholder */
+	    }
+	    return BRLCAD_OK;
+	}
+
+	/* We have a valid key — create the LoD object. */
+	bsg_lod *lod = bsg_mesh_lod_create(s->mesh_c, key);
+	if (!lod) {
+	    /* Stale key — regenerate the cache entry. */
+	    unsigned long long old_key = key;
+	    bsg_mesh_lod_clear_cache(s->mesh_c, key);
+
+	    struct resource *res = s->s_res ? s->s_res : &rt_uniresource;
+	    struct rt_db_internal dbintern;
+	    RT_DB_INTERNAL_INIT(&dbintern);
+	    if (rt_db_get_internal(&dbintern, dp, dbip, NULL, res) < 0) {
+		bsg_shape_clear_view_obj(s, (bsg_view *)v);
+		return BRLCAD_ERROR;
+	    }
+
+	    struct rt_bot_internal *bot =
+		(struct rt_bot_internal *)dbintern.idb_ptr;
+	    RT_BOT_CK_MAGIC(bot);
+
+	    key = bsg_mesh_lod_cache(s->mesh_c,
+				     (const point_t *)bot->vertices,
+				     bot->num_vertices,
+				     NULL,
+				     bot->faces,
+				     bot->num_faces,
+				     0, 0.66);
+	    bsg_mesh_lod_key_put(s->mesh_c, dp->d_namep, key);
+	    rt_db_free_internal(&dbintern);
+
+	    if (old_key == key) {
+		bu_log("%s: LoD lookup by key failed, but regeneration generated "
+		       "the same key (?)\n", dp->d_namep);
+		bsg_shape_clear_view_obj(s, (bsg_view *)v);
+		return BRLCAD_ERROR;
+	    }
+
+	    lod = bsg_mesh_lod_create(s->mesh_c, key);
+	    if (!lod) {
+		bsg_shape_clear_view_obj(s, (bsg_view *)v);
+		return BRLCAD_ERROR;
+	    }
+	}
+
+	/* Attach LoD to the view object */
+	vo->draw_data = (void *)lod;
+	lod->s = vo;
+
+	/* Apply s_mat to LoD bbox */
+	MAT4X3PNT(vo->bmin, s->s_mat, lod->bmin);
+	MAT4X3PNT(vo->bmax, s->s_mat, lod->bmax);
+	VMOVE(s->bmin, vo->bmin);
+	VMOVE(s->bmax, vo->bmax);
+
+	/* Register detail-load callbacks */
+	struct rt_bot_detail_clbk_data *cbd;
+	BU_GET(cbd, struct rt_bot_detail_clbk_data);
+	cbd->dbip   = dbip;
+	cbd->dp     = dp;
+	cbd->res    = s->s_res ? s->s_res : &rt_uniresource;
+	cbd->intern = NULL;
+	bsg_mesh_lod_detail_setup_clbk(lod, &rt_bot_detail_setup_clbk,
+				       (void *)cbd);
+	bsg_mesh_lod_detail_clear_clbk(lod, &rt_bot_detail_clear_clbk);
+	bsg_mesh_lod_detail_free_clbk(lod,  &rt_bot_detail_free_clbk);
+
+	/* Hook up view-change and free callbacks */
+	vo->s_update_callback = &bsg_mesh_lod_view;
+	vo->s_free_callback   = &bsg_mesh_lod_free;
+
+	/* Initialise the LoD for the current view */
+	if (bsg_mesh_lod_view(vo, vo->s_v, 0) < 0)
+	    bu_log("%s: error initialising LoD view\n", dp->d_namep);
+
+	/* Mark as Mesh LoD */
+	vo->s_type_flags |= BSG_NODE_MESH_LOD;
+    }
+
+    bsg_mesh_lod_view(vo, (bsg_view *)v, 0);
+    bsg_shape_stale(vo);
+
+    return BRLCAD_OK;
 }
 
 #endif /* BRLCAD_ENABLE_OBOL */

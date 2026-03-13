@@ -50,39 +50,6 @@
 #include "./ged_private.h"
 #include "./dbi.h"
 
-static int
-prim_tess(bsg_shape *s, struct rt_db_internal *ip)
-{
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
-    struct db_full_path *fp = (struct db_full_path *)s->s_path;
-    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)s->dp;
-    const struct bn_tol *tol = d->tol;
-    const struct bg_tess_tol *ttol = d->ttol;
-    RT_CK_DB_INTERNAL(ip);
-    RT_CK_DIR(dp);
-    BN_CK_TOL(tol);
-    BG_CK_TESS_TOL(ttol);
-    if (!ip->idb_meth || !ip->idb_meth->ft_tessellate) {
-	bu_log("ERROR(%s): tessellation support not available\n", dp->d_namep);
-	return -1;
-    }
-
-    struct model *m = nmg_mm();
-    struct nmgregion *r = (struct nmgregion *)NULL;
-    if (ip->idb_meth->ft_tessellate(&r, m, ip, ttol, tol) < 0) {
-	bu_log("ERROR(%s): tessellation failure\n", dp->d_namep);
-	return -1;
-    }
-
-    NMG_CK_REGION(r);
-    nmg_r_to_vlist(&s->s_vlist, r, NMG_VLIST_STYLE_POLYGON, s->vlfree);
-    nmg_km(m);
-
-    s->current = 1;
-
-    return 0;
-}
-
 static void
 draw_free_data(bsg_shape *s)
 {
@@ -102,82 +69,6 @@ draw_free_data(bsg_shape *s)
 	return;
     BU_PUT(d, struct draw_update_data_t);
     s->s_i_data = NULL;
-}
-
-
-static int
-csg_wireframe_update(bsg_shape *vo, bsg_view *v, int flag)
-{
-    /* Validate */
-    if (!vo || !v)
-	return 0;
-
-    if (!v->gv_s->adaptive_plot_csg)
-	return 0;
-
-    bsg_log(1, "csg_wireframe_update %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
-
-    vo->csg_obj = 1;
-
-    // If the object is not visible in the scene, don't change the data.  This
-    // check is useful in orthographic camera mode, where we zoom in on a
-    // narrow subset of the model and far away objects are still rendered in
-    // full detail.  If we have a perspective matrix active don't make this
-    // check, since far away objects outside the view obb will be visible.
-    //bu_log("min: %f %f %f max: %f %f %f\n", V3ARGS(vo->bmin), V3ARGS(vo->bmax));
-    { struct bsg_camera _cm; bsg_view_get_camera(v, &_cm);
-      if (!(_cm.perspective > SMALL_FASTF) && !bg_sat_aabb_obb(vo->bmin, vo->bmax, v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3))
-	return 0;
-    }
-
-    bool rework = (flag) ? true : false;
-
-    // Check point scale
-    if (!rework && !NEAR_EQUAL(vo->curve_scale, vo->s_v->gv_s->curve_scale, SMALL_FASTF))
-	rework = true;
-    // Check point scale
-    if (!rework && !NEAR_EQUAL(vo->point_scale, vo->s_v->gv_s->point_scale, SMALL_FASTF))
-	rework = true;
-    if (!rework) {
-	// Check view scale
-	fastf_t delta = vo->view_scale * 0.1/vo->view_scale;
-	if (!NEAR_EQUAL(vo->view_scale, v->gv_scale, delta))
-	    rework = true;
-    }
-    if (!rework)
-	return 0;
-
-    // We're going to redraw - sync with view
-    vo->curve_scale = v->gv_s->curve_scale;
-    vo->point_scale = v->gv_s->point_scale;
-    vo->view_scale = v->gv_scale;
-
-    // Clear out existing vlists
-    struct bu_list *p;
-    while (BU_LIST_WHILE(p, bu_list, &vo->s_vlist)) {
-	BU_LIST_DEQUEUE(p);
-	struct bsg_vlist *pv = (struct bsg_vlist *)p;
-	BU_FREE(pv, struct bsg_vlist);
-    }
-
-    struct draw_update_data_t *d = (struct draw_update_data_t *)vo->s_i_data;
-    struct db_full_path *fp = (struct db_full_path *)vo->s_path;
-    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)vo->dp;
-    struct db_i *dbip = d->dbip;
-    struct rt_db_internal dbintern;
-    RT_DB_INTERNAL_INIT(&dbintern);
-    struct rt_db_internal *ip = &dbintern;
-    int ret = rt_db_get_internal(ip, dp, dbip, NULL, d->res);
-    if (ret < 0)
-	return 0;
-
-    if (ip->idb_meth->ft_adaptive_plot) {
-	ip->idb_meth->ft_adaptive_plot(&vo->s_vlist, ip, d->tol, v, vo->s_size);
-	vo->s_type_flags |= BSG_NODE_CSG_LOD;
-	bsg_shape_stale(vo);
-    }
-
-    return 1;
 }
 
 struct ged_full_detail_clbk_data {
@@ -591,75 +482,32 @@ brep_adaptive_plot(bsg_shape *s, bsg_view *v)
     return;
 }
 
-/* Wrapper to handle adaptive vs non-adaptive wireframes */
-static void
-wireframe_plot(bsg_shape *s, bsg_view *v, struct rt_db_internal *ip)
-{
-    bsg_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
-    const struct bn_tol *tol = d->tol;
-    const struct bg_tess_tol *ttol = d->ttol;
-    s->csg_obj = 1;
-    s->mesh_obj = 0;
-
-    // Standard (view independent) wireframe
-    if (!v || !v->gv_s->adaptive_plot_csg) {
-	if (ip->idb_meth->ft_plot) {
-	    ip->idb_meth->ft_plot(&s->s_vlist, ip, ttol, tol, s->s_v);
-	    // Because this data is view independent, it only needs to be
-	    // generated once rather than per-view.
-	    s->current = 1;
-	}
-	return;
-    }
-
-    // If we're adaptive, call the primitive's adaptive plotting, if any.
-    if (ip->idb_meth->ft_adaptive_plot) {
-	bsg_shape *vo = bsg_shape_for_view(s, v);
-	if (!vo) {
-	    vo = bsg_shape_get_view_obj(s, v);
-
-	    // Make a copy of the draw info for vo.
-	    struct draw_update_data_t *ld;
-	    BU_GET(ld, struct draw_update_data_t);
-	    ld->fp = (struct db_full_path *)s->s_path;
-	    ld->dbip = d->dbip;
-	    ld->tol = d->tol;
-	    ld->ttol = d->ttol;
-	    ld->mesh_c = d->mesh_c;
-	    ld->res = d->res;
-	    ld->dbis = d->dbis;
-	    vo->s_i_data= (void *)ld;
-
-	    // We're adaptive - have to plot when the view changes.  Set the
-	    // callbacks
-	    vo->s_update_callback = &csg_wireframe_update;
-	    vo->s_free_callback = &draw_free_data;
-
-	    // Mark type as CSG LoD
-	    vo->s_type_flags |= BSG_NODE_CSG_LOD;
-	}
-
-	csg_wireframe_update(vo, v, 1);
-	return;
-    }
-
-    // If we've got this far, we have no adaptive plotting capability for this
-    // object.  Do the normal plot rather than show nothing.
-    if (ip->idb_meth->ft_plot) {
-	ip->idb_meth->ft_plot(&s->s_vlist, ip, ttol, tol, s->s_v);
-	// Because this data is view independent, it only needs to be
-	// generated once rather than per-view.
-	s->current = 1;
-    }
-}
-
 
 extern "C" int draw_m3(bsg_shape *s);
 extern "C" int draw_points(bsg_shape *s);
+extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
+				    struct db_i *dbip,
+				    const struct bg_tess_tol *ttol,
+				    const struct bn_tol *tol,
+				    const bsg_view *v);
 
 /* This function is the master controller that decides, based on available settings
- * and data, which specific drawing routines need to be triggered. */
+ * and data, which specific drawing routines need to be triggered.
+ *
+ * Session 9 simplification: after the setup phase, dispatch to
+ * OBJ[dp->d_minor_type].ft_scene_obj() for all primitive types.  The
+ * per-primitive ft_scene_obj implementations (rt_bot_scene_obj,
+ * rt_brep_scene_obj, rt_comb_scene_obj, rt_generic_scene_obj) contain all
+ * the per-type drawing logic.  Two special cases remain in draw_scene:
+ *
+ *   Mode 3 (evaluated wireframe for combs): handled by draw_m3() which lives
+ *   in wireframe_eval.c.  Migration to rt_comb_scene_obj is deferred until
+ *   the evaluated-wireframe machinery moves from libged to librt.
+ *
+ *   BREP mode 1 + adaptive_plot_mesh: handled by brep_adaptive_plot() for
+ *   LoD-managed hidden-line BREP display.  Migration to rt_brep_scene_obj
+ *   is deferred to a future session.
+ */
 extern "C" void
 draw_scene(bsg_shape *s, bsg_view *v)
 {
@@ -687,13 +535,13 @@ draw_scene(bsg_shape *s, bsg_view *v)
     }
 
     /**************************************************************************
-     * A couple of the drawing modes have their own completely independent and
-     * substantial logic defined elsewhere.  Spot those cases first and steer
-     * them where they need to go
+     * Mode 3 (evaluated wireframe) — special case handled by draw_m3() which
+     * lives in wireframe_eval.c (libged).  This fires BEFORE the setup phase
+     * so that draw_m3 can access d->dbip/tol/ttol directly from s->s_i_data.
+     * rt_comb_scene_obj() returns BRLCAD_OK immediately when dmode==3, so
+     * this guard must remain in draw_scene until the evaluated-wireframe
+     * machinery is migrated from libged to librt.
      **************************************************************************/
-
-    /* Mode 3 generates an evaluated wireframe rather than drawing
-     * the individual solid wireframes */
     if (s->s_os->s_dmode == 3) {
 	draw_m3(s);
 	bsg_shape_bound(s, v);
@@ -701,18 +549,8 @@ draw_scene(bsg_shape *s, bsg_view *v)
 	return;
     }
 
-    /* Mode 5 draws a point cloud in lieu of wireframes */
-    if (s->s_os->s_dmode == 5) {
-	draw_points(s);
-	bsg_shape_bound(s, v);
-	s->current = 1;
-	return;
-    }
-
-
     /**************************************************************************
-     * A couple of the object types will also have unique logic, typically for
-     * special handling of difficult drawing cases.  Look for those as well.
+     * Path setup: resolve dp and dbip from s->s_i_data.
      **************************************************************************/
     struct db_i *dbip = d->dbip;
     struct db_full_path *fp = (struct db_full_path *)s->s_path;
@@ -727,16 +565,11 @@ draw_scene(bsg_shape *s, bsg_view *v)
      * shape before ANY drawing dispatch occurs.
      *
      * This is the ONLY place in draw_scene where d->dbis is consulted.  After
-     * this block, all downstream code — including bot_adaptive_plot(),
-     * brep_adaptive_plot(), and ft_scene_obj() implementations in librt —
+     * this block, all downstream code — including rt_bot_scene_obj(),
+     * rt_brep_scene_obj(), and other ft_scene_obj() implementations in librt —
      * reads only from bsg_shape fields (s->mesh_c, s->have_bbox, s->s_have_obb,
      * s->s_obb_pts).  This cleanly separates the libged pipeline layer from
      * the per-primitive rendering layer.
-     *
-     * Architectural note: the eventual target is for draw_scene to be reduced
-     * to a traversal driver that calls ft_scene_obj per leaf, with all
-     * primitive-specific logic living in librt.  Keeping all DbiState access
-     * concentrated here is the first step in that direction.
      **************************************************************************/
     if (d->mesh_c && !s->mesh_c)
 	s->mesh_c = d->mesh_c;
@@ -790,34 +623,28 @@ draw_scene(bsg_shape *s, bsg_view *v)
 	}
     }
 
-    // Adaptive BoTs have specialized LoD routines to help cope with very large
-    // data sets, both for wireframe and shaded mode.
-    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && v && v->gv_s->adaptive_plot_mesh &&
-       (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 1)) {
-	bot_adaptive_plot(s, v);
-	return;
-    }
-
-    // Adaptive BReps have specialized LoD routines to manage shaded displays, which
-    // can involve slow and large mesh generations.  BRep wireframes are based on the
-    // NURBS data, so this is used only for shaded mode
+    /**************************************************************************
+     * Adaptive BREP hidden-line (mode 1) — LoD management not yet migrated
+     * to rt_brep_scene_obj.  Keep as a special case until that migration
+     * is complete.
+     **************************************************************************/
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP && v && v->gv_s->adaptive_plot_mesh && s->s_os->s_dmode == 1) {
 	brep_adaptive_plot(s, v);
 	return;
     }
 
-    /* For non-BoT, non-BREP shapes in the adaptive path, classify the shape
-     * as a CSG wireframe object NOW — before any early-return paths — so that
-     * BViewState::redraw()'s scan for "csg_obj && !have_bbox" can queue this
-     * shape for retry after the async AABB pipeline delivers the bbox. */
-    if (v) {
+    /* For non-BREP shapes in the adaptive path, classify as CSG wireframe
+     * so BViewState::redraw() can queue this shape for retry after the
+     * async AABB pipeline delivers the bbox.  BoT shapes are classified
+     * by rt_bot_scene_obj (mesh_obj=1); everything else is CSG. */
+    if (v && dp->d_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
 	s->csg_obj  = 1;
 	s->mesh_obj = 0;
     }
 
     /* Lazy AABB placeholder upgrade: if we now have a bbox but still hold
-     * a stale placeholder view-object, clear it so the code below generates
-     * real geometry. */
+     * a stale placeholder view-object, clear it so ft_scene_obj below
+     * generates real geometry. */
     if (v && s->have_bbox) {
 	bsg_shape *vo = bsg_shape_for_view(s, v);
 	if (vo && !vo->draw_data && vo->s_placeholder > 0)
@@ -825,135 +652,44 @@ draw_scene(bsg_shape *s, bsg_view *v)
     }
 
     /**************************************************************************
-     * Lazy AABB guard: if have_bbox is still 0 after the setup phase above,
-     * the AABB pipeline has not yet delivered results for this primitive.
-     * Draw the tightest available placeholder (OBB from s->s_obb_pts if
-     * available, otherwise no-op) and return; the next drain-triggered redraw
-     * will retry.  d->dbis is NOT accessed here — all data was captured
-     * into shape fields by the setup phase above.
+     * ft_scene_obj dispatch — the primary drawing path.
+     *
+     * OBJ[dp->d_minor_type].ft_scene_obj() is called for every primitive type.
+     * Each implementation handles:
+     *   - rt_bot_scene_obj:     LoD progressive rendering (absorbed from
+     *                           bot_adaptive_plot in this session); Obol SoNode
+     *                           when BRLCAD_ENABLE_OBOL is set.
+     *   - rt_brep_scene_obj:    BREP adaptive tessellation + Obol SoNode.
+     *   - rt_comb_scene_obj:    Container no-op (returns BRLCAD_OK immediately).
+     *   - rt_generic_scene_obj: All other primitives; handles all dmodes
+     *                           (wireframe, shaded, point-cloud via
+     *                           rt_sample_pnts) and the !have_bbox placeholder
+     *                           path.
+     *
+     * This replaces the former fallback rt_db_get_internal + per-mode switch
+     * that was the old draw_scene epilogue.
      **************************************************************************/
-    if (v && !s->have_bbox) {
-	if (s->s_have_obb) {
-	    bsg_shape *vo = bsg_shape_for_view(s, v);
-	    if (!vo) {
-		vo = bsg_shape_get_view_obj(s, v);
-		vo->csg_obj = 1;
-		vo->mesh_obj = 0;
-	    }
-	    if (!vo->draw_data && BU_LIST_IS_EMPTY(&vo->s_vlist)) {
-		point_t obb_pts[8];
-		for (int _k = 0; _k < 8; _k++)
-		    VSET(obb_pts[_k], s->s_obb_pts[_k*3+0],
-			 s->s_obb_pts[_k*3+1], s->s_obb_pts[_k*3+2]);
-		bsg_vlist_arb8(&v->gv_objs.gv_vlfree, &vo->s_vlist, obb_pts);
-		vo->s_placeholder = 2;
-	    }
-	}
-	/* No AABB yet → no-op; retried on next drain-triggered redraw. */
-	return;
-    }
-
     const struct bn_tol *tol = d->tol;
     const struct bg_tess_tol *ttol = d->ttol;
-    struct rt_db_internal dbintern;
-    RT_DB_INTERNAL_INIT(&dbintern);
-    struct rt_db_internal *ip = &dbintern;
-    int ret = rt_db_get_internal(ip, dp, dbip, s->s_mat, d->res);
-    if (ret < 0)
-	return;
 
-    // If we don't have a BRL-CAD type, see if we've got a plot routine
-    if (ip->idb_major_type != DB5_MAJORTYPE_BRLCAD) {
-	wireframe_plot(s, v, ip);
-	goto geom_done;
+    if (OBJ[dp->d_minor_type].ft_scene_obj) {
+	OBJ[dp->d_minor_type].ft_scene_obj(s, dp, dbip, ttol, tol, v);
+    } else {
+	/* No ft_scene_obj for this type — fall back to generic. */
+	rt_generic_scene_obj(s, dp, dbip, ttol, tol, v);
     }
 
-    // At least for the moment, we don't try anything fancy with pipes - they
-    // get a wireframe, regardless of mode settings
-    if (ip->idb_minor_type == DB5_MINORTYPE_BRLCAD_PIPE) {
-	wireframe_plot(s, v, ip);
-	goto geom_done;
-    }
-
-    // For anything other than mode 0, we call specific routines for
-    // some of the primitives.
-    if (s->s_os->s_dmode > 0) {
-	switch (ip->idb_minor_type) {
-	    case DB5_MINORTYPE_BRLCAD_BOT:
-		(void)rt_bot_plot_poly(&s->s_vlist, ip, ttol, tol);
-		goto geom_done;
-		break;
-	    case DB5_MINORTYPE_BRLCAD_POLY:
-		(void)rt_pg_plot_poly(&s->s_vlist, ip, ttol, tol);
-		goto geom_done;
-		break;
-	    case DB5_MINORTYPE_BRLCAD_BREP:
-		(void)rt_brep_plot_poly(&s->s_vlist, dp, ip, ttol, tol, NULL);
-		goto geom_done;
-		break;
-	    default:
-		break;
-	}
-    }
-
-    // Now the more general cases
-    switch (s->s_os->s_dmode) {
-	case 0:
-	case 1:
-	    // Get wireframe (for mode 1, all the non-wireframes are handled
-	    // by the above BOT/POLY/BREP cases
-	    wireframe_plot(s, v, ip);
-	    s->s_os->s_dmode = 0;
-	    break;
-	case 2:
-	    // Shade everything except pipe, don't evaluate, fall
-	    // back to wireframe in case of failure
-	    if (prim_tess(s, ip) < 0) {
-		wireframe_plot(s, v, ip);
-		s->s_os->s_dmode = 0;
-	    } else {
-		s->current = 1;
-	    }
-	    break;
-	case 3:
-	    // Evaluated wireframes
-	    bu_log("Error - got too deep into _scene_obj_draw routine with drawing mode 3 - wireframe drawing with evaluated booleans\n");
-	    return;
-	    break;
-	case 4:
-	    // Hidden line - generate polygonal forms, fall back to
-	    // un-hidden wireframe in case of failure
-	    if (prim_tess(s, ip) < 0) {
-		wireframe_plot(s, v, ip);
-		s->s_os->s_dmode = 0;
-	    } else {
-		s->current = 1;
-	    }
-	    break;
-	case 5:
-	    // Triangles at sampled points
-	    bu_log("Error - got too deep into _scene_obj_draw routine with drawing mode 5 - triangles at ray-sampled points\n");
-	    return;
-	    break;
-	default:
-	    // Default to wireframe
-	    wireframe_plot(s, v, ip);
-	    break;
-    }
-
-geom_done:
-
-    // Update s_size and s_center
+    /* Update s_size and s_center */
     bsg_shape_bound(s, v);
 
-    // Store current view info, in case of adaptive plotting
-    s->adaptive_wireframe = s->s_v->gv_s->adaptive_plot_csg;
-    s->view_scale = s->s_v->gv_scale;
-    s->bot_threshold= s->s_v->gv_s->bot_threshold;
-    s->curve_scale = s->s_v->gv_s->curve_scale;
-    s->point_scale = s->s_v->gv_s->point_scale;
-
-    rt_db_free_internal(&dbintern);
+    /* Store current view info, in case of adaptive plotting */
+    if (s->s_v) {
+	s->adaptive_wireframe = s->s_v->gv_s->adaptive_plot_csg;
+	s->view_scale    = s->s_v->gv_scale;
+	s->bot_threshold = s->s_v->gv_s->bot_threshold;
+	s->curve_scale   = s->s_v->gv_s->curve_scale;
+	s->point_scale   = s->s_v->gv_s->point_scale;
+    }
 }
 
 static void
