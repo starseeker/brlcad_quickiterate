@@ -349,6 +349,49 @@ public:
 	return renderMgr_.getRenderMode();
     }
 
+    /**
+     * Map a BRL-CAD global draw mode integer to an Obol SoRenderManager
+     * render mode and apply it.
+     *
+     * This is useful when BRL-CAD commands change the global view drawing
+     * mode and the Obol renderer needs to follow:
+     *
+     *   0 — wireframe             → AS_IS  (per-shape SoDrawStyle::LINES)
+     *   1 — hidden-line           → HIDDEN_LINE
+     *   2 — shaded (Phong)        → AS_IS  (per-shape SoDrawStyle::FILLED)
+     *   3 — evaluated wireframe   → AS_IS  (vlist path, SoDrawStyle::LINES)
+     *   4 — shaded + hidden-line  → SHADED_HIDDEN_LINES
+     *   5 — point cloud           → POINTS
+     *
+     * The default global mode is AS_IS so that per-object SoDrawStyle nodes
+     * (set by obol_scene_assemble from each shape's s_dmode) take effect.
+     * Mixed-mode scenes (some wireframe, some shaded) require AS_IS so that
+     * each object's own SoDrawStyle is respected.
+     */
+    void syncRenderModeFromDmode(int dmode) {
+	SoRenderManager::RenderMode mode;
+	switch (dmode) {
+	    case 1:
+		mode = SoRenderManager::HIDDEN_LINE;
+		break;
+	    case 4:
+		mode = SoRenderManager::SHADED_HIDDEN_LINES;
+		break;
+	    case 5:
+		mode = SoRenderManager::POINTS;
+		break;
+	    case 0:
+	    case 2:
+	    case 3:
+	    default:
+		/* AS_IS: each shape renders according to its own SoDrawStyle
+		 * (set by obol_scene_assemble based on s->s_os->s_dmode). */
+		mode = SoRenderManager::AS_IS;
+		break;
+	}
+	setRenderMode(mode);
+    }
+
     void setStereoMode(SoRenderManager::StereoMode mode) {
 	renderMgr_.setStereoMode(mode);
 	update();
@@ -484,11 +527,13 @@ protected:
 	    connect(a, &QAction::triggered, [this, m]{ setRenderMode(m); });
 	    renderMenu->addAction(a);
 	};
-	addRM("Shaded",       SoRenderManager::AS_IS);
-	addRM("Wireframe",    SoRenderManager::WIREFRAME);
-	addRM("Hidden Line",  SoRenderManager::HIDDEN_LINE);
-	addRM("Points",       SoRenderManager::POINTS);
-	addRM("Bounding Box", SoRenderManager::BOUNDING_BOX);
+	addRM("As-Is (per-object mode)",    SoRenderManager::AS_IS);
+	addRM("Wireframe (all)",             SoRenderManager::WIREFRAME);
+	addRM("Wireframe Overlay",           SoRenderManager::WIREFRAME_OVERLAY);
+	addRM("Hidden Line",                 SoRenderManager::HIDDEN_LINE);
+	addRM("Shaded + Hidden Line",        SoRenderManager::SHADED_HIDDEN_LINES);
+	addRM("Points",                      SoRenderManager::POINTS);
+	addRM("Bounding Box",                SoRenderManager::BOUNDING_BOX);
 	menu.addAction("View All", this, &QgObolView::viewAll);
 	menu.exec(e->globalPos());
     }
