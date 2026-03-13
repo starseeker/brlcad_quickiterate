@@ -9,12 +9,24 @@
 # Files registered here for dist-check / source-tree tracking only.
 
 cmakefiles(
+  Mathematics/CVT6D.h
   Mathematics/CVTN.h
+  Mathematics/CVTOptimizer.h
+  Mathematics/DelaunayN.h
+  Mathematics/DelaunayNN.h
+  Mathematics/IntegrationSimplex.h
+  Mathematics/LSCMParameterization.h
+  Mathematics/MeshAnisotropy.h
   Mathematics/MeshHoleFilling.h
   Mathematics/MeshPreprocessing.h
   Mathematics/MeshQuality.h
   Mathematics/MeshRemesh.h
   Mathematics/MeshRepair.h
+  Mathematics/MeshValidation.h
+  Mathematics/NearestNeighborSearchN.h
+  Mathematics/RestrictedVoronoiDiagram.h
+  Mathematics/RestrictedVoronoiDiagramN.h
+  Mathematics/SurfaceRVDN.h
   CMakeLists.txt
 )
 

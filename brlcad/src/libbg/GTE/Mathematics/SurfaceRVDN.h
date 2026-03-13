@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <GTE/Mathematics/Vector3.h>
-#include <GTE/Mathematics/DelaunayNN.h>
+#include <Mathematics/Vector3.h>
+#include <Mathematics/DelaunayNN.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -32,8 +32,6 @@
 #include <queue>
 #include <stack>
 #include <unordered_map>
-#include <vector>
-
 #include <vector>
 
 namespace gte
@@ -1491,7 +1489,6 @@ namespace gte
             }
 
             // Build canonical index map: rawVerts index → representative
-            // Representative vertex position = rawVerts[find(i)]
             std::vector<int32_t> canonMap(nRaw, -1);
             int32_t nextCanon = 0;
             for (int32_t i = 0; i < nRaw; ++i)

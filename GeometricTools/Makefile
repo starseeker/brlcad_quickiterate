@@ -21,7 +21,11 @@ GTE_OVERLAY_DIR = $(BRLCAD_SRC_DIR)/src/libbg/GTE
 
 # Include order: local GTE/ first (vanilla upstream headers), then the
 # BRL-CAD overlay (BRL-CAD-specific additions/modifications).
-CXXFLAGS = -std=c++17 -O2 -Wall -I. -IGTE -I$(GTE_OVERLAY_DIR)
+# -I$(BRLCAD_SRC_DIR)/src/libbg enables <GTE/Mathematics/X.h> to resolve to
+#   the overlay (used by GeometricTools test programs).
+# -I$(GTE_OVERLAY_DIR) enables <Mathematics/X.h> to resolve to the overlay
+#   (used by BRL-CAD source files and by overlay headers themselves).
+CXXFLAGS = -std=c++17 -O2 -Wall -I. -IGTE -I$(BRLCAD_SRC_DIR)/src/libbg -I$(GTE_OVERLAY_DIR)
 
 # GTE headers bundled in bext_output (preferred over the local GTE/ copy)
 BEXT_GTE_INC = -I$(BRLCAD_EXT_NOINSTALL_DIR)/include -I$(BRLCAD_EXT_NOINSTALL_DIR)/include/GTE
@@ -58,7 +62,7 @@ all: $(TARGETS)
 # Basic functionality tests
 test_mesh_repair: $(TEST_DIR)/test_mesh_repair.cpp \
                   $(GTE_OVERLAY_DIR)/Mathematics/MeshHoleFilling.h \
-                  GTE/Mathematics/LSCMParameterization.h
+                  $(GTE_OVERLAY_DIR)/Mathematics/LSCMParameterization.h
 	$(CXX) $(CXXFLAGS) -o test_mesh_repair $(TEST_DIR)/test_mesh_repair.cpp $(LDFLAGS)
 
 test_remesh: $(TEST_DIR)/test_remesh.cpp
@@ -118,12 +122,12 @@ endif
 test_geogram_comparison: $(TEST_DIR)/test_geogram_comparison.cpp \
                          $(GTE_OVERLAY_DIR)/Mathematics/MeshRepair.h \
                          $(GTE_OVERLAY_DIR)/Mathematics/MeshHoleFilling.h \
-                         GTE/Mathematics/MeshValidation.h \
+                         $(GTE_OVERLAY_DIR)/Mathematics/MeshValidation.h \
                          $(GTE_OVERLAY_DIR)/Mathematics/MeshRemesh.h \
-                         GTE/Mathematics/MeshAnisotropy.h \
-                         GTE/Mathematics/SurfaceRVDN.h \
+                         $(GTE_OVERLAY_DIR)/Mathematics/MeshAnisotropy.h \
+                         $(GTE_OVERLAY_DIR)/Mathematics/SurfaceRVDN.h \
                          $(GTE_OVERLAY_DIR)/Mathematics/CVTN.h \
-                         GTE/Mathematics/DelaunayNN.h
+                         $(GTE_OVERLAY_DIR)/Mathematics/DelaunayNN.h
 	$(CXX) $(CXXFLAGS) $(_GEO_INC) -o test_geogram_comparison \
 	    $(TEST_DIR)/test_geogram_comparison.cpp \
 	    $(_GEO_LIBS) $(LDFLAGS)
@@ -150,31 +154,31 @@ test_enhanced_manifold: $(TEST_DIR)/test_enhanced_manifold.cpp
 	$(CXX) $(CXXFLAGS) $(PTHREAD) -o test_enhanced_manifold $(TEST_DIR)/test_enhanced_manifold.cpp $(LDFLAGS)
 
 # Anisotropic remeshing test
-test_anisotropic_remesh: $(TEST_DIR)/test_anisotropic_remesh.cpp GTE/Mathematics/MeshAnisotropy.h $(GTE_OVERLAY_DIR)/Mathematics/MeshRemesh.h GTE/Mathematics/SurfaceRVDN.h
+test_anisotropic_remesh: $(TEST_DIR)/test_anisotropic_remesh.cpp $(GTE_OVERLAY_DIR)/Mathematics/MeshAnisotropy.h $(GTE_OVERLAY_DIR)/Mathematics/MeshRemesh.h $(GTE_OVERLAY_DIR)/Mathematics/SurfaceRVDN.h
 	$(CXX) $(CXXFLAGS) -o test_anisotropic_remesh $(TEST_DIR)/test_anisotropic_remesh.cpp $(LDFLAGS)
 
 # 6D Delaunay test
-test_delaunay6: $(TEST_DIR)/test_delaunay6.cpp GTE/Mathematics/Delaunay6.h GTE/Mathematics/MeshAnisotropy.h
+test_delaunay6: $(TEST_DIR)/test_delaunay6.cpp GTE/Mathematics/Delaunay6.h $(GTE_OVERLAY_DIR)/Mathematics/MeshAnisotropy.h
 	$(CXX) $(CXXFLAGS) -o test_delaunay6 $(TEST_DIR)/test_delaunay6.cpp $(LDFLAGS)
 
 # 6D CVT test
-test_cvt6d: $(TEST_DIR)/test_cvt6d.cpp GTE/Mathematics/CVT6D.h GTE/Mathematics/MeshAnisotropy.h
+test_cvt6d: $(TEST_DIR)/test_cvt6d.cpp $(GTE_OVERLAY_DIR)/Mathematics/CVT6D.h $(GTE_OVERLAY_DIR)/Mathematics/MeshAnisotropy.h
 	$(CXX) $(CXXFLAGS) -o test_cvt6d $(TEST_DIR)/test_cvt6d.cpp $(LDFLAGS)
 
 # DelaunayN base class test
-test_delaunay_n: $(TEST_DIR)/test_delaunay_n.cpp GTE/Mathematics/DelaunayN.h
+test_delaunay_n: $(TEST_DIR)/test_delaunay_n.cpp $(GTE_OVERLAY_DIR)/Mathematics/DelaunayN.h
 	$(CXX) $(CXXFLAGS) -o test_delaunay_n $(TEST_DIR)/test_delaunay_n.cpp $(LDFLAGS)
 
 # DelaunayNN implementation test
-test_delaunay_nn: $(TEST_DIR)/test_delaunay_nn.cpp GTE/Mathematics/DelaunayNN.h GTE/Mathematics/NearestNeighborSearchN.h GTE/Mathematics/DelaunayN.h
+test_delaunay_nn: $(TEST_DIR)/test_delaunay_nn.cpp $(GTE_OVERLAY_DIR)/Mathematics/DelaunayNN.h $(GTE_OVERLAY_DIR)/Mathematics/NearestNeighborSearchN.h $(GTE_OVERLAY_DIR)/Mathematics/DelaunayN.h
 	$(CXX) $(CXXFLAGS) -o test_delaunay_nn $(TEST_DIR)/test_delaunay_nn.cpp $(LDFLAGS)
 
 # RestrictedVoronoiDiagramN test
-test_rvd_n: $(TEST_DIR)/test_rvd_n.cpp GTE/Mathematics/RestrictedVoronoiDiagramN.h GTE/Mathematics/DelaunayNN.h GTE/Mathematics/MeshAnisotropy.h
+test_rvd_n: $(TEST_DIR)/test_rvd_n.cpp $(GTE_OVERLAY_DIR)/Mathematics/RestrictedVoronoiDiagramN.h $(GTE_OVERLAY_DIR)/Mathematics/DelaunayNN.h $(GTE_OVERLAY_DIR)/Mathematics/MeshAnisotropy.h
 	$(CXX) $(CXXFLAGS) -o test_rvd_n $(TEST_DIR)/test_rvd_n.cpp $(LDFLAGS)
 
 # CVTN (N-dimensional CVT) test
-test_cvt_n: $(TEST_DIR)/test_cvt_n.cpp $(GTE_OVERLAY_DIR)/Mathematics/CVTN.h GTE/Mathematics/RestrictedVoronoiDiagramN.h GTE/Mathematics/DelaunayNN.h GTE/Mathematics/MeshAnisotropy.h GTE/Mathematics/SurfaceRVDN.h
+test_cvt_n: $(TEST_DIR)/test_cvt_n.cpp $(GTE_OVERLAY_DIR)/Mathematics/CVTN.h $(GTE_OVERLAY_DIR)/Mathematics/RestrictedVoronoiDiagramN.h $(GTE_OVERLAY_DIR)/Mathematics/DelaunayNN.h $(GTE_OVERLAY_DIR)/Mathematics/MeshAnisotropy.h $(GTE_OVERLAY_DIR)/Mathematics/SurfaceRVDN.h
 	$(CXX) $(CXXFLAGS) -o test_cvt_n $(TEST_DIR)/test_cvt_n.cpp $(LDFLAGS)
 
 # Demonstration programs
@@ -214,7 +218,7 @@ test_bot_repair_comparison: $(TEST_DIR)/test_bot_repair_comparison.cpp \
                              $(GTE_OVERLAY_DIR)/Mathematics/MeshRepair.h \
                              $(GTE_OVERLAY_DIR)/Mathematics/MeshHoleFilling.h \
                              $(GTE_OVERLAY_DIR)/Mathematics/MeshPreprocessing.h \
-                             GTE/Mathematics/MeshValidation.h
+                             $(GTE_OVERLAY_DIR)/Mathematics/MeshValidation.h
 	$(CXX) $(CXXFLAGS) $(_GEO_INC) -I$(BRLCAD_EXT_INSTALL_DIR)/include \
 	    -o test_bot_repair_comparison \
 	    $(TEST_DIR)/test_bot_repair_comparison.cpp \
@@ -332,11 +336,11 @@ clean:
 .PHONY: all clean test test_geogram test_geogram_bext test_generic_twin stress generate_test_data build_geogram test_verdict test_quality test_gte_vtk test_repair_quality
 
 # Phase 4 integration test
-test_phase4_integration: $(TEST_DIR)/test_phase4_integration.cpp $(GTE_OVERLAY_DIR)/Mathematics/CVTN.h $(GTE_OVERLAY_DIR)/Mathematics/MeshRemesh.h GTE/Mathematics/SurfaceRVDN.h
+test_phase4_integration: $(TEST_DIR)/test_phase4_integration.cpp $(GTE_OVERLAY_DIR)/Mathematics/CVTN.h $(GTE_OVERLAY_DIR)/Mathematics/MeshRemesh.h $(GTE_OVERLAY_DIR)/Mathematics/SurfaceRVDN.h
 	$(CXX) $(CXXFLAGS) -o test_phase4_integration $(TEST_DIR)/test_phase4_integration.cpp $(LDFLAGS)
 
 # Comprehensive anisotropic remeshing end-to-end test
-test_anisotropic_end_to_end: $(TEST_DIR)/test_anisotropic_end_to_end.cpp $(GTE_OVERLAY_DIR)/Mathematics/MeshRemesh.h $(GTE_OVERLAY_DIR)/Mathematics/CVTN.h GTE/Mathematics/MeshAnisotropy.h GTE/Mathematics/SurfaceRVDN.h
+test_anisotropic_end_to_end: $(TEST_DIR)/test_anisotropic_end_to_end.cpp $(GTE_OVERLAY_DIR)/Mathematics/MeshRemesh.h $(GTE_OVERLAY_DIR)/Mathematics/CVTN.h $(GTE_OVERLAY_DIR)/Mathematics/MeshAnisotropy.h $(GTE_OVERLAY_DIR)/Mathematics/SurfaceRVDN.h
 	$(CXX) $(CXXFLAGS) -o test_anisotropic_end_to_end $(TEST_DIR)/test_anisotropic_end_to_end.cpp $(LDFLAGS)
 
 # BoundaryPolygonRTree correctness and performance test
