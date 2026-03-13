@@ -1559,7 +1559,23 @@ get_subcurves_inside_faces(
 		    ON_Curve *subcurve_on2 = sub_curve(event->m_curveB,
 						       interval_on2.Min(), interval_on2.Max());
 
-		    subcurves_on2.Append(subcurve_on2);
+		    /* Skip curves whose UV midpoint is not strictly inside
+		     * face2's outer loop.  Such curves lie entirely on (or
+		     * outside) the face boundary — they are boundary artefacts
+		     * produced when two planar faces intersect along a shared
+		     * edge.  Including them causes link_curves to chain the
+		     * boundary segment with the true interior cut, which
+		     * produces a combined path that touches the outer loop at
+		     * intermediate points and confuses the IN/OUT classifier
+		     * in split_face_into_loops, ultimately creating a degenerate
+		     * there-and-back ssx_loop that collapses via the coextension
+		     * guard rather than splitting the face correctly. */
+		    ON_2dPoint mid2 = subcurve_on2->PointAt(subcurve_on2->Domain().Mid());
+		    if (!is_point_inside_loop(mid2, face2_loops[0])) {
+			delete subcurve_on2;
+		    } else {
+			subcurves_on2.Append(subcurve_on2);
+		    }
 		} catch (InvalidInterval &e) {
 		    bu_log("%s", e.what());
 		}
@@ -1582,7 +1598,15 @@ get_subcurves_inside_faces(
 		    ON_Curve *subcurve_on1 = sub_curve(event->m_curveA,
 						       interval_on1.Min(), interval_on1.Max());
 
-		    subcurves_on1.Append(subcurve_on1);
+		    /* Same boundary-artefact filter as above, applied to
+		     * face1: skip if the UV midpoint is not strictly inside
+		     * face1's outer loop. */
+		    ON_2dPoint mid1 = subcurve_on1->PointAt(subcurve_on1->Domain().Mid());
+		    if (!is_point_inside_loop(mid1, face1_loops[0])) {
+			delete subcurve_on1;
+		    } else {
+			subcurves_on1.Append(subcurve_on1);
+		    }
 		} catch (InvalidInterval &e) {
 		    bu_log("%s", e.what());
 		}
@@ -4735,22 +4759,6 @@ categorize_trimmed_faces(
 	    } catch (AlgorithmError &e) {
 		bu_log("%s", e.what());
 	    }
-	    /* Debug: report face index, split index, location, 3D test point */
-	    {
-		const char *loc_str = (face_location == INSIDE_BREP)  ? "INSIDE"  :
-				      (face_location == OUTSIDE_BREP) ? "OUTSIDE" :
-				      (face_location == ON_BREP_SURFACE) ? "ON_SURF" : "UNKNOWN";
-		ON_2dPoint tp2;
-		ON_3dPoint tp3(0,0,0);
-		try {
-		    tp2 = get_point_inside_trimmed_face(splitted[j]);
-		    tp3 = splitted[j]->m_face->PointAt(tp2.x, tp2.y);
-		} catch (...) {}
-		bu_log("categorize: brep%d face[%d] split[%d] => %s  testpt=(%.4g,%.4g,%.4g)\n",
-		       (i < face_count1) ? 1 : 2,
-		       (i < face_count1) ? i : i - face_count1,
-		       j, loc_str, tp3.x, tp3.y, tp3.z);
-	    }
 
 	    if (face_location < 0) {
 		if (DEBUG_BREP_BOOLEAN) {
@@ -4895,7 +4903,6 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	 * bounding box, it is a seam duplicate — null it out so
 	 * link_curves() ignores it. */
 	ON_SimpleArray<SSICurve> &carray = curves_array[i];
-	bu_log("get_evaluated_faces: face[%d] has %d SSI curves\n", i, carray.Count());
 	for (int m = 0; m < carray.Count(); m++) {
 	    if (!carray[m].m_curve || !carray[m].m_curve->IsClosed()) continue;
 	    ON_BoundingBox bbm;
@@ -4917,7 +4924,6 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
 
 	ON_SimpleArray<TrimmedFace *> splitted = split_trimmed_face(first, linked_curves);
-	bu_log("get_evaluated_faces: face[%d] -> %d split faces\n", i, splitted.Count());
 	trimmed_faces.Append(splitted);
 
 	// Delete the curves passed in.
