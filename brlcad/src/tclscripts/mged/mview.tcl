@@ -37,71 +37,110 @@ proc openmv { id w wc dpy dtype } {
     frame $wc.llF -relief sunken -borderwidth $mged_default(bd)
     frame $wc.lrF -relief sunken -borderwidth $mged_default(bd)
 
-    attach -d $dpy -t 0 -n $w.ul $dtype
-    dm set zclip $mged_default(zclip)
-    if { $dtype == "rtgl" } {
-	dm set zclip 1
-	dm set zbuffer 1
-    }
-    if { $dtype == "ogl" } {
-	dm set zbuffer $mged_default(zbuffer)
-	dm set lighting $mged_default(lighting)
-    }
-    set faceplate $mged_default(faceplate)
-    set orig_gui $mged_default(orig_gui)
-    set perspective_mode $mged_default(perspective_mode)
+    # ── Obol path: platform-neutral rendering via obol_view ─────────────────
+    # When the obol_view Tcl command is available (compiled with
+    # BRLCAD_ENABLE_OBOL), use it for all four panes.  obol_init must have
+    # been called once already (done by mged startup when Obol is present).
+    # The widget auto-detects HW GL (GLX) and falls back to SW (OSMesa)
+    # automatically, so no special handling is needed here.
+    # Fallback: original dm-based attach path.
+    if {[info commands obol_view] ne "" && [info commands gvp_ptr] ne ""} {
+	# Source the standard event bindings if not yet loaded
+	if {[info procs obol_view_bind] eq ""} {
+	    uplevel #0 {
+		if {[info exists auto_path]} {
+		    foreach _dir $auto_path {
+			set _f [file join $_dir obol_view_bindings.tcl]
+			if {[file exists $_f]} { source $_f; break }
+		    }
+		}
+	    }
+	}
 
-    attach -d $dpy -t 0 -n $w.ur $dtype
-    dm set zclip $mged_default(zclip)
-    if { $dtype == "rtgl" } {
-	dm set zclip 1
-	dm set zbuffer 1
-    }
-    if { $dtype == "ogl" } {
-	dm set zbuffer $mged_default(zbuffer)
-	dm set lighting $mged_default(lighting)
-    }
-    set faceplate $mged_default(faceplate)
-    set orig_gui $mged_default(orig_gui)
-    set perspective_mode $mged_default(perspective_mode)
+	set _gvp [gvp_ptr]
 
-    attach -d $dpy -t 0 -n $w.ll $dtype
-    dm set zclip $mged_default(zclip)
-    if { $dtype == "rtgl" } {
-	dm set zclip 1
-	dm set zbuffer 1
-    }
-    if { $dtype == "ogl" } {
-	dm set zbuffer $mged_default(zbuffer)
-	dm set lighting $mged_default(lighting)
-    }
-    set faceplate $mged_default(faceplate)
-    set orig_gui $mged_default(orig_gui)
-    set perspective_mode $mged_default(perspective_mode)
+	foreach pane {ul ur ll lr} {
+	    # Auto-detect: try HW GL first, fall back to SW automatically
+	    obol_view $w.$pane
+	    $w.$pane attach $_gvp
+	    if {[info procs obol_view_bind] ne ""} {
+		obol_view_bind $w.$pane
+	    }
+	    set win_to_id($w.$pane) $id
+	}
 
-    attach -d $dpy -t 0 -n $w.lr $dtype
-    dm set zclip $mged_default(zclip)
-    if { $dtype == "rtgl" } {
-	dm set zclip 1
-	dm set zbuffer 1
-    }
-    if { $dtype == "ogl" } {
-	dm set zbuffer $mged_default(zbuffer)
-	dm set lighting $mged_default(lighting)
-    }
-    set faceplate $mged_default(faceplate)
-    set orig_gui $mged_default(orig_gui)
-    set perspective_mode $mged_default(perspective_mode)
+	grid $w.ul -in $wc.ulF -sticky "nsew" -row 0 -column 0
+	grid $w.ur -in $wc.urF -sticky "nsew" -row 0 -column 0
+	grid $w.ll -in $wc.llF -sticky "nsew" -row 0 -column 0
+	grid $w.lr -in $wc.lrF -sticky "nsew" -row 0 -column 0
+    } else {
+	# ── Legacy dm-based path ────────────────────────────────────────────
+	attach -d $dpy -t 0 -n $w.ul $dtype
+	dm set zclip $mged_default(zclip)
+	if { $dtype == "rtgl" } {
+	    dm set zclip 1
+	    dm set zbuffer 1
+	}
+	if { $dtype == "ogl" } {
+	    dm set zbuffer $mged_default(zbuffer)
+	    dm set lighting $mged_default(lighting)
+	}
+	set faceplate $mged_default(faceplate)
+	set orig_gui $mged_default(orig_gui)
+	set perspective_mode $mged_default(perspective_mode)
 
-    set win_to_id($w.ul) $id
-    set win_to_id($w.ur) $id
-    set win_to_id($w.ll) $id
-    set win_to_id($w.lr) $id
+	attach -d $dpy -t 0 -n $w.ur $dtype
+	dm set zclip $mged_default(zclip)
+	if { $dtype == "rtgl" } {
+	    dm set zclip 1
+	    dm set zbuffer 1
+	}
+	if { $dtype == "ogl" } {
+	    dm set zbuffer $mged_default(zbuffer)
+	    dm set lighting $mged_default(lighting)
+	}
+	set faceplate $mged_default(faceplate)
+	set orig_gui $mged_default(orig_gui)
+	set perspective_mode $mged_default(perspective_mode)
 
-    grid $w.ul -in $wc.ulF -sticky "nsew" -row 0 -column 0
-    grid $w.ur -in $wc.urF -sticky "nsew" -row 0 -column 0
-    grid $w.ll -in $wc.llF -sticky "nsew" -row 0 -column 0
-    grid $w.lr -in $wc.lrF -sticky "nsew" -row 0 -column 0
+	attach -d $dpy -t 0 -n $w.ll $dtype
+	dm set zclip $mged_default(zclip)
+	if { $dtype == "rtgl" } {
+	    dm set zclip 1
+	    dm set zbuffer 1
+	}
+	if { $dtype == "ogl" } {
+	    dm set zbuffer $mged_default(zbuffer)
+	    dm set lighting $mged_default(lighting)
+	}
+	set faceplate $mged_default(faceplate)
+	set orig_gui $mged_default(orig_gui)
+	set perspective_mode $mged_default(perspective_mode)
+
+	attach -d $dpy -t 0 -n $w.lr $dtype
+	dm set zclip $mged_default(zclip)
+	if { $dtype == "rtgl" } {
+	    dm set zclip 1
+	    dm set zbuffer 1
+	}
+	if { $dtype == "ogl" } {
+	    dm set zbuffer $mged_default(zbuffer)
+	    dm set lighting $mged_default(lighting)
+	}
+	set faceplate $mged_default(faceplate)
+	set orig_gui $mged_default(orig_gui)
+	set perspective_mode $mged_default(perspective_mode)
+
+	set win_to_id($w.ul) $id
+	set win_to_id($w.ur) $id
+	set win_to_id($w.ll) $id
+	set win_to_id($w.lr) $id
+
+	grid $w.ul -in $wc.ulF -sticky "nsew" -row 0 -column 0
+	grid $w.ur -in $wc.urF -sticky "nsew" -row 0 -column 0
+	grid $w.ll -in $wc.llF -sticky "nsew" -row 0 -column 0
+	grid $w.lr -in $wc.lrF -sticky "nsew" -row 0 -column 0
+    }
 
     grid rowconfigure $wc.ulF 0 -weight 1
     grid columnconfigure $wc.ulF 0 -weight 1
