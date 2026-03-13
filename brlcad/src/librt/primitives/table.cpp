@@ -158,6 +158,7 @@ extern void rt_comb_make(const struct rt_functab *ftp, struct rt_db_internal *in
 extern void rt_comb_ifree(struct rt_db_internal *ip);
 extern int rt_comb_mat(struct rt_db_internal *op, const mat_t mat, const struct rt_db_internal *ip);
 extern int rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol);
+extern int rt_comb_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const bsg_view *v);
 
 extern int rt_annot_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_bot_form(struct bu_vls *logstr, const struct rt_functab *ftp);
@@ -1799,7 +1800,7 @@ const struct rt_functab OBJ[] = {
 	NULL, /* keypoint */
 	RTFUNCTAB_FUNC_MAT_CAST(rt_comb_mat),
 	NULL, /* perturb */
-	NULL   /* scene_obj */
+	RTFUNCTAB_FUNC_SCENE_OBJ_CAST(rt_comb_scene_obj)
     },
 
     {
