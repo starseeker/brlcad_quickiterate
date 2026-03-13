@@ -231,15 +231,94 @@
  *   Σ(path depths) ≈ 16W²(K+5) + 8W²(K+4) + W²(K+3) + W(K+2) + K²/2
  *
  *   Both new and old code use the same ancestor-walk for f_below:
- *   cost ≈ Σdepths × ~120ns (path building + inner-plan evaluation per ancestor).
+ *   cost ≈ Σdepths × ~37ns (path building + inner-plan evaluation per ancestor).
  *
  *   Measured at W=40, K=2000 (Σdepths ≈ 82M):
- *     new  ≈  3s per full traversal
- *     old  ≈ 4.5s per full traversal  (db_search_old(), ancestor-walk)
- *     The modest difference reflects path-allocation and traversal overhead.
+ *     new  ≈  3s per full traversal  (deque-based, lower path-allocation overhead)
+ *     old  ≈ 4.5s per full traversal (ptbl pre-collection, same ancestor-walk)
+ *     The modest difference reflects path-allocation and traversal overhead only.
+ *     (f_below uses an O(depth)-per-path ancestor-walk in BOTH implementations.
+ *      For typical BRL-CAD tree depths (5-20) this is fast; for D=100 it is
+ *      still manageable at ~37ns × Σdepths.  Only extreme chains (D≫100) can
+ *      show quadratic behaviour.)
  *
  * The old code is the same algorithm as the root-level search.cpp kept at
  * the top of the repository; it is compiled into librt as db_search_old().
+ *
+ *
+ * Recursive Sphflake Topology and f_below BFS-cache analysis
+ * ===========================================================
+ *
+ * Background - the actual BRL-CAD sphflake.c (proc-db/sphflake.c) builds a
+ * FLAT tree: all spheres at recursion depth d are collected into one
+ * combination depth{d}.r, and scene.r references all depth combos.  Every
+ * full path from scene.r to any sphere has length exactly 2, regardless of
+ * the iteration count K.  That structure is trivially fast for db_search.
+ *
+ * The relevant stress structure is the RECURSIVE sphflake topology, where
+ * each node is an individual combination that references one shared primitive
+ * and B child combinations (B=9 for the standard 9-direction sphflake):
+ *
+ *   sflake_0     = { sflake_prim.s, sflake_1, ..., sflake_9 }
+ *   sflake_{1,i} = { sflake_prim.s, sflake_{2,9i}, ..., sflake_{2,9i+8} }
+ *   ...
+ *   sflake_{K,j} = { sflake_prim.s }   (leaf)
+ *
+ * Using B-ary tree indexing: children of node n are B*n+1 .. B*n+B.
+ * Leaves are the (B^K) nodes at depth K; the total number of combos is
+ * N_combos = (B^(K+1) - 1) / (B - 1).  Each combo also has one primitive
+ * instance (sflake_prim.s), so the total full-path count from the root is:
+ *
+ *   N_total = 2 × N_combos = 2 × (B^(K+1) - 1) / (B - 1)
+ *
+ * Σ(path depths) for f_below cost analysis:
+ *   Combos at depth d (count B^d) contribute d each.
+ *   Prims under depth-d combos (count B^d) contribute d+1 each.
+ *   Σdepths = Σ(d=0..K) (2d+1) × B^d
+ *
+ * For B=9:
+ *
+ *   K │ N_combos │ N_total  │  Σdepths  │ avg_depth │ proj. BFS speedup
+ *   ──┼──────────┼──────────┼───────────┼───────────┼──────────────────
+ *   1 │       10 │       20 │        28 │    1.40   │    0.5× (SLOWER)
+ *   2 │       91 │      182 │       433 │    2.38   │    0.8×
+ *   3 │      820 │     1640 │      5536 │    3.38   │    1.1× (break-even)
+ *   4 │     7381 │    14762 │     64585 │    4.37   │    1.5×
+ *   5 │    66430 │   132860 │    714124 │    5.38   │    1.8×
+ *   6 │   597871 │  1195742 │  7622857  │    6.38   │    2.1× (SIGNIFICANT)
+ *   7 │  5380840 │ 10761680 │  79367392 │    7.38   │    2.5×
+ *   8 │ 48427561 │ 96855122 │ 811358857 │    8.38   │    2.8×
+ *
+ * ("proj. BFS speedup" = avg_depth / 3.0; the BFS forward-pass cache costs
+ *  approximately 3×N operations: N inner-plan evals + N propagation + N lookups.)
+ *
+ * Interpretation:
+ *   - BFS break-even (speedup ≈ 1×) is reached at K≈3 (avg_depth ≈ 3).
+ *   - "Significant" speedup (≥2×) requires K≈6 (N_total ≈ 1.2M paths).
+ *   - BRL-CAD's sphflake.c already warns that depths >5 are extremely large
+ *     (9^6 = 531,441 spheres at the leaf level alone, plus all intermediate
+ *     nodes ≈ 600K total objects).  The geometry becomes unrepresentable well
+ *     before K=7.
+ *
+ * Architecture note on restoring a BFS cache for f_below:
+ *   The current f_below ancestor-walk runs in BOTH code paths:
+ *     1. Deque-based traversal (has_above=0): paths are generated on-the-fly
+ *        with O(depth) memory; a BFS forward-pass cannot be applied here
+ *        without first pre-collecting ALL paths (O(N×depth) memory).
+ *     2. Full-path pre-collection (has_above=1): all paths already sit in a
+ *        bu_ptbl; a symmetric top-down forward-pass (analogous to the existing
+ *        bottom-up above_cache_map) could reduce f_below from O(Σdepths) to
+ *        O(N) at the cost of an additional O(N log N) sort and O(N) hash ops.
+ *        This is the ONLY code path where restoring a BFS-style f_below cache
+ *        provides a net benefit without sacrificing memory efficiency.
+ *   Concrete implication: a BFS f_below cache would speed up combined
+ *   "-above X -below Y" queries on trees with K≥3 (sphflake iterations
+ *   3+), but would not help -below-only queries without also changing those
+ *   queries to pre-collect all paths — a significant memory trade-off that
+ *   is not worthwhile for K<6.
+ *
+ * The sphflake stress tests below build trees at K=1,2,3 for quick
+ * correctness verification and timing baseline at K=4.
  */
 
 #include "common.h"
@@ -1783,6 +1862,21 @@ fail:
  *   -below -name cwd_lf_0     = W² * 2            (W² occ × 2 prims each)
  *   -below -name cwd_ch_{fan_k/2} = fan_k/2 + 25*W² + fan_w + 2
  *
+ * -above ground truth (paths P where any DESCENDANT of P satisfies the inner filter):
+ *   -above -name cwd_pChain.s = fan_k + 1    (cwd_root + K chain nodes; pChain only under ch_0)
+ *   -above -name cwd_assy     = fan_k + 1    (same ancestor set; assy only under ch_0)
+ *   -above -name cwd_pA.s     = fan_k + 3*W² + W + 2
+ *                                   (root + K chains + assy + W clusters + W² groups + 2*W² leaves)
+ *   -above -name cwd_pFill.s  = fan_k + 9*W² + W + 2
+ *                                   (root + K chains + assy + W clusters + W² groups + 8*W² leaves)
+ *   -above -name cwd_lf_0     = fan_k + W² + W + 2
+ *                                   (root + K chains + assy + W clusters + W² groups;
+ *                                    lf_0 occurs W² times but each lf_0 path is NOT above itself)
+ *   -above -name cwd_grp_0    = fan_k + W + 2
+ *                                   (root + K chains + assy + W clusters; grp_0 under every cluster)
+ *   -above -name cwd_clust_0  = fan_k + 2
+ *                                   (root + K chains + assy; clust_0 under assy only)
+ *
  * After running all queries, the function prints the theoretical Σ(path
  * depths) and the expected old-code time (ancestor-walk f_below), using
  * the calibrated value from the W=40 K=2000 head-to-head measurement.
@@ -1981,7 +2075,7 @@ test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
      * (cwd_ch_{k_half-1} down to cwd_ch_0) plus the full fan subtree.
      * Expected = k_half + (25W² + fan_w + 2).
      *
-     * This test verifies that the BFS cache correctly identifies a
+     * This test verifies that the ancestor-walk correctly finds a
      * mid-chain ancestor even when many thousands of paths pass through it.
      */
     expected = k_half + 25*W2 + fan_w + 2;
@@ -2009,8 +2103,8 @@ test_csg_below_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
      *   leaves   (8W² at depth fan_k+4):            8W²*(fan_k+4)
      *   prims    (16W² at depth fan_k+5):           16W²*(fan_k+5)
      *
-     * The BFS propagation cache makes f_below cost O(1) per path; the old
-     * ancestor-walk costs O(depth) per path.  See the head-to-head perf
+     * Both new and old code use the same ancestor-walk for f_below:
+     * O(depth) per path, O(Σdepths) total.  See the head-to-head perf
      * demo (fan_w=40, fan_k=2000) for measured times.
      */
     sigma_depths = csg_sigma_depths(fan_w, fan_k);
@@ -2159,6 +2253,458 @@ test_csg_below_perf(struct db_i *dbip, int fan_w, int fan_k)
     db_search_context_destroy(ctx);
     return failures;
 }
+
+
+/* ------------------------------------------------------------------ */
+/*  Wide + Deep CSG -above correctness and cross-validation           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Verify -above correctness on the wide+deep CSG tree using only the new
+ * db_search() implementation.  The old code (db_search_old) is O(N²) for
+ * -above queries and is far too slow on trees with >1000 paths.
+ *
+ * Ground-truth formulas (NL=8 leaves, W = fan_w, K = fan_k):
+ *
+ *   -above -name cwd_pChain.s = K + 1
+ *       Only cwd_ch_0 has pChain.s directly; the ancestors are
+ *       cwd_ch_0..cwd_ch_{K-1} (K paths) plus cwd_root (1 path).
+ *
+ *   -above -name cwd_assy     = K + 1
+ *       Same ancestor set as pChain.s (assy is a sibling of pChain.s,
+ *       both are direct children of cwd_ch_0).
+ *
+ *   -above -name cwd_pA.s     = K + 3*W² + W + 2
+ *       root + K chains + assy + W clusters + W² groups
+ *       + 2*W² leaves (only lf_0 and lf_4 contain pA.s)
+ *
+ *   -above -name cwd_pFill.s  = K + 9*W² + W + 2
+ *       root + K chains + assy + W clusters + W² groups
+ *       + 8*W² leaves (all 8 leaf types contain pFill.s)
+ *
+ *   -above -name cwd_lf_0     = K + W² + W + 2
+ *       root + K chains + assy + W clusters + W² groups
+ *       (lf_0 itself is not "above" lf_0 - a path is only above a
+ *        descendant that extends it, not the path itself)
+ *
+ *   -above -name cwd_grp_0    = K + W + 2
+ *       root + K chains + assy + W clusters
+ *       (each cluster has grp_0 below it)
+ *
+ *   -above -name cwd_clust_0  = K + 2
+ *       root + K chains + assy
+ *       (clust_0 is under cwd_assy only)
+ *
+ * Performance note:
+ *   -above triggers full-path pre-collection and the reverse-BFS pre-pass.
+ *   New code: O(N log N) sort + O(N·A) pre-pass; then O(1) per query (hash lookup).
+ *   Old code: O(N) per call, O(N²) total -- too slow for N > ~1000 paths.
+ *
+ *   The only scenario where the new logic is slower than old is depth-constrained
+ *   -above (e.g. "-above=1") on large trees: depth-constrained nodes are excluded
+ *   from the reverse-BFS cache and fall back to the O(N) slow path, but still pay
+ *   the O(N log N) sorting overhead with no benefit.  For unconstrained -above the
+ *   new code is always faster.
+ */
+static int
+test_csg_above_wide_deep(struct db_i *dbip, int fan_w, int fan_k)
+{
+    int failures = 0;
+    int cnt, expected;
+    int64_t t;
+    int W2 = fan_w * fan_w;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+
+#define RUN_ABOVE(filter, exp, msg) \
+    do { \
+	expected = (exp); \
+	t = bu_gettime(); \
+	cnt = db_search(&results, DB_SEARCH_TREE, (filter), \
+			0, NULL, dbip, NULL, NULL, NULL); \
+	t = bu_gettime() - t; \
+	db_search_free(&results); \
+	bu_log("  csg fan_w=%-3d fan_k=%-4d  %-36s %6d exp %6d  (%.4fs)%s\n", \
+	       fan_w, fan_k, (filter), cnt, expected, \
+	       (double)t/1e6, \
+	       (cnt != expected) ? "  FAIL" : ""); \
+	CHECK(cnt == expected, (msg)); \
+    } while (0)
+
+    bu_log("\n  -above tests: fan_w=%d fan_k=%d\n", fan_w, fan_k);
+
+    /* pChain.s only appears under cwd_ch_0: ancestors = K chain nodes + root */
+    RUN_ABOVE("-above -name cwd_pChain.s",
+	      fan_k + 1,
+	      "-above -name cwd_pChain.s");
+
+    /* cwd_assy is a sibling of pChain.s under cwd_ch_0: same ancestor set */
+    RUN_ABOVE("-above -name cwd_assy",
+	      fan_k + 1,
+	      "-above -name cwd_assy");
+
+    /* pA.s in lf_0 and lf_4; two leaf types × W groups × W clusters = 2*W² leaf paths */
+    RUN_ABOVE("-above -name cwd_pA.s",
+	      fan_k + 3*W2 + fan_w + 2,
+	      "-above -name cwd_pA.s");
+
+    /* pFill.s in all 8 leaf types; 8*W² leaf paths are above it */
+    RUN_ABOVE("-above -name cwd_pFill.s",
+	      fan_k + 9*W2 + fan_w + 2,
+	      "-above -name cwd_pFill.s");
+
+    /* lf_0 shared across all W² grp/clust combos; but lf_0 itself is not above lf_0 */
+    RUN_ABOVE("-above -name cwd_lf_0",
+	      fan_k + W2 + fan_w + 2,
+	      "-above -name cwd_lf_0");
+
+    /* grp_0 in each cluster; every cluster has grp_0 below it */
+    RUN_ABOVE("-above -name cwd_grp_0",
+	      fan_k + fan_w + 2,
+	      "-above -name cwd_grp_0");
+
+    /* clust_0 only under cwd_assy */
+    RUN_ABOVE("-above -name cwd_clust_0",
+	      fan_k + 2,
+	      "-above -name cwd_clust_0");
+
+#undef RUN_ABOVE
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Cyclic-tree robustness test                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Build three simple cyclic structures to verify that db_search never
+ * infinite-loops on cyclic CSG models.
+ *
+ * cyc_self:  references itself  (self-loop, depth 0)
+ * cyc_a:     references cyc_b   (mutual loop)
+ * cyc_b:     references cyc_a
+ * cyc_x:     references cyc_y   (3-node loop)
+ * cyc_y:     references cyc_z
+ * cyc_z:     references cyc_x
+ *
+ * The traversal code calls db_full_path_cyclic() before recursing; a cyclic
+ * child is therefore never added to the work queue (non-above path) or never
+ * recursed into (above path collection), so traversal always terminates.
+ *
+ * Expected path counts (non-above traversal from each root):
+ *   cyc_self:  1  ([cyc_self] only; the child cyc_self is detected cyclic)
+ *   cyc_a:     2  ([cyc_a], [cyc_a/cyc_b]; the [cyc_a/cyc_b/cyc_a] child is cyclic)
+ *   cyc_x:     3  ([cyc_x], [cyc_x/cyc_y], [cyc_x/cyc_y/cyc_z])
+ */
+static int
+build_cyclic_tree(struct rt_wdb *wdbp)
+{
+    struct wmember wm;
+
+    /* self-referential: cyc_self -> cyc_self */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_self", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_self", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+
+    /* mutual reference: create cyc_b first (cyc_a doesn't exist yet) */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_a", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_b", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+    /* now create cyc_a referencing the already-existing cyc_b */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_b", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_a", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+
+    /* 3-node cycle: create z first, then y, then x */
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_x", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_z", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_z", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_y", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+    BU_LIST_INIT(&wm.l);
+    mk_addmember("cyc_y", &wm.l, NULL, WMOP_UNION);
+    if (mk_lcomb(wdbp, "cyc_x", &wm, 0, NULL, NULL, NULL, 0) != 0)
+	return 1;
+
+    return 0;
+}
+
+static int
+test_cyclic_tree(struct db_i *dbip)
+{
+    int failures = 0;
+    int cnt;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    struct directory *dp;
+
+    bu_log("\n  Cyclic-tree robustness tests (DB_SEARCH_TREE):\n");
+
+    /* ---- cyc_self: 1 path ---- */
+    dp = db_lookup(dbip, "cyc_self", LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("FAIL: cyc_self not found\n");
+	return 1;
+    }
+    cnt = db_search(&results, DB_SEARCH_TREE, "",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    bu_log("  cyc_self (self-loop):   %d path(s) [expected 1]%s\n",
+	   cnt, (cnt != 1) ? "  FAIL" : "");
+    CHECK(cnt == 1, "cyc_self: terminates with 1 path");
+
+    /* ---- cyc_a: 2 paths ([cyc_a], [cyc_a/cyc_b]) ---- */
+    dp = db_lookup(dbip, "cyc_a", LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("FAIL: cyc_a not found\n");
+	return 1;
+    }
+    cnt = db_search(&results, DB_SEARCH_TREE, "",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    bu_log("  cyc_a (mutual loop):    %d path(s) [expected 2]%s\n",
+	   cnt, (cnt != 2) ? "  FAIL" : "");
+    CHECK(cnt == 2, "cyc_a: terminates with 2 paths");
+
+    /* ---- cyc_x: 3 paths ([cyc_x], [cyc_x/cyc_y], [cyc_x/cyc_y/cyc_z]) ---- */
+    dp = db_lookup(dbip, "cyc_x", LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL) {
+	bu_log("FAIL: cyc_x not found\n");
+	return 1;
+    }
+    cnt = db_search(&results, DB_SEARCH_TREE, "",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    bu_log("  cyc_x (3-node cycle):   %d path(s) [expected 3]%s\n",
+	   cnt, (cnt != 3) ? "  FAIL" : "");
+    CHECK(cnt == 3, "cyc_x: terminates with 3 paths");
+
+    /* ---- verify -below is also safe on cyclic trees ---- */
+    dp = db_lookup(dbip, "cyc_a", LOOKUP_QUIET);
+    cnt = db_search(&results, DB_SEARCH_TREE, "-below -name cyc_a",
+		    1, &dp, dbip, NULL, NULL, NULL);
+    db_search_free(&results);
+    /* [cyc_a/cyc_b] has cyc_a as parent → 1 result */
+    bu_log("  cyc_a -below -name cyc_a: %d path(s) [expected 1]%s\n",
+	   cnt, (cnt != 1) ? "  FAIL" : "");
+    CHECK(cnt == 1, "cyc_a -below: terminates with 1 path");
+
+    return failures;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Recursive sphflake topology: builder and timing test              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Compute the total number of combination nodes in a complete B-ary
+ * recursive sphflake tree of depth K:
+ *   N_combos = (B^(K+1) - 1) / (B - 1)
+ */
+static int64_t
+sflake_node_count(int K, int B)
+{
+    int64_t Bpow = 1;  /* B^(K+1) */
+    int d;
+    for (d = 0; d <= K; d++)
+	Bpow *= B;
+    return (Bpow - 1) / (B - 1);
+}
+
+/*
+ * Compute Σ(path depths) for a recursive sphflake tree with branching B
+ * and depth K.
+ *
+ * Each combo at depth d contributes d to the sum (B^d combos).
+ * Each primitive under a depth-d combo contributes d+1 (one prim per combo).
+ *
+ *   Σdepths = Σ(d=0..K) (2d+1) × B^d
+ */
+static int64_t
+sflake_sigma_depths(int K, int B)
+{
+    int64_t sigma = 0;
+    int64_t Bd = 1;  /* B^d */
+    int d;
+    for (d = 0; d <= K; d++) {
+	sigma += (int64_t)(2*d + 1) * Bd;
+	Bd *= B;
+    }
+    return sigma;
+}
+
+/*
+ * Build a recursive sphflake-topology tree.
+ *
+ * Uses a complete B-ary tree layout: children of node n are nodes
+ * B*n+1 through B*n+B.  Node 0 is the root ("sflake_0").
+ * Each node is a combination containing:
+ *   - the shared primitive sflake_prim.s
+ *   - B child combos (for non-leaf nodes; leaf nodes have only the prim)
+ *
+ * Leaf nodes are those at depth K (nodes from start(K) through start(K+1)-1).
+ * The tree is built bottom-up (leaves first) so that when a parent is
+ * written its children already exist in the database.
+ *
+ * Returns 0 on success.
+ */
+static int
+build_sphflake_tree(struct rt_wdb *wdbp, int K, int B)
+{
+    int64_t level_start; /* first node ID at current depth level */
+    int64_t level_width; /* number of nodes at current depth level = B^d */
+    int j;
+    int64_t i;
+    struct bu_vls name = BU_VLS_INIT_ZERO;
+    struct bu_vls child_name = BU_VLS_INIT_ZERO;
+    struct wmember wm;
+    point_t center = VINIT_ZERO;
+    fastf_t radius = 1.0;
+
+    if (K < 0 || B < 2)
+	return 1;
+
+    /* Shared primitive - all combos reference this single object. */
+    if (mk_sph(wdbp, "sflake_prim.s", center, radius) != 0)
+	return 1;
+
+    /* Build levels from K (leaves) down to 0 (root) so parents find
+     * their children already present in the database.
+     * Level-d start index:  (B^d - 1)/(B-1)
+     * Level-d width:        B^d
+     * Children of node n:   B*n+1 .. B*n+B  */
+    {
+	int dd;
+	int64_t Bpow = 1;
+	for (dd = 0; dd <= K; dd++) Bpow *= B;  /* Bpow = B^(K+1) */
+
+	for (dd = K; dd >= 0; dd--) {
+	    Bpow /= B;  /* Bpow = B^dd */
+	    level_start = (Bpow - 1) / (B - 1);
+	    level_width = Bpow;
+
+	    for (i = 0; i < level_width; i++) {
+		int64_t node_id = level_start + i;
+
+		BU_LIST_INIT(&wm.l);
+		mk_addmember("sflake_prim.s", &wm.l, NULL, WMOP_UNION);
+
+		/* Add B children (unless this is a leaf at depth K). */
+		if (dd < K) {
+		    int64_t child_base = (int64_t)B * node_id + 1;
+		    for (j = 0; j < B; j++) {
+			bu_vls_sprintf(&child_name, "sflake_%lld", (long long)(child_base + j));
+			mk_addmember(bu_vls_cstr(&child_name), &wm.l, NULL, WMOP_UNION);
+		    }
+		}
+
+		bu_vls_sprintf(&name, "sflake_%lld", (long long)node_id);
+		if (mk_lcomb(wdbp, bu_vls_cstr(&name), &wm,
+			     0, NULL, NULL, NULL, 0) != 0) {
+		    bu_vls_free(&name);
+		    bu_vls_free(&child_name);
+		    return 1;
+		}
+	    }
+	}
+    }
+
+    bu_vls_free(&name);
+    bu_vls_free(&child_name);
+    return 0;
+}
+
+
+/*
+ * Verify -below correctness and measure timing on the recursive sphflake
+ * tree.  Reports Σdepths and the projected speedup from a hypothetical
+ * BFS forward-pass cache for f_below.
+ *
+ * Searches from sflake_0 (the root); expected count for:
+ *   "-below -name sflake_0"  = N_total - 1  (every non-root path)
+ *
+ * BFS cache analysis:
+ *   A symmetric top-down forward-pass (analogous to the existing bottom-up
+ *   above_cache_map) would cost ~3×N_total operations and reduce f_below from
+ *   O(Σdepths) to O(N_total).  The projected speedup is Σdepths / (3×N_total)
+ *   = avg_depth / 3.  For the standard sphflake (B=9):
+ *     K=3 → avg_depth ≈ 3.4 → speedup ≈ 1.1×  (barely worth it)
+ *     K=6 → avg_depth ≈ 6.4 → speedup ≈ 2.1×  (significant)
+ *   The cache only helps in the full-path pre-collection code path
+ *   (i.e. when the query ALSO contains -above); for -below-only queries
+ *   the deque traversal avoids pre-collecting all N paths (memory saving).
+ */
+static int
+test_sphflake_below(struct db_i *dbip, int K, int B)
+{
+    int failures = 0;
+    int cnt, old_cnt, expected;
+    int64_t t, t_new, t_old;
+    int64_t N_combos, N_total, sigma;
+    double avg_depth, proj_speedup;
+    struct bu_ptbl results = BU_PTBL_INIT_ZERO;
+    struct bu_ptbl old_results = BU_PTBL_INIT_ZERO;
+    struct db_search_context *ctx = db_search_context_create();
+
+    N_combos = sflake_node_count(K, B);
+    N_total  = 2 * N_combos;  /* one prim path per combo */
+    sigma    = sflake_sigma_depths(K, B);
+    avg_depth   = (N_total > 0) ? (double)sigma / (double)N_total : 0.0;
+    proj_speedup = avg_depth / 3.0;
+
+    expected = (int)(N_total - 1);
+
+    /* New code timing */
+    t_new = bu_gettime();
+    cnt = db_search(&results, DB_SEARCH_TREE, "-below -name sflake_0",
+		    0, NULL, dbip, NULL, NULL, NULL);
+    t_new = bu_gettime() - t_new;
+    db_search_free(&results);
+
+    /* Old code timing (cross-validate) */
+    t_old = bu_gettime();
+    old_cnt = db_search_old(&old_results, DB_SEARCH_TREE, "-below -name sflake_0",
+			    0, NULL, dbip, ctx);
+    t_old = bu_gettime() - t_old;
+    db_search_free(&old_results);
+
+    db_search_context_destroy(ctx);
+
+    bu_log("  sphflake B=%d K=%d  N=%lld  Sdepths=%lld"
+	   "  avg_d=%.2f  proj_bfs_speedup=%.1fx\n",
+	   B, K, (long long)N_total, (long long)sigma, avg_depth, proj_speedup);
+    bu_log("  sphflake B=%d K=%d  -below -name sflake_0:"
+	   " new=%d(%.4fs)  old=%d(%.4fs)  exp=%d%s\n",
+	   B, K, cnt, (double)t_new/1e6,
+	   old_cnt, (double)t_old/1e6,
+	   expected, (cnt != expected) ? "  FAIL" : "");
+
+    CHECK(cnt == expected, "-below sflake root: count matches");
+
+    /* Run -above -name sflake_0 to show how the same tree behaves under
+     * the existing reverse-BFS cache.  Expected: 0 paths (root has no
+     * descendants whose ancestor is the root itself — i.e. root passes
+     * -below for all descendants, but -above -name root would return 0
+     * because root has no ancestor in the path table). */
+    t = bu_gettime();
+    cnt = db_search(&results, DB_SEARCH_TREE, "-above -name sflake_0",
+		    0, NULL, dbip, NULL, NULL, NULL);
+    t = bu_gettime() - t;
+    db_search_free(&results);
+    bu_log("  sphflake B=%d K=%d  -above -name sflake_0:"
+	   " %d paths (%.4fs) [root is never above itself]\n",
+	   B, K, cnt, (double)t/1e6);
+
+    return failures;
+}
+
 
 int
 main(int argc, char *argv[])
@@ -2360,24 +2906,29 @@ main(int argc, char *argv[])
      * all-to-all sharing) with a fan_k-level linear chain above it, producing
      * a tree that is simultaneously wide AND deep.
      *
-     * It runs 13 queries with independently-computed ground-truth counts
-     * to verify that the BFS propagation cache handles subtree reuse,
+     * It runs -below and -above queries with independently-computed ground-truth counts
+     * to verify that the ancestor-walk and reverse-BFS cache handle subtree reuse,
      * deep ancestry, and mixed fan+chain structures correctly.
      *
      * The correctness run (fan_w=20, fan_k=500) completes quickly and validates
      * all query types.  The performance note at the end of each run prints:
-     *   - Σ(path depths): the total work the old ancestor-walk would have done
-     *   - Estimated old-code time at ~126ns per depth unit
-     *   - Estimated new-code time at ~26ns per depth unit
+     *   - Σ(path depths): the total work the f_below ancestor-walk does
+     *   - Measured time for the new and old code
      *
      * Scaling reference:
-     *   fan_w=30, fan_k=3000 → Σdepths ≈ 72M → old ~9s, new ~1.9s  (~10-second demo)
+     *   fan_w=30, fan_k=3000 → Σdepths ≈ 72M → new ~2s, old ~2.7s  (~5-second demo)
      */
     {
-	/* {fan_w, fan_k} pairs:  fan_w=20 fan_k=500 for quick correctness; scale up for perf */
+	/* {fan_w, fan_k} pairs covering the key stress scenarios:
+	 *   {20, 500}  - quick correctness baseline (small fan, long chain)
+	 *   {100, 10}  - hundreds of children per combination (wide fan, shallow chain)
+	 *   {30, 95}   - depth-100 paths (moderate fan, chain depth K=95 → K+5=100)
+	 */
 	int csg_cases[][2] = {
-	    {20, 500},
-	    {0,  0}
+	    {20,  500},
+	    {100,  10},
+	    {30,   95},
+	    {0,    0}
 	};
 	int ci;
 
@@ -2409,6 +2960,7 @@ main(int argc, char *argv[])
 
 	    db_update_nref(dbip, &rt_uniresource);
 	    failures += test_csg_below_wide_deep(dbip, fan_w, fan_k);
+	    failures += test_csg_above_wide_deep(dbip, fan_w, fan_k);
 
 	    wdb_close(wdbp);
 	}
@@ -2421,9 +2973,9 @@ main(int argc, char *argv[])
      * measure the actual performance delta on the same data set.
      *
      * For this tree: Sigma path-depths ~82M
-     *   new code (BFS cache):     ~1.3s  measured
-     *   old code (ancestor-walk): ~10s   measured
-     *   speedup:                  ~7x    measured
+     *   new code (ancestor-walk, deque):  ~3s  measured
+     *   old code (ancestor-walk, ptbl):   ~4.5s measured
+     *   speedup:                          ~1.5x measured (path-allocation difference only)
      *
      * The old code is the same algorithm as the root-level search.cpp kept
      * at the top of the repository; here it runs as db_search_old() from
@@ -2454,6 +3006,120 @@ main(int argc, char *argv[])
 		    failures += test_csg_below_perf(dbip, fan_w, fan_k);
 		    wdb_close(wdbp);
 		}
+	    }
+	}
+    }
+
+    /* ---- Cyclic tree robustness test ---- */
+    /*
+     * Verify that db_search never infinite-loops on CSG models that contain
+     * cyclic references (A → B → A, or A → A).  The traversal code checks
+     * db_full_path_cyclic() before adding a child to the work queue, so
+     * cyclic paths are detected and skipped without recursing further.
+     *
+     * This test is important for the stated scenarios: trees with hundreds of
+     * nodes per combination that could contain accidental back-references.
+     */
+    {
+	bu_log("\nRunning cyclic-tree robustness tests...\n");
+	dbip = db_open_inmem();
+	if (dbip == DBI_NULL) {
+	    bu_log("ERROR: Cannot create cyclic tree db\n");
+	    failures++;
+	} else {
+	    wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_INMEM);
+	    if (!wdbp) {
+		db_close(dbip);
+		failures++;
+	    } else {
+		if (build_cyclic_tree(wdbp) != 0) {
+		    bu_log("ERROR: Cannot build cyclic tree\n");
+		    wdb_close(wdbp);
+		    failures++;
+		} else {
+		    db_update_nref(dbip, &rt_uniresource);
+		    failures += test_cyclic_tree(dbip);
+		    wdb_close(wdbp);
+		}
+	    }
+	}
+    }
+
+    /* ---- Recursive sphflake topology: f_below performance analysis ---- */
+    /*
+     * This section answers the theoretical question: "if we restore the BFS
+     * forward-pass cache for f_below, at what sphflake iteration count would
+     * we expect significant gains?"
+     *
+     * The recursive sphflake topology (B=9 branches per node, depth K) is
+     * built and searched to measure the O(Σdepths) cost of the current
+     * ancestor-walk f_below.  The "proj_bfs_speedup" column in the output
+     * shows what a BFS forward-pass cache would achieve: Σdepths/(3×N).
+     *
+     * For the standard sphflake (B=9):
+     *   K=3 → break-even (proj ≈ 1.1×), N=1640 paths
+     *   K=4 → proj ≈ 1.5×,  N=14762 paths
+     *   K=5 → proj ≈ 1.8×,  N=132860 paths  (geometry limit approaching)
+     *   K=6 → proj ≈ 2.1×,  N=1.2M paths    (geometry unworkable)
+     *
+     * IMPORTANT: The BFS cache only helps in the full-path pre-collection
+     * code path (queries that also include -above).  For -below-only queries,
+     * the current deque traversal is memory-efficient (O(depth) live paths);
+     * switching to pre-collection would cost O(N×depth) memory.
+     */
+    {
+	int sflake_cases[] = {1, 2, 3, 4, 0};
+	int sci;
+	const int B = 9;
+
+	bu_log("\nRunning recursive sphflake topology tests (B=%d)...\n", B);
+	bu_log("  (theoretical note: BRL-CAD sphflake.c builds a FLAT tree;\n"
+	       "   these tests use the recursive conceptual sphflake topology.)\n");
+
+	for (sci = 0; sflake_cases[sci] != 0; sci++) {
+	    int K = sflake_cases[sci];
+
+	    dbip = db_open_inmem();
+	    if (dbip == DBI_NULL) {
+		bu_log("ERROR: Cannot create sphflake db (K=%d)\n", K);
+		failures++;
+		continue;
+	    }
+	    wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_INMEM);
+	    if (!wdbp) {
+		db_close(dbip);
+		failures++;
+		continue;
+	    }
+
+	    if (build_sphflake_tree(wdbp, K, B) != 0) {
+		bu_log("ERROR: Cannot build sphflake tree K=%d B=%d\n", K, B);
+		wdb_close(wdbp);
+		failures++;
+		continue;
+	    }
+
+	    db_update_nref(dbip, &rt_uniresource);
+	    failures += test_sphflake_below(dbip, K, B);
+
+	    wdb_close(wdbp);
+	}
+
+	/* Print a theoretical summary for K=5..7 (not built, just computed). */
+	bu_log("\n  Theoretical projection (B=%d, not built):\n", B);
+	{
+	    int K;
+	    for (K = 5; K <= 7; K++) {
+		int64_t N_total  = 2 * sflake_node_count(K, B);
+		int64_t sigma    = sflake_sigma_depths(K, B);
+		double avg_depth = (double)sigma / (double)N_total;
+		double proj_spd  = avg_depth / 3.0;
+		bu_log("  sphflake B=%d K=%d  N=%lld"
+		       "  Sdepths=%lld  avg_d=%.2f  proj_bfs_speedup=%.1fx"
+		       "  (geometry limit: %s)\n",
+		       B, K, (long long)N_total, (long long)sigma,
+		       avg_depth, proj_spd,
+		       (K >= 6) ? "exceeded" : "approaching");
 	    }
 	}
     }
