@@ -20,29 +20,33 @@
 /**
  * @file libtclcad/obol_view.cpp
  *
- * Tcl/Tk Obol 3D view widget — platform-neutral replacement for dm-ogl.
+ * Tcl/Tk Obol 3D view widget — hardware-accelerated or software fallback.
  *
- * Two rendering paths:
+ * Three rendering paths, selected at widget creation time (-type hw|sw)
+ * or auto-detected (HW preferred, SW fallback):
  *
- *   HW GL path (-type hw, or auto-detected):
- *     Creates a real OpenGL context on the Tk window using the platform
- *     GL API (GLX on X11, WGL on Windows, AGL/NSOpenGL on macOS).  Obol's
- *     SoRenderManager drives GL rendering directly.  This is the fast path
- *     for large geometry.  The approach is modelled on the Togl widget:
- *     Tk_SetWindowVisual is called BEFORE Tk_MakeWindowExist so the native
- *     window is created with the correct GL-capable visual/pixel-format.
+ *   GLX path  (X11 Linux/UNIX):
+ *     glXChooseVisual + Tk_SetWindowVisual (before Tk_MakeWindowExist, Togl
+ *     style) → glXCreateContext → SoRenderManager → glXSwapBuffers.
  *
- *   SW path (-type sw, or auto-fallback):
+ *   WGL path  (Windows):
+ *     Tk_GetHWND + GetDC + ChoosePixelFormat/SetPixelFormat/wglCreateContext
+ *     → SoRenderManager → SwapBuffers.
+ *
+ *   NSOpenGL path (macOS Aqua, -DBRLCAD_ENABLE_AQUA):
+ *     NSOpenGLView embedded as a positioned subview of the Tk window's
+ *     NSWindow via Tk_MacOSXGetNSWindowForDrawable → SoRenderManager →
+ *     CGLFlushDrawable.  Implemented in obol_view_macos.mm (ObjC++).
+ *     AGL (Carbon era, deprecated macOS 10.9) is NOT used.
+ *
+ *   SW path (any platform, -type sw or fallback):
  *     SoOffscreenRenderer + CoinOSMesaContextManager → RGBA pixel buffer →
- *     Tk photo image on a label widget.  Slow for large geometry but works
- *     everywhere without a display (headless, CI, etc.).
+ *     Tk photo image on a label widget.  Works headless/CI.
  *
  * Widget command:
- *
  *   obol_view <path> ?-type hw|sw? ?-width W? ?-height H?
  *
  * Instance sub-commands:
- *
  *   <path> attach <bsg_view_ptr>   — attach to a bsg_view (hex C pointer)
  *   <path> redraw                  — render scene
  *   <path> size <w> <h>            — resize
@@ -64,7 +68,7 @@ extern "C" {
 #ifdef HAVE_TK
 #  include <tk.h>
 #endif
-/* X11 types must come BEFORE tk.h redefines Window etc. on some platforms */
+/* X11 headers must precede tk.h redefines on some platforms */
 #ifdef HAVE_X11_XLIB_H
 #  include <X11/Xlib.h>
 #  include <X11/Xutil.h>
@@ -77,11 +81,31 @@ extern "C" {
 #include "ged/defines.h"
 }
 
-/* GLX — available when we have X11 and OpenGL */
+/* ── Platform HW GL guards ───────────────────────────────────────────────── */
+
+/* GLX — X11/Linux/UNIX */
 #if defined(HAVE_X11_XLIB_H) && defined(HAVE_GL_GL_H)
 #  include <GL/glx.h>
 #  include <GL/gl.h>
 #  define OBOL_HW_GLX 1
+#endif
+
+/* WGL — Windows native OpenGL */
+#if defined(_WIN32) && defined(HAVE_GL_GL_H)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
+#  include <GL/gl.h>
+#  define OBOL_HW_WGL 1
+#endif
+
+/* NSOpenGL — macOS Aqua (Objective-C++ implemented in obol_view_macos.mm).
+ * Requires BRLCAD_ENABLE_AQUA (set by -DBRLCAD_ENABLE_AQUA=ON) AND the
+ * OpenGL framework (HAVE_OPENGL_GL_H set from config.h).
+ * AGL (Carbon era, deprecated macOS 10.9) is NOT used.                      */
+#if defined(__APPLE__) && defined(BRLCAD_ENABLE_AQUA) && defined(HAVE_OPENGL_GL_H)
+#  define OBOL_HW_NSGL 1
 #endif
 
 /* Suppress -Wfloat-equal from Obol/Inventor headers */
@@ -139,17 +163,27 @@ struct ObolViewWidget {
     /* ── Rendering path ─────────────────────────────────────────────────── */
     bool             use_hw      = false;      /* true = HW GL, false = SW     */
 
-    /* HW GL path: SoRenderManager drives rendering into the Tk window's GL
-     * context.  The SoRenderManager is given the same obol_root scene as
-     * the SW path so camera sync helpers work unchanged. */
-    SoRenderManager  render_mgr;               /* Obol render manager (HW)     */
+    /* HW GL: SoRenderManager drives rendering into the platform GL context.  */
+    SoRenderManager  render_mgr;
     bool             render_mgr_active = false;
 
 #ifdef OBOL_HW_GLX
-    /* X11/GLX context */
+    /* X11/GLX */
     Display         *dpy         = nullptr;
     GLXContext       glxc        = nullptr;
     ::Window         xwin        = 0;
+#endif
+
+#ifdef OBOL_HW_WGL
+    /* Windows WGL */
+    HWND             hw_hwnd     = nullptr;
+    HDC              hw_hdc      = nullptr;
+    HGLRC            hw_hglrc    = nullptr;
+#endif
+
+#ifdef OBOL_HW_NSGL
+    /* macOS NSOpenGLView (opaque void*, lifecycle managed in .mm) */
+    void            *nsgl_view   = nullptr;
 #endif
 
     /* SW path: photo image on a label widget */
@@ -256,26 +290,13 @@ if (child->isOfType(SoCamera::getClassTypeId()))
 
 #ifdef OBOL_HW_GLX
 
-/* Attribute list for glXChooseVisual: double-buffer, depth, RGBA */
 static int s_glx_attribs[] = {
-    GLX_RGBA,
-    GLX_DOUBLEBUFFER,
-    GLX_RED_SIZE,   8,
-    GLX_GREEN_SIZE, 8,
-    GLX_BLUE_SIZE,  8,
+    GLX_RGBA, GLX_DOUBLEBUFFER,
+    GLX_RED_SIZE, 8, GLX_GREEN_SIZE, 8, GLX_BLUE_SIZE, 8,
     GLX_DEPTH_SIZE, 24,
     None
 };
 
-/**
- * Initialise the HW GL path for the widget.
- *
- * Must be called BEFORE Tk_MakeWindowExist() so that Tk_SetWindowVisual()
- * can configure the native window with the GL-capable visual.  This mirrors
- * the Togl widget's approach.
- *
- * Returns true on success.  On failure the widget should fall back to SW.
- */
 static bool
 obol_init_glx(ObolViewWidget *w, Tk_Window tkwin)
 {
@@ -289,8 +310,6 @@ bu_log("obol_view: glXChooseVisual failed — falling back to SW\n");
 return false;
     }
 
-    /* Create the GL context before realising the Tk window so we can
-     * report failure early. */
     GLXContext glxc = glXCreateContext(dpy, vi, nullptr, GL_TRUE);
     if (!glxc) {
 bu_log("obol_view: glXCreateContext failed — falling back to SW\n");
@@ -298,25 +317,18 @@ XFree(vi);
 return false;
     }
 
-    /* Build a colormap compatible with the chosen visual */
     Colormap cmap = XCreateColormap(dpy,
 RootWindow(dpy, vi->screen), vi->visual, AllocNone);
 
-    /* Tell Tk to use this visual for the window.  MUST happen before
-     * Tk_MakeWindowExist(). */
+    /* Togl pattern: SetWindowVisual BEFORE MakeWindowExist */
     Tk_SetWindowVisual(tkwin, vi->visual, vi->depth, cmap);
-
-    /* Realise the window now that the visual is set */
     Tk_MakeWindowExist(tkwin);
 
-    w->dpy    = dpy;
-    w->glxc   = glxc;
-    w->xwin   = Tk_WindowId(tkwin);
-
+    w->dpy  = dpy;
+    w->glxc = glxc;
+    w->xwin = Tk_WindowId(tkwin);
     XFree(vi);
 
-    /* Activate SoRenderManager.  Give it a GL cache context that is unique
-     * to this widget (use the GLX context pointer cast as an integer). */
     glXMakeCurrent(dpy, w->xwin, glxc);
     glEnable(GL_DEPTH_TEST);
 
@@ -333,34 +345,25 @@ RootWindow(dpy, vi->screen), vi->visual, AllocNone);
     return true;
 }
 
-/** Render one frame using GLX */
 static void
 obol_view_render_hw_glx(ObolViewWidget *w)
 {
-    if (!w->dpy || !w->glxc || !w->xwin || !w->render_mgr_active)
-return;
-    if (!w->obol_root || !w->bsgv)
-return;
+    if (!w->dpy || !w->glxc || !w->xwin || !w->render_mgr_active) return;
+    if (!w->obol_root || !w->bsgv) return;
 
     glXMakeCurrent(w->dpy, w->xwin, w->glxc);
-
-    /* Assemble scene + sync camera */
     obol_scene_assemble(w->obol_root, w->bsgv);
     SoCamera *cam = obol_view_find_camera(w);
-    if (cam)
-obol_view_sync_cam_from_bsg(cam, w->bsgv);
+    if (cam) obol_view_sync_cam_from_bsg(cam, w->bsgv);
 
-    /* Drive SoRenderManager */
     SoGLRenderAction *ra = w->render_mgr.getGLRenderAction();
     ra->setViewportRegion(w->render_mgr.getViewportRegion());
     w->render_mgr.setSceneGraph(w->obol_root);
-    w->render_mgr.render(ra, TRUE /* clearZ */, TRUE /* clearWindow */);
-
+    w->render_mgr.render(ra, TRUE, TRUE);
     glXSwapBuffers(w->dpy, w->xwin);
     glXMakeCurrent(w->dpy, None, nullptr);
 }
 
-/** Handle window resize for GLX path */
 static void
 obol_view_resize_hw_glx(ObolViewWidget *w)
 {
@@ -374,6 +377,196 @@ obol_view_resize_hw_glx(ObolViewWidget *w)
 
 
 /* ======================================================================== *
+ * HW GL path — Windows/WGL                                                 *
+ * ======================================================================== */
+
+#ifdef OBOL_HW_WGL
+
+static bool
+obol_init_wgl(ObolViewWidget *w, Tk_Window tkwin)
+{
+    /* Realise the native window first; Tk_GetHWND needs a valid Window id. */
+    Tk_MakeWindowExist(tkwin);
+    Window tkwid = Tk_WindowId(tkwin);
+    if (!tkwid) return false;
+
+    /* Public Tk API: Tk_GetHWND(Window) → HWND */
+    HWND hwnd = Tk_GetHWND(tkwid);
+    if (!hwnd) {
+bu_log("obol_view: Tk_GetHWND failed — falling back to SW\n");
+return false;
+    }
+
+    HDC hdc = GetDC(hwnd);
+    if (!hdc) {
+bu_log("obol_view: GetDC failed — falling back to SW\n");
+return false;
+    }
+
+    /* Describe a double-buffered RGBA depth-24 pixel format */
+    PIXELFORMATDESCRIPTOR pfd = {};
+    pfd.nSize      = sizeof(pfd);
+    pfd.nVersion   = 1;
+    pfd.dwFlags    = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 24;
+    pfd.cDepthBits = 24;
+    pfd.iLayerType = PFD_MAIN_PLANE;
+
+    int pf = ChoosePixelFormat(hdc, &pfd);
+    if (!pf || !SetPixelFormat(hdc, pf, &pfd)) {
+ReleaseDC(hwnd, hdc);
+bu_log("obol_view: WGL SetPixelFormat failed — falling back to SW\n");
+return false;
+    }
+
+    HGLRC hglrc = wglCreateContext(hdc);
+    if (!hglrc) {
+ReleaseDC(hwnd, hdc);
+bu_log("obol_view: wglCreateContext failed — falling back to SW\n");
+return false;
+    }
+
+    w->hw_hwnd  = hwnd;
+    w->hw_hdc   = hdc;
+    w->hw_hglrc = hglrc;
+
+    wglMakeCurrent(hdc, hglrc);
+    glEnable(GL_DEPTH_TEST);
+
+    SoGLRenderAction *ra = w->render_mgr.getGLRenderAction();
+    ra->setCacheContext((uint32_t)(uintptr_t)hglrc);
+
+    SbViewportRegion vp((short)w->width, (short)w->height);
+    w->render_mgr.setViewportRegion(vp);
+    w->render_mgr.setWindowSize(SbVec2s((short)w->width, (short)w->height));
+    w->render_mgr.setBackgroundColor(SbColor4f(0.2f, 0.2f, 0.2f, 1.0f));
+    w->render_mgr_active = true;
+
+    wglMakeCurrent(nullptr, nullptr);
+    return true;
+}
+
+static void
+obol_view_render_hw_wgl(ObolViewWidget *w)
+{
+    if (!w->hw_hdc || !w->hw_hglrc || !w->render_mgr_active) return;
+    if (!w->obol_root || !w->bsgv) return;
+
+    wglMakeCurrent(w->hw_hdc, w->hw_hglrc);
+    obol_scene_assemble(w->obol_root, w->bsgv);
+    SoCamera *cam = obol_view_find_camera(w);
+    if (cam) obol_view_sync_cam_from_bsg(cam, w->bsgv);
+
+    SoGLRenderAction *ra = w->render_mgr.getGLRenderAction();
+    ra->setViewportRegion(w->render_mgr.getViewportRegion());
+    w->render_mgr.setSceneGraph(w->obol_root);
+    w->render_mgr.render(ra, TRUE, TRUE);
+    SwapBuffers(w->hw_hdc);
+    wglMakeCurrent(nullptr, nullptr);
+}
+
+static void
+obol_view_resize_hw_wgl(ObolViewWidget *w)
+{
+    if (!w->render_mgr_active) return;
+    SbViewportRegion vp((short)w->width, (short)w->height);
+    w->render_mgr.setViewportRegion(vp);
+    w->render_mgr.setWindowSize(SbVec2s((short)w->width, (short)w->height));
+}
+
+#endif /* OBOL_HW_WGL */
+
+
+/* ======================================================================== *
+ * HW GL path — macOS/NSOpenGL (bridge to obol_view_macos.mm)               *
+ * ======================================================================== */
+
+#ifdef OBOL_HW_NSGL
+/*
+ * Bridge functions implemented in obol_view_macos.mm (Objective-C++).
+ *
+ * obol_nsgl_init():
+ *   Creates an NSOpenGLView and positions it as a subview of the Tk window's
+ *   NSWindow (obtained via the public Tk_MacOSXGetNSWindowForDrawable API).
+ *   Returns false and logs a message on failure so the caller can SW-fallback.
+ *   On success sets *view_out (NSOpenGLView*, ARC-retained by void*) and
+ *   *cgl_ctx_out (CGLContextObj, used as SoRenderManager cache context tag).
+ *
+ * obol_nsgl_resize():
+ *   Re-queries the widget's screen position via Tk_GetRootCoords and updates
+ *   the NSOpenGLView frame + calls [context update].
+ */
+extern "C" {
+    bool obol_nsgl_init        (Tk_Window tkwin, int w, int h,
+void **view_out, void **cgl_ctx_out);
+    void obol_nsgl_make_current(void *view);
+    void obol_nsgl_swap_buffers(void *view);
+    void obol_nsgl_clear_current(void);
+    void obol_nsgl_resize      (void *view, Tk_Window tkwin, int w, int h);
+    void obol_nsgl_destroy     (void *view);
+}
+
+static bool
+obol_init_nsgl(ObolViewWidget *w, Tk_Window tkwin)
+{
+    void *view_ptr    = nullptr;
+    void *cgl_ctx_obj = nullptr;
+    bool ok = obol_nsgl_init(tkwin, w->width, w->height,
+     &view_ptr, &cgl_ctx_obj);
+    if (!ok) return false;
+
+    w->nsgl_view = view_ptr;
+
+    obol_nsgl_make_current(view_ptr);
+    glEnable(GL_DEPTH_TEST);
+
+    SoGLRenderAction *ra = w->render_mgr.getGLRenderAction();
+    ra->setCacheContext((uint32_t)(uintptr_t)cgl_ctx_obj);
+
+    SbViewportRegion vp((short)w->width, (short)w->height);
+    w->render_mgr.setViewportRegion(vp);
+    w->render_mgr.setWindowSize(SbVec2s((short)w->width, (short)w->height));
+    w->render_mgr.setBackgroundColor(SbColor4f(0.2f, 0.2f, 0.2f, 1.0f));
+    w->render_mgr_active = true;
+
+    obol_nsgl_clear_current();
+    return true;
+}
+
+static void
+obol_view_render_hw_nsgl(ObolViewWidget *w)
+{
+    if (!w->nsgl_view || !w->render_mgr_active) return;
+    if (!w->obol_root || !w->bsgv) return;
+
+    obol_nsgl_make_current(w->nsgl_view);
+    obol_scene_assemble(w->obol_root, w->bsgv);
+    SoCamera *cam = obol_view_find_camera(w);
+    if (cam) obol_view_sync_cam_from_bsg(cam, w->bsgv);
+
+    SoGLRenderAction *ra = w->render_mgr.getGLRenderAction();
+    ra->setViewportRegion(w->render_mgr.getViewportRegion());
+    w->render_mgr.setSceneGraph(w->obol_root);
+    w->render_mgr.render(ra, TRUE, TRUE);
+    obol_nsgl_swap_buffers(w->nsgl_view);
+    obol_nsgl_clear_current();
+}
+
+static void
+obol_view_resize_hw_nsgl(ObolViewWidget *w)
+{
+    if (!w->nsgl_view || !w->render_mgr_active) return;
+    obol_nsgl_resize(w->nsgl_view, w->tkwin, w->width, w->height);
+    SbViewportRegion vp((short)w->width, (short)w->height);
+    w->render_mgr.setViewportRegion(vp);
+    w->render_mgr.setWindowSize(SbVec2s((short)w->width, (short)w->height));
+}
+
+#endif /* OBOL_HW_NSGL */
+
+
+/* ======================================================================== *
  * SW path — SoOffscreenRenderer → Tk photo image                           *
  * ======================================================================== */
 
@@ -381,29 +574,22 @@ obol_view_resize_hw_glx(ObolViewWidget *w)
 static void
 obol_view_render_sw(ObolViewWidget *w)
 {
-    if (!w->obol_root || !w->bsgv)
-return;
-    if (!SoDB::isInitialized())
-return;
+    if (!w->obol_root || !w->bsgv || !SoDB::isInitialized()) return;
 
     obol_scene_assemble(w->obol_root, w->bsgv);
     SoCamera *cam = obol_view_find_camera(w);
-    if (cam)
-obol_view_sync_cam_from_bsg(cam, w->bsgv);
+    if (cam) obol_view_sync_cam_from_bsg(cam, w->bsgv);
 
     SbViewportRegion vp((short)w->width, (short)w->height);
     SoOffscreenRenderer renderer(vp);
     renderer.setBackgroundColor(SbColor(0.2f, 0.2f, 0.2f));
-    if (!renderer.render(w->obol_root))
-return;
+    if (!renderer.render(w->obol_root)) return;
 
     const unsigned char *buf = renderer.getBuffer();
-    if (!buf)
-return;
+    if (!buf) return;
 
     Tk_PhotoHandle photo = Tk_FindPhoto(w->interp, w->photo_name.c_str());
-    if (!photo)
-return;
+    if (!photo) return;
 
     Tk_PhotoImageBlock blk;
     blk.pixelPtr  = (unsigned char *)buf;
@@ -411,10 +597,8 @@ return;
     blk.height    = w->height;
     blk.pitch     = w->width * 4;
     blk.pixelSize = 4;
-    blk.offset[0] = 0;
-    blk.offset[1] = 1;
-    blk.offset[2] = 2;
-    blk.offset[3] = 3;
+    blk.offset[0] = 0; blk.offset[1] = 1;
+    blk.offset[2] = 2; blk.offset[3] = 3;
     Tk_PhotoPutBlock(w->interp, photo, &blk, 0, 0, w->width, w->height,
      TK_PHOTO_COMPOSITE_SET);
 }
@@ -422,7 +606,7 @@ return;
 
 
 /* ======================================================================== *
- * Unified render entry — dispatches to HW or SW                            *
+ * Unified render entry — dispatches to the active path                     *
  * ======================================================================== */
 
 static void
@@ -430,13 +614,31 @@ obol_view_do_render(ObolViewWidget *w)
 {
     if (!w) return;
 #ifdef OBOL_HW_GLX
-    if (w->use_hw) {
-obol_view_render_hw_glx(w);
-return;
-    }
+    if (w->use_hw) { obol_view_render_hw_glx(w);  return; }
+#endif
+#ifdef OBOL_HW_WGL
+    if (w->use_hw) { obol_view_render_hw_wgl(w);  return; }
+#endif
+#ifdef OBOL_HW_NSGL
+    if (w->use_hw) { obol_view_render_hw_nsgl(w); return; }
 #endif
 #ifdef HAVE_TK
     obol_view_render_sw(w);
+#endif
+}
+
+/* Dispatch resize to the active HW path (SW handles it inline). */
+static void
+obol_view_resize_hw(ObolViewWidget *w)
+{
+#ifdef OBOL_HW_GLX
+    if (w->use_hw) { obol_view_resize_hw_glx(w);  return; }
+#endif
+#ifdef OBOL_HW_WGL
+    if (w->use_hw) { obol_view_resize_hw_wgl(w);  return; }
+#endif
+#ifdef OBOL_HW_NSGL
+    if (w->use_hw) { obol_view_resize_hw_nsgl(w); return; }
 #endif
 }
 
@@ -458,24 +660,16 @@ case ConfigureNotify: {
     int nh = eventPtr->xconfigure.height;
     if (nw < 1) nw = 1;
     if (nh < 1) nh = 1;
-    if (nw == w->width && nh == w->height)
-break;
+    if (nw == w->width && nh == w->height) break;
     w->width  = nw;
     w->height = nh;
-
-    if (w->bsgv) {
-w->bsgv->gv_width  = nw;
-w->bsgv->gv_height = nh;
-    }
+    if (w->bsgv) { w->bsgv->gv_width = nw; w->bsgv->gv_height = nh; }
 
     if (w->use_hw) {
-#ifdef OBOL_HW_GLX
-obol_view_resize_hw_glx(w);
-#endif
+obol_view_resize_hw(w);
     } else {
-/* Resize the photo image for the SW path */
 std::string cmd = "image create photo " + w->photo_name
-    + " -width " + std::to_string(nw)
+    + " -width "  + std::to_string(nw)
     + " -height " + std::to_string(nh);
 Tcl_Eval(w->interp, cmd.c_str());
     }
@@ -484,17 +678,16 @@ Tcl_Eval(w->interp, cmd.c_str());
 }
 
 case Expose:
-    if (eventPtr->xexpose.count == 0)
-obol_view_do_render(w);
+    if (eventPtr->xexpose.count == 0) obol_view_do_render(w);
     break;
 
 case ButtonPress: {
     int btn = eventPtr->xbutton.button;
     w->mouse_x = eventPtr->xbutton.x;
     w->mouse_y = eventPtr->xbutton.y;
-    if      (btn == 1) w->dragging = 1;  /* left   → rotate */
-    else if (btn == 2) w->dragging = 2;  /* middle → pan    */
-    else if (btn == 3) w->dragging = 3;  /* right  → zoom   */
+    if      (btn == 1) w->dragging = 1;
+    else if (btn == 2) w->dragging = 2;
+    else if (btn == 3) w->dragging = 3;
     break;
 }
 
@@ -504,7 +697,6 @@ case ButtonRelease:
 
 case MotionNotify: {
     if (!w->bsgv || !w->dragging) break;
-
     int cx = eventPtr->xmotion.x;
     int cy = eventPtr->xmotion.y;
     int dx = cx - w->mouse_x;
@@ -524,21 +716,21 @@ flags = BSG_TRANS;
 flags = BSG_SCALE;
 int mdelta = (abs(dx) > abs(dy)) ? dx : -dy;
 int f = (int)(2*100*(double)abs(mdelta) /
-      (double)(w->bsgv->gv_height > 0 ? w->bsgv->gv_height : w->height));
+      (double)(w->bsgv->gv_height > 0 ?
+       w->bsgv->gv_height : w->height));
 adx = 100;
 ady = (mdelta > 0) ? 101 + f : 99 - f;
     }
 
     if (flags != BSG_IDLE) {
-point_t keypoint = VINIT_ZERO;
-bsg_view_adjust(w->bsgv, adx, ady, keypoint, 0, flags);
+point_t kp = VINIT_ZERO;
+bsg_view_adjust(w->bsgv, adx, ady, kp, 0, flags);
 obol_view_do_render(w);
     }
     break;
 }
 
 case KeyPress:
-    /* Key events handled by Tcl-level bindings */
     break;
 
 default:
@@ -571,12 +763,30 @@ w->glxc = nullptr;
     }
 #endif
 
+#ifdef OBOL_HW_WGL
+    if (w->hw_hglrc) {
+wglMakeCurrent(nullptr, nullptr);
+wglDeleteContext(w->hw_hglrc);
+w->hw_hglrc = nullptr;
+    }
+    if (w->hw_hdc && w->hw_hwnd) {
+ReleaseDC(w->hw_hwnd, w->hw_hdc);
+w->hw_hdc = nullptr;
+    }
+#endif
+
+#ifdef OBOL_HW_NSGL
+    if (w->nsgl_view) {
+obol_nsgl_destroy(w->nsgl_view);
+w->nsgl_view = nullptr;
+    }
+#endif
+
     if (w->obol_root) {
 w->obol_root->unref();
 w->obol_root = nullptr;
     }
 
-    /* Delete the SW-path photo image if present */
     if (!w->photo_name.empty() && w->interp) {
 std::string cmd = "catch { image delete " + w->photo_name + " }";
 Tcl_Eval(w->interp, cmd.c_str());
@@ -595,14 +805,15 @@ ObolView_InstanceCmd(ClientData clientData, Tcl_Interp *interp,
 {
     ObolViewWidget *w = (ObolViewWidget *)clientData;
     if (!w || argc < 2) {
-Tcl_AppendResult(interp, "usage: ", (argc > 0 ? argv[0] : "obol_view"),
+Tcl_AppendResult(interp, "usage: ",
+ (argc > 0 ? argv[0] : "obol_view"),
  " subcommand ?args?", (char *)NULL);
 return TCL_ERROR;
     }
 
     const char *sub = argv[1];
 
-    /* ── type ── returns "hw" or "sw" */
+    /* ── type ── */
     if (BU_STR_EQUAL(sub, "type")) {
 Tcl_SetResult(interp, (char *)(w->use_hw ? "hw" : "sw"), TCL_STATIC);
 return TCL_OK;
@@ -611,7 +822,8 @@ return TCL_OK;
     /* ── attach ── */
     if (BU_STR_EQUAL(sub, "attach")) {
 if (argc < 3) {
-    Tcl_AppendResult(interp, argv[0], " attach bsg_view_ptr", (char *)NULL);
+    Tcl_AppendResult(interp, argv[0], " attach bsg_view_ptr",
+     (char *)NULL);
     return TCL_ERROR;
 }
 unsigned long long pval = 0;
@@ -651,12 +863,10 @@ if (w->bsgv) {
     w->bsgv->gv_height = nh;
 }
 if (w->use_hw) {
-#ifdef OBOL_HW_GLX
-    obol_view_resize_hw_glx(w);
-#endif
+    obol_view_resize_hw(w);
 } else {
     std::string cmd = "image create photo " + w->photo_name
-+ " -width " + std::to_string(nw)
++ " -width "  + std::to_string(nw)
 + " -height " + std::to_string(nh);
     Tcl_Eval(interp, cmd.c_str());
 }
@@ -668,8 +878,8 @@ return TCL_OK;
     if (BU_STR_EQUAL(sub, "rotate")) {
 if (argc < 4 || !w->bsgv) return TCL_OK;
 int dx = atoi(argv[2]), dy = atoi(argv[3]);
-point_t keypoint = VINIT_ZERO;
-bsg_view_adjust(w->bsgv, dx, dy, keypoint, 0, BSG_ROT);
+point_t kp = VINIT_ZERO;
+bsg_view_adjust(w->bsgv, dx, dy, kp, 0, BSG_ROT);
 obol_view_do_render(w);
 return TCL_OK;
     }
@@ -678,8 +888,8 @@ return TCL_OK;
     if (BU_STR_EQUAL(sub, "pan")) {
 if (argc < 4 || !w->bsgv) return TCL_OK;
 int dx = atoi(argv[2]), dy = atoi(argv[3]);
-point_t keypoint = VINIT_ZERO;
-bsg_view_adjust(w->bsgv, dx, dy, keypoint, 0, BSG_TRANS);
+point_t kp = VINIT_ZERO;
+bsg_view_adjust(w->bsgv, dx, dy, kp, 0, BSG_TRANS);
 obol_view_do_render(w);
 return TCL_OK;
     }
@@ -742,38 +952,40 @@ Obol_View_Cmd(ClientData UNUSED(clientData), Tcl_Interp *interp,
 #else
     if (argc < 2) {
 Tcl_AppendResult(interp,
- "usage: obol_view <path> ?-type hw|sw? ?-width W? ?-height H?",
+ "usage: obol_view <path> ?-type hw|sw?"
+ " ?-width W? ?-height H?",
  (char *)NULL);
 return TCL_ERROR;
     }
 
     if (!SoDB::isInitialized()) {
-Tcl_AppendResult(interp, "obol_view: SoDB not initialized — "
- "call obol_init first", (char *)NULL);
+Tcl_AppendResult(interp,
+ "obol_view: SoDB not initialized — call obol_init first",
+ (char *)NULL);
 return TCL_ERROR;
     }
 
     const char *path = argv[1];
 
-    /* ── Parse options ── */
-    int  init_w   = 512, init_h = 512;
-    int  want_hw  = -1;   /* -1 = auto, 1 = force HW, 0 = force SW */
+    /* Parse options */
+    int init_w  = 512, init_h = 512;
+    int want_hw = -1;   /* -1=auto, 1=force HW, 0=force SW */
 
     for (int i = 2; i < argc - 1; i++) {
-if (BU_STR_EQUAL(argv[i], "-width") && i+1 < argc)
+if (BU_STR_EQUAL(argv[i], "-width")  && i+1 < argc)
     init_w = atoi(argv[++i]);
 else if (BU_STR_EQUAL(argv[i], "-height") && i+1 < argc)
     init_h = atoi(argv[++i]);
 else if (BU_STR_EQUAL(argv[i], "-type") && i+1 < argc) {
     ++i;
-    if (BU_STR_EQUAL(argv[i], "hw"))  want_hw = 1;
+    if      (BU_STR_EQUAL(argv[i], "hw")) want_hw = 1;
     else if (BU_STR_EQUAL(argv[i], "sw")) want_hw = 0;
 }
     }
     if (init_w < 1) init_w = 1;
     if (init_h < 1) init_h = 1;
 
-    /* ── Create the Tk frame ── */
+    /* Create the Tk frame widget */
     std::string frame_cmd = "frame " + std::string(path)
 + " -width "  + std::to_string(init_w)
 + " -height " + std::to_string(init_h);
@@ -786,7 +998,6 @@ Tcl_Eval(interp, (std::string("destroy ") + path).c_str());
 return TCL_ERROR;
     }
 
-    /* ── Allocate widget state ── */
     ObolViewWidget *w = new ObolViewWidget;
     w->interp  = interp;
     w->tkwin   = tkwin;
@@ -794,7 +1005,6 @@ return TCL_ERROR;
     w->width   = init_w;
     w->height  = init_h;
 
-    /* ── Build Obol scene root (shared by both paths) ── */
     w->obol_root = obol_scene_create();
     if (!w->obol_root) {
 delete w;
@@ -805,36 +1015,39 @@ return TCL_ERROR;
     }
     w->obol_root->ref();
 
-    /* ── Try HW GL path ── */
+    /* Try HW GL paths in platform priority order */
     bool hw_ok = false;
 
-#ifdef OBOL_HW_GLX
-    if (want_hw != 0) {
-/* Attempt HW GL.  On success, obol_init_glx() calls
- * Tk_SetWindowVisual + Tk_MakeWindowExist internally. */
-hw_ok = obol_init_glx(w, tkwin);
-if (!hw_ok && want_hw == 1) {
-    /* Caller explicitly requested HW; honour the failure */
-    w->obol_root->unref();
-    delete w;
-    Tcl_Eval(interp, (std::string("destroy ") + path).c_str());
-    Tcl_AppendResult(interp,
-     "obol_view: HW GL (-type hw) init failed",
-     (char *)NULL);
-    return TCL_ERROR;
-}
-    }
+#ifdef OBOL_HW_WGL
+    if (!hw_ok && want_hw != 0)
+hw_ok = obol_init_wgl(w, tkwin);
 #endif
+#ifdef OBOL_HW_NSGL
+    if (!hw_ok && want_hw != 0)
+hw_ok = obol_init_nsgl(w, tkwin);
+#endif
+#ifdef OBOL_HW_GLX
+    if (!hw_ok && want_hw != 0)
+hw_ok = obol_init_glx(w, tkwin);
+#endif
+
+    if (!hw_ok && want_hw == 1) {
+w->obol_root->unref();
+delete w;
+Tcl_Eval(interp, (std::string("destroy ") + path).c_str());
+Tcl_AppendResult(interp,
+ "obol_view: HW GL (-type hw) initialisation failed",
+ (char *)NULL);
+return TCL_ERROR;
+    }
 
     if (hw_ok) {
 w->use_hw = true;
-/* HW path: no photo image / label — the GL context renders directly
- * into the native window that Tk owns. */
+/* HW path: rendering goes directly into the native window;
+ * no photo image or label widget needed.                    */
     } else {
-/* ── SW path setup ── */
 w->use_hw = false;
 
-/* Derive a unique photo image name from the widget path */
 std::string photo_name = "_obol_photo_";
 for (char c : std::string(path)) {
     if (c == '.' || c == ':' || c == '/') photo_name += '_';
@@ -842,7 +1055,6 @@ for (char c : std::string(path)) {
 }
 w->photo_name = photo_name;
 
-/* Create the photo image */
 std::string photo_cmd = "image create photo " + photo_name
     + " -width "  + std::to_string(init_w)
     + " -height " + std::to_string(init_h);
@@ -853,7 +1065,6 @@ if (Tcl_Eval(interp, photo_cmd.c_str()) != TCL_OK) {
     return TCL_ERROR;
 }
 
-/* Create a label inside the frame to display the photo image */
 std::string label_path = std::string(path) + ".img";
 std::string label_cmd  = "label " + label_path
     + " -image " + photo_name
@@ -867,23 +1078,19 @@ if (Tcl_Eval(interp, label_cmd.c_str()) != TCL_OK) {
 w->label_path = label_path;
 Tcl_Eval(interp, ("pack " + label_path + " -fill both -expand 1").c_str());
 
-/* For SW path: ensure the Tk window is realized (HW path already did
- * this inside obol_init_glx). */
+/* SW: ensure window realized (HW paths do this inside their init) */
 Tk_MakeWindowExist(tkwin);
     }
 
-    /* ── Register Tk event handler (both paths) ── */
     Tk_CreateEventHandler(tkwin,
 ExposureMask | StructureNotifyMask |
 ButtonPressMask | ButtonReleaseMask |
 PointerMotionMask | KeyPressMask,
 ObolViewEventProc, (ClientData)w);
 
-    /* ── Register the instance sub-command ── */
     Tcl_CreateCommand(interp, path, ObolView_InstanceCmd,
       (ClientData)w, ObolViewDelete);
 
-    /* Return the widget path (Tk convention) */
     Tcl_SetResult(interp, (char *)path, TCL_VOLATILE);
     return TCL_OK;
 #endif /* HAVE_TK */
@@ -891,9 +1098,7 @@ ObolViewEventProc, (ClientData)w);
 
 
 /* ======================================================================== *
- * One-time Obol initialization command                                     *
- *                                                                           *
- * "obol_init" must be called once per process before any obol_view widget. *
+ * One-time Obol initialisation command ("obol_init")                       *
  * ======================================================================== */
 
 #ifdef OBOL_BUILD_DUAL_GL
