@@ -416,7 +416,7 @@ set(
 )
 
 # Include directories needed by librt users
-set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${GTE_INCLUDE_DIR})
+set(RT_INCLUDE_DIRS ${OPENNURBS_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${BRLCAD_SOURCE_DIR}/src/libbg/GTE ${GTE_INCLUDE_DIR})
 
 # locally used but not needed by users of the library
 set(

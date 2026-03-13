@@ -3,7 +3,7 @@ brlcad_find_package(manifold REQUIRED)
 find_package_gte(REQUIRED)
 
 set(BOT_LIBS libged libbg libbu manifold::manifold)
-set(BOT_LOCAL_INCLUDE_DIRS ${BOT_LOCAL_INCLUDE_DIRS} ${GTE_INCLUDE_DIR})
+set(BOT_LOCAL_INCLUDE_DIRS ${BOT_LOCAL_INCLUDE_DIRS} ${BRLCAD_SOURCE_DIR}/src/libbg/GTE ${GTE_INCLUDE_DIR})
 
 if(BRLCAD_ENABLE_OPENMESH)
   brlcad_find_package(OpenMesh)
