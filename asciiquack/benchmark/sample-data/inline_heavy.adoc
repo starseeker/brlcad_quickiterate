@@ -1,0 +1,136 @@
+= Inline Markup Benchmark
+Benchmark Author <bench@example.com>
+v1.0, 2026-03-10
+
+This document is designed to stress-test inline markup substitution.
+Every paragraph contains dense *bold*, _italic_, `monospace`, ^superscript^,
+and ~subscript~ spans so that the `sub_quotes()` stage dominates runtime.
+
+== Section 1: Basic Inline Markup
+
+Use *bold text* to emphasise important terms.
+Use _italic text_ for titles or foreign phrases.
+Use `monospace text` for code, commands, and file names.
+
+You can combine them: a *bold _bold-italic_ bold* span, or a _italic `mono-italic` italic_ span.
+Adjacent spans like *bold*_italic_ or _italic_*bold* work too.
+
+== Section 2: Dense Paragraph Text
+
+The *Document Object Model* (DOM) is a _programming interface_ for
+HTML and XML documents. It represents the page so that programs can
+change the *document structure*, `style`, and *content*.
+
+The DOM represents the document as _nodes_ and _objects_. That way,
+*programming languages* can interact with the page. A Web page is a
+`document`. This document can be either displayed in the *browser window*
+or as the _HTML source_.
+
+The `querySelector()` method returns the *first Element* within the
+document that matches the specified selector, or `null` if no _matches_
+are found. The `querySelectorAll()` method returns all *matching elements*.
+
+In *JavaScript*, every variable is _either_ a primitive value or an
+*object reference*. Primitives include `string`, `number`, `boolean`,
+`null`, `undefined`, and `symbol`. Objects include `Array`, `Map`,
+`Set`, `Promise`, and plain `Object` literals.
+
+== Section 3: Technical Documentation Style
+
+The `git commit` command records changes to the *repository*.
+Use `git commit -m "message"` to add a _short description_ of the changes.
+The `-a` flag causes `git commit` to *stage all tracked files*
+before committing, so you do not need a separate `git add` call.
+
+The `gcc` compiler accepts *many flags*: `-O2` enables _level-2 optimisation_,
+`-Wall` enables *all common warnings*, `-Wextra` enables *extra warnings*,
+and `-g` adds _debug symbols_ to the output.
+
+To _cross-compile_ for ARM, set `CC=arm-linux-gnueabihf-gcc` and pass
+`-march=armv7-a` to the compiler. The *sysroot* must contain the _target_
+libraries; use `--sysroot=/path/to/sysroot` or set `PKG_CONFIG_PATH`
+appropriately.
+
+== Section 4: Superscript and Subscript
+
+Water is H~2~O and carbon dioxide is CO~2~.
+The speed of light is approximately 3×10^8^ m/s.
+Einstein's famous equation is E=mc^2^ where m is _rest mass_.
+The Boltzmann constant is 1.38×10^-23^ J/K.
+
+In chemistry, Ca^2+^ and Cl^-^ ions form calcium chloride.
+The formula for sulfate is SO~4~^2-^.
+
+== Section 5: Highlight and Legacy Monospace
+
+The #key term# appears highlighted in the rendered output.
+Use +printf()+ and +scanf()+ for basic C I/O.
+The +fork()+ system call creates a *child process* that is a
+_copy_ of the +parent+ process.
+
+Important: #do not mix# `printf` and `cout` in the same program.
+The +write()+ call bypasses `stdio` buffering; use it when you
+need *guaranteed delivery* of _every byte_.
+
+== Section 6: Mixed Dense Inline
+
+The *C++ Standard Library* provides `std::vector<T>`, `std::map<K,V>`,
+`std::unordered_map<K,V>`, `std::set<T>`, and `std::list<T>`.
+_Template argument deduction_ (CTAD) lets you write `std::vector v{1,2,3}`.
+The `auto` keyword enables *type inference*; combined with `decltype`,
+it allows _trailing return types_: `auto f() -> int`.
+
+Lambdas are _anonymous function objects_: `[capture](args) -> ret { body }`.
+The *capture clause* can be `[&]` (_capture by reference_), `[=]`
+(_capture by value_), or a mix. A `mutable` lambda can *modify* its
+captured-by-value variables. `std::function<void()>` can hold any
+_callable_ with a matching signature.
+
+`constexpr` functions run at *compile time* when given _constant arguments_.
+`consteval` functions (`C++20`) _must_ run at compile time.
+`constinit` (`C++20`) ensures *static-storage-duration* variables are
+initialised at compile time, but they can be *changed at runtime*.
+
+== Section 7: Long Paragraphs
+
+The *Transmission Control Protocol* (TCP) provides _reliable, ordered,_
+and _error-checked_ delivery of a stream of octets between applications
+running on hosts communicating via an IP network. *TCP* is defined in
+`RFC 793`. It operates at the *transport layer* of the Internet protocol
+suite. Major internet applications such as the _World Wide Web_,
+`email`, _remote administration_, and `file transfer` rely on TCP.
+
+The *User Datagram Protocol* (UDP) is one of the core members of the
+_Internet protocol suite_. With UDP, computer applications can send
+*messages* (referred to as _datagrams_) to other hosts on an IP network.
+Prior communications are not required in order to *set up communication
+channels* or _data paths_. UDP uses a *simple connectionless*
+communication model with a minimum of *protocol mechanisms*.
+
+The `HTTP/1.1` protocol uses *persistent connections* by default.
+A client can send _multiple requests_ on a single TCP connection and
+*the server* must respond to them in order. `HTTP/2` multiplexes multiple
+requests over a *single connection* using binary _framing_. `HTTP/3`
+replaces TCP with *QUIC*, a _UDP-based_ protocol.
+
+== Section 8: Repetition to Amplify Inline Cost
+
+Inline markup like *bold*, _italic_, `monospace`, ^sup^, and ~sub~
+appears throughout this *document*. This _section_ repeats those
+patterns many times to ensure the `sub_quotes` pass takes *measurable*
+time relative to other _pipeline stages_.
+
+*Performance* in `asciiquack` depends on how quickly each _inline_
+substitution can identify and *replace* spans. The `sub_quotes()` function
+is called for every _paragraph_ and _list item_. With 13 *PCRE2 patterns*
+applied in sequence, each _line_ of text passes through `pcre2_substitute()`
+thirteen times. The *hand-written scanner* in `inline_scanner.hpp` makes
+a *single pass*, checking each character _once_.
+
+For text with low *inline-markup density*, most _characters_ are not
+markup markers. The `sub_quotes()` call returns quickly regardless of
+the backend. For *dense* inline markup — like this _document_ — the
+difference between 13 *PCRE2 passes* and one `scanner pass` becomes
+*significant*. The theoretical _upper bound_ is 13× for pure inline text;
+the practical *speedup* on typical _documentation_ is lower because
+parsing, *attribute resolution*, and _output serialisation_ also consume time.
