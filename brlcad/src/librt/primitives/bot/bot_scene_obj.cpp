@@ -77,6 +77,7 @@ extern "C" {
 #include <Inventor/nodes/SoIndexedFaceSet.h>
 #include <Inventor/nodes/SoNormal.h>
 #include <Inventor/nodes/SoNormalBinding.h>
+#include <Inventor/SoDB.h>
 
 #if defined(__GNUC__) || defined(__clang__)
 #  pragma GCC diagnostic pop
@@ -269,16 +270,29 @@ bot_shaded_node(const struct rt_bot_internal *bot)
 /* rt_bot_scene_obj                                                     */
 /* ------------------------------------------------------------------ */
 
+/* Forward declaration: generic fallback for non-Obol drawing */
+extern "C" int rt_generic_scene_obj(bsg_shape *s, struct directory *dp,
+				    struct db_i *dbip,
+				    const struct bg_tess_tol *ttol,
+				    const struct bn_tol *tol,
+				    const bsg_view *v);
+
 extern "C" int
 rt_bot_scene_obj(bsg_shape *s,
 		 struct directory *dp,
 		 struct db_i *dbip,
-		 const struct bg_tess_tol *UNUSED(ttol),
-		 const struct bn_tol *UNUSED(tol),
+		 const struct bg_tess_tol *ttol,
+		 const struct bn_tol *tol,
 		 const bsg_view *v)
 {
     if (!s || !dp || !dbip)
 	return BRLCAD_ERROR;
+
+    /* When Obol (SoDB) is not initialized — e.g. ged_test_draw runs without
+     * calling SoDB::init() — skip the Obol SoNode path entirely and fall back
+     * to the vlist/libdm generic path so that non-Obol callers work correctly. */
+    if (!SoDB::isInitialized())
+	return rt_generic_scene_obj(s, dp, dbip, ttol, tol, v);
 
     /* -------------------------------------------------------------- */
     /* Placeholder path: AABB not yet available                        */
@@ -468,8 +482,8 @@ extern "C" int
 rt_bot_scene_obj(bsg_shape *s,
 		 struct directory *dp,
 		 struct db_i *dbip,
-		 const struct bg_tess_tol *UNUSED(ttol),
-		 const struct bn_tol *UNUSED(tol),
+		 const struct bg_tess_tol *ttol,
+		 const struct bn_tol *tol,
 		 const bsg_view *v)
 {
     if (!s || !dp || !dbip)
@@ -479,9 +493,10 @@ rt_bot_scene_obj(bsg_shape *s,
     s->mesh_obj = 1;
 
     /* Without a view or LoD context we can't manage progressive rendering.
-     * Fall back to generic (direct wireframe / shaded from rt_db_internal). */
+     * Fall back to generic (direct wireframe / shaded from rt_db_internal).
+     * Forward ttol/tol so ft_plot implementations can validate them. */
     if (!v || !s->mesh_c)
-	return rt_generic_scene_obj(s, dp, dbip, nullptr, nullptr, v);
+	return rt_generic_scene_obj(s, dp, dbip, ttol, tol, v);
 
     bsg_shape *vo = bsg_shape_for_view(s, (bsg_view *)v);
 
