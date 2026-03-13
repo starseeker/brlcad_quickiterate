@@ -82,6 +82,13 @@ go_draw_solid(bsg_view *gdvp, bsg_shape *sp)
 
     if (!sp->s_u_data)
 	return;
+
+    /* Obol path (Stage 7 migration): when the view has no display manager,
+     * skip libdm drawing.  The obol_view widget / QgObolView handles rendering
+     * for this view via obol_scene_assemble(). */
+    if (!dmp)
+	return;
+
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
     data.s_fpath = &bdata->s_fullpath;
