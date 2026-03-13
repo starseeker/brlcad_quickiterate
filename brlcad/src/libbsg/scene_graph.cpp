@@ -85,6 +85,25 @@
 #include <cstring>  /* memset */
 
 /* ====================================================================== *
+ * Obol node lifecycle hook                                               *
+ * ====================================================================== *
+ * libbsg must not link against libObol to stay dependency-free.  Instead
+ * libged / qged register an unref callback at start-up so that
+ * bsg_node_free() can release the SoNode* reference without knowing the
+ * Obol API.
+ *
+ * Call bsg_obol_set_unref(SoNode_unref_shim) before any shapes are freed.
+ * Call bsg_obol_set_unref(NULL) during shutdown to disable the hook.
+ */
+static void (*s_obol_unref_func)(void *) = NULL;
+
+extern "C" void
+bsg_obol_set_unref(void (*fn)(void *))
+{
+    s_obol_unref_func = fn;
+}
+
+/* ====================================================================== *
  * Phase 2: module-level side-channel state (forward declarations)       *
  * ====================================================================== */
 
@@ -467,6 +486,7 @@ bsg_node_alloc(int type_flags)
     s->s_vlen = 0;
     s->parent = NULL;
     s->s_u_data = NULL;
+    s->s_obol_node = NULL;  /* explicit: no Obol node at allocation time */
     memset(&s->s_old, 0, sizeof(s->s_old));
     return s;
 }
@@ -492,6 +512,11 @@ bsg_node_free(bsg_shape *s, int recurse)
     /* Fire s_free_callback to release s_i_data (e.g., camera, lod data). */
     if (s->s_free_callback)
 	(*s->s_free_callback)(s);
+
+    /* Release Obol scene-graph node reference if one was set. */
+    if (s->s_obol_node && s_obol_unref_func)
+	s_obol_unref_func(s->s_obol_node);
+    s->s_obol_node = NULL;
 
     if (BU_PTBL_IS_INITIALIZED(&s->children))
 	bu_ptbl_free(&s->children);
