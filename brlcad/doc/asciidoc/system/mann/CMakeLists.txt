@@ -269,7 +269,7 @@ set(
 )
 
 if(BRLCAD_EXTRADOCS)
-  ADD_ASCIIDOC("MANN" system_mann_ADOC "" "")
+  ADD_ASCIIDOC("HTML;MANN" system_mann_ADOC "" "")
 endif(BRLCAD_EXTRADOCS)
 
 cmakefiles(
