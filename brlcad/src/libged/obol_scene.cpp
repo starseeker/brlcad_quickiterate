@@ -50,6 +50,7 @@
 #include <Inventor/nodes/SoMaterial.h>
 #include <Inventor/nodes/SoBaseColor.h>
 #include <Inventor/nodes/SoDirectionalLight.h>
+#include <Inventor/nodes/SoDrawStyle.h>
 #include <Inventor/nodes/SoSwitch.h>
 #include <Inventor/nodes/SoNode.h>
 #include <Inventor/SbMatrix.h>
@@ -232,6 +233,7 @@ obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
      *                                                                      *
      *   SoSwitch  (whichChild = SO_SWITCH_ALL or SO_SWITCH_NONE)         *
      *     SoSeparator (shape_sep)                                         *
+     *       SoDrawStyle   — per-object draw style from s->s_os->s_dmode  *
      *       SoTransform   — from s->s_mat                                *
      *       SoMaterial    — from s->s_os->s_color (Phong diffuse)        *
      *       <s_obol_node> — geometry from ft_scene_obj (always last)     *
@@ -242,12 +244,50 @@ obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
     shape_sep = new SoSeparator;
     shape_sep->ref();
 
-    /* 1. Transform */
+    /* 1. Per-object draw style (Stage 3: Drawing Modes).
+     *
+     * Each shape carries its own SoDrawStyle so that mixed-mode scenes
+     * (wireframe + shaded objects in the same view) render correctly when the
+     * global SoRenderManager mode is AS_IS.
+     *
+     * Mapping from BRL-CAD s_dmode:
+     *   0 — wireframe             → SoDrawStyle::LINES
+     *   1 — hidden-line           → SoDrawStyle::LINES  (render manager
+     *                                handles the hidden-line pass globally)
+     *   2 — shaded (Phong)        → SoDrawStyle::FILLED
+     *   3 — evaluated wireframe   → SoDrawStyle::LINES  (draw_m3 vlist path)
+     *   4 — shaded + hidden-line  → SoDrawStyle::FILLED (render manager pass)
+     *   5 — point cloud           → SoDrawStyle::POINTS
+     */
+    {
+	SoDrawStyle *ds = new SoDrawStyle;
+	int dmode = s->s_os ? s->s_os->s_dmode : 0;
+	switch (dmode) {
+	    case 2:
+	    case 4:
+		ds->style = SoDrawStyle::FILLED;
+		break;
+	    case 5:
+		ds->style = SoDrawStyle::POINTS;
+		ds->pointSize = 3.0f;
+		break;
+	    case 0:
+	    case 1:
+	    case 3:
+	    default:
+		ds->style = SoDrawStyle::LINES;
+		ds->lineWidth = 1.0f;
+		break;
+	}
+	shape_sep->addChild(ds);
+    }
+
+    /* 2. Transform */
     SoTransform *xf = obol_mat_to_transform(s->s_mat);
     shape_sep->addChild(xf);
     xf->unref();
 
-    /* 2. Material (Phong diffuse from s_os color; SoBaseColor is flat-shaded,
+    /* 3. Material (Phong diffuse from s_os color; SoBaseColor is flat-shaded,
      *    SoMaterial supports full lighting model including specular). */
     {
 	SoMaterial *mat = new SoMaterial;
@@ -270,7 +310,7 @@ obol_scene_update_shape(SoSeparator *parent_sep, bsg_shape *s)
 	shape_sep->addChild(mat);
     }
 
-    /* 3. Geometry node (last child) */
+    /* 4. Geometry node (last child) */
     shape_sep->addChild(geom_node);
 
     sw->addChild(shape_sep);

@@ -259,31 +259,52 @@ Instancing — multiple paths referencing the same primitive:
 
 ## Stage 3: Drawing Modes
 
+**Status:** Complete
+
 **Goal:** Map BRL-CAD's drawing modes to `SoRenderManager` modes.
 
-| BRL-CAD s_dmode | Description           | Obol mapping                              |
-|-----------------|-----------------------|-------------------------------------------|
-| 0               | Wireframe             | `SoRenderManager::WIREFRAME`              |
-| 1               | Hidden-line           | `SoRenderManager::HIDDEN_LINE`            |
-| 2               | Shaded (Phong)        | `SoRenderManager::AS_IS` + normals        |
-| 3               | Evaluated wireframe   | `SoProceduralShape` (CSG eplot callback)  |
-| 4               | Shaded + hidden-line  | `SoRenderManager::SHADED_HIDDEN_LINES`    |
-| 5               | Point cloud           | `SoRenderManager::POINTS`                 |
+The approach uses a two-level system:
+1. **Per-object `SoDrawStyle`** (in `obol_scene.cpp`): each leaf shape separator
+   carries a `SoDrawStyle` node whose `style` field is set from `s->s_os->s_dmode`.
+   This ensures correct rendering when the global `SoRenderManager` mode is `AS_IS`.
+2. **Global render mode** (`QgObolView::setRenderMode` / `syncRenderModeFromDmode`):
+   a global override that forces all objects to render the same way (wireframe, hidden
+   line, points, etc.).  The context menu in `QgObolView` exposes all available modes.
+
+| BRL-CAD s_dmode | Description           | SoDrawStyle::style | SoRenderManager override    |
+|-----------------|-----------------------|--------------------|-----------------------------|
+| 0               | Wireframe             | `LINES`            | `AS_IS`                     |
+| 1               | Hidden-line           | `LINES`            | `HIDDEN_LINE`               |
+| 2               | Shaded (Phong)        | `FILLED`           | `AS_IS`                     |
+| 3               | Evaluated wireframe   | `LINES`            | `AS_IS` (vlist path)        |
+| 4               | Shaded + hidden-line  | `FILLED`           | `SHADED_HIDDEN_LINES`       |
+| 5               | Point cloud           | `POINTS`           | `POINTS`                    |
 
 ### Per-object draw mode
 
-Objects can have different draw modes.  Use per-subtree `SoDrawStyle` nodes:
+Objects can have different draw modes.  Each leaf shape separator produced by
+`obol_scene_assemble()` carries a `SoDrawStyle` node as its first child:
 
 ```
 SoSeparator (object root)
-  SoDrawStyle  ← lineWidth, pointSize, style (FILLED/LINES/POINTS)
-  SoMaterial
-  SoIndexedFaceSet or SoIndexedLineSet
+  SoDrawStyle  ← lineWidth/pointSize/style (FILLED/LINES/POINTS) from s_dmode
+  SoTransform  ← from s->s_mat
+  SoMaterial   ← Phong diffuse from s->s_os->s_color
+  SoIndexedFaceSet or SoIndexedLineSet  ← from ft_scene_obj
 ```
 
-For wireframe-only objects inside a shaded scene: wrap the subtree in an
-`SoGroup` with `SoDrawStyle::style = LINES` so the render manager's global
-render mode doesn't override it.
+The `SoSeparator` acts as a state barrier so per-object draw styles do not
+bleed into sibling shapes.  When the global `SoRenderManager` mode is `AS_IS`
+(the default), each object renders according to its own `SoDrawStyle`.
+
+### Global render mode (`QgObolView`)
+
+`QgObolView` provides:
+- `setRenderMode(SoRenderManager::RenderMode)` — directly set the global mode.
+- `syncRenderModeFromDmode(int dmode)` — maps a BRL-CAD draw mode integer to
+  the appropriate `SoRenderManager` mode and applies it.  Useful when a
+  command changes the global view draw mode.
+- Right-click context menu listing all seven `SoRenderManager` modes.
 
 ---
 

@@ -41,6 +41,7 @@
  *              SoBaseColor       (group-level inherited color)
  *              SoSwitch (leaf visibility)
  *                SoSeparator (leaf)
+ *                  SoDrawStyle   (per-object mode: LINES/FILLED/POINTS)
  *                  SoTransform   (from bsg_shape::s_mat)
  *                  SoMaterial    (per-leaf Phong material)
  *                  <s_obol_node> (geometry node from ft_scene_obj)
