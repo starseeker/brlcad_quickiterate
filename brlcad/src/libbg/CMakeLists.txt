@@ -43,6 +43,7 @@ set(BG_LIBS ${libbg_deps})
 set(BG_INCLUDE_DIRS
   ${LMDB_INCLUDE_DIR}
   ${EIGEN3_INCLUDE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/GTE
   ${GTE_INCLUDE_DIR}
   ${SPSR_INCLUDE_DIR}
   )
@@ -85,6 +86,8 @@ set_property(TARGET libbg APPEND PROPERTY COMPILE_DEFINITIONS "EIGEN_DONT_VECTOR
 if(TARGET libbg-obj)
   set_property(TARGET libbg-obj APPEND PROPERTY COMPILE_DEFINITIONS "EIGEN_DONT_VECTORIZE")
 endif(TARGET libbg-obj)
+
+add_subdirectory(GTE)
 
 add_subdirectory(tests)
 
