@@ -37,10 +37,12 @@ proc openmv { id w wc dpy dtype } {
     frame $wc.llF -relief sunken -borderwidth $mged_default(bd)
     frame $wc.lrF -relief sunken -borderwidth $mged_default(bd)
 
-    # ── Obol path: platform-neutral OSMesa rendering via obol_view ──────────
+    # ── Obol path: platform-neutral rendering via obol_view ─────────────────
     # When the obol_view Tcl command is available (compiled with
     # BRLCAD_ENABLE_OBOL), use it for all four panes.  obol_init must have
     # been called once already (done by mged startup when Obol is present).
+    # The widget auto-detects HW GL (GLX) and falls back to SW (OSMesa)
+    # automatically, so no special handling is needed here.
     # Fallback: original dm-based attach path.
     if {[info commands obol_view] ne "" && [info commands gvp_ptr] ne ""} {
 	# Source the standard event bindings if not yet loaded
@@ -58,6 +60,7 @@ proc openmv { id w wc dpy dtype } {
 	set _gvp [gvp_ptr]
 
 	foreach pane {ul ur ll lr} {
+	    # Auto-detect: try HW GL first, fall back to SW automatically
 	    obol_view $w.$pane
 	    $w.$pane attach $_gvp
 	    if {[info procs obol_view_bind] ne ""} {
