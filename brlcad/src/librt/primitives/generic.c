@@ -36,6 +36,14 @@
 #include "bsg/vlist.h"
 #include "raytrace.h"
 
+/* Obol vlist-to-scene-node bridge.  Defined in generic_obol.cpp; compiled
+ * only when BRLCAD_ENABLE_OBOL is set.  Called after the vlist has been
+ * generated to also produce an Obol SoNode for the Obol rendering path.
+ * The function is a no-op if the vlist is empty or Obol is unavailable. */
+#ifdef BRLCAD_ENABLE_OBOL
+extern void rt_generic_vlist_to_obol(bsg_shape *s);
+#endif
+
 /**
  * Apply a 4x4 transformation matrix to the internal form of a solid.
  *
@@ -414,6 +422,14 @@ rt_generic_scene_obj(bsg_shape *s, struct directory *dp, struct db_i *dbip, cons
 
     // Done with internal contents
     rt_db_free_internal(&intern);
+
+    /* Convert the generated vlist to an Obol SoNode for the Obol rendering
+     * path.  This is the compatibility-shim step described in
+     * RADICAL_MIGRATION.md Stage 1: vlists produced above are converted to
+     * Obol nodes so that obol_scene_assemble() can render this shape. */
+#ifdef BRLCAD_ENABLE_OBOL
+    rt_generic_vlist_to_obol(s);
+#endif
 
     return BRLCAD_OK;
 }
