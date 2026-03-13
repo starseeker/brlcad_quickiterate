@@ -29,6 +29,7 @@ set(
   shape_recognition/pipeline.cpp
   shape_recognition/planar.cpp
   shape_recognition/sphere.cpp
+  shape_recognition/torus.cpp
   shape_recognition/util.cpp
   ssx_event.cpp
   tools/util.cpp
@@ -70,7 +71,6 @@ cmakefiles(
   cdt/mesh.h
   debug_plot.h
   shape_recognition/shape_recognition.h
-  shape_recognition/torus.cpp
   tools/tools.h
 )
 

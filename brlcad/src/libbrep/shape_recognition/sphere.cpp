@@ -91,7 +91,10 @@ sph_implicit_plane(const ON_Brep *brep, int ec, int *edges, ON_SimpleArray<ON_Pl
     // We need to find vertices that are connected to two edges that are not on
     // the same circle.
 
-    if ((*sph_planes).Count() != 3) return -1;
+    // If no edges provided, we can't find an implicit plane.
+    // (The previous check `(*sph_planes).Count() != 3` was incorrect because
+    // shoal_planes starts empty when this function is first called.)
+    if (ec == 0) return -1;
 
 
     // Step 1 - build sets of vertices in the edges
@@ -131,18 +134,26 @@ sph_implicit_plane(const ON_Brep *brep, int ec, int *edges, ON_SimpleArray<ON_Pl
 	    const ON_BrepEdge *e2 = &(brep->m_E[e_ind[1]]);
 	    ON_Curve *c2 = e2->EdgeCurveOf()->Duplicate();
 	    ON_Arc a1, a2;
-	    if (c1->IsArc(NULL, &a1, BREP_SPHERICAL_TOL) && c2->IsArc(NULL, &a1, BREP_SPHERICAL_TOL)) {
+	    if (c1->IsArc(NULL, &a1, BREP_SPHERICAL_TOL) && c2->IsArc(NULL, &a2, BREP_SPHERICAL_TOL)) {
 		ON_Circle circ1(a1.StartPoint(), a1.MidPoint(), a1.EndPoint());
 		ON_Circle circ2(a2.StartPoint(), a2.MidPoint(), a2.EndPoint());
 		if ((circ1.Center().DistanceTo(circ2.Center()) > VUNITIZE_TOL) || (!NEAR_ZERO(circ1.Radius() - circ2.Radius(), BREP_SPHERICAL_TOL))) {
 		    pind++;
-		    if (pind > 2) return -1;
+		    if (pind > 2) {
+			delete c1;
+			delete c2;
+			return -1;
+		    }
 		    pverts[pind] = v->m_vertex_index;
 		}
 	    } else {
 		// If we don't have two arcs, bail.
+		delete c1;
+		delete c2;
 		return -1;
 	    }
+	    delete c1;
+	    delete c2;
 	}
     }
 
@@ -168,6 +179,8 @@ sph_implicit_params(struct subbrep_shoal_data *data, ON_SimpleArray<ON_Plane> *s
 
     // Populate the CSG implicit primitive data
     data->params->csg_type = SPHERE;
+    // Assign an object id
+    data->params->csg_id = (*(data->i->obj_cnt))++;
     // Flag the sphere according to the negative or positive status of the
     // sphere surface.
     data->params->negative = negative_sphere(data->i->brep, shoal_nonplanar_face, BREP_SPHERICAL_TOL);

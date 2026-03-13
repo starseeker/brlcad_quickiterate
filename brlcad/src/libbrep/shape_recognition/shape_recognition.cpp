@@ -247,6 +247,10 @@ shoal_filter_loop(int control_loop, int candidate_loop, struct subbrep_island_da
 	    if (ctype != SURFACE_SPHERICAL_SECTION && ctype != SURFACE_SPHERE) return 0;
 	    if (!sph_validate_face(forig, fcand)) return 0;
 	    break;
+	case SURFACE_TORUS:
+	    if (ctype != SURFACE_TORUS) return 0;
+	    if (!tor_validate_face(forig, fcand)) return 0;
+	    break;
 	default:
 	    if (otype != ctype) return 0;
 	    break;
@@ -494,22 +498,30 @@ brep_to_csg(struct bu_vls *msgs, const ON_Brep *brep)
 	set_key(sb->key, sb->island_loops_cnt, sb->island_loops);
 
 	if (!planar_fils) {
-	    if (msgs) bu_vls_printf(msgs, "Note - non-planer island mating loop in %s, haulting conversion\n", bu_vls_addr(sb->key));
-	    goto bail;
+	    if (msgs) bu_vls_printf(msgs, "Note - non-planar island mating loop in %s, representing as B-Rep\n", bu_vls_addr(sb->key));
+	    sb->island_type = BREP;
+	    (void)subbrep_make_brep(msgs, sb);
+	    sb->local_brep_bool_op = 'u';
+	    bu_ptbl_ins(subbreps, (long *)sb);
+	    continue;
 	}
 
 	// The boolean test of the subbrep serves several functions:
 	//
 	// 1.  Determines what to do boolean wise with B-Rep islands
-	// 2.  Identifies self intersecting subbrep shapes, which trigger a conversion hault.
+	// 2.  Identifies self intersecting subbrep shapes, which are too complex for CSG
 	// 3.  Serve as a sanity check for the CSG routines, which do their own boolean resolution
 	//     tests as well.
 	int bool_flag = subbrep_brep_boolean(sb);
 
-	// Self intersection is fatal;
+	// Self intersection or boolean ambiguity - fall back to B-Rep representation
 	if (bool_flag == -2) {
-	    if (msgs) bu_vls_printf(msgs, "Self intersecting island %s, haulting conversion\n", bu_vls_addr(sb->key));
-	    goto bail;
+	    if (msgs) bu_vls_printf(msgs, "Note - complex island %s, representing as B-Rep\n", bu_vls_addr(sb->key));
+	    sb->island_type = BREP;
+	    (void)subbrep_make_brep(msgs, sb);
+	    sb->local_brep_bool_op = 'u';
+	    bu_ptbl_ins(subbreps, (long *)sb);
+	    continue;
 	}
 
 	// Check to see if we have a general surface that precludes conversion
