@@ -3932,6 +3932,21 @@ is_point_on_brep_surface(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArr
 	    outerloop.Append(brep->m_C2[brep->m_T[loop.m_ti[j]].m_c2i]);
 	}
 	ON_2dPoint pt2d(px_event[0].m_b[0], px_event[0].m_b[1]);
+	/* Verify the 3-D surface point at the returned UV is actually close
+	 * to the query point.  ON_Intersect() clamps UV to the surface domain
+	 * [u_min,u_max]×[v_min,v_max] when the true closest point is outside
+	 * the domain.  For a planar face of a box (e.g. ARB8 left face at
+	 * x=const) a query point that is ON the plane but far outside the
+	 * trimmed region maps to a clamped UV that lies on the outer-loop
+	 * boundary, causing a false ON_BREP_SURFACE classification.
+	 * Rejecting events where the reprojected 3-D point is farther than
+	 * INTERSECTION_TOL from the query point avoids this. */
+	{
+	    ON_3dPoint surf_pt = surf->PointAt(pt2d.x, pt2d.y);
+	    if (surf_pt.DistanceTo(pt) > INTERSECTION_TOL) {
+		continue;
+	    }
+	}
 	try {
 	    if (!is_point_outside_loop(pt2d, outerloop)) {
 		return true;
@@ -3993,85 +4008,112 @@ is_point_inside_brep(const ON_3dPoint &pt, const ON_Brep *brep, ON_SimpleArray<S
 	return false;
     }
 
-    ON_3dVector diag = bbox.Diagonal() * 1.5; // Make it even longer
-    ON_LineCurve line(pt, pt + diag);	// pt + diag should be outside, if pt
-    // is inside the bbox
+    /* Fire three axis-aligned rays (+x, +y, +z) and use a majority vote.
+     *
+     * A single diagonal ray (bbox.Diagonal()) was used previously, but for
+     * ARB8-derived planar NURBS breps the ray can be nearly parallel (~89°)
+     * to the face planes (e.g. the tiny z-extent of a long flat slot means
+     * the diagonal direction has an almost-zero z component), causing
+     * ON_Intersect to miss intersections and misclassify interior points as
+     * exterior.  Axis-aligned rays are perpendicular to the principal faces
+     * of box-like breps and guarantee reliable intersection detection.  The
+     * majority vote handles edge/vertex degeneracies where one ray might
+     * graze a face boundary. */
+    int inside_votes = 0;
 
-    /* Pre-extract line endpoints for the slab prefilter below. */
-    const ON_3dPoint &ray_start = line.m_line.from;
-    const ON_3dPoint  ray_end   = line.m_line.to;
+    static const ON_3dVector ray_dirs[3] = {
+	ON_3dVector(1, 0, 0),
+	ON_3dVector(0, 1, 0),
+	ON_3dVector(0, 0, 1)
+    };
 
-    ON_3dPointArray isect_pt;
-    for (int i = 0; i < brep->m_F.Count(); i++) {
-	const ON_BrepFace &face = brep->m_F[i];
-	/* Directional slab prefilter: the ray goes from ray_start to
-	 * ray_end with all-positive direction components (diag =
-	 * bbox.Diagonal()*1.5).  A surface whose 3D bbox is entirely
-	 * "behind" the ray start in any axis can never be intersected
-	 * by the forward ray — skip it.  Similarly, a surface that is
-	 * entirely beyond the ray endpoint in any axis is out of
-	 * reach. */
-	{
-	    ON_3dPoint fb_min, fb_max;
-	    surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
-	    if (fb_max.x < ray_start.x - INTERSECTION_TOL ||
-		fb_max.y < ray_start.y - INTERSECTION_TOL ||
-		fb_max.z < ray_start.z - INTERSECTION_TOL) {
+    for (int ray_idx = 0; ray_idx < 3; ray_idx++) {
+	const ON_3dVector &rdir = ray_dirs[ray_idx];
+	/* Ray end: start + direction * (2 * bbox extent along that axis) so
+	 * the endpoint is guaranteed to be outside the bbox. */
+	double extent = bbox.Diagonal().x * rdir.x
+	              + bbox.Diagonal().y * rdir.y
+	              + bbox.Diagonal().z * rdir.z;
+	if (extent < INTERSECTION_TOL)
+	    extent = 1.0; /* fallback for degenerate bbox */
+	ON_LineCurve line(pt, pt + rdir * (extent * 2.0 + 1.0));
+
+	const ON_3dPoint &ray_start = line.m_line.from;
+	const ON_3dPoint  ray_end   = line.m_line.to;
+
+	ON_3dPointArray isect_pt;
+	for (int i = 0; i < brep->m_F.Count(); i++) {
+	    const ON_BrepFace &face = brep->m_F[i];
+	    /* Slab prefilter along the ray direction only.  We must NOT
+	     * prune using the other axes when firing an axis-aligned ray —
+	     * the old diagonal prefilter was incorrect because it could
+	     * discard faces that straddle the ray position in Y/Z while
+	     * being "ahead" in X. */
+	    {
+		ON_3dPoint fb_min, fb_max;
+		surf_tree[face.m_si]->GetBBox(fb_min, fb_max);
+		/* Skip face if its extent along the ray is entirely behind
+		 * the ray start or entirely beyond the ray end. */
+		double fmin_along = fb_min.x*rdir.x + fb_min.y*rdir.y + fb_min.z*rdir.z;
+		double fmax_along = fb_max.x*rdir.x + fb_max.y*rdir.y + fb_max.z*rdir.z;
+		double ray_s_along = ray_start.x*rdir.x + ray_start.y*rdir.y + ray_start.z*rdir.z;
+		double ray_e_along = ray_end.x*rdir.x   + ray_end.y*rdir.y   + ray_end.z*rdir.z;
+		if (fmax_along < ray_s_along - INTERSECTION_TOL)
+		    continue;
+		if (fmin_along > ray_e_along + INTERSECTION_TOL)
+		    continue;
+	    }
+	    const ON_Surface *surf = face.SurfaceOf();
+	    ON_SimpleArray<ON_X_EVENT> x_event;
+	    if (!ON_Intersect(&line, surf, x_event, INTERSECTION_TOL, 0.0, 0, 0, 0, 0, 0, surf_tree[face.m_si])) {
 		continue;
 	    }
-	    if (fb_min.x > ray_end.x + INTERSECTION_TOL ||
-		fb_min.y > ray_end.y + INTERSECTION_TOL ||
-		fb_min.z > ray_end.z + INTERSECTION_TOL) {
-		continue;
-	    }
-	}
-	const ON_Surface *surf = face.SurfaceOf();
-	ON_SimpleArray<ON_X_EVENT> x_event;
-	if (!ON_Intersect(&line, surf, x_event, INTERSECTION_TOL, 0.0, 0, 0, 0, 0, 0, surf_tree[face.m_si])) {
-	    continue;
-	}
 
-	// Get the trimming curves of the face, and determine whether the
-	// points are inside the outerloop
-	ON_SimpleArray<ON_Curve *> outerloop;
-	const ON_BrepLoop &loop = brep->m_L[face.m_li[0]];  // outerloop only
-	for (int j = 0; j < loop.m_ti.Count(); j++) {
-	    outerloop.Append(brep->m_C2[brep->m_T[loop.m_ti[j]].m_c2i]);
-	}
-	try {
-	    for (int j = 0; j < x_event.Count(); j++) {
-		ON_2dPoint pt2d(x_event[j].m_b[0], x_event[j].m_b[1]);
-		if (!is_point_outside_loop(pt2d, outerloop)) {
-		    isect_pt.Append(x_event[j].m_B[0]);
-		}
-		if (x_event[j].m_type == ON_X_EVENT::ccx_overlap) {
-		    pt2d = ON_2dPoint(x_event[j].m_b[2], x_event[j].m_b[3]);
+	    // Get the trimming curves of the face, and determine whether the
+	    // intersection points are inside the outerloop
+	    ON_SimpleArray<ON_Curve *> outerloop;
+	    const ON_BrepLoop &loop = brep->m_L[face.m_li[0]];  // outerloop only
+	    for (int j = 0; j < loop.m_ti.Count(); j++) {
+		outerloop.Append(brep->m_C2[brep->m_T[loop.m_ti[j]].m_c2i]);
+	    }
+	    try {
+		for (int j = 0; j < x_event.Count(); j++) {
+		    ON_2dPoint pt2d(x_event[j].m_b[0], x_event[j].m_b[1]);
 		    if (!is_point_outside_loop(pt2d, outerloop)) {
-			isect_pt.Append(x_event[j].m_B[1]);
+			isect_pt.Append(x_event[j].m_B[0]);
+		    }
+		    if (x_event[j].m_type == ON_X_EVENT::ccx_overlap) {
+			pt2d = ON_2dPoint(x_event[j].m_b[2], x_event[j].m_b[3]);
+			if (!is_point_outside_loop(pt2d, outerloop)) {
+			    isect_pt.Append(x_event[j].m_B[1]);
+			}
 		    }
 		}
-	    }
-	} catch (InvalidGeometry &e) {
-	    bu_log("%s", e.what());
-	}
-    }
-
-    // Remove duplications
-    ON_3dPointArray pt_no_dup;
-    for (int i = 0; i < isect_pt.Count(); i++) {
-	int j;
-	for (j = 0; j < pt_no_dup.Count(); j++) {
-	    if (isect_pt[i].DistanceTo(pt_no_dup[j]) < INTERSECTION_TOL) {
-		break;
+	    } catch (InvalidGeometry &e) {
+		bu_log("%s", e.what());
 	    }
 	}
-	if (j == pt_no_dup.Count()) {
-	    // No duplication, append to the array
-	    pt_no_dup.Append(isect_pt[i]);
+
+	// Remove duplications
+	ON_3dPointArray pt_no_dup;
+	for (int i = 0; i < isect_pt.Count(); i++) {
+	    int j;
+	    for (j = 0; j < pt_no_dup.Count(); j++) {
+		if (isect_pt[i].DistanceTo(pt_no_dup[j]) < INTERSECTION_TOL) {
+		    break;
+		}
+	    }
+	    if (j == pt_no_dup.Count()) {
+		pt_no_dup.Append(isect_pt[i]);
+	    }
 	}
+
+	if (pt_no_dup.Count() % 2 != 0)
+	    inside_votes++;
     }
 
-    return pt_no_dup.Count() % 2 != 0;
+    /* Majority vote: inside if 2 or 3 rays agree. */
+    return inside_votes >= 2;
 }
 
 
@@ -5070,8 +5112,13 @@ join_boundary_edges(ON_Brep *brep)
     ON_BoundingBox bbox;
     brep->GetBoundingBox(bbox);
     double bbox_diag = bbox.Diagonal().Length();
-    static const double VTOL_REL = 1.0e-8;
+    static const double VTOL_REL = 1.0e-5;
     double vtol = (bbox_diag > ON_ZERO_TOLERANCE) ? bbox_diag * VTOL_REL : ON_ZERO_TOLERANCE;
+    /* Never fall below INTERSECTION_TOL: intersection points computed from
+     * different surface parameterisations may have floating-point differences
+     * that exceed the bbox-relative tolerance when the model is small. */
+    if (vtol < INTERSECTION_TOL)
+	vtol = INTERSECTION_TOL;
 
     /* ---------------------------------------------------------------
      * Pass 1: open boundary edges.
