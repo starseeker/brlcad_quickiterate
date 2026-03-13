@@ -94,6 +94,13 @@ if(BRLCAD_ENABLE_TCL)
     set(TCLCAD_LIBS ${TCLCAD_LIBS} Obol::Obol)
     set(TCLCAD_LOCAL_INCLUDE_DIRS ${TCLCAD_LOCAL_INCLUDE_DIRS}
       ${CMAKE_SOURCE_DIR}/src/libged)
+    # HW GL path: link against OpenGL and X11 when available so that
+    # obol_view can create a GLX context directly on the Tk window.
+    if(BRLCAD_ENABLE_X11 AND OpenGL_FOUND AND TARGET OpenGL::GL)
+      set(TCLCAD_LIBS ${TCLCAD_LIBS} OpenGL::GL)
+    elseif(OPENGL_gl_LIBRARY)
+      set(TCLCAD_LIBS ${TCLCAD_LIBS} ${OPENGL_gl_LIBRARY})
+    endif()
   endif(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol AND TK_LIBRARY)
 
   brlcad_addlib(libtclcad "${LIBTCLCAD_SRCS}" "${TCLCAD_LIBS}" "${TCLCAD_INCLUDE_DIRS}" "${TCLCAD_LOCAL_INCLUDE_DIRS}"
@@ -118,6 +125,13 @@ if(BRLCAD_ENABLE_TCL)
       target_compile_definitions(${pt} PRIVATE BRLCAD_ENABLE_OBOL)
       if(BRLCAD_OBOL_DUAL_GL)
         target_compile_definitions(${pt} PRIVATE OBOL_BUILD_DUAL_GL)
+      endif()
+      # Enable the HW GL (GLX) path when X11 and OpenGL headers are present.
+      # The HAVE_X11_XLIB_H and HAVE_GL_GL_H feature-test macros are defined
+      # by BRL-CAD's feature-check system; obol_view.cpp uses them to gate
+      # the OBOL_HW_GLX code block.
+      if(BRLCAD_ENABLE_X11 AND HAVE_GL_GL_H)
+        target_compile_definitions(${pt} PRIVATE HAVE_X11_XLIB_H HAVE_GL_GL_H)
       endif()
     endif(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol AND TK_LIBRARY)
   endforeach(pt ${ptargets})
