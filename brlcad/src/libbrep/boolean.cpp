@@ -5084,20 +5084,61 @@ join_boundary_edges(ON_Brep *brep)
 			fj_al->SurfaceOf()->PointAt(uv_start_al.x,
 						    uv_start_al.y);
 
+		    /* Helper: find the parameter on a closed curve where
+		     * the curve passes closest to 'target'.  Uses a 400-
+		     * sample coarse search followed by Newton refinement
+		     * to achieve machine-precision accuracy.  Treats the
+		     * ON_Curve as a 3D curve (works for both 3D edge curves
+		     * and 2D trim curves treated as 3D in (u,v,0) space). */
+		    auto find_seam_t = [](const ON_Curve *c,
+					  const ON_3dPoint &target,
+					  double *t_out) -> bool {
+			/* Coarse search */
+			static const int NSAMP = 400;
+			ON_Interval dom = c->Domain();
+			double best_dist = ON_DBL_MAX;
+			double t_best = dom.Min();
+			for (int s = 0; s <= NSAMP; s++) {
+			    double t_s = dom.ParameterAt(
+				(double)s / NSAMP);
+			    double d = c->PointAt(t_s).DistanceTo(target);
+			    if (d < best_dist) {
+				best_dist = d;
+				t_best = t_s;
+			    }
+			}
+			/* Newton refinement to machine precision */
+			ON_NurbsCurve nc;
+			if (c->GetNurbForm(nc)) {
+			    double t = t_best;
+			    for (int nr = 0; nr < 50; nr++) {
+				ON_3dPoint  pt;
+				ON_3dVector d1, d2;
+				nc.Ev2Der(t, pt, d1, d2);
+				double f = ON_DotProduct(
+				    pt - target, d1);
+				double df = d1.Length()*d1.Length() +
+				    ON_DotProduct(pt - target, d2);
+				if (fabs(df) < 1e-15) break;
+				double dt = -f / df;
+				if (fabs(dt) < 1e-13) break;
+				t += dt;
+			    }
+			    /* Clamp to valid domain to avoid wrap-around */
+			    if (t < dom.Min()) t = dom.Min();
+			    if (t > dom.Max()) t = dom.Max();
+			    t_best = t;
+			}
+			*t_out = t_best;
+			return true;
+		    };
+
 		    /* Step 2: reparametrize ci3 to start at P_j */
 		    {
-			ON_Interval dom3 = ci3->Domain();
-			static const int NSAMP3 = 200;
-			double t_new3 = dom3.Min();
-			double best3 = ON_DBL_MAX;
-			for (int s = 0; s <= NSAMP3; s++) {
-			    double t_s =
-				dom3.ParameterAt((double)s / NSAMP3);
-			    double d = ci3->PointAt(t_s).DistanceTo(P_j);
-			    if (d < best3) { best3 = d; t_new3 = t_s; }
-			}
-			if (best3 > ON_ZERO_TOLERANCE) {
-			    /* Add new curve to m_C3, update edge proxy */
+			double t_new3 = ci3->Domain().Min();
+			find_seam_t(ci3, P_j, &t_new3);
+			if (ci3->PointAt(t_new3).DistanceTo(P_j)
+			    > ON_ZERO_TOLERANCE) {
 			    ON_Curve *ci3_new =
 				brep->m_C3[ei.m_c3i]->Duplicate();
 			    if (ci3_new &&
@@ -5141,28 +5182,17 @@ join_boundary_edges(ON_Brep *brep)
 			    if (ON_Intersect(P_j, *sfi_al, pxi,
 					     INTERSECTION_TOL * 10.0) &&
 				pxi.Count() > 0) {
-				ON_2dPoint uv_ti(pxi[0].m_b[0],
-						 pxi[0].m_b[1]);
-				ON_Interval dom_ti = c2i_al->Domain();
-				static const int NSAMP_TI = 200;
-				double t_seam_ti = dom_ti.Min();
-				double best_ti = ON_DBL_MAX;
-				for (int s = 0; s <= NSAMP_TI; s++) {
-				    double t_s = dom_ti.ParameterAt(
-					(double)s / NSAMP_TI);
-				    ON_3dPoint uv_s =
-					c2i_al->PointAt(t_s);
-				    double d = ON_2dPoint(uv_s.x,
-							 uv_s.y)
-					.DistanceTo(uv_ti);
-				    if (d < best_ti) {
-					best_ti = d;
-					t_seam_ti = t_s;
-				    }
-				}
+				/* Find the seam parameter on c2i_al closest
+				 * to the target UV (treated as 3D point in
+				 * (u,v,0) space). */
+				ON_3dPoint uv_ti_3d(pxi[0].m_b[0],
+						    pxi[0].m_b[1], 0.0);
+				double t_seam_ti = c2i_al->Domain().Min();
+				find_seam_t(c2i_al, uv_ti_3d, &t_seam_ti);
 				double uv_dist_ti =
 				    c2i_al->PointAt(t_seam_ti).DistanceTo(
-					c2i_al->PointAt(dom_ti.Min()));
+					c2i_al->PointAt(
+					    c2i_al->Domain().Min()));
 				if (uv_dist_ti > ON_ZERO_TOLERANCE) {
 				    ON_Curve *c2i_new =
 					c2i_al->Duplicate();
@@ -5232,6 +5262,27 @@ join_boundary_edges(ON_Brep *brep)
     }
 
     brep->Compact();
+
+    /* After Compact() renumbers all elements, rebuild vertex m_ei arrays
+     * one final time.  Compact() applies a remapping to existing m_ei
+     * entries but may not add entries for newly-referenced vertices (from
+     * the vertex-merge steps above).  A clean rebuild from the post-compact
+     * edge list is the safest approach. */
+    for (int k = 0; k < brep->m_V.Count(); k++)
+	brep->m_V[k].m_ei.Empty();
+    for (int k = 0; k < brep->m_E.Count(); k++) {
+	int v0 = brep->m_E[k].m_vi[0];
+	int v1 = brep->m_E[k].m_vi[1];
+	if (v0 >= 0 && v0 < brep->m_V.Count())
+	    brep->m_V[v0].m_ei.Append(k);
+	if (v1 >= 0 && v1 < brep->m_V.Count() && v1 != v0)
+	    brep->m_V[v1].m_ei.Append(k);
+	/* Closed edge: both ends are the same vertex; convention is that
+	 * the edge index appears TWICE in that vertex's m_ei list. */
+	if (v0 == v1 && v0 >= 0 && v0 < brep->m_V.Count())
+	    brep->m_V[v0].m_ei.Append(k);
+    }
+
     brep->SetTrimTypeFlags(false);
 }
 
