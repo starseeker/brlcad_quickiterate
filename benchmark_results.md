@@ -3,7 +3,8 @@
 ## Summary
 
 Switching from the DocBook toolchain to AsciiDoc/asciiquack delivers a
-**24–38× speedup** in man-page generation wall time, depending on parallelism.
+**22–31× speedup** in documentation generation wall time when generating
+both HTML and man pages per source file (apples-to-apples).
 
 ---
 
@@ -17,31 +18,25 @@ Switching from the DocBook toolchain to AsciiDoc/asciiquack delivers a
 | **DocBook tool** | xsltproc (bundled in bext\_output/noinstall/bin) |
 | **AsciiDoc tool** | asciiquack 0.1.0 (bundled in bext\_output/noinstall/bin) |
 | **Source corpus** | 183 man1 pages + 266 mann pages = **449 files** |
+| **Output formats** | Man page **and** HTML per source file (both pipelines) |
 
 ---
 
 ## Benchmark Results
 
+Both pipelines generate the same two output formats per source file:
+a man page (troff) and an HTML page.
+
 | Measurement | DocBook | asciiquack | Speedup |
 |---|---:|---:|---:|
-| cmake configure (EXTRADOCS=ON) | **56.3 s** | *not needed* | — |
+| cmake configure (EXTRADOCS=ON) | **69.5 s** | *not needed* | — |
 | cmake xsl-expand (extract XSL stylesheets) | **~3 s** | *not needed* | — |
-| Sequential man-page gen, 1 job (449 files) | **79.8 s** | 2.1 s | **37.6×** |
-| Parallel man-page gen, -j4 (449 files) | **31.2 s** | 1.3 s | **24.4×** |
-| Per-file latency (sequential) | **177.7 ms/file** | 4.7 ms/file | **37.6×** |
-| cmake mann build, -j4 (266 files) † | **47.2 s** | 1.5 s | **30.7×** |
-| cmake man1 build, -j4 (183 files) ‡ | *(no grouped target)* | 1.4 s | — |
-| In-process throughput (bench\_asciiquack, no startup overhead) | — | **3,224 files/s, 310 µs/file** | — |
-
-† DocBook's cmake `docbook-docbook-system-mann` target generates both HTML and
-man pages per source file (2 formats).  The AsciiDoc equivalent
-`asciidoc-asciidoc-system-mann` generates man pages only (1 format).  The
-30.7× figure includes that extra work on the DocBook side.
-
-‡ The DocBook man1 pages are each defined with a separate `add_docbook()` call
-(one per source file) so no single grouped cmake target exists for all 183 man1
-pages.  The direct-tool numbers in the sequential/parallel rows cover man1 and
-are the correct comparison.
+| Sequential HTML+man gen, 1 job (449 files) | **136.0 s** | 4.4 s | **31.2×** |
+| Parallel HTML+man gen, -j4 (449 files) | **53.6 s** | 2.4 s | **22.4×** |
+| Per-file latency, 2 formats (sequential) | **302.8 ms/file** | 9.7 ms/file | **31.2×** |
+| cmake mann build, -j4 (266 files, HTML+man) | **48.0 s** | 2.9 s | **16.8×** |
+| cmake man1 build, -j4 (183 files, HTML+man) | *(no grouped target)* | 2.4 s | — |
+| In-process throughput (bench\_asciiquack, no startup overhead) | — | **2,759 files/s, 362 µs/file** | — |
 
 ---
 
@@ -52,12 +47,38 @@ asciiquack completely avoids:
 
 | Setup step | DocBook | asciiquack |
 |---|---:|---:|
-| cmake configure (generates .xsl from .xsl.in) | ~56 s | *none* |
+| cmake configure (generates .xsl from .xsl.in templates) | ~70 s | *none* |
 | xsl-expand (extract 12 MB docbook-xsl-ns.tar.bz2) | ~3 s | *none* |
-| **Total setup** | **~59 s** | **0 s** |
+| **Total setup** | **~73 s** | **0 s** |
 
 asciiquack is a self-contained binary.  No XSL stylesheets to extract, no
 catalog files, no CMake configure step needed for the documentation build.
+
+---
+
+## What Each Pipeline Generates Per Source File
+
+| Output | DocBook tool invocation | asciiquack tool invocation |
+|---|---|---|
+| Man page | `xsltproc STYLESHEET XML` | `asciiquack -b manpage -d manpage` |
+| HTML page | `xsltproc XHTML_STYLESHEET XML` | `asciiquack -b html5 -d article` |
+
+Both pipelines process the same 449 source files and produce the same two
+output formats.  The timing numbers above measure both formats together.
+
+---
+
+## CMake Build Target Comparison
+
+| Pipeline | Target | Formats built |
+|---|---|---|
+| DocBook | `docbook-docbook-system-mann` | HTML + man page |
+| AsciiDoc | `asciidoc-asciidoc-system-mann` | HTML + man page |
+| AsciiDoc | `asciidoc-asciidoc-system-man1` | HTML + man page |
+
+Note: DocBook man1 pages are each defined individually in CMakeLists.txt (one
+`add_docbook()` call per file) so there is no single grouped
+`docbook-docbook-system-man1` target.  The direct-tool numbers cover man1.
 
 ---
 
@@ -65,10 +86,10 @@ catalog files, no CMake configure step needed for the documentation build.
 
 | Factor | Detail |
 |---|---|
-| **Process startup** | Each `xsltproc` invocation loads libxslt, libxml2, and parses the full DocBook XSL stylesheet tree (~150 KB of XSLT) before processing a single source line.  asciiquack starts up and completes in the time xsltproc finishes loading. |
-| **XSLT stylesheet complexity** | The DocBook man-page stylesheet (`brlcad-man-stylesheet.xsl`) imports the upstream DocBook XSL library, which contains hundreds of named templates.  The XSLT engine evaluates these for every file. |
-| **Compiled vs interpreted** | asciiquack is compiled C++ with an optimised hand-written block scanner and inlined inline-markup recogniser.  xsltproc interprets XSLT 1.0, which is an interpreted tree-transformation language. |
-| **One-format vs multi-format** | The DocBook cmake mann target also generates HTML in the same run (2 formats per file); the AsciiDoc target is man-only (1 format). Even accounting for this, the raw sequential timings (man-only xsltproc vs asciiquack) show 37.6×. |
+| **Process startup per file** | Each `xsltproc` invocation loads libxslt, libxml2, and parses the full DocBook XSL stylesheet tree (~150 KB of XSLT) before processing a single source line.  Two invocations per file (man + HTML) means double the startup overhead.  asciiquack starts up and completes both formats in the time xsltproc finishes loading once. |
+| **XSLT stylesheet complexity** | The DocBook man-page stylesheets import the upstream DocBook XSL library (hundreds of named templates evaluated for every file). |
+| **Compiled vs interpreted** | asciiquack is compiled C++ with an optimised hand-written block scanner.  xsltproc interprets XSLT 1.0, a tree-transformation language. |
+| **Single binary, multiple backends** | asciiquack switches output format (manpage vs html5) in the same process; each format costs roughly the same (~5 ms/file).  xsltproc must load an entirely different stylesheet tree for each format (~150 ms/file each). |
 
 ---
 
@@ -85,20 +106,19 @@ Run `benchmark_docs.sh` from the repository root:
 ```
 
 The script:
-1. Configures a cmake build with `BRLCAD_EXTRADOCS=ON` (generates `.xsl` from `.xsl.in`)
+1. Configures a cmake build with `BRLCAD_EXTRADOCS=ON`
 2. Builds the `xsl-expand` target to extract bundled DocBook XSL stylesheets
-3. Times `xsltproc -nonet -xinclude STYLESHEET XML` sequentially and in parallel
-   for all 449 man pages (man1 + mann).  xsltproc writes output to CWD using
-   the document's refname (ignores `-o`), so each invocation is run from a
-   dedicated scratch directory.
-4. Times `asciiquack -b manpage -d manpage -o OUT ADOC` the same way
+3. Times sequential HTML+man generation: two `xsltproc` calls per file (one with
+   `brlcad-man-stylesheet.xsl` → man page, one with `brlcad-man-xhtml-stylesheet.xsl`
+   → HTML) vs two `asciiquack` calls per file (`-b manpage` and `-b html5`)
+4. Repeats the same measurement in parallel (`-j N` via `xargs -P`)
 5. Times cmake grouped targets: `docbook-docbook-system-mann` vs
    `asciidoc-asciidoc-system-mann` and `asciidoc-asciidoc-system-man1`
+   (all now generating HTML + man pages)
 6. Runs `bench_asciiquack` for the in-process throughput micro-benchmark
 
 All times are wall-clock seconds measured with `date +%s%3N` before and after
-each phase.  The DocBook direct-tool runs use the man-page-only stylesheet
-(`brlcad-man-stylesheet.xsl`), not the HTML stylesheet.
+each phase.
 
 ---
 

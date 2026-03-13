@@ -25,18 +25,20 @@
 #      Must happen before the first xsltproc call; happens automatically inside
 #      a full cmake build.  asciiquack has no equivalent setup cost.
 #
-#   3. Man-page generation – direct tool invocations  (449 files: man1 + mann)
-#      DocBook:   xsltproc -nonet -xinclude STYLESHEET XML  (one process/file)
-#      asciiquack: asciiquack -b manpage -d manpage -o OUT ADOC (one process/file)
-#      Run sequentially (1 job) and in parallel (-j N).
+#   3. HTML + Man-page generation – direct tool invocations  (449 files)
+#      DocBook:    xsltproc MAN_STYLESHEET XML  → man page
+#                  xsltproc XHTML_STYLESHEET XML → HTML
+#      asciiquack: asciiquack -b manpage -d manpage -o OUT ADOC
+#                  asciiquack -b html5   -d article  -o OUT ADOC
+#      Both tools run man-page generation followed by HTML generation for all
+#      449 files.  Sequentially (1 job) and in parallel (-j N).
 #
 #   4. CMake build – mann pages  (266 MGED command pages)
 #      Both pipelines have a grouped CMake target for these files:
-#        docbook:   docbook-docbook-system-mann   (generates HTML + MANN)
-#        asciidoc:  asciidoc-asciidoc-system-mann  (generates MANN only)
-#      NOTE: DocBook builds 2 output formats per source file vs AsciiDoc's 1.
+#        docbook:   docbook-docbook-system-mann    (generates HTML + MANN)
+#        asciidoc:  asciidoc-asciidoc-system-mann  (generates HTML + MANN)
 #      For man1 (183 pages) a grouped asciidoc target exists
-#      (asciidoc-asciidoc-system-man1) but DocBook man1 pages were defined
+#      (asciidoc-asciidoc-system-man1); DocBook man1 pages are defined
 #      individually so there is no single docbook-docbook-system-man1 target.
 #
 #   5. In-process throughput  (bench_asciiquack micro-benchmark)
@@ -184,8 +186,13 @@ else
 fi
 
 STYLESHEET="$BENCH_BUILD_DIR/doc/docbook/resources/brlcad/brlcad-man-stylesheet.xsl"
+HTML_STYLESHEET="$BENCH_BUILD_DIR/doc/docbook/resources/brlcad/brlcad-man-xhtml-stylesheet.xsl"
 if [[ ! -f "$STYLESHEET" ]]; then
     echo "ERROR: man stylesheet not found after configure: $STYLESHEET"
+    exit 1
+fi
+if [[ ! -f "$HTML_STYLESHEET" ]]; then
+    echo "ERROR: man HTML stylesheet not found after configure: $HTML_STYLESHEET"
     exit 1
 fi
 echo ""
@@ -211,128 +218,174 @@ else
 fi
 echo ""
 
-# ── STEP 3: Sequential man-page generation ───────────────────────────────────
+# ── STEP 3: Sequential man-page + HTML generation ────────────────────────────
 hr
-echo "  STEP 3 — Sequential Man-Page Generation  (1 job, $N_ALL files)"
+echo "  STEP 3 — Sequential HTML + Man-Page Generation  (1 job, $N_ALL files each)"
+echo "           DocBook : xsltproc with man stylesheet + xhtml stylesheet"
+echo "           asciiquack: -b manpage (man) + -b html5 (HTML)"
 hr
 echo ""
 
-mkdir -p "$BENCH_OUT_DIR/db_seq_man1" "$BENCH_OUT_DIR/db_seq_mann" \
-         "$BENCH_OUT_DIR/aq_seq_man1" "$BENCH_OUT_DIR/aq_seq_mann"
+mkdir -p "$BENCH_OUT_DIR/db_seq_man1"  "$BENCH_OUT_DIR/db_seq_mann" \
+         "$BENCH_OUT_DIR/db_seq_html1" "$BENCH_OUT_DIR/db_seq_htmln" \
+         "$BENCH_OUT_DIR/aq_seq_man1"  "$BENCH_OUT_DIR/aq_seq_mann" \
+         "$BENCH_OUT_DIR/aq_seq_html1" "$BENCH_OUT_DIR/aq_seq_htmln"
 rm -f "$BENCH_OUT_DIR"/db_seq_man1/* "$BENCH_OUT_DIR"/db_seq_mann/* \
-      "$BENCH_OUT_DIR"/aq_seq_man1/* "$BENCH_OUT_DIR"/aq_seq_mann/* 2>/dev/null || true
+      "$BENCH_OUT_DIR"/db_seq_html1/* "$BENCH_OUT_DIR"/db_seq_htmln/* \
+      "$BENCH_OUT_DIR"/aq_seq_man1/*  "$BENCH_OUT_DIR"/aq_seq_mann/* \
+      "$BENCH_OUT_DIR"/aq_seq_html1/* "$BENCH_OUT_DIR"/aq_seq_htmln/* \
+      2>/dev/null || true
 
-# DocBook sequential: xsltproc ignores -o and writes to CWD using the
-# document's refname, so we cd to the output dir before calling it.
-echo "  DocBook xsltproc (sequential) ..."
+# DocBook sequential: man pages (xsltproc writes to CWD via refname for man),
+# HTML (xsltproc respects -o flag)
+echo "  DocBook xsltproc (sequential, man + HTML) ..."
 t0=$(epoch_ms)
 for f in "${DB_MAN1[@]}"; do
+    base=$(basename "$f" .xml)
     cd "$BENCH_OUT_DIR/db_seq_man1"
     "$XSLTPROC_BIN" -nonet -xinclude "$STYLESHEET" "$f" 2>/dev/null || true
+    "$XSLTPROC_BIN" -nonet -xinclude -o "$BENCH_OUT_DIR/db_seq_html1/${base}.html" \
+        "$HTML_STYLESHEET" "$f" 2>/dev/null || true
 done
 for f in "${DB_MANN[@]}"; do
+    base=$(basename "$f" .xml)
     cd "$BENCH_OUT_DIR/db_seq_mann"
     "$XSLTPROC_BIN" -nonet -xinclude "$STYLESHEET" "$f" 2>/dev/null || true
+    "$XSLTPROC_BIN" -nonet -xinclude -o "$BENCH_OUT_DIR/db_seq_htmln/${base}.html" \
+        "$HTML_STYLESHEET" "$f" 2>/dev/null || true
 done
 DB_SEQ_S=$(elapsed "$t0")
-DB_SEQ_MAN1=$(ls "$BENCH_OUT_DIR/db_seq_man1/" | wc -l)
-DB_SEQ_MANN=$(ls "$BENCH_OUT_DIR/db_seq_mann/" | wc -l)
-DB_SEQ_TOTAL=$((DB_SEQ_MAN1 + DB_SEQ_MANN))
-printf "  DocBook seq : %s  (%d output files)\n" "$(fmt_s "$DB_SEQ_S")" "$DB_SEQ_TOTAL"
+DB_SEQ_MAN=$(($(ls "$BENCH_OUT_DIR/db_seq_man1/" | wc -l) + \
+              $(ls "$BENCH_OUT_DIR/db_seq_mann/" | wc -l)))
+DB_SEQ_HTML=$(($(ls "$BENCH_OUT_DIR/db_seq_html1/" | wc -l) + \
+               $(ls "$BENCH_OUT_DIR/db_seq_htmln/" | wc -l)))
+printf "  DocBook seq : %s  (%d man + %d HTML)\n" \
+    "$(fmt_s "$DB_SEQ_S")" "$DB_SEQ_MAN" "$DB_SEQ_HTML"
 
-# asciiquack sequential
-echo "  asciiquack (sequential) ..."
+# asciiquack sequential: man pages then HTML
+echo "  asciiquack (sequential, man + HTML) ..."
 t0=$(epoch_ms)
 for f in "${AD_MAN1[@]}"; do
     base=$(basename "$f" .adoc)
     "$AQ_BIN" -b manpage -d manpage \
-              -o "$BENCH_OUT_DIR/aq_seq_man1/${base}.1" "$f" 2>/dev/null || true
+              -o "$BENCH_OUT_DIR/aq_seq_man1/${base}.1"    "$f" 2>/dev/null || true
+    "$AQ_BIN" -b html5   -d article \
+              -o "$BENCH_OUT_DIR/aq_seq_html1/${base}.html" "$f" 2>/dev/null || true
 done
 for f in "${AD_MANN[@]}"; do
     base=$(basename "$f" .adoc)
     "$AQ_BIN" -b manpage -d manpage \
-              -o "$BENCH_OUT_DIR/aq_seq_mann/${base}.nged" "$f" 2>/dev/null || true
+              -o "$BENCH_OUT_DIR/aq_seq_mann/${base}.nged"  "$f" 2>/dev/null || true
+    "$AQ_BIN" -b html5   -d article \
+              -o "$BENCH_OUT_DIR/aq_seq_htmln/${base}.html" "$f" 2>/dev/null || true
 done
 AQ_SEQ_S=$(elapsed "$t0")
-AQ_SEQ_MAN1=$(ls "$BENCH_OUT_DIR/aq_seq_man1/" | wc -l)
-AQ_SEQ_MANN=$(ls "$BENCH_OUT_DIR/aq_seq_mann/" | wc -l)
-AQ_SEQ_TOTAL=$((AQ_SEQ_MAN1 + AQ_SEQ_MANN))
-printf "  asciiquack  : %s  (%d output files)\n" "$(fmt_s "$AQ_SEQ_S")" "$AQ_SEQ_TOTAL"
+AQ_SEQ_MAN=$(($(ls "$BENCH_OUT_DIR/aq_seq_man1/" | wc -l) + \
+              $(ls "$BENCH_OUT_DIR/aq_seq_mann/" | wc -l)))
+AQ_SEQ_HTML=$(($(ls "$BENCH_OUT_DIR/aq_seq_html1/" | wc -l) + \
+               $(ls "$BENCH_OUT_DIR/aq_seq_htmln/" | wc -l)))
+printf "  asciiquack  : %s  (%d man + %d HTML)\n" \
+    "$(fmt_s "$AQ_SEQ_S")" "$AQ_SEQ_MAN" "$AQ_SEQ_HTML"
 
 SEQ_SPEEDUP=$(speedup "$DB_SEQ_S" "$AQ_SEQ_S")
 DB_MS_FILE=$(per_file "$DB_SEQ_S" "$N_ALL")
 AQ_MS_FILE=$(per_file "$AQ_SEQ_S" "$N_ALL")
 echo ""
-echo "  Sequential speedup (asciiquack vs DocBook): ${SEQ_SPEEDUP}×"
-echo "  Per-file: DocBook ${DB_MS_FILE} ms/file  |  asciiquack ${AQ_MS_FILE} ms/file"
+echo "  Sequential speedup (asciiquack vs DocBook, HTML+man): ${SEQ_SPEEDUP}×"
+echo "  Per-file (2 output formats): DocBook ${DB_MS_FILE} ms/file  |  asciiquack ${AQ_MS_FILE} ms/file"
 echo ""
 
-# ── STEP 4: Parallel man-page generation ─────────────────────────────────────
+# ── STEP 4: Parallel man-page + HTML generation ──────────────────────────────
 hr
-echo "  STEP 4 — Parallel Man-Page Generation  (-j${NCPU}, $N_ALL files)"
+echo "  STEP 4 — Parallel HTML + Man-Page Generation  (-j${NCPU}, $N_ALL files each)"
 hr
 echo ""
 
-mkdir -p "$BENCH_OUT_DIR/db_par_man1" "$BENCH_OUT_DIR/db_par_mann" \
-         "$BENCH_OUT_DIR/aq_par_man1" "$BENCH_OUT_DIR/aq_par_mann"
-rm -f "$BENCH_OUT_DIR"/db_par_man1/* "$BENCH_OUT_DIR"/db_par_mann/* \
-      "$BENCH_OUT_DIR"/aq_par_man1/* "$BENCH_OUT_DIR"/aq_par_mann/* 2>/dev/null || true
+mkdir -p "$BENCH_OUT_DIR/db_par_man1"  "$BENCH_OUT_DIR/db_par_mann" \
+         "$BENCH_OUT_DIR/db_par_html1" "$BENCH_OUT_DIR/db_par_htmln" \
+         "$BENCH_OUT_DIR/aq_par_man1"  "$BENCH_OUT_DIR/aq_par_mann" \
+         "$BENCH_OUT_DIR/aq_par_html1" "$BENCH_OUT_DIR/aq_par_htmln"
+rm -f "$BENCH_OUT_DIR"/db_par_man1/*  "$BENCH_OUT_DIR"/db_par_mann/* \
+      "$BENCH_OUT_DIR"/db_par_html1/* "$BENCH_OUT_DIR"/db_par_htmln/* \
+      "$BENCH_OUT_DIR"/aq_par_man1/*  "$BENCH_OUT_DIR"/aq_par_mann/* \
+      "$BENCH_OUT_DIR"/aq_par_html1/* "$BENCH_OUT_DIR"/aq_par_htmln/* \
+      2>/dev/null || true
 
-export XSLTPROC_BIN STYLESHEET AQ_BIN BENCH_OUT_DIR LD_LIBRARY_PATH
+export XSLTPROC_BIN STYLESHEET HTML_STYLESHEET AQ_BIN BENCH_OUT_DIR LD_LIBRARY_PATH
 
-echo "  DocBook xsltproc (parallel -j${NCPU}) ..."
+echo "  DocBook xsltproc (parallel -j${NCPU}, man + HTML) ..."
 t0=$(epoch_ms)
 printf '%s\n' "${DB_MAN1[@]}" | \
     xargs -P "$NCPU" -I{} bash -c \
-        'cd "$BENCH_OUT_DIR/db_par_man1" &&
-         "$XSLTPROC_BIN" -nonet -xinclude "$STYLESHEET" "$1" 2>/dev/null || true' \
+        'f="$1"; base=$(basename "$f" .xml)
+         cd "$BENCH_OUT_DIR/db_par_man1" &&
+         "$XSLTPROC_BIN" -nonet -xinclude "$STYLESHEET" "$f" 2>/dev/null || true
+         "$XSLTPROC_BIN" -nonet -xinclude \
+             -o "$BENCH_OUT_DIR/db_par_html1/${base}.html" \
+             "$HTML_STYLESHEET" "$f" 2>/dev/null || true' \
         _ {}
 printf '%s\n' "${DB_MANN[@]}" | \
     xargs -P "$NCPU" -I{} bash -c \
-        'cd "$BENCH_OUT_DIR/db_par_mann" &&
-         "$XSLTPROC_BIN" -nonet -xinclude "$STYLESHEET" "$1" 2>/dev/null || true' \
+        'f="$1"; base=$(basename "$f" .xml)
+         cd "$BENCH_OUT_DIR/db_par_mann" &&
+         "$XSLTPROC_BIN" -nonet -xinclude "$STYLESHEET" "$f" 2>/dev/null || true
+         "$XSLTPROC_BIN" -nonet -xinclude \
+             -o "$BENCH_OUT_DIR/db_par_htmln/${base}.html" \
+             "$HTML_STYLESHEET" "$f" 2>/dev/null || true' \
         _ {}
 DB_PAR_S=$(elapsed "$t0")
-DB_PAR_TOTAL=$(($(ls "$BENCH_OUT_DIR/db_par_man1/" | wc -l) + \
-                $(ls "$BENCH_OUT_DIR/db_par_mann/" | wc -l)))
-printf "  DocBook par : %s  (%d output files)\n" "$(fmt_s "$DB_PAR_S")" "$DB_PAR_TOTAL"
+DB_PAR_MAN=$(($(ls "$BENCH_OUT_DIR/db_par_man1/" | wc -l) + \
+              $(ls "$BENCH_OUT_DIR/db_par_mann/" | wc -l)))
+DB_PAR_HTML=$(($(ls "$BENCH_OUT_DIR/db_par_html1/" | wc -l) + \
+               $(ls "$BENCH_OUT_DIR/db_par_htmln/" | wc -l)))
+printf "  DocBook par : %s  (%d man + %d HTML)\n" \
+    "$(fmt_s "$DB_PAR_S")" "$DB_PAR_MAN" "$DB_PAR_HTML"
 
-echo "  asciiquack (parallel -j${NCPU}) ..."
+echo "  asciiquack (parallel -j${NCPU}, man + HTML) ..."
 t0=$(epoch_ms)
 printf '%s\n' "${AD_MAN1[@]}" | \
     xargs -P "$NCPU" -I{} bash -c \
         'base=$(basename "$1" .adoc)
          "$AQ_BIN" -b manpage -d manpage \
-             -o "$BENCH_OUT_DIR/aq_par_man1/${base}.1" "$1" 2>/dev/null || true' \
+             -o "$BENCH_OUT_DIR/aq_par_man1/${base}.1"    "$1" 2>/dev/null || true
+         "$AQ_BIN" -b html5   -d article \
+             -o "$BENCH_OUT_DIR/aq_par_html1/${base}.html" "$1" 2>/dev/null || true' \
         _ {}
 printf '%s\n' "${AD_MANN[@]}" | \
     xargs -P "$NCPU" -I{} bash -c \
         'base=$(basename "$1" .adoc)
          "$AQ_BIN" -b manpage -d manpage \
-             -o "$BENCH_OUT_DIR/aq_par_mann/${base}.nged" "$1" 2>/dev/null || true' \
+             -o "$BENCH_OUT_DIR/aq_par_mann/${base}.nged"  "$1" 2>/dev/null || true
+         "$AQ_BIN" -b html5   -d article \
+             -o "$BENCH_OUT_DIR/aq_par_htmln/${base}.html" "$1" 2>/dev/null || true' \
         _ {}
 AQ_PAR_S=$(elapsed "$t0")
-AQ_PAR_TOTAL=$(($(ls "$BENCH_OUT_DIR/aq_par_man1/" | wc -l) + \
-                $(ls "$BENCH_OUT_DIR/aq_par_mann/" | wc -l)))
-printf "  asciiquack  : %s  (%d output files)\n" "$(fmt_s "$AQ_PAR_S")" "$AQ_PAR_TOTAL"
+AQ_PAR_MAN=$(($(ls "$BENCH_OUT_DIR/aq_par_man1/" | wc -l) + \
+              $(ls "$BENCH_OUT_DIR/aq_par_mann/" | wc -l)))
+AQ_PAR_HTML=$(($(ls "$BENCH_OUT_DIR/aq_par_html1/" | wc -l) + \
+               $(ls "$BENCH_OUT_DIR/aq_par_htmln/" | wc -l)))
+printf "  asciiquack  : %s  (%d man + %d HTML)\n" \
+    "$(fmt_s "$AQ_PAR_S")" "$AQ_PAR_MAN" "$AQ_PAR_HTML"
 
 PAR_SPEEDUP=$(speedup "$DB_PAR_S" "$AQ_PAR_S")
 echo ""
-echo "  Parallel speedup (asciiquack vs DocBook): ${PAR_SPEEDUP}×"
+echo "  Parallel speedup (asciiquack vs DocBook, HTML+man, -j${NCPU}): ${PAR_SPEEDUP}×"
 echo ""
 
 # ── STEP 5: CMake build – mann pages (both pipelines) ────────────────────────
 hr
-echo "  STEP 5 — CMake Build Comparison  (266 mann pages)"
-echo "           DocBook target : docbook-docbook-system-mann  (generates HTML + MANN)"
-echo "           AsciiDoc target: asciidoc-asciidoc-system-mann (generates MANN only)"
+echo "  STEP 5 — CMake Build Comparison  (266 mann pages, HTML + MANN)"
+echo "           DocBook target : docbook-docbook-system-mann"
+echo "           AsciiDoc target: asciidoc-asciidoc-system-mann"
+echo "           Both generate HTML + man pages (apples-to-apples)"
 hr
 echo ""
 
 # Clean outputs so we measure a full build each time
-rm -rf "$BENCH_BUILD_DIR/share/man/mann"   2>/dev/null || true
+rm -rf "$BENCH_BUILD_DIR/share/man/mann"      2>/dev/null || true
 rm -rf "$BENCH_BUILD_DIR/share/doc/html/mann" 2>/dev/null || true
-rm -f  "$BENCH_BUILD_DIR/doc/asciidoc/system/mann"/*.nged 2>/dev/null || true
+rm -f  "$BENCH_BUILD_DIR/doc/asciidoc/system/mann"/*.nged \
+       "$BENCH_BUILD_DIR/doc/asciidoc/system/mann"/*.html 2>/dev/null || true
 
 # Touch sources so cmake considers them dirty
 find "$BRLCAD_SRC/doc/docbook/system/mann" -name "*.xml" \
@@ -365,26 +418,28 @@ cmake --build "$BENCH_BUILD_DIR" \
     echo "  WARNING: cmake asciidoc mann build returned non-zero"
 }
 AQ_CMAKE_S=$(elapsed "$t0")
-AQ_CMAKE_COUNT=$(find "$BENCH_BUILD_DIR/doc/asciidoc/system/mann" \
+AQ_CMAKE_MAN_COUNT=$(find "$BENCH_BUILD_DIR/doc/asciidoc/system/mann" \
     -name "*.nged" 2>/dev/null | wc -l)
-printf "  AsciiDoc cmake: %s  (%d .nged)\n" \
-    "$(fmt_s "$AQ_CMAKE_S")" "$AQ_CMAKE_COUNT"
+AQ_CMAKE_HTML_COUNT=$(find "$BENCH_BUILD_DIR/doc/asciidoc/system/mann" \
+    -name "*.html" 2>/dev/null | wc -l)
+printf "  AsciiDoc cmake: %s  (%d .nged + %d .html)\n" \
+    "$(fmt_s "$AQ_CMAKE_S")" "$AQ_CMAKE_MAN_COUNT" "$AQ_CMAKE_HTML_COUNT"
 
 CMAKE_SPEEDUP=$(speedup "$DB_CMAKE_S" "$AQ_CMAKE_S")
 echo ""
-echo "  cmake speedup (asciidoc vs docbook, -j${NCPU}): ${CMAKE_SPEEDUP}×"
-echo "  (DocBook also generates HTML per page; for man-only comparison see Steps 3–4)"
+echo "  cmake mann speedup (asciidoc vs docbook, -j${NCPU}): ${CMAKE_SPEEDUP}×"
 echo ""
 
 # ── STEP 6: asciidoc man1 cmake build ────────────────────────────────────────
 hr
-echo "  STEP 6 — AsciiDoc CMake Build  (183 man1 pages)"
-echo "           asciidoc-asciidoc-system-man1 (MANN only)"
+echo "  STEP 6 — AsciiDoc CMake Build  (183 man1 pages, HTML + MAN1)"
+echo "           asciidoc-asciidoc-system-man1"
 echo "           No equivalent grouped DocBook target exists for man1."
 hr
 echo ""
 
-rm -f "$BENCH_BUILD_DIR/doc/asciidoc/system/man1"/*.1 2>/dev/null || true
+rm -f "$BENCH_BUILD_DIR/doc/asciidoc/system/man1"/*.1 \
+      "$BENCH_BUILD_DIR/doc/asciidoc/system/man1"/*.html 2>/dev/null || true
 find "$BRLCAD_SRC/doc/asciidoc/system/man1" -name "*.adoc" \
      -exec touch {} \; 2>/dev/null || true
 
@@ -397,10 +452,12 @@ cmake --build "$BENCH_BUILD_DIR" \
     echo "  WARNING: cmake asciidoc man1 build returned non-zero"
 }
 AQ_CMAKE_MAN1_S=$(elapsed "$t0")
-AQ_CMAKE_MAN1_COUNT=$(find "$BENCH_BUILD_DIR/doc/asciidoc/system/man1" \
+AQ_CMAKE_MAN1_MAN=$(find "$BENCH_BUILD_DIR/doc/asciidoc/system/man1" \
     -name "*.1" 2>/dev/null | wc -l)
-printf "  AsciiDoc cmake man1: %s  (%d .1 files)\n" \
-    "$(fmt_s "$AQ_CMAKE_MAN1_S")" "$AQ_CMAKE_MAN1_COUNT"
+AQ_CMAKE_MAN1_HTML=$(find "$BENCH_BUILD_DIR/doc/asciidoc/system/man1" \
+    -name "*.html" 2>/dev/null | wc -l)
+printf "  AsciiDoc cmake man1: %s  (%d .1 + %d .html)\n" \
+    "$(fmt_s "$AQ_CMAKE_MAN1_S")" "$AQ_CMAKE_MAN1_MAN" "$AQ_CMAKE_MAN1_HTML"
 echo ""
 
 # ── STEP 7: In-process benchmark (bench_asciiquack) ──────────────────────────
@@ -469,29 +526,27 @@ if [[ "$XSL_EXPAND_S" != "0" ]]; then
 fi
 
 printf "  %-${COL_W}s %12s %12s %10s\n" \
-    "Sequential man gen, 1 job ($N_ALL files)" \
+    "Sequential HTML+man gen, 1 job ($N_ALL files)" \
     "$(fmt_s "$DB_SEQ_S")" "$(fmt_s "$AQ_SEQ_S")" "${SEQ_SPEEDUP}×"
 
 printf "  %-${COL_W}s %12s %12s %10s\n" \
-    "Parallel man gen, -j${NCPU} ($N_ALL files)" \
+    "Parallel HTML+man gen, -j${NCPU} ($N_ALL files)" \
     "$(fmt_s "$DB_PAR_S")" "$(fmt_s "$AQ_PAR_S")" "${PAR_SPEEDUP}×"
 
 printf "  %-${COL_W}s %12s %12s %10s\n" \
-    "Per-file latency (sequential)" \
+    "Per-file latency, 2 formats (sequential)" \
     "${DB_MS_FILE} ms" "${AQ_MS_FILE} ms" "${SEQ_SPEEDUP}×"
 
 printf "  %-${COL_W}s %12s %12s %10s\n" \
-    "cmake mann build, -j${NCPU} (266 files) †" \
+    "cmake mann build, -j${NCPU} (266 files, HTML+man)" \
     "$(fmt_s "$DB_CMAKE_S")" "$(fmt_s "$AQ_CMAKE_S")" "${CMAKE_SPEEDUP}×"
 
 printf "  %-${COL_W}s %12s %12s %10s\n" \
-    "cmake man1 build, -j${NCPU} (183 files) ‡" \
+    "cmake man1 build, -j${NCPU} (183 files, HTML+man) †" \
     "  (no target)" "$(fmt_s "$AQ_CMAKE_MAN1_S")" "N/A"
 
 echo ""
-echo "  † DocBook cmake mann also generates HTML per page (2 formats total);"
-echo "    AsciiDoc cmake mann generates man pages only (1 format)."
-echo "  ‡ DocBook man1 has no grouped cmake target (pages defined individually);"
+echo "  † DocBook man1 has no grouped cmake target (pages defined individually);"
 echo "    the direct tool numbers above cover man1 fairly."
 echo ""
 hr2
