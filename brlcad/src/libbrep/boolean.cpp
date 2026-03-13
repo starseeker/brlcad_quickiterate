@@ -5048,6 +5048,162 @@ join_boundary_edges(ON_Brep *brep)
 		brep->m_T[tj].m_vi[1] = ei.m_vi[bRev3d ? 0 : 1];
 	    }
 
+	    /* Align trim start positions for the joined closed edge.
+	     *
+	     * After joining, ei has two trims: ti (the original single-
+	     * trim closed loop, e.g. the box-face inner circle) and tj
+	     * (the transferred trim, potentially part of a multi-trim
+	     * loop, e.g. the cylindrical-face outer loop).
+	     *
+	     * The two coincident circles may have started at different
+	     * angular positions.  OpenNURBS requires every trim's 3D
+	     * pushup-start to match ei's edge curve start position.
+	     * We fix this by moving the "canonical start" to tj's start
+	     * position (P_j), because tj is in a multi-trim loop whose
+	     * adjacent trims (e.g. seam lines) already reference P_j:
+	     *
+	     *  1. Compute P_j = 3D position of tj's 2D curve start.
+	     *  2. Reparametrize ci3 (ei's 3D edge curve) to start at P_j.
+	     *  3. Move ei's vertex to P_j.
+	     *  4. Reparametrize ti's 2D curve (single-trim closed loop)
+	     *     to start at the UV corresponding to P_j.
+	     *  5. Merge ej's vertex into ei's vertex so the multi-trim
+	     *     loop (tj's loop) stays topologically connected.
+	     *
+	     * tj's 2D curve is left untouched so its loop connectivity
+	     * is preserved. */
+	    if (ci3->IsClosed()) {
+		/* Step 1: find P_j */
+		const ON_Curve *c2j_al =
+		    brep->m_C2[brep->m_T[tj].m_c2i];
+		const ON_BrepFace *fj_al = brep->m_T[tj].Face();
+		if (c2j_al && fj_al && fj_al->SurfaceOf()) {
+		    ON_3dPoint uv_start_al =
+			c2j_al->PointAt(c2j_al->Domain().Min());
+		    ON_3dPoint P_j =
+			fj_al->SurfaceOf()->PointAt(uv_start_al.x,
+						    uv_start_al.y);
+
+		    /* Step 2: reparametrize ci3 to start at P_j */
+		    {
+			ON_Interval dom3 = ci3->Domain();
+			static const int NSAMP3 = 200;
+			double t_new3 = dom3.Min();
+			double best3 = ON_DBL_MAX;
+			for (int s = 0; s <= NSAMP3; s++) {
+			    double t_s =
+				dom3.ParameterAt((double)s / NSAMP3);
+			    double d = ci3->PointAt(t_s).DistanceTo(P_j);
+			    if (d < best3) { best3 = d; t_new3 = t_s; }
+			}
+			if (best3 > ON_ZERO_TOLERANCE) {
+			    /* Add new curve to m_C3, update edge proxy */
+			    ON_Curve *ci3_new =
+				brep->m_C3[ei.m_c3i]->Duplicate();
+			    if (ci3_new &&
+				ci3_new->ChangeClosedCurveSeam(t_new3)) {
+				int new_c3i =
+				    brep->AddEdgeCurve(ci3_new);
+				ei.m_c3i = new_c3i;
+				ei.SetProxyCurve(
+				    brep->m_C3[new_c3i]);
+				brep->SetEdgeDomain(
+				    ei.m_edge_index,
+				    brep->m_C3[new_c3i]->Domain());
+				ci3 = brep->m_C3[new_c3i];
+			    } else {
+				delete ci3_new;
+			    }
+			}
+		    }
+
+		    /* Step 3: move ei's vertex to P_j */
+		    {
+			int ei_vi = ei.m_vi[0]; /* closed edge: vi[0]==vi[1] */
+			brep->m_V[ei_vi].SetPoint(P_j);
+		    }
+
+		    /* Step 4: reparametrize ti's 2D curve (Case A:
+		     * single-trim closed-circle loop on the other face)
+		     * to start at the UV on ti's surface that maps to P_j. */
+		    if (ei.m_ti.Count() >= 1) {
+			/* ti is the FIRST trim on ei (tj was just appended
+			 * as the second via ei.m_ti.Append(tj) above). */
+			int ti_idx = ei.m_ti[0];
+			const ON_Curve *c2i_al =
+			    brep->m_C2[brep->m_T[ti_idx].m_c2i];
+			const ON_BrepFace *fi_al =
+			    brep->m_T[ti_idx].Face();
+			if (c2i_al && c2i_al->IsClosed() &&
+			    fi_al && fi_al->SurfaceOf()) {
+			    const ON_Surface *sfi_al = fi_al->SurfaceOf();
+			    ON_ClassArray<ON_PX_EVENT> pxi;
+			    if (ON_Intersect(P_j, *sfi_al, pxi,
+					     INTERSECTION_TOL * 10.0) &&
+				pxi.Count() > 0) {
+				ON_2dPoint uv_ti(pxi[0].m_b[0],
+						 pxi[0].m_b[1]);
+				ON_Interval dom_ti = c2i_al->Domain();
+				static const int NSAMP_TI = 200;
+				double t_seam_ti = dom_ti.Min();
+				double best_ti = ON_DBL_MAX;
+				for (int s = 0; s <= NSAMP_TI; s++) {
+				    double t_s = dom_ti.ParameterAt(
+					(double)s / NSAMP_TI);
+				    ON_3dPoint uv_s =
+					c2i_al->PointAt(t_s);
+				    double d = ON_2dPoint(uv_s.x,
+							 uv_s.y)
+					.DistanceTo(uv_ti);
+				    if (d < best_ti) {
+					best_ti = d;
+					t_seam_ti = t_s;
+				    }
+				}
+				double uv_dist_ti =
+				    c2i_al->PointAt(t_seam_ti).DistanceTo(
+					c2i_al->PointAt(dom_ti.Min()));
+				if (uv_dist_ti > ON_ZERO_TOLERANCE) {
+				    ON_Curve *c2i_new =
+					c2i_al->Duplicate();
+				    if (c2i_new &&
+					c2i_new->ChangeClosedCurveSeam(
+					    t_seam_ti)) {
+					int new_c2i_idx =
+					    brep->AddTrimCurve(c2i_new);
+					brep->m_T[ti_idx].ChangeTrimCurve(
+					    new_c2i_idx);
+				    } else {
+					delete c2i_new;
+				    }
+				}
+			    }
+			}
+		    }
+
+		    /* Step 5: merge ej's vertex into ei's vertex so
+		     * the multi-trim loop containing tj stays connected. */
+		    {
+			int ei_vi = ei.m_vi[0];
+			int ej_vi = ej.m_vi[0];
+			if (ej_vi != ei_vi) {
+			    for (int k = 0; k < brep->m_T.Count(); k++) {
+				if (brep->m_T[k].m_vi[0] == ej_vi)
+				    brep->m_T[k].m_vi[0] = ei_vi;
+				if (brep->m_T[k].m_vi[1] == ej_vi)
+				    brep->m_T[k].m_vi[1] = ei_vi;
+			    }
+			    for (int k = 0; k < brep->m_E.Count(); k++) {
+				if (brep->m_E[k].m_vi[0] == ej_vi)
+				    brep->m_E[k].m_vi[0] = ei_vi;
+				if (brep->m_E[k].m_vi[1] == ej_vi)
+				    brep->m_E[k].m_vi[1] = ei_vi;
+			    }
+			}
+		    }
+		}
+	    }
+
 	    /* Mark ej as unused by emptying its trim list.  No trim
 	     * references ej any more (we just redirected tj to ei),
 	     * so Compact() will remove ej and clean up its vertex. */
@@ -5055,6 +5211,24 @@ join_boundary_edges(ON_Brep *brep)
 
 	    break; /* one match per closed edge is sufficient */
 	}
+    }
+
+    /* Rebuild all vertex m_ei arrays from the current edge-vertex
+     * references.  The Pass 2 vertex-merge operations above updated
+     * edge m_vi[] arrays but did NOT update vertex m_ei[] arrays, so
+     * some vertices have stale edge lists.  Compact() uses m_ei to
+     * decide which vertices are live, so we must fix m_ei first. */
+    for (int k = 0; k < brep->m_V.Count(); k++)
+	brep->m_V[k].m_ei.Empty();
+    for (int k = 0; k < brep->m_E.Count(); k++) {
+	const ON_BrepEdge &ek = brep->m_E[k];
+	if (ek.m_ti.Count() == 0) continue; /* will be removed */
+	int v0 = ek.m_vi[0], v1 = ek.m_vi[1];
+	/* For closed edges (v0==v1) the index appears twice. */
+	if (v0 >= 0 && v0 < brep->m_V.Count())
+	    brep->m_V[v0].m_ei.Append(k);
+	if (v1 >= 0 && v1 < brep->m_V.Count())
+	    brep->m_V[v1].m_ei.Append(k);
     }
 
     brep->Compact();
