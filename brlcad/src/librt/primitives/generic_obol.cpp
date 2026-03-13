@@ -98,6 +98,11 @@ rt_generic_vlist_to_obol(bsg_shape *s)
 	return;
     if (BU_LIST_IS_EMPTY(&s->s_vlist))
 	return;
+    /* Skip if Obol is not initialized — e.g. ged_test_draw runs without
+     * calling SoDB::init().  Attempting to create SoNodes before
+     * SoDB::init() crashes inside cc_recmutex_cxx17_notify_lock(). */
+    if (!SoDB::isInitialized())
+	return;
 
     /* Pass 1: classify vlist content */
     bool has_lines = false;
