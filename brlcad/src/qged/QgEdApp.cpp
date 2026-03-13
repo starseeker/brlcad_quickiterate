@@ -44,6 +44,20 @@
 #include "fbserv.h"
 #include "QgEdFilter.h"
 
+#ifdef BRLCAD_ENABLE_OBOL
+#  include <Inventor/SoDB.h>
+#  include <Inventor/nodekits/SoNodeKit.h>
+#  include <Inventor/SoInteraction.h>
+#  include <Inventor/nodes/SoNode.h>
+#  include "QgObolView.h"
+/* One application-wide context manager (created before any GL widget). */
+static QgObolContextManager *s_obol_ctx_mgr = nullptr;
+/* Shim for bsg_obol_set_unref: calls SoNode::unref() on the void* pointer. */
+static void obol_unref_shim(void *p) {
+    if (p) static_cast<SoNode *>(p)->unref();
+}
+#endif /* BRLCAD_ENABLE_OBOL */
+
 #include "../libged/dbi.h"
 
 /* --------------------------------------------------------------------------
@@ -218,6 +232,22 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     setApplicationName("QGED");
     setApplicationVersion(brlcad_version());
 
+    // ── Obol scene-graph initialization ─────────────────────────────────
+    // Obol must be initialized before any QOpenGLWidget-derived view is
+    // created.  We create the context manager here (before the main window)
+    // and pass it to SoDB::init().  The context manager's share context will
+    // be updated after the first GL widget initialises (in initializeGL()).
+#ifdef BRLCAD_ENABLE_OBOL
+    s_obol_ctx_mgr = new QgObolContextManager(nullptr /* share ctx set later */);
+    SoDB::init(s_obol_ctx_mgr);
+    SoNodeKit::init();
+    SoInteraction::init();
+    /* Disable Obol's own auto-redraw loop — Qt's event loop drives repaints. */
+    SoRenderManager::enableRealTimeUpdate(FALSE);
+    /* Register unref hook so libbsg can release Obol nodes on shape free. */
+    bsg_obol_set_unref(obol_unref_shim);
+#endif /* BRLCAD_ENABLE_OBOL */
+
     // NOTE - these env variables should ultimately be temporary - we are using
     // them to enable behavior in LIBRT/LIBGED we don't yet want on by default
     // in all applications
@@ -382,6 +412,13 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 QgEdApp::~QgEdApp() {
     delete mdl;
     // TODO - free rt_vlfree?
+#ifdef BRLCAD_ENABLE_OBOL
+    /* Deregister the Obol unref hook before Obol shuts down. */
+    bsg_obol_set_unref(nullptr);
+    SoDB::finish();
+    delete s_obol_ctx_mgr;
+    s_obol_ctx_mgr = nullptr;
+#endif /* BRLCAD_ENABLE_OBOL */
 }
 
 void

@@ -324,6 +324,16 @@ set(
   wireframe_eval.c
 )
 
+# Conditionally include Obol scene assembler when the Obol library is available.
+# brlcad_find_package(Obol) is called by qged/CMakeLists.txt; if Obol was found
+# we compile and link obol_scene.cpp here as well so that qged can call
+# obol_scene_assemble() via libged.
+brlcad_find_package(Obol)
+if(TARGET Obol::Obol)
+  list(APPEND LIBGED_SOURCES obol_scene.cpp)
+  message(STATUS "libged: adding Obol scene assembler (obol_scene.cpp)")
+endif(TARGET Obol::Obol)
+
 set_property(
   SOURCE ged_init.cpp
   APPEND
@@ -340,6 +350,9 @@ set(
   ${WINSOCK_LIB}
   ${M_LIBRARY}
 )
+if(TARGET Obol::Obol)
+  list(APPEND GED_LIBS Obol::Obol)
+endif(TARGET Obol::Obol)
 
 # Local include directories
 # includes from plugins
@@ -352,6 +365,9 @@ set(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_BINARY_DIR}
 )
+if(TARGET Obol::Obol)
+  list(APPEND GED_LOCAL_INCLUDE_DIRS ${Obol_INCLUDE_DIR})
+endif(TARGET Obol::Obol)
 
 brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_DIRS}"
   # The core LIBGED_SOURCES (compiled via libged-obj) have too many conflicting
@@ -370,6 +386,9 @@ brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_D
     png2fb/png2fb.c
 )
 set_target_properties(libged PROPERTIES VERSION 20.0.1 SOVERSION 20)
+if(TARGET Obol::Obol)
+  target_compile_definitions(libged PRIVATE BRLCAD_ENABLE_OBOL)
+endif(TARGET Obol::Obol)
 if (LIBGED_STATIC_CORE)
   target_link_libraries(libged PRIVATE libged_plugin_deps)
   # On Windows, prevent the linker from stripping "unused" static command
@@ -677,6 +696,7 @@ set(
   include/plugin.h
   joint/joint.h
   osg.cpp
+  obol_scene.h
   pnts_util.h
   qray.h
   simulate/NOTES

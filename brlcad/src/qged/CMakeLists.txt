@@ -2,6 +2,21 @@ if(BRLCAD_ENABLE_QT)
   find_package_qt(REQUIRED)
 endif(BRLCAD_ENABLE_QT)
 
+# Find Obol from the bext dependency tree.
+# Obol_DIR tells CMake where to look for obol-config.cmake; the
+# brlcad_find_package macro sets the search root to CMAKE_BINARY_DIR
+# which is populated from BRLCAD_EXT_DIR/install by brlcad_bext_process().
+if(BRLCAD_ENABLE_QT)
+  brlcad_find_package(Obol)
+  if(TARGET Obol::Obol)
+    set(BRLCAD_ENABLE_OBOL ON CACHE BOOL "Obol scene-graph library available" FORCE)
+    message(STATUS "Obol found — Obol-based rendering enabled in qged")
+  else()
+    set(BRLCAD_ENABLE_OBOL OFF CACHE BOOL "Obol scene-graph library available" FORCE)
+    message(STATUS "Obol NOT found — qged will use libdm rendering")
+  endif()
+endif(BRLCAD_ENABLE_QT)
+
 # TODO - need this now for code in lower level directories,
 # need to do some cleanup.
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -76,6 +91,11 @@ if(BRLCAD_ENABLE_QT)
       Qt5::Network
     )
   endif(Qt6Widgets_FOUND)
+  if(BRLCAD_ENABLE_OBOL AND TARGET Obol::Obol)
+    target_link_libraries(qged Obol::Obol)
+    target_include_directories(qged PRIVATE ${Obol_INCLUDE_DIR})
+    target_compile_definitions(qged PRIVATE BRLCAD_ENABLE_OBOL)
+  endif()
   target_compile_definitions(qged PRIVATE BRLCADBUILD HAVE_CONFIG_H)
   install(TARGETS qged RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
 
@@ -150,6 +170,7 @@ set(
   qged_test_runner.h
   qged_pipeline_test.cpp
   qged_pipeline_runner.h
+  QgObolView.h
 )
 
 cmakefiles(${qged_ignore_srcs})
