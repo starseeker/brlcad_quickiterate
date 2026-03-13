@@ -3361,15 +3361,45 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
     ON_3dPoint pt1 = loop_curve->PointAt(dom.ParameterAt(.25));
     ON_3dPoint pt2 = loop_curve->PointAt(dom.ParameterAt(.75));
 
-    /* A "there-and-back" (colinear, zero-area) closed curve has all
-     * points on a single line and produces zero area.  IsLinear()
-     * catches this class, which pt1/pt2 distance may miss when the
-     * two half-way samples land on the same geometric point by
-     * symmetry but the numerical difference is > INTERSECTION_TOL. */
-    bool is_linear = loop_curve->IsLinear(INTERSECTION_TOL);
+    /* A "there-and-back" (zero-area) closed loop — where the curve
+     * retraces the same path in reverse — encloses zero area.  The
+     * 25%/75% distance check misses this when the two curve segments
+     * have DIFFERENT domain lengths, causing asymmetric sampling that
+     * lands at geometrically distinct points far apart (pt_dist >> TOL).
+     * Parameter-space shoelace sampling also gives wrong non-zero area.
+     *
+     * Fix: compute the signed 2D shoelace area using only the SEGMENT
+     * ENDPOINTS (start/end of each sub-curve) as polygon vertices.
+     * This is exact for piecewise-linear loops and correctly gives zero
+     * for there-and-back paths regardless of domain parameterization. */
+    double shoelace = 0.0;
+    {
+	/* Use the start/end points of each curve in the original loop array
+	 * as polygon vertices.  This avoids the parameter-space asymmetry
+	 * problem and is exact for piecewise-linear curves. */
+	ON_3dPoint prev = loop[0]->PointAtStart();
+	for (int si = 0; si < loop.Count(); ++si) {
+	    if (!loop[si]) continue;
+	    ON_3dPoint curr = loop[si]->PointAtEnd();
+	    shoelace += prev.x * curr.y - curr.x * prev.y;
+	    prev = curr;
+	}
+    }
+    double area = fabs(shoelace * 0.5);
+
+    ON_BoundingBox bbox = loop_curve->BoundingBox();
+    double bbox_diag = bbox.Diagonal().Length();
     delete loop_curve;
 
-    return pt1.DistanceTo(pt2) < INTERSECTION_TOL || is_linear;
+    /* Degenerate if point samples are too close, or if the enclosed area
+     * is negligible compared to the loop's bounding-box extent. */
+    if (pt1.DistanceTo(pt2) < INTERSECTION_TOL) {
+	return true;
+    }
+    if (bbox_diag > INTERSECTION_TOL && area / (bbox_diag * bbox_diag) < 1e-3) {
+	return true;
+    }
+    return false;
 }
 
 
