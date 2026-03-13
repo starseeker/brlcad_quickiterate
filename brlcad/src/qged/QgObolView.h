@@ -143,6 +143,11 @@
 #include "bn/mat.h"
 #include "qtcad/QgSignalFlags.h"
 
+extern "C" {
+#include "dm.h"
+#include "dm/fbserv.h"
+}
+
 /* bsg/defines.h defines UP=0 and DOWN=1 as plain macros which conflict with
  * SoButtonEvent::UP / SoButtonEvent::DOWN enum values used below.  Undefine
  * them now that we have finished including BRL-CAD headers. */
@@ -445,6 +450,11 @@ public:
     }
 
     bsg_view *getBsgView() const { return bsg_v_; }
+
+    /** Attach a framebuffer server so that rt output is overlaid on the
+     *  3D scene.  Call once from do_obol_init() after ert is wired up.
+     *  The fbserv pointer is not owned; it must outlive this widget. */
+    void setFbServ(struct fbserv_obj *fbs) { fbs_ = fbs; }
 
     /**
      * Re-assemble the Obol scene from the current bsg_shape tree and
@@ -821,6 +831,10 @@ protected:
 
 	renderMgr_.setSceneGraph(viewport_.getRoot());
 	renderMgr_.render(ra, TRUE /* clearZ */, TRUE /* clearWindow */);
+
+	/* Framebuffer overlay: composite rt output on top of the 3D scene.
+	 * QPainter on a QOpenGLWidget draws on top of raw GL content. */
+	_paintFbOverlay();
     }
 
     // ── Mouse navigation ─────────────────────────────────────────────────
@@ -992,6 +1006,33 @@ private:
 	return ctx.fetch_add(1, std::memory_order_relaxed);
     }
 
+    // ── Stage 7: framebuffer overlay ─────────────────────────────────────
+
+    /** Composite rt framebuffer pixels on top of the Obol 3D scene.
+     *  Called at the end of paintGL() (single-view path) when an embedded
+     *  rt framebuffer is present and gv_fb_mode is non-zero. */
+    void _paintFbOverlay() {
+	if (!fbs_ || !fbs_->fbs_fbp || !bsg_v_ || !bsg_v_->gv_s)
+	    return;
+	if (!bsg_v_->gv_s->gv_fb_mode)
+	    return;   /* framebuffer display disabled */
+	int fw = fb_getwidth(fbs_->fbs_fbp);
+	int fh = fb_getheight(fbs_->fbs_fbp);
+	if (fw <= 0 || fh <= 0)
+	    return;
+	/* Resize cached buffer only when dimensions change. */
+	size_t needed = (size_t)fw * fh * 3;
+	if (fb_buf_.size() != needed)
+	    fb_buf_.resize(needed);
+	int nread = fb_readrect(fbs_->fbs_fbp, 0, 0, fw, fh, fb_buf_.data());
+	if (nread < fw * fh)
+	    return;
+	/* libfb origin is bottom-left; QImage origin is top-left — flip Y. */
+	QImage img(fb_buf_.data(), fw, fh, fw * 3, QImage::Format_RGB888);
+	QPainter p(this);
+	p.drawImage(rect(), img.mirrored(false, true));
+    }
+
     // ── Stage 5: picking helper ───────────────────────────────────────────
 
     /**
@@ -1061,6 +1102,8 @@ private:
     uint32_t         cacheContext_ = allocCacheContext();
     bsg_shape       *selectedShape_ = nullptr;  /* Stage 5: current selection */
     bool             init_done_emitted_ = false; /* guard: emit init_done() only once */
+    struct fbserv_obj *fbs_ = nullptr;  /* Stage 7: embedded rt framebuffer (not owned) */
+    std::vector<unsigned char> fb_buf_; /* Stage 7: cached pixel buffer for fb overlay */
 };
 
 
@@ -1138,6 +1181,10 @@ public:
     }
 
     bsg_view *getBsgView() const { return bsg_v_; }
+
+    /** Attach a framebuffer server so that rt output is overlaid on the
+     *  3D scene.  Call once from do_obol_init() after ert is wired up. */
+    void setFbServ(struct fbserv_obj *fbs) { fbs_ = fbs; }
 
     void redraw() {
 	if (obol_root_ && bsg_v_) {
@@ -1372,6 +1419,8 @@ private:
 	offscreen_->setBackgroundColor(viewport_.getBackgroundColor());
 	if (!offscreen_->render(root)) { fillBlack(pw, ph); return; }
 	drawBuffer(offscreen_->getBuffer(), pw, ph, pw, ph);
+	/* Framebuffer overlay: composite rt output on top of the 3D scene. */
+	_paintFbOverlay();
     }
 
     void renderQuad(int pw, int ph, int qw, int qh) {
@@ -1461,6 +1510,30 @@ private:
 	update();
     }
 
+    // ── Stage 7: framebuffer overlay ──────────────────────────────────────
+
+    void _paintFbOverlay() {
+	if (!fbs_ || !fbs_->fbs_fbp || !bsg_v_ || !bsg_v_->gv_s)
+	    return;
+	if (!bsg_v_->gv_s->gv_fb_mode)
+	    return;
+	int fw = fb_getwidth(fbs_->fbs_fbp);
+	int fh = fb_getheight(fbs_->fbs_fbp);
+	if (fw <= 0 || fh <= 0)
+	    return;
+	/* Resize cached buffer only when dimensions change. */
+	size_t needed = (size_t)fw * fh * 3;
+	if (fb_buf_.size() != needed)
+	    fb_buf_.resize(needed);
+	int nread = fb_readrect(fbs_->fbs_fbp, 0, 0, fw, fh, fb_buf_.data());
+	if (nread < fw * fh)
+	    return;
+	/* libfb origin is bottom-left; QImage origin is top-left — flip Y. */
+	QImage img(fb_buf_.data(), fw, fh, fw * 3, QImage::Format_RGB888);
+	QPainter p(this);
+	p.drawImage(rect(), img.mirrored(false, true));
+    }
+
     static void sensorQueueChangedCB(void *data) {
 	QgObolSwrastView *w = static_cast<QgObolSwrastView*>(data);
 	if (!w->idleTimer_.isActive())
@@ -1496,6 +1569,8 @@ private:
     QPointF              lastMousePos_;
     bsg_shape           *selectedShape_ = nullptr;
     bool                 init_done_emitted_ = false;
+    struct fbserv_obj   *fbs_ = nullptr;  /* Stage 7: embedded rt framebuffer (not owned) */
+    std::vector<unsigned char> fb_buf_;   /* Stage 7: cached pixel buffer for fb overlay */
 };
 
 #endif /* OBOL_BUILD_DUAL_GL */
