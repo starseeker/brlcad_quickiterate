@@ -746,8 +746,7 @@ is_loop_valid(const ON_SimpleArray<ON_Curve *> &loop, double tolerance, ON_PolyC
 	    }
 	}
     }
-    if (ret && (polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd()) >= ON_ZERO_TOLERANCE ||
-		!polycurve->IsClosed()))
+    if (ret && polycurve->PointAtStart().DistanceTo(polycurve->PointAtEnd()) >= ON_ZERO_TOLERANCE)
     {
 	bu_log("The input loop is not closed.\n");
 	ret = false;
@@ -3054,8 +3053,14 @@ split_face_into_loops(
      * remaining non-boundary segments with endpoints that are approximately
      * (but not exactly) on the outer loop.  Without this fix,
      * clx_points.Count() < 2 and the function returns the unmodified original
-     * face (no split). */
-    {
+     * face (no split).
+     *
+     * Only run when clx_points currently has fewer than 2 entries: if the
+     * outer-loop intersection is already fully detected (2 or more points
+     * found by ON_Intersect), we must NOT add more because the resulting
+     * 3-point or 4-point set confuses the stack-based loop-pairing
+     * algorithm that expects an even number of transversal crossings. */
+    if (clx_points.Count() < 2) {
 	const double curve_t_min = linked_curve.Domain().Min();
 	const double curve_t_max = linked_curve.Domain().Max();
 	const ON_3dPoint ep[2] = {
@@ -3065,6 +3070,20 @@ split_face_into_loops(
 	const double ep_t[2] = { curve_t_min, curve_t_max };
 
 	for (int ep_idx = 0; ep_idx < 2; ep_idx++) {
+	    /* Skip if the endpoint is already represented in clx_points
+	     * (the original ON_Intersect loop found it as a ccx_point
+	     * event). */
+	    bool already_found = false;
+	    for (int ci = 0; ci < clx_points.Count(); ci++) {
+		if (fabs(clx_points[ci].m_curve_t - ep_t[ep_idx]) < INTERSECTION_TOL &&
+		    clx_points[ci].m_pt.DistanceTo(ep[ep_idx]) <= INTERSECTION_TOL) {
+		    already_found = true;
+		    break;
+		}
+	    }
+	    if (already_found)
+		continue;
+
 	    /* Find the outer-loop segment nearest to this endpoint */
 	    double best_dist = INTERSECTION_TOL;
 	    int best_seg = -1;
